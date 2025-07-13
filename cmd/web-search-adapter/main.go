@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gqls/ai-persona-system/internal/adapters/websearch"
-	"github.com/gqls/ai-persona-system/platform/config"
-	"github.com/gqls/ai-persona-system/platform/logger"
+	"github.com/gqls/agentchassis/internal/adapters/websearch"
+	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/logger"
 	"go.uber.org/zap"
 )
 

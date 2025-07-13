@@ -12,11 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gqls/ai-persona-system/internal/api"
+	"github.com/gqls/agentchassis/internal/core-manager/api"
 	// --- Use platform packages ---
-	"github.com/gqls/ai-persona-system/platform/config"
-	"github.com/gqls/ai-persona-system/platform/database"
-	"github.com/gqls/ai-persona-system/platform/logger"
+	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/database"
+	"github.com/gqls/agentchassis/platform/logger"
 	"go.uber.org/zap"
 )
 

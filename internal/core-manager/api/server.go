@@ -9,10 +9,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/gqls/ai-persona-system/internal/core-manager/database"
-	"github.com/gqls/ai-persona-system/internal/core-manager/middleware"
-	"github.com/gqls/ai-persona-system/pkg/models"
-	"github.com/gqls/ai-persona-system/platform/config"
+	"github.com/gqls/agentchassis/internal/core-manager/database"
+	"github.com/gqls/agentchassis/internal/core-manager/middleware"
+	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -27,7 +27,7 @@ type Server struct {
 	personaRepo models.PersonaRepository
 }
 
-// NewServer creates a new API server instance
+// FILE: internal/core-manager/api/server.go (updated NewServer function)
 func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, templatesDB, clientsDB *pgxpool.Pool) (*Server, error) {
 	// Initialize repositories
 	personaRepo := database.NewPersonaRepository(templatesDB, clientsDB, logger)
@@ -35,6 +35,12 @@ func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logge
 	// Create Gin router
 	router := gin.New()
 	router.Use(gin.Recovery())
+
+	// Initialize auth middleware config
+	authConfig, err := middleware.NewAuthMiddlewareConfig(cfg, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize auth middleware: %w", err)
+	}
 
 	server := &Server{
 		ctx:         ctx,
@@ -44,8 +50,8 @@ func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logge
 		personaRepo: personaRepo,
 	}
 
-	// Setup routes
-	server.setupRoutes(router)
+	// Setup routes with configured auth middleware
+	server.setupRoutesWithAuth(router, authConfig)
 
 	// Create HTTP server
 	server.httpServer = &http.Server{
@@ -56,14 +62,14 @@ func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logge
 	return server, nil
 }
 
-// setupRoutes configures all API routes
-func (s *Server) setupRoutes(router *gin.Engine) {
-	// Health check
+// setupRoutesWithAuth configures all API routes with auth config
+func (s *Server) setupRoutesWithAuth(router *gin.Engine, authConfig *middleware.AuthMiddlewareConfig) {
+	// Health check (no auth)
 	router.GET("/health", s.handleHealth)
 
 	// API v1 group with authentication
 	apiV1 := router.Group("/api/v1")
-	apiV1.Use(middleware.AuthMiddleware(s.logger))
+	apiV1.Use(middleware.AuthMiddleware(authConfig))
 	apiV1.Use(middleware.TenantMiddleware(s.logger))
 	{
 		// Template Management (Admin Only)
@@ -198,8 +204,12 @@ func (s *Server) handleDeleteTemplate(c *gin.Context) {
 
 // Instance Handlers
 
+// handleCreateInstance with proper context
 func (s *Server) handleCreateInstance(c *gin.Context) {
 	claims := c.MustGet("user_claims").(*middleware.AuthClaims)
+
+	// Create context with client_id
+	ctx := context.WithValue(c.Request.Context(), "client_id", claims.ClientID)
 
 	var req struct {
 		TemplateID   string `json:"template_id" binding:"required,uuid"`
@@ -210,7 +220,7 @@ func (s *Server) handleCreateInstance(c *gin.Context) {
 		return
 	}
 
-	instance, err := s.personaRepo.CreateInstanceFromTemplate(c.Request.Context(),
+	instance, err := s.personaRepo.CreateInstanceFromTemplate(ctx,
 		req.TemplateID, claims.UserID, req.InstanceName)
 	if err != nil {
 		s.logger.Error("Failed to create instance", zap.Error(err))
@@ -218,6 +228,20 @@ func (s *Server) handleCreateInstance(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, instance)
+}
+
+// Update other handlers similarly...
+func (s *Server) handleGetInstance(c *gin.Context) {
+	claims := c.MustGet("user_claims").(*middleware.AuthClaims)
+	ctx := context.WithValue(c.Request.Context(), "client_id", claims.ClientID)
+
+	instanceID := c.Param("id")
+	instance, err := s.personaRepo.GetInstanceByID(ctx, instanceID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Instance not found"})
+		return
+	}
+	c.JSON(http.StatusOK, instance)
 }
 
 func (s *Server) handleListInstances(c *gin.Context) {
@@ -229,16 +253,6 @@ func (s *Server) handleListInstances(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"instances": instances})
-}
-
-func (s *Server) handleGetInstance(c *gin.Context) {
-	instanceID := c.Param("id")
-	instance, err := s.personaRepo.GetInstanceByID(c.Request.Context(), instanceID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Instance not found"})
-		return
-	}
-	c.JSON(http.StatusOK, instance)
 }
 
 func (s *Server) handleUpdateInstance(c *gin.Context) {

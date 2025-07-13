@@ -76,6 +76,11 @@ spec:
                 secretKeyRef:
                   name: minio-secrets
                   key: secret-key
+            - name: JWT_SECRET_KEY  # ADD THIS
+              valueFrom:
+                secretKeyRef:
+                  name: auth-secrets
+                  key: jwt-secret
           envFrom:
             - configMapRef:
                 name: common-config

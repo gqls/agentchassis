@@ -42,3 +42,7 @@ infrastructure:
     bucket: "agent-artifacts"
     access_key_env_var: "MINIO_ACCESS_KEY"
     secret_key_env_var: "MINIO_SECRET_KEY"
+
+custom:
+  jwt_secret_env_var: "JWT_SECRET_KEY"  # Add this
+  auth_service_url: "http://auth-service:8081"  # Add this for validation

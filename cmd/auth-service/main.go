@@ -1,5 +1,4 @@
 // FILE: cmd/auth-service/main.go
-// This is the refactored main entrypoint for the auth-service.
 package main
 
 import (
@@ -10,25 +9,24 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
-	// Internal auth-service packages
-	"github.com/gqls/personae-auth-service/internal/admin"
-	"github.com/gqls/personae-auth-service/internal/auth"
-	"github.com/gqls/personae-auth-service/internal/gateway"
-	"github.com/gqls/personae-auth-service/internal/jwt"
-	"github.com/gqls/personae-auth-service/internal/middleware"
-	"github.com/gqls/personae-auth-service/internal/project"
-	"github.com/gqls/personae-auth-service/internal/subscription"
-	"github.com/gqls/personae-auth-service/internal/user"
+	"github.com/gqls/agentchassis/internal/auth-service/auth"
+	"github.com/gqls/agentchassis/internal/auth-service/gateway"
+	"github.com/gqls/agentchassis/internal/auth-service/jwt"
+	"github.com/gqls/agentchassis/internal/auth-service/middleware"
+	"github.com/gqls/agentchassis/internal/auth-service/project"
+	"github.com/gqls/agentchassis/internal/auth-service/subscription"
+	"github.com/gqls/agentchassis/internal/auth-service/user"
 
-	// --- Use platform packages ---
-	"github.com/gqls/ai-persona-system/platform/config"
-	"github.com/gqls/ai-persona-system/platform/database"
-	"github.com/gqls/ai-persona-system/platform/logger"
+	// Platform packages
+	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/database"
+	"github.com/gqls/agentchassis/platform/logger"
 
+	// External packages
+	"github.com/gin-gonic/gin"
 	"github.com/rs/cors"
 	"go.uber.org/zap"
 )
@@ -65,201 +63,199 @@ func main() {
 	defer db.Close()
 
 	// --- Step 4: Initialize All Services and Handlers ---
-	// This logic remains largely the same, but now it's cleaner because
-	// the dependencies are initialized above in a standard way.
 
-	// Extract custom config needed for JWT service
-	// (This assumes we add a generic `custom` map[string]interface{} to our platform config struct)
-	// For now, we'll manually construct a temporary config for JWT.
-	jwtSecret := os.Getenv("JWT_SECRET_KEY") // Read from environment
+	// Extract JWT configuration from environment and config
+	jwtSecret := os.Getenv("JWT_SECRET_KEY")
 	if jwtSecret == "" {
 		appLogger.Fatal("JWT_SECRET_KEY environment variable not set")
 	}
 
-	tempJwtCfg := &auth_config.Config{ // Assuming auth_config is the old config package
-		JWTSecretKey:           jwtSecret,
-		JWTExpiryAccessMinutes: 60, // This would also come from the new config structure
+	// Get JWT expiry from config
+	jwtExpiryMinutes := 60 // default
+	if cfg.Custom != nil {
+		if expiry, ok := cfg.Custom["jwt_expiry_access_minutes"].(float64); ok {
+			jwtExpiryMinutes = int(expiry)
+		}
 	}
 
-	jwtSvc, err := jwt.NewService(tempJwtCfg, appLogger)
+	// Initialize JWT service
+	jwtSvc, err := jwt.NewService(jwtSecret, jwtExpiryMinutes, appLogger)
 	if err != nil {
 		appLogger.Fatal("Failed to initialize JWT Service", zap.Error(err))
 	}
 
 	// Initialize repositories
-	userRepo := user.NewRepository(db, appLogger, tempJwtCfg) // Pass old config for now
-	adminRepo := admin.NewRepository(db, appLogger, tempJwtCfg)
+	userRepo := user.NewRepository(db, appLogger)
+	//adminRepo := admin.NewRepository(db, appLogger, nil) // admin repo doesn't need config
 	projectRepo := project.NewRepository(db, appLogger)
 	subscriptionRepo := subscription.NewRepository(db, appLogger)
 
 	// Initialize services
 	userSvc := user.NewService(userRepo, appLogger)
 	authSvc := auth.NewService(userSvc, jwtSvc, appLogger)
-	gatewaySvc := gateway.NewService(tempJwtCfg, appLogger)
+	gatewaySvc := gateway.NewService(cfg, appLogger)
 	subscriptionSvc := subscription.NewService(subscriptionRepo, appLogger)
 
 	// Initialize handlers
-	authAPIHandler := auth.NewHTTPHandler(authSvc, userSvc, jwtSvc, adminRepo, gatewaySvc, appLogger, tempJwtCfg)
+	authHandlers := auth.NewHandlers(authSvc)
+	userHandlers := user.NewHandlers(userSvc)
 	projectHandler := project.NewHTTPHandler(projectRepo, appLogger)
-	subscriptionHandler := subscription.NewHTTPHandler(subscriptionSvc, appLogger)
-	subscriptionAdminHandler := subscription.NewAdminHandlers(subscriptionSvc, appLogger)
-	gatewayHandler := gateway.NewHTTPHandler(gatewaySvc, jwtSvc, appLogger, subscriptionSvc, projectRepo)
+	subscriptionHandlers := subscription.NewHandlers(subscriptionSvc)
+	subscriptionAdminHandlers := subscription.NewAdminHandlers(subscriptionSvc)
+	gatewayHandler := gateway.NewHTTPHandler(gatewaySvc, appLogger)
 
 	// --- Step 5: Setup Routing and Middleware ---
-	mux := http.NewServeMux()
+	// Using Gin router for consistency with handlers
+	router := gin.New()
+	router.Use(gin.Recovery())
 
 	// Public routes (no auth required)
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
 			"status":  "healthy",
 			"service": cfg.ServiceInfo.Name,
 			"version": cfg.ServiceInfo.Version,
 		})
 	})
 
-	// Auth endpoints
-	mux.HandleFunc("/api/v1/auth/register", authAPIHandler.HandleRegister)
-	mux.HandleFunc("/api/v1/auth/login", authAPIHandler.HandleLogin)
-	mux.HandleFunc("/api/v1/auth/refresh", authAPIHandler.HandleRefresh)
-	mux.HandleFunc("/api/v1/auth/validate", authAPIHandler.HandleValidate)
+	// Auth endpoints (public)
+	authGroup := router.Group("/api/v1/auth")
+	{
+		authGroup.POST("/register", authHandlers.HandleRegister)
+		authGroup.POST("/login", authHandlers.HandleLogin)
+		authGroup.POST("/refresh", authHandlers.HandleRefresh)
+		authGroup.POST("/validate", authHandlers.HandleValidate)
+		authGroup.POST("/logout", middleware.RequireAuth(jwtSvc, appLogger), authHandlers.HandleLogout)
+	}
 
-	// Protected routes group
-	protectedMux := http.NewServeMux()
-
-	// User management (protected)
-	protectedMux.HandleFunc("/api/v1/auth/logout", authAPIHandler.HandleLogout)
-	protectedMux.HandleFunc("/api/v1/user/profile", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			userHandler.HandleGetCurrentUser(w, r)
-		case http.MethodPut:
-			userHandler.HandleUpdateCurrentUser(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	protectedMux.HandleFunc("/api/v1/user/password", userHandler.HandleChangePassword)
-	protectedMux.HandleFunc("/api/v1/user/delete", userHandler.HandleDeleteAccount)
+	// User endpoints (protected)
+	userGroup := router.Group("/api/v1/user")
+	userGroup.Use(middleware.RequireAuth(jwtSvc, appLogger))
+	{
+		userGroup.GET("/profile", userHandlers.HandleGetCurrentUser)
+		userGroup.PUT("/profile", userHandlers.HandleUpdateCurrentUser)
+		userGroup.POST("/password", userHandlers.HandleChangePassword)
+		userGroup.DELETE("/delete", userHandlers.HandleDeleteAccount)
+	}
 
 	// Subscription endpoints (protected)
-	protectedMux.HandleFunc("/api/v1/subscription", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			subscriptionHandler.HandleGetSubscription(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	protectedMux.HandleFunc("/api/v1/subscription/usage", subscriptionHandler.HandleGetUsageStats)
-	protectedMux.HandleFunc("/api/v1/subscription/check-quota", subscriptionHandler.HandleCheckQuota)
+	subGroup := router.Group("/api/v1/subscription")
+	subGroup.Use(middleware.RequireAuth(jwtSvc, appLogger))
+	{
+		subGroup.GET("", subscriptionHandlers.HandleGetSubscription)
+		subGroup.GET("/usage", subscriptionHandlers.HandleGetUsageStats)
+		subGroup.GET("/check-quota", subscriptionHandlers.HandleCheckQuota)
+	}
 
 	// Project endpoints (protected)
-	protectedMux.HandleFunc("/api/v1/projects", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			projectHandler.ListProjects(w, r)
-		case http.MethodPost:
-			projectHandler.CreateProject(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	projectGroup := router.Group("/api/v1/projects")
+	projectGroup.Use(middleware.RequireAuth(jwtSvc, appLogger))
+	{
+		projectGroup.GET("", wrapHTTPHandler(projectHandler.ListProjects))
+		projectGroup.POST("", wrapHTTPHandler(projectHandler.CreateProject))
+		projectGroup.GET("/:id", wrapProjectHandler(projectHandler.GetProject))
+		projectGroup.PUT("/:id", wrapProjectHandler(projectHandler.UpdateProject))
+		projectGroup.DELETE("/:id", wrapProjectHandler(projectHandler.DeleteProject))
+	}
+
+	// Admin endpoints (protected + admin role)
+	adminGroup := router.Group("/api/v1/admin")
+	adminGroup.Use(middleware.RequireAuth(jwtSvc, appLogger))
+	adminGroup.Use(middleware.RequireRole("admin"))
+	{
+		adminGroup.POST("/subscriptions", subscriptionAdminHandlers.HandleCreateSubscription)
+		adminGroup.PUT("/subscriptions/:user_id", wrapAdminSubscriptionHandler(subscriptionAdminHandlers.HandleUpdateSubscription))
+	}
+
+	// Gateway proxy endpoints (protected)
+	gatewayGroup := router.Group("/api/v1")
+	gatewayGroup.Use(middleware.RequireAuth(jwtSvc, appLogger))
+	{
+		// Template management (admin only)
+		templateGroup := gatewayGroup.Group("/templates")
+		templateGroup.Use(middleware.RequireRole("admin"))
+		{
+			templateGroup.Any("", gatewayHandler.HandleTemplateRoutes)
+			templateGroup.Any("/*path", gatewayHandler.HandleTemplateRoutes)
 		}
-	})
-	protectedMux.HandleFunc("/api/v1/projects/", func(w http.ResponseWriter, r *http.Request) {
-		// Extract project ID from path
-		parts := strings.Split(r.URL.Path, "/")
-		if len(parts) < 5 {
-			http.Error(w, "Invalid project ID", http.StatusBadRequest)
-			return
+
+		// Instance management
+		gatewayGroup.Any("/personas/instances", gatewayHandler.HandleInstanceRoutes)
+		gatewayGroup.Any("/personas/instances/*path", gatewayHandler.HandleInstanceRoutes)
+	}
+
+	// WebSocket endpoint
+	router.GET("/ws", middleware.RequireAuth(jwtSvc, appLogger), gatewayHandler.HandleWebSocket)
+
+	// Apply CORS middleware
+	allowedOrigins := []string{"*"} // default
+	if cfg.Custom != nil {
+		if origins, ok := cfg.Custom["allowed_origins"].([]interface{}); ok {
+			allowedOrigins = make([]string, len(origins))
+			for i, origin := range origins {
+				allowedOrigins[i] = origin.(string)
+			}
 		}
-		projectID := parts[4]
+	}
 
-		switch r.Method {
-		case http.MethodGet:
-			projectHandler.GetProject(w, r, projectID)
-		case http.MethodPut:
-			projectHandler.UpdateProject(w, r, projectID)
-		case http.MethodDelete:
-			projectHandler.DeleteProject(w, r, projectID)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	// Admin routes
-	adminMux := http.NewServeMux()
-	adminMux.HandleFunc("/api/v1/admin/subscriptions", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			subscriptionAdminHandler.HandleCreateSubscription(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	adminMux.HandleFunc("/api/v1/admin/subscriptions/", func(w http.ResponseWriter, r *http.Request) {
-		parts := strings.Split(r.URL.Path, "/")
-		if len(parts) < 6 {
-			http.Error(w, "Invalid user ID", http.StatusBadRequest)
-			return
-		}
-		userID := parts[5]
-
-		switch r.Method {
-		case http.MethodPut:
-			subscriptionAdminHandler.HandleUpdateSubscription(w, r, userID)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	// Gateway proxy endpoints (protected) - these proxy to core-manager
-	gatewayMux := http.NewServeMux()
-
-	// Template management (admin only)
-	gatewayMux.HandleFunc("/api/v1/templates", gatewayHandler.HandleTemplateRoutes)
-	gatewayMux.HandleFunc("/api/v1/templates/", gatewayHandler.HandleTemplateRoutes)
-
-	// Instance management
-	gatewayMux.HandleFunc("/api/v1/personas/instances", gatewayHandler.HandleInstanceRoutes)
-	gatewayMux.HandleFunc("/api/v1/personas/instances/", gatewayHandler.HandleInstanceRoutes)
-
-	// WebSocket proxy
-	gatewayMux.HandleFunc("/ws", gatewayHandler.HandleWebSocket)
-
-	// Apply middleware chains
-	// 1. Apply auth middleware to protected routes
-	protectedHandler := middleware.RequireAuth(jwtSvc, appLogger)(protectedMux)
-
-	// 2. Apply admin middleware to admin routes
-	adminHandler := middleware.RequireAuth(jwtSvc, appLogger)(
-		middleware.RequireRole("admin")(adminMux),
-	)
-
-	// 3. Apply auth middleware to gateway routes
-	gatewayHandler := middleware.RequireAuth(jwtSvc, appLogger)(gatewayMux)
-
-	// Combine all handlers
-	mux.Handle("/api/v1/user/", protectedHandler)
-	mux.Handle("/api/v1/subscription", protectedHandler)
-	mux.Handle("/api/v1/subscription/", protectedHandler)
-	mux.Handle("/api/v1/projects", protectedHandler)
-	mux.Handle("/api/v1/projects/", protectedHandler)
-	mux.Handle("/api/v1/admin/", adminHandler)
-	mux.Handle("/api/v1/templates", gatewayHandler)
-	mux.Handle("/api/v1/templates/", gatewayHandler)
-	mux.Handle("/api/v1/personas/", gatewayHandler)
-	mux.Handle("/ws", gatewayHandler)
-
-	// Apply global middleware
-	loggedMux := middleware.LoggingMiddleware(appLogger)(mux)
-
-	// Configure CORS
-	corsOptions := cors.Options{
-		AllowedOrigins:   cfg.Custom["allowed_origins"].([]string),
+	corsConfig := cors.New(cors.Options{
+		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Requested-With"},
 		AllowCredentials: true,
 		MaxAge:           300,
+	})
+
+	// --- Step 6: Start Server and Handle Graceful Shutdown ---
+	server := &http.Server{
+		Addr:    ":" + cfg.Server.Port,
+		Handler: corsConfig.Handler(router),
 	}
-	handlerWithCORS := cors.New(corsOptions).Handler(loggedMux)
+
+	// Start server in a goroutine
+	go func() {
+		appLogger.Info("Auth Service listening", zap.String("address", server.Addr))
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			appLogger.Fatal("Auth Service listen and serve error", zap.Error(err))
+		}
+	}()
+
+	// Wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	appLogger.Info("Shutdown signal received, shutting down auth server...")
+
+	// Graceful shutdown with timeout
+	ctxShutdown, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctxShutdown); err != nil {
+		appLogger.Fatal("Auth Server forced to shutdown due to error", zap.Error(err))
+	}
+	appLogger.Info("Auth Server exited gracefully")
+}
+
+// wrapHTTPHandler wraps standard http handlers to work with gin
+func wrapHTTPHandler(fn func(http.ResponseWriter, *http.Request)) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fn(c.Writer, c.Request)
+	}
+}
+
+// wrapProjectHandler wraps project handlers that take an ID parameter
+func wrapProjectHandler(fn func(http.ResponseWriter, *http.Request, string)) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		fn(c.Writer, c.Request, id)
+	}
+}
+
+// wrapAdminSubscriptionHandler wraps the admin subscription update handler
+func wrapAdminSubscriptionHandler(fn func(*gin.Context)) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// The user_id is already available as a URL parameter
+		c.Set("param_user_id", c.Param("user_id"))
+		fn(c)
+	}
 }

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/gqls/ai-persona-system/platform/config"
+	"github.com/gqls/agentchassis/platform/config"
 	"go.uber.org/zap"
 )
 

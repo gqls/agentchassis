@@ -2,7 +2,6 @@
 package websearch
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,8 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gqls/ai-persona-system/platform/config"
-	"github.com/gqls/ai-persona-system/platform/kafka"
+	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/kafka"
 	"go.uber.org/zap"
 )
 
@@ -54,7 +53,7 @@ type Adapter struct {
 	ctx          context.Context
 	logger       *zap.Logger
 	consumer     *kafka.Consumer
-	producer     *kafka.Producer
+	producer     kafka.Producer
 	httpClient   *http.Client
 	apiKey       string
 	searchAPIURL string

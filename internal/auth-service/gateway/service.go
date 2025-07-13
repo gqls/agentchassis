@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/gqls/ai-persona-system/platform/config"
+	"github.com/gqls/agentchassis/platform/config"
 	"go.uber.org/zap"
 )
 

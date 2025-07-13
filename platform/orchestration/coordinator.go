@@ -6,12 +6,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strconv"
-
 	"github.com/google/uuid"
-	"github.com/gqls/ai-persona-system/pkg/models"
-	"github.com/gqls/ai-persona-system/platform/governance"
-	"github.com/gqls/ai-persona-system/platform/kafka"
+	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/governance"
+	"github.com/gqls/agentchassis/platform/kafka"
 	"go.uber.org/zap"
 )
 
@@ -353,5 +351,10 @@ func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *Orchestration
 	state.Error = errorMsg
 
 	repo := NewStateRepository(s.db, s.logger)
-	return repo.UpdateState(ctx, state)
+	if err := repo.UpdateState(ctx, state); err != nil {
+		return fmt.Errorf("failed to update state to failed: %w", err)
+	}
+
+	// IMPORTANT: Return the error message as an error
+	return fmt.Errorf(errorMsg)
 }

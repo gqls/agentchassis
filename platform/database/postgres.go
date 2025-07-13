@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/gqls/ai-persona-system/platform/config"
+	"github.com/gqls/agentchassis/platform/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )

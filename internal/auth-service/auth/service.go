@@ -3,10 +3,8 @@ package auth
 import (
 	"context"
 	"fmt"
-	"time"
-
-	"github.com/gqls/ai-persona-system/internal/auth-service/jwt"
-	"github.com/gqls/ai-persona-system/internal/auth-service/user"
+	"github.com/gqls/agentchassis/internal/auth-service/jwt"
+	"github.com/gqls/agentchassis/internal/auth-service/user"
 	"go.uber.org/zap"
 )
 

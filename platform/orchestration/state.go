@@ -75,13 +75,16 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, correlationID,
 func (r *StateRepository) GetState(ctx context.Context, correlationID string) (*OrchestrationState, error) {
 	query := `
         SELECT correlation_id, status, current_step, awaited_steps, collected_data, 
-               initial_request_data, COALESCE(final_result, '{}'), COALESCE(error, ''), created_at, updated_at
+               initial_request_data, final_result, error, created_at, updated_at
         FROM orchestrator_state
         WHERE correlation_id = $1
     `
 
 	var state OrchestrationState
 	var awaitedStepsJSON, collectedDataJSON []byte
+	var initialRequestDataNull sql.NullString // Handle NULL for initial_request_data
+	var finalResultNull sql.NullString
+	var errorNull sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, correlationID).Scan(
 		&state.CorrelationID,
@@ -89,9 +92,9 @@ func (r *StateRepository) GetState(ctx context.Context, correlationID string) (*
 		&state.CurrentStep,
 		&awaitedStepsJSON,
 		&collectedDataJSON,
-		&state.InitialRequestData,
-		&state.FinalResult,
-		&state.Error,
+		&initialRequestDataNull, // Scan into NullString
+		&finalResultNull,
+		&errorNull,
 		&state.CreatedAt,
 		&state.UpdatedAt,
 	)
@@ -101,6 +104,23 @@ func (r *StateRepository) GetState(ctx context.Context, correlationID string) (*
 			return nil, fmt.Errorf("state not found for correlation_id: %s", correlationID)
 		}
 		return nil, fmt.Errorf("failed to get state: %w", err)
+	}
+
+	// Handle nullable fields
+	if initialRequestDataNull.Valid {
+		state.InitialRequestData = json.RawMessage(initialRequestDataNull.String)
+	} else {
+		state.InitialRequestData = json.RawMessage("{}") // Default to empty JSON
+	}
+
+	if finalResultNull.Valid {
+		state.FinalResult = json.RawMessage(finalResultNull.String)
+	} else {
+		state.FinalResult = json.RawMessage("{}") // Default to empty JSON
+	}
+
+	if errorNull.Valid {
+		state.Error = errorNull.String
 	}
 
 	// Unmarshal JSON fields

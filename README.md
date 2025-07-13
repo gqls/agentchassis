@@ -1,4 +1,4 @@
-// FILE: README.md
+
 # AI Persona System
 
 A cloud-native, multi-agent microservices platform for AI-powered content generation and workflow orchestration.
@@ -23,7 +23,7 @@ The system implements a composable multi-agent architecture with:
 ### Setup
 ```bash
 # 1. Clone the repository
-git clone https://github.com/gqls/ai-persona-system.git
+git clone https://github.com/gqls/agentchassis.git
 cd ai-persona-system
 
 # 2. Set up environment variables

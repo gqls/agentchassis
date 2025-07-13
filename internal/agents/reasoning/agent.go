@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/gqls/ai-persona-system/platform/aiservice"
-	"github.com/gqls/ai-persona-system/platform/config"
-	"github.com/gqls/ai-persona-system/platform/kafka"
+	"github.com/gqls/agentchassis/platform/aiservice"
+	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/kafka"
 	"go.uber.org/zap"
 )
 
@@ -42,7 +43,7 @@ type Agent struct {
 	ctx      context.Context
 	logger   *zap.Logger
 	consumer *kafka.Consumer
-	producer *kafka.Producer
+	producer kafka.Producer
 	aiClient aiservice.AIService
 }
 
@@ -198,4 +199,23 @@ func (a *Agent) sendErrorResponse(headers map[string]string, errorMsg string) {
 
 	a.producer.Produce(a.ctx, responseTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), responseBytes)
+}
+
+// StartHealthServer starts a simple HTTP server for health checks
+func (a *Agent) StartHealthServer(port string) {
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "healthy",
+			"agent":  "reasoning-agent",
+		})
+	})
+
+	go func() {
+		a.logger.Info("Starting health server", zap.String("port", port))
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			a.logger.Error("Health server failed", zap.Error(err))
+		}
+	}()
 }

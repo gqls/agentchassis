@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gqls/ai-persona-system/internal/auth-service/jwt"
+	"github.com/gqls/agentchassis/internal/auth-service/jwt"
 	"go.uber.org/zap"
 )
 

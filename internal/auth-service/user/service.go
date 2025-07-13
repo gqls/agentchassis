@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gqls/ai-persona-system/internal/auth-service/jwt"
+	"github.com/gqls/agentchassis/internal/auth-service/jwt"
 	"go.uber.org/zap"
 )
 

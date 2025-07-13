@@ -6,17 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"io"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gqls/ai-persona-system/platform/config"
-	"github.com/gqls/ai-persona-system/platform/kafka"
-	"github.com/gqls/ai-persona-system/platform/storage" // Our new storage library
+	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/kafka"
+	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
 
@@ -26,9 +23,9 @@ const (
 	consumerGroup = "image-generator-adapter-group"
 )
 
-// RequestPayload defines the expected data for an image generation request.
+// RequestPayload defines the expected data for an image generation request
 type RequestPayload struct {
-	Action string `json:"action"` // e.g., "generate_from_prompt"
+	Action string `json:"action"`
 	Data   struct {
 		Prompt      string  `json:"prompt"`
 		AspectRatio string  `json:"aspect_ratio,omitempty"`
@@ -37,40 +34,41 @@ type RequestPayload struct {
 	} `json:"data"`
 }
 
-// ResponsePayload defines the data sent back after successful generation.
+// ResponsePayload defines the data sent back after successful generation
 type ResponsePayload struct {
 	ImageURI string `json:"image_uri"`
 	Prompt   string `json:"prompt"`
 	Seed     int64  `json:"seed"`
 }
 
-// Adapter handles the translation between our internal system and an external API.
+// Adapter handles the translation between our internal system and an external API
 type Adapter struct {
 	ctx           context.Context
 	logger        *zap.Logger
 	consumer      *kafka.Consumer
-	producer      *kafka.Producer
-	storageClient storage.Client // Interface for S3/MinIO
+	producer      kafka.Producer // Changed from *kafka.Producer to kafka.Producer (interface)
+	storageClient storage.Client
 	httpClient    *http.Client
 	externalAPI   string
 	apiKey        string
 }
 
-// NewAdapter initializes all dependencies for the adapter.
+// NewAdapter initializes all dependencies for the adapter
 func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*Adapter, error) {
-	// Initialize Kafka consumer and producer from platform library
+	// Initialize Kafka consumer
 	consumer, err := kafka.NewConsumer(cfg.Infrastructure.KafkaBrokers, requestTopic, consumerGroup, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka consumer: %w", err)
 	}
 
+	// Initialize Kafka producer - returns the interface
 	producer, err := kafka.NewProducer(cfg.Infrastructure.KafkaBrokers, logger)
 	if err != nil {
 		consumer.Close()
 		return nil, fmt.Errorf("failed to create kafka producer: %w", err)
 	}
 
-	// Initialize Object Storage client from platform library
+	// Initialize Object Storage client
 	storageClient, err := storage.NewS3Client(ctx, cfg.Infrastructure.ObjectStorage)
 	if err != nil {
 		consumer.Close()
@@ -78,9 +76,8 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		return nil, fmt.Errorf("failed to create storage client: %w", err)
 	}
 
-	// In a real config, you'd have a section for this adapter's specific settings
 	externalAPIEndpoint := "https://api.stability.ai/v1/generation/stable-diffusion-v1-6/text-to-image"
-	apiKey := os.Getenv("STABILITY_API_KEY") // Securely get API key from environment
+	apiKey := os.Getenv("STABILITY_API_KEY")
 
 	return &Adapter{
 		ctx:           ctx,
@@ -94,7 +91,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	}, nil
 }
 
-// Run starts the consumer loop.
+// Run starts the consumer loop
 func (a *Adapter) Run() error {
 	for {
 		select {
@@ -116,7 +113,7 @@ func (a *Adapter) Run() error {
 	}
 }
 
-// handleMessage processes a single image generation request.
+// handleMessage processes a single image generation request
 func (a *Adapter) handleMessage(msg kafka.Message) {
 	headers := kafka.HeadersToMap(msg.Headers)
 	l := a.logger.With(zap.String("correlation_id", headers["correlation_id"]))
@@ -132,7 +129,6 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	imageData, err := a.callExternalImageAPI(req.Data.Prompt)
 	if err != nil {
 		l.Error("External image API call failed", zap.Error(err))
-		// Here you might produce an error message back to a failure topic
 		a.consumer.CommitMessages(context.Background(), msg)
 		return
 	}
@@ -169,11 +165,27 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	a.consumer.CommitMessages(context.Background(), msg)
 }
 
-// callExternalImageAPI is a placeholder for the actual HTTP call.
+// callExternalImageAPI is a placeholder for the actual HTTP call
 func (a *Adapter) callExternalImageAPI(prompt string) ([]byte, error) {
-	// ... This is where you would build the HTTP request for Stability AI,
-	// add the `Authorization: Bearer ...` header, and handle the response.
-	// For this example, we'll return a placeholder byte slice.
 	a.logger.Info("Calling external image API", zap.String("prompt", prompt))
 	return []byte("---simulated-png-image-data---"), nil
+}
+
+// StartHealthServer starts a simple HTTP server for health checks
+func (a *Adapter) StartHealthServer(port string) {
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "healthy",
+			"adapter": "image-generator",
+		})
+	})
+
+	go func() {
+		a.logger.Info("Starting health server", zap.String("port", port))
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			a.logger.Error("Health server failed", zap.Error(err))
+		}
+	}()
 }

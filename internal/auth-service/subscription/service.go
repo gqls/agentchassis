@@ -3,7 +3,6 @@ package subscription
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 

@@ -25,3 +25,5 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
 
 CREATE INDEX idx_tokens_user ON auth_tokens(user_id);
 CREATE INDEX idx_tokens_expires ON auth_tokens(expires_at);
+
+CREATE INDEX idx_users_email_active ON users(email, is_active);

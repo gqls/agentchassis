@@ -1,4 +1,4 @@
-// FILE: platform/kafka/consumer.go
+// FILE: platform/kafka/consumer.go (updated version)
 package kafka
 
 import (
@@ -49,20 +49,21 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 }
 
 // FetchMessage fetches the next message from the topic
-func (c *Consumer) FetchMessage(ctx context.Context) (kafka.Message, error) {
+// Returns the native kafka.Message type
+func (c *Consumer) FetchMessage(ctx context.Context) (Message, error) {
 	msg, err := c.reader.FetchMessage(ctx)
 	if err != nil {
 		if err == context.Canceled {
-			return kafka.Message{}, err
+			return Message{}, err
 		}
 		c.logger.Error("Failed to fetch message from Kafka", zap.Error(err))
-		return kafka.Message{}, err
+		return Message{}, err
 	}
 	return msg, nil
 }
 
 // CommitMessages commits the offset for the given messages
-func (c *Consumer) CommitMessages(ctx context.Context, msgs ...kafka.Message) error {
+func (c *Consumer) CommitMessages(ctx context.Context, msgs ...Message) error {
 	err := c.reader.CommitMessages(ctx, msgs...)
 	if err != nil {
 		c.logger.Error("Failed to commit Kafka messages", zap.Error(err))

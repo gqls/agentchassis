@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	platform_config "github.com/gqls/ai-persona-system/platform/config"
+	platform_config "github.com/gqls/agentchassis/platform/config"
 )
 
 // S3Client implements the Client interface for S3-compatible services

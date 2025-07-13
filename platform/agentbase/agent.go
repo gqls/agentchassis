@@ -3,18 +3,20 @@ package agentbase
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gqls/ai-persona-system/pkg/models"
-	"github.com/gqls/ai-persona-system/platform/config"
-	"github.com/gqls/ai-persona-system/platform/database"
-	"github.com/gqls/ai-persona-system/platform/kafka"
-	"github.com/gqls/ai-persona-system/platform/orchestration"
+	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/database"
+	"github.com/gqls/agentchassis/platform/kafka"
+	"github.com/gqls/agentchassis/platform/orchestration"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +27,7 @@ type Agent struct {
 	logger        *zap.Logger
 	clientsDB     *pgxpool.Pool
 	kafkaConsumer *kafka.Consumer
-	kafkaProducer *kafka.Producer
+	kafkaProducer kafka.Producer
 	orchestrator  *orchestration.SagaCoordinator
 	agentType     string
 }
@@ -72,14 +74,9 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 		return nil, fmt.Errorf("failed to create kafka producer: %w", err)
 	}
 
-	// Create standard DB handle for orchestrator
-	stdDB, err := sql.Open("pgx", clientsPool.Config().ConnString())
-	if err != nil {
-		clientsPool.Close()
-		consumer.Close()
-		producer.Close()
-		return nil, fmt.Errorf("failed to get standard DB handle: %w", err)
-	}
+	// Create standard DB handle for orchestrator using pgx v5 stdlib
+	connConfig := clientsPool.Config().ConnConfig.Copy()
+	stdDB := stdlib.OpenDB(*connConfig)
 
 	// Initialize orchestrator
 	sagaCoordinator := orchestration.NewSagaCoordinator(stdDB, producer, logger)
@@ -190,7 +187,7 @@ func (a *Agent) loadAgentConfig(clientID, agentInstanceID string) (*models.Agent
 	err := a.clientsDB.QueryRow(ctx, query, agentInstanceID).Scan(&name, &configJSON, &templateID)
 	if err != nil {
 		// If not found in database, return a default configuration
-		if err.Error() == "no rows in result set" {
+		if err == pgx.ErrNoRows {
 			a.logger.Warn("Agent instance not found, using default configuration",
 				zap.String("agent_instance_id", agentInstanceID))
 			return a.getDefaultConfig(agentInstanceID), nil
@@ -318,4 +315,24 @@ func (a *Agent) GetType() string {
 // GetConfig returns the service configuration
 func (a *Agent) GetConfig() *config.ServiceConfig {
 	return a.cfg
+}
+
+// StartHealthServer starts a simple HTTP server for health checks
+func (a *Agent) StartHealthServer(port string) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":     "healthy",
+			"agent_type": a.agentType,
+		})
+	})
+
+	go func() {
+		a.logger.Info("Starting health server", zap.String("port", port))
+		if err := http.ListenAndServe(":"+port, mux); err != nil {
+			a.logger.Error("Health server failed", zap.Error(err))
+		}
+	}()
 }

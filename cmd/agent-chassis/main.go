@@ -12,9 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gqls/ai-persona-system/platform/agentbase"
-	"github.com/gqls/ai-persona-system/platform/config"
-	"github.com/gqls/ai-persona-system/platform/logger"
+	"github.com/gqls/agentchassis/platform/agentbase"
+	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/logger"
 )
 
 func main() {
@@ -44,6 +44,15 @@ func main() {
 	if err != nil {
 		appLogger.Fatal("Failed to initialize agent base", zap.Error(err))
 	}
+
+	// After creating the agent
+	agent, err = agentbase.New(ctx, cfg, appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize agent base", zap.Error(err))
+	}
+
+	// Start health endpoint
+	agent.StartHealthServer("9090")
 
 	// 5. Start the agent's main run loop in a goroutine.
 	go func() {

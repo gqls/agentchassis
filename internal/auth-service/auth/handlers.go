@@ -5,12 +5,12 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gqls/ai-persona-system/internal/auth-service/user"
+	"github.com/gqls/agentchassis/internal/auth-service/user"
 )
 
 // Handlers wraps the auth service for HTTP handling
 type Handlers struct {
-	service *Service
+	service ServiceInterface
 }
 
 // NewHandlers creates new auth handlers
@@ -119,17 +119,32 @@ func (h *Handlers) HandleLogout(c *gin.Context) {
 
 // HandleValidate validates the current token
 func (h *Handlers) HandleValidate(c *gin.Context) {
-	// Token is already validated by middleware if we reach here
-	claims := c.MustGet("claims").(*jwt.Claims)
+	// Get the token from the Authorization header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "No token provided"})
+		return
+	}
 
+	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
+
+	// Validate the token using the service
+	claims, err := h.service.ValidateToken(tokenString)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token", "details": err.Error()})
+		return
+	}
+
+	// Return the validation result
 	c.JSON(http.StatusOK, gin.H{
 		"valid": true,
 		"user": gin.H{
-			"id":        claims.UserID,
-			"email":     claims.Email,
-			"role":      claims.Role,
-			"tier":      claims.Tier,
-			"client_id": claims.ClientID,
+			"id":          claims.UserID,
+			"email":       claims.Email,
+			"role":        claims.Role,
+			"tier":        claims.Tier,
+			"client_id":   claims.ClientID,
+			"permissions": claims.Permissions,
 		},
 	})
 }

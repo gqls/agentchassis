@@ -47,3 +47,5 @@ CREATE TABLE IF NOT EXISTS client_{client_id}.orchestrator_state (
     );
 
 CREATE INDEX idx_orchestrator_status ON client_{client_id}.orchestrator_state(status);
+
+CREATE INDEX idx_memory_agent_created ON client_{client_id}.agent_memory(agent_instance_id, created_at DESC);

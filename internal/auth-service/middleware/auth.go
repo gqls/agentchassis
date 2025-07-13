@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gqls/ai-persona-system/internal/auth-service/jwt"
+	"github.com/gqls/agentchassis/internal/auth-service/jwt"
 	"go.uber.org/zap"
 )
 
@@ -37,6 +37,33 @@ func RequireAuth(jwtService *jwt.Service, logger *zap.Logger) gin.HandlerFunc {
 		c.Set("user_role", claims.Role)
 		c.Set("user_tier", claims.Tier)
 		c.Set("user_permissions", claims.Permissions)
+
+		c.Next()
+	}
+}
+
+// RequireRole checks if user has specific role
+func RequireRole(role string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, exists := c.Get("user_role")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{"error": "No role found"})
+			c.Abort()
+			return
+		}
+
+		roleStr, ok := userRole.(string)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid role format"})
+			c.Abort()
+			return
+		}
+
+		if roleStr != role {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient role"})
+			c.Abort()
+			return
+		}
 
 		c.Next()
 	}

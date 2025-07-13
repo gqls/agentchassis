@@ -3,16 +3,18 @@ package auth
 
 import (
 	"bytes"
+	"context" // Add this import
 	"encoding/json"
 	"fmt"
+	"github.com/gqls/agentchassis/internal/auth-service/jwt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gqls/agentchassis/internal/auth-service/user" // Add this import
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"go.uber.org/zap"
 )
 
 // MockService for testing
@@ -34,6 +36,27 @@ func (m *MockService) Login(ctx context.Context, email, password string) (*Token
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*TokenResponse), args.Error(1)
+}
+
+func (m *MockService) RefreshToken(ctx context.Context, refreshToken string) (*TokenResponse, error) {
+	args := m.Called(ctx, refreshToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*TokenResponse), args.Error(1)
+}
+
+func (m *MockService) Logout(ctx context.Context, tokenID string) error {
+	args := m.Called(ctx, tokenID)
+	return args.Error(0)
+}
+
+func (m *MockService) ValidateToken(tokenString string) (*jwt.Claims, error) {
+	args := m.Called(tokenString)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*jwt.Claims), args.Error(1)
 }
 
 func TestHandleLogin(t *testing.T) {
