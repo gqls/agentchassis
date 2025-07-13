@@ -1,0 +1,27 @@
+// FILE: configs/web-search-adapter.yaml
+service_info:
+  name: "web-search-adapter"
+  version: "1.0.0"
+  environment: "development"
+
+server:
+  port: "8083"
+
+logging:
+  level: "info"
+
+infrastructure:
+  kafka_brokers:
+    - "kafka-0.kafka-headless:9092"
+    - "kafka-1.kafka-headless:9092"
+    - "kafka-2.kafka-headless:9092"
+
+  clients_database: {}
+  templates_database: {}
+  auth_database: {}
+  object_storage: {}
+
+custom:
+  search_provider: "serpapi"
+  max_results_default: 10
+  timeout_seconds: 30

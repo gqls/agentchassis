@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-chassis
+  namespace: ai-persona-system
+  labels:
+    app: agent-chassis
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: agent-chassis
+  template:
+    metadata:
+      labels:
+        app: agent-chassis
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: agent-chassis
+          image: ai-persona-system/agent-chassis:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9090
+              name: metrics
+          env:
+            - name: SERVICE_NAME
+              value: "agent-chassis"
+            - name: SERVICE_VERSION
+              value: "1.0.0"
+            - name: SERVICE_ENVIRONMENT
+              value: "production"
+            - name: LOGGING_LEVEL
+              value: "info"
+            - name: AGENT_TYPE
+              value: "generic"
+            - name: KAFKA_CONSUMER_GROUP
+              value: "agent-chassis-group"
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: clients-db-password
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: templates-db-password
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secrets
+                  key: access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secrets
+                  key: secret-key
+          envFrom:
+            - configMapRef:
+                name: common-config
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9090
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: agent-chassis-hpa
+  namespace: ai-persona-system
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: agent-chassis
+  minReplicas: 5
+  maxReplicas: 50
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

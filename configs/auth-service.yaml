@@ -1,0 +1,43 @@
+# FILE: configs/auth-service.yaml
+service_info:
+  name: "personae-auth-service"
+  version: "1.1.0"
+  environment: "development"
+
+server:
+  port: "8081"
+
+logging:
+  level: "debug"
+
+observability:
+  tracing_endpoint: "otel-collector.monitoring.svc.cluster.local:4317"
+
+infrastructure:
+  auth_database:
+    host: "mysql-auth.database.svc.cluster.local"
+    port: 3306
+    user: "auth_user"
+    password_env_var: "AUTH_DB_PASSWORD"
+    db_name: "auth_db"
+    ssl_mode: "disable"
+  
+  kafka_brokers: []
+  clients_database: {}
+  templates_database: {}
+  object_storage: {}
+
+custom:
+  jwt_secret_key_env_var: "JWT_SECRET_KEY"
+  jwt_expiry_access_minutes: 60
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://localhost:8080"
+  core_manager_url: "http://core-manager:8088"
+  tiers:
+    free_tier:
+      max_personas_allowed: 1
+      max_content_allowed: 5
+    premium_tier:
+      max_personas_allowed: -1
+      max_content_allowed: -1

@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: core-manager
+  namespace: ai-persona-system
+  labels:
+    app: core-manager
+spec:
+  ports:
+    - port: 8088
+      targetPort: 8088
+      name: http
+  selector:
+    app: core-manager
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core-manager
+  namespace: ai-persona-system
+  labels:
+    app: core-manager
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: core-manager
+  template:
+    metadata:
+      labels:
+        app: core-manager
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: core-manager
+          image: ai-persona-system/core-manager:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8088
+              name: http
+            - containerPort: 9090
+              name: metrics
+          env:
+            - name: SERVICE_NAME
+              value: "core-manager"
+            - name: SERVICE_VERSION
+              value: "1.0.0"
+            - name: SERVICE_ENVIRONMENT
+              value: "production"
+            - name: SERVER_PORT
+              value: "8088"
+            - name: LOGGING_LEVEL
+              value: "info"
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: clients-db-password
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: templates-db-password
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secrets
+                  key: access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secrets
+                  key: secret-key
+          envFrom:
+            - configMapRef:
+                name: common-config
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8088
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8088
+            initialDelaySeconds: 5
+            periodSeconds: 5

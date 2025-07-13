@@ -1,0 +1,44 @@
+# FILE: configs/core-manager.yaml
+service_info:
+  name: "core-manager"
+  version: "1.0.0"
+  environment: "development"
+
+server:
+  port: "8088"
+
+logging:
+  level: "info"
+
+observability:
+  tracing_endpoint: "otel-collector.monitoring.svc.cluster.local:4317"
+
+infrastructure:
+  kafka_brokers:
+    - "kafka-broker-1:9092"
+    - "kafka-broker-2:9092"
+  
+  clients_database:
+    host: "postgres-clients.database.svc.cluster.local"
+    port: 5432
+    user: "clients_user"
+    password_env_var: "CLIENTS_DB_PASSWORD"
+    db_name: "clients_db"
+    sslmode: "disable"
+  
+  templates_database:
+    host: "postgres-templates.database.svc.cluster.local"
+    port: 5432
+    user: "templates_user"
+    password_env_var: "TEMPLATES_DB_PASSWORD"
+    db_name: "templates_db"
+    sslmode: "disable"
+  
+  auth_database: {}
+  
+  object_storage:
+    provider: "s3"
+    endpoint: "http://minio.storage.svc.cluster.local:9000"
+    bucket: "agent-artifacts"
+    access_key_env_var: "MINIO_ACCESS_KEY"
+    secret_key_env_var: "MINIO_SECRET_KEY"

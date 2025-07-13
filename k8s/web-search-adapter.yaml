@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-search-adapter
+  namespace: ai-persona-system
+  labels:
+    app: web-search-adapter
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-search-adapter
+  template:
+    metadata:
+      labels:
+        app: web-search-adapter
+    spec:
+      containers:
+        - name: web-search-adapter
+          image: ai-persona-system/web-search-adapter:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SERVICE_NAME
+              value: "web-search-adapter"
+            - name: SERP_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-secrets
+                  key: serp-api-key
+          envFrom:
+            - configMapRef:
+                name: common-config
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

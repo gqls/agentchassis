@@ -1,0 +1,158 @@
+# ServiceMonitor for Auth Service
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: auth-service
+  namespace: ai-persona-system
+  labels:
+    app: auth-service
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: auth-service
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+
+---
+# ServiceMonitor for Core Manager
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: core-manager
+  namespace: ai-persona-system
+  labels:
+    app: core-manager
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: core-manager
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+
+---
+# ServiceMonitor for Agent Chassis
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: agent-chassis
+  namespace: ai-persona-system
+  labels:
+    app: agent-chassis
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: agent-chassis
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+
+---
+# ServiceMonitor for Reasoning Agent
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: reasoning-agent
+  namespace: ai-persona-system
+  labels:
+    app: reasoning-agent
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: reasoning-agent
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+
+---
+# ServiceMonitor for Image Generator Adapter
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: image-generator-adapter
+  namespace: ai-persona-system
+  labels:
+    app: image-generator-adapter
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: image-generator-adapter
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+
+---
+# ServiceMonitor for PostgreSQL Exporters
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres-exporter
+  namespace: ai-persona-system
+  labels:
+    app: postgres-exporter
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: postgres-exporter
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+
+---
+# ServiceMonitor for Kafka
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kafka-metrics
+  namespace: ai-persona-system
+  labels:
+    app: kafka
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: kafka
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+
+---
+# ServiceMonitor for MinIO
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: minio-metrics
+  namespace: ai-persona-system
+  labels:
+    app: minio
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: minio
+  endpoints:
+    - port: api
+      interval: 30s
+      path: /minio/v2/metrics/cluster
+      scheme: http

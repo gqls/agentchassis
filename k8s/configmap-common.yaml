@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: common-config
+  namespace: ai-persona-system
+data:
+  # Kafka configuration
+  kafka_brokers: "kafka-0.kafka-headless:9092,kafka-1.kafka-headless:9092,kafka-2.kafka-headless:9092"
+
+  # Database hosts
+  clients_db_host: "postgres-clients"
+  clients_db_port: "5432"
+  clients_db_name: "clients_db"
+  clients_db_user: "clients_user"
+
+  templates_db_host: "postgres-templates"
+  templates_db_port: "5432"
+  templates_db_name: "templates_db"
+  templates_db_user: "templates_user"
+
+  auth_db_host: "mysql-auth"
+  auth_db_port: "3306"
+  auth_db_name: "auth_db"
+  auth_db_user: "auth_user"
+
+  # Object storage
+  minio_endpoint: "http://minio:9000"
+  minio_bucket: "agent-artifacts"
+
+  # Service URLs
+  core_manager_url: "http://core-manager:8088"
+  auth_service_url: "http://auth-service:8081"
+
+  # Observability
+  tracing_endpoint: "otel-collector.monitoring.svc.cluster.local:4317"

@@ -1,0 +1,29 @@
+# FILE: configs/reasoning-agent.yaml
+service_info:
+  name: "reasoning-agent"
+  version: "1.0.0"
+  environment: "development"
+
+server:
+  port: "8082"
+
+logging:
+  level: "info"
+
+infrastructure:
+  kafka_brokers:
+    - "kafka-broker-1:9092"
+    - "kafka-broker-2:9092"
+
+  clients_database: {}
+  templates_database: {}
+  auth_database: {}
+  object_storage: {}
+
+custom:
+  ai_service:
+    provider: "anthropic"
+    model: "claude-3-opus-20240229"
+    temperature: 0.2
+    max_tokens: 2048
+    api_key_env_var: "ANTHROPIC_API_KEY"

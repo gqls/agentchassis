@@ -1,0 +1,301 @@
+.:
+total 144
+drwxrwxr-x  8 ant ant  4096 Jul 12 14:34 .
+drwxrwxr-x 11 ant ant  4096 Jul 12 13:39 ..
+drwxrwxr-x  7 ant ant  4096 Jul 12 13:55 cmd
+drwxrwxr-x  2 ant ant  4096 Jul 12 14:31 configs
+drwxrwxr-x  3 ant ant  4096 Jul 12 13:32 deployments
+-rw-rw-r--  1 ant ant     0 Jul 12 14:34 filestructure.txt
+-rw-rw-r--  1 ant ant   713 Jul 12 14:25 go.mod
+-rw-rw-r--  1 ant ant  6758 Jul 12 14:34 go.sum
+drwxrwxr-x  6 ant ant  4096 Jul 12 14:04 internal
+-rw-rw-r--  1 ant ant  1245 May 27 14:11 outputtotext.sh
+drwxrwxr-x  3 ant ant  4096 Jul 12 13:31 pkg
+drwxrwxr-x 13 ant ant  4096 Jul 12 13:52 platform
+-rw-rw-r--  1 ant ant 98104 Jul 12 14:34 resulttextoutput.txt
+
+./cmd:
+total 28
+drwxrwxr-x 7 ant ant 4096 Jul 12 13:55 .
+drwxrwxr-x 8 ant ant 4096 Jul 12 14:34 ..
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:54 agent-chassis
+drwxrwxr-x 2 ant ant 4096 Jul 12 14:32 auth-service
+drwxrwxr-x 2 ant ant 4096 Jul 12 14:33 core-manager
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:55 image-generator-adapter
+drwxrwxr-x 2 ant ant 4096 Jul 12 14:06 reasoning-agent
+
+./cmd/agent-chassis:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:54 .
+drwxrwxr-x 7 ant ant 4096 Jul 12 13:55 ..
+-rw-rw-r-- 1 ant ant 1947 Jul 12 13:54 main.go
+
+./cmd/auth-service:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 12 14:32 .
+drwxrwxr-x 7 ant ant 4096 Jul 12 13:55 ..
+-rw-rw-r-- 1 ant ant 5550 Jul 12 14:32 main.go
+
+./cmd/core-manager:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 12 14:33 .
+drwxrwxr-x 7 ant ant 4096 Jul 12 13:55 ..
+-rw-rw-r-- 1 ant ant 3555 Jul 12 14:33 main.go
+
+./cmd/image-generator-adapter:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:55 .
+drwxrwxr-x 7 ant ant 4096 Jul 12 13:55 ..
+-rw-rw-r-- 1 ant ant 1964 Jul 12 13:55 main.go
+
+./cmd/reasoning-agent:
+total 24
+drwxrwxr-x 2 ant ant 4096 Jul 12 14:06 .
+drwxrwxr-x 7 ant ant 4096 Jul 12 13:55 ..
+-rw-rw-r-- 1 ant ant 1081 Jul 12 14:06 Dockerfile
+-rw-rw-r-- 1 ant ant 9398 Jul 12 14:03 main.go
+
+./configs:
+total 20
+drwxrwxr-x 2 ant ant 4096 Jul 12 14:31 .
+drwxrwxr-x 8 ant ant 4096 Jul 12 14:34 ..
+-rw-rw-r-- 1 ant ant    0 Jul 12 13:39 agent-chassis.yaml
+-rw-rw-r-- 1 ant ant 1479 Jul 12 14:31 auth-service.yaml
+-rw-rw-r-- 1 ant ant   16 Jul 12 13:38 core-manager.yaml
+-rw-rw-r-- 1 ant ant  878 Jul 12 14:05 reasoning-agent.yaml
+
+./deployments:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 12 13:32 .
+drwxrwxr-x 8 ant ant 4096 Jul 12 14:34 ..
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:32 terraform
+
+./deployments/terraform:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:32 .
+drwxrwxr-x 3 ant ant 4096 Jul 12 13:32 ..
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:33 instances
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:32 modules
+
+./deployments/terraform/instances:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:33 .
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:32 ..
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:33 db-auth
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:33 db-clients
+
+./deployments/terraform/instances/db-auth:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:33 .
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:33 ..
+
+./deployments/terraform/instances/db-clients:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:33 .
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:33 ..
+
+./deployments/terraform/modules:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:32 .
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:32 ..
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:32 app-agent-chassis
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:32 infra-postgres-db
+
+./deployments/terraform/modules/app-agent-chassis:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:32 .
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:32 ..
+
+./deployments/terraform/modules/infra-postgres-db:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:32 .
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:32 ..
+
+./internal:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 12 14:04 .
+drwxrwxr-x 8 ant ant 4096 Jul 12 14:34 ..
+drwxrwxr-x 3 ant ant 4096 Jul 12 13:56 adapters
+drwxrwxr-x 3 ant ant 4096 Jul 12 14:04 agents
+drwxrwxr-x 6 ant ant 4096 Jul 12 13:30 auth-service
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:30 core-manager
+
+./internal/adapters:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 12 13:56 .
+drwxrwxr-x 6 ant ant 4096 Jul 12 14:04 ..
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:57 imagegenerator
+
+./internal/adapters/imagegenerator:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:57 .
+drwxrwxr-x 3 ant ant 4096 Jul 12 13:56 ..
+-rw-rw-r-- 1 ant ant 5788 Jul 12 13:57 adapter.go
+
+./internal/agents:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 12 14:04 .
+drwxrwxr-x 6 ant ant 4096 Jul 12 14:04 ..
+drwxrwxr-x 2 ant ant 4096 Jul 12 14:05 reasoning
+
+./internal/agents/reasoning:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 12 14:05 .
+drwxrwxr-x 3 ant ant 4096 Jul 12 14:04 ..
+-rw-rw-r-- 1 ant ant 5617 Jul 12 14:05 agent.go
+
+./internal/auth-service:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 12 13:30 .
+drwxrwxr-x 6 ant ant 4096 Jul 12 14:04 ..
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:28 auth
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:30 gateway
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:30 subscription
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:30 user
+
+./internal/auth-service/auth:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:28 .
+drwxrwxr-x 6 ant ant 4096 Jul 12 13:30 ..
+
+./internal/auth-service/gateway:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:30 .
+drwxrwxr-x 6 ant ant 4096 Jul 12 13:30 ..
+
+./internal/auth-service/subscription:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:30 .
+drwxrwxr-x 6 ant ant 4096 Jul 12 13:30 ..
+
+./internal/auth-service/user:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:30 .
+drwxrwxr-x 6 ant ant 4096 Jul 12 13:30 ..
+
+./internal/core-manager:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:30 .
+drwxrwxr-x 6 ant ant 4096 Jul 12 14:04 ..
+drwxrwxr-x 2 ant ant 4096 Jul 12 14:02 api
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:30 project
+
+./internal/core-manager/api:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 12 14:02 .
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:30 ..
+-rw-rw-r-- 1 ant ant 6340 Jul 12 14:02 server.go
+
+./internal/core-manager/project:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:30 .
+drwxrwxr-x 4 ant ant 4096 Jul 12 13:30 ..
+
+./pkg:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 12 13:31 .
+drwxrwxr-x 8 ant ant 4096 Jul 12 14:34 ..
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:41 models
+
+./pkg/models:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:41 .
+drwxrwxr-x 3 ant ant 4096 Jul 12 13:31 ..
+-rw-rw-r-- 1 ant ant  985 Jul 12 13:41 contracts.go
+-rw-rw-r-- 1 ant ant   15 Jul 12 13:35 database.go
+
+./platform:
+total 52
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 .
+drwxrwxr-x  8 ant ant 4096 Jul 12 14:34 ..
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:54 agentbase
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:35 aiservice
+drwxrwxr-x  2 ant ant 4096 Jul 12 14:26 config
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:53 contracts
+drwxrwxr-x  3 ant ant 4096 Jul 12 14:31 database
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:59 governance
+drwxrwxr-x  2 ant ant 4096 Jul 12 14:29 kafka
+drwxrwxr-x  2 ant ant 4096 Jul 12 14:26 logger
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:37 observability
+drwxrwxr-x  2 ant ant 4096 Jul 12 14:03 orchestration
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:57 storage
+
+./platform/agentbase:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:54 .
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 ..
+-rw-rw-r--  1 ant ant 6190 Jul 12 13:54 agent.go
+
+./platform/aiservice:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:35 .
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 ..
+-rw-rw-r--  1 ant ant   18 Jul 12 13:35 anthropic.go
+-rw-rw-r--  1 ant ant   18 Jul 12 13:35 interface.go
+
+./platform/config:
+total 12
+drwxrwxr-x  2 ant ant 4096 Jul 12 14:26 .
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 ..
+-rw-rw-r--  1 ant ant 3480 Jul 12 14:26 loader.go
+
+./platform/contracts:
+total 12
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:53 .
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 ..
+-rw-rw-r--  1 ant ant 2916 Jul 12 13:53 contracts.go
+
+./platform/database:
+total 24
+drwxrwxr-x  3 ant ant 4096 Jul 12 14:31 .
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 ..
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:58 migrations
+-rw-rw-r--  1 ant ant 1563 Jul 12 14:31 mysql.go
+-rw-rw-r--  1 ant ant   17 Jul 12 13:36 pgvector.go
+-rw-rw-r--  1 ant ant 1820 Jul 12 14:27 postgres.go
+
+./platform/database/migrations:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 12 13:58 .
+drwxrwxr-x 3 ant ant 4096 Jul 12 14:31 ..
+-rw-rw-r-- 1 ant ant 5235 Jul 12 13:58 001_enable_pgvector.sql
+
+./platform/governance:
+total 12
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:59 .
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 ..
+-rw-rw-r--  1 ant ant 2195 Jul 12 13:59 fuel.go
+
+./platform/kafka:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 12 14:29 .
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 ..
+-rw-rw-r--  1 ant ant 1982 Jul 12 14:29 consumer.go
+-rw-rw-r--  1 ant ant 1885 Jul 12 14:29 producer.go
+
+./platform/logger:
+total 12
+drwxrwxr-x  2 ant ant 4096 Jul 12 14:26 .
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 ..
+-rw-rw-r--  1 ant ant 1320 Jul 12 14:26 logger.go
+
+./platform/observability:
+total 12
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:37 .
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 ..
+-rw-rw-r--  1 ant ant   22 Jul 12 13:37 tracing.go
+
+./platform/orchestration:
+total 32
+drwxrwxr-x  2 ant ant 4096 Jul 12 14:03 .
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 ..
+-rw-rw-r--  1 ant ant 5467 Jul 12 14:01 coordinator.go
+-rw-rw-r--  1 ant ant 7818 Jul 12 14:03 coordinator_test.go
+-rw-rw-r--  1 ant ant 4100 Jul 12 14:01 state.go
+
+./platform/storage:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 12 13:57 .
+drwxrwxr-x 13 ant ant 4096 Jul 12 13:52 ..
+-rw-rw-r--  1 ant ant   16 Jul 12 13:37 interface.go
+-rw-rw-r--  1 ant ant 2924 Jul 12 13:57 s3.go

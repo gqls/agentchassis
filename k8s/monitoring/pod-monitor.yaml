@@ -1,0 +1,19 @@
+# k8s/monitoring/pod-monitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ai-persona-pods
+  namespace: ai-persona-system
+  labels:
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      prometheus.io/scrape: "true"
+  namespaceSelector:
+    matchNames:
+      - ai-persona-system
+  podMetricsEndpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
