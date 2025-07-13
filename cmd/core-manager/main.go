@@ -3,12 +3,16 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"flag"
+	"fmt"
+	"github.com/gqls/agentchassis/internal/core-manager/services"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,7 +24,102 @@ import (
 	"go.uber.org/zap"
 )
 
+// Config holds application configuration
+type Config struct {
+	DatabaseURL   string
+	KafkaBrokers  []string
+	MigrationPath string
+	Environment   string
+}
+
+// LoadConfig loads configuration from environment variables
+func LoadConfig() *Config {
+	return &Config{
+		DatabaseURL:   getEnv("DATABASE_URL", "postgres://user:pass@localhost/personae_clients?sslmode=disable"),
+		KafkaBrokers:  getEnvArray("KAFKA_BROKERS", []string{"localhost:9092"}),
+		MigrationPath: getEnv("MIGRATION_PATH", "./migrations"),
+		Environment:   getEnv("ENVIRONMENT", "development"),
+	}
+}
+
+// InitializeSystem performs all system initialization
+func InitializeSystem(config *Config) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// Connect to database
+	db, err := sql.Open("postgres", config.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+	defer db.Close()
+
+	// Configure connection pool
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	// Wait for database to be ready
+	for i := 0; i < 30; i++ {
+		if err := db.Ping(); err == nil {
+			break
+		}
+		if i == 29 {
+			return fmt.Errorf("database not ready after 30 seconds")
+		}
+		log.Println("Waiting for database...")
+		time.Sleep(time.Second)
+	}
+
+	// Create system initializer
+	initializer, err := services.NewSystemInitializer(
+		db,
+		config.KafkaBrokers,
+		config.MigrationPath,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create system initializer: %w", err)
+	}
+	defer initializer.Close()
+
+	// Run initialization
+	if err := initializer.Initialize(ctx); err != nil {
+		return fmt.Errorf("system initialization failed: %w", err)
+	}
+
+	return nil
+}
+
+// getEnv gets an environment variable with a default value
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// getEnvArray gets an environment variable as an array
+func getEnvArray(key string, defaultValue []string) []string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	// Simple comma-separated parsing - you might want something more sophisticated
+	return strings.Split(value, ",")
+}
+
 func main() {
+
+	log.Println("Starting AI Persona System...")
+
+	// Load configuration
+	config := LoadConfig()
+
+	// Initialize system
+	if err := InitializeSystem(config); err != nil {
+		log.Fatalf("Failed to initialize system: %v", err)
+	}
+
 	// --- Step 1: Load Configuration using the Platform Library ---
 	configPath := flag.String("config", "configs/core-manager.yaml", "Path to config file")
 	flag.Parse()

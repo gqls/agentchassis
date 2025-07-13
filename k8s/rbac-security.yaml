@@ -1,0 +1,232 @@
+# FILE: k8s/rbac-security.yaml
+# Service Account for applications
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ai-persona-app
+  namespace: ai-persona-system
+  labels:
+    app: ai-persona-system
+
+---
+# Role for application access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: ai-persona-system
+  name: ai-persona-app-role
+rules:
+  # Allow reading secrets for configuration
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+  # Allow reading configmaps
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+  # Allow pod operations for health checks
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+---
+# Bind the role to the service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ai-persona-app-binding
+  namespace: ai-persona-system
+subjects:
+  - kind: ServiceAccount
+    name: ai-persona-app
+    namespace: ai-persona-system
+roleRef:
+  kind: Role
+  name: ai-persona-app-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Pod Security Policy (if using older Kubernetes versions)
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: ai-persona-restricted
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  runAsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  seLinux:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+
+---
+# Network Policy - Default deny all ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: ai-persona-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+
+---
+# Network Policy - Allow same namespace communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: ai-persona-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+
+---
+# Network Policy - Allow ingress controller access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-controller
+  namespace: ai-persona-system
+spec:
+  podSelector:
+    matchLabels:
+      app: auth-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8081
+
+---
+# Network Policy - Allow monitoring
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring
+  namespace: ai-persona-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 9090
+
+---
+# Network Policy - Database access (only from specific apps)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: database-access-policy
+  namespace: ai-persona-system
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres-clients
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: core-manager
+        - podSelector:
+            matchLabels:
+              app: agent-chassis
+        - podSelector:
+            matchLabels:
+              component: initialization
+      ports:
+        - protocol: TCP
+          port: 5432
+
+---
+# Network Policy - MySQL access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mysql-access-policy
+  namespace: ai-persona-system
+spec:
+  podSelector:
+    matchLabels:
+      app: mysql-auth
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: auth-service
+        - podSelector:
+            matchLabels:
+              component: initialization
+      ports:
+        - protocol: TCP
+          port: 3306
+
+---
+# Network Policy - Kafka access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kafka-access-policy
+  namespace: ai-persona-system
+spec:
+  podSelector:
+    matchLabels:
+      app: kafka
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: agent-chassis
+        - podSelector:
+            matchLabels:
+              app: reasoning-agent
+        - podSelector:
+            matchLabels:
+              app: image-generator-adapter
+        - podSelector:
+            matchLabels:
+              app: web-search-adapter
+        - podSelector:
+            matchLabels:
+              component: initialization
+      ports:
+        - protocol: TCP
+          port: 9092

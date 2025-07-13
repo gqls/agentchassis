@@ -1,0 +1,162 @@
+# FILE: k8s/jobs/database-init-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: database-init
+  namespace: ai-persona-system
+  labels:
+    app: database-init
+    component: initialization
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: database-init
+        component: initialization
+    spec:
+      restartPolicy: Never
+      initContainers:
+        # Wait for PostgreSQL clients database
+        - name: wait-for-postgres-clients
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for PostgreSQL clients database..."
+              until pg_isready -h postgres-clients -p 5432; do
+                echo "PostgreSQL clients not ready, waiting..."
+                sleep 2
+              done
+              echo "PostgreSQL clients is ready!"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+
+        # Wait for PostgreSQL templates database
+        - name: wait-for-postgres-templates
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for PostgreSQL templates database..."
+              until pg_isready -h postgres-templates -p 5432; do
+                echo "PostgreSQL templates not ready, waiting..."
+                sleep 2
+              done
+              echo "PostgreSQL templates is ready!"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+
+        # Wait for MySQL auth database
+        - name: wait-for-mysql-auth
+          image: mysql:8.0
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for MySQL auth database..."
+              until mysqladmin ping -h mysql-auth --silent; do
+                echo "MySQL auth not ready, waiting..."
+                sleep 2
+              done
+              echo "MySQL auth is ready!"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+
+      containers:
+        - name: database-migrator
+          image: ai-persona-system/database-migrator:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: clients-db-password
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: templates-db-password
+            - name: AUTH_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: auth-db-password
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: mysql-root-password
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          command: ["/app/run-migrations.sh"]
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: data-seeder
+  namespace: ai-persona-system
+  labels:
+    app: data-seeder
+    component: initialization
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: data-seeder
+        component: initialization
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: data-seeder
+          image: ai-persona-system/data-seeder:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: clients-db-password
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: templates-db-password
+            - name: AUTH_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: auth-db-password
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          command: ["/app/seed-data.sh"]

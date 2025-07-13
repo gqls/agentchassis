@@ -1,0 +1,127 @@
+# FILE: k8s/jobs/kafka-topics-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topics-init
+  namespace: ai-persona-system
+  labels:
+    app: kafka-topics-init
+    component: initialization
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: kafka-topics-init
+        component: initialization
+    spec:
+      restartPolicy: Never
+      initContainers:
+        # Wait for Kafka to be ready
+        - name: wait-for-kafka
+          image: confluentinc/cp-kafka:7.5.0
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Kafka to be ready..."
+              until kafka-topics --bootstrap-server kafka-0.kafka-headless:9092 --list >/dev/null 2>&1; do
+                echo "Kafka not ready, waiting..."
+                sleep 5
+              done
+              echo "Kafka is ready!"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+      containers:
+        - name: topic-creator
+          image: confluentinc/cp-kafka:7.5.0
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              echo "🔧 Creating Kafka topics..."
+              
+              # Function to create topic with error handling
+              create_topic() {
+                local topic_name=$1
+                local partitions=$2
+                local replication_factor=$3
+                local description=$4
+              
+                echo "Creating topic: $topic_name ($description)"
+                kafka-topics --bootstrap-server kafka-0.kafka-headless:9092 \
+                  --create \
+                  --topic "$topic_name" \
+                  --partitions "$partitions" \
+                  --replication-factor "$replication_factor" \
+                  --if-not-exists || {
+                  echo "Failed to create topic: $topic_name"
+                  return 1
+                }
+              }
+              
+              # System-level topics
+              echo "📨 Creating system topics..."
+              create_topic "orchestrator.state-changes" 12 1 "Orchestrator state change notifications"
+              create_topic "human.approvals" 6 1 "Human approval workflow messages"
+              create_topic "system.events" 3 1 "General system events"
+              create_topic "system.notifications.ui" 3 1 "UI notifications"
+              create_topic "system.commands.workflow.resume" 3 1 "Workflow resume commands"
+              
+              # Agent communication topics
+              echo "🤖 Creating agent communication topics..."
+              create_topic "system.agent.reasoning.process" 6 1 "Reasoning agent requests"
+              create_topic "system.responses.reasoning" 6 1 "Reasoning agent responses"
+              create_topic "system.adapter.image.generate" 3 1 "Image generation requests"
+              create_topic "system.responses.image" 6 1 "Image generation responses"
+              create_topic "system.adapter.web.search" 3 1 "Web search requests"
+              create_topic "system.responses.websearch" 6 1 "Web search responses"
+              
+              # Generic agent chassis topics
+              echo "🏗️ Creating generic agent topics..."
+              create_topic "system.agent.generic.process" 6 1 "Generic agent chassis requests"
+              create_topic "system.tasks.copywriter" 6 1 "Copywriter agent tasks"
+              create_topic "system.tasks.researcher" 6 1 "Research agent tasks"
+              create_topic "system.tasks.content-creator" 6 1 "Content creator tasks"
+              create_topic "system.tasks.multimedia-creator" 6 1 "Multimedia creator tasks"
+              
+              # Response topics for agents
+              create_topic "system.responses.copywriter" 6 1 "Copywriter responses"
+              create_topic "system.responses.researcher" 6 1 "Research responses"
+              create_topic "system.responses.content-creator" 6 1 "Content creator responses"
+              create_topic "system.responses.multimedia-creator" 6 1 "Multimedia creator responses"
+              
+              # Dead letter queues
+              echo "💀 Creating dead letter queue topics..."
+              create_topic "dlq.reasoning-agent" 1 1 "Reasoning agent DLQ"
+              create_topic "dlq.image-generator" 1 1 "Image generator DLQ"
+              create_topic "dlq.web-search" 1 1 "Web search DLQ"
+              create_topic "dlq.agent-chassis" 1 1 "Agent chassis DLQ"
+              create_topic "dlq.orchestrator" 1 1 "Orchestrator DLQ"
+              
+              # Monitoring and logging topics
+              echo "📊 Creating monitoring topics..."
+              create_topic "system.metrics.agents" 3 1 "Agent performance metrics"
+              create_topic "system.logs.errors" 3 1 "Error logs aggregation"
+              create_topic "system.audit.actions" 6 1 "Audit trail for user actions"
+              
+              echo "✅ All Kafka topics created successfully!"
+              
+              # List all topics to verify
+              echo "📋 Current topics:"
+              kafka-topics --bootstrap-server kafka-0.kafka-headless:9092 --list
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

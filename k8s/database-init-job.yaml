@@ -1,0 +1,28 @@
+# k8s/database-init-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: database-init
+  namespace: ai-persona-system
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command: ['sh', '-c', 'until pg_isready -h postgres-clients -p 5432; do sleep 1; done']
+        - name: wait-for-mysql
+          image: mysql:8.0
+          command: ['sh', '-c', 'until mysqladmin ping -h mysql-auth --silent; do sleep 1; done']
+      containers:
+        - name: migrate
+          image: ai-persona-system/migrator:latest
+          env:
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: clients-db-password
+          # ... other env vars
+          command: ['/app/run-migrations.sh']
+      restartPolicy: OnFailure

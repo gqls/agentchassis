@@ -1,0 +1,18 @@
+# k8s/data-seeder-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-default-data
+  namespace: ai-persona-system
+spec:
+  template:
+    spec:
+      containers:
+        - name: seeder
+          image: ai-persona-system/data-seeder:latest
+          env:
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: templates-db-password

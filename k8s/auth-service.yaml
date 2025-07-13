@@ -1,3 +1,4 @@
+# FILE: k8s/auth-service.yaml (Updated)
 apiVersion: v1
 kind: Service
 metadata:
@@ -10,6 +11,9 @@ spec:
     - port: 8081
       targetPort: 8081
       name: http
+    - port: 9090
+      targetPort: 9090
+      name: metrics
   selector:
     app: auth-service
   type: ClusterIP
@@ -36,6 +40,63 @@ spec:
         prometheus.io/port: "9090"
         prometheus.io/path: "/metrics"
     spec:
+      initContainers:
+        # Wait for MySQL auth database
+        - name: wait-for-mysql
+          image: mysql:8.0
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for MySQL auth database..."
+              until mysqladmin ping -h mysql-auth --silent; do
+                echo "MySQL not ready, waiting..."
+                sleep 2
+              done
+              echo "MySQL is ready!"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+
+        # Wait for database migrations to complete
+        - name: wait-for-migrations
+          image: mysql:8.0
+          env:
+            - name: AUTH_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: auth-db-password
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for database migrations to complete..."
+              max_attempts=30
+              attempt=1
+              while [ $attempt -le $max_attempts ]; do
+                if mysql -h mysql-auth -u auth_user -p"$AUTH_DB_PASSWORD" auth_db -e "SHOW TABLES LIKE 'users';" | grep -q users; then
+                  echo "Database migrations completed!"
+                  exit 0
+                fi
+                echo "Attempt $attempt/$max_attempts - migrations not complete yet..."
+                sleep 10
+                ((attempt++))
+              done
+              echo "Database migrations did not complete in time"
+              exit 1
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+      
       containers:
         - name: auth-service
           image: ai-persona-system/auth-service:latest
@@ -71,20 +132,33 @@ spec:
                 name: common-config
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "100m"
-            limits:
               memory: "512Mi"
-              cpu: "500m"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
           livenessProbe:
             httpGet:
               path: /health
               port: 8081
             initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /health
               port: 8081
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Security context
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL

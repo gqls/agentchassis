@@ -1,0 +1,19 @@
+# k8s/kafka-topics-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topics-init
+  namespace: ai-persona-system
+spec:
+  template:
+    spec:
+      containers:
+        - name: topic-creator
+          image: confluentinc/cp-kafka:7.5.0
+          command: ['/bin/bash', '-c']
+          args:
+            - |
+              kafka-topics --bootstrap-server kafka-0.kafka-headless:9092 --create --topic system.agent.reasoning.process --partitions 3 --replication-factor 1 --if-not-exists
+              kafka-topics --bootstrap-server kafka-0.kafka-headless:9092 --create --topic system.responses.reasoning --partitions 6 --replication-factor 1 --if-not-exists
+              kafka-topics --bootstrap-server kafka-0.kafka-headless:9092 --create --topic system.adapter.image.generate --partitions 3 --replication-factor 1 --if-not-exists
+              # ... more topics

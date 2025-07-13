@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-client-schema
+  namespace: ai-persona-system
+spec:
+  template:
+    spec:
+      containers:
+        - name: schema-creator
+          image: ai-persona-system/schema-creator:latest
+          env:
+            - name: CLIENT_ID
+              value: "{{ .Values.clientId }}"
+          command: ['/app/create-client-schema.sh']

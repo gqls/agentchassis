@@ -1,0 +1,163 @@
+# FILE: k8s/backup-cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: database-backup
+  namespace: ai-persona-system
+  labels:
+    app: database-backup
+    component: backup
+spec:
+  # Run daily at 2 AM
+  schedule: "0 2 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: database-backup
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup-postgresql
+              image: postgres:16-alpine
+              env:
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-secrets
+                      key: clients-db-password
+                - name: TEMPLATES_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-secrets
+                      key: templates-db-password
+                - name: BACKUP_DATE
+                  value: "$(date +%Y%m%d_%H%M%S)"
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -e
+                  echo "Starting PostgreSQL backup..."
+                  
+                  # Create backup directory
+                  mkdir -p /backup
+                  
+                  # Backup clients database
+                  echo "Backing up clients database..."
+                  export PGPASSWORD="$CLIENTS_DB_PASSWORD"
+                  pg_dump -h postgres-clients -U clients_user -d clients_db \
+                    --verbose --clean --if-exists --create \
+                    > /backup/clients_db_$(date +%Y%m%d_%H%M%S).sql
+                  
+                  # Backup templates database
+                  echo "Backing up templates database..."
+                  export PGPASSWORD="$TEMPLATES_DB_PASSWORD"
+                  pg_dump -h postgres-templates -U templates_user -d templates_db \
+                    --verbose --clean --if-exists --create \
+                    > /backup/templates_db_$(date +%Y%m%d_%H%M%S).sql
+                  
+                  echo "PostgreSQL backups completed!"
+                  ls -la /backup/
+
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backup
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "200m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+
+            - name: backup-mysql
+              image: mysql:8.0
+              env:
+                - name: AUTH_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-secrets
+                      key: auth-db-password
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -e
+                  echo "Starting MySQL backup..."
+                  
+                  # Create backup directory
+                  mkdir -p /backup
+                  
+                  # Backup auth database
+                  echo "Backing up auth database..."
+                  mysqldump -h mysql-auth -u auth_user -p"$AUTH_DB_PASSWORD" \
+                    --routines --triggers --single-transaction \
+                    auth_db > /backup/auth_db_$(date +%Y%m%d_%H%M%S).sql
+                  
+                  echo "MySQL backup completed!"
+                  ls -la /backup/
+
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backup
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "200m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+
+            # Cleanup old backups (keep last 7 days)
+            - name: cleanup-old-backups
+              image: alpine:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "Cleaning up old backups (keeping last 7 days)..."
+                  find /backup -name "*.sql" -type f -mtime +7 -delete
+                  echo "Cleanup completed!"
+                  echo "Current backups:"
+                  ls -la /backup/
+
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backup
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "200m"
+
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: backup-storage-pvc
+
+---
+# PVC for backup storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-storage-pvc
+  namespace: ai-persona-system
+  labels:
+    app: database-backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 50Gi

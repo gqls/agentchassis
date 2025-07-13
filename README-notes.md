@@ -150,3 +150,32 @@ kubectl port-forward -n ai-persona-system svc/auth-service 9090:9090
 curl http://localhost:9090/metrics
 
 The ServiceMonitor approach provides more fine-grained control over metric collection and is the preferred method when using Prometheus Operator in production environments.
+
+
+# Complete deployment from scratch
+make quickstart
+
+# Step-by-step deployment
+make setup
+make build  
+make deploy
+
+# Create a new client
+make create-client-schema CLIENT_ID=client_123
+
+# Check system health
+make system-check
+make status
+
+# Access services locally
+make port-forward
+
+# View logs
+make logs
+# (then type: auth-service)
+
+# Register a new agent type
+make register-agent
+
+# Clean up everything
+make clean
