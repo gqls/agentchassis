@@ -1,5 +1,7 @@
-// FILE: pkg/models/contracts.go
+// FILE: pkg/models/contracts.go (updated)
 package models
+
+import "time"
 
 // AgentConfig defines the "mind" of an agent, loaded from the database
 type AgentConfig struct {
@@ -8,11 +10,26 @@ type AgentConfig struct {
 	Version      int                    `json:"version"`
 	CoreLogic    map[string]interface{} `json:"core_logic"`
 	Workflow     WorkflowPlan           `json:"workflow"`
-	EnableMemory bool                   `json:"enable_memory"`
-	MemoryConfig struct {
-		AutoStore   bool `json:"auto_store"`
-		MaxMemories int  `json:"max_memories"`
-	} `json:"memory_config"`
+	MemoryConfig MemoryConfiguration    `json:"memory_config,omitempty"`
+}
+
+// MemoryConfiguration controls how the agent uses long-term memory
+type MemoryConfiguration struct {
+	Enabled            bool     `json:"enabled"`
+	AutoStore          bool     `json:"auto_store"`
+	AutoStoreThreshold float64  `json:"auto_store_threshold"`
+	MaxMemories        int      `json:"max_memories"`
+	RetrievalCount     int      `json:"retrieval_count"`
+	EmbeddingModel     string   `json:"embedding_model"`
+	IncludeTypes       []string `json:"include_types"`
+}
+
+// MemoryEntry represents a single memory to be stored
+type MemoryEntry struct {
+	Content   string                 `json:"content"`
+	Type      string                 `json:"type"`
+	Metadata  map[string]interface{} `json:"metadata"`
+	Timestamp time.Time              `json:"timestamp"`
 }
 
 // WorkflowPlan defines the orchestration steps for an agent
@@ -29,6 +46,7 @@ type Step struct {
 	Dependencies []string  `json:"dependencies,omitempty"`
 	NextStep     string    `json:"next_step,omitempty"`
 	SubTasks     []SubTask `json:"sub_tasks,omitempty"`
+	StoreMemory  bool      `json:"store_memory,omitempty"` // New field
 }
 
 // SubTask for fan-out operations

@@ -1,4 +1,4 @@
-// FILE: platform/agentbase/agent.go
+// FILE: platform/agentbase/agent.go (with fixed imports and types)
 package agentbase
 
 import (
@@ -12,8 +12,12 @@ import (
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/database"
+	"github.com/gqls/agentchassis/platform/errors"
 	"github.com/gqls/agentchassis/platform/kafka"
+	"github.com/gqls/agentchassis/platform/memory"
+	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
+	"github.com/gqls/agentchassis/platform/validation"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -29,7 +33,11 @@ type Agent struct {
 	kafkaConsumer *kafka.Consumer
 	kafkaProducer kafka.Producer
 	orchestrator  *orchestration.SagaCoordinator
+	memoryService *memory.Service
+	validator     *validation.WorkflowValidator
+	metricsServer *observability.MetricsServer
 	agentType     string
+	consumerGroup string
 }
 
 // New creates and initializes the agent chassis with defaults from config
@@ -59,8 +67,16 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 		return nil, fmt.Errorf("failed to connect to clients database: %w", err)
 	}
 
+	// Consumer group name
+	consumerGroup := fmt.Sprintf("%s-group", agentType)
+	if cfg.Custom != nil {
+		if cg, ok := cfg.Custom["kafka_consumer_group"].(string); ok {
+			consumerGroup = cg
+		}
+	}
+
 	// Initialize Kafka consumer
-	consumer, err := kafka.NewConsumer(cfg.Infrastructure.KafkaBrokers, topic, agentType+"-group", logger)
+	consumer, err := kafka.NewConsumer(cfg.Infrastructure.KafkaBrokers, topic, consumerGroup, logger)
 	if err != nil {
 		clientsPool.Close()
 		return nil, fmt.Errorf("failed to create kafka consumer: %w", err)
@@ -81,10 +97,25 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 	// Initialize orchestrator
 	sagaCoordinator := orchestration.NewSagaCoordinator(stdDB, producer, logger)
 
+	// Initialize memory service (placeholder for now - needs AI client)
+	// In real implementation, you'd initialize the AI client based on config
+	var memoryService *memory.Service
+	// memoryService = memory.NewService(clientsPool, aiClient, logger)
+
+	// Initialize workflow validator
+	validator := validation.NewWorkflowValidator()
+
+	// Initialize metrics server
+	metricsServer := observability.NewMetricsServer("9090")
+
 	logger.Info("Agent chassis initialized",
 		zap.String("agent_type", agentType),
 		zap.String("topic", topic),
+		zap.String("consumer_group", consumerGroup),
 	)
+
+	// Record agent pool size
+	observability.AgentPoolSize.WithLabelValues(agentType).Inc()
 
 	return &Agent{
 		ctx:           ctx,
@@ -94,7 +125,11 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 		kafkaConsumer: consumer,
 		kafkaProducer: producer,
 		orchestrator:  sagaCoordinator,
+		memoryService: memoryService,
+		validator:     validator,
+		metricsServer: metricsServer,
 		agentType:     agentType,
+		consumerGroup: consumerGroup,
 	}, nil
 }
 
@@ -106,6 +141,7 @@ func (a *Agent) Run() error {
 		select {
 		case <-a.ctx.Done():
 			a.logger.Info("Agent shutting down")
+			observability.AgentPoolSize.WithLabelValues(a.agentType).Dec()
 			return a.cleanup()
 		default:
 			msg, err := a.kafkaConsumer.FetchMessage(a.ctx)
@@ -114,175 +150,17 @@ func (a *Agent) Run() error {
 					continue
 				}
 				a.logger.Error("Failed to fetch message", zap.Error(err))
+				observability.SystemErrors.WithLabelValues(a.agentType, "fetch_message").Inc()
 				time.Sleep(1 * time.Second)
 				continue
 			}
 
+			// Record message consumed
+			observability.KafkaMessagesConsumed.WithLabelValues(msg.Topic, a.consumerGroup).Inc()
+
 			// Process each message in a goroutine
 			go a.handleMessage(msg)
 		}
-	}
-}
-
-// handleMessage processes a single task
-func (a *Agent) handleMessage(msg kafka.Message) {
-	headers := kafka.HeadersToMap(msg.Headers)
-
-	clientID := headers["client_id"]
-	agentInstanceID := headers["agent_instance_id"]
-
-	if clientID == "" || agentInstanceID == "" {
-		a.logger.Error("Message missing required headers",
-			zap.String("topic", msg.Topic),
-			zap.Int64("offset", msg.Offset))
-		a.kafkaConsumer.CommitMessages(context.Background(), msg)
-		return
-	}
-
-	l := a.logger.With(
-		zap.String("correlation_id", headers["correlation_id"]),
-		zap.String("request_id", headers["request_id"]),
-		zap.String("client_id", clientID),
-		zap.String("agent_instance_id", agentInstanceID),
-	)
-
-	// Load agent configuration
-	agentConfig, err := a.loadAgentConfig(clientID, agentInstanceID)
-	if err != nil {
-		l.Error("Failed to load agent configuration", zap.Error(err))
-		a.sendErrorResponse(headers, fmt.Sprintf("Failed to load configuration: %v", err))
-		a.kafkaConsumer.CommitMessages(context.Background(), msg)
-		return
-	}
-
-	l.Info("Agent instance loaded", zap.String("agent_type", agentConfig.AgentType))
-
-	// Execute workflow
-	if err := a.orchestrator.ExecuteWorkflow(a.ctx, agentConfig.Workflow, headers, msg.Value); err != nil {
-		l.Error("Workflow execution failed", zap.Error(err))
-		a.sendErrorResponse(headers, fmt.Sprintf("Workflow execution failed: %v", err))
-	}
-
-	// Commit message
-	if err := a.kafkaConsumer.CommitMessages(context.Background(), msg); err != nil {
-		l.Error("Failed to commit kafka message", zap.Error(err))
-	}
-}
-
-// loadAgentConfig fetches the agent's configuration from the database
-func (a *Agent) loadAgentConfig(clientID, agentInstanceID string) (*models.AgentConfig, error) {
-	ctx := context.Background()
-
-	// Query the agent instance configuration
-	query := fmt.Sprintf(`
-		SELECT name, config, template_id 
-		FROM client_%s.agent_instances 
-		WHERE id = $1 AND is_active = true
-	`, clientID)
-
-	var name string
-	var configJSON []byte
-	var templateID string
-
-	err := a.clientsDB.QueryRow(ctx, query, agentInstanceID).Scan(&name, &configJSON, &templateID)
-	if err != nil {
-		// If not found in database, return a default configuration
-		if err == pgx.ErrNoRows {
-			a.logger.Warn("Agent instance not found, using default configuration",
-				zap.String("agent_instance_id", agentInstanceID))
-			return a.getDefaultConfig(agentInstanceID), nil
-		}
-		return nil, fmt.Errorf("failed to query agent instance: %w", err)
-	}
-
-	// Parse the configuration
-	var config map[string]interface{}
-	if err := json.Unmarshal(configJSON, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse agent config: %w", err)
-	}
-
-	// Extract workflow if present, otherwise use default
-	var workflow models.WorkflowPlan
-	if workflowData, ok := config["workflow"]; ok {
-		workflowBytes, _ := json.Marshal(workflowData)
-		if err := json.Unmarshal(workflowBytes, &workflow); err != nil {
-			a.logger.Warn("Failed to parse workflow, using default", zap.Error(err))
-			workflow = a.getDefaultWorkflow()
-		}
-	} else {
-		workflow = a.getDefaultWorkflow()
-	}
-
-	return &models.AgentConfig{
-		AgentID:   agentInstanceID,
-		AgentType: a.agentType,
-		Version:   1,
-		CoreLogic: config,
-		Workflow:  workflow,
-	}, nil
-}
-
-// getDefaultConfig returns a default configuration for agents
-func (a *Agent) getDefaultConfig(agentInstanceID string) *models.AgentConfig {
-	return &models.AgentConfig{
-		AgentID:   agentInstanceID,
-		AgentType: a.agentType,
-		Version:   1,
-		CoreLogic: map[string]interface{}{
-			"model":       "claude-3-opus",
-			"temperature": 0.7,
-		},
-		Workflow: a.getDefaultWorkflow(),
-	}
-}
-
-// getDefaultWorkflow returns a simple default workflow
-func (a *Agent) getDefaultWorkflow() models.WorkflowPlan {
-	return models.WorkflowPlan{
-		StartStep: "generate",
-		Steps: map[string]models.Step{
-			"generate": {
-				Action:      "ai_text_generate",
-				Description: "Generate text using AI",
-				NextStep:    "complete",
-			},
-			"complete": {
-				Action:      "complete_workflow",
-				Description: "Mark workflow as complete",
-			},
-		},
-	}
-}
-
-// sendErrorResponse sends an error response back via Kafka
-func (a *Agent) sendErrorResponse(headers map[string]string, errorMsg string) {
-	responseHeaders := a.createResponseHeaders(headers)
-
-	errorResponse := map[string]interface{}{
-		"success": false,
-		"error":   errorMsg,
-		"agent":   a.agentType,
-	}
-
-	responseBytes, _ := json.Marshal(errorResponse)
-
-	// Send to error topic
-	errorTopic := fmt.Sprintf("system.errors.%s", a.agentType)
-	if err := a.kafkaProducer.Produce(a.ctx, errorTopic, responseHeaders,
-		[]byte(headers["correlation_id"]), responseBytes); err != nil {
-		a.logger.Error("Failed to send error response", zap.Error(err))
-	}
-}
-
-// createResponseHeaders creates response headers with proper causality tracking
-func (a *Agent) createResponseHeaders(originalHeaders map[string]string) map[string]string {
-	return map[string]string{
-		"correlation_id": originalHeaders["correlation_id"],
-		"causation_id":   originalHeaders["request_id"],
-		"request_id":     uuid.NewString(),
-		"client_id":      originalHeaders["client_id"],
-		"agent_type":     a.agentType,
-		"timestamp":      time.Now().UTC().Format(time.RFC3339),
 	}
 }
 
@@ -317,22 +195,46 @@ func (a *Agent) GetConfig() *config.ServiceConfig {
 	return a.cfg
 }
 
-// StartHealthServer starts a simple HTTP server for health checks
-func (a *Agent) StartHealthServer(port string) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
-			"status":     "healthy",
-			"agent_type": a.agentType,
-		})
-	})
+// createResponseHeaders creates response headers with proper causality tracking
+func (a *Agent) createResponseHeaders(originalHeaders map[string]string) map[string]string {
+	return map[string]string{
+		"correlation_id": originalHeaders["correlation_id"],
+		"causation_id":   originalHeaders["request_id"],
+		"request_id":     uuid.NewString(),
+		"client_id":      originalHeaders["client_id"],
+		"agent_type":     a.agentType,
+		"timestamp":      time.Now().UTC().Format(time.RFC3339),
+	}
+}
 
-	go func() {
-		a.logger.Info("Starting health server", zap.String("port", port))
-		if err := http.ListenAndServe(":"+port, mux); err != nil {
-			a.logger.Error("Health server failed", zap.Error(err))
-		}
-	}()
+// getDefaultConfig returns a default configuration for agents
+func (a *Agent) getDefaultConfig(agentInstanceID string) *models.AgentConfig {
+	return &models.AgentConfig{
+		AgentID:   agentInstanceID,
+		AgentType: a.agentType,
+		Version:   1,
+		CoreLogic: map[string]interface{}{
+			"model":       "claude-3-opus",
+			"temperature": 0.7,
+		},
+		Workflow: a.getDefaultWorkflow(),
+	}
+}
+
+// getDefaultWorkflow returns a simple default workflow
+func (a *Agent) getDefaultWorkflow() models.WorkflowPlan {
+	return models.WorkflowPlan{
+		StartStep: "generate",
+		Steps: map[string]models.Step{
+			"generate": {
+				Action:      "ai_text_generate",
+				Description: "Generate text using AI",
+				NextStep:    "complete",
+			},
+			"complete": {
+				Action:      "complete_workflow",
+				Description: "Mark workflow as complete",
+			},
+		},
+	}
 }

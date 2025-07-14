@@ -2,11 +2,10 @@
 
 
 -- Enable required extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Global agent definitions table (shared across all clients)
 CREATE TABLE IF NOT EXISTS agent_definitions (
-                                                 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                                                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     type VARCHAR(100) NOT NULL UNIQUE,
     display_name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -54,7 +53,7 @@ EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', schema_name);
 -- Agent instances table for this client
 EXECUTE format('
         CREATE TABLE IF NOT EXISTS %I.agent_instances (
-            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             template_id UUID NOT NULL,
             owner_user_id VARCHAR(255) NOT NULL,
             name VARCHAR(255) NOT NULL,
@@ -76,7 +75,7 @@ EXECUTE format('
 -- Agent memory table with vector support
 EXECUTE format('
         CREATE TABLE IF NOT EXISTS %I.agent_memory (
-            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             agent_instance_id UUID NOT NULL REFERENCES %I.agent_instances(id),
             content TEXT NOT NULL,
             embedding vector(1536) NOT NULL,
@@ -97,7 +96,7 @@ EXECUTE format('
 -- Projects table for this client
 EXECUTE format('
         CREATE TABLE IF NOT EXISTS %I.projects (
-            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             name VARCHAR(255) NOT NULL,
             description TEXT,
             owner_user_id VARCHAR(255) NOT NULL,
@@ -115,7 +114,7 @@ EXECUTE format('
 -- Workflow executions table for this client
 EXECUTE format('
         CREATE TABLE IF NOT EXISTS %I.workflow_executions (
-            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             correlation_id UUID NOT NULL,
             project_id UUID REFERENCES %I.projects(id),
             agent_instance_id UUID REFERENCES %I.agent_instances(id),
@@ -144,7 +143,7 @@ EXECUTE format('
 -- Usage analytics table for this client
 EXECUTE format('
         CREATE TABLE IF NOT EXISTS %I.usage_analytics (
-            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id VARCHAR(255) NOT NULL,
             agent_type VARCHAR(100) NOT NULL,
             action VARCHAR(100) NOT NULL,
