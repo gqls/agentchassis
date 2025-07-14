@@ -24,7 +24,7 @@ import (
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/logger"
 	"github.com/rs/cors"
-	"github.comcom/gqls/agentchassis/platform/database"
+	"github.com/gqls/agentchassis/platform/database"
 	"go.uber.org/zap"
 )
 
