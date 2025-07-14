@@ -12,8 +12,9 @@ logging:
 
 infrastructure:
   kafka_brokers:
-    - "kafka-broker-1:9092"
-    - "kafka-broker-2:9092"
+    - "kafka-0.kafka-headless:9092"
+    - "kafka-1.kafka-headless:9092"
+    - "kafka-2.kafka-headless:9092"
 
   clients_database: {}
   templates_database: {}

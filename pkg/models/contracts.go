@@ -3,11 +3,16 @@ package models
 
 // AgentConfig defines the "mind" of an agent, loaded from the database
 type AgentConfig struct {
-	AgentID   string                 `json:"agent_id"`
-	AgentType string                 `json:"agent_type"`
-	Version   int                    `json:"version"`
-	CoreLogic map[string]interface{} `json:"core_logic"`
-	Workflow  WorkflowPlan           `json:"workflow"`
+	AgentID      string                 `json:"agent_id"`
+	AgentType    string                 `json:"agent_type"`
+	Version      int                    `json:"version"`
+	CoreLogic    map[string]interface{} `json:"core_logic"`
+	Workflow     WorkflowPlan           `json:"workflow"`
+	EnableMemory bool                   `json:"enable_memory"`
+	MemoryConfig struct {
+		AutoStore   bool `json:"auto_store"`
+		MaxMemories int  `json:"max_memories"`
+	} `json:"memory_config"`
 }
 
 // WorkflowPlan defines the orchestration steps for an agent
