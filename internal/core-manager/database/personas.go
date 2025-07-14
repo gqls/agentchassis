@@ -1,4 +1,5 @@
 // FILE: internal/core-manager/database/personas.go
+
 package database
 
 import (
@@ -14,24 +15,34 @@ import (
 	"go.uber.org/zap"
 )
 
-type personaRepository struct {
+type PersonaRepository struct {
 	templatesDB *pgxpool.Pool
 	clientsDB   *pgxpool.Pool
 	logger      *zap.Logger
 }
 
 // NewPersonaRepository creates a new repository instance
-func NewPersonaRepository(templatesDB, clientsDB *pgxpool.Pool, logger *zap.Logger) models.PersonaRepository {
-	return &personaRepository{
+func NewPersonaRepository(templatesDB, clientsDB *pgxpool.Pool, logger *zap.Logger) *PersonaRepository {
+	return &PersonaRepository{
 		templatesDB: templatesDB,
 		clientsDB:   clientsDB,
 		logger:      logger,
 	}
 }
 
+// ClientsDB returns the clients database pool
+func (r *PersonaRepository) ClientsDB() *pgxpool.Pool {
+	return r.clientsDB
+}
+
+// TemplatesDB returns the templates database pool
+func (r *PersonaRepository) TemplatesDB() *pgxpool.Pool {
+	return r.templatesDB
+}
+
 // Template Methods
 
-func (r *personaRepository) CreateTemplate(ctx context.Context, template *models.Persona) (*models.Persona, error) {
+func (r *PersonaRepository) CreateTemplate(ctx context.Context, template *models.Persona) (*models.Persona, error) {
 	r.logger.Info("Creating new persona template", zap.String("name", template.Name))
 
 	configJSON, _ := json.Marshal(template.Config)
@@ -61,7 +72,7 @@ func (r *personaRepository) CreateTemplate(ctx context.Context, template *models
 	return template, nil
 }
 
-func (r *personaRepository) GetTemplateByID(ctx context.Context, id string) (*models.Persona, error) {
+func (r *PersonaRepository) GetTemplateByID(ctx context.Context, id string) (*models.Persona, error) {
 	r.logger.Info("Getting template by ID", zap.String("id", id))
 
 	var template models.Persona
@@ -97,7 +108,7 @@ func (r *personaRepository) GetTemplateByID(ctx context.Context, id string) (*mo
 	return &template, nil
 }
 
-func (r *personaRepository) ListTemplates(ctx context.Context) ([]models.Persona, error) {
+func (r *PersonaRepository) ListTemplates(ctx context.Context) ([]models.Persona, error) {
 	r.logger.Info("Listing all templates")
 
 	query := `
@@ -141,7 +152,7 @@ func (r *personaRepository) ListTemplates(ctx context.Context) ([]models.Persona
 	return templates, nil
 }
 
-func (r *personaRepository) UpdateTemplate(ctx context.Context, template *models.Persona) (*models.Persona, error) {
+func (r *PersonaRepository) UpdateTemplate(ctx context.Context, template *models.Persona) (*models.Persona, error) {
 	r.logger.Info("Updating template", zap.String("id", template.ID.String()))
 
 	configJSON, _ := json.Marshal(template.Config)
@@ -169,7 +180,7 @@ func (r *personaRepository) UpdateTemplate(ctx context.Context, template *models
 	return template, nil
 }
 
-func (r *personaRepository) DeleteTemplate(ctx context.Context, id string) error {
+func (r *PersonaRepository) DeleteTemplate(ctx context.Context, id string) error {
 	r.logger.Info("Deleting template", zap.String("id", id))
 
 	// Soft delete
@@ -185,7 +196,7 @@ func (r *personaRepository) DeleteTemplate(ctx context.Context, id string) error
 
 // Instance Methods
 
-func (r *personaRepository) CreateInstanceFromTemplate(ctx context.Context, templateID string, userID string, instanceName string) (*models.Persona, error) {
+func (r *PersonaRepository) CreateInstanceFromTemplate(ctx context.Context, templateID string, userID string, instanceName string) (*models.Persona, error) {
 	r.logger.Info("Creating instance from template",
 		zap.String("templateID", templateID),
 		zap.String("userID", userID))
@@ -242,7 +253,7 @@ func (r *personaRepository) CreateInstanceFromTemplate(ctx context.Context, temp
 	return instance, nil
 }
 
-func (r *personaRepository) GetInstanceByID(ctx context.Context, id string) (*models.Persona, error) {
+func (r *PersonaRepository) GetInstanceByID(ctx context.Context, id string) (*models.Persona, error) {
 	clientID, _ := ctx.Value("client_id").(string)
 
 	var instance models.Persona
@@ -271,7 +282,7 @@ func (r *personaRepository) GetInstanceByID(ctx context.Context, id string) (*mo
 	return &instance, nil
 }
 
-func (r *personaRepository) ListInstances(ctx context.Context, userID string) ([]models.Persona, error) {
+func (r *PersonaRepository) ListInstances(ctx context.Context, userID string) ([]models.Persona, error) {
 	clientID, _ := ctx.Value("client_id").(string)
 
 	query := fmt.Sprintf(`
@@ -311,7 +322,7 @@ func (r *personaRepository) ListInstances(ctx context.Context, userID string) ([
 	return instances, nil
 }
 
-func (r *personaRepository) UpdateInstance(ctx context.Context, id string, name *string, config map[string]interface{}) (*models.Persona, error) {
+func (r *PersonaRepository) UpdateInstance(ctx context.Context, id string, name *string, config map[string]interface{}) (*models.Persona, error) {
 	clientID, _ := ctx.Value("client_id").(string)
 
 	// First get the current instance
@@ -347,7 +358,7 @@ func (r *personaRepository) UpdateInstance(ctx context.Context, id string, name 
 	return instance, nil
 }
 
-func (r *personaRepository) DeleteInstance(ctx context.Context, id string) error {
+func (r *PersonaRepository) DeleteInstance(ctx context.Context, id string) error {
 	clientID, _ := ctx.Value("client_id").(string)
 
 	query := fmt.Sprintf(`

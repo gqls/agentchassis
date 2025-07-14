@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/gqls/agentchassis/internal/auth-service/admin"
 	"github.com/gqls/agentchassis/internal/auth-service/auth"
 	"github.com/gqls/agentchassis/internal/auth-service/gateway"
 	"github.com/gqls/agentchassis/internal/auth-service/jwt"
@@ -19,15 +21,10 @@ import (
 	"github.com/gqls/agentchassis/internal/auth-service/project"
 	"github.com/gqls/agentchassis/internal/auth-service/subscription"
 	"github.com/gqls/agentchassis/internal/auth-service/user"
-
-	// Platform packages
 	"github.com/gqls/agentchassis/platform/config"
-	"github.com/gqls/agentchassis/platform/database"
 	"github.com/gqls/agentchassis/platform/logger"
-
-	// External packages
-	"github.com/gin-gonic/gin"
 	"github.com/rs/cors"
+	"github.comcom/gqls/agentchassis/platform/database"
 	"go.uber.org/zap"
 )
 
@@ -103,6 +100,7 @@ func main() {
 	subscriptionHandlers := subscription.NewHandlers(subscriptionSvc)
 	subscriptionAdminHandlers := subscription.NewAdminHandlers(subscriptionSvc)
 	gatewayHandler := gateway.NewHTTPHandler(gatewaySvc, appLogger)
+	adminHandlers := admin.NewHandlers(userRepo, appLogger)
 
 	// --- Step 5: Setup Routing and Middleware ---
 	// Using Gin router for consistency with handlers
@@ -163,8 +161,25 @@ func main() {
 	adminGroup.Use(middleware.RequireAuth(jwtSvc, appLogger))
 	adminGroup.Use(middleware.RequireRole("admin"))
 	{
+		// User management (handled by auth-service)
+		adminGroup.GET("/users", adminHandlers.HandleListUsers)
+		adminGroup.GET("/users/:user_id", adminHandlers.HandleGetUser)
+		adminGroup.PUT("/users/:user_id", adminHandlers.HandleUpdateUser)
+		adminGroup.DELETE("/users/:user_id", adminHandlers.HandleDeleteUser)
+		adminGroup.GET("/users/:user_id/activity", adminHandlers.HandleGetUserActivity)
+		adminGroup.POST("/users/:user_id/permissions", adminHandlers.HandleGrantPermission)
+		adminGroup.DELETE("/users/:user_id/permissions/:permission_name", adminHandlers.HandleRevokePermission)
+
+		// Subscription management (handled by auth-service)
 		adminGroup.POST("/subscriptions", subscriptionAdminHandlers.HandleCreateSubscription)
 		adminGroup.PUT("/subscriptions/:user_id", wrapAdminSubscriptionHandler(subscriptionAdminHandlers.HandleUpdateSubscription))
+
+		// Routes to be proxied to core-manager
+		adminGroup.Any("/clients", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/clients/*path", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/system/*path", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/workflows/*path", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/agent-definitions/*path", gatewayHandler.HandleAdminRoutes)
 	}
 
 	// Gateway proxy endpoints (protected)

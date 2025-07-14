@@ -9,25 +9,28 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/internal/core-manager/admin" // Import the new admin package
 	"github.com/gqls/agentchassis/internal/core-manager/database"
 	"github.com/gqls/agentchassis/internal/core-manager/middleware"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/kafka" // Import kafka for admin handlers
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 // Server represents the Core Manager API server
 type Server struct {
-	ctx         context.Context
-	cfg         *config.ServiceConfig
-	logger      *zap.Logger
-	router      *gin.Engine
-	httpServer  *http.Server
-	personaRepo models.PersonaRepository
+	ctx           context.Context
+	cfg           *config.ServiceConfig
+	logger        *zap.Logger
+	router        *gin.Engine
+	httpServer    *http.Server
+	personaRepo   models.PersonaRepository
+	kafkaProducer kafka.Producer // Add kafka producer
 }
 
-// FILE: internal/core-manager/api/server.go (updated NewServer function)
+// NewServer function updated to include kafkaProducer
 func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, templatesDB, clientsDB *pgxpool.Pool) (*Server, error) {
 	// Initialize repositories
 	personaRepo := database.NewPersonaRepository(templatesDB, clientsDB, logger)
@@ -36,6 +39,12 @@ func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logge
 	router := gin.New()
 	router.Use(gin.Recovery())
 
+	// Initialize Kafka Producer for admin handlers
+	kafkaProducer, err := kafka.NewProducer(cfg.Infrastructure.KafkaBrokers, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kafka producer for admin handlers: %w", err)
+	}
+
 	// Initialize auth middleware config
 	authConfig, err := middleware.NewAuthMiddlewareConfig(cfg, logger)
 	if err != nil {
@@ -43,11 +52,12 @@ func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logge
 	}
 
 	server := &Server{
-		ctx:         ctx,
-		cfg:         cfg,
-		logger:      logger,
-		router:      router,
-		personaRepo: personaRepo,
+		ctx:           ctx,
+		cfg:           cfg,
+		logger:        logger,
+		router:        router,
+		personaRepo:   personaRepo,
+		kafkaProducer: kafkaProducer,
 	}
 
 	// Setup routes with configured auth middleware
@@ -70,7 +80,6 @@ func (s *Server) setupRoutesWithAuth(router *gin.Engine, authConfig *middleware.
 	// API v1 group with authentication
 	apiV1 := router.Group("/api/v1")
 	apiV1.Use(middleware.AuthMiddleware(authConfig))
-	apiV1.Use(middleware.TenantMiddleware(s.logger))
 	{
 		// Template Management (Admin Only)
 		templates := apiV1.Group("/templates")
@@ -83,8 +92,9 @@ func (s *Server) setupRoutesWithAuth(router *gin.Engine, authConfig *middleware.
 			templates.DELETE("/:id", s.handleDeleteTemplate)
 		}
 
-		// Persona Instance Management
+		// Persona Instance Management (Tenant-scoped)
 		instances := apiV1.Group("/personas/instances")
+		instances.Use(middleware.TenantMiddleware(s.logger))
 		{
 			instances.POST("", s.handleCreateInstance)
 			instances.GET("", s.handleListInstances)
@@ -93,14 +103,29 @@ func (s *Server) setupRoutesWithAuth(router *gin.Engine, authConfig *middleware.
 			instances.DELETE("/:id", s.handleDeleteInstance)
 		}
 
-		// Projects
-		projects := apiV1.Group("/projects")
+		// Admin Management (Admin Only)
+		adminGroup := apiV1.Group("/admin")
+		adminGroup.Use(middleware.AdminOnly())
 		{
-			projects.POST("", s.handleCreateProject)
-			projects.GET("", s.handleListProjects)
-			projects.GET("/:id", s.handleGetProject)
-			projects.PUT("/:id", s.handleUpdateProject)
-			projects.DELETE("/:id", s.handleDeleteProject)
+			// Initialize admin handlers
+			clientHandlers := admin.NewClientHandlers(s.personaRepo.(*database.PersonaRepository).ClientsDB(), s.logger)
+			systemHandlers := admin.NewSystemHandlers(s.personaRepo.(*database.PersonaRepository).ClientsDB(), s.personaRepo.(*database.PersonaRepository).TemplatesDB(), s.kafkaProducer, s.logger)
+
+			// Client Management
+			adminGroup.POST("/clients", clientHandlers.HandleCreateClient)
+			adminGroup.GET("/clients", clientHandlers.HandleListClients)
+			adminGroup.GET("/clients/:client_id/usage", clientHandlers.HandleGetClientUsage)
+
+			// System & Workflow Management
+			adminGroup.GET("/system/status", systemHandlers.HandleGetSystemStatus)
+			adminGroup.GET("/system/kafka/topics", systemHandlers.HandleListKafkaTopics)
+			adminGroup.GET("/workflows", systemHandlers.HandleListWorkflows)
+			adminGroup.GET("/workflows/:correlation_id", systemHandlers.HandleGetWorkflow)
+			adminGroup.POST("/workflows/:correlation_id/resume", systemHandlers.HandleResumeWorkflow)
+
+			// Agent Definition Management
+			adminGroup.GET("/agent-definitions", systemHandlers.HandleListAgentDefinitions)
+			adminGroup.PUT("/agent-definitions/:type_name", systemHandlers.HandleUpdateAgentDefinition)
 		}
 	}
 }
@@ -113,6 +138,7 @@ func (s *Server) Start() error {
 
 // Shutdown gracefully shuts down the server
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.kafkaProducer.Close() // Close the producer on shutdown
 	return s.httpServer.Shutdown(ctx)
 }
 
@@ -208,9 +234,6 @@ func (s *Server) handleDeleteTemplate(c *gin.Context) {
 func (s *Server) handleCreateInstance(c *gin.Context) {
 	claims := c.MustGet("user_claims").(*middleware.AuthClaims)
 
-	// Create context with client_id
-	ctx := context.WithValue(c.Request.Context(), "client_id", claims.ClientID)
-
 	var req struct {
 		TemplateID   string `json:"template_id" binding:"required,uuid"`
 		InstanceName string `json:"instance_name" binding:"required"`
@@ -220,7 +243,7 @@ func (s *Server) handleCreateInstance(c *gin.Context) {
 		return
 	}
 
-	instance, err := s.personaRepo.CreateInstanceFromTemplate(ctx,
+	instance, err := s.personaRepo.CreateInstanceFromTemplate(c.Request.Context(),
 		req.TemplateID, claims.UserID, req.InstanceName)
 	if err != nil {
 		s.logger.Error("Failed to create instance", zap.Error(err))
@@ -230,13 +253,9 @@ func (s *Server) handleCreateInstance(c *gin.Context) {
 	c.JSON(http.StatusCreated, instance)
 }
 
-// Update other handlers similarly...
 func (s *Server) handleGetInstance(c *gin.Context) {
-	claims := c.MustGet("user_claims").(*middleware.AuthClaims)
-	ctx := context.WithValue(c.Request.Context(), "client_id", claims.ClientID)
-
 	instanceID := c.Param("id")
-	instance, err := s.personaRepo.GetInstanceByID(ctx, instanceID)
+	instance, err := s.personaRepo.GetInstanceByID(c.Request.Context(), instanceID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Instance not found"})
 		return
@@ -281,26 +300,4 @@ func (s *Server) handleDeleteInstance(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
-}
-
-// Project Handlers (placeholders)
-
-func (s *Server) handleCreateProject(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
-}
-
-func (s *Server) handleListProjects(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"projects": []interface{}{}})
-}
-
-func (s *Server) handleGetProject(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
-}
-
-func (s *Server) handleUpdateProject(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
-}
-
-func (s *Server) handleDeleteProject(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
 }

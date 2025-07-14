@@ -1,3 +1,4 @@
+// FILE: internal/auth-service/gateway/handlers.go
 package gateway
 
 import (
@@ -96,114 +97,18 @@ func (h *HTTPHandler) ProxyToCoreManager(c *gin.Context) {
 	}
 }
 
-// Template Management Handlers
-
-func (h *HTTPHandler) HandleListTemplates(c *gin.Context) {
-	h.proxyToCoreManager(c, "/templates")
-}
-
-func (h *HTTPHandler) HandleCreateTemplate(c *gin.Context) {
-	h.proxyToCoreManager(c, "/templates")
-}
-
-func (h *HTTPHandler) HandleGetTemplate(c *gin.Context) {
-	templateID := c.Param("id")
-	h.proxyToCoreManager(c, "/templates/"+templateID)
-}
-
-func (h *HTTPHandler) HandleUpdateTemplate(c *gin.Context) {
-	templateID := c.Param("id")
-	h.proxyToCoreManager(c, "/templates/"+templateID)
-}
-
-func (h *HTTPHandler) HandleDeleteTemplate(c *gin.Context) {
-	templateID := c.Param("id")
-	h.proxyToCoreManager(c, "/templates/"+templateID)
-}
-
-// Instance Management Handlers
-
-func (h *HTTPHandler) HandleCreateInstance(c *gin.Context) {
-	h.proxyToCoreManager(c, "/personas/instances")
-}
-
-func (h *HTTPHandler) HandleListInstances(c *gin.Context) {
-	h.proxyToCoreManager(c, "/personas/instances")
-}
-
-func (h *HTTPHandler) HandleGetInstance(c *gin.Context) {
-	instanceID := c.Param("id")
-	h.proxyToCoreManager(c, "/personas/instances/"+instanceID)
-}
-
-func (h *HTTPHandler) HandleUpdateInstance(c *gin.Context) {
-	instanceID := c.Param("id")
-	h.proxyToCoreManager(c, "/personas/instances/"+instanceID)
-}
-
-func (h *HTTPHandler) HandleDeleteInstance(c *gin.Context) {
-	instanceID := c.Param("id")
-	h.proxyToCoreManager(c, "/personas/instances/"+instanceID)
-}
-
-// Project Management Handlers
-
-func (h *HTTPHandler) HandleListProjects(c *gin.Context) {
-	h.proxyToCoreManager(c, "/projects")
-}
-
-func (h *HTTPHandler) HandleCreateProject(c *gin.Context) {
-	h.proxyToCoreManager(c, "/projects")
-}
-
-func (h *HTTPHandler) HandleGetProject(c *gin.Context) {
-	projectID := c.Param("id")
-	h.proxyToCoreManager(c, "/projects/"+projectID)
-}
-
-func (h *HTTPHandler) HandleUpdateProject(c *gin.Context) {
-	projectID := c.Param("id")
-	h.proxyToCoreManager(c, "/projects/"+projectID)
-}
-
-func (h *HTTPHandler) HandleDeleteProject(c *gin.Context) {
-	projectID := c.Param("id")
-	h.proxyToCoreManager(c, "/projects/"+projectID)
-}
-
-// proxyToCoreManager is a helper method
-func (h *HTTPHandler) proxyToCoreManager(c *gin.Context, path string) {
-	c.Params = append(c.Params, gin.Param{Key: "path", Value: path})
-	h.ProxyToCoreManager(c)
-}
-
 // HandleTemplateRoutes handles all template-related routes
 func (h *HTTPHandler) HandleTemplateRoutes(c *gin.Context) {
-	// Extract the path after /api/v1/templates
-	path := strings.TrimPrefix(c.Request.URL.Path, "/api/v1/templates")
-
-	// Check if it's a specific template ID
-	if path != "" && path != "/" {
-		templateID := strings.TrimPrefix(path, "/")
-		c.Params = append(c.Params, gin.Param{Key: "id", Value: templateID})
-	}
-
-	// Proxy to core manager
 	h.ProxyToCoreManager(c)
 }
 
 // HandleInstanceRoutes handles all instance-related routes
 func (h *HTTPHandler) HandleInstanceRoutes(c *gin.Context) {
-	// Extract the path after /api/v1/personas/instances
-	path := strings.TrimPrefix(c.Request.URL.Path, "/api/v1/personas/instances")
+	h.ProxyToCoreManager(c)
+}
 
-	// Check if it's a specific instance ID
-	if path != "" && path != "/" {
-		instanceID := strings.TrimPrefix(path, "/")
-		c.Params = append(c.Params, gin.Param{Key: "id", Value: instanceID})
-	}
-
-	// Proxy to core manager
+// HandleAdminRoutes provides a generic proxy for all admin routes destined for core-manager
+func (h *HTTPHandler) HandleAdminRoutes(c *gin.Context) {
 	h.ProxyToCoreManager(c)
 }
 
