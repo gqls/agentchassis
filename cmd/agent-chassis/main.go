@@ -1,24 +1,22 @@
-// FILE: cmd/agent-chassis/main.go
-// This is the entrypoint for our generic agent service.
+// FILE: cmd/agent-chassis/main.go (updated)
 package main
 
 import (
 	"context"
 	"flag"
-	"go.uber.org/zap"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/gqls/agentchassis/platform/agentbase"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/logger"
+	"go.uber.org/zap"
 )
 
 func main() {
-	// 1. Load the service's static configuration from a file.
+	// Load configuration
 	configPath := flag.String("config", "configs/agent-chassis.yaml", "Path to config file")
 	flag.Parse()
 
@@ -27,51 +25,48 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// 2. Initialize the logger.
+	// Initialize logger
 	appLogger, err := logger.New(cfg.Logging.Level)
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 	defer appLogger.Sync()
 
-	// 3. Create a cancellable context for graceful shutdown.
+	// Create context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// 4. Initialize the base agent framework from the platform library.
-	// This one call sets up all connections (DB, Kafka) and the main consumer loop logic.
+	// Initialize agent
 	agent, err := agentbase.New(ctx, cfg, appLogger)
 	if err != nil {
-		appLogger.Fatal("Failed to initialize agent base", zap.Error(err))
+		appLogger.Fatal("Failed to initialize agent", zap.Error(err))
 	}
 
-	// After creating the agent
-	agent, err = agentbase.New(ctx, cfg, appLogger)
-	if err != nil {
-		appLogger.Fatal("Failed to initialize agent base", zap.Error(err))
-	}
+	// Handle shutdown
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start health endpoint
-	agent.StartHealthServer("9090")
-
-	// 5. Start the agent's main run loop in a goroutine.
+	// Run agent in goroutine
+	errCh := make(chan error, 1)
 	go func() {
 		if err := agent.Run(); err != nil {
-			appLogger.Error("Agent chassis failed to run", zap.Error(err))
-			cancel() // Trigger shutdown if the run loop exits with an error
+			errCh <- err
 		}
 	}()
 
-	// 6. Wait for a shutdown signal.
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	appLogger.Info("Shutdown signal received, shutting down agent chassis...")
+	// Wait for shutdown signal or error
+	select {
+	case <-sigCh:
+		appLogger.Info("Shutdown signal received")
+		cancel()
+		if err := agent.Shutdown(); err != nil {
+			appLogger.Error("Shutdown error", zap.Error(err))
+		}
+	case err := <-errCh:
+		appLogger.Error("Agent failed", zap.Error(err))
+		cancel()
+		agent.Shutdown()
+	}
 
-	// Trigger the context cancellation, which will gracefully stop the agent's Run loop.
-	cancel()
-
-	// Allow a moment for graceful shutdown to complete.
-	time.Sleep(2 * time.Second)
-	appLogger.Info("Agent chassis service stopped.")
+	appLogger.Info("Agent stopped")
 }

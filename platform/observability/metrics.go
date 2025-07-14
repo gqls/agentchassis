@@ -6,6 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
+	"time"
 )
 
 var (
@@ -169,7 +170,8 @@ func (m *MetricsServer) Start() error {
 type WorkflowTimer struct {
 	agentType    string
 	workflowType string
-	timer        prometheus.Timer
+	startTime    time.Time
+	timer        *prometheus.Timer
 }
 
 // StartWorkflowTimer starts timing a workflow execution
@@ -185,8 +187,10 @@ func StartWorkflowTimer(agentType, workflowType string) *WorkflowTimer {
 
 // Complete marks the workflow as completed with the given status
 func (wt *WorkflowTimer) Complete(status string) {
-	wt.timer.Stop()
-	WorkflowDuration.WithLabelValues(wt.agentType, wt.workflowType, status).Observe(wt.timer.ObserveDuration().Seconds())
+	// The ObserveDuration method records the observation on the histogram provided to NewTimer.
+	// It's designed to be called once. By calling it here, we override the "unknown" status.
+	duration := wt.timer.ObserveDuration()
+	WorkflowDuration.WithLabelValues(wt.agentType, wt.workflowType, status).Observe(duration.Seconds())
 }
 
 // CircuitBreakerStateValue converts circuit breaker state to numeric value

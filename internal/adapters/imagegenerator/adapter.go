@@ -135,7 +135,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	var req RequestPayload
 	if err := json.Unmarshal(msg.Value, &req); err != nil {
 		l.Error("Failed to unmarshal request payload", zap.Error(err))
-		a.sendErrorResponse(headers, errors.ValidationError("payload", "invalid JSON").Build())
+		a.sendErrorResponse(headers, errors.ValidationError("payload", "invalid JSON"))
 		a.consumer.CommitMessages(context.Background(), msg)
 		return
 	}
