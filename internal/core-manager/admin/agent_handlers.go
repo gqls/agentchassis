@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -23,15 +24,17 @@ type AgentHandlers struct {
 	templatesDB   *pgxpool.Pool
 	kafkaProducer kafka.Producer
 	logger        *zap.Logger
+	personaRepo   models.PersonaRepository
 }
 
 // NewAgentHandlers creates new agent management handlers
-func NewAgentHandlers(clientsDB, templatesDB *pgxpool.Pool, kafkaProducer kafka.Producer, logger *zap.Logger) *AgentHandlers {
+func NewAgentHandlers(clientsDB, templatesDB *pgxpool.Pool, kafkaProducer kafka.Producer, logger *zap.Logger, personaRepo models.PersonaRepository) *AgentHandlers {
 	return &AgentHandlers{
 		clientsDB:     clientsDB,
 		templatesDB:   templatesDB,
 		kafkaProducer: kafkaProducer,
 		logger:        logger,
+		personaRepo:   personaRepo,
 	}
 }
 
@@ -566,4 +569,32 @@ func (h *AgentHandlers) notifyAgentDisabled(ctx context.Context, clientID, agent
 
 	h.kafkaProducer.Produce(ctx, "system.notifications.admin", headers,
 		[]byte(agentID), notificationBytes)
+}
+
+// HandleUpdateInstanceConfig updates the configuration of a specific agent instance.
+func (h *AgentHandlers) HandleUpdateInstanceConfig(c *gin.Context) {
+	agentID := c.Param("agent_id")
+	clientID := c.Param("client_id")
+
+	var req struct {
+		Config map[string]interface{} `json:"config" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+		return
+	}
+
+	// Now you can call the repository method directly from the handler
+	err := h.personaRepo.AdminUpdateInstanceConfig(c.Request.Context(), clientID, agentID, req.Config)
+	if err != nil {
+		h.logger.Error("Failed to update instance config", zap.Error(err), zap.String("agent_id", agentID))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update instance config"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "Configuration updated successfully.",
+		"agent_id":  agentID,
+		"client_id": clientID,
+	})
 }

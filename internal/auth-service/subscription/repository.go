@@ -141,3 +141,61 @@ func (r *Repository) GetUsageStats(ctx context.Context, userID string) (*UsageSt
 
 	return &stats, nil
 }
+
+// ListSubscriptionsParams contains parameters for listing subscriptions
+type ListSubscriptionsParams struct {
+	Limit  int
+	Offset int
+	Status string
+	Tier   string
+}
+
+// ListAll retrieves a paginated list of all subscriptions
+func (r *Repository) ListAll(ctx context.Context, params ListSubscriptionsParams) ([]Subscription, int, error) {
+	query := `SELECT id, user_id, tier, status, start_date, end_date, created_at FROM subscriptions WHERE 1=1`
+	countQuery := `SELECT COUNT(*) FROM subscriptions WHERE 1=1`
+
+	args := []interface{}{}
+	count := 1
+
+	if params.Status != "" {
+		query += fmt.Sprintf(" AND status = $%d", count)
+		countQuery += fmt.Sprintf(" AND status = $%d", count)
+		args = append(args, params.Status)
+		count++
+	}
+	if params.Tier != "" {
+		query += fmt.Sprintf(" AND tier = $%d", count)
+		countQuery += fmt.Sprintf(" AND tier = $%d", count)
+		args = append(args, params.Tier)
+		count++
+	}
+
+	query += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", count, count+1)
+	args = append(args, params.Limit, params.Offset)
+
+	// Get total count
+	var total int
+	if err := r.db.QueryRowContext(ctx, countQuery, args[:count-1]...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to get subscription count: %w", err)
+	}
+
+	// Get subscriptions
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list subscriptions: %w", err)
+	}
+	defer rows.Close()
+
+	var subscriptions []Subscription
+	for rows.Next() {
+		var s Subscription
+		if err := rows.Scan(&s.ID, &s.UserID, &s.Tier, &s.Status, &s.StartDate, &s.EndDate, &s.CreatedAt); err != nil {
+			r.logger.Error("Failed to scan subscription row", zap.Error(err))
+			continue
+		}
+		subscriptions = append(subscriptions, s)
+	}
+
+	return subscriptions, total, nil
+}

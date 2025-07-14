@@ -111,6 +111,9 @@ func (s *Server) setupRoutesWithAuth(router *gin.Engine, authConfig *middleware.
 			clientHandlers := admin.NewClientHandlers(s.personaRepo.(*database.PersonaRepository).ClientsDB(), s.logger)
 			systemHandlers := admin.NewSystemHandlers(s.personaRepo.(*database.PersonaRepository).ClientsDB(), s.personaRepo.(*database.PersonaRepository).TemplatesDB(), s.kafkaProducer, s.logger)
 
+			// Initialize AgentHandlers with the personaRepo dependency
+			agentAdminHandlers := admin.NewAgentHandlers(s.personaRepo.(*database.PersonaRepository).ClientsDB(), s.personaRepo.(*database.PersonaRepository).TemplatesDB(), s.kafkaProducer, s.logger, s.personaRepo)
+
 			// Client Management
 			adminGroup.POST("/clients", clientHandlers.HandleCreateClient)
 			adminGroup.GET("/clients", clientHandlers.HandleListClients)
@@ -126,6 +129,10 @@ func (s *Server) setupRoutesWithAuth(router *gin.Engine, authConfig *middleware.
 			// Agent Definition Management
 			adminGroup.GET("/agent-definitions", systemHandlers.HandleListAgentDefinitions)
 			adminGroup.PUT("/agent-definitions/:type_name", systemHandlers.HandleUpdateAgentDefinition)
+
+			// Agent Instance Management
+			adminGroup.PUT("/clients/:client_id/instances/:instance_id/config", agentAdminHandlers.HandleUpdateInstanceConfig)
+
 		}
 	}
 }

@@ -2,7 +2,9 @@
 package subscription
 
 import (
+	"go.uber.org/zap"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -109,4 +111,37 @@ func (h *AdminHandlers) HandleUpdateSubscription(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, subscription)
+}
+
+// HandleListSubscriptions lists all subscriptions with filtering (admin only)
+func (h *AdminHandlers) HandleListSubscriptions(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if limit > 200 {
+		limit = 200
+	}
+	if page < 1 {
+		page = 1
+	}
+
+	params := ListSubscriptionsParams{
+		Limit:  limit,
+		Offset: (page - 1) * limit,
+		Status: c.Query("status"),
+		Tier:   c.Query("tier"),
+	}
+
+	subscriptions, total, err := h.service.repo.ListAll(c.Request.Context(), params)
+	if err != nil {
+		h.logger.Error("Failed to list subscriptions", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve subscriptions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"subscriptions": subscriptions,
+		"total_count":   total,
+		"page":          page,
+		"limit":         limit,
+	})
 }

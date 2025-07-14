@@ -374,3 +374,30 @@ func (r *PersonaRepository) DeleteInstance(ctx context.Context, id string) error
 
 	return nil
 }
+
+// AdminUpdateInstanceConfig allows an admin to update an instance's config
+func (r *PersonaRepository) AdminUpdateInstanceConfig(ctx context.Context, clientID, instanceID string, config map[string]interface{}) error {
+	r.logger.Info("Admin updating instance config", zap.String("instance_id", instanceID), zap.String("client_id", clientID))
+
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	query := fmt.Sprintf(`
+        UPDATE client_%s.agent_instances
+        SET config = $2, updated_at = NOW()
+        WHERE id = $1
+    `, clientID)
+
+	res, err := r.clientsDB.Exec(ctx, query, instanceID, configJSON)
+	if err != nil {
+		return fmt.Errorf("failed to execute update: %w", err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("instance not found")
+	}
+
+	return nil
+}

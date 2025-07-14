@@ -171,6 +171,7 @@ func main() {
 		adminGroup.DELETE("/users/:user_id/permissions/:permission_name", adminHandlers.HandleRevokePermission)
 
 		// Subscription management (handled by auth-service)
+		adminGroup.GET("/subscriptions", subscriptionAdminHandlers.HandleListSubscriptions)
 		adminGroup.POST("/subscriptions", subscriptionAdminHandlers.HandleCreateSubscription)
 		adminGroup.PUT("/subscriptions/:user_id", wrapAdminSubscriptionHandler(subscriptionAdminHandlers.HandleUpdateSubscription))
 
@@ -180,6 +181,7 @@ func main() {
 		adminGroup.Any("/system/*path", gatewayHandler.HandleAdminRoutes)
 		adminGroup.Any("/workflows/*path", gatewayHandler.HandleAdminRoutes)
 		adminGroup.Any("/agent-definitions/*path", gatewayHandler.HandleAdminRoutes)
+
 	}
 
 	// Gateway proxy endpoints (protected)
