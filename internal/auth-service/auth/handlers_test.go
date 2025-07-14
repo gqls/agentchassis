@@ -59,6 +59,92 @@ func (m *MockService) ValidateToken(tokenString string) (*jwt.Claims, error) {
 	return args.Get(0).(*jwt.Claims), args.Error(1)
 }
 
+func TestHandleRegister(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		requestBody    RegisterRequest
+		mockResponse   *TokenResponse
+		mockError      error
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name: "successful registration",
+			requestBody: RegisterRequest{
+				Email:     "newuser@example.com",
+				Password:  "password123",
+				ClientID:  "client-1",
+				FirstName: "Test",
+				LastName:  "User",
+			},
+			mockResponse: &TokenResponse{
+				AccessToken: "new_access_token",
+				TokenType:   "Bearer",
+			},
+			expectedStatus: http.StatusCreated,
+			expectedBody:   "new_access_token",
+		},
+		{
+			name: "user already exists",
+			requestBody: RegisterRequest{
+				Email:    "existing@example.com",
+				Password: "password123",
+				ClientID: "client-1",
+			},
+			mockError:      fmt.Errorf("user with email existing@example.com already exists"),
+			expectedStatus: http.StatusConflict,
+			expectedBody:   "already exists",
+		},
+		{
+			name: "bad request - missing password",
+			requestBody: RegisterRequest{
+				Email: "test@example.com",
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Password",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := new(MockService)
+			handler := &Handlers{service: mockService}
+
+			// Setup mock expectation
+			if tt.mockError != nil || tt.mockResponse != nil {
+				// We expect the service's Register method to be called
+				userReq := &user.CreateUserRequest{
+					Email:     tt.requestBody.Email,
+					Password:  tt.requestBody.Password,
+					ClientID:  tt.requestBody.ClientID,
+					FirstName: tt.requestBody.FirstName,
+					LastName:  tt.requestBody.LastName,
+				}
+				mockService.On("Register", mock.Anything, userReq).Return(tt.mockResponse, tt.mockError).Once()
+			}
+
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+
+			body, _ := json.Marshal(tt.requestBody)
+			c.Request = httptest.NewRequest("POST", "/register", bytes.NewBuffer(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			handler.HandleRegister(c)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			assert.Contains(t, w.Body.String(), tt.expectedBody)
+
+			// Verify that the mock was called if it was expected
+			if tt.mockError != nil || tt.mockResponse != nil {
+				mockService.AssertExpectations(t)
+			}
+		})
+	}
+}
+
 func TestHandleLogin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -117,6 +203,66 @@ func TestHandleLogin(t *testing.T) {
 			handler.HandleLogin(c)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestHandleRefresh(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		requestBody    RefreshRequest
+		mockResponse   *TokenResponse
+		mockError      error
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name: "successful refresh",
+			requestBody: RefreshRequest{
+				RefreshToken: "valid_refresh_token",
+			},
+			mockResponse: &TokenResponse{
+				AccessToken: "new_access_token_from_refresh",
+				TokenType:   "Bearer",
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   "new_access_token_from_refresh",
+		},
+		{
+			name: "invalid refresh token",
+			requestBody: RefreshRequest{
+				RefreshToken: "invalid_or_expired_token",
+			},
+			mockError:      fmt.Errorf("invalid refresh token"),
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   "invalid refresh token",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := new(MockService)
+			handler := &Handlers{service: mockService}
+
+			// Setup mock expectation
+			mockService.On("RefreshToken", mock.Anything, tt.requestBody.RefreshToken).
+				Return(tt.mockResponse, tt.mockError).
+				Once()
+
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+
+			body, _ := json.Marshal(tt.requestBody)
+			c.Request = httptest.NewRequest("POST", "/refresh", bytes.NewBuffer(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			handler.HandleRefresh(c)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			assert.Contains(t, w.Body.String(), tt.expectedBody)
 			mockService.AssertExpectations(t)
 		})
 	}
