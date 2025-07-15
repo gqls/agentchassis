@@ -8,7 +8,6 @@ output_file="resulttextoutput.txt"
 find . -type f \
     -not \( -name "go.mod" -o -name "go.sum" -o -name "*.hcl" -o -name "*.tar" -o -name "*.log" -o -name "*.tfstate" -o -name "$output_file" \) \
     -not \( -name "*.tfstate.backup" -o -name "terraform.tfstate.*prod-cluster" \) \
-    -not \( -name "*_test.go" \) \
 		-not \( -name "persona-cli" -o -name "README.md" -o -name "create_persona.sql" -o -name "*.secret" -o -name "*-lock.json" -o -name "*.txt" \) \
     -not -path "*/\\.*/*" \
 		-not -path "*/backup/*" \
