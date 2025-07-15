@@ -70,11 +70,12 @@ func (h *Handlers) HandleCheckQuota(c *gin.Context) {
 // AdminHandlers for admin operations
 type AdminHandlers struct {
 	service *Service
+	logger  *zap.Logger
 }
 
 // NewAdminHandlers creates admin handlers
-func NewAdminHandlers(service *Service) *AdminHandlers {
-	return &AdminHandlers{service: service}
+func NewAdminHandlers(service *Service, logger *zap.Logger) *AdminHandlers {
+	return &AdminHandlers{service: service, logger: logger}
 }
 
 // HandleCreateSubscription creates a subscription (admin only)

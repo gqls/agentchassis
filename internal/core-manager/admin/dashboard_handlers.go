@@ -385,7 +385,7 @@ func (h *DashboardHandlers) getRecentActivity(ctx context.Context) []ActivityEnt
 	}
 
 	// Get recent workflow completions
-	rows, err = h.clientsDB.Query(ctx, `
+	workflowRows, err := h.clientsDB.Query(ctx, `
 		SELECT updated_at, status, correlation_id, client_id
 		FROM orchestrator_state
 		WHERE status IN ('COMPLETED', 'FAILED')
@@ -393,11 +393,11 @@ func (h *DashboardHandlers) getRecentActivity(ctx context.Context) []ActivityEnt
 		LIMIT 10
 	`)
 	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
+		defer workflowRows.Close()
+		for workflowRows.Next() {
 			var activity ActivityEntry
 			var status, correlationID string
-			rows.Scan(&activity.Timestamp, &status, &correlationID, &activity.ClientID)
+			workflowRows.Scan(&activity.Timestamp, &status, &correlationID, &activity.ClientID)
 			activity.Type = "workflow_" + strings.ToLower(status)
 			activity.Description = fmt.Sprintf("Workflow %s: %s", status, correlationID[:8])
 			activities = append(activities, activity)

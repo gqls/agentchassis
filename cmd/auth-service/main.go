@@ -22,9 +22,9 @@ import (
 	"github.com/gqls/agentchassis/internal/auth-service/subscription"
 	"github.com/gqls/agentchassis/internal/auth-service/user"
 	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/database"
 	"github.com/gqls/agentchassis/platform/logger"
 	"github.com/rs/cors"
-	"github.com/gqls/agentchassis/platform/database"
 	"go.uber.org/zap"
 )
 
@@ -98,7 +98,7 @@ func main() {
 	userHandlers := user.NewHandlers(userSvc)
 	projectHandler := project.NewHTTPHandler(projectRepo, appLogger)
 	subscriptionHandlers := subscription.NewHandlers(subscriptionSvc)
-	subscriptionAdminHandlers := subscription.NewAdminHandlers(subscriptionSvc)
+	subscriptionAdminHandlers := subscription.NewAdminHandlers(subscriptionSvc, appLogger)
 	gatewayHandler := gateway.NewHTTPHandler(gatewaySvc, appLogger)
 	adminHandlers := admin.NewHandlers(userRepo, appLogger)
 

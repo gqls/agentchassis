@@ -35,4 +35,6 @@ type PersonaRepository interface {
 	ListInstances(ctx context.Context, userID string) ([]Persona, error)
 	UpdateInstance(ctx context.Context, id string, name *string, config map[string]interface{}) (*Persona, error)
 	DeleteInstance(ctx context.Context, id string) error
+
+	AdminUpdateInstanceConfig(ctx context.Context, clientID, instanceID string, config map[string]interface{}) error
 }

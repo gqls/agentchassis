@@ -54,9 +54,11 @@ func TestExecuteWorkflow_InitialStep(t *testing.T) {
 
 	ctx := context.Background()
 	correlationID := uuid.NewString()
+	clientID := "test_client_123"
 	headers := map[string]string{
 		"correlation_id":      correlationID,
 		"request_id":          uuid.NewString(),
+		"client_id":           clientID,
 		governance.FuelHeader: "1000",
 	}
 	initialData, _ := json.Marshal(map[string]string{"goal": "test"})
@@ -78,6 +80,7 @@ func TestExecuteWorkflow_InitialStep(t *testing.T) {
 	mockDB.ExpectExec("INSERT INTO orchestrator_state").
 		WithArgs(
 			correlationID,    // correlation_id
+			clientID,         // client_id
 			StatusRunning,    // status
 			"step1",          // current_step
 			sqlmock.AnyArg(), // awaited_steps
@@ -89,20 +92,26 @@ func TestExecuteWorkflow_InitialStep(t *testing.T) {
 
 	// Then expect fetch of the newly created state
 	rows := sqlmock.NewRows([]string{
-		"correlation_id", "status", "current_step", "awaited_steps",
+		"correlation_id", "client_id", "status", "current_step", "awaited_steps",
 		"collected_data", "initial_request_data", "final_result", "error",
 		"created_at", "updated_at",
 	}).AddRow(
-		correlationID, StatusRunning, "step1", "[]",
-		"{}", initialData, nil, nil, // Use nil for NULL values
+		correlationID, clientID, StatusRunning, "step1", "[]",
+		"{}", initialData, nil, nil,
 		time.Now(), time.Now(),
 	)
 	mockDB.ExpectQuery("SELECT .* FROM orchestrator_state WHERE correlation_id = \\$1").
 		WithArgs(correlationID).
 		WillReturnRows(rows)
 
-	// Expect Kafka message production
-	mockProducer.On("Produce", ctx, "topic.do_something", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	// Expect Kafka message production - verify headers are properly set
+	mockProducer.On("Produce", ctx, "topic.do_something", mock.MatchedBy(func(h map[string]string) bool {
+		// Verify required headers are present and correct
+		return h["correlation_id"] == correlationID &&
+			h["causation_id"] == headers["request_id"] &&
+			h["request_id"] != "" && h["request_id"] != headers["request_id"] &&
+			h[governance.FuelHeader] == "999" // 1000 - 1 for default_step cost
+	}), []byte(correlationID), mock.AnythingOfType("[]uint8")).Return(nil).Once()
 
 	// Expect state update
 	mockDB.ExpectExec("UPDATE orchestrator_state SET").
@@ -124,6 +133,67 @@ func TestExecuteWorkflow_InitialStep(t *testing.T) {
 	require.NoError(t, mockDB.ExpectationsWereMet())
 }
 
+// TestExecuteWorkflow_AlreadyCompleted verifies handling of already completed workflows.
+func TestExecuteWorkflow_AlreadyCompleted(t *testing.T) {
+	coordinator, _, db, mockDB := setupTest(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	correlationID := uuid.NewString()
+	clientID := "test_client_123"
+	headers := map[string]string{
+		"correlation_id": correlationID,
+		"client_id":      clientID,
+	}
+
+	plan := models.WorkflowPlan{
+		StartStep: "step1",
+		Steps: map[string]models.Step{
+			"step1": {Action: "do_something"},
+		},
+	}
+
+	// State already exists and is completed
+	rows := sqlmock.NewRows([]string{
+		"correlation_id", "client_id", "status", "current_step", "awaited_steps",
+		"collected_data", "initial_request_data", "final_result", "error",
+		"created_at", "updated_at",
+	}).AddRow(
+		correlationID, clientID, StatusCompleted, "step1", "[]",
+		"{}", nil, []byte(`{"result": "done"}`), nil,
+		time.Now(), time.Now(),
+	)
+	mockDB.ExpectQuery("SELECT .* FROM orchestrator_state WHERE correlation_id = \\$1").
+		WithArgs(correlationID).
+		WillReturnRows(rows)
+
+	// Should not do anything else
+	err := coordinator.ExecuteWorkflow(ctx, plan, headers, nil)
+	require.NoError(t, err)
+	require.NoError(t, mockDB.ExpectationsWereMet())
+}
+
+// TestExecuteWorkflow_MissingClientID verifies error when client_id is missing.
+func TestExecuteWorkflow_MissingClientID(t *testing.T) {
+	coordinator, _, db, _ := setupTest(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	headers := map[string]string{
+		"correlation_id": uuid.NewString(),
+		// client_id is missing
+	}
+
+	plan := models.WorkflowPlan{
+		StartStep: "step1",
+		Steps:     map[string]models.Step{},
+	}
+
+	err := coordinator.ExecuteWorkflow(ctx, plan, headers, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "client_id header is required")
+}
+
 // TestExecuteWorkflow_DependenciesNotMet verifies the workflow waits correctly.
 func TestExecuteWorkflow_DependenciesNotMet(t *testing.T) {
 	coordinator, _, db, mockDB := setupTest(t)
@@ -131,8 +201,10 @@ func TestExecuteWorkflow_DependenciesNotMet(t *testing.T) {
 
 	ctx := context.Background()
 	correlationID := uuid.NewString()
+	clientID := "test_client_123"
 	headers := map[string]string{
 		"correlation_id":      correlationID,
+		"client_id":           clientID,
 		governance.FuelHeader: "1000",
 	}
 
@@ -153,6 +225,7 @@ func TestExecuteWorkflow_DependenciesNotMet(t *testing.T) {
 	mockDB.ExpectExec("INSERT INTO orchestrator_state").
 		WithArgs(
 			correlationID,    // correlation_id
+			clientID,         // client_id
 			StatusRunning,    // status
 			"step2",          // current_step
 			sqlmock.AnyArg(), // awaited_steps
@@ -165,11 +238,11 @@ func TestExecuteWorkflow_DependenciesNotMet(t *testing.T) {
 	// Fetch state - missing step1 dependency
 	stateJSON := `{}` // No step1 data
 	rows := sqlmock.NewRows([]string{
-		"correlation_id", "status", "current_step", "awaited_steps",
+		"correlation_id", "client_id", "status", "current_step", "awaited_steps",
 		"collected_data", "initial_request_data", "final_result", "error",
 		"created_at", "updated_at",
 	}).AddRow(
-		correlationID, StatusRunning, "step2", "[]",
+		correlationID, clientID, StatusRunning, "step2", "[]",
 		stateJSON, nil, nil, nil,
 		time.Now(), time.Now(),
 	)
@@ -191,8 +264,10 @@ func TestExecuteWorkflow_FuelCheckFail(t *testing.T) {
 
 	ctx := context.Background()
 	correlationID := uuid.NewString()
+	clientID := "test_client_123"
 	headers := map[string]string{
 		"correlation_id":      correlationID,
+		"client_id":           clientID,
 		governance.FuelHeader: "5", // Low fuel (need 50 for claude opus)
 	}
 
@@ -212,6 +287,7 @@ func TestExecuteWorkflow_FuelCheckFail(t *testing.T) {
 	mockDB.ExpectExec("INSERT INTO orchestrator_state").
 		WithArgs(
 			correlationID,    // correlation_id
+			clientID,         // client_id
 			StatusRunning,    // status
 			"step1",          // current_step
 			sqlmock.AnyArg(), // awaited_steps
@@ -223,11 +299,11 @@ func TestExecuteWorkflow_FuelCheckFail(t *testing.T) {
 
 	// Fetch state
 	rows := sqlmock.NewRows([]string{
-		"correlation_id", "status", "current_step", "awaited_steps",
+		"correlation_id", "client_id", "status", "current_step", "awaited_steps",
 		"collected_data", "initial_request_data", "final_result", "error",
 		"created_at", "updated_at",
 	}).AddRow(
-		correlationID, StatusRunning, "step1", "[]",
+		correlationID, clientID, StatusRunning, "step1", "[]",
 		"{}", nil, nil, nil,
 		time.Now(), time.Now(),
 	)
@@ -266,10 +342,12 @@ func TestHandleFanOut(t *testing.T) {
 
 	ctx := context.Background()
 	correlationID := uuid.NewString()
+	clientID := "test_client_123"
 	headers := map[string]string{
 		"correlation_id":      correlationID,
+		"client_id":           clientID,
 		"request_id":          "parent_req_1",
-		governance.FuelHeader: "1000",
+		governance.FuelHeader: "995", // Already deducted by ExecuteWorkflow (1000 - 5)
 	}
 
 	step := models.Step{
@@ -282,12 +360,29 @@ func TestHandleFanOut(t *testing.T) {
 	}
 	state := &OrchestrationState{
 		CorrelationID: correlationID,
-		CollectedData: make(map[string]interface{}), // Initialize the map
+		ClientID:      clientID,
+		CollectedData: make(map[string]interface{}),
 	}
 
-	// Expect messages to be produced
-	mockProducer.On("Produce", ctx, "topic.research", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockProducer.On("Produce", ctx, "topic.style", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	// Expect messages to be produced with validation
+	var capturedRequestIDs []string
+	mockProducer.On("Produce", ctx, "topic.research", mock.MatchedBy(func(h map[string]string) bool {
+		if h["causation_id"] == "parent_req_1" && h["request_id"] != "parent_req_1" &&
+			h[governance.FuelHeader] == "995" { // Fuel already deducted
+			capturedRequestIDs = append(capturedRequestIDs, h["request_id"])
+			return true
+		}
+		return false
+	}), []byte(correlationID), mock.AnythingOfType("[]uint8")).Return(nil).Once()
+
+	mockProducer.On("Produce", ctx, "topic.style", mock.MatchedBy(func(h map[string]string) bool {
+		if h["causation_id"] == "parent_req_1" && h["request_id"] != "parent_req_1" &&
+			h[governance.FuelHeader] == "995" { // Fuel already deducted
+			capturedRequestIDs = append(capturedRequestIDs, h["request_id"])
+			return true
+		}
+		return false
+	}), []byte(correlationID), mock.AnythingOfType("[]uint8")).Return(nil).Once()
 
 	// Expect state update
 	mockDB.ExpectExec("UPDATE orchestrator_state SET").
@@ -305,6 +400,277 @@ func TestHandleFanOut(t *testing.T) {
 	err := coordinator.handleFanOut(ctx, headers, step, state)
 	require.NoError(t, err)
 
+	// Verify state was updated correctly
+	assert.Equal(t, StatusAwaitingResponses, state.Status)
+	assert.Equal(t, "aggregate_results", state.CurrentStep)
+	assert.Len(t, state.AwaitedSteps, 2)
+
 	mockProducer.AssertExpectations(t)
+	require.NoError(t, mockDB.ExpectationsWereMet())
+}
+
+// TestHandlePauseForHumanInput verifies human approval pause functionality.
+func TestHandlePauseForHumanInput(t *testing.T) {
+	coordinator, mockProducer, db, mockDB := setupTest(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	correlationID := uuid.NewString()
+	projectID := "project_123"
+	clientID := "client_123"
+	headers := map[string]string{
+		"correlation_id": correlationID,
+		"project_id":     projectID,
+		"client_id":      clientID,
+	}
+
+	step := models.Step{
+		Action:      "pause_for_human_input",
+		NextStep:    "after_approval",
+		Description: "Review generated content",
+	}
+	state := &OrchestrationState{
+		CorrelationID: correlationID,
+		ClientID:      clientID,
+		CollectedData: map[string]interface{}{
+			"generated_content": "Some content to review",
+		},
+	}
+
+	// Expect state update
+	mockDB.ExpectExec("UPDATE orchestrator_state SET").
+		WithArgs(
+			correlationID,        // WHERE correlation_id = $1
+			StatusPausedForHuman, // status = $2
+			"after_approval",     // current_step = $3
+			sqlmock.AnyArg(),     // awaited_steps = $4
+			sqlmock.AnyArg(),     // collected_data = $5
+			sqlmock.AnyArg(),     // final_result = $6
+			"",                   // error = $7
+			sqlmock.AnyArg(),     // updated_at = $8
+		).WillReturnResult(sqlmock.NewResult(1, 1))
+
+	// Expect notification to be sent
+	mockProducer.On("Produce", ctx, NotificationTopic, headers, []byte(correlationID), mock.MatchedBy(func(payload []byte) bool {
+		var notification map[string]interface{}
+		json.Unmarshal(payload, &notification)
+		return notification["event_type"] == "WORKFLOW_PAUSED_FOR_APPROVAL" &&
+			notification["correlation_id"] == correlationID &&
+			notification["project_id"] == projectID &&
+			notification["client_id"] == clientID
+	})).Return(nil).Once()
+
+	err := coordinator.handlePauseForHumanInput(ctx, headers, step, state)
+	require.NoError(t, err)
+
+	assert.Equal(t, StatusPausedForHuman, state.Status)
+	assert.Equal(t, "after_approval", state.CurrentStep)
+
+	mockProducer.AssertExpectations(t)
+	require.NoError(t, mockDB.ExpectationsWereMet())
+}
+
+// TestHandleResponse verifies processing of sub-task responses.
+func TestHandleResponse(t *testing.T) {
+	coordinator, _, db, mockDB := setupTest(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	correlationID := uuid.NewString()
+	causationID := "request_123"
+	headers := map[string]string{
+		"correlation_id": correlationID,
+		"causation_id":   causationID,
+	}
+
+	taskResponse := models.TaskResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"result": "task completed",
+		},
+	}
+	responseBytes, _ := json.Marshal(taskResponse)
+
+	// Existing state with awaited steps
+	existingData := map[string]interface{}{
+		"existing": "data",
+	}
+	existingDataJSON, _ := json.Marshal(existingData)
+	awaitedSteps := []string{causationID, "another_request"}
+	awaitedStepsJSON, _ := json.Marshal(awaitedSteps)
+
+	rows := sqlmock.NewRows([]string{
+		"correlation_id", "client_id", "status", "current_step", "awaited_steps",
+		"collected_data", "initial_request_data", "final_result", "error",
+		"created_at", "updated_at",
+	}).AddRow(
+		correlationID, "client_123", StatusAwaitingResponses, "aggregate", string(awaitedStepsJSON),
+		string(existingDataJSON), nil, nil, nil,
+		time.Now(), time.Now(),
+	)
+	mockDB.ExpectQuery("SELECT .* FROM orchestrator_state WHERE correlation_id = \\$1").
+		WithArgs(correlationID).
+		WillReturnRows(rows)
+
+	// Expect state update with response data added
+	mockDB.ExpectExec("UPDATE orchestrator_state SET").
+		WithArgs(
+			correlationID,           // WHERE correlation_id = $1
+			StatusAwaitingResponses, // status = $2 (still awaiting one more)
+			"aggregate",             // current_step = $3
+			sqlmock.AnyArg(),        // awaited_steps = $4 (should have one less)
+			sqlmock.AnyArg(),        // collected_data = $5 (should include new data)
+			sqlmock.AnyArg(),        // final_result = $6
+			"",                      // error = $7
+			sqlmock.AnyArg(),        // updated_at = $8
+		).WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err := coordinator.HandleResponse(ctx, headers, responseBytes)
+	require.NoError(t, err)
+	require.NoError(t, mockDB.ExpectationsWereMet())
+}
+
+// TestResumeWorkflow verifies resuming after human approval.
+func TestResumeWorkflow(t *testing.T) {
+	coordinator, _, db, mockDB := setupTest(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	correlationID := uuid.NewString()
+	headers := map[string]string{
+		"correlation_id": correlationID,
+	}
+
+	t.Run("approved", func(t *testing.T) {
+		resumePayload := struct {
+			Approved bool                   `json:"approved"`
+			Feedback map[string]interface{} `json:"feedback,omitempty"`
+		}{
+			Approved: true,
+			Feedback: map[string]interface{}{
+				"comment": "Looks good!",
+			},
+		}
+		resumeData, _ := json.Marshal(resumePayload)
+
+		// Existing paused state
+		rows := sqlmock.NewRows([]string{
+			"correlation_id", "client_id", "status", "current_step", "awaited_steps",
+			"collected_data", "initial_request_data", "final_result", "error",
+			"created_at", "updated_at",
+		}).AddRow(
+			correlationID, "client_123", StatusPausedForHuman, "after_approval", "[]",
+			"{}", nil, nil, nil,
+			time.Now(), time.Now(),
+		)
+		mockDB.ExpectQuery("SELECT .* FROM orchestrator_state WHERE correlation_id = \\$1").
+			WithArgs(correlationID).
+			WillReturnRows(rows)
+
+		// Expect state update to running
+		mockDB.ExpectExec("UPDATE orchestrator_state SET").
+			WithArgs(
+				correlationID,    // WHERE correlation_id = $1
+				StatusRunning,    // status = $2
+				"after_approval", // current_step = $3
+				sqlmock.AnyArg(), // awaited_steps = $4
+				sqlmock.AnyArg(), // collected_data = $5 (should include feedback)
+				sqlmock.AnyArg(), // final_result = $6
+				"",               // error = $7
+				sqlmock.AnyArg(), // updated_at = $8
+			).WillReturnResult(sqlmock.NewResult(1, 1))
+
+		err := coordinator.ResumeWorkflow(ctx, headers, resumeData)
+		require.NoError(t, err)
+		require.NoError(t, mockDB.ExpectationsWereMet())
+	})
+
+	t.Run("rejected", func(t *testing.T) {
+		// Create fresh mocks for this subtest
+		db2, mockDB2, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db2.Close()
+
+		// Create a new coordinator with the fresh DB
+		coordinator2 := NewSagaCoordinator(db2, coordinator.producer, coordinator.logger)
+
+		resumePayload := struct {
+			Approved bool `json:"approved"`
+		}{
+			Approved: false,
+		}
+		resumeData, _ := json.Marshal(resumePayload)
+
+		// Existing paused state
+		rows := sqlmock.NewRows([]string{
+			"correlation_id", "client_id", "status", "current_step", "awaited_steps",
+			"collected_data", "initial_request_data", "final_result", "error",
+			"created_at", "updated_at",
+		}).AddRow(
+			correlationID, "client_123", StatusPausedForHuman, "after_approval", "[]",
+			"{}", nil, nil, nil,
+			time.Now(), time.Now(),
+		)
+		mockDB2.ExpectQuery("SELECT .* FROM orchestrator_state WHERE correlation_id = \\$1").
+			WithArgs(correlationID).
+			WillReturnRows(rows)
+
+		// Expect state update to failed
+		mockDB2.ExpectExec("UPDATE orchestrator_state SET").
+			WithArgs(
+				correlationID,               // WHERE correlation_id = $1
+				StatusFailed,                // status = $2
+				"after_approval",            // current_step = $3
+				sqlmock.AnyArg(),            // awaited_steps = $4
+				sqlmock.AnyArg(),            // collected_data = $5
+				sqlmock.AnyArg(),            // final_result = $6
+				"Workflow rejected by user", // error = $7
+				sqlmock.AnyArg(),            // updated_at = $8
+			).WillReturnResult(sqlmock.NewResult(1, 1))
+
+		err = coordinator2.ResumeWorkflow(ctx, headers, resumeData)
+		require.NoError(t, err)
+		require.NoError(t, mockDB2.ExpectationsWereMet())
+	})
+}
+
+// TestCompleteWorkflow verifies workflow completion.
+func TestCompleteWorkflow(t *testing.T) {
+	coordinator, _, db, mockDB := setupTest(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	correlationID := uuid.NewString()
+
+	state := &OrchestrationState{
+		CorrelationID: correlationID,
+		ClientID:      "client_123",
+		Status:        StatusRunning,
+		CurrentStep:   "final",
+		CollectedData: map[string]interface{}{
+			"step1_result": "data1",
+			"step2_result": "data2",
+		},
+	}
+
+	// Expect state update to completed
+	mockDB.ExpectExec("UPDATE orchestrator_state SET").
+		WithArgs(
+			correlationID,    // WHERE correlation_id = $1
+			StatusCompleted,  // status = $2
+			"final",          // current_step = $3
+			sqlmock.AnyArg(), // awaited_steps = $4
+			sqlmock.AnyArg(), // collected_data = $5
+			sqlmock.AnyArg(), // final_result = $6 (should be marshaled collected_data)
+			"",               // error = $7
+			sqlmock.AnyArg(), // updated_at = $8
+		).WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err := coordinator.completeWorkflow(ctx, state)
+	require.NoError(t, err)
+
+	assert.Equal(t, StatusCompleted, state.Status)
+	assert.NotNil(t, state.FinalResult)
+
 	require.NoError(t, mockDB.ExpectationsWereMet())
 }

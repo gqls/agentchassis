@@ -43,8 +43,14 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 	correlationID := headers["correlation_id"]
 	l := s.logger.With(zap.String("correlation_id", correlationID))
 
+	// Get clientID from headers to pass to state creation
+	clientID := headers["client_id"]
+	if clientID == "" {
+		return fmt.Errorf("client_id header is required to execute a workflow")
+	}
+
 	// Get or create state
-	state, err := s.getOrCreateState(ctx, correlationID, plan, initialData)
+	state, err := s.getOrCreateState(ctx, correlationID, clientID, plan, initialData)
 	if err != nil {
 		return err
 	}
@@ -96,13 +102,13 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 }
 
 // getOrCreateState retrieves existing state or creates new one
-func (s *SagaCoordinator) getOrCreateState(ctx context.Context, correlationID string, plan models.WorkflowPlan, initialData []byte) (*OrchestrationState, error) {
+func (s *SagaCoordinator) getOrCreateState(ctx context.Context, correlationID string, clientID string, plan models.WorkflowPlan, initialData []byte) (*OrchestrationState, error) {
 	repo := NewStateRepository(s.db, s.logger)
 
 	state, err := repo.GetState(ctx, correlationID)
 	if err != nil {
 		// State doesn't exist, create it
-		if err := repo.CreateInitialState(ctx, correlationID, plan.StartStep, initialData); err != nil {
+		if err := repo.CreateInitialState(ctx, correlationID, clientID, plan.StartStep, initialData); err != nil {
 			return nil, fmt.Errorf("failed to create initial state: %w", err)
 		}
 		return repo.GetState(ctx, correlationID)

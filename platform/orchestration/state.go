@@ -25,6 +25,7 @@ const (
 // OrchestrationState is the database model for a Saga instance
 type OrchestrationState struct {
 	CorrelationID      string                 `db:"correlation_id"`
+	ClientID           string                 `db:"client_id"`
 	Status             OrchestrationStatus    `db:"status"`
 	CurrentStep        string                 `db:"current_step"`
 	AwaitedSteps       []string               `db:"awaited_steps"`
@@ -48,19 +49,19 @@ func NewStateRepository(db *sql.DB, logger *zap.Logger) *StateRepository {
 }
 
 // CreateInitialState creates a new record for a workflow
-func (r *StateRepository) CreateInitialState(ctx context.Context, correlationID, startStep string, initialData []byte) error {
+func (r *StateRepository) CreateInitialState(ctx context.Context, correlationID, clientID, startStep string, initialData []byte) error {
 	awaitedStepsJSON, _ := json.Marshal([]string{})
 	collectedDataJSON, _ := json.Marshal(map[string]interface{}{})
 
 	query := `
         INSERT INTO orchestrator_state 
-        (correlation_id, status, current_step, awaited_steps, collected_data, initial_request_data, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        (correlation_id, client_id, status, current_step, awaited_steps, collected_data, initial_request_data, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `
 
 	now := time.Now().UTC()
 	_, err := r.db.ExecContext(ctx, query,
-		correlationID, StatusRunning, startStep, awaitedStepsJSON, collectedDataJSON, initialData, now, now)
+		correlationID, clientID, StatusRunning, startStep, awaitedStepsJSON, collectedDataJSON, initialData, now, now)
 
 	if err != nil {
 		r.logger.Error("Failed to create initial orchestration state", zap.Error(err))
@@ -74,7 +75,7 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, correlationID,
 // GetState retrieves the current state of a workflow
 func (r *StateRepository) GetState(ctx context.Context, correlationID string) (*OrchestrationState, error) {
 	query := `
-        SELECT correlation_id, status, current_step, awaited_steps, collected_data, 
+        SELECT correlation_id, client_id, status, current_step, awaited_steps, collected_data, 
                initial_request_data, final_result, error, created_at, updated_at
         FROM orchestrator_state
         WHERE correlation_id = $1
@@ -88,6 +89,7 @@ func (r *StateRepository) GetState(ctx context.Context, correlationID string) (*
 
 	err := r.db.QueryRowContext(ctx, query, correlationID).Scan(
 		&state.CorrelationID,
+		&state.ClientID,
 		&state.Status,
 		&state.CurrentStep,
 		&awaitedStepsJSON,
