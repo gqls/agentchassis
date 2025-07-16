@@ -1,0 +1,22 @@
+- op: replace
+  path: /spec/replicas
+  value: 10 # Scaled up for production workloads
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/agent-chassis:v1.2.0 # Specific version tag
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-prod-config-uk001
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-prod-secrets-uk001
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "500m"
+    memory: "1Gi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "1.5"
+    memory: "2Gi"

@@ -1,0 +1,1 @@
+Just like the reasoning agent, this is a specialized worker that communicates only via Kafka, so it only needs a Deployment manifest.

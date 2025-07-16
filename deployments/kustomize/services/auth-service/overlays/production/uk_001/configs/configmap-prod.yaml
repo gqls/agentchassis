@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: personae-prod-config
+  namespace: personae-prod
+data:
+  # Production Endpoints (replace with your actual endpoints)
+  kafka_brokers: "your-production-kafka-bootstrap-endpoint:9092"
+  clients_db_host: "your-production-postgres-clients-endpoint"
+  templates_db_host: "your-production-postgres-templates-endpoint"
+  auth_db_host: "your-production-mysql-auth-endpoint"
+  minio_endpoint: "your-production-s3-compatible-endpoint"
+  core_manager_url: "http://core-manager.personae-prod.svc.cluster.local:8088"
+  auth_service_url: "http://auth-service.personae-prod.svc.cluster.local:8081"
+
+  # Production Settings
+  tracing_enabled: "true"
+  tracing_endpoint: "otel-collector.monitoring.svc.cluster.local:4317"
+  log_level: "info"
+  go_env: "production"

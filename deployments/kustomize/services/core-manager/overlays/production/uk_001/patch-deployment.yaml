@@ -1,0 +1,22 @@
+- op: replace
+  path: /spec/replicas
+  value: 3
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/core-manager:v1.2.0 # Specific version tag
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-prod-config-uk001
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-prod-secrets-uk001
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "300m"
+    memory: "512Mi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "1"
+    memory: "1.5Gi"

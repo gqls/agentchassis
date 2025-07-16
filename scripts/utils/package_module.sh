@@ -1,14 +1,14 @@
 #!/bin/bash
 #
-# package_context.sh - A script to package the relevant files for a specific
+# package_module.sh - A script to package the relevant files for a specific
 #                      microservice, frontend, or infrastructure component into a
 #                      single context file for AI assistants.
 #
 # This script is designed to work with the new agent-managed project structure.
 #
-# Usage: ./scripts/utils/package_context.sh [-o /path/to/output_dir] [component_name]
-# Example: ./scripts/utils/package_context.sh auth-service
-# Example: ./scripts/utils/package_context.sh code-all
+# Usage: ./scripts/utils/package_module.sh [-o /path/to/output_dir] [-e env] [component_name]
+# Example: ./scripts/utils/package_module.sh auth-service
+# Example: ./scripts/utils/package_module.sh -e production auth-service
 
 set -e
 
@@ -22,8 +22,9 @@ cd "$PROJECT_ROOT"
 
 # --- Configuration ---
 DEFAULT_OUTPUT_DIR=$SCRIPT_DIR"/output_contexts"
-ENVIRONMENT="production"
-REGION="uk001"
+# Default to development, allow override via flag
+ENVIRONMENT="development"
+REGION="uk_dev" # Assuming 'uk_dev' for development environment
 
 # --- Component List ---
 # List of all individual components for the 'all' option
@@ -31,7 +32,7 @@ ALL_COMPONENTS=(
     # Horizontal slices
     "code-all"
     "deployments-all"
-    "environment-prod"
+    "environment-all"
 
     # Full service stacks
     "auth-service"
@@ -127,8 +128,16 @@ function write_directory() {
     return
   fi
 
-  # Using find with -print0 and while read is safe for filenames with spaces.
+  # Remove trailing slash if present
+  dir_path="${dir_path%/}"
+
+  # Use find to get ALL files in the directory and subdirectories
   while IFS= read -r -d $'\0' file; do
+    # Skip if this is the output file itself to avoid self-reference
+    if [ "$(realpath "$file" 2>/dev/null)" = "$(realpath "$output_file" 2>/dev/null)" ]; then
+      continue
+    fi
+
     # Check if the file is in a strimzi-yaml* directory
     if [[ "$file" =~ strimzi-yaml[^/]*/[^/]+$ ]]; then
       write_file "$file" "$output_file" "true"
@@ -146,6 +155,7 @@ function write_directory() {
     -not -path '*/vendor/*' \
     -not -path '*/.idea/*' \
     -not -path '*/.vscode/*' \
+    -not -path '*/output_contexts/*' \
     -not -name '*.tfstate' \
     -not -name '*.tfstate.backup' \
     -not -name '*.log' \
@@ -171,6 +181,20 @@ function write_directory() {
     -print0)
 }
 
+# Helper function to handle MODULE_FILES which can be individual files or directories
+function process_module_files() {
+  local item=$1
+  local output_file=$2
+
+  if [ -f "$item" ]; then
+    # It's a file, write it directly
+    write_file "$item" "$output_file" "false"
+  elif [ -d "$item" ]; then
+    # It's a directory, process all files in it
+    write_directory "$item" "$output_file"
+  fi
+}
+
 # --- Script Argument Parsing ---
 OUTPUT_DIR=$DEFAULT_OUTPUT_DIR
 
@@ -180,6 +204,10 @@ while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
       shift
       OUTPUT_DIR=$1
       ;;
+    -e | --environment)
+      shift
+      ENVIRONMENT=$1
+      ;;
   esac
   shift
 done
@@ -188,18 +216,19 @@ COMPONENT_NAME=$1
 
 # --- Help and Usage ---
 function show_help() {
-  echo "Usage: $0 [-o /path/to/output_dir] [component_name]"
+  echo "Usage: $0 [-o /path/to/output_dir] [-e environment] [component_name]"
   echo "Please provide the name of the component to package."
   echo ""
   echo "Available components:"
   echo ""
   echo "  BULK OPERATIONS:"
   echo "    all                      # Package all individual components into separate files"
+  echo "    all-in-one               # Package all components into a single combined file"
   echo ""
   echo "  HORIZONTAL SLICES:"
   echo "    code-all                 # All Go source code (cmd, internal, pkg, platform)"
   echo "    deployments-all          # All deployment configurations (Terraform & Kustomize)"
-  echo "    environment-prod         # Production environment Terraform configurations"
+  echo "    environment-all          # All environment Terraform configurations"
   echo ""
   echo "  FULL SERVICE STACKS (code + deploy):"
   echo "    auth-service             # Complete auth service stack"
@@ -210,12 +239,21 @@ function show_help() {
   echo "    admin-dashboard          # Complete admin dashboard stack"
   echo "    agent-playground         # Complete agent playground stack"
   echo ""
+  echo "  INFRASTRUCTURE:"
+  echo "    infra-cluster-provisioning       # Terraform for provisioning the base Rackspace K8s cluster"
+  echo "    infra-kafka-stack                # The complete Kafka stack (Terraform modules & Kustomize instance)"
+  echo "    infra-terraform-rackspace-module # Module for creating the Rackspace Kubernetes cluster"
+  echo "    infra-terraform-kafka-modules    # Modules for Strimzi Operator and the Kafka Cluster"
+  echo "    infra-terraform-environment      # Top-level Terraform config for the specified environment"
+  echo "    infra-kustomize-kafka-instance   # Kustomize definition for the Kafka cluster resource"
+  echo "    infra-kustomize-ingress          # Kustomize definition for the NGINX Ingress"
+  echo ""
   echo "  FRONTEND DEVELOPMENT:"
   echo "    frontend-user-portal-only    # Just user portal React code"
   echo "    frontend-admin-only          # Just admin dashboard React code"
   echo "    frontend-playground-only     # Just playground React code"
   echo "    frontend-shared-components   # Shared UI components and API client"
-  echo "    frontend-all-apps           # All frontend applications"
+  echo "    frontend-all-apps            # All frontend applications"
   echo ""
   echo "  BACKEND API DEVELOPMENT:"
   echo "    api-auth-only            # Auth service API code only"
@@ -226,44 +264,34 @@ function show_help() {
   echo "  PLATFORM LIBRARIES:"
   echo "    platform-core            # Core utilities (config, errors, logging, validation)"
   echo "    platform-messaging       # Kafka and messaging infrastructure"
-  echo "    platform-data           # Database, storage, and memory services"
-  echo "    platform-observability  # Metrics, health, tracing, resilience"
+  echo "    platform-data            # Database, storage, and memory services"
+  echo "    platform-observability   # Metrics, health, tracing, resilience"
   echo ""
   echo "  AGENT DEVELOPMENT:"
-  echo "    agent-framework         # Agent base classes and orchestration"
-  echo "    agent-reasoning-only    # Just reasoning agent implementation"
-  echo "    agent-adapters         # Web search and image adapter code"
+  echo "    agent-framework          # Agent base classes and orchestration"
+  echo "    agent-reasoning-only     # Just reasoning agent implementation"
+  echo "    agent-adapters           # Web search and image adapter code"
   echo ""
   echo "  DATABASE & MIGRATIONS:"
-  echo "    database-schemas        # All migration files and seed data"
-  echo "    database-auth          # Auth-related database code"
-  echo "    database-clients       # Client/persona database code"
+  echo "    database-schemas         # All migration files and seed data"
+  echo "    database-auth            # Auth-related database code"
+  echo "    database-clients         # Client/persona database code"
   echo ""
   echo "  DEPLOYMENT SPECIFIC:"
   echo "    deploy-terraform-modules    # Reusable Terraform modules"
-  echo "    deploy-kustomize-base      # Base Kustomize configurations"
-  echo "    deploy-services            # Service deployment configs"
-  echo "    deploy-frontends          # Frontend deployment configs"
+  echo "    deploy-kustomize-base       # Base Kustomize configurations"
+  echo "    deploy-services             # Service deployment configs"
+  echo "    deploy-frontends            # Frontend deployment configs"
   echo ""
   echo "  DEVELOPMENT TOOLS:"
-  echo "    dev-scripts             # All development scripts"
-  echo "    dev-docker             # Docker configurations"
-  echo "    dev-local-env          # Local development environment"
+  echo "    dev-scripts              # All development scripts"
+  echo "    dev-docker               # Docker configurations"
+  echo "    dev-local-env            # Local development environment"
   echo ""
   echo "  TESTING:"
-  echo "    test-integration       # Integration test code"
-  echo "    test-e2e              # End-to-end test code"
-  echo "    test-all              # All test code"
-  echo ""
-  echo "  INFRASTRUCTURE:"
-  echo "    infra-cluster-provisioning       # Terraform for provisioning the base Rackspace K8s cluster"
-  echo "    infra-kafka-stack                # The complete Kafka stack (Terraform modules & Kustomize instance)"
-  echo "    infra-terraform-rackspace-module # Module for creating the Rackspace Kubernetes cluster"
-  echo "    infra-terraform-kafka-modules    # Modules for Strimzi Operator and the Kafka Cluster"
-  echo "    infra-terraform-environment      # Top-level Terraform config for the production environment"
-  echo "    infra-kustomize-kafka-instance   # Kustomize definition for the Kafka cluster resource"
-  echo "    infra-kustomize-ingress          # Kustomize definition for the NGINX Ingress"
-
+  echo "    test-integration         # Integration test code"
+  echo "    test-e2e                 # End-to-end test code"
+  echo "    test-all                 # All test code"
 }
 
 
@@ -279,14 +307,20 @@ if [ "$COMPONENT_NAME" = "all" ]; then
 
   for component in "${ALL_COMPONENTS[@]}"; do
     echo "-------------------------------------------------"
-    echo "--> Packaging component: $component"
+    echo "--> Packaging component: $component (Env: $ENVIRONMENT)"
 
-    # Call the script recursively using its full path
+    # Build the command with optional flags
+    CMD="bash \"$SCRIPT_PATH\""
     if [[ -n "$OUTPUT_DIR" && "$OUTPUT_DIR" != "$DEFAULT_OUTPUT_DIR" ]]; then
-      bash "$SCRIPT_PATH" -o "$OUTPUT_DIR" "$component"
-    else
-      bash "$SCRIPT_PATH" "$component"
+      CMD+=" -o \"$OUTPUT_DIR\""
     fi
+    if [[ "$ENVIRONMENT" != "development" ]]; then # Pass env if not default
+        CMD+=" -e \"$ENVIRONMENT\""
+    fi
+    CMD+=" \"$component\""
+
+    # Execute the command
+    eval $CMD
 
     # Display the file size for the component just created
     COMPONENT_FILE="${OUTPUT_DIR}/${component}_context.txt"
@@ -304,9 +338,62 @@ if [ "$COMPONENT_NAME" = "all" ]; then
     COMPONENT_FILE="${OUTPUT_DIR}/${component}_context.txt"
     if [ -f "$COMPONENT_FILE" ]; then
       FILE_SIZE=$(du -h "$COMPONENT_FILE" | cut -f1)
-      printf "  %-25s %10s\n" "${component}_context.txt" "$FILE_SIZE"
+      printf "  %-35s %10s\n" "${component}_context.txt" "$FILE_SIZE"
     fi
   done
+  exit 0
+fi
+
+# If the component is 'all-in-one', create a single file with everything
+if [ "$COMPONENT_NAME" = "all-in-one" ]; then
+  echo "Packaging all components into a single file..."
+  mkdir -p "$OUTPUT_DIR"
+
+  TEMP_DIR=$(mktemp -d)
+  ALL_IN_ONE_FILE="${OUTPUT_DIR}/all-in-one_context.txt"
+  > "$ALL_IN_ONE_FILE"
+
+  echo "Environment: $ENVIRONMENT" >> "$ALL_IN_ONE_FILE"
+  echo "Generated on: $(date)" >> "$ALL_IN_ONE_FILE"
+  echo "=================================================" >> "$ALL_IN_ONE_FILE"
+  echo "" >> "$ALL_IN_ONE_FILE"
+
+  # First generate all individual component files in temp directory
+  for component in "${ALL_COMPONENTS[@]}"; do
+    echo "--> Processing component: $component"
+
+    # Build the command with temp directory
+    CMD="bash \"$SCRIPT_PATH\" -o \"$TEMP_DIR\""
+    if [[ "$ENVIRONMENT" != "development" ]]; then
+        CMD+=" -e \"$ENVIRONMENT\""
+    fi
+    CMD+=" \"$component\""
+
+    # Execute the command
+    eval $CMD 2>/dev/null
+  done
+
+  # Now concatenate all files with headers
+  for component in "${ALL_COMPONENTS[@]}"; do
+    COMPONENT_FILE="${TEMP_DIR}/${component}_context.txt"
+    if [ -f "$COMPONENT_FILE" ]; then
+      echo "" >> "$ALL_IN_ONE_FILE"
+      echo "=================================================" >> "$ALL_IN_ONE_FILE"
+      echo "COMPONENT: $component" >> "$ALL_IN_ONE_FILE"
+      echo "=================================================" >> "$ALL_IN_ONE_FILE"
+      echo "" >> "$ALL_IN_ONE_FILE"
+      cat "$COMPONENT_FILE" >> "$ALL_IN_ONE_FILE"
+    fi
+  done
+
+  # Clean up temp directory
+  rm -rf "$TEMP_DIR"
+
+  echo "-------------------------------------------------"
+  echo "✅ All components packaged into single file."
+  FILE_SIZE=$(du -h "$ALL_IN_ONE_FILE" | cut -f1)
+  echo "📦 Output file: $ALL_IN_ONE_FILE"
+  echo "📦 Total size: $FILE_SIZE"
   exit 0
 fi
 
@@ -314,7 +401,15 @@ mkdir -p "$OUTPUT_DIR"
 OUTPUT_FILE="${OUTPUT_DIR}/${COMPONENT_NAME}_context.txt"
 > "$OUTPUT_FILE"
 
-echo "Packaging component '$COMPONENT_NAME' into $OUTPUT_FILE..."
+echo "Packaging component '$COMPONENT_NAME' for environment '$ENVIRONMENT' into $OUTPUT_FILE..."
+
+# Adjust region based on environment
+if [ "$ENVIRONMENT" = "production" ]; then
+    REGION="uk001"
+else
+    REGION="uk_dev"
+fi
+
 
 # --- Component Definitions ---
 # Each case defines the specific source code, build, and deployment files
@@ -338,8 +433,8 @@ case "$COMPONENT_NAME" in
     MODULE_FILES=( "Makefile" "docker-compose.yaml" )
     ;;
 
-  environment-prod)
-    MODULE_DIRS=( "deployments/terraform/environments/$ENVIRONMENT/" )
+  environment-all)
+    MODULE_DIRS=( "deployments/terraform/environments/" )
     MODULE_FILES=( "Makefile" )
     ;;
 
@@ -396,7 +491,6 @@ case "$COMPONENT_NAME" in
     )
     ;;
 
-  # --- Frontend Applications (Full Stack) ---
   user-frontend)
     MODULE_DIRS=(
       "frontends/user-portal/"
@@ -427,9 +521,8 @@ case "$COMPONENT_NAME" in
     MODULE_FILES=( "Makefile" )
     ;;
 
-  # --- Infrastructure Layers ---
   # --- Infrastructure Layers (Refined and Expanded) ---
-  infra-cluster-provisioning) # Renamed from infra-cluster
+  infra-cluster-provisioning)
     MODULE_DIRS=(
       "deployments/terraform/modules/rackspace-kubernetes/"
       "deployments/terraform/environments/$ENVIRONMENT/$REGION/010-infrastructure/"
@@ -437,7 +530,7 @@ case "$COMPONENT_NAME" in
     MODULE_FILES=("Makefile")
     ;;
 
-  infra-kafka-stack) # New comprehensive stack
+  infra-kafka-stack)
     MODULE_DIRS=(
       "deployments/terraform/modules/strimzi-operator/"
       "deployments/terraform/modules/kafka-cluster/"
@@ -666,8 +759,8 @@ esac
 for dir in "${MODULE_DIRS[@]}"; do
   write_directory "$dir" "$OUTPUT_FILE"
 done
-for file in "${MODULE_FILES[@]}"; do
-  write_file "$file" "$OUTPUT_FILE" "false"
+for item in "${MODULE_FILES[@]}"; do
+  process_module_files "$item" "$OUTPUT_FILE"
 done
 
 echo "✅ Done. Component context saved to $OUTPUT_FILE"

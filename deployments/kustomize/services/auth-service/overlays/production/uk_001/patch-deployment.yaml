@@ -1,0 +1,22 @@
+- op: replace
+  path: /spec/replicas
+  value: 3 # Production scale
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/auth-service:v1.2.0 # Use a specific version tag for production
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-prod-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-prod-secrets
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "250m"
+    memory: "512Mi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "1"
+    memory: "1Gi"

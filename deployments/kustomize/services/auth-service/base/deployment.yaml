@@ -5,7 +5,6 @@ metadata:
   labels:
     app: auth-service
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: auth-service
@@ -16,20 +15,35 @@ spec:
     spec:
       containers:
         - name: auth-service
-          # The full image path and tag will be set by Terraform
-          image: auth-service:IMAGE_TAG_PLACEHOLDER
-          imagePullPolicy: IfNotPresent
+          image: your-container-registry/auth-service:latest # This will be patched by overlays
           ports:
             - containerPort: 8081
               name: http
+            - containerPort: 9090
+              name: grpc
           envFrom:
             - configMapRef:
-                name: auth-service-config
+                # Patched by overlays
+                name: placeholder-config
             - secretRef:
-                name: auth-service-secrets
-          readinessProbe:
+                # Patched by overlays
+                name: placeholder-secrets
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
             httpGet:
               path: /healthz
-              port: 8081
-            initialDelaySeconds: 20
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
             periodSeconds: 10
