@@ -1,0 +1,359 @@
+# strimzi_operator/strimzi-yaml-0.45.0/023-amended-ClusterRole-strimzi-cluster-operator-role.yaml
+# ClusterRole for the Cluster Operator supporting TLS based authentication and Kafka Mirror Maker 2
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: strimzi-cluster-operator-namespaced # Permissions needed within the operator's namespace AND watched namespaces
+  labels:
+    app: strimzi
+rules:
+  # Resources needed for the namespace the operator is deployed in
+  - apiGroups:
+      - "" # core
+    resources:
+      - serviceaccounts
+      - services
+      - configmaps
+      - events
+      - secrets
+      - pods
+      - endpoints # Required for Network Policies rules with ipBlock except field
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - "apps"
+    resources:
+      - deployments
+      - deployments/scale # Needed for scaling the Entity Operator deployment when replicas > 1
+      - replicasets # Needed for deployment generation checking
+      - statefulsets # The operator needs to manage the Kafka Connect build pods as well
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - "rbac.authorization.k8s.io"
+    resources:
+      - roles
+      - rolebindings
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - "policy"
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      # The operator needs leases for the leader election
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - "kafka.strimzi.io"
+    resources:
+      - kafkas
+      - kafkas/status
+      - kafkaconnects
+      - kafkaconnects/status
+      - kafkamirrormakers
+      - kafkamirrormakers/status
+      - kafkabridges
+      - kafkabridges/status
+      - kafkamirrormaker2s
+      - kafkamirrormaker2s/status
+      - kafkaconnectors
+      - kafkaconnectors/status
+      - kafkatopics
+      - kafkatopics/status
+      - kafkausers
+      - kafkausers/status
+      - kafkarebalances
+      - kafkarebalances/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+---
+# Cluster wide permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: strimzi-cluster-operator-global # Permissions needed cluster-wide (CRDs, ClusterRoleBindings, Nodes, SCs) AND for watched namespaces if ClusterRoleBindings are used
+  labels:
+    app: strimzi
+rules:
+  # Resources needed for the Cluster Operator to manage CRDs and ClusterRoleBindings across the cluster
+  - apiGroups:
+      - "apiextensions.k8s.io"
+    resources:
+      # The operator needs to manage the Strimzi CRDs
+      - customresourcedefinitions
+    verbs:
+      - get
+      - list
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - "rbac.authorization.k8s.io"
+    resources:
+      # The operator needs to manage the Cluster Role Bindings for the Entity Operators
+      - clusterrolebindings
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - "storage.k8s.io"
+    resources:
+      # The operator needs to list Storage Classes
+      - storageclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "" # core
+    resources:
+      # The operator needs to list the nodes
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  # --- Permissions below are often granted cluster-wide via this role when watching multiple namespaces ---
+  - apiGroups:
+      - "" # core
+    resources:
+      # The operator needs to manage secrets, config maps, services, statefulsets etc. related to the operands (Kafka, ZK, Connect etc.)
+      - secrets
+      - configmaps
+      - persistentvolumeclaims
+      - services
+      - serviceaccounts # To manage SAs for operands if needed
+      - pods # To watch/delete operand pods
+      - endpoints # To manage endpoints for services
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - "apps"
+    resources:
+      # The operator needs to manage statefulsets and deployments related to the operands
+      - statefulsets
+      - deployments
+      - deployments/scale
+      - replicasets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - "policy"
+    resources:
+      # The operator needs to manage PDBs for the operands
+      - poddisruptionbudgets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - "networking.k8s.io"
+    resources:
+      # The operator needs to manage NetworkPolicies for the operands
+      - networkpolicies
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  # The Strimzi installation files create these resources:
+  # Roles:
+  #   strimzi-cluster-operator-namespaced
+  #   strimzi-entity-operator
+  #   strimzi-kafka-client
+  # Role Bindings:
+  #   strimzi-cluster-operator
+  #   strimzi-entity-operator
+  #   strimzi-kafka-clients
+  # Cluster Roles:
+  #   strimzi-cluster-operator-global
+  #   strimzi-cluster-operator-namespaced     => Should match the Role above
+  #   strimzi-cluster-operator-watched        => Should match the Role below
+  #   strimzi-entity-operator                 => Should match the Role above
+  #   strimzi-kafka-broker                    => Used directly by Kafka Pods
+  #   strimzi-kafka-client                    => Should match the Role above
+  # Cluster Role Bindings:
+  #   strimzi-cluster-operator-namespaced     => Binds strimzi-cluster-operator SA to strimzi-cluster-operator-namespaced Cluster Role
+  #   strimzi-cluster-operator                => Binds strimzi-cluster-operator SA to strimzi-cluster-operator-global Cluster Role
+  #   strimzi-entity-operator-delegation      => Binds strimzi-cluster-operator SA to strimzi-entity-operator Cluster Role
+  #   strimzi-cluster-operator-watched        => Binds strimzi-cluster-operator SA to strimzi-cluster-operator-watched Cluster Role
+  #   strimzi-cluster-operator-kafka-broker-delegation  => Binds strimzi-cluster-operator SA to strimzi-kafka-broker Cluster Role
+  #   strimzi-cluster-operator-kafka-client-delegation  => Binds strimzi-cluster-operator SA to strimzi-kafka-client Cluster Role
+  # We need to be able to manage / delete those which we created
+  # The Cluster operator creates roles and role bindings in the namespaces where Kafka clusters are deployed
+  # So it needs permissions to manage these roles and role bindings based on the labels of the operator
+  # The Cluster operator also creates cluster roles and cluster role bindings when deployed cluster-wide
+  # So it needs permissions to manage these roles and role bindings based on the labels of the operator
+  - apiGroups:
+      - "rbac.authorization.k8s.io"
+    resources:
+      - roles
+      - rolebindings
+      - clusterroles
+      - clusterrolebindings
+    verbs:
+      - delete
+    resourceNames:
+      - strimzi-cluster-operator-namespaced
+      - strimzi-cluster-operator
+      - strimzi-entity-operator
+      - strimzi-kafka-clients
+      - strimzi-cluster-operator-global
+      - strimzi-cluster-operator-watched
+      - strimzi-kafka-broker
+      - strimzi-kafka-client
+      - strimzi-entity-operator-delegation
+      - strimzi-cluster-operator-kafka-broker-delegation
+      - strimzi-cluster-operator-kafka-client-delegation
+---
+# Watched resources permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: strimzi-cluster-operator-watched
+  labels:
+    app: strimzi
+rules:
+  # Resources in this role are being watched by the operator. When operator is deployed as cluster-wide, these permissions
+  # need to be granted to the operator on a cluster wide level as well, even if the operands will be deployed only in
+  # few of the namespaces in given cluster. This is required to set up the Kubernetes watches and informers.
+  # Note: The rights included in this role might change in the future
+  - apiGroups:
+      - "" # core
+    resources:
+      # The cluster operator needs to access pods, this is to allow it to monitor pod health
+      - pods
+    verbs:
+      - watch
+      - list
+  - apiGroups:
+      - "kafka.strimzi.io"
+    resources:
+      # The Cluster Operator operates the Strimzi custom resources
+      - kafkas
+      - kafkanodepools
+      - kafkaconnects
+      - kafkaconnectors
+      - kafkamirrormakers
+      - kafkabridges
+      - kafkamirrormaker2s
+      - kafkarebalances
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - patch
+      - update
+  - apiGroups:
+      - "kafka.strimzi.io"
+    resources:
+      # The Cluster Operator needs to manage the status of the Strimzi custom resources
+      - kafkas/status
+      - kafkanodepools/status
+      - kafkaconnects/status
+      - kafkaconnectors/status
+      - kafkamirrormakers/status
+      - kafkabridges/status
+      - kafkamirrormaker2s/status
+      - kafkarebalances/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - "core.strimzi.io"
+    resources:
+      # The cluster operator uses StrimziPodSets to manage the Kafka and ZooKeeper pods
+      - strimzipodsets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+      - update
+  - apiGroups:
+      - "core.strimzi.io"
+    resources:
+      # The Cluster Operator needs to manage the status of the StrimziPodSet custom resource
+      - strimzipodsets/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - "kafka.strimzi.io"
+    resources:
+      # The Cluster Operator needs deletion for KafkaRebalance only (during auto-rebalancing)
+      - kafkarebalances
+    verbs:
+      - delete

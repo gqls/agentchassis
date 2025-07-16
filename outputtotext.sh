@@ -12,8 +12,6 @@ find . -type f \
     -not -path "*/\\.*/*" \
 		-not -path "*/backup/*" \
 		-not -path "*/images/*" \
-		-not -path "*/frontend/build/*" \
-		-not -path "*/frontend/node_modules/*" \
 		-not -path "*/project3/*" \
 		-not -path "*/docs/*" \
 		-not -path "./projects/*" \

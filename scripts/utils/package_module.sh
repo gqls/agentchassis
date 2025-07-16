@@ -8,20 +8,39 @@
 #
 # Usage: ./scripts/utils/package_context.sh [-o /path/to/output_dir] [component_name]
 # Example: ./scripts/utils/package_context.sh auth-service
-# Example: ./scripts/utils/package_context.sh user-frontend
+# Example: ./scripts/utils/package_context.sh code-all
 
 set -e
 
 # --- Self-locating Logic ---
 # Ensures the script can be run from anywhere in the project.
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+# Get the full path to this script
+SCRIPT_PATH="${SCRIPT_DIR}/$(basename "${BASH_SOURCE[0]}")"
 PROJECT_ROOT=$( realpath "$SCRIPT_DIR/../../" )
 cd "$PROJECT_ROOT"
 
 # --- Configuration ---
-DEFAULT_OUTPUT_DIR="./output_contexts"
+DEFAULT_OUTPUT_DIR=$SCRIPT_DIR"/output_contexts"
 ENVIRONMENT="production"
 REGION="uk001"
+
+# --- Component List ---
+# List of all individual components for the 'all' option
+ALL_COMPONENTS=(
+    "code-all"
+    "deployments-all"
+    "environment-prod"
+    "auth-service"
+    "core-manager"
+    "agent-chassis"
+    "reasoning-agent"
+    "user-frontend"
+    "admin-dashboard"
+    "agent-playground"
+    "infra-cluster"
+    "infra-kafka"
+)
 
 # --- Main Functions ---
 # Helper function to write a single file's content to the output.
@@ -68,19 +87,23 @@ function show_help() {
   echo "Please provide the name of the component to package."
   echo ""
   echo "Available components:"
-  echo "  - all                     # All project files"
-  echo "  - platform                # Shared Go platform code"
-  echo "  - deployment-all          # All deployment configurations (Terraform & Kustomize)"
+  echo "  - all                     # Package all individual components into separate files"
   echo ""
-  echo "  # Backend Services"
+  echo "  # Horizontal Slices"
+  echo "  - code-all                # All Go source code (cmd, internal, pkg, platform)"
+  echo "  - deployments-all         # All deployment configurations (Terraform & Kustomize)"
+  echo "  - environment-prod        # Production environment Terraform configurations"
+  echo ""
+  echo "  # Backend Services (Vertical Slices)"
   echo "  - auth-service"
   echo "  - core-manager"
   echo "  - agent-chassis"
   echo "  - reasoning-agent"
   echo ""
-  echo "  # Frontend Applications"
+  echo "  # Frontend Applications (Vertical Slices)"
   echo "  - user-frontend"
   echo "  - admin-dashboard"
+  echo "  - agent-playground"
   echo ""
   echo "  # Infrastructure Layers"
   echo "  - infra-cluster           # The core Rackspace Kubernetes cluster"
@@ -91,6 +114,44 @@ function show_help() {
 if [ -z "$COMPONENT_NAME" ]; then
   show_help
   exit 1
+fi
+
+# If the component is 'all', loop and call the script for each component.
+if [ "$COMPONENT_NAME" = "all" ]; then
+  echo "Packaging all components into separate files..."
+  mkdir -p "$OUTPUT_DIR"
+
+  for component in "${ALL_COMPONENTS[@]}"; do
+    echo "-------------------------------------------------"
+    echo "--> Packaging component: $component"
+
+    # Call the script recursively using its full path
+    if [[ -n "$OUTPUT_DIR" && "$OUTPUT_DIR" != "$DEFAULT_OUTPUT_DIR" ]]; then
+      bash "$SCRIPT_PATH" -o "$OUTPUT_DIR" "$component"
+    else
+      bash "$SCRIPT_PATH" "$component"
+    fi
+
+    # Display the file size for the component just created
+    COMPONENT_FILE="${OUTPUT_DIR}/${component}_context.txt"
+    if [ -f "$COMPONENT_FILE" ]; then
+      FILE_SIZE=$(du -h "$COMPONENT_FILE" | cut -f1)
+      echo "    📦 File size: $FILE_SIZE"
+    fi
+  done
+
+  echo "-------------------------------------------------"
+  echo "✅ All components packaged."
+  echo ""
+  echo "Summary of generated files:"
+  for component in "${ALL_COMPONENTS[@]}"; do
+    COMPONENT_FILE="${OUTPUT_DIR}/${component}_context.txt"
+    if [ -f "$COMPONENT_FILE" ]; then
+      FILE_SIZE=$(du -h "$COMPONENT_FILE" | cut -f1)
+      printf "  %-25s %10s\n" "${component}_context.txt" "$FILE_SIZE"
+    fi
+  done
+  exit 0
 fi
 
 mkdir -p "$OUTPUT_DIR"
@@ -110,22 +171,20 @@ SHARED_KUSTOMIZE_BASE=("deployments/kustomize/base/")
 SHARED_ROOT_FILES=("Makefile" "go.mod" "go.sum" "docker-compose.yaml")
 
 case "$COMPONENT_NAME" in
-  all)
-    MODULE_DIRS=(
-      "cmd/" "configs/" "internal/" "pkg/" "platform/" "build/"
-      "deployments/" "scripts/" "frontends/" "docs/"
-    )
-    MODULE_FILES=("${SHARED_ROOT_FILES[@]}")
+  # --- New Horizontal Slices ---
+  code-all)
+    MODULE_DIRS=( "cmd/" "internal/" "pkg/" "platform/" )
+    MODULE_FILES=( "go.mod" "go.sum" )
     ;;
 
-  platform)
-    MODULE_DIRS=("platform/" "pkg/")
-    MODULE_FILES=()
+  deployments-all)
+    MODULE_DIRS=( "deployments/" "build/docker/" )
+    MODULE_FILES=( "Makefile" "docker-compose.yaml" )
     ;;
 
-  deployment-all)
-    MODULE_DIRS=("deployments/" "build/docker/")
-    MODULE_FILES=("Makefile")
+  environment-prod)
+    MODULE_DIRS=( "deployments/terraform/environments/$ENVIRONMENT/" )
+    MODULE_FILES=( "Makefile" )
     ;;
 
   # --- Backend Services ---
@@ -155,6 +214,19 @@ case "$COMPONENT_NAME" in
     )
     ;;
 
+  agent-chassis)
+    MODULE_DIRS=(
+      "cmd/agent-chassis/" "platform/agentbase/"
+      "deployments/kustomize/services/agent-chassis/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/agents/2210-agent-chassis/"
+      "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
+    MODULE_FILES=(
+      "build/docker/agent-chassis.dockerfile" "configs/agent-chassis.yaml"
+      "${SHARED_ROOT_FILES[@]}"
+    )
+    ;;
+
   reasoning-agent)
     MODULE_DIRS=(
       "cmd/reasoning-agent/" "internal/agents/reasoning/"
@@ -171,14 +243,12 @@ case "$COMPONENT_NAME" in
   # --- Frontend Applications ---
   user-frontend)
     MODULE_DIRS=(
-      "frontends/user-portal/" # Assuming user-portal is the main user-frontend
+      "frontends/user-portal/"
       "deployments/kustomize/frontends/user-portal/"
       "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/frontends/3320-user-portal/"
       "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
     )
-    MODULE_FILES=(
-      "Makefile"
-    )
+    MODULE_FILES=( "Makefile" )
     ;;
 
   admin-dashboard)
@@ -188,9 +258,17 @@ case "$COMPONENT_NAME" in
       "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/frontends/3310-admin-dashboard/"
       "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
     )
-    MODULE_FILES=(
-      "Makefile"
+    MODULE_FILES=( "Makefile" )
+    ;;
+
+  agent-playground)
+    MODULE_DIRS=(
+      "frontends/agent-playground/"
+      "deployments/kustomize/frontends/agent-playground/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/frontends/3330-agent-playground/"
+      "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
     )
+    MODULE_FILES=( "Makefile" )
     ;;
 
   # --- Infrastructure Layers ---

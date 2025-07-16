@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-frontend
+  labels:
+    app: user-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-frontend
+  template:
+    metadata:
+      labels:
+        app: user-frontend
+    spec:
+      containers:
+        - name: user-frontend
+          image: user-frontend:IMAGE_TAG_PLACEHOLDER
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
