@@ -1,0 +1,55 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: personae-kafka-cluster
+  namespace: kafka
+spec:
+  kafka:
+    version: 3.9.0 # Match operator compatibility
+    replicas: 3
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+    storage:
+      type: persistent-claim
+      size: 100Gi
+      class: ssd-large
+      deleteClaim: false # Match working config
+    config:
+      default.replication.factor: 3
+      min.insync.replicas: 2
+      inter.broker.protocol.version: "3.9"
+      log.message.format.version: "3.9"
+      log.retention.hours: "160"
+      log4j.logger.kafka.authorizer.logger: INFO
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "1500Mi"
+        cpu: "1"
+  zookeeper:
+    replicas: 3
+    resources:
+      requests:
+        memory: "512Mi" # Adjust
+        cpu: "250m"
+      limits:
+        memory: "768Mi" # Adjust
+        cpu: "500m"
+    storage:
+      type: persistent-claim
+      size: 10Gi
+      class: ssd
+      deleteClaim: false # Match working config
+  entityOperator:
+    topicOperator:
+      reconciliationIntervalMs: 90000
+    userOperator: {}

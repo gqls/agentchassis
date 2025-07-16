@@ -1,0 +1,100 @@
+# terraform/modules/nginx_ingress/config/ingress-nginx-values.yaml
+
+controller:
+  # Configure the kind of Deployment/DaemonSet to have it across all nodes
+  kind: DaemonSet
+  # replicaCount: 2
+
+  # Set up node affinity to use spot instances if available
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: "role"
+                operator: In
+                values:
+                  - "spot-instance"
+
+  # Set up resource limits
+  resources:
+    requests:
+      cpu: 150m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Allow for graceful termination
+  terminationGracePeriodSeconds: 300
+
+  # Configure metrics for Prometheus
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "10254"
+
+  # Configure the service
+  service:
+    type: NodePort
+    externalTrafficPolicy: Local
+    nodePorts:
+      http: 30080
+      https: 30443
+
+  # Configure admission webhooks
+  admissionWebhooks:
+    enabled: true
+    failurePolicy: Fail
+    timeoutSeconds: 10
+
+  # Configure configmaps
+  config:
+    # Enable gzip compression
+    use-gzip: "true"
+    gzip-types: "application/json application/javascript text/css text/javascript text/plain text/xml application/xml+rss"
+    # Configure log format
+    log-format-upstream: '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_length $request_time [$proxy_upstream_name] [$proxy_alternative_upstream_name] $upstream_addr $upstream_response_length $upstream_response_time $upstream_status $req_id'
+    # Configure rate limiting
+    limit-req-status-code: "429"
+    # Configure proxy timeout
+    proxy-read-timeout: "180"
+    proxy-send-timeout: "180"
+    proxy-body-size: "50m"
+    proxy-next-upstream-timeout: "20"
+    client-header-timeout: "60"
+    client-body-timeout: "60"
+    http-snippet: |
+      map $http_upgrade $connection_upgrade {
+        default upgrade;
+        '' close;
+      }
+    # Configure SSL
+    ssl-protocols: "TLSv1.2 TLSv1.3"
+    ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384"
+    # Configure HSTS
+    hsts: "true"
+    hsts-include-subdomains: "true"
+    hsts-max-age: "31536000"
+
+# Default backend for 404 pages
+defaultBackend:
+  enabled: true
+  image:
+    registry: k8s.gcr.io
+    image: defaultbackend-amd64
+    tag: "1.5"
+  resources:
+    limits:
+      cpu: 10m
+      memory: 20Mi
+    requests:
+      cpu: 10m
+      memory: 20Mi
+  service:
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8080"

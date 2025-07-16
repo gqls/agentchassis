@@ -1,0 +1,55 @@
+# personae-app-anonymous-access.yaml
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: personae-app-anonymous
+  namespace: kafka # Users must be in the same namespace as the Kafka cluster
+  labels:
+    strimzi.io/cluster: personae-kafka-cluster
+spec:
+  # No authentication block: applies to User:ANONYMOUS
+  authorization:
+    type: simple
+    acls:
+      # For init containers and apps to find/describe topics
+      - resource:
+          type: topic
+          name: personae- # Topics starting with "personae-"
+          patternType: prefix
+        operations:
+          - Describe
+          - Read    # For consumers
+          - Write   # For producers (if any agents produce to these)
+          - Create  # If apps/producers might create them (less likely if Strimzi manages topics)
+        host: "*"
+
+      # For consumers to operate on their groups
+      # Assuming consumer group names might also start with "personae-" or are related
+      - resource:
+          type: group
+          name: personae- # Consumer groups starting with "personae-"
+          patternType: prefix # Adjust if group names are different
+        operations:
+          - Read
+          - Describe
+          # - Delete # If consumers manage their own offset commits and group membership actively
+        host: "*"
+
+      # For consumers to find their coordinator (often needs Describe on a group)
+      # The previous rule for group 'personae-' prefix should cover FindCoordinator for those groups.
+      # If using arbitrary group names, you'd need a broader group rule like:
+      - resource:
+          type: group
+          name: "*" # Or a more specific group prefix/name if known
+          patternType: literal
+        operations:
+          - Describe # For FindCoordinator for any group
+          # - Read # Be cautious with Read on group "*"
+        host: "*"
+
+      # General cluster describe, often needed by tools and sometimes clients
+      - resource:
+          type: cluster
+        operations:
+          - Describe
+        host: "*"

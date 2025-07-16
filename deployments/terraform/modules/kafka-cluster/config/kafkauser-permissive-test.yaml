@@ -1,0 +1,27 @@
+# test-anonymous-broader-corrected.yaml
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: test-anonymous-broader
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: personae-kafka-cluster
+spec:
+  authorization:
+    type: simple
+    acls:
+      # Allow Describe on ALL topics
+      - resource:
+          type: topic
+          name: "*"
+          patternType: literal # For all topics, name should be "*" and patternType literal
+        operations:
+          - Describe
+        host: "*"
+      # Allow Describe on the cluster
+      - resource:
+          type: cluster # For 'cluster' type, no 'name' or 'patternType' needed in the resource block.
+          # Strimzi implicitly uses 'kafka-cluster' as the resource name.
+        operations:
+          - Describe
+        host: "*"

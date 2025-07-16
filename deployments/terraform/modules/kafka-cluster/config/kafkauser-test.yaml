@@ -1,0 +1,20 @@
+# modules/kafka_cluster/config/kafkauser-test.yaml
+# test-anonymous-describe-user.yaml
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: test-anonymous-describe
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: personae-kafka-cluster
+spec:
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: personae-
+          patternType: prefix
+        host: "*"
+        operations:
+          - Describe

@@ -28,9 +28,12 @@ REGION="uk001"
 # --- Component List ---
 # List of all individual components for the 'all' option
 ALL_COMPONENTS=(
+    # Horizontal slices
     "code-all"
     "deployments-all"
     "environment-prod"
+
+    # Full service stacks
     "auth-service"
     "core-manager"
     "agent-chassis"
@@ -38,8 +41,61 @@ ALL_COMPONENTS=(
     "user-frontend"
     "admin-dashboard"
     "agent-playground"
-    "infra-cluster"
-    "infra-kafka"
+
+    # Infrastructure ---
+    "infra-cluster-provisioning"   # High-level: Terraform to build the k8s cluster
+    "infra-kafka-stack"            # High-level: The entire Kafka setup (TF + Kustomize)
+    "infra-terraform-rackspace-module" # Module for creating Rackspace K8s cluster
+    "infra-terraform-kafka-modules"  # Modules for Strimzi Operator + Kafka Cluster
+    "infra-terraform-environment"    # Top-level environment wiring for Terraform
+    "infra-kustomize-kafka-instance" # Kustomize manifests for the Kafka cluster
+    "infra-kustomize-ingress"        # Kustomize manifests for NGINX Ingress
+
+
+    # Frontend development
+    "frontend-user-portal-only"
+    "frontend-admin-only"
+    "frontend-playground-only"
+    "frontend-shared-components"
+    "frontend-all-apps"
+
+    # Backend APIs
+    "api-auth-only"
+    "api-core-only"
+    "api-agents-only"
+    "api-all"
+
+    # Platform libraries
+    "platform-core"
+    "platform-messaging"
+    "platform-data"
+    "platform-observability"
+
+    # Agent development
+    "agent-framework"
+    "agent-reasoning-only"
+    "agent-adapters"
+
+    # Database and migrations
+    "database-schemas"
+    "database-auth"
+    "database-clients"
+
+    # Deployment specific
+    "deploy-terraform-modules"
+    "deploy-kustomize-base"
+    "deploy-services"
+    "deploy-frontends"
+
+    # Development tools
+    "dev-scripts"
+    "dev-docker"
+    "dev-local-env"
+
+    # Testing
+    "test-integration"
+    "test-e2e"
+    "test-all"
 )
 
 # --- Main Functions ---
@@ -136,27 +192,78 @@ function show_help() {
   echo "Please provide the name of the component to package."
   echo ""
   echo "Available components:"
-  echo "  - all                     # Package all individual components into separate files"
   echo ""
-  echo "  # Horizontal Slices"
-  echo "  - code-all                # All Go source code (cmd, internal, pkg, platform)"
-  echo "  - deployments-all         # All deployment configurations (Terraform & Kustomize)"
-  echo "  - environment-prod        # Production environment Terraform configurations"
+  echo "  BULK OPERATIONS:"
+  echo "    all                      # Package all individual components into separate files"
   echo ""
-  echo "  # Backend Services (Vertical Slices)"
-  echo "  - auth-service"
-  echo "  - core-manager"
-  echo "  - agent-chassis"
-  echo "  - reasoning-agent"
+  echo "  HORIZONTAL SLICES:"
+  echo "    code-all                 # All Go source code (cmd, internal, pkg, platform)"
+  echo "    deployments-all          # All deployment configurations (Terraform & Kustomize)"
+  echo "    environment-prod         # Production environment Terraform configurations"
   echo ""
-  echo "  # Frontend Applications (Vertical Slices)"
-  echo "  - user-frontend"
-  echo "  - admin-dashboard"
-  echo "  - agent-playground"
+  echo "  FULL SERVICE STACKS (code + deploy):"
+  echo "    auth-service             # Complete auth service stack"
+  echo "    core-manager             # Complete core manager stack"
+  echo "    agent-chassis            # Complete agent chassis stack"
+  echo "    reasoning-agent          # Complete reasoning agent stack"
+  echo "    user-frontend            # Complete user portal stack"
+  echo "    admin-dashboard          # Complete admin dashboard stack"
+  echo "    agent-playground         # Complete agent playground stack"
   echo ""
-  echo "  # Infrastructure Layers"
-  echo "  - infra-cluster           # The core Rackspace Kubernetes cluster"
-  echo "  - infra-kafka             # The Kafka cluster deployment"
+  echo "  FRONTEND DEVELOPMENT:"
+  echo "    frontend-user-portal-only    # Just user portal React code"
+  echo "    frontend-admin-only          # Just admin dashboard React code"
+  echo "    frontend-playground-only     # Just playground React code"
+  echo "    frontend-shared-components   # Shared UI components and API client"
+  echo "    frontend-all-apps           # All frontend applications"
+  echo ""
+  echo "  BACKEND API DEVELOPMENT:"
+  echo "    api-auth-only            # Auth service API code only"
+  echo "    api-core-only            # Core manager API code only"
+  echo "    api-agents-only          # All agent-related API code"
+  echo "    api-all                  # All backend API code"
+  echo ""
+  echo "  PLATFORM LIBRARIES:"
+  echo "    platform-core            # Core utilities (config, errors, logging, validation)"
+  echo "    platform-messaging       # Kafka and messaging infrastructure"
+  echo "    platform-data           # Database, storage, and memory services"
+  echo "    platform-observability  # Metrics, health, tracing, resilience"
+  echo ""
+  echo "  AGENT DEVELOPMENT:"
+  echo "    agent-framework         # Agent base classes and orchestration"
+  echo "    agent-reasoning-only    # Just reasoning agent implementation"
+  echo "    agent-adapters         # Web search and image adapter code"
+  echo ""
+  echo "  DATABASE & MIGRATIONS:"
+  echo "    database-schemas        # All migration files and seed data"
+  echo "    database-auth          # Auth-related database code"
+  echo "    database-clients       # Client/persona database code"
+  echo ""
+  echo "  DEPLOYMENT SPECIFIC:"
+  echo "    deploy-terraform-modules    # Reusable Terraform modules"
+  echo "    deploy-kustomize-base      # Base Kustomize configurations"
+  echo "    deploy-services            # Service deployment configs"
+  echo "    deploy-frontends          # Frontend deployment configs"
+  echo ""
+  echo "  DEVELOPMENT TOOLS:"
+  echo "    dev-scripts             # All development scripts"
+  echo "    dev-docker             # Docker configurations"
+  echo "    dev-local-env          # Local development environment"
+  echo ""
+  echo "  TESTING:"
+  echo "    test-integration       # Integration test code"
+  echo "    test-e2e              # End-to-end test code"
+  echo "    test-all              # All test code"
+  echo ""
+  echo "  INFRASTRUCTURE:"
+  echo "    infra-cluster-provisioning       # Terraform for provisioning the base Rackspace K8s cluster"
+  echo "    infra-kafka-stack                # The complete Kafka stack (Terraform modules & Kustomize instance)"
+  echo "    infra-terraform-rackspace-module # Module for creating the Rackspace Kubernetes cluster"
+  echo "    infra-terraform-kafka-modules    # Modules for Strimzi Operator and the Kafka Cluster"
+  echo "    infra-terraform-environment      # Top-level Terraform config for the production environment"
+  echo "    infra-kustomize-kafka-instance   # Kustomize definition for the Kafka cluster resource"
+  echo "    infra-kustomize-ingress          # Kustomize definition for the NGINX Ingress"
+
 }
 
 
@@ -220,7 +327,7 @@ SHARED_KUSTOMIZE_BASE=("deployments/kustomize/base/")
 SHARED_ROOT_FILES=("Makefile" "go.mod" "go.sum" "docker-compose.yaml")
 
 case "$COMPONENT_NAME" in
-  # --- New Horizontal Slices ---
+  # --- Horizontal Slices ---
   code-all)
     MODULE_DIRS=( "cmd/" "internal/" "pkg/" "platform/" )
     MODULE_FILES=( "go.mod" "go.sum" )
@@ -236,7 +343,7 @@ case "$COMPONENT_NAME" in
     MODULE_FILES=( "Makefile" )
     ;;
 
-  # --- Backend Services ---
+  # --- Full Service Stacks ---
   auth-service)
     MODULE_DIRS=(
       "cmd/auth-service/" "internal/auth-service/"
@@ -245,7 +352,7 @@ case "$COMPONENT_NAME" in
       "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
     )
     MODULE_FILES=(
-      "build/docker/auth-service.dockerfile" "configs/auth-service.yaml"
+      "build/docker/backend/auth-service.dockerfile" "configs/auth-service.yaml"
       "${SHARED_ROOT_FILES[@]}"
     )
     ;;
@@ -258,7 +365,7 @@ case "$COMPONENT_NAME" in
       "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
     )
     MODULE_FILES=(
-      "build/docker/core-manager.dockerfile" "configs/core-manager.yaml"
+      "build/docker/backend/core-manager.dockerfile" "configs/core-manager.yaml"
       "${SHARED_ROOT_FILES[@]}"
     )
     ;;
@@ -271,7 +378,7 @@ case "$COMPONENT_NAME" in
       "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
     )
     MODULE_FILES=(
-      "build/docker/agent-chassis.dockerfile" "configs/agent-chassis.yaml"
+      "build/docker/backend/agent-chassis.dockerfile" "configs/agent-chassis.yaml"
       "${SHARED_ROOT_FILES[@]}"
     )
     ;;
@@ -284,12 +391,12 @@ case "$COMPONENT_NAME" in
       "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
     )
     MODULE_FILES=(
-      "build/docker/reasoning-agent.dockerfile" "configs/reasoning-agent.yaml"
+      "build/docker/backend/reasoning-agent.dockerfile" "configs/reasoning-agent.yaml"
       "${SHARED_ROOT_FILES[@]}"
     )
     ;;
 
-  # --- Frontend Applications ---
+  # --- Frontend Applications (Full Stack) ---
   user-frontend)
     MODULE_DIRS=(
       "frontends/user-portal/"
@@ -321,7 +428,8 @@ case "$COMPONENT_NAME" in
     ;;
 
   # --- Infrastructure Layers ---
-  infra-cluster)
+  # --- Infrastructure Layers (Refined and Expanded) ---
+  infra-cluster-provisioning) # Renamed from infra-cluster
     MODULE_DIRS=(
       "deployments/terraform/modules/rackspace-kubernetes/"
       "deployments/terraform/environments/$ENVIRONMENT/$REGION/010-infrastructure/"
@@ -329,7 +437,7 @@ case "$COMPONENT_NAME" in
     MODULE_FILES=("Makefile")
     ;;
 
-  infra-kafka)
+  infra-kafka-stack) # New comprehensive stack
     MODULE_DIRS=(
       "deployments/terraform/modules/strimzi-operator/"
       "deployments/terraform/modules/kafka-cluster/"
@@ -338,6 +446,212 @@ case "$COMPONENT_NAME" in
       "deployments/kustomize/infrastructure/kafka/"
     )
     MODULE_FILES=("Makefile")
+    ;;
+
+  infra-terraform-rackspace-module)
+    MODULE_DIRS=( "deployments/terraform/modules/rackspace-kubernetes/" )
+    ;;
+
+  infra-terraform-kafka-modules)
+    MODULE_DIRS=(
+      "deployments/terraform/modules/strimzi-operator/"
+      "deployments/terraform/modules/kafka-cluster/"
+    )
+    ;;
+
+  infra-terraform-environment)
+    MODULE_DIRS=( "deployments/terraform/environments/$ENVIRONMENT/" )
+    ;;
+
+  infra-kustomize-kafka-instance)
+    MODULE_DIRS=( "deployments/kustomize/infrastructure/kafka/" )
+    ;;
+
+  infra-kustomize-ingress)
+    MODULE_DIRS=( "deployments/kustomize/infrastructure/nginx-ingress/" )
+    ;;
+
+  # --- Frontend Development Only ---
+  frontend-user-portal-only)
+    MODULE_DIRS=( "frontends/user-portal/" )
+    MODULE_FILES=( "build/docker/frontend/react-nginx.dockerfile" )
+    ;;
+
+  frontend-admin-only)
+    MODULE_DIRS=( "frontends/admin-dashboard/" )
+    MODULE_FILES=( "build/docker/frontend/react-nginx.dockerfile" )
+    ;;
+
+  frontend-playground-only)
+    MODULE_DIRS=( "frontends/agent-playground/" )
+    MODULE_FILES=( "build/docker/frontend/react-nginx.dockerfile" )
+    ;;
+
+  frontend-shared-components)
+    MODULE_DIRS=( "frontends/shared/" )
+    ;;
+
+  frontend-all-apps)
+    MODULE_DIRS=( "frontends/" )
+    MODULE_FILES=( "build/docker/frontend/react-nginx.dockerfile" "build/docker/frontend/react-dev.dockerfile" )
+    ;;
+
+  # --- Backend API Development ---
+  api-auth-only)
+    MODULE_DIRS=( "cmd/auth-service/" "internal/auth-service/" )
+    MODULE_FILES=( "configs/auth-service.yaml" "go.mod" )
+    ;;
+
+  api-core-only)
+    MODULE_DIRS=( "cmd/core-manager/" "internal/core-manager/" )
+    MODULE_FILES=( "configs/core-manager.yaml" "go.mod" )
+    ;;
+
+  api-agents-only)
+    MODULE_DIRS=(
+      "cmd/agent-chassis/" "cmd/reasoning-agent/"
+      "internal/agents/" "platform/agentbase/"
+    )
+    MODULE_FILES=( "configs/agent-chassis.yaml" "configs/reasoning-agent.yaml" "go.mod" )
+    ;;
+
+  api-all)
+    MODULE_DIRS=( "cmd/" "internal/" "pkg/models/" )
+    MODULE_FILES=( "configs/" "go.mod" )
+    ;;
+
+  # --- Platform Libraries ---
+  platform-core)
+    MODULE_DIRS=(
+      "platform/config/" "platform/errors/" "platform/logger/"
+      "platform/validation/" "platform/contracts/"
+    )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  platform-messaging)
+    MODULE_DIRS=(
+      "platform/kafka/" "platform/messaging/"
+    )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  platform-data)
+    MODULE_DIRS=(
+      "platform/database/" "platform/storage/" "platform/memory/"
+    )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  platform-observability)
+    MODULE_DIRS=(
+      "platform/observability/" "platform/health/" "platform/resilience/"
+    )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  # --- Agent Development ---
+  agent-framework)
+    MODULE_DIRS=(
+      "platform/agentbase/" "platform/orchestration/"
+      "platform/aiservice/" "platform/governance/"
+    )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  agent-reasoning-only)
+    MODULE_DIRS=(
+      "cmd/reasoning-agent/" "internal/agents/reasoning/"
+    )
+    MODULE_FILES=( "configs/reasoning-agent.yaml" "go.mod" )
+    ;;
+
+  agent-adapters)
+    MODULE_DIRS=(
+      "cmd/web-search-adapter/" "cmd/image-generator-adapter/"
+      "internal/adapters/"
+    )
+    MODULE_FILES=( "configs/web-search-adapter.yaml" "go.mod" )
+    ;;
+
+  # --- Database and Migrations ---
+  database-schemas)
+    MODULE_DIRS=( "platform/database/migrations/" )
+    MODULE_FILES=( "scripts/docker/seed-data.sql" )
+    ;;
+
+  database-auth)
+    MODULE_DIRS=(
+      "internal/auth-service/user/" "internal/auth-service/project/"
+      "internal/auth-service/subscription/" "platform/database/migrations/"
+    )
+    ;;
+
+  database-clients)
+    MODULE_DIRS=(
+      "internal/core-manager/database/" "platform/database/"
+    )
+    MODULE_FILES=( "platform/database/migrations/003_create_client_schema.sql" )
+    ;;
+
+  # --- Deployment Specific ---
+  deploy-terraform-modules)
+    MODULE_DIRS=( "deployments/terraform/modules/" )
+    ;;
+
+  deploy-kustomize-base)
+    MODULE_DIRS=(
+      "deployments/kustomize/base/" "deployments/kustomize/components/"
+    )
+    ;;
+
+  deploy-services)
+    MODULE_DIRS=(
+      "deployments/kustomize/services/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/"
+    )
+    ;;
+
+  deploy-frontends)
+    MODULE_DIRS=(
+      "deployments/kustomize/frontends/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/frontends/"
+    )
+    ;;
+
+  # --- Development Tools ---
+  dev-scripts)
+    MODULE_DIRS=( "scripts/" )
+    MODULE_FILES=( "Makefile" )
+    ;;
+
+  dev-docker)
+    MODULE_DIRS=( "build/docker/" )
+    MODULE_FILES=( "docker-compose.yaml" ".env.example" )
+    ;;
+
+  dev-local-env)
+    MODULE_DIRS=( "scripts/local/" "scripts/docker/" )
+    MODULE_FILES=(
+      "docker-compose.yaml" ".env.example"
+      "Makefile" "scripts/setup.sh"
+    )
+    ;;
+
+  # --- Testing ---
+  test-integration)
+    MODULE_DIRS=( "tests/integration/" )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  test-e2e)
+    MODULE_DIRS=( "tests/e2e/" )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  test-all)
+    MODULE_DIRS=( "tests/" )
+    MODULE_FILES=( "go.mod" "Makefile" )
     ;;
 
   *)

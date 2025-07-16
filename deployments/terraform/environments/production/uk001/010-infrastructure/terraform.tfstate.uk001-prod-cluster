@@ -1,0 +1,221 @@
+{
+  "version": 4,
+  "terraform_version": "1.12.0",
+  "serial": 19,
+  "lineage": "f13659cb-8dfd-565a-e5bc-d61834baeb9b",
+  "outputs": {
+    "cluster_endpoint": {
+      "value": "https://hcp-8750ffa8-7ad8-40e7-973d-b33c79cd1a11.spot.rackspace.com/",
+      "type": "string",
+      "sensitive": true
+    },
+    "cluster_kubeconfig_raw": {
+      "value": "apiVersion: v1\nclusters:\n  - cluster:\n      insecure-skip-tls-verify: true\n      server: \u003e-\n        https://hcp-8750ffa8-7ad8-40e7-973d-b33c79cd1a11.spot.rackspace.com/\n    name: uk001-prod-cluster\ncontexts:\n  - context:\n      cluster: uk001-prod-cluster\n      namespace: default\n      user: ngpc-user\n    name: personae-uk001-prod-cluster\n  - context:\n      cluster: uk001-prod-cluster\n      namespace: default\n      user: oidc\n    name: personae-uk001-prod-cluster-oidc\ncurrent-context: personae-uk001-prod-cluster\nkind: Config\npreferences: {}\nusers:\n  - name: ngpc-user\n    user:\n      token: \u003e-\n        eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkNYQ25nd1NFS0JWQl9DbWxvalo0eCJ9.eyJncm91cCI6ImNsb3Vkc3BhY2UtYWRtaW4iLCJuaWNrbmFtZSI6ImFhYSIsIm5hbWUiOiJhYWFAZGVzaWduY29uc3VsdGFuY3kuY28udWsiLCJwaWN0dXJlIjoiaHR0cHM6Ly9zLmdyYXZhdGFyLmNvbS9hdmF0YXIvYzRhNDgzZjBiNTA0NmFmZGEwMzUyM2I4MDBjOTFiYzc_cz00ODAmcj1wZyZkPWh0dHBzJTNBJTJGJTJGY2RuLmF1dGgwLmNvbSUyRmF2YXRhcnMlMkZhYS5wbmciLCJ1cGRhdGVkX2F0IjoiMjAyNS0wNS0yN1QxMjo1NjoxMy42MDlaIiwiZW1haWwiOiJhYWFAZGVzaWduY29uc3VsdGFuY3kuY28udWsiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9sb2dpbi5zcG90LnJhY2tzcGFjZS5jb20vIiwiYXVkIjoibXdHM2xVTVY4S3llTXFIZTRmSjVCYjNuTTF2QnZSTmEiLCJzdWIiOiJhdXRoMHw2N2U2Zjg1NDZmYzVkM2I4ZDVhMTRiMWQiLCJpYXQiOjE3NDg1MTY4ODUsImV4cCI6MTc0ODc3NjA4NSwic2lkIjoiU2tLUGp5dUQyWFc5ZkVHbFRNZ1hFZE1VeWhydlNPclciLCJvcmdfaWQiOiJvcmdfSmp5alptb3hWTElYUlZEaiJ9.mWZ8IdFZZPP87S0Peiul6WqJDIfksilmNcLdbM0oHDjfI7JrqrY-bK0G1Uxg4RBhCVyEN1lE5h5IKT-S4UXHtvTZfSal26weGw2Rd-9sdlbHdmwI3eOQ_W-Nb_g9jynJBLJdFLFxiKG1IqvV40LL0UDdaRKfW6JXvN4Er1mWNggOJtTv9cpHsK4DQo8YL8xo6O5Eq4KwKVgxIk6mRuFTz7n1IB_w_54AIItQHnUhFmpdTi0qKJVurCfZFiCM-s2D0BZ5-lLlrYV680UX1QAN9QuglaIt35miXgBcQTcAknjnmnv2GzDgHszPD-XxT0S7WDoKz62jNHNc-eF5ffPEAg\n  - name: oidc\n    user:\n      exec:\n        apiVersion: client.authentication.k8s.io/v1beta1\n        args:\n          - oidc-login\n          - get-token\n          - '--oidc-issuer-url=https://login.spot.rackspace.com/'\n          - '--oidc-client-id=mwG3lUMV8KyeMqHe4fJ5Bb3nM1vBvRNa'\n          - '--oidc-extra-scope=openid'\n          - '--oidc-extra-scope=profile'\n          - '--oidc-extra-scope=email'\n          - '--oidc-auth-request-extra-params=organization=org_JjyjZmoxVLIXRVDj'\n          - '--token-cache-dir=~/.kube/cache/oidc-login/org_JjyjZmoxVLIXRVDj'\n        command: kubectl\n        env: null\n        interactiveMode: IfAvailable\n        provideClusterInfo: false\n",
+      "type": "string",
+      "sensitive": true
+    },
+    "cluster_name": {
+      "value": "uk001-prod-cluster",
+      "type": "string"
+    },
+    "ingress_controller_node_external_ips": {
+      "value": [
+        "134.213.222.28",
+        "134.213.222.34",
+        "134.213.222.35",
+        "134.213.222.32"
+      ],
+      "type": [
+        "tuple",
+        [
+          "string",
+          "string",
+          "string",
+          "string"
+        ]
+      ]
+    }
+  },
+  "resources": [
+    {
+      "module": "module.kubernetes_cluster",
+      "mode": "data",
+      "type": "spot_serverclasses",
+      "name": "available_flavors",
+      "provider": "provider[\"registry.terraform.io/rackerlabs/spot\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "filters": null,
+            "id": null,
+            "names": [
+              "gp.vs1.small-dfw",
+              "gp.vs1.small-iad",
+              "gp.bm2.large-dfw",
+              "gp.bm2.small-lon",
+              "gp.bm2.small-iad",
+              "gp.bm2.medium-dfw",
+              "gp.bm2.large-lon",
+              "gp.bm2.medium-lon",
+              "io.bm2-lon",
+              "io.bm2-iad",
+              "ch.vs2.medium-dfw2",
+              "mh.vs2.xlarge-dfw2",
+              "ch.vs1.medium-hkg",
+              "ch.vs2.large-sjc",
+              "ch.vs2.xlarge-sjc",
+              "gp.vs2.2xlarge-sjc",
+              "gp.vs2.large-sjc",
+              "gp.vs2.xlarge-sjc",
+              "mh.vs2.large-sjc",
+              "mh.vs2.medium-sjc",
+              "mh.vs2.xlarge-sjc",
+              "mh.vs1.medium-syd",
+              "gpu.vs2.megaxlarge-sjc",
+              "mh.vs2.medium-dfw2",
+              "ch.vs1.large-syd",
+              "mh.vs1.2xlarge-syd",
+              "ch.vs1.large-hkg",
+              "ch.vs1.medium-ord",
+              "mh.vs1.medium-ord",
+              "ch.vs1.large-ord",
+              "mh.vs1.large-ord",
+              "gp.vs1.large-hkg",
+              "gp.vs1.xlarge-lon",
+              "ch.vs1.2xlarge-hkg",
+              "mh.vs1.2xlarge-hkg",
+              "gp.vs1.2xlarge-hkg",
+              "ch.vs1.2xlarge-lon",
+              "ch.vs1.xlarge-ord",
+              "gp.vs1.2xlarge-iad",
+              "mh.vs1.2xlarge-ord",
+              "gp.vs1.medium-ord",
+              "ch.vs1.2xlarge-syd",
+              "mh.vs1.xlarge-syd",
+              "mh.vs1.2xlarge-lon",
+              "ch.vs1.medium-iad",
+              "mh.vs1.medium-iad",
+              "ch.vs1.2xlarge-ord",
+              "gp.vs1.xlarge-syd",
+              "ch.vs1.xlarge-hkg",
+              "gp.vs1.2xlarge-ord",
+              "ch.vs1.xlarge-syd",
+              "ch.vs1.2xlarge-dfw",
+              "gp.vs1.2xlarge-syd",
+              "gp.vs1.2xlarge-dfw",
+              "mh.vs1.xlarge-ord",
+              "mh.vs1.medium-hkg",
+              "mh.vs1.xlarge-hkg",
+              "mh.vs1.large-hkg",
+              "gp.vs1.medium-hkg",
+              "ch.vs1.medium-syd",
+              "mh.vs1.large-syd",
+              "gp.vs1.medium-syd",
+              "mh.vs1.2xlarge-dfw",
+              "mh.vs1.medium-dfw",
+              "ch.vs1.medium-dfw",
+              "gp.vs2.2xlarge-dfw2",
+              "ch.vs2.medium-sjc",
+              "gpu.vs2.xlargeplusplus-sjc",
+              "ch.vs1.large-lon",
+              "gp.vs1.medium-lon",
+              "ch.vs1.medium-lon",
+              "gp.vs1.large-ord",
+              "gp.vs1.xlarge-ord",
+              "gp.vs1.large-syd",
+              "ch.vs2.xlarge-dfw2",
+              "ch.vs2.large-dfw2",
+              "mh.vs1.xlarge-dfw",
+              "ch.vs1.xlarge-dfw",
+              "mh.vs1.medium-lon",
+              "ch.vs1.xlarge-lon",
+              "gp.vs1.2xlarge-lon",
+              "gp.vs1.large-dfw",
+              "gp.vs1.xlarge-iad",
+              "mh.vs2.large-dfw2",
+              "mh.vs1.large-iad",
+              "gp.vs1.large-iad",
+              "gp.vs2.xlarge-dfw2",
+              "gp.vs1.medium-iad",
+              "gp.vs2.large-dfw2",
+              "mh.vs1.xlarge-lon",
+              "mh.vs1.large-lon",
+              "gp.vs2.medium-dfw2",
+              "gp.vs2.medium-sjc",
+              "gp.vs1.xlarge-hkg",
+              "gp.vs1.medium-dfw",
+              "mh.vs1.large-dfw",
+              "ch.vs1.large-dfw",
+              "ch.vs1.xlarge-iad",
+              "mh.vs1.xlarge-iad",
+              "gp.vs1.large-lon",
+              "ch.vs1.2xlarge-iad",
+              "mh.vs1.2xlarge-iad",
+              "ch.vs1.large-iad",
+              "gp.vs1.xlarge-dfw"
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0
+        }
+      ]
+    },
+    {
+      "module": "module.kubernetes_cluster",
+      "mode": "managed",
+      "type": "spot_cloudspace",
+      "name": "cluster",
+      "provider": "provider[\"registry.terraform.io/rackerlabs/spot\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "bids": [
+              {
+                "bid_name": "80c3f728-ed3a-4540-9fd7-ffda0cbeb728",
+                "won_count": 4
+              }
+            ],
+            "cloudspace_name": "uk001-prod-cluster",
+            "cni": "calico",
+            "deployment_type": "gen2",
+            "first_ready_timestamp": "2025-05-28T16:29:41Z",
+            "hacontrol_plane": false,
+            "id": "uk001-prod-cluster",
+            "kubernetes_version": "1.31.1",
+            "last_updated": null,
+            "name": "uk001-prod-cluster",
+            "pending_allocations": null,
+            "preemption_webhook": "https://hooks.slack.com/services/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",
+            "region": "uk-lon-1",
+            "spotnodepool_ids": [
+              "80c3f728-ed3a-4540-9fd7-ffda0cbeb728"
+            ],
+            "timeouts": null,
+            "wait_until_ready": null
+          },
+          "sensitive_attributes": [
+            [
+              {
+                "type": "get_attr",
+                "value": "preemption_webhook"
+              }
+            ]
+          ],
+          "identity_schema_version": 0,
+          "private": "eyJyZXNvdXJjZV92ZXJzaW9uIjoiTVRnME1qZ3pNems9In0="
+        }
+      ]
+    },
+    {
+      "module": "module.kubernetes_cluster",
+      "mode": "managed",
+      "type": "spot_ondemandnodepool",
+      "name": "default_pool",
+      "provider": "provider[\"registry.terraform.io/rackerlabs/spot\"]",
+      "instances": []
+    }
+  ],
+  "check_results": null
+}

@@ -1,53 +1,19 @@
-# The name for the Kubernetes cluster.
+# ~/projects/terraform/rackspace_generic/terraform/modules/kubernetes_cluster_rackspace/variables.tf
+
 variable "cluster_name" {
   description = "Name for the Kubernetes cluster (Spot Cloudspace)."
   type        = string
 }
 
-# The Rackspace region for the cluster.
 variable "rackspace_region" {
-  description = "Rackspace region for the cluster (e.g., uk-lon-1)."
+  description = "Rackspace region for the cluster (e.g., aus-syd-1)."
   type        = string
 }
 
-# The Kubernetes version.
 variable "kubernetes_version" {
   description = "Kubernetes version for the cluster."
   type        = string
-  default     = "1.28.8"
-}
-
-# A map defining multiple spot node pools. This is the key enhancement.
-variable "spot_node_pools" {
-  description = "A map of spot node pool configurations. Each key is a pool name."
-  type = map(object({
-    min_nodes = number
-    max_nodes = number
-    flavor    = string
-    max_price = number
-  }))
-  default = {}
-}
-
-# Optional on-demand node configuration.
-variable "ondemand_node_count" {
-  description = "Number of on-demand worker nodes."
-  type        = number
-  default     = 0
-}
-
-variable "ondemand_node_flavor" {
-  description = "Flavor for on-demand worker nodes."
-  type        = string
-  default     = null
-}
-
-# Slack webhook for preemption notices.
-variable "preemption_webhook_url" {
-  description = "Slack webhook URL for preemption notices."
-  type        = string
-  sensitive   = true
-  default     = null
+  default     = "1.31.1"
 }
 
 variable "cni" {
@@ -62,56 +28,75 @@ variable "hacontrol_plane" {
   default     = false
 }
 
-
-variable "spot_min_nodes" {
-  description = "Minimum number of spot worker nodes."
-  type        = number
-  default     = 4
-}
-
-variable "spot_max_nodes" {
-  description = "Maximum number of spot worker nodes for autoscaling."
-  type        = number
-  default     = 5
-}
-
-variable "spot_node_flavor" {
-  description = "Flavor (server class) for spot worker nodes."
+variable "preemption_webhook_url" {
+  description = "Preemption webhook URL (e.g., Slack webhook)."
   type        = string
+  sensitive   = true
+  default     = null
 }
 
-variable "spot_max_price" {
-  description = "Maximum bid price for spot instances."
-  type        = number
-  default     = 0.01
-}
+# --- REMOVED OLD ON-DEMAND VARIABLES ---
+# variable "ondemand_node_count" { ... }
+# variable "ondemand_node_flavor" { ... }
+# variable "ondemand_node_labels" { ... }
+# variable "ondemand_node_taints" { ... }
 
-variable "ondemand_node_labels" {
-  description = "Labels for on-demand worker nodes."
-  type        = map(string)
-  default = {
-    "role"       = "general",
-    "app.type"   = "stateful",
-    "managed-by" = "terraform"
-  }
-}
+# --- REMOVED OLD SPOT VARIABLES ---
+# variable "spot_min_nodes" { ... }
+# variable "spot_max_nodes" { ... }
+# variable "spot_node_flavor" { ... }
+# variable "spot_max_price" { ... }
+# variable "spot_node_labels" { ... }
 
-variable "spot_node_labels" {
-  description = "Labels for spot worker nodes."
-  type        = map(string)
-  default = {
-    "role"       = "spot-instance",
-    "app.type"   = "stateless",
-    "managed-by" = "terraform"
-  }
-}
 
-variable "ondemand_node_taints" {
-  description = "Taints to apply to on-demand worker nodes. E.g., [{key=\"dedicated\", value=\"database\", effect=\"NoSchedule\"}]."
-  type = list(object({
-    key    = string
-    value  = string
-    effect = string
+# +++ ADDED NEW FLEXIBLE ON-DEMAND POOL VARIABLE +++
+variable "ondemand_node_pools" {
+  description = "A map of on-demand node pools to create."
+  type = map(object({
+    node_count = number
+    flavor     = string
+    labels     = map(string)
+    taints = list(object({
+      key    = string
+      value  = string
+      effect = string
+    }))
   }))
-  default = []
+  default = {
+    "default_pool" = {
+      node_count = 0
+      flavor     = "gp.small" # Example, replace with your actual flavor
+      labels = {
+        "role"       = "general",
+        "app.type"   = "stateful",
+        "managed-by" = "terraform"
+      }
+      taints = []
+    }
+  }
+}
+
+# +++ ADDED NEW FLEXIBLE SPOT POOL VARIABLE +++
+variable "spot_node_pools" {
+  description = "A map of spot node pools to create."
+  type = map(object({
+    min_nodes = number
+    max_nodes = number
+    flavor    = string
+    max_price = number
+    labels    = map(string)
+  }))
+  default = {
+    "spot_worker_pool" = {
+      min_nodes = 3
+      max_nodes = 5
+      flavor    = "c.large" # Example, replace with your actual flavor
+      max_price = 0.01
+      labels = {
+        "role"       = "spot-instance",
+        "app.type"   = "stateless",
+        "managed-by" = "terraform"
+      }
+    }
+  }
 }
