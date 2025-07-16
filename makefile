@@ -1,471 +1,451 @@
-# AI Persona System - Comprehensive Makefile
-# This Makefile handles the complete deployment lifecycle
+# Comprehensive Makefile for Agent-Managed Microservices
 
-.PHONY: help setup build deploy quickstart clean logs port-forward
-.DEFAULT_GOAL := help
+```makefile
+# Project variables
+PROJECT_NAME := personae-system
+ENVIRONMENT ?= production
+REGION ?= uk001
+REGISTRY ?= registry.personae.io
+IMAGE_TAG ?= latest
+
+# Paths
+TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
+KUSTOMIZE_DIR := deployments/kustomize
+SCRIPTS_DIR := scripts
 
 # Colors for output
-GREEN := \033[0;32m
 YELLOW := \033[1;33m
-RED := \033[0;31m
+GREEN := \033[1;32m
+RED := \033[1;31m
 NC := \033[0m # No Color
 
-# Configuration
-NAMESPACE := ai-persona-system
-DOCKER_REGISTRY := ai-persona-system
-TIMEOUT := 300s
+# Default target
+.DEFAULT_GOAL := help
 
+#################################
+# Help
+#################################
+.PHONY: help
 help: ## Show this help message
-	@echo "$(GREEN)AI Persona System - Available Commands:$(NC)"
-	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "$(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
-	@echo ""
-	@echo "$(GREEN)Quick Start:$(NC)"
-	@echo "  make quickstart    # Complete setup and deployment"
-	@echo "  make status        # Check system status"
-	@echo "  make clean         # Clean up everything"
+	@echo '$(YELLOW)Personae System - Makefile Commands$(NC)'
+	@echo ''
+	@echo 'Usage:'
+	@echo '  make $(GREEN)<target>$(NC) $(YELLOW)[ENVIRONMENT=production] [REGION=uk001] [IMAGE_TAG=latest]$(NC)'
+	@echo ''
+	@echo 'Targets:'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(GREEN)%-30s$(NC) %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
 
-# =============================================================================
-# SETUP AND INITIALIZATION
-# =============================================================================
+#################################
+# Development Environment
+#################################
+.PHONY: dev-up
+dev-up: ## Start local development environment
+	@echo "$(YELLOW)Starting local development environment...$(NC)"
+	docker-compose -f deployments/docker-compose/docker-compose.yaml up -d
 
-setup: ## Run initial setup (creates secrets, namespaces)
-	@echo "$(GREEN)🚀 Running initial setup...$(NC)"
-	@chmod +x scripts/setup.sh
-	@./scripts/setup.sh
-	@echo "$(GREEN)✅ Setup complete$(NC)"
+.PHONY: dev-down
+dev-down: ## Stop local development environment
+	@echo "$(YELLOW)Stopping local development environment...$(NC)"
+	docker-compose -f deployments/docker-compose/docker-compose.yaml down
 
-check-prerequisites: ## Check if required tools are installed
-	@echo "$(GREEN)🔍 Checking prerequisites...$(NC)"
-	@command -v kubectl >/dev/null 2>&1 || { echo "$(RED)kubectl is required but not installed$(NC)"; exit 1; }
-	@command -v docker >/dev/null 2>&1 || { echo "$(RED)docker is required but not installed$(NC)"; exit 1; }
-	@kubectl cluster-info >/dev/null 2>&1 || { echo "$(RED)Cannot connect to Kubernetes cluster$(NC)"; exit 1; }
-	@echo "$(GREEN)✅ Prerequisites check passed$(NC)"
+.PHONY: dev-logs
+dev-logs: ## Show logs from development environment
+	docker-compose -f deployments/docker-compose/docker-compose.yaml logs -f
 
-# =============================================================================
-# BUILD TARGETS
-# =============================================================================
+.PHONY: dev-reset
+dev-reset: dev-down ## Reset development environment (removes volumes)
+	@echo "$(YELLOW)Resetting development environment...$(NC)"
+	docker-compose -f deployments/docker-compose/docker-compose.yaml down -v
 
-build: ## Build all Docker images
-	@echo "$(GREEN)🔨 Building Docker images...$(NC)"
-	@docker build -t $(DOCKER_REGISTRY)/auth-service:latest -f Dockerfile.auth-service .
-	@docker build -t $(DOCKER_REGISTRY)/core-manager:latest -f Dockerfile.core-manager .
-	@docker build -t $(DOCKER_REGISTRY)/agent-chassis:latest -f Dockerfile.agent-chassis .
-	@docker build -t $(DOCKER_REGISTRY)/reasoning-agent:latest -f Dockerfile.reasoning-agent .
-	@docker build -t $(DOCKER_REGISTRY)/image-generator-adapter:latest -f Dockerfile.image-generator-adapter .
-	@docker build -t $(DOCKER_REGISTRY)/web-search-adapter:latest -f Dockerfile.web-search-adapter .
-	@echo "$(GREEN)✅ All images built successfully$(NC)"
+#################################
+# Building
+#################################
+.PHONY: build-all
+build-all: build-backend build-frontends ## Build all images
 
-build-init-images: ## Build initialization utility images
-	@echo "$(GREEN)🔨 Building initialization images...$(NC)"
-	@docker build -t $(DOCKER_REGISTRY)/database-migrator:latest -f docker/Dockerfile.migrator .
-	@docker build -t $(DOCKER_REGISTRY)/data-seeder:latest -f docker/Dockerfile.seeder .
-	@echo "$(GREEN)✅ Initialization images built$(NC)"
+.PHONY: build-backend
+build-backend: build-auth-service build-core-manager build-agents build-adapters ## Build all backend services
 
-build-all: build build-init-images ## Build all images including initialization utilities
+.PHONY: build-frontends
+build-frontends: build-admin-dashboard build-user-portal build-agent-playground ## Build all frontend applications
 
-# =============================================================================
-# DEPLOYMENT TARGETS (PROPER ORDER)
-# =============================================================================
+# Backend services
+.PHONY: build-auth-service
+build-auth-service: ## Build auth-service image
+	@echo "$(YELLOW)Building auth-service...$(NC)"
+	docker build -t $(REGISTRY)/auth-service:$(IMAGE_TAG) \
+		-f build/docker/backend/auth-service.dockerfile .
 
-deploy: check-prerequisites ## Deploy the entire system in correct order
-	@echo "$(GREEN)🚀 Starting full deployment...$(NC)"
-	@$(MAKE) deploy-infrastructure
-	@$(MAKE) deploy-storage
-	@$(MAKE) deploy-messaging
-	@$(MAKE) wait-for-infrastructure
-	@$(MAKE) initialize-system
-	@$(MAKE) deploy-core-services
-	@$(MAKE) deploy-agents
-	@$(MAKE) deploy-ingress-monitoring
-	@echo "$(GREEN)✅ Deployment completed successfully!$(NC)"
+.PHONY: build-core-manager
+build-core-manager: ## Build core-manager image
+	@echo "$(YELLOW)Building core-manager...$(NC)"
+	docker build -t $(REGISTRY)/core-manager:$(IMAGE_TAG) \
+		-f build/docker/backend/core-manager.dockerfile .
 
-deploy-infrastructure: ## Deploy namespace, secrets, and configmaps
-	@echo "$(GREEN)📦 Deploying infrastructure...$(NC)"
-	kubectl apply -f k8s/namespace.yaml
-	@echo "$(YELLOW)⏳ Waiting for namespace to be ready...$(NC)"
-	@kubectl wait --for=jsonpath='{.status.phase}'=Active namespace/$(NAMESPACE) --timeout=$(TIMEOUT)
-	kubectl apply -f k8s/configmap-common.yaml -n $(NAMESPACE)
-	@echo "$(GREEN)✅ Infrastructure deployed$(NC)"
+.PHONY: build-agent-chassis
+build-agent-chassis: ## Build agent-chassis image
+	@echo "$(YELLOW)Building agent-chassis...$(NC)"
+	docker build -t $(REGISTRY)/agent-chassis:$(IMAGE_TAG) \
+		-f build/docker/backend/agent-chassis.dockerfile .
 
-deploy-storage: ## Deploy persistent storage (databases, object storage)
-	@echo "$(GREEN)💾 Deploying storage systems...$(NC)"
-	kubectl apply -f k8s/postgres-clients.yaml
-	kubectl apply -f k8s/postgres-templates.yaml
-	kubectl apply -f k8s/mysql-auth.yaml
-	kubectl apply -f k8s/minio.yaml
-	@echo "$(GREEN)✅ Storage systems deployed$(NC)"
+.PHONY: build-reasoning-agent
+build-reasoning-agent: ## Build reasoning-agent image
+	@echo "$(YELLOW)Building reasoning-agent...$(NC)"
+	docker build -t $(REGISTRY)/reasoning-agent:$(IMAGE_TAG) \
+		-f build/docker/backend/reasoning-agent.dockerfile .
 
-deploy-messaging: ## Deploy Kafka message queue
-	@echo "$(GREEN)📨 Deploying messaging system...$(NC)"
-	kubectl apply -f k8s/kafka.yaml
-	@echo "$(GREEN)✅ Messaging system deployed$(NC)"
+.PHONY: build-web-search-adapter
+build-web-search-adapter: ## Build web-search-adapter image
+	@echo "$(YELLOW)Building web-search-adapter...$(NC)"
+	docker build -t $(REGISTRY)/web-search-adapter:$(IMAGE_TAG) \
+		-f build/docker/backend/web-search-adapter.dockerfile .
 
-wait-for-infrastructure: ## Wait for infrastructure to be ready
-	@echo "$(GREEN)⏳ Waiting for infrastructure to be ready...$(NC)"
-	@echo "$(YELLOW)Waiting for PostgreSQL clients...$(NC)"
-	kubectl wait --for=condition=ready pod -l app=postgres-clients -n $(NAMESPACE) --timeout=$(TIMEOUT)
-	@echo "$(YELLOW)Waiting for PostgreSQL templates...$(NC)"
-	kubectl wait --for=condition=ready pod -l app=postgres-templates -n $(NAMESPACE) --timeout=$(TIMEOUT)
-	@echo "$(YELLOW)Waiting for MySQL auth...$(NC)"
-	kubectl wait --for=condition=ready pod -l app=mysql-auth -n $(NAMESPACE) --timeout=$(TIMEOUT)
-	@echo "$(YELLOW)Waiting for MinIO...$(NC)"
-	kubectl wait --for=condition=ready pod -l app=minio -n $(NAMESPACE) --timeout=$(TIMEOUT)
-	@echo "$(YELLOW)Waiting for Kafka cluster...$(NC)"
-	kubectl wait --for=condition=ready pod -l app=kafka -n $(NAMESPACE) --timeout=$(TIMEOUT)
-	@echo "$(GREEN)✅ Infrastructure is ready$(NC)"
+.PHONY: build-image-generator-adapter
+build-image-generator-adapter: ## Build image-generator-adapter image
+	@echo "$(YELLOW)Building image-generator-adapter...$(NC)"
+	docker build -t $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG) \
+		-f build/docker/backend/image-generator-adapter.dockerfile .
 
-deploy-automated: check-prerequisites build-all ## Automated deployment using the deployment script
-	@echo "$(GREEN)🚀 Starting automated deployment...$(NC)"
-	@chmod +x scripts/deploy-system.sh
-	@./scripts/deploy-system.sh
-	@echo "$(GREEN)✅ Automated deployment completed!$(NC)"
+# Agent targets
+.PHONY: build-agents
+build-agents: build-agent-chassis build-reasoning-agent ## Build all agents
 
-initialize-system: ## Initialize databases and create Kafka topics
-	@echo "$(GREEN)🔧 Initializing system...$(NC)"
-	kubectl apply -f k8s/jobs/database-init-job.yaml
-	kubectl apply -f k8s/jobs/kafka-topics-job.yaml
-	@echo "$(YELLOW)⏳ Waiting for initialization jobs to complete...$(NC)"
-	@kubectl wait --for=condition=complete job/database-init -n $(NAMESPACE) --timeout=600s
-	@kubectl wait --for=condition=complete job/kafka-topics-init -n $(NAMESPACE) --timeout=300s
-	@kubectl wait --for=condition=complete job/data-seeder -n $(NAMESPACE) --timeout=300s
-	@echo "$(GREEN)✅ System initialization complete$(NC)"
+.PHONY: build-adapters
+build-adapters: build-web-search-adapter build-image-generator-adapter ## Build all adapters
 
-deploy-core-services: ## Deploy core services (auth, core-manager)
-	@echo "$(GREEN)🏗️  Deploying core services...$(NC)"
-	kubectl apply -f k8s/auth-service.yaml
-	kubectl apply -f k8s/core-manager.yaml
-	@echo "$(YELLOW)⏳ Waiting for core services to be ready...$(NC)"
-	kubectl wait --for=condition=ready pod -l app=auth-service -n $(NAMESPACE) --timeout=$(TIMEOUT)
-	kubectl wait --for=condition=ready pod -l app=core-manager -n $(NAMESPACE) --timeout=$(TIMEOUT)
-	@echo "$(GREEN)✅ Core services deployed$(NC)"
+# Frontend applications
+.PHONY: build-admin-dashboard
+build-admin-dashboard: ## Build admin-dashboard image
+	@echo "$(YELLOW)Building admin-dashboard...$(NC)"
+	cd frontends/admin-dashboard && npm install && npm run build
+	docker build -t $(REGISTRY)/admin-dashboard:$(IMAGE_TAG) \
+		-f frontends/admin-dashboard/Dockerfile frontends/admin-dashboard
 
+.PHONY: build-user-portal
+build-user-portal: ## Build user-portal image
+	@echo "$(YELLOW)Building user-portal...$(NC)"
+	cd frontends/user-portal && npm install && npm run build
+	docker build -t $(REGISTRY)/user-portal:$(IMAGE_TAG) \
+		-f frontends/user-portal/Dockerfile frontends/user-portal
+
+.PHONY: build-agent-playground
+build-agent-playground: ## Build agent-playground image
+	@echo "$(YELLOW)Building agent-playground...$(NC)"
+	cd frontends/agent-playground && npm install && npm run build
+	docker build -t $(REGISTRY)/agent-playground:$(IMAGE_TAG) \
+		-f frontends/agent-playground/Dockerfile frontends/agent-playground
+
+#################################
+# Push Images
+#################################
+.PHONY: push-all
+push-all: push-backend push-frontends ## Push all images to registry
+
+.PHONY: push-backend
+push-backend: ## Push all backend images
+	@echo "$(YELLOW)Pushing backend images...$(NC)"
+	docker push $(REGISTRY)/auth-service:$(IMAGE_TAG)
+	docker push $(REGISTRY)/core-manager:$(IMAGE_TAG)
+	docker push $(REGISTRY)/agent-chassis:$(IMAGE_TAG)
+	docker push $(REGISTRY)/reasoning-agent:$(IMAGE_TAG)
+	docker push $(REGISTRY)/web-search-adapter:$(IMAGE_TAG)
+	docker push $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG)
+
+.PHONY: push-frontends
+push-frontends: ## Push all frontend images
+	@echo "$(YELLOW)Pushing frontend images...$(NC)"
+	docker push $(REGISTRY)/admin-dashboard:$(IMAGE_TAG)
+	docker push $(REGISTRY)/user-portal:$(IMAGE_TAG)
+	docker push $(REGISTRY)/agent-playground:$(IMAGE_TAG)
+
+#################################
+# Infrastructure Deployment
+#################################
+.PHONY: deploy-infrastructure
+deploy-infrastructure: ## Deploy all infrastructure components
+	@echo "$(YELLOW)Deploying infrastructure to $(ENVIRONMENT)/$(REGION)...$(NC)"
+	@$(MAKE) deploy-010-infrastructure
+	@$(MAKE) deploy-020-ingress
+	@$(MAKE) deploy-030-strimzi
+	@$(MAKE) deploy-040-kafka
+	@$(MAKE) deploy-050-storage
+	@$(MAKE) deploy-060-databases
+	@$(MAKE) deploy-070-schemas
+	@$(MAKE) deploy-080-topics
+	@$(MAKE) deploy-090-monitoring
+
+# Individual infrastructure components
+.PHONY: deploy-010-infrastructure
+deploy-010-infrastructure: ## Deploy core infrastructure (Kubernetes cluster)
+	@echo "$(GREEN)Deploying 010-infrastructure...$(NC)"
+	cd $(TERRAFORM_DIR)/010-infrastructure && \
+		terraform init && \
+		terraform apply -auto-approve
+
+.PHONY: deploy-020-ingress
+deploy-020-ingress: ## Deploy ingress controller
+	@echo "$(GREEN)Deploying 020-ingress-nginx...$(NC)"
+	cd $(TERRAFORM_DIR)/020-ingress-nginx && \
+		terraform init && \
+		terraform apply -auto-approve
+
+.PHONY: deploy-030-strimzi
+deploy-030-strimzi: ## Deploy Strimzi operator
+	@echo "$(GREEN)Deploying 030-strimzi-operator...$(NC)"
+	cd $(TERRAFORM_DIR)/030-strimzi-operator && \
+		terraform init && \
+		terraform apply -auto-approve
+
+.PHONY: deploy-040-kafka
+deploy-040-kafka: ## Deploy Kafka cluster
+	@echo "$(GREEN)Deploying 040-kafka-cluster...$(NC)"
+	cd $(TERRAFORM_DIR)/040-kafka-cluster && \
+		terraform init && \
+		terraform apply -auto-approve
+
+.PHONY: deploy-050-storage
+deploy-050-storage: ## Deploy S3/storage buckets
+	@echo "$(GREEN)Deploying 050-storage...$(NC)"
+	cd $(TERRAFORM_DIR)/050-storage && \
+		terraform init && \
+		terraform apply -auto-approve
+
+.PHONY: deploy-060-databases
+deploy-060-databases: ## Deploy database instances
+	@echo "$(GREEN)Deploying 060-databases...$(NC)"
+	cd $(TERRAFORM_DIR)/060-databases && \
+		terraform init && \
+		terraform apply -auto-approve
+
+.PHONY: deploy-070-schemas
+deploy-070-schemas: ## Run database migrations
+	@echo "$(GREEN)Deploying 070-database-schemas...$(NC)"
+	cd $(TERRAFORM_DIR)/070-database-schemas && \
+		terraform init && \
+		terraform apply -auto-approve
+
+.PHONY: deploy-080-topics
+deploy-080-topics: ## Create Kafka topics
+	@echo "$(GREEN)Deploying 080-kafka-topics...$(NC)"
+	cd $(TERRAFORM_DIR)/080-kafka-topics && \
+		terraform init && \
+		terraform apply -auto-approve
+
+.PHONY: deploy-090-monitoring
+deploy-090-monitoring: ## Deploy monitoring stack
+	@echo "$(GREEN)Deploying 090-monitoring...$(NC)"
+	cd $(TERRAFORM_DIR)/090-monitoring && \
+		terraform init && \
+		terraform apply -auto-approve
+
+#################################
+# Application Deployment
+#################################
+.PHONY: deploy-all
+deploy-all: deploy-infrastructure deploy-core deploy-agents deploy-frontends ## Deploy everything
+
+.PHONY: deploy-core
+deploy-core: ## Deploy core platform services
+	@echo "$(YELLOW)Deploying core platform services...$(NC)"
+	kubectl apply -k $(KUSTOMIZE_DIR)/services/auth-service/overlays/$(ENVIRONMENT)
+	kubectl apply -k $(KUSTOMIZE_DIR)/services/core-manager/overlays/$(ENVIRONMENT)
+
+.PHONY: deploy-agents
 deploy-agents: ## Deploy all agent services
-	@echo "$(GREEN)🤖 Deploying agent services...$(NC)"
-	kubectl apply -f k8s/agent-chassis.yaml
-	kubectl apply -f k8s/reasoning-agent.yaml
-	kubectl apply -f k8s/image-generator-adapter.yaml
-	kubectl apply -f k8s/web-search-adapter.yaml
-	@echo "$(YELLOW)⏳ Waiting for agents to be ready...$(NC)"
-	kubectl wait --for=condition=ready pod -l app=agent-chassis -n $(NAMESPACE) --timeout=$(TIMEOUT)
-	kubectl wait --for=condition=ready pod -l app=reasoning-agent -n $(NAMESPACE) --timeout=$(TIMEOUT)
-	@echo "$(GREEN)✅ Agent services deployed$(NC)"
+	@echo "$(YELLOW)Deploying agent services...$(NC)"
+	kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(ENVIRONMENT)
+	kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(ENVIRONMENT)
+	kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(ENVIRONMENT)
+	kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(ENVIRONMENT)
 
-deploy-ingress-monitoring: ## Deploy ingress and monitoring
-	@echo "$(GREEN)📊 Deploying ingress and monitoring...$(NC)"
-	kubectl apply -f k8s/ingress.yaml
-	kubectl apply -f k8s/monitoring/
-	@echo "$(GREEN)✅ Ingress and monitoring deployed$(NC)"
+.PHONY: deploy-frontends
+deploy-frontends: ## Deploy all frontend applications
+	@echo "$(YELLOW)Deploying frontend applications...$(NC)"
+	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/admin-dashboard/overlays/$(ENVIRONMENT)
+	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/user-portal/overlays/$(ENVIRONMENT)
+	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/agent-playground/overlays/$(ENVIRONMENT)
 
-# =============================================================================
-# DATABASE MANAGEMENT
-# =============================================================================
+# Individual service deployments
+.PHONY: deploy-auth-service
+deploy-auth-service: ## Deploy auth-service only
+	@echo "$(GREEN)Deploying auth-service...$(NC)"
+	kubectl apply -k $(KUSTOMIZE_DIR)/services/auth-service/overlays/$(ENVIRONMENT)
 
-migrate-all-databases: ## Run all database migrations
-	@echo "$(GREEN)📝 Running database migrations...$(NC)"
-	@$(MAKE) migrate-pgvector
-	@$(MAKE) migrate-templates-db
-	@$(MAKE) migrate-clients-db
-	@$(MAKE) migrate-auth-db
-	@echo "$(GREEN)✅ All migrations completed$(NC)"
+.PHONY: deploy-core-manager
+deploy-core-manager: ## Deploy core-manager only
+	@echo "$(GREEN)Deploying core-manager...$(NC)"
+	kubectl apply -k $(KUSTOMIZE_DIR)/services/core-manager/overlays/$(ENVIRONMENT)
 
-migrate-pgvector: ## Enable pgvector extension
-	@echo "$(YELLOW)🔧 Enabling pgvector extension...$(NC)"
-	kubectl exec -n $(NAMESPACE) postgres-clients-0 -- psql -U clients_user -d clients_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
-	@echo "$(GREEN)✅ pgvector enabled$(NC)"
+.PHONY: deploy-admin-dashboard
+deploy-admin-dashboard: ## Deploy admin-dashboard only
+	@echo "$(GREEN)Deploying admin-dashboard...$(NC)"
+	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/admin-dashboard/overlays/$(ENVIRONMENT)
 
-migrate-templates-db: ## Migrate templates database
-	@echo "$(YELLOW)📝 Migrating templates database...$(NC)"
-	kubectl cp platform/database/migrations/002_create_templates_schema.sql $(NAMESPACE)/postgres-templates-0:/tmp/
-	kubectl exec -n $(NAMESPACE) postgres-templates-0 -- psql -U templates_user -d templates_db -f /tmp/002_create_templates_schema.sql
-	@echo "$(GREEN)✅ Templates database migrated$(NC)"
+.PHONY: deploy-user-portal
+deploy-user-portal: ## Deploy user-portal only
+	@echo "$(GREEN)Deploying user-portal...$(NC)"
+	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/user-portal/overlays/$(ENVIRONMENT)
 
-migrate-clients-db: ## Migrate clients database (requires CLIENT_ID)
-	@echo "$(YELLOW)📝 Migrating clients database...$(NC)"
-	kubectl cp platform/database/migrations/003_create_client_schema.sql $(NAMESPACE)/postgres-clients-0:/tmp/
-	@# Note: This creates the base structure, client-specific schemas are created on-demand
-	@echo "$(GREEN)✅ Clients database migrated$(NC)"
+#################################
+# Full Stack Operations
+#################################
+.PHONY: full-deploy
+full-deploy: build-all push-all deploy-all ## Build, push, and deploy everything
 
-migrate-auth-db: ## Migrate auth database
-	@echo "$(YELLOW)📝 Migrating auth database...$(NC)"
-	kubectl cp platform/database/migrations/004_auth_schema.sql $(NAMESPACE)/mysql-auth-0:/tmp/
-	kubectl exec -n $(NAMESPACE) mysql-auth-0 -- mysql -u auth_user -p$(shell kubectl get secret db-secrets -n $(NAMESPACE) -o jsonpath='{.data.auth-db-password}' | base64 -d) auth_db < /tmp/004_auth_schema.sql
-	kubectl cp platform/database/migrations/005_projects_schema.sql $(NAMESPACE)/mysql-auth-0:/tmp/
-	kubectl exec -n $(NAMESPACE) mysql-auth-0 -- mysql -u auth_user -p$(shell kubectl get secret db-secrets -n $(NAMESPACE) -o jsonpath='{.data.auth-db-password}' | base64 -d) auth_db < /tmp/005_projects_schema.sql
-	@echo "$(GREEN)✅ Auth database migrated$(NC)"
+.PHONY: quick-deploy
+quick-deploy: ## Deploy applications without building (uses existing images)
+	@echo "$(YELLOW)Quick deployment using existing images...$(NC)"
+	@$(MAKE) deploy-core
+	@$(MAKE) deploy-agents
+	@$(MAKE) deploy-frontends
 
-create-client-schema: ## Create schema for a specific client (requires CLIENT_ID env var)
-	@if [ -z "$(CLIENT_ID)" ]; then \
-		echo "$(RED)❌ CLIENT_ID environment variable is required$(NC)"; \
-		echo "Usage: make create-client-schema CLIENT_ID=client_123"; \
-		exit 1; \
-	fi
-	@echo "$(YELLOW)🔧 Creating schema for client: $(CLIENT_ID)$(NC)"
-	@sed 's/{client_id}/$(CLIENT_ID)/g' platform/database/migrations/003_create_client_schema.sql > /tmp/client_schema_$(CLIENT_ID).sql
-	kubectl cp /tmp/client_schema_$(CLIENT_ID).sql $(NAMESPACE)/postgres-clients-0:/tmp/
-	kubectl exec -n $(NAMESPACE) postgres-clients-0 -- psql -U clients_user -d clients_db -f /tmp/client_schema_$(CLIENT_ID).sql
-	@rm /tmp/client_schema_$(CLIENT_ID).sql
-	@echo "$(GREEN)✅ Schema created for client: $(CLIENT_ID)$(NC)"
+#################################
+# Status and Monitoring
+#################################
+.PHONY: status
+status: ## Show status of all deployments
+	@echo "$(YELLOW)Deployment Status:$(NC)"
+	kubectl get deployments -n $(PROJECT_NAME)
+	@echo "\n$(YELLOW)Services:$(NC)"
+	kubectl get services -n $(PROJECT_NAME)
+	@echo "\n$(YELLOW)Pods:$(NC)"
+	kubectl get pods -n $(PROJECT_NAME)
 
-# =============================================================================
-# KAFKA MANAGEMENT
-# =============================================================================
+.PHONY: logs
+logs: ## Tail logs from all pods
+	kubectl logs -f -n $(PROJECT_NAME) -l app.kubernetes.io/part-of=$(PROJECT_NAME) --all-containers=true
 
-create-all-kafka-topics: ## Create all required Kafka topics
-	@echo "$(GREEN)📨 Creating all Kafka topics...$(NC)"
-	@$(MAKE) kafka-create-system-topics
-	@$(MAKE) kafka-create-core-topics
-	@echo "$(GREEN)✅ All Kafka topics created$(NC)"
+.PHONY: logs-auth
+logs-auth: ## Tail logs from auth-service
+	kubectl logs -f -n $(PROJECT_NAME) -l app=auth-service --all-containers=true
 
-kafka-create-core-topics: ## Create core system topics used by agents
-	@echo "$(YELLOW)🔧 Creating core Kafka topics...$(NC)"
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic system.agent.reasoning.process --partitions 3 --replication-factor 1 --if-not-exists
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic system.responses.reasoning --partitions 6 --replication-factor 1 --if-not-exists
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic system.adapter.image.generate --partitions 3 --replication-factor 1 --if-not-exists
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic system.responses.image --partitions 6 --replication-factor 1 --if-not-exists
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic system.adapter.web.search --partitions 3 --replication-factor 1 --if-not-exists
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic system.responses.websearch --partitions 6 --replication-factor 1 --if-not-exists
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic system.notifications.ui --partitions 3 --replication-factor 1 --if-not-exists
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic system.commands.workflow.resume --partitions 3 --replication-factor 1 --if-not-exists
-	@echo "$(GREEN)✅ Core topics created$(NC)"
+.PHONY: logs-core
+logs-core: ## Tail logs from core-manager
+	kubectl logs -f -n $(PROJECT_NAME) -l app=core-manager --all-containers=true
 
-kafka-list-topics: ## List all Kafka topics
-	@echo "$(GREEN)📋 Listing Kafka topics...$(NC)"
-	@kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --list
+#################################
+# Rollback Operations
+#################################
+.PHONY: rollback-auth-service
+rollback-auth-service: ## Rollback auth-service deployment
+	kubectl rollout undo deployment/auth-service -n $(PROJECT_NAME)
 
-kafka-create-agent-topics: ## Create topics for a specific agent type
-	@read -p "Enter agent type (e.g., copywriter, researcher): " agent_type; \
-	echo "$(YELLOW)🔧 Creating topics for agent: $$agent_type$(NC)"; \
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic tasks.high.$$agent_type --partitions 3 --replication-factor 1 --if-not-exists; \
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic tasks.normal.$$agent_type --partitions 6 --replication-factor 1 --if-not-exists; \
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic tasks.low.$$agent_type --partitions 3 --replication-factor 1 --if-not-exists; \
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic responses.$$agent_type --partitions 6 --replication-factor 1 --if-not-exists; \
-	kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic dlq.$$agent_type --partitions 1 --replication-factor 1 --if-not-exists; \
-	echo "$(GREEN)✅ Topics created for agent: $$agent_type$(NC)"
+.PHONY: rollback-core-manager
+rollback-core-manager: ## Rollback core-manager deployment
+	kubectl rollout undo deployment/core-manager -n $(PROJECT_NAME)
 
-kafka-create-system-topics: ## Create system-level topics
-	@echo "$(YELLOW)🔧 Creating system topics...$(NC)"
-	@kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic orchestrator.state-changes --partitions 12 --replication-factor 1 --if-not-exists
-	@kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic human.approvals --partitions 6 --replication-factor 1 --if-not-exists
-	@kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --create --topic system.events --partitions 3 --replication-factor 1 --if-not-exists
-	@echo "$(GREEN)✅ System topics created$(NC)"
+#################################
+# Testing
+#################################
+.PHONY: test
+test: test-unit test-integration ## Run all tests
 
-kafka-delete-agent-topics: ## Delete topics for a specific agent type
-	@read -p "Enter agent type to delete topics for: " agent_type; \
-	read -p "Are you sure you want to delete all topics for $$agent_type? (y/N): " confirm; \
-	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
-		echo "$(RED)🗑️  Deleting topics for agent: $$agent_type$(NC)"; \
-		kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --delete --topic tasks.high.$$agent_type --if-exists; \
-		kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --delete --topic tasks.normal.$$agent_type --if-exists; \
-		kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --delete --topic tasks.low.$$agent_type --if-exists; \
-		kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --delete --topic responses.$$agent_type --if-exists; \
-		kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --delete --topic dlq.$$agent_type --if-exists; \
-		echo "$(GREEN)✅ Topics deleted for agent: $$agent_type$(NC)"; \
-	else \
-		echo "$(YELLOW)❌ Deletion cancelled$(NC)"; \
-	fi
+.PHONY: test-unit
+test-unit: ## Run unit tests
+	@echo "$(YELLOW)Running unit tests...$(NC)"
+	go test ./... -v -short
 
-# =============================================================================
-# DATA SEEDING
-# =============================================================================
+.PHONY: test-integration
+test-integration: ## Run integration tests
+	@echo "$(YELLOW)Running integration tests...$(NC)"
+	go test ./tests/integration/... -v
 
-seed-initial-data: ## Seed the system with initial templates and data
-	@echo "$(GREEN)🌱 Seeding initial data...$(NC)"
-	@$(MAKE) seed-persona-templates
-	@$(MAKE) seed-subscription-tiers
-	@echo "$(GREEN)✅ Initial data seeded$(NC)"
+.PHONY: test-e2e
+test-e2e: ## Run end-to-end tests
+	@echo "$(YELLOW)Running E2E tests...$(NC)"
+	go test ./tests/e2e/... -v
 
-seed-persona-templates: ## Seed initial persona templates
-	@echo "$(YELLOW)🤖 Seeding persona templates...$(NC)"
-	@# Create a basic copywriter template
-	kubectl exec -n $(NAMESPACE) postgres-templates-0 -- psql -U templates_user -d templates_db -c \
-		"INSERT INTO persona_templates (id, name, description, category, config) VALUES \
-		('00000000-0000-0000-0000-000000000001', 'Basic Copywriter', 'A versatile copywriting assistant', 'copywriter', \
-		'{\"model\": \"claude-3-sonnet\", \"temperature\": 0.7, \"max_tokens\": 2000}') \
-		ON CONFLICT (id) DO NOTHING;"
-	@# Create a research assistant template
-	kubectl exec -n $(NAMESPACE) postgres-templates-0 -- psql -U templates_user -d templates_db -c \
-		"INSERT INTO persona_templates (id, name, description, category, config) VALUES \
-		('00000000-0000-0000-0000-000000000002', 'Research Assistant', 'In-depth research and analysis', 'researcher', \
-		'{\"model\": \"claude-3-opus\", \"temperature\": 0.3, \"max_tokens\": 4000}') \
-		ON CONFLICT (id) DO NOTHING;"
-	@echo "$(GREEN)✅ Persona templates seeded$(NC)"
+#################################
+# Database Operations
+#################################
+.PHONY: db-migrate
+db-migrate: ## Run database migrations
+	@echo "$(YELLOW)Running database migrations...$(NC)"
+	$(SCRIPTS_DIR)/migration/run-migrations.sh
 
-seed-subscription-tiers: ## Ensure subscription tiers exist
-	@echo "$(YELLOW)💳 Ensuring subscription tiers exist...$(NC)"
-	@# The tiers should already be created by the migration, but this ensures they exist
-	kubectl exec -n $(NAMESPACE) mysql-auth-0 -- mysql -u auth_user -p$(shell kubectl get secret db-secrets -n $(NAMESPACE) -o jsonpath='{.data.auth-db-password}' | base64 -d) auth_db -e \
-		"SELECT COUNT(*) as tier_count FROM subscription_tiers;" 2>/dev/null || echo "Subscription tiers table not ready yet"
-	@echo "$(GREEN)✅ Subscription tiers verified$(NC)"
+.PHONY: db-seed
+db-seed: ## Seed database with test data
+	@echo "$(YELLOW)Seeding database...$(NC)"
+	kubectl exec -it deployment/postgres-clients -n $(PROJECT_NAME) -- \
+		psql -U postgres -f /scripts/seed-data.sql
 
-# =============================================================================
-# AGENT MANAGEMENT
-# =============================================================================
+#################################
+# Utility Commands
+#################################
+.PHONY: clean
+clean: ## Clean build artifacts
+	@echo "$(YELLOW)Cleaning build artifacts...$(NC)"
+	rm -rf dist/
+	rm -rf frontends/*/build/
+	rm -rf frontends/*/dist/
 
-register-agent: ## Register a new agent type
-	@read -p "Enter agent type (e.g., copywriter): " agent_type; \
-	read -p "Enter display name: " display_name; \
-	read -p "Enter category (data-driven/code-driven/adapter): " category; \
-	echo "$(YELLOW)📝 Registering agent: $$agent_type$(NC)"; \
-	$(MAKE) kafka-create-agent-topics; \
-	kubectl exec -n $(NAMESPACE) core-manager-0 -- /app/core-manager register-agent \
-		--type="$$agent_type" \
-		--name="$$display_name" \
-		--category="$$category"
+.PHONY: setup-registry
+setup-registry: ## Set up local Docker registry
+	@echo "$(YELLOW)Setting up local Docker registry...$(NC)"
+	$(SCRIPTS_DIR)/utils/setup-local-registry.sh
 
-# =============================================================================
-# SYSTEM MONITORING AND DEBUGGING
-# =============================================================================
+.PHONY: generate-secrets
+generate-secrets: ## Generate required secrets
+	@echo "$(YELLOW)Generating secrets...$(NC)"
+	$(SCRIPTS_DIR)/utils/generate-jwt-secret.sh
 
-status: ## Check overall system status
-	@echo "$(GREEN)📊 System Status Overview$(NC)"
-	@echo "$(YELLOW)Namespace:$(NC)"
-	@kubectl get namespace $(NAMESPACE) 2>/dev/null || echo "$(RED)Namespace not found$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Pods Status:$(NC)"
-	@kubectl get pods -n $(NAMESPACE) -o wide 2>/dev/null || echo "$(RED)No pods found$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Services:$(NC)"
-	@kubectl get services -n $(NAMESPACE) 2>/dev/null || echo "$(RED)No services found$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Persistent Volumes:$(NC)"
-	@kubectl get pvc -n $(NAMESPACE) 2>/dev/null || echo "$(RED)No PVCs found$(NC)"
+.PHONY: port-forward-admin
+port-forward-admin: ## Port forward admin dashboard to localhost:3000
+	kubectl port-forward -n $(PROJECT_NAME) svc/admin-dashboard 3000:80
 
-system-check: ## Comprehensive system health check
-	@echo "$(GREEN)🔍 Comprehensive System Check$(NC)"
-	@echo ""
-	@echo "$(YELLOW)📊 Kafka Topics:$(NC)"
-	@$(MAKE) kafka-list-topics 2>/dev/null || echo "$(RED)Kafka not accessible$(NC)"
-	@echo ""
-	@echo "$(YELLOW)📊 Database Tables (Templates):$(NC)"
-	@kubectl exec -n $(NAMESPACE) postgres-templates-0 -- psql -U templates_user -d templates_db -c "\dt" 2>/dev/null || echo "$(RED)Templates DB not accessible$(NC)"
-	@echo ""
-	@echo "$(YELLOW)📊 Database Tables (Clients):$(NC)"
-	@kubectl exec -n $(NAMESPACE) postgres-clients-0 -- psql -U clients_user -d clients_db -c "\dt" 2>/dev/null || echo "$(RED)Clients DB not accessible$(NC)"
-	@echo ""
-	@echo "$(YELLOW)📊 Persona Templates:$(NC)"
-	@kubectl exec -n $(NAMESPACE) postgres-templates-0 -- psql -U templates_user -d templates_db -c "SELECT id, name, category FROM persona_templates WHERE is_active = true;" 2>/dev/null || echo "$(RED)Templates not accessible$(NC)"
+.PHONY: port-forward-grafana
+port-forward-grafana: ## Port forward Grafana to localhost:3001
+	kubectl port-forward -n $(PROJECT_NAME) svc/grafana 3001:3000
 
-logs: ## View logs for a specific service
-	@echo "$(GREEN)Available services:$(NC)"
-	@echo "  auth-service"
-	@echo "  core-manager"
-	@echo "  agent-chassis"
-	@echo "  reasoning-agent"
-	@echo "  image-generator-adapter"
-	@echo "  web-search-adapter"
-	@echo "  kafka"
-	@echo "  postgres-clients"
-	@echo "  postgres-templates"
-	@echo "  mysql-auth"
-	@echo ""
-	@read -p "Enter service name: " service; \
-	echo "$(YELLOW)📋 Showing logs for $$service...$(NC)"; \
-	kubectl logs -n $(NAMESPACE) -l app=$$service --tail=100 -f
+#################################
+# Individual Service Builds & Deploys
+#################################
+# Convenience targets for individual service development
+.PHONY: auth-service
+auth-service: build-auth-service push-auth-service deploy-auth-service ## Build, push and deploy auth-service
 
-describe-pod: ## Describe a specific pod for debugging
-	@kubectl get pods -n $(NAMESPACE)
-	@echo ""
-	@read -p "Enter pod name: " pod; \
-	kubectl describe pod $$pod -n $(NAMESPACE)
+.PHONY: core-manager
+core-manager: build-core-manager push-core-manager deploy-core-manager ## Build, push and deploy core-manager
 
-port-forward: ## Set up port forwarding for local access
-	@echo "$(GREEN)🔗 Setting up port forwarding...$(NC)"
-	@echo "$(YELLOW)Auth Service: http://localhost:8081$(NC)"
-	@echo "$(YELLOW)Core Manager: http://localhost:8088$(NC)"
-	@echo "$(YELLOW)Grafana: http://localhost:3000$(NC)"
-	@echo "$(YELLOW)Kafka UI: http://localhost:8080$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Starting port forwards (Ctrl+C to stop)...$(NC)"
-	@trap 'kill %1 %2 %3 %4 2>/dev/null' EXIT; \
-	kubectl port-forward -n $(NAMESPACE) svc/auth-service 8081:8081 & \
-	kubectl port-forward -n $(NAMESPACE) svc/core-manager 8088:8088 & \
-	kubectl port-forward -n $(NAMESPACE) svc/grafana 3000:3000 & \
-	kubectl port-forward -n $(NAMESPACE) svc/kafka-ui 8080:8080 & \
-	wait
+.PHONY: admin-dashboard
+admin-dashboard: build-admin-dashboard push-admin-dashboard deploy-admin-dashboard ## Build, push and deploy admin-dashboard
 
-# =============================================================================
-# COMPLETE WORKFLOWS
-# =============================================================================
+# Push individual services
+.PHONY: push-auth-service
+push-auth-service: ## Push auth-service image
+	docker push $(REGISTRY)/auth-service:$(IMAGE_TAG)
 
-quickstart: ## Complete setup and deployment from scratch
-	@echo "$(GREEN)🚀 Starting AI Persona System Quickstart$(NC)"
-	@$(MAKE) check-prerequisites
-	@$(MAKE) setup
-	@$(MAKE) deploy-automated
-	@echo ""
-	@echo "$(GREEN)✅ Quickstart completed successfully!$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Next steps:$(NC)"
-	@echo "1. Run 'make port-forward' to access services locally"
-	@echo "2. Run 'make system-check' to verify everything is working"
-	@echo "3. Create your first client: 'make create-client-schema CLIENT_ID=demo_client'"
-	@echo "4. Register your first agent: 'make register-agent'"
-	@echo ""
-	@echo "$(YELLOW)Access URLs:$(NC)"
-	@echo "- Auth API: http://localhost:8081"
-	@echo "- Core API: http://localhost:8088"
-	@echo "- Grafana: http://localhost:3000 (admin/admin)"
+.PHONY: push-core-manager
+push-core-manager: ## Push core-manager image
+	docker push $(REGISTRY)/core-manager:$(IMAGE_TAG)
 
-quickstart-manual: ## Manual step-by-step deployment
-	@echo "$(GREEN)🚀 Starting AI Persona System Manual Deployment$(NC)"
-	@$(MAKE) check-prerequisites
-	@$(MAKE) setup
-	@$(MAKE) build-all
-	@$(MAKE) deploy
-	@echo ""
-	@echo "$(GREEN)✅ Manual deployment completed successfully!$(NC)"
+.PHONY: push-admin-dashboard
+push-admin-dashboard: ## Push admin-dashboard image
+	docker push $(REGISTRY)/admin-dashboard:$(IMAGE_TAG)
 
-restart-service: ## Restart a specific service
-	@echo "$(GREEN)Available services to restart:$(NC)"
-	@kubectl get deployments -n $(NAMESPACE) -o name | sed 's|deployment.apps/||'
-	@echo ""
-	@read -p "Enter service name: " service; \
-	echo "$(YELLOW)🔄 Restarting $$service...$(NC)"; \
-	kubectl rollout restart deployment/$$service -n $(NAMESPACE); \
-	kubectl rollout status deployment/$$service -n $(NAMESPACE)
+#################################
+# Terraform Operations
+#################################
+.PHONY: tf-plan
+tf-plan: ## Run terraform plan for all infrastructure
+	@echo "$(YELLOW)Running Terraform plan...$(NC)"
+	@for dir in $(TERRAFORM_DIR)/0*; do \
+		echo "$(GREEN)Planning $$dir...$(NC)"; \
+		cd $$dir && terraform plan; \
+	done
 
-# =============================================================================
-# CLEANUP
-# =============================================================================
+.PHONY: tf-destroy-apps
+tf-destroy-apps: ## Destroy all applications (keeps infrastructure)
+	@echo "$(RED)Destroying all applications...$(NC)"
+	kubectl delete -k $(KUSTOMIZE_DIR)/services --recursive
+	kubectl delete -k $(KUSTOMIZE_DIR)/frontends --recursive
 
-clean: ## Clean up everything (DESTRUCTIVE!)
-	@echo "$(RED)⚠️  This will DELETE the entire $(NAMESPACE) namespace and all data!$(NC)"
-	@read -p "Are you sure? Type 'DELETE' to confirm: " confirm; \
-	if [ "$$confirm" = "DELETE" ]; then \
-		echo "$(RED)🗑️  Deleting namespace $(NAMESPACE)...$(NC)"; \
-		kubectl delete namespace $(NAMESPACE) --ignore-not-found=true; \
-		echo "$(GREEN)✅ Cleanup completed$(NC)"; \
-	else \
-		echo "$(YELLOW)❌ Cleanup cancelled$(NC)"; \
-	fi
-
-clean-pods: ## Delete all pods (they will be recreated)
-	@echo "$(YELLOW)🔄 Deleting all pods in $(NAMESPACE)...$(NC)"
-	@kubectl delete pods --all -n $(NAMESPACE)
-	@echo "$(GREEN)✅ Pods deleted (they will be recreated automatically)$(NC)"
-
-clean-failed-jobs: ## Clean up failed jobs
-	@echo "$(YELLOW)🧹 Cleaning up failed jobs...$(NC)"
-	@kubectl delete jobs -n $(NAMESPACE) --field-selector status.successful=0
-	@echo "$(GREEN)✅ Failed jobs cleaned up$(NC)"
-
-# =============================================================================
-# TESTING
-# =============================================================================
-
-test-api: ## Test the API endpoints
-	@echo "$(GREEN)🧪 Testing API endpoints...$(NC)"
-	@chmod +x scripts/test-system.sh
-	@./scripts/test-system.sh
-
-smoke-test: ## Run smoke tests to verify basic functionality
-	@echo "$(GREEN)💨 Running smoke tests...$(NC)"
-	@$(MAKE) system-check
-	@echo ""
-	@echo "$(YELLOW)Testing basic connectivity...$(NC)"
-	@kubectl exec -n $(NAMESPACE) postgres-clients-0 -- pg_isready -U clients_user && echo "$(GREEN)✅ Clients DB ready$(NC)" || echo "$(RED)❌ Clients DB not ready$(NC)"
-	@kubectl exec -n $(NAMESPACE) postgres-templates-0 -- pg_isready -U templates_user && echo "$(GREEN)✅ Templates DB ready$(NC)" || echo "$(RED)❌ Templates DB not ready$(NC)"
-	@kubectl exec -n $(NAMESPACE) kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1 && echo "$(GREEN)✅ Kafka ready$(NC)" || echo "$(RED)❌ Kafka not ready$(NC)"
-	@echo ""
-	@echo "$(GREEN)✅ Smoke tests completed$(NC)"
+.PHONY: tf-destroy-all
+tf-destroy-all: ## Destroy everything (WARNING: This will delete everything!)
+	@echo "$(RED)WARNING: This will destroy all infrastructure and data!$(NC)"
+	@echo "Press Ctrl+C within 5 seconds to cancel..."
+	@sleep 5
+	@for dir in $$(ls -r $(TERRAFORM_DIR)/); do \
+		echo "$(RED)Destroying $$dir...$(NC)"; \
+		cd $(TERRAFORM_DIR)/$$dir && terraform destroy -auto-approve; \
+	done
