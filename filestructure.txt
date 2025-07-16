@@ -1,0 +1,4330 @@
+.:
+total 804
+drwxrwxr-x 17 ant ant   4096 Jul 16 18:39 .
+drwxrwxr-x 31 ant ant   4096 Jul 13 11:56 ..
+drwxrwxr-x  4 ant ant   4096 Jul 15 16:53 build
+drwxrwxr-x  8 ant ant   4096 Jul 13 11:56 cmd
+drwxrwxr-x  2 ant ant   4096 Jul 14 10:17 configs
+drwxrwxr-x  5 ant ant   4096 Jul 15 17:09 deployments
+-rw-rw-r--  1 ant ant     64 Jul 13 11:56 Dockerfile
+drwxrwxr-x  6 ant ant   4096 Jul 15 17:41 docs
+-rw-rw-r--  1 ant ant    462 Jul 13 13:17 .env
+-rw-rw-r--  1 ant ant      0 Jul 15 16:42 .env.example
+-rw-rw-r--  1 ant ant      0 Jul 16 18:39 filestructure.txt
+drwxrwxr-x  6 ant ant   4096 Jul 15 16:44 frontends
+drwxrwxr-x  8 ant ant   4096 Jul 16 18:30 .git
+drwxrwxr-x  3 ant ant   4096 Jul 15 17:45 .github
+-rw-rw-r--  1 ant ant      0 Jul 15 16:42 .gitignore
+-rw-rw-r--  1 ant ant   5272 Jul 14 11:32 go.mod
+-rw-rw-r--  1 ant ant  29260 Jul 14 11:32 go.sum
+drwxrwxr-x  2 ant ant   4096 Jul 15 16:39 .idea
+drwxrwxr-x  6 ant ant   4096 Jul 13 11:56 internal
+drwxrwxr-x  4 ant ant   4096 Jul 16 11:58 k8s
+-rw-rw-r--  1 ant ant  16316 Jul 15 16:41 makefile
+-rw-rw-r--  1 ant ant  26172 Jul 13 19:14 makefile.old
+-rw-rw-r--  1 ant ant   1166 Jul 16 14:54 outputtotext.sh
+drwxrwxr-x  3 ant ant   4096 Jul 13 11:56 pkg
+drwxrwxr-x 20 ant ant   4096 Jul 14 11:29 platform
+-rw-rw-r--  1 ant ant   1648 Jul 15 16:42 README.makefile.md
+-rw-rw-r--  1 ant ant   3090 Jul 13 19:00 README.md
+-rw-rw-r--  1 ant ant   4684 Jul 13 19:00 README-notes.md
+-rw-rw-r--  1 ant ant 637039 Jul 16 14:54 resulttextoutput.txt
+drwxrwxr-x  9 ant ant   4096 Jul 15 17:36 scripts
+drwxrwxr-x  4 ant ant   4096 Jul 15 17:44 tests
+
+./build:
+total 16
+drwxrwxr-x  4 ant ant 4096 Jul 15 16:53 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+drwxrwxr-x  4 ant ant 4096 Jul 15 16:53 docker
+drwxrwxr-x  2 ant ant 4096 Jul 15 16:56 scripts
+
+./build/docker:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:53 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:53 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 backend
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:56 frontend
+
+./build/docker/backend:
+total 40
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:53 ..
+-rw-rw-r-- 1 ant ant  563 Jul 15 17:59 agent-chassis.dockerfile
+-rw-rw-r-- 1 ant ant  557 Jul 15 17:50 auth-service.dockerfile
+-rw-rw-r-- 1 ant ant  557 Jul 15 17:59 core-manager.dockerfile
+-rw-rw-r-- 1 ant ant  613 Jul 15 17:59 image-generator-adapter.dockerfile
+-rw-rw-r-- 1 ant ant  552 Jul 15 17:59 migrator.dockerfile
+-rw-rw-r-- 1 ant ant  154 Jul 15 17:59 platform.dockerfile
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:55 reasoning-agent.dockerfile
+-rw-rw-r-- 1 ant ant  520 Jul 15 17:59 seeder.dockerfile
+-rw-rw-r-- 1 ant ant  600 Jul 15 17:59 web-search-adapter.dockerfile
+
+./build/docker/frontend:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:56 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:53 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:56 react-dev.dockerfile
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:55 react-nginx.dockerfile
+
+./build/scripts:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:56 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:53 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:56 build-images.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:56 push-images.sh
+
+./cmd:
+total 32
+drwxrwxr-x  8 ant ant 4096 Jul 13 11:56 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:32 agent-chassis
+drwxrwxr-x  2 ant ant 4096 Jul 15 10:51 auth-service
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:13 core-manager
+drwxrwxr-x  2 ant ant 4096 Jul 13 15:34 image-generator-adapter
+drwxrwxr-x  2 ant ant 4096 Jul 13 15:34 reasoning-agent
+drwxrwxr-x  2 ant ant 4096 Jul 13 13:42 web-search-adapter
+
+./cmd/agent-chassis:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 14 11:32 .
+drwxrwxr-x 8 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r-- 1 ant ant 1564 Jul 14 11:32 main.go
+
+./cmd/auth-service:
+total 20
+drwxrwxr-x 2 ant ant  4096 Jul 15 10:51 .
+drwxrwxr-x 8 ant ant  4096 Jul 13 11:56 ..
+-rw-rw-r-- 1 ant ant 10231 Jul 15 10:51 main.go
+
+./cmd/core-manager:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 14 11:13 .
+drwxrwxr-x 8 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r-- 1 ant ant 3185 Jul 14 11:13 main.go
+
+./cmd/image-generator-adapter:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 13 15:34 .
+drwxrwxr-x 8 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r-- 1 ant ant 1504 Jul 13 15:34 main.go
+
+./cmd/reasoning-agent:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 13 15:34 .
+drwxrwxr-x 8 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r-- 1 ant ant 1081 Jul 13 11:56 Dockerfile
+-rw-rw-r-- 1 ant ant 1452 Jul 13 15:34 main.go
+
+./cmd/web-search-adapter:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 13 13:42 .
+drwxrwxr-x 8 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r-- 1 ant ant 1280 Jul 13 13:42 main.go
+
+./configs:
+total 28
+drwxrwxr-x  2 ant ant 4096 Jul 14 10:17 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+-rw-rw-r--  1 ant ant 1064 Jul 14 10:17 agent-chassis.yaml
+-rw-rw-r--  1 ant ant  938 Jul 13 11:56 auth-service.yaml
+-rw-rw-r--  1 ant ant 1204 Jul 14 10:17 core-manager.yaml
+-rw-rw-r--  1 ant ant  574 Jul 14 10:17 reasoning-agent.yaml
+-rw-rw-r--  1 ant ant  499 Jul 13 11:56 web-search-adapter.yaml
+
+./deployments:
+total 20
+drwxrwxr-x  5 ant ant 4096 Jul 15 17:09 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:54 docker-compose
+drwxrwxr-x  8 ant ant 4096 Jul 15 17:13 kustomize
+drwxrwxr-x  4 ant ant 4096 Jul 15 17:19 terraform
+
+./deployments/docker-compose:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:54 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:09 ..
+-rw-rw-r-- 1 ant ant 2686 Jul 13 11:56 docker-compose.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:57 .env.example
+
+./deployments/kustomize:
+total 32
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:13 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:09 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:55 base
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:58 components
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:12 frontends
+drwxrwxr-x 8 ant ant 4096 Jul 15 16:59 infrastructure
+drwxrwxr-x 7 ant ant 4096 Jul 15 17:14 jobs
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:05 services
+
+./deployments/kustomize/base:
+total 28
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:55 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:13 ..
+-rw-rw-r-- 1 ant ant  922 Jul 13 11:56 configmap-common.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:55 kustomization.yaml
+-rw-rw-r-- 1 ant ant  128 Jul 13 11:56 namespace.yaml
+-rw-rw-r-- 1 ant ant 1264 Jul 13 11:56 network-policies.yaml
+-rw-rw-r-- 1 ant ant 4819 Jul 13 19:11 rbac-security.yaml
+
+./deployments/kustomize/components:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:58 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:13 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:56 monitoring
+drwxrwxr-x 2 ant ant 4096 Jul 16 11:20 security
+
+./deployments/kustomize/components/monitoring:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:56 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:58 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:56 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:56 pod-monitor.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:56 service-monitor.yaml
+
+./deployments/kustomize/components/security:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 16 11:20 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:58 ..
+-rw-rw-r-- 1 ant ant    0 Jul 16 11:20 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:56 network-policy.yaml
+
+./deployments/kustomize/frontends:
+total 20
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:12 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:13 ..
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:11 admin-dashboard
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:12 agent-playground
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:12 user-portal
+
+./deployments/kustomize/frontends/admin-dashboard:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:11 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:12 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:10 base
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:11 overlays
+
+./deployments/kustomize/frontends/admin-dashboard/base:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:10 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:11 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 configmap.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:01 deployment.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:10 ingress.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:01 service.yaml
+
+./deployments/kustomize/frontends/admin-dashboard/overlays:
+total 20
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:11 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:11 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:11 development
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:11 production
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 staging
+
+./deployments/kustomize/frontends/admin-dashboard/overlays/development:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:11 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:11 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/frontends/admin-dashboard/overlays/production:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:11 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:11 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:11 ingress-patch.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/frontends/admin-dashboard/overlays/staging:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:11 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/frontends/agent-playground:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:12 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:12 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 base
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:13 overlays
+
+./deployments/kustomize/frontends/agent-playground/base:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:12 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 configmap.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:01 deployment.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:10 ingress.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:01 service.yaml
+
+./deployments/kustomize/frontends/agent-playground/overlays:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:13 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:12 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 development
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:13 production
+
+./deployments/kustomize/frontends/agent-playground/overlays/development:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:13 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/frontends/agent-playground/overlays/production:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:13 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:13 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/frontends/user-portal:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:12 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:12 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 13:28 base
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:12 overlays
+
+./deployments/kustomize/frontends/user-portal/base:
+total 24
+drwxrwxr-x 2 ant ant 4096 Jul 16 13:28 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:12 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 configmap.yaml
+-rw-rw-r-- 1 ant ant  468 Jul 16 13:28 deployment.yaml
+-rw-rw-r-- 1 ant ant  495 Jul 16 13:28 ingress.yaml
+-rw-rw-r-- 1 ant ant  156 Jul 16 13:28 kustomization.yaml
+-rw-rw-r-- 1 ant ant  147 Jul 16 13:28 service.yaml
+
+./deployments/kustomize/frontends/user-portal/overlays:
+total 20
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:12 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:12 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 development
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 production
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 staging
+
+./deployments/kustomize/frontends/user-portal/overlays/development:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:12 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/frontends/user-portal/overlays/production:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:12 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:11 ingress-patch.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/frontends/user-portal/overlays/staging:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:12 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:12 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/infrastructure:
+total 32
+drwxrwxr-x 8 ant ant 4096 Jul 15 16:59 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:13 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:57 kafka
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 minio
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 monitoring
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 mysql-auth
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 postgres-clients
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 postgres-templates
+
+./deployments/kustomize/infrastructure/kafka:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:57 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 16:59 ..
+-rw-rw-r-- 1 ant ant 3685 Jul 13 11:56 kafka.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:15 kustomization.yaml
+
+./deployments/kustomize/infrastructure/minio:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 16:59 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:16 kustomization.yaml
+-rw-rw-r-- 1 ant ant 2185 Jul 13 11:56 minio.yaml
+
+./deployments/kustomize/infrastructure/monitoring:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 16:59 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:17 grafana-dashboard-configmap.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:16 grafana.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:16 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:16 prometheus-config.yaml
+-rw-rw-r-- 1 ant ant 2280 Jul 13 11:56 prometheus.yaml
+
+./deployments/kustomize/infrastructure/mysql-auth:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 16:59 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:16 kustomization.yaml
+-rw-rw-r-- 1 ant ant 1885 Jul 13 11:56 mysql-auth.yaml
+
+./deployments/kustomize/infrastructure/postgres-clients:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 16:59 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:16 kustomization.yaml
+-rw-rw-r-- 1 ant ant 2753 Jul 13 11:56 postgres-clients.yaml
+
+./deployments/kustomize/infrastructure/postgres-templates:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:59 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 16:59 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:16 kustomization.yaml
+-rw-rw-r-- 1 ant ant 1883 Jul 13 11:56 postgres-templates.yaml
+
+./deployments/kustomize/jobs:
+total 28
+drwxrwxr-x 7 ant ant 4096 Jul 15 17:14 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:13 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 backup
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 database-init
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 data-seeder
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 kafka-topics
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 schema-creator
+
+./deployments/kustomize/jobs/backup:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 .
+drwxrwxr-x 7 ant ant 4096 Jul 15 17:14 ..
+-rw-rw-r-- 1 ant ant 5120 Jul 16 12:00 cronjob.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:14 kustomization.yaml
+
+./deployments/kustomize/jobs/database-init:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 .
+drwxrwxr-x 7 ant ant 4096 Jul 15 17:14 ..
+-rw-rw-r-- 1 ant ant 4585 Jul 16 12:00 job.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:14 kustomization.yaml
+
+./deployments/kustomize/jobs/data-seeder:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 .
+drwxrwxr-x 7 ant ant 4096 Jul 15 17:14 ..
+-rw-rw-r-- 1 ant ant  439 Jul 16 12:00 job.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:14 kustomization.yaml
+
+./deployments/kustomize/jobs/kafka-topics:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 .
+drwxrwxr-x 7 ant ant 4096 Jul 15 17:14 ..
+-rw-rw-r-- 1 ant ant 5454 Jul 16 12:00 job.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:14 kustomization.yaml
+
+./deployments/kustomize/jobs/schema-creator:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 .
+drwxrwxr-x 7 ant ant 4096 Jul 15 17:14 ..
+-rw-rw-r-- 1 ant ant  377 Jul 16 12:00 job.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:14 kustomization.yaml
+
+./deployments/kustomize/services:
+total 32
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:05 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:13 ..
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:06 agent-chassis
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:00 auth-service
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:01 core-manager
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:07 image-generator-adapter
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:06 reasoning-agent
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:07 web-search-adapter
+
+./deployments/kustomize/services/agent-chassis:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:06 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:05 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 base
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:11 overlays
+
+./deployments/kustomize/services/agent-chassis/base:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:06 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 configmap.yaml
+-rw-rw-r-- 1 ant ant 7098 Jul 16 12:00 deployment.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:01 service.yaml
+
+./deployments/kustomize/services/agent-chassis/overlays:
+total 20
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:11 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:06 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:11 development
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:06 production
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:11 staging
+
+./deployments/kustomize/services/agent-chassis/overlays/development:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:11 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:11 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/services/agent-chassis/overlays/production:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:06 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:11 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/services/agent-chassis/overlays/staging:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:11 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:11 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:03 deployment-patch.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:03 resources-patch.yaml
+
+./deployments/kustomize/services/auth-service:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:00 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:05 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 18:21 base
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:00 overlays
+
+./deployments/kustomize/services/auth-service/base:
+total 20
+drwxrwxr-x 2 ant ant 4096 Jul 16 18:21 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:00 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 configmap.yaml
+-rw-rw-r-- 1 ant ant 1249 Jul 16 18:19 deployment.yaml
+-rw-rw-r-- 1 ant ant  219 Jul 16 13:27 kustomization.yaml
+-rw-rw-r-- 1 ant ant  272 Jul 16 18:21 service.yaml
+
+./deployments/kustomize/services/auth-service/overlays:
+total 20
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:00 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:00 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:02 development
+drwxrwxr-x 3 ant ant 4096 Jul 16 18:21 production
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:03 staging
+
+./deployments/kustomize/services/auth-service/overlays/development:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:02 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:00 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/services/auth-service/overlays/production:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 16 18:21 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:00 ..
+drwxrwxr-x 3 ant ant 4096 Jul 16 18:33 uk_001
+
+./deployments/kustomize/services/auth-service/overlays/production/uk_001:
+total 24
+drwxrwxr-x 3 ant ant 4096 Jul 16 18:33 .
+drwxrwxr-x 3 ant ant 4096 Jul 16 18:21 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 18:28 configs
+-rw-rw-r-- 1 ant ant  525 Jul 16 18:29 kustomization.yaml
+-rw-rw-r-- 1 ant ant  653 Jul 16 18:30 patch-deployment.yaml
+-rw-rw-r-- 1 ant ant  186 Jul 16 18:33 README.md
+
+./deployments/kustomize/services/auth-service/overlays/production/uk_001/configs:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 16 18:28 .
+drwxrwxr-x 3 ant ant 4096 Jul 16 18:33 ..
+-rw-rw-r-- 1 ant ant    0 Jul 16 18:20 configmap-prod.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 16 18:28 secrets-prod.yaml
+
+./deployments/kustomize/services/auth-service/overlays/staging:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:03 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:00 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:03 deployment-patch.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:03 resources-patch.yaml
+
+./deployments/kustomize/services/core-manager:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:01 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:05 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 base
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:01 overlays
+
+./deployments/kustomize/services/core-manager/base:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:01 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 configmap.yaml
+-rw-rw-r-- 1 ant ant 7089 Jul 16 12:00 deployment.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:01 service.yaml
+
+./deployments/kustomize/services/core-manager/overlays:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:01 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:01 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:03 production
+
+./deployments/kustomize/services/core-manager/overlays/production:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:03 .
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:01 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/services/image-generator-adapter:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:07 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:05 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 base
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:07 overlays
+
+./deployments/kustomize/services/image-generator-adapter/base:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:07 ..
+-rw-rw-r-- 1 ant ant 4704 Jul 16 12:00 deployment.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:01 service.yaml
+
+./deployments/kustomize/services/image-generator-adapter/overlays:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:07 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:07 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:07 production
+
+./deployments/kustomize/services/image-generator-adapter/overlays/production:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:07 .
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:07 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/services/reasoning-agent:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:06 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:05 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 base
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:06 overlays
+
+./deployments/kustomize/services/reasoning-agent/base:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:06 ..
+-rw-rw-r-- 1 ant ant 3729 Jul 16 12:00 deployment.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:01 service.yaml
+
+./deployments/kustomize/services/reasoning-agent/overlays:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:06 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:06 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:06 production
+
+./deployments/kustomize/services/reasoning-agent/overlays/production:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:06 .
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:06 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/kustomize/services/web-search-adapter:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:07 .
+drwxrwxr-x 8 ant ant 4096 Jul 15 17:05 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 base
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:07 overlays
+
+./deployments/kustomize/services/web-search-adapter/base:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 16 12:00 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:07 ..
+-rw-rw-r-- 1 ant ant 3067 Jul 16 12:00 deployment.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:01 service.yaml
+
+./deployments/kustomize/services/web-search-adapter/overlays:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:07 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:07 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:07 production
+
+./deployments/kustomize/services/web-search-adapter/overlays/production:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:07 .
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:07 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:02 kustomization.yaml
+
+./deployments/terraform:
+total 16
+drwxrwxr-x  4 ant ant 4096 Jul 15 17:19 .
+drwxrwxr-x  5 ant ant 4096 Jul 15 17:09 ..
+drwxrwxr-x  4 ant ant 4096 Jul 15 17:34 environments
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 modules
+
+./deployments/terraform/environments:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:34 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:19 ..
+drwxrwxr-x 4 ant ant 4096 Jul 16 16:35 development
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:24 production
+
+./deployments/terraform/environments/development:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:34 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:34 local
+drwxrwxr-x 6 ant ant 4096 Jul 16 16:35 uk_dev
+
+./deployments/terraform/environments/development/local:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:34 .
+drwxrwxr-x 4 ant ant 4096 Jul 16 16:35 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+
+./deployments/terraform/environments/development/uk_dev:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 4 ant ant 4096 Jul 16 16:35 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:35 010-infrastructure
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:35 020-ingress-nginx
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:36 030-strimzi-operator
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:36 040-kafka-cluster
+
+./deployments/terraform/environments/development/uk_dev/010-infrastructure:
+total 24
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 6 ant ant 4096 Jul 16 16:35 ..
+-rw-rw-r-- 1 ant ant 1703 Jun 18 15:53 main.tf
+-rw-rw-r-- 1 ant ant  432 Jun  2 14:51 outputs.tf
+-rw-rw-r-- 1 ant ant  119 Jun  2 14:52 providers.tf
+-rw-rw-r-- 1 ant ant    0 Jun  2 14:52 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jun  2 16:35 terraform.tfvars.secret
+-rw-rw-r-- 1 ant ant 1044 Jun  9 16:07 variables.tf
+
+./deployments/terraform/environments/development/uk_dev/020-ingress-nginx:
+total 24
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 6 ant ant 4096 Jul 16 16:35 ..
+-rw-rw-r-- 1 ant ant 1073 Jun  2 15:20 main.tf
+-rw-rw-r-- 1 ant ant  490 Jun  2 15:20 outputs.tf
+-rw-rw-r-- 1 ant ant  223 Jun  2 15:23 providers.tf
+-rw-rw-r-- 1 ant ant    0 Jun  2 14:52 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jun  2 16:35 terraform.tfvars.secret
+-rw-rw-r-- 1 ant ant 1011 Jun  9 16:09 variables.tf
+
+./deployments/terraform/environments/development/uk_dev/030-strimzi-operator:
+total 44
+drwxrwxr-x 2 ant ant  4096 Jul 16 16:36 .
+drwxrwxr-x 6 ant ant  4096 Jul 16 16:35 ..
+-rw-rw-r-- 1 ant ant  1292 Jun  2 16:58 main.tf
+-rw-rw-r-- 1 ant ant   373 Jun  2 17:06 outputs.tf
+-rw-rw-r-- 1 ant ant   159 Jun  2 15:54 providers.tf
+-rw-rw-r-- 1 ant ant  2645 Jun 17 20:36 strimzi-rbac-terraform.tf
+-rw-rw-r-- 1 ant ant 13018 Jun 24 21:42 terraform.tfstate
+-rw-rw-r-- 1 ant ant     0 Jun  2 14:52 terraform.tfvars
+-rw-rw-r-- 1 ant ant     0 Jun  2 16:35 terraform.tfvars.secret
+-rw-rw-r-- 1 ant ant  1290 Jun  9 16:09 variables.tf
+
+./deployments/terraform/environments/development/uk_dev/040-kafka-cluster:
+total 28
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:36 .
+drwxrwxr-x 6 ant ant 4096 Jul 16 16:35 ..
+-rw-rw-r-- 1 ant ant  399 Jun  9 16:09 main.tf
+-rw-rw-r-- 1 ant ant  680 Jun  2 15:59 outputs.tf
+-rw-rw-r-- 1 ant ant  306 Jun  2 17:28 providers.tf
+-rw-rw-r-- 1 ant ant 1342 Jun 24 21:42 terraform.tfstate
+-rw-rw-r-- 1 ant ant    0 Jun  2 14:52 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jun  2 16:35 terraform.tfvars.secret
+-rw-rw-r-- 1 ant ant 1075 Jun 18 20:37 variables.tf
+
+./deployments/terraform/environments/production:
+total 12
+drwxrwxr-x  3 ant ant 4096 Jul 15 17:24 .
+drwxrwxr-x  4 ant ant 4096 Jul 15 17:34 ..
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 uk001
+
+./deployments/terraform/environments/production/uk001:
+total 52
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 .
+drwxrwxr-x  3 ant ant 4096 Jul 15 17:24 ..
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:31 010-infrastructure
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:32 020-ingress-nginx
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:33 030-strimzi-operator
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:34 040-kafka-cluster
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:26 050-storage
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:26 060-databases
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:27 070-database-schemas
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:27 080-kafka-topics
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:28 090-monitoring
+-rw-rw-r--  1 ant ant   20 Jul 15 17:34 README.md
+drwxrwxr-x  5 ant ant 4096 Jul 15 17:32 services
+
+./deployments/terraform/environments/production/uk001/010-infrastructure:
+total 56
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:31 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant  290 May 22 17:39 backend.tf
+-rw-rw-r--  1 ant ant 1512 May 23 09:10 main.tf
+-rw-rw-r--  1 ant ant 2563 May 22 17:39 outputs_nodes.tf
+-rw-rw-r--  1 ant ant  639 May 22 17:39 outputs.tf
+-rw-rw-r--  1 ant ant  167 May 22 17:39 providers.tf
+-rw-rw-r--  1 ant ant 9300 Jun  2 12:56 terraform.tfstate.uk001-prod-cluster
+-rw-rw-r--  1 ant ant  860 Jun  2 12:55 terraform.tfvars
+-rw-rw-r--  1 ant ant  176 May 22 17:39 terraform.tfvars.secret
+-rw-rw-r--  1 ant ant 1996 May 28 17:22 variables.tf
+-rw-rw-r--  1 ant ant  518 May 22 17:39 versions.tf
+
+./deployments/terraform/environments/production/uk001/020-ingress-nginx:
+total 36
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:32 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant  823 May 22 17:40 main.tf
+-rw-rw-r--  1 ant ant  223 May 22 17:41 outputs.tf
+-rw-rw-r--  1 ant ant  251 May 22 17:39 providers.tf
+-rw-rw-r--  1 ant ant  178 May 22 17:39 terraform.tfvars
+-rw-rw-r--  1 ant ant   84 May 22 17:39 terraform.tfvars.secret
+-rw-rw-r--  1 ant ant 1087 May 22 17:39 variables.tf
+-rw-rw-r--  1 ant ant  289 May 22 17:39 versions.tf
+
+./deployments/terraform/environments/production/uk001/030-strimzi-operator:
+total 48
+drwxrwxr-x  2 ant ant  4096 Jul 16 16:33 .
+drwxrwxr-x 12 ant ant  4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant  4318 May 22 17:59 main.tf
+-rw-rw-r--  1 ant ant     0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant   289 May 22 17:58 providers.tf
+-rw-rw-r--  1 ant ant 10305 May 29 12:09 terraform.tfstate
+-rw-rw-r--  1 ant ant   358 May 22 17:58 terraform.tfvars
+-rw-rw-r--  1 ant ant    88 May 22 17:58 terraform.tfvars.secret
+-rw-rw-r--  1 ant ant   989 May 22 18:02 variables.tf
+-rw-rw-r--  1 ant ant   355 May 22 17:58 versions.tf
+
+./deployments/terraform/environments/production/uk001/040-kafka-cluster:
+total 36
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:34 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant  440 May 22 18:06 main.tf
+-rw-rw-r--  1 ant ant  918 Jun  2 17:29 outputs.tf
+-rw-rw-r--  1 ant ant  212 May 10 16:51 providers.tf
+-rw-rw-r--  1 ant ant  339 Jun 18 20:37 terraform.tfvars
+-rw-rw-r--  1 ant ant   86 May 10 19:16 terraform.tfvars.secret
+-rw-rw-r--  1 ant ant 1012 Jun 18 20:37 variables.tf
+-rw-rw-r--  1 ant ant  470 May 10 16:35 versions.tf
+
+./deployments/terraform/environments/production/uk001/050-storage:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:26 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/060-databases:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:26 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/070-database-schemas:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:27 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/080-kafka-topics:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:27 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/090-monitoring:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:28 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/services:
+total 20
+drwxrwxr-x  5 ant ant 4096 Jul 15 17:32 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+drwxrwxr-x  6 ant ant 4096 Jul 15 17:32 agents
+drwxrwxr-x  4 ant ant 4096 Jul 15 17:31 core-platform
+drwxrwxr-x  5 ant ant 4096 Jul 15 17:33 frontends
+
+./deployments/terraform/environments/production/uk001/services/agents:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:32 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:32 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 2210-agent-chassis
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 2220-reasoning-agent
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 2230-web-search-adapter
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:31 2240-image-generator-adapter
+
+./deployments/terraform/environments/production/uk001/services/agents/2210-agent-chassis:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:32 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/services/agents/2220-reasoning-agent:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:32 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/services/agents/2230-web-search-adapter:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:32 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/services/agents/2240-image-generator-adapter:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:31 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:32 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/services/core-platform:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:31 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:32 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 13:10 1110-auth-service
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:29 1120-core-manager
+
+./deployments/terraform/environments/production/uk001/services/core-platform/1110-auth-service:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 16 13:10 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:31 ..
+-rw-rw-r-- 1 ant ant 1370 Jul 16 13:10 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/services/core-platform/1120-core-manager:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:29 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:31 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/services/frontends:
+total 20
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:33 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:32 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:33 3310-admin-dashboard
+drwxrwxr-x 2 ant ant 4096 Jul 16 13:12 3320-user-portal
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:33 3330-agent-playground
+
+./deployments/terraform/environments/production/uk001/services/frontends/3310-admin-dashboard:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:33 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:33 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/services/frontends/3320-user-portal:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 16 13:12 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:33 ..
+-rw-rw-r-- 1 ant ant  595 Jul 16 13:12 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/environments/production/uk001/services/frontends/3330-agent-playground:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:33 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:33 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/modules:
+total 44
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 .
+drwxrwxr-x  4 ant ant 4096 Jul 15 17:19 ..
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 k8s-job-runner
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:29 kafka-cluster
+drwxrwxr-x  2 ant ant 4096 Jul 16 13:26 kustomize-apply
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 mysql-instance
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:28 nginx-ingress
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 postgres-instance
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:58 rackspace-kubernetes
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:24 s3-buckets
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:25 strimzi-operator
+
+./deployments/terraform/modules/k8s-job-runner:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/modules/kafka-cluster:
+total 36
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:29 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:29 config
+-rw-rw-r--  1 ant ant  744 Jun  2 17:26 main.tf
+-rw-rw-r--  1 ant ant  729 May  9 20:03 outputs.tf
+-rw-rw-r--  1 ant ant  144 May 10 16:38 providers.tf
+-rw-rw-r--  1 ant ant 1953 May  9 12:42 README.md
+-rw-rw-r--  1 ant ant    0 May  9 20:04 terraform.tfvars
+-rw-rw-r--  1 ant ant  895 Jun  2 17:25 variables.tf
+-rw-rw-r--  1 ant ant  337 May 10 16:35 versions.tf
+
+./deployments/terraform/modules/kafka-cluster/config:
+total 40
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:29 .
+drwxrwxr-x 3 ant ant 4096 Jul 16 16:29 ..
+-rw-rw-r-- 1 ant ant 1230 Jun 23 17:42 kafka-cluster-cr-dev.yaml
+-rw-rw-r-- 1 ant ant 1265 Jun 18 09:48 kafka-cluster-cr.yaml
+-rw-rw-r-- 1 ant ant 1125 Jun 18 09:48 kafka-kraft-cluster.yaml
+-rw-rw-r-- 1 ant ant  814 Jun 23 17:39 kafka-temp-fix.yaml
+-rw-rw-r-- 1 ant ant  799 Jun 18 09:48 kafkauser-permissive-test.yaml
+-rw-rw-r-- 1 ant ant  463 Jun 18 09:48 kafkauser-test.yaml
+-rw-rw-r-- 1 ant ant 1775 Jun 18 09:48 personae-app-anonymous-v2.yaml
+-rw-rw-r-- 1 ant ant 2046 Jun 18 09:48 personae-app-anonymous.yaml
+
+./deployments/terraform/modules/kustomize-apply:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 16 13:26 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant  741 Jul 16 13:07 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant  764 Jul 16 13:26 variables.tf
+
+./deployments/terraform/modules/mysql-instance:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/modules/nginx-ingress:
+total 32
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:28 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:28 config
+-rw-rw-r--  1 ant ant 1678 May 20 15:41 main.tf
+-rw-rw-r--  1 ant ant 1262 May 10 19:01 outputs.tf
+-rw-rw-r--  1 ant ant    0 May  9 19:28 providers.tf
+-rw-rw-r--  1 ant ant   23 May  9 18:23 terraform.tfvars
+-rw-rw-r--  1 ant ant  808 May  9 19:30 variables.tf
+-rw-rw-r--  1 ant ant  289 May  9 19:30 versions.tf
+
+./deployments/terraform/modules/nginx-ingress/config:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:28 .
+drwxrwxr-x 3 ant ant 4096 Jul 16 16:28 ..
+-rw-rw-r-- 1 ant ant 2881 May 20 15:36 ingress-nginx-values.yaml
+
+./deployments/terraform/modules/postgres-instance:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/modules/rackspace-kubernetes:
+total 32
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:58 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant 1722 Jul 16 16:58 main.tf
+-rw-rw-r--  1 ant ant  567 May  9 19:22 outputs.tf
+-rw-rw-r--  1 ant ant    0 May  9 19:25 providers.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 README.md
+-rw-rw-r--  1 ant ant 4874 May  9 12:42 terraform.tfvars.secret
+-rw-rw-r--  1 ant ant 2562 Jul 16 16:55 variables.tf
+-rw-rw-r--  1 ant ant  151 May  9 18:23 versions.tf
+
+./deployments/terraform/modules/s3-buckets:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:24 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./deployments/terraform/modules/strimzi-operator:
+total 36
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:25 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant  806 Jun 17 19:48 main.tf
+-rw-rw-r--  1 ant ant  306 May  9 19:54 outputs.tf
+-rw-rw-r--  1 ant ant  174 May 23 08:45 providers.tf
+-rw-rw-r--  1 ant ant  541 May  9 12:42 README.md
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:25 strimzi-yaml-0.45.0
+-rw-rw-r--  1 ant ant  893 May  9 19:53 variables.tf
+-rw-rw-r--  1 ant ant  272 May 10 16:35 versions.tf
+
+./deployments/terraform/modules/strimzi-operator/strimzi-yaml-0.45.0:
+total 1164
+drwxrwxr-x 2 ant ant   4096 Jul 16 16:25 .
+drwxrwxr-x 3 ant ant   4096 Jul 16 16:25 ..
+-rw-r--r-- 1 ant ant    106 May  9 12:42 010-ServiceAccount-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant   4833 May  9 12:42 020-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    333 May  9 12:42 020-RoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant    336 May  9 12:42 021-ClusterRoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant   1149 May  9 12:42 021-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    937 May  9 12:42 022-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    354 May  9 12:42 022-RoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant  10258 May 13 15:23 023-amended-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    338 May  9 12:42 023-RoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant    587 May  9 12:42 030-ClusterRoleBinding-strimzi-cluster-operator-kafka-broker-delegation.yaml
+-rw-r--r-- 1 ant ant    396 May  9 12:42 030-ClusterRole-strimzi-kafka-broker.yaml
+-rw-r--r-- 1 ant ant   1363 May  9 12:42 031-ClusterRole-strimzi-entity-operator.yaml
+-rw-r--r-- 1 ant ant    591 May  9 12:42 031-RoleBinding-strimzi-cluster-operator-entity-operator-delegation.yaml
+-rw-r--r-- 1 ant ant    634 May  9 12:42 033-ClusterRoleBinding-strimzi-cluster-operator-kafka-client-delegation.yaml
+-rw-r--r-- 1 ant ant    471 May  9 12:42 033-ClusterRole-strimzi-kafka-client.yaml
+-rw-r--r-- 1 ant ant 480170 May  9 12:42 040-Crd-kafka.yaml
+-rw-r--r-- 1 ant ant 136179 May  9 12:42 041-Crd-kafkaconnect.yaml
+-rw-r--r-- 1 ant ant   5170 May  9 12:42 042-Crd-strimzipodset.yaml
+-rw-r--r-- 1 ant ant  18034 May  9 12:42 043-Crd-kafkatopic.yaml
+-rw-r--r-- 1 ant ant  38528 May  9 12:42 044-Crd-kafkauser.yaml
+-rw-r--r-- 1 ant ant  84313 May  9 12:42 045-Crd-kafkamirrormaker.yaml
+-rw-r--r-- 1 ant ant  79372 May  9 12:42 046-Crd-kafkabridge.yaml
+-rw-r--r-- 1 ant ant   7373 May  9 12:42 047-Crd-kafkaconnector.yaml
+-rw-r--r-- 1 ant ant 143431 May  9 12:42 048-Crd-kafkamirrormaker2.yaml
+-rw-r--r-- 1 ant ant   8672 May  9 12:42 049-Crd-kafkarebalance.yaml
+-rw-r--r-- 1 ant ant  63056 May  9 12:42 04A-Crd-kafkanodepool.yaml
+-rw-r--r-- 1 ant ant    992 May  9 12:42 050-ConfigMap-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant   4424 May  9 12:42 060-Deployment-strimzi-cluster-operator.yaml
+-rw-rw-r-- 1 ant ant    344 May  9 12:42 added-clusterrolebinding-operator-watched.yaml
+
+./docs:
+total 24
+drwxrwxr-x  6 ant ant 4096 Jul 15 17:41 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:42 architecture
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:43 deployment
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:43 development
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:44 operations
+
+./docs/architecture:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:42 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:41 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:42 agent-architecture.md
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:41 README.md
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:42 service-dependencies.md
+
+./docs/deployment:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:43 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:41 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:43 kustomize-guide.md
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:41 README.md
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:42 terraform-guide.md
+
+./docs/development:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:43 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:41 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:43 local-setup.md
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:41 README.md
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:43 testing-guide.md
+
+./docs/operations:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:44 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:41 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:43 monitoring.md
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:41 README.md
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:44 troubleshooting.md
+
+./frontends:
+total 24
+drwxrwxr-x  6 ant ant 4096 Jul 15 16:44 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+drwxrwxr-x  4 ant ant 4096 Jul 15 16:46 admin-dashboard
+drwxrwxr-x  4 ant ant 4096 Jul 15 16:47 agent-playground
+drwxrwxr-x  4 ant ant 4096 Jul 15 16:49 shared
+drwxrwxr-x  4 ant ant 4096 Jul 15 16:48 user-portal
+
+./frontends/admin-dashboard:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:46 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:44 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:46 Dockerfile
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:46 env.example
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:46 nginx.conf
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:45 package.json
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:45 public
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:45 src
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:45 tsconfig.json
+
+./frontends/admin-dashboard/public:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:45 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:46 ..
+
+./frontends/admin-dashboard/src:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:45 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:46 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:45 App.tsx
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:44 components
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:44 hooks
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:44 pages
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:44 services
+
+./frontends/admin-dashboard/src/components:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:44 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:45 ..
+
+./frontends/admin-dashboard/src/hooks:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:44 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:45 ..
+
+./frontends/admin-dashboard/src/pages:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:44 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:45 ..
+
+./frontends/admin-dashboard/src/services:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:44 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:45 ..
+
+./frontends/agent-playground:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:44 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:46 Dockerfile
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:46 env.example
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:46 nginx.conf
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:45 package.json
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 public
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 src
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:45 tsconfig.json
+
+./frontends/agent-playground/public:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:47 ..
+
+./frontends/agent-playground/src:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:47 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:45 App.tsx
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 components
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 hooks
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 pages
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 services
+
+./frontends/agent-playground/src/components:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 ..
+
+./frontends/agent-playground/src/hooks:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 ..
+
+./frontends/agent-playground/src/pages:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 ..
+
+./frontends/agent-playground/src/services:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 ..
+
+./frontends/shared:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:49 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:44 ..
+drwxrwxr-x 3 ant ant 4096 Jul 15 16:49 api-client
+drwxrwxr-x 3 ant ant 4096 Jul 15 16:50 ui-components
+
+./frontends/shared/api-client:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 15 16:49 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:49 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:45 package.json
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 src
+
+./frontends/shared/api-client/src:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 .
+drwxrwxr-x 3 ant ant 4096 Jul 15 16:49 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:49 components
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:49 hooks
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:49 pages
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:49 services
+
+./frontends/shared/api-client/src/components:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:49 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 ..
+
+./frontends/shared/api-client/src/hooks:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:49 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 ..
+
+./frontends/shared/api-client/src/pages:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:49 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 ..
+
+./frontends/shared/api-client/src/services:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:49 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 ..
+
+./frontends/shared/ui-components:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 15 16:50 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:49 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:45 package.json
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 src
+
+./frontends/shared/ui-components/src:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 .
+drwxrwxr-x 3 ant ant 4096 Jul 15 16:50 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 components
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 hooks
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 pages
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 services
+
+./frontends/shared/ui-components/src/components:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 ..
+
+./frontends/shared/ui-components/src/hooks:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 ..
+
+./frontends/shared/ui-components/src/pages:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 ..
+
+./frontends/shared/ui-components/src/services:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:49 ..
+
+./frontends/user-portal:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:48 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:44 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:46 Dockerfile
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:46 env.example
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:46 nginx.conf
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:45 package.json
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 public
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 src
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:45 tsconfig.json
+
+./frontends/user-portal/public:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:48 ..
+
+./frontends/user-portal/src:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 16:48 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 16:45 App.tsx
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 components
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 hooks
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 pages
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 services
+
+./frontends/user-portal/src/components:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 ..
+
+./frontends/user-portal/src/hooks:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 ..
+
+./frontends/user-portal/src/pages:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 ..
+
+./frontends/user-portal/src/services:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:47 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 16:47 ..
+
+./.git:
+total 128
+drwxrwxr-x   8 ant ant  4096 Jul 16 18:30 .
+drwxrwxr-x  17 ant ant  4096 Jul 16 18:39 ..
+drwxrwxr-x   2 ant ant  4096 Jul 13 12:02 branches
+-rw-rw-r--   1 ant ant    68 Jul 16 17:09 COMMIT_EDITMSG
+-rw-rw-r--   1 ant ant   442 Jul 13 13:35 config
+-rw-rw-r--   1 ant ant    73 Jul 13 12:02 description
+-rw-rw-r--   1 ant ant    89 Jul 13 13:38 FETCH_HEAD
+-rw-rw-r--   1 ant ant    51 Jul 15 16:37 HEAD
+drwxrwxr-x   2 ant ant  4096 Jul 13 12:02 hooks
+-rw-rw-r--   1 ant ant 68339 Jul 16 18:30 index
+drwxrwxr-x   2 ant ant  4096 Jul 13 12:02 info
+drwxrwxr-x   3 ant ant  4096 Jul 13 12:03 logs
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 objects
+-rw-rw-r--   1 ant ant    41 Jul 13 13:16 ORIG_HEAD
+-rw-rw-r--   1 ant ant    46 Jul 13 13:19 packed-refs
+drwxrwxr-x   5 ant ant  4096 Jul 13 12:03 refs
+
+./.git/branches:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 8 ant ant 4096 Jul 16 18:30 ..
+
+./.git/hooks:
+total 72
+drwxrwxr-x 2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 8 ant ant 4096 Jul 16 18:30 ..
+-rwxrwxr-x 1 ant ant  478 Jul 13 12:02 applypatch-msg.sample
+-rwxrwxr-x 1 ant ant  896 Jul 13 12:02 commit-msg.sample
+-rwxrwxr-x 1 ant ant 4726 Jul 13 12:02 fsmonitor-watchman.sample
+-rwxrwxr-x 1 ant ant  189 Jul 13 12:02 post-update.sample
+-rwxrwxr-x 1 ant ant  424 Jul 13 12:02 pre-applypatch.sample
+-rwxrwxr-x 1 ant ant 1643 Jul 13 12:02 pre-commit.sample
+-rwxrwxr-x 1 ant ant  416 Jul 13 12:02 pre-merge-commit.sample
+-rwxrwxr-x 1 ant ant 1492 Jul 13 12:02 prepare-commit-msg.sample
+-rwxrwxr-x 1 ant ant 1374 Jul 13 12:02 pre-push.sample
+-rwxrwxr-x 1 ant ant 4898 Jul 13 12:02 pre-rebase.sample
+-rwxrwxr-x 1 ant ant  544 Jul 13 12:02 pre-receive.sample
+-rwxrwxr-x 1 ant ant 2783 Jul 13 12:02 push-to-checkout.sample
+-rwxrwxr-x 1 ant ant 2308 Jul 13 12:02 sendemail-validate.sample
+-rwxrwxr-x 1 ant ant 3650 Jul 13 12:02 update.sample
+
+./.git/info:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 8 ant ant 4096 Jul 16 18:30 ..
+-rw-rw-r-- 1 ant ant  240 Jul 13 12:02 exclude
+
+./.git/logs:
+total 16
+drwxrwxr-x 3 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 8 ant ant 4096 Jul 16 18:30 ..
+-rw-rw-r-- 1 ant ant 3985 Jul 16 17:09 HEAD
+drwxrwxr-x 4 ant ant 4096 Jul 13 12:03 refs
+
+./.git/logs/refs:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 3 ant ant 4096 Jul 13 12:03 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:37 heads
+drwxrwxr-x 3 ant ant 4096 Jul 13 13:25 remotes
+
+./.git/logs/refs/heads:
+total 28
+drwxrwxr-x 2 ant ant 4096 Jul 15 16:37 .
+drwxrwxr-x 4 ant ant 4096 Jul 13 12:03 ..
+-rw-rw-r-- 1 ant ant  785 Jul 15 11:31 027_add_admin
+-rw-rw-r-- 1 ant ant  308 Jul 15 13:48 028_modularise_and_break_up
+-rw-rw-r-- 1 ant ant  992 Jul 16 17:09 030_massive_deployment_restructure
+-rw-rw-r-- 1 ant ant  145 Jul 15 13:50 030_rackspace_deploment_kustomize
+-rw-rw-r-- 1 ant ant 1395 Jul 14 18:49 main
+
+./.git/logs/refs/remotes:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 13 13:25 .
+drwxrwxr-x 4 ant ant 4096 Jul 13 12:03 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 11:31 origin
+
+./.git/logs/refs/remotes/origin:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 15 11:31 .
+drwxrwxr-x 3 ant ant 4096 Jul 13 13:25 ..
+-rw-rw-r-- 1 ant ant  134 Jul 15 11:31 027_add_admin
+-rw-rw-r-- 1 ant ant  284 Jul 14 17:04 main
+
+./.git/objects:
+total 992
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x   8 ant ant 4096 Jul 16 18:30 ..
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 00
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 01
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 02
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 03
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 04
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 05
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 06
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 07
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 08
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 09
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 0a
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 0b
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 0c
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 0d
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 0e
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 0f
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 10
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 11
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 13
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 14
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 15
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 17
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 18
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 19
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:17 1a
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 1b
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 1c
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 1d
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 1e
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 1f
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 21
+drwxrwxr-x   2 ant ant 4096 Jul 15 11:31 22
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 23
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 24
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 25
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 26
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 27
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 29
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 2a
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:41 2b
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 2c
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 2d
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 2f
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 30
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 32
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 33
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 34
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 35
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 36
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:28 37
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 38
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 39
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 3a
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 3b
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 3c
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 3d
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 3e
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 3f
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:26 40
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 41
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 42
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 43
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 45
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 46
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 47
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 48
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 49
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:33 4a
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 4b
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 4c
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 4d
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 4e
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 4f
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 50
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 51
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 53
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 54
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 55
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 56
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 57
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 59
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 5a
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 5b
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 5c
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 5d
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 5e
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 5f
+drwxrwxr-x   2 ant ant 4096 Jul 13 19:14 60
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 61
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 62
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 63
+drwxrwxr-x   2 ant ant 4096 Jul 13 19:14 64
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 65
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 66
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 67
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 68
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 69
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 6a
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 6b
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 6c
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 6d
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 6e
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 6f
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:17 71
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 72
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 73
+drwxrwxr-x   2 ant ant 4096 Jul 14 20:01 74
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 75
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:33 76
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 77
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 78
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 79
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 7a
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 7b
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 7c
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 7d
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:53 7e
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 7f
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 80
+drwxrwxr-x   2 ant ant 4096 Jul 14 20:01 81
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 82
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 83
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 84
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 85
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 86
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 88
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 89
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 8b
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 8c
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 8d
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 8e
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 8f
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:17 90
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:53 91
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 92
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 93
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 94
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 95
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 96
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 97
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 98
+drwxrwxr-x   2 ant ant 4096 Jul 14 20:01 99
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 9a
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 9b
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 9c
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 9d
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 9e
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 9f
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 a0
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 a1
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 a2
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 a3
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 a4
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 a5
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 a6
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 a7
+drwxrwxr-x   2 ant ant 4096 Jul 14 20:01 a8
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:34 a9
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 aa
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 ab
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 ac
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 ad
+drwxrwxr-x   2 ant ant 4096 Jul 15 11:31 ae
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 af
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:32 b0
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 b1
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 b2
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 b3
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 b4
+drwxrwxr-x   2 ant ant 4096 Jul 14 20:14 b5
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 b6
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 b7
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 b8
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 b9
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 bb
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 bc
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 bd
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 be
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 bf
+drwxrwxr-x   2 ant ant 4096 Jul 15 11:31 c0
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:17 c1
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 c2
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 c3
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 c4
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 c5
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 c7
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 c8
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 c9
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 ca
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 cb
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 cc
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 cd
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 ce
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 cf
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:33 d0
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 d1
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 d3
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 d4
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 d5
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 d7
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 d8
+drwxrwxr-x   2 ant ant 4096 Jul 15 13:48 d9
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 da
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 db
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 dc
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 dd
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 de
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 df
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 e0
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 e1
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 e2
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 e3
+drwxrwxr-x   2 ant ant 4096 Jul 14 18:49 e4
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 e5
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 e6
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 e7
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:30 e8
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 e9
+drwxrwxr-x   2 ant ant 4096 Jul 14 20:14 ea
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 eb
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 ec
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 ed
+drwxrwxr-x   2 ant ant 4096 Jul 13 19:14 ee
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 ef
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 f0
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 f1
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 f2
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 f3
+drwxrwxr-x   2 ant ant 4096 Jul 15 11:31 f4
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 f5
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 f6
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 f7
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 f8
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 f9
+drwxrwxr-x   2 ant ant 4096 Jul 15 11:31 fa
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 fb
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 fc
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 fd
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 fe
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 ff
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 info
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 pack
+
+./.git/objects/00:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   51 Jul 13 12:03 0ccf58593c53faf0e0c3e00f46b08f66968d11
+-r--r--r--   1 ant ant   56 Jul 14 20:14 1ed9415c0d82d78e79430f7ba7406f97eaccc8
+-r--r--r--   1 ant ant   68 Jul 16 12:01 9be511edc34bbec032dce034f7f83b6dc5b6a8
+-r--r--r--   1 ant ant  261 Jul 16 17:09 a5c4844c6f70e23cc23b68ea25ac97607825a1
+-r--r--r--   1 ant ant  579 Jul 16 15:03 c962cc367ad8117a8f359c10185efdd9e471df
+
+./.git/objects/01:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  291 Jul 13 12:02 55d259dd61c153cafb1bdcb0acd8ad45688fd6
+-r--r--r--   1 ant ant   52 Jul 13 16:44 a030ffb90e8e73e798d2a3c8f843b63c2b0561
+
+./.git/objects/02:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  193 Jul 16 17:09 1229b658c5124d7ac8fb47dc2d12edf2cf151e
+-r--r--r--   1 ant ant  887 Jul 16 12:01 672ef6f29e00e2cf8d96ec506781d74259f772
+-r--r--r--   1 ant ant 3004 Jul 13 19:14 7411e3f44926c0281211b1383dc39df717bee8
+-r--r--r--   1 ant ant  435 Jul 15 17:55 8526b269ef47f36a1e9a59e31a528f169f91c5
+-r--r--r--   1 ant ant  825 Jul 13 12:02 f3eafb11da63002b5ed8b997a3dbe58bc5f608
+
+./.git/objects/03:
+total 32
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  209 Jul 13 19:14 0c8b841f6f27263051c08519f1087b31043782
+-r--r--r--   1 ant ant  293 Jul 16 15:03 0e08c43000338d5a26d5ce62b27701e8f8387e
+-r--r--r--   1 ant ant 3177 Jul 16 16:35 1e0cc793579acfd665474beb8c2864bd310c9f
+-r--r--r--   1 ant ant 3439 Jul 14 20:01 36e736fb993f86a808ef8f1933d3a77c12a65c
+-r--r--r--   1 ant ant  155 Jul 13 16:44 7472126d8f63c4ec7eea48fc2aabc9366c143e
+-r--r--r--   1 ant ant  120 Jul 16 12:01 c1428c69eade63adcc085b4526ba46f751c364
+
+./.git/objects/04:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   36 Jul 16 12:01 6689b38d9f6a7e7423e58644bc7dde3bab54c5
+-r--r--r--   1 ant ant 2135 Jul 13 16:44 a43173163a04afb90c9789a203a78b6c7449b1
+-r--r--r--   1 ant ant   87 Jul 16 12:01 b5e2684cc54b6e83a30c2e4b6bade1bb9a4869
+
+./.git/objects/05:
+total 40
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  328 Jul 16 12:01 0b699cf412b804afb9062eb010140e835f9ecb
+-r--r--r--   1 ant ant  200 Jul 16 12:01 1d9916acaf0d3d29e08d0e790c42a99d980d75
+-r--r--r--   1 ant ant  151 Jul 14 20:14 2944d68190a708d401c671718569012581252c
+-r--r--r--   1 ant ant 3243 Jul 13 12:02 4d3714a33cbc35eb6f9dfac847314ab82e7210
+-r--r--r--   1 ant ant   52 Jul 13 12:03 50bc74028906207b344fd59b042df262c00434
+-r--r--r--   1 ant ant  151 Jul 13 12:03 54e533a40aa6a096955a0803cd3cda4e7300ae
+-r--r--r--   1 ant ant   92 Jul 16 12:01 ac0359be117e116d2a7d24b60b4f03147f8cbc
+-r--r--r--   1 ant ant 2335 Jul 13 16:44 f45fab579b9d7b21d36cca9a384d41d7b90cfd
+
+./.git/objects/06:
+total 32
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   87 Jul 14 11:17 1a6ae35b00d28d0c238578f297807722ac08da
+-r--r--r--   1 ant ant 4298 Jul 16 16:35 59cf6ed8b2cf5eedd1f6020ab35377b8d98569
+-r--r--r--   1 ant ant  110 Jul 16 12:01 5aadf8f3e1190de095205ab6b014167edef3be
+-r--r--r--   1 ant ant  108 Jul 16 12:01 c8bce24488242244bf7c84178d2d9bdcf8b484
+-r--r--r--   1 ant ant  165 Jul 16 15:03 eacdf68c8ea453bc9962f97718eba4514ff991
+
+./.git/objects/07:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  920 Jul 16 16:29 2f183fdfcfab0f303904b11934eedf4ca8a3cb
+-r--r--r--   1 ant ant  559 Jul 16 16:35 3f59b2378336ca307730b45385eab8a357526c
+-r--r--r--   1 ant ant 1242 Jul 14 20:01 764798ffe0befeb45a26f0cebef59c322ee93e
+-r--r--r--   1 ant ant  199 Jul 16 15:41 e1d79494b331830e0baf8950de0c38a51c88e0
+
+./.git/objects/08:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  197 Jul 16 17:09 2801cd538c493ba587d7a1aea612beb6335fff
+
+./.git/objects/09:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  248 Jul 16 15:03 b209554883b39848994f69356722b40fe30f8d
+
+./.git/objects/0a:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   95 Jul 16 12:01 13329b24c0b92aa718eaa0bd0ff0d58a93c4d5
+-r--r--r--   1 ant ant  148 Jul 13 12:02 6a2dba96aa3f9a035c06e4acc35d7151ac93bd
+-r--r--r--   1 ant ant  251 Jul 16 17:09 b7e85cc7974ff6dfaed7d3bbd7e6a7823639ab
+-r--r--r--   1 ant ant   54 Jul 14 20:14 b835b1507311af8422ed230635b40f0b601e22
+
+./.git/objects/0b:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  119 Jul 13 12:03 9e9ee178c6230ab7ad8c78f8afaa38002ad9ac
+
+./.git/objects/0c:
+total 21036
+drwxrwxr-x   2 ant ant     4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant     4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant      592 Jul 15 11:31 143d471ec473182129ac07dcc2fe6f931ee099
+-r--r--r--   1 ant ant       39 Jul 16 16:28 2ece9dbde29aa4b995902822e57450fa6e49b2
+-r--r--r--   1 ant ant      324 Jul 13 16:44 607b3adbfe481c19a99eef5528980ef07ac822
+-r--r--r--   1 ant ant      198 Jul 16 15:03 caa3e8fa2a367580bf86c3820054e1277d3c2b
+-r--r--r--   1 ant ant 21508236 Jul 16 16:35 e513922ed52b1453ff2dd1876380a3edfabdb3
+-r--r--r--   1 ant ant      317 Jul 16 17:09 fe1a2b8c67fc8ede5146a21b047807d7b7ebbc
+
+./.git/objects/0d:
+total 36
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   90 Jul 13 12:03 05663fda2cc1d74691b4ea2f3c21881482abc8
+-r--r--r--   1 ant ant 3434 Jul 16 15:41 4137a8b9165ef8bbe59f04b8d9d62769b4c3c4
+-r--r--r--   1 ant ant  583 Jul 16 16:35 50e29f25c1341270ab0ffaaf9fc708c5be6e35
+-r--r--r--   1 ant ant  747 Jul 13 16:44 53c635d0efab8856ea7482552d776dd3eeed09
+-r--r--r--   1 ant ant  106 Jul 16 12:01 8e0d1be89fd50b999346dc9f529eb374701a6d
+-r--r--r--   1 ant ant 2404 Jul 13 12:02 e975f1315fc8b4c0c9abad10e97ef1524ed37d
+-r--r--r--   1 ant ant  285 Jul 16 17:09 ef8242f65f54c872214ec92a5b5d5618e38cde
+
+./.git/objects/0e:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   85 Jul 16 12:01 747fb57e8bc0c23b0b9bf61d84686243b53da4
+-r--r--r--   1 ant ant 1529 Jul 13 16:44 e95ca738de3266493ebe753bf47ae253f06af0
+
+./.git/objects/0f:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  735 Jul 13 12:02 2036726bfc46c0ed5326726bfa8f4b3c1757f8
+-r--r--r--   1 ant ant  162 Jul 13 12:02 94e0d5fc32a84937bd577463493c43effb1771
+-r--r--r--   1 ant ant 1140 Jul 13 16:44 b0b7c22f3d0c69788c6dff64f119f8adb9a826
+
+./.git/objects/10:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  269 Jul 16 17:09 110f4b4c67cf031d8e2ba0df211509802cea2f
+
+./.git/objects/11:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  128 Jul 16 16:29 59d0cfbf7ea05d749185bbb68a87fa63528694
+-r--r--r--   1 ant ant 7091 Jul 16 16:35 9d4d9a145479ebd870838923ff9bca44a31fe7
+-r--r--r--   1 ant ant 1660 Jul 14 11:39 cc20ed1c711471415e7e1c127838f799ce5d8b
+-r--r--r--   1 ant ant 1096 Jul 13 16:44 fa3c7307dfbe56671f8126ee5253be56917f5f
+
+./.git/objects/12:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  111 Jul 16 17:09 1ad2a8a5191c5a10c7c03eb0ecb1c06ff02686
+-r--r--r--   1 ant ant 1217 Jul 15 17:55 694737ff59104d6d2b7c8d6bca80b9bb44c544
+-r--r--r--   1 ant ant  495 Jul 13 12:02 af054bf6ef6b17b9f7368873b6207747a43e37
+
+./.git/objects/13:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   84 Jul 13 12:03 767a66e1e17332fd340608dd2762485794f9d5
+
+./.git/objects/14:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   88 Jul 16 17:09 00b196201db0efe4b7c6dbe2cfcdb4e446e2eb
+-r--r--r--   1 ant ant  203 Jul 16 16:35 d8aabce9c50ec8a3355dd061faa8db0ef355c1
+
+./.git/objects/15:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  163 Jul 13 16:44 16ac962214ee30edb39fe40d10042779eb8496
+
+./.git/objects/16:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  254 Jul 16 16:35 25b1ef6dcf2bceadfddc9043f972c4bbc9596d
+-r--r--r--   1 ant ant  624 Jul 16 17:09 37c15f480b50269951f952046f6c7a4ec26255
+-r--r--r--   1 ant ant 2816 Jul 16 16:35 7ef41c9f1d562c2a99527ed9c8b4e3d9f0e5c5
+
+./.git/objects/17:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   78 Jul 16 12:01 48c4c2637977c4df38bbb6f2433c74838d8340
+-r--r--r--   1 ant ant 2983 Jul 16 15:03 4e18634d9746384953309c5a6e3c40460a988e
+-r--r--r--   1 ant ant 2170 Jul 16 17:09 bdbf05f6303499d7a91f633cd9cd444a338f93
+
+./.git/objects/18:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   80 Jul 16 12:01 289b30c5c6b7df3fb8b132c54381f0a8d3000f
+-r--r--r--   1 ant ant  734 Jul 14 11:39 2ec7bbbec8ab8c8689dc0c8c7cb926d7901b2e
+-r--r--r--   1 ant ant  696 Jul 16 16:35 76152955ec7c6d3914f5655454d92ebc408263
+
+./.git/objects/19:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  435 Jul 13 12:02 60865a65cf00d4e364de05cb07bed78db2633f
+-r--r--r--   1 ant ant   49 Jul 13 12:03 64fcb6aaaf65cbee3c4952891671d4f8316f63
+-r--r--r--   1 ant ant   86 Jul 16 12:01 8dad919aaef6af7841359a8f27604d1b189ca4
+
+./.git/objects/1a:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:17 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  247 Jul 14 11:17 72f0cf8eda594c102a607aa3039c2d553a2ad0
+-r--r--r--   1 ant ant   52 Jul 13 16:44 7a94664ab3c672bdd50333bcc560497629015b
+
+./.git/objects/1b:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  156 Jul 13 12:03 c5e4bb0421d1f942265719972a3263791dfae9
+
+./.git/objects/1c:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1184 Jul 13 12:02 77e826f0bfdcc90c90915a2b427b2f21adf3f9
+-r--r--r--   1 ant ant 1243 Jul 13 12:02 b6bbd08efb111ff7b1fd64988d4d8231148f2f
+-r--r--r--   1 ant ant  179 Jul 16 12:01 bf568536f991e969a7b27f7a7fba107eec1cb6
+
+./.git/objects/1d:
+total 52
+drwxrwxr-x   2 ant ant  4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant    90 Jul 16 16:34 27a97912e2e9e0979eb69c54e1c085875bccc1
+-r--r--r--   1 ant ant   819 Jul 13 16:44 31e6f178a6fa2f97ffe3c7b5f70d3ffcf1bf47
+-r--r--r--   1 ant ant   305 Jul 16 15:03 79ca04d72b76225a388601ffeb9f858bf223f9
+-r--r--r--   1 ant ant 26794 Jul 16 16:35 d69ab52f2fe74840e51419cc04914452166cac
+-r--r--r--   1 ant ant   380 Jul 16 17:09 f491660ced9782259673878031e963a5908dee
+
+./.git/objects/1e:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  273 Jul 16 15:03 1b13074770609c94ccbb27f0c6a11546babc03
+-r--r--r--   1 ant ant  334 Jul 13 12:02 5436ecaf47080d1dde117a954e6d9403a540cf
+-r--r--r--   1 ant ant  820 Jul 13 12:02 c3795a5cb9ff6ed9bc628c85125ded06e27177
+
+./.git/objects/1f:
+total 32
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  710 Jul 16 15:03 27571a44738b65185f90ca4e139d985d0e267b
+-r--r--r--   1 ant ant  151 Jul 14 18:49 54ecc9df706c9591d603618acf36f2be493be7
+-r--r--r--   1 ant ant 1240 Jul 13 12:02 6b2689571b699b71a01a3d818a5e5330544cb3
+-r--r--r--   1 ant ant  114 Jul 13 16:44 94667e9c64eb762da8a462fbceef7101494851
+-r--r--r--   1 ant ant 1075 Jul 14 11:39 a9ee18cdc9e41fd10d3bbcdd7ce48fd0ab02cc
+-r--r--r--   1 ant ant  252 Jul 16 17:09 c9f831529fab1c1f4773466f17701256294306
+
+./.git/objects/20:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  119 Jul 16 15:03 671deb189e1c8610826fe7299fa89f0994a9e0
+-r--r--r--   1 ant ant  841 Jul 13 12:02 8b1796703efa3c8be714efafc9093d4f8e2c68
+-r--r--r--   1 ant ant  217 Jul 13 16:44 e3823a0946c9a84608bea405e0ed89c3eb1d8d
+
+./.git/objects/21:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   63 Jul 16 12:01 59f88856696897e265b7ca68e12869b19f3ab0
+-r--r--r--   1 ant ant  192 Jul 16 17:09 e21dade4e38b38d9eab1d04d10b09e1bb6a030
+
+./.git/objects/22:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 15 11:31 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 4525 Jul 15 11:31 0e8c5ade6d7727b24d457a425b3394a95dc594
+-r--r--r--   1 ant ant  435 Jul 13 12:02 954f920a9eecb61397a1447d292238d9775399
+-r--r--r--   1 ant ant  812 Jul 13 12:02 b2032e623a2decdf4a8f831c04b22c0671077f
+
+./.git/objects/23:
+total 32
+drwxrwxr-x   2 ant ant  4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  5160 Jul 14 20:01 24924bba57e08056771fa7ec6bfe1891370556
+-r--r--r--   1 ant ant   457 Jul 16 17:09 3e711071d49e676142efb5cf4a268f1161a593
+-r--r--r--   1 ant ant 11545 Jul 16 17:09 b02fa4999c9b496a919c2271d9266c770f5b0f
+
+./.git/objects/24:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1280 Jul 16 12:01 3bb527b1007de0cd1d6fb205e66d0d7e9d30ca
+-r--r--r--   1 ant ant 2651 Jul 13 16:44 69088c85ac473908f003e94664f5c7cf47404c
+-r--r--r--   1 ant ant  137 Jul 16 12:01 81dce8ab96d1ac5502adceeaa32ef62c3562e2
+-r--r--r--   1 ant ant 1477 Jul 13 12:02 bb27aeb71340882ed4a3b7ee8c0c1e2fafe0ab
+
+./.git/objects/25:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  661 Jul 13 16:44 bda37576137fc5dad1b8d84531ba3177a9557f
+-r--r--r--   1 ant ant 1493 Jul 13 16:44 c1b2be5fb01a6356c17f6d75d1e7dd38ab4dc2
+-r--r--r--   1 ant ant  899 Jul 13 12:02 cc6d49f153725cb6d1469f18ed60d9e5ae2518
+-r--r--r--   1 ant ant 1243 Jul 13 16:44 f96d7c664bc417d1fa8d83df3d630d772443a2
+
+./.git/objects/26:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  371 Jul 16 16:35 2b70b3b2ce89afc9c570ef11bffab65366dc42
+-r--r--r--   1 ant ant   48 Jul 16 12:01 30e35d1099c8da6a9b6cb2f2aef6415d38d46e
+-r--r--r--   1 ant ant  653 Jul 13 12:03 bb1f04bb3b32eff426bbf3556d0b8e7fdaa4e8
+-r--r--r--   1 ant ant 3593 Jul 15 11:31 c7ef0bb0374211bdec676c46030015043970f7
+
+./.git/objects/27:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1297 Jul 13 16:44 4729d40f9b7e4a7be7424667edcf7dea0b13c5
+-r--r--r--   1 ant ant  359 Jul 16 17:09 f376c2ad3f524a1b9e4b48b7ba71f75bf023e2
+-r--r--r--   1 ant ant 2653 Jul 13 12:02 ff6577749a4e26db906eea3bc86d21a1bca2c7
+
+./.git/objects/28:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  131 Jul 16 16:35 1fbe202b1693e69f521c32cf684f539ceb15a9
+-r--r--r--   1 ant ant  411 Jul 16 17:09 20c7244d675f94a8a3eef23a5d2ddee824f369
+-r--r--r--   1 ant ant  136 Jul 16 12:01 d6e9c3d4b71679200611d659c0dd94f9d03a10
+
+./.git/objects/29:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   91 Jul 16 12:01 6eb7b5944f78e895405648776c8f13011032c9
+
+./.git/objects/2a:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  243 Jul 16 17:09 54bc86555a7a647d316859a047b373e5a0cff2
+
+./.git/objects/2b:
+total 32
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:41 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   78 Jul 16 12:01 05b682884b7bd093f7f3f59a21e1ffd167e809
+-r--r--r--   1 ant ant  156 Jul 16 15:41 06d2110fef274d8720ee2e8e9ae471a3ed12cf
+-r--r--r--   1 ant ant  856 Jul 15 17:54 210c79879e9bdb58597a4e83449b2a6ccf5a5e
+-r--r--r--   1 ant ant  251 Jul 16 12:01 85690d11f1242c2c4757615819a097435f62af
+-r--r--r--   1 ant ant  119 Jul 16 15:03 ae426da571805410f02af247d8058b3a2a57c6
+-r--r--r--   1 ant ant   55 Jul 14 11:39 c2ade266cb700a9164a2cafa3a1ea184b0bff9
+
+./.git/objects/2c:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   68 Jul 16 12:01 4b9bcaf32973123332cb5531b49268cd620837
+-r--r--r--   1 ant ant  234 Jul 16 15:03 6d6d0841078e4f34b0e695ae007ff070e73acd
+
+./.git/objects/2d:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  552 Jul 16 16:35 2b9dbcc797e19b7b8bde709c5681d57887abc6
+-r--r--r--   1 ant ant 1289 Jul 16 12:01 31cf87c0dedf5ca81908461920c6ea3423209c
+-r--r--r--   1 ant ant   91 Jul 16 12:01 89ab4fbbbf6bb5b910b416ff4451e687b33ac6
+
+./.git/objects/2f:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  251 Jul 16 17:09 8e5b448d0d590ffd63859cd345824da08a0d48
+-r--r--r--   1 ant ant   54 Jul 14 20:01 c08a279ddbc51ca22db589bbb5c8be558b3310
+-r--r--r--   1 ant ant  461 Jul 13 12:02 f88214fe5f5f39e0bd5ecb99de4b798a86e6b6
+
+./.git/objects/30:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 2897 Jul 13 12:02 36bc27bc91c91427ecc5595a3c2aea9fefef0d
+-r--r--r--   1 ant ant  229 Jul 16 16:35 686c6c4df1785ef0fc000840ea1a2068815709
+-r--r--r--   1 ant ant 6552 Jul 15 16:40 b396e936443ca74d3cf198f60e1fd0c9200eab
+-r--r--r--   1 ant ant  174 Jul 16 17:09 e5203d089f83cda4c3d4314b074c5c3d7dd84a
+
+./.git/objects/32:
+total 32
+drwxrwxr-x   2 ant ant  4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  1280 Jul 13 19:14 896ed8af32566e9561be44605f912ad1b87d9a
+-r--r--r--   1 ant ant 14293 Jul 14 11:39 a88066eef90a5c857540ed5fabdc577b13d1d9
+-r--r--r--   1 ant ant   111 Jul 16 12:01 e5fdec82494a6fe8345f7375c7b50512df0779
+
+./.git/objects/33:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  183 Jul 16 17:09 b310b0adc8e241968b8f0e01eea4976ec5cd57
+-r--r--r--   1 ant ant  343 Jul 16 17:09 e3d1a37024e5e236223029be3f923cd8c3594e
+
+./.git/objects/34:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  223 Jul 16 15:03 821751fcb67384e534c87a2003856fb4146c59
+-r--r--r--   1 ant ant  877 Jul 13 12:02 af5d0e958d4499b555a69c2c39fd779dcba124
+
+./.git/objects/35:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  242 Jul 14 20:14 400ebb19f109e2b91b03f622fa8911a6590099
+-r--r--r--   1 ant ant   79 Jul 16 12:01 f7269a08f16025dc16783499a83b262ba6aec2
+
+./.git/objects/36:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1336 Jul 13 12:02 5be6df0d134520a981023bfface334b380cf6d
+-r--r--r--   1 ant ant 3870 Jul 16 12:01 e53c2cb43d4789fece54c2edff067e511a2ff8
+
+./.git/objects/37:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:28 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  140 Jul 14 20:01 0d2d3908946185826c231c88e8d884c79eea7c
+-r--r--r--   1 ant ant  124 Jul 16 15:03 30e55cdd1c488f09d692e72acabcbb6770a19c
+-r--r--r--   1 ant ant  166 Jul 16 16:28 ac40c5c61a328eb90379a87cfe1300af264ae0
+-r--r--r--   1 ant ant   86 Jul 13 12:03 df85a0b2c7976d2480bd490d177f4e699d69ce
+
+./.git/objects/38:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  388 Jul 13 16:44 a156c5e0066dc8b05ddc940052c61495577fb5
+
+./.git/objects/39:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1213 Jul 13 19:05 32c79e009a0e63bd4d83752e64969b2835eed5
+-r--r--r--   1 ant ant  103 Jul 16 17:09 aae9c4327c23c6103d869981cec4fcb5ee7dde
+
+./.git/objects/3a:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 2614 Jul 16 17:09 1181441c801fb52090d09321c85e4493411276
+-r--r--r--   1 ant ant  222 Jul 16 17:09 62a8b4661ecc0ba82cdfb497b0e724bb6f1024
+-r--r--r--   1 ant ant 2771 Jul 16 16:35 9f92ae3e6f35ac5a20f11dc4c83e502b0970d5
+-r--r--r--   1 ant ant 3349 Jul 14 20:01 ae0c08b7ff74a743000271c2441c143a0765c9
+-r--r--r--   1 ant ant 2381 Jul 13 16:44 c1e29b71ea37854259ddd0573eef234264b581
+
+./.git/objects/3b:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1722 Jul 13 19:14 1549de4fdbf390c71efd2add5460e7f453e134
+-r--r--r--   1 ant ant 3069 Jul 13 16:44 78b53677b671663ff616ea909310b63a9e2cec
+-r--r--r--   1 ant ant  405 Jul 16 17:09 8dd06b1387b5813cdb3d38aed4f98960dea9b9
+
+./.git/objects/3c:
+total 892
+drwxrwxr-x   2 ant ant   4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant   4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   1748 Jul 13 12:02 1229eb066c0e5de22c9b1416f9cb8394d946b8
+-r--r--r--   1 ant ant 890439 Jul 16 16:35 38ae43f7126bd2d77816602bb9bcae8d6af557
+-r--r--r--   1 ant ant     92 Jul 14 11:39 64d9e8d83940f875f6fd0cffccc1d31d71dcee
+-r--r--r--   1 ant ant    726 Jul 15 17:59 d2d59961df9fc4f0a368ddabed7142ae8681ed
+
+./.git/objects/3d:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1938 Jul 16 16:35 7f40535de43894993779a1f1c259f7863eaa10
+-r--r--r--   1 ant ant  418 Jul 13 12:02 b4a4cd93dca55c7a70f1f8c2e1891220a2883c
+
+./.git/objects/3e:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  169 Jul 14 20:15 2e0c6bfa3ba061ade21046f91044dc4fccd0a7
+-r--r--r--   1 ant ant 1382 Jul 16 12:01 766f23b9219a423beacb44e67bea6d28e223e3
+-r--r--r--   1 ant ant  114 Jul 16 15:03 94c034a30f122b98d1858e27624f904a2aa588
+
+./.git/objects/3f:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  533 Jul 16 16:35 c72ce1aac150c34d4c864b4885ff0111cfda4c
+-r--r--r--   1 ant ant  442 Jul 13 19:14 eb87549905a02b9345024eb7a5ff5bab08abd2
+
+./.git/objects/40:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:26 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 2339 Jul 16 16:26 0dae6b365e2c84006c308c9d418dcfdc64bcf0
+-r--r--r--   1 ant ant 3519 Jul 13 16:44 be83f7566f8e6200021e49229a1ca317d0b0f3
+
+./.git/objects/41:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   56 Jul 14 20:01 5fd62773de351419ef0d28ced6acfd1d482b07
+-r--r--r--   1 ant ant   47 Jul 16 15:03 87769d2b35125df019cd32686bd8823211bc65
+-r--r--r--   1 ant ant  203 Jul 16 16:29 91ecdae417a72c8e0f87f6c3e7b033c9457e08
+
+./.git/objects/42:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  124 Jul 16 17:09 0ae70c851a0e98bbd0fa991c258041dacec729
+-r--r--r--   1 ant ant   89 Jul 13 12:03 612d9562716104a50adf985c7872050ddfd915
+-r--r--r--   1 ant ant  242 Jul 16 12:01 d8954697f064b602d0c44694967f6fc0fceafc
+-r--r--r--   1 ant ant  124 Jul 13 12:02 d93052e4f7d1bef2de55b8ae7d3bc54a530fc4
+
+./.git/objects/43:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   86 Jul 16 15:03 1bfe8c650ae791e0e785cedc664194cbb7996d
+-r--r--r--   1 ant ant 1253 Jul 16 16:35 39cd136ad7b5da59f509b151d4ba70921ccd1d
+-r--r--r--   1 ant ant   85 Jul 13 16:44 5f2d1768822e0c34ef01ddf01f171600ccc59e
+-r--r--r--   1 ant ant  216 Jul 13 12:03 60f6f64d40a5b0cb97faec44f23bb89cbafe35
+-r--r--r--   1 ant ant 3507 Jul 13 16:44 fb77ea776f76741773056a8bcb65b858bce714
+
+./.git/objects/45:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   97 Jul 16 15:03 89ecb6b4b6e86ef44ef1de573edbf4f4d5bfba
+-r--r--r--   1 ant ant  378 Jul 16 17:09 c0613a63f40a0a4c5e93e360a08a8a1d7fbbfc
+
+./.git/objects/46:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   89 Jul 14 11:39 002d514b30e2031065879e309c46235273f6a5
+-r--r--r--   1 ant ant 2464 Jul 14 11:17 5815e806a709f48900b03cd6a2f06ad69c4b2a
+
+./.git/objects/47:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  367 Jul 13 12:03 2571e075439ee6e31903e30f61561e3a86eff1
+-r--r--r--   1 ant ant  433 Jul 16 17:09 41579a1b8bb76febbf997bb2dfa4463eba50df
+-r--r--r--   1 ant ant   54 Jul 13 12:03 79fc07ceb018203c78fcfe2e6d851722254860
+-r--r--r--   1 ant ant  151 Jul 14 20:01 c643b7191ddf97c1932ea37ed47f80c1c226fe
+-r--r--r--   1 ant ant  121 Jul 16 12:01 e9a0ba93c71e408661d0c713e07f0a1a54f6df
+
+./.git/objects/48:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  558 Jul 16 16:35 90b9dbe6140f149d642813a15ac9067f669cf8
+-r--r--r--   1 ant ant 2351 Jul 16 17:09 e6809add6479d90cfedb0402a40bd2bd3fa5c7
+-r--r--r--   1 ant ant  864 Jul 16 16:29 f91ff14c0376c70a2eddfc5d9f5a870da6bb75
+-r--r--r--   1 ant ant  951 Jul 13 16:44 f9fdccfe7788ccaf669af25de09ab6656eb06b
+
+./.git/objects/49:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  141 Jul 13 12:03 b568169db0d0bd067a87888e13217b1383ca6d
+
+./.git/objects/4a:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:33 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   90 Jul 16 16:33 330920a1281ca01e59b62e73b4007c8c3b2d89
+-r--r--r--   1 ant ant  184 Jul 16 12:53 562e76613cb614f982da90a299f892eb80e700
+-r--r--r--   1 ant ant  333 Jul 13 12:02 c0d09957e9821f3077e203c533da36d2e1ddb9
+-r--r--r--   1 ant ant  101 Jul 16 12:01 f55972a05540be5c825323a10997ebde2a18ff
+
+./.git/objects/4b:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1689 Jul 14 11:39 1a095494f9c7014c2b747a7e870be832f6a5d8
+-r--r--r--   1 ant ant  935 Jul 13 12:02 4626056ab18a083c1f0d034680ea33f370dd0c
+-r--r--r--   1 ant ant   15 Jul 13 12:02 825dc642cb6eb9a060e54bf8d69288fbee4904
+-r--r--r--   1 ant ant  761 Jul 13 16:44 9cbc5821e8e20ec930bf63b5dcdc02c07fdaa5
+
+./.git/objects/4c:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   89 Jul 13 12:03 0adb81dfb7209e42384d54a551fd1cffc23e61
+-r--r--r--   1 ant ant  155 Jul 14 18:49 2c172bb3faee160d25d4e6964460e321d6dafc
+-r--r--r--   1 ant ant 1015 Jul 16 16:35 5655b11f552d1681dfaca0da5b3e54b254bfa1
+
+./.git/objects/4d:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  122 Jul 16 12:01 b82d230d20bb24d8627fa97ff37d9a1e31f072
+-r--r--r--   1 ant ant  149 Jul 14 11:39 de1c3bef3cdc76b05374950fef1efbbba2c61a
+
+./.git/objects/4e:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  556 Jul 13 12:02 61116056399876f4302388dc7f57e7c72d471b
+-r--r--r--   1 ant ant   52 Jul 13 12:03 f5263f780292a56eb1a43bf23939130f4fdd71
+
+./.git/objects/4f:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   56 Jul 13 12:03 09030fbe47affb1b87bc2d0b4f9ae62d72eaef
+-r--r--r--   1 ant ant  397 Jul 16 17:09 aae90e79b5bb34e7ca210829a37893695f4e87
+-r--r--r--   1 ant ant  241 Jul 14 20:01 d9a290bc44e28c9742f2c472903a2874e48920
+
+./.git/objects/50:
+total 64
+drwxrwxr-x   2 ant ant  4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 44771 Jul 16 16:35 4ca3029c2b9fdcc9293024222b03627aacbae0
+-r--r--r--   1 ant ant  2870 Jul 16 16:35 835d3b3f629bb095050c88754a346427e78ba0
+-r--r--r--   1 ant ant   242 Jul 14 11:39 c4d75bdb44b8a1f4aa507364c321082bbeaddb
+-r--r--r--   1 ant ant    98 Jul 16 15:03 f3526606764fd76352aaa1b7018bdc7ccccf8b
+
+./.git/objects/51:
+total 40
+drwxrwxr-x   2 ant ant  4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 17022 Jul 13 19:14 140e36bb3f75bd126483d1a98786283c809674
+-r--r--r--   1 ant ant  7309 Jul 16 16:35 3d0714a83c6ca26f0d8296504a963734c2a116
+-r--r--r--   1 ant ant   149 Jul 16 12:01 c8517c22e18f9c1a491909e7ff288e05a761d0
+
+./.git/objects/53:
+total 44
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  308 Jul 13 12:03 0ab7c4603795ad2a09413a3f2717a27287b939
+-r--r--r--   1 ant ant  267 Jul 16 17:09 1553e0d7c64ae01c01efd0a4edd19b14f26ee2
+-r--r--r--   1 ant ant   88 Jul 16 16:32 2d2409145103df9f9778473524fb37dde90969
+-r--r--r--   1 ant ant  712 Jul 13 16:44 3a87b68340448d470896e2a4d4d7fa6a2a1f2c
+-r--r--r--   1 ant ant 1929 Jul 14 11:39 544811e2ac2c9de8ce67e22d1d95e9632c3f30
+-r--r--r--   1 ant ant  225 Jul 16 12:01 a87ba99c17fe4d42f03604f0c6578a368e0e7e
+-r--r--r--   1 ant ant   89 Jul 13 16:44 bab2b9aac1448d2e6b70b11b4c7d9873a73948
+-r--r--r--   1 ant ant 6028 Jul 16 17:09 d219ed5e1ddbc164740dc5ed0cab3e86019b77
+
+./.git/objects/54:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1028 Jul 16 17:09 376c1c7bf6c6e075d9828a36bbcf205ab4fe7c
+-r--r--r--   1 ant ant 2342 Jul 13 12:02 45e151ab291afe9efadf7bb96d3345a0d0585e
+
+./.git/objects/55:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   86 Jul 16 17:09 4a114c4d022ee13e2bb1008b63f0d417c01fae
+-r--r--r--   1 ant ant 1926 Jul 13 12:02 9733ce5f11d030d48b8ca43d5541dac0e377b6
+
+./.git/objects/56:
+total 44
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  111 Jul 16 16:35 06c1d3a5fef0da8daf2dc3657785ebe81bb229
+-r--r--r--   1 ant ant  872 Jul 16 17:09 531956be9d57eb87fb825277522a4f515760f6
+-r--r--r--   1 ant ant 4868 Jul 14 20:01 68065f3a91607f2791439d69b232d5924cdec5
+-r--r--r--   1 ant ant 1956 Jul 14 20:14 6ff78e6189d845c621360a57a22d37760b0fba
+-r--r--r--   1 ant ant   86 Jul 13 16:44 bd6ccd293c8bc28d1aeff99b74281b4b8f2d9f
+-r--r--r--   1 ant ant 1249 Jul 13 12:02 cab9a8d81b8d5872d62f489301c6aa240fcf20
+-r--r--r--   1 ant ant 2031 Jul 14 11:17 cf122df0a866e4f1874d667029a39d6b024dcf
+-r--r--r--   1 ant ant   48 Jul 14 10:21 ec9954a44ff1aeaf19def849bd845c8ace5056
+
+./.git/objects/57:
+total 40
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  199 Jul 13 19:14 1cecc1c9bd158bdade52d6f9cc89f0966d2271
+-r--r--r--   1 ant ant   79 Jul 16 12:01 413c5b283ad44763d1fcd76959eec8cf4af3a6
+-r--r--r--   1 ant ant   84 Jul 13 16:44 43bc7b44a67f8692bccfee19f0e0b1f1ebdb1b
+-r--r--r--   1 ant ant   52 Jul 14 20:01 7c07f64fb48033a5287facbc94edb5cd766560
+-r--r--r--   1 ant ant  594 Jul 13 12:02 b8469cc274a463ad2f1843da5db525dca44998
+-r--r--r--   1 ant ant 2018 Jul 13 19:14 cd532e2e9a8f79d64c3111abec829ff2465445
+-r--r--r--   1 ant ant   56 Jul 13 12:03 e86cb2412766fed2344073bfc9bfc0b335dd2d
+-r--r--r--   1 ant ant 1984 Jul 13 12:02 ff4ce9852dec1f38a5c43216fb8008731e355c
+
+./.git/objects/59:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   78 Jul 16 15:03 6dc0502ee2be84732a71c9f9ee1665e119b8fc
+-r--r--r--   1 ant ant  190 Jul 14 11:17 c05cfc573bf1847d90e73348e79186f80112a6
+-r--r--r--   1 ant ant   55 Jul 14 11:17 d409f648bd8e2c91196f4d8ebb244f9ccdb8fa
+-r--r--r--   1 ant ant  358 Jul 13 12:02 ed7db2f5f196a42c74613ee36a16f28a1da4b4
+
+./.git/objects/5a:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1818 Jul 16 16:35 2a31de1720d7968bbde923a7c8928098b56c73
+-r--r--r--   1 ant ant  918 Jul 16 16:35 40db0253de0f2d5d9c826f98051bed1503baea
+-r--r--r--   1 ant ant  553 Jul 13 12:02 557a8412aac250197b2ee67cadc0d533d05dd4
+-r--r--r--   1 ant ant  804 Jul 14 20:15 eb3f482361e1b0ea304b4cd8ec0ff043a1007a
+-r--r--r--   1 ant ant  332 Jul 16 15:03 f93ff0ea2616f5102b72adc2ec35bc385e6bfd
+
+./.git/objects/5b:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1816 Jul 15 17:36 0f35631b17ef395dc0849b17edb978f33d0651
+-r--r--r--   1 ant ant  498 Jul 13 12:02 4292ab5fad8c4ce86910a369431b61c24f1b99
+-r--r--r--   1 ant ant  447 Jul 16 16:25 6494507bdb61072851d1235522d48a2d227125
+-r--r--r--   1 ant ant   55 Jul 13 16:44 81d3641d954dedae17cea669210211670c9c8f
+
+./.git/objects/5c:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  186 Jul 14 20:01 0be413272f30763fa0d201a38da56cbef28813
+-r--r--r--   1 ant ant 8276 Jul 16 17:09 7eb6729edd03318a06f2c1bbf596d16d2b8453
+-r--r--r--   1 ant ant 2657 Jul 13 12:02 a049ea2cb89dabdbfcd68e21e1c27966e7d55f
+
+./.git/objects/5d:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  119 Jul 16 16:35 b42a33b7ad36d2f51ca2f44a56f0e60ee85858
+-r--r--r--   1 ant ant 1533 Jul 13 19:14 b521889d77d89022ea50ef0c4e8ccc41237a34
+-r--r--r--   1 ant ant  183 Jul 13 19:14 cd33faaeec9fd1cdf06aa43edf27fb60e0562a
+-r--r--r--   1 ant ant  456 Jul 16 15:03 e01839d9bf1965c44d5b9d68e08735c22961a6
+
+./.git/objects/5e:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  716 Jul 13 16:44 35e6ebdd57150e06c7142e261520b8898afcb5
+-r--r--r--   1 ant ant   78 Jul 16 12:01 4543b37e184642122864306f34bc37650a0cbd
+-r--r--r--   1 ant ant   68 Jul 16 12:01 6b1a57f9e53320bca8a67ee00c0cea77e73aac
+-r--r--r--   1 ant ant 1808 Jul 13 19:14 cd7822b7a48515086157d55f930065518be83d
+
+./.git/objects/5f:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  308 Jul 16 17:09 5dfd67c8288ac598928ff75e686315b0f4b046
+-r--r--r--   1 ant ant  154 Jul 13 16:44 94422d962f57f280035372799e8acef5038105
+-r--r--r--   1 ant ant   80 Jul 16 12:01 b701b045f61c10a7c80137fe7398776de70fdc
+-r--r--r--   1 ant ant  104 Jul 13 19:14 c9c352892d9a183ae5ba24a76aeeb96420d6d1
+
+./.git/objects/60:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 13 19:14 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   51 Jul 13 19:14 12f30077cc616634bdf4644776bd23e823e9a5
+-r--r--r--   1 ant ant  367 Jul 13 19:14 e93582460230229c9267ca3ce54fc3f384a56c
+
+./.git/objects/61:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  100 Jul 16 12:01 385152e0864c7baff79d9dc96bc1db1b0437c2
+-r--r--r--   1 ant ant  209 Jul 16 12:01 534bbf912c57ebdd67cd59e7a88f4ca3cd33f9
+-r--r--r--   1 ant ant  242 Jul 14 11:17 720a6c83b2c523b424a22358466baec3dbb48f
+-r--r--r--   1 ant ant  167 Jul 14 20:14 d2aca0ba2028ce20dca8d3483949fe3f242341
+
+./.git/objects/62:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  731 Jul 16 12:01 398a6065497a185965d48902ceead9da9cb81c
+-r--r--r--   1 ant ant  156 Jul 14 20:01 73b3e06e9ebb0bb3720c81481d7b7199e85077
+-r--r--r--   1 ant ant  284 Jul 15 11:31 80808dd6822c67d8b921ce7dab9d278808428d
+-r--r--r--   1 ant ant  584 Jul 15 11:31 dfa8319517e2b9b54199f12c53a1fee93c3939
+
+./.git/objects/63:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  186 Jul 16 17:09 5293e3afe4828121416aa7c742ed72b9204044
+-r--r--r--   1 ant ant   47 Jul 16 12:01 675a0dec4bebd3af1ad7a134251c69bb84e317
+
+./.git/objects/64:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 13 19:14 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 2490 Jul 13 19:14 40bba1b3c82ecbdf23fdd76c3530ce730804a8
+-r--r--r--   1 ant ant  351 Jul 13 12:02 7045c2f7b0caa8eb00892013b32bdd119c57f1
+
+./.git/objects/65:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  315 Jul 16 12:01 4a0a6dff0fa4bab7636e19335f537d29f41819
+-r--r--r--   1 ant ant  504 Jul 16 16:35 d5b31519d2d114294b3f0632e52b436fece9d8
+
+./.git/objects/66:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 8916 Jul 16 16:35 7c3de7e259e7174274eee181bf4b34b04c6cb7
+-r--r--r--   1 ant ant  131 Jul 14 20:01 86d3baec1425403ed765d81442c70d8c7027eb
+
+./.git/objects/67:
+total 32
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  340 Jul 16 12:01 0c2deec7306b2ea6ef95c26c963264ba5e37bd
+-r--r--r--   1 ant ant   55 Jul 13 12:03 2c62e20b65cbbd17381ae889bd68a5f972211e
+-r--r--r--   1 ant ant 1934 Jul 14 11:17 5939f93c94af7ed64c6924c950e581d84bcbc4
+-r--r--r--   1 ant ant  345 Jul 16 16:35 d9e16c84845eef92d863be780a5356f9aa77ea
+-r--r--r--   1 ant ant  137 Jul 16 17:09 e3bf7b9615b5b6282fd69bd6f29a9ea6492137
+-r--r--r--   1 ant ant  120 Jul 16 15:03 eaba8723da6ebbbf0ef1ce76033cae651f1432
+
+./.git/objects/68:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1111 Jul 15 17:36 542911b65c71eb53151d48a39258755a2ca15c
+-r--r--r--   1 ant ant  572 Jul 14 10:21 eac15f94e268517527f77ed61b2468cd2fad78
+-r--r--r--   1 ant ant  380 Jul 16 12:01 fd84f910a4c5fee0f0b7aca5bb02defcf54239
+
+./.git/objects/69:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  521 Jul 16 16:35 e1e5388534dd2f3ce400addd11a75cb0b075dc
+
+./.git/objects/6a:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1196 Jul 13 16:44 55e89ba80b5d1bfd0bd2e2adba7df823d73625
+-r--r--r--   1 ant ant 1943 Jul 16 16:35 814ed2a9acb484b5f1ba5421faca16b7311df4
+-r--r--r--   1 ant ant   79 Jul 16 12:01 d61076efe36bdc087a1e1e14fa14f67fc917b1
+
+./.git/objects/6b:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  119 Jul 13 16:44 174b46a073929873c534ff06a1a8998aa22d0d
+-r--r--r--   1 ant ant 1076 Jul 16 12:01 81456e8c4ffe5c0d147fc93c6a1ba110d85d9d
+-r--r--r--   1 ant ant   51 Jul 13 12:03 bcd8fdf4c1f74221ba8394bc46dc33169b9183
+
+./.git/objects/6c:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  802 Jul 13 16:44 2ec4ab106789470c8adc75a058e20a906ac69f
+-r--r--r--   1 ant ant   22 Jul 16 16:35 6ba5f810bf49fcc6239d1c592ae125d0203caf
+-r--r--r--   1 ant ant  485 Jul 13 12:02 ca00ceacbc28cf7d1fbb63b01346573cdc6ef9
+-r--r--r--   1 ant ant 1333 Jul 14 11:17 d1ab944d8e98af4f66896ddbdd50f8c805f8a6
+
+./.git/objects/6d:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   55 Jul 14 11:17 1b2717ce638d414455f78231c7122d23a024eb
+-r--r--r--   1 ant ant  159 Jul 16 16:32 54b19a5c3dfeb80846480e5f160607d13a6cd5
+-r--r--r--   1 ant ant 2392 Jul 13 15:59 6f4f908599de3624190f316727dcc603502889
+-r--r--r--   1 ant ant  238 Jul 16 17:09 7a0e04967b5043ca322d14b3597597ae525515
+-r--r--r--   1 ant ant 3314 Jul 14 20:14 7fc120204a6bbfc3c6fc5f1e544e6219e1a035
+
+./.git/objects/6e:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  710 Jul 16 12:01 bc058449a0b5e884cd0b0da467208dc554466b
+-r--r--r--   1 ant ant   86 Jul 16 12:01 ff087e0cae43d1c6ccb7eda1855975dcc78fe4
+
+./.git/objects/6f:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  309 Jul 16 17:09 68ca8cf6150fd57efeb259d4d3b64082aa206c
+-r--r--r--   1 ant ant  183 Jul 13 12:03 93f47a99749c87e5f3f61eadcee3d76b26b769
+-r--r--r--   1 ant ant   89 Jul 14 11:17 b1ee697d7b64383df331ffce8a2dbef0914b04
+-r--r--r--   1 ant ant  805 Jul 14 11:39 c2f1246afa2db2e84d5e81630463a86b87460d
+-r--r--r--   1 ant ant   95 Jul 16 16:35 fe5e2326d610646f85cef31f1f9ad2c4b05d4a
+
+./.git/objects/71:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:17 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1237 Jul 14 11:17 c738ace74900017980e3ac43407205c7cdeecb
+
+./.git/objects/72:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  229 Jul 16 17:09 5c5d467ee0f7fb55103bf4e609181e5a914aec
+-r--r--r--   1 ant ant  242 Jul 15 11:31 87a7d1835a07f1a8d88602049e8877d1e69da9
+
+./.git/objects/73:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  628 Jul 13 12:02 72281f987cd28030bba7e804fc6c05ddb4ed30
+-r--r--r--   1 ant ant 3308 Jul 14 20:15 bf005da8115407a2a16e5718030b256e6b0746
+-r--r--r--   1 ant ant  198 Jul 16 12:01 cfccd115d1f069a7c2bb5e46942e718cad26f1
+
+./.git/objects/74:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 14 20:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1621 Jul 13 12:02 c60dc4c02835f9c8fc0200afd5277d58042e93
+-r--r--r--   1 ant ant 4504 Jul 14 20:01 d1d107535ec3fb07f0ba88232fc356375f4b66
+
+./.git/objects/75:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  241 Jul 13 12:03 78a01b117742a16f9b36c5a4f87223e63ab5e5
+
+./.git/objects/76:
+total 36
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:33 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1091 Jul 13 12:02 21dcbbbd1cbb22474f214aedebb30a0cde5baa
+-r--r--r--   1 ant ant 1124 Jul 13 12:02 758423063028d6afd9acc2beacb6057081795c
+-r--r--r--   1 ant ant  525 Jul 13 12:02 9be1ec12c52dd315bb0b03090751edeeb95e50
+-r--r--r--   1 ant ant 2471 Jul 13 16:44 9df3153ecae175d1e362a86756ea439dfd0465
+-r--r--r--   1 ant ant  216 Jul 16 16:33 d33c959c94205d938b63fc7b2e5ce864ad00bd
+-r--r--r--   1 ant ant 1582 Jul 13 12:02 e41d967468d1470a7f72fbc1a7b579b1dfcc01
+-r--r--r--   1 ant ant  120 Jul 16 15:03 ea7b95623dea009bfc0e1cde486ab3a59a2643
+
+./.git/objects/77:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  119 Jul 13 16:44 1506fcc3babafd107ad1ec47f604e92284c491
+-r--r--r--   1 ant ant   59 Jul 14 11:39 3051b185e08025dae1851158236d71e99975da
+-r--r--r--   1 ant ant  352 Jul 16 12:01 7a45b6f63ac54030a1e866f4ff5c22c7432a2f
+
+./.git/objects/78:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   54 Jul 13 16:44 6c8e54098c2502f1b2b4a0b703224acb54ef10
+
+./.git/objects/79:
+total 36
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   43 Jul 14 19:47 058077776c2ae70a619e5eef9ae972247a4576
+-r--r--r--   1 ant ant  510 Jul 16 17:09 54a6c97aaaa4cbb0f86276210fb643561f56cc
+-r--r--r--   1 ant ant  282 Jul 16 15:03 56a1b87d6c72df2c905893bc0dfdfc520fa2a1
+-r--r--r--   1 ant ant 1546 Jul 13 16:44 814d65fdc8cb809686bc74b579c54e96988db3
+-r--r--r--   1 ant ant  671 Jul 14 10:21 9dc33c0bfde1ae4cc5bfc8fe89e7624de04c85
+-r--r--r--   1 ant ant 1440 Jul 13 19:14 b7414f0684e2748f9d87591029082454ccfbf9
+-r--r--r--   1 ant ant  254 Jul 16 16:35 cd80c2cf9dfe25d3c654a9eea3c743b52a903b
+
+./.git/objects/7a:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  363 Jul 16 17:09 7cabdd7da55181eeda41d5a9d8a98ea7d20e00
+
+./.git/objects/7b:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   93 Jul 16 12:01 dc106b765c64cf3900fa99de3549644e8ef592
+
+./.git/objects/7c:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  108 Jul 16 12:01 2e5560ac103bd86bb19f0a3ea33abd962a8bd4
+-r--r--r--   1 ant ant   54 Jul 13 16:44 4e94249cdfc9ed5590c807995d2e8af25398da
+-r--r--r--   1 ant ant  739 Jul 16 17:09 620980dd0a2562591273727407b00ba00cd044
+-r--r--r--   1 ant ant 2340 Jul 16 12:53 79c8f45334c0535718a4520d2fda4b28c08b1b
+-r--r--r--   1 ant ant  215 Jul 13 16:44 c23a8cd4cc0b6cb88617e63094c2cb889b7658
+
+./.git/objects/7d:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   86 Jul 16 12:01 254668ba97378cf15a317d679e9e1671cb5f73
+-r--r--r--   1 ant ant  114 Jul 14 11:39 42c94dfe4d041f8f2be05711f8b3e82f8a089a
+-r--r--r--   1 ant ant 1066 Jul 13 12:02 728d201eb243b21dd3bfab60052f89003f9e78
+
+./.git/objects/7e:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:53 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  710 Jul 16 12:53 09c89d2d8d99dfa4291c97a6335a8593ae3af0
+-r--r--r--   1 ant ant  261 Jul 15 11:31 0bd6b74a6ef20c4838c832f8bea1a60ab48e1f
+-r--r--r--   1 ant ant 2115 Jul 13 12:02 e4194380dc2898553d4efb3ff19cde6f2d91ce
+
+./.git/objects/7f:
+total 19732
+drwxrwxr-x   2 ant ant     4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant     4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant       63 Jul 14 11:17 88b87ea633cc6f628a534b27fbf325ebdc4cad
+-r--r--r--   1 ant ant       53 Jul 13 16:44 92ad9695cf56e310fc4a1f4fc809b685053c90
+-r--r--r--   1 ant ant      327 Jul 15 13:48 9b57d99a4138288ed91267d97df4351d599234
+-r--r--r--   1 ant ant 20181583 Jul 16 16:35 f4ac750ca0ff40d2996de9311174c43a06dd5c
+
+./.git/objects/80:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  325 Jul 16 15:03 3922e5a90d114c5ede24037b3ba99d283ed71d
+
+./.git/objects/81:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 14 20:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 2452 Jul 14 20:01 745ab188acb2f4342efd898fbe3c118ddc6db8
+
+./.git/objects/82:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  521 Jul 13 12:02 01b0bf64b7d7a9b6579528bbd7ef3924669836
+-r--r--r--   1 ant ant  892 Jul 16 15:03 ec311b647f946f84295b7c7a0642736f22c1cd
+
+./.git/objects/83:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   58 Jul 13 12:03 06ce48be668aad9c058c0035c847079e2f8e7b
+-r--r--r--   1 ant ant   52 Jul 13 12:03 2f6ebd7b807968aa2d16a5121cc508f92c87e1
+
+./.git/objects/84:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  934 Jul 16 16:35 271fe7b2aa1132b4c04f1ca1ea8f95d0327162
+-r--r--r--   1 ant ant  201 Jul 16 16:35 6ef2cadc7cae8f041b56cedab827f42588acdb
+-r--r--r--   1 ant ant  951 Jul 13 12:02 d47ce93622d70c7b584f5a342b822a6fdd49cd
+-r--r--r--   1 ant ant  156 Jul 13 19:14 d580b93733df5f6a2f003d9f1184a4dbff1639
+
+./.git/objects/85:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1515 Jul 14 11:39 24929d4ab7a860aa9c8b43a8ac1a129443c50a
+
+./.git/objects/86:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  365 Jul 16 17:09 38d31e6d39440c14c6e2c608842bb5f07f5fc3
+-r--r--r--   1 ant ant  368 Jul 13 16:44 7862a0c3c57b6129e7aac1618bd5993fa85077
+-r--r--r--   1 ant ant   52 Jul 13 16:44 c0a172cce2679d56221ce363e6a4cfeed67fcf
+-r--r--r--   1 ant ant  308 Jul 13 12:02 ffc390893624cb10d391c86e15712a1cc92d16
+
+./.git/objects/88:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  190 Jul 13 12:03 3ac3e8325a3b4b9a347d8d98bfd730eba749a3
+-r--r--r--   1 ant ant  982 Jul 13 12:02 94ae65ebcc0969abbd8b7ee018fee74c5f217e
+
+./.git/objects/89:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  464 Jul 16 16:35 161e2841d82477f44d727032db95c90fc70ba5
+-r--r--r--   1 ant ant  152 Jul 14 11:17 2899e419bb1d8f0fe83dcf002db76fbcabbf0f
+-r--r--r--   1 ant ant  374 Jul 15 17:55 3e461fdabc9b3f75fb3b3593ce9c53d406b2f5
+-r--r--r--   1 ant ant   52 Jul 14 20:14 80ccba9cbc711751bc90a78e2cce6cad29e044
+-r--r--r--   1 ant ant 1307 Jul 14 11:21 d9f60f8ba0fd9b12a0c0c7b74efd0651170c79
+
+./.git/objects/8b:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   71 Jul 16 12:01 4a5385f4e611d0b2ca39a02954ce9fb1217c08
+-r--r--r--   1 ant ant  335 Jul 16 12:01 62cd59da1c494e0a486e8ad0aa43a27bfbb81e
+-r--r--r--   1 ant ant 1912 Jul 16 16:35 8028cddb813d763dec0dafe89c6b44ce1f1404
+-r--r--r--   1 ant ant  250 Jul 16 17:09 c748cd176605e91d0c4bc001552a9d55323db1
+
+./.git/objects/8c:
+total 32
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  903 Jul 15 17:59 00a7340cf21158b39e6cb06ab21d9f3e2ae19a
+-r--r--r--   1 ant ant  468 Jul 13 16:44 719dd57394ab39b5c425e68a509b93812f9d80
+-r--r--r--   1 ant ant  992 Jul 13 16:44 7665c2f99e885fd65fc0a21c13e26bd4bb28aa
+-r--r--r--   1 ant ant  409 Jul 13 12:02 8da843b779f77a1c6e0900213be3b26f0acddf
+-r--r--r--   1 ant ant 2754 Jul 14 20:01 c917a5a70b7f20e590d5c3d15216d986fcf895
+-r--r--r--   1 ant ant  123 Jul 16 17:09 daa8759343e50422a0f6cfa046bd852c930ebe
+
+./.git/objects/8d:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  768 Jul 13 12:02 14c8f90c7569041914589758b7208a3da4e93d
+-r--r--r--   1 ant ant  199 Jul 16 17:09 1e2528ab7994e485da9a09178ecf4b19da38ee
+-r--r--r--   1 ant ant   54 Jul 14 11:17 d91001f3ee29c558147fa2791bba3ac75eab30
+
+./.git/objects/8e:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  541 Jul 16 16:35 218d3440717d1ab71324c8ba43f40429f134ee
+-r--r--r--   1 ant ant 1832 Jul 14 18:49 799e4492adffbeef7f7dba97fdeb6feab02d5c
+-r--r--r--   1 ant ant   48 Jul 16 17:09 79aa6de48bb26d90a2beb6f71f36b4d58311ed
+-r--r--r--   1 ant ant  804 Jul 14 10:21 f705c0b1d36adfc5cb4cccb5b07627984d6cbd
+
+./.git/objects/8f:
+total 56
+drwxrwxr-x   2 ant ant  4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 19436 Jul 16 16:35 0390bd2bdff33e831a9fd4f9242c864f1562f8
+-r--r--r--   1 ant ant   282 Jul 16 15:03 0ff068793975ad2e09ecea26cc039e47314ec8
+-r--r--r--   1 ant ant   157 Jul 16 15:03 392861131bfe49a6aa15fae916c2a8f6f70585
+-r--r--r--   1 ant ant   217 Jul 13 19:14 59422bc9f64566cfc6e74074c5899c8564d05b
+-r--r--r--   1 ant ant  5450 Jul 14 20:14 5cbfd0181c638e5428304ff36a671363970f79
+-r--r--r--   1 ant ant   325 Jul 16 17:09 ca9a333c6efa1ea2430be304a2293e8aff3523
+-r--r--r--   1 ant ant   242 Jul 13 16:44 d295882337bd5b19ebb0af730b247d59b4b57d
+
+./.git/objects/90:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:17 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   81 Jul 13 12:03 1e44cd20c688850a603a71d9066c46724dfeb8
+-r--r--r--   1 ant ant  317 Jul 14 11:17 ae2994eb3d47cab95496bfdaed3799ec3a5a81
+
+./.git/objects/91:
+total 36
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:53 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1386 Jul 13 19:14 2d4687ec0792545478615f35db6490f52d14d1
+-r--r--r--   1 ant ant  331 Jul 16 12:01 4cb8439bb55e55d95cb868313fd7155655eaa9
+-r--r--r--   1 ant ant  485 Jul 13 12:02 5fa85f00dbf0299f53e826e9da12f8fff5f0a9
+-r--r--r--   1 ant ant  198 Jul 16 12:53 71257c24d536b915956020ec29524cccdb2465
+-r--r--r--   1 ant ant  100 Jul 16 12:01 7f53d05b8df58e2d78e3bffb3952a2e10801ea
+-r--r--r--   1 ant ant  117 Jul 13 12:03 a4913d9478100ca4c6e6940cb1c925a7a44c36
+-r--r--r--   1 ant ant   75 Jul 16 12:01 dc1f90dcc1c3c66ff7ee0963bd3d880288f3c7
+
+./.git/objects/92:
+total 32
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  154 Jul 16 12:01 1737baa6e987f01134225e6b34572343d46453
+-r--r--r--   1 ant ant 1074 Jul 13 12:02 551872d746575a38af8613a2a9978931e31272
+-r--r--r--   1 ant ant   48 Jul 14 11:17 735a52c2d06346bce4ba6d76458314fabf4408
+-r--r--r--   1 ant ant   92 Jul 16 12:01 aa411dbda794ec30759a745fa47ca332af495e
+-r--r--r--   1 ant ant  288 Jul 16 12:01 c90df6116a2d034e194f72ab2d2410c42a80a6
+-r--r--r--   1 ant ant 2336 Jul 13 19:14 f4f48c5c7e766c1c17dcf62e014e36f47d3c3f
+
+./.git/objects/93:
+total 6064
+drwxrwxr-x   2 ant ant    4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant    4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 6189083 Jul 16 16:35 28ecdff818056845d2b9c52478d4ad77cecd4f
+-r--r--r--   1 ant ant      52 Jul 14 11:17 cf05ea8f6cd7b3606b5d138ff0dba8e2ac97df
+-r--r--r--   1 ant ant    1182 Jul 15 11:31 db7cf441e15c43a82f199b812b85cf72cc5528
+
+./.git/objects/94:
+total 32
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  740 Jul 13 12:02 0be38b861a4e7e597135d8f831810cea41471a
+-r--r--r--   1 ant ant  128 Jul 13 12:02 22236c56ea4e90e5d7cdc2d3182b12d2c6fa87
+-r--r--r--   1 ant ant  185 Jul 13 16:44 c2e35cf216dafbab1e7d21c470ba0ae2f6bb5a
+-r--r--r--   1 ant ant  153 Jul 13 12:03 cbb319c62f2fbee4537439353e7ff51cb269f1
+-r--r--r--   1 ant ant  999 Jul 13 16:44 d765d791a8320685db406f468a91b8db35aaf1
+-r--r--r--   1 ant ant  199 Jul 16 17:09 e2088ce42d509e3014dc43e34cbbf800f4dc08
+
+./.git/objects/95:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  827 Jul 13 16:44 2eda9d2f0304e96d208cb9ab95b396dbb5c78c
+-r--r--r--   1 ant ant  195 Jul 16 17:09 8ca0812707983fbe37011d71624680c109c986
+
+./.git/objects/96:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  710 Jul 16 15:41 93438d8d0c15812a7170882dd9ff982728e5bd
+-r--r--r--   1 ant ant  567 Jul 16 16:35 fa87efc91769567d318fe8f5c2486884961efa
+
+./.git/objects/97:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  541 Jul 16 16:29 ca5b3768617fc4ba1980fbc0b94498f9212991
+
+./.git/objects/98:
+total 40
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  214 Jul 14 10:21 00ca465c3299e7847778efebc622adc1285a1a
+-r--r--r--   1 ant ant  192 Jul 16 17:09 24a63c1607465a4a25b6a362add3a2f454aaad
+-r--r--r--   1 ant ant  524 Jul 16 17:09 5fb0c1d33d0ae93a0a311b832f7f6c3bee6061
+-r--r--r--   1 ant ant  241 Jul 14 20:15 861828434cd00b7017b049e245677b0b591707
+-r--r--r--   1 ant ant   52 Jul 16 12:01 b24e26933c8feb2885c352066f61b4cf2b4d51
+-r--r--r--   1 ant ant  560 Jul 13 16:44 cbbcca24981bd03987a447834edec11956ba30
+-r--r--r--   1 ant ant  122 Jul 16 12:01 cc1adfb156ba8084e7421036a592f43f79eeb8
+-r--r--r--   1 ant ant  147 Jul 16 16:35 e1be07c854cb903e10169d941d44712a79c9bf
+
+./.git/objects/99:
+total 32
+drwxrwxr-x   2 ant ant  4096 Jul 14 20:01 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 13794 Jul 13 16:44 8f32a89d69f067fecb1764401fd21abe376398
+-r--r--r--   1 ant ant  5469 Jul 14 20:01 ace7b5766371d9183943938809acd516d092fc
+
+./.git/objects/9a:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  491 Jul 14 11:17 69f39ca09ec08fe3e2732169b5501967fbdb0b
+-r--r--r--   1 ant ant  848 Jul 14 11:39 f7414de99c4acc98ac9a81db1fe63403e57d6d
+
+./.git/objects/9b:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  182 Jul 16 15:03 b2f3a4c60529aaabc6abbf8c3f019cb78295a7
+-r--r--r--   1 ant ant  154 Jul 16 17:09 cd23519833e0eda0dddd0ec02f75e5e9248e03
+-r--r--r--   1 ant ant  526 Jul 16 16:35 e792ec6952f08a63ab3f07a966d9682fd3144c
+
+./.git/objects/9c:
+total 40
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   52 Jul 13 16:44 0c64015c6be4eb215177f9212b1ac81796a57b
+-r--r--r--   1 ant ant 1718 Jul 16 12:01 0f77e0618377656256661ed1a8c6efd2aad093
+-r--r--r--   1 ant ant  323 Jul 13 12:02 2549adaeb2907d459a95ac48489ae8f2b90ac5
+-r--r--r--   1 ant ant  265 Jul 16 16:29 b5ca651750d66862486f4fdcde9434b69cf490
+-r--r--r--   1 ant ant  592 Jul 14 11:39 e588e598e60dffb6d584f321e2c53ae055f185
+-r--r--r--   1 ant ant  123 Jul 16 15:03 ec47a9f48d2c1bde35bf9e4747f750d47a1cb9
+-r--r--r--   1 ant ant   90 Jul 13 12:03 ed5a97c40547ba50af9bf76891adf4e902027f
+-r--r--r--   1 ant ant  781 Jul 13 12:03 feb4b32b6e668ef1290c673a30f9eff0612392
+
+./.git/objects/9d:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  123 Jul 16 12:01 8a0e09fbde185d38c1ddf7b207d203a96f425b
+-r--r--r--   1 ant ant   55 Jul 13 12:03 96e6747b7a2b8683975c030f83d5fa50269dae
+-r--r--r--   1 ant ant  121 Jul 16 12:01 bf7db203cb52a54ab422668b85e612d05915b2
+-r--r--r--   1 ant ant   57 Jul 16 12:01 d84684c8b709d5a7b04cf6aa32a715927e2961
+
+./.git/objects/9e:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 2877 Jul 16 17:09 8fcf8bcb3076363b24f5bfffc3efb166451c53
+-r--r--r--   1 ant ant  463 Jul 16 17:09 c71b615760121f5515511781fb396f825b804b
+-r--r--r--   1 ant ant  234 Jul 13 16:44 e13488c0de81be18e2fd2986868a48ee625209
+
+./.git/objects/9f:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  120 Jul 13 12:03 a0b3f99a56e42ba369357b18ed23c222e89841
+
+./.git/objects/a0:
+total 18896
+drwxrwxr-x   2 ant ant     4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant     4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 19339677 Jul 16 16:35 5236414c7fcb2a776be8c00b7faf826bc1df2f
+
+./.git/objects/a1:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 2010 Jul 16 12:01 7b64f7db8b4462747505638290444cb21caa2e
+-r--r--r--   1 ant ant   93 Jul 16 12:01 9767c2a6999e17c7e09e855db6e23797e4f86a
+-r--r--r--   1 ant ant  201 Jul 16 17:09 e3e6fca3f9bbf6a0949ba204ed9ec42e17131f
+
+./.git/objects/a2:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   51 Jul 14 20:15 2e07f30a19ed894dea62bf29c6314714437191
+-r--r--r--   1 ant ant 3781 Jul 13 12:02 3a9b01ba0689ba4ed2531cde3a6e0d592cd91e
+-r--r--r--   1 ant ant  219 Jul 16 12:01 da7a816f206b89f80c6586232f5d77f8d15c4b
+
+./.git/objects/a3:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   83 Jul 16 12:01 08ae828b08d8f5245f6eec85b1067f72c98bff
+-r--r--r--   1 ant ant   90 Jul 14 10:21 5a08f995cd1294a62229d9201ee50e35da09ef
+-r--r--r--   1 ant ant  123 Jul 16 15:03 eb733b06c70a87d5a1cf6cd32b44884924ed6e
+
+./.git/objects/a4:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  682 Jul 15 17:59 3eebc6570855fcb3d483eab9ac61fb2d2cfb50
+-r--r--r--   1 ant ant 1100 Jul 15 17:57 573555b29f7b071568c13ba60fa6a157f057f4
+-r--r--r--   1 ant ant   98 Jul 16 12:01 bb28224b5556074853dd7a6a19017901f68a7e
+
+./.git/objects/a5:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  450 Jul 14 11:17 a916c1de3910ae632983b962c4555c7e5f67ec
+
+./.git/objects/a6:
+total 32
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  408 Jul 16 17:09 0e22750dd1620ef7b835b4a24bade5c7999b54
+-r--r--r--   1 ant ant  212 Jul 16 15:03 43cfe4214ba3fd61a0ac2067e06ebc75d2d50b
+-r--r--r--   1 ant ant   52 Jul 14 11:39 503b7327ff0467a423d0bba467a38a527a08e1
+-r--r--r--   1 ant ant 2170 Jul 15 11:31 6dd4a83c2376bf97f940e2d6c37c74d51a63a6
+-r--r--r--   1 ant ant 1254 Jul 16 16:35 6ea017f10539b8bb0f93aaa910bd069816d53a
+-r--r--r--   1 ant ant  637 Jul 13 12:02 f37591bf5263de7d2d2cde93f4fbe7207183d3
+
+./.git/objects/a7:
+total 84
+drwxrwxr-x   2 ant ant  4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   155 Jul 15 11:31 4f315cade2a3b97f8a3dfa815c206a6173f9e5
+-r--r--r--   1 ant ant   380 Jul 16 15:41 9cbdf0dbb2f17d68eec22b90d918376b06c94e
+-r--r--r--   1 ant ant 64231 Jul 16 16:35 9f0f341f6f12eb6f3e80f4c2173646e7f56709
+-r--r--r--   1 ant ant    98 Jul 16 12:01 f2a6c293784a92cd247a0bb03d9af2dedfc0e1
+
+./.git/objects/a8:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 14 20:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 2344 Jul 13 12:02 bb01e431203f97d13a2c50fa3084fac4f9452d
+-r--r--r--   1 ant ant 3302 Jul 14 20:01 f1de4c44587cab964a41f4b9bfac4bbf799202
+
+./.git/objects/a9:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:34 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1705 Jul 16 16:33 3139ac8519692491db253acce8ecf3d7a3302e
+-r--r--r--   1 ant ant 1572 Jul 16 17:09 3210dc3aee0f357ad84acb9f270a4446ce2b60
+-r--r--r--   1 ant ant   79 Jul 16 12:01 58607315d7ecf37263a7bedb903607b11ac97b
+-r--r--r--   1 ant ant  278 Jul 16 16:34 e5500a170c1642bb77f5cb0c03f36909f0a95f
+
+./.git/objects/aa:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  560 Jul 13 12:02 821e33f8cdf4cbf860b5dc26a60f5d43288a9f
+-r--r--r--   1 ant ant 2868 Jul 16 16:35 b553bb4d8c56ab139532eed55dc8abd6a4d3a8
+
+./.git/objects/ab:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  677 Jul 15 17:59 3d00c1f93a4d79b1d16ebca312c0d239004221
+-r--r--r--   1 ant ant 4412 Jul 16 17:09 a06d9c8470ad73a8b762837a8924010b378fbe
+
+./.git/objects/ac:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  235 Jul 13 12:03 81317919994486ef96d48c7d585e708b7936be
+-r--r--r--   1 ant ant 1264 Jul 16 16:28 d30624b6e7340836e0056b127e986b5598bdf9
+-r--r--r--   1 ant ant 1818 Jul 16 16:35 efcb89c2b9a83fe0e3155e064446349d33c7c7
+
+./.git/objects/ad:
+total 68
+drwxrwxr-x   2 ant ant  4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 59828 Jul 16 17:09 feb005f30882404862a4068b77f84173d8b241
+
+./.git/objects/ae:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 15 11:31 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   49 Jul 13 12:03 1bf7f1c2309fd494c95eca5029f1aa5c574a6b
+-r--r--r--   1 ant ant 3311 Jul 15 11:31 8e36d268ef331f211f50f2b8ae15421a8dba31
+
+./.git/objects/af:
+total 40
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 5050 Jul 15 11:31 4bb89961638bb682643367a52f671b1449e709
+-r--r--r--   1 ant ant  150 Jul 15 11:31 5110fb7c673f810d88c6faf3d6008abfdd93e8
+-r--r--r--   1 ant ant  112 Jul 13 19:14 6ae776983d1d036b1db4e809012905acd555eb
+-r--r--r--   1 ant ant 1867 Jul 13 12:02 81bdbc2986b2db71d3960cad0be3d3a5c44ae9
+-r--r--r--   1 ant ant  293 Jul 16 12:01 9d769f8b6fda6a9bfd94dde0c42860b751fcb8
+-r--r--r--   1 ant ant   90 Jul 14 11:17 9f5e21167cb586c821cf75906ac1311405cb2f
+-r--r--r--   1 ant ant  176 Jul 16 16:35 a8774cd41df830f62524d637bb272d4226c292
+
+./.git/objects/b0:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:32 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   78 Jul 16 12:01 13ac0dd42ac1b774a210258d738526a6a9a2e5
+-r--r--r--   1 ant ant  187 Jul 16 16:32 196048b4586e01996dbb74a600e43ab59a80d4
+-r--r--r--   1 ant ant  152 Jul 16 17:09 36adfd9473e6f2e9d05c2c60d431c9e54e923c
+-r--r--r--   1 ant ant  379 Jul 16 12:53 95a1f4649054b0b85e9e6a57cd94fc2593a9e4
+
+./.git/objects/b1:
+total 60
+drwxrwxr-x   2 ant ant  4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   100 Jul 16 12:01 2d60393cccbd99f21fd787b29d61490d0cf895
+-r--r--r--   1 ant ant   752 Jul 15 17:58 42c097cae54d680442d7712b56d07a80a67ee9
+-r--r--r--   1 ant ant   434 Jul 16 16:35 61ec2df9a863cbca7fe00bcf78bf04a0d312da
+-r--r--r--   1 ant ant 36727 Jul 16 16:35 7fe9430ada92dcc7372d90c31ee5be4a912cf7
+-r--r--r--   1 ant ant   158 Jul 16 16:35 bad3dc8385704a18ca196a1f1d557e21185aef
+
+./.git/objects/b2:
+total 32
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  805 Jul 14 20:01 01017dba6bbf6e6901a9774e982bae8cf21958
+-r--r--r--   1 ant ant   97 Jul 16 16:35 62fb8a4fcf6eaf0cd32b503933fe5f43e105c2
+-r--r--r--   1 ant ant  413 Jul 13 16:44 6f882a3a9101ac6452efc24f0fb201005a42b1
+-r--r--r--   1 ant ant   77 Jul 16 12:01 81be1e59ce967b1422888404cd0c1a7e5e2709
+-r--r--r--   1 ant ant 1382 Jul 13 12:02 8d9ffb9d5fe8907d3bd002b373c6caa4063fcc
+-r--r--r--   1 ant ant  520 Jul 16 17:09 fddd123bd7a3dea940e7bdbf194035dbba02ad
+
+./.git/objects/b3:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1593 Jul 16 12:01 77b310ed3f98f24dbcb66449b1b19f7c589fce
+-r--r--r--   1 ant ant 1391 Jul 13 12:02 8e86041bb69771819f6de9f4265891fdec0519
+-r--r--r--   1 ant ant  114 Jul 13 12:03 902daf723e506417f0fe62ae77ffda75a40833
+-r--r--r--   1 ant ant 3580 Jul 14 11:39 bbf8a5c61ed9bea45e64ee86fa47e20dc85982
+
+./.git/objects/b4:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  132 Jul 16 15:03 8ed3a537383e24439c7d6e601c87fe3b089088
+
+./.git/objects/b5:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 14 20:14 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1155 Jul 14 20:14 19105666514b0940746978d171b495e5640f89
+-r--r--r--   1 ant ant  181 Jul 14 10:21 8a86fadfca0fb68cdb000f76beccae872aff15
+
+./.git/objects/b6:
+total 28
+drwxrwxr-x   2 ant ant  4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 10413 Jul 16 16:35 2da0270f6693531a13d912fd49e7c72637788d
+-r--r--r--   1 ant ant   163 Jul 16 17:09 2fb08c04e7c2ea2939bb3550ae8507b8e928fa
+-r--r--r--   1 ant ant   804 Jul 14 11:17 a208b132507ee83f87fe33e0ffceff38213ac4
+
+./.git/objects/b7:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  375 Jul 16 16:29 34f63a17f794540550eefe40c1157ed1ff2a4a
+-r--r--r--   1 ant ant   81 Jul 16 12:01 6039fc25bc5c964ce69bc9b9b1ef7ef764e645
+-r--r--r--   1 ant ant   54 Jul 13 16:44 e3424c265c511b283b88920cf67a76a558bc26
+-r--r--r--   1 ant ant   78 Jul 16 12:01 f25b0427b9acdbddd67937d710b1eb796bcedd
+
+./.git/objects/b8:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   55 Jul 13 16:44 33547cc70e2993264707792472e42c912c0f14
+-r--r--r--   1 ant ant  641 Jul 16 16:29 d56796e71b7502c57ed147e358d258961c3091
+-r--r--r--   1 ant ant   75 Jul 16 12:01 f5cbc04a7223b402c8d9ed74aee43d94ee9a1d
+
+./.git/objects/b9:
+total 36
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 2779 Jul 13 19:05 0db3825441c0a3e1a80ceb50b647c1dee19100
+-r--r--r--   1 ant ant  545 Jul 16 16:29 62343754d02d3ea874c3aafbc7c31495f665f8
+-r--r--r--   1 ant ant   89 Jul 16 12:01 650e7a2490e6315741a3011b8a67b9718a3634
+-r--r--r--   1 ant ant  107 Jul 16 12:01 8c21f28faeb0ad03c371ca2bdab688ff71d797
+-r--r--r--   1 ant ant 6169 Jul 16 16:35 ac071eb6387e85c6e4d5df995839696db0e513
+-r--r--r--   1 ant ant  396 Jul 16 17:09 e1362d4ad75f87121ca336666b7db8b76755f7
+
+./.git/objects/bb:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  281 Jul 16 17:09 cf0a881105de17108e33992ad44f40b159ad8a
+
+./.git/objects/bc:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  252 Jul 16 16:35 254761db355278bed560d16f48fe5a9c6467f8
+-r--r--r--   1 ant ant  215 Jul 16 12:01 ae4fb51ede57da0a7d8c4b63cdc96b0e3ea5ea
+-r--r--r--   1 ant ant  289 Jul 13 12:02 f08e08c8dc5e8a56e0487cbecd7b312ddb3a6b
+
+./.git/objects/bd:
+total 584
+drwxrwxr-x   2 ant ant   4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant   4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant     55 Jul 13 12:03 41e6a7894190722333ca55b2538c60ebda0fbf
+-r--r--r--   1 ant ant 582741 Jul 16 16:35 67f2ef8a2fac6c8a5b4bd91dcfd5cd2c3cb902
+
+./.git/objects/be:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  144 Jul 13 12:02 90870e2bacc8bf437f3e278292b3b2af41de3b
+-r--r--r--   1 ant ant   51 Jul 16 12:01 bb2ca268c2796de6e1cb1bbdb6062e88eae481
+
+./.git/objects/bf:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   95 Jul 16 12:01 3663727c97d84981e5c0acbb24aea02e859072
+-r--r--r--   1 ant ant  147 Jul 13 19:14 722cfe5ef9a77e657ba0cf23cf8c30d600d257
+
+./.git/objects/c0:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 15 11:31 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   53 Jul 13 12:03 14ea80a9723bce6560982a8b5392744229bf5f
+-r--r--r--   1 ant ant  139 Jul 15 11:31 603441f3ebbf2c45709cac522c7abfe5433dd7
+-r--r--r--   1 ant ant  153 Jul 15 11:31 69f1e991dfcd1b7382ad14fdacd3a90fba48ee
+-r--r--r--   1 ant ant  240 Jul 13 12:02 7c76ae7e3a73db3ad5dae70067fb1de0d5c769
+
+./.git/objects/c1:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:17 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  217 Jul 14 11:17 4e0e160282b8e68fe73a491baf7686b7a68221
+-r--r--r--   1 ant ant  261 Jul 13 16:44 b668bc5a1ef298967d1fc922f9ef4c0f8a47df
+
+./.git/objects/c2:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  624 Jul 13 16:44 3891c62793b66cca92122d72048f09fb76dc34
+
+./.git/objects/c3:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  737 Jul 16 16:35 158a5be8d650429b162d4c9cb4ec586e3d20b1
+-r--r--r--   1 ant ant   87 Jul 16 15:03 3b83f89f550e293604a8ff2ea4ca292a0f01ad
+-r--r--r--   1 ant ant  486 Jul 15 11:37 41a032f073632e02c42ce4b0894be2e854ca76
+
+./.git/objects/c4:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  717 Jul 14 11:39 08363704e44f217595dc6e34d1f4d790acf331
+-r--r--r--   1 ant ant  156 Jul 16 12:01 42d6e7791a1b49861c8f2d6a2ad789deb5bed7
+
+./.git/objects/c5:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  122 Jul 13 12:03 b48d6c2b240d6a50d9399d7a91b56d1fb600b3
+-r--r--r--   1 ant ant  311 Jul 16 17:09 f707c5cf9a49eca5aace894cb896161c8ccf0f
+
+./.git/objects/c7:
+total 40
+drwxrwxr-x   2 ant ant  4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   847 Jul 13 16:44 39db81df61bef95d7cf6d898b6098e85b4f4c8
+-r--r--r--   1 ant ant   831 Jul 13 12:02 49a6e6d6ec695c9bc58b8e0bfe1f9a7c61397e
+-r--r--r--   1 ant ant 21300 Jul 16 16:35 f354c7fdc73ed5dd6072f6f1c4bdde377f4650
+
+./.git/objects/c8:
+total 44
+drwxrwxr-x   2 ant ant  4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  2568 Jul 14 11:17 b1951cbcf1642d7aa6c8ed03e8687b138057e9
+-r--r--r--   1 ant ant   782 Jul 13 12:02 b214f22ee353374294ddb506efe75c546ae961
+-r--r--r--   1 ant ant 18385 Jul 16 17:09 db6039c652ed963da5fdbe92228c83d42cc254
+-r--r--r--   1 ant ant  1077 Jul 13 19:14 ddd1dee6517d1b7d1b4da94cd926530fc7c8cd
+-r--r--r--   1 ant ant  1954 Jul 14 11:17 de89c1e2462179af6474507eb1347ee98424cb
+
+./.git/objects/c9:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   52 Jul 13 12:03 1e30bb5d361d8cc40875a74737dd6ad9a2c25c
+-r--r--r--   1 ant ant  292 Jul 16 17:09 be741d2dbd4bfac9b538880e69ba6b96ef69be
+-r--r--r--   1 ant ant  710 Jul 16 17:09 efc90ef24c32d041240921bf278c412c3b7e29
+
+./.git/objects/ca:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  514 Jul 16 17:09 0fb33832d882bf0ced7be3bea30f8e3242dc07
+-r--r--r--   1 ant ant 1539 Jul 14 11:17 1541ec5776697427ad0cdace7c38b1abcb08bc
+-r--r--r--   1 ant ant 1296 Jul 16 16:35 5a856ad2e3617608451e57da599253adedae98
+-r--r--r--   1 ant ant  166 Jul 16 16:34 7a82a768a0a3dfa2c45b3672aa897eff49ab18
+
+./.git/objects/cb:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   78 Jul 16 17:09 746e4158ecf5680f9e07522531c4b8e7398ab0
+-r--r--r--   1 ant ant 1339 Jul 13 12:02 b416dd6c86b9fa6c197d5bb160cbbf37e9a151
+-r--r--r--   1 ant ant 1281 Jul 16 17:09 be744dbcde29d154034633fce7bfce23066214
+-r--r--r--   1 ant ant  951 Jul 14 11:39 d37e77fa72d9aa1375a15ae42bd0cc6c1ac486
+
+./.git/objects/cc:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 2271 Jul 13 12:02 eafcc5f1b404e5daa3b2b4f383e9f897a6925b
+
+./.git/objects/cd:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 14 11:39 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  498 Jul 13 12:02 a69dc529d1412e5d8b442228fbaeb42db1acf9
+-r--r--r--   1 ant ant 2144 Jul 14 11:39 e652acf3895787264dd8936e597b084dbb5376
+-r--r--r--   1 ant ant   54 Jul 14 11:39 edf3e37cb32f4098b98b5da0c5289db7adf6f9
+
+./.git/objects/ce:
+total 36
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  134 Jul 16 15:03 1e9edf9152cd1d7e5f1dfd560e94934c376826
+-r--r--r--   1 ant ant  354 Jul 13 12:02 4d79a92328697df0eb0b4c0595c64c3ddb0886
+-r--r--r--   1 ant ant 1109 Jul 13 12:02 4f9a21ceb77cda50287f6d3c9fb932c0536999
+-r--r--r--   1 ant ant   70 Jul 16 17:09 566729551accb560a0a2acb1d29f24bfb568a6
+-r--r--r--   1 ant ant 2306 Jul 14 20:01 e0a50e33523b0bcec9e951d1870e0b18962daa
+-r--r--r--   1 ant ant   46 Jul 16 16:35 e43290a0bc37f6c28affea3e1260832929318d
+-r--r--r--   1 ant ant  307 Jul 16 12:01 e97c991605bba2cea7a6ab24cf03a276781e76
+
+./.git/objects/cf:
+total 40
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  923 Jul 13 12:02 042d71426911dccce64bb37f5c8e9e62c6cb94
+-r--r--r--   1 ant ant  105 Jul 15 17:55 094364abd2c15fad761e132dc0112f7bf0629d
+-r--r--r--   1 ant ant  261 Jul 14 20:01 4eda14c0e940bd106af52ec76e1fb7cdb1d547
+-r--r--r--   1 ant ant   52 Jul 16 12:01 5ce24159a9f7f29ae25fd24a0024f390fb5d29
+-r--r--r--   1 ant ant 9267 Jul 16 16:35 bd1980f46183ec0e1ef4cd51960f6dc50ac010
+-r--r--r--   1 ant ant  122 Jul 16 12:01 e2c0c93acc7def51b556f55e6ed1f8f7c54bb6
+
+./.git/objects/d0:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:33 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  389 Jul 16 15:03 901719118954c32e592fd86d3271d728e5de3b
+-r--r--r--   1 ant ant  205 Jul 16 16:33 e8c961a14a9f2d76ceeea610c1949aaabf7445
+
+./.git/objects/d1:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  261 Jul 14 20:14 d3fe2b55875a8cd939f34eecf42b0447369a24
+-r--r--r--   1 ant ant 1065 Jul 16 17:09 dcaa38dc33870870931d24a26bf3127b8b9930
+-r--r--r--   1 ant ant 1012 Jul 13 12:02 fb8e09cbcf8d05e25d0495b046843be46e74c8
+
+./.git/objects/d3:
+total 36
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  330 Jul 16 12:01 224628ab4001b355c17314d1eb2f6adde17bc6
+-r--r--r--   1 ant ant   52 Jul 13 16:44 3c242e824f7afe754732b323c13610a690acb6
+-r--r--r--   1 ant ant 1122 Jul 13 16:44 55a530172ba0318eaec3d27d0d078ee6adfec0
+-r--r--r--   1 ant ant  139 Jul 14 20:14 6539c8a0f287864b244509f062e52e1386d458
+-r--r--r--   1 ant ant  289 Jul 16 15:03 66b4e08fcacd6500eef93985ebca0e36b245cb
+-r--r--r--   1 ant ant   58 Jul 13 12:03 8cd1a4d9a1fa55ddeeee0cebe24feb3e9a962e
+-r--r--r--   1 ant ant 2395 Jul 13 12:02 b50673210c66bc8cdf8a5b57d27cb0d8379758
+
+./.git/objects/d4:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  131 Jul 13 12:02 2ec37009774de3ee74f6e351b22264bb4e801a
+-r--r--r--   1 ant ant  337 Jul 16 15:03 85c3cd22e95bad9860ef5f5d9bee9e37aa7feb
+-r--r--r--   1 ant ant 2664 Jul 13 16:44 b026052514e660c7ff8a5f47383374a094b536
+
+./.git/objects/d5:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  507 Jul 16 16:29 d04738ef84088c32026895aecf481bc1a59cfb
+-r--r--r--   1 ant ant  120 Jul 15 11:31 eac01539e0fd4c968bc002a91f4dc79cc7adb1
+
+./.git/objects/d7:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  110 Jul 16 12:01 87cde6c32999522e25f62c1ab6349440e9c665
+-r--r--r--   1 ant ant  935 Jul 13 12:02 c5e1c587c6f01033f02648de552fe580f2417d
+-r--r--r--   1 ant ant  286 Jul 13 12:02 d72896f48859dda6693e65412c41cbe28720f0
+
+./.git/objects/d8:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1543 Jul 13 12:02 168944634521d5961ba18c5c247f6998a218d7
+-r--r--r--   1 ant ant 1962 Jul 13 16:44 fa875d64feade7895102d8a16fab7c8f45d9ff
+
+./.git/objects/d9:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 15 13:48 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  352 Jul 13 19:14 158a575183f6a35c122720c860bf424e6903b1
+-r--r--r--   1 ant ant 3859 Jul 13 12:02 1c9a5c565066e2234af0476b2b61450e1690f3
+-r--r--r--   1 ant ant  805 Jul 15 13:48 c12d648ca6083c7b0fa9a5f7094bee3bb032f3
+
+./.git/objects/da:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1312 Jul 16 17:09 12a0002684f31b760fa0a8162f243357e717b8
+-r--r--r--   1 ant ant  120 Jul 16 15:03 3bbbe6784fe07f83dd73220b9e83a0abfb14d8
+-r--r--r--   1 ant ant 1209 Jul 16 17:09 4dae70bfc22c5fb57ab9750a0039467f31fffc
+-r--r--r--   1 ant ant  160 Jul 14 20:01 68dafd85314629a195ba39f50f380f60e0c7d6
+-r--r--r--   1 ant ant  104 Jul 16 12:01 fad29f26506180cd9eb51fdd02e534cf363b55
+
+./.git/objects/db:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  805 Jul 15 11:31 96434c51b0223c82c9a437f45dbb0bcc88e8a5
+-r--r--r--   1 ant ant  222 Jul 16 16:35 f3266fdba3ae3072f0f0b12fe2dff0716e4081
+
+./.git/objects/dc:
+total 88
+drwxrwxr-x   2 ant ant  4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 62519 Jul 13 12:02 02b86d533b7d8d2847c33276c440a20eddf6e5
+-r--r--r--   1 ant ant  1865 Jul 14 11:17 2a664489271ebb033f4d5cd7dc005162084cea
+-r--r--r--   1 ant ant   152 Jul 13 19:14 44d33e3e8ad1572e0c3759a0157d0766376006
+-r--r--r--   1 ant ant   379 Jul 16 15:03 662026da1d53c85ce79bbb4a9f62cb34ad009b
+-r--r--r--   1 ant ant   188 Jul 14 11:17 cdf3b9b402e3d64eccf350997ad7ec9b49e8f9
+
+./.git/objects/dd:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1440 Jul 16 12:01 2ee8168f51fd53cf17fe0f3a9d34f9a8534bd7
+-r--r--r--   1 ant ant   51 Jul 13 16:44 d48da88b66d658a1e3e80bd39111f94d287ff9
+
+./.git/objects/de:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1316 Jul 16 16:35 b84b460928a6b021e43ba4d48335e72cd5c371
+-r--r--r--   1 ant ant  186 Jul 14 18:49 c4847a520b11d6d64d991b16f0c87c66d66f44
+
+./.git/objects/df:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  191 Jul 16 12:01 48efdcbfe47f0761ca4d639e17e624ec7f8f18
+
+./.git/objects/e0:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  587 Jul 13 12:02 74ed8a920264ea115c2ea2542334291681760a
+-r--r--r--   1 ant ant  602 Jul 13 12:02 d5052ca4f9314260d3afd933a8ec258f1865e2
+
+./.git/objects/e1:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  395 Jul 13 12:02 baa4812a1c19d0243bc8c88559efcd8951a296
+
+./.git/objects/e2:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  478 Jul 13 12:02 31ed08ea565f6fce6083a6c4ee5586419dfcf2
+
+./.git/objects/e3:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  100 Jul 16 12:01 5e475ae7e4e2c69ff11c02adc956d3e89e06d4
+-r--r--r--   1 ant ant  583 Jul 16 15:03 a2389f592b6617ea84b0cb109816b849c028f4
+-r--r--r--   1 ant ant   96 Jul 16 12:01 a744a8f8da07cb01cf0d3b44543ca3cf58b690
+
+./.git/objects/e4:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 14 18:49 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  260 Jul 14 18:49 73fef8c89a1e82802bb74d735be4468af4a97c
+
+./.git/objects/e5:
+total 28
+drwxrwxr-x   2 ant ant  4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 11596 Jul 16 17:09 380d3c912d11fe86829be4164264626e0d3c15
+-r--r--r--   1 ant ant    84 Jul 16 12:01 654c78936fdcebc0b8db4be8254bafd8e96d36
+-r--r--r--   1 ant ant   135 Jul 13 16:44 bcb39635db23555d0b1dbda2a4db8395670098
+
+./.git/objects/e6:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 13 16:44 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   15 Jul 16 18:30 9de29bb2d1d6434b8b29ae775ad8c2e48c5391
+-r--r--r--   1 ant ant   55 Jul 13 16:44 a36b6515613059e1b085121d370eafb1380171
+
+./.git/objects/e7:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 15:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   52 Jul 13 16:44 3d78e6fbc0948de01869c2ca624a4ddf3e2b1e
+-r--r--r--   1 ant ant  179 Jul 16 15:03 7179b84e4ecb118c4107765dd2a2b47135b57c
+-r--r--r--   1 ant ant  368 Jul 13 16:44 77d0ae9e6577e4c414c5345abb0f777ed00abd
+-r--r--r--   1 ant ant  343 Jul 14 10:21 792d88549be8e9f3f12a0fb70f217bcdc13880
+-r--r--r--   1 ant ant  727 Jul 13 16:44 91fe26496004d4b0098da1a9f7981b3d2f6249
+
+./.git/objects/e8:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:30 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   55 Jul 14 11:17 52f5c423d63fa7d9e137207fef8e947f31cf6b
+-r--r--r--   1 ant ant 3073 Jul 16 17:09 8baecc9f6bc435b09f5d9c2dad5f4f707c0c23
+
+./.git/objects/e9:
+total 28
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   51 Jul 13 12:03 0e1c7e271c3e38c0bc4b5c60e075722548f942
+-r--r--r--   1 ant ant  909 Jul 14 11:17 3926516abacbc07265acfeec96146754f81828
+-r--r--r--   1 ant ant  263 Jul 16 17:09 3e993fce3c823aa449d602be6d85afae9444e6
+-r--r--r--   1 ant ant 3468 Jul 13 12:02 694997d9379cb95ef2b5ff9634617587ec3e97
+-r--r--r--   1 ant ant 1505 Jul 13 12:02 ce536769b5d8a88483ea148a7b1fbceaf08784
+
+./.git/objects/ea:
+total 36
+drwxrwxr-x   2 ant ant  4096 Jul 14 20:14 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 17884 Jul 14 11:17 326b2ce27923cd66cb78fb6526796254153e62
+-r--r--r--   1 ant ant   653 Jul 13 16:44 a1721b30c75c03af12ddc8f65a3b26ff1fb764
+-r--r--r--   1 ant ant  2648 Jul 14 20:14 e0ca108f3be55d35205102163aebe2120f45d0
+
+./.git/objects/eb:
+total 48
+drwxrwxr-x   2 ant ant  4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 27637 Jul 16 16:35 d51001df8215f9594e6f05cfc0d6484dbdf5e7
+-r--r--r--   1 ant ant   180 Jul 13 16:44 d9dd2c8fa39d26d63b4b2e0ec40191af61ef2a
+-r--r--r--   1 ant ant  1795 Jul 16 16:35 e53fa6123c62e8a7c7e1f21f101fdac98502f8
+-r--r--r--   1 ant ant   119 Jul 14 20:01 fc3e1a247dbdfeaf4fc2c55f87801cac999320
+
+./.git/objects/ec:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  805 Jul 14 18:49 4499dfb8c5f88b705ce7e0fe98e69352db2755
+-r--r--r--   1 ant ant  896 Jul 13 19:14 7e7b1dc2e7d44431a52f1a64bba09fc431f7cf
+-r--r--r--   1 ant ant  883 Jul 13 12:02 913050486646832012703a951e2bfc1d8d2a52
+-r--r--r--   1 ant ant  204 Jul 16 17:09 d921ead34c34b7c42e1b4ee0c8cc6d66d05fa0
+
+./.git/objects/ed:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:29 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   52 Jul 15 11:31 3a37e329c0ec6bfa419ee805a7ffcd4132dc3b
+-r--r--r--   1 ant ant  370 Jul 16 16:29 4efb58f8f12d5ea47c81683a8f899d3e9b088d
+-r--r--r--   1 ant ant  291 Jul 15 17:36 cf910327cfa0fbae8ae3da9f6f547802b1cc90
+
+./.git/objects/ee:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 13 19:14 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1107 Jul 13 12:02 08b10832f83a91673acff2ef88166b459f6c68
+-r--r--r--   1 ant ant 1388 Jul 13 16:44 3e49dabf00cb7d61fa2cf6c937d05cc396b767
+-r--r--r--   1 ant ant  241 Jul 13 19:14 9dcebd2338c8922f2754c1d349efc371e6ac44
+
+./.git/objects/ef:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  358 Jul 16 17:09 23d729f4ba4242540ba1f1ced72bb4717eeacc
+-r--r--r--   1 ant ant   78 Jul 16 12:01 51f69792b29b194e766712ca992de5ffb54e84
+-r--r--r--   1 ant ant   79 Jul 16 15:03 664b0a2447b411af95845975f0fcffa73057a1
+
+./.git/objects/f0:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  113 Jul 16 15:03 69ec6cb9ad70f42e541a4cbe0900793243a48f
+-r--r--r--   1 ant ant  145 Jul 16 17:09 88c84b07ef3fa1d31e6ee6995735ec995a41a0
+-r--r--r--   1 ant ant   57 Jul 13 12:03 f0cad9db1af02035065f552063cfc0cee5f60c
+
+./.git/objects/f1:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   52 Jul 13 12:03 37d81d8ab58e701f44fca4afbdba30e6a3bc6d
+
+./.git/objects/f2:
+total 52
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  478 Jul 16 16:35 0e3a98856afe0d235f38ff3a7d21b60ff9a765
+-r--r--r--   1 ant ant  153 Jul 14 20:14 1416df8bc74b4cbc87ec5ebadb9121465de46c
+-r--r--r--   1 ant ant 1742 Jul 13 16:44 574c4999ac38c31ea13649c3f3fef8055646f4
+-r--r--r--   1 ant ant   87 Jul 14 11:39 5d1fd3221b90a70b555ff738a3b241d638afb5
+-r--r--r--   1 ant ant 1195 Jul 13 12:02 62fe2468ee44699e3a5f4d8d055b81f8f8c868
+-r--r--r--   1 ant ant  261 Jul 13 12:03 9f9a079ef96f051bb0d1775160a9067d9d14cc
+-r--r--r--   1 ant ant  663 Jul 16 17:09 a16e2a71a16e1b390911f00b8ecb41a861e2a7
+-r--r--r--   1 ant ant  163 Jul 15 13:48 b91512befc05ede68a10353a1d33307c75534b
+-r--r--r--   1 ant ant   82 Jul 13 16:44 dfbefe720ca274996e9bb509b04dc88b9a3529
+-r--r--r--   1 ant ant  152 Jul 14 11:39 e0255b767d4ccf64a31f2cb043e5af0921cd9c
+-r--r--r--   1 ant ant  155 Jul 14 20:14 e4455a5e62f82788f0c5e5a22d132bbd8d4969
+
+./.git/objects/f3:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   80 Jul 13 12:02 1e605d6496c58faec086f6c7c35188d167dd27
+-r--r--r--   1 ant ant 1788 Jul 13 12:02 6f524a064ff8ae943f9385f653461be99943b9
+
+./.git/objects/f4:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 15 11:31 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  689 Jul 15 11:31 9438ef1f1413b9a44d5b35dd100e7b6f479096
+
+./.git/objects/f5:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 3801 Jul 14 11:17 303df0c423f2a4a8d7b877f30e85ef60fdad37
+-r--r--r--   1 ant ant  213 Jul 16 12:01 8172fb80e98d87b80260e08c675ff5177708a4
+-r--r--r--   1 ant ant 2315 Jul 13 16:44 93f163c79d41dab0020036fa89b08801c17bac
+-r--r--r--   1 ant ant  156 Jul 13 16:44 c7b7583b8f3fb76aefc76593beaa26fdde1ccc
+
+./.git/objects/f6:
+total 36
+drwxrwxr-x   2 ant ant  4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant    91 Jul 16 12:01 83009dee0c24416fe067c3fbc7498794db678b
+-r--r--r--   1 ant ant 18334 Jul 16 17:09 9f377b67654c9fad249f483a53d44eee9e642b
+-r--r--r--   1 ant ant    84 Jul 16 12:01 c09ffd05a48cc33dd05a6a36bce1839b1dab68
+
+./.git/objects/f7:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 14:51 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 2845 Jul 14 20:14 580bb80367c12442d3bb149ca29926054123aa
+-r--r--r--   1 ant ant 3580 Jul 14 11:17 6312068190ff808283b77b07e7f2fcbf20fabf
+-r--r--r--   1 ant ant  315 Jul 16 17:09 83ca2ed4f6ef5ee29d974221f257df17aa2c95
+-r--r--r--   1 ant ant  156 Jul 14 11:17 89c329b55dbc3e94f986237392663267107bce
+
+./.git/objects/f8:
+total 24
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  152 Jul 15 11:31 443ff4eb2109c31a00b5e603984d955ec2fc62
+-r--r--r--   1 ant ant  514 Jul 16 16:35 635da8da55f46e79849c3166037106f1bf2f40
+-r--r--r--   1 ant ant  113 Jul 16 12:01 c8336dc25589fa108d1d00a183c900fb39440a
+-r--r--r--   1 ant ant  199 Jul 16 17:09 ef119c13a65c7a6da66e009e24730b6b2e04b6
+
+./.git/objects/f9:
+total 12
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant 1172 Jul 13 12:02 cb00a666ee418bb24501c852a2a3ca2726e9b3
+
+./.git/objects/fa:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 15 11:31 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  509 Jul 14 10:21 4db0a596a39757632e8c955e7a97d22a44514d
+-r--r--r--   1 ant ant   90 Jul 15 11:31 6b247aa8c375e2afca17f3ad76670f4d639029
+-r--r--r--   1 ant ant  425 Jul 13 12:02 74c739b7934f0fff5ba21ca2a1adf30099bd2a
+
+./.git/objects/fb:
+total 96
+drwxrwxr-x   2 ant ant  4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   197 Jul 16 15:03 081007f0662a609dae06d4e05ae35eabb76bfa
+-r--r--r--   1 ant ant   286 Jul 16 17:09 1268c1b12135d19ad321b3233df77ffed7b843
+-r--r--r--   1 ant ant 76018 Jul 16 16:35 414b1fe2f58c8e68d11246f15f4db096b7fbd9
+-r--r--r--   1 ant ant   242 Jul 16 15:03 59f170b2ab81777fe3546bd4d08458d61b6084
+
+./.git/objects/fc:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   85 Jul 13 12:03 c766338014826b9c024fe76207c95da7ed28c5
+-r--r--r--   1 ant ant  826 Jul 16 16:35 d2d185a318666b11e1114e461622469ced65dd
+
+./.git/objects/fd:
+total 20
+drwxrwxr-x   2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant  663 Jul 16 17:09 1621a24cac6346b83287091267e5fb087eb658
+-r--r--r--   1 ant ant   48 Jul 15 11:31 43ecf9f92a3b7ebc6095107a8db5b55f202123
+-r--r--r--   1 ant ant  380 Jul 16 17:09 9a3d930c5148d784ea0c81c2992c219b94268b
+
+./.git/objects/fe:
+total 108
+drwxrwxr-x   2 ant ant  4096 Jul 16 16:35 .
+drwxrwxr-x 248 ant ant  4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   214 Jul 13 12:03 20523b149b98de8dc0c87852fb5a0e885d23af
+-r--r--r--   1 ant ant   803 Jul 13 19:14 2e3c3801d6a0d898fa7c7e4d51ee07fcebb5d1
+-r--r--r--   1 ant ant 81101 Jul 15 13:47 40a8d20727b08704bed432884f6bfa96e7f9c4
+-r--r--r--   1 ant ant   804 Jul 14 20:14 6d8d689fd002294acd2e378df576894fee2e86
+-r--r--r--   1 ant ant    44 Jul 14 19:46 7f767da63f4dd37112e371e51cf4e8b457e235
+-r--r--r--   1 ant ant    97 Jul 16 16:35 8f5be7733c371bad92c1887fb68a7039e5c7cc
+
+./.git/objects/ff:
+total 16
+drwxrwxr-x   2 ant ant 4096 Jul 16 12:01 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+-r--r--r--   1 ant ant   90 Jul 14 11:39 a124067437ff66fb05878f4e0047ac988a826d
+-r--r--r--   1 ant ant   91 Jul 16 12:01 ec0bd907d84f5e735cfbc91f461e60ec0c4acd
+
+./.git/objects/info:
+total 8
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+
+./.git/objects/pack:
+total 8
+drwxrwxr-x   2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 248 ant ant 4096 Jul 16 17:09 ..
+
+./.git/refs:
+total 20
+drwxrwxr-x 5 ant ant 4096 Jul 13 12:03 .
+drwxrwxr-x 8 ant ant 4096 Jul 16 18:30 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 17:09 heads
+drwxrwxr-x 3 ant ant 4096 Jul 13 13:25 remotes
+drwxrwxr-x 2 ant ant 4096 Jul 13 12:02 tags
+
+./.git/refs/heads:
+total 28
+drwxrwxr-x 2 ant ant 4096 Jul 16 17:09 .
+drwxrwxr-x 5 ant ant 4096 Jul 13 12:03 ..
+-rw-rw-r-- 1 ant ant   41 Jul 15 11:31 027_add_admin
+-rw-rw-r-- 1 ant ant   41 Jul 15 13:48 028_modularise_and_break_up
+-rw-rw-r-- 1 ant ant   41 Jul 16 17:09 030_massive_deployment_restructure
+-rw-rw-r-- 1 ant ant   41 Jul 15 13:50 030_rackspace_deploment_kustomize
+-rw-rw-r-- 1 ant ant   41 Jul 14 18:49 main
+
+./.git/refs/remotes:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 13 13:25 .
+drwxrwxr-x 5 ant ant 4096 Jul 13 12:03 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 11:31 origin
+
+./.git/refs/remotes/origin:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 15 11:31 .
+drwxrwxr-x 3 ant ant 4096 Jul 13 13:25 ..
+-rw-rw-r-- 1 ant ant   41 Jul 15 11:31 027_add_admin
+-rw-rw-r-- 1 ant ant   41 Jul 14 17:04 main
+
+./.git/refs/tags:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 13 12:02 .
+drwxrwxr-x 5 ant ant 4096 Jul 13 12:03 ..
+
+./.github:
+total 12
+drwxrwxr-x  3 ant ant 4096 Jul 15 17:45 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:47 workflows
+
+./.github/workflows:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:47 .
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:45 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:46 ci-agent-chassis.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:46 ci-auth-service.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:45 ci-common.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:46 ci-core-manager.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:47 ci-image-generator-adapter.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:46 ci-reasoning-agent.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:46 ci-web-search-adapter.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:47 deploy-infrastructure.yaml
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:47 deploy-services.yaml
+
+./.idea:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 15 16:39 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+-rw-rw-r--  1 ant ant  322 Jul 15 16:38 agent-chassis.iml
+-rw-rw-r--  1 ant ant  278 Jul 13 12:09 modules.xml
+
+./internal:
+total 24
+drwxrwxr-x  6 ant ant 4096 Jul 13 11:56 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+drwxrwxr-x  4 ant ant 4096 Jul 13 11:56 adapters
+drwxrwxr-x  3 ant ant 4096 Jul 13 11:56 agents
+drwxrwxr-x 10 ant ant 4096 Jul 13 11:56 auth-service
+drwxrwxr-x  6 ant ant 4096 Jul 14 19:07 core-manager
+
+./internal/adapters:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 13 11:56 .
+drwxrwxr-x 6 ant ant 4096 Jul 13 11:56 ..
+drwxrwxr-x 2 ant ant 4096 Jul 14 11:36 imagegenerator
+drwxrwxr-x 2 ant ant 4096 Jul 13 15:33 websearch
+
+./internal/adapters/imagegenerator:
+total 20
+drwxrwxr-x 2 ant ant 4096 Jul 14 11:36 .
+drwxrwxr-x 4 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r-- 1 ant ant 9892 Jul 14 11:36 adapter.go
+
+./internal/adapters/websearch:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 13 15:33 .
+drwxrwxr-x 4 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r-- 1 ant ant 6362 Jul 13 15:33 adapter.go
+
+./internal/agents:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jul 13 11:56 .
+drwxrwxr-x 6 ant ant 4096 Jul 13 11:56 ..
+drwxrwxr-x 2 ant ant 4096 Jul 13 15:33 reasoning
+
+./internal/agents/reasoning:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 13 15:33 .
+drwxrwxr-x 3 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r-- 1 ant ant 6311 Jul 13 15:33 agent.go
+
+./internal/auth-service:
+total 40
+drwxrwxr-x 10 ant ant 4096 Jul 13 11:56 .
+drwxrwxr-x  6 ant ant 4096 Jul 13 11:56 ..
+drwxrwxr-x  2 ant ant 4096 Jul 14 19:55 admin
+drwxrwxr-x  2 ant ant 4096 Jul 14 17:36 auth
+drwxrwxr-x  2 ant ant 4096 Jul 14 19:37 gateway
+drwxrwxr-x  2 ant ant 4096 Jul 13 15:29 jwt
+drwxrwxr-x  2 ant ant 4096 Jul 13 15:24 middleware
+drwxrwxr-x  2 ant ant 4096 Jul 13 11:56 project
+drwxrwxr-x  2 ant ant 4096 Jul 15 10:53 subscription
+drwxrwxr-x  2 ant ant 4096 Jul 14 19:10 user
+
+./internal/auth-service/admin:
+total 40
+drwxrwxr-x  2 ant ant  4096 Jul 14 19:55 .
+drwxrwxr-x 10 ant ant  4096 Jul 13 11:56 ..
+-rw-rw-r--  1 ant ant  7576 Jul 14 19:55 handlers.go
+-rw-rw-r--  1 ant ant   589 Jul 13 11:56 repository.go
+-rw-rw-r--  1 ant ant 17589 Jul 14 19:52 user_management.go
+
+./internal/auth-service/auth:
+total 36
+drwxrwxr-x  2 ant ant 4096 Jul 14 17:36 .
+drwxrwxr-x 10 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r--  1 ant ant 4022 Jul 13 16:10 handlers.go
+-rw-rw-r--  1 ant ant 7164 Jul 14 17:36 handlers_test.go
+-rw-rw-r--  1 ant ant  664 Jul 13 16:10 interfaces.go
+-rw-rw-r--  1 ant ant 3910 Jul 13 13:42 middleware.go
+-rw-rw-r--  1 ant ant 4653 Jul 13 16:03 service.go
+
+./internal/auth-service/gateway:
+total 20
+drwxrwxr-x  2 ant ant 4096 Jul 14 19:37 .
+drwxrwxr-x 10 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r--  1 ant ant 3200 Jul 14 19:37 handlers.go
+-rw-rw-r--  1 ant ant 3796 Jul 13 11:56 proxy.go
+-rw-rw-r--  1 ant ant  737 Jul 13 13:42 service.go
+
+./internal/auth-service/jwt:
+total 20
+drwxrwxr-x  2 ant ant 4096 Jul 13 15:29 .
+drwxrwxr-x 10 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r--  1 ant ant  621 Jul 13 15:29 claims.go
+-rw-rw-r--  1 ant ant 5117 Jul 13 11:56 service.go
+
+./internal/auth-service/middleware:
+total 20
+drwxrwxr-x  2 ant ant 4096 Jul 13 15:24 .
+drwxrwxr-x 10 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r--  1 ant ant 1662 Jul 13 15:24 auth.go
+-rw-rw-r--  1 ant ant  989 Jul 13 11:56 cors.go
+-rw-rw-r--  1 ant ant  855 Jul 13 11:56 logging.go
+
+./internal/auth-service/project:
+total 24
+drwxrwxr-x  2 ant ant 4096 Jul 13 11:56 .
+drwxrwxr-x 10 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r--  1 ant ant 4826 Jul 13 11:56 handlers.go
+-rw-rw-r--  1 ant ant  589 Jul 13 11:56 models.go
+-rw-rw-r--  1 ant ant 3051 Jul 13 11:56 repository.go
+
+./internal/auth-service/subscription:
+total 28
+drwxrwxr-x  2 ant ant 4096 Jul 15 10:53 .
+drwxrwxr-x 10 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r--  1 ant ant 3961 Jul 15 10:53 handlers.go
+-rw-rw-r--  1 ant ant 3252 Jul 13 11:56 models.go
+-rw-rw-r--  1 ant ant 5408 Jul 14 20:03 repository.go
+-rw-rw-r--  1 ant ant 3235 Jul 13 16:03 service.go
+
+./internal/auth-service/user:
+total 44
+drwxrwxr-x  2 ant ant  4096 Jul 14 19:10 .
+drwxrwxr-x 10 ant ant  4096 Jul 13 11:56 ..
+-rw-rw-r--  1 ant ant  2152 Jul 13 11:56 handlers.go
+-rw-rw-r--  1 ant ant  2732 Jul 13 15:11 models.go
+-rw-rw-r--  1 ant ant 10210 Jul 14 19:10 repository_admin.go
+-rw-rw-r--  1 ant ant  9555 Jul 13 15:11 repository.go
+-rw-rw-r--  1 ant ant  3326 Jul 13 13:42 service.go
+
+./internal/core-manager:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 14 19:07 .
+drwxrwxr-x 6 ant ant 4096 Jul 13 11:56 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 10:57 admin
+drwxrwxr-x 2 ant ant 4096 Jul 14 20:13 api
+drwxrwxr-x 2 ant ant 4096 Jul 14 20:05 database
+drwxrwxr-x 2 ant ant 4096 Jul 13 15:45 middleware
+
+./internal/core-manager/admin:
+total 72
+drwxrwxr-x 2 ant ant  4096 Jul 15 10:57 .
+drwxrwxr-x 6 ant ant  4096 Jul 14 19:07 ..
+-rw-rw-r-- 1 ant ant 17480 Jul 14 20:11 agent_handlers.go
+-rw-rw-r-- 1 ant ant  9913 Jul 14 19:22 client_handlers.go
+-rw-rw-r-- 1 ant ant 13371 Jul 15 10:57 dashboard_handlers.go
+-rw-rw-r-- 1 ant ant 16279 Jul 14 19:23 system_handlers.go
+
+./internal/core-manager/api:
+total 20
+drwxrwxr-x 2 ant ant  4096 Jul 14 20:13 .
+drwxrwxr-x 6 ant ant  4096 Jul 14 19:07 ..
+-rw-rw-r-- 1 ant ant 10391 Jul 14 20:13 server.go
+
+./internal/core-manager/database:
+total 20
+drwxrwxr-x 2 ant ant  4096 Jul 14 20:05 .
+drwxrwxr-x 6 ant ant  4096 Jul 14 19:07 ..
+-rw-rw-r-- 1 ant ant 10163 Jul 14 20:05 personas.go
+
+./internal/core-manager/middleware:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 13 15:45 .
+drwxrwxr-x 6 ant ant 4096 Jul 14 19:07 ..
+-rw-rw-r-- 1 ant ant 5178 Jul 13 15:45 auth.go
+
+./k8s:
+total 44
+drwxrwxr-x  4 ant ant 4096 Jul 16 11:58 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+-rw-rw-r--  1 ant ant 5120 Jul 13 19:13 backup-cronjob.yaml
+-rw-rw-r--  1 ant ant  885 Jul 13 18:51 database-init-job.yaml
+-rw-rw-r--  1 ant ant  693 Jul 13 11:56 image-adapter.yaml
+-rw-rw-r--  1 ant ant 1401 Jul 13 11:56 ingress.yaml
+drwxrwxr-x  2 ant ant 4096 Jul 16 11:58 jobs
+-rw-rw-r--  1 ant ant  872 Jul 13 18:53 kafka-topics-job.yaml
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:58 monitoring
+-rw-rw-r--  1 ant ant 1025 Jul 13 11:56 secrets-template.yaml
+
+./k8s/jobs:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 16 11:58 .
+drwxrwxr-x 4 ant ant 4096 Jul 16 11:58 ..
+
+./k8s/monitoring:
+total 28
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:58 .
+drwxrwxr-x 4 ant ant 4096 Jul 16 11:58 ..
+-rw-rw-r-- 1 ant ant 1383 Jul 13 11:56 grafana-dashboard-configmap.yaml
+-rw-rw-r-- 1 ant ant 2475 Jul 13 11:56 grafana.yaml
+-rw-rw-r-- 1 ant ant  411 Jul 13 11:56 pod-monitor.yaml
+-rw-rw-r-- 1 ant ant 3209 Jul 13 11:56 prometheus-config.yaml
+-rw-rw-r-- 1 ant ant 3050 Jul 13 11:56 service-monitor.yaml
+
+./pkg:
+total 12
+drwxrwxr-x  3 ant ant 4096 Jul 13 11:56 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+drwxrwxr-x  2 ant ant 4096 Jul 15 10:53 models
+
+./pkg/models:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jul 15 10:53 .
+drwxrwxr-x 3 ant ant 4096 Jul 13 11:56 ..
+-rw-rw-r-- 1 ant ant 2371 Jul 14 11:00 contracts.go
+-rw-rw-r-- 1 ant ant 1676 Jul 15 10:53 database.go
+
+./platform:
+total 80
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:31 agentbase
+drwxrwxr-x  2 ant ant 4096 Jul 13 11:56 aiservice
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:21 config
+drwxrwxr-x  2 ant ant 4096 Jul 13 11:56 contracts
+drwxrwxr-x  3 ant ant 4096 Jul 13 13:42 database
+drwxrwxr-x  2 ant ant 4096 Jul 14 10:27 errors
+drwxrwxr-x  2 ant ant 4096 Jul 13 11:56 governance
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:24 health
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:30 infrastructure
+drwxrwxr-x  2 ant ant 4096 Jul 13 18:45 kafka
+drwxrwxr-x  2 ant ant 4096 Jul 13 15:40 logger
+drwxrwxr-x  2 ant ant 4096 Jul 14 10:25 memory
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:23 messaging
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:38 observability
+drwxrwxr-x  2 ant ant 4096 Jul 15 11:31 orchestration
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:04 resilience
+drwxrwxr-x  2 ant ant 4096 Jul 13 13:42 storage
+drwxrwxr-x  2 ant ant 4096 Jul 14 10:26 validation
+
+./platform/agentbase:
+total 24
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:31 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 4661 Jul 14 11:31 agent.go
+-rw-rw-r--  1 ant ant  915 Jul 13 16:12 agent_test.go
+-rw-rw-r--  1 ant ant 2157 Jul 14 11:30 runner.go
+
+./platform/aiservice:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 13 11:56 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 3019 Jul 13 11:56 anthropic.go
+-rw-rw-r--  1 ant ant  495 Jul 13 11:56 interface.go
+
+./platform/config:
+total 20
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:21 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 4230 Jul 14 11:21 agent_config_loader.go
+-rw-rw-r--  1 ant ant 2921 Jul 13 15:56 loader.go
+
+./platform/contracts:
+total 12
+drwxrwxr-x  2 ant ant 4096 Jul 13 11:56 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 2916 Jul 13 11:56 contracts.go
+
+./platform/database:
+total 24
+drwxrwxr-x  3 ant ant 4096 Jul 13 13:42 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+drwxrwxr-x  2 ant ant 4096 Jul 14 10:33 migrations
+-rw-rw-r--  1 ant ant 1541 Jul 13 13:42 mysql.go
+-rw-rw-r--  1 ant ant 2774 Jul 13 11:56 pgvector.go
+-rw-rw-r--  1 ant ant 1675 Jul 13 13:42 postgres.go
+
+./platform/database/migrations:
+total 40
+drwxrwxr-x 2 ant ant  4096 Jul 14 10:33 .
+drwxrwxr-x 3 ant ant  4096 Jul 13 13:42 ..
+-rw-rw-r-- 1 ant ant   150 Jul 13 11:56 001_enable_pgvector.sql
+-rw-rw-r-- 1 ant ant   643 Jul 13 11:56 002_create_templates_schema.sql
+-rw-rw-r-- 1 ant ant 10495 Jul 14 10:33 003_create_client_schema.sql
+-rw-rw-r-- 1 ant ant  1139 Jul 14 10:33 004_auth_schema.sql
+-rw-rw-r-- 1 ant ant  5453 Jul 13 11:56 005_projects_schema.sql
+
+./platform/errors:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 14 10:27 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 5467 Jul 14 10:27 errors.go
+
+./platform/governance:
+total 12
+drwxrwxr-x  2 ant ant 4096 Jul 13 11:56 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 2178 Jul 13 11:56 fuel.go
+
+./platform/health:
+total 12
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:24 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 2813 Jul 14 11:24 server.go
+
+./platform/infrastructure:
+total 12
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:30 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 2916 Jul 14 11:30 connections.go
+
+./platform/kafka:
+total 32
+drwxrwxr-x  2 ant ant 4096 Jul 13 18:45 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 1984 Jul 13 15:07 consumer.go
+-rw-rw-r--  1 ant ant  599 Jul 13 11:56 mock_producer.go
+-rw-rw-r--  1 ant ant 2067 Jul 13 15:22 producer.go
+-rw-rw-r--  1 ant ant  710 Jul 13 16:00 producer_test.go
+-rw-rw-r--  1 ant ant  243 Jul 13 15:07 types.go
+-rw-rw-r--  1 ant ant  334 Jul 13 15:07 utils.go
+
+./platform/logger:
+total 12
+drwxrwxr-x  2 ant ant 4096 Jul 13 15:40 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 1319 Jul 13 15:40 logger.go
+
+./platform/memory:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 14 10:25 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 4106 Jul 14 10:25 service.go
+
+./platform/messaging:
+total 20
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:23 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 1529 Jul 14 11:22 context.go
+-rw-rw-r--  1 ant ant 5731 Jul 14 11:23 processor.go
+
+./platform/observability:
+total 20
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:38 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 7674 Jul 14 11:38 metrics.go
+-rw-rw-r--  1 ant ant 2831 Jul 13 11:56 tracing.go
+
+./platform/orchestration:
+total 52
+drwxrwxr-x  2 ant ant  4096 Jul 15 11:31 .
+drwxrwxr-x 20 ant ant  4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 12036 Jul 15 11:06 coordinator.go
+-rw-rw-r--  1 ant ant 22768 Jul 15 11:31 coordinator_test.go
+-rw-rw-r--  1 ant ant  6411 Jul 15 11:02 state.go
+
+./platform/resilience:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 14 11:04 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 4156 Jul 14 11:04 circuit_breaker.go
+
+./platform/storage:
+total 20
+drwxrwxr-x  2 ant ant 4096 Jul 13 13:42 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 1040 Jul 13 11:56 interface.go
+-rw-rw-r--  1 ant ant 4672 Jul 13 13:42 s3.go
+
+./platform/validation:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 14 10:26 .
+drwxrwxr-x 20 ant ant 4096 Jul 14 11:29 ..
+-rw-rw-r--  1 ant ant 5834 Jul 14 10:26 workflow.go
+
+./scripts:
+total 68
+drwxrwxr-x  9 ant ant 4096 Jul 15 17:36 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:37 build
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:38 deploy
+-rw-rw-r--  1 ant ant 9128 Jul 13 19:13 deploy-system.sh
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:36 docker
+-rw-rw-r--  1 ant ant  675 Jul 14 10:33 fix_uuid_migration_files.sh
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:39 local
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:40 migration
+drwxrwxr-x  2 ant ant 4096 Jul 15 13:48 output
+-rw-rw-r--  1 ant ant 1255 Jul 14 20:19 README.setup.md
+-rw-rw-r--  1 ant ant 5903 Jul 13 11:56 setup.sh
+-rw-rw-r--  1 ant ant 2152 Jul 13 11:56 test-system.sh
+drwxrwxr-x  3 ant ant 4096 Jul 16 18:07 utils
+
+./scripts/build:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:37 .
+drwxrwxr-x 9 ant ant 4096 Jul 15 17:36 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:36 build-all-images.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:37 build-frontend.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:37 build-service.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:37 push-images.sh
+
+./scripts/deploy:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:38 .
+drwxrwxr-x 9 ant ant 4096 Jul 15 17:36 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:38 deploy-all.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:38 deploy-frontend.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:37 deploy-infrastructure.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:38 deploy-service.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:38 rollback-service.sh
+
+./scripts/docker:
+total 24
+drwxrwxr-x 2 ant ant  4096 Jul 15 17:36 .
+drwxrwxr-x 9 ant ant  4096 Jul 15 17:36 ..
+-rw-rw-r-- 1 ant ant  3569 Jul 13 19:02 docker-run-migrations.sh
+-rw-rw-r-- 1 ant ant 11106 Jul 13 19:04 seed-data.sql
+
+./scripts/local:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:39 .
+drwxrwxr-x 9 ant ant 4096 Jul 15 17:36 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:39 deploy-from-laptop.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:39 reset-dev-env.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:38 start-dev-env.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:39 stop-dev-env.sh
+
+./scripts/migration:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:40 .
+drwxrwxr-x 9 ant ant 4096 Jul 15 17:36 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:39 run-migrations.sh
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:40 seed-data.sql
+
+./scripts/output:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 13:48 .
+drwxrwxr-x 9 ant ant 4096 Jul 15 17:36 ..
+
+./scripts/utils:
+total 44
+drwxrwxr-x 3 ant ant  4096 Jul 16 18:07 .
+drwxrwxr-x 9 ant ant  4096 Jul 15 17:36 ..
+-rw-rw-r-- 1 ant ant   448 Jul 13 15:50 generate_jwt_secret.sh
+drwxrwxr-x 2 ant ant  4096 Jul 16 18:07 output_contexts
+-rwxrwxr-x 1 ant ant 24469 Jul 16 18:07 package_module.sh
+-rw-rw-r-- 1 ant ant     0 Jul 15 17:40 setup-local-registry.sh
+-rw-rw-r-- 1 ant ant  3937 Jul 13 19:06 wait-for-services.sh
+
+./scripts/utils/output_contexts:
+total 5868
+drwxrwxr-x 2 ant ant    4096 Jul 16 18:07 .
+drwxrwxr-x 3 ant ant    4096 Jul 16 18:07 ..
+-rw-rw-r-- 1 ant ant   11405 Jul 16 18:07 admin-dashboard_context.txt
+-rw-rw-r-- 1 ant ant   25376 Jul 16 18:07 agent-adapters_context.txt
+-rw-rw-r-- 1 ant ant  216648 Jul 16 18:07 agent-chassis_context.txt
+-rw-rw-r-- 1 ant ant   60844 Jul 16 18:07 agent-framework_context.txt
+-rw-rw-r-- 1 ant ant   11121 Jul 16 18:07 agent-playground_context.txt
+-rw-rw-r-- 1 ant ant   15135 Jul 16 18:07 agent-reasoning-only_context.txt
+-rw-rw-r-- 1 ant ant 2956066 Jul 16 18:07 all-in-one_context.txt
+-rw-rw-r-- 1 ant ant   25954 Jul 16 18:07 api-agents-only_context.txt
+-rw-rw-r-- 1 ant ant  260007 Jul 16 18:07 api-all_context.txt
+-rw-rw-r-- 1 ant ant  135061 Jul 16 18:07 api-auth-only_context.txt
+-rw-rw-r-- 1 ant ant   93434 Jul 16 18:07 api-core-only_context.txt
+-rw-rw-r-- 1 ant ant  329654 Jul 16 18:07 auth-service_context.txt
+-rw-rw-r-- 1 ant ant  432979 Jul 16 18:07 code-all_context.txt
+-rw-rw-r-- 1 ant ant  293315 Jul 16 18:07 core-manager_context.txt
+-rw-rw-r-- 1 ant ant   72037 Jul 16 18:07 database-auth_context.txt
+-rw-rw-r-- 1 ant ant   45620 Jul 16 18:07 database-clients_context.txt
+-rw-rw-r-- 1 ant ant   29667 Jul 16 18:07 database-schemas_context.txt
+-rw-rw-r-- 1 ant ant    4702 Jul 16 18:07 deploy-frontends_context.txt
+-rw-rw-r-- 1 ant ant    8307 Jul 16 18:07 deploy-kustomize-base_context.txt
+-rw-rw-r-- 1 ant ant  191707 Jul 16 18:07 deployments-all_context.txt
+-rw-rw-r-- 1 ant ant   31719 Jul 16 18:07 deploy-services_context.txt
+-rw-rw-r-- 1 ant ant   43041 Jul 16 18:07 deploy-terraform-modules_context.txt
+-rw-rw-r-- 1 ant ant    5385 Jul 16 18:07 dev-docker_context.txt
+-rw-rw-r-- 1 ant ant   21309 Jul 16 18:07 dev-local-env_context.txt
+-rw-rw-r-- 1 ant ant   64731 Jul 16 18:07 dev-scripts_context.txt
+-rw-rw-r-- 1 ant ant   61962 Jul 16 18:07 environment-all_context.txt
+-rw-rw-r-- 1 ant ant     715 Jul 16 18:07 frontend-admin-only_context.txt
+-rw-rw-r-- 1 ant ant    2228 Jul 16 18:07 frontend-all-apps_context.txt
+-rw-rw-r-- 1 ant ant     721 Jul 16 18:07 frontend-playground-only_context.txt
+-rw-rw-r-- 1 ant ant     211 Jul 16 18:07 frontend-shared-components_context.txt
+-rw-rw-r-- 1 ant ant     691 Jul 16 18:07 frontend-user-portal-only_context.txt
+-rw-rw-r-- 1 ant ant    9793 Jul 16 18:07 infra-cluster-provisioning_context.txt
+-rw-rw-r-- 1 ant ant   40005 Jul 16 18:07 infra-kafka-stack_context.txt
+-rw-rw-r-- 1 ant ant       0 Jul 16 18:07 infra-kustomize-ingress_context.txt
+-rw-rw-r-- 1 ant ant    3927 Jul 16 18:07 infra-kustomize-kafka-instance_context.txt
+-rw-rw-r-- 1 ant ant   17703 Jul 16 18:07 infra-terraform-environment_context.txt
+-rw-rw-r-- 1 ant ant   26206 Jul 16 18:07 infra-terraform-kafka-modules_context.txt
+-rw-rw-r-- 1 ant ant    5753 Jul 16 18:07 infra-terraform-rackspace-module_context.txt
+-rw-rw-r-- 1 ant ant   28588 Jul 16 18:07 platform-core_context.txt
+-rw-rw-r-- 1 ant ant   40164 Jul 16 18:07 platform-data_context.txt
+-rw-rw-r-- 1 ant ant   19271 Jul 16 18:07 platform-messaging_context.txt
+-rw-rw-r-- 1 ant ant   23201 Jul 16 18:07 platform-observability_context.txt
+-rw-rw-r-- 1 ant ant  210987 Jul 16 18:07 reasoning-agent_context.txt
+-rw-rw-r-- 1 ant ant    5342 Jul 16 18:07 test-all_context.txt
+-rw-rw-r-- 1 ant ant    5342 Jul 16 18:07 test-e2e_context.txt
+-rw-rw-r-- 1 ant ant    5342 Jul 16 18:07 test-integration_context.txt
+-rw-rw-r-- 1 ant ant   12611 Jul 16 18:07 user-frontend_context.txt
+
+./tests:
+total 16
+drwxrwxr-x  4 ant ant 4096 Jul 15 17:44 .
+drwxrwxr-x 17 ant ant 4096 Jul 16 18:39 ..
+drwxrwxr-x  4 ant ant 4096 Jul 15 17:44 e2e
+drwxrwxr-x  5 ant ant 4096 Jul 15 17:45 integration
+
+./tests/e2e:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:44 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:44 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:44 fixtures
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:44 scenarios
+
+./tests/e2e/fixtures:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:44 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:44 ..
+
+./tests/e2e/scenarios:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:44 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:44 ..
+
+./tests/integration:
+total 20
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:45 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:44 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:45 agents
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:44 auth-service
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:45 core-manager
+
+./tests/integration/agents:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:45 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:45 ..
+
+./tests/integration/auth-service:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:44 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:45 ..
+
+./tests/integration/core-manager:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:45 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:45 ..

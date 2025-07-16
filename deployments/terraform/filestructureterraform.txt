@@ -1,0 +1,465 @@
+.:
+total 16
+drwxrwxr-x  4 ant ant 4096 Jul 16 19:17 .
+drwxrwxr-x  5 ant ant 4096 Jul 15 17:09 ..
+drwxrwxr-x  4 ant ant 4096 Jul 15 17:34 environments
+-rw-rw-r--  1 ant ant    0 Jul 16 19:17 filestructureterraform.txt
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 modules
+
+./environments:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:34 .
+drwxrwxr-x 4 ant ant 4096 Jul 16 19:17 ..
+drwxrwxr-x 4 ant ant 4096 Jul 16 16:35 development
+drwxrwxr-x 3 ant ant 4096 Jul 15 17:24 production
+
+./environments/development:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:34 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:34 local
+drwxrwxr-x 6 ant ant 4096 Jul 16 16:35 uk_dev
+
+./environments/development/local:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:34 .
+drwxrwxr-x 4 ant ant 4096 Jul 16 16:35 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+
+./environments/development/uk_dev:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 4 ant ant 4096 Jul 16 16:35 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:35 010-infrastructure
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:35 020-ingress-nginx
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:36 030-strimzi-operator
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:36 040-kafka-cluster
+
+./environments/development/uk_dev/010-infrastructure:
+total 24
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 6 ant ant 4096 Jul 16 16:35 ..
+-rw-rw-r-- 1 ant ant 1703 Jun 18 15:53 main.tf
+-rw-rw-r-- 1 ant ant  432 Jun  2 14:51 outputs.tf
+-rw-rw-r-- 1 ant ant  119 Jun  2 14:52 providers.tf
+-rw-rw-r-- 1 ant ant    0 Jun  2 14:52 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jun  2 16:35 terraform.tfvars.secret
+-rw-rw-r-- 1 ant ant 1044 Jun  9 16:07 variables.tf
+
+./environments/development/uk_dev/020-ingress-nginx:
+total 24
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:35 .
+drwxrwxr-x 6 ant ant 4096 Jul 16 16:35 ..
+-rw-rw-r-- 1 ant ant 1073 Jun  2 15:20 main.tf
+-rw-rw-r-- 1 ant ant  490 Jun  2 15:20 outputs.tf
+-rw-rw-r-- 1 ant ant  223 Jun  2 15:23 providers.tf
+-rw-rw-r-- 1 ant ant    0 Jun  2 14:52 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jun  2 16:35 terraform.tfvars.secret
+-rw-rw-r-- 1 ant ant 1011 Jun  9 16:09 variables.tf
+
+./environments/development/uk_dev/030-strimzi-operator:
+total 44
+drwxrwxr-x 2 ant ant  4096 Jul 16 16:36 .
+drwxrwxr-x 6 ant ant  4096 Jul 16 16:35 ..
+-rw-rw-r-- 1 ant ant  1292 Jun  2 16:58 main.tf
+-rw-rw-r-- 1 ant ant   373 Jun  2 17:06 outputs.tf
+-rw-rw-r-- 1 ant ant   159 Jun  2 15:54 providers.tf
+-rw-rw-r-- 1 ant ant  2645 Jun 17 20:36 strimzi-rbac-terraform.tf
+-rw-rw-r-- 1 ant ant 13018 Jun 24 21:42 terraform.tfstate
+-rw-rw-r-- 1 ant ant     0 Jun  2 14:52 terraform.tfvars
+-rw-rw-r-- 1 ant ant     0 Jun  2 16:35 terraform.tfvars.secret
+-rw-rw-r-- 1 ant ant  1290 Jun  9 16:09 variables.tf
+
+./environments/development/uk_dev/040-kafka-cluster:
+total 28
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:36 .
+drwxrwxr-x 6 ant ant 4096 Jul 16 16:35 ..
+-rw-rw-r-- 1 ant ant  399 Jun  9 16:09 main.tf
+-rw-rw-r-- 1 ant ant  680 Jun  2 15:59 outputs.tf
+-rw-rw-r-- 1 ant ant  306 Jun  2 17:28 providers.tf
+-rw-rw-r-- 1 ant ant 1342 Jun 24 21:42 terraform.tfstate
+-rw-rw-r-- 1 ant ant    0 Jun  2 14:52 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jun  2 16:35 terraform.tfvars.secret
+-rw-rw-r-- 1 ant ant 1075 Jun 18 20:37 variables.tf
+
+./environments/production:
+total 12
+drwxrwxr-x  3 ant ant 4096 Jul 15 17:24 .
+drwxrwxr-x  4 ant ant 4096 Jul 15 17:34 ..
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 uk001
+
+./environments/production/uk001:
+total 52
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 .
+drwxrwxr-x  3 ant ant 4096 Jul 15 17:24 ..
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:31 010-infrastructure
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:32 020-ingress-nginx
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:33 030-strimzi-operator
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:34 040-kafka-cluster
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:26 050-storage
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:26 060-databases
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:27 070-database-schemas
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:27 080-kafka-topics
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:28 090-monitoring
+-rw-rw-r--  1 ant ant   20 Jul 15 17:34 README.md
+drwxrwxr-x  5 ant ant 4096 Jul 15 17:32 services
+
+./environments/production/uk001/010-infrastructure:
+total 56
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:31 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant  290 May 22 17:39 backend.tf
+-rw-rw-r--  1 ant ant 1512 May 23 09:10 main.tf
+-rw-rw-r--  1 ant ant 2563 May 22 17:39 outputs_nodes.tf
+-rw-rw-r--  1 ant ant  639 May 22 17:39 outputs.tf
+-rw-rw-r--  1 ant ant  167 May 22 17:39 providers.tf
+-rw-rw-r--  1 ant ant 9300 Jun  2 12:56 terraform.tfstate.uk001-prod-cluster
+-rw-rw-r--  1 ant ant  860 Jun  2 12:55 terraform.tfvars
+-rw-rw-r--  1 ant ant  176 May 22 17:39 terraform.tfvars.secret
+-rw-rw-r--  1 ant ant 1996 May 28 17:22 variables.tf
+-rw-rw-r--  1 ant ant  518 May 22 17:39 versions.tf
+
+./environments/production/uk001/020-ingress-nginx:
+total 36
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:32 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant  823 May 22 17:40 main.tf
+-rw-rw-r--  1 ant ant  223 May 22 17:41 outputs.tf
+-rw-rw-r--  1 ant ant  251 May 22 17:39 providers.tf
+-rw-rw-r--  1 ant ant  178 May 22 17:39 terraform.tfvars
+-rw-rw-r--  1 ant ant   84 May 22 17:39 terraform.tfvars.secret
+-rw-rw-r--  1 ant ant 1087 May 22 17:39 variables.tf
+-rw-rw-r--  1 ant ant  289 May 22 17:39 versions.tf
+
+./environments/production/uk001/030-strimzi-operator:
+total 48
+drwxrwxr-x  2 ant ant  4096 Jul 16 16:33 .
+drwxrwxr-x 12 ant ant  4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant  4318 May 22 17:59 main.tf
+-rw-rw-r--  1 ant ant     0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant   289 May 22 17:58 providers.tf
+-rw-rw-r--  1 ant ant 10305 May 29 12:09 terraform.tfstate
+-rw-rw-r--  1 ant ant   358 May 22 17:58 terraform.tfvars
+-rw-rw-r--  1 ant ant    88 May 22 17:58 terraform.tfvars.secret
+-rw-rw-r--  1 ant ant   989 May 22 18:02 variables.tf
+-rw-rw-r--  1 ant ant   355 May 22 17:58 versions.tf
+
+./environments/production/uk001/040-kafka-cluster:
+total 36
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:34 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant  440 May 22 18:06 main.tf
+-rw-rw-r--  1 ant ant  918 Jun  2 17:29 outputs.tf
+-rw-rw-r--  1 ant ant  212 May 10 16:51 providers.tf
+-rw-rw-r--  1 ant ant  339 Jun 18 20:37 terraform.tfvars
+-rw-rw-r--  1 ant ant   86 May 10 19:16 terraform.tfvars.secret
+-rw-rw-r--  1 ant ant 1012 Jun 18 20:37 variables.tf
+-rw-rw-r--  1 ant ant  470 May 10 16:35 versions.tf
+
+./environments/production/uk001/050-storage:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:26 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/060-databases:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:26 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/070-database-schemas:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:27 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/080-kafka-topics:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:27 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/090-monitoring:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:28 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/services:
+total 20
+drwxrwxr-x  5 ant ant 4096 Jul 15 17:32 .
+drwxrwxr-x 12 ant ant 4096 Jul 15 17:34 ..
+drwxrwxr-x  6 ant ant 4096 Jul 15 17:32 agents
+drwxrwxr-x  4 ant ant 4096 Jul 15 17:31 core-platform
+drwxrwxr-x  5 ant ant 4096 Jul 15 17:33 frontends
+
+./environments/production/uk001/services/agents:
+total 24
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:32 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:32 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 2210-agent-chassis
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 2220-reasoning-agent
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 2230-web-search-adapter
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:31 2240-image-generator-adapter
+
+./environments/production/uk001/services/agents/2210-agent-chassis:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:32 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/services/agents/2220-reasoning-agent:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:32 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/services/agents/2230-web-search-adapter:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:30 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:32 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/services/agents/2240-image-generator-adapter:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:31 .
+drwxrwxr-x 6 ant ant 4096 Jul 15 17:32 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/services/core-platform:
+total 16
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:31 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:32 ..
+drwxrwxr-x 2 ant ant 4096 Jul 16 13:10 1110-auth-service
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:29 1120-core-manager
+
+./environments/production/uk001/services/core-platform/1110-auth-service:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 16 13:10 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:31 ..
+-rw-rw-r-- 1 ant ant 1370 Jul 16 13:10 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/services/core-platform/1120-core-manager:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:29 .
+drwxrwxr-x 4 ant ant 4096 Jul 15 17:31 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/services/frontends:
+total 20
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:33 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:32 ..
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:33 3310-admin-dashboard
+drwxrwxr-x 2 ant ant 4096 Jul 16 13:12 3320-user-portal
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:33 3330-agent-playground
+
+./environments/production/uk001/services/frontends/3310-admin-dashboard:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:33 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:33 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/services/frontends/3320-user-portal:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 16 13:12 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:33 ..
+-rw-rw-r-- 1 ant ant  595 Jul 16 13:12 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./environments/production/uk001/services/frontends/3330-agent-playground:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jul 15 17:33 .
+drwxrwxr-x 5 ant ant 4096 Jul 15 17:33 ..
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:24 terraform.tfvars
+-rw-rw-r-- 1 ant ant    0 Jul 15 17:23 variables.tf
+
+./modules:
+total 44
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 .
+drwxrwxr-x  4 ant ant 4096 Jul 16 19:17 ..
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 k8s-job-runner
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:29 kafka-cluster
+drwxrwxr-x  2 ant ant 4096 Jul 16 13:26 kustomize-apply
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 mysql-instance
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:28 nginx-ingress
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 postgres-instance
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:58 rackspace-kubernetes
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:24 s3-buckets
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:25 strimzi-operator
+
+./modules/k8s-job-runner:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./modules/kafka-cluster:
+total 36
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:29 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:29 config
+-rw-rw-r--  1 ant ant  744 Jun  2 17:26 main.tf
+-rw-rw-r--  1 ant ant  729 May  9 20:03 outputs.tf
+-rw-rw-r--  1 ant ant  144 May 10 16:38 providers.tf
+-rw-rw-r--  1 ant ant 1953 May  9 12:42 README.md
+-rw-rw-r--  1 ant ant    0 May  9 20:04 terraform.tfvars
+-rw-rw-r--  1 ant ant  895 Jun  2 17:25 variables.tf
+-rw-rw-r--  1 ant ant  337 May 10 16:35 versions.tf
+
+./modules/kafka-cluster/config:
+total 40
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:29 .
+drwxrwxr-x 3 ant ant 4096 Jul 16 16:29 ..
+-rw-rw-r-- 1 ant ant 1230 Jun 23 17:42 kafka-cluster-cr-dev.yaml
+-rw-rw-r-- 1 ant ant 1265 Jun 18 09:48 kafka-cluster-cr.yaml
+-rw-rw-r-- 1 ant ant 1125 Jun 18 09:48 kafka-kraft-cluster.yaml
+-rw-rw-r-- 1 ant ant  814 Jun 23 17:39 kafka-temp-fix.yaml
+-rw-rw-r-- 1 ant ant  799 Jun 18 09:48 kafkauser-permissive-test.yaml
+-rw-rw-r-- 1 ant ant  463 Jun 18 09:48 kafkauser-test.yaml
+-rw-rw-r-- 1 ant ant 1775 Jun 18 09:48 personae-app-anonymous-v2.yaml
+-rw-rw-r-- 1 ant ant 2046 Jun 18 09:48 personae-app-anonymous.yaml
+
+./modules/kustomize-apply:
+total 16
+drwxrwxr-x  2 ant ant 4096 Jul 16 13:26 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant  741 Jul 16 13:07 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant  764 Jul 16 13:26 variables.tf
+
+./modules/mysql-instance:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./modules/nginx-ingress:
+total 32
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:28 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:28 config
+-rw-rw-r--  1 ant ant 1678 May 20 15:41 main.tf
+-rw-rw-r--  1 ant ant 1262 May 10 19:01 outputs.tf
+-rw-rw-r--  1 ant ant    0 May  9 19:28 providers.tf
+-rw-rw-r--  1 ant ant   23 May  9 18:23 terraform.tfvars
+-rw-rw-r--  1 ant ant  808 May  9 19:30 variables.tf
+-rw-rw-r--  1 ant ant  289 May  9 19:30 versions.tf
+
+./modules/nginx-ingress/config:
+total 12
+drwxrwxr-x 2 ant ant 4096 Jul 16 16:28 .
+drwxrwxr-x 3 ant ant 4096 Jul 16 16:28 ..
+-rw-rw-r-- 1 ant ant 2881 May 20 15:36 ingress-nginx-values.yaml
+
+./modules/postgres-instance:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:23 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./modules/rackspace-kubernetes:
+total 32
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:58 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant 1722 Jul 16 16:58 main.tf
+-rw-rw-r--  1 ant ant  567 May  9 19:22 outputs.tf
+-rw-rw-r--  1 ant ant    0 May  9 19:25 providers.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:24 README.md
+-rw-rw-r--  1 ant ant 4874 May  9 12:42 terraform.tfvars.secret
+-rw-rw-r--  1 ant ant 2562 Jul 16 16:55 variables.tf
+-rw-rw-r--  1 ant ant  151 May  9 18:23 versions.tf
+
+./modules/s3-buckets:
+total 8
+drwxrwxr-x  2 ant ant 4096 Jul 15 17:24 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 main.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 outputs.tf
+-rw-rw-r--  1 ant ant    0 Jul 15 17:23 variables.tf
+
+./modules/strimzi-operator:
+total 36
+drwxrwxr-x  3 ant ant 4096 Jul 16 16:25 .
+drwxrwxr-x 11 ant ant 4096 Jul 15 17:22 ..
+-rw-rw-r--  1 ant ant  806 Jun 17 19:48 main.tf
+-rw-rw-r--  1 ant ant  306 May  9 19:54 outputs.tf
+-rw-rw-r--  1 ant ant  174 May 23 08:45 providers.tf
+-rw-rw-r--  1 ant ant  541 May  9 12:42 README.md
+drwxrwxr-x  2 ant ant 4096 Jul 16 16:25 strimzi-yaml-0.45.0
+-rw-rw-r--  1 ant ant  893 May  9 19:53 variables.tf
+-rw-rw-r--  1 ant ant  272 May 10 16:35 versions.tf
+
+./modules/strimzi-operator/strimzi-yaml-0.45.0:
+total 1164
+drwxrwxr-x 2 ant ant   4096 Jul 16 16:25 .
+drwxrwxr-x 3 ant ant   4096 Jul 16 16:25 ..
+-rw-r--r-- 1 ant ant    106 May  9 12:42 010-ServiceAccount-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant   4833 May  9 12:42 020-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    333 May  9 12:42 020-RoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant    336 May  9 12:42 021-ClusterRoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant   1149 May  9 12:42 021-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    937 May  9 12:42 022-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    354 May  9 12:42 022-RoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant  10258 May 13 15:23 023-amended-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    338 May  9 12:42 023-RoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant    587 May  9 12:42 030-ClusterRoleBinding-strimzi-cluster-operator-kafka-broker-delegation.yaml
+-rw-r--r-- 1 ant ant    396 May  9 12:42 030-ClusterRole-strimzi-kafka-broker.yaml
+-rw-r--r-- 1 ant ant   1363 May  9 12:42 031-ClusterRole-strimzi-entity-operator.yaml
+-rw-r--r-- 1 ant ant    591 May  9 12:42 031-RoleBinding-strimzi-cluster-operator-entity-operator-delegation.yaml
+-rw-r--r-- 1 ant ant    634 May  9 12:42 033-ClusterRoleBinding-strimzi-cluster-operator-kafka-client-delegation.yaml
+-rw-r--r-- 1 ant ant    471 May  9 12:42 033-ClusterRole-strimzi-kafka-client.yaml
+-rw-r--r-- 1 ant ant 480170 May  9 12:42 040-Crd-kafka.yaml
+-rw-r--r-- 1 ant ant 136179 May  9 12:42 041-Crd-kafkaconnect.yaml
+-rw-r--r-- 1 ant ant   5170 May  9 12:42 042-Crd-strimzipodset.yaml
+-rw-r--r-- 1 ant ant  18034 May  9 12:42 043-Crd-kafkatopic.yaml
+-rw-r--r-- 1 ant ant  38528 May  9 12:42 044-Crd-kafkauser.yaml
+-rw-r--r-- 1 ant ant  84313 May  9 12:42 045-Crd-kafkamirrormaker.yaml
+-rw-r--r-- 1 ant ant  79372 May  9 12:42 046-Crd-kafkabridge.yaml
+-rw-r--r-- 1 ant ant   7373 May  9 12:42 047-Crd-kafkaconnector.yaml
+-rw-r--r-- 1 ant ant 143431 May  9 12:42 048-Crd-kafkamirrormaker2.yaml
+-rw-r--r-- 1 ant ant   8672 May  9 12:42 049-Crd-kafkarebalance.yaml
+-rw-r--r-- 1 ant ant  63056 May  9 12:42 04A-Crd-kafkanodepool.yaml
+-rw-r--r-- 1 ant ant    992 May  9 12:42 050-ConfigMap-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant   4424 May  9 12:42 060-Deployment-strimzi-cluster-operator.yaml
+-rw-rw-r-- 1 ant ant    344 May  9 12:42 added-clusterrolebinding-operator-watched.yaml
