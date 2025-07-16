@@ -1,22 +1,30 @@
 #!/bin/bash
 #
-# package_module.sh - A script to package the relevant files for a specific
-#                     microservice or module into a single context file for AI assistants.
+# package_context.sh - A script to package the relevant files for a specific
+#                      microservice, frontend, or infrastructure component into a
+#                      single context file for AI assistants.
 #
-# Usage: ./scripts/package_module.sh [-o /path/to/output_dir] [module_name]
-# Example: ./scripts/package_module.sh all
+# This script is designed to work with the new agent-managed project structure.
+#
+# Usage: ./scripts/utils/package_context.sh [-o /path/to/output_dir] [component_name]
+# Example: ./scripts/utils/package_context.sh auth-service
+# Example: ./scripts/utils/package_context.sh user-frontend
 
 set -e
 
 # --- Self-locating Logic ---
+# Ensures the script can be run from anywhere in the project.
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-PROJECT_ROOT=$( dirname "$SCRIPT_DIR" )
+PROJECT_ROOT=$( realpath "$SCRIPT_DIR/../../" )
 cd "$PROJECT_ROOT"
 
 # --- Configuration ---
-DEFAULT_OUTPUT_DIR="./output"
+DEFAULT_OUTPUT_DIR="./output_contexts"
+ENVIRONMENT="production"
+REGION="uk001"
 
 # --- Main Functions ---
+# Helper function to write a single file's content to the output.
 function write_file() {
   local file_path=$1
   local output_file=$2
@@ -27,10 +35,12 @@ function write_file() {
   fi
 }
 
+# Helper function to write all files in a directory to the output.
 function write_directory() {
   local dir_path=$1
   local output_file=$2
   if [ -d "$dir_path" ]; then
+    # Using find with -print0 and while read is safe for filenames with spaces.
     while IFS= read -r -d $'\0' file; do
       write_file "$file" "$output_file"
     done < <(find "$dir_path" -type f -print0)
@@ -50,139 +60,168 @@ while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
   shift
 done
 
-MODULE_NAME=$1
+COMPONENT_NAME=$1
 
-if [ -z "$MODULE_NAME" ]; then
-  echo "Usage: $0 [-o /path/to/output_dir] [module_name]"
-  echo "Please provide the name of the module to package."
+# --- Help and Usage ---
+function show_help() {
+  echo "Usage: $0 [-o /path/to/output_dir] [component_name]"
+  echo "Please provide the name of the component to package."
   echo ""
-  echo "Available modules:"
-  echo "  - all" # <<< CHANGE: Added 'all' to the list
-  echo "  - platform"
+  echo "Available components:"
+  echo "  - all                     # All project files"
+  echo "  - platform                # Shared Go platform code"
+  echo "  - deployment-all          # All deployment configurations (Terraform & Kustomize)"
+  echo ""
+  echo "  # Backend Services"
   echo "  - auth-service"
   echo "  - core-manager"
   echo "  - agent-chassis"
   echo "  - reasoning-agent"
-  echo "  - image-generator-adapter"
-  echo "  - web-search-adapter"
-  echo "  - deployment"
+  echo ""
+  echo "  # Frontend Applications"
+  echo "  - user-frontend"
+  echo "  - admin-dashboard"
+  echo ""
+  echo "  # Infrastructure Layers"
+  echo "  - infra-cluster           # The core Rackspace Kubernetes cluster"
+  echo "  - infra-kafka             # The Kafka cluster deployment"
+}
+
+
+if [ -z "$COMPONENT_NAME" ]; then
+  show_help
   exit 1
 fi
 
 mkdir -p "$OUTPUT_DIR"
-OUTPUT_FILE="${OUTPUT_DIR}/${MODULE_NAME}_context.txt"
+OUTPUT_FILE="${OUTPUT_DIR}/${COMPONENT_NAME}_context.txt"
 > "$OUTPUT_FILE"
 
-echo "Packaging module '$MODULE_NAME' into $OUTPUT_FILE..."
+echo "Packaging component '$COMPONENT_NAME' into $OUTPUT_FILE..."
 
-# Core shared files (almost always needed)
-SHARED_DIRS=("platform/")
-SHARED_FILES=(
-  "k8s/namespace.yaml"
-  "k8s/configmap-common.yaml"
-  "k8s/secrets-template.yaml"
-  "k8s/rbac-security.yaml"
-  "k8s/network-policies.yaml"
-  "k8s/jobs/kafka-topics-job.yaml"
-  "k8s/jobs/database-init-job.yaml"
-  "k8s/kafka.yaml"
-  "Makefile"
-)
+# --- Component Definitions ---
+# Each case defines the specific source code, build, and deployment files
+# that make up a complete, independent component.
 
-# --- Module Definitions ---
-case "$MODULE_NAME" in
-  # <<< CHANGE: Added the 'all' case
+# Shared files are included where necessary to provide full context.
+SHARED_PLATFORM_CODE=("platform/" "pkg/")
+SHARED_DEPLOYMENT_MODULES=("deployments/terraform/modules/kustomize-apply/")
+SHARED_KUSTOMIZE_BASE=("deployments/kustomize/base/")
+SHARED_ROOT_FILES=("Makefile" "go.mod" "go.sum" "docker-compose.yaml")
+
+case "$COMPONENT_NAME" in
   all)
-    # Define all top-level source directories and root-level files
     MODULE_DIRS=(
-      "cmd/"
-      "configs/"
-      "internal/"
-      "k8s/"
-      "pkg/"
-      "platform/"
-      "scripts/"
+      "cmd/" "configs/" "internal/" "pkg/" "platform/" "build/"
+      "deployments/" "scripts/" "frontends/" "docs/"
     )
-    MODULE_FILES=(
-      ".env"
-      "docker-compose.yaml"
-      "Dockerfile"
-      "Makefile"
-    )
-    # The 'all' module does not need to also add the shared files
-    SHARED_DIRS=()
-    SHARED_FILES=()
+    MODULE_FILES=("${SHARED_ROOT_FILES[@]}")
     ;;
+
   platform)
-    MODULE_DIRS=("platform/")
+    MODULE_DIRS=("platform/" "pkg/")
     MODULE_FILES=()
     ;;
+
+  deployment-all)
+    MODULE_DIRS=("deployments/" "build/docker/")
+    MODULE_FILES=("Makefile")
+    ;;
+
+  # --- Backend Services ---
   auth-service)
-    MODULE_DIRS=("internal/auth-service/" "cmd/auth-service/")
+    MODULE_DIRS=(
+      "cmd/auth-service/" "internal/auth-service/"
+      "deployments/kustomize/services/auth-service/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/core-platform/110-auth-service/"
+      "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
     MODULE_FILES=(
-      "configs/auth-service.yaml"
-      "Dockerfile.auth-service"
-      "k8s/auth-service.yaml"
-      "k8s/mysql-auth.yaml"
+      "build/docker/auth-service.dockerfile" "configs/auth-service.yaml"
+      "${SHARED_ROOT_FILES[@]}"
     )
     ;;
+
   core-manager)
-    MODULE_DIRS=("internal/core-manager/" "cmd/core-manager/")
+    MODULE_DIRS=(
+      "cmd/core-manager/" "internal/core-manager/"
+      "deployments/kustomize/services/core-manager/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/core-platform/120-core-manager/"
+      "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
     MODULE_FILES=(
-      "configs/core-manager.yaml"
-      "Dockerfile.core-manager"
-      "k8s/core-manager.yaml"
-      "k8s/postgres-templates.yaml"
-      "k8s/postgres-clients.yaml"
+      "build/docker/core-manager.dockerfile" "configs/core-manager.yaml"
+      "${SHARED_ROOT_FILES[@]}"
     )
     ;;
-  agent-chassis)
-    MODULE_DIRS=("cmd/agent-chassis/")
-    MODULE_FILES=(
-      "configs/agent-chassis.yaml"
-      "Dockerfile.agent-chassis"
-      "k8s/agent-chassis.yaml"
-      "pkg/models/contracts.go"
-    )
-    ;;
+
   reasoning-agent)
-    MODULE_DIRS=("internal/agents/reasoning/" "cmd/reasoning-agent/")
+    MODULE_DIRS=(
+      "cmd/reasoning-agent/" "internal/agents/reasoning/"
+      "deployments/kustomize/services/reasoning-agent/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/agents/2220-reasoning-agent/"
+      "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
     MODULE_FILES=(
-      "configs/reasoning-agent.yaml"
-      "cmd/reasoning-agent/Dockerfile"
-      "k8s/reasoning-agent.yaml"
+      "build/docker/reasoning-agent.dockerfile" "configs/reasoning-agent.yaml"
+      "${SHARED_ROOT_FILES[@]}"
     )
     ;;
-  image-generator-adapter)
-    MODULE_DIRS=("internal/adapters/imagegenerator/" "cmd/image-generator-adapter/")
+
+  # --- Frontend Applications ---
+  user-frontend)
+    MODULE_DIRS=(
+      "frontends/user-portal/" # Assuming user-portal is the main user-frontend
+      "deployments/kustomize/frontends/user-portal/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/frontends/3320-user-portal/"
+      "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
     MODULE_FILES=(
-      "configs/image-adapter.yaml"
-      "Dockerfile.image-generator-adapter"
-      "k8s/image-generator-adapter.yaml"
-      "k8s/minio.yaml"
+      "Makefile"
     )
     ;;
-  web-search-adapter)
-    MODULE_DIRS=("internal/adapters/websearch/" "cmd/web-search-adapter/")
+
+  admin-dashboard)
+    MODULE_DIRS=(
+      "frontends/admin-dashboard/"
+      "deployments/kustomize/frontends/admin-dashboard/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/frontends/3310-admin-dashboard/"
+      "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
     MODULE_FILES=(
-      "configs/web-search-adapter.yaml"
-      "Dockerfile.web-search-adapter"
-      "k8s/web-search-adapter.yaml"
+      "Makefile"
     )
     ;;
-  deployment)
-    MODULE_DIRS=("scripts/" "k8s/")
-    MODULE_FILES=("Makefile" "docker-compose.yaml")
-    SHARED_DIRS=()
-    SHARED_FILES=()
+
+  # --- Infrastructure Layers ---
+  infra-cluster)
+    MODULE_DIRS=(
+      "deployments/terraform/modules/rackspace-kubernetes/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/010-infrastructure/"
+    )
+    MODULE_FILES=("Makefile")
     ;;
+
+  infra-kafka)
+    MODULE_DIRS=(
+      "deployments/terraform/modules/strimzi-operator/"
+      "deployments/terraform/modules/kafka-cluster/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/030-strimzi-operator/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/040-kafka-cluster/"
+      "deployments/kustomize/infrastructure/kafka/"
+    )
+    MODULE_FILES=("Makefile")
+    ;;
+
   *)
-    echo "Error: Unknown module '$MODULE_NAME'."
+    echo "Error: Unknown component '$COMPONENT_NAME'."
+    show_help
     exit 1
     ;;
 esac
 
 # --- Packaging Logic ---
+# This ensures that directories are processed before loose files.
 for dir in "${MODULE_DIRS[@]}"; do
   write_directory "$dir" "$OUTPUT_FILE"
 done
@@ -190,15 +229,6 @@ for file in "${MODULE_FILES[@]}"; do
   write_file "$file" "$OUTPUT_FILE"
 done
 
-if [ "$MODULE_NAME" != "platform" ] && [ "$MODULE_NAME" != "deployment" ] && [ "$MODULE_NAME" != "all" ]; then
-    for dir in "${SHARED_DIRS[@]}"; do
-      write_directory "$dir" "$OUTPUT_FILE"
-    done
-    for file in "${SHARED_FILES[@]}"; do
-      write_file "$file" "$OUTPUT_FILE"
-    done
-fi
-
-echo "✅ Done. Module context saved to $OUTPUT_FILE"
+echo "✅ Done. Component context saved to $OUTPUT_FILE"
 FILE_SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
 echo "📦 File size: $FILE_SIZE"
