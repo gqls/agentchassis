@@ -47,9 +47,15 @@ ALL_COMPONENTS=(
 function write_file() {
   local file_path=$1
   local output_file=$2
+  local list_only=$3
+
   if [ -f "$file_path" ]; then
     echo "filepath = ./$file_path" >> "$output_file"
-    cat "$file_path" >> "$output_file"
+    if [ "$list_only" = "true" ]; then
+      echo "[File listed only - content not included]" >> "$output_file"
+    else
+      cat "$file_path" >> "$output_file"
+    fi
     echo "-------------------------------------------------" >> "$output_file"
   fi
 }
@@ -58,12 +64,55 @@ function write_file() {
 function write_directory() {
   local dir_path=$1
   local output_file=$2
-  if [ -d "$dir_path" ]; then
-    # Using find with -print0 and while read is safe for filenames with spaces.
-    while IFS= read -r -d $'\0' file; do
-      write_file "$file" "$output_file"
-    done < <(find "$dir_path" -type f -print0)
+
+  # Check if the directory exists before trying to find files in it.
+  if [ ! -d "$dir_path" ]; then
+    echo "Warning: Directory '$dir_path' not found in '$PWD'. Skipping." >&2
+    return
   fi
+
+  # Using find with -print0 and while read is safe for filenames with spaces.
+  while IFS= read -r -d $'\0' file; do
+    # Check if the file is in a strimzi-yaml* directory
+    if [[ "$file" =~ strimzi-yaml[^/]*/[^/]+$ ]]; then
+      write_file "$file" "$output_file" "true"
+    else
+      write_file "$file" "$output_file" "false"
+    fi
+  done < <(find "$dir_path" -type f \
+    -not -path '*/.git/*' \
+    -not -path '*/.terraform/*' \
+    -not -path '*/.terraform.lock.hcl' \
+    -not -path '*/node_modules/*' \
+    -not -path '*/dist/*' \
+    -not -path '*/build/*' \
+    -not -path '*/target/*' \
+    -not -path '*/vendor/*' \
+    -not -path '*/.idea/*' \
+    -not -path '*/.vscode/*' \
+    -not -name '*.tfstate' \
+    -not -name '*.tfstate.backup' \
+    -not -name '*.log' \
+    -not -name '*.zip' \
+    -not -name '*.tar' \
+    -not -name '*.gz' \
+    -not -name '*.jar' \
+    -not -name '*.war' \
+    -not -name '*.exe' \
+    -not -name '*.dll' \
+    -not -name '*.so' \
+    -not -name '*.dylib' \
+    -not -name '*.pyc' \
+    -not -name '*.pyo' \
+    -not -name '__pycache__' \
+    -not -name '*.class' \
+    -not -name 'go.sum' \
+    -not -name 'package-lock.json' \
+    -not -name 'yarn.lock' \
+    -not -name '*.secret' \
+    -not -name '.DS_Store' \
+    -not -name 'Thumbs.db' \
+    -print0)
 }
 
 # --- Script Argument Parsing ---
@@ -304,7 +353,7 @@ for dir in "${MODULE_DIRS[@]}"; do
   write_directory "$dir" "$OUTPUT_FILE"
 done
 for file in "${MODULE_FILES[@]}"; do
-  write_file "$file" "$OUTPUT_FILE"
+  write_file "$file" "$OUTPUT_FILE" "false"
 done
 
 echo "✅ Done. Component context saved to $OUTPUT_FILE"
