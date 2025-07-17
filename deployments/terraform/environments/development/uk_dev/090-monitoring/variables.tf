@@ -1,7 +1,7 @@
 variable "monitoring_namespace" {
-  description = "The Kubernetes namespace to deploy the monitoring stack into."
+  description = "The Kubernetes namespace to deploy the dev monitoring stack into."
   type        = string
-  default     = "monitoring"
+  default     = "monitoring-dev"
 }
 
 variable "grafana_admin_password" {
