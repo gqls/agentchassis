@@ -5,61 +5,68 @@ package auth
 
 // HandleRegister godoc
 // @Summary      Register a new user
-// @Description  Creates a new user account with the provided credentials
+// @Description  Creates a new user account with the provided credentials and client association
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
 // @Param        request body RegisterRequest true "Registration details"
-// @Success      201 {object} TokenResponse "User successfully registered"
-// @Failure      400 {object} gin.H "Bad request"
-// @Failure      409 {object} gin.H "User already exists"
-// @Router       /api/v1/auth/register [post]
+// @Success      201 {object} TokenResponse "User successfully registered with tokens"
+// @Failure      400 {object} map[string]interface{} "Invalid request body or validation error"
+// @Failure      409 {object} map[string]interface{} "User already exists"
+// @Failure      500 {object} map[string]interface{} "Internal server error"
+// @Router       /auth/register [post]
 // @ID           registerUser
 
 // HandleLogin godoc
 // @Summary      User login
-// @Description  Authenticates a user and returns access tokens
+// @Description  Authenticates a user with email and password, returns access and refresh tokens
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
 // @Param        request body LoginRequest true "Login credentials"
-// @Success      200 {object} TokenResponse "Login successful"
-// @Failure      401 {object} gin.H "Invalid credentials"
-// @Router       /api/v1/auth/login [post]
+// @Success      200 {object} TokenResponse "Login successful with tokens and user info"
+// @Failure      400 {object} map[string]interface{} "Invalid request body"
+// @Failure      401 {object} map[string]interface{} "Invalid credentials"
+// @Failure      500 {object} map[string]interface{} "Internal server error"
+// @Router       /auth/login [post]
 // @ID           loginUser
 
 // HandleRefresh godoc
 // @Summary      Refresh access token
-// @Description  Uses a refresh token to obtain a new access token
+// @Description  Uses a valid refresh token to obtain a new access token and refresh token pair
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
 // @Param        request body RefreshRequest true "Refresh token"
-// @Success      200 {object} TokenResponse "Token refreshed successfully"
-// @Failure      401 {object} gin.H "Invalid refresh token"
-// @Router       /api/v1/auth/refresh [post]
+// @Success      200 {object} TokenResponse "New tokens generated successfully"
+// @Failure      400 {object} map[string]interface{} "Invalid request body"
+// @Failure      401 {object} map[string]interface{} "Invalid or expired refresh token"
+// @Failure      500 {object} map[string]interface{} "Internal server error"
+// @Router       /auth/refresh [post]
 // @ID           refreshToken
 
 // HandleValidate godoc
 // @Summary      Validate token
-// @Description  Validates an access token and returns user information
+// @Description  Validates the provided access token and returns user information if valid
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Success      200 {object} map[string]interface{} "Token is valid"
-// @Failure      401 {object} gin.H "Invalid token"
-// @Router       /api/v1/auth/validate [post]
-// @Security     BearerAuth
+// @Success      200 {object} map[string]interface{} "Token is valid with user details"
+// @Failure      401 {object} map[string]interface{} "Invalid or expired token"
+// @Failure      500 {object} map[string]interface{} "Internal server error"
+// @Router       /auth/validate [post]
+// @Security     Bearer
 // @ID           validateToken
 
 // HandleLogout godoc
 // @Summary      Logout user
-// @Description  Invalidates the current session
+// @Description  Invalidates the current session and revokes the refresh token
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Success      200 {object} gin.H "Logout successful"
-// @Failure      401 {object} gin.H "Unauthorized"
-// @Router       /api/v1/auth/logout [post]
-// @Security     BearerAuth
+// @Success      200 {object} map[string]interface{} "Logout successful"
+// @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
+// @Failure      500 {object} map[string]interface{} "Failed to logout"
+// @Router       /auth/logout [post]
+// @Security     Bearer
 // @ID           logoutUser

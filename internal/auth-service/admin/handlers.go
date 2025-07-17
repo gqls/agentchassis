@@ -1,4 +1,3 @@
-// FILE: internal/auth-service/admin/handlers.go
 package admin
 
 import (

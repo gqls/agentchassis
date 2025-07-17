@@ -1,4 +1,23 @@
 // FILE: cmd/auth-service/main.go
+
+// @title Auth Service API
+// @version 1.0
+// @description Authentication and authorization service for the AI Persona Platform
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name AI Persona Support
+// @contact.email support@persona-platform.com
+
+// @license.name Proprietary
+
+// @host localhost:8081
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
 package main
 
 import (
@@ -25,11 +44,11 @@ import (
 	"github.com/gqls/agentchassis/platform/database"
 	"github.com/gqls/agentchassis/platform/logger"
 	"github.com/rs/cors"
-	"github.com/swaggo/gin-swagger/swaggerFiles"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 
 	_ "github.com/gqls/agentchassis/cmd/auth-service/docs"
-	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func main() {
