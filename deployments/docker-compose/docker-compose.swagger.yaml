@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # Swagger UI for viewing API documentation
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: personae-swagger-ui
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./internal/auth-service/api/openapi.yaml:/openapi.yaml
+    environment:
+      SWAGGER_JSON: /openapi.yaml
+      BASE_URL: /swagger
+    networks:
+      - personae-docs
+
+  # Redocly for beautiful API documentation
+  redocly:
+    image: redocly/redoc:latest
+    container_name: personae-redoc
+    ports:
+      - "8083:80"
+    volumes:
+      - ./internal/auth-service/api/openapi.yaml:/usr/share/nginx/html/openapi.yaml
+    environment:
+      SPEC_URL: openapi.yaml
+    networks:
+      - personae-docs
+
+  # Swagger Editor for editing OpenAPI specs
+  swagger-editor:
+    image: swaggerapi/swagger-editor:latest
+    container_name: personae-swagger-editor
+    ports:
+      - "8084:8080"
+    environment:
+      SWAGGER_FILE: /openapi.yaml
+    volumes:
+      - ./internal/auth-service/api/openapi.yaml:/openapi.yaml
+    networks:
+      - personae-docs
+
+networks:
+  personae-docs:
+    driver: bridge

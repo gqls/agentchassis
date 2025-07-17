@@ -449,3 +449,38 @@ tf-destroy-all: ## Destroy everything (WARNING: This will delete everything!)
 		echo "$(RED)Destroying $$dir...$(NC)"; \
 		cd $(TERRAFORM_DIR)/$$dir && terraform destroy -auto-approve; \
 	done
+
+
+#################################
+# Swagger
+#################################
+
+# Install swagger tools
+.PHONY: install-swagger
+install-swagger:
+	go install github.com/swaggo/swag/cmd/swag@latest
+
+# Generate swagger documentation
+.PHONY: swagger
+swagger:
+	swag init -g cmd/auth-service/main.go -o cmd/auth-service/docs --parseDependency --parseInternal
+
+# Generate swagger for all services
+.PHONY: swagger-all
+swagger-all: swagger
+	@echo "Swagger documentation generated for auth-service"
+
+# Validate OpenAPI spec
+.PHONY: validate-openapi
+validate-openapi:
+	docker run --rm -v ${PWD}:/spec redocly/cli lint /spec/internal/auth-service/api/openapi.yaml
+
+# Generate API documentation (HTML)
+.PHONY: generate-api-docs
+generate-api-docs:
+	docker run --rm -v ${PWD}:/spec redocly/cli build-docs /spec/internal/auth-service/api/openapi.yaml -o /spec/docs/api-reference.html
+
+# Clean swagger generated files
+.PHONY: clean-swagger
+clean-swagger:
+	rm -rf cmd/auth-service/docs

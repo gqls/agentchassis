@@ -25,7 +25,11 @@ import (
 	"github.com/gqls/agentchassis/platform/database"
 	"github.com/gqls/agentchassis/platform/logger"
 	"github.com/rs/cors"
+	"github.com/swaggo/gin-swagger/swaggerFiles"
 	"go.uber.org/zap"
+
+	_ "github.com/gqls/agentchassis/cmd/auth-service/docs"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func main() {
@@ -204,6 +208,8 @@ func main() {
 	// WebSocket endpoint
 	router.GET("/ws", middleware.RequireAuth(jwtSvc, appLogger), gatewayHandler.HandleWebSocket)
 
+	setupSwaggerRoutes(router)
+
 	// Apply CORS middleware
 	allowedOrigins := []string{"*"} // default
 	if cfg.Custom != nil {
@@ -275,4 +281,14 @@ func wrapAdminSubscriptionHandler(fn func(*gin.Context)) gin.HandlerFunc {
 		c.Set("param_user_id", c.Param("user_id"))
 		fn(c)
 	}
+}
+
+func setupSwaggerRoutes(router *gin.Engine) {
+	// Swagger documentation route
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// Redirect /api/docs to swagger UI
+	router.GET("/api/docs", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
+	})
 }

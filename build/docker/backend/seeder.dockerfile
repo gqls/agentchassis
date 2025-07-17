@@ -1,4 +1,3 @@
-# FILE: docker/Dockerfile.seeder
 FROM alpine:latest
 
 # Install PostgreSQL client and MySQL client
