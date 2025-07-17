@@ -1,0 +1,1 @@
+# No variables needed as the path is static for this service definition.
