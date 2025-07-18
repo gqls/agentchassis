@@ -459,60 +459,127 @@ install-swagger: ## Install swagger generation tools
 	@echo "$(YELLOW)Installing swagger tools...$(NC)"
 	go install github.com/swaggo/swag/cmd/swag@latest
 
-# Generate swagger documentation
-.PHONY: swagger
-swagger: ## Generate swagger documentation for auth-service
-	@echo "$(YELLOW)Generating swagger documentation...$(NC)"
-	swag init -g cmd/auth-service/main.go -o cmd/auth-service/docs --parseDependency --parseInternal
+# Generate swagger documentation for auth-service
+.PHONY: swagger-auth
+swagger-auth: ## Generate swagger documentation for auth-service
+	@echo "$(YELLOW)Generating swagger documentation for auth-service...$(NC)"
+	@cd cmd/auth-service && swag init -g main.go -o docs --parseDependency --parseInternal --parseDepth 2
+	@echo "$(GREEN)Auth service swagger documentation generated$(NC)"
+
+# Generate swagger documentation for core-manager
+.PHONY: swagger-core
+swagger-core: ## Generate swagger documentation for core-manager
+	@echo "$(YELLOW)Generating swagger documentation for core-manager...$(NC)"
+	@cd cmd/core-manager && swag init -g main.go -o docs --parseDependency --parseInternal --parseDepth 2
+	@echo "$(GREEN)Core manager swagger documentation generated$(NC)"
 
 # Generate swagger for all services
+.PHONY: swagger
+swagger: swagger-auth swagger-core ## Generate swagger documentation for all services
+	@echo "$(GREEN)All swagger documentation generated$(NC)"
+
+# Backwards compatibility alias
 .PHONY: swagger-all
-swagger-all: swagger ## Generate swagger documentation for all services
-	@echo "$(GREEN)Swagger documentation generated for auth-service$(NC)"
+swagger-all: swagger ## Alias for swagger target
 
 # Run the comprehensive documentation generation script
 .PHONY: docs
-docs: ## Generate comprehensive API documentation
+docs: swagger ## Generate comprehensive API documentation
 	@echo "$(YELLOW)Running comprehensive documentation generation...$(NC)"
-	$(SCRIPTS_DIR)/docs/generate-docs.sh
+	@if [ -f "$(SCRIPTS_DIR)/docs/generate-docs.sh" ]; then \
+		$(SCRIPTS_DIR)/docs/generate-docs.sh; \
+	else \
+		echo "$(YELLOW)Documentation script not found, skipping$(NC)"; \
+	fi
 
 # Start swagger UI servers
 .PHONY: swagger-ui
 swagger-ui: ## Start Swagger UI, Redoc, and Swagger Editor
 	@echo "$(YELLOW)Starting documentation servers...$(NC)"
-	docker-compose -f deployments/docker-compose/docker-compose.swagger.yml up -d
-	@echo "$(GREEN)Documentation servers started:$(NC)"
-	@echo "  • Swagger UI: http://localhost:8082"
-	@echo "  • Redoc: http://localhost:8083"
-	@echo "  • Swagger Editor: http://localhost:8084"
+	@if [ -f "deployments/docker-compose/docker-compose.swagger.yml" ]; then \
+		docker-compose -f deployments/docker-compose/docker-compose.swagger.yml up -d; \
+		echo "$(GREEN)Documentation servers started:$(NC)"; \
+		echo "  • Swagger UI: http://localhost:8082"; \
+		echo "  • Redoc: http://localhost:8083"; \
+		echo "  • Swagger Editor: http://localhost:8084"; \
+	else \
+		echo "$(YELLOW)Creating swagger docker-compose file...$(NC)"; \
+		$(MAKE) create-swagger-compose; \
+		docker-compose -f deployments/docker-compose/docker-compose.swagger.yml up -d; \
+	fi
+
+# Create swagger docker-compose file if it doesn't exist
+.PHONY: create-swagger-compose
+create-swagger-compose: ## Create swagger docker-compose file
+	@mkdir -p deployments/docker-compose
+	@echo "version: '3.8'" > deployments/docker-compose/docker-compose.swagger.yml
+	@echo "services:" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "  swagger-ui:" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "    image: swaggerapi/swagger-ui" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "    ports:" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "      - \"8082:8080\"" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "    environment:" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "      SWAGGER_JSON: /docs/swagger.json" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "    volumes:" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "      - ./../../cmd/auth-service/docs:/docs" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "  redoc:" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "    image: redocly/redoc" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "    ports:" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "      - \"8083:80\"" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "    environment:" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "      SPEC_URL: /docs/swagger.json" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "    volumes:" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "      - ./../../cmd/auth-service/docs:/usr/share/nginx/html/docs" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "  swagger-editor:" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "    image: swaggerapi/swagger-editor" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "    ports:" >> deployments/docker-compose/docker-compose.swagger.yml
+	@echo "      - \"8084:8080\"" >> deployments/docker-compose/docker-compose.swagger.yml
 
 # Stop swagger UI servers
 .PHONY: swagger-down
 swagger-down: ## Stop documentation servers
 	@echo "$(YELLOW)Stopping documentation servers...$(NC)"
-	docker-compose -f deployments/docker-compose/docker-compose.swagger.yml down
+	@if [ -f "deployments/docker-compose/docker-compose.swagger.yml" ]; then \
+		docker-compose -f deployments/docker-compose/docker-compose.swagger.yml down; \
+	fi
 
-# Validate OpenAPI spec
-.PHONY: validate-openapi
-validate-openapi: ## Validate OpenAPI specification
-	@echo "$(YELLOW)Validating OpenAPI specification...$(NC)"
-	@if [ -f "internal/auth-service/api/openapi.yaml" ]; then \
-		docker run --rm -v ${PWD}:/spec redocly/cli lint /spec/internal/auth-service/api/openapi.yaml; \
-	else \
-		echo "$(YELLOW)OpenAPI spec not found at internal/auth-service/api/openapi.yaml$(NC)"; \
-		echo "Using generated swagger spec instead"; \
+# Validate swagger specs
+.PHONY: validate-swagger
+validate-swagger: ## Validate swagger specifications
+	@echo "$(YELLOW)Validating swagger specifications...$(NC)"
+	@if [ -f "cmd/auth-service/docs/swagger.json" ]; then \
+		echo "$(GREEN)Validating auth-service swagger...$(NC)"; \
+		docker run --rm -v ${PWD}/cmd/auth-service/docs:/spec redocly/cli lint /spec/swagger.json || true; \
+	fi
+	@if [ -f "cmd/core-manager/docs/swagger.json" ]; then \
+		echo "$(GREEN)Validating core-manager swagger...$(NC)"; \
+		docker run --rm -v ${PWD}/cmd/core-manager/docs:/spec redocly/cli lint /spec/swagger.json || true; \
 	fi
 
 # Generate API documentation (HTML)
 .PHONY: generate-api-docs
-generate-api-docs: ## Generate HTML API documentation
+generate-api-docs: swagger ## Generate HTML API documentation
 	@echo "$(YELLOW)Generating HTML API documentation...$(NC)"
 	@mkdir -p docs/api
-	@if [ -f "internal/auth-service/api/openapi.yaml" ]; then \
-		docker run --rm -v ${PWD}:/spec redocly/cli build-docs /spec/internal/auth-service/api/openapi.yaml -o /spec/docs/api/reference.html; \
-		echo "$(GREEN)HTML documentation generated at docs/api/reference.html$(NC)"; \
+	@if [ -f "cmd/auth-service/docs/swagger.json" ]; then \
+		docker run --rm -v ${PWD}:/app redocly/cli build-docs /app/cmd/auth-service/docs/swagger.json -o /app/docs/api/auth-service.html; \
+		echo "$(GREEN)Auth service documentation generated at docs/api/auth-service.html$(NC)"; \
+	fi
+	@if [ -f "cmd/core-manager/docs/swagger.json" ]; then \
+		docker run --rm -v ${PWD}:/app redocly/cli build-docs /app/cmd/core-manager/docs/swagger.json -o /app/docs/api/core-manager.html; \
+		echo "$(GREEN)Core manager documentation generated at docs/api/core-manager.html$(NC)"; \
+	fi
+
+# Serve API documentation locally
+.PHONY: serve-docs
+serve-docs: ## Serve API documentation locally on port 8080
+	@echo "$(YELLOW)Serving API documentation...$(NC)"
+	@if command -v python3 > /dev/null; then \
+		cd docs/api && python3 -m http.server 8080; \
 	else \
-		echo "$(YELLOW)OpenAPI spec not found, skipping HTML generation$(NC)"; \
+		echo "$(RED)Python3 not found. Please install Python3 to serve docs locally.$(NC)"; \
 	fi
 
 # Clean swagger generated files
@@ -520,9 +587,24 @@ generate-api-docs: ## Generate HTML API documentation
 clean-swagger: ## Clean swagger generated files
 	@echo "$(YELLOW)Cleaning swagger files...$(NC)"
 	rm -rf cmd/auth-service/docs
+	rm -rf cmd/core-manager/docs
 	rm -rf docs/api
 
 # Quick documentation workflow
 .PHONY: docs-quick
 docs-quick: swagger swagger-ui ## Quick swagger generation and UI startup
 	@echo "$(GREEN)Documentation ready at http://localhost:8082$(NC)"
+
+# Generate and view documentation
+.PHONY: docs-view
+docs-view: generate-api-docs ## Generate and open HTML documentation
+	@echo "$(GREEN)Opening documentation...$(NC)"
+	@if [ -f "docs/api/auth-service.html" ]; then \
+		if command -v xdg-open > /dev/null; then \
+			xdg-open docs/api/auth-service.html; \
+		elif command -v open > /dev/null; then \
+			open docs/api/auth-service.html; \
+		else \
+			echo "$(YELLOW)Please open docs/api/auth-service.html in your browser$(NC)"; \
+		fi \
+	fi
