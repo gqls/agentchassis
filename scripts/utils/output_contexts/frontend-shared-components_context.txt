@@ -1,4 +1,0 @@
-filepath = ./frontends/shared/api-client/package.json
--------------------------------------------------
-filepath = ./frontends/shared/ui-components/package.json
--------------------------------------------------

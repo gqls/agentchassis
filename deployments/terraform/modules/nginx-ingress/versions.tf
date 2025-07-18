@@ -1,4 +1,4 @@
-# terraform/modules/nginx_ingress/versions.tf
+# terraform/modules/nginx-ingress/versions.tf
 
 terraform {
   required_version = ">= 1.0"

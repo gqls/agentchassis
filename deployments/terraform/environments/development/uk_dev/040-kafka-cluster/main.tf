@@ -1,5 +1,5 @@
 module "kafka_cluster_dev" {
-  source = "../../../../modules/kafka_cluster"
+  source = "../../../../modules/kafka-cluster"
 
   kubeconfig_path         = abspath(pathexpand(var.kubeconfig_path))
   kube_context_name       = var.kube_context_name    // Pass the dev context name

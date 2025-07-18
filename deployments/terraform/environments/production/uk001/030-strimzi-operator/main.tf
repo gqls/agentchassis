@@ -20,7 +20,7 @@ resource "kubernetes_namespace" "personae_ns_for_watch" {
 }
 
 module "strimzi_operator_service" {
-  source = "../../../../modules/strimzi_operator" # Path to your reusable module
+  source = "../../../../modules/strimzi-operator" # Path to your reusable module
 
   operator_namespace    = kubernetes_namespace.operator_ns.metadata[0].name
   watched_namespaces_list = var.watched_namespaces_for_uk001

@@ -15,7 +15,7 @@ variable "kafka_cluster_cr_yaml_path_uk001" { // Changed from _sydney
   description = "Path to the Kafka CR YAML file for the uk001 instance."
   type        = string
   # This relative path should still correctly point to the shared module's config
-  default     = "../../../../modules/kafka_cluster/config/kafka-cluster-cr.yaml"
+  default     = "../../../../modules/kafka-cluster/config/kafka-cluster-cr.yaml"
 }
 
 variable "kafka_cluster_name_uk001" { // Changed from _sydney

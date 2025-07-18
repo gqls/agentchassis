@@ -1,4 +1,4 @@
-# modules/kafka_cluster/config/kafkauser-test.yaml
+# modules/kafka-cluster/config/kafkauser-test.yaml
 # test-anonymous-describe-user.yaml
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser

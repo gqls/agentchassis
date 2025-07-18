@@ -1,4 +1,4 @@
-# terraform/modules/kafka_cluster/outputs.tf
+# terraform/modules/kafka-cluster/outputs.tf
 output "cluster_name_applied" {
   description = "The name of the Kafka cluster that was applied."
   value       = var.kafka_cr_cluster_name

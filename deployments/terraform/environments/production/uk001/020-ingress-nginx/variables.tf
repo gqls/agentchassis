@@ -9,7 +9,7 @@ variable "ingress_custom_values_yaml_path" {
   description = "Path to a custom Helm values YAML file for NGINX Ingress for Sydney."
   type        = string
   # Path from this TF config to the actual YAML file in your modules directory
-  default     = "../../../../modules/nginx_ingress/config/ingress-nginx-values.yaml" # ADJUST THIS PATH
+  default     = "../../../../modules/nginx-ingress/config/ingress-nginx-values.yaml" # ADJUST THIS PATH
 }
 
 variable "ingress_target_namespace" {

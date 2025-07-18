@@ -1,6 +1,6 @@
 
 module "nginx_ingress_dev" {
-  source = "../../../../modules/nginx_ingress"
+  source = "../../../../modules/nginx-ingress"
 
   ingress_namespace    = var.ingress_nginx_dev_namespace
   helm_chart_version   = var.ingress_nginx_dev_chart_version

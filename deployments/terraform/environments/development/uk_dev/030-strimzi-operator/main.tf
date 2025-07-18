@@ -21,7 +21,7 @@ resource "kubernetes_namespace" "personae_app_ns" {
 }
 
 module "strimzi_operator" {
-  source = "../../../../modules/strimzi_operator"
+  source = "../../../../modules/strimzi-operator"
 
   operator_namespace                = kubernetes_namespace.operator_ns.metadata[0].name
   watched_namespaces_list           = var.watched_namespaces_dev

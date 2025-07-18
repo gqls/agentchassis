@@ -1,4 +1,4 @@
-# terraform/modules/nginx_ingress/variables.tf
+# terraform/modules/nginx-ingress/variables.tf
 
 variable "ingress_namespace" {
   description = "Namespace to deploy the NGINX Ingress controller into."

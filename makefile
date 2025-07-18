@@ -608,3 +608,60 @@ docs-view: generate-api-docs ## Generate and open HTML documentation
 			echo "$(YELLOW)Please open docs/api/auth-service.html in your browser$(NC)"; \
 		fi \
 	fi
+
+#################################
+# Kind Cluster Management
+#################################
+.PHONY: kind-create
+kind-create: ## Create Kind cluster for development
+	@echo "$(YELLOW)Creating Kind cluster using Terraform...$(NC)"
+	cd deployments/terraform/environments/development/uk_dev/010-infrastructure && \
+		terraform init && \
+		terraform apply -auto-approve
+
+.PHONY: kind-delete
+kind-delete: ## Delete Kind cluster
+	@echo "$(RED)Deleting Kind cluster...$(NC)"
+	cd deployments/terraform/environments/development/uk_dev/010-infrastructure && \
+		terraform destroy -auto-approve
+
+.PHONY: kind-status
+kind-status: ## Check Kind cluster status
+	@echo "$(YELLOW)Kind cluster status:$(NC)"
+	kind get clusters
+	kubectl config use-context kind-personae-dev && kubectl get nodes
+
+.PHONY: kind-load-images
+kind-load-images: ## Load Docker images into Kind
+	@echo "$(YELLOW)Loading images into Kind...$(NC)"
+	kind load docker-image $(REGISTRY)/auth-service:$(IMAGE_TAG) --name personae-dev
+	kind load docker-image $(REGISTRY)/core-manager:$(IMAGE_TAG) --name personae-dev
+	kind load docker-image $(REGISTRY)/agent-chassis:$(IMAGE_TAG) --name personae-dev
+	kind load docker-image $(REGISTRY)/reasoning-agent:$(IMAGE_TAG) --name personae-dev
+	kind load docker-image $(REGISTRY)/web-search-adapter:$(IMAGE_TAG) --name personae-dev
+	kind load docker-image $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG) --name personae-dev
+
+#################################
+# Environment Specific Helpers
+#################################
+.PHONY: use-dev-context
+use-dev-context: ## Switch to development Kubernetes context
+	kubectl config use-context kind-personae-dev
+
+.PHONY: use-prod-context
+use-prod-context: ## Switch to production Kubernetes context
+	kubectl config use-context personae-$(REGION)-prod-cluster
+
+#################################
+# Secrets Management
+#################################
+.PHONY: create-dev-secrets
+create-dev-secrets: ## Create development secrets
+	@echo "$(YELLOW)Creating development secrets...$(NC)"
+	kubectl create namespace personae-system --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create secret generic personae-dev-secrets \
+		--from-literal=clients-db-password=dev-password \
+		--from-literal=templates-db-password=dev-password \
+		--from-literal=auth-db-password=dev-password \
+		--from-literal=jwt-secret=dev-secret \
+		--namespace personae-system --dry-run=client -o yaml | kubectl apply -f -

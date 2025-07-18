@@ -1,4 +1,4 @@
-# terraform/modules/nginx_ingress/main.tf
+# terraform/modules/nginx-ingress/main.tf
 
 resource "kubernetes_namespace" "ns" {
   count = var.create_namespace ? 1 : 0 # Create namespace only if variable is true

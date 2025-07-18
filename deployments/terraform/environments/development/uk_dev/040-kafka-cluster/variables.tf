@@ -19,7 +19,7 @@ variable "kafka_namespace_dev" {
 variable "kafka_cluster_cr_yaml_path_dev" {
   description = "Path to the Kafka CR YAML file for the dev instance."
   type        = string
-  default     = "../../../../modules/kafka_cluster/config/kafka-cluster-cr-dev.yaml" // Point to your DEV version
+  default     = "../../../../modules/kafka-cluster/config/kafka-cluster-cr-dev.yaml" // Point to your DEV version
 }
 
 variable "kafka_cluster_name_dev" {

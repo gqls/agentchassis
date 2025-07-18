@@ -1,5 +1,5 @@
-# terraform/modules/nginx_ingress/outputs.tf
-# ~/projects/terraform/rackspace_generic/terraform/modules/nginx_ingress/outputs.tf
+# terraform/modules/nginx-ingress/outputs.tf
+# ~/projects/terraform/rackspace_generic/terraform/modules/nginx-ingress/outputs.tf
 
 output "namespace" {
   description = "Namespace where the ingress controller is deployed."

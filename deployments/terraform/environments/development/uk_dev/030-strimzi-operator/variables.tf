@@ -26,7 +26,7 @@ variable "strimzi_yaml_bundle_path_dev" {
   description = "Path to the Strimzi YAML files directory for dev."
   type        = string
   # Path relative to this file's directory, pointing to the module's shared Strimzi YAMLs
-  default     = "../../../../modules/strimzi_operator/strimzi-yaml-0.45.0/"
+  default     = "../../../../modules/strimzi-operator/strimzi-yaml-0.45.0/"
 }
 
 variable "strimzi_operator_deployment_yaml_filename_dev" {
