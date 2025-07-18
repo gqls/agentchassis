@@ -1,0 +1,723 @@
+filepath = ./platform/observability/metrics.go
+// FILE: platform/observability/metrics.go
+package observability
+
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"net/http"
+	"time"
+)
+
+var (
+	// Workflow metrics
+	WorkflowsStarted = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_workflows_started_total",
+		Help: "Total number of workflows started",
+	}, []string{"agent_type", "workflow_type", "client_id"})
+
+	WorkflowsCompleted = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_workflows_completed_total",
+		Help: "Total number of workflows completed",
+	}, []string{"agent_type", "workflow_type", "status", "client_id"})
+
+	WorkflowDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ai_persona_workflow_duration_seconds",
+		Help:    "Duration of workflow execution",
+		Buckets: prometheus.ExponentialBuckets(0.1, 2, 10), // 0.1s to ~100s
+	}, []string{"agent_type", "workflow_type", "status"})
+
+	// Agent metrics
+	AgentTasksReceived = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_agent_tasks_received_total",
+		Help: "Total number of tasks received by agents",
+	}, []string{"agent_type", "action"})
+
+	AgentTasksProcessed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_agent_tasks_processed_total",
+		Help: "Total number of tasks processed by agents",
+	}, []string{"agent_type", "action", "status"})
+
+	AgentProcessingDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ai_persona_agent_processing_duration_seconds",
+		Help:    "Duration of agent task processing",
+		Buckets: prometheus.ExponentialBuckets(0.01, 2, 10), // 10ms to ~10s
+	}, []string{"agent_type", "action"})
+
+	// Fuel metrics
+	FuelConsumed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_fuel_consumed_total",
+		Help: "Total fuel consumed by operations",
+	}, []string{"agent_type", "action", "client_id"})
+
+	FuelExhausted = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_fuel_exhausted_total",
+		Help: "Total number of operations that failed due to insufficient fuel",
+	}, []string{"agent_type", "action", "client_id"})
+
+	// Kafka metrics
+	KafkaMessagesProduced = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_kafka_messages_produced_total",
+		Help: "Total number of messages produced to Kafka",
+	}, []string{"topic"})
+
+	KafkaMessagesConsumed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_kafka_messages_consumed_total",
+		Help: "Total number of messages consumed from Kafka",
+	}, []string{"topic", "consumer_group"})
+
+	KafkaConsumerLag = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ai_persona_kafka_consumer_lag",
+		Help: "Current consumer lag in messages",
+	}, []string{"topic", "consumer_group", "partition"})
+
+	// Database metrics
+	DatabaseQueries = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_database_queries_total",
+		Help: "Total number of database queries",
+	}, []string{"database", "operation", "table"})
+
+	DatabaseQueryDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ai_persona_database_query_duration_seconds",
+		Help:    "Duration of database queries",
+		Buckets: prometheus.ExponentialBuckets(0.001, 2, 10), // 1ms to ~1s
+	}, []string{"database", "operation"})
+
+	// AI Service metrics
+	AIServiceRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_ai_service_requests_total",
+		Help: "Total number of AI service requests",
+	}, []string{"provider", "model", "operation"})
+
+	AIServiceTokensUsed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_ai_service_tokens_used_total",
+		Help: "Total number of tokens used by AI services",
+	}, []string{"provider", "model", "type"}) // type: input/output
+
+	AIServiceLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ai_persona_ai_service_latency_seconds",
+		Help:    "Latency of AI service requests",
+		Buckets: prometheus.ExponentialBuckets(0.1, 2, 10), // 100ms to ~100s
+	}, []string{"provider", "model", "operation"})
+
+	// Memory/Vector DB metrics
+	VectorSearchQueries = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_vector_search_queries_total",
+		Help: "Total number of vector similarity searches",
+	}, []string{"agent_type"})
+
+	VectorSearchLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ai_persona_vector_search_latency_seconds",
+		Help:    "Latency of vector similarity searches",
+		Buckets: prometheus.ExponentialBuckets(0.01, 2, 8), // 10ms to ~2.5s
+	}, []string{"agent_type"})
+
+	MemoriesStored = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_memories_stored_total",
+		Help: "Total number of memories stored",
+	}, []string{"agent_type", "memory_type"})
+
+	// Circuit breaker metrics
+	CircuitBreakerState = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ai_persona_circuit_breaker_state",
+		Help: "Current state of circuit breakers (0=closed, 1=open, 2=half-open)",
+	}, []string{"service"})
+
+	CircuitBreakerTrips = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_circuit_breaker_trips_total",
+		Help: "Total number of circuit breaker trips",
+	}, []string{"service"})
+
+	// System health metrics
+	ActiveWorkflows = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ai_persona_active_workflows",
+		Help: "Number of currently active workflows",
+	}, []string{"agent_type"})
+
+	AgentPoolSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ai_persona_agent_pool_size",
+		Help: "Current size of agent pools",
+	}, []string{"agent_type"})
+
+	SystemErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_system_errors_total",
+		Help: "Total number of system errors",
+	}, []string{"service", "error_code"})
+)
+
+// MetricsServer provides an HTTP server for Prometheus metrics
+type MetricsServer struct {
+	port string
+}
+
+// NewMetricsServer creates a new metrics server
+func NewMetricsServer(port string) *MetricsServer {
+	return &MetricsServer{port: port}
+}
+
+// Start starts the metrics HTTP server
+func (m *MetricsServer) Start() error {
+	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	return http.ListenAndServe(":"+m.port, nil)
+}
+
+// WorkflowTimer helps track workflow execution time
+type WorkflowTimer struct {
+	agentType    string
+	workflowType string
+	startTime    time.Time
+	timer        *prometheus.Timer
+}
+
+// StartWorkflowTimer starts timing a workflow execution
+func StartWorkflowTimer(agentType, workflowType string) *WorkflowTimer {
+	return &WorkflowTimer{
+		agentType:    agentType,
+		workflowType: workflowType,
+		timer: prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			WorkflowDuration.WithLabelValues(agentType, workflowType, "unknown").Observe(v)
+		})),
+	}
+}
+
+// Complete marks the workflow as completed with the given status
+func (wt *WorkflowTimer) Complete(status string) {
+	// The ObserveDuration method records the observation on the histogram provided to NewTimer.
+	// It's designed to be called once. By calling it here, we override the "unknown" status.
+	duration := wt.timer.ObserveDuration()
+	WorkflowDuration.WithLabelValues(wt.agentType, wt.workflowType, status).Observe(duration.Seconds())
+}
+
+// CircuitBreakerStateValue converts circuit breaker state to numeric value
+func CircuitBreakerStateValue(state string) float64 {
+	switch state {
+	case "closed":
+		return 0
+	case "open":
+		return 1
+	case "half-open":
+		return 2
+	default:
+		return -1
+	}
+}
+-------------------------------------------------
+filepath = ./platform/observability/tracing.go
+// FILE: platform/observability/tracing.go
+package observability
+
+import (
+	"context"
+	"fmt"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
+)
+
+// TracingConfig holds configuration for tracing
+type TracingConfig struct {
+	ServiceName    string
+	ServiceVersion string
+	Environment    string
+	Endpoint       string
+}
+
+// InitTracing initializes OpenTelemetry tracing
+func InitTracing(ctx context.Context, cfg TracingConfig, logger *zap.Logger) (func(), error) {
+	// Create OTLP exporter
+	exporter, err := otlptrace.New(
+		ctx,
+		otlptracegrpc.NewClient(
+			otlptracegrpc.WithEndpoint(cfg.Endpoint),
+			otlptracegrpc.WithInsecure(),
+		),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
+	}
+
+	// Create resource
+	res, err := resource.New(ctx,
+		resource.WithAttributes(
+			semconv.ServiceNameKey.String(cfg.ServiceName),
+			semconv.ServiceVersionKey.String(cfg.ServiceVersion),
+			attribute.String("environment", cfg.Environment),
+		),
+		resource.WithHost(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource: %w", err)
+	}
+
+	// Create tracer provider
+	tracerProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(res),
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+	)
+
+	// Set global tracer provider
+	otel.SetTracerProvider(tracerProvider)
+
+	// Set global propagator
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		),
+	)
+
+	logger.Info("Tracing initialized",
+		zap.String("service", cfg.ServiceName),
+		zap.String("endpoint", cfg.Endpoint),
+	)
+
+	// Return cleanup function
+	cleanup := func() {
+		if err := tracerProvider.Shutdown(ctx); err != nil {
+			logger.Error("Failed to shutdown tracer provider", zap.Error(err))
+		}
+	}
+
+	return cleanup, nil
+}
+
+// StartSpan creates a new span with standard attributes
+func StartSpan(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	tracer := otel.Tracer("ai-persona-system")
+	return tracer.Start(ctx, name, opts...)
+}
+
+// AddSpanAttributes adds attributes to the current span
+func AddSpanAttributes(ctx context.Context, attrs ...attribute.KeyValue) {
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(attrs...)
+}
+
+// RecordError records an error on the current span
+func RecordError(ctx context.Context, err error) {
+	span := trace.SpanFromContext(ctx)
+	span.RecordError(err)
+}
+-------------------------------------------------
+filepath = ./platform/health/server.go
+// FILE: platform/health/server.go
+package health
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
+)
+
+// CheckFunc is a health check function
+type CheckFunc func(ctx context.Context) error
+
+// Checkers is a map of named health checks
+type Checkers map[string]CheckFunc
+
+// Config for health server
+type Config struct {
+	HealthPort  string
+	MetricsPort string
+}
+
+// Server handles health and metrics endpoints
+type Server struct {
+	serviceName string
+	config      Config
+	checkers    Checkers
+	logger      *zap.Logger
+}
+
+// NewServer creates a new health server
+func NewServer(serviceName string, config Config, checkers Checkers, logger *zap.Logger) *Server {
+	return &Server{
+		serviceName: serviceName,
+		config:      config,
+		checkers:    checkers,
+		logger:      logger,
+	}
+}
+
+// Start starts the health and metrics servers
+func (s *Server) Start() {
+	go s.startMetricsServer()
+	go s.startHealthServer()
+}
+
+func (s *Server) startMetricsServer() {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+
+	s.logger.Info("Starting metrics server", zap.String("port", s.config.MetricsPort))
+	if err := http.ListenAndServe(":"+s.config.MetricsPort, mux); err != nil {
+		s.logger.Error("Metrics server failed", zap.Error(err))
+	}
+}
+
+func (s *Server) startHealthServer() {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", s.handleHealth)
+	mux.HandleFunc("/ready", s.handleReady)
+
+	s.logger.Info("Starting health server", zap.String("port", s.config.HealthPort))
+	if err := http.ListenAndServe(":"+s.config.HealthPort, mux); err != nil {
+		s.logger.Error("Health server failed", zap.Error(err))
+	}
+}
+
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	checks := make(map[string]interface{})
+	healthy := true
+
+	for name, checker := range s.checkers {
+		if err := checker(ctx); err != nil {
+			checks[name] = map[string]interface{}{
+				"status": "unhealthy",
+				"error":  err.Error(),
+			}
+			healthy = false
+		} else {
+			checks[name] = map[string]interface{}{
+				"status": "healthy",
+			}
+		}
+	}
+
+	response := map[string]interface{}{
+		"service": s.serviceName,
+		"status":  "healthy",
+		"checks":  checks,
+	}
+
+	if !healthy {
+		response["status"] = "unhealthy"
+		w.WriteHeader(http.StatusServiceUnavailable)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	for _, checker := range s.checkers {
+		if err := checker(ctx); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("NOT READY"))
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("READY"))
+}
+-------------------------------------------------
+filepath = ./platform/resilience/circuit_breaker.go
+// FILE: platform/resilience/circuit_breaker.go
+package resilience
+
+import (
+	"context"
+	"net/http"
+	"time"
+
+	"github.com/sony/gobreaker"
+	"go.uber.org/zap"
+)
+
+// CircuitBreakerConfig holds configuration for circuit breakers
+type CircuitBreakerConfig struct {
+	Name                string
+	MaxRequests         uint32
+	Interval            time.Duration
+	Timeout             time.Duration
+	ConsecutiveFailures uint32
+	FailureRatio        float64
+}
+
+// DefaultCircuitBreakerConfig returns sensible defaults
+func DefaultCircuitBreakerConfig(name string) CircuitBreakerConfig {
+	return CircuitBreakerConfig{
+		Name:                name,
+		MaxRequests:         3,
+		Interval:            60 * time.Second,
+		Timeout:             60 * time.Second,
+		ConsecutiveFailures: 5,
+		FailureRatio:        0.6,
+	}
+}
+
+// CircuitBreaker wraps the gobreaker implementation
+type CircuitBreaker struct {
+	breaker *gobreaker.CircuitBreaker
+	logger  *zap.Logger
+	config  CircuitBreakerConfig
+}
+
+// NewCircuitBreaker creates a new circuit breaker
+func NewCircuitBreaker(config CircuitBreakerConfig, logger *zap.Logger) *CircuitBreaker {
+	settings := gobreaker.Settings{
+		Name:        config.Name,
+		MaxRequests: config.MaxRequests,
+		Interval:    config.Interval,
+		Timeout:     config.Timeout,
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= config.ConsecutiveFailures && failureRatio >= config.FailureRatio
+		},
+		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
+			logger.Warn("Circuit breaker state change",
+				zap.String("name", name),
+				zap.String("from", from.String()),
+				zap.String("to", to.String()),
+			)
+		},
+	}
+
+	return &CircuitBreaker{
+		breaker: gobreaker.NewCircuitBreaker(settings),
+		logger:  logger,
+		config:  config,
+	}
+}
+
+// Execute runs a function through the circuit breaker
+func (cb *CircuitBreaker) Execute(fn func() (interface{}, error)) (interface{}, error) {
+	return cb.breaker.Execute(fn)
+}
+
+// ExecuteWithContext runs a function with context through the circuit breaker
+func (cb *CircuitBreaker) ExecuteWithContext(ctx context.Context, fn func(context.Context) (interface{}, error)) (interface{}, error) {
+	return cb.breaker.Execute(func() (interface{}, error) {
+		return fn(ctx)
+	})
+}
+
+// State returns the current state of the circuit breaker
+func (cb *CircuitBreaker) State() string {
+	return cb.breaker.State().String()
+}
+
+// IsOpen returns true if the circuit breaker is open
+func (cb *CircuitBreaker) IsOpen() bool {
+	return cb.breaker.State() == gobreaker.StateOpen
+}
+
+// Counts returns the current counts
+func (cb *CircuitBreaker) Counts() gobreaker.Counts {
+	return cb.breaker.Counts()
+}
+
+// HTTPClient wraps an HTTP client with circuit breaker functionality
+type HTTPClientWithBreaker struct {
+	client  HTTPDoer
+	Breaker *CircuitBreaker
+	logger  *zap.Logger
+}
+
+// HTTPDoer interface for HTTP client
+type HTTPDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// NewHTTPClientWithBreaker creates a new HTTP client with circuit breaker
+func NewHTTPClientWithBreaker(client HTTPDoer, config CircuitBreakerConfig, logger *zap.Logger) *HTTPClientWithBreaker {
+	return &HTTPClientWithBreaker{
+		client:  client,
+		Breaker: NewCircuitBreaker(config, logger),
+		logger:  logger,
+	}
+}
+
+// Do executes an HTTP request through the circuit breaker
+func (c *HTTPClientWithBreaker) Do(req *http.Request) (*http.Response, error) {
+	result, err := c.Breaker.Execute(func() (interface{}, error) {
+		return c.client.Do(req)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result.(*http.Response), nil
+}
+
+// State returns the current state of the circuit breaker
+func (c *HTTPClientWithBreaker) State() string {
+	return c.Breaker.State()
+}
+
+// Counts returns the current counts
+func (c *HTTPClientWithBreaker) Counts() gobreaker.Counts {
+	return c.Breaker.Counts()
+}
+
+// IsCircuitBreakerError checks if an error is from a circuit breaker
+func IsCircuitBreakerError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return err == gobreaker.ErrOpenState || err == gobreaker.ErrTooManyRequests
+}
+-------------------------------------------------
+filepath = ./go.mod
+// FILE: go.mod
+module github.com/gqls/agentchassis
+
+go 1.23.0
+
+toolchain go1.24.4
+
+require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/aws/aws-sdk-go-v2 v1.25.1
+	github.com/aws/aws-sdk-go-v2/config v1.27.0
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.51.0
+	github.com/gin-gonic/gin v1.10.1
+	github.com/go-sql-driver/mysql v1.7.1
+	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.1
+	github.com/jackc/pgx/v5 v5.5.5
+	github.com/pgvector/pgvector-go v0.1.1
+	github.com/prometheus/client_golang v1.22.0
+	github.com/rs/cors v1.10.1
+	github.com/segmentio/kafka-go v0.4.47
+	github.com/sony/gobreaker v1.0.0
+	github.com/spf13/viper v1.18.2
+	github.com/stretchr/testify v1.10.0
+	go.opentelemetry.io/otel v1.29.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.29.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.24.0
+	go.opentelemetry.io/otel/sdk v1.29.0
+	go.opentelemetry.io/otel/trace v1.29.0
+	go.uber.org/zap v1.27.0
+	golang.org/x/crypto v0.40.0
+)
+
+require (
+	github.com/KyleBanks/depth v1.2.1 // indirect
+	github.com/PuerkitoBio/purell v1.2.1 // indirect
+	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.1 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.15.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.3.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.17.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.19.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.22.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.27.0 // indirect
+	github.com/aws/smithy-go v1.20.1 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bytedance/sonic v1.13.3 // indirect
+	github.com/bytedance/sonic/loader v0.3.0 // indirect
+	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d // indirect
+	github.com/cloudwego/base64x v0.1.5 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
+	github.com/gin-contrib/sse v1.1.0 // indirect
+	github.com/go-logr/logr v1.4.2 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-openapi/jsonpointer v0.21.1 // indirect
+	github.com/go-openapi/jsonreference v0.21.0 // indirect
+	github.com/go-openapi/spec v0.21.0 // indirect
+	github.com/go-openapi/swag v0.23.1 // indirect
+	github.com/go-playground/locales v0.14.1 // indirect
+	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/go-playground/validator/v10 v10.27.0 // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
+	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
+	github.com/jackc/puddle/v2 v2.2.1 // indirect
+	github.com/josharian/intern v1.0.0 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/magiconair/properties v1.8.7 // indirect
+	github.com/mailru/easyjson v0.9.0 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
+	github.com/pierrec/lz4/v4 v4.1.22 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/prometheus/client_model v0.6.1 // indirect
+	github.com/prometheus/common v0.62.0 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/sagikazarmark/locafero v0.4.0 // indirect
+	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
+	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
+	github.com/sourcegraph/conc v0.3.0 // indirect
+	github.com/spf13/afero v1.11.0 // indirect
+	github.com/spf13/cast v1.6.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/swaggo/files v1.0.1 // indirect
+	github.com/swaggo/gin-swagger v1.6.0 // indirect
+	github.com/swaggo/swag v1.16.5 // indirect
+	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
+	github.com/ugorji/go/codec v1.3.0 // indirect
+	github.com/urfave/cli/v2 v2.27.7 // indirect
+	github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342 // indirect
+	go.opentelemetry.io/otel/metric v1.29.0 // indirect
+	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
+	go.yaml.in/yaml/v2 v2.4.2 // indirect
+	golang.org/x/arch v0.19.0 // indirect
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
+	golang.org/x/mod v0.26.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/tools v0.35.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240513163218-0867130af1f8 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240513163218-0867130af1f8 // indirect
+	google.golang.org/grpc v1.64.1 // indirect
+	google.golang.org/protobuf v1.36.6 // indirect
+	gopkg.in/ini.v1 v1.67.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+	sigs.k8s.io/yaml v1.5.0 // indirect
+)
+-------------------------------------------------

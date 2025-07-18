@@ -1,0 +1,146 @@
+filepath = ./deployments/kustomize/frontends/user-portal/base/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: user-frontend-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+    - host: "personae.yourdomain.com" # This will be patched by the overlay
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: user-frontend
+                port:
+                  number: 80
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/user-portal/base/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-system
+resources:
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/user-portal/base/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-frontend
+  labels:
+    app: user-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-frontend
+  template:
+    metadata:
+      labels:
+        app: user-frontend
+    spec:
+      containers:
+        - name: user-frontend
+          image: user-frontend:IMAGE_TAG_PLACEHOLDER
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/user-portal/base/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-frontend
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: user-frontend
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/user-portal/base/configmap.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/user-portal/overlays/development/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/user-portal/overlays/staging/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/user-portal/overlays/production/ingress-patch.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/user-portal/overlays/production/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/admin-dashboard/base/ingress.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/admin-dashboard/base/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/admin-dashboard/base/deployment.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/admin-dashboard/base/service.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/admin-dashboard/base/configmap.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/admin-dashboard/overlays/development/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/admin-dashboard/overlays/staging/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/admin-dashboard/overlays/production/ingress-patch.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/admin-dashboard/overlays/production/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/agent-playground/base/ingress.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/agent-playground/base/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/agent-playground/base/deployment.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/agent-playground/base/service.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/agent-playground/base/configmap.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/agent-playground/overlays/development/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/frontends/agent-playground/overlays/production/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/main.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/main.tf
+# This instance deploys the main user-facing React application.
+module "user_frontend_app" {
+  source = "../../../../../../modules/kustomize-apply"
+
+  service_name     = "user-frontend"
+  namespace        = "personae-system"
+  image_repository = "aqls/personae-web-interface" # Your frontend image
+  image_tag        = var.image_tag
+
+  # Point to the production Kustomize overlay for the frontend.
+  # This directory would contain the deployment.yaml, service.yaml, ingress.yaml, etc.
+  kustomize_path = "../../../../../../../deployments/kustomize/frontends/user-frontend/overlays/production"
+}
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/main.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/outputs.tf
+-------------------------------------------------

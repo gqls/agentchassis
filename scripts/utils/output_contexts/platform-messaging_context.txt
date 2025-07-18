@@ -1,0 +1,619 @@
+filepath = ./platform/kafka/types.go
+// FILE: platform/kafka/types.go
+package kafka
+
+import (
+	"github.com/segmentio/kafka-go"
+)
+
+// Message wraps kafka-go Message to implement our interface
+type Message = kafka.Message
+
+// Header wraps kafka-go Header
+type Header = kafka.Header
+-------------------------------------------------
+filepath = ./platform/kafka/consumer.go
+// FILE: platform/kafka/consumer.go (updated version)
+package kafka
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/segmentio/kafka-go"
+	"go.uber.org/zap"
+)
+
+// Consumer wraps the kafka-go reader for standardized consumption
+type Consumer struct {
+	reader *kafka.Reader
+	logger *zap.Logger
+}
+
+// NewConsumer creates a new standardized Kafka consumer
+func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*Consumer, error) {
+	if len(brokers) == 0 {
+		return nil, fmt.Errorf("kafka brokers list cannot be empty")
+	}
+	if topic == "" {
+		return nil, fmt.Errorf("kafka topic cannot be empty")
+	}
+	if groupID == "" {
+		return nil, fmt.Errorf("kafka groupID cannot be empty")
+	}
+
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:        brokers,
+		GroupID:        groupID,
+		Topic:          topic,
+		MinBytes:       10e3, // 10KB
+		MaxBytes:       10e6, // 10MB
+		CommitInterval: 0,    // Manual commit
+	})
+
+	logger.Info("Kafka consumer created",
+		zap.Strings("brokers", brokers),
+		zap.String("topic", topic),
+		zap.String("groupID", groupID),
+	)
+
+	return &Consumer{
+		reader: reader,
+		logger: logger,
+	}, nil
+}
+
+// FetchMessage fetches the next message from the topic
+// Returns the native kafka.Message type
+func (c *Consumer) FetchMessage(ctx context.Context) (Message, error) {
+	msg, err := c.reader.FetchMessage(ctx)
+	if err != nil {
+		if err == context.Canceled {
+			return Message{}, err
+		}
+		c.logger.Error("Failed to fetch message from Kafka", zap.Error(err))
+		return Message{}, err
+	}
+	return msg, nil
+}
+
+// CommitMessages commits the offset for the given messages
+func (c *Consumer) CommitMessages(ctx context.Context, msgs ...Message) error {
+	err := c.reader.CommitMessages(ctx, msgs...)
+	if err != nil {
+		c.logger.Error("Failed to commit Kafka messages", zap.Error(err))
+	}
+	return err
+}
+
+// Close gracefully closes the consumer's reader
+func (c *Consumer) Close() error {
+	c.logger.Info("Closing Kafka consumer...")
+	return c.reader.Close()
+}
+-------------------------------------------------
+filepath = ./platform/kafka/utils.go
+// FILE: platform/kafka/utils.go
+package kafka
+
+import "github.com/segmentio/kafka-go"
+
+// HeadersToMap converts Kafka headers to a map for easier access
+func HeadersToMap(headers []kafka.Header) map[string]string {
+	result := make(map[string]string)
+	for _, h := range headers {
+		result[h.Key] = string(h.Value)
+	}
+	return result
+}
+-------------------------------------------------
+filepath = ./platform/kafka/mock_producer.go
+// FILE: platform/kafka/mock_producer.go
+// Mock producer for testing
+package kafka
+
+import (
+	"context"
+	"github.com/stretchr/testify/mock"
+)
+
+// MockProducer is a mock implementation of the Producer interface
+type MockProducer struct {
+	mock.Mock
+}
+
+// Produce mocks the Produce method
+func (m *MockProducer) Produce(ctx context.Context, topic string, headers map[string]string, key, value []byte) error {
+	args := m.Called(ctx, topic, headers, key, value)
+	return args.Error(0)
+}
+
+// Close mocks the Close method
+func (m *MockProducer) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
+-------------------------------------------------
+filepath = ./platform/kafka/producer.go
+// FILE: platform/kafka/producer.go
+package kafka
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/segmentio/kafka-go"
+	"go.uber.org/zap"
+)
+
+// Producer defines the interface for Kafka message production
+type Producer interface {
+	Produce(ctx context.Context, topic string, headers map[string]string, key, value []byte) error
+	Close() error
+}
+
+// KafkaProducer wraps the kafka-go writer for standardized message production
+type KafkaProducer struct {
+	writer *kafka.Writer
+	logger *zap.Logger
+}
+
+// NewProducer creates a new standardized Kafka producer
+func NewProducer(brokers []string, logger *zap.Logger) (Producer, error) {
+	if len(brokers) == 0 {
+		return nil, fmt.Errorf("kafka brokers list cannot be empty")
+	}
+
+	writer := &kafka.Writer{
+		Addr:         kafka.TCP(brokers...),
+		Balancer:     &kafka.LeastBytes{},
+		RequiredAcks: kafka.RequireAll,
+		Async:        false,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	logger.Info("Kafka producer created", zap.Strings("brokers", brokers))
+
+	return &KafkaProducer{
+		writer: writer,
+		logger: logger,
+	}, nil
+}
+
+// Produce sends a message to a specific topic with standard headers
+func (p *KafkaProducer) Produce(ctx context.Context, topic string, headers map[string]string, key, value []byte) error {
+	kafkaHeaders := make([]kafka.Header, 0, len(headers))
+	for k, v := range headers {
+		kafkaHeaders = append(kafkaHeaders, kafka.Header{Key: k, Value: []byte(v)})
+	}
+
+	msg := kafka.Message{
+		Topic:   topic,
+		Key:     key,
+		Value:   value,
+		Headers: kafkaHeaders,
+		Time:    time.Now().UTC(),
+	}
+
+	err := p.writer.WriteMessages(ctx, msg)
+	if err != nil {
+		p.logger.Error("Failed to produce Kafka message",
+			zap.String("topic", topic),
+			zap.Error(err),
+		)
+		return fmt.Errorf("failed to write message to kafka: %w", err)
+	}
+
+	p.logger.Debug("Successfully produced message", zap.String("topic", topic), zap.String("key", string(key)))
+	return nil
+}
+
+// Close gracefully closes the producer's writer
+func (p *KafkaProducer) Close() error {
+	p.logger.Info("Closing Kafka producer...")
+	return p.writer.Close()
+}
+-------------------------------------------------
+filepath = ./platform/kafka/producer_test.go
+// FILE: platform/kafka/producer_test.go
+package kafka
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+)
+
+func TestNewProducer(t *testing.T) {
+	// Test with empty brokers
+	_, err := NewProducer([]string{}, zap.NewNop())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "kafka brokers list cannot be empty")
+
+	// Test with valid brokers (won't actually connect in unit test)
+	producer, err := NewProducer([]string{"localhost:9092"}, zap.NewNop())
+	assert.NoError(t, err)
+	assert.NotNil(t, producer)
+
+	// Clean up
+	producer.Close()
+}
+
+func TestProducerInterface(t *testing.T) {
+	// Ensure KafkaProducer implements Producer interface
+	var _ Producer = (*KafkaProducer)(nil)
+}
+-------------------------------------------------
+filepath = ./platform/messaging/context.go
+// FILE: platform/messaging/context.go
+package messaging
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/kafka"
+	"go.uber.org/zap"
+)
+
+// MessageContext holds the context for processing a single message
+type MessageContext struct {
+	Message   kafka.Message
+	Headers   map[string]string
+	Action    string
+	StartTime time.Time
+	Logger    *zap.Logger
+}
+
+// ExtractAction extracts the action from the message payload
+func (m *MessageContext) ExtractAction() error {
+	var payload struct {
+		Action string `json:"action"`
+	}
+	if err := json.Unmarshal(m.Message.Value, &payload); err != nil {
+		return fmt.Errorf("failed to extract action: %w", err)
+	}
+	m.Action = payload.Action
+	return nil
+}
+
+// ValidateHeaders ensures required headers are present
+func (m *MessageContext) ValidateHeaders() error {
+	required := []string{"correlation_id", "request_id", "client_id", "agent_instance_id"}
+	for _, key := range required {
+		if m.Headers[key] == "" {
+			return fmt.Errorf("missing required header: %s", key)
+		}
+	}
+	return nil
+}
+
+// CreateResponseHeaders creates headers for a response message
+func (m *MessageContext) CreateResponseHeaders(agentType string) map[string]string {
+	return map[string]string{
+		"correlation_id": m.Headers["correlation_id"],
+		"causation_id":   m.Headers["request_id"],
+		"request_id":     uuid.NewString(),
+		"client_id":      m.Headers["client_id"],
+		"agent_type":     agentType,
+		"timestamp":      time.Now().UTC().Format(time.RFC3339),
+	}
+}
+-------------------------------------------------
+filepath = ./platform/messaging/processor.go
+// FILE: platform/messaging/processor.go
+package messaging
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/errors"
+	"github.com/gqls/agentchassis/platform/kafka"
+	"github.com/gqls/agentchassis/platform/observability"
+	"github.com/gqls/agentchassis/platform/orchestration"
+	"github.com/gqls/agentchassis/platform/validation"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
+)
+
+// MessageProcessor handles processing of Kafka messages for agents
+type MessageProcessor struct {
+	agentType    string
+	db           *pgxpool.Pool
+	producer     kafka.Producer
+	orchestrator *orchestration.SagaCoordinator
+	validator    *validation.WorkflowValidator
+	configLoader *config.AgentConfigLoader
+	logger       *zap.Logger
+}
+
+// NewMessageProcessor creates a new message processor
+func NewMessageProcessor(
+	agentType string,
+	db *pgxpool.Pool,
+	producer kafka.Producer,
+	orchestrator *orchestration.SagaCoordinator,
+	validator *validation.WorkflowValidator,
+	logger *zap.Logger,
+) *MessageProcessor {
+	return &MessageProcessor{
+		agentType:    agentType,
+		db:           db,
+		producer:     producer,
+		orchestrator: orchestrator,
+		validator:    validator,
+		configLoader: config.NewAgentConfigLoader(logger),
+		logger:       logger,
+	}
+}
+
+// ProcessMessage handles a single message
+func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
+	startTime := time.Now()
+	headers := kafka.HeadersToMap(msg.Headers)
+
+	// Create a message context for this specific message
+	msgCtx := &MessageContext{
+		Message:   msg,
+		Headers:   headers,
+		StartTime: startTime,
+		Logger: p.logger.With(
+			zap.String("correlation_id", headers["correlation_id"]),
+			zap.String("request_id", headers["request_id"]),
+			zap.String("client_id", headers["client_id"]),
+			zap.String("agent_instance_id", headers["agent_instance_id"]),
+		),
+	}
+
+	// Extract action
+	if err := msgCtx.ExtractAction(); err != nil {
+		return p.handleError(ctx, msgCtx, err, "invalid_payload")
+	}
+
+	// Record metrics
+	observability.AgentTasksReceived.WithLabelValues(p.agentType, msgCtx.Action).Inc()
+	defer func() {
+		observability.AgentProcessingDuration.WithLabelValues(p.agentType, msgCtx.Action).
+			Observe(time.Since(startTime).Seconds())
+	}()
+
+	// Process the message
+	if err := p.process(ctx, msgCtx); err != nil {
+		return p.handleError(ctx, msgCtx, err, "processing_failed")
+	}
+
+	// Success
+	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.Action, "success").Inc()
+	return nil
+}
+
+func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) error {
+	// Validate headers
+	if err := msgCtx.ValidateHeaders(); err != nil {
+		return errors.ValidationError("headers", err.Error())
+	}
+
+	// Load agent configuration
+	agentConfig, err := p.configLoader.LoadFromDatabase(
+		ctx,
+		p.db,
+		msgCtx.Headers["client_id"],
+		msgCtx.Headers["agent_instance_id"],
+		p.agentType,
+	)
+	if err != nil {
+		return errors.InternalError("Failed to load configuration", err)
+	}
+
+	// Validate workflow
+	if err := p.validator.ValidateWorkflowPlan(agentConfig.Workflow); err != nil {
+		return errors.New(errors.ErrWorkflowInvalid, "Invalid workflow configuration").
+			WithCause(err).
+			WithDetail("workflow_metrics", p.validator.GetWorkflowMetrics(agentConfig.Workflow)).
+			Build()
+	}
+
+	// Execute workflow
+	return p.executeWorkflow(ctx, msgCtx, agentConfig)
+}
+
+func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
+	// Start workflow timer
+	workflowTimer := observability.StartWorkflowTimer(p.agentType, config.Workflow.StartStep)
+	defer workflowTimer.Complete("success")
+
+	// Update metrics
+	observability.WorkflowsStarted.WithLabelValues(p.agentType, config.Workflow.StartStep, msgCtx.Headers["client_id"]).Inc()
+	observability.ActiveWorkflows.WithLabelValues(p.agentType).Inc()
+	defer observability.ActiveWorkflows.WithLabelValues(p.agentType).Dec()
+
+	// Execute through orchestrator
+	return p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, msgCtx.Headers, msgCtx.Message.Value)
+}
+
+func (p *MessageProcessor) handleError(ctx context.Context, msgCtx *MessageContext, err error, errorType string) error {
+	msgCtx.Logger.Error("Processing failed", zap.Error(err))
+	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.Action, errorType).Inc()
+
+	// Check for specific error types
+	if domainErr, ok := err.(*errors.DomainError); ok {
+		if domainErr.Code == errors.ErrInsufficientFuel {
+			observability.FuelExhausted.WithLabelValues(p.agentType, msgCtx.Action, msgCtx.Headers["client_id"]).Inc()
+		}
+		p.sendErrorResponse(ctx, msgCtx, domainErr)
+	} else {
+		p.sendErrorResponse(ctx, msgCtx, errors.InternalError("Processing failed", err))
+	}
+
+	return err
+}
+
+func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *MessageContext, domainErr *errors.DomainError) {
+	responseHeaders := msgCtx.CreateResponseHeaders(p.agentType)
+	domainErr.TraceID = msgCtx.Headers["correlation_id"]
+
+	errorResponse := map[string]interface{}{
+		"success": false,
+		"error":   domainErr,
+		"agent":   p.agentType,
+	}
+
+	responseBytes, _ := json.Marshal(errorResponse)
+	errorTopic := fmt.Sprintf("system.errors.%s", p.agentType)
+
+	if err := p.producer.Produce(ctx, errorTopic, responseHeaders,
+		[]byte(msgCtx.Headers["correlation_id"]), responseBytes); err != nil {
+		msgCtx.Logger.Error("Failed to send error response", zap.Error(err))
+		observability.SystemErrors.WithLabelValues(p.agentType, "produce_error").Inc()
+	} else {
+		observability.KafkaMessagesProduced.WithLabelValues(errorTopic).Inc()
+	}
+}
+-------------------------------------------------
+filepath = ./go.mod
+// FILE: go.mod
+module github.com/gqls/agentchassis
+
+go 1.23.0
+
+toolchain go1.24.4
+
+require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/aws/aws-sdk-go-v2 v1.25.1
+	github.com/aws/aws-sdk-go-v2/config v1.27.0
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.51.0
+	github.com/gin-gonic/gin v1.10.1
+	github.com/go-sql-driver/mysql v1.7.1
+	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.1
+	github.com/jackc/pgx/v5 v5.5.5
+	github.com/pgvector/pgvector-go v0.1.1
+	github.com/prometheus/client_golang v1.22.0
+	github.com/rs/cors v1.10.1
+	github.com/segmentio/kafka-go v0.4.47
+	github.com/sony/gobreaker v1.0.0
+	github.com/spf13/viper v1.18.2
+	github.com/stretchr/testify v1.10.0
+	go.opentelemetry.io/otel v1.29.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.29.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.24.0
+	go.opentelemetry.io/otel/sdk v1.29.0
+	go.opentelemetry.io/otel/trace v1.29.0
+	go.uber.org/zap v1.27.0
+	golang.org/x/crypto v0.40.0
+)
+
+require (
+	github.com/KyleBanks/depth v1.2.1 // indirect
+	github.com/PuerkitoBio/purell v1.2.1 // indirect
+	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.1 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.15.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.3.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.17.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.19.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.22.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.27.0 // indirect
+	github.com/aws/smithy-go v1.20.1 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bytedance/sonic v1.13.3 // indirect
+	github.com/bytedance/sonic/loader v0.3.0 // indirect
+	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d // indirect
+	github.com/cloudwego/base64x v0.1.5 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
+	github.com/gin-contrib/sse v1.1.0 // indirect
+	github.com/go-logr/logr v1.4.2 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-openapi/jsonpointer v0.21.1 // indirect
+	github.com/go-openapi/jsonreference v0.21.0 // indirect
+	github.com/go-openapi/spec v0.21.0 // indirect
+	github.com/go-openapi/swag v0.23.1 // indirect
+	github.com/go-playground/locales v0.14.1 // indirect
+	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/go-playground/validator/v10 v10.27.0 // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
+	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
+	github.com/jackc/puddle/v2 v2.2.1 // indirect
+	github.com/josharian/intern v1.0.0 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/magiconair/properties v1.8.7 // indirect
+	github.com/mailru/easyjson v0.9.0 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
+	github.com/pierrec/lz4/v4 v4.1.22 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/prometheus/client_model v0.6.1 // indirect
+	github.com/prometheus/common v0.62.0 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/sagikazarmark/locafero v0.4.0 // indirect
+	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
+	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
+	github.com/sourcegraph/conc v0.3.0 // indirect
+	github.com/spf13/afero v1.11.0 // indirect
+	github.com/spf13/cast v1.6.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/swaggo/files v1.0.1 // indirect
+	github.com/swaggo/gin-swagger v1.6.0 // indirect
+	github.com/swaggo/swag v1.16.5 // indirect
+	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
+	github.com/ugorji/go/codec v1.3.0 // indirect
+	github.com/urfave/cli/v2 v2.27.7 // indirect
+	github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342 // indirect
+	go.opentelemetry.io/otel/metric v1.29.0 // indirect
+	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
+	go.yaml.in/yaml/v2 v2.4.2 // indirect
+	golang.org/x/arch v0.19.0 // indirect
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
+	golang.org/x/mod v0.26.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/tools v0.35.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240513163218-0867130af1f8 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240513163218-0867130af1f8 // indirect
+	google.golang.org/grpc v1.64.1 // indirect
+	google.golang.org/protobuf v1.36.6 // indirect
+	gopkg.in/ini.v1 v1.67.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+	sigs.k8s.io/yaml v1.5.0 // indirect
+)
+-------------------------------------------------

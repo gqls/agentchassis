@@ -1,0 +1,2444 @@
+filepath = ./deployments/terraform/environments/development/uk_dev/020-ingress-nginx/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/020-ingress-nginx/variables.tf
+
+variable "kube_context_name" {
+  description = "The Kubernetes context name for Kind."
+  type        = string
+  default     = "kind-personae-dev"
+}
+
+variable "kubeconfig_path" {
+  description = "Optional path to kubeconfig YAML file."
+  type        = string
+  default     = null # If null, a default single-node cluster is created
+}
+
+variable "ingress_nginx_dev_namespace" { // Renamed for clarity and consistency
+  description = "Namespace for Nginx Ingress in dev."
+  type        = string
+  default     = "ingress-nginx"
+}
+
+variable "ingress_nginx_dev_chart_version" { // Renamed
+  description = "Helm chart version for Nginx Ingress in dev."
+  type        = string
+  default     = "4.10.1"
+}
+
+variable "ingress_nginx_dev_http_node_port" {
+  description = "NodePort for HTTP for Nginx Ingress in dev."
+  type        = number
+  default     = 30080
+}
+
+variable "ingress_nginx_dev_https_node_port" {
+  description = "NodePort for HTTPS for Nginx Ingress in dev."
+  type        = number
+  default     = 30443
+}
+
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/020-ingress-nginx/providers.tf
+provider "kubernetes" {
+  config_path    = "~/.kube/config"
+  config_context = var.kube_context_name
+}
+
+provider "helm" {
+  kubernetes {
+    config_path    = "~/.kube/config"
+    config_context = var.kube_context_name
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/020-ingress-nginx/main.tf
+
+module "nginx_ingress_dev" {
+  source = "../../../../modules/nginx_ingress"
+
+  ingress_namespace    = var.ingress_nginx_dev_namespace
+  helm_chart_version   = var.ingress_nginx_dev_chart_version
+  create_namespace     = true # Let the module create the namespace
+
+  # For Kind, you usually don't need custom values unless you want specific NodePorts
+  # or to disable LoadBalancer service type (which isn't typically used with Kind directly).
+  # The module default of NodePort service type for the controller is fine for Kind.
+  helm_values_content = yamlencode({
+    controller = {
+      kind = "Deployment" # DaemonSet is fine too, Deployment is often simpler for local Kind
+      replicaCount = 1
+      service = {
+        type = "NodePort" # Exposes on NodePorts
+        nodePorts = {
+          http = var.ingress_nginx_dev_http_node_port
+          https = var.ingress_nginx_dev_https_node_port
+        }
+      }
+      # Disable admission webhooks for simpler Kind setup if they cause issues.
+      admissionWebhooks = {
+         enabled = false
+      }
+    }
+  })
+}
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/020-ingress-nginx/outputs.tf
+
+output "http_node_port" {
+  description = "HTTP NodePort for the Nginx Ingress controller in dev."
+  value       = var.ingress_nginx_dev_http_node_port
+}
+output "https_node_port" {
+  description = "HTTPS NodePort for the Nginx Ingress controller in dev."
+  value       = var.ingress_nginx_dev_https_node_port
+}
+output "namespace" {
+  description = "Namespace of the Nginx Ingress controller in dev."
+  value       = module.nginx_ingress_dev.namespace // Assuming your module outputs this
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/070-database-schemas/variables.tf
+# No variables needed for this layer as all values are derived from remote state.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/070-database-schemas/providers.tf
+terraform {
+  required_providers {
+    postgresql = {
+      source  = "cyrilgdn/postgresql"
+      version = "~> 1.20.0"
+    }
+    mysql = {
+      source  = "drarko/mysql"
+      version = "2.0.0"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2.1"
+    }
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/070-database-schemas/main.tf
+terraform {
+  required_providers {
+    postgresql = {
+      source  = "cyrilgdn/postgresql"
+      version = "~> 1.20.0"
+    }
+    mysql = {
+      source  = "drarko/mysql"
+      version = "2.0.0"
+    }
+    null = {
+      source = "hashicorp/null"
+      version = "~> 3.2.1"
+    }
+  }
+
+  backend "kubernetes" {
+    secret_suffix = "tfstate-db-schemas-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+# Read the outputs from the dev database creation layer
+data "terraform_remote_state" "databases_dev" {
+  backend = "kubernetes"
+  config = {
+    secret_suffix = "tfstate-databases-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+# --- MySQL Provider ---
+provider "mysql" {
+  endpoint = "${data.terraform_remote_state.databases_dev.outputs.external_mysql_host}:3306"
+  username = "auth_user_dev"
+  password = data.terraform_remote_state.databases_dev.outputs.external_mysql_password
+}
+
+# --- Apply PostgreSQL Schemas ---
+# Read the SQL file for the pgvector extension
+data "local_file" "pgvector_sql" {
+  filename = "${path.module}/../../../../sql/001_enable_pgvector.sql"
+}
+
+# Apply the pgvector schema using a local psql command
+resource "null_resource" "pgvector_extension_dev" {
+  # Trigger a re-run if the SQL file content changes
+  triggers = {
+    content_sha1 = sha1(data.local_file.pgvector_sql.content)
+  }
+
+  provisioner "local-exec" {
+    # This command uses the psql client to run the schema.
+    # It securely passes the password via the PGPASSWORD environment variable.
+    command = "psql -h ${data.terraform_remote_state.databases_dev.outputs.postgres_clients_db_dev_service_endpoint} -U clients_user_dev -d clientsdb_dev -f ${data.local_file.pgvector_sql.filename}"
+
+    environment = {
+      PGPASSWORD = data.terraform_remote_state.databases_dev.outputs.clients_db_password
+    }
+  }
+}
+
+# --- Apply MySQL Schema ---
+# Read the SQL file for the auth service database schema
+data "local_file" "auth_db_schema" {
+  filename = "${path.module}/../../../../sql/auth_schema.sql"
+}
+
+# Apply the schema to the external dev database using the mysql_script resource
+resource "mysql_script" "auth_db_schema_apply" {
+  database = "authservicedb_dev"
+  script_path = data.local_file.auth_db_schema.filename
+
+  # This ensures the database is created if it doesn't exist before running the script
+  depends_on = [
+    resource.mysql_database.auth_db_from_schema
+  ]
+}
+
+resource "mysql_database" "auth_db_from_schema" {
+  name = "authservicedb_dev"
+  default_character_set = "utf8mb4"
+  default_collation     = "utf8mb4_unicode_ci"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/070-database-schemas/outputs.tf
+output "pgvector_extension_status" {
+  description = "Status of the pgvector extension application on the dev clients database."
+  value       = "Applied"
+  depends_on  = [postgresql_query.pgvector_extension_dev]
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/080-kafka-topics/variables.tf
+variable "platform_topics" {
+  description = "A list of Kafka topic names to be created for the application."
+  type        = list(string)
+  default = [
+    # System & Orchestration Topics
+    "system.commands.workflow.resume",
+    "system.events.workflow.paused",
+    "system.events.workflow.completed",
+
+    # Core Service Topics
+    "requests.auth.user.create",
+    "events.auth.user.created",
+
+    # Agent Communication Topics
+    "requests.agent.task.execute",
+    "events.agent.task.completed",
+    "events.agent.task.failed",
+    "events.agent.task.progress",
+
+    # Specialized Agent Topics
+    "requests.agent.reasoning",
+    "requests.agent.web-search",
+    "requests.agent.image-generation",
+  ]
+}
+
+variable "default_partitions" {
+  description = "Default number of partitions for development topics."
+  type        = number
+  default     = 1
+}
+
+variable "default_replication_factor" {
+  description = "Default replication factor for development topics. Should be 1 for a single-broker dev cluster."
+  type        = number
+  default     = 1
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/080-kafka-topics/main.tf
+terraform {
+  required_providers {
+    kafka = {
+      source  = "mongey/kafka"
+      version = "~> 0.11.0"
+    }
+  }
+  backend "kubernetes" {
+    secret_suffix = "tfstate-kafka-topics-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+# Read the outputs from the dev Kafka cluster layer
+data "terraform_remote_state" "kafka_cluster_dev" {
+  backend = "kubernetes"
+  config = {
+    # This suffix must match the backend config of your dev 040-kafka-cluster layer
+    secret_suffix = "tfstate-kafka-cluster-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+provider "kafka" {
+  bootstrap_servers = data.terraform_remote_state.kafka_cluster_dev.outputs.kafka_bootstrap_servers
+}
+
+# Define all required Kafka topics for the platform
+resource "kafka_topic" "topics_dev" {
+  for_each = toset(var.platform_topics)
+
+  name               = each.key
+  partitions         = var.default_partitions
+  replication_factor = var.default_replication_factor
+  config = {
+    "retention.ms" = "604800000" # Retain messages for 7 days in dev
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/080-kafka-topics/outputs.tf
+output "topic_names" {
+  description = "The names of the created Kafka topics for the development environment."
+  value       = [for topic in kafka_topic.topics_dev : topic.name]
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/010-infrastructure/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/010-infrastructure/variables.tf
+variable "kind_cluster_name" {
+  description = "Name for the Kind cluster for development."
+  type        = string
+  default     = "personae-dev"
+}
+
+variable "kind_node_image" {
+  description = "Node image for Kind cluster (e.g., kindest/node:v1.27.3)."
+  type        = string
+  default     = "kindest/node:v1.27.3" # Choose a version
+}
+
+variable "kind_config_path" {
+  description = "Optional path to a Kind configuration YAML file."
+  type        = string
+  default     = null # If null, a default single-node cluster is created
+}
+
+variable "kubeconfig_path" {
+  description = "Optional path to kubeconfig YAML file."
+  type        = string
+  default     = null # If null, a default single-node cluster is created
+}
+
+# This output is not directly from a resource, but reflects the context name
+# that will be used by other components.
+variable "kube_context_name" {
+  description = "The kubectl context name to use for this Kind cluster."
+  type        = string
+  default     = "kind-personae-dev" # Must match KIND_CONTEXT_DEV in Makefile
+}
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/010-infrastructure/providers.tf
+terraform {
+  required_providers {
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2.1"
+    }
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/010-infrastructure/main.tf
+resource "null_resource" "kind_cluster" {
+  triggers = {
+    cluster_name = var.kind_cluster_name
+    config_path  = var.kind_config_path
+    node_image   = var.kind_node_image
+  }
+
+  provisioner "local-exec" {
+    when    = create
+    command = <<-EOT
+      set -e
+      if ! kind get clusters | grep -q "^${self.triggers.cluster_name}$$"; then
+        echo "Creating Kind cluster '${self.triggers.cluster_name}'..."
+        kind create cluster --name "${self.triggers.cluster_name}" --image "${self.triggers.node_image}" ${var.kind_config_path != null ? "--config \"${var.kind_config_path}\"" : ""}
+        echo "Waiting for Kind cluster control plane to be ready..."
+        timeout 120s bash -c 'while ! kubectl --context="kind-${self.triggers.cluster_name}" cluster-info >/dev/null 2>&1; do sleep 1; done' || \
+          (echo "Timeout waiting for Kind cluster. Check 'kind get logs ${self.triggers.cluster_name}'" && exit 1)
+        echo "Kind cluster '${self.triggers.cluster_name}' is ready."
+      else
+        echo "Kind cluster '${self.triggers.cluster_name}' already exists. Skipping creation."
+      fi
+    EOT
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    # Use self.triggers.cluster_name which is known at destroy time based on the state
+    command = "kind delete cluster --name \"${self.triggers.cluster_name}\" || true"
+  }
+}
+
+resource "null_resource" "label_kind_node" {
+  depends_on = [null_resource.kind_cluster]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      # Wait for the node to be ready
+      kubectl wait --for=condition=ready node --all --timeout=60s
+
+      # Label the node
+      kubectl label nodes --all role=spot-instance --overwrite
+    EOT
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/010-infrastructure/outputs.tf
+output "kind_cluster_name_output" {
+  description = "Name of the Kind cluster."
+  value       = var.kind_cluster_name
+}
+
+output "kind_kube_context_name_output" {
+  description = "The kubectl context name for this Kind cluster."
+  value       = "kind-${var.kind_cluster_name}" # Standard Kind context naming
+}
+
+# No kubeconfig_raw output here as Kind manages the default kubeconfig file.
+# Other components will use the context name.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/090-monitoring/variables.tf
+variable "monitoring_namespace" {
+  description = "The Kubernetes namespace to deploy the dev monitoring stack into."
+  type        = string
+  default     = "monitoring-dev"
+}
+
+variable "grafana_admin_password" {
+  description = "The admin password for the Grafana dashboard."
+  type        = string
+  sensitive   = true
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/090-monitoring/main.tf
+terraform {
+  required_providers {
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.11.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.20"
+    }
+  }
+  backend "kubernetes" {
+    secret_suffix = "tfstate-monitoring-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+data "helm_repository" "prometheus_community" {
+  name = "prometheus-community"
+  url  = "https://prometheus-community.github.io/helm-charts"
+}
+
+resource "kubernetes_namespace" "monitoring_ns_dev" {
+  metadata {
+    name = var.monitoring_namespace
+  }
+}
+
+resource "helm_release" "prometheus_stack_dev" {
+  name       = "prometheus-stack-dev"
+  repository = data.helm_repository.prometheus_community.metadata[0].name
+  chart      = "kube-prometheus-stack"
+  namespace  = kubernetes_namespace.monitoring_ns_dev.metadata[0].name
+  version    = "51.8.0" # Pin to the same chart version as production
+
+  values = [
+    templatefile("${path.module}/values.yaml.tpl", {
+      grafana_admin_password = var.grafana_admin_password
+    })
+  ]
+
+  depends_on = [kubernetes_namespace.monitoring_ns_dev]
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/090-monitoring/values.yaml.tpl
+# values.yaml.tpl for development
+# This configuration is lightweight and suitable for local clusters.
+
+# Grafana configuration
+grafana:
+  adminPassword: "${grafana_admin_password}"
+  # For dev, we use ClusterIP and access via `kubectl port-forward`
+  service:
+    type: ClusterIP
+
+# Prometheus configuration
+prometheus:
+  prometheusSpec:
+    # Disable persistent storage for development to keep it lightweight
+    storageSpec: {}
+    retention: 1d # Lower retention for dev-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/090-monitoring/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/050-storage/variables.tf
+variable "region" {
+  description = "The region where resources will be deployed."
+  type        = string
+  default     = "uk-dev"
+}
+
+variable "image_bucket_name" {
+  description = "Name for the bucket to store generated images for development."
+  type        = string
+  default     = "personae-dev-uk-images"
+}
+
+variable "site_assets_bucket_name" {
+  description = "Name for the bucket to store generated static site assets for development."
+  type        = string
+  default     = "personae-dev-uk-site-assets"
+}
+
+variable "b2_application_key_id" {
+  description = "The application key ID for Backblaze B2."
+  type        = string
+  sensitive   = true
+}
+
+variable "b2_application_key" {
+  description = "The application key for Backblaze B2."
+  type        = string
+  sensitive   = true
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/050-storage/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-storage-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+provider "b2" {
+  application_key_id = var.b2_application_key_id
+  application_key    = var.b2_application_key
+}
+
+module "storage_buckets_dev" {
+  source = "../../../../modules/s3-buckets"
+
+  bucket_names = [
+    var.image_bucket_name,
+    var.site_assets_bucket_name
+  ]
+
+  tags = {
+    environment = "development"
+    region      = var.region
+    managed_by  = "terraform"
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/060-databases/variables.tf
+variable "k8s_namespace" {
+  description = "The Kubernetes namespace to deploy dev database resources into."
+  type        = string
+  default     = "personae-dev-db"
+}
+
+variable "postgres_storage_class" {
+  description = "The name of the StorageClass for dev PostgreSQL volumes (e.g., your local-path-provisioner)."
+  type        = string
+  default     = "standard"
+}
+
+# --- External MySQL Variables ---
+variable "external_mysql_host" {
+  description = "The endpoint for the external MySQL database used for development."
+  type        = string
+  sensitive   = true
+}
+
+variable "external_mysql_password" {
+  description = "Password for the external MySQL database."
+  type        = string
+  sensitive   = true
+}
+
+# --- In-Cluster PostgreSQL Variables ---
+variable "templates_db_password" {
+  description = "Password for the dev templates PostgreSQL database."
+  type        = string
+  sensitive   = true
+}
+
+variable "clients_db_password" {
+  description = "Password for the dev clients PostgreSQL database."
+  type        = string
+  sensitive   = true
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/060-databases/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-databases-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+# --- External MySQL Secret ---
+module "external_mysql_auth_db_dev" {
+  source = "../../../../modules/mysql-instance"
+
+  instance_name = "personae-dev-uk-auth-db"
+  namespace     = var.k8s_namespace
+  db_host       = var.external_mysql_host
+  database_name = "authservicedb_dev"
+  database_user = "auth_user_dev"
+  database_pass = var.external_mysql_password
+}
+
+# --- In-Cluster PostgreSQL for Templates ---
+module "postgres_templates_db_dev" {
+  source = "../../../../modules/postgres-instance"
+
+  instance_name      = "postgres-templates-dev"
+  namespace          = var.k8s_namespace
+  database_name      = "templatesdb_dev"
+  database_user      = "templates_user_dev"
+  database_pass      = var.templates_db_password
+  storage_class_name = var.postgres_storage_class
+  storage_size       = "2Gi" # Smaller size for dev
+}
+
+# --- In-Cluster PostgreSQL for Client Data ---
+module "postgres_clients_db_dev" {
+  source = "../../../../modules/postgres-instance"
+
+  instance_name      = "postgres-clients-dev"
+  namespace          = var.k8s_namespace
+  database_name      = "clientsdb_dev"
+  database_user      = "clients_user_dev"
+  database_pass      = var.clients_db_password
+  storage_class_name = var.postgres_storage_class
+  storage_size       = "5Gi" # Smaller size for dev
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/030-strimzi-operator/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/030-strimzi-operator/variables.tf
+variable "kube_context_name" {
+  description = "The Kubernetes context name for Kind."
+  type        = string
+  default = "kind-personae-dev"
+}
+
+variable "kubeconfig_path" {
+  description = "Optional path to kubeconfig YAML file."
+  type        = string
+  default     = null # If null, a default single-node cluster is created
+}
+
+variable "strimzi_operator_dev_namespace" {
+  description = "Namespace for the Strimzi operator in dev."
+  type        = string
+  default     = "strimzi" // Operator's own namespace
+}
+
+variable "watched_namespaces_dev" {
+  description = "List of namespaces for the Strimzi operator to watch in dev."
+  type        = list(string)
+  default     = ["kafka", "personae"] // Strimzi will watch 'kafka' for Kafka CRs and 'personae' if KafkaUsers are there
+}
+
+variable "strimzi_yaml_bundle_path_dev" {
+  description = "Path to the Strimzi YAML files directory for dev."
+  type        = string
+  # Path relative to this file's directory, pointing to the module's shared Strimzi YAMLs
+  default     = "../../../../modules/strimzi_operator/strimzi-yaml-0.45.0/"
+}
+
+variable "strimzi_operator_deployment_yaml_filename_dev" {
+description = "Filename of the main operator deployment YAML."
+type        = string
+default     = "060-Deployment-strimzi-cluster-operator.yaml"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/030-strimzi-operator/providers.tf
+provider "kubernetes" {
+  config_path    = "~/.kube/config"
+  config_context = var.kube_context_name
+}
+
+provider "null" {} // If your module uses null_resource-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/030-strimzi-operator/main.tf
+# Ensure the namespaces Strimzi will operate in or watch exist.
+# Strimzi operator's own namespace:
+resource "kubernetes_namespace" "operator_ns" {
+  metadata {
+    name = var.strimzi_operator_dev_namespace // e.g., "strimzi"
+  }
+}
+
+# Namespace for Kafka clusters (watched by Strimzi):
+resource "kubernetes_namespace" "kafka_cluster_ns" {
+  metadata {
+    name = "kafka" // Assuming Kafka CRs will be in 'kafka' namespace
+  }
+}
+
+# Namespace for Personae app (if Strimzi needs to manage KafkaUsers there):
+resource "kubernetes_namespace" "personae_app_ns" {
+  metadata {
+    name = "personae" // Assuming Personae app and potentially KafkaUsers are in 'personae'
+  }
+}
+
+module "strimzi_operator" {
+  source = "../../../../modules/strimzi_operator"
+
+  operator_namespace                = kubernetes_namespace.operator_ns.metadata[0].name
+  watched_namespaces_list           = var.watched_namespaces_dev
+  strimzi_yaml_source_path          = var.strimzi_yaml_bundle_path_dev
+  operator_deployment_yaml_filename = var.strimzi_operator_deployment_yaml_filename_dev
+  cluster_kubeconfig_path           = "" # Path to the kubeconfig Terraform should use
+
+  depends_on = [
+    kubernetes_namespace.operator_ns,
+    kubernetes_namespace.kafka_cluster_ns,
+    kubernetes_namespace.personae_app_ns
+  ]
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/030-strimzi-operator/strimzi-rbac-terraform.tf
+resource "kubernetes_cluster_role" "strimzi_kafka_namespace" {
+  metadata {
+    name = "strimzi-cluster-operator-kafka-namespace"
+  }
+
+  rule {
+    api_groups = [""]
+    resources  = ["pods", "services", "endpoints", "persistentvolumeclaims", "configmaps", "secrets", "serviceaccounts"]
+    verbs      = ["get", "list", "watch", "create", "update", "patch", "delete"]
+  }
+
+  rule {
+    api_groups = ["apps"]
+    resources  = ["deployments", "statefulsets", "replicasets"]
+    verbs      = ["get", "list", "watch", "create", "update", "patch", "delete"]
+  }
+
+  rule {
+    api_groups = ["networking.k8s.io"]
+    resources  = ["ingresses", "networkpolicies"]
+    verbs      = ["get", "list", "watch", "create", "update", "patch", "delete"]
+  }
+
+  rule {
+    api_groups = ["kafka.strimzi.io"]
+    resources  = ["*"]
+    verbs      = ["*"]
+  }
+
+  rule {
+    api_groups = ["core.strimzi.io"]
+    resources  = ["*"]
+    verbs      = ["*"]
+  }
+
+  rule {
+    api_groups = ["rbac.authorization.k8s.io"]
+    resources  = ["roles", "rolebindings"]
+    verbs      = ["get", "list", "watch", "create", "update", "patch", "delete"]
+  }
+
+  rule {
+    api_groups = ["policy"]
+    resources  = ["poddisruptionbudgets"]
+    verbs      = ["get", "list", "watch", "create", "update", "patch", "delete"]
+  }
+}
+
+resource "kubernetes_cluster_role_binding" "strimzi_kafka_namespace" {
+  metadata {
+    name = "strimzi-cluster-operator-kafka-namespace"
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role.strimzi_kafka_namespace.metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = "strimzi-cluster-operator"
+    namespace = "strimzi"
+  }
+}
+
+resource "kubernetes_role_binding" "strimzi_kafka_namespace" {
+  metadata {
+    name      = "strimzi-cluster-operator-kafka-namespace"
+    namespace = "kafka"
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role.strimzi_kafka_namespace.metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = "strimzi-cluster-operator"
+    namespace = "strimzi"
+  }
+}
+
+resource "kubernetes_cluster_role_binding" "strimzi_entity_operator_delegation" {
+  metadata {
+    name = "strimzi-cluster-operator-entity-operator-delegation"
+    labels = {
+      app = "strimzi"
+    }
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = "strimzi-entity-operator"
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = "strimzi-cluster-operator"
+    namespace = "strimzi"
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/030-strimzi-operator/outputs.tf
+output "operator_namespace_used" {
+  description = "Namespace where the Strimzi operator was deployed for dev."
+  value       = module.strimzi_operator.operator_namespace_used
+}
+
+output "watched_namespaces_configured" {
+  description = "Namespaces the Strimzi operator is configured to watch for dev."
+  value       = module.strimzi_operator.watched_namespaces_configured
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/040-kafka-cluster/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/040-kafka-cluster/variables.tf
+variable "kube_context_name" {
+  description = "The Kubernetes context name for Kind (e.g., kind-personae-dev)."
+  type        = string
+  default     = "kind-personae-dev"
+}
+
+variable "kubeconfig_path" { // Specific name for this component's var
+  description = "Path to the kubeconfig file to be used for this dev component."
+  type        = string
+  default     = "~/.kube/config" // Default for Kind, overridden by Makefile if necessary
+}
+
+variable "kafka_namespace_dev" {
+  description = "Namespace where the Kafka CR for dev will be deployed."
+  type        = string
+  default     = "kafka"
+}
+
+variable "kafka_cluster_cr_yaml_path_dev" {
+  description = "Path to the Kafka CR YAML file for the dev instance."
+  type        = string
+  default     = "../../../../modules/kafka_cluster/config/kafka-cluster-cr-dev.yaml" // Point to your DEV version
+}
+
+variable "kafka_cluster_name_dev" {
+  description = "The metadata.name of the Kafka cluster for dev."
+  type        = string
+  default     = "personae-kafka-cluster" // Should match the name in kafka-cluster-cr-dev.yaml
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/040-kafka-cluster/providers.tf
+provider "kubernetes" {
+  config_path    = abspath(pathexpand(var.kubeconfig_path_for_dev))
+  config_context = var.kube_context_name
+}
+
+provider "helm" {
+  kubernetes {
+    config_path    = abspath(pathexpand(var.kubeconfig_path_for_dev))
+    config_context = var.kube_context_name
+  }
+}
+provider "null" {}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/040-kafka-cluster/main.tf
+module "kafka_cluster_dev" {
+  source = "../../../../modules/kafka_cluster"
+
+  kubeconfig_path         = abspath(pathexpand(var.kubeconfig_path))
+  kube_context_name       = var.kube_context_name    // Pass the dev context name
+  kafka_cr_namespace      = var.kafka_namespace_dev
+  kafka_cr_yaml_file_path = var.kafka_cluster_cr_yaml_path_dev
+  kafka_cr_cluster_name   = var.kafka_cluster_name_dev
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/040-kafka-cluster/outputs.tf
+output "dev_kafka_cluster_name" {
+  description = "Name of the Kafka cluster deployed in dev."
+  value       = module.kafka_cluster_dev.cluster_name_applied
+}
+
+output "dev_kafka_cluster_namespace" {
+  description = "Namespace of the Kafka cluster in dev."
+  value       = module.kafka_cluster_dev.cluster_namespace_applied
+}
+
+output "dev_kafka_bootstrap_servers_plain" {
+  description = "Internal Plaintext Bootstrap Servers for dev Kafka."
+  value       = module.kafka_cluster_dev.bootstrap_servers_plain
+}
+
+output "dev_kafka_bootstrap_servers_tls" {
+  description = "Internal TLS Bootstrap Servers for dev Kafka."
+  value       = module.kafka_cluster_dev.bootstrap_servers_tls
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2230-web-search-adapter/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2230-web-search-adapter/variables.tf
+# No vari# No variables needed as the path is static for this service definition.ables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2230-web-search-adapter/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-web-search-adapter-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "web_search_adapter_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/web-search-adapter/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2230-web-search-adapter/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development web-search-adapter."
+  value       = module.web_search_adapter_deployment_dev.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2210-agent-chassis/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2210-agent-chassis/variables.tf
+# No# No variables needed as the path is static for this service definition. variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2210-agent-chassis/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-agent-chassis-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "agent_chassis_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/agent-chassis/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2210-agent-chassis/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development agent-chassis."
+  value       = module.agent_chassis_deployment_dev.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2240-image-generator-adapter/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2240-image-generator-adapter/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2240-image-generator-adapter/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-image-generator-adapter-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "image_generator_adapter_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/image-generator-adapter/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2240-image-generator-adapter/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development image-generator-adapter."
+  value       = module.image_generator_adapter_deployment_dev.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2220-reasoning-agent/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2220-reasoning-agent/variables.tf
+# No variables nee# No variables needed as the path is static for this service definition.ded as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2220-reasoning-agent/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-reasoning-agent-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "reasoning_agent_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/reasoning-agent/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2220-reasoning-agent/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development reasoning-agent."
+  value       = module.reasoning_agent_deployment_dev.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/main.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/main.tf
+# This instance deploys the main user-facing React application.
+module "user_frontend_app" {
+  source = "../../../../../../modules/kustomize-apply"
+
+  service_name     = "user-frontend"
+  namespace        = "personae-system"
+  image_repository = "aqls/personae-web-interface" # Your frontend image
+  image_tag        = var.image_tag
+
+  # Point to the production Kustomize overlay for the frontend.
+  # This directory would contain the deployment.yaml, service.yaml, ingress.yaml, etc.
+  kustomize_path = "../../../../../../../deployments/kustomize/frontends/user-frontend/overlays/production"
+}
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/main.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1120-core-manager/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1120-core-manager/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1120-core-manager/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-core-manager-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "core_manager_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/core-manager/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1120-core-manager/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development core-manager."
+  value       = module.core_manager_deployment_dev.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1110-auth-service/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1110-auth-service/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1110-auth-service/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-auth-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "auth_service_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/auth-service/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1110-auth-service/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development auth-service."
+  value       = module.auth_service_deployment_dev.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/local/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/local/main.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/020-ingress-nginx/terraform.tfvars
+# terraform/environments/production/uk001/020-ingress-nginx/terraform.tfvars
+
+// ingress_namespace = "custom-ingress" // Optional override
+// ingress_helm_chart_version = "x.y.z"-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/020-ingress-nginx/variables.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/uk001/020-ingress-nginx/variables.tf
+variable "ingress_helm_chart_version_override" {
+  description = "Specific NGINX Ingress Helm chart version for Sydney (optional)."
+  type        = string
+  default     = null # Module will use its default if this is null
+}
+
+variable "ingress_custom_values_yaml_path" {
+  description = "Path to a custom Helm values YAML file for NGINX Ingress for Sydney."
+  type        = string
+  # Path from this TF config to the actual YAML file in your modules directory
+  default     = "../../../../modules/nginx_ingress/config/ingress-nginx-values.yaml" # ADJUST THIS PATH
+}
+
+variable "ingress_target_namespace" {
+  description = "Target namespace for NGINX Ingress in Sydney."
+  type        = string
+  default     = "ingress-nginx"
+}
+
+variable "kubeconfig_path" {
+  description = "Path to the kubeconfig file for the target Kubernetes cluster. This is typically set by the Makefile."
+  type        = string
+  sensitive   = true
+  # No default is needed as the Makefile will pass it.
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/020-ingress-nginx/providers.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/uk001/020-ingress-nginx/providers.tf
+provider "kubernetes" {
+  config_path = var.kubeconfig_path
+}
+
+provider "helm" {
+  kubernetes {
+    config_path = var.kubeconfig_path
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/020-ingress-nginx/main.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/uk001/020-ingress-nginx/main.tf
+module "nginx_ingress" {
+  source = "../../../../modules/nginx_ingress" # Relative path to your new reusable module
+
+  ingress_namespace    = var.ingress_target_namespace
+  helm_chart_version = var.ingress_helm_chart_version_override == null ? null : var.ingress_helm_chart_version_override # Pass override or let module use default
+  helm_values_content  = fileexists(var.ingress_custom_values_yaml_path) ? file(var.ingress_custom_values_yaml_path) : ""
+  # create_namespace     = true # Or false if namespace is created elsewhere (e.g., by operator config)
+  # If the namespace is also defined in 030-strimzi-operator for watched ns,
+  # set create_namespace = false here and add depends_on to ensure it exists.
+}
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/020-ingress-nginx/outputs.tf
+# terraform/environments/production/uk001/020-ingress-nginx/outputs.tf
+
+output "ingress_loadbalancer_ip" {
+  description = "External IP of the NGINX Ingress for uk001."
+  value       = module.nginx_ingress.loadbalancer_ip
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/020-ingress-nginx/versions.tf
+# terraform/environments/production/uk001/020-ingress-nginx/versions.tf
+
+terraform {
+  required_providers {
+    kubernetes = { source = "hashicorp/kubernetes", version = "~> 2.36.0" }
+    helm       = { source = "hashicorp/helm", version = "~> 2.17.0" }
+  }
+  required_version = ">= 1.0"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/070-database-schemas/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/070-database-schemas/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/070-database-schemas/main.tf
+terraform {
+  required_providers {
+    postgresql = {
+      source  = "cyrilgdn/postgresql"
+      version = "~> 1.20.0"
+    }
+    # We don't need a MySQL provider if we use the job runner for it.
+  }
+
+  backend "kubernetes" {
+    secret_suffix = "tfstate-db-schemas"
+    config_path   = "~/.kube/config"
+  }
+}
+
+# Read the outputs from the database creation layer
+data "terraform_remote_state" "databases" {
+  backend = "kubernetes"
+  config = {
+    secret_suffix = "tfstate-databases"
+    config_path   = "~/.kube/config"
+  }
+}
+
+# --- PostgreSQL Provider for the 'templates' database ---
+provider "postgresql" {
+  alias    = "templates_db_provider"
+  host     = data.terraform_remote_state.databases.outputs.postgres_templates_db_endpoint
+  port     = 5432
+  database = "templatesdb"
+  username = "templates_user"
+  password = data.terraform_remote_state.databases.outputs.templates_db_password
+  sslmode  = "disable" # Change to "require" if you configure SSL
+}
+
+# --- PostgreSQL Provider for the 'clients' database ---
+provider "postgresql" {
+  alias    = "clients_db_provider"
+  host     = data.terraform_remote_state.databases.outputs.postgres_clients_db_endpoint
+  port     = 5432
+  database = "clientsdb"
+  username = "clients_user"
+  password = data.terraform_remote_state.databases.outputs.clients_db_password
+  sslmode  = "disable" # Change to "require" if you configure SSL
+}
+
+# Read the SQL file for the pgvector extension
+data "local_file" "pgvector_sql" {
+  filename = "${path.module}/../../../../sql/001_enable_pgvector.sql" # Assuming this path
+}
+
+# Apply the pgvector extension to the clients database
+resource "postgresql_query" "pgvector_extension" {
+  provider = postgresql.clients_db_provider
+  query    = data.local_file.pgvector_sql.content
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/080-kafka-topics/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/080-kafka-topics/variables.tf
+variable "platform_topics" {
+  description = "A list of Kafka topic names to be created for the application."
+  type        = list(string)
+  default = [
+    # System & Orchestration Topics
+    "system.commands.workflow.resume",
+    "system.events.workflow.paused",
+    "system.events.workflow.completed",
+
+    # Core Service Topics
+    "requests.auth.user.create",
+    "events.auth.user.created",
+
+    # Agent Communication Topics
+    "requests.agent.task.execute",
+    "events.agent.task.completed",
+    "events.agent.task.failed",
+    "events.agent.task.progress",
+
+    # Specialized Agent Topics
+    "requests.agent.reasoning",
+    "requests.agent.web-search",
+    "requests.agent.image-generation",
+  ]
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/080-kafka-topics/main.tf
+terraform {
+  required_providers {
+    kafka = {
+      source  = "mongey/kafka"
+      version = "~> 0.11.0"
+    }
+  }
+  backend "kubernetes" {
+    secret_suffix = "tfstate-kafka-topics"
+    config_path   = "~/.kube/config"
+  }
+}
+
+# Read the outputs from the Kafka cluster layer
+data "terraform_remote_state" "kafka_cluster" {
+  backend = "kubernetes"
+  config = {
+    secret_suffix = "tfstate-kafka-cluster" # Assuming this is the suffix used in 040
+    config_path   = "~/.kube/config"
+  }
+}
+
+provider "kafka" {
+  bootstrap_servers = data.terraform_remote_state.kafka_cluster.outputs.kafka_bootstrap_servers
+  # Add TLS/SASL config here if your production Kafka cluster requires it
+}
+
+# Define all required Kafka topics for the platform
+resource "kafka_topic" "topics" {
+  for_each = toset(var.platform_topics)
+
+  name               = each.key
+  partitions         = 3  # A good starting point for production
+  replication_factor = 3  # Should match the number of Kafka brokers for resilience
+  config = {
+    "retention.ms" = "-1" # Retain messages indefinitely by default
+    "cleanup.policy" = "compact,delete"
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/080-kafka-topics/outputs.tf
+output "topic_names" {
+  description = "The names of the created Kafka topics."
+  value       = [for topic in kafka_topic.topics : topic.name]
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/010-infrastructure/terraform.tfvars
+# terraform/environments/production/uk/uk001/010-infrastructure/terraform.tfvars
+
+instance_cluster_name           = "uk001-prod-cluster"
+instance_rackspace_region       = "uk-lon-1"
+instance_ondemand_node_flavor = "mh.vs1.medium-lon"
+instance_spot_node_flavor     = "gp.vs1.large-lon" #mh.vs1.medium-lon has much more memory gp. is general
+instance_slack_webhook_url    = "https://hooks.slack.com/services/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"
+instance_ondemand_node_count = 0
+instance_spot_min_nodes = 3
+instance_spot_max_nodes = 6
+
+# general purpose
+# gp.vs1.medium-lon
+# gp.vs1.large-lon
+# gp.vs1.xlarge-lon
+# gp.vs1.2xlarge-lon
+
+# memory
+# mh.vs1.medium-lon
+# mh.vs1.large-lon
+# mh.vs1.xlarge-lon
+# mh.vs1.2xlarge-lon
+
+# gp.bm2.medium-lon
+# gp.bm2.large-lon
+
+# ch.vs1.medium-lon
+# ch.vs1.large-lon
+# ch.vs1.xlarge-lon
+# ch.vs1.2xlarge-lon
+
+
+
+
+
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/010-infrastructure/variables.tf
+variable "rackspace_spot_token" {
+  description = "Rackspace Spot API token for this environment."
+  type        = string
+  sensitive   = true
+  # No default, provide via terraform.tfvars.secret or TF_VAR_... env var
+}
+
+variable "instance_cluster_name" { // Renamed to avoid conflict with module input name
+  description = "Specific name for this instance of the Kubernetes cluster (e.g., sydney-prod-k8s)."
+  type        = string
+}
+
+variable "instance_rackspace_region" { // Renamed
+  description = "Specific Rackspace region for this instance (e.g., aus-syd-1)."
+  type        = string
+}
+
+variable "instance_ondemand_node_flavor" { // Renamed
+  description = "Flavor for on-demand nodes for this instance."
+  type        = string
+}
+
+variable "instance_spot_node_flavor" { // Renamed
+  description = "Flavor for spot nodes for this instance."
+  type        = string
+}
+
+variable "instance_slack_webhook_url" { // Renamed
+  description = "Slack webhook URL for preemption notices for this instance (optional)."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "instance_ondemand_node_taints" {
+  description = "Taints for on-demand nodes for this uk001 instance."
+  type = list(object({
+    key    = string
+    value  = string
+    effect = string
+  }))
+  default = []
+}
+
+variable "instance_ondemand_node_count" {
+  description = "No. of on-demand instances for this uk001 deployment"
+  type = number
+  default = 2
+}
+
+variable "instance_spot_min_nodes" {
+  description = "Min number of spot nodes for uk001 deployment"
+  type = number
+  default = 3
+}
+
+variable "instance_spot_max_nodes" {
+  description = "Min number of spot nodes for uk001 deployment"
+  type = number
+  default = 4
+}
+
+variable "instance_spot_max_price" {
+  description = "Max price for spot nodes in uk001 deployment"
+  type = number
+  default = 0.035
+}
+
+// Add variables here if you want to override module defaults for this instance
+// e.g., var.instance_k8s_version, var.instance_ondemand_node_count-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/010-infrastructure/terraform.tfstate.uk001-prod-cluster
+{
+  "version": 4,
+  "terraform_version": "1.12.0",
+  "serial": 19,
+  "lineage": "f13659cb-8dfd-565a-e5bc-d61834baeb9b",
+  "outputs": {
+    "cluster_endpoint": {
+      "value": "https://hcp-8750ffa8-7ad8-40e7-973d-b33c79cd1a11.spot.rackspace.com/",
+      "type": "string",
+      "sensitive": true
+    },
+    "cluster_kubeconfig_raw": {
+      "value": "apiVersion: v1\nclusters:\n  - cluster:\n      insecure-skip-tls-verify: true\n      server: \u003e-\n        https://hcp-8750ffa8-7ad8-40e7-973d-b33c79cd1a11.spot.rackspace.com/\n    name: uk001-prod-cluster\ncontexts:\n  - context:\n      cluster: uk001-prod-cluster\n      namespace: default\n      user: ngpc-user\n    name: personae-uk001-prod-cluster\n  - context:\n      cluster: uk001-prod-cluster\n      namespace: default\n      user: oidc\n    name: personae-uk001-prod-cluster-oidc\ncurrent-context: personae-uk001-prod-cluster\nkind: Config\npreferences: {}\nusers:\n  - name: ngpc-user\n    user:\n      token: \u003e-\n        eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkNYQ25nd1NFS0JWQl9DbWxvalo0eCJ9.eyJncm91cCI6ImNsb3Vkc3BhY2UtYWRtaW4iLCJuaWNrbmFtZSI6ImFhYSIsIm5hbWUiOiJhYWFAZGVzaWduY29uc3VsdGFuY3kuY28udWsiLCJwaWN0dXJlIjoiaHR0cHM6Ly9zLmdyYXZhdGFyLmNvbS9hdmF0YXIvYzRhNDgzZjBiNTA0NmFmZGEwMzUyM2I4MDBjOTFiYzc_cz00ODAmcj1wZyZkPWh0dHBzJTNBJTJGJTJGY2RuLmF1dGgwLmNvbSUyRmF2YXRhcnMlMkZhYS5wbmciLCJ1cGRhdGVkX2F0IjoiMjAyNS0wNS0yN1QxMjo1NjoxMy42MDlaIiwiZW1haWwiOiJhYWFAZGVzaWduY29uc3VsdGFuY3kuY28udWsiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9sb2dpbi5zcG90LnJhY2tzcGFjZS5jb20vIiwiYXVkIjoibXdHM2xVTVY4S3llTXFIZTRmSjVCYjNuTTF2QnZSTmEiLCJzdWIiOiJhdXRoMHw2N2U2Zjg1NDZmYzVkM2I4ZDVhMTRiMWQiLCJpYXQiOjE3NDg1MTY4ODUsImV4cCI6MTc0ODc3NjA4NSwic2lkIjoiU2tLUGp5dUQyWFc5ZkVHbFRNZ1hFZE1VeWhydlNPclciLCJvcmdfaWQiOiJvcmdfSmp5alptb3hWTElYUlZEaiJ9.mWZ8IdFZZPP87S0Peiul6WqJDIfksilmNcLdbM0oHDjfI7JrqrY-bK0G1Uxg4RBhCVyEN1lE5h5IKT-S4UXHtvTZfSal26weGw2Rd-9sdlbHdmwI3eOQ_W-Nb_g9jynJBLJdFLFxiKG1IqvV40LL0UDdaRKfW6JXvN4Er1mWNggOJtTv9cpHsK4DQo8YL8xo6O5Eq4KwKVgxIk6mRuFTz7n1IB_w_54AIItQHnUhFmpdTi0qKJVurCfZFiCM-s2D0BZ5-lLlrYV680UX1QAN9QuglaIt35miXgBcQTcAknjnmnv2GzDgHszPD-XxT0S7WDoKz62jNHNc-eF5ffPEAg\n  - name: oidc\n    user:\n      exec:\n        apiVersion: client.authentication.k8s.io/v1beta1\n        args:\n          - oidc-login\n          - get-token\n          - '--oidc-issuer-url=https://login.spot.rackspace.com/'\n          - '--oidc-client-id=mwG3lUMV8KyeMqHe4fJ5Bb3nM1vBvRNa'\n          - '--oidc-extra-scope=openid'\n          - '--oidc-extra-scope=profile'\n          - '--oidc-extra-scope=email'\n          - '--oidc-auth-request-extra-params=organization=org_JjyjZmoxVLIXRVDj'\n          - '--token-cache-dir=~/.kube/cache/oidc-login/org_JjyjZmoxVLIXRVDj'\n        command: kubectl\n        env: null\n        interactiveMode: IfAvailable\n        provideClusterInfo: false\n",
+      "type": "string",
+      "sensitive": true
+    },
+    "cluster_name": {
+      "value": "uk001-prod-cluster",
+      "type": "string"
+    },
+    "ingress_controller_node_external_ips": {
+      "value": [
+        "134.213.222.28",
+        "134.213.222.34",
+        "134.213.222.35",
+        "134.213.222.32"
+      ],
+      "type": [
+        "tuple",
+        [
+          "string",
+          "string",
+          "string",
+          "string"
+        ]
+      ]
+    }
+  },
+  "resources": [
+    {
+      "module": "module.kubernetes_cluster",
+      "mode": "data",
+      "type": "spot_serverclasses",
+      "name": "available_flavors",
+      "provider": "provider[\"registry.terraform.io/rackerlabs/spot\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "filters": null,
+            "id": null,
+            "names": [
+              "gp.vs1.small-dfw",
+              "gp.vs1.small-iad",
+              "gp.bm2.large-dfw",
+              "gp.bm2.small-lon",
+              "gp.bm2.small-iad",
+              "gp.bm2.medium-dfw",
+              "gp.bm2.large-lon",
+              "gp.bm2.medium-lon",
+              "io.bm2-lon",
+              "io.bm2-iad",
+              "ch.vs2.medium-dfw2",
+              "mh.vs2.xlarge-dfw2",
+              "ch.vs1.medium-hkg",
+              "ch.vs2.large-sjc",
+              "ch.vs2.xlarge-sjc",
+              "gp.vs2.2xlarge-sjc",
+              "gp.vs2.large-sjc",
+              "gp.vs2.xlarge-sjc",
+              "mh.vs2.large-sjc",
+              "mh.vs2.medium-sjc",
+              "mh.vs2.xlarge-sjc",
+              "mh.vs1.medium-syd",
+              "gpu.vs2.megaxlarge-sjc",
+              "mh.vs2.medium-dfw2",
+              "ch.vs1.large-syd",
+              "mh.vs1.2xlarge-syd",
+              "ch.vs1.large-hkg",
+              "ch.vs1.medium-ord",
+              "mh.vs1.medium-ord",
+              "ch.vs1.large-ord",
+              "mh.vs1.large-ord",
+              "gp.vs1.large-hkg",
+              "gp.vs1.xlarge-lon",
+              "ch.vs1.2xlarge-hkg",
+              "mh.vs1.2xlarge-hkg",
+              "gp.vs1.2xlarge-hkg",
+              "ch.vs1.2xlarge-lon",
+              "ch.vs1.xlarge-ord",
+              "gp.vs1.2xlarge-iad",
+              "mh.vs1.2xlarge-ord",
+              "gp.vs1.medium-ord",
+              "ch.vs1.2xlarge-syd",
+              "mh.vs1.xlarge-syd",
+              "mh.vs1.2xlarge-lon",
+              "ch.vs1.medium-iad",
+              "mh.vs1.medium-iad",
+              "ch.vs1.2xlarge-ord",
+              "gp.vs1.xlarge-syd",
+              "ch.vs1.xlarge-hkg",
+              "gp.vs1.2xlarge-ord",
+              "ch.vs1.xlarge-syd",
+              "ch.vs1.2xlarge-dfw",
+              "gp.vs1.2xlarge-syd",
+              "gp.vs1.2xlarge-dfw",
+              "mh.vs1.xlarge-ord",
+              "mh.vs1.medium-hkg",
+              "mh.vs1.xlarge-hkg",
+              "mh.vs1.large-hkg",
+              "gp.vs1.medium-hkg",
+              "ch.vs1.medium-syd",
+              "mh.vs1.large-syd",
+              "gp.vs1.medium-syd",
+              "mh.vs1.2xlarge-dfw",
+              "mh.vs1.medium-dfw",
+              "ch.vs1.medium-dfw",
+              "gp.vs2.2xlarge-dfw2",
+              "ch.vs2.medium-sjc",
+              "gpu.vs2.xlargeplusplus-sjc",
+              "ch.vs1.large-lon",
+              "gp.vs1.medium-lon",
+              "ch.vs1.medium-lon",
+              "gp.vs1.large-ord",
+              "gp.vs1.xlarge-ord",
+              "gp.vs1.large-syd",
+              "ch.vs2.xlarge-dfw2",
+              "ch.vs2.large-dfw2",
+              "mh.vs1.xlarge-dfw",
+              "ch.vs1.xlarge-dfw",
+              "mh.vs1.medium-lon",
+              "ch.vs1.xlarge-lon",
+              "gp.vs1.2xlarge-lon",
+              "gp.vs1.large-dfw",
+              "gp.vs1.xlarge-iad",
+              "mh.vs2.large-dfw2",
+              "mh.vs1.large-iad",
+              "gp.vs1.large-iad",
+              "gp.vs2.xlarge-dfw2",
+              "gp.vs1.medium-iad",
+              "gp.vs2.large-dfw2",
+              "mh.vs1.xlarge-lon",
+              "mh.vs1.large-lon",
+              "gp.vs2.medium-dfw2",
+              "gp.vs2.medium-sjc",
+              "gp.vs1.xlarge-hkg",
+              "gp.vs1.medium-dfw",
+              "mh.vs1.large-dfw",
+              "ch.vs1.large-dfw",
+              "ch.vs1.xlarge-iad",
+              "mh.vs1.xlarge-iad",
+              "gp.vs1.large-lon",
+              "ch.vs1.2xlarge-iad",
+              "mh.vs1.2xlarge-iad",
+              "ch.vs1.large-iad",
+              "gp.vs1.xlarge-dfw"
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0
+        }
+      ]
+    },
+    {
+      "module": "module.kubernetes_cluster",
+      "mode": "managed",
+      "type": "spot_cloudspace",
+      "name": "cluster",
+      "provider": "provider[\"registry.terraform.io/rackerlabs/spot\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "bids": [
+              {
+                "bid_name": "80c3f728-ed3a-4540-9fd7-ffda0cbeb728",
+                "won_count": 4
+              }
+            ],
+            "cloudspace_name": "uk001-prod-cluster",
+            "cni": "calico",
+            "deployment_type": "gen2",
+            "first_ready_timestamp": "2025-05-28T16:29:41Z",
+            "hacontrol_plane": false,
+            "id": "uk001-prod-cluster",
+            "kubernetes_version": "1.31.1",
+            "last_updated": null,
+            "name": "uk001-prod-cluster",
+            "pending_allocations": null,
+            "preemption_webhook": "https://hooks.slack.com/services/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",
+            "region": "uk-lon-1",
+            "spotnodepool_ids": [
+              "80c3f728-ed3a-4540-9fd7-ffda0cbeb728"
+            ],
+            "timeouts": null,
+            "wait_until_ready": null
+          },
+          "sensitive_attributes": [
+            [
+              {
+                "type": "get_attr",
+                "value": "preemption_webhook"
+              }
+            ]
+          ],
+          "identity_schema_version": 0,
+          "private": "eyJyZXNvdXJjZV92ZXJzaW9uIjoiTVRnME1qZ3pNems9In0="
+        }
+      ]
+    },
+    {
+      "module": "module.kubernetes_cluster",
+      "mode": "managed",
+      "type": "spot_ondemandnodepool",
+      "name": "default_pool",
+      "provider": "provider[\"registry.terraform.io/rackerlabs/spot\"]",
+      "instances": []
+    }
+  ],
+  "check_results": null
+}
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/010-infrastructure/outputs_nodes.tf
+# In terraform/environments/production/uk001/010-infrastructure/outputs_nodes.tf
+
+# This provider block allows Terraform to connect to your newly created/existing
+# Kubernetes cluster using the kubeconfig file that your 'infra-kubeconfig'
+# Makefile target should be generating.
+# Ensure KUBECONFIG_FILE in your Makefile points to the correct path for this environment.
+provider "kubernetes" {
+  alias = "k8s_cluster_access" # Alias to avoid conflict with other k8s provider configs if any
+  config_path = abspath(pathexpand("~/.kube/config_production_uk001")) # Adjust if your Makefile saves it elsewhere
+  # This assumes the kubeconfig exists from a previous apply.
+}
+
+data "kubernetes_nodes" "worker_nodes" {
+  provider = kubernetes.k8s_cluster_access # Use the aliased provider
+
+  # Optional: Filter for nodes that are expected to run Ingress controllers.
+  # Your DaemonSet for ingress-nginx might have a nodeSelector or tolerations.
+  # If it runs on all general worker nodes, you might select based on a common worker label.
+  # Your nodes show "node-role.kubernetes.io/worker=".
+  # If your Ingress DaemonSet is scheduled on all nodes with this role (and no other specific selector),
+  # then this is appropriate. If your DaemonSet has a more specific nodeSelector (e.g., role=ingress-node),
+  # you should match that here.
+  metadata {
+    labels = {
+      # Adjust this label selector if your Ingress DaemonSet targets specific nodes.
+      # If it runs on all schedulable worker nodes without a specific selector,
+      # you might rely on all nodes returned or a general worker role.
+      "node-role.kubernetes.io/worker" = ""
+    }
+  }
+  # Ensure this data source depends on the cluster being fully provisioned.
+  # The provider configuration using the kubeconfig implies this dependency.
+  depends_on = [module.kubernetes_cluster]
+}
+
+output "ingress_controller_node_external_ips" {
+  description = "List of external IP addresses (labelled as INTERNAL in Rackspace) for Kubernetes nodes expected to run Ingress controllers."
+  value = [
+    for node in data.kubernetes_nodes.worker_nodes.nodes :
+    one([ # Use one() to ensure exactly one ExternalIP is found per node, or fail if none/multiple
+      for addr in node.status[0].addresses : addr.address if addr.type == "InternalIP"
+    ]) if length([for addr in node.status[0].addresses : addr.address if addr.type == "InternalIP"]) > 0
+    # This 'if' at the end of the list comprehension filters out nodes that might not have an ExternalIP
+  ]
+  depends_on = [data.kubernetes_nodes.worker_nodes]
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/010-infrastructure/providers.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/uk001/010-infrastructure/providers.tf
+provider "spot" {
+  token = var.rackspace_spot_token
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/010-infrastructure/backend.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/uk001/backend.tf
+# Configure Terraform state backend (e.g., local, S3, Terraform Cloud)
+terraform {
+  backend "local" {
+    path = "terraform.tfstate.uk001-prod-cluster" # Specific state file for this instance
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/010-infrastructure/main.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/uk001/010-infrastructure/main.tf
+module "kubernetes_cluster" { # Local name for this instance of the module
+  source = "../../../../modules/kubernetes_cluster_rackspace" # Path to the reusable module
+
+  # Map variables from this root module (010-infrastructure) to the module's input variables
+  cluster_name         = var.instance_cluster_name
+  rackspace_region     = var.instance_rackspace_region
+  preemption_webhook_url = var.instance_slack_webhook_url
+  ondemand_node_flavor = var.instance_ondemand_node_flavor
+  spot_node_flavor     = var.instance_spot_node_flavor
+  ondemand_node_taints   = var.instance_ondemand_node_taints
+  ondemand_node_count = var.instance_ondemand_node_count
+  spot_min_nodes = var.instance_spot_min_nodes
+  spot_max_nodes = var.instance_spot_max_nodes
+  spot_max_price = var.instance_spot_max_price
+
+  # Pass values for other variables defined in the module's variables.tf
+  # If the module has defaults for these, you only need to pass them if you want to override.
+  # kubernetes_version   = "1.31.1" # Or use var.instance_k8s_version
+  # ondemand_node_count  = 1
+  # spot_min_nodes       = 1
+  # spot_max_nodes       = 2
+  # ... etc. for cni, hacontrol_plane, spot_max_price, labels
+
+
+  # Ensure ondemand_node_count is set, likely via terraform.tfvars
+  # For example, if you have 'instance_ondemand_node_count' in your root variables.tf:
+  # ondemand_node_count    = var.instance_ondemand_node_count
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/010-infrastructure/outputs.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/uk001/010-infrastructure/outputs.tf
+output "cluster_kubeconfig_raw" { // Used by Makefile
+  description = "Raw Kubeconfig for the Sydney production cluster."
+  value       = module.kubernetes_cluster.kubeconfig_raw
+  sensitive   = true
+}
+
+output "cluster_endpoint" {
+  description = "API Endpoint for the Sydney production cluster."
+  value       = module.kubernetes_cluster.cluster_endpoint_actual
+  sensitive   = true
+}
+
+output "cluster_name" {
+  description = "Actual name of the created cluster."
+  value       = module.kubernetes_cluster.cluster_name_actual
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/010-infrastructure/versions.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/uk001/010-infrastructure/versions.tf
+terraform {
+  required_providers {
+    # Configure the Rackspace Spot provider
+    spot = {
+      source  = "rackerlabs/spot"
+      version = "~> 0.1.4" # Match the version constraint in your module
+    }
+    # Add kubernetes and helm here if you plan to deploy services from this root module later
+    # For now, just the spot provider is needed for the cluster module.
+  }
+  required_version = ">= 1.0"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/090-monitoring/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/090-monitoring/variables.tf
+variable "monitoring_namespace" {
+  description = "The Kubernetes namespace to deploy the monitoring stack into."
+  type        = string
+  default     = "monitoring"
+}
+
+variable "grafana_admin_password" {
+  description = "The admin password for the Grafana dashboard."
+  type        = string
+  sensitive   = true
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/090-monitoring/main.tf
+terraform {
+  required_providers {
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.11.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.20"
+    }
+  }
+  backend "kubernetes" {
+    secret_suffix = "tfstate-monitoring"
+    config_path   = "~/.kube/config"
+  }
+}
+
+# Add the prometheus-community Helm repository
+data "helm_repository" "prometheus_community" {
+  name = "prometheus-community"
+  url  = "https://prometheus-community.github.io/helm-charts"
+}
+
+# Create a dedicated namespace for monitoring tools
+resource "kubernetes_namespace" "monitoring_ns" {
+  metadata {
+    name = var.monitoring_namespace
+  }
+}
+
+# Deploy the kube-prometheus-stack Helm chart
+resource "helm_release" "prometheus_stack" {
+  name       = "prometheus-stack"
+  repository = data.helm_repository.prometheus_community.metadata[0].name
+  chart      = "kube-prometheus-stack"
+  namespace  = kubernetes_namespace.monitoring_ns.metadata[0].name
+  version    = "51.8.0" # Pin to a specific chart version for consistency
+
+  values = [
+    templatefile("${path.module}/values.yaml.tpl", {
+      grafana_admin_password = var.grafana_admin_password
+    })
+  ]
+
+  depends_on = [kubernetes_namespace.monitoring_ns]
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/090-monitoring/values.yaml.tpl
+# values.yaml.tpl
+# See all possible values here:
+# https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+
+# Grafana configuration
+grafana:
+  # Use the password from our variables.tf
+  adminPassword: "${grafana_admin_password}"
+
+  # To access Grafana, you'll typically set up an Ingress.
+  # For now, we can expose it via a LoadBalancer for direct access.
+  # In a real production setup, you would use an Ingress controller.
+  service:
+    type: LoadBalancer
+
+# Prometheus configuration
+prometheus:
+  prometheusSpec:
+    # Set retention for production workloads
+    retention: 30d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          # Use your production storage class
+          storageClassName: premium-storage
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 50Gi-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/090-monitoring/outputs.tf
+output "grafana_service_name" {
+  description = "The name of the Grafana service."
+  value       = "${helm_release.prometheus_stack.name}-grafana"
+}
+
+output "prometheus_service_name" {
+  description = "The name of the Prometheus service."
+  value       = "${helm_release.prometheus_stack.name}-prometheus"
+}
+
+output "alertmanager_service_name" {
+  description = "The name of the Alertmanager service."
+  value       = "${helm_release.prometheus_stack.name}-alertmanager"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/050-storage/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/050-storage/variables.tf
+variable "region" {
+  description = "The region where resources will be deployed."
+  type        = string
+}
+
+variable "s3_use_path_style" {
+  description = "Whether to use path-style addressing for S3. Set to true for MinIO."
+  type        = bool
+  default     = false
+}
+
+variable "image_bucket_name" {
+  description = "Name for the bucket to store generated images."
+  type        = string
+  default     = "personae-prod-uk001-images"
+}
+
+variable "site_assets_bucket_name" {
+  description = "Name for the bucket to store generated static site assets."
+  type        = string
+  default     = "personae-prod-uk001-site-assets"
+}
+
+variable "b2_application_key_id" {
+  description = "The application key ID for Backblaze B2."
+  type        = string
+  sensitive   = true
+}
+
+variable "b2_application_key" {
+  description = "The application key for Backblaze B2."
+  type        = string
+  sensitive   = true
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/050-storage/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix    = "tfstate-storage"
+    config_path      = "~/.kube/config"
+    # In a real CI/CD pipeline, you might use in_cluster_config = true
+  }
+}
+
+provider "b2" {
+  application_key_id = var.b2_application_key_id
+  application_key    = var.b2_application_key
+}
+
+module "storage_buckets" {
+  source = "../../../modules/s3-buckets"
+
+  bucket_names = [
+    var.image_bucket_name,
+    var.site_assets_bucket_name
+  ]
+
+  tags = {
+    environment = "production"
+    region      = var.region
+    managed_by  = "terraform"
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/050-storage/outputs.tf
+output "image_bucket_id" {
+  description = "The ID of the image storage bucket."
+  value       = module.storage_buckets.bucket_ids[var.image_bucket_name]
+}
+
+output "site_assets_bucket_id" {
+  description = "The ID of the site assets storage bucket."
+  value       = module.storage_buckets.bucket_ids[var.site_assets_bucket_name]
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/README.md
+deployment order...
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/060-databases/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/060-databases/variables.tf
+variable "k8s_namespace" {
+  description = "The Kubernetes namespace to deploy database resources into."
+  type        = string
+  default     = "personae-prod-db"
+}
+
+variable "postgres_storage_class" {
+  description = "The name of the Kubernetes StorageClass to use for PostgreSQL volumes."
+  type        = string
+  # Note: Change this to your actual production storage class name.
+  default     = "premium-storage"
+}
+
+# --- External MySQL Variables ---
+variable "external_mysql_host" {
+  description = "The endpoint for the external MySQL database."
+  type        = string
+  sensitive   = true
+}
+
+variable "external_mysql_password" {
+  description = "Password for the external MySQL database."
+  type        = string
+  sensitive   = true
+}
+
+# --- In-Cluster PostgreSQL Variables ---
+variable "templates_db_password" {
+  description = "Password for the templates PostgreSQL database."
+  type        = string
+  sensitive   = true
+}
+
+variable "clients_db_password" {
+  description = "Password for the multi-tenant clients PostgreSQL database."
+  type        = string
+  sensitive   = true
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/060-databases/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-databases"
+    config_path   = "~/.kube/config"
+  }
+}
+
+# --- External MySQL Secret ---
+module "external_mysql_auth_db" {
+  source = "../../../modules/mysql-instance"
+
+  instance_name = "personae-prod-uk001-auth-db"
+  namespace     = var.k8s_namespace
+  db_host       = var.external_mysql_host
+  database_name = "authservicedb"
+  database_user = "auth_user"
+  database_pass = var.external_mysql_password
+}
+
+# --- In-Cluster PostgreSQL for Templates ---
+module "postgres_templates_db" {
+  source = "../../../modules/postgres-instance"
+
+  instance_name      = "postgres-templates"
+  namespace          = var.k8s_namespace
+  database_name      = "templatesdb"
+  database_user      = "templates_user"
+  database_pass      = var.templates_db_password
+  storage_class_name = var.postgres_storage_class
+  storage_size       = "5Gi"
+}
+
+# --- In-Cluster PostgreSQL for Client Data ---
+module "postgres_clients_db" {
+  source = "../../../modules/postgres-instance"
+
+  instance_name      = "postgres-clients"
+  namespace          = var.k8s_namespace
+  database_name      = "clientsdb"
+  database_user      = "clients_user"
+  database_pass      = var.clients_db_password
+  storage_class_name = var.postgres_storage_class
+  storage_size       = "20Gi"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/060-databases/outputs.tf
+output "mysql_auth_db_endpoint" {
+  description = "The connection endpoint for the auth service MySQL database."
+  value       = module.mysql_auth_db.db_instance_endpoint
+}
+
+output "postgres_templates_db_endpoint" {
+  description = "The connection endpoint for the templates PostgreSQL database."
+  value       = module.postgres_templates_db.db_instance_endpoint
+}
+
+output "postgres_clients_db_endpoint" {
+  description = "The connection endpoint for the clients PostgreSQL database."
+  value       = module.postgres_clients_db.db_instance_endpoint
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/030-strimzi-operator/terraform.tfvars
+// kubeconfig_path = "/home/ant/.kube/config_production_uk001" // Will be set by Makefile
+// strimzi_operator_target_namespace = "strimzi" // Using default
+// watched_namespaces_for_sydney = ["kafka", "personae", "strimzi"] // Using default
+// strimzi_yaml_bundle_path_for_sydney = "../../../../modules/strimzi_operator/strimzi-yaml-0.45.0/" // Using default-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/030-strimzi-operator/variables.tf
+# terraform/environments/production/uk001/030-strimzi-operator/variables.tf
+variable "kubeconfig_path" {
+  description = "Path to the kubeconfig file for the uk001 cluster."
+  type        = string
+  sensitive   = true
+}
+
+variable "strimzi_operator_target_namespace" {
+  description = "Namespace for the Strimzi operator in uk001."
+  type        = string
+  default     = "strimzi"
+}
+
+variable "watched_namespaces_for_uk001" { // Changed from _for_sydney
+  description = "List of namespaces for the Strimzi operator to watch in uk001."
+  type        = list(string)
+  default     = ["kafka", "personae", "strimzi"] // Assuming same watched namespaces for now
+}
+
+variable "strimzi_yaml_bundle_path_for_uk001" { // Changed from _for_sydney
+  description = "Path to the Strimzi YAML files directory for this instance."
+  type        = string
+  # This relative path should still be correct from the new uk001 directory
+  default     = "../../../../modules/strimzi_operator/strimzi-yaml-0.45.0/"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/030-strimzi-operator/providers.tf
+# terraform/environments/production/uk001/030-strimzi-operator/providers.tf
+
+provider "kubernetes" {
+  config_path = var.kubeconfig_path # Provided by Makefile or root tfvars
+}
+# No Helm provider needed if this component only uses kubectl apply via null_resourceer "helm" { kubernetes {} }-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/030-strimzi-operator/main.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/uk001/030-strimzi-operator/main.tf
+
+# Define/Ensure the namespaces exist
+resource "kubernetes_namespace" "operator_ns" {
+  metadata {
+    name = var.strimzi_operator_target_namespace # "strimzi"
+  }
+}
+resource "kubernetes_namespace" "kafka_ns_for_watch" {
+  # Ensure this namespace exists if it's in the watched list and not created elsewhere
+  # Could also use a data source if creation is handled by a different TF config
+  metadata {
+    name = "kafka"
+  }
+}
+resource "kubernetes_namespace" "personae_ns_for_watch" {
+  metadata {
+    name = "personae"
+  }
+}
+
+module "strimzi_operator_service" {
+  source = "../../../../modules/strimzi_operator" # Path to your reusable module
+
+  operator_namespace    = kubernetes_namespace.operator_ns.metadata[0].name
+  watched_namespaces_list = var.watched_namespaces_for_uk001
+  strimzi_yaml_source_path = var.strimzi_yaml_bundle_path_for_uk001
+  cluster_kubeconfig_path = var.kubeconfig_path # Module needs this for its local-exec
+}
+
+output "operator_namespace" {
+  value = module.strimzi_operator_service.operator_namespace_used
+}
+output "watched_namespaces" {
+  value = module.strimzi_operator_service.watched_namespaces_configured
+}
+
+
+resource "kubernetes_role" "strimzi_ingress_reader_kafka_ns" {
+  metadata {
+    name      = "strimzi-ingress-reader"
+    namespace = "kafka" # Permissions within the 'kafka' namespace
+  }
+  rule {
+    api_groups = ["networking.k8s.io"]
+    resources  = ["ingresses"]
+    verbs      = ["get", "list", "watch"]
+  }
+  # Ensure this depends on the kafka namespace existing if created by this TF
+  depends_on = [kubernetes_namespace.kafka_ns_for_watch]
+}
+
+resource "kubernetes_role_binding" "strimzi_ingress_reader_kafka_ns_binding" {
+  metadata {
+    name      = "strimzi-ingress-reader-binding"
+    namespace = "kafka" # RoleBinding in the 'kafka' namespace
+  }
+  subject {
+    kind      = "ServiceAccount"
+    name      = "strimzi-cluster-operator"
+    namespace = "strimzi" # The SA is in the 'strimzi' namespace
+  }
+  role_ref {
+    kind      = "Role"
+    name      = kubernetes_role.strimzi_ingress_reader_kafka_ns.metadata[0].name
+    api_group = "rbac.authorization.k8s.io"
+  }
+  depends_on = [kubernetes_role.strimzi_ingress_reader_kafka_ns]
+}
+
+# Explicitly create/manage the RoleBinding in the 'kafka' namespace.
+# This binds the strimzi-cluster-operator SA (from 'strimzi' namespace)
+# to the 'strimzi-cluster-operator-namespaced' ClusterRole
+# for actions *within* the 'kafka' namespace.
+resource "kubernetes_role_binding" "strimzi_operator_permissions_in_kafka_ns" {
+  metadata {
+    name      = "strimzi-cluster-operator-kafka-namespace-permissions" # A descriptive name
+    namespace = "kafka"                                                # Binding is in the 'kafka' namespace
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = "strimzi-cluster-operator"            # Name of the ServiceAccount
+    namespace = var.strimzi_operator_target_namespace # Namespace of the SA (e.g., "strimzi")
+  }
+
+  role_ref {
+    kind      = "ClusterRole"
+    name      = "strimzi-cluster-operator-namespaced" # The ClusterRole that has the necessary permissions
+    # (including for "roles" and "rolebindings")
+    api_group = "rbac.authorization.k8s.io"
+  }
+
+  depends_on = [
+    kubernetes_namespace.kafka_ns_for_watch,    // Ensures 'kafka' namespace exists
+    module.strimzi_operator_service             // Ensures Strimzi operator YAMLs (which define SA and ClusterRole) are applied first
+  ]
+}
+
+# Explicitly create/manage the RoleBinding in the 'personae' namespace.
+resource "kubernetes_role_binding" "strimzi_operator_permissions_in_personae_ns" {
+  metadata {
+    name      = "strimzi-cluster-operator-personae-namespace-permissions"
+    namespace = "personae" # Binding is in the 'personae' namespace
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = "strimzi-cluster-operator"
+    namespace = var.strimzi_operator_target_namespace
+  }
+
+  role_ref {
+    kind      = "ClusterRole"
+    name      = "strimzi-cluster-operator-namespaced"
+    api_group = "rbac.authorization.k8s.io"
+  }
+
+  depends_on = [
+    kubernetes_namespace.personae_ns_for_watch, // Ensures 'personae' namespace exists
+    module.strimzi_operator_service
+  ]
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/030-strimzi-operator/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/030-strimzi-operator/versions.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/uk001/030-strimzi-operator/versions.tf
+terraform {
+  required_providers {
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.36.0"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2.4"
+    }
+  }
+  required_version = ">= 1.0"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/040-kafka-cluster/terraform.tfvars
+// kubeconfig_path = "/home/ant/.kube/config_production_uk001" // Makefile will pass this via -var
+// target_kafka_namespace = "kafka" // Using default
+// kafka_cluster_cr_yaml_path_uk001 = "../../../../projects/personae/config/kafka-cluster-zk.yaml" // Using default
+// kafka_cluster_name_uk001 = "personae-kafka-cluster" // Using default-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/040-kafka-cluster/variables.tf
+# terraform/environments/production/uk001/040-kafka-cluster/variables.tf
+variable "kubeconfig_path" {
+  description = "Path to the kubeconfig file for the uk001 cluster."
+  type        = string
+  sensitive   = true
+}
+
+variable "target_kafka_namespace" {
+  description = "Namespace where the Kafka CR for uk001 will be deployed."
+  type        = string
+  default     = "kafka"
+}
+
+variable "kafka_cluster_cr_yaml_path_uk001" { // Changed from _sydney
+  description = "Path to the Kafka CR YAML file for the uk001 instance."
+  type        = string
+  # This relative path should still correctly point to the shared module's config
+  default     = "../../../../modules/kafka_cluster/config/kafka-cluster-cr.yaml"
+}
+
+variable "kafka_cluster_name_uk001" { // Changed from _sydney
+  description = "The metadata.name of the Kafka cluster being deployed in uk001 (must match name in YAML)."
+  type        = string
+  default     = "personae-kafka-cluster" # Assuming you want to use the same Kafka cluster name internally
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/040-kafka-cluster/providers.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/sydney/040-kafka-cluster/providers.tf
+provider "kubernetes" {
+  config_path = var.kubeconfig_path # Will be provided by Makefile/tfvars
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/040-kafka-cluster/main.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/sydney/040-kafka-cluster/main.tf
+
+module "kafka_cluster_service" {
+  source = "../../../../modules/kafka_cluster" # Path to your reusable module
+
+  kafka_cr_namespace      = var.target_kafka_namespace
+  kafka_cr_yaml_file_path = var.kafka_cluster_cr_yaml_path_uk001
+  kubeconfig_path = var.kubeconfig_path
+  kafka_cr_cluster_name   = var.kafka_cluster_name_uk001
+}
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/040-kafka-cluster/outputs.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/sydney/040-kafka-cluster/outputs.tf
+output "deployed_kafka_cluster_name" {
+  value = module.kafka_cluster_service.cluster_name_applied
+}
+output "deployed_kafka_cluster_namespace" {
+  value = module.kafka_cluster_service.cluster_namespace_applied
+}
+output "kafka_bootstrap_servers_plain" {
+  value = module.kafka_cluster_service.bootstrap_servers_plain
+}
+output "kafka_bootstrap_servers_tls" {
+  value = module.kafka_cluster_service.bootstrap_servers_tls
+}
+
+output "cluster_context_name" {
+  description = "The kubectl context name for the production cluster."
+  value       = "personae-uk001-prod-cluster" // This is usually derived or is a known value from the kubeconfig
+  // You can often find this in the data.spot_kubeconfig.cluster_kubeconfig.kubeconfigs[0].name
+  // value = data.spot_kubeconfig.cluster_kubeconfig.kubeconfigs[0].name
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/040-kafka-cluster/versions.tf
+# ~/projects/terraform/rackspace_generic/terraform/environments/production/sydney/040-kafka-cluster/versions.tf
+terraform {
+  required_providers {
+    kubernetes = { # Even if module doesn't use it directly, root config might for data sources
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.36.0"
+    }
+    null = { # Because the module uses null_resource
+      source  = "hashicorp/null"
+      version = "~> 3.2.4"
+    }
+  }
+  required_version = ">= 1.0"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2230-web-search-adapter/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2230-web-search-adapter/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2230-web-search-adapter/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-web-search-adapter"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "web_search_adapter_deployment" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the production overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/web-search-adapter/overlays/production/uk_001"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2230-web-search-adapter/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the web-search-adapter."
+  value       = module.web_search_adapter_deployment.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2210-agent-chassis/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2210-agent-chassis/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2210-agent-chassis/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-agent-chassis"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "agent_chassis_deployment" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the production overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/agent-chassis/overlays/production/uk_001"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2210-agent-chassis/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the agent-chassis."
+  value       = module.agent_chassis_deployment.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2240-image-generator-adapter/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2240-image-generator-adapter/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2240-image-generator-adapter/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-image-generator-adapter"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "image_generator_adapter_deployment" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the production overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/image-generator-adapter/overlays/production/uk_001"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2240-image-generator-adapter/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the image-generator-adapter."
+  value       = module.image_generator_adapter_deployment.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2220-reasoning-agent/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2220-reasoning-agent/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2220-reasoning-agent/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-reasoning-agent"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "reasoning_agent_deployment" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the production overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/reasoning-agent/overlays/production/uk_001"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/agents/2220-reasoning-agent/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the reasoning-agent."
+  value       = module.reasoning_agent_deployment.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3330-agent-playground/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3330-agent-playground/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3330-agent-playground/main.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3330-agent-playground/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3320-user-portal/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3320-user-portal/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3320-user-portal/main.tf
+# This instance deploys the main user-facing React application.
+module "user_frontend_app" {
+  source = "../../../../../../modules/kustomize-apply"
+
+  service_name     = "user-frontend"
+  namespace        = "personae-system"
+  image_repository = "aqls/personae-web-interface" # Your frontend image
+  image_tag        = var.image_tag
+
+  # Point to the production Kustomize overlay for the frontend.
+  # This directory would contain the deployment.yaml, service.yaml, ingress.yaml, etc.
+  kustomize_path = "../../../../../../../deployments/kustomize/frontends/user-frontend/overlays/production"
+}
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3320-user-portal/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3310-admin-dashboard/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3310-admin-dashboard/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3310-admin-dashboard/main.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/frontends/3310-admin-dashboard/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/core-platform/1120-core-manager/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/core-platform/1120-core-manager/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/core-platform/1120-core-manager/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-core-manager"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "core_manager_deployment" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the production overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/core-manager/overlays/production/uk_001"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/core-platform/1120-core-manager/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the core-manager."
+  value       = module.core_manager_deployment.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/core-platform/1110-auth-service/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/core-platform/1110-auth-service/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/core-platform/1110-auth-service/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-auth"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "auth_service_deployment" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the production overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/auth-service/overlays/production/uk_001"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/production/uk001/services/core-platform/1110-auth-service/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the auth-service."
+  value       = module.auth_service_deployment.status
+}-------------------------------------------------

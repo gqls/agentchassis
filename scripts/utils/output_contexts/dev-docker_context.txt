@@ -1,0 +1,179 @@
+filepath = ./build/docker/frontend/react-nginx.dockerfile
+-------------------------------------------------
+filepath = ./build/docker/frontend/react-dev.dockerfile
+-------------------------------------------------
+filepath = ./build/docker/backend/seeder.dockerfile
+FROM alpine:latest
+
+# Install PostgreSQL client and MySQL client
+RUN apk add --no-cache \
+    postgresql16-client \
+    mysql-client \
+    bash \
+    curl \
+    jq
+
+# Create app directory
+WORKDIR /app
+
+# Copy seeding scripts and data files
+COPY docker/scripts/seed-data.sh /app/
+COPY docker/data/ /app/data/
+COPY docker/scripts/wait-for-services.sh /app/
+
+# Make scripts executable
+RUN chmod +x /app/seed-data.sh /app/wait-for-services.sh
+
+# Set default command
+CMD ["/app/seed-data.sh"]-------------------------------------------------
+filepath = ./build/docker/backend/web-search-adapter.dockerfile
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o web-search-adapter ./cmd/web-search-adapter
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+WORKDIR /app
+COPY --from=builder /app/web-search-adapter /app/
+COPY configs/web-search-adapter.yaml /app/configs/
+RUN chown -R appuser:appgroup /app
+USER appuser
+CMD ["./web-search-adapter", "-config", "configs/web-search-adapter.yaml"]
+-------------------------------------------------
+filepath = ./build/docker/backend/reasoning-agent.dockerfile
+# Dockerfile for the reasoning-agent service
+
+# --- Build Stage ---
+FROM golang:1.24-alpine AS builder
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy go.mod and go.sum to download dependencies first, leveraging Docker cache
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the entire source code
+COPY . .
+
+# Build the reasoning-agent binary
+# The output path is /app/reasoning-agent
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o reasoning-agent ./cmd/reasoning-agent
+
+# --- Final Stage ---
+FROM alpine:latest
+
+# Set the working directory
+WORKDIR /root/
+
+# Copy the built binary from the builder stage
+COPY --from=builder /app/reasoning-agent .
+
+# Expose the port the service might use for health checks (if any)
+# EXPOSE 8080
+
+# The command to run when the container starts
+ENTRYPOINT ["./reasoning-agent"]-------------------------------------------------
+filepath = ./build/docker/backend/image-generator-adapter.dockerfile
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o image-generator-adapter ./cmd/image-generator-adapter
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+WORKDIR /app
+COPY --from=builder /app/image-generator-adapter /app/
+COPY configs/image-adapter.yaml /app/configs/
+RUN chown -R appuser:appgroup /app
+USER appuser
+CMD ["./image-generator-adapter", "-config", "configs/image-adapter.yaml"]-------------------------------------------------
+filepath = ./build/docker/backend/migrator.dockerfile
+FROM alpine:latest
+
+# Install PostgreSQL client and MySQL client
+RUN apk add --no-cache \
+    postgresql16-client \
+    mysql-client \
+    bash \
+    curl
+
+# Create app directory
+WORKDIR /app
+
+# Copy migration scripts and SQL files
+COPY platform/database/migrations/ /app/migrations/
+COPY docker/scripts/run-migrations.sh /app/
+COPY docker/scripts/wait-for-services.sh /app/
+
+# Make scripts executable
+RUN chmod +x /app/run-migrations.sh /app/wait-for-services.sh
+
+# Set default command
+CMD ["/app/run-migrations.sh"]-------------------------------------------------
+filepath = ./build/docker/backend/core-manager.dockerfile
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o core-manager ./cmd/core-manager
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+WORKDIR /app
+COPY --from=builder /app/core-manager /app/
+COPY configs/core-manager.yaml /app/configs/
+RUN chown -R appuser:appgroup /app
+USER appuser
+CMD ["./core-manager", "-config", "configs/core-manager.yaml"]-------------------------------------------------
+filepath = ./build/docker/backend/platform.dockerfile
+# Base image with common dependencies
+FROM golang:1.24-alpine AS base
+RUN apk add --no-cache git ca-certificates
+WORKDIR /app
+-------------------------------------------------
+filepath = ./build/docker/backend/auth-service.dockerfile
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o auth-service ./cmd/auth-service
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+WORKDIR /app
+COPY --from=builder /app/auth-service /app/
+COPY configs/auth-service.yaml /app/configs/
+RUN chown -R appuser:appgroup /app
+USER appuser
+CMD ["./auth-service", "-config", "configs/auth-service.yaml"]-------------------------------------------------
+filepath = ./build/docker/backend/agent-chassis.dockerfile
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o agent-chassis ./cmd/agent-chassis
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+WORKDIR /app
+COPY --from=builder /app/agent-chassis /app/
+COPY configs/agent-chassis.yaml /app/configs/
+RUN chown -R appuser:appgroup /app
+USER appuser
+CMD ["./agent-chassis", "-config", "configs/agent-chassis.yaml"]-------------------------------------------------
+filepath = ./.env.example
+-------------------------------------------------

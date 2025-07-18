@@ -1,0 +1,187 @@
+filepath = ./deployments/terraform/modules/rackspace-kubernetes/variables.tf
+# ~/projects/terraform/rackspace_generic/terraform/modules/kubernetes_cluster_rackspace/variables.tf
+
+variable "cluster_name" {
+  description = "Name for the Kubernetes cluster (Spot Cloudspace)."
+  type        = string
+}
+
+variable "rackspace_region" {
+  description = "Rackspace region for the cluster (e.g., aus-syd-1)."
+  type        = string
+}
+
+variable "kubernetes_version" {
+  description = "Kubernetes version for the cluster."
+  type        = string
+  default     = "1.31.1"
+}
+
+variable "cni" {
+  description = "CNI plugin for the cluster."
+  type        = string
+  default     = "calico"
+}
+
+variable "hacontrol_plane" {
+  description = "Enable HA control plane."
+  type        = bool
+  default     = false
+}
+
+variable "preemption_webhook_url" {
+  description = "Preemption webhook URL (e.g., Slack webhook)."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+# --- REMOVED OLD ON-DEMAND VARIABLES ---
+# variable "ondemand_node_count" { ... }
+# variable "ondemand_node_flavor" { ... }
+# variable "ondemand_node_labels" { ... }
+# variable "ondemand_node_taints" { ... }
+
+# --- REMOVED OLD SPOT VARIABLES ---
+# variable "spot_min_nodes" { ... }
+# variable "spot_max_nodes" { ... }
+# variable "spot_node_flavor" { ... }
+# variable "spot_max_price" { ... }
+# variable "spot_node_labels" { ... }
+
+
+# +++ ADDED NEW FLEXIBLE ON-DEMAND POOL VARIABLE +++
+variable "ondemand_node_pools" {
+  description = "A map of on-demand node pools to create."
+  type = map(object({
+    node_count = number
+    flavor     = string
+    labels     = map(string)
+    taints = list(object({
+      key    = string
+      value  = string
+      effect = string
+    }))
+  }))
+  default = {
+    "default_pool" = {
+      node_count = 0
+      flavor     = "gp.small" # Example, replace with your actual flavor
+      labels = {
+        "role"       = "general",
+        "app.type"   = "stateful",
+        "managed-by" = "terraform"
+      }
+      taints = []
+    }
+  }
+}
+
+# +++ ADDED NEW FLEXIBLE SPOT POOL VARIABLE +++
+variable "spot_node_pools" {
+  description = "A map of spot node pools to create."
+  type = map(object({
+    min_nodes = number
+    max_nodes = number
+    flavor    = string
+    max_price = number
+    labels    = map(string)
+  }))
+  default = {
+    "spot_worker_pool" = {
+      min_nodes = 3
+      max_nodes = 5
+      flavor    = "c.large" # Example, replace with your actual flavor
+      max_price = 0.01
+      labels = {
+        "role"       = "spot-instance",
+        "app.type"   = "stateless",
+        "managed-by" = "terraform"
+      }
+    }
+  }
+}-------------------------------------------------
+filepath = ./deployments/terraform/modules/rackspace-kubernetes/providers.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/modules/rackspace-kubernetes/main.tf
+data "spot_serverclasses" "available_flavors" {
+  # This data source does not take a region argument.
+  # It's here mostly for reference if you output it.
+}
+
+resource "spot_cloudspace" "cluster" {
+  cloudspace_name      = var.cluster_name
+  region               = var.rackspace_region
+  hacontrol_plane      = var.hacontrol_plane
+  preemption_webhook   = var.preemption_webhook_url # Using the module's input variable
+  wait_until_ready     = true
+  kubernetes_version   = var.kubernetes_version
+  cni                  = var.cni
+}
+
+# +++ CREATES MULTIPLE, DYNAMIC SPOT POOLS +++
+resource "spot_spotnodepool" "spot_pools" {
+  for_each = var.spot_node_pools
+
+  cloudspace_name = spot_cloudspace.cluster.cloudspace_name
+  server_class    = each.value.flavor
+  bid_price       = each.value.max_price
+  autoscaling = {
+    min_nodes = each.value.min_nodes
+    max_nodes = each.value.max_nodes
+  }
+  labels     = each.value.labels
+  depends_on = [spot_cloudspace.cluster]
+}
+
+# +++ CREATES MULTIPLE, DYNAMIC ON-DEMAND POOLS +++
+resource "spot_ondemandnodepool" "ondemand_pools" {
+  for_each = var.ondemand_node_pools
+
+  cloudspace_name      = spot_cloudspace.cluster.cloudspace_name
+  server_class         = each.value.flavor
+  desired_server_count = each.value.node_count
+  labels               = each.value.labels
+  taints               = each.value.taints
+  depends_on           = [spot_cloudspace.cluster]
+}
+
+
+data "spot_kubeconfig" "cluster_kubeconfig" {
+  cloudspace_name = spot_cloudspace.cluster.cloudspace_name
+  depends_on = [
+    spot_cloudspace.cluster,
+    spot_ondemandnodepool.ondemand_pools, # Depends on the collection of pools
+    spot_spotnodepool.spot_pools          # Depends on the collection of pools
+  ]
+}-------------------------------------------------
+filepath = ./deployments/terraform/modules/rackspace-kubernetes/README.md
+-------------------------------------------------
+filepath = ./deployments/terraform/modules/rackspace-kubernetes/outputs.tf
+# terraform/modules/kubernetes_cluster_rackspace/outputs.tf
+
+output "kubeconfig_raw" {
+  description = "Raw kubeconfig content for the cluster."
+  value       = data.spot_kubeconfig.cluster_kubeconfig.raw
+  sensitive   = true
+}
+output "cluster_name_actual" {
+  description = "Name of the created Kubernetes cluster."
+  value       = spot_cloudspace.cluster.cloudspace_name
+}
+output "cluster_endpoint_actual" {
+  description = "API endpoint for the Kubernetes cluster."
+  value       = data.spot_kubeconfig.cluster_kubeconfig.kubeconfigs[0].host
+  sensitive   = true
+}-------------------------------------------------
+filepath = ./deployments/terraform/modules/rackspace-kubernetes/versions.tf
+terraform {
+  required_providers {
+    spot = {
+      source  = "rackerlabs/spot"
+      version = "~> 0.1.4"
+    }
+  }
+  required_version = ">= 1.0"
+}
+-------------------------------------------------

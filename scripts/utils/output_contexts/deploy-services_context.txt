@@ -1,0 +1,1012 @@
+filepath = ./deployments/kustomize/services/agent-chassis/base/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml-------------------------------------------------
+filepath = ./deployments/kustomize/services/agent-chassis/base/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-chassis
+  labels:
+    app: agent-chassis
+spec:
+  selector:
+    matchLabels:
+      app: agent-chassis
+  template:
+    metadata:
+      labels:
+        app: agent-chassis
+    spec:
+      containers:
+        - name: agent-chassis
+          image: your-container-registry/agent-chassis:latest # Patched by overlays
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/agent-chassis/base/service.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/agent-chassis/base/configmap.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/agent-chassis/overlays/development/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-system
+bases:
+  - ../../base
+
+commonLabels:
+  environment: development
+
+resources:
+  - ../../../../infrastructure/configs/development/configmap-dev.yaml
+  - ../../../../infrastructure/configs/development/secrets-dev.yaml
+
+patches:
+  - path: patch-deployment-dev.yaml
+    target:
+      kind: Deployment
+      name: agent-chassis-------------------------------------------------
+filepath = ./deployments/kustomize/services/agent-chassis/overlays/development/patch-deployment-dev.yaml
+- op: replace
+  path: /spec/replicas
+  value: 2 # A couple of replicas even for dev
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/agent-chassis:latest
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-dev-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-dev-secrets
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "100m"
+    memory: "128Mi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "500m"
+    memory: "512Mi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/agent-chassis/overlays/staging/resources-patch.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/agent-chassis/overlays/staging/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/agent-chassis/overlays/staging/deployment-patch.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/agent-chassis/overlays/production/uk_001/patch-deployment.yaml
+- op: replace
+  path: /spec/replicas
+  value: 10 # Scaled up for production workloads
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/agent-chassis:v1.2.0 # Specific version tag
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-prod-config-uk001
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-prod-secrets-uk001
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "500m"
+    memory: "1Gi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "1.5"
+    memory: "2Gi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/agent-chassis/overlays/production/uk_001/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-prod
+bases:
+  - ../../../base
+
+commonLabels:
+  environment: production
+  region: uk
+
+resources:
+  - ../../../../../infrastructure/configs/production/uk_001/configmap-prod-uk001.yaml
+  - ../../../../../infrastructure/configs/production/uk_001/secrets-prod-uk001.yaml
+
+patches:
+  - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: agent-chassis-------------------------------------------------
+filepath = ./deployments/kustomize/services/agent-chassis/README.md
+Just like the reasoning agent, this is a specialized worker that communicates only via Kafka, so it only needs a Deployment manifest.-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/base/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-system
+resources:
+  - deployment.yaml
+  - service.yaml
+  # ConfigMaps and Secrets will be managed by Terraform to inject dynamic values-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/base/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  labels:
+    app: auth-service
+spec:
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: your-container-registry/auth-service:latest # This will be patched by overlays
+          ports:
+            - containerPort: 8081
+              name: http
+            - containerPort: 9090
+              name: grpc
+          envFrom:
+            - configMapRef:
+                # Patched by overlays
+                name: placeholder-config
+            - secretRef:
+                # Patched by overlays
+                name: placeholder-secrets
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/base/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  labels:
+    app: auth-service
+spec:
+  ports:
+    - port: 8081
+      targetPort: http
+      name: http
+    - port: 9090
+      targetPort: grpc
+      name: grpc
+  selector:
+    app: auth-service
+  type: ClusterIP-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/base/configmap.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/overlays/development/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-system
+bases:
+  - ../../base
+
+# Add development-specific labels
+commonLabels:
+  environment: development
+
+# Point to the new centralized development config and secrets
+resources:
+  - ../../../../infrastructure/configs/development/configmap-dev.yaml
+  - ../../../../infrastructure/configs/development/secrets-dev.yaml
+
+patches:
+  - path: patch-deployment-dev.yaml
+    target:
+      kind: Deployment
+      name: auth-service-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/overlays/development/patch-deployment-dev.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/overlays/staging/resources-patch.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/overlays/staging/kustomization.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/overlays/staging/deployment-patch.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/overlays/production/uk_001/configs/secrets-prod.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: personae-prod-secrets
+  namespace: personae-prod
+type: Opaque
+data:
+  # These values should be base64 encoded and injected by your CI/CD system from a secure vault.
+  # Example: echo -n 'your-production-password' | base64
+  clients-db-password: "YOUR_PROD_CLIENTS_DB_PASSWORD"
+  templates-db-password: "YOUR_PROD_TEMPLATES_DB_PASSWORD"
+  auth-db-password: "YOUR_PROD_AUTH_DB_PASSWORD"
+  minio-access-key: "YOUR_PROD_MINIO_ACCESS_KEY"
+  minio-secret-key: "YOUR_PROD_MINIO_SECRET_KEY"
+  stability-api-key: "YOUR_PROD_STABILITY_API_KEY"
+  serp-api-key: "YOUR_PROD_SERP_API_KEY"
+  anthropic-api-key: "YOUR_PROD_ANTHROPIC_API_KEY"
+  jwt-secret: "YOUR_PROD_JWT_SECRET" # A long, secure, base64-encoded random string-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/overlays/production/uk_001/configs/configmap-prod.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: personae-prod-config
+  namespace: personae-prod
+data:
+  # Production Endpoints (replace with your actual endpoints)
+  kafka_brokers: "your-production-kafka-bootstrap-endpoint:9092"
+  clients_db_host: "your-production-postgres-clients-endpoint"
+  templates_db_host: "your-production-postgres-templates-endpoint"
+  auth_db_host: "your-production-mysql-auth-endpoint"
+  minio_endpoint: "your-production-s3-compatible-endpoint"
+  core_manager_url: "http://core-manager.personae-prod.svc.cluster.local:8088"
+  auth_service_url: "http://auth-service.personae-prod.svc.cluster.local:8081"
+
+  # Production Settings
+  tracing_enabled: "true"
+  tracing_endpoint: "otel-collector.monitoring.svc.cluster.local:4317"
+  log_level: "info"
+  go_env: "production"-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/overlays/production/uk_001/patch-deployment.yaml
+- op: replace
+  path: /spec/replicas
+  value: 3 # Production scale
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/auth-service:v1.2.0 # Use a specific version tag for production
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-prod-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-prod-secrets
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "250m"
+    memory: "512Mi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "1"
+    memory: "1Gi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/overlays/production/uk_001/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-prod
+bases:
+  - ../../../base
+
+# Add production-specific labels
+commonLabels:
+  environment: production
+  region: uk
+
+# Point to the new centralized production config and secrets for this region
+resources:
+  - ../../../../../infrastructure/configs/production/uk_001/configmap-prod-uk001.yaml
+  - ../../../../../infrastructure/configs/production/uk_001/secrets-prod-uk001.yaml
+
+patches:
+  - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: auth-service-------------------------------------------------
+filepath = ./deployments/kustomize/services/auth-service/overlays/production/uk_001/README.md
+We can now apply this entire production configuration for the auth-service with a single command:
+
+kubectl apply -k deployments/kustomize/services/auth-service/overlays/production/uk_001-------------------------------------------------
+filepath = ./deployments/kustomize/services/web-search-adapter/base/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml-------------------------------------------------
+filepath = ./deployments/kustomize/services/web-search-adapter/base/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-search-adapter
+  labels:
+    app: web-search-adapter
+spec:
+  selector:
+    matchLabels:
+      app: web-search-adapter
+  template:
+    metadata:
+      labels:
+        app: web-search-adapter
+    spec:
+      containers:
+        - name: web-search-adapter
+          image: your-container-registry/web-search-adapter:latest # Patched by overlays
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/web-search-adapter/base/service.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/web-search-adapter/overlays/development/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-system
+bases:
+  - ../../base
+
+commonLabels:
+  environment: development
+
+resources:
+  - ../../../../infrastructure/configs/development/configmap-dev.yaml
+  - ../../../../infrastructure/configs/development/secrets-dev.yaml
+
+patches:
+  - path: patch-deployment-dev.yaml
+    target:
+      kind: Deployment
+      name: web-search-adapter-------------------------------------------------
+filepath = ./deployments/kustomize/services/web-search-adapter/overlays/development/patch-deployment-dev.yaml
+- op: replace
+  path: /spec/replicas
+  value: 1
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/web-search-adapter:latest
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-dev-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-dev-secrets-------------------------------------------------
+filepath = ./deployments/kustomize/services/web-search-adapter/overlays/production/uk_001/patch-deployment.yaml
+- op: replace
+  path: /spec/replicas
+  value: 3
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/web-search-adapter:v1.2.0 # Specific version tag
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-prod-config-uk001
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-prod-secrets-uk001
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "200m"
+    memory: "256Mi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "1"
+    memory: "1Gi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/web-search-adapter/overlays/production/uk_001/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-prod
+bases:
+  - ../../../base
+
+commonLabels:
+  environment: production
+  region: uk
+
+resources:
+  - ../../../../../infrastructure/configs/production/uk_001/configmap-prod-uk001.yaml
+  - ../../../../../infrastructure/configs/production/uk_001/secrets-prod-uk001.yaml
+
+patches:
+  - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: web-search-adapter-------------------------------------------------
+filepath = ./deployments/kustomize/services/reasoning-agent/base/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml-------------------------------------------------
+filepath = ./deployments/kustomize/services/reasoning-agent/base/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reasoning-agent
+  labels:
+    app: reasoning-agent
+spec:
+  selector:
+    matchLabels:
+      app: reasoning-agent
+  template:
+    metadata:
+      labels:
+        app: reasoning-agent
+    spec:
+      containers:
+        - name: reasoning-agent
+          image: your-container-registry/reasoning-agent:latest # Patched by overlays
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/reasoning-agent/overlays/development/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-system
+bases:
+  - ../../base
+
+commonLabels:
+  environment: development
+
+resources:
+  - ../../../../infrastructure/configs/development/configmap-dev.yaml
+  - ../../../../infrastructure/configs/development/secrets-dev.yaml
+
+patches:
+  - path: patch-deployment-dev.yaml
+    target:
+      kind: Deployment
+      name: reasoning-agent-------------------------------------------------
+filepath = ./deployments/kustomize/services/reasoning-agent/overlays/development/patch-deployment-dev.yaml
+- op: replace
+  path: /spec/replicas
+  value: 1 # Single replica for dev
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/reasoning-agent:latest
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-dev-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-dev-secrets
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "125m"
+    memory: "256Mi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "500m"
+    memory: "1Gi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/reasoning-agent/overlays/production/uk_991/patch-deployment.yaml
+- op: replace
+  path: /spec/replicas
+  value: 3
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/reasoning-agent:v1.2.0 # Specific version tag
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-prod-config-uk001
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-prod-secrets-uk001
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "500m"
+    memory: "1Gi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "1.5"
+    memory: "4Gi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/reasoning-agent/overlays/production/uk_991/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-prod
+bases:
+  - ../../../base
+
+commonLabels:
+  environment: production
+  region: uk
+
+resources:
+  - ../../../../../infrastructure/configs/production/uk_001/configmap-prod-uk001.yaml
+  - ../../../../../infrastructure/configs/production/uk_001/secrets-prod-uk001.yaml
+
+patches:
+  - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: reasoning-agent-------------------------------------------------
+filepath = ./deployments/kustomize/services/reasoning-agent/README.md
+Just like the agent-chassis, this is a specialized worker that communicates only via Kafka, so it only needs a Deployment manifest.-------------------------------------------------
+filepath = ./deployments/kustomize/services/core-manager/base/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - service.yaml-------------------------------------------------
+filepath = ./deployments/kustomize/services/core-manager/base/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core-manager
+  labels:
+    app: core-manager
+spec:
+  selector:
+    matchLabels:
+      app: core-manager
+  template:
+    metadata:
+      labels:
+        app: core-manager
+    spec:
+      containers:
+        - name: core-manager
+          image: your-container-registry/core-manager:latest # Patched by overlays
+          ports:
+            - containerPort: 8088
+              name: http
+            - containerPort: 9091
+              name: grpc
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          resources:
+            requests:
+              cpu: "150m"
+              memory: "256Mi"
+            limits:
+              cpu: "750m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10-------------------------------------------------
+filepath = ./deployments/kustomize/services/core-manager/base/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: core-manager
+  labels:
+    app: core-manager
+spec:
+  ports:
+    - port: 8088
+      targetPort: http
+      name: http
+    - port: 9091
+      targetPort: grpc
+      name: grpc
+  selector:
+    app: core-manager
+  type: ClusterIP-------------------------------------------------
+filepath = ./deployments/kustomize/services/core-manager/base/configmap.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/core-manager/overlays/development/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-system
+bases:
+  - ../../base
+
+commonLabels:
+  environment: development
+
+resources:
+  - ../../../../infrastructure/configs/development/configmap-dev.yaml
+  - ../../../../infrastructure/configs/development/secrets-dev.yaml
+
+patches:
+  - path: patch-deployment-dev.yaml
+    target:
+      kind: Deployment
+      name: core-manager-------------------------------------------------
+filepath = ./deployments/kustomize/services/core-manager/overlays/development/patch-deployment-dev.yaml
+- op: replace
+  path: /spec/replicas
+  value: 1
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/core-manager:latest
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-dev-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-dev-secrets
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "75m"
+    memory: "128Mi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "300m"
+    memory: "512Mi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/core-manager/overlays/production/uk_001/patch-deployment.yaml
+- op: replace
+  path: /spec/replicas
+  value: 3
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/core-manager:v1.2.0 # Specific version tag
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-prod-config-uk001
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-prod-secrets-uk001
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "300m"
+    memory: "512Mi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "1"
+    memory: "1.5Gi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/core-manager/overlays/production/uk_001/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-prod
+bases:
+  - ../../../base
+
+commonLabels:
+  environment: production
+  region: uk
+
+resources:
+  - ../../../../../infrastructure/configs/production/uk_001/configmap-prod-uk001.yaml
+  - ../../../../../infrastructure/configs/production/uk_001/secrets-prod-uk001.yaml
+
+patches:
+  - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: core-manager-------------------------------------------------
+filepath = ./deployments/kustomize/services/image-generator-adapter/base/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml-------------------------------------------------
+filepath = ./deployments/kustomize/services/image-generator-adapter/base/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-generator-adapter
+  labels:
+    app: image-generator-adapter
+spec:
+  selector:
+    matchLabels:
+      app: image-generator-adapter
+  template:
+    metadata:
+      labels:
+        app: image-generator-adapter
+    spec:
+      containers:
+        - name: image-generator-adapter
+          image: your-container-registry/image-generator-adapter:latest # Patched by overlays
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/image-generator-adapter/base/service.yaml
+-------------------------------------------------
+filepath = ./deployments/kustomize/services/image-generator-adapter/overlays/development/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-system
+bases:
+  - ../../base
+
+commonLabels:
+  environment: development
+
+resources:
+  - ../../../../infrastructure/configs/development/configmap-dev.yaml
+  - ../../../../infrastructure/configs/development/secrets-dev.yaml
+
+patches:
+  - path: patch-deployment-dev.yaml
+    target:
+      kind: Deployment
+      name: image-generator-adapter-------------------------------------------------
+filepath = ./deployments/kustomize/services/image-generator-adapter/overlays/development/patch-deployment-dev.yaml
+- op: replace
+  path: /spec/replicas
+  value: 1
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/image-generator-adapter:latest
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-dev-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-dev-secrets-------------------------------------------------
+filepath = ./deployments/kustomize/services/image-generator-adapter/overlays/production/uk_001/patch-deployment.yaml
+- op: replace
+  path: /spec/replicas
+  value: 3
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: your-container-registry/image-generator-adapter:v1.2.0 # Specific version tag
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-prod-config-uk001
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-prod-secrets-uk001
+- op: replace
+  path: /spec/template/spec/resources/requests
+  value:
+    cpu: "200m"
+    memory: "256Mi"
+- op: replace
+  path: /spec/template/spec/resources/limits
+  value:
+    cpu: "1"
+    memory: "1Gi"-------------------------------------------------
+filepath = ./deployments/kustomize/services/image-generator-adapter/overlays/production/uk_001/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: personae-prod
+bases:
+  - ../../../base
+
+commonLabels:
+  environment: production
+  region: uk
+
+resources:
+  - ../../../../../infrastructure/configs/production/uk_001/configmap-prod-uk001.yaml
+  - ../../../../../infrastructure/configs/production/uk_001/secrets-prod-uk001.yaml
+
+patches:
+  - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: image-generator-adapter-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2230-web-search-adapter/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2230-web-search-adapter/variables.tf
+# No vari# No variables needed as the path is static for this service definition.ables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2230-web-search-adapter/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-web-search-adapter-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "web_search_adapter_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/web-search-adapter/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2230-web-search-adapter/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development web-search-adapter."
+  value       = module.web_search_adapter_deployment_dev.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2210-agent-chassis/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2210-agent-chassis/variables.tf
+# No# No variables needed as the path is static for this service definition. variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2210-agent-chassis/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-agent-chassis-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "agent_chassis_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/agent-chassis/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2210-agent-chassis/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development agent-chassis."
+  value       = module.agent_chassis_deployment_dev.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2240-image-generator-adapter/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2240-image-generator-adapter/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2240-image-generator-adapter/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-image-generator-adapter-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "image_generator_adapter_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/image-generator-adapter/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2240-image-generator-adapter/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development image-generator-adapter."
+  value       = module.image_generator_adapter_deployment_dev.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2220-reasoning-agent/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2220-reasoning-agent/variables.tf
+# No variables nee# No variables needed as the path is static for this service definition.ded as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2220-reasoning-agent/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-reasoning-agent-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "reasoning_agent_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/reasoning-agent/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/agents/2220-reasoning-agent/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development reasoning-agent."
+  value       = module.reasoning_agent_deployment_dev.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/main.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3330-agent-playground/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/main.tf
+# This instance deploys the main user-facing React application.
+module "user_frontend_app" {
+  source = "../../../../../../modules/kustomize-apply"
+
+  service_name     = "user-frontend"
+  namespace        = "personae-system"
+  image_repository = "aqls/personae-web-interface" # Your frontend image
+  image_tag        = var.image_tag
+
+  # Point to the production Kustomize overlay for the frontend.
+  # This directory would contain the deployment.yaml, service.yaml, ingress.yaml, etc.
+  kustomize_path = "../../../../../../../deployments/kustomize/frontends/user-frontend/overlays/production"
+}
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3320-user-portal/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/variables.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/main.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/frontends/3310-admin-dashboard/outputs.tf
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1120-core-manager/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1120-core-manager/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1120-core-manager/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-core-manager-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "core_manager_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/core-manager/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1120-core-manager/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development core-manager."
+  value       = module.core_manager_deployment_dev.status
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1110-auth-service/terraform.tfvars
+-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1110-auth-service/variables.tf
+# No variables needed as the path is static for this service definition.-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1110-auth-service/main.tf
+terraform {
+  backend "kubernetes" {
+    secret_suffix = "tfstate-svc-auth-dev"
+    config_path   = "~/.kube/config"
+  }
+}
+
+module "auth_service_deployment_dev" {
+  source = "../../../../../modules/kustomize-apply"
+
+  # Path to the DEVELOPMENT overlay for this service
+  kustomize_path = "../../../../../deployments/kustomize/services/auth-service/overlays/development"
+}-------------------------------------------------
+filepath = ./deployments/terraform/environments/development/uk_dev/services/core-platform/1110-auth-service/outputs.tf
+output "kustomize_apply_status" {
+  description = "The status of the Kustomize deployment for the development auth-service."
+  value       = module.auth_service_deployment_dev.status
+}-------------------------------------------------

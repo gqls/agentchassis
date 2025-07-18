@@ -1,0 +1,14 @@
+filepath = ./frontends/agent-playground/env.example
+-------------------------------------------------
+filepath = ./frontends/agent-playground/nginx.conf
+-------------------------------------------------
+filepath = ./frontends/agent-playground/src/App.tsx
+-------------------------------------------------
+filepath = ./frontends/agent-playground/tsconfig.json
+-------------------------------------------------
+filepath = ./frontends/agent-playground/package.json
+-------------------------------------------------
+filepath = ./frontends/agent-playground/Dockerfile
+-------------------------------------------------
+filepath = ./build/docker/frontend/react-nginx.dockerfile
+-------------------------------------------------

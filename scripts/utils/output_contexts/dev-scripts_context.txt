@@ -1,0 +1,2222 @@
+filepath = ./scripts/README.setup.md
+How It All Works Together
+
+The scripts are designed to work in a specific, logical sequence that ensures a smooth deployment:
+
+    Local Setup: A developer runs setup.sh once to prepare the cluster by creating the namespace and all necessary secrets.
+
+    Deployment Orchestration: The developer runs make deploy (or make quickstart), which executes deploy-system.sh.
+
+    Infrastructure Creation: deploy-system.sh applies the Kubernetes YAML files, creating the database and Kafka StatefulSets, services, and jobs.
+
+    Container-Level Waiting: As the database-init job pod starts, its internal wait-for-services.sh script runs, pausing execution until the PostgreSQL and MySQL pods are fully ready to accept connections.
+
+    Database Migration: Once the databases are ready, docker-run-migrations.sh runs within the job, applying all the table schemas.
+
+    Data Seeding: The data-seeder job follows the same pattern, waiting for services before seed-data.sh inserts the initial persona templates.
+
+    Service Startup: Finally, the main microservices (like auth-service and core-manager) start. Their initContainers also run wait scripts to ensure they don't start before their own dependencies (like databases or specific Kafka topics) are available.-------------------------------------------------
+filepath = ./scripts/migration/seed-data.sql
+-------------------------------------------------
+filepath = ./scripts/migration/run-migrations.sh
+-------------------------------------------------
+filepath = ./scripts/deploy-system.sh
+#!/bin/bash
+# FILE: scripts/deploy-system.sh
+# Complete deployment script that orchestrates the entire system deployment
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Configuration
+NAMESPACE="ai-persona-system"
+TIMEOUT="300s"
+DOCKER_REGISTRY="ai-persona-system"
+
+# Function to print colored output
+print_header() {
+    echo -e "${BLUE}=============================================${NC}"
+    echo -e "${BLUE}$1${NC}"
+    echo -e "${BLUE}=============================================${NC}"
+}
+
+print_step() {
+    echo -e "${YELLOW}🔧 $1${NC}"
+}
+
+print_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+# Function to wait for pods
+wait_for_pods() {
+    local label=$1
+    local description=$2
+    local timeout=${3:-300s}
+
+    print_step "Waiting for $description to be ready..."
+    if kubectl wait --for=condition=ready pod -l "$label" -n "$NAMESPACE" --timeout="$timeout"; then
+        print_success "$description is ready"
+    else
+        print_error "$description failed to become ready"
+        return 1
+    fi
+}
+
+# Function to wait for jobs to complete
+wait_for_job() {
+    local job_name=$1
+    local description=$2
+    local timeout=${3:-600}
+
+    print_step "Waiting for $description to complete..."
+    local attempt=1
+    local max_attempts=$((timeout / 10))
+
+    while [ $attempt -le $max_attempts ]; do
+        local status=$(kubectl get job "$job_name" -n "$NAMESPACE" -o jsonpath='{.status.conditions[0].type}' 2>/dev/null || echo "NotFound")
+
+        if [ "$status" = "Complete" ]; then
+            print_success "$description completed successfully"
+            return 0
+        elif [ "$status" = "Failed" ]; then
+            print_error "$description failed"
+            kubectl logs -n "$NAMESPACE" job/"$job_name" --tail=50
+            return 1
+        fi
+
+        echo -e "${YELLOW}⏳ Attempt $attempt/$max_attempts - $description still running...${NC}"
+        sleep 10
+        ((attempt++))
+    done
+
+    print_error "$description timed out"
+    return 1
+}
+
+# Check prerequisites
+check_prerequisites() {
+    print_header "CHECKING PREREQUISITES"
+
+    print_step "Checking required tools..."
+    for tool in kubectl docker; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            print_error "$tool is required but not installed"
+            exit 1
+        fi
+    done
+
+    print_step "Checking Kubernetes connection..."
+    if ! kubectl cluster-info >/dev/null 2>&1; then
+        print_error "Cannot connect to Kubernetes cluster"
+        exit 1
+    fi
+
+    print_success "Prerequisites check passed"
+}
+
+# Phase 1: Infrastructure
+deploy_infrastructure() {
+    print_header "PHASE 1: DEPLOYING INFRASTRUCTURE"
+
+    print_step "Creating namespace..."
+    kubectl apply -f k8s/namespace.yaml
+
+    print_step "Waiting for namespace to be active..."
+    kubectl wait --for=jsonpath='{.status.phase}'=Active namespace/"$NAMESPACE" --timeout=60s
+
+    print_step "Applying RBAC and security policies..."
+    kubectl apply -f k8s/rbac-security.yaml
+
+    print_step "Creating ConfigMaps..."
+    kubectl apply -f k8s/configmap-common.yaml
+
+    print_success "Infrastructure deployed"
+}
+
+# Phase 2: Storage
+deploy_storage() {
+    print_header "PHASE 2: DEPLOYING STORAGE SYSTEMS"
+
+    print_step "Deploying PostgreSQL databases..."
+    kubectl apply -f k8s/postgres-clients.yaml
+    kubectl apply -f k8s/postgres-templates.yaml
+
+    print_step "Deploying MySQL database..."
+    kubectl apply -f k8s/mysql-auth.yaml
+
+    print_step "Deploying MinIO object storage..."
+    kubectl apply -f k8s/minio.yaml
+
+    print_step "Deploying backup storage..."
+    kubectl apply -f k8s/backup-cronjob.yaml
+
+    print_success "Storage systems deployed"
+}
+
+# Phase 3: Messaging
+deploy_messaging() {
+    print_header "PHASE 3: DEPLOYING MESSAGING SYSTEM"
+
+    print_step "Deploying Kafka cluster..."
+    kubectl apply -f k8s/kafka.yaml
+
+    print_success "Messaging system deployed"
+}
+
+# Phase 4: Wait for infrastructure
+wait_for_infrastructure() {
+    print_header "PHASE 4: WAITING FOR INFRASTRUCTURE"
+
+    wait_for_pods "app=postgres-clients" "PostgreSQL Clients"
+    wait_for_pods "app=postgres-templates" "PostgreSQL Templates"
+    wait_for_pods "app=mysql-auth" "MySQL Auth"
+    wait_for_pods "app=minio" "MinIO"
+    wait_for_pods "app=kafka" "Kafka Cluster" "600s"
+
+    print_success "All infrastructure components are ready"
+}
+
+# Phase 5: Initialize system
+initialize_system() {
+    print_header "PHASE 5: INITIALIZING SYSTEM"
+
+    print_step "Running database migrations..."
+    kubectl apply -f k8s/jobs/database-init-job.yaml
+    wait_for_job "database-init" "Database Migrations" 600
+
+    print_step "Creating Kafka topics..."
+    kubectl apply -f k8s/jobs/kafka-topics-job.yaml
+    wait_for_job "kafka-topics-init" "Kafka Topics Creation" 300
+
+    print_step "Seeding initial data..."
+    wait_for_job "data-seeder" "Data Seeding" 300
+
+    print_success "System initialization completed"
+}
+
+# Phase 6: Core services
+deploy_core_services() {
+    print_header "PHASE 6: DEPLOYING CORE SERVICES"
+
+    print_step "Deploying Auth Service..."
+    kubectl apply -f k8s/auth-service.yaml
+
+    print_step "Deploying Core Manager..."
+    kubectl apply -f k8s/core-manager.yaml
+
+    wait_for_pods "app=auth-service" "Auth Service"
+    wait_for_pods "app=core-manager" "Core Manager"
+
+    print_success "Core services deployed"
+}
+
+# Phase 7: Agents
+deploy_agents() {
+    print_header "PHASE 7: DEPLOYING AGENT SERVICES"
+
+    print_step "Deploying Agent Chassis..."
+    kubectl apply -f k8s/agent-chassis.yaml
+
+    print_step "Deploying Reasoning Agent..."
+    kubectl apply -f k8s/reasoning-agent.yaml
+
+    print_step "Deploying Image Generator Adapter..."
+    kubectl apply -f k8s/image-generator-adapter.yaml
+
+    print_step "Deploying Web Search Adapter..."
+    kubectl apply -f k8s/web-search-adapter.yaml
+
+    wait_for_pods "app=agent-chassis" "Agent Chassis" "600s"
+    wait_for_pods "app=reasoning-agent" "Reasoning Agent"
+    wait_for_pods "app=image-generator-adapter" "Image Generator"
+    wait_for_pods "app=web-search-adapter" "Web Search"
+
+    print_success "Agent services deployed"
+}
+
+# Phase 8: Monitoring and ingress
+deploy_monitoring_ingress() {
+    print_header "PHASE 8: DEPLOYING MONITORING AND INGRESS"
+
+    print_step "Deploying monitoring stack..."
+    kubectl apply -f k8s/monitoring/
+
+    print_step "Deploying ingress..."
+    kubectl apply -f k8s/ingress.yaml
+
+    wait_for_pods "app=prometheus" "Prometheus" 300s
+    wait_for_pods "app=grafana" "Grafana" 300s
+
+    print_success "Monitoring and ingress deployed"
+}
+
+# System verification
+verify_system() {
+    print_header "SYSTEM VERIFICATION"
+
+    print_step "Checking system status..."
+    kubectl get pods -n "$NAMESPACE"
+
+    print_step "Checking services..."
+    kubectl get services -n "$NAMESPACE"
+
+    print_step "Verifying Kafka topics..."
+    kubectl exec -n "$NAMESPACE" kafka-0 -- kafka-topics --bootstrap-server localhost:9092 --list | head -10
+
+    print_step "Checking database tables..."
+    kubectl exec -n "$NAMESPACE" postgres-templates-0 -- psql -U templates_user -d templates_db -c "\dt" >/dev/null 2>&1 && \
+        echo -e "${GREEN}✅ Templates database OK${NC}" || echo -e "${RED}❌ Templates database issue${NC}"
+
+    kubectl exec -n "$NAMESPACE" postgres-clients-0 -- psql -U clients_user -d clients_db -c "\dt" >/dev/null 2>&1 && \
+        echo -e "${GREEN}✅ Clients database OK${NC}" || echo -e "${RED}❌ Clients database issue${NC}"
+
+    print_success "System verification completed"
+}
+
+# Cleanup function
+cleanup_failed_deployment() {
+    print_error "Deployment failed. Cleaning up failed jobs..."
+    kubectl delete jobs --field-selector status.successful=0 -n "$NAMESPACE" 2>/dev/null || true
+}
+
+# Main execution
+main() {
+    print_header "AI PERSONA SYSTEM DEPLOYMENT"
+    echo -e "${BLUE}Starting complete system deployment...${NC}"
+    echo ""
+
+    # Set up error handling
+    trap cleanup_failed_deployment ERR
+
+    # Execute deployment phases
+    check_prerequisites
+    deploy_infrastructure
+    deploy_storage
+    deploy_messaging
+    wait_for_infrastructure
+    initialize_system
+    deploy_core_services
+    deploy_agents
+    deploy_monitoring_ingress
+    verify_system
+
+    print_header "DEPLOYMENT COMPLETED SUCCESSFULLY!"
+    echo ""
+    echo -e "${GREEN}🎉 AI Persona System is now running!${NC}"
+    echo ""
+    echo -e "${YELLOW}Next steps:${NC}"
+    echo -e "1. Set up port forwarding: ${BLUE}make port-forward${NC}"
+    echo -e "2. Create your first client: ${BLUE}make create-client-schema CLIENT_ID=demo_client${NC}"
+    echo -e "3. Test the system: ${BLUE}make test-api${NC}"
+    echo ""
+    echo -e "${YELLOW}Access URLs (after port forwarding):${NC}"
+    echo -e "- Auth API: ${BLUE}http://localhost:8081${NC}"
+    echo -e "- Core API: ${BLUE}http://localhost:8088${NC}"
+    echo -e "- Grafana: ${BLUE}http://localhost:3000${NC} (admin/admin)"
+    echo -e "- Kafka UI: ${BLUE}http://localhost:8080${NC}"
+    echo ""
+}
+
+# Execute main function
+main "$@"-------------------------------------------------
+filepath = ./scripts/fix_uuid_migration_files.sh
+#!/bin/bash
+# Fix UUID generation in migration files
+
+# Update auth_schema.sql
+sed -i 's/gen_random_uuid()/gen_random_uuid()/g' ../platform/database/migrations/004_auth_schema.sql
+
+# Update client_schema.sql - ensure we're using gen_random_uuid() consistently
+sed -i 's/uuid_generate_v4()/gen_random_uuid()/g' ../platform/database/migrations/003_create_client_schema.sql
+
+# Remove the CREATE EXTENSION IF NOT EXISTS "uuid-ossp" line as it's not needed with gen_random_uuid()
+sed -i '/CREATE EXTENSION IF NOT EXISTS "uuid-ossp";/d' ../platform/database/migrations/003_create_client_schema.sql
+
+echo "UUID generation standardized to use gen_random_uuid() across all migrations"-------------------------------------------------
+filepath = ./scripts/docker/seed-data.sql
+#!/bin/bash
+# FILE: docker/scripts/seed-data.sh
+set -e
+
+echo "🌱 Starting data seeding..."
+
+# Wait for services to be ready
+/app/wait-for-services.sh
+
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+# Function to seed PostgreSQL data
+seed_postgres_data() {
+    local host=$1
+    local user=$2
+    local database=$3
+    local password=$4
+    local sql_command=$5
+    local description=$6
+
+    echo -e "${YELLOW}🌱 Seeding $description...${NC}"
+
+    export PGPASSWORD="$password"
+
+    if psql -h "$host" -U "$user" -d "$database" -c "$sql_command"; then
+        echo -e "${GREEN}✅ $description seeded${NC}"
+    else
+        echo -e "${RED}❌ $description seeding failed${NC}"
+        # Don't exit on seeding failures - they might already exist
+    fi
+}
+
+# Function to seed MySQL data
+seed_mysql_data() {
+    local host=$1
+    local user=$2
+    local database=$3
+    local password=$4
+    local sql_command=$5
+    local description=$6
+
+    echo -e "${YELLOW}🌱 Seeding $description...${NC}"
+
+    if mysql -h "$host" -u "$user" -p"$password" "$database" -e "$sql_command"; then
+        echo -e "${GREEN}✅ $description seeded${NC}"
+    else
+        echo -e "${RED}❌ $description seeding failed${NC}"
+        # Don't exit on seeding failures - they might already exist
+    fi
+}
+
+# 1. Seed persona templates
+echo -e "${YELLOW}🤖 Seeding persona templates...${NC}"
+
+# Basic Copywriter Template
+seed_postgres_data \
+    "postgres-templates" \
+    "templates_user" \
+    "templates_db" \
+    "$TEMPLATES_DB_PASSWORD" \
+    "INSERT INTO persona_templates (id, name, description, category, config, is_active, created_at, updated_at)
+     VALUES (
+         '00000000-0000-0000-0000-000000000001',
+         'Basic Copywriter',
+         'A versatile copywriting assistant that can create engaging content across various formats and tones.',
+         'copywriter',
+         '{
+             \"model\": \"claude-3-sonnet\",
+             \"temperature\": 0.7,
+             \"max_tokens\": 2000,
+             \"system_prompt\": \"You are a professional copywriter. Create compelling, engaging content that resonates with the target audience. Always consider the tone, style, and purpose of the content.\",
+             \"workflow\": {
+                 \"start_step\": \"generate_content\",
+                 \"steps\": {
+                     \"generate_content\": {
+                         \"action\": \"ai_text_generate_claude_sonnet\",
+                         \"description\": \"Generate the requested content\",
+                         \"next_step\": \"complete_workflow\"
+                     },
+                     \"complete_workflow\": {
+                         \"action\": \"complete_workflow\",
+                         \"description\": \"Mark workflow as complete\"
+                     }
+                 }
+             }
+         }',
+         true,
+         NOW(),
+         NOW()
+     ) ON CONFLICT (id) DO NOTHING;" \
+    "Basic Copywriter Template"
+
+# Research Assistant Template
+seed_postgres_data \
+    "postgres-templates" \
+    "templates_user" \
+    "templates_db" \
+    "$TEMPLATES_DB_PASSWORD" \
+    "INSERT INTO persona_templates (id, name, description, category, config, is_active, created_at, updated_at)
+     VALUES (
+         '00000000-0000-0000-0000-000000000002',
+         'Research Assistant',
+         'An in-depth research specialist that can gather, analyze, and synthesize information from multiple sources.',
+         'researcher',
+         '{
+             \"model\": \"claude-3-opus\",
+             \"temperature\": 0.3,
+             \"max_tokens\": 4000,
+             \"system_prompt\": \"You are a thorough research assistant. Provide comprehensive, well-sourced, and analytically rigorous research. Always cite sources and present balanced perspectives.\",
+             \"workflow\": {
+                 \"start_step\": \"web_search\",
+                 \"steps\": {
+                     \"web_search\": {
+                         \"action\": \"web_search\",
+                         \"description\": \"Search for relevant information\",
+                         \"topic\": \"system.adapter.web.search\",
+                         \"next_step\": \"analyze_research\"
+                     },
+                     \"analyze_research\": {
+                         \"action\": \"ai_text_generate_claude_opus\",
+                         \"description\": \"Analyze and synthesize research findings\",
+                         \"next_step\": \"complete_workflow\"
+                     },
+                     \"complete_workflow\": {
+                         \"action\": \"complete_workflow\",
+                         \"description\": \"Mark workflow as complete\"
+                     }
+                 }
+             }
+         }',
+         true,
+         NOW(),
+         NOW()
+     ) ON CONFLICT (id) DO NOTHING;" \
+    "Research Assistant Template"
+
+# Blog Post Generator Template
+seed_postgres_data \
+    "postgres-templates" \
+    "templates_user" \
+    "templates_db" \
+    "$TEMPLATES_DB_PASSWORD" \
+    "INSERT INTO persona_templates (id, name, description, category, config, is_active, created_at, updated_at)
+     VALUES (
+         '00000000-0000-0000-0000-000000000003',
+         'Blog Post Generator',
+         'A specialized content creator for well-structured, engaging blog posts with research backing.',
+         'content-creator',
+         '{
+             \"model\": \"claude-3-sonnet\",
+             \"temperature\": 0.6,
+             \"max_tokens\": 3000,
+             \"system_prompt\": \"You are a professional blog writer. Create well-structured, engaging blog posts with clear introductions, informative body content, and compelling conclusions. Use proper headings and maintain consistent tone.\",
+             \"workflow\": {
+                 \"start_step\": \"research_topic\",
+                 \"steps\": {
+                     \"research_topic\": {
+                         \"action\": \"fan_out\",
+                         \"description\": \"Research the topic thoroughly\",
+                         \"sub_tasks\": [
+                             {\"step_name\": \"web_research\", \"topic\": \"system.adapter.web.search\"},
+                             {\"step_name\": \"style_analysis\", \"topic\": \"system.agent.reasoning.process\"}
+                         ],
+                         \"next_step\": \"generate_blog_post\"
+                     },
+                     \"generate_blog_post\": {
+                         \"action\": \"ai_text_generate_claude_sonnet\",
+                         \"description\": \"Generate the blog post using research\",
+                         \"next_step\": \"pause_for_review\"
+                     },
+                     \"pause_for_review\": {
+                         \"action\": \"pause_for_human_input\",
+                         \"description\": \"Allow human review and approval\",
+                         \"next_step\": \"complete_workflow\"
+                     },
+                     \"complete_workflow\": {
+                         \"action\": \"complete_workflow\",
+                         \"description\": \"Mark workflow as complete\"
+                     }
+                 }
+             }
+         }',
+         true,
+         NOW(),
+         NOW()
+     ) ON CONFLICT (id) DO NOTHING;" \
+    "Blog Post Generator Template"
+
+# Image Content Creator Template
+seed_postgres_data \
+    "postgres-templates" \
+    "templates_user" \
+    "templates_db" \
+    "$TEMPLATES_DB_PASSWORD" \
+    "INSERT INTO persona_templates (id, name, description, category, config, is_active, created_at, updated_at)
+     VALUES (
+         '00000000-0000-0000-0000-000000000004',
+         'Visual Content Creator',
+         'Creates both textual content and accompanying images for comprehensive visual storytelling.',
+         'multimedia-creator',
+         '{
+             \"model\": \"claude-3-sonnet\",
+             \"temperature\": 0.7,
+             \"max_tokens\": 2500,
+             \"system_prompt\": \"You are a visual content creator. Create compelling text content and provide detailed image descriptions for visual elements that enhance the narrative.\",
+             \"workflow\": {
+                 \"start_step\": \"create_content_plan\",
+                 \"steps\": {
+                     \"create_content_plan\": {
+                         \"action\": \"ai_text_generate_claude_sonnet\",
+                         \"description\": \"Plan the content and visual elements\",
+                         \"next_step\": \"generate_visuals\"
+                     },
+                     \"generate_visuals\": {
+                         \"action\": \"ai_image_generate_sdxl\",
+                         \"description\": \"Generate accompanying images\",
+                         \"topic\": \"system.adapter.image.generate\",
+                         \"next_step\": \"finalize_content\"
+                     },
+                     \"finalize_content\": {
+                         \"action\": \"ai_text_generate_claude_sonnet\",
+                         \"description\": \"Finalize content with visual references\",
+                         \"next_step\": \"complete_workflow\"
+                     },
+                     \"complete_workflow\": {
+                         \"action\": \"complete_workflow\",
+                         \"description\": \"Mark workflow as complete\"
+                     }
+                 }
+             }
+         }',
+         true,
+         NOW(),
+         NOW()
+     ) ON CONFLICT (id) DO NOTHING;" \
+    "Visual Content Creator Template"
+
+# 2. Verify subscription tiers exist (they should be created by migration)
+echo -e "${YELLOW}💳 Verifying subscription tiers...${NC}"
+mysql -h mysql-auth -u auth_user -p"$AUTH_DB_PASSWORD" auth_db -e "SELECT COUNT(*) as tier_count FROM subscription_tiers;" 2>/dev/null || {
+    echo -e "${RED}❌ Subscription tiers table not accessible${NC}"
+}
+
+# 3. Create default permissions if they don't exist
+echo -e "${YELLOW}🔐 Ensuring default permissions exist...${NC}"
+seed_mysql_data \
+    "mysql-auth" \
+    "auth_user" \
+    "auth_db" \
+    "$AUTH_DB_PASSWORD" \
+    "INSERT IGNORE INTO permissions (id, name, description) VALUES
+        ('00000000-0000-0000-0000-000000000001', 'personas.create', 'Create new personas'),
+        ('00000000-0000-0000-0000-000000000002', 'personas.delete', 'Delete personas'),
+        ('00000000-0000-0000-0000-000000000003', 'projects.manage', 'Manage all projects'),
+        ('00000000-0000-0000-0000-000000000004', 'admin.users', 'Manage users'),
+        ('00000000-0000-0000-0000-000000000005', 'admin.subscriptions', 'Manage subscriptions'),
+        ('00000000-0000-0000-0000-000000000006', '*', 'Super admin - all permissions');" \
+    "Default Permissions"
+
+echo -e "${GREEN}🎉 Data seeding completed successfully!${NC}"
+
+# Show summary
+echo -e "${YELLOW}📊 Seeding Summary:${NC}"
+echo -e "${GREEN}✅ 4 Persona templates created${NC}"
+echo -e "${GREEN}✅ 6 Default permissions ensured${NC}"
+echo -e "${GREEN}✅ Subscription tiers verified${NC}"-------------------------------------------------
+filepath = ./scripts/docker/docker-run-migrations.sh
+#!/bin/bash
+# FILE: docker/scripts/run-migrations.sh
+set -e
+
+echo "🔧 Starting database migrations..."
+
+# Wait for services to be ready
+/app/wait-for-services.sh
+
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+# Function to run PostgreSQL migration
+run_postgres_migration() {
+    local host=$1
+    local user=$2
+    local database=$3
+    local password=$4
+    local migration_file=$5
+    local description=$6
+
+    echo -e "${YELLOW}📝 Running $description...${NC}"
+
+    export PGPASSWORD="$password"
+
+    if psql -h "$host" -U "$user" -d "$database" -f "$migration_file"; then
+        echo -e "${GREEN}✅ $description completed${NC}"
+    else
+        echo -e "${RED}❌ $description failed${NC}"
+        exit 1
+    fi
+}
+
+# Function to run MySQL migration
+run_mysql_migration() {
+    local host=$1
+    local user=$2
+    local database=$3
+    local password=$4
+    local migration_file=$5
+    local description=$6
+
+    echo -e "${YELLOW}📝 Running $description...${NC}"
+
+    if mysql -h "$host" -u "$user" -p"$password" "$database" < "$migration_file"; then
+        echo -e "${GREEN}✅ $description completed${NC}"
+    else
+        echo -e "${RED}❌ $description failed${NC}"
+        exit 1
+    fi
+}
+
+# 1. Enable pgvector extension on clients database
+echo -e "${YELLOW}🔧 Enabling pgvector extension...${NC}"
+export PGPASSWORD="$CLIENTS_DB_PASSWORD"
+psql -h postgres-clients -U clients_user -d clients_db -c "CREATE EXTENSION IF NOT EXISTS vector;" || {
+    echo -e "${RED}❌ Failed to enable pgvector${NC}"
+    exit 1
+}
+echo -e "${GREEN}✅ pgvector enabled${NC}"
+
+# 2. Migrate templates database
+run_postgres_migration \
+    "postgres-templates" \
+    "templates_user" \
+    "templates_db" \
+    "$TEMPLATES_DB_PASSWORD" \
+    "/app/migrations/002_create_templates_schema.sql" \
+    "Templates database migration"
+
+# 3. Create base clients database structure
+run_postgres_migration \
+    "postgres-clients" \
+    "clients_user" \
+    "clients_db" \
+    "$CLIENTS_DB_PASSWORD" \
+    "/app/migrations/003_create_client_base.sql" \
+    "Clients database base structure"
+
+# 4. Create orchestrator state table
+echo -e "${YELLOW}📝 Creating orchestrator state table...${NC}"
+export PGPASSWORD="$CLIENTS_DB_PASSWORD"
+psql -h postgres-clients -U clients_user -d clients_db -c "
+CREATE TABLE IF NOT EXISTS orchestrator_state (
+    correlation_id UUID PRIMARY KEY,
+    status VARCHAR(50) NOT NULL,
+    current_step VARCHAR(255) NOT NULL,
+    awaited_steps JSONB DEFAULT '[]',
+    collected_data JSONB DEFAULT '{}',
+    initial_request_data JSONB,
+    final_result JSONB,
+    error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_orchestrator_state_status ON orchestrator_state(status);
+CREATE INDEX IF NOT EXISTS idx_orchestrator_state_updated_at ON orchestrator_state(updated_at);
+" || {
+    echo -e "${RED}❌ Failed to create orchestrator state table${NC}"
+    exit 1
+}
+echo -e "${GREEN}✅ Orchestrator state table created${NC}"
+
+# 5. Migrate auth database (MySQL)
+run_mysql_migration \
+    "mysql-auth" \
+    "auth_user" \
+    "auth_db" \
+    "$AUTH_DB_PASSWORD" \
+    "/app/migrations/004_auth_schema.sql" \
+    "Auth database schema migration"
+
+run_mysql_migration \
+    "mysql-auth" \
+    "auth_user" \
+    "auth_db" \
+    "$AUTH_DB_PASSWORD" \
+    "/app/migrations/005_projects_schema.sql" \
+    "Projects and subscriptions schema migration"
+
+echo -e "${GREEN}🎉 All database migrations completed successfully!${NC}"-------------------------------------------------
+filepath = ./scripts/deploy/deploy-infrastructure.sh
+-------------------------------------------------
+filepath = ./scripts/deploy/deploy-service.sh
+-------------------------------------------------
+filepath = ./scripts/deploy/deploy-all.sh
+-------------------------------------------------
+filepath = ./scripts/deploy/deploy-frontend.sh
+-------------------------------------------------
+filepath = ./scripts/deploy/rollback-service.sh
+-------------------------------------------------
+filepath = ./scripts/docs/generate-docs.sh
+#!/bin/bash
+# Script to generate and validate API documentation
+
+set -e
+
+# Get the project root directory (assuming script is in scripts/docs/)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/../.." && pwd )"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}🚀 AI Persona Platform - API Documentation Generator${NC}"
+echo "=================================================="
+
+# Function to check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Change to project root
+cd "$PROJECT_ROOT"
+
+# Check prerequisites
+echo -e "\n${YELLOW}Checking prerequisites...${NC}"
+
+if ! command_exists swag; then
+    echo -e "${YELLOW}Installing swag...${NC}"
+    go install github.com/swaggo/swag/cmd/swag@latest
+fi
+
+if ! command_exists docker; then
+    echo -e "${RED}Error: Docker is required but not installed.${NC}"
+    exit 1
+fi
+
+# Generate Swagger documentation
+echo -e "\n${YELLOW}Generating Swagger documentation...${NC}"
+
+# First, let's add swagger annotations to main.go if they don't exist
+MAIN_FILE="cmd/auth-service/main.go"
+if ! grep -q "@title" "$MAIN_FILE"; then
+    echo -e "${YELLOW}Adding Swagger annotations to main.go...${NC}"
+    # Create a temporary file with the annotations
+    cat > /tmp/swagger_annotations.go << 'EOF'
+// @title Auth Service API
+// @version 1.0
+// @description Authentication and authorization service for the AI Persona Platform
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name AI Persona Support
+// @contact.email support@persona-platform.com
+
+// @license.name Proprietary
+
+// @host localhost:8081
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
+EOF
+    
+    # Add annotations before package main
+    sed -i '/^package main$/i \
+// @title Auth Service API\
+// @version 1.0\
+// @description Authentication and authorization service for the AI Persona Platform\
+// @termsOfService http://swagger.io/terms/\
+\
+// @contact.name AI Persona Support\
+// @contact.email support@persona-platform.com\
+\
+// @license.name Proprietary\
+\
+// @host localhost:8081\
+// @BasePath /api/v1\
+\
+// @securityDefinitions.apikey Bearer\
+// @in header\
+// @name Authorization\
+// @description Type "Bearer" followed by a space and JWT token.\
+' "$MAIN_FILE"
+fi
+
+# Generate swagger docs
+swag init -g cmd/auth-service/main.go -o cmd/auth-service/docs --parseDependency --parseInternal
+
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✓ Swagger documentation generated successfully${NC}"
+else
+    echo -e "${RED}✗ Failed to generate Swagger documentation${NC}"
+    exit 1
+fi
+
+# Check if OpenAPI spec exists
+OPENAPI_SPEC="internal/auth-service/api/openapi.yaml"
+if [ -f "$OPENAPI_SPEC" ]; then
+    echo -e "\n${YELLOW}Validating OpenAPI specification...${NC}"
+    docker run --rm -v "${PWD}":/spec redocly/cli lint "/spec/${OPENAPI_SPEC}"
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ OpenAPI specification is valid${NC}"
+    else
+        echo -e "${RED}✗ OpenAPI specification validation failed${NC}"
+    fi
+    
+    # Generate HTML documentation
+    echo -e "\n${YELLOW}Generating HTML documentation...${NC}"
+    mkdir -p docs/api
+    docker run --rm -v "${PWD}":/spec redocly/cli build-docs "/spec/${OPENAPI_SPEC}" -o /spec/docs/api/reference.html
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ HTML documentation generated at docs/api/reference.html${NC}"
+    else
+        echo -e "${YELLOW}⚠ Failed to generate HTML documentation${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠ OpenAPI spec not found at ${OPENAPI_SPEC}${NC}"
+    echo -e "${YELLOW}  Using generated Swagger spec instead${NC}"
+fi
+
+# Check if docker-compose.swagger.yaml exists
+SWAGGER_COMPOSE_FILE="deployments/docker-compose/docker-compose.swagger.yaml"
+if [ ! -f "$SWAGGER_COMPOSE_FILE" ]; then
+    echo -e "\n${YELLOW}Creating docker-compose.swagger.yaml...${NC}"
+    mkdir -p "$(dirname "$SWAGGER_COMPOSE_FILE")"
+    cat > "$SWAGGER_COMPOSE_FILE" << 'EOF'
+version: '3.8'
+
+services:
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: swagger-ui
+    ports:
+      - "8082:8080"
+    environment:
+      - SWAGGER_JSON=/api/swagger.json
+    volumes:
+      - ../../cmd/auth-service/docs:/api
+    networks:
+      - docs-network
+
+  redoc:
+    image: redocly/redoc:latest
+    container_name: redoc
+    ports:
+      - "8083:80"
+    environment:
+      - SPEC_URL=/api/swagger.json
+    volumes:
+      - ../../cmd/auth-service/docs:/usr/share/nginx/html/api
+    networks:
+      - docs-network
+
+  swagger-editor:
+    image: swaggerapi/swagger-editor:latest
+    container_name: swagger-editor
+    ports:
+      - "8084:8080"
+    environment:
+      - SWAGGER_FILE=/api/swagger.json
+    volumes:
+      - ../../cmd/auth-service/docs:/api
+    networks:
+      - docs-network
+
+networks:
+  docs-network:
+    driver: bridge
+EOF
+    echo -e "${GREEN}✓ Created docker-compose.swagger.yaml${NC}"
+fi
+
+# Start documentation servers
+echo -e "\n${YELLOW}Do you want to start the documentation servers? (y/n)${NC}"
+read -r response
+
+if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    echo -e "${YELLOW}Starting documentation servers...${NC}"
+    docker-compose -f "$SWAGGER_COMPOSE_FILE" up -d
+
+    echo -e "\n${GREEN}Documentation servers started:${NC}"
+    echo -e "  • Swagger UI: ${GREEN}http://localhost:8082${NC}"
+    echo -e "  • Redoc: ${GREEN}http://localhost:8083${NC}"
+    echo -e "  • Swagger Editor: ${GREEN}http://localhost:8084${NC}"
+    echo -e "\n${YELLOW}To stop the servers, run: docker-compose -f ${SWAGGER_COMPOSE_FILE} down${NC}"
+fi
+
+echo -e "\n${GREEN}✅ Documentation generation complete!${NC}"
+
+# Summary
+echo -e "\n${YELLOW}Summary:${NC}"
+echo "• Swagger docs: cmd/auth-service/docs/"
+if [ -f "$OPENAPI_SPEC" ]; then
+    echo "• OpenAPI spec: ${OPENAPI_SPEC}"
+fi
+echo "• HTML docs: docs/api/reference.html"
+echo "• Internal docs: internal/*/API.md"
+
+echo -e "\n${YELLOW}Next steps:${NC}"
+echo "1. Review the generated documentation"
+echo "2. Update any missing descriptions or examples"
+echo "3. Commit the changes to your repository"
+echo "4. Run 'make swagger' to regenerate after changes"-------------------------------------------------
+filepath = ./scripts/utils/wait-for-services.sh
+#!/bin/bash
+# FILE: docker/scripts/wait-for-services.sh
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+echo -e "${YELLOW}⏳ Waiting for services to be ready...${NC}"
+
+# Function to wait for PostgreSQL
+wait_for_postgres() {
+    local host=$1
+    local user=$2
+    local database=$3
+    local password=$4
+    local service_name=$5
+
+    echo -e "${YELLOW}🔍 Waiting for PostgreSQL: $service_name...${NC}"
+
+    export PGPASSWORD="$password"
+
+    local max_attempts=60
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if pg_isready -h "$host" -U "$user" -d "$database" >/dev/null 2>&1; then
+            if psql -h "$host" -U "$user" -d "$database" -c "SELECT 1;" >/dev/null 2>&1; then
+                echo -e "${GREEN}✅ $service_name is ready${NC}"
+                return 0
+            fi
+        fi
+
+        if [ $attempt -eq $max_attempts ]; then
+            echo -e "${RED}❌ $service_name failed to become ready after $max_attempts attempts${NC}"
+            return 1
+        fi
+
+        echo -e "${YELLOW}⏳ Attempt $attempt/$max_attempts - $service_name not ready yet...${NC}"
+        sleep 5
+        ((attempt++))
+    done
+}
+
+# Function to wait for MySQL
+wait_for_mysql() {
+    local host=$1
+    local user=$2
+    local database=$3
+    local password=$4
+    local service_name=$5
+
+    echo -e "${YELLOW}🔍 Waiting for MySQL: $service_name...${NC}"
+
+    local max_attempts=60
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if mysqladmin ping -h "$host" --silent >/dev/null 2>&1; then
+            if mysql -h "$host" -u "$user" -p"$password" -e "SELECT 1;" "$database" >/dev/null 2>&1; then
+                echo -e "${GREEN}✅ $service_name is ready${NC}"
+                return 0
+            fi
+        fi
+
+        if [ $attempt -eq $max_attempts ]; then
+            echo -e "${RED}❌ $service_name failed to become ready after $max_attempts attempts${NC}"
+            return 1
+        fi
+
+        echo -e "${YELLOW}⏳ Attempt $attempt/$max_attempts - $service_name not ready yet...${NC}"
+        sleep 5
+        ((attempt++))
+    done
+}
+
+# Function to wait for Kafka
+wait_for_kafka() {
+    local host=$1
+    local port=$2
+    local service_name=$3
+
+    echo -e "${YELLOW}🔍 Waiting for Kafka: $service_name...${NC}"
+
+    local max_attempts=60
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if timeout 5 bash -c "</dev/tcp/$host/$port" >/dev/null 2>&1; then
+            # Additional check: try to list topics
+            if kafka-topics --bootstrap-server "$host:$port" --list >/dev/null 2>&1; then
+                echo -e "${GREEN}✅ $service_name is ready${NC}"
+                return 0
+            fi
+        fi
+
+        if [ $attempt -eq $max_attempts ]; then
+            echo -e "${RED}❌ $service_name failed to become ready after $max_attempts attempts${NC}"
+            return 1
+        fi
+
+        echo -e "${YELLOW}⏳ Attempt $attempt/$max_attempts - $service_name not ready yet...${NC}"
+        sleep 5
+        ((attempt++))
+    done
+}
+
+# Wait for all required services
+echo -e "${YELLOW}🚀 Starting service readiness checks...${NC}"
+
+# Wait for PostgreSQL databases
+if [ ! -z "$CLIENTS_DB_PASSWORD" ]; then
+    wait_for_postgres "postgres-clients" "clients_user" "clients_db" "$CLIENTS_DB_PASSWORD" "PostgreSQL Clients"
+fi
+
+if [ ! -z "$TEMPLATES_DB_PASSWORD" ]; then
+    wait_for_postgres "postgres-templates" "templates_user" "templates_db" "$TEMPLATES_DB_PASSWORD" "PostgreSQL Templates"
+fi
+
+# Wait for MySQL database
+if [ ! -z "$AUTH_DB_PASSWORD" ]; then
+    wait_for_mysql "mysql-auth" "auth_user" "auth_db" "$AUTH_DB_PASSWORD" "MySQL Auth"
+fi
+
+# Wait for Kafka (optional - only if we need to create topics)
+if [ "$WAIT_FOR_KAFKA" = "true" ]; then
+    wait_for_kafka "kafka-0.kafka-headless" "9092" "Kafka"
+fi
+
+echo -e "${GREEN}🎉 All required services are ready!${NC}"-------------------------------------------------
+filepath = ./scripts/utils/setup-local-registry.sh
+-------------------------------------------------
+filepath = ./scripts/utils/generate_jwt_secret.sh
+#!/bin/bash
+# FILE: scripts/generate-jwt-secret.sh
+
+# Generate a secure JWT secret
+JWT_SECRET=$(openssl rand -base64 64 | tr -d '\n')
+
+echo "Generated JWT Secret (save this securely):"
+echo "$JWT_SECRET"
+echo ""
+
+# Create/update Kubernetes secret
+kubectl create secret generic auth-secrets \
+  --from-literal=jwt-secret="$JWT_SECRET" \
+  -n ai-persona-system \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+echo "JWT secret stored in Kubernetes"-------------------------------------------------
+filepath = ./scripts/utils/package_module.sh
+#!/bin/bash
+#
+# package_module.sh - A script to package the relevant files for a specific
+#                      microservice, frontend, or infrastructure component into a
+#                      single context file for AI assistants.
+#
+# This script is designed to work with the new agent-managed project structure.
+#
+# Usage: ./scripts/utils/package_module.sh [-o /path/to/output_dir] [-e env] [component_name]
+# Example: ./scripts/utils/package_module.sh auth-service
+# Example: ./scripts/utils/package_module.sh -e production auth-service
+
+set -e
+
+# --- Self-locating Logic ---
+# Ensures the script can be run from anywhere in the project.
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+# Get the full path to this script
+SCRIPT_PATH="${SCRIPT_DIR}/$(basename "${BASH_SOURCE[0]}")"
+PROJECT_ROOT=$( realpath "$SCRIPT_DIR/../../" )
+cd "$PROJECT_ROOT"
+
+# --- Configuration ---
+DEFAULT_OUTPUT_DIR=$SCRIPT_DIR"/output_contexts"
+# Default to development, allow override via flag
+ENVIRONMENT="development"
+REGION="uk_dev" # Assuming 'uk_dev' for development environment
+
+# --- Component List ---
+# List of all individual components for the 'all' option
+ALL_COMPONENTS=(
+    # Horizontal slices
+    "code-all"
+    "deployments-all"
+    "environment-all"
+
+    # Full service stacks
+    "auth-service"
+    "core-manager"
+    "agent-chassis"
+    "reasoning-agent"
+    "user-frontend"
+    "admin-dashboard"
+    "agent-playground"
+
+    # Infrastructure ---
+    "infra-cluster-provisioning"   # High-level: Terraform to build the k8s cluster
+    "infra-kafka-stack"            # High-level: The entire Kafka setup (TF + Kustomize)
+    "infra-terraform-rackspace-module" # Module for creating Rackspace K8s cluster
+    "infra-terraform-kafka-modules"  # Modules for Strimzi Operator + Kafka Cluster
+    "infra-terraform-environment"    # Top-level environment wiring for Terraform
+    "infra-kustomize-kafka-instance" # Kustomize manifests for the Kafka cluster
+    "infra-kustomize-ingress"        # Kustomize manifests for NGINX Ingress
+
+
+    # Frontend development
+    "frontend-user-portal-only"
+    "frontend-admin-only"
+    "frontend-playground-only"
+    "frontend-shared-components"
+    "frontend-all-apps"
+
+    # Backend APIs
+    "api-auth-only"
+    "api-core-only"
+    "api-agents-only"
+    "api-all"
+
+    # Platform libraries
+    "platform-core"
+    "platform-messaging"
+    "platform-data"
+    "platform-observability"
+
+    # Agent development
+    "agent-framework"
+    "agent-reasoning-only"
+    "agent-adapters"
+
+    # Database and migrations
+    "database-schemas"
+    "database-auth"
+    "database-clients"
+
+    # Deployment specific
+    "deploy-terraform-modules"
+    "deploy-kustomize-base"
+    "deploy-services"
+    "deploy-frontends"
+
+    # Development tools
+    "dev-scripts"
+    "dev-docker"
+    "dev-local-env"
+
+    # Testing
+    "test-integration"
+    "test-e2e"
+    "test-all"
+)
+
+# --- Main Functions ---
+# Helper function to write a single file's content to the output.
+function write_file() {
+  local file_path=$1
+  local output_file=$2
+  local list_only=$3
+
+  if [ -f "$file_path" ]; then
+    echo "filepath = ./$file_path" >> "$output_file"
+    if [ "$list_only" = "true" ]; then
+      echo "[File listed only - content not included]" >> "$output_file"
+    else
+      cat "$file_path" >> "$output_file"
+    fi
+    echo "-------------------------------------------------" >> "$output_file"
+  fi
+}
+
+# Helper function to write all files in a directory to the output.
+function write_directory() {
+  local dir_path=$1
+  local output_file=$2
+
+  # Check if the directory exists before trying to find files in it.
+  if [ ! -d "$dir_path" ]; then
+    echo "Warning: Directory '$dir_path' not found in '$PWD'. Skipping." >&2
+    return
+  fi
+
+  # Remove trailing slash if present
+  dir_path="${dir_path%/}"
+
+  # Use find to get ALL files in the directory and subdirectories
+  while IFS= read -r -d $'\0' file; do
+    # Skip if this is the output file itself to avoid self-reference
+    if [ "$(realpath "$file" 2>/dev/null)" = "$(realpath "$output_file" 2>/dev/null)" ]; then
+      continue
+    fi
+
+    # Check if the file is in a strimzi-yaml* directory
+    if [[ "$file" =~ strimzi-yaml[^/]*/[^/]+$ ]]; then
+      write_file "$file" "$output_file" "true"
+    else
+      write_file "$file" "$output_file" "false"
+    fi
+  done < <(find "$dir_path" -type f \
+    -not -path '*/.git/*' \
+    -not -path '*/.terraform/*' \
+    -not -path '*/.terraform.lock.hcl' \
+    -not -path '*/node_modules/*' \
+    -not -path '*/dist/*' \
+    -not -path '*/build/*' \
+    -not -path '*/target/*' \
+    -not -path '*/vendor/*' \
+    -not -path '*/.idea/*' \
+    -not -path '*/.vscode/*' \
+    -not -path '*/output_contexts/*' \
+    -not -name '*.tfstate' \
+    -not -name '*.tfstate.backup' \
+    -not -name '*.log' \
+    -not -name '*.zip' \
+    -not -name '*.tar' \
+    -not -name '*.gz' \
+    -not -name '*.jar' \
+    -not -name '*.war' \
+    -not -name '*.exe' \
+    -not -name '*.dll' \
+    -not -name '*.so' \
+    -not -name '*.dylib' \
+    -not -name '*.pyc' \
+    -not -name '*.pyo' \
+    -not -name '__pycache__' \
+    -not -name '*.class' \
+    -not -name 'go.sum' \
+    -not -name 'package-lock.json' \
+    -not -name 'yarn.lock' \
+    -not -name '*.secret' \
+    -not -name '.DS_Store' \
+    -not -name 'Thumbs.db' \
+    -print0)
+}
+
+# Helper function to handle MODULE_FILES which can be individual files or directories
+function process_module_files() {
+  local item=$1
+  local output_file=$2
+
+  if [ -f "$item" ]; then
+    # It's a file, write it directly
+    write_file "$item" "$output_file" "false"
+  elif [ -d "$item" ]; then
+    # It's a directory, process all files in it
+    write_directory "$item" "$output_file"
+  fi
+}
+
+# --- Script Argument Parsing ---
+OUTPUT_DIR=$DEFAULT_OUTPUT_DIR
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+  case $1 in
+    -o | --output)
+      shift
+      OUTPUT_DIR=$1
+      ;;
+    -e | --environment)
+      shift
+      ENVIRONMENT=$1
+      ;;
+  esac
+  shift
+done
+
+COMPONENT_NAME=$1
+
+# --- Help and Usage ---
+function show_help() {
+  echo "Usage: $0 [-o /path/to/output_dir] [-e environment] [component_name]"
+  echo "Please provide the name of the component to package."
+  echo ""
+  echo "Available components:"
+  echo ""
+  echo "  BULK OPERATIONS:"
+  echo "    all                      # Package all individual components into separate files"
+  echo "    all-in-one               # Package all components into a single combined file"
+  echo ""
+  echo "  HORIZONTAL SLICES:"
+  echo "    code-all                 # All Go source code (cmd, internal, pkg, platform)"
+  echo "    deployments-all          # All deployment configurations (Terraform & Kustomize)"
+  echo "    environment-all          # All environment Terraform configurations"
+  echo ""
+  echo "  FULL SERVICE STACKS (code + deploy):"
+  echo "    auth-service             # Complete auth service stack"
+  echo "    core-manager             # Complete core manager stack"
+  echo "    agent-chassis            # Complete agent chassis stack"
+  echo "    reasoning-agent          # Complete reasoning agent stack"
+  echo "    user-frontend            # Complete user portal stack"
+  echo "    admin-dashboard          # Complete admin dashboard stack"
+  echo "    agent-playground         # Complete agent playground stack"
+  echo ""
+  echo "  INFRASTRUCTURE:"
+  echo "    infra-cluster-provisioning       # Terraform for provisioning the base Rackspace K8s cluster"
+  echo "    infra-kafka-stack                # The complete Kafka stack (Terraform modules & Kustomize instance)"
+  echo "    infra-terraform-rackspace-module # Module for creating the Rackspace Kubernetes cluster"
+  echo "    infra-terraform-kafka-modules    # Modules for Strimzi Operator and the Kafka Cluster"
+  echo "    infra-terraform-environment      # Top-level Terraform config for the specified environment"
+  echo "    infra-kustomize-kafka-instance   # Kustomize definition for the Kafka cluster resource"
+  echo "    infra-kustomize-ingress          # Kustomize definition for the NGINX Ingress"
+  echo ""
+  echo "  FRONTEND DEVELOPMENT:"
+  echo "    frontend-user-portal-only    # Just user portal React code"
+  echo "    frontend-admin-only          # Just admin dashboard React code"
+  echo "    frontend-playground-only     # Just playground React code"
+  echo "    frontend-shared-components   # Shared UI components and API client"
+  echo "    frontend-all-apps            # All frontend applications"
+  echo ""
+  echo "  BACKEND API DEVELOPMENT:"
+  echo "    api-auth-only            # Auth service API code only"
+  echo "    api-core-only            # Core manager API code only"
+  echo "    api-agents-only          # All agent-related API code"
+  echo "    api-all                  # All backend API code"
+  echo ""
+  echo "  PLATFORM LIBRARIES:"
+  echo "    platform-core            # Core utilities (config, errors, logging, validation)"
+  echo "    platform-messaging       # Kafka and messaging infrastructure"
+  echo "    platform-data            # Database, storage, and memory services"
+  echo "    platform-observability   # Metrics, health, tracing, resilience"
+  echo ""
+  echo "  AGENT DEVELOPMENT:"
+  echo "    agent-framework          # Agent base classes and orchestration"
+  echo "    agent-reasoning-only     # Just reasoning agent implementation"
+  echo "    agent-adapters           # Web search and image adapter code"
+  echo ""
+  echo "  DATABASE & MIGRATIONS:"
+  echo "    database-schemas         # All migration files and seed data"
+  echo "    database-auth            # Auth-related database code"
+  echo "    database-clients         # Client/persona database code"
+  echo ""
+  echo "  DEPLOYMENT SPECIFIC:"
+  echo "    deploy-terraform-modules    # Reusable Terraform modules"
+  echo "    deploy-kustomize-base       # Base Kustomize configurations"
+  echo "    deploy-services             # Service deployment configs"
+  echo "    deploy-frontends            # Frontend deployment configs"
+  echo ""
+  echo "  DEVELOPMENT TOOLS:"
+  echo "    dev-scripts              # All development scripts"
+  echo "    dev-docker               # Docker configurations"
+  echo "    dev-local-env            # Local development environment"
+  echo ""
+  echo "  TESTING:"
+  echo "    test-integration         # Integration test code"
+  echo "    test-e2e                 # End-to-end test code"
+  echo "    test-all                 # All test code"
+}
+
+
+if [ -z "$COMPONENT_NAME" ]; then
+  show_help
+  exit 1
+fi
+
+# If the component is 'all', loop and call the script for each component.
+if [ "$COMPONENT_NAME" = "all" ]; then
+  echo "Packaging all components into separate files..."
+  mkdir -p "$OUTPUT_DIR"
+
+  for component in "${ALL_COMPONENTS[@]}"; do
+    echo "-------------------------------------------------"
+    echo "--> Packaging component: $component (Env: $ENVIRONMENT)"
+
+    # Build the command with optional flags
+    CMD="bash \"$SCRIPT_PATH\""
+    if [[ -n "$OUTPUT_DIR" && "$OUTPUT_DIR" != "$DEFAULT_OUTPUT_DIR" ]]; then
+      CMD+=" -o \"$OUTPUT_DIR\""
+    fi
+    if [[ "$ENVIRONMENT" != "development" ]]; then # Pass env if not default
+        CMD+=" -e \"$ENVIRONMENT\""
+    fi
+    CMD+=" \"$component\""
+
+    # Execute the command
+    eval $CMD
+
+    # Display the file size for the component just created
+    COMPONENT_FILE="${OUTPUT_DIR}/${component}_context.txt"
+    if [ -f "$COMPONENT_FILE" ]; then
+      FILE_SIZE=$(du -h "$COMPONENT_FILE" | cut -f1)
+      echo "    📦 File size: $FILE_SIZE"
+    fi
+  done
+
+  echo "-------------------------------------------------"
+  echo "✅ All components packaged."
+  echo ""
+  echo "Summary of generated files:"
+  for component in "${ALL_COMPONENTS[@]}"; do
+    COMPONENT_FILE="${OUTPUT_DIR}/${component}_context.txt"
+    if [ -f "$COMPONENT_FILE" ]; then
+      FILE_SIZE=$(du -h "$COMPONENT_FILE" | cut -f1)
+      printf "  %-35s %10s\n" "${component}_context.txt" "$FILE_SIZE"
+    fi
+  done
+  exit 0
+fi
+
+# If the component is 'all-in-one', create a single file with everything
+if [ "$COMPONENT_NAME" = "all-in-one" ]; then
+  echo "Packaging all components into a single file..."
+  mkdir -p "$OUTPUT_DIR"
+
+  TEMP_DIR=$(mktemp -d)
+  ALL_IN_ONE_FILE="${OUTPUT_DIR}/all-in-one_context.txt"
+  > "$ALL_IN_ONE_FILE"
+
+  echo "Environment: $ENVIRONMENT" >> "$ALL_IN_ONE_FILE"
+  echo "Generated on: $(date)" >> "$ALL_IN_ONE_FILE"
+  echo "=================================================" >> "$ALL_IN_ONE_FILE"
+  echo "" >> "$ALL_IN_ONE_FILE"
+
+  # First generate all individual component files in temp directory
+  for component in "${ALL_COMPONENTS[@]}"; do
+    echo "--> Processing component: $component"
+
+    # Build the command with temp directory
+    CMD="bash \"$SCRIPT_PATH\" -o \"$TEMP_DIR\""
+    if [[ "$ENVIRONMENT" != "development" ]]; then
+        CMD+=" -e \"$ENVIRONMENT\""
+    fi
+    CMD+=" \"$component\""
+
+    # Execute the command
+    eval $CMD 2>/dev/null
+  done
+
+  # Now concatenate all files with headers
+  for component in "${ALL_COMPONENTS[@]}"; do
+    COMPONENT_FILE="${TEMP_DIR}/${component}_context.txt"
+    if [ -f "$COMPONENT_FILE" ]; then
+      echo "" >> "$ALL_IN_ONE_FILE"
+      echo "=================================================" >> "$ALL_IN_ONE_FILE"
+      echo "COMPONENT: $component" >> "$ALL_IN_ONE_FILE"
+      echo "=================================================" >> "$ALL_IN_ONE_FILE"
+      echo "" >> "$ALL_IN_ONE_FILE"
+      cat "$COMPONENT_FILE" >> "$ALL_IN_ONE_FILE"
+    fi
+  done
+
+  # Clean up temp directory
+  rm -rf "$TEMP_DIR"
+
+  echo "-------------------------------------------------"
+  echo "✅ All components packaged into single file."
+  FILE_SIZE=$(du -h "$ALL_IN_ONE_FILE" | cut -f1)
+  echo "📦 Output file: $ALL_IN_ONE_FILE"
+  echo "📦 Total size: $FILE_SIZE"
+  exit 0
+fi
+
+mkdir -p "$OUTPUT_DIR"
+OUTPUT_FILE="${OUTPUT_DIR}/${COMPONENT_NAME}_context.txt"
+> "$OUTPUT_FILE"
+
+echo "Packaging component '$COMPONENT_NAME' for environment '$ENVIRONMENT' into $OUTPUT_FILE..."
+
+# Adjust region based on environment
+if [ "$ENVIRONMENT" = "production" ]; then
+    REGION="uk001"
+else
+    REGION="uk_dev"
+fi
+
+
+# --- Component Definitions ---
+# Each case defines the specific source code, build, and deployment files
+# that make up a complete, independent component.
+
+# Shared files are included where necessary to provide full context.
+SHARED_PLATFORM_CODE=("platform/" "pkg/")
+SHARED_DEPLOYMENT_MODULES=("deployments/terraform/modules/kustomize-apply/")
+SHARED_KUSTOMIZE_BASE=("deployments/kustomize/base/")
+SHARED_ROOT_FILES=("Makefile" "go.mod" "go.sum" "docker-compose.yaml")
+
+case "$COMPONENT_NAME" in
+  # --- Horizontal Slices ---
+  code-all)
+    MODULE_DIRS=( "cmd/" "internal/" "pkg/" "platform/" )
+    MODULE_FILES=( "go.mod" "go.sum" )
+    ;;
+
+  deployments-all)
+    MODULE_DIRS=( "deployments/" "build/docker/" )
+    MODULE_FILES=( "Makefile" "docker-compose.yaml" )
+    ;;
+
+  environment-all)
+    MODULE_DIRS=( "deployments/terraform/environments/" )
+    MODULE_FILES=( "Makefile" )
+    ;;
+
+  # --- Full Service Stacks ---
+  auth-service)
+    MODULE_DIRS=(
+      "cmd/auth-service/" "internal/auth-service/"
+      "deployments/kustomize/services/auth-service/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/core-platform/110-auth-service/"
+      "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
+    MODULE_FILES=(
+      "build/docker/backend/auth-service.dockerfile" "configs/auth-service.yaml"
+      "${SHARED_ROOT_FILES[@]}"
+    )
+    ;;
+
+  core-manager)
+    MODULE_DIRS=(
+      "cmd/core-manager/" "internal/core-manager/"
+      "deployments/kustomize/services/core-manager/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/core-platform/120-core-manager/"
+      "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
+    MODULE_FILES=(
+      "build/docker/backend/core-manager.dockerfile" "configs/core-manager.yaml"
+      "${SHARED_ROOT_FILES[@]}"
+    )
+    ;;
+
+  agent-chassis)
+    MODULE_DIRS=(
+      "cmd/agent-chassis/" "platform/agentbase/"
+      "deployments/kustomize/services/agent-chassis/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/agents/2210-agent-chassis/"
+      "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
+    MODULE_FILES=(
+      "build/docker/backend/agent-chassis.dockerfile" "configs/agent-chassis.yaml"
+      "${SHARED_ROOT_FILES[@]}"
+    )
+    ;;
+
+  reasoning-agent)
+    MODULE_DIRS=(
+      "cmd/reasoning-agent/" "internal/agents/reasoning/"
+      "deployments/kustomize/services/reasoning-agent/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/agents/2220-reasoning-agent/"
+      "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
+    MODULE_FILES=(
+      "build/docker/backend/reasoning-agent.dockerfile" "configs/reasoning-agent.yaml"
+      "${SHARED_ROOT_FILES[@]}"
+    )
+    ;;
+
+  user-frontend)
+    MODULE_DIRS=(
+      "frontends/user-portal/"
+      "deployments/kustomize/frontends/user-portal/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/frontends/3320-user-portal/"
+      "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
+    MODULE_FILES=( "Makefile" )
+    ;;
+
+  admin-dashboard)
+    MODULE_DIRS=(
+      "frontends/admin-dashboard/"
+      "deployments/kustomize/frontends/admin-dashboard/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/frontends/3310-admin-dashboard/"
+      "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
+    MODULE_FILES=( "Makefile" )
+    ;;
+
+  agent-playground)
+    MODULE_DIRS=(
+      "frontends/agent-playground/"
+      "deployments/kustomize/frontends/agent-playground/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/frontends/3330-agent-playground/"
+      "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
+    MODULE_FILES=( "Makefile" )
+    ;;
+
+  # --- Infrastructure Layers (Refined and Expanded) ---
+  infra-cluster-provisioning)
+    MODULE_DIRS=(
+      "deployments/terraform/modules/rackspace-kubernetes/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/010-infrastructure/"
+    )
+    MODULE_FILES=("Makefile")
+    ;;
+
+  infra-kafka-stack)
+    MODULE_DIRS=(
+      "deployments/terraform/modules/strimzi-operator/"
+      "deployments/terraform/modules/kafka-cluster/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/030-strimzi-operator/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/040-kafka-cluster/"
+      "deployments/kustomize/infrastructure/kafka/"
+    )
+    MODULE_FILES=("Makefile")
+    ;;
+
+  infra-terraform-rackspace-module)
+    MODULE_DIRS=( "deployments/terraform/modules/rackspace-kubernetes/" )
+    ;;
+
+  infra-terraform-kafka-modules)
+    MODULE_DIRS=(
+      "deployments/terraform/modules/strimzi-operator/"
+      "deployments/terraform/modules/kafka-cluster/"
+    )
+    ;;
+
+  infra-terraform-environment)
+    MODULE_DIRS=( "deployments/terraform/environments/$ENVIRONMENT/" )
+    ;;
+
+  infra-kustomize-kafka-instance)
+    MODULE_DIRS=( "deployments/kustomize/infrastructure/kafka/" )
+    ;;
+
+  infra-kustomize-ingress)
+    MODULE_DIRS=( "deployments/kustomize/infrastructure/nginx-ingress/" )
+    ;;
+
+  # --- Frontend Development Only ---
+  frontend-user-portal-only)
+    MODULE_DIRS=( "frontends/user-portal/" )
+    MODULE_FILES=( "build/docker/frontend/react-nginx.dockerfile" )
+    ;;
+
+  frontend-admin-only)
+    MODULE_DIRS=( "frontends/admin-dashboard/" )
+    MODULE_FILES=( "build/docker/frontend/react-nginx.dockerfile" )
+    ;;
+
+  frontend-playground-only)
+    MODULE_DIRS=( "frontends/agent-playground/" )
+    MODULE_FILES=( "build/docker/frontend/react-nginx.dockerfile" )
+    ;;
+
+  frontend-shared-components)
+    MODULE_DIRS=( "frontends/shared/" )
+    ;;
+
+  frontend-all-apps)
+    MODULE_DIRS=( "frontends/" )
+    MODULE_FILES=( "build/docker/frontend/react-nginx.dockerfile" "build/docker/frontend/react-dev.dockerfile" )
+    ;;
+
+  # --- Backend API Development ---
+  api-auth-only)
+    MODULE_DIRS=( "cmd/auth-service/" "internal/auth-service/" )
+    MODULE_FILES=( "configs/auth-service.yaml" "go.mod" )
+    ;;
+
+  api-core-only)
+    MODULE_DIRS=( "cmd/core-manager/" "internal/core-manager/" )
+    MODULE_FILES=( "configs/core-manager.yaml" "go.mod" )
+    ;;
+
+  api-agents-only)
+    MODULE_DIRS=(
+      "cmd/agent-chassis/" "cmd/reasoning-agent/"
+      "internal/agents/" "platform/agentbase/"
+    )
+    MODULE_FILES=( "configs/agent-chassis.yaml" "configs/reasoning-agent.yaml" "go.mod" )
+    ;;
+
+  api-all)
+    MODULE_DIRS=( "cmd/" "internal/" "pkg/models/" )
+    MODULE_FILES=( "configs/" "go.mod" )
+    ;;
+
+  # --- Platform Libraries ---
+  platform-core)
+    MODULE_DIRS=(
+      "platform/config/" "platform/errors/" "platform/logger/"
+      "platform/validation/" "platform/contracts/"
+    )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  platform-messaging)
+    MODULE_DIRS=(
+      "platform/kafka/" "platform/messaging/"
+    )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  platform-data)
+    MODULE_DIRS=(
+      "platform/database/" "platform/storage/" "platform/memory/"
+    )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  platform-observability)
+    MODULE_DIRS=(
+      "platform/observability/" "platform/health/" "platform/resilience/"
+    )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  # --- Agent Development ---
+  agent-framework)
+    MODULE_DIRS=(
+      "platform/agentbase/" "platform/orchestration/"
+      "platform/aiservice/" "platform/governance/"
+    )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  agent-reasoning-only)
+    MODULE_DIRS=(
+      "cmd/reasoning-agent/" "internal/agents/reasoning/"
+    )
+    MODULE_FILES=( "configs/reasoning-agent.yaml" "go.mod" )
+    ;;
+
+  agent-adapters)
+    MODULE_DIRS=(
+      "cmd/web-search-adapter/" "cmd/image-generator-adapter/"
+      "internal/adapters/"
+    )
+    MODULE_FILES=( "configs/web-search-adapter.yaml" "go.mod" )
+    ;;
+
+  # --- Database and Migrations ---
+  database-schemas)
+    MODULE_DIRS=( "platform/database/migrations/" )
+    MODULE_FILES=( "scripts/docker/seed-data.sql" )
+    ;;
+
+  database-auth)
+    MODULE_DIRS=(
+      "internal/auth-service/user/" "internal/auth-service/project/"
+      "internal/auth-service/subscription/" "platform/database/migrations/"
+    )
+    ;;
+
+  database-clients)
+    MODULE_DIRS=(
+      "internal/core-manager/database/" "platform/database/"
+    )
+    MODULE_FILES=( "platform/database/migrations/003_create_client_schema.sql" )
+    ;;
+
+  # --- Deployment Specific ---
+  deploy-terraform-modules)
+    MODULE_DIRS=( "deployments/terraform/modules/" )
+    ;;
+
+  deploy-kustomize-base)
+    MODULE_DIRS=(
+      "deployments/kustomize/base/" "deployments/kustomize/components/"
+    )
+    ;;
+
+  deploy-services)
+    MODULE_DIRS=(
+      "deployments/kustomize/services/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/"
+    )
+    ;;
+
+  deploy-frontends)
+    MODULE_DIRS=(
+      "deployments/kustomize/frontends/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/frontends/"
+    )
+    ;;
+
+  # --- Development Tools ---
+  dev-scripts)
+    MODULE_DIRS=( "scripts/" )
+    MODULE_FILES=( "Makefile" )
+    ;;
+
+  dev-docker)
+    MODULE_DIRS=( "build/docker/" )
+    MODULE_FILES=( "docker-compose.yaml" ".env.example" )
+    ;;
+
+  dev-local-env)
+    MODULE_DIRS=( "scripts/local/" "scripts/docker/" )
+    MODULE_FILES=(
+      "docker-compose.yaml" ".env.example"
+      "Makefile" "scripts/setup.sh"
+    )
+    ;;
+
+  # --- Testing ---
+  test-integration)
+    MODULE_DIRS=( "tests/integration/" )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  test-e2e)
+    MODULE_DIRS=( "tests/e2e/" )
+    MODULE_FILES=( "go.mod" )
+    ;;
+
+  test-all)
+    MODULE_DIRS=( "tests/" )
+    MODULE_FILES=( "go.mod" "Makefile" )
+    ;;
+
+  *)
+    echo "Error: Unknown component '$COMPONENT_NAME'."
+    show_help
+    exit 1
+    ;;
+esac
+
+# --- Packaging Logic ---
+# This ensures that directories are processed before loose files.
+for dir in "${MODULE_DIRS[@]}"; do
+  write_directory "$dir" "$OUTPUT_FILE"
+done
+for item in "${MODULE_FILES[@]}"; do
+  process_module_files "$item" "$OUTPUT_FILE"
+done
+
+echo "✅ Done. Component context saved to $OUTPUT_FILE"
+FILE_SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
+echo "📦 File size: $FILE_SIZE"-------------------------------------------------
+filepath = ./scripts/local/reset-dev-env.sh
+-------------------------------------------------
+filepath = ./scripts/local/deploy-from-laptop.sh
+-------------------------------------------------
+filepath = ./scripts/local/start-dev-env.sh
+-------------------------------------------------
+filepath = ./scripts/local/stop-dev-env.sh
+-------------------------------------------------
+filepath = ./scripts/test-system.sh
+#!/bin/bash
+# Test script to verify the system is working
+
+set -e
+
+echo "🧪 Testing AI Persona System"
+echo "=========================="
+
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+# Test health endpoints
+test_health() {
+    local service=$1
+    local port=$2
+
+    echo -n "Testing $service health... "
+
+    if curl -s -f http://localhost:$port/health > /dev/null; then
+        echo -e "${GREEN}✓${NC}"
+        return 0
+    else
+        echo -e "${RED}✗${NC}"
+        return 1
+    fi
+}
+
+# Test auth flow
+test_auth() {
+    echo -n "Testing authentication flow... "
+
+    # Register a test user
+    REGISTER_RESPONSE=$(curl -s -X POST http://localhost:8081/api/v1/auth/register \
+        -H "Content-Type: application/json" \
+        -d '{
+            "email": "test@example.com",
+            "password": "TestPass123!",
+            "client_id": "test-client",
+            "first_name": "Test",
+            "last_name": "User"
+        }')
+
+    # Extract token
+    TOKEN=$(echo $REGISTER_RESPONSE | jq -r '.access_token')
+
+    if [ "$TOKEN" != "null" ] && [ ! -z "$TOKEN" ]; then
+        echo -e "${GREEN}✓${NC}"
+        echo "  Token: ${TOKEN:0:20}..."
+        return 0
+    else
+        echo -e "${RED}✗${NC}"
+        echo "  Response: $REGISTER_RESPONSE"
+        return 1
+    fi
+}
+
+# Test template listing
+test_templates() {
+    echo -n "Testing template listing... "
+
+    # Assuming we have a token from previous test
+    TEMPLATES=$(curl -s -X GET http://localhost:8088/api/v1/templates \
+        -H "Authorization: Bearer $TOKEN")
+
+    if echo $TEMPLATES | jq -e '.templates' > /dev/null; then
+        echo -e "${GREEN}✓${NC}"
+        TEMPLATE_COUNT=$(echo $TEMPLATES | jq '.templates | length')
+        echo "  Found $TEMPLATE_COUNT templates"
+        return 0
+    else
+        echo -e "${RED}✗${NC}"
+        return 1
+    fi
+}
+
+# Main test flow
+echo ""
+echo "1. Testing service health endpoints:"
+test_health "Auth Service" 8081
+test_health "Core Manager" 8088
+
+echo ""
+echo "2. Testing authentication:"
+test_auth
+
+echo ""
+echo "3. Testing API endpoints:"
+test_templates
+
+echo ""
+echo "✅ Basic system tests complete!"
+-------------------------------------------------
+filepath = ./scripts/setup.sh
+#!/bin/bash
+# FILE: scripts/setup.sh
+# Initial setup script for AI Persona System
+
+set -e  # Exit on error
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Functions
+print_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+print_info() {
+    echo -e "${YELLOW}ℹ️  $1${NC}"
+}
+
+# Check prerequisites
+check_prerequisites() {
+    echo "🔍 Checking prerequisites..."
+
+    local missing_deps=()
+
+    # Check kubectl
+    if ! command -v kubectl &> /dev/null; then
+        missing_deps+=("kubectl")
+    fi
+
+    # Check docker
+    if ! command -v docker &> /dev/null; then
+        missing_deps+=("docker")
+    fi
+
+    # Check if Kubernetes is accessible
+    if ! kubectl cluster-info &> /dev/null; then
+        print_error "Cannot connect to Kubernetes cluster. Please ensure kubectl is configured."
+        exit 1
+    fi
+
+    if [ ${#missing_deps[@]} -ne 0 ]; then
+        print_error "Missing required dependencies: ${missing_deps[*]}"
+        echo "Please install missing dependencies and try again."
+        exit 1
+    fi
+
+    print_success "All prerequisites met"
+}
+
+# Create namespace
+create_namespace() {
+    print_info "Creating Kubernetes namespace..."
+    kubectl apply -f k8s/namespace.yaml || {
+        print_error "Failed to create namespace"
+        exit 1
+    }
+    print_success "Namespace created"
+}
+
+# Generate random passwords
+generate_password() {
+    openssl rand -base64 32 | tr -d "=+/" | cut -c1-25
+}
+
+# Create secrets
+create_secrets() {
+    print_info "Creating secrets..."
+
+    # Database secrets
+    kubectl create secret generic db-secrets -n ai-persona-system \
+        --from-literal=clients-db-password=$(generate_password) \
+        --from-literal=templates-db-password=$(generate_password) \
+        --from-literal=auth-db-password=$(generate_password) \
+        --from-literal=mysql-root-password=$(generate_password) \
+        --dry-run=client -o yaml | kubectl apply -f - || {
+        print_error "Failed to create database secrets"
+        exit 1
+    }
+
+    # MinIO secrets
+    kubectl create secret generic minio-secrets -n ai-persona-system \
+        --from-literal=access-key=$(generate_password) \
+        --from-literal=secret-key=$(generate_password) \
+        --dry-run=client -o yaml | kubectl apply -f - || {
+        print_error "Failed to create MinIO secrets"
+        exit 1
+    }
+
+    # Auth secrets
+    kubectl create secret generic auth-secrets -n ai-persona-system \
+        --from-literal=jwt-secret=$(generate_password) \
+        --dry-run=client -o yaml | kubectl apply -f - || {
+        print_error "Failed to create auth secrets"
+        exit 1
+    }
+
+    # Grafana secrets
+    kubectl create secret generic grafana-secrets -n ai-persona-system \
+        --from-literal=admin-password=$(generate_password) \
+        --dry-run=client -o yaml | kubectl apply -f - || {
+        print_error "Failed to create Grafana secrets"
+        exit 1
+    }
+
+    print_success "Basic secrets created"
+}
+
+# Get API keys from user
+get_api_keys() {
+    print_info "Setting up AI service API keys..."
+    echo "Please provide your API keys (or press Enter to skip):"
+
+    # Anthropic
+    read -p "Anthropic API Key (for Claude): " anthropic_key
+    if [ -z "$anthropic_key" ]; then
+        anthropic_key="dummy-key-replace-me"
+        print_info "Skipping Anthropic API key - reasoning agent will not work"
+    fi
+
+    # Stability AI
+    read -p "Stability AI API Key (for image generation): " stability_key
+    if [ -z "$stability_key" ]; then
+        stability_key="dummy-key-replace-me"
+        print_info "Skipping Stability API key - image generation will not work"
+    fi
+
+    # SERP API
+    read -p "SERP API Key (for web search): " serp_key
+    if [ -z "$serp_key" ]; then
+        serp_key="dummy-key-replace-me"
+        print_info "Skipping SERP API key - web search will not work"
+    fi
+
+    # Create AI secrets
+    kubectl create secret generic ai-secrets -n ai-persona-system \
+        --from-literal=anthropic-api-key="$anthropic_key" \
+        --from-literal=stability-api-key="$stability_key" \
+        --from-literal=serp-api-key="$serp_key" \
+        --dry-run=client -o yaml | kubectl apply -f - || {
+        print_error "Failed to create AI secrets"
+        exit 1
+    }
+
+    print_success "AI service secrets created"
+}
+
+# Create service account and RBAC
+create_rbac() {
+    print_info "Setting up RBAC..."
+
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: ai-persona-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: ai-persona-system
+EOF
+
+    print_success "RBAC configured"
+}
+
+# Main setup flow
+main() {
+    echo "🚀 AI Persona System Setup"
+    echo "========================="
+    echo ""
+
+    # Run checks
+    check_prerequisites
+
+    # Create namespace
+    create_namespace
+
+    # Create secrets
+    create_secrets
+
+    # Get API keys
+    get_api_keys
+
+    # Setup RBAC
+    create_rbac
+
+    echo ""
+    print_success "Setup complete!"
+    echo ""
+    echo "Next steps:"
+    echo "1. Build Docker images:    make build"
+    echo "2. Deploy to Kubernetes:   make deploy"
+    echo "3. Run migrations:         make migrate-up"
+    echo "4. Seed initial data:      make seed-data"
+    echo "5. Set up port forward:    make port-forward"
+    echo ""
+    echo "Or run everything at once: make quickstart"
+    echo ""
+}
+
+# Run main function
+main-------------------------------------------------

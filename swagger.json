@@ -1,0 +1,64 @@
+{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "http"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "description": "This is the central API gateway for the Persona multi-agent platform.",
+    "title": "FILE: cmd/auth-service/main.go\nPackage main persona platform.",
+    "version": "1.0.0"
+  },
+  "host": "localhost:8081",
+  "basePath": "/api/v1",
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Authenticates a user and returns a JWT.",
+        "operationId": "loginUser",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/loginSuccess"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorizedError"
+          }
+        }
+      }
+    }
+  },
+  "responses": {
+    "loginSuccess": {
+      "description": "A successful login response.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "x-go-name": "Token"
+          }
+        }
+      }
+    },
+    "unauthorizedError": {
+      "description": "Unauthorized error response.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "x-go-name": "Error"
+          }
+        }
+      }
+    }
+  }
+}
