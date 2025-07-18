@@ -1,5 +1,57 @@
 package gateway
 
+// NOTE: This file contains swagger annotations and WebSocket-related types for documentation.
+// The gateway proxies WebSocket connections to the core-manager service.
+
+// WebSocketMessage for WebSocket communication
+type WebSocketMessage struct {
+	Type      string      `json:"type" example:"event"`
+	Event     string      `json:"event,omitempty" example:"instance.status.changed"`
+	Data      interface{} `json:"data,omitempty"`
+	Error     string      `json:"error,omitempty" example:"Invalid command"`
+	ID        string      `json:"id,omitempty" example:"msg_123e4567"`
+	Timestamp string      `json:"timestamp" example:"2024-07-17T14:30:00Z"`
+}
+
+// WebSocketEventTypes contains all available WebSocket event types
+type WebSocketEventTypes struct {
+	InstanceEvents   []string `json:"instance_events" example:"instance.status.changed,instance.created,instance.deleted"`
+	ExecutionEvents  []string `json:"execution_events" example:"execution.started,execution.completed,execution.failed"`
+	SystemEvents     []string `json:"system_events" example:"system.notification,system.maintenance,system.alert"`
+	ConnectionEvents []string `json:"connection_events" example:"connection.established,connection.closed,connection.error"`
+}
+
+// WebSocketCommand represents a command sent via WebSocket
+type WebSocketCommand struct {
+	Type  string      `json:"type" example:"command"`
+	Event string      `json:"event" example:"subscribe"`
+	Data  interface{} `json:"data"`
+	ID    string      `json:"id" example:"cmd_123e4567"`
+}
+
+// WebSocketSubscribeData for subscription commands
+type WebSocketSubscribeData struct {
+	Events []string `json:"events" example:"instance.status.*,execution.complete"`
+}
+
+// WebSocketEventMessage represents an event from the server
+type WebSocketEventMessage struct {
+	Type      string      `json:"type" example:"event"`
+	Event     string      `json:"event" example:"instance.status.changed"`
+	Data      interface{} `json:"data"`
+	Timestamp string      `json:"timestamp" example:"2024-07-17T14:30:00Z"`
+	EntityID  string      `json:"entity_id,omitempty" example:"inst_123e4567"`
+}
+
+// InstanceStatusChangedEvent data for instance status changes
+type InstanceStatusChangedEvent struct {
+	InstanceID     string `json:"instance_id" example:"inst_123e4567"`
+	PreviousStatus string `json:"previous_status" example:"running"`
+	NewStatus      string `json:"new_status" example:"completed"`
+	Reason         string `json:"reason,omitempty" example:"Execution completed successfully"`
+	TriggeredBy    string `json:"triggered_by,omitempty" example:"user_123"`
+}
+
 // HandleWebSocket godoc
 // @Summary      WebSocket connection
 // @Description  Establishes a WebSocket connection for real-time communication with core-manager
@@ -25,16 +77,7 @@ package gateway
 // @Description 4. Messages are proxied bidirectionally
 // @Description
 // @Description ## Message Format:
-// @Description All messages use JSON format with the following structure:
-// @Description ```json
-// @Description {
-// @Description   "type": "command|event|response|error",
-// @Description   "event": "event.name.here",
-// @Description   "data": { ... },
-// @Description   "id": "unique-message-id",
-// @Description   "timestamp": "2024-07-17T14:30:00Z"
-// @Description }
-// @Description ```
+// @Description All messages use JSON format with the gateway.WebSocketMessage structure
 // @Description
 // @Description ## Available Commands:
 // @Description - `subscribe`: Subscribe to events
@@ -67,93 +110,3 @@ package gateway
 // @Description ## Authentication:
 // @Description The WebSocket connection inherits authentication from the initial HTTP upgrade request.
 // @Description User context is automatically forwarded to core-manager.
-
-// WebSocketEventTypes contains all available WebSocket event types
-// @Description Available WebSocket event types for subscription
-type WebSocketEventTypes struct {
-	// Instance-related events
-	InstanceEvents []string `json:"instance_events" example:"instance.status.changed,instance.created,instance.deleted"`
-
-	// Execution-related events
-	ExecutionEvents []string `json:"execution_events" example:"execution.started,execution.completed,execution.failed"`
-
-	// System events
-	SystemEvents []string `json:"system_events" example:"system.notification,system.maintenance,system.alert"`
-
-	// Connection events
-	ConnectionEvents []string `json:"connection_events" example:"connection.established,connection.closed,connection.error"`
-}
-
-// WebSocketCommand represents a command sent via WebSocket
-// @Description Command message format for WebSocket
-type WebSocketCommand struct {
-	// Command type (always "command")
-	// @example command
-	Type string `json:"type" example:"command"`
-
-	// Command name
-	// @example subscribe
-	Event string `json:"event" example:"subscribe" enums:"subscribe,unsubscribe,ping,get_status"`
-
-	// Command data
-	Data interface{} `json:"data"`
-
-	// Unique message ID for correlation
-	// @example cmd_123e4567
-	ID string `json:"id" example:"cmd_123e4567"`
-}
-
-// WebSocketSubscribeData for subscription commands
-// @Description Data payload for subscribe/unsubscribe commands
-type WebSocketSubscribeData struct {
-	// Event patterns to subscribe to (supports wildcards)
-	// @example ["instance.status.*", "execution.complete"]
-	Events []string `json:"events" example:"instance.status.*,execution.complete"`
-}
-
-// WebSocketEventMessage represents an event from the server
-// @Description Event message format from server
-type WebSocketEventMessage struct {
-	// Message type (always "event")
-	// @example event
-	Type string `json:"type" example:"event"`
-
-	// Event name
-	// @example instance.status.changed
-	Event string `json:"event" example:"instance.status.changed"`
-
-	// Event data (varies by event type)
-	Data interface{} `json:"data"`
-
-	// Event timestamp
-	// @example 2024-07-17T14:30:00Z
-	Timestamp string `json:"timestamp" example:"2024-07-17T14:30:00Z"`
-
-	// Related entity ID
-	// @example inst_123e4567
-	EntityID string `json:"entity_id,omitempty" example:"inst_123e4567"`
-}
-
-// InstanceStatusChangedEvent data for instance status changes
-// @Description Event data for instance.status.changed events
-type InstanceStatusChangedEvent struct {
-	// Instance ID
-	// @example inst_123e4567
-	InstanceID string `json:"instance_id" example:"inst_123e4567"`
-
-	// Previous status
-	// @example running
-	PreviousStatus string `json:"previous_status" example:"running"`
-
-	// New status
-	// @example completed
-	NewStatus string `json:"new_status" example:"completed" enums:"idle,running,completed,failed,stopped"`
-
-	// Status change reason
-	// @example Execution completed successfully
-	Reason string `json:"reason,omitempty" example:"Execution completed successfully"`
-
-	// User who triggered the change
-	// @example user_123
-	TriggeredBy string `json:"triggered_by,omitempty" example:"user_123"`
-}

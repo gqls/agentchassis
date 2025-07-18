@@ -2,6 +2,7 @@ package auth
 
 // NOTE: This file contains swagger annotations for the auth handlers.
 // Run `swag init` to generate the swagger documentation.
+// All types are defined in their respective handler files.
 
 // HandleRegister godoc
 // @Summary      Register a new user
@@ -9,8 +10,8 @@ package auth
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Param        request body RegisterRequest true "Registration details"
-// @Success      201 {object} TokenResponse "User successfully registered with tokens"
+// @Param        request body auth.RegisterRequest true "Registration details"
+// @Success      201 {object} auth.TokenResponse "User successfully registered with tokens"
 // @Failure      400 {object} map[string]interface{} "Invalid request body or validation error"
 // @Failure      409 {object} map[string]interface{} "User already exists"
 // @Failure      500 {object} map[string]interface{} "Internal server error"
@@ -23,8 +24,8 @@ package auth
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Param        request body LoginRequest true "Login credentials"
-// @Success      200 {object} TokenResponse "Login successful with tokens and user info"
+// @Param        request body auth.LoginRequest true "Login credentials"
+// @Success      200 {object} auth.TokenResponse "Login successful with tokens and user info"
 // @Failure      400 {object} map[string]interface{} "Invalid request body"
 // @Failure      401 {object} map[string]interface{} "Invalid credentials"
 // @Failure      500 {object} map[string]interface{} "Internal server error"
@@ -37,8 +38,8 @@ package auth
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Param        request body RefreshRequest true "Refresh token"
-// @Success      200 {object} TokenResponse "New tokens generated successfully"
+// @Param        request body auth.RefreshRequest true "Refresh token"
+// @Success      200 {object} auth.TokenResponse "New tokens generated successfully"
 // @Failure      400 {object} map[string]interface{} "Invalid request body"
 // @Failure      401 {object} map[string]interface{} "Invalid or expired refresh token"
 // @Failure      500 {object} map[string]interface{} "Internal server error"

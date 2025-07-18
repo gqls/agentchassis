@@ -1,6 +1,5 @@
 # Comprehensive Makefile for Agent-Managed Microservices
 
-```makefile
 # Project variables
 PROJECT_NAME := personae-system
 ENVIRONMENT ?= production
@@ -450,37 +449,80 @@ tf-destroy-all: ## Destroy everything (WARNING: This will delete everything!)
 		cd $(TERRAFORM_DIR)/$$dir && terraform destroy -auto-approve; \
 	done
 
-
 #################################
-# Swagger
+# Swagger/Documentation
 #################################
 
 # Install swagger tools
 .PHONY: install-swagger
-install-swagger:
+install-swagger: ## Install swagger generation tools
+	@echo "$(YELLOW)Installing swagger tools...$(NC)"
 	go install github.com/swaggo/swag/cmd/swag@latest
 
 # Generate swagger documentation
 .PHONY: swagger
-swagger:
+swagger: ## Generate swagger documentation for auth-service
+	@echo "$(YELLOW)Generating swagger documentation...$(NC)"
 	swag init -g cmd/auth-service/main.go -o cmd/auth-service/docs --parseDependency --parseInternal
 
 # Generate swagger for all services
 .PHONY: swagger-all
-swagger-all: swagger
-	@echo "Swagger documentation generated for auth-service"
+swagger-all: swagger ## Generate swagger documentation for all services
+	@echo "$(GREEN)Swagger documentation generated for auth-service$(NC)"
+
+# Run the comprehensive documentation generation script
+.PHONY: docs
+docs: ## Generate comprehensive API documentation
+	@echo "$(YELLOW)Running comprehensive documentation generation...$(NC)"
+	$(SCRIPTS_DIR)/docs/generate-docs.sh
+
+# Start swagger UI servers
+.PHONY: swagger-ui
+swagger-ui: ## Start Swagger UI, Redoc, and Swagger Editor
+	@echo "$(YELLOW)Starting documentation servers...$(NC)"
+	docker-compose -f deployments/docker-compose/docker-compose.swagger.yml up -d
+	@echo "$(GREEN)Documentation servers started:$(NC)"
+	@echo "  • Swagger UI: http://localhost:8082"
+	@echo "  • Redoc: http://localhost:8083"
+	@echo "  • Swagger Editor: http://localhost:8084"
+
+# Stop swagger UI servers
+.PHONY: swagger-down
+swagger-down: ## Stop documentation servers
+	@echo "$(YELLOW)Stopping documentation servers...$(NC)"
+	docker-compose -f deployments/docker-compose/docker-compose.swagger.yml down
 
 # Validate OpenAPI spec
 .PHONY: validate-openapi
-validate-openapi:
-	docker run --rm -v ${PWD}:/spec redocly/cli lint /spec/internal/auth-service/api/openapi.yaml
+validate-openapi: ## Validate OpenAPI specification
+	@echo "$(YELLOW)Validating OpenAPI specification...$(NC)"
+	@if [ -f "internal/auth-service/api/openapi.yaml" ]; then \
+		docker run --rm -v ${PWD}:/spec redocly/cli lint /spec/internal/auth-service/api/openapi.yaml; \
+	else \
+		echo "$(YELLOW)OpenAPI spec not found at internal/auth-service/api/openapi.yaml$(NC)"; \
+		echo "Using generated swagger spec instead"; \
+	fi
 
 # Generate API documentation (HTML)
 .PHONY: generate-api-docs
-generate-api-docs:
-	docker run --rm -v ${PWD}:/spec redocly/cli build-docs /spec/internal/auth-service/api/openapi.yaml -o /spec/docs/api-reference.html
+generate-api-docs: ## Generate HTML API documentation
+	@echo "$(YELLOW)Generating HTML API documentation...$(NC)"
+	@mkdir -p docs/api
+	@if [ -f "internal/auth-service/api/openapi.yaml" ]; then \
+		docker run --rm -v ${PWD}:/spec redocly/cli build-docs /spec/internal/auth-service/api/openapi.yaml -o /spec/docs/api/reference.html; \
+		echo "$(GREEN)HTML documentation generated at docs/api/reference.html$(NC)"; \
+	else \
+		echo "$(YELLOW)OpenAPI spec not found, skipping HTML generation$(NC)"; \
+	fi
 
 # Clean swagger generated files
 .PHONY: clean-swagger
-clean-swagger:
+clean-swagger: ## Clean swagger generated files
+	@echo "$(YELLOW)Cleaning swagger files...$(NC)"
 	rm -rf cmd/auth-service/docs
+	rm -rf docs/api
+
+# Quick documentation workflow
+.PHONY: docs-quick
+docs-quick: swagger swagger-ui ## Quick swagger generation and UI startup
+	@echo "$(GREEN)Documentation ready at http://localhost:8082$(NC)"

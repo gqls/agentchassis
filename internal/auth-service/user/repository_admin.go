@@ -26,22 +26,22 @@ type ListUsersParams struct {
 
 // UserStats contains statistics about a user
 type UserStats struct {
-	TotalProjects int        `json:"total_projects"`
-	TotalPersonas int        `json:"total_personas"`
-	LastLoginAt   *time.Time `json:"last_login_at"`
-	AccountAge    string     `json:"account_age"`
-	TotalLogins   int        `json:"total_logins"`
+	TotalProjects int        `json:"total_projects" example:"5"`
+	TotalPersonas int        `json:"total_personas" example:"12"`
+	LastLoginAt   *time.Time `json:"last_login_at" example:"2024-07-17T10:00:00Z"`
+	AccountAge    string     `json:"account_age" example:"6 months"`
+	TotalLogins   int        `json:"total_logins" example:"142"`
 }
 
 // UserActivity represents a user activity log entry
 type UserActivity struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	Action    string    `json:"action"`
-	Details   string    `json:"details"`
-	IPAddress string    `json:"ip_address"`
-	UserAgent string    `json:"user_agent"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string    `json:"id" example:"act_123e4567-e89b-12d3-a456-426614174000"`
+	UserID    string    `json:"user_id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Action    string    `json:"action" example:"login"`
+	Details   string    `json:"details" example:"{\"ip\":\"192.168.1.1\",\"location\":\"New York\"}"`
+	IPAddress string    `json:"ip_address" example:"192.168.1.1"`
+	UserAgent string    `json:"user_agent" example:"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"`
+	CreatedAt time.Time `json:"created_at" example:"2024-07-17T14:30:00Z"`
 }
 
 // AdminUpdateRequest contains fields that can be updated by admin

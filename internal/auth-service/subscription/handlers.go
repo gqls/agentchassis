@@ -19,6 +19,15 @@ func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
 }
 
+// QuotaCheckResponse for quota verification results
+type QuotaCheckResponse struct {
+	HasQuota     bool   `json:"has_quota" example:"true"`
+	Resource     string `json:"resource" example:"personas"`
+	CurrentUsage int    `json:"current_usage,omitempty" example:"12"`
+	MaxAllowed   int    `json:"max_allowed,omitempty" example:"50"`
+	Remaining    int    `json:"remaining,omitempty" example:"38"`
+}
+
 // HandleGetSubscription returns the current user's subscription
 func (h *Handlers) HandleGetSubscription(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -61,10 +70,12 @@ func (h *Handlers) HandleCheckQuota(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"has_quota": hasQuota,
-		"resource":  resource,
-	})
+	response := QuotaCheckResponse{
+		HasQuota: hasQuota,
+		Resource: resource,
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // AdminHandlers for admin operations
@@ -76,6 +87,15 @@ type AdminHandlers struct {
 // NewAdminHandlers creates admin handlers
 func NewAdminHandlers(service *Service, logger *zap.Logger) *AdminHandlers {
 	return &AdminHandlers{service: service, logger: logger}
+}
+
+// SubscriptionListResponse for paginated subscription lists
+type SubscriptionListResponse struct {
+	Subscriptions []Subscription `json:"subscriptions"`
+	TotalCount    int            `json:"total_count" example:"156"`
+	Page          int            `json:"page" example:"1"`
+	Limit         int            `json:"limit" example:"50"`
+	TotalPages    int            `json:"total_pages,omitempty" example:"4"`
 }
 
 // HandleCreateSubscription creates a subscription (admin only)
@@ -139,10 +159,15 @@ func (h *AdminHandlers) HandleListSubscriptions(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"subscriptions": subscriptions,
-		"total_count":   total,
-		"page":          page,
-		"limit":         limit,
-	})
+	totalPages := (total + limit - 1) / limit
+
+	response := SubscriptionListResponse{
+		Subscriptions: subscriptions,
+		TotalCount:    total,
+		Page:          page,
+		Limit:         limit,
+		TotalPages:    totalPages,
+	}
+
+	c.JSON(http.StatusOK, response)
 }

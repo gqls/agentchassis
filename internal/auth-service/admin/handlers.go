@@ -5,18 +5,18 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	u "github.com/gqls/agentchassis/internal/auth-service/user" // Aliased import
+	u "github.com/gqls/agentchassis/internal/auth-service/user"
 	"go.uber.org/zap"
 )
 
 // Handlers provides admin endpoints for user management
 type Handlers struct {
-	userRepo *u.Repository // Use aliased package
+	userRepo *u.Repository
 	logger   *zap.Logger
 }
 
 // NewHandlers creates new admin handlers
-func NewHandlers(userRepo *u.Repository, logger *zap.Logger) *Handlers { // Use aliased package
+func NewHandlers(userRepo *u.Repository, logger *zap.Logger) *Handlers {
 	return &Handlers{
 		userRepo: userRepo,
 		logger:   logger,
@@ -25,24 +25,32 @@ func NewHandlers(userRepo *u.Repository, logger *zap.Logger) *Handlers { // Use 
 
 // UserListRequest represents query parameters for listing users
 type UserListRequest struct {
-	Page      int    `form:"page,default=1"`
-	PageSize  int    `form:"page_size,default=20"`
-	Email     string `form:"email"`
-	ClientID  string `form:"client_id"`
-	Role      string `form:"role"`
-	Tier      string `form:"tier"`
-	IsActive  *bool  `form:"is_active"`
-	SortBy    string `form:"sort_by,default=created_at"`
-	SortOrder string `form:"sort_order,default=desc"`
+	Page      int    `form:"page,default=1" json:"page" example:"1"`
+	PageSize  int    `form:"page_size,default=20" json:"page_size" example:"20"`
+	Email     string `form:"email" json:"email,omitempty" example:"john.doe@example.com"`
+	ClientID  string `form:"client_id" json:"client_id,omitempty" example:"client-123"`
+	Role      string `form:"role" json:"role,omitempty" example:"admin"`
+	Tier      string `form:"tier" json:"tier,omitempty" example:"premium"`
+	IsActive  *bool  `form:"is_active" json:"is_active,omitempty" example:"true"`
+	SortBy    string `form:"sort_by,default=created_at" json:"sort_by" example:"created_at"`
+	SortOrder string `form:"sort_order,default=desc" json:"sort_order" example:"desc"`
 }
 
 // UserListResponse represents paginated user list
 type UserListResponse struct {
-	Users      []u.User `json:"users"` // Use aliased package
-	TotalCount int      `json:"total_count"`
-	Page       int      `json:"page"`
-	PageSize   int      `json:"page_size"`
-	TotalPages int      `json:"total_pages"`
+	Users      []u.User `json:"users"`
+	TotalCount int      `json:"total_count" example:"250"`
+	Page       int      `json:"page" example:"1"`
+	PageSize   int      `json:"page_size" example:"20"`
+	TotalPages int      `json:"total_pages" example:"13"`
+}
+
+// UpdateUserRequest represents admin user update
+type UpdateUserRequest struct {
+	Role             *string `json:"role,omitempty" example:"admin"`
+	SubscriptionTier *string `json:"subscription_tier,omitempty" example:"enterprise"`
+	IsActive         *bool   `json:"is_active,omitempty" example:"false"`
+	EmailVerified    *bool   `json:"email_verified,omitempty" example:"true"`
 }
 
 // HandleListUsers returns a paginated list of users with filtering
@@ -62,7 +70,7 @@ func (h *Handlers) HandleListUsers(c *gin.Context) {
 	}
 
 	// Get users from repository
-	users, totalCount, err := h.userRepo.ListUsers(c.Request.Context(), u.ListUsersParams{ // Use aliased package
+	users, totalCount, err := h.userRepo.ListUsers(c.Request.Context(), u.ListUsersParams{
 		Offset:    (req.Page - 1) * req.PageSize,
 		Limit:     req.PageSize,
 		Email:     req.Email,
@@ -105,21 +113,13 @@ func (h *Handlers) HandleGetUser(c *gin.Context) {
 	stats, err := h.userRepo.GetUserStats(c.Request.Context(), userID)
 	if err != nil {
 		h.logger.Warn("Failed to get user stats", zap.Error(err))
-		stats = &u.UserStats{} // Corrected: Use aliased package 'u' instead of variable 'user'
+		stats = &u.UserStats{}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"user":  user,
 		"stats": stats,
 	})
-}
-
-// UpdateUserRequest represents admin user update
-type UpdateUserRequest struct {
-	Role             *string `json:"role"`
-	SubscriptionTier *string `json:"subscription_tier"`
-	IsActive         *bool   `json:"is_active"`
-	EmailVerified    *bool   `json:"email_verified"`
 }
 
 // HandleUpdateUser allows admins to update user details
@@ -151,7 +151,7 @@ func (h *Handlers) HandleUpdateUser(c *gin.Context) {
 	}
 
 	// Update user
-	err := h.userRepo.AdminUpdateUser(c.Request.Context(), userID, &u.AdminUpdateRequest{ // Use aliased package
+	err := h.userRepo.AdminUpdateUser(c.Request.Context(), userID, &u.AdminUpdateRequest{
 		Role:             req.Role,
 		SubscriptionTier: req.SubscriptionTier,
 		IsActive:         req.IsActive,
@@ -212,14 +212,16 @@ func (h *Handlers) HandleGetUserActivity(c *gin.Context) {
 	})
 }
 
+// GrantPermissionRequest for granting permissions
+type GrantPermissionRequest struct {
+	PermissionName string `json:"permission_name" binding:"required" example:"manage_users"`
+}
+
 // HandleGrantPermission grants a permission to a user
 func (h *Handlers) HandleGrantPermission(c *gin.Context) {
 	userID := c.Param("user_id")
 
-	var req struct {
-		PermissionName string `json:"permission_name" binding:"required"`
-	}
-
+	var req GrantPermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

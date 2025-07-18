@@ -24,16 +24,30 @@ func NewHTTPHandler(repo *Repository, logger *zap.Logger) *HTTPHandler {
 	}
 }
 
+// CreateProjectRequest for creating a new project
+type CreateProjectRequest struct {
+	Name        string `json:"name" binding:"required" example:"My AI Assistant Project"`
+	Description string `json:"description,omitempty" example:"A project for developing custom AI assistants"`
+}
+
+// UpdateProjectRequest for updating a project
+type UpdateProjectRequest struct {
+	Name        *string `json:"name,omitempty" example:"Updated Project Name"`
+	Description *string `json:"description,omitempty" example:"Updated project description"`
+}
+
+// ProjectListResponse represents a list of projects
+type ProjectListResponse struct {
+	Projects []Project `json:"projects"`
+	Count    int       `json:"count" example:"5"`
+}
+
 // CreateProject handles project creation
 func (h *HTTPHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("user_id").(string)
 	clientID := r.Context().Value("client_id").(string)
 
-	var req struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	}
-
+	var req CreateProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -73,11 +87,13 @@ func (h *HTTPHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	response := ProjectListResponse{
+		Projects: projects,
+		Count:    len(projects),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"projects": projects,
-		"count":    len(projects),
-	})
+	json.NewEncoder(w).Encode(response)
 }
 
 // GetProject returns a specific project
@@ -119,11 +135,7 @@ func (h *HTTPHandler) UpdateProject(w http.ResponseWriter, r *http.Request, proj
 	}
 
 	// Parse update request
-	var req struct {
-		Name        *string `json:"name"`
-		Description *string `json:"description"`
-	}
-
+	var req UpdateProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return

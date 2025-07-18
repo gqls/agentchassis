@@ -2,6 +2,7 @@ package project
 
 // NOTE: This file contains swagger annotations for the project handlers.
 // Run `swag init` to generate the swagger documentation.
+// All types are defined in their respective files.
 
 // ListProjects godoc
 // @Summary      List projects
@@ -9,11 +10,7 @@ package project
 // @Tags         Projects
 // @Accept       json
 // @Produce      json
-// @Param        page query int false "Page number" default(1) minimum(1)
-// @Param        limit query int false "Items per page" default(20) minimum(1) maximum(100)
-// @Param        sort query string false "Sort field" default(created_at) Enums(created_at,updated_at,name)
-// @Param        order query string false "Sort order" default(desc) Enums(asc,desc)
-// @Success      200 {object} ProjectListResponse "List of projects retrieved successfully"
+// @Success      200 {object} project.ProjectListResponse "List of projects retrieved successfully"
 // @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
 // @Failure      500 {object} map[string]interface{} "Internal server error"
 // @Router       /projects [get]
@@ -26,8 +23,8 @@ package project
 // @Tags         Projects
 // @Accept       json
 // @Produce      json
-// @Param        request body CreateProjectRequest true "Project details"
-// @Success      201 {object} ProjectResponse "Project created successfully"
+// @Param        request body project.CreateProjectRequest true "Project details"
+// @Success      201 {object} project.Project "Project created successfully"
 // @Failure      400 {object} map[string]interface{} "Invalid request body"
 // @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
 // @Failure      409 {object} map[string]interface{} "Project with this name already exists"
@@ -43,7 +40,7 @@ package project
 // @Accept       json
 // @Produce      json
 // @Param        id path string true "Project ID"
-// @Success      200 {object} ProjectResponse "Project details retrieved successfully"
+// @Success      200 {object} project.Project "Project details retrieved successfully"
 // @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
 // @Failure      403 {object} map[string]interface{} "Forbidden - no access to this project"
 // @Failure      404 {object} map[string]interface{} "Project not found"
@@ -59,8 +56,8 @@ package project
 // @Accept       json
 // @Produce      json
 // @Param        id path string true "Project ID"
-// @Param        request body UpdateProjectRequest true "Project update details"
-// @Success      200 {object} ProjectResponse "Project updated successfully"
+// @Param        request body project.UpdateProjectRequest true "Project update details"
+// @Success      200 {object} project.Project "Project updated successfully"
 // @Failure      400 {object} map[string]interface{} "Invalid request body"
 // @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
 // @Failure      403 {object} map[string]interface{} "Forbidden - no access to this project"
@@ -78,7 +75,7 @@ package project
 // @Accept       json
 // @Produce      json
 // @Param        id path string true "Project ID"
-// @Success      200 {object} map[string]interface{} "Project deleted successfully"
+// @Success      204 {string} string "Project deleted successfully"
 // @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
 // @Failure      403 {object} map[string]interface{} "Forbidden - no access to this project"
 // @Failure      404 {object} map[string]interface{} "Project not found"

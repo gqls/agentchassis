@@ -1,4 +1,3 @@
-// FILE: internal/auth-service/admin/user_management.go
 package admin
 
 import (
@@ -37,35 +36,78 @@ func NewUserManagementHandlers(userRepo *user.Repository, db *sql.DB, logger *za
 
 // BulkUserOperation represents a bulk operation on users
 type BulkUserOperation struct {
-	UserIDs   []string               `json:"user_ids" binding:"required"`
-	Operation string                 `json:"operation" binding:"required,oneof=activate deactivate delete upgrade_tier"`
+	UserIDs   []string               `json:"user_ids" binding:"required" example:"user-123,user-456,user-789"`
+	Operation string                 `json:"operation" binding:"required,oneof=activate deactivate delete upgrade_tier" example:"deactivate"`
 	Params    map[string]interface{} `json:"params,omitempty"`
-	Reason    string                 `json:"reason"`
+	Reason    string                 `json:"reason" example:"Policy violation - multiple account abuse"`
+}
+
+// BulkOperationResult for bulk operation outcomes
+type BulkOperationResult struct {
+	Operation string   `json:"operation" example:"deactivate"`
+	Total     int      `json:"total" example:"10"`
+	Succeeded int      `json:"succeeded" example:"8"`
+	Failed    int      `json:"failed" example:"2"`
+	Errors    []string `json:"errors,omitempty" example:"User user-123: User not found,User user-456: Database error"`
 }
 
 // UserExportRequest for exporting user data
 type UserExportRequest struct {
-	Format  string      `json:"format" binding:"required,oneof=csv json"`
+	Format  string      `json:"format" binding:"required,oneof=csv json" example:"csv"`
 	Filters UserFilters `json:"filters"`
-	Fields  []string    `json:"fields"`
+	Fields  []string    `json:"fields,omitempty" example:"id,email,role,created_at"`
 }
 
+// UserFilters for filtering users
 type UserFilters struct {
-	ClientID         string     `json:"client_id"`
-	SubscriptionTier string     `json:"subscription_tier"`
-	Role             string     `json:"role"`
-	IsActive         *bool      `json:"is_active"`
-	CreatedAfter     *time.Time `json:"created_after"`
-	CreatedBefore    *time.Time `json:"created_before"`
+	ClientID         string     `json:"client_id,omitempty" example:"client-123"`
+	SubscriptionTier string     `json:"subscription_tier,omitempty" example:"premium"`
+	Role             string     `json:"role,omitempty" example:"admin"`
+	IsActive         *bool      `json:"is_active,omitempty" example:"true"`
+	CreatedAfter     *time.Time `json:"created_after,omitempty" example:"2024-01-01T00:00:00Z"`
+	CreatedBefore    *time.Time `json:"created_before,omitempty" example:"2024-12-31T23:59:59Z"`
 }
 
 // UserImportResult tracks the result of a bulk import
 type UserImportResult struct {
-	TotalProcessed int      `json:"total_processed"`
-	Successful     int      `json:"successful"`
-	Failed         int      `json:"failed"`
-	Errors         []string `json:"errors,omitempty"`
-	UserIDs        []string `json:"created_user_ids"`
+	TotalProcessed int      `json:"total_processed" example:"100"`
+	Successful     int      `json:"successful" example:"95"`
+	Failed         int      `json:"failed" example:"5"`
+	Errors         []string `json:"errors,omitempty" example:"Row 23: Invalid email format,Row 45: Email already exists"`
+	UserIDs        []string `json:"created_user_ids" example:"user-123,user-456,user-789"`
+}
+
+// UserSession represents an active user session
+type UserSession struct {
+	ID        string    `json:"id" example:"sess_123e4567-e89b-12d3-a456-426614174000"`
+	ExpiresAt time.Time `json:"expires_at" example:"2024-07-18T15:30:00Z"`
+	CreatedAt time.Time `json:"created_at" example:"2024-07-17T15:30:00Z"`
+	IsActive  bool      `json:"is_active" example:"true"`
+	IPAddress string    `json:"ip_address,omitempty" example:"192.168.1.100"`
+	UserAgent string    `json:"user_agent,omitempty" example:"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"`
+}
+
+// TerminateSessionsRequest for session termination
+type TerminateSessionsRequest struct {
+	Reason string `json:"reason" example:"Security breach detected"`
+}
+
+// ResetPasswordRequest for admin password reset
+type ResetPasswordRequest struct {
+	NewPassword      string `json:"new_password" binding:"required,min=8" example:"NewSecurePassword123!"`
+	RequireChange    bool   `json:"require_change" example:"true"`
+	NotifyUser       bool   `json:"notify_user" example:"true"`
+	NotificationNote string `json:"notification_note,omitempty" example:"Your password has been reset for security reasons. Please change it upon login."`
+}
+
+// AuditLogEntry represents an audit log entry
+type AuditLogEntry struct {
+	ID        string                 `json:"id" example:"log_123e4567-e89b-12d3-a456-426614174000"`
+	Action    string                 `json:"action" example:"password_changed"`
+	Details   map[string]interface{} `json:"details"`
+	IPAddress string                 `json:"ip_address" example:"192.168.1.100"`
+	UserAgent string                 `json:"user_agent" example:"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"`
+	CreatedAt time.Time              `json:"created_at" example:"2024-07-17T14:30:00Z"`
 }
 
 // HandleBulkUserOperation performs bulk operations on multiple users
@@ -82,12 +124,12 @@ func (h *UserManagementHandlers) HandleBulkUserOperation(c *gin.Context) {
 		zap.Int("user_count", len(req.UserIDs)),
 		zap.String("admin_id", c.GetString("user_id")))
 
-	results := map[string]interface{}{
-		"operation": req.Operation,
-		"total":     len(req.UserIDs),
-		"succeeded": 0,
-		"failed":    0,
-		"errors":    []string{},
+	result := BulkOperationResult{
+		Operation: req.Operation,
+		Total:     len(req.UserIDs),
+		Succeeded: 0,
+		Failed:    0,
+		Errors:    []string{},
 	}
 
 	for _, userID := range req.UserIDs {
@@ -109,18 +151,17 @@ func (h *UserManagementHandlers) HandleBulkUserOperation(c *gin.Context) {
 		}
 
 		if err != nil {
-			results["failed"] = results["failed"].(int) + 1
-			errors := results["errors"].([]string)
-			results["errors"] = append(errors, fmt.Sprintf("User %s: %v", userID, err))
+			result.Failed++
+			result.Errors = append(result.Errors, fmt.Sprintf("User %s: %v", userID, err))
 		} else {
-			results["succeeded"] = results["succeeded"].(int) + 1
+			result.Succeeded++
 		}
 	}
 
 	// Log activity
 	h.logBulkOperation(c.Request.Context(), c.GetString("user_id"), req)
 
-	c.JSON(http.StatusOK, results)
+	c.JSON(http.StatusOK, result)
 }
 
 // HandleExportUsers exports user data in various formats
@@ -224,9 +265,7 @@ func (h *UserManagementHandlers) HandleGetUserSessions(c *gin.Context) {
 func (h *UserManagementHandlers) HandleTerminateUserSessions(c *gin.Context) {
 	userID := c.Param("user_id")
 
-	var req struct {
-		Reason string `json:"reason"`
-	}
+	var req TerminateSessionsRequest
 	c.ShouldBindJSON(&req)
 
 	// Invalidate all tokens for the user
@@ -257,13 +296,7 @@ func (h *UserManagementHandlers) HandleTerminateUserSessions(c *gin.Context) {
 func (h *UserManagementHandlers) HandleResetUserPassword(c *gin.Context) {
 	userID := c.Param("user_id")
 
-	var req struct {
-		NewPassword      string `json:"new_password" binding:"required,min=8"`
-		RequireChange    bool   `json:"require_change"`
-		NotifyUser       bool   `json:"notify_user"`
-		NotificationNote string `json:"notification_note"`
-	}
-
+	var req ResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -517,8 +550,8 @@ func (h *UserManagementHandlers) parseCSVRow(headers []string, row []string, cli
 	return req
 }
 
-func (h *UserManagementHandlers) getUserSessions(ctx context.Context, userID string) ([]map[string]interface{}, error) {
-	sessions := []map[string]interface{}{}
+func (h *UserManagementHandlers) getUserSessions(ctx context.Context, userID string) ([]UserSession, error) {
+	sessions := []UserSession{}
 
 	query := `
         SELECT id, token_hash, expires_at, created_at
@@ -545,19 +578,19 @@ func (h *UserManagementHandlers) getUserSessions(ctx context.Context, userID str
 			continue
 		}
 
-		sessions = append(sessions, map[string]interface{}{
-			"id":         session.ID,
-			"expires_at": session.ExpiresAt,
-			"created_at": session.CreatedAt,
-			"is_active":  true,
+		sessions = append(sessions, UserSession{
+			ID:        session.ID,
+			ExpiresAt: session.ExpiresAt,
+			CreatedAt: session.CreatedAt,
+			IsActive:  true,
 		})
 	}
 
 	return sessions, nil
 }
 
-func (h *UserManagementHandlers) getUserAuditLog(ctx context.Context, userID string, startDate, endDate time.Time, limit int) ([]map[string]interface{}, error) {
-	logs := []map[string]interface{}{}
+func (h *UserManagementHandlers) getUserAuditLog(ctx context.Context, userID string, startDate, endDate time.Time, limit int) ([]AuditLogEntry, error) {
+	logs := []AuditLogEntry{}
 
 	query := `
         SELECT id, action, details, ip_address, user_agent, created_at
@@ -579,13 +612,19 @@ func (h *UserManagementHandlers) getUserAuditLog(ctx context.Context, userID str
 			continue
 		}
 
-		logs = append(logs, map[string]interface{}{
-			"id":         log.ID,
-			"action":     log.Action,
-			"details":    log.Details,
-			"ip_address": log.IPAddress,
-			"user_agent": log.UserAgent,
-			"created_at": log.CreatedAt,
+		// Parse details JSON
+		var details map[string]interface{}
+		if err := json.Unmarshal([]byte(log.Details), &details); err != nil {
+			details = map[string]interface{}{"raw": log.Details}
+		}
+
+		logs = append(logs, AuditLogEntry{
+			ID:        log.ID,
+			Action:    log.Action,
+			Details:   details,
+			IPAddress: log.IPAddress,
+			UserAgent: log.UserAgent,
+			CreatedAt: log.CreatedAt,
 		})
 	}
 

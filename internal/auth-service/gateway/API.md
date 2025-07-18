@@ -120,7 +120,7 @@ Authorization: Bearer <token>
 {
   "type": "command|event|response|error",
   "event": "event.name",
-  "data": { ... },
+  "data": { "...": "..." },
   "id": "unique-id",
   "timestamp": "2024-07-17T14:30:00Z"
 }

@@ -20,23 +20,23 @@ func NewHandlers(service *Service) *Handlers {
 
 // RegisterRequest represents registration data
 type RegisterRequest struct {
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=8"`
-	ClientID  string `json:"client_id" binding:"required"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Company   string `json:"company"`
+	Email     string `json:"email" binding:"required,email" example:"john.doe@example.com"`
+	Password  string `json:"password" binding:"required,min=8" example:"SecurePassword123!"`
+	ClientID  string `json:"client_id" binding:"required" example:"client-123"`
+	FirstName string `json:"first_name" example:"John"`
+	LastName  string `json:"last_name" example:"Doe"`
+	Company   string `json:"company" example:"Acme Corp"`
 }
 
 // LoginRequest represents login data
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email    string `json:"email" binding:"required,email" example:"john.doe@example.com"`
+	Password string `json:"password" binding:"required" example:"SecurePassword123!"`
 }
 
 // RefreshRequest represents token refresh data
 type RefreshRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
+	RefreshToken string `json:"refresh_token" binding:"required" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
 }
 
 // HandleRegister handles user registration

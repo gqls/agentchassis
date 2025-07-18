@@ -2,6 +2,7 @@ package subscription
 
 // NOTE: This file contains swagger annotations for the subscription handlers.
 // Run `swag init` to generate the swagger documentation.
+// All types are defined in their respective files.
 
 // HandleGetSubscription godoc
 // @Summary      Get current subscription
@@ -9,7 +10,7 @@ package subscription
 // @Tags         Subscription
 // @Accept       json
 // @Produce      json
-// @Success      200 {object} Subscription "Subscription retrieved successfully"
+// @Success      200 {object} subscription.Subscription "Subscription retrieved successfully"
 // @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
 // @Failure      404 {object} map[string]interface{} "Subscription not found"
 // @Failure      500 {object} map[string]interface{} "Internal server error"
@@ -23,7 +24,7 @@ package subscription
 // @Tags         Subscription
 // @Accept       json
 // @Produce      json
-// @Success      200 {object} UsageStats "Usage statistics retrieved successfully"
+// @Success      200 {object} subscription.UsageStats "Usage statistics retrieved successfully"
 // @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
 // @Failure      500 {object} map[string]interface{} "Failed to get usage stats"
 // @Router       /subscription/usage [get]
@@ -37,7 +38,7 @@ package subscription
 // @Accept       json
 // @Produce      json
 // @Param        resource query string true "Resource type to check" Enums(personas,projects,content)
-// @Success      200 {object} QuotaCheckResponse "Quota check result"
+// @Success      200 {object} subscription.QuotaCheckResponse "Quota check result"
 // @Failure      400 {object} map[string]interface{} "Resource parameter required"
 // @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
 // @Failure      500 {object} map[string]interface{} "Internal server error"
@@ -53,8 +54,8 @@ package subscription
 // @Tags         Admin - Subscription
 // @Accept       json
 // @Produce      json
-// @Param        request body CreateSubscriptionRequest true "Subscription creation details"
-// @Success      201 {object} Subscription "Subscription created successfully"
+// @Param        request body subscription.CreateSubscriptionRequest true "Subscription creation details"
+// @Success      201 {object} subscription.Subscription "Subscription created successfully"
 // @Failure      400 {object} map[string]interface{} "Invalid request body"
 // @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
 // @Failure      403 {object} map[string]interface{} "Forbidden - admin access required"
@@ -71,8 +72,8 @@ package subscription
 // @Accept       json
 // @Produce      json
 // @Param        user_id path string true "User ID"
-// @Param        request body UpdateSubscriptionRequest true "Subscription update details"
-// @Success      200 {object} Subscription "Subscription updated successfully"
+// @Param        request body subscription.UpdateSubscriptionRequest true "Subscription update details"
+// @Success      200 {object} subscription.Subscription "Subscription updated successfully"
 // @Failure      400 {object} map[string]interface{} "Invalid request body"
 // @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
 // @Failure      403 {object} map[string]interface{} "Forbidden - admin access required"
@@ -92,7 +93,7 @@ package subscription
 // @Param        limit query int false "Items per page" default(50) minimum(1) maximum(200)
 // @Param        status query string false "Filter by status" Enums(active,trialing,past_due,canceled,expired)
 // @Param        tier query string false "Filter by tier" Enums(free,basic,premium,enterprise)
-// @Success      200 {object} SubscriptionListResponse "List of subscriptions retrieved successfully"
+// @Success      200 {object} subscription.SubscriptionListResponse "List of subscriptions retrieved successfully"
 // @Failure      401 {object} map[string]interface{} "Unauthorized - no valid token"
 // @Failure      403 {object} map[string]interface{} "Forbidden - admin access required"
 // @Failure      500 {object} map[string]interface{} "Failed to retrieve subscriptions"
