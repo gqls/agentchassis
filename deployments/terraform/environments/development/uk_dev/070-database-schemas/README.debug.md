@@ -1,3 +1,9 @@
+mysql is in Clook catalogues.
+mysql -ucatalogu_agent-chassis -p -hrs17.uk-noc.com catalogu_vectordbdev
+external_mysql_password = "agent-chassis123!"
+
+---
+
 kubectl -n personae-dev-db get jobs
 
 # Check the PostgreSQL migration logs

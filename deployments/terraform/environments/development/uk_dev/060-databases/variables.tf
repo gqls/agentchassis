@@ -35,6 +35,12 @@ variable "external_mysql_password" {
   sensitive   = true
 }
 
+variable "external_mysql_port" {
+  description = "Database port for development."
+  type        = number
+  default     = 3306
+}
+
 # --- In-Cluster PostgreSQL Variables ---
 variable "templates_db_password" {
   description = "Password for the dev templates PostgreSQL database."
