@@ -22,6 +22,12 @@ variable "b2_application_key_id" {
   sensitive   = true
 }
 
+variable "b2_application_key_name" {
+  description = "The application key name for Backblaze B2."
+  type        = string
+  sensitive   = true
+}
+
 variable "b2_application_key" {
   description = "The application key for Backblaze B2."
   type        = string

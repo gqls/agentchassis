@@ -14,7 +14,19 @@ variable "postgres_storage_class" {
 variable "external_mysql_host" {
   description = "The endpoint for the external MySQL database used for development."
   type        = string
-  sensitive   = true
+  default     = "rs17.uk-noc.com"
+}
+
+variable "external_mysql_user" {
+  description = "Username for the external MySQL database."
+  type        = string
+  default     = "catalogu_agent-chassis"
+}
+
+variable "external_mysql_database" {
+  description = "Database name for development."
+  type        = string
+  default     = "catalogu_vectordbdev"
 }
 
 variable "external_mysql_password" {

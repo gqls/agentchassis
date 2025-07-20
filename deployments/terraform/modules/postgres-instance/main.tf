@@ -1,12 +1,3 @@
-terraform {
-  required_providers {
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.20"
-    }
-  }
-}
-
 resource "kubernetes_secret" "postgres_secret" {
   metadata {
     name      = "${var.instance_name}-secret"
@@ -46,10 +37,10 @@ resource "kubernetes_stateful_set" "postgres_sts" {
       }
       spec {
         termination_grace_period_seconds = 10
-        containers {
+        container {
           name  = "postgres"
           image = "postgres:15-alpine"
-          ports {
+          port {
             container_port = 5432
             name           = "postgres"
           }
@@ -58,7 +49,7 @@ resource "kubernetes_stateful_set" "postgres_sts" {
               name = kubernetes_secret.postgres_secret.metadata[0].name
             }
           }
-          volume_mounts {
+          volume_mount {
             name       = "postgres-storage"
             mount_path = "/var/lib/postgresql/data"
           }
@@ -106,7 +97,7 @@ resource "kubernetes_service" "postgres_service" {
     selector = {
       app = var.instance_name
     }
-    ports {
+    port {
       port        = 5432
       target_port = 5432
     }

@@ -177,65 +177,110 @@ deploy-infrastructure: ## Deploy all infrastructure components
 .PHONY: deploy-010-infrastructure
 deploy-010-infrastructure: ## Deploy core infrastructure (Kubernetes cluster)
 	@echo "$(GREEN)Deploying 010-infrastructure...$(NC)"
-	cd $(TERRAFORM_DIR)/010-infrastructure && \
-		terraform init && \
-		terraform apply -auto-approve
+	@cd $(TERRAFORM_DIR)/010-infrastructure && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
 
 .PHONY: deploy-020-ingress
 deploy-020-ingress: ## Deploy ingress controller
 	@echo "$(GREEN)Deploying 020-ingress-nginx...$(NC)"
-	cd $(TERRAFORM_DIR)/020-ingress-nginx && \
-		terraform init && \
-		terraform apply -auto-approve
+	@cd $(TERRAFORM_DIR)/020-ingress-nginx && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
 
 .PHONY: deploy-030-strimzi
 deploy-030-strimzi: ## Deploy Strimzi operator
 	@echo "$(GREEN)Deploying 030-strimzi-operator...$(NC)"
-	cd $(TERRAFORM_DIR)/030-strimzi-operator && \
-		terraform init && \
-		terraform apply -auto-approve
+	@cd $(TERRAFORM_DIR)/030-strimzi-operator && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
 
 .PHONY: deploy-040-kafka
 deploy-040-kafka: ## Deploy Kafka cluster
 	@echo "$(GREEN)Deploying 040-kafka-cluster...$(NC)"
-	cd $(TERRAFORM_DIR)/040-kafka-cluster && \
-		terraform init && \
-		terraform apply -auto-approve
+	@cd $(TERRAFORM_DIR)/040-kafka-cluster && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
 
 .PHONY: deploy-050-storage
 deploy-050-storage: ## Deploy S3/storage buckets
 	@echo "$(GREEN)Deploying 050-storage...$(NC)"
-	cd $(TERRAFORM_DIR)/050-storage && \
-		terraform init && \
-		terraform apply -auto-approve
+	@cd $(TERRAFORM_DIR)/050-storage && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
 
 .PHONY: deploy-060-databases
 deploy-060-databases: ## Deploy database instances
 	@echo "$(GREEN)Deploying 060-databases...$(NC)"
-	cd $(TERRAFORM_DIR)/060-databases && \
-		terraform init && \
-		terraform apply -auto-approve
+	@cd $(TERRAFORM_DIR)/060-databases && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
 
 .PHONY: deploy-070-schemas
 deploy-070-schemas: ## Run database migrations
 	@echo "$(GREEN)Deploying 070-database-schemas...$(NC)"
-	cd $(TERRAFORM_DIR)/070-database-schemas && \
-		terraform init && \
-		terraform apply -auto-approve
+	@cd $(TERRAFORM_DIR)/070-database-schemas && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
 
 .PHONY: deploy-080-topics
 deploy-080-topics: ## Create Kafka topics
 	@echo "$(GREEN)Deploying 080-kafka-topics...$(NC)"
-	cd $(TERRAFORM_DIR)/080-kafka-topics && \
-		terraform init && \
-		terraform apply -auto-approve
+	@cd $(TERRAFORM_DIR)/080-kafka-topics && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
 
 .PHONY: deploy-090-monitoring
 deploy-090-monitoring: ## Deploy monitoring stack
 	@echo "$(GREEN)Deploying 090-monitoring...$(NC)"
-	cd $(TERRAFORM_DIR)/090-monitoring && \
-		terraform init && \
-		terraform apply -auto-approve
+	@cd $(TERRAFORM_DIR)/090-monitoring && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
 
 #################################
 # Application Deployment
@@ -430,7 +475,12 @@ tf-plan: ## Run terraform plan for all infrastructure
 	@echo "$(YELLOW)Running Terraform plan...$(NC)"
 	@for dir in $(TERRAFORM_DIR)/0*; do \
 		echo "$(GREEN)Planning $$dir...$(NC)"; \
-		cd $$dir && terraform plan; \
+		cd $$dir && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform plan -var-file=terraform.tfvars.secret; \
+		else \
+			terraform plan; \
+		fi; \
 	done
 
 .PHONY: tf-destroy-apps
@@ -446,7 +496,12 @@ tf-destroy-all: ## Destroy everything (WARNING: This will delete everything!)
 	@sleep 5
 	@for dir in $$(ls -r $(TERRAFORM_DIR)/); do \
 		echo "$(RED)Destroying $$dir...$(NC)"; \
-		cd $(TERRAFORM_DIR)/$$dir && terraform destroy -auto-approve; \
+		cd $(TERRAFORM_DIR)/$$dir && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform destroy -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform destroy -auto-approve; \
+		fi; \
 	done
 
 #################################

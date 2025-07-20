@@ -5,16 +5,31 @@ terraform {
   }
 }
 
+provider "kubernetes" {
+  config_path    = "~/.kube/config"
+  config_context = "kind-personae-dev"
+}
+
+# Create the namespace first
+resource "kubernetes_namespace" "db_namespace" {
+  metadata {
+    name = var.k8s_namespace
+  }
+}
+
 # --- External MySQL Secret ---
 module "external_mysql_auth_db_dev" {
   source = "../../../../modules/mysql-instance"
 
-  instance_name = "personae-dev-uk-auth-db"
+  instance_name = "personae-dev-mysql"
   namespace     = var.k8s_namespace
   db_host       = var.external_mysql_host
-  database_name = "authservicedb_dev"
-  database_user = "auth_user_dev"
+  db_port       = "3306"
+  database_name = var.external_mysql_database
+  database_user = var.external_mysql_user
   database_pass = var.external_mysql_password
+
+  depends_on = [kubernetes_namespace.db_namespace]
 }
 
 # --- In-Cluster PostgreSQL for Templates ---
@@ -28,6 +43,8 @@ module "postgres_templates_db_dev" {
   database_pass      = var.templates_db_password
   storage_class_name = var.postgres_storage_class
   storage_size       = "2Gi" # Smaller size for dev
+
+  depends_on = [kubernetes_namespace.db_namespace]
 }
 
 # --- In-Cluster PostgreSQL for Client Data ---
@@ -41,4 +58,6 @@ module "postgres_clients_db_dev" {
   database_pass      = var.clients_db_password
   storage_class_name = var.postgres_storage_class
   storage_size       = "5Gi" # Smaller size for dev
+
+  depends_on = [kubernetes_namespace.db_namespace]
 }
