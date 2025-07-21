@@ -1,4 +1,4 @@
--- Projects table for auth database
+-- Projects table for auth mysql database
 -- MySQL version (for the auth database)
 CREATE TABLE IF NOT EXISTS projects (
     id BINARY(16) PRIMARY KEY,
@@ -15,13 +15,13 @@ CREATE TABLE IF NOT EXISTS projects (
 -- Subscriptions table
 CREATE TABLE IF NOT EXISTS subscriptions (
     id VARCHAR(36) PRIMARY KEY,
-    user_id BINARY(16) NOT NULL UNIQUE,
+    user_id VARCHAR(36) NOT NULL UNIQUE,
     tier VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
-    start_date TIMESTAMPTZ NOT NULL,
-    end_date TIMESTAMPTZ,
-    trial_ends_at TIMESTAMPTZ,
-    cancelled_at TIMESTAMPTZ,
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NULL DEFAULT NULL,
+    trial_ends_at TIMESTAMP NULL DEFAULT NULL,
+    cancelled_at TIMESTAMP NULL DEFAULT NULL,
     payment_method VARCHAR(100),
     stripe_customer_id VARCHAR(255),
     stripe_subscription_id VARCHAR(255),
@@ -45,19 +45,19 @@ CREATE TABLE IF NOT EXISTS subscription_tiers (
     features JSON,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     );
 
 -- Insert default tiers
 INSERT INTO subscription_tiers (id, name, display_name, description, price_monthly, price_yearly, max_personas, max_projects, max_content_items, features) VALUES
-('00000000-0000-0000-0000-000000000001', 'free', 'Free', 'Basic features for getting started', 0.00, 0.00, 1, 3, 10, '["Basic personas", "Limited content generation"]'),
-('00000000-0000-0000-0000-000000000002', 'basic', 'Basic', 'For individual users', 9.99, 99.99, 5, 10, 100, '["All persona types", "Priority support", "Advanced templates"]'),
-('00000000-0000-0000-0000-000000000003', 'premium', 'Premium', 'For upgraded users', 29.99, 299.99, 20, 50, 1000, '["All basic features", "Custom personas", "API access", "Analytics"]'),
-('00000000-0000-0000-0000-000000000004', 'enterprise', 'Enterprise', 'For organizations', 99.99, 999.99, -1, -1, -1, '["All premium features", "Unlimited usage", "Dedicated support", "Custom integrations"]');
+    ('00000000-0000-0000-0000-000000000001', 'free', 'Free', 'Basic features for getting started', 0.00, 0.00, 1, 3, 10, '["Basic personas", "Limited content generation"]'),
+    ('00000000-0000-0000-0000-000000000002', 'basic', 'Basic', 'For individual users', 9.99, 99.99, 5, 10, 100, '["All persona types", "Priority support", "Advanced templates"]'),
+    ('00000000-0000-0000-0000-000000000003', 'premium', 'Premium', 'For upgraded users', 29.99, 299.99, 20, 50, 1000, '["All basic features", "Custom personas", "API access", "Analytics"]'),
+    ('00000000-0000-0000-0000-000000000004', 'enterprise', 'Enterprise', 'For organizations', 99.99, 999.99, -1, -1, -1, '["All premium features", "Unlimited usage", "Dedicated support", "Custom integrations"]');
 
 -- User profiles table
 CREATE TABLE IF NOT EXISTS user_profiles (
-    user_id BINARY(16) PRIMARY KEY,
+    user_id VARCHAR(36) PRIMARY KEY,
     first_name VARCHAR(100),
     last_name VARCHAR(100),
     company VARCHAR(255),
@@ -74,12 +74,12 @@ CREATE TABLE IF NOT EXISTS permissions (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
 -- User permissions junction table
 CREATE TABLE IF NOT EXISTS user_permissions (
-    user_id BINARY(16) NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
     permission_id VARCHAR(36) NOT NULL,
     granted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, permission_id),
@@ -89,9 +89,9 @@ CREATE TABLE IF NOT EXISTS user_permissions (
 
 -- Insert default permissions
 INSERT INTO permissions (id, name, description) VALUES
-('00000000-0000-0000-0000-000000000001', 'personas.create', 'Create new personas'),
-('00000000-0000-0000-0000-000000000002', 'personas.delete', 'Delete personas'),
-('00000000-0000-0000-0000-000000000003', 'projects.manage', 'Manage all projects'),
-('00000000-0000-0000-0000-000000000004', 'admin.users', 'Manage users'),
-('00000000-0000-0000-0000-000000000005', 'admin.subscriptions', 'Manage subscriptions'),
-('00000000-0000-0000-0000-000000000006', '*', 'Super admin - all permissions');
+    ('00000000-0000-0000-0000-000000000001', 'personas.create', 'Create new personas'),
+    ('00000000-0000-0000-0000-000000000002', 'personas.delete', 'Delete personas'),
+    ('00000000-0000-0000-0000-000000000003', 'projects.manage', 'Manage all projects'),
+    ('00000000-0000-0000-0000-000000000004', 'admin.users', 'Manage users'),
+    ('00000000-0000-0000-0000-000000000005', 'admin.subscriptions', 'Manage subscriptions'),
+    ('00000000-0000-0000-0000-000000000006', '*', 'Super admin - all permissions');
