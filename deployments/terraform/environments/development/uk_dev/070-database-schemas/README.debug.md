@@ -1,6 +1,10 @@
 mysql is in Clook catalogues.
 mysql -ucatalogu_agent-chassis -p -hrs17.uk-noc.com catalogu_vectordbdev
 external_mysql_password = "agent-chassis123!"
+DROP TABLE auth_tokens;
+DROP TABLE projects;
+DROP TABLE users;
+make ENVIRONMENT=development REGION=uk_dev deploy-010-infrastructure
 
 ---
 

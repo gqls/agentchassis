@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS projects (
 -- Subscriptions table
 CREATE TABLE IF NOT EXISTS subscriptions (
     id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL UNIQUE,
+    user_id BINARY(16) NOT NULL UNIQUE,
     tier VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
     start_date TIMESTAMP NOT NULL,
@@ -57,7 +57,7 @@ INSERT INTO subscription_tiers (id, name, display_name, description, price_month
 
 -- User profiles table
 CREATE TABLE IF NOT EXISTS user_profiles (
-    user_id VARCHAR(36) PRIMARY KEY,
+    user_id BINARY(16) PRIMARY KEY,
     first_name VARCHAR(100),
     last_name VARCHAR(100),
     company VARCHAR(255),
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS permissions (
 
 -- User permissions junction table
 CREATE TABLE IF NOT EXISTS user_permissions (
-    user_id VARCHAR(36) NOT NULL,
+    user_id BINARY(16) NOT NULL,
     permission_id VARCHAR(36) NOT NULL,
     granted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, permission_id),
