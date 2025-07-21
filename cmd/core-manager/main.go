@@ -5,6 +5,9 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
+	"github.com/gqls/agentchassis/platform/kafka"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
 	"net/http"
 	"os"
@@ -88,7 +91,14 @@ func main() {
 	}
 	defer clientsPool.Close()
 
-	// --- Step 4: Initialize and Start the API Server ---
+	// --- Step 4a: Initialize Kafka Topics ---
+	// This ensures all system topics and agent topics exist
+	if err := initializeKafkaTopics(ctx, cfg, appLogger, clientsPool); err != nil {
+		appLogger.Warn("Topic initialization encountered errors", zap.Error(err))
+		// Don't fail startup - topics can be created on-demand
+	}
+
+	// --- Step 4b: Initialize and Start the API Server ---
 	apiServer, err := api.NewServer(ctx, cfg, appLogger, templatesPool, clientsPool)
 	if err != nil {
 		appLogger.Fatal("Failed to initialize API server", zap.Error(err))
@@ -118,4 +128,78 @@ func main() {
 	}
 
 	appLogger.Info("Core Manager Service stopped")
+}
+
+// initializeKafkaTopics creates system and agent topics
+func initializeKafkaTopics(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, clientsDB *pgxpool.Pool) error {
+	topicManager := kafka.NewTopicManager(cfg.Infrastructure.KafkaBrokers, logger)
+
+	// Create a context with timeout for topic operations
+	topicCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	// Step 1: Create system topics
+	logger.Info("Creating system Kafka topics...")
+	if err := topicManager.CreateSystemTopics(topicCtx); err != nil {
+		logger.Error("Failed to create system topics", zap.Error(err))
+		// Continue anyway - some topics might have been created
+	}
+
+	// Step 2: Create topics for existing agent definitions
+	logger.Info("Creating agent-specific Kafka topics...")
+
+	// Query all active agent definitions from the shared table
+	query := `
+		SELECT DISTINCT type 
+		FROM agent_definitions 
+		WHERE is_active = true AND deleted_at IS NULL
+		ORDER BY type
+	`
+
+	rows, err := clientsDB.Query(topicCtx, query)
+	if err != nil {
+		logger.Error("Failed to query agent definitions", zap.Error(err))
+		return nil // Don't fail startup
+	}
+	defer rows.Close()
+
+	agentCount := 0
+	failureCount := 0
+
+	for rows.Next() {
+		var agentType string
+		if err := rows.Scan(&agentType); err != nil {
+			logger.Error("Failed to scan agent type", zap.Error(err))
+			continue
+		}
+
+		agentCount++
+		logger.Info("Creating topics for agent", zap.String("agent_type", agentType))
+
+		if err := topicManager.CreateAgentTopics(topicCtx, agentType); err != nil {
+			logger.Error("Failed to create topics for agent",
+				zap.String("agent_type", agentType),
+				zap.Error(err))
+			failureCount++
+			// Continue with other agents
+		}
+	}
+
+	logger.Info("Kafka topic initialization completed",
+		zap.Int("agent_types_processed", agentCount),
+		zap.Int("failures", failureCount))
+
+	// Step 3: List all topics for verification (optional)
+	if logger.Core().Enabled(zap.DebugLevel) {
+		topics, err := topicManager.ListTopics(topicCtx)
+		if err == nil {
+			logger.Debug("Current Kafka topics", zap.Strings("topics", topics))
+		}
+	}
+
+	if failureCount > 0 {
+		return fmt.Errorf("failed to create topics for %d agents", failureCount)
+	}
+
+	return nil
 }

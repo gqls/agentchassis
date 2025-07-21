@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -82,11 +83,17 @@ type AgentHealthStatus struct {
 	QueueDepth    int       `json:"queue_depth"`
 }
 
-// HandleCreateAgentDefinition creates a new agent type
+// HandleCreateAgentDefinition creates a new agent type with Kafka topics
 func (h *AgentHandlers) HandleCreateAgentDefinition(c *gin.Context) {
 	var req AgentDefinitionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate agent type name (alphanumeric, hyphens, underscores)
+	if !isValidAgentType(req.Type) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent type. Use only alphanumeric, hyphens, and underscores"})
 		return
 	}
 
@@ -108,6 +115,15 @@ func (h *AgentHandlers) HandleCreateAgentDefinition(c *gin.Context) {
 		return
 	}
 
+	// Start a transaction
+	tx, err := h.clientsDB.Begin(c.Request.Context())
+	if err != nil {
+		h.logger.Error("Failed to begin transaction", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create agent definition"})
+		return
+	}
+	defer tx.Rollback(c.Request.Context())
+
 	// Insert new agent definition
 	id := uuid.New()
 	configBytes, _ := json.Marshal(req.DefaultConfig)
@@ -118,7 +134,7 @@ func (h *AgentHandlers) HandleCreateAgentDefinition(c *gin.Context) {
 		VALUES ($1, $2, $3, $4, $5, $6, true)
 	`
 
-	_, err = h.clientsDB.Exec(c.Request.Context(), query,
+	_, err = tx.Exec(c.Request.Context(), query,
 		id, req.Type, req.DisplayName, req.Description, req.Category, configBytes,
 	)
 
@@ -128,17 +144,25 @@ func (h *AgentHandlers) HandleCreateAgentDefinition(c *gin.Context) {
 		return
 	}
 
-	// Create Kafka topics for the new agent type
-	h.createAgentTopics(c.Request.Context(), req.Type)
+	// Commit the transaction
+	if err := tx.Commit(c.Request.Context()); err != nil {
+		h.logger.Error("Failed to commit transaction", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create agent definition"})
+		return
+	}
+
+	// Create Kafka topics asynchronously
+	go h.createAgentTopicsAsync(req.Type)
 
 	h.logger.Info("Agent definition created",
 		zap.String("id", id.String()),
-		zap.String("type", req.Type))
+		zap.String("type", req.Type),
+		zap.String("category", req.Category))
 
 	c.JSON(http.StatusCreated, gin.H{
 		"id":      id.String(),
 		"type":    req.Type,
-		"message": "Agent definition created successfully",
+		"message": "Agent definition created successfully. Topics are being created.",
 	})
 }
 
@@ -597,4 +621,216 @@ func (h *AgentHandlers) HandleUpdateInstanceConfig(c *gin.Context) {
 		"agent_id":  agentID,
 		"client_id": clientID,
 	})
+}
+
+// createAgentTopicsAsync creates Kafka topics in the background with retry
+func (h *AgentHandlers) createAgentTopicsAsync(agentType string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// Get Kafka brokers from environment or config
+	brokers := h.getKafkaBrokers()
+	topicManager := kafka.NewTopicManager(brokers, h.logger)
+
+	maxRetries := 3
+	retryDelay := 5 * time.Second
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		h.logger.Info("Creating Kafka topics for agent",
+			zap.String("agent_type", agentType),
+			zap.Int("attempt", attempt))
+
+		err := topicManager.CreateAgentTopics(ctx, agentType)
+		if err == nil {
+			h.logger.Info("Successfully created all topics for agent",
+				zap.String("agent_type", agentType))
+
+			// Send notification that topics are ready
+			h.notifyTopicsReady(ctx, agentType)
+			return
+		}
+
+		h.logger.Error("Failed to create topics for agent",
+			zap.String("agent_type", agentType),
+			zap.Error(err),
+			zap.Int("attempt", attempt))
+
+		if attempt < maxRetries {
+			time.Sleep(retryDelay)
+			retryDelay *= 2 // Exponential backoff
+		}
+	}
+
+	// All retries failed
+	h.logger.Error("Failed to create topics after all retries",
+		zap.String("agent_type", agentType))
+
+	// Send failure notification
+	h.notifyTopicCreationFailed(ctx, agentType)
+}
+
+// HandleVerifyAgentTopics checks if all topics exist for an agent
+func (h *AgentHandlers) HandleVerifyAgentTopics(c *gin.Context) {
+	agentType := c.Param("type")
+
+	brokers := h.getKafkaBrokers()
+	topicManager := kafka.NewTopicManager(brokers, h.logger)
+
+	// Get expected topics for this agent type
+	expectedTopics := h.getExpectedTopicsForAgent(agentType)
+
+	missingTopics := []string{}
+	existingTopics := []string{}
+
+	for _, topic := range expectedTopics {
+		exists, err := topicManager.TopicExists(c.Request.Context(), topic)
+		if err != nil {
+			h.logger.Error("Failed to check topic existence",
+				zap.String("topic", topic),
+				zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to verify topics",
+			})
+			return
+		}
+
+		if exists {
+			existingTopics = append(existingTopics, topic)
+		} else {
+			missingTopics = append(missingTopics, topic)
+		}
+	}
+
+	status := "healthy"
+	if len(missingTopics) > 0 {
+		status = "degraded"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"agent_type":     agentType,
+		"status":         status,
+		"expected_count": len(expectedTopics),
+		"existing":       existingTopics,
+		"missing":        missingTopics,
+	})
+}
+
+// HandleRecreateAgentTopics manually triggers topic creation for an agent
+func (h *AgentHandlers) HandleRecreateAgentTopics(c *gin.Context) {
+	agentType := c.Param("type")
+
+	// Verify agent exists
+	var exists bool
+	err := h.clientsDB.QueryRow(c.Request.Context(),
+		"SELECT EXISTS(SELECT 1 FROM agent_definitions WHERE type = $1 AND deleted_at IS NULL)",
+		agentType,
+	).Scan(&exists)
+
+	if err != nil || !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Agent type not found"})
+		return
+	}
+
+	// Trigger async topic creation
+	go h.createAgentTopicsAsync(agentType)
+
+	c.JSON(http.StatusAccepted, gin.H{
+		"message":    "Topic creation initiated",
+		"agent_type": agentType,
+	})
+}
+
+// Helper methods
+
+func isValidAgentType(agentType string) bool {
+	// Allow alphanumeric, hyphens, and underscores
+	for _, char := range agentType {
+		if !((char >= 'a' && char <= 'z') ||
+			(char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') ||
+			char == '-' || char == '_') {
+			return false
+		}
+	}
+	return len(agentType) >= 3 && len(agentType) <= 50
+}
+
+func (h *AgentHandlers) getKafkaBrokers() []string {
+	// Try to get from environment first
+	if brokersEnv := os.Getenv("KAFKA_BROKERS"); brokersEnv != "" {
+		return strings.Split(brokersEnv, ",")
+	}
+
+	// Default to standard Kubernetes service names
+	return []string{
+		"kafka-0.kafka-headless:9092",
+		"kafka-1.kafka-headless:9092",
+		"kafka-2.kafka-headless:9092",
+	}
+}
+
+func (h *AgentHandlers) getExpectedTopicsForAgent(agentType string) []string {
+	topics := []string{
+		fmt.Sprintf("system.agent.%s.process", agentType),
+		fmt.Sprintf("system.responses.%s", agentType),
+		fmt.Sprintf("system.errors.%s", agentType),
+		fmt.Sprintf("dlq.%s", agentType),
+	}
+
+	// Add category-specific topics
+	var category string
+	h.clientsDB.QueryRow(context.Background(),
+		"SELECT category FROM agent_definitions WHERE type = $1",
+		agentType,
+	).Scan(&category)
+
+	if category == "data-driven" {
+		topics = append(topics,
+			fmt.Sprintf("tasks.high.%s", agentType),
+			fmt.Sprintf("tasks.normal.%s", agentType),
+			fmt.Sprintf("tasks.low.%s", agentType),
+		)
+	} else if category == "adapter" {
+		adapterName := strings.ReplaceAll(agentType, "-", ".")
+		topics = append(topics, fmt.Sprintf("system.adapter.%s", adapterName))
+	}
+
+	return topics
+}
+
+func (h *AgentHandlers) notifyTopicsReady(ctx context.Context, agentType string) {
+	notification := map[string]interface{}{
+		"event_type": "AGENT_TOPICS_READY",
+		"agent_type": agentType,
+		"timestamp":  time.Now().UTC(),
+		"message":    fmt.Sprintf("All Kafka topics for agent '%s' have been created", agentType),
+	}
+
+	notificationBytes, _ := json.Marshal(notification)
+	headers := map[string]string{
+		"correlation_id": uuid.NewString(),
+		"event_type":     "agent_topics_ready",
+	}
+
+	h.kafkaProducer.Produce(ctx, "system.events", headers,
+		[]byte(agentType), notificationBytes)
+}
+
+func (h *AgentHandlers) notifyTopicCreationFailed(ctx context.Context, agentType string) {
+	notification := map[string]interface{}{
+		"event_type": "AGENT_TOPICS_FAILED",
+		"agent_type": agentType,
+		"timestamp":  time.Now().UTC(),
+		"severity":   "error",
+		"message":    fmt.Sprintf("Failed to create Kafka topics for agent '%s' after multiple attempts", agentType),
+	}
+
+	notificationBytes, _ := json.Marshal(notification)
+	headers := map[string]string{
+		"correlation_id": uuid.NewString(),
+		"event_type":     "agent_topics_failed",
+	}
+
+	h.kafkaProducer.Produce(ctx, "system.errors", headers,
+		[]byte(agentType), notificationBytes)
 }

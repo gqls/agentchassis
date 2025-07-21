@@ -130,9 +130,18 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 
 			// Agent Definition Management
 			adminGroup.GET("/agent-definitions", systemHandlers.HandleListAgentDefinitions)
+			adminGroup.POST("/agent-definitions", agentAdminHandlers.HandleCreateAgentDefinition) // NEW
 			adminGroup.PUT("/agent-definitions/:type_name", systemHandlers.HandleUpdateAgentDefinition)
 
+			// Kafka Topic Management for Agents (NEW)
+			adminGroup.GET("/agent-definitions/:type/topics/verify", agentAdminHandlers.HandleVerifyAgentTopics)
+			adminGroup.POST("/agent-definitions/:type/topics/recreate", agentAdminHandlers.HandleRecreateAgentTopics)
+
 			// Agent Instance Management
+			adminGroup.GET("/agent-instances", agentAdminHandlers.HandleListAgentInstances)                 // NEW
+			adminGroup.GET("/agent-instances/:agent_id", agentAdminHandlers.HandleGetAgentInstance)         // NEW
+			adminGroup.PUT("/agent-instances/:agent_id/status", agentAdminHandlers.HandleToggleAgentStatus) // NEW
+			adminGroup.POST("/agent-instances/:agent_id/restart", agentAdminHandlers.HandleRestartAgent)    // NEW
 			adminGroup.PUT("/clients/:client_id/instances/:instance_id/config", agentAdminHandlers.HandleUpdateInstanceConfig)
 		}
 	}
