@@ -17,7 +17,7 @@ provider "kubernetes" {
   config_context = "kind-personae-dev"
 }
 
-# Read the outputs from the dev database creation layer
+# Read the outputs from the dev database creation layer (for hostnames, usernames, etc)
 data "terraform_remote_state" "databases_dev" {
   backend = "kubernetes"
   config = {
@@ -99,8 +99,13 @@ resource "kubernetes_job" "postgres_migrations" {
           }
 
           env {
-            name  = "PGPASSWORD"
-            value = data.terraform_remote_state.databases_dev.outputs.clients_db_password
+            name = "PGPASSWORD"
+            value_from {
+              secret_key_ref {
+                name = "postgres-passwords"
+                key  = "clients-password"
+              }
+            }
           }
 
           command = ["/bin/sh", "-c"]
@@ -131,8 +136,13 @@ resource "kubernetes_job" "postgres_migrations" {
           }
 
           env {
-            name  = "PGPASSWORD"
-            value = data.terraform_remote_state.databases_dev.outputs.templates_db_password
+            name = "PGPASSWORD"
+            value_from {
+              secret_key_ref {
+                name = "postgres-passwords"
+                key  = "templates-password"
+              }
+            }
           }
 
           command = ["/bin/sh", "-c"]
@@ -195,8 +205,13 @@ resource "kubernetes_job" "mysql_migrations" {
           }
 
           env {
-            name  = "MYSQL_PWD"
-            value = data.terraform_remote_state.databases_dev.outputs.external_mysql_password
+            name = "MYSQL_PWD"
+            value_from {
+              secret_key_ref {
+                name = "mysql-password"
+                key  = "password"
+              }
+            }
           }
 
           command = ["/bin/sh", "-c"]

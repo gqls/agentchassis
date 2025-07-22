@@ -167,6 +167,7 @@ deploy-infrastructure: ## Deploy all infrastructure components
 	@$(MAKE) deploy-020-ingress
 	@$(MAKE) deploy-030-strimzi
 	@$(MAKE) deploy-040-kafka
+	@$(MAKE) deploy-045-kafka-users
 	@$(MAKE) deploy-050-storage
 	@$(MAKE) deploy-060-databases
 	@$(MAKE) deploy-070-schemas
@@ -220,6 +221,28 @@ deploy-040-kafka: ## Deploy Kafka cluster
 		else \
 			terraform init && \
 			terraform apply -auto-approve; \
+		fi
+
+.PHONY: deploy-045-kafka-users
+deploy-045-kafka-users: deploy-040-kafka ## Fixed dependency name
+	@echo "$(GREEN)Deploying 045-kafka-users...$(NC)"
+	cd $(TERRAFORM_DIR)/045-kafka-users && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
+
+.PHONY: destroy-045-kafka-users
+destroy-045-kafka-users: ## Destroy Kafka users
+	@echo "$(RED)Destroying 045-kafka-users...$(NC)"
+	cd $(TERRAFORM_DIR)/045-kafka-users && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform destroy -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform destroy -auto-approve; \
 		fi
 
 .PHONY: deploy-050-storage
@@ -473,7 +496,7 @@ push-admin-dashboard: ## Push admin-dashboard image
 .PHONY: tf-plan
 tf-plan: ## Run terraform plan for all infrastructure
 	@echo "$(YELLOW)Running Terraform plan...$(NC)"
-	@for dir in $(TERRAFORM_DIR)/0*; do \
+	@for dir in $(TERRAFORM_DIR)/0*; do \  # This pattern already includes 045-kafka-users
 		echo "$(GREEN)Planning $$dir...$(NC)"; \
 		cd $$dir && \
 		if [ -f terraform.tfvars.secret ]; then \

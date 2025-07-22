@@ -9,3 +9,10 @@ variable "grafana_admin_password" {
   type        = string
   sensitive   = true
 }
+
+variable "kube_context_name" {
+  description = "Kubernetes context name"
+  type        = string
+  default     = "kind-personae-dev"
+}
+

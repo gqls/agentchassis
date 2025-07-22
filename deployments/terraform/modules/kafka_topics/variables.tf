@@ -1,3 +1,4 @@
+
 variable "kube_context_name" {
   description = "The Kubernetes context name for Kind."
   type        = string
@@ -5,7 +6,7 @@ variable "kube_context_name" {
 }
 
 variable "namespace" {
-  description = "The namespace for the Kafka topics job in the dev environment."
+  description = "The namespace for the Kafka topics job."
   type        = string
   default     = "personae"
 }

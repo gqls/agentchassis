@@ -1,0 +1,16 @@
+# Add Kafka environment variables
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: KAFKA_TOPIC_CREATION_ENABLED
+    value: "true"
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: KAFKA_TOPIC_REPLICATION_FACTOR
+    value: "1" # Suitable for single-node dev cluster
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: KAFKA_TOPIC_DEFAULT_PARTITIONS
+    value: "1"

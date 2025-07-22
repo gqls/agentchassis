@@ -61,3 +61,31 @@ module "postgres_clients_db_dev" {
 
   depends_on = [kubernetes_namespace.db_namespace]
 }
+
+# Create secrets for database passwords
+resource "kubernetes_secret" "postgres_passwords" {
+  metadata {
+    name      = "postgres-passwords"
+    namespace = var.k8s_namespace
+  }
+
+  data = {
+    clients-password   = var.clients_db_password
+    templates-password = var.templates_db_password
+  }
+
+  depends_on = [kubernetes_namespace.db_namespace]
+}
+
+resource "kubernetes_secret" "mysql_password" {
+  metadata {
+    name      = "mysql-password"
+    namespace = var.k8s_namespace
+  }
+
+  data = {
+    password = var.external_mysql_password
+  }
+
+  depends_on = [kubernetes_namespace.db_namespace]
+}

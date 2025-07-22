@@ -1,10 +1,33 @@
 mysql is in Clook catalogues.
 mysql -ucatalogu_agent-chassis -p -hrs17.uk-noc.com catalogu_vectordbdev
 external_mysql_password = "agent-chassis123!"
+# be careful B E  C A R E F U L
 DROP TABLE auth_tokens;
 DROP TABLE projects;
+DROP TABLE subscriptions;
+DROP TABLE subscription_tiers;
+DROP TABLE user_profiles;
+DROP TABLE user_permissions;
+DROP TABLE permissions;
 DROP TABLE users;
 make ENVIRONMENT=development REGION=uk_dev deploy-010-infrastructure
+
+---
+
+First, let's verify the secret exists and has the correct values:
+# Check if the secret exists
+kubectl get secret postgres-passwords -n personae-dev-db
+
+# Decode and check the actual password value
+kubectl get secret postgres-passwords -n personae-dev-db -o jsonpath='{.data.clients-password}' | base64 -d; echo
+
+Let's also check what password the Postgres database is actually expecting:
+# Check the postgres pod environment
+kubectl exec -n personae-dev-db postgres-clients-dev-0 -- env | grep POSTGRES
+
+Check how the postgres module is setting up the database:
+# Look at the postgres instance module
+cat ~/projects/agent-chassis/deployments/terraform/modules/postgres-instance/main.tf | grep -A10 -B10 "POSTGRES_PASSWORD"
 
 ---
 
