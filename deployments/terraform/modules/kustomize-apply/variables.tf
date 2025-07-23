@@ -29,3 +29,9 @@ variable "config_sha" {
   type        = string
   default     = ""
 }
+
+variable "deployment_name" {
+  description = "The name of the deployment to update. If empty, image update will be skipped."
+  type        = string
+  default     = ""
+}

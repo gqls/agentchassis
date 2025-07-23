@@ -1,10 +1,12 @@
 # Comprehensive Makefile for Agent-Managed Microservices
 
+export TMPDIR := $(HOME)/kind-tmp
+
 # Project variables
-PROJECT_NAME := personae-system
+PROJECT_NAME := ai-persona-system
 ENVIRONMENT ?= production
 REGION ?= uk001
-REGISTRY ?= registry.personae.io
+REGISTRY ?= docker.io/aqls
 IMAGE_TAG ?= latest
 
 # Paths
@@ -168,11 +170,13 @@ deploy-infrastructure: ## Deploy all infrastructure components
 	@$(MAKE) deploy-030-strimzi
 	@$(MAKE) deploy-040-kafka
 	@$(MAKE) deploy-045-kafka-users
+	@$(MAKE) deploy-100-base-configs
 	@$(MAKE) deploy-050-storage
 	@$(MAKE) deploy-060-databases
 	@$(MAKE) deploy-070-schemas
 	@$(MAKE) deploy-080-topics
 	@$(MAKE) deploy-090-monitoring
+
 
 # Individual infrastructure components
 .PHONY: deploy-010-infrastructure
@@ -305,17 +309,74 @@ deploy-090-monitoring: ## Deploy monitoring stack
 			terraform apply -auto-approve; \
 		fi
 
+.PHONY: deploy-100-base-configs
+deploy-100-base-configs: ## Deploy base ConfigMaps and Secrets
+	@echo "$(GREEN)Deploying 100-base-configs...$(NC)"
+	@cd $(TERRAFORM_DIR)/100-base-configs && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
+
 #################################
-# Application Deployment
+# Application Deployment (Terraform Workflow)
 #################################
+# Generic target for deploying any service via Terraform
 .PHONY: deploy-all
 deploy-all: deploy-infrastructure deploy-core deploy-agents deploy-frontends ## Deploy everything
 
+.PHONY: deploy-service
+deploy-service:
+	@echo "$(GREEN)Deploying service at $(path)...$(NC)"
+	@cd $(path) && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init -upgrade && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init -upgrade && \
+			terraform apply -auto-approve; \
+		fi
+
+# Generic target for destroying any service via Terraform
+.PHONY: destroy-service
+destroy-service:
+	@echo "$(RED)Destroying service at $(path)...$(NC)"
+	@cd $(path) && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init -upgrade && \
+			terraform destroy -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init -upgrade && \
+			terraform destroy -auto-approve; \
+		fi
+
+# Core Platform Services
 .PHONY: deploy-core
-deploy-core: ## Deploy core platform services
-	@echo "$(YELLOW)Deploying core platform services...$(NC)"
-	kubectl apply -k $(KUSTOMIZE_DIR)/services/auth-service/overlays/$(ENVIRONMENT)
-	kubectl apply -k $(KUSTOMIZE_DIR)/services/core-manager/overlays/$(ENVIRONMENT)
+deploy-core: deploy-auth-service deploy-core-manager ## Deploy core platform services using Terraform
+
+.PHONY: deploy-auth-service
+deploy-auth-service: ## Deploy auth-service using Terraform
+	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/core-platform/1110-auth-service
+
+.PHONY: deploy-core-manager
+deploy-core-manager: ## Deploy core-manager using Terraform
+	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/core-platform/1120-core-manager
+
+# Corresponding destroy targets
+.PHONY: destroy-core
+destroy-core: destroy-core-manager destroy-auth-service ## Destroy core platform services using Terraform
+
+.PHONY: destroy-auth-service
+destroy-auth-service: ## Destroy auth-service using Terraform
+	@$(MAKE) destroy-service path=$(TERRAFORM_DIR)/services/core-platform/1110-auth-service
+
+.PHONY: destroy-core-manager
+destroy-core-manager: ## Destroy core-manager using Terraform
+	@$(MAKE) destroy-service path=$(TERRAFORM_DIR)/services/core-platform/1120-core-manager
+
 
 .PHONY: deploy-agents
 deploy-agents: ## Deploy all agent services
@@ -331,17 +392,6 @@ deploy-frontends: ## Deploy all frontend applications
 	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/admin-dashboard/overlays/$(ENVIRONMENT)
 	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/user-portal/overlays/$(ENVIRONMENT)
 	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/agent-playground/overlays/$(ENVIRONMENT)
-
-# Individual service deployments
-.PHONY: deploy-auth-service
-deploy-auth-service: ## Deploy auth-service only
-	@echo "$(GREEN)Deploying auth-service...$(NC)"
-	kubectl apply -k $(KUSTOMIZE_DIR)/services/auth-service/overlays/$(ENVIRONMENT)
-
-.PHONY: deploy-core-manager
-deploy-core-manager: ## Deploy core-manager only
-	@echo "$(GREEN)Deploying core-manager...$(NC)"
-	kubectl apply -k $(KUSTOMIZE_DIR)/services/core-manager/overlays/$(ENVIRONMENT)
 
 .PHONY: deploy-admin-dashboard
 deploy-admin-dashboard: ## Deploy admin-dashboard only
@@ -712,12 +762,42 @@ kind-status: ## Check Kind cluster status
 .PHONY: kind-load-images
 kind-load-images: ## Load Docker images into Kind
 	@echo "$(YELLOW)Loading images into Kind...$(NC)"
+	@mkdir -p $(TMPDIR)
 	kind load docker-image $(REGISTRY)/auth-service:$(IMAGE_TAG) --name personae-dev
 	kind load docker-image $(REGISTRY)/core-manager:$(IMAGE_TAG) --name personae-dev
 	kind load docker-image $(REGISTRY)/agent-chassis:$(IMAGE_TAG) --name personae-dev
 	kind load docker-image $(REGISTRY)/reasoning-agent:$(IMAGE_TAG) --name personae-dev
 	kind load docker-image $(REGISTRY)/web-search-adapter:$(IMAGE_TAG) --name personae-dev
 	kind load docker-image $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG) --name personae-dev
+
+.PHONY: reload-auth-service
+reload-auth-service: ## Rebuild and reload auth-service in Kind
+	@echo "$(YELLOW)Rebuilding auth-service...$(NC)"
+	@$(MAKE) build-auth-service
+	@mkdir -p $(TMPDIR)
+	kind load docker-image $(REGISTRY)/auth-service:$(IMAGE_TAG) --name personae-dev
+	kubectl delete pod -n ai-persona-system -l app=auth-service
+	@echo "$(GREEN)auth-service reloaded$(NC)"
+
+.PHONY: reload-core-manager
+reload-core-manager: ## Rebuild and reload core-manager in Kind
+	@echo "$(YELLOW)Rebuilding core-manager...$(NC)"
+	@$(MAKE) build-core-manager
+	@mkdir -p $(TMPDIR)
+	kind load docker-image $(REGISTRY)/core-manager:$(IMAGE_TAG) --name personae-dev
+	kubectl delete pod -n ai-persona-system -l app=core-manager
+	@echo "$(GREEN)core-manager reloaded$(NC)"
+
+# Add a new helper target
+.PHONY: kind-load-auth
+kind-load-auth: ## Load auth-service image into Kind
+	@mkdir -p $(TMPDIR)
+	kind load docker-image auth-service:local --name personae-dev
+
+.PHONY: kind-load-core
+kind-load-core: ## Load core-manager image into Kind
+	@mkdir -p $(TMPDIR)
+	kind load docker-image core-manager:local --name personae-dev
 
 #################################
 # Environment Specific Helpers
@@ -736,10 +816,10 @@ use-prod-context: ## Switch to production Kubernetes context
 .PHONY: create-dev-secrets
 create-dev-secrets: ## Create development secrets
 	@echo "$(YELLOW)Creating development secrets...$(NC)"
-	kubectl create namespace personae-system --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create namespace ai-persona-system --dry-run=client -o yaml | kubectl apply -f -
 	kubectl create secret generic personae-dev-secrets \
 		--from-literal=clients-db-password=dev-password \
 		--from-literal=templates-db-password=dev-password \
 		--from-literal=auth-db-password=dev-password \
 		--from-literal=jwt-secret=dev-secret \
-		--namespace personae-system --dry-run=client -o yaml | kubectl apply -f -
+		--namespace ai-persona-system --dry-run=client -o yaml | kubectl apply -f -

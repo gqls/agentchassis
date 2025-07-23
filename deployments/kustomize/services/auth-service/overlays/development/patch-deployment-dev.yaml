@@ -1,0 +1,12 @@
+- op: replace
+  path: /spec/replicas
+  value: 1
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: docker.io/aqls/auth-service:latest
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-dev-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-dev-secrets

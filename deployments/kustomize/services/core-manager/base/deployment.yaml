@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: core-manager
-          image: your-container-registry/core-manager:latest # Patched by overlays
+          image: docker.io/aqls/core-manager:latest # Patched by overlays
           ports:
             - containerPort: 8088
               name: http

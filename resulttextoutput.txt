@@ -3,7 +3,7 @@ filepath = ./makefile
 
 ```makefile
 # Project variables
-PROJECT_NAME := personae-system
+PROJECT_NAME := ai-persona-system
 ENVIRONMENT ?= production
 REGION ?= uk001
 REGISTRY ?= registry.personae.io
@@ -12624,7 +12624,7 @@ module "user_frontend_app" {
   source = "../../../../../../modules/kustomize-apply"
 
   service_name     = "user-frontend"
-  namespace        = "personae-system"
+  namespace        = "ai-persona-system"
   image_repository = "aqls/personae-web-interface" # Your frontend image
   image_tag        = var.image_tag
 
@@ -12660,7 +12660,7 @@ filepath = ./deployments/terraform/environments/production/uk001/services/core-p
 resource "kubernetes_config_map_v1" "auth_service_config" {
   metadata {
     name      = "auth-service-config"
-    namespace = "personae-system"
+    namespace = "ai-persona-system"
   }
   data = {
     "auth-service.yaml" = file("../../../../../../../configs/auth-service.yaml")
@@ -12671,7 +12671,7 @@ resource "kubernetes_config_map_v1" "auth_service_config" {
 resource "kubernetes_secret_v1" "auth_service_secrets" {
   metadata {
     name      = "auth-service-secrets"
-    namespace = "personae-system"
+    namespace = "ai-persona-system"
   }
   data = {
     "AUTH_DB_PASSWORD"    = var.db_password
@@ -12684,7 +12684,7 @@ module "auth_service_app" {
   source = "../../../../../../modules/kustomize-apply"
 
   service_name     = "auth-service"
-  namespace        = "personae-system"
+  namespace        = "ai-persona-system"
   image_repository = "aqls/personae-auth-service" # Your image repo
   image_tag        = var.image_tag
 
@@ -13715,7 +13715,7 @@ spec:
 filepath = ./deployments/kustomize/frontends/user-portal/base/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: personae-system
+namespace: ai-persona-system
 resources:
   - deployment.yaml
   - service.yaml
@@ -14392,7 +14392,7 @@ filepath = ./deployments/kustomize/services/agent-chassis/overlays/production/ku
 filepath = ./deployments/kustomize/services/auth-service/base/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: personae-system
+namespace: ai-persona-system
 resources:
   - deployment.yaml
   - service.yaml

@@ -7,6 +7,8 @@ metadata:
   namespace: ai-persona-system
   labels:
     app: ai-persona-system
+imagePullSecrets:
+  - name: docker-hub-creds
 
 ---
 # Role for application access

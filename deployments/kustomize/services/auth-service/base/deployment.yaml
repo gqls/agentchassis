@@ -13,9 +13,10 @@ spec:
       labels:
         app: auth-service
     spec:
+      serviceAccountName: ai-persona-app
       containers:
         - name: auth-service
-          image: your-container-registry/auth-service:latest # This will be patched by overlays
+          image: docker.io/aqls/auth-service:latest # This will be patched by overlays
           ports:
             - containerPort: 8081
               name: http

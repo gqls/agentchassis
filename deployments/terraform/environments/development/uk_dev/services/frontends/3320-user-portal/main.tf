@@ -3,7 +3,7 @@ module "user_frontend_app" {
   source = "../../../../../../modules/kustomize-apply"
 
   service_name     = "user-frontend"
-  namespace        = "personae-system"
+  namespace        = "ai-persona-system"
   image_repository = "aqls/personae-web-interface" # Your frontend image
   image_tag        = var.image_tag
 
