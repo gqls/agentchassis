@@ -24,6 +24,7 @@ terraform import module.storage_buckets_dev.b2_bucket.storage_buckets[\"personae
 terraform import module.storage_buckets_dev.b2_bucket.storage_buckets[\"personae-dev-uk-images\"] d213e2e2a46815de9e8d0917
 terraform import module.storage_buckets_dev.b2_bucket.storage_buckets[\"personae-dev-uk-site-assets\"] 5223e2e2a46815de9e8d0917
 
+
 Option 2: Use different bucket names
 Update your bucket configuration to use unique names. Add a random suffix or your username:
 

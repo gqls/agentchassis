@@ -5,12 +5,12 @@ metadata:
 data:
   # Development Endpoints (for in-cluster services)
   kafka_brokers: "personae-kafka-cluster-kafka-bootstrap.kafka.svc:9092"
-  clients_db_host: "postgres-clients.personae-dev-db.svc.cluster.local"
-  templates_db_host: "postgres-templates.personae-dev-db.svc.cluster.local"
-  auth_db_host: "mysql-auth.personae-dev-db.svc.cluster.local"
-  minio_endpoint: "http://minio.personae-dev-db.svc.cluster.local:9000"
-  core_manager_url: "http://core-manager.personae-dev-db.svc.cluster.local:8088"
-  auth_service_url: "http://auth-service.personae-dev-db.svc.cluster.local:8081"
+  clients_db_host: "postgres-clients.ai-persona-system.svc.cluster.local"
+  templates_db_host: "postgres-templates.ai-persona-system.svc.cluster.local"
+  auth_db_host: "mysql-auth.ai-persona-system.svc.cluster.local"
+  minio_endpoint: "http://minio.ai-persona-system.svc.cluster.local:9000"
+  core_manager_url: "http://core-manager.ai-persona-system.svc.cluster.local:8088"
+  auth_service_url: "http://auth-service.ai-persona-system.svc.cluster.local:8081"
 
   # Development Settings
   tracing_enabled: "false"

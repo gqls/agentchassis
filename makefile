@@ -170,7 +170,7 @@ deploy-infrastructure: ## Deploy all infrastructure components
 	@$(MAKE) deploy-030-strimzi
 	@$(MAKE) deploy-040-kafka
 	@$(MAKE) deploy-045-kafka-users
-	@$(MAKE) deploy-100-base-configs
+	@$(MAKE) deploy-047-base-configs
 	@$(MAKE) deploy-050-storage
 	@$(MAKE) deploy-060-databases
 	@$(MAKE) deploy-070-schemas
@@ -309,10 +309,10 @@ deploy-090-monitoring: ## Deploy monitoring stack
 			terraform apply -auto-approve; \
 		fi
 
-.PHONY: deploy-100-base-configs
-deploy-100-base-configs: ## Deploy base ConfigMaps and Secrets
-	@echo "$(GREEN)Deploying 100-base-configs...$(NC)"
-	@cd $(TERRAFORM_DIR)/100-base-configs && \
+.PHONY: deploy-047-base-configs
+deploy-047-base-configs: ## Deploy base ConfigMaps and Secrets
+	@echo "$(GREEN)Deploying 047-base-configs...$(NC)"
+	@cd $(TERRAFORM_DIR)/047-base-configs && \
 		if [ -f terraform.tfvars.secret ]; then \
 			terraform init && \
 			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \

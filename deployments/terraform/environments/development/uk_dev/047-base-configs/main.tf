@@ -10,7 +10,8 @@ provider "kubernetes" {
   config_context = "kind-personae-dev"
 }
 
-# 1. Explicitly create the namespace using the kubernetes provider.
+# main.tf for 010-infrastructure
+
 resource "kubernetes_namespace" "ai_persona_system" {
   metadata {
     name = "ai-persona-system"
@@ -21,19 +22,18 @@ resource "kubernetes_namespace" "ai_persona_system" {
   }
 }
 
-# 2. Apply the rest of the base configs using Kustomize.
-#    This resource now depends on the namespace being created first.
 module "apply_base_configs" {
   source = "../../../../modules/kustomize-apply"
 
-  # This ensures the namespace is created before this module runs.
   depends_on = [
     kubernetes_namespace.ai_persona_system
   ]
 
-  # Point to the directory containing your new kustomization.yaml
   kustomize_path = "../../../../../kustomize/infrastructure/configs/development"
+
+  # Add the namespace variable here.
+  # We are NOT setting deployment_name, so it will be skipped.
+  namespace      = kubernetes_namespace.ai_persona_system.metadata[0].name
   image_repository = ""
-  namespace = ""
   service_name = ""
 }

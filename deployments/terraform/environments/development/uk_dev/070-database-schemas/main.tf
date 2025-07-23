@@ -51,7 +51,7 @@ data "local_file" "projects_schema_sql" {
 resource "kubernetes_config_map" "sql_migrations" {
   metadata {
     name      = "sql-migrations-${substr(sha1(timestamp()), 0, 8)}"
-    namespace = "personae-dev-db"
+    namespace = "ai-persona-system"
   }
 
   data = {
@@ -67,7 +67,7 @@ resource "kubernetes_config_map" "sql_migrations" {
 resource "kubernetes_job" "postgres_migrations" {
   metadata {
     name      = "postgres-migrations-${substr(sha1(timestamp()), 0, 8)}"
-    namespace = "personae-dev-db"
+    namespace = "ai-persona-system"
   }
 
   spec {
@@ -174,7 +174,7 @@ resource "kubernetes_job" "postgres_migrations" {
 resource "kubernetes_job" "mysql_migrations" {
   metadata {
     name      = "mysql-migrations-${substr(sha1(timestamp()), 0, 8)}"
-    namespace = "personae-dev-db"
+    namespace = "ai-persona-system"
   }
 
   spec {

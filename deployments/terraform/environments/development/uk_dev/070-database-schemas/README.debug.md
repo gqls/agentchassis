@@ -3,6 +3,7 @@ mysql -ucatalogu_agent-chassis -p -hrs17.uk-noc.com catalogu_vectordbdev
 external_mysql_password = "agent-chassis123!"
 # be careful B E  C A R E F U L
 DROP TABLE auth_tokens;
+DROP TABLE auth_tokens;
 DROP TABLE projects;
 DROP TABLE subscriptions;
 DROP TABLE subscription_tiers;
@@ -10,20 +11,26 @@ DROP TABLE user_profiles;
 DROP TABLE user_permissions;
 DROP TABLE permissions;
 DROP TABLE users;
+DROP TABLE users;
+
+1. namespace exists
+   cd deployments/terraform/environments/development/uk_dev/060-databases
+   terraform import kubernetes_namespace.db_namespace ai-persona-system
+
 make ENVIRONMENT=development REGION=uk_dev deploy-010-infrastructure
 
 ---
 
 First, let's verify the secret exists and has the correct values:
 # Check if the secret exists
-kubectl get secret postgres-passwords -n personae-dev-db
+kubectl get secret postgres-passwords -n ai-persona-system
 
 # Decode and check the actual password value
-kubectl get secret postgres-passwords -n personae-dev-db -o jsonpath='{.data.clients-password}' | base64 -d; echo
+kubectl get secret postgres-passwords -n ai-persona-system -o jsonpath='{.data.clients-password}' | base64 -d; echo
 
 Let's also check what password the Postgres database is actually expecting:
 # Check the postgres pod environment
-kubectl exec -n personae-dev-db postgres-clients-dev-0 -- env | grep POSTGRES
+kubectl exec -n ai-persona-system postgres-clients-dev-0 -- env | grep POSTGRES
 
 Check how the postgres module is setting up the database:
 # Look at the postgres instance module
@@ -31,18 +38,18 @@ cat ~/projects/agent-chassis/deployments/terraform/modules/postgres-instance/mai
 
 ---
 
-kubectl -n personae-dev-db get jobs
+kubectl -n ai-persona-system get jobs
 
 # Check the PostgreSQL migration logs
-kubectl logs -n personae-dev-db job/postgres-migrations-80e55012 --all-containers=true
+kubectl logs -n ai-persona-system job/postgres-migrations-80e55012 --all-containers=true
 
 # Check the MySQL migration logs
-kubectl logs -n personae-dev-db job/mysql-migrations-80e55012
+kubectl logs -n ai-persona-system job/mysql-migrations-80e55012
 
 # Check the PostgreSQL secrets
-kubectl get secret -n personae-dev-db postgres-clients-dev-secret -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d
+kubectl get secret -n ai-persona-system postgres-clients-dev-secret -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d
 echo
-kubectl get secret -n personae-dev-db postgres-templates-dev-secret -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d
+kubectl get secret -n ai-persona-system postgres-templates-dev-secret -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d
 echo
 
 
@@ -59,7 +66,7 @@ cd ../070-database-schemas
 terraform apply -auto-approve
 
 --
-kubectl logs -n personae-dev-db job/mysql-migrations-daf34be0
+kubectl logs -n ai-persona-system job/mysql-migrations-daf34be0
 Found 3 pods, using pod/mysql-migrations-daf34be0-sgzm4
 Applying migrations to MySQL database...
 Host: rs17.uk-noc.com

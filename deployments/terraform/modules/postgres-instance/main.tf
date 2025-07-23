@@ -7,9 +7,9 @@ resource "kubernetes_secret" "postgres_secret" {
     }
   }
   data = {
-    "POSTGRES_USER"     = base64encode(var.database_user)
-    "POSTGRES_PASSWORD" = base64encode(var.database_pass)
-    "POSTGRES_DB"       = base64encode(var.database_name)
+    "POSTGRES_USER"     = var.database_user
+    "POSTGRES_PASSWORD" = var.database_pass
+    "POSTGRES_DB"       = var.database_name
   }
   type = "Opaque"
 }

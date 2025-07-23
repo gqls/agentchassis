@@ -1,7 +1,7 @@
 variable "k8s_namespace" {
   description = "The Kubernetes namespace to deploy dev database resources into."
   type        = string
-  default     = "personae-dev-db"
+  default     = "ai-persona-system"
 }
 
 variable "postgres_storage_class" {
