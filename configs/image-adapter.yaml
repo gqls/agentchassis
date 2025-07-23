@@ -1,0 +1,15 @@
+# configs/image-generator-adapter.yaml
+server:
+  http_port: 8080
+  grpc_port: 9090
+  shutdown_timeout: 5s
+
+logger:
+  level: "info"
+  format: "json"
+
+# You will likely need to add specific API keys or other
+# settings for your image generation service here later.
+# For example:
+# stability_api:
+#   api_key: "${STABILITY_API_KEY}"
