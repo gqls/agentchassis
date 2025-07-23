@@ -3,7 +3,7 @@
   value: 1 # Single replica for dev
 - op: replace
   path: /spec/template/spec/containers/0/image
-  value: your-container-registry/reasoning-agent:latest
+  value: aqls/reasoning-agent:latest
 - op: replace
   path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
   value: personae-dev-config
@@ -11,12 +11,12 @@
   path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
   value: personae-dev-secrets
 - op: replace
-  path: /spec/template/spec/resources/requests
+  path: /spec/template/spec/containers/0/resources/requests
   value:
     cpu: "125m"
     memory: "256Mi"
 - op: replace
-  path: /spec/template/spec/resources/limits
+  path: /spec/template/spec/containers/0/resources/limits
   value:
     cpu: "500m"
     memory: "1Gi"

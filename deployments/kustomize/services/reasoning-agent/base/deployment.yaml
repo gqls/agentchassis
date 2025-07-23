@@ -16,6 +16,7 @@ spec:
       containers:
         - name: reasoning-agent
           image: your-container-registry/reasoning-agent:latest # Patched by overlays
+          env: []
           envFrom:
             - configMapRef:
                 name: placeholder-config # Patched by overlays

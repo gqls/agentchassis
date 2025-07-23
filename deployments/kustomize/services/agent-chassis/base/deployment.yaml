@@ -15,7 +15,10 @@ spec:
     spec:
       containers:
         - name: agent-chassis
-          image: your-container-registry/agent-chassis:latest # Patched by overlays
+          image: aqls/agent-chassis:latest # Patched by overlays
+          ports:
+            - containerPort: 8080
+          env: []
           envFrom:
             - configMapRef:
                 name: placeholder-config # Patched by overlays
