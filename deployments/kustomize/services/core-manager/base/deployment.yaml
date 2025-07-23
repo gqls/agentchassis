@@ -21,6 +21,7 @@ spec:
               name: http
             - containerPort: 9091
               name: grpc
+          env: []
           envFrom:
             - configMapRef:
                 name: placeholder-config # Patched by overlays

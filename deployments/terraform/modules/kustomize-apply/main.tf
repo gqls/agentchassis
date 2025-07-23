@@ -17,7 +17,7 @@ resource "null_resource" "apply_kustomization" {
       # This 'if' block makes the image update conditional
       if [ -n "${var.deployment_name}" ]; then
         echo "Setting image for deployment/${var.deployment_name} to :${var.image_tag}"
-        kubectl set image deployment/${var.deployment_name} app=${var.deployment_name}:${var.image_tag} -n ${var.namespace}
+        kubectl set image deployment/${var.deployment_name} app=${var.image_repository}:${var.image_tag} -n ${var.namespace}
 
         echo "Waiting for rollout of deployment/${var.deployment_name}..."
         kubectl rollout status deployment/${var.deployment_name} -n ${var.namespace} --timeout=5m
