@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: ai-persona-system
 resources:
   - ../../base
+  - configmap.yaml
 
 labels:
   - pairs:

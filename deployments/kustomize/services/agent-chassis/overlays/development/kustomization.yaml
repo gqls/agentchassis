@@ -14,3 +14,7 @@ patches:
     target:
       kind: Deployment
       name: agent-chassis
+  - path: patch-env.yaml
+    target:
+      kind: Deployment
+      name: agent-chassis

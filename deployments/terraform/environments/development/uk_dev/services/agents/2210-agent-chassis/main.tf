@@ -6,8 +6,8 @@ terraform {
 }
 
 module "agent_chassis_deployment_dev" {
-  source = "../../../../../modules/kustomize-apply"
+  source = "../../../../../../modules/kustomize-apply"
 
   # Path to the DEVELOPMENT overlay for this service
-  kustomize_path = "../../../../../deployments/kustomize/services/agent-chassis/overlays/development"
+  kustomize_path = "../../../../../development/kustomize/services/agent-chassis/overlays/development"
 }

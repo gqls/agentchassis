@@ -24,6 +24,10 @@ spec:
                 name: placeholder-config # Patched by overlays
             - secretRef:
                 name: placeholder-secrets # Patched by overlays
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs
+              readOnly: true
           resources:
             requests:
               cpu: "100m"
@@ -31,3 +35,7 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+      volumes:
+        - name: config
+          configMap:
+            name: image-adapter-config

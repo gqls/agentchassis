@@ -387,6 +387,16 @@ deploy-agents: ## Deploy all agent services
 	kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(ENVIRONMENT)
 	kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(ENVIRONMENT)
 
+
+.PHONY: redeploy-agents
+redeploy-agents: ## Forces a rolling restart of all agent deployments
+	@echo "$(YELLOW)Forcing rollout restart of agent deployments...$(NC)"
+	kubectl rollout restart deployment agent-chassis -n ai-persona-system
+	kubectl rollout restart deployment reasoning-agent -n ai-persona-system
+	kubectl rollout restart deployment web-search-adapter -n ai-persona-system
+	kubectl rollout restart deployment image-generator-adapter -n ai-persona-system
+
+
 .PHONY: deploy-frontends
 deploy-frontends: ## Deploy all frontend applications
 	@echo "$(YELLOW)Deploying frontend applications...$(NC)"

@@ -1,4 +1,5 @@
-# configs/image-generator-adapter.yaml
+# Default configuration - will be overridden by ConfigMap mount in Kubernetes
+# This file is included in the Docker image as a fallback
 server:
   http_port: 8080
   grpc_port: 9090
@@ -8,8 +9,9 @@ logger:
   level: "info"
   format: "json"
 
-# You will likely need to add specific API keys or other
-# settings for your image generation service here later.
-# For example:
+kafka:
+  brokers: "${KAFKA_BROKERS:-localhost:9092}"  # Default to localhost, expects env var
+
+# API configurations
 # stability_api:
 #   api_key: "${STABILITY_API_KEY}"

@@ -25,6 +25,7 @@ WORKDIR /root/
 
 # Copy the built binary from the builder stage
 COPY --from=builder /app/reasoning-agent .
+COPY configs/reasoning-agent.yaml /app/configs/
 
 # Expose the port the service might use for health checks (if any)
 # EXPOSE 8080

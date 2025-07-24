@@ -1,1 +1,1 @@
-# No# No variables needed as the path is static for this service definition. variables needed as the path is static for this service definition.
+# No# No variables needed as the path is static for this service definition.

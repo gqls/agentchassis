@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-chassis
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+        - name: docker-hub-creds
+      serviceAccountName: ai-persona-app
+      containers:
+        - name: agent-chassis
+          env:
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-dev-secrets
+                  key: clients-db-password
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-dev-secrets
+                  key: templates-db-password
