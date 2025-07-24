@@ -20,7 +20,7 @@ infrastructure:
     - "kafka-2.kafka-headless:9092"
   
   clients_database:
-    host: "postgres-clients.database.svc.cluster.local"
+    host: "postgres-clients-dev.ai-persona-system.svc.cluster.local"
     port: 5432
     user: "clients_user"
     password_env_var: "CLIENTS_DB_PASSWORD"
@@ -28,7 +28,7 @@ infrastructure:
     sslmode: "disable"
   
   templates_database:
-    host: "postgres-templates.database.svc.cluster.local"
+    host: "postgres-templates-dev.ai-persona-system.svc.cluster.local"
     port: 5432
     user: "templates_user"
     password_env_var: "TEMPLATES_DB_PASSWORD"

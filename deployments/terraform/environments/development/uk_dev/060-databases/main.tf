@@ -38,8 +38,8 @@ module "postgres_templates_db_dev" {
 
   instance_name      = "postgres-templates-dev"
   namespace          = var.k8s_namespace
-  database_name      = "templatesdb_dev"
-  database_user      = "templates_user_dev"
+  database_name      = "templates_db"
+  database_user      = "templates_user"
   database_pass      = var.templates_db_password
   storage_class_name = var.postgres_storage_class
   storage_size       = "2Gi" # Smaller size for dev

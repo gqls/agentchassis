@@ -20,3 +20,6 @@
   value:
     cpu: "500m"
     memory: "512Mi"
+- op: add
+  path: /spec/template/spec/serviceAccountName
+  value: ai-persona-app

@@ -249,6 +249,19 @@ destroy-045-kafka-users: ## Destroy Kafka users
 			terraform destroy -auto-approve; \
 		fi
 
+.PHONY: deploy-047-base-configs
+deploy-047-base-configs: ## Deploy base ConfigMaps and Secrets
+	@echo "$(GREEN)Deploying 047-base-configs...$(NC)"
+	@cd $(TERRAFORM_DIR)/047-base-configs && \
+		if [ -f terraform.tfvars.secret ]; then \
+			terraform init && \
+			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			terraform init && \
+			terraform apply -auto-approve; \
+		fi
+
+
 .PHONY: deploy-050-storage
 deploy-050-storage: ## Deploy S3/storage buckets
 	@echo "$(GREEN)Deploying 050-storage...$(NC)"
@@ -309,24 +322,12 @@ deploy-090-monitoring: ## Deploy monitoring stack
 			terraform apply -auto-approve; \
 		fi
 
-.PHONY: deploy-047-base-configs
-deploy-047-base-configs: ## Deploy base ConfigMaps and Secrets
-	@echo "$(GREEN)Deploying 047-base-configs...$(NC)"
-	@cd $(TERRAFORM_DIR)/047-base-configs && \
-		if [ -f terraform.tfvars.secret ]; then \
-			terraform init && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
-		else \
-			terraform init && \
-			terraform apply -auto-approve; \
-		fi
-
 #################################
 # Application Deployment (Terraform Workflow)
 #################################
 # Generic target for deploying any service via Terraform
 .PHONY: deploy-all
-deploy-all: deploy-infrastructure deploy-core deploy-agents deploy-frontends ## Deploy everything
+deploy-all: deploy-infrastructure deploy-core deploy-agents ## deploy-frontends ## Deploy everything
 
 .PHONY: deploy-service
 deploy-service:
@@ -355,7 +356,7 @@ destroy-service:
 
 # Core Platform Services
 .PHONY: deploy-core
-deploy-core: deploy-auth-service deploy-core-manager ## Deploy core platform services using Terraform
+deploy-core: deploy-047-base-configs deploy-auth-service deploy-core-manager ## Deploy core platform services using Terraform
 
 .PHONY: deploy-auth-service
 deploy-auth-service: ## Deploy auth-service using Terraform
@@ -818,8 +819,19 @@ create-dev-secrets: ## Create development secrets
 	@echo "$(YELLOW)Creating development secrets...$(NC)"
 	kubectl create namespace ai-persona-system --dry-run=client -o yaml | kubectl apply -f -
 	kubectl create secret generic personae-dev-secrets \
-		--from-literal=clients-db-password=dev-password \
-		--from-literal=templates-db-password=dev-password \
-		--from-literal=auth-db-password=dev-password \
-		--from-literal=jwt-secret=dev-secret \
-		--namespace ai-persona-system --dry-run=client -o yaml | kubectl apply -f -
+		--from-literal=clients-db-password=dev-clients-password \
+		--from-literal=templates-db-password=dev-templates-password \
+		--from-literal=auth-db-password=agent-chassis123! \
+		--from-literal=minio-access-key=minio \
+		--from-literal=secret-key=minioadmin \
+		--from-literal=JWT_SECRET_KEY=dev-secret \
+		-n ai-persona-system --dry-run=client -o yaml | kubectl apply -f -
+
+#################################
+# ConfigMap Management
+#################################
+.PHONY: create-dev-configs
+create-dev-configs: ## Create development configmaps
+	@echo "$(YELLOW)Creating development configmaps...$(NC)"
+	kubectl create namespace ai-persona-system --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -f deployments/kustomize/infrastructure/configs/development/configmap-dev.yaml -n ai-persona-system

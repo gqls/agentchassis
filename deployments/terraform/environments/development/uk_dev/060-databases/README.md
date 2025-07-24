@@ -1,7 +1,38 @@
 1. namespace exists
-   cd deployments/terraform/environments/development/uk_dev/060-databases
+   cd ~/projects/agent-chassis/deployments/terraform/environments/development/uk_dev/060-databases
    terraform import kubernetes_namespace.db_namespace ai-persona-system
 
+# dev-clients-password
+# agent-chassis123!
+# dev-templates-password
+
+make create-dev-secrets
+# RBAC
+kubectl apply -f deployments/kustomize/base/rbac-security.yaml -n ai-persona-system
+
+cd ~/projects/agent-chassis/deployments/terraform/environments/development/uk_dev/services/core-platform/1120-core-manager 
+terraform taint module.core_manager_deployment_dev.null_resource.apply_kustomization
+
+kubectl -n ai-persona-system get replicaset
+kubectl describe replicaset core-manager-7c589689d -n ai-persona-system
+
+kubectl create secret generic docker-hub-creds \
+-n ai-persona-system \
+--from-file=.dockerconfigjson=$HOME/.docker/config.json \
+--type=kubernetes.io/dockerconfigjson
+
+
+~/.docker/config.json should be
+{
+"auths": {
+"docker.io": {
+"username": "aqls",
+"password": "AaD02432123!",
+"email": "aaa@designconsultancy.co.uk",
+"auth": "YXFsczpBYUQwMjQzMjEyMyE="
+}
+}
+}
 
 4. Check the MySQL migration job logs:
 
@@ -91,3 +122,5 @@ terraform state rm kubernetes_job.mysql_migrations
 
 
 --
+make create-dev-secrets
+kubectl apply -f deployments/kustomize/base/rbac-security.yaml -n ai-persona-system

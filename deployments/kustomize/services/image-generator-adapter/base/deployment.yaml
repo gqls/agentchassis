@@ -13,9 +13,12 @@ spec:
       labels:
         app: image-generator-adapter
     spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
       containers:
         - name: image-generator-adapter
-          image: your-container-registry/image-generator-adapter:latest # Patched by overlays
+          image: docker.io/aqls/image-generator-adapter:latest # Patched by overlays
           envFrom:
             - configMapRef:
                 name: placeholder-config # Patched by overlays

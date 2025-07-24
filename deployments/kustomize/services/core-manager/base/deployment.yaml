@@ -13,6 +13,9 @@ spec:
       labels:
         app: core-manager
     spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
       containers:
         - name: core-manager
           image: docker.io/aqls/core-manager:latest # Patched by overlays

@@ -1,6 +1,10 @@
 docker build -f ./build/docker/backend/auth-service.dockerfile -t aqls/auth-service:latest .
 docker push aqls/auth-service:latest
 
+cd ~/projects/agent-chassis/deployments/terraform/environments/development/uk_dev/services/core-platform/1110-auth-service$ 
+terraform taint module.auth_service_deployment_dev.null_resource.apply_kustomization
+
+make create-dev-secrets
 --
 
 # Set this in your terminal for the current session

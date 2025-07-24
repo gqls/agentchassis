@@ -23,7 +23,7 @@ module "postgres_templates_db" {
 
   instance_name      = "postgres-templates"
   namespace          = var.k8s_namespace
-  database_name      = "templatesdb"
+  database_name      = "templates_db"
   database_user      = "templates_user"
   database_pass      = var.templates_db_password
   storage_class_name = var.postgres_storage_class

@@ -27,7 +27,7 @@ provider "postgresql" {
   alias    = "templates_db_provider"
   host     = data.terraform_remote_state.databases.outputs.postgres_templates_db_endpoint
   port     = 5432
-  database = "templatesdb"
+  database = "templates_db"
   username = "templates_user"
   password = data.terraform_remote_state.databases.outputs.templates_db_password
   sslmode  = "disable" # Change to "require" if you configure SSL

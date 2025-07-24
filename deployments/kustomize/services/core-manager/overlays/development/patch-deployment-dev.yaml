@@ -11,12 +11,15 @@
   path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
   value: personae-dev-secrets
 - op: replace
-  path: /spec/template/spec/resources/requests
+  path: /spec/template/spec/containers/0/resources/requests
   value:
     cpu: "75m"
     memory: "128Mi"
 - op: replace
-  path: /spec/template/spec/resources/limits
+  path: /spec/template/spec/containers/0/resources/limits
   value:
     cpu: "300m"
     memory: "512Mi"
+- op: add
+  path: /spec/template/spec/serviceAccountName
+  value: ai-persona-app

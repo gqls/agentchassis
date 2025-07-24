@@ -1,16 +1,29 @@
-# Add Kafka environment variables
-- op: add
-  path: /spec/template/spec/containers/0/env/-
-  value:
-    name: KAFKA_TOPIC_CREATION_ENABLED
-    value: "true"
-- op: add
-  path: /spec/template/spec/containers/0/env/-
-  value:
-    name: KAFKA_TOPIC_REPLICATION_FACTOR
-    value: "1" # Suitable for single-node dev cluster
-- op: add
-  path: /spec/template/spec/containers/0/env/-
-  value:
-    name: KAFKA_TOPIC_DEFAULT_PARTITIONS
-    value: "1"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core-manager
+spec:
+  template:
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: core-manager
+          env:
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-dev-secrets
+                  key: templates-db-password
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-dev-secrets
+                  key: clients-db-password
+            - name: KAFKA_TOPIC_CREATION_ENABLED
+              value: "true"
+            - name: KAFKA_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TOPIC_DEFAULT_PARTITIONS
+              value: "1"

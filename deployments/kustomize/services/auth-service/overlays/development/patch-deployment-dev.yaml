@@ -10,3 +10,6 @@
 - op: replace
   path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
   value: personae-dev-secrets
+- op: add
+  path: /spec/template/spec/serviceAccountName
+  value: ai-persona-app

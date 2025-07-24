@@ -10,3 +10,7 @@ patches:
     target:
       kind: Deployment
       name: core-manager
+  - path: patch-deployment-dev.yaml
+    target:
+      kind: Deployment
+      name: core-manager

@@ -14,8 +14,11 @@ DROP TABLE users;
 DROP TABLE users;
 
 1. namespace exists
-   cd deployments/terraform/environments/development/uk_dev/060-databases
+   cd ~/projects/agent-chassis/deployments/terraform/environments/development/uk_dev/060-databases
    terraform import kubernetes_namespace.db_namespace ai-persona-system
+# dev-clients-password
+# agent-chassis123!
+# dev-templates-password
 
 make ENVIRONMENT=development REGION=uk_dev deploy-010-infrastructure
 

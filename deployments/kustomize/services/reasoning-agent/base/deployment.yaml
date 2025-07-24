@@ -13,9 +13,12 @@ spec:
       labels:
         app: reasoning-agent
     spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
       containers:
         - name: reasoning-agent
-          image: your-container-registry/reasoning-agent:latest # Patched by overlays
+          image: docker.io/aqls/reasoning-agent:latest # Patched by overlays
           env: []
           envFrom:
             - configMapRef:

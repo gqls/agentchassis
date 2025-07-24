@@ -13,9 +13,12 @@ spec:
       labels:
         app: agent-chassis
     spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
       containers:
         - name: agent-chassis
-          image: aqls/agent-chassis:latest # Patched by overlays
+          image: docker.io/aqls/agent-chassis:latest # Patched by overlays
           ports:
             - containerPort: 8080
           env: []

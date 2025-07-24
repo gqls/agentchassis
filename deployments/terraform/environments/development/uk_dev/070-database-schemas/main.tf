@@ -152,7 +152,7 @@ resource "kubernetes_job" "postgres_migrations" {
             echo "Applying migrations to templates database..."
 
             # Apply templates schema
-            psql -h postgres-templates-dev -U templates_user_dev -d templatesdb_dev -f /migrations/002_create_templates_schema.sql
+            psql -h postgres-templates-dev -U templates_user -d templates_db -f /migrations/002_create_templates_schema.sql
 
             echo "Templates database migrations completed!"
             EOT

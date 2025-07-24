@@ -13,6 +13,8 @@ spec:
       labels:
         app: auth-service
     spec:
+      imagePullSecrets:
+        - name: docker-hub-creds
       serviceAccountName: ai-persona-app
       containers:
         - name: auth-service
