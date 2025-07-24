@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-search-adapter
+spec:
+  template:
+    spec:
+      containers:
+        - name: web-search-adapter
+          env:
+            - name: SCRAPING_BEE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-dev-secrets
+                  key: scraping-bee-key

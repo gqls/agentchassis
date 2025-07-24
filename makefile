@@ -835,7 +835,8 @@ create-dev-secrets: ## Create development secrets
 		--from-literal=minio-access-key=minio \
 		--from-literal=secret-key=minioadmin \
 		--from-literal=JWT_SECRET_KEY=dev-secret \
-		--from-literal=inenv \
+		--from-literal=anthropic-api-key=in-env \
+		--from-literal=scraping-bee-key=TRGRW2OHLFWCHMCLVMD2LJYVR7RFNXV3VS74GCZ8DA4SHDWK0H3KNYPYADR9KCVPBUNCGU4R3F0KKRDW \
 		-n ai-persona-system --dry-run=client -o yaml | kubectl apply -f -
 
 #################################

@@ -142,7 +142,7 @@ get_api_keys() {
     kubectl create secret generic ai-secrets -n ai-persona-system \
         --from-literal=anthropic-api-key="$anthropic_key" \
         --from-literal=stability-api-key="$stability_key" \
-        --from-literal=serp-api-key="$serp_key" \
+        --from-literal=scraping-bee-key="$serp_key" \
         --dry-run=client -o yaml | kubectl apply -f - || {
         print_error "Failed to create AI secrets"
         exit 1

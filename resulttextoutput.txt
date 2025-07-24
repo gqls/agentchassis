@@ -2038,7 +2038,7 @@ get_api_keys() {
     kubectl create secret generic ai-secrets -n ai-persona-system \
         --from-literal=anthropic-api-key="$anthropic_key" \
         --from-literal=stability-api-key="$stability_key" \
-        --from-literal=serp-api-key="$serp_key" \
+        --from-literal=scraping-bee-key="$serp_key" \
         --dry-run=client -o yaml | kubectl apply -f - || {
         print_error "Failed to create AI secrets"
         exit 1
@@ -3113,7 +3113,7 @@ type: Opaque
 stringData:
   anthropic-api-key: "CHANGE_ME"
   stability-api-key: "CHANGE_ME"
-  serp-api-key: "CHANGE_ME"
+  scraping-bee-key: "CHANGE_ME"
 
 ---
 apiVersion: v1
@@ -4260,11 +4260,11 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		return nil, fmt.Errorf("failed to create producer: %w", err)
 	}
 
-	apiKey := os.Getenv("SERP_API_KEY")
+	apiKey := os.Getenv("SCRAPING_BEE_KEY")
 	if apiKey == "" {
 		consumer.Close()
 		producer.Close()
-		return nil, fmt.Errorf("SERP_API_KEY not set")
+		return nil, fmt.Errorf("SCRAPING_BEE_KEY not set")
 	}
 
 	return &Adapter{
@@ -14533,11 +14533,11 @@ spec:
               value: "production"
             - name: LOGGING_LEVEL
               value: "info"
-            - name: SERP_API_KEY
+            - name: SCRAPING_BEE_KEY
               valueFrom:
                 secretKeyRef:
                   name: ai-secrets
-                  key: serp-api-key
+                  key: scraping-bee-key
           envFrom:
             - configMapRef:
                 name: common-config
