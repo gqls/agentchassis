@@ -13,3 +13,15 @@
 - op: add
   path: /spec/template/spec/serviceAccountName
   value: ai-persona-app
+- op: add
+  path: /spec/template/spec/containers/0/command
+  value:
+    - /bin/sh
+    - -c
+    - |
+      echo "=== Environment Variables ==="
+      env | grep -i kafka || echo "No KAFKA env vars"
+      echo "=== Config file ==="
+      cat /app/configs/image-adapter.yaml
+      echo "=== Running application ==="
+      cd /app && ./image-generator-adapter -config configs/image-adapter.yaml

@@ -37,7 +37,7 @@ resource "kubernetes_job" "kafka_system_topics" {
           command = ["/bin/bash", "-c"]
           args = [<<-EOT
             set -ex
-            KAFKA_BROKERS="personae-kafka-cluster-kafka-bootstrap.kafka.svc:9092"
+            KAFKA_BROKERS="personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
             echo "Waiting for Kafka..."
             until kafka-topics --bootstrap-server $KAFKA_BROKERS --list >/dev/null 2>&1; do

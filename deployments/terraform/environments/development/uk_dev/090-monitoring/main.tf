@@ -122,7 +122,7 @@ resource "helm_release" "kafka_exporter" {
 
   values = [<<EOF
 kafkaServer:
-  - personae-kafka-cluster-kafka-bootstrap.kafka.svc:9092
+  - personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
 
 service:
   port: 9308

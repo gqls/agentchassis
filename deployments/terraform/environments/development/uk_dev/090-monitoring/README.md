@@ -25,7 +25,7 @@ Strimzi Kafka Operator
 Kafka Cluster
 
 Single node Kafka with ZooKeeper
-Bootstrap server: personae-kafka-cluster-kafka-bootstrap.kafka.svc:9092
+Bootstrap server: personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
 
 
 Kafka Users
@@ -53,11 +53,11 @@ Test Kafka Connectivity:
 
 # List topics
 kubectl run -it --rm kafka-test --image=strimzi/kafka:latest-kafka-3.9.0 --restart=Never -- \
-bin/kafka-topics.sh --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc:9092 --list
+bin/kafka-topics.sh --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 --list
 
 # Produce a test message
 kubectl run -it --rm kafka-producer --image=strimzi/kafka:latest-kafka-3.9.0 --restart=Never -- \
-bin/kafka-console-producer.sh --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc:9092 \
+bin/kafka-console-producer.sh --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
 --topic system.events
 
 Access Grafana:

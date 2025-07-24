@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reasoning-agent
+spec:
+  template:
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: reasoning-agent
+          env:
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-dev-secrets
+                  # This must match the key in your secrets file
+                  key: anthropic-api-key

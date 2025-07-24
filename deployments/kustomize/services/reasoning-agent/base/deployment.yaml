@@ -19,6 +19,7 @@ spec:
       containers:
         - name: reasoning-agent
           image: docker.io/aqls/reasoning-agent:latest # Patched by overlays
+          command: ["./reasoning-agent", "-config", "configs/reasoning-agent.yaml"]
           env: []
           envFrom:
             - configMapRef:

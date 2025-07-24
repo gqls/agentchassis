@@ -64,13 +64,13 @@ bin/kafka-producer-perf-test.sh --topic test-messages \
 --
 
 (base) ant@aalenovo:~/projects/agent-chassis$ kubectl -n kafka logs kafka-system-topics-init-a649bfa7-xmxhw
-+ KAFKA_BROKERS=personae-kafka-cluster-kafka-bootstrap.kafka.svc:9092
++ KAFKA_BROKERS=personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
 + echo 'Waiting for Kafka...'
   Waiting for Kafka...
-+ kafka-topics --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc:9092 --list
++ kafka-topics --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 --list
 + sleep 5
 
-The kafka-system-topics-init job is running. Its script is stuck in a until loop, repeatedly trying to connect to the Kafka bootstrap service at personae-kafka-cluster-kafka-bootstrap.kafka.svc:9092 and failing every time.
+The kafka-system-topics-init job is running. Its script is stuck in a until loop, repeatedly trying to connect to the Kafka bootstrap service at personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 and failing every time.
 
 kubectl get pods -n kafka
 You should see pods named something like personae-kafka-cluster-kafka-0
