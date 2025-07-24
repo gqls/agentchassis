@@ -4,6 +4,18 @@ docker push aqls/auth-service:latest
 cd ~/projects/agent-chassis/deployments/terraform/environments/development/uk_dev/services/core-platform/1110-auth-service$ 
 terraform taint module.auth_service_deployment_dev.null_resource.apply_kustomization
 
+
+# Inside the network-test pod shell
+kubectl run -it --rm --image=busybox network-test -n ai-persona-system -- sh
+telnet rs17.uk-noc.com 3306
+
+--
+
+kubectl get pods -n ai-persona-system -l app=auth-service
+# Replace <auth-service-pod-name> with the name from the previous command
+kubectl exec auth-service-5dbcf9f85f-2kv7l -n ai-persona-system -- printenv | grep AUTH_DB_PASSWORD
+
+
 make create-dev-secrets
 --
 

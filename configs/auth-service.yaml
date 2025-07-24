@@ -15,13 +15,13 @@ observability:
 
 infrastructure:
   auth_database:
-    host: "mysql-auth.database.svc.cluster.local"
+    host: "rs17.uk-noc.com"
     port: 3306
-    user: "auth_user"
+    user: "catalogu_agent-chassis"
+    db_name: "catalogu_vectordbdev"
     password_env_var: "AUTH_DB_PASSWORD"
-    db_name: "auth_db"
     ssl_mode: "disable"
-  
+
   kafka_brokers: []
   clients_database: {}
   templates_database: {}

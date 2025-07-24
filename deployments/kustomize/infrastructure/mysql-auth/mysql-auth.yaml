@@ -40,9 +40,9 @@ spec:
               name: mysql
           env:
             - name: MYSQL_DATABASE
-              value: "auth_db"
+              value: "catalogu_vectordbdev"
             - name: MYSQL_USER
-              value: "auth_user"
+              value: "catalogu_agent-chassis"
             - name: MYSQL_PASSWORD
               valueFrom:
                 secretKeyRef:

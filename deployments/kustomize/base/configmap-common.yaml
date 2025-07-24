@@ -18,10 +18,10 @@ data:
   templates_db_name: "templates_db"
   templates_db_user: "templates_user"
 
-  auth_db_host: "mysql-auth"
+  auth_db_host: "rs17.uk-noc.com"
   auth_db_port: "3306"
-  auth_db_name: "auth_db"
-  auth_db_user: "auth_user"
+  auth_db_name: "catalogu_vectordbdev"
+  auth_db_user: "catalogu_agent-chassis"
 
   # Object storage
   minio_endpoint: "http://minio:9000"
