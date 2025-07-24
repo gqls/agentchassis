@@ -1,6 +1,6 @@
 1. namespace exists
    cd ~/projects/agent-chassis/deployments/terraform/environments/development/uk_dev/060-databases
-   terraform import kubernetes_namespace.db_namespace ai-persona-system
+   terraform import -var-file="terraform.tfvars.secret" kubernetes_namespace.db_namespace ai-persona-system
 
 # dev-clients-password
 # agent-chassis123!

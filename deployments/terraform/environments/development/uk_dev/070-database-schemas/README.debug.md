@@ -14,8 +14,9 @@ DROP TABLE users;
 DROP TABLE users;
 
 1. namespace exists
+2. terraform force-unlock 78a0e5b1-f27e-4517-dbd5-7807102d60ac
    cd ~/projects/agent-chassis/deployments/terraform/environments/development/uk_dev/060-databases
-   terraform import kubernetes_namespace.db_namespace ai-persona-system
+   terraform import -var-file="terraform.tfvars.secret" kubernetes_namespace.db_namespace ai-persona-system
 # dev-clients-password
 # agent-chassis123!
 # dev-templates-password

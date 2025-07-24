@@ -53,8 +53,8 @@ module "postgres_clients_db_dev" {
 
   instance_name      = "postgres-clients-dev"
   namespace          = var.k8s_namespace
-  database_name      = "clientsdb_dev"
-  database_user      = "clients_user_dev"
+  database_name      = "clients_db"
+  database_user      = "clients_user"
   database_pass      = var.clients_db_password
   storage_class_name = var.postgres_storage_class
   storage_size       = "5Gi" # Smaller size for dev

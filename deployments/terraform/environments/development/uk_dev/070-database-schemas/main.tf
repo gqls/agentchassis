@@ -115,10 +115,10 @@ resource "kubernetes_job" "postgres_migrations" {
             echo "Applying migrations to clients database..."
 
             # Apply pgvector extension
-            psql -h postgres-clients-dev -U clients_user_dev -d clientsdb_dev -f /migrations/001_enable_pgvector.sql
+            psql -h postgres-clients-dev -U clients_user -d clients_db -f /migrations/001_enable_pgvector.sql
 
             # Apply client schema
-            psql -h postgres-clients-dev -U clients_user_dev -d clientsdb_dev -f /migrations/003_create_client_schema.sql
+            psql -h postgres-clients-dev -U clients_user -d clients_db -f /migrations/003_create_client_schema.sql
 
             echo "Clients database migrations completed!"
             EOT
