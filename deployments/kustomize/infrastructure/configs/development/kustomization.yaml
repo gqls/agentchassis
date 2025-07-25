@@ -4,4 +4,3 @@ namespace: ai-persona-system
 
 resources:
   - configmap-dev.yaml
-  - secrets-dev.yaml

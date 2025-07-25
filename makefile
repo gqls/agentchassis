@@ -1,8 +1,12 @@
 # Comprehensive Makefile for Agent-Managed Microservices
 
+# Load environment variables from .env file
+include .env
+export
+
 export TMPDIR := $(HOME)/kind-tmp
 
-# Project variables
+# Project variables - project name is also used for namespaces
 PROJECT_NAME := ai-persona-system
 ENVIRONMENT ?= production
 REGION ?= uk001
@@ -163,7 +167,7 @@ push-frontends: ## Push all frontend images
 # Infrastructure Deployment
 #################################
 .PHONY: deploy-infrastructure
-deploy-infrastructure: ## Deploy all infrastructure components
+deploy-infrastructure: create-dev-secrets ## Deploy all infrastructure components
 	@echo "$(YELLOW)Deploying infrastructure to $(ENVIRONMENT)/$(REGION)...$(NC)"
 	@$(MAKE) deploy-010-infrastructure
 	@$(MAKE) deploy-020-ingress
@@ -250,7 +254,7 @@ destroy-045-kafka-users: ## Destroy Kafka users
 		fi
 
 .PHONY: deploy-047-base-configs
-deploy-047-base-configs: ## Deploy base ConfigMaps and Secrets
+deploy-047-base-configs: create-dev-secrets ## Deploy base ConfigMaps and Secrets
 	@echo "$(GREEN)Deploying 047-base-configs...$(NC)"
 	@cd $(TERRAFORM_DIR)/047-base-configs && \
 		if [ -f terraform.tfvars.secret ]; then \
@@ -263,7 +267,7 @@ deploy-047-base-configs: ## Deploy base ConfigMaps and Secrets
 
 
 .PHONY: deploy-050-storage
-deploy-050-storage: ## Deploy S3/storage buckets
+deploy-050-storage: create-dev-secrets ## Deploy S3/storage buckets
 	@echo "$(GREEN)Deploying 050-storage...$(NC)"
 	@cd $(TERRAFORM_DIR)/050-storage && \
 		if [ -f terraform.tfvars.secret ]; then \
@@ -275,7 +279,7 @@ deploy-050-storage: ## Deploy S3/storage buckets
 		fi
 
 .PHONY: deploy-060-databases
-deploy-060-databases: ## Deploy database instances
+deploy-060-databases: create-dev-secrets ## Deploy database instances
 	@echo "$(GREEN)Deploying 060-databases...$(NC)"
 	@cd $(TERRAFORM_DIR)/060-databases && \
 		if [ -f terraform.tfvars.secret ]; then \
@@ -330,7 +334,7 @@ deploy-090-monitoring: ## Deploy monitoring stack
 deploy-all: deploy-infrastructure deploy-core deploy-agents ## deploy-frontends ## Deploy everything
 
 .PHONY: deploy-service
-deploy-service:
+deploy-service: create-dev-secrets
 	@echo "$(GREEN)Deploying service at $(path)...$(NC)"
 	@cd $(path) && \
 		if [ -f terraform.tfvars.secret ]; then \
@@ -356,14 +360,14 @@ destroy-service:
 
 # Core Platform Services
 .PHONY: deploy-core
-deploy-core: deploy-047-base-configs deploy-auth-service deploy-core-manager ## Deploy core platform services using Terraform
+deploy-core: create-dev-secrets deploy-047-base-configs deploy-auth-service deploy-core-manager ## Deploy core platform services using Terraform
 
 .PHONY: deploy-auth-service
-deploy-auth-service: ## Deploy auth-service using Terraform
+deploy-auth-service: create-dev-secrets ## Deploy auth-service using Terraform
 	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/core-platform/1110-auth-service
 
 .PHONY: deploy-core-manager
-deploy-core-manager: ## Deploy core-manager using Terraform
+deploy-core-manager: create-dev-secrets ## Deploy core-manager using Terraform
 	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/core-platform/1120-core-manager
 
 # Corresponding destroy targets
@@ -380,7 +384,7 @@ destroy-core-manager: ## Destroy core-manager using Terraform
 
 
 .PHONY: deploy-agents
-deploy-agents: ## Deploy all agent services
+deploy-agents: create-dev-secrets ## Deploy all agent services
 	@echo "$(YELLOW)Deploying agent services...$(NC)"
 	kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(ENVIRONMENT)
 	kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(ENVIRONMENT)
@@ -389,7 +393,7 @@ deploy-agents: ## Deploy all agent services
 
 
 .PHONY: redeploy-agents
-redeploy-agents: ## Forces a rolling restart of all agent deployments
+redeploy-agents: create-dev-secrets ## Forces a rolling restart of all agent deployments
 	@echo "$(YELLOW)Forcing rollout restart of agent deployments...$(NC)"
 	kubectl rollout restart deployment agent-chassis -n ai-persona-system
 	kubectl rollout restart deployment reasoning-agent -n ai-persona-system
@@ -421,7 +425,7 @@ deploy-user-portal: ## Deploy user-portal only
 full-deploy: build-all push-all deploy-all ## Build, push, and deploy everything
 
 .PHONY: quick-deploy
-quick-deploy: ## Deploy applications without building (uses existing images)
+quick-deploy: create-dev-secrets ## Deploy applications without building (uses existing images)
 	@echo "$(YELLOW)Quick deployment using existing images...$(NC)"
 	@$(MAKE) deploy-core
 	@$(MAKE) deploy-agents
@@ -825,19 +829,49 @@ use-prod-context: ## Switch to production Kubernetes context
 # Secrets Management
 #################################
 .PHONY: create-dev-secrets
-create-dev-secrets: ## Create development secrets
-	@echo "$(YELLOW)Creating development secrets...$(NC)"
-	kubectl create namespace ai-persona-system --dry-run=client -o yaml | kubectl apply -f -
-	kubectl create secret generic personae-dev-secrets \
-		--from-literal=clients-db-password=dev-clients-password \
-		--from-literal=templates-db-password=dev-templates-password \
-		--from-literal=auth-db-password=agent-chassis123! \
-		--from-literal=minio-access-key=minio \
-		--from-literal=secret-key=minioadmin \
-		--from-literal=JWT_SECRET_KEY=dev-secret \
-		--from-literal=anthropic-api-key=in-env \
-		--from-literal=scraping-bee-key=TRGRW2OHLFWCHMCLVMD2LJYVR7RFNXV3VS74GCZ8DA4SHDWK0H3KNYPYADR9KCVPBUNCGU4R3F0KKRDW \
-		-n ai-persona-system --dry-run=client -o yaml | kubectl apply -f -
+create-dev-secrets: ## Create all development secrets (personae-dev-secrets and docker-hub-creds)
+	@echo "$(YELLOW)Creating development namespace...$(NC)"
+	@kubectl create namespace $(PROJECT_NAME) --dry-run=client -o yaml | kubectl apply -f -
+	@echo "$(YELLOW)Creating personae-dev-secrets...$(NC)"
+	@kubectl create secret generic personae-dev-secrets \
+		--from-literal=clients-db-password=$${CLIENTS_DB_PASSWORD} \
+		--from-literal=templates-db-password=$${TEMPLATES_DB_PASSWORD} \
+		--from-literal=auth-db-password=$${AUTH_DB_PASSWORD} \
+		--from-literal=minio-access-key=$${MINIO_ACCESS_KEY} \
+		--from-literal=secret-key=$${SECRET_KEY} \
+		--from-literal=JWT_SECRET_KEY=$${JWT_SECRET_KEY} \
+		--from-literal=anthropic-api-key=$${ANTHROPIC_API_KEY} \
+		--from-literal=serp-api-key=$${SERP_API_KEY} \
+		--from-literal=stability-api-key=$${STABILITY_API_KEY:-not-a-real-key} \
+		-n $(PROJECT_NAME) --dry-run=client -o yaml | kubectl apply -f -
+	@echo "$(GREEN)✓ personae-dev-secrets created$(NC)"
+	@echo "$(YELLOW)Creating docker-hub-creds secret...$(NC)"
+	@kubectl create secret docker-registry docker-hub-creds \
+		--namespace=$(PROJECT_NAME) \
+		--docker-server=docker.io \
+		--docker-username=$${DOCKER_USERNAME} \
+		--docker-password=$${DOCKER_PASSWORD} \
+		--docker-email=$${DOCKER_EMAIL} \
+		--dry-run=client -o yaml | kubectl apply -f -
+	@echo "$(GREEN)✓ docker-hub-creds created$(NC)"
+	@echo "$(GREEN)All development secrets created successfully!$(NC)"
+
+# Delete all development secrets
+.PHONY: delete-dev-secrets
+delete-dev-secrets: ## Delete all development secrets
+	@echo "$(YELLOW)Deleting development secrets...$(NC)"
+	@kubectl delete secret personae-dev-secrets -n $(PROJECT_NAME) --ignore-not-found
+	@kubectl delete secret docker-hub-creds -n $(PROJECT_NAME) --ignore-not-found
+	@echo "$(GREEN)Development secrets deleted$(NC)"
+
+# Verify all development secrets
+.PHONY: verify-dev-secrets
+verify-dev-secrets: ## Verify all development secrets exist
+	@echo "$(YELLOW)Verifying development secrets...$(NC)"
+	@kubectl get secret personae-dev-secrets -n $(PROJECT_NAME) -o name && echo "$(GREEN)✓ personae-dev-secrets exists$(NC)" || echo "$(RED)✗ personae-dev-secrets missing$(NC)"
+	@kubectl get secret docker-hub-creds -n $(PROJECT_NAME) -o name && echo "$(GREEN)✓ docker-hub-creds exists$(NC)" || echo "$(RED)✗ docker-hub-creds missing$(NC)"
+	@echo "$(YELLOW)Docker registry config:$(NC)"
+	@kubectl get secret docker-hub-creds -n $(PROJECT_NAME) -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d | jq -r '.auths."docker.io" | {username, email}' || true
 
 #################################
 # ConfigMap Management
