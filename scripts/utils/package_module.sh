@@ -77,6 +77,13 @@ ALL_COMPONENTS=(
     "agent-reasoning-only"
     "agent-adapters"
 
+    # Agent debugging contexts
+    "agent-chassis-full"
+    "reasoning-agent-full"
+    "web-search-adapter-full"
+    "image-generator-adapter-full"
+    "agents-interaction-kafka"
+
     # Database and migrations
     "database-schemas"
     "database-auth"
@@ -271,6 +278,13 @@ function show_help() {
   echo "    agent-framework          # Agent base classes and orchestration"
   echo "    agent-reasoning-only     # Just reasoning agent implementation"
   echo "    agent-adapters           # Web search and image adapter code"
+  echo ""
+  echo "  AGENT DEBUGGING:"
+  echo "    agent-chassis-full"
+  echo "    reasoning-agent-full"
+  echo "    web-search-adapter-full"
+  echo "    image-generator-adapter-full"
+  echo "    agents-interaction-kafka"
   echo ""
   echo "  DATABASE & MIGRATIONS:"
   echo "    database-schemas         # All migration files and seed data"
@@ -665,6 +679,89 @@ case "$COMPONENT_NAME" in
       "internal/adapters/"
     )
     MODULE_FILES=( "configs/web-search-adapter.yaml" "go.mod" )
+    ;;
+
+
+  # --- Agent-Specific Debugging ---
+  agent-chassis-full)
+    MODULE_DIRS=(
+      "cmd/agent-chassis/"
+      "internal/agents/"
+      "configs/"
+      "deployments/kustomize/services/agent-chassis/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/agents/2210-agent-chassis/"
+      "platform/agentbase/"
+      "platform/kafka/"
+      "platform/messaging/"
+      "platform/database/"
+    )
+    MODULE_FILES=( "makefile" "build/docker/backend/agent-chassis.dockerfile" )
+    ;;
+
+  reasoning-agent-full)
+    MODULE_DIRS=(
+      "cmd/reasoning-agent/"
+      "internal/agents/reasoning/"
+      "deployments/kustomize/services/reasoning-agent/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/agents/2220-reasoning-agent/"
+      "platform/agentbase/"
+      "platform/kafka/"
+      "platform/messaging/"
+    )
+    MODULE_FILES=(
+      "makefile"
+      "build/docker/backend/reasoning-agent.dockerfile"
+      "configs/reasoning-agent.yaml"
+    )
+    ;;
+
+  web-search-adapter-full)
+    MODULE_DIRS=(
+      "cmd/web-search-adapter/"
+      "internal/adapters/websearch/"
+      "deployments/kustomize/services/web-search-adapter/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/agents/2230-web-search-adapter/"
+      "platform/agentbase/"
+      "platform/kafka/"
+      "platform/messaging/"
+    )
+    MODULE_FILES=(
+      "makefile"
+      "build/docker/backend/web-search-adapter.dockerfile"
+      "configs/web-search-adapter.yaml"
+    )
+    ;;
+
+  image-generator-adapter-full)
+    MODULE_DIRS=(
+      "cmd/image-generator-adapter/"
+      "internal/adapters/imagegenerator/"
+      "deployments/kustomize/services/image-generator-adapter/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/agents/2240-image-generator-adapter/"
+      "platform/agentbase/"
+      "platform/kafka/"
+      "platform/messaging/"
+    )
+    MODULE_FILES=(
+      "makefile"
+      "build/docker/backend/image-generator-adapter.dockerfile"
+      "configs/image-generator-adapter.yaml"
+    )
+    ;;
+
+  agents-interaction-kafka)
+    MODULE_DIRS=(
+      "cmd/core-manager/"
+      "internal/core-manager/"
+      "cmd/agent-chassis/"
+      "cmd/reasoning-agent/"
+      "cmd/web-search-adapter/"
+      "cmd/image-generator-adapter/"
+      "platform/kafka/"
+      "platform/messaging/"
+      "platform/contracts/"
+    )
+    MODULE_FILES=( "configs/core-manager.yaml" "configs/kafka_topics.yaml" )
     ;;
 
   # --- Database and Migrations ---
