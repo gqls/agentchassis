@@ -546,11 +546,16 @@ case "$COMPONENT_NAME" in
 
   infra-kafka-stack)
     MODULE_DIRS=(
-      "deployments/terraform/modules/strimzi-operator/"
-      "deployments/terraform/modules/kafka-cluster/"
       "deployments/terraform/environments/$ENVIRONMENT/$REGION/030-strimzi-operator/"
       "deployments/terraform/environments/$ENVIRONMENT/$REGION/040-kafka-cluster/"
-      "deployments/kustomize/infrastructure/kafka/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/045-kafka-users/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/080-kafka-topics/"
+      "deployments/terraform/modules/strimzi-operator/"
+      "deployments/terraform/modules/kafka-cluster/"
+      "deployments/terraform/modules/kafka_topics/"
+      # --- KRAFT DEBUGGING ---
+      "deployments/terraform/modules/strimzi-operator/strimzi-yaml-0.45.0/"
+      "deployments/terraform/modules/kafka-cluster/config/"
     )
     MODULE_FILES=("Makefile")
     ;;
