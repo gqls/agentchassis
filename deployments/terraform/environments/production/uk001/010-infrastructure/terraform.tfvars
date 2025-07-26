@@ -1,6 +1,6 @@
 # terraform/environments/production/uk/uk001/010-infrastructure/terraform.tfvars
 
-instance_cluster_name           = "uk001-prod-cluster"
+instance_cluster_name           = "uk001-prod-agent-chassis-cluster"
 instance_rackspace_region       = "uk-lon-1"
 instance_ondemand_node_flavor = "mh.vs1.medium-lon"
 instance_spot_node_flavor     = "gp.vs1.large-lon" #mh.vs1.medium-lon has much more memory gp. is general

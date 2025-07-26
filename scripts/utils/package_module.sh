@@ -23,7 +23,8 @@ cd "$PROJECT_ROOT"
 # --- Configuration ---
 DEFAULT_OUTPUT_DIR=$SCRIPT_DIR"/output_contexts"
 # Default to development, allow override via flag
-ENVIRONMENT="development"
+#ENVIRONMENT="development"
+ENVIRONMENT="production"
 REGION="uk_dev" # Assuming 'uk_dev' for development environment
 
 # --- Component List ---
@@ -39,6 +40,9 @@ ALL_COMPONENTS=(
     "core-manager"
     "agent-chassis"
     "reasoning-agent"
+    "web-search-adapter-full"
+    "image-generator-adapter-full"
+
     "user-frontend"
     "admin-dashboard"
     "agent-playground"
@@ -52,7 +56,6 @@ ALL_COMPONENTS=(
     "infra-kustomize-kafka-instance" # Kustomize manifests for the Kafka cluster
     "infra-kustomize-ingress"        # Kustomize manifests for NGINX Ingress
 
-
     # Frontend development
     "frontend-user-portal-only"
     "frontend-admin-only"
@@ -60,7 +63,7 @@ ALL_COMPONENTS=(
     "frontend-shared-components"
     "frontend-all-apps"
 
-    # Backend APIs
+    # Backend API slices
     "api-auth-only"
     "api-core-only"
     "api-agents-only"
@@ -104,6 +107,18 @@ ALL_COMPONENTS=(
     "test-integration"
     "test-e2e"
     "test-all"
+
+    # GRANULAR CONTEXTS ---
+    "deploy-all-kustomize"
+    "deploy-all-terraform"
+    "tf-module-database"
+    "tf-module-kafka"
+    "tf-module-k8s-util"
+    "tf-module-cloud"
+    "tf-stack-strimzi-operator"
+    "tf-stack-kafka-cluster"
+    "tf-stack-kafka-config"
+
 )
 
 # --- Main Functions ---
@@ -337,7 +352,7 @@ if [ "$COMPONENT_NAME" = "all" ]; then
     eval $CMD
 
     # Display the file size for the component just created
-    COMPONENT_FILE="${OUTPUT_DIR}/${component}_context.txt"
+    COMPONENT_FILE="${OUTPUT_DIR}/${ENVIRONMENT}_${component}_context.txt"
     if [ -f "$COMPONENT_FILE" ]; then
       FILE_SIZE=$(du -h "$COMPONENT_FILE" | cut -f1)
       echo "    📦 File size: $FILE_SIZE"
@@ -349,10 +364,10 @@ if [ "$COMPONENT_NAME" = "all" ]; then
   echo ""
   echo "Summary of generated files:"
   for component in "${ALL_COMPONENTS[@]}"; do
-    COMPONENT_FILE="${OUTPUT_DIR}/${component}_context.txt"
+    COMPONENT_FILE="${OUTPUT_DIR}/${ENVIRONMENT}_${component}_context.txt"
     if [ -f "$COMPONENT_FILE" ]; then
       FILE_SIZE=$(du -h "$COMPONENT_FILE" | cut -f1)
-      printf "  %-35s %10s\n" "${component}_context.txt" "$FILE_SIZE"
+      printf "  %-35s %10s\n" "${ENVIRONMENT}_${component}_context.txt" "$FILE_SIZE"
     fi
   done
   exit 0
@@ -412,7 +427,7 @@ if [ "$COMPONENT_NAME" = "all-in-one" ]; then
 fi
 
 mkdir -p "$OUTPUT_DIR"
-OUTPUT_FILE="${OUTPUT_DIR}/${COMPONENT_NAME}_context.txt"
+OUTPUT_FILE="${OUTPUT_DIR}/${ENVIRONMENT}_${COMPONENT_NAME}_context.txt"
 > "$OUTPUT_FILE"
 
 echo "Packaging component '$COMPONENT_NAME' for environment '$ENVIRONMENT' into $OUTPUT_FILE..."
@@ -812,6 +827,72 @@ case "$COMPONENT_NAME" in
       "deployments/kustomize/frontends/"
       "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/frontends/"
     )
+    ;;
+
+  # --- Granular Breakdowns ---
+  deploy-all-kustomize)
+    MODULE_DIRS=( "deployments/kustomize/" )
+    MODULE_FILES=( "makefile" )
+    ;;
+
+  deploy-all-terraform)
+    MODULE_DIRS=( "deployments/terraform/" )
+    MODULE_FILES=( "makefile" )
+    ;;
+
+  tf-module-database)
+    MODULE_DIRS=(
+      "deployments/terraform/modules/postgres-instance/"
+      "deployments/terraform/modules/mysql-instance/"
+    )
+    ;;
+
+  tf-module-kafka)
+    MODULE_DIRS=(
+      "deployments/terraform/modules/strimzi-operator/"
+      "deployments/terraform/modules/kafka-cluster/"
+      "deployments/terraform/modules/kafka_topics/"
+    )
+    ;;
+
+  tf-module-k8s-util)
+    MODULE_DIRS=(
+      "deployments/terraform/modules/kustomize-apply/"
+      "deployments/terraform/modules/nginx-ingress/"
+      "deployments/terraform/modules/k8s-job-runner/"
+    )
+    ;;
+
+  tf-module-cloud)
+    MODULE_DIRS=(
+      "deployments/terraform/modules/rackspace-kubernetes/"
+      "deployments/terraform/modules/s3-buckets/"
+    )
+    ;;
+
+  tf-stack-strimzi-operator)
+    MODULE_DIRS=(
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/030-strimzi-operator/"
+      "deployments/terraform/modules/strimzi-operator/"
+    )
+    MODULE_FILES=( "makefile" )
+    ;;
+
+  tf-stack-kafka-cluster)
+    MODULE_DIRS=(
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/040-kafka-cluster/"
+      "deployments/terraform/modules/kafka-cluster/"
+    )
+    MODULE_FILES=( "makefile" )
+    ;;
+
+  tf-stack-kafka-config)
+    MODULE_DIRS=(
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/045-kafka-users/"
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/080-kafka-topics/"
+      "deployments/terraform/modules/kafka_topics/"
+    )
+    MODULE_FILES=( "makefile" )
     ;;
 
   # --- Development Tools ---

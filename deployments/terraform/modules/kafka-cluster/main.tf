@@ -1,16 +1,32 @@
-resource "null_resource" "apply_kafka_cluster_cr" {
-  triggers = {
-    yaml_file_sha1 = fileexists(var.kafka_cr_yaml_file_path) ? filesha1(var.kafka_cr_yaml_file_path) : ""
-    # Adding context and namespace to triggers to ensure re-apply if they change for some reason
-    context_trigger   = var.kube_context_name
-    namespace_trigger = var.kafka_cr_namespace
-  }
+# Create the KafkaNodePool if using node pools
+resource "kubernetes_manifest" "kafka_nodepool" {
+  count = var.use_node_pools ? 1 : 0
 
-  provisioner "local-exec" {
-    command = "kubectl --kubeconfig=${var.kubeconfig_path} --context=${var.kube_context_name} apply --namespace ${var.kafka_cr_namespace} --filename ${var.kafka_cr_yaml_file_path}"
-    # The KUBECONFIG env var is redundant if --kubeconfig is used in the command, but harmless.
-    environment = {
-      KUBECONFIG = var.kubeconfig_path
-    }
-  }
+  manifest = yamldecode(templatefile("${path.module}/templates/kafka-nodepool.yaml.tpl", {
+    pool_name      = var.node_pool_name
+    cluster_name   = var.kafka_cluster_name
+    namespace      = var.kafka_namespace
+    replicas       = var.node_pool_replicas
+    storage_size   = var.node_pool_storage_size
+    storage_class  = var.storage_class
+    delete_claim   = var.delete_claim
+  }))
+}
+
+# Create the Kafka cluster
+resource "kubernetes_manifest" "kafka_cluster" {
+  depends_on = [kubernetes_manifest.kafka_nodepool]
+
+  manifest = yamldecode(templatefile("${path.module}/templates/kafka-cluster.yaml.tpl", {
+    cluster_name        = var.kafka_cluster_name
+    namespace           = var.kafka_namespace
+    kafka_version       = var.kafka_version
+    use_node_pools      = var.use_node_pools
+    replicas            = var.use_node_pools ? null : var.replicas
+    replication_factor  = var.replication_factor
+    min_insync_replicas = var.min_insync_replicas
+    storage_size        = var.use_node_pools ? null : var.storage_size
+    storage_class       = var.storage_class
+    delete_claim        = var.delete_claim
+  }))
 }

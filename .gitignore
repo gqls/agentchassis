@@ -36,6 +36,8 @@ config_staging_*
 # Environment variables and secrets
 .env
 .env.*
+.env.prod
+.env.production
 *.env
 !.env.example
 secrets/
