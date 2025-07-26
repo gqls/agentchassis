@@ -88,104 +88,12 @@ resource "null_resource" "patch_strimzi_namespaces" {
     command = <<-EOT
       echo "Patching Strimzi operator to watch namespaces: ${join(",", var.watched_namespaces_list)}"
 
-      # Patch the deployment to set the correct watched namespaces
-      kubectl patch deployment strimzi-cluster-operator -n ${var.operator_namespace} --type='json' \
-        -p='[
-          {
-            "op": "replace",
-            "path": "/spec/template/spec/containers/0/env",
-            "value": [
-              {
-                "name": "STRIMZI_NAMESPACE",
-                "value": "${join(",", var.watched_namespaces_list)}"
-              },
-              {
-                "name": "STRIMZI_FULL_RECONCILIATION_INTERVAL_MS",
-                "value": "120000"
-              },
-              {
-                "name": "STRIMZI_OPERATION_TIMEOUT_MS",
-                "value": "300000"
-              },
-              {
-                "name": "STRIMZI_DEFAULT_KAFKA_EXPORTER_IMAGE",
-                "value": "quay.io/strimzi/kafka:0.47.0-kafka-4.0.0"
-              },
-              {
-                "name": "STRIMZI_DEFAULT_CRUISE_CONTROL_IMAGE",
-                "value": "quay.io/strimzi/kafka:0.47.0-kafka-4.0.0"
-              },
-              {
-                "name": "STRIMZI_KAFKA_IMAGES",
-                "value": "3.9.0=quay.io/strimzi/kafka:0.47.0-kafka-3.9.0\n3.9.1=quay.io/strimzi/kafka:0.47.0-kafka-3.9.1\n4.0.0=quay.io/strimzi/kafka:0.47.0-kafka-4.0.0"
-              },
-              {
-                "name": "STRIMZI_KAFKA_CONNECT_IMAGES",
-                "value": "3.9.0=quay.io/strimzi/kafka:0.47.0-kafka-3.9.0\n3.9.1=quay.io/strimzi/kafka:0.47.0-kafka-3.9.1\n4.0.0=quay.io/strimzi/kafka:0.47.0-kafka-4.0.0"
-              },
-              {
-                "name": "STRIMZI_KAFKA_MIRROR_MAKER_2_IMAGES",
-                "value": "3.9.0=quay.io/strimzi/kafka:0.47.0-kafka-3.9.0\n3.9.1=quay.io/strimzi/kafka:0.47.0-kafka-3.9.1\n4.0.0=quay.io/strimzi/kafka:0.47.0-kafka-4.0.0"
-              },
-              {
-                "name": "STRIMZI_DEFAULT_TOPIC_OPERATOR_IMAGE",
-                "value": "quay.io/strimzi/operator:0.47.0"
-              },
-              {
-                "name": "STRIMZI_DEFAULT_USER_OPERATOR_IMAGE",
-                "value": "quay.io/strimzi/operator:0.47.0"
-              },
-              {
-                "name": "STRIMZI_DEFAULT_KAFKA_INIT_IMAGE",
-                "value": "quay.io/strimzi/operator:0.47.0"
-              },
-              {
-                "name": "STRIMZI_DEFAULT_KAFKA_BRIDGE_IMAGE",
-                "value": "quay.io/strimzi/kafka-bridge:0.32.0"
-              },
-              {
-                "name": "STRIMZI_DEFAULT_KANIKO_EXECUTOR_IMAGE",
-                "value": "quay.io/strimzi/kaniko-executor:0.47.0"
-              },
-              {
-                "name": "STRIMZI_DEFAULT_MAVEN_BUILDER",
-                "value": "quay.io/strimzi/maven-builder:0.47.0"
-              },
-              {
-                "name": "STRIMZI_OPERATOR_NAMESPACE",
-                "value": "${join(",", var.watched_namespaces_list)}"
-              },
-              {
-                "name": "STRIMZI_FEATURE_GATES",
-                "value": ""
-              },
-              {
-                "name": "STRIMZI_LEADER_ELECTION_ENABLED",
-                "value": "true"
-              },
-              {
-                "name": "STRIMZI_LEADER_ELECTION_LEASE_NAME",
-                "value": "strimzi-cluster-operator"
-              },
-              {
-                "name": "STRIMZI_LEADER_ELECTION_LEASE_NAMESPACE",
-                "valueFrom": {
-                  "fieldRef": {
-                    "fieldPath": "metadata.namespace"
-                  }
-                }
-              },
-              {
-                "name": "STRIMZI_LEADER_ELECTION_IDENTITY",
-                "valueFrom": {
-                  "fieldRef": {
-                    "fieldPath": "metadata.name"
-                  }
-                }
-              }
-            ]
-          }
-        ]'
+      # Wait for deployment to be ready first
+      kubectl wait --for=condition=available --timeout=300s deployment/strimzi-cluster-operator -n ${var.operator_namespace} || true
+
+      # Patch only the STRIMZI_NAMESPACE environment variable
+      kubectl set env deployment/strimzi-cluster-operator -n ${var.operator_namespace} \
+        STRIMZI_NAMESPACE="${join(",", var.watched_namespaces_list)}"
 
       # Wait for rollout to complete
       kubectl rollout status deployment/strimzi-cluster-operator -n ${var.operator_namespace} --timeout=300s
