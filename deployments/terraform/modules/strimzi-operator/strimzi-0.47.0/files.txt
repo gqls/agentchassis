@@ -1,0 +1,35 @@
+.:
+total 1200
+drwxr-xr-x 2 ant ant   4096 Jul 25 20:35 .
+drwxrwxr-x 3 ant ant   4096 Jul 25 20:35 ..
+-rw-r--r-- 1 ant ant    116 Jul 15 14:50 000-Namespace.yaml
+-rw-r--r-- 1 ant ant    106 Jul 15 14:50 010-ServiceAccount-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant   4696 Jul 15 14:50 020-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    333 Jul 25 19:20 020-RoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant    336 Jul 25 19:20 021-ClusterRoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant   1149 Jul 15 14:50 021-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    937 Jul 15 14:50 022-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    354 Jul 25 19:20 022-RoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant   2301 Jul 15 14:50 023-ClusterRole-strimzi-cluster-operator-role.yaml
+-rw-r--r-- 1 ant ant    338 Jul 25 19:20 023-RoleBinding-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant    587 Jul 25 19:20 030-ClusterRoleBinding-strimzi-cluster-operator-kafka-broker-delegation.yaml
+-rw-r--r-- 1 ant ant    396 Jul 15 14:50 030-ClusterRole-strimzi-kafka-broker.yaml
+-rw-r--r-- 1 ant ant   1363 Jul 15 14:50 031-ClusterRole-strimzi-entity-operator.yaml
+-rw-r--r-- 1 ant ant    591 Jul 25 19:20 031-RoleBinding-strimzi-cluster-operator-entity-operator-delegation.yaml
+-rw-r--r-- 1 ant ant    634 Jul 25 19:20 033-ClusterRoleBinding-strimzi-cluster-operator-kafka-client-delegation.yaml
+-rw-r--r-- 1 ant ant    471 Jul 15 14:50 033-ClusterRole-strimzi-kafka-client.yaml
+-rw-r--r-- 1 ant ant 496337 Jul 25 19:20 040-Crd-kafka.yaml
+-rw-r--r-- 1 ant ant 144053 Jul 15 14:50 041-Crd-kafkaconnect.yaml
+-rw-r--r-- 1 ant ant   5170 Jul 15 14:50 042-Crd-strimzipodset.yaml
+-rw-r--r-- 1 ant ant  18034 Jul 15 14:50 043-Crd-kafkatopic.yaml
+-rw-r--r-- 1 ant ant  38648 Jul 15 14:50 044-Crd-kafkauser.yaml
+-rw-r--r-- 1 ant ant  65022 Jul 15 14:50 045-Crd-kafkanodepool.yaml
+-rw-r--r-- 1 ant ant  81449 Jul 15 14:50 046-Crd-kafkabridge.yaml
+-rw-r--r-- 1 ant ant   7373 Jul 15 14:50 047-Crd-kafkaconnector.yaml
+-rw-r--r-- 1 ant ant 148700 Jul 15 14:50 048-Crd-kafkamirrormaker2.yaml
+-rw-r--r-- 1 ant ant   9052 Jul 15 14:50 049-Crd-kafkarebalance.yaml
+-rw-r--r-- 1 ant ant  18034 Jul 15 14:50 04-Crd-kafkatopic.yaml
+-rw-r--r-- 1 ant ant    801 Jul 15 14:50 050-ConfigMap-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant   4264 Jul 25 18:52 060-Deployment-strimzi-cluster-operator.yaml
+-rw-r--r-- 1 ant ant  80586 Jul 15 14:50 CHANGELOG.md
+-rw-rw-r-- 1 ant ant      0 Jul 25 20:35 files.txt
