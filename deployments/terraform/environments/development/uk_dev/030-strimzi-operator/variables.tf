@@ -19,14 +19,14 @@ variable "strimzi_operator_dev_namespace" {
 variable "watched_namespaces_dev" {
   description = "List of namespaces for the Strimzi operator to watch in dev."
   type        = list(string)
-  default     = ["kafka", "personae"] // Strimzi will watch 'kafka' for Kafka CRs and 'personae' if KafkaUsers are there
+  default     = ["kafka", "personae", "strimzi"] // Strimzi will watch 'kafka' for Kafka CRs and 'personae' if KafkaUsers are there
 }
 
 variable "strimzi_yaml_bundle_path_dev" {
   description = "Path to the Strimzi YAML files directory for dev."
   type        = string
   # Path relative to this file's directory, pointing to the module's shared Strimzi YAMLs
-  default     = "../../../../modules/strimzi-operator/strimzi-yaml-0.45.0/"
+  default     = "../../../../modules/strimzi-operator/strimzi-0.47.0/"
 }
 
 variable "strimzi_operator_deployment_yaml_filename_dev" {

@@ -21,5 +21,5 @@ variable "strimzi_yaml_bundle_path_for_uk001" { // Changed from _for_sydney
   description = "Path to the Strimzi YAML files directory for this instance."
   type        = string
   # This relative path should still be correct from the new uk001 directory
-  default     = "../../../../modules/strimzi-operator/strimzi-yaml-0.45.0/"
+  default     = "../../../../modules/strimzi-operator/strimzi-0.47.0/"
 }

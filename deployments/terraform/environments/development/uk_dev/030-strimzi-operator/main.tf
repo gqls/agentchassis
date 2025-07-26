@@ -35,3 +35,4 @@ module "strimzi_operator" {
     kubernetes_namespace.personae_app_ns
   ]
 }
+

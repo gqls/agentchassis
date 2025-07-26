@@ -1,9 +1,17 @@
-module "kafka_cluster_dev" {
-  source = "../../../../modules/kafka-cluster"
+# Create the KafkaNodePool first
+resource "kubernetes_manifest" "kafka_nodepool" {
+  manifest = yamldecode(templatefile("${path.module}/../../../../modules/kafka-cluster/config/kafka-nodepool-cr-dev.yaml", {
+    cluster_name = var.kafka_cluster_name_dev
+    namespace    = var.kafka_namespace_dev
+  }))
+}
 
-  kubeconfig_path         = abspath(pathexpand(var.kubeconfig_path))
-  kube_context_name       = var.kube_context_name    // Pass the dev context name
-  kafka_cr_namespace      = var.kafka_namespace_dev
-  kafka_cr_yaml_file_path = var.kafka_cluster_cr_yaml_path_dev
-  kafka_cr_cluster_name   = var.kafka_cluster_name_dev
+# Then create the Kafka cluster
+resource "kubernetes_manifest" "kafka_cluster" {
+  depends_on = [kubernetes_manifest.kafka_nodepool]
+
+  manifest = yamldecode(templatefile("${path.module}/../../../../modules/kafka-cluster/config/kafka-cluster-cr-dev.yaml", {
+    cluster_name = var.kafka_cluster_name_dev
+    namespace    = var.kafka_namespace_dev
+  }))
 }

@@ -5,9 +5,9 @@ variable "kind_cluster_name" {
 }
 
 variable "kind_node_image" {
-  description = "Node image for Kind cluster (e.g., kindest/node:v1.27.3)."
+  description = "Node image for Kind cluster (e.g., kindest/node:v1.30.10)."
   type        = string
-  default     = "kindest/node:v1.27.3" # Choose a version
+  default     = "kindest/node:v1.30.10" # Choose a version
 }
 
 variable "kind_config_path" {

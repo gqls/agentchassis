@@ -9,7 +9,7 @@ variable "watched_namespaces_list" {
 }
 
 variable "strimzi_yaml_source_path" {
-  description = "Path to the directory containing the Strimzi YAML files to apply (e.g., ./strimzi-yaml-0.45.0/install/cluster-operator/)."
+  description = "Path to the directory containing the Strimzi YAML files to apply (e.g., ./strimzi-0.47.0/install/cluster-operator/)."
   type        = string
 }
 

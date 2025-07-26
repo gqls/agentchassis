@@ -554,7 +554,7 @@ case "$COMPONENT_NAME" in
       "deployments/terraform/modules/kafka-cluster/"
       "deployments/terraform/modules/kafka_topics/"
       # --- KRAFT DEBUGGING ---
-      "deployments/terraform/modules/strimzi-operator/strimzi-yaml-0.45.0/"
+      "deployments/terraform/modules/strimzi-operator/strimzi-0.47.0/"
       "deployments/terraform/modules/kafka-cluster/config/"
     )
     MODULE_FILES=("Makefile")

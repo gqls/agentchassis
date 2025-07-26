@@ -16,7 +16,7 @@ find . -type f \
 		-not -path "*/docs/*" \
 		-not -path "./projects/*" \
 		-not -path "*/gateway/templates/*" \
-		-not -path "*/strimzi-yaml-0.45.0/*" \
+		-not -path "*/strimzi-0.47.0/*" \
 		-not -path "*/production/sydney/*" \
     -print0 | \
 while IFS= read -r -d $'\0' file; do

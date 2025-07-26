@@ -1,4 +1,4 @@
-The file [060-Deployment-strimzi-cluster-operator.yaml](strimzi-yaml-0.45.0/060-Deployment-strimzi-cluster-operator.yaml)
+The file [060-Deployment-strimzi-cluster-operator.yaml](strimzi-0.47.0/060-Deployment-strimzi-cluster-operator.yaml)
 was altered to add the namespaces that we want strimzi kafka to watch
 s/b value: "kafka,personae,strimzi"
 (not valueFrom: fieldRef: fieldPath: metadata.namespace)
@@ -13,7 +13,7 @@ https://github.com/strimzi/strimzi-kafka-operator
 --
 
 # From the 030-strimzi-operator directory
-ls -la ../../../../modules/strimzi-operator/strimzi-yaml-0.45.0/
+ls -la ../../../../modules/strimzi-operator/strimzi-0.47.0/
 
 # First, check if the namespace exists
 kubectl get ns strimzi
@@ -22,7 +22,7 @@ kubectl get ns strimzi
 kubectl create ns strimzi
 
 # Apply the Strimzi operator YAMLs manually
-kubectl apply -f ~/projects/agent-chassis/deployments/terraform/modules/strimzi-operator/strimzi-yaml-0.45.0/ -n strimzi
+kubectl apply -f ~/projects/agent-chassis/deployments/terraform/modules/strimzi-operator/strimzi-0.47.0/ -n strimzi
 
 --
 4. Wait for Strimzi to be ready:

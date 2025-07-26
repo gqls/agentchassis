@@ -3,6 +3,8 @@ kind: Kafka
 metadata:
   name: personae-kafka-cluster
   namespace: kafka
+  annotations:
+    strimzi.io/kraft: enabled
 spec:
   kafka:
     version: 3.9.0 # Match operator compatibility

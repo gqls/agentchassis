@@ -1,19 +1,19 @@
 output "dev_kafka_cluster_name" {
-  description = "Name of the Kafka cluster deployed in dev."
-  value       = module.kafka_cluster_dev.cluster_name_applied
+  description = "The name of the deployed Kafka cluster."
+  value       = kubernetes_manifest.kafka_cluster.object.metadata.name
 }
 
 output "dev_kafka_cluster_namespace" {
-  description = "Namespace of the Kafka cluster in dev."
-  value       = module.kafka_cluster_dev.cluster_namespace_applied
+  description = "The namespace of the deployed Kafka cluster."
+  value       = kubernetes_manifest.kafka_cluster.object.metadata.namespace
 }
 
 output "dev_kafka_bootstrap_servers_plain" {
-  description = "Internal Plaintext Bootstrap Servers for dev Kafka."
-  value       = module.kafka_cluster_dev.bootstrap_servers_plain
+  description = "The plain bootstrap servers for the Kafka cluster."
+  value       = "${var.kafka_cluster_name_dev}-kafka-bootstrap.${var.kafka_namespace_dev}.svc:9092"
 }
 
 output "dev_kafka_bootstrap_servers_tls" {
-  description = "Internal TLS Bootstrap Servers for dev Kafka."
-  value       = module.kafka_cluster_dev.bootstrap_servers_tls
+  description = "The TLS bootstrap servers for the Kafka cluster."
+  value       = "${var.kafka_cluster_name_dev}-kafka-bootstrap.${var.kafka_namespace_dev}.svc:9093"
 }
