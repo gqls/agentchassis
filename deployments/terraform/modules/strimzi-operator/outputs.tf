@@ -1,9 +1,13 @@
 output "operator_namespace_used" {
-  description = "Namespace where the Strimzi operator was deployed."
-  value       = var.operator_namespace
+  value = var.operator_namespace
+  depends_on = [null_resource.install_strimzi]
 }
 
 output "watched_namespaces_configured" {
-  description = "Namespaces the Strimzi operator is configured to watch."
-  value       = var.watched_namespaces_list
+  value = var.watched_namespaces_list
+  depends_on = [null_resource.install_strimzi]
+}
+
+output "strimzi_version" {
+  value = var.strimzi_version
 }

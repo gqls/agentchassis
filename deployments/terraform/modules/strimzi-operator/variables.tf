@@ -1,26 +1,23 @@
-variable "operator_namespace" {
-  description = "Namespace to deploy the Strimzi Kafka operator into."
+variable "strimzi_version" {
+  description = "Version of Strimzi to install"
   type        = string
+  default     = "0.47.0"
+}
+
+variable "operator_namespace" {
+  description = "Namespace where the Strimzi operator will be deployed"
+  type        = string
+  default     = "strimzi"
 }
 
 variable "watched_namespaces_list" {
-  description = "List of namespaces for the Strimzi operator to watch."
+  description = "List of namespaces that Strimzi operator should watch"
   type        = list(string)
-}
-
-variable "strimzi_yaml_source_path" {
-  description = "Path to the directory containing the Strimzi YAML files to apply (e.g., ./strimzi-0.47.0/install/cluster-operator/)."
-  type        = string
-}
-
-variable "operator_deployment_yaml_filename" {
-  description = "Filename of the main operator deployment YAML within the strimzi_yaml_source_path (used for trigger)."
-  type        = string
-  default     = "060-Deployment-strimzi-cluster-operator.yaml"
+  default     = ["kafka", "personae", "strimzi"]
 }
 
 variable "cluster_kubeconfig_path" {
-  description = "Path to the kubeconfig file for the target Kubernetes cluster."
+  description = "Path to kubeconfig file"
   type        = string
-  sensitive   = true
+  default     = ""
 }

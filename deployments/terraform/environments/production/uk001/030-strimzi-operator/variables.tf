@@ -23,3 +23,14 @@ variable "strimzi_yaml_bundle_path_for_uk001" { // Changed from _for_sydney
   # This relative path should still be correct from the new uk001 directory
   default     = "../../../../modules/strimzi-operator/strimzi-0.47.0/"
 }
+
+variable "kube_context_name" {
+  description = "Kubernetes context name to use"
+  type        = string
+}
+
+variable "strimzi_version" {
+  description = "Version of Strimzi to install"
+  type        = string
+  default     = "0.47.0"
+}

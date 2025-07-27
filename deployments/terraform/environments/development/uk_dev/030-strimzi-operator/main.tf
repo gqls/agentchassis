@@ -13,13 +13,6 @@ resource "kubernetes_namespace" "kafka_cluster_ns" {
   }
 }
 
-# Namespace for Personae app (if Strimzi needs to manage KafkaUsers there):
-resource "kubernetes_namespace" "personae_app_ns" {
-  metadata {
-    name = "personae" // Assuming Personae app and potentially KafkaUsers are in 'personae'
-  }
-}
-
 module "strimzi_operator" {
   source = "../../../../modules/strimzi-operator"
 
@@ -32,7 +25,6 @@ module "strimzi_operator" {
   depends_on = [
     kubernetes_namespace.operator_ns,
     kubernetes_namespace.kafka_cluster_ns,
-    kubernetes_namespace.personae_app_ns
   ]
 }
 
