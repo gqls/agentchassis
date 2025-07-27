@@ -1,29 +1,37 @@
-# ~/projects/terraform/rackspace_generic/terraform/environments/production/uk001/010-infrastructure/main.tf
-module "kubernetes_cluster" { # Local name for this instance of the module
-  source = "../../../../modules/kubernetes_cluster_rackspace" # Path to the reusable module
+module "kubernetes_cluster" {
+  source = "../../../../modules/rackspace-kubernetes"
 
-  # Map variables from this root module (010-infrastructure) to the module's input variables
-  cluster_name         = var.instance_cluster_name
-  rackspace_region     = var.instance_rackspace_region
+  # Basic cluster configuration
+  cluster_name           = var.instance_cluster_name
+  rackspace_region       = var.instance_rackspace_region
   preemption_webhook_url = var.instance_slack_webhook_url
-  ondemand_node_flavor = var.instance_ondemand_node_flavor
-  spot_node_flavor     = var.instance_spot_node_flavor
-  ondemand_node_taints   = var.instance_ondemand_node_taints
-  ondemand_node_count = var.instance_ondemand_node_count
-  spot_min_nodes = var.instance_spot_min_nodes
-  spot_max_nodes = var.instance_spot_max_nodes
-  spot_max_price = var.instance_spot_max_price
+  kubernetes_version     = var.instance_kubernetes_version
 
-  # Pass values for other variables defined in the module's variables.tf
-  # If the module has defaults for these, you only need to pass them if you want to override.
-  # kubernetes_version   = "1.31.1" # Or use var.instance_k8s_version
-  # ondemand_node_count  = 1
-  # spot_min_nodes       = 1
-  # spot_max_nodes       = 2
-  # ... etc. for cni, hacontrol_plane, spot_max_price, labels
+  # Node pool configurations (using the new structure)
+  spot_node_pools = {
+    "spot_worker_pool" = {
+      min_nodes = var.instance_spot_min_nodes
+      max_nodes = var.instance_spot_max_nodes
+      flavor    = var.instance_spot_node_flavor
+      max_price = var.instance_spot_max_price
+      labels = {
+        "role"       = "spot-instance"
+        "app.type"   = "stateless"
+        "managed-by" = "terraform"
+      }
+    }
+  }
 
-
-  # Ensure ondemand_node_count is set, likely via terraform.tfvars
-  # For example, if you have 'instance_ondemand_node_count' in your root variables.tf:
-  # ondemand_node_count    = var.instance_ondemand_node_count
+  ondemand_node_pools = {
+    "default_pool" = {
+      node_count = var.instance_ondemand_node_count
+      flavor     = var.instance_ondemand_node_flavor
+      labels = {
+        "role"       = "general"
+        "app.type"   = "stateful"
+        "managed-by" = "terraform"
+      }
+      taints = var.instance_ondemand_node_taints
+    }
+  }
 }

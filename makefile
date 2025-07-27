@@ -166,8 +166,17 @@ push-frontends: ## Push all frontend images
 #################################
 # Infrastructure Deployment
 #################################
-.PHONY: deploy-infrastructure
-deploy-infrastructure: create-dev-secrets ## Deploy all infrastructure components
+KUBECONFIG_PATH := $(HOME)/.kube/config_$(ENVIRONMENT)_$(REGION)
+
+.PHONY: deploy-cluster-only
+deploy-cluster-only: ## Deploy just the Kubernetes cluster
+	@echo "$(GREEN)Deploying Kubernetes cluster...$(NC)"
+	@cd $(TERRAFORM_DIR)/010-infrastructure && \
+		terraform init && \
+		terraform apply -auto-approve -var-file=terraform.tfvars.secret
+
+.PHONY: deploy-infrastructure-old
+deploy-infrastructure-old: create-dev-secrets ## Deploy all infrastructure components
 	@echo "$(YELLOW)Deploying infrastructure to $(ENVIRONMENT)/$(REGION)...$(NC)"
 	@$(MAKE) deploy-010-infrastructure
 	@$(MAKE) deploy-020-ingress
@@ -180,6 +189,57 @@ deploy-infrastructure: create-dev-secrets ## Deploy all infrastructure component
 	@$(MAKE) deploy-070-schemas
 	@$(MAKE) deploy-080-topics
 	@$(MAKE) deploy-090-monitoring
+
+.PHONY: deploy-infrastructure
+deploy-infrastructure: ## Deploy all infrastructure components
+	@echo "$(YELLOW)Deploying infrastructure to $(ENVIRONMENT)/$(REGION)...$(NC)"
+	@echo "$(GREEN)Step 1: Deploying Kubernetes cluster...$(NC)"
+	@cd $(TERRAFORM_DIR)/010-infrastructure && \
+		terraform init && \
+		terraform apply -auto-approve -var-file=terraform.tfvars.secret && \
+		terraform output -raw kubeconfig_raw > $(KUBECONFIG_PATH)
+	@echo "$(GREEN)Cluster deployed! Using kubeconfig: $(KUBECONFIG_PATH)$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) create-dev-secrets
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-020-ingress
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-030-strimzi
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-040-kafka
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-045-kafka-users
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-047-base-configs
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-050-storage
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-060-databases
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-schemas
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-topics
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
+	@echo "$(GREEN)Infrastructure deployment complete!$(NC)"
+	@echo "$(YELLOW)To use this cluster, run: export KUBECONFIG=$(KUBECONFIG_PATH)$(NC)"
+
+# Add this new target that skips cluster creation
+.PHONY: deploy-infrastructure-from-ingress
+deploy-infrastructure-from-ingress: ## Deploy infrastructure starting from ingress (assumes cluster exists)
+	@echo "$(YELLOW)Deploying infrastructure from ingress for $(ENVIRONMENT)/$(REGION)...$(NC)"
+	@echo "$(GREEN)Using existing kubeconfig: $(KUBECONFIG_PATH)$(NC)"
+	@if [ ! -f "$(KUBECONFIG_PATH)" ]; then \
+		echo "$(RED)Error: Kubeconfig not found at $(KUBECONFIG_PATH)$(NC)"; \
+		echo "$(YELLOW)Manually set up Kubeconfig first - export KUBECONFIG=~/.kube/config_$(ENVIRONMENT)_$(REGION)    $(NC)"; \
+		exit 1; \
+	fi
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) create-dev-secrets
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-020-ingress
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-030-strimzi
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-040-kafka
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-045-kafka-users
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-047-base-configs
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-050-storage
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-060-databases
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-schemas
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-topics
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
+	@echo "$(GREEN)Infrastructure deployment complete!$(NC)"
+	@echo "$(YELLOW)To use this cluster, run: export KUBECONFIG=$(KUBECONFIG_PATH)$(NC)"
+
+# Quick helper for your current situation
+.PHONY: continue-deployment
+continue-deployment: deploy-infrastructure-from-ingress ## Continue deployment from where cluster creation finished
 
 
 # Individual infrastructure components
@@ -195,16 +255,17 @@ deploy-010-infrastructure: ## Deploy core infrastructure (Kubernetes cluster)
 			terraform apply -auto-approve; \
 		fi
 
+# Export KUBECONFIG for all terraform commands in this section
 .PHONY: deploy-020-ingress
 deploy-020-ingress: ## Deploy ingress controller
 	@echo "$(GREEN)Deploying 020-ingress-nginx...$(NC)"
 	@cd $(TERRAFORM_DIR)/020-ingress-nginx && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init && \
-			terraform apply -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
 .PHONY: deploy-030-strimzi
@@ -212,11 +273,11 @@ deploy-030-strimzi: ## Deploy Strimzi operator
 	@echo "$(GREEN)Deploying 030-strimzi-operator...$(NC)"
 	@cd $(TERRAFORM_DIR)/030-strimzi-operator && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init && \
-			terraform apply -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
 .PHONY: deploy-040-kafka
@@ -224,11 +285,11 @@ deploy-040-kafka: ## Deploy Kafka cluster
 	@echo "$(GREEN)Deploying 040-kafka-cluster...$(NC)"
 	@cd $(TERRAFORM_DIR)/040-kafka-cluster && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init && \
-			terraform apply -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
 .PHONY: deploy-045-kafka-users
@@ -236,58 +297,47 @@ deploy-045-kafka-users: deploy-040-kafka ## Fixed dependency name
 	@echo "$(GREEN)Deploying 045-kafka-users...$(NC)"
 	cd $(TERRAFORM_DIR)/045-kafka-users && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init && \
-			terraform apply -auto-approve; \
-		fi
-
-.PHONY: destroy-045-kafka-users
-destroy-045-kafka-users: ## Destroy Kafka users
-	@echo "$(RED)Destroying 045-kafka-users...$(NC)"
-	cd $(TERRAFORM_DIR)/045-kafka-users && \
-		if [ -f terraform.tfvars.secret ]; then \
-			terraform destroy -auto-approve -var-file=terraform.tfvars.secret; \
-		else \
-			terraform destroy -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
 .PHONY: deploy-047-base-configs
-deploy-047-base-configs: create-dev-secrets ## Deploy base ConfigMaps and Secrets
+deploy-047-base-configs: ## Deploy base ConfigMaps and Secrets
 	@echo "$(GREEN)Deploying 047-base-configs...$(NC)"
 	@cd $(TERRAFORM_DIR)/047-base-configs && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init && \
-			terraform apply -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
-
 .PHONY: deploy-050-storage
-deploy-050-storage: create-dev-secrets ## Deploy S3/storage buckets
+deploy-050-storage: ## Deploy S3/storage buckets
 	@echo "$(GREEN)Deploying 050-storage...$(NC)"
 	@cd $(TERRAFORM_DIR)/050-storage && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init && \
-			terraform apply -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
 .PHONY: deploy-060-databases
-deploy-060-databases: create-dev-secrets ## Deploy database instances
+deploy-060-databases: ## Deploy database instances
 	@echo "$(GREEN)Deploying 060-databases...$(NC)"
 	@cd $(TERRAFORM_DIR)/060-databases && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init && \
-			terraform apply -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
 .PHONY: deploy-070-schemas
@@ -295,11 +345,11 @@ deploy-070-schemas: ## Run database migrations
 	@echo "$(GREEN)Deploying 070-database-schemas...$(NC)"
 	@cd $(TERRAFORM_DIR)/070-database-schemas && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init && \
-			terraform apply -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
 .PHONY: deploy-080-topics
@@ -307,11 +357,11 @@ deploy-080-topics: ## Create Kafka topics
 	@echo "$(GREEN)Deploying 080-kafka-topics...$(NC)"
 	@cd $(TERRAFORM_DIR)/080-kafka-topics && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init && \
-			terraform apply -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
 .PHONY: deploy-090-monitoring
@@ -319,11 +369,11 @@ deploy-090-monitoring: ## Deploy monitoring stack
 	@echo "$(GREEN)Deploying 090-monitoring...$(NC)"
 	@cd $(TERRAFORM_DIR)/090-monitoring && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init && \
-			terraform apply -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
 #################################
@@ -338,11 +388,11 @@ deploy-service: create-dev-secrets
 	@echo "$(GREEN)Deploying service at $(path)...$(NC)"
 	@cd $(path) && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init -upgrade && \
-			terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init -upgrade && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init -upgrade && \
-			terraform apply -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init -upgrade && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
 # Generic target for destroying any service via Terraform
@@ -351,11 +401,11 @@ destroy-service:
 	@echo "$(RED)Destroying service at $(path)...$(NC)"
 	@cd $(path) && \
 		if [ -f terraform.tfvars.secret ]; then \
-			terraform init -upgrade && \
-			terraform destroy -auto-approve -var-file=terraform.tfvars.secret; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init -upgrade && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform destroy -auto-approve -var-file=terraform.tfvars.secret; \
 		else \
-			terraform init -upgrade && \
-			terraform destroy -auto-approve; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init -upgrade && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform destroy -auto-approve; \
 		fi
 
 # Core Platform Services
@@ -386,10 +436,10 @@ destroy-core-manager: ## Destroy core-manager using Terraform
 .PHONY: deploy-agents
 deploy-agents: create-dev-secrets ## Deploy all agent services
 	@echo "$(YELLOW)Deploying agent services...$(NC)"
-	kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(ENVIRONMENT)
-	kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(ENVIRONMENT)
-	kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(ENVIRONMENT)
-	kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(ENVIRONMENT)
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(ENVIRONMENT)
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(ENVIRONMENT)
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(ENVIRONMENT)
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(ENVIRONMENT)
 
 
 .PHONY: redeploy-agents
@@ -831,9 +881,9 @@ use-prod-context: ## Switch to production Kubernetes context
 .PHONY: create-dev-secrets
 create-dev-secrets: ## Create all development secrets (personae-dev-secrets and docker-hub-creds)
 	@echo "$(YELLOW)Creating development namespace...$(NC)"
-	@kubectl create namespace $(PROJECT_NAME) --dry-run=client -o yaml | kubectl apply -f -
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl create namespace $(PROJECT_NAME) --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f -
 	@echo "$(YELLOW)Creating personae-dev-secrets...$(NC)"
-	@kubectl create secret generic personae-dev-secrets \
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl create secret generic personae-dev-secrets \
 		--from-literal=clients-db-password=$${CLIENTS_DB_PASSWORD} \
 		--from-literal=templates-db-password=$${TEMPLATES_DB_PASSWORD} \
 		--from-literal=auth-db-password=$${AUTH_DB_PASSWORD} \
@@ -843,16 +893,16 @@ create-dev-secrets: ## Create all development secrets (personae-dev-secrets and 
 		--from-literal=anthropic-api-key=$${ANTHROPIC_API_KEY} \
 		--from-literal=serp-api-key=$${SERP_API_KEY} \
 		--from-literal=stability-api-key=$${STABILITY_API_KEY:-not-a-real-key} \
-		-n $(PROJECT_NAME) --dry-run=client -o yaml | kubectl apply -f -
+		-n $(PROJECT_NAME) --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f -
 	@echo "$(GREEN)✓ personae-dev-secrets created$(NC)"
 	@echo "$(YELLOW)Creating docker-hub-creds secret...$(NC)"
-	@kubectl create secret docker-registry docker-hub-creds \
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl create secret docker-registry docker-hub-creds \
 		--namespace=$(PROJECT_NAME) \
 		--docker-server=docker.io \
 		--docker-username=$${DOCKER_USERNAME} \
 		--docker-password=$${DOCKER_PASSWORD} \
 		--docker-email=$${DOCKER_EMAIL} \
-		--dry-run=client -o yaml | kubectl apply -f -
+		--dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f -
 	@echo "$(GREEN)✓ docker-hub-creds created$(NC)"
 	@echo "$(GREEN)All development secrets created successfully!$(NC)"
 

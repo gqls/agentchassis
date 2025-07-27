@@ -7,7 +7,7 @@ terraform {
 
 provider "kubernetes" {
   config_path    = "~/.kube/config"
-  config_context = "personae-uk001-prod-cluster"
+  config_context = "uk001-prod-agent-chassis-cluster"
 }
 
 # Reference existing namespace

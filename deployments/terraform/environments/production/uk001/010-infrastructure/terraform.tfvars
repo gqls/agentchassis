@@ -1,5 +1,7 @@
 # terraform/environments/production/uk/uk001/010-infrastructure/terraform.tfvars
 
+# kubeconfig export KUBECONFIG=/home/ant/.kube/config_production_uk001
+
 instance_cluster_name           = "uk001-prod-agent-chassis-cluster"
 instance_rackspace_region       = "uk-lon-1"
 instance_ondemand_node_flavor = "mh.vs1.medium-lon"

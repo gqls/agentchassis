@@ -66,5 +66,11 @@ variable "instance_spot_max_price" {
   default = 0.035
 }
 
+variable "instance_kubernetes_version" {
+  description = "Kubernetes version"
+  type        = string
+  default     = "1.31.1"
+}
+
 // Add variables here if you want to override module defaults for this instance
 // e.g., var.instance_k8s_version, var.instance_ondemand_node_count

@@ -2,3 +2,5 @@
 
 // ingress_namespace = "custom-ingress" // Optional override
 // ingress_helm_chart_version = "x.y.z"
+
+kubeconfig_path = "/home/ant/.kube/config_production_uk001"

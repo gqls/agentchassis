@@ -40,9 +40,7 @@ spec:
               mountPath: /opt/strimzi/custom-config/
           env:
             - name: STRIMZI_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+              value: "kafka,personae,strimzi"
             - name: STRIMZI_FULL_RECONCILIATION_INTERVAL_MS
               value: "120000"
             - name: STRIMZI_OPERATION_TIMEOUT_MS
@@ -79,9 +77,7 @@ spec:
             - name: STRIMZI_DEFAULT_MAVEN_BUILDER
               value: quay.io/strimzi/maven-builder:0.47.0
             - name: STRIMZI_OPERATOR_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+              value: strimzi
             - name: STRIMZI_FEATURE_GATES
               value: ""
             - name: STRIMZI_LEADER_ELECTION_ENABLED

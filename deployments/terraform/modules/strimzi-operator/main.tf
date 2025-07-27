@@ -12,6 +12,9 @@ resource "null_resource" "apply_strimzi_operator" {
       set -e
       echo "Applying Strimzi operator resources..."
 
+# Set kubeconfig if provided
+      ${var.cluster_kubeconfig_path != "" ? "export KUBECONFIG=${var.cluster_kubeconfig_path}" : ""}
+
       # 1. Apply CRDs (cluster-scoped, no namespace)
       echo "Applying CRDs..."
       for file in ${var.strimzi_yaml_source_path}/04*-Crd-*.yaml; do
@@ -68,10 +71,6 @@ resource "null_resource" "apply_strimzi_operator" {
 
       echo "Strimzi operator resources applied successfully"
     EOT
-
-    environment = {
-      KUBECONFIG = var.cluster_kubeconfig_path != "" ? var.cluster_kubeconfig_path : null
-    }
   }
 }
 
@@ -100,9 +99,5 @@ resource "null_resource" "patch_strimzi_namespaces" {
 
       echo "Strimzi operator patched successfully"
     EOT
-
-    environment = {
-      KUBECONFIG = var.cluster_kubeconfig_path != "" ? var.cluster_kubeconfig_path : null
-    }
   }
 }
