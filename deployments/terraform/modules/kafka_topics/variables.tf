@@ -8,5 +8,5 @@ variable "kube_context_name" {
 variable "namespace" {
   description = "The namespace for the Kafka topics job."
   type        = string
-  default     = "personae"
+  default     = "kafka"
 }

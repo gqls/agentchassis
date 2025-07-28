@@ -3,6 +3,7 @@ variable "kubeconfig_path" {
   description = "Path to the kubeconfig file for the uk001 cluster."
   type        = string
   sensitive   = true
+  default = "/home/ant/.kube/config_production_uk001"
 }
 
 variable "strimzi_operator_target_namespace" {
@@ -14,7 +15,7 @@ variable "strimzi_operator_target_namespace" {
 variable "watched_namespaces_for_uk001" { // Changed from _for_sydney
   description = "List of namespaces for the Strimzi operator to watch in uk001."
   type        = list(string)
-  default     = ["kafka", "personae", "strimzi"] // Assuming same watched namespaces for now
+  default     = ["kafka", "strimzi"] // Assuming same watched namespaces for now
 }
 
 variable "strimzi_yaml_bundle_path_for_uk001" { // Changed from _for_sydney

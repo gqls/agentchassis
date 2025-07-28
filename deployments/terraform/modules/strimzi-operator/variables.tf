@@ -13,7 +13,7 @@ variable "operator_namespace" {
 variable "watched_namespaces_list" {
   description = "List of namespaces that Strimzi operator should watch"
   type        = list(string)
-  default     = ["kafka", "personae", "strimzi"]
+  default     = ["kafka", "strimzi"]
 }
 
 variable "cluster_kubeconfig_path" {
