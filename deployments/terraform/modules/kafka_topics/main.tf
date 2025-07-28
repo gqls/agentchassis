@@ -1,17 +1,16 @@
+# modules/kafka_topics/main.tf
+
 terraform {
   required_version = ">= 1.0"
-  # Remove backend block - modules shouldn't have backends
 
   required_providers {
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.23"
+      version = "~> 2.36.0"
     }
   }
 }
 
-# Job to create initial system topics only.
-# Agent topics are created dynamically by the Core Manager service.
 resource "kubernetes_job" "kafka_system_topics" {
   metadata {
     name      = "kafka-system-topics-init-${substr(sha1(timestamp()), 0, 8)}"
@@ -27,7 +26,7 @@ resource "kubernetes_job" "kafka_system_topics" {
       }
 
       spec {
-        service_account_name = "default"  # Change if you have a specific SA
+        service_account_name = "default"
         restart_policy       = "OnFailure"
 
         container {
@@ -47,8 +46,8 @@ resource "kubernetes_job" "kafka_system_topics" {
 
             create_topic() {
               local topic=$1
-              local partitions=$${2:-1}
-              local replication=$${3:-1}
+              local partitions=$${2:-3}
+              local replication=$${3:-3}
 
               if kafka-topics --bootstrap-server $KAFKA_BROKERS --list | grep -q "^$$topic$$"; then
                 echo "Topic $$topic already exists."
@@ -61,14 +60,29 @@ resource "kubernetes_job" "kafka_system_topics" {
             }
 
             # System & Orchestration Topics
-            create_topic "system.commands.workflow.resume" 1 1
-            create_topic "system.events.workflow.paused" 1 1
-            create_topic "system.events.workflow.completed" 1 1
-            create_topic "system.events" 3 1
-            create_topic "system.errors" 3 1
-            create_topic "audit.log" 3 1
+            create_topic "system.commands.workflow.resume" 3 3
+            create_topic "system.events.workflow.paused" 3 3
+            create_topic "system.events.workflow.completed" 3 3
+            create_topic "system.events" 3 3
+            create_topic "system.errors" 3 3
+            create_topic "audit.log" 3 3
 
-            echo "System topic initialization complete."
+            # Core Service Topics
+            create_topic "requests.auth.user.create" 3 3
+            create_topic "events.auth.user.created" 3 3
+
+            # Agent Communication Topics
+            create_topic "requests.agent.task.execute" 3 3
+            create_topic "events.agent.task.completed" 3 3
+            create_topic "events.agent.task.failed" 3 3
+            create_topic "events.agent.task.progress" 3 3
+
+            # Specialized Agent Topics
+            create_topic "requests.agent.reasoning" 3 3
+            create_topic "requests.agent.web-search" 3 3
+            create_topic "requests.agent.image-generation" 3 3
+
+            echo "Platform topic initialization complete."
             EOT
           ]
         }

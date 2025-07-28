@@ -1,19 +1,21 @@
-variable "context_name" {
-  description = "The Kubernetes context name for Kind."
-  type        = string
-  default     = "personae-uk001-prod-agent-chassis-cluster"
-}
+# infrastructure/environments/production/uk001/080-kafka-topics/variables.tf
 
 variable "namespace" {
-  description = "The namespace for the Kafka topics job in the prod environment."
+  description = "Kubernetes namespace where Kafka is deployed"
   type        = string
   default     = "kafka"
 }
 
 variable "kubeconfig_path" {
-  description = "Kubeconfig path"
+  description = "Path to kubeconfig file"
   type        = string
   default     = "/home/ant/.kube/config_production_uk001"
+}
+
+variable "context_name" {
+  description = "Kubernetes context name"
+  type        = string
+  default     = "default"
 }
 
 variable "platform_topics" {
@@ -40,4 +42,20 @@ variable "platform_topics" {
     "requests.agent.web-search",
     "requests.agent.image-generation",
   ]
+}
+
+variable "topic_config" {
+  description = "Default configuration for topics"
+  type = object({
+    partitions        = number
+    replication_factor = number
+    retention_ms      = string
+    segment_ms        = string
+  })
+  default = {
+    partitions        = 3
+    replication_factor = 3
+    retention_ms      = "604800000"  # 7 days
+    segment_ms        = "86400000"   # 1 day
+  }
 }
