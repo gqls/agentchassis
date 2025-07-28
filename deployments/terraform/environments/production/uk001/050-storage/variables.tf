@@ -1,6 +1,7 @@
 variable "region" {
   description = "The region where resources will be deployed."
   type        = string
+  default     = "uk001"
 }
 
 variable "s3_use_path_style" {
