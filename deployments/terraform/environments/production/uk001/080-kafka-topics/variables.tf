@@ -1,3 +1,21 @@
+variable "context_name" {
+  description = "The Kubernetes context name for Kind."
+  type        = string
+  default     = "personae-uk001-prod-agent-chassis-cluster"
+}
+
+variable "namespace" {
+  description = "The namespace for the Kafka topics job in the prod environment."
+  type        = string
+  default     = "kafka"
+}
+
+variable "kubeconfig_path" {
+  description = "Kubeconfig path"
+  type        = string
+  default     = "/home/ant/.kube/config_production_uk001"
+}
+
 variable "platform_topics" {
   description = "A list of Kafka topic names to be created for the application."
   type        = list(string)

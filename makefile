@@ -180,14 +180,14 @@ deploy-infrastructure-old: create-dev-secrets ## Deploy all infrastructure compo
 	@echo "$(YELLOW)Deploying infrastructure to $(ENVIRONMENT)/$(REGION)...$(NC)"
 	@$(MAKE) deploy-010-infrastructure
 	@$(MAKE) deploy-020-ingress
-	@$(MAKE) deploy-030-strimzi
-	@$(MAKE) deploy-040-kafka
+	@$(MAKE) deploy-030-strimzi-operator
+	@$(MAKE) deploy-040-kafka-cluster
 	@$(MAKE) deploy-045-kafka-users
 	@$(MAKE) deploy-047-base-configs
 	@$(MAKE) deploy-050-storage
 	@$(MAKE) deploy-060-databases
-	@$(MAKE) deploy-070-schemas
-	@$(MAKE) deploy-080-topics
+	@$(MAKE) deploy-070-database-schemas
+	@$(MAKE) deploy-080-kafka-topics
 	@$(MAKE) deploy-090-monitoring
 
 .PHONY: deploy-infrastructure
@@ -201,14 +201,14 @@ deploy-infrastructure: ## Deploy all infrastructure components
 	@echo "$(GREEN)Cluster deployed! Using kubeconfig: $(KUBECONFIG_PATH)$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) create-dev-secrets
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-020-ingress
-	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-030-strimzi
-	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-040-kafka
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-030-strimzi-operator
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-040-kafka-cluster
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-045-kafka-users
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-047-base-configs
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-050-storage
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-060-databases
-	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-schemas
-	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-topics
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-database-schemas
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-kafka-topics
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
 	@echo "$(GREEN)Infrastructure deployment complete!$(NC)"
 	@echo "$(YELLOW)To use this cluster, run: export KUBECONFIG=$(KUBECONFIG_PATH)$(NC)"
@@ -225,14 +225,14 @@ deploy-infrastructure-from-ingress: ## Deploy infrastructure starting from ingre
 	fi
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) create-dev-secrets
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-020-ingress
-	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-030-strimzi
-	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-040-kafka
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-030-strimzi-operator
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-040-kafka-cluster
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-045-kafka-users
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-047-base-configs
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-050-storage
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-060-databases
-	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-schemas
-	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-topics
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-database-schemas
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-kafka-topics
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
 	@echo "$(GREEN)Infrastructure deployment complete!$(NC)"
 	@echo "$(YELLOW)To use this cluster, run: export KUBECONFIG=$(KUBECONFIG_PATH)$(NC)"
@@ -268,8 +268,8 @@ deploy-020-ingress: ## Deploy ingress controller
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
-.PHONY: deploy-030-strimzi
-deploy-030-strimzi: ## Deploy Strimzi operator
+.PHONY: deploy-030-strimzi-operator
+deploy-030-strimzi-operator: ## Deploy Strimzi operator
 	@echo "$(GREEN)Deploying 030-strimzi-operator...$(NC)"
 	@cd $(TERRAFORM_DIR)/030-strimzi-operator && \
 		if [ -f terraform.tfvars.secret ]; then \
@@ -280,8 +280,8 @@ deploy-030-strimzi: ## Deploy Strimzi operator
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
-.PHONY: deploy-040-kafka
-deploy-040-kafka: ## Deploy Kafka cluster
+.PHONY: deploy-040-kafka-cluster
+deploy-040-kafka-cluster: ## Deploy Kafka cluster
 	@echo "$(GREEN)Deploying 040-kafka-cluster...$(NC)"
 	@cd $(TERRAFORM_DIR)/040-kafka-cluster && \
 		if [ -f terraform.tfvars.secret ]; then \
@@ -293,7 +293,7 @@ deploy-040-kafka: ## Deploy Kafka cluster
 		fi
 
 .PHONY: deploy-045-kafka-users
-deploy-045-kafka-users: deploy-040-kafka ## Fixed dependency name
+deploy-045-kafka-users: deploy-040-kafka-cluster ## Fixed dependency name
 	@echo "$(GREEN)Deploying 045-kafka-users...$(NC)"
 	cd $(TERRAFORM_DIR)/045-kafka-users && \
 		if [ -f terraform.tfvars.secret ]; then \
@@ -340,8 +340,8 @@ deploy-060-databases: ## Deploy database instances
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
-.PHONY: deploy-070-schemas
-deploy-070-schemas: ## Run database migrations
+.PHONY: deploy-070-database-schemas
+deploy-070-database-schemas: ## Run database migrations
 	@echo "$(GREEN)Deploying 070-database-schemas...$(NC)"
 	@cd $(TERRAFORM_DIR)/070-database-schemas && \
 		if [ -f terraform.tfvars.secret ]; then \
@@ -352,8 +352,8 @@ deploy-070-schemas: ## Run database migrations
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
-.PHONY: deploy-080-topics
-deploy-080-topics: ## Create Kafka topics
+.PHONY: deploy-080-kafka-topics
+deploy-080-kafka-topics: ## Create Kafka topics
 	@echo "$(GREEN)Deploying 080-kafka-topics...$(NC)"
 	@cd $(TERRAFORM_DIR)/080-kafka-topics && \
 		if [ -f terraform.tfvars.secret ]; then \

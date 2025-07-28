@@ -44,6 +44,10 @@ resource "kubernetes_stateful_set" "postgres_sts" {
             container_port = 5432
             name           = "postgres"
           }
+          env {
+            name  = "PGDATA"
+            value = "/var/lib/postgresql/data/pgdata"
+          }
           env_from {
             secret_ref {
               name = kubernetes_secret.postgres_secret.metadata[0].name
