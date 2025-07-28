@@ -1,7 +1,7 @@
 variable "kube_context_name" {
   description = "The Kubernetes context name for Kind."
   type        = string
-  default     = "uk001-prod-agent-chassis-cluster"
+  default     = "personae-uk001-prod-agent-chassis-cluster"
 }
 
 variable "kubeconfig_path" {

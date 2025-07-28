@@ -37,7 +37,7 @@ spec:
   entityOperator:
     topicOperator:
       watchedNamespace: ${namespace}
-      reconciliationIntervalSeconds: 90
+      reconciliationIntervalMs: 90000
     userOperator:
       watchedNamespace: ${namespace}
-      reconciliationIntervalSeconds: 120
+      reconciliationIntervalMs: 120000

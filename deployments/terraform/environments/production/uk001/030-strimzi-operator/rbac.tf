@@ -49,3 +49,28 @@ resource "kubernetes_role_binding" "strimzi_core_resource_permissions" {
     kubernetes_manifest.strimzi_resources
   ]
 }
+
+# This binding allows the Cluster Operator to delegate permissions
+# to the Entity Operator that it creates.
+resource "kubernetes_cluster_role_binding" "strimzi_entity_operator_delegation" {
+  metadata {
+    name = "strimzi-cluster-operator-entity-operator-delegation"
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    # This is the role containing permissions for KafkaTopic and KafkaUser
+    name      = "strimzi-entity-operator"
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = "strimzi-cluster-operator"
+    namespace = var.strimzi_operator_target_namespace
+  }
+
+  depends_on = [
+    kubernetes_manifest.strimzi_resources
+  ]
+}

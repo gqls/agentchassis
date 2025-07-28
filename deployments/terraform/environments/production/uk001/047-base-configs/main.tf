@@ -1,13 +1,13 @@
 terraform {
   backend "kubernetes" {
     secret_suffix = "tfstate-platform-configs"
-    config_path   = "~/.kube/config"
+    config_path   = "/home/ant/.kube/config_production_uk001"
   }
 }
 
 provider "kubernetes" {
-  config_path    = "~/.kube/config"
-  config_context = "uk001-prod-agent-chassis-cluster"
+  config_context = "personae-uk001-prod-agent-chassis-cluster"
+  config_path   = "/home/ant/.kube/config_production_uk001"
 }
 
 # Reference existing namespace
