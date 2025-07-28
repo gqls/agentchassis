@@ -229,23 +229,31 @@ resource "kubernetes_job" "mysql_migrations" {
             # Fix SQL syntax issues
             sed -i 's|// FILE:.*||g' /tmp/005_projects_schema.sql
 
-            # Apply auth schema
-            mysql -h ${data.terraform_remote_state.databases_dev.outputs.external_mysql_host} \
+            # Check if schema is already applied
+            if mysql -h ${data.terraform_remote_state.databases_dev.outputs.external_mysql_host} \
               -u ${data.terraform_remote_state.databases_dev.outputs.external_mysql_user} \
-              ${data.terraform_remote_state.databases_dev.outputs.external_mysql_database} < /tmp/004_auth_schema.sql || {
-                echo "Failed to apply auth schema"
-                echo "Error details above"
-                exit 1
-              }
+              ${data.terraform_remote_state.databases_dev.outputs.external_mysql_database} \
+              -e "SHOW TABLES LIKE 'users';" | grep -q users; then
+              echo "Auth schema already exists, skipping..."
+            else
+              echo "Applying auth schema..."
+              mysql -h ${data.terraform_remote_state.databases_dev.outputs.external_mysql_host} \
+                -u ${data.terraform_remote_state.databases_dev.outputs.external_mysql_user} \
+                ${data.terraform_remote_state.databases_dev.outputs.external_mysql_database} < /tmp/004_auth_schema.sql
+            fi
 
-            # Apply projects schema
-            mysql -h ${data.terraform_remote_state.databases_dev.outputs.external_mysql_host} \
+            # Check if projects table exists
+            if mysql -h ${data.terraform_remote_state.databases_dev.outputs.external_mysql_host} \
               -u ${data.terraform_remote_state.databases_dev.outputs.external_mysql_user} \
-              ${data.terraform_remote_state.databases_dev.outputs.external_mysql_database} < /tmp/005_projects_schema.sql || {
-                echo "Failed to apply projects schema"
-                echo "Error details above"
-                exit 1
-              }
+              ${data.terraform_remote_state.databases_dev.outputs.external_mysql_database} \
+              -e "SHOW TABLES LIKE 'projects';" | grep -q projects; then
+              echo "Projects schema already exists, skipping..."
+            else
+              echo "Applying projects schema..."
+              mysql -h ${data.terraform_remote_state.databases_dev.outputs.external_mysql_host} \
+                -u ${data.terraform_remote_state.databases_dev.outputs.external_mysql_user} \
+                ${data.terraform_remote_state.databases_dev.outputs.external_mysql_database} < /tmp/005_projects_schema.sql
+            fi
 
             echo "MySQL migrations completed!"
             EOT
