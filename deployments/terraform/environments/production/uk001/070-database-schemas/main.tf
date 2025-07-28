@@ -7,21 +7,20 @@ terraform {
   }
 
   backend "kubernetes" {
-    secret_suffix = "tfstate-db-schemas-dev"
+    secret_suffix = "tfstate-db-schemas"
     config_path   = "/home/ant/.kube/config_production_uk001"
   }
 }
 
 provider "kubernetes" {
   config_path    = "/home/ant/.kube/config_production_uk001"
-  config_context = "kind-personae-dev"
 }
 
 # Read the outputs from the dev database creation layer (for hostnames, usernames, etc)
 data "terraform_remote_state" "databases_dev" {
   backend = "kubernetes"
   config = {
-    secret_suffix = "tfstate-databases-dev"
+    secret_suffix = "tfstate-databases"
     config_path   = "/home/ant/.kube/config_production_uk001"
   }
 }
@@ -115,10 +114,11 @@ resource "kubernetes_job" "postgres_migrations" {
             echo "Applying migrations to clients database..."
 
             # Apply pgvector extension
-            psql -h postgres-clients-dev -U clients_user -d clients_db -f /migrations/001_enable_pgvector.sql
+            psql -h postgres-clients -U clients_user -d clients_db -f /migrations/001_enable_pgvector.sql
 
-            # Apply client schema
-            psql -h postgres-clients-dev -U clients_user -d clients_db -f /migrations/003_create_client_schema.sql
+            # Apply client schema but stop before the template section
+            sed '/-- This should be run for each new client/,$d' /migrations/003_create_client_schema.sql > /tmp/clean_client_schema.sql
+            psql -h postgres-clients -U clients_user -d clients_db -f /tmp/clean_client_schema.sql
 
             echo "Clients database migrations completed!"
             EOT
@@ -152,7 +152,7 @@ resource "kubernetes_job" "postgres_migrations" {
             echo "Applying migrations to templates database..."
 
             # Apply templates schema
-            psql -h postgres-templates-dev -U templates_user -d templates_db -f /migrations/002_create_templates_schema.sql
+            psql -h postgres-templates -U templates_user -d templates_db -f /migrations/002_create_templates_schema.sql
 
             echo "Templates database migrations completed!"
             EOT

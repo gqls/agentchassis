@@ -42,3 +42,16 @@ output "templates_db_password" {
   sensitive = true
   description = "PostgreSQL templates database password"
 }
+
+output "external_mysql_port" {
+  value = var.external_mysql_port
+}
+
+# Optional: Add PostgreSQL outputs too if needed
+output "postgres_clients_host" {
+  value = "postgres-clients"
+}
+
+output "postgres_templates_host" {
+  value = "postgres-templates"
+}
