@@ -1,12 +1,36 @@
-- op: replace
-  path: /spec/replicas
-  value: 3
-- op: replace
-  path: /spec/template/spec/containers/0/image
-  value: docker.io/aqls/agent-chassis:v1.0.0
-- op: replace
-  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
-  value: personae-prod-config
-- op: replace
-  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
-  value: personae-default-secrets
+# deployments/kustomize/services/agent-chassis/overlays/production/uk_001/patch-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-chassis
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+        - name: agent-chassis
+          image: docker.io/aqls/agent-chassis:v1.0.0
+          envFrom:
+            - configMapRef:
+                name: personae-prod-config
+            - secretRef:
+                name: personae-default-secrets
+          env:
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: clients-db-password
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: templates-db-password
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"

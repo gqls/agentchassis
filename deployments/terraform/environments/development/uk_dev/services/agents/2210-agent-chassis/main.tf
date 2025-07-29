@@ -9,5 +9,8 @@ module "agent_chassis_deployment_dev" {
   source = "../../../../../../modules/kustomize-apply"
 
   # Path to the DEVELOPMENT overlay for this service
-  kustomize_path = "../../../../../development/kustomize/services/agent-chassis/overlays/development"
+  kustomize_path = "../../../../../deployments/kustomize/services/agent-chassis/overlays/development"
+  image_repository = ""
+  namespace = ""
+  service_name = ""
 }

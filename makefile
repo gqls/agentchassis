@@ -10,6 +10,7 @@ export TMPDIR := $(HOME)/kind-tmp
 PROJECT_NAME := ai-persona-system
 ENVIRONMENT ?= production
 REGION ?= uk001
+REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 IMAGE_TAG ?= latest
 
@@ -432,14 +433,18 @@ destroy-auth-service: ## Destroy auth-service using Terraform
 destroy-core-manager: ## Destroy core-manager using Terraform
 	@$(MAKE) destroy-service path=$(TERRAFORM_DIR)/services/core-platform/1120-core-manager
 
-
+ifeq ($(ENVIRONMENT),production)
+    OVERLAY_PATH := $(ENVIRONMENT)/$(REGION_PATH)
+else
+    OVERLAY_PATH := $(ENVIRONMENT)
+endif
 .PHONY: deploy-agents
 deploy-agents: create-dev-secrets ## Deploy all agent services
 	@echo "$(YELLOW)Deploying agent services...$(NC)"
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(ENVIRONMENT)
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(ENVIRONMENT)
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(ENVIRONMENT)
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(ENVIRONMENT)
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH)
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)
 
 
 .PHONY: redeploy-agents
@@ -454,19 +459,19 @@ redeploy-agents: create-dev-secrets ## Forces a rolling restart of all agent dep
 .PHONY: deploy-frontends
 deploy-frontends: ## Deploy all frontend applications
 	@echo "$(YELLOW)Deploying frontend applications...$(NC)"
-	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/admin-dashboard/overlays/$(ENVIRONMENT)
-	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/user-portal/overlays/$(ENVIRONMENT)
-	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/agent-playground/overlays/$(ENVIRONMENT)
+	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/admin-dashboard/overlays/$(OVERLAY_PATH)
+	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/user-portal/overlays/$(OVERLAY_PATH)
+	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/agent-playground/overlays/$(OVERLAY_PATH)
 
 .PHONY: deploy-admin-dashboard
 deploy-admin-dashboard: ## Deploy admin-dashboard only
 	@echo "$(GREEN)Deploying admin-dashboard...$(NC)"
-	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/admin-dashboard/overlays/$(ENVIRONMENT)
+	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/admin-dashboard/overlays/$(OVERLAY_PATH)
 
 .PHONY: deploy-user-portal
 deploy-user-portal: ## Deploy user-portal only
 	@echo "$(GREEN)Deploying user-portal...$(NC)"
-	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/user-portal/overlays/$(ENVIRONMENT)
+	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/user-portal/overlays/$(OVERLAY_PATH)
 
 #################################
 # Full Stack Operations
