@@ -769,6 +769,20 @@ case "$COMPONENT_NAME" in
     )
     ;;
 
+  content-creator-agent) # Add this new case
+    MODULE_DIRS=(
+      "cmd/content-creator-agent/" "internal/agents/contentcreator/"
+      "deployments/kustomize/services/content-creator-agent/"
+      # Assuming you'll add a Terraform module path for it later if needed, e.g.:
+      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/agents/2250-content-creator-agent/"
+      "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
+    )
+    MODULE_FILES=(
+      "build/docker/backend/content-creator-agent.dockerfile" "configs/content-creator-agent.yaml"
+      "${SHARED_ROOT_FILES[@]}"
+    )
+  ;;
+
   agents-interaction-kafka)
     MODULE_DIRS=(
       "cmd/core-manager/"
