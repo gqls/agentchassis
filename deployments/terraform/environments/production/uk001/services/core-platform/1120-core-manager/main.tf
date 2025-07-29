@@ -22,5 +22,5 @@ module "core_manager_deployment" {
   image_tag        = "latest"
 
   # The path to the specific kustomize overlay for this service
-  kustomize_path   = "../../../../../../../kustomize/services/core-manager/overlays/production"
+  kustomize_path   = "../../../../../../../kustomize/services/core-manager/overlays/production/uk_001/"
 }
