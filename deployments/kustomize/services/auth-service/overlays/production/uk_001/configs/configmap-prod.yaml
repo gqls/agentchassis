@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: personae-prod-config
-  namespace: personae-prod
+  namespace: ai-persona-system
 data:
   # Production Endpoints (replace with your actual endpoints)
   kafka_brokers: "your-production-kafka-bootstrap-endpoint:9092"
