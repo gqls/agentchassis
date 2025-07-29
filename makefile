@@ -848,6 +848,7 @@ kind-load-images: ## Load Docker images into Kind
 	kind load docker-image $(REGISTRY)/reasoning-agent:$(IMAGE_TAG) --name personae-dev
 	kind load docker-image $(REGISTRY)/web-search-adapter:$(IMAGE_TAG) --name personae-dev
 	kind load docker-image $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG) --name personae-dev
+	kind load docker-image $(REGISTRY)/content-creator-agent:$(IMAGE_TAG) --name personae-dev
 
 .PHONY: reload-auth-service
 reload-auth-service: ## Rebuild and reload auth-service in Kind
