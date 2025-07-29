@@ -46,6 +46,10 @@ data "local_file" "projects_schema_sql" {
   filename = "${path.module}/../../../../../../platform/database/migrations/005_projects_schema.sql"
 }
 
+data "local_file" "content_creator_agent_definition_sql" {
+  filename = "${path.module}/../../../../../../platform/database/migrations/contentcreator/001_clientsdb_agent_definition_with_memory.sql"
+}
+
 # Create a ConfigMap with all SQL files
 resource "kubernetes_config_map" "sql_migrations" {
   metadata {

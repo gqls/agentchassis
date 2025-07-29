@@ -112,9 +112,16 @@ build-image-generator-adapter: ## Build image-generator-adapter image
 	docker build -t $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG) \
 		-f build/docker/backend/image-generator-adapter.dockerfile .
 
+.PHONY: build-content-creator-agent
+build-content-creator-agent: ## Build content-creator-agent image
+	@echo "$(YELLOW)Building content-creator-agent...$(NC)"
+	docker build -t $(REGISTRY)/content-creator-agent:$(IMAGE_TAG) \
+		-f build/docker/backend/content-creator-agent.dockerfile . # NEW
+
+
 # Agent targets
 .PHONY: build-agents
-build-agents: build-agent-chassis build-reasoning-agent ## Build all agents
+build-agents: build-agent-chassis build-reasoning-agent build-content-creator-agent ## Build all agents
 
 .PHONY: build-adapters
 build-adapters: build-web-search-adapter build-image-generator-adapter ## Build all adapters
@@ -156,6 +163,7 @@ push-backend: ## Push all backend images
 	docker push $(REGISTRY)/reasoning-agent:$(IMAGE_TAG)
 	docker push $(REGISTRY)/web-search-adapter:$(IMAGE_TAG)
 	docker push $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG)
+	docker push $(REGISTRY)/content-creator-agent:$(IMAGE_TAG)
 
 .PHONY: push-frontends
 push-frontends: ## Push all frontend images
@@ -445,7 +453,7 @@ deploy-agents: create-dev-secrets ## Deploy all agent services
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)
-
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH)
 
 .PHONY: redeploy-agents
 redeploy-agents: create-dev-secrets ## Forces a rolling restart of all agent deployments
@@ -454,6 +462,7 @@ redeploy-agents: create-dev-secrets ## Forces a rolling restart of all agent dep
 	kubectl rollout restart deployment reasoning-agent -n ai-persona-system
 	kubectl rollout restart deployment web-search-adapter -n ai-persona-system
 	kubectl rollout restart deployment image-generator-adapter -n ai-persona-system
+	kubectl rollout restart deployment content-creator-agent -n ai-persona-system
 
 
 .PHONY: deploy-frontends

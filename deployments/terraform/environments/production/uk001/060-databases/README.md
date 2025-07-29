@@ -52,3 +52,14 @@ ssd
 failed migrations:
 jobs
 kubectl delete job postgres-migrations-3b097ae1 mysql-migrations-3b097ae1 -n ai-persona-system
+
+# connect to db
+--
+clients db
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- psql -U clients_user -d clients_db
+
+templates db
+kubectl -n ai-persona-system exec -it postgres-templates-0 -- psql -U templates_user -d templates_db
+
+mysql db
+kubectl run mysql-test --image=mysql:8.0 --rm -it --restart=Never -- mysql -h rs17.uk-noc.com -u catalogu_personae -p -D catalogu_vectordbdev

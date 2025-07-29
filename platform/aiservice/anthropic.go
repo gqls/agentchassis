@@ -114,3 +114,7 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 func (c *AnthropicClient) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
 	return nil, fmt.Errorf("embedding generation not supported by Anthropic")
 }
+
+func (c *AnthropicClient) Model() string {
+	return c.model
+}

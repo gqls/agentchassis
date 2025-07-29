@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     client_id VARCHAR(100) NOT NULL,
     subscription_tier VARCHAR(50) DEFAULT 'free',
     is_active BOOLEAN DEFAULT TRUE,
+    email_verified BOOLEAN DEFAULT FALSE,
 
     -- TIMESTAMPTZ is a PostgreSQL type. The MySQL equivalent is TIMESTAMP,
     -- which stores the timestamp in UTC and converts it to the connection's time zone on retrieval.
