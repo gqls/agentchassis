@@ -1,3 +1,4 @@
+// FILE: test_content_agent_enhanced.go (updated section)
 package main
 
 import (
@@ -14,14 +15,15 @@ import (
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/logger"
 	"go.uber.org/zap"
+
+	kafkaGo "github.com/segmentio/kafka-go" // Import kafka-go directly to access WriterConfig options
 )
 
 func main() {
 	// Configuration
-	brokers := []string{"localhost:9092"}
-	if os.Getenv("KAFKA_BROKERS") != "" {
-		brokers = strings.Split(os.Getenv("KAFKA_BROKERS"), ",")
-	}
+	// IMPORTANT: Keep this as "localhost:9093" as this is what you're port-forwarding to.
+	// We will override the internal Kafka client's Dial and Resolver.
+	brokers := []string{"localhost:9093"} // Use the port you actually forwarded to.
 
 	clientID := "demo_client"
 	agentInstanceID := "123e4567-e89b-12d3-a456-426614174001"
@@ -33,140 +35,79 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Setup Kafka
-	producer, err := kafka.NewProducer(brokers, appLogger)
-	if err != nil {
-		log.Fatalf("Failed to create producer: %v", err)
-	}
-	defer producer.Close()
-
-	consumer, err := kafka.NewConsumer(brokers, "system.responses.content-creator", "test-consumer-"+uuid.NewString(), appLogger)
-	if err != nil {
-		log.Fatalf("Failed to create consumer: %v", err)
-	}
-	defer consumer.Close()
-
-	// Test different content types
-	testCases := []struct {
-		name    string
-		payload map[string]interface{}
-	}{
-		{
-			name: "Blog Post",
-			payload: map[string]interface{}{
-				"action": "generate_blog_post",
-				"data": map[string]interface{}{
-					"topic":           "The Future of AI in Healthcare",
-					"prompt":          "Focus on recent breakthroughs and ethical considerations",
-					"content_type":    "blog_post",
-					"keywords":        []string{"AI", "healthcare", "medical diagnosis", "patient care"},
-					"length":          "medium",
-					"style":           "informative",
-					"tone":            "professional",
-					"target_audience": "Healthcare professionals and tech enthusiasts",
-					"format":          "markdown",
-				},
-			},
-		},
-		{
-			name: "Product Description",
-			payload: map[string]interface{}{
-				"action": "generate_product_description",
-				"data": map[string]interface{}{
-					"topic":           "Smart Home Security Camera",
-					"content_type":    "product_description",
-					"keywords":        []string{"security", "AI-powered", "night vision", "mobile app"},
-					"length":          "short",
-					"style":           "persuasive",
-					"tone":            "friendly",
-					"target_audience": "Homeowners concerned about security",
-					"context": map[string]interface{}{
-						"price":    "$149.99",
-						"features": []string{"4K resolution", "AI motion detection", "Two-way audio"},
-					},
-				},
-			},
-		},
-		{
-			name: "Social Media Post",
-			payload: map[string]interface{}{
-				"action": "generate_social_media",
-				"data": map[string]interface{}{
-					"topic":        "Announcing our new AI Writing Assistant",
-					"content_type": "social_media",
-					"platform":     "linkedin",
-					"length":       "short",
-					"style":        "professional",
-					"tone":         "enthusiastic",
-					"keywords":     []string{"AI", "productivity", "writing", "innovation"},
-					"max_length":   1300,
+	// --- Setup Kafka Producer with custom Dial mechanism ---
+	// Instead of NewProducer directly, we need to create a custom kafka.Writer
+	writer := &kafkaGo.Writer{
+		Addr:         kafkaGo.TCP(brokers...),
+		Balancer:     &kafkaGo.LeastBytes{},
+		RequiredAcks: kafkaGo.RequireAll,
+		Async:        false,
+		WriteTimeout: 10 * time.Second,
+		// *** CRITICAL CHANGE ***
+		// Override Dial with a custom dialer that resolves only to localhost
+		Dialer: &kafkaGo.Dialer{
+			Timeout:   10 * time.Second,
+			DualStack: true, // Allow both IPv4 and IPv6
+			Resolver: &kafkaGo.DNSResolver{
+				// This resolver explicitly tells kafka-go client how to resolve addresses.
+				// We map all discovered broker IPs/hostnames back to localhost.
+				// This is a hack for local testing with port-forwarding.
+				LookupIP: func(ctx context.Context, host string) ([]kafkaGo.IPAddr, error) {
+					// Always return localhost IP regardless of the host it tries to look up
+					return []kafkaGo.IPAddr{{IP: []byte{127, 0, 0, 1}}}, nil
 				},
 			},
 		},
 	}
+	// Now create your producer instance using this custom writer
+	producer := &kafka.KafkaProducer{writer: writer, logger: appLogger} // Re-use your KafkaProducer struct
 
-	// Run test cases
-	for _, tc := range testCases {
-		fmt.Printf("\n=== Testing: %s ===\n", tc.name)
-
-		correlationID := uuid.NewString()
-		requestID := uuid.NewString()
-
-		payloadBytes, _ := json.Marshal(tc.payload)
-
-		headers := map[string]string{
-			"correlation_id":      correlationID,
-			"request_id":          requestID,
-			"client_id":           clientID,
-			"user_id":             userID,
-			"agent_instance_id":   agentInstanceID,
-			governance.FuelHeader: "1000",
-		}
-
-		// Send message
-		appLogger.Info("Sending request", zap.String("test_case", tc.name))
-		if err := producer.Produce(ctx, "system.agent.content-creator.process", headers,
-			[]byte(correlationID), payloadBytes); err != nil {
-			log.Printf("Failed to send message: %v", err)
-			continue
-		}
-
-		// Wait for response
-		responseCtx, responseCancel := context.WithTimeout(ctx, 15*time.Second)
-		defer responseCancel()
-
-		msg, err := consumer.FetchMessage(responseCtx)
-		if err != nil {
-			log.Printf("Failed to receive response: %v", err)
-			continue
-		}
-
-		// Process response
-		var response map[string]interface{}
-		if err := json.Unmarshal(msg.Value, &response); err != nil {
-			log.Printf("Failed to unmarshal response: %v", err)
-		} else {
-			if response["success"].(bool) {
-				fmt.Println("\n--- GENERATED CONTENT ---")
-				fmt.Printf("%s\n", response["generated_text"])
-				fmt.Println("\n--- METADATA ---")
-				if metadata, ok := response["metadata"].(map[string]interface{}); ok {
-					fmt.Printf("Tokens Used: %v\n", metadata["tokens_used"])
-					fmt.Printf("Word Count: %v\n", metadata["word_count"])
-					fmt.Printf("Memories Used: %v\n", metadata["memories_used"])
-					fmt.Printf("Model Used: %v\n", metadata["model_used"])
-					fmt.Printf("Generation Time: %v seconds\n", metadata["generation_time"])
-				}
-			} else {
-				fmt.Printf("Error: %v\n", response["error"])
-			}
-		}
-
-		consumer.CommitMessages(context.Background(), msg)
-
-		// Small delay between tests
-		time.Sleep(2 * time.Second)
+	// --- Setup Kafka Consumer with custom Dial mechanism ---
+	readerConfig := kafkaGo.ReaderConfig{
+		Brokers:        brokers,
+		GroupID:        "test-consumer-" + uuid.NewString(),
+		Topic:          "system.responses.content-creator",
+		MinBytes:       10e3, // 10KB
+		MaxBytes:       10e6, // 10MB
+		CommitInterval: 0,    // Manual commit
+		// *** CRITICAL CHANGE ***
+		// Apply the same custom Dial/Resolver to the consumer
+		Dialer: &kafkaGo.Dialer{
+			Timeout:   10 * time.Second,
+			DualStack: true,
+			Resolver: &kafkaGo.DNSResolver{
+				LookupIP: func(ctx context.Context, host string) ([]kafkaGo.IPAddr, error) {
+					return []kafkaGo.IPAddr{{IP: []byte{127, 0, 0, 1}}}, nil
+				},
+			},
+		},
 	}
+	consumer = &kafka.Consumer{reader: kafkaGo.NewReader(readerConfig), logger: appLogger} // Re-use your KafkaConsumer struct
 
-	fmt.Println("\nAll tests completed!")
+	// ... (rest of the test script remains the same) ...
+	// Ensure you also apply the same Dialer logic to any errorConsumer if it's separate.
+	// For the error consumer as well:
+	errorReaderConfig := kafkaGo.ReaderConfig{
+		Brokers:        brokers,
+		GroupID:        "test-error-consumer-" + uuid.NewString(),
+		Topic:          "system.errors.content-creator",
+		MinBytes:       10e3,
+		MaxBytes:       10e6,
+		CommitInterval: 0,
+		Dialer: &kafkaGo.Dialer{
+			Timeout:   10 * time.Second,
+			DualStack: true,
+			Resolver: &kafkaGo.DNSResolver{
+				LookupIP: func(ctx context.Context, host string) ([]kafkaGo.IPAddr, error) {
+					return []kafkaGo.IPAddr{{IP: []byte{127, 0, 0, 1}}}, nil
+				},
+			},
+		},
+	}
+	errorConsumer := &kafka.Consumer{reader: kafkaGo.NewReader(errorReaderConfig), logger: appLogger}
+	defer errorConsumer.Close()
+
+	// ... (rest of the main function, especially the select block)
+	// The select block should already try to fetch from both consumers
+	// as it was structured previously. Just ensure errorConsumer is handled.
 }

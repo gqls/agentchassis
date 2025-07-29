@@ -1,8 +1,10 @@
+# FILE: deployments/kustomize/services/content-creator-agent/overlays/production/uk_001/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: ai-persona-system
 resources:
-  - ../../../base
+  - ../../../base # Reference the base deployment for this agent
+  - configs/configmap-content-creator.yaml # Include the agent's specific configmap
 
 labels:
   - pairs:

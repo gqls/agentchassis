@@ -59,28 +59,68 @@ resource "kubernetes_job" "kafka_system_topics" {
               fi
             }
 
-            # System & Orchestration Topics
-            create_topic "system.commands.workflow.resume" 3 3
-            create_topic "system.events.workflow.paused" 3 3
-            create_topic "system.events.workflow.completed" 3 3
-            create_topic "system.events" 3 3
-            create_topic "system.errors" 3 3
-            create_topic "audit.log" 3 3
+            # --- SYSTEM & ORCHESTRATION TOPICS (Generally consistent) ---
+            create_topic "orchestrator.state-changes" 12 3 "Orchestrator state change notifications"
+            create_topic "human.approvals" 6 3 "Human approval workflow messages"
+            create_topic "system.events" 3 3 "General system events"
+            create_topic "system.notifications.ui" 3 3 "UI notifications"
+            create_topic "system.commands.workflow.resume" 3 3 "Workflow resume commands"
 
-            # Core Service Topics
-            create_topic "requests.auth.user.create" 3 3
-            create_topic "events.auth.user.created" 3 3
+            create_topic "system.errors" 3 3 "General system error messages"
+            create_topic "audit.log" 3 3 "Audit trail for user actions"
+            create_topic "system.metrics.agents" 3 3 "Agent performance metrics"
+            create_topic "system.logs.errors" 3 3 "Error logs aggregation"
+            create_topic "system.audit.actions" 6 3 "Audit trail for user actions"
 
-            # Agent Communication Topics
-            create_topic "requests.agent.task.execute" 3 3
-            create_topic "events.agent.task.completed" 3 3
-            create_topic "events.agent.task.failed" 3 3
-            create_topic "events.agent.task.progress" 3 3
+            # --- CORE SERVICE TOPICS ---
+            # These are from your original TF job. Confirm if they are still needed or if Core Manager generates events.
+            create_topic "requests.auth.user.create" 3 3 # Check if actually used for internal requests
+            create_topic "events.auth.user.created" 3 3  # Check if actually used for internal events
 
-            # Specialized Agent Topics
-            create_topic "requests.agent.reasoning" 3 3
-            create_topic "requests.agent.web-search" 3 3
-            create_topic "requests.agent.image-generation" 3 3
+            # --- GENERIC AGENT CHASSIS TOPICS ---
+            create_topic "system.agent.generic.process" 6 3 "Generic agent chassis requests" # From Kustomize job
+
+            # --- SPECIALIZED AGENT & ADAPTER COMMUNICATION TOPICS (CRITICAL ALIGNMENT) ---
+            # Reasoning Agent
+            create_topic "system.agent.reasoning.process" 6 3 "Reasoning agent requests"  # Matches internal/agents/reasoning/agent.go RequestTopic
+            create_topic "system.responses.reasoning" 6 3 "Reasoning agent responses"      # Matches internal/agents/reasoning/agent.go ResponseTopic
+            create_topic "system.errors.reasoning" 1 3 "Reasoning agent error DLQ"         # Matches platform/kafka/topic_manager.go error topic pattern
+            create_topic "dlq.reasoning" 1 3 "Reasoning agent dead letter queue"           # Consistent DLQ naming, used by Kafka Connect
+
+            # Web Search Adapter
+            create_topic "system.adapter.web.search" 3 3 "Web search adapter requests"     # Matches internal/adapters/websearch/adapter.go requestTopic
+            create_topic "system.responses.websearch" 6 3 "Web search adapter responses"   # Matches internal/adapters/websearch/adapter.go responseTopic
+            create_topic "system.errors.websearch" 1 3 "Web search adapter error DLQ"      # Matches platform/kafka/topic_manager.go error topic pattern
+            create_topic "dlq.websearch" 1 3 "Web search adapter dead letter queue"        # Consistent DLQ naming
+
+            # Image Generator Adapter
+            create_topic "system.adapter.image.generate" 3 3 "Image generation adapter requests" # Matches internal/adapters/imagegenerator/adapter.go requestTopic
+            create_topic "system.responses.image" 6 3 "Image generation adapter responses"      # Matches internal/adapters/imagegenerator/adapter.go responseTopic
+            create_topic "system.errors.image" 1 3 "Image generation adapter error DLQ"         # Matches platform/kafka/topic_manager.go error topic pattern
+            create_topic "dlq.image" 1 3 "Image generation adapter dead letter queue"           # Consistent DLQ naming
+
+            # Content Creator Agent (NEW)
+            create_topic "system.agent.content-creator.process" 6 3 "Content creator process requests" # Matches internal/agents/contentcreator/agent.go RequestTopic
+            create_topic "system.responses.content-creator" 6 3 "Content creator responses"      # Matches internal/agents/contentcreator/agent.go ResponseTopic
+            create_topic "system.errors.content-creator" 1 3 "Content creator error DLQ"         # Matches platform/kafka/topic_manager.go error topic pattern
+            create_topic "dlq.content-creator" 1 3 "Content creator dead letter queue"           # Consistent DLQ naming
+
+            # --- TASK/PRIORITY QUEUES (for Data-Driven Agents) ---
+            # These are typically created by topic_manager if category is 'data-driven'.
+            # If you want to guarantee their existence from startup for all data-driven agents,
+            # you can explicitly add them here. Otherwise, rely on Core Manager.
+            # Example if you add them:
+            create_topic "tasks.high.copywriter" 3 3
+            create_topic "tasks.normal.copywriter" 3 3
+            create_topic "tasks.low.copywriter" 3 3
+            create_topic "system.responses.copywriter" 6 3 # Response for copywriter tasks (from Kustomize job)
+            create_topic "dlq.copywriter" 1 3 # DLQ for copywriter
+
+            create_topic "tasks.high.researcher" 3 3
+            create_topic "tasks.normal.researcher" 3 3
+            create_topic "tasks.low.researcher" 3 3
+            create_topic "system.responses.researcher" 6 3 # Response for researcher tasks (from Kustomize job)
+            create_topic "dlq.researcher" 1 3 # DLQ for researcher
 
             echo "Platform topic initialization complete."
             EOT

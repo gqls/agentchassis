@@ -48,6 +48,8 @@ spec:
               set -e
               echo "🔧 Creating Kafka topics..."
               
+
+############## -- this is a placement file only atm -- ###################
               # Function to create topic with error handling
               create_topic() {
                 local topic_name=$1
@@ -91,6 +93,9 @@ spec:
               create_topic "system.tasks.researcher" 6 1 "Research agent tasks"
               create_topic "system.tasks.content-creator" 6 1 "Content creator tasks"
               create_topic "system.tasks.multimedia-creator" 6 1 "Multimedia creator tasks"
+              
+              # process topics for agents
+              create_topic "system.agent.content-creator.process" 6 1 "Content creator process requests"
               
               # Response topics for agents
               create_topic "system.responses.copywriter" 6 1 "Copywriter responses"

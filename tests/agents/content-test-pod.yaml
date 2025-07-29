@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: content-creator-test-pod
+  namespace: ai-persona-system
+spec:
+  serviceAccountName: ai-persona-app
+  containers:
+    - name: test
+      image: golang:1.21-alpine
+      command: ["sleep", "3600"]
+      env:
+        - name: KAFKA_BROKERS
+          # Use the full service names with namespace
+          value: "personae-kafka-cluster-combined-pool-prod-0.kafka.svc.cluster.local:9092,personae-kafka-cluster-combined-pool-prod-1.kafka.svc.cluster.local:9092,personae-kafka-cluster-combined-pool-prod-2.kafka.svc.cluster.local:9092"
+        - name: ANTHROPIC_API_KEY
+          value: "your-api-key-here"
+        - name: CLIENTS_DB_HOST
+          value: "postgres-clients-0.ai-persona-system.svc.cluster.local"
+        - name: CLIENTS_DB_PORT
+          value: "5432"
+        - name: CLIENTS_DB_USER
+          value: "postgres"
+        - name: CLIENTS_DB_PASSWORD
+          value: "your-password"  # Or use secretKeyRef
