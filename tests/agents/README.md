@@ -91,7 +91,7 @@ bootstrapServers := "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.lo
     
     // 2. Call Anthropic directly
     fmt.Println("Calling Anthropic API...")
-    apiKey := "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"
+    apiKey := ""
     
     payload := map[string]interface{}{
         "model": "claude-3-5-sonnet-20241022",
