@@ -104,7 +104,7 @@ func (l *AgentConfigLoader) getDefaultCoreLogic(agentType string) map[string]int
 	switch agentType {
 	case "copywriter":
 		return map[string]interface{}{
-			"model":       "claude-3-sonnet",
+			"model":       "claude-3-5-sonnet-20241022",
 			"temperature": 0.7,
 			"max_tokens":  2000,
 		}
@@ -116,7 +116,7 @@ func (l *AgentConfigLoader) getDefaultCoreLogic(agentType string) map[string]int
 		}
 	default:
 		return map[string]interface{}{
-			"model":       "claude-3-haiku",
+			"model":       "claude-3-haiku-20240307",
 			"temperature": 0.5,
 			"max_tokens":  1000,
 		}

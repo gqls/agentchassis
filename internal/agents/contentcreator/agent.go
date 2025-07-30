@@ -74,6 +74,12 @@ type Agent struct {
 	memoryService *memory.Service
 	db            *pgxpool.Pool
 	configLoader  *config.AgentConfigLoader
+	metrics       *observability.SafeAIMetrics
+	metricsConfig struct {
+		Enabled        bool
+		FailSilently   bool
+		DetailedErrors bool
+	}
 }
 
 // NewAgent creates a new content creator agent with optional memory support
@@ -112,6 +118,7 @@ func NewAgent(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger
 		aiClient:     aiClient,
 		fuelManager:  governance.NewFuelManager(),
 		configLoader: config.NewAgentConfigLoader(logger),
+		metrics:      observability.NewSafeAIMetrics(logger),
 	}
 
 	// Initialize database and memory service if configured
@@ -124,6 +131,25 @@ func NewAgent(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger
 			agent.memoryService = memory.NewService(db, aiClient, logger)
 			logger.Info("Memory service initialized successfully")
 		}
+	}
+
+	// Load metrics config
+	if metricsConfig, ok := cfg.Custom["metrics"].(map[string]interface{}); ok {
+		if enabled, ok := metricsConfig["enabled"].(bool); ok {
+			agent.metricsConfig.Enabled = enabled
+		} else {
+			agent.metricsConfig.Enabled = true // default to enabled
+		}
+
+		if failSilently, ok := metricsConfig["fail_silently"].(bool); ok {
+			agent.metricsConfig.FailSilently = failSilently
+		} else {
+			agent.metricsConfig.FailSilently = true // default to fail silently
+		}
+	} else {
+		// Default configuration
+		agent.metricsConfig.Enabled = true
+		agent.metricsConfig.FailSilently = true
 	}
 
 	return agent, nil
@@ -271,8 +297,7 @@ func (a *Agent) handleMessage(msg kafka.Message) {
 	// --- Token Counting & Metrics ---
 	tokensUsed := a.estimateTokens(result)
 	estimatedCost := a.estimateCost(tokensUsed, options["model"].(string))
-	observability.AIServiceTokensUsed.WithLabelValues(options["model"].(string), "output").Add(float64(tokensUsed))
-	observability.AIServiceRequests.WithLabelValues("anthropic", options["model"].(string), "text_generation").Inc()
+	a.metrics.RecordAIServiceMetrics(a.aiClient, "text_generation", tokensUsed, "output")
 
 	// --- Store Memory ---
 	if a.shouldStoreMemory(agentConfig, req) {
@@ -326,6 +351,10 @@ func (a *Agent) handleMessage(msg kafka.Message) {
 	l.Info("Content generation completed successfully",
 		zap.Int("tokens_used", tokensUsed),
 		zap.Float64("generation_time", time.Since(startTime).Seconds()))
+
+	if a.metricsConfig.Enabled {
+		observability.RecordAIServiceMetricsSafe(a.logger, a.aiClient, "text_generation", tokensUsed, "output")
+	}
 }
 
 // buildEnhancedContentPrompt creates a sophisticated prompt based on request type and memories
@@ -598,7 +627,7 @@ func (a *Agent) getGenerationOptions(req RequestPayload, config *models.AgentCon
 	// Set defaults
 	options["temperature"] = 0.7
 	options["max_tokens"] = 2000
-	options["model"] = "claude-3-sonnet-20240229"
+	options["model"] = "claude-3-5-sonnet-20241022"
 
 	// Override with agent config if available
 	if config != nil && config.CoreLogic != nil {
@@ -653,9 +682,9 @@ func (a *Agent) estimateTokens(text string) int {
 func (a *Agent) estimateCost(tokens int, model string) float64 {
 	// Rough cost estimation based on model
 	costPerThousand := map[string]float64{
-		"claude-3-haiku-20240307":  0.00025,
-		"claude-3-sonnet-20240229": 0.003,
-		"claude-3-opus-20240229":   0.015,
+		"claude-3-haiku-20240307":    0.00025,
+		"claude-3-5-sonnet-20241022": 0.003,
+		"claude-3-opus-20240229":     0.015,
 	}
 
 	rate, ok := costPerThousand[model]

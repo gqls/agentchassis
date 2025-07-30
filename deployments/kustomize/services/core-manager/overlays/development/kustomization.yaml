@@ -5,6 +5,10 @@ namespace: ai-persona-system
 resources:
   - ../../base
 
+images:
+  - name: docker.io/aqls/core-manager
+    newTag: v1.0.2  # This will be dynamically updated
+
 patches:
   - path: patch-env.yaml
     target:

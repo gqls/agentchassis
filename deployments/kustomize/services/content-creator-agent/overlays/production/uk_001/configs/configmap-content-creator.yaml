@@ -42,5 +42,9 @@ data:
       kafka_consumer_group: "content-creator-agent-group"
       ai_service:
         provider: "anthropic"
-        model: "claude-3-sonnet-20240229"
-        api_key_env_var: "ANTHROPIC_API_KEY" # Points to env var
+        model: "claude-3-5-sonnet-20241022"
+        api_key_env_var: "ANTHROPIC_API_KEY"
+      metrics:
+        enabled: true
+        fail_silently: true
+        detailed_errors: false

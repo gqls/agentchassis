@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: image-adapter-config
+data:
+  image-adapter.yaml: |
+    server:
+      http_port: 8080
+      grpc_port: 9090
+      shutdown_timeout: 5s
+    
+    logger:
+      level: "info"
+      format: "json"
+    
+    kafka:
+      brokers: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+    
+    # Development specific settings
+    # stability_api:
+    #   api_key: "${STABILITY_API_KEY}"

@@ -12,7 +12,8 @@ ENVIRONMENT ?= production
 REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
-IMAGE_TAG ?= latest
+#IMAGE_TAG ?= latest
+IMAGE_TAG ?= v1.0.2
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -446,9 +447,30 @@ ifeq ($(ENVIRONMENT),production)
 else
     OVERLAY_PATH := $(ENVIRONMENT)
 endif
+
+# Update all agent images
+.PHONY: update-kustomization-images
+update-kustomization-images: ## Update image tags in kustomization.yaml files
+	@echo "$(YELLOW)Updating kustomization.yaml files with image tag $(IMAGE_TAG)...$(NC)"
+	@for agent in agent-chassis reasoning-agent web-search-adapter image-generator-adapter content-creator-agent; do \
+		kust_file="$(KUSTOMIZE_DIR)/services/$$agent/overlays/$(OVERLAY_PATH)/kustomization.yaml"; \
+		if [ -f "$$kust_file" ]; then \
+			echo "Updating $$agent kustomization.yaml..."; \
+			if grep -q "images:" "$$kust_file"; then \
+				sed -i.bak '/images:/,/^[^ ]/{/newTag:/s/newTag:.*/newTag: $(IMAGE_TAG)/}' "$$kust_file"; \
+			else \
+				echo "" >> "$$kust_file"; \
+				echo "images:" >> "$$kust_file"; \
+				echo "  - name: docker.io/aqls/$$agent" >> "$$kust_file"; \
+				echo "    newTag: $(IMAGE_TAG)" >> "$$kust_file"; \
+			fi; \
+		fi; \
+	done
+
+# Deploy agents with automatic image update
 .PHONY: deploy-agents
-deploy-agents: create-dev-secrets ## Deploy all agent services
-	@echo "$(YELLOW)Deploying agent services...$(NC)"
+deploy-agents: create-dev-secrets update-kustomization-images ## Deploy all agent services
+	@echo "$(YELLOW)Deploying agent services with image tag $(IMAGE_TAG)...$(NC)"
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH)
@@ -907,6 +929,8 @@ create-dev-secrets: ## Create all development secrets (personae-dev-secrets and 
 		--from-literal=JWT_SECRET_KEY=$${JWT_SECRET_KEY} \
 		--from-literal=anthropic-api-key=$${ANTHROPIC_API_KEY} \
 		--from-literal=serp-api-key=$${SERP_API_KEY} \
+		--from-literal=scraping-bee-api-key=$${SCRAPING_BEE_API_KEY} \
+		--from-literal=firecrawl-api-key=$${FIRECRAWL_API_KEY} \
 		--from-literal=stability-api-key=$${STABILITY_API_KEY:-not-a-real-key} \
 		-n $(PROJECT_NAME) --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f -
 	@echo "$(GREEN)✓ personae-dev-secrets created$(NC)"
@@ -914,9 +938,9 @@ create-dev-secrets: ## Create all development secrets (personae-dev-secrets and 
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl create secret docker-registry docker-hub-creds \
 		--namespace=$(PROJECT_NAME) \
 		--docker-server=docker.io \
-		--docker-username=$${DOCKER_USERNAME} \
-		--docker-password=$${DOCKER_PASSWORD} \
-		--docker-email=$${DOCKER_EMAIL} \
+		--docker-username="$$(echo $${DOCKER_USERNAME} | tr -d '"')" \
+		--docker-password="$$(echo $${DOCKER_PASSWORD} | tr -d '"')" \
+		--docker-email="$$(echo $${DOCKER_EMAIL} | tr -d '"')" \
 		--dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f -
 	@echo "$(GREEN)✓ docker-hub-creds created$(NC)"
 	@echo "$(GREEN)All development secrets created successfully!$(NC)"

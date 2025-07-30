@@ -39,5 +39,5 @@ custom:
   kafka_consumer_group: "content-creator-agent-group"
   ai_service:
     provider: "anthropic"
-    model: "claude-3-sonnet-20240229" # Specific model name from Anthropic
+    model: "claude-3-5-sonnet-20241022" # Specific model name from Anthropic
     api_key_env_var: "ANTHROPIC_API_KEY" # Ensure this env var is set

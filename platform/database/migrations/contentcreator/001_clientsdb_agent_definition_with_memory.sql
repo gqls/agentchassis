@@ -1,7 +1,7 @@
 -- Enhanced agent definition with memory configuration
 INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
     ('content-creator', 'Content Creator', 'Advanced AI-powered content generation with memory and style adaptation', 'data-driven', '{
-  "model": "claude-3-sonnet-20240229",
+  "model": "claude-3-5-sonnet-20241022",
   "temperature": 0.7,
   "max_tokens": 2000,
   "memory_config": {
@@ -13,7 +13,15 @@ INSERT INTO agent_definitions (type, display_name, description, category, defaul
     "embedding_model": "text-embedding-ada-002",
     "include_types": ["generated_content", "user_feedback", "style_preferences"]
   },
-  "workflow": {
+  "metrics_config": {
+    "enabled": true,
+    "fail_silently": true,
+    "detailed_errors": false,
+    "record_token_usage": true,
+    "record_latency": true,
+    "record_errors": true
+  },                                                                                                                       '' ||
+   "workflow": {
     "start_step": "generate_content",
     "steps": {
       "generate_content": {

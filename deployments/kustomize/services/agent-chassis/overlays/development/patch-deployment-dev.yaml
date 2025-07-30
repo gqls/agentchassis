@@ -2,9 +2,6 @@
   path: /spec/replicas
   value: 2 # A couple of replicas even for dev
 - op: replace
-  path: /spec/template/spec/containers/0/image
-  value: aqls/agent-chassis:latest
-- op: replace
   path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
   value: personae-dev-config
 - op: replace

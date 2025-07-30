@@ -9,6 +9,10 @@ labels:
       environment: production
       region: uk
 
+images:
+  - name: docker.io/aqls/reasoning-agent
+    newTag: v1.0.2
+
 patches:
   - path: patch-deployment.yaml
     target:

@@ -9,7 +9,6 @@ spec:
     spec:
       containers:
         - name: content-creator-agent
-          image: docker.io/aqls/content-creator-agent:v1.0.0 # Use a specific production tag
           env:
             # API Key from default secrets
             - name: ANTHROPIC_API_KEY # Matches api_key_env_var in custom config

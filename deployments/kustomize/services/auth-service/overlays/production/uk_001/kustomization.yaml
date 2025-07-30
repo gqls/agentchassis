@@ -9,6 +9,10 @@ labels:
       environment: production
       region: uk
 
+images:
+  - name: docker.io/aqls/auth-servic
+    newTag: v1.0.2  # This will be dynamically updated
+
 patches:
   - path: patch-deployment.yaml
     target:

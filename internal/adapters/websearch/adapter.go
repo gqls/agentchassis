@@ -72,11 +72,11 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		return nil, fmt.Errorf("failed to create producer: %w", err)
 	}
 
-	apiKey := os.Getenv("SCRAPING_BEE_KEY")
+	apiKey := os.Getenv("SCRAPING_BEE_API_KEY")
 	if apiKey == "" {
 		consumer.Close()
 		producer.Close()
-		return nil, fmt.Errorf("SCRAPING_BEE_KEY not set")
+		return nil, fmt.Errorf("SCRAPING_BEE_API_KEY not set")
 	}
 
 	return &Adapter{

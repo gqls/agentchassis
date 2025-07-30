@@ -118,3 +118,7 @@ func (c *AnthropicClient) GenerateEmbedding(ctx context.Context, text string) ([
 func (c *AnthropicClient) Model() string {
 	return c.model
 }
+
+func (c *AnthropicClient) Provider() string {
+	return "anthropic"
+}

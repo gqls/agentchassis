@@ -8,7 +8,7 @@ spec:
       containers:
         - name: web-search-adapter
           env:
-            - name: SCRAPING_BEE_KEY
+            - name: SCRAPING_BEE_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: personae-dev-secrets

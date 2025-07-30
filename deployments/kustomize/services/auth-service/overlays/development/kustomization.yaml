@@ -5,6 +5,11 @@ namespace: ai-persona-system
 resources:
   - ../../base
 
+
+images:
+  - name: docker.io/aqls/auth-servic
+    newTag: v1.0.2  # This will be dynamically updated
+
 # Don't add labels globally - they would affect the immutable selector
 # Instead, just use the patches
 patches:

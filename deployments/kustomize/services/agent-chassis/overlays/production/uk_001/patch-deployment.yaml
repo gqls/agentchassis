@@ -10,7 +10,6 @@ spec:
     spec:
       containers:
         - name: agent-chassis
-          image: docker.io/aqls/agent-chassis:v1.0.0
           envFrom:
             - configMapRef:
                 name: personae-prod-config
