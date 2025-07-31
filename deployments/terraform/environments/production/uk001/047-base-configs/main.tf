@@ -72,11 +72,11 @@ resource "kubernetes_secret" "personae_default_api_keys" {
   }
 
   data = {
-    anthropic-api-key = var.default_anthropic_api_key
-    stability-api-key = var.default_stability_api_key
-    serp-api-key      = var.default_serp_api_key
-    scraping-bee-api-key: var.default_scraping_bee_api_key
-    firecrawl-api-key:  var.default_firecrawl_api_key
+    ANTHROPIC_API_KEY = var.default_anthropic_api_key
+    STABILITY_API_KEY = var.default_stability_api_key
+    SERP_API_KEY      = var.default_serp_api_key
+    SCRAPING_BEE_API_KEY = var.default_scraping_bee_api_key
+    FIRECRAWL_API_KEY =  var.default_firecrawl_api_key
   }
 }
 

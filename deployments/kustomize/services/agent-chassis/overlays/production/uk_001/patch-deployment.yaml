@@ -20,12 +20,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: personae-platform-secrets
-                  key: clients-db-password
+                  key: CLIENTS_DB_PASSWORD
             - name: TEMPLATES_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: personae-platform-secrets
-                  key: templates-db-password
+                  key: TEMPLATES_DB_PASSWORD
           resources:
             requests:
               cpu: "250m"

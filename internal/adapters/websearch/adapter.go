@@ -5,13 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/internal/adapters/websearch/providers"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"go.uber.org/zap"
@@ -30,33 +30,28 @@ type RequestPayload struct {
 		Query      string `json:"query"`
 		NumResults int    `json:"num_results,omitempty"`
 		SearchType string `json:"search_type,omitempty"` // web, news, images
+		Provider   string `json:"provider,omitempty"`    // specific provider to use
 	} `json:"data"`
 }
 
 // ResponsePayload with search results
 type ResponsePayload struct {
-	Query   string         `json:"query"`
-	Results []SearchResult `json:"results"`
-	Total   int            `json:"total"`
-}
-
-// SearchResult represents a single search result
-type SearchResult struct {
-	Title       string `json:"title"`
-	URL         string `json:"url"`
-	Snippet     string `json:"snippet"`
-	PublishedAt string `json:"published_at,omitempty"`
+	Query     string                   `json:"query"`
+	Results   []providers.SearchResult `json:"results"`
+	Total     int                      `json:"total"`
+	Provider  string                   `json:"provider"`            // which provider was used
+	Fallbacks []string                 `json:"fallbacks,omitempty"` // if any fallbacks were attempted
 }
 
 // Adapter handles web search requests
 type Adapter struct {
-	ctx          context.Context
-	logger       *zap.Logger
-	consumer     *kafka.Consumer
-	producer     kafka.Producer
-	httpClient   *http.Client
-	apiKey       string
-	searchAPIURL string
+	ctx             context.Context
+	logger          *zap.Logger
+	consumer        *kafka.Consumer
+	producer        kafka.Producer
+	providers       []providers.SearchProvider
+	primaryProvider string
+	httpClient      *http.Client
 }
 
 // NewAdapter creates a new web search adapter
@@ -72,31 +67,65 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		return nil, fmt.Errorf("failed to create producer: %w", err)
 	}
 
-	apiKey := os.Getenv("SCRAPING_BEE_API_KEY")
-	if apiKey == "" {
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 10,
+			IdleConnTimeout:     90 * time.Second,
+		},
+	}
+
+	// Initialize providers
+	searchProviders := []providers.SearchProvider{
+		providers.NewFirecrawlProvider(httpClient, logger),
+		providers.NewScrapingBeeProvider(httpClient, logger),
+	}
+
+	// Filter available providers
+	availableProviders := []providers.SearchProvider{}
+	for _, p := range searchProviders {
+		if p.IsAvailable() {
+			logger.Info("Search provider available", zap.String("provider", p.Name()))
+			availableProviders = append(availableProviders, p)
+		} else {
+			logger.Warn("Search provider not available (missing API key?)",
+				zap.String("provider", p.Name()))
+		}
+	}
+
+	if len(availableProviders) == 0 {
 		consumer.Close()
 		producer.Close()
-		return nil, fmt.Errorf("SCRAPING_BEE_API_KEY not set")
+		return nil, fmt.Errorf("no search providers available - check API keys")
+	}
+
+	primaryProvider := os.Getenv("PRIMARY_SEARCH_PROVIDER")
+	if primaryProvider == "" {
+		primaryProvider = availableProviders[0].Name()
 	}
 
 	return &Adapter{
-		ctx:          ctx,
-		logger:       logger,
-		consumer:     consumer,
-		producer:     producer,
-		httpClient:   &http.Client{Timeout: 30 * time.Second},
-		apiKey:       apiKey,
-		searchAPIURL: "https://scrapingbee.com/search",
+		ctx:             ctx,
+		logger:          logger,
+		consumer:        consumer,
+		producer:        producer,
+		providers:       availableProviders,
+		primaryProvider: primaryProvider,
+		httpClient:      httpClient,
 	}, nil
 }
 
 // Run starts the adapter's main loop
 func (a *Adapter) Run() error {
-	a.logger.Info("Web search adapter running")
+	a.logger.Info("Web search adapter running",
+		zap.Int("providers_count", len(a.providers)),
+		zap.String("primary_provider", a.primaryProvider))
 
 	for {
 		select {
 		case <-a.ctx.Done():
+			a.logger.Info("Shutting down web search adapter")
 			a.consumer.Close()
 			a.producer.Close()
 			return nil
@@ -107,6 +136,7 @@ func (a *Adapter) Run() error {
 					continue
 				}
 				a.logger.Error("Failed to fetch message", zap.Error(err))
+				time.Sleep(time.Second) // Brief pause on error
 				continue
 			}
 			go a.handleMessage(msg)
@@ -117,19 +147,40 @@ func (a *Adapter) Run() error {
 // handleMessage processes a search request
 func (a *Adapter) handleMessage(msg kafka.Message) {
 	headers := kafka.HeadersToMap(msg.Headers)
-	l := a.logger.With(zap.String("correlation_id", headers["correlation_id"]))
+	l := a.logger.With(
+		zap.String("correlation_id", headers["correlation_id"]),
+		zap.String("request_id", headers["request_id"]),
+	)
+
+	l.Debug("Processing search request")
 
 	var req RequestPayload
 	if err := json.Unmarshal(msg.Value, &req); err != nil {
 		l.Error("Failed to unmarshal request", zap.Error(err))
+		a.sendErrorResponse(headers, "Invalid request format: "+err.Error())
 		a.consumer.CommitMessages(context.Background(), msg)
 		return
 	}
 
-	// Perform the search
-	results, err := a.performSearch(req.Data.Query, req.Data.NumResults)
+	// Validate request
+	if strings.TrimSpace(req.Data.Query) == "" {
+		l.Error("Empty search query")
+		a.sendErrorResponse(headers, "Search query cannot be empty")
+		a.consumer.CommitMessages(context.Background(), msg)
+		return
+	}
+
+	// Perform search with fallback
+	results, provider, fallbacks, err := a.performSearchWithFallback(
+		req.Data.Query,
+		req.Data.NumResults,
+		req.Data.Provider,
+	)
+
 	if err != nil {
-		l.Error("Search failed", zap.Error(err))
+		l.Error("All search providers failed",
+			zap.Error(err),
+			zap.Strings("attempted_providers", fallbacks))
 		a.sendErrorResponse(headers, "Search failed: "+err.Error())
 		a.consumer.CommitMessages(context.Background(), msg)
 		return
@@ -137,77 +188,96 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 
 	// Send response
 	response := ResponsePayload{
-		Query:   req.Data.Query,
-		Results: results,
-		Total:   len(results),
+		Query:     req.Data.Query,
+		Results:   results,
+		Total:     len(results),
+		Provider:  provider,
+		Fallbacks: fallbacks,
 	}
 
 	a.sendResponse(headers, response)
 	a.consumer.CommitMessages(context.Background(), msg)
+
+	l.Info("Search request processed successfully",
+		zap.String("provider_used", provider),
+		zap.Int("results_count", len(results)))
 }
 
-// performSearch executes the actual web search
-func (a *Adapter) performSearch(query string, numResults int) ([]SearchResult, error) {
-	if numResults == 0 {
-		numResults = 10
+// performSearchWithFallback tries providers with fallback logic
+func (a *Adapter) performSearchWithFallback(query string, numResults int, preferredProvider string) ([]providers.SearchResult, string, []string, error) {
+	var fallbacks []string
+
+	// If specific provider requested, try it first
+	if preferredProvider != "" {
+		for _, p := range a.providers {
+			if p.Name() == preferredProvider {
+				results, err := p.Search(a.ctx, query, numResults)
+				if err == nil {
+					return results, p.Name(), fallbacks, nil
+				}
+				a.logger.Warn("Preferred provider failed",
+					zap.String("provider", p.Name()),
+					zap.Error(err))
+				fallbacks = append(fallbacks, p.Name())
+				break
+			}
+		}
 	}
 
-	// Build search URL
-	params := url.Values{}
-	params.Add("q", query)
-	params.Add("api_key", a.apiKey)
-	params.Add("num", fmt.Sprintf("%d", numResults))
-	params.Add("engine", "google")
-
-	searchURL := fmt.Sprintf("%s?%s", a.searchAPIURL, params.Encode())
-
-	// Execute request
-	resp, err := a.httpClient.Get(searchURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute search request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+	// Try primary provider if not already attempted
+	if preferredProvider != a.primaryProvider {
+		for _, p := range a.providers {
+			if p.Name() == a.primaryProvider {
+				results, err := p.Search(a.ctx, query, numResults)
+				if err == nil {
+					return results, p.Name(), fallbacks, nil
+				}
+				a.logger.Warn("Primary provider failed",
+					zap.String("provider", p.Name()),
+					zap.Error(err))
+				fallbacks = append(fallbacks, p.Name())
+				break
+			}
+		}
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("search API returned status %d: %s", resp.StatusCode, string(body))
+	// Try all other providers
+	for _, p := range a.providers {
+		// Skip if already tried
+		alreadyTried := false
+		for _, f := range fallbacks {
+			if f == p.Name() {
+				alreadyTried = true
+				break
+			}
+		}
+		if alreadyTried {
+			continue
+		}
+
+		results, err := p.Search(a.ctx, query, numResults)
+		if err == nil {
+			a.logger.Info("Search successful with fallback provider",
+				zap.String("provider", p.Name()))
+			return results, p.Name(), fallbacks, nil
+		}
+
+		a.logger.Error("Provider failed",
+			zap.String("provider", p.Name()),
+			zap.Error(err))
+		fallbacks = append(fallbacks, p.Name())
 	}
 
-	// Parse response
-	var apiResponse struct {
-		OrganicResults []struct {
-			Title   string `json:"title"`
-			Link    string `json:"link"`
-			Snippet string `json:"snippet"`
-			Date    string `json:"date,omitempty"`
-		} `json:"organic_results"`
-	}
-
-	if err := json.Unmarshal(body, &apiResponse); err != nil {
-		return nil, fmt.Errorf("failed to parse search response: %w", err)
-	}
-
-	// Convert to our format
-	results := make([]SearchResult, 0, len(apiResponse.OrganicResults))
-	for _, r := range apiResponse.OrganicResults {
-		results = append(results, SearchResult{
-			Title:       r.Title,
-			URL:         r.Link,
-			Snippet:     r.Snippet,
-			PublishedAt: r.Date,
-		})
-	}
-
-	return results, nil
+	return nil, "", fallbacks, fmt.Errorf("all %d providers failed", len(a.providers))
 }
 
 // sendResponse sends a successful response
 func (a *Adapter) sendResponse(headers map[string]string, payload ResponsePayload) {
-	responseBytes, _ := json.Marshal(payload)
+	responseBytes, _ := json.Marshal(map[string]interface{}{
+		"success": true,
+		"data":    payload,
+	})
+
 	responseHeaders := map[string]string{
 		"correlation_id": headers["correlation_id"],
 		"causation_id":   headers["request_id"],
@@ -233,6 +303,8 @@ func (a *Adapter) sendErrorResponse(headers map[string]string, errorMsg string) 
 		"request_id":     uuid.NewString(),
 	}
 
-	a.producer.Produce(a.ctx, responseTopic, responseHeaders,
-		[]byte(headers["correlation_id"]), responseBytes)
+	if err := a.producer.Produce(a.ctx, responseTopic, responseHeaders,
+		[]byte(headers["correlation_id"]), responseBytes); err != nil {
+		a.logger.Error("Failed to produce error response", zap.Error(err))
+	}
 }

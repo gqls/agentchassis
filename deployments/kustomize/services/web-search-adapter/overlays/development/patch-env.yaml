@@ -8,8 +8,8 @@ spec:
       containers:
         - name: web-search-adapter
           env:
-            - name: SCRAPING_BEE_API_KEY
+            - name: FIRECRAWL_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: personae-dev-secrets
-                  key: scraping-bee-key
+                  key: FIRECRAWL_API_KEY

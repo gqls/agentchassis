@@ -14,6 +14,6 @@ spec:
             - name: ANTHROPIC_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: personae-dev-secrets
+                  name: personae-default-secrets
                   # This must match the key in your secrets file
-                  key: anthropic-api-key
+                  key: ANTHROPIC_API_KEY
