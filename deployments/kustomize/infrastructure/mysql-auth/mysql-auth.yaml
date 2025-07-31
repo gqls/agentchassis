@@ -14,7 +14,7 @@ spec:
     app: mysql-auth
   type: ClusterIP
   clusterIP: None
-
+######################### eXAMPLE ONLY ###############
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -40,9 +40,9 @@ spec:
               name: mysql
           env:
             - name: MYSQL_DATABASE
-              value: "catalogu_vectordbdev"
+              value: "catalogu_vectordb_chassis"
             - name: MYSQL_USER
-              value: "catalogu_agent-chassis"
+              value: "catalogu_personae"
             - name: MYSQL_PASSWORD
               valueFrom:
                 secretKeyRef:

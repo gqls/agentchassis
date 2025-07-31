@@ -5,7 +5,7 @@ metadata:
   namespace: ai-persona-system
 data:
   # Kafka configuration
-  kafka_brokers: "kafka-0.kafka-headless:9092,kafka-1.kafka-headless:9092,kafka-2.kafka-headless:9092"
+  kafka_brokers: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local"
 
   # Database hosts
   clients_db_host: "postgres-clients"
@@ -20,8 +20,8 @@ data:
 
   auth_db_host: "rs17.uk-noc.com"
   auth_db_port: "3306"
-  auth_db_name: "catalogu_vectordbdev"
-  auth_db_user: "catalogu_agent-chassis"
+  auth_db_name: "catalogu_vectordb_chassis"
+  auth_db_user: "catalogu_personae"
 
   # Object storage
   minio_endpoint: "http://minio:9000"

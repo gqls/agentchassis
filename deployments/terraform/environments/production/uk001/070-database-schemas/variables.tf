@@ -26,7 +26,7 @@ variable "external_mysql_host" {
 variable "external_mysql_user" {
   description = "Username for the external MySQL database."
   type        = string
-  default     = "catalogu_agent-chassis"
+  default     = "catalogu_personae"
 }
 
 variable "external_mysql_database" {

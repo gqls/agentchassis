@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core-manager
+spec:
+  template:
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: core-manager
+          env:
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: TEMPLATES_DB_PASSWORD
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+            - name: KAFKA_TOPIC_CREATION_ENABLED
+              value: "true"
+            - name: KAFKA_TOPIC_REPLICATION_FACTOR
+              value: "3"
+            - name: KAFKA_TOPIC_DEFAULT_PARTITIONS
+              value: "6"
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: JWT_SECRET_KEY
+            - name: GO_ENV
+              value: "production"
+            - name: AUTH_DB_USER
+              value: "catalogu_personae"

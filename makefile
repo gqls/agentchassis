@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.2
+IMAGE_TAG ?= v1.0.5
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -28,6 +28,12 @@ NC := \033[0m # No Color
 
 # Default target
 .DEFAULT_GOAL := help
+
+ifeq ($(ENVIRONMENT),production)
+    OVERLAY_PATH := $(ENVIRONMENT)/$(REGION_PATH)
+else
+    OVERLAY_PATH := $(ENVIRONMENT)
+endif
 
 #################################
 # Help
@@ -186,7 +192,7 @@ deploy-cluster-only: ## Deploy just the Kubernetes cluster
 		terraform apply -auto-approve -var-file=terraform.tfvars.secret
 
 .PHONY: deploy-infrastructure-old
-deploy-infrastructure-old: create-dev-secrets ## Deploy all infrastructure components
+deploy-infrastructure-old: ## Deploy all infrastructure components
 	@echo "$(YELLOW)Deploying infrastructure to $(ENVIRONMENT)/$(REGION)...$(NC)"
 	@$(MAKE) deploy-010-infrastructure
 	@$(MAKE) deploy-020-ingress
@@ -209,7 +215,6 @@ deploy-infrastructure: ## Deploy all infrastructure components
 		terraform apply -auto-approve -var-file=terraform.tfvars.secret && \
 		terraform output -raw kubeconfig_raw > $(KUBECONFIG_PATH)
 	@echo "$(GREEN)Cluster deployed! Using kubeconfig: $(KUBECONFIG_PATH)$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) create-dev-secrets
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-020-ingress
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-030-strimzi-operator
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-040-kafka-cluster
@@ -233,7 +238,6 @@ deploy-infrastructure-from-ingress: ## Deploy infrastructure starting from ingre
 		echo "$(YELLOW)Manually set up Kubeconfig first - export KUBECONFIG=~/.kube/config_$(ENVIRONMENT)_$(REGION)    $(NC)"; \
 		exit 1; \
 	fi
-	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) create-dev-secrets
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-020-ingress
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-030-strimzi-operator
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-040-kafka-cluster
@@ -394,7 +398,7 @@ deploy-090-monitoring: ## Deploy monitoring stack
 deploy-all: deploy-infrastructure deploy-core deploy-agents ## deploy-frontends ## Deploy everything
 
 .PHONY: deploy-service
-deploy-service: create-dev-secrets
+deploy-service:
 	@echo "$(GREEN)Deploying service at $(path)...$(NC)"
 	@cd $(path) && \
 		if [ -f terraform.tfvars.secret ]; then \
@@ -420,14 +424,25 @@ destroy-service:
 
 # Core Platform Services
 .PHONY: deploy-core
-deploy-core: create-dev-secrets deploy-047-base-configs deploy-auth-service deploy-core-manager ## Deploy core platform services using Terraform
+deploy-core: update-kustomization-images deploy-047-base-configs deploy-auth-service deploy-core-manager ## Deploy core platform services using Terraform
 
 .PHONY: deploy-auth-service
-deploy-auth-service: create-dev-secrets ## Deploy auth-service using Terraform
+deploy-auth-service:  ## Deploy auth-service using Terraform
+	# Update the image tag in kustomization.yaml FIRST
+	@echo "$(YELLOW)Updating auth-service image tag to $(IMAGE_TAG)...$(NC)"
+	@cd $(KUSTOMIZE_DIR)/services/auth-service/overlays/$(OVERLAY_PATH) && \
+		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml
+
 	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/core-platform/1110-auth-service
 
 .PHONY: deploy-core-manager
-deploy-core-manager: create-dev-secrets ## Deploy core-manager using Terraform
+deploy-core-manager:  ## Deploy core-manager using Terraform
+# Update the image tag in kustomization.yaml FIRST
+	@echo "$(YELLOW)Updating core-manager image tag to $(IMAGE_TAG)...$(NC)"
+	@cd $(KUSTOMIZE_DIR)/services/core-manager/overlays/$(OVERLAY_PATH) && \
+		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml
+
+
 	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/core-platform/1120-core-manager
 
 # Corresponding destroy targets
@@ -442,11 +457,6 @@ destroy-auth-service: ## Destroy auth-service using Terraform
 destroy-core-manager: ## Destroy core-manager using Terraform
 	@$(MAKE) destroy-service path=$(TERRAFORM_DIR)/services/core-platform/1120-core-manager
 
-ifeq ($(ENVIRONMENT),production)
-    OVERLAY_PATH := $(ENVIRONMENT)/$(REGION_PATH)
-else
-    OVERLAY_PATH := $(ENVIRONMENT)
-endif
 
 # Update all agent images
 .PHONY: update-kustomization-images
@@ -469,7 +479,7 @@ update-kustomization-images: ## Update image tags in kustomization.yaml files
 
 # Deploy agents with automatic image update
 .PHONY: deploy-agents
-deploy-agents: create-dev-secrets update-kustomization-images ## Deploy all agent services
+deploy-agents: update-kustomization-images ## Deploy all agent services
 	@echo "$(YELLOW)Deploying agent services with image tag $(IMAGE_TAG)...$(NC)"
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)
@@ -478,7 +488,7 @@ deploy-agents: create-dev-secrets update-kustomization-images ## Deploy all agen
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH)
 
 .PHONY: redeploy-agents
-redeploy-agents: create-dev-secrets ## Forces a rolling restart of all agent deployments
+redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	@echo "$(YELLOW)Forcing rollout restart of agent deployments...$(NC)"
 	kubectl rollout restart deployment agent-chassis -n ai-persona-system
 	kubectl rollout restart deployment reasoning-agent -n ai-persona-system
@@ -511,7 +521,7 @@ deploy-user-portal: ## Deploy user-portal only
 full-deploy: build-all push-all deploy-all ## Build, push, and deploy everything
 
 .PHONY: quick-deploy
-quick-deploy: create-dev-secrets ## Deploy applications without building (uses existing images)
+quick-deploy:  ## Deploy applications without building (uses existing images)
 	@echo "$(YELLOW)Quick deployment using existing images...$(NC)"
 	@$(MAKE) deploy-core
 	@$(MAKE) deploy-agents
@@ -596,16 +606,6 @@ clean: ## Clean build artifacts
 	rm -rf dist/
 	rm -rf frontends/*/build/
 	rm -rf frontends/*/dist/
-
-.PHONY: setup-registry
-setup-registry: ## Set up local Docker registry
-	@echo "$(YELLOW)Setting up local Docker registry...$(NC)"
-	$(SCRIPTS_DIR)/utils/setup-local-registry.sh
-
-.PHONY: generate-secrets
-generate-secrets: ## Generate required secrets
-	@echo "$(YELLOW)Generating secrets...$(NC)"
-	$(SCRIPTS_DIR)/utils/generate-jwt-secret.sh
 
 .PHONY: port-forward-admin
 port-forward-admin: ## Port forward admin dashboard to localhost:3000

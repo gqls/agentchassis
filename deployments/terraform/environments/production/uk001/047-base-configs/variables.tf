@@ -31,20 +31,32 @@ variable "agent_bootstrap_key" {
 }
 
 # Default API keys (temporary until per-user keys)
-variable "default_anthropic_key" {
+variable "default_anthropic_api_key" {
   description = "Default Anthropic API key"
   type        = string
   sensitive   = true
 }
 
-variable "default_stability_key" {
+variable "default_stability_api_key" {
   description = "Default Stability API key"
   type        = string
   sensitive   = true
 }
 
-variable "default_serp_key" {
+variable "default_serp_api_key" {
   description = "Default SERP API key"
+  type        = string
+  sensitive   = true
+}
+
+variable "default_scraping_bee_api_key" {
+  description = "Default SCRAPING BEE API key"
+  type        = string
+  sensitive   = true
+}
+
+variable "default_firecrawl_api_key" {
+  description = "Default FIRECRAWL API key"
   type        = string
   sensitive   = true
 }
@@ -59,4 +71,22 @@ variable "docker_password" {
 variable "docker_email" {
   description = "Docker Hub email"
   type        = string
+}
+
+variable "auth_db_host" {
+  description = "The endpoint for the external MySQL database."
+  type        = string
+  default     = "rs17.uk-noc.com"
+}
+
+variable "auth_db_name" {
+  description = "The name of the external MySQL database."
+  type        = string
+  default     = "catalogu_vectordb_chassis"
+}
+
+variable "auth_db_user" {
+  description = "Username for the external MySQL database."
+  type        = string
+  default     = "catalogu_personae"
 }

@@ -11,10 +11,14 @@ labels:
 
 images:
   - name: docker.io/aqls/core-manager
-    newTag: v1.0.2  # This will be dynamically updated
+    newTag: v1.0.5
 
 patches:
   - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: core-manager
+  - path: patch-env.yaml
     target:
       kind: Deployment
       name: core-manager

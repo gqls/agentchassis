@@ -21,4 +21,4 @@ kubectl run -it --rm --image=ubuntu network-test -n ai-persona-system -- bash
 # Run these commands inside the network-test pod
 apt-get update && apt-get install -y mysql-client
 # Attempt to log in using the hostname, username, and database name from your auth-service.yaml file.
-mysql -h rs17.uk-noc.com -u catalogu_agent-chassis -p catalogu_vectordbdev
+mysql -h rs17.uk-noc.com -u catalogu_personae -p catalogu_vectordbdev

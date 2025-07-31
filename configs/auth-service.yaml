@@ -17,8 +17,8 @@ infrastructure:
   auth_database:
     host: "rs17.uk-noc.com"
     port: 3306
-    user: "catalogu_agent-chassis"
-    db_name: "catalogu_vectordbdev"
+    user: "catalogu_personae"
+    db_name: "catalogu_vectordb_chassis"
     password_env_var: "AUTH_DB_PASSWORD"
     ssl_mode: "disable"
 

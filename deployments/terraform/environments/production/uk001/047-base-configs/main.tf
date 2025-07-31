@@ -26,10 +26,12 @@ resource "kubernetes_config_map" "personae_prod_config" {
 
   data = {
     # Service endpoints
-    kafka_brokers     = "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
-    clients_db_host   = "postgres-clients.ai-persona-system.svc.cluster.local"
-    templates_db_host = "postgres-templates.ai-persona-system.svc.cluster.local"
-    auth_db_host      = "rs17.uk-noc.com"
+    KAFKA_BROKERS     = "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+    CLIENTS_DB_HOST   = "postgres-clients.ai-persona-system.svc.cluster.local"
+    TEMPLATES_DB_HOST = "postgres-templates.ai-persona-system.svc.cluster.local"
+    AUTH_DB_HOST      = var.auth_db_host
+    AUTH_DB_NAME      = var.auth_db_name
+    AUTH_DB_USER      = var.auth_db_user
     core_manager_url  = "http://core-manager.ai-persona-system.svc.cluster.local:8088"
     auth_service_url  = "http://auth-service.ai-persona-system.svc.cluster.local:8081"
 
@@ -50,12 +52,12 @@ resource "kubernetes_secret" "personae_platform_secrets" {
 
   data = {
     # Database passwords for platform services
-    auth-db-password      = var.auth_db_user_password
-    templates-db-password = var.templates_db_user_password
-    clients-db-password   = var.clients_db_user_password
+    AUTH_DB_PASSWORD      = var.auth_db_user_password
+    TEMPLATES_DB_PASSWORD = var.templates_db_user_password
+    CLIENTS_DB_PASSWORD   = var.clients_db_user_password
 
     # JWT key for auth-service
-    jwt-secret = var.jwt_secret_key
+    JWT_SECRET_KEY = var.jwt_secret_key
 
     # Platform agent bootstrap key
     agent-bootstrap-key = var.agent_bootstrap_key
@@ -70,9 +72,11 @@ resource "kubernetes_secret" "personae_default_api_keys" {
   }
 
   data = {
-    anthropic-api-key = var.default_anthropic_key
-    stability-api-key = var.default_stability_key
-    serp-api-key      = var.default_serp_key
+    anthropic-api-key = var.default_anthropic_api_key
+    stability-api-key = var.default_stability_api_key
+    serp-api-key      = var.default_serp_api_key
+    scraping-bee-api-key: var.default_scraping_bee_api_key
+    firecrawl-api-key:  var.default_firecrawl_api_key
   }
 }
 

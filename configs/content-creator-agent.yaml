@@ -15,9 +15,7 @@ observability:
 
 infrastructure:
   kafka_brokers:
-    - "personae-kafka-cluster-combined-pool-prod-0.kafka.svc.cluster.local:9092"
-    - "personae-kafka-cluster-combined-pool-prod-1.kafka.svc.cluster.local:9092"
-    - "personae-kafka-cluster-combined-pool-prod-2.kafka.svc.cluster.local:9092"
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
   clients_database: # Agents need access to clients DB for agent config/memory
     host: "postgres-clients.ai-persona-system.svc.cluster.local" # Adjust if different in your setup

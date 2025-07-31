@@ -1,5 +1,5 @@
 mysql is in Clook catalogues.
-mysql -ucatalogu_agent-chassis -p -hrs17.uk-noc.com catalogu_vectordbdev
+mysql -ucatalogu_personae -p -hrs17.uk-noc.com catalogu_vectordbdev
 external_mysql_password = "agent-chassis123!"
 # be careful B E  C A R E F U L
 DROP TABLE auth_tokens;
@@ -74,7 +74,7 @@ kubectl logs -n ai-persona-system job/mysql-migrations-daf34be0
 Found 3 pods, using pod/mysql-migrations-daf34be0-sgzm4
 Applying migrations to MySQL database...
 Host: rs17.uk-noc.com
-User: catalogu_agent-chassis
+User: catalogu_personae
 Database: catalogu_vectordbdev
 
 

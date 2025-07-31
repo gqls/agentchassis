@@ -10,11 +10,15 @@ labels:
       region: uk
 
 images:
-  - name: docker.io/aqls/auth-servic
-    newTag: v1.0.2  # This will be dynamically updated
+  - name: docker.io/aqls/auth-service
+    newTag: v1.0.5
 
 patches:
   - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: auth-service
+  - path: patch-env.yaml
     target:
       kind: Deployment
       name: auth-service

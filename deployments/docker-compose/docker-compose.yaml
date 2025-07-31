@@ -38,7 +38,7 @@ services:
     image: mysql:8
     environment:
       MYSQL_DATABASE: catalogu_vectordbdev
-      MYSQL_USER: catalogu_agent-chassis
+      MYSQL_USER: catalogu_personae
       MYSQL_PASSWORD: ${AUTH_DB_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
