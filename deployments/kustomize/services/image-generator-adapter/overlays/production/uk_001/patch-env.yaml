@@ -13,3 +13,27 @@ spec:
           env:
             - name: KAFKA_BROKERS
               value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+            - name: STABILITY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-default-secrets
+                  key: STABILITY_API_KEY
+            - name: S3_ENDPOINT
+              value: "https://s3.us-west-004.backblazeb2.com"
+            - name: S3_REGION
+              value: "us-west-004"
+            - name: IMAGE_BUCKET
+              value: "personae-prod-uk001-images"
+            - name: S3_USE_PATH_STYLE
+              value: "false"
+
+          envFrom:
+            # B2/S3 credentials
+            - secretRef:
+                name: personae-storage-secrets
+            # Load storage config
+            - configMapRef:
+                name: storage-config
+            # Keep existing configmap
+            - configMapRef:
+                name: personae-prod-config

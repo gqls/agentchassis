@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.6
+IMAGE_TAG ?= v1.0.7
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -921,17 +921,17 @@ create-dev-secrets: ## Create all development secrets (personae-dev-secrets and 
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl create namespace $(PROJECT_NAME) --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f -
 	@echo "$(YELLOW)Creating personae-dev-secrets...$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl create secret generic personae-dev-secrets \
-		--from-literal=clients-db-password=$${CLIENTS_DB_PASSWORD} \
-		--from-literal=templates-db-password=$${TEMPLATES_DB_PASSWORD} \
-		--from-literal=auth-db-password=$${AUTH_DB_PASSWORD} \
-		--from-literal=minio-access-key=$${MINIO_ACCESS_KEY} \
-		--from-literal=secret-key=$${SECRET_KEY} \
+		--from-literal=CLIENTS_DB_PASSWORD=$CLIENTS_DB_PASSWORD${} \
+		--from-literal=TEMPLATES_DB_PASSWORD=$${TEMPLATES_DB_PASSWORD} \
+		--from-literal=AUTH_DB_PASSWORD=$${AUTH_DB_PASSWORD} \
+		--from-literal=MINIO_ACCESS_KEY=$${MINIO_ACCESS_KEY} \
+		--from-literal=SECRET_KEY=$${SECRET_KEY} \
 		--from-literal=JWT_SECRET_KEY=$${JWT_SECRET_KEY} \
-		--from-literal=anthropic-api-key=$${ANTHROPIC_API_KEY} \
-		--from-literal=serp-api-key=$${SERP_API_KEY} \
-		--from-literal=scraping-bee-api-key=$${SCRAPING_BEE_API_KEY} \
-		--from-literal=firecrawl-api-key=$${FIRECRAWL_API_KEY} \
-		--from-literal=stability-api-key=$${STABILITY_API_KEY:-not-a-real-key} \
+		--from-literal=ANTHROPIC_API_KEY=$${ANTHROPIC_API_KEY} \
+		--from-literal=SERP_API_KEY=$${SERP_API_KEY} \
+		--from-literal=SCRAPING_BEE_API_KEY=$${SCRAPING_BEE_API_KEY} \
+		--from-literal=FIRECRAWL_API_KEY=$${FIRECRAWL_API_KEY} \
+		--from-literal=STABILITY_API_KEY=$${STABILITY_API_KEY:-not-a-real-key} \
 		-n $(PROJECT_NAME) --dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f -
 	@echo "$(GREEN)✓ personae-dev-secrets created$(NC)"
 	@echo "$(YELLOW)Creating docker-hub-creds secret...$(NC)"

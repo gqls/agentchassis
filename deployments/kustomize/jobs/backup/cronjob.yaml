@@ -32,12 +32,12 @@ spec:
                   valueFrom:
                     secretKeyRef:
                       name: db-secrets
-                      key: clients-db-password
+                      key: CLIENTS_DB_PASSWORD
                 - name: TEMPLATES_DB_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       name: db-secrets
-                      key: templates-db-password
+                      key: TEMPLATES_DB_PASSWORD
                 - name: BACKUP_DATE
                   value: "$(date +%Y%m%d_%H%M%S)"
               command:
@@ -85,7 +85,7 @@ spec:
                   valueFrom:
                     secretKeyRef:
                       name: db-secrets
-                      key: auth-db-password
+                      key: AUTH_DB_PASSWORD
               command:
                 - /bin/bash
                 - -c

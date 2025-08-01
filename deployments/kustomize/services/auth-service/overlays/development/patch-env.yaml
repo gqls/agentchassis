@@ -15,4 +15,4 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: personae-dev-secrets
-                  key: auth-db-password
+                  key: AUTH_DB_PASSWORD

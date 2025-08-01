@@ -1,5 +1,9 @@
 # Default configuration - will be overridden by ConfigMap mount in Kubernetes
-# This file is included in the Docker image as a fallback
+service_info:
+  name: "image-generator-adapter"
+  version: "1.0.0"
+  environment: "production"
+
 server:
   http_port: 8080
   grpc_port: 9090
@@ -9,9 +13,26 @@ logger:
   level: "info"
   format: "json"
 
-kafka:
-  brokers: "${KAFKA_BROKERS:-localhost:9092}"  # Default to localhost, expects env var
+infrastructure:
+  kafka_brokers:
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
-# API configurations
-# stability_api:
-#   api_key: "${STABILITY_API_KEY}"
+  clients_database: {}
+  templates_database: {}
+  auth_database: {}
+  object_storage:
+    endpoint: "https://s3.us-west-004.backblazeb2.com"
+    region: "us-west-004"
+    bucket: "personae-prod-uk001-images"
+    access_key_env_var: "B2_APPLICATION_KEY_ID"
+    secret_key_env_var: "B2_APPLICATION_KEY"
+    use_ssl: true
+    use_path_style: false  # B2 doesn't use path-style
+
+custom:
+  ai_service:
+    provider: "anthropic"
+    model: "claude-3-opus-20240229"
+    temperature: 0.2
+    max_tokens: 2048
+    api_key_env_var: "ANTHROPIC_API_KEY"

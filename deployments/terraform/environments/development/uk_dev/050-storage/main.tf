@@ -26,8 +26,8 @@ module "storage_buckets_dev" {
   ]
 
   # Pass the B2 credentials to the module
-  b2_application_key_id = var.b2_application_key_id
-  b2_application_key    = var.b2_application_key
+  B2_APPLICATION_KEY_ID = var.b2_application_key_id
+  B2_APPLICATION_KEY    = var.b2_application_key
 
   tags = {
     environment = "development"

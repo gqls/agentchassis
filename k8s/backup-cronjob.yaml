@@ -85,7 +85,7 @@ spec:
                   valueFrom:
                     secretKeyRef:
                       name: db-secrets
-                      key: auth-db-password
+                      key: AUTH_DB_PASSWORD
               command:
                 - /bin/bash
                 - -c

@@ -19,6 +19,7 @@ spec:
       containers:
         - name: image-generator-adapter
           image: docker.io/aqls/image-generator-adapter:latest # Patched by overlays
+          command: ["./image-generator-adapter", "-config", "/app/configs/image-adapter.yaml"]
           envFrom:
             - configMapRef:
                 name: placeholder-config # Patched by overlays

@@ -22,8 +22,8 @@ type S3Client struct {
 	bucket string
 }
 
-// NewS3Client creates a new client for interacting with S3 or MinIO
 func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig) (*S3Client, error) {
+	// Use the env vars specified in config
 	accessKey := os.Getenv(cfg.AccessKeyEnvVar)
 	secretKey := os.Getenv(cfg.SecretKeyEnvVar)
 
@@ -32,14 +32,35 @@ func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig) (
 			cfg.AccessKeyEnvVar, cfg.SecretKeyEnvVar)
 	}
 
+	// Get endpoint from config or environment
+	endpoint := cfg.Endpoint
+	if endpoint == "" {
+		endpoint = os.Getenv("S3_ENDPOINT")
+		if endpoint == "" {
+			endpoint = "https://s3.us-west-004.backblazeb2.com" // B2 default
+		}
+	}
+
+	// Get region from environment (since it might not be in your struct)
+	region := os.Getenv("S3_REGION")
+	if region == "" {
+		region = "us-west-004" // B2 default region
+	}
+
+	// Custom resolver for B2
 	resolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		return aws.Endpoint{
-			URL:           cfg.Endpoint,
-			SigningRegion: "us-east-1", // This can be anything for MinIO
-		}, nil
+		if service == s3.ServiceID && endpoint != "" {
+			return aws.Endpoint{
+				URL:               endpoint,
+				SigningRegion:     region,
+				HostnameImmutable: true, // Important for B2
+			}, nil
+		}
+		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
 	})
 
 	awsCfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion(region),
 		config.WithEndpointResolverWithOptions(resolver),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
 	)
@@ -47,14 +68,32 @@ func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig) (
 		return nil, fmt.Errorf("failed to load s3 config: %w", err)
 	}
 
-	// For MinIO, you must use path-style addressing
+	// Determine path style - B2 doesn't use path-style
+	usePathStyle := false
+	if os.Getenv("S3_USE_PATH_STYLE") == "true" {
+		usePathStyle = true
+	}
+	// Override for MinIO
+	if strings.Contains(endpoint, "minio") || strings.Contains(endpoint, "localhost") {
+		usePathStyle = true
+	}
+
 	s3Client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
-		o.UsePathStyle = true
+		o.UsePathStyle = usePathStyle
 	})
+
+	// Get bucket from config or environment
+	bucket := cfg.Bucket
+	if bucket == "" {
+		bucket = os.Getenv("IMAGE_BUCKET")
+		if bucket == "" {
+			return nil, fmt.Errorf("no bucket specified in config or IMAGE_BUCKET env var")
+		}
+	}
 
 	return &S3Client{
 		client: s3Client,
-		bucket: cfg.Bucket,
+		bucket: bucket,
 	}, nil
 }
 

@@ -10,13 +10,13 @@ output "bucket_names" {
   value = [for bucket in b2_bucket.storage_buckets : bucket.bucket_name]
 }
 
-variable "b2_application_key_id" {
+variable "B2_APPLICATION_KEY_ID" {
   description = "The application key ID for Backblaze B2."
   type        = string
   sensitive   = true
 }
 
-variable "b2_application_key" {
+variable "B2_APPLICATION_KEY" {
   description = "The application key for Backblaze B2."
   type        = string
   sensitive   = true

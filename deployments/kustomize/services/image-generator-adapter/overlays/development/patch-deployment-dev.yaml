@@ -19,6 +19,6 @@
       echo "=== Environment Variables ==="
       env | grep -i kafka || echo "No KAFKA env vars"
       echo "=== Config file ==="
-      cat /app/configs/image-adapter.yaml
+      cat configs/image-adapter.yaml
       echo "=== Running application ==="
-      cd /app && ./image-generator-adapter -config configs/image-adapter.yaml
+      cd /app && ./image-generator-adapter -config /app/configs/image-adapter.yaml

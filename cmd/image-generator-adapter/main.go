@@ -39,6 +39,8 @@ func main() {
 		appLogger.Fatal("Failed to initialize image generator adapter", zap.Error(err))
 	}
 
+	appLogger.Info("image generator adapter config:", zap.Any("config", cfg))
+
 	// Start health endpoint HERE
 	adapter.StartHealthServer("9090")
 
