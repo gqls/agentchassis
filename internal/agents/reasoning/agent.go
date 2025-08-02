@@ -203,7 +203,7 @@ func (a *Agent) extractJSON(response string) string {
 	return response
 }
 
-// buildReasoningPrompt creates the prompt for the LLM
+// Enhanced buildReasoningPrompt that shows reasoning process
 func (a *Agent) buildReasoningPrompt(req RequestPayload) string {
 	return fmt.Sprintf(`You are a logical reasoning engine. Review the following content based on these criteria: %v.
 
@@ -213,27 +213,77 @@ Content to review: "%s"
 
 IMPORTANT: You must respond with ONLY a valid JSON object, nothing else. Do not include any explanatory text before or after the JSON. Do not wrap the JSON in markdown code blocks.
 
-Return your analysis as a pure JSON object with exactly this structure:
+Analyze this step-by-step and include your reasoning process in the response. Return your analysis as a pure JSON object with exactly this structure:
 {
     "review_passed": boolean,
     "score": number (0-10),
-    "suggestions": ["suggestion1", "suggestion2", ...],
-    "reasoning": "detailed explanation of your analysis"
+    "reasoning_steps": [
+        {
+            "step": 1,
+            "focus": "what aspect you're analyzing",
+            "observation": "what you observe",
+            "evaluation": "how well it meets the criteria",
+            "impact_on_score": "positive/negative/neutral"
+        }
+    ],
+    "suggestions": ["specific actionable suggestion 1", "suggestion 2", ...],
+    "overall_reasoning": "synthesis of all steps into a final conclusion",
+    "key_strengths": ["strength 1", "strength 2", ...],
+    "key_weaknesses": ["weakness 1", "weakness 2", ...]
 }
 
 Example response:
 {
     "review_passed": true,
     "score": 8.5,
-    "suggestions": ["Consider A/B testing the budget allocation", "Define specific KPIs for each channel"],
-    "reasoning": "The strategy shows strong alignment with the target demographic."
+    "reasoning_steps": [
+        {
+            "step": 1,
+            "focus": "Budget allocation appropriateness",
+            "observation": "60%% digital / 40%% traditional split",
+            "evaluation": "Good but could be more aggressive for Gen Z audience",
+            "impact_on_score": "slightly negative"
+        },
+        {
+            "step": 2,
+            "focus": "Channel mix effectiveness",
+            "observation": "Social media, influencers, and email are primary channels",
+            "evaluation": "Excellent alignment with target demographic preferences",
+            "impact_on_score": "positive"
+        }
+    ],
+    "suggestions": ["Increase digital allocation to 75-80%%", "Add TikTok to channel mix"],
+    "overall_reasoning": "The strategy demonstrates strong understanding of the target market with room for optimization in budget allocation.",
+    "key_strengths": ["Strong channel selection", "Influencer strategy aligns with audience"],
+    "key_weaknesses": ["Conservative digital budget allocation", "No mention of emerging platforms"]
 }
 
-Be thorough but concise in your reasoning. Remember: respond with ONLY the JSON object.`,
+Analyze each review criterion systematically. Show your thinking process. Remember: respond with ONLY the JSON object.`,
 		req.Data.ReviewCriteria,
 		req.Data.BriefContext,
 		req.Data.ContentToReview,
 	)
+}
+
+// Enhanced ResponsePayload structure to include reasoning steps
+type ResponsePayload struct {
+	ReviewPassed     bool            `json:"review_passed"`
+	Score            float64         `json:"score"`
+	ReasoningSteps   []ReasoningStep `json:"reasoning_steps"`
+	Suggestions      []string        `json:"suggestions"`
+	OverallReasoning string          `json:"overall_reasoning"`
+	KeyStrengths     []string        `json:"key_strengths"`
+	KeyWeaknesses    []string        `json:"key_weaknesses"`
+	// Keep original fields for backward compatibility
+	Reasoning string `json:"reasoning,omitempty"`
+}
+
+type ReasoningStep struct {
+	Step          int    `json:"step"`
+	Focus         string `json:"focus"`
+	Observation   string `json:"observation"`
+	Evaluation    string `json:"evaluation"`
+	ImpactOnScore string `json:"impact_on_score"`
 }
 
 // sendResponse sends a successful response
