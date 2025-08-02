@@ -18,10 +18,12 @@ spec:
                 secretKeyRef:
                   name: personae-default-secrets
                   key: STABILITY_API_KEY
+            - name: STABILITY_API_ENDPOINT
+              value: "https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image"
             - name: S3_ENDPOINT
-              value: "https://s3.us-west-004.backblazeb2.com"
+              value: "https://s3.us-east-005.backblazeb2.com"
             - name: S3_REGION
-              value: "us-west-004"
+              value: "us-east-005"
             - name: IMAGE_BUCKET
               value: "personae-prod-uk001-images"
             - name: S3_USE_PATH_STYLE

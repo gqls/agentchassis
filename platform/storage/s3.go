@@ -27,6 +27,11 @@ func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig) (
 	accessKey := os.Getenv(cfg.AccessKeyEnvVar)
 	secretKey := os.Getenv(cfg.SecretKeyEnvVar)
 
+	// Add debug logging
+	fmt.Printf("DEBUG: AccessKeyEnvVar=%s, SecretKeyEnvVar=%s\n", cfg.AccessKeyEnvVar, cfg.SecretKeyEnvVar)
+	fmt.Printf("DEBUG: AccessKey=%s...\n", accessKey[:10])
+	fmt.Printf("DEBUG: Endpoint=%s, Bucket=%s\n", cfg.Endpoint, cfg.Bucket)
+
 	if accessKey == "" || secretKey == "" {
 		return nil, fmt.Errorf("object storage credentials not found in environment variables (%s, %s)",
 			cfg.AccessKeyEnvVar, cfg.SecretKeyEnvVar)
@@ -37,14 +42,14 @@ func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig) (
 	if endpoint == "" {
 		endpoint = os.Getenv("S3_ENDPOINT")
 		if endpoint == "" {
-			endpoint = "https://s3.us-west-004.backblazeb2.com" // B2 default
+			endpoint = "https://s3.us-east-005.backblazeb2.com" // B2 default
 		}
 	}
 
 	// Get region from environment (since it might not be in your struct)
 	region := os.Getenv("S3_REGION")
 	if region == "" {
-		region = "us-west-004" // B2 default region
+		region = "us-east-005" // B2 default region
 	}
 
 	// Custom resolver for B2
@@ -54,6 +59,7 @@ func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig) (
 				URL:               endpoint,
 				SigningRegion:     region,
 				HostnameImmutable: true, // Important for B2
+				SigningName:       "s3",
 			}, nil
 		}
 		return aws.Endpoint{}, &aws.EndpointNotFoundError{}

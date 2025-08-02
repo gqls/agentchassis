@@ -66,7 +66,7 @@ resource "kubernetes_secret" "storage_credentials" {
     AWS_SECRET_ACCESS_KEY = var.b2_application_key
 
     # B2 endpoint configuration
-    S3-ENDPOINT = "https://s3.us-west-004.backblazeb2.com"
+    S3-ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
     S3-REGION   = "us-west-004"
   }
 }
@@ -84,7 +84,7 @@ resource "kubernetes_config_map" "storage_config" {
     assets_bucket    = var.site_assets_bucket_name
 
     # S3 configuration
-    S3-ENDPOINT      = "https://s3.us-west-004.backblazeb2.com"
+    S3-ENDPOINT      = "https://s3.us-east-005.backblazeb2.com"
     S3-REGION       = "us-west-004"
     S3_USE_PATH_STYLE = "false"
   }

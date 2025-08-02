@@ -87,7 +87,12 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	cbConfig.FailureRatio = 0.5
 	httpClient := resilience.NewHTTPClientWithBreaker(baseClient, cbConfig, logger)
 
-	externalAPIEndpoint := "https://api.stability.ai/v1/generation/stable-diffusion-v1-6/text-to-image"
+	// In NewAdapter function
+	externalAPIEndpoint := os.Getenv("STABILITY_API_ENDPOINT")
+	if externalAPIEndpoint == "" {
+		externalAPIEndpoint = "https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image"
+	}
+
 	apiKey := os.Getenv("STABILITY_API_KEY")
 
 	return &Adapter{
@@ -192,8 +197,8 @@ func (a *Adapter) callExternalImageAPI(prompt string) ([]byte, error) {
 		},
 		"cfg_scale":            7,
 		"clip_guidance_preset": "FAST_BLUE",
-		"height":               512,
-		"width":                512,
+		"height":               1024,
+		"width":                1024,
 		"samples":              1,
 		"steps":                30,
 	}

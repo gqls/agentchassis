@@ -13,7 +13,7 @@ labels:
 
 images:
   - name: docker.io/aqls/content-creator-agent
-    newTag: v1.0.7
+    newTag: v1.0.11
 
 patches:
   - path: patch-deployment.yaml

@@ -33,3 +33,9 @@ variable "b2_application_key" {
   type        = string
   sensitive   = true
 }
+
+variable "b2_application_key_name" {
+  description = "The application key for Backblaze B2."
+  type        = string
+  default     = "ai-persona-system-b2-prod-key"
+}
