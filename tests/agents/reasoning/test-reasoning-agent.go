@@ -1,0 +1,134 @@
+// test-reasoning-agent.go
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/segmentio/kafka-go"
+)
+
+// RequestPayload matches what the reasoning agent expects
+type RequestPayload struct {
+	Action string `json:"action"`
+	Data   struct {
+		ContentToReview string                 `json:"content_to_review"`
+		ReviewCriteria  []string               `json:"review_criteria"`
+		BriefContext    map[string]interface{} `json:"brief_context"`
+	} `json:"data"`
+}
+
+func main() {
+	// Kafka configuration
+	brokers := []string{"personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"}
+	requestTopic := "system.agent.reasoning.process"
+	responseTopic := "system.responses.reasoning"
+
+	// Create Kafka writer for requests
+	writer := &kafka.Writer{
+		Addr:     kafka.TCP(brokers...),
+		Topic:    requestTopic,
+		Balancer: &kafka.LeastBytes{},
+	}
+	defer writer.Close()
+
+	// Create Kafka reader for responses
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:   brokers,
+		Topic:     responseTopic,
+		Partition: 0,
+		MinBytes:  10e3, // 10KB
+		MaxBytes:  10e6, // 10MB
+	})
+	defer reader.Close()
+
+	// Create test request
+	correlationID := uuid.New().String()
+	request := RequestPayload{
+		Action: "analyze",
+	}
+	request.Data.ContentToReview = "The new product launch strategy focuses on social media marketing, influencer partnerships, and targeted email campaigns. We plan to allocate 60% of the budget to digital channels and 40% to traditional media."
+	request.Data.ReviewCriteria = []string{
+		"Budget allocation appropriateness",
+		"Channel mix effectiveness",
+		"Target audience alignment",
+		"ROI potential",
+	}
+	request.Data.BriefContext = map[string]interface{}{
+		"product_type":  "B2C software",
+		"target_market": "millennials and gen-z",
+		"budget":        100000,
+		"timeline":      "3 months",
+	}
+
+	// Marshal request
+	requestBytes, err := json.Marshal(request)
+	if err != nil {
+		log.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	// Create headers
+	headers := []kafka.Header{
+		{Key: "correlation_id", Value: []byte(correlationID)},
+		{Key: "request_id", Value: []byte(uuid.New().String())},
+		{Key: "client_id", Value: []byte("test-client")},
+		{Key: "agent_instance_id", Value: []byte("reasoning-001")},
+		{Key: "fuel_budget", Value: []byte("100")},
+	}
+
+	// Send message
+	fmt.Printf("Sending reasoning request with correlation_id: %s\n", correlationID)
+	fmt.Printf("Request: %s\n", string(requestBytes))
+
+	err = writer.WriteMessages(context.Background(), kafka.Message{
+		Key:     []byte(correlationID),
+		Value:   requestBytes,
+		Headers: headers,
+		Time:    time.Now(),
+	})
+	if err != nil {
+		log.Fatalf("Failed to send message: %v", err)
+	}
+
+	fmt.Println("Message sent successfully, waiting for response...")
+
+	// Read response with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	for {
+		msg, err := reader.FetchMessage(ctx)
+		if err != nil {
+			if err == context.DeadlineExceeded {
+				fmt.Println("Timeout waiting for response")
+				break
+			}
+			log.Printf("Error reading message: %v", err)
+			continue
+		}
+
+		// Check if this is our response
+		for _, h := range msg.Headers {
+			if h.Key == "correlation_id" && string(h.Value) == correlationID {
+				fmt.Printf("\nReceived response:\n%s\n", string(msg.Value))
+
+				// Parse and pretty print the response
+				var response map[string]interface{}
+				if err := json.Unmarshal(msg.Value, &response); err == nil {
+					prettyJSON, _ := json.MarshalIndent(response, "", "  ")
+					fmt.Printf("\nParsed response:\n%s\n", string(prettyJSON))
+				}
+
+				reader.CommitMessages(context.Background(), msg)
+				return
+			}
+		}
+
+		// Not our message, commit and continue
+		reader.CommitMessages(context.Background(), msg)
+	}
+}

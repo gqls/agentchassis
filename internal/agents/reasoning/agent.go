@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/aiservice"
@@ -127,10 +128,13 @@ func (a *Agent) handleMessage(msg kafka.Message) {
 	}
 
 	// Parse the AI response
+	// Extract and parse the JSON response
+	jsonStr := a.extractJSON(result)
 	var responsePayload ResponsePayload
-	if err := json.Unmarshal([]byte(result), &responsePayload); err != nil {
-		l.Error("Failed to parse AI response", zap.Error(err))
-		// Fallback response
+
+	if err := json.Unmarshal([]byte(jsonStr), &responsePayload); err != nil {
+		l.Error("Failed to parse AI response", zap.Error(err), zap.String("extracted_json", jsonStr))
+		// Fallback response with the full reasoning text
 		responsePayload = ResponsePayload{
 			ReviewPassed: false,
 			Score:        0,
@@ -146,6 +150,59 @@ func (a *Agent) handleMessage(msg kafka.Message) {
 	a.consumer.CommitMessages(context.Background(), msg)
 }
 
+// extractJSON attempts to extract JSON from a response that might contain additional text
+func (a *Agent) extractJSON(response string) string {
+	// First, try to find JSON object boundaries
+	startIdx := strings.Index(response, "{")
+	if startIdx == -1 {
+		return response // No JSON found, return as is
+	}
+
+	// Find the matching closing brace
+	braceCount := 0
+	endIdx := -1
+	inString := false
+	escapeNext := false
+
+	for i := startIdx; i < len(response); i++ {
+		char := response[i]
+
+		if escapeNext {
+			escapeNext = false
+			continue
+		}
+
+		if char == '\\' {
+			escapeNext = true
+			continue
+		}
+
+		if char == '"' && !escapeNext {
+			inString = !inString
+			continue
+		}
+
+		if !inString {
+			if char == '{' {
+				braceCount++
+			} else if char == '}' {
+				braceCount--
+				if braceCount == 0 {
+					endIdx = i + 1
+					break
+				}
+			}
+		}
+	}
+
+	if endIdx != -1 {
+		return response[startIdx:endIdx]
+	}
+
+	// If we couldn't find proper JSON boundaries, return the original
+	return response
+}
+
 // buildReasoningPrompt creates the prompt for the LLM
 func (a *Agent) buildReasoningPrompt(req RequestPayload) string {
 	return fmt.Sprintf(`You are a logical reasoning engine. Review the following content based on these criteria: %v.
@@ -154,7 +211,9 @@ Context: %v
 
 Content to review: "%s"
 
-Provide your analysis as a JSON object with the following structure:
+IMPORTANT: You must respond with ONLY a valid JSON object, nothing else. Do not include any explanatory text before or after the JSON. Do not wrap the JSON in markdown code blocks.
+
+Return your analysis as a pure JSON object with exactly this structure:
 {
     "review_passed": boolean,
     "score": number (0-10),
@@ -162,7 +221,15 @@ Provide your analysis as a JSON object with the following structure:
     "reasoning": "detailed explanation of your analysis"
 }
 
-Be thorough but concise in your reasoning.`,
+Example response:
+{
+    "review_passed": true,
+    "score": 8.5,
+    "suggestions": ["Consider A/B testing the budget allocation", "Define specific KPIs for each channel"],
+    "reasoning": "The strategy shows strong alignment with the target demographic."
+}
+
+Be thorough but concise in your reasoning. Remember: respond with ONLY the JSON object.`,
 		req.Data.ReviewCriteria,
 		req.Data.BriefContext,
 		req.Data.ContentToReview,
