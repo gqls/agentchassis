@@ -39,7 +39,7 @@ resource "kubernetes_stateful_set" "postgres_sts" {
         termination_grace_period_seconds = 10
         container {
           name  = "postgres"
-          image = "postgres:15-alpine"
+          image = "pgembedding/pgembedding:15-alpine"
           port {
             container_port = 5432
             name           = "postgres"

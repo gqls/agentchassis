@@ -31,12 +31,17 @@ type RequestPayload struct {
 	} `json:"data"`
 }
 
-// ResponsePayload defines the response format
+// Enhanced ResponsePayload structure to include reasoning steps. Defines response format
 type ResponsePayload struct {
-	ReviewPassed bool     `json:"review_passed"`
-	Score        float64  `json:"score"`
-	Suggestions  []string `json:"suggestions"`
-	Reasoning    string   `json:"reasoning"`
+	ReviewPassed     bool            `json:"review_passed"`
+	Score            float64         `json:"score"`
+	ReasoningSteps   []ReasoningStep `json:"reasoning_steps"`
+	Suggestions      []string        `json:"suggestions"`
+	OverallReasoning string          `json:"overall_reasoning"`
+	KeyStrengths     []string        `json:"key_strengths"`
+	KeyWeaknesses    []string        `json:"key_weaknesses"`
+	// Keep original fields for backward compatibility
+	Reasoning string `json:"reasoning,omitempty"`
 }
 
 // Agent is the reasoning specialist
@@ -263,19 +268,6 @@ Analyze each review criterion systematically. Show your thinking process. Rememb
 		req.Data.BriefContext,
 		req.Data.ContentToReview,
 	)
-}
-
-// Enhanced ResponsePayload structure to include reasoning steps
-type ResponsePayload struct {
-	ReviewPassed     bool            `json:"review_passed"`
-	Score            float64         `json:"score"`
-	ReasoningSteps   []ReasoningStep `json:"reasoning_steps"`
-	Suggestions      []string        `json:"suggestions"`
-	OverallReasoning string          `json:"overall_reasoning"`
-	KeyStrengths     []string        `json:"key_strengths"`
-	KeyWeaknesses    []string        `json:"key_weaknesses"`
-	// Keep original fields for backward compatibility
-	Reasoning string `json:"reasoning,omitempty"`
 }
 
 type ReasoningStep struct {

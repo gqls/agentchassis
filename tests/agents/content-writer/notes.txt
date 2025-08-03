@@ -1,0 +1,11 @@
+kubectl -n ai-persona-system logs content-creator-agent-6cc568d66f-7lxzt
+kubectl -n ai-persona-system logs content-creator-agent-6cc568d66f-dwmwf
+kubectl -n ai-persona-system logs content-creator-agent-6cc568d66f-vztjq
+
+kubectl -n ai-persona-system logs content-creator-agent-6cc568d66f-7lxzt --tail=50 | grep -c "estimated_cost"
+
+kubectl -n ai-persona-system logs content-creator-agent-6cc568d66f-dwmwf --tail=50 | grep -c "estimated_cost"
+
+kubectl -n ai-persona-system logs content-creator-agent-6cc568d66f-vztjq --tail=50 | grep -c "estimated_cost"
+
+
