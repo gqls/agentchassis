@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/gqls/agentchassis/pkg/models"
 	"time"
 
 	"go.uber.org/zap"
@@ -22,19 +23,49 @@ const (
 	StatusFailed            OrchestrationStatus = "FAILED"
 )
 
+// ExecutionRecord tracks each step execution
+type ExecutionRecord struct {
+	Step      string     `json:"step"`
+	Action    string     `json:"action"`
+	StartTime time.Time  `json:"start_time"`
+	EndTime   *time.Time `json:"end_time,omitempty"`
+	Result    string     `json:"result"` // success/failed/skipped
+	Error     string     `json:"error,omitempty"`
+}
+
+// ExecutionMetadata provides workflow analytics
+type ExecutionMetadata struct {
+	TotalSteps     int                  `json:"total_steps"`
+	CompletedSteps int                  `json:"completed_steps"`
+	SkippedSteps   int                  `json:"skipped_steps"`
+	FailedSteps    int                  `json:"failed_steps"`
+	RetryCount     map[string]int       `json:"retry_count"`
+	Checkpoints    map[string]time.Time `json:"checkpoints"`
+	StartTime      time.Time            `json:"start_time"`
+	EndTime        *time.Time           `json:"end_time,omitempty"`
+}
+
 // OrchestrationState is the database model for a Saga instance
 type OrchestrationState struct {
-	CorrelationID      string                 `db:"correlation_id"`
-	ClientID           string                 `db:"client_id"`
-	Status             OrchestrationStatus    `db:"status"`
-	CurrentStep        string                 `db:"current_step"`
-	AwaitedSteps       []string               `db:"awaited_steps"`
+	CorrelationID string              `db:"correlation_id"`
+	ClientID      string              `db:"client_id"`
+	Status        OrchestrationStatus `db:"status"`
+	// Execution state
+	CurrentStep   string            `db:"current_step"`
+	ExecutionPath []ExecutionRecord `db:"execution_path"`
+	// Async handling
+	AwaitedSteps []string `db:"awaited_steps"`
+	// Data management
 	CollectedData      map[string]interface{} `db:"collected_data"`
 	InitialRequestData json.RawMessage        `db:"initial_request_data"`
 	FinalResult        json.RawMessage        `db:"final_result"`
-	Error              string                 `db:"error"`
-	CreatedAt          time.Time              `db:"created_at"`
-	UpdatedAt          time.Time              `db:"updated_at"`
+	// Workflow definition
+	WorkflowPlan models.WorkflowPlan `db:"workflow_plan"`
+	// Debugging/Monitoring
+	ExecutionMetadata ExecutionMetadata `db:"execution_metadata"`
+	Error             string            `db:"error"`
+	CreatedAt         time.Time         `db:"created_at"`
+	UpdatedAt         time.Time         `db:"updated_at"`
 }
 
 // StateRepository provides an interface for persisting and retrieving workflow state
@@ -48,44 +79,67 @@ func NewStateRepository(db *sql.DB, logger *zap.Logger) *StateRepository {
 	return &StateRepository{db: db, logger: logger}
 }
 
-// CreateInitialState creates a new record for a workflow
-func (r *StateRepository) CreateInitialState(ctx context.Context, correlationID, clientID, startStep string, initialData []byte) error {
+// CreateInitialState creates a new workflow with the plan
+func (r *StateRepository) CreateInitialState(ctx context.Context, correlationID, clientID string, plan models.WorkflowPlan, initialData []byte) error {
 	awaitedStepsJSON, _ := json.Marshal([]string{})
 	collectedDataJSON, _ := json.Marshal(map[string]interface{}{})
+	workflowPlanJSON, _ := json.Marshal(plan)
+
+	// Initialize execution metadata
+	metadata := ExecutionMetadata{
+		TotalSteps:     len(plan.Steps),
+		CompletedSteps: 0,
+		SkippedSteps:   0,
+		FailedSteps:    0,
+		RetryCount:     make(map[string]int),
+		Checkpoints:    make(map[string]time.Time),
+		StartTime:      time.Now().UTC(),
+	}
+	metadataJSON, _ := json.Marshal(metadata)
+
+	executionPathJSON, _ := json.Marshal([]ExecutionRecord{})
 
 	query := `
         INSERT INTO orchestrator_state 
-        (correlation_id, client_id, status, current_step, awaited_steps, collected_data, initial_request_data, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        (correlation_id, client_id, status, current_step, awaited_steps, 
+         collected_data, initial_request_data, workflow_plan, 
+         execution_metadata, execution_path, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     `
 
 	now := time.Now().UTC()
 	_, err := r.db.ExecContext(ctx, query,
-		correlationID, clientID, StatusRunning, startStep, awaitedStepsJSON, collectedDataJSON, initialData, now, now)
+		correlationID, clientID, StatusRunning, plan.StartStep,
+		awaitedStepsJSON, collectedDataJSON, initialData, workflowPlanJSON,
+		metadataJSON, executionPathJSON, now, now)
 
 	if err != nil {
 		r.logger.Error("Failed to create initial orchestration state", zap.Error(err))
 		return fmt.Errorf("failed to create initial state: %w", err)
 	}
 
-	r.logger.Info("Initial orchestration state created", zap.String("correlation_id", correlationID))
+	r.logger.Info("Initial orchestration state created",
+		zap.String("correlation_id", correlationID),
+		zap.String("start_step", plan.StartStep),
+		zap.Int("total_steps", len(plan.Steps)))
+
 	return nil
 }
 
-// GetState retrieves the current state of a workflow
+// GetState retrieves the current state of the workflow with the full plan
 func (r *StateRepository) GetState(ctx context.Context, correlationID string) (*OrchestrationState, error) {
 	query := `
-        SELECT correlation_id, client_id, status, current_step, awaited_steps, collected_data, 
-               initial_request_data, final_result, error, created_at, updated_at
+        SELECT correlation_id, client_id, status, current_step, awaited_steps, 
+               collected_data, initial_request_data, final_result, error, 
+               workflow_plan, execution_metadata, execution_path, created_at, updated_at
         FROM orchestrator_state
         WHERE correlation_id = $1
     `
 
 	var state OrchestrationState
-	var awaitedStepsJSON, collectedDataJSON []byte
-	var initialRequestDataNull sql.NullString // Handle NULL for initial_request_data
-	var finalResultNull sql.NullString
-	var errorNull sql.NullString
+	var awaitedStepsJSON, collectedDataJSON, workflowPlanJSON []byte
+	var executionMetadataJSON, executionPathJSON []byte
+	var initialRequestDataNull, finalResultNull, errorNull sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, correlationID).Scan(
 		&state.CorrelationID,
@@ -94,9 +148,12 @@ func (r *StateRepository) GetState(ctx context.Context, correlationID string) (*
 		&state.CurrentStep,
 		&awaitedStepsJSON,
 		&collectedDataJSON,
-		&initialRequestDataNull, // Scan into NullString
+		&initialRequestDataNull,
 		&finalResultNull,
 		&errorNull,
+		&workflowPlanJSON,
+		&executionMetadataJSON,
+		&executionPathJSON,
 		&state.CreatedAt,
 		&state.UpdatedAt,
 	)
@@ -111,40 +168,39 @@ func (r *StateRepository) GetState(ctx context.Context, correlationID string) (*
 	// Handle nullable fields
 	if initialRequestDataNull.Valid {
 		state.InitialRequestData = json.RawMessage(initialRequestDataNull.String)
-	} else {
-		state.InitialRequestData = json.RawMessage("{}") // Default to empty JSON
 	}
-
 	if finalResultNull.Valid {
 		state.FinalResult = json.RawMessage(finalResultNull.String)
-	} else {
-		state.FinalResult = json.RawMessage("{}") // Default to empty JSON
 	}
-
 	if errorNull.Valid {
 		state.Error = errorNull.String
 	}
 
 	// Unmarshal JSON fields
-	if err := json.Unmarshal(awaitedStepsJSON, &state.AwaitedSteps); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal awaited_steps: %w", err)
-	}
-	if err := json.Unmarshal(collectedDataJSON, &state.CollectedData); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal collected_data: %w", err)
-	}
+	json.Unmarshal(awaitedStepsJSON, &state.AwaitedSteps)
+	json.Unmarshal(collectedDataJSON, &state.CollectedData)
+	json.Unmarshal(workflowPlanJSON, &state.WorkflowPlan)
+	json.Unmarshal(executionMetadataJSON, &state.ExecutionMetadata)
+	json.Unmarshal(executionPathJSON, &state.ExecutionPath)
 
 	return &state, nil
 }
 
 // UpdateState persists changes to a workflow's state
+// UpdateState persists all changes including execution tracking
 func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationState) error {
 	awaitedStepsJSON, _ := json.Marshal(state.AwaitedSteps)
 	collectedDataJSON, _ := json.Marshal(state.CollectedData)
+	workflowPlanJSON, _ := json.Marshal(state.WorkflowPlan)
+	executionMetadataJSON, _ := json.Marshal(state.ExecutionMetadata)
+	executionPathJSON, _ := json.Marshal(state.ExecutionPath)
 
 	query := `
         UPDATE orchestrator_state 
-        SET status = $2, current_step = $3, awaited_steps = $4, collected_data = $5, 
-            final_result = $6, error = $7, updated_at = $8
+        SET status = $2, current_step = $3, awaited_steps = $4, 
+            collected_data = $5, final_result = $6, error = $7, 
+            workflow_plan = $8, execution_metadata = $9, 
+            execution_path = $10, updated_at = $11
         WHERE correlation_id = $1
     `
 
@@ -156,6 +212,9 @@ func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationS
 		collectedDataJSON,
 		state.FinalResult,
 		state.Error,
+		workflowPlanJSON,
+		executionMetadataJSON,
+		executionPathJSON,
 		time.Now().UTC(),
 	)
 
@@ -164,10 +223,13 @@ func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationS
 		return fmt.Errorf("failed to update state: %w", err)
 	}
 
-	r.logger.Debug("Orchestration state updated",
-		zap.String("correlation_id", state.CorrelationID),
-		zap.String("status", string(state.Status)))
 	return nil
+}
+
+// AddExecutionRecord adds a step execution to the history
+func (r *StateRepository) AddExecutionRecord(ctx context.Context, state *OrchestrationState, record ExecutionRecord) error {
+	state.ExecutionPath = append(state.ExecutionPath, record)
+	return r.UpdateState(ctx, state)
 }
 
 // GetOrchestratorStateTableSchema returns the SQL for creating the state table

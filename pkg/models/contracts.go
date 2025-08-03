@@ -40,13 +40,14 @@ type WorkflowPlan struct {
 
 // Step represents a single action or sub-workflow within a plan
 type Step struct {
-	Action       string    `json:"action"`
-	Description  string    `json:"description"`
-	Topic        string    `json:"topic,omitempty"`
-	Dependencies []string  `json:"dependencies,omitempty"`
-	NextStep     string    `json:"next_step,omitempty"`
-	SubTasks     []SubTask `json:"sub_tasks,omitempty"`
-	StoreMemory  bool      `json:"store_memory,omitempty"` // New field
+	Action       string                 `json:"action"`
+	Description  string                 `json:"description"`
+	Topic        string                 `json:"topic,omitempty"`
+	Dependencies []string               `json:"dependencies,omitempty"`
+	NextStep     string                 `json:"next_step,omitempty"`
+	SubTasks     []SubTask              `json:"sub_tasks,omitempty"`
+	StoreMemory  bool                   `json:"store_memory,omitempty"`
+	Config       map[string]interface{} `json:"config,omitempty"`
 }
 
 // SubTask for fan-out operations

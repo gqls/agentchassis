@@ -1,0 +1,42 @@
+# deployments/kustomize/infrastructure/monitoring/workflow-monitor/base/cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: workflow-monitor
+  namespace: ai-persona-system
+spec:
+  schedule: "*/30 * * * *"  # Every 30 minutes
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: workflow-monitor
+          containers:
+            - name: monitor
+              image: docker.io/aqls/workflow-monitor:latest
+              imagePullPolicy: Always
+              env:
+                - name: CLIENTS_DB_HOST
+                  value: "postgres-clients"
+                - name: CLIENTS_DB_PORT
+                  value: "5432"
+                - name: CLIENTS_DB_NAME
+                  value: "clients_db"
+                - name: CLIENTS_DB_USER
+                  value: "clients_user"
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-dev-secrets
+                      key: CLIENTS_DB_PASSWORD
+                - name: CLIENT_ID
+                  value: "demo_client"
+              command: ["/workflow-monitor"]
+              args: ["-stuck-hours", "2", "-format", "json"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: workflow-monitor
+  namespace: ai-persona-system

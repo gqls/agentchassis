@@ -133,7 +133,7 @@ func createComponents(connections *infrastructure.Connections, agentType string,
 }
 
 func createHealthServer(cfg *config.ServiceConfig, connections *infrastructure.Connections, agentType string, logger *zap.Logger) *health.Server {
-	return health.NewServer(
+	healthServer := health.NewServer(
 		agentType,
 		health.Config{
 			HealthPort:  "8080",
@@ -150,6 +150,14 @@ func createHealthServer(cfg *config.ServiceConfig, connections *infrastructure.C
 		},
 		logger,
 	)
+
+	// Add monitoring endpoints
+	connConfig := connections.ClientsDB.Config().ConnConfig.Copy()
+	stdDB := stdlib.OpenDB(*connConfig)
+	monitor := orchestration.NewWorkflowMonitor(stdDB)
+	healthServer.AddMonitoringEndpoints(monitor)
+
+	return healthServer
 }
 
 // Run starts the agent

@@ -970,3 +970,67 @@ create-dev-configs: ## Create development configmaps
 	@echo "$(YELLOW)Creating development configmaps...$(NC)"
 	kubectl create namespace ai-persona-system --dry-run=client -o yaml | kubectl apply -f -
 	kubectl apply -f deployments/kustomize/infrastructure/configs/development/configmap-dev.yaml -n ai-persona-system
+
+
+#################################
+# Workflow Monitoring
+#################################
+.PHONY: build-workflow-monitor
+build-workflow-monitor: ## Build workflow-monitor image
+	@echo "$(YELLOW)Building workflow-monitor...$(NC)"
+	docker build -t $(REGISTRY)/workflow-monitor:$(IMAGE_TAG) \
+		-f build/docker/backend/workflow-monitor.dockerfile .
+
+.PHONY: push-workflow-monitor
+push-workflow-monitor: ## Push workflow-monitor image
+	docker push $(REGISTRY)/workflow-monitor:$(IMAGE_TAG)
+
+# Quick monitoring commands
+.PHONY: monitor-workflows
+monitor-workflows: ## Run workflow monitor as a one-off command
+	@echo "$(YELLOW)Checking workflow status...$(NC)"
+	kubectl run workflow-monitor-$(shell date +%s) \
+		--image=$(REGISTRY)/workflow-monitor:$(IMAGE_TAG) \
+		--rm -it --restart=Never \
+		-n $(PROJECT_NAME) \
+		--env="DATABASE_URL=postgresql://clients_user:password@postgres-clients:5432/clients_db?sslmode=disable" \
+		--env="CLIENT_ID=demo_client" \
+		-- /workflow-monitor -stuck-hours=1
+
+.PHONY: monitor-stuck
+monitor-stuck: ## Check for stuck workflows
+	@echo "$(YELLOW)Checking for stuck workflows...$(NC)"
+	kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"SELECT correlation_id, current_step, status, \
+		 EXTRACT(EPOCH FROM (NOW() - updated_at))/3600 as hours_stuck \
+		 FROM orchestrator_state \
+		 WHERE status IN ('RUNNING', 'AWAITING_RESPONSES') \
+		 AND updated_at < NOW() - INTERVAL '1 hour' \
+		 ORDER BY updated_at ASC;"
+
+.PHONY: monitor-active
+monitor-active: ## Show active workflows
+	@echo "$(YELLOW)Active workflows:$(NC)"
+	kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"SELECT correlation_id, current_step, status, \
+		 execution_metadata->>'completed_steps' as completed, \
+		 execution_metadata->>'total_steps' as total, \
+		 ROUND(((execution_metadata->>'completed_steps')::numeric / \
+		        NULLIF((execution_metadata->>'total_steps')::numeric, 0)) * 100, 1) as progress_pct \
+		 FROM orchestrator_state \
+		 WHERE status NOT IN ('COMPLETED', 'FAILED') \
+		 ORDER BY updated_at DESC \
+		 LIMIT 20;"
+
+.PHONY: monitor-metrics
+monitor-metrics: ## Show workflow metrics for last 24 hours
+	@echo "$(YELLOW)Workflow metrics (24h):$(NC)"
+	kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"SELECT \
+		 COUNT(*) as total, \
+		 COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed, \
+		 COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as failed, \
+		 COUNT(CASE WHEN status IN ('RUNNING', 'AWAITING_RESPONSES') THEN 1 END) as active, \
+		 ROUND(100.0 * COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) / NULLIF(COUNT(*), 0), 1) as success_rate \
+		 FROM orchestrator_state \
+		 WHERE created_at > NOW() - INTERVAL '24 hours';"

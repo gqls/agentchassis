@@ -23,9 +23,12 @@ CREATE INDEX IF NOT EXISTS idx_agent_definitions_type_active
 
 -- Global orchestrator state table (shared across all clients)
 CREATE TABLE IF NOT EXISTS orchestrator_state (
-                                                  correlation_id UUID PRIMARY KEY,
-                                                  client_id VARCHAR(100) NOT NULL,
+    correlation_id UUID PRIMARY KEY,
+    client_id VARCHAR(100) NOT NULL,
     status VARCHAR(50) NOT NULL,
+    workflow_plan JSONB,
+    execution_metadata JSONB DEFAULT '{}',
+    execution_path JSONB DEFAULT '[]',
     current_step VARCHAR(255) NOT NULL,
     awaited_steps JSONB DEFAULT '[]',
     collected_data JSONB DEFAULT '{}',
@@ -40,6 +43,7 @@ CREATE TABLE IF NOT EXISTS orchestrator_state (
 CREATE INDEX IF NOT EXISTS idx_orchestrator_state_status ON orchestrator_state(status);
 CREATE INDEX IF NOT EXISTS idx_orchestrator_state_client ON orchestrator_state(client_id);
 CREATE INDEX IF NOT EXISTS idx_orchestrator_state_updated_at ON orchestrator_state(updated_at);
+CREATE INDEX IF NOT EXISTS idx_orchestrator_state_client_status ON orchestrator_state(client_id, status);
 
 -- Function to create client-specific schema
 CREATE OR REPLACE FUNCTION create_client_schema(client_id TEXT)
