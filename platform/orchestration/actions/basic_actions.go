@@ -35,8 +35,8 @@ func ValidateInputAction(ctx context.Context, params ActionParams) (interface{},
 func TransformDataAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	// Get transformation config from step
 	var transformation string
-	if config, ok := params.StepConfig.Config.(map[string]interface{}); ok {
-		transformation, _ = config["transformation"].(string)
+	if params.StepConfig.Config != nil {
+		transformation, _ = params.StepConfig.Config["transformation"].(string)
 	}
 
 	// Get data to transform

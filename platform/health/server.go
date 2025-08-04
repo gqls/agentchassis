@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
@@ -28,6 +29,7 @@ type Server struct {
 	config      Config
 	checkers    Checkers
 	logger      *zap.Logger
+	router      *mux.Router
 }
 
 // NewServer creates a new health server
@@ -37,11 +39,21 @@ func NewServer(serviceName string, config Config, checkers Checkers, logger *zap
 		config:      config,
 		checkers:    checkers,
 		logger:      logger,
+		router:      mux.NewRouter(),
 	}
+}
+
+// AddHandler allows adding custom handlers (add this method)
+func (s *Server) AddHandler(path string, handler http.HandlerFunc, methods ...string) {
+	s.router.HandleFunc(path, handler).Methods(methods...)
 }
 
 // Start starts the health and metrics servers
 func (s *Server) Start() {
+	// Setup default routes
+	s.router.HandleFunc("/health", s.handleHealth).Methods("GET")
+	s.router.HandleFunc("/ready", s.handleReady).Methods("GET")
+
 	go s.startMetricsServer()
 	go s.startHealthServer()
 }
@@ -57,12 +69,8 @@ func (s *Server) startMetricsServer() {
 }
 
 func (s *Server) startHealthServer() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", s.handleHealth)
-	mux.HandleFunc("/ready", s.handleReady)
-
 	s.logger.Info("Starting health server", zap.String("port", s.config.HealthPort))
-	if err := http.ListenAndServe(":"+s.config.HealthPort, mux); err != nil {
+	if err := http.ListenAndServe(":"+s.config.HealthPort, s.router); err != nil { // Use s.router here
 		s.logger.Error("Health server failed", zap.Error(err))
 	}
 }

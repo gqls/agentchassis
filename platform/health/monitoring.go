@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gqls/agentchassis/platform/orchestration"
+	"go.uber.org/zap"
 )
 
 // AddMonitoringEndpoints adds workflow monitoring endpoints to the health server
@@ -24,8 +25,8 @@ func (s *Server) AddMonitoringEndpoints(monitor *orchestration.WorkflowMonitor) 
 		workflows, err := monitor.GetActiveWorkflows(r.Context(), clientID)
 		if err != nil {
 			s.logger.Error("Failed to get active workflows",
-				"error", err,
-				"client_id", clientID)
+				zap.Error(err),
+				zap.String("client_id", clientID))
 			http.Error(w, `{"error": "failed to retrieve workflows"}`, http.StatusInternalServerError)
 			return
 		}
@@ -51,7 +52,7 @@ func (s *Server) AddMonitoringEndpoints(monitor *orchestration.WorkflowMonitor) 
 
 		stuck, err := monitor.GetStuckWorkflows(r.Context(), time.Duration(hours)*time.Hour)
 		if err != nil {
-			s.logger.Error("Failed to get stuck workflows", "error", err)
+			s.logger.Error("Failed to get stuck workflows", zap.Error(err))
 			http.Error(w, `{"error": "failed to retrieve stuck workflows"}`, http.StatusInternalServerError)
 			return
 		}
@@ -84,8 +85,8 @@ func (s *Server) AddMonitoringEndpoints(monitor *orchestration.WorkflowMonitor) 
 		metrics, err := monitor.GetWorkflowMetrics(r.Context(), clientID, time.Now().Add(-duration))
 		if err != nil {
 			s.logger.Error("Failed to get workflow metrics",
-				"error", err,
-				"client_id", clientID)
+				zap.Error(err),
+				zap.String("client_id", clientID))
 			http.Error(w, `{"error": "failed to retrieve metrics"}`, http.StatusInternalServerError)
 			return
 		}
@@ -111,8 +112,8 @@ func (s *Server) AddMonitoringEndpoints(monitor *orchestration.WorkflowMonitor) 
 				return
 			}
 			s.logger.Error("Failed to get workflow details",
-				"error", err,
-				"correlation_id", correlationID)
+				zap.Error(err),
+				zap.String("correlation_id", correlationID))
 			http.Error(w, `{"error": "failed to retrieve workflow details"}`, http.StatusInternalServerError)
 			return
 		}
