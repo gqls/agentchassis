@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // ValidateInputAction validates the input data
@@ -15,19 +16,25 @@ func ValidateInputAction(ctx context.Context, params ActionParams) (interface{},
 		return nil, fmt.Errorf("no input data provided")
 	}
 
-	var data map[string]interface{}
-	if err := json.Unmarshal(params.InputData, &data); err != nil {
+	var payload map[string]interface{}
+	if err := json.Unmarshal(params.InputData, &payload); err != nil {
 		return nil, fmt.Errorf("invalid input format: %w", err)
 	}
 
-	// Example validation: check for required fields
+	// The input data has structure: {"action": "...", "data": {...}}
+	data, ok := payload["data"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("missing 'data' field in payload")
+	}
+
+	// Now check for required fields in the data
 	if _, ok := data["message"]; !ok {
-		return nil, fmt.Errorf("missing required field: message")
+		return nil, fmt.Errorf("missing required field: message in data")
 	}
 
 	return map[string]interface{}{
 		"validated": true,
-		"input":     data,
+		"input":     data, // Return the data part, not the whole payload
 	}, nil
 }
 
@@ -41,11 +48,29 @@ func TransformDataAction(ctx context.Context, params ActionParams) (interface{},
 
 	// Get data to transform
 	var data map[string]interface{}
-	if params.InputData != nil {
-		json.Unmarshal(params.InputData, &data)
-	} else if len(params.CollectedData) > 0 {
-		// Use collected data if no input data
-		data = params.CollectedData
+
+	// Check if we have collected data from previous steps
+	if validatedData, ok := params.CollectedData["validate_input"]; ok {
+		// Use the validated data from the previous step
+		if validated, ok := validatedData.(map[string]interface{}); ok {
+			if input, ok := validated["input"].(map[string]interface{}); ok {
+				data = input
+			}
+		}
+	}
+
+	// If no collected data, try to parse from input
+	if data == nil && params.InputData != nil {
+		var payload map[string]interface{}
+		if err := json.Unmarshal(params.InputData, &payload); err == nil {
+			if d, ok := payload["data"].(map[string]interface{}); ok {
+				data = d
+			}
+		}
+	}
+
+	if data == nil {
+		return nil, fmt.Errorf("no data to transform")
 	}
 
 	result := make(map[string]interface{})
@@ -78,16 +103,24 @@ func TransformDataAction(ctx context.Context, params ActionParams) (interface{},
 func SendNotificationAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	// Prepare notification with all collected data
 	notification := map[string]interface{}{
-		"type":       "workflow_completed",
-		"data":       params.CollectedData,
-		"step":       params.CurrentStep,
-		"agent_type": params.AgentType,
+		"type":      "workflow_completed",
+		"data":      params.CollectedData,
+		"step":      params.CurrentStep,
+		"timestamp": time.Now().UTC(),
 	}
 
 	notificationBytes, _ := json.Marshal(notification)
 
-	// Send to responses topic
-	topic := fmt.Sprintf("system.responses.%s", params.AgentType)
+	// Use a fixed topic or get from step config
+	topic := "system.responses.generic" // Fixed topic for generic agent
+
+	// Or get from step config if you want it configurable
+	if params.StepConfig.Config != nil {
+		if customTopic, ok := params.StepConfig.Config["topic"].(string); ok {
+			topic = customTopic
+		}
+	}
+
 	err := params.Producer.Produce(ctx, topic, params.Headers,
 		[]byte(params.Headers["correlation_id"]), notificationBytes)
 

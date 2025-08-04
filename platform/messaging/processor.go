@@ -108,7 +108,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	}
 
 	// Validate workflow
-	if err := p.validator.ValidateWorkflowPlan(agentConfig.Workflow); err != nil {
+	if err := p.validator.ValidateWorkflow(agentConfig.Workflow); err != nil {
 		return errors.New(errors.ErrWorkflowInvalid, "Invalid workflow configuration").
 			WithCause(err).
 			WithDetail("workflow_metrics", p.validator.GetWorkflowMetrics(agentConfig.Workflow)).

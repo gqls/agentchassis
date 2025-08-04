@@ -7,98 +7,127 @@ import (
 )
 
 // WorkflowValidator provides validation for workflow plans
-type WorkflowValidator struct{}
-
-// NewWorkflowValidator creates a new workflow validator
-func NewWorkflowValidator() *WorkflowValidator {
-	return &WorkflowValidator{}
+type WorkflowValidator struct {
+	localActions   map[string]bool // Actions executed within orchestrator
+	builtInActions map[string]bool // Built-in orchestration control actions
 }
 
-// ValidateWorkflowPlan validates a workflow plan for correctness
-func (v *WorkflowValidator) ValidateWorkflowPlan(plan models.WorkflowPlan) error {
-	if plan.StartStep == "" {
-		return fmt.Errorf("workflow plan must have a start step")
+func NewWorkflowValidator() *WorkflowValidator {
+	// Actions that execute custom code locally
+	localActions := map[string]bool{
+		"validate_input":    true,
+		"transform_data":    true,
+		"send_notification": true,
 	}
 
-	if len(plan.Steps) == 0 {
-		return fmt.Errorf("workflow plan must have at least one step")
+	// Built-in orchestration control actions
+	builtInActions := map[string]bool{
+		"complete_workflow":     true,
+		"fan_out":               true,
+		"pause_for_human_input": true,
+		"store_memory":          true,
+		"retrieve_memory":       true,
 	}
 
-	// Check start step exists
-	if _, ok := plan.Steps[plan.StartStep]; !ok {
-		return fmt.Errorf("start step '%s' not found in steps", plan.StartStep)
+	return &WorkflowValidator{
+		localActions:   localActions,
+		builtInActions: builtInActions,
+	}
+}
+
+// ValidateWorkflow validates a workflow configuration
+func (v *WorkflowValidator) ValidateWorkflow(workflow models.WorkflowPlan) error {
+	if workflow.StartStep == "" {
+		return fmt.Errorf("workflow must have a start_step")
+	}
+
+	if len(workflow.Steps) == 0 {
+		return fmt.Errorf("workflow must have at least one step")
+	}
+
+	// Check if start step exists
+	if _, exists := workflow.Steps[workflow.StartStep]; !exists {
+		return fmt.Errorf("start_step '%s' not found in steps", workflow.StartStep)
 	}
 
 	// Validate each step
-	for stepName, step := range plan.Steps {
-		if err := v.validateStep(stepName, step, plan); err != nil {
+	for stepName, step := range workflow.Steps {
+		if err := v.validateStep(stepName, step, workflow.Steps); err != nil {
 			return err
 		}
 	}
 
 	// Check for cycles
-	if err := v.checkForCycles(plan); err != nil {
+	if err := v.checkForCycles(workflow); err != nil {
 		return err
 	}
 
-	// Check all dependencies exist
-	if err := v.validateDependencies(plan); err != nil {
+	// Check all dependencies exist (though validateStep already does this)
+	if err := v.validateDependencies(workflow); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// validateStep validates an individual step
-func (v *WorkflowValidator) validateStep(name string, step models.Step, plan models.WorkflowPlan) error {
+func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps map[string]models.Step) error {
+	// Validate action
 	if step.Action == "" {
 		return fmt.Errorf("step '%s' must have an action", name)
 	}
 
-	// Validate based on action type
-	switch step.Action {
-	case "fan_out":
-		if len(step.SubTasks) == 0 {
-			return fmt.Errorf("fan_out step '%s' must have at least one sub-task", name)
-		}
-		for i, subTask := range step.SubTasks {
-			if subTask.StepName == "" {
-				return fmt.Errorf("sub-task %d in step '%s' must have a step name", i, name)
-			}
-			if subTask.Topic == "" {
-				return fmt.Errorf("sub-task %d in step '%s' must have a topic", i, name)
-			}
-		}
-	case "complete_workflow":
-		if step.NextStep != "" {
-			return fmt.Errorf("complete_workflow step '%s' should not have a next step", name)
-		}
-	default:
-		// For standard actions, ensure topic is set if not internal actions
-		if step.Topic == "" && !v.isInternalAction(step.Action) {
+	// Check if it's a local action
+	isLocalAction := v.localActions[step.Action]
+
+	// Remote actions need a topic (unless they're local or built-in)
+	if !isLocalAction && step.Topic == "" {
+		// Special cases that don't need topics
+		switch step.Action {
+		case "complete_workflow", "fan_out", "pause_for_human_input":
+			// These are OK without topics
+		default:
 			return fmt.Errorf("step '%s' with action '%s' requires a topic", name, step.Action)
 		}
 	}
 
-	// Validate next step exists
+	// Validate next step exists (unless it's empty, which means end of workflow)
 	if step.NextStep != "" {
-		if _, ok := plan.Steps[step.NextStep]; !ok {
-			return fmt.Errorf("step '%s' references non-existent next step '%s'", name, step.NextStep)
+		if _, exists := allSteps[step.NextStep]; !exists {
+			return fmt.Errorf("step '%s' references non-existent next_step '%s'", name, step.NextStep)
+		}
+	}
+
+	// Validate dependencies exist
+	for _, dep := range step.Dependencies {
+		if _, exists := allSteps[dep]; !exists {
+			return fmt.Errorf("step '%s' has dependency on non-existent step '%s'", name, dep)
+		}
+	}
+
+	// Validate fan-out sub-tasks
+	if step.Action == "fan_out" {
+		if len(step.SubTasks) == 0 {
+			return fmt.Errorf("fan_out step '%s' must have at least one sub-task", name)
+		}
+		for _, subTask := range step.SubTasks {
+			if subTask.Topic == "" {
+				return fmt.Errorf("fan_out sub-task '%s' must have a topic", subTask.StepName)
+			}
 		}
 	}
 
 	return nil
 }
 
-// isInternalAction checks if an action is handled internally
-func (v *WorkflowValidator) isInternalAction(action string) bool {
-	internalActions := map[string]bool{
-		"complete_workflow":     true,
-		"pause_for_human_input": true,
-		"store_memory":          true,
-		"retrieve_memory":       true,
-	}
-	return internalActions[action]
+// IsLocalAction checks if an action is executed locally
+func (v *WorkflowValidator) IsLocalAction(action string) bool {
+	return v.localActions[action]
+}
+
+// RequiresTopic checks if action needs a Kafka topic
+func (v *WorkflowValidator) RequiresTopic(action string) bool {
+	// Local and built-in actions don't need topics
+	return !v.IsLocalAction(action)
 }
 
 // validateDependencies ensures all dependencies exist

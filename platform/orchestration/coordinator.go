@@ -225,6 +225,11 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return fmt.Errorf("local action '%s' not found in registry", step.Action)
 	}
 
+	// Log with virtual topic for consistency
+	virtualTopic := fmt.Sprintf("local.action.%s", step.Action)
+	l.Info("Executing local action",
+		zap.String("virtual_topic", virtualTopic))
+
 	// Prepare action parameters
 	params := actions.ActionParams{
 		Context:       ctx,
