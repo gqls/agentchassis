@@ -24,10 +24,13 @@ type Agent struct {
 	agentType     string
 	consumerGroup string
 
+	// Components
+	server       *AgentServer
+	client       *AgentClient
+	healthServer *health.Server
+
 	// Managers
-	infraManager  *infrastructure.Manager
-	messageRunner *MessageRunner
-	healthServer  *health.Server
+	infraManager *infrastructure.Manager
 }
 
 // New creates a new agent with defaults from config
@@ -85,13 +88,21 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 		return nil, fmt.Errorf("failed to create components: %w", err)
 	}
 
-	// Create message runner
-	// Create message runner with response consumer
-	messageRunner := NewMessageRunner(
+	// Create server (handles incoming requests)
+	server := NewAgentServer(
 		ctx,
 		logger,
 		connections.KafkaConsumer,
-		responseConsumer, // ADD: Pass response consumer
+		components.messageProcessor,
+		consumerGroup,
+		agentType,
+	)
+
+	// Create client (handles responses)
+	client := NewAgentClient(
+		ctx,
+		logger,
+		responseConsumer,
 		components.messageProcessor,
 		consumerGroup,
 		agentType,
@@ -109,9 +120,10 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 		logger:        logger,
 		agentType:     agentType,
 		consumerGroup: consumerGroup,
-		infraManager:  infraManager,
-		messageRunner: messageRunner,
+		server:        server,
+		client:        client,
 		healthServer:  healthServer,
+		infraManager:  infraManager,
 	}, nil
 }
 
@@ -176,20 +188,52 @@ func createHealthServer(cfg *config.ServiceConfig, connections *infrastructure.C
 	return healthServer
 }
 
-// Run starts the agent
+// Update Run method:
 func (a *Agent) Run() error {
 	a.logger.Info("Agent starting", zap.String("type", a.agentType))
 
 	// Start health server
 	a.healthServer.Start()
 
-	// Run message processing
-	return a.messageRunner.Run()
+	// Create error channel for goroutines
+	errCh := make(chan error, 2)
+
+	// Start server in goroutine
+	go func() {
+		if err := a.server.Run(); err != nil {
+			errCh <- fmt.Errorf("server error: %w", err)
+		}
+	}()
+
+	// Start client in goroutine
+	go func() {
+		if err := a.client.Run(); err != nil {
+			errCh <- fmt.Errorf("client error: %w", err)
+		}
+	}()
+
+	// Wait for error or context cancellation
+	select {
+	case err := <-errCh:
+		return err
+	case <-a.ctx.Done():
+		return nil
+	}
 }
 
 // Shutdown gracefully shuts down the agent
 func (a *Agent) Shutdown() error {
 	a.logger.Info("Agent shutting down")
+
+	// Shutdown both server and client
+	if err := a.server.Shutdown(); err != nil {
+		a.logger.Error("Error shutting down server", zap.Error(err))
+	}
+
+	if err := a.client.Shutdown(); err != nil {
+		a.logger.Error("Error shutting down client", zap.Error(err))
+	}
+
 	observability.AgentPoolSize.WithLabelValues(a.agentType).Dec()
 	return a.infraManager.Close()
 }

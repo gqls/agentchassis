@@ -22,3 +22,20 @@ Your agent continues workflow with both responses
 
 Your agent is both a SERVICE (processing requests via main consumer) 
 and a CLIENT (receiving responses via response consumer) in the multi-agent system!
+
+--
+separating out client and server
+AgentServer - Handles incoming requests
+├── Listens to main topic (system.agent.generic.process)
+├── Processes new work requests
+└── Creates/manages workflows
+
+AgentClient - Handles responses from other agents
+├── Listens to response topic (system.responses.generic)
+├── Routes responses to orchestrator
+└── Manages response handling
+
+Agent (Coordinator)
+├── Owns AgentServer
+├── Owns AgentClient
+└── Coordinates between them
