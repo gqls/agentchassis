@@ -7,6 +7,7 @@ import (
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/health"
 	"github.com/gqls/agentchassis/platform/infrastructure"
+	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/messaging"
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
@@ -64,6 +65,19 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 
 	connections := infraManager.GetConnections()
 
+	// Create response consumer
+	responseTopic := fmt.Sprintf("system.responses.%s", agentType)
+	responseConsumer, err := kafka.NewConsumer(
+		cfg.Infrastructure.KafkaBrokers,
+		responseTopic,
+		fmt.Sprintf("%s-responses", consumerGroup),
+		logger,
+	)
+	if err != nil {
+		infraManager.Close()
+		return nil, fmt.Errorf("failed to create response consumer: %w", err)
+	}
+
 	// Create components
 	components, err := createComponents(connections, agentType, logger)
 	if err != nil {
@@ -72,10 +86,12 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 	}
 
 	// Create message runner
+	// Create message runner with response consumer
 	messageRunner := NewMessageRunner(
 		ctx,
 		logger,
 		connections.KafkaConsumer,
+		responseConsumer, // ADD: Pass response consumer
 		components.messageProcessor,
 		consumerGroup,
 		agentType,

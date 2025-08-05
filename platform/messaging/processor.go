@@ -171,3 +171,15 @@ func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *Messag
 		observability.KafkaMessagesProduced.WithLabelValues(errorTopic).Inc()
 	}
 }
+
+// ProcessResponse handles response messages for orchestrated workflows
+func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Message) error {
+	headers := kafka.HeadersToMap(msg.Headers)
+
+	p.logger.Info("Processing orchestration response",
+		zap.String("correlation_id", headers["correlation_id"]),
+		zap.String("causation_id", headers["causation_id"]))
+
+	// Route to orchestrator
+	return p.orchestrator.HandleResponse(ctx, headers, msg.Value)
+}
