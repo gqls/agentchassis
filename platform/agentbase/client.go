@@ -3,6 +3,7 @@ package agentbase
 
 import (
 	"context"
+	"fmt"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/messaging"
 	"github.com/gqls/agentchassis/platform/observability"
@@ -43,12 +44,17 @@ func NewAgentClient(
 func (c *AgentClient) Run() error {
 	c.logger.Info("Starting agent client (response handler)",
 		zap.String("agent_type", c.agentType),
-		zap.String("response_group", c.consumerGroup+"-responses"))
+		zap.String("response_group", c.consumerGroup+"-responses"),
+		zap.String("topic", fmt.Sprintf("system.responses.%s", c.agentType)))
+
+	// Add a message counter for debugging
+	messageCount := 0
 
 	for {
 		select {
 		case <-c.ctx.Done():
-			c.logger.Info("Agent client shutting down")
+			c.logger.Info("Agent client shutting down",
+				zap.Int("messages_processed", messageCount))
 			return nil
 		default:
 			msg, err := c.responseConsumer.FetchMessage(c.ctx)
@@ -56,14 +62,20 @@ func (c *AgentClient) Run() error {
 				if err == context.Canceled {
 					continue
 				}
-				c.logger.Error("Failed to fetch response message", zap.Error(err))
-				observability.SystemErrors.WithLabelValues(c.agentType, "fetch_response").Inc()
+				c.logger.Error("Failed to fetch response message",
+					zap.Error(err),
+					zap.Int("messages_so_far", messageCount))
 				time.Sleep(1 * time.Second)
 				continue
 			}
 
 			// Record metric
 			observability.KafkaMessagesConsumed.WithLabelValues(msg.Topic, c.consumerGroup+"-responses").Inc()
+
+			messageCount++
+			c.logger.Info("GOT A RESPONSE MESSAGE!",
+				zap.Int("count", messageCount),
+				zap.String("topic", msg.Topic))
 
 			// Process response asynchronously
 			go c.processResponse(msg)

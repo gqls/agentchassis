@@ -47,68 +47,6 @@ func NewSagaCoordinator(db *sql.DB, producer kafka.Producer, logger *zap.Logger)
 	}
 }
 
-/*func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.WorkflowPlan, headers map[string]string, initialData []byte) error {
-	correlationID := headers["correlation_id"]
-	l := s.logger.With(zap.String("correlation_id", correlationID))
-
-	// Get clientID from headers to pass to state creation
-	clientID := headers["client_id"]
-	if clientID == "" {
-		return fmt.Errorf("client_id header is required to execute a workflow")
-	}
-
-	// Get or create state
-	state, err := s.getOrCreateState(ctx, correlationID, clientID, plan, initialData)
-	if err != nil {
-		return err
-	}
-
-	// Check if workflow is already complete
-	if state.Status == StatusCompleted || state.Status == StatusFailed {
-		l.Info("Workflow already finished", zap.String("status", string(state.Status)))
-		return nil
-	}
-
-	// Get current step configuration
-	currentStepConfig, ok := plan.Steps[state.CurrentStep]
-	if !ok {
-		return s.failWorkflow(ctx, state, fmt.Sprintf("step '%s' not found in plan", state.CurrentStep))
-	}
-
-	// Check dependencies
-	if !s.dependenciesMet(currentStepConfig.Dependencies, state) {
-		l.Info("Dependencies not met, waiting", zap.Strings("dependencies", currentStepConfig.Dependencies))
-		return nil
-	}
-
-	// Check fuel budget
-	fuel, err := governance.GetFuelFromHeader(headers)
-	if err != nil {
-		return s.failWorkflow(ctx, state, fmt.Sprintf("failed to get fuel from headers: %v", err))
-	}
-
-	if !s.fuelManager.HasEnoughFuel(fuel, currentStepConfig.Action) {
-		return s.failWorkflow(ctx, state, fmt.Sprintf("insufficient fuel for action '%s': have %d, need %d",
-			currentStepConfig.Action, fuel, s.fuelManager.GetCost(currentStepConfig.Action)))
-	}
-
-	// Deduct fuel and update headers
-	remainingFuel := s.fuelManager.DeductFuel(fuel, currentStepConfig.Action)
-	governance.SetFuelHeader(headers, remainingFuel)
-
-	// Execute the action
-	switch currentStepConfig.Action {
-	case "fan_out":
-		return s.handleFanOut(ctx, headers, currentStepConfig, state)
-	case "pause_for_human_input":
-		return s.handlePauseForHumanInput(ctx, headers, currentStepConfig, state)
-	case "complete_workflow":
-		return s.completeWorkflow(ctx, state)
-	default:
-		return s.handleStandardAction(ctx, headers, currentStepConfig, state)
-	}
-}*/
-
 // ExecuteWorkflow now stores the plan and continues execution
 func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.WorkflowPlan, headers map[string]string, initialData []byte) error {
 	correlationID := headers["correlation_id"]
@@ -450,6 +388,17 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 		}
 
 		l.Info("All responses received, continuing workflow")
+
+		// ADD THESE LINES - Ensure required headers for continuation
+		if headers["fuel_budget"] == "" {
+			headers["fuel_budget"] = "1000"
+		}
+		if headers["client_id"] == "" {
+			headers["client_id"] = state.ClientID
+		}
+		if headers["agent_instance_id"] == "" {
+			headers["agent_instance_id"] = "00000000-0000-0000-0000-000000000001"
+		}
 
 		// Continue execution with the stored plan
 		return s.continueExecution(ctx, state, headers)

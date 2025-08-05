@@ -1,0 +1,16 @@
+# testdata/workflows/simple.yaml
+simple_workflow:
+  start_step: validate
+  steps:
+    validate:
+      action: validate_input
+      next_step: complete
+
+# testdata/workflows/multi_agent.yaml
+multi_agent_workflow:
+  start_step: analyze
+  steps:
+    analyze:
+      action: call_agent
+      agent_type: analyzer
+      next_step: complete

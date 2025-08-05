@@ -674,3 +674,46 @@ func TestCompleteWorkflow(t *testing.T) {
 
 	require.NoError(t, mockDB.ExpectationsWereMet())
 }
+
+// platform/orchestration/coordinator_test.go
+func TestSimpleWorkflow(t *testing.T) {
+	h := testing.NewTestHarness(t)
+	defer h.Cleanup()
+
+	// Test simple workflow
+	workflow := models.WorkflowPlan{
+		StartStep: "validate",
+		Steps: map[string]models.Step{
+			"validate": {
+				Action:   "validate_input",
+				NextStep: "complete",
+			},
+			"complete": {
+				Action: "complete_workflow",
+			},
+		},
+	}
+
+	// Send message
+	err := h.SendMessage("system.agent.generic.process", headers, payload)
+	require.NoError(t, err)
+
+	// Verify completion
+	response, err := h.ExpectResponse(correlationID, 5*time.Second)
+	require.NoError(t, err)
+	assert.Equal(t, "COMPLETED", response.Status)
+}
+
+func TestMultiAgentWorkflow(t *testing.T) {
+	h := testing.NewTestHarness(t)
+
+	// Start mock agents that auto-respond
+	h.StartMockAgent("reasoning", func(msg Message) Response {
+		return Response{Success: true, Data: map[string]interface{}{
+			"analysis": "test analysis",
+		}}
+	})
+
+	// Test fan-out workflow
+	// ...
+}
