@@ -3,8 +3,10 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/kafka"
+	"go.uber.org/zap"
 )
 
 // ActionHandler is the function signature for action handlers
@@ -18,6 +20,8 @@ type ActionParams struct {
 	InputData     []byte
 	CollectedData map[string]interface{}
 	Producer      kafka.Producer
+	DB            *sql.DB
+	Logger        *zap.Logger
 	AgentType     string
 	CurrentStep   string
 }

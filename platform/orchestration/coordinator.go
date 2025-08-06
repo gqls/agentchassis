@@ -35,6 +35,10 @@ var actionRegistry = map[string]actions.ActionHandler{
 	"validate_input":    actions.ValidateInputAction,
 	"transform_data":    actions.TransformDataAction,
 	"send_notification": actions.SendNotificationAction,
+	"spawn_agent":       actions.SpawnAgentAction,
+	"spawn_group":       actions.SpawnGroupAction,
+	"call_agent":        actions.CallAgentAction,
+	"discover_agents":   actions.DiscoverAgentsAction,
 }
 
 // NewSagaCoordinator creates a new coordinator instance
@@ -176,6 +180,8 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		InputData:     state.InitialRequestData,
 		CollectedData: state.CollectedData,
 		Producer:      s.producer,
+		DB:            s.db,
+		Logger:        s.logger,
 		AgentType:     headers["agent_type"],
 		CurrentStep:   state.CurrentStep,
 	}

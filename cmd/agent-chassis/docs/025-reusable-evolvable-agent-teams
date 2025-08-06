@@ -1,0 +1,370 @@
+I can see the need to spawn gpu pods instead of cpu for e.g. fine-tuning. Now I'd like to start by getting the copywriter agent working with this new spawning framework. I'd also like to implement the group idea from earlier whereby if for instance a webdesign task has been set up with it's necessary agents, it can be saved as a "webdesign - version- type etc" group. So when the next web design task of that type or similar type is needed then it an start from this group with these settings and improve it from there. so we might have a proliferation of different types/configurations but as long as in the future we can design a discovery system for these groups as well - searchable by capability, relevance etc then it will be a good thing.
+
+Phase 1: Implement Copywriter SpawningStep 1: Add Spawn Agent Action
+
+// platform/orchestration/actions/spawn_agent.go
+package actions
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "github.com/google/uuid"
+    "time"
+)
+
+func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+    config := params.StepConfig.Config
+    agentType := config["agent_type"].(string)
+
+    // Check if we already have this agent for this client
+    var existingAgent map[string]interface{}
+    err := params.DB.QueryRow(ctx, `
+        SELECT id, config
+        FROM client_demo_client.agent_instances
+        WHERE config->>'agent_type' = $1
+        AND owner_user_id = $2
+        AND is_active = true
+        LIMIT 1
+    `, agentType, params.Headers["client_id"]).Scan(&existingAgent)
+
+    if err == nil {
+        // Agent exists, reuse it
+        return map[string]interface{}{
+            "agent_id": existingAgent["id"],
+            "topic": fmt.Sprintf("system.agent.%s.process", agentType),
+            "status": "existing",
+        }, nil
+    }
+
+    // Create new copywriter agent
+    agentID := uuid.New().String()
+    workflow := buildCopywriterWorkflow()
+
+    agentConfig := map[string]interface{}{
+        "agent_type": "copywriter",
+        "workflow": workflow,
+        "capabilities": []string{"writing", "marketing", "creative"},
+        "llm_config": map[string]interface{}{
+            "model": "claude-3-sonnet",
+            "temperature": 0.8,
+            "system_prompt": "You are an expert copywriter specializing in compelling marketing content.",
+        },
+    }
+
+    // Insert into database
+    _, err = params.DB.Exec(ctx, `
+        INSERT INTO client_demo_client.agent_instances
+        (id, template_id, owner_user_id, name, config, is_active)
+        VALUES ($1, $2, $3, $4, $5, true)
+    `,
+        agentID,
+        "2a540b98-85d5-4762-a692-538bcf1be395", // generic template
+        params.Headers["client_id"],
+        fmt.Sprintf("Copywriter-%s", time.Now().Format("20060102-150405")),
+        agentConfig,
+    )
+
+    if err != nil {
+        return nil, fmt.Errorf("failed to create agent: %w", err)
+    }
+
+    return map[string]interface{}{
+        "agent_id": agentID,
+        "topic": "system.agent.copywriter.process",
+        "status": "created",
+    }, nil
+}
+
+func buildCopywriterWorkflow() map[string]interface{} {
+    return map[string]interface{}{
+        "start_step": "analyze",
+        "steps": map[string]interface{}{
+            "analyze": map[string]interface{}{
+                "action": "validate_input",
+                "next_step": "generate_copy",
+                "description": "Analyze copywriting request",
+            },
+            "generate_copy": map[string]interface{}{
+                "action": "llm_generate",
+                "config": map[string]interface{}{
+                    "prompt_template": "copywriter_main",
+                },
+                "next_step": "polish",
+            },
+            "polish": map[string]interface{}{
+                "action": "transform_data",
+                "config": map[string]interface{}{
+                    "transformation": "final_polish",
+                },
+                "next_step": "complete",
+            },
+            "complete": map[string]interface{}{
+                "action": "complete_workflow",
+            },
+        },
+    }
+}
+
+Step 2: Update Orchestrator to Spawn Copywriter
+
+-- Update your Multi-Agent Orchestrator to spawn agents first
+UPDATE client_demo_client.agent_instances
+SET config = jsonb_set(
+    config,
+    '{workflow}',
+    '{
+        "start_step": "prepare",
+        "steps": {
+            "prepare": {
+                "action": "validate_input",
+                "next_step": "spawn_copywriter",
+                "description": "Prepare the request"
+            },
+            "spawn_copywriter": {
+                "action": "spawn_agent",
+                "config": {
+                    "agent_type": "copywriter"
+                },
+                "next_step": "fan_out_to_agents",
+                "description": "Ensure copywriter agent exists"
+            },
+            "fan_out_to_agents": {
+                "action": "fan_out",
+                "sub_tasks": [
+                    {"topic": "system.adapter.web.search", "step_name": "web_search"},
+                    {"topic": "system.agent.content-creator.process", "step_name": "content_creation"},
+                    {"topic": "system.agent.copywriter.process", "step_name": "copywriting"}
+                ],
+                "next_step": "complete",
+                "description": "Call multiple agents in parallel"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "description": "Complete with all agent results"
+            }
+        }
+    }'::jsonb
+)
+WHERE id = '00000000-0000-0000-0000-000000000040';
+
+Step 3: Add to Action Registry
+
+// In platform/orchestration/coordinator.go
+var actionRegistry = map[string]actions.ActionHandler{
+    "validate_input":    actions.ValidateInputAction,
+    "transform_data":    actions.TransformDataAction,
+    "send_notification": actions.SendNotificationAction,
+    "spawn_agent":       actions.SpawnAgentAction,  // Add this
+}
+
+Phase 2: Implement Agent Groups
+Database Schema for Groups
+
+-- Create agent_groups table
+CREATE TABLE client_demo_client.agent_groups (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    group_type VARCHAR(100), -- 'webdesign', 'research', 'content', etc
+    version VARCHAR(50) DEFAULT '1.0.0',
+
+    -- The group configuration
+    agent_configs JSONB NOT NULL, -- Array of agent configurations
+    orchestration_workflow JSONB NOT NULL, -- How they work together
+
+    -- Metadata
+    capabilities JSONB DEFAULT '[]'::jsonb,
+    performance_metrics JSONB DEFAULT '{}'::jsonb,
+    tags JSONB DEFAULT '[]'::jsonb,
+
+    -- Tracking
+    created_by VARCHAR(100),
+    usage_count INTEGER DEFAULT 0,
+    last_used_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Index for searching
+CREATE INDEX idx_agent_groups_capabilities ON agent_groups USING gin(capabilities);
+CREATE INDEX idx_agent_groups_tags ON agent_groups USING gin(tags);
+CREATE INDEX idx_agent_groups_type ON agent_groups(group_type);
+
+
+Example Web Design Group
+
+{
+    "id": "webdesign-group-001",
+    "name": "Full Stack Web Design Team v1",
+    "group_type": "webdesign",
+    "version": "1.0.0",
+    "capabilities": ["design", "frontend", "backend", "copywriting", "seo"],
+    "agent_configs": [
+        {
+            "role": "ui_designer",
+            "agent_type": "designer",
+            "workflow": { /* UI design workflow */ }
+        },
+        {
+            "role": "frontend_dev",
+            "agent_type": "developer",
+            "workflow": { /* Frontend workflow */ }
+        },
+        {
+            "role": "copywriter",
+            "agent_type": "copywriter",
+            "workflow": { /* Copy workflow */ }
+        },
+        {
+            "role": "coordinator",
+            "agent_type": "orchestrator",
+            "workflow": { /* Orchestration workflow */ }
+        }
+    ],
+    "orchestration_workflow": {
+        "start_step": "analyze_requirements",
+        "steps": {
+            "analyze_requirements": {
+                "action": "validate_input",
+                "next_step": "design_phase"
+            },
+            "design_phase": {
+                "action": "call_agent",
+                "agent_role": "ui_designer",
+                "next_step": "content_phase"
+            },
+            "content_phase": {
+                "action": "parallel_agents",
+                "agents": ["copywriter", "frontend_dev"],
+                "next_step": "integration"
+            }
+        }
+    }
+}
+
+Group Spawning Action
+
+// platform/orchestration/actions/spawn_group.go
+func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, error) {
+    groupType := params.StepConfig.Config["group_type"].(string)
+
+    // Find best matching group
+    var group AgentGroup
+    err := params.DB.QueryRow(ctx, `
+        SELECT * FROM client_demo_client.agent_groups
+        WHERE group_type = $1
+        AND capabilities @> $2
+        ORDER BY usage_count DESC, version DESC
+        LIMIT 1
+    `, groupType, params.StepConfig.Config["required_capabilities"]).Scan(&group)
+
+    if err != nil {
+        // No existing group, create from template
+        return createNewGroup(ctx, params)
+    }
+
+    // Spawn all agents in the group
+    spawnedAgents := make(map[string]string)
+
+    for _, agentConfig := range group.AgentConfigs {
+        result, err := SpawnAgentAction(ctx, ActionParams{
+            StepConfig: Step{
+                Config: agentConfig,
+            },
+            // ... other params
+        })
+
+        if err != nil {
+            return nil, fmt.Errorf("failed to spawn %s: %w", agentConfig.Role, err)
+        }
+
+        spawnedAgents[agentConfig.Role] = result["agent_id"]
+    }
+
+    // Update usage metrics
+    params.DB.Exec(ctx, `
+        UPDATE client_demo_client.agent_groups
+        SET usage_count = usage_count + 1,
+            last_used_at = NOW()
+        WHERE id = $1
+    `, group.ID)
+
+    return map[string]interface{}{
+        "group_id": group.ID,
+        "agents": spawnedAgents,
+        "workflow": group.OrchestrationWorkflow,
+    }, nil
+}
+
+Group Discovery Service
+
+// platform/discovery/group_discovery.go
+type GroupDiscovery struct {
+    db *pgxpool.Pool
+}
+
+func (d *GroupDiscovery) FindGroups(ctx context.Context, query GroupQuery) ([]AgentGroup, error) {
+    sql := `
+        SELECT * FROM client_demo_client.agent_groups
+        WHERE 1=1
+    `
+    args := []interface{}{}
+
+    if len(query.RequiredCapabilities) > 0 {
+        sql += " AND capabilities @> $1"
+        args = append(args, query.RequiredCapabilities)
+    }
+
+    if query.GroupType != "" {
+        sql += " AND group_type = $2"
+        args = append(args, query.GroupType)
+    }
+
+    if len(query.Tags) > 0 {
+        sql += " AND tags && $3"  // Overlaps
+        args = append(args, query.Tags)
+    }
+
+    sql += " ORDER BY usage_count DESC, performance_metrics->>'success_rate' DESC"
+
+    // Return matching groups
+}
+
+func (d *GroupDiscovery) ImproveGroup(ctx context.Context, groupID string, improvements map[string]interface{}) (*AgentGroup, error) {
+    // Fork existing group with improvements
+    // Increment version
+    // Track lineage
+}
+
+Usage Example
+# Your task needs web design
+Task: "Create landing page for new product"
+
+System:
+1. Searches for web design groups
+2. Finds "Full Stack Web Design Team v1"
+3. Spawns all agents in group
+4. Executes group workflow
+5. Tracks performance
+
+Next Task: "Create another landing page"
+System:
+1. Finds same group (usage_count higher now)
+2. Reuses existing agents if still active
+3. Executes faster
+
+Over time:
+- Groups evolve (v1 → v2 → v3)
+- Best performing groups rise to top
+- Groups can fork and specialize
+
+
+This gives you:
+
+Immediate: Copywriter spawning
+Reusable: Agent groups for common tasks
+Evolvable: Groups improve over time
+Discoverable: Search by capability, performance, tags
+
+

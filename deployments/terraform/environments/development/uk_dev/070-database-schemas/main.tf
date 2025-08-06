@@ -27,8 +27,8 @@ data "terraform_remote_state" "databases_dev" {
 }
 
 # Read all SQL files
-data "local_file" "pgvector_sql" {
-  filename = "${path.module}/../../../../../../platform/database/migrations/001_enable_pgvector.sql"
+data "local_file" "extensions_sql" {
+  filename = "${path.module}/../../../../../../platform/database/migrations/001_enable_extensions.sql"
 }
 
 data "local_file" "templates_schema_sql" {
@@ -55,7 +55,7 @@ resource "kubernetes_config_map" "sql_migrations" {
   }
 
   data = {
-    "001_enable_pgvector.sql"       = data.local_file.pgvector_sql.content
+    "001_enable_extensions.sql"       = data.local_file.extensions_sql.content
     "002_create_templates_schema.sql" = data.local_file.templates_schema_sql.content
     "003_create_client_schema.sql"   = data.local_file.client_schema_sql.content
     "004_auth_schema.sql"           = data.local_file.auth_db_schema.content
@@ -114,8 +114,8 @@ resource "kubernetes_job" "postgres_migrations" {
             set -e
             echo "Applying migrations to clients database..."
 
-            # Apply pgvector extension
-            psql -h postgres-clients-dev -U clients_user -d clients_db -f /migrations/001_enable_pgvector.sql
+            # Apply pgvector and other extensions
+            psql -h postgres-clients-dev -U clients_user -d clients_db -f /migrations/001_enable_extensions.sql
 
             # Apply client schema
             psql -h postgres-clients-dev -U clients_user -d clients_db -f /migrations/003_create_client_schema.sql
