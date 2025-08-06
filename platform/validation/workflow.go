@@ -225,13 +225,21 @@ func (v *WorkflowValidator) GetWorkflowMetrics(plan models.WorkflowPlan) map[str
 }
 
 // calculateMaxDepth calculates the maximum depth of the workflow
+// calculateMaxDepth calculates the maximum depth of the workflow
 func (v *WorkflowValidator) calculateMaxDepth(plan models.WorkflowPlan) int {
 	depths := make(map[string]int)
+	visiting := make(map[string]bool) // Add cycle detection
 
 	var calculateDepth func(string) int
 	calculateDepth = func(stepName string) int {
+		// Check if already calculated
 		if depth, ok := depths[stepName]; ok {
 			return depth
+		}
+
+		// Check for cycles
+		if visiting[stepName] {
+			return 0 // Cycle detected, return 0 to avoid infinite recursion
 		}
 
 		step, ok := plan.Steps[stepName]
@@ -239,6 +247,7 @@ func (v *WorkflowValidator) calculateMaxDepth(plan models.WorkflowPlan) int {
 			return 0
 		}
 
+		visiting[stepName] = true // Mark as visiting
 		maxDepth := 0
 
 		// Check dependencies
@@ -257,6 +266,7 @@ func (v *WorkflowValidator) calculateMaxDepth(plan models.WorkflowPlan) int {
 			}
 		}
 
+		visiting[stepName] = false // Unmark
 		depths[stepName] = maxDepth + 1
 		return maxDepth + 1
 	}

@@ -19,3 +19,7 @@ kubectl exec -it kafka-client-test -n kafka -- kafka-console-consumer \
 --max-messages 2 \
 --timeout-ms 5000 2>/dev/null || echo "No messages"
 done
+
+# Check if workflows are working from database
+# Check if workflows were created
+kubectl exec -it postgres-0 -n postgres -- psql -U dbuser -d clients_db -c "SELECT correlation_id, status, current_step, created_at FROM orchestrator_state ORDER BY created_at DESC LIMIT 5;"
