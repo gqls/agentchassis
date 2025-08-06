@@ -3,10 +3,14 @@ package agentbase
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/messaging"
 	"github.com/gqls/agentchassis/platform/observability"
+	"github.com/gqls/agentchassis/platform/orchestration/actions"
 	"go.uber.org/zap"
+	"net/http"
 	"time"
 )
 
@@ -86,4 +90,48 @@ func (s *AgentServer) processMessage(msg kafka.Message) {
 // Shutdown gracefully shuts down the server
 func (s *AgentServer) Shutdown() error {
 	return s.consumer.Close()
+}
+
+// testing only
+// Add to your existing service
+func (s *AgentServer) RegisterTestEndpoints() {
+	http.HandleFunc("/test/spawn-agent", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, "Method not allowed", 405)
+			return
+		}
+
+		var req struct {
+			AgentType string `json:"agent_type"`
+			ClientID  string `json:"client_id"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		result, err := actions.SpawnAgentAction(r.Context(), actions.ActionParams{
+			StepConfig: models.Step{
+				Config: map[string]interface{}{
+					"agent_type": req.AgentType,
+				},
+			},
+			Headers: map[string]string{
+				"client_id": req.ClientID,
+				"user_id":   "test_user",
+			},
+			DB:       s.db,
+			Producer: s.producer,
+			Logger:   s.logger,
+		})
+
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+	})
 }

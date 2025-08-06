@@ -1,0 +1,11 @@
+// test/fixtures/messages/content_request.json
+{
+  "action": "generate_content",
+  "data": {
+    "topic": "Test Content Generation",
+    "content_type": "blog_post",
+    "style": "informative",
+    "length": "medium",
+    "keywords": ["testing", "automation", "quality"]
+  }
+}
