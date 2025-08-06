@@ -146,44 +146,59 @@ func (v *WorkflowValidator) validateDependencies(plan models.WorkflowPlan) error
 func (v *WorkflowValidator) checkForCycles(plan models.WorkflowPlan) error {
 	visited := make(map[string]bool)
 	recStack := make(map[string]bool)
+	path := []string{} // Track the path for debugging
 
 	var hasCycle func(string) bool
 	hasCycle = func(stepName string) bool {
 		visited[stepName] = true
 		recStack[stepName] = true
+		path = append(path, stepName) // Add to path
+
+		// Log current path
+		fmt.Printf("Checking step: %s, current path: %v\n", stepName, path)
 
 		step, ok := plan.Steps[stepName]
 		if !ok {
+			path = path[:len(path)-1] // Remove from path
+			recStack[stepName] = false
 			return false
 		}
 
 		// Check next step
 		if step.NextStep != "" {
+			fmt.Printf("  Step %s -> next_step: %s\n", stepName, step.NextStep)
 			if !visited[step.NextStep] {
 				if hasCycle(step.NextStep) {
 					return true
 				}
 			} else if recStack[step.NextStep] {
+				fmt.Printf("  CYCLE DETECTED: %s -> %s (already in recursion stack)\n", stepName, step.NextStep)
+				fmt.Printf("  Cycle path: %v -> %s\n", path, step.NextStep)
 				return true
 			}
 		}
 
 		// Check dependencies
 		for _, dep := range step.Dependencies {
+			fmt.Printf("  Step %s depends on: %s\n", stepName, dep)
 			if !visited[dep] {
 				if hasCycle(dep) {
 					return true
 				}
 			} else if recStack[dep] {
+				fmt.Printf("  CYCLE DETECTED: %s depends on %s (already in recursion stack)\n", stepName, dep)
+				fmt.Printf("  Cycle path: %v -> %s\n", path, dep)
 				return true
 			}
 		}
 
+		path = path[:len(path)-1] // Remove from path when backtracking
 		recStack[stepName] = false
 		return false
 	}
 
 	// Start from the start step
+	fmt.Printf("Starting cycle check from: %s\n", plan.StartStep)
 	if hasCycle(plan.StartStep) {
 		return fmt.Errorf("workflow contains a cycle")
 	}
@@ -191,12 +206,14 @@ func (v *WorkflowValidator) checkForCycles(plan models.WorkflowPlan) error {
 	// Check any unvisited steps (disconnected components)
 	for stepName := range plan.Steps {
 		if !visited[stepName] {
+			fmt.Printf("Checking disconnected step: %s\n", stepName)
 			if hasCycle(stepName) {
 				return fmt.Errorf("workflow contains a cycle")
 			}
 		}
 	}
 
+	fmt.Printf("No cycles detected\n")
 	return nil
 }
 
@@ -225,21 +242,21 @@ func (v *WorkflowValidator) GetWorkflowMetrics(plan models.WorkflowPlan) map[str
 }
 
 // calculateMaxDepth calculates the maximum depth of the workflow
-// calculateMaxDepth calculates the maximum depth of the workflow
 func (v *WorkflowValidator) calculateMaxDepth(plan models.WorkflowPlan) int {
 	depths := make(map[string]int)
-	visiting := make(map[string]bool) // Add cycle detection
+	visited := make(map[string]bool)
+	recStack := make(map[string]bool)
 
 	var calculateDepth func(string) int
 	calculateDepth = func(stepName string) int {
-		// Check if already calculated
+		// If already calculated, return cached result
 		if depth, ok := depths[stepName]; ok {
 			return depth
 		}
 
-		// Check for cycles
-		if visiting[stepName] {
-			return 0 // Cycle detected, return 0 to avoid infinite recursion
+		// Cycle detection - if we're already calculating this step
+		if recStack[stepName] {
+			return 0 // Return 0 to break the cycle
 		}
 
 		step, ok := plan.Steps[stepName]
@@ -247,7 +264,10 @@ func (v *WorkflowValidator) calculateMaxDepth(plan models.WorkflowPlan) int {
 			return 0
 		}
 
-		visiting[stepName] = true // Mark as visiting
+		// Mark as being calculated
+		visited[stepName] = true
+		recStack[stepName] = true
+
 		maxDepth := 0
 
 		// Check dependencies
@@ -259,15 +279,19 @@ func (v *WorkflowValidator) calculateMaxDepth(plan models.WorkflowPlan) int {
 		}
 
 		// Check next step
-		if step.NextStep != "" {
+		if step.NextStep != "" && step.NextStep != stepName {
 			nextDepth := calculateDepth(step.NextStep)
 			if nextDepth > maxDepth {
 				maxDepth = nextDepth
 			}
 		}
 
-		visiting[stepName] = false // Unmark
+		// Unmark from recursion stack
+		recStack[stepName] = false
+
+		// Cache the result
 		depths[stepName] = maxDepth + 1
+
 		return maxDepth + 1
 	}
 

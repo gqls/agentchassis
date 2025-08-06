@@ -1,3 +1,14 @@
+kubectl -n ai-persona-system exec -it agent-chassis-test -- sh
+
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- sh
+/ # psql -Uclient_user -d clients_db
+
+
+SELECT config->'workflow' as workflow
+FROM client_demo_client.agent_instances
+WHERE id = '00000000-0000-0000-0000-000000000001';
+
+
 Let's create a workflow that uses both the reasoning agent and image creation agent. This will demonstrate real agent-to-agent orchestration.
 First, let's check what agents and topics we have:
 # List agent types

@@ -26,9 +26,10 @@ func main() {
 	payload := map[string]interface{}{
 		"action": "create_artwork",
 		"data": map[string]interface{}{
-			"prompt": "A futuristic cyberpunk city with neon lights reflecting on wet streets",
-			"style":  "digital art, highly detailed",
-			"mood":   "mysterious, atmospheric",
+			"prompt":  "A cat licking its foot",
+			"style":   "digital art, highly detailed",
+			"mood":    "mysterious, atmospheric",
+			"message": "Create artwork based on this prompt",
 		},
 	}
 
@@ -69,7 +70,8 @@ func main() {
 		"action": "research_and_write",
 		"data": map[string]interface{}{
 			"topic":        "artificial intelligence in healthcare",
-			"requirements": "comprehensive research with marketing copy",
+			"requirements": "comprehensive research without marketing copy",
+			"message":      "Research and write about this topic",
 		},
 	}
 
