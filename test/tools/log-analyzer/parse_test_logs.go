@@ -198,47 +198,211 @@ func showEntries(entries []LogEntry) {
 	}
 }
 
+// test/tools/log-analyzer/parse_test_logs.go (updated showSummary function)
+
 func showSummary(entries []LogEntry) {
 	stats := calculateStats(entries)
 
-	fmt.Println("=== Log Analysis Summary ===")
-	fmt.Printf("Total entries: %d\n", stats.TotalEnt
-
+	printHeader("Log Analysis Summary")
+	printBasicStats(stats)
+	printComponentStats(stats)
+	printErrorAnalysis(stats)
+	printTimelineAnalysis(entries)
 }
 
-// test/tools/log-analyzer/parse_test_logs.go (continued)
-func showSummary(entries []LogEntry) {
-	stats := calculateStats(entries)
+func printHeader(title string) {
+	fmt.Printf("\n=== %s ===\n", title)
+}
 
-	fmt.Println("=== Log Analysis Summary ===")
+func printSection(title string) {
+	fmt.Printf("\n%s:\n", title)
+}
+
+func printBasicStats(stats LogStats) {
 	fmt.Printf("Total entries: %d\n", stats.TotalEntries)
-	fmt.Printf("Errors: %d (%.1f%%)\n", stats.ErrorCount,
-		float64(stats.ErrorCount)/float64(stats.TotalEntries)*100)
-	fmt.Printf("Warnings: %d (%.1f%%)\n", stats.WarningCount,
-		float64(stats.WarningCount)/float64(stats.TotalEntries)*100)
-	fmt.Printf("Unique workflows: %d\n", stats.UniqueFlows)
 
-	fmt.Println("\nEntries by Component:")
-	for comp, count := range stats.ComponentStats {
-		fmt.Printf("  %s: %d\n", comp, count)
+	if stats.TotalEntries > 0 {
+		errorPercent := calculatePercentage(stats.ErrorCount, stats.TotalEntries)
+		warningPercent := calculatePercentage(stats.WarningCount, stats.TotalEntries)
+
+		fmt.Printf("Errors: %d (%.1f%%)\n", stats.ErrorCount, errorPercent)
+		fmt.Printf("Warnings: %d (%.1f%%)\n", stats.WarningCount, warningPercent)
 	}
 
-	if stats.ErrorCount > 0 {
-		fmt.Println("\nTop Error Types:")
-		errorList := sortMapByValue(stats.ErrorTypes)
-		for i, kv := range errorList {
-			if i >= 10 {
-				break
+	fmt.Printf("Unique workflows: %d\n", stats.UniqueFlows)
+}
+
+func printComponentStats(stats LogStats) {
+	if len(stats.ComponentStats) == 0 {
+		return
+	}
+
+	printSection("Entries by Component")
+
+	// Sort components by count for consistent output
+	components := sortMapByValueDesc(stats.ComponentStats)
+	for _, kv := range components {
+		fmt.Printf("  %-20s: %d\n", kv.Key, kv.Value)
+	}
+}
+
+func printErrorAnalysis(stats LogStats) {
+	if stats.ErrorCount == 0 {
+		return
+	}
+
+	printSection("Top Error Types")
+
+	errorList := sortMapByValueDesc(stats.ErrorTypes)
+	maxErrors := min(10, len(errorList))
+
+	for i := 0; i < maxErrors; i++ {
+		fmt.Printf("  %-30s: %d\n", errorList[i].Key, errorList[i].Value)
+	}
+
+	if len(errorList) > 10 {
+		fmt.Printf("  ... and %d more error types\n", len(errorList)-10)
+	}
+}
+
+func printTimelineAnalysis(entries []LogEntry) {
+	if len(entries) == 0 {
+		return
+	}
+
+	printSection("Timeline")
+
+	timeline := analyzeTimeline(entries)
+	printTimelineInfo(timeline)
+	printTimelineHistogram(timeline)
+}
+
+type TimelineData struct {
+	MinTime       time.Time
+	MaxTime       time.Time
+	Duration      time.Duration
+	BucketCounts  map[string]int
+	SortedBuckets []string
+	MaxCount      int
+}
+
+func analyzeTimeline(entries []LogEntry) TimelineData {
+	timeline := TimelineData{
+		BucketCounts: make(map[string]int),
+	}
+
+	// Find time range and create buckets
+	for i, entry := range entries {
+		if i == 0 {
+			timeline.MinTime = entry.Timestamp
+			timeline.MaxTime = entry.Timestamp
+		} else {
+			if entry.Timestamp.Before(timeline.MinTime) {
+				timeline.MinTime = entry.Timestamp
 			}
-			fmt.Printf("  %s: %d\n", kv.Key, kv.Value)
+			if entry.Timestamp.After(timeline.MaxTime) {
+				timeline.MaxTime = entry.Timestamp
+			}
+		}
+
+		bucket := entry.Timestamp.Truncate(time.Minute).Format("15:04")
+		timeline.BucketCounts[bucket]++
+
+		if timeline.BucketCounts[bucket] > timeline.MaxCount {
+			timeline.MaxCount = timeline.BucketCounts[bucket]
 		}
 	}
 
-	// Timeline analysis
-	if len(entries) > 0 {
-		fmt.Println("\nTimeline:")
-		showTimeline(entries)
+	timeline.Duration = timeline.MaxTime.Sub(timeline.MinTime)
+
+	// Sort buckets chronologically
+	for bucket := range timeline.BucketCounts {
+		timeline.SortedBuckets = append(timeline.SortedBuckets, bucket)
 	}
+	sort.Strings(timeline.SortedBuckets)
+
+	return timeline
+}
+
+func printTimelineInfo(timeline TimelineData) {
+	fmt.Printf("  Time range: %s - %s (%.1f minutes)\n",
+		timeline.MinTime.Format("15:04:05"),
+		timeline.MaxTime.Format("15:04:05"),
+		timeline.Duration.Minutes())
+}
+
+func printTimelineHistogram(timeline TimelineData) {
+	if timeline.MaxCount == 0 {
+		return
+	}
+
+	fmt.Println("  Activity by minute:")
+
+	const maxBarWidth = 40
+
+	for _, bucket := range timeline.SortedBuckets {
+		count := timeline.BucketCounts[bucket]
+		barLength := int(float64(count) / float64(timeline.MaxCount) * maxBarWidth)
+		bar := strings.Repeat("█", barLength)
+
+		// Add color based on activity level
+		color := getActivityColor(count, timeline.MaxCount)
+		fmt.Printf("  %s |%s%-40s%s| %d\n",
+			bucket,
+			color,
+			bar,
+			"\033[0m",
+			count)
+	}
+}
+
+// Helper functions
+
+func calculatePercentage(part, total int) float64 {
+	if total == 0 {
+		return 0
+	}
+	return float64(part) / float64(total) * 100
+}
+
+func sortMapByValueDesc(m map[string]int) []KeyValue {
+	var kvs []KeyValue
+	for k, v := range m {
+		kvs = append(kvs, KeyValue{k, v})
+	}
+
+	sort.Slice(kvs, func(i, j int) bool {
+		return kvs[i].Value > kvs[j].Value
+	})
+
+	return kvs
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func getActivityColor(count, maxCount int) string {
+	ratio := float64(count) / float64(maxCount)
+
+	switch {
+	case ratio >= 0.8:
+		return "\033[31m" // Red for high activity
+	case ratio >= 0.5:
+		return "\033[33m" // Yellow for medium activity
+	case ratio >= 0.3:
+		return "\033[32m" // Green for normal activity
+	default:
+		return "\033[36m" // Cyan for low activity
+	}
+}
+
+// Also update the existing sortMapByValue function name for clarity
+func sortMapByValue(m map[string]int) []KeyValue {
+	return sortMapByValueDesc(m)
 }
 
 func calculateStats(entries []LogEntry) LogStats {
@@ -389,7 +553,7 @@ func getColorForLevel(level string) string {
 	case "DEBUG":
 		return "\033[36m" // Cyan
 	default:
-		return "\033[0m"  // Default
+		return "\033[0m" // Default
 	}
 }
 
@@ -429,17 +593,4 @@ func extractFields(message string) map[string]interface{} {
 type KeyValue struct {
 	Key   string
 	Value int
-}
-
-func sortMapByValue(m map[string]int) []KeyValue {
-	var kvs []KeyValue
-	for k, v := range m {
-		kvs = append(kvs, KeyValue{k, v})
-	}
-
-	sort.Slice(kvs, func(i, j int) bool {
-		return kvs[i].Value > kvs[j].Value
-	})
-
-	return kvs
 }
