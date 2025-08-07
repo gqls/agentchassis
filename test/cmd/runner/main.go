@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"testing"
+	"os/exec"
 )
 
 var (
 	testSuite = flag.String("test-suite", "all", "Test suite to run (all|unit|integration|e2e|spawning)")
-	testAgent = flag.String("test-agent", "", "Specific agent to test")
+	// These flags are kept for compatibility but the runner will execute suites, not individual tests.
+	testAgent = flag.String("test-agent", "", "Specific agent to test (not used by this runner)")
 	verbose   = flag.Bool("v", false, "Verbose output")
 )
 
@@ -44,42 +45,55 @@ func main() {
 }
 
 func setupTestEnvironment() error {
-	// Ensure database is ready
-	// Ensure Kafka is ready
-	// Load test data
+	// In a real scenario, this could check for DB/Kafka connections.
+	// For now, we assume the environment is ready.
+	fmt.Println("Assuming test environment is ready...")
 	return nil
+}
+
+// runGoTest is a helper to execute 'go test' for a given path.
+func runGoTest(suite, path string) int {
+	fmt.Printf("--- Running %s tests ---\n", suite)
+	cmd := exec.Command("go", "test", "-v", path)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			return exitError.ExitCode()
+		}
+		return 1 // General error
+	}
+	return 0
 }
 
 func runAllTests() int {
 	fmt.Println("Running all tests...")
-
 	if code := runUnitTests(); code != 0 {
 		return code
 	}
-
 	if code := runIntegrationTests(); code != 0 {
 		return code
 	}
-
 	if code := runE2ETests(); code != 0 {
 		return code
 	}
-
 	return 0
 }
 
 func runUnitTests() int {
-	fmt.Println("Running unit tests...")
-	return testing.MainStart(
-		&testDeps{},
-		[]testing.InternalTest{
-			{Name: "TestSpawnAgentAction", F: TestSpawnAgentAction},
-			{Name: "TestWorkflowExecution", F: TestWorkflowExecution},
-		},
-		nil,
-		nil,
-		nil,
-	).Run()
+	return runGoTest("unit", "./unit/...")
 }
 
-// ... implement other test runners
+func runIntegrationTests() int {
+	return runGoTest("integration", "./integration/...")
+}
+
+func runE2ETests() int {
+	return runGoTest("e2e", "./e2e/...")
+}
+
+func runSpawningTests() int {
+	// Spawning tests might have a more specific path if they are separated
+	return runGoTest("spawning", "./integration/agents/agent_spawning_test.go")
+}

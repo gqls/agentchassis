@@ -220,3 +220,47 @@ func prettyPrint(data json.RawMessage) {
 		fmt.Println(string(pretty))
 	}
 }
+
+func listStuckWorkflows(db *sql.DB, clientID string) {
+	rows, err := db.Query(`
+        SELECT correlation_id, status, current_step,
+               EXTRACT(EPOCH FROM (NOW() - updated_at)) as seconds_since_update
+        FROM orchestrator_state
+        WHERE client_id = $1
+          AND status IN ('RUNNING', 'AWAITING_RESPONSES')
+          AND updated_at < NOW() - INTERVAL '1 hour'
+        ORDER BY updated_at ASC
+        LIMIT 50
+    `, clientID)
+	if err != nil {
+		log.Fatal("Query failed:", err)
+	}
+	defer rows.Close()
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "CORRELATION_ID\tSTATUS\tCURRENT_STEP\tLAST_UPDATE")
+
+	for rows.Next() {
+		var (
+			correlationID string
+			status        string
+			currentStep   string
+			secondsAgo    float64
+		)
+
+		err := rows.Scan(&correlationID, &status, &currentStep, &secondsAgo)
+		if err != nil {
+			continue
+		}
+
+		// Format the time since last update
+		lastUpdate := fmt.Sprintf("%.0fm ago", secondsAgo/60)
+		if secondsAgo > 3600 {
+			lastUpdate = fmt.Sprintf("%.1fh ago", secondsAgo/3600)
+		}
+
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+			correlationID, status, currentStep, lastUpdate)
+	}
+	w.Flush()
+}

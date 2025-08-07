@@ -152,11 +152,6 @@ performance: build-test-tools
 	@echo "$(YELLOW)Running performance tests...$(NC)"
 	@go test ./performance/... -bench=. -benchmem -benchtime=10s | tee performance-results.txt
 
-# Test specific agent
-test-agent: build-test-tools
-	@echo "$(YELLOW)Testing agent: $(AGENT)$(NC)"
-	@./bin/tools/test-agent -agent=$(AGENT)
-
 # Run tests in Kubernetes
 test-k8s: build-test-harness push-test-images
 	@kubectl apply -f k8s/jobs/test-spawning-job.yaml
@@ -317,52 +312,6 @@ harness-performance: ## Run performance tests in Kubernetes
 #################################
 # Agent Spawning Tests
 #################################
-.PHONY: test-spawning
-test-spawning: ## Run agent spawning tests in Kubernetes
-	@echo "$(YELLOW)Active workflows:$(NC)"
-	@echo "$(YELLOW)Running agent spawning tests...$(NC)"
-	@echo "$(GREEN)Building test image...$(NC)"
-	@docker build -f build/docker/test/test-spawning.dockerfile -t $(REGISTRY)/test-spawning:$(IMAGE_TAG) .
-	@docker push $(REGISTRY)/test-spawning:$(IMAGE_TAG)
-	@echo "$(GREEN)Running test job...$(NC)"
-	@JOB_NAME=test-agent-spawning-$$(date +%s) && \
-	echo "apiVersion: batch/v1" > /tmp/test-job.yaml && \
-	echo "kind: Job" >> /tmp/test-job.yaml && \
-	echo "metadata:" >> /tmp/test-job.yaml && \
-	echo "  name: $$JOB_NAME" >> /tmp/test-job.yaml && \
-	echo "  namespace: $(PROJECT_NAME)" >> /tmp/test-job.yaml && \
-	echo "spec:" >> /tmp/test-job.yaml && \
-	echo "  template:" >> /tmp/test-job.yaml && \
-	echo "    spec:" >> /tmp/test-job.yaml && \
-	echo "      restartPolicy: Never" >> /tmp/test-job.yaml && \
-	echo "      imagePullSecrets:" >> /tmp/test-job.yaml && \
-	echo "      - name: docker-hub-creds" >> /tmp/test-job.yaml && \
-	echo "      containers:" >> /tmp/test-job.yaml && \
-	echo "      - name: test-runner" >> /tmp/test-job.yaml && \
-	echo "        image: $(REGISTRY)/test-spawning:$(IMAGE_TAG)" >> /tmp/test-job.yaml && \
-	echo "        env:" >> /tmp/test-job.yaml && \
-	echo "        - name: DB_HOST" >> /tmp/test-job.yaml && \
-	echo "          value: postgres-clients" >> /tmp/test-job.yaml && \
-	echo "        - name: DB_NAME" >> /tmp/test-job.yaml && \
-	echo "          value: clients_db" >> /tmp/test-job.yaml && \
-	echo "        - name: DB_USER" >> /tmp/test-job.yaml && \
-	echo "          value: clients_user" >> /tmp/test-job.yaml && \
-	echo "        - name: DB_PASSWORD" >> /tmp/test-job.yaml && \
-	echo "          valueFrom:" >> /tmp/test-job.yaml && \
-	echo "            secretKeyRef:" >> /tmp/test-job.yaml && \
-	echo "              name: personae-dev-secrets" >> /tmp/test-job.yaml && \
-	echo "              key: CLIENTS_DB_PASSWORD" >> /tmp/test-job.yaml && \
-	echo "        - name: KAFKA_BROKERS" >> /tmp/test-job.yaml && \
-	echo "          value: kafka-cluster-kafka-bootstrap:9092" >> /tmp/test-job.yaml && \
-	echo "        - name: CLIENT_ID" >> /tmp/test-job.yaml && \
-	echo "          value: demo_client" >> /tmp/test-job.yaml && \
-	kubectl apply -f /tmp/test-job.yaml && \
-	echo "$(GREEN)Test job $$JOB_NAME created. Waiting for completion...$(NC)" && \
-	kubectl wait --for=condition=complete --timeout=300s job/$$JOB_NAME -n $(PROJECT_NAME) || \
-		(kubectl logs job/$$JOB_NAME -n $(PROJECT_NAME) && exit 1) && \
-	echo "$(GREEN)Tests completed successfully!$(NC)"
-
-
 .PHONY: test-spawning-local
 test-spawning-local: ## Run agent spawning tests locally (requires port-forwards)
 	@echo "$(YELLOW)Running agent spawning tests locally...$(NC)"
