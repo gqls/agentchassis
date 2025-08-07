@@ -1,0 +1,297 @@
+# test/k8s/pods/kafka-test-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kafka-test-pod
+  namespace: ai-persona-system
+  labels:
+    app: test
+    component: kafka-tester
+spec:
+  containers:
+    - name: kafka-tools
+      image: confluentinc/cp-kafka:7.5.0
+      command:
+        - sh
+        - -c
+        - |
+          # Install additional tools
+          apt-get update && apt-get install -y jq curl vim
+          
+          # Set Kafka environment
+          export KAFKA_BROKER=kafka-cluster-kafka-bootstrap:9092
+          
+          # Create helper scripts
+          cat > /usr/local/bin/list-topics << 'EOF'
+          #!/bin/bash
+          kafka-topics --bootstrap-server $KAFKA_BROKER --list | sort
+          EOF
+          chmod +x /usr/local/bin/list-topics
+          
+          cat > /usr/local/bin/describe-topic << 'EOF'
+          #!/bin/bash
+          if [ -z "$1" ]; then
+              echo "Usage: describe-topic <topic-name>"
+              exit 1
+          fi
+          kafka-topics --bootstrap-server $KAFKA_BROKER --describe --topic $1
+          EOF
+          chmod +x /usr/local/bin/describe-topic
+          
+          cat > /usr/local/bin/consume-topic << 'EOF'
+          #!/bin/bash
+          if [ -z "$1" ]; then
+              echo "Usage: consume-topic <topic-name> [group-id]"
+              exit 1
+          fi
+          GROUP=${2:-test-consumer-$$}
+          echo "Consuming from topic: $1 (group: $GROUP)"
+          kafka-console-consumer \
+              --bootstrap-server $KAFKA_BROKER \
+              --topic $1 \
+              --group $GROUP \
+              --from-beginning \
+              --formatter kafka.tools.DefaultMessageFormatter \
+              --property print.timestamp=true \
+              --property print.key=true \
+              --property print.headers=true
+          EOF
+          chmod +x /usr/local/bin/consume-topic
+          
+          cat > /usr/local/bin/produce-message << 'EOF'
+          #!/bin/bash
+          if [ -z "$1" ] || [ -z "$2" ]; then
+              echo "Usage: produce-message <topic> <message>"
+              echo "Example: produce-message system.agent.generic.process '{\"action\":\"test\"}'"
+              exit 1
+          fi
+          echo "$2" | kafka-console-producer \
+              --bootstrap-server $KAFKA_BROKER \
+              --topic $1 \
+              --property parse.headers=true \
+              --property headers.delimiter=\| \
+              --property headers.separator=:
+          EOF
+          chmod +x /usr/local/bin/produce-message
+          
+          cat > /usr/local/bin/check-consumer-groups << 'EOF'
+          #!/bin/bash
+          echo "=== Consumer Groups ==="
+          kafka-consumer-groups --bootstrap-server $KAFKA_BROKER --list
+          echo ""
+          echo "=== Group Details ==="
+          for group in $(kafka-consumer-groups --bootstrap-server $KAFKA_BROKER --list); do
+              echo "Group: $group"
+              kafka-consumer-groups --bootstrap-server $KAFKA_BROKER --describe --group $group
+              echo "---"
+          done
+          EOF
+          chmod +x /usr/local/bin/check-consumer-groups
+          
+          cat > /usr/local/bin/reset-consumer-group << 'EOF'
+          #!/bin/bash
+          if [ -z "$1" ] || [ -z "$2" ]; then
+              echo "Usage: reset-consumer-group <group-id> <topic>"
+              exit 1
+          fi
+          kafka-consumer-groups \
+              --bootstrap-server $KAFKA_BROKER \
+              --group $1 \
+              --topic $2 \
+              --reset-offsets \
+              --to-earliest \
+              --execute
+          EOF
+          chmod +x /usr/local/bin/reset-consumer-group
+          
+          cat > /usr/local/bin/monitor-topics << 'EOF'
+          #!/bin/bash
+          # Monitor message rates across topics
+          echo "Monitoring Kafka topics (Ctrl+C to stop)..."
+          while true; do
+              clear
+              echo "=== Kafka Topic Statistics ==="
+              echo "Time: $(date)"
+              echo ""
+          
+              for topic in $(kafka-topics --bootstrap-server $KAFKA_BROKER --list | grep -E '^system\.' | sort); do
+                  # Get partition info
+                  PARTITIONS=$(kafka-topics --bootstrap-server $KAFKA_BROKER --describe --topic $topic | grep -c "Partition:")
+          
+                  # Get latest offset
+                  LATEST_OFFSET=$(kafka-run-class kafka.tools.GetOffsetShell \
+                      --broker-list $KAFKA_BROKER \
+                      --topic $topic \
+                      --time -1 2>/dev/null | \
+                      awk -F: '{sum += $3} END {print sum}')
+          
+                  # Get earliest offset
+                  EARLIEST_OFFSET=$(kafka-run-class kafka.tools.GetOffsetShell \
+                      --broker-list $KAFKA_BROKER \
+                      --topic $topic \
+                      --time -2 2>/dev/null | \
+                      awk -F: '{sum += $3} END {print sum}')
+          
+                  # Calculate total messages
+                  if [ -n "$LATEST_OFFSET" ] && [ -n "$EARLIEST_OFFSET" ]; then
+                      MESSAGES=$((LATEST_OFFSET - EARLIEST_OFFSET))
+                      printf "%-50s Partitions: %2d  Messages: %8d\n" "$topic" "$PARTITIONS" "$MESSAGES"
+                  fi
+              done
+          
+              sleep 5
+          done
+          EOF
+          chmod +x /usr/local/bin/monitor-topics
+          
+          # Create test message templates
+          mkdir -p /templates
+          
+          cat > /templates/test-generic.json << 'EOF'
+          {
+              "action": "test_action",
+              "data": {
+                  "message": "Test from kafka-test-pod",
+                  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              }
+          }
+          EOF
+          
+          cat > /templates/test-content-creator.json << 'EOF'
+          {
+              "action": "generate_content",
+              "data": {
+                  "topic": "Test Topic",
+                  "content_type": "blog_post",
+                  "style": "informative",
+                  "length": "short"
+              }
+          }
+          EOF
+          
+          cat > /templates/test-reasoning.json << 'EOF'
+          {
+              "action": "analyze",
+              "data": {
+                  "content_to_review": "This is test content for analysis.",
+                  "review_criteria": ["clarity", "accuracy"],
+                  "brief_context": {
+                      "purpose": "testing"
+                  }
+              }
+          }
+          EOF
+          
+          echo ""
+          echo "=== Kafka Test Pod Ready ==="
+          echo ""
+          echo "Available commands:"
+          echo "  list-topics                     - List all topics"
+          echo "  describe-topic <topic>          - Describe a topic"
+          echo "  consume-topic <topic> [group]   - Consume messages from topic"
+          echo "  produce-message <topic> <json>  - Send a message to topic"
+          echo "  check-consumer-groups           - List and describe consumer groups"
+          echo "  reset-consumer-group <g> <t>    - Reset consumer group offset"
+          echo "  monitor-topics                  - Monitor topic statistics"
+          echo ""
+          echo "Test message templates in /templates/"
+          echo ""
+          echo "Environment:"
+          echo "  KAFKA_BROKER=$KAFKA_BROKER"
+          echo ""
+          
+          # Keep pod running
+          tail -f /dev/null
+
+      env:
+        - name: KAFKA_HEAP_OPTS
+          value: "-Xmx512M -Xms512M"
+
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "100m"
+        limits:
+          memory: "1Gi"
+          cpu: "500m"
+
+      volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+
+  volumes:
+    - name: scripts
+      emptyDir: {}
+
+---
+# Additional Kafka test pod with kafkacat for advanced testing
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kafkacat-test-pod
+  namespace: ai-persona-system
+  labels:
+    app: test
+    component: kafkacat-tester
+spec:
+  containers:
+    - name: kafkacat
+      image: edenhill/kcat:1.7.1
+      command:
+        - sh
+        - -c
+        - |
+          # Create helper scripts for kafkacat
+          cat > /usr/local/bin/kcat-consume << 'EOF'
+          #!/bin/sh
+          TOPIC=${1:-system.agent.generic.process}
+          echo "Consuming from $TOPIC with headers..."
+          kcat -C -b kafka-cluster-kafka-bootstrap:9092 -t $TOPIC -f '%T %k: %s headers: %h\n'
+          EOF
+          chmod +x /usr/local/bin/kcat-consume
+          
+          cat > /usr/local/bin/kcat-produce << 'EOF'
+          #!/bin/sh
+          TOPIC=${1:-system.agent.generic.process}
+          KEY=${2:-test-key}
+          VALUE=${3:-'{"action":"test"}'}
+          HEADERS=${4:-"correlation_id=test-123,request_id=req-456"}
+          
+          echo "Sending to $TOPIC..."
+          echo "Key: $KEY"
+          echo "Value: $VALUE"
+          echo "Headers: $HEADERS"
+          
+          echo "$VALUE" | kcat -P -b kafka-cluster-kafka-bootstrap:9092 -t $TOPIC -k "$KEY" -H "$HEADERS"
+          EOF
+          chmod +x /usr/local/bin/kcat-produce
+          
+          cat > /usr/local/bin/kcat-metadata << 'EOF'
+          #!/bin/sh
+          echo "=== Kafka Cluster Metadata ==="
+          kcat -L -b kafka-cluster-kafka-bootstrap:9092
+          EOF
+          chmod +x /usr/local/bin/kcat-metadata
+          
+          echo ""
+          echo "=== Kafkacat Test Pod Ready ==="
+          echo ""
+          echo "Commands:"
+          echo "  kcat-consume [topic]                    - Consume with headers"
+          echo "  kcat-produce <topic> <key> <value> [h]  - Produce with headers"
+          echo "  kcat-metadata                           - Show cluster metadata"
+          echo ""
+          echo "Direct kafkacat usage:"
+          echo "  kcat -C -b kafka-cluster-kafka-bootstrap:9092 -t <topic>"
+          echo "  kcat -P -b kafka-cluster-kafka-bootstrap:9092 -t <topic>"
+          echo ""
+          
+          tail -f /dev/null
+
+      resources:
+        requests:
+          memory: "128Mi"
+          cpu: "50m"
+        limits:
+          memory: "256Mi"
+          cpu: "200m"

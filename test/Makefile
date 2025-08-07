@@ -55,4 +55,29 @@ clean:
 	@kubectl delete job -l app=test --ignore-not-found
 	@kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "DELETE FROM orchestrator_state WHERE correlation_id LIKE 'test-%';"
 
+# Additional test targets for groups and human-in-loop
 
+.PHONY: test-groups
+test-groups: ## Test agent group functionality
+	@echo "$(YELLOW)Testing agent groups...$(NC)"
+	@go test -v ./integration/agents/agent_group_test.go
+
+.PHONY: test-human-loop
+test-human-loop: ## Test human-in-the-loop workflows
+	@echo "$(YELLOW)Testing human-in-the-loop...$(NC)"
+	@go test -v ./e2e/scenarios/human_in_loop_test.go
+
+.PHONY: test-group-human-integration
+test-group-human-integration: ## Test groups with human approval
+	@echo "$(YELLOW)Testing group + human integration...$(NC)"
+	@kubectl apply -f test/fixtures/workflows/group_human_workflow.yaml
+	@go test -v -run TestGroupHumanIntegration ./e2e/
+
+.PHONY: simulate-human-response
+simulate-human-response: ## Simulate human task completion
+	@echo "$(YELLOW)Simulating human response...$(NC)"
+	@kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c \
+		"UPDATE human_tasks SET status = 'COMPLETED', \
+		 response_data = '{\"approved\": true, \"feedback\": \"Approved by test\"}' \
+		 WHERE status = 'PENDING' AND correlation_id LIKE 'test-%' \
+		 LIMIT 1;"

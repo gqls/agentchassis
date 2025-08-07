@@ -1,0 +1,25 @@
+// test/fixtures/messages/reasoning_request.json
+{
+  "action": "analyze",
+  "data": {
+    "content_to_review": "The rapid advancement of artificial intelligence has led to significant changes in various industries. Machine learning algorithms are now capable of processing vast amounts of data and identifying patterns that humans might miss. This has applications in healthcare, finance, transportation, and many other sectors. However, concerns about job displacement, privacy, and ethical considerations continue to grow.",
+    "review_criteria": [
+      "factual_accuracy",
+      "balanced_perspective",
+      "clarity_of_argument",
+      "supporting_evidence",
+      "potential_bias"
+    ],
+    "brief_context": {
+      "purpose": "technology_article_review",
+      "target_audience": "general_public",
+      "required_depth": "comprehensive"
+    },
+    "specific_questions": [
+      "Are the claims about AI capabilities accurate?",
+      "Is the perspective balanced between benefits and concerns?",
+      "What key points might be missing?",
+      "How could the argument be strengthened?"
+    ]
+  }
+}

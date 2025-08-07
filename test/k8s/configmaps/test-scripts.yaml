@@ -1,0 +1,43 @@
+# test/k8s/configmaps/test-scripts.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-scripts
+  namespace: ai-persona-system
+data:
+  test-all-agents.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Testing all agents..."
+    
+    AGENTS="content-creator reasoning web-search image-generator"
+    
+    for agent in $AGENTS; do
+        echo "=== Testing $agent ==="
+        /app/send_test_message -agent=$agent -wait
+        echo ""
+        sleep 2
+    done
+    
+    echo "All agent tests completed!"
+
+  monitor-tests.sh: |
+    #!/bin/bash
+    
+    echo "Monitoring test workflows..."
+    
+    while true; do
+        clear
+        echo "=== Active Test Workflows ==="
+        psql -h postgres-clients -U clients_user -d clients_db -c "
+            SELECT correlation_id, status, current_step,
+                   EXTRACT(EPOCH FROM (NOW() - updated_at)) as seconds_ago
+            FROM orchestrator_state
+            WHERE correlation_id LIKE 'test-%'
+              AND status NOT IN ('COMPLETED', 'FAILED')
+            ORDER BY updated_at DESC
+            LIMIT 10;"
+    
+        sleep 5
+    done

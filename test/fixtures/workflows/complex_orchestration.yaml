@@ -1,0 +1,72 @@
+# test/fixtures/workflows/complex_orchestration.yaml
+name: Complex Multi-Stage Orchestration
+start_step: initialize
+steps:
+  initialize:
+    action: validate_input
+    next_step: spawn_agents
+
+  spawn_agents:
+    action: spawn_group
+    config:
+      group_type: research-team
+      size: 3
+    next_step: parallel_research
+
+  parallel_research:
+    action: fan_out
+    sub_tasks:
+      - step_name: web_research
+        topic: system.agent.web-search.process
+        timeout: 30s
+      - step_name: data_analysis
+        topic: system.agent.analyzer.process
+        timeout: 45s
+      - step_name: trend_identification
+        topic: system.agent.reasoning.process
+        timeout: 60s
+    next_step: consolidate_findings
+
+  consolidate_findings:
+    action: wait_for_responses
+    config:
+      required_responses: 3
+      timeout: 120s
+    next_step: generate_report
+
+  generate_report:
+    action: call_agent
+    topic: system.agent.content-creator.process
+    config:
+      action: generate_report
+      format: executive_summary
+    next_step: quality_check
+
+  quality_check:
+    action: call_agent
+    topic: system.agent.reasoning.process
+    config:
+      action: review_content
+      criteria: ["accuracy", "completeness", "clarity"]
+    next_step: conditional_revision
+
+  conditional_revision:
+    action: conditional
+    config:
+      condition: "{{collected_data.quality_check.score}} < 0.8"
+      true_step: revise_report
+      false_step: finalize
+
+  revise_report:
+    action: call_agent
+    topic: system.agent.content-creator.process
+    config:
+      action: revise_content
+      feedback: "{{collected_data.quality_check.feedback}}"
+    next_step: finalize
+
+  finalize:
+    action: complete_workflow
+    config:
+      include_metrics: true
+      generate_summary: true

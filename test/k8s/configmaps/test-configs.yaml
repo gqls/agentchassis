@@ -1,0 +1,56 @@
+# test/k8s/configmaps/test-configs.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-configs
+  namespace: ai-persona-system
+data:
+  test-agents.yaml: |
+    agents:
+      - name: test-researcher
+        type: researcher
+        config:
+          capabilities: ["research", "analysis"]
+          max_results: 10
+      
+      - name: test-writer
+        type: content-creator
+        config:
+          capabilities: ["writing", "editing"]
+          default_style: "informative"
+      
+      - name: test-reasoner
+        type: reasoning
+        config:
+          capabilities: ["analysis", "review"]
+          model: "claude-3"
+
+  test-workflows.yaml: |
+    workflows:
+      - name: simple-test
+        start_step: process
+        steps:
+          process:
+            action: process_data
+            next_step: complete
+          complete:
+            action: complete_workflow
+      
+      - name: multi-agent-test
+        start_step: spawn
+        steps:
+          spawn:
+            action: spawn_group
+            config:
+              group_type: content-team
+            next_step: execute
+          execute:
+            action: fan_out
+            sub_tasks:
+              - step_name: research
+                topic: system.agent.researcher.process
+              - step_name: write
+                topic: system.agent.content-creator.process
+            next_step: complete
+          complete:
+            action: complete_workflow
