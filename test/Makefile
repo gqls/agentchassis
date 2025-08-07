@@ -313,6 +313,234 @@ harness-e2e: ## Run E2E tests in Kubernetes
 harness-performance: ## Run performance tests in Kubernetes
 	@TEST_SUITE=performance $(MAKE) harness-run
 
+
+#################################
+# Agent Spawning Tests
+#################################
+.PHONY: test-spawning
+test-spawning: ## Run agent spawning tests in Kubernetes
+	@echo "$(YELLOW)Active workflows:$(NC)"
+	@echo "$(YELLOW)Running agent spawning tests...$(NC)"
+	@echo "$(GREEN)Building test image...$(NC)"
+	@docker build -f build/docker/test/test-spawning.dockerfile -t $(REGISTRY)/test-spawning:$(IMAGE_TAG) .
+	@docker push $(REGISTRY)/test-spawning:$(IMAGE_TAG)
+	@echo "$(GREEN)Running test job...$(NC)"
+	@JOB_NAME=test-agent-spawning-$$(date +%s) && \
+	echo "apiVersion: batch/v1" > /tmp/test-job.yaml && \
+	echo "kind: Job" >> /tmp/test-job.yaml && \
+	echo "metadata:" >> /tmp/test-job.yaml && \
+	echo "  name: $$JOB_NAME" >> /tmp/test-job.yaml && \
+	echo "  namespace: $(PROJECT_NAME)" >> /tmp/test-job.yaml && \
+	echo "spec:" >> /tmp/test-job.yaml && \
+	echo "  template:" >> /tmp/test-job.yaml && \
+	echo "    spec:" >> /tmp/test-job.yaml && \
+	echo "      restartPolicy: Never" >> /tmp/test-job.yaml && \
+	echo "      imagePullSecrets:" >> /tmp/test-job.yaml && \
+	echo "      - name: docker-hub-creds" >> /tmp/test-job.yaml && \
+	echo "      containers:" >> /tmp/test-job.yaml && \
+	echo "      - name: test-runner" >> /tmp/test-job.yaml && \
+	echo "        image: $(REGISTRY)/test-spawning:$(IMAGE_TAG)" >> /tmp/test-job.yaml && \
+	echo "        env:" >> /tmp/test-job.yaml && \
+	echo "        - name: DB_HOST" >> /tmp/test-job.yaml && \
+	echo "          value: postgres-clients" >> /tmp/test-job.yaml && \
+	echo "        - name: DB_NAME" >> /tmp/test-job.yaml && \
+	echo "          value: clients_db" >> /tmp/test-job.yaml && \
+	echo "        - name: DB_USER" >> /tmp/test-job.yaml && \
+	echo "          value: clients_user" >> /tmp/test-job.yaml && \
+	echo "        - name: DB_PASSWORD" >> /tmp/test-job.yaml && \
+	echo "          valueFrom:" >> /tmp/test-job.yaml && \
+	echo "            secretKeyRef:" >> /tmp/test-job.yaml && \
+	echo "              name: personae-dev-secrets" >> /tmp/test-job.yaml && \
+	echo "              key: CLIENTS_DB_PASSWORD" >> /tmp/test-job.yaml && \
+	echo "        - name: KAFKA_BROKERS" >> /tmp/test-job.yaml && \
+	echo "          value: kafka-cluster-kafka-bootstrap:9092" >> /tmp/test-job.yaml && \
+	echo "        - name: CLIENT_ID" >> /tmp/test-job.yaml && \
+	echo "          value: demo_client" >> /tmp/test-job.yaml && \
+	kubectl apply -f /tmp/test-job.yaml && \
+	echo "$(GREEN)Test job $$JOB_NAME created. Waiting for completion...$(NC)" && \
+	kubectl wait --for=condition=complete --timeout=300s job/$$JOB_NAME -n $(PROJECT_NAME) || \
+		(kubectl logs job/$$JOB_NAME -n $(PROJECT_NAME) && exit 1) && \
+	echo "$(GREEN)Tests completed successfully!$(NC)"
+
+
+.PHONY: test-spawning-local
+test-spawning-local: ## Run agent spawning tests locally (requires port-forwards)
+	@echo "$(YELLOW)Running agent spawning tests locally...$(NC)"
+	@echo "$(YELLOW)Setting up port forwards...$(NC)"
+	@kubectl port-forward -n $(PROJECT_NAME) svc/postgres-clients 5432:5432 &
+	@kubectl port-forward -n $(PROJECT_NAME) svc/kafka-cluster-kafka-bootstrap 9092:9092 &
+	@sleep 5
+	@echo "$(GREEN)Running tests...$(NC)"
+	DB_HOST=localhost \
+	DB_NAME=clients_db \
+	DB_USER=clients_user \
+	DB_PASSWORD=$${CLIENTS_DB_PASSWORD} \
+	KAFKA_BROKERS=localhost:9092 \
+	CLIENT_ID=demo_client \
+	go run cmd/test-spawning/main.go
+	@echo "$(GREEN)Tests completed!$(NC)"
+	@pkill -f "port-forward.*postgres-clients" || true
+	@pkill -f "port-forward.*kafka-cluster" || true
+
+.PHONY: test-spawning-quick
+test-spawning-quick: ## Quick spawn test using kubectl run
+	@echo "$(YELLOW)Running quick spawn test...$(NC)"
+	kubectl run spawn-test-$(shell date +%s) \
+		--image=$(REGISTRY)/agent-chassis:$(IMAGE_TAG) \
+		--rm -it --restart=Never \
+		-n $(PROJECT_NAME) \
+		--env="DB_HOST=postgres-clients" \
+		--env="DB_NAME=clients_db" \
+		--env="DB_USER=clients_user" \
+		--env="DB_PASSWORD=$${CLIENTS_DB_PASSWORD}" \
+		--env="CLIENT_ID=demo_client" \
+		-- /bin/sh -c 'echo "Quick spawn test completed"'
+
+.PHONY: test-spawning-watch
+test-spawning-watch: ## Watch spawning test logs
+	@echo "$(YELLOW)Watching test logs...$(NC)"
+	kubectl logs -f -n $(PROJECT_NAME) -l job-name --tail=100
+
+.PHONY: test-spawning-cleanup
+test-spawning-cleanup: ## Clean up test jobs
+	@echo "$(YELLOW)Cleaning up test jobs...$(NC)"
+	kubectl delete jobs -n $(PROJECT_NAME) -l app=test-spawning --ignore-not-found
+	@echo "$(GREEN)Cleanup complete$(NC)"
+
+.PHONY: test-spawning-verify
+test-spawning-verify: ## Verify spawning test results in database
+	@echo "$(YELLOW)Verifying test results...$(NC)"
+	@kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"SELECT id, name, config->>'agent_type' as type, is_active, created_at \
+		 FROM client_demo_client.agent_instances \
+		 WHERE created_at > NOW() - INTERVAL '1 hour' \
+		 ORDER BY created_at DESC LIMIT 10;"
+	@echo ""
+	@kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"SELECT correlation_id, status, current_step, \
+		 execution_metadata->>'completed_steps' as completed \
+		 FROM orchestrator_state \
+		 WHERE created_at > NOW() - INTERVAL '1 hour' \
+		 ORDER BY created_at DESC LIMIT 10;"
+	@echo ""
+	@kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"SELECT id, name, group_type, usage_count, last_used_at \
+		 FROM agent_groups \
+		 WHERE last_used_at > NOW() - INTERVAL '1 hour' \
+		 ORDER BY last_used_at DESC NULLS LAST;"
+
+.PHONY: test-spawning-setup
+test-spawning-setup: ## Set up database for spawning tests
+	@echo "$(YELLOW)Setting up test data...$(NC)"
+	@kubectl exec -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db << 'EOSQL'
+	-- Ensure client schema exists
+	CREATE SCHEMA IF NOT EXISTS client_demo_client;
+	-- Create tables if they don't exist
+	CREATE TABLE IF NOT EXISTS client_demo_client.agent_instances (
+	     id UUID PRIMARY KEY,
+	     template_id UUID NOT NULL,
+	     owner_user_id VARCHAR(255) NOT NULL,
+	     name VARCHAR(255) NOT NULL,
+	     config JSONB NOT NULL,
+	     is_active BOOLEAN DEFAULT true,
+	     created_at TIMESTAMP DEFAULT NOW(),
+	     updated_at TIMESTAMP DEFAULT NOW()
+	);
+	CREATE TABLE IF NOT EXISTS agent_groups (
+	     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	     name VARCHAR(255) NOT NULL,
+	     group_type VARCHAR(100) NOT NULL,
+	     version VARCHAR(20) DEFAULT '1.0.0',
+	     parent_id UUID,
+	     agent_configs JSONB NOT NULL,
+	     orchestration_workflow JSONB NOT NULL,
+	     capabilities JSONB DEFAULT '[]',
+	     usage_count INTEGER DEFAULT 0,
+	     performance_metrics JSONB DEFAULT '{}',
+	     mutation_history JSONB DEFAULT '[]',
+	     last_used_at TIMESTAMP,
+	     is_active BOOLEAN DEFAULT true,
+	     created_at TIMESTAMP DEFAULT NOW(),
+	     updated_at TIMESTAMP DEFAULT NOW()
+	);
+	-- Insert test group
+	INSERT INTO agent_groups (name, group_type, agent_configs, orchestration_workflow)
+	VALUES (
+	     'Website Builder Team',
+	     'website-builder',
+	     '[
+	        {"role": "architect", "agent_type": "site-architect"},
+	        {"role": "designer", "agent_type": "visual-designer"},
+	        {"role": "developer", "agent_type": "html-developer"}
+	     ]'::jsonb,
+	     '{
+	        "start_step": "plan",
+	        "steps": {
+	           "plan": {"action": "create_site_plan", "next_step": "design"},
+	           "design": {"action": "create_design", "next_step": "develop"},
+	           "develop": {"action": "build_html", "next_step": "complete"},
+	           "complete": {"action": "complete_workflow"}
+	        }
+	     }'::jsonb
+	) ON CONFLICT DO NOTHING;
+	\echo 'Test data setup complete!'
+	EOSQL
+	@echo "$(GREEN)Test setup complete$(NC)"
+
+.PHONY: test-spawning-full
+test-spawning-full: test-spawning-setup test-spawning test-spawning-verify ## Run full spawning test suite
+	@echo "$(GREEN)Full test suite completed!$(NC)"
+
+# Build test image if needed
+.PHONY: build-test-spawning
+build-test-spawning: ## Build test spawning image
+	@echo "$(YELLOW)Building test spawning image...$(NC)"
+	docker build -t $(REGISTRY)/test-spawning:$(IMAGE_TAG) \
+		-f build/docker/test/test-spawning.dockerfile .
+
+#################################
+# Testing
+#################################
+.PHONY: test-all
+test-all: test-unit test-integration test-e2e ## Run all tests
+
+.PHONY: test-unit
+test-unit: ## Run unit tests
+	@echo "$(YELLOW)Running unit tests...$(NC)"
+	@cd test && make unit
+
+.PHONY: test-integration
+test-integration: ## Run integration tests
+	@echo "$(YELLOW)Running integration tests...$(NC)"
+	@cd test && make integration
+
+.PHONY: test-e2e
+test-e2e: ## Run end-to-end tests
+	@echo "$(YELLOW)Running E2E tests...$(NC)"
+	@cd test && make e2e
+
+.PHONY: test-spawning
+test-spawning: ## Test agent spawning system
+	@echo "$(YELLOW)Testing agent spawning...$(NC)"
+	@kubectl apply -f test/k8s/jobs/test-spawning-job.yaml
+	@kubectl wait --for=condition=complete job/test-agent-spawning --timeout=300s -n $(PROJECT_NAME)
+	@kubectl logs job/test-agent-spawning -n $(PROJECT_NAME)
+
+.PHONY: test-agent
+test-agent: ## Test specific agent (AGENT=content-creator)
+	@echo "$(YELLOW)Testing $(AGENT) agent...$(NC)"
+	@cd test && make test-agent AGENT=$(AGENT)
+
+.PHONY: test-verify
+test-verify: ## Verify test results in database
+	@echo "$(YELLOW)Verifying test results...$(NC)"
+	@cd test && make verify
+
+.PHONY: test-clean
+test-clean: ## Clean up test resources
+	@echo "$(YELLOW)Cleaning up test resources...$(NC)"
+	@cd test && make clean
+
 #################################
 # CI/CD Commands
 #################################
@@ -326,6 +554,8 @@ test-all: unit integration e2e ## Run all test suites locally
 .PHONY: test-all-k8s
 test-all-k8s: harness-deploy harness-run harness-results ## Run all tests in Kubernetes
 
+
+
 #################################
 # Help
 #################################
@@ -336,3 +566,4 @@ help: ## Show this help message
 	@echo ''
 	@echo 'Targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(GREEN)%-30s$(NC) %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
+
