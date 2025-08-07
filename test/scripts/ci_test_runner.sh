@@ -1,6 +1,6 @@
 ## 15. Final Test Script for CI/CD
 
-```bash
+bash
 #!/bin/bash
 # test/scripts/ci_test_runner.sh
 

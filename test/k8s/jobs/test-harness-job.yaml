@@ -1,0 +1,165 @@
+# test/k8s/jobs/test-harness-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-harness
+  namespace: ai-persona-system
+  labels:
+    app: test-harness
+    component: testing
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 7200  # 2 hours
+  template:
+    metadata:
+      labels:
+        app: test-harness
+        component: testing
+    spec:
+      serviceAccountName: test-runner  # If RBAC needed
+      restartPolicy: Never
+
+      initContainers:
+        # Wait for dependencies
+        - name: wait-for-deps
+          image: busybox:1.35
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for dependencies..."
+              until nc -z postgres-clients 5432; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+              until nc -z kafka-cluster-kafka-bootstrap 9092; do
+                echo "Waiting for Kafka..."
+                sleep 2
+              done
+              echo "Dependencies ready!"
+
+      containers:
+        - name: test-harness
+          image: $(REGISTRY)/test-harness:$(IMAGE_TAG)
+          imagePullPolicy: Always
+          args: ["$(TEST_COMMAND)"]
+
+          env:
+            # Test configuration
+            - name: TEST_SUITE
+              value: "$(TEST_SUITE)"
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+
+            # Database configuration
+            - name: DB_HOST
+              value: "postgres-clients"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "clients_db"
+            - name: DB_USER
+              value: "clients_user"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-dev-secrets
+                  key: CLIENTS_DB_PASSWORD
+
+            # Kafka configuration
+            - name: KAFKA_BROKERS
+              value: "kafka-cluster-kafka-bootstrap:9092"
+            - name: KAFKA_CONSUMER_GROUP
+              value: "test-harness"
+
+            # Test specific
+            - name: CLIENT_ID
+              value: "demo_client"
+            - name: TEST_USER_ID
+              value: "test_user"
+            - name: LOG_LEVEL
+              value: "debug"
+
+            # API Keys
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-dev-secrets
+                  key: ANTHROPIC_API_KEY
+                  optional: true
+
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "1"
+            limits:
+              memory: "4Gi"
+              cpu: "4"
+
+          volumeMounts:
+            - name: test-results
+              mountPath: /results
+            - name: workspace
+              mountPath: /workspace
+
+      volumes:
+        - name: test-results
+          persistentVolumeClaim:
+            claimName: test-results-pvc
+        - name: workspace
+          emptyDir: {}
+
+---
+# PVC for test results
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-results-pvc
+  namespace: ai-persona-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# ServiceAccount if RBAC is needed
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: test-runner
+  namespace: ai-persona-system
+
+---
+# Role for test runner
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: test-runner
+  namespace: ai-persona-system
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: test-runner
+  namespace: ai-persona-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: test-runner
+subjects:
+  - kind: ServiceAccount
+    name: test-runner
+    namespace: ai-persona-system
