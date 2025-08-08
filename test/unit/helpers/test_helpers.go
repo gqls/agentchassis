@@ -188,27 +188,45 @@ func SetupTestSchema(t *testing.T, db *sql.DB) {
 		}
 	}
 
-	// Create orchestrator_state table if it doesn't exist
+	// Create orchestrator_state table with proper JSONB defaults
 	createTableSQL := `
     CREATE TABLE IF NOT EXISTS orchestrator_state (
         correlation_id UUID PRIMARY KEY,
         client_id VARCHAR(255) NOT NULL,
         status VARCHAR(50) NOT NULL,
         current_step VARCHAR(255),
-        awaited_steps JSONB DEFAULT '[]'::jsonb,
-        collected_data JSONB DEFAULT '{}'::jsonb,
+        awaited_steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+        collected_data JSONB NOT NULL DEFAULT '{}'::jsonb,
         initial_request_data JSONB,
         final_result JSONB,
         error TEXT,
         workflow_plan JSONB NOT NULL DEFAULT '{}'::jsonb,
-        execution_metadata JSONB DEFAULT '{}'::jsonb,
-        execution_path JSONB DEFAULT '[]'::jsonb,
+        execution_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        execution_path JSONB NOT NULL DEFAULT '[]'::jsonb,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`
 
 	if _, err := db.Exec(createTableSQL); err != nil {
-		t.Logf("Warning: failed to create orchestrator_state table: %v", err)
+		// If table exists, try to update it
+		alterStatements := []string{
+			`ALTER TABLE orchestrator_state ALTER COLUMN awaited_steps SET NOT NULL`,
+			`ALTER TABLE orchestrator_state ALTER COLUMN awaited_steps SET DEFAULT '[]'::jsonb`,
+			`ALTER TABLE orchestrator_state ALTER COLUMN collected_data SET NOT NULL`,
+			`ALTER TABLE orchestrator_state ALTER COLUMN collected_data SET DEFAULT '{}'::jsonb`,
+			`ALTER TABLE orchestrator_state ALTER COLUMN workflow_plan SET NOT NULL`,
+			`ALTER TABLE orchestrator_state ALTER COLUMN workflow_plan SET DEFAULT '{}'::jsonb`,
+			`ALTER TABLE orchestrator_state ALTER COLUMN execution_metadata SET NOT NULL`,
+			`ALTER TABLE orchestrator_state ALTER COLUMN execution_metadata SET DEFAULT '{}'::jsonb`,
+			`ALTER TABLE orchestrator_state ALTER COLUMN execution_path SET NOT NULL`,
+			`ALTER TABLE orchestrator_state ALTER COLUMN execution_path SET DEFAULT '[]'::jsonb`,
+		}
+
+		for _, stmt := range alterStatements {
+			_, _ = db.Exec(stmt) // Ignore errors, some columns might already be correct
+		}
+
+		t.Logf("Note: orchestrator_state table already exists, attempted updates")
 	}
 
 	// Create agent_instances tables

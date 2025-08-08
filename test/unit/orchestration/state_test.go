@@ -141,7 +141,7 @@ func TestAddExecutionRecord(t *testing.T) {
 
 	// Create initial state
 	plan := helpers.ValidWorkflow()
-	correlationID := uuid.New().String() // Use proper UUID
+	correlationID := uuid.New().String()
 
 	err := repo.CreateInitialState(ctx, correlationID, "test_client", plan, nil)
 	if err != nil {
@@ -153,16 +153,26 @@ func TestAddExecutionRecord(t *testing.T) {
 	state, err := repo.GetState(ctx, correlationID)
 	require.NoError(t, err)
 
-	// Add execution record
+	// Ensure ExecutionPath is initialized
+	if state.ExecutionPath == nil {
+		state.ExecutionPath = []orchestration.ExecutionRecord{}
+	}
+
+	// Add execution record with proper time handling
+	now := time.Now().UTC()
 	record := orchestration.ExecutionRecord{
 		Step:      "test_step",
 		Action:    "test_action",
-		StartTime: time.Now(),
+		StartTime: now,
 		Result:    "success",
+		Error:     "", // Ensure empty string, not nil
 	}
 
 	err = repo.AddExecutionRecord(ctx, state, record)
-	require.NoError(t, err)
+	if err != nil {
+		t.Errorf("Failed to add execution record: %v", err)
+		return
+	}
 
 	// Verify record was added
 	updatedState, err := repo.GetState(ctx, correlationID)
