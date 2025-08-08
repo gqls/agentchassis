@@ -54,3 +54,18 @@ data:
             next_step: complete
           complete:
             action: complete_workflow
+
+---
+# test/k8s/configmaps/test-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  namespace: ai-persona-system
+data:
+  test.env: |
+    # Test configuration
+    TEST_OUTPUT=verbose
+    TEST_COVERAGE=true
+    TEST_TIMEOUT=10m
+    GO_TEST_FLAGS="-v -race -count=1"

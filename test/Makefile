@@ -310,7 +310,7 @@ test-spawning-local: ## Run agent spawning tests locally (requires port-forwards
 	@echo "$(YELLOW)Running agent spawning tests locally...$(NC)"
 	@echo "$(YELLOW)Setting up port forwards...$(NC)"
 	@kubectl port-forward -n $(PROJECT_NAME) svc/postgres-clients 5432:5432 &
-	@kubectl port-forward -n $(PROJECT_NAME) svc/kafka-cluster-kafka-bootstrap 9092:9092 &
+	@kubectl port-forward -n $(PROJECT_NAME) svc/personae-kafka-cluster-kafka-bootstrap 9092:9092 &
 	@sleep 5
 	@echo "$(GREEN)Running tests...$(NC)"
 	DB_HOST=localhost \

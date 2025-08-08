@@ -1,3 +1,4 @@
+# test/docker/test-harness.dockerfile
 FROM golang:1.23-alpine AS builder
 
 # Install build dependencies
@@ -31,21 +32,20 @@ RUN go install github.com/onsi/ginkgo/v2/ginkgo@latest && \
     go install github.com/onsi/gomega/...@latest && \
     go install gotest.tools/gotestsum@latest
 
+# Build test binaries if needed
+RUN go test -c -o /test-runner ./test/cmd/runner 2>/dev/null || true
+
 # Stage 2: Runtime
 FROM golang:1.23-alpine
 
-# Install runtime dependencies INCLUDING gcc for CGO
+# Install runtime dependencies
 RUN apk add --no-cache \
     bash \
     git \
     make \
-    gcc \
-    g++ \
-    musl-dev \
     postgresql-client \
     curl \
-    jq \
-    ca-certificates
+    jq
 
 # Copy Go tools from builder
 COPY --from=builder /go/bin/* /usr/local/bin/
@@ -67,9 +67,8 @@ RUN cd /workspace && \
     echo "Module ready: $(go list -m)"
 
 # Environment variables
-# Set CGO_ENABLED=0 if you don't need CGO, or keep it =1 with gcc installed
 ENV GO_ENV=test \
-    CGO_ENABLED=0 \
+    CGO_ENABLED=1 \
     GOOS=linux \
     GOARCH=amd64 \
     TEST_RESULTS_DIR=/results

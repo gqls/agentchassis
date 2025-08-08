@@ -6,8 +6,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/gqls/agentchassis/pkg/models"
 	"time"
+
+	"github.com/gqls/agentchassis/pkg/models"
 
 	"go.uber.org/zap"
 )
@@ -84,6 +85,11 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, correlationID,
 	awaitedStepsJSON, _ := json.Marshal([]string{})
 	collectedDataJSON, _ := json.Marshal(map[string]interface{}{})
 	workflowPlanJSON, _ := json.Marshal(plan)
+
+	// Ensure we have valid initial data
+	if initialData == nil {
+		initialData = []byte("null")
+	}
 
 	// Initialize execution metadata
 	metadata := ExecutionMetadata{

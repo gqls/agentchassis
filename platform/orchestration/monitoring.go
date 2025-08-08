@@ -166,10 +166,10 @@ func (m *WorkflowMonitor) GetWorkflowMetrics(ctx context.Context, clientID strin
             COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as failed,
             COUNT(CASE WHEN status IN ('RUNNING', 'AWAITING_RESPONSES') THEN 1 END) as active,
             COUNT(CASE WHEN status = 'PAUSED_FOR_HUMAN_INPUT' THEN 1 END) as paused,
-            AVG(CASE 
+            COALESCE(AVG(CASE 
                 WHEN status = 'COMPLETED' 
                 THEN EXTRACT(EPOCH FROM (updated_at - created_at))
-            END) as avg_duration_seconds
+            END), 0) as avg_duration_seconds
         FROM orchestrator_state
         WHERE client_id = $1
         AND created_at >= $2
