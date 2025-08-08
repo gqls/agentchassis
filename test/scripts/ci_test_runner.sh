@@ -7,7 +7,7 @@ bash
 set -e
 
 echo "=== Agent Chassis CI Test Runner ==="
-echo "Environment: ${ENVIRONMENT:-development}"
+echo "Environment: ${ENVIRONMENT:-production}"
 echo "Test Suite: ${TEST_SUITE:-all}"
 echo ""
 

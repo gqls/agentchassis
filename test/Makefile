@@ -7,6 +7,12 @@ IMAGE_TAG ?= latest
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
+KAFKA_SERVICE ?= personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
+
+export DOCKER_USERNAME=aqls
+export DOCKER_PASSWORD=AaD02432123!
+export DOCKER_EMAIL=aaa@designconsultancy.co.uk
+
 # Colors
 YELLOW := \033[1;33m
 GREEN := \033[1;32m
@@ -22,7 +28,7 @@ all: unit integration
 
 # Build all test components
 .PHONY: build
-build: build-test-runner build-test-tools build-test-harness ## Build all test components
+build: build-test-runner build-test-tools build-test-harness build-test-monitor build-mock-agents ## Build all test components
 
 .PHONY: build-test-runner
 build-test-runner: ## Build the main test runner binary
@@ -100,23 +106,6 @@ push-test-images: ## Push all test images to registry
 	@docker push $(REGISTRY)/test-monitor:$(IMAGE_TAG)
 	@docker push $(REGISTRY)/test-monitor:latest
 	@echo "$(GREEN)✓ Test images pushed$(NC)"
-
-#################################
-# Install Commands
-#################################
-
-.PHONY: install-tools
-install-tools: ## Install required testing tools
-	@echo "$(YELLOW)Installing test tools...$(NC)"
-	@go install gotest.tools/gotestsum@latest
-	@go install github.com/rakyll/gotest@latest
-	@go install github.com/axw/gocov/gocov@latest
-	@go install github.com/AlekSi/gocov-xml@latest
-	@go install github.com/matm/gocov-html/cmd/gocov-html@latest
-	@go install github.com/jstemmer/go-junit-report/v2@latest
-	@go install github.com/onsi/ginkgo/v2/ginkgo@latest
-	@go install github.com/vektra/mockery/v2@latest
-	@echo "$(GREEN)✓ Test tools installed$(NC)"
 
 #################################
 # Original Test Commands (Updated)
@@ -247,9 +236,13 @@ simulate-human-response: ## Simulate human task completion
 # Build and push before deploying
 .PHONY: harness-deploy
 harness-deploy: build-test-harness push-test-images ## Deploy test harness to Kubernetes
+	@echo "$(YELLOW)Checking prerequisites...$(NC)"
+	@kubectl get secret docker-hub-creds -n ai-persona-system > /dev/null 2>&1 || \
+		(echo "$(RED)Error: Docker Hub secret not found. Run 'make setup-docker-secret' first$(NC)" && exit 1)
 	@echo "$(YELLOW)Deploying test harness to Kubernetes...$(NC)"
 	@sed 's|$$(REGISTRY)|$(REGISTRY)|g; s|$$(IMAGE_TAG)|$(IMAGE_TAG)|g; s|$$(TEST_SUITE)|all|g; s|$$(TEST_COMMAND)|test|g' \
 		k8s/jobs/test-harness-job.yaml | kubectl apply -f -
+	@echo "$(GREEN)✓ Test harness deployed$(NC)"
 
 .PHONY: harness-run
 harness-run: build-test-harness push-test-images ## Run tests in Kubernetes
@@ -271,7 +264,7 @@ harness-shell: build-test-harness push-test-images ## Open shell in test harness
 		--env="DB_USER=clients_user" \
 		--env="DB_NAME=clients_db" \
 		--env="DB_PASSWORD=$${CLIENTS_DB_PASSWORD}" \
-		--env="KAFKA_BROKERS=kafka-cluster-kafka-bootstrap:9092" \
+		--env="KAFKA_BROKERS=$(KAFKA_SERVICE)" \
 		--env="CLIENT_ID=demo_client" \
 		-- shell
 
@@ -515,4 +508,169 @@ help: ## Show this help message
 	@echo ''
 	@echo 'Targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(GREEN)%-30s$(NC) %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
+
+### claude extras
+#################################
+# Kubernetes Deployment Commands
+#################################
+
+.PHONY: deploy-test-infrastructure
+deploy-test-infrastructure: ## Deploy all test infrastructure to Kubernetes
+	@echo "$(YELLOW)Deploying test infrastructure to Kubernetes...$(NC)"
+	# Deploy test ConfigMaps
+	@kubectl apply -f k8s/configmaps/test-configs.yaml
+	@kubectl apply -f k8s/configmaps/test-scripts.yaml
+	# Deploy test pods for interactive testing
+	@kubectl apply -f k8s/pods/kafka-test-pod.yaml
+	@kubectl apply -f k8s/pods/agent-test-pod.yaml
+	@echo "$(GREEN)✓ Test infrastructure deployed$(NC)"
+
+.PHONY: deploy-mock-agents
+deploy-mock-agents: build-mock-agents push-mock-agents ## Deploy mock agents to Kubernetes
+	@echo "$(YELLOW)Deploying mock agents...$(NC)"
+	@for agent in generic reasoning content-creator web-search; do \
+		kubectl run mock-$$agent \
+			--image=$(REGISTRY)/mock-$$agent:$(IMAGE_TAG) \
+			--env="KAFKA_BROKERS=$(KAFKA_SERVICE)" \
+			--env="KAFKA_TOPIC=system.agent.$$agent.process" \
+			-n ai-persona-system \
+			--restart=Always || true; \
+	done
+	@echo "$(GREEN)✓ Mock agents deployed$(NC)"
+
+.PHONY: push-mock-agents
+push-mock-agents: ## Push mock agent images to registry
+	@echo "$(YELLOW)Pushing mock agent images...$(NC)"
+	@for agent in generic reasoning content-creator web-search; do \
+		docker push $(REGISTRY)/mock-$$agent:$(IMAGE_TAG); \
+	done
+	@echo "$(GREEN)✓ Mock agents pushed$(NC)"
+
+.PHONY: deploy-all
+deploy-all: deploy-test-infrastructure harness-deploy ## Deploy everything needed for testing
+	@echo "$(GREEN)✓ All test components deployed to Kubernetes$(NC)"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  make harness-run          # Run all tests"
+	@echo "  make harness-shell        # Open interactive test shell"
+	@echo "  make test-status          # Check test status"
+	@echo "  make harness-logs         # View test logs"
+
+.PHONY: test-status
+test-status: ## Check status of all test components
+	@echo "$(YELLOW)=== Test Infrastructure Status ===$(NC)"
+	@echo ""
+	@echo "Test Harness Job:"
+	@kubectl get job test-harness -n ai-persona-system --ignore-not-found || echo "  Not deployed"
+	@echo ""
+	@echo "Test Pods:"
+	@kubectl get pods -n ai-persona-system -l app=test
+	@echo ""
+	@echo "Mock Agents:"
+	@kubectl get pods -n ai-persona-system | grep mock- || echo "  No mock agents running"
+	@echo ""
+	@echo "Recent Test Workflows:"
+	@kubectl exec postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -t -c \
+		"SELECT correlation_id, status, current_step, \
+		 EXTRACT(EPOCH FROM (NOW() - created_at))::int as seconds_ago \
+		 FROM orchestrator_state \
+		 WHERE correlation_id LIKE 'test-%' \
+		 ORDER BY created_at DESC LIMIT 5;" 2>/dev/null || echo "  No recent test workflows"
+
+.PHONY: test-quick-verify
+test-quick-verify: ## Quick verification that test infrastructure is working
+	@echo "$(YELLOW)Running quick infrastructure test...$(NC)"
+	# Test database connectivity
+	@kubectl exec postgres-clients-0 -n ai-persona-system -- \
+		psql -U clients_user -d clients_db -c "SELECT 1" > /dev/null && \
+		echo "$(GREEN)✓ Database accessible$(NC)" || \
+		echo "$(RED)✗ Database not accessible$(NC)"
+	# Test Kafka connectivity
+	@kubectl exec kafka-cluster-kafka-0 -n ai-persona-system -c kafka -- \
+		kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1 && \
+		echo "$(GREEN)✓ Kafka accessible$(NC)" || \
+		echo "$(RED)✗ Kafka not accessible$(NC)"
+	# Check test harness image
+	@kubectl run test-harness-check --rm -it --restart=Never \
+		--image=$(REGISTRY)/test-harness:$(IMAGE_TAG) \
+		-n ai-persona-system \
+		-- echo "Test harness image OK" && \
+		echo "$(GREEN)✓ Test harness image available$(NC)" || \
+		echo "$(RED)✗ Test harness image not available$(NC)"
+
+.PHONY: clean-test-k8s
+clean-test-k8s: harness-clean ## Clean up all test resources from Kubernetes
+	@echo "$(YELLOW)Cleaning up test resources...$(NC)"
+	# Delete test pods
+	@kubectl delete pod kafka-test-pod agent-test-pod kafkacat-test-pod -n ai-persona-system --ignore-not-found
+	# Delete mock agents
+	@kubectl delete pod -l app=mock-agent -n ai-persona-system --ignore-not-found
+	@for agent in generic reasoning content-creator web-search; do \
+		kubectl delete pod mock-$$agent -n ai-persona-system --ignore-not-found; \
+	done
+	# Delete test ConfigMaps
+	@kubectl delete configmap test-configs test-scripts -n ai-persona-system --ignore-not-found
+	# Clean test data from database
+	@kubectl exec postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c \
+		"DELETE FROM orchestrator_state WHERE correlation_id LIKE 'test-%';" || true
+	@echo "$(GREEN)✓ Test resources cleaned$(NC)"
+
+.PHONY: test-e2e-k8s
+test-e2e-k8s: deploy-all ## Run E2E tests in Kubernetes with full setup
+	@echo "$(YELLOW)Running E2E tests in Kubernetes...$(NC)"
+	@kubectl apply -f k8s/jobs/test-e2e-job.yaml
+	@kubectl wait --for=condition=complete job/test-e2e-suite -n ai-persona-system --timeout=1h || \
+		(kubectl logs job/test-e2e-suite -n ai-persona-system && exit 1)
+	@echo "$(GREEN)✓ E2E tests completed$(NC)"
+
+# Convenience target to run a quick test
+.PHONY: test-quick
+test-quick: deploy-test-infrastructure ## Run a quick test to verify everything works
+	@echo "$(YELLOW)Running quick test...$(NC)"
+	@kubectl run quick-test-$(shell date +%s) \
+		--image=$(REGISTRY)/test-harness:$(IMAGE_TAG) \
+		--rm -it --restart=Never \
+		-n ai-persona-system \
+		--env="DB_HOST=postgres-clients" \
+		--env="DB_USER=clients_user" \
+		--env="DB_NAME=clients_db" \
+		--env="DB_PASSWORD=$${CLIENTS_DB_PASSWORD}" \
+		--env="KAFKA_BROKERS=$(KAFKA_SERVICE)" \
+		--env="CLIENT_ID=demo_client" \
+		--env="TEST_SUITE=unit" \
+		--env="TEST_PATTERN=TestValidWorkflow" \
+		-- test
+	@echo "$(GREEN)✓ Quick test completed$(NC)"
+
+
+#################################
+# Setup Commands
+#################################
+
+.PHONY: setup-docker-secret
+setup-docker-secret: ## Create Docker Hub pull secret from environment variables
+	@if [ -z "$$DOCKER_USERNAME" ] || [ -z "$$DOCKER_PASSWORD" ]; then \
+		echo "$(RED)Error: DOCKER_USERNAME and DOCKER_PASSWORD environment variables must be set$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(YELLOW)Creating Docker Hub secret from environment variables...$(NC)"
+	@kubectl create secret docker-registry docker-hub-creds \
+		--docker-server=docker.io \
+		--docker-username="$$DOCKER_USERNAME" \
+		--docker-password="$$DOCKER_PASSWORD" \
+		--docker-email="aaa@designconsultancy.co.uk" \
+		-n ai-persona-system \
+		--dry-run=client -o yaml | kubectl apply -f -
+	@echo "$(GREEN)✓ Docker Hub secret created/updated$(NC)"
+
+.PHONY: setup-all
+setup-all: setup setup-docker-secret ## Complete setup including Docker secret
+	@echo "$(GREEN)✓ All setup complete$(NC)"
+
+.PHONY: verify-docker-secret
+verify-docker-secret: ## Verify Docker secret is configured correctly
+	@echo "$(YELLOW)Verifying Docker secret...$(NC)"
+	@kubectl get secret docker-hub-creds -n ai-persona-system -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d | jq '.auths' | grep -q "docker.io" && \
+		echo "$(GREEN)✓ Docker Hub secret exists and contains docker.io credentials$(NC)" || \
+		echo "$(RED)✗ Docker Hub secret not found or invalid$(NC)"
 

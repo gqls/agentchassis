@@ -1,80 +1,84 @@
-# test/docker/mock-generic.dockerfile
-FROM golang:1.21-alpine AS builder
+# test/docker/test-harness.dockerfile
+FROM golang:1.23-alpine AS builder
 
-WORKDIR /app
-COPY . .
+# Install build dependencies
+RUN apk add --no-cache \
+    git \
+    make \
+    gcc \
+    g++ \
+    musl-dev \
+    bash \
+    curl
 
-# Build a simple mock agent
-RUN cat > mock-agent.go << 'EOF'
-package main
+WORKDIR /workspace
 
-import (
-    "context"
-    "encoding/json"
-    "log"
-    "os"
+# Copy go.mod and go.sum
+COPY go.mod go.sum ./
+RUN go mod download
 
-    "github.com/segmentio/kafka-go"
-)
+# Copy ONLY the directories we need for tests
+# This prevents accidentally including unwanted directories
+COPY cmd ./cmd
+COPY internal ./internal
+COPY pkg ./pkg
+COPY platform ./platform
+COPY test ./test
+COPY configs ./configs
 
-func main() {
-    topic := os.Getenv("KAFKA_TOPIC")
-    if topic == "" {
-        topic = "system.agent.generic.process"
-    }
+# Verify we have the right structure (no 'tests' directory)
+RUN ls -la /workspace && \
+    echo "Directories present:" && \
+    ls -d */ | grep -E "(test|tests)" || echo "Only 'test' directory present (good!)"
 
-    reader := kafka.NewReader(kafka.ReaderConfig{
-        Brokers: []string{os.Getenv("KAFKA_BROKERS")},
-        Topic:   topic,
-        GroupID: "mock-generic-agent",
-    })
+# Verify the module structure
+RUN echo "Go module:" && \
+    go list -m && \
+    echo "Test packages:" && \
+    go list ./test/...
 
-    writer := kafka.NewWriter(kafka.WriterConfig{
-        Brokers: []string{os.Getenv("KAFKA_BROKERS")},
-        Topic:   "system.responses.generic",
-    })
+# Install Go testing tools
+RUN go install github.com/onsi/ginkgo/v2/ginkgo@latest && \
+    go install github.com/onsi/gomega/...@latest && \
+    go install gotest.tools/gotestsum@latest
 
-    defer reader.Close()
-    defer writer.Close()
+# Stage 2: Runtime
+FROM golang:1.23-alpine
 
-    log.Printf("Mock generic agent listening on %s", topic)
+# Install runtime dependencies
+RUN apk add --no-cache \
+    bash \
+    git \
+    make \
+    postgresql-client \
+    curl \
+    jq \
+    ca-certificates
 
-    for {
-        msg, err := reader.ReadMessage(context.Background())
-        if err != nil {
-            log.Printf("Error reading message: %v", err)
-            continue
-        }
+# Copy Go tools from builder
+COPY --from=builder /go/bin/* /usr/local/bin/
 
-        // Simple echo response
-        response := map[string]interface{}{
-            "success": true,
-            "agent": "mock-generic",
-            "echo": string(msg.Value),
-        }
+# Create workspace
+WORKDIR /workspace
 
-        respBytes, _ := json.Marshal(response)
+# Copy only what we need from builder
+COPY --from=builder /workspace /workspace
 
-        // Copy headers and send response
-        headers := make([]kafka.Header, len(msg.Headers))
-        copy(headers, msg.Headers)
+# Create directories for results
+RUN mkdir -p /results /fixtures
 
-        writer.WriteMessages(context.Background(), kafka.Message{
-            Key:     msg.Key,
-            Value:   respBytes,
-            Headers: headers,
-        })
+# Copy and fix the test harness script
+COPY test/scripts/test-harness.sh /usr/local/bin/test-harness
+RUN chmod +x /usr/local/bin/test-harness && \
+    sed -i 's/\r$//' /usr/local/bin/test-harness
 
-        log.Printf("Processed message: %s", msg.Key)
-    }
-}
-EOF
+# Environment variables
+ENV GO_ENV=test \
+    CGO_ENABLED=1 \
+    GOOS=linux \
+    GOARCH=amd64 \
+    TEST_RESULTS_DIR=/results \
+    GOTESTSUM_FORMAT=testname
 
-RUN go mod init mock-agent && \
-    go get github.com/segmentio/kafka-go && \
-    go build -o mock-agent mock-agent.go
-
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-COPY --from=builder /app/mock-agent /usr/local/bin/
-ENTRYPOINT ["mock-agent"]
+ENTRYPOINT ["test-harness"]
+CMD ["test"]

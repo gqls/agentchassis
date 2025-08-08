@@ -1,4 +1,4 @@
-# test/k8s/jobs/test-harness-job.yaml
+# test/k8s/jobs/test-harness-job-no-pvc.yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -16,8 +16,10 @@ spec:
         app: test-harness
         component: testing
     spec:
-      serviceAccountName: test-runner  # If RBAC needed
+      serviceAccountName: test-runner
       restartPolicy: Never
+      imagePullSecrets:
+        - name: docker-hub-creds
 
       initContainers:
         # Wait for dependencies
@@ -32,7 +34,7 @@ spec:
                 echo "Waiting for PostgreSQL..."
                 sleep 2
               done
-              until nc -z kafka-cluster-kafka-bootstrap 9092; do
+              until nc -z personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local 9092; do
                 echo "Waiting for Kafka..."
                 sleep 2
               done
@@ -65,12 +67,12 @@ spec:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: personae-dev-secrets
+                  name: personae-platform-secrets
                   key: CLIENTS_DB_PASSWORD
 
             # Kafka configuration
             - name: KAFKA_BROKERS
-              value: "kafka-cluster-kafka-bootstrap:9092"
+              value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
             - name: KAFKA_CONSUMER_GROUP
               value: "test-harness"
 
@@ -86,7 +88,7 @@ spec:
             - name: ANTHROPIC_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: personae-dev-secrets
+                  name: personae-platform-secrets
                   key: ANTHROPIC_API_KEY
                   optional: true
 
@@ -101,32 +103,14 @@ spec:
           volumeMounts:
             - name: test-results
               mountPath: /results
-            - name: workspace
-              mountPath: /workspace
 
       volumes:
+        # Use emptyDir for test results only
         - name: test-results
-          persistentVolumeClaim:
-            claimName: test-results-pvc
-        - name: workspace
           emptyDir: {}
 
 ---
-# PVC for test results
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: test-results-pvc
-  namespace: ai-persona-system
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi
-
----
-# ServiceAccount if RBAC is needed
+# ServiceAccount
 apiVersion: v1
 kind: ServiceAccount
 metadata:

@@ -168,7 +168,7 @@ spec:
         - name: PGPASSWORD
           valueFrom:
             secretKeyRef:
-              name: personae-dev-secrets
+              name: personae-platform-secrets
               key: CLIENTS_DB_PASSWORD
         - name: DB_HOST
           value: "postgres-clients"
@@ -181,7 +181,7 @@ spec:
         - name: ANTHROPIC_API_KEY
           valueFrom:
             secretKeyRef:
-              name: personae-dev-secrets
+              name: personae-platform-secrets
               key: ANTHROPIC_API_KEY
               optional: true
 

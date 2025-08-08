@@ -11,6 +11,7 @@ find . -type f \
 		-not \( -name "persona-cli" -o -name "README.md" -o -name "create_persona.sql" -o -name "*.secret" -o -name "*-lock.json"  \) \
     -not -path "*/\\.*/*" \
 		-not -path "*/backup/*" \
+		-not -path "*/bin/*" \
 		-not -path "*/images/*" \
 		-not -path "*/project3/*" \
 		-not -path "*/docs/*" \

@@ -39,7 +39,7 @@ spec:
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: personae-dev-secrets
+                  name: personae-platform-secrets
                   key: CLIENTS_DB_PASSWORD
           command:
             - sh
@@ -79,7 +79,7 @@ spec:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: personae-dev-secrets
+                  name: personae-platform-secrets
                   key: CLIENTS_DB_PASSWORD
 
             # Kafka configuration
@@ -100,12 +100,12 @@ spec:
             - name: ANTHROPIC_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: personae-dev-secrets
+                  name: personae-platform-secrets
                   key: ANTHROPIC_API_KEY
             - name: SERP_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: personae-dev-secrets
+                  name: personae-platform-secrets
                   key: SERP_API_KEY
 
           resources:
@@ -139,7 +139,7 @@ spec:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: personae-dev-secrets
+                  name: personae-platform-secrets
                   key: CLIENTS_DB_PASSWORD
           ports:
             - containerPort: 8090
