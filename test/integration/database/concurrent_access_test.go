@@ -3,6 +3,7 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"sync"
 	"testing"
 	"time"
