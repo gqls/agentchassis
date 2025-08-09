@@ -3,32 +3,43 @@
 
 set -e
 
-echo "=== Running Integration Tests ==="
+echo "Starting integration tests..."
+echo "================================"
 
-# Check prerequisites
-echo "Checking prerequisites..."
-if ! nc -z localhost 5432; then
-    echo "PostgreSQL is not running on localhost:5432"
-    exit 1
-fi
+# Set test timeout
+export TEST_TIMEOUT=${TEST_TIMEOUT:-30m}
 
-if ! nc -z localhost 9092; then
-    echo "Kafka is not running on localhost:9092"
-    exit 1
-fi
+# Run tests with verbose output and show which tests are running
+echo "Running tests with timeout: $TEST_TIMEOUT"
 
-# Set up test database
-echo "Setting up test database..."
-psql -h localhost -U clients_user -d clients_db < migrations/001_test_schema.sql
-psql -h localhost -U clients_user -d clients_db < migrations/002_test_data.sql
+# Run each package separately to identify failures
+FAILED_PACKAGES=""
+PASSED_PACKAGES=""
 
-# Run integration tests
-echo "Running integration tests..."
-go test -v ./integration/... -count=1
+for package in agents database kafka; do
+    echo ""
+    echo "Testing package: $package"
+    echo "------------------------"
 
-# Clean up
-echo "Cleaning up test data..."
-psql -h localhost -U clients_user -d clients_db -c "DELETE FROM orchestrator_state WHERE correlation_id LIKE 'test-%';"
+    if go test -v -timeout $TEST_TIMEOUT ./test/integration/$package/... 2>&1; then
+        echo "✓ Package $package PASSED"
+        PASSED_PACKAGES="$PASSED_PACKAGES $package"
+    else
+        echo "✗ Package $package FAILED"
+        FAILED_PACKAGES="$FAILED_PACKAGES $package"
+    fi
+done
 
 echo ""
-echo "Integration tests completed!"
+echo "================================"
+echo "Test Summary:"
+echo "Passed packages:$PASSED_PACKAGES"
+echo "Failed packages:$FAILED_PACKAGES"
+
+if [ -n "$FAILED_PACKAGES" ]; then
+    echo "✗ Some tests failed"
+    exit 1
+else
+    echo "✓ All tests passed"
+    exit 0
+fi
