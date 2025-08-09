@@ -54,7 +54,7 @@ func TestCompleteWorkflowWithSpawning(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			correlationID := uuid.New().String()
+			correlationID := helpers.TestUUIDWithType("e2e")
 			headers := helpers.TestHeaders(correlationID)
 			headers["client_id"] = "test_client"
 			headers["fuel_budget"] = "1000"

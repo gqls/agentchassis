@@ -80,7 +80,7 @@ func TestWebsiteBuilderWorkflow(t *testing.T) {
 		},
 	}
 
-	correlationID := uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("e2e")
 	headers := helpers.TestHeaders(correlationID)
 
 	initialData, _ := json.Marshal(map[string]interface{}{
@@ -200,7 +200,7 @@ func TestWebsiteBuilderWithErrors(t *testing.T) {
 				},
 			}
 
-			correlationID := uuid.New().String()
+			correlationID := helpers.TestUUIDWithType("e2e")
 			headers := helpers.TestHeaders(correlationID)
 
 			initialData, _ := json.Marshal(tt.invalidData)

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/test/unit/helpers"
@@ -78,7 +77,7 @@ func TestHumanInLoopWorkflow(t *testing.T) {
 		},
 	}
 
-	correlationID := uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("e2e")
 	headers := helpers.TestHeaders(correlationID)
 
 	initialData, _ := json.Marshal(map[string]interface{}{
@@ -179,7 +178,7 @@ func TestHumanInLoopTimeout(t *testing.T) {
 		},
 	}
 
-	correlationID := uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("e2e")
 	headers := helpers.TestHeaders(correlationID)
 
 	err := coordinator.ExecuteWorkflow(context.Background(), workflow, headers, nil)

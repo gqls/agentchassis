@@ -31,6 +31,6 @@ spec:
                   name: personae-platform-secrets
                   key: CLIENTS_DB_PASSWORD
             - name: KAFKA_BROKERS
-              value: "kafka-cluster-kafka-bootstrap:9092"
+              value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
             - name: CLIENT_ID
               value: "demo_client"

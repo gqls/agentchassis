@@ -317,7 +317,7 @@ test-spawning-local: ## Run agent spawning tests locally (requires port-forwards
 	DB_NAME=clients_db \
 	DB_USER=clients_user \
 	DB_PASSWORD=$${CLIENTS_DB_PASSWORD} \
-	KAFKA_BROKERS=localhost:9092 \
+	KAFKA_BROKERS=$(KAFKA_SERVICE) \
 	CLIENT_ID=demo_client \
 	go run cmd/test-spawning/main.go
 	@echo "$(GREEN)Tests completed!$(NC)"

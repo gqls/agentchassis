@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
-	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
 	"github.com/gqls/agentchassis/test/unit/helpers"
@@ -192,7 +191,7 @@ func TestAgentGroupOrchestration(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	correlationID := uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("integration")
 	headers := helpers.TestHeaders(correlationID)
 
 	err := coordinator.ExecuteWorkflow(ctx, workflow, headers, nil)
@@ -419,36 +418,6 @@ func TestAgentGroupEvolution(t *testing.T) {
 }
 
 // Helper functions
-
-func setupIntegrationDB(t *testing.T) *sql.DB {
-	db := helpers.TestDB(t)
-	helpers.SetupTestSchema(t, db)
-	return db
-}
-
-func createTestProducer(t *testing.T) kafka.Producer {
-	// For integration tests, you might want to use a real Kafka producer
-	// if Kafka is available in your test environment
-	if isKafkaAvailable() {
-		return createRealKafkaProducer(t)
-	}
-	// Otherwise fall back to mock
-	return helpers.NewMockProducer()
-}
-
-func createRealKafkaProducer(t *testing.T) kafka.Producer {
-	// This would create a real Kafka producer
-	// Implementation depends on your Kafka setup
-	t.Log("Using mock producer - implement createRealKafkaProducer for real Kafka")
-	return helpers.NewMockProducer()
-}
-
-func isKafkaAvailable() bool {
-	// Check if Kafka is available for testing
-	// This could check environment variables or try to connect
-	return false
-}
-
 func setupTestGroups(t *testing.T, db *sql.DB) {
 	// Website builder group
 	websiteBuilderAgents := []map[string]interface{}{

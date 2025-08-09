@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/test/unit/helpers"
@@ -69,7 +68,7 @@ func TestContentCreationPipeline(t *testing.T) {
 		},
 	}
 
-	correlationID := "test-e2e-content-" + uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("e2e")
 	headers := helpers.TestHeaders(correlationID)
 
 	// Add required initial data
@@ -116,7 +115,7 @@ func TestContentCreationWithMultipleFormats(t *testing.T) {
 	for _, format := range formats {
 		t.Run(format, func(t *testing.T) {
 			workflow := createContentWorkflow(format)
-			correlationID := fmt.Sprintf("test-e2e-%s-%s", format, uuid.New().String())
+			correlationID := helpers.TestUUIDWithType("e2e")
 			headers := helpers.TestHeaders(correlationID)
 
 			initialData, _ := json.Marshal(map[string]interface{}{

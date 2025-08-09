@@ -2,15 +2,18 @@
 package database
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/test/unit/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestOrchestratorStatePersistence(t *testing.T) {
@@ -21,7 +24,9 @@ func TestOrchestratorStatePersistence(t *testing.T) {
 	db := helpers.TestDB(t)
 	defer db.Close()
 
-	correlationID := "test-db-" + uuid.New().String()
+	// Use test UUID generator for integration tests
+	correlationID := helpers.TestUUIDWithType("integration")
+	// This creates something like: 00000002-1234-5678-9abc-def012345678
 
 	// Test state creation
 	workflowPlan := map[string]interface{}{
@@ -43,7 +48,7 @@ func TestOrchestratorStatePersistence(t *testing.T) {
 
 	workflowPlanJSON, _ := json.Marshal(workflowPlan)
 
-	// Insert state
+	// Insert state with all required fields
 	_, err := db.Exec(`
         INSERT INTO orchestrator_state 
         (correlation_id, client_id, status, current_step, workflow_plan, execution_metadata)
@@ -87,15 +92,15 @@ func TestCollectedDataAccumulation(t *testing.T) {
 	db := helpers.TestDB(t)
 	defer db.Close()
 
-	correlationID := "test-collect-" + uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("integration")
 
-	// Initialize state
+	// Initialize state WITH current_step (required field)
 	_, err := db.Exec(`
         INSERT INTO orchestrator_state 
-        (correlation_id, client_id, status, workflow_plan, collected_data)
-        VALUES ($1, $2, $3, $4, $5)
-    `, correlationID, "test_client", "RUNNING",
-		json.RawMessage(`{"start_step": "init"}`),
+        (correlation_id, client_id, status, current_step, workflow_plan, collected_data)
+        VALUES ($1, $2, $3, $4, $5, $6)
+    `, correlationID, "test_client", "RUNNING", "research", // Added current_step
+		json.RawMessage(`{"start_step": "research", "steps": {"research": {"action": "research"}}}`),
 		json.RawMessage(`{}`))
 	require.NoError(t, err)
 
@@ -127,17 +132,25 @@ func TestCollectedDataAccumulation(t *testing.T) {
 		},
 	}
 
-	for _, s := range steps {
+	for i, s := range steps {
 		dataJSON, _ := json.Marshal(s.data)
+
+		// Also update current_step as we progress
+		currentStep := s.step
+		if i == len(steps)-1 {
+			currentStep = "complete"
+		}
+
 		_, err := db.Exec(`
             UPDATE orchestrator_state 
             SET collected_data = jsonb_set(
                 collected_data, 
                 $1::text[], 
                 $2::jsonb
-            )
+            ),
+            current_step = $4
             WHERE correlation_id = $3
-        `, fmt.Sprintf("{%s}", s.step), dataJSON, correlationID)
+        `, fmt.Sprintf("{%s}", s.step), dataJSON, correlationID, currentStep)
 		require.NoError(t, err)
 	}
 
@@ -167,15 +180,15 @@ func TestExecutionPathTracking(t *testing.T) {
 	db := helpers.TestDB(t)
 	defer db.Close()
 
-	correlationID := "test-path-" + uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("integration")
 
-	// Initialize with empty execution path
+	// Initialize with empty execution path AND current_step (required)
 	_, err := db.Exec(`
         INSERT INTO orchestrator_state 
-        (correlation_id, client_id, status, workflow_plan, execution_path)
-        VALUES ($1, $2, $3, $4, $5)
-    `, correlationID, "test_client", "RUNNING",
-		json.RawMessage(`{"start_step": "init"}`),
+        (correlation_id, client_id, status, current_step, workflow_plan, execution_path)
+        VALUES ($1, $2, $3, $4, $5, $6)
+    `, correlationID, "test_client", "RUNNING", "init", // Added current_step
+		json.RawMessage(`{"start_step": "init", "steps": {"init": {"action": "initialize"}}}`),
 		json.RawMessage(`[]`))
 	require.NoError(t, err)
 
@@ -207,21 +220,30 @@ func TestExecutionPathTracking(t *testing.T) {
 		},
 	}
 
-	for _, step := range executionSteps {
+	for i, step := range executionSteps {
 		stepJSON, _ := json.Marshal(step)
+
+		// Update current_step as we add execution steps
+		currentStep := step["step"].(string)
+		if i == len(executionSteps)-1 {
+			currentStep = "complete"
+		}
+
 		_, err := db.Exec(`
             UPDATE orchestrator_state 
-            SET execution_path = execution_path || $1::jsonb
+            SET execution_path = execution_path || $1::jsonb,
+                current_step = $3
             WHERE correlation_id = $2
-        `, stepJSON, correlationID)
+        `, stepJSON, correlationID, currentStep)
 		require.NoError(t, err)
 	}
 
 	// Verify execution path
 	var executionPath json.RawMessage
+	var currentStep string
 	err = db.QueryRow(`
-        SELECT execution_path FROM orchestrator_state WHERE correlation_id = $1
-    `, correlationID).Scan(&executionPath)
+        SELECT execution_path, current_step FROM orchestrator_state WHERE correlation_id = $1
+    `, correlationID).Scan(&executionPath, &currentStep)
 	require.NoError(t, err)
 
 	var path []map[string]interface{}
@@ -231,4 +253,92 @@ func TestExecutionPathTracking(t *testing.T) {
 	assert.Equal(t, "init", path[0]["step"])
 	assert.Equal(t, "process", path[1]["step"])
 	assert.Equal(t, "validate", path[2]["step"])
+	assert.Equal(t, "complete", currentStep)
+}
+
+func TestStateRepositoryIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	db := helpers.TestDB(t)
+	defer db.Close()
+
+	logger := zap.NewNop()
+	repo := orchestration.NewStateRepository(db, logger)
+	ctx := context.Background()
+
+	// Test using the actual repository
+	correlationID := helpers.TestUUIDWithType("integration")
+	clientID := "test_client"
+
+	plan := models.WorkflowPlan{
+		StartStep: "init",
+		Steps: map[string]models.Step{
+			"init": {
+				Action:   "initialize",
+				NextStep: "process",
+			},
+			"process": {
+				Action:   "process_data",
+				NextStep: "complete",
+			},
+			"complete": {
+				Action: "complete_workflow",
+			},
+		},
+	}
+
+	// Create initial state
+	err := repo.CreateInitialState(ctx, correlationID, clientID, plan, nil)
+	require.NoError(t, err)
+
+	// Get state
+	state, err := repo.GetState(ctx, correlationID)
+	require.NoError(t, err)
+	assert.Equal(t, correlationID, state.CorrelationID)
+	assert.Equal(t, "init", state.CurrentStep)
+	assert.Equal(t, orchestration.StatusRunning, state.Status)
+
+	// Update state
+	state.CurrentStep = "process"
+	state.CollectedData = map[string]interface{}{
+		"step1_result": "success",
+		"data": map[string]interface{}{
+			"count": 42,
+			"items": []string{"a", "b", "c"},
+		},
+	}
+
+	err = repo.UpdateState(ctx, state)
+	require.NoError(t, err)
+
+	// Verify update
+	updatedState, err := repo.GetState(ctx, correlationID)
+	require.NoError(t, err)
+	assert.Equal(t, "process", updatedState.CurrentStep)
+	assert.Equal(t, 42.0, updatedState.CollectedData["data"].(map[string]interface{})["count"])
+
+	// Add execution record
+	record := orchestration.ExecutionRecord{
+		Step:      "init",
+		Action:    "initialize",
+		StartTime: time.Now().Add(-1 * time.Minute),
+		EndTime:   timePtr(time.Now()),
+		Result:    "success",
+	}
+
+	err = repo.AddExecutionRecord(ctx, updatedState, record)
+	require.NoError(t, err)
+
+	// Verify execution record was added
+	finalState, err := repo.GetState(ctx, correlationID)
+	require.NoError(t, err)
+	assert.Len(t, finalState.ExecutionPath, 1)
+	assert.Equal(t, "init", finalState.ExecutionPath[0].Step)
+}
+
+// Helper function
+func timePtr(t time.Time) *time.Time {
+	return &t
 }

@@ -184,7 +184,7 @@ jobs:
       - name: Run tests
         run: |
           export DATABASE_URL=postgres://user:password@localhost:5432/testdb
-          export KAFKA_BROKERS=localhost:9092
+          export KAFKA_BROKERS="personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
           make test-all
       
       - name: Upload coverage

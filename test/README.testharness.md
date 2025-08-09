@@ -1,3 +1,14 @@
+# Run it from root and use -C test
+make -C test build-test-harness
+make -C test push-test-images
+kubectl delete job test-harness -n ai-persona-system
+make -C test harness-integration
+
+make harness-unit
+make harness-integration
+make harness-e2e
+make harness-performance
+
 # Build and push test harness image
 make harness-build
 
@@ -21,3 +32,4 @@ make harness-results
 
 # Clean up
 make harness-clean
+

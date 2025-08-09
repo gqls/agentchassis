@@ -79,7 +79,7 @@ func TestMultiAgentWorkflow(t *testing.T) {
 		},
 	}
 
-	correlationID := uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("integration")
 	headers := helpers.TestHeaders(correlationID)
 
 	// Add initial data for validation
@@ -194,7 +194,7 @@ func TestMultiAgentCoordination(t *testing.T) {
 		},
 	}
 
-	correlationID := uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("integration")
 	headers := helpers.TestHeaders(correlationID)
 
 	err := coordinator.ExecuteWorkflow(ctx, workflow, headers, nil)
@@ -243,7 +243,7 @@ func TestMultiAgentFailureHandling(t *testing.T) {
 		},
 	}
 
-	correlationID := uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("integration")
 	headers := helpers.TestHeaders(correlationID)
 
 	// Invalid data to trigger validation failure

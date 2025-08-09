@@ -84,7 +84,7 @@ spec:
 
             # Kafka configuration
             - name: KAFKA_BROKERS
-              value: "kafka-cluster-kafka-bootstrap.ai-persona-system.svc.cluster.local:9092"
+              value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
             - name: KAFKA_CONSUMER_GROUP
               value: "e2e-test-runner"
 

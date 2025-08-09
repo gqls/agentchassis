@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/test/unit/helpers"
@@ -43,7 +42,7 @@ func TestOrchestratorState(t *testing.T) {
 			ctx := context.Background()
 
 			// Generate a proper UUID for each test
-			correlationID := uuid.New().String()
+			correlationID := helpers.TestUUIDWithType("unit")
 			clientID := "test_client"
 
 			// Create initial state using the repository method
@@ -141,7 +140,7 @@ func TestAddExecutionRecord(t *testing.T) {
 
 	// Create initial state
 	plan := helpers.ValidWorkflow()
-	correlationID := uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("unit")
 
 	err := repo.CreateInitialState(ctx, correlationID, "test_client", plan, nil)
 	if err != nil {
@@ -195,7 +194,7 @@ func TestWorkflowMonitor(t *testing.T) {
 
 	plan := helpers.ValidWorkflow()
 	// Use a proper UUID instead of a string
-	correlationID := uuid.New().String()
+	correlationID := helpers.TestUUIDWithType("unit")
 	clientID := "test_client"
 
 	err := repo.CreateInitialState(ctx, correlationID, clientID, plan, nil)
