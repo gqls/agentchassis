@@ -1,4 +1,3 @@
-// test/fixtures/messages/content_request.json
 {
   "action": "generate_content",
   "data": {

@@ -1,4 +1,3 @@
-// test/fixtures/messages/reasoning_request.json
 {
   "action": "analyze",
   "data": {
