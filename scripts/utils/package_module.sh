@@ -119,6 +119,13 @@ ALL_COMPONENTS=(
     "tf-stack-kafka-cluster"
     "tf-stack-kafka-config"
 
+    # --- Testing Components ---
+    "test-unit"
+    "test-integration"
+    "test-e2e"
+    "test-tools"
+    "test-all"
+
 )
 
 # --- Main Functions ---
@@ -318,8 +325,10 @@ function show_help() {
   echo "    dev-local-env            # Local development environment"
   echo ""
   echo "  TESTING:"
+  echo "    test-unit                # Unit test code"
   echo "    test-integration         # Integration test code"
   echo "    test-e2e                 # End-to-end test code"
+  echo "    test-tools                 # Test tools"
   echo "    test-all                 # All test code"
 }
 
@@ -473,10 +482,12 @@ case "$COMPONENT_NAME" in
       "cmd/auth-service/" "internal/auth-service/"
       "deployments/kustomize/services/auth-service/"
       "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/core-platform/110-auth-service/"
+      "test/unit/auth/"
       "${SHARED_PLATFORM_CODE[@]}" "${SHARED_DEPLOYMENT_MODULES[@]}" "${SHARED_KUSTOMIZE_BASE[@]}"
     )
     MODULE_FILES=(
       "build/docker/backend/auth-service.dockerfile" "configs/auth-service.yaml"
+      "test/e2e/scenarios/auth_test.go"
       "${SHARED_ROOT_FILES[@]}"
     )
     ;;
@@ -929,18 +940,28 @@ case "$COMPONENT_NAME" in
     ;;
 
   # --- Testing ---
+  test-unit)
+    MODULE_DIRS=( "test/unit/" )
+    MODULE_FILES=( "go.mod" "Makefile" "scripts/run_unit_tests.sh" )
+    ;;
+
   test-integration)
-    MODULE_DIRS=( "tests/integration/" )
-    MODULE_FILES=( "go.mod" )
+    MODULE_DIRS=( "test/integration/" )
+    MODULE_FILES=( "go.mod" "Makefile" "scripts/run_integration_tests.sh" )
     ;;
 
   test-e2e)
-    MODULE_DIRS=( "tests/e2e/" )
-    MODULE_FILES=( "go.mod" )
+    MODULE_DIRS=( "test/e2e/" )
+    MODULE_FILES=( "go.mod" "Makefile" "scripts/run_e2e_tests.sh" "docker/test-harness.dockerfile" )
+    ;;
+
+  test-tools)
+    MODULE_DIRS=( "test/tools/" "test/scripts/" )
+    MODULE_FILES=( "Makefile" )
     ;;
 
   test-all)
-    MODULE_DIRS=( "tests/" )
+    MODULE_DIRS=( "test/" "scripts/" "docker/" "k8s/" "migrations/" "fixtures/" )
     MODULE_FILES=( "go.mod" "Makefile" )
     ;;
 

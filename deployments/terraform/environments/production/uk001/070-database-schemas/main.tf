@@ -54,8 +54,16 @@ data "local_file" "initial_website_builder_group_sql" {
   filename = "${path.module}/../../../../../../platform/database/migrations/007_initial_website_builder_group.sql"
 }
 
-data "local_file" "discovery_functions_sql" {
-  filename = "${path.module}/../../../../../../platform/database/migrations/008_discovery_functions.sql"
+data "local_file" "add_discovery_functions_sql" {
+  filename = "${path.module}/../../../../../../platform/database/migrations/008_add_discovery_functions.sql"
+}
+
+data "local_file" "client_schema_additions_sql" {
+  filename = "${path.module}/../../../../../../platform/database/migrations/060_client_schema_additions.sql"
+}
+
+data "local_file" "clientsdb_content_creator_agent_definition_with_memory_sql" {
+  filename = "${path.module}/../../../../../../platform/database/migrations/080_clientsdb_content_creator_agent_definition_with_memory.sql"
 }
 
 # Auth database migrations
@@ -63,13 +71,13 @@ data "local_file" "auth_schema_sql" {
   filename = "${path.module}/../../../../../../platform/database/migrations/100_auth_schema.sql"
 }
 
-data "local_file" "auth_projects_sql" {
-  filename = "${path.module}/../../../../../../platform/database/migrations/101_auth_projects.sql"
+data "local_file" "projects_schema_sql" {
+  filename = "${path.module}/../../../../../../platform/database/migrations/101_projects_schema.sql"
 }
 
 # Templates database migrations
-data "local_file" "templates_schema_sql" {
-  filename = "${path.module}/../../../../../../platform/database/migrations/200_templates_schema.sql"
+data "local_file" "create_templates_schema_sql" {
+  filename = "${path.module}/../../../../../../platform/database/migrations/200_create_templates_schema.sql"
 }
 
 # Create ConfigMap for PostgreSQL migrations
@@ -88,10 +96,12 @@ resource "kubernetes_config_map" "postgres_sql_migrations" {
     "005_website_builder_agents.sql"         = data.local_file.website_builder_agents_sql.content
     "006_client_schema.sql"                  = data.local_file.client_schema_sql.content
     "007_initial_website_builder_group.sql"  = data.local_file.initial_website_builder_group_sql.content
-    "008_discovery_functions.sql"            = data.local_file.discovery_functions_sql.content
+    "008_add_discovery_functions.sql"        = data.local_file.add_discovery_functions_sql.content
+    "060_client_schema_additions.sql"        = data.local_file.client_schema_additions_sql.content
+    "080_clientsdb_content_creator_agent_definition_with_memory.sql"        = data.local_file.clientsdb_content_creator_agent_definition_with_memory_sql.content
 
     # Templates migrations
-    "200_templates_schema.sql"               = data.local_file.templates_schema_sql.content
+    "200_create_templates_schema.sql"               = data.local_file.create_templates_schema_sql.content
   }
 }
 
@@ -104,7 +114,7 @@ resource "kubernetes_config_map" "mysql_sql_migrations" {
 
   data = {
     "100_auth_schema.sql"    = data.local_file.auth_schema_sql.content
-    "101_auth_projects.sql"  = data.local_file.auth_projects_sql.content
+    "101_projects_schema.sql"  = data.local_file.projects_schema_sql.content
   }
 }
 

@@ -1,0 +1,160 @@
+cd ~/projects/agent-chassis/test/k8s/pods
+kubectl apply -f kafka-test-pod.yaml
+
+kubectl exec -it kafka-test-pod -n ai-persona-system -- /bin/bash
+produce-message system.agent.generic.process '{"action":"spawn_group","data":{"group_type":"website-builder"}}'
+
+./bin/tools/db-inspector -db="<your-db-connection-string>" -correlation="<the-new-correlation-id>" -watch
+kubectl logs -f deployment/reasoning-agent -n ai-persona-system
+kubectl logs -f deployment/core-manager -n ai-persona-system
+
+--
+
+Quick Guide: Running the Website Build
+
+This guide covers the core concept and the three essential commands to start the workflow from within your Kubernetes cluster.
+
+What's Happening (The Concept)
+
+Your agent pods (e.g., content-creator-agent) act as generic engines waiting for work. The command below doesn't create new pods; instead, it creates a new
+
+task in the database by spawning an "agent group". An available engine then picks up this task and executes the specific workflow.
+
+How to Run It (The Commands)
+
+    Get a Shell in the Kafka Pod This command places you inside the cluster, ready to send the message.
+    Bash
+
+kubectl exec -it kafka-test-pod -n ai-persona-system -- /bin/bash
+
+Send the 'Spawn Group' Message Run the following command inside the pod's shell. This tells an agent to create the
+
+website-builder team and start the workflow .
+
+Bash
+
+produce-message system.agent.generic.process '{"action":"spawn_group","data":{"group_type":"website-builder"}}'
+
+Exit and Watch Type exit to leave the pod. You can then use your local
+
+db-inspector tool to watch the workflow progress in real-time.
+
+--
+
+
+Use your db-inspector tool. The -watch flag is perfect for seeing progress in real-time.
+
+Command:
+Bash
+
+    # You'll need to find the new correlation ID from the producer output first
+    ./bin/tools/db-inspector -db="<your-db-connection-string>" -correlation="<the-new-correlation-id>" -watch
+
+Check the Logs of the Failing Agent: If the workflow gets stuck on a step (e.g., architect_site), the issue is likely with the corresponding agent (site-architect).
+
+    How: Find the agent's deployment name and stream its logs.
+
+    Command:
+    Bash
+
+# The agent name is in the DB, e.g., 'site-architect'
+# The deployment name is often similar, e.g., 'site-architect-deployment-xyz'
+kubectl logs -f deployment/reasoning-agent -n ai-persona-system
+
+
+--
+
+Step-by-Step Guide to Your First Website Build 🚀
+
+Running the website builder is the perfect way to see the whole system collaborate. It's a fantastic example of a complex task being broken down and executed by a specialized team of agents.
+
+Based on my analysis of your code, here’s a step-by-step guide to how it works and how you can run it.
+
+High-Level Overview
+
+The process begins when a request is made to spawn an agent group of type website-builder. An orchestrator agent takes over and directs a team of specialized agents to perform the necessary tasks: planning the site structure, designing visuals, developing the code, and finally publishing the result.
+
+Step 1: The Trigger - Spawning the Team
+
+Everything starts with a spawn_group action for the website-builder group type. This is the starting pistol for the entire operation.
+
+    What happens? The SagaCoordinator receives this request and looks up the website-builder definition in the agent_groups table of your database.
+
+    Key Files:
+
+        platform/orchestration/actions/spawn_actions.go: Contains the SpawnGroupAction logic.
+
+        platform/database/migrations/007_initial_website_builder_group.sql: Defines the initial team composition and workflow.
+
+Step 2: The Orchestrator Takes Charge
+
+Once the group is spawned, the website-builder agent itself acts as the orchestrator. It follows a predefined workflow to manage the project from start to finish.
+
+    What happens? The orchestrator follows the orchestration_workflow defined for its group. It calls other agents in a specific sequence to build the website.
+
+    The Workflow Plan:
+
+        analyze_domain: Calls the domain-analyst agent to research the business type.
+
+        architect_site: Calls the site-architect to plan the website's structure and pages.
+
+        gather_content: A fan_out step that runs two agents in parallel: the content-researcher (a content-creator agent) and the visual-designer to gather text and images.
+
+        develop_site: Calls the html-developer to write the actual HTML, CSS, and JS code.
+
+        publish_site: Calls the site-publisher to deploy the finished website.
+
+    Key File: platform/database/migrations/005_website_builder_agents.sql is crucial as it defines the entire orchestration logic and the capabilities of each agent involved.
+
+Step 3: The Specialist Agents Do the Work
+
+Each agent in the group has its own specialized workflow.
+
+    What happens? The orchestrator sends tasks to specific Kafka topics, and the corresponding agents pick them up.
+
+        The domain-analyst uses the web-search adapter to research the industry.
+
+        The site-architect pauses for human approval after creating the site structure, showing how you've integrated human-in-the-loop actions.
+
+        The visual-designer calls the image-generator adapter to create a logo and other visuals.
+
+        The html-developer uses a fan_out to generate code for multiple pages in parallel.
+
+    Key Files:
+
+        internal/agents/*: The implementation for each agent type resides here.
+
+        internal/adapters/*: The logic for external-facing agents like web search and image generation.
+
+How to Run Your First Website Build
+
+The easiest way to trigger this entire process is to send a Kafka message that kicks off the workflow. You have a handy tool for this in tools/kafka-producer/send_test_message.go.
+
+Step-by-Step Command Guide:
+
+    Ensure your services are running, especially the core-manager and all the necessary agents (domain-analyst, site-architect, etc.).
+
+    Build the Kafka producer tool (if you haven't already):
+
+    go build -o ./bin/tools/kafka-producer ./tools/kafka-producer/send_test_message.go
+
+Craft the initial message. The workflow starts by spawning the website-builder group. We'll send a message to a generic agent whose job is to kick off this process.
+
+Send the Kafka Message:
+Execute the following command from your project root. This command sends a message to the system.agent.generic.process topic, which will be picked up by a generic agent that then executes the spawn_group action.
+
+./bin/tools/kafka-producer \
+  -agent="generic" \
+  -payload='{
+    "action": "spawn_group",
+    "data": {
+      "group_type": "website-builder"
+    }
+  }' \
+  -wait
+
+
+After running this, you can use your database inspection tool (tools/db-inspector/check_state.go) to watch the orchestrator_state table and see the workflow progress from step to step!
+
+------------
+

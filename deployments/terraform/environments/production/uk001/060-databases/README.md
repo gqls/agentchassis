@@ -1,3 +1,6 @@
+this creates the actual databases, probably don't need to rerun this often if at all
+
+
 kubectl get all -n ai-persona-system
 
 kubectl get pvc -n ai-persona-system
@@ -11,6 +14,24 @@ kubectl describe pod postgres-templates-0 -n ai-persona-system
 # whitelist rackspace ip
 # Get your cluster nodes' external IPs
 kubectl get nodes -o wide
+--
+
+mysql is in Clook catalogues.
+mysql -ucatalogu_personae -p -hrs17.uk-noc.com catalogu_vectordbdev
+external_mysql_password = "agent-chassis123!"
+# be careful B E  C A R E F U L
+DROP TABLE auth_tokens;
+DROP TABLE auth_tokens;
+DROP TABLE projects;
+DROP TABLE subscriptions;
+DROP TABLE subscription_tiers;
+DROP TABLE user_profiles;
+DROP TABLE user_permissions;
+DROP TABLE permissions;
+DROP TABLE users;
+DROP TABLE users;
+
+
 
 --
 

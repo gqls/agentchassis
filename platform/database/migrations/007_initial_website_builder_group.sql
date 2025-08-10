@@ -23,4 +23,5 @@ INSERT INTO agent_groups (
              ]'::jsonb,
              '{"entry_point": "website-builder"}'::jsonb,
              '["website-creation", "html", "css", "design", "publishing"]'::jsonb
-         );
+         )
+    ON CONFLICT (id) DO NOTHING;;

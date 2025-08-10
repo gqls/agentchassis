@@ -1,0 +1,23 @@
+The results of the website build are stored in two key locations: your PostgreSQL database for metadata and workflow state, and an S3-compatible object storage for the actual website files.
+
+1. Orchestration Database (PostgreSQL)
+
+This is where the "paper trail" and final summary of the workflow live.
+
+    Final Workflow State: The entire history and all collected data from every step are saved in the orchestrator_state table. The final, consolidated result is stored in the
+
+    final_result column as a JSON object.
+
+Website Metadata: A dedicated table, website_projects, is created within your client's schema to store high-level information about the build, including the final URLs for the preview and live sites .
+
+2. Object Storage (S3-Compatible)
+
+This is where the tangible output—the website itself—is stored.
+
+    Website Files: The final agent in the workflow, the site-publisher, is explicitly designed to publish the website to a storage bucket. Its workflow includes an
+
+s3_upload action to upload the generated HTML, CSS, and image files.
+
+Generated Assets: Any images or logos created during the process are also uploaded to object storage. The workflow result will contain a URI (a link) to this asset rather than the image data itself.
+
+In summary, the database holds the record of what happened and the links to the final product, while the object storage holds the actual product itself. 📦
