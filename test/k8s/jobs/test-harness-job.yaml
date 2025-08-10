@@ -1,61 +1,42 @@
-# test/k8s/jobs/test-harness-job-no-pvc.yaml
+# test/k8s/jobs/test-harness-job.yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: test-harness
   namespace: ai-persona-system
-  labels:
-    app: test-harness
-    component: testing
 spec:
-  backoffLimit: 3
-  activeDeadlineSeconds: 7200  # 2 hours
+  backoffLimit: 0
   template:
     metadata:
       labels:
         app: test-harness
-        component: testing
     spec:
-      serviceAccountName: test-runner
       restartPolicy: Never
       imagePullSecrets:
         - name: docker-hub-creds
-
       initContainers:
-        # Wait for dependencies
         - name: wait-for-deps
           image: busybox:1.35
-          command:
-            - sh
-            - -c
+          command: ['sh', '-c']
+          args:
             - |
               echo "Waiting for dependencies..."
               until nc -z postgres-clients 5432; do
                 echo "Waiting for PostgreSQL..."
                 sleep 2
               done
-              until nc -z personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local 9092; do
-                echo "Waiting for Kafka..."
-                sleep 2
-              done
-              echo "Dependencies ready!"
-
+              echo "PostgreSQL is ready"
       containers:
         - name: test-harness
-          image: $(REGISTRY)/test-harness:$(IMAGE_TAG)
-          imagePullPolicy: Always
-          args: ["$(TEST_COMMAND)"]
-
+          image: docker.io/aqls/test-harness:latest
+          # NO ARGS - the CMD in Dockerfile will run
           env:
-            # Test configuration
             - name: TEST_SUITE
-              value: "$(TEST_SUITE)"
+              value: "e2e"  # This will be replaced by sed
             - name: NAMESPACE
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-
-            # Database configuration
             - name: DB_HOST
               value: "postgres-clients"
             - name: DB_PORT
@@ -69,43 +50,21 @@ spec:
                 secretKeyRef:
                   name: personae-platform-secrets
                   key: CLIENTS_DB_PASSWORD
-
-            # Kafka configuration
             - name: KAFKA_BROKERS
               value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
-            - name: KAFKA_CONSUMER_GROUP
-              value: "test-harness"
-
-            # Test specific
             - name: CLIENT_ID
               value: "demo_client"
-            - name: TEST_USER_ID
-              value: "test_user"
-            - name: LOG_LEVEL
-              value: "debug"
-
-            # API Keys
-            - name: ANTHROPIC_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: personae-platform-secrets
-                  key: ANTHROPIC_API_KEY
-                  optional: true
-
           resources:
-            requests:
-              memory: "1Gi"
-              cpu: "1"
             limits:
               memory: "4Gi"
               cpu: "4"
-
+            requests:
+              memory: "1Gi"
+              cpu: "1"
           volumeMounts:
             - name: test-results
               mountPath: /results
-
       volumes:
-        # Use emptyDir for test results only
         - name: test-results
           emptyDir: {}
 

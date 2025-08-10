@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS agent_groups (
     group_type VARCHAR(100) NOT NULL,
     version VARCHAR(20) DEFAULT '1.0.0',
     parent_id UUID,
+    version VARCHAR(20) DEFAULT '1.0.0',
     agent_configs JSONB NOT NULL,
     orchestration_workflow JSONB NOT NULL,
     capabilities JSONB DEFAULT '[]',

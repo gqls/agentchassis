@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"testing"
 	"time"
 
@@ -15,269 +16,389 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/test/unit/helpers"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
-// TestMain allows us to add setup/teardown and better logging
+// Global test tracking
+var (
+	testsRun     []string
+	testsFailed  []string
+	testsSkipped []string
+	testsPassed  []string
+)
+
+// TestMain provides detailed logging and panic recovery
 func TestMain(m *testing.M) {
 	fmt.Println("=== E2E TEST SUITE STARTING ===")
 	fmt.Printf("Time: %s\n", time.Now().Format(time.RFC3339))
+	fmt.Printf("Process ID: %d\n", os.Getpid())
+
+	// Set up panic recovery
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("\n!!! PANIC DETECTED IN TEST SUITE !!!\n")
+			fmt.Printf("Panic: %v\n", r)
+			fmt.Printf("Stack trace:\n%s\n", debug.Stack())
+			os.Exit(2)
+		}
+	}()
 
 	// Run tests
+	fmt.Println("\n>>> RUNNING TESTS...")
 	code := m.Run()
 
-	fmt.Println("=== E2E TEST SUITE COMPLETED ===")
+	// Print summary
+	fmt.Println("\n=== TEST EXECUTION SUMMARY ===")
+	fmt.Printf("Tests Run: %d\n", len(testsRun))
+	fmt.Printf("Tests Passed: %d\n", len(testsPassed))
+	fmt.Printf("Tests Failed: %d\n", len(testsFailed))
+	fmt.Printf("Tests Skipped: %d\n", len(testsSkipped))
+
+	if len(testsFailed) > 0 {
+		fmt.Println("\nFailed Tests:")
+		for _, name := range testsFailed {
+			fmt.Printf("  ✗ %s\n", name)
+		}
+	}
+
+	if len(testsPassed) > 0 {
+		fmt.Println("\nPassed Tests:")
+		for _, name := range testsPassed {
+			fmt.Printf("  ✓ %s\n", name)
+		}
+	}
+
+	fmt.Println("\n=== E2E TEST SUITE COMPLETED ===")
 	fmt.Printf("Exit code: %d\n", code)
 	if code != 0 {
 		fmt.Println("FAILURE DETECTED")
+	} else {
+		fmt.Println("SUCCESS")
 	}
 
-	// Exit with the code
 	os.Exit(code)
 }
 
-func TestWebsiteBuilderWorkflow(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping E2E test in short mode")
-	}
+// testWrapper provides logging and panic recovery for individual tests
+func testWrapper(t *testing.T, testName string, testFunc func(*testing.T)) {
+	testsRun = append(testsRun, testName)
 
-	t.Log("Starting TestWebsiteBuilderWorkflow")
+	fmt.Printf("\n>>> STARTING TEST: %s at %s\n", testName, time.Now().Format("15:04:05.000"))
 
-	ctx := context.Background()
-
-	// Setup with error checking
-	t.Log("Setting up test database...")
-	db := setupTestDB(t)
-	if db == nil {
-		t.Fatal("Failed to setup test database")
-	}
+	// Set up panic recovery for this test
 	defer func() {
-		t.Log("Closing database connection")
-		db.Close()
+		if r := recover(); r != nil {
+			t.Errorf("PANIC in %s: %v\nStack: %s", testName, r, debug.Stack())
+			testsFailed = append(testsFailed, testName)
+			fmt.Printf(">>> TEST FAILED (PANIC): %s\n", testName)
+		}
 	}()
 
-	t.Log("Setting up test producer...")
-	producer := setupTestProducer(t)
-	if producer == nil {
-		t.Fatal("Failed to setup test producer")
-	}
+	// Track test outcome
+	defer func() {
+		if t.Failed() {
+			testsFailed = append(testsFailed, testName)
+			fmt.Printf(">>> TEST FAILED: %s at %s\n", testName, time.Now().Format("15:04:05.000"))
+		} else if t.Skipped() {
+			testsSkipped = append(testsSkipped, testName)
+			fmt.Printf(">>> TEST SKIPPED: %s\n", testName)
+		} else {
+			testsPassed = append(testsPassed, testName)
+			fmt.Printf(">>> TEST PASSED: %s at %s\n", testName, time.Now().Format("15:04:05.000"))
+		}
+	}()
 
-	logger := zap.NewNop()
+	// Run the actual test
+	testFunc(t)
+}
 
-	t.Log("Creating saga coordinator...")
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
-
-	// Setup website builder group in database
-	t.Log("Setting up website builder group...")
-	setupWebsiteBuilderGroup(t, db)
-
-	// Create website builder workflow using available actions
-	workflow := models.WorkflowPlan{
-		StartStep: "validate_request",
-		Steps: map[string]models.Step{
-			"validate_request": {
-				Action:      "validate_input",
-				Description: "Validate website requirements",
-				NextStep:    "spawn_builders",
-			},
-			"spawn_builders": {
-				Action: "spawn_group",
-				Config: map[string]interface{}{
-					"group_type": "website-builder",
-				},
-				NextStep: "plan_site",
-			},
-			"plan_site": {
-				Action: "call_agent",
-				Config: map[string]interface{}{
-					"agent_type": "site-architect",
-					"action":     "create_site_plan",
-					"data": map[string]interface{}{
-						"domain":        "test-site.com",
-						"business_name": "Test Business",
-						"requirements":  []string{"responsive", "modern", "fast"},
-					},
-				},
-				NextStep: "transform_plan",
-			},
-			"transform_plan": {
-				Action: "transform_data",
-				Config: map[string]interface{}{
-					"transformation": "uppercase",
-				},
-				NextStep: "notify",
-			},
-			"notify": {
-				Action: "send_notification",
-				Config: map[string]interface{}{
-					"topic": "system.responses.website",
-				},
-				NextStep: "complete",
-			},
-			"complete": {
-				Action: "complete_workflow",
-			},
-		},
-	}
-
-	correlationID := helpers.TestUUIDWithType("e2e")
-	headers := helpers.TestHeaders(correlationID)
-
-	initialData, _ := json.Marshal(map[string]interface{}{
-		"action": "build_website",
-		"data": map[string]interface{}{
-			"message":       "Build a website",
-			"business_name": "Test Business",
-			"domain":        "test-site.com",
-		},
-	})
-
-	// Execute workflow
-	t.Logf("Executing workflow with correlation ID: %s", correlationID)
-	err := coordinator.ExecuteWorkflow(ctx, workflow, headers, initialData)
-	if err != nil {
-		t.Logf("ExecuteWorkflow returned error: %v", err)
-	}
-	require.NoError(t, err)
-
-	// Check initial state
-	t.Log("Getting workflow state...")
-	repo := orchestration.NewStateRepository(db, logger)
-	state, err := repo.GetState(ctx, correlationID)
-
-	if err != nil {
-		t.Fatalf("Failed to get workflow state: %v", err)
-	}
-
-	assert.NotNil(t, state)
-	assert.Equal(t, correlationID, state.CorrelationID)
-
-	// Check workflow is progressing
-	assert.NotEqual(t, "", state.CurrentStep)
-	t.Logf("Workflow state - Step: %s, Status: %s", state.CurrentStep, state.Status)
-
-	// For workflows with remote calls, status will be AWAITING_RESPONSES
-	// For local-only workflows, might be RUNNING or COMPLETED
-	validStatuses := []string{
-		string(orchestration.StatusRunning),
-		string(orchestration.StatusAwaitingResponses),
-		string(orchestration.StatusCompleted),
-	}
-	assert.Contains(t, validStatuses, string(state.Status))
-
-	// If workflow has remote actions, simulate responses
-	if state.Status == orchestration.StatusAwaitingResponses {
-		t.Logf("Simulating responses for %d awaited steps", len(state.AwaitedSteps))
-		// Simulate agent responses
-		for _, awaitedStep := range state.AwaitedSteps {
-			// TaskResponse doesn't have Status field, put status in Data
-			response := models.TaskResponse{
-				Data: map[string]interface{}{
-					"status":    "success",
-					"site_plan": "Generated site plan",
-					"result":    "success",
-				},
-				Error: "", // No error for successful response
-			}
-
-			responseData, _ := json.Marshal(response)
-			responseHeaders := make(map[string]string)
-			for k, v := range headers {
-				responseHeaders[k] = v
-			}
-			responseHeaders["causation_id"] = awaitedStep
-
-			err = coordinator.HandleResponse(ctx, responseHeaders, responseData)
-			assert.NoError(t, err)
+func TestWebsiteBuilderWorkflow(t *testing.T) {
+	testWrapper(t, "TestWebsiteBuilderWorkflow", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("Skipping E2E test in short mode")
+			return
 		}
 
-		// Check state after responses
-		time.Sleep(100 * time.Millisecond)
-		state, _ = repo.GetState(ctx, correlationID)
-		t.Logf("State after responses: %s", state.Status)
-	}
+		t.Log("Step 1: Setting up test environment")
+		ctx := context.Background()
 
-	t.Log("TestWebsiteBuilderWorkflow completed successfully")
+		// Setup with detailed error checking
+		t.Log("Step 1.1: Setting up test database...")
+		db := setupTestDB(t)
+		if db == nil {
+			t.Fatal("Failed to setup test database - db is nil")
+			return
+		}
+		defer func() {
+			t.Log("Cleanup: Closing database connection")
+			if err := db.Close(); err != nil {
+				t.Logf("Warning: Error closing database: %v", err)
+			}
+		}()
+
+		// Test database connection
+		if err := db.Ping(); err != nil {
+			t.Fatalf("Database ping failed: %v", err)
+			return
+		}
+		t.Log("Step 1.2: Database connection verified")
+
+		t.Log("Step 1.3: Setting up test producer...")
+		producer := setupTestProducer(t)
+		if producer == nil {
+			t.Fatal("Failed to setup test producer - producer is nil")
+			return
+		}
+
+		logger := zap.NewNop()
+
+		t.Log("Step 1.4: Creating saga coordinator...")
+		coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+		if coordinator == nil {
+			t.Fatal("Failed to create saga coordinator - coordinator is nil")
+			return
+		}
+
+		// Setup website builder group in database
+		t.Log("Step 2: Setting up website builder group...")
+		setupWebsiteBuilderGroup(t, db)
+
+		// Create website builder workflow
+		t.Log("Step 3: Creating workflow plan...")
+		workflow := models.WorkflowPlan{
+			StartStep: "validate_request",
+			Steps: map[string]models.Step{
+				"validate_request": {
+					Action:      "validate_input",
+					Description: "Validate website requirements",
+					NextStep:    "spawn_builders",
+				},
+				"spawn_builders": {
+					Action: "spawn_group",
+					Config: map[string]interface{}{
+						"group_type": "website-builder",
+					},
+					NextStep: "plan_site",
+				},
+				"plan_site": {
+					Action: "call_agent",
+					Config: map[string]interface{}{
+						"agent_type": "site-architect",
+						"action":     "create_site_plan",
+						"data": map[string]interface{}{
+							"domain":        "test-site.com",
+							"business_name": "Test Business",
+							"requirements":  []string{"responsive", "modern", "fast"},
+						},
+					},
+					NextStep: "transform_plan",
+				},
+				"transform_plan": {
+					Action: "transform_data",
+					Config: map[string]interface{}{
+						"transformation": "uppercase",
+					},
+					NextStep: "notify",
+				},
+				"notify": {
+					Action: "send_notification",
+					Config: map[string]interface{}{
+						"topic": "system.responses.website",
+					},
+					NextStep: "complete",
+				},
+				"complete": {
+					Action: "complete_workflow",
+				},
+			},
+		}
+
+		correlationID := helpers.TestUUIDWithType("e2e")
+		t.Logf("Step 4: Generated correlation ID: %s", correlationID)
+
+		headers := helpers.TestHeaders(correlationID)
+		t.Logf("Step 5: Created headers with %d entries", len(headers))
+
+		initialData, err := json.Marshal(map[string]interface{}{
+			"action": "build_website",
+			"data": map[string]interface{}{
+				"message":       "Build a website",
+				"business_name": "Test Business",
+				"domain":        "test-site.com",
+			},
+		})
+		if err != nil {
+			t.Fatalf("Failed to marshal initial data: %v", err)
+			return
+		}
+
+		// Execute workflow
+		t.Log("Step 6: Executing workflow...")
+		err = coordinator.ExecuteWorkflow(ctx, workflow, headers, initialData)
+		if err != nil {
+			t.Fatalf("ExecuteWorkflow failed: %v", err)
+			return
+		}
+		t.Log("Step 6.1: Workflow execution initiated successfully")
+
+		// Check initial state
+		t.Log("Step 7: Getting workflow state...")
+		repo := orchestration.NewStateRepository(db, logger)
+		if repo == nil {
+			t.Fatal("Failed to create state repository")
+			return
+		}
+
+		state, err := repo.GetState(ctx, correlationID)
+		if err != nil {
+			t.Fatalf("Failed to get workflow state: %v", err)
+			return
+		}
+
+		if state == nil {
+			t.Fatal("State is nil after GetState")
+			return
+		}
+
+		t.Logf("Step 7.1: Got state - Step: %s, Status: %s", state.CurrentStep, state.Status)
+
+		assert.Equal(t, correlationID, state.CorrelationID)
+		assert.NotEqual(t, "", state.CurrentStep)
+
+		// Check workflow status
+		validStatuses := []string{
+			string(orchestration.StatusRunning),
+			string(orchestration.StatusAwaitingResponses),
+			string(orchestration.StatusCompleted),
+		}
+
+		if !assert.Contains(t, validStatuses, string(state.Status)) {
+			t.Fatalf("Invalid status: %s", state.Status)
+			return
+		}
+
+		// Handle remote actions if needed
+		if state.Status == orchestration.StatusAwaitingResponses {
+			t.Logf("Step 8: Handling %d awaited responses...", len(state.AwaitedSteps))
+
+			for i, awaitedStep := range state.AwaitedSteps {
+				t.Logf("Step 8.%d: Simulating response for step: %s", i+1, awaitedStep)
+
+				response := models.TaskResponse{
+					Data: map[string]interface{}{
+						"status":    "success",
+						"site_plan": "Generated site plan",
+						"result":    "success",
+					},
+					Error: "",
+				}
+
+				responseData, _ := json.Marshal(response)
+				responseHeaders := make(map[string]string)
+				for k, v := range headers {
+					responseHeaders[k] = v
+				}
+				responseHeaders["causation_id"] = awaitedStep
+
+				err = coordinator.HandleResponse(ctx, responseHeaders, responseData)
+				if err != nil {
+					t.Errorf("Failed to handle response for step %s: %v", awaitedStep, err)
+				}
+			}
+
+			// Check state after responses
+			time.Sleep(100 * time.Millisecond)
+			state, _ = repo.GetState(ctx, correlationID)
+			t.Logf("Step 9: Final state after responses: %s", state.Status)
+		}
+
+		t.Log("Step 10: Test completed successfully")
+	})
 }
 
 func TestWebsiteBuilderWithErrors(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping E2E test in short mode")
-	}
+	testWrapper(t, "TestWebsiteBuilderWithErrors", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("Skipping E2E test in short mode")
+			return
+		}
 
-	t.Log("Starting TestWebsiteBuilderWithErrors")
+		t.Log("Starting error handling tests")
 
-	ctx := context.Background()
-	db := setupTestDB(t)
-	defer db.Close()
+		ctx := context.Background()
 
-	producer := setupTestProducer(t)
-	logger := zap.NewNop()
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+		db := setupTestDB(t)
+		if db == nil {
+			t.Fatal("Failed to setup test database")
+			return
+		}
+		defer db.Close()
 
-	tests := []struct {
-		name          string
-		invalidData   map[string]interface{}
-		expectedError string
-	}{
-		{
-			name: "Missing message field",
-			invalidData: map[string]interface{}{
-				"action": "build",
-				"data": map[string]interface{}{
-					// message field missing
-					"domain": "test.com",
-				},
-			},
-			expectedError: "missing required field: message",
-		},
-		{
-			name: "Invalid JSON",
-			invalidData: map[string]interface{}{
-				"invalid": "json_structure",
-			},
-			expectedError: "invalid",
-		},
-	}
+		producer := setupTestProducer(t)
+		logger := zap.NewNop()
+		coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			workflow := models.WorkflowPlan{
-				StartStep: "validate",
-				Steps: map[string]models.Step{
-					"validate": {
-						Action:   "validate_input",
-						NextStep: "complete",
-					},
-					"complete": {
-						Action: "complete_workflow",
+		tests := []struct {
+			name          string
+			invalidData   map[string]interface{}
+			expectedError string
+		}{
+			{
+				name: "Missing message field",
+				invalidData: map[string]interface{}{
+					"action": "build",
+					"data": map[string]interface{}{
+						"domain": "test.com",
 					},
 				},
-			}
+				expectedError: "missing required field: message",
+			},
+			{
+				name: "Invalid JSON",
+				invalidData: map[string]interface{}{
+					"invalid": "json_structure",
+				},
+				expectedError: "invalid",
+			},
+		}
 
-			correlationID := helpers.TestUUIDWithType("e2e")
-			headers := helpers.TestHeaders(correlationID)
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Logf("Running subtest: %s", tt.name)
 
-			initialData, _ := json.Marshal(tt.invalidData)
-
-			_ = coordinator.ExecuteWorkflow(ctx, workflow, headers, initialData)
-
-			// The workflow will be created but validation will fail
-			// Check the state to see if it failed
-			repo := orchestration.NewStateRepository(db, logger)
-			state, stateErr := repo.GetState(ctx, correlationID)
-
-			if stateErr == nil && state != nil {
-				// If workflow failed, check the error
-				if state.Status == orchestration.StatusFailed {
-					assert.Contains(t, state.Error, tt.expectedError)
+				workflow := models.WorkflowPlan{
+					StartStep: "validate",
+					Steps: map[string]models.Step{
+						"validate": {
+							Action:   "validate_input",
+							NextStep: "complete",
+						},
+						"complete": {
+							Action: "complete_workflow",
+						},
+					},
 				}
-			}
-		})
-	}
 
-	t.Log("TestWebsiteBuilderWithErrors completed successfully")
+				correlationID := helpers.TestUUIDWithType("e2e")
+				headers := helpers.TestHeaders(correlationID)
+				initialData, _ := json.Marshal(tt.invalidData)
+
+				_ = coordinator.ExecuteWorkflow(ctx, workflow, headers, initialData)
+
+				repo := orchestration.NewStateRepository(db, logger)
+				state, stateErr := repo.GetState(ctx, correlationID)
+
+				if stateErr == nil && state != nil {
+					if state.Status == orchestration.StatusFailed {
+						assert.Contains(t, state.Error, tt.expectedError)
+						t.Logf("Correctly caught error: %s", state.Error)
+					}
+				}
+			})
+		}
+
+		t.Log("Error handling tests completed")
+	})
 }
 
 func setupWebsiteBuilderGroup(t *testing.T, db *sql.DB) {

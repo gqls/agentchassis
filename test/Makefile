@@ -245,14 +245,19 @@ harness-deploy: build-test-harness push-test-images ## Deploy test harness to Ku
 	@echo "$(GREEN)✓ Test harness deployed$(NC)"
 
 .PHONY: harness-run
-harness-run: build-test-harness push-test-images ## Run tests in Kubernetes
+harness-run: build-test-harness push-test-images
 	@echo "$(YELLOW)Running tests in Kubernetes...$(NC)"
 	@kubectl delete job test-harness -n ai-persona-system --ignore-not-found
-	@sed 's|$$(REGISTRY)|$(REGISTRY)|g; s|$$(IMAGE_TAG)|$(IMAGE_TAG)|g; s|$$(TEST_SUITE)|$(TEST_SUITE)|g; s|$$(TEST_COMMAND)|test|g' \
-		k8s/jobs/test-harness-job.yaml | kubectl apply -f -
+	# Create a temporary file with substitutions
+	@cat k8s/jobs/test-harness-job.yaml | \
+		sed "s|docker.io/aqls/test-harness:latest|$(REGISTRY)/test-harness:$(IMAGE_TAG)|g" | \
+		sed "s|value: \"e2e\"|value: \"$(TEST_SUITE)\"|g" | \
+		kubectl apply -f -
 	@echo "Waiting for test job to complete..."
-	@kubectl wait --for=condition=complete job/test-harness -n ai-persona-system --timeout=1h || \
+	@kubectl wait --for=condition=complete job/test-harness -n ai-persona-system --timeout=5m || \
 		(kubectl logs job/test-harness -n ai-persona-system && exit 1)
+
+
 
 .PHONY: harness-shell
 harness-shell: build-test-harness push-test-images ## Open shell in test harness pod
@@ -294,7 +299,7 @@ harness-integration: ## Run integration tests in Kubernetes
 	@TEST_SUITE=integration $(MAKE) harness-run
 
 .PHONY: harness-e2e
-harness-e2e: ## Run E2E tests in Kubernetes
+harness-e2e:
 	@TEST_SUITE=e2e $(MAKE) harness-run
 
 .PHONY: harness-performance

@@ -13,29 +13,19 @@ RUN apk add --no-cache \
 
 WORKDIR /workspace
 
-# Copy go.mod and go.sum
+# Copy the ENTIRE project
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy ONLY the directories we need for tests
-# This prevents accidentally including unwanted directories
-COPY cmd ./cmd
-COPY internal ./internal
-COPY pkg ./pkg
-COPY platform ./platform
-COPY test ./test
-COPY configs ./configs
-
-# Verify we have the right structure (no 'tests' directory)
-RUN ls -la /workspace && \
-    echo "Directories present:" && \
-    ls -d */ | grep -E "(test|tests)" || echo "Only 'test' directory present (good!)"
+# Copy ALL source code
+COPY . .
 
 # Verify the module structure
-RUN echo "Go module:" && \
+RUN ls -la /workspace && \
+    echo "Go module:" && \
     go list -m && \
-    echo "Test packages:" && \
-    go list ./test/...
+    echo "Available packages:" && \
+    go list ./...
 
 # Install Go testing tools
 RUN go install github.com/onsi/ginkgo/v2/ginkgo@latest && \
@@ -45,40 +35,46 @@ RUN go install github.com/onsi/ginkgo/v2/ginkgo@latest && \
 # Stage 2: Runtime
 FROM golang:1.23-alpine
 
-# Install runtime dependencies
+# Install runtime dependencies INCLUDING coreutils for stdbuf
 RUN apk add --no-cache \
     bash \
     git \
     make \
+    gcc \
+    g++ \
+    musl-dev \
     postgresql-client \
     curl \
     jq \
-    ca-certificates
+    ca-certificates \
+    coreutils
 
 # Copy Go tools from builder
 COPY --from=builder /go/bin/* /usr/local/bin/
 
-# Create workspace
+# Create workspace with proper module structure
 WORKDIR /workspace
 
-# Copy only what we need from builder
+# Copy the entire module (including source code)
 COPY --from=builder /workspace /workspace
 
-# Create directories for results
-RUN mkdir -p /results /fixtures
-
-# Copy and fix the test harness script
+# Copy test harness script
 COPY test/scripts/test-harness.sh /usr/local/bin/test-harness
 RUN chmod +x /usr/local/bin/test-harness && \
     sed -i 's/\r$//' /usr/local/bin/test-harness
 
+# Verify setup
+RUN cd /workspace && \
+    go mod download && \
+    echo "Module ready: $(go list -m)"
+
 # Environment variables
 ENV GO_ENV=test \
-    CGO_ENABLED=1 \
+    CGO_ENABLED=0 \
     GOOS=linux \
     GOARCH=amd64 \
     TEST_RESULTS_DIR=/results \
-    GOTESTSUM_FORMAT=testname
+    GOTEST_FLAGS="-v -count=1"
 
-ENTRYPOINT ["test-harness"]
-CMD ["test"]
+# Use stdbuf for unbuffered output
+CMD ["stdbuf", "-o0", "-e0", "/usr/local/bin/test-harness"]
