@@ -1,14 +1,122 @@
+stop system:
+for dep in agent-chassis auth-service content-creator-agent core-manager image-generator-adapter reasoning-agent web-search-adapter; do
+  kubectl scale deployment/$dep --replicas=0 -n ai-persona-system
+done
+
+start system
+for dep in agent-chassis auth-service content-creator-agent core-manager image-generator-adapter reasoning-agent web-search-adapter; do
+  kubectl scale deployment/$dep --replicas=3 -n ai-persona-system
+done
+
 cd ~/projects/agent-chassis/test/k8s/pods
 kubectl apply -f kafka-test-pod.yaml
+// for the kafkacat test pod which sends headers better
 
-kubectl exec -it kafka-test-pod -n ai-persona-system -- /bin/bash
-produce-message system.agent.generic.process '{"action":"spawn_group","data":{"group_type":"website-builder"}}'
+kubectl exec -it kafkacat-test-pod -n ai-persona-system -- /bin/sh
+// need full kafka url because it is across namespaces
+CID=$(cat /proc/sys/kernel/random/uuid) && echo '{"action":"spawn_group","data":{"group_type":"website-builder", "message":"Start website builder workflow"}}' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.process -H "correlation_id=$CID" -H "request_id=$(cat /proc/sys/kernel/random/uuid)" -H "client_id=demo_client" -H "agent_instance_id=00000000-0000-0000-0000-000000000001" -H "fuel_budget=1000"
 
+
+
+# what it means
+CID=$(cat /proc/sys/kernel/random/uuid): Creates a unique UUID correlation ID for this run.
+echo '...': Provides our JSON payload, same as before.
+kcat -P ...: Sends the payload to Kafka.
+-H "key=value": attaching each required header to the message.
+
+
+// get the correlation id from orchestrator_state table
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT correlation_id FROM orchestrator_state ORDER BY created_at DESC LIMIT 1;"
+
+
+--
+
+
+MONITORING:
+get the latest id
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT correlation_id FROM orchestrator_state ORDER BY created_at DESC LIMIT 1;"
+e.g.
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT correlation_id FROM orchestrator_state ORDER BY created_at DESC LIMIT 1;"
+            correlation_id
+--------------------------------------
+ 369ba7f6-769d-4fd3-8db8-72d2ec8a410f
+
+port forward to db
+kubectl port-forward svc/postgres-clients 5432:5432 -n ai-persona-system
+
+Step 1.3: Run the DB Inspector
+replace password
+mysql -ucatalogu_personae -p -hrs17.uk-noc.com catalogu_vectordb_chassis
+external_mysql_password = "PpC47410423123!"
+
+./tools/db-inspector/check_state \
+  -db="postgres://clients_user:<YOUR_PASSWORD>@localhost:5432/clients_db?sslmode=disable" \
+  -correlation="<ID_FROM_STEP_1>" \
+  -watch
+
+./tools/db-inspector/check_state.go \
+  -db="postgres://clients_user:PpC47410423123!@localhost:5432/clients_db?sslmode=disable" \
+  -correlation="369ba7f6-769d-4fd3-8db8-72d2ec8a410f" \
+  -watch
+
+  # Run this from your project root - note single quotes because of password
+ ./bin/db-inspector \
+   -db='postgres://clients_user:PpC47410423123!@localhost:5433/clients_db?sslmode=disable' \
+   -correlation="369ba7f6-769d-4fd3-8db8-72d2ec8a410f" \
+   -watch
+
+Part 2: Watching the Individual Agents at Work 🕵️
+
+A Crucial Concept
+
+The agents in the website builder team (like site-architect) don't run in their own dedicated pods. Instead, their tasks are picked up by one of the generic agent-chassis pods you have running. We need to find the unique IDs of your newly spawned agents and then look for those IDs in the agent-chassis logs.
+
+Step 2.1: Find Your Newly Spawned Agent IDs
+
+The spawn_group action creates new rows in the agent_instances table. Let's find the IDs for the agents in your new team.
+
+    Command:
+    Bash
+
+    kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT name, id, config->>'agent_type' as type FROM client_demo_client.agent_instances ORDER BY created_at DESC LIMIT 10;"
+
+    Action: Look for the new agents like site-architect, html-developer, etc., and note their UUIDs.
+
+Step 2.2: Watch the agent-chassis Logs
+
+Now, stream the logs from all agent-chassis pods and look for activity related to your new agent IDs.
+
+    Command: (Run this in another new terminal)
+    Bash
+
+    kubectl logs -f -n ai-persona-system deployment/agent-chassis
+
+What You'll See:
+
+As the workflow progresses, you'll see log entries from the agent-chassis pods that are tagged with the specific agent_instance_id you found in the previous step. This is how you can trace the work of each individual agent as it executes its part of the plan.
+
+
+
+
+
+
+--
 ./bin/tools/db-inspector -db="<your-db-connection-string>" -correlation="<the-new-correlation-id>" -watch
 kubectl logs -f deployment/reasoning-agent -n ai-persona-system
 kubectl logs -f deployment/core-manager -n ai-persona-system
 
 --
+
+errors:
+ kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT correlation_id FROM orchestrator_state ORDER BY created_at DESC LIMIT 1;"
+ correlation_id
+----------------
+(0 rows)
+
+workflow was never created in the database. gent-chassis pod failed.
+
+
+==
 
 Quick Guide: Running the Website Build
 

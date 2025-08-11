@@ -16,9 +16,9 @@ kubectl describe pod postgres-templates-0 -n ai-persona-system
 kubectl get nodes -o wide
 --
 
-mysql is in Clook catalogues.
-mysql -ucatalogu_personae -p -hrs17.uk-noc.com catalogu_vectordbdev
-external_mysql_password = "agent-chassis123!"
+mysql is in Clook catalogues. production.
+mysql -ucatalogu_personae -p -hrs17.uk-noc.com catalogu_vectordb_chassis
+external_mysql_password = "PpC47410423123!"
 # be careful B E  C A R E F U L
 DROP TABLE auth_tokens;
 DROP TABLE auth_tokens;

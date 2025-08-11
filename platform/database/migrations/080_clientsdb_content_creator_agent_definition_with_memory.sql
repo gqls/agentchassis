@@ -20,7 +20,7 @@ INSERT INTO agent_definitions (type, display_name, description, category, defaul
     "record_token_usage": true,
     "record_latency": true,
     "record_errors": true
-  },                                                                                                                       '' ||
+  },                                                                                                                      
    "workflow": {
     "start_step": "generate_content",
     "steps": {
