@@ -8,3 +8,4 @@ resources:
   # because Terraform will now manage it directly.
   - network-policies.yaml
   - rbac-security.yaml
+  - rbac-job-spawner.yaml

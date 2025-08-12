@@ -13,9 +13,17 @@ import (
 	"github.com/gqls/agentchassis/platform/discovery"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 // SpawnAgentAction creates or reuses an agent instance
+// SpawnAgentAction creates an agent instance in DB and spawns a Kubernetes Job
 func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 	agentType, ok := config["agent_type"].(string)
@@ -28,68 +36,67 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		return nil, fmt.Errorf("client_id not specified in headers")
 	}
 
-	// Check if agent already exists
-	var existingID string
-	query := fmt.Sprintf(`
-        SELECT id FROM client_%s.agent_instances 
-        WHERE config->>'agent_type' = $1 
-        AND is_active = true
-        LIMIT 1
-    `, clientID)
+	params.Logger.Info("Spawning agent",
+		zap.String("agent_type", agentType),
+		zap.String("client_id", clientID))
 
-	err := params.DB.QueryRowContext(ctx, query, agentType).Scan(&existingID)
+	// Check for existing agent
+	existingAgent := checkExistingAgent(ctx, params.DB, clientID, agentType)
+	if existingAgent != nil {
+		// Check if its Kubernetes job is still running
+		if isAgentJobRunning(ctx, existingAgent.ID, params.Logger) {
+			params.Logger.Info("Reusing existing running agent",
+				zap.String("agent_id", existingAgent.ID),
+				zap.String("agent_type", agentType))
 
-	if err == nil {
+			return map[string]interface{}{
+				"agent_id": existingAgent.ID,
+				"topic":    fmt.Sprintf("system.agent.%s.process", agentType),
+				"status":   "reused",
+			}, nil
+		}
+		// Agent exists but job not running - will spawn new job below
+		params.Logger.Info("Agent exists but job not running, will spawn new job",
+			zap.String("agent_id", existingAgent.ID))
+	}
+
+	// Create or reuse agent ID
+	agentID := uuid.New().String()
+	if existingAgent != nil {
+		agentID = existingAgent.ID
+	} else {
+		// Create new agent in database
+		if err := createAgentInDB(ctx, params, agentID, agentType, clientID); err != nil {
+			return nil, fmt.Errorf("failed to create agent in database: %w", err)
+		}
+	}
+
+	// Spawn the Kubernetes Job
+	jobName, err := spawnAgentKubernetesJob(ctx, agentID, agentType, clientID, params.Logger)
+	if err != nil {
+		params.Logger.Error("Failed to spawn agent job",
+			zap.Error(err),
+			zap.String("agent_id", agentID),
+			zap.String("agent_type", agentType))
+		// Don't fail - agent exists in DB and can be spawned manually
 		return map[string]interface{}{
-			"agent_id": existingID,
+			"agent_id": agentID,
 			"topic":    fmt.Sprintf("system.agent.%s.process", agentType),
-			"status":   "reused",
+			"status":   "created_without_job",
+			"error":    err.Error(),
 		}, nil
 	}
 
-	// Create new agent instance
-	agentID := uuid.New().String()
-	workflow := buildWorkflowForType(agentType)
-
-	agentConfig := map[string]interface{}{
-		"agent_type":   agentType,
-		"workflow":     workflow,
-		"topic":        fmt.Sprintf("system.agent.%s.process", agentType),
-		"capabilities": getCapabilitiesForType(agentType),
-	}
-
-	configJSON, err := json.Marshal(agentConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	insertQuery := fmt.Sprintf(`
-        INSERT INTO client_%s.agent_instances 
-        (id, template_id, owner_user_id, name, config, is_active)
-        VALUES ($1, $2, $3, $4, $5, true)
-    `, clientID)
-
-	userID := params.Headers["user_id"]
-	if userID == "" {
-		userID = "system"
-	}
-
-	_, err = params.DB.ExecContext(ctx, insertQuery,
-		agentID,
-		"2a540b98-85d5-4762-a692-538bcf1be395", // generic template
-		userID,
-		fmt.Sprintf("%s-%s", agentType, time.Now().Format("20060102-150405")),
-		configJSON,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create agent: %w", err)
-	}
+	params.Logger.Info("Successfully spawned agent job",
+		zap.String("job_name", jobName),
+		zap.String("agent_id", agentID),
+		zap.String("agent_type", agentType))
 
 	return map[string]interface{}{
 		"agent_id": agentID,
 		"topic":    fmt.Sprintf("system.agent.%s.process", agentType),
-		"status":   "created",
+		"status":   "spawned",
+		"job_name": jobName,
 	}, nil
 }
 
@@ -416,4 +423,632 @@ func getCapabilitiesForType(agentType string) []string {
 		return caps
 	}
 	return []string{agentType}
+}
+
+func spawnAgentJob(ctx context.Context, agentID, agentType, clientID string, logger *zap.Logger) (string, error) {
+	// Get Kubernetes client
+	k8sConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return "", fmt.Errorf("failed to get in-cluster config: %w", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(k8sConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
+	// Generate unique job name
+	jobName := fmt.Sprintf("agent-%s-%s-%d", agentType, agentID[:8], time.Now().Unix())
+
+	// Define the Job
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobName,
+			Namespace: "ai-persona-system",
+			Labels: map[string]string{
+				"app":        "dynamic-agent",
+				"agent-type": agentType,
+				"agent-id":   agentID,
+				"client-id":  clientID,
+				"spawned-by": "orchestrator",
+			},
+		},
+		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: int32Ptr(3600), // Clean up after 1 hour
+			BackoffLimit:            int32Ptr(3),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":        "dynamic-agent",
+						"agent-type": agentType,
+						"agent-id":   agentID,
+					},
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:      corev1.RestartPolicyOnFailure,
+					ServiceAccountName: "ai-persona-app", // Same SA as your other pods
+					ImagePullSecrets: []corev1.LocalObjectReference{
+						{Name: "docker-hub-creds"},
+					},
+					Containers: []corev1.Container{
+						{
+							Name:  "agent",
+							Image: "docker.io/aqls/agent-chassis:v1.0.25",
+							Env: []corev1.EnvVar{
+								// Core configuration
+								{Name: "AGENT_TYPE", Value: agentType},
+								{Name: "AGENT_ID", Value: agentID},
+								{Name: "CLIENT_ID", Value: clientID},
+
+								// Kafka configuration
+								{Name: "KAFKA_TOPIC", Value: fmt.Sprintf("system.agent.%s.process", agentType)},
+								{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group", agentType)},
+
+								// Database passwords from secrets
+								{
+									Name: "CLIENTS_DB_PASSWORD",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-platform-secrets",
+											},
+											Key: "CLIENTS_DB_PASSWORD",
+										},
+									},
+								},
+								{
+									Name: "TEMPLATES_DB_PASSWORD",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-platform-secrets",
+											},
+											Key: "TEMPLATES_DB_PASSWORD",
+										},
+									},
+								},
+								// Add other secrets as needed
+								{
+									Name: "ANTHROPIC_API_KEY",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-platform-secrets",
+											},
+											Key: "ANTHROPIC_API_KEY",
+										},
+									},
+								},
+							},
+							// Add config from ConfigMap
+							EnvFrom: []corev1.EnvFromSource{
+								{
+									ConfigMapRef: &corev1.ConfigMapEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "personae-prod-config",
+										},
+									},
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("100m"),
+									corev1.ResourceMemory: resource.MustParse("128Mi"),
+								},
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("500m"),
+									corev1.ResourceMemory: resource.MustParse("512Mi"),
+								},
+							},
+							// Add liveness/readiness probes
+							// Liveness probe using your health server
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/health",
+										Port:   intstr.FromString("health"), // Using named port
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
+								TimeoutSeconds:      5,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+							// Readiness probe
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/ready",
+										Port:   intstr.FromString("health"), // Using named port
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 10,
+								PeriodSeconds:       5,
+								TimeoutSeconds:      3,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Create the Job
+	createdJob, err := clientset.BatchV1().Jobs("ai-persona-system").Create(ctx, job, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to create job: %w", err)
+	}
+
+	logger.Info("Kubernetes Job created",
+		zap.String("job_name", createdJob.Name),
+		zap.String("namespace", createdJob.Namespace))
+
+	return createdJob.Name, nil
+}
+
+// Helper function to check if an agent pod is running
+func isAgentPodRunning(ctx context.Context, agentID string) bool {
+	k8sConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return false
+	}
+
+	clientset, err := kubernetes.NewForConfig(k8sConfig)
+	if err != nil {
+		return false
+	}
+
+	// List pods with the agent-id label
+	pods, err := clientset.CoreV1().Pods("ai-persona-system").List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("agent-id=%s", agentID),
+	})
+
+	if err != nil || len(pods.Items) == 0 {
+		return false
+	}
+
+	// Check if any pod is running
+	for _, pod := range pods.Items {
+		if pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodPending {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Helper functions
+func int32Ptr(i int32) *int32 { return &i }
+
+func checkExistingAgent(ctx context.Context, db *sql.DB, clientID, agentType string) *AgentInfo {
+	var id string
+	query := fmt.Sprintf(`
+        SELECT id FROM client_%s.agent_instances 
+        WHERE config->>'agent_type' = $1 
+        AND is_active = true
+        LIMIT 1
+    `, clientID)
+
+	err := db.QueryRowContext(ctx, query, agentType).Scan(&id)
+	if err != nil {
+		return nil
+	}
+
+	return &AgentInfo{ID: id}
+}
+
+type AgentInfo struct {
+	ID string
+}
+
+func createAgentInDB(ctx context.Context, params ActionParams, agentID, agentType, clientID string) error {
+	workflow := buildWorkflowForType(agentType)
+
+	agentConfig := map[string]interface{}{
+		"agent_type":   agentType,
+		"workflow":     workflow,
+		"topic":        fmt.Sprintf("system.agent.%s.process", agentType),
+		"capabilities": getCapabilitiesForType(agentType),
+	}
+
+	configJSON, err := json.Marshal(agentConfig)
+	if err != nil {
+		return err
+	}
+
+	insertQuery := fmt.Sprintf(`
+        INSERT INTO client_%s.agent_instances 
+        (id, template_id, owner_user_id, name, config, is_active)
+        VALUES ($1, $2, $3, $4, $5, true)
+    `, clientID)
+
+	userID := params.Headers["user_id"]
+	if userID == "" {
+		userID = "system"
+	}
+
+	_, err = params.DB.ExecContext(ctx, insertQuery,
+		agentID,
+		"2a540b98-85d5-4762-a692-538bcf1be395", // generic template
+		userID,
+		fmt.Sprintf("%s-%s", agentType, time.Now().Format("20060102-150405")),
+		configJSON,
+	)
+
+	return err
+}
+
+func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID string, logger *zap.Logger) (string, error) {
+	// Get in-cluster config
+	k8sConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return "", fmt.Errorf("failed to get in-cluster config: %w", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(k8sConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
+	// Generate unique job name (must be DNS-1123 compliant)
+	jobName := fmt.Sprintf("agent-%s-%s", agentType, agentID[:8])
+
+	// Define the Job
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobName,
+			Namespace: "ai-persona-system",
+			Labels: map[string]string{
+				"app":        "dynamic-agent",
+				"agent-type": agentType,
+				"agent-id":   agentID,
+				"client-id":  clientID,
+				"spawned-by": "orchestrator",
+				"component":  "agent",
+			},
+		},
+		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: int32Ptr(3600), // Clean up after 1 hour
+			BackoffLimit:            int32Ptr(3),
+			ActiveDeadlineSeconds:   int64Ptr(86400), // 24 hours max runtime
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":        "dynamic-agent",
+						"agent-type": agentType,
+						"agent-id":   agentID,
+						"client-id":  clientID,
+					},
+					Annotations: map[string]string{
+						"prometheus.io/scrape": "true",
+						"prometheus.io/port":   "9090", // Metrics port
+						"prometheus.io/path":   "/metrics",
+					},
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:      corev1.RestartPolicyOnFailure,
+					ServiceAccountName: "ai-persona-app",
+					ImagePullSecrets: []corev1.LocalObjectReference{
+						{Name: "docker-hub-creds"},
+					},
+					Containers: []corev1.Container{
+						{
+							Name:  "agent",
+							Image: getAgentImage(agentType),
+							Command: []string{
+								"./agent-chassis",
+								"-config",
+								"configs/agent-chassis.yaml",
+							},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "health",
+									ContainerPort: 8080,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "metrics",
+									ContainerPort: 9090,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							Env: []corev1.EnvVar{
+								// Core configuration
+								{Name: "AGENT_TYPE", Value: agentType},
+								{Name: "AGENT_ID", Value: agentID},
+								{Name: "CLIENT_ID", Value: clientID},
+
+								// Dynamic topic configuration
+								{Name: "KAFKA_TOPIC", Value: fmt.Sprintf("system.agent.%s.process", agentType)},
+								{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentType, agentID[:8])},
+
+								// Health server ports (matching your health.Config)
+								{Name: "HEALTH_PORT", Value: "8080"},
+								{Name: "METRICS_PORT", Value: "9090"},
+
+								// Kafka brokers from ConfigMap
+								{
+									Name: "KAFKA_BROKERS",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-prod-config",
+											},
+											Key: "kafka_brokers",
+										},
+									},
+								},
+
+								// Database configuration from ConfigMap
+								{
+									Name: "CLIENTS_DB_HOST",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-prod-config",
+											},
+											Key: "clients_db_host",
+										},
+									},
+								},
+								{
+									Name: "CLIENTS_DB_PORT",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-prod-config",
+											},
+											Key: "clients_db_port",
+										},
+									},
+								},
+								{
+									Name: "CLIENTS_DB_NAME",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-prod-config",
+											},
+											Key: "clients_db_name",
+										},
+									},
+								},
+								{
+									Name: "CLIENTS_DB_USER",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-prod-config",
+											},
+											Key: "clients_db_user",
+										},
+									},
+								},
+
+								// Secrets
+								{
+									Name: "CLIENTS_DB_PASSWORD",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-platform-secrets",
+											},
+											Key: "CLIENTS_DB_PASSWORD",
+										},
+									},
+								},
+								{
+									Name: "ANTHROPIC_API_KEY",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-platform-secrets",
+											},
+											Key: "ANTHROPIC_API_KEY",
+										},
+									},
+								},
+							},
+							// Add all config from ConfigMap
+							EnvFrom: []corev1.EnvFromSource{
+								{
+									ConfigMapRef: &corev1.ConfigMapEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "personae-prod-config",
+										},
+									},
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse(getResourceRequest(agentType, "cpu")),
+									corev1.ResourceMemory: resource.MustParse(getResourceRequest(agentType, "memory")),
+								},
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse(getResourceLimit(agentType, "cpu")),
+									corev1.ResourceMemory: resource.MustParse(getResourceLimit(agentType, "memory")),
+								},
+							},
+							// Liveness probe using your health server
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/health",
+										Port:   intstr.FromString("health"), // Using named port
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
+								TimeoutSeconds:      5,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+							// Readiness probe
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/ready",
+										Port:   intstr.FromString("health"), // Using named port
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 10,
+								PeriodSeconds:       5,
+								TimeoutSeconds:      3,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Create the Job
+	createdJob, err := clientset.BatchV1().Jobs("ai-persona-system").Create(ctx, job, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to create kubernetes job: %w", err)
+	}
+
+	logger.Info("Created Kubernetes Job",
+		zap.String("job_name", createdJob.Name),
+		zap.String("namespace", createdJob.Namespace),
+		zap.String("uid", string(createdJob.UID)))
+
+	return createdJob.Name, nil
+}
+
+// Helper function to determine which image to use for each agent type
+func getAgentImage(agentType string) string {
+	// Map agent types to their specific images if they have custom ones
+	imageMap := map[string]string{
+		"content-creator": "docker.io/aqls/content-creator-agent:v1.0.35",
+		"reasoning":       "docker.io/aqls/reasoning-agent:v1.0.35",
+		"web-search":      "docker.io/aqls/web-search-adapter:v1.0.35",
+		"image-generator": "docker.io/aqls/image-generator-adapter:v1.0.35",
+	}
+
+	if image, ok := imageMap[agentType]; ok {
+		return image
+	}
+
+	// Default to generic agent-chassis for unknown types
+	return "docker.io/aqls/agent-chassis:v1.0.35"
+}
+
+// Check if an agent job is currently running
+func isAgentJobRunning(ctx context.Context, agentID string, logger *zap.Logger) bool {
+	k8sConfig, err := rest.InClusterConfig()
+	if err != nil {
+		logger.Warn("Failed to get k8s config", zap.Error(err))
+		return false
+	}
+
+	clientset, err := kubernetes.NewForConfig(k8sConfig)
+	if err != nil {
+		logger.Warn("Failed to create k8s client", zap.Error(err))
+		return false
+	}
+
+	// Check for jobs with this agent ID
+	jobs, err := clientset.BatchV1().Jobs("ai-persona-system").List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("agent-id=%s", agentID),
+	})
+
+	if err != nil || len(jobs.Items) == 0 {
+		return false
+	}
+
+	// Check if any job is active
+	for _, job := range jobs.Items {
+		if job.Status.Active > 0 {
+			logger.Info("Found active job for agent",
+				zap.String("job_name", job.Name),
+				zap.Int32("active_pods", job.Status.Active))
+			return true
+		}
+	}
+
+	return false
+}
+
+// Helper functions
+func int64Ptr(i int64) *int64 { return &i }
+
+func getResourceLimit(agentType, resource string) string {
+	// Agent-specific resource limits
+	resourceMap := map[string]map[string]string{
+		"content-creator": {
+			"cpu":    "1000m",
+			"memory": "2Gi",
+		},
+		"reasoning": {
+			"cpu":    "1000m",
+			"memory": "2Gi",
+		},
+		"web-search": {
+			"cpu":    "500m",
+			"memory": "512Mi",
+		},
+		"image-generator": {
+			"cpu":    "500m",
+			"memory": "1Gi",
+		},
+		// Default for unknown types
+		"default": {
+			"cpu":    "500m",
+			"memory": "1Gi",
+		},
+	}
+
+	if agentResources, ok := resourceMap[agentType]; ok {
+		if value, ok := agentResources[resource]; ok {
+			return value
+		}
+	}
+
+	return resourceMap["default"][resource]
+}
+
+// Helper functions for resource allocation based on agent type
+func getResourceRequest(agentType, resource string) string {
+	// Agent-specific resource requests
+	resourceMap := map[string]map[string]string{
+		"content-creator": {
+			"cpu":    "200m",
+			"memory": "512Mi",
+		},
+		"reasoning": {
+			"cpu":    "250m",
+			"memory": "512Mi",
+		},
+		"web-search": {
+			"cpu":    "100m",
+			"memory": "256Mi",
+		},
+		"image-generator": {
+			"cpu":    "100m",
+			"memory": "256Mi",
+		},
+		// Default for unknown types
+		"default": {
+			"cpu":    "100m",
+			"memory": "256Mi",
+		},
+	}
+
+	if agentResources, ok := resourceMap[agentType]; ok {
+		if value, ok := agentResources[resource]; ok {
+			return value
+		}
+	}
+
+	return resourceMap["default"][resource]
 }

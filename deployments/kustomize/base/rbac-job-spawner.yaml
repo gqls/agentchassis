@@ -1,0 +1,33 @@
+# deployments/kustomize/base/rbac-job-spawner.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agent-job-spawner
+  namespace: ai-persona-system
+rules:
+  # Allow creating and managing Jobs
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete", "patch", "update"]
+  # Allow reading pods to check if agent is running
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Allow reading ConfigMaps for agent configurations
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-job-spawner-binding
+  namespace: ai-persona-system
+subjects:
+  - kind: ServiceAccount
+    name: ai-persona-app
+    namespace: ai-persona-system
+roleRef:
+  kind: Role
+  name: agent-job-spawner
+  apiGroup: rbac.authorization.k8s.io
