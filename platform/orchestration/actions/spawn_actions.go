@@ -6,12 +6,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/discovery"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
-	"time"
 )
 
 // SpawnAgentAction creates or reuses an agent instance
@@ -124,6 +125,12 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 		return nil, fmt.Errorf("failed to parse agent configs: %w", err)
 	}
 
+	// which agents are we about to spawn
+	params.Logger.Info("Retrieved workflow from database",
+		zap.String("group_id", groupID),
+		zap.String("workflow_raw", string(workflow)),
+		zap.String("agentConfigs full json", string(agentConfigs)))
+
 	// Spawn each agent in the group
 	spawnedAgents := make(map[string]string)
 
@@ -164,6 +171,11 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 		}
 
 		spawnedAgents[role] = agentID
+		params.Logger.Info("Agent id for role.",
+			zap.String("role", role),
+			zap.String("agentID", agentID),
+			zap.String("spawnedAgents", fmt.Sprintf("%v", spawnedAgents)),
+		)
 	}
 
 	// Update group usage - Fix: Use ExecContext

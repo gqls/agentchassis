@@ -89,13 +89,19 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	return nil
 }
 
+// In platform/messaging/processor.go
 func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) error {
+	// Initialize CollectedData if nil
+	if msgCtx.CollectedData == nil {
+		msgCtx.CollectedData = make(map[string]interface{})
+	}
+
 	// Validate headers
 	if err := msgCtx.ValidateHeaders(); err != nil {
 		return errors.ValidationError("headers", err.Error())
 	}
 
-	// Load agent configuration
+	// Load agent configuration from the agent_instances table
 	agentConfig, err := p.configLoader.LoadFromDatabase(
 		ctx,
 		p.db,
@@ -105,6 +111,66 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	)
 	if err != nil {
 		return errors.InternalError("Failed to load configuration", err)
+	}
+
+	// Also load the agent definition for the prompt template
+	// This is needed for execute_llm_prompt action
+	var agentDefinitionConfig []byte // Use []byte for JSON columns
+	query := `SELECT default_config FROM agent_definitions WHERE type = $1`
+
+	// Use the pgxpool's QueryRow which returns a Row that has Scan method
+	row := p.db.QueryRow(ctx, query, p.agentType)
+	err = row.Scan(&agentDefinitionConfig)
+
+	if err == nil && len(agentDefinitionConfig) > 0 {
+		var defConfig map[string]interface{}
+		if err := json.Unmarshal(agentDefinitionConfig, &defConfig); err == nil {
+			// Merge definition config with instance config
+			// Instance config takes precedence
+			if agentConfig.CoreLogic == nil {
+				agentConfig.CoreLogic = make(map[string]interface{})
+			}
+
+			// Add prompt_template and ai_service from definition if not in instance
+			if promptTemplate, ok := defConfig["prompt_template"]; ok {
+				if _, exists := agentConfig.CoreLogic["prompt_template"]; !exists {
+					agentConfig.CoreLogic["prompt_template"] = promptTemplate
+				}
+			}
+			if aiService, ok := defConfig["ai_service"]; ok {
+				if _, exists := agentConfig.CoreLogic["ai_service"]; !exists {
+					agentConfig.CoreLogic["ai_service"] = aiService
+				}
+			}
+
+			// Also add temperature and other config values
+			if temperature, ok := defConfig["temperature"]; ok {
+				if _, exists := agentConfig.CoreLogic["temperature"]; !exists {
+					agentConfig.CoreLogic["temperature"] = temperature
+				}
+			}
+			if maxTokens, ok := defConfig["max_tokens"]; ok {
+				if _, exists := agentConfig.CoreLogic["max_tokens"]; !exists {
+					agentConfig.CoreLogic["max_tokens"] = maxTokens
+				}
+			}
+		}
+	} else if err != nil {
+		// Log but don't fail - not all agents need prompts
+		p.logger.Debug("No agent definition found or error loading",
+			zap.String("agent_type", p.agentType),
+			zap.Error(err))
+	}
+
+	// Store the enriched config in collected data for actions to use
+	msgCtx.CollectedData["agent_config"] = agentConfig.CoreLogic
+
+	// Also store the raw input data
+	var inputPayload map[string]interface{}
+	if err := json.Unmarshal(msgCtx.Message.Value, &inputPayload); err == nil {
+		if data, ok := inputPayload["data"]; ok {
+			msgCtx.CollectedData["input_data"] = data
+		}
 	}
 
 	// Validate workflow

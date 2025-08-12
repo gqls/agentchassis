@@ -1,0 +1,92 @@
+port forward to db
+kubectl port-forward svc/postgres-clients 5432:5432 -n ai-persona-system
+
+# get correlation id
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT correlation_id FROM orchestrator_state ORDER BY created_at DESC LIMIT 1;"
+            correlation_id
+--------------------------------------
+ 369ba7f6-769d-4fd3-8db8-72d2ec8a410f
+
+  # Run this from your project root - note single quotes because of password
+  # need correlation id
+ ./bin/db-inspector \
+   -db='postgres://clients_user:PpC47410423123!@localhost:5433/clients_db?sslmode=disable' \
+   -correlation="369ba7f6-769d-4fd3-8db8-72d2ec8a410f" \
+   -watch
+
+Your kcat command worked.
+
+The agent-chassis pod received the message.
+
+The SagaCoordinator successfully created the initial workflow record in the orchestrator_state table.
+
+--
+
+Step 1: Check the agent-chassis Logs for Errors
+The agent-chassis pod that created the workflow state should have logged an error explaining why it couldn't proceed. Let's find that specific error log using your new correlation ID.
+kubectl logs deployment/agent-chassis -n ai-persona-system --tail=500 | grep "d75d9727-3015-40cf-a3ab-502b85c31a02"
+What to Look For: This will show you all recent log lines for this specific workflow run. Look for any line with "level":"error". This error message will likely tell us the exact cause.
+
+--
+
+Command: Let's check if the website-builder group exists in the table.
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_
+
+--
+
+If the spawn_group action had succeeded, it would have created new rows in the agent_instances table. We can check if that happened.
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT name, config->>'agent_type' as type FROM client_demo_client.agent_instances WHERE created_at > NOW() - INTERVAL '5 minutes';"
+
+--
+
+make build-backend ENVIRONMENT=production REGION=uk001; make push-backend ENVIRONMENT=production REGION=uk001; make deploy-agents ENVIRONMENT=production REGION=uk001;
+
+--
+1. Check the agents that were created:
+clients_db=# SELECT id, name, config->>'agent_type' as agent_type, created_at
+clients_db-# FROM client_demo_client.agent_instances
+clients_db-# WHERE created_at > NOW() - INTERVAL '1 hour'
+clients_db-# ORDER BY created_at DESC;
+ id | name | agent_type | created_at
+----+------+------------+------------
+(0 rows)
+2. Check the execution path of the child orchestration:
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "
+SELECT step, action, result
+FROM (
+    SELECT jsonb_array_elements(execution_path) as exec_step
+    FROM orchestrator_state
+    WHERE correlation_id = '00f691bf-fdf6-4836-bacb-28eff4327741'
+) t,
+jsonb_to_record(t.exec_step) as x(step text, action text, result text);"
+3. Check what data was collected:
+correlation id:
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT correlation_id, status, current_step FROM orchestrator_state ORDER BY created_at DESC LIMIT 3;"
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "
+SELECT jsonb_pretty(collected_data)
+FROM orchestrator_state
+WHERE correlation_id = '00f691bf-fdf6-4836-bacb-28eff4327741';"
+4. Check if any messages were sent to agent topics:
+kubectl exec -it kafka-client-test -n kafka -- kafka-console-consumer \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap:9092 \
+  --topic system.agent.domain-analyst.process \
+  --from-beginning \
+  --max-messages 1 \
+  --timeout-ms 5000
+
+kubectl exec -it kafka-client-test -n kafka -- kafka-console-consumer   --bootstrap-server personae-kafka-cluster-kafka-bootstrap:9092   --topic system.agent.domain-analyst.process   --from-beginning   --max-messages 1   --timeout-ms 5000
+--
+ let's check if there are ANY agents in the client schema:
+ kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "
+ SELECT COUNT(*) as total_agents,
+        COUNT(CASE WHEN is_active THEN 1 END) as active_agents
+ FROM client_demo_client.agent_instances;"
+
+
+
+
+
+
+
+
+

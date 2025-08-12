@@ -1,4 +1,5 @@
 -- Create the initial website builder group
+-- In 007_initial_website_builder_group.sql
 INSERT INTO agent_groups (
     id,
     name,
@@ -21,7 +22,50 @@ INSERT INTO agent_groups (
                  {"role": "visual_designer", "agent_type": "visual-designer"},
                  {"role": "site_publisher", "agent_type": "site-publisher"}
              ]'::jsonb,
-             '{"entry_point": "website-builder"}'::jsonb,
+             '{
+                 "start_step": "validate_request",
+                 "steps": {
+                     "validate_request": {
+                         "action": "validate_input",
+                         "next_step": "analyze_domain"
+                     },
+                     "analyze_domain": {
+                         "action": "call_agent",
+                         "config": {"agent_type": "domain-analyst"},
+                         "next_step": "architect_site"
+                     },
+                     "architect_site": {
+                         "action": "call_agent",
+                         "config": {"agent_type": "site-architect"},
+                         "next_step": "gather_content"
+                     },
+                     "gather_content": {
+                         "action": "call_agent",
+                         "config": {"agent_type": "content-creator"},
+                         "next_step": "create_visuals"
+                     },
+                     "create_visuals": {
+                         "action": "call_agent",
+                         "config": {"agent_type": "visual-designer"},
+                         "next_step": "develop_site"
+                     },
+                     "develop_site": {
+                         "action": "call_agent",
+                         "config": {"agent_type": "html-developer"},
+                         "next_step": "publish_site"
+                     },
+                     "publish_site": {
+                         "action": "call_agent",
+                         "config": {"agent_type": "site-publisher"},
+                         "next_step": "complete"
+                     },
+                     "complete": {
+                         "action": "complete_workflow"
+                     }
+                 }
+             }'::jsonb,
              '["website-creation", "html", "css", "design", "publishing"]'::jsonb
          )
-    ON CONFLICT (id) DO NOTHING;;
+    ON CONFLICT (id) DO UPDATE SET
+    orchestration_workflow = EXCLUDED.orchestration_workflow,
+                            updated_at = NOW();

@@ -3,6 +3,7 @@ package validation
 
 import (
 	"fmt"
+
 	"github.com/gqls/agentchassis/pkg/models"
 )
 
@@ -15,9 +16,15 @@ type WorkflowValidator struct {
 func NewWorkflowValidator() *WorkflowValidator {
 	// Actions that execute custom code locally
 	localActions := map[string]bool{
-		"validate_input":    true,
-		"transform_data":    true,
-		"send_notification": true,
+		"validate_input":      true,
+		"transform_data":      true,
+		"send_notification":   true,
+		"spawn_agent":         true,
+		"spawn_group":         true,
+		"call_agent":          true,
+		"discover_agents":     true,
+		"execute_llm_prompt":  true,
+		"start_orchestration": true,
 	}
 
 	// Built-in orchestration control actions
@@ -78,6 +85,9 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 
 	// Check if it's a local action
 	isLocalAction := v.localActions[step.Action]
+
+	fmt.Printf("Validating step '%s' with action '%s', isLocalAction: %v, has topic: %v\n",
+		name, step.Action, isLocalAction, step.Topic != "")
 
 	// Remote actions need a topic (unless they're local or built-in)
 	if !isLocalAction && step.Topic == "" {

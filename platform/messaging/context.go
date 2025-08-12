@@ -13,11 +13,12 @@ import (
 
 // MessageContext holds the context for processing a single message
 type MessageContext struct {
-	Message   kafka.Message
-	Headers   map[string]string
-	Action    string
-	StartTime time.Time
-	Logger    *zap.Logger
+	Message       kafka.Message
+	Headers       map[string]string
+	Action        string
+	StartTime     time.Time
+	Logger        *zap.Logger
+	CollectedData map[string]interface{}
 }
 
 // ExtractAction extracts the action from the message payload

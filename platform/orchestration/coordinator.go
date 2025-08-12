@@ -6,13 +6,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/governance"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
 	"go.uber.org/zap"
-	"time"
 )
 
 const (
@@ -32,13 +33,15 @@ type SagaCoordinator struct {
 
 // Add the action registry
 var actionRegistry = map[string]actions.ActionHandler{
-	"validate_input":    actions.ValidateInputAction,
-	"transform_data":    actions.TransformDataAction,
-	"send_notification": actions.SendNotificationAction,
-	"spawn_agent":       actions.SpawnAgentAction,
-	"spawn_group":       actions.SpawnGroupAction,
-	"call_agent":        actions.CallAgentAction,
-	"discover_agents":   actions.DiscoverAgentsAction,
+	"validate_input":      actions.ValidateInputAction,
+	"transform_data":      actions.TransformDataAction,
+	"send_notification":   actions.SendNotificationAction,
+	"spawn_agent":         actions.SpawnAgentAction,
+	"spawn_group":         actions.SpawnGroupAction,
+	"call_agent":          actions.CallAgentAction,
+	"discover_agents":     actions.DiscoverAgentsAction,
+	"execute_llm_prompt":  actions.ExecuteLLMPromptAction,
+	"start_orchestration": actions.StartOrchestrationAction,
 }
 
 // NewSagaCoordinator creates a new coordinator instance
@@ -82,6 +85,7 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 	l := s.logger.With(
 		zap.String("correlation_id", state.CorrelationID),
 		zap.String("current_step", state.CurrentStep),
+		zap.String("state.WorkflowPlan", fmt.Sprintf("%v", state.WorkflowPlan)),
 	)
 
 	// Get current step from the stored plan
@@ -174,16 +178,17 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 	// Prepare action parameters
 	params := actions.ActionParams{
-		Context:       ctx,
-		Headers:       headers,
-		StepConfig:    step,
-		InputData:     state.InitialRequestData,
-		CollectedData: state.CollectedData,
-		Producer:      s.producer,
-		DB:            s.db,
-		Logger:        s.logger,
-		AgentType:     headers["agent_type"],
-		CurrentStep:   state.CurrentStep,
+		Context:         ctx,
+		Headers:         headers,
+		StepConfig:      step,
+		InputData:       state.InitialRequestData,
+		CollectedData:   state.CollectedData,
+		SagaCoordinator: s,
+		Producer:        s.producer,
+		DB:              s.db,
+		Logger:          s.logger,
+		AgentType:       headers["agent_type"],
+		CurrentStep:     state.CurrentStep,
 	}
 
 	// Execute the action
@@ -193,7 +198,11 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	}
 
 	// Store result
-	state.CollectedData[step.Action] = result
+	if state.CurrentStep != "" {
+		state.CollectedData[state.CurrentStep] = result
+	} else {
+		state.CollectedData[step.Action] = result
+	}
 
 	// Update metadata
 	state.ExecutionMetadata.CompletedSteps++
@@ -536,4 +545,61 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, correlationID st
 	}
 
 	return state, nil
+}
+
+// CreateNewOrchestration creates a new orchestration with a given workflow
+func (s *SagaCoordinator) CreateNewOrchestration(ctx context.Context, correlationID string, headers map[string]string, workflowJSON json.RawMessage) error {
+	l := s.logger.With(zap.String("correlation_id", correlationID))
+
+	// Parse the workflow
+	var plan models.WorkflowPlan
+	if err := json.Unmarshal(workflowJSON, &plan); err != nil {
+		return fmt.Errorf("failed to unmarshal workflow: %w", err)
+	}
+
+	// Validate we have required headers
+	clientID := headers["client_id"]
+	if clientID == "" {
+		return fmt.Errorf("client_id header is required")
+	}
+
+	// Prepare initial data from headers
+	initialData := map[string]interface{}{
+		"action": "start_orchestration",
+		"data": map[string]interface{}{
+			"headers":   headers,
+			"timestamp": time.Now().UTC(),
+			"message":   "Starting website build orchestration",
+			// Add any other data that was passed from the parent orchestration
+		},
+	}
+	initialDataBytes, _ := json.Marshal(initialData)
+
+	// Create the initial state
+	repo := NewStateRepository(s.db, s.logger)
+	if err := repo.CreateInitialState(ctx, correlationID, clientID, plan, initialDataBytes); err != nil {
+		return fmt.Errorf("failed to create orchestration state: %w", err)
+	}
+
+	l.Info("New orchestration created",
+		zap.String("client_id", clientID),
+		zap.String("start_step", plan.StartStep),
+		zap.Int("total_steps", len(plan.Steps)))
+
+	// Start execution immediately
+	state, err := repo.GetState(ctx, correlationID)
+	if err != nil {
+		return fmt.Errorf("failed to get created state: %w", err)
+	}
+
+	// Ensure headers have required fields for execution
+	if headers["fuel_budget"] == "" {
+		headers["fuel_budget"] = "1000" // Default fuel budget
+	}
+	if headers["agent_instance_id"] == "" {
+		headers["agent_instance_id"] = "orchestrator-" + correlationID
+	}
+
+	// Start the workflow execution
+	return s.continueExecution(ctx, state, headers)
 }

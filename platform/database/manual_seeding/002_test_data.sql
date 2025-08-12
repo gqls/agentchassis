@@ -5,25 +5,6 @@
 INSERT INTO agent_groups (id, name, group_type, agent_configs, orchestration_workflow)
 VALUES
 -- Website builder group
-('11111111-1111-1111-1111-111111111111',
- 'Website Builder Team',
- 'website-builder',
- '[
-    {"role": "architect", "agent_type": "site-architect"},
-    {"role": "designer", "agent_type": "visual-designer"},
-    {"role": "developer", "agent_type": "html-developer"},
-    {"role": "publisher", "agent_type": "site-publisher"}
- ]'::jsonb,
- '{
-    "start_step": "plan",
-    "steps": {
-        "plan": {"action": "create_site_plan", "next_step": "design"},
-        "design": {"action": "create_design", "next_step": "develop"},
-        "develop": {"action": "build_html", "next_step": "publish"},
-        "publish": {"action": "publish_site", "next_step": "complete"},
-        "complete": {"action": "complete_workflow"}
-    }
- }'::jsonb),
 
 -- Content creation group
 ('22222222-2222-2222-2222-222222222222',
@@ -58,8 +39,8 @@ VALUES
         "complete": {"action": "complete_workflow"}
     }
  }'::jsonb)
+    ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config, updated_at = NOW();
 
-    ON CONFLICT (id) DO NOTHING;
 
 -- Insert test agent instances
 INSERT INTO client_demo_client.agent_instances (id, template_id, owner_user_id, name, config, is_active)
@@ -91,4 +72,36 @@ VALUES
         }
      }'::jsonb,
      true)
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config, updated_at = NOW();
+
+
+-- ADD THIS ENTIRE BLOCK TO THE END OF 002_test_data.sql
+
+-- Create the specific instance of the generic agent for the demo client.
+-- This is the agent that will receive the initial Kafka message.
+INSERT INTO client_demo_client.agent_instances (id, template_id, owner_user_id, name, config, is_active)
+VALUES
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'system_user', 'Default Generic Agent', '{
+    "workflow": {
+        "start_step": "spawn_website_team",
+        "steps": {
+            "spawn_website_team": {
+                "action": "spawn_group",
+                "config": { "group_type": "website-builder" },
+                "next_step": "initiate_build"
+            },
+            "initiate_build": {
+                "action": "start_orchestration",
+                "next_step": "complete"
+            },
+            "complete": {
+                "action": "complete_workflow"
+            }
+        }
+    }
+}'::jsonb, true)
+    ON CONFLICT (id) DO UPDATE
+                            SET
+                                config = EXCLUDED.config,
+                            updated_at = NOW();
+

@@ -58,6 +58,10 @@ data "local_file" "add_discovery_functions_sql" {
   filename = "${path.module}/../../../../../../platform/database/migrations/008_add_discovery_functions.sql"
 }
 
+data "local_file" "seed_website_builder_definitions_sql" {
+  filename = "${path.module}/../../../../../../platform/database/migrations/009_seed_website_builder_definitions.sql"
+}
+
 data "local_file" "client_schema_additions_sql" {
   filename = "${path.module}/../../../../../../platform/database/migrations/060_client_schema_additions.sql"
 }
@@ -89,15 +93,16 @@ resource "kubernetes_config_map" "postgres_sql_migrations" {
 
   data = {
     # Core migrations
-    "001_enable_extensions.sql"              = data.local_file.extensions_sql.content
-    "002_core_tables.sql"                    = data.local_file.core_tables_sql.content
-    "003_agent_groups.sql"                   = data.local_file.agent_groups_sql.content
-    "004_agent_metrics.sql"                  = data.local_file.agent_metrics_sql.content
-    "005_website_builder_agents.sql"         = data.local_file.website_builder_agents_sql.content
-    "006_client_schema.sql"                  = data.local_file.client_schema_sql.content
-    "007_initial_website_builder_group.sql"  = data.local_file.initial_website_builder_group_sql.content
-    "008_add_discovery_functions.sql"        = data.local_file.add_discovery_functions_sql.content
-    "060_client_schema_additions.sql"        = data.local_file.client_schema_additions_sql.content
+    "001_enable_extensions.sql"                 = data.local_file.extensions_sql.content
+    "002_core_tables.sql"                       = data.local_file.core_tables_sql.content
+    "003_agent_groups.sql"                      = data.local_file.agent_groups_sql.content
+    "004_agent_metrics.sql"                     = data.local_file.agent_metrics_sql.content
+    "005_website_builder_agents.sql"            = data.local_file.website_builder_agents_sql.content
+    "006_client_schema.sql"                     = data.local_file.client_schema_sql.content
+    "007_initial_website_builder_group.sql"     = data.local_file.initial_website_builder_group_sql.content
+    "008_add_discovery_functions.sql"           = data.local_file.add_discovery_functions_sql.content
+    "009_seed_website_builder_definitions.sql"  = data.local_file.seed_website_builder_definitions_sql.content
+    "060_client_schema_additions.sql"           = data.local_file.client_schema_additions_sql.content
     "080_clientsdb_content_creator_agent_definition_with_memory.sql"        = data.local_file.clientsdb_content_creator_agent_definition_with_memory_sql.content
 
     # Templates migrations
@@ -213,6 +218,7 @@ resource "kubernetes_job" "postgres_migrations" {
             psql -f /migrations/006_client_schema.sql
             psql -f /migrations/007_initial_website_builder_group.sql
             psql -f /migrations/008_add_discovery_functions.sql
+            psql -f /migrations/009_seed_website_builder_definitions.sql
             psql -f /migrations/060_client_schema_additions.sql
             psql -f /migrations/080_clientsdb_content_creator_agent_definition_with_memory.sql
 

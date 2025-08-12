@@ -15,7 +15,7 @@ kubectl apply -f kafka-test-pod.yaml
 kubectl exec -it kafkacat-test-pod -n ai-persona-system -- /bin/sh
 // need full kafka url because it is across namespaces
 CID=$(cat /proc/sys/kernel/random/uuid) && echo '{"action":"spawn_group","data":{"group_type":"website-builder", "message":"Start website builder workflow"}}' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.process -H "correlation_id=$CID" -H "request_id=$(cat /proc/sys/kernel/random/uuid)" -H "client_id=demo_client" -H "agent_instance_id=00000000-0000-0000-0000-000000000001" -H "fuel_budget=1000"
-
+CID=$(cat /proc/sys/kernel/random/uuid) && echo '{"action":"spawn_group","data":{"group_type":"website-builder", "message":"Start website builder workflow"}}' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.process -H "correlation_id=$CID" -H "request_id=$(cat /proc/sys/kernel/random/uuid)" -H "client_id=demo_client" -H "agent_instance_id=00000000-0000-0000-0000-000000000001" -H "fuel_budget=1000"
 
 
 # what it means
@@ -49,6 +49,7 @@ replace password
 mysql -ucatalogu_personae -p -hrs17.uk-noc.com catalogu_vectordb_chassis
 external_mysql_password = "PpC47410423123!"
 
+# note need correlation id
 ./tools/db-inspector/check_state \
   -db="postgres://clients_user:<YOUR_PASSWORD>@localhost:5432/clients_db?sslmode=disable" \
   -correlation="<ID_FROM_STEP_1>" \

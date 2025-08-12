@@ -178,3 +178,120 @@ func BootstrapPromptAction(ctx context.Context, params ActionParams) (interface{
     // 3. Call the LLM with this meta-prompt.
     // 4. The result is the initial `prompt_template` for the new agent definition.
 }
+--
+The first step is to get the website-builder fully configured with a solid V1 set of prompts and workflows. This gives us a reliable baseline to execute and evolve from.
+
+Here is the implementation plan, starting with the comprehensive migration script you need.
+
+Implementation Plan: Step 1 - Seed the V1 Agent Definitions
+
+Our goal is to create a single migration script that defines every specialist agent required by the website-builder. Each agent will be configured with its own prompt_template and a simple internal workflow that uses the new generic execute_llm_prompt action.
+
+Action: Create the Migration File
+
+    Create a new file named 009_seed_website_builder_definitions.sql in your platform/database/migrations/ directory.
+
+    Add the following SQL code to the new file. This script populates the agent_definitions table with the initial "brains" for each agent in the team.
+    SQL
+
+    -- 009_seed_website_builder_definitions.sql
+    -- This script inserts the version 1 definitions for all agents
+    -- used in the website-builder group.
+
+    -- 1. Domain Analyst Agent Definition
+    INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
+    ('domain-analyst', 'Domain Analyst', 'Analyzes a domain to determine business type and suggest keywords.', 'data-driven', '{
+        "ai_service": { "provider": "anthropic", "model": "claude-3-5-sonnet-20241022" },
+        "prompt_template": "You are a business domain expert. Analyze the following business name: ''{{.input.business_name}}'' and domain: ''{{.input.domain}}''. Based on this information, provide a structured JSON output with the business ''type'' (e.g., ''e-commerce'', ''portfolio'', ''blog'') and a list of 5 relevant SEO ''keywords''.",
+        "workflow": {
+            "start_step": "analyze",
+            "steps": {
+                "analyze": { "action": "execute_llm_prompt", "next_step": "complete" },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb)
+    ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config, updated_at = NOW();
+
+    -- 2. Site Architect Agent Definition
+    INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
+    ('site-architect', 'Site Architect', 'Plans the website structure, pages, and navigation.', 'data-driven', '{
+        "ai_service": { "provider": "anthropic", "model": "claude-3-5-sonnet-20241022" },
+        "prompt_template": "You are a website architect. For a ''{{.input.business_type}}'' business named ''{{.input.business_name}}'', design a complete site structure. Provide a structured JSON output with a ''pages'' array. Each object in the array should have a ''name'' (e.g., ''Home'', ''About Us'') and a brief ''description'' of its purpose.",
+        "workflow": {
+            "start_step": "design_structure",
+            "steps": {
+                "design_structure": { "action": "execute_llm_prompt", "next_step": "complete" },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb)
+    ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config, updated_at = NOW();
+
+    -- 3. HTML Developer Agent Definition
+    INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
+    ('html-developer', 'HTML Developer', 'Generates HTML, CSS, and JS code for websites.', 'code-driven', '{
+        "ai_service": { "provider": "anthropic", "model": "claude-3-5-sonnet-20241022" },
+        "prompt_template": "You are an expert front-end web developer. Generate a single, complete, and responsive HTML file (including inline CSS in a <style> tag) for the ''{{.input.page.name}}'' page of a website for ''{{.input.business_name}}''. The page''s purpose is: {{.input.page.description}}. Use the following content: {{.input.page.content}}.",
+        "workflow": {
+            "start_step": "generate_code",
+            "steps": {
+                "generate_code": { "action": "execute_llm_prompt", "next_step": "complete" },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb)
+    ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config, updated_at = NOW();
+
+    -- 4. Visual Designer Agent Definition (Adapter Agent)
+    INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
+    ('visual-designer', 'Visual Designer', 'Orchestrates image generation and selection.', 'adapter', '{
+        "workflow": {
+            "start_step": "generate_logo",
+            "steps": {
+                "generate_logo": {
+                    "action": "call_agent",
+                    "config": { "agent_type": "image-generator" },
+                    "next_step": "complete"
+                },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb)
+    ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config, updated_at = NOW();
+
+    -- 5. Site Publisher Agent Definition (Adapter Agent)
+    INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
+    ('site-publisher', 'Site Publisher', 'Publishes website files to a storage bucket.', 'adapter', '{
+        "workflow": {
+            "start_step": "upload_files",
+            "steps": {
+                "upload_files": {
+                    "action": "s3_upload",
+                    "next_step": "complete"
+                },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb)
+    ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config, updated_at = NOW();
+
+Key Concepts in This Script:
+
+    prompt_template: This is the V1 prompt for each agent. It's stored in the database and can be evolved later.
+
+    {{.input.variable}}: These are placeholders that our new Go function will use to dynamically insert data from previous steps into the prompt.
+
+    execute_llm_prompt: This is the new, generic action that tells the agent to render its template and call the LLM.
+
+    Adapter Agents: Notice the visual-designer and site-publisher do not have prompts. Their job is to orchestrate other services (call_agent) or perform direct actions (s3_upload), not talk to an LLM.
+
+Next Steps
+
+    Create the 009_seed_website_builder_definitions.sql file with the content above.
+
+    Add this new file to your ConfigMap in 070-database-schemas/main.tf so it gets included in your deployment.
+
+    Reset your database (delete the PVC and Pod) and run terraform apply on the 070... directory to get a clean, fully-seeded state.
+
+    With this foundation in place, our very next step will be to implement the execute_llm_prompt Go function that these new agent definitions rely on.
