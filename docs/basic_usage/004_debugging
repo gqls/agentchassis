@@ -1,8 +1,18 @@
 port forward to db
 kubectl port-forward svc/postgres-clients 5432:5432 -n ai-persona-system
 
+kubectl -n ai-persona-system rollout restart deployment/agent-chassis
+kubectl delete jobs -n ai-persona-system -l spawned-by=orchestrator
+  KCAT
+kubectl exec -it kafkacat-test-pod -n ai-persona-system -- /bin/sh
+// need full kafka url because it is across namespaces
+CID=$(cat /proc/sys/kernel/random/uuid) && echo '{"action":"spawn_group","data":{"group_type":"website-builder", "message":"Start website builder workflow"}}' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.process -H "correlation_id=$CID" -H "request_id=$(cat /proc/sys/kernel/random/uuid)" -H "client_id=demo_client" -H "agent_instance_id=00000000-0000-0000-0000-000000000001" -H "fuel_budget=1000"
+CID=$(cat /proc/sys/kernel/random/uuid) && echo '{"action":"spawn_group","data":{"group_type":"website-builder", "message":"Start website builder workflow"}}' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.process -H "correlation_id=$CID" -H "request_id=$(cat /proc/sys/kernel/random/uuid)" -H "client_id=demo_client" -H "agent_instance_id=00000000-0000-0000-0000-000000000001" -H "fuel_budget=1000"
+
+
 # get correlation id
 kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT correlation_id FROM orchestrator_state ORDER BY created_at DESC LIMIT 1;"
+
             correlation_id
 --------------------------------------
  369ba7f6-769d-4fd3-8db8-72d2ec8a410f
@@ -11,7 +21,7 @@ kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user
   # need correlation id
  ./bin/db-inspector \
    -db='postgres://clients_user:PpC47410423123!@localhost:5433/clients_db?sslmode=disable' \
-   -correlation="369ba7f6-769d-4fd3-8db8-72d2ec8a410f" \
+   -correlation="00f691bf-fdf6-4836-bacb-28eff4327741" \
    -watch
 
 Your kcat command worked.
@@ -20,6 +30,9 @@ The agent-chassis pod received the message.
 
 The SagaCoordinator successfully created the initial workflow record in the orchestrator_state table.
 
+--
+EVENTS
+kubectl get events -n ai-persona-system --sort-by='.lastTimestamp' | grep agent-website-builder
 --
 
 Step 1: Check the agent-chassis Logs for Errors
@@ -41,6 +54,9 @@ kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user
 
 make build-backend ENVIRONMENT=production REGION=uk001; make push-backend ENVIRONMENT=production REGION=uk001; make deploy-agents ENVIRONMENT=production REGION=uk001;
 
+--
+# Test if the ServiceAccount can create jobs
+kubectl auth can-i create jobs --as=system:serviceaccount:ai-persona-system:ai-persona-app -n ai-persona-system
 --
 1. Check the agents that were created:
 clients_db=# SELECT id, name, config->>'agent_type' as agent_type, created_at

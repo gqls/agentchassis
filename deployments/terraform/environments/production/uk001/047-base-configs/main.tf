@@ -25,21 +25,51 @@ resource "kubernetes_config_map" "personae_prod_config" {
   }
 
   data = {
-    # Service endpoints
-    KAFKA_BROKERS     = "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
-    CLIENTS_DB_HOST   = "postgres-clients.ai-persona-system.svc.cluster.local"
-    TEMPLATES_DB_HOST = "postgres-templates.ai-persona-system.svc.cluster.local"
-    AUTH_DB_HOST      = var.auth_db_host
-    AUTH_DB_NAME      = var.auth_db_name
-    AUTH_DB_USER      = var.auth_db_user
-    core_manager_url  = "http://core-manager.ai-persona-system.svc.cluster.local:8088"
-    auth_service_url  = "http://auth-service.ai-persona-system.svc.cluster.local:8081"
+    # Kafka
+    KAFKA_BROKERS: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+    kafka_brokers: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+    # Clients Database
+    CLIENTS_DB_HOST: "postgres-clients.ai-persona-system.svc.cluster.local"
+    CLIENTS_DB_PORT: "5432"
+    CLIENTS_DB_NAME: "clients_db"
+    CLIENTS_DB_USER: "clients_user"
+    clients_db_host: "postgres-clients.ai-persona-system.svc.cluster.local"
+    clients_db_port: "5432"
+    clients_db_name: "clients_db"
+    clients_db_user: "clients_user"
+
+    # Templates Database
+    TEMPLATES_DB_HOST: "postgres-templates.ai-persona-system.svc.cluster.local"
+    TEMPLATES_DB_PORT: "5432"
+    TEMPLATES_DB_NAME: "templates_db"
+    TEMPLATES_DB_USER: "templates_user"
+    templates_db_host: "postgres-templates.ai-persona-system.svc.cluster.local"
+    templates_db_port: "5432"
+    templates_db_name: "templates_db"
+    templates_db_user: "templates_user"
+
+    # Auth Database
+    AUTH_DB_HOST: var.auth_db_host
+    AUTH_DB_PORT: "3306"
+    AUTH_DB_NAME: var.auth_db_name
+    AUTH_DB_USER: var.auth_db_user
+    auth_db_host: var.auth_db_host
+    auth_db_port: "3306"
+    auth_db_name: var.auth_db_name
+    auth_db_user: var.auth_db_user
+
+    # Service URLs
+    auth_service_url: "http://auth-service.ai-persona-system.svc.cluster.local:8081"
+    core_manager_url: "http://core-manager.ai-persona-system.svc.cluster.local:8088"
 
     # Environment settings
-    environment      = "production"
-    region          = "uk001"
-    log_level       = "info"
-    go_env          = "production"
+    environment: "production"
+    region: "uk001"
+    go_env: "production"
+    log_level: "info"
+    tracing_enabled: "false"
+    tracing_endpoint: "otel-collector.monitoring.svc.cluster.local:4317"
   }
 }
 

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -698,10 +699,40 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 	// Generate unique job name (must be DNS-1123 compliant)
 	jobName := fmt.Sprintf("agent-%s-%s", agentType, agentID[:8])
 
+	// Check if job already exists
+	existingJob, err := clientset.BatchV1().Jobs("ai-persona-system").Get(ctx, jobName, metav1.GetOptions{})
+	if err == nil {
+		// Job exists - check if it's failed and needs to be recreated
+		if existingJob.Status.Failed > 0 || existingJob.Status.Succeeded > 0 {
+			logger.Info("Deleting completed/failed job before recreating",
+				zap.String("job_name", jobName),
+				zap.Int32("failed", existingJob.Status.Failed),
+				zap.Int32("succeeded", existingJob.Status.Succeeded))
+
+			// Delete the old job
+			deletePolicy := metav1.DeletePropagationForeground
+			err = clientset.BatchV1().Jobs("ai-persona-system").Delete(ctx, jobName, metav1.DeleteOptions{
+				PropagationPolicy: &deletePolicy,
+			})
+			if err != nil {
+				logger.Warn("Failed to delete old job", zap.Error(err))
+			}
+
+			// Wait a bit for deletion to propagate
+			time.Sleep(2 * time.Second)
+		} else if existingJob.Status.Active > 0 {
+			// Job is still running
+			logger.Info("Job is already running",
+				zap.String("job_name", jobName),
+				zap.Int32("active", existingJob.Status.Active))
+			return jobName, nil
+		}
+	}
+
 	// Define the Job
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName,
+			Name:      jobName, // Use the jobName variable here
 			Namespace: "ai-persona-system",
 			Labels: map[string]string{
 				"app":        "dynamic-agent",
@@ -738,13 +769,9 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 					},
 					Containers: []corev1.Container{
 						{
-							Name:  "agent",
-							Image: getAgentImage(agentType),
-							Command: []string{
-								"./agent-chassis",
-								"-config",
-								"configs/agent-chassis.yaml",
-							},
+							Name:    "agent",
+							Image:   getAgentImage(agentType),
+							Command: getAgentCommand(agentType), // Add this helper function
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "health",
@@ -767,68 +794,9 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 								{Name: "KAFKA_TOPIC", Value: fmt.Sprintf("system.agent.%s.process", agentType)},
 								{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentType, agentID[:8])},
 
-								// Health server ports (matching your health.Config)
+								// Health server ports
 								{Name: "HEALTH_PORT", Value: "8080"},
 								{Name: "METRICS_PORT", Value: "9090"},
-
-								// Kafka brokers from ConfigMap
-								{
-									Name: "KAFKA_BROKERS",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-prod-config",
-											},
-											Key: "kafka_brokers",
-										},
-									},
-								},
-
-								// Database configuration from ConfigMap
-								{
-									Name: "CLIENTS_DB_HOST",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-prod-config",
-											},
-											Key: "clients_db_host",
-										},
-									},
-								},
-								{
-									Name: "CLIENTS_DB_PORT",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-prod-config",
-											},
-											Key: "clients_db_port",
-										},
-									},
-								},
-								{
-									Name: "CLIENTS_DB_NAME",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-prod-config",
-											},
-											Key: "clients_db_name",
-										},
-									},
-								},
-								{
-									Name: "CLIENTS_DB_USER",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-prod-config",
-											},
-											Key: "clients_db_user",
-										},
-									},
-								},
 
 								// Secrets
 								{
@@ -843,11 +811,33 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 									},
 								},
 								{
-									Name: "ANTHROPIC_API_KEY",
+									Name: "TEMPLATES_DB_PASSWORD", // ADD THIS
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "personae-platform-secrets",
+											},
+											Key: "TEMPLATES_DB_PASSWORD",
+										},
+									},
+								},
+								{
+									Name: "AUTH_DB_PASSWORD", // MIGHT NEED THIS TOO
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-platform-secrets",
+											},
+											Key: "AUTH_DB_PASSWORD",
+										},
+									},
+								},
+								{
+									Name: "ANTHROPIC_API_KEY",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-default-secrets",
 											},
 											Key: "ANTHROPIC_API_KEY",
 										},
@@ -874,12 +864,12 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 									corev1.ResourceMemory: resource.MustParse(getResourceLimit(agentType, "memory")),
 								},
 							},
-							// Liveness probe using your health server
+							/*// Liveness probe using your health server
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path:   "/health",
-										Port:   intstr.FromString("health"), // Using named port
+										Port:   intstr.FromString("health"),
 										Scheme: corev1.URISchemeHTTP,
 									},
 								},
@@ -894,7 +884,7 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path:   "/ready",
-										Port:   intstr.FromString("health"), // Using named port
+										Port:   intstr.FromString("health"),
 										Scheme: corev1.URISchemeHTTP,
 									},
 								},
@@ -903,6 +893,16 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 								TimeoutSeconds:      3,
 								SuccessThreshold:    1,
 								FailureThreshold:    3,
+							},*/
+							// Use exec probe instead of HTTP
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									Exec: &corev1.ExecAction{
+										Command: []string{"sh", "-c", "ps aux | grep agent-chassis | grep -v grep"},
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
 							},
 						},
 					},
@@ -914,6 +914,12 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 	// Create the Job
 	createdJob, err := clientset.BatchV1().Jobs("ai-persona-system").Create(ctx, job, metav1.CreateOptions{})
 	if err != nil {
+		// If it still exists (race condition), just return success
+		if strings.Contains(err.Error(), "already exists") {
+			logger.Warn("Job already exists (race condition), continuing",
+				zap.String("job_name", jobName))
+			return jobName, nil
+		}
 		return "", fmt.Errorf("failed to create kubernetes job: %w", err)
 	}
 
@@ -925,6 +931,7 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 	return createdJob.Name, nil
 }
 
+// Helper function to determine which image to use for each agent type
 // Helper function to determine which image to use for each agent type
 func getAgentImage(agentType string) string {
 	// Map agent types to their specific images if they have custom ones
@@ -941,6 +948,45 @@ func getAgentImage(agentType string) string {
 
 	// Default to generic agent-chassis for unknown types
 	return "docker.io/aqls/agent-chassis:v1.0.35"
+}
+
+// Helper function to get the correct command for each agent type
+func getAgentCommand(agentType string) []string {
+	// Map agent types to their specific commands
+	commandMap := map[string][]string{
+		"content-creator": {
+			"./content-creator-agent",
+			"-config",
+			"configs/content-creator-agent.yaml",
+		},
+		"reasoning": {
+			"./reasoning-agent",
+			"-config",
+			"configs/reasoning-agent.yaml",
+		},
+		"web-search": {
+			"./web-search-adapter",
+			"-config",
+			"configs/web-search-adapter.yaml",
+		},
+		"image-generator": {
+			"./image-generator-adapter",
+			"-config",
+			"configs/image-adapter.yaml",
+		},
+	}
+
+	// For agent-chassis based agents (domain-analyst, site-architect, etc.)
+	if cmd, ok := commandMap[agentType]; ok {
+		return cmd
+	}
+
+	// Default command for generic agents using agent-chassis
+	return []string{
+		"./agent-chassis",
+		"-config",
+		"configs/agent-chassis.yaml",
+	}
 }
 
 // Check if an agent job is currently running

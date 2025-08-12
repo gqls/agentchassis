@@ -6,12 +6,8 @@ done
 start system
 for dep in agent-chassis auth-service content-creator-agent core-manager image-generator-adapter reasoning-agent web-search-adapter; do
   kubectl scale deployment/$dep --replicas=3 -n ai-persona-system
-done
 
-cd ~/projects/agent-chassis/test/k8s/pods
-kubectl apply -f kafka-test-pod.yaml
-// for the kafkacat test pod which sends headers better
-
+  KCAT
 kubectl exec -it kafkacat-test-pod -n ai-persona-system -- /bin/sh
 // need full kafka url because it is across namespaces
 CID=$(cat /proc/sys/kernel/random/uuid) && echo '{"action":"spawn_group","data":{"group_type":"website-builder", "message":"Start website builder workflow"}}' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.process -H "correlation_id=$CID" -H "request_id=$(cat /proc/sys/kernel/random/uuid)" -H "client_id=demo_client" -H "agent_instance_id=00000000-0000-0000-0000-000000000001" -H "fuel_budget=1000"

@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: ai-persona-system
 resources:
   - ../../../base
+  - rbac-job-spawner.yaml
 
 labels:
   - pairs:
@@ -11,7 +12,7 @@ labels:
 
 images:
   - name: docker.io/aqls/agent-chassis
-    newTag: v1.0.37
+    newTag: v1.0.42
 
 patches:
   - path: patch-deployment.yaml
