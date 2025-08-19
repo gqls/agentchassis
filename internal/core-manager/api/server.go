@@ -3,8 +3,9 @@ package api
 import (
 	"context"
 	"fmt"
-	"github.com/gqls/agentchassis/internal/core-manager/handlers"
 	"net/http"
+
+	"github.com/gqls/agentchassis/internal/core-manager/handlers"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gqls/agentchassis/internal/core-manager/admin"
@@ -83,8 +84,15 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	systemHandlers := admin.NewSystemHandlers(personaRepoImpl.ClientsDB(), personaRepoImpl.TemplatesDB(), s.kafkaProducer, s.logger)
 	agentAdminHandlers := admin.NewAgentHandlers(personaRepoImpl.ClientsDB(), personaRepoImpl.TemplatesDB(), s.kafkaProducer, s.logger, s.personaRepo)
 
+	// Initialize the bootstrap handler
+	bootstrapHandler := handlers.NewBootstrapHandler(s.logger, personaRepoImpl.ClientsDB())
+
 	// Health check (no auth)
 	s.router.GET("/health", healthHandler.HandleHealth)
+
+	// Agent Bootstrap Endpoint (Special Authentication, bypasses AuthMiddleware)
+	// This endpoint is for agents to register with a bootstrap key, not a JWT.
+	s.router.POST("/api/v1/agents/bootstrap", bootstrapHandler.HandleAgentBootstrap)
 
 	// API v1 group with authentication
 	apiV1 := s.router.Group("/api/v1")

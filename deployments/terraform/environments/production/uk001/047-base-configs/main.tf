@@ -70,6 +70,12 @@ resource "kubernetes_config_map" "personae_prod_config" {
     log_level: "info"
     tracing_enabled: "false"
     tracing_endpoint: "otel-collector.monitoring.svc.cluster.local:4317"
+
+
+    # Agent default version
+    AGENT_IMAGE_TAG: "v1.0.42"
+    agent_image_tag: "v1.0.42"
+
   }
 }
 

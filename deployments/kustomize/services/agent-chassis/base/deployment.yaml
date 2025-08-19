@@ -21,7 +21,13 @@ spec:
           image: docker.io/aqls/agent-chassis:latest # Patched by overlays
           ports:
             - containerPort: 8080
-          env: []
+          env:
+            # Inject the new bootstrap key from the platform secrets
+            - name: AGENT_BOOTSTRAP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: agent-bootstrap-key
           envFrom:
             - configMapRef:
                 name: placeholder-config # Patched by overlays

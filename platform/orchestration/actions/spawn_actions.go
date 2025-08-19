@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -23,7 +24,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// SpawnAgentAction creates or reuses an agent instance
 // SpawnAgentAction creates an agent instance in DB and spawns a Kubernetes Job
 func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
@@ -843,6 +843,22 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 										},
 									},
 								},
+								// bootstrap key for agent registration
+								{
+									Name: "AGENT_BOOTSTRAP_KEY",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "personae-platform-secrets",
+											},
+											Key: "agent-bootstrap-key",
+										},
+									},
+								},
+								{
+									Name:  "CORE_MANAGER_URL",
+									Value: "http://core-manager.ai-persona-system.svc.cluster.local:8088",
+								},
 							},
 							// Add all config from ConfigMap
 							EnvFrom: []corev1.EnvFromSource{
@@ -864,7 +880,7 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 									corev1.ResourceMemory: resource.MustParse(getResourceLimit(agentType, "memory")),
 								},
 							},
-							/*// Liveness probe using your health server
+							// Liveness probe using your health server
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -893,17 +909,17 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 								TimeoutSeconds:      3,
 								SuccessThreshold:    1,
 								FailureThreshold:    3,
-							},*/
-							// Use exec probe instead of HTTP
-							LivenessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									Exec: &corev1.ExecAction{
-										Command: []string{"sh", "-c", "ps aux | grep agent-chassis | grep -v grep"},
-									},
-								},
-								InitialDelaySeconds: 30,
-								PeriodSeconds:       10,
 							},
+							/*							// Use exec probe instead of HTTP
+														LivenessProbe: &corev1.Probe{
+															ProbeHandler: corev1.ProbeHandler{
+																Exec: &corev1.ExecAction{
+																	Command: []string{"sh", "-c", "ps aux | grep agent-chassis | grep -v grep"},
+																},
+															},
+															InitialDelaySeconds: 30,
+															PeriodSeconds:       10,
+														},*/
 						},
 					},
 				},
@@ -932,22 +948,23 @@ func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID s
 }
 
 // Helper function to determine which image to use for each agent type
-// Helper function to determine which image to use for each agent type
 func getAgentImage(agentType string) string {
-	// Map agent types to their specific images if they have custom ones
+	imageTag := getImageTag()
+
+	// Map agent types to their specific images
 	imageMap := map[string]string{
-		"content-creator": "docker.io/aqls/content-creator-agent:v1.0.35",
-		"reasoning":       "docker.io/aqls/reasoning-agent:v1.0.35",
-		"web-search":      "docker.io/aqls/web-search-adapter:v1.0.35",
-		"image-generator": "docker.io/aqls/image-generator-adapter:v1.0.35",
+		"content-creator": fmt.Sprintf("docker.io/aqls/content-creator-agent:%s", imageTag),
+		"reasoning":       fmt.Sprintf("docker.io/aqls/reasoning-agent:%s", imageTag),
+		"web-search":      fmt.Sprintf("docker.io/aqls/web-search-adapter:%s", imageTag),
+		"image-generator": fmt.Sprintf("docker.io/aqls/image-generator-adapter:%s", imageTag),
 	}
 
 	if image, ok := imageMap[agentType]; ok {
 		return image
 	}
 
-	// Default to generic agent-chassis for unknown types
-	return "docker.io/aqls/agent-chassis:v1.0.35"
+	// Default to generic agent-chassis
+	return fmt.Sprintf("docker.io/aqls/agent-chassis:%s", imageTag)
 }
 
 // Helper function to get the correct command for each agent type
@@ -1097,4 +1114,12 @@ func getResourceRequest(agentType, resource string) string {
 	}
 
 	return resourceMap["default"][resource]
+}
+
+// Helper function to get the image tag from environment or use default
+func getImageTag() string {
+	if tag := os.Getenv("AGENT_IMAGE_TAG"); tag != "" {
+		return tag
+	}
+	return "latest" // or another sensible default
 }

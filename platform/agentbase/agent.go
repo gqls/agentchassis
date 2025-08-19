@@ -4,6 +4,7 @@ package agentbase
 import (
 	"context"
 	"fmt"
+
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/health"
 	"github.com/gqls/agentchassis/platform/infrastructure"
@@ -194,6 +195,13 @@ func (a *Agent) Run() error {
 
 	// Start health server
 	a.healthServer.Start()
+
+	// Bootstrap with core manager
+	if err := a.Bootstrap(); err != nil {
+		a.logger.Error("Bootstrap failed", zap.Error(err))
+		// Decide if bootstrap failure should be fatal
+		// For now, log and continue
+	}
 
 	// Create error channel for goroutines
 	errCh := make(chan error, 2)
