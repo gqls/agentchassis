@@ -86,6 +86,7 @@ ALL_COMPONENTS=(
     "web-search-adapter-full"
     "image-generator-adapter-full"
     "agents-interaction-kafka"
+    "deploy-spawn-actions"
 
     # Database and migrations
     "database-schemas"
@@ -307,6 +308,7 @@ function show_help() {
   echo "    web-search-adapter-full"
   echo "    image-generator-adapter-full"
   echo "    agents-interaction-kafka"
+  echo "    deploy-spawn-actions"
   echo ""
   echo "  DATABASE & MIGRATIONS:"
   echo "    database-schemas         # All migration files and seed data"
@@ -807,6 +809,28 @@ case "$COMPONENT_NAME" in
       "platform/contracts/"
     )
     MODULE_FILES=( "configs/core-manager.yaml" "configs/kafka_topics.yaml" )
+    ;;
+
+  deploy-spawn-actions)
+    MODULE_DIRS=(
+      #"cmd/test-spawning/"
+      "internal/core-manager/api/"
+      #"internal/core-manager/admin/"
+      "platform/orchestration/actions/"
+      "platform/orchestration/"
+      "platform/discovery/"
+      "platform/database/migrations/"
+      "platform/contracts/"
+      "platform/kafka/"
+      "platform/resilience/"
+    )
+    MODULE_FILES=(
+      "cmd/core-manager/main.go"
+      #"cmd/test-spawning/main.go"
+      #"go.mod"
+      #"go.sum"
+      #"Makefile"
+    )
     ;;
 
   # --- Database and Migrations ---

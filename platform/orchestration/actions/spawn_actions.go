@@ -43,86 +43,56 @@ type AgentRecommendation struct {
 	RecommendationReason string
 }
 
+// AgentDefinition represents the database agent definition
+type AgentDefinition struct {
+	ID              string          `db:"id"`
+	Type            string          `db:"type"`
+	DisplayName     string          `db:"display_name"`
+	Description     string          `db:"description"`
+	Category        string          `db:"category"`
+	ImageRepository string          `db:"image_repository"`
+	ImageTag        string          `db:"image_tag"`
+	Command         []string        `db:"command"`
+	Resources       json.RawMessage `db:"resources"`
+	DefaultConfig   json.RawMessage `db:"default_config"`
+	Capabilities    json.RawMessage `db:"capabilities"`
+	Topics          json.RawMessage `db:"topics"`
+	HealthConfig    json.RawMessage `db:"health_config"`
+	EnvVars         json.RawMessage `db:"env_vars"`
+	IsActive        bool            `db:"is_active"`
+}
+
+// ResourceSpec represents Kubernetes resource requirements
+type ResourceSpec struct {
+	Requests map[string]string `json:"requests"`
+	Limits   map[string]string `json:"limits"`
+}
+
+// HealthCheckConfig represents health check configuration
+type HealthCheckConfig struct {
+	LivenessPath        string `json:"liveness_path"`
+	ReadinessPath       string `json:"readiness_path"`
+	Port                int    `json:"port"`
+	InitialDelaySeconds int    `json:"initial_delay_seconds"`
+}
+
+// TopicConfig represents Kafka topic configuration
+type TopicConfig struct {
+	Process  string `json:"process"`
+	Response string `json:"response"`
+	Error    string `json:"error"`
+	DLQ      string `json:"dlq"`
+}
+
+// EnvVar represents an environment variable
+type EnvVar struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 // EnhancedDiscovery wraps database connections and provides discovery methods
 type EnhancedDiscovery struct {
 	db interface{} // Can be *sql.DB or *pgxpool.Pool
-}
-
-// SpawnAgentAction creates an agent instance in DB and spawns a Kubernetes Job
-func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	config := params.StepConfig.Config
-	agentType, ok := config["agent_type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("agent_type not specified")
-	}
-
-	clientID := params.Headers["client_id"]
-	if clientID == "" {
-		return nil, fmt.Errorf("client_id not specified in headers")
-	}
-
-	params.Logger.Info("Spawning agent",
-		zap.String("agent_type", agentType),
-		zap.String("client_id", clientID))
-
-	// Check for existing agent
-	existingAgent := checkExistingAgent(ctx, params.DB, clientID, agentType)
-	if existingAgent != nil {
-		// Check if its Kubernetes job is still running
-		if isAgentJobRunning(ctx, existingAgent.ID, params.Logger) {
-			params.Logger.Info("Reusing existing running agent",
-				zap.String("agent_id", existingAgent.ID),
-				zap.String("agent_type", agentType))
-
-			return map[string]interface{}{
-				"agent_id": existingAgent.ID,
-				"topic":    fmt.Sprintf("system.agent.%s.process", agentType),
-				"status":   "reused",
-			}, nil
-		}
-		// Agent exists but job not running - will spawn new job below
-		params.Logger.Info("Agent exists but job not running, will spawn new job",
-			zap.String("agent_id", existingAgent.ID))
-	}
-
-	// Create or reuse agent ID
-	agentID := uuid.New().String()
-	if existingAgent != nil {
-		agentID = existingAgent.ID
-	} else {
-		// Create new agent in database
-		if err := createAgentInDB(ctx, params, agentID, agentType, clientID); err != nil {
-			return nil, fmt.Errorf("failed to create agent in database: %w", err)
-		}
-	}
-
-	// Spawn the Kubernetes Job
-	jobName, err := spawnAgentKubernetesJob(ctx, agentID, agentType, clientID, params.Logger)
-	if err != nil {
-		params.Logger.Error("Failed to spawn agent job",
-			zap.Error(err),
-			zap.String("agent_id", agentID),
-			zap.String("agent_type", agentType))
-		// Don't fail - agent exists in DB and can be spawned manually
-		return map[string]interface{}{
-			"agent_id": agentID,
-			"topic":    fmt.Sprintf("system.agent.%s.process", agentType),
-			"status":   "created_without_job",
-			"error":    err.Error(),
-		}, nil
-	}
-
-	params.Logger.Info("Successfully spawned agent job",
-		zap.String("job_name", jobName),
-		zap.String("agent_id", agentID),
-		zap.String("agent_type", agentType))
-
-	return map[string]interface{}{
-		"agent_id": agentID,
-		"topic":    fmt.Sprintf("system.agent.%s.process", agentType),
-		"status":   "spawned",
-		"job_name": jobName,
-	}, nil
 }
 
 // SpawnGroupAction spawns a complete agent group
@@ -696,6 +666,85 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	return callSpecificAgent(ctx, params, bestMatch.AgentID)
 }
 
+// getAgentImage - Database-driven version
+func getAgentImage(agentType string, db interface{}) string {
+	ctx := context.Background()
+
+	query := `
+        SELECT image_repository, image_tag 
+        FROM agent_definitions 
+        WHERE type = $1 AND is_active = true AND deleted_at IS NULL
+        LIMIT 1
+    `
+
+	var imageRepo, imageTag string
+
+	switch d := db.(type) {
+	case *sql.DB:
+		err := d.QueryRowContext(ctx, query, agentType).Scan(&imageRepo, &imageTag)
+		if err != nil {
+			// Log the error and return default
+			return fmt.Sprintf("docker.io/aqls/agent-chassis:latest")
+		}
+	case *pgxpool.Pool:
+		err := d.QueryRow(ctx, query, agentType).Scan(&imageRepo, &imageTag)
+		if err != nil {
+			return fmt.Sprintf("docker.io/aqls/agent-chassis:latest")
+		}
+	default:
+		return fmt.Sprintf("docker.io/aqls/agent-chassis:latest")
+	}
+
+	return fmt.Sprintf("%s:%s", imageRepo, imageTag)
+}
+
+// getAgentCommand - Database-driven version
+func getAgentCommand(agentType string, db interface{}) []string {
+	ctx := context.Background()
+
+	query := `
+        SELECT command 
+        FROM agent_definitions 
+        WHERE type = $1 AND is_active = true AND deleted_at IS NULL
+        LIMIT 1
+    `
+
+	switch d := db.(type) {
+	case *sql.DB:
+		var commandStr string
+		err := d.QueryRowContext(ctx, query, agentType).Scan(&commandStr)
+		if err != nil {
+			return []string{"./agent-chassis", "-config", "configs/agent-chassis.yaml"}
+		}
+
+		// Parse the PostgreSQL array string
+		command := parsePostgresArray(commandStr)
+		if len(command) > 0 {
+			return command
+		}
+	case *pgxpool.Pool:
+		var command []string
+		err := d.QueryRow(ctx, query, agentType).Scan(&command)
+		if err != nil || len(command) == 0 {
+			return []string{"./agent-chassis", "-config", "configs/agent-chassis.yaml"}
+		}
+		return command
+	}
+
+	return []string{"./agent-chassis", "-config", "configs/agent-chassis.yaml"}
+}
+
+// Helper to parse PostgreSQL array format
+func parsePostgresArray(s string) []string {
+	// PostgreSQL arrays look like: {value1,value2,value3}
+	s = strings.TrimPrefix(s, "{")
+	s = strings.TrimSuffix(s, "}")
+	if s == "" {
+		return []string{}
+	}
+	return strings.Split(s, ",")
+}
+
 // Updated DiscoverAgentsAction to use the new enhanced discovery
 func DiscoverAgentsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
@@ -755,537 +804,6 @@ func DiscoverAgentsAction(ctx context.Context, params ActionParams) (interface{}
 	}, nil
 }
 
-// Helper functions
-
-// Add this updated function to spawn_actions.go
-
-func buildWorkflowForType(agentType string, db interface{}) map[string]interface{} {
-	ctx := context.Background()
-
-	var workflowJSON []byte
-	var err error
-
-	// Handle both database types
-	switch d := db.(type) {
-	case *sql.DB:
-		err = d.QueryRowContext(ctx, `
-            SELECT default_config->'workflow'
-            FROM agent_definitions
-            WHERE type = $1
-        `, agentType).Scan(&workflowJSON)
-	case *pgxpool.Pool:
-		err = d.QueryRow(ctx, `
-            SELECT default_config->'workflow'
-            FROM agent_definitions
-            WHERE type = $1
-        `, agentType).Scan(&workflowJSON)
-	default:
-		// Fallback to default workflow
-		return getDefaultWorkflowForType(agentType)
-	}
-
-	if err == nil && len(workflowJSON) > 0 {
-		var workflow map[string]interface{}
-		if err := json.Unmarshal(workflowJSON, &workflow); err == nil {
-			return workflow
-		}
-	}
-
-	// Fallback
-	return getDefaultWorkflowForType(agentType)
-}
-
-// getDefaultWorkflowForType returns a default workflow when database lookup fails
-func getDefaultWorkflowForType(agentType string) map[string]interface{} {
-	// Define specific defaults for known agent types
-	switch agentType {
-	case "domain-analyst":
-		return map[string]interface{}{
-			"start_step": "analyze",
-			"steps": map[string]interface{}{
-				"analyze": map[string]interface{}{
-					"action":      "execute_llm_prompt",
-					"description": "Analyze the domain",
-					"config": map[string]interface{}{
-						"prompt_template": "Analyze the domain {{.input.domain}} and provide business insights.",
-					},
-					"next_step": "complete",
-				},
-				"complete": map[string]interface{}{
-					"action":      "complete_workflow",
-					"description": "Complete the analysis",
-				},
-			},
-		}
-
-	case "site-architect":
-		return map[string]interface{}{
-			"start_step": "design",
-			"steps": map[string]interface{}{
-				"design": map[string]interface{}{
-					"action":      "execute_llm_prompt",
-					"description": "Design site structure",
-					"config": map[string]interface{}{
-						"prompt_template": "Design a website structure for {{.input.business_name}}.",
-					},
-					"next_step": "complete",
-				},
-				"complete": map[string]interface{}{
-					"action": "complete_workflow",
-				},
-			},
-		}
-
-	case "content-creator":
-		return map[string]interface{}{
-			"start_step": "generate",
-			"steps": map[string]interface{}{
-				"generate": map[string]interface{}{
-					"action":      "execute_llm_prompt",
-					"description": "Generate content",
-					"config": map[string]interface{}{
-						"prompt_template": "Create website content for {{.input.business_name}}.",
-					},
-					"next_step": "complete",
-				},
-				"complete": map[string]interface{}{
-					"action": "complete_workflow",
-				},
-			},
-		}
-
-	case "html-developer":
-		return map[string]interface{}{
-			"start_step": "develop",
-			"steps": map[string]interface{}{
-				"develop": map[string]interface{}{
-					"action":      "execute_llm_prompt",
-					"description": "Generate HTML code",
-					"config": map[string]interface{}{
-						"prompt_template": "Generate HTML for {{.input.page_name}} page.",
-					},
-					"next_step": "complete",
-				},
-				"complete": map[string]interface{}{
-					"action": "complete_workflow",
-				},
-			},
-		}
-
-	case "visual-designer":
-		return map[string]interface{}{
-			"start_step": "design_visuals",
-			"steps": map[string]interface{}{
-				"design_visuals": map[string]interface{}{
-					"action":      "execute_llm_prompt",
-					"description": "Create visual design specs",
-					"config": map[string]interface{}{
-						"prompt_template": "Create visual design specifications for {{.input.business_name}}.",
-					},
-					"next_step": "complete",
-				},
-				"complete": map[string]interface{}{
-					"action": "complete_workflow",
-				},
-			},
-		}
-
-	case "site-publisher":
-		return map[string]interface{}{
-			"start_step": "publish",
-			"steps": map[string]interface{}{
-				"publish": map[string]interface{}{
-					"action":      "deploy_to_hosting",
-					"description": "Deploy the website",
-					"config": map[string]interface{}{
-						"platform": "netlify",
-						"auto_ssl": true,
-					},
-					"next_step": "complete",
-				},
-				"complete": map[string]interface{}{
-					"action": "complete_workflow",
-				},
-			},
-		}
-
-	case "website-builder":
-		// Orchestrator workflow
-		return map[string]interface{}{
-			"start_step": "validate",
-			"steps": map[string]interface{}{
-				"validate": map[string]interface{}{
-					"action":      "validate_input",
-					"description": "Validate the request",
-					"next_step":   "spawn_team",
-				},
-				"spawn_team": map[string]interface{}{
-					"action":      "spawn_group",
-					"description": "Spawn the website builder team",
-					"config": map[string]interface{}{
-						"group_type": "website-builder",
-					},
-					"next_step": "orchestrate",
-				},
-				"orchestrate": map[string]interface{}{
-					"action":      "start_orchestration",
-					"description": "Start the orchestration",
-					"next_step":   "complete",
-				},
-				"complete": map[string]interface{}{
-					"action": "complete_workflow",
-				},
-			},
-		}
-
-	case "orchestrator", "generic":
-		// Generic orchestrator workflow
-		return map[string]interface{}{
-			"start_step": "process",
-			"steps": map[string]interface{}{
-				"process": map[string]interface{}{
-					"action":      "validate_input",
-					"description": "Process the request",
-					"next_step":   "execute",
-				},
-				"execute": map[string]interface{}{
-					"action":      "transform_data",
-					"description": "Execute the task",
-					"config": map[string]interface{}{
-						"transformation": "uppercase",
-					},
-					"next_step": "respond",
-				},
-				"respond": map[string]interface{}{
-					"action":      "send_notification",
-					"description": "Send response",
-					"next_step":   "complete",
-				},
-				"complete": map[string]interface{}{
-					"action": "complete_workflow",
-				},
-			},
-		}
-
-	case "reasoning", "web-search", "image-generator":
-		// Adapter agents that call external services
-		return map[string]interface{}{
-			"start_step": "call_service",
-			"steps": map[string]interface{}{
-				"call_service": map[string]interface{}{
-					"action":      "http_request",
-					"description": "Call external service",
-					"config": map[string]interface{}{
-						"url":    getServiceURL(agentType),
-						"method": "POST",
-					},
-					"next_step": "complete",
-				},
-				"complete": map[string]interface{}{
-					"action": "complete_workflow",
-				},
-			},
-		}
-
-	default:
-		// Generic fallback for unknown agent types
-		return map[string]interface{}{
-			"start_step": "process",
-			"steps": map[string]interface{}{
-				"process": map[string]interface{}{
-					"action":      "execute_llm_prompt",
-					"description": "Process the task",
-					"config": map[string]interface{}{
-						"prompt_template": "Process this request: {{.input}}",
-					},
-					"next_step": "respond",
-				},
-				"respond": map[string]interface{}{
-					"action":      "send_notification",
-					"description": "Send response",
-					"next_step":   "complete",
-				},
-				"complete": map[string]interface{}{
-					"action":      "complete_workflow",
-					"description": "Complete the workflow",
-				},
-			},
-		}
-	}
-}
-
-// Helper function to get service URLs for adapter agents
-func getServiceURL(agentType string) string {
-	switch agentType {
-	case "reasoning":
-		return "http://reasoning-service.ai-persona-system.svc.cluster.local:8090/reason"
-	case "web-search":
-		return "http://web-search-service.ai-persona-system.svc.cluster.local:8091/search"
-	case "image-generator":
-		return "http://image-generator-service.ai-persona-system.svc.cluster.local:8092/generate"
-	default:
-		return "http://localhost:8080/process"
-	}
-}
-
-// Update createAgentInDB to use the new function
-func createAgentInDB(ctx context.Context, params ActionParams, agentID, agentType, clientID string) error {
-	// Pass the database connection to buildWorkflowForType
-	workflow := buildWorkflowForType(agentType, params.DB)
-
-	agentConfig := map[string]interface{}{
-		"agent_type":   agentType,
-		"workflow":     workflow,
-		"topic":        fmt.Sprintf("system.agent.%s.process", agentType),
-		"capabilities": getCapabilitiesForType(agentType),
-	}
-
-	configJSON, err := json.Marshal(agentConfig)
-	if err != nil {
-		return err
-	}
-
-	insertQuery := fmt.Sprintf(`
-		INSERT INTO client_%s.agent_instances 
-		(id, template_id, owner_user_id, name, config, is_active)
-		VALUES ($1, $2, $3, $4, $5, true)
-	`, clientID)
-
-	userID := params.Headers["user_id"]
-	if userID == "" {
-		userID = "system"
-	}
-
-	_, err = params.DB.ExecContext(ctx, insertQuery,
-		agentID,
-		"2a540b98-85d5-4762-a692-538bcf1be395", // generic template
-		userID,
-		fmt.Sprintf("%s-%s", agentType, time.Now().Format("20060102-150405")),
-		configJSON,
-	)
-
-	return err
-}
-
-func getCapabilitiesForType(agentType string) []string {
-	capabilities := map[string][]string{
-		"copywriter":      {"writing", "marketing", "creative"},
-		"researcher":      {"research", "analysis", "data"},
-		"developer":       {"coding", "html", "css", "javascript"},
-		"designer":        {"design", "ui", "ux", "graphics"},
-		"domain-analyst":  {"analysis", "research", "categorization"},
-		"site-architect":  {"planning", "structure", "navigation"},
-		"html-developer":  {"html", "css", "javascript", "frontend"},
-		"visual-designer": {"design", "graphics", "branding"},
-		"site-publisher":  {"deployment", "hosting", "publishing"},
-	}
-
-	if caps, ok := capabilities[agentType]; ok {
-		return caps
-	}
-	return []string{agentType}
-}
-
-func spawnAgentJob(ctx context.Context, agentID, agentType, clientID string, logger *zap.Logger) (string, error) {
-	// Get Kubernetes client
-	k8sConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return "", fmt.Errorf("failed to get in-cluster config: %w", err)
-	}
-
-	clientset, err := kubernetes.NewForConfig(k8sConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to create kubernetes client: %w", err)
-	}
-
-	// Generate unique job name
-	jobName := fmt.Sprintf("agent-%s-%s-%d", agentType, agentID[:8], time.Now().Unix())
-
-	// Define the Job
-	job := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName,
-			Namespace: "ai-persona-system",
-			Labels: map[string]string{
-				"app":        "dynamic-agent",
-				"agent-type": agentType,
-				"agent-id":   agentID,
-				"client-id":  clientID,
-				"spawned-by": "orchestrator",
-			},
-		},
-		Spec: batchv1.JobSpec{
-			TTLSecondsAfterFinished: int32Ptr(3600), // Clean up after 1 hour
-			BackoffLimit:            int32Ptr(3),
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app":        "dynamic-agent",
-						"agent-type": agentType,
-						"agent-id":   agentID,
-					},
-				},
-				Spec: corev1.PodSpec{
-					RestartPolicy:      corev1.RestartPolicyOnFailure,
-					ServiceAccountName: "ai-persona-app", // Same SA as your other pods
-					ImagePullSecrets: []corev1.LocalObjectReference{
-						{Name: "docker-hub-creds"},
-					},
-					Containers: []corev1.Container{
-						{
-							Name:  "agent",
-							Image: "docker.io/aqls/agent-chassis:v1.0.25",
-							Env: []corev1.EnvVar{
-								// Core configuration
-								{Name: "AGENT_TYPE", Value: agentType},
-								{Name: "AGENT_ID", Value: agentID},
-								{Name: "CLIENT_ID", Value: clientID},
-
-								// Kafka configuration
-								{Name: "KAFKA_TOPIC", Value: fmt.Sprintf("system.agent.%s.process", agentType)},
-								{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group", agentType)},
-
-								// Database passwords from secrets
-								{
-									Name: "CLIENTS_DB_PASSWORD",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-platform-secrets",
-											},
-											Key: "CLIENTS_DB_PASSWORD",
-										},
-									},
-								},
-								{
-									Name: "TEMPLATES_DB_PASSWORD",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-platform-secrets",
-											},
-											Key: "TEMPLATES_DB_PASSWORD",
-										},
-									},
-								},
-								// Add other secrets as needed
-								{
-									Name: "ANTHROPIC_API_KEY",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-platform-secrets",
-											},
-											Key: "ANTHROPIC_API_KEY",
-										},
-									},
-								},
-							},
-							// Add config from ConfigMap
-							EnvFrom: []corev1.EnvFromSource{
-								{
-									ConfigMapRef: &corev1.ConfigMapEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "personae-prod-config",
-										},
-									},
-								},
-							},
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("100m"),
-									corev1.ResourceMemory: resource.MustParse("128Mi"),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("500m"),
-									corev1.ResourceMemory: resource.MustParse("512Mi"),
-								},
-							},
-							// Add liveness/readiness probes
-							// Liveness probe using your health server
-							LivenessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/health",
-										Port:   intstr.FromString("health"), // Using named port
-										Scheme: corev1.URISchemeHTTP,
-									},
-								},
-								InitialDelaySeconds: 30,
-								PeriodSeconds:       10,
-								TimeoutSeconds:      5,
-								SuccessThreshold:    1,
-								FailureThreshold:    3,
-							},
-							// Readiness probe
-							ReadinessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/ready",
-										Port:   intstr.FromString("health"), // Using named port
-										Scheme: corev1.URISchemeHTTP,
-									},
-								},
-								InitialDelaySeconds: 10,
-								PeriodSeconds:       5,
-								TimeoutSeconds:      3,
-								SuccessThreshold:    1,
-								FailureThreshold:    3,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// Create the Job
-	createdJob, err := clientset.BatchV1().Jobs("ai-persona-system").Create(ctx, job, metav1.CreateOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to create job: %w", err)
-	}
-
-	logger.Info("Kubernetes Job created",
-		zap.String("job_name", createdJob.Name),
-		zap.String("namespace", createdJob.Namespace))
-
-	return createdJob.Name, nil
-}
-
-// Helper function to check if an agent pod is running
-func isAgentPodRunning(ctx context.Context, agentID string) bool {
-	k8sConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return false
-	}
-
-	clientset, err := kubernetes.NewForConfig(k8sConfig)
-	if err != nil {
-		return false
-	}
-
-	// List pods with the agent-id label
-	pods, err := clientset.CoreV1().Pods("ai-persona-system").List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("agent-id=%s", agentID),
-	})
-
-	if err != nil || len(pods.Items) == 0 {
-		return false
-	}
-
-	// Check if any pod is running
-	for _, pod := range pods.Items {
-		if pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodPending {
-			return true
-		}
-	}
-
-	return false
-}
-
-// Helper functions
-func int32Ptr(i int32) *int32 { return &i }
-
 func checkExistingAgent(ctx context.Context, db *sql.DB, clientID, agentType string) *AgentInfo {
 	var id string
 	query := fmt.Sprintf(`
@@ -1305,328 +823,6 @@ func checkExistingAgent(ctx context.Context, db *sql.DB, clientID, agentType str
 
 type AgentInfo struct {
 	ID string
-}
-
-func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID string, logger *zap.Logger) (string, error) {
-	// Get in-cluster config
-	k8sConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return "", fmt.Errorf("failed to get in-cluster config: %w", err)
-	}
-
-	clientset, err := kubernetes.NewForConfig(k8sConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to create kubernetes client: %w", err)
-	}
-
-	// Generate unique job name (must be DNS-1123 compliant)
-	jobName := fmt.Sprintf("agent-%s-%s", agentType, agentID[:8])
-
-	// Check if job already exists
-	existingJob, err := clientset.BatchV1().Jobs("ai-persona-system").Get(ctx, jobName, metav1.GetOptions{})
-	if err == nil {
-		// Job exists - check if it's failed and needs to be recreated
-		if existingJob.Status.Failed > 0 || existingJob.Status.Succeeded > 0 {
-			logger.Info("Deleting completed/failed job before recreating",
-				zap.String("job_name", jobName),
-				zap.Int32("failed", existingJob.Status.Failed),
-				zap.Int32("succeeded", existingJob.Status.Succeeded))
-
-			// Delete the old job
-			deletePolicy := metav1.DeletePropagationForeground
-			err = clientset.BatchV1().Jobs("ai-persona-system").Delete(ctx, jobName, metav1.DeleteOptions{
-				PropagationPolicy: &deletePolicy,
-			})
-			if err != nil {
-				logger.Warn("Failed to delete old job", zap.Error(err))
-			}
-
-			// Wait a bit for deletion to propagate
-			time.Sleep(2 * time.Second)
-		} else if existingJob.Status.Active > 0 {
-			// Job is still running
-			logger.Info("Job is already running",
-				zap.String("job_name", jobName),
-				zap.Int32("active", existingJob.Status.Active))
-			return jobName, nil
-		}
-	}
-
-	// Define the Job
-	job := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName, // Use the jobName variable here
-			Namespace: "ai-persona-system",
-			Labels: map[string]string{
-				"app":        "dynamic-agent",
-				"agent-type": agentType,
-				"agent-id":   agentID,
-				"client-id":  clientID,
-				"spawned-by": "orchestrator",
-				"component":  "agent",
-			},
-		},
-		Spec: batchv1.JobSpec{
-			TTLSecondsAfterFinished: int32Ptr(3600), // Clean up after 1 hour
-			BackoffLimit:            int32Ptr(3),
-			ActiveDeadlineSeconds:   int64Ptr(86400), // 24 hours max runtime
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app":        "dynamic-agent",
-						"agent-type": agentType,
-						"agent-id":   agentID,
-						"client-id":  clientID,
-					},
-					Annotations: map[string]string{
-						"prometheus.io/scrape": "true",
-						"prometheus.io/port":   "9090", // Metrics port
-						"prometheus.io/path":   "/metrics",
-					},
-				},
-				Spec: corev1.PodSpec{
-					RestartPolicy:      corev1.RestartPolicyOnFailure,
-					ServiceAccountName: "ai-persona-app",
-					ImagePullSecrets: []corev1.LocalObjectReference{
-						{Name: "docker-hub-creds"},
-					},
-					Containers: []corev1.Container{
-						{
-							Name:    "agent",
-							Image:   getAgentImage(agentType),
-							Command: getAgentCommand(agentType), // Add this helper function
-							Ports: []corev1.ContainerPort{
-								{
-									Name:          "health",
-									ContainerPort: 8080,
-									Protocol:      corev1.ProtocolTCP,
-								},
-								{
-									Name:          "metrics",
-									ContainerPort: 9090,
-									Protocol:      corev1.ProtocolTCP,
-								},
-							},
-							Env: []corev1.EnvVar{
-								// Core configuration
-								{Name: "AGENT_TYPE", Value: agentType},
-								{Name: "AGENT_ID", Value: agentID},
-								{Name: "CLIENT_ID", Value: clientID},
-
-								// Dynamic topic configuration
-								{Name: "KAFKA_TOPIC", Value: fmt.Sprintf("system.agent.%s.process", agentType)},
-								{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentType, agentID[:8])},
-
-								// Health server ports
-								{Name: "HEALTH_PORT", Value: "8080"},
-								{Name: "METRICS_PORT", Value: "9090"},
-
-								// Secrets
-								{
-									Name: "CLIENTS_DB_PASSWORD",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-platform-secrets",
-											},
-											Key: "CLIENTS_DB_PASSWORD",
-										},
-									},
-								},
-								{
-									Name: "TEMPLATES_DB_PASSWORD", // ADD THIS
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-platform-secrets",
-											},
-											Key: "TEMPLATES_DB_PASSWORD",
-										},
-									},
-								},
-								{
-									Name: "AUTH_DB_PASSWORD", // MIGHT NEED THIS TOO
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-platform-secrets",
-											},
-											Key: "AUTH_DB_PASSWORD",
-										},
-									},
-								},
-								{
-									Name: "ANTHROPIC_API_KEY",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-default-secrets",
-											},
-											Key: "ANTHROPIC_API_KEY",
-										},
-									},
-								},
-								// bootstrap key for agent registration
-								{
-									Name: "AGENT_BOOTSTRAP_KEY",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "personae-platform-secrets",
-											},
-											Key: "agent-bootstrap-key",
-										},
-									},
-								},
-								{
-									Name:  "CORE_MANAGER_URL",
-									Value: "http://core-manager.ai-persona-system.svc.cluster.local:8088",
-								},
-							},
-							// Add all config from ConfigMap
-							EnvFrom: []corev1.EnvFromSource{
-								{
-									ConfigMapRef: &corev1.ConfigMapEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "personae-prod-config",
-										},
-									},
-								},
-							},
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse(getResourceRequest(agentType, "cpu")),
-									corev1.ResourceMemory: resource.MustParse(getResourceRequest(agentType, "memory")),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse(getResourceLimit(agentType, "cpu")),
-									corev1.ResourceMemory: resource.MustParse(getResourceLimit(agentType, "memory")),
-								},
-							},
-							// Liveness probe using your health server
-							LivenessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/health",
-										Port:   intstr.FromString("health"),
-										Scheme: corev1.URISchemeHTTP,
-									},
-								},
-								InitialDelaySeconds: 30,
-								PeriodSeconds:       10,
-								TimeoutSeconds:      5,
-								SuccessThreshold:    1,
-								FailureThreshold:    3,
-							},
-							// Readiness probe
-							ReadinessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/ready",
-										Port:   intstr.FromString("health"),
-										Scheme: corev1.URISchemeHTTP,
-									},
-								},
-								InitialDelaySeconds: 10,
-								PeriodSeconds:       5,
-								TimeoutSeconds:      3,
-								SuccessThreshold:    1,
-								FailureThreshold:    3,
-							},
-							/*							// Use exec probe instead of HTTP
-														LivenessProbe: &corev1.Probe{
-															ProbeHandler: corev1.ProbeHandler{
-																Exec: &corev1.ExecAction{
-																	Command: []string{"sh", "-c", "ps aux | grep agent-chassis | grep -v grep"},
-																},
-															},
-															InitialDelaySeconds: 30,
-															PeriodSeconds:       10,
-														},*/
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// Create the Job
-	createdJob, err := clientset.BatchV1().Jobs("ai-persona-system").Create(ctx, job, metav1.CreateOptions{})
-	if err != nil {
-		// If it still exists (race condition), just return success
-		if strings.Contains(err.Error(), "already exists") {
-			logger.Warn("Job already exists (race condition), continuing",
-				zap.String("job_name", jobName))
-			return jobName, nil
-		}
-		return "", fmt.Errorf("failed to create kubernetes job: %w", err)
-	}
-
-	logger.Info("Created Kubernetes Job",
-		zap.String("job_name", createdJob.Name),
-		zap.String("namespace", createdJob.Namespace),
-		zap.String("uid", string(createdJob.UID)))
-
-	return createdJob.Name, nil
-}
-
-// Helper function to determine which image to use for each agent type
-func getAgentImage(agentType string) string {
-	imageTag := getImageTag()
-
-	// Map agent types to their specific images
-	imageMap := map[string]string{
-		"content-creator": fmt.Sprintf("docker.io/aqls/content-creator-agent:%s", imageTag),
-		"reasoning":       fmt.Sprintf("docker.io/aqls/reasoning-agent:%s", imageTag),
-		"web-search":      fmt.Sprintf("docker.io/aqls/web-search-adapter:%s", imageTag),
-		"image-generator": fmt.Sprintf("docker.io/aqls/image-generator-adapter:%s", imageTag),
-	}
-
-	if image, ok := imageMap[agentType]; ok {
-		return image
-	}
-
-	// Default to generic agent-chassis
-	return fmt.Sprintf("docker.io/aqls/agent-chassis:%s", imageTag)
-}
-
-// Helper function to get the correct command for each agent type
-func getAgentCommand(agentType string) []string {
-	// Map agent types to their specific commands
-	commandMap := map[string][]string{
-		"content-creator": {
-			"./content-creator-agent",
-			"-config",
-			"configs/content-creator-agent.yaml",
-		},
-		"reasoning": {
-			"./reasoning-agent",
-			"-config",
-			"configs/reasoning-agent.yaml",
-		},
-		"web-search": {
-			"./web-search-adapter",
-			"-config",
-			"configs/web-search-adapter.yaml",
-		},
-		"image-generator": {
-			"./image-generator-adapter",
-			"-config",
-			"configs/image-adapter.yaml",
-		},
-	}
-
-	// For agent-chassis based agents (domain-analyst, site-architect, etc.)
-	if cmd, ok := commandMap[agentType]; ok {
-		return cmd
-	}
-
-	// Default command for generic agents using agent-chassis
-	return []string{
-		"./agent-chassis",
-		"-config",
-		"configs/agent-chassis.yaml",
-	}
 }
 
 // Check if an agent job is currently running
@@ -1665,7 +861,711 @@ func isAgentJobRunning(ctx context.Context, agentID string, logger *zap.Logger) 
 	return false
 }
 
-// Helper functions
+// SpawnAgentAction creates an agent instance in DB and spawns a Kubernetes Job
+func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	config := params.StepConfig.Config
+	agentType, ok := config["agent_type"].(string)
+	if !ok {
+		return nil, fmt.Errorf("agent_type not specified")
+	}
+
+	clientID := params.Headers["client_id"]
+	if clientID == "" {
+		return nil, fmt.Errorf("client_id not specified in headers")
+	}
+
+	params.Logger.Info("Spawning agent",
+		zap.String("agent_type", agentType),
+		zap.String("client_id", clientID))
+
+	// Get agent definition from database
+	agentDef, err := getAgentDefinition(ctx, params.DB, agentType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent definition: %w", err)
+	}
+
+	if !agentDef.IsActive {
+		return nil, fmt.Errorf("agent type %s is not active", agentType)
+	}
+
+	// Check for existing agent
+	existingAgent := checkExistingAgent(ctx, params.DB, clientID, agentType)
+	if existingAgent != nil {
+		// Check if its Kubernetes job is still running
+		if isAgentJobRunning(ctx, existingAgent.ID, params.Logger) {
+			params.Logger.Info("Reusing existing running agent",
+				zap.String("agent_id", existingAgent.ID),
+				zap.String("agent_type", agentType))
+
+			// Get topic from definition
+			topics := parseTopicConfig(agentDef.Topics)
+			processTopic := strings.ReplaceAll(topics.Process, "{type}", agentType)
+
+			return map[string]interface{}{
+				"agent_id": existingAgent.ID,
+				"topic":    processTopic,
+				"status":   "reused",
+			}, nil
+		}
+		// Agent exists but job not running - will spawn new job below
+		params.Logger.Info("Agent exists but job not running, will spawn new job",
+			zap.String("agent_id", existingAgent.ID))
+	}
+
+	// Create or reuse agent ID
+	agentID := uuid.New().String()
+	if existingAgent != nil {
+		agentID = existingAgent.ID
+	} else {
+		// Create new agent in database using definition
+		if err := createAgentInDBFromDefinition(ctx, params, agentID, agentDef, clientID); err != nil {
+			return nil, fmt.Errorf("failed to create agent in database: %w", err)
+		}
+	}
+
+	// Spawn the Kubernetes Job using definition
+	jobName, err := spawnAgentKubernetesJobFromDefinition(ctx, agentID, agentDef, clientID, params.Logger)
+	if err != nil {
+		params.Logger.Error("Failed to spawn agent job",
+			zap.Error(err),
+			zap.String("agent_id", agentID),
+			zap.String("agent_type", agentType))
+		// Don't fail - agent exists in DB and can be spawned manually
+		topics := parseTopicConfig(agentDef.Topics)
+		processTopic := strings.ReplaceAll(topics.Process, "{type}", agentType)
+
+		return map[string]interface{}{
+			"agent_id": agentID,
+			"topic":    processTopic,
+			"status":   "created_without_job",
+			"error":    err.Error(),
+		}, nil
+	}
+
+	params.Logger.Info("Successfully spawned agent job",
+		zap.String("job_name", jobName),
+		zap.String("agent_id", agentID),
+		zap.String("agent_type", agentType))
+
+	topics := parseTopicConfig(agentDef.Topics)
+	processTopic := strings.ReplaceAll(topics.Process, "{type}", agentType)
+
+	return map[string]interface{}{
+		"agent_id": agentID,
+		"topic":    processTopic,
+		"status":   "spawned",
+		"job_name": jobName,
+	}, nil
+}
+
+// getAgentDefinition retrieves agent definition from database
+func getAgentDefinition(ctx context.Context, db interface{}, agentType string) (*AgentDefinition, error) {
+	query := `
+		SELECT id, type, display_name, description, category,
+		       image_repository, image_tag, command,
+		       resources, default_config, capabilities, topics,
+		       health_config, env_vars, is_active
+		FROM agent_definitions
+		WHERE type = $1 AND deleted_at IS NULL
+		LIMIT 1
+	`
+
+	var def AgentDefinition
+	var command sql.NullString
+
+	switch d := db.(type) {
+	case *sql.DB:
+		err := d.QueryRowContext(ctx, query, agentType).Scan(
+			&def.ID, &def.Type, &def.DisplayName, &def.Description, &def.Category,
+			&def.ImageRepository, &def.ImageTag, &command,
+			&def.Resources, &def.DefaultConfig, &def.Capabilities, &def.Topics,
+			&def.HealthConfig, &def.EnvVars, &def.IsActive,
+		)
+		if err != nil {
+			return nil, err
+		}
+	case *pgxpool.Pool:
+		err := d.QueryRow(ctx, query, agentType).Scan(
+			&def.ID, &def.Type, &def.DisplayName, &def.Description, &def.Category,
+			&def.ImageRepository, &def.ImageTag, &def.Command,
+			&def.Resources, &def.DefaultConfig, &def.Capabilities, &def.Topics,
+			&def.HealthConfig, &def.EnvVars, &def.IsActive,
+		)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unsupported database type: %T", db)
+	}
+
+	return &def, nil
+}
+
+// parseTopicConfig parses the topic configuration from JSON
+func parseTopicConfig(topicsJSON json.RawMessage) TopicConfig {
+	var topics TopicConfig
+	if err := json.Unmarshal(topicsJSON, &topics); err != nil {
+		// Return defaults
+		return TopicConfig{
+			Process:  "system.agent.{type}.process",
+			Response: "system.responses.{type}",
+			Error:    "system.errors.{type}",
+			DLQ:      "dlq.{type}",
+		}
+	}
+	return topics
+}
+
+// parseResourceSpec parses resource configuration
+func parseResourceSpec(resourcesJSON json.RawMessage) ResourceSpec {
+	var spec ResourceSpec
+	if err := json.Unmarshal(resourcesJSON, &spec); err != nil {
+		// Return defaults
+		return ResourceSpec{
+			Requests: map[string]string{"cpu": "100m", "memory": "256Mi"},
+			Limits:   map[string]string{"cpu": "500m", "memory": "1Gi"},
+		}
+	}
+	return spec
+}
+
+// parseHealthConfig parses health check configuration
+func parseHealthConfig(healthJSON json.RawMessage) HealthCheckConfig {
+	var config HealthCheckConfig
+	if err := json.Unmarshal(healthJSON, &config); err != nil {
+		// Return defaults
+		return HealthCheckConfig{
+			LivenessPath:        "/health",
+			ReadinessPath:       "/ready",
+			Port:                8080,
+			InitialDelaySeconds: 30,
+		}
+	}
+	return config
+}
+
+// parseEnvVars parses environment variables configuration
+func parseEnvVars(envJSON json.RawMessage) []EnvVar {
+	var envVars []EnvVar
+	json.Unmarshal(envJSON, &envVars)
+	return envVars
+}
+
+// buildWorkflowForType fetches workflow from agent definition in database
+// This replaces the old function that had hardcoded workflows
+func buildWorkflowForType(ctx context.Context, db interface{}, agentType string) (map[string]interface{}, error) {
+	// Query the workflow from agent_definitions
+	query := `
+		SELECT default_config->'workflow'
+		FROM agent_definitions
+		WHERE type = $1 
+		AND is_active = true 
+		AND deleted_at IS NULL
+		LIMIT 1
+	`
+
+	var workflowJSON json.RawMessage
+
+	switch d := db.(type) {
+	case *sql.DB:
+		err := d.QueryRowContext(ctx, query, agentType).Scan(&workflowJSON)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, fmt.Errorf("agent type '%s' not found in definitions", agentType)
+			}
+			return nil, fmt.Errorf("failed to fetch workflow for agent type '%s': %w", agentType, err)
+		}
+	case *pgxpool.Pool:
+		err := d.QueryRow(ctx, query, agentType).Scan(&workflowJSON)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch workflow for agent type '%s': %w", agentType, err)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported database type: %T", db)
+	}
+
+	// Parse the workflow
+	if workflowJSON == nil || len(workflowJSON) == 0 {
+		// No workflow defined, return minimal
+		return buildMinimalWorkflow(agentType), nil
+	}
+
+	var workflow map[string]interface{}
+	if err := json.Unmarshal(workflowJSON, &workflow); err != nil {
+		// Failed to parse, return minimal
+		return buildMinimalWorkflow(agentType), nil
+	}
+
+	// Validate workflow has required fields
+	if _, hasStartStep := workflow["start_step"]; !hasStartStep {
+		return buildMinimalWorkflow(agentType), nil
+	}
+	if _, hasSteps := workflow["steps"]; !hasSteps {
+		return buildMinimalWorkflow(agentType), nil
+	}
+
+	return workflow, nil
+}
+
+// validateWorkflow ensures a workflow has all required fields
+func validateWorkflow(workflow map[string]interface{}) error {
+	// Check for start_step
+	startStep, ok := workflow["start_step"].(string)
+	if !ok || startStep == "" {
+		return fmt.Errorf("workflow missing required field 'start_step'")
+	}
+
+	// Check for steps
+	steps, ok := workflow["steps"].(map[string]interface{})
+	if !ok || len(steps) == 0 {
+		return fmt.Errorf("workflow missing required field 'steps' or steps is empty")
+	}
+
+	// Verify start_step exists in steps
+	if _, exists := steps[startStep]; !exists {
+		return fmt.Errorf("start_step '%s' not found in workflow steps", startStep)
+	}
+
+	// Check each step has required fields
+	for stepName, stepData := range steps {
+		step, ok := stepData.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("step '%s' is not a valid object", stepName)
+		}
+
+		// Every step must have an action
+		if _, hasAction := step["action"]; !hasAction {
+			return fmt.Errorf("step '%s' missing required field 'action'", stepName)
+		}
+	}
+
+	return nil
+}
+
+// buildMinimalWorkflow creates a minimal fallback workflow
+// This is only used when database doesn't have a workflow defined
+func buildMinimalWorkflow(agentType string) map[string]interface{} {
+	// Determine the primary action based on agent category
+	// We can fetch this from the DB or use a simple default
+	primaryAction := "execute_llm_prompt"
+
+	// You could make this smarter by checking the agent type
+	switch {
+	case strings.Contains(agentType, "orchestrat"):
+		primaryAction = "validate_input"
+	case strings.Contains(agentType, "adapt"):
+		primaryAction = "http_request"
+	case strings.Contains(agentType, "publish"):
+		primaryAction = "deploy_to_hosting"
+	default:
+		primaryAction = "execute_llm_prompt"
+	}
+
+	return map[string]interface{}{
+		"start_step": "process",
+		"steps": map[string]interface{}{
+			"process": map[string]interface{}{
+				"action":      primaryAction,
+				"description": fmt.Sprintf("Process %s task", agentType),
+				"next_step":   "complete",
+			},
+			"complete": map[string]interface{}{
+				"action":      "complete_workflow",
+				"description": "Complete the workflow",
+			},
+		},
+	}
+}
+
+// createAgentInDBFromDefinition creates agent instance using definition from database
+func createAgentInDBFromDefinition(ctx context.Context, params ActionParams, agentID string, agentDef *AgentDefinition, clientID string) error {
+	// Parse the default config from the agent definition
+	var defaultConfig map[string]interface{}
+	if err := json.Unmarshal(agentDef.DefaultConfig, &defaultConfig); err != nil {
+		// If parsing fails, start with empty config
+		defaultConfig = make(map[string]interface{})
+		params.Logger.Warn("Failed to parse default config, using empty config",
+			zap.String("agent_type", agentDef.Type),
+			zap.Error(err))
+	}
+
+	// Ensure we have a workflow - either from default_config or build a minimal one
+	if _, hasWorkflow := defaultConfig["workflow"]; !hasWorkflow {
+		// Try to extract workflow from the default_config if it exists at a different level
+		if workflowRaw, ok := defaultConfig["workflow"]; ok {
+			defaultConfig["workflow"] = workflowRaw
+		} else {
+			// Build a minimal fallback workflow
+			params.Logger.Info("No workflow in default config, using minimal workflow",
+				zap.String("agent_type", agentDef.Type))
+			defaultConfig["workflow"] = buildMinimalWorkflow(agentDef.Type)
+		}
+	}
+
+	// Parse and set capabilities
+	var capabilities []string
+	if err := json.Unmarshal(agentDef.Capabilities, &capabilities); err == nil {
+		defaultConfig["capabilities"] = capabilities
+	} else {
+		// Fallback to agent type as capability
+		defaultConfig["capabilities"] = []string{agentDef.Type}
+	}
+
+	// Parse topics configuration
+	topics := parseTopicConfig(agentDef.Topics)
+	processTopic := strings.ReplaceAll(topics.Process, "{type}", agentDef.Type)
+
+	// Add runtime configuration that's always needed
+	runtimeConfig := map[string]interface{}{
+		"agent_id":     agentID,
+		"agent_type":   agentDef.Type,
+		"display_name": agentDef.DisplayName,
+		"category":     agentDef.Category,
+		"topic":        processTopic,
+		"topics": map[string]string{
+			"process":  strings.ReplaceAll(topics.Process, "{type}", agentDef.Type),
+			"response": strings.ReplaceAll(topics.Response, "{type}", agentDef.Type),
+			"error":    strings.ReplaceAll(topics.Error, "{type}", agentDef.Type),
+			"dlq":      strings.ReplaceAll(topics.DLQ, "{type}", agentDef.Type),
+		},
+	}
+
+	// Merge runtime config with default config
+	for k, v := range runtimeConfig {
+		defaultConfig[k] = v
+	}
+
+	// Add any overrides from the spawn request
+	if overrides, ok := params.StepConfig.Config["config_overrides"].(map[string]interface{}); ok {
+		for k, v := range overrides {
+			defaultConfig[k] = v
+		}
+		params.Logger.Info("Applied config overrides",
+			zap.String("agent_id", agentID),
+			zap.Int("override_count", len(overrides)))
+	}
+
+	// Marshal the final configuration
+	configJSON, err := json.Marshal(defaultConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal agent config: %w", err)
+	}
+
+	// Prepare the insert query for the client-specific schema
+	insertQuery := fmt.Sprintf(`
+		INSERT INTO client_%s.agent_instances 
+		(id, template_id, owner_user_id, name, config, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
+		ON CONFLICT (id) DO UPDATE SET
+			config = EXCLUDED.config,
+			updated_at = NOW()
+	`, clientID)
+
+	// Get user ID from headers or default to system
+	userID := params.Headers["user_id"]
+	if userID == "" {
+		userID = "system"
+	}
+
+	// Generate a descriptive name for the instance
+	instanceName := fmt.Sprintf("%s-%s", agentDef.DisplayName, time.Now().Format("20060102-150405"))
+	if customName, ok := params.StepConfig.Config["instance_name"].(string); ok && customName != "" {
+		instanceName = customName
+	}
+
+	// Execute the insert
+	_, err = params.DB.ExecContext(ctx, insertQuery,
+		agentID,
+		agentDef.ID, // Reference to the agent_definitions table
+		userID,
+		instanceName,
+		configJSON,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert agent instance: %w", err)
+	}
+
+	params.Logger.Info("Agent instance created in database",
+		zap.String("agent_id", agentID),
+		zap.String("agent_type", agentDef.Type),
+		zap.String("instance_name", instanceName),
+		zap.String("client_id", clientID))
+
+	return nil
+}
+
+// spawnAgentKubernetesJobFromDefinition spawns job using database definition
+func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, agentDef *AgentDefinition, clientID string, logger *zap.Logger) (string, error) {
+	// Get in-cluster config
+	k8sConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return "", fmt.Errorf("failed to get in-cluster config: %w", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(k8sConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
+	// Generate unique job name (must be DNS-1123 compliant)
+	jobName := fmt.Sprintf("agent-%s-%s", agentDef.Type, agentID[:8])
+
+	// Check if job already exists and handle accordingly
+	existingJob, err := clientset.BatchV1().Jobs("ai-persona-system").Get(ctx, jobName, metav1.GetOptions{})
+	if err == nil {
+		if existingJob.Status.Failed > 0 || existingJob.Status.Succeeded > 0 {
+			logger.Info("Deleting completed/failed job before recreating",
+				zap.String("job_name", jobName))
+
+			deletePolicy := metav1.DeletePropagationForeground
+			err = clientset.BatchV1().Jobs("ai-persona-system").Delete(ctx, jobName, metav1.DeleteOptions{
+				PropagationPolicy: &deletePolicy,
+			})
+			if err != nil {
+				logger.Warn("Failed to delete old job", zap.Error(err))
+			}
+			time.Sleep(2 * time.Second)
+		} else if existingJob.Status.Active > 0 {
+			logger.Info("Job is already running",
+				zap.String("job_name", jobName))
+			return jobName, nil
+		}
+	}
+
+	// Parse configurations
+	resources := parseResourceSpec(agentDef.Resources)
+	healthConfig := parseHealthConfig(agentDef.HealthConfig)
+	envVars := parseEnvVars(agentDef.EnvVars)
+	topics := parseTopicConfig(agentDef.Topics)
+
+	// Build topic name
+	processTopic := strings.ReplaceAll(topics.Process, "{type}", agentDef.Type)
+
+	// Build environment variables
+	envList := []corev1.EnvVar{
+		// Core configuration
+		{Name: "AGENT_TYPE", Value: agentDef.Type},
+		{Name: "AGENT_ID", Value: agentID},
+		{Name: "CLIENT_ID", Value: clientID},
+
+		// Dynamic topic configuration
+		{Name: "KAFKA_TOPIC", Value: processTopic},
+		{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentDef.Type, agentID[:8])},
+
+		// Health server ports
+		{Name: "HEALTH_PORT", Value: fmt.Sprintf("%d", healthConfig.Port)},
+		{Name: "METRICS_PORT", Value: "9090"},
+	}
+
+	// Add custom env vars from definition
+	for _, envVar := range envVars {
+		envList = append(envList, corev1.EnvVar{
+			Name:  envVar.Name,
+			Value: envVar.Value,
+		})
+	}
+
+	// Add secrets
+	envList = append(envList, getSecretEnvVars()...)
+
+	// Define the Job
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobName,
+			Namespace: "ai-persona-system",
+			Labels: map[string]string{
+				"app":        "dynamic-agent",
+				"agent-type": agentDef.Type,
+				"agent-id":   agentID,
+				"client-id":  clientID,
+				"spawned-by": "orchestrator",
+				"component":  "agent",
+				"category":   agentDef.Category,
+			},
+		},
+		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: int32Ptr(3600),
+			BackoffLimit:            int32Ptr(3),
+			ActiveDeadlineSeconds:   int64Ptr(86400),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":        "dynamic-agent",
+						"agent-type": agentDef.Type,
+						"agent-id":   agentID,
+						"client-id":  clientID,
+					},
+					Annotations: map[string]string{
+						"prometheus.io/scrape": "true",
+						"prometheus.io/port":   "9090",
+						"prometheus.io/path":   "/metrics",
+					},
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:      corev1.RestartPolicyOnFailure,
+					ServiceAccountName: "ai-persona-app",
+					ImagePullSecrets: []corev1.LocalObjectReference{
+						{Name: "docker-hub-creds"},
+					},
+					Containers: []corev1.Container{
+						{
+							Name:    "agent",
+							Image:   fmt.Sprintf("%s:%s", agentDef.ImageRepository, agentDef.ImageTag),
+							Command: agentDef.Command,
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "health",
+									ContainerPort: int32(healthConfig.Port),
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "metrics",
+									ContainerPort: 9090,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							Env: envList,
+							EnvFrom: []corev1.EnvFromSource{
+								{
+									ConfigMapRef: &corev1.ConfigMapEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "personae-prod-config",
+										},
+									},
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse(resources.Requests["cpu"]),
+									corev1.ResourceMemory: resource.MustParse(resources.Requests["memory"]),
+								},
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse(resources.Limits["cpu"]),
+									corev1.ResourceMemory: resource.MustParse(resources.Limits["memory"]),
+								},
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   healthConfig.LivenessPath,
+										Port:   intstr.FromString("health"),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: int32(healthConfig.InitialDelaySeconds),
+								PeriodSeconds:       10,
+								TimeoutSeconds:      5,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   healthConfig.ReadinessPath,
+										Port:   intstr.FromString("health"),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 10,
+								PeriodSeconds:       5,
+								TimeoutSeconds:      3,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Create the Job
+	createdJob, err := clientset.BatchV1().Jobs("ai-persona-system").Create(ctx, job, metav1.CreateOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			logger.Warn("Job already exists (race condition), continuing",
+				zap.String("job_name", jobName))
+			return jobName, nil
+		}
+		return "", fmt.Errorf("failed to create kubernetes job: %w", err)
+	}
+
+	logger.Info("Created Kubernetes Job",
+		zap.String("job_name", createdJob.Name),
+		zap.String("namespace", createdJob.Namespace),
+		zap.String("uid", string(createdJob.UID)))
+
+	return createdJob.Name, nil
+}
+
+// getSecretEnvVars returns the standard secret environment variables
+func getSecretEnvVars() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name: "CLIENTS_DB_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-platform-secrets",
+					},
+					Key: "CLIENTS_DB_PASSWORD",
+				},
+			},
+		},
+		{
+			Name: "TEMPLATES_DB_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-platform-secrets",
+					},
+					Key: "TEMPLATES_DB_PASSWORD",
+				},
+			},
+		},
+		{
+			Name: "AUTH_DB_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-platform-secrets",
+					},
+					Key: "AUTH_DB_PASSWORD",
+				},
+			},
+		},
+		{
+			Name: "ANTHROPIC_API_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-default-secrets",
+					},
+					Key: "ANTHROPIC_API_KEY",
+				},
+			},
+		},
+		{
+			Name: "AGENT_BOOTSTRAP_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-platform-secrets",
+					},
+					Key: "agent-bootstrap-key",
+				},
+			},
+		},
+		{
+			Name:  "CORE_MANAGER_URL",
+			Value: "http://core-manager.ai-persona-system.svc.cluster.local:8088",
+		},
+	}
+}
+
+// Keep all existing helper functions...
+func int32Ptr(i int32) *int32 { return &i }
 func int64Ptr(i int64) *int64 { return &i }
 
 func getResourceLimit(agentType, resource string) string {
