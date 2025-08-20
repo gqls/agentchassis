@@ -44,3 +44,22 @@ This Makefile provides:
 5. **Colored output** for better readability
 6. **Help system** showing all available commands
 7. **Safety features** for destructive operations
+
+
+# Create new agent type on the fly
+make agent-create TYPE=market-analyzer NAME="Market Analyzer" DESC="Analyzes market data"
+
+# Update configuration instantly
+make agent-update-config TYPE=market-analyzer CONFIG='{"temperature": 0.8, "model": "claude-3-opus"}'
+
+# Hot reload to running agents
+make agent-hot-reload AGENT_ID=abc-123 CONFIG='{"interval": "1m"}'
+
+# Spawn new agent instance
+make agent-spawn TYPE=market-analyzer CLIENT=demo_client
+
+# Check performance
+make agent-performance
+
+# Test discovery
+make agent-recommend TASK=website-builder

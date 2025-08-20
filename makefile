@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.47
+IMAGE_TAG ?= v1.0.48
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -225,6 +225,7 @@ deploy-infrastructure: ## Deploy all infrastructure components
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-database-schemas
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-kafka-topics
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-100-bootstrap-agents
 	@echo "$(GREEN)Infrastructure deployment complete!$(NC)"
 	@echo "$(YELLOW)To use this cluster, run: export KUBECONFIG=$(KUBECONFIG_PATH)$(NC)"
 
@@ -248,6 +249,7 @@ deploy-infrastructure-from-ingress: ## Deploy infrastructure starting from ingre
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-database-schemas
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-kafka-topics
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-100-bootstrap-agents
 	@echo "$(GREEN)Infrastructure deployment complete!$(NC)"
 	@echo "$(YELLOW)To use this cluster, run: export KUBECONFIG=$(KUBECONFIG_PATH)$(NC)"
 
@@ -390,6 +392,21 @@ deploy-090-monitoring: ## Deploy monitoring stack
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
 
+
+.PHONY: deploy-100-bootstrap-agents
+deploy-100-bootstrap-agents: ## Deploy bootstrap agents (generic orchestrator)
+	@echo "$(GREEN)Deploying 100-bootstrap-agents...$(NC)"
+	@cd $(TERRAFORM_DIR)/100-bootstrap-agents && \
+		if [ -f terraform.tfvars.secret ]; then \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret -var="image_tag=$(IMAGE_TAG)"; \
+		else \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var="image_tag=$(IMAGE_TAG)"; \
+		fi
+
+
+
 #################################
 # Application Deployment (Terraform Workflow)
 #################################
@@ -489,7 +506,7 @@ update-agent-image-tag: ## Update the agent image tag in ConfigMap
 
 # Deploy agents with automatic image update
 .PHONY: deploy-agents
-deploy-agents: update-kustomization-images update-agent-image-tag redeploy-agents ## Deploy all agent services
+deploy-agents: update-kustomization-images update-agent-image-tag bootstrap-agents redeploy-agents ## Deploy all agent services
 	@echo "$(YELLOW)Deploying agent services with image tag $(IMAGE_TAG)...$(NC)"
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)
@@ -1046,3 +1063,163 @@ monitor-metrics: ## Show workflow metrics for last 24 hours
 		 FROM orchestrator_state \
 		 WHERE created_at > NOW() - INTERVAL '24 hours';"
 
+# Add these targets to your Makefile
+
+#################################
+# Database Operations - Runtime Management
+#################################
+
+# Quick SQL execution for runtime changes
+.PHONY: db-exec-templates
+db-exec-templates: ## Execute SQL in templates DB
+	@echo "$(YELLOW)Executing SQL in templates DB...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- \
+		psql -U templates_user -d templates_db
+
+.PHONY: db-exec-clients
+db-exec-clients: ## Execute SQL in clients DB
+	@echo "$(YELLOW)Executing SQL in clients DB...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- \
+		psql -U clients_user -d clients_db
+
+# Create new agent definition on the fly
+.PHONY: agent-create
+agent-create: ## Create a new agent definition (usage: make agent-create TYPE=analyzer NAME="Data Analyzer")
+	@echo "$(YELLOW)Creating agent definition: $(TYPE)$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+		INSERT INTO agent_definitions (type, display_name, description, category, default_config, capabilities) VALUES \
+		('$(TYPE)', '$(NAME)', '$(DESC)', 'data-driven', \
+		'{\"model\": \"claude-3-5-sonnet-20241022\", \"temperature\": 0.5, \"processing_mode\": \"task\", \
+		  \"workflow\": {\"start_step\": \"process\", \"steps\": { \
+		    \"process\": {\"action\": \"execute_llm_prompt\", \"next_step\": \"complete\"}, \
+		    \"complete\": {\"action\": \"complete_workflow\"}}}}', \
+		'[\"analysis\", \"$(TYPE)\"]'::jsonb) \
+		ON CONFLICT (type) DO UPDATE SET \
+		  display_name = EXCLUDED.display_name, \
+		  updated_at = NOW() \
+		RETURNING id, type, display_name;"
+
+# Update agent configuration
+.PHONY: agent-update-config
+agent-update-config: ## Update agent config (usage: make agent-update-config TYPE=analyzer CONFIG='{"temperature": 0.7}')
+	@echo "$(YELLOW)Updating agent config for: $(TYPE)$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+		UPDATE agent_definitions \
+		SET default_config = default_config || '$(CONFIG)'::jsonb, \
+		    updated_at = NOW() \
+		WHERE type = '$(TYPE)' \
+		RETURNING type, default_config;"
+
+# List all agent definitions
+.PHONY: agent-list
+agent-list: ## List all agent definitions
+	@echo "$(YELLOW)Agent Definitions:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+		SELECT type, display_name, category, \
+		       array_length(capabilities::text[], 1) as cap_count, \
+		       is_active, \
+		       to_char(updated_at, 'YYYY-MM-DD HH24:MI') as last_updated \
+		FROM agent_definitions \
+		ORDER BY updated_at DESC;"
+
+# Show agent performance
+.PHONY: agent-performance
+agent-performance: ## Show agent performance metrics
+	@echo "$(YELLOW)Agent Performance Metrics:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+		SELECT agent_type, \
+		       total_tasks, \
+		       ROUND(success_rate * 100, 1) || '%' as success_rate, \
+		       avg_response_time_ms || 'ms' as avg_time, \
+		       ROUND(avg_quality_score, 2) as quality \
+		FROM agent_metrics \
+		WHERE total_tasks > 0 \
+		ORDER BY success_rate DESC;"
+
+# Create agent group dynamically
+.PHONY: group-create
+group-create: ## Create agent group (usage: make group-create NAME="Analysis Team" TYPE=analysis)
+	@echo "$(YELLOW)Creating agent group: $(NAME)$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+		INSERT INTO agent_groups (name, group_type, agent_configs, orchestration_workflow) \
+		VALUES ('$(NAME)', '$(TYPE)', \
+		'[{\"role\": \"lead\", \"agent_type\": \"$(TYPE)-leader\"}, \
+		  {\"role\": \"worker\", \"agent_type\": \"$(TYPE)-worker\"}]'::jsonb, \
+		'{\"start_step\": \"validate\", \"steps\": {}}'::jsonb) \
+		RETURNING id, name, group_type;"
+
+# Hot reload agent configuration (notifies running agents)
+.PHONY: agent-hot-reload
+agent-hot-reload: ## Hot reload agent config (usage: make agent-hot-reload AGENT_ID=xxx CONFIG='{"key": "value"}')
+	@echo "$(YELLOW)Hot reloading config for agent: $(AGENT_ID)$(NC)"
+	@echo '{"type": "config_update", "agent_id": "$(AGENT_ID)", "config": $(CONFIG)}' | \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i kafka-cluster-kafka-0 -n $(PROJECT_NAME) -- \
+		/opt/kafka/bin/kafka-console-producer.sh \
+		--broker-list localhost:9092 \
+		--topic system.agent.$(AGENT_ID).control
+
+# Test discovery functions
+.PHONY: agent-discover
+agent-discover: ## Test agent discovery (usage: make agent-discover CAPS="analysis,reporting")
+	@echo "$(YELLOW)Discovering agents with capabilities: $(CAPS)$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+		SELECT * FROM find_agents_by_capability('{$(CAPS)}'::text[], 'demo_client');"
+
+# Recommend agents for task
+.PHONY: agent-recommend
+agent-recommend: ## Get agent recommendations (usage: make agent-recommend TASK=website-builder)
+	@echo "$(YELLOW)Recommending agents for task: $(TASK)$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+		SELECT agent_type, display_name, \
+		       ROUND(performance_score * 100) || '%' as score, \
+		       recommendation_reason \
+		FROM recommend_agents_for_task('$(TASK)', NULL);"
+
+# Quick agent spawn via API call
+.PHONY: agent-spawn
+agent-spawn: ## Spawn an agent instance (usage: make agent-spawn TYPE=analyzer CLIENT=demo_client)
+	@echo "$(YELLOW)Spawning agent: $(TYPE) for client: $(CLIENT)$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl run spawn-agent-$(shell date +%s) --rm -i --restart=Never \
+		--image=curlimages/curl -n $(PROJECT_NAME) -- \
+		curl -X POST http://core-manager:8088/api/v1/agents/spawn \
+		-H "Content-Type: application/json" \
+		-d '{"agent_type": "$(TYPE)", "client_id": "$(CLIENT)", "spawn_job": true}'
+
+# Monitor agent jobs
+.PHONY: agent-jobs
+agent-jobs: ## Show running agent jobs
+	@echo "$(YELLOW)Running Agent Jobs:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl get jobs -n $(PROJECT_NAME) -l spawned-by=orchestrator \
+		-o custom-columns=NAME:.metadata.name,TYPE:.metadata.labels.agent-type,STATUS:.status.conditions[0].type,AGE:.metadata.creationTimestamp
+
+# Clean up completed agent jobs
+.PHONY: agent-cleanup
+agent-cleanup: ## Clean up completed agent jobs
+	@echo "$(YELLOW)Cleaning up completed agent jobs...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl delete jobs -n $(PROJECT_NAME) -l spawned-by=orchestrator \
+		--field-selector status.successful=1
+
+# Add a specific target to just deploy/update the bootstrap agents
+.PHONY: bootstrap-agents
+bootstrap-agents: deploy-100-bootstrap-agents ## Deploy or update bootstrap agents
+
+# Destroy bootstrap agents if needed
+.PHONY: destroy-bootstrap-agents
+destroy-bootstrap-agents: ## Destroy bootstrap agents
+	@echo "$(RED)Destroying bootstrap agents...$(NC)"
+	@cd $(TERRAFORM_DIR)/100-bootstrap-agents && \
+		if [ -f terraform.tfvars.secret ]; then \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform destroy -auto-approve -var-file=terraform.tfvars.secret; \
+		else \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform destroy -auto-approve; \
+		fi
+
+# Check bootstrap agent status
+.PHONY: bootstrap-status
+bootstrap-status: ## Check status of bootstrap agents
+	@echo "$(YELLOW)Bootstrap Agent Status:$(NC)"
+	@kubectl get statefulset -n $(PROJECT_NAME) generic-orchestrator
+	@echo "\n$(YELLOW)Bootstrap Agent Pods:$(NC)"
+	@kubectl get pods -n $(PROJECT_NAME) -l app=generic-orchestrator
+	@echo "\n$(YELLOW)Bootstrap Agent Logs (last 20 lines):$(NC)"
+	@kubectl logs -n $(PROJECT_NAME) -l app=generic-orchestrator --tail=20
