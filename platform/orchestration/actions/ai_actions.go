@@ -55,6 +55,11 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		templateData[key] = value
 	}
 
+	// Make input_data available as both "input_data" and "input"
+	if inputData, ok := params.CollectedData["input_data"]; ok {
+		templateData["input"] = inputData // Add this alias
+	}
+	
 	// Parse the input data if it exists
 	if params.InputData != nil {
 		var inputPayload map[string]interface{}

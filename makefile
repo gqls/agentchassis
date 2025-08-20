@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.43
+IMAGE_TAG ?= v1.0.47
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -478,14 +478,25 @@ update-kustomization-images: ## Update image tags in kustomization.yaml files
 	done
 
 # Deploy agents with automatic image update
+# Update ConfigMap with new image tag
+.PHONY: update-agent-image-tag
+update-agent-image-tag: ## Update the agent image tag in ConfigMap
+	@echo "$(YELLOW)Updating agent image tag to $(IMAGE_TAG)...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl patch configmap personae-prod-config \
+		-n ai-persona-system \
+		--type merge \
+		-p '{"data":{"AGENT_IMAGE_TAG":"$(IMAGE_TAG)","agent_image_tag":"$(IMAGE_TAG)"}}'
+
+# Deploy agents with automatic image update
 .PHONY: deploy-agents
-deploy-agents: update-kustomization-images ## Deploy all agent services
+deploy-agents: update-kustomization-images update-agent-image-tag redeploy-agents ## Deploy all agent services
 	@echo "$(YELLOW)Deploying agent services with image tag $(IMAGE_TAG)...$(NC)"
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH)
+
 
 .PHONY: redeploy-agents
 redeploy-agents:  ## Forces a rolling restart of all agent deployments

@@ -73,8 +73,8 @@ resource "kubernetes_config_map" "personae_prod_config" {
 
 
     # Agent default version
-    AGENT_IMAGE_TAG: "v1.0.42"
-    agent_image_tag: "v1.0.42"
+    AGENT_IMAGE_TAG: var.agent_image_tag
+    agent_image_tag: var.agent_image_tag
 
   }
 }

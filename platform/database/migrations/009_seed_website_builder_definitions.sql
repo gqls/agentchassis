@@ -133,3 +133,33 @@ INSERT INTO agent_definitions (type, display_name, description, category, defaul
     }
 }'::jsonb)
     ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config;
+
+-- Just add processing_mode to distinguish orchestrators from workers
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{processing_mode}',
+        '"task"'
+                     )
+WHERE type IN ('domain-analyst', 'site-architect', 'html-developer', 'content-creator');
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{processing_mode}',
+        '"orchestrator"'
+                     )
+WHERE type IN ('website-builder', 'visual-designer', 'site-publisher');
+
+-- Ensure ALL agents have processing_mode set
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{processing_mode}',
+        CASE
+            WHEN category = 'orchestrator' THEN '"orchestrator"'
+            WHEN category = 'adapter' THEN '"orchestrator"'
+            ELSE '"task"'
+            END::jsonb
+                     )
+WHERE NOT (default_config ? 'processing_mode');

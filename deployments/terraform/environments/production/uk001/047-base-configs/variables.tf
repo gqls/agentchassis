@@ -90,3 +90,9 @@ variable "auth_db_user" {
   type        = string
   default     = "catalogu_personae"
 }
+
+variable "agent_image_tag" {
+  description = "Docker image tag for agent chassis"
+  type        = string
+  default     = "v1.0.44"
+}

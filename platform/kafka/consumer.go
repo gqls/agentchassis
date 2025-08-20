@@ -51,14 +51,23 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 // FetchMessage fetches the next message from the topic
 // Returns the native kafka.Message type
 func (c *Consumer) FetchMessage(ctx context.Context) (Message, error) {
+	c.logger.Debug("FetchMessage called") // ADD THIS
+
 	msg, err := c.reader.FetchMessage(ctx)
 	if err != nil {
 		if err == context.Canceled {
 			return Message{}, err
 		}
-		c.logger.Error("Failed to fetch message from Kafka", zap.Error(err))
+		c.logger.Error("Failed to fetch message from Kafka",
+			zap.Error(err),
+			zap.String("topic", c.reader.Config().Topic)) // ADD topic info
 		return Message{}, err
 	}
+
+	c.logger.Debug("Message fetched", // ADD THIS
+		zap.Int("partition", msg.Partition),
+		zap.Int64("offset", msg.Offset))
+
 	return msg, nil
 }
 

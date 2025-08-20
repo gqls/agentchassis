@@ -263,3 +263,97 @@ After running this, you can use your database inspection tool (tools/db-inspecto
 
 ------------
 
+pods are running.
+1. First, verify the agents are listening to the correct topics:
+# Check what topics the agents are consuming from
+kubectl logs -n ai-persona-system agent-domain-analyst-c1c7e6e8-bv2h7 | grep -E "Kafka consumer created|Starting agent"
+
+2. Check the orchestration state to see where workflows are stuck:
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "
+SELECT
+  correlation_id,
+  current_step,
+  status,
+  jsonb_array_length(awaited_steps) as awaited,
+  jsonb_object_keys(collected_data) as completed_steps,
+  updated_at
+FROM orchestrator_state
+WHERE status IN ('RUNNING', 'AWAITING_RESPONSES')
+ORDER BY updated_at DESC
+LIMIT 3;"
+
+3. Check if there are messages waiting in the agent topics:
+# Check message lag for each agent topic
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-consumer-groups \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --list | grep -E "domain-analyst|site-architect|content-creator"
+
+# For each group found, check the lag
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-consumer-groups \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --describe --group domain-analyst-group-c1c7e6e8
+
+  4. Check if agents are actually processing (look for recent activity):
+  # Check logs from all dynamic agents
+  kubectl logs -n ai-persona-system -l app=dynamic-agent --since=1m --prefix=true | grep -E "Processing message|Received task|Sending response"
+
+5. If agents are NOT listening to the right topics, restart them with the fixed image:
+# Make sure you've built and pushed v1.0.42 with the environment variable fixes
+make build-agent-chassis push-agent-chassis IMAGE_TAG=v1.0.42
+
+# Update the deployment to use v1.0.42
+kubectl set image deployment/agent-chassis agent-chassis=docker.io/aqls/agent-chassis:v1.0.42 -n ai-persona-system
+
+# Wait for rollout
+kubectl rollout status deployment/agent-chassis -n ai-persona-system
+
+# Delete the dynamically spawned jobs to recreate them
+kubectl delete jobs -n ai-persona-system -l spawned-by=orchestrator
+
+# The orchestrator should recreate them automatically
+kubectl get jobs -n ai-persona-system -w
+
+6. Send a test message directly to an agent to verify it's working:
+# Send a test message to the domain-analyst
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-console-producer \
+  --broker-list personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --topic system.agent.domain-analyst.process \
+  --property "parse.headers=true" \
+  --property "headers.separator=|" << EOF
+correlation_id:test-$(date +%s)|request_id:test-req-$(date +%s)|client_id:demo_client
+{"action":"test","data":{"message":"Testing domain analyst"}}
+EOF
+
+# Check if it processed the message
+kubectl logs -n ai-persona-system agent-domain-analyst-c1c7e6e8-bv2h7 --tail=20
+
+7. Check the orchestrator logs for any errors:
+kubectl logs -n ai-persona-system -l app=agent-chassis --tail=50 | grep -E "ERROR|WARN|Failed"
+
+8. If the workflow is stuck waiting for responses, check the response topics:
+# Check if responses are being sent
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-console-consumer \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --topic system.responses \
+  --from-beginning \
+  --max-messages 5 \
+  --timeout-ms 5000
+
+9. Trigger a fresh workflow to test the full system:
+# Create a new workflow request
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-console-producer \
+  --broker-list personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --topic system.requests \
+  --property "parse.headers=true" \
+  --property "headers.separator=|" << EOF
+correlation_id:$(uuidgen)|request_id:$(uuidgen)|client_id:demo_client|user_id:test-user
+{"action":"build_website","data":{"domain":"test-site.com","industry":"technology","requirements":"Modern tech company website"}}
+EOF
+
+# Monitor the workflow progress
+watch "kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c \"
+SELECT correlation_id, current_step, status, updated_at
+FROM orchestrator_state
+WHERE created_at > NOW() - INTERVAL '5 minutes'
+ORDER BY updated_at DESC LIMIT 5;\""
+

@@ -390,21 +390,314 @@ func NewAgentDiscovery(db interface{}) *discovery.AgentDiscovery {
 
 // Helper functions
 
-func buildWorkflowForType(agentType string) map[string]interface{} {
-	// This would typically load from templates or configuration
-	// For now, return a basic workflow
-	return map[string]interface{}{
-		"start_step": "process",
-		"steps": map[string]interface{}{
-			"process": map[string]interface{}{
-				"action":    "process_task",
-				"next_step": "complete",
-			},
-			"complete": map[string]interface{}{
-				"action": "complete_workflow",
-			},
-		},
+// Add this updated function to spawn_actions.go
+
+func buildWorkflowForType(agentType string, db interface{}) map[string]interface{} {
+	ctx := context.Background()
+
+	var workflowJSON []byte
+	var err error
+
+	// Handle both database types
+	switch d := db.(type) {
+	case *sql.DB:
+		err = d.QueryRowContext(ctx, `
+            SELECT default_config->'workflow'
+            FROM agent_definitions
+            WHERE type = $1
+        `, agentType).Scan(&workflowJSON)
+	case *pgxpool.Pool:
+		err = d.QueryRow(ctx, `
+            SELECT default_config->'workflow'
+            FROM agent_definitions
+            WHERE type = $1
+        `, agentType).Scan(&workflowJSON)
+	default:
+		// Fallback to default workflow
+		return getDefaultWorkflowForType(agentType)
 	}
+
+	if err == nil && len(workflowJSON) > 0 {
+		var workflow map[string]interface{}
+		if err := json.Unmarshal(workflowJSON, &workflow); err == nil {
+			return workflow
+		}
+	}
+
+	// Fallback
+	return getDefaultWorkflowForType(agentType)
+}
+
+// getDefaultWorkflowForType returns a default workflow when database lookup fails
+func getDefaultWorkflowForType(agentType string) map[string]interface{} {
+	// Define specific defaults for known agent types
+	switch agentType {
+	case "domain-analyst":
+		return map[string]interface{}{
+			"start_step": "analyze",
+			"steps": map[string]interface{}{
+				"analyze": map[string]interface{}{
+					"action":      "execute_llm_prompt",
+					"description": "Analyze the domain",
+					"config": map[string]interface{}{
+						"prompt_template": "Analyze the domain {{.input.domain}} and provide business insights.",
+					},
+					"next_step": "complete",
+				},
+				"complete": map[string]interface{}{
+					"action":      "complete_workflow",
+					"description": "Complete the analysis",
+				},
+			},
+		}
+
+	case "site-architect":
+		return map[string]interface{}{
+			"start_step": "design",
+			"steps": map[string]interface{}{
+				"design": map[string]interface{}{
+					"action":      "execute_llm_prompt",
+					"description": "Design site structure",
+					"config": map[string]interface{}{
+						"prompt_template": "Design a website structure for {{.input.business_name}}.",
+					},
+					"next_step": "complete",
+				},
+				"complete": map[string]interface{}{
+					"action": "complete_workflow",
+				},
+			},
+		}
+
+	case "content-creator":
+		return map[string]interface{}{
+			"start_step": "generate",
+			"steps": map[string]interface{}{
+				"generate": map[string]interface{}{
+					"action":      "execute_llm_prompt",
+					"description": "Generate content",
+					"config": map[string]interface{}{
+						"prompt_template": "Create website content for {{.input.business_name}}.",
+					},
+					"next_step": "complete",
+				},
+				"complete": map[string]interface{}{
+					"action": "complete_workflow",
+				},
+			},
+		}
+
+	case "html-developer":
+		return map[string]interface{}{
+			"start_step": "develop",
+			"steps": map[string]interface{}{
+				"develop": map[string]interface{}{
+					"action":      "execute_llm_prompt",
+					"description": "Generate HTML code",
+					"config": map[string]interface{}{
+						"prompt_template": "Generate HTML for {{.input.page_name}} page.",
+					},
+					"next_step": "complete",
+				},
+				"complete": map[string]interface{}{
+					"action": "complete_workflow",
+				},
+			},
+		}
+
+	case "visual-designer":
+		return map[string]interface{}{
+			"start_step": "design_visuals",
+			"steps": map[string]interface{}{
+				"design_visuals": map[string]interface{}{
+					"action":      "execute_llm_prompt",
+					"description": "Create visual design specs",
+					"config": map[string]interface{}{
+						"prompt_template": "Create visual design specifications for {{.input.business_name}}.",
+					},
+					"next_step": "complete",
+				},
+				"complete": map[string]interface{}{
+					"action": "complete_workflow",
+				},
+			},
+		}
+
+	case "site-publisher":
+		return map[string]interface{}{
+			"start_step": "publish",
+			"steps": map[string]interface{}{
+				"publish": map[string]interface{}{
+					"action":      "deploy_to_hosting",
+					"description": "Deploy the website",
+					"config": map[string]interface{}{
+						"platform": "netlify",
+						"auto_ssl": true,
+					},
+					"next_step": "complete",
+				},
+				"complete": map[string]interface{}{
+					"action": "complete_workflow",
+				},
+			},
+		}
+
+	case "website-builder":
+		// Orchestrator workflow
+		return map[string]interface{}{
+			"start_step": "validate",
+			"steps": map[string]interface{}{
+				"validate": map[string]interface{}{
+					"action":      "validate_input",
+					"description": "Validate the request",
+					"next_step":   "spawn_team",
+				},
+				"spawn_team": map[string]interface{}{
+					"action":      "spawn_group",
+					"description": "Spawn the website builder team",
+					"config": map[string]interface{}{
+						"group_type": "website-builder",
+					},
+					"next_step": "orchestrate",
+				},
+				"orchestrate": map[string]interface{}{
+					"action":      "start_orchestration",
+					"description": "Start the orchestration",
+					"next_step":   "complete",
+				},
+				"complete": map[string]interface{}{
+					"action": "complete_workflow",
+				},
+			},
+		}
+
+	case "orchestrator", "generic":
+		// Generic orchestrator workflow
+		return map[string]interface{}{
+			"start_step": "process",
+			"steps": map[string]interface{}{
+				"process": map[string]interface{}{
+					"action":      "validate_input",
+					"description": "Process the request",
+					"next_step":   "execute",
+				},
+				"execute": map[string]interface{}{
+					"action":      "transform_data",
+					"description": "Execute the task",
+					"config": map[string]interface{}{
+						"transformation": "uppercase",
+					},
+					"next_step": "respond",
+				},
+				"respond": map[string]interface{}{
+					"action":      "send_notification",
+					"description": "Send response",
+					"next_step":   "complete",
+				},
+				"complete": map[string]interface{}{
+					"action": "complete_workflow",
+				},
+			},
+		}
+
+	case "reasoning", "web-search", "image-generator":
+		// Adapter agents that call external services
+		return map[string]interface{}{
+			"start_step": "call_service",
+			"steps": map[string]interface{}{
+				"call_service": map[string]interface{}{
+					"action":      "http_request",
+					"description": "Call external service",
+					"config": map[string]interface{}{
+						"url":    getServiceURL(agentType),
+						"method": "POST",
+					},
+					"next_step": "complete",
+				},
+				"complete": map[string]interface{}{
+					"action": "complete_workflow",
+				},
+			},
+		}
+
+	default:
+		// Generic fallback for unknown agent types
+		return map[string]interface{}{
+			"start_step": "process",
+			"steps": map[string]interface{}{
+				"process": map[string]interface{}{
+					"action":      "execute_llm_prompt",
+					"description": "Process the task",
+					"config": map[string]interface{}{
+						"prompt_template": "Process this request: {{.input}}",
+					},
+					"next_step": "respond",
+				},
+				"respond": map[string]interface{}{
+					"action":      "send_notification",
+					"description": "Send response",
+					"next_step":   "complete",
+				},
+				"complete": map[string]interface{}{
+					"action":      "complete_workflow",
+					"description": "Complete the workflow",
+				},
+			},
+		}
+	}
+}
+
+// Helper function to get service URLs for adapter agents
+func getServiceURL(agentType string) string {
+	switch agentType {
+	case "reasoning":
+		return "http://reasoning-service.ai-persona-system.svc.cluster.local:8090/reason"
+	case "web-search":
+		return "http://web-search-service.ai-persona-system.svc.cluster.local:8091/search"
+	case "image-generator":
+		return "http://image-generator-service.ai-persona-system.svc.cluster.local:8092/generate"
+	default:
+		return "http://localhost:8080/process"
+	}
+}
+
+// Update createAgentInDB to use the new function
+func createAgentInDB(ctx context.Context, params ActionParams, agentID, agentType, clientID string) error {
+	// Pass the database connection to buildWorkflowForType
+	workflow := buildWorkflowForType(agentType, params.DB)
+
+	agentConfig := map[string]interface{}{
+		"agent_type":   agentType,
+		"workflow":     workflow,
+		"topic":        fmt.Sprintf("system.agent.%s.process", agentType),
+		"capabilities": getCapabilitiesForType(agentType),
+	}
+
+	configJSON, err := json.Marshal(agentConfig)
+	if err != nil {
+		return err
+	}
+
+	insertQuery := fmt.Sprintf(`
+		INSERT INTO client_%s.agent_instances 
+		(id, template_id, owner_user_id, name, config, is_active)
+		VALUES ($1, $2, $3, $4, $5, true)
+	`, clientID)
+
+	userID := params.Headers["user_id"]
+	if userID == "" {
+		userID = "system"
+	}
+
+	_, err = params.DB.ExecContext(ctx, insertQuery,
+		agentID,
+		"2a540b98-85d5-4762-a692-538bcf1be395", // generic template
+		userID,
+		fmt.Sprintf("%s-%s", agentType, time.Now().Format("20060102-150405")),
+		configJSON,
+	)
+
+	return err
 }
 
 func getCapabilitiesForType(agentType string) []string {
@@ -645,43 +938,6 @@ func checkExistingAgent(ctx context.Context, db *sql.DB, clientID, agentType str
 
 type AgentInfo struct {
 	ID string
-}
-
-func createAgentInDB(ctx context.Context, params ActionParams, agentID, agentType, clientID string) error {
-	workflow := buildWorkflowForType(agentType)
-
-	agentConfig := map[string]interface{}{
-		"agent_type":   agentType,
-		"workflow":     workflow,
-		"topic":        fmt.Sprintf("system.agent.%s.process", agentType),
-		"capabilities": getCapabilitiesForType(agentType),
-	}
-
-	configJSON, err := json.Marshal(agentConfig)
-	if err != nil {
-		return err
-	}
-
-	insertQuery := fmt.Sprintf(`
-        INSERT INTO client_%s.agent_instances 
-        (id, template_id, owner_user_id, name, config, is_active)
-        VALUES ($1, $2, $3, $4, $5, true)
-    `, clientID)
-
-	userID := params.Headers["user_id"]
-	if userID == "" {
-		userID = "system"
-	}
-
-	_, err = params.DB.ExecContext(ctx, insertQuery,
-		agentID,
-		"2a540b98-85d5-4762-a692-538bcf1be395", // generic template
-		userID,
-		fmt.Sprintf("%s-%s", agentType, time.Now().Format("20060102-150405")),
-		configJSON,
-	)
-
-	return err
 }
 
 func spawnAgentKubernetesJob(ctx context.Context, agentID, agentType, clientID string, logger *zap.Logger) (string, error) {

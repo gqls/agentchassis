@@ -62,6 +62,10 @@ data "local_file" "seed_website_builder_definitions_sql" {
   filename = "${path.module}/../../../../../../platform/database/migrations/009_seed_website_builder_definitions.sql"
 }
 
+data "local_file" "system_events_sql" {
+  filename = "${path.module}/../../../../../../platform/database/migrations/010_system_events.sql"
+}
+
 data "local_file" "client_schema_additions_sql" {
   filename = "${path.module}/../../../../../../platform/database/migrations/060_client_schema_additions.sql"
 }
@@ -102,6 +106,7 @@ resource "kubernetes_config_map" "postgres_sql_migrations" {
     "007_initial_website_builder_group.sql"     = data.local_file.initial_website_builder_group_sql.content
     "008_add_discovery_functions.sql"           = data.local_file.add_discovery_functions_sql.content
     "009_seed_website_builder_definitions.sql"  = data.local_file.seed_website_builder_definitions_sql.content
+    "010_system_events.sql"                     = data.local_file.system_events_sql.content
     "060_client_schema_additions.sql"           = data.local_file.client_schema_additions_sql.content
     "080_clientsdb_content_creator_agent_definition_with_memory.sql"        = data.local_file.clientsdb_content_creator_agent_definition_with_memory_sql.content
 
@@ -219,6 +224,7 @@ resource "kubernetes_job" "postgres_migrations" {
             psql -f /migrations/007_initial_website_builder_group.sql
             psql -f /migrations/008_add_discovery_functions.sql
             psql -f /migrations/009_seed_website_builder_definitions.sql
+            psql -f /migrations/010_system_events.sql
             psql -f /migrations/060_client_schema_additions.sql
             psql -f /migrations/080_clientsdb_content_creator_agent_definition_with_memory.sql
 

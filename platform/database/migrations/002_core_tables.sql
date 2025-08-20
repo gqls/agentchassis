@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS agent_definitions (
     description TEXT,
     category VARCHAR(50) NOT NULL CHECK (category IN ('data-driven', 'code-driven', 'adapter')),
     default_config JSONB NOT NULL DEFAULT '{}',
+    capabilities JSONB DEFAULT '[]'::jsonb,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -54,3 +55,5 @@ INSERT INTO agent_definitions (type, display_name, description, category, defaul
                               category = EXCLUDED.category,
                               default_config = EXCLUDED.default_config,
                               updated_at = NOW();
+
+

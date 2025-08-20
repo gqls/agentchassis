@@ -1,0 +1,125 @@
+# Wait for new pods
+sleep 30
+
+# Check a newly spawned agent
+POD=$(kubectl get pods -n ai-persona-system -l app=dynamic-agent -o jsonpath='{.items[0].metadata.name}')
+
+# Check image
+kubectl describe pod $POD -n ai-persona-system | grep Image:
+
+# Check logs
+kubectl logs $POD -n ai-persona-system | grep -E "Environment variables|Starting agent with configuration|Kafka consumer created"
+
+
+1. List all existing topics:
+ kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-topics \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --list | grep -E "system\.(agent|responses)" | sort
+
+
+4. Now check if there are messages waiting in the topics:
+# Check each topic for messages
+for topic in domain-analyst site-architect content-creator visual-designer html-developer site-publisher; do
+  echo "=== Topic: system.agent.$topic.process ==="
+  kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-run-class kafka.tools.GetOffsetShell \
+    --broker-list personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+    --topic system.agent.$topic.process 2>/dev/null | awk -F: '{sum += $3} END {print "Total messages: " sum}'
+done
+
+5. Check if agents are actually consuming from topics:
+# Check consumer groups
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-consumer-groups \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --list | grep -E "(domain-analyst|site-architect|content-creator|visual-designer|html-developer|site-publisher)"
+
+6. Check agent logs for any connection issues:
+# Check a specific agent's recent logs
+POD=$(kubectl get pods -n ai-persona-system -l job-name=agent-domain-analyst-c1c7e6e8 -o jsonpath='{.items[0].metadata.name}')
+kubectl logs $POD -n ai-persona-system --tail=20 | grep -E "ERROR|WARN|consumer"
+
+1. Check if the agents are actually consuming from their topics:
+# Check consumer group status for each agent
+for agent in domain-analyst site-architect content-creator visual-designer html-developer site-publisher; do
+  echo "=== Consumer group for $agent ==="
+  kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-consumer-groups \
+    --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+    --describe --group $agent-group-c1c7e6e8 2>/dev/null | grep -E "TOPIC|system.agent.$agent" | head -2
+done
+
+2. Let's check a specific agent's logs to see what's happening:
+# Get domain-analyst pod and check its full logs
+POD=$(kubectl get pods -n ai-persona-system -l job-name=agent-domain-analyst-c1c7e6e8 -o jsonpath='{.items[0].metadata.name}')
+echo "Checking pod: $POD"
+
+# Check the last 50 lines
+kubectl logs $POD -n ai-persona-system --tail=50
+
+3. The issue might be that the agents are running but not actually processing messages. Let's check if they have message handlers:
+# Check if the agent is in the consumer loop
+kubectl logs $POD -n ai-persona-system | grep -E "Starting agent server|consuming from|message received|processMessage"
+
+4. Send a test message with proper headers to see if it gets processed:
+# Send a properly formatted message to domain-analyst
+CID=$(uuidgen)
+RID=$(uuidgen)
+
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-console-producer \
+  --broker-list personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --topic system.agent.domain-analyst.process \
+  --property "parse.headers=true" \
+  --property "headers.separator=:" << EOF
+correlation_id:$CID:request_id:$RID:client_id:demo_client:user_id:test-user
+{"action":"analyze_domain","data":{"domain":"test.com","industry":"technology","description":"Test company"}}
+EOF
+
+echo "Sent test message with correlation_id: $CID"
+
+# Check agent logs for processing
+sleep 2
+kubectl logs $POD -n ai-persona-system --since=10s
+
+5. Check if the issue is with the message format - let's see what messages are actually in the queue:
+# Read actual messages from the domain-analyst topic
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-console-consumer \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --topic system.agent.domain-analyst.process \
+  --from-beginning \
+  --max-messages 1 \
+  --formatter kafka.tools.DefaultMessageFormatter \
+  --property print.headers=true \
+  --property print.key=true \
+  --property print.value=true
+
+
+  6. The agents might be missing the actual processing logic. Let's check if there's an error in the message processing:
+  # Check for any errors in the agent
+  kubectl logs $POD -n ai-persona-system | grep -i "error" | tail -10
+
+  7. Let's also check if the problem is with the Kafka consumer configuration:
+  # Check the consumer group lag
+  kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-consumer-groups \
+    --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+    --describe --group domain-analyst-group-c1c7e6e8
+
+
+    test the system
+
+    # Test the system
+    CID=$(uuidgen)
+    kubectl exec -it kafkacat-test-pod -n ai-persona-system -- sh -c "
+    echo '{
+      \"action\": \"spawn_group\",
+      \"data\": {
+        \"group_type\": \"website-builder\",
+        \"business_name\": \"TechCorp Solutions\",
+        \"domain\": \"techcorp.com\"
+      }
+    }' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+      -t system.agent.generic.process \
+      -H \"correlation_id:$CID\" \
+      -H \"request_id:$(uuidgen)\" \
+      -H \"client_id:demo_client\" \
+      -H \"fuel_budget:1000\""
+
+    # Check logs
+    kubectl logs -n ai-persona-system -l app=dynamic-agent --since=1m

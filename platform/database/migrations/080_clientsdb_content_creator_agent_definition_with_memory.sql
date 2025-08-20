@@ -56,3 +56,68 @@ INSERT INTO agent_definitions (type, display_name, description, category, defaul
       category = EXCLUDED.category,
       default_config = EXCLUDED.default_config,
       updated_at = NOW();
+
+
+-- Update agent_definitions to include behavior configuration
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{behavior}',
+        '{
+            "processing_mode": "task",
+            "capabilities": ["analyze", "extract", "summarize"],
+            "workflow": {
+                "start_step": "process_input",
+                "steps": {
+                    "process_input": {
+                        "action": "execute_llm_prompt",
+                        "next_step": "format_output"
+                    },
+                    "format_output": {
+                        "action": "transform_data",
+                        "config": {"transformation": "json_structure"},
+                        "next_step": "send_response"
+                    },
+                    "send_response": {
+                        "action": "send_notification",
+                        "next_step": "complete"
+                    },
+                    "complete": {
+                        "action": "complete_workflow"
+                    }
+                }
+            }
+        }'::jsonb
+                     )
+WHERE type = 'domain-analyst';
+
+-- Insert the generic agent definition with spawn_group capability
+INSERT INTO agent_definitions (type, display_name, description, category, default_config, capabilities)
+VALUES (
+           'generic',
+           'Generic Orchestrator',
+           'Generic agent that can spawn groups and orchestrate workflows',
+           'code-driven',
+           '{
+               "processing_mode": "orchestrator",
+               "workflow": {
+                   "start_step": "spawn_website_team",
+                   "steps": {
+                       "spawn_website_team": {
+                           "action": "spawn_group",
+                           "config": {"group_type": "website-builder"},
+                           "next_step": "complete"
+                       },
+                       "complete": {
+                           "action": "complete_workflow"
+                       }
+                   }
+               }
+           }'::jsonb,
+           '["orchestration", "spawn_group"]'::jsonb
+       )
+    ON CONFLICT (type) DO UPDATE
+                              SET default_config = EXCLUDED.default_config,
+                              capabilities = EXCLUDED.capabilities,
+                              updated_at = NOW();
+EOF
