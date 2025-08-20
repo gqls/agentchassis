@@ -113,6 +113,7 @@ resource "kubernetes_secret" "personae_default_api_keys" {
     SERP_API_KEY      = var.default_serp_api_key
     SCRAPING_BEE_API_KEY = var.default_scraping_bee_api_key
     FIRECRAWL_API_KEY =  var.default_firecrawl_api_key
+    PERPLEXITY_API_KEY =  var.default_perplexity_api_key
   }
 }
 

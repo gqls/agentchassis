@@ -34,53 +34,33 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- Create the system_events table
+-- System events table for audit logging
 CREATE TABLE IF NOT EXISTS system_events (
                                              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    event_type VARCHAR(100) NOT NULL, -- or use event_type_enum if you want strict typing
-    entity_type VARCHAR(50) NOT NULL, -- or use entity_type_enum if you want strict typing
-    entity_id VARCHAR(255) NOT NULL,  -- Can be UUID, string ID, etc.
-    client_id VARCHAR(100),            -- Optional: track which client this event belongs to
-    user_id VARCHAR(255),              -- Optional: track which user triggered this
-    metadata JSONB DEFAULT '{}',       -- Flexible JSON field for event-specific data
+    event_type VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id VARCHAR(255) NOT NULL,
+    client_id VARCHAR(100),
+    user_id VARCHAR(255),
+    metadata JSONB DEFAULT '{}',
     severity VARCHAR(20) DEFAULT 'info' CHECK (severity IN ('debug', 'info', 'warning', 'error', 'critical')),
-    source VARCHAR(255),               -- Which service/component generated this event
-    ip_address INET,                   -- Optional: track request IP
-    user_agent TEXT,                   -- Optional: track user agent
+    source VARCHAR(255),
+    ip_address INET,
+    user_agent TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    -- No updated_at as events are immutable
-
-    -- Add constraints
+    -- Constraints
     CONSTRAINT check_event_type CHECK (event_type != ''),
     CONSTRAINT check_entity_type CHECK (entity_type != ''),
     CONSTRAINT check_entity_id CHECK (entity_id != '')
     );
 
--- Indexes for efficient querying
-CREATE INDEX IF NOT EXISTS idx_system_events_event_type
-    ON system_events(event_type);
-
-CREATE INDEX IF NOT EXISTS idx_system_events_entity
-    ON system_events(entity_type, entity_id);
-
-CREATE INDEX IF NOT EXISTS idx_system_events_client_id
-    ON system_events(client_id)
-    WHERE client_id IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_system_events_created_at
-    ON system_events(created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_system_events_severity
-    ON system_events(severity)
-    WHERE severity IN ('error', 'critical');
-
--- Composite index for common query patterns
-CREATE INDEX IF NOT EXISTS idx_system_events_entity_time
-    ON system_events(entity_type, entity_id, created_at DESC);
-
--- GIN index for JSONB metadata queries
-CREATE INDEX IF NOT EXISTS idx_system_events_metadata
-    ON system_events USING GIN (metadata);
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_system_events_event_type ON system_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_system_events_entity ON system_events(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_system_events_client_id ON system_events(client_id) WHERE client_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_system_events_created_at ON system_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_system_events_severity ON system_events(severity) WHERE severity IN ('error', 'critical');
+CREATE INDEX IF NOT EXISTS idx_system_events_metadata ON system_events USING GIN (metadata);
 
 -- Create a function to auto-delete old events (optional)
 CREATE OR REPLACE FUNCTION cleanup_old_system_events()

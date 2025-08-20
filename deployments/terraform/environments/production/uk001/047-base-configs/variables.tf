@@ -61,6 +61,12 @@ variable "default_firecrawl_api_key" {
   sensitive   = true
 }
 
+variable "default_perplexity_api_key" {
+  description = "Default PERPLEXITY API key"
+  type        = string
+  sensitive   = true
+}
+
 # Docker
 variable "docker_password" {
   description = "Docker Hub password"

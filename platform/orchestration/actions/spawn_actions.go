@@ -24,6 +24,30 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// AgentMatch represents a discovered agent
+type AgentMatch struct {
+	AgentID          string
+	AgentType        string
+	AgentName        string
+	Capabilities     []string
+	PerformanceScore float64
+}
+
+// AgentRecommendation represents a recommended agent for a task
+type AgentRecommendation struct {
+	AgentType            string
+	DisplayName          string
+	Category             string
+	Capabilities         []string
+	PerformanceScore     float64
+	RecommendationReason string
+}
+
+// EnhancedDiscovery wraps database connections and provides discovery methods
+type EnhancedDiscovery struct {
+	db interface{} // Can be *sql.DB or *pgxpool.Pool
+}
+
 // SpawnAgentAction creates an agent instance in DB and spawns a Kubernetes Job
 func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
@@ -206,66 +230,6 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 	}, nil
 }
 
-// CallAgentAction calls another agent with discovery
-func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	config := params.StepConfig.Config
-
-	// If specific agent_id provided, use it directly
-	if agentID, ok := config["agent_id"].(string); ok {
-		return callSpecificAgent(ctx, params, agentID)
-	}
-
-	// Otherwise, discover best agent
-	agentType, ok := config["agent_type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("agent_type not specified")
-	}
-
-	// Try to find existing agent
-	discover := NewAgentDiscovery(params.DB)
-	if discover == nil {
-		return nil, fmt.Errorf("failed to create discovery service")
-	}
-
-	matches, err := discover.DiscoverAgents(ctx, discovery.Requirements{
-		AgentType: agentType,
-		ClientID:  params.Headers["client_id"],
-	})
-
-	if err != nil || len(matches) == 0 {
-		// No agent found, spawn one
-		spawnResult, err := SpawnAgentAction(ctx, ActionParams{
-			StepConfig: models.Step{
-				Config: map[string]interface{}{
-					"agent_type": agentType,
-				},
-			},
-			Headers: params.Headers,
-			DB:      params.DB,
-			Logger:  params.Logger,
-		})
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to spawn agent: %w", err)
-		}
-
-		sr, ok := spawnResult.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("unexpected spawn result type")
-		}
-
-		agentID, ok := sr["agent_id"].(string)
-		if !ok {
-			return nil, fmt.Errorf("agent_id not found in spawn result")
-		}
-
-		return callSpecificAgent(ctx, params, agentID)
-	}
-
-	// Use best match
-	return callSpecificAgent(ctx, params, matches[0].AgentID)
-}
-
 // callSpecificAgent calls a specific agent by ID
 func callSpecificAgent(ctx context.Context, params ActionParams, agentID string) (interface{}, error) {
 	clientID := params.Headers["client_id"]
@@ -331,7 +295,408 @@ func callSpecificAgent(ctx context.Context, params ActionParams, agentID string)
 	}, nil
 }
 
-// DiscoverAgentsAction for explicit discovery
+// NewAgentDiscovery creates a discovery service from the database connection
+func NewAgentDiscovery(db interface{}) *EnhancedDiscovery {
+	return &EnhancedDiscovery{db: db}
+}
+
+// FindAgentsByCapability uses the SQL function to find agents
+func (d *EnhancedDiscovery) FindAgentsByCapability(ctx context.Context, capabilities []string, clientID string) ([]AgentMatch, error) {
+	// Convert capabilities to PostgreSQL array format
+	capArray := "{" + strings.Join(capabilities, ",") + "}"
+
+	query := `SELECT * FROM find_agents_by_capability($1::text[], $2)`
+
+	var matches []AgentMatch
+
+	// Handle both database types
+	switch db := d.db.(type) {
+	case *sql.DB:
+		rows, err := db.QueryContext(ctx, query, capArray, clientID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find agents by capability: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var match AgentMatch
+			var capabilitiesJSON []byte
+
+			err := rows.Scan(
+				&match.AgentID,
+				&match.AgentType,
+				&match.AgentName,
+				&capabilitiesJSON,
+				&match.PerformanceScore,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			// Parse capabilities JSON
+			if err := json.Unmarshal(capabilitiesJSON, &match.Capabilities); err != nil {
+				return nil, err
+			}
+
+			matches = append(matches, match)
+		}
+
+		return matches, rows.Err()
+
+	case *pgxpool.Pool:
+		rows, err := db.Query(ctx, query, capArray, clientID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find agents by capability: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var match AgentMatch
+			var capabilitiesJSON []byte
+
+			err := rows.Scan(
+				&match.AgentID,
+				&match.AgentType,
+				&match.AgentName,
+				&capabilitiesJSON,
+				&match.PerformanceScore,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			// Parse capabilities JSON
+			if err := json.Unmarshal(capabilitiesJSON, &match.Capabilities); err != nil {
+				return nil, err
+			}
+
+			matches = append(matches, match)
+		}
+
+		return matches, rows.Err()
+
+	default:
+		return nil, fmt.Errorf("unsupported database type: %T", d.db)
+	}
+}
+
+// RecommendAgentsForTask uses the SQL function to get agent recommendations
+func (d *EnhancedDiscovery) RecommendAgentsForTask(ctx context.Context, taskType string, capabilities []string) ([]AgentRecommendation, error) {
+	var capArray interface{}
+	if len(capabilities) > 0 {
+		capArray = "{" + strings.Join(capabilities, ",") + "}"
+	} else {
+		capArray = nil
+	}
+
+	query := `SELECT * FROM recommend_agents_for_task($1, $2::text[])`
+
+	var recommendations []AgentRecommendation
+
+	switch db := d.db.(type) {
+	case *sql.DB:
+		rows, err := db.QueryContext(ctx, query, taskType, capArray)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get recommendations: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var rec AgentRecommendation
+			var capabilitiesJSON []byte
+
+			err := rows.Scan(
+				&rec.AgentType,
+				&rec.DisplayName,
+				&rec.Category,
+				&capabilitiesJSON,
+				&rec.PerformanceScore,
+				&rec.RecommendationReason,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			if err := json.Unmarshal(capabilitiesJSON, &rec.Capabilities); err != nil {
+				return nil, err
+			}
+
+			recommendations = append(recommendations, rec)
+		}
+
+		return recommendations, rows.Err()
+
+	case *pgxpool.Pool:
+		rows, err := db.Query(ctx, query, taskType, capArray)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get recommendations: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var rec AgentRecommendation
+			var capabilitiesJSON []byte
+
+			err := rows.Scan(
+				&rec.AgentType,
+				&rec.DisplayName,
+				&rec.Category,
+				&capabilitiesJSON,
+				&rec.PerformanceScore,
+				&rec.RecommendationReason,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			if err := json.Unmarshal(capabilitiesJSON, &rec.Capabilities); err != nil {
+				return nil, err
+			}
+
+			recommendations = append(recommendations, rec)
+		}
+
+		return recommendations, rows.Err()
+
+	default:
+		return nil, fmt.Errorf("unsupported database type: %T", d.db)
+	}
+}
+
+// DiscoverAgents provides backward compatibility with existing code
+func (d *EnhancedDiscovery) DiscoverAgents(ctx context.Context, requirements discovery.Requirements) ([]discovery.AgentMatch, error) {
+	// Use the new FindAgentsByCapability function
+	matches, err := d.FindAgentsByCapability(ctx, requirements.Capabilities, requirements.ClientID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to the expected return type
+	var result []discovery.AgentMatch
+	for _, m := range matches {
+		result = append(result, discovery.AgentMatch{
+			AgentID:     m.AgentID,
+			AgentType:   m.AgentType,
+			Performance: m.PerformanceScore,
+		})
+	}
+
+	// Filter by agent type if specified
+	if requirements.AgentType != "" {
+		var filtered []discovery.AgentMatch
+		for _, m := range result {
+			if m.AgentType == requirements.AgentType {
+				filtered = append(filtered, m)
+			}
+		}
+		result = filtered
+	}
+
+	return result, nil
+}
+
+// GetAgentPerformanceSummary gets performance metrics for agents
+func (d *EnhancedDiscovery) GetAgentPerformanceSummary(ctx context.Context, agentType string, limit int) ([]map[string]interface{}, error) {
+	query := `SELECT * FROM get_agent_performance_summary($1, $2)`
+
+	var results []map[string]interface{}
+
+	switch db := d.db.(type) {
+	case *sql.DB:
+		rows, err := db.QueryContext(ctx, query, agentType, limit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get performance summary: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var agentID string
+			var agentType string
+			var totalTasks int
+			var successRate float64
+			var avgResponseTime int
+			var avgFuelPerTask int
+			var avgQualityScore *float64
+
+			err := rows.Scan(
+				&agentID,
+				&agentType,
+				&totalTasks,
+				&successRate,
+				&avgResponseTime,
+				&avgFuelPerTask,
+				&avgQualityScore,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			result := map[string]interface{}{
+				"agent_id":          agentID,
+				"agent_type":        agentType,
+				"total_tasks":       totalTasks,
+				"success_rate":      successRate,
+				"avg_response_time": avgResponseTime,
+				"avg_fuel_per_task": avgFuelPerTask,
+			}
+
+			if avgQualityScore != nil {
+				result["avg_quality_score"] = *avgQualityScore
+			}
+
+			results = append(results, result)
+		}
+
+		return results, rows.Err()
+
+	case *pgxpool.Pool:
+		rows, err := db.Query(ctx, query, agentType, limit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get performance summary: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var agentID string
+			var agentType string
+			var totalTasks int
+			var successRate float64
+			var avgResponseTime int
+			var avgFuelPerTask int
+			var avgQualityScore *float64
+
+			err := rows.Scan(
+				&agentID,
+				&agentType,
+				&totalTasks,
+				&successRate,
+				&avgResponseTime,
+				&avgFuelPerTask,
+				&avgQualityScore,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			result := map[string]interface{}{
+				"agent_id":          agentID,
+				"agent_type":        agentType,
+				"total_tasks":       totalTasks,
+				"success_rate":      successRate,
+				"avg_response_time": avgResponseTime,
+				"avg_fuel_per_task": avgFuelPerTask,
+			}
+
+			if avgQualityScore != nil {
+				result["avg_quality_score"] = *avgQualityScore
+			}
+
+			results = append(results, result)
+		}
+
+		return results, rows.Err()
+
+	default:
+		return nil, fmt.Errorf("unsupported database type: %T", d.db)
+	}
+}
+
+// Updated CallAgentAction to use the new discovery with recommendations
+func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	config := params.StepConfig.Config
+
+	// If specific agent_id provided, use it directly
+	if agentID, ok := config["agent_id"].(string); ok {
+		return callSpecificAgent(ctx, params, agentID)
+	}
+
+	// Otherwise, discover best agent
+	agentType, ok := config["agent_type"].(string)
+	if !ok {
+		return nil, fmt.Errorf("agent_type not specified")
+	}
+
+	// Try to use recommendations first
+	discover := NewAgentDiscovery(params.DB)
+	if discover == nil {
+		return nil, fmt.Errorf("failed to create discovery service")
+	}
+
+	// Get capabilities from config if provided
+	var capabilities []string
+	if caps, ok := config["required_capabilities"].([]interface{}); ok {
+		for _, cap := range caps {
+			if c, ok := cap.(string); ok {
+				capabilities = append(capabilities, c)
+			}
+		}
+	}
+
+	// Try to get recommendations
+	recommendations, err := discover.RecommendAgentsForTask(ctx, agentType, capabilities)
+	if err == nil && len(recommendations) > 0 {
+		// Use the best recommendation
+		bestRec := recommendations[0]
+		params.Logger.Info("Using recommended agent",
+			zap.String("agent_type", bestRec.AgentType),
+			zap.String("reason", bestRec.RecommendationReason),
+			zap.Float64("performance_score", bestRec.PerformanceScore))
+
+		// Update agent type to the recommended one
+		agentType = bestRec.AgentType
+	}
+
+	// Try to find existing agent using backward-compatible method
+	matches, err := discover.DiscoverAgents(ctx, discovery.Requirements{
+		AgentType:    agentType,
+		ClientID:     params.Headers["client_id"],
+		Capabilities: capabilities,
+	})
+
+	if err != nil || len(matches) == 0 {
+		// No agent found, spawn one
+		params.Logger.Info("No existing agent found, spawning new one",
+			zap.String("agent_type", agentType))
+
+		spawnResult, err := SpawnAgentAction(ctx, ActionParams{
+			StepConfig: models.Step{
+				Config: map[string]interface{}{
+					"agent_type": agentType,
+				},
+			},
+			Headers: params.Headers,
+			DB:      params.DB,
+			Logger:  params.Logger,
+		})
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to spawn agent: %w", err)
+		}
+
+		sr, ok := spawnResult.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("unexpected spawn result type")
+		}
+
+		agentID, ok := sr["agent_id"].(string)
+		if !ok {
+			return nil, fmt.Errorf("agent_id not found in spawn result")
+		}
+
+		return callSpecificAgent(ctx, params, agentID)
+	}
+
+	// Use best match
+	bestMatch := matches[0]
+	params.Logger.Info("Using existing agent",
+		zap.String("agent_id", bestMatch.AgentID),
+		zap.String("agent_type", bestMatch.AgentType),
+		zap.Float64("performance_score", bestMatch.Performance))
+
+	return callSpecificAgent(ctx, params, bestMatch.AgentID)
+}
+
+// Updated DiscoverAgentsAction to use the new enhanced discovery
 func DiscoverAgentsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 
@@ -345,13 +710,30 @@ func DiscoverAgentsAction(ctx context.Context, params ActionParams) (interface{}
 		return nil, fmt.Errorf("failed to create discovery service")
 	}
 
-	requirements := discovery.Requirements{
-		AgentType: agentType,
-		ClientID:  params.Headers["client_id"],
+	// Get capabilities if specified
+	var capabilities []string
+	if caps, ok := config["capabilities"].([]string); ok {
+		capabilities = caps
+	} else if caps, ok := config["capabilities"].([]interface{}); ok {
+		for _, cap := range caps {
+			if c, ok := cap.(string); ok {
+				capabilities = append(capabilities, c)
+			}
+		}
 	}
 
-	if caps, ok := config["capabilities"].([]string); ok {
-		requirements.Capabilities = caps
+	// Try recommendations first
+	recommendations, err := discover.RecommendAgentsForTask(ctx, agentType, capabilities)
+	if err == nil && len(recommendations) > 0 {
+		params.Logger.Info("Found agent recommendations",
+			zap.Int("count", len(recommendations)))
+	}
+
+	// Also get existing agents
+	requirements := discovery.Requirements{
+		AgentType:    agentType,
+		ClientID:     params.Headers["client_id"],
+		Capabilities: capabilities,
 	}
 
 	matches, err := discover.DiscoverAgents(ctx, requirements)
@@ -359,33 +741,18 @@ func DiscoverAgentsAction(ctx context.Context, params ActionParams) (interface{}
 		return nil, err
 	}
 
-	return map[string]interface{}{
-		"found_agents": len(matches),
-		"agents":       matches,
-	}, nil
-}
-
-// NewAgentDiscovery creates a discovery service from the database connection
-func NewAgentDiscovery(db interface{}) *discovery.AgentDiscovery {
-	switch d := db.(type) {
-	case *sql.DB:
-		// For sql.DB, we need connection string to create pgxpool
-		// This is a limitation - in production, pass pgxpool directly
-		connStr := "postgres://user:pass@localhost/db" // This needs proper config
-		config, err := pgxpool.ParseConfig(connStr)
-		if err != nil {
-			return nil
-		}
-		pool, err := pgxpool.NewWithConfig(context.Background(), config)
-		if err != nil {
-			return nil
-		}
-		return discovery.NewAgentDiscovery(pool)
-	case *pgxpool.Pool:
-		return discovery.NewAgentDiscovery(d)
-	default:
-		return nil
+	// Get performance summary if requested
+	var performanceSummary []map[string]interface{}
+	if includePerf, ok := config["include_performance"].(bool); ok && includePerf {
+		performanceSummary, _ = discover.GetAgentPerformanceSummary(ctx, agentType, 10)
 	}
+
+	return map[string]interface{}{
+		"found_agents":     len(matches),
+		"agents":           matches,
+		"recommendations":  recommendations,
+		"performance_data": performanceSummary,
+	}, nil
 }
 
 // Helper functions
