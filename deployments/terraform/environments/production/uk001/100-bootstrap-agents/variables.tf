@@ -35,3 +35,7 @@ variable "region" {
   type        = string
   default     = "uk001"
 }
+
+variable "orchestrator_replicas" {
+  default = 1  # Start with 0, scale up when needed
+}

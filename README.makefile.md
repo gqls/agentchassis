@@ -63,3 +63,58 @@ make agent-performance
 
 # Test discovery
 make agent-recommend TASK=website-builder
+
+--=== new ===---
+# Complete deployment
+make deploy-all
+
+# Quick application update
+make quick-deploy
+
+# Build and push everything
+make bp  # or make build-push
+
+# Check everything
+make status  # or make ps
+
+# View logs
+make logs SERVICE=core-manager
+make logs TARGET=all
+
+# Database operations
+make db-console DB=clients
+make db-query DB=templates SQL="SELECT * FROM agent_definitions"
+
+# Port forwarding
+make port-forward SERVICE=grafana PORT=3001:3000
+
+----
+up = "Bring system UP"
+
+Alias for deploy-all
+Like docker-compose up - starts everything
+Usage: make up
+
+down = "Bring system DOWN"
+
+Alias for destroy-infra
+Like docker-compose down - stops/removes everything
+Usage: make down
+
+ps = "Process Status"
+
+Alias for status
+Like docker ps or Unix ps - shows what's running
+Usage: make ps
+
+bp = "Build & Push"
+
+Alias for build-push (which does build-all + push-all)
+Common workflow shortened
+Usage: make bp
+
+qd = "Quick Deploy"
+
+Alias for quick-deploy
+Deploys just applications (not infrastructure)
+Usage: make qd

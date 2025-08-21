@@ -26,6 +26,16 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	log.Printf("=== Configuration Debug ===")
+	log.Printf("Clients DB Config:")
+	log.Printf("  Host: %s", cfg.Infrastructure.ClientsDatabase.Host)
+	log.Printf("  Port: %d", cfg.Infrastructure.ClientsDatabase.Port)
+	log.Printf("  User: %s", cfg.Infrastructure.ClientsDatabase.User)
+	log.Printf("  DBName: %s", cfg.Infrastructure.ClientsDatabase.DBName)
+	log.Printf("  PasswordEnvVar: '%s'", cfg.Infrastructure.ClientsDatabase.PasswordEnvVar)
+	log.Printf("  SSLMode: %s", cfg.Infrastructure.ClientsDatabase.SSLMode)
+
+	// ###### DEBUG ###### //
 	// Initialize logger first
 	appLogger, err := logger.New(cfg.Logging.Level)
 	if err != nil {
@@ -43,6 +53,33 @@ func main() {
 		zap.String("AGENT_TYPE", agentType),
 		zap.String("KAFKA_TOPIC", kafkaTopic),
 		zap.String("KAFKA_CONSUMER_GROUP", consumerGroup))
+
+	// ADD DEBUGGING: Log ALL database-related environment variables
+	appLogger.Info("Database environment variables check",
+		zap.String("CLIENTS_DB_PASSWORD_exists", fmt.Sprintf("%v", os.Getenv("CLIENTS_DB_PASSWORD") != "")),
+		zap.String("TEMPLATES_DB_PASSWORD_exists", fmt.Sprintf("%v", os.Getenv("TEMPLATES_DB_PASSWORD") != "")),
+		zap.String("AUTH_DB_PASSWORD_exists", fmt.Sprintf("%v", os.Getenv("AUTH_DB_PASSWORD") != "")),
+		zap.String("CLIENTS_DATABASE_URL", os.Getenv("CLIENTS_DATABASE_URL")),
+		zap.String("TEMPLATES_DATABASE_URL", os.Getenv("TEMPLATES_DATABASE_URL")),
+		zap.Int("CLIENTS_DB_PASSWORD_len", len(os.Getenv("CLIENTS_DB_PASSWORD"))),
+		zap.Int("TEMPLATES_DB_PASSWORD_len", len(os.Getenv("TEMPLATES_DB_PASSWORD"))))
+
+	// ADD DEBUGGING: Log the loaded configuration
+	appLogger.Info("Loaded configuration",
+		zap.Any("infrastructure", cfg.Infrastructure),
+		zap.Any("custom", cfg.Custom))
+
+	// Check if the environment variable exists
+	if cfg.Infrastructure.ClientsDatabase.PasswordEnvVar != "" {
+		envValue := os.Getenv(cfg.Infrastructure.ClientsDatabase.PasswordEnvVar)
+		log.Printf("  Env var '%s' exists: %v (length: %d)",
+			cfg.Infrastructure.ClientsDatabase.PasswordEnvVar,
+			envValue != "",
+			len(envValue))
+	} else {
+		log.Printf("  WARNING: PasswordEnvVar is empty!")
+	}
+	log.Printf("===================")
 
 	// Initialize Custom field as a map if it doesn't exist
 	if cfg.Custom == nil {

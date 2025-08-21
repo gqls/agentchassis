@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.48
+IMAGE_TAG ?= v1.0.49
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -394,17 +394,25 @@ deploy-090-monitoring: ## Deploy monitoring stack
 
 
 .PHONY: deploy-100-bootstrap-agents
-deploy-100-bootstrap-agents: ## Deploy bootstrap agents (generic orchestrator)
+deploy-100-bootstrap-agents: ## Deploy bootstrap agents (generic orchestrator) with image updates
 	@echo "$(GREEN)Deploying 100-bootstrap-agents...$(NC)"
+	@echo "$(YELLOW)First updating agent definitions with current image...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"UPDATE agent_definitions SET image_repository = '$(REGISTRY)/agent-chassis', image_tag = '$(IMAGE_TAG)', updated_at = NOW(); SELECT COUNT(*) as updated_count FROM agent_definitions;" 2>/dev/null || true
 	@cd $(TERRAFORM_DIR)/100-bootstrap-agents && \
 		if [ -f terraform.tfvars.secret ]; then \
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
-			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret -var="image_tag=$(IMAGE_TAG)"; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve \
+				-var-file=terraform.tfvars.secret \
+				-var="image_tag=$(IMAGE_TAG)" \
+				-var="registry=$(REGISTRY)"; \
 		else \
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
-			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var="image_tag=$(IMAGE_TAG)"; \
+			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve \
+				-var="image_tag=$(IMAGE_TAG)" \
+				-var="registry=$(REGISTRY)"; \
 		fi
-
+	@echo "$(GREEN)Bootstrap agents deployed with image $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
 
 
 #################################
@@ -1223,3 +1231,48 @@ bootstrap-status: ## Check status of bootstrap agents
 	@kubectl get pods -n $(PROJECT_NAME) -l app=generic-orchestrator
 	@echo "\n$(YELLOW)Bootstrap Agent Logs (last 20 lines):$(NC)"
 	@kubectl logs -n $(PROJECT_NAME) -l app=generic-orchestrator --tail=20
+
+
+#################################
+# Agent Image Management
+#################################
+
+# Update agent definitions with current image tag
+.PHONY: update-agent-images
+update-agent-images: ## Update all agent definitions with current image tag
+	@echo "$(YELLOW)Updating agent definitions with image: $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"UPDATE agent_definitions SET image_repository = '$(REGISTRY)/agent-chassis', image_tag = '$(IMAGE_TAG)', updated_at = NOW();"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"SELECT type, image_repository, image_tag FROM agent_definitions ORDER BY type LIMIT 5;"
+	@echo "$(GREEN)Agent definitions updated with $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
+
+# Alternative version using a single command
+.PHONY: update-agent-images-v2
+update-agent-images-v2: ## Update all agent definitions with current image tag (alternative)
+	@echo "$(YELLOW)Updating agent definitions with image: $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c "\
+		UPDATE agent_definitions \
+		SET image_repository = '$(REGISTRY)/agent-chassis', \
+		    image_tag = '$(IMAGE_TAG)', \
+		    updated_at = NOW(); \
+		SELECT type, image_repository, image_tag \
+		FROM agent_definitions \
+		ORDER BY type \
+		LIMIT 5;"
+	@echo "$(GREEN)Agent definitions updated$(NC)"
+
+# Update agent images and restart orchestrator
+.PHONY: update-and-restart-orchestrator
+update-and-restart-orchestrator: update-agent-images ## Update agent images and restart orchestrator
+	@echo "$(YELLOW)Restarting generic orchestrator...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl delete pod generic-orchestrator-0 -n $(PROJECT_NAME) --ignore-not-found=true
+	@echo "$(GREEN)Orchestrator restarted$(NC)"
+
+# Deploy agents with image update
+.PHONY: deploy-agents-with-update
+deploy-agents-with-update: update-agent-images deploy-agents ## Deploy agents and update database images
+
+# Bootstrap agents with image update
+.PHONY: bootstrap-agents-with-update
+bootstrap-agents-with-update: update-agent-images deploy-100-bootstrap-agents ## Deploy bootstrap agents with updated imagesploy-100-bootstrap-agents ## Deploy bootstrap agents with updated images

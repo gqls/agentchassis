@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS agent_definitions (
     description TEXT,
     category VARCHAR(50) NOT NULL CHECK (category IN ('data-driven', 'code-driven', 'adapter', 'orchestrator')),
 
-    -- Deployment configuration (NEW - eliminates hardcoding)
+    -- Deployment configuration
     image_repository VARCHAR(255) NOT NULL DEFAULT 'docker.io/aqls/agent-chassis',
     image_tag VARCHAR(100) NOT NULL DEFAULT 'latest',
     command TEXT[], -- Array of command parts, e.g. ['./agent-chassis', '-config', 'configs/agent-chassis.yaml']

@@ -1,0 +1,76 @@
+# agent-chassis configuration for generic orchestrator
+service_info:
+  name: generic-orchestrator
+  version: "1.0.0"
+  environment: production
+
+server:
+  port: "8080"
+
+logging:
+  level: info
+
+observability:
+  tracing_endpoint: ""
+
+# Infrastructure configuration - must match mapstructure tags exactly
+infrastructure:
+  kafka_brokers:
+    - personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
+
+  clients_database:
+    host: postgres-clients.ai-persona-system.svc.cluster.local
+    port: 5432
+    db_name: clients_db
+    user: clients_user
+    password_env_var: CLIENTS_DB_PASSWORD
+    sslmode: disable
+
+  templates_database:
+    host: postgres-templates.ai-persona-system.svc.cluster.local
+    port: 5432
+    db_name: templates_db
+    user: templates_user
+    password_env_var: TEMPLATES_DB_PASSWORD
+    sslmode: disable
+
+  auth_database:
+    host: postgres-auth.ai-persona-system.svc.cluster.local
+    port: 5432
+    db_name: auth_db
+    user: auth_user
+    password_env_var: AUTH_DB_PASSWORD
+    sslmode: disable
+
+  object_storage:
+    provider: ""
+    endpoint: ""
+    bucket: ""
+    access_key_env_var: ""
+    secret_key_env_var: ""
+
+# Custom configuration for agent-specific settings
+custom:
+  agent_type: generic
+  agent_id: "00000000-0000-0000-0000-000000000001"
+  mode: orchestrator
+  topic: system.agent.generic.process
+  kafka_consumer_group: generic-orchestrator-group
+  processing:
+    mode: orchestrator
+    spawn_method: kubernetes_job
+    namespace: ai-persona-system
+  orchestration:
+    workflows:
+      build_website:
+        agent_type: website-builder
+        spawn_as: job
+      default:
+        agent_type: generic
+        spawn_as: job
+  health:
+    port: 8080
+    path: /health
+  metrics:
+    port: 9090
+    path: /metrics

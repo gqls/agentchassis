@@ -14,6 +14,14 @@ import (
 
 // NewPostgresConnection creates a new PostgreSQL connection pool with retry logic
 func NewPostgresConnection(ctx context.Context, dbCfg config.DatabaseConfig, logger *zap.Logger) (*pgxpool.Pool, error) {
+	logger.Info("Database configuration",
+		zap.String("host", dbCfg.Host),
+		zap.Int("port", dbCfg.Port),
+		zap.String("user", dbCfg.User),
+		zap.String("dbname", dbCfg.DBName),
+		zap.String("password_env_var", dbCfg.PasswordEnvVar),
+		zap.String("sslmode", dbCfg.SSLMode))
+
 	password := os.Getenv(dbCfg.PasswordEnvVar)
 	if password == "" {
 		return nil, fmt.Errorf("database password environment variable %s is not set", dbCfg.PasswordEnvVar)

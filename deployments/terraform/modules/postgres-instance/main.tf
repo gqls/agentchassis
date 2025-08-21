@@ -37,9 +37,19 @@ resource "kubernetes_stateful_set" "postgres_sts" {
       }
       spec {
         termination_grace_period_seconds = 10
+        security_context {
+          fs_group = 999  # PostgreSQL group
+          run_as_user = 999  # PostgreSQL user
+          run_as_non_root = true
+        }
         container {
           name  = "postgres"
-          image = "pgembedding/pgembedding:15-alpine"
+          image = "pgvector/pgvector:pg15"
+          security_context {
+            run_as_user = 999
+            run_as_non_root = true
+            allow_privilege_escalation = false
+          }
           port {
             container_port = 5432
             name           = "postgres"

@@ -591,7 +591,7 @@ test-quick-verify: ## Quick verification that test infrastructure is working
 		echo "$(GREEN)✓ Database accessible$(NC)" || \
 		echo "$(RED)✗ Database not accessible$(NC)"
 	# Test Kafka connectivity
-	@kubectl exec kafka-cluster-kafka-0 -n ai-persona-system -c kafka -- \
+	@kubectl exec personae-kafka-cluster-kafka-0 -n ai-persona-system -c kafka -- \
 		kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1 && \
 		echo "$(GREEN)✓ Kafka accessible$(NC)" || \
 		echo "$(RED)✗ Kafka not accessible$(NC)"

@@ -24,13 +24,14 @@ data "kubernetes_secret" "platform_secrets" {
   }
 }
 
-resource "kubernetes_config_map" "agent_config" {
+resource "kubernetes_config_map" "agent_chassis_config" {
   metadata {
     name      = "agent-chassis-config"
     namespace = var.namespace
   }
+
   data = {
-    "agent-chassis.yaml" = file("${path.module}/agent-chassis.yaml")
+    "agent-chassis.yaml" = file("${path.module}/agent-chassis-orchestrator.yaml")
   }
 }
 
@@ -97,6 +98,16 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
           }
 
           env {
+            name  = "AGENT_IMAGE_REPOSITORY"
+            value = var.registry
+          }
+
+          env {
+            name  = "AGENT_IMAGE_TAG"
+            value = var.image_tag
+          }
+
+          env {
             name  = "CLIENT_ID"
             value = "demo_client"
           }
@@ -111,14 +122,75 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
             value = "generic-orchestrator-group"
           }
 
+          # Add SERVICE_ prefixed environment variables for Viper
+          # These will override any config file values
+
+          # Kafka configuration
           env {
-            name  = "HEALTH_PORT"
-            value = "8080"
+            name  = "SERVICE_INFRASTRUCTURE_KAFKA_BROKERS"
+            value = "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+          }
+
+          # Clients Database configuration - with underscores matching mapstructure tags
+          env {
+            name  = "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST"
+            value = "postgres-clients.ai-persona-system.svc.cluster.local"
           }
 
           env {
-            name  = "METRICS_PORT"
-            value = "9090"
+            name  = "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT"
+            value = "5432"
+          }
+
+          env {
+            name  = "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER"
+            value = "clients_user"
+          }
+
+          env {
+            name  = "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME"
+            value = "clients_db"
+          }
+
+          env {
+            name  = "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PASSWORD_ENV_VAR"
+            value = "CLIENTS_DB_PASSWORD"
+          }
+
+          env {
+            name  = "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_SSLMODE"
+            value = "disable"
+          }
+
+          # Templates Database configuration - with underscores matching mapstructure tags
+          env {
+            name  = "SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_HOST"
+            value = "postgres-templates.ai-persona-system.svc.cluster.local"
+          }
+
+          env {
+            name  = "SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_PORT"
+            value = "5432"
+          }
+
+          env {
+            name  = "SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_USER"
+            value = "templates_user"
+          }
+
+          env {
+            name  = "SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_DB_NAME"
+            value = "templates_db"
+          }
+
+          env {
+            name  = "SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_PASSWORD_ENV_VAR"
+            value = "TEMPLATES_DB_PASSWORD"
+          }
+
+          env {
+            name  = "SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_SSLMODE"
+            value = "disable"
           }
 
           # Database passwords from secrets
@@ -150,6 +222,27 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
                 key  = "AUTH_DB_PASSWORD"
               }
             }
+          }
+
+          # Database connection strings (these are what the app actually uses)
+          env {
+            name  = "CLIENTS_DATABASE_URL"
+            value = "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@postgres-clients.ai-persona-system.svc.cluster.local:5432/clients_db?sslmode=disable"
+          }
+
+          env {
+            name  = "TEMPLATES_DATABASE_URL"
+            value = "postgresql://templates_user:$(TEMPLATES_DB_PASSWORD)@postgres-templates.ai-persona-system.svc.cluster.local:5432/templates_db?sslmode=disable"
+          }
+
+          env {
+            name  = "DATABASE_URL"
+            value = "postgresql://clients_user:${data.kubernetes_secret.platform_secrets.data.CLIENTS_DB_PASSWORD}@postgres-clients.ai-persona-system.svc.cluster.local:5432/clients_db?sslmode=disable"
+          }
+
+          env {
+            name  = "POSTGRES_URL"
+            value = "postgresql://clients_user:${data.kubernetes_secret.platform_secrets.data.CLIENTS_DB_PASSWORD}@postgres-clients.ai-persona-system.svc.cluster.local:5432/clients_db?sslmode=disable"
           }
 
           # API keys from secrets
@@ -222,10 +315,16 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
             }
           }
 
-          # Volume mounts if needed
+          # Volume mounts
           volume_mount {
             name       = "agent-config-volume"
-            mount_path = "/app/configs"
+            mount_path = "/app/prod-configs"
+            read_only  = true
+          }
+
+          volume_mount {
+            name       = "chassis-config"
+            mount_path = "/app/custom-configs"
             read_only  = true
           }
         }
@@ -235,6 +334,13 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
           name = "agent-config-volume"
           config_map {
             name = data.kubernetes_config_map.prod_config.metadata[0].name
+          }
+        }
+
+        volume {
+          name = "chassis-config"
+          config_map {
+            name = "agent-chassis-config"
           }
         }
 
