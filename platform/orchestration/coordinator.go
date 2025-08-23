@@ -52,17 +52,24 @@ var actionRegistry = map[string]actions.ActionHandler{
 	"conditional_branch": actions.ConditionalBranchAction,
 	"aggregate_data":     actions.AggregateDataAction,
 	"cache_lookup":       actions.CacheLookupAction,
-	"store_result":       actions.StoreResultAction,
 
 	"ai_text_generate_anthropic": actions.ExecuteLLMPromptAction, // Map to existing action
-	// "s3_upload":                  actions.DeployToHostingAction,  // Map to existing similar action
-	"upload_to_s3": actions.UploadToS3Action, // Add the real S3 upload action
-	"s3_upload":    actions.UploadToS3Action, // Also map s3_upload to it
 
 	"plan_agent_team":       actions.PlanAgentTeamAction,
 	"review_performance":    actions.ReviewPerformanceAction,
 	"approve_agent_changes": actions.ApproveAgentChangesAction,
 	"conditional_route":     actions.ConditionalRouteAction,
+
+	// HTML-specific actions
+	"generate_html": actions.GenerateHTMLAction,
+	"process_html":  actions.ProcessHTMLAction,
+	"validate_html": actions.ValidateHTMLAction,
+
+	// Storage actions
+	"route_storage": actions.RouteStorageAction,
+	"upload_to_s3":  actions.UploadToS3Action,
+	"s3_upload":     actions.UploadToS3Action,
+	"store_result":  actions.StoreResultAction,
 }
 
 // NewSagaCoordinator creates a new coordinator instance

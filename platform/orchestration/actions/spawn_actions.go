@@ -147,6 +147,16 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 			continue
 		}
 
+		// If this is the orchestrator role, ensure it's configured properly
+		configOverrides := make(map[string]interface{})
+		if role == "orchestrator" {
+			configOverrides["processing_mode"] = "orchestrator"
+			configOverrides["listen_to_responses"] = true
+			params.Logger.Info("Spawning orchestrator with response listening enabled",
+				zap.String("role", role),
+				zap.String("agent_type", agentType))
+		}
+
 		result, err := SpawnAgentAction(ctx, ActionParams{
 			StepConfig: models.Step{
 				Config: map[string]interface{}{
@@ -1431,6 +1441,13 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 	// Build topic name
 	processTopic := strings.ReplaceAll(topics.Process, "{type}", agentDef.Type)
 
+	// For orchestrator agents, they need to listen to responses too
+	kafkaTopics := processTopic
+	if agentDef.Category == "orchestrator" || agentDef.Type == "website-builder" {
+		// Orchestrators must listen to both their process topic AND responses
+		kafkaTopics = fmt.Sprintf("%s,system.orchestrator.responses", processTopic)
+	}
+
 	// Build environment variables
 	envList := []corev1.EnvVar{
 		// Core configuration
@@ -1440,6 +1457,7 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 
 		// Dynamic topic configuration
 		{Name: "KAFKA_TOPIC", Value: processTopic},
+		{Name: "KAFKA_TOPICS", Value: kafkaTopics},
 		{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentDef.Type, agentID[:8])},
 
 		// Health server ports

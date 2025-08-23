@@ -209,3 +209,85 @@ jsonb_build_object(
 )
 )
 WHERE id = '00000000-0000-0000-0000-000000000001';"
+
+
+
+---
+
+// In the HTML developer agent's workflow (from database)
+{
+"workflow": {
+"start_step": "generate_html",
+"steps": {
+"generate_html": {
+"action": "execute_llm_prompt",
+"config": {
+"prompt_template": "html_generation",
+"model": "claude-3-opus"
+},
+"next_step": "process_html"
+},
+"process_html": {
+"action": "process_html",
+"config": {
+"add_meta_tags": true,
+"optimize_images": true,
+"minify": true,
+"ensure_responsive": true,
+"add_analytics": {
+"enabled": false,
+"ga_id": ""
+}
+},
+"next_step": "validate_html"
+},
+"validate_html": {
+"action": "validate_html",
+"config": {
+"strict": false,
+"check_accessibility": true
+},
+"next_step": "store_if_valid"
+},
+"store_if_valid": {
+"action": "conditional_branch",
+"config": {
+"condition": "validation.is_valid == true",
+"true_branch": "store_output",
+"false_branch": "complete"
+}
+},
+"store_output": {
+"action": "store_result",
+"config": {
+"content_field": "html",
+"content_type": "text/html"
+},
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow"
+}
+}
+}
+}
+
+-- Update agent workflows to use route_storage for file storage
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+default_config,
+'{workflow,steps,store_html}',
+'{
+"action": "route_storage",
+"description": "Store HTML using configured storage backend",
+"config": {
+"storage_type": "s3",
+"content_field": "final_html",
+"content_type": "text/html",
+"path_template": "websites/{{.ClientID}}/{{.CorrelationID}}/index.html",
+"make_public": true
+},
+"next_step": "complete"
+}'::jsonb
+)
+WHERE type = 'html-developer';
