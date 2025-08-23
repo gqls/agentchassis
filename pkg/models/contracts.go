@@ -48,6 +48,7 @@ type Step struct {
 	SubTasks     []SubTask              `json:"sub_tasks,omitempty"`
 	StoreMemory  bool                   `json:"store_memory,omitempty"`
 	Config       map[string]interface{} `json:"config,omitempty"`
+	Timeout      time.Duration          `json:"timeout,omitempty"`
 }
 
 // SubTask for fan-out operations

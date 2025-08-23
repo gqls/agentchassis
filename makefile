@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.49
+IMAGE_TAG ?= v1.0.70
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -514,7 +514,7 @@ update-agent-image-tag: ## Update the agent image tag in ConfigMap
 
 # Deploy agents with automatic image update
 .PHONY: deploy-agents
-deploy-agents: update-kustomization-images update-agent-image-tag bootstrap-agents redeploy-agents ## Deploy all agent services
+deploy-agents: update-kustomization-images update-agent-image-tag redeploy-agents bootstrap-agents ## Deploy all agent services
 	@echo "$(YELLOW)Deploying agent services with image tag $(IMAGE_TAG)...$(NC)"
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)
@@ -522,6 +522,7 @@ deploy-agents: update-kustomization-images update-agent-image-tag bootstrap-agen
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH)
 
+#  kubectl apply -k deployments/kustomize/services/agent-chassis/overlays/production/uk_001/
 
 .PHONY: redeploy-agents
 redeploy-agents:  ## Forces a rolling restart of all agent deployments
@@ -1263,16 +1264,43 @@ update-agent-images-v2: ## Update all agent definitions with current image tag (
 	@echo "$(GREEN)Agent definitions updated$(NC)"
 
 # Update agent images and restart orchestrator
-.PHONY: update-and-restart-orchestrator
-update-and-restart-orchestrator: update-agent-images ## Update agent images and restart orchestrator
+.PHONY: update-generic-orchestrator
+update-generic-orchestrator: ## Update generic orchestrator image to current IMAGE_TAG
+	@echo "$(YELLOW)Updating generic orchestrator to $(REGISTRY)/agent-chassis:$(IMAGE_TAG)...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) set image statefulset/generic-orchestrator \
+		orchestrator=$(REGISTRY)/agent-chassis:$(IMAGE_TAG)
+	@echo "$(GREEN)Waiting for rollout to complete...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) rollout status statefulset/generic-orchestrator --timeout=120s
+	@echo "$(GREEN)Generic orchestrator updated to $(IMAGE_TAG)$(NC)"
+
+.PHONY: restart-generic-orchestrator
+restart-generic-orchestrator: ## Restart generic orchestrator pod
 	@echo "$(YELLOW)Restarting generic orchestrator...$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl delete pod generic-orchestrator-0 -n $(PROJECT_NAME) --ignore-not-found=true
-	@echo "$(GREEN)Orchestrator restarted$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) delete pod generic-orchestrator-0
+	@echo "$(GREEN)Waiting for pod to be ready...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) wait --for=condition=ready pod/generic-orchestrator-0 --timeout=120s
+	@echo "$(GREEN)Generic orchestrator restarted$(NC)"
 
-# Deploy agents with image update
-.PHONY: deploy-agents-with-update
-deploy-agents-with-update: update-agent-images deploy-agents ## Deploy agents and update database images
+.PHONY: update-and-restart-orchestrator
+update-and-restart-orchestrator: update-generic-orchestrator restart-generic-orchestrator ## Update and restart generic orchestrator
+	@echo "$(GREEN)Generic orchestrator updated and restarted with $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
 
-# Bootstrap agents with image update
-.PHONY: bootstrap-agents-with-update
-bootstrap-agents-with-update: update-agent-images deploy-100-bootstrap-agents ## Deploy bootstrap agents with updated imagesploy-100-bootstrap-agents ## Deploy bootstrap agents with updated images
+.PHONY: sync-all-agents
+sync-all-agents: update-agent-images-v2 update-generic-orchestrator ## Update database and generic orchestrator to same image
+	@echo "$(YELLOW)Cleaning up old agent pods to force respawn with new image...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) delete jobs -l app=dynamic-agent 2>/dev/null || true
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) delete pods -l app=dynamic-agent 2>/dev/null || true
+	@echo "$(GREEN)All agents synced to $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
+
+.PHONY: verify-agent-images
+verify-agent-images: ## Verify all agent images are consistent
+	@echo "$(YELLOW)Checking agent image versions...$(NC)"
+	@echo "$(CYAN)Database agent definitions:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -t -c \
+		"SELECT DISTINCT image_repository || ':' || image_tag as image FROM agent_definitions WHERE is_active = true;" 2>/dev/null || echo "Failed to query database"
+	@echo "$(CYAN)Generic orchestrator:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get statefulset generic-orchestrator -o jsonpath='{.spec.template.spec.containers[0].image}' && echo
+	@echo "$(CYAN)Running dynamic agents:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get pods -l app=dynamic-agent -o custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image 2>/dev/null || echo "No dynamic agents running"
+	@echo "$(CYAN)Agent chassis deployment:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get deployment agent-chassis -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null && echo || echo "No agent-chassis deployment"

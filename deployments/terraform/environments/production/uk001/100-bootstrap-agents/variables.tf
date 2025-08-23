@@ -15,7 +15,7 @@ variable "registry" {
 variable "image_tag" {
   description = "Docker image tag to deploy"
   type        = string
-  default     = "v1.0.47"
+  default     = "v1.0.61"
 }
 
 variable "enable_autoscaling" {

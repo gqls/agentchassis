@@ -4,31 +4,73 @@ package actions
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"text/template"
 
 	"github.com/gqls/agentchassis/platform/aiservice"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
-// ExecuteLLMPromptAction executes an LLM prompt using the agent's configured template
-// 1. Get agent's own config (loaded by MessageProcessor and available in params.CollectedData).
-// 2. Extract `prompt_template` and `ai_service` config from the agent's config.
-// 3. Dynamically initialize the correct AI client (e.g., NewAnthropicClient, NewOpenAIClient) based on the "provider".
-// 4. Create a data map for the template using the `params.CollectedData` from previous steps.
-// 5. Use Go's `text/template` package to render the final prompt string, filling in the placeholders.
-// 6. Call `aiClient.GenerateText(ctx, renderedPrompt, nil)`.
-// 7. Return the raw text response from the LLM.
 func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Executing LLM prompt action")
+	params.Logger.Info("Executing LLM prompt action",
+		zap.String("agent_type", params.AgentType),
+		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)),
+		zap.Bool("has_db", params.DB != nil))
 
-	// Get the agent's configuration (loaded by MessageProcessor)
-	agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("agent configuration not found in collected data")
+	// Get the agent's configuration
+	var agentConfig map[string]interface{}
+	var ok bool
+
+	// First try CollectedData (for orchestrated agents)
+	agentConfig, ok = params.CollectedData["agent_config"].(map[string]interface{})
+	params.Logger.Info("Checking agent_config in CollectedData",
+		zap.Bool("found", ok),
+		zap.Bool("is_nil", agentConfig == nil))
+
+	// If not found, load it directly from the database
+	if !ok && params.AgentType != "" {
+		params.Logger.Info("Agent config not in collected data, loading from database",
+			zap.String("agent_type", params.AgentType),
+			zap.String("db_type", fmt.Sprintf("%T", params.DB)))
+
+		agentDef, err := loadAgentDefinitionForAction(ctx, params.DB, params.AgentType)
+		if err != nil {
+			params.Logger.Error("Failed to load agent definition",
+				zap.String("agent_type", params.AgentType),
+				zap.Error(err))
+			return nil, fmt.Errorf("failed to load agent definition.: %w", err)
+		}
+
+		params.Logger.Info("Agent definition loaded",
+			zap.String("type", agentDef.Type),
+			zap.Int("config_size", len(agentDef.DefaultConfig)))
+
+		// Unmarshal the JSON config
+		if err := json.Unmarshal(agentDef.DefaultConfig, &agentConfig); err != nil {
+			params.Logger.Error("Failed to unmarshal agent config.",
+				zap.String("raw_config", string(agentDef.DefaultConfig)),
+				zap.Error(err))
+			return nil, fmt.Errorf("failed to unmarshal agent config.: %w", err)
+		}
+
+		params.Logger.Info("Agent config unmarshaled successfully",
+			zap.Any("config_keys", getMapKeys(agentConfig)))
+
+		// Store it for future actions in this workflow
+		params.CollectedData["agent_config"] = agentConfig
 	}
 
+	if agentConfig == nil {
+		params.Logger.Error("Agent configuration is nil after all attempts",
+			zap.String("agent_type", params.AgentType),
+			zap.Bool("had_ok", ok))
+		return nil, fmt.Errorf("agent configuration not found.")
+	}
+
+	// Rest of the function remains the same...
 	// Extract AI service configuration
 	aiServiceConfig, ok := agentConfig["ai_service"].(map[string]interface{})
 	if !ok {
@@ -57,9 +99,9 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 
 	// Make input_data available as both "input_data" and "input"
 	if inputData, ok := params.CollectedData["input_data"]; ok {
-		templateData["input"] = inputData // Add this alias
+		templateData["input"] = inputData
 	}
-	
+
 	// Parse the input data if it exists
 	if params.InputData != nil {
 		var inputPayload map[string]interface{}
@@ -120,7 +162,80 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	}, nil
 }
 
-// Helper functions remain the same...
+// Add this helper function to load agent definition
+func loadAgentDefinitionForAction(ctx context.Context, db interface{}, agentType string) (*AgentDefinition, error) {
+
+	fmt.Printf("DEBUG: loadAgentDefinitionForAction called with agentType=%s, db type=%T\n", agentType, db)
+
+	query := `
+		SELECT id, type, display_name, description, category,
+		       image_repository, image_tag, 
+		       resources, default_config, capabilities, topics,
+		       health_config, env_vars, is_active
+		FROM agent_definitions
+		WHERE type = $1 AND is_active = true
+		LIMIT 1
+	`
+
+	var def AgentDefinition
+
+	// Handle both *sql.DB and *pgxpool.Pool
+	switch d := db.(type) {
+	case *sql.DB:
+		// For *sql.DB, we need to handle the Command field differently
+		err := d.QueryRowContext(ctx, query, agentType).Scan(
+			&def.ID,
+			&def.Type,
+			&def.DisplayName,
+			&def.Description,
+			&def.Category,
+			&def.ImageRepository,
+			&def.ImageTag,
+			&def.Resources,
+			&def.DefaultConfig,
+			&def.Capabilities,
+			&def.Topics,
+			&def.HealthConfig,
+			&def.EnvVars,
+			&def.IsActive,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query agent definition: %w", err)
+		}
+		// Note: Command field is not loaded here as it's not needed for LLM prompt
+	case *pgxpool.Pool:
+		err := d.QueryRow(ctx, query, agentType).Scan(
+			&def.ID,
+			&def.Type,
+			&def.DisplayName,
+			&def.Description,
+			&def.Category,
+			&def.ImageRepository,
+			&def.ImageTag,
+			&def.Resources,
+			&def.DefaultConfig,
+			&def.Capabilities,
+			&def.Topics,
+			&def.HealthConfig,
+			&def.EnvVars,
+			&def.IsActive,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query agent definition: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported database type: %T", db)
+	}
+
+	// Validate that we have a config
+	if len(def.DefaultConfig) == 0 || string(def.DefaultConfig) == "null" {
+		return nil, fmt.Errorf("agent %s has no default config", agentType)
+	}
+
+	return &def, nil
+}
+
+// Keep all existing helper functions...
 func createAIClient(ctx context.Context, aiServiceConfig map[string]interface{}) (aiservice.AIService, error) {
 	provider, ok := aiServiceConfig["provider"].(string)
 	if !ok {
@@ -131,7 +246,6 @@ func createAIClient(ctx context.Context, aiServiceConfig map[string]interface{})
 	case "anthropic":
 		return aiservice.NewAnthropicClient(ctx, aiServiceConfig)
 	case "openai":
-		// Add OpenAI support if needed
 		return nil, fmt.Errorf("OpenAI provider not yet implemented")
 	default:
 		return nil, fmt.Errorf("unsupported AI provider: %s", provider)

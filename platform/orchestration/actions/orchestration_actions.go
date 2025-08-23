@@ -40,7 +40,7 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 	params.Logger.Info("Found spawn data",
 		zap.String("group_id", fmt.Sprintf("%v", spawnData["group_id"])),
 		zap.String("group_name", fmt.Sprintf("%v", spawnData["group_name"])),
-		zap.Int("agent_count", len(spawnData["agents"].(map[string]string))))
+		zap.Any("agents", spawnData["agents"]))
 
 	// Get the workflow
 	var workflowJSON json.RawMessage
@@ -90,19 +90,35 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 	newHeaders["parent_correlation_id"] = params.Headers["correlation_id"]
 
 	// Add spawned agents to headers if available
-	if agents, ok := spawnData["agents"].(map[string]string); ok {
-		for role, agentID := range agents {
-			newHeaders[fmt.Sprintf("agent_%s", role)] = agentID
-		}
-		params.Logger.Info("Added agent mappings to headers",
-			zap.Int("agent_count", len(agents)))
-	} else if agentsInterface, ok := spawnData["agents"].(map[string]interface{}); ok {
-		// Handle case where agents is map[string]interface{}
-		for role, agentID := range agentsInterface {
-			if id, ok := agentID.(string); ok {
-				newHeaders[fmt.Sprintf("agent_%s", role)] = id
+	if agentsRaw, ok := spawnData["agents"]; ok {
+		params.Logger.Info("Found agents in spawn data",
+			zap.String("agents_type", fmt.Sprintf("%T", agentsRaw)))
+
+		switch agents := agentsRaw.(type) {
+		case map[string]string:
+			for role, agentID := range agents {
+				newHeaders[fmt.Sprintf("agent_%s", role)] = agentID
 			}
+			params.Logger.Info("Added agent mappings to headers (string map)",
+				zap.Int("agent_count", len(agents)))
+
+		case map[string]interface{}:
+			count := 0
+			for role, agentIDRaw := range agents {
+				if agentID, ok := agentIDRaw.(string); ok {
+					newHeaders[fmt.Sprintf("agent_%s", role)] = agentID
+					count++
+				}
+			}
+			params.Logger.Info("Added agent mappings to headers (interface map)",
+				zap.Int("agent_count", count))
+
+		default:
+			params.Logger.Warn("Unexpected type for agents",
+				zap.String("type", fmt.Sprintf("%T", agentsRaw)))
 		}
+	} else {
+		params.Logger.Warn("No agents found in spawn data")
 	}
 
 	params.Logger.Info("Creating new orchestration",

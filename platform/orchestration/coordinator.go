@@ -55,7 +55,14 @@ var actionRegistry = map[string]actions.ActionHandler{
 	"store_result":       actions.StoreResultAction,
 
 	"ai_text_generate_anthropic": actions.ExecuteLLMPromptAction, // Map to existing action
-	"s3_upload":                  actions.DeployToHostingAction,  // Map to existing similar action
+	// "s3_upload":                  actions.DeployToHostingAction,  // Map to existing similar action
+	"upload_to_s3": actions.UploadToS3Action, // Add the real S3 upload action
+	"s3_upload":    actions.UploadToS3Action, // Also map s3_upload to it
+
+	"plan_agent_team":       actions.PlanAgentTeamAction,
+	"review_performance":    actions.ReviewPerformanceAction,
+	"approve_agent_changes": actions.ApproveAgentChangesAction,
+	"conditional_route":     actions.ConditionalRouteAction,
 }
 
 // NewSagaCoordinator creates a new coordinator instance
@@ -170,6 +177,52 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 	case currentStepConfig.Action == "complete_workflow":
 		l.Info("Completing workflow")
 		execErr = s.completeWorkflow(ctx, state)
+
+	case currentStepConfig.Action == "call_agent":
+		// SPECIAL HANDLING: call_agent sends message and waits for response
+		l.Info("Executing call_agent with wait-for-response")
+
+		// Execute the action to send the message
+		result, err := s.executeLocalAction(ctx, state, currentStepConfig, headers)
+		if err != nil {
+			execErr = err
+		} else if resultMap, ok := result.(map[string]interface{}); ok {
+			// Check if message was sent successfully
+			if messageSent, ok := resultMap["message_sent"].(bool); ok && messageSent {
+				requestID := resultMap["request_id"].(string)
+
+				// Update state to wait for response
+				state.Status = StatusAwaitingResponses
+				state.AwaitedSteps = []string{requestID}
+				// Don't update CurrentStep yet - we'll do that when response arrives
+
+				repo := NewStateRepository(s.db, s.logger)
+				if err := repo.UpdateState(ctx, state); err != nil {
+					execErr = fmt.Errorf("failed to update state for waiting: %w", err)
+				} else {
+					l.Info("Waiting for agent response",
+						zap.String("request_id", requestID),
+						zap.String("agent_called", fmt.Sprintf("%v", resultMap["agent_called"])),
+						zap.String("topic", fmt.Sprintf("%v", resultMap["topic"])),
+						zap.String("next_step", currentStepConfig.NextStep))
+
+					// Set up timeout goroutine
+					timeout := 60 * time.Second // Default timeout
+					if currentStepConfig.Timeout > 0 {
+						timeout = currentStepConfig.Timeout
+					}
+
+					go s.handleTimeout(ctx, state.CorrelationID, requestID, timeout)
+
+					return nil // Exit and wait for response
+				}
+			} else {
+				execErr = fmt.Errorf("call_agent did not send message successfully")
+			}
+		} else {
+			execErr = fmt.Errorf("unexpected result type from call_agent")
+		}
+
 	case currentStepConfig.Action == "fan_out":
 		l.Info("Handling fan-out")
 		execErr = s.handleFanOut(ctx, headers, currentStepConfig, state)
@@ -178,7 +231,24 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		execErr = s.handlePauseForHumanInput(ctx, headers, currentStepConfig, state)
 	case isLocalAction(currentStepConfig.Action):
 		l.Info("Executing local action", zap.String("action", currentStepConfig.Action))
-		execErr = s.executeLocalAction(ctx, state, currentStepConfig, headers)
+		_, err := s.executeLocalAction(ctx, state, currentStepConfig, headers)
+		if err != nil {
+			execErr = err
+		} else {
+			// For non-call_agent local actions, continue to next step
+			if currentStepConfig.NextStep != "" {
+				l.Info("Moving to next step", zap.String("next_step", currentStepConfig.NextStep))
+				state.CurrentStep = currentStepConfig.NextStep
+
+				repo := NewStateRepository(s.db, s.logger)
+				if err := repo.UpdateState(ctx, state); err != nil {
+					execErr = fmt.Errorf("failed to update state: %w", err)
+				} else {
+					// Continue execution immediately for local actions
+					return s.continueExecution(ctx, state, headers)
+				}
+			}
+		}
 	case currentStepConfig.Topic != "":
 		l.Info("Executing remote action", zap.String("topic", currentStepConfig.Topic))
 		execErr = s.executeRemoteAction(ctx, state, currentStepConfig, headers)
@@ -207,7 +277,7 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 }
 
 // executeLocalAction handles actions that run within the orchestrator
-func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *OrchestrationState, step models.Step, headers map[string]string) error {
+func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *OrchestrationState, step models.Step, headers map[string]string) (interface{}, error) {
 	l := s.logger.With(
 		zap.String("correlation_id", state.CorrelationID),
 		zap.String("action", step.Action),
@@ -215,13 +285,19 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 	handler, ok := actionRegistry[step.Action]
 	if !ok {
-		return fmt.Errorf("local action '%s' not found in registry", step.Action)
+		return nil, fmt.Errorf("local action '%s' not found in registry", step.Action)
 	}
 
 	// Log with virtual topic for consistency
 	virtualTopic := fmt.Sprintf("local.action.%s", step.Action)
 	l.Info("Executing local action",
 		zap.String("virtual_topic", virtualTopic))
+
+	// Verify producer is available
+	if s.producer == nil {
+		l.Error("Producer is nil in SagaCoordinator")
+		return nil, fmt.Errorf("producer not available for action execution")
+	}
 
 	// Prepare action parameters
 	params := actions.ActionParams{
@@ -238,11 +314,30 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		CurrentStep:     state.CurrentStep,
 	}
 
+	params.Logger.Info("in execute local action",
+		zap.Any("headers", headers),
+		zap.Any("agent config", state.CollectedData["agent_config"]))
+
+	// If agent_type is not in headers, try to get it from other sources
+	if params.AgentType == "" {
+		// Try to get from collected data or state
+		if agentConfig, ok := state.CollectedData["agent_config"].(map[string]interface{}); ok {
+			if at, ok := agentConfig["agent_type"].(string); ok {
+				params.AgentType = at
+			}
+		}
+	}
+
+	// Log what we're passing
+	l.Info("Executing local action with params",
+		zap.String("agent_type", params.AgentType),
+		zap.String("action", step.Action))
+
 	// Execute the action
 	result, err := handler(ctx, params)
 	if err != nil {
 		l.Error("Local action failed", zap.Error(err))
-		return fmt.Errorf("local action failed: %w", err)
+		return nil, fmt.Errorf("local action failed: %w", err)
 	}
 
 	l.Info("Local action completed successfully", zap.Any("result", result))
@@ -266,19 +361,19 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		// Update state
 		repo := NewStateRepository(s.db, s.logger)
 		if err := repo.UpdateState(ctx, state); err != nil {
-			return fmt.Errorf("failed to update state: %w", err)
+			return result, fmt.Errorf("failed to update state: %w", err)
 		}
 
 		l.Info("Local action completed, continuing workflow",
 			zap.String("next_step", step.NextStep))
 
 		// Continue execution immediately for local actions
-		return s.continueExecution(ctx, state, headers)
+		return result, s.continueExecution(ctx, state, headers)
 	} else {
 		l.Info("No next step specified, workflow may be complete")
 	}
 
-	return nil
+	return result, nil
 }
 
 // executeRemoteAction sends work to another agent
@@ -469,8 +564,14 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 
 	l.Info("Response parsed successfully", zap.Any("response_data", taskResponse.Data))
 
-	// Store response data
+	// Store response data under the causation_id (request_id)
 	state.CollectedData[causationID] = taskResponse.Data
+
+	// Also store under the current step name if available
+	if state.CurrentStep != "" {
+		// For call_agent responses, we want to store the actual result
+		state.CollectedData[state.CurrentStep] = taskResponse.Data
+	}
 
 	// Remove from awaited steps
 	newAwaitedSteps := make([]string, 0)
@@ -488,6 +589,14 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 	if len(state.AwaitedSteps) == 0 {
 		l.Info("All responses received, continuing workflow")
 		state.Status = StatusRunning
+
+		// Move to next step
+		currentStep := state.WorkflowPlan.Steps[state.CurrentStep]
+		if currentStep.NextStep != "" {
+			state.CurrentStep = currentStep.NextStep
+			l.Info("Moving to next step after response",
+				zap.String("next_step", currentStep.NextStep))
+		}
 
 		if err := repo.UpdateState(ctx, state); err != nil {
 			return fmt.Errorf("failed to update state: %w", err)
@@ -645,4 +754,40 @@ func (s *SagaCoordinator) CreateNewOrchestration(ctx context.Context, correlatio
 
 	// Start the workflow execution
 	return s.continueExecution(ctx, state, headers)
+}
+
+// FILE: platform/orchestration/coordinator.go
+// Add this new method to handle timeouts
+
+func (s *SagaCoordinator) handleTimeout(ctx context.Context, correlationID string, requestID string, timeout time.Duration) {
+	time.Sleep(timeout)
+
+	// Check if still waiting for this request
+	repo := NewStateRepository(s.db, s.logger)
+	state, err := repo.GetState(ctx, correlationID)
+	if err != nil {
+		s.logger.Error("Failed to get state for timeout check",
+			zap.String("correlation_id", correlationID),
+			zap.Error(err))
+		return
+	}
+
+	// Check if still waiting for this specific request
+	for _, awaitedStep := range state.AwaitedSteps {
+		if awaitedStep == requestID {
+			s.logger.Error("Timeout waiting for agent response",
+				zap.String("correlation_id", correlationID),
+				zap.String("request_id", requestID),
+				zap.Duration("timeout", timeout))
+
+			// Fail the workflow
+			s.failWorkflow(ctx, state, fmt.Sprintf("timeout after %v waiting for agent response (request_id: %s)", timeout, requestID))
+			return
+		}
+	}
+
+	// If we get here, the response was already received
+	s.logger.Info("Timeout check passed - response already received",
+		zap.String("correlation_id", correlationID),
+		zap.String("request_id", requestID))
 }

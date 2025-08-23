@@ -67,7 +67,7 @@ resource "kubernetes_secret" "storage_credentials" {
 
     # B2 endpoint configuration
     S3-ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
-    S3-REGION   = "us-west-004"
+    S3-REGION   = "us-east-005"
   }
 }
 
@@ -85,7 +85,7 @@ resource "kubernetes_config_map" "storage_config" {
 
     # S3 configuration
     S3-ENDPOINT      = "https://s3.us-east-005.backblazeb2.com"
-    S3-REGION       = "us-west-004"
+    S3-REGION       = "us-east-005"
     S3_USE_PATH_STYLE = "false"
   }
 }

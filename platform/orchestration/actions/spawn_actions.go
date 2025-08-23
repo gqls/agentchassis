@@ -207,9 +207,19 @@ func callSpecificAgent(ctx context.Context, params ActionParams, agentID string)
 		return nil, fmt.Errorf("client_id not specified")
 	}
 
+	// Get the agent type from the step config
+	agentType := ""
+	if at, ok := params.StepConfig.Config["agent_type"].(string); ok {
+		agentType = at
+		params.Logger.Info("Got agent_type from step config",
+			zap.String("agent_type", agentType))
+	}
+
+	// Get the topic - query DB or construct from type
+	var topic string
+
 	// Get agent configuration to find its topic
 	var agentConfig json.RawMessage
-
 	query := fmt.Sprintf(`
         SELECT config FROM client_%s.agent_instances 
         WHERE id = $1
@@ -217,30 +227,82 @@ func callSpecificAgent(ctx context.Context, params ActionParams, agentID string)
 
 	err := params.DB.QueryRowContext(ctx, query, agentID).Scan(&agentConfig)
 	if err != nil {
-		return nil, fmt.Errorf("agent not found: %w", err)
+		// If not in DB, construct topic from agent type
+		if agentType != "" {
+			topic = fmt.Sprintf("system.agent.%s.process", agentType)
+			params.Logger.Info("Constructed topic from agent type",
+				zap.String("topic", topic))
+		} else {
+			return nil, fmt.Errorf("agent not found and no agent_type specified: %w", err)
+		}
+	} else {
+		// Parse config to get topic
+		var config map[string]interface{}
+		if err := json.Unmarshal(agentConfig, &config); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal agent config: %w", err)
+		}
+
+		if t, ok := config["topic"].(string); ok {
+			topic = t
+		} else if agentType != "" {
+			topic = fmt.Sprintf("system.agent.%s.process", agentType)
+		} else {
+			return nil, fmt.Errorf("topic not found in agent config")
+		}
 	}
 
-	var config map[string]interface{}
-	if err := json.Unmarshal(agentConfig, &config); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal agent config: %w", err)
+	return sendMessageToAgent(ctx, params, agentID, topic, agentType)
+}
+
+// Helper function to actually send the message
+func sendMessageToAgent(ctx context.Context, params ActionParams, agentID string, topic string, agentType string) (interface{}, error) {
+	// Check if Producer is available
+	if params.Producer == nil {
+		params.Logger.Error("Producer is nil, cannot send message to agent")
+		return nil, fmt.Errorf("producer not available")
 	}
 
-	topic, ok := config["topic"].(string)
-	if !ok {
-		return nil, fmt.Errorf("topic not found in agent config")
+	// Prepare the data to send - merge CollectedData with InputData
+	dataToSend := make(map[string]interface{})
+
+	// First, add all collected data
+	for k, v := range params.CollectedData {
+		dataToSend[k] = v
 	}
 
-	// Prepare payload
+	// Then merge any input data
+	if params.InputData != nil {
+		var inputData map[string]interface{}
+		if err := json.Unmarshal(params.InputData, &inputData); err == nil {
+			// Check if there's a "data" field in input
+			if data, ok := inputData["data"].(map[string]interface{}); ok {
+				// Merge the data field
+				for k, v := range data {
+					dataToSend[k] = v
+				}
+			} else {
+				// Otherwise merge all input data except "action"
+				for k, v := range inputData {
+					if k != "action" {
+						dataToSend[k] = v
+					}
+				}
+			}
+		}
+	}
+
+	// Prepare payload using models.TaskRequest
 	payload := models.TaskRequest{
-		Action: params.StepConfig.Action,
-		Data:   params.CollectedData,
+		Action: "process",  // Agents expect "process" action
+		Data:   dataToSend, // Use the merged data
 	}
+
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	// Create headers
+	// Create headers for the agent
 	newRequestID := uuid.New().String()
 	outHeaders := make(map[string]string)
 	for k, v := range params.Headers {
@@ -250,18 +312,45 @@ func callSpecificAgent(ctx context.Context, params ActionParams, agentID string)
 	outHeaders["request_id"] = newRequestID
 	outHeaders["target_agent_id"] = agentID
 
+	// Add agent_type to headers
+	// Override agent_type with the correct type
+	if agentType != "" {
+		outHeaders["agent_type"] = agentType
+		params.Logger.Info("Overriding agent_type in headers",
+			zap.String("old_type", params.Headers["agent_type"]),
+			zap.String("new_type", agentType))
+	}
+
+	params.Logger.Info("Sending message to agent",
+		zap.String("agent_id", agentID),
+		zap.String("topic", topic),
+		zap.String("request_id", newRequestID),
+		zap.String("correlation_id", params.Headers["correlation_id"]),
+		zap.Int("payload_size", len(payloadBytes)),
+		zap.Any("data_keys", getMapKeys(dataToSend)))
+
 	// Send message
 	err = params.Producer.Produce(ctx, topic, outHeaders,
 		[]byte(params.Headers["correlation_id"]), payloadBytes)
 
 	if err != nil {
+		params.Logger.Error("Failed to send message to agent",
+			zap.String("topic", topic),
+			zap.Error(err))
 		return nil, fmt.Errorf("failed to call agent: %w", err)
 	}
 
+	params.Logger.Info("Successfully sent message to agent",
+		zap.String("agent_id", agentID),
+		zap.String("topic", topic),
+		zap.String("request_id", newRequestID))
+
 	return map[string]interface{}{
-		"agent_called": agentID,
-		"request_id":   newRequestID,
-		"topic":        topic,
+		"agent_called":   agentID,
+		"request_id":     newRequestID,
+		"topic":          topic,
+		"message_sent":   true,
+		"await_response": true,
 	}, nil
 }
 
@@ -1356,6 +1445,9 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		// Health server ports
 		{Name: "HEALTH_PORT", Value: fmt.Sprintf("%d", healthConfig.Port)},
 		{Name: "METRICS_PORT", Value: "9090"},
+
+		// Core Manager URL
+		{Name: "CORE_MANAGER_URL", Value: "http://core-manager.ai-persona-system.svc.cluster.local:8088"},
 	}
 
 	// Add custom env vars from definition
@@ -1366,8 +1458,263 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		})
 	}
 
-	// Add secrets
-	envList = append(envList, getSecretEnvVars()...)
+	// Add infrastructure configuration from orchestrator environment
+	envList = append(envList, []corev1.EnvVar{
+		{Name: "SERVICE_INFRASTRUCTURE_KAFKA_BROKERS", Value: os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS")},
+		{Name: "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST", Value: os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST")},
+		{Name: "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT", Value: os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT")},
+		{Name: "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER", Value: os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER")},
+		{Name: "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME", Value: os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME")},
+		{Name: "SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_HOST", Value: os.Getenv("SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_HOST")},
+		{Name: "SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_PORT", Value: os.Getenv("SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_PORT")},
+		{Name: "SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_USER", Value: os.Getenv("SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_USER")},
+		{Name: "SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_DB_NAME", Value: os.Getenv("SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_DB_NAME")},
+	}...)
+
+	// Add database passwords and other secrets
+	envList = append(envList, []corev1.EnvVar{
+		{
+			Name: "CLIENTS_DB_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-platform-secrets",
+					},
+					Key: "CLIENTS_DB_PASSWORD",
+				},
+			},
+		},
+		{
+			Name: "TEMPLATES_DB_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-platform-secrets",
+					},
+					Key: "TEMPLATES_DB_PASSWORD",
+				},
+			},
+		},
+		{
+			Name: "AUTH_DB_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-platform-secrets",
+					},
+					Key: "AUTH_DB_PASSWORD",
+				},
+			},
+		},
+		{
+			Name: "ANTHROPIC_API_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-default-secrets",
+					},
+					Key: "ANTHROPIC_API_KEY",
+				},
+			},
+		},
+		{
+			Name: "AGENT_BOOTSTRAP_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-platform-secrets",
+					},
+					Key: "agent-bootstrap-key",
+				},
+			},
+		},
+	}...)
+
+	// Check and add storage configuration for storage-enabled agents
+	storageSecret := os.Getenv("AGENT_STORAGE_SECRET")
+	storageConfigMap := os.Getenv("AGENT_STORAGE_CONFIGMAP")
+
+	logger.Info("Checking storage configuration",
+		zap.String("agent_type", agentDef.Type),
+		zap.String("storage_secret", storageSecret),
+		zap.String("storage_configmap", storageConfigMap),
+		zap.Bool("is_storage_agent", isStorageEnabledAgent(agentDef.Type)))
+
+	if isStorageEnabledAgent(agentDef.Type) || agentDef.Category == "orchestrator" || agentDef.Category == "code-driven" { // Get storage credentials from orchestrator's environment
+		awsKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
+		awsSecretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+		b2KeyId := os.Getenv("B2_APPLICATION_KEY_ID")
+		b2Key := os.Getenv("B2_APPLICATION_KEY")
+
+		logger.Info("Injecting storage credentials as direct values",
+			zap.String("agent_type", agentDef.Type),
+			zap.Int("aws_key_len", len(awsKeyId)),
+			zap.Int("aws_secret_len", len(awsSecretKey)),
+			zap.Int("b2_key_id_len", len(b2KeyId)),
+			zap.Int("b2_key_len", len(b2Key)))
+
+		// Add storage credentials as direct values (not secret references)
+		if awsKeyId != "" {
+			envList = append(envList, corev1.EnvVar{
+				Name:  "AWS_ACCESS_KEY_ID",
+				Value: awsKeyId,
+			})
+		}
+
+		if awsSecretKey != "" {
+			envList = append(envList, corev1.EnvVar{
+				Name:  "AWS_SECRET_ACCESS_KEY",
+				Value: awsSecretKey,
+			})
+		}
+
+		if b2KeyId != "" {
+			envList = append(envList, corev1.EnvVar{
+				Name:  "B2_APPLICATION_KEY_ID",
+				Value: b2KeyId,
+			})
+		}
+
+		if b2Key != "" {
+			envList = append(envList, corev1.EnvVar{
+				Name:  "B2_APPLICATION_KEY",
+				Value: b2Key,
+			})
+		}
+	}
+
+	// Storage configuration from ConfigMap (keep these as references since they work)
+	if storageConfigMap != "" && isStorageEnabledAgent(agentDef.Type) {
+		logger.Info("Injecting storage config from ConfigMap",
+			zap.String("agent_type", agentDef.Type),
+			zap.String("configmap_name", storageConfigMap))
+
+		envList = append(envList, []corev1.EnvVar{
+			{
+				Name: "S3_ENDPOINT",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageConfigMap,
+						},
+						Key: "S3-ENDPOINT",
+					},
+				},
+			},
+			{
+				Name: "S3_REGION",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageConfigMap,
+						},
+						Key: "S3-REGION",
+					},
+				},
+			},
+			{
+				Name: "IMAGE_BUCKET",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageConfigMap,
+						},
+						Key: "image_bucket",
+					},
+				},
+			},
+			{
+				Name: "ASSETS_BUCKET",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageConfigMap,
+						},
+						Key: "assets_bucket",
+					},
+				},
+			},
+			{
+				Name: "S3_USE_PATH_STYLE",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageConfigMap,
+						},
+						Key: "S3_USE_PATH_STYLE",
+					},
+				},
+			},
+		}...)
+	}
+
+	if storageConfigMap != "" && isStorageEnabledAgent(agentDef.Type) {
+		logger.Info("Injecting storage config",
+			zap.String("agent_type", agentDef.Type),
+			zap.String("configmap_name", storageConfigMap))
+
+		envList = append(envList, []corev1.EnvVar{
+			{
+				Name: "S3_ENDPOINT",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageConfigMap,
+						},
+						Key: "S3-ENDPOINT",
+					},
+				},
+			},
+			{
+				Name: "S3_REGION",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageConfigMap,
+						},
+						Key: "S3-REGION",
+					},
+				},
+			},
+			{
+				Name: "IMAGE_BUCKET",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageConfigMap,
+						},
+						Key: "image_bucket",
+					},
+				},
+			},
+			{
+				Name: "ASSETS_BUCKET",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageConfigMap,
+						},
+						Key: "assets_bucket",
+					},
+				},
+			},
+			{
+				Name: "S3_USE_PATH_STYLE",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageConfigMap,
+						},
+						Key: "S3_USE_PATH_STYLE",
+					},
+				},
+			},
+		}...)
+	}
+
+	logger.Info("Total environment variables configured",
+		zap.String("agent_type", agentDef.Type),
+		zap.Int("env_count", len(envList)))
 
 	// Define the Job
 	job := &batchv1.Job{
@@ -1480,6 +1827,24 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		},
 	}
 
+	// Right before creating the Job, add this debug code:
+	// Debug: Verify env vars are complete before job creation
+	for _, env := range envList {
+		if strings.Contains(env.Name, "AWS") || strings.Contains(env.Name, "B2") {
+			logger.Info("DEBUG: Final env var check before job creation",
+				zap.String("name", env.Name),
+				zap.Bool("has_value", env.Value != ""),
+				zap.Bool("has_value_from", env.ValueFrom != nil))
+
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+				logger.Info("DEBUG: SecretKeyRef is present",
+					zap.String("env_name", env.Name),
+					zap.String("secret_name", env.ValueFrom.SecretKeyRef.Name),
+					zap.String("key", env.ValueFrom.SecretKeyRef.Key))
+			}
+		}
+	}
+
 	// Create the Job
 	createdJob, err := clientset.BatchV1().Jobs("ai-persona-system").Create(ctx, job, metav1.CreateOptions{})
 	if err != nil {
@@ -1496,72 +1861,19 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		zap.String("namespace", createdJob.Namespace),
 		zap.String("uid", string(createdJob.UID)))
 
-	return createdJob.Name, nil
-}
-
-// getSecretEnvVars returns the standard secret environment variables
-func getSecretEnvVars() []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name: "CLIENTS_DB_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "personae-platform-secrets",
-					},
-					Key: "CLIENTS_DB_PASSWORD",
-				},
-			},
-		},
-		{
-			Name: "TEMPLATES_DB_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "personae-platform-secrets",
-					},
-					Key: "TEMPLATES_DB_PASSWORD",
-				},
-			},
-		},
-		{
-			Name: "AUTH_DB_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "personae-platform-secrets",
-					},
-					Key: "AUTH_DB_PASSWORD",
-				},
-			},
-		},
-		{
-			Name: "ANTHROPIC_API_KEY",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "personae-default-secrets",
-					},
-					Key: "ANTHROPIC_API_KEY",
-				},
-			},
-		},
-		{
-			Name: "AGENT_BOOTSTRAP_KEY",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "personae-platform-secrets",
-					},
-					Key: "agent-bootstrap-key",
-				},
-			},
-		},
-		{
-			Name:  "CORE_MANAGER_URL",
-			Value: "http://core-manager.ai-persona-system.svc.cluster.local:8088",
-		},
+	// After creating the job struct, verify it has the env vars:
+	if len(job.Spec.Template.Spec.Containers) > 0 {
+		containerEnvs := job.Spec.Template.Spec.Containers[0].Env
+		for _, env := range containerEnvs {
+			if strings.Contains(env.Name, "AWS") || strings.Contains(env.Name, "B2") {
+				logger.Info("DEBUG: Env in job struct",
+					zap.String("name", env.Name),
+					zap.Bool("has_value_from", env.ValueFrom != nil))
+			}
+		}
 	}
+
+	return createdJob.Name, nil
 }
 
 // Keep all existing helper functions...
@@ -1645,4 +1957,26 @@ func getImageTag() string {
 		return tag
 	}
 	return "latest" // or another sensible default
+}
+
+// isStorageEnabledAgent checks if an agent type requires storage access
+func isStorageEnabledAgent(agentType string) bool {
+	storageAgents := []string{
+		"site-publisher",
+		"html-developer",
+		"visual-designer",
+		"image-generator",
+		"content-creator",
+		"content-researcher",
+		"domain-analyst",
+		"site-architect",
+		"website-builder",
+	}
+
+	for _, t := range storageAgents {
+		if t == agentType {
+			return true
+		}
+	}
+	return false
 }

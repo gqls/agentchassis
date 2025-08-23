@@ -38,6 +38,10 @@ data "local_file" "agent_groups_sql" {
   filename = "${path.module}/../../../../../../platform/database/migrations/003_agent_groups.sql"
 }
 
+data "local_file" "add_storage_env_vars_sql" {
+  filename = "${path.module}/../../../../../../platform/database/migrations/003_add_storage_env_vars.sql"
+}
+
 data "local_file" "agent_metrics_sql" {
   filename = "${path.module}/../../../../../../platform/database/migrations/004_agent_metrics.sql"
 }
@@ -100,6 +104,7 @@ resource "kubernetes_config_map" "postgres_sql_migrations" {
     "001_enable_extensions.sql"                 = data.local_file.extensions_sql.content
     "002_core_tables.sql"                       = data.local_file.core_tables_sql.content
     "003_agent_groups.sql"                      = data.local_file.agent_groups_sql.content
+    "003_add_storage_env_vars.sql"              = data.local_file.add_storage_env_vars_sql.content
     "004_agent_metrics.sql"                     = data.local_file.agent_metrics_sql.content
     "005_website_builder_agents.sql"            = data.local_file.website_builder_agents_sql.content
     "006_client_schema.sql"                     = data.local_file.client_schema_sql.content
@@ -218,6 +223,7 @@ resource "kubernetes_job" "postgres_migrations" {
             psql -f /migrations/001_enable_extensions.sql
             psql -f /migrations/002_core_tables.sql
             psql -f /migrations/003_agent_groups.sql
+            psql -f /migrations/003_add_storage_env_vars.sql
             psql -f /migrations/004_agent_metrics.sql
             psql -f /migrations/005_website_builder_agents.sql
             psql -f /migrations/006_client_schema.sql

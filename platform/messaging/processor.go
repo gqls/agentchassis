@@ -3,8 +3,10 @@ package messaging
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/gqls/agentchassis/pkg/models"
@@ -22,6 +24,7 @@ import (
 type MessageProcessor struct {
 	agentType    string
 	db           *pgxpool.Pool
+	sqlDB        *sql.DB
 	producer     kafka.Producer
 	orchestrator *orchestration.SagaCoordinator
 	validator    *validation.WorkflowValidator
@@ -48,9 +51,17 @@ func NewMessageProcessor(
 	validator *validation.WorkflowValidator,
 	logger *zap.Logger,
 ) *MessageProcessor {
+
+	// Create sql.DB connection
+	sqlDB, err := createSQLDB()
+	if err != nil {
+		logger.Error("Failed to create SQL DB connection", zap.Error(err))
+		// Continue without it - will fail later if needed
+	}
 	return &MessageProcessor{
 		agentType:    agentType,
 		db:           db,
+		sqlDB:        sqlDB,
 		producer:     producer,
 		orchestrator: orchestrator,
 		validator:    validator,
@@ -63,6 +74,10 @@ func NewMessageProcessor(
 func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
 	startTime := time.Now()
 	headers := kafka.HeadersToMap(msg.Headers)
+
+	p.logger.Info("ProcessMessage started - agent type check",
+		zap.String("processor_agent_type", p.agentType),
+		zap.String("env_agent_type", os.Getenv("AGENT_TYPE")))
 
 	// Create a message context for this specific message
 	msgCtx := &MessageContext{
@@ -380,7 +395,15 @@ func (p *MessageProcessor) processWithDefaults(ctx context.Context, msgCtx *Mess
 func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
 	msgCtx.Logger.Info("Executing workflow",
 		zap.String("start_step", config.Workflow.StartStep),
-		zap.Int("total_steps", len(config.Workflow.Steps)))
+		zap.Int("total_steps", len(config.Workflow.Steps)),
+		zap.String("agent_type", p.agentType))
+
+	// Ensure agent_type is in headers for actions
+	if msgCtx.Headers["agent_type"] == "" {
+		msgCtx.Headers["agent_type"] = p.agentType
+		msgCtx.Logger.Info("Set agent_type in headers",
+			zap.String("agent_type", p.agentType))
+	}
 
 	// Start workflow timer
 	workflowTimer := observability.StartWorkflowTimer(p.agentType, config.Workflow.StartStep)
@@ -395,9 +418,45 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 	err := p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, msgCtx.Headers, msgCtx.Message.Value)
 	if err != nil {
 		msgCtx.Logger.Error("Workflow execution failed", zap.Error(err))
+		// Send failure response
+		p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
+			"error":  err.Error(),
+			"status": "failed",
+		})
 	} else {
 		msgCtx.Logger.Info("Workflow execution completed successfully")
+
+		// Use p.sqlDB for the repository
+		if p.sqlDB != nil {
+			// Get the final result from orchestrator state
+			repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
+			state, _ := repo.GetState(ctx, msgCtx.Headers["correlation_id"])
+
+			if err != nil {
+				msgCtx.Logger.Warn("Failed to get final state", zap.Error(err))
+				// Send basic success response
+				p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
+					"status":  "completed",
+					"message": "Workflow completed but state retrieval failed",
+				})
+			} else if state != nil && state.CollectedData != nil {
+				// Send success response with collected data
+				p.sendWorkflowResponse(ctx, msgCtx, state.CollectedData)
+			} else {
+				// Send basic success response
+				p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
+					"status": "completed",
+				})
+			}
+		} else {
+			// No SQL DB available, send basic response
+			p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
+				"status":  "completed",
+				"message": "Workflow completed",
+			})
+		}
 	}
+
 	return err
 }
 
@@ -450,4 +509,89 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 
 	// Route to orchestrator
 	return p.orchestrator.HandleResponse(ctx, headers, msg.Value)
+}
+
+func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
+	// Determine response topic - orchestrator listens on a specific topic
+	responseTopic := "system.orchestrator.responses"
+
+	// Convert result to map[string]interface{} if needed
+	var responseData map[string]interface{}
+
+	switch v := result.(type) {
+	case map[string]interface{}:
+		responseData = v
+	case string:
+		// If it's a string (like an error), wrap it
+		responseData = map[string]interface{}{
+			"message": v,
+		}
+	case error:
+		// If it's an error, include the error message
+		responseData = map[string]interface{}{
+			"error": v.Error(),
+		}
+	default:
+		// For any other type, wrap it in a result field
+		responseData = map[string]interface{}{
+			"result": result,
+		}
+	}
+
+	// Prepare response
+	response := models.TaskResponse{
+		Success: true,
+		Data:    responseData,
+	}
+
+	// If the result contains an error, mark as not successful
+	if _, hasError := responseData["error"]; hasError {
+		response.Success = false
+		if errStr, ok := responseData["error"].(string); ok {
+			response.Error = errStr
+		}
+	}
+
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	// Prepare headers for response
+	responseHeaders := make(map[string]string)
+	responseHeaders["correlation_id"] = msgCtx.Headers["correlation_id"]
+	responseHeaders["causation_id"] = msgCtx.Headers["request_id"]
+	responseHeaders["agent_type"] = p.agentType
+	responseHeaders["agent_instance_id"] = msgCtx.Headers["agent_instance_id"]
+
+	msgCtx.Logger.Info("Sending workflow response",
+		zap.String("response_topic", responseTopic),
+		zap.String("correlation_id", responseHeaders["correlation_id"]),
+		zap.String("causation_id", responseHeaders["causation_id"]),
+		zap.Bool("success", response.Success))
+
+	// Send response
+	err = p.producer.Produce(ctx, responseTopic, responseHeaders,
+		[]byte(responseHeaders["correlation_id"]), responseBytes)
+
+	if err != nil {
+		msgCtx.Logger.Error("Failed to send response", zap.Error(err))
+		return fmt.Errorf("failed to send response: %w", err)
+	}
+
+	msgCtx.Logger.Info("Response sent successfully")
+	return nil
+}
+
+func createSQLDB() (*sql.DB, error) {
+	host := os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST")
+	port := os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT")
+	user := os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER")
+	password := os.Getenv("CLIENTS_DB_PASSWORD")
+	dbname := os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME")
+
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname)
+
+	return sql.Open("pgx", connStr)
 }

@@ -10,6 +10,22 @@ data "kubernetes_namespace" "system" {
   }
 }
 
+# Data source to read storage secrets
+data "kubernetes_secret" "storage_secrets" {
+  metadata {
+    name      = "personae-storage-secrets"
+    namespace = var.namespace
+  }
+}
+
+# Data source to read storage config
+data "kubernetes_config_map" "storage_config" {
+  metadata {
+    name      = "storage-config"
+    namespace = var.namespace
+  }
+}
+
 data "kubernetes_config_map" "prod_config" {
   metadata {
     name      = "personae-prod-config"
@@ -115,6 +131,11 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
           env {
             name  = "KAFKA_TOPIC"
             value = "system.agent.generic.process"
+          }
+
+          env {
+              name  = "KAFKA_TOPICS"
+              value = "system.agent.generic.process,system.orchestrator.responses"
           }
 
           env {
@@ -254,6 +275,109 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
                 key  = "ANTHROPIC_API_KEY"
               }
             }
+          }
+
+      # Storage configuration from secrets
+          env {
+            name = "AWS_ACCESS_KEY_ID"
+            value_from {
+              secret_key_ref {
+                name = data.kubernetes_secret.storage_secrets.metadata[0].name
+                key  = "AWS_ACCESS_KEY_ID"
+              }
+            }
+          }
+
+          env {
+            name = "AWS_SECRET_ACCESS_KEY"
+            value_from {
+              secret_key_ref {
+                name = data.kubernetes_secret.storage_secrets.metadata[0].name
+                key  = "AWS_SECRET_ACCESS_KEY"
+              }
+            }
+          }
+
+          env {
+            name = "B2_APPLICATION_KEY_ID"
+            value_from {
+              secret_key_ref {
+                name = data.kubernetes_secret.storage_secrets.metadata[0].name
+                key  = "B2_APPLICATION_KEY_ID"
+              }
+            }
+          }
+
+          env {
+            name = "B2_APPLICATION_KEY"
+            value_from {
+              secret_key_ref {
+                name = data.kubernetes_secret.storage_secrets.metadata[0].name
+                key  = "B2_APPLICATION_KEY"
+              }
+            }
+          }
+
+          # Storage configuration from ConfigMap
+          env {
+            name = "S3_ENDPOINT"
+            value_from {
+              config_map_key_ref {
+                name = data.kubernetes_config_map.storage_config.metadata[0].name
+                key  = "S3-ENDPOINT"
+              }
+            }
+          }
+
+          env {
+            name = "S3_REGION"
+            value_from {
+              config_map_key_ref {
+                name = data.kubernetes_config_map.storage_config.metadata[0].name
+                key  = "S3-REGION"
+              }
+            }
+          }
+
+          env {
+            name = "IMAGE_BUCKET"
+            value_from {
+              config_map_key_ref {
+                name = data.kubernetes_config_map.storage_config.metadata[0].name
+                key  = "image_bucket"
+              }
+            }
+          }
+
+          env {
+            name = "ASSETS_BUCKET"
+            value_from {
+              config_map_key_ref {
+                name = data.kubernetes_config_map.storage_config.metadata[0].name
+                key  = "assets_bucket"
+              }
+            }
+          }
+
+          env {
+            name = "S3_USE_PATH_STYLE"
+            value_from {
+              config_map_key_ref {
+                name = data.kubernetes_config_map.storage_config.metadata[0].name
+                key  = "S3_USE_PATH_STYLE"
+              }
+            }
+          }
+
+          # Pass storage config to spawned agents
+          env {
+            name  = "AGENT_STORAGE_SECRET"
+            value = "personae-storage-secrets"
+          }
+
+          env {
+            name  = "AGENT_STORAGE_CONFIGMAP"
+            value = "storage-config"
           }
 
           # Import all config from ConfigMap
