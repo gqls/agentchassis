@@ -4,9 +4,11 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
@@ -347,4 +349,43 @@ func (tm *TopicManager) ListTopics(ctx context.Context) ([]string, error) {
 	}
 
 	return topics, nil
+}
+
+// CreateAgentInstanceTopics creates request/response topics for a specific agent instance
+func (tm *TopicManager) CreateAgentInstanceTopics(ctx context.Context, agentID uuid.UUID) error {
+	tm.logger.Info("Creating topics for agent instance",
+		zap.Any("agent_id", agentID),
+		zap.Int("id_length", len(agentID)))
+
+	topics := []TopicDefinition{
+		{
+			Name:              fmt.Sprintf("system.agent.%s.requests", agentID),
+			Partitions:        1, // Single partition for message ordering
+			ReplicationFactor: 2,
+		},
+		{
+			Name:              fmt.Sprintf("system.agent.%s.responses", agentID),
+			Partitions:        1,
+			ReplicationFactor: 2,
+		},
+	}
+
+	for _, topic := range topics {
+		if err := tm.CreateTopic(ctx, topic); err != nil {
+			// Check if it's a naming issue
+			if strings.Contains(err.Error(), "InvalidTopic") {
+				tm.logger.Error("Invalid topic name",
+					zap.String("topic", topic.Name),
+					zap.Int("length", len(topic.Name)))
+			}
+			return fmt.Errorf("failed to create topic %s: %w", topic.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// Migration helper - checks if we should use new topics
+func ShouldUseNewTopics() bool {
+	return os.Getenv("USE_AGENT_ID_TOPICS") == "true"
 }

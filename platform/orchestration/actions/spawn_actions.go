@@ -272,7 +272,21 @@ func sendMessageToAgent(ctx context.Context, params ActionParams, agentID string
 		return nil, fmt.Errorf("producer not available")
 	}
 
-	// Prepare the data to send - merge CollectedData with InputData
+	// Prepare the data to send
+	dataToSend := prepareDataToSend(params)
+
+	// Check if we're using new message format
+	useNewTopics := os.Getenv("USE_AGENT_ID_TOPICS") == "true"
+
+	if useNewTopics {
+		return sendNewFormatMessage(ctx, params, agentID, agentType, dataToSend)
+	} else {
+		return sendLegacyFormatMessage(ctx, params, agentID, topic, agentType, dataToSend)
+	}
+}
+
+// Helper function to prepare data
+func prepareDataToSend(params ActionParams) map[string]interface{} {
 	dataToSend := make(map[string]interface{})
 
 	// First, add all collected data
@@ -284,14 +298,11 @@ func sendMessageToAgent(ctx context.Context, params ActionParams, agentID string
 	if params.InputData != nil {
 		var inputData map[string]interface{}
 		if err := json.Unmarshal(params.InputData, &inputData); err == nil {
-			// Check if there's a "data" field in input
 			if data, ok := inputData["data"].(map[string]interface{}); ok {
-				// Merge the data field
 				for k, v := range data {
 					dataToSend[k] = v
 				}
 			} else {
-				// Otherwise merge all input data except "action"
 				for k, v := range inputData {
 					if k != "action" {
 						dataToSend[k] = v
@@ -301,10 +312,81 @@ func sendMessageToAgent(ctx context.Context, params ActionParams, agentID string
 		}
 	}
 
-	// Prepare payload using models.TaskRequest
+	return dataToSend
+}
+
+// Send message using new agent-specific topics
+func sendNewFormatMessage(ctx context.Context, params ActionParams, agentID string, agentType string, dataToSend map[string]interface{}) (interface{}, error) {
+	// Get caller's agent ID
+	callerAgentID := params.Headers["agent_id"]
+	if callerAgentID == "" {
+		callerAgentID = os.Getenv("AGENT_ID")
+		if callerAgentID == "" {
+			// For orchestrator or initial caller
+			callerAgentID = "00000000-0000-0000-0000-000000000001"
+		}
+	}
+
+	// Build tree path
+	var treePath []string
+	if existingPath, ok := params.Headers["tree_path"]; ok && existingPath != "" {
+		treePath = strings.Split(existingPath, ",")
+	}
+	treePath = append(treePath, callerAgentID)
+
+	// Create new format message
+	msg := models.AgentMessage{
+		MessageID:     uuid.New().String(),
+		CorrelationID: params.Headers["correlation_id"],
+		FromAgentID:   callerAgentID,
+		ToAgentID:     agentID, // Full UUID of target agent
+		ReplyToTopic:  fmt.Sprintf("system.agent.%s.responses", callerAgentID),
+		MessageType:   "request",
+		Action:        "process",
+		Data:          dataToSend,
+		TreePath:      treePath,
+		TreeDepth:     len(treePath),
+		SubtreeID:     uuid.New().String(),
+		Timestamp:     time.Now(),
+		Version:       "2.0",
+	}
+
+	msgBytes, _ := json.Marshal(msg)
+
+	// Target topic uses the FULL agent ID
+	targetTopic := fmt.Sprintf("system.agent.%s.requests", agentID)
+
+	params.Logger.Info("Sending message (new format)",
+		zap.String("from_agent", callerAgentID),
+		zap.String("to_agent", agentID),
+		zap.String("target_topic", targetTopic),
+		zap.String("reply_topic", msg.ReplyToTopic),
+		zap.String("message_id", msg.MessageID),
+		zap.Int("tree_depth", msg.TreeDepth))
+
+	err := params.Producer.Produce(ctx, targetTopic, msg.ToHeaders(),
+		[]byte(msg.CorrelationID), msgBytes)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to send message: %w", err)
+	}
+
+	return map[string]interface{}{
+		"agent_called":   agentID,
+		"request_id":     msg.MessageID,
+		"topic":          targetTopic,
+		"message_sent":   true,
+		"await_response": true,
+		"message_format": "2.0",
+	}, nil
+}
+
+// Send message using legacy format
+func sendLegacyFormatMessage(ctx context.Context, params ActionParams, agentID string, topic string, agentType string, dataToSend map[string]interface{}) (interface{}, error) {
+	// Existing legacy code
 	payload := models.TaskRequest{
-		Action: "process",  // Agents expect "process" action
-		Data:   dataToSend, // Use the merged data
+		Action: "process",
+		Data:   dataToSend,
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -312,48 +394,38 @@ func sendMessageToAgent(ctx context.Context, params ActionParams, agentID string
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	// Create headers for the agent
+	// Create headers
 	newRequestID := uuid.New().String()
 	outHeaders := make(map[string]string)
 	for k, v := range params.Headers {
 		outHeaders[k] = v
 	}
+
+	parentAgentID := params.Headers["agent_id"]
+	if parentAgentID == "" {
+		parentAgentID = os.Getenv("AGENT_ID")
+	}
+
 	outHeaders["causation_id"] = params.Headers["request_id"]
 	outHeaders["request_id"] = newRequestID
 	outHeaders["target_agent_id"] = agentID
+	outHeaders["causation_agent_id"] = parentAgentID
 
-	// Add agent_type to headers
-	// Override agent_type with the correct type
 	if agentType != "" {
 		outHeaders["agent_type"] = agentType
-		params.Logger.Info("Overriding agent_type in headers",
-			zap.String("old_type", params.Headers["agent_type"]),
-			zap.String("new_type", agentType))
 	}
 
-	params.Logger.Info("Sending message to agent",
+	params.Logger.Info("Sending message (legacy format)",
 		zap.String("agent_id", agentID),
 		zap.String("topic", topic),
-		zap.String("request_id", newRequestID),
-		zap.String("correlation_id", params.Headers["correlation_id"]),
-		zap.Int("payload_size", len(payloadBytes)),
-		zap.Any("data_keys", getMapKeys(dataToSend)))
+		zap.String("request_id", newRequestID))
 
-	// Send message
 	err = params.Producer.Produce(ctx, topic, outHeaders,
 		[]byte(params.Headers["correlation_id"]), payloadBytes)
 
 	if err != nil {
-		params.Logger.Error("Failed to send message to agent",
-			zap.String("topic", topic),
-			zap.Error(err))
 		return nil, fmt.Errorf("failed to call agent: %w", err)
 	}
-
-	params.Logger.Info("Successfully sent message to agent",
-		zap.String("agent_id", agentID),
-		zap.String("topic", topic),
-		zap.String("request_id", newRequestID))
 
 	return map[string]interface{}{
 		"agent_called":   agentID,
@@ -361,6 +433,7 @@ func sendMessageToAgent(ctx context.Context, params ActionParams, agentID string
 		"topic":          topic,
 		"message_sent":   true,
 		"await_response": true,
+		"message_format": "1.0",
 	}, nil
 }
 
@@ -1407,7 +1480,8 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		return "", fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
-	// Generate unique job name (must be DNS-1123 compliant)
+	// Generate unique job name - use only first 8 chars for K8s naming constraints
+	// But the AGENT_ID env var will have the FULL UUID
 	jobName := fmt.Sprintf("agent-%s-%s", agentDef.Type, agentID[:8])
 
 	// Check if job already exists and handle accordingly
@@ -1455,9 +1529,13 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		{Name: "AGENT_ID", Value: agentID},
 		{Name: "CLIENT_ID", Value: clientID},
 
+		// Enable new topics mode (make this configurable)
+		{Name: "USE_AGENT_ID_TOPICS", Value: os.Getenv("USE_AGENT_ID_TOPICS")}, // Inherit from orchestrator
+
 		// Dynamic topic configuration
 		{Name: "KAFKA_TOPIC", Value: processTopic},
 		{Name: "KAFKA_TOPICS", Value: kafkaTopics},
+		// Consumer group can use truncated ID for readability
 		{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentDef.Type, agentID[:8])},
 
 		// Health server ports

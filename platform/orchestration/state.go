@@ -46,6 +46,14 @@ type ExecutionMetadata struct {
 	EndTime        *time.Time           `json:"end_time,omitempty"`
 }
 
+type PendingRequest struct {
+	RequestID string
+	AgentID   string
+	AgentType string
+	Step      string
+	StartTime time.Time
+}
+
 // OrchestrationState is the database model for a Saga instance
 type OrchestrationState struct {
 	CorrelationID string              `db:"correlation_id"`
@@ -55,7 +63,9 @@ type OrchestrationState struct {
 	CurrentStep   string            `db:"current_step"`
 	ExecutionPath []ExecutionRecord `db:"execution_path"`
 	// Async handling
-	AwaitedSteps []string `db:"awaited_steps"`
+	AwaitedSteps    []string                  `db:"awaited_steps"`
+	PendingRequests map[string]PendingRequest // Track multiple children
+	ResponseChan    chan OrchestrationResponse
 	// Data management
 	CollectedData      map[string]interface{} `db:"collected_data"`
 	InitialRequestData json.RawMessage        `db:"initial_request_data"`

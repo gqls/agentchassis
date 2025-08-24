@@ -113,6 +113,17 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
             value = "00000000-0000-0000-0000-000000000001"
           }
 
+            # Enable new topic mode for this agent
+          env {
+            name  = "USE_AGENT_ID_TOPICS"
+            value = "true"
+          }
+
+          env {
+              name = "MIGRATION_PHASE"
+              value = "testing"
+          }
+
           env {
             name  = "AGENT_IMAGE_REPOSITORY"
             value = var.registry

@@ -4,7 +4,9 @@ package agentbase
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/health"
 	"github.com/gqls/agentchassis/platform/infrastructure"
@@ -22,6 +24,7 @@ type Agent struct {
 	ctx           context.Context
 	cfg           *config.ServiceConfig
 	logger        *zap.Logger
+	agentID       uuid.UUID
 	agentType     string
 	consumerGroup string
 
@@ -53,6 +56,22 @@ func New(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*A
 
 // NewWithType creates an agent with specific type and topic
 func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, agentType string, topic string) (*Agent, error) {
+	var err error
+
+	// Get or generate agent ID
+	// Get agent ID from environment (MUST be set for each agent)
+	agentIDStr := os.Getenv("AGENT_ID")
+	if agentIDStr == "" {
+		logger.Warn("AGENT_ID not set, generated one", zap.String("agent_id is blank", agentIDStr))
+		// return nil, fmt.Errorf("AGENT_ID is not set")
+	}
+
+	agentID, err := uuid.Parse(agentIDStr)
+	if err != nil {
+		logger.Warn("AGENT_ID not set, generated one", zap.Any("agent_id is weird", agentID))
+		// return nil, fmt.Errorf("invalid AGENT_ID: %w", err)
+	}
+
 	// Consumer group
 	consumerGroup := fmt.Sprintf("%s-group", agentType)
 	if cfg.Custom != nil {
@@ -61,22 +80,72 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 		}
 	}
 
-	// Initialize infrastructure
+	// Check if we should use agent-specific topics
+	useNewTopics := kafka.ShouldUseNewTopics()
+
+	// Determine actual topics to use
+	var requestTopic, responseTopic string
+	var requestConsumerGroup, responseConsumerGroup string
+
+	if useNewTopics {
+		// NEW MODEL: Agent-specific topics
+		requestTopic = fmt.Sprintf("system.agent.%s.requests", agentID)
+		responseTopic = fmt.Sprintf("system.agent.%s.responses", agentID)
+		requestConsumerGroup = fmt.Sprintf("%s-requests", agentID)
+		responseConsumerGroup = fmt.Sprintf("%s-responses", agentID)
+
+		logger.Info("Using agent-specific topics",
+			zap.Any("agent_id", agentID),
+			zap.String("request_topic", requestTopic),
+			zap.String("response_topic", responseTopic))
+
+		// Create topics if they don't exist
+		topicManager := kafka.NewTopicManager(cfg.Infrastructure.KafkaBrokers, logger)
+		if err := topicManager.CreateAgentInstanceTopics(ctx, agentID); err != nil {
+			logger.Warn("Failed to create agent topics (may already exist)", zap.Error(err))
+		}
+	} else {
+		// OLD MODEL: Type-based topics (current behavior)
+		requestTopic = topic // Use provided topic
+		responseTopic = fmt.Sprintf("system.responses.%s", agentType)
+
+		// Consumer groups from config or defaults
+		requestConsumerGroup = fmt.Sprintf("%s-group", agentType)
+		if cfg.Custom != nil {
+			if cg, ok := cfg.Custom["kafka_consumer_group"].(string); ok {
+				requestConsumerGroup = cg
+			}
+		}
+		responseConsumerGroup = fmt.Sprintf("%s-responses", requestConsumerGroup)
+
+		logger.Info("Using type-based topics (legacy mode)",
+			zap.String("agent_type", agentType),
+			zap.String("request_topic", requestTopic),
+			zap.String("response_topic", responseTopic))
+	}
+
+	logger.Info("Agent topics configured",
+		zap.Any("agent_id", agentID),
+		zap.String("request_topic", topic),
+		zap.String("response_topic", responseTopic),
+		zap.Bool("using_new_topics", kafka.ShouldUseNewTopics()))
+
+	// Initialize infrastructure with the determined request topic
 	infraManager := infrastructure.NewManager(logger)
-	if err := infraManager.Initialize(ctx, cfg, topic, consumerGroup); err != nil {
+	if err := infraManager.Initialize(ctx, cfg, requestTopic, requestConsumerGroup); err != nil {
 		return nil, fmt.Errorf("failed to initialize infrastructure: %w", err)
 	}
 
 	connections := infraManager.GetConnections()
 
 	// Create response consumer
-	responseTopic := fmt.Sprintf("system.responses.%s", agentType)
 	responseConsumer, err := kafka.NewConsumer(
 		cfg.Infrastructure.KafkaBrokers,
 		responseTopic,
-		fmt.Sprintf("%s-responses", consumerGroup),
+		responseConsumerGroup,
 		logger,
 	)
+
 	if err != nil {
 		infraManager.Close()
 		return nil, fmt.Errorf("failed to create response consumer: %w", err)
@@ -119,6 +188,7 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 		ctx:           ctx,
 		cfg:           cfg,
 		logger:        logger,
+		agentID:       agentID,
 		agentType:     agentType,
 		consumerGroup: consumerGroup,
 		server:        server,

@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/errors"
@@ -74,6 +75,12 @@ func NewMessageProcessor(
 func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
 	startTime := time.Now()
 	headers := kafka.HeadersToMap(msg.Headers)
+
+	// Check message version
+	if msgVersion := headers["message_version"]; msgVersion == "2.0" {
+		// New agent message format
+		return p.processNewAgentMessage(ctx, msg, headers, startTime)
+	}
 
 	p.logger.Info("ProcessMessage started - agent type check",
 		zap.String("processor_agent_type", p.agentType),
@@ -512,6 +519,32 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 }
 
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
+	// Check if this was a new format message
+	if msgCtx.Headers["message_version"] == "2.0" && msgCtx.Headers["reply_to_topic"] != "" {
+		// New format - send to specific reply topic
+		response := models.AgentMessage{
+			MessageID:     uuid.New().String(),
+			CorrelationID: msgCtx.Headers["correlation_id"],
+			FromAgentID:   os.Getenv("AGENT_ID"),
+			ToAgentID:     msgCtx.Headers["from_agent_id"],
+			MessageType:   "response",
+			Action:        "response",
+			Data: map[string]interface{}{
+				"result":     result,
+				"request_id": msgCtx.Headers["message_id"],
+			},
+			Timestamp: time.Now(),
+			Version:   "2.0",
+		}
+
+		responseBytes, _ := json.Marshal(response)
+
+		return p.producer.Produce(ctx, msgCtx.Headers["reply_to_topic"],
+			response.ToHeaders(),
+			[]byte(response.CorrelationID),
+			responseBytes)
+	}
+
 	// Determine response topic - orchestrator listens on a specific topic
 	responseTopic := "system.orchestrator.responses"
 
@@ -594,4 +627,34 @@ func createSQLDB() (*sql.DB, error) {
 		host, port, user, password, dbname)
 
 	return sql.Open("pgx", connStr)
+}
+
+func (p *MessageProcessor) processNewAgentMessage(ctx context.Context, msg kafka.Message, headers map[string]string, startTime time.Time) error {
+	p.logger.Info("Processing new format agent message",
+		zap.String("from_agent", headers["from_agent_id"]),
+		zap.String("to_agent", headers["to_agent_id"]),
+		zap.String("message_type", headers["message_type"]))
+
+	// Parse the message
+	var agentMsg models.AgentMessage
+	if err := json.Unmarshal(msg.Value, &agentMsg); err != nil {
+		return fmt.Errorf("failed to unmarshal agent message: %w", err)
+	}
+
+	// Create MessageContext for compatibility with existing workflow
+	msgCtx := &MessageContext{
+		Message:       msg,
+		Headers:       headers,
+		Action:        agentMsg.Action,
+		StartTime:     startTime,
+		Logger:        p.logger.With(zap.String("message_id", agentMsg.MessageID)),
+		CollectedData: agentMsg.Data,
+	}
+
+	// Execute using existing workflow engine
+	if err := p.process(ctx, msgCtx); err != nil {
+		return p.handleError(ctx, msgCtx, err, "processing_failed")
+	}
+
+	return nil
 }
