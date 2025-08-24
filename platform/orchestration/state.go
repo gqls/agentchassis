@@ -63,9 +63,7 @@ type OrchestrationState struct {
 	CurrentStep   string            `db:"current_step"`
 	ExecutionPath []ExecutionRecord `db:"execution_path"`
 	// Async handling
-	AwaitedSteps    []string                  `db:"awaited_steps"`
-	PendingRequests map[string]PendingRequest // Track multiple children
-	ResponseChan    chan OrchestrationResponse
+	AwaitedSteps []string `db:"awaited_steps"`
 	// Data management
 	CollectedData      map[string]interface{} `db:"collected_data"`
 	InitialRequestData json.RawMessage        `db:"initial_request_data"`

@@ -70,6 +70,8 @@ var actionRegistry = map[string]actions.ActionHandler{
 	"upload_to_s3":  actions.UploadToS3Action,
 	"s3_upload":     actions.UploadToS3Action,
 	"store_result":  actions.StoreResultAction,
+
+	"complete_workflow": actions.CompleteWorkflowAction,
 }
 
 // NewSagaCoordinator creates a new coordinator instance
@@ -183,7 +185,14 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 	switch {
 	case currentStepConfig.Action == "complete_workflow":
 		l.Info("Completing workflow")
-		execErr = s.completeWorkflow(ctx, state)
+		// Execute the action first (which handles parent notification)
+		_, err := s.executeLocalAction(ctx, state, currentStepConfig, headers)
+		if err != nil {
+			execErr = err
+		} else {
+			// Then complete the workflow
+			execErr = s.completeWorkflow(ctx, state)
+		}
 
 	case currentStepConfig.Action == "call_agent":
 		// SPECIAL HANDLING: call_agent sends message and waits for response
@@ -347,6 +356,28 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return nil, fmt.Errorf("local action failed: %w", err)
 	}
 
+	// CHECK FOR AWAIT_RESPONSE FLAG
+	if resultMap, ok := result.(map[string]interface{}); ok {
+		if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
+			if requestID, ok := resultMap["request_id"].(string); ok {
+				// This action wants us to wait for a response
+				state.Status = StatusAwaitingResponses
+				state.AwaitedSteps = []string{requestID}
+
+				repo := NewStateRepository(s.db, s.logger)
+				if err := repo.UpdateState(ctx, state); err != nil {
+					return result, fmt.Errorf("failed to update state for waiting: %w", err)
+				}
+
+				l.Info("Action requires waiting for response",
+					zap.String("request_id", requestID),
+					zap.String("action", step.Action))
+
+				return result, nil // Don't continue execution
+			}
+		}
+	}
+
 	l.Info("Local action completed successfully", zap.Any("result", result))
 
 	// Store result
@@ -462,7 +493,55 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 		l.Info("Workflow completed successfully")
 	}
 
-	return err
+	// Check if this is a child orchestration and notify parent
+	if parentCorrelationID := state.CollectedData["parent_correlation_id"]; parentCorrelationID != nil {
+		if parentID, ok := parentCorrelationID.(string); ok && parentID != "" {
+			l.Info("This is a child orchestration, notifying parent",
+				zap.String("parent_correlation_id", parentID))
+
+			// Send completion message to parent
+			parentResponse := models.TaskResponse{
+				Success: true,
+				Data: map[string]interface{}{
+					"status":         "completed",
+					"correlation_id": state.CorrelationID,
+					"final_result":   state.CollectedData,
+					"execution_stats": map[string]interface{}{
+						"completed_steps": state.ExecutionMetadata.CompletedSteps,
+						"total_steps":     state.ExecutionMetadata.TotalSteps,
+						"duration_ms":     now.Sub(state.ExecutionMetadata.StartTime).Milliseconds(),
+					},
+				},
+			}
+
+			responseBytes, _ := json.Marshal(parentResponse)
+
+			// Create headers for the response
+			responseHeaders := map[string]string{
+				"correlation_id":        parentID,            // Parent's correlation
+				"causation_id":          state.CorrelationID, // Child's correlation as causation
+				"parent_correlation_id": parentID,
+				"message_type":          "orchestration_complete",
+			}
+
+			// Send to parent's response topic (system.orchestrator.responses)
+			err := s.producer.Produce(ctx,
+				"system.orchestrator.responses",
+				responseHeaders,
+				[]byte(parentID),
+				responseBytes)
+
+			if err != nil {
+				l.Error("Failed to notify parent orchestration", zap.Error(err))
+				// Don't fail the child completion, just log the error
+			} else {
+				l.Info("Parent orchestration notified of completion")
+			}
+		}
+	}
+
+	l.Info("Workflow completed successfully")
+	return nil
 }
 
 // getOrCreateState retrieves existing state or creates new one - now includes the plan
@@ -540,13 +619,56 @@ func (s *SagaCoordinator) recordExecution(ctx context.Context, state *Orchestrat
 	}
 }
 
-// HandleResponse and other methods would also get enhanced logging...
-// (keeping response brief, but the pattern is the same)
-
 // HandleResponse processes responses and continues workflow
 func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string]string, response []byte) error {
+
 	correlationID := headers["correlation_id"]
 	causationID := headers["causation_id"]
+
+	// Check if this is a response FROM a child orchestration
+	if parentCorrelationID := headers["parent_correlation_id"]; parentCorrelationID != "" {
+		// Check if the response is from a completed child orchestration
+		var taskResponse models.TaskResponse
+		if err := json.Unmarshal(response, &taskResponse); err == nil {
+			// Check if this is a final result from child orchestration
+			if status, ok := taskResponse.Data["status"].(string); ok && status == "completed" {
+				s.logger.Info("Received completion from child orchestration",
+					zap.String("child_correlation_id", correlationID),
+					zap.String("parent_correlation_id", parentCorrelationID))
+
+				// Update the PARENT orchestration
+				repo := NewStateRepository(s.db, s.logger)
+				parentState, err := repo.GetState(ctx, parentCorrelationID)
+				if err != nil {
+					s.logger.Error("Failed to get parent state",
+						zap.String("parent_correlation_id", parentCorrelationID),
+						zap.Error(err))
+					// Continue with normal processing
+				} else {
+					// Store child result in parent's collected data
+					if parentState.CollectedData == nil {
+						parentState.CollectedData = make(map[string]interface{})
+					}
+
+					// Store under the step that started this child orchestration
+					parentState.CollectedData["child_orchestration_result"] = taskResponse.Data
+
+					// Continue parent workflow if needed
+					if len(parentState.AwaitedSteps) == 0 {
+						parentState.Status = StatusRunning
+						if currentStep := parentState.WorkflowPlan.Steps[parentState.CurrentStep]; currentStep.NextStep != "" {
+							parentState.CurrentStep = currentStep.NextStep
+						}
+
+						if err := repo.UpdateState(ctx, parentState); err == nil {
+							// Continue parent execution
+							return s.continueExecution(ctx, parentState, headers)
+						}
+					}
+				}
+			}
+		}
+	}
 
 	l := s.logger.With(
 		zap.String("correlation_id", correlationID),
@@ -727,9 +849,10 @@ func (s *SagaCoordinator) CreateNewOrchestration(ctx context.Context, correlatio
 	initialData := map[string]interface{}{
 		"action": "start_orchestration",
 		"data": map[string]interface{}{
-			"headers":   headers,
-			"timestamp": time.Now().UTC(),
-			"message":   "Starting website build orchestration",
+			"headers":               headers,
+			"timestamp":             time.Now().UTC(),
+			"message":               "Starting website build orchestration",
+			"parent_correlation_id": headers["parent_correlation_id"],
 		},
 	}
 	initialDataBytes, _ := json.Marshal(initialData)
@@ -749,6 +872,15 @@ func (s *SagaCoordinator) CreateNewOrchestration(ctx context.Context, correlatio
 	state, err := repo.GetState(ctx, correlationID)
 	if err != nil {
 		return fmt.Errorf("failed to get created state: %w", err)
+	}
+
+	// Store parent correlation ID in collected data for child to access later
+	if parentID := headers["parent_correlation_id"]; parentID != "" {
+		state.CollectedData["parent_correlation_id"] = parentID
+		// Save this update
+		if err := repo.UpdateState(ctx, state); err != nil {
+			l.Error("Failed to store parent correlation ID", zap.Error(err))
+		}
 	}
 
 	// Ensure headers have required fields for execution
