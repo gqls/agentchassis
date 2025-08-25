@@ -19,7 +19,7 @@ import (
 
 const (
 	requestTopic  = "system.adapter.web.search"
-	responseTopic = "system.responses.websearch"
+	responseTopic = "system.agent.websearch.responses"
 	consumerGroup = "web-search-adapter-group"
 )
 

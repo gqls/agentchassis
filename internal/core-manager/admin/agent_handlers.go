@@ -427,8 +427,8 @@ func (h *AgentHandlers) createAgentTopics(ctx context.Context, agentType string)
 		fmt.Sprintf("tasks.high.%s", agentType),
 		fmt.Sprintf("tasks.normal.%s", agentType),
 		fmt.Sprintf("tasks.low.%s", agentType),
-		fmt.Sprintf("responses.%s", agentType),
-		fmt.Sprintf("dlq.%s", agentType),
+		fmt.Sprintf("system.agent.%s.responses", agentType),
+		fmt.Sprintf("system.agent.%s.dlq", agentType),
 	}
 
 	for _, topic := range topics {
@@ -771,10 +771,10 @@ func (h *AgentHandlers) getKafkaBrokers() []string {
 
 func (h *AgentHandlers) getExpectedTopicsForAgent(agentType string) []string {
 	topics := []string{
-		fmt.Sprintf("system.agent.%s.process", agentType),
-		fmt.Sprintf("system.responses.%s", agentType),
-		fmt.Sprintf("system.errors.%s", agentType),
-		fmt.Sprintf("dlq.%s", agentType),
+		fmt.Sprintf("system.agent.%s.requests", agentType),
+		fmt.Sprintf("system.agent.%s.responses", agentType),
+		fmt.Sprintf("system.agent.%s.errors", agentType),
+		fmt.Sprintf("system.agent.%s.dlq", agentType),
 	}
 
 	// Add category-specific topics

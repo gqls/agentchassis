@@ -14,10 +14,19 @@ import (
 func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Completing workflow")
 
+	// Create a clean copy to avoid circular references
+	collectedDataCopy := make(map[string]interface{})
+	for k, v := range params.CollectedData {
+		// Skip the current step and 'complete' to avoid self-reference
+		if k != params.CurrentStep && k != "complete" {
+			collectedDataCopy[k] = v
+		}
+	}
+
 	// Prepare completion data
 	completionData := map[string]interface{}{
 		"status":         "completed",
-		"collected_data": params.CollectedData,
+		"collected_data": collectedDataCopy,
 		"timestamp":      time.Now().UTC(),
 	}
 
@@ -35,7 +44,7 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		responseBytes, _ := json.Marshal(parentResponse)
 
 		err := params.Producer.Produce(ctx,
-			"system.orchestrator.responses",
+			"system.generic.responses",
 			map[string]string{
 				"correlation_id": parentCorrelationID,
 				"causation_id":   params.Headers["correlation_id"],

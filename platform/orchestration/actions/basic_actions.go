@@ -112,7 +112,7 @@ func SendNotificationAction(ctx context.Context, params ActionParams) (interface
 	notificationBytes, _ := json.Marshal(notification)
 
 	// Use a fixed topic or get from step config
-	topic := "system.responses.generic" // Fixed topic for generic agent
+	topic := "system.agent.generic.responses" // Fixed topic for generic agent
 
 	// Or get from step config if you want it configurable
 	if params.StepConfig.Config != nil {

@@ -4,7 +4,7 @@ test_agents:
     name: E2E Test Researcher
     type: researcher
     config:
-      topic: system.agent.researcher.process
+      topic: system.agent.researcher.requests
       capabilities:
         - web_search
         - data_extraction

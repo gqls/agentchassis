@@ -27,10 +27,10 @@ CREATE TABLE IF NOT EXISTS agent_definitions (
 
     -- Kafka topic configuration (NEW - data-driven topic creation)
     topics JSONB DEFAULT '{
-        "process": "system.agent.{type}.process",
-        "response": "system.responses.{type}",
-        "error": "system.errors.{type}",
-        "dlq": "dlq.{type}"
+        "process": "system.agent.{type}.requests",
+        "response": "system.agent.{type}.responses",
+        "error": "system.agent.{type}.errors",
+        "dlq": "system.agent.{type}.dlq"
     }'::jsonb,
 
     -- Health check configuration (NEW)

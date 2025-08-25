@@ -537,7 +537,7 @@ deploy-mock-agents: build-mock-agents push-mock-agents ## Deploy mock agents to 
 		kubectl run mock-$$agent \
 			--image=$(REGISTRY)/mock-$$agent:$(IMAGE_TAG) \
 			--env="KAFKA_BROKERS=$(KAFKA_SERVICE)" \
-			--env="KAFKA_TOPIC=system.agent.$$agent.process" \
+			--env="KAFKA_TOPIC=system.agent.$$agent.requests" \
 			-n ai-persona-system \
 			--restart=Always || true; \
 	done

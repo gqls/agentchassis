@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -75,12 +76,6 @@ func NewMessageProcessor(
 func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
 	startTime := time.Now()
 	headers := kafka.HeadersToMap(msg.Headers)
-
-	// Check message version
-	if msgVersion := headers["message_version"]; msgVersion == "2.0" {
-		// New agent message format
-		return p.processNewAgentMessage(ctx, msg, headers, startTime)
-	}
 
 	p.logger.Info("ProcessMessage started - agent type check",
 		zap.String("processor_agent_type", p.agentType),
@@ -191,13 +186,32 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 			zap.Int("step_count", len(workflow.Steps)))
 	}
 
+	// Add debug logging
+	p.logger.Info("DEBUG: Determining processing mode",
+		zap.String("agent_type", p.agentType),
+		zap.String("category", agentDef.Category),
+		zap.Any("default_config_mode", agentDef.DefaultConfig["processing_mode"]),
+		zap.String("msgCtx.action", msgCtx.Action),
+		zap.Bool("has_workflow", workflow.StartStep != ""),
+		zap.String("workflow_start", workflow.StartStep),
+		zap.Any("payload_action", inputPayload["action"]))
+
 	// Determine processing mode
 	processingMode := p.determineProcessingMode(agentDef, inputPayload)
+
+	// If this is a task agent but has a workflow, log a warning
+	if processingMode == "task" && len(workflow.Steps) > 0 {
+		msgCtx.Logger.Warn("Task agent has workflow - will execute as orchestrator",
+			zap.String("agent_type", p.agentType),
+			zap.Int("step_count", len(workflow.Steps)))
+	}
 
 	msgCtx.Logger.Info("Processing mode determined",
 		zap.String("agent_type", p.agentType),
 		zap.String("processing_mode", processingMode),
-		zap.String("action", msgCtx.Action))
+		zap.String("action", msgCtx.Action),
+		zap.String("category", agentDef.Category),
+		zap.Any("workflow_start_step", workflow.StartStep))
 
 	// Create agent config with the workflow
 	agentConfig := &models.AgentConfig{
@@ -216,6 +230,10 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	}
 
 	msgCtx.Logger.Info("Workflow validated successfully, executing workflow")
+
+	// Add debug logging
+	p.logger.Info("DEBUG: Executing workflow",
+		zap.Any("agentConfig", agentConfig))
 
 	// Execute the workflow
 	return p.executeWorkflow(ctx, msgCtx, agentConfig)
@@ -408,7 +426,7 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 	// Ensure agent_type is in headers for actions
 	if msgCtx.Headers["agent_type"] == "" {
 		msgCtx.Headers["agent_type"] = p.agentType
-		msgCtx.Logger.Info("Set agent_type in headers",
+		msgCtx.Logger.Info("Set agent_type in headers in processor.go executeWorkflow",
 			zap.String("agent_type", p.agentType))
 	}
 
@@ -495,7 +513,7 @@ func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *Messag
 	}
 
 	responseBytes, _ := json.Marshal(errorResponse)
-	errorTopic := fmt.Sprintf("system.errors.%s", p.agentType)
+	errorTopic := fmt.Sprintf("system.agent.%s.errors", p.agentType)
 
 	if err := p.producer.Produce(ctx, errorTopic, responseHeaders,
 		[]byte(msgCtx.Headers["correlation_id"]), responseBytes); err != nil {
@@ -519,14 +537,42 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 }
 
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
+	// Determine response topic from headers
+	responseTopic := ""
+
+	// Check for reply_to_topic in headers (should be type-based)
+	if replyTopic := msgCtx.Headers["reply_to_topic"]; replyTopic != "" {
+		responseTopic = replyTopic
+		msgCtx.Logger.Info("Using reply_to_topic from headers",
+			zap.String("reply_to_topic", replyTopic))
+	} else {
+		// Fallback: construct from parent agent TYPE if available
+		if parentAgentType := msgCtx.Headers["parent_agent_type"]; parentAgentType != "" {
+			responseTopic = fmt.Sprintf("system.agent.%s.responses", parentAgentType)
+			msgCtx.Logger.Info("Constructed response topic from parent_agent_type",
+				zap.String("parent_agent_type", parentAgentType),
+				zap.String("response_topic", responseTopic))
+		} else if parentAgentID := msgCtx.Headers["parent_agent_id"]; parentAgentID != "" {
+			// Try to get type from DB using agent ID
+			parentType := p.getAgentTypeFromID(ctx, parentAgentID)
+			if parentType != "" {
+				responseTopic = fmt.Sprintf("system.agent.%s.responses", parentType)
+			}
+		} else {
+			// Last resort fallback
+			responseTopic = "system.orchestrator.responses"
+			msgCtx.Logger.Warn("No reply_to_topic or parent agent info, using legacy topic")
+		}
+	}
+
 	// Check if this was a new format message
-	if msgCtx.Headers["message_version"] == "2.0" && msgCtx.Headers["reply_to_topic"] != "" {
-		// New format - send to specific reply topic
+	if msgCtx.Headers["message_version"] == "2.0" && responseTopic != "" {
+		// New format - use AgentMessage
 		response := models.AgentMessage{
 			MessageID:     uuid.New().String(),
 			CorrelationID: msgCtx.Headers["correlation_id"],
 			FromAgentID:   os.Getenv("AGENT_ID"),
-			ToAgentID:     msgCtx.Headers["from_agent_id"],
+			ToAgentID:     msgCtx.Headers["from_agent_id"], // Reply to sender
 			MessageType:   "response",
 			Action:        "response",
 			Data: map[string]interface{}{
@@ -537,17 +583,18 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 			Version:   "2.0",
 		}
 
-		responseBytes, _ := json.Marshal(response)
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			return fmt.Errorf("failed to marshal response: %w", err)
+		}
 
-		return p.producer.Produce(ctx, msgCtx.Headers["reply_to_topic"],
+		return p.producer.Produce(ctx, responseTopic,
 			response.ToHeaders(),
 			[]byte(response.CorrelationID),
 			responseBytes)
 	}
 
-	// Determine response topic - orchestrator listens on a specific topic
-	responseTopic := "system.orchestrator.responses"
-
+	// Legacy format - use TaskResponse
 	// Convert result to map[string]interface{} if needed
 	var responseData map[string]interface{}
 
@@ -595,7 +642,19 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	responseHeaders["correlation_id"] = msgCtx.Headers["correlation_id"]
 	responseHeaders["causation_id"] = msgCtx.Headers["request_id"]
 	responseHeaders["agent_type"] = p.agentType
-	responseHeaders["agent_instance_id"] = msgCtx.Headers["agent_instance_id"]
+
+	// Use agent ID from environment if not in headers
+	agentInstanceID := msgCtx.Headers["agent_instance_id"]
+	if agentInstanceID == "" {
+		agentInstanceID = os.Getenv("AGENT_ID")
+	}
+	responseHeaders["agent_instance_id"] = agentInstanceID
+
+	// Include reply context
+	responseHeaders["from_agent_id"] = os.Getenv("AGENT_ID")
+	if toAgent := msgCtx.Headers["from_agent_id"]; toAgent != "" {
+		responseHeaders["to_agent_id"] = toAgent
+	}
 
 	msgCtx.Logger.Info("Sending workflow response",
 		zap.String("response_topic", responseTopic),
@@ -612,7 +671,8 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		return fmt.Errorf("failed to send response: %w", err)
 	}
 
-	msgCtx.Logger.Info("Response sent successfully")
+	msgCtx.Logger.Info("Response sent successfully",
+		zap.String("topic", responseTopic))
 	return nil
 }
 
@@ -657,4 +717,125 @@ func (p *MessageProcessor) processNewAgentMessage(ctx context.Context, msg kafka
 	}
 
 	return nil
+}
+
+// getAgentTypeFromID retrieves the agent type from the database using the agent ID
+func (p *MessageProcessor) getAgentTypeFromID(ctx context.Context, agentID string) string {
+	// First, try to get from the agent_instances table in the client schema
+	clientID := os.Getenv("CLIENT_ID")
+	if clientID == "" {
+		clientID = "demo_client" // Default client
+	}
+
+	// Try to get agent type from agent instance config
+	query := fmt.Sprintf(`
+		SELECT config->>'agent_type' 
+		FROM client_%s.agent_instances 
+		WHERE id = $1 AND is_active = true
+		LIMIT 1
+	`, clientID)
+
+	var agentType string
+	err := p.db.QueryRow(ctx, query, agentID).Scan(&agentType)
+	if err == nil && agentType != "" {
+		p.logger.Debug("Found agent type from instance",
+			zap.String("agent_id", agentID),
+			zap.String("agent_type", agentType))
+		return agentType
+	}
+
+	// If not found in instances, try to extract from the agent ID itself
+	// Sometimes agent IDs are structured like "agent-{type}-{uuid}"
+	if strings.Contains(agentID, "-") {
+		parts := strings.Split(agentID, "-")
+		if len(parts) >= 2 {
+			// Check if this looks like a known agent type
+			possibleType := parts[1]
+			if p.isKnownAgentType(ctx, possibleType) {
+				p.logger.Debug("Extracted agent type from ID pattern",
+					zap.String("agent_id", agentID),
+					zap.String("agent_type", possibleType))
+				return possibleType
+			}
+		}
+	}
+
+	// Try to get from orchestrator state if this is a child agent
+	stateQuery := `
+		SELECT collected_data->>'agent_type'
+		FROM orchestrator_state 
+		WHERE correlation_id = $1
+		LIMIT 1
+	`
+
+	err = p.db.QueryRow(ctx, stateQuery, agentID).Scan(&agentType)
+	if err == nil && agentType != "" {
+		p.logger.Debug("Found agent type from orchestrator state",
+			zap.String("agent_id", agentID),
+			zap.String("agent_type", agentType))
+		return agentType
+	}
+
+	// Check if it's a well-known agent ID
+	wellKnownAgents := map[string]string{
+		"00000000-0000-0000-0000-000000000001": "orchestrator",
+		"00000000-0000-0000-0000-000000000002": "generic",
+	}
+
+	if knownType, ok := wellKnownAgents[agentID]; ok {
+		p.logger.Debug("Found well-known agent type",
+			zap.String("agent_id", agentID),
+			zap.String("agent_type", knownType))
+		return knownType
+	}
+
+	p.logger.Warn("Could not determine agent type from ID",
+		zap.String("agent_id", agentID))
+
+	// Default fallback
+	return "generic"
+}
+
+// isKnownAgentType checks if a given type exists in agent_definitions
+func (p *MessageProcessor) isKnownAgentType(ctx context.Context, agentType string) bool {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM agent_definitions 
+			WHERE type = $1 AND is_active = true
+		)
+	`
+
+	var exists bool
+	err := p.db.QueryRow(ctx, query, agentType).Scan(&exists)
+	if err != nil {
+		p.logger.Debug("Error checking agent type existence",
+			zap.String("agent_type", agentType),
+			zap.Error(err))
+		return false
+	}
+
+	return exists
+}
+
+// getAgentTypeAndIDFromHeaders extracts both agent type and ID from message headers
+// This is a helper function to ensure we always have both pieces of information
+func (p *MessageProcessor) getAgentTypeAndIDFromHeaders(headers map[string]string) (agentType string, agentID string) {
+	// Try to get from explicit headers first
+	agentType = headers["parent_agent_type"]
+	agentID = headers["parent_agent_id"]
+
+	// If we have ID but not type, look it up
+	if agentID != "" && agentType == "" {
+		agentType = p.getAgentTypeFromID(context.Background(), agentID)
+	}
+
+	// If we still don't have the type, try from_agent headers
+	if agentType == "" {
+		agentType = headers["from_agent_type"]
+		if agentType == "" && headers["from_agent_id"] != "" {
+			agentType = p.getAgentTypeFromID(context.Background(), headers["from_agent_id"])
+		}
+	}
+
+	return agentType, agentID
 }

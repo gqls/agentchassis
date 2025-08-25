@@ -45,7 +45,7 @@ func (c *AgentClient) Run() error {
 	c.logger.Info("Starting agent client (response handler)",
 		zap.String("agent_type", c.agentType),
 		zap.String("response_group", c.consumerGroup+"-responses"),
-		zap.String("topic", fmt.Sprintf("system.responses.%s", c.agentType)))
+		zap.String("topic", fmt.Sprintf("system.agent.%s.responses", c.agentType)))
 
 	// Add a message counter for debugging
 	messageCount := 0

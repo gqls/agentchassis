@@ -268,9 +268,10 @@ func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationS
             execution_path = $10::jsonb, 
             updated_at = $11
         WHERE correlation_id = $1
+        AND updated_at = $12  -- Optimistic locking
     `
 
-	_, err = r.db.ExecContext(ctx, query,
+	result, err := r.db.ExecContext(ctx, query,
 		state.CorrelationID,
 		state.Status,
 		state.CurrentStep,
@@ -282,6 +283,7 @@ func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationS
 		executionMetadataJSON,
 		executionPathJSON,
 		time.Now().UTC(),
+		state.UpdatedAt,
 	)
 
 	if err != nil {
@@ -291,6 +293,11 @@ func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationS
 				zap.String("correlation_id", state.CorrelationID))
 		}
 		return fmt.Errorf("failed to update state: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("state was modified by another process")
 	}
 
 	return nil

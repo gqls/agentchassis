@@ -96,9 +96,9 @@ func main() {
 	if kafkaTopic != "" {
 		cfg.Custom["topic"] = kafkaTopic
 	} else if agentType != "" {
-		cfg.Custom["topic"] = fmt.Sprintf("system.agent.%s.process", agentType)
+		cfg.Custom["topic"] = fmt.Sprintf("system.agent.%s.requests", agentType)
 	} else {
-		cfg.Custom["topic"] = "system.agent.generic.process"
+		cfg.Custom["topic"] = "system.agent.generic.requests"
 	}
 
 	if consumerGroup != "" {

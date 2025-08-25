@@ -113,12 +113,6 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
             value = "00000000-0000-0000-0000-000000000001"
           }
 
-            # Enable new topic mode for this agent
-          env {
-            name  = "USE_AGENT_ID_TOPICS"
-            value = "true"
-          }
-
           env {
               name = "MIGRATION_PHASE"
               value = "testing"
@@ -141,17 +135,17 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
 
           env {
             name  = "KAFKA_TOPIC"
-            value = "system.agent.generic.process"
+            value = "system.agent.generic.requests"
           }
 
           env {
               name  = "KAFKA_TOPICS"
-              value = "system.agent.generic.process,system.orchestrator.responses"
+              value = "system.agent.generic.requests,system.orchestrator.responses,system.agent.generic.responses"
           }
 
           env {
             name  = "KAFKA_CONSUMER_GROUP"
-            value = "generic-orchestrator-group"
+            value = "generic-requests-group"
           }
 
           # Add SERVICE_ prefixed environment variables for Viper

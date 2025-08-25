@@ -48,8 +48,8 @@ spec:
               flag.Parse()
           
               brokers := []string{"kafka-cluster-kafka-bootstrap:9092"}
-              topic := fmt.Sprintf("system.agent.%s.process", *agent)
-              responseTopic := fmt.Sprintf("system.responses.%s", *agent)
+              topic := fmt.Sprintf("system.agent.%s.requests", *agent)
+              responseTopic := fmt.Sprintf("system.agent.%s.responses", *agent)
           
               // Create writer
               writer := kafka.NewWriter(kafka.WriterConfig{

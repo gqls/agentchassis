@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.73
+IMAGE_TAG ?= v1.0.88
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -514,13 +514,49 @@ update-agent-image-tag: ## Update the agent image tag in ConfigMap
 
 # Deploy agents with automatic image update
 .PHONY: deploy-agents
-deploy-agents: update-kustomization-images update-agent-image-tag redeploy-agents bootstrap-agents ## Deploy all agent services
+deploy-agents: ## Deploy all agent services with dynamic image tag
 	@echo "$(YELLOW)Deploying agent services with image tag $(IMAGE_TAG)...$(NC)"
+
+	# Update agent-chassis kustomization.yaml
+	@echo "Updating agent-chassis to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)/kustomization.yaml
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH)
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH)
+
+	# Update reasoning-agent kustomization.yaml
+	@echo "Updating reasoning-agent to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
+	@if [ -d "$(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH)" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/reasoning-agent/overlays/$(OVERLAY_PATH); \
+	fi
+
+	# Update web-search-adapter kustomization.yaml
+	@echo "Updating web-search-adapter to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
+	@if [ -d "$(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH)" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH); \
+	fi
+
+	# Update image-generator-adapter kustomization.yaml
+	@echo "Updating image-generator-adapter to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
+	@if [ -d "$(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH); \
+	fi
+
+	# Update content-creator-agent kustomization.yaml
+	@echo "Updating content-creator-agent to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
+	@if [ -d "$(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH)" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH); \
+	fi
+
+	# Update database agent definitions
+	@$(MAKE) update-agent-images-v2 IMAGE_TAG=$(IMAGE_TAG)
+
+	# Force rollout restart to pick up new images
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/agent-chassis -n ai-persona-system 2>/dev/null || true
+
+	@echo "$(GREEN)All agents deployed with image tag $(IMAGE_TAG)$(NC)"
 
 #  kubectl apply -k deployments/kustomize/services/agent-chassis/overlays/production/uk_001/
 
@@ -1304,3 +1340,20 @@ verify-agent-images: ## Verify all agent images are consistent
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get pods -l app=dynamic-agent -o custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image 2>/dev/null || echo "No dynamic agents running"
 	@echo "$(CYAN)Agent chassis deployment:$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get deployment agent-chassis -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null && echo || echo "No agent-chassis deployment"
+
+.PHONY: quick-agent-update
+quick-agent-update: ## Build, push and deploy agent-chassis with current IMAGE_TAG
+	@echo "$(YELLOW)Building agent-chassis:$(IMAGE_TAG)...$(NC)"
+	@$(MAKE) build-agent-chassis IMAGE_TAG=$(IMAGE_TAG)
+	@echo "$(YELLOW)Pushing agent-chassis:$(IMAGE_TAG)...$(NC)"
+	@docker push $(REGISTRY)/agent-chassis:$(IMAGE_TAG)
+	@echo "Updating agent-chassis kustomization to $(IMAGE_TAG)...$(NC)"
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)/kustomization.yaml
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
+	@echo "$(YELLOW)Deploying...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
+	@echo "$(YELLOW)Updating database...$(NC)"
+	@$(MAKE) update-agent-images-v2 IMAGE_TAG=$(IMAGE_TAG)
+	@echo "$(YELLOW)Restarting pods...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/agent-chassis -n ai-persona-system
+	@echo "$(GREEN)Deployment complete with $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"

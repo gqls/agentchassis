@@ -275,14 +275,7 @@ func sendMessageToAgent(ctx context.Context, params ActionParams, agentID string
 	// Prepare the data to send
 	dataToSend := prepareDataToSend(params)
 
-	// Check if we're using new message format
-	useNewTopics := os.Getenv("USE_AGENT_ID_TOPICS") == "true"
-
-	if useNewTopics {
-		return sendNewFormatMessage(ctx, params, agentID, agentType, dataToSend)
-	} else {
-		return sendLegacyFormatMessage(ctx, params, agentID, topic, agentType, dataToSend)
-	}
+	return sendNewFormatMessage(ctx, params, agentID, agentType, dataToSend)
 }
 
 // Helper function to prepare data
@@ -327,6 +320,29 @@ func sendNewFormatMessage(ctx context.Context, params ActionParams, agentID stri
 		}
 	}
 
+	// Get caller's agent TYPE for topic construction
+	callerAgentType := params.Headers["agent_type"]
+	if callerAgentType == "" {
+		callerAgentType = os.Getenv("AGENT_TYPE")
+		if callerAgentType == "" {
+			callerAgentType = "orchestrator" // Default
+		}
+	}
+
+	params.Logger.Info("DEBUG: About to send message",
+		zap.String("from_agent_id", callerAgentID),
+		zap.String("from_agent_type", callerAgentType),
+		zap.String("to_agent_id", agentID),
+		zap.String("to_agent_type", agentType),
+		zap.Bool("is_self_call", agentID == callerAgentID && agentType == callerAgentType))
+
+	// Prevent self-recursion at the TYPE level
+	if agentType == callerAgentType {
+		params.Logger.Error("Attempted self-recursion detected at type level",
+			zap.String("agent_type", agentType))
+		return nil, fmt.Errorf("agent type %s cannot call another %s agent", agentType, agentType)
+	}
+
 	// Build tree path
 	var treePath []string
 	if existingPath, ok := params.Headers["tree_path"]; ok && existingPath != "" {
@@ -335,12 +351,14 @@ func sendNewFormatMessage(ctx context.Context, params ActionParams, agentID stri
 	treePath = append(treePath, callerAgentID)
 
 	// Create new format message
+	messageID := uuid.New().String()
 	msg := models.AgentMessage{
-		MessageID:     uuid.New().String(),
+		MessageID:     messageID,
+		RequestID:     messageID,
 		CorrelationID: params.Headers["correlation_id"],
 		FromAgentID:   callerAgentID,
 		ToAgentID:     agentID, // Full UUID of target agent
-		ReplyToTopic:  fmt.Sprintf("system.agent.%s.responses", callerAgentID),
+		ReplyToTopic:  fmt.Sprintf("system.agent.%s.responses", callerAgentType),
 		MessageType:   "request",
 		Action:        "process",
 		Data:          dataToSend,
@@ -354,17 +372,49 @@ func sendNewFormatMessage(ctx context.Context, params ActionParams, agentID stri
 	msgBytes, _ := json.Marshal(msg)
 
 	// Target topic uses the FULL agent ID
-	targetTopic := fmt.Sprintf("system.agent.%s.requests", agentID)
+	targetTopic := fmt.Sprintf("system.agent.%s.requests", agentType)
+
+	// Create headers with all required fields
+	headers := msg.ToHeaders()
+
+	// IMPORTANT: Ensure request_id is set (might be missing in ToHeaders())
+	headers["request_id"] = messageID
+	headers["message_id"] = messageID
+	headers["agent_instance_id"] = agentID // The target agent's ID
+
+	// Also ensure other required headers are present
+	if headers["client_id"] == "" {
+		headers["client_id"] = params.Headers["client_id"]
+	}
+	if headers["fuel_budget"] == "" {
+		headers["fuel_budget"] = params.Headers["fuel_budget"]
+	}
+
+	headers["client_id"] = params.Headers["client_id"]
+	headers["fuel_budget"] = params.Headers["fuel_budget"]
+
+	// Prevent self-recursion
+	if agentID == callerAgentID && agentType == callerAgentType {
+		params.Logger.Error("Attempted self-recursion detected",
+			zap.String("agent_id", agentID),
+			zap.String("agent_type", agentType))
+		return nil, fmt.Errorf("agent cannot call itself")
+	}
 
 	params.Logger.Info("Sending message (new format)",
-		zap.String("from_agent", callerAgentID),
-		zap.String("to_agent", agentID),
+		zap.String("from_agent_id", callerAgentID),
+		zap.String("from_agent_type", callerAgentType),
+		zap.String("to_agent_id", agentID),
+		zap.String("to_agent_type", agentType),
 		zap.String("target_topic", targetTopic),
 		zap.String("reply_topic", msg.ReplyToTopic),
 		zap.String("message_id", msg.MessageID),
+		zap.String("request_id", messageID),
+		zap.String("client_id", headers["client_id"]),
+		zap.String("fuel_budget", headers["fuel_budget"]),
 		zap.Int("tree_depth", msg.TreeDepth))
 
-	err := params.Producer.Produce(ctx, targetTopic, msg.ToHeaders(),
+	err := params.Producer.Produce(ctx, targetTopic, headers,
 		[]byte(msg.CorrelationID), msgBytes)
 
 	if err != nil {
@@ -373,67 +423,13 @@ func sendNewFormatMessage(ctx context.Context, params ActionParams, agentID stri
 
 	return map[string]interface{}{
 		"agent_called":   agentID,
+		"agent_type":     agentType,
 		"request_id":     msg.MessageID,
 		"topic":          targetTopic,
+		"reply_to_topic": msg.ReplyToTopic,
 		"message_sent":   true,
 		"await_response": true,
 		"message_format": "2.0",
-	}, nil
-}
-
-// Send message using legacy format
-func sendLegacyFormatMessage(ctx context.Context, params ActionParams, agentID string, topic string, agentType string, dataToSend map[string]interface{}) (interface{}, error) {
-	// Existing legacy code
-	payload := models.TaskRequest{
-		Action: "process",
-		Data:   dataToSend,
-	}
-
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal payload: %w", err)
-	}
-
-	// Create headers
-	newRequestID := uuid.New().String()
-	outHeaders := make(map[string]string)
-	for k, v := range params.Headers {
-		outHeaders[k] = v
-	}
-
-	parentAgentID := params.Headers["agent_id"]
-	if parentAgentID == "" {
-		parentAgentID = os.Getenv("AGENT_ID")
-	}
-
-	outHeaders["causation_id"] = params.Headers["request_id"]
-	outHeaders["request_id"] = newRequestID
-	outHeaders["target_agent_id"] = agentID
-	outHeaders["causation_agent_id"] = parentAgentID
-
-	if agentType != "" {
-		outHeaders["agent_type"] = agentType
-	}
-
-	params.Logger.Info("Sending message (legacy format)",
-		zap.String("agent_id", agentID),
-		zap.String("topic", topic),
-		zap.String("request_id", newRequestID))
-
-	err = params.Producer.Produce(ctx, topic, outHeaders,
-		[]byte(params.Headers["correlation_id"]), payloadBytes)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to call agent: %w", err)
-	}
-
-	return map[string]interface{}{
-		"agent_called":   agentID,
-		"request_id":     newRequestID,
-		"topic":          topic,
-		"message_sent":   true,
-		"await_response": true,
-		"message_format": "1.0",
 	}, nil
 }
 
@@ -746,6 +742,21 @@ func (d *EnhancedDiscovery) GetAgentPerformanceSummary(ctx context.Context, agen
 // Updated CallAgentAction to use the new discovery with recommendations
 func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
+
+	// Debug log to see what headers we received
+	params.Logger.Info("CallAgentAction headers check",
+		zap.String("correlation_id", params.Headers["correlation_id"]),
+		zap.String("parent_correlation_id", params.Headers["parent_correlation_id"]))
+
+	// Add comprehensive debug logging
+	params.Logger.Info("DEBUG: CallAgentAction invoked",
+		zap.String("correlation_id", params.Headers["correlation_id"]),
+		zap.String("agent_type_in_config", fmt.Sprintf("%v", config["agent_type"])),
+		zap.String("agent_id_in_config", fmt.Sprintf("%v", config["agent_id"])),
+		zap.String("current_agent_type", params.AgentType),
+		zap.String("current_agent_id", params.Headers["agent_id"]),
+		zap.Any("full_config", config),
+		zap.Any("all_headers", params.Headers))
 
 	// If specific agent_id provided, use it directly
 	if agentID, ok := config["agent_id"].(string); ok {
@@ -1180,9 +1191,9 @@ func parseTopicConfig(topicsJSON json.RawMessage) TopicConfig {
 		// Return defaults
 		return TopicConfig{
 			Process:  "system.agent.{type}.process",
-			Response: "system.responses.{type}",
-			Error:    "system.errors.{type}",
-			DLQ:      "dlq.{type}",
+			Response: "system.agent.{type}.responses",
+			Error:    "system.agent.{type}.errors",
+			DLQ:      "system.agent.{type}.dlq",
 		}
 	}
 	return topics
@@ -1528,9 +1539,6 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		{Name: "AGENT_TYPE", Value: agentDef.Type},
 		{Name: "AGENT_ID", Value: agentID},
 		{Name: "CLIENT_ID", Value: clientID},
-
-		// Enable new topics mode (make this configurable)
-		{Name: "USE_AGENT_ID_TOPICS", Value: os.Getenv("USE_AGENT_ID_TOPICS")}, // Inherit from orchestrator
 
 		// Dynamic topic configuration
 		{Name: "KAFKA_TOPIC", Value: processTopic},

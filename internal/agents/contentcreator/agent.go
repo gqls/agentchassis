@@ -25,8 +25,8 @@ import (
 
 const (
 	AgentType     = "content-creator"
-	RequestTopic  = "system.agent.content-creator.process"
-	ResponseTopic = "system.responses.content-creator"
+	RequestTopic  = "system.agent.content-creator.requests"
+	ResponseTopic = "system.agent.content-creator.responses"
 	ConsumerGroup = "content-creator-agent-group"
 )
 
@@ -720,7 +720,7 @@ func (a *Agent) sendErrorResponse(headers map[string]string, domainErr *errors.D
 	}
 	errorBytes, _ := json.Marshal(errorResponse)
 
-	errorTopic := fmt.Sprintf("system.errors.%s", AgentType)
+	errorTopic := fmt.Sprintf("system.agent.%s.errors", AgentType)
 	if err := a.producer.Produce(a.ctx, errorTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), errorBytes); err != nil {
 		a.logger.Error("Failed to produce error response", zap.Error(err))

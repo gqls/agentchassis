@@ -51,7 +51,7 @@ VALUES
      'test-generic-agent',
      '{
         "agent_type": "generic",
-        "topic": "system.agent.generic.process",
+        "topic": "system.agent.generic.requests",
         "capabilities": ["testing"],
         "workflow": {
             "start_step": "validate",

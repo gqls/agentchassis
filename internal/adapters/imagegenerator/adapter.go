@@ -23,7 +23,7 @@ import (
 
 const (
 	requestTopic  = "system.adapter.image.generate"
-	responseTopic = "system.responses.image"
+	responseTopic = "system.agent.image.responses"
 	consumerGroup = "image-generator-adapter-group"
 )
 

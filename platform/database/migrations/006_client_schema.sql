@@ -35,7 +35,7 @@ INSERT INTO client_demo_client.agent_instances (
              'Generic Orchestrator Instance',
              '{
                  "agent_type": "generic",
-                 "topic": "system.agent.generic.process",
+                 "topic": "system.agent.generic.requests",
                  "capabilities": ["orchestration", "spawn_group"]
              }'::jsonb,
              true

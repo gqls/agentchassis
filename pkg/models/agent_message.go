@@ -3,6 +3,7 @@ package models
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -10,6 +11,7 @@ import (
 type AgentMessage struct {
 	// Core routing - this is the KEY CHANGE
 	MessageID     string `json:"message_id"`
+	RequestID     string `json:"request_id"` // replicates MessageID, get rid whenever we can
 	CorrelationID string `json:"correlation_id"`
 	FromAgentID   string `json:"from_agent_id"`  // WHO sent this
 	ToAgentID     string `json:"to_agent_id"`    // WHO should process this
@@ -39,14 +41,27 @@ func (am *AgentMessage) ToTaskRequest() TaskRequest {
 }
 
 func (am *AgentMessage) ToHeaders() map[string]string {
-	headers := make(map[string]string)
-	headers["message_id"] = am.MessageID
-	headers["correlation_id"] = am.CorrelationID
-	headers["from_agent_id"] = am.FromAgentID
-	headers["to_agent_id"] = am.ToAgentID
-	headers["reply_to_topic"] = am.ReplyToTopic
-	headers["message_version"] = am.Version
-	headers["message_type"] = am.MessageType
+	headers := map[string]string{
+		"message_id":      am.MessageID,
+		"request_id":      am.MessageID,
+		"correlation_id":  am.CorrelationID,
+		"from_agent_id":   am.FromAgentID,
+		"to_agent_id":     am.ToAgentID,
+		"reply_to_topic":  am.ReplyToTopic,
+		"message_type":    am.MessageType,
+		"message_version": am.Version,
+		"timestamp":       am.Timestamp.Format(time.RFC3339),
+	}
+
+	// Add tree path if present
+	if len(am.TreePath) > 0 {
+		headers["tree_path"] = strings.Join(am.TreePath, ",")
+	}
+
+	if am.SubtreeID != "" {
+		headers["subtree_id"] = am.SubtreeID
+	}
+
 	return headers
 }
 

@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	requestTopic  = "system.agent.reasoning.process"
-	responseTopic = "system.responses.reasoning"
+	requestTopic  = "system.agent.reasoning.requests"
+	responseTopic = "system.agent.reasoning.responses"
 	consumerGroup = "reasoning-agent-group"
 )
 

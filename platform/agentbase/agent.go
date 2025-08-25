@@ -40,7 +40,7 @@ type Agent struct {
 // New creates a new agent with defaults from config
 func New(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*Agent, error) {
 	agentType := "generic"
-	topic := "system.agent.generic.process"
+	topic := "system.agent.generic.requests"
 
 	if cfg.Custom != nil {
 		if at, ok := cfg.Custom["agent_type"].(string); ok {
@@ -56,81 +56,69 @@ func New(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*A
 
 // NewWithType creates an agent with specific type and topic
 func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, agentType string, topic string) (*Agent, error) {
-	var err error
-
-	// Get or generate agent ID
-	// Get agent ID from environment (MUST be set for each agent)
+	// Get agent ID from environment
 	agentIDStr := os.Getenv("AGENT_ID")
 	if agentIDStr == "" {
-		logger.Warn("AGENT_ID not set, generated one", zap.String("agent_id is blank", agentIDStr))
-		// return nil, fmt.Errorf("AGENT_ID is not set")
+		logger.Warn("AGENT_ID not set, generating one")
+		// Generate a new ID if not provided
+		agentIDStr = uuid.New().String()
 	}
 
+	// Parse the agent ID
 	agentID, err := uuid.Parse(agentIDStr)
 	if err != nil {
-		logger.Warn("AGENT_ID not set, generated one", zap.Any("agent_id is weird", agentID))
-		// return nil, fmt.Errorf("invalid AGENT_ID: %w", err)
+		logger.Error("Invalid AGENT_ID format",
+			zap.String("agent_id_str", agentIDStr),
+			zap.Error(err))
+		return nil, fmt.Errorf("invalid AGENT_ID: %w", err)
 	}
 
-	// Consumer group
-	consumerGroup := fmt.Sprintf("%s-group", agentType)
-	if cfg.Custom != nil {
-		if cg, ok := cfg.Custom["kafka_consumer_group"].(string); ok {
-			consumerGroup = cg
-		}
-	}
-
-	// Check if we should use agent-specific topics
-	useNewTopics := kafka.ShouldUseNewTopics()
-
-	// Determine actual topics to use
 	var requestTopic, responseTopic string
 	var requestConsumerGroup, responseConsumerGroup string
 
-	if useNewTopics {
-		// NEW MODEL: Agent-specific topics
-		requestTopic = fmt.Sprintf("system.agent.%s.requests", agentID)
-		responseTopic = fmt.Sprintf("system.agent.%s.responses", agentID)
-		requestConsumerGroup = fmt.Sprintf("%s-requests", agentID)
-		responseConsumerGroup = fmt.Sprintf("%s-responses", agentID)
+	// Always set topics based on agent type, including for "generic"
+	if agentType != "" {
+		// Use type-based topics with new naming convention
+		requestTopic = fmt.Sprintf("system.agent.%s.requests", agentType)
+		responseTopic = fmt.Sprintf("system.agent.%s.responses", agentType)
+		requestConsumerGroup = fmt.Sprintf("%s-requests-group", agentType)
+		responseConsumerGroup = fmt.Sprintf("%s-responses-group", agentType)
 
-		logger.Info("Using agent-specific topics",
-			zap.Any("agent_id", agentID),
+		logger.Info("Using type-based topics",
+			zap.String("agent_id", agentID.String()),
+			zap.String("agent_type", agentType),
 			zap.String("request_topic", requestTopic),
 			zap.String("response_topic", responseTopic))
 
 		// Create topics if they don't exist
 		topicManager := kafka.NewTopicManager(cfg.Infrastructure.KafkaBrokers, logger)
-		if err := topicManager.CreateAgentInstanceTopics(ctx, agentID); err != nil {
-			logger.Warn("Failed to create agent topics (may already exist)", zap.Error(err))
+		if err := topicManager.CreateAgentTypeTopics(ctx, agentType); err != nil {
+			logger.Warn("Failed to create agent topics (may already exist)",
+				zap.Error(err),
+				zap.String("agent_type", agentType))
 		}
 	} else {
-		// OLD MODEL: Type-based topics (current behavior)
-		requestTopic = topic // Use provided topic
-		responseTopic = fmt.Sprintf("system.responses.%s", agentType)
-
-		// Consumer groups from config or defaults
-		requestConsumerGroup = fmt.Sprintf("%s-group", agentType)
-		if cfg.Custom != nil {
-			if cg, ok := cfg.Custom["kafka_consumer_group"].(string); ok {
-				requestConsumerGroup = cg
-			}
-		}
-		responseConsumerGroup = fmt.Sprintf("%s-responses", requestConsumerGroup)
-
-		logger.Info("Using type-based topics (legacy mode)",
-			zap.String("agent_type", agentType),
-			zap.String("request_topic", requestTopic),
-			zap.String("response_topic", responseTopic))
+		// This should never happen, but have a fallback
+		return nil, fmt.Errorf("agent type cannot be empty")
 	}
 
-	logger.Info("Agent topics configured",
-		zap.Any("agent_id", agentID),
-		zap.String("request_topic", topic),
-		zap.String("response_topic", responseTopic),
-		zap.Bool("using_new_topics", kafka.ShouldUseNewTopics()))
+	// Special handling for orchestrator-type agents that need to listen to multiple topics
+	if agentID.String() == "00000000-0000-0000-0000-000000000001" || agentType == "orchestrator" || agentType == "website-builder" {
+		// These agents also need to listen to orchestrator responses
+		// But the primary topics are still based on their type
+		logger.Info("Orchestrator-type agent detected, will listen to additional response topics",
+			zap.String("agent_type", agentType))
+	}
 
-	// Initialize infrastructure with the determined request topic
+	logger.Info("Final agent configuration",
+		zap.String("agent_id", agentID.String()),
+		zap.String("agent_type", agentType),
+		zap.String("request_topic", requestTopic),
+		zap.String("response_topic", responseTopic),
+		zap.String("request_consumer_group", requestConsumerGroup),
+		zap.String("response_consumer_group", responseConsumerGroup))
+
+	// Initialize infrastructure with the request topic
 	infraManager := infrastructure.NewManager(logger)
 	if err := infraManager.Initialize(ctx, cfg, requestTopic, requestConsumerGroup); err != nil {
 		return nil, fmt.Errorf("failed to initialize infrastructure: %w", err)
@@ -138,43 +126,43 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 
 	connections := infraManager.GetConnections()
 
-	// Create response consumer
+	// Create response consumer for listening to responses from child agents
 	responseConsumer, err := kafka.NewConsumer(
 		cfg.Infrastructure.KafkaBrokers,
 		responseTopic,
 		responseConsumerGroup,
 		logger,
 	)
-
 	if err != nil {
 		infraManager.Close()
-		return nil, fmt.Errorf("failed to create response consumer: %w", err)
+		return nil, fmt.Errorf("failed to create response consumer for topic %s: %w", responseTopic, err)
 	}
 
 	// Create components
 	components, err := createComponents(connections, agentType, logger)
 	if err != nil {
 		infraManager.Close()
+		responseConsumer.Close()
 		return nil, fmt.Errorf("failed to create components: %w", err)
 	}
 
-	// Create server (handles incoming requests)
+	// Create server (handles incoming requests on request topic)
 	server := NewAgentServer(
 		ctx,
 		logger,
-		connections.KafkaConsumer,
+		connections.KafkaConsumer, // This consumer is already set up for requestTopic
 		components.messageProcessor,
-		consumerGroup,
+		requestConsumerGroup,
 		agentType,
 	)
 
-	// Create client (handles responses)
+	// Create client (handles responses from children on response topic)
 	client := NewAgentClient(
 		ctx,
 		logger,
-		responseConsumer,
+		responseConsumer, // This consumer listens to responseTopic
 		components.messageProcessor,
-		consumerGroup,
+		responseConsumerGroup,
 		agentType,
 	)
 
@@ -184,13 +172,19 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 	// Record metrics
 	observability.AgentPoolSize.WithLabelValues(agentType).Inc()
 
+	logger.Info("Agent successfully initialized",
+		zap.String("agent_id", agentID.String()),
+		zap.String("agent_type", agentType),
+		zap.String("listening_for_requests_on", requestTopic),
+		zap.String("listening_for_responses_on", responseTopic))
+
 	return &Agent{
 		ctx:           ctx,
 		cfg:           cfg,
 		logger:        logger,
 		agentID:       agentID,
 		agentType:     agentType,
-		consumerGroup: consumerGroup,
+		consumerGroup: requestConsumerGroup,
 		server:        server,
 		client:        client,
 		healthServer:  healthServer,

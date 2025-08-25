@@ -4,11 +4,9 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
@@ -37,6 +35,7 @@ type TopicDefinition struct {
 }
 
 // CreateAgentTopics creates all topics needed for a specific agent type
+// Using NEW naming convention: system.agent.{type}.{purpose}
 func (tm *TopicManager) CreateAgentTopics(ctx context.Context, agentType string) error {
 	tm.logger.Info("Creating topics for agent type", zap.String("agent_type", agentType))
 
@@ -44,7 +43,12 @@ func (tm *TopicManager) CreateAgentTopics(ctx context.Context, agentType string)
 
 	for _, topic := range topics {
 		if err := tm.CreateTopic(ctx, topic); err != nil {
-			return fmt.Errorf("failed to create topic %s: %w", topic.Name, err)
+			// Don't fail on "already exists" errors
+			if !strings.Contains(err.Error(), "already exists") {
+				tm.logger.Error("Failed to create topic",
+					zap.String("topic", topic.Name),
+					zap.Error(err))
+			}
 		}
 	}
 
@@ -174,26 +178,27 @@ func (tm *TopicManager) getController(ctx context.Context) (string, error) {
 }
 
 // getTopicsForAgent returns the topics needed for a specific agent type
+// NEW NAMING CONVENTION: system.agent.{type}.{purpose}
 func (tm *TopicManager) getTopicsForAgent(agentType string) []TopicDefinition {
-	// Base topics that all agents need
+	// Base topics with NEW consistent naming convention
 	topics := []TopicDefinition{
 		{
-			Name:              fmt.Sprintf("system.agent.%s.process", agentType),
+			Name:              fmt.Sprintf("system.agent.%s.requests", agentType),
 			Partitions:        3,
 			ReplicationFactor: 2,
 		},
 		{
-			Name:              fmt.Sprintf("system.responses.%s", agentType),
+			Name:              fmt.Sprintf("system.agent.%s.responses", agentType),
 			Partitions:        3,
 			ReplicationFactor: 2,
 		},
 		{
-			Name:              fmt.Sprintf("system.errors.%s", agentType),
+			Name:              fmt.Sprintf("system.agent.%s.errors", agentType),
 			Partitions:        1,
 			ReplicationFactor: 2,
 		},
 		{
-			Name:              fmt.Sprintf("dlq.%s", agentType),
+			Name:              fmt.Sprintf("system.agent.%s.dlq", agentType),
 			Partitions:        1,
 			ReplicationFactor: 2,
 		},
@@ -203,7 +208,7 @@ func (tm *TopicManager) getTopicsForAgent(agentType string) []TopicDefinition {
 	if isDataDrivenAgent(agentType) {
 		for _, priority := range []string{"high", "normal", "low"} {
 			topics = append(topics, TopicDefinition{
-				Name:              fmt.Sprintf("tasks.%s.%s", priority, agentType),
+				Name:              fmt.Sprintf("system.agent.%s.tasks.%s", agentType, priority),
 				Partitions:        3,
 				ReplicationFactor: 2,
 			})
@@ -213,16 +218,16 @@ func (tm *TopicManager) getTopicsForAgent(agentType string) []TopicDefinition {
 	// Add adapter-specific topics
 	if isAdapterAgent(agentType) {
 		topics = append(topics, TopicDefinition{
-			Name:              fmt.Sprintf("system.adapter.%s", strings.ReplaceAll(agentType, "-", ".")),
+			Name:              fmt.Sprintf("system.agent.%s.adapter", agentType),
 			Partitions:        3,
 			ReplicationFactor: 2,
 		})
 	}
 
-	// Add special topics for reasoning agents
-	if agentType == "reasoning" {
+	// Add special topics for high-throughput agents
+	if isHighThroughputAgent(agentType) {
 		topics = append(topics, TopicDefinition{
-			Name:              "system.agent.reasoning.process",
+			Name:              fmt.Sprintf("system.agent.%s.bulk", agentType),
 			Partitions:        6, // More partitions for higher throughput
 			ReplicationFactor: 2,
 		})
@@ -234,10 +239,12 @@ func (tm *TopicManager) getTopicsForAgent(agentType string) []TopicDefinition {
 // isDataDrivenAgent checks if an agent is data-driven type
 func isDataDrivenAgent(agentType string) bool {
 	dataDrivenTypes := map[string]bool{
-		"copywriter":      true,
-		"researcher":      true,
-		"content-creator": true,
-		"summarizer":      true,
+		"copywriter":         true,
+		"researcher":         true,
+		"content-creator":    true,
+		"content-researcher": true,
+		"summarizer":         true,
+		"domain-analyst":     true,
 	}
 	return dataDrivenTypes[agentType]
 }
@@ -249,30 +256,52 @@ func isAdapterAgent(agentType string) bool {
 		"web-search":      true,
 		"database-query":  true,
 		"api-caller":      true,
+		"site-publisher":  true,
 	}
 	return adapterTypes[agentType]
+}
+
+// isHighThroughputAgent checks if an agent needs high throughput topics
+func isHighThroughputAgent(agentType string) bool {
+	highThroughputTypes := map[string]bool{
+		"reasoning":       true,
+		"website-builder": true,
+		"orchestrator":    true,
+	}
+	return highThroughputTypes[agentType]
 }
 
 // CreateSystemTopics creates all system-level topics
 func (tm *TopicManager) CreateSystemTopics(ctx context.Context) error {
 	systemTopics := []TopicDefinition{
-		// Orchestration topics
-		{Name: "orchestrator.state-changes", Partitions: 6, ReplicationFactor: 2},
-		{Name: "orchestrator.commands", Partitions: 3, ReplicationFactor: 2},
+		// Core orchestration topics
+		{Name: "system.orchestrator.requests", Partitions: 6, ReplicationFactor: 2},
+		{Name: "system.orchestrator.responses", Partitions: 6, ReplicationFactor: 2},
+		{Name: "system.orchestrator.state-changes", Partitions: 6, ReplicationFactor: 2},
+		{Name: "system.orchestrator.commands", Partitions: 3, ReplicationFactor: 2},
 
 		// Human interaction topics
-		{Name: "human.approvals", Partitions: 3, ReplicationFactor: 2},
+		{Name: "system.human.approvals", Partitions: 3, ReplicationFactor: 2},
+		{Name: "system.human.inputs", Partitions: 3, ReplicationFactor: 2},
 		{Name: "system.commands.workflow.resume", Partitions: 3, ReplicationFactor: 2},
+		{Name: "system.commands.workflow.cancel", Partitions: 3, ReplicationFactor: 2},
 
 		// System events and monitoring
-		{Name: "system.events", Partitions: 6, ReplicationFactor: 2},
+		{Name: "system.events.all", Partitions: 6, ReplicationFactor: 2},
+		{Name: "system.events.errors", Partitions: 3, ReplicationFactor: 2},
+		{Name: "system.events.warnings", Partitions: 3, ReplicationFactor: 2},
 		{Name: "system.notifications.ui", Partitions: 3, ReplicationFactor: 2},
-		{Name: "system.errors", Partitions: 3, ReplicationFactor: 2},
-		{Name: "system.metrics", Partitions: 3, ReplicationFactor: 2},
+		{Name: "system.metrics.agents", Partitions: 3, ReplicationFactor: 2},
+		{Name: "system.metrics.workflows", Partitions: 3, ReplicationFactor: 2},
 
 		// Audit and compliance
-		{Name: "audit.log", Partitions: 6, ReplicationFactor: 3}, // Higher replication for audit
-		{Name: "compliance.events", Partitions: 3, ReplicationFactor: 3},
+		{Name: "system.audit.log", Partitions: 6, ReplicationFactor: 3}, // Higher replication for audit
+		{Name: "system.audit.access", Partitions: 3, ReplicationFactor: 3},
+		{Name: "system.compliance.events", Partitions: 3, ReplicationFactor: 3},
+
+		// Dead letter queues for system-level issues
+		{Name: "system.dlq.unroutable", Partitions: 1, ReplicationFactor: 2},
+		{Name: "system.dlq.parsing-errors", Partitions: 1, ReplicationFactor: 2},
 	}
 
 	for _, topic := range systemTopics {
@@ -351,41 +380,64 @@ func (tm *TopicManager) ListTopics(ctx context.Context) ([]string, error) {
 	return topics, nil
 }
 
-// CreateAgentInstanceTopics creates request/response topics for a specific agent instance
-func (tm *TopicManager) CreateAgentInstanceTopics(ctx context.Context, agentID uuid.UUID) error {
-	tm.logger.Info("Creating topics for agent instance",
-		zap.Any("agent_id", agentID),
-		zap.Int("id_length", len(agentID)))
+// CreateAgentTypeTopics is now just an alias for CreateAgentTopics
+// since we've standardized on the new naming convention
+func (tm *TopicManager) CreateAgentTypeTopics(ctx context.Context, agentType string) error {
+	// Just create the core request/response topics if you want minimal setup
+	tm.logger.Info("Creating core topics for agent type",
+		zap.String("agent_type", agentType))
 
 	topics := []TopicDefinition{
 		{
-			Name:              fmt.Sprintf("system.agent.%s.requests", agentID),
-			Partitions:        1, // Single partition for message ordering
+			Name:              fmt.Sprintf("system.agent.%s.requests", agentType),
+			Partitions:        3,
 			ReplicationFactor: 2,
 		},
 		{
-			Name:              fmt.Sprintf("system.agent.%s.responses", agentID),
-			Partitions:        1,
+			Name:              fmt.Sprintf("system.agent.%s.responses", agentType),
+			Partitions:        3,
 			ReplicationFactor: 2,
 		},
 	}
 
 	for _, topic := range topics {
 		if err := tm.CreateTopic(ctx, topic); err != nil {
-			// Check if it's a naming issue
-			if strings.Contains(err.Error(), "InvalidTopic") {
-				tm.logger.Error("Invalid topic name",
+			if !strings.Contains(err.Error(), "already exists") {
+				tm.logger.Error("Failed to create topic",
 					zap.String("topic", topic.Name),
-					zap.Int("length", len(topic.Name)))
+					zap.Error(err))
 			}
-			return fmt.Errorf("failed to create topic %s: %w", topic.Name, err)
 		}
 	}
+
+	tm.logger.Info("Agent type core topics ready",
+		zap.String("agent_type", agentType))
 
 	return nil
 }
 
-// Migration helper - checks if we should use new topics
-func ShouldUseNewTopics() bool {
-	return os.Getenv("USE_AGENT_ID_TOPICS") == "true"
+// MigrateOldTopics helps migrate from old naming to new naming
+func (tm *TopicManager) MigrateOldTopics(ctx context.Context, agentType string) error {
+	tm.logger.Info("Checking for old topic naming conventions",
+		zap.String("agent_type", agentType))
+
+	oldToNew := map[string]string{
+		fmt.Sprintf("system.agent.%s.process", agentType): fmt.Sprintf("system.agent.%s.requests", agentType),
+		fmt.Sprintf("system.responses.%s", agentType):     fmt.Sprintf("system.agent.%s.responses", agentType),
+		fmt.Sprintf("system.errors.%s", agentType):        fmt.Sprintf("system.agent.%s.errors", agentType),
+		fmt.Sprintf("dlq.%s", agentType):                  fmt.Sprintf("system.agent.%s.dlq", agentType),
+	}
+
+	for oldTopic, newTopic := range oldToNew {
+		// Check if old topic exists
+		if exists, _ := tm.TopicExists(ctx, oldTopic); exists {
+			tm.logger.Warn("Found old topic naming, consider migrating",
+				zap.String("old_topic", oldTopic),
+				zap.String("new_topic", newTopic))
+			// Note: Actual migration would involve consuming from old and producing to new
+			// This is just detection for now
+		}
+	}
+
+	return nil
 }

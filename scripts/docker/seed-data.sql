@@ -163,7 +163,7 @@ seed_postgres_data \
                          \"description\": \"Research the topic thoroughly\",
                          \"sub_tasks\": [
                              {\"step_name\": \"web_research\", \"topic\": \"system.adapter.web.search\"},
-                             {\"step_name\": \"style_analysis\", \"topic\": \"system.agent.reasoning.process\"}
+                             {\"step_name\": \"style_analysis\", \"topic\": \"system.agent.reasoning.requests\"}
                          ],
                          \"next_step\": \"generate_blog_post\"
                      },

@@ -17,6 +17,29 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)),
 		zap.String("current_step", params.CurrentStep))
 
+	// CHECK: Has this step already created a child orchestration?
+	stepKey := fmt.Sprintf("%s_started", params.CurrentStep)
+	if _, alreadyStarted := params.CollectedData[stepKey]; alreadyStarted {
+		params.Logger.Warn("Child orchestration already started for this step",
+			zap.String("step", params.CurrentStep))
+
+		// Try to find the existing child ID
+		if existingChild, ok := params.CollectedData[params.CurrentStep]; ok {
+			if childMap, ok := existingChild.(map[string]interface{}); ok {
+				if childID, ok := childMap["new_correlation_id"].(string); ok && childID != "" {
+					// Return the existing result
+					return existingChild, nil
+				}
+			}
+		}
+
+		// If we can't find the child ID, we have a problem
+		return nil, fmt.Errorf("orchestration already started but cannot find child ID")
+	}
+
+	// Mark that we're starting this orchestration
+	params.CollectedData[stepKey] = true
+
 	// The previous step should have the spawn result
 	// In your workflow: spawn_website_team -> start_website_workflow
 	// So we need to look at the previous step's result

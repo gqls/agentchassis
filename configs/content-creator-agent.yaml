@@ -33,7 +33,7 @@ infrastructure:
 
 custom:
   agent_type: "content-creator"
-  topic: "system.agent.content-creator.process"
+  topic: "system.agent.content-creator.requests"
   kafka_consumer_group: "content-creator-agent-group"
   ai_service:
     provider: "anthropic"

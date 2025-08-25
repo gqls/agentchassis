@@ -203,7 +203,7 @@ func TestWebsiteBuilderWorkflow(t *testing.T) {
 				"notify": {
 					Action: "send_notification",
 					Config: map[string]interface{}{
-						"topic": "system.responses.website",
+						"topic": "system.agent.website.responses",
 					},
 					NextStep: "complete",
 				},

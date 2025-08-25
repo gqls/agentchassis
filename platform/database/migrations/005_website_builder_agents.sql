@@ -48,10 +48,10 @@ INSERT INTO agent_definitions (
              }'::jsonb,
              '["analysis", "categorization", "domain-research"]'::jsonb,
              '{
-                 "process": "system.agent.domain-analyst.process",
-                 "response": "system.responses.domain-analyst",
-                 "error": "system.errors.domain-analyst",
-                 "dlq": "dlq.domain-analyst"
+                 "process": "system.agent.domain-analyst.requests",
+                 "response": "system.agent.domain-analyst.responses",
+                 "error": "system.agent.domain-analyst.errors",
+                 "dlq": "system.agent.domain-analyst.dlq"
              }'::jsonb,
              '{
                  "liveness_path": "/health",
@@ -113,10 +113,10 @@ INSERT INTO agent_definitions (
              }'::jsonb,
              '["planning", "structure", "navigation"]'::jsonb,
              '{
-                 "process": "system.agent.site-architect.process",
-                 "response": "system.responses.site-architect",
-                 "error": "system.errors.site-architect",
-                 "dlq": "dlq.site-architect"
+                 "process": "system.agent.site-architect.requests",
+                 "response": "system.agent.site-architect.responses",
+                 "error": "system.agent.site-architect.errors",
+                 "dlq": "system.agent.site-architect.dlq"
              }'::jsonb
          ) ON CONFLICT (type) DO UPDATE SET
     display_name = EXCLUDED.display_name,
@@ -203,10 +203,10 @@ INSERT INTO agent_definitions (
              }'::jsonb,
              '["research", "analysis", "fact-checking", "content-gathering", "competitor-analysis"]'::jsonb,
              '{
-                 "process": "system.agent.content-researcher.process",
-                 "response": "system.responses.content-researcher",
-                 "error": "system.errors.content-researcher",
-                 "dlq": "dlq.content-researcher"
+                 "process": "system.agent.content-researcher.requests",
+                 "response": "system.agent.content-researcher.responses",
+                 "error": "system.agent.content-researcher.errors",
+                 "dlq": "system.agent.content-researcher.dlq"
              }'::jsonb
          ) ON CONFLICT (type) DO UPDATE SET
     display_name = EXCLUDED.display_name,
@@ -285,10 +285,10 @@ INSERT INTO agent_definitions (
              }'::jsonb,
              '["html", "css", "javascript", "frontend"]'::jsonb,
              '{
-                 "process": "system.agent.html-developer.process",
-                 "response": "system.responses.html-developer",
-                 "error": "system.errors.html-developer",
-                 "dlq": "dlq.html-developer"
+                 "process": "system.agent.html-developer.requests",
+                 "response": "system.agent.html-developer.responses",
+                 "error": "system.agent.html-developer.errors",
+                 "dlq": "system.agent.html-developer.dlq"
              }'::jsonb
          ) ON CONFLICT (type) DO UPDATE SET
     display_name = EXCLUDED.display_name,
@@ -363,10 +363,10 @@ INSERT INTO agent_definitions (
              }'::jsonb,
              '["design", "graphics", "branding", "image-processing"]'::jsonb,
              '{
-                 "process": "system.agent.visual-designer.process",
-                 "response": "system.responses.visual-designer",
-                 "error": "system.errors.visual-designer",
-                 "dlq": "dlq.visual-designer"
+                 "process": "system.agent.visual-designer.requests",
+                 "response": "system.agent.visual-designer.responses",
+                 "error": "system.agent.visual-designer.errors",
+                 "dlq": "system.agent.visual-designer.dlq"
              }'::jsonb
          ) ON CONFLICT (type) DO UPDATE SET
     display_name = EXCLUDED.display_name,
@@ -431,10 +431,10 @@ INSERT INTO agent_definitions (
              }'::jsonb,
              '["deployment", "hosting", "publishing", "s3"]'::jsonb,
              '{
-                 "process": "system.agent.site-publisher.process",
-                 "response": "system.responses.site-publisher",
-                 "error": "system.errors.site-publisher",
-                 "dlq": "dlq.site-publisher"
+                 "process": "system.agent.site-publisher.requests",
+                 "response": "system.agent.site-publisher.responses",
+                 "error": "system.agent.site-publisher.errors",
+                 "dlq": "system.agent.site-publisher.dlq"
              }'::jsonb
          ) ON CONFLICT (type) DO UPDATE SET
     display_name = EXCLUDED.display_name,
@@ -523,10 +523,10 @@ INSERT INTO agent_definitions (
              }'::jsonb,
              '["orchestration", "website-creation", "project-management"]'::jsonb,
              '{
-                 "process": "system.agent.website-builder.process",
-                 "response": "system.responses.website-builder",
-                 "error": "system.errors.website-builder",
-                 "dlq": "dlq.website-builder"
+                 "process": "system.agent.website-builder.requests",
+                 "response": "system.agent.website-builder.responses",
+                 "error": "system.agent.website-builder.errors",
+                 "dlq": "system.agent.website-builder.dlq"
              }'::jsonb
          ) ON CONFLICT (type) DO UPDATE SET
     display_name = EXCLUDED.display_name,
@@ -640,10 +640,10 @@ INSERT INTO agent_definitions (
              }'::jsonb,
              '["content-generation", "writing", "copywriting", "seo", "memory-enabled", "style-adaptive"]'::jsonb,
              '{
-                 "process": "system.agent.content-creator.process",
-                 "response": "system.responses.content-creator",
-                 "error": "system.errors.content-creator",
-                 "dlq": "dlq.content-creator",
+                 "process": "system.agent.content-creator.requests",
+                 "response": ""system.agent.content-creator.responses",
+                 "error": ""system.agent.content-creator.errors",
+                 "dlq": ""system.agent.content-creator.dlq",
                  "priority_high": "tasks.high.content-creator",
                  "priority_normal": "tasks.normal.content-creator",
                  "priority_low": "tasks.low.content-creator"
