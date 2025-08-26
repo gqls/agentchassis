@@ -73,6 +73,8 @@ var actionRegistry = map[string]actions.ActionHandler{
 	"store_result":  actions.StoreResultAction,
 
 	"complete_workflow": actions.CompleteWorkflowAction,
+
+	"evaluate_task": actions.EvaluateTaskAction,
 }
 
 // NewSagaCoordinator creates a new coordinator instance
@@ -634,11 +636,11 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 			// Determine parent's response topic
 			parentResponseTopic := ""
 
-			// First check for parent_agent_id in collected data
-			if parentAgentID, ok := state.CollectedData["parent_agent_id"].(string); ok && parentAgentID != "" {
-				parentResponseTopic = fmt.Sprintf("system.agent.%s.responses", parentAgentID)
+			// First check for parent_agent_type in collected data
+			if parentAgentType, ok := state.CollectedData["parent_agent_type"].(string); ok && parentAgentType != "" {
+				parentResponseTopic = fmt.Sprintf("system.agent.%s.responses", parentAgentType)
 				l.Info("Using parent agent's response topic",
-					zap.String("parent_agent_id", parentAgentID),
+					zap.String("parent_agent_type", parentAgentType),
 					zap.String("parent_response_topic", parentResponseTopic))
 			} else if replyTopic, ok := state.CollectedData["reply_to_topic"].(string); ok && replyTopic != "" {
 				// Check if we have a reply_to_topic stored
@@ -648,7 +650,7 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 			} else {
 				// Fallback for backward compatibility
 				parentResponseTopic = "system.orchestrator.responses"
-				l.Warn("No parent agent ID or reply topic found, using legacy topic")
+				l.Warn("No parent agent type or reply topic found, using legacy topic")
 			}
 
 			// Prepare the completion notification

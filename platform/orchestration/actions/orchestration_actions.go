@@ -136,8 +136,9 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 	}
 	newHeaders["correlation_id"] = newCorrelationID
 	newHeaders["parent_correlation_id"] = params.Headers["correlation_id"]
-	// store it in the child's collected data for later use
+	// Store parent correlation ID and agent type in collected data for child to access later
 	params.CollectedData["parent_correlation_id"] = params.Headers["correlation_id"]
+	params.CollectedData["parent_agent_type"] = params.Headers["agent_type"] // Add this line
 
 	// Add spawned agents to headers if available
 	if agentsRaw, ok := spawnData["agents"]; ok {

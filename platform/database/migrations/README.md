@@ -291,3 +291,103 @@ default_config,
 }'::jsonb
 )
 WHERE type = 'html-developer';
+
+
+-- Add a workflow_mode column to agent_definitions
+ALTER TABLE agent_definitions
+ADD COLUMN task_workflow jsonb,
+ADD COLUMN orchestrator_workflow jsonb;
+
+-- Add workflow columns to agent_definitions
+ALTER TABLE agent_definitions
+ADD COLUMN orchestration_workflow jsonb,
+ADD COLUMN task_workflow jsonb,
+ADD COLUMN delegation_preferences jsonb DEFAULT '{"prefer_delegation": true, "fallback_to_self": true}';
+
+-- Example: Update domain-analyst with both workflows
+UPDATE agent_definitions
+SET
+-- When orchestrating, it can delegate analysis subtasks
+orchestration_workflow = '{
+"start_step": "check_complexity",
+"steps": {
+"check_complexity": {
+"action": "evaluate_task",
+"next_step": "decide_approach"
+},
+"decide_approach": {
+"action": "conditional_route",
+"config": {
+"condition_field": "complexity",
+"routes": {
+"simple": "analyze_locally",
+"complex": "delegate_analysis"
+}
+}
+},
+"delegate_analysis": {
+"action": "call_agent",
+"config": {
+"agent_type": "researcher",
+"fallback": "analyze_locally"
+},
+"next_step": "complete"
+},
+"analyze_locally": {
+"action": "execute_llm_prompt",
+"config": {
+"prompt_template": "Analyze domain: {{.business_type}}"
+},
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow"
+}
+}
+}',
+-- When called as a task processor
+task_workflow = '{
+"start_step": "analyze",
+"steps": {
+"analyze": {
+"action": "execute_llm_prompt",
+"config": {
+"prompt_template": "Analyze domain: {{.business_type}}"
+},
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow"
+}
+}
+}'
+WHERE type = 'domain-analyst';
+
+-- Keep the orchestrator workflow separate if needed
+UPDATE agent_definitions
+SET orchestrator_workflow = default_config->'workflow'
+WHERE type = 'domain-analyst';
+
+-- Update existing agents with task workflows
+UPDATE agent_definitions
+SET task_workflow = default_config->'workflow',
+delegation_preferences = '{"prefer_delegation": false, "fallback_to_self": true}'::jsonb
+WHERE default_config->'workflow' IS NOT NULL;
+
+-- Set initial task workflows for existing agents
+UPDATE agent_definitions
+SET task_workflow = jsonb_build_object(
+'start_step', 'execute',
+'steps', jsonb_build_object(
+'execute', jsonb_build_object(
+'action', 'execute_llm_prompt',
+'description', 'Execute task',
+'next_step', 'complete'
+),
+'complete', jsonb_build_object(
+'action', 'complete_workflow',
+'description', 'Complete'
+)
+)
+)
+WHERE task_workflow IS NULL;

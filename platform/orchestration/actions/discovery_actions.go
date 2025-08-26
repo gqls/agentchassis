@@ -216,7 +216,7 @@ func ApproveAgentChangesAction(ctx context.Context, params ActionParams) (interf
 }
 
 // ConditionalRouteAction routes workflow based on conditions
-func ConditionalRouteAction(ctx context.Context, params ActionParams) (interface{}, error) {
+func ConditionalRouteActionOld(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 
 	conditionFieldRaw, ok := config["condition_field"]

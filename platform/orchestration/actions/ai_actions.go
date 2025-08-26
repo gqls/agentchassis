@@ -15,6 +15,26 @@ import (
 )
 
 func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	// Fake parsed result to return instead of calling the AI
+	parsedResult := map[string]interface{}{
+		"summary": "This is a fake response for testing.",
+		"status":  "success",
+		"data": map[string]interface{}{
+			"business_name": "Test Company",
+			"domain":        "test.com",
+			"description":   "A test company",
+			"analysis":      "THIS IS PLACEHOLDER ANALYSIS DATA.",
+		},
+	}
+
+	return map[string]interface{}{
+		"result": parsedResult,
+		"type":   "json",
+	}, nil
+
+}
+
+func ExecuteLLMPromptActionREAL(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing LLM prompt action",
 		zap.String("agent_type", params.AgentType),
 		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)),
@@ -271,4 +291,80 @@ func truncateString(s string, maxLength int) string {
 		return s
 	}
 	return s[:maxLength] + "..."
+}
+
+func ConditionalRouteAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	config := params.StepConfig.Config
+
+	conditionField := config["condition_field"].(string)
+	routes := config["routes"].(map[string]interface{})
+
+	// Evaluate the condition
+	conditionValue := params.CollectedData[conditionField]
+
+	// If no explicit condition value, evaluate it
+	if conditionValue == nil {
+		conditionValue = evaluateCondition(params)
+		params.CollectedData[conditionField] = conditionValue
+	}
+
+	// Determine next step
+	nextStep, ok := routes[conditionValue.(string)]
+	if !ok {
+		// Use default route if available
+		nextStep = routes["default"]
+	}
+
+	return map[string]interface{}{
+		"next_step": nextStep,
+		"condition": conditionValue,
+	}, nil
+}
+
+func evaluateCondition(params ActionParams) interface{} {
+	// Simple complexity evaluation
+	inputSize := len(params.CollectedData)
+
+	if inputSize < 3 {
+		return "simple"
+	} else if inputSize < 10 {
+		return "moderate"
+	}
+	return "complex"
+}
+
+func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Evaluating task complexity")
+
+	complexity := "simple" // Default
+
+	// Check input data size and structure
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		dataSize := len(inputData)
+
+		// Check for indicators of complexity
+		hasMultipleSteps := false
+		hasNestedData := false
+
+		for _, v := range inputData {
+			switch v.(type) {
+			case map[string]interface{}, []interface{}:
+				hasNestedData = true
+			}
+		}
+
+		// Determine complexity
+		if dataSize > 10 || hasNestedData {
+			complexity = "complex"
+		} else if dataSize > 5 || hasMultipleSteps {
+			complexity = "moderate"
+		}
+	}
+
+	params.Logger.Info("Task complexity evaluated",
+		zap.String("complexity", complexity))
+
+	return map[string]interface{}{
+		"complexity": complexity,
+	}, nil
 }

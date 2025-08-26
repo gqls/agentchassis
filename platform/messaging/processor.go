@@ -156,6 +156,26 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		zap.String("display_name", agentDef.DisplayName),
 		zap.String("category", agentDef.Category))
 
+	var workflow models.WorkflowPlan
+	// Select the appropriate workflow based on context
+	workflow, err = p.selectWorkflow(ctx, agentDef, msgCtx)
+	if err != nil {
+		msgCtx.Logger.Error("Failed to select workflow", zap.Error(err))
+		return err
+	}
+
+	// Validate for self-recursion only if not intentionally orchestrating
+	if !p.isIntentionalOrchestration(msgCtx) {
+		if err := p.validateNoSelfRecursion(workflow, p.agentType); err != nil {
+			msgCtx.Logger.Error("Workflow validation failed - self-recursion detected",
+				zap.Error(err),
+				zap.String("agent_type", p.agentType))
+			return errors.New(errors.ErrWorkflowInvalid, "Invalid workflow: self-recursion detected").
+				WithCause(err).
+				Build()
+		}
+	}
+
 	// Store the agent configuration for actions to use
 	msgCtx.CollectedData["agent_config"] = agentDef.DefaultConfig
 
@@ -168,22 +188,6 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		}
 		// Store the action for the workflow to reference
 		msgCtx.CollectedData["input_action"] = inputPayload["action"]
-	}
-
-	// Extract workflow from agent definition
-	var workflow models.WorkflowPlan
-	if workflowConfig, ok := agentDef.DefaultConfig["workflow"].(map[string]interface{}); ok {
-		// Convert workflow config to WorkflowPlan
-		workflow = p.convertToWorkflowPlan(workflowConfig)
-		msgCtx.Logger.Info("Workflow extracted from agent definition",
-			zap.String("start_step", workflow.StartStep),
-			zap.Int("step_count", len(workflow.Steps)))
-	} else {
-		// No workflow defined, use a simple default
-		workflow = p.getDefaultWorkflow()
-		msgCtx.Logger.Info("Using default workflow",
-			zap.String("start_step", workflow.StartStep),
-			zap.Int("step_count", len(workflow.Steps)))
 	}
 
 	// Add debug logging
@@ -239,6 +243,17 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	return p.executeWorkflow(ctx, msgCtx, agentConfig)
 }
 
+func (p *MessageProcessor) validateNoSelfRecursion(workflow models.WorkflowPlan, agentType string) error {
+	for stepName, step := range workflow.Steps {
+		if step.Action == "call_agent" {
+			if targetType, ok := step.Config["agent_type"].(string); ok && targetType == agentType {
+				return fmt.Errorf("workflow step '%s' would cause self-recursion: agent type '%s' cannot call itself", stepName, agentType)
+			}
+		}
+	}
+	return nil
+}
+
 // loadAgentDefinition loads the agent definition from the database
 func (p *MessageProcessor) loadAgentDefinition(ctx context.Context, agentType string) (*AgentDefinition, error) {
 	p.logger.Debug("Loading agent definition", zap.String("agent_type", agentType))
@@ -268,6 +283,12 @@ func (p *MessageProcessor) loadAgentDefinition(ctx context.Context, agentType st
 			zap.Error(err))
 		return nil, fmt.Errorf("failed to load agent definition: %w", err)
 	}
+
+	p.logger.Info("Agent definition loaded from DB",
+		zap.String("type", def.Type),
+		zap.String("display_name", def.DisplayName),
+		zap.String("category", def.Category),
+		zap.String("raw_config", string(configJSON)))
 
 	// Parse the JSON config
 	if err := json.Unmarshal(configJSON, &def.DefaultConfig); err != nil {
@@ -560,7 +581,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 			}
 		} else {
 			// Last resort fallback
-			responseTopic = "system.orchestrator.responses"
+			responseTopic = "system.generic.responses"
 			msgCtx.Logger.Warn("No reply_to_topic or parent agent info, using legacy topic")
 		}
 	}
@@ -838,4 +859,157 @@ func (p *MessageProcessor) getAgentTypeAndIDFromHeaders(headers map[string]strin
 	}
 
 	return agentType, agentID
+}
+
+func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *AgentDefinition, msgCtx *MessageContext) (models.WorkflowPlan, error) {
+	// Check if explicit workflow mode is requested
+	workflowMode := msgCtx.Headers["workflow_mode"]
+	if workflowMode == "" {
+		// Determine based on context
+		workflowMode = p.determineWorkflowMode(msgCtx, agentDef)
+	}
+
+	p.logger.Info("Selecting workflow",
+		zap.String("agent_type", p.agentType),
+		zap.String("workflow_mode", workflowMode),
+		zap.String("from_agent", msgCtx.Headers["from_agent_id"]))
+
+	var workflowConfig map[string]interface{}
+
+	switch workflowMode {
+	case "task":
+		// Use task workflow
+		if taskWf, ok := agentDef.DefaultConfig["task_workflow"].(map[string]interface{}); ok {
+			workflowConfig = taskWf
+		}
+	case "orchestration":
+		// Use orchestration workflow
+		if orchWf, ok := agentDef.DefaultConfig["orchestration_workflow"].(map[string]interface{}); ok {
+			workflowConfig = orchWf
+		}
+	default:
+		// Use default workflow
+		if wf, ok := agentDef.DefaultConfig["workflow"].(map[string]interface{}); ok {
+			workflowConfig = wf
+		}
+	}
+
+	// If no workflow found, create a default based on mode
+	if workflowConfig == nil {
+		if workflowMode == "task" {
+			return p.getDefaultTaskWorkflow(), nil
+		}
+		return p.getDefaultOrchestrationWorkflow(), nil
+	}
+
+	return p.convertToWorkflowPlan(workflowConfig), nil
+}
+
+func (p *MessageProcessor) determineWorkflowMode(msgCtx *MessageContext, agentDef *AgentDefinition) string {
+	// Safe type checking
+	if delegationPrefs, ok := agentDef.DefaultConfig["delegation_preferences"].(map[string]interface{}); ok {
+		if preferDelegation, ok := delegationPrefs["prefer_delegation"].(bool); ok && preferDelegation {
+			if p.isComplexRequest(msgCtx) {
+				return "orchestration"
+			}
+		}
+	}
+
+	// Check if called by another agent (subordinate call)
+	if msgCtx.Headers["from_agent_id"] != "" &&
+		msgCtx.Headers["from_agent_id"] != "00000000-0000-0000-0000-000000000001" {
+		return "task"
+	}
+
+	// Default based on action
+	if action := msgCtx.Headers["action"]; action == "process" || action == "execute" {
+		return "task"
+	}
+
+	return "orchestration"
+}
+
+func (p *MessageProcessor) isComplexRequest(msgCtx *MessageContext) bool {
+	// Analyze the request to determine complexity
+	// This could look at:
+	// - Size of input data
+	// - Multiple subtasks mentioned
+	// - Keywords indicating complexity
+	// - Historical performance data
+
+	// For now, simple heuristic
+	if inputData, ok := msgCtx.CollectedData["input_data"].(map[string]interface{}); ok {
+		// Check for multiple requirements or complex structure
+		if len(inputData) > 5 {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (p *MessageProcessor) getDefaultTaskWorkflow() models.WorkflowPlan {
+	return models.WorkflowPlan{
+		StartStep: "execute",
+		Steps: map[string]models.Step{
+			"execute": {
+				Action:      "execute_llm_prompt",
+				Description: "Execute the task",
+				NextStep:    "complete",
+			},
+			"complete": {
+				Action:      "complete_workflow",
+				Description: "Complete the task",
+			},
+		},
+	}
+}
+
+func (p *MessageProcessor) getDefaultOrchestrationWorkflow() models.WorkflowPlan {
+	return models.WorkflowPlan{
+		StartStep: "analyze",
+		Steps: map[string]models.Step{
+			"analyze": {
+				Action:      "evaluate_task",
+				Description: "Analyze task complexity",
+				NextStep:    "decide",
+			},
+			"decide": {
+				Action:      "conditional_route",
+				Description: "Decide execution strategy",
+				Config: map[string]interface{}{
+					"condition_field": "complexity",
+					"routes": map[string]interface{}{
+						"simple":  "execute",
+						"complex": "delegate",
+					},
+				},
+			},
+			"delegate": {
+				Action:      "call_agent",
+				Description: "Delegate to specialized agent",
+				NextStep:    "complete",
+			},
+			"execute": {
+				Action:      "execute_llm_prompt",
+				Description: "Execute locally",
+				NextStep:    "complete",
+			},
+			"complete": {
+				Action:      "complete_workflow",
+				Description: "Complete orchestration",
+			},
+		},
+	}
+}
+
+func (p *MessageProcessor) isIntentionalOrchestration(msgCtx *MessageContext) bool {
+	// Check if this is an explicit orchestration request
+	if mode := msgCtx.Headers["workflow_mode"]; mode == "orchestration" {
+		return true
+	}
+
+	// Check if the action indicates orchestration
+	action := msgCtx.Action
+	return action == "spawn_group" || action == "start_orchestration" || action == "orchestrate"
 }

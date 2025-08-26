@@ -739,8 +739,102 @@ func (d *EnhancedDiscovery) GetAgentPerformanceSummary(ctx context.Context, agen
 	}
 }
 
-// Updated CallAgentAction to use the new discovery with recommendations
 func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	config := params.StepConfig.Config
+
+	// Debug log to see what headers we received
+	params.Logger.Info("DEBUG: CallAgentAction headers check",
+		zap.String("correlation_id", params.Headers["correlation_id"]),
+		zap.String("parent_correlation_id", params.Headers["parent_correlation_id"]))
+
+	// Add comprehensive debug logging
+	params.Logger.Info("DEBUG: CallAgentAction invoked",
+		zap.String("correlation_id", params.Headers["correlation_id"]),
+		zap.String("agent_type_in_config", fmt.Sprintf("%v", config["agent_type"])),
+		zap.String("agent_id_in_config", fmt.Sprintf("%v", config["agent_id"])),
+		zap.String("current_agent_type", params.AgentType),
+		zap.String("current_agent_id", params.Headers["agent_id"]),
+		zap.Any("full_config", config),
+		zap.Any("all_headers", params.Headers))
+
+	agentType, ok := config["agent_type"].(string)
+	if !ok {
+		return nil, fmt.Errorf("agent_type not specified")
+	}
+
+	// Check if this is intentional parallel processing
+	allowParallel := false
+	if parallel, ok := config["allow_parallel"].(bool); ok {
+		allowParallel = parallel
+	}
+
+	// Only prevent self-calls if not explicitly allowed
+	if params.AgentType == agentType && !allowParallel {
+		params.Logger.Warn("Agent would call itself, executing locally instead",
+			zap.String("agent_type", agentType))
+		// Execute the task locally instead of delegating
+		return ExecuteLLMPromptAction(ctx, params)
+	}
+
+	// Try to find an agent to delegate to
+	discover := NewAgentDiscovery(params.DB)
+	matches, err := discover.DiscoverAgents(ctx, discovery.Requirements{
+		AgentType: agentType,
+		ClientID:  params.Headers["client_id"],
+	})
+
+	if err != nil || len(matches) == 0 {
+		// No agent available, check fallback preference
+		if fallback, ok := config["fallback"].(string); ok && fallback == "self" {
+			params.Logger.Info("No agent found, falling back to self-execution",
+				zap.String("requested_type", agentType),
+				zap.String("current_type", params.AgentType))
+
+			// Execute locally with adapted prompt
+			adaptedParams := params
+			adaptedParams.StepConfig.Config["prompt_adaptation"] = fmt.Sprintf(
+				"Acting as %s agent: ", agentType)
+			return ExecuteLLMPromptAction(ctx, adaptedParams)
+		}
+
+		// Try to spawn the agent
+		params.Logger.Info("No existing agent, attempting to spawn",
+			zap.String("agent_type", agentType))
+
+		spawnResult, err := SpawnAgentAction(ctx, ActionParams{
+			StepConfig: models.Step{
+				Config: map[string]interface{}{
+					"agent_type": agentType,
+				},
+			},
+			Headers: params.Headers,
+			DB:      params.DB,
+			Logger:  params.Logger,
+		})
+
+		if err != nil {
+			// Spawn failed, last resort: execute locally
+			if fallbackToSelf, ok := config["fallback_to_self"].(bool); ok && fallbackToSelf {
+				params.Logger.Warn("Spawn failed, executing task locally as fallback",
+					zap.Error(err))
+				return ExecuteLLMPromptAction(ctx, params)
+			}
+			return nil, fmt.Errorf("failed to spawn agent and no fallback: %w", err)
+		}
+
+		// Use the spawned agent
+		sr := spawnResult.(map[string]interface{})
+		agentID := sr["agent_id"].(string)
+		return callSpecificAgent(ctx, params, agentID)
+	}
+
+	// Use existing agent
+	bestMatch := matches[0]
+	return callSpecificAgent(ctx, params, bestMatch.AgentID)
+}
+
+// Updated CallAgentAction to use the new discovery with recommendations
+func CallAgentActionOld(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 
 	// Debug log to see what headers we received
@@ -758,15 +852,23 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.Any("full_config", config),
 		zap.Any("all_headers", params.Headers))
 
-	// If specific agent_id provided, use it directly
-	if agentID, ok := config["agent_id"].(string); ok {
-		return callSpecificAgent(ctx, params, agentID)
-	}
-
-	// Otherwise, discover best agent
+	// Discover best agent
 	agentType, ok := config["agent_type"].(string)
 	if !ok {
 		return nil, fmt.Errorf("agent_type not specified")
+	}
+
+	// Add this check at the beginning of CallAgentAction
+	if agentType == params.AgentType {
+		params.Logger.Error("Agent attempting to call its own type",
+			zap.String("current_agent_type", params.AgentType),
+			zap.String("target_agent_type", agentType))
+		return nil, fmt.Errorf("agent type %s cannot call another %s agent", params.AgentType, agentType)
+	}
+
+	// If specific agent_id provided, use it directly
+	if agentID, ok := config["agent_id"].(string); ok {
+		return callSpecificAgent(ctx, params, agentID)
 	}
 
 	// Try to use recommendations first
@@ -1062,7 +1164,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("client_id", clientID))
 
 	// Get agent definition from database
-	agentDef, err := getAgentDefinition(ctx, params.DB, agentType)
+	agentDef, err := getAgentDefinition(ctx, params.DB, agentType, params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent definition: %w", err)
 	}
@@ -1142,7 +1244,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 }
 
 // getAgentDefinition retrieves agent definition from database
-func getAgentDefinition(ctx context.Context, db interface{}, agentType string) (*AgentDefinition, error) {
+func getAgentDefinition(ctx context.Context, db interface{}, agentType string, logger *zap.Logger) (*AgentDefinition, error) {
 	query := `
 		SELECT id, type, display_name, description, category,
 		       image_repository, image_tag, command,
@@ -1180,6 +1282,10 @@ func getAgentDefinition(ctx context.Context, db interface{}, agentType string) (
 	default:
 		return nil, fmt.Errorf("unsupported database type: %T", db)
 	}
+
+	logger.Info("Agent definition loaded for spawn",
+		zap.String("agent_type", agentType),
+		zap.String("raw_default_config", string(def.DefaultConfig)))
 
 	return &def, nil
 }
