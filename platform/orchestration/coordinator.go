@@ -1116,24 +1116,24 @@ func (s *SagaCoordinator) handleTimeout(ctx context.Context, orchestrationID str
 		zap.String("DEBUG_COOR_43: request_id", requestID))
 }
 
-func (s *SagaCoordinator) handleChildOrchestrationTimeout(ctx context.Context, parentCorrelationID string, childCorrelationID string, timeout time.Duration) {
+func (s *SagaCoordinator) handleChildOrchestrationTimeout(ctx context.Context, parentOrchestrationID string, childCorrelationID string, timeout time.Duration) {
 	time.Sleep(timeout)
 
 	// Check if parent is still waiting
 	repo := NewStateRepository(s.db, s.logger)
-	state, err := repo.GetState(ctx, parentCorrelationID)
+	state, err := repo.GetState(ctx, parentOrchestrationID)
 	if err != nil {
 		s.logger.Error("Failed to get parent state for timeout check",
-			zap.String("DEBUG_COOR_44: parent_correlation_id", parentCorrelationID),
+			zap.String("DEBUG_COOR_44: parent_orchestration_id", parentOrchestrationID),
 			zap.Error(err))
 		return
 	}
 
 	// Check if still waiting for this child
 	for _, awaitedStep := range state.AwaitedSteps {
-		if awaitedStep == childCorrelationID {
+		if awaitedStep == childCorrelationID { // Use the actual parameter name
 			s.logger.Error("Child orchestration timeout",
-				zap.String("DEBUG_COOR_45: parent_correlation_id", parentCorrelationID),
+				zap.String("DEBUG_COOR_45: parent_orchestration_id", parentOrchestrationID),
 				zap.String("DEBUG_COOR_45: child_correlation_id", childCorrelationID),
 				zap.Duration("DEBUG_COOR_45: timeout", timeout))
 
@@ -1149,10 +1149,12 @@ func (s *SagaCoordinator) handleChildOrchestrationTimeout(ctx context.Context, p
 
 			responseBytes, _ := json.Marshal(timeoutResponse)
 
-			// Simulate response from child
+			// Build proper headers for HandleResponse
 			headers := map[string]string{
-				"correlation_id": parentCorrelationID,
-				"causation_id":   childCorrelationID,
+				"orchestration_id": parentOrchestrationID, // Parent's orchestration ID
+				"correlation_id":   state.CorrelationID,   // Parent's correlation ID
+				"in_response_to":   childCorrelationID,    // What we're timing out
+				"causation_id":     childCorrelationID,    // For backward compatibility
 			}
 
 			// Process the timeout as a response
