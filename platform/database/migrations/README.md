@@ -391,3 +391,86 @@ SET task_workflow = jsonb_build_object(
 )
 )
 WHERE task_workflow IS NULL;
+
+
+-- Insert the website-builder agent group
+INSERT INTO agent_groups (id, name, group_type, agent_configs, orchestration_workflow, version, usage_count)
+VALUES (
+gen_random_uuid(),
+'Website Builder Team',
+'website-builder',
+'[
+{"role": "orchestrator", "agent_type": "website-builder"},
+{"role": "domain_analyst", "agent_type": "domain-analyst"},
+{"role": "site_architect", "agent_type": "site-architect"},
+{"role": "content_researcher", "agent_type": "content-researcher"},
+{"role": "content_writer", "agent_type": "content-creator"},
+{"role": "visual_designer", "agent_type": "visual-designer"},
+{"role": "html_developer", "agent_type": "html-developer"},
+{"role": "site_publisher", "agent_type": "site-publisher"}
+]'::jsonb,
+'{
+"start_step": "analyze_domain",
+"steps": {
+"analyze_domain": {
+"action": "call_agent",
+"config": {"agent_type": "domain-analyst"},
+"next_step": "architect_site"
+},
+"architect_site": {
+"action": "call_agent",
+"config": {"agent_type": "site-architect"},
+"next_step": "create_content"
+},
+"create_content": {
+"action": "call_agent",
+"config": {"agent_type": "content-creator"},
+"next_step": "develop_site"
+},
+"develop_site": {
+"action": "call_agent",
+"config": {"agent_type": "html-developer"},
+"next_step": "publish_site"
+},
+"publish_site": {
+"action": "call_agent",
+"config": {"agent_type": "site-publisher"},
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow"
+}
+}
+}'::jsonb,
+1,
+0
+);
+
+
+--
+UPDATE agent_definitions
+SET default_config = '{
+"processing_mode": "orchestrator",
+"workflow": {
+"start_step": "spawn_agents",
+"steps": {
+"spawn_agents": {
+"action": "spawn_group",
+"description": "Spawn the website builder team",
+"config": {},
+"next_step": "start_orchestration"
+},
+"start_orchestration": {
+"action": "start_orchestration",
+"description": "Start orchestration",
+"config": {"await_response": true},
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Complete the workflow"
+}
+}
+}
+}'::jsonb
+WHERE type = 'generic';

@@ -581,7 +581,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 			}
 		} else {
 			// Last resort fallback
-			responseTopic = "system.generic.responses"
+			responseTopic = "system.agent.generic.responses"
 			msgCtx.Logger.Warn("No reply_to_topic or parent agent info, using legacy topic")
 		}
 	}
@@ -862,6 +862,21 @@ func (p *MessageProcessor) getAgentTypeAndIDFromHeaders(headers map[string]strin
 }
 
 func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *AgentDefinition, msgCtx *MessageContext) (models.WorkflowPlan, error) {
+	p.logger.Info("DEBUG: selectWorkflow entry",
+		zap.Any("default_config_keys", agentDef.DefaultConfig),
+		zap.Any("workflow_exists", agentDef.DefaultConfig["workflow"] != nil),
+		zap.Any("orchestration_workflow_exists", agentDef.DefaultConfig["orchestration_workflow"] != nil),
+		zap.Any("task_workflow_exists", agentDef.DefaultConfig["task_workflow"] != nil))
+
+	// Log the actual workflow content
+	if wf, ok := agentDef.DefaultConfig["workflow"]; ok {
+		wfMap, _ := wf.(map[string]interface{})
+		if wfMap != nil {
+			p.logger.Info("DEBUG: Found workflow",
+				zap.String("start_step", fmt.Sprintf("%v", wfMap["start_step"])))
+		}
+	}
+
 	// Check if explicit workflow mode is requested
 	workflowMode := msgCtx.Headers["workflow_mode"]
 	if workflowMode == "" {
@@ -876,21 +891,20 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *AgentDe
 
 	var workflowConfig map[string]interface{}
 
+	// Always check for the main workflow field first
+	if wf, ok := agentDef.DefaultConfig["workflow"].(map[string]interface{}); ok {
+		workflowConfig = wf
+	}
+
+	// Only override if specific mode workflows exist
 	switch workflowMode {
 	case "task":
-		// Use task workflow
 		if taskWf, ok := agentDef.DefaultConfig["task_workflow"].(map[string]interface{}); ok {
 			workflowConfig = taskWf
 		}
 	case "orchestration":
-		// Use orchestration workflow
 		if orchWf, ok := agentDef.DefaultConfig["orchestration_workflow"].(map[string]interface{}); ok {
 			workflowConfig = orchWf
-		}
-	default:
-		// Use default workflow
-		if wf, ok := agentDef.DefaultConfig["workflow"].(map[string]interface{}); ok {
-			workflowConfig = wf
 		}
 	}
 

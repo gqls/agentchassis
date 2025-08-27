@@ -343,7 +343,6 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 		dataSize := len(inputData)
 
 		// Check for indicators of complexity
-		hasMultipleSteps := false
 		hasNestedData := false
 
 		for _, v := range inputData {
@@ -356,7 +355,7 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 		// Determine complexity
 		if dataSize > 10 || hasNestedData {
 			complexity = "complex"
-		} else if dataSize > 5 || hasMultipleSteps {
+		} else if dataSize > 5 {
 			complexity = "moderate"
 		}
 	}

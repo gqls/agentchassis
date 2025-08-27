@@ -100,15 +100,32 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 	config := params.StepConfig.Config
 	groupType, ok := config["group_type"].(string)
 	if !ok {
-		return nil, fmt.Errorf("group_type not specified")
+		// Try to get from input data
+		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+			groupType, ok = inputData["group_type"].(string)
+			params.Logger.Info("Got group_type from input_data",
+				zap.String("DEBUG_SPAWN_1: group_type", groupType),
+				zap.Any("DEBUG_SPAWN_1: input_data", inputData))
+		}
+		if !ok {
+			params.Logger.Error("group_type not found anywhere",
+				zap.Any("DEBUG_SPAWN_2: config", config),
+				zap.Any("DEBUG_SPAWN_2: collected_data", params.CollectedData))
+			return nil, fmt.Errorf("group_type not specified")
+		}
 	}
+
+	params.Logger.Info("SpawnGroupAction starting",
+		zap.String("group_type", groupType),
+		zap.Any("headers", params.Headers),
+		zap.Bool("has_producer", params.Producer != nil),
+		zap.Bool("has_db", params.DB != nil))
 
 	// Find the best matching group
 	var groupID, groupName string
 	var agentConfigs json.RawMessage
 	var workflow json.RawMessage
 
-	// Fix: Use QueryRowContext with context as first parameter
 	err := params.DB.QueryRowContext(ctx, `
         SELECT id, name, agent_configs, orchestration_workflow
         FROM agent_groups
@@ -118,8 +135,16 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
     `, groupType).Scan(&groupID, &groupName, &agentConfigs, &workflow)
 
 	if err != nil {
+		params.Logger.Error("DEBUG_SPAWN_3: Failed to find group",
+			zap.String("DEBUG_SPAWN_3: group_type", groupType),
+			zap.Error(err))
 		return nil, fmt.Errorf("no group found for type %s: %w", groupType, err)
 	}
+
+	params.Logger.Info("Found group in database",
+		zap.String("DEBUG_SPAWN_4: group_id", groupID),
+		zap.String("DEBUG_SPAWN_4: group_name", groupName),
+		zap.Int("DEBUG_SPAWN_4: agent_configs_size", len(agentConfigs)))
 
 	// Parse agent configs
 	var agents []map[string]interface{}
@@ -127,80 +152,93 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 		return nil, fmt.Errorf("failed to parse agent configs: %w", err)
 	}
 
-	// which agents are we about to spawn
-	params.Logger.Info("Retrieved workflow from database",
-		zap.String("group_id", groupID),
-		zap.String("workflow_raw", string(workflow)),
-		zap.String("agentConfigs full json", string(agentConfigs)))
+	params.Logger.Info("Parsed agent configs",
+		zap.Int("DEBUG_SPAWN_5: agent_count", len(agents)),
+		zap.Any("DEBUG_SPAWN_5: agents", agents))
 
 	// Spawn each agent in the group
 	spawnedAgents := make(map[string]string)
 
-	for _, agentConfig := range agents {
+	for i, agentConfig := range agents {
+		params.Logger.Info("Processing agent config",
+			zap.Int("DEBUG_SPAWN_6: index", i),
+			zap.Any("DEBUG_SPAWN_6: config", agentConfig))
+
 		role, ok := agentConfig["role"].(string)
 		if !ok {
+			params.Logger.Warn("Skipping agent - no role",
+				zap.Int("DEBUG_SPAWN_7: index", i))
 			continue
 		}
 
 		agentType, ok := agentConfig["agent_type"].(string)
 		if !ok {
+			params.Logger.Warn("Skipping agent - no agent_type",
+				zap.String("role", role))
 			continue
 		}
 
-		// If this is the orchestrator role, ensure it's configured properly
+		// Build config overrides
 		configOverrides := make(map[string]interface{})
 		if role == "orchestrator" {
 			configOverrides["processing_mode"] = "orchestrator"
 			configOverrides["listen_to_responses"] = true
-			params.Logger.Info("Spawning orchestrator with response listening enabled",
-				zap.String("role", role),
-				zap.String("agent_type", agentType))
 		}
+
+		params.Logger.Info("About to spawn agent",
+			zap.String("DEBUG_SPAWN_8: role", role),
+			zap.String("DEBUG_SPAWN_8: agent_type", agentType),
+			zap.Any("DEBUG_SPAWN_8: config_overrides", configOverrides),
+			zap.Bool("DEBUG_SPAWN_8: has_producer", params.Producer != nil))
 
 		result, err := SpawnAgentAction(ctx, ActionParams{
 			StepConfig: models.Step{
 				Config: map[string]interface{}{
-					"agent_type": agentType,
+					"agent_type":       agentType,
+					"config_overrides": configOverrides,
 				},
 			},
-			Headers: params.Headers,
-			DB:      params.DB,
-			Logger:  params.Logger,
+			Headers:  params.Headers,
+			DB:       params.DB,
+			Logger:   params.Logger,
+			Producer: params.Producer, // CRITICAL: Pass the producer
 		})
 
 		if err != nil {
+			params.Logger.Error("Failed to spawn agent",
+				zap.String("DEBUG_SPAWN_9: role", role),
+				zap.String("DEBUG_SPAWN_9: agent_type", agentType),
+				zap.Error(err))
 			return nil, fmt.Errorf("failed to spawn %s: %w", role, err)
 		}
 
 		agentResult, ok := result.(map[string]interface{})
 		if !ok {
+			params.Logger.Error("Unexpected result type",
+				zap.String("DEBUG_SPAWN_10: role", role),
+				zap.Any("DEBUG_SPAWN_10: result", result))
 			return nil, fmt.Errorf("unexpected result type from SpawnAgentAction")
 		}
 
 		agentID, ok := agentResult["agent_id"].(string)
 		if !ok {
+			params.Logger.Error("No agent_id in result",
+				zap.String("DEBUG_SPAWN_11: role", role),
+				zap.Any("DEBUG_SPAWN_11: result", agentResult))
 			return nil, fmt.Errorf("agent_id not found in spawn result")
 		}
 
 		spawnedAgents[role] = agentID
-		params.Logger.Info("Agent id for role.",
-			zap.String("role", role),
-			zap.String("agentID", agentID),
-			zap.String("spawnedAgents", fmt.Sprintf("%v", spawnedAgents)),
-		)
+		params.Logger.Info("Successfully spawned agent",
+			zap.String("DEBUG_SPAWN_12: role", role),
+			zap.String("DEBUG_SPAWN_12: agent_id", agentID),
+			zap.String("DEBUG_SPAWN_12: agent_type", agentType),
+			zap.Int("DEBUG_SPAWN_12: spawned_so_far", len(spawnedAgents)))
 	}
 
-	// Update group usage - Fix: Use ExecContext
-	_, err = params.DB.ExecContext(ctx, `
-        UPDATE agent_groups 
-        SET usage_count = usage_count + 1, 
-            last_used_at = NOW() 
-        WHERE id = $1
-    `, groupID)
-
-	if err != nil && params.Logger != nil {
-		params.Logger.Error("Failed to update group usage", zap.Error(err))
-	}
+	params.Logger.Info("All agents spawned",
+		zap.Int("DEBUG_SPAWN_14: total_spawned", len(spawnedAgents)),
+		zap.Any("DEBUG_SPAWN_14: spawned_agents", spawnedAgents))
 
 	return map[string]interface{}{
 		"group_id":   groupID,
@@ -241,7 +279,7 @@ func callSpecificAgent(ctx context.Context, params ActionParams, agentID string)
 		if agentType != "" {
 			topic = fmt.Sprintf("system.agent.%s.process", agentType)
 			params.Logger.Info("Constructed topic from agent type",
-				zap.String("topic", topic))
+				zap.String("DEBUG_SPAWN_15: topic", topic))
 		} else {
 			return nil, fmt.Errorf("agent not found and no agent_type specified: %w", err)
 		}
@@ -325,23 +363,16 @@ func sendNewFormatMessage(ctx context.Context, params ActionParams, agentID stri
 	if callerAgentType == "" {
 		callerAgentType = os.Getenv("AGENT_TYPE")
 		if callerAgentType == "" {
-			callerAgentType = "orchestrator" // Default
+			callerAgentType = "generic" // Default
 		}
 	}
 
 	params.Logger.Info("DEBUG: About to send message",
-		zap.String("from_agent_id", callerAgentID),
-		zap.String("from_agent_type", callerAgentType),
-		zap.String("to_agent_id", agentID),
-		zap.String("to_agent_type", agentType),
-		zap.Bool("is_self_call", agentID == callerAgentID && agentType == callerAgentType))
-
-	// Prevent self-recursion at the TYPE level
-	if agentType == callerAgentType {
-		params.Logger.Error("Attempted self-recursion detected at type level",
-			zap.String("agent_type", agentType))
-		return nil, fmt.Errorf("agent type %s cannot call another %s agent", agentType, agentType)
-	}
+		zap.String("DEBUG_SPAWN_16: from_agent_id", callerAgentID),
+		zap.String("DEBUG_SPAWN_16: from_agent_type", callerAgentType),
+		zap.String("DEBUG_SPAWN_16: to_agent_id", agentID),
+		zap.String("DEBUG_SPAWN_16: to_agent_type", agentType),
+		zap.Bool("DEBUG_SPAWN_16: is_self_call", agentID == callerAgentID && agentType == callerAgentType))
 
 	// Build tree path
 	var treePath []string
@@ -396,8 +427,8 @@ func sendNewFormatMessage(ctx context.Context, params ActionParams, agentID stri
 	// Prevent self-recursion
 	if agentID == callerAgentID && agentType == callerAgentType {
 		params.Logger.Error("Attempted self-recursion detected",
-			zap.String("agent_id", agentID),
-			zap.String("agent_type", agentType))
+			zap.String("DEBUG_SPAWN_17: agent_id", agentID),
+			zap.String("DEBUG_SPAWN_17: agent_type", agentType))
 		return nil, fmt.Errorf("agent cannot call itself")
 	}
 
@@ -452,7 +483,7 @@ func (d *EnhancedDiscovery) FindAgentsByCapability(ctx context.Context, capabili
 	case *sql.DB:
 		rows, err := db.QueryContext(ctx, query, capArray, clientID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find agents by capability: %w", err)
+			return nil, fmt.Errorf("Failed to find agents by capability: %w", err)
 		}
 		defer rows.Close()
 
@@ -514,7 +545,7 @@ func (d *EnhancedDiscovery) FindAgentsByCapability(ctx context.Context, capabili
 		return matches, rows.Err()
 
 	default:
-		return nil, fmt.Errorf("unsupported database type: %T", d.db)
+		return nil, fmt.Errorf("Unsupported database type: %T", d.db)
 	}
 }
 
@@ -535,7 +566,7 @@ func (d *EnhancedDiscovery) RecommendAgentsForTask(ctx context.Context, taskType
 	case *sql.DB:
 		rows, err := db.QueryContext(ctx, query, taskType, capArray)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get recommendations: %w", err)
+			return nil, fmt.Errorf("Failed to get recommendations: %w", err)
 		}
 		defer rows.Close()
 
@@ -643,7 +674,7 @@ func (d *EnhancedDiscovery) GetAgentPerformanceSummary(ctx context.Context, agen
 	case *sql.DB:
 		rows, err := db.QueryContext(ctx, query, agentType, limit)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get performance summary: %w", err)
+			return nil, fmt.Errorf("Failed to get performance summary: %w", err)
 		}
 		defer rows.Close()
 
@@ -735,7 +766,7 @@ func (d *EnhancedDiscovery) GetAgentPerformanceSummary(ctx context.Context, agen
 		return results, rows.Err()
 
 	default:
-		return nil, fmt.Errorf("unsupported database type: %T", d.db)
+		return nil, fmt.Errorf("Unsupported Database type: %T", d.db)
 	}
 }
 
@@ -744,36 +775,35 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Debug log to see what headers we received
 	params.Logger.Info("DEBUG: CallAgentAction headers check",
-		zap.String("correlation_id", params.Headers["correlation_id"]),
-		zap.String("parent_correlation_id", params.Headers["parent_correlation_id"]))
+		zap.String("DEBUG_SPAWN_18: correlation_id", params.Headers["correlation_id"]),
+		zap.String("DEBUG_SPAWN_18: parent_correlation_id", params.Headers["parent_correlation_id"]))
 
 	// Add comprehensive debug logging
 	params.Logger.Info("DEBUG: CallAgentAction invoked",
-		zap.String("correlation_id", params.Headers["correlation_id"]),
-		zap.String("agent_type_in_config", fmt.Sprintf("%v", config["agent_type"])),
-		zap.String("agent_id_in_config", fmt.Sprintf("%v", config["agent_id"])),
-		zap.String("current_agent_type", params.AgentType),
-		zap.String("current_agent_id", params.Headers["agent_id"]),
-		zap.Any("full_config", config),
-		zap.Any("all_headers", params.Headers))
+		zap.String("DEBUG_SPAWN_19: correlation_id", params.Headers["correlation_id"]),
+		zap.String("DEBUG_SPAWN_19: agent_type_in_config", fmt.Sprintf("%v", config["agent_type"])),
+		zap.String("DEBUG_SPAWN_19: agent_id_in_config", fmt.Sprintf("%v", config["agent_id"])),
+		zap.String("DEBUG_SPAWN_19: current_agent_type", params.AgentType),
+		zap.String("DEBUG_SPAWN_19: current_agent_id", params.Headers["agent_id"]),
+		zap.Any("DEBUG_SPAWN_19: full_config", config),
+		zap.Any("DEBUG_SPAWN_19: all_headers", params.Headers))
 
 	agentType, ok := config["agent_type"].(string)
 	if !ok {
 		return nil, fmt.Errorf("agent_type not specified")
 	}
 
-	// Check if this is intentional parallel processing
-	allowParallel := false
-	if parallel, ok := config["allow_parallel"].(bool); ok {
-		allowParallel = parallel
-	}
-
-	// Only prevent self-calls if not explicitly allowed
-	if params.AgentType == agentType && !allowParallel {
-		params.Logger.Warn("Agent would call itself, executing locally instead",
-			zap.String("agent_type", agentType))
-		// Execute the task locally instead of delegating
-		return ExecuteLLMPromptAction(ctx, params)
+	// Check for self-recursion prevention
+	if params.AgentType == agentType {
+		// Check if parallel processing is explicitly allowed
+		if allowParallel, ok := config["allow_parallel"].(bool); ok && allowParallel {
+			params.Logger.Info("Parallel processing allowed for same agent type",
+				zap.String("DEBUG_SPAWN_20: agent_type", agentType))
+		} else {
+			params.Logger.Warn("Agent would call itself, executing locally instead",
+				zap.String("DEBUG_SPAWN_21: agent_type", agentType))
+			return ExecuteLLMPromptAction(ctx, params)
+		}
 	}
 
 	// Try to find an agent to delegate to
@@ -787,8 +817,8 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		// No agent available, check fallback preference
 		if fallback, ok := config["fallback"].(string); ok && fallback == "self" {
 			params.Logger.Info("No agent found, falling back to self-execution",
-				zap.String("requested_type", agentType),
-				zap.String("current_type", params.AgentType))
+				zap.String("DEBUG_SPAWN_22: requested_type", agentType),
+				zap.String("DEBUG_SPAWN_22: current_type", params.AgentType))
 
 			// Execute locally with adapted prompt
 			adaptedParams := params
@@ -839,18 +869,18 @@ func CallAgentActionOld(ctx context.Context, params ActionParams) (interface{}, 
 
 	// Debug log to see what headers we received
 	params.Logger.Info("CallAgentAction headers check",
-		zap.String("correlation_id", params.Headers["correlation_id"]),
-		zap.String("parent_correlation_id", params.Headers["parent_correlation_id"]))
+		zap.String("DEBUG_SPAWN_23: correlation_id", params.Headers["correlation_id"]),
+		zap.String("DEBUG_SPAWN_23: parent_correlation_id", params.Headers["parent_correlation_id"]))
 
 	// Add comprehensive debug logging
 	params.Logger.Info("DEBUG: CallAgentAction invoked",
-		zap.String("correlation_id", params.Headers["correlation_id"]),
-		zap.String("agent_type_in_config", fmt.Sprintf("%v", config["agent_type"])),
-		zap.String("agent_id_in_config", fmt.Sprintf("%v", config["agent_id"])),
-		zap.String("current_agent_type", params.AgentType),
-		zap.String("current_agent_id", params.Headers["agent_id"]),
-		zap.Any("full_config", config),
-		zap.Any("all_headers", params.Headers))
+		zap.String("DEBUG_SPAWN_24: correlation_id", params.Headers["correlation_id"]),
+		zap.String("DEBUG_SPAWN_24: agent_type_in_config", fmt.Sprintf("%v", config["agent_type"])),
+		zap.String("DEBUG_SPAWN_24: agent_id_in_config", fmt.Sprintf("%v", config["agent_id"])),
+		zap.String("DEBUG_SPAWN_24: current_agent_type", params.AgentType),
+		zap.String("DEBUG_SPAWN_24: current_agent_id", params.Headers["agent_id"]),
+		zap.Any("DEBUG_SPAWN_24: full_config", config),
+		zap.Any("DEBUG_SPAWN_24: all_headers", params.Headers))
 
 	// Discover best agent
 	agentType, ok := config["agent_type"].(string)
@@ -861,8 +891,8 @@ func CallAgentActionOld(ctx context.Context, params ActionParams) (interface{}, 
 	// Add this check at the beginning of CallAgentAction
 	if agentType == params.AgentType {
 		params.Logger.Error("Agent attempting to call its own type",
-			zap.String("current_agent_type", params.AgentType),
-			zap.String("target_agent_type", agentType))
+			zap.String("DEBUG_SPAWN_25: current_agent_type", params.AgentType),
+			zap.String("DEBUG_SPAWN_25: target_agent_type", agentType))
 		return nil, fmt.Errorf("agent type %s cannot call another %s agent", params.AgentType, agentType)
 	}
 
@@ -893,9 +923,9 @@ func CallAgentActionOld(ctx context.Context, params ActionParams) (interface{}, 
 		// Use the best recommendation
 		bestRec := recommendations[0]
 		params.Logger.Info("Using recommended agent",
-			zap.String("agent_type", bestRec.AgentType),
-			zap.String("reason", bestRec.RecommendationReason),
-			zap.Float64("performance_score", bestRec.PerformanceScore))
+			zap.String("DEBUG_SPAWN_26: agent_type", bestRec.AgentType),
+			zap.String("DEBUG_SPAWN_26: reason", bestRec.RecommendationReason),
+			zap.Float64("DEBUG_SPAWN_26: performance_score", bestRec.PerformanceScore))
 
 		// Update agent type to the recommended one
 		agentType = bestRec.AgentType
@@ -944,9 +974,9 @@ func CallAgentActionOld(ctx context.Context, params ActionParams) (interface{}, 
 	// Use best match
 	bestMatch := matches[0]
 	params.Logger.Info("Using existing agent",
-		zap.String("agent_id", bestMatch.AgentID),
-		zap.String("agent_type", bestMatch.AgentType),
-		zap.Float64("performance_score", bestMatch.Performance))
+		zap.String("DEBUG_SPAWN_27: agent_id", bestMatch.AgentID),
+		zap.String("DEBUG_SPAWN_27: agent_type", bestMatch.AgentType),
+		zap.Float64("DEBUG_SPAWN_27: performance_score", bestMatch.Performance))
 
 	return callSpecificAgent(ctx, params, bestMatch.AgentID)
 }
@@ -1149,6 +1179,7 @@ func isAgentJobRunning(ctx context.Context, agentID string, logger *zap.Logger) 
 // SpawnAgentAction creates an agent instance in DB and spawns a Kubernetes Job
 func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
+
 	agentType, ok := config["agent_type"].(string)
 	if !ok {
 		return nil, fmt.Errorf("agent_type not specified")
@@ -1160,8 +1191,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	}
 
 	params.Logger.Info("Spawning agent",
-		zap.String("agent_type", agentType),
-		zap.String("client_id", clientID))
+		zap.String("DEBUG_SPAWN_28: agent_type", agentType),
+		zap.String("DEBUG_SPAWN_28: client_id", clientID))
 
 	// Get agent definition from database
 	agentDef, err := getAgentDefinition(ctx, params.DB, agentType, params.Logger)
@@ -1179,8 +1210,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		// Check if its Kubernetes job is still running
 		if isAgentJobRunning(ctx, existingAgent.ID, params.Logger) {
 			params.Logger.Info("Reusing existing running agent",
-				zap.String("agent_id", existingAgent.ID),
-				zap.String("agent_type", agentType))
+				zap.String("DEBUG_SPAWN_29: agent_id", existingAgent.ID),
+				zap.String("DEBUG_SPAWN_29: agent_type", agentType))
 
 			// Get topic from definition
 			topics := parseTopicConfig(agentDef.Topics)
@@ -1213,8 +1244,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	if err != nil {
 		params.Logger.Error("Failed to spawn agent job",
 			zap.Error(err),
-			zap.String("agent_id", agentID),
-			zap.String("agent_type", agentType))
+			zap.String("DEBUG_SPAWN_30: agent_id", agentID),
+			zap.String("DEBUG_SPAWN_30: agent_type", agentType))
 		// Don't fail - agent exists in DB and can be spawned manually
 		topics := parseTopicConfig(agentDef.Topics)
 		processTopic := strings.ReplaceAll(topics.Process, "{type}", agentType)
@@ -1228,9 +1259,9 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	}
 
 	params.Logger.Info("Successfully spawned agent job",
-		zap.String("job_name", jobName),
-		zap.String("agent_id", agentID),
-		zap.String("agent_type", agentType))
+		zap.String("DEBUG_SPAWN_31: job_name", jobName),
+		zap.String("DEBUG_SPAWN_31: agent_id", agentID),
+		zap.String("DEBUG_SPAWN_31: agent_type", agentType))
 
 	topics := parseTopicConfig(agentDef.Topics)
 	processTopic := strings.ReplaceAll(topics.Process, "{type}", agentType)
@@ -1284,8 +1315,8 @@ func getAgentDefinition(ctx context.Context, db interface{}, agentType string, l
 	}
 
 	logger.Info("Agent definition loaded for spawn",
-		zap.String("agent_type", agentType),
-		zap.String("raw_default_config", string(def.DefaultConfig)))
+		zap.String("DEBUG_SPAWN_32: agent_type", agentType),
+		zap.String("DEBUG_SPAWN_32: raw_default_config", string(def.DefaultConfig)))
 
 	return &def, nil
 }
@@ -1440,7 +1471,7 @@ func buildMinimalWorkflow(agentType string) map[string]interface{} {
 
 	// You could make this smarter by checking the agent type
 	switch {
-	case strings.Contains(agentType, "orchestrat"):
+	case strings.Contains(agentType, "generic"):
 		primaryAction = "validate_input"
 	case strings.Contains(agentType, "adapt"):
 		primaryAction = "http_request"
@@ -1576,10 +1607,10 @@ func createAgentInDBFromDefinition(ctx context.Context, params ActionParams, age
 	}
 
 	params.Logger.Info("Agent instance created in database",
-		zap.String("agent_id", agentID),
-		zap.String("agent_type", agentDef.Type),
-		zap.String("instance_name", instanceName),
-		zap.String("client_id", clientID))
+		zap.String("DEBUG_SPAWN_33: agent_id", agentID),
+		zap.String("DEBUG_SPAWN_33: agent_type", agentDef.Type),
+		zap.String("DEBUG_SPAWN_33: instance_name", instanceName),
+		zap.String("DEBUG_SPAWN_33: client_id", clientID))
 
 	return nil
 }
@@ -1606,7 +1637,7 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 	if err == nil {
 		if existingJob.Status.Failed > 0 || existingJob.Status.Succeeded > 0 {
 			logger.Info("Deleting completed/failed job before recreating",
-				zap.String("job_name", jobName))
+				zap.String("DEBUG_SPAWN_34: job_name", jobName))
 
 			deletePolicy := metav1.DeletePropagationForeground
 			err = clientset.BatchV1().Jobs("ai-persona-system").Delete(ctx, jobName, metav1.DeleteOptions{
@@ -1618,7 +1649,7 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 			time.Sleep(2 * time.Second)
 		} else if existingJob.Status.Active > 0 {
 			logger.Info("Job is already running",
-				zap.String("job_name", jobName))
+				zap.String("DEBUG_SPAWN_35: job_name", jobName))
 			return jobName, nil
 		}
 	}
@@ -1745,10 +1776,10 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 	storageConfigMap := os.Getenv("AGENT_STORAGE_CONFIGMAP")
 
 	logger.Info("Checking storage configuration",
-		zap.String("agent_type", agentDef.Type),
-		zap.String("storage_secret", storageSecret),
-		zap.String("storage_configmap", storageConfigMap),
-		zap.Bool("is_storage_agent", isStorageEnabledAgent(agentDef.Type)))
+		zap.String("DEBUG_SPAWN_36: agent_type", agentDef.Type),
+		zap.String("DEBUG_SPAWN_36: storage_secret", storageSecret),
+		zap.String("DEBUG_SPAWN_36: storage_configmap", storageConfigMap),
+		zap.Bool("DEBUG_SPAWN_36: is_storage_agent", isStorageEnabledAgent(agentDef.Type)))
 
 	if isStorageEnabledAgent(agentDef.Type) || agentDef.Category == "orchestrator" || agentDef.Category == "code-driven" { // Get storage credentials from orchestrator's environment
 		awsKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
@@ -1757,11 +1788,11 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		b2Key := os.Getenv("B2_APPLICATION_KEY")
 
 		logger.Info("Injecting storage credentials as direct values",
-			zap.String("agent_type", agentDef.Type),
-			zap.Int("aws_key_len", len(awsKeyId)),
-			zap.Int("aws_secret_len", len(awsSecretKey)),
-			zap.Int("b2_key_id_len", len(b2KeyId)),
-			zap.Int("b2_key_len", len(b2Key)))
+			zap.String("DEBUG_SPAWN_37: agent_type", agentDef.Type),
+			zap.Int("DEBUG_SPAWN_37: aws_key_len", len(awsKeyId)),
+			zap.Int("DEBUG_SPAWN_37: aws_secret_len", len(awsSecretKey)),
+			zap.Int("DEBUG_SPAWN_37: b2_key_id_len", len(b2KeyId)),
+			zap.Int("DEBUG_SPAWN_37: b2_key_len", len(b2Key)))
 
 		// Add storage credentials as direct values (not secret references)
 		if awsKeyId != "" {
@@ -1796,8 +1827,8 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 	// Storage configuration from ConfigMap (keep these as references since they work)
 	if storageConfigMap != "" && isStorageEnabledAgent(agentDef.Type) {
 		logger.Info("Injecting storage config from ConfigMap",
-			zap.String("agent_type", agentDef.Type),
-			zap.String("configmap_name", storageConfigMap))
+			zap.String("DEBUG_SPAWN_38: agent_type", agentDef.Type),
+			zap.String("DEBUG_SPAWN_38: configmap_name", storageConfigMap))
 
 		envList = append(envList, []corev1.EnvVar{
 			{
@@ -1860,8 +1891,8 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 
 	if storageConfigMap != "" && isStorageEnabledAgent(agentDef.Type) {
 		logger.Info("Injecting storage config",
-			zap.String("agent_type", agentDef.Type),
-			zap.String("configmap_name", storageConfigMap))
+			zap.String("DEBUG_SPAWN_39: agent_type", agentDef.Type),
+			zap.String("DEBUG_SPAWN_39: configmap_name", storageConfigMap))
 
 		envList = append(envList, []corev1.EnvVar{
 			{
