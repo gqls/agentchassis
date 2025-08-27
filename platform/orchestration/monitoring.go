@@ -48,7 +48,7 @@ func (m *WorkflowMonitor) GetActiveWorkflows(ctx context.Context, clientID strin
             COALESCE((execution_metadata->>'total_steps')::int, 0) as total,
             created_at,
             updated_at
-        FROM orchestrator_state
+        FROM orchestration_states
         WHERE client_id = $1 
         AND status NOT IN ('COMPLETED', 'FAILED')
         ORDER BY updated_at DESC

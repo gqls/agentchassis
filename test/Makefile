@@ -366,7 +366,7 @@ test-spawning-verify: ## Verify spawning test results in database
 	@kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
 		"SELECT correlation_id, status, current_step, \
 		 execution_metadata->>'completed_steps' as completed \
-		 FROM orchestrator_state \
+		 FROM orchestration_states \
 		 WHERE created_at > NOW() - INTERVAL '1 hour' \
 		 ORDER BY created_at DESC LIMIT 10;"
 	@echo ""
@@ -578,7 +578,7 @@ test-status: ## Check status of all test components
 	@kubectl exec postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -t -c \
 		"SELECT correlation_id, status, current_step, \
 		 EXTRACT(EPOCH FROM (NOW() - created_at))::int as seconds_ago \
-		 FROM orchestrator_state \
+		 FROM orchestratkion_states \
 		 WHERE correlation_id LIKE 'test-%' \
 		 ORDER BY created_at DESC LIMIT 5;" 2>/dev/null || echo "  No recent test workflows"
 
@@ -617,7 +617,7 @@ clean-test-k8s: harness-clean ## Clean up all test resources from Kubernetes
 	@kubectl delete configmap test-configs test-scripts -n ai-persona-system --ignore-not-found
 	# Clean test data from database
 	@kubectl exec postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c \
-		"DELETE FROM orchestrator_state WHERE correlation_id LIKE 'test-%';" || true
+		"DELETE FROM orchestration_states WHERE correlation_id LIKE 'test-%';" || true
 	@echo "$(GREEN)✓ Test resources cleaned$(NC)"
 
 .PHONY: test-e2e-k8s

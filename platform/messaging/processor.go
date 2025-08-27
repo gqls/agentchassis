@@ -460,8 +460,9 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 	observability.ActiveWorkflows.WithLabelValues(p.agentType).Inc()
 	defer observability.ActiveWorkflows.WithLabelValues(p.agentType).Dec()
 
-	// Execute through orchestrator
+	// Execute through orchestrator - this creates/updates orchestration_id in headers
 	err := p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, msgCtx.Headers, msgCtx.Message.Value)
+
 	if err != nil {
 		msgCtx.Logger.Error("Workflow execution failed", zap.Error(err))
 		// Send failure response
@@ -476,7 +477,26 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 		if p.sqlDB != nil {
 			// Get the final result from orchestrator state
 			repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
-			state, _ := repo.GetState(ctx, msgCtx.Headers["correlation_id"])
+
+			// CRITICAL: Use orchestration_id first, then correlation_id as fallback
+			var state *orchestration.OrchestrationState
+			var err error
+
+			// Check if we have orchestration_id (should be set by ExecuteWorkflow)
+			if orchestrationID := msgCtx.Headers["orchestration_id"]; orchestrationID != "" {
+				state, err = repo.GetState(ctx, orchestrationID)
+				msgCtx.Logger.Debug("Fetched state by orchestration_id",
+					zap.String("orchestration_id", orchestrationID),
+					zap.Bool("found", err == nil))
+			}
+
+			// Fallback to correlation_id if needed
+			if state == nil {
+				state, err = repo.GetStateByCorrelation(ctx, msgCtx.Headers["correlation_id"])
+				msgCtx.Logger.Debug("Fetched state by correlation_id",
+					zap.String("correlation_id", msgCtx.Headers["correlation_id"]),
+					zap.Bool("found", err == nil))
+			}
 
 			if err != nil {
 				msgCtx.Logger.Warn("Failed to get final state", zap.Error(err))
@@ -550,8 +570,9 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 	headers := kafka.HeadersToMap(msg.Headers)
 
 	p.logger.Info("Processing orchestration response",
-		zap.String("correlation_id", headers["correlation_id"]),
-		zap.String("causation_id", headers["causation_id"]))
+		zap.String("DEBUG_PROCESSOR_3: correlation_id", headers["correlation_id"]),
+		zap.String("DEBUG_PROCESSOR_3: orchestration_id", headers["orchestration_id"]),
+		zap.String("DEBUG_PROCESSOR_3: causation_id", headers["causation_id"]))
 
 	// Route to orchestrator
 	return p.orchestrator.HandleResponse(ctx, headers, msg.Value)
@@ -590,12 +611,13 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	if msgCtx.Headers["message_version"] == "2.0" && responseTopic != "" {
 		// New format - use AgentMessage
 		response := models.AgentMessage{
-			MessageID:     uuid.New().String(),
-			CorrelationID: msgCtx.Headers["correlation_id"],
-			FromAgentID:   os.Getenv("AGENT_ID"),
-			ToAgentID:     msgCtx.Headers["from_agent_id"], // Reply to sender
-			MessageType:   "response",
-			Action:        "response",
+			MessageID:       uuid.New().String(),
+			CorrelationID:   msgCtx.Headers["correlation_id"],
+			OrchestrationID: msgCtx.Headers["orchestration_id"],
+			FromAgentID:     os.Getenv("AGENT_ID"),
+			ToAgentID:       msgCtx.Headers["from_agent_id"], // Reply to sender
+			MessageType:     "response",
+			Action:          "response",
 			Data: map[string]interface{}{
 				"result":     result,
 				"request_id": msgCtx.Headers["message_id"],
@@ -662,6 +684,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	responseHeaders := make(map[string]string)
 	responseHeaders["correlation_id"] = msgCtx.Headers["correlation_id"]
 	responseHeaders["causation_id"] = msgCtx.Headers["request_id"]
+	responseHeaders["orchestration_id"] = msgCtx.Headers["orchestration_id"]
 	responseHeaders["agent_type"] = p.agentType
 
 	// Use agent ID from environment if not in headers
@@ -678,10 +701,11 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	}
 
 	msgCtx.Logger.Info("Sending workflow response",
-		zap.String("response_topic", responseTopic),
-		zap.String("correlation_id", responseHeaders["correlation_id"]),
-		zap.String("causation_id", responseHeaders["causation_id"]),
-		zap.Bool("success", response.Success))
+		zap.String("DEBUG_PROCESSOR_4: response_topic", responseTopic),
+		zap.String("DEBUG_PROCESSOR_4: correlation_id", responseHeaders["correlation_id"]),
+		zap.String("DEBUG_PROCESSOR_4: causation_id", responseHeaders["causation_id"]),
+		zap.String("DEBUG_PROCESSOR_4: orchestration_id", responseHeaders["orchestration_id"]),
+		zap.Bool("DEBUG_PROCESSOR_4: success", response.Success))
 
 	// Send response
 	err = p.producer.Produce(ctx, responseTopic, responseHeaders,
@@ -712,9 +736,9 @@ func createSQLDB() (*sql.DB, error) {
 
 func (p *MessageProcessor) processNewAgentMessage(ctx context.Context, msg kafka.Message, headers map[string]string, startTime time.Time) error {
 	p.logger.Info("Processing new format agent message",
-		zap.String("from_agent", headers["from_agent_id"]),
-		zap.String("to_agent", headers["to_agent_id"]),
-		zap.String("message_type", headers["message_type"]))
+		zap.String("DEBUG_PROCESSOR_5: from_agent", headers["from_agent_id"]),
+		zap.String("DEBUG_PROCESSOR_5: to_agent", headers["to_agent_id"]),
+		zap.String("DEBUG_PROCESSOR_5: message_type", headers["message_type"]))
 
 	// Parse the message
 	var agentMsg models.AgentMessage
@@ -745,16 +769,16 @@ func (p *MessageProcessor) getAgentTypeFromID(ctx context.Context, agentID strin
 	// First, try to get from the agent_instances table in the client schema
 	clientID := os.Getenv("CLIENT_ID")
 	if clientID == "" {
-		clientID = "demo_client" // Default client
+		clientID = "demo_client"
 	}
 
 	// Try to get agent type from agent instance config
 	query := fmt.Sprintf(`
-		SELECT config->>'agent_type' 
-		FROM client_%s.agent_instances 
-		WHERE id = $1 AND is_active = true
-		LIMIT 1
-	`, clientID)
+        SELECT config->>'agent_type' 
+        FROM client_%s.agent_instances 
+        WHERE id = $1 AND is_active = true
+        LIMIT 1
+    `, clientID)
 
 	var agentType string
 	err := p.db.QueryRow(ctx, query, agentID).Scan(&agentType)
@@ -765,12 +789,12 @@ func (p *MessageProcessor) getAgentTypeFromID(ctx context.Context, agentID strin
 		return agentType
 	}
 
-	// If not found in instances, try to extract from the agent ID itself
-	// Sometimes agent IDs are structured like "agent-{type}-{uuid}"
+	// REMOVE the orchestration_states query - it doesn't make sense
+
+	// If not found in instances, try to extract from the agent ID pattern
 	if strings.Contains(agentID, "-") {
 		parts := strings.Split(agentID, "-")
 		if len(parts) >= 2 {
-			// Check if this looks like a known agent type
 			possibleType := parts[1]
 			if p.isKnownAgentType(ctx, possibleType) {
 				p.logger.Debug("Extracted agent type from ID pattern",
@@ -781,22 +805,6 @@ func (p *MessageProcessor) getAgentTypeFromID(ctx context.Context, agentID strin
 		}
 	}
 
-	// Try to get from orchestrator state if this is a child agent
-	stateQuery := `
-		SELECT collected_data->>'agent_type'
-		FROM orchestrator_state 
-		WHERE correlation_id = $1
-		LIMIT 1
-	`
-
-	err = p.db.QueryRow(ctx, stateQuery, agentID).Scan(&agentType)
-	if err == nil && agentType != "" {
-		p.logger.Debug("Found agent type from orchestrator state",
-			zap.String("agent_id", agentID),
-			zap.String("agent_type", agentType))
-		return agentType
-	}
-
 	// Check if it's a well-known agent ID
 	wellKnownAgents := map[string]string{
 		"00000000-0000-0000-0000-000000000001": "orchestrator",
@@ -804,16 +812,12 @@ func (p *MessageProcessor) getAgentTypeFromID(ctx context.Context, agentID strin
 	}
 
 	if knownType, ok := wellKnownAgents[agentID]; ok {
-		p.logger.Debug("Found well-known agent type",
-			zap.String("agent_id", agentID),
-			zap.String("agent_type", knownType))
 		return knownType
 	}
 
 	p.logger.Warn("Could not determine agent type from ID",
 		zap.String("agent_id", agentID))
 
-	// Default fallback
 	return "generic"
 }
 

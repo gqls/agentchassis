@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gqls/agentchassis/pkg/models"
-
 	"go.uber.org/zap"
 )
 
@@ -46,6 +45,7 @@ type ExecutionMetadata struct {
 	EndTime        *time.Time           `json:"end_time,omitempty"`
 }
 
+// PendingRequest tracks async requests
 type PendingRequest struct {
 	RequestID string
 	AgentID   string
@@ -54,30 +54,45 @@ type PendingRequest struct {
 	StartTime time.Time
 }
 
-// OrchestrationState is the database model for a Saga instance
+// OrchestrationState is the database model for orchestration instances
+// Using the NEW schema from your architecture document
 type OrchestrationState struct {
-	CorrelationID string              `db:"correlation_id"`
-	ClientID      string              `db:"client_id"`
-	Status        OrchestrationStatus `db:"status"`
-	// Execution state
-	CurrentStep   string            `db:"current_step"`
-	ExecutionPath []ExecutionRecord `db:"execution_path"`
-	// Async handling
-	AwaitedSteps []string `db:"awaited_steps"`
-	// Data management
+	// Identity
+	OrchestrationID string `db:"orchestration_id"`
+	CorrelationID   string `db:"correlation_id"`
+	OwnerAgentID    string `db:"owner_agent_id"`
+	ParentOrchID    string `db:"parent_orch_id"`
+	ClientID        string `db:"client_id"`
+
+	// State
+	Status       OrchestrationStatus `db:"status"`
+	CurrentStep  string              `db:"current_step"`
+	AwaitedSteps []string            `db:"awaited_steps"`
+
+	// Data
 	CollectedData      map[string]interface{} `db:"collected_data"`
 	InitialRequestData json.RawMessage        `db:"initial_request_data"`
 	FinalResult        json.RawMessage        `db:"final_result"`
-	// Workflow definition
+
+	// Workflow
 	WorkflowPlan models.WorkflowPlan `db:"workflow_plan"`
-	// Debugging/Monitoring
+
+	// Tracking
+	ExecutionPath     []ExecutionRecord `db:"execution_path"`
 	ExecutionMetadata ExecutionMetadata `db:"execution_metadata"`
-	Error             string            `db:"error"`
-	CreatedAt         time.Time         `db:"created_at"`
-	UpdatedAt         time.Time         `db:"updated_at"`
+
+	// Error handling
+	Error string `db:"error"`
+
+	// Versioning
+	Version int `db:"version"`
+
+	// Timestamps
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// StateRepository provides an interface for persisting and retrieving workflow state
+// StateRepository provides persistence for orchestration state
 type StateRepository struct {
 	db     *sql.DB
 	logger *zap.Logger
@@ -88,13 +103,13 @@ func NewStateRepository(db *sql.DB, logger *zap.Logger) *StateRepository {
 	return &StateRepository{db: db, logger: logger}
 }
 
-// CreateInitialState creates a new workflow with the plan
-func (r *StateRepository) CreateInitialState(ctx context.Context, correlationID, clientID string, plan models.WorkflowPlan, initialData []byte) error {
+// CreateInitialState creates a new orchestration with the plan
+func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationID, correlationID, ownerAgentID, parentOrchID, clientID string, plan models.WorkflowPlan, initialData []byte) error {
+	// Prepare JSON fields
 	awaitedStepsJSON, _ := json.Marshal([]string{})
 	collectedDataJSON, _ := json.Marshal(map[string]interface{}{})
 	workflowPlanJSON, _ := json.Marshal(plan)
 
-	// Ensure we have valid initial data
 	if initialData == nil {
 		initialData = []byte("null")
 	}
@@ -110,53 +125,73 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, correlationID,
 		StartTime:      time.Now().UTC(),
 	}
 	metadataJSON, _ := json.Marshal(metadata)
-
 	executionPathJSON, _ := json.Marshal([]ExecutionRecord{})
 
+	// Handle parent_orch_id - convert empty string to nil for database
+	var parentOrchIDValue interface{}
+	if parentOrchID != "" {
+		parentOrchIDValue = parentOrchID
+	} else {
+		parentOrchIDValue = nil // This will be inserted as NULL
+	}
+
+	r.logger.Info("Initial orchestration state variables",
+		zap.String("DEBUG_STATE_1: orchestration_id", orchestrationID),
+		zap.String("DEBUG_STATE_1: correlation_id", correlationID),
+		zap.String("DEBUG_STATE_1: owner_agent_id", ownerAgentID),
+		zap.String("DEBUG_STATE_1: start_step", plan.StartStep))
+
 	query := `
-        INSERT INTO orchestrator_state 
-        (correlation_id, client_id, status, current_step, awaited_steps, 
-         collected_data, initial_request_data, workflow_plan, 
-         execution_metadata, execution_path, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        INSERT INTO orchestration_states 
+        (orchestration_id, correlation_id, owner_agent_id, parent_orch_id, client_id,
+         status, current_step, awaited_steps, collected_data, initial_request_data,
+         workflow_plan, execution_metadata, execution_path, version, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
     `
 
 	now := time.Now().UTC()
 	_, err := r.db.ExecContext(ctx, query,
-		correlationID, clientID, StatusRunning, plan.StartStep,
-		awaitedStepsJSON, collectedDataJSON, initialData, workflowPlanJSON,
-		metadataJSON, executionPathJSON, now, now)
+		orchestrationID, correlationID, ownerAgentID, parentOrchIDValue, clientID,
+		StatusRunning, plan.StartStep, awaitedStepsJSON, collectedDataJSON, initialData,
+		workflowPlanJSON, metadataJSON, executionPathJSON, 1, now, now)
 
 	if err != nil {
-		r.logger.Error("Failed to create initial orchestration state", zap.Error(err))
+		r.logger.Error("Failed to create initial orchestration state",
+			zap.Error(err),
+			zap.String("DEBUG_STATE_2: orchestration_id", orchestrationID))
 		return fmt.Errorf("failed to create initial state: %w", err)
 	}
 
 	r.logger.Info("Initial orchestration state created",
-		zap.String("correlation_id", correlationID),
-		zap.String("start_step", plan.StartStep),
-		zap.Int("total_steps", len(plan.Steps)))
+		zap.String("DEBUG_STATE_3: orchestration_id", orchestrationID),
+		zap.String("DEBUG_STATE_3: correlation_id", correlationID),
+		zap.String("DEBUG_STATE_3: owner_agent_id", ownerAgentID),
+		zap.String("DEBUG_STATE_3: start_step", plan.StartStep))
 
 	return nil
 }
 
-// GetState retrieves the current state of the workflow with the full plan
-func (r *StateRepository) GetState(ctx context.Context, correlationID string) (*OrchestrationState, error) {
+// GetState retrieves state by orchestrationID (primary lookup)
+func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) (*OrchestrationState, error) {
 	query := `
-        SELECT correlation_id, client_id, status, current_step, awaited_steps, 
-               collected_data, initial_request_data, final_result, error, 
-               workflow_plan, execution_metadata, execution_path, created_at, updated_at
-        FROM orchestrator_state
-        WHERE correlation_id = $1
-    `
+		SELECT orchestration_id, correlation_id, owner_agent_id, parent_orch_id, client_id,
+		       status, current_step, awaited_steps, collected_data, initial_request_data,
+		       final_result, error, workflow_plan, execution_metadata, execution_path,
+		       version, created_at, updated_at
+		FROM orchestration_states
+		WHERE orchestration_id = $1
+	`
 
 	var state OrchestrationState
 	var awaitedStepsJSON, collectedDataJSON, workflowPlanJSON []byte
 	var executionMetadataJSON, executionPathJSON []byte
-	var initialRequestDataNull, finalResultNull, errorNull sql.NullString
+	var parentOrchIDNull, initialRequestDataNull, finalResultNull, errorNull sql.NullString
 
-	err := r.db.QueryRowContext(ctx, query, correlationID).Scan(
+	err := r.db.QueryRowContext(ctx, query, orchestrationID).Scan(
+		&state.OrchestrationID,
 		&state.CorrelationID,
+		&state.OwnerAgentID,
+		&parentOrchIDNull,
 		&state.ClientID,
 		&state.Status,
 		&state.CurrentStep,
@@ -168,18 +203,22 @@ func (r *StateRepository) GetState(ctx context.Context, correlationID string) (*
 		&workflowPlanJSON,
 		&executionMetadataJSON,
 		&executionPathJSON,
+		&state.Version,
 		&state.CreatedAt,
 		&state.UpdatedAt,
 	)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("state not found for correlation_id: %s", correlationID)
+			return nil, fmt.Errorf("state not found for orchestration_id: %s", orchestrationID)
 		}
 		return nil, fmt.Errorf("failed to get state: %w", err)
 	}
 
 	// Handle nullable fields
+	if parentOrchIDNull.Valid {
+		state.ParentOrchID = parentOrchIDNull.String
+	}
 	if initialRequestDataNull.Valid {
 		state.InitialRequestData = json.RawMessage(initialRequestDataNull.String)
 	}
@@ -200,9 +239,78 @@ func (r *StateRepository) GetState(ctx context.Context, correlationID string) (*
 	return &state, nil
 }
 
-// UpdateState persists all changes to a workflow's state including execution tracking
+// GetStateByCorrelation retrieves state by correlationID (for backward compatibility)
+func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlationID string) (*OrchestrationState, error) {
+	query := `
+		SELECT orchestration_id, correlation_id, owner_agent_id, parent_orch_id, client_id,
+		       status, current_step, awaited_steps, collected_data, initial_request_data,
+		       final_result, error, workflow_plan, execution_metadata, execution_path,
+		       version, created_at, updated_at
+		FROM orchestration_states
+		WHERE correlation_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var state OrchestrationState
+	var awaitedStepsJSON, collectedDataJSON, workflowPlanJSON []byte
+	var executionMetadataJSON, executionPathJSON []byte
+	var parentOrchIDNull, initialRequestDataNull, finalResultNull, errorNull sql.NullString
+
+	err := r.db.QueryRowContext(ctx, query, correlationID).Scan(
+		&state.OrchestrationID,
+		&state.CorrelationID,
+		&state.OwnerAgentID,
+		&parentOrchIDNull,
+		&state.ClientID,
+		&state.Status,
+		&state.CurrentStep,
+		&awaitedStepsJSON,
+		&collectedDataJSON,
+		&initialRequestDataNull,
+		&finalResultNull,
+		&errorNull,
+		&workflowPlanJSON,
+		&executionMetadataJSON,
+		&executionPathJSON,
+		&state.Version,
+		&state.CreatedAt,
+		&state.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("state not found for correlation_id: %s", correlationID)
+		}
+		return nil, fmt.Errorf("failed to get state: %w", err)
+	}
+
+	// Handle nullable fields and unmarshal JSON (same as GetState)
+	if parentOrchIDNull.Valid {
+		state.ParentOrchID = parentOrchIDNull.String
+	}
+	if initialRequestDataNull.Valid {
+		state.InitialRequestData = json.RawMessage(initialRequestDataNull.String)
+	}
+	if finalResultNull.Valid {
+		state.FinalResult = json.RawMessage(finalResultNull.String)
+	}
+	if errorNull.Valid {
+		state.Error = errorNull.String
+	}
+
+	json.Unmarshal(awaitedStepsJSON, &state.AwaitedSteps)
+	json.Unmarshal(collectedDataJSON, &state.CollectedData)
+	json.Unmarshal(workflowPlanJSON, &state.WorkflowPlan)
+	json.Unmarshal(executionMetadataJSON, &state.ExecutionMetadata)
+	json.Unmarshal(executionPathJSON, &state.ExecutionPath)
+
+	return &state, nil
+}
+
+// UpdateState persists changes with optimistic locking
 func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationState) error {
-	// Ensure all JSON fields are properly initialized
+	// Ensure JSON fields are initialized
 	if state.AwaitedSteps == nil {
 		state.AwaitedSteps = []string{}
 	}
@@ -213,66 +321,44 @@ func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationS
 		state.ExecutionPath = []ExecutionRecord{}
 	}
 
-	awaitedStepsJSON, err := json.Marshal(state.AwaitedSteps)
-	if err != nil {
-		return fmt.Errorf("failed to marshal awaited_steps: %w", err)
-	}
+	// Marshal JSON fields
+	awaitedStepsJSON, _ := json.Marshal(state.AwaitedSteps)
+	collectedDataJSON, _ := json.Marshal(state.CollectedData)
+	workflowPlanJSON, _ := json.Marshal(state.WorkflowPlan)
+	executionMetadataJSON, _ := json.Marshal(state.ExecutionMetadata)
+	executionPathJSON, _ := json.Marshal(state.ExecutionPath)
 
-	collectedDataJSON, err := json.Marshal(state.CollectedData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal collected_data: %w", err)
-	}
-
-	workflowPlanJSON, err := json.Marshal(state.WorkflowPlan)
-	if err != nil {
-		return fmt.Errorf("failed to marshal workflow_plan: %w", err)
-	}
-
-	executionMetadataJSON, err := json.Marshal(state.ExecutionMetadata)
-	if err != nil {
-		return fmt.Errorf("failed to marshal execution_metadata: %w", err)
-	}
-
-	// Special handling for ExecutionPath to ensure proper time serialization
-	executionPathJSON, err := json.Marshal(state.ExecutionPath)
-	if err != nil {
-		return fmt.Errorf("failed to marshal execution_path: %w", err)
-	}
-
-	// Ensure FinalResult is valid JSON or NULL
-	var finalResultValue interface{}
+	// Handle nullable fields
+	var finalResultValue interface{} = nil
 	if state.FinalResult != nil && len(state.FinalResult) > 0 {
 		finalResultValue = state.FinalResult
-	} else {
-		finalResultValue = nil
 	}
 
-	// Ensure Error is not empty for NULL handling
-	var errorValue interface{}
+	var errorValue interface{} = nil
 	if state.Error != "" {
 		errorValue = state.Error
-	} else {
-		errorValue = nil
 	}
 
 	query := `
-        UPDATE orchestrator_state 
-        SET status = $2, 
-            current_step = $3, 
-            awaited_steps = $4::jsonb, 
-            collected_data = $5::jsonb, 
-            final_result = $6::jsonb, 
-            error = $7, 
-            workflow_plan = $8::jsonb, 
-            execution_metadata = $9::jsonb, 
-            execution_path = $10::jsonb, 
-            updated_at = $11
-        WHERE correlation_id = $1
-        AND updated_at = $12  -- Optimistic locking
-    `
+		UPDATE orchestration_states 
+		SET status = $2, 
+		    current_step = $3, 
+		    awaited_steps = $4::jsonb, 
+		    collected_data = $5::jsonb, 
+		    final_result = $6::jsonb, 
+		    error = $7, 
+		    workflow_plan = $8::jsonb, 
+		    execution_metadata = $9::jsonb, 
+		    execution_path = $10::jsonb,
+		    version = version + 1,
+		    updated_at = $11
+		WHERE orchestration_id = $1
+		  AND owner_agent_id = $12
+		  AND version = $13
+	`
 
 	result, err := r.db.ExecContext(ctx, query,
-		state.CorrelationID,
+		state.OrchestrationID,
 		state.Status,
 		state.CurrentStep,
 		awaitedStepsJSON,
@@ -283,54 +369,34 @@ func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationS
 		executionMetadataJSON,
 		executionPathJSON,
 		time.Now().UTC(),
-		state.UpdatedAt,
+		state.OwnerAgentID,
+		state.Version,
 	)
 
 	if err != nil {
-		if r.logger != nil {
-			r.logger.Error("Failed to update orchestration state",
-				zap.Error(err),
-				zap.String("correlation_id", state.CorrelationID))
-		}
+		r.logger.Error("Failed to update orchestration state",
+			zap.Error(err),
+			zap.String("orchestration_id", state.OrchestrationID))
 		return fmt.Errorf("failed to update state: %w", err)
 	}
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
-		return fmt.Errorf("state was modified by another process")
+		return fmt.Errorf("state was modified by another process (optimistic lock failure)")
 	}
+
+	// Increment version for the caller
+	state.Version++
 
 	return nil
 }
 
 // AddExecutionRecord adds a step execution to the history
 func (r *StateRepository) AddExecutionRecord(ctx context.Context, state *OrchestrationState, record ExecutionRecord) error {
-	// Ensure the ExecutionPath is initialized
 	if state.ExecutionPath == nil {
 		state.ExecutionPath = []ExecutionRecord{}
 	}
 
 	state.ExecutionPath = append(state.ExecutionPath, record)
 	return r.UpdateState(ctx, state)
-}
-
-// GetOrchestratorStateTableSchema returns the SQL for creating the state table
-func GetOrchestratorStateTableSchema() string {
-	return `
-CREATE TABLE IF NOT EXISTS orchestrator_state (
-    correlation_id UUID PRIMARY KEY,
-    status VARCHAR(50) NOT NULL,
-    current_step VARCHAR(255) NOT NULL,
-    awaited_steps JSONB DEFAULT '[]',
-    collected_data JSONB DEFAULT '{}',
-    initial_request_data JSONB,
-    final_result JSONB,
-    error TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_orchestrator_state_status ON orchestrator_state(status);
-CREATE INDEX idx_orchestrator_state_updated_at ON orchestrator_state(updated_at);
-`
 }

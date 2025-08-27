@@ -14,6 +14,7 @@ import (
 	"github.com/gqls/agentchassis/platform/governance"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
@@ -87,34 +88,42 @@ func NewSagaCoordinator(db *sql.DB, producer kafka.Producer, logger *zap.Logger)
 }
 
 // ExecuteWorkflow now stores the plan and continues execution
+// ExecuteWorkflow now properly manages orchestration_id
 func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.WorkflowPlan, headers map[string]string, initialData []byte) error {
 	correlationID := headers["correlation_id"]
 	l := s.logger.With(zap.String("correlation_id", correlationID))
 
 	l.Info("ExecuteWorkflow called",
-		zap.String("DEBUG_COOR_1: start_step", plan.StartStep),
-		zap.Int("DEBUG_COOR_1: total_steps", len(plan.Steps)))
+		zap.String("start_step", plan.StartStep),
+		zap.Int("total_steps", len(plan.Steps)))
 
 	clientID := headers["client_id"]
 	if clientID == "" {
-		l.Error("DEBUG_COOR_2: client_id header is required to execute a workflow")
+		l.Error("client_id header is required to execute a workflow")
 		return fmt.Errorf("client_id header is required to execute a workflow")
 	}
 
 	// Get or create state with the plan
-	state, err := s.getOrCreateState(ctx, correlationID, clientID, plan, initialData)
+	state, orchestrationID, err := s.getOrCreateState(ctx, correlationID, clientID, plan, initialData, headers)
 	if err != nil {
 		l.Error("Failed to get or create state", zap.Error(err))
 		return err
 	}
 
+	// CRITICAL: Set orchestration_id in headers for all subsequent operations
+	headers["orchestration_id"] = orchestrationID
+	headers["owner_agent_id"] = state.OwnerAgentID
+
 	l.Info("Workflow state retrieved",
-		zap.String("DEBUG_COOR_3: status", string(state.Status)),
-		zap.String("DEBUG_COOR_3: current_step", state.CurrentStep))
+		zap.String("orchestration_id", orchestrationID),
+		zap.String("status", string(state.Status)),
+		zap.String("current_step", state.CurrentStep))
 
 	// Check if workflow is already complete
 	if state.Status == StatusCompleted || state.Status == StatusFailed {
-		l.Info("Workflow already finished", zap.String("status", string(state.Status)))
+		l.Info("Workflow already finished",
+			zap.String("orchestration_id", orchestrationID),
+			zap.String("status", string(state.Status)))
 		return nil
 	}
 
@@ -122,242 +131,61 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 	return s.continueExecution(ctx, state, headers)
 }
 
-// continueExecution executes from the current step using the stored plan
-func (s *SagaCoordinator) continueExecution(ctx context.Context, state *OrchestrationState, headers map[string]string) error {
-	l := s.logger.With(
-		zap.String("DEBUG_COOR_4: correlation_id", state.CorrelationID),
-		zap.String("DEBUG_COOR_4: current_step", state.CurrentStep),
-	)
+// Updated getOrCreateState to return orchestrationID explicitly
+func (s *SagaCoordinator) getOrCreateState(ctx context.Context, correlationID string, clientID string, plan models.WorkflowPlan, initialData []byte, headers map[string]string) (*OrchestrationState, string, error) {
+	repo := NewStateRepository(s.db, s.logger)
 
-	l.Info("Continuing workflow execution",
-		zap.String("DEBUG_COOR_5: current_step", state.CurrentStep),
-		zap.Int("DEBUG_COOR_5: total_steps", len(state.WorkflowPlan.Steps)))
-
-	// Get current step from the stored plan
-	currentStepConfig, exists := state.WorkflowPlan.Steps[state.CurrentStep]
-	if !exists {
-		errorMsg := fmt.Sprintf("step '%s' not found in plan", state.CurrentStep)
-		l.Error("Step not found", zap.String("missing_step", state.CurrentStep))
-		return s.failWorkflow(ctx, state, errorMsg)
+	// Check if we already have an orchestration_id in headers
+	if orchestrationID := headers["orchestration_id"]; orchestrationID != "" {
+		// Try to get by orchestration ID first
+		state, err := repo.GetState(ctx, orchestrationID)
+		if err == nil {
+			return state, orchestrationID, nil
+		}
+		s.logger.Warn("orchestration_id in headers but state not found, creating new",
+			zap.String("orchestration_id", orchestrationID),
+			zap.Error(err))
 	}
 
-	l.Info("Executing step",
-		zap.String("DEBUG_COOR_6: step", state.CurrentStep),
-		zap.Any("DEBUG_COOR_6: currentStepConfig", currentStepConfig),
-		zap.String("DEBUG_COOR_6: action", currentStepConfig.Action),
-		zap.String("DEBUG_COOR_6: description", currentStepConfig.Description))
-
-	// Record execution start
-	execRecord := ExecutionRecord{
-		Step:      state.CurrentStep,
-		Action:    currentStepConfig.Action,
-		StartTime: time.Now().UTC(),
+	// Try to get by correlation ID
+	state, err := repo.GetStateByCorrelation(ctx, correlationID)
+	if err == nil {
+		// Found existing state
+		return state, state.OrchestrationID, nil
 	}
 
-	// Check dependencies
-	if !s.dependenciesMet(currentStepConfig.Dependencies, state) {
-		l.Info("Dependencies not met, waiting", zap.Strings("dependencies", currentStepConfig.Dependencies))
-		execRecord.Result = "skipped"
-		execRecord.Error = "dependencies not met"
-		s.recordExecution(ctx, state, execRecord)
-		return nil
+	// Create new orchestration
+	orchestrationID := uuid.New().String()
+	ownerAgentID := headers["agent_id"]
+	if ownerAgentID == "" {
+		ownerAgentID = os.Getenv("AGENT_ID")
+		if ownerAgentID == "" {
+			ownerAgentID = "00000000-0000-0000-0000-000000000001"
+		}
 	}
 
-	// Check fuel budget
-	fuel, err := governance.GetFuelFromHeader(headers)
+	parentOrchID := headers["parent_orch_id"]
+	if parentOrchID == "" {
+		parentOrchID = headers["parent_orchestration_id"]
+	}
+
+	if err := repo.CreateInitialState(ctx, orchestrationID, correlationID, ownerAgentID, parentOrchID, clientID, plan, initialData); err != nil {
+		return nil, "", err
+	}
+
+	// Get the created state
+	state, err = repo.GetState(ctx, orchestrationID)
 	if err != nil {
-		l.Error("Failed to get fuel from headers", zap.Error(err))
-		return s.failWorkflow(ctx, state, fmt.Sprintf("failed to get fuel from headers: %v", err))
+		return nil, "", err
 	}
 
-	if !s.fuelManager.HasEnoughFuel(fuel, currentStepConfig.Action) {
-		execRecord.Result = "failed"
-		execRecord.Error = fmt.Sprintf("insufficient fuel: have %d, need %d",
-			fuel, s.fuelManager.GetCost(currentStepConfig.Action))
-		s.recordExecution(ctx, state, execRecord)
-		return s.failWorkflow(ctx, state, execRecord.Error)
-	}
-
-	// Deduct fuel
-	remainingFuel := s.fuelManager.DeductFuel(fuel, currentStepConfig.Action)
-	governance.SetFuelHeader(headers, remainingFuel)
-	l.Info("Fuel deducted", zap.Int("remaining_fuel", remainingFuel))
-
-	l.Info("Determining action type",
-		zap.String("DEBUG_COOR_7: action", currentStepConfig.Action),
-		zap.Bool("DEBUG_COOR_7: is_local", isLocalAction(currentStepConfig.Action)),
-		zap.String("DEBUG_COOR_7: topic", currentStepConfig.Topic))
-
-	// Execute based on action type
-	var execErr error
-	switch {
-	case currentStepConfig.Action == "complete_workflow":
-		l.Info("Completing workflow")
-		// Execute the action first (which handles parent notification)
-		_, err := s.executeLocalAction(ctx, state, currentStepConfig, headers)
-		if err != nil {
-			execErr = err
-		} else {
-			// Then complete the workflow
-			execErr = s.completeWorkflow(ctx, state)
-		}
-
-	case currentStepConfig.Action == "call_agent":
-		// SPECIAL HANDLING: call_agent sends message and waits for response
-		l.Info("Executing call_agent with wait-for-response")
-
-		l.Info("currentStepConfig.Action is call_agent",
-			zap.Any("DEBUG_COOR_8: headers", headers),
-			zap.Bool("DEBUG_COOR_8: is_local", isLocalAction(currentStepConfig.Action)),
-			zap.Any("DEBUG_COOR_8: currentStepConfig", currentStepConfig),
-			zap.Any("DEBUG_COOR_8: state", state),
-			zap.String("DEBUG_COOR_8: topic", currentStepConfig.Topic))
-
-		// Execute the action to send the message
-		result, err := s.executeLocalAction(ctx, state, currentStepConfig, headers)
-		if err != nil {
-			execErr = err
-		} else if resultMap, ok := result.(map[string]interface{}); ok {
-			// Check if message was sent successfully
-			if messageSent, ok := resultMap["message_sent"].(bool); ok && messageSent {
-				requestID := resultMap["request_id"].(string)
-
-				// Update state to wait for response
-				state.Status = StatusAwaitingResponses
-				state.AwaitedSteps = []string{requestID}
-				// Don't update CurrentStep yet - we'll do that when response arrives
-
-				repo := NewStateRepository(s.db, s.logger)
-				if err := repo.UpdateState(ctx, state); err != nil {
-					execErr = fmt.Errorf("failed to update state for waiting: %w", err)
-				} else {
-					l.Info("Waiting for agent response",
-						zap.String("DEBUG_COOR_9: request_id", requestID),
-						zap.String("DEBUG_COOR_9: agent_called", fmt.Sprintf("%v", resultMap["agent_called"])),
-						zap.String("DEBUG_COOR_9: topic", fmt.Sprintf("%v", resultMap["topic"])),
-						zap.String("DEBUG_COOR_9: next_step", currentStepConfig.NextStep))
-
-					// Set up timeout goroutine
-					timeout := 60 * time.Second // Default timeout
-					if currentStepConfig.Timeout > 0 {
-						timeout = currentStepConfig.Timeout
-					}
-
-					go s.handleTimeout(ctx, state.CorrelationID, requestID, timeout)
-
-					return nil // Exit and wait for response
-				}
-			} else {
-				execErr = fmt.Errorf("call_agent did not send message successfully")
-			}
-		} else {
-			execErr = fmt.Errorf("unexpected result type from call_agent")
-		}
-
-		// In continueExecution method, add this case:
-	case currentStepConfig.Action == "start_orchestration":
-		l.Info("Executing start_orchestration with wait-for-response")
-
-		// Execute the action to create the child orchestration
-		result, err := s.executeLocalAction(ctx, state, currentStepConfig, headers)
-		if err != nil {
-			execErr = err
-		} else if resultMap, ok := result.(map[string]interface{}); ok {
-			// Check if we need to wait for the child orchestration
-			if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
-				if requestID, ok := resultMap["new_correlation_id"].(string); ok {
-					// Store that we've already executed this step
-					state.CollectedData[state.CurrentStep] = result
-
-					// Update state to wait for child orchestration
-					state.Status = StatusAwaitingResponses
-					state.AwaitedSteps = []string{requestID}
-
-					// Mark this step as completed in metadata
-					state.ExecutionMetadata.Checkpoints[state.CurrentStep] = time.Now().UTC()
-
-					repo := NewStateRepository(s.db, s.logger)
-					if err := repo.UpdateState(ctx, state); err != nil {
-						execErr = fmt.Errorf("failed to update state for waiting: %w", err)
-					} else {
-						l.Info("Waiting for child orchestration",
-							zap.String("DEBUG_COOR_10: child_correlation_id", requestID),
-							zap.String("DEBUG_COOR_10: next_step", currentStepConfig.NextStep))
-
-						// Set up timeout for child orchestration
-						timeout := 5 * time.Minute
-						if currentStepConfig.Timeout > 0 {
-							timeout = currentStepConfig.Timeout
-						}
-						go s.handleChildOrchestrationTimeout(ctx, state.CorrelationID, requestID, timeout)
-
-						return nil // Exit and wait for child to complete
-					}
-				}
-			}
-		}
-		// If we get here, there was an error or await_response wasn't true
-		if execErr != nil {
-			execRecord.Result = "failed"
-			execRecord.Error = execErr.Error()
-		}
-
-	case currentStepConfig.Action == "fan_out":
-		l.Info("Handling fan-out")
-		execErr = s.handleFanOut(ctx, headers, currentStepConfig, state)
-	case currentStepConfig.Action == "pause_for_human_input":
-		l.Info("Pausing for human input")
-		execErr = s.handlePauseForHumanInput(ctx, headers, currentStepConfig, state)
-	case isLocalAction(currentStepConfig.Action):
-		l.Info("Executing local action.", zap.String("action", currentStepConfig.Action))
-		_, err := s.executeLocalAction(ctx, state, currentStepConfig, headers)
-		if err != nil {
-			execErr = err
-		} else {
-			// For non-call_agent local actions, continue to next step
-			if currentStepConfig.NextStep != "" {
-				l.Info("Moving to next step", zap.String("next_step", currentStepConfig.NextStep))
-				state.CurrentStep = currentStepConfig.NextStep
-
-				repo := NewStateRepository(s.db, s.logger)
-				if err := repo.UpdateState(ctx, state); err != nil {
-					execErr = fmt.Errorf("failed to update state: %w", err)
-				} else {
-					// Continue execution immediately for local actions
-					return s.continueExecution(ctx, state, headers)
-				}
-			}
-		}
-	case currentStepConfig.Topic != "":
-		l.Info("Executing remote action", zap.String("topic", currentStepConfig.Topic))
-		execErr = s.executeRemoteAction(ctx, state, currentStepConfig, headers)
-	default:
-		errorMsg := fmt.Sprintf("unknown action: %s", currentStepConfig.Action)
-		l.Error("Unknown action", zap.String("action", currentStepConfig.Action))
-		execErr = fmt.Errorf(errorMsg)
-	}
-
-	// Record execution result
-	endTime := time.Now().UTC()
-	execRecord.EndTime = &endTime
-	if execErr != nil {
-		execRecord.Result = "failed"
-		execRecord.Error = execErr.Error()
-		l.Error("Step execution failed",
-			zap.String("DEBUG_COOR_10: step", state.CurrentStep),
-			zap.Error(execErr))
-	} else {
-		execRecord.Result = "success"
-		l.Info("Step execution succeeded", zap.String("step", state.CurrentStep))
-	}
-	s.recordExecution(ctx, state, execRecord)
-
-	return execErr
+	return state, orchestrationID, nil
 }
 
 // executeLocalAction handles actions that run within the orchestrator
 func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *OrchestrationState, step models.Step, headers map[string]string) (interface{}, error) {
 	l := s.logger.With(
+		zap.String("DEBUG_COOR_11: orchestration_id", state.OrchestrationID), // Add this
 		zap.String("DEBUG_COOR_11: correlation_id", state.CorrelationID),
 		zap.String("DEBUG_COOR_11: action", step.Action),
 	)
@@ -373,10 +201,16 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		actionHeaders[k] = v
 	}
 
+	// CRITICAL: Ensure orchestration_id is always present
+	actionHeaders["orchestration_id"] = state.OrchestrationID
+	actionHeaders["correlation_id"] = state.CorrelationID
+	actionHeaders["client_id"] = state.ClientID
+
 	// Log with virtual topic for consistency
 	virtualTopic := fmt.Sprintf("local.action.%s", step.Action)
 	l.Info("Executing local action",
-		zap.String("DEBUG_COOR_12: virtual_topic", virtualTopic))
+		zap.String("DEBUG_COOR_12: virtual_topic", virtualTopic),
+		zap.String("DEBUG_COOR_12: orchestration_id", state.OrchestrationID))
 
 	// Verify producer is available
 	if s.producer == nil {
@@ -384,25 +218,32 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return nil, fmt.Errorf("producer not available for action execution")
 	}
 
-	// For call_agent actions, ensure proper correlation context
+	// For call_agent actions, ensure proper context
 	if step.Action == "call_agent" {
-		// The agent being called should use THIS orchestration's correlation_id
-		// NOT the grandparent's
+		// The agent being called needs the current orchestration context
+		actionHeaders["orchestration_id"] = state.OrchestrationID
 		actionHeaders["correlation_id"] = state.CorrelationID
 
-		// Remove parent_correlation_id from headers going to sub-agents
-		// They don't need to know about the grandparent
-		delete(actionHeaders, "parent_correlation_id")
+		// Set reply information so responses come back correctly
+		actionHeaders["reply_to_topic"] = fmt.Sprintf("system.agent.%s.responses", headers["agent_type"])
+		actionHeaders["from_agent_id"] = state.OwnerAgentID
+		actionHeaders["from_agent_type"] = headers["agent_type"]
 
-		l.Info("Adjusted headers for call_agent",
-			zap.String("DEBUG_COOR_12: correlation_id", actionHeaders["correlation_id"]),
-			zap.String("DEBUG_COOR_12: original_parent_correlation_id", headers["parent_correlation_id"]))
+		l.Info("Prepared headers for call_agent",
+			zap.String("DEBUG_COOR_14: orchestration_id", actionHeaders["orchestration_id"]),
+			zap.String("DEBUG_COOR_14: correlation_id", actionHeaders["correlation_id"]))
 	}
 
 	// For start_orchestration, ensure it knows its parent
 	if step.Action == "start_orchestration" {
 		// The child orchestration needs to know THIS orchestration is its parent
+		actionHeaders["parent_orchestration_id"] = state.OrchestrationID // THIS is critical
 		actionHeaders["parent_correlation_id"] = state.CorrelationID
+		actionHeaders["parent_agent_type"] = headers["agent_type"]
+
+		l.Info("Prepared headers for start_orchestration",
+			zap.String("DEBUG_COOR_15: parent_orchestration_id", state.OrchestrationID),
+			zap.String("DEBUG_COOR_15: parent_correlation_id", state.CorrelationID))
 	}
 
 	// Prepare action parameters
@@ -420,13 +261,8 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		CurrentStep:     state.CurrentStep,
 	}
 
-	params.Logger.Info("in execute local action",
-		zap.Any("headers", actionHeaders),
-		zap.Any("agent config", state.CollectedData["agent_config"]))
-
 	// If agent_type is not in headers, try to get it from other sources
 	if params.AgentType == "" {
-		// Try to get from collected data or state
 		if agentConfig, ok := state.CollectedData["agent_config"].(map[string]interface{}); ok {
 			if at, ok := agentConfig["agent_type"].(string); ok {
 				params.AgentType = at
@@ -435,10 +271,10 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		}
 	}
 
-	// Log what we're passing
 	l.Info("Executing local action with params",
-		zap.String("DEBUG_COOR_14: agent_type", params.AgentType),
-		zap.String("DEBUG_COOR_14: aaction", step.Action))
+		zap.String("DEBUG_COOR_16: agent_type", params.AgentType),
+		zap.String("DEBUG_COOR_16: action", step.Action),
+		zap.String("DEBUG_COOR_16: orchestration_id", state.OrchestrationID))
 
 	// Execute the action
 	result, err := handler(ctx, params)
@@ -447,17 +283,14 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return nil, fmt.Errorf("local action failed: %w", err)
 	}
 
-	l.Info("Local action completed successfully", zap.Any("result", result))
-
 	// CHECK FOR AWAIT_RESPONSE FLAG
 	if resultMap, ok := result.(map[string]interface{}); ok {
 		if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
-
 			var requestID string
 
 			// Check for different ID fields based on action type
 			if step.Action == "start_orchestration" {
-				// For start_orchestration, use new_correlation_id
+				// For start_orchestration, we wait for the child's correlation_id
 				if id, ok := resultMap["new_correlation_id"].(string); ok {
 					requestID = id
 				}
@@ -468,9 +301,9 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 			if requestID != "" {
 				l.Info("Local action requires waiting for response",
-					zap.String("DEBUG_COOR_15: arequest_id", requestID),
-					zap.String("DEBUG_COOR_15: action", step.Action),
-					zap.Bool("DEBUG_COOR_15: await_response", true))
+					zap.String("DEBUG_COOR_17: request_id", requestID),
+					zap.String("DEBUG_COOR_17: action", step.Action),
+					zap.String("DEBUG_COOR_17: orchestration_id", state.OrchestrationID))
 
 				// Store result first
 				if state.CurrentStep != "" {
@@ -492,26 +325,20 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 					return result, fmt.Errorf("failed to update state for waiting: %w", err)
 				}
 
-				l.Info("Action requires waiting for response",
-					zap.String("DEBUG_COOR_16: request_id", requestID),
-					zap.String("DEBUG_COOR_16: action", step.Action))
-
-				// Set up timeout for child orchestration if needed
+				// Set up timeout if needed
 				if step.Action == "start_orchestration" {
 					timeout := 5 * time.Minute
 					if step.Timeout > 0 {
 						timeout = step.Timeout
 					}
-					go s.handleChildOrchestrationTimeout(ctx, state.CorrelationID, requestID, timeout)
+					// Pass the current orchestration_id, not correlation_id
+					go s.handleChildOrchestrationTimeout(ctx, state.OrchestrationID, requestID, timeout)
 				}
 
-				// Don't continue execution - wait for a response
 				return result, nil
 			}
 		}
 	}
-
-	l.Info("Local action completed successfully", zap.Any("result", result))
 
 	// Store result
 	if state.CurrentStep != "" {
@@ -526,22 +353,19 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 	// Move to next step
 	if step.NextStep != "" {
-		l.Info("Moving to next step", zap.String("next_step", step.NextStep))
+		l.Info("Moving to next step",
+			zap.String("next_step", step.NextStep),
+			zap.String("orchestration_id", state.OrchestrationID))
+
 		state.CurrentStep = step.NextStep
 
-		// Update state
 		repo := NewStateRepository(s.db, s.logger)
 		if err := repo.UpdateState(ctx, state); err != nil {
 			return result, fmt.Errorf("failed to update state: %w", err)
 		}
 
-		l.Info("Local action completed, continuing workflow",
-			zap.String("DEBUG_COOR_17: next_step", step.NextStep))
-
-		// Continue execution with the ADJUSTED headers
+		// Continue execution with properly set headers
 		return result, s.continueExecution(ctx, state, actionHeaders)
-	} else {
-		l.Info("DEBUG_COOR_18: No next step specified, workflow may be complete")
 	}
 
 	return result, nil
@@ -551,6 +375,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *OrchestrationState, step models.Step, headers map[string]string) error {
 	l := s.logger.With(
 		zap.String("DEBUG_COOR_19: correlation_id", state.CorrelationID),
+		zap.String("DEBUG_COOR_19: orchestration_id", state.OrchestrationID),
 		zap.String("DEBUG_COOR_19: action", step.Action),
 		zap.String("DEBUG_COOR_19: topic", step.Topic),
 	)
@@ -569,11 +394,22 @@ func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *Orches
 		outHeaders[k] = v
 	}
 	outHeaders["causation_id"] = headers["request_id"]
+	outHeaders["in_response_to"] = headers["request_id"]
+	outHeaders["correlation_id"] = state.CorrelationID
+	outHeaders["orchestration_id"] = state.OrchestrationID
 	outHeaders["request_id"] = newRequestID
+	outHeaders["client_id"] = state.ClientID
+
+	// Add response routing information
+	outHeaders["reply_to_topic"] = fmt.Sprintf("system.agent.%s.responses", headers["agent_type"])
+	outHeaders["from_agent_id"] = state.OwnerAgentID
+	outHeaders["from_agent_type"] = headers["agent_type"]
 
 	l.Info("Sending remote action",
 		zap.String("DEBUG_COOR_20: request_id", newRequestID),
-		zap.String("DEBUG_COOR_20: topic", step.Topic))
+		zap.String("DEBUG_COOR_20: topic", step.Topic),
+		zap.String("DEBUG_COOR_20: orchestration_id", state.OrchestrationID),
+		zap.String("DEBUG_COOR_20: correlation_id", state.CorrelationID))
 
 	// Send the message
 	if err := s.producer.Produce(ctx, step.Topic, outHeaders,
@@ -592,17 +428,18 @@ func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *Orches
 	}
 
 	l.Info("Remote action initiated",
-		zap.String("DEBUG_COOR_21: request_id", newRequestID))
+		zap.String("DEBUG_COOR_21: request_id", newRequestID),
+		zap.String("DEBUG_COOR_21: orchestration_id", state.OrchestrationID))
 
 	return nil
 }
 
-// Rest of the methods remain the same but with enhanced logging...
-// (I'll include key ones with logging enhancements)
-
 // completeWorkflow marks the workflow as completed with enhanced tracking
 func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *OrchestrationState) error {
-	l := s.logger.With(zap.String("correlation_id", state.CorrelationID))
+	l := s.logger.With(
+		zap.String("correlation_id", state.CorrelationID),
+		zap.String("orchestration_id", state.OrchestrationID),
+	)
 
 	l.Info("Completing workflow",
 		zap.Int("DEBUG_COOR_22: completed_steps", state.ExecutionMetadata.CompletedSteps),
@@ -626,39 +463,121 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 		l.Info("Workflow completed successfully")
 	}
 
-	// Check if this is a child orchestration and notify parent
-	if parentCorrelationID := state.CollectedData["parent_correlation_id"]; parentCorrelationID != nil {
-		if parentID, ok := parentCorrelationID.(string); ok && parentID != "" {
-			l.Info("This is a child orchestration, checking for parent notification",
-				zap.String("DEBUG_COOR_23: parent_correlation_id", parentID))
+	// Check if this is a child orchestration by looking at ParentOrchID
+	if state.ParentOrchID != "" {
+		l.Info("This is a child orchestration, notifying parent",
+			zap.String("DEBUG_COOR_23: parent_orchestration_id", state.ParentOrchID),
+			zap.String("DEBUG_COOR_23: child_orchestration_id", state.OrchestrationID))
 
-			// Determine parent's response topic
-			parentResponseTopic := ""
+		// Get parent's state to find its correlation ID and agent type
+		parentRepo := NewStateRepository(s.db, s.logger)
+		parentState, err := parentRepo.GetState(ctx, state.ParentOrchID)
+		if err != nil {
+			l.Error("Failed to get parent state for notification",
+				zap.String("DEBUG_COOR_24: parent_orchestration_id", state.ParentOrchID),
+				zap.Error(err))
+			return nil // Don't fail the child completion
+		}
 
-			// First check for parent_agent_type in collected data
-			if parentAgentType, ok := state.CollectedData["parent_agent_type"].(string); ok && parentAgentType != "" {
-				parentResponseTopic = fmt.Sprintf("system.agent.%s.responses", parentAgentType)
-				l.Info("Using parent agent's response topic",
-					zap.String("DEBUG_COOR_24: parent_agent_type", parentAgentType),
-					zap.String("DEBUG_COOR_24: parent_response_topic", parentResponseTopic))
-			} else if replyTopic, ok := state.CollectedData["reply_to_topic"].(string); ok && replyTopic != "" {
-				// Check if we have a reply_to_topic stored
-				parentResponseTopic = replyTopic
-				l.Info("Using stored reply_to_topic",
-					zap.String("DEBUG_COOR_25: parent_response_topic2", parentResponseTopic))
-			} else {
-				// Fallback for backward compatibility
-				parentResponseTopic = "system.agent.generic.responses"
-				l.Warn("DEBUG_COOR_26: No parent agent type or reply topic found, using legacy topic")
-			}
+		// Determine parent's response topic
+		parentResponseTopic := "system.agent.generic.responses" // Default
 
-			// Prepare the completion notification
-			parentResponse := models.TaskResponse{
-				Success: true,
+		// Try to get parent's agent type from its state
+		if parentAgentType, ok := parentState.CollectedData["agent_type"].(string); ok {
+			parentResponseTopic = fmt.Sprintf("system.agent.%s.responses", parentAgentType)
+		}
+
+		// Prepare the completion notification
+		parentResponse := models.TaskResponse{
+			Success: true,
+			Data: map[string]interface{}{
+				"status":         "completed",
+				"correlation_id": state.CorrelationID, // Child's correlation
+				"final_result":   state.CollectedData,
+				"execution_stats": map[string]interface{}{
+					"completed_steps": state.ExecutionMetadata.CompletedSteps,
+					"total_steps":     state.ExecutionMetadata.TotalSteps,
+					"duration_ms":     now.Sub(state.ExecutionMetadata.StartTime).Milliseconds(),
+				},
+			},
+		}
+
+		responseBytes, _ := json.Marshal(parentResponse)
+
+		// Create headers for the response - THIS IS THE KEY PART
+		responseHeaders := map[string]string{
+			"orchestration_id": state.ParentOrchID,        // Parent's orchestration ID
+			"correlation_id":   parentState.CorrelationID, // Parent's correlation ID
+			"in_response_to":   state.CorrelationID,       // What we're responding to (child's correlation)
+			"causation_id":     state.CorrelationID,       // For backward compatibility
+			"message_type":     "response",
+			"from_agent_id":    state.OwnerAgentID,
+			"client_id":        state.ClientID,
+		}
+
+		l.Info("Sending completion notification to parent",
+			zap.String("DEBUG_COOR_25: parent_orchestration_id", state.ParentOrchID),
+			zap.String("DEBUG_COOR_25: parent_correlation_id", parentState.CorrelationID),
+			zap.String("DEBUG_COOR_25: topic", parentResponseTopic))
+
+		// Send to parent's response topic
+		err = s.producer.Produce(ctx,
+			parentResponseTopic,
+			responseHeaders,
+			[]byte(parentState.CorrelationID),
+			responseBytes)
+
+		if err != nil {
+			l.Error("Failed to notify parent orchestration", zap.Error(err))
+		} else {
+			l.Info("Parent orchestration notified of completion")
+		}
+	}
+
+	return nil
+}
+
+// failWorkflow marks the workflow as failed
+func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *OrchestrationState, errorMsg string) error {
+	l := s.logger.With(
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.String("correlation_id", state.CorrelationID))
+
+	l.Error("Failing workflow",
+		zap.String("error", errorMsg),
+		zap.String("orchestration_id", state.OrchestrationID))
+
+	state.Status = StatusFailed
+	state.Error = errorMsg
+
+	// Set end time for metadata
+	now := time.Now().UTC()
+	state.ExecutionMetadata.EndTime = &now
+
+	repo := NewStateRepository(s.db, s.logger)
+	if err := repo.UpdateState(ctx, state); err != nil {
+		l.Error("Failed to update state to failed",
+			zap.Error(err),
+			zap.String("orchestration_id", state.OrchestrationID))
+		return fmt.Errorf("failed to update state to failed: %w", err)
+	}
+
+	// If this is a child orchestration, notify parent of failure
+	if state.ParentOrchID != "" {
+		l.Info("Notifying parent of child failure",
+			zap.String("parent_orchestration_id", state.ParentOrchID))
+
+		// Get parent's state to find its correlation ID
+		parentState, err := repo.GetState(ctx, state.ParentOrchID)
+		if err == nil && parentState != nil {
+			// Prepare failure notification
+			failureResponse := models.TaskResponse{
+				Success: false,
+				Error:   errorMsg,
 				Data: map[string]interface{}{
-					"status":         "completed",
+					"status":         "failed",
 					"correlation_id": state.CorrelationID,
-					"final_result":   state.CollectedData,
+					"error":          errorMsg,
 					"execution_stats": map[string]interface{}{
 						"completed_steps": state.ExecutionMetadata.CompletedSteps,
 						"total_steps":     state.ExecutionMetadata.TotalSteps,
@@ -667,86 +586,38 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 				},
 			}
 
-			responseBytes, _ := json.Marshal(parentResponse)
+			responseBytes, _ := json.Marshal(failureResponse)
 
-			// Create headers for the response
+			// Create headers with proper orchestration context
 			responseHeaders := map[string]string{
-				"correlation_id": parentID,            // Parent's correlation
-				"causation_id":   state.CorrelationID, // Child's correlation as causation
-				"message_type":   "orchestration_complete",
-				"from_agent_id":  os.Getenv("AGENT_ID"), // This agent
+				"orchestration_id": state.ParentOrchID,        // Parent's orchestration ID
+				"correlation_id":   parentState.CorrelationID, // Parent's correlation ID
+				"in_response_to":   state.CorrelationID,       // Child's correlation
+				"causation_id":     state.CorrelationID,       // For backward compatibility
+				"message_type":     "response",
+				"from_agent_id":    state.OwnerAgentID,
+				"client_id":        state.ClientID,
 			}
 
-			// Include parent correlation for tracing
-			if parentID != "" {
-				responseHeaders["parent_correlation_id"] = parentID
+			// Determine parent's response topic
+			parentResponseTopic := "system.agent.generic.responses"
+			if parentAgentType, ok := parentState.CollectedData["agent_type"].(string); ok {
+				parentResponseTopic = fmt.Sprintf("system.agent.%s.responses", parentAgentType)
 			}
 
-			l.Info("Notifying parent orchestration of completion",
-				zap.String("DEBUG_COOR_27: parent_correlation_id", parentID),
-				zap.String("DEBUG_COOR_27: parent_response_topic3", parentResponseTopic),
-				zap.String("DEBUG_COOR_27: from_agent", responseHeaders["from_agent_id"]))
-
-			// Send to parent's response topic
-			err := s.producer.Produce(ctx,
+			// Send failure notification to parent
+			if err := s.producer.Produce(ctx,
 				parentResponseTopic,
 				responseHeaders,
-				[]byte(parentID),
-				responseBytes)
-
-			if err != nil {
-				l.Error("Failed to notify parent orchestration",
-					zap.Error(err),
-					zap.String("DEBUG_COOR_28: topic", parentResponseTopic))
-				// Don't fail the child completion, just log the error
+				[]byte(parentState.CorrelationID),
+				responseBytes); err != nil {
+				l.Error("Failed to notify parent of child failure", zap.Error(err))
 			} else {
-				l.Info("Parent orchestration notified of completion",
-					zap.String("DEBUG_COOR_29: topic", parentResponseTopic))
+				l.Info("Parent notified of child failure")
 			}
 		}
 	}
 
-	l.Info("Workflow completed and all notifications sent")
-	return nil
-}
-
-// getOrCreateState retrieves existing state or creates new one - now includes the plan
-func (s *SagaCoordinator) getOrCreateState(ctx context.Context, correlationID string, clientID string, plan models.WorkflowPlan, initialData []byte) (*OrchestrationState, error) {
-	l := s.logger.With(zap.String("correlation_id", correlationID))
-
-	repo := NewStateRepository(s.db, s.logger)
-
-	state, err := repo.GetState(ctx, correlationID)
-	if err != nil {
-		l.Info("DEBUG_COOR_30: State doesn't exist, creating new one")
-		// State doesn't exist, create it with the plan
-		if err := repo.CreateInitialState(ctx, correlationID, clientID, plan, initialData); err != nil {
-			l.Error("DEBUG_COOR_30: Failed to create initial state", zap.Error(err))
-			return nil, fmt.Errorf("failed to create initial state: %w", err)
-		}
-		return repo.GetState(ctx, correlationID)
-	}
-
-	l.Info("Retrieved existing state", zap.String("status", string(state.Status)))
-	return state, nil
-}
-
-// failWorkflow marks the workflow as failed
-func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *OrchestrationState, errorMsg string) error {
-	l := s.logger.With(zap.String("correlation_id", state.CorrelationID))
-
-	l.Error("DEBUG_COOR_31: Failing workflow", zap.String("error", errorMsg))
-
-	state.Status = StatusFailed
-	state.Error = errorMsg
-
-	repo := NewStateRepository(s.db, s.logger)
-	if err := repo.UpdateState(ctx, state); err != nil {
-		l.Error("DEBUG_COOR_31: Failed to update state to failed", zap.Error(err))
-		return fmt.Errorf("failed to update state to failed: %w", err)
-	}
-
-	// IMPORTANT: Return the error message as an error
 	return fmt.Errorf(errorMsg)
 }
 
@@ -787,144 +658,241 @@ func (s *SagaCoordinator) recordExecution(ctx context.Context, state *Orchestrat
 
 // HandleResponse processes responses and continues workflow
 func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string]string, response []byte) error {
+	s.logger.Info("DEBUG_COOR_50: HandleResponse called",
+		zap.Any("DEBUG_COOR_50: headers", headers),
+	)
 
-	correlationID := headers["correlation_id"]
-	causationID := headers["causation_id"]
+	// Try to use ExecutionContext, but handle backward compatibility
+	var orchestrationID, correlationID, inResponseTo string
+	var execCtx *types.ExecutionContext
 
-	// Check if this is a response FROM a child orchestration
-	if parentCorrelationID := headers["parent_correlation_id"]; parentCorrelationID != "" {
-		// Check if the response is from a completed child orchestration
-		var taskResponse models.TaskResponse
-		if err := json.Unmarshal(response, &taskResponse); err == nil {
-			// Check if this is a final result from child orchestration
-			if status, ok := taskResponse.Data["status"].(string); ok && status == "completed" {
-				s.logger.Info("Received completion from child orchestration",
-					zap.String("DEBUG_COOR_33: child_correlation_id", correlationID),
-					zap.String("DEBUG_COOR_33: parent_correlation_id", parentCorrelationID))
+	execCtx, err := types.ExecutionContextFromHeaders(headers)
+	if err != nil {
+		// Fallback for backward compatibility
+		s.logger.Warn("Failed to parse ExecutionContext, using fallback",
+			zap.Error(err))
 
-				// Update the PARENT orchestration
-				repo := NewStateRepository(s.db, s.logger)
-				parentState, err := repo.GetState(ctx, parentCorrelationID)
-				if err != nil {
-					s.logger.Error("Failed to get parent state",
-						zap.String("DEBUG_COOR_34: parent_correlation_id", parentCorrelationID),
-						zap.Error(err))
-					// Continue with normal processing
-				} else {
-					// Store child result in parent's collected data
-					if parentState.CollectedData == nil {
-						parentState.CollectedData = make(map[string]interface{})
-					}
+		orchestrationID = headers["orchestration_id"]
+		correlationID = headers["correlation_id"]
+		inResponseTo = headers["causation_id"]
 
-					// Store under the step that started this child orchestration
-					parentState.CollectedData["child_orchestration_result"] = taskResponse.Data
-
-					// Continue parent workflow if needed
-					if len(parentState.AwaitedSteps) == 0 {
-						parentState.Status = StatusRunning
-						if currentStep := parentState.WorkflowPlan.Steps[parentState.CurrentStep]; currentStep.NextStep != "" {
-							parentState.CurrentStep = currentStep.NextStep
-						}
-
-						if err := repo.UpdateState(ctx, parentState); err == nil {
-							// Continue parent execution
-							return s.continueExecution(ctx, parentState, headers)
-						}
-					}
-				}
-			}
+		if correlationID == "" {
+			return fmt.Errorf("missing correlation_id in headers")
+		}
+	} else {
+		orchestrationID = execCtx.OrchestrationID
+		correlationID = execCtx.CorrelationID
+		inResponseTo = execCtx.InResponseTo
+		if inResponseTo == "" {
+			inResponseTo = headers["causation_id"]
 		}
 	}
 
 	l := s.logger.With(
-		zap.String("DEBUG_COOR_35: correlation_id", correlationID),
-		zap.String("DEBUG_COOR_35: causation_id", causationID),
+		zap.String("orchestration_id", orchestrationID),
+		zap.String("correlation_id", correlationID),
+		zap.String("in_response_to", inResponseTo),
 	)
 
-	l.Info("Handling workflow response")
-
+	// Get state - try orchestration_id first, then correlation_id
 	repo := NewStateRepository(s.db, s.logger)
-	state, err := repo.GetState(ctx, correlationID)
-	if err != nil {
-		l.Error("Failed to get state for response", zap.Error(err))
-		return fmt.Errorf("DEBUG_COOR_36: failed to get state: %w", err)
+	var state *OrchestrationState
+
+	if orchestrationID != "" {
+		state, err = repo.GetState(ctx, orchestrationID)
 	}
 
-	// Parse response
+	if state == nil && correlationID != "" {
+		state, err = repo.GetStateByCorrelation(ctx, correlationID)
+		if state != nil && orchestrationID == "" {
+			orchestrationID = state.OrchestrationID
+		}
+	}
+
+	if state == nil {
+		return fmt.Errorf("no state found for orchestration_id=%s, correlation_id=%s",
+			orchestrationID, correlationID)
+	}
+
+	// Parse the response
 	var taskResponse models.TaskResponse
 	if err := json.Unmarshal(response, &taskResponse); err != nil {
-		l.Error("Failed to unmarshal response", zap.Error(err))
+		l.Error("DEBUG_COOR_52: Failed to unmarshal response", zap.Error(err))
 		return fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	l.Info("Response parsed successfully", zap.Any("response_data", taskResponse.Data))
+	l.Info("Response parsed",
+		zap.Bool("DEBUG_COOR_53: success", taskResponse.Success),
+		zap.Any("DEBUG_COOR_53: data_keys", getMapKeys(taskResponse.Data)))
 
-	// Store response data under the causation_id (request_id)
-	state.CollectedData[causationID] = taskResponse.Data
+	// Update pending_requests table if we're tracking requests
+	if inResponseTo != "" {
+		if err := s.completeRequest(ctx, inResponseTo); err != nil {
+			l.Warn("Failed to complete request tracking",
+				zap.String("DEBUG_COOR_54: request_id", inResponseTo),
+				zap.Error(err))
+		}
+	}
 
-	// Also store under the current step name if available
-	if state.CurrentStep != "" {
-		// For call_agent responses, we want to store the actual result
-		state.CollectedData[state.CurrentStep] = taskResponse.Data
+	// Store response data
+	if state.CollectedData == nil {
+		state.CollectedData = make(map[string]interface{})
+	}
+
+	// Store response under the request ID we're responding to
+	if inResponseTo != "" {
+		// Check if this is a child orchestration response
+		if finalResult, ok := taskResponse.Data["final_result"]; ok {
+			// Store just the final result for child orchestrations
+			state.CollectedData[inResponseTo] = map[string]interface{}{
+				"status":          "completed",
+				"correlation_id":  taskResponse.Data["correlation_id"],
+				"final_result":    finalResult,
+				"execution_stats": taskResponse.Data["execution_stats"],
+			}
+		} else {
+			// Store the full data for regular agent responses
+			state.CollectedData[inResponseTo] = taskResponse.Data
+		}
 	}
 
 	// Remove from awaited steps
 	newAwaitedSteps := make([]string, 0)
+	responseFound := false
 	for _, step := range state.AwaitedSteps {
-		if step != causationID {
+		if step == inResponseTo {
+			responseFound = true
+		} else {
 			newAwaitedSteps = append(newAwaitedSteps, step)
 		}
 	}
+
+	if !responseFound && inResponseTo != "" {
+		l.Warn("Received response for request not in awaited steps",
+			zap.String("DEBUG_COOR_55: in_response_to", inResponseTo),
+			zap.Strings("DEBUG_COOR_55: awaited_steps", state.AwaitedSteps))
+	}
+
 	state.AwaitedSteps = newAwaitedSteps
 
-	// Update metadata
+	// Update metrics
 	state.ExecutionMetadata.CompletedSteps++
 
-	// If all responses received, continue workflow
+	// Check if we can continue
 	if len(state.AwaitedSteps) == 0 {
 		l.Info("All responses received, continuing workflow")
 		state.Status = StatusRunning
 
-		// Move to next step
-		currentStep := state.WorkflowPlan.Steps[state.CurrentStep]
-		if currentStep.NextStep != "" {
+		// Move to next step if defined
+		if currentStep, exists := state.WorkflowPlan.Steps[state.CurrentStep]; exists && currentStep.NextStep != "" {
 			state.CurrentStep = currentStep.NextStep
-			l.Info("Moving to next step after response",
-				zap.String("DEBUG_COOR_37: next_step", currentStep.NextStep))
+			l.Info("Moving to next step", zap.String("next_step", currentStep.NextStep))
 		}
 
+		// Update state
 		if err := repo.UpdateState(ctx, state); err != nil {
 			return fmt.Errorf("failed to update state: %w", err)
 		}
 
-		// Ensure required headers for continuation
-		if headers["fuel_budget"] == "" {
-			if state != nil && state.CollectedData != nil {
-				if fuel, ok := state.CollectedData["initial_fuel_budget"].(string); ok {
-					headers["fuel_budget"] = fuel
+		// Build complete headers for continuation
+		continueHeaders := make(map[string]string)
+
+		// Copy existing headers first
+		for k, v := range headers {
+			continueHeaders[k] = v
+		}
+
+		// Ensure critical headers are set
+		continueHeaders["orchestration_id"] = state.OrchestrationID
+		continueHeaders["correlation_id"] = state.CorrelationID
+		continueHeaders["client_id"] = state.ClientID
+		continueHeaders["owner_agent_id"] = state.OwnerAgentID
+
+		// CRITICAL: Ensure fuel_budget is preserved
+		if continueHeaders["fuel_budget"] == "" {
+			// Try to recover from collected data
+			if fuel, ok := state.CollectedData["initial_fuel_budget"].(string); ok {
+				continueHeaders["fuel_budget"] = fuel
+			} else {
+				// Use a default
+				continueHeaders["fuel_budget"] = "1000"
+			}
+		}
+
+		// Add from ExecutionContext if available
+		if execCtx != nil {
+			for k, v := range execCtx.ToHeaders() {
+				if v != "" {
+					continueHeaders[k] = v
 				}
 			}
 		}
-		if headers["client_id"] == "" {
-			headers["client_id"] = state.ClientID
-		}
-		if headers["agent_instance_id"] == "" {
-			headers["agent_instance_id"] = "00000000-0000-0000-0000-000000000001"
-		}
 
-		// Continue execution with the stored plan
-		return s.continueExecution(ctx, state, headers)
+		return s.continueExecution(ctx, state, continueHeaders)
 	}
 
 	// Still waiting for more responses
+	l.Info("Still waiting for responses",
+		zap.Int("DEBUG_COOR_56: remaining", len(state.AwaitedSteps)),
+		zap.Strings("DEBUG_COOR_56: awaited", state.AwaitedSteps))
+
 	if err := repo.UpdateState(ctx, state); err != nil {
 		return fmt.Errorf("failed to update state: %w", err)
 	}
 
-	l.Info("Response processed",
-		zap.Int("DEBUG_COOR_38: remaining_awaited", len(state.AwaitedSteps)))
+	return nil
+}
+
+// Helper to complete a request in the tracking table
+func (s *SagaCoordinator) completeRequest(ctx context.Context, requestID string) error {
+	query := `
+		UPDATE pending_requests 
+		SET status = 'completed', 
+		    completed_at = NOW()
+		WHERE request_id = $1 AND status = 'pending'
+	`
+
+	_, err := s.db.ExecContext(ctx, query, requestID)
+	if err != nil {
+		s.logger.Error("Failed to complete request",
+			zap.String("request_id", requestID),
+			zap.Error(err))
+		return err
+	}
 
 	return nil
+}
+
+// Helper to ensure headers have required values
+func (s *SagaCoordinator) ensureHeaders(headers map[string]string, state *OrchestrationState) {
+	// Ensure orchestration_id
+	if headers["orchestration_id"] == "" {
+		headers["orchestration_id"] = state.OrchestrationID
+	}
+
+	// Ensure client_id
+	if headers["client_id"] == "" {
+		headers["client_id"] = state.ClientID
+	}
+
+	// Ensure owner_agent_id
+	if headers["owner_agent_id"] == "" {
+		headers["owner_agent_id"] = state.OwnerAgentID
+	}
+
+	// Try to restore fuel_budget from collected data
+	if headers["fuel_budget"] == "" {
+		if fuel, ok := state.CollectedData["initial_fuel_budget"].(string); ok {
+			headers["fuel_budget"] = fuel
+		} else {
+			headers["fuel_budget"] = "1000" // Default fallback
+		}
+	}
+
+	// Ensure agent_instance_id
+	if headers["agent_instance_id"] == "" {
+		headers["agent_instance_id"] = state.OwnerAgentID
+	}
 }
 
 // Add other missing methods like handleFanOut, handlePauseForHumanInput etc. with similar logging enhancements
@@ -999,7 +967,7 @@ func (s *SagaCoordinator) handlePauseForHumanInput(ctx context.Context, headers 
 	return nil
 }
 
-// CreateNewOrchestration and other methods would also get logging enhancements
+// CreateNewOrchestration
 func (s *SagaCoordinator) CreateNewOrchestration(ctx context.Context, correlationID string, headers map[string]string, workflowJSON json.RawMessage) error {
 	l := s.logger.With(zap.String("correlation_id", correlationID))
 
@@ -1015,31 +983,72 @@ func (s *SagaCoordinator) CreateNewOrchestration(ctx context.Context, correlatio
 		return fmt.Errorf("client_id header is required")
 	}
 
+	// Generate orchestration ID for this new orchestration
+	orchestrationID := uuid.New().String()
+
+	// Determine owner agent ID (the orchestrator creating this)
+	ownerAgentID := headers["agent_id"]
+	if ownerAgentID == "" {
+		ownerAgentID = os.Getenv("AGENT_ID")
+		if ownerAgentID == "" {
+			ownerAgentID = "00000000-0000-0000-0000-000000000001" // Default orchestrator ID
+		}
+	}
+
+	// Get parent orchestration ID if this is a child orchestration
+	// Get parent orchestration ID - this is critical
+	parentOrchID := headers["orchestration_id"] // The current orchestration becomes the parent
+	if parentOrchID == "" {
+		// Try alternative header names
+		parentOrchID = headers["parent_orch_id"]
+		if parentOrchID == "" {
+			parentOrchID = headers["parent_orchestration_id"]
+		}
+	}
+
+	l.Info("Creating child orchestration with parent tracking",
+		zap.String("DEBUG_COOR_57: child_orchestration_id", orchestrationID),
+		zap.String("DEBUG_COOR_57: parent_orchestration_id", parentOrchID),
+		zap.String("DEBUG_COOR_57: parent_correlation_id", headers["parent_correlation_id"]))
+
 	// Prepare initial data from headers
 	initialData := map[string]interface{}{
 		"action": "start_orchestration",
 		"data": map[string]interface{}{
 			"headers":               headers,
 			"timestamp":             time.Now().UTC(),
-			"message":               "Starting website build orchestration",
+			"message":               "Starting orchestration",
 			"parent_correlation_id": headers["parent_correlation_id"],
+			"orchestration_id":      orchestrationID,
 		},
 	}
 	initialDataBytes, _ := json.Marshal(initialData)
 
 	// Create the initial state
 	repo := NewStateRepository(s.db, s.logger)
-	if err := repo.CreateInitialState(ctx, correlationID, clientID, plan, initialDataBytes); err != nil {
+	// Create the initial state WITH parent orchestration ID
+	if err := repo.CreateInitialState(ctx,
+		orchestrationID, // New child orchestration ID
+		correlationID,   // New child correlation ID
+		ownerAgentID,
+		parentOrchID, // Parent's orchestration ID - CRITICAL
+		clientID,
+		plan,
+		initialDataBytes); err != nil {
 		return fmt.Errorf("failed to create orchestration state: %w", err)
 	}
 
 	l.Info("New orchestration created",
-		zap.String("DEBUG_COOR_39: client_id", clientID),
-		zap.String("DEBUG_COOR_39: start_step", plan.StartStep),
-		zap.Int("DEBUG_COOR_39: total_steps", len(plan.Steps)))
+		zap.String("DEBUG_COOR_58: orchestration_id", orchestrationID),
+		zap.String("DEBUG_COOR_58: correlation_id", correlationID),
+		zap.String("DEBUG_COOR_58: owner_agent_id", ownerAgentID),
+		zap.String("DEBUG_COOR_58: parent_orch_id", parentOrchID),
+		zap.String("DEBUG_COOR_58: client_id", clientID),
+		zap.String("DEBUG_COOR_58: start_step", plan.StartStep),
+		zap.Int("DEBUG_COOR_58: total_steps", len(plan.Steps)))
 
-	// Start execution immediately
-	state, err := repo.GetState(ctx, correlationID)
+	// Get the created state using orchestration ID
+	state, err := repo.GetState(ctx, orchestrationID)
 	if err != nil {
 		return fmt.Errorf("failed to get created state: %w", err)
 	}
@@ -1052,7 +1061,7 @@ func (s *SagaCoordinator) CreateNewOrchestration(ctx context.Context, correlatio
 		}
 		// Save this update
 		if err := repo.UpdateState(ctx, state); err != nil {
-			l.Error("DEBUG_COOR_40: Failed to store parent correlation ID", zap.Error(err))
+			l.Error("Failed to store parent correlation ID", zap.Error(err))
 		}
 	}
 
@@ -1065,22 +1074,24 @@ func (s *SagaCoordinator) CreateNewOrchestration(ctx context.Context, correlatio
 		}
 	}
 	if headers["agent_instance_id"] == "" {
-		headers["agent_instance_id"] = "orchestrator-" + correlationID
+		headers["agent_instance_id"] = "orchestrator-" + orchestrationID
 	}
+
+	// Add orchestration_id to headers for continueExecution
+	headers["orchestration_id"] = orchestrationID
 
 	// Start the workflow execution
 	return s.continueExecution(ctx, state, headers)
 }
 
-func (s *SagaCoordinator) handleTimeout(ctx context.Context, correlationID string, requestID string, timeout time.Duration) {
+func (s *SagaCoordinator) handleTimeout(ctx context.Context, orchestrationID string, requestID string, timeout time.Duration) {
 	time.Sleep(timeout)
 
-	// Check if still waiting for this request
 	repo := NewStateRepository(s.db, s.logger)
-	state, err := repo.GetState(ctx, correlationID)
+	state, err := repo.GetState(ctx, orchestrationID) // Use orchestrationID
 	if err != nil {
 		s.logger.Error("Failed to get state for timeout check",
-			zap.String("DEBUG_COOR_41: correlation_id", correlationID),
+			zap.String("orchestration_id", orchestrationID),
 			zap.Error(err))
 		return
 	}
@@ -1089,7 +1100,7 @@ func (s *SagaCoordinator) handleTimeout(ctx context.Context, correlationID strin
 	for _, awaitedStep := range state.AwaitedSteps {
 		if awaitedStep == requestID {
 			s.logger.Error("Timeout waiting for agent response",
-				zap.String("DEBUG_COOR_42: correlation_id", correlationID),
+				zap.String("DEBUG_COOR_42: orchestration_id", orchestrationID),
 				zap.String("DEBUG_COOR_42: request_id", requestID),
 				zap.Duration("DEBUG_COOR_42: timeout", timeout))
 
@@ -1101,7 +1112,7 @@ func (s *SagaCoordinator) handleTimeout(ctx context.Context, correlationID strin
 
 	// If we get here, the response was already received
 	s.logger.Info("Timeout check passed - response already received",
-		zap.String("DEBUG_COOR_43: correlation_id", correlationID),
+		zap.String("DEBUG_COOR_43: orchestration_id", orchestrationID),
 		zap.String("DEBUG_COOR_43: request_id", requestID))
 }
 
@@ -1152,4 +1163,208 @@ func (s *SagaCoordinator) handleChildOrchestrationTimeout(ctx context.Context, p
 
 	s.logger.Info("Timeout check passed - child completed in time",
 		zap.String("DEBUG_COOR_46: child_correlation_id", childCorrelationID))
+}
+
+// continueExecution executes from the current step using the stored plan
+func (s *SagaCoordinator) continueExecution(ctx context.Context, state *OrchestrationState, headers map[string]string) error {
+	l := s.logger.With(
+		zap.String("DEBUG_COOR_47: orchestration_id", state.OrchestrationID),
+		zap.String("DEBUG_COOR_47: correlation_id", state.CorrelationID),
+		zap.String("DEBUG_COOR_47: current_step", state.CurrentStep),
+	)
+
+	l.Info("Continuing workflow execution",
+		zap.String("DEBUG_COOR_48: current_step", state.CurrentStep),
+		zap.Int("DEBUG_COOR_48: total_steps", len(state.WorkflowPlan.Steps)))
+
+	// Get current step from the stored plan
+	currentStepConfig, exists := state.WorkflowPlan.Steps[state.CurrentStep]
+	if !exists {
+		errorMsg := fmt.Sprintf("step '%s' not found in plan", state.CurrentStep)
+		l.Error("Step not found", zap.String("missing_step", state.CurrentStep))
+		return s.failWorkflow(ctx, state, errorMsg)
+	}
+
+	l.Info("Executing step",
+		zap.String("DEBUG_COOR_49: step", state.CurrentStep),
+		zap.String("DEBUG_COOR_49: action", currentStepConfig.Action),
+		zap.String("DEBUG_COOR_49: description", currentStepConfig.Description))
+
+	// Record execution start
+	execRecord := ExecutionRecord{
+		Step:      state.CurrentStep,
+		Action:    currentStepConfig.Action,
+		StartTime: time.Now().UTC(),
+	}
+
+	// Check dependencies
+	if !s.dependenciesMet(currentStepConfig.Dependencies, state) {
+		l.Info("Dependencies not met, waiting", zap.Strings("dependencies", currentStepConfig.Dependencies))
+		execRecord.Result = "skipped"
+		execRecord.Error = "dependencies not met"
+		s.recordExecution(ctx, state, execRecord)
+		return nil
+	}
+
+	// Check fuel budget
+	fuel, err := governance.GetFuelFromHeader(headers)
+	if err != nil {
+		l.Error("Failed to get fuel from headers", zap.Error(err))
+		return s.failWorkflow(ctx, state, fmt.Sprintf("failed to get fuel from headers: %v", err))
+	}
+
+	if !s.fuelManager.HasEnoughFuel(fuel, currentStepConfig.Action) {
+		execRecord.Result = "failed"
+		execRecord.Error = fmt.Sprintf("insufficient fuel: have %d, need %d",
+			fuel, s.fuelManager.GetCost(currentStepConfig.Action))
+		s.recordExecution(ctx, state, execRecord)
+		return s.failWorkflow(ctx, state, execRecord.Error)
+	}
+
+	// Deduct fuel
+	remainingFuel := s.fuelManager.DeductFuel(fuel, currentStepConfig.Action)
+	governance.SetFuelHeader(headers, remainingFuel)
+	l.Info("Fuel deducted", zap.Int("remaining_fuel", remainingFuel))
+
+	// Execute based on action type
+	var execErr error
+	switch {
+	case currentStepConfig.Action == "complete_workflow":
+		l.Info("Completing workflow")
+		l.Info("DEBUG_COOR_50: Completing workflow",
+			zap.Any("DEBUG_COOR_49: step", state),
+			zap.Any("DEBUG_COOR_49: step", currentStepConfig),
+			zap.Any("DEBUG_COOR_49: step", headers),
+		)
+
+		_, err := s.executeLocalAction(ctx, state, currentStepConfig, headers)
+		if err != nil {
+			execErr = err
+		} else {
+			execErr = s.completeWorkflow(ctx, state)
+		}
+
+	case currentStepConfig.Action == "call_agent":
+		l.Info("Executing call_agent with wait-for-response")
+		result, err := s.executeLocalAction(ctx, state, currentStepConfig, headers)
+		if err != nil {
+			execErr = err
+		} else if resultMap, ok := result.(map[string]interface{}); ok {
+			if messageSent, ok := resultMap["message_sent"].(bool); ok && messageSent {
+				requestID, _ := resultMap["request_id"].(string)
+
+				// Update state to wait for response
+				state.Status = StatusAwaitingResponses
+				state.AwaitedSteps = []string{requestID}
+
+				repo := NewStateRepository(s.db, s.logger)
+				if err := repo.UpdateState(ctx, state); err != nil {
+					execErr = fmt.Errorf("failed to update state for waiting: %w", err)
+				} else {
+					l.Info("Waiting for agent response",
+						zap.String("request_id", requestID))
+
+					// Set up timeout
+					timeout := 60 * time.Second
+					if currentStepConfig.Timeout > 0 {
+						timeout = currentStepConfig.Timeout
+					}
+					go s.handleTimeout(ctx, state.OrchestrationID, requestID, timeout)
+					return nil // Exit and wait for response
+				}
+			}
+		}
+
+	case currentStepConfig.Action == "start_orchestration":
+		l.Info("Executing start_orchestration with wait-for-response")
+		result, err := s.executeLocalAction(ctx, state, currentStepConfig, headers)
+		if err != nil {
+			execErr = err
+		} else if resultMap, ok := result.(map[string]interface{}); ok {
+			if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
+				if requestID, ok := resultMap["new_correlation_id"].(string); ok {
+					state.CollectedData[state.CurrentStep] = result
+					state.Status = StatusAwaitingResponses
+					state.AwaitedSteps = []string{requestID}
+					state.ExecutionMetadata.Checkpoints[state.CurrentStep] = time.Now().UTC()
+
+					repo := NewStateRepository(s.db, s.logger)
+					if err := repo.UpdateState(ctx, state); err != nil {
+						execErr = fmt.Errorf("failed to update state for waiting: %w", err)
+					} else {
+						l.Info("Waiting for child orchestration",
+							zap.String("child_correlation_id", requestID))
+
+						timeout := 5 * time.Minute
+						if currentStepConfig.Timeout > 0 {
+							timeout = currentStepConfig.Timeout
+						}
+						go s.handleChildOrchestrationTimeout(ctx, state.OrchestrationID, requestID, timeout)
+						return nil
+					}
+				}
+			}
+		}
+
+	case currentStepConfig.Action == "fan_out":
+		l.Info("Handling fan-out")
+		execErr = s.handleFanOut(ctx, headers, currentStepConfig, state)
+
+	case currentStepConfig.Action == "pause_for_human_input":
+		l.Info("Pausing for human input")
+		execErr = s.handlePauseForHumanInput(ctx, headers, currentStepConfig, state)
+
+	case isLocalAction(currentStepConfig.Action):
+		l.Info("Executing local action", zap.String("action", currentStepConfig.Action))
+		_, err := s.executeLocalAction(ctx, state, currentStepConfig, headers)
+		if err != nil {
+			execErr = err
+		} else {
+			if currentStepConfig.NextStep != "" {
+				l.Info("Moving to next step", zap.String("next_step", currentStepConfig.NextStep))
+				state.CurrentStep = currentStepConfig.NextStep
+
+				repo := NewStateRepository(s.db, s.logger)
+				if err := repo.UpdateState(ctx, state); err != nil {
+					execErr = fmt.Errorf("failed to update state: %w", err)
+				} else {
+					return s.continueExecution(ctx, state, headers)
+				}
+			}
+		}
+
+	case currentStepConfig.Topic != "":
+		l.Info("Executing remote action", zap.String("topic", currentStepConfig.Topic))
+		execErr = s.executeRemoteAction(ctx, state, currentStepConfig, headers)
+
+	default:
+		errorMsg := fmt.Sprintf("unknown action: %s", currentStepConfig.Action)
+		l.Error("Unknown action", zap.String("action", currentStepConfig.Action))
+		execErr = fmt.Errorf(errorMsg)
+	}
+
+	// Record execution result
+	endTime := time.Now().UTC()
+	execRecord.EndTime = &endTime
+	if execErr != nil {
+		execRecord.Result = "failed"
+		execRecord.Error = execErr.Error()
+		l.Error("Step execution failed",
+			zap.String("step", state.CurrentStep),
+			zap.Error(execErr))
+	} else {
+		execRecord.Result = "success"
+		l.Info("Step execution succeeded", zap.String("step", state.CurrentStep))
+	}
+	s.recordExecution(ctx, state, execRecord)
+
+	return execErr
+}
+
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

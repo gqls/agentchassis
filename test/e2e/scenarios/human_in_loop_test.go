@@ -234,7 +234,7 @@ func completeHumanTask(db *sql.DB, taskID, correlationID string, response map[st
 
 	// Update orchestrator state with human response
 	_, err = db.Exec(`
-		UPDATE orchestrator_state 
+		UPDATE orchestration_states 
 		SET collected_data = jsonb_set(
 			COALESCE(collected_data, '{}'::jsonb),
 			'{human_feedback}',

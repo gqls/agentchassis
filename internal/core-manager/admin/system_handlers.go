@@ -427,7 +427,7 @@ func (h *SystemHandlers) listWorkflows(ctx context.Context, req WorkflowListRequ
 	query := `
 		SELECT correlation_id, client_id, status, current_step, 
 		       created_at, updated_at, error
-		FROM orchestrator_state
+		FROM orchestration_states
 		WHERE 1=1
 	`
 
@@ -520,7 +520,7 @@ func (h *SystemHandlers) getWorkflowState(ctx context.Context, correlationID str
 		SELECT correlation_id, client_id, status, current_step, awaited_steps, 
 		       collected_data, initial_request_data, final_result, error, 
 		       created_at, updated_at
-		FROM orchestrator_state
+		FROM orchestration_states
 		WHERE correlation_id = $1
 	`
 

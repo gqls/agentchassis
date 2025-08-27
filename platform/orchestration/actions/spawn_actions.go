@@ -128,7 +128,7 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	err := params.DB.QueryRowContext(ctx, `
         SELECT id, name, agent_configs, orchestration_workflow
-        FROM agent_groups
+        FROM agent_group_definitions
         WHERE group_type = $1
         ORDER BY usage_count DESC, version DESC
         LIMIT 1
@@ -384,20 +384,21 @@ func sendNewFormatMessage(ctx context.Context, params ActionParams, agentID stri
 	// Create new format message
 	messageID := uuid.New().String()
 	msg := models.AgentMessage{
-		MessageID:     messageID,
-		RequestID:     messageID,
-		CorrelationID: params.Headers["correlation_id"],
-		FromAgentID:   callerAgentID,
-		ToAgentID:     agentID, // Full UUID of target agent
-		ReplyToTopic:  fmt.Sprintf("system.agent.%s.responses", callerAgentType),
-		MessageType:   "request",
-		Action:        "process",
-		Data:          dataToSend,
-		TreePath:      treePath,
-		TreeDepth:     len(treePath),
-		SubtreeID:     uuid.New().String(),
-		Timestamp:     time.Now(),
-		Version:       "2.0",
+		MessageID:       messageID,
+		RequestID:       messageID,
+		CorrelationID:   params.Headers["correlation_id"],
+		OrchestrationID: params.Headers["orchestration_id"],
+		FromAgentID:     callerAgentID,
+		ToAgentID:       agentID, // Full UUID of target agent
+		ReplyToTopic:    fmt.Sprintf("system.agent.%s.responses", callerAgentType),
+		MessageType:     "request",
+		Action:          "process",
+		Data:            dataToSend,
+		TreePath:        treePath,
+		TreeDepth:       len(treePath),
+		SubtreeID:       uuid.New().String(),
+		Timestamp:       time.Now(),
+		Version:         "2.0",
 	}
 
 	msgBytes, _ := json.Marshal(msg)
@@ -770,215 +771,158 @@ func (d *EnhancedDiscovery) GetAgentPerformanceSummary(ctx context.Context, agen
 	}
 }
 
+// CallAgentAction - Fixed version without circular dependency
+// CallAgentAction - properly creates child orchestrations and tracks requests
 func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	// Extract orchestration context from headers
+	orchestrationID := params.Headers["orchestration_id"]
+	if orchestrationID == "" {
+		return nil, fmt.Errorf("orchestration_id required in headers")
+	}
+
+	correlationID := params.Headers["correlation_id"]
+	clientID := params.Headers["client_id"]
+
+	params.Logger.Info("CallAgentAction starting",
+		zap.String("orchestration_id", orchestrationID),
+		zap.String("correlation_id", correlationID))
+
+	// Get target agent type from config
 	config := params.StepConfig.Config
-
-	// Debug log to see what headers we received
-	params.Logger.Info("DEBUG: CallAgentAction headers check",
-		zap.String("DEBUG_SPAWN_18: correlation_id", params.Headers["correlation_id"]),
-		zap.String("DEBUG_SPAWN_18: parent_correlation_id", params.Headers["parent_correlation_id"]))
-
-	// Add comprehensive debug logging
-	params.Logger.Info("DEBUG: CallAgentAction invoked",
-		zap.String("DEBUG_SPAWN_19: correlation_id", params.Headers["correlation_id"]),
-		zap.String("DEBUG_SPAWN_19: agent_type_in_config", fmt.Sprintf("%v", config["agent_type"])),
-		zap.String("DEBUG_SPAWN_19: agent_id_in_config", fmt.Sprintf("%v", config["agent_id"])),
-		zap.String("DEBUG_SPAWN_19: current_agent_type", params.AgentType),
-		zap.String("DEBUG_SPAWN_19: current_agent_id", params.Headers["agent_id"]),
-		zap.Any("DEBUG_SPAWN_19: full_config", config),
-		zap.Any("DEBUG_SPAWN_19: all_headers", params.Headers))
-
-	agentType, ok := config["agent_type"].(string)
+	targetAgentType, ok := config["agent_type"].(string)
 	if !ok {
-		return nil, fmt.Errorf("agent_type not specified")
+		return nil, fmt.Errorf("agent_type not specified in config")
 	}
 
-	// Check for self-recursion prevention
-	if params.AgentType == agentType {
-		// Check if parallel processing is explicitly allowed
-		if allowParallel, ok := config["allow_parallel"].(bool); ok && allowParallel {
-			params.Logger.Info("Parallel processing allowed for same agent type",
-				zap.String("DEBUG_SPAWN_20: agent_type", agentType))
-		} else {
-			params.Logger.Warn("Agent would call itself, executing locally instead",
-				zap.String("DEBUG_SPAWN_21: agent_type", agentType))
-			return ExecuteLLMPromptAction(ctx, params)
-		}
+	// Find or spawn the target agent
+	targetAgentID, err := findOrSpawnAgent(ctx, params, targetAgentType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find or spawn agent: %w", err)
 	}
 
-	// Try to find an agent to delegate to
-	discover := NewAgentDiscovery(params.DB)
-	matches, err := discover.DiscoverAgents(ctx, discovery.Requirements{
-		AgentType: agentType,
-		ClientID:  params.Headers["client_id"],
-	})
+	// Create new orchestration ID for the called agent
+	childOrchestrationID := uuid.New().String()
+	requestID := uuid.New().String()
+	messageID := uuid.New().String()
 
-	if err != nil || len(matches) == 0 {
-		// No agent available, check fallback preference
-		if fallback, ok := config["fallback"].(string); ok && fallback == "self" {
-			params.Logger.Info("No agent found, falling back to self-execution",
-				zap.String("DEBUG_SPAWN_22: requested_type", agentType),
-				zap.String("DEBUG_SPAWN_22: current_type", params.AgentType))
-
-			// Execute locally with adapted prompt
-			adaptedParams := params
-			adaptedParams.StepConfig.Config["prompt_adaptation"] = fmt.Sprintf(
-				"Acting as %s agent: ", agentType)
-			return ExecuteLLMPromptAction(ctx, adaptedParams)
-		}
-
-		// Try to spawn the agent
-		params.Logger.Info("No existing agent, attempting to spawn",
-			zap.String("agent_type", agentType))
-
-		spawnResult, err := SpawnAgentAction(ctx, ActionParams{
-			StepConfig: models.Step{
-				Config: map[string]interface{}{
-					"agent_type": agentType,
-				},
-			},
-			Headers: params.Headers,
-			DB:      params.DB,
-			Logger:  params.Logger,
-		})
-
-		if err != nil {
-			// Spawn failed, last resort: execute locally
-			if fallbackToSelf, ok := config["fallback_to_self"].(bool); ok && fallbackToSelf {
-				params.Logger.Warn("Spawn failed, executing task locally as fallback",
-					zap.Error(err))
-				return ExecuteLLMPromptAction(ctx, params)
-			}
-			return nil, fmt.Errorf("failed to spawn agent and no fallback: %w", err)
-		}
-
-		// Use the spawned agent
-		sr := spawnResult.(map[string]interface{})
-		agentID := sr["agent_id"].(string)
-		return callSpecificAgent(ctx, params, agentID)
+	// Build message data from collected data
+	messageData := make(map[string]interface{})
+	for k, v := range params.CollectedData {
+		messageData[k] = v
 	}
 
-	// Use existing agent
-	bestMatch := matches[0]
-	return callSpecificAgent(ctx, params, bestMatch.AgentID)
+	// Track this request in the database
+	if err := trackRequest(ctx, params.DB, requestID, orchestrationID, targetAgentID); err != nil {
+		params.Logger.Warn("Failed to track request", zap.Error(err))
+		// Continue anyway - tracking is not critical
+	}
+
+	// Create the message to send to the target agent
+	msg := models.AgentMessage{
+		MessageID:     messageID,
+		RequestID:     requestID,
+		CorrelationID: correlationID,
+		FromAgentID:   orchestrationID, // Use parent's orchestration as sender
+		ToAgentID:     targetAgentID,
+		ReplyToTopic:  fmt.Sprintf("system.agent.%s.responses", params.Headers["agent_type"]),
+		MessageType:   "request",
+		Action:        "process",
+		Data:          messageData,
+		Timestamp:     time.Now(),
+		Version:       "2.0",
+	}
+
+	msgBytes, err := json.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	// Prepare headers for the child orchestration
+	childHeaders := map[string]string{
+		"orchestration_id":  childOrchestrationID, // Child's NEW orchestration
+		"parent_orch_id":    orchestrationID,      // Parent's orchestration
+		"correlation_id":    correlationID,        // Business correlation stays same
+		"client_id":         clientID,
+		"request_id":        requestID,
+		"message_id":        messageID,
+		"message_type":      "request",
+		"from_agent_id":     params.Headers["agent_id"],
+		"to_agent_id":       targetAgentID,
+		"agent_instance_id": targetAgentID,
+		"fuel_budget":       params.Headers["fuel_budget"],
+	}
+
+	// Send to agent's request topic
+	targetTopic := fmt.Sprintf("system.agent.%s.requests", targetAgentType)
+
+	params.Logger.Info("Sending message to agent",
+		zap.String("target_agent_id", targetAgentID),
+		zap.String("target_agent_type", targetAgentType),
+		zap.String("child_orchestration_id", childOrchestrationID),
+		zap.String("parent_orchestration_id", orchestrationID),
+		zap.String("request_id", requestID),
+		zap.String("topic", targetTopic))
+
+	err = params.Producer.Produce(ctx, targetTopic,
+		childHeaders,
+		[]byte(correlationID),
+		msgBytes)
+
+	if err != nil {
+		// Mark request as failed
+		failRequest(ctx, params.DB, requestID)
+		return nil, fmt.Errorf("failed to send message: %w", err)
+	}
+
+	return map[string]interface{}{
+		"agent_called":        targetAgentID,
+		"agent_type":          targetAgentType,
+		"request_id":          requestID,
+		"child_orchestration": childOrchestrationID,
+		"topic":               targetTopic,
+		"message_sent":        true,
+		"await_response":      true,
+	}, nil
 }
 
-// Updated CallAgentAction to use the new discovery with recommendations
-func CallAgentActionOld(ctx context.Context, params ActionParams) (interface{}, error) {
-	config := params.StepConfig.Config
+// Request tracking parameters
+type trackRequestParams struct {
+	RequestID       string
+	OrchestrationID string
+	ToAgentID       string
+	Timeout         time.Duration
+}
 
-	// Debug log to see what headers we received
-	params.Logger.Info("CallAgentAction headers check",
-		zap.String("DEBUG_SPAWN_23: correlation_id", params.Headers["correlation_id"]),
-		zap.String("DEBUG_SPAWN_23: parent_correlation_id", params.Headers["parent_correlation_id"]))
+// trackRequest records the request in the database
+func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, toAgentID string) error {
+	query := `
+        INSERT INTO pending_requests 
+        (request_id, orchestration_id, to_agent_id, status, timeout_at, created_at)
+        VALUES ($1, $2, $3, 'pending', $4, NOW())
+    `
 
-	// Add comprehensive debug logging
-	params.Logger.Info("DEBUG: CallAgentAction invoked",
-		zap.String("DEBUG_SPAWN_24: correlation_id", params.Headers["correlation_id"]),
-		zap.String("DEBUG_SPAWN_24: agent_type_in_config", fmt.Sprintf("%v", config["agent_type"])),
-		zap.String("DEBUG_SPAWN_24: agent_id_in_config", fmt.Sprintf("%v", config["agent_id"])),
-		zap.String("DEBUG_SPAWN_24: current_agent_type", params.AgentType),
-		zap.String("DEBUG_SPAWN_24: current_agent_id", params.Headers["agent_id"]),
-		zap.Any("DEBUG_SPAWN_24: full_config", config),
-		zap.Any("DEBUG_SPAWN_24: all_headers", params.Headers))
+	timeout := time.Now().Add(60 * time.Second)
+	_, err := db.ExecContext(ctx, query,
+		requestID,
+		orchestrationID,
+		toAgentID,
+		timeout,
+	)
 
-	// Discover best agent
-	agentType, ok := config["agent_type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("agent_type not specified")
-	}
+	return err
+}
 
-	// Add this check at the beginning of CallAgentAction
-	if agentType == params.AgentType {
-		params.Logger.Error("Agent attempting to call its own type",
-			zap.String("DEBUG_SPAWN_25: current_agent_type", params.AgentType),
-			zap.String("DEBUG_SPAWN_25: target_agent_type", agentType))
-		return nil, fmt.Errorf("agent type %s cannot call another %s agent", params.AgentType, agentType)
-	}
+// failRequest marks a request as failed
+func failRequest(ctx context.Context, db *sql.DB, requestID string) error {
+	query := `
+		UPDATE pending_requests 
+		SET status = 'failed', 
+		    completed_at = NOW()
+		WHERE request_id = $1
+	`
 
-	// If specific agent_id provided, use it directly
-	if agentID, ok := config["agent_id"].(string); ok {
-		return callSpecificAgent(ctx, params, agentID)
-	}
-
-	// Try to use recommendations first
-	discover := NewAgentDiscovery(params.DB)
-	if discover == nil {
-		return nil, fmt.Errorf("failed to create discovery service")
-	}
-
-	// Get capabilities from config if provided
-	var capabilities []string
-	if caps, ok := config["required_capabilities"].([]interface{}); ok {
-		for _, cap := range caps {
-			if c, ok := cap.(string); ok {
-				capabilities = append(capabilities, c)
-			}
-		}
-	}
-
-	// Try to get recommendations
-	recommendations, err := discover.RecommendAgentsForTask(ctx, agentType, capabilities)
-	if err == nil && len(recommendations) > 0 {
-		// Use the best recommendation
-		bestRec := recommendations[0]
-		params.Logger.Info("Using recommended agent",
-			zap.String("DEBUG_SPAWN_26: agent_type", bestRec.AgentType),
-			zap.String("DEBUG_SPAWN_26: reason", bestRec.RecommendationReason),
-			zap.Float64("DEBUG_SPAWN_26: performance_score", bestRec.PerformanceScore))
-
-		// Update agent type to the recommended one
-		agentType = bestRec.AgentType
-	}
-
-	// Try to find existing agent using backward-compatible method
-	matches, err := discover.DiscoverAgents(ctx, discovery.Requirements{
-		AgentType:    agentType,
-		ClientID:     params.Headers["client_id"],
-		Capabilities: capabilities,
-	})
-
-	if err != nil || len(matches) == 0 {
-		// No agent found, spawn one
-		params.Logger.Info("No existing agent found, spawning new one",
-			zap.String("agent_type", agentType))
-
-		spawnResult, err := SpawnAgentAction(ctx, ActionParams{
-			StepConfig: models.Step{
-				Config: map[string]interface{}{
-					"agent_type": agentType,
-				},
-			},
-			Headers: params.Headers,
-			DB:      params.DB,
-			Logger:  params.Logger,
-		})
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to spawn agent: %w", err)
-		}
-
-		sr, ok := spawnResult.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("unexpected spawn result type")
-		}
-
-		agentID, ok := sr["agent_id"].(string)
-		if !ok {
-			return nil, fmt.Errorf("agent_id not found in spawn result")
-		}
-
-		return callSpecificAgent(ctx, params, agentID)
-	}
-
-	// Use best match
-	bestMatch := matches[0]
-	params.Logger.Info("Using existing agent",
-		zap.String("DEBUG_SPAWN_27: agent_id", bestMatch.AgentID),
-		zap.String("DEBUG_SPAWN_27: agent_type", bestMatch.AgentType),
-		zap.Float64("DEBUG_SPAWN_27: performance_score", bestMatch.Performance))
-
-	return callSpecificAgent(ctx, params, bestMatch.AgentID)
+	_, err := db.ExecContext(ctx, query, requestID)
+	return err
 }
 
 // getAgentImage - Database-driven version
@@ -2220,4 +2164,38 @@ func isStorageEnabledAgent(agentType string) bool {
 		}
 	}
 	return false
+}
+
+// findOrSpawnAgent finds an existing agent or spawns a new one
+func findOrSpawnAgent(ctx context.Context, params ActionParams, agentType string) (string, error) {
+	// Try to find existing agent
+	discover := NewAgentDiscovery(params.DB)
+	matches, err := discover.DiscoverAgents(ctx, discovery.Requirements{
+		AgentType: agentType,
+		ClientID:  params.Headers["client_id"],
+	})
+
+	if err == nil && len(matches) > 0 {
+		return matches[0].AgentID, nil
+	}
+
+	// Spawn new agent
+	spawnResult, err := SpawnAgentAction(ctx, ActionParams{
+		StepConfig: models.Step{
+			Config: map[string]interface{}{
+				"agent_type": agentType,
+			},
+		},
+		Headers:  params.Headers,
+		DB:       params.DB,
+		Logger:   params.Logger,
+		Producer: params.Producer,
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to spawn agent: %w", err)
+	}
+
+	sr := spawnResult.(map[string]interface{})
+	return sr["agent_id"].(string), nil
 }

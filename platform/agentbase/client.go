@@ -4,11 +4,12 @@ package agentbase
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/messaging"
 	"github.com/gqls/agentchassis/platform/observability"
 	"go.uber.org/zap"
-	"time"
 )
 
 // AgentClient handles responses from other agents
@@ -47,7 +48,6 @@ func (c *AgentClient) Run() error {
 		zap.String("response_group", c.consumerGroup+"-responses"),
 		zap.String("topic", fmt.Sprintf("system.agent.%s.responses", c.agentType)))
 
-	// Add a message counter for debugging
 	messageCount := 0
 
 	for {
@@ -69,16 +69,12 @@ func (c *AgentClient) Run() error {
 				continue
 			}
 
-			// Record metric
 			observability.KafkaMessagesConsumed.WithLabelValues(msg.Topic, c.consumerGroup+"-responses").Inc()
-
 			messageCount++
-			c.logger.Info("GOT A RESPONSE MESSAGE!",
-				zap.Int("count", messageCount),
-				zap.String("topic", msg.Topic))
 
-			// Process response asynchronously
-			go c.processResponse(msg)
+			// Process synchronously to avoid race conditions
+			// Don't use goroutine here
+			c.processResponse(msg)
 		}
 	}
 }
@@ -88,15 +84,24 @@ func (c *AgentClient) processResponse(msg kafka.Message) {
 
 	c.logger.Info("Processing response",
 		zap.String("correlation_id", headers["correlation_id"]),
+		zap.String("orchestration_id", headers["orchestration_id"]), // Add this for debugging
 		zap.String("causation_id", headers["causation_id"]))
 
 	// Route to processor which will handle orchestration responses
-	if err := c.processor.ProcessResponse(c.ctx, msg); err != nil {
-		c.logger.Error("Failed to process response", zap.Error(err))
+	err := c.processor.ProcessResponse(c.ctx, msg)
+	if err != nil {
+		c.logger.Error("Failed to process response",
+			zap.Error(err),
+			zap.String("correlation_id", headers["correlation_id"]),
+			zap.String("orchestration_id", headers["orchestration_id"]))
+
 		observability.SystemErrors.WithLabelValues(c.agentType, "process_response").Inc()
+
+		// Don't commit on error - let Kafka retry
+		return
 	}
 
-	// Always commit
+	// Only commit if processing succeeded
 	if err := c.responseConsumer.CommitMessages(context.Background(), msg); err != nil {
 		c.logger.Error("Failed to commit response message", zap.Error(err))
 		observability.SystemErrors.WithLabelValues(c.agentType, "commit_response").Inc()

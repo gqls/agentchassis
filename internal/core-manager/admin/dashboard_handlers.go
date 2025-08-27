@@ -171,7 +171,7 @@ func (h *DashboardHandlers) getOverviewMetrics(ctx context.Context) OverviewMetr
 		SELECT 
 			COUNT(*) as total,
 			COUNT(*) FILTER (WHERE status = 'COMPLETED') as success
-		FROM orchestrator_state
+		FROM orchestration_states
 		WHERE created_at > NOW() - INTERVAL '30 days'
 	`).Scan(&metrics.TotalWorkflows, &successCount)
 	if err == nil && metrics.TotalWorkflows > 0 {
@@ -281,7 +281,7 @@ func (h *DashboardHandlers) getAgentMetrics(ctx context.Context) AgentMetrics {
 		SELECT 
 			ad.type,
 			COUNT(*) as usage_count
-		FROM orchestrator_state os
+		FROM orchestration_states os
 		JOIN agent_definitions ad ON true
 		WHERE os.created_at > NOW() - INTERVAL '7 days'
 		GROUP BY ad.type
@@ -350,7 +350,7 @@ func (h *DashboardHandlers) getSystemHealth(ctx context.Context) SystemHealthMet
 
 	// Get active workflows count
 	h.clientsDB.QueryRow(ctx, `
-		SELECT COUNT(*) FROM orchestrator_state 
+		SELECT COUNT(*) FROM orchestration_states 
 		WHERE status IN ('RUNNING', 'AWAITING_RESPONSES', 'PAUSED_FOR_HUMAN_INPUT')
 	`).Scan(&metrics.ActiveWorkflows)
 
@@ -387,7 +387,7 @@ func (h *DashboardHandlers) getRecentActivity(ctx context.Context) []ActivityEnt
 	// Get recent workflow completions
 	workflowRows, err := h.clientsDB.Query(ctx, `
 		SELECT updated_at, status, correlation_id, client_id
-		FROM orchestrator_state
+		FROM orchestration_states
 		WHERE status IN ('COMPLETED', 'FAILED')
 		ORDER BY updated_at DESC
 		LIMIT 10

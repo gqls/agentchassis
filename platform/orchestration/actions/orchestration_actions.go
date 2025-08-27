@@ -134,11 +134,14 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 	for k, v := range params.Headers {
 		newHeaders[k] = v
 	}
+	newHeaders["parent_orch_id"] = params.Headers["orchestration_id"]
+	newHeaders["parent_orchestration_id"] = params.Headers["orchestration_id"]
 	newHeaders["correlation_id"] = newCorrelationID
 	newHeaders["parent_correlation_id"] = params.Headers["correlation_id"]
 	// Store parent correlation ID and agent type in collected data for child to access later
 	params.CollectedData["parent_correlation_id"] = params.Headers["correlation_id"]
 	params.CollectedData["parent_agent_type"] = params.Headers["agent_type"]
+	params.CollectedData["parent_orch_id"] = params.Headers["orchestration_id"] // Add this
 	newHeaders["parent_agent_type"] = params.AgentType
 
 	// Add spawned agents to headers if available
@@ -231,7 +234,7 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 
 			query := `
                 SELECT status, awaited_steps 
-                FROM orchestrator_state 
+                FROM orchestration_states 
                 WHERE correlation_id = $1
             `
 
