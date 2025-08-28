@@ -3,372 +3,365 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gqls/agentchassis/pkg/models"
 	"go.uber.org/zap"
 )
 
+// StartOrchestrationAction spawns a child orchestration and waits for its completion
 func StartOrchestrationAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Starting orchestration action",
-		zap.Any("DEBUG_O_ACTIONS_1: collected_data_keys", getMapKeys(params.CollectedData)),
-		zap.Any("DEBUG_O_ACTIONS_1: params", params),
-		zap.String("DEBUG_O_ACTIONS_1: current_step", params.CurrentStep))
+		zap.String("current_step", params.CurrentStep))
 
-	// Should explicitly use the current state's orchestration ID
-	currentOrchestrationID := params.Headers["orchestration_id"]
-	if currentOrchestrationID == "" {
-		// This is a serious error - we must know our own orchestration
-		return nil, fmt.Errorf("current orchestration_id not found")
+	// Step 1: Validate we have our own orchestration context
+	parentContext, err := extractParentContext(params)
+	if err != nil {
+		return nil, err
 	}
 
-	// CHECK: Has this step already created a child orchestration?
-	stepKey := fmt.Sprintf("%s_started", params.CurrentStep)
-	if _, alreadyStarted := params.CollectedData[stepKey]; alreadyStarted {
-		params.Logger.Warn("Child orchestration already started for this step",
-			zap.String("DEBUG_O_ACTIONS_1: step", params.CurrentStep))
+	// Step 2: Check if already started (idempotency)
+	if existing := checkExistingChild(params); existing != nil {
+		params.Logger.Info("Returning existing child orchestration")
+		return existing, nil
+	}
 
-		// Try to find the existing child ID
-		if existingChild, ok := params.CollectedData[params.CurrentStep]; ok {
-			if childMap, ok := existingChild.(map[string]interface{}); ok {
-				if childID, ok := childMap["new_correlation_id"].(string); ok && childID != "" {
-					params.Logger.Info("trying to find existing childId",
-						zap.Any("DEBUG_O_ACTIONS_1: childID", childID),
-						zap.String("DEBUG_O_ACTIONS_1: childMap[new_correlation_id].(string)", childMap["new_correlation_id"].(string)),
-						zap.Any("DEBUG_O_ACTIONS_1: existing child", existingChild))
-					// Return the existing result
-					return existingChild, nil
-				}
+	// Step 3: Find the spawn data from previous step
+	spawnData, err := findSpawnData(params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 4: Extract and prepare workflow
+	workflowJSON, err := extractWorkflow(spawnData, params.Logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 5: Create child orchestration
+	childIDs, err := createChildOrchestration(ctx, params, parentContext, spawnData, workflowJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 6: Start timeout monitor
+	startTimeoutMonitor(params, parentContext, childIDs)
+
+	// Step 7: Return result for parent to wait on
+	return buildStartOrchestrationResult(childIDs, spawnData), nil
+}
+
+// ParentContext holds the parent orchestration's context
+type ParentContext struct {
+	OrchestrationID string
+	CorrelationID   string
+	AgentType       string
+}
+
+// extractParentContext gets the current (parent) orchestration's context
+func extractParentContext(params ActionParams) (*ParentContext, error) {
+	orchestrationID := params.Headers["orchestration_id"]
+	if orchestrationID == "" {
+		return nil, fmt.Errorf("current orchestration_id not found - cannot start child without parent context")
+	}
+
+	return &ParentContext{
+		OrchestrationID: orchestrationID,
+		CorrelationID:   params.Headers["correlation_id"],
+		AgentType:       params.Headers["agent_type"],
+	}, nil
+}
+
+// checkExistingChild checks if this step already created a child
+func checkExistingChild(params ActionParams) interface{} {
+	stepKey := fmt.Sprintf("%s_started", params.CurrentStep)
+
+	if _, alreadyStarted := params.CollectedData[stepKey]; !alreadyStarted {
+		return nil
+	}
+
+	// Try to return the existing result
+	if existingChild, ok := params.CollectedData[params.CurrentStep]; ok {
+		if childMap, ok := existingChild.(map[string]interface{}); ok {
+			if childID, ok := childMap["child_orchestration_id"].(string); ok && childID != "" {
+				params.Logger.Info("Found existing child",
+					zap.String("child_orchestration_id", childID))
+				return existingChild
 			}
 		}
-
-		// If we can't find the child ID, we have a problem
-		return nil, fmt.Errorf("orchestration already started but cannot find child ID")
 	}
 
-	// Mark that we're starting this orchestration
-	params.CollectedData[stepKey] = true
+	params.Logger.Warn("Child marked as started but can't find result")
+	return nil
+}
 
-	// The previous step should have the spawn result
-	// In your workflow: spawn_website_team -> start_website_workflow
-	// So we need to look at the previous step's result
+// findSpawnData locates the spawn result from previous steps
+func findSpawnData(params ActionParams) (map[string]interface{}, error) {
+	var spawnResult map[string]interface{}
+	found := false
 
-	// Try the step name first (correct behavior)
-	var spawnResult interface{}
-	var found bool
-
-	// Try to find the most recent spawn result
-	// Look through execution path to find the last spawn action
+	// Look for spawn results in collected data
 	for stepName, data := range params.CollectedData {
 		if dataMap, ok := data.(map[string]interface{}); ok {
-			// Check if this is a spawn result (has workflow and agents)
-			if _, hasWorkflow := dataMap["workflow"]; hasWorkflow {
-				if _, hasAgents := dataMap["agents"]; hasAgents {
-					spawnResult = dataMap
-					found = true
-					params.Logger.Info("Found spawn result from step",
-						zap.String("DEBUG_O_ACTIONS_2: step_name", stepName),
-						zap.Any("DEBUG_O_ACTIONS_2: workflow", dataMap["workflow"]),
-					)
-					// Don't break - keep looking for the most recent one
-				}
-			}
-			// Also check if it has group_id (another indicator of spawn result)
-			if _, hasGroupID := dataMap["group_id"]; hasGroupID {
-				if _, hasAgents := dataMap["agents"]; hasAgents {
-					spawnResult = dataMap
-					found = true
-					params.Logger.Info("Found spawn result from step",
-						zap.String("DEBUG_O_ACTIONS_3: step_name", stepName))
-				}
+			// Check for spawn result indicators
+			hasWorkflow := dataMap["workflow"] != nil
+			hasAgents := dataMap["agents"] != nil
+			hasGroupID := dataMap["group_id"] != nil
+
+			if (hasWorkflow && hasAgents) || (hasGroupID && hasAgents) {
+				spawnResult = dataMap
+				found = true
+				params.Logger.Debug("Found spawn result",
+					zap.String("from_step", stepName))
 			}
 		}
 	}
 
 	if !found {
-		params.Logger.Error("No spawn result found in collected data",
-			zap.Any("available_keys", getMapKeys(params.CollectedData)))
-		return nil, fmt.Errorf("spawn result not found")
+		return nil, fmt.Errorf("no spawn result found in collected data")
 	}
 
-	spawnData, ok := spawnResult.(map[string]interface{})
+	return spawnResult, nil
+}
+
+// extractWorkflow gets the workflow JSON from spawn data
+func extractWorkflow(spawnData map[string]interface{}, logger *zap.Logger) (json.RawMessage, error) {
+	workflow, ok := spawnData["workflow"]
 	if !ok {
-		return nil, fmt.Errorf("spawn result is not a map, got %T", spawnResult)
-	}
-
-	params.Logger.Info("Found spawn data",
-		zap.String("DEBUG_O_ACTIONS_4: group_id", fmt.Sprintf("%v", spawnData["group_id"])),
-		zap.String("DEBUG_O_ACTIONS_4: group_name", fmt.Sprintf("%v", spawnData["group_name"])),
-		zap.Any("DEBUG_O_ACTIONS_4: agents", spawnData["agents"]))
-
-	// Get the workflow
-	var workflowJSON json.RawMessage
-	if workflow, ok := spawnData["workflow"]; ok {
-
-		params.Logger.Info("Workflow from spawn data",
-			zap.Any("DEBUG_O_ACTIONS_5: workflow_raw", workflow),
-			zap.String("DEBUG_O_ACTIONS_5: wworkflow_type", fmt.Sprintf("%T", workflow)))
-
-		switch workflowType := workflow.(type) {
-		case json.RawMessage:
-			workflowJSON = workflowType
-		case []byte:
-			workflowJSON = json.RawMessage(workflowType)
-		case map[string]interface{}:
-			bytes, err := json.Marshal(workflowType)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal workflow: %w", err)
-			}
-			workflowJSON = json.RawMessage(bytes)
-		default:
-			return nil, fmt.Errorf("workflow has unexpected type: %T", workflowType)
-		}
-
-		params.Logger.Info("Workflow JSON to be used",
-			zap.String("DEBUG_O_ACTIONS_6: wworkflow_json", string(workflowJSON)),
-		)
-
-	} else {
-		params.Logger.Info("Workflow erroring from spawn data",
-			zap.Any("DEBUG_O_ACTIONS_7: workflow_raw (empty?)", workflow),
-			zap.String("DEBUG_O_ACTIONS_7: workflow_type", fmt.Sprintf("%T", workflow)))
-
 		return nil, fmt.Errorf("workflow not found in spawn result")
 	}
 
-	// Create new orchestrationID for the new orchestration
-	newOrchestrationID := uuid.New().String()
-
-	// Prepare headers for the new orchestration
-	newHeaders := make(map[string]string)
-	for k, v := range params.Headers {
-		newHeaders[k] = v
-	}
-	newHeaders["parent_orchestration_id"] = currentOrchestrationID
-	newHeaders["orchestration_id"] = newOrchestrationID
-
-	newHeaders["correlation_id"] = params.Headers["correlation_id"]
-	newHeaders["parent_correlation_id"] = params.Headers["correlation_id"]
-	params.CollectedData["parent_correlation_id"] = params.Headers["correlation_id"]
-	// Store parent orchestration ID and agent type in collected data for child to access later
-	params.CollectedData["parent_agent_type"] = params.Headers["agent_type"]
-	params.CollectedData["parent_orchestration_id"] = params.Headers["orchestration_id"]
-	newHeaders["parent_agent_type"] = params.AgentType
-
-	// Add spawned agents to headers if available
-	if agentsRaw, ok := spawnData["agents"]; ok {
-		params.Logger.Info("Found agents in spawn data",
-			zap.String("agents_type", fmt.Sprintf("%T", agentsRaw)))
-
-		switch agents := agentsRaw.(type) {
-		case map[string]string:
-			for role, agentID := range agents {
-				newHeaders[fmt.Sprintf("agent_%s", role)] = agentID
-			}
-			params.Logger.Info("Added agent mappings to headers (string map)",
-				zap.Int("agent_count", len(agents)))
-
-		case map[string]interface{}:
-			count := 0
-			for role, agentIDRaw := range agents {
-				if agentID, ok := agentIDRaw.(string); ok {
-					newHeaders[fmt.Sprintf("agent_%s", role)] = agentID
-					count++
-				}
-			}
-			params.Logger.Info("Added agent mappings to headers (interface map)",
-				zap.Int("agent_count", count))
-
-		default:
-			params.Logger.Warn("Unexpected type for agents",
-				zap.String("type", fmt.Sprintf("%T", agentsRaw)))
+	// Convert to JSON based on type
+	switch wf := workflow.(type) {
+	case json.RawMessage:
+		return wf, nil
+	case []byte:
+		return json.RawMessage(wf), nil
+	case map[string]interface{}:
+		bytes, err := json.Marshal(wf)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal workflow: %w", err)
 		}
-	} else {
-		params.Logger.Warn("No agents found in spawn data")
+		return json.RawMessage(bytes), nil
+	default:
+		return nil, fmt.Errorf("workflow has unexpected type: %T", workflow)
+	}
+}
+
+// ChildOrchestrationIDs holds all IDs for the child orchestration
+type ChildOrchestrationIDs struct {
+	OrchestrationID string // Child's orchestration ID
+	MessageID       string // Message ID for the creation request
+	RequestID       string // Request ID that parent will wait for
+}
+
+// createChildOrchestration creates the child orchestration
+func createChildOrchestration(
+	ctx context.Context,
+	params ActionParams,
+	parent *ParentContext,
+	spawnData map[string]interface{},
+	workflowJSON json.RawMessage,
+) (*ChildOrchestrationIDs, error) {
+
+	// Generate IDs for the child
+	childIDs := &ChildOrchestrationIDs{
+		OrchestrationID: uuid.New().String(),
+		MessageID:       uuid.New().String(),
+		RequestID:       uuid.New().String(), // This is what parent will wait for
 	}
 
-	params.Logger.Info("Creating new orchestration",
-		zap.String("DEBUG_O_ACTIONS_8: new_orchestration_id", newOrchestrationID),
-		zap.String("DEBUG_O_ACTIONS_8: parent_correlation_id", params.Headers["correlation_id"]))
+	// MY response topic
+	myResponseTopic := fmt.Sprintf("system.agent.%s.responses", parent.AgentType)
 
-	// Get the SagaCoordinator
-	type orchestratorInterface interface {
+	// Store the request ID for the child to know what to respond to
+	// params.CollectedData["parent_request_id"] = childIDs.RequestID
+
+	// Build headers for child
+	childHeaders := make(map[string]string)
+	for k, v := range params.Headers {
+		childHeaders[k] = v
+	}
+
+	// Set orchestration hierarchy and parent context
+	childHeaders["orchestration_id"] = childIDs.OrchestrationID
+	childHeaders["parent_orchestration_id"] = parent.OrchestrationID
+	childHeaders["parent_reply_to_topic"] = myResponseTopic // Where child responds
+	childHeaders["parent_agent_type"] = parent.AgentType
+	childHeaders["correlation_id"] = parent.CorrelationID
+	childHeaders["message_id"] = childIDs.MessageID
+	childHeaders["request_id"] = childIDs.RequestID
+
+	// Add agent mappings from spawn data
+	if agents, ok := spawnData["agents"].(map[string]interface{}); ok {
+		for role, agentID := range agents {
+			if id, ok := agentID.(string); ok {
+				childHeaders[fmt.Sprintf("agent_%s", role)] = id
+			}
+		}
+	}
+
+	// Mark this step as started
+	stepKey := fmt.Sprintf("%s_started", params.CurrentStep)
+	params.CollectedData[stepKey] = true
+
+	// Get orchestrator interface
+	orchestrator, ok := params.SagaCoordinator.(interface {
 		CreateNewOrchestration(context.Context, string, map[string]string, json.RawMessage) error
-	}
-
-	orchestrator, ok := params.SagaCoordinator.(orchestratorInterface)
+	})
 	if !ok || orchestrator == nil {
-		return nil, fmt.Errorf("SagaCoordinator not available or doesn't implement required interface")
+		return nil, fmt.Errorf("SagaCoordinator not available")
 	}
 
-	// Create the new orchestration
-	err := orchestrator.CreateNewOrchestration(ctx, newOrchestrationID, newHeaders, workflowJSON)
+	// Create the orchestration
+	err := orchestrator.CreateNewOrchestration(ctx, childIDs.OrchestrationID, childHeaders, workflowJSON)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create orchestration: %w", err)
 	}
 
-	params.Logger.Info("New orchestration created successfully",
-		zap.String("DEBUGOACTIONS3: new_orchestration_id", newOrchestrationID),
-		zap.String("DEBUGOACTIONS3: group_id", fmt.Sprintf("%v", spawnData["group_id"])))
+	params.Logger.Info("Child orchestration created",
+		zap.String("child_orchestration_id", childIDs.OrchestrationID),
+		zap.String("parent_will_wait_for", childIDs.RequestID))
 
-	// Start timeout monitor for child orchestration
-	go func() {
-		// Configure timeout based on workflow complexity
-		timeout := 5 * time.Minute // Default timeout
+	return childIDs, nil
+}
 
-		// You could make this configurable based on the workflow type
-		if workflowTimeout, ok := params.StepConfig.Config["child_timeout_minutes"].(float64); ok {
-			timeout = time.Duration(workflowTimeout) * time.Minute
-		}
+// buildChildHeaders creates headers for the child orchestration
+func buildChildHeaders(
+	parentHeaders map[string]string,
+	parent *ParentContext,
+	childIDs *ChildOrchestrationIDs,
+	spawnData map[string]interface{},
+) map[string]string {
+	headers := make(map[string]string)
 
-		params.Logger.Info("Starting timeout monitor for child orchestration",
-			zap.String("DEBUGOACTIONS4: child_orchestration_id", newOrchestrationID),
-			zap.String("DEBUGOACTIONS4: parent_correlation_id", params.Headers["correlation_id"]),
-			zap.Duration("timeout", timeout))
+	// Copy parent headers
+	for k, v := range parentHeaders {
+		headers[k] = v
+	}
 
-		// Wait for the timeout period
-		time.Sleep(timeout)
+	// Set orchestration hierarchy
+	headers["orchestration_id"] = childIDs.OrchestrationID
+	headers["parent_orchestration_id"] = parent.OrchestrationID
+	headers["correlation_id"] = parent.CorrelationID
+	headers["message_id"] = childIDs.MessageID
+	headers["request_id"] = childIDs.RequestID
+	headers["parent_agent_type"] = parent.AgentType
 
-		// After timeout, check if parent is still waiting for this child
-		// We need to check the parent's state, not the child's
-		parentCorrelationID := params.Headers["correlation_id"]
-		parentOrchestrationID := params.Headers["parent_orchestration_id"]
-
-		// Since we're in a goroutine, we need to be careful about DB access
-		// Create a new context for this check
-		checkCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		// Check parent state to see if it's still waiting
-		if params.DB != nil {
-			var status string
-			var awaitedSteps []byte
-
-			query := `
-                SELECT status, awaited_steps 
-                FROM orchestration_states 
-                WHERE orchestration_id = $1
-            `
-
-			err := params.DB.QueryRowContext(checkCtx, query, parentOrchestrationID).Scan(&status, &awaitedSteps)
-			if err != nil {
-				params.Logger.Error("Failed to check parent state for timeout",
-					zap.String("DEBUGOACTIONS5: parent_correlation_id", parentCorrelationID),
-					zap.String("DEBUGOACTIONS5: parent_orchestration_id", parentOrchestrationID),
-					zap.Error(err))
-				return
-			}
-
-			// Parse awaited steps
-			var awaited []string
-			if err := json.Unmarshal(awaitedSteps, &awaited); err != nil {
-				params.Logger.Error("Failed to parse awaited steps",
-					zap.Error(err))
-				return
-			}
-
-			// Check if parent is still waiting for this child
-			stillWaiting := false
-			for _, step := range awaited {
-				if step == newOrchestrationID {
-					stillWaiting = true
-					break
-				}
-			}
-
-			if stillWaiting && status == "AWAITING_RESPONSES" {
-				params.Logger.Error("Child orchestration timeout - parent still waiting",
-					zap.String("DEBUGOACTIONS6: child_orchestration_id", newOrchestrationID),
-					zap.String("DEBUGOACTIONS6: parent_correlation_id", parentCorrelationID),
-					zap.String("DEBUGOACTIONS6: parent_orchestration_id", parentOrchestrationID),
-					zap.Duration("DEBUGOACTIONS6: timeout_after", timeout))
-
-				// Send timeout notification to parent
-				timeoutResponse := models.TaskResponse{
-					Success: false,
-					Error:   fmt.Sprintf("Child orchestration timeout after %v", timeout),
-					Data: map[string]interface{}{
-						"status":           "timeout",
-						"orchestration_id": newOrchestrationID,
-						"error":            fmt.Sprintf("Child orchestration %s timed out after %v", newOrchestrationID, timeout),
-						"timeout_at":       time.Now().UTC(),
-					},
-				}
-
-				responseBytes, _ := json.Marshal(timeoutResponse)
-
-				// Send timeout notification to parent
-				timeoutHeaders := map[string]string{
-					"correlation_id":        parentCorrelationID,
-					"parent_correlation_id": parentCorrelationID,
-					"orchestration_id":      newOrchestrationID,
-					//"in_response_to":          requestID,
-					"parent_orchestration_id": parentOrchestrationID,
-					"message_type":            "orchestration_timeout",
-				}
-
-				// Use the producer to send timeout notification
-				if params.Producer != nil {
-					err := params.Producer.Produce(checkCtx,
-						"system.agent.generic.responses",
-						timeoutHeaders,
-						[]byte(parentOrchestrationID),
-						responseBytes)
-
-					if err != nil {
-						params.Logger.Error("Failed to send timeout notification to parent",
-							zap.Error(err))
-					} else {
-						params.Logger.Info("Timeout notification sent to parent",
-							zap.String("parent_correlation_id", parentCorrelationID),
-							zap.String("parent_orchestration_id", parentOrchestrationID),
-						)
-					}
-				}
-
-				// Optional: Also check and update child orchestration status
-				var childStatus string
-				err = params.DB.QueryRowContext(checkCtx,
-					"SELECT status FROM orchestrator_state WHERE orchestration_id = $1",
-					newOrchestrationID).Scan(&childStatus)
-
-				if err == nil && childStatus == "RUNNING" {
-					// Child is still running after timeout - mark it as failed
-					_, err = params.DB.ExecContext(checkCtx, `
-                        UPDATE orchestrator_state 
-                        SET status = 'FAILED', 
-                            error = $2,
-                            updated_at = NOW()
-                        WHERE orchestration_id = $1 AND status = 'RUNNING'
-                    `, newOrchestrationID, fmt.Sprintf("Timeout after %v", timeout))
-
-					if err == nil {
-						params.Logger.Info("Marked child orchestration as failed due to timeout",
-							zap.String("DEBUGOACTIONS7: child_orchestration_id", newOrchestrationID),
-						)
-					}
-				}
-			} else {
-				params.Logger.Info("Timeout check passed - parent no longer waiting or child completed",
-					zap.String("DEBUGOACTIONS8: child_orchestration_id", newOrchestrationID),
-					zap.String("DEBUGOACTIONS8: parent_status", status),
-					zap.Bool("DEBUGOACTIONS8: still_waiting", stillWaiting))
+	// Add agent mappings from spawn data
+	if agents, ok := spawnData["agents"].(map[string]interface{}); ok {
+		for role, agentID := range agents {
+			if id, ok := agentID.(string); ok {
+				headers[fmt.Sprintf("agent_%s", role)] = id
 			}
 		}
-	}()
+	}
 
+	return headers
+}
+
+// startTimeoutMonitor starts a goroutine to monitor child timeout
+func startTimeoutMonitor(params ActionParams, parent *ParentContext, childIDs *ChildOrchestrationIDs) {
+	timeout := 5 * time.Minute
+	if configTimeout, ok := params.StepConfig.Config["child_timeout_minutes"].(float64); ok {
+		timeout = time.Duration(configTimeout) * time.Minute
+	}
+
+	go monitorChildTimeout(
+		params.DB,
+		params.Producer,
+		params.Logger,
+		parent,
+		childIDs,
+		timeout,
+	)
+}
+
+// monitorChildTimeout monitors for child orchestration timeout
+func monitorChildTimeout(
+	db *sql.DB,
+	producer interface{},
+	logger *zap.Logger,
+	parent *ParentContext,
+	childIDs *ChildOrchestrationIDs,
+	timeout time.Duration,
+) {
+	time.Sleep(timeout)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Check if parent is still waiting for this request
+	if !isParentStillWaiting(ctx, db, parent.OrchestrationID, childIDs.RequestID, logger) {
+		logger.Info("Timeout check passed - parent no longer waiting",
+			zap.String("child_request_id", childIDs.RequestID))
+		return
+	}
+
+	// Send timeout notification
+	// sendTimeoutNotification(ctx, producer, parent, childIDs, timeout, logger)
+}
+
+// isParentStillWaiting checks if parent is still waiting for a request
+func isParentStillWaiting(ctx context.Context, db *sql.DB, parentOrchID, requestID string, logger *zap.Logger) bool {
+	if db == nil {
+		return false
+	}
+
+	var status string
+	var awaitedStepsJSON []byte
+
+	query := `SELECT status, awaited_steps FROM orchestration_states WHERE orchestration_id = $1`
+	err := db.QueryRowContext(ctx, query, parentOrchID).Scan(&status, &awaitedStepsJSON)
+	if err != nil {
+		logger.Error("Failed to check parent state", zap.Error(err))
+		return false
+	}
+
+	if status != "AWAITING_RESPONSES" {
+		return false
+	}
+
+	var awaitedSteps []string
+	if err := json.Unmarshal(awaitedStepsJSON, &awaitedSteps); err != nil {
+		return false
+	}
+
+	for _, step := range awaitedSteps {
+		if step == requestID {
+			return true
+		}
+	}
+
+	return false
+}
+
+// buildStartOrchestrationResult builds the return value
+// the data that gets stored in the parent's CollectedData - stored locally in parent's state
+/*
+This return value tells the parent orchestration:
+"I started a child orchestration"
+"The request_id is REQ-123"
+"You should wait for a response to REQ-123"
+Then the parent does: state.AwaitedSteps = []string{"REQ-123"}  // From the request_id field above
+Later, when the child COMPLETES and sends a response MESSAGE (not the return value), it includes:
+responseHeaders := map[string]string{
+    "in_response_to": "REQ-123",  // This matches what parent is waiting for
+    // ...
+}
+The in_response_to field belongs in the response MESSAGE headers, not in the action's return value. The action return value just needs to tell the parent what request_id to wait for.
+*/
+func buildStartOrchestrationResult(childIDs *ChildOrchestrationIDs, spawnData map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
 		"status":                 "orchestration_started",
-		"child_orchestration_id": newOrchestrationID,
-		"await_orchestration_id": newOrchestrationID,
-		"group_id":               spawnData["group_id"],
+		"child_orchestration_id": childIDs.OrchestrationID,
+		"request_id":             childIDs.RequestID,
 		"await_response":         true,
-		"request_id":             params.Headers["requestID"],
-		"in_response_to":         params.Headers["requestID"],
-	}, nil
+		"group_id":               spawnData["group_id"],
+	}
 }
 
 func getMapKeys(m map[string]interface{}) []string {

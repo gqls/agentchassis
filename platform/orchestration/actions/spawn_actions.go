@@ -201,7 +201,7 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 			Headers:  params.Headers,
 			DB:       params.DB,
 			Logger:   params.Logger,
-			Producer: params.Producer, // CRITICAL: Pass the producer
+			Producer: params.Producer,
 		})
 
 		if err != nil {
@@ -245,223 +245,6 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 		"group_name": groupName,
 		"agents":     spawnedAgents,
 		"workflow":   workflow,
-	}, nil
-}
-
-// callSpecificAgent calls a specific agent by ID
-func callSpecificAgent(ctx context.Context, params ActionParams, agentID string) (interface{}, error) {
-	clientID := params.Headers["client_id"]
-	if clientID == "" {
-		return nil, fmt.Errorf("client_id not specified")
-	}
-
-	// Get the agent type from the step config
-	agentType := ""
-	if at, ok := params.StepConfig.Config["agent_type"].(string); ok {
-		agentType = at
-		params.Logger.Info("Got agent_type from step config",
-			zap.String("agent_type", agentType))
-	}
-
-	// Get the topic - query DB or construct from type
-	var topic string
-
-	// Get agent configuration to find its topic
-	var agentConfig json.RawMessage
-	query := fmt.Sprintf(`
-        SELECT config FROM client_%s.agent_instances 
-        WHERE id = $1
-    `, clientID)
-
-	err := params.DB.QueryRowContext(ctx, query, agentID).Scan(&agentConfig)
-	if err != nil {
-		// If not in DB, construct topic from agent type
-		if agentType != "" {
-			topic = fmt.Sprintf("system.agent.%s.process", agentType)
-			params.Logger.Info("Constructed topic from agent type",
-				zap.String("DEBUG_SPAWN_15: topic", topic))
-		} else {
-			return nil, fmt.Errorf("agent not found and no agent_type specified: %w", err)
-		}
-	} else {
-		// Parse config to get topic
-		var config map[string]interface{}
-		if err := json.Unmarshal(agentConfig, &config); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal agent config: %w", err)
-		}
-
-		if t, ok := config["topic"].(string); ok {
-			topic = t
-		} else if agentType != "" {
-			topic = fmt.Sprintf("system.agent.%s.process", agentType)
-		} else {
-			return nil, fmt.Errorf("topic not found in agent config")
-		}
-	}
-
-	return sendMessageToAgent(ctx, params, agentID, topic, agentType)
-}
-
-// Helper function to actually send the message
-func sendMessageToAgent(ctx context.Context, params ActionParams, agentID string, topic string, agentType string) (interface{}, error) {
-	// Check if Producer is available
-	if params.Producer == nil {
-		params.Logger.Error("Producer is nil, cannot send message to agent")
-		return nil, fmt.Errorf("producer not available")
-	}
-
-	// Prepare the data to send
-	dataToSend := prepareDataToSend(params)
-
-	return sendNewFormatMessage(ctx, params, agentID, agentType, dataToSend)
-}
-
-// Helper function to prepare data
-func prepareDataToSend(params ActionParams) map[string]interface{} {
-	dataToSend := make(map[string]interface{})
-
-	// First, add all collected data
-	for k, v := range params.CollectedData {
-		dataToSend[k] = v
-	}
-
-	// Then merge any input data
-	if params.InputData != nil {
-		var inputData map[string]interface{}
-		if err := json.Unmarshal(params.InputData, &inputData); err == nil {
-			if data, ok := inputData["data"].(map[string]interface{}); ok {
-				for k, v := range data {
-					dataToSend[k] = v
-				}
-			} else {
-				for k, v := range inputData {
-					if k != "action" {
-						dataToSend[k] = v
-					}
-				}
-			}
-		}
-	}
-
-	return dataToSend
-}
-
-// Send message using new agent-specific topics
-func sendNewFormatMessage(ctx context.Context, params ActionParams, agentID string, agentType string, dataToSend map[string]interface{}) (interface{}, error) {
-	// Get caller's agent ID
-	callerAgentID := params.Headers["agent_id"]
-	if callerAgentID == "" {
-		callerAgentID = os.Getenv("AGENT_ID")
-		if callerAgentID == "" {
-			// For orchestrator or initial caller
-			callerAgentID = "00000000-0000-0000-0000-000000000001"
-		}
-	}
-
-	// Get caller's agent TYPE for topic construction
-	callerAgentType := params.Headers["agent_type"]
-	if callerAgentType == "" {
-		callerAgentType = os.Getenv("AGENT_TYPE")
-		if callerAgentType == "" {
-			callerAgentType = "generic" // Default
-		}
-	}
-
-	params.Logger.Info("DEBUG: About to send message",
-		zap.String("DEBUG_SPAWN_16: from_agent_id", callerAgentID),
-		zap.String("DEBUG_SPAWN_16: from_agent_type", callerAgentType),
-		zap.String("DEBUG_SPAWN_16: to_agent_id", agentID),
-		zap.String("DEBUG_SPAWN_16: to_agent_type", agentType),
-		zap.Bool("DEBUG_SPAWN_16: is_self_call", agentID == callerAgentID && agentType == callerAgentType))
-
-	// Build tree path
-	var treePath []string
-	if existingPath, ok := params.Headers["tree_path"]; ok && existingPath != "" {
-		treePath = strings.Split(existingPath, ",")
-	}
-	treePath = append(treePath, callerAgentID)
-
-	// Create new format message
-	messageID := uuid.New().String()
-	msg := models.AgentMessage{
-		MessageID:       messageID,
-		RequestID:       messageID,
-		CorrelationID:   params.Headers["correlation_id"],
-		OrchestrationID: params.Headers["orchestration_id"],
-		FromAgentID:     callerAgentID,
-		ToAgentID:       agentID, // Full UUID of target agent
-		ReplyToTopic:    fmt.Sprintf("system.agent.%s.responses", callerAgentType),
-		MessageType:     "request",
-		Action:          "process",
-		Data:            dataToSend,
-		TreePath:        treePath,
-		TreeDepth:       len(treePath),
-		SubtreeID:       uuid.New().String(),
-		Timestamp:       time.Now(),
-		Version:         "2.0",
-	}
-
-	msgBytes, _ := json.Marshal(msg)
-
-	// Target topic uses the FULL agent ID
-	targetTopic := fmt.Sprintf("system.agent.%s.requests", agentType)
-
-	// Create headers with all required fields
-	headers := msg.ToHeaders()
-
-	// IMPORTANT: Ensure request_id is set (might be missing in ToHeaders())
-	headers["request_id"] = messageID
-	headers["message_id"] = messageID
-	headers["agent_instance_id"] = agentID // The target agent's ID
-
-	// Also ensure other required headers are present
-	if headers["client_id"] == "" {
-		headers["client_id"] = params.Headers["client_id"]
-	}
-	if headers["fuel_budget"] == "" {
-		headers["fuel_budget"] = params.Headers["fuel_budget"]
-	}
-
-	headers["client_id"] = params.Headers["client_id"]
-	headers["fuel_budget"] = params.Headers["fuel_budget"]
-
-	// Prevent self-recursion
-	if agentID == callerAgentID && agentType == callerAgentType {
-		params.Logger.Error("Attempted self-recursion detected",
-			zap.String("DEBUG_SPAWN_17: agent_id", agentID),
-			zap.String("DEBUG_SPAWN_17: agent_type", agentType))
-		return nil, fmt.Errorf("agent cannot call itself")
-	}
-
-	params.Logger.Info("Sending message (new format)",
-		zap.String("DEBUG_SPAWN_18: from_agent_id", callerAgentID),
-		zap.String("DEBUG_SPAWN_18: from_agent_type", callerAgentType),
-		zap.String("DEBUG_SPAWN_18: to_agent_id", agentID),
-		zap.String("DEBUG_SPAWN_18: to_agent_type", agentType),
-		zap.String("DEBUG_SPAWN_18: target_topic", targetTopic),
-		zap.String("DEBUG_SPAWN_18: reply_topic", msg.ReplyToTopic),
-		zap.String("DEBUG_SPAWN_18: message_id", msg.MessageID),
-		zap.String("DEBUG_SPAWN_18: request_id", messageID),
-		zap.String("DEBUG_SPAWN_18: client_id", headers["client_id"]),
-		zap.String("DEBUG_SPAWN_18: fuel_budget", headers["fuel_budget"]),
-		zap.Int("DEBUG_SPAWN_18: tree_depth", msg.TreeDepth))
-
-	err := params.Producer.Produce(ctx, targetTopic, headers,
-		[]byte(msg.CorrelationID), msgBytes)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to send message: %w", err)
-	}
-
-	return map[string]interface{}{
-		"agent_called":   agentID,
-		"agent_type":     agentType,
-		"request_id":     msg.MessageID,
-		"topic":          targetTopic,
-		"reply_to_topic": msg.ReplyToTopic,
-		"message_sent":   true,
-		"await_response": true,
-		"message_format": "2.0",
 	}, nil
 }
 
@@ -771,138 +554,92 @@ func (d *EnhancedDiscovery) GetAgentPerformanceSummary(ctx context.Context, agen
 	}
 }
 
-// CallAgentAction - Fixed version without circular dependency
-// CallAgentAction - properly creates child orchestrations and tracks requests
+// CallAgentAction - creates child orchestrations and tracks requests - every agent has orchestration
 func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	// Extract orchestration context from headers
-	orchestrationID := params.Headers["orchestration_id"]
-	if orchestrationID == "" {
+	// Validate parent context
+	parentOrchID := params.Headers["orchestration_id"]
+	if parentOrchID == "" {
 		return nil, fmt.Errorf("orchestration_id required in headers")
 	}
 
-	correlationID := params.Headers["correlation_id"]
-	clientID := params.Headers["client_id"]
-
-	params.Logger.Info("CallAgentAction starting",
-		zap.String("DEBUG_SPAWN_19: orchestration_id", orchestrationID),
-		zap.String("DEBUG_SPAWN_19: correlation_id", correlationID))
-
-	// Check if we already called this agent for this step
+	// Check for idempotency
 	stepKey := fmt.Sprintf("%s_request", params.CurrentStep)
 	if existingRequest, exists := params.CollectedData[stepKey]; exists {
 		if reqMap, ok := existingRequest.(map[string]interface{}); ok {
 			if reqID, ok := reqMap["request_id"].(string); ok && reqID != "" {
-				// Already called, return existing result
-				params.Logger.Info("Agent already called for this step",
-					zap.String("step", params.CurrentStep),
-					zap.String("existing_request_id", reqID))
 				return existingRequest, nil
 			}
 		}
 	}
 
-	// Get target agent type from config
+	// Get target agent
 	config := params.StepConfig.Config
 	targetAgentType, ok := config["agent_type"].(string)
 	if !ok {
 		return nil, fmt.Errorf("agent_type not specified in config")
 	}
 
-	// Find or spawn the target agent
 	targetAgentID, err := findOrSpawnAgent(ctx, params, targetAgentType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find or spawn agent: %w", err)
 	}
 
-	// Create new orchestration ID for the called agent
+	// Generate IDs
 	childOrchestrationID := uuid.New().String()
 	requestID := uuid.New().String()
-	messageID := uuid.New().String()
 
-	// Build message data from collected data
-	messageData := make(map[string]interface{})
-	for k, v := range params.CollectedData {
-		messageData[k] = v
-	}
+	// MY response topic (where I receive responses)
+	myResponseTopic := fmt.Sprintf("system.agent.%s.responses", params.Headers["agent_type"])
 
-	// Track this request in the database
-	if err := trackRequest(ctx, params.DB, requestID, orchestrationID, targetAgentID); err != nil {
-		params.Logger.Warn("Failed to track request", zap.Error(err))
-		// Continue anyway - tracking is not critical
-	}
-
-	// Create the message to send to the target agent
+	// Build message for child
 	msg := models.AgentMessage{
-		MessageID:       messageID,
+		MessageID:       requestID,
 		RequestID:       requestID,
-		CorrelationID:   correlationID,
+		CorrelationID:   params.Headers["correlation_id"],
 		OrchestrationID: childOrchestrationID,
-		FromAgentID:     orchestrationID, // Use parent's orchestration as sender
+		FromAgentID:     params.Headers["agent_id"],
 		ToAgentID:       targetAgentID,
-		ReplyToTopic:    fmt.Sprintf("system.agent.%s.responses", params.Headers["agent_type"]),
+		ReplyToTopic:    myResponseTopic, // Child replies to me
 		MessageType:     "request",
 		Action:          "process",
-		Data:            messageData,
+		Data:            params.CollectedData,
 		Timestamp:       time.Now(),
 		Version:         "2.0",
 	}
 
-	msgBytes, err := json.Marshal(msg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal message: %w", err)
-	}
+	// Build headers for child orchestration
+	childHeaders := msg.ToHeaders()
+	childHeaders["parent_orchestration_id"] = parentOrchID
+	childHeaders["client_id"] = params.Headers["client_id"]
+	childHeaders["parent_reply_to_topic"] = myResponseTopic // Where child sends completion
+	childHeaders["parent_agent_type"] = params.Headers["agent_type"]
+	childHeaders["reply_to_topic"] = msg.ReplyToTopic
+	childHeaders["fuel_budget"] = params.Headers["fuel_budget"]
 
-	// Prepare headers for the child orchestration
-	childHeaders := map[string]string{
-		"orchestration_id":        childOrchestrationID, // Child's NEW orchestration
-		"parent_orchestration_id": orchestrationID,      // Parent's orchestration
-		"correlation_id":          correlationID,        // Business correlation stays same
-		"client_id":               clientID,
-		"request_id":              requestID,
-		"message_id":              messageID,
-		"message_type":            "request",
-		"from_agent_id":           params.Headers["agent_id"],
-		"to_agent_id":             targetAgentID,
-		"agent_instance_id":       targetAgentID,
-		"fuel_budget":             params.Headers["fuel_budget"],
-	}
+	// Track request
+	trackRequest(ctx, params.DB, requestID, parentOrchID, targetAgentID)
 
-	// Send to agent's request topic
+	// Send to child
 	targetTopic := fmt.Sprintf("system.agent.%s.requests", targetAgentType)
+	msgBytes, _ := json.Marshal(msg)
 
-	params.Logger.Info("Sending message to agent",
-		zap.String("DEBUG_SPAWN_20: target_agent_id", targetAgentID),
-		zap.String("DEBUG_SPAWN_20: target_agent_type", targetAgentType),
-		zap.String("DEBUG_SPAWN_20: child_orchestration_id", childOrchestrationID),
-		zap.String("DEBUG_SPAWN_20: parent_orchestration_id", orchestrationID),
-		zap.String("DEBUG_SPAWN_20: request_id", requestID),
-		zap.String("DEBUG_SPAWN_20: topic", targetTopic))
-
-	err = params.Producer.Produce(ctx, targetTopic,
-		childHeaders,
-		[]byte(correlationID),
-		msgBytes)
-
+	err = params.Producer.Produce(ctx, targetTopic, childHeaders,
+		[]byte(childOrchestrationID), msgBytes)
 	if err != nil {
-		// Mark request as failed
 		failRequest(ctx, params.DB, requestID)
 		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
 
-	// Store the request info before returning
+	// Store result
 	result := map[string]interface{}{
 		"agent_called":        targetAgentID,
 		"agent_type":          targetAgentType,
-		"request_id":          requestID,
+		"request_id":          requestID, // Parent waits for this
 		"child_orchestration": childOrchestrationID,
-		"topic":               targetTopic,
-		"message_sent":        true,
 		"await_response":      true,
 	}
 
-	// Store this to prevent duplicate calls
 	params.CollectedData[stepKey] = result
-
 	return result, nil
 }
 
@@ -1578,6 +1315,60 @@ func createAgentInDBFromDefinition(ctx context.Context, params ActionParams, age
 		zap.String("DEBUG_SPAWN_33: client_id", clientID))
 
 	return nil
+}
+
+// sendRequestToAgent sends a request to another agent and tracks it
+func sendRequestToAgent(ctx context.Context, params ActionParams, targetAgentID, targetAgentType string) (interface{}, error) {
+	// Generate IDs
+	requestID := uuid.New().String()
+	messageID := uuid.New().String()
+
+	// Get parent context
+	parentOrchID := params.Headers["orchestration_id"]
+	if parentOrchID == "" {
+		return nil, fmt.Errorf("parent orchestration_id required")
+	}
+
+	// Build message
+	msg := models.AgentMessage{
+		MessageID:       messageID,
+		RequestID:       requestID,
+		CorrelationID:   params.Headers["correlation_id"],
+		OrchestrationID: parentOrchID, // Parent's orchestration
+		FromAgentID:     params.Headers["agent_id"],
+		ToAgentID:       targetAgentID,
+		ReplyToTopic:    fmt.Sprintf("system.agent.%s.responses", params.Headers["agent_type"]),
+		MessageType:     "request",
+		Action:          "process",
+		Data:            params.CollectedData,
+		Timestamp:       time.Now(),
+		Version:         "2.0",
+	}
+
+	// Track request
+	if err := trackRequest(ctx, params.DB, requestID, parentOrchID, targetAgentID); err != nil {
+		params.Logger.Warn("Failed to track request", zap.Error(err))
+	}
+
+	// Send message
+	targetTopic := fmt.Sprintf("system.agent.%s.requests", targetAgentType)
+	headers := msg.ToHeaders()
+	headers["client_id"] = params.Headers["client_id"]
+	headers["fuel_budget"] = params.Headers["fuel_budget"]
+
+	msgBytes, _ := json.Marshal(msg)
+	if err := params.Producer.Produce(ctx, targetTopic, headers,
+		[]byte(msg.CorrelationID), msgBytes); err != nil {
+		failRequest(ctx, params.DB, requestID)
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"agent_called":   targetAgentID,
+		"agent_type":     targetAgentType,
+		"request_id":     requestID, // Parent waits for this
+		"await_response": true,
+	}, nil
 }
 
 // spawnAgentKubernetesJobFromDefinition spawns job using database definition
