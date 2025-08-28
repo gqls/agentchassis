@@ -29,11 +29,11 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 
 	// If this is a child orchestration, send response to parent
 	if parentCtx, ok := params.CollectedData["__parent_context__"].(map[string]interface{}); ok {
-		parentOrchID, _ := parentCtx["orchestration_id"].(string)
+		parentOrchestratorID, _ := parentCtx["orchestration_id"].(string)
 		replyToTopic, _ := parentCtx["reply_to_topic"].(string)
 		requestID, _ := parentCtx["request_id"].(string)
 
-		if parentOrchID != "" && replyToTopic != "" && requestID != "" {
+		if parentOrchestratorID != "" && replyToTopic != "" && requestID != "" {
 			response := models.TaskResponse{
 				Success: true,
 				Data: map[string]interface{}{
@@ -44,26 +44,29 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 			}
 
 			responseHeaders := map[string]string{
-				"orchestration_id": parentOrchID, // Route to parent
-				"in_response_to":   requestID,    // What we're responding to
+				"orchestration_id": parentOrchestratorID, // Route to parent
+				"in_response_to":   requestID,            // What we're responding to
 				"correlation_id":   params.Headers["correlation_id"],
 				"message_type":     "response",
 				"from_agent_id":    params.Headers["agent_id"],
+				"causation_id":     requestID,
 			}
 
 			responseBytes, _ := json.Marshal(response)
 			err := params.Producer.Produce(ctx, replyToTopic, responseHeaders,
-				[]byte(params.Headers["correlation_id"]), responseBytes)
+				[]byte(params.Headers["orchestration_id"]), responseBytes)
 
 			if err != nil {
 				params.Logger.Error("Failed to send response to parent",
 					zap.Error(err),
-					zap.String("parent_orchestration_id", parentOrchID),
-					zap.String("reply_to_topic", replyToTopic))
+					zap.String("parent_orchestration_id", parentOrchestratorID),
+					zap.String("reply_to_topic", replyToTopic),
+					zap.String("in_response_to", requestID))
 			} else {
 				params.Logger.Info("Sent completion to parent",
-					zap.String("parent_orchestration_id", parentOrchID),
-					zap.String("in_response_to", requestID))
+					zap.String("parent_orchestration_id", parentOrchestratorID),
+					zap.String("in_response_to", requestID),
+					zap.String("reply_to_topic", replyToTopic))
 			}
 		}
 	}

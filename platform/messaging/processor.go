@@ -142,6 +142,27 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 
 	msgCtx.Logger.Info("Headers validated successfully")
 
+	// Ensure orchestration_id is set before executing workflow
+	if msgCtx.Headers["orchestration_id"] == "" {
+		msgCtx.Headers["orchestration_id"] = uuid.New().String()
+		msgCtx.Logger.Info("Generated new orchestration_id",
+			zap.String("orchestration_id", msgCtx.Headers["orchestration_id"]))
+	}
+
+	// Ensure agent_instance_id is set
+	if msgCtx.Headers["agent_instance_id"] == "" {
+		// Try to get from environment
+		if agentID := os.Getenv("AGENT_ID"); agentID != "" {
+			msgCtx.Headers["agent_instance_id"] = agentID
+		} else if msgCtx.Headers["to_agent_id"] != "" {
+			// Use to_agent_id if available
+			msgCtx.Headers["agent_instance_id"] = msgCtx.Headers["to_agent_id"]
+		} else {
+			// Generate one if absolutely necessary
+			msgCtx.Headers["agent_instance_id"] = msgCtx.Headers["agent_id"]
+		}
+	}
+
 	// Load the complete agent definition from the database
 	agentDef, err := p.loadAgentDefinition(ctx, p.agentType)
 	if err != nil {

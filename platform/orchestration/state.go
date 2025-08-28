@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gqls/agentchassis/pkg/models"
@@ -308,8 +309,54 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 	return &state, nil
 }
 
-// UpdateState persists changes with optimistic locking
+// UpdateState persists changes with optimistic locking and retry
 func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationState) error {
+	maxRetries := 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		err := r.attemptUpdate(ctx, state)
+		if err == nil {
+			return nil
+		}
+
+		if !strings.Contains(err.Error(), "optimistic lock failure") {
+			return err
+		}
+
+		if attempt < maxRetries-1 {
+			// Reload and merge
+			freshState, err := r.GetState(ctx, state.OrchestrationID)
+			if err != nil {
+				return fmt.Errorf("failed to reload state: %w", err)
+			}
+
+			// Merge critical updates
+			freshState.Status = state.Status
+			freshState.CurrentStep = state.CurrentStep
+			freshState.AwaitedSteps = state.AwaitedSteps
+
+			// Merge CollectedData selectively
+			for k, v := range state.CollectedData {
+				// Skip if it's an error that already exists
+				if errMap, isError := v.(map[string]interface{}); isError {
+					if _, hasError := errMap["error"]; hasError {
+						if _, exists := freshState.CollectedData[k]; exists {
+							continue // Don't overwrite existing errors
+						}
+					}
+				}
+				freshState.CollectedData[k] = v
+			}
+
+			state = freshState
+			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
+		}
+	}
+
+	return fmt.Errorf("failed after %d retries: optimistic lock failure", maxRetries)
+}
+
+// attemptUpdate persists changes with optimistic locking
+func (r *StateRepository) attemptUpdate(ctx context.Context, state *OrchestrationState) error {
 	// Ensure JSON fields are initialized
 	if state.AwaitedSteps == nil {
 		state.AwaitedSteps = []string{}

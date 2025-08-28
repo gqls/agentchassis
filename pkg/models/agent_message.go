@@ -18,6 +18,8 @@ type AgentMessage struct {
 	ToAgentID       string `json:"to_agent_id"`    // WHO should process this
 	ReplyToTopic    string `json:"reply_to_topic"` // WHERE to send response
 
+	AgentInstanceID string `json:"agent_instance_id"`
+
 	// Backward compatibility with existing TaskRequest/TaskResponse
 	Action string                 `json:"action"`
 	Data   map[string]interface{} `json:"data"`

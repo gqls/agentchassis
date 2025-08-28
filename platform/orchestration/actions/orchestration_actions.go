@@ -177,32 +177,11 @@ func createChildOrchestration(
 	// MY response topic
 	myResponseTopic := fmt.Sprintf("system.agent.%s.responses", parent.AgentType)
 
-	// Store the request ID for the child to know what to respond to
-	// params.CollectedData["parent_request_id"] = childIDs.RequestID
+	// Build headers for child using the helper function
+	childHeaders := buildChildHeaders(params.Headers, parent, childIDs, spawnData)
 
-	// Build headers for child
-	childHeaders := make(map[string]string)
-	for k, v := range params.Headers {
-		childHeaders[k] = v
-	}
-
-	// Set orchestration hierarchy and parent context
-	childHeaders["orchestration_id"] = childIDs.OrchestrationID
-	childHeaders["parent_orchestration_id"] = parent.OrchestrationID
-	childHeaders["parent_reply_to_topic"] = myResponseTopic // Where child responds
-	childHeaders["parent_agent_type"] = parent.AgentType
-	childHeaders["correlation_id"] = parent.CorrelationID
-	childHeaders["message_id"] = childIDs.MessageID
-	childHeaders["request_id"] = childIDs.RequestID
-
-	// Add agent mappings from spawn data
-	if agents, ok := spawnData["agents"].(map[string]interface{}); ok {
-		for role, agentID := range agents {
-			if id, ok := agentID.(string); ok {
-				childHeaders[fmt.Sprintf("agent_%s", role)] = id
-			}
-		}
-	}
+	// Add the parent reply topic (not in buildChildHeaders since it needs myResponseTopic)
+	childHeaders["parent_reply_to_topic"] = myResponseTopic
 
 	// Mark this step as started
 	stepKey := fmt.Sprintf("%s_started", params.CurrentStep)
@@ -229,7 +208,6 @@ func createChildOrchestration(
 	return childIDs, nil
 }
 
-// buildChildHeaders creates headers for the child orchestration
 func buildChildHeaders(
 	parentHeaders map[string]string,
 	parent *ParentContext,
@@ -251,7 +229,22 @@ func buildChildHeaders(
 	headers["request_id"] = childIDs.RequestID
 	headers["parent_agent_type"] = parent.AgentType
 
-	// Add agent mappings from spawn data
+	// Add agent instance ID - use orchestrator's ID if not specific
+	if headers["agent_instance_id"] == "" {
+		// For orchestration actions, use the orchestrator's agent ID
+		if agents, ok := spawnData["agents"].(map[string]interface{}); ok {
+			if orchestratorID, ok := agents["orchestrator"].(string); ok {
+				headers["agent_instance_id"] = orchestratorID
+			} else {
+				// Fallback to parent's agent ID
+				headers["agent_instance_id"] = parentHeaders["agent_id"]
+			}
+		} else {
+			headers["agent_instance_id"] = parentHeaders["agent_id"]
+		}
+	}
+
+	// Add agent mappings
 	if agents, ok := spawnData["agents"].(map[string]interface{}); ok {
 		for role, agentID := range agents {
 			if id, ok := agentID.(string); ok {

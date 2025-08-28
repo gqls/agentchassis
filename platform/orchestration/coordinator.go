@@ -87,7 +87,6 @@ func NewSagaCoordinator(db *sql.DB, producer kafka.Producer, logger *zap.Logger)
 }
 
 // ExecuteWorkflow now stores the plan and continues execution
-// ExecuteWorkflow now properly manages orchestration_id
 func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.WorkflowPlan, headers map[string]string, initialData []byte) error {
 	correlationID := headers["correlation_id"]
 	l := s.logger.With(zap.String("correlation_id", correlationID))
@@ -109,7 +108,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 		return err
 	}
 
-	// CRITICAL: Set orchestration_id in headers for all subsequent operations
+	// Set orchestration_id in headers for all subsequent operations
 	headers["orchestration_id"] = orchestrationID
 	headers["owner_agent_id"] = state.OwnerAgentID
 

@@ -474,3 +474,38 @@ SET default_config = '{
 }
 }'::jsonb
 WHERE type = 'generic';
+
+---
+
+ALTER TABLE orchestration_states
+ADD COLUMN parent_orchestration_id UUID,
+-- ADD CONSTRAINT fk_parent_orchestration
+FOREIGN KEY (parent_orchestration_id)
+REFERENCES orchestration_states(orchestration_id)
+ON DELETE CASCADE;
+
+ALTER TABLE orchestration_states
+DROP CONSTRAINT fk_parent_orchestration;
+
+-- Index for performance
+CREATE INDEX idx_parent_orchestration
+ON orchestration_states(parent_orchestration_id)
+WHERE parent_orchestration_id IS NOT NULL;
+
+
+
+-- Verify current schema
+\d orchestration_states
+
+-- Should have at least:
+-- orchestration_id UUID PRIMARY KEY
+-- correlation_id UUID NOT NULL
+-- owner_agent_id UUID NOT NULL  
+-- parent_orchestration_id UUID (nullable)
+-- client_id VARCHAR(100) NOT NULL
+-- status VARCHAR(50)
+-- current_step VARCHAR(100)
+-- awaited_steps JSONB
+-- collected_data JSONB
+-- workflow_plan JSONB
+-- ...

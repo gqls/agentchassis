@@ -557,8 +557,8 @@ func (d *EnhancedDiscovery) GetAgentPerformanceSummary(ctx context.Context, agen
 // CallAgentAction - creates child orchestrations and tracks requests - every agent has orchestration
 func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	// Validate parent context
-	parentOrchID := params.Headers["orchestration_id"]
-	if parentOrchID == "" {
+	parentOrchestrationID := params.Headers["orchestration_id"]
+	if parentOrchestrationID == "" {
 		return nil, fmt.Errorf("orchestration_id required in headers")
 	}
 
@@ -599,6 +599,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		OrchestrationID: childOrchestrationID,
 		FromAgentID:     params.Headers["agent_id"],
 		ToAgentID:       targetAgentID,
+		AgentInstanceID: targetAgentID,
 		ReplyToTopic:    myResponseTopic, // Child replies to me
 		MessageType:     "request",
 		Action:          "process",
@@ -609,15 +610,21 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Build headers for child orchestration
 	childHeaders := msg.ToHeaders()
-	childHeaders["parent_orchestration_id"] = parentOrchID
+	childHeaders["parent_orchestration_id"] = parentOrchestrationID
 	childHeaders["client_id"] = params.Headers["client_id"]
 	childHeaders["parent_reply_to_topic"] = myResponseTopic // Where child sends completion
 	childHeaders["parent_agent_type"] = params.Headers["agent_type"]
 	childHeaders["reply_to_topic"] = msg.ReplyToTopic
 	childHeaders["fuel_budget"] = params.Headers["fuel_budget"]
+	childHeaders["parent_request_id"] = requestID
+
+	childHeaders["correlation_id"] = params.Headers["correlation_id"]
+	childHeaders["from_agent_id"] = params.Headers["agent_id"]
+	childHeaders["to_agent_id"] = targetAgentID
+	childHeaders["agent_instance_id"] = targetAgentID
 
 	// Track request
-	trackRequest(ctx, params.DB, requestID, parentOrchID, targetAgentID)
+	trackRequest(ctx, params.DB, requestID, parentOrchestrationID, targetAgentID)
 
 	// Send to child
 	targetTopic := fmt.Sprintf("system.agent.%s.requests", targetAgentType)
