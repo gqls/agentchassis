@@ -434,17 +434,17 @@ func sendNewFormatMessage(ctx context.Context, params ActionParams, agentID stri
 	}
 
 	params.Logger.Info("Sending message (new format)",
-		zap.String("from_agent_id", callerAgentID),
-		zap.String("from_agent_type", callerAgentType),
-		zap.String("to_agent_id", agentID),
-		zap.String("to_agent_type", agentType),
-		zap.String("target_topic", targetTopic),
-		zap.String("reply_topic", msg.ReplyToTopic),
-		zap.String("message_id", msg.MessageID),
-		zap.String("request_id", messageID),
-		zap.String("client_id", headers["client_id"]),
-		zap.String("fuel_budget", headers["fuel_budget"]),
-		zap.Int("tree_depth", msg.TreeDepth))
+		zap.String("DEBUG_SPAWN_18: from_agent_id", callerAgentID),
+		zap.String("DEBUG_SPAWN_18: from_agent_type", callerAgentType),
+		zap.String("DEBUG_SPAWN_18: to_agent_id", agentID),
+		zap.String("DEBUG_SPAWN_18: to_agent_type", agentType),
+		zap.String("DEBUG_SPAWN_18: target_topic", targetTopic),
+		zap.String("DEBUG_SPAWN_18: reply_topic", msg.ReplyToTopic),
+		zap.String("DEBUG_SPAWN_18: message_id", msg.MessageID),
+		zap.String("DEBUG_SPAWN_18: request_id", messageID),
+		zap.String("DEBUG_SPAWN_18: client_id", headers["client_id"]),
+		zap.String("DEBUG_SPAWN_18: fuel_budget", headers["fuel_budget"]),
+		zap.Int("DEBUG_SPAWN_18: tree_depth", msg.TreeDepth))
 
 	err := params.Producer.Produce(ctx, targetTopic, headers,
 		[]byte(msg.CorrelationID), msgBytes)
@@ -784,8 +784,22 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	clientID := params.Headers["client_id"]
 
 	params.Logger.Info("CallAgentAction starting",
-		zap.String("orchestration_id", orchestrationID),
-		zap.String("correlation_id", correlationID))
+		zap.String("DEBUG_SPAWN_19: orchestration_id", orchestrationID),
+		zap.String("DEBUG_SPAWN_19: correlation_id", correlationID))
+
+	// Check if we already called this agent for this step
+	stepKey := fmt.Sprintf("%s_request", params.CurrentStep)
+	if existingRequest, exists := params.CollectedData[stepKey]; exists {
+		if reqMap, ok := existingRequest.(map[string]interface{}); ok {
+			if reqID, ok := reqMap["request_id"].(string); ok && reqID != "" {
+				// Already called, return existing result
+				params.Logger.Info("Agent already called for this step",
+					zap.String("step", params.CurrentStep),
+					zap.String("existing_request_id", reqID))
+				return existingRequest, nil
+			}
+		}
+	}
 
 	// Get target agent type from config
 	config := params.StepConfig.Config
@@ -819,17 +833,18 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Create the message to send to the target agent
 	msg := models.AgentMessage{
-		MessageID:     messageID,
-		RequestID:     requestID,
-		CorrelationID: correlationID,
-		FromAgentID:   orchestrationID, // Use parent's orchestration as sender
-		ToAgentID:     targetAgentID,
-		ReplyToTopic:  fmt.Sprintf("system.agent.%s.responses", params.Headers["agent_type"]),
-		MessageType:   "request",
-		Action:        "process",
-		Data:          messageData,
-		Timestamp:     time.Now(),
-		Version:       "2.0",
+		MessageID:       messageID,
+		RequestID:       requestID,
+		CorrelationID:   correlationID,
+		OrchestrationID: childOrchestrationID,
+		FromAgentID:     orchestrationID, // Use parent's orchestration as sender
+		ToAgentID:       targetAgentID,
+		ReplyToTopic:    fmt.Sprintf("system.agent.%s.responses", params.Headers["agent_type"]),
+		MessageType:     "request",
+		Action:          "process",
+		Data:            messageData,
+		Timestamp:       time.Now(),
+		Version:         "2.0",
 	}
 
 	msgBytes, err := json.Marshal(msg)
@@ -839,29 +854,29 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Prepare headers for the child orchestration
 	childHeaders := map[string]string{
-		"orchestration_id":  childOrchestrationID, // Child's NEW orchestration
-		"parent_orch_id":    orchestrationID,      // Parent's orchestration
-		"correlation_id":    correlationID,        // Business correlation stays same
-		"client_id":         clientID,
-		"request_id":        requestID,
-		"message_id":        messageID,
-		"message_type":      "request",
-		"from_agent_id":     params.Headers["agent_id"],
-		"to_agent_id":       targetAgentID,
-		"agent_instance_id": targetAgentID,
-		"fuel_budget":       params.Headers["fuel_budget"],
+		"orchestration_id":        childOrchestrationID, // Child's NEW orchestration
+		"parent_orchestration_id": orchestrationID,      // Parent's orchestration
+		"correlation_id":          correlationID,        // Business correlation stays same
+		"client_id":               clientID,
+		"request_id":              requestID,
+		"message_id":              messageID,
+		"message_type":            "request",
+		"from_agent_id":           params.Headers["agent_id"],
+		"to_agent_id":             targetAgentID,
+		"agent_instance_id":       targetAgentID,
+		"fuel_budget":             params.Headers["fuel_budget"],
 	}
 
 	// Send to agent's request topic
 	targetTopic := fmt.Sprintf("system.agent.%s.requests", targetAgentType)
 
 	params.Logger.Info("Sending message to agent",
-		zap.String("target_agent_id", targetAgentID),
-		zap.String("target_agent_type", targetAgentType),
-		zap.String("child_orchestration_id", childOrchestrationID),
-		zap.String("parent_orchestration_id", orchestrationID),
-		zap.String("request_id", requestID),
-		zap.String("topic", targetTopic))
+		zap.String("DEBUG_SPAWN_20: target_agent_id", targetAgentID),
+		zap.String("DEBUG_SPAWN_20: target_agent_type", targetAgentType),
+		zap.String("DEBUG_SPAWN_20: child_orchestration_id", childOrchestrationID),
+		zap.String("DEBUG_SPAWN_20: parent_orchestration_id", orchestrationID),
+		zap.String("DEBUG_SPAWN_20: request_id", requestID),
+		zap.String("DEBUG_SPAWN_20: topic", targetTopic))
 
 	err = params.Producer.Produce(ctx, targetTopic,
 		childHeaders,
@@ -874,7 +889,8 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
 
-	return map[string]interface{}{
+	// Store the request info before returning
+	result := map[string]interface{}{
 		"agent_called":        targetAgentID,
 		"agent_type":          targetAgentType,
 		"request_id":          requestID,
@@ -882,7 +898,12 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		"topic":               targetTopic,
 		"message_sent":        true,
 		"await_response":      true,
-	}, nil
+	}
+
+	// Store this to prevent duplicate calls
+	params.CollectedData[stepKey] = result
+
+	return result, nil
 }
 
 // Request tracking parameters

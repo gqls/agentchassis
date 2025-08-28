@@ -108,7 +108,7 @@ func createTestSchema(t *testing.T, db *sql.DB) {
 			orchestration_id UUID PRIMARY KEY,
 			correlation_id UUID NOT NULL,
 			owner_agent_id VARCHAR(100) NOT NULL,
-			parent_orch_id VARCHAR(100),
+			parent_orchestration_id VARCHAR(100),
 			client_id VARCHAR(100) NOT NULL,
 			status VARCHAR(50) NOT NULL,
 			current_step VARCHAR(100),
@@ -208,13 +208,13 @@ func TestParentChildOrchestrationHandoff(t *testing.T) {
 	// For now, let's check what we can
 
 	// Check if orchestration_id was set
-	parentOrchID := parentHeaders["orchestration_id"]
-	assert.NotEmpty(t, parentOrchID, "Parent should have orchestration_id")
+	ParentOrchestrationID := parentHeaders["orchestration_id"]
+	assert.NotEmpty(t, ParentOrchestrationID, "Parent should have orchestration_id")
 
-	if parentOrchID != "" {
+	if ParentOrchestrationID != "" {
 		// Verify parent state was created
 		repo := orchestration.NewStateRepository(db, logger)
-		parentState, err := repo.GetState(context.Background(), parentOrchID)
+		parentState, err := repo.GetState(context.Background(), ParentOrchestrationID)
 
 		if err == nil {
 			assert.Equal(t, correlationID, parentState.CorrelationID)

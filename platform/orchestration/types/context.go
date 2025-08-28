@@ -14,8 +14,8 @@ type ExecutionContext struct {
 	ClientID      string
 
 	// Execution Instance - UNIQUE per agent
-	OrchestrationID string
-	ParentOrchID    string
+	OrchestrationID       string
+	ParentOrchestrationID string
 
 	// Group Management
 	GroupID        string
@@ -43,9 +43,9 @@ func (c *ExecutionContext) NewOrchestrationForAgent(toAgentID string) *Execution
 		GroupID:       c.GroupID,
 
 		// NEW orchestration for the called agent
-		OrchestrationID: uuid.New().String(),
-		ParentOrchID:    c.OrchestrationID,
-		OwnerAgentID:    toAgentID,
+		OrchestrationID:       uuid.New().String(),
+		ParentOrchestrationID: c.OrchestrationID,
+		OwnerAgentID:          toAgentID,
 
 		// Will be set when sending message
 		FromAgentID: c.OwnerAgentID,
@@ -55,20 +55,20 @@ func (c *ExecutionContext) NewOrchestrationForAgent(toAgentID string) *Execution
 
 func (c *ExecutionContext) ToHeaders() map[string]string {
 	return map[string]string{
-		"correlation_id":   c.CorrelationID,
-		"orchestration_id": c.OrchestrationID,
-		"parent_orch_id":   c.ParentOrchID,
-		"client_id":        c.ClientID,
-		"group_id":         c.GroupID,
-		"functional_role":  c.FunctionalRole,
-		"message_id":       c.MessageID,
-		"request_id":       c.RequestID,
-		"message_type":     c.MessageType,
-		"in_response_to":   c.InResponseTo,
-		"owner_agent_id":   c.OwnerAgentID,
-		"from_agent_id":    c.FromAgentID,
-		"to_agent_id":      c.ToAgentID,
-		"reply_to":         c.ReplyTo,
+		"correlation_id":          c.CorrelationID,
+		"orchestration_id":        c.OrchestrationID,
+		"parent_orchestration_id": c.ParentOrchestrationID,
+		"client_id":               c.ClientID,
+		"group_id":                c.GroupID,
+		"functional_role":         c.FunctionalRole,
+		"message_id":              c.MessageID,
+		"request_id":              c.RequestID,
+		"message_type":            c.MessageType,
+		"in_response_to":          c.InResponseTo,
+		"owner_agent_id":          c.OwnerAgentID,
+		"from_agent_id":           c.FromAgentID,
+		"to_agent_id":             c.ToAgentID,
+		"reply_to":                c.ReplyTo,
 	}
 }
 
@@ -82,19 +82,19 @@ func ExecutionContextFromHeaders(headers map[string]string) (*ExecutionContext, 
 	}
 
 	return &ExecutionContext{
-		CorrelationID:   headers["correlation_id"],
-		OrchestrationID: headers["orchestration_id"],
-		ParentOrchID:    headers["parent_orch_id"],
-		ClientID:        headers["client_id"],
-		GroupID:         headers["group_id"],
-		FunctionalRole:  headers["functional_role"],
-		MessageID:       headers["message_id"],
-		RequestID:       headers["request_id"],
-		MessageType:     headers["message_type"],
-		InResponseTo:    headers["in_response_to"],
-		OwnerAgentID:    headers["owner_agent_id"],
-		FromAgentID:     headers["from_agent_id"],
-		ToAgentID:       headers["to_agent_id"],
-		ReplyTo:         headers["reply_to"],
+		CorrelationID:         headers["correlation_id"],
+		OrchestrationID:       headers["orchestration_id"],
+		ParentOrchestrationID: headers["parent_orchestration_id"],
+		ClientID:              headers["client_id"],
+		GroupID:               headers["group_id"],
+		FunctionalRole:        headers["functional_role"],
+		MessageID:             headers["message_id"],
+		RequestID:             headers["request_id"],
+		MessageType:           headers["message_type"],
+		InResponseTo:          headers["in_response_to"],
+		OwnerAgentID:          headers["owner_agent_id"],
+		FromAgentID:           headers["from_agent_id"],
+		ToAgentID:             headers["to_agent_id"],
+		ReplyTo:               headers["reply_to"],
 	}, nil
 }

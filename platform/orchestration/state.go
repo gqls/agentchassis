@@ -58,11 +58,11 @@ type PendingRequest struct {
 // Using the NEW schema from your architecture document
 type OrchestrationState struct {
 	// Identity
-	OrchestrationID string `db:"orchestration_id"`
-	CorrelationID   string `db:"correlation_id"`
-	OwnerAgentID    string `db:"owner_agent_id"`
-	ParentOrchID    string `db:"parent_orch_id"`
-	ClientID        string `db:"client_id"`
+	OrchestrationID       string `db:"orchestration_id"`
+	CorrelationID         string `db:"correlation_id"`
+	OwnerAgentID          string `db:"owner_agent_id"`
+	ParentOrchestrationID string `db:"parent_orchestration_id"`
+	ClientID              string `db:"client_id"`
 
 	// State
 	Status       OrchestrationStatus `db:"status"`
@@ -104,7 +104,7 @@ func NewStateRepository(db *sql.DB, logger *zap.Logger) *StateRepository {
 }
 
 // CreateInitialState creates a new orchestration with the plan
-func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationID, correlationID, ownerAgentID, parentOrchID, clientID string, plan models.WorkflowPlan, initialData []byte) error {
+func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationID, correlationID, ownerAgentID, ParentOrchestrationID, clientID string, plan models.WorkflowPlan, initialData []byte) error {
 	// Prepare JSON fields
 	awaitedStepsJSON, _ := json.Marshal([]string{})
 	collectedDataJSON, _ := json.Marshal(map[string]interface{}{})
@@ -127,12 +127,12 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationI
 	metadataJSON, _ := json.Marshal(metadata)
 	executionPathJSON, _ := json.Marshal([]ExecutionRecord{})
 
-	// Handle parent_orch_id - convert empty string to nil for database
-	var parentOrchIDValue interface{}
-	if parentOrchID != "" {
-		parentOrchIDValue = parentOrchID
+	// Handle parent_orchestration_id - convert empty string to nil for database
+	var ParentOrchestrationIDValue interface{}
+	if ParentOrchestrationID != "" {
+		ParentOrchestrationIDValue = ParentOrchestrationID
 	} else {
-		parentOrchIDValue = nil // This will be inserted as NULL
+		ParentOrchestrationIDValue = nil // This will be inserted as NULL
 	}
 
 	r.logger.Info("Initial orchestration state variables",
@@ -143,7 +143,7 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationI
 
 	query := `
         INSERT INTO orchestration_states 
-        (orchestration_id, correlation_id, owner_agent_id, parent_orch_id, client_id,
+        (orchestration_id, correlation_id, owner_agent_id, parent_orchestration_id, client_id,
          status, current_step, awaited_steps, collected_data, initial_request_data,
          workflow_plan, execution_metadata, execution_path, version, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
@@ -151,7 +151,7 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationI
 
 	now := time.Now().UTC()
 	_, err := r.db.ExecContext(ctx, query,
-		orchestrationID, correlationID, ownerAgentID, parentOrchIDValue, clientID,
+		orchestrationID, correlationID, ownerAgentID, ParentOrchestrationIDValue, clientID,
 		StatusRunning, plan.StartStep, awaitedStepsJSON, collectedDataJSON, initialData,
 		workflowPlanJSON, metadataJSON, executionPathJSON, 1, now, now)
 
@@ -174,7 +174,7 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationI
 // GetState retrieves state by orchestrationID (primary lookup)
 func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) (*OrchestrationState, error) {
 	query := `
-		SELECT orchestration_id, correlation_id, owner_agent_id, parent_orch_id, client_id,
+		SELECT orchestration_id, correlation_id, owner_agent_id, parent_orchestration_id, client_id,
 		       status, current_step, awaited_steps, collected_data, initial_request_data,
 		       final_result, error, workflow_plan, execution_metadata, execution_path,
 		       version, created_at, updated_at
@@ -185,13 +185,13 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 	var state OrchestrationState
 	var awaitedStepsJSON, collectedDataJSON, workflowPlanJSON []byte
 	var executionMetadataJSON, executionPathJSON []byte
-	var parentOrchIDNull, initialRequestDataNull, finalResultNull, errorNull sql.NullString
+	var ParentOrchestrationIDNull, initialRequestDataNull, finalResultNull, errorNull sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, orchestrationID).Scan(
 		&state.OrchestrationID,
 		&state.CorrelationID,
 		&state.OwnerAgentID,
-		&parentOrchIDNull,
+		&ParentOrchestrationIDNull,
 		&state.ClientID,
 		&state.Status,
 		&state.CurrentStep,
@@ -216,8 +216,8 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 	}
 
 	// Handle nullable fields
-	if parentOrchIDNull.Valid {
-		state.ParentOrchID = parentOrchIDNull.String
+	if ParentOrchestrationIDNull.Valid {
+		state.ParentOrchestrationID = ParentOrchestrationIDNull.String
 	}
 	if initialRequestDataNull.Valid {
 		state.InitialRequestData = json.RawMessage(initialRequestDataNull.String)
@@ -242,7 +242,7 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 // GetStateByCorrelation retrieves state by correlationID (for backward compatibility)
 func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlationID string) (*OrchestrationState, error) {
 	query := `
-		SELECT orchestration_id, correlation_id, owner_agent_id, parent_orch_id, client_id,
+		SELECT orchestration_id, correlation_id, owner_agent_id, parent_orchestration_id, client_id,
 		       status, current_step, awaited_steps, collected_data, initial_request_data,
 		       final_result, error, workflow_plan, execution_metadata, execution_path,
 		       version, created_at, updated_at
@@ -255,13 +255,13 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 	var state OrchestrationState
 	var awaitedStepsJSON, collectedDataJSON, workflowPlanJSON []byte
 	var executionMetadataJSON, executionPathJSON []byte
-	var parentOrchIDNull, initialRequestDataNull, finalResultNull, errorNull sql.NullString
+	var ParentOrchestrationIDNull, initialRequestDataNull, finalResultNull, errorNull sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, correlationID).Scan(
 		&state.OrchestrationID,
 		&state.CorrelationID,
 		&state.OwnerAgentID,
-		&parentOrchIDNull,
+		&ParentOrchestrationIDNull,
 		&state.ClientID,
 		&state.Status,
 		&state.CurrentStep,
@@ -286,8 +286,8 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 	}
 
 	// Handle nullable fields and unmarshal JSON (same as GetState)
-	if parentOrchIDNull.Valid {
-		state.ParentOrchID = parentOrchIDNull.String
+	if ParentOrchestrationIDNull.Valid {
+		state.ParentOrchestrationID = ParentOrchestrationIDNull.String
 	}
 	if initialRequestDataNull.Valid {
 		state.InitialRequestData = json.RawMessage(initialRequestDataNull.String)

@@ -14,19 +14,31 @@ import (
 
 func StartOrchestrationAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Starting orchestration action",
-		zap.Any("DEBUGOACTIONS1: collected_data_keys", getMapKeys(params.CollectedData)),
-		zap.String("DEBUGOACTIONS1 :current_step", params.CurrentStep))
+		zap.Any("DEBUG_O_ACTIONS_1: collected_data_keys", getMapKeys(params.CollectedData)),
+		zap.Any("DEBUG_O_ACTIONS_1: params", params),
+		zap.String("DEBUG_O_ACTIONS_1: current_step", params.CurrentStep))
+
+	// Should explicitly use the current state's orchestration ID
+	currentOrchestrationID := params.Headers["orchestration_id"]
+	if currentOrchestrationID == "" {
+		// This is a serious error - we must know our own orchestration
+		return nil, fmt.Errorf("current orchestration_id not found")
+	}
 
 	// CHECK: Has this step already created a child orchestration?
 	stepKey := fmt.Sprintf("%s_started", params.CurrentStep)
 	if _, alreadyStarted := params.CollectedData[stepKey]; alreadyStarted {
 		params.Logger.Warn("Child orchestration already started for this step",
-			zap.String("DEBUGOACTIONS1 :step", params.CurrentStep))
+			zap.String("DEBUG_O_ACTIONS_1: step", params.CurrentStep))
 
 		// Try to find the existing child ID
 		if existingChild, ok := params.CollectedData[params.CurrentStep]; ok {
 			if childMap, ok := existingChild.(map[string]interface{}); ok {
 				if childID, ok := childMap["new_correlation_id"].(string); ok && childID != "" {
+					params.Logger.Info("trying to find existing childId",
+						zap.Any("DEBUG_O_ACTIONS_1: childID", childID),
+						zap.String("DEBUG_O_ACTIONS_1: childMap[new_correlation_id].(string)", childMap["new_correlation_id"].(string)),
+						zap.Any("DEBUG_O_ACTIONS_1: existing child", existingChild))
 					// Return the existing result
 					return existingChild, nil
 				}
@@ -58,7 +70,9 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 					spawnResult = dataMap
 					found = true
 					params.Logger.Info("Found spawn result from step",
-						zap.String("step_name", stepName))
+						zap.String("DEBUG_O_ACTIONS_2: step_name", stepName),
+						zap.Any("DEBUG_O_ACTIONS_2: workflow", dataMap["workflow"]),
+					)
 					// Don't break - keep looking for the most recent one
 				}
 			}
@@ -68,7 +82,7 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 					spawnResult = dataMap
 					found = true
 					params.Logger.Info("Found spawn result from step",
-						zap.String("step_name", stepName))
+						zap.String("DEBUG_O_ACTIONS_3: step_name", stepName))
 				}
 			}
 		}
@@ -86,62 +100,62 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	params.Logger.Info("Found spawn data",
-		zap.String("group_id", fmt.Sprintf("%v", spawnData["group_id"])),
-		zap.String("group_name", fmt.Sprintf("%v", spawnData["group_name"])),
-		zap.Any("agents", spawnData["agents"]))
+		zap.String("DEBUG_O_ACTIONS_4: group_id", fmt.Sprintf("%v", spawnData["group_id"])),
+		zap.String("DEBUG_O_ACTIONS_4: group_name", fmt.Sprintf("%v", spawnData["group_name"])),
+		zap.Any("DEBUG_O_ACTIONS_4: agents", spawnData["agents"]))
 
 	// Get the workflow
 	var workflowJSON json.RawMessage
 	if workflow, ok := spawnData["workflow"]; ok {
 
 		params.Logger.Info("Workflow from spawn data",
-			zap.Any("workflow_raw", workflow),
-			zap.String("workflow_type", fmt.Sprintf("%T", workflow)))
+			zap.Any("DEBUG_O_ACTIONS_5: workflow_raw", workflow),
+			zap.String("DEBUG_O_ACTIONS_5: wworkflow_type", fmt.Sprintf("%T", workflow)))
 
-		switch w := workflow.(type) {
+		switch workflowType := workflow.(type) {
 		case json.RawMessage:
-			workflowJSON = w
+			workflowJSON = workflowType
 		case []byte:
-			workflowJSON = json.RawMessage(w)
+			workflowJSON = json.RawMessage(workflowType)
 		case map[string]interface{}:
-			bytes, err := json.Marshal(w)
+			bytes, err := json.Marshal(workflowType)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal workflow: %w", err)
 			}
 			workflowJSON = json.RawMessage(bytes)
 		default:
-			return nil, fmt.Errorf("workflow has unexpected type: %T", w)
+			return nil, fmt.Errorf("workflow has unexpected type: %T", workflowType)
 		}
 
 		params.Logger.Info("Workflow JSON to be used",
-			zap.String("workflow_json", string(workflowJSON)),
+			zap.String("DEBUG_O_ACTIONS_6: wworkflow_json", string(workflowJSON)),
 		)
 
 	} else {
-
 		params.Logger.Info("Workflow erroring from spawn data",
-			zap.Any("workflow_raw (empty?)", workflow),
-			zap.String("workflow_type", fmt.Sprintf("%T", workflow)))
+			zap.Any("DEBUG_O_ACTIONS_7: workflow_raw (empty?)", workflow),
+			zap.String("DEBUG_O_ACTIONS_7: workflow_type", fmt.Sprintf("%T", workflow)))
 
 		return nil, fmt.Errorf("workflow not found in spawn result")
 	}
 
-	// Create new correlation ID for the new orchestration
-	newCorrelationID := uuid.New().String()
+	// Create new orchestrationID for the new orchestration
+	newOrchestrationID := uuid.New().String()
 
 	// Prepare headers for the new orchestration
 	newHeaders := make(map[string]string)
 	for k, v := range params.Headers {
 		newHeaders[k] = v
 	}
-	newHeaders["parent_orch_id"] = params.Headers["orchestration_id"]
-	newHeaders["parent_orchestration_id"] = params.Headers["orchestration_id"]
-	newHeaders["correlation_id"] = newCorrelationID
+	newHeaders["parent_orchestration_id"] = currentOrchestrationID
+	newHeaders["orchestration_id"] = newOrchestrationID
+
+	newHeaders["correlation_id"] = params.Headers["correlation_id"]
 	newHeaders["parent_correlation_id"] = params.Headers["correlation_id"]
-	// Store parent correlation ID and agent type in collected data for child to access later
 	params.CollectedData["parent_correlation_id"] = params.Headers["correlation_id"]
+	// Store parent orchestration ID and agent type in collected data for child to access later
 	params.CollectedData["parent_agent_type"] = params.Headers["agent_type"]
-	params.CollectedData["parent_orch_id"] = params.Headers["orchestration_id"] // Add this
+	params.CollectedData["parent_orchestration_id"] = params.Headers["orchestration_id"]
 	newHeaders["parent_agent_type"] = params.AgentType
 
 	// Add spawned agents to headers if available
@@ -177,8 +191,8 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	params.Logger.Info("Creating new orchestration",
-		zap.String("DEBUGOACTIONS2: new_correlation_id", newCorrelationID),
-		zap.String("DEBUGOACTIONS2: parent_correlation_id", params.Headers["correlation_id"]))
+		zap.String("DEBUG_O_ACTIONS_8: new_orchestration_id", newOrchestrationID),
+		zap.String("DEBUG_O_ACTIONS_8: parent_correlation_id", params.Headers["correlation_id"]))
 
 	// Get the SagaCoordinator
 	type orchestratorInterface interface {
@@ -191,13 +205,13 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	// Create the new orchestration
-	err := orchestrator.CreateNewOrchestration(ctx, newCorrelationID, newHeaders, workflowJSON)
+	err := orchestrator.CreateNewOrchestration(ctx, newOrchestrationID, newHeaders, workflowJSON)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create orchestration: %w", err)
 	}
 
 	params.Logger.Info("New orchestration created successfully",
-		zap.String("DEBUGOACTIONS3: new_correlation_id", newCorrelationID),
+		zap.String("DEBUGOACTIONS3: new_orchestration_id", newOrchestrationID),
 		zap.String("DEBUGOACTIONS3: group_id", fmt.Sprintf("%v", spawnData["group_id"])))
 
 	// Start timeout monitor for child orchestration
@@ -211,7 +225,7 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 		}
 
 		params.Logger.Info("Starting timeout monitor for child orchestration",
-			zap.String("DEBUGOACTIONS4: child_correlation_id", newCorrelationID),
+			zap.String("DEBUGOACTIONS4: child_orchestration_id", newOrchestrationID),
 			zap.String("DEBUGOACTIONS4: parent_correlation_id", params.Headers["correlation_id"]),
 			zap.Duration("timeout", timeout))
 
@@ -221,6 +235,7 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 		// After timeout, check if parent is still waiting for this child
 		// We need to check the parent's state, not the child's
 		parentCorrelationID := params.Headers["correlation_id"]
+		parentOrchestrationID := params.Headers["parent_orchestration_id"]
 
 		// Since we're in a goroutine, we need to be careful about DB access
 		// Create a new context for this check
@@ -235,13 +250,14 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 			query := `
                 SELECT status, awaited_steps 
                 FROM orchestration_states 
-                WHERE correlation_id = $1
+                WHERE orchestration_id = $1
             `
 
-			err := params.DB.QueryRowContext(checkCtx, query, parentCorrelationID).Scan(&status, &awaitedSteps)
+			err := params.DB.QueryRowContext(checkCtx, query, parentOrchestrationID).Scan(&status, &awaitedSteps)
 			if err != nil {
 				params.Logger.Error("Failed to check parent state for timeout",
 					zap.String("DEBUGOACTIONS5: parent_correlation_id", parentCorrelationID),
+					zap.String("DEBUGOACTIONS5: parent_orchestration_id", parentOrchestrationID),
 					zap.Error(err))
 				return
 			}
@@ -257,7 +273,7 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 			// Check if parent is still waiting for this child
 			stillWaiting := false
 			for _, step := range awaited {
-				if step == newCorrelationID {
+				if step == newOrchestrationID {
 					stillWaiting = true
 					break
 				}
@@ -265,8 +281,9 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 
 			if stillWaiting && status == "AWAITING_RESPONSES" {
 				params.Logger.Error("Child orchestration timeout - parent still waiting",
-					zap.String("DEBUGOACTIONS6: child_correlation_id", newCorrelationID),
+					zap.String("DEBUGOACTIONS6: child_orchestration_id", newOrchestrationID),
 					zap.String("DEBUGOACTIONS6: parent_correlation_id", parentCorrelationID),
+					zap.String("DEBUGOACTIONS6: parent_orchestration_id", parentOrchestrationID),
 					zap.Duration("DEBUGOACTIONS6: timeout_after", timeout))
 
 				// Send timeout notification to parent
@@ -274,10 +291,10 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 					Success: false,
 					Error:   fmt.Sprintf("Child orchestration timeout after %v", timeout),
 					Data: map[string]interface{}{
-						"status":         "timeout",
-						"correlation_id": newCorrelationID,
-						"error":          fmt.Sprintf("Child orchestration %s timed out after %v", newCorrelationID, timeout),
-						"timeout_at":     time.Now().UTC(),
+						"status":           "timeout",
+						"orchestration_id": newOrchestrationID,
+						"error":            fmt.Sprintf("Child orchestration %s timed out after %v", newOrchestrationID, timeout),
+						"timeout_at":       time.Now().UTC(),
 					},
 				}
 
@@ -286,9 +303,11 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 				// Send timeout notification to parent
 				timeoutHeaders := map[string]string{
 					"correlation_id":        parentCorrelationID,
-					"causation_id":          newCorrelationID,
 					"parent_correlation_id": parentCorrelationID,
-					"message_type":          "orchestration_timeout",
+					"orchestration_id":      newOrchestrationID,
+					//"in_response_to":          requestID,
+					"parent_orchestration_id": parentOrchestrationID,
+					"message_type":            "orchestration_timeout",
 				}
 
 				// Use the producer to send timeout notification
@@ -296,7 +315,7 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 					err := params.Producer.Produce(checkCtx,
 						"system.agent.generic.responses",
 						timeoutHeaders,
-						[]byte(parentCorrelationID),
+						[]byte(parentOrchestrationID),
 						responseBytes)
 
 					if err != nil {
@@ -304,15 +323,17 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 							zap.Error(err))
 					} else {
 						params.Logger.Info("Timeout notification sent to parent",
-							zap.String("parent_correlation_id", parentCorrelationID))
+							zap.String("parent_correlation_id", parentCorrelationID),
+							zap.String("parent_orchestration_id", parentOrchestrationID),
+						)
 					}
 				}
 
 				// Optional: Also check and update child orchestration status
 				var childStatus string
 				err = params.DB.QueryRowContext(checkCtx,
-					"SELECT status FROM orchestrator_state WHERE correlation_id = $1",
-					newCorrelationID).Scan(&childStatus)
+					"SELECT status FROM orchestrator_state WHERE orchestration_id = $1",
+					newOrchestrationID).Scan(&childStatus)
 
 				if err == nil && childStatus == "RUNNING" {
 					// Child is still running after timeout - mark it as failed
@@ -321,17 +342,18 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
                         SET status = 'FAILED', 
                             error = $2,
                             updated_at = NOW()
-                        WHERE correlation_id = $1 AND status = 'RUNNING'
-                    `, newCorrelationID, fmt.Sprintf("Timeout after %v", timeout))
+                        WHERE orchestration_id = $1 AND status = 'RUNNING'
+                    `, newOrchestrationID, fmt.Sprintf("Timeout after %v", timeout))
 
 					if err == nil {
 						params.Logger.Info("Marked child orchestration as failed due to timeout",
-							zap.String("DEBUGOACTIONS7: child_correlation_id", newCorrelationID))
+							zap.String("DEBUGOACTIONS7: child_orchestration_id", newOrchestrationID),
+						)
 					}
 				}
 			} else {
 				params.Logger.Info("Timeout check passed - parent no longer waiting or child completed",
-					zap.String("DEBUGOACTIONS8: child_correlation_id", newCorrelationID),
+					zap.String("DEBUGOACTIONS8: child_orchestration_id", newOrchestrationID),
 					zap.String("DEBUGOACTIONS8: parent_status", status),
 					zap.Bool("DEBUGOACTIONS8: still_waiting", stillWaiting))
 			}
@@ -339,11 +361,13 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 	}()
 
 	return map[string]interface{}{
-		"status":             "orchestration_started",
-		"new_correlation_id": newCorrelationID,
-		"group_id":           spawnData["group_id"],
-		"await_response":     true,             // THIS IS KEY!
-		"request_id":         newCorrelationID, // Parent will wait for this
+		"status":                 "orchestration_started",
+		"child_orchestration_id": newOrchestrationID,
+		"await_orchestration_id": newOrchestrationID,
+		"group_id":               spawnData["group_id"],
+		"await_response":         true,
+		"request_id":             params.Headers["requestID"],
+		"in_response_to":         params.Headers["requestID"],
 	}, nil
 }
 
