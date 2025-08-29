@@ -1,4 +1,3 @@
-// FILE: platform/messaging/context.go
 package messaging
 
 import (
@@ -6,25 +5,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/kafka"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
 // MessageContext holds the context for processing a single message
 type MessageContext struct {
 	// Original message
-	Message      kafka.Message
-	AgentMessage *models.AgentMessage // Parsed message
+	Message kafka.Message
 
-	// Execution context
-	OrchestrationID       string
-	ParentOrchestrationID string
-	RequestID             string
-	ParentRequestID       string // What parent is waiting for
+	// Execution context - primary source of truth
+	ExecutionContext *types.ExecutionContext
 
-	// Headers (complete set)
+	// Legacy headers - for backward compatibility only
 	Headers map[string]string
 
 	// Processing state
@@ -34,6 +28,30 @@ type MessageContext struct {
 
 	// Logger with context
 	Logger *zap.Logger
+}
+
+// NewMessageContext creates a new message context with ExecutionContext
+func NewMessageContext(msg kafka.Message, headers map[string]string) (*MessageContext, error) {
+	// Create ExecutionContext from headers
+	execCtx, err := types.FromHeaders(headers)
+	if err != nil {
+		// Try to create minimal context for error handling
+		execCtx = &types.ExecutionContext{
+			CorrelationID: headers["correlation_id"],
+			ClientID:      headers["client_id"],
+			MessageType:   "request",
+			Timestamp:     time.Now().UTC(),
+			Version:       "2.0",
+		}
+	}
+
+	return &MessageContext{
+		Message:          msg,
+		ExecutionContext: execCtx,
+		Headers:          headers, // Keep for backward compatibility
+		StartTime:        time.Now(),
+		CollectedData:    make(map[string]interface{}),
+	}, nil
 }
 
 // ExtractAction extracts the action from the message payload
@@ -48,53 +66,60 @@ func (m *MessageContext) ExtractAction() error {
 	return nil
 }
 
-// ValidateHeaders ensures required headers are present
+// ValidateContext ensures the ExecutionContext is valid
+func (m *MessageContext) ValidateContext() error {
+	return m.ExecutionContext.Validate()
+}
+
+// ValidateHeaders provides backward compatibility
 func (m *MessageContext) ValidateHeaders() error {
-	required := []string{"correlation_id", "request_id", "client_id", "agent_instance_id"}
-	for _, key := range required {
-		if m.Headers[key] == "" {
-			return fmt.Errorf("missing required header: %s", key)
-		}
-	}
-	return nil
+	return m.ValidateContext()
 }
 
-// CreateResponseHeaders creates headers for a response message
-func (m *MessageContext) CreateResponseHeaders(agentType string) map[string]string {
-	return map[string]string{
-		"correlation_id": m.Headers["correlation_id"],
-		"causation_id":   m.Headers["request_id"],
-		"request_id":     uuid.NewString(),
-		"client_id":      m.Headers["client_id"],
-		"agent_type":     agentType,
-		"timestamp":      time.Now().UTC().Format(time.RFC3339),
-	}
+// IsChildOrchestration returns true if this is a child orchestration
+func (m *MessageContext) IsChildOrchestration() bool {
+	return m.ExecutionContext.IsChildOrchestration()
 }
 
-func NewMessageContext(msg kafka.Message, headers map[string]string) *MessageContext {
-	return &MessageContext{
-		Message:               msg,
-		Headers:               headers,
-		OrchestrationID:       headers["orchestration_id"],
-		ParentOrchestrationID: headers["parent_orchestration_id"],
-		RequestID:             headers["request_id"],
-		ParentRequestID:       headers["parent_request_id"],
-		StartTime:             time.Now(),
-		CollectedData:         make(map[string]interface{}),
-	}
-}
-
-func (mc *MessageContext) IsChildOrchestration() bool {
-	return mc.ParentOrchestrationID != "" && mc.ParentRequestID != ""
-}
-
-func (mc *MessageContext) GetParentContext() map[string]interface{} {
-	if !mc.IsChildOrchestration() {
+// GetParentContext returns parent orchestration info if this is a child
+func (m *MessageContext) GetParentContext() map[string]interface{} {
+	if !m.IsChildOrchestration() {
 		return nil
 	}
 	return map[string]interface{}{
-		"orchestration_id": mc.ParentOrchestrationID,
-		"request_id":       mc.ParentRequestID,
-		"reply_to_topic":   mc.Headers["reply_to_topic"],
+		"orchestration_id": m.ExecutionContext.ParentOrchestrationID,
+		"request_id":       m.ExecutionContext.RequestID,
+		"reply_to_topic":   m.ExecutionContext.ReplyToTopic,
 	}
+}
+
+// CreateChildContext creates a new ExecutionContext for calling another agent
+func (m *MessageContext) CreateChildContext(toAgentID, toAgentType string) *types.ExecutionContext {
+	return m.ExecutionContext.CreateChildContext(toAgentID, toAgentType)
+}
+
+// CreateResponseContext creates a context for responding
+func (m *MessageContext) CreateResponseContext() *types.ExecutionContext {
+	return m.ExecutionContext.CreateResponseContext()
+}
+
+// CreateResponseHeaders provides backward compatibility
+func (m *MessageContext) CreateResponseHeaders(agentType string) map[string]string {
+	responseCtx := m.CreateResponseContext()
+	return responseCtx.ToHeaders()
+}
+
+// SyncHeadersFromContext updates legacy headers from ExecutionContext
+func (m *MessageContext) SyncHeadersFromContext() {
+	m.Headers = m.ExecutionContext.ToHeaders()
+}
+
+// SyncContextFromHeaders updates ExecutionContext from legacy headers
+func (m *MessageContext) SyncContextFromHeaders() error {
+	newCtx, err := types.FromHeaders(m.Headers)
+	if err != nil {
+		return err
+	}
+	m.ExecutionContext = newCtx
+	return nil
 }

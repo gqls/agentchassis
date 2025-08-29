@@ -77,26 +77,18 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	startTime := time.Now()
 	headers := kafka.HeadersToMap(msg.Headers)
 
-	p.logger.Info("ProcessMessage started - agent type check",
-		zap.String("processor_agent_type", p.agentType),
-		zap.String("env_agent_type", os.Getenv("AGENT_TYPE")))
-
-	// Create a message context for this specific message
-	msgCtx := &MessageContext{
-		Message:   msg,
-		Headers:   headers,
-		StartTime: startTime,
-		Logger: p.logger.With(
-			zap.String("correlation_id", headers["correlation_id"]),
-			zap.String("request_id", headers["request_id"]),
-			zap.String("client_id", headers["client_id"]),
-			zap.String("agent_instance_id", headers["agent_instance_id"]),
-		),
+	// Create message context with ExecutionContext
+	msgCtx, err := NewMessageContext(msg, headers)
+	if err != nil {
+		p.logger.Error("Failed to create message context", zap.Error(err))
+		return err
 	}
 
-	msgCtx.Logger.Info("ProcessMessage started",
-		zap.String("agent_type", p.agentType),
-		zap.Int("payload_size", len(msg.Value)))
+	msgCtx.Logger = p.logger.With(
+		zap.String("correlation_id", msgCtx.ExecutionContext.CorrelationID),
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+		zap.String("request_id", msgCtx.ExecutionContext.RequestID),
+	)
 
 	// Extract action
 	if err := msgCtx.ExtractAction(); err != nil {
@@ -104,7 +96,11 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		return p.handleError(ctx, msgCtx, err, "invalid_payload")
 	}
 
-	msgCtx.Logger.Info("Action extracted", zap.String("action", msgCtx.Action))
+	// Validate context
+	if err := msgCtx.ValidateContext(); err != nil {
+		msgCtx.Logger.Error("Context validation failed", zap.Error(err))
+		return p.handleError(ctx, msgCtx, err, "invalid_context")
+	}
 
 	// Record metrics
 	observability.AgentTasksReceived.WithLabelValues(p.agentType, msgCtx.Action).Inc()
@@ -115,7 +111,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 	// Process the message
 	if err := p.process(ctx, msgCtx); err != nil {
-		msgCtx.Logger.Error("Processing failed in process()", zap.Error(err))
+		msgCtx.Logger.Error("Processing failed", zap.Error(err))
 		return p.handleError(ctx, msgCtx, err, "processing_failed")
 	}
 
@@ -132,63 +128,31 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		msgCtx.CollectedData = make(map[string]interface{})
 	}
 
-	msgCtx.Logger.Info("Starting message processing", zap.String("action", msgCtx.Action))
+	msgCtx.Logger.Info("Starting message processing",
+		zap.String("action", msgCtx.Action),
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
 
-	// Validate headers
-	if err := msgCtx.ValidateHeaders(); err != nil {
-		msgCtx.Logger.Error("Header validation failed", zap.Error(err))
-		return errors.ValidationError("headers", err.Error())
-	}
-
-	msgCtx.Logger.Info("Headers validated successfully")
-
-	// Ensure orchestration_id is set before executing workflow
-	if msgCtx.Headers["orchestration_id"] == "" {
-		msgCtx.Headers["orchestration_id"] = uuid.New().String()
+	// Ensure ExecutionContext has required fields
+	if msgCtx.ExecutionContext.OrchestrationID == "" {
+		msgCtx.ExecutionContext.OrchestrationID = uuid.New().String()
 		msgCtx.Logger.Info("Generated new orchestration_id",
-			zap.String("orchestration_id", msgCtx.Headers["orchestration_id"]))
+			zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
 	}
 
-	// Ensure agent_instance_id is set
-	if msgCtx.Headers["agent_instance_id"] == "" {
-		// Try to get from environment
-		if agentID := os.Getenv("AGENT_ID"); agentID != "" {
-			msgCtx.Headers["agent_instance_id"] = agentID
-		} else if msgCtx.Headers["to_agent_id"] != "" {
-			// Use to_agent_id if available
-			msgCtx.Headers["agent_instance_id"] = msgCtx.Headers["to_agent_id"]
-		} else {
-			// Generate one if absolutely necessary
-			msgCtx.Headers["agent_instance_id"] = msgCtx.Headers["agent_id"]
-		}
+	// Sync headers from context for backward compatibility
+	msgCtx.SyncHeadersFromContext()
+
+	// Store parent context if this is a child
+	if msgCtx.IsChildOrchestration() {
+		msgCtx.CollectedData["__execution_context__"] = msgCtx.ExecutionContext
 	}
 
-	if parentRequestID := msgCtx.Headers["parent_request_id"]; parentRequestID != "" {
-		msgCtx.CollectedData["__parent_context__"] = map[string]interface{}{
-			"orchestration_id": msgCtx.Headers["parent_orchestration_id"],
-			"request_id":       parentRequestID, // This is what parent is waiting for
-			"reply_to_topic":   msgCtx.Headers["parent_reply_to_topic"],
-		}
-	}
-
-	// Always store parent context if this is a child
-	if parentOrchestrationID := msgCtx.Headers["parent_orchestration_id"]; parentOrchestrationID != "" {
-		if parentReqID := msgCtx.Headers["parent_request_id"]; parentReqID != "" {
-			msgCtx.CollectedData["__parent_context__"] = map[string]interface{}{
-				"orchestration_id": parentOrchestrationID,
-				"request_id":       parentReqID,
-				"reply_to_topic":   msgCtx.Headers["reply_to_topic"],
-			}
-		}
-	}
-
-	// Load the complete agent definition from the database
+	// Load agent definition and continue processing...
 	agentDef, err := p.loadAgentDefinition(ctx, p.agentType)
 	if err != nil {
 		msgCtx.Logger.Warn("Failed to load agent definition, using defaults",
 			zap.String("agent_type", p.agentType),
 			zap.Error(err))
-		// Continue with default behavior
 		return p.processWithDefaults(ctx, msgCtx)
 	}
 
@@ -484,86 +448,54 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 		zap.Int("total_steps", len(config.Workflow.Steps)),
 		zap.String("agent_type", p.agentType))
 
-	// Ensure agent_type is in headers for actions
-	if msgCtx.Headers["agent_type"] == "" {
-		msgCtx.Headers["agent_type"] = p.agentType
-		msgCtx.Logger.Info("Set agent_type in headers in processor.go executeWorkflow",
-			zap.String("agent_type", p.agentType))
+	// Ensure ExecutionContext has agent type
+	if msgCtx.ExecutionContext.FromAgentType == "" {
+		msgCtx.ExecutionContext.FromAgentType = p.agentType
 	}
 
-	// Start workflow timer
-	workflowTimer := observability.StartWorkflowTimer(p.agentType, config.Workflow.StartStep)
-	defer workflowTimer.Complete("success")
+	// Sync to headers for orchestrator compatibility
+	msgCtx.SyncHeadersFromContext()
 
 	// Update metrics
 	observability.WorkflowsStarted.WithLabelValues(p.agentType, config.Workflow.StartStep, msgCtx.Headers["client_id"]).Inc()
 	observability.ActiveWorkflows.WithLabelValues(p.agentType).Inc()
 	defer observability.ActiveWorkflows.WithLabelValues(p.agentType).Dec()
 
-	// Execute through orchestrator - this creates/updates orchestration_id in headers
+	// Execute through orchestrator
 	err := p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, msgCtx.Headers, msgCtx.Message.Value)
 
 	if err != nil {
 		msgCtx.Logger.Error("Workflow execution failed", zap.Error(err))
-		// Send failure response
-		p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
-			"error":  err.Error(),
-			"status": "failed",
-		})
-	} else {
-		msgCtx.Logger.Info("Workflow execution completed successfully")
+		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
+	}
 
-		// Use p.sqlDB for the repository
-		if p.sqlDB != nil {
-			// Get the final result from orchestrator state
-			repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
+	return p.sendWorkflowSuccessResponse(ctx, msgCtx)
+}
 
-			// CRITICAL: Use orchestration_id first, then correlation_id as fallback
-			var state *orchestration.OrchestrationState
-			var err error
-
-			// Check if we have orchestration_id (should be set by ExecuteWorkflow)
-			if orchestrationID := msgCtx.Headers["orchestration_id"]; orchestrationID != "" {
-				state, err = repo.GetState(ctx, orchestrationID)
-				msgCtx.Logger.Debug("Fetched state by orchestration_id",
-					zap.String("orchestration_id", orchestrationID),
-					zap.Bool("found", err == nil))
-			}
-
-			// Fallback to correlation_id if needed
-			if state == nil {
-				state, err = repo.GetStateByCorrelation(ctx, msgCtx.Headers["correlation_id"])
-				msgCtx.Logger.Debug("Fetched state by correlation_id",
-					zap.String("correlation_id", msgCtx.Headers["correlation_id"]),
-					zap.Bool("found", err == nil))
-			}
-
-			if err != nil {
-				msgCtx.Logger.Warn("Failed to get final state", zap.Error(err))
-				// Send basic success response
-				p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
-					"status":  "completed",
-					"message": "Workflow completed but state retrieval failed",
-				})
-			} else if state != nil && state.CollectedData != nil {
-				// Send success response with collected data
-				p.sendWorkflowResponse(ctx, msgCtx, state.CollectedData)
-			} else {
-				// Send basic success response
-				p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
-					"status": "completed",
-				})
-			}
-		} else {
-			// No SQL DB available, send basic response
-			p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
-				"status":  "completed",
-				"message": "Workflow completed",
-			})
+// New response methods using ExecutionContext
+func (p *MessageProcessor) sendWorkflowSuccessResponse(ctx context.Context, msgCtx *MessageContext) error {
+	// Get final state if available
+	var finalResult interface{}
+	if p.sqlDB != nil {
+		repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
+		state, err := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
+		if err == nil && state != nil {
+			finalResult = state.CollectedData
 		}
 	}
 
-	return err
+	if finalResult == nil {
+		finalResult = map[string]interface{}{"status": "completed"}
+	}
+
+	return p.sendWorkflowResponse(ctx, msgCtx, finalResult)
+}
+
+func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgCtx *MessageContext, err error) error {
+	return p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
+		"error":  err.Error(),
+		"status": "failed",
+	})
 }
 
 func (p *MessageProcessor) handleError(ctx context.Context, msgCtx *MessageContext, err error, errorType string) error {
@@ -619,70 +551,37 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 }
 
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
-	// Determine if we're a child responding to parent
-	isChildResponse := false
-	var parentContext map[string]interface{}
+	// Create response context
+	responseCtx := msgCtx.CreateResponseContext()
 
-	if pc, ok := msgCtx.CollectedData["__parent_context__"].(map[string]interface{}); ok {
-		parentContext = pc
-		if parentOrchestrationID, _ := pc["orchestration_id"].(string); parentOrchestrationID != "" {
-			if parentReqID, _ := pc["request_id"].(string); parentReqID != "" {
-				isChildResponse = true
-			}
-		}
+	// Build response message
+	response := models.AgentMessage{
+		MessageID:       responseCtx.MessageID,
+		CorrelationID:   responseCtx.CorrelationID,
+		OrchestrationID: responseCtx.OrchestrationID,
+		FromAgentID:     responseCtx.FromAgentID,
+		ToAgentID:       responseCtx.ToAgentID,
+		MessageType:     "response",
+		Action:          "response",
+		Data: map[string]interface{}{
+			"result":         result,
+			"in_response_to": responseCtx.InResponseTo,
+		},
+		Timestamp: responseCtx.Timestamp,
+		Version:   responseCtx.Version,
 	}
 
-	// Build response headers based on context
-	responseHeaders := p.buildResponseHeaders(msgCtx, isChildResponse, parentContext)
-
-	// Determine response topic
-	responseTopic := p.determineResponseTopic(ctx, msgCtx, isChildResponse, parentContext)
-
-	// Create and send response based on message version
-	return p.sendResponse(ctx, msgCtx, responseHeaders, responseTopic, result)
-}
-
-func (p *MessageProcessor) buildResponseHeaders(msgCtx *MessageContext, isChildResponse bool, parentContext map[string]interface{}) map[string]string {
-	headers := make(map[string]string)
-
-	// Common headers
-	headers["correlation_id"] = msgCtx.Headers["correlation_id"]
-	headers["from_agent_id"] = os.Getenv("AGENT_ID")
-	headers["message_type"] = "response"
-
-	if isChildResponse {
-		// Child responding to parent
-		parentOrchestrationID, _ := parentContext["orchestration_id"].(string)
-		parentRequestID, _ := parentContext["request_id"].(string)
-
-		// headers["orchestration_id"] = parentOrchID // Parent's orchestration
-		headers["in_response_to"] = parentRequestID // What parent is waiting for
-		// headers["causation_id"] = parentReqID      // Backward compatibility
-
-		p.logger.Info("Building child-to-parent response headers",
-			zap.String("parent_orchestration_id", parentOrchestrationID),
-			zap.String("in_response_to", parentRequestID))
-	} else {
-		// Normal response
-		headers["orchestration_id"] = msgCtx.Headers["orchestration_id"]
-		headers["in_response_to"] = msgCtx.Headers["request_id"]
-		headers["causation_id"] = msgCtx.Headers["request_id"]
-		headers["agent_type"] = p.agentType
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response: %w", err)
 	}
 
-	// Agent instance ID
-	if agentInstanceID := msgCtx.Headers["agent_instance_id"]; agentInstanceID != "" {
-		headers["agent_instance_id"] = agentInstanceID
-	} else {
-		headers["agent_instance_id"] = os.Getenv("AGENT_ID")
-	}
-
-	// Reply context
-	if toAgent := msgCtx.Headers["from_agent_id"]; toAgent != "" {
-		headers["to_agent_id"] = toAgent
-	}
-
-	return headers
+	// Send using response context headers
+	return p.producer.Produce(ctx,
+		responseCtx.ReplyToTopic,
+		responseCtx.ToHeaders(),
+		[]byte(responseCtx.CorrelationID),
+		responseBytes)
 }
 
 func (p *MessageProcessor) determineResponseTopic(ctx context.Context, msgCtx *MessageContext, isChildResponse bool, parentContext map[string]interface{}) string {

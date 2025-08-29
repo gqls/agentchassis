@@ -9,49 +9,97 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
 // StartOrchestrationAction spawns a child orchestration and waits for its completion
 func StartOrchestrationAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Starting orchestration action",
-		zap.String("current_step", params.CurrentStep))
-
-	// Step 1: Validate we have our own orchestration context
-	parentContext, err := extractParentContext(params)
+	// Get parent execution context
+	parentCtx, err := types.FromHeaders(params.Headers)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid parent context: %w", err)
 	}
 
-	// Step 2: Check if already started (idempotency)
-	if existing := checkExistingChild(params); existing != nil {
-		params.Logger.Info("Returning existing child orchestration")
+	params.Logger.Info("Starting child orchestration",
+		zap.String("parent_orchestration_id", parentCtx.OrchestrationID),
+		zap.String("correlation_id", parentCtx.CorrelationID))
+
+	// Check for idempotency
+	stepKey := fmt.Sprintf("%s_started", params.CurrentStep)
+	if existing := params.CollectedData[stepKey]; existing != nil {
 		return existing, nil
 	}
 
-	// Step 3: Find the spawn data from previous step
+	// Find spawn data from previous step
 	spawnData, err := findSpawnData(params)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 4: Extract and prepare workflow
+	// Extract workflow
 	workflowJSON, err := extractWorkflow(spawnData, params.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 5: Create child orchestration
-	childIDs, err := createChildOrchestration(ctx, params, parentContext, spawnData, workflowJSON)
-	if err != nil {
-		return nil, err
+	// Create child execution context
+	childAgentID := uuid.New().String()
+	if agents, ok := spawnData["agents"].(map[string]interface{}); ok {
+		if orchestratorID, ok := agents["orchestrator"].(string); ok {
+			childAgentID = orchestratorID
+		}
 	}
 
-	// Step 6: Start timeout monitor
-	startTimeoutMonitor(params, parentContext, childIDs)
+	// Create child context with proper parent relationship
+	childCtx := parentCtx.CreateChildContext(childAgentID, "orchestrator")
 
-	// Step 7: Return result for parent to wait on
-	return buildStartOrchestrationResult(childIDs, spawnData), nil
+	// Store execution context for child to use when responding
+	childHeaders := childCtx.ToHeaders()
+	childHeaders["parent_reply_to_topic"] = parentCtx.ReplyToTopic
+
+	// Create the child orchestration
+	orchestrator, ok := params.SagaCoordinator.(interface {
+		CreateNewOrchestration(context.Context, string, map[string]string, json.RawMessage) error
+	})
+	if !ok || orchestrator == nil {
+		return nil, fmt.Errorf("SagaCoordinator not available")
+	}
+
+	// Store the execution context in initial data for the child
+	initialData := map[string]interface{}{
+		"__execution_context__": childCtx,
+		"__parent_context__": map[string]interface{}{
+			"orchestration_id": parentCtx.OrchestrationID,
+			"request_id":       childCtx.RequestID,
+			"reply_to_topic":   parentCtx.ReplyToTopic,
+		},
+	}
+
+	// Merge with workflow data
+	workflowData := map[string]interface{}{
+		"workflow":     workflowJSON,
+		"initial_data": initialData,
+	}
+
+	workflowBytes, _ := json.Marshal(workflowData)
+
+	err = orchestrator.CreateNewOrchestration(ctx, childCtx.OrchestrationID, childHeaders, workflowBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create child orchestration: %w", err)
+	}
+
+	// Mark as started
+	params.CollectedData[stepKey] = true
+
+	// Return result for parent to wait on
+	return map[string]interface{}{
+		"status":                 "orchestration_started",
+		"child_orchestration_id": childCtx.OrchestrationID,
+		"request_id":             childCtx.RequestID, // Parent waits for this
+		"await_response":         true,
+		"group_id":               spawnData["group_id"],
+	}, nil
 }
 
 // ParentContext holds the parent orchestration's context

@@ -9,64 +9,64 @@ import (
 	"time"
 
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
 func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Completing workflow")
-
-	// Clean collected data - remove internal keys
-	result := make(map[string]interface{})
-	for k, v := range params.CollectedData {
-		// Skip internal keys
-		if k == "__parent_context__" ||
-			strings.HasSuffix(k, "_started") ||
-			strings.HasSuffix(k, "_request") {
-			continue
-		}
-		result[k] = v
+	// Get execution context
+	execCtx, err := types.FromHeaders(params.Headers)
+	if err != nil {
+		params.Logger.Error("Failed to get execution context", zap.Error(err))
+		return nil, err
 	}
 
-	// If this is a child orchestration, send response to parent
-	if parentCtx, ok := params.CollectedData["__parent_context__"].(map[string]interface{}); ok {
-		parentOrchestratorID, _ := parentCtx["orchestration_id"].(string)
-		replyToTopic, _ := parentCtx["reply_to_topic"].(string)
-		requestID, _ := parentCtx["request_id"].(string)
+	params.Logger.Info("Completing workflow",
+		zap.String("orchestration_id", execCtx.OrchestrationID))
 
-		if parentOrchestratorID != "" && replyToTopic != "" && requestID != "" {
-			response := models.TaskResponse{
-				Success: true,
-				Data: map[string]interface{}{
-					"final_result":     result,
-					"status":           "completed",
-					"orchestration_id": params.Headers["orchestration_id"],
-				},
-			}
+	// Clean collected data
+	result := make(map[string]interface{})
+	for k, v := range params.CollectedData {
+		if !strings.HasPrefix(k, "__") && !strings.HasSuffix(k, "_request") {
+			result[k] = v
+		}
+	}
 
-			responseHeaders := map[string]string{
-				"orchestration_id": parentOrchestratorID, // Route to parent
-				"in_response_to":   requestID,            // What we're responding to
-				"correlation_id":   params.Headers["correlation_id"],
-				"message_type":     "response",
-				"from_agent_id":    params.Headers["agent_id"],
-				"causation_id":     requestID,
-			}
+	// Check if this is a child needing to respond to parent
+	if execCtx.IsChildOrchestration() {
+		// Look for stored parent context
+		if parentCtxData, ok := params.CollectedData["__execution_context__"]; ok {
+			if _, ok := parentCtxData.(*types.ExecutionContext); ok {
+				// Create response context
+				responseCtx := execCtx.CreateResponseContext()
 
-			responseBytes, _ := json.Marshal(response)
-			err := params.Producer.Produce(ctx, replyToTopic, responseHeaders,
-				[]byte(params.Headers["orchestration_id"]), responseBytes)
+				// Build response
+				response := models.TaskResponse{
+					Success: true,
+					Data: map[string]interface{}{
+						"final_result":     result,
+						"status":           "completed",
+						"orchestration_id": execCtx.OrchestrationID,
+					},
+				}
 
-			if err != nil {
-				params.Logger.Error("Failed to send response to parent",
-					zap.Error(err),
-					zap.String("parent_orchestration_id", parentOrchestratorID),
-					zap.String("reply_to_topic", replyToTopic),
-					zap.String("in_response_to", requestID))
-			} else {
-				params.Logger.Info("Sent completion to parent",
-					zap.String("parent_orchestration_id", parentOrchestratorID),
-					zap.String("in_response_to", requestID),
-					zap.String("reply_to_topic", replyToTopic))
+				responseBytes, _ := json.Marshal(response)
+
+				// Send to parent
+				err := params.Producer.Produce(ctx,
+					responseCtx.ReplyToTopic,
+					responseCtx.ToHeaders(),
+					[]byte(responseCtx.CorrelationID),
+					responseBytes)
+
+				if err != nil {
+					params.Logger.Error("Failed to send response to parent",
+						zap.Error(err),
+						zap.String("parent_orchestration_id", responseCtx.OrchestrationID))
+				} else {
+					params.Logger.Info("Sent completion to parent",
+						zap.String("parent_orchestration_id", responseCtx.OrchestrationID))
+				}
 			}
 		}
 	}
