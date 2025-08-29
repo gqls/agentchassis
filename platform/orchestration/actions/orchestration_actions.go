@@ -61,12 +61,6 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("workflow missing required steps")
 	}
 
-	// Re-marshal validated workflow
-	validatedWorkflowJSON, err := json.Marshal(workflow)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal validated workflow: %w", err)
-	}
-
 	// Create child execution context
 	childAgentID := uuid.New().String()
 	if agents, ok := spawnData["agents"].(map[string]interface{}); ok {
@@ -94,19 +88,23 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 	initialData := map[string]interface{}{
 		"__execution_context__": childCtx,
 		"__parent_context__": map[string]interface{}{
-			"orchestration_id": parentCtx.OrchestrationID,
-			"request_id":       childCtx.RequestID,
-			"reply_to_topic":   parentCtx.ReplyToTopic,
+			"orchestration_id":  parentCtx.OrchestrationID,
+			"request_id":        childCtx.RequestID,
+			"reply_to_topic":    parentCtx.ReplyToTopic,
+			"parent_agent_type": parentCtx.OwnerAgentType,
 		},
 	}
 
 	// Merge with workflow data
 	workflowData := map[string]interface{}{
-		"workflow":     workflowJSON,
+		"workflow":     workflow,
 		"initial_data": initialData,
 	}
 
-	workflowBytes, _ := json.Marshal(workflowData)
+	workflowBytes, err := json.Marshal(workflowData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal workflow data: %w", err)
+	}
 
 	err = orchestrator.CreateNewOrchestration(ctx, childCtx.OrchestrationID, childHeaders, workflowBytes)
 	if err != nil {

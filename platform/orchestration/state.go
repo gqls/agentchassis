@@ -83,6 +83,8 @@ type OrchestrationState struct {
 	ExecutionPath     []ExecutionRecord `db:"execution_path"`
 	ExecutionMetadata ExecutionMetadata `db:"execution_metadata"`
 
+	FuelBudget int `db:"fuel_budget"`
+
 	// Error handling
 	Error string `db:"error"`
 
@@ -111,6 +113,16 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationI
 	awaitedStepsJSON, _ := json.Marshal([]string{})
 	collectedDataJSON, _ := json.Marshal(map[string]interface{}{})
 	workflowPlanJSON, _ := json.Marshal(plan)
+
+	r.logger.Info("Creating initial state with plan",
+		zap.String("orchestration_id", orchestrationID),
+		zap.String("start_step", plan.StartStep),
+		zap.Int("steps", len(plan.Steps)),
+		zap.String("owner_agent_id", ownerAgentID))
+
+	if plan.StartStep == "" {
+		return fmt.Errorf("workflow plan has empty start_step")
+	}
 
 	// Parse initial data to extract agent type
 	var initData map[string]interface{}

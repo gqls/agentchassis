@@ -109,6 +109,12 @@ func (ec *ExecutionContext) CreateChildContext(toAgentID, toAgentType string) *E
 
 // CreateResponseContext creates a context for responding to a request
 func (ec *ExecutionContext) CreateResponseContext() *ExecutionContext {
+	// Determine which orchestration we're responding to
+	targetOrchestrationID := ec.OrchestrationID
+	if ec.ParentOrchestrationID != "" {
+		// If we have a parent, we're responding to the parent's orchestration
+		targetOrchestrationID = ec.ParentOrchestrationID
+	}
 	return &ExecutionContext{
 		// Keep business context
 		CorrelationID: ec.CorrelationID,
@@ -116,7 +122,7 @@ func (ec *ExecutionContext) CreateResponseContext() *ExecutionContext {
 		GroupID:       ec.GroupID,
 
 		// Use PARENT's orchestration if responding to parent
-		OrchestrationID:       ec.ParentOrchestrationID,
+		OrchestrationID:       targetOrchestrationID,
 		ParentOrchestrationID: "", // Clear this for response
 
 		// Response message identity

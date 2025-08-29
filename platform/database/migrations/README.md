@@ -509,3 +509,7 @@ WHERE parent_orchestration_id IS NOT NULL;
 -- collected_data JSONB
 -- workflow_plan JSONB
 -- ...
+
+
+ALTER TABLE orchestration_states
+ADD COLUMN fuel_budget INTEGER DEFAULT 1000;
