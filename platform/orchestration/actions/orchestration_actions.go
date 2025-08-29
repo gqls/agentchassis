@@ -37,10 +37,34 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 		return nil, err
 	}
 
-	// Extract workflow
+	// Extract and validate workflow
 	workflowJSON, err := extractWorkflow(spawnData, params.Logger)
 	if err != nil {
 		return nil, err
+	}
+
+	// Parse and validate the workflow before creating orchestration
+	var workflow map[string]interface{}
+	if err := json.Unmarshal(workflowJSON, &workflow); err != nil {
+		return nil, fmt.Errorf("failed to parse workflow: %w", err)
+	}
+
+	// Ensure workflow has required fields
+	if startStep, ok := workflow["start_step"].(string); !ok || startStep == "" {
+		params.Logger.Error("Workflow missing start_step",
+			zap.Any("workflow", workflow))
+		return nil, fmt.Errorf("workflow missing required start_step")
+	}
+
+	// Ensure workflow has steps
+	if steps, ok := workflow["steps"].(map[string]interface{}); !ok || len(steps) == 0 {
+		return nil, fmt.Errorf("workflow missing required steps")
+	}
+
+	// Re-marshal validated workflow
+	validatedWorkflowJSON, err := json.Marshal(workflow)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal validated workflow: %w", err)
 	}
 
 	// Create child execution context

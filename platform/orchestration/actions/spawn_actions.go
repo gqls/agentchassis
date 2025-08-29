@@ -240,11 +240,49 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.Int("DEBUG_SPAWN_14: total_spawned", len(spawnedAgents)),
 		zap.Any("DEBUG_SPAWN_14: spawned_agents", spawnedAgents))
 
+	// Parse and validate workflow before returning
+	var workflowPlan map[string]interface{}
+	if err := json.Unmarshal(workflow, &workflowPlan); err != nil {
+		params.Logger.Error("Failed to parse workflow from group",
+			zap.Error(err),
+			zap.String("group_id", groupID))
+		// Create a minimal valid workflow
+		workflowPlan = map[string]interface{}{
+			"start_step": "execute",
+			"steps": map[string]interface{}{
+				"execute": map[string]interface{}{
+					"action":      "execute_llm_prompt",
+					"description": "Execute task",
+					"next_step":   "complete",
+				},
+				"complete": map[string]interface{}{
+					"action":      "complete_workflow",
+					"description": "Complete workflow",
+				},
+			},
+		}
+	}
+
+	// Validate workflow has required fields
+	if _, hasStart := workflowPlan["start_step"]; !hasStart {
+		workflowPlan["start_step"] = "execute"
+	}
+	if _, hasSteps := workflowPlan["steps"]; !hasSteps {
+		workflowPlan["steps"] = map[string]interface{}{
+			"execute": map[string]interface{}{
+				"action": "execute_llm_prompt",
+			},
+		}
+	}
+
+	// Re-marshal the validated workflow
+	validatedWorkflow, _ := json.Marshal(workflowPlan)
+
 	return map[string]interface{}{
 		"group_id":   groupID,
 		"group_name": groupName,
 		"agents":     spawnedAgents,
-		"workflow":   workflow,
+		"workflow":   validatedWorkflow,
 	}, nil
 }
 

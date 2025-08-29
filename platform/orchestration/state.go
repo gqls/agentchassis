@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -111,9 +112,20 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationI
 	collectedDataJSON, _ := json.Marshal(map[string]interface{}{})
 	workflowPlanJSON, _ := json.Marshal(plan)
 
-	if initialData == nil {
+	// Parse initial data to extract agent type
+	var initData map[string]interface{}
+	if initialData != nil {
+		json.Unmarshal(initialData, &initData)
+	} else {
 		initialData = []byte("null")
 	}
+
+	// Store agent type in collected data
+	collectedData := map[string]interface{}{
+		"agent_type": os.Getenv("AGENT_TYPE"), // Or pass it in
+	}
+
+	collectedDataJSON, _ = json.Marshal(collectedData)
 
 	// Initialize execution metadata
 	metadata := ExecutionMetadata{

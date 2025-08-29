@@ -93,6 +93,14 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		zap.String("action", msgCtx.Action),
 		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
 
+	/*	// The processor KNOWS its own agent type
+		msgCtx.ExecutionContext.FromAgentType = p.agentType
+		msgCtx.ExecutionContext.OwnerAgentID = os.Getenv("AGENT_ID")
+
+		// Set reply topic based on THIS agent's type
+		msgCtx.ExecutionContext.ReplyToTopic = fmt.Sprintf("system.agent.%s.responses", p.agentType)
+	*/
+
 	// Ensure ExecutionContext has required fields
 	if msgCtx.ExecutionContext.OrchestrationID == "" {
 		msgCtx.ExecutionContext.OrchestrationID = uuid.New().String()
@@ -514,6 +522,23 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
 	// Create response context
 	responseCtx := msgCtx.CreateResponseContext()
+
+	// Validate we have a reply topic
+	if responseCtx.ReplyToTopic == "" {
+		// Try to determine from context
+		if msgCtx.ExecutionContext.ReplyToTopic != "" {
+			responseCtx.ReplyToTopic = msgCtx.ExecutionContext.ReplyToTopic
+		} else if msgCtx.ExecutionContext.FromAgentType != "" {
+			responseCtx.ReplyToTopic = fmt.Sprintf("system.agent.%s.responses",
+				msgCtx.ExecutionContext.FromAgentType)
+		} else {
+			// Fallback to generic
+			responseCtx.ReplyToTopic = "system.agent.generic.responses"
+		}
+
+		p.logger.Warn("Had to construct ReplyToTopic",
+			zap.String("reply_to_topic", responseCtx.ReplyToTopic))
+	}
 
 	// Build response message
 	response := models.AgentMessage{

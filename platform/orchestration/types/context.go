@@ -36,6 +36,9 @@ type ExecutionContext struct {
 	ToAgentType   string `json:"to_agent_type"`
 	ReplyToTopic  string `json:"reply_to_topic"`
 
+	// Add agent info that determines topics
+	OwnerAgentType string `json:"owner_agent_type"`
+
 	// Resource Management
 	FuelBudget int `json:"fuel_budget"`
 
@@ -54,8 +57,10 @@ func NewExecutionContext(correlationID, clientID, agentID, agentType string) *Ex
 		RequestID:       uuid.New().String(),
 		MessageType:     "request",
 		OwnerAgentID:    agentID,
+		OwnerAgentType:  agentType,
 		FromAgentID:     agentID,
 		FromAgentType:   agentType,
+		ReplyToTopic:    fmt.Sprintf("system.agent.%s.responses", agentType),
 		FuelBudget:      1000,
 		Timestamp:       time.Now().UTC(),
 		Version:         "2.0",
@@ -80,12 +85,20 @@ func (ec *ExecutionContext) CreateChildContext(toAgentID, toAgentType string) *E
 		MessageType: "request",
 
 		// Routing
-		OwnerAgentID:  toAgentID,
+		// Child owns its own orchestration
+		OwnerAgentID:   toAgentID,
+		OwnerAgentType: toAgentType, // ADD THIS - child's type
+
+		// From parent
 		FromAgentID:   ec.OwnerAgentID,
-		FromAgentType: ec.FromAgentType,
-		ToAgentID:     toAgentID,
-		ToAgentType:   toAgentType,
-		ReplyToTopic:  fmt.Sprintf("system.agent.%s.responses", ec.FromAgentType),
+		FromAgentType: ec.OwnerAgentType, // Parent's type
+
+		// To child
+		ToAgentID:   toAgentID,
+		ToAgentType: toAgentType,
+
+		// Reply goes to parent's response topic
+		ReplyToTopic: fmt.Sprintf("system.agent.%s.responses", ec.OwnerAgentType),
 
 		// Inherit fuel budget
 		FuelBudget: ec.FuelBudget,
@@ -119,6 +132,9 @@ func (ec *ExecutionContext) CreateResponseContext() *ExecutionContext {
 		ToAgentType:   ec.FromAgentType,
 		ReplyToTopic:  ec.ReplyToTopic,
 
+		OwnerAgentID:   ec.FromAgentID,
+		OwnerAgentType: ec.FromAgentType,
+
 		// Remaining fuel
 		FuelBudget: ec.FuelBudget,
 		Timestamp:  time.Now().UTC(),
@@ -136,6 +152,7 @@ func (ec *ExecutionContext) ToHeaders() map[string]string {
 		"request_id":       ec.RequestID,
 		"message_type":     ec.MessageType,
 		"owner_agent_id":   ec.OwnerAgentID,
+		"owner_agent_type": ec.OwnerAgentType,
 		"from_agent_id":    ec.FromAgentID,
 		"from_agent_type":  ec.FromAgentType,
 		"to_agent_id":      ec.ToAgentID,
@@ -190,6 +207,7 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 		MessageType:           headers["message_type"],
 		InResponseTo:          headers["in_response_to"],
 		OwnerAgentID:          headers["owner_agent_id"],
+		OwnerAgentType:        headers["owner_agent_type"],
 		FromAgentID:           headers["from_agent_id"],
 		FromAgentType:         headers["from_agent_type"],
 		ToAgentID:             headers["to_agent_id"],

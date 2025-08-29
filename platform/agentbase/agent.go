@@ -35,6 +35,10 @@ type Agent struct {
 
 	// Managers
 	infraManager *infrastructure.Manager
+
+	// set up topics when agent is created
+	requestTopic  string
+	responseTopic string
 }
 
 // New creates a new agent with defaults from config
@@ -75,6 +79,26 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 
 	var requestTopic, responseTopic string
 	var requestConsumerGroup, responseConsumerGroup string
+
+	// Topics are ALWAYS deterministic based on agent type
+	requestTopic = fmt.Sprintf("system.agent.%s.requests", agentType)
+	responseTopic = fmt.Sprintf("system.agent.%s.responses", agentType)
+
+	// Create topics if they don't exist
+	topicManager := kafka.NewTopicManager(cfg.Infrastructure.KafkaBrokers, logger)
+
+	// Use the existing CreateAgentTypeTopics method which creates both request and response topics
+	if err := topicManager.CreateAgentTypeTopics(ctx, agentType); err != nil {
+		logger.Warn("Failed to ensure topics exist",
+			zap.String("agent_type", agentType),
+			zap.Error(err))
+		// Don't fail - topics might already exist
+	}
+
+	logger.Info("Agent topics configured",
+		zap.String("agent_type", agentType),
+		zap.String("request_topic", requestTopic),
+		zap.String("response_topic", responseTopic))
 
 	// Always set topics based on agent type, including for "generic"
 	if agentType != "" {
@@ -189,6 +213,8 @@ func NewWithType(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Log
 		client:        client,
 		healthServer:  healthServer,
 		infraManager:  infraManager,
+		requestTopic:  requestTopic,
+		responseTopic: responseTopic,
 	}, nil
 }
 

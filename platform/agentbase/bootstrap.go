@@ -99,5 +99,25 @@ func (a *Agent) Bootstrap() error {
 		}
 	}
 
+	// Store the agent configuration for later use
+	if bootstrapResp.Config != nil {
+		// Store agent type if returned
+		if agentType, ok := bootstrapResp.Config["agent_type"].(string); ok {
+			a.agentType = agentType
+		}
+
+		// Store topics if returned
+		if topics, ok := bootstrapResp.Config["topics"].(map[string]interface{}); ok {
+			if reqTopic, ok := topics["requests"].(string); ok {
+				a.requestTopic = reqTopic
+			}
+			if respTopic, ok := topics["responses"].(string); ok {
+				a.responseTopic = respTopic
+			}
+		}
+	}
+
+	return nil
+
 	return nil
 }
