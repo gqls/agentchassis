@@ -608,7 +608,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		Version:         "2.0",
 	}
 
-	// CRITICAL: Add parent context to message data
+	// Add parent context to message data
 	msg.Data["__parent_context__"] = map[string]interface{}{
 		"orchestration_id": parentOrchestrationID, // Parent's orchestration
 		"request_id":       requestID,             // What parent waits for
@@ -617,16 +617,17 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Build headers for child orchestration
 	childHeaders := msg.ToHeaders()
-	childHeaders["parent_orchestration_id"] = parentOrchestrationID
 	childHeaders["client_id"] = params.Headers["client_id"]
+	childHeaders["parent_orchestration_id"] = parentOrchestrationID
+	childHeaders["parent_request_id"] = params.Headers["request_id"]
 	childHeaders["parent_reply_to_topic"] = myResponseTopic // Where child sends completion
 	childHeaders["parent_agent_type"] = params.Headers["agent_type"]
+
 	childHeaders["reply_to_topic"] = msg.ReplyToTopic
 	childHeaders["fuel_budget"] = params.Headers["fuel_budget"]
-	childHeaders["parent_request_id"] = params.Headers["request_id"]
 	childHeaders["request_id"] = requestID
-
 	childHeaders["correlation_id"] = params.Headers["correlation_id"]
+	childHeaders["orchestration_id"] = childOrchestrationID
 	childHeaders["from_agent_id"] = params.Headers["agent_id"]
 	childHeaders["to_agent_id"] = targetAgentID
 	childHeaders["agent_instance_id"] = targetAgentID

@@ -625,7 +625,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	if pc, ok := msgCtx.CollectedData["__parent_context__"].(map[string]interface{}); ok {
 		parentContext = pc
-		if parentOrchID, _ := pc["orchestration_id"].(string); parentOrchID != "" {
+		if parentOrchestrationID, _ := pc["orchestration_id"].(string); parentOrchestrationID != "" {
 			if parentReqID, _ := pc["request_id"].(string); parentReqID != "" {
 				isChildResponse = true
 			}
@@ -652,16 +652,16 @@ func (p *MessageProcessor) buildResponseHeaders(msgCtx *MessageContext, isChildR
 
 	if isChildResponse {
 		// Child responding to parent
-		parentOrchID, _ := parentContext["orchestration_id"].(string)
-		parentReqID, _ := parentContext["request_id"].(string)
+		parentOrchestrationID, _ := parentContext["orchestration_id"].(string)
+		parentRequestID, _ := parentContext["request_id"].(string)
 
-		headers["orchestration_id"] = parentOrchID // Parent's orchestration
-		headers["in_response_to"] = parentReqID    // What parent is waiting for
-		headers["causation_id"] = parentReqID      // Backward compatibility
+		// headers["orchestration_id"] = parentOrchID // Parent's orchestration
+		headers["in_response_to"] = parentRequestID // What parent is waiting for
+		// headers["causation_id"] = parentReqID      // Backward compatibility
 
 		p.logger.Info("Building child-to-parent response headers",
-			zap.String("parent_orchestration_id", parentOrchID),
-			zap.String("in_response_to", parentReqID))
+			zap.String("parent_orchestration_id", parentOrchestrationID),
+			zap.String("in_response_to", parentRequestID))
 	} else {
 		// Normal response
 		headers["orchestration_id"] = msgCtx.Headers["orchestration_id"]

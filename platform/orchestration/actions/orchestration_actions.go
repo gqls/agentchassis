@@ -299,7 +299,7 @@ func monitorChildTimeout(
 }
 
 // isParentStillWaiting checks if parent is still waiting for a request
-func isParentStillWaiting(ctx context.Context, db *sql.DB, parentOrchID, requestID string, logger *zap.Logger) bool {
+func isParentStillWaiting(ctx context.Context, db *sql.DB, parentOrchestrationID, requestID string, logger *zap.Logger) bool {
 	if db == nil {
 		return false
 	}
@@ -308,7 +308,7 @@ func isParentStillWaiting(ctx context.Context, db *sql.DB, parentOrchID, request
 	var awaitedStepsJSON []byte
 
 	query := `SELECT status, awaited_steps FROM orchestration_states WHERE orchestration_id = $1`
-	err := db.QueryRowContext(ctx, query, parentOrchID).Scan(&status, &awaitedStepsJSON)
+	err := db.QueryRowContext(ctx, query, parentOrchestrationID).Scan(&status, &awaitedStepsJSON)
 	if err != nil {
 		logger.Error("Failed to check parent state", zap.Error(err))
 		return false

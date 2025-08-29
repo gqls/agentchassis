@@ -660,19 +660,19 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 
 // ResponseIDs holds all the different IDs from a response
 type ResponseIDs struct {
-	OrchestrationID string // The orchestration that sent this response
-	CorrelationID   string // Business transaction ID
-	InResponseTo    string // What request this is responding to
-	ParentOrchID    string // If this is from a child, who's the parent
+	OrchestrationID       string // The orchestration that sent this response
+	CorrelationID         string // Business transaction ID
+	InResponseTo          string // What request this is responding to
+	ParentOrchestrationID string // If this is from a child, who's the parent
 }
 
 // extractResponseIDs clearly extracts all IDs from headers
 func (s *SagaCoordinator) extractResponseIDs(headers map[string]string) (*ResponseIDs, error) {
 	ids := &ResponseIDs{
-		OrchestrationID: headers["orchestration_id"],
-		CorrelationID:   headers["correlation_id"],
-		InResponseTo:    headers["in_response_to"],
-		ParentOrchID:    headers["parent_orchestration_id"],
+		OrchestrationID:       headers["orchestration_id"],
+		CorrelationID:         headers["correlation_id"],
+		InResponseTo:          headers["in_response_to"],
+		ParentOrchestrationID: headers["parent_orchestration_id"],
 	}
 
 	// Fallback for legacy messages
@@ -692,7 +692,7 @@ func (s *SagaCoordinator) extractResponseIDs(headers map[string]string) (*Respon
 		zap.String("orchestration_id", ids.OrchestrationID),
 		zap.String("correlation_id", ids.CorrelationID),
 		zap.String("in_response_to", ids.InResponseTo),
-		zap.String("parent_orch_id", ids.ParentOrchID))
+		zap.String("parent_orch_id", ids.ParentOrchestrationID))
 
 	return ids, nil
 }
@@ -703,14 +703,14 @@ func (s *SagaCoordinator) findTargetOrchestration(ctx context.Context, ids *Resp
 
 	// The target is usually in the "orchestration_id" header
 	// This should be the parent's orchestration_id for child responses
-	targetOrchID := headers["orchestration_id"]
+	targetOrchestrationID := headers["orchestration_id"]
 
 	// Try to get by orchestration_id
-	if targetOrchID != "" {
-		state, err := repo.GetState(ctx, targetOrchID)
+	if targetOrchestrationID != "" {
+		state, err := repo.GetState(ctx, targetOrchestrationID)
 		if err == nil {
 			s.logger.Info("Found state by orchestration_id",
-				zap.String("orchestration_id", targetOrchID))
+				zap.String("orchestration_id", targetOrchestrationID))
 			return state, nil
 		}
 	}
@@ -726,7 +726,7 @@ func (s *SagaCoordinator) findTargetOrchestration(ctx context.Context, ids *Resp
 	}
 
 	return nil, fmt.Errorf("no state found for orchestration_id=%s, correlation_id=%s",
-		targetOrchID, ids.CorrelationID)
+		targetOrchestrationID, ids.CorrelationID)
 }
 
 // parseResponse unmarshals the response payload
@@ -1358,6 +1358,7 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 				if err := repo.UpdateState(ctx, state); err != nil {
 					execErr = fmt.Errorf("failed to update state: %w", err)
 				} else {
+					l.Info("DEBUG_Aa Possible recursive call to continueExecution 1361 coordinator")
 					return s.continueExecution(ctx, state, headers)
 				}
 			}
