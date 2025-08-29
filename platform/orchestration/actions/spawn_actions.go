@@ -616,7 +616,8 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	childHeaders["parent_agent_type"] = params.Headers["agent_type"]
 	childHeaders["reply_to_topic"] = msg.ReplyToTopic
 	childHeaders["fuel_budget"] = params.Headers["fuel_budget"]
-	childHeaders["parent_request_id"] = requestID
+	childHeaders["parent_request_id"] = params.Headers["request_id"]
+	childHeaders["request_id"] = requestID
 
 	childHeaders["correlation_id"] = params.Headers["correlation_id"]
 	childHeaders["from_agent_id"] = params.Headers["agent_id"]
@@ -1322,60 +1323,6 @@ func createAgentInDBFromDefinition(ctx context.Context, params ActionParams, age
 		zap.String("DEBUG_SPAWN_33: client_id", clientID))
 
 	return nil
-}
-
-// sendRequestToAgent sends a request to another agent and tracks it
-func sendRequestToAgent(ctx context.Context, params ActionParams, targetAgentID, targetAgentType string) (interface{}, error) {
-	// Generate IDs
-	requestID := uuid.New().String()
-	messageID := uuid.New().String()
-
-	// Get parent context
-	parentOrchID := params.Headers["orchestration_id"]
-	if parentOrchID == "" {
-		return nil, fmt.Errorf("parent orchestration_id required")
-	}
-
-	// Build message
-	msg := models.AgentMessage{
-		MessageID:       messageID,
-		RequestID:       requestID,
-		CorrelationID:   params.Headers["correlation_id"],
-		OrchestrationID: parentOrchID, // Parent's orchestration
-		FromAgentID:     params.Headers["agent_id"],
-		ToAgentID:       targetAgentID,
-		ReplyToTopic:    fmt.Sprintf("system.agent.%s.responses", params.Headers["agent_type"]),
-		MessageType:     "request",
-		Action:          "process",
-		Data:            params.CollectedData,
-		Timestamp:       time.Now(),
-		Version:         "2.0",
-	}
-
-	// Track request
-	if err := trackRequest(ctx, params.DB, requestID, parentOrchID, targetAgentID); err != nil {
-		params.Logger.Warn("Failed to track request", zap.Error(err))
-	}
-
-	// Send message
-	targetTopic := fmt.Sprintf("system.agent.%s.requests", targetAgentType)
-	headers := msg.ToHeaders()
-	headers["client_id"] = params.Headers["client_id"]
-	headers["fuel_budget"] = params.Headers["fuel_budget"]
-
-	msgBytes, _ := json.Marshal(msg)
-	if err := params.Producer.Produce(ctx, targetTopic, headers,
-		[]byte(msg.CorrelationID), msgBytes); err != nil {
-		failRequest(ctx, params.DB, requestID)
-		return nil, err
-	}
-
-	return map[string]interface{}{
-		"agent_called":   targetAgentID,
-		"agent_type":     targetAgentType,
-		"request_id":     requestID, // Parent waits for this
-		"await_response": true,
-	}, nil
 }
 
 // spawnAgentKubernetesJobFromDefinition spawns job using database definition

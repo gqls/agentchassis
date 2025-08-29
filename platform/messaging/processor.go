@@ -163,6 +163,14 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		}
 	}
 
+	if parentRequestID := msgCtx.Headers["parent_request_id"]; parentRequestID != "" {
+		msgCtx.CollectedData["__parent_context__"] = map[string]interface{}{
+			"orchestration_id": msgCtx.Headers["parent_orchestration_id"],
+			"request_id":       parentRequestID, // This is what parent is waiting for
+			"reply_to_topic":   msgCtx.Headers["parent_reply_to_topic"],
+		}
+	}
+
 	// Load the complete agent definition from the database
 	agentDef, err := p.loadAgentDefinition(ctx, p.agentType)
 	if err != nil {
@@ -705,8 +713,19 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	responseHeaders := make(map[string]string)
 	responseHeaders["correlation_id"] = msgCtx.Headers["correlation_id"]
 	responseHeaders["causation_id"] = msgCtx.Headers["request_id"]
+	responseHeaders["in_response_to"] = msgCtx.Headers["request_id"]
 	responseHeaders["orchestration_id"] = msgCtx.Headers["orchestration_id"]
 	responseHeaders["agent_type"] = p.agentType
+
+	// Check if this is a child responding to parent
+	if parentCtx, ok := state.CollectedData["__parent_context__"].(map[string]interface{}); ok {
+		if parentOrchID, ok := parentCtx["orchestration_id"].(string); ok && parentOrchID != "" {
+			responseHeaders["orchestration_id"] = parentOrchID // Parent's orchestration
+			if parentReqID, ok := parentCtx["request_id"].(string); ok && parentReqID != "" {
+				responseHeaders["in_response_to"] = parentReqID // What parent is waiting for
+			}
+		}
+	}
 
 	// Use agent ID from environment if not in headers
 	agentInstanceID := msgCtx.Headers["agent_instance_id"]
