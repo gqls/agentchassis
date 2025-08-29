@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -87,7 +88,7 @@ func (ec *ExecutionContext) CreateChildContext(toAgentID, toAgentType string) *E
 		// Routing
 		// Child owns its own orchestration
 		OwnerAgentID:   toAgentID,
-		OwnerAgentType: toAgentType, // ADD THIS - child's type
+		OwnerAgentType: toAgentType,
 
 		// From parent
 		FromAgentID:   ec.OwnerAgentID,
@@ -111,10 +112,16 @@ func (ec *ExecutionContext) CreateChildContext(toAgentID, toAgentType string) *E
 func (ec *ExecutionContext) CreateResponseContext() *ExecutionContext {
 	// Determine which orchestration we're responding to
 	targetOrchestrationID := ec.OrchestrationID
+	targetOwnerAgentID := ec.OwnerAgentID
+	targetOwnerAgentType := ec.OwnerAgentType
+
 	if ec.ParentOrchestrationID != "" {
-		// If we have a parent, we're responding to the parent's orchestration
+		// We're a child responding to parent
 		targetOrchestrationID = ec.ParentOrchestrationID
+		targetOwnerAgentID = ec.FromAgentID // Parent is the sender
+		targetOwnerAgentType = ec.FromAgentType
 	}
+
 	return &ExecutionContext{
 		// Keep business context
 		CorrelationID: ec.CorrelationID,
@@ -131,6 +138,10 @@ func (ec *ExecutionContext) CreateResponseContext() *ExecutionContext {
 		MessageType:  "response",
 		InResponseTo: ec.RequestID,
 
+		// Owner of the orchestration we're responding to
+		OwnerAgentID:   targetOwnerAgentID,
+		OwnerAgentType: targetOwnerAgentType,
+
 		// Reverse routing
 		FromAgentID:   ec.ToAgentID,
 		FromAgentType: ec.ToAgentType,
@@ -138,13 +149,11 @@ func (ec *ExecutionContext) CreateResponseContext() *ExecutionContext {
 		ToAgentType:   ec.FromAgentType,
 		ReplyToTopic:  ec.ReplyToTopic,
 
-		OwnerAgentID:   ec.FromAgentID,
-		OwnerAgentType: ec.FromAgentType,
-
 		// Remaining fuel
 		FuelBudget: ec.FuelBudget,
-		Timestamp:  time.Now().UTC(),
-		Version:    "2.0",
+
+		Timestamp: time.Now().UTC(),
+		Version:   "2.0",
 	}
 }
 
@@ -248,6 +257,19 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 	}
 	if ec.Version == "" {
 		ec.Version = "2.0"
+	}
+
+	// Ensure OwnerAgentType is set
+	if ec.OwnerAgentType == "" {
+		// Try to get from headers
+		if agentType := headers["agent_type"]; agentType != "" {
+			ec.OwnerAgentType = agentType
+		} else if ownerType := headers["owner_agent_type"]; ownerType != "" {
+			ec.OwnerAgentType = ownerType
+		} else {
+			// Fall back to environment
+			ec.OwnerAgentType = os.Getenv("AGENT_TYPE")
+		}
 	}
 
 	// Handle legacy headers

@@ -76,14 +76,14 @@ resource "kubernetes_config_map" "personae_prod_config" {
     agent_image_tag: var.agent_image_tag
 
     # Enable detailed message tracing (development/debugging)
-    ENABLE_MESSAGE_TRACING=true
-    TRACE_OUTPUT_DIR=/var/log/agent-traces
+    ENABLE_MESSAGE_TRACING: "true"
+    TRACE_OUTPUT_DIR: "/var/log/agent-traces"
 
-    # Log level for execution context
-    CONTEXT_LOG_LEVEL=debug  # or "info", "error"
+    # Log level for execution context - levels debug, info, error
+    CONTEXT_LOG_LEVEL: "debug"
 
     # Enable compact logging (production)
-    COMPACT_CONTEXT_LOGS=true
+    COMPACT_CONTEXT_LOGS: "true"
   }
 }
 

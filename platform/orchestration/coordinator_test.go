@@ -666,7 +666,7 @@ func TestCompleteWorkflow(t *testing.T) {
 			sqlmock.AnyArg(), // updated_at = $8
 		).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	err := coordinator.completeWorkflow(ctx, state)
+	err := coordinator.completeWorkflow(ctx, state, headers)
 	require.NoError(t, err)
 
 	assert.Equal(t, StatusCompleted, state.Status)

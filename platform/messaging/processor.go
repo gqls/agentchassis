@@ -523,6 +523,32 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	// Create response context
 	responseCtx := msgCtx.CreateResponseContext()
 
+	contextLogger := p.logger.With(msgCtx.ExecutionContext.LogContext()...)
+
+	// Determine target orchestration
+	targetOrchestrationID := msgCtx.ExecutionContext.OrchestrationID
+	if msgCtx.ExecutionContext.ParentOrchestrationID != "" {
+		targetOrchestrationID = msgCtx.ExecutionContext.ParentOrchestrationID
+		contextLogger.Info("TRACE: Child sending response to parent",
+			zap.String("child_orch", msgCtx.ExecutionContext.OrchestrationID),
+			zap.String("parent_orch", targetOrchestrationID))
+	}
+
+	responseHeaders := map[string]string{
+		"correlation_id":   msgCtx.ExecutionContext.CorrelationID,
+		"orchestration_id": targetOrchestrationID, // CRITICAL: Use correct target
+		"message_type":     "response",
+		"in_response_to":   msgCtx.ExecutionContext.RequestID,
+		"fuel_budget":      fmt.Sprintf("%d", msgCtx.ExecutionContext.FuelBudget),
+		// ... other headers
+	}
+
+	contextLogger.Info("TRACE: Sending workflow response",
+		zap.String("response_orch_id", targetOrchestrationID),
+		zap.String("reply_topic", msgCtx.ExecutionContext.ReplyToTopic),
+		zap.Int("fuel_returning", msgCtx.ExecutionContext.FuelBudget),
+		zap.Any("response_headers", responseHeaders))
+
 	// Validate we have a reply topic
 	if responseCtx.ReplyToTopic == "" {
 		// Try to determine from context
@@ -725,8 +751,6 @@ func (p *MessageProcessor) getAgentTypeFromID(ctx context.Context, agentID strin
 		return agentType
 	}
 
-	// REMOVE the orchestration_states query - it doesn't make sense
-
 	// If not found in instances, try to extract from the agent ID pattern
 	if strings.Contains(agentID, "-") {
 		parts := strings.Split(agentID, "-")
@@ -739,16 +763,6 @@ func (p *MessageProcessor) getAgentTypeFromID(ctx context.Context, agentID strin
 				return possibleType
 			}
 		}
-	}
-
-	// Check if it's a well-known agent ID
-	wellKnownAgents := map[string]string{
-		"00000000-0000-0000-0000-000000000001": "orchestrator",
-		"00000000-0000-0000-0000-000000000002": "generic",
-	}
-
-	if knownType, ok := wellKnownAgents[agentID]; ok {
-		return knownType
 	}
 
 	p.logger.Warn("Could not determine agent type from ID",
@@ -994,8 +1008,15 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		return p.processWithoutContext(ctx, msg, headers)
 	}
 
-	// Create logger with full context
 	contextLogger := p.logger.With(execCtx.LogContext()...)
+
+	contextLogger.Info("TRACE: ProcessMessage entry",
+		zap.String("agent_type", p.agentType),
+		zap.String("processing_orch", execCtx.OrchestrationID),
+		zap.Int("fuel_received", execCtx.FuelBudget))
+
+	// Create logger with full context
+	//contextLogger := p.logger.With(execCtx.LogContext()...)
 
 	// Or use compact logging for less verbosity
 	// p.Logger.Debug("Quick check", execCtx.LogCompact()...)

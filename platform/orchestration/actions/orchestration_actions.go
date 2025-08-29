@@ -14,6 +14,7 @@ import (
 )
 
 // StartOrchestrationAction spawns a child orchestration and waits for its completion
+// StartOrchestrationAction spawns a child orchestration and waits for its completion
 func StartOrchestrationAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	// Get parent execution context
 	parentCtx, err := types.FromHeaders(params.Headers)
@@ -61,67 +62,118 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("workflow missing required steps")
 	}
 
-	// Create child execution context
+	// Determine the child agent ID and type
 	childAgentID := uuid.New().String()
+	childAgentType := "generic" // default
+
+	// Extract from spawn data
 	if agents, ok := spawnData["agents"].(map[string]interface{}); ok {
+		// Look for orchestrator agent
 		if orchestratorID, ok := agents["orchestrator"].(string); ok {
 			childAgentID = orchestratorID
+			// For groups, the orchestrator type matches the group type
+			if groupType, ok := spawnData["group_type"].(string); ok {
+				childAgentType = groupType
+			}
+		}
+	} else if agentID, ok := spawnData["agent_id"].(string); ok {
+		// Single agent spawn
+		childAgentID = agentID
+		if agentType, ok := spawnData["agent_type"].(string); ok {
+			childAgentType = agentType
 		}
 	}
 
+	params.Logger.Info("Determined child orchestration details",
+		zap.String("child_agent_id", childAgentID),
+		zap.String("child_agent_type", childAgentType))
+
 	// Create child context with proper parent relationship
-	childCtx := parentCtx.CreateChildContext(childAgentID, "orchestrator")
+	childCtx := parentCtx.CreateChildContext(childAgentID, childAgentType)
 
-	// Store execution context for child to use when responding
-	childHeaders := childCtx.ToHeaders()
-	childHeaders["parent_reply_to_topic"] = parentCtx.ReplyToTopic
-
-	// Create the child orchestration
-	orchestrator, ok := params.SagaCoordinator.(interface {
-		CreateNewOrchestration(context.Context, string, map[string]string, json.RawMessage) error
-	})
-	if !ok || orchestrator == nil {
-		return nil, fmt.Errorf("SagaCoordinator not available")
-	}
-
-	// Store the execution context in initial data for the child
+	// Store execution context for child to reference
 	initialData := map[string]interface{}{
 		"__execution_context__": childCtx,
 		"__parent_context__": map[string]interface{}{
 			"orchestration_id":  parentCtx.OrchestrationID,
 			"request_id":        childCtx.RequestID,
-			"reply_to_topic":    parentCtx.ReplyToTopic,
+			"reply_to_topic":    fmt.Sprintf("system.agent.%s.responses", parentCtx.OwnerAgentType),
 			"parent_agent_type": parentCtx.OwnerAgentType,
 		},
-	}
-
-	// Merge with workflow data
-	workflowData := map[string]interface{}{
 		"workflow":     workflow,
-		"initial_data": initialData,
+		"initial_data": params.CollectedData,
 	}
 
-	workflowBytes, err := json.Marshal(workflowData)
+	requestBytes, _ := json.Marshal(initialData)
+
+	// Determine target topic
+	targetTopic := fmt.Sprintf("system.agent.%s.requests", childAgentType)
+
+	// Send message to start the child orchestration
+	err = params.Producer.Produce(
+		ctx,
+		targetTopic,
+		childCtx.ToHeaders(),
+		[]byte(childCtx.CorrelationID),
+		requestBytes,
+	)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal workflow data: %w", err)
+		return nil, fmt.Errorf("failed to send start_workflow message to %s: %w", targetTopic, err)
 	}
 
-	err = orchestrator.CreateNewOrchestration(ctx, childCtx.OrchestrationID, childHeaders, workflowBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create child orchestration: %w", err)
-	}
+	params.Logger.Info("Child orchestration started",
+		zap.String("child_orchestration_id", childCtx.OrchestrationID),
+		zap.String("child_agent_type", childAgentType),
+		zap.String("target_topic", targetTopic),
+		zap.String("request_id", childCtx.RequestID))
 
-	// Mark as started
+	// Mark as started (for idempotency)
 	params.CollectedData[stepKey] = true
 
-	// Return result for parent to wait on
+	// Return result indicating we're waiting for response
 	return map[string]interface{}{
 		"status":                 "orchestration_started",
-		"child_orchestration_id": childCtx.OrchestrationID,
-		"request_id":             childCtx.RequestID, // Parent waits for this
 		"await_response":         true,
+		"request_id":             childCtx.RequestID,
+		"child_orchestration_id": childCtx.OrchestrationID,
 		"group_id":               spawnData["group_id"],
 	}, nil
+}
+
+// getOrchestratorAgentType finds the agent_type for the orchestrator role in a group
+func getOrchestratorAgentType(ctx context.Context, db *sql.DB, groupID string, logger *zap.Logger) (string, error) {
+	var agentConfigsJSON []byte
+	query := "SELECT agent_configs FROM agent_group_definitions WHERE group_id = $1"
+	err := db.QueryRowContext(ctx, query, groupID).Scan(&agentConfigsJSON)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			logger.Warn("No agent group definition found for group_id", zap.String("group_id", groupID))
+			return "", fmt.Errorf("agent group definition not found for group_id: %s", groupID)
+		}
+		logger.Error("Failed to query agent group definition", zap.Error(err), zap.String("group_id", groupID))
+		return "", fmt.Errorf("failed to query agent group definition: %w", err)
+	}
+
+	var agentConfigs []map[string]interface{}
+	if err := json.Unmarshal(agentConfigsJSON, &agentConfigs); err != nil {
+		logger.Error("Failed to unmarshal agent_configs", zap.Error(err), zap.String("group_id", groupID))
+		return "", fmt.Errorf("failed to unmarshal agent_configs: %w", err)
+	}
+
+	for _, config := range agentConfigs {
+		if role, ok := config["role"].(string); ok && role == "orchestrator" {
+			if agentType, ok := config["agent_type"].(string); ok {
+				logger.Info("Found orchestrator agent type in group definition",
+					zap.String("group_id", groupID),
+					zap.String("agent_type", agentType))
+				return agentType, nil
+			}
+		}
+	}
+
+	logger.Warn("Orchestrator agent type not found in group definition", zap.String("group_id", groupID))
+	return "", fmt.Errorf("orchestrator agent type not found for group_id: %s", groupID)
 }
 
 // ParentContext holds the parent orchestration's context
@@ -400,31 +452,6 @@ func isParentStillWaiting(ctx context.Context, db *sql.DB, parentOrchestrationID
 	}
 
 	return false
-}
-
-// buildStartOrchestrationResult builds the return value
-// the data that gets stored in the parent's CollectedData - stored locally in parent's state
-/*
-This return value tells the parent orchestration:
-"I started a child orchestration"
-"The request_id is REQ-123"
-"You should wait for a response to REQ-123"
-Then the parent does: state.AwaitedSteps = []string{"REQ-123"}  // From the request_id field above
-Later, when the child COMPLETES and sends a response MESSAGE (not the return value), it includes:
-responseHeaders := map[string]string{
-    "in_response_to": "REQ-123",  // This matches what parent is waiting for
-    // ...
-}
-The in_response_to field belongs in the response MESSAGE headers, not in the action's return value. The action return value just needs to tell the parent what request_id to wait for.
-*/
-func buildStartOrchestrationResult(childIDs *ChildOrchestrationIDs, spawnData map[string]interface{}) map[string]interface{} {
-	return map[string]interface{}{
-		"status":                 "orchestration_started",
-		"child_orchestration_id": childIDs.OrchestrationID,
-		"request_id":             childIDs.RequestID,
-		"await_response":         true,
-		"group_id":               spawnData["group_id"],
-	}
 }
 
 func getMapKeys(m map[string]interface{}) []string {
