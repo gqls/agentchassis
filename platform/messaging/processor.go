@@ -171,6 +171,17 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		}
 	}
 
+	// Always store parent context if this is a child
+	if parentOrchestrationID := msgCtx.Headers["parent_orchestration_id"]; parentOrchestrationID != "" {
+		if parentReqID := msgCtx.Headers["parent_request_id"]; parentReqID != "" {
+			msgCtx.CollectedData["__parent_context__"] = map[string]interface{}{
+				"orchestration_id": parentOrchestrationID,
+				"request_id":       parentReqID,
+				"reply_to_topic":   msgCtx.Headers["reply_to_topic"],
+			}
+		}
+	}
+
 	// Load the complete agent definition from the database
 	agentDef, err := p.loadAgentDefinition(ctx, p.agentType)
 	if err != nil {
@@ -608,157 +619,157 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 }
 
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
-	// Determine response topic from headers
-	responseTopic := ""
+	// Determine if we're a child responding to parent
+	isChildResponse := false
+	var parentContext map[string]interface{}
 
-	// Check for reply_to_topic in headers (should be type-based)
-	if replyTopic := msgCtx.Headers["reply_to_topic"]; replyTopic != "" {
-		responseTopic = replyTopic
-		msgCtx.Logger.Info("Using reply_to_topic from headers",
-			zap.String("reply_to_topic", replyTopic))
-	} else {
-		// Fallback: construct from parent agent TYPE if available
-		if parentAgentType := msgCtx.Headers["parent_agent_type"]; parentAgentType != "" {
-			responseTopic = fmt.Sprintf("system.agent.%s.responses", parentAgentType)
-			msgCtx.Logger.Info("Constructed response topic from parent_agent_type",
-				zap.String("parent_agent_type", parentAgentType),
-				zap.String("response_topic", responseTopic))
-		} else if parentAgentID := msgCtx.Headers["parent_agent_id"]; parentAgentID != "" {
-			// Try to get type from DB using agent ID
-			parentType := p.getAgentTypeFromID(ctx, parentAgentID)
-			if parentType != "" {
-				responseTopic = fmt.Sprintf("system.agent.%s.responses", parentType)
+	if pc, ok := msgCtx.CollectedData["__parent_context__"].(map[string]interface{}); ok {
+		parentContext = pc
+		if parentOrchID, _ := pc["orchestration_id"].(string); parentOrchID != "" {
+			if parentReqID, _ := pc["request_id"].(string); parentReqID != "" {
+				isChildResponse = true
 			}
-		} else {
-			// Last resort fallback
-			responseTopic = "system.agent.generic.responses"
-			msgCtx.Logger.Warn("No reply_to_topic or parent agent info, using legacy topic")
 		}
 	}
 
-	// Check if this was a new format message
-	if msgCtx.Headers["message_version"] == "2.0" && responseTopic != "" {
-		// New format - use AgentMessage
-		response := models.AgentMessage{
-			MessageID:       uuid.New().String(),
-			CorrelationID:   msgCtx.Headers["correlation_id"],
-			OrchestrationID: msgCtx.Headers["orchestration_id"],
-			FromAgentID:     os.Getenv("AGENT_ID"),
-			ToAgentID:       msgCtx.Headers["from_agent_id"], // Reply to sender
-			MessageType:     "response",
-			Action:          "response",
-			Data: map[string]interface{}{
-				"result":     result,
-				"request_id": msgCtx.Headers["message_id"],
-			},
-			Timestamp: time.Now(),
-			Version:   "2.0",
-		}
+	// Build response headers based on context
+	responseHeaders := p.buildResponseHeaders(msgCtx, isChildResponse, parentContext)
 
-		responseBytes, err := json.Marshal(response)
-		if err != nil {
-			return fmt.Errorf("failed to marshal response: %w", err)
-		}
+	// Determine response topic
+	responseTopic := p.determineResponseTopic(ctx, msgCtx, isChildResponse, parentContext)
 
-		return p.producer.Produce(ctx, responseTopic,
-			response.ToHeaders(),
-			[]byte(response.CorrelationID),
-			responseBytes)
+	// Create and send response based on message version
+	return p.sendResponse(ctx, msgCtx, responseHeaders, responseTopic, result)
+}
+
+func (p *MessageProcessor) buildResponseHeaders(msgCtx *MessageContext, isChildResponse bool, parentContext map[string]interface{}) map[string]string {
+	headers := make(map[string]string)
+
+	// Common headers
+	headers["correlation_id"] = msgCtx.Headers["correlation_id"]
+	headers["from_agent_id"] = os.Getenv("AGENT_ID")
+	headers["message_type"] = "response"
+
+	if isChildResponse {
+		// Child responding to parent
+		parentOrchID, _ := parentContext["orchestration_id"].(string)
+		parentReqID, _ := parentContext["request_id"].(string)
+
+		headers["orchestration_id"] = parentOrchID // Parent's orchestration
+		headers["in_response_to"] = parentReqID    // What parent is waiting for
+		headers["causation_id"] = parentReqID      // Backward compatibility
+
+		p.logger.Info("Building child-to-parent response headers",
+			zap.String("parent_orchestration_id", parentOrchID),
+			zap.String("in_response_to", parentReqID))
+	} else {
+		// Normal response
+		headers["orchestration_id"] = msgCtx.Headers["orchestration_id"]
+		headers["in_response_to"] = msgCtx.Headers["request_id"]
+		headers["causation_id"] = msgCtx.Headers["request_id"]
+		headers["agent_type"] = p.agentType
 	}
 
-	// Legacy format - use TaskResponse
-	// Convert result to map[string]interface{} if needed
-	var responseData map[string]interface{}
+	// Agent instance ID
+	if agentInstanceID := msgCtx.Headers["agent_instance_id"]; agentInstanceID != "" {
+		headers["agent_instance_id"] = agentInstanceID
+	} else {
+		headers["agent_instance_id"] = os.Getenv("AGENT_ID")
+	}
 
-	switch v := result.(type) {
-	case map[string]interface{}:
-		responseData = v
-	case string:
-		// If it's a string (like an error), wrap it
-		responseData = map[string]interface{}{
-			"message": v,
-		}
-	case error:
-		// If it's an error, include the error message
-		responseData = map[string]interface{}{
-			"error": v.Error(),
-		}
-	default:
-		// For any other type, wrap it in a result field
-		responseData = map[string]interface{}{
-			"result": result,
+	// Reply context
+	if toAgent := msgCtx.Headers["from_agent_id"]; toAgent != "" {
+		headers["to_agent_id"] = toAgent
+	}
+
+	return headers
+}
+
+func (p *MessageProcessor) determineResponseTopic(ctx context.Context, msgCtx *MessageContext, isChildResponse bool, parentContext map[string]interface{}) string {
+	// Priority 1: Child responding to parent's specified topic
+	if isChildResponse {
+		if replyTopic, ok := parentContext["reply_to_topic"].(string); ok && replyTopic != "" {
+			p.logger.Info("Using parent's reply_to_topic",
+				zap.String("reply_to_topic", replyTopic))
+			return replyTopic
 		}
 	}
 
-	// Prepare response
-	response := models.TaskResponse{
-		Success: true,
-		Data:    responseData,
+	// Priority 2: Explicit reply_to_topic in headers
+	if replyTopic := msgCtx.Headers["reply_to_topic"]; replyTopic != "" {
+		p.logger.Info("Using reply_to_topic from headers",
+			zap.String("reply_to_topic", replyTopic))
+		return replyTopic
 	}
 
-	// If the result contains an error, mark as not successful
-	if _, hasError := responseData["error"]; hasError {
-		response.Success = false
-		if errStr, ok := responseData["error"].(string); ok {
-			response.Error = errStr
+	// Priority 3: Construct from parent agent type
+	if parentAgentType := msgCtx.Headers["parent_agent_type"]; parentAgentType != "" {
+		topic := fmt.Sprintf("system.agent.%s.responses", parentAgentType)
+		p.logger.Info("Constructed topic from parent_agent_type",
+			zap.String("parent_agent_type", parentAgentType),
+			zap.String("response_topic", topic))
+		return topic
+	}
+
+	// Priority 4: Look up parent agent type from ID
+	if parentAgentID := msgCtx.Headers["parent_agent_id"]; parentAgentID != "" {
+		if parentType := p.getAgentTypeFromID(ctx, parentAgentID); parentType != "" {
+			topic := fmt.Sprintf("system.agent.%s.responses", parentType)
+			p.logger.Info("Constructed topic from parent_agent_id lookup",
+				zap.String("parent_agent_id", parentAgentID),
+				zap.String("parent_type", parentType),
+				zap.String("response_topic", topic))
+			return topic
 		}
+	}
+
+	// Fallback
+	p.logger.Warn("Using fallback response topic")
+	return "system.agent.generic.responses"
+}
+
+func (p *MessageProcessor) sendResponse(ctx context.Context, msgCtx *MessageContext, headers map[string]string, topic string, result interface{}) error {
+	response := models.AgentMessage{
+		MessageID:       uuid.New().String(),
+		CorrelationID:   headers["correlation_id"],
+		OrchestrationID: headers["orchestration_id"],
+		FromAgentID:     headers["from_agent_id"],
+		ToAgentID:       headers["to_agent_id"],
+		MessageType:     "response",
+		Action:          "response",
+		Data: map[string]interface{}{
+			"result":         result,
+			"in_response_to": headers["in_response_to"],
+		},
+		Timestamp: time.Now(),
+		Version:   "2.0",
 	}
 
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
-		return fmt.Errorf("failed to marshal response: %w", err)
+		return fmt.Errorf("failed to marshal v2 response: %w", err)
 	}
 
-	// Prepare headers for response
-	responseHeaders := make(map[string]string)
-	responseHeaders["correlation_id"] = msgCtx.Headers["correlation_id"]
-	responseHeaders["causation_id"] = msgCtx.Headers["request_id"]
-	responseHeaders["in_response_to"] = msgCtx.Headers["request_id"]
-	responseHeaders["orchestration_id"] = msgCtx.Headers["orchestration_id"]
-	responseHeaders["agent_type"] = p.agentType
+	msgCtx.Logger.Info("Sending V2 response",
+		zap.String("topic", topic),
+		zap.String("orchestration_id", headers["orchestration_id"]),
+		zap.String("in_response_to", headers["in_response_to"]))
 
-	// Check if this is a child responding to parent
-	if parentCtx, ok := state.CollectedData["__parent_context__"].(map[string]interface{}); ok {
-		if parentOrchID, ok := parentCtx["orchestration_id"].(string); ok && parentOrchID != "" {
-			responseHeaders["orchestration_id"] = parentOrchID // Parent's orchestration
-			if parentReqID, ok := parentCtx["request_id"].(string); ok && parentReqID != "" {
-				responseHeaders["in_response_to"] = parentReqID // What parent is waiting for
-			}
-		}
+	return p.producer.Produce(ctx, topic, response.ToHeaders(),
+		[]byte(response.CorrelationID), responseBytes)
+}
+
+func (p *MessageProcessor) normalizeResponseData(result interface{}) map[string]interface{} {
+	switch v := result.(type) {
+	case map[string]interface{}:
+		return v
+	case string:
+		return map[string]interface{}{"message": v}
+	case error:
+		return map[string]interface{}{"error": v.Error()}
+	default:
+		return map[string]interface{}{"result": result}
 	}
-
-	// Use agent ID from environment if not in headers
-	agentInstanceID := msgCtx.Headers["agent_instance_id"]
-	if agentInstanceID == "" {
-		agentInstanceID = os.Getenv("AGENT_ID")
-	}
-	responseHeaders["agent_instance_id"] = agentInstanceID
-
-	// Include reply context
-	responseHeaders["from_agent_id"] = os.Getenv("AGENT_ID")
-	if toAgent := msgCtx.Headers["from_agent_id"]; toAgent != "" {
-		responseHeaders["to_agent_id"] = toAgent
-	}
-
-	msgCtx.Logger.Info("Sending workflow response",
-		zap.String("DEBUG_PROCESSOR_4: response_topic", responseTopic),
-		zap.String("DEBUG_PROCESSOR_4: correlation_id", responseHeaders["correlation_id"]),
-		zap.String("DEBUG_PROCESSOR_4: causation_id", responseHeaders["causation_id"]),
-		zap.String("DEBUG_PROCESSOR_4: orchestration_id", responseHeaders["orchestration_id"]),
-		zap.Bool("DEBUG_PROCESSOR_4: success", response.Success))
-
-	// Send response
-	err = p.producer.Produce(ctx, responseTopic, responseHeaders,
-		[]byte(responseHeaders["correlation_id"]), responseBytes)
-
-	if err != nil {
-		msgCtx.Logger.Error("Failed to send response", zap.Error(err))
-		return fmt.Errorf("failed to send response: %w", err)
-	}
-
-	msgCtx.Logger.Info("Response sent successfully",
-		zap.String("topic", responseTopic))
-	return nil
 }
 
 func createSQLDB() (*sql.DB, error) {

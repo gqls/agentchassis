@@ -608,6 +608,13 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		Version:         "2.0",
 	}
 
+	// CRITICAL: Add parent context to message data
+	msg.Data["__parent_context__"] = map[string]interface{}{
+		"orchestration_id": parentOrchestrationID, // Parent's orchestration
+		"request_id":       requestID,             // What parent waits for
+		"reply_to_topic":   myResponseTopic,
+	}
+
 	// Build headers for child orchestration
 	childHeaders := msg.ToHeaders()
 	childHeaders["parent_orchestration_id"] = parentOrchestrationID

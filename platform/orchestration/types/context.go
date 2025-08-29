@@ -6,13 +6,14 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/spf13/cast"
 )
 
 type ExecutionContext struct {
 	// Business Transaction
-	CorrelationID string
-	ClientID      string
-	HierarchyLevel	int
+	CorrelationID  string
+	ClientID       string
+	HierarchyLevel int
 
 	// Execution Instance - UNIQUE per agent
 	OrchestrationID       string
@@ -29,12 +30,12 @@ type ExecutionContext struct {
 	InResponseTo string
 
 	// Routing
-	OwnerAgentID string
-	FromAgentID  string
-	FromAgentType	string
-	ToAgentID    string
-	ToAgentType  string
-	ReplyTo      string
+	OwnerAgentID  string
+	FromAgentID   string
+	FromAgentType string
+	ToAgentID     string
+	ToAgentType   string
+	ReplyTo       string
 }
 
 // NewOrchestrationForAgent creates a new orchestration context for a called agent
@@ -86,7 +87,7 @@ func ExecutionContextFromHeaders(headers map[string]string) (*ExecutionContext, 
 
 	return &ExecutionContext{
 		CorrelationID:         headers["correlation_id"],
-		HierarchyLevel:		   headers["hierarchy_level"],
+		HierarchyLevel:        cast.ToInt(headers["hierarchy_level"]),
 		OrchestrationID:       headers["orchestration_id"],
 		ParentOrchestrationID: headers["parent_orchestration_id"],
 		ClientID:              headers["client_id"],
@@ -99,8 +100,8 @@ func ExecutionContextFromHeaders(headers map[string]string) (*ExecutionContext, 
 		OwnerAgentID:          headers["owner_agent_id"],
 		FromAgentID:           headers["from_agent_id"],
 		ToAgentID:             headers["to_agent_id"],
-		FromAgentType:		   headers["from_agent_type"],
-		ToAgentType			   headers["to_agent_type"],
+		FromAgentType:         headers["from_agent_type"],
+		ToAgentType:           headers["to_agent_type"],
 		ReplyTo:               headers["reply_to"],
 	}, nil
 }
