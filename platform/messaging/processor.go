@@ -17,6 +17,7 @@ import (
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/platform/validation"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -32,6 +33,7 @@ type MessageProcessor struct {
 	validator    *validation.WorkflowValidator
 	configLoader *config.AgentConfigLoader
 	logger       *zap.Logger
+	tracer       *orchestration.TraceLogger
 }
 
 // AgentDefinition represents an agent's configuration from the database
@@ -60,6 +62,13 @@ func NewMessageProcessor(
 		logger.Error("Failed to create SQL DB connection", zap.Error(err))
 		// Continue without it - will fail later if needed
 	}
+
+	// Create tracer if enabled
+	var tracer *orchestration.TraceLogger
+	if os.Getenv("ENABLE_MESSAGE_TRACING") == "true" {
+		tracer = orchestration.NewTraceLogger(logger)
+	}
+
 	return &MessageProcessor{
 		agentType:    agentType,
 		db:           db,
@@ -69,56 +78,8 @@ func NewMessageProcessor(
 		validator:    validator,
 		configLoader: config.NewAgentConfigLoader(logger),
 		logger:       logger,
+		tracer:       tracer,
 	}
-}
-
-// ProcessMessage handles a single message
-func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
-	startTime := time.Now()
-	headers := kafka.HeadersToMap(msg.Headers)
-
-	// Create message context with ExecutionContext
-	msgCtx, err := NewMessageContext(msg, headers)
-	if err != nil {
-		p.logger.Error("Failed to create message context", zap.Error(err))
-		return err
-	}
-
-	msgCtx.Logger = p.logger.With(
-		zap.String("correlation_id", msgCtx.ExecutionContext.CorrelationID),
-		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
-		zap.String("request_id", msgCtx.ExecutionContext.RequestID),
-	)
-
-	// Extract action
-	if err := msgCtx.ExtractAction(); err != nil {
-		msgCtx.Logger.Error("Failed to extract action", zap.Error(err))
-		return p.handleError(ctx, msgCtx, err, "invalid_payload")
-	}
-
-	// Validate context
-	if err := msgCtx.ValidateContext(); err != nil {
-		msgCtx.Logger.Error("Context validation failed", zap.Error(err))
-		return p.handleError(ctx, msgCtx, err, "invalid_context")
-	}
-
-	// Record metrics
-	observability.AgentTasksReceived.WithLabelValues(p.agentType, msgCtx.Action).Inc()
-	defer func() {
-		observability.AgentProcessingDuration.WithLabelValues(p.agentType, msgCtx.Action).
-			Observe(time.Since(startTime).Seconds())
-	}()
-
-	// Process the message
-	if err := p.process(ctx, msgCtx); err != nil {
-		msgCtx.Logger.Error("Processing failed", zap.Error(err))
-		return p.handleError(ctx, msgCtx, err, "processing_failed")
-	}
-
-	// Success
-	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.Action, "success").Inc()
-	msgCtx.Logger.Info("ProcessMessage completed successfully")
-	return nil
 }
 
 // process determines how to handle the message based on agent configuration
@@ -980,4 +941,144 @@ func (p *MessageProcessor) isIntentionalOrchestration(msgCtx *MessageContext) bo
 	// Check if the action indicates orchestration
 	action := msgCtx.Action
 	return action == "spawn_group" || action == "start_orchestration" || action == "orchestrate"
+}
+
+// Add the helper function to extract action from message
+func extractAction(msgValue []byte) string {
+	var payload struct {
+		Action string `json:"action"`
+	}
+	if err := json.Unmarshal(msgValue, &payload); err != nil {
+		return "unknown"
+	}
+	return payload.Action
+}
+
+// Update ProcessMessage to use the tracer properly
+func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
+	startTime := time.Now()
+	headers := kafka.HeadersToMap(msg.Headers)
+
+	// Create ExecutionContext for consistent logging
+	execCtx, err := types.FromHeaders(headers)
+	if err != nil {
+		p.logger.Error("Failed to create ExecutionContext",
+			zap.Error(err),
+			zap.Any("headers", headers))
+		// Continue with basic processing
+		return p.processWithoutContext(ctx, msg, headers)
+	}
+
+	// Create logger with full context
+	contextLogger := p.logger.With(execCtx.LogContext()...)
+
+	// Or use compact logging for less verbosity
+	// p.Logger.Debug("Quick check", execCtx.LogCompact()...)
+
+	// Trace if enabled
+	if p.tracer != nil {
+		p.tracer.TraceMessage(execCtx, "received", msg.Topic, len(msg.Value))
+		defer func() {
+			if execCtx.MessageType == "response" ||
+				execCtx.MessageType == "error" {
+				// Dump trace on completion
+				p.tracer.DumpTrace(execCtx.CorrelationID)
+			}
+		}()
+	}
+
+	// Trace if enabled
+	if p.tracer != nil && execCtx != nil {
+		p.tracer.TraceMessage(execCtx, "received", msg.Topic, len(msg.Value))
+		defer func() {
+			if execCtx.MessageType == "response" ||
+				execCtx.MessageType == "error" {
+				// Dump trace on completion
+				p.tracer.DumpTrace(execCtx.CorrelationID)
+			}
+		}()
+	}
+
+	contextLogger.Info("Processing message",
+		zap.String("action", extractAction(msg.Value)))
+
+	contextLogger.Info("Processing message",
+		zap.String("action", extractAction(msg.Value)))
+
+	// Create message context with ExecutionContext
+	msgCtx, err := NewMessageContext(msg, headers)
+	if err != nil {
+		contextLogger.Error("Failed to create message context", zap.Error(err))
+		return err
+	}
+
+	msgCtx.Logger = contextLogger
+
+	// Extract action
+	if err := msgCtx.ExtractAction(); err != nil {
+		contextLogger.Error("Failed to extract action", zap.Error(err))
+		return p.handleError(ctx, msgCtx, err, "invalid_payload")
+	}
+
+	// Validate context
+	if err := msgCtx.ValidateContext(); err != nil {
+		contextLogger.Error("Context validation failed", zap.Error(err))
+		return p.handleError(ctx, msgCtx, err, "invalid_context")
+	}
+
+	// Record metrics
+	observability.AgentTasksReceived.WithLabelValues(p.agentType, msgCtx.Action).Inc()
+	defer func() {
+		observability.AgentProcessingDuration.WithLabelValues(p.agentType, msgCtx.Action).
+			Observe(time.Since(startTime).Seconds())
+	}()
+
+	// Process the message
+	if err := p.process(ctx, msgCtx); err != nil {
+		contextLogger.Error("Processing failed", zap.Error(err))
+		return p.handleError(ctx, msgCtx, err, "processing_failed")
+	}
+
+	// Success
+	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.Action, "success").Inc()
+	contextLogger.Info("ProcessMessage completed successfully")
+
+	// Trace outgoing response if one was sent
+	if p.tracer != nil && msgCtx.ExecutionContext.MessageType == "request" {
+		// The response would have been sent in process()
+		// We could track it there too
+	}
+
+	return nil
+}
+
+// Add fallback for when ExecutionContext creation fails
+func (p *MessageProcessor) processWithoutContext(ctx context.Context, msg kafka.Message, headers map[string]string) error {
+	// Basic processing without ExecutionContext
+	// This ensures the system doesn't break if context is malformed
+
+	action := extractAction(msg.Value)
+	p.logger.Warn("Processing without ExecutionContext",
+		zap.String("action", action),
+		zap.String("correlation_id", headers["correlation_id"]))
+
+	// Create a minimal message context
+	msgCtx := &MessageContext{
+		Message:       msg,
+		Headers:       headers,
+		Action:        action,
+		StartTime:     time.Now(),
+		Logger:        p.logger,
+		CollectedData: make(map[string]interface{}),
+	}
+
+	// Try to process anyway
+	if err := p.process(ctx, msgCtx); err != nil {
+		p.logger.Error("Processing failed without context",
+			zap.Error(err),
+			zap.String("action", action))
+		return err
+	}
+
+	return nil
 }

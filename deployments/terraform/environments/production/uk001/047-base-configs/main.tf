@@ -71,11 +71,19 @@ resource "kubernetes_config_map" "personae_prod_config" {
     tracing_enabled: "false"
     tracing_endpoint: "otel-collector.monitoring.svc.cluster.local:4317"
 
-
     # Agent default version
     AGENT_IMAGE_TAG: var.agent_image_tag
     agent_image_tag: var.agent_image_tag
 
+    # Enable detailed message tracing (development/debugging)
+    ENABLE_MESSAGE_TRACING=true
+    TRACE_OUTPUT_DIR=/var/log/agent-traces
+
+    # Log level for execution context
+    CONTEXT_LOG_LEVEL=debug  # or "info", "error"
+
+    # Enable compact logging (production)
+    COMPACT_CONTEXT_LOGS=true
   }
 }
 
