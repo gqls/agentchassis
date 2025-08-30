@@ -279,10 +279,12 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 	validatedWorkflow, _ := json.Marshal(workflowPlan)
 
 	return map[string]interface{}{
-		"group_id":   groupID,
-		"group_name": groupName,
-		"agents":     spawnedAgents,
-		"workflow":   validatedWorkflow,
+		"await_response": true,
+		"group_id":       groupID,
+		"group_name":     groupName,
+		"group_type":     groupType,
+		"agents":         spawnedAgents,
+		"workflow":       validatedWorkflow,
 	}, nil
 }
 

@@ -434,6 +434,17 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 	err := p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, msgCtx.Headers, msgCtx.Message.Value)
 
 	if err != nil {
+		// Check if it's the specific error for a duplicate request.
+		if err == orchestration.ErrDuplicateRequest {
+			msgCtx.Logger.Warn("Idempotent workflow request ignored by coordinator.")
+			return nil // Stop processing, no response. Message is handled.
+		}
+		if err == orchestration.ErrWorkflowPaused {
+			msgCtx.Logger.Info("Workflow has paused to await a response. No further action needed.")
+			return nil // Stop processing, no response. Message is handled.
+		}
+
+		// Handle all other errors as real failures.
 		msgCtx.Logger.Error("Workflow execution failed", zap.Error(err))
 		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
 	}

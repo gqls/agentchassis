@@ -516,3 +516,32 @@ ADD COLUMN fuel_budget INTEGER DEFAULT 1000;
 
 ALTER TABLE orchestration_states
 ALTER COLUMN owner_agent_id SET NOT NULL;
+
+
+---
+
+-- Add message deduplication table
+CREATE TABLE IF NOT EXISTS processed_messages (
+message_id UUID PRIMARY KEY,
+correlation_id UUID NOT NULL,
+orchestration_id UUID,
+processed_at TIMESTAMP DEFAULT NOW(),
+processed_by VARCHAR(100),
+INDEX idx_correlation (correlation_id),
+INDEX idx_processed_at (processed_at)
+);
+
+-- Add automatic cleanup for old processed messages (30 days)
+CREATE INDEX IF NOT EXISTS idx_processed_messages_cleanup
+ON processed_messages(processed_at);
+
+-- Modify orchestration_states to add execution tracking
+ALTER TABLE orchestration_states
+ADD COLUMN IF NOT EXISTS currently_executing VARCHAR(100),
+ADD COLUMN IF NOT EXISTS last_activity TIMESTAMP DEFAULT NOW(),
+ADD COLUMN IF NOT EXISTS processing_node VARCHAR(100),
+ADD COLUMN IF NOT EXISTS execution_started_at TIMESTAMP;
+
+-- Update status enum (if using enum)
+-- Otherwise just ensure these values are valid:
+-- 'INITIALIZED', 'EXECUTING_STEP', 'AWAITING_RESPONSES', 'COMPLETED', 'FAILED'
