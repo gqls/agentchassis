@@ -115,10 +115,10 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationI
 	workflowPlanJSON, _ := json.Marshal(plan)
 
 	r.logger.Info("Creating initial state with plan",
-		zap.String("orchestration_id", orchestrationID),
-		zap.String("start_step", plan.StartStep),
-		zap.Int("steps", len(plan.Steps)),
-		zap.String("owner_agent_id", ownerAgentID))
+		zap.String("DEBUG_STATE_0: orchestration_id", orchestrationID),
+		zap.String("DEBUG_STATE_0: start_step", plan.StartStep),
+		zap.Int("DEBUG_STATE_0: steps", len(plan.Steps)),
+		zap.String("DEBUG_STATE_0: owner_agent_id", ownerAgentID))
 
 	if plan.StartStep == "" {
 		return fmt.Errorf("workflow plan has empty start_step")
@@ -153,11 +153,9 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationI
 	executionPathJSON, _ := json.Marshal([]ExecutionRecord{})
 
 	// Handle parent_orchestration_id - convert empty string to nil for database
-	var ParentOrchestrationIDValue interface{}
+	var ParentOrchestrationIDValue sql.NullString
 	if ParentOrchestrationID != "" {
-		ParentOrchestrationIDValue = ParentOrchestrationID
-	} else {
-		ParentOrchestrationIDValue = nil // This will be inserted as NULL
+		ParentOrchestrationIDValue = sql.NullString{String: ParentOrchestrationID, Valid: true}
 	}
 
 	r.logger.Info("Initial orchestration state variables",
@@ -410,6 +408,15 @@ func (r *StateRepository) attemptUpdate(ctx context.Context, state *Orchestratio
 		errorValue = state.Error
 	}
 
+	// Validate owner_agent_id
+	if state.OwnerAgentID == "" {
+		r.logger.Error("Cannot update state with empty owner_agent_id",
+			zap.String("orchestration_id", state.OrchestrationID))
+		// Option 1: Skip the owner_agent_id check in WHERE clause
+		// Option 2: Return an error
+		return fmt.Errorf("owner_agent_id is required for update")
+	}
+
 	query := `
 		UPDATE orchestration_states 
 		SET status = $2, 
@@ -470,4 +477,65 @@ func (r *StateRepository) AddExecutionRecord(ctx context.Context, state *Orchest
 
 	state.ExecutionPath = append(state.ExecutionPath, record)
 	return r.UpdateState(ctx, state)
+}
+
+// FindByAwaitedRequestID finds an orchestration state by a request ID it is waiting for.
+func (r *StateRepository) FindByAwaitedRequestID(ctx context.Context, requestID string) (*OrchestrationState, error) {
+	// Note: The `?` operator checks if a string exists as a top-level value in a JSONB array.
+	query := `
+		SELECT 
+			orchestration_id, correlation_id, owner_agent_id, parent_orchestration_id, client_id,
+			status, current_step, awaited_steps, collected_data, initial_request_data,
+			final_result, error, workflow_plan, execution_metadata, execution_path,
+			version, created_at, updated_at
+		FROM orchestration_states
+		WHERE awaited_steps ? $1
+		LIMIT 1
+	`
+
+	var state OrchestrationState
+	var awaitedStepsJSON, collectedDataJSON, workflowPlanJSON, executionMetadataJSON, executionPathJSON []byte
+	// Use sql.Null types for all nullable columns
+	var parentOrchestrationIDNull, initialRequestDataNull, finalResultNull, errorNull sql.NullString
+
+	err := r.db.QueryRowContext(ctx, query, requestID).Scan(
+		&state.OrchestrationID, &state.CorrelationID, &state.OwnerAgentID, &parentOrchestrationIDNull, &state.ClientID,
+		&state.Status, &state.CurrentStep, &awaitedStepsJSON, &collectedDataJSON, &initialRequestDataNull,
+		&finalResultNull, &errorNull, &workflowPlanJSON, &executionMetadataJSON, &executionPathJSON,
+		&state.Version, &state.CreatedAt, &state.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("state not found for awaited request_id: %s", requestID)
+		}
+		// The original error log will be more specific now
+		r.logger.Error("Failed to find orchestration state by awaited request ID",
+			zap.Error(err),
+			zap.String("request_id", requestID))
+		return nil, fmt.Errorf("failed to find state by awaited request ID: %w", err)
+	}
+
+	// Handle nullable fields correctly
+	if parentOrchestrationIDNull.Valid {
+		state.ParentOrchestrationID = parentOrchestrationIDNull.String
+	}
+	if initialRequestDataNull.Valid {
+		state.InitialRequestData = json.RawMessage(initialRequestDataNull.String)
+	}
+	if finalResultNull.Valid {
+		state.FinalResult = json.RawMessage(finalResultNull.String)
+	}
+	if errorNull.Valid {
+		state.Error = errorNull.String
+	}
+
+	// Deserializing JSON fields
+	_ = json.Unmarshal(awaitedStepsJSON, &state.AwaitedSteps)
+	_ = json.Unmarshal(collectedDataJSON, &state.CollectedData)
+	_ = json.Unmarshal(workflowPlanJSON, &state.WorkflowPlan)
+	_ = json.Unmarshal(executionMetadataJSON, &state.ExecutionMetadata)
+	_ = json.Unmarshal(executionPathJSON, &state.ExecutionPath)
+
+	return &state, nil
 }

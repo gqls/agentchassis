@@ -513,3 +513,6 @@ WHERE parent_orchestration_id IS NOT NULL;
 
 ALTER TABLE orchestration_states
 ADD COLUMN fuel_budget INTEGER DEFAULT 1000;
+
+ALTER TABLE orchestration_states
+ALTER COLUMN owner_agent_id SET NOT NULL;

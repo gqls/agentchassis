@@ -130,55 +130,91 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 	return s.continueExecution(ctx, state, headers)
 }
 
-// Updated getOrCreateState to return orchestrationID explicitly
+// getOrCreateState returns orchestrationID explicitly
 func (s *SagaCoordinator) getOrCreateState(ctx context.Context, correlationID string, clientID string, plan models.WorkflowPlan, initialData []byte, headers map[string]string) (*OrchestrationState, string, error) {
 	repo := NewStateRepository(s.db, s.logger)
 
-	// Check if we already have an orchestration_id in headers
+	// Priority 1: If we have an explicit orchestration_id, use it
 	if orchestrationID := headers["orchestration_id"]; orchestrationID != "" {
-		// Try to get by orchestration ID first
 		state, err := repo.GetState(ctx, orchestrationID)
 		if err == nil {
+			s.logger.Info("Found existing state by orchestration_id",
+				zap.String("orchestration_id", orchestrationID))
 			return state, orchestrationID, nil
 		}
-		s.logger.Warn("DEBUG_COOR_25: orchestration_id in headers but state not found, creating new",
-			zap.String("DEBUG_COOR_25: orchestration_id", orchestrationID),
-			zap.Error(err))
-	}
 
-	// Try to get by correlation ID
-	state, err := repo.GetStateByCorrelation(ctx, correlationID)
-	if err == nil {
-		// Found existing state
-		return state, state.OrchestrationID, nil
-	}
+		// If we have an orchestration_id but no state, this is likely a new child orchestration
+		// Don't fall back to correlation_id lookup - just create new state with this ID
+		if headers["parent_orchestration_id"] != "" {
+			s.logger.Info("Creating child orchestration with explicit ID",
+				zap.String("orchestration_id", orchestrationID),
+				zap.String("parent_orchestration_id", headers["parent_orchestration_id"]))
 
-	// Create new orchestration
-	orchestrationID := uuid.New().String()
-	ownerAgentID := headers["agent_id"]
-	if ownerAgentID == "" {
-		ownerAgentID = os.Getenv("AGENT_ID")
-		if ownerAgentID == "" {
-			ownerAgentID = "00000000-0000-0000-0000-000000000001"
+			// Use the provided orchestration_id instead of generating a new one
+			ownerAgentID := s.determineOwnerAgentID(headers)
+
+			if err := repo.CreateInitialState(ctx, orchestrationID, correlationID, ownerAgentID,
+				headers["parent_orchestration_id"], clientID, plan, initialData); err != nil {
+				return nil, "", err
+			}
+
+			state, err = repo.GetState(ctx, orchestrationID)
+			if err != nil {
+				return nil, "", err
+			}
+			return state, orchestrationID, nil
 		}
 	}
 
-	ParentOrchestrationID := headers["parent_orchestration_id"]
-	if ParentOrchestrationID == "" {
-		ParentOrchestrationID = headers["parent_orchestration_id"]
+	// Priority 2: For root orchestrations only, try correlation_id lookup
+	// Never do this for child orchestrations
+	if headers["parent_orchestration_id"] == "" {
+		state, err := repo.GetStateByCorrelation(ctx, correlationID)
+		if err == nil {
+			s.logger.Info("Found existing root orchestration by correlation_id",
+				zap.String("correlation_id", correlationID),
+				zap.String("orchestration_id", state.OrchestrationID))
+			return state, state.OrchestrationID, nil
+		}
 	}
 
-	if err := repo.CreateInitialState(ctx, orchestrationID, correlationID, ownerAgentID, ParentOrchestrationID, clientID, plan, initialData); err != nil {
+	// Priority 3: Create new orchestration
+	newOrchestrationID := uuid.New().String()
+	if providedID := headers["orchestration_id"]; providedID != "" {
+		// Respect the provided ID if it exists
+		newOrchestrationID = providedID
+	}
+
+	ownerAgentID := s.determineOwnerAgentID(headers)
+	parentOrchestrationID := headers["parent_orchestration_id"]
+
+	s.logger.Info("Creating new orchestration",
+		zap.String("orchestration_id", newOrchestrationID),
+		zap.String("correlation_id", correlationID),
+		zap.String("parent_orchestration_id", parentOrchestrationID),
+		zap.Bool("is_child", parentOrchestrationID != ""))
+
+	if err := repo.CreateInitialState(ctx, newOrchestrationID, correlationID, ownerAgentID,
+		parentOrchestrationID, clientID, plan, initialData); err != nil {
 		return nil, "", err
 	}
 
-	// Get the created state
-	state, err = repo.GetState(ctx, orchestrationID)
+	state, err := repo.GetState(ctx, newOrchestrationID)
 	if err != nil {
 		return nil, "", err
 	}
 
-	return state, orchestrationID, nil
+	return state, newOrchestrationID, nil
+}
+
+func (s *SagaCoordinator) determineOwnerAgentID(headers map[string]string) string {
+	if ownerAgentID := headers["agent_id"]; ownerAgentID != "" {
+		return ownerAgentID
+	}
+	if ownerAgentID := os.Getenv("AGENT_ID"); ownerAgentID != "" {
+		return ownerAgentID
+	}
+	return "00000000-0000-0000-0000-000000000001"
 }
 
 // executeLocalAction handles actions that run within the orchestrator
@@ -618,50 +654,40 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 
 	contextLogger := s.logger.With(execCtx.LogContext()...)
 
-	contextLogger.Info("DEBUG_COOR_33: HandleResponse with ExecutionContext",
-		zap.String("DEBUG_COOR_33: orchestration_id", execCtx.OrchestrationID),
-		zap.String("DEBUG_COOR_33: in_response_to", execCtx.InResponseTo),
-		zap.String("DEBUG_COOR_33: from_agent", execCtx.FromAgentID))
+	contextLogger.Info("DEBUG_COOR_33: HandleResponse received",
+		zap.String("in_response_to", execCtx.InResponseTo))
 
-	// For responses, the orchestration_id should be the target (parent's)
-	targetOrchestrationID := execCtx.OrchestrationID
-
-	// Get the target orchestration state
+	// Create a repository instance to interact with the database
 	repo := NewStateRepository(s.db, s.logger)
-	state, err := repo.GetState(ctx, targetOrchestrationID)
+
+	// Find the parent orchestration state that is waiting for this response
+	state, err := repo.FindByAwaitedRequestID(ctx, execCtx.InResponseTo)
 	if err != nil {
-		contextLogger.Error("DEBUG_COOR_33: Failed to find orchestration state",
-			zap.String("DEBUG_COOR_33: orchestration_id", targetOrchestrationID),
+		contextLogger.Error("DEBUG_COOR_33: Failed to find orchestration state for response",
+			zap.String("awaited_request_id", execCtx.InResponseTo),
 			zap.Error(err))
 		return err
 	}
 
-	// Parse response
+	// Parse the incoming response
 	var taskResponse models.TaskResponse
 	if err := json.Unmarshal(response, &taskResponse); err != nil {
-		return fmt.Errorf("failed to unmarshal response: %w", err)
+		return s.failWorkflow(ctx, state, fmt.Sprintf("failed to unmarshal response: %v", err))
 	}
 
-	// Process the response
+	// Process the response data and update the state
 	if err := s.processResponseData(ctx, state, execCtx, taskResponse); err != nil {
-		return fmt.Errorf("failed to process response: %w", err)
+		return s.failWorkflow(ctx, state, fmt.Sprintf("failed to process response data: %v", err))
 	}
 
-	// Get fuel from headers and store in collected_data
-	if fuelStr := headers["fuel_budget"]; fuelStr != "" {
-		var fuel int
-		fmt.Sscanf(fuelStr, "%d", &fuel)
-		if state.CollectedData == nil {
-			state.CollectedData = make(map[string]interface{})
-		}
-		state.CollectedData["__fuel_budget__"] = fuel
-	}
-
-	// Check if workflow can continue
+	// If no more steps are awaited, continue the workflow
 	if len(state.AwaitedSteps) == 0 {
 		return s.continueWorkflowAfterResponse(ctx, state, execCtx)
 	}
 
+	// If still waiting for other responses, just save the updated state
+	contextLogger.Info("Still awaiting other responses",
+		zap.Int("remaining_count", len(state.AwaitedSteps)))
 	return repo.UpdateState(ctx, state)
 }
 
@@ -722,18 +748,7 @@ func (s *SagaCoordinator) findTargetOrchestration(ctx context.Context, ids *Resp
 		}
 	}
 
-	// Fallback: try correlation_id
-	if ids.CorrelationID != "" {
-		state, err := repo.GetStateByCorrelation(ctx, ids.CorrelationID)
-		if err == nil {
-			s.logger.Info("Found state by correlation_id",
-				zap.String("correlation_id", ids.CorrelationID))
-			return state, nil
-		}
-	}
-
-	return nil, fmt.Errorf("no state found for orchestration_id=%s, correlation_id=%s",
-		targetOrchestrationID, ids.CorrelationID)
+	return nil, fmt.Errorf("no state found for orchestration_id=%s", targetOrchestrationID)
 }
 
 // parseResponse unmarshals the response payload
