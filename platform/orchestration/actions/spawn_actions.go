@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/discovery"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	batchv1 "k8s.io/api/batch/v1"
@@ -277,6 +278,19 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	// Re-marshal the validated workflow
 	validatedWorkflow, _ := json.Marshal(workflowPlan)
+
+	// Before returning, trace what we're setting up
+	if params.Tracer != nil {
+		execCtx, _ := types.FromHeaders(params.Headers)
+		if execCtx != nil {
+			params.Tracer.TraceMessage(execCtx, "spawn_group_complete", "", 0)
+		}
+	}
+
+	// Make sure to log the actual request_id that will be awaited
+	params.Logger.Info("SPAWN_GROUP_REQUEST_ID",
+		zap.String("request_id_in_headers", params.Headers["request_id"]),
+		zap.String("group_id", groupID))
 
 	return map[string]interface{}{
 		"await_response": true,

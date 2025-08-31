@@ -26,6 +26,8 @@ const (
 	ResumeWorkflowTopic = "system.commands.workflow.resume"
 	// Timeout for stuck orchestrations
 	StuckOrchestrationTimeout = 5 * time.Minute
+	// whether to log hefty messages and headers
+	LogMessageDetails = true
 )
 
 // SagaCoordinator manages the execution of complex workflows
@@ -34,6 +36,7 @@ type SagaCoordinator struct {
 	producer    kafka.Producer
 	logger      *zap.Logger
 	fuelManager *governance.FuelManager
+	tracer      *TraceLogger
 }
 
 var actionRegistry = map[string]actions.ActionHandler{
@@ -87,6 +90,7 @@ func NewSagaCoordinator(db *sql.DB, producer kafka.Producer, logger *zap.Logger)
 		producer:    producer,
 		logger:      logger,
 		fuelManager: governance.NewFuelManager(),
+		tracer:      NewTraceLogger(logger),
 	}
 }
 
@@ -706,9 +710,9 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 			// For spawn_group, the request_id might be in the result
 			if step.Action == "spawn_group" {
-				if id, ok := resultMap["group_id"].(string); ok && id != "" {
+				/*if id, ok := resultMap["group_id"].(string); ok && id != "" {
 					requestID = id
-				}
+				}*/
 			}
 
 			if requestID == "" {
@@ -744,6 +748,11 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 						zap.Error(err),
 						zap.String("request_id", requestID))
 					return result, fmt.Errorf("failed to update state for waiting: %w", err)
+				}
+
+				// Trace the awaited steps update
+				if s.tracer != nil {
+					s.tracer.TraceAwaitedSteps(execCtx, state.AwaitedSteps, step.Action)
 				}
 
 				contextLogger.Info("Successfully added request to awaited steps",
@@ -1059,6 +1068,10 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 	if err != nil {
 		s.logger.Error("Failed to create ExecutionContext from headers", zap.Error(err))
 		return err
+	}
+
+	if s.tracer != nil {
+		s.tracer.TraceMessage(execCtx, "processing_response", "", response)
 	}
 
 	contextLogger := s.logger.With(execCtx.LogContext()...)

@@ -434,21 +434,12 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 	err := p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, msgCtx.Headers, msgCtx.Message.Value)
 
 	if err != nil {
-		// Check if it's the specific error for a duplicate request.
-		if err == orchestration.ErrDuplicateRequest {
-			msgCtx.Logger.Warn("Idempotent workflow request ignored by coordinator.")
-			return nil // Stop processing, no response. Message is handled.
-		}
-		if err == orchestration.ErrWorkflowPaused {
-			msgCtx.Logger.Info("Workflow has paused to await a response. No further action needed.")
-			return nil // Stop processing, no response. Message is handled.
-		}
-
-		// Handle all other errors as real failures.
 		msgCtx.Logger.Error("Workflow execution failed", zap.Error(err))
 		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
 	}
 
+	// Workflow started successfully (might be running, waiting, or completed)
+	// The coordinator handles all state management internally
 	return p.sendWorkflowSuccessResponse(ctx, msgCtx)
 }
 
@@ -533,6 +524,11 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
 	// Create response context
 	responseCtx := msgCtx.CreateResponseContext()
+
+	// Trace outgoing response
+	if p.tracer != nil {
+		p.tracer.TraceMessage(responseCtx, "sending_response", responseCtx.ReplyToTopic, msgCtx.Message.Value)
+	}
 
 	contextLogger := p.logger.With(msgCtx.ExecutionContext.LogContext()...)
 
@@ -1024,7 +1020,8 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	contextLogger.Info("TRACE: ProcessMessage entry",
 		zap.String("agent_type", p.agentType),
 		zap.String("processing_orch", execCtx.OrchestrationID),
-		zap.Int("fuel_received", execCtx.FuelBudget))
+		zap.Int("fuel_received", execCtx.FuelBudget),
+		zap.String("action", extractAction(msg.Value)))
 
 	// Create logger with full context
 	//contextLogger := p.logger.With(execCtx.LogContext()...)
@@ -1032,7 +1029,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	// Or use compact logging for less verbosity
 	// p.Logger.Debug("Quick check", execCtx.LogCompact()...)
 
-	// Trace if enabled
+	// Trace incoming message if enabled in env vars
 	if p.tracer != nil {
 		p.tracer.TraceMessage(execCtx, "received", msg.Topic, len(msg.Value))
 		defer func() {
@@ -1043,24 +1040,6 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 			}
 		}()
 	}
-
-	// Trace if enabled
-	if p.tracer != nil && execCtx != nil {
-		p.tracer.TraceMessage(execCtx, "received", msg.Topic, len(msg.Value))
-		defer func() {
-			if execCtx.MessageType == "response" ||
-				execCtx.MessageType == "error" {
-				// Dump trace on completion
-				p.tracer.DumpTrace(execCtx.CorrelationID)
-			}
-		}()
-	}
-
-	contextLogger.Info("Processing message",
-		zap.String("action", extractAction(msg.Value)))
-
-	contextLogger.Info("Processing message",
-		zap.String("action", extractAction(msg.Value)))
 
 	// Create message context with ExecutionContext
 	msgCtx, err := NewMessageContext(msg, headers)
@@ -1104,6 +1083,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	if p.tracer != nil && msgCtx.ExecutionContext.MessageType == "request" {
 		// The response would have been sent in process()
 		// We could track it there too
+		p.tracer.TraceMessage(execCtx, "received", msg.Topic, msg.Value)
 	}
 
 	return nil

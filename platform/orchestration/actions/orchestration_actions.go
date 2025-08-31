@@ -14,7 +14,6 @@ import (
 )
 
 // StartOrchestrationAction spawns a child orchestration and waits for its completion
-// StartOrchestrationAction spawns a child orchestration and waits for its completion
 func StartOrchestrationAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	// Get parent execution context
 	parentCtx, err := types.FromHeaders(params.Headers)

@@ -13,6 +13,14 @@ import (
 // ActionHandler is the function signature for action handlers
 type ActionHandler func(context.Context, ActionParams) (interface{}, error)
 
+// MessageTracer interface to avoid cyclic import
+type MessageTracer interface {
+	TraceMessage(execCtx interface{}, direction, topic string, payload interface{})
+	TraceAwaitedSteps(execCtx interface{}, awaitedSteps []string, action string)
+	TraceError(execCtx interface{}, err error, context string)
+	DumpTrace(correlationID string)
+}
+
 // ActionParams contains all parameters an action might need
 type ActionParams struct {
 	Context         context.Context
@@ -24,6 +32,7 @@ type ActionParams struct {
 	Producer        kafka.Producer
 	DB              *sql.DB
 	Logger          *zap.Logger
+	Tracer          MessageTracer // interface
 	AgentType       string
 	CurrentStep     string
 }

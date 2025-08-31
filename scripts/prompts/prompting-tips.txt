@@ -1,0 +1,52 @@
+1/ ELI5 (Explain Like I’m 5)
+Skip the complicated prompts.
+Just type “ELI5” before any topic.
+Gets you simple explanations for complex stuff in seconds.
+
+2/ TL;DR (Too Long; Didn’t Read) — Instant Summaries
+Copy and paste any long text after TLDR.
+Boom. Perfect summary without the fluff.
+
+3/ Jargonize (Professional Mode)
+Makes your text sound smart and polished.
+Perfect for LinkedIn posts, emails, and presentations.
+Get Hamza M.’s stories in your inbox
+
+Join Medium for free to get updates from this writer.
+
+4/ Humanize (Remove AI Voice)
+Tired of robotic-sounding text?
+Add “Humanize” before your prompt.
+No more revolutionary, game-changing, or introducing nonsense.
+
+5/ Feynman Technique (Deep Learning)
+Goes beyond ELI5.
+Breaks complex topics into 4 steps.
+Teach it, find gaps, simplify, repeat. True understanding unlocked.
+
+6/ Socratic Method (Interactive Learning)
+Let ChatGPT become your personal tutor.
+Say Teach me about [topic] using the Socratic method.
+It asks you questions first, then teaches based on your answers.
+
+7/ Rewrite Like [Specific Person]
+Stop using generic rewrite prompts.
+Try:
+
+    Rewrite like a sarcastic Redditor
+    Rewrite like Alex Hormozi and Steve Jobs.
+    Get content that feels native to any platform.
+
+8/ Inverse Prompt (Reverse Engineering)
+Found amazing content?
+Paste it and ask, “What prompt would generate this response?”
+Perfect for studying viral posts and great copy.
+
+9/ Temperature Control (Creativity Levels)
+Control how creative or safe ChatGPT gets.
+Respond with high creativity for bold ideas.
+Respond with low randomness for precise answers.
+
+10/ Self Critique (Auto Improvement)
+Stop accepting first drafts.
+After any response, say Now critique your response and improve it for clarity and tone.
