@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Agent Communication Flow Visualizer
-Parses Kubernetes logs and creates a visual diagram of agent communications
+Agent Communication Flow Visualizer - Fixed Version
 """
 
 import json
@@ -11,7 +10,6 @@ from datetime import datetime
 from collections import defaultdict
 import subprocess
 
-# Try to import optional dependencies
 try:
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
@@ -20,33 +18,45 @@ try:
     HAVE_MATPLOTLIB = True
 except ImportError:
     HAVE_MATPLOTLIB = False
-    print("Warning: matplotlib not found. Install with: pip install matplotlib networkx")
 
 class AgentMessage:
-    def __init__(self, timestamp, action, headers, payload=None):
+    def __init__(self, timestamp, log_entry):
         self.timestamp = timestamp
-        self.action = action
-        self.headers = headers
-        self.payload = payload
-        self.correlation_id = headers.get('correlation_id', '')
-        self.orchestration_id = headers.get('orchestration_id', '')
-        self.from_agent = headers.get('from_agent_id', '')
-        self.from_type = headers.get('from_agent_type', '')
-        self.to_agent = headers.get('to_agent_id', '')
-        self.to_type = headers.get('to_agent_type', '')
-        self.message_type = headers.get('message_type', '')
-        self.request_id = headers.get('request_id', '')
-        self.in_response_to = headers.get('in_response_to', '')
+        self.raw = log_entry
+
+        # Extract from log entry
+        self.correlation_id = log_entry.get('correlation_id', '')
+        self.orchestration_id = log_entry.get('orchestration_id', '')
+        self.request_id = log_entry.get('request_id', '')
+        self.in_response_to = log_entry.get('in_response_to', '')
+        self.direction = log_entry.get('direction', '')
+        self.topic = log_entry.get('topic', '')
+        self.message_type = log_entry.get('message_type', '')
+        self.action = log_entry.get('action', '')
+        self.payload_preview = log_entry.get('payload_preview', '')
+
+        # Parse from/to from the log format "agent_id/agent_type"
+        from_str = log_entry.get('from', '/')
+        to_str = log_entry.get('to', '/')
+
+        from_parts = from_str.split('/')
+        self.from_agent = from_parts[0] if len(from_parts) > 0 else ''
+        self.from_type = from_parts[1] if len(from_parts) > 1 else ''
+
+        to_parts = to_str.split('/')
+        self.to_agent = to_parts[0] if len(to_parts) > 0 else ''
+        self.to_type = to_parts[1] if len(to_parts) > 1 else ''
 
 class LogParser:
     def __init__(self):
         self.messages = []
         self.agents = set()
         self.orchestrations = defaultdict(list)
+        self.awaited_steps = defaultdict(list)  # Track what each orchestration is waiting for
 
     def parse_k8s_logs(self, namespace="ai-persona-system", label="app=agent-chassis"):
         """Fetch and parse Kubernetes logs"""
-        cmd = f"kubectl -n {namespace} logs -l {label} --prefix=true --tail=1000"
+        cmd = f"kubectl -n {namespace} logs -l {label} --prefix=true --tail=2000"
 
         try:
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -62,239 +72,219 @@ class LogParser:
 
     def parse_line(self, line):
         """Parse a single log line"""
-        # Look for MESSAGE_TRACE entries
-        if 'MESSAGE_TRACE' not in line:
-            return
-
         try:
-            # Extract JSON part of the log
+            # Extract JSON part
             json_match = re.search(r'\{.*\}$', line)
             if not json_match:
                 return
 
             log_entry = json.loads(json_match.group())
 
-            # Extract headers from the log
-            headers = {}
-            if 'all_headers' in log_entry:
-                headers = log_entry['all_headers']
-            else:
-                # Build headers from individual fields
-                for key in ['correlation_id', 'orchestration_id', 'message_id',
-                           'request_id', 'message_type', 'from_agent_id',
-                           'from_agent_type', 'to_agent_id', 'to_agent_type',
-                           'in_response_to']:
-                    if key in log_entry:
-                        headers[key] = log_entry[key]
+            # Extract timestamp
+            timestamp = log_entry.get('ts', '')
 
-            # Parse payload if present
-            payload = None
-            if 'payload' in log_entry:
-                try:
-                    payload = json.loads(log_entry['payload'])
-                except:
-                    payload = log_entry['payload']
+            # Look for different types of log entries
+            if log_entry.get('msg') == 'MESSAGE_TRACE':
+                msg = AgentMessage(timestamp, log_entry)
+                self.messages.append(msg)
 
-            # Create message object
-            msg = AgentMessage(
-                timestamp=log_entry.get('ts', ''),
-                action=log_entry.get('action', ''),
-                headers=headers,
-                payload=payload
-            )
+                # Track agents
+                if msg.from_agent:
+                    self.agents.add((msg.from_agent, msg.from_type))
+                if msg.to_agent:
+                    self.agents.add((msg.to_agent, msg.to_type))
 
-            self.messages.append(msg)
+                # Group by orchestration
+                if msg.orchestration_id:
+                    self.orchestrations[msg.orchestration_id].append(msg)
 
-            # Track agents
-            if msg.from_agent:
-                self.agents.add((msg.from_agent, msg.from_type))
-            if msg.to_agent:
-                self.agents.add((msg.to_agent, msg.to_type))
+            elif log_entry.get('msg') == 'AWAITED_STEPS_CHANGED':
+                # Track what steps are being awaited
+                orch_id = log_entry.get('orchestration_id', '')
+                awaited = log_entry.get('awaited_steps', [])
+                action = log_entry.get('for_action', '')
+                if orch_id:
+                    self.awaited_steps[orch_id].append({
+                        'timestamp': timestamp,
+                        'awaited': awaited,
+                        'action': action,
+                        'request_id': log_entry.get('request_id', '')
+                    })
 
-            # Group by orchestration
-            if msg.orchestration_id:
-                self.orchestrations[msg.orchestration_id].append(msg)
+            elif 'spawn_group' in str(log_entry.get('msg', '')).lower():
+                # Capture spawn group details
+                if 'request_id' in log_entry:
+                    print(f"Found spawn_group with request_id: {log_entry.get('request_id')}")
 
         except Exception as e:
             # Skip malformed lines
             pass
 
     def print_flow(self, correlation_id=None):
-        """Print message flow in text format"""
+        """Print message flow with request ID tracking"""
         messages = self.messages
         if correlation_id:
             messages = [m for m in messages if m.correlation_id == correlation_id]
 
-        print(f"\n{'='*80}")
-        print(f"Agent Communication Flow")
+        print(f"\n{'='*100}")
+        print(f"Agent Communication Flow Analysis")
         if correlation_id:
             print(f"Correlation ID: {correlation_id}")
-        print(f"{'='*80}\n")
+        print(f"{'='*100}\n")
 
-        for msg in sorted(messages, key=lambda x: x.timestamp):
-            # Format the message
-            if msg.message_type == 'request':
-                arrow = "→"
-                color = '\033[92m'  # Green
-            elif msg.message_type == 'response':
-                arrow = "←"
-                color = '\033[94m'  # Blue
-            else:
-                arrow = "↔"
-                color = '\033[93m'  # Yellow
+        # Group messages by orchestration
+        for orch_id, orch_messages in self.orchestrations.items():
+            if correlation_id and not any(m.correlation_id == correlation_id for m in orch_messages):
+                continue
 
-            from_str = f"{msg.from_type}[{msg.from_agent[:8]}]" if msg.from_agent else "UNKNOWN"
-            to_str = f"{msg.to_type}[{msg.to_agent[:8]}]" if msg.to_agent else "UNKNOWN"
+            print(f"\n📋 Orchestration: {orch_id}")
 
-            print(f"{color}{msg.timestamp}")
-            print(f"  {from_str} {arrow} {to_str}")
-            print(f"  Action: {msg.action}")
-            print(f"  Type: {msg.message_type}")
+            # Show awaited steps for this orchestration
+            if orch_id in self.awaited_steps:
+                print(f"   ⏳ Awaited Steps:")
+                for await_info in self.awaited_steps[orch_id]:
+                    print(f"      - Action: {await_info['action']}")
+                    print(f"        Request IDs: {await_info['awaited']}")
+                    print(f"        Set at: {await_info['timestamp']}")
 
-            if msg.request_id:
-                print(f"  Request ID: {msg.request_id}")
-            if msg.in_response_to:
-                print(f"  In Response To: {msg.in_response_to}")
+            print(f"\n   Messages:")
+            for msg in sorted(orch_messages, key=lambda x: x.timestamp):
+                self.print_message(msg)
 
-            if msg.payload:
-                print(f"  Payload: {json.dumps(msg.payload, indent=4)[:200]}...")
+    def print_message(self, msg):
+        """Print a single message with formatting"""
+        # Determine arrow and color based on direction
+        if msg.direction == 'sending_response':
+            arrow = "→"
+            color = '\033[92m'  # Green
+        elif msg.direction == 'processing_response':
+            arrow = "←"
+            color = '\033[94m'  # Blue
+        elif msg.direction == 'received':
+            arrow = "↓"
+            color = '\033[93m'  # Yellow
+        else:
+            arrow = "↔"
+            color = '\033[90m'  # Gray
 
-            print('\033[0m')  # Reset color
-            print()
+        from_str = f"{msg.from_type}[{msg.from_agent[:8]}]" if msg.from_agent else "SYSTEM"
+        to_str = f"{msg.to_type}[{msg.to_agent[:8]}]" if msg.to_agent else "SYSTEM"
 
-    def visualize_flow(self, correlation_id=None):
-        """Create a visual diagram of message flow"""
-        if not HAVE_MATPLOTLIB:
-            print("Matplotlib not available. Install with: pip install matplotlib networkx")
-            return
+        print(f"\n{color}   {msg.timestamp}")
+        print(f"   {from_str} {arrow} {to_str}")
+        print(f"   Direction: {msg.direction}")
 
-        messages = self.messages
-        if correlation_id:
-            messages = [m for m in messages if m.correlation_id == correlation_id]
+        if msg.request_id:
+            print(f"   Request ID: {msg.request_id}")
+        if msg.in_response_to:
+            print(f"   In Response To: {msg.in_response_to}")
 
-        if not messages:
-            print("No messages to visualize")
-            return
+            # Check if this matches any awaited steps
+            orch_id = msg.orchestration_id
+            if orch_id in self.awaited_steps:
+                for await_info in self.awaited_steps[orch_id]:
+                    if msg.in_response_to in await_info['awaited']:
+                        print(f"   ✅ MATCHES awaited step from {await_info['action']}")
+                    elif await_info['awaited']:
+                        print(f"   ❌ MISMATCH: Expected {await_info['awaited'][0]}")
 
-        # Create directed graph
-        G = nx.DiGraph()
+        if msg.topic:
+            print(f"   Topic: {msg.topic}")
 
-        # Add nodes for agents
-        agent_positions = {}
-        agent_types = {}
-        for i, (agent_id, agent_type) in enumerate(self.agents):
-            short_id = agent_id[:8] if agent_id else 'unknown'
-            node_label = f"{agent_type}\n{short_id}"
-            G.add_node(node_label)
-            agent_positions[agent_id] = node_label
-            agent_types[agent_id] = agent_type
+        if msg.payload_preview:
+            # Parse and show key parts of payload
+            try:
+                payload = json.loads(msg.payload_preview)
+                if 'action' in payload:
+                    print(f"   Action: {payload['action']}")
+                if 'data' in payload:
+                    print(f"   Data keys: {list(payload['data'].keys())}")
+            except:
+                print(f"   Payload: {msg.payload_preview[:100]}...")
 
-        # Add edges for messages
-        edge_labels = {}
-        for msg in messages:
-            if msg.from_agent and msg.to_agent:
-                from_node = agent_positions.get(msg.from_agent, 'unknown')
-                to_node = agent_positions.get(msg.to_agent, 'unknown')
-
-                # Add edge with message details
-                G.add_edge(from_node, to_node)
-
-                # Create edge label
-                label = f"{msg.action}\n{msg.message_type}"
-                if msg.request_id:
-                    label += f"\n{msg.request_id[:8]}"
-                edge_labels[(from_node, to_node)] = label
-
-        # Create visualization
-        plt.figure(figsize=(15, 10))
-        pos = nx.spring_layout(G, k=2, iterations=50)
-
-        # Draw nodes
-        nx.draw_networkx_nodes(G, pos, node_size=3000, node_color='lightblue',
-                              node_shape='o', alpha=0.9)
-
-        # Draw edges
-        nx.draw_networkx_edges(G, pos, edge_color='gray',
-                              connectionstyle='arc3,rad=0.1',
-                              arrowsize=20, alpha=0.7)
-
-        # Draw labels
-        nx.draw_networkx_labels(G, pos, font_size=8, font_weight='bold')
-        nx.draw_networkx_edge_labels(G, pos, edge_labels, font_size=6)
-
-        plt.title(f"Agent Communication Flow\n{correlation_id if correlation_id else 'All Messages'}")
-        plt.axis('off')
-        plt.tight_layout()
-        plt.show()
+        print('\033[0m')  # Reset color
 
     def print_summary(self):
-        """Print summary statistics"""
-        print(f"\n{'='*80}")
-        print("Summary Statistics")
-        print(f"{'='*80}\n")
+        """Print summary with request ID analysis"""
+        print(f"\n{'='*100}")
+        print("Summary Analysis")
+        print(f"{'='*100}\n")
 
         print(f"Total Messages: {len(self.messages)}")
         print(f"Total Agents: {len(self.agents)}")
         print(f"Total Orchestrations: {len(self.orchestrations)}")
 
-        # Count by message type
-        type_counts = defaultdict(int)
+        # Analyze request/response matching
+        print("\n🔍 Request/Response Analysis:")
+        request_ids = set()
+        response_ids = set()
+
         for msg in self.messages:
-            type_counts[msg.message_type] += 1
+            if msg.request_id:
+                request_ids.add(msg.request_id)
+            if msg.in_response_to:
+                response_ids.add(msg.in_response_to)
 
-        print("\nMessage Types:")
-        for msg_type, count in type_counts.items():
-            print(f"  {msg_type}: {count}")
+        print(f"   Unique Request IDs: {len(request_ids)}")
+        print(f"   Unique Response IDs: {len(response_ids)}")
 
-        # Count by action
-        action_counts = defaultdict(int)
-        for msg in self.messages:
-            action_counts[msg.action] += 1
+        # Find mismatches
+        unmatched_requests = request_ids - response_ids
+        unmatched_responses = response_ids - request_ids
 
-        print("\nTop Actions:")
-        for action, count in sorted(action_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
-            print(f"  {action}: {count}")
+        if unmatched_requests:
+            print(f"\n   ⚠️  Requests without responses:")
+            for req_id in unmatched_requests:
+                print(f"      - {req_id}")
 
-        # List orchestrations
-        print("\nOrchestrations:")
-        for orch_id, msgs in self.orchestrations.items():
-            print(f"  {orch_id}: {len(msgs)} messages")
+        if unmatched_responses:
+            print(f"\n   ⚠️  Responses without matching requests:")
+            for resp_id in unmatched_responses:
+                print(f"      - {resp_id}")
+
+        # Check awaited vs received
+        print("\n📊 Awaited Steps Analysis:")
+        for orch_id, await_list in self.awaited_steps.items():
+            print(f"   Orchestration {orch_id[:8]}...")
+            for await_info in await_list:
+                if await_info['awaited']:
+                    awaited_id = await_info['awaited'][0]
+                    # Check if we have a response for this
+                    has_response = any(m.in_response_to == awaited_id for m in self.messages)
+                    status = "✅ Received" if has_response else "❌ Missing"
+                    print(f"      Awaiting {awaited_id[:8]}... from {await_info['action']}: {status}")
 
 def main():
     parser = LogParser()
 
-    # Parse logs from Kubernetes
     print("Fetching logs from Kubernetes...")
     parser.parse_k8s_logs()
 
     if not parser.messages:
         print("No MESSAGE_TRACE entries found in logs.")
-        print("Make sure to add detailed logging to your coordinator.")
+        print("\nTip: Make sure MESSAGE_TRACE logging is enabled in your application.")
         return
 
     # Print summary
     parser.print_summary()
 
-    # Print flow for all messages
+    # Print detailed flow
     parser.print_flow()
-
-    # If we have matplotlib, create visualization
-    if HAVE_MATPLOTLIB:
-        print("\nGenerating visualization...")
-        parser.visualize_flow()
 
     # Offer to filter by correlation ID
     if parser.orchestrations:
-        print("\nAvailable correlation IDs:")
-        for i, (orch_id, msgs) in enumerate(parser.orchestrations.items()):
-            if i < 10:  # Show first 10
-                print(f"  {orch_id}")
+        print(f"\n{'='*100}")
+        print("Available orchestrations for detailed analysis:")
+        for i, (orch_id, msgs) in enumerate(list(parser.orchestrations.items())[:10]):
+            print(f"  {i+1}. {orch_id} ({len(msgs)} messages)")
 
-        correlation_id = input("\nEnter correlation ID to filter (or press Enter for all): ").strip()
-        if correlation_id:
-            parser.print_flow(correlation_id)
-            if HAVE_MATPLOTLIB:
-                parser.visualize_flow(correlation_id)
+        choice = input("\nEnter orchestration number for details (or press Enter to skip): ").strip()
+        if choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(parser.orchestrations):
+                orch_id = list(parser.orchestrations.keys())[idx]
+                print(f"\nDetailed view for orchestration {orch_id}:")
+                parser.print_flow(correlation_id=None)  # Show all for now
 
 if __name__ == "__main__":
     main()

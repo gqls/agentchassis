@@ -557,7 +557,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		"correlation_id":   msgCtx.ExecutionContext.CorrelationID,
 		"orchestration_id": targetOrchestrationID, // Use correct target
 		"message_type":     "response",
-		"in_response_to":   sendWorkflowResponse, // was msgCtx.ExecutionContext.RequestID,
+		"in_response_to":   responseCtx.InResponseTo, // was msgCtx.ExecutionContext.RequestID,
 		"fuel_budget":      fmt.Sprintf("%d", msgCtx.ExecutionContext.FuelBudget),
 		// ... other headers
 	}
