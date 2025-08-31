@@ -527,18 +527,34 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	contextLogger := p.logger.With(msgCtx.ExecutionContext.LogContext()...)
 
+	contextLogger.Info("CRITICAL_FLOW: sendWorkflowResponse called",
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+		zap.String("original_request_id", msgCtx.ExecutionContext.RequestID),
+		zap.String("in_response_to", msgCtx.ExecutionContext.InResponseTo),
+		zap.Any("result_type", fmt.Sprintf("%T", result)))
+
 	// Check if we're completing an action that was waiting
 	// The result from spawn_group contains the request_id we should respond with
 	if resultMap, ok := result.(map[string]interface{}); ok {
 		// Check for await_response flag and request_id
 		if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
+
+			// In processor.go sendWorkflowResponse after checking await_response:
+			if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
+				contextLogger.Info("CRITICAL_FLOW: Should NOT send response - action is waiting",
+					zap.String("resultMap[request_id] (before check)", resultMap["request_id"].(string)),
+					zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
+				// THIS IS THE FIX: Don't send a response when waiting!
+				return nil
+			}
+
 			if requestID, ok := resultMap["request_id"].(string); ok && requestID != "" {
 				// This is the request_id the orchestrator is waiting for
 				responseCtx.InResponseTo = requestID
 				responseCtx.RequestID = requestID
 
 				contextLogger.Info("Using action's request_id for response",
-					zap.String("action_request_id", requestID),
+					zap.String("action_request_id (after check)", requestID),
 					zap.String("original_request_id", msgCtx.ExecutionContext.RequestID))
 			}
 		}

@@ -306,6 +306,12 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("requestID variable send back", requestID),
 		zap.String("group_id", groupID))
 
+	params.Logger.Info("CRITICAL_FLOW: SpawnGroup returning",
+		zap.Bool("await_response", true),
+		zap.String("request_id_returning", requestID),
+		zap.String("request_id_in_headers", params.Headers["request_id"]),
+		zap.String("orchestration_id", params.Headers["orchestration_id"]))
+
 	return map[string]interface{}{
 		"await_response": true,
 		"request_id":     requestID,

@@ -638,6 +638,14 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	needsResponse := step.Action == "call_agent" || step.Action == "start_orchestration" ||
 		step.Action == "spawn_group" || step.Action == "spawn_agent"
 
+	contextLogger.Info("CRITICAL_FLOW: Pre-generating request ID",
+		zap.String("step", state.CurrentStep),
+		zap.String("action", step.Action),
+		zap.String("original_request_id", execCtx.RequestID),
+		zap.String("pre_generated_request_id", preGeneratedRequestID),
+		zap.String("from_agent_id", execCtx.FromAgentID),
+		zap.String("from_agent_type", execCtx.FromAgentType))
+
 	if needsResponse {
 		preGeneratedRequestID = uuid.New().String()
 		headers["request_id"] = preGeneratedRequestID
@@ -772,6 +780,13 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	state.CollectedData[state.CurrentStep] = result
 	state.ExecutionMetadata.CompletedSteps++
 	state.ExecutionMetadata.Checkpoints[step.Action] = time.Now().UTC()
+
+	contextLogger.Info("CRITICAL_FLOW: Orchestration waiting state",
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.String("status", string(state.Status)),
+		zap.Strings("awaited_steps", state.AwaitedSteps),
+		zap.String("current_step", state.CurrentStep),
+		zap.Any("step.ExecutionMetadata", state.ExecutionMetadata))
 
 	return result, nil
 }
