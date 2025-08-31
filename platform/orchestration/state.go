@@ -608,6 +608,9 @@ func (r *StateRepository) AddExecutionRecord(ctx context.Context, state *Orchest
 
 // FindByAwaitedRequestID finds orchestration waiting for a specific request
 func (r *StateRepository) FindByAwaitedRequestID(ctx context.Context, requestID string) (*OrchestrationState, error) {
+	r.logger.Info("CRITICAL: Searching for orchestration awaiting request",
+		zap.String("request_id", requestID))
+
 	// Try the JSONB contains operator for array search
 	query := `
 		SELECT orchestration_id
@@ -652,6 +655,12 @@ func (r *StateRepository) FindByAwaitedRequestID(ctx context.Context, requestID 
 		}
 	}
 
+	if err == nil {
+		r.logger.Info("CRITICAL: Found orchestration waiting",
+			zap.String("orchestration_id", orchestrationID),
+			zap.String("for_request_id", requestID))
+	}
+	
 	// Now get the full state
 	return r.GetState(ctx, orchestrationID)
 }

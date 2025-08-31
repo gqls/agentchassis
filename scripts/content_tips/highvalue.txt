@@ -1,0 +1,57 @@
+What makes content high-value
+High-value content provides a helpful, reliable, people-first experience. When creating content with AI, you can infuse it with these characteristics through editing and refinement.
+Aspect
+	Low-Value AI Content
+	High-Value AI Content
+Search Intent
+    Addresses a broad keyword ("CRM software") with generic, surface-level information.
+    Responds to a highly specific, commercial-intent query ("best CRM for real estate agents") with detailed, tailored information.
+Originality
+    Repackages existing information found on top-ranking competitor sites.
+    Synthesizes existing information and adds unique value, such as competitive analysis, specific use cases, or a fresh perspective.
+Authority
+    Lacks evidence of firsthand knowledge or expertise. It reads like it was written by a machine.
+    Incorporates signals of E-E-A-T (Experience, Expertise, Authoritativeness, and Trustworthiness). This means adding data from credible sources, mentioning relevant credentials, or including anecdotes that only someone with experience would know.
+Readability
+    Can be robotic, repetitive, and stiff. Overuse of simple, uniform sentence structures makes it monotonous to read.
+    Is edited by a human for flow, tone, and sentence variety. It uses clear headings, short paragraphs, and bullet points to create a good user experience.
+Call-to-Action (CTA)
+    Features generic, low-converting CTAs ("Learn More") or is cluttered with distracting display ads.
+    Uses strategically placed, highly relevant CTAs that align with user intent, such as "Compare Prices," "Request a Quote," or "Get 5 Free Leads".
+
+
+Improvements for the target market
+1. Analyze your target market and their needs
+High-value content for a niche market is built on deep insights, not assumptions.
+
+    Conduct audience research: Use AI to analyze social media discussions on platforms like Reddit, Quora, or LinkedIn to identify specific questions, pain points, and terminology used by your target audience.
+    Study competitor content: Look at what your competitors' top-ranking pages offer and identify their weaknesses. Use this to create something more comprehensive and useful.
+
+    2. Craft effective prompts for AI
+    AI outputs are only as good as the input. To get high-value drafts, you must be specific.
+
+        Detail the user's persona: "Write for small business marketers who struggle with lead generation" is better than "write about marketing".
+        Request a unique angle: Ask the AI to compare competing products from a fresh perspective or to challenge a common industry assumption.
+
+    3. Infuse human-level authority and expertise
+    Your unique insights and experience are what turn an AI draft into high-value content.
+
+        Add firsthand anecdotes: If your domain is in the home services niche, use AI to generate a how-to guide, but add your personal story of fixing a leaky faucet, including any difficulties you faced.
+        Integrate external validation: Fact-check statistics, cite reputable industry sources, or include quotes from an expert in the field.
+        Show unique data: If you have any proprietary research or data, include it in your content.
+
+    4. Optimize content for readability and clarity
+    Even accurate information is low-value if it's difficult to read.
+
+        Simplify language: Ensure sentences are not too complex, especially for audiences who may not be experts.
+        Use formatting for scannability: Use bold text to highlight key points, and use bullet points and numbered lists to break down information.
+        Check tone and voice: Ensure the tone is consistent and matches your brand.
+
+    5. Prioritize information gain
+    Google values content that adds to the existing knowledge base.
+
+        Expand on existing topics: If you're building a site around a listicle ("10 Best Electric Cars"), create a dedicated page for each car to go into more detail, including pros, cons, and comparisons that a user wouldn't find elsewhere.
+        Address overlooked subtopics: Use AI tools to find subtopics that top competitors haven't covered and add them to your content.
+
+Potentially:
+Creating a single, comprehensive page that covers a specific topic thoroughly can be more effective than having many short, low-value pages. Utilizing available tools can assist in generating an initial draft, which can then be refined and improved with unique insights and data to create valuable content. Breaking down the content with clear headings and bullet points can also enhance readability. 

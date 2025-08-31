@@ -748,7 +748,8 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 					zap.String("request_id", requestID),
 					zap.String("orchestration_id", state.OrchestrationID),
 					zap.String("pregenerated request id", preGeneratedRequestID),
-					zap.Strings("all_awaited", state.AwaitedSteps))
+					zap.Strings("all_awaited_steps", state.AwaitedSteps),
+					zap.String("status", string(state.Status)))
 
 				// Set up timeout for child orchestrations
 				if step.Action == "start_orchestration" {
@@ -1053,6 +1054,12 @@ func (s *SagaCoordinator) recordExecution(ctx context.Context, state *Orchestrat
 
 // HandleResponse processes responses and continues workflow with ExecutionContext
 func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string]string, response []byte) error {
+	s.logger.Info("CRITICAL: HandleResponse Entry",
+		zap.String("in_response_to", headers["in_response_to"]),
+		zap.String("causation_id", headers["causation_id"]),
+		zap.String("request_id", headers["request_id"]),
+		zap.String("orchestration_id", headers["orchestration_id"]))
+
 	// Create ExecutionContext from headers
 	execCtx, err := types.FromHeaders(headers)
 	if err != nil {

@@ -525,15 +525,22 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	// Create response context
 	responseCtx := msgCtx.CreateResponseContext()
 
-	// If we have a specific request_id from an awaited action, use it
+	contextLogger := p.logger.With(msgCtx.ExecutionContext.LogContext()...)
+
+	// Check if we're completing an action that was waiting
+	// The result from spawn_group contains the request_id we should respond with
 	if resultMap, ok := result.(map[string]interface{}); ok {
-		// Check if this result has a request_id (from spawn_group or similar)
-		if requestID, ok := resultMap["request_id"].(string); ok && requestID != "" {
-			responseCtx.InResponseTo = requestID
-			responseCtx.RequestID = requestID
-			p.logger.Info("Using action's request_id for response",
-				zap.String("action_request_id", requestID),
-				zap.String("original_request_id", msgCtx.ExecutionContext.RequestID))
+		// Check for await_response flag and request_id
+		if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
+			if requestID, ok := resultMap["request_id"].(string); ok && requestID != "" {
+				// This is the request_id the orchestrator is waiting for
+				responseCtx.InResponseTo = requestID
+				responseCtx.RequestID = requestID
+
+				contextLogger.Info("Using action's request_id for response",
+					zap.String("action_request_id", requestID),
+					zap.String("original_request_id", msgCtx.ExecutionContext.RequestID))
+			}
 		}
 	}
 
@@ -541,8 +548,6 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	if p.tracer != nil {
 		p.tracer.TraceMessage(responseCtx, "sending_response", responseCtx.ReplyToTopic, msgCtx.Message.Value)
 	}
-
-	contextLogger := p.logger.With(msgCtx.ExecutionContext.LogContext()...)
 
 	// Determine target orchestration
 	targetOrchestrationID := msgCtx.ExecutionContext.OrchestrationID
@@ -555,11 +560,20 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	responseHeaders := map[string]string{
 		"correlation_id":   msgCtx.ExecutionContext.CorrelationID,
-		"orchestration_id": targetOrchestrationID, // Use correct target
+		"orchestration_id": targetOrchestrationID,
 		"message_type":     "response",
-		"in_response_to":   responseCtx.InResponseTo, // was msgCtx.ExecutionContext.RequestID,
+		"in_response_to":   responseCtx.InResponseTo,
 		"fuel_budget":      fmt.Sprintf("%d", msgCtx.ExecutionContext.FuelBudget),
-		// ... other headers
+		// Add other required headers
+		"message_id":      responseCtx.MessageID,
+		"request_id":      responseCtx.RequestID,
+		"from_agent_id":   responseCtx.FromAgentID,
+		"from_agent_type": responseCtx.FromAgentType,
+		"to_agent_id":     responseCtx.ToAgentID,
+		"to_agent_type":   responseCtx.ToAgentType,
+		"client_id":       msgCtx.ExecutionContext.ClientID,
+		"timestamp":       responseCtx.Timestamp.Format(time.RFC3339),
+		"version":         responseCtx.Version,
 	}
 
 	contextLogger.Info("TRACE: Sending workflow response",
@@ -610,7 +624,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	// Send using response context headers
 	return p.producer.Produce(ctx,
 		responseCtx.ReplyToTopic,
-		responseCtx.ToHeaders(),
+		responseHeaders,
 		[]byte(responseCtx.CorrelationID),
 		responseBytes)
 }
