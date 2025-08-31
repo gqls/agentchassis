@@ -707,19 +707,8 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
 			// Use the pre-generated request ID
 			requestID := preGeneratedRequestID
-
-			// For spawn_group, the request_id might be in the result
-			if step.Action == "spawn_group" {
-				/*if id, ok := resultMap["group_id"].(string); ok && id != "" {
-					requestID = id
-				}*/
-			}
-
-			if requestID == "" {
-				// Fallback to result's request_id if available
-				if id, ok := resultMap["request_id"].(string); ok {
-					requestID = id
-				}
+			if resultRequestID, ok := resultMap["request_id"].(string); ok && resultRequestID != "" {
+				requestID = resultRequestID
 			}
 
 			if requestID != "" {
@@ -758,6 +747,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 				contextLogger.Info("Successfully added request to awaited steps",
 					zap.String("request_id", requestID),
 					zap.String("orchestration_id", state.OrchestrationID),
+					zap.String("pregenerated request id", preGeneratedRequestID),
 					zap.Strings("all_awaited", state.AwaitedSteps))
 
 				// Set up timeout for child orchestrations

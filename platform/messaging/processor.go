@@ -525,6 +525,18 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	// Create response context
 	responseCtx := msgCtx.CreateResponseContext()
 
+	// If we have a specific request_id from an awaited action, use it
+	if resultMap, ok := result.(map[string]interface{}); ok {
+		// Check if this result has a request_id (from spawn_group or similar)
+		if requestID, ok := resultMap["request_id"].(string); ok && requestID != "" {
+			responseCtx.InResponseTo = requestID
+			responseCtx.RequestID = requestID
+			p.logger.Info("Using action's request_id for response",
+				zap.String("action_request_id", requestID),
+				zap.String("original_request_id", msgCtx.ExecutionContext.RequestID))
+		}
+	}
+
 	// Trace outgoing response
 	if p.tracer != nil {
 		p.tracer.TraceMessage(responseCtx, "sending_response", responseCtx.ReplyToTopic, msgCtx.Message.Value)
@@ -543,9 +555,9 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	responseHeaders := map[string]string{
 		"correlation_id":   msgCtx.ExecutionContext.CorrelationID,
-		"orchestration_id": targetOrchestrationID, // CRITICAL: Use correct target
+		"orchestration_id": targetOrchestrationID, // Use correct target
 		"message_type":     "response",
-		"in_response_to":   msgCtx.ExecutionContext.RequestID,
+		"in_response_to":   sendWorkflowResponse, // was msgCtx.ExecutionContext.RequestID,
 		"fuel_budget":      fmt.Sprintf("%d", msgCtx.ExecutionContext.FuelBudget),
 		// ... other headers
 	}

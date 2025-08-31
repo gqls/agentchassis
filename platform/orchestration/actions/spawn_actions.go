@@ -241,6 +241,19 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.Int("DEBUG_SPAWN_14: total_spawned", len(spawnedAgents)),
 		zap.Any("DEBUG_SPAWN_14: spawned_agents", spawnedAgents))
 
+	// The request_id that the parent is waiting for
+	requestID := params.Headers["request_id"]
+	if requestID == "" {
+		// This shouldn't happen if executeLocalAction pre-generated it
+		requestID = uuid.New().String()
+		params.Logger.Warn("No request_id in headers, generating new one",
+			zap.String("request_id", requestID))
+	}
+
+	params.Logger.Info("SpawnGroupAction using request_id",
+		zap.String("request_id", requestID),
+		zap.String("orchestration_id", params.Headers["orchestration_id"]))
+
 	// Parse and validate workflow before returning
 	var workflowPlan map[string]interface{}
 	if err := json.Unmarshal(workflow, &workflowPlan); err != nil {
@@ -290,10 +303,12 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 	// Make sure to log the actual request_id that will be awaited
 	params.Logger.Info("SPAWN_GROUP_REQUEST_ID",
 		zap.String("request_id_in_headers", params.Headers["request_id"]),
+		zap.String("requestID variable send back", requestID),
 		zap.String("group_id", groupID))
 
 	return map[string]interface{}{
 		"await_response": true,
+		"request_id":     requestID,
 		"group_id":       groupID,
 		"group_name":     groupName,
 		"group_type":     groupType,
