@@ -438,6 +438,20 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
 	}
 
+	// CHECK: Get the orchestration state to see if it's waiting
+	if p.sqlDB != nil {
+		repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
+		state, stateErr := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
+		if stateErr == nil && state != nil {
+			if state.Status == orchestration.StatusAwaitingResponses {
+				msgCtx.Logger.Info("Workflow is waiting for responses, not sending completion response",
+					zap.String("orchestration_id", state.OrchestrationID),
+					zap.String("status", string(state.Status)))
+				return nil // Don't send response - we're waiting
+			}
+		}
+	}
+
 	// Workflow started successfully (might be running, waiting, or completed)
 	// The coordinator handles all state management internally
 	return p.sendWorkflowSuccessResponse(ctx, msgCtx)

@@ -196,7 +196,17 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 				return fmt.Errorf("failed to reload state: %w", err)
 			}
 
-			return s.continueExecution(ctx, state, headers)
+			err = s.continueExecution(ctx, state, headers)
+
+			// CHECK: If continueExecution resulted in waiting, don't error
+			if state.Status == StatusAwaitingResponses {
+				l.Info("Workflow execution started and is now waiting",
+					zap.String("orchestration_id", orchestrationID),
+					zap.String("status", string(state.Status)))
+				return nil // Not an error - just waiting
+			}
+
+			return err
 		}
 
 		// Still actively executing
@@ -407,6 +417,14 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		zap.String("orchestration_id", state.OrchestrationID),
 		zap.String("correlation_id", state.CorrelationID),
 		zap.String("current_step", state.CurrentStep))
+
+	// CHECK at entry: Are we already waiting?
+	if state.Status == StatusAwaitingResponses {
+		l.Info("Already in waiting state, not continuing execution",
+			zap.String("status", string(state.Status)),
+			zap.Int("awaited_count", len(state.AwaitedSteps)))
+		return nil
+	}
 
 	l.Info("Continuing workflow execution",
 		zap.String("current_step", state.CurrentStep),
@@ -1837,6 +1855,17 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 		}
 	}
 
+	// CHECK: If any handler put us in waiting state, stop here
+	if state.Status == StatusAwaitingResponses {
+		s.logger.Info("Step resulted in waiting state, execution paused",
+			zap.String("step", state.CurrentStep),
+			zap.String("action", step.Action),
+			zap.String("status", string(state.Status)))
+		// Record but don't fail
+		s.finishExecutionRecord(ctx, state, execRecord, nil)
+		return nil // Not an error, just waiting
+	}
+
 	// Record execution result
 	s.finishExecutionRecord(ctx, state, execRecord, execErr)
 
@@ -1947,8 +1976,10 @@ func (s *SagaCoordinator) handleLocalAction(ctx context.Context, state *Orchestr
 
 	// CHECK: Don't continue if action set state to waiting
 	if state.Status == StatusAwaitingResponses {
-		s.logger.Info("Action requires waiting, not continuing",
-			zap.String("action", step.Action))
+		s.logger.Info("Local action requires waiting, not continuing to next step",
+			zap.String("action", step.Action),
+			zap.String("current_step", state.CurrentStep),
+			zap.String("status", string(state.Status)))
 		return nil
 	}
 
