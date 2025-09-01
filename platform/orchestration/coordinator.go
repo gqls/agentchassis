@@ -113,6 +113,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 	l.Info("In file coordinator.go",
 		zap.String("function", current),
 		zap.String("called_by", caller),
+		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
@@ -720,12 +721,14 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	contextLogger := s.logger.With(execCtx.LogContext()...)
 
 	current, caller := getFuncInfo(1)
+	caller, caller_called_by := getFuncInfo(2)
 
-	contextLogger.Info("In file coordinator.go",
+	contextLogger.Info("In file coordinator.go ",
 		zap.String("function", current),
 		zap.String("called_by", caller),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-	)
+		zap.String("caller_called_by", caller_called_by),
+		zap.String("container", os.Getenv("HOSTNAME")),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)))
 
 	contextLogger.Info("TRACE: executeLocalAction entry",
 		zap.String("action", step.Action),
@@ -918,12 +921,14 @@ func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *Orches
 	)
 
 	current, caller := getFuncInfo(1)
+	caller, caller_called_by := getFuncInfo(2)
 
-	l.Info("In file coordinator.go",
+	l.Info("In file coordinator.go ",
 		zap.String("function", current),
 		zap.String("called_by", caller),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-	)
+		zap.String("caller_called_by", caller_called_by),
+		zap.String("container", os.Getenv("HOSTNAME")),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)))
 
 	// Create new context for the remote call
 	remoteCtx := &types.ExecutionContext{
@@ -1217,6 +1222,7 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 	contextLogger.Info("In file coordinator.go",
 		zap.String("function", current),
 		zap.String("called_by", caller),
+		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 

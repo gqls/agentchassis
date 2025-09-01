@@ -90,6 +90,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
 		zap.String("function", current),
 		zap.String("called_by", caller),
+		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
@@ -225,6 +226,11 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	err = p.executeWorkflow(ctx, msgCtx, agentConfig)
 
 	if err != nil {
+		// Check if it's a waiting state (not an error)
+		if err == orchestration.ErrWaitingForResponse {
+			msgCtx.Logger.Info("Workflow is waiting, not sending response")
+			return nil // EXIT HERE - don't continue to sendWorkflowSuccessResponse
+		}
 		msgCtx.Logger.Error("Workflow execution failed", zap.Error(err))
 		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
 	}
@@ -448,10 +454,13 @@ func (p *MessageProcessor) processWithDefaults(ctx context.Context, msgCtx *Mess
 
 func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
 	current, caller := getFuncInfo(1)
+	caller, caller_called_by := getFuncInfo(2)
 
 	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
 		zap.String("function", current),
 		zap.String("called_by", caller),
+		zap.String("caller_called_by", caller_called_by),
+		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
@@ -510,10 +519,13 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 func (p *MessageProcessor) sendWorkflowSuccessResponse(ctx context.Context, msgCtx *MessageContext) error {
 
 	current, caller := getFuncInfo(1)
+	caller, caller_called_by := getFuncInfo(2)
 
 	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go ",
 		zap.String("function", current),
 		zap.String("called_by", caller),
+		zap.String("caller_called_by", caller_called_by),
+		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
 	)
 
@@ -536,10 +548,13 @@ func (p *MessageProcessor) sendWorkflowSuccessResponse(ctx context.Context, msgC
 
 func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgCtx *MessageContext, err error) error {
 	current, caller := getFuncInfo(1)
+	caller, caller_called_by := getFuncInfo(2)
 
 	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go ",
 		zap.String("function", current),
 		zap.String("called_by", caller),
+		zap.String("caller_called_by", caller_called_by),
+		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
 	)
 
@@ -595,6 +610,7 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 	p.logger.Info("In file processor.go ",
 		zap.String("function", current),
 		zap.String("called_by", caller),
+		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
 	)
 
@@ -611,10 +627,13 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
 	current, caller := getFuncInfo(1)
+	caller, caller_called_by := getFuncInfo(2)
 
 	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
 		zap.String("function", current),
 		zap.String("called_by", caller),
+		zap.String("caller_called_by", caller_called_by),
+		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
@@ -799,6 +818,7 @@ func (p *MessageProcessor) sendResponse(ctx context.Context, msgCtx *MessageCont
 	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
 		zap.String("function", current),
 		zap.String("called_by", caller),
+		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 

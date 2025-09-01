@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -98,9 +99,14 @@ type EnhancedDiscovery struct {
 
 // SpawnGroupAction spawns a complete agent group
 func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("In file spawn_actions.go ",
-		zap.String("Function: ", "SpawnGroupAction"),
-		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	current, caller := getFuncInfo(1)
+	caller, caller_called_by := getFuncInfo(2)
+
+	params.Logger.Info("In file spawn_actions.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("caller was called_by", caller_called_by),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
 	config := params.StepConfig.Config
@@ -1947,4 +1953,16 @@ func findOrSpawnAgent(ctx context.Context, params ActionParams, agentType string
 
 	sr := spawnResult.(map[string]interface{})
 	return sr["agent_id"].(string), nil
+}
+
+// Helper to get current and caller function names
+func getFuncInfo(skip int) (current, caller string) {
+	// skip=0 => this func, skip=1 => its caller, skip=2 => caller's caller, etc.
+	if pc, _, _, ok := runtime.Caller(skip); ok {
+		current = runtime.FuncForPC(pc).Name()
+	}
+	if pc, _, _, ok := runtime.Caller(skip + 1); ok {
+		caller = runtime.FuncForPC(pc).Name()
+	}
+	return
 }
