@@ -5,8 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -26,10 +28,11 @@ const (
 	ResumeWorkflowTopic = "system.commands.workflow.resume"
 	// Timeout for stuck orchestrations
 	StuckOrchestrationTimeout = 5 * time.Minute
-	ErrWaitingForResponse     = "waiting_for_response"
 	// whether to log hefty messages and headers
 	LogMessageDetails = true
 )
+
+var ErrWaitingForResponse = errors.New("ErrWaitingForResponse: orchestration is waiting for responses")
 
 // SagaCoordinator manages the execution of complex workflows
 type SagaCoordinator struct {
@@ -104,6 +107,14 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 	l := s.logger.With(
 		zap.String("correlation_id", correlationID),
 		zap.String("message_id", messageID))
+
+	current, caller := getFuncInfo(1)
+
+	l.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
 
 	l.Info("ExecuteWorkflow called",
 		zap.String("start_step", plan.StartStep),
@@ -203,7 +214,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 				l.Info("Workflow execution started and is now waiting",
 					zap.String("orchestration_id", orchestrationID),
 					zap.String("status", string(state.Status)))
-				return nil // Not an error - just waiting
+				return ErrWaitingForResponse // Not an error - just waiting
 			}
 
 			return err
@@ -218,7 +229,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 	case StatusAwaitingResponses:
 		l.Info("Orchestration is awaiting responses, skipping duplicate",
 			zap.Int("awaited_count", len(state.AwaitedSteps)))
-		return nil
+		return ErrWaitingForResponse
 
 	case StatusCompleted:
 		l.Info("Workflow already completed")
@@ -239,6 +250,14 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 // getOrCreateStateWithFlag returns orchestration with a flag indicating if it was just created
 func (s *SagaCoordinator) getOrCreateStateWithFlag(ctx context.Context, correlationID string, clientID string, plan models.WorkflowPlan, initialData []byte, headers map[string]string) (*OrchestrationState, string, bool, error) {
 	repo := NewStateRepository(s.db, s.logger)
+
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
 
 	// Priority 1: If we have an explicit orchestration_id, use it
 	orchestrationID := headers["orchestration_id"]
@@ -344,6 +363,14 @@ func (s *SagaCoordinator) getOrCreateStateWithFlag(ctx context.Context, correlat
 func (s *SagaCoordinator) handleStartOrchestration(ctx context.Context, state *OrchestrationState, step models.Step, headers map[string]string) error {
 	s.logger.Info("Executing start_orchestration with wait-for-response")
 
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	_, err := s.executeLocalAction(ctx, state, step, headers)
 	if err != nil {
 		return err
@@ -412,6 +439,14 @@ func (s *SagaCoordinator) recoverStuckOrchestrations(ctx context.Context) {
 // continueExecution executes from the current step
 func (s *SagaCoordinator) continueExecution(ctx context.Context, state *OrchestrationState, headers map[string]string) error {
 	repo := NewStateRepository(s.db, s.logger)
+
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
 
 	l := s.logger.With(
 		zap.String("orchestration_id", state.OrchestrationID),
@@ -489,6 +524,14 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 func (s *SagaCoordinator) getOrCreateState(ctx context.Context, correlationID string, clientID string, plan models.WorkflowPlan, initialData []byte, headers map[string]string) (*OrchestrationState, string, error) {
 	repo := NewStateRepository(s.db, s.logger)
 
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	// Priority 1: If we have an explicit orchestration_id, use it
 	orchestrationID := headers["orchestration_id"]
 	if orchestrationID != "" {
@@ -521,7 +564,8 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, correlationID st
 			ownerAgentID := s.determineOwnerAgentID(headers)
 
 			// Try to create with retry on conflict
-			for attempts := 0; attempts < 3; attempts++ {
+			// for attempts := 0; attempts < 3; attempts++ {
+			for attempts := 0; attempts < 1; attempts++ {
 				err := repo.CreateInitialState(ctx, orchestrationID, correlationID, ownerAgentID,
 					headers["parent_orchestration_id"], clientID, plan, initialData)
 
@@ -641,6 +685,14 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, correlationID st
 }
 
 func (s *SagaCoordinator) determineOwnerAgentID(headers map[string]string) string {
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	if ownerAgentID := headers["agent_id"]; ownerAgentID != "" {
 		return ownerAgentID
 	}
@@ -667,6 +719,14 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 	contextLogger := s.logger.With(execCtx.LogContext()...)
 
+	current, caller := getFuncInfo(1)
+
+	contextLogger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	contextLogger.Info("TRACE: executeLocalAction entry",
 		zap.String("action", step.Action),
 		zap.String("step", state.CurrentStep),
@@ -688,6 +748,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	if needsResponse {
 		preGeneratedRequestID = uuid.New().String()
 		headers["request_id"] = preGeneratedRequestID
+		execCtx.RequestID = preGeneratedRequestID
 
 		contextLogger.Info("Pre-generated request ID for action",
 			zap.String("action", step.Action),
@@ -842,6 +903,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 // executeRemoteAction sends work to another agent
 func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *OrchestrationState, step models.Step, headers map[string]string) error {
+
 	// Create ExecutionContext
 	execCtx, err := types.FromHeaders(headers)
 	if err != nil {
@@ -853,6 +915,14 @@ func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *Orches
 		zap.String("DEBUG_COOR_29: orchestration_id", execCtx.OrchestrationID),
 		zap.String("DEBUG_COOR_29: action", step.Action),
 		zap.String("DEBUG_COOR_29: topic", step.Topic),
+	)
+
+	current, caller := getFuncInfo(1)
+
+	l.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
 	// Create new context for the remote call
@@ -928,6 +998,14 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 	}
 
 	contextLogger := s.logger.With(execCtx.LogContext()...)
+
+	current, caller := getFuncInfo(1)
+
+	contextLogger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
 
 	l := contextLogger.With(
 		zap.String("DEBUG_COOR_30: correlation_id", state.CorrelationID),
@@ -1122,7 +1200,8 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 		zap.String("in_response_to", headers["in_response_to"]),
 		zap.String("causation_id", headers["causation_id"]),
 		zap.String("request_id", headers["request_id"]),
-		zap.String("orchestration_id", headers["orchestration_id"]))
+		zap.String("orchestration_id", headers["orchestration_id"]),
+		zap.String("Function: ", "HandleResponse()"), zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)))
 
 	// Create ExecutionContext from headers
 	execCtx, err := types.FromHeaders(headers)
@@ -1131,11 +1210,19 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 		return err
 	}
 
+	contextLogger := s.logger.With(execCtx.LogContext()...)
+
+	current, caller := getFuncInfo(1)
+
+	contextLogger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	if s.tracer != nil {
 		s.tracer.TraceMessage(execCtx, "processing_response", "", response)
 	}
-
-	contextLogger := s.logger.With(execCtx.LogContext()...)
 
 	// The key is in_response_to - this tells us which request this is responding to
 	requestID := execCtx.InResponseTo
@@ -1297,6 +1384,14 @@ type ResponseIDs struct {
 
 // extractResponseIDs clearly extracts all IDs from headers
 func (s *SagaCoordinator) extractResponseIDs(headers map[string]string) (*ResponseIDs, error) {
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	ids := &ResponseIDs{
 		OrchestrationID:       headers["orchestration_id"],
 		CorrelationID:         headers["correlation_id"],
@@ -1328,6 +1423,11 @@ func (s *SagaCoordinator) extractResponseIDs(headers map[string]string) (*Respon
 
 // findTargetOrchestration determines which orchestration should handle this response
 func (s *SagaCoordinator) findTargetOrchestration(ctx context.Context, ids *ResponseIDs, headers map[string]string) (*OrchestrationState, error) {
+	s.logger.Info("In file coordinator.go",
+		zap.String("Function: ", "findTargetOrchestration"),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	repo := NewStateRepository(s.db, s.logger)
 
 	// The target is usually in the "orchestration_id" header
@@ -1364,6 +1464,16 @@ func (s *SagaCoordinator) parseResponse(response []byte) (models.TaskResponse, e
 
 // processResponseData stores the response and updates orchestration state updated to use ExecutionContext
 func (s *SagaCoordinator) processResponseData(ctx context.Context, state *OrchestrationState, execCtx *types.ExecutionContext, response models.TaskResponse) error {
+
+	contextLogger := s.logger.With(execCtx.LogContext()...)
+	current, caller := getFuncInfo(1)
+
+	contextLogger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	// Store response under the request ID we're responding to
 	responseKey := execCtx.InResponseTo
 
@@ -1582,6 +1692,15 @@ func (s *SagaCoordinator) handlePauseForHumanInput(ctx context.Context, headers 
 
 // CreateNewOrchestration creates a new orchestration instance
 func (s *SagaCoordinator) CreateNewOrchestration(ctx context.Context, orchestrationID string, headers map[string]string, initialData json.RawMessage) error {
+
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	// Parse the incoming data
 	var data map[string]interface{}
 	if err := json.Unmarshal(initialData, &data); err != nil {
@@ -1809,6 +1928,14 @@ func (s *SagaCoordinator) manageFuel(ctx context.Context, state *OrchestrationSt
 func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationState, step models.Step, headers map[string]string, fuelBudget int) error {
 	repo := NewStateRepository(s.db, s.logger)
 
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	s.logger.Info("Executing step",
 		zap.String("step", state.CurrentStep),
 		zap.String("action", step.Action))
@@ -1883,6 +2010,14 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 func (s *SagaCoordinator) handleSpawnGroup(ctx context.Context, state *OrchestrationState, step models.Step, headers map[string]string) error {
 	s.logger.Info("Executing spawn_group with wait-for-response")
 
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	result, err := s.executeLocalAction(ctx, state, step, headers)
 	if err != nil {
 		return err
@@ -1918,6 +2053,14 @@ func (s *SagaCoordinator) handleSpawnGroup(ctx context.Context, state *Orchestra
 func (s *SagaCoordinator) handleCompleteWorkflow(ctx context.Context, state *OrchestrationState, step models.Step, headers map[string]string) error {
 	s.logger.Info("Completing workflow")
 
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	_, err := s.executeLocalAction(ctx, state, step, headers)
 	if err != nil {
 		return err
@@ -1928,7 +2071,16 @@ func (s *SagaCoordinator) handleCompleteWorkflow(ctx context.Context, state *Orc
 
 // handleCallAgent handles agent calls that need responses
 func (s *SagaCoordinator) handleCallAgent(ctx context.Context, state *OrchestrationState, step models.Step, headers map[string]string) error {
+
 	s.logger.Info("Executing call_agent with wait-for-response")
+
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
 
 	result, err := s.executeLocalAction(ctx, state, step, headers)
 	if err != nil {
@@ -1967,7 +2119,13 @@ func (s *SagaCoordinator) handleCallAgent(ctx context.Context, state *Orchestrat
 
 // handleLocalAction handles local actions that can continue immediately
 func (s *SagaCoordinator) handleLocalAction(ctx context.Context, state *OrchestrationState, step models.Step, headers map[string]string) error {
-	s.logger.Info("Executing local action", zap.String("action", step.Action))
+	current, caller := getFuncInfo(1)
+
+	s.logger.Info("In file coordinator.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
 
 	_, err := s.executeLocalAction(ctx, state, step, headers)
 	if err != nil {
@@ -2088,4 +2246,16 @@ func (s *SagaCoordinator) handleGroupTimeout(ctx context.Context, orchestrationI
 
 	s.logger.Info("Group timeout check passed - group completed in time",
 		zap.String("group_id", groupID))
+}
+
+// Helper to get current and caller function names
+func getFuncInfo(skip int) (current, caller string) {
+	// skip=0 => this func, skip=1 => its caller, skip=2 => caller's caller, etc.
+	if pc, _, _, ok := runtime.Caller(skip); ok {
+		current = runtime.FuncForPC(pc).Name()
+	}
+	if pc, _, _, ok := runtime.Caller(skip + 1); ok {
+		caller = runtime.FuncForPC(pc).Name()
+	}
+	return
 }

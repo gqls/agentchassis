@@ -123,7 +123,14 @@ func (t *TraceLogger) TraceMessage(execCtx interface{}, direction, topic string,
 		zap.String("topic", topic),
 		zap.String("from", fmt.Sprintf("%s/%s", ctx.FromAgentID, ctx.FromAgentType)),
 		zap.String("to", fmt.Sprintf("%s/%s", ctx.ToAgentID, ctx.ToAgentType)),
+		zap.String("from_agent_id", ctx.FromAgentID), // Add explicit agent IDs
+		zap.String("from_agent_type", ctx.FromAgentType),
+		zap.String("to_agent_id", ctx.ToAgentID),
+		zap.String("to_agent_type", ctx.ToAgentType),
+		zap.String("owner_agent_id", ctx.OwnerAgentID), // Add owner tracking
+		zap.String("owner_agent_type", ctx.OwnerAgentType),
 		zap.String("payload_preview", payloadPreview),
+		zap.String("container", os.Getenv("HOSTNAME")), // Add container hostname
 		zap.Int("message_count", len(trace.Messages)))
 }
 

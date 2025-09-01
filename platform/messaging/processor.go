@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -84,6 +85,14 @@ func NewMessageProcessor(
 
 // process determines how to handle the message based on agent configuration
 func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) error {
+	current, caller := getFuncInfo(1)
+
+	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	// Initialize CollectedData if nil
 	if msgCtx.CollectedData == nil {
 		msgCtx.CollectedData = make(map[string]interface{})
@@ -213,7 +222,28 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		zap.Any("agentConfig", agentConfig))
 
 	// Execute the workflow
-	return p.executeWorkflow(ctx, msgCtx, agentConfig)
+	err = p.executeWorkflow(ctx, msgCtx, agentConfig)
+
+	if err != nil {
+		msgCtx.Logger.Error("Workflow execution failed", zap.Error(err))
+		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
+	}
+
+	// CHECK: Get the orchestration state to see if it's waiting
+	if p.sqlDB != nil {
+		repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
+		state, stateErr := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
+		if stateErr == nil && state != nil {
+			if state.Status == orchestration.StatusAwaitingResponses {
+				msgCtx.Logger.Info("Workflow is waiting for responses, not sending completion response",
+					zap.String("orchestration_id", state.OrchestrationID),
+					zap.String("status", string(state.Status)))
+				return nil // Don't send response - we're waiting
+			}
+		}
+	}
+
+	return p.sendWorkflowSuccessResponse(ctx, msgCtx)
 }
 
 func (p *MessageProcessor) validateNoSelfRecursion(workflow models.WorkflowPlan, agentType string) error {
@@ -230,6 +260,11 @@ func (p *MessageProcessor) validateNoSelfRecursion(workflow models.WorkflowPlan,
 // loadAgentDefinition loads the agent definition from the database
 func (p *MessageProcessor) loadAgentDefinition(ctx context.Context, agentType string) (*AgentDefinition, error) {
 	p.logger.Debug("Loading agent definition", zap.String("agent_type", agentType))
+
+	p.logger.Info("In function - ",
+		zap.String("Function: ", "loadAgentDefinition"),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	)
 
 	query := `
 		SELECT type, display_name, description, category, default_config, capabilities
@@ -412,6 +447,14 @@ func (p *MessageProcessor) processWithDefaults(ctx context.Context, msgCtx *Mess
 }
 
 func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
+	current, caller := getFuncInfo(1)
+
+	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	msgCtx.Logger.Info("Executing workflow",
 		zap.String("start_step", config.Workflow.StartStep),
 		zap.Int("total_steps", len(config.Workflow.Steps)),
@@ -432,6 +475,12 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 
 	// Execute through orchestrator
 	err := p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, msgCtx.Headers, msgCtx.Message.Value)
+
+	// Check if workflow is waiting (not an actual error)
+	if err == orchestration.ErrWaitingForResponse {
+		msgCtx.Logger.Info("Workflow is waiting for responses, not sending response")
+		return nil
+	}
 
 	if err != nil {
 		msgCtx.Logger.Error("Workflow execution failed", zap.Error(err))
@@ -459,6 +508,15 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 
 // New response methods using ExecutionContext
 func (p *MessageProcessor) sendWorkflowSuccessResponse(ctx context.Context, msgCtx *MessageContext) error {
+
+	current, caller := getFuncInfo(1)
+
+	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go ",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	// Get final state if available
 	var finalResult interface{}
 	if p.sqlDB != nil {
@@ -477,6 +535,14 @@ func (p *MessageProcessor) sendWorkflowSuccessResponse(ctx context.Context, msgC
 }
 
 func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgCtx *MessageContext, err error) error {
+	current, caller := getFuncInfo(1)
+
+	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go ",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	return p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
 		"error":  err.Error(),
 		"status": "failed",
@@ -524,6 +590,14 @@ func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *Messag
 
 // ProcessResponse handles response messages for orchestrated workflows
 func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Message) error {
+	current, caller := getFuncInfo(1)
+
+	p.logger.Info("In file processor.go ",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	headers := kafka.HeadersToMap(msg.Headers)
 
 	p.logger.Info("Processing orchestration response",
@@ -536,6 +610,14 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 }
 
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
+	current, caller := getFuncInfo(1)
+
+	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	// Create response context
 	responseCtx := msgCtx.CreateResponseContext()
 
@@ -611,6 +693,15 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		zap.String("reply_topic", msgCtx.ExecutionContext.ReplyToTopic),
 		zap.Int("fuel_returning", msgCtx.ExecutionContext.FuelBudget),
 		zap.Any("response_headers", responseHeaders))
+
+	// Check if we should NOT send a response
+	if resultMap, ok := result.(map[string]interface{}); ok {
+		if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
+			p.logger.Info("Action is waiting for responses, NOT sending workflow response",
+				zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
+			return nil // Don't send response when waiting
+		}
+	}
 
 	// Validate we have a reply topic
 	if responseCtx.ReplyToTopic == "" {
@@ -703,6 +794,14 @@ func (p *MessageProcessor) determineResponseTopic(ctx context.Context, msgCtx *M
 }
 
 func (p *MessageProcessor) sendResponse(ctx context.Context, msgCtx *MessageContext, headers map[string]string, topic string, result interface{}) error {
+	current, caller := getFuncInfo(1)
+
+	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	response := models.AgentMessage{
 		MessageID:       uuid.New().String(),
 		CorrelationID:   headers["correlation_id"],
@@ -760,6 +859,14 @@ func createSQLDB() (*sql.DB, error) {
 }
 
 func (p *MessageProcessor) processNewAgentMessage(ctx context.Context, msg kafka.Message, headers map[string]string, startTime time.Time) error {
+	current, caller := getFuncInfo(1)
+
+	p.logger.Info("In file processor.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	p.logger.Info("Processing new format agent message",
 		zap.String("DEBUG_PROCESSOR_5: from_agent", headers["from_agent_id"]),
 		zap.String("DEBUG_PROCESSOR_5: to_agent", headers["to_agent_id"]),
@@ -791,6 +898,14 @@ func (p *MessageProcessor) processNewAgentMessage(ctx context.Context, msg kafka
 
 // getAgentTypeFromID retrieves the agent type from the database using the agent ID
 func (p *MessageProcessor) getAgentTypeFromID(ctx context.Context, agentID string) string {
+	current, caller := getFuncInfo(1)
+
+	p.logger.Info("In file processor.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	// First, try to get from the agent_instances table in the client schema
 	clientID := os.Getenv("CLIENT_ID")
 	if clientID == "" {
@@ -997,6 +1112,11 @@ func (p *MessageProcessor) getDefaultTaskWorkflow() models.WorkflowPlan {
 }
 
 func (p *MessageProcessor) getDefaultOrchestrationWorkflow() models.WorkflowPlan {
+	p.logger.Info("In file processor.go ",
+		zap.String("Function: ", "getDefaultOrchestrationWorkflow"),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	return models.WorkflowPlan{
 		StartStep: "analyze",
 		Steps: map[string]models.Step{
@@ -1058,6 +1178,14 @@ func extractAction(msgValue []byte) string {
 
 // Update ProcessMessage to use the tracer properly
 func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
+	current, caller := getFuncInfo(1)
+
+	p.logger.Info("In file processor.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	startTime := time.Now()
 	headers := kafka.HeadersToMap(msg.Headers)
 
@@ -1150,6 +1278,14 @@ func (p *MessageProcessor) processWithoutContext(ctx context.Context, msg kafka.
 	// Basic processing without ExecutionContext
 	// This ensures the system doesn't break if context is malformed
 
+	current, caller := getFuncInfo(1)
+
+	p.logger.Info("In file processor.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	action := extractAction(msg.Value)
 	p.logger.Warn("Processing without ExecutionContext",
 		zap.String("action", action),
@@ -1174,4 +1310,16 @@ func (p *MessageProcessor) processWithoutContext(ctx context.Context, msg kafka.
 	}
 
 	return nil
+}
+
+// Helper to get current and caller function names
+func getFuncInfo(skip int) (current, caller string) {
+	// skip=0 => this func, skip=1 => its caller, skip=2 => caller's caller, etc.
+	if pc, _, _, ok := runtime.Caller(skip); ok {
+		current = runtime.FuncForPC(pc).Name()
+	}
+	if pc, _, _, ok := runtime.Caller(skip + 1); ok {
+		caller = runtime.FuncForPC(pc).Name()
+	}
+	return
 }

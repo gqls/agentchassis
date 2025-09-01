@@ -98,6 +98,11 @@ type EnhancedDiscovery struct {
 
 // SpawnGroupAction spawns a complete agent group
 func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("In file spawn_actions.go ",
+		zap.String("Function: ", "SpawnGroupAction"),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	config := params.StepConfig.Config
 	groupType, ok := config["group_type"].(string)
 	if !ok {
