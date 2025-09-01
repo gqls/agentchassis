@@ -26,6 +26,7 @@ const (
 	ResumeWorkflowTopic = "system.commands.workflow.resume"
 	// Timeout for stuck orchestrations
 	StuckOrchestrationTimeout = 5 * time.Minute
+	ErrWaitingForResponse     = "waiting_for_response"
 	// whether to log hefty messages and headers
 	LogMessageDetails = true
 )
@@ -442,8 +443,28 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		return s.skipStep(ctx, state, "dependencies not met")
 	}
 
+	if state.Status == StatusAwaitingResponses {
+		s.logger.Info("Execution paused 1 - waiting for responses",
+			zap.String("orchestration_id", state.OrchestrationID))
+		return nil // Stop here - don't continue
+	}
+
 	// Execute the step
-	return s.executeStep(ctx, state, currentStepConfig, headers, fuelBudget)
+	err = s.executeStep(ctx, state, currentStepConfig, headers, fuelBudget)
+
+	// THIS IS WHERE WE NEED TO CHECK!
+	if state.Status == StatusAwaitingResponses {
+		s.logger.Info("Execution paused 2 - waiting for responses",
+			zap.String("orchestration_id", state.OrchestrationID))
+		return nil // Stop here - don't continue
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// If we get here and aren't waiting, continue...
+	return nil
 }
 
 // getOrCreateState returns orchestrationID explicitly
@@ -734,6 +755,16 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 				// First, update the state to AWAITING_RESPONSES
 				state.Status = StatusAwaitingResponses
 				state.AwaitedSteps = []string{requestID}
+
+				// In coordinator.go, around line 750 after setting state to AWAITING_RESPONSES
+				if state.Status == StatusAwaitingResponses {
+					contextLogger.Info("Action requires waiting, stopping execution",
+						zap.String("action", step.Action),
+						zap.String("request_id", requestID))
+
+					// Return a special error that indicates we're waiting (not a failure)
+					return result, nil
+				}
 
 				// Update metadata
 				state.ExecutionMetadata.CompletedSteps++
@@ -1791,6 +1822,14 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 	default:
 		if isLocalAction(step.Action) {
 			execErr = s.handleLocalAction(ctx, state, step, headers)
+			// CRITICAL: Check if we're now waiting after local action
+			if state.Status == StatusAwaitingResponses {
+				s.logger.Info("Step resulted in waiting state, pausing execution",
+					zap.String("step", state.CurrentStep),
+					zap.String("action", step.Action))
+				// Don't clear executing step - we're still executing, just waiting
+				return nil // Not an error, just waiting
+			}
 		} else if step.Topic != "" {
 			execErr = s.executeRemoteAction(ctx, state, step, headers)
 		} else {
