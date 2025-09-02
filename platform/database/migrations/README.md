@@ -545,3 +545,18 @@ ADD COLUMN IF NOT EXISTS execution_started_at TIMESTAMP;
 -- Update status enum (if using enum)
 -- Otherwise just ensure these values are valid:
 -- 'INITIALIZED', 'EXECUTING_STEP', 'AWAITING_RESPONSES', 'COMPLETED', 'FAILED'
+
+
+--
+
+CREATE TABLE processed_messages (
+message_id UUID PRIMARY KEY,
+correlation_id UUID,
+orchestration_id UUID,
+processed_by VARCHAR(255),
+processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+node_id VARCHAR(255)
+);
+
+-- Optional: Add an index for faster lookups
+CREATE INDEX idx_processed_messages_orchestration_id ON processed_messages(orchestration_id);

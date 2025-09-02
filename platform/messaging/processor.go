@@ -454,7 +454,7 @@ func (p *MessageProcessor) processWithDefaults(ctx context.Context, msgCtx *Mess
 
 func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
 	current, caller := getFuncInfo(1)
-	caller, caller_called_by := getFuncInfo(2)
+	_, caller_called_by := getFuncInfo(2)
 
 	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
 		zap.String("function", current),
@@ -485,34 +485,7 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 	// Execute through orchestrator
 	err := p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, msgCtx.Headers, msgCtx.Message.Value)
 
-	// Check if workflow is waiting (not an actual error)
-	if err == orchestration.ErrWaitingForResponse {
-		msgCtx.Logger.Info("Workflow is waiting for responses, not sending response")
-		return nil
-	}
-
-	if err != nil {
-		msgCtx.Logger.Error("Workflow execution failed", zap.Error(err))
-		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
-	}
-
-	// CHECK: Get the orchestration state to see if it's waiting
-	if p.sqlDB != nil {
-		repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
-		state, stateErr := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
-		if stateErr == nil && state != nil {
-			if state.Status == orchestration.StatusAwaitingResponses {
-				msgCtx.Logger.Info("Workflow is waiting for responses, not sending completion response",
-					zap.String("orchestration_id", state.OrchestrationID),
-					zap.String("status", string(state.Status)))
-				return nil // Don't send response - we're waiting
-			}
-		}
-	}
-
-	// Workflow started successfully (might be running, waiting, or completed)
-	// The coordinator handles all state management internally
-	return p.sendWorkflowSuccessResponse(ctx, msgCtx)
+	return err
 }
 
 // New response methods using ExecutionContext
@@ -627,7 +600,7 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
 	current, caller := getFuncInfo(1)
-	caller, caller_called_by := getFuncInfo(2)
+	_, caller_called_by := getFuncInfo(2)
 
 	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
 		zap.String("function", current),
@@ -639,7 +612,6 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	// Create response context
 	responseCtx := msgCtx.CreateResponseContext()
-
 	contextLogger := p.logger.With(msgCtx.ExecutionContext.LogContext()...)
 
 	contextLogger.Info("CRITICAL_FLOW: sendWorkflowResponse called",
@@ -648,29 +620,38 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		zap.String("in_response_to", msgCtx.ExecutionContext.InResponseTo),
 		zap.Any("result_type", fmt.Sprintf("%T", result)))
 
-	// Check if we're completing an action that was waiting
-	// The result from spawn_group contains the request_id we should respond with
-	if resultMap, ok := result.(map[string]interface{}); ok {
-		// Check for await_response flag and request_id
-		if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
+	// The 'result' is the full 'CollectedData' map from the orchestration state.
+	// We need to find the result of the last action within this map to see
+	// if we should suppress the response or use a specific request_id.
+	if allData, ok := result.(map[string]interface{}); ok {
+		var lastActionResult map[string]interface{}
 
-			// In processor.go sendWorkflowResponse after checking await_response:
-			if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
-				contextLogger.Info("CRITICAL_FLOW: Should NOT send response - action is waiting",
-					zap.String("resultMap[request_id] (before check)", resultMap["request_id"].(string)),
+		// Find the map that contains the 'await_response' key, as this identifies the action result.
+		for _, value := range allData {
+			if resultMap, isMap := value.(map[string]interface{}); isMap {
+				if _, found := resultMap["await_response"]; found {
+					lastActionResult = resultMap
+					break
+				}
+			}
+		}
+
+		if lastActionResult != nil {
+			// **FIX**: If the action is waiting for a response, DO NOT send a response now.
+			// This prevents the premature response and the subsequent error.
+			if await, ok := lastActionResult["await_response"].(bool); ok && await {
+				contextLogger.Info("CRITICAL_FLOW: Suppressing response because workflow is waiting",
 					zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
-				// THIS IS THE FIX: Don't send a response when waiting!
 				return nil
 			}
 
-			if requestID, ok := resultMap["request_id"].(string); ok && requestID != "" {
-				// This is the request_id the orchestrator is waiting for
+			// If the action was NOT waiting but generated a request_id, use that ID for the response.
+			if requestID, ok := lastActionResult["request_id"].(string); ok && requestID != "" {
+				contextLogger.Info("Using action's specific request_id for response",
+					zap.String("action_request_id", requestID),
+					zap.String("original_request_id", msgCtx.ExecutionContext.RequestID))
 				responseCtx.InResponseTo = requestID
 				responseCtx.RequestID = requestID
-
-				contextLogger.Info("Using action's request_id for response",
-					zap.String("action_request_id (after check)", requestID),
-					zap.String("original_request_id", msgCtx.ExecutionContext.RequestID))
 			}
 		}
 	}
@@ -712,15 +693,6 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		zap.String("reply_topic", msgCtx.ExecutionContext.ReplyToTopic),
 		zap.Int("fuel_returning", msgCtx.ExecutionContext.FuelBudget),
 		zap.Any("response_headers", responseHeaders))
-
-	// Check if we should NOT send a response
-	if resultMap, ok := result.(map[string]interface{}); ok {
-		if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
-			p.logger.Info("Action is waiting for responses, NOT sending workflow response",
-				zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
-			return nil // Don't send response when waiting
-		}
-	}
 
 	// Validate we have a reply topic
 	if responseCtx.ReplyToTopic == "" {
@@ -866,11 +838,11 @@ func (p *MessageProcessor) normalizeResponseData(result interface{}) map[string]
 }
 
 func createSQLDB() (*sql.DB, error) {
-	host := os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST")
-	port := os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT")
-	user := os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER")
+	host := os.Getenv("CLIENTS_DB_HOST")
+	port := os.Getenv("CLIENTS_DB_PORT")
+	user := os.Getenv("CLIENTS_DB_USER")
 	password := os.Getenv("CLIENTS_DB_PASSWORD")
-	dbname := os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME")
+	dbname := os.Getenv("DATABASE_DB_NAME")
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
@@ -1196,6 +1168,8 @@ func extractAction(msgValue []byte) string {
 	return payload.Action
 }
 
+// platform/messaging/processor.go
+
 // Update ProcessMessage to use the tracer properly
 func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
 	current, caller := getFuncInfo(1)
@@ -1219,6 +1193,26 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		return p.processWithoutContext(ctx, msg, headers)
 	}
 
+	// **FIX STARTS HERE**: Check for duplicate messages before any processing.
+	if p.sqlDB != nil {
+		// Use the message_id from the execution context for a stable identifier.
+		messageID := execCtx.MessageID
+		repo := orchestration.NewStateRepository(p.sqlDB, p.logger)
+		isDuplicate, checkErr := repo.HasProcessedMessage(ctx, messageID)
+		if checkErr != nil {
+			p.logger.Error("Failed to check for duplicate message, continuing processing...",
+				zap.String("message_id", messageID),
+				zap.Error(checkErr))
+		} else if isDuplicate {
+			p.logger.Warn("Duplicate message detected and ignored",
+				zap.String("message_id", messageID),
+				zap.String("orchestration_id", execCtx.OrchestrationID))
+			// Acknowledge the message without processing it further.
+			return nil
+		}
+	}
+	// **FIX ENDS HERE**
+
 	contextLogger := p.logger.With(execCtx.LogContext()...)
 
 	contextLogger.Info("TRACE: ProcessMessage entry",
@@ -1226,12 +1220,6 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		zap.String("processing_orch", execCtx.OrchestrationID),
 		zap.Int("fuel_received", execCtx.FuelBudget),
 		zap.String("action", extractAction(msg.Value)))
-
-	// Create logger with full context
-	//contextLogger := p.logger.With(execCtx.LogContext()...)
-
-	// Or use compact logging for less verbosity
-	// p.Logger.Debug("Quick check", execCtx.LogCompact()...)
 
 	// Trace incoming message if enabled in env vars
 	if p.tracer != nil {

@@ -1279,7 +1279,8 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 					contextLogger.Error("State found but not waiting for this request",
 						zap.String("request_id", requestID),
 						zap.Strings("awaited_steps", state.AwaitedSteps))
-					return fmt.Errorf("orchestration %s not waiting for request %s", execCtx.OrchestrationID, requestID)
+					return nil
+					// return fmt.Errorf("orchestration %s not waiting for request %s", execCtx.OrchestrationID, requestID)
 				}
 			} else {
 				return fmt.Errorf("no orchestration found waiting for request_id: %s", requestID)
