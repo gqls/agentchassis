@@ -7,45 +7,458 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // ExecutionContext represents the complete context for message execution
 type ExecutionContext struct {
-	// Business Transaction
-	CorrelationID string `json:"correlation_id"`
-	ClientID      string `json:"client_id"`
+	// Core identity
+	CorrelationID     string `json:"correlation_id"`
+	OrchestrationID   string `json:"orchestration_id"`
+	ClientID          string `json:"client_id"`
+	CorrelationName   string `json:"correlation_name,omitempty"`
+	OrchestrationName string `json:"orchestration_name,omitempty"`
 
-	// Execution Instance - UNIQUE per agent
-	OrchestrationID       string `json:"orchestration_id"`
-	ParentOrchestrationID string `json:"parent_orchestration_id,omitempty"`
+	// hierarchy
+	ParentOrchestrationID   string `json:"parent_orchestration_id,omitempty"`
+	ParentOrchestrationName string `json:"parent_orchestration_name,omitempty"`
+	ParentRequestID         string `json:"parent_request_id,omitempty"`
 
 	// Group Management
 	GroupID        string `json:"group_id,omitempty"`
 	FunctionalRole string `json:"functional_role,omitempty"`
 
+	// Step Context (for requests)
+	StepID   string `json:"step_id,omitempty"`
+	StepName string `json:"step_name,omitempty"`
+	Action   string `json:"action,omitempty"`
+
 	// Message Identity
 	MessageID    string `json:"message_id"`
 	RequestID    string `json:"request_id"`
 	MessageType  string `json:"message_type"` // "request" | "response" | "error"
-	InResponseTo string `json:"in_response_to,omitempty"`
+	RetryVersion int    `json:"retry_version"`
+
+	// Response context
+	InResponseTo        *ResponseContext `json:"in_response_to,omitempty"`
+	Status              string           `json:"status,omitempty"` // awaiting|processing|complete|error
+	IsComplete          bool             `json:"is_complete,omitempty"`
+	IsError             bool             `json:"is_error,omitempty"`
+	IsMultipartResponse bool             `json:"is_multipart_response,omitempty"`
+	PartCount           int              `json:"part_count,omitempty"`
 
 	// Routing
-	OwnerAgentID  string `json:"owner_agent_id"`
-	FromAgentID   string `json:"from_agent_id"`
-	FromAgentType string `json:"from_agent_type"`
-	ToAgentID     string `json:"to_agent_id"`
-	ToAgentType   string `json:"to_agent_type"`
-	ReplyToTopic  string `json:"reply_to_topic"`
-
-	// Add agent info that determines topics
-	OwnerAgentType string `json:"owner_agent_type"`
+	Sender         AgentIdentity `json:"sender"` // NEW: Who sent this message
+	ToAgentType    string        `json:"to_agent_type"`
+	RequestsTopic  string        `json:"requests_topic,omitempty"`
+	ResponsesTopic string        `json:"responses_topic,omitempty"`
 
 	// Resource Management
-	FuelBudget int `json:"fuel_budget"`
+	FuelBudget     int           `json:"fuel_budget"`
+	FuelUsed       int           `json:"fuel_used,omitempty"`
+	TimeoutSeconds int           `json:"timeout_seconds,omitempty"`
+	TimeSpent      time.Duration `json:"time_spent,omitempty"`
 
 	// Metadata
 	Timestamp time.Time `json:"timestamp"`
 	Version   string    `json:"version"`
+}
+
+// AgentIdentity now represents the sender, focusing on its type and pod name.
+type AgentIdentity struct {
+	AgentID      string `json:"agent_id"`
+	AgentType    string `json:"agent_type"`
+	PodName      string `json:"pod_name"` // The new "ID" for stateless agents
+	AgentVersion string `json:"agent_version"`
+}
+
+// Request Message Structure
+type RequestMessage struct {
+	Headers RequestHeaders `json:"headers"`
+	Body    interface{}    `json:"body"`
+}
+
+type RequestHeaders struct {
+	// Identity
+	CorrelationID   string `json:"correlation_id"`
+	ClientID        string `json:"client_id"`
+	CorrelationName string `json:"correlation_name"`
+
+	Sender         AgentIdentity `json:"sender"`
+	FunctionalRole string        `json:"functional_role"`
+
+	// Orchestration Context
+	OrchestrationID         string `json:"orchestration_id"` // Sender's orchestration
+	OrchestrationName       string `json:"orchestration_name"`
+	StepID                  string `json:"step_id"` // Sender's step
+	StepName                string `json:"step_name"`
+	RequestID               string `json:"request_id"`              // Unique per step task
+	RetryVersion            int    `json:"retry_version"`           // 0, 1, 2 for retries
+	ParentOrchestrationID   string `json:"parent_orchestration_id"` // If spawned
+	ParentOrchestrationName string `json:"parent_orchestration_name"`
+	ParentRequestID         string `json:"parent_request_id"` // If spawned
+
+	// Message Metadata
+	MessageID   string    `json:"message_id"`   // Unique per message
+	MessageType string    `json:"message_type"` // "request"
+	FromAgent   string    `json:"from_agent"`
+	ToAgent     string    `json:"to_agent"`
+	ToAgentType string    `json:"to_agent_type"`
+	Action      string    `json:"action"`
+	Timestamp   time.Time `json:"timestamp"`
+
+	// Resource Management
+	FuelBudget     int `json:"fuel_budget"`
+	TimeoutSeconds int `json:"timeout_seconds"`
+
+	// Routing
+	RequestsTopic  string `json:"requests_topic"`
+	ResponsesTopic string `json:"responses_topic"`
+}
+
+// Response Message Structure - Highly Transparent Format
+type ResponseMessage struct {
+	Headers ResponseHeaders `json:"headers"`
+	Body    ResponseBody    `json:"body"`
+}
+
+type ResponseHeaders struct {
+	// Response Tracking
+	InResponseToRequestID      string `json:"in_response_to_request_id"`
+	InResponseToStepID         string `json:"in_response_to_step_id"`
+	InResponseToStepName       string `json:"in_response_to_step_name"`
+	InResponseToParentOrchID   string `json:"in_response_to_parent_orchestration_id"`
+	InResponseToParentOrchName string `json:"in_response_to_parent_orchestration_name"`
+	InResponseToMessageID      string `json:"in_response_to_message_id"`
+	InResponseToAction         string `json:"in_response_to_action"`
+	RetryCount                 int    `json:"retry_count"`
+
+	// My Context
+	MyOrchestrationID   string `json:"my_orchestration_id"`
+	MyOrchestrationName string `json:"my_orchestration_name"`
+	MyRequestsTopic     string `json:"my_requests_topic"`
+	MyResponsesTopic    string `json:"my_responses_topic"`
+
+	// Identity
+	CorrelationID   string `json:"correlation_id"`
+	CorrelationName string `json:"correlation_name"`
+	ClientID        string `json:"client_id"`
+	MessageType     string `json:"message_type"` // "response"
+	FromAgent       string `json:"from_agent"`
+	ToAgent         string `json:"to_agent"`
+	ToAgentType     string `json:"to_agent_type"`
+
+	// Status Flags
+	IsComplete          bool   `json:"is_complete"`
+	IsError             bool   `json:"is_error"`
+	IsMultipartResponse bool   `json:"is_multipart_response"`
+	PartCount           int    `json:"part_count"`
+	Status              string `json:"status"` // awaiting|processing|complete|error_recoverable|error_unrecoverable
+
+	Sender AgentIdentity `json:"sender"`
+
+	// Timing & Resources
+	TimeSent                   time.Time     `json:"time_sent"`
+	TimeSpent                  time.Duration `json:"time_spent"`
+	OverallTimeBudgetRemaining int           `json:"overall_time_budget_remaining"`
+	TopicSentTo                string        `json:"topic_sent_to"`
+	FuelUsed                   int           `json:"fuel_used"`
+	RemainingFuelBudget        int           `json:"remaining_fuel_budget"`
+}
+
+type ResponseBody struct {
+	Success bool                   `json:"success"`
+	Headers map[string]interface{} `json:"headers,omitempty"`
+	Body    struct {
+		Result      interface{} `json:"result"`
+		Calculation interface{} `json:"calculation,omitempty"`
+		Error       *ErrorInfo  `json:"error,omitempty"`
+	} `json:"body"`
+}
+
+type ErrorInfo struct {
+	Code        string `json:"code"`
+	Message     string `json:"message"`
+	Recoverable bool   `json:"recoverable"`
+	RetryAfter  int    `json:"retry_after_seconds,omitempty"`
+}
+
+// ResponseContext captures what we're responding to
+type ResponseContext struct {
+	RequestID               string `json:"request_id"`
+	StepID                  string `json:"step_id"`
+	StepName                string `json:"step_name"`
+	MessageID               string `json:"message_id"`
+	Action                  string `json:"action"`
+	ParentOrchestrationID   string `json:"parent_orchestration_id"`
+	ParentOrchestrationName string `json:"parent_orchestration_name"`
+}
+
+// ToRequestHeaders converts ExecutionContext to RequestHeaders for sending requests
+func (ec *ExecutionContext) ToRequestHeaders() RequestHeaders {
+	return RequestHeaders{
+		// Who Am I
+		Sender: ec.Sender,
+
+		// Identity
+		CorrelationID:   ec.CorrelationID,
+		CorrelationName: ec.CorrelationName,
+		ClientID:        ec.ClientID,
+		FunctionalRole:  ec.FunctionalRole,
+
+		// Orchestration Context
+		OrchestrationID:         ec.OrchestrationID,
+		OrchestrationName:       ec.OrchestrationName,
+		StepID:                  ec.StepID,
+		StepName:                ec.StepName,
+		RequestID:               ec.RequestID,
+		RetryVersion:            ec.RetryVersion,
+		ParentOrchestrationID:   ec.ParentOrchestrationID,
+		ParentOrchestrationName: ec.ParentOrchestrationName,
+		ParentRequestID:         ec.ParentRequestID,
+
+		// Message Metadata
+		MessageID:   ec.MessageID,
+		MessageType: "request",
+		FromAgent:   ec.Sender.AgentID, // Legacy field
+		ToAgentType: ec.ToAgentType,
+		Action:      ec.Action,
+		Timestamp:   ec.Timestamp,
+
+		// Resource Management
+		FuelBudget:     ec.FuelBudget,
+		TimeoutSeconds: ec.TimeoutSeconds,
+
+		// Routing
+		RequestsTopic:  ec.RequestsTopic,
+		ResponsesTopic: ec.ResponsesTopic,
+	}
+}
+
+// ToResponseHeaders converts ExecutionContext to ResponseHeaders for sending responses
+func (ec *ExecutionContext) ToResponseHeaders() ResponseHeaders {
+	headers := ResponseHeaders{
+		// Who Am I
+		Sender: ec.Sender,
+
+		// My Context
+		MyOrchestrationID:   ec.OrchestrationID,
+		MyOrchestrationName: ec.OrchestrationName,
+		MyRequestsTopic:     ec.RequestsTopic,
+		MyResponsesTopic:    ec.ResponsesTopic,
+
+		// Identity
+		CorrelationID:   ec.CorrelationID,
+		CorrelationName: ec.CorrelationName,
+		ClientID:        ec.ClientID,
+		MessageType:     "response",
+		FromAgent:       ec.Sender.AgentID,
+		ToAgent:         "", // Will be set based on InResponseTo
+
+		// Status Flags
+		IsComplete:          ec.IsComplete,
+		IsError:             ec.IsError,
+		IsMultipartResponse: ec.IsMultipartResponse,
+		PartCount:           ec.PartCount,
+		Status:              ec.Status,
+
+		// Timing & Resources
+		TimeSent:                   ec.Timestamp,
+		TimeSpent:                  ec.TimeSpent,
+		OverallTimeBudgetRemaining: ec.TimeoutSeconds - int(ec.TimeSpent.Seconds()),
+		TopicSentTo:                ec.ResponsesTopic,
+		FuelUsed:                   ec.FuelUsed,
+		RemainingFuelBudget:        ec.FuelBudget - ec.FuelUsed,
+	}
+
+	// If this is a response to something, populate those fields
+	if ec.InResponseTo != nil {
+		headers.InResponseToRequestID = ec.InResponseTo.RequestID
+		headers.InResponseToStepID = ec.InResponseTo.StepID
+		headers.InResponseToStepName = ec.InResponseTo.StepName
+		headers.InResponseToParentOrchID = ec.InResponseTo.ParentOrchestrationID
+		headers.InResponseToParentOrchName = ec.InResponseTo.ParentOrchestrationName
+		headers.InResponseToMessageID = ec.InResponseTo.MessageID
+		headers.InResponseToAction = ec.InResponseTo.Action
+		headers.RetryCount = ec.RetryVersion
+	}
+
+	return headers
+}
+
+// FromRequestHeaders creates an ExecutionContext from incoming RequestHeaders
+func FromRequestHeaders(headers RequestHeaders) *ExecutionContext {
+	return &ExecutionContext{
+		// Core identity
+		CorrelationID:     headers.CorrelationID,
+		CorrelationName:   headers.CorrelationName,
+		OrchestrationID:   headers.OrchestrationID,
+		OrchestrationName: headers.OrchestrationName,
+		ClientID:          headers.ClientID,
+
+		// Hierarchy
+		ParentOrchestrationID:   headers.ParentOrchestrationID,
+		ParentOrchestrationName: headers.ParentOrchestrationName,
+		ParentRequestID:         headers.ParentRequestID,
+
+		// Step Context
+		StepID:   headers.StepID,
+		StepName: headers.StepName,
+		Action:   headers.Action,
+
+		// Message Identity
+		MessageID:    headers.MessageID,
+		RequestID:    headers.RequestID,
+		MessageType:  headers.MessageType,
+		RetryVersion: headers.RetryVersion,
+
+		// Routing
+		Sender:         headers.Sender,
+		ToAgentType:    headers.ToAgentType,
+		RequestsTopic:  headers.RequestsTopic,
+		ResponsesTopic: headers.ResponsesTopic,
+
+		// Resource Management
+		FuelBudget:     headers.FuelBudget,
+		TimeoutSeconds: headers.TimeoutSeconds,
+
+		// Metadata
+		Timestamp: headers.Timestamp,
+	}
+}
+
+// FromResponseHeaders creates an ExecutionContext from incoming ResponseHeaders
+func FromResponseHeaders(headers ResponseHeaders) *ExecutionContext {
+	return &ExecutionContext{
+		// Core identity
+		CorrelationID:     headers.CorrelationID,
+		CorrelationName:   headers.CorrelationName,
+		OrchestrationID:   headers.MyOrchestrationID,
+		OrchestrationName: headers.MyOrchestrationName,
+		ClientID:          headers.ClientID,
+
+		// Response Context
+		InResponseTo: &ResponseContext{
+			RequestID:               headers.InResponseToRequestID,
+			StepID:                  headers.InResponseToStepID,
+			StepName:                headers.InResponseToStepName,
+			MessageID:               headers.InResponseToMessageID,
+			Action:                  headers.InResponseToAction,
+			ParentOrchestrationID:   headers.InResponseToParentOrchID,
+			ParentOrchestrationName: headers.InResponseToParentOrchName,
+		},
+		Status:              headers.Status,
+		IsComplete:          headers.IsComplete,
+		IsError:             headers.IsError,
+		IsMultipartResponse: headers.IsMultipartResponse,
+		PartCount:           headers.PartCount,
+		RetryVersion:        headers.RetryCount,
+
+		// Routing
+		Sender:         headers.Sender,
+		RequestsTopic:  headers.MyRequestsTopic,
+		ResponsesTopic: headers.MyResponsesTopic,
+
+		// Resource Management
+		FuelUsed:   headers.FuelUsed,
+		FuelBudget: headers.RemainingFuelBudget + headers.FuelUsed,
+		TimeSpent:  headers.TimeSpent,
+
+		// Metadata
+		MessageType: headers.MessageType,
+		Timestamp:   headers.TimeSent,
+	}
+}
+
+// CreateChildContext creates a new ExecutionContext for a spawned agent
+func (ec *ExecutionContext) CreateChildContext(childAgentType string) *ExecutionContext {
+	child := &ExecutionContext{
+		// Inherit correlation
+		CorrelationID:   ec.CorrelationID,
+		CorrelationName: ec.CorrelationName,
+		ClientID:        ec.ClientID,
+
+		// New orchestration for child
+		OrchestrationID:   uuid.New().String(),
+		OrchestrationName: GenerateReadableName(childAgentType, "orchestration"),
+
+		// Parent references
+		ParentOrchestrationID:   ec.OrchestrationID,
+		ParentOrchestrationName: ec.OrchestrationName,
+		ParentRequestID:         ec.RequestID,
+
+		// Inherit group if applicable
+		GroupID:        ec.GroupID,
+		FunctionalRole: "", // Child determines its own role
+
+		// New message identity
+		MessageID:    uuid.New().String(),
+		RequestID:    uuid.New().String(),
+		MessageType:  "request",
+		RetryVersion: 0,
+
+		// Resource inheritance (deduct some)
+		FuelBudget:     ec.FuelBudget - 100,
+		TimeoutSeconds: ec.TimeoutSeconds - 5,
+
+		// Metadata
+		Timestamp: time.Now(),
+		Version:   ec.Version,
+	}
+
+	return child
+}
+
+// CreateResponseContext prepares context for sending a response
+func (ec *ExecutionContext) CreateResponseContext(status string, fuelUsed int) *ExecutionContext {
+	startTime := ec.Timestamp
+	timeSpent := time.Since(startTime)
+
+	responseCtx := &ExecutionContext{
+		// Keep identity
+		CorrelationID:     ec.CorrelationID,
+		CorrelationName:   ec.CorrelationName,
+		OrchestrationID:   ec.OrchestrationID,
+		OrchestrationName: ec.OrchestrationName,
+		ClientID:          ec.ClientID,
+
+		// Response specifics
+		MessageID:   uuid.New().String(),
+		MessageType: "response",
+		Status:      status,
+		IsComplete:  status == "complete",
+		IsError:     status == "error_unrecoverable" || status == "error_recoverable",
+
+		// What we're responding to
+		InResponseTo: &ResponseContext{
+			RequestID:               ec.RequestID,
+			StepID:                  ec.StepID,
+			StepName:                ec.StepName,
+			MessageID:               ec.MessageID,
+			Action:                  ec.Action,
+			ParentOrchestrationID:   ec.ParentOrchestrationID,
+			ParentOrchestrationName: ec.ParentOrchestrationName,
+		},
+
+		// Resource tracking
+		FuelUsed:       fuelUsed,
+		FuelBudget:     ec.FuelBudget,
+		TimeSpent:      timeSpent,
+		TimeoutSeconds: ec.TimeoutSeconds,
+
+		// Metadata
+		Timestamp:      time.Now(),
+		RetryVersion:   ec.RetryVersion,
+		Version:        ec.Version,
+		ResponsesTopic: ec.ResponsesTopic,
+	}
+
+	return responseCtx
+}
+
+func GenerateReadableName(agentType, suffix string) string {
+	timestamp := time.Now().Format("0102-1504")
+	return fmt.Sprintf("%s-%s-%s", agentType, suffix, timestamp)
 }
 
 // NewExecutionContext creates a new execution context for an agent
@@ -57,147 +470,10 @@ func NewExecutionContext(correlationID, clientID, agentID, agentType string) *Ex
 		MessageID:       uuid.New().String(),
 		RequestID:       uuid.New().String(),
 		MessageType:     "request",
-		OwnerAgentID:    agentID,
-		OwnerAgentType:  agentType,
-		FromAgentID:     agentID,
-		FromAgentType:   agentType,
-		ReplyToTopic:    fmt.Sprintf("system.agent.%s.responses", agentType),
 		FuelBudget:      1000,
 		Timestamp:       time.Now().UTC(),
 		Version:         "2.0",
 	}
-}
-
-// CreateChildContext creates a new context for a child orchestration
-func (ec *ExecutionContext) CreateChildContext(toAgentID, toAgentType string) *ExecutionContext {
-	return &ExecutionContext{
-		// Keep business context
-		CorrelationID: ec.CorrelationID,
-		ClientID:      ec.ClientID,
-		GroupID:       ec.GroupID,
-
-		// NEW orchestration for the child
-		OrchestrationID:       uuid.New().String(),
-		ParentOrchestrationID: ec.OrchestrationID,
-
-		// New message identity
-		MessageID:   uuid.New().String(),
-		RequestID:   uuid.New().String(),
-		MessageType: "request",
-
-		// Routing
-		// Child owns its own orchestration
-		OwnerAgentID:   toAgentID,
-		OwnerAgentType: toAgentType,
-
-		// From parent
-		FromAgentID:   ec.OwnerAgentID,
-		FromAgentType: ec.OwnerAgentType, // Parent's type
-
-		// To child
-		ToAgentID:   toAgentID,
-		ToAgentType: toAgentType,
-
-		// Reply goes to parent's response topic
-		ReplyToTopic: fmt.Sprintf("system.agent.%s.responses", ec.OwnerAgentType),
-
-		// Inherit fuel budget
-		FuelBudget: ec.FuelBudget,
-		Timestamp:  time.Now().UTC(),
-		Version:    "2.0",
-	}
-}
-
-// CreateResponseContext creates a context for responding to a request
-func (ec *ExecutionContext) CreateResponseContext() *ExecutionContext {
-	// Determine which orchestration we're responding to
-	targetOrchestrationID := ec.OrchestrationID
-	targetOwnerAgentID := ec.OwnerAgentID
-	targetOwnerAgentType := ec.OwnerAgentType
-
-	if ec.ParentOrchestrationID != "" {
-		// We're a child responding to parent
-		targetOrchestrationID = ec.ParentOrchestrationID
-		targetOwnerAgentID = ec.FromAgentID // Parent is the sender
-		targetOwnerAgentType = ec.FromAgentType
-	}
-
-	return &ExecutionContext{
-		// Keep business context
-		CorrelationID: ec.CorrelationID,
-		ClientID:      ec.ClientID,
-		GroupID:       ec.GroupID,
-
-		// Use PARENT's orchestration if responding to parent
-		OrchestrationID:       targetOrchestrationID,
-		ParentOrchestrationID: "", // Clear this for response
-
-		// Response message identity
-		MessageID:    uuid.New().String(),
-		RequestID:    ec.RequestID, // Keep original request ID
-		MessageType:  "response",
-		InResponseTo: ec.RequestID,
-
-		// Owner of the orchestration we're responding to
-		OwnerAgentID:   targetOwnerAgentID,
-		OwnerAgentType: targetOwnerAgentType,
-
-		// Reverse routing
-		FromAgentID:   ec.ToAgentID,
-		FromAgentType: ec.ToAgentType,
-		ToAgentID:     ec.FromAgentID,
-		ToAgentType:   ec.FromAgentType,
-		ReplyToTopic:  ec.ReplyToTopic,
-
-		// Remaining fuel
-		FuelBudget: ec.FuelBudget,
-
-		Timestamp: time.Now().UTC(),
-		Version:   "2.0",
-	}
-}
-
-// ToHeaders converts context to Kafka headers
-func (ec *ExecutionContext) ToHeaders() map[string]string {
-	headers := map[string]string{
-		"correlation_id":   ec.CorrelationID,
-		"orchestration_id": ec.OrchestrationID,
-		"client_id":        ec.ClientID,
-		"message_id":       ec.MessageID,
-		"request_id":       ec.RequestID,
-		"message_type":     ec.MessageType,
-		"owner_agent_id":   ec.OwnerAgentID,
-		"owner_agent_type": ec.OwnerAgentType,
-		"from_agent_id":    ec.FromAgentID,
-		"from_agent_type":  ec.FromAgentType,
-		"to_agent_id":      ec.ToAgentID,
-		"to_agent_type":    ec.ToAgentType,
-		"reply_to_topic":   ec.ReplyToTopic,
-		"fuel_budget":      fmt.Sprintf("%d", ec.FuelBudget),
-		"timestamp":        ec.Timestamp.Format(time.RFC3339),
-		"version":          ec.Version,
-	}
-
-	// Add optional fields only if present
-	if ec.ParentOrchestrationID != "" {
-		headers["parent_orchestration_id"] = ec.ParentOrchestrationID
-	}
-	if ec.InResponseTo != "" {
-		headers["in_response_to"] = ec.InResponseTo
-	}
-	if ec.GroupID != "" {
-		headers["group_id"] = ec.GroupID
-	}
-	if ec.FunctionalRole != "" {
-		headers["functional_role"] = ec.FunctionalRole
-	}
-
-	// For backward compatibility
-	headers["agent_instance_id"] = ec.OwnerAgentID
-	headers["agent_type"] = ec.FromAgentType
-	headers["causation_id"] = ec.InResponseTo // Legacy support
-
-	return headers
 }
 
 // FromHeaders creates an ExecutionContext from Kafka headers
@@ -220,15 +496,23 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 		MessageID:             headers["message_id"],
 		RequestID:             headers["request_id"],
 		MessageType:           headers["message_type"],
-		InResponseTo:          headers["in_response_to"],
-		OwnerAgentID:          headers["owner_agent_id"],
-		OwnerAgentType:        headers["owner_agent_type"],
-		FromAgentID:           headers["from_agent_id"],
-		FromAgentType:         headers["from_agent_type"],
-		ToAgentID:             headers["to_agent_id"],
-		ToAgentType:           headers["to_agent_type"],
-		ReplyToTopic:          headers["reply_to_topic"],
-		Version:               headers["version"],
+		// InResponseTo handled below
+		Version: headers["version"],
+	}
+
+	// FIXED: Parse InResponseTo if it's a JSON string
+	if inResponseToStr := headers["in_response_to"]; inResponseToStr != "" {
+		var responseCtx ResponseContext
+		if err := json.Unmarshal([]byte(inResponseToStr), &responseCtx); err == nil {
+			ec.InResponseTo = &responseCtx
+		}
+		// If it fails to parse as JSON, might be legacy string format
+		// In that case, create a minimal ResponseContext
+		if ec.InResponseTo == nil {
+			ec.InResponseTo = &ResponseContext{
+				RequestID: inResponseToStr,
+			}
+		}
 	}
 
 	// Parse fuel budget
@@ -259,24 +543,6 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 		ec.Version = "2.0"
 	}
 
-	// Ensure OwnerAgentType is set
-	if ec.OwnerAgentType == "" {
-		// Try to get from headers
-		if agentType := headers["agent_type"]; agentType != "" {
-			ec.OwnerAgentType = agentType
-		} else if ownerType := headers["owner_agent_type"]; ownerType != "" {
-			ec.OwnerAgentType = ownerType
-		} else {
-			// Fall back to environment
-			ec.OwnerAgentType = os.Getenv("AGENT_TYPE")
-		}
-	}
-
-	// Handle legacy headers
-	if ec.InResponseTo == "" && headers["causation_id"] != "" {
-		ec.InResponseTo = headers["causation_id"]
-	}
-
 	return ec, nil
 }
 
@@ -287,7 +553,7 @@ func (ec *ExecutionContext) IsChildOrchestration() bool {
 
 // IsResponse returns true if this is a response message
 func (ec *ExecutionContext) IsResponse() bool {
-	return ec.MessageType == "response"
+	return ec.MessageType == "response" || ec.InResponseTo != nil
 }
 
 // Validate ensures all required fields are present
@@ -304,10 +570,26 @@ func (ec *ExecutionContext) Validate() error {
 	if ec.MessageType == "" {
 		return fmt.Errorf("message_type is required")
 	}
-	if ec.MessageType == "response" && ec.InResponseTo == "" {
+	// FIXED: Check for InResponseTo properly
+	if ec.MessageType == "response" && ec.InResponseTo == nil {
 		return fmt.Errorf("in_response_to is required for response messages")
 	}
 	return nil
+}
+
+// GetAgentIdentity creates an AgentIdentity for the current agent
+func GetAgentIdentity(agentType string) *AgentIdentity {
+	podName := os.Getenv("HOSTNAME") // In K8s, hostname = pod name
+	if podName == "" {
+		podName = fmt.Sprintf("%s-local-%d", agentType, os.Getpid())
+	}
+
+	return &AgentIdentity{
+		AgentType:    agentType,
+		AgentID:      podName, // AgentID = PodName for stateless design
+		PodName:      podName,
+		AgentVersion: os.Getenv("AGENT_VERSION"),
+	}
 }
 
 // ToJSON serializes the context to JSON

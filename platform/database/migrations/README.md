@@ -560,3 +560,17 @@ node_id VARCHAR(255)
 
 -- Optional: Add an index for faster lookups
 CREATE INDEX idx_processed_messages_orchestration_id ON processed_messages(orchestration_id);
+
+--
+
+-- Add a human-readable name for better logging and debugging.
+ALTER TABLE orchestration_states ADD COLUMN orchestration_name VARCHAR(255);
+
+-- Add the 'agent_type' to know which KIND of agent handles this.
+-- This replaces the specific 'owner_agent_id'.
+ALTER TABLE orchestration_states ADD COLUMN agent_type VARCHAR(100);
+
+-- Add a JSONB field to store the audit trail of which pod did what.
+ALTER TABLE orchestration_states ADD COLUMN processing_history JSONB DEFAULT '[]'::jsonb;
+
+ALTER TABLE orchestration_states DROP COLUMN owner_agent_id;
