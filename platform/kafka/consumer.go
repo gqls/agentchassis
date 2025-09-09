@@ -48,6 +48,11 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 	}, nil
 }
 
+// Consume fetches the next message from the topic
+func (c *Consumer) Consume(ctx context.Context) (Message, error) {
+	return c.FetchMessage(ctx)
+}
+
 // FetchMessage fetches the next message from the topic
 // Returns the native kafka.Message type
 func (c *Consumer) FetchMessage(ctx context.Context) (Message, error) {

@@ -1,4 +1,4 @@
-package orchestration
+package types
 
 import (
 	"encoding/json"
@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
@@ -29,15 +28,15 @@ type MessageTrace struct {
 }
 
 type TracedMessage struct {
-	Timestamp        time.Time               `json:"timestamp"`
-	ExecutionContext *types.ExecutionContext `json:"context"`
-	Direction        string                  `json:"direction"`
-	Topic            string                  `json:"topic"`
-	PayloadSize      int                     `json:"payload_size"`
-	PayloadPreview   string                  `json:"payload_preview"`
-	Action           string                  `json:"action,omitempty"`
-	AwaitedSteps     []string                `json:"awaited_steps,omitempty"`
-	Error            string                  `json:"error,omitempty"`
+	Timestamp        time.Time         `json:"timestamp"`
+	ExecutionContext *ExecutionContext `json:"context"`
+	Direction        string            `json:"direction"`
+	Topic            string            `json:"topic"`
+	PayloadSize      int               `json:"payload_size"`
+	PayloadPreview   string            `json:"payload_preview"`
+	Action           string            `json:"action,omitempty"`
+	AwaitedSteps     []string          `json:"awaited_steps,omitempty"`
+	Error            string            `json:"error,omitempty"`
 }
 
 func NewTraceLogger(logger *zap.Logger) *TraceLogger {
@@ -59,7 +58,7 @@ func (t *TraceLogger) TraceMessage(execCtx interface{}, direction, topic string,
 	defer t.mu.Unlock()
 
 	// Type assert to ExecutionContext
-	ctx, ok := execCtx.(*types.ExecutionContext)
+	ctx, ok := execCtx.(*ExecutionContext)
 	if !ok {
 		t.logger.Warn("Invalid execution context type in TraceMessage")
 		return
@@ -240,7 +239,7 @@ func (t *TraceLogger) DumpTrace(correlationID string) {
 		zap.Any("orchestration_tree", trace.Tree))
 }
 
-func (t *TraceLogger) TraceAwaitedSteps(execCtx *types.ExecutionContext, awaitedSteps []string, action string) {
+func (t *TraceLogger) TraceAwaitedSteps(execCtx *ExecutionContext, awaitedSteps []string, action string) {
 	if !t.enabled {
 		return
 	}
@@ -275,7 +274,7 @@ func (t *TraceLogger) TraceAwaitedSteps(execCtx *types.ExecutionContext, awaited
 }
 
 // Add method to trace errors
-func (t *TraceLogger) TraceError(execCtx *types.ExecutionContext, err error, context string) {
+func (t *TraceLogger) TraceError(execCtx *ExecutionContext, err error, context string) {
 	if !t.enabled {
 		return
 	}

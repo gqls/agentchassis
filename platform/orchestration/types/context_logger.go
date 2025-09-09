@@ -10,6 +10,7 @@ func (ec *ExecutionContext) LogContext() []zapcore.Field {
 	fields := []zapcore.Field{
 		zap.String("correlation_id", ec.CorrelationID),
 		zap.String("orchestration_id", ec.OrchestrationID),
+		zap.String("orchestration_name", ec.OrchestrationName),
 		zap.String("message_id", ec.MessageID),
 		zap.String("request_id", ec.RequestID),
 		zap.String("message_type", ec.MessageType),

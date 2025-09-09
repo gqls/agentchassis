@@ -5,29 +5,26 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/kafka"
+	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
 // MessageContext holds the context for processing a single message
 type MessageContext struct {
-	// Original message
-	Message kafka.Message
+	Message          kafka.Message
+	Headers          map[string]string
+	ExecutionContext *types.ExecutionContext // NEW: Primary context
+	Logger           *zap.Logger
+	CollectedData    map[string]interface{}
+	Action           string
+	StartTime        time.Time
 
-	// Execution context - primary source of truth
-	ExecutionContext *types.ExecutionContext
-
-	// Legacy headers - for backward compatibility only
-	Headers map[string]string
-
-	// Processing state
-	Action        string
-	CollectedData map[string]interface{}
-	StartTime     time.Time
-
-	// Logger with context
-	Logger *zap.Logger
+	// For stateless operation
+	OrchestrationState *orchestration.OrchestrationState
+	IsStateless        bool
 }
 
 // NewMessageContext creates a new message context with ExecutionContext
@@ -54,31 +51,48 @@ func NewMessageContext(msg kafka.Message, headers map[string]string) (*MessageCo
 	}, nil
 }
 
-// ExtractAction extracts the action from the message payload
-func (m *MessageContext) ExtractAction() error {
+// ExtractAction extracts the action from the message
+func (mc *MessageContext) ExtractAction() error {
 	var payload struct {
 		Action string `json:"action"`
 	}
-	if err := json.Unmarshal(m.Message.Value, &payload); err != nil {
+	if err := json.Unmarshal(mc.Message.Value, &payload); err != nil {
 		return fmt.Errorf("failed to extract action: %w", err)
 	}
-	m.Action = payload.Action
+	mc.Action = payload.Action
+	if mc.ExecutionContext != nil {
+		mc.ExecutionContext.Action = payload.Action
+	}
 	return nil
 }
 
-// ValidateContext ensures the ExecutionContext is valid
-func (m *MessageContext) ValidateContext() error {
-	return m.ExecutionContext.Validate()
+// IsChildOrchestration checks if this is a child orchestration
+func (mc *MessageContext) IsChildOrchestration() bool {
+	if mc.ExecutionContext != nil {
+		return mc.ExecutionContext.ParentOrchestrationID != ""
+	}
+	return mc.Headers["parent_orchestration_id"] != ""
+}
+
+// ValidateContext validates the message context
+func (mc *MessageContext) ValidateContext() error {
+	if mc.ExecutionContext != nil {
+		return mc.ExecutionContext.Validate()
+	}
+
+	// Basic validation for legacy messages
+	if mc.Headers["correlation_id"] == "" {
+		return fmt.Errorf("missing correlation_id")
+	}
+	if mc.Headers["orchestration_id"] == "" {
+		return fmt.Errorf("missing orchestration_id")
+	}
+	return nil
 }
 
 // ValidateHeaders provides backward compatibility
 func (m *MessageContext) ValidateHeaders() error {
 	return m.ValidateContext()
-}
-
-// IsChildOrchestration returns true if this is a child orchestration
-func (m *MessageContext) IsChildOrchestration() bool {
-	return m.ExecutionContext.IsChildOrchestration()
 }
 
 // GetParentContext returns parent orchestration info if this is a child
@@ -98,20 +112,56 @@ func (m *MessageContext) CreateChildContext(toAgentID, toAgentType string) *type
 	return m.ExecutionContext.CreateChildContext(toAgentID, toAgentType)
 }
 
-// CreateResponseContext creates a context for responding
-func (m *MessageContext) CreateResponseContext() *types.ExecutionContext {
-	return m.ExecutionContext.CreateResponseContext()
+// CreateResponseContext creates a response context for sending responses
+func (mc *MessageContext) CreateResponseContext() *types.ExecutionContext {
+	if mc.ExecutionContext != nil {
+		return mc.ExecutionContext.CreateResponseContext("complete", 100)
+	}
+
+	// Fallback for legacy messages
+	return &types.ExecutionContext{
+		MessageID:       uuid.New().String(),
+		CorrelationID:   mc.Headers["correlation_id"],
+		OrchestrationID: mc.Headers["orchestration_id"],
+		RequestID:       mc.Headers["request_id"],
+		InResponseTo: &types.ResponseContext{
+			RequestID:       mc.Headers["request_id"],
+			OrchestrationID: mc.Headers["orchestration_id"],
+			MessageID:       mc.Headers["message_id"],
+		},
+		FromAgentID:   mc.Headers["agent_id"],
+		FromAgentType: mc.Headers["agent_type"],
+		ToAgentID:     mc.Headers["from_agent_id"],
+		ToAgentType:   mc.Headers["from_agent_type"],
+		ReplyToTopic:  mc.Headers["reply_to_topic"],
+		Timestamp:     time.Now(),
+		Version:       "2.0",
+	}
 }
 
-// CreateResponseHeaders provides backward compatibility
-func (m *MessageContext) CreateResponseHeaders(agentType string) map[string]string {
-	responseCtx := m.CreateResponseContext()
-	return responseCtx.ToHeaders()
+// CreateResponseHeaders creates response headers for the current context
+func (mc *MessageContext) CreateResponseHeaders(agentType string) map[string]string {
+	if mc.ExecutionContext != nil {
+		responseCtx := mc.ExecutionContext.CreateResponseContext("complete", 100)
+		return responseCtx.ToHeaders()
+	}
+
+	// Legacy header creation
+	return map[string]string{
+		"correlation_id":   mc.Headers["correlation_id"],
+		"orchestration_id": mc.Headers["orchestration_id"],
+		"in_response_to":   mc.Headers["request_id"],
+		"message_type":     "response",
+		"from_agent_type":  agentType,
+		"timestamp":        time.Now().Format(time.RFC3339),
+	}
 }
 
-// SyncHeadersFromContext updates legacy headers from ExecutionContext
-func (m *MessageContext) SyncHeadersFromContext() {
-	m.Headers = m.ExecutionContext.ToHeaders()
+// SyncHeadersFromContext syncs ExecutionContext back to headers
+func (mc *MessageContext) SyncHeadersFromContext() {
+	if mc.ExecutionContext != nil {
+		mc.Headers = mc.ExecutionContext.ToHeaders()
+	}
 }
 
 // SyncContextFromHeaders updates ExecutionContext from legacy headers

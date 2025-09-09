@@ -20,54 +20,55 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/platform/validation"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
-// MessageProcessor handles processing of Kafka messages for agents
+// MessageProcessor handles all message processing
 type MessageProcessor struct {
 	agentType    string
-	db           *pgxpool.Pool
+	db           *sql.DB
 	sqlDB        *sql.DB
 	producer     kafka.Producer
 	orchestrator *orchestration.SagaCoordinator
-	validator    *validation.WorkflowValidator
+	validator    *validation.Validator
 	configLoader *config.AgentConfigLoader
 	logger       *zap.Logger
-	tracer       *orchestration.TraceLogger
-}
+	tracer       *types.TraceLogger
 
-// AgentDefinition represents an agent's configuration from the database
-type AgentDefinition struct {
-	Type          string
-	DisplayName   string
-	Description   string
-	Category      string
-	DefaultConfig map[string]interface{}
-	Capabilities  []string
+	// For stateless operation
+	isStateless bool
+	podName     string
+	stateRepo   *orchestration.StateRepository
 }
 
 // NewMessageProcessor creates a new message processor
 func NewMessageProcessor(
 	agentType string,
-	db *pgxpool.Pool,
+	db *sql.DB,
 	producer kafka.Producer,
 	orchestrator *orchestration.SagaCoordinator,
-	validator *validation.WorkflowValidator,
+	validator *validation.Validator,
 	logger *zap.Logger,
 ) *MessageProcessor {
-
-	// Create sql.DB connection
-	sqlDB, err := createSQLDB()
-	if err != nil {
-		logger.Error("Failed to create SQL DB connection", zap.Error(err))
-		// Continue without it - will fail later if needed
+	// Also get SQL DB connection if available
+	var sqlDB *sql.DB
+	if connStr := os.Getenv("DATABASE_URL"); connStr != "" {
+		var err error
+		sqlDB, err = sql.Open("postgres", connStr)
+		if err != nil {
+			logger.Error("Failed to create SQL DB connection", zap.Error(err))
+		}
 	}
 
 	// Create tracer if enabled
-	var tracer *orchestration.TraceLogger
+	var tracer *types.TraceLogger
 	if os.Getenv("ENABLE_MESSAGE_TRACING") == "true" {
-		tracer = orchestration.NewTraceLogger(logger)
+		tracer = types.NewTraceLogger(logger)
+	}
+
+	podName := os.Getenv("HOSTNAME")
+	if podName == "" {
+		podName = fmt.Sprintf("%s-local-%d", agentType, os.Getpid())
 	}
 
 	return &MessageProcessor{
@@ -80,7 +81,20 @@ func NewMessageProcessor(
 		configLoader: config.NewAgentConfigLoader(logger),
 		logger:       logger,
 		tracer:       tracer,
+		isStateless:  os.Getenv("ENABLE_STATELESS_MODE") == "true",
+		podName:      podName,
+		stateRepo:    orchestration.NewStateRepository(sqlDB, logger),
 	}
+}
+
+// AgentDefinition represents an agent's configuration from the database
+type AgentDefinition struct {
+	Type          string
+	DisplayName   string
+	Description   string
+	Category      string
+	DefaultConfig map[string]interface{}
+	Capabilities  []string
 }
 
 // process determines how to handle the message based on agent configuration
@@ -282,7 +296,7 @@ func (p *MessageProcessor) loadAgentDefinition(ctx context.Context, agentType st
 	var configJSON []byte
 	var capabilitiesJSON []byte
 
-	err := p.db.QueryRow(ctx, query, agentType).Scan(
+	err := p.db.QueryRowContext(ctx, query, agentType).Scan(
 		&def.Type,
 		&def.DisplayName,
 		&def.Description,
@@ -452,42 +466,6 @@ func (p *MessageProcessor) processWithDefaults(ctx context.Context, msgCtx *Mess
 	return p.executeWorkflow(ctx, msgCtx, agentConfig)
 }
 
-func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
-	current, caller := getFuncInfo(1)
-	_, caller_called_by := getFuncInfo(2)
-
-	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
-		zap.String("function", current),
-		zap.String("called_by", caller),
-		zap.String("caller_called_by", caller_called_by),
-		zap.String("container", os.Getenv("HOSTNAME")),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-	)
-
-	msgCtx.Logger.Info("Executing workflow",
-		zap.String("start_step", config.Workflow.StartStep),
-		zap.Int("total_steps", len(config.Workflow.Steps)),
-		zap.String("agent_type", p.agentType))
-
-	// Ensure ExecutionContext has agent type
-	if msgCtx.ExecutionContext.FromAgentType == "" {
-		msgCtx.ExecutionContext.FromAgentType = p.agentType
-	}
-
-	// Sync to headers for orchestrator compatibility
-	msgCtx.SyncHeadersFromContext()
-
-	// Update metrics
-	observability.WorkflowsStarted.WithLabelValues(p.agentType, config.Workflow.StartStep, msgCtx.Headers["client_id"]).Inc()
-	observability.ActiveWorkflows.WithLabelValues(p.agentType).Inc()
-	defer observability.ActiveWorkflows.WithLabelValues(p.agentType).Dec()
-
-	// Execute through orchestrator
-	err := p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, msgCtx.Headers, msgCtx.Message.Value)
-
-	return err
-}
-
 // New response methods using ExecutionContext
 func (p *MessageProcessor) sendWorkflowSuccessResponse(ctx context.Context, msgCtx *MessageContext) error {
 
@@ -554,28 +532,6 @@ func (p *MessageProcessor) handleError(ctx context.Context, msgCtx *MessageConte
 	return err
 }
 
-func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *MessageContext, domainErr *errors.DomainError) {
-	responseHeaders := msgCtx.CreateResponseHeaders(p.agentType)
-	domainErr.TraceID = msgCtx.Headers["correlation_id"]
-
-	errorResponse := map[string]interface{}{
-		"success": false,
-		"error":   domainErr,
-		"agent":   p.agentType,
-	}
-
-	responseBytes, _ := json.Marshal(errorResponse)
-	errorTopic := fmt.Sprintf("system.agent.%s.errors", p.agentType)
-
-	if err := p.producer.Produce(ctx, errorTopic, responseHeaders,
-		[]byte(msgCtx.Headers["correlation_id"]), responseBytes); err != nil {
-		msgCtx.Logger.Error("Failed to send error response", zap.Error(err))
-		observability.SystemErrors.WithLabelValues(p.agentType, "produce_error").Inc()
-	} else {
-		observability.KafkaMessagesProduced.WithLabelValues(errorTopic).Inc()
-	}
-}
-
 // ProcessResponse handles response messages for orchestrated workflows
 func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Message) error {
 	current, caller := getFuncInfo(1)
@@ -617,7 +573,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	contextLogger.Info("CRITICAL_FLOW: sendWorkflowResponse called",
 		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
 		zap.String("original_request_id", msgCtx.ExecutionContext.RequestID),
-		zap.String("in_response_to", msgCtx.ExecutionContext.InResponseTo),
+		zap.Any("in_response_to", msgCtx.ExecutionContext.InResponseTo),
 		zap.Any("result_type", fmt.Sprintf("%T", result)))
 
 	// The 'result' is the full 'CollectedData' map from the orchestration state.
@@ -650,7 +606,22 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 				contextLogger.Info("Using action's specific request_id for response",
 					zap.String("action_request_id", requestID),
 					zap.String("original_request_id", msgCtx.ExecutionContext.RequestID))
-				responseCtx.InResponseTo = requestID
+
+				// FIX: Update InResponseTo properly - it's a *ResponseContext
+				if responseCtx.InResponseTo != nil {
+					responseCtx.InResponseTo.RequestID = requestID
+				} else {
+					responseCtx.InResponseTo = &types.ResponseContext{
+						RequestID:               requestID,
+						StepID:                  msgCtx.ExecutionContext.StepID,
+						StepName:                msgCtx.ExecutionContext.StepName,
+						MessageID:               msgCtx.ExecutionContext.MessageID,
+						Action:                  msgCtx.ExecutionContext.Action,
+						ParentOrchestrationID:   msgCtx.ExecutionContext.ParentOrchestrationID,
+						ParentOrchestrationName: msgCtx.ExecutionContext.ParentOrchestrationName,
+					}
+				}
+				// Update the request ID in the response context
 				responseCtx.RequestID = requestID
 			}
 		}
@@ -670,27 +641,12 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 			zap.String("parent_orch", targetOrchestrationID))
 	}
 
-	responseHeaders := map[string]string{
-		"correlation_id":   msgCtx.ExecutionContext.CorrelationID,
-		"orchestration_id": targetOrchestrationID,
-		"message_type":     "response",
-		"in_response_to":   responseCtx.InResponseTo,
-		"fuel_budget":      fmt.Sprintf("%d", msgCtx.ExecutionContext.FuelBudget),
-		// Add other required headers
-		"message_id":      responseCtx.MessageID,
-		"request_id":      responseCtx.RequestID,
-		"from_agent_id":   responseCtx.FromAgentID,
-		"from_agent_type": responseCtx.FromAgentType,
-		"to_agent_id":     responseCtx.ToAgentID,
-		"to_agent_type":   responseCtx.ToAgentType,
-		"client_id":       msgCtx.ExecutionContext.ClientID,
-		"timestamp":       responseCtx.Timestamp.Format(time.RFC3339),
-		"version":         responseCtx.Version,
-	}
+	// Build response headers
+	responseHeaders := responseCtx.ToHeaders()
 
 	contextLogger.Info("TRACE: Sending workflow response",
 		zap.String("response_orch_id", targetOrchestrationID),
-		zap.String("reply_topic", msgCtx.ExecutionContext.ReplyToTopic),
+		zap.String("reply_topic", responseCtx.ReplyToTopic),
 		zap.Int("fuel_returning", msgCtx.ExecutionContext.FuelBudget),
 		zap.Any("response_headers", responseHeaders))
 
@@ -722,7 +678,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		Action:          "response",
 		Data: map[string]interface{}{
 			"result":         result,
-			"in_response_to": responseCtx.InResponseTo,
+			"in_response_to": responseCtx.RequestID, // Use the request ID here
 		},
 		Timestamp: responseCtx.Timestamp,
 		Version:   responseCtx.Version,
@@ -733,11 +689,17 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
 
+	// Get correlation ID for message key
+	key := []byte(responseCtx.CorrelationID)
+	if responseCtx.CorrelationID == "" {
+		key = []byte(responseCtx.MessageID)
+	}
+
 	// Send using response context headers
 	return p.producer.Produce(ctx,
 		responseCtx.ReplyToTopic,
 		responseHeaders,
-		[]byte(responseCtx.CorrelationID),
+		key,
 		responseBytes)
 }
 
@@ -820,8 +782,12 @@ func (p *MessageProcessor) sendResponse(ctx context.Context, msgCtx *MessageCont
 		zap.String("orchestration_id", headers["orchestration_id"]),
 		zap.String("in_response_to", headers["in_response_to"]))
 
-	return p.producer.Produce(ctx, topic, response.ToHeaders(),
-		[]byte(response.CorrelationID), responseBytes)
+	return p.producer.Produce(ctx,
+		topic,
+		response.ToHeaders(),
+		[]byte(response.CorrelationID),
+		responseBytes,
+	)
 }
 
 func (p *MessageProcessor) normalizeResponseData(result interface{}) map[string]interface{} {
@@ -913,7 +879,7 @@ func (p *MessageProcessor) getAgentTypeFromID(ctx context.Context, agentID strin
     `, clientID)
 
 	var agentType string
-	err := p.db.QueryRow(ctx, query, agentID).Scan(&agentType)
+	err := p.db.QueryRowContext(ctx, query, agentID).Scan(&agentType)
 	if err == nil && agentType != "" {
 		p.logger.Debug("Found agent type from instance",
 			zap.String("agent_id", agentID),
@@ -951,7 +917,7 @@ func (p *MessageProcessor) isKnownAgentType(ctx context.Context, agentType strin
 	`
 
 	var exists bool
-	err := p.db.QueryRow(ctx, query, agentType).Scan(&exists)
+	err := p.db.QueryRowContext(ctx, query, agentType).Scan(&exists)
 	if err != nil {
 		p.logger.Debug("Error checking agent type existence",
 			zap.String("agent_type", agentType),
@@ -1330,4 +1296,424 @@ func getFuncInfo(skip int) (current, caller string) {
 		caller = runtime.FuncForPC(pc).Name()
 	}
 	return
+}
+
+// processRequest handles incoming requests
+func (p *MessageProcessor) processRequest(ctx context.Context, msgCtx *MessageContext) error {
+	p.logger.Info("Processing request",
+		zap.String("action", msgCtx.Action),
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+		zap.String("request_id", msgCtx.ExecutionContext.RequestID),
+		zap.Bool("stateless", msgCtx.IsStateless))
+
+	// Set our agent information
+	msgCtx.ExecutionContext.FromAgentType = p.agentType
+	msgCtx.ExecutionContext.FromAgentID = p.podName
+	msgCtx.ExecutionContext.ProcessingNode = p.podName
+
+	// Load agent configuration
+	agentConfig, err := p.configLoader.LoadAgentConfig(p.agentType)
+	if err != nil {
+		p.logger.Error("Failed to load agent config", zap.Error(err))
+		return p.sendErrorResponse(ctx, msgCtx, fmt.Errorf("configuration error: %w", err))
+	}
+
+	// Check if this should be orchestrated
+	if p.shouldOrchestrate(msgCtx, agentConfig) {
+		return p.executeWorkflow(ctx, msgCtx, agentConfig)
+	}
+
+	// Simple action execution
+	return p.executeSimpleAction(ctx, msgCtx, agentConfig)
+}
+
+// processResponse handles incoming responses
+func (p *MessageProcessor) processResponse(ctx context.Context, msgCtx *MessageContext) error {
+	execCtx := msgCtx.ExecutionContext
+
+	// Check if we have InResponseTo context
+	if execCtx.InResponseTo == nil {
+		p.logger.Error("Response missing InResponseTo context",
+			zap.String("message_id", execCtx.MessageID))
+		return fmt.Errorf("response missing InResponseTo context")
+	}
+
+	p.logger.Info("Processing response",
+		zap.String("request_id", execCtx.InResponseTo.RequestID),
+		zap.String("status", execCtx.Status),
+		zap.String("from_agent", execCtx.FromAgentID),
+		zap.Bool("stateless", msgCtx.IsStateless))
+
+	// Handle response through orchestrator
+	if p.orchestrator != nil {
+		// Create orchestrator context from InResponseTo
+		orchestratorCtx := &types.ExecutionContext{
+			// Use the parent orchestration ID if available, otherwise use current
+			OrchestrationID: execCtx.InResponseTo.ParentOrchestrationID,
+			RequestID:       execCtx.InResponseTo.RequestID,
+			StepID:          execCtx.InResponseTo.StepID,
+			StepName:        execCtx.InResponseTo.StepName,
+			Status:          execCtx.Status,
+			RetryVersion:    execCtx.RetryVersion, // Use RetryVersion, not RetryCount
+		}
+
+		// If no parent orchestration ID, use the current orchestration ID
+		if orchestratorCtx.OrchestrationID == "" {
+			orchestratorCtx.OrchestrationID = execCtx.OrchestrationID
+		}
+
+		return p.orchestrator.ProcessResponse(ctx, orchestratorCtx, msgCtx.Message.Value)
+	}
+
+	// Direct response handling for non-orchestrated agents
+	return p.handleDirectResponse(ctx, msgCtx)
+}
+
+// executeWorkflow executes a workflow through the orchestrator
+func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
+	p.logger.Info("Executing workflow",
+		zap.String("start_step", config.Workflow.StartStep),
+		zap.Int("total_steps", len(config.Workflow.Steps)),
+		zap.String("agent_type", p.agentType),
+		zap.Bool("stateless", msgCtx.IsStateless))
+
+	// Ensure ExecutionContext has agent type
+	if msgCtx.ExecutionContext.FromAgentType == "" {
+		msgCtx.ExecutionContext.FromAgentType = p.agentType
+	}
+
+	// Convert ExecutionContext to headers for orchestrator
+	headers := msgCtx.ExecutionContext.ToHeaders()
+
+	// Update metrics
+	observability.WorkflowsStarted.WithLabelValues(p.agentType, config.Workflow.StartStep, msgCtx.ExecutionContext.ClientID).Inc()
+	observability.ActiveWorkflows.WithLabelValues(p.agentType).Inc()
+	defer observability.ActiveWorkflows.WithLabelValues(p.agentType).Dec()
+
+	// Execute through orchestrator (use existing ExecuteWorkflow method)
+	return p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, headers, msgCtx.Message.Value)
+}
+
+// executeSimpleAction executes a simple action without orchestration
+func (p *MessageProcessor) executeSimpleAction(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
+	p.logger.Info("Executing simple action",
+		zap.String("action", msgCtx.Action),
+		zap.String("agent_type", p.agentType))
+
+	// Find the action in config
+	var actionConfig *models.ActionConfig
+	for _, action := range config.Actions {
+		if action.Name == msgCtx.Action {
+			actionConfig = &action
+			break
+		}
+	}
+
+	if actionConfig == nil {
+		return p.sendErrorResponse(ctx, msgCtx, fmt.Errorf("unknown action: %s", msgCtx.Action))
+	}
+
+	// Execute the action
+	result := make(map[string]interface{})
+
+	// Simple mock execution - replace with actual action logic
+	switch msgCtx.Action {
+	case "ping":
+		result["status"] = "pong"
+		result["timestamp"] = time.Now().Unix()
+	case "health":
+		result["status"] = "healthy"
+		result["agent_type"] = p.agentType
+		result["pod_name"] = p.podName
+	default:
+		// Execute through action handler if available
+		if actionConfig.Handler != "" {
+			// Call registered action handler
+			result["status"] = "completed"
+			result["handler"] = actionConfig.Handler
+		} else {
+			result["status"] = "completed"
+			result["action"] = msgCtx.Action
+		}
+	}
+
+	return p.sendSuccessResponse(ctx, msgCtx, result)
+}
+
+// sendSuccessResponse sends a successful response
+func (p *MessageProcessor) sendSuccessResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
+	response := &types.ResponseMessage{
+		Headers: types.ResponseHeaders{
+			Sender: types.AgentIdentity{
+				AgentType:    p.agentType,
+				AgentID:      p.podName,
+				PodName:      p.podName,
+				AgentVersion: os.Getenv("AGENT_VERSION"),
+			},
+
+			// Response tracking - individual fields, not InResponseTo struct
+			InResponseToRequestID:      msgCtx.ExecutionContext.RequestID,
+			InResponseToStepID:         msgCtx.ExecutionContext.StepID,
+			InResponseToStepName:       msgCtx.ExecutionContext.StepName,
+			InResponseToParentOrchID:   msgCtx.ExecutionContext.ParentOrchestrationID,
+			InResponseToParentOrchName: msgCtx.ExecutionContext.ParentOrchestrationName,
+			InResponseToMessageID:      msgCtx.ExecutionContext.MessageID,
+			InResponseToAction:         msgCtx.ExecutionContext.Action,
+			RetryCount:                 msgCtx.ExecutionContext.RetryVersion,
+
+			// My context
+			MyOrchestrationID:   msgCtx.ExecutionContext.OrchestrationID,
+			MyOrchestrationName: msgCtx.ExecutionContext.OrchestrationName,
+			MyRequestsTopic:     fmt.Sprintf("system.agent.%s.requests", p.agentType),
+			MyResponsesTopic:    fmt.Sprintf("system.agent.%s.responses", p.agentType),
+
+			// Identity
+			CorrelationID:   msgCtx.ExecutionContext.CorrelationID,
+			CorrelationName: msgCtx.ExecutionContext.CorrelationName,
+			ClientID:        msgCtx.ExecutionContext.ClientID,
+			MessageType:     "response",
+			FromAgent:       p.podName,
+			ToAgent:         msgCtx.ExecutionContext.FromAgentID,
+			ToAgentType:     msgCtx.ExecutionContext.FromAgentType,
+
+			// Status flags
+			Status:              "complete",
+			IsComplete:          true,
+			IsError:             false,
+			IsMultipartResponse: false,
+			PartCount:           1,
+
+			// Timing & Resources
+			TimeSent:                   time.Now(),
+			TimeSpent:                  time.Since(msgCtx.StartTime),
+			OverallTimeBudgetRemaining: msgCtx.ExecutionContext.TimeoutSeconds - int(time.Since(msgCtx.StartTime).Seconds()),
+			TopicSentTo:                "",  // Will be set below
+			FuelUsed:                   100, // Calculate actual fuel usage
+			RemainingFuelBudget:        msgCtx.ExecutionContext.FuelBudget - 100,
+		},
+		Body: types.ResponseBody{
+			Success: true,
+			Headers: nil, // Optional headers
+			Body: struct {
+				Result      interface{}      `json:"result"`
+				Calculation interface{}      `json:"calculation,omitempty"`
+				Error       *types.ErrorInfo `json:"error,omitempty"`
+			}{
+				Result:      result,
+				Calculation: nil,
+				Error:       nil,
+			},
+		},
+	}
+
+	// Determine response topic
+	responseTopic := msgCtx.ExecutionContext.ReplyToTopic
+	if responseTopic == "" {
+		// Use sender's response topic
+		if msgCtx.ExecutionContext.FromAgentType != "" {
+			responseTopic = fmt.Sprintf("system.agent.%s.responses", msgCtx.ExecutionContext.FromAgentType)
+		} else {
+			responseTopic = "system.responses.generic"
+		}
+	}
+
+	// Update the topic in headers
+	response.Headers.TopicSentTo = responseTopic
+
+	// Send response
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	// Convert headers to map for Kafka
+	headers := response.Headers.ToMap()
+
+	// Use correlation ID as key
+	key := []byte(msgCtx.ExecutionContext.CorrelationID)
+	if msgCtx.ExecutionContext.CorrelationID == "" {
+		key = []byte(msgCtx.ExecutionContext.MessageID)
+	}
+
+	// Producer.Produce signature: (ctx, topic, headers, key, value)
+	return p.producer.Produce(ctx, responseTopic, headers, key, responseBytes)
+}
+
+// sendErrorResponse sends an error response
+func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *MessageContext, err error) error {
+	p.logger.Error("Sending error response",
+		zap.Error(err),
+		zap.String("request_id", msgCtx.ExecutionContext.RequestID))
+
+	response := &types.ResponseMessage{
+		Headers: types.ResponseHeaders{
+			Sender: types.AgentIdentity{
+				AgentType:    p.agentType,
+				AgentID:      p.podName,
+				PodName:      p.podName,
+				AgentVersion: os.Getenv("AGENT_VERSION"),
+			},
+
+			// Response tracking
+			InResponseToRequestID:    msgCtx.ExecutionContext.RequestID,
+			InResponseToStepID:       msgCtx.ExecutionContext.StepID,
+			InResponseToParentOrchID: msgCtx.ExecutionContext.ParentOrchestrationID,
+			InResponseToMessageID:    msgCtx.ExecutionContext.MessageID,
+			InResponseToAction:       msgCtx.ExecutionContext.Action,
+
+			// My context
+			MyOrchestrationID: msgCtx.ExecutionContext.OrchestrationID,
+
+			// Identity
+			CorrelationID: msgCtx.ExecutionContext.CorrelationID,
+			ClientID:      msgCtx.ExecutionContext.ClientID,
+			MessageType:   "response",
+
+			// Status flags
+			Status:     "error_unrecoverable",
+			IsError:    true,
+			IsComplete: true,
+
+			// Timing
+			TimeSent: time.Now(),
+		},
+		Body: types.ResponseBody{
+			Success: false,
+			Headers: nil,
+			Body: struct {
+				Result      interface{}      `json:"result"`
+				Calculation interface{}      `json:"calculation,omitempty"`
+				Error       *types.ErrorInfo `json:"error,omitempty"`
+			}{
+				Result:      nil,
+				Calculation: nil,
+				Error: &types.ErrorInfo{
+					Code:        "PROCESSING_ERROR",
+					Message:     err.Error(),
+					Recoverable: false,
+				},
+			},
+		},
+	}
+
+	// Determine response topic
+	responseTopic := msgCtx.ExecutionContext.ReplyToTopic
+	if responseTopic == "" && msgCtx.ExecutionContext.FromAgentType != "" {
+		responseTopic = fmt.Sprintf("system.agent.%s.responses", msgCtx.ExecutionContext.FromAgentType)
+	}
+	if responseTopic == "" {
+		responseTopic = "system.responses.error"
+	}
+
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal error response: %w", err)
+	}
+
+	headers := response.Headers.ToMap()
+	key := []byte(msgCtx.ExecutionContext.CorrelationID)
+
+	return p.producer.Produce(ctx, responseTopic, headers, key, responseBytes)
+}
+
+// handleDirectResponse handles responses for non-orchestrated flows
+func (p *MessageProcessor) handleDirectResponse(ctx context.Context, msgCtx *MessageContext) error {
+	// For simple agents that don't use orchestration
+	p.logger.Info("Handling direct response",
+		zap.String("request_id", msgCtx.ExecutionContext.InResponseTo.RequestID),
+		zap.String("status", msgCtx.ExecutionContext.Status))
+
+	// Update metrics
+	if msgCtx.ExecutionContext.Status == "complete" {
+		observability.ResponsesCompleted.WithLabelValues(p.agentType, "success").Inc()
+	} else if strings.Contains(msgCtx.ExecutionContext.Status, "error") {
+		observability.ResponsesCompleted.WithLabelValues(p.agentType, "error").Inc()
+	}
+
+	return nil
+}
+
+// shouldOrchestrate determines if the message needs orchestration
+func (p *MessageProcessor) shouldOrchestrate(msgCtx *MessageContext, config *models.AgentConfig) bool {
+	// Check if workflow is defined
+	if config.Workflow.StartStep != "" && len(config.Workflow.Steps) > 0 {
+		return true
+	}
+
+	// Check if this is an explicit orchestration request
+	if mode := msgCtx.Headers["workflow_mode"]; mode == "orchestration" {
+		return true
+	}
+
+	// Check if the action indicates orchestration
+	action := msgCtx.Action
+	orchestrationActions := []string{"spawn_group", "start_orchestration", "orchestrate", "spawn_agent"}
+	for _, orchAction := range orchestrationActions {
+		if action == orchAction {
+			return true
+		}
+	}
+
+	return false
+}
+
+// processLegacyMessage handles messages without ExecutionContext
+func (p *MessageProcessor) processLegacyMessage(ctx context.Context, msg kafka.Message, headers map[string]string) error {
+	// Create minimal context for legacy processing
+	msgCtx := &MessageContext{
+		Message:       msg,
+		Headers:       headers,
+		Logger:        p.logger,
+		CollectedData: make(map[string]interface{}),
+		StartTime:     time.Now(),
+	}
+
+	// Extract action
+	var payload struct {
+		Action string `json:"action"`
+	}
+	if err := json.Unmarshal(msg.Value, &payload); err == nil {
+		msgCtx.Action = payload.Action
+	}
+
+	// Use legacy processing path
+	return p.processLegacyRequest(ctx, msgCtx)
+}
+
+// processLegacyRequest handles legacy request processing
+func (p *MessageProcessor) processLegacyRequest(ctx context.Context, msgCtx *MessageContext) error {
+	p.logger.Info("Processing legacy request",
+		zap.String("action", msgCtx.Action),
+		zap.Any("headers", msgCtx.Headers))
+
+	// Load agent configuration
+	agentConfig, err := p.configLoader.LoadAgentConfig(p.agentType)
+	if err != nil {
+		p.logger.Error("Failed to load agent config", zap.Error(err))
+		return err
+	}
+
+	// Check if this should be orchestrated
+	if p.shouldOrchestrate(msgCtx, agentConfig) {
+		// Execute through orchestrator with legacy headers
+		return p.orchestrator.ExecuteWorkflow(ctx, agentConfig.Workflow, msgCtx.Headers, msgCtx.Message.Value)
+	}
+
+	// Simple action - send basic response
+	result := map[string]interface{}{
+		"status": "completed",
+		"action": msgCtx.Action,
+	}
+
+	responseData, _ := json.Marshal(result)
+	responseTopic := msgCtx.Headers["reply_to_topic"]
+	if responseTopic == "" {
+		responseTopic = "system.responses.generic"
+	}
+
+	return p.producer.Produce(ctx,
+		responseTopic,
+		msgCtx.Headers,
+		[]byte(msgCtx.Headers["correlation_id"]),
+		responseData)
 }

@@ -7,32 +7,29 @@ import (
 
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/kafka"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
 // ActionHandler is the function signature for action handlers
 type ActionHandler func(context.Context, ActionParams) (interface{}, error)
 
-// MessageTracer interface to avoid cyclic import
-type MessageTracer interface {
-	TraceMessage(execCtx interface{}, direction, topic string, payload interface{})
-	TraceAwaitedSteps(execCtx interface{}, awaitedSteps []string, action string)
-	TraceError(execCtx interface{}, err error, context string)
-	DumpTrace(correlationID string)
-}
+// ActionFunc is the standard action function signature
+type ActionFunc func(context.Context, ActionParams) (interface{}, error)
 
 // ActionParams contains all parameters an action might need
 type ActionParams struct {
-	Context         context.Context
-	Headers         map[string]string
-	StepConfig      models.Step
-	InputData       []byte
-	CollectedData   map[string]interface{}
-	SagaCoordinator interface{}
-	Producer        kafka.Producer
-	DB              *sql.DB
-	Logger          *zap.Logger
-	Tracer          MessageTracer // interface
-	AgentType       string
-	CurrentStep     string
+	Context          context.Context
+	ExecutionContext *types.ExecutionContext
+	Headers          map[string]string
+	StepConfig       models.Step
+	InputData        []byte
+	CollectedData    map[string]interface{}
+	SagaCoordinator  interface{}
+	Producer         kafka.Producer
+	DB               *sql.DB
+	Logger           *zap.Logger
+	Tracer           types.MessageTracer // interface
+	AgentType        string
+	CurrentStep      string
 }

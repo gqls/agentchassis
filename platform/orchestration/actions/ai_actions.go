@@ -367,3 +367,14 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 		"complexity": complexity,
 	}, nil
 }
+
+func getMapKeys(m map[string]interface{}) []string {
+	if m == nil {
+		return []string{}
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 // ExecutionContext represents the complete context for message execution
@@ -52,6 +51,13 @@ type ExecutionContext struct {
 	ToAgentType    string        `json:"to_agent_type"`
 	RequestsTopic  string        `json:"requests_topic,omitempty"`
 	ResponsesTopic string        `json:"responses_topic,omitempty"`
+
+	// Processing info
+	ProcessingNode string `json:"processing_node,omitempty"`
+	ToAgentID      string `json:"to_agent_id,omitempty"`
+	FromAgentID    string `json:"from_agent_id,omitempty"`
+	FromAgentType  string `json:"from_agent_type,omitempty"`
+	ReplyToTopic   string `json:"reply_to_topic,omitempty"`
 
 	// Resource Management
 	FuelBudget     int           `json:"fuel_budget"`
@@ -477,41 +483,74 @@ func NewExecutionContext(correlationID, clientID, agentID, agentType string) *Ex
 }
 
 // FromHeaders creates an ExecutionContext from Kafka headers
+// FILE: platform/orchestration/types/context.go (improved FromHeaders)
 func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
-	// Required fields validation
-	if headers["correlation_id"] == "" {
-		return nil, fmt.Errorf("missing required header: correlation_id")
-	}
-	if headers["orchestration_id"] == "" {
-		return nil, fmt.Errorf("missing required header: orchestration_id")
-	}
-
 	ec := &ExecutionContext{
+		// Core fields
 		CorrelationID:         headers["correlation_id"],
 		OrchestrationID:       headers["orchestration_id"],
 		ParentOrchestrationID: headers["parent_orchestration_id"],
 		ClientID:              headers["client_id"],
-		GroupID:               headers["group_id"],
-		FunctionalRole:        headers["functional_role"],
-		MessageID:             headers["message_id"],
-		RequestID:             headers["request_id"],
-		MessageType:           headers["message_type"],
-		// InResponseTo handled below
+
+		// Message identity
+		MessageID:   headers["message_id"],
+		RequestID:   headers["request_id"],
+		MessageType: headers["message_type"],
+
+		// Processing info
+		ProcessingNode: headers["processing_node"],
+		ToAgentID:      headers["to_agent_id"],
+		ToAgentType:    headers["to_agent_type"],
+		FromAgentID:    headers["from_agent_id"],
+		FromAgentType:  headers["from_agent_type"],
+		ReplyToTopic:   headers["reply_to_topic"],
+
+		// Step info
+		StepID:   headers["step_id"],
+		StepName: headers["step_name"],
+		Action:   headers["action"],
+
+		// Status (for responses)
+		Status: headers["status"],
+
+		// Routing
+		RequestsTopic:  headers["requests_topic"],
+		ResponsesTopic: headers["responses_topic"],
+
+		// Version
 		Version: headers["version"],
 	}
 
-	// FIXED: Parse InResponseTo if it's a JSON string
-	if inResponseToStr := headers["in_response_to"]; inResponseToStr != "" {
-		var responseCtx ResponseContext
-		if err := json.Unmarshal([]byte(inResponseToStr), &responseCtx); err == nil {
-			ec.InResponseTo = &responseCtx
+	// Parse sender if present
+	if senderType := headers["sender_agent_type"]; senderType != "" {
+		ec.Sender = AgentIdentity{
+			AgentType:    senderType,
+			AgentID:      headers["sender_agent_id"],
+			PodName:      headers["sender_pod_name"],
+			AgentVersion: headers["sender_agent_version"],
 		}
-		// If it fails to parse as JSON, might be legacy string format
-		// In that case, create a minimal ResponseContext
-		if ec.InResponseTo == nil {
-			ec.InResponseTo = &ResponseContext{
-				RequestID: inResponseToStr,
-			}
+	}
+
+	// Handle response context
+	if ec.MessageType == "response" {
+		ec.InResponseTo = &ResponseContext{
+			RequestID:               headers["in_response_to_request_id"],
+			StepID:                  headers["in_response_to_step_id"],
+			StepName:                headers["in_response_to_step_name"],
+			MessageID:               headers["in_response_to_message_id"],
+			Action:                  headers["in_response_to_action"],
+			ParentOrchestrationID:   headers["in_response_to_parent_orch_id"],
+			ParentOrchestrationName: headers["in_response_to_parent_orch_name"],
+		}
+
+		// Parse status flags
+		ec.IsComplete = headers["is_complete"] == "true"
+		ec.IsError = headers["is_error"] == "true"
+		ec.IsMultipartResponse = headers["is_multipart_response"] == "true"
+
+		// Parse retry version
+		if retryStr := headers["retry_version"]; retryStr != "" {
+			fmt.Sscanf(retryStr, "%d", &ec.RetryVersion)
 		}
 	}
 
@@ -522,6 +561,13 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 		ec.FuelBudget = 1000 // Default
 	}
 
+	// Parse timeout
+	if timeout := headers["timeout_seconds"]; timeout != "" {
+		fmt.Sscanf(timeout, "%d", &ec.TimeoutSeconds)
+	} else {
+		ec.TimeoutSeconds = 30 // Default
+	}
+
 	// Parse timestamp
 	if ts := headers["timestamp"]; ts != "" {
 		ec.Timestamp, _ = time.Parse(time.RFC3339, ts)
@@ -529,12 +575,9 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 		ec.Timestamp = time.Now().UTC()
 	}
 
-	// Set defaults for missing fields
+	// Set defaults for missing required fields
 	if ec.MessageID == "" {
 		ec.MessageID = uuid.New().String()
-	}
-	if ec.RequestID == "" {
-		ec.RequestID = uuid.New().String()
 	}
 	if ec.MessageType == "" {
 		ec.MessageType = "request"
@@ -544,6 +587,74 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 	}
 
 	return ec, nil
+}
+
+// ToHeaders converts ExecutionContext to map[string]string for Kafka headers
+func (ec *ExecutionContext) ToHeaders() map[string]string {
+	headers := map[string]string{
+		// Core identity
+		"correlation_id":   ec.CorrelationID,
+		"orchestration_id": ec.OrchestrationID,
+		"client_id":        ec.ClientID,
+
+		// Message identity
+		"message_id":   ec.MessageID,
+		"request_id":   ec.RequestID,
+		"message_type": ec.MessageType,
+
+		// Processing info
+		"processing_node": ec.ProcessingNode,
+		"to_agent_id":     ec.ToAgentID,
+		"to_agent_type":   ec.ToAgentType,
+		"from_agent_id":   ec.FromAgentID,
+		"from_agent_type": ec.FromAgentType,
+		"reply_to_topic":  ec.ReplyToTopic,
+
+		// Step info
+		"step_id":   ec.StepID,
+		"step_name": ec.StepName,
+		"action":    ec.Action,
+
+		// Resources
+		"fuel_budget":     fmt.Sprintf("%d", ec.FuelBudget),
+		"timeout_seconds": fmt.Sprintf("%d", ec.TimeoutSeconds),
+
+		// Metadata
+		"timestamp": ec.Timestamp.Format(time.RFC3339),
+		"version":   ec.Version,
+	}
+
+	// Add parent info if present
+	if ec.ParentOrchestrationID != "" {
+		headers["parent_orchestration_id"] = ec.ParentOrchestrationID
+		headers["parent_orchestration_name"] = ec.ParentOrchestrationName
+		headers["parent_request_id"] = ec.ParentRequestID
+	}
+
+	// Add sender info
+	headers["sender_agent_type"] = ec.Sender.AgentType
+	headers["sender_agent_id"] = ec.Sender.AgentID
+	headers["sender_pod_name"] = ec.Sender.PodName
+	headers["sender_agent_version"] = ec.Sender.AgentVersion
+
+	// Add response context if this is a response
+	if ec.InResponseTo != nil {
+		headers["in_response_to_request_id"] = ec.InResponseTo.RequestID
+		headers["in_response_to_step_id"] = ec.InResponseTo.StepID
+		headers["in_response_to_step_name"] = ec.InResponseTo.StepName
+		headers["in_response_to_message_id"] = ec.InResponseTo.MessageID
+		headers["in_response_to_action"] = ec.InResponseTo.Action
+		headers["in_response_to_parent_orch_id"] = ec.InResponseTo.ParentOrchestrationID
+		headers["in_response_to_parent_orch_name"] = ec.InResponseTo.ParentOrchestrationName
+
+		// Add response status flags
+		headers["status"] = ec.Status
+		headers["is_complete"] = fmt.Sprintf("%v", ec.IsComplete)
+		headers["is_error"] = fmt.Sprintf("%v", ec.IsError)
+		headers["retry_version"] = fmt.Sprintf("%d", ec.RetryVersion)
+	}
+
+	return headers
 }
 
 // IsChildOrchestration returns true if this is a child orchestration
@@ -604,4 +715,106 @@ func FromJSON(data []byte) (*ExecutionContext, error) {
 		return nil, err
 	}
 	return &ec, nil
+}
+
+// FILE: platform/orchestration/types/context.go (add this method to ResponseHeaders)
+
+// ToMap converts ResponseHeaders to a map for Kafka headers
+func (rh *ResponseHeaders) ToMap() map[string]string {
+	headers := make(map[string]string)
+
+	// Response tracking
+	headers["in_response_to_request_id"] = rh.InResponseToRequestID
+	headers["in_response_to_step_id"] = rh.InResponseToStepID
+	headers["in_response_to_step_name"] = rh.InResponseToStepName
+	headers["in_response_to_parent_orch_id"] = rh.InResponseToParentOrchID
+	headers["in_response_to_parent_orch_name"] = rh.InResponseToParentOrchName
+	headers["in_response_to_message_id"] = rh.InResponseToMessageID
+	headers["in_response_to_action"] = rh.InResponseToAction
+	headers["retry_count"] = fmt.Sprintf("%d", rh.RetryCount)
+
+	// My context
+	headers["my_orchestration_id"] = rh.MyOrchestrationID
+	headers["my_orchestration_name"] = rh.MyOrchestrationName
+	headers["my_requests_topic"] = rh.MyRequestsTopic
+	headers["my_responses_topic"] = rh.MyResponsesTopic
+
+	// Identity
+	headers["correlation_id"] = rh.CorrelationID
+	headers["correlation_name"] = rh.CorrelationName
+	headers["client_id"] = rh.ClientID
+	headers["message_type"] = rh.MessageType
+	headers["from_agent"] = rh.FromAgent
+	headers["to_agent"] = rh.ToAgent
+	headers["to_agent_type"] = rh.ToAgentType
+
+	// Status flags
+	headers["is_complete"] = fmt.Sprintf("%v", rh.IsComplete)
+	headers["is_error"] = fmt.Sprintf("%v", rh.IsError)
+	headers["is_multipart_response"] = fmt.Sprintf("%v", rh.IsMultipartResponse)
+	headers["part_count"] = fmt.Sprintf("%d", rh.PartCount)
+	headers["status"] = rh.Status
+
+	// Sender info
+	headers["sender_agent_type"] = rh.Sender.AgentType
+	headers["sender_agent_id"] = rh.Sender.AgentID
+	headers["sender_pod_name"] = rh.Sender.PodName
+	headers["sender_agent_version"] = rh.Sender.AgentVersion
+
+	// Timing & Resources
+	headers["time_sent"] = rh.TimeSent.Format(time.RFC3339)
+	headers["time_spent"] = rh.TimeSpent.String()
+	headers["overall_time_budget_remaining"] = fmt.Sprintf("%d", rh.OverallTimeBudgetRemaining)
+	headers["topic_sent_to"] = rh.TopicSentTo
+	headers["fuel_used"] = fmt.Sprintf("%d", rh.FuelUsed)
+	headers["remaining_fuel_budget"] = fmt.Sprintf("%d", rh.RemainingFuelBudget)
+
+	return headers
+}
+
+// ToMap converts RequestHeaders to a map for Kafka headers
+func (rh *RequestHeaders) ToMap() map[string]string {
+	headers := make(map[string]string)
+
+	// Identity
+	headers["correlation_id"] = rh.CorrelationID
+	headers["client_id"] = rh.ClientID
+	headers["correlation_name"] = rh.CorrelationName
+	headers["functional_role"] = rh.FunctionalRole
+
+	// Sender
+	headers["sender_agent_type"] = rh.Sender.AgentType
+	headers["sender_agent_id"] = rh.Sender.AgentID
+	headers["sender_pod_name"] = rh.Sender.PodName
+	headers["sender_agent_version"] = rh.Sender.AgentVersion
+
+	// Orchestration Context
+	headers["orchestration_id"] = rh.OrchestrationID
+	headers["orchestration_name"] = rh.OrchestrationName
+	headers["step_id"] = rh.StepID
+	headers["step_name"] = rh.StepName
+	headers["request_id"] = rh.RequestID
+	headers["retry_version"] = fmt.Sprintf("%d", rh.RetryVersion)
+	headers["parent_orchestration_id"] = rh.ParentOrchestrationID
+	headers["parent_orchestration_name"] = rh.ParentOrchestrationName
+	headers["parent_request_id"] = rh.ParentRequestID
+
+	// Message Metadata
+	headers["message_id"] = rh.MessageID
+	headers["message_type"] = rh.MessageType
+	headers["from_agent"] = rh.FromAgent
+	headers["to_agent"] = rh.ToAgent
+	headers["to_agent_type"] = rh.ToAgentType
+	headers["action"] = rh.Action
+	headers["timestamp"] = rh.Timestamp.Format(time.RFC3339)
+
+	// Resource Management
+	headers["fuel_budget"] = fmt.Sprintf("%d", rh.FuelBudget)
+	headers["timeout_seconds"] = fmt.Sprintf("%d", rh.TimeoutSeconds)
+
+	// Routing
+	headers["requests_topic"] = rh.RequestsTopic
+	headers["responses_topic"] = rh.ResponsesTopic
+
+	return headers
 }

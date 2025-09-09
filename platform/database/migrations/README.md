@@ -574,3 +574,37 @@ ALTER TABLE orchestration_states ADD COLUMN agent_type VARCHAR(100);
 ALTER TABLE orchestration_states ADD COLUMN processing_history JSONB DEFAULT '[]'::jsonb;
 
 ALTER TABLE orchestration_states DROP COLUMN owner_agent_id;
+
+--
+
+-- migration_001_stateless_support.sql
+BEGIN;
+
+ALTER TABLE orchestration_states
+ADD COLUMN awaited_requests JSONB DEFAULT '{}',
+ADD COLUMN processing_history JSONB DEFAULT '[]',
+ADD COLUMN subtree_agents JSONB DEFAULT '{}',
+ADD COLUMN version INTEGER DEFAULT 1;
+
+CREATE INDEX idx_awaited_requests ON orchestration_states USING gin(awaited_requests);
+CREATE INDEX idx_version ON orchestration_states(orchestration_id, version);
+
+COMMIT;
+
+-- Add these columns to orchestration_states table
+ALTER TABLE orchestration_states
+ADD COLUMN IF NOT EXISTS awaited_requests JSONB DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS processing_history JSONB DEFAULT '[]',
+ADD COLUMN IF NOT EXISTS subtree_agents JSONB DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;
+
+-- Add indexes for performance
+CREATE INDEX IF NOT EXISTS idx_awaited_requests
+ON orchestration_states USING gin(awaited_requests);
+
+CREATE INDEX IF NOT EXISTS idx_orchestration_version
+ON orchestration_states(orchestration_id, version);
+
+CREATE INDEX IF NOT EXISTS idx_orchestration_status
+ON orchestration_states(status)
+WHERE status = 'AWAITING_RESPONSES';

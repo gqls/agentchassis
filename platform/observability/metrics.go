@@ -2,11 +2,12 @@
 package observability
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
-	"time"
 )
 
 var (
@@ -143,6 +144,40 @@ var (
 		Name: "ai_persona_system_errors_total",
 		Help: "Total number of system errors",
 	}, []string{"service", "error_code"})
+
+	// Message processing metrics (used by agent.go)
+	MessagesProcessed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_messages_processed_total",
+		Help: "Total number of messages processed",
+	}, []string{"agent_type", "message_type"})
+
+	MessagesFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_messages_failed_total",
+		Help: "Total number of messages that failed processing",
+	}, []string{"agent_type", "message_type"})
+
+	MessagesDropped = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_messages_dropped_total",
+		Help: "Total number of messages dropped",
+	}, []string{"agent_type", "reason"})
+
+	MessageProcessingDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ai_persona_message_processing_duration_seconds",
+		Help:    "Duration of message processing",
+		Buckets: prometheus.ExponentialBuckets(0.01, 2, 10), // 10ms to ~10s
+	}, []string{"agent_type", "message_type"})
+
+	// Agent health metric
+	AgentHealth = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ai_persona_agent_health",
+		Help: "Health status of agents (1=healthy, 0=unhealthy)",
+	}, []string{"agent_type", "pod_name"})
+
+	// Response metrics (add this new metric)
+	ResponsesCompleted = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_responses_completed_total",
+		Help: "Total number of responses completed",
+	}, []string{"agent_type", "status"})
 )
 
 // MetricsServer provides an HTTP server for Prometheus metrics

@@ -17,6 +17,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// DiscoverAgentsAction discovers available agents
+func DiscoverAgentsAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	// Simple implementation - you can expand this
+	return map[string]interface{}{
+		"discovered_agents": []string{"agent-1", "agent-2"},
+	}, nil
+}
+
 // PlanAgentTeamAction - Used at the start of a workflow to plan the team
 func PlanAgentTeamAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
