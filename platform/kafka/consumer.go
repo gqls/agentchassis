@@ -50,7 +50,17 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 
 // Consume fetches the next message from the topic
 func (c *Consumer) Consume(ctx context.Context) (Message, error) {
-	return c.FetchMessage(ctx)
+	msg, err := c.reader.FetchMessage(ctx)
+	if err != nil {
+		return Message{}, err
+	}
+
+	// After successful processing, commit the offset
+	if err := c.reader.CommitMessages(ctx, msg); err != nil {
+		c.logger.Error("Failed to commit message", zap.Error(err))
+	}
+
+	return msg, nil
 }
 
 // FetchMessage fetches the next message from the topic

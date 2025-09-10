@@ -134,7 +134,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 
 	// Message deduplication
 	if execCtx.MessageID != "" {
-		isDuplicate, err := repo.HasProcessedMessage(ctx, execCtx.MessageID)
+		isDuplicate, err := repo.HasProcessedMessage(ctx, execCtx.CorrelationID, execCtx.RequestID, execCtx.OrchestrationID)
 		if err != nil {
 			l.Error("Failed to check message duplication", zap.Error(err))
 		} else if isDuplicate {
@@ -143,7 +143,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 		}
 
 		// Record message processing
-		if err := repo.RecordMessageProcessing(ctx, execCtx.MessageID, execCtx.CorrelationID, execCtx.OrchestrationID); err != nil {
+		if err := repo.RecordMessageProcessing(ctx, execCtx); err != nil {
 			l.Error("Failed to record message processing", zap.Error(err))
 		}
 	}
@@ -272,6 +272,16 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.ExecutionContext, plan models.WorkflowPlan, initialData []byte) (*OrchestrationState, string, bool, error) {
 	repo := NewStateRepository(s.db, s.logger)
 
+	// Generate orchestration name if not provided
+	orchestrationName := execCtx.OrchestrationName
+	if orchestrationName == "" {
+		// Generate readable name based on agent type and timestamp
+		orchestrationName = fmt.Sprintf("%s-%s-%s",
+			s.determineOwnerAgentType(execCtx),
+			execCtx.Action,
+			time.Now().Format("0102-1504"))
+	}
+
 	// Priority 1: Use explicit orchestration_id
 	if execCtx.OrchestrationID != "" {
 		state, err := repo.GetState(ctx, execCtx.OrchestrationID)
@@ -283,15 +293,25 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.E
 
 		// If we have a parent, this is likely a new child orchestration
 		if execCtx.ParentOrchestrationID != "" {
+			// Generate name for child orchestration if not provided
+			childOrchestrationName := execCtx.OrchestrationName
+			if childOrchestrationName == "" {
+				childOrchestrationName = fmt.Sprintf("%s-%s-%s",
+					s.determineOwnerAgentType(execCtx),
+					execCtx.Action,
+					time.Now().Format("0102-1504"))
+			}
+
 			s.logger.Info("Creating child orchestration",
 				zap.String("orchestration_id", execCtx.OrchestrationID),
+				zap.String("orchestration_name", childOrchestrationName),
 				zap.String("parent_orchestration_id", execCtx.ParentOrchestrationID))
 
 			ownerAgentID := s.determineOwnerAgentID(execCtx)
 			ownerAgentType := s.determineOwnerAgentType(execCtx) // ADD THIS
 
 			// When creating initial state, pass both ID and Type
-			err := repo.CreateInitialState(ctx, execCtx.OrchestrationID, execCtx.CorrelationID,
+			err := repo.CreateInitialState(ctx, execCtx.OrchestrationID, execCtx.OrchestrationName, execCtx.CorrelationID,
 				ownerAgentID, ownerAgentType, execCtx.ParentOrchestrationID, execCtx.ClientID, plan, initialData)
 
 			if err != nil {
@@ -328,14 +348,24 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.E
 		newOrchestrationID = uuid.New().String()
 	}
 
+	// Generate name for new orchestration if not provided
+	newOrchestrationName := execCtx.OrchestrationName
+	if newOrchestrationName == "" {
+		newOrchestrationName = fmt.Sprintf("%s-%s-%s",
+			s.determineOwnerAgentType(execCtx),
+			execCtx.Action,
+			time.Now().Format("0102-1504"))
+	}
+
 	ownerAgentID := s.determineOwnerAgentID(execCtx)
 	ownerAgentType := s.determineOwnerAgentType(execCtx)
 
 	s.logger.Info("Creating new orchestration",
 		zap.String("orchestration_id", newOrchestrationID),
+		zap.String("orchestration_name", newOrchestrationName),
 		zap.String("correlation_id", execCtx.CorrelationID))
 
-	err := repo.CreateInitialState(ctx, newOrchestrationID, execCtx.CorrelationID,
+	err := repo.CreateInitialState(ctx, newOrchestrationID, newOrchestrationName, execCtx.CorrelationID,
 		ownerAgentID, ownerAgentType, execCtx.ParentOrchestrationID, execCtx.ClientID, plan, initialData)
 
 	if err != nil {

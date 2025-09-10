@@ -11,6 +11,7 @@ import (
 type OrchestrationState struct {
 	// All the fields from the original
 	OrchestrationID       string
+	OrchestrationName     string
 	CorrelationID         string
 	OwnerAgentID          string
 	OwnerAgentType        string

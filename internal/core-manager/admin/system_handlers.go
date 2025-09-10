@@ -517,7 +517,7 @@ func (h *SystemHandlers) getWorkflowState(ctx context.Context, correlationID str
 	var errorNull sql.NullString
 
 	query := `
-		SELECT correlation_id, client_id, status, current_step, awaited_steps, 
+		SELECT correlation_id, orchestration_id, client_id, status, current_step, awaited_steps, 
 		       collected_data, initial_request_data, final_result, error, 
 		       created_at, updated_at
 		FROM orchestration_states
@@ -526,6 +526,7 @@ func (h *SystemHandlers) getWorkflowState(ctx context.Context, correlationID str
 
 	err := h.clientsDB.QueryRow(ctx, query, correlationID).Scan(
 		&state.CorrelationID,
+		&state.OrchestrationID,
 		&state.ClientID,
 		&state.Status,
 		&state.CurrentStep,
@@ -555,6 +556,7 @@ func (h *SystemHandlers) getWorkflowState(ctx context.Context, correlationID str
 	// Convert to map for response
 	result := map[string]interface{}{
 		"correlation_id":       state.CorrelationID,
+		"orchestration_id":     state.OrchestrationID,
 		"client_id":            state.ClientID,
 		"status":               state.Status,
 		"current_step":         state.CurrentStep,

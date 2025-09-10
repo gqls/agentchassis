@@ -444,6 +444,7 @@ func (a *Agent) processRequests() {
 				}
 				continue
 			}
+			// Process the message
 			a.processMessage(msg, "request")
 		}
 	}
@@ -519,7 +520,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 	// Check for duplicates if stateless
 	if a.isStateless && a.stateRepo != nil {
-		isDuplicate, err := a.stateRepo.HasProcessedMessage(a.ctx, execCtx.MessageID)
+		isDuplicate, err := a.stateRepo.HasProcessedMessage(a.ctx, execCtx.CorrelationID, execCtx.RequestID, execCtx.OrchestrationID)
 		if err != nil {
 			contextLogger.Error("Failed to check for duplicate", zap.Error(err))
 		} else if isDuplicate {
@@ -529,7 +530,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		}
 
 		// Record processing
-		if err := a.stateRepo.RecordMessageProcessing(a.ctx, execCtx.MessageID, execCtx.CorrelationID, execCtx.OrchestrationID); err != nil {
+		if err := a.stateRepo.RecordMessageProcessing(a.ctx, execCtx); err != nil {
 			contextLogger.Error("Failed to record message processing", zap.Error(err))
 		}
 	}

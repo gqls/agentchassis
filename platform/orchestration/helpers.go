@@ -583,6 +583,7 @@ func (oh *OrchestratorHelper) StartChildOrchestration(
 	// Create child orchestration state
 	childState := &OrchestrationState{
 		OrchestrationID:       childIDs.OrchestrationID,
+		OrchestrationName:     childIDs.OrchestrationName,
 		CorrelationID:         parent.CorrelationID,
 		OwnerAgentID:          childHeaders["agent_instance_id"],
 		ParentOrchestrationID: parent.OrchestrationID,

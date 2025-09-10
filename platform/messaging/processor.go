@@ -230,31 +230,20 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	// Execute the workflow
 	err = p.executeWorkflow(ctx, msgCtx, agentConfig)
 
+	// After handing off to the orchestrator, the message processor's job is done.
+	// The orchestrator is now responsible for the workflow's lifecycle.
 	if err != nil {
-		// Check if it's a waiting state (not an error)
+		// Only handle errors related to *starting* the workflow
 		if err == orchestration.ErrWaitingForResponse {
-			msgCtx.Logger.Info("Workflow is waiting, not sending response")
-			return nil // EXIT HERE - don't continue to sendWorkflowSuccessResponse
+			msgCtx.Logger.Info("Workflow started and is now waiting for a response.")
+			return nil
 		}
-		msgCtx.Logger.Error("Workflow execution failed", zap.Error(err))
+		msgCtx.Logger.Error("Failed to start workflow execution", zap.Error(err))
 		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
 	}
 
-	// CHECK: Get the orchestration state to see if it's waiting
-	if p.sqlDB != nil {
-		repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
-		state, stateErr := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
-		if stateErr == nil && state != nil {
-			if state.Status == orchestration.StatusAwaitingResponses {
-				msgCtx.Logger.Info("Workflow is waiting for responses, not sending completion response",
-					zap.String("orchestration_id", state.OrchestrationID),
-					zap.String("status", string(state.Status)))
-				return nil // Don't send response - we're waiting
-			}
-		}
-	}
-
-	return p.sendWorkflowSuccessResponse(ctx, msgCtx)
+	msgCtx.Logger.Info("Workflow successfully handed off to the orchestrator.")
+	return nil // Return nil to acknowledge the message without sending a premature response.
 }
 
 func (p *MessageProcessor) validateNoSelfRecursion(workflow models.WorkflowPlan, agentType string) error {
@@ -1145,25 +1134,32 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		return p.processWithoutContext(ctx, msg, headers)
 	}
 
-	// **FIX STARTS HERE**: Check for duplicate messages before any processing.
 	if p.sqlDB != nil {
-		// Use the message_id from the execution context for a stable identifier.
-		messageID := execCtx.MessageID
-		repo := orchestration.NewStateRepository(p.sqlDB, p.logger)
-		isDuplicate, checkErr := repo.HasProcessedMessage(ctx, messageID)
-		if checkErr != nil {
-			p.logger.Error("Failed to check for duplicate message, continuing processing...",
-				zap.String("message_id", messageID),
-				zap.Error(checkErr))
-		} else if isDuplicate {
-			p.logger.Warn("Duplicate message detected and ignored",
-				zap.String("message_id", messageID),
-				zap.String("orchestration_id", execCtx.OrchestrationID))
-			// Acknowledge the message without processing it further.
-			return nil
+		// Use request_id for deduplication, not message_id
+		if execCtx.RequestID != "" {
+			repo := orchestration.NewStateRepository(p.sqlDB, p.logger)
+			isDuplicate, checkErr := repo.HasProcessedMessage(ctx,
+				execCtx.CorrelationID,
+				execCtx.RequestID,
+				execCtx.OrchestrationID)
+
+			if checkErr != nil {
+				p.logger.Error("Failed to check for duplicate request",
+					zap.String("request_id", execCtx.RequestID),
+					zap.Error(checkErr))
+			} else if isDuplicate {
+				p.logger.Warn("Duplicate request detected and ignored",
+					zap.String("request_id", execCtx.RequestID),
+					zap.String("correlation_id", execCtx.CorrelationID))
+				return nil
+			}
+
+			// Record this request as processed
+			if err := repo.RecordMessageProcessing(ctx, execCtx); err != nil {
+				p.logger.Error("Failed to record request processing", zap.Error(err))
+			}
 		}
 	}
-	// **FIX ENDS HERE**
 
 	contextLogger := p.logger.With(execCtx.LogContext()...)
 
@@ -1340,7 +1336,7 @@ func (p *MessageProcessor) processResponse(ctx context.Context, msgCtx *MessageC
 			StepID:          execCtx.InResponseTo.StepID,
 			StepName:        execCtx.InResponseTo.StepName,
 			Status:          execCtx.Status,
-			RetryVersion:    execCtx.RetryVersion, // Use RetryVersion, not RetryCount
+			RetryVersion:    execCtx.RetryVersion, // Use RetryVersion
 		}
 
 		// If no parent orchestration ID, use the current orchestration ID

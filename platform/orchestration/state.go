@@ -88,6 +88,7 @@ type ProcessingRecord struct {
 type OrchestrationState struct {
 	// Identity
 	OrchestrationID       string `db:"orchestration_id"`
+	OrchestrationName     string `json:"orchestration_name,omitempty"`
 	CorrelationID         string `db:"correlation_id"`
 	OwnerAgentID          string `db:"owner_agent_id"`
 	OwnerAgentType        string `db:"owner_agent_type"`
@@ -142,36 +143,56 @@ func NewStateRepository(db *sql.DB, logger *zap.Logger) *StateRepository {
 	return &StateRepository{db: db, logger: logger}
 }
 
-// HasProcessedMessage checks if we've already processed this message
-func (r *StateRepository) HasProcessedMessage(ctx context.Context, messageID string) (bool, error) {
-	query := `SELECT EXISTS(SELECT 1 FROM processed_messages WHERE message_id = $1)`
+// HasProcessedMessage checks if a request has been processed
+func (r *StateRepository) HasProcessedMessage(ctx context.Context, correlationID, requestID, orchestrationID string) (bool, error) {
+	if requestID == "" {
+		return false, nil // Can't deduplicate without request_id
+	}
+
+	query := `
+        SELECT EXISTS(
+            SELECT 1 FROM processed_messages 
+            WHERE correlation_id = $1 
+            AND request_id = $2 
+        )`
 
 	var exists bool
-	err := r.db.QueryRowContext(ctx, query, messageID).Scan(&exists)
+	err := r.db.QueryRowContext(ctx, query, correlationID, requestID).Scan(&exists)
 	if err != nil {
-		return false, fmt.Errorf("failed to check processed message: %w", err)
+		return false, fmt.Errorf("failed to check processed request: %w", err)
 	}
 
 	return exists, nil
 }
 
-// RecordMessageProcessing records that we're processing a message
-func (r *StateRepository) RecordMessageProcessing(ctx context.Context, messageID, correlationID, orchestrationID string) error {
+// RecordMessageProcessing records a request being processed
+func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *types.ExecutionContext) error {
+	if execCtx.RequestID == "" {
+		return nil // Can't record without request_id
+	}
+
 	processingNode := os.Getenv("HOSTNAME")
 	if processingNode == "" {
 		processingNode = "unknown"
 	}
 
 	query := `
-		INSERT INTO processed_messages 
-		(message_id, correlation_id, orchestration_id, processed_at, processed_by)
-		VALUES ($1, $2, $3, NOW(), $4)
-		ON CONFLICT (message_id) DO NOTHING
-	`
+        INSERT INTO processed_messages 
+        (message_id, correlation_id, orchestration_id, request_id, message_type, processed_at, processed_by)
+        VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+        ON CONFLICT (correlation_id, request_id) DO NOTHING
+    `
 
-	_, err := r.db.ExecContext(ctx, query, messageID, correlationID, orchestrationID, processingNode)
+	_, err := r.db.ExecContext(ctx, query,
+		execCtx.MessageID,
+		execCtx.CorrelationID,
+		execCtx.OrchestrationID,
+		execCtx.RequestID,
+		execCtx.MessageType,
+		processingNode)
+
 	if err != nil {
-		return fmt.Errorf("failed to record message processing: %w", err)
+		return fmt.Errorf("failed to record request processing: %w", err)
 	}
 
 	return nil
@@ -198,26 +219,93 @@ func (r *StateRepository) CreateState(ctx context.Context, state *OrchestrationS
 		Details:   fmt.Sprintf("Created by %s", state.OwnerAgentID),
 	})
 
-	// Serialize complex fields
-	collectedDataJSON, _ := json.Marshal(state.CollectedData)
-	workflowPlanJSON, _ := json.Marshal(state.WorkflowPlan)
-	executionMetadataJSON, _ := json.Marshal(state.ExecutionMetadata)
-	executionPathJSON, _ := json.Marshal(state.ExecutionPath)
-	awaitedRequestsJSON, _ := json.Marshal(state.AwaitedRequests)
-	processingHistoryJSON, _ := json.Marshal(state.ProcessingHistory)
-	subtreeAgentsJSON, _ := json.Marshal(state.SubtreeAgents)
+	// Serialize complex fields - ensure valid JSON even when empty
+	awaitedStepsJSON := []byte("[]")
+	if state.AwaitedSteps != nil && len(state.AwaitedSteps) > 0 {
+		awaitedStepsJSON, _ = json.Marshal(state.AwaitedSteps)
+	}
+
+	collectedDataJSON := []byte("{}")
+	if state.CollectedData != nil && len(state.CollectedData) > 0 {
+		collectedDataJSON, _ = json.Marshal(state.CollectedData)
+	}
+
+	workflowPlanJSON := []byte("{}")
+	if wfData, err := json.Marshal(state.WorkflowPlan); err == nil {
+		workflowPlanJSON = wfData
+	}
+
+	executionMetadataJSON := []byte("{}")
+	if emData, err := json.Marshal(state.ExecutionMetadata); err == nil {
+		executionMetadataJSON = emData
+	}
+
+	executionPathJSON := []byte("[]")
+	if state.ExecutionPath != nil && len(state.ExecutionPath) > 0 {
+		executionPathJSON, _ = json.Marshal(state.ExecutionPath)
+	}
+
+	awaitedRequestsJSON := []byte("{}")
+	if state.AwaitedRequests != nil && len(state.AwaitedRequests) > 0 {
+		awaitedRequestsJSON, _ = json.Marshal(state.AwaitedRequests)
+	}
+
+	processingHistoryJSON := []byte("[]")
+	if state.ProcessingHistory != nil && len(state.ProcessingHistory) > 0 {
+		processingHistoryJSON, _ = json.Marshal(state.ProcessingHistory)
+	}
+
+	subtreeAgentsJSON := []byte("{}")
+	if state.SubtreeAgents != nil && len(state.SubtreeAgents) > 0 {
+		subtreeAgentsJSON, _ = json.Marshal(state.SubtreeAgents)
+	}
+
+	var parentOrchIDValue interface{}
+	if state.ParentOrchestrationID == "" {
+		parentOrchIDValue = nil
+	} else {
+		parentOrchIDValue = state.ParentOrchestrationID
+	}
+
+	var initialRequestDataValue interface{}
+	if state.InitialRequestData != nil && len(state.InitialRequestData) > 0 {
+		initialRequestDataValue = state.InitialRequestData
+	} else {
+		initialRequestDataValue = json.RawMessage("{}")
+	}
+
+	// =================================================================
+	// ADD THIS LOGGING BLOCK
+	// =================================================================
+	r.logger.Info("Attempting to insert orchestration state",
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.String("orchestration_name", state.OrchestrationName),
+		zap.String("correlation_id", state.CorrelationID),
+		zap.String("owner_agent_id", state.OwnerAgentID),
+		zap.Any("parent_orchestration_id", parentOrchIDValue),
+		zap.String("status", string(state.Status)),
+		zap.String("awaited_steps_json", string(awaitedStepsJSON)),
+		zap.String("awaited_requests_json", string(awaitedRequestsJSON)),
+		zap.String("collected_data_json", string(collectedDataJSON)),
+		zap.String("initial_request_data_raw", string(state.InitialRequestData)), // This is the most likely culprit
+		zap.String("workflow_plan_json", string(workflowPlanJSON)),
+		zap.String("execution_metadata_json", string(executionMetadataJSON)),
+	)
+	// =================================================================
+	// END LOGGING BLOCK
+	// =================================================================
 
 	query := `
 		INSERT INTO orchestration_states (
-			orchestration_id, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id,
+			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id,
 			client_id, status, current_step, awaited_steps, awaited_requests,
 			currently_executing, last_activity, processing_node, execution_started_at,
 			collected_data, initial_request_data, final_result, workflow_plan,
 			execution_path, execution_metadata, processing_history, subtree_agents,
 			fuel_budget, error, version, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 
-			$17, $18, $19, $20, $21, $22, $23, $24, NOW(), NOW()
+			$1, $26, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 
+			$17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(), NOW()
 		)
 	`
 
@@ -226,18 +314,18 @@ func (r *StateRepository) CreateState(ctx context.Context, state *OrchestrationS
 		state.CorrelationID,
 		state.OwnerAgentID,
 		state.OwnerAgentType,
-		state.ParentOrchestrationID,
+		parentOrchIDValue,
 		state.ClientID,
 		state.Status,
 		state.CurrentStep,
-		pq.Array(state.AwaitedSteps),
+		awaitedStepsJSON,
 		awaitedRequestsJSON,
 		state.CurrentlyExecuting,
 		state.LastActivity,
 		state.ProcessingNode,
 		state.ExecutionStartedAt,
 		collectedDataJSON,
-		state.InitialRequestData,
+		initialRequestDataValue,
 		state.FinalResult,
 		workflowPlanJSON,
 		executionPathJSON,
@@ -247,6 +335,7 @@ func (r *StateRepository) CreateState(ctx context.Context, state *OrchestrationS
 		state.FuelBudget,
 		state.Error,
 		1, // Initial version
+		state.OrchestrationName,
 	)
 
 	if err != nil {
@@ -262,6 +351,7 @@ func (r *StateRepository) CreateState(ctx context.Context, state *OrchestrationS
 func (r *StateRepository) CreateInitialState(
 	ctx context.Context,
 	orchestrationID string,
+	orchestrationName string,
 	correlationID string,
 	ownerAgentID string,
 	ownerAgentType string,
@@ -275,6 +365,7 @@ func (r *StateRepository) CreateInitialState(
 	// Create the state object
 	state := &OrchestrationState{
 		OrchestrationID:       orchestrationID,
+		OrchestrationName:     orchestrationName,
 		CorrelationID:         correlationID,
 		OwnerAgentID:          ownerAgentID,
 		OwnerAgentType:        ownerAgentType,
@@ -322,7 +413,7 @@ func (r *StateRepository) CreateInitialState(
 func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) (*OrchestrationState, error) {
 	query := `
 		SELECT 
-			orchestration_id, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id,
+			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id,
 			client_id, status, current_step, awaited_steps, awaited_requests,
 			currently_executing, last_activity, processing_node, execution_started_at,
 			collected_data, initial_request_data, final_result, workflow_plan,
@@ -340,6 +431,7 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 
 	err := r.db.QueryRowContext(ctx, query, orchestrationID).Scan(
 		&state.OrchestrationID,
+		&state.OrchestrationName,
 		&state.CorrelationID,
 		&state.OwnerAgentID,
 		&state.OwnerAgentType,
@@ -426,6 +518,7 @@ func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *Orc
 	})
 
 	// Serialize complex fields
+	awaitedStepsJSON, _ := json.Marshal(state.AwaitedSteps)
 	collectedDataJSON, _ := json.Marshal(state.CollectedData)
 	workflowPlanJSON, _ := json.Marshal(state.WorkflowPlan)
 	executionMetadataJSON, _ := json.Marshal(state.ExecutionMetadata)
@@ -461,7 +554,7 @@ func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *Orc
 	result, err := r.db.ExecContext(ctx, query,
 		state.Status,
 		state.CurrentStep,
-		pq.Array(state.AwaitedSteps),
+		awaitedStepsJSON,
 		awaitedRequestsJSON,
 		currentlyExecutingValue,
 		collectedDataJSON,
@@ -773,7 +866,7 @@ func (r *StateRepository) ExecuteWithOptimisticLocking(ctx context.Context, orch
 
 func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlationID string) (*OrchestrationState, error) {
 	query := `
-        SELECT orchestration_id, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id,
+        SELECT orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id,
                client_id, status, current_step, awaited_steps, awaited_requests,
                currently_executing, last_activity, processing_node, execution_started_at,
                collected_data, initial_request_data, final_result, workflow_plan,
@@ -793,6 +886,7 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 
 	err := r.db.QueryRowContext(ctx, query, correlationID).Scan(
 		&state.OrchestrationID,
+		&state.OrchestrationName,
 		&state.CorrelationID,
 		&state.OwnerAgentID,
 		&state.OwnerAgentType,

@@ -677,3 +677,47 @@ created_at TIMESTAMP DEFAULT NOW(),
 INDEX idx_agent_type (agent_type),
 INDEX idx_status (status)
 );
+
+--
+
+-- Drop the old primary key
+ALTER TABLE processed_messages DROP CONSTRAINT processed_messages_pkey;
+
+-- Add request_id column
+ALTER TABLE processed_messages ADD COLUMN request_id UUID;
+ALTER TABLE processed_messages ADD COLUMN response_to_request_id UUID;
+ALTER TABLE processed_messages ADD COLUMN message_type VARCHAR(50);
+
+-- Create composite primary key for better deduplication
+-- Use request_id for requests, response_to_request_id for responses
+ALTER TABLE processed_messages ADD CONSTRAINT processed_messages_unique
+UNIQUE (correlation_id, request_id, orchestration_id);
+
+-- Add indexes for performance
+CREATE INDEX idx_processed_request_id ON processed_messages(request_id);
+CREATE INDEX idx_processed_response_to ON processed_messages(response_to_request_id);
+CREATE INDEX idx_processed_correlation ON processed_messages(correlation_id);
+
+-- Clear old data
+TRUNCATE TABLE processed_messages;
+
+--
+
+-- Drop existing constraints
+ALTER TABLE processed_messages DROP CONSTRAINT IF EXISTS processed_messages_pkey;
+ALTER TABLE processed_messages DROP CONSTRAINT IF EXISTS processed_messages_unique;
+
+-- Add request_id column if not exists
+ALTER TABLE processed_messages ADD COLUMN IF NOT EXISTS request_id UUID;
+ALTER TABLE processed_messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(50);
+
+-- Create unique constraint on correlation_id + request_id only
+ALTER TABLE processed_messages ADD CONSTRAINT processed_messages_unique
+UNIQUE (correlation_id, request_id);
+
+-- Add indexes for performance
+CREATE INDEX IF NOT EXISTS idx_processed_request_id ON processed_messages(request_id);
+CREATE INDEX IF NOT EXISTS idx_processed_correlation ON processed_messages(correlation_id);
+
+-- Clear old data to start fresh
+TRUNCATE TABLE processed_messages;
