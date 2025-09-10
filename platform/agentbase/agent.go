@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/messaging"
 	"github.com/gqls/agentchassis/platform/observability"
@@ -103,6 +104,117 @@ type Agent struct {
 	// Metrics
 	messagesProcessed uint64
 	lastActivity      time.Time
+}
+
+// NewAgent creates a new agent with the standard constructor signature
+func New(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*Agent, error) {
+	// Extract agent type from config or environment
+	agentType := ""
+	if cfg.Custom != nil {
+		if at, ok := cfg.Custom["agent_type"].(string); ok {
+			agentType = at
+		}
+	}
+	if agentType == "" {
+		agentType = os.Getenv("AGENT_TYPE")
+	}
+	if agentType == "" {
+		agentType = "generic" // fallback
+	}
+
+	// Generate agent ID
+	agentID := os.Getenv("HOSTNAME")
+	if agentID == "" {
+		agentID = fmt.Sprintf("%s-local-%d", agentType, os.Getpid())
+	}
+
+	// Generate agent name
+	agentName := fmt.Sprintf("%s-%s", agentType, time.Now().Format("0102-1504"))
+
+	// Build database URL
+	var databaseURL string
+	if cfg.Infrastructure.ClientsDatabase.Host != "" {
+		dbPassword := os.Getenv(cfg.Infrastructure.ClientsDatabase.PasswordEnvVar)
+		databaseURL = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+			cfg.Infrastructure.ClientsDatabase.Host,
+			cfg.Infrastructure.ClientsDatabase.Port,
+			cfg.Infrastructure.ClientsDatabase.User,
+			dbPassword,
+			cfg.Infrastructure.ClientsDatabase.DBName,
+			cfg.Infrastructure.ClientsDatabase.SSLMode)
+	}
+
+	// Extract version
+	agentVersion := os.Getenv("AGENT_VERSION")
+	if agentVersion == "" {
+		agentVersion = "1.0.0"
+	}
+
+	// Create child context with cancel
+	agentCtx, cancel := context.WithCancel(ctx)
+
+	// Enhance logger with agent context
+	agentLogger := logger.With(
+		zap.String("agent_type", agentType),
+		zap.String("agent_id", agentID),
+		zap.String("pod_name", os.Getenv("HOSTNAME")),
+		zap.Bool("stateless", true))
+
+	agent := &Agent{
+		// Identity
+		AgentID:      agentID,
+		AgentName:    agentName,
+		AgentType:    agentType,
+		AgentVersion: agentVersion,
+
+		// Pod identity
+		PodName:   os.Getenv("HOSTNAME"),
+		NodeName:  os.Getenv("NODE_NAME"),
+		Namespace: os.Getenv("POD_NAMESPACE"),
+
+		// Configuration
+		config: &AgentConfig{
+			AgentType:       agentType,
+			AgentName:       agentName,
+			AgentVersion:    agentVersion,
+			EnableStateless: true,
+			KafkaBrokers:    cfg.Infrastructure.KafkaBrokers,
+			DatabaseURL:     databaseURL,
+			MaxRetries:      3,
+			RetryBackoff:    5 * time.Second,
+			DynamicConfig:   cfg.Custom,
+		},
+		DynamicConfig: cfg.Custom,
+		isStateless:   true,
+
+		// Core components
+		logger:       agentLogger,
+		ctx:          agentCtx,
+		cancel:       cancel,
+		shutdownChan: make(chan struct{}),
+
+		// Topics
+		requestsTopic:  fmt.Sprintf("system.agent.%s.requests", agentType),
+		responsesTopic: fmt.Sprintf("system.agent.%s.responses", agentType),
+
+		// Metrics
+		lastActivity: time.Now(),
+	}
+
+	// Initialize components
+	if err := agent.initializeComponents(); err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to initialize components: %w", err)
+	}
+
+	agent.initialized = true
+
+	agentLogger.Info("Agent created",
+		zap.String("agent_id", agent.AgentID),
+		zap.String("requests_topic", agent.requestsTopic),
+		zap.String("responses_topic", agent.responsesTopic))
+
+	return agent, nil
 }
 
 // NewAgent creates a new agent (static or dynamic)

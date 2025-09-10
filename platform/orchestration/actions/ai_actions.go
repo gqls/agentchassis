@@ -61,22 +61,17 @@ func ExecuteLLMPromptActionREAL(ctx context.Context, params ActionParams) (inter
 			params.Logger.Error("Failed to load agent definition",
 				zap.String("agent_type", params.AgentType),
 				zap.Error(err))
-			return nil, fmt.Errorf("failed to load agent definition.: %w", err)
+			return nil, fmt.Errorf("failed to load agent definition: %w", err)
 		}
 
 		params.Logger.Info("Agent definition loaded",
 			zap.String("type", agentDef.Type),
 			zap.Int("config_size", len(agentDef.DefaultConfig)))
 
-		// Unmarshal the JSON config
-		if err := json.Unmarshal(agentDef.DefaultConfig, &agentConfig); err != nil {
-			params.Logger.Error("Failed to unmarshal agent config.",
-				zap.String("raw_config", string(agentDef.DefaultConfig)),
-				zap.Error(err))
-			return nil, fmt.Errorf("failed to unmarshal agent config.: %w", err)
-		}
+		// DefaultConfig is already a map[string]interface{}, just use it directly
+		agentConfig = agentDef.DefaultConfig
 
-		params.Logger.Info("Agent config unmarshaled successfully",
+		params.Logger.Info("Agent config ready",
 			zap.Any("config_keys", getMapKeys(agentConfig)))
 
 		// Store it for future actions in this workflow
@@ -87,7 +82,7 @@ func ExecuteLLMPromptActionREAL(ctx context.Context, params ActionParams) (inter
 		params.Logger.Error("Agent configuration is nil after all attempts",
 			zap.String("agent_type", params.AgentType),
 			zap.Bool("had_ok", ok))
-		return nil, fmt.Errorf("agent configuration not found.")
+		return nil, fmt.Errorf("agent configuration not found")
 	}
 
 	// Rest of the function remains the same...
@@ -198,6 +193,8 @@ func loadAgentDefinitionForAction(ctx context.Context, db interface{}, agentType
 	`
 
 	var def AgentDefinition
+	var defaultConfigJSON json.RawMessage // Read as RawMessage first
+	var capabilitiesJSON json.RawMessage
 
 	// Handle both *sql.DB and *pgxpool.Pool
 	switch d := db.(type) {
@@ -247,8 +244,20 @@ func loadAgentDefinitionForAction(ctx context.Context, db interface{}, agentType
 		return nil, fmt.Errorf("unsupported database type: %T", db)
 	}
 
+	// Now unmarshal the JSON into the map
+	if len(defaultConfigJSON) > 0 && string(defaultConfigJSON) != "null" {
+		if err := json.Unmarshal(defaultConfigJSON, &def.DefaultConfig); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal default_config: %w", err)
+		}
+	}
+
+	// Unmarshal capabilities
+	if len(capabilitiesJSON) > 0 {
+		json.Unmarshal(capabilitiesJSON, &def.Capabilities)
+	}
+
 	// Validate that we have a config
-	if len(def.DefaultConfig) == 0 || string(def.DefaultConfig) == "null" {
+	if def.DefaultConfig == nil {
 		return nil, fmt.Errorf("agent %s has no default config", agentType)
 	}
 

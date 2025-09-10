@@ -18,6 +18,7 @@ import (
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
+	"github.com/gqls/agentchassis/platform/orchestration/actions"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/platform/validation"
 	"go.uber.org/zap"
@@ -85,16 +86,6 @@ func NewMessageProcessor(
 		podName:      podName,
 		stateRepo:    orchestration.NewStateRepository(sqlDB, logger),
 	}
-}
-
-// AgentDefinition represents an agent's configuration from the database
-type AgentDefinition struct {
-	Type          string
-	DisplayName   string
-	Description   string
-	Category      string
-	DefaultConfig map[string]interface{}
-	Capabilities  []string
 }
 
 // process determines how to handle the message based on agent configuration
@@ -278,23 +269,18 @@ func (p *MessageProcessor) validateNoSelfRecursion(workflow models.WorkflowPlan,
 }
 
 // loadAgentDefinition loads the agent definition from the database
-func (p *MessageProcessor) loadAgentDefinition(ctx context.Context, agentType string) (*AgentDefinition, error) {
+func (p *MessageProcessor) loadAgentDefinition(ctx context.Context, agentType string) (*actions.AgentDefinition, error) {
 	p.logger.Debug("Loading agent definition", zap.String("agent_type", agentType))
 
-	p.logger.Info("In function - ",
-		zap.String("Function: ", "loadAgentDefinition"),
-		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
-	)
-
 	query := `
-		SELECT type, display_name, description, category, default_config, capabilities
-		FROM agent_definitions
-		WHERE type = $1
-	`
+        SELECT type, display_name, description, category, default_config, capabilities
+        FROM agent_definitions
+        WHERE type = $1
+    `
 
-	var def AgentDefinition
-	var configJSON []byte
-	var capabilitiesJSON []byte
+	var def actions.AgentDefinition
+	var configJSON json.RawMessage // Read as RawMessage first
+	var capabilitiesJSON json.RawMessage
 
 	err := p.db.QueryRowContext(ctx, query, agentType).Scan(
 		&def.Type,
@@ -318,7 +304,7 @@ func (p *MessageProcessor) loadAgentDefinition(ctx context.Context, agentType st
 		zap.String("category", def.Category),
 		zap.String("raw_config", string(configJSON)))
 
-	// Parse the JSON config
+	// Parse the JSON config into map
 	if err := json.Unmarshal(configJSON, &def.DefaultConfig); err != nil {
 		p.logger.Error("Failed to parse agent config JSON", zap.Error(err))
 		return nil, fmt.Errorf("failed to parse agent config: %w", err)
@@ -394,7 +380,7 @@ func (p *MessageProcessor) getStringValue(m map[string]interface{}, key string) 
 }
 
 // determineProcessingMode figures out how this agent should process messages
-func (p *MessageProcessor) determineProcessingMode(agentDef *AgentDefinition, payload map[string]interface{}) string {
+func (p *MessageProcessor) determineProcessingMode(agentDef *actions.AgentDefinition, payload map[string]interface{}) string {
 	// Check if explicitly configured
 	if mode, ok := agentDef.DefaultConfig["processing_mode"].(string); ok {
 		return mode
@@ -951,7 +937,7 @@ func (p *MessageProcessor) getAgentTypeAndIDFromHeaders(headers map[string]strin
 	return agentType, agentID
 }
 
-func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *AgentDefinition, msgCtx *MessageContext) (models.WorkflowPlan, error) {
+func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions.AgentDefinition, msgCtx *MessageContext) (models.WorkflowPlan, error) {
 	p.logger.Info("DEBUG: selectWorkflow entry",
 		zap.Any("default_config_keys", agentDef.DefaultConfig),
 		zap.Any("workflow_exists", agentDef.DefaultConfig["workflow"] != nil),
@@ -1009,7 +995,7 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *AgentDe
 	return p.convertToWorkflowPlan(workflowConfig), nil
 }
 
-func (p *MessageProcessor) determineWorkflowMode(msgCtx *MessageContext, agentDef *AgentDefinition) string {
+func (p *MessageProcessor) determineWorkflowMode(msgCtx *MessageContext, agentDef *actions.AgentDefinition) string {
 	// Safe type checking
 	if delegationPrefs, ok := agentDef.DefaultConfig["delegation_preferences"].(map[string]interface{}); ok {
 		if preferDelegation, ok := delegationPrefs["prefer_delegation"].(bool); ok && preferDelegation {

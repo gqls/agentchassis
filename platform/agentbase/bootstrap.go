@@ -103,21 +103,20 @@ func (a *Agent) Bootstrap() error {
 	if bootstrapResp.Config != nil {
 		// Store agent type if returned
 		if agentType, ok := bootstrapResp.Config["agent_type"].(string); ok {
-			a.agentType = agentType
+			a.AgentType = agentType
 		}
 
 		// Store topics if returned
 		if topics, ok := bootstrapResp.Config["topics"].(map[string]interface{}); ok {
 			if reqTopic, ok := topics["requests"].(string); ok {
-				a.requestTopic = reqTopic
+				a.requestsTopic = reqTopic
 			}
 			if respTopic, ok := topics["responses"].(string); ok {
-				a.responseTopic = respTopic
+				a.responsesTopic = respTopic
 			}
 		}
 	}
 
 	return nil
 
-	return nil
 }

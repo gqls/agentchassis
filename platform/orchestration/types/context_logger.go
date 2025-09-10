@@ -23,8 +23,13 @@ func (ec *ExecutionContext) LogContext() []zapcore.Field {
 	if ec.ParentOrchestrationID != "" {
 		fields = append(fields, zap.String("parent_orchestration_id", ec.ParentOrchestrationID))
 	}
-	if ec.InResponseTo != "" {
-		fields = append(fields, zap.String("in_response_to", ec.InResponseTo))
+	if ec.InResponseTo != nil {
+		if ec.InResponseTo.RequestID != "" {
+			fields = append(fields, zap.String("in_response_to_request_id", ec.InResponseTo.RequestID))
+		}
+		if ec.InResponseTo.StepID != "" {
+			fields = append(fields, zap.String("in_response_to_step_id", ec.InResponseTo.StepID))
+		}
 	}
 	if ec.GroupID != "" {
 		fields = append(fields, zap.String("group_id", ec.GroupID))

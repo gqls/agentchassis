@@ -38,7 +38,7 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		if parentCtxData, ok := params.CollectedData["__execution_context__"]; ok {
 			if _, ok := parentCtxData.(*types.ExecutionContext); ok {
 				// Create response context
-				responseCtx := execCtx.CreateResponseContext()
+				responseCtx := execCtx.CreateResponseContext("completed", 0)
 
 				// Build response
 				response := models.TaskResponse{

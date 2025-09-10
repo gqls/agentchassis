@@ -608,3 +608,72 @@ ON orchestration_states(orchestration_id, version);
 CREATE INDEX IF NOT EXISTS idx_orchestration_status
 ON orchestration_states(status)
 WHERE status = 'AWAITING_RESPONSES';
+
+
+--
+
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db << 'EOF'
+INSERT INTO agent_definitions (
+type, display_name, description, category, default_config, capabilities
+) VALUES (
+'calculator',
+'Calculator Agent',
+'A simple agent that performs arithmetic calculations.',
+'data-driven',
+'{
+"ai_service": {
+"provider": "anthropic",
+"model": "claude-3-haiku-20240307"
+},
+"prompt_template": "You are a calculator. Perform the operation ''{{.input.operation}}'' on the operands {{.input.operands}}. Respond ONLY with the final numerical result and nothing else.",
+"workflow": {
+"start_step": "calculate",
+"steps": {
+"calculate": {
+"action": "execute_llm_prompt",
+"description": "Perform the calculation.",
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Finish the calculation task."
+}
+}
+}
+}'::jsonb,
+'["calculation", "arithmetic"]'::jsonb
+) ON CONFLICT (type) DO UPDATE SET
+display_name = EXCLUDED.display_name,
+description = EXCLUDED.description,
+default_config = EXCLUDED.default_config,
+capabilities = EXCLUDED.capabilities,
+updated_at = NOW();
+EOF
+
+--
+
+-- Request tracking table
+CREATE TABLE IF NOT EXISTS request_tracking (
+request_id VARCHAR(255) PRIMARY KEY,
+orchestration_id VARCHAR(255) NOT NULL,
+target_agent_id VARCHAR(255),
+created_at TIMESTAMP DEFAULT NOW(),
+updated_at TIMESTAMP DEFAULT NOW(),
+status VARCHAR(50) DEFAULT 'pending',
+retry_count INT DEFAULT 0,
+INDEX idx_orchestration_id (orchestration_id),
+INDEX idx_status (status)
+);
+
+-- Agent instances table
+CREATE TABLE IF NOT EXISTS agent_instances (
+agent_id VARCHAR(255) PRIMARY KEY,
+agent_type VARCHAR(100),
+status VARCHAR(50) DEFAULT 'initializing',
+last_activity TIMESTAMP DEFAULT NOW(),
+last_heartbeat TIMESTAMP,
+metadata JSONB,
+created_at TIMESTAMP DEFAULT NOW(),
+INDEX idx_agent_type (agent_type),
+INDEX idx_status (status)
+);

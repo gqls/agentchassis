@@ -112,12 +112,18 @@ func (t *TraceLogger) TraceMessage(execCtx interface{}, direction, topic string,
 		}
 	}
 
+	inResponseToRequestID := "not set"
+	inResponseToStepID := "not set"
+	if ctx.InResponseTo != nil {
+		inResponseToRequestID = ctx.InResponseTo.RequestID
+		inResponseToStepID = ctx.InResponseTo.StepID
+	}
+
 	// Enhanced logging with payload preview
 	t.logger.Info("MESSAGE_TRACE",
 		zap.String("correlation_id", ctx.CorrelationID),
 		zap.String("orchestration_id", ctx.OrchestrationID),
 		zap.String("request_id", ctx.RequestID),
-		zap.String("in_response_to", ctx.InResponseTo),
 		zap.String("direction", direction),
 		zap.String("topic", topic),
 		zap.String("from", fmt.Sprintf("%s/%s", ctx.FromAgentID, ctx.FromAgentType)),
@@ -126,11 +132,12 @@ func (t *TraceLogger) TraceMessage(execCtx interface{}, direction, topic string,
 		zap.String("from_agent_type", ctx.FromAgentType),
 		zap.String("to_agent_id", ctx.ToAgentID),
 		zap.String("to_agent_type", ctx.ToAgentType),
-		zap.String("owner_agent_id", ctx.OwnerAgentID), // Add owner tracking
-		zap.String("owner_agent_type", ctx.OwnerAgentType),
 		zap.String("payload_preview", payloadPreview),
 		zap.String("container", os.Getenv("HOSTNAME")), // Add container hostname
-		zap.Int("message_count", len(trace.Messages)))
+		zap.Int("message_count", len(trace.Messages)),
+		zap.String("in_response_to_request_id", inResponseToRequestID),
+		zap.String("in_response_to_step_id", inResponseToStepID),
+	)
 }
 
 // Helper method to create a safe payload preview

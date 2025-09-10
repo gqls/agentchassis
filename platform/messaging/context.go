@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/kafka"
-	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
@@ -23,8 +22,9 @@ type MessageContext struct {
 	StartTime        time.Time
 
 	// For stateless operation
-	OrchestrationState *orchestration.OrchestrationState
-	IsStateless        bool
+	OrchestrationID   string
+	OrchestrationName string
+	IsStateless       bool
 }
 
 // NewMessageContext creates a new message context with ExecutionContext
@@ -109,7 +109,7 @@ func (m *MessageContext) GetParentContext() map[string]interface{} {
 
 // CreateChildContext creates a new ExecutionContext for calling another agent
 func (m *MessageContext) CreateChildContext(toAgentID, toAgentType string) *types.ExecutionContext {
-	return m.ExecutionContext.CreateChildContext(toAgentID, toAgentType)
+	return m.ExecutionContext.CreateChildContext(toAgentType)
 }
 
 // CreateResponseContext creates a response context for sending responses
@@ -125,9 +125,9 @@ func (mc *MessageContext) CreateResponseContext() *types.ExecutionContext {
 		OrchestrationID: mc.Headers["orchestration_id"],
 		RequestID:       mc.Headers["request_id"],
 		InResponseTo: &types.ResponseContext{
-			RequestID:       mc.Headers["request_id"],
-			OrchestrationID: mc.Headers["orchestration_id"],
-			MessageID:       mc.Headers["message_id"],
+			RequestID:             mc.Headers["request_id"],
+			ParentOrchestrationID: mc.Headers["orchestration_id"],
+			MessageID:             mc.Headers["message_id"],
 		},
 		FromAgentID:   mc.Headers["agent_id"],
 		FromAgentType: mc.Headers["agent_type"],
