@@ -54,17 +54,18 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Build message for child
 	msg := models.AgentMessage{
-		MessageID:       childCtx.MessageID,
-		RequestID:       childCtx.RequestID,
-		CorrelationID:   childCtx.CorrelationID,
-		OrchestrationID: childCtx.OrchestrationID,
-		FromAgentID:     childCtx.FromAgentID,
-		ToAgentID:       childCtx.ToAgentID,
-		MessageType:     childCtx.MessageType,
-		Action:          "process",
-		Data:            params.CollectedData,
-		Timestamp:       childCtx.Timestamp,
-		Version:         childCtx.Version,
+		MessageID:         childCtx.MessageID,
+		RequestID:         childCtx.RequestID,
+		CorrelationID:     childCtx.CorrelationID,
+		OrchestrationID:   childCtx.OrchestrationID,
+		OrchestrationName: childCtx.OrchestrationName,
+		FromAgentID:       childCtx.FromAgentID,
+		ToAgentID:         childCtx.ToAgentID,
+		MessageType:       childCtx.MessageType,
+		Action:            "process",
+		Data:              params.CollectedData,
+		Timestamp:         childCtx.Timestamp,
+		Version:           childCtx.Version,
 	}
 
 	// Add parent context to message data for child to use when responding

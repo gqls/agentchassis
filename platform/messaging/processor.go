@@ -55,7 +55,7 @@ func NewMessageProcessor(
 	var sqlDB *sql.DB
 	if connStr := os.Getenv("DATABASE_URL"); connStr != "" {
 		var err error
-		sqlDB, err = sql.Open("postgres", connStr)
+		sqlDB, err = sql.Open("pgx", connStr)
 		if err != nil {
 			logger.Error("Failed to create SQL DB connection", zap.Error(err))
 		}
@@ -106,7 +106,9 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 
 	msgCtx.Logger.Info("Starting message processing",
 		zap.String("action", msgCtx.Action),
-		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+		zap.String("orchestration_name", msgCtx.ExecutionContext.OrchestrationName),
+	)
 
 	/*	// The processor KNOWS its own agent type
 		msgCtx.ExecutionContext.FromAgentType = p.agentType
@@ -547,6 +549,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	contextLogger.Info("CRITICAL_FLOW: sendWorkflowResponse called",
 		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+		zap.String("orchestration_name", msgCtx.ExecutionContext.OrchestrationName),
 		zap.String("original_request_id", msgCtx.ExecutionContext.RequestID),
 		zap.Any("in_response_to", msgCtx.ExecutionContext.InResponseTo),
 		zap.Any("result_type", fmt.Sprintf("%T", result)))
@@ -644,13 +647,14 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	// Build response message
 	response := models.AgentMessage{
-		MessageID:       responseCtx.MessageID,
-		CorrelationID:   responseCtx.CorrelationID,
-		OrchestrationID: responseCtx.OrchestrationID,
-		FromAgentID:     responseCtx.FromAgentID,
-		ToAgentID:       responseCtx.ToAgentID,
-		MessageType:     "response",
-		Action:          "response",
+		MessageID:         responseCtx.MessageID,
+		CorrelationID:     responseCtx.CorrelationID,
+		OrchestrationID:   responseCtx.OrchestrationID,
+		OrchestrationName: responseCtx.OrchestrationName,
+		FromAgentID:       responseCtx.FromAgentID,
+		ToAgentID:         responseCtx.ToAgentID,
+		MessageType:       "response",
+		Action:            "response",
 		Data: map[string]interface{}{
 			"result":         result,
 			"in_response_to": responseCtx.RequestID, // Use the request ID here
@@ -732,13 +736,14 @@ func (p *MessageProcessor) sendResponse(ctx context.Context, msgCtx *MessageCont
 	)
 
 	response := models.AgentMessage{
-		MessageID:       uuid.New().String(),
-		CorrelationID:   headers["correlation_id"],
-		OrchestrationID: headers["orchestration_id"],
-		FromAgentID:     headers["from_agent_id"],
-		ToAgentID:       headers["to_agent_id"],
-		MessageType:     "response",
-		Action:          "response",
+		MessageID:         uuid.New().String(),
+		CorrelationID:     headers["correlation_id"],
+		OrchestrationID:   headers["orchestration_id"],
+		OrchestrationName: headers["orchestration_name"],
+		FromAgentID:       headers["from_agent_id"],
+		ToAgentID:         headers["to_agent_id"],
+		MessageType:       "response",
+		Action:            "response",
 		Data: map[string]interface{}{
 			"result":         result,
 			"in_response_to": headers["in_response_to"],

@@ -10,13 +10,14 @@ import (
 // AgentMessage is the new unified message format for agent-to-agent communication
 type AgentMessage struct {
 	// Core routing - this is the KEY CHANGE
-	MessageID       string `json:"message_id"`
-	RequestID       string `json:"request_id"` // replicates MessageID, get rid whenever we can
-	CorrelationID   string `json:"correlation_id"`
-	OrchestrationID string `json:"orchestration_id"`
-	FromAgentID     string `json:"from_agent_id"`  // WHO sent this
-	ToAgentID       string `json:"to_agent_id"`    // WHO should process this
-	ReplyToTopic    string `json:"reply_to_topic"` // WHERE to send response
+	MessageID         string `json:"message_id"`
+	RequestID         string `json:"request_id"` // replicates MessageID, get rid whenever we can
+	CorrelationID     string `json:"correlation_id"`
+	OrchestrationID   string `json:"orchestration_id"`
+	OrchestrationName string `json:"orchestration_name"`
+	FromAgentID       string `json:"from_agent_id"`  // WHO sent this
+	ToAgentID         string `json:"to_agent_id"`    // WHO should process this
+	ReplyToTopic      string `json:"reply_to_topic"` // WHERE to send response
 
 	AgentInstanceID string `json:"agent_instance_id"`
 
@@ -45,16 +46,17 @@ func (am *AgentMessage) ToTaskRequest() TaskRequest {
 
 func (am *AgentMessage) ToHeaders() map[string]string {
 	headers := map[string]string{
-		"message_id":       am.MessageID,
-		"request_id":       am.MessageID,
-		"correlation_id":   am.CorrelationID,
-		"orchestration_id": am.OrchestrationID,
-		"from_agent_id":    am.FromAgentID,
-		"to_agent_id":      am.ToAgentID,
-		"reply_to_topic":   am.ReplyToTopic,
-		"message_type":     am.MessageType,
-		"message_version":  am.Version,
-		"timestamp":        am.Timestamp.Format(time.RFC3339),
+		"message_id":         am.MessageID,
+		"request_id":         am.MessageID,
+		"correlation_id":     am.CorrelationID,
+		"orchestration_id":   am.OrchestrationID,
+		"orchestration_name": am.OrchestrationName,
+		"from_agent_id":      am.FromAgentID,
+		"to_agent_id":        am.ToAgentID,
+		"reply_to_topic":     am.ReplyToTopic,
+		"message_type":       am.MessageType,
+		"message_version":    am.Version,
+		"timestamp":          am.Timestamp.Format(time.RFC3339),
 	}
 
 	// Add tree path if present
@@ -76,15 +78,16 @@ func AgentMessageFromHeaders(headers map[string]string, body []byte) (*AgentMess
 	}
 
 	return &AgentMessage{
-		MessageID:       headers["message_id"],
-		CorrelationID:   headers["correlation_id"],
-		OrchestrationID: headers["orchestration_id"],
-		FromAgentID:     headers["from_agent_id"],
-		ToAgentID:       headers["to_agent_id"],
-		ReplyToTopic:    headers["reply_to_topic"],
-		MessageType:     headers["message_type"],
-		Version:         headers["message_version"],
-		Data:            data,
-		Timestamp:       time.Now(),
+		MessageID:         headers["message_id"],
+		CorrelationID:     headers["correlation_id"],
+		OrchestrationID:   headers["orchestration_id"],
+		OrchestrationName: headers["orchestration_name"],
+		FromAgentID:       headers["from_agent_id"],
+		ToAgentID:         headers["to_agent_id"],
+		ReplyToTopic:      headers["reply_to_topic"],
+		MessageType:       headers["message_type"],
+		Version:           headers["message_version"],
+		Data:              data,
+		Timestamp:         time.Now(),
 	}, nil
 }

@@ -19,6 +19,8 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/platform/validation"
+	_ "github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
 
@@ -309,7 +311,7 @@ func NewAgent(config AgentConfig) (*Agent, error) {
 func (a *Agent) initializeComponents() error {
 	// Initialize database if URL provided
 	if a.config.DatabaseURL != "" {
-		db, err := sql.Open("postgres", a.config.DatabaseURL)
+		db, err := sql.Open("pgx", a.config.DatabaseURL)
 		if err != nil {
 			return fmt.Errorf("failed to connect to database: %w", err)
 		}

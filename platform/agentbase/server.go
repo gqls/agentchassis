@@ -8,6 +8,7 @@ import (
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/messaging"
 	"github.com/gqls/agentchassis/platform/observability"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
 
@@ -93,7 +94,7 @@ func (s *AgentServer) Run() error {
 			observability.KafkaMessagesConsumed.WithLabelValues(msg.Topic, s.consumerGroup).Inc()
 
 			// Process asynchronously
-			go s.processMessage(msg, messageCount)
+			s.processMessage(msg, messageCount)
 		}
 	}
 }

@@ -13,6 +13,8 @@ import (
 	"github.com/gqls/agentchassis/platform/agentbase"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/logger"
+	_ "github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
 

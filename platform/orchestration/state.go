@@ -12,7 +12,6 @@ import (
 
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
-	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -200,6 +199,11 @@ func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *
 
 // CreateState creates a new orchestration state
 func (r *StateRepository) CreateState(ctx context.Context, state *OrchestrationState) error {
+	r.logger.Info("CreateState called",
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.String("orchestration_name", state.OrchestrationName),
+		zap.String("correlation_id", state.CorrelationID))
+
 	// Initialize maps if nil
 	if state.AwaitedRequests == nil {
 		state.AwaitedRequests = make(map[string]*AwaitedRequest)
@@ -274,9 +278,6 @@ func (r *StateRepository) CreateState(ctx context.Context, state *OrchestrationS
 		initialRequestDataValue = json.RawMessage("{}")
 	}
 
-	// =================================================================
-	// ADD THIS LOGGING BLOCK
-	// =================================================================
 	r.logger.Info("Attempting to insert orchestration state",
 		zap.String("orchestration_id", state.OrchestrationID),
 		zap.String("orchestration_name", state.OrchestrationName),
@@ -287,55 +288,52 @@ func (r *StateRepository) CreateState(ctx context.Context, state *OrchestrationS
 		zap.String("awaited_steps_json", string(awaitedStepsJSON)),
 		zap.String("awaited_requests_json", string(awaitedRequestsJSON)),
 		zap.String("collected_data_json", string(collectedDataJSON)),
-		zap.String("initial_request_data_raw", string(state.InitialRequestData)), // This is the most likely culprit
+		zap.String("initial_request_data_raw", string(state.InitialRequestData)),
 		zap.String("workflow_plan_json", string(workflowPlanJSON)),
 		zap.String("execution_metadata_json", string(executionMetadataJSON)),
 	)
-	// =================================================================
-	// END LOGGING BLOCK
-	// =================================================================
 
 	query := `
-		INSERT INTO orchestration_states (
-			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id,
-			client_id, status, current_step, awaited_steps, awaited_requests,
-			currently_executing, last_activity, processing_node, execution_started_at,
-			collected_data, initial_request_data, final_result, workflow_plan,
-			execution_path, execution_metadata, processing_history, subtree_agents,
-			fuel_budget, error, version, created_at, updated_at
-		) VALUES (
-			$1, $26, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 
-			$17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(), NOW()
-		)
-	`
+        INSERT INTO orchestration_states (
+            orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, 
+            parent_orchestration_id, client_id, status, current_step, awaited_steps, 
+            awaited_requests, currently_executing, last_activity, processing_node, execution_started_at,
+            collected_data, initial_request_data, final_result, workflow_plan,
+            execution_path, execution_metadata, processing_history, subtree_agents,
+            fuel_budget, error, version, created_at, updated_at
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
+            $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 
+            $21, $22, $23, $24, $25, $26, NOW(), NOW()
+        ) ON CONFLICT (orchestration_id) DO NOTHING`
 
 	_, err := r.db.ExecContext(ctx, query,
-		state.OrchestrationID,
-		state.CorrelationID,
-		state.OwnerAgentID,
-		state.OwnerAgentType,
-		parentOrchIDValue,
-		state.ClientID,
-		state.Status,
-		state.CurrentStep,
-		awaitedStepsJSON,
-		awaitedRequestsJSON,
-		state.CurrentlyExecuting,
-		state.LastActivity,
-		state.ProcessingNode,
-		state.ExecutionStartedAt,
-		collectedDataJSON,
-		initialRequestDataValue,
-		state.FinalResult,
-		workflowPlanJSON,
-		executionPathJSON,
-		executionMetadataJSON,
-		processingHistoryJSON,
-		subtreeAgentsJSON,
-		state.FuelBudget,
-		state.Error,
-		1, // Initial version
-		state.OrchestrationName,
+		state.OrchestrationID,    // $1
+		state.OrchestrationName,  // $2
+		state.CorrelationID,      // $3
+		state.OwnerAgentID,       // $4
+		state.OwnerAgentType,     // $5
+		parentOrchIDValue,        // $6
+		state.ClientID,           // $7
+		state.Status,             // $8
+		state.CurrentStep,        // $9
+		awaitedStepsJSON,         // $10
+		awaitedRequestsJSON,      // $11
+		state.CurrentlyExecuting, // $12
+		state.LastActivity,       // $13
+		state.ProcessingNode,     // $14
+		state.ExecutionStartedAt, // $15
+		collectedDataJSON,        // $16
+		initialRequestDataValue,  // $17
+		state.FinalResult,        // $18
+		workflowPlanJSON,         // $19
+		executionPathJSON,        // $20
+		executionMetadataJSON,    // $21
+		processingHistoryJSON,    // $22
+		subtreeAgentsJSON,        // $23
+		state.FuelBudget,         // $24
+		state.Error,              // $25
+		1,                        // $26 - version
 	)
 
 	if err != nil {
@@ -346,9 +344,78 @@ func (r *StateRepository) CreateState(ctx context.Context, state *OrchestrationS
 	return nil
 }
 
-// this method wraps CreateState with the signature coordinator expects
+func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationID, orchestrationName string, correlationID, ownerAgentID, ownerAgentType string, parentOrchestrationID, clientID string, plan models.WorkflowPlan, initialData []byte) error {
 
-func (r *StateRepository) CreateInitialState(
+	query := `
+		INSERT INTO orchestration_states (
+			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id, client_id,
+			status, current_step, awaited_steps, collected_data, initial_request_data,
+			workflow_plan, execution_metadata, execution_path, version, created_at, updated_at,
+			currently_executing, last_activity, processing_node
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		ON CONFLICT (orchestration_id) DO NOTHING
+	`
+
+	// Prepare data for insertion
+	awaitedStepsJSON, _ := json.Marshal([]string{})
+	collectedData := map[string]interface{}{"agent_type": os.Getenv("AGENT_TYPE")}
+	collectedDataJSON, _ := json.Marshal(collectedData)
+	workflowPlanJSON, _ := json.Marshal(plan)
+	metadata := ExecutionMetadata{
+		TotalSteps:     len(plan.Steps),
+		CompletedSteps: 0,
+		SkippedSteps:   0,
+		FailedSteps:    0,
+		RetryCount:     make(map[string]int),
+		Checkpoints:    make(map[string]time.Time),
+		StartTime:      time.Now().UTC(),
+	}
+	metadataJSON, _ := json.Marshal(metadata)
+	executionPathJSON, _ := json.Marshal([]ExecutionRecord{})
+	now := time.Now().UTC()
+	processingNode := os.Getenv("HOSTNAME")
+	if processingNode == "" {
+		processingNode = "unknown"
+	}
+
+	var parentOrchIDValue interface{}
+	if parentOrchestrationID == "" {
+		parentOrchIDValue = nil
+	} else {
+		parentOrchIDValue = parentOrchestrationID
+	}
+
+	// Attempt the atomic insert
+	result, err := r.db.ExecContext(ctx, query,
+		orchestrationID, orchestrationName, correlationID, ownerAgentID, ownerAgentType, parentOrchIDValue, clientID,
+		StatusInitialized, plan.StartStep, awaitedStepsJSON, collectedDataJSON, initialData,
+		workflowPlanJSON, metadataJSON, executionPathJSON, 1, now, now,
+		nil, now, processingNode)
+
+	if err != nil {
+		// This would be an unexpected database error, not a primary key violation
+		r.logger.Error("Failed to execute initial state creation",
+			zap.Error(err),
+			zap.String("orchestration_id", orchestrationID))
+		return fmt.Errorf("failed to create initial state: %w", err)
+	}
+
+	// If no rows were affected, it means another process won the race.
+	// The record already exists, so we don't need to do anything further.
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		r.logger.Info("Another process created the state, proceeding with existing record",
+			zap.String("orchestration_id", orchestrationID))
+	} else {
+		r.logger.Info("Initial orchestration state created successfully",
+			zap.String("orchestration_id", orchestrationID))
+	}
+
+	return nil
+}
+
+func (r *StateRepository) CreateInitialStateOld(
 	ctx context.Context,
 	orchestrationID string,
 	orchestrationName string,
@@ -360,6 +427,12 @@ func (r *StateRepository) CreateInitialState(
 	plan models.WorkflowPlan,
 	initialData []byte,
 ) error {
+
+	r.logger.Info("CreateInitialState called",
+		zap.String("orchestration_id", orchestrationID),
+		zap.String("orchestration_name", orchestrationName),
+		zap.Int("initial_data_len", len(initialData)))
+
 	executionTime := time.Now()
 
 	// Create the state object
@@ -411,6 +484,7 @@ func (r *StateRepository) CreateInitialState(
 
 // GetState retrieves orchestration state by ID
 func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) (*OrchestrationState, error) {
+
 	query := `
 		SELECT 
 			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id,
@@ -425,8 +499,8 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 
 	state := &OrchestrationState{}
 	var collectedDataJSON, workflowPlanJSON, executionMetadataJSON, executionPathJSON []byte
-	var awaitedRequestsJSON, processingHistoryJSON, subtreeAgentsJSON []byte
-	var finalResultValue, errorValue, currentlyExecutingValue sql.NullString
+	var awaitedRequestsJSON, awaitedStepsJSON, processingHistoryJSON, subtreeAgentsJSON []byte
+	var finalResultValue, errorValue, parentOrchestrationIDNull, currentlyExecutingValue sql.NullString
 	var executionStartedAtValue sql.NullTime
 
 	err := r.db.QueryRowContext(ctx, query, orchestrationID).Scan(
@@ -435,11 +509,11 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 		&state.CorrelationID,
 		&state.OwnerAgentID,
 		&state.OwnerAgentType,
-		&state.ParentOrchestrationID,
+		&parentOrchestrationIDNull,
 		&state.ClientID,
 		&state.Status,
 		&state.CurrentStep,
-		pq.Array(&state.AwaitedSteps),
+		&awaitedStepsJSON,
 		&awaitedRequestsJSON,
 		&currentlyExecutingValue,
 		&state.LastActivity,
@@ -467,6 +541,14 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 		return nil, fmt.Errorf("failed to get state: %w", err)
 	}
 
+	// Initialize maps if nil
+	if state.AwaitedRequests == nil {
+		state.AwaitedRequests = make(map[string]*AwaitedRequest)
+	}
+	if state.SubtreeAgents == nil {
+		state.SubtreeAgents = make(map[string]*types.SubtreeInfo)
+	}
+
 	// Deserialize complex fields
 	json.Unmarshal(collectedDataJSON, &state.CollectedData)
 	json.Unmarshal(workflowPlanJSON, &state.WorkflowPlan)
@@ -490,12 +572,12 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 		state.ExecutionStartedAt = &executionStartedAtValue.Time
 	}
 
-	// Initialize maps if nil
-	if state.AwaitedRequests == nil {
-		state.AwaitedRequests = make(map[string]*AwaitedRequest)
+	// deserialize it:
+	if len(awaitedStepsJSON) > 0 {
+		json.Unmarshal(awaitedStepsJSON, &state.AwaitedSteps)
 	}
-	if state.SubtreeAgents == nil {
-		state.SubtreeAgents = make(map[string]*types.SubtreeInfo)
+	if parentOrchestrationIDNull.Valid {
+		state.ParentOrchestrationID = parentOrchestrationIDNull.String
 	}
 
 	return state, nil
@@ -880,7 +962,7 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 
 	state := &OrchestrationState{}
 	var collectedDataJSON, workflowPlanJSON, executionMetadataJSON, executionPathJSON []byte
-	var awaitedRequestsJSON, processingHistoryJSON, subtreeAgentsJSON []byte
+	var awaitedRequestsJSON, awaitedStepsJSON, processingHistoryJSON, subtreeAgentsJSON []byte
 	var finalResultValue, errorValue, currentlyExecutingValue sql.NullString
 	var executionStartedAtValue sql.NullTime
 
@@ -894,7 +976,7 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 		&state.ClientID,
 		&state.Status,
 		&state.CurrentStep,
-		pq.Array(&state.AwaitedSteps),
+		&awaitedStepsJSON,
 		&awaitedRequestsJSON,
 		&currentlyExecutingValue,
 		&state.LastActivity,
@@ -914,6 +996,11 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 		&state.CreatedAt,
 		&state.UpdatedAt,
 	)
+
+	// deserialize it:
+	if len(awaitedStepsJSON) > 0 {
+		json.Unmarshal(awaitedStepsJSON, &state.AwaitedSteps)
+	}
 
 	if err != nil {
 		if err == sql.ErrNoRows {

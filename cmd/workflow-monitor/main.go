@@ -36,7 +36,7 @@ func main() {
 		log.Fatal("Client ID is required (use -client flag or CLIENT_ID env var)")
 	}
 
-	db, err := sql.Open("postgres", *dbURL)
+	db, err := sql.Open("pgx", *dbURL)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}

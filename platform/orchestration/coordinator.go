@@ -130,10 +130,10 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 		return fmt.Errorf("client_id is required to execute a workflow")
 	}
 
-	repo := NewStateRepository(s.db, s.logger)
+	//repo := NewStateRepository(s.db, s.logger)
 
 	// Message deduplication
-	if execCtx.MessageID != "" {
+	/*	if execCtx.MessageID != "" {
 		isDuplicate, err := repo.HasProcessedMessage(ctx, execCtx.CorrelationID, execCtx.RequestID, execCtx.OrchestrationID)
 		if err != nil {
 			l.Error("Failed to check message duplication", zap.Error(err))
@@ -146,7 +146,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 		if err := repo.RecordMessageProcessing(ctx, execCtx); err != nil {
 			l.Error("Failed to record message processing", zap.Error(err))
 		}
-	}
+	}*/
 
 	// Get or create orchestration state
 	state, orchestrationID, isNew, err := s.getOrCreateState(ctx, execCtx, plan, initialData)

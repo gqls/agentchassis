@@ -470,25 +470,26 @@ func GenerateReadableName(agentType, suffix string) string {
 // NewExecutionContext creates a new execution context for an agent
 func NewExecutionContext(correlationID, clientID, agentID, agentType string) *ExecutionContext {
 	return &ExecutionContext{
-		CorrelationID:   correlationID,
-		ClientID:        clientID,
-		OrchestrationID: uuid.New().String(),
-		MessageID:       uuid.New().String(),
-		RequestID:       uuid.New().String(),
-		MessageType:     "request",
-		FuelBudget:      1000,
-		Timestamp:       time.Now().UTC(),
-		Version:         "2.0",
+		CorrelationID:     correlationID,
+		ClientID:          clientID,
+		OrchestrationID:   uuid.New().String(),
+		OrchestrationName: GenerateReadableName(agentType, "orchestration"),
+		MessageID:         uuid.New().String(),
+		RequestID:         uuid.New().String(),
+		MessageType:       "request",
+		FuelBudget:        1000,
+		Timestamp:         time.Now().UTC(),
+		Version:           "2.0",
 	}
 }
 
 // FromHeaders creates an ExecutionContext from Kafka headers
-// FILE: platform/orchestration/types/context.go (improved FromHeaders)
 func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 	ec := &ExecutionContext{
 		// Core fields
 		CorrelationID:         headers["correlation_id"],
 		OrchestrationID:       headers["orchestration_id"],
+		OrchestrationName:     headers["orchestration_name"],
 		ParentOrchestrationID: headers["parent_orchestration_id"],
 		ClientID:              headers["client_id"],
 

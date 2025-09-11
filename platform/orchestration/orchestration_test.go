@@ -85,7 +85,7 @@ func setupTestDatabase(t *testing.T) *sql.DB {
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
 
-	db, err := sql.Open("postgres", connStr)
+	db, err := sql.Open("pgx", connStr)
 	require.NoError(t, err)
 
 	// Test connection

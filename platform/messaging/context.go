@@ -34,11 +34,12 @@ func NewMessageContext(msg kafka.Message, headers map[string]string) (*MessageCo
 	if err != nil {
 		// Try to create minimal context for error handling
 		execCtx = &types.ExecutionContext{
-			CorrelationID: headers["correlation_id"],
-			ClientID:      headers["client_id"],
-			MessageType:   "request",
-			Timestamp:     time.Now().UTC(),
-			Version:       "2.0",
+			CorrelationID:   headers["correlation_id"],
+			OrchestrationID: headers["orchestration_id"],
+			ClientID:        headers["client_id"],
+			MessageType:     "request",
+			Timestamp:       time.Now().UTC(),
+			Version:         "2.0",
 		}
 	}
 
