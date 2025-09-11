@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+func SpawnAgentSimpleGeminiAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 	agentType, ok := config["agent_type"].(string)
 	if !ok {
@@ -78,7 +78,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 }
 
 // SpawnAgentAction spawns a single agent - supports both K8s Job creation and message sending with hierarchy tracking
-func SpawnAgentWithEventDrivenKubeAction(ctx context.Context, params ActionParams) (interface{}, error) {
+// func SpawnAgentWithEventDrivenKubeAction(ctx context.Context, params ActionParams) (interface{}, error) {
+func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 
 	agentType, ok := config["agent_type"].(string)
@@ -127,48 +128,60 @@ func SpawnAgentWithEventDrivenKubeAction(ctx context.Context, params ActionParam
 		},
 	}
 
-	// Check if we should create a Kubernetes Job
-	spawnMode := "message" // default
-	if mode, ok := config["spawn_mode"].(string); ok {
-		spawnMode = mode
+	// Log what mode we're using
+	params.Logger.Info("SpawnAgentAction mode",
+		zap.String("agent_type", agentType))
+
+	// ALWAYS create K8s job when spawning
+	clientID := params.Headers["client_id"]
+	if clientID == "" {
+		clientID = "demo_client"
 	}
 
-	// For orchestrator mode or if explicitly requested, create K8s Job
-	if spawnMode == "kubernetes" || params.StepConfig.Config["create_k8s_job"] == true {
-		clientID := params.Headers["client_id"]
-		if clientID == "" {
-			clientID = "demo_client"
-		}
+	params.Logger.Info("Attempting to create K8s job",
+		zap.String("client_id", clientID),
+		zap.String("agent_type", agentType))
 
-		// Get agent definition from database
-		agentDef, err := getAgentDefinition(ctx, params.DB, agentType, params.Logger)
-		if err != nil {
-			params.Logger.Warn("Failed to get agent definition, continuing with message only",
-				zap.Error(err))
-		} else if agentDef.IsActive {
-			// Check for existing agent
-			existingAgent := checkExistingAgent(ctx, params.DB, clientID, agentType)
-			if existingAgent != nil && isAgentJobRunning(ctx, existingAgent.ID, params.Logger) {
-				params.Logger.Info("Reusing existing running agent",
-					zap.String("agent_id", existingAgent.ID))
-				agentID = existingAgent.ID
-			} else {
-				// Create agent in database
-				if err := createAgentInDBFromDefinition(ctx, params, agentID, agentDef, clientID); err != nil {
-					params.Logger.Error("Failed to create agent in database", zap.Error(err))
-				}
-
-				// Spawn Kubernetes Job
-				jobName, err := spawnAgentKubernetesJobFromDefinition(ctx, agentID, agentDef, clientID, params.Logger)
-				if err != nil {
-					params.Logger.Error("Failed to spawn K8s job", zap.Error(err))
-				} else {
-					params.Logger.Info("Successfully spawned K8s job",
-						zap.String("job_name", jobName))
-				}
-			}
-		}
+	// Get agent definition and create K8s job
+	agentDef, err := getAgentDefinition(ctx, params.DB, agentType, params.Logger)
+	if err != nil {
+		params.Logger.Error("Failed to get agent definition",
+			zap.String("agent_type", agentType),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to get agent definition: %w", err)
 	}
+
+	params.Logger.Info("Got agent definition",
+		zap.String("agent_type", agentType),
+		zap.String("image", fmt.Sprintf("%s:%s", agentDef.ImageRepository, agentDef.ImageTag)),
+		zap.Bool("is_active", agentDef.IsActive))
+
+	// Create agent in DB
+	if err := createAgentInDBFromDefinition(ctx, params, agentID, agentDef, clientID); err != nil {
+		params.Logger.Error("Failed to create agent in database",
+			zap.String("agent_id", agentID),
+			zap.Error(err))
+		// Don't continue if DB creation fails
+		return nil, fmt.Errorf("failed to create agent in DB: %w", err)
+	}
+
+	params.Logger.Info("Created agent in database",
+		zap.String("agent_id", agentID))
+
+	// Always spawn K8s job
+	jobName, err := spawnAgentKubernetesJobFromDefinition(ctx, agentID, agentDef, clientID, params.Logger)
+	if err != nil {
+		params.Logger.Error("Failed to spawn K8s job",
+			zap.String("agent_id", agentID),
+			zap.String("agent_type", agentType),
+			zap.Error(err))
+		// Return error instead of continuing
+		return nil, fmt.Errorf("failed to spawn K8s job: %w", err)
+	}
+
+	params.Logger.Info("Successfully spawned K8s job",
+		zap.String("job_name", jobName),
+		zap.String("agent_id", agentID))
 
 	// Create spawn message
 	spawnMessage := &types.RequestMessage{
@@ -969,39 +982,67 @@ func (d *EnhancedDiscovery) GetAgentPerformanceSummary(ctx context.Context, agen
 	}
 }
 
-//--
 // Helper functions continued...
 
 // getAgentDefinition retrieves agent definition from database
 func getAgentDefinition(ctx context.Context, db interface{}, agentType string, logger *zap.Logger) (*AgentDefinition, error) {
 	query := `
-		SELECT id, type, display_name, description, category,
-		       image_repository, image_tag, command,
-		       resources, default_config, capabilities, topics,
-		       health_config, env_vars, is_active
-		FROM agent_definitions
-		WHERE type = $1 AND deleted_at IS NULL
-		LIMIT 1
-	`
+        SELECT id, type, display_name, description, category,
+               image_repository, image_tag, command,
+               resources, default_config, capabilities, topics,
+               health_config, env_vars, is_active
+        FROM agent_definitions
+        WHERE type = $1 AND deleted_at IS NULL
+        LIMIT 1
+    `
 
 	var def AgentDefinition
 	var command sql.NullString
+	var defaultConfigJSON, capabilitiesJSON, topicsJSON, healthConfigJSON, envVarsJSON []byte
 
 	switch d := db.(type) {
 	case *sql.DB:
 		err := d.QueryRowContext(ctx, query, agentType).Scan(
 			&def.ID, &def.Type, &def.DisplayName, &def.Description, &def.Category,
 			&def.ImageRepository, &def.ImageTag, &command,
-			&def.Resources, &def.DefaultConfig, &def.Capabilities, &def.Topics,
-			&def.HealthConfig, &def.EnvVars, &def.IsActive,
+			&def.Resources,     // This is already json.RawMessage
+			&defaultConfigJSON, // Scan as bytes first
+			&capabilitiesJSON,  // Scan as bytes first
+			&topicsJSON,        // Already json.RawMessage
+			&healthConfigJSON,  // Scan as bytes first
+			&envVarsJSON,       // Already json.RawMessage
+			&def.IsActive,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		// Parse the JSON columns
+		if defaultConfigJSON != nil {
+			if err := json.Unmarshal(defaultConfigJSON, &def.DefaultConfig); err != nil {
+				logger.Warn("Failed to unmarshal default_config", zap.Error(err))
+				def.DefaultConfig = make(map[string]interface{})
+			}
+		}
+
+		if capabilitiesJSON != nil {
+			json.Unmarshal(capabilitiesJSON, &def.Capabilities)
+		}
+
+		def.Topics = json.RawMessage(topicsJSON)
+
+		if healthConfigJSON != nil {
+			json.Unmarshal(healthConfigJSON, &def.HealthConfig)
+		}
+
+		def.EnvVars = json.RawMessage(envVarsJSON)
+
 		if command.Valid {
 			def.Command = parsePostgresArray(command.String)
 		}
+
 	case *pgxpool.Pool:
+		// pgx handles JSONB differently, it can scan directly
 		err := d.QueryRow(ctx, query, agentType).Scan(
 			&def.ID, &def.Type, &def.DisplayName, &def.Description, &def.Category,
 			&def.ImageRepository, &def.ImageTag, &def.Command,

@@ -1387,6 +1387,110 @@ func (p *MessageProcessor) executeSimpleAction(ctx context.Context, msgCtx *Mess
 		zap.String("action", msgCtx.Action),
 		zap.String("agent_type", p.agentType))
 
+	// Handle initialization action
+	if msgCtx.Action == "initialize" {
+		p.logger.Info("Handling initialization request",
+			zap.String("agent_type", p.agentType),
+			zap.String("agent_id", p.podName),
+			zap.String("from_agent", msgCtx.ExecutionContext.FromAgentID))
+
+		response := &types.ResponseMessage{
+			Headers: types.ResponseHeaders{
+				Sender: types.AgentIdentity{
+					AgentType:    p.agentType,
+					AgentID:      p.podName,
+					PodName:      p.podName,
+					AgentVersion: os.Getenv("AGENT_VERSION"),
+				},
+
+				// Response tracking
+				InResponseToRequestID:      msgCtx.ExecutionContext.RequestID,
+				InResponseToStepID:         msgCtx.ExecutionContext.StepID,
+				InResponseToStepName:       msgCtx.ExecutionContext.StepName,
+				InResponseToParentOrchID:   msgCtx.ExecutionContext.ParentOrchestrationID,
+				InResponseToParentOrchName: msgCtx.ExecutionContext.ParentOrchestrationName,
+				InResponseToMessageID:      msgCtx.ExecutionContext.MessageID,
+				InResponseToAction:         "initialize",
+				RetryCount:                 msgCtx.ExecutionContext.RetryVersion,
+
+				// My context
+				MyOrchestrationID:   msgCtx.ExecutionContext.OrchestrationID,
+				MyOrchestrationName: msgCtx.ExecutionContext.OrchestrationName,
+				MyRequestsTopic:     fmt.Sprintf("system.agent.%s.requests", p.agentType),
+				MyResponsesTopic:    fmt.Sprintf("system.agent.%s.responses", p.agentType),
+
+				// Identity
+				CorrelationID:   msgCtx.ExecutionContext.CorrelationID,
+				CorrelationName: msgCtx.ExecutionContext.CorrelationName,
+				ClientID:        msgCtx.ExecutionContext.ClientID,
+				MessageType:     "response",
+				FromAgent:       p.podName,
+				ToAgent:         msgCtx.ExecutionContext.FromAgentID,
+				ToAgentType:     msgCtx.ExecutionContext.FromAgentType,
+
+				// Status flags
+				Status:              "complete",
+				IsComplete:          true,
+				IsError:             false,
+				IsMultipartResponse: false,
+				PartCount:           1,
+
+				// Timing & Resources
+				TimeSent:                   time.Now(),
+				TimeSpent:                  time.Since(msgCtx.StartTime),
+				OverallTimeBudgetRemaining: msgCtx.ExecutionContext.TimeoutSeconds - int(time.Since(msgCtx.StartTime).Seconds()),
+				FuelUsed:                   10, // Minimal fuel for initialization
+				RemainingFuelBudget:        msgCtx.ExecutionContext.FuelBudget - 10,
+			},
+			Body: types.ResponseBody{
+				Success: true,
+				Body: struct {
+					Result      interface{}      `json:"result"`
+					Calculation interface{}      `json:"calculation,omitempty"`
+					Error       *types.ErrorInfo `json:"error,omitempty"`
+				}{
+					Result: map[string]interface{}{
+						"status":     "initialized",
+						"agent_id":   p.podName,
+						"agent_type": p.agentType,
+						"ready":      true,
+					},
+				},
+			},
+		}
+
+		// Determine response topic
+		responseTopic := msgCtx.ExecutionContext.ResponsesTopic
+		if responseTopic == "" && msgCtx.ExecutionContext.FromAgentType != "" {
+			responseTopic = fmt.Sprintf("system.agent.%s.responses", msgCtx.ExecutionContext.FromAgentType)
+		}
+		if responseTopic == "" {
+			responseTopic = "system.agent.generic.responses"
+		}
+
+		// Update the topic in headers
+		response.Headers.TopicSentTo = responseTopic
+
+		// Marshal and send
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			return fmt.Errorf("failed to marshal initialization response: %w", err)
+		}
+
+		headers := response.Headers.ToMap()
+		key := []byte(msgCtx.ExecutionContext.CorrelationID)
+		if msgCtx.ExecutionContext.CorrelationID == "" {
+			key = []byte(msgCtx.ExecutionContext.MessageID)
+		}
+
+		p.logger.Info("Sending initialization response",
+			zap.String("topic", responseTopic),
+			zap.String("correlation_id", msgCtx.ExecutionContext.CorrelationID),
+			zap.String("request_id", msgCtx.ExecutionContext.RequestID))
+
+		return p.producer.Produce(ctx, responseTopic, headers, key, responseBytes)
+	}
+
 	// Find the action in config
 	var actionConfig *models.ActionConfig
 	for _, action := range config.Actions {

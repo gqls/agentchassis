@@ -1691,3 +1691,45 @@ psql -U clients_user -d clients_db -t -A -c \
 }
 }
 ]
+==
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+default_config,
+'{workflow}',
+'{
+"start_step": "spawn_calculator",
+"steps": {
+"spawn_calculator": {
+"action": "spawn_agent",
+"description": "Spawn calculator agent",
+"config": {
+"agent_type": "calculator",
+"spawn_mode": "kubernetes",
+"create_k8s_job": true,
+"config": {
+"operation": "add",
+"operands": [2, 2]
+}
+},
+"next_step": "send_calculation"
+},
+"send_calculation": {
+"action": "call_agent",
+"description": "Send calculation request",
+"config": {
+"agent_type": "calculator",
+"input_data": {
+"operation": "add",
+"operands": [2, 2]
+}
+},
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Complete"
+}
+}
+}'::jsonb
+)
+WHERE type = 'generic';

@@ -81,6 +81,8 @@ var actionRegistry = map[string]actions.ActionFunc{
 	"s3_upload":             actions.UploadToS3Action,
 	"store_result":          actions.StoreResultAction,
 	"evaluate_task":         actions.EvaluateTaskAction,
+	"spawn_agent_k8s":       actions.SpawnAgentAction,
+	"calculate":             actions.CalculateAction,
 }
 
 // NewSagaCoordinator creates a new coordinator instance
