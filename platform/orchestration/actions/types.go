@@ -47,18 +47,76 @@ type ActionParams struct {
 
 // AgentDefinition represents an agent's configuration from the database
 type AgentDefinition struct {
-	ID              int                    `json:"id"`
-	Type            string                 `json:"type"`
-	DisplayName     string                 `json:"display_name"`
-	Description     string                 `json:"description"`
-	Category        string                 `json:"category"`
-	ImageRepository string                 `json:"image_repository"`
-	ImageTag        string                 `json:"image_tag"`
-	Resources       json.RawMessage        `json:"resources"`
-	DefaultConfig   map[string]interface{} `json:"default_config"`
-	Capabilities    json.RawMessage        `json:"capabilities"`
-	Topics          json.RawMessage        `json:"topics"`
-	HealthConfig    json.RawMessage        `json:"health_config"`
-	EnvVars         json.RawMessage        `json:"env_vars"`
-	IsActive        bool                   `json:"is_active"`
+	ID              string                 `db:"id"`
+	Type            string                 `db:"type"`
+	DisplayName     string                 `db:"display_name"`
+	Description     string                 `db:"description"`
+	Category        string                 `db:"category"`
+	ImageRepository string                 `db:"image_repository"`
+	ImageTag        string                 `db:"image_tag"`
+	Command         []string               `db:"command"`
+	Resources       json.RawMessage        `db:"resources"`
+	DefaultConfig   map[string]interface{} `db:"default_config"`
+	Capabilities    json.RawMessage        `db:"capabilities"`
+	Topics          json.RawMessage        `db:"topics"`
+	HealthConfig    json.RawMessage        `db:"health_config"`
+	EnvVars         json.RawMessage        `db:"env_vars"`
+	IsActive        bool                   `db:"is_active"`
+}
+
+// AgentMatch represents a discovered agent
+type AgentMatch struct {
+	AgentID          string
+	AgentType        string
+	AgentName        string
+	Capabilities     []string
+	PerformanceScore float64
+}
+
+// AgentRecommendation represents a recommended agent for a task
+type AgentRecommendation struct {
+	AgentType            string
+	DisplayName          string
+	Category             string
+	Capabilities         []string
+	PerformanceScore     float64
+	RecommendationReason string
+}
+
+// ResourceSpec represents Kubernetes resource requirements
+type ResourceSpec struct {
+	Requests map[string]string `json:"requests"`
+	Limits   map[string]string `json:"limits"`
+}
+
+// HealthCheckConfig represents health check configuration
+type HealthCheckConfig struct {
+	LivenessPath        string `json:"liveness_path"`
+	ReadinessPath       string `json:"readiness_path"`
+	Port                int    `json:"port"`
+	InitialDelaySeconds int    `json:"initial_delay_seconds"`
+}
+
+// TopicConfig represents Kafka topic configuration
+type TopicConfig struct {
+	Process  string `json:"process"`
+	Response string `json:"response"`
+	Error    string `json:"error"`
+	DLQ      string `json:"dlq"`
+}
+
+// EnvVar represents an environment variable
+type EnvVar struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// EnhancedDiscovery wraps database connections and provides discovery methods
+type EnhancedDiscovery struct {
+	db interface{} // Can be *sql.DB or *pgxpool.Pool
+}
+
+// AgentInfo represents basic agent information
+type AgentInfo struct {
+	ID string
 }
