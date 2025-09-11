@@ -151,9 +151,6 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 }
 
 // SpawnGroupAction spawns a group of agents with hierarchy tracking
-// FILE: platform/orchestration/actions/spawn_actions.go
-// Update SpawnGroupAction to use types.SubtreeInfo
-
 func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("SpawnGroupAction starting",
 		zap.Any("config", params.StepConfig))
