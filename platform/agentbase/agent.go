@@ -944,6 +944,10 @@ func getErrorStatus(recoverable bool) string {
 
 // SendInitializationResponse sends a response confirming agent initialization
 func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) error {
+	a.logger.Info("DEBUGaa: SendInitializationResponse agent.go 947",
+		zap.Any("spawnRequest.Headers", spawnRequest.Headers),
+	)
+
 	response := &types.ResponseMessage{
 		Headers: types.ResponseHeaders{
 			Sender: types.AgentIdentity{
@@ -962,9 +966,13 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 			InResponseToMessageID:      spawnRequest.Headers.MessageID,
 			InResponseToAction:         spawnRequest.Headers.Action,
 
-			// My context
-			MyOrchestrationID:   a.AgentID,
-			MyOrchestrationName: a.AgentName,
+			// Set OrchestrationID to the parent's orchestration since that's who processes the response
+			OrchestrationID:   spawnRequest.Headers.ParentOrchestrationID,
+			OrchestrationName: spawnRequest.Headers.ParentOrchestrationName,
+
+			// My context Set MyOrchestrationID to our own (the child's) orchestration
+			MyOrchestrationID:   spawnRequest.Headers.OrchestrationID,
+			MyOrchestrationName: spawnRequest.Headers.OrchestrationName,
 			MyRequestsTopic:     a.requestsTopic,
 			MyResponsesTopic:    a.responsesTopic,
 
@@ -1013,6 +1021,10 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 
 	headers := response.Headers.ToMap()
 	key := []byte(spawnRequest.Headers.CorrelationID)
+
+	a.logger.Info("DEBUGaa: RequestHeaders in SendInitializationResponse 1021",
+		zap.Any("response", response),
+	)
 
 	return a.producer.Produce(a.ctx, responseTopic, headers, key, responseBytes)
 }

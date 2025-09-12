@@ -226,7 +226,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			MessageType:           "request",
 			ToAgent:               agentID,
 			ToAgentType:           agentType,
-			Action:                targetAction,
+			Action:                "initialize",
 			Timestamp:             time.Now(),
 			FuelBudget:            params.ExecutionContext.FuelBudget - 100,
 			TimeoutSeconds:        30,

@@ -139,7 +139,11 @@ type ResponseHeaders struct {
 	InResponseToAction         string `json:"in_response_to_action"`
 	RetryCount                 int    `json:"retry_count"`
 
-	// My Context
+	// The orchestration that should process this response
+	OrchestrationID   string `json:"orchestration_id"`
+	OrchestrationName string `json:"orchestration_name"`
+
+	// My Context - The sender's orchestration
 	MyOrchestrationID   string `json:"my_orchestration_id"`
 	MyOrchestrationName string `json:"my_orchestration_name"`
 	MyRequestsTopic     string `json:"my_requests_topic"`
@@ -733,6 +737,10 @@ func (rh *ResponseHeaders) ToMap() map[string]string {
 	headers["in_response_to_message_id"] = rh.InResponseToMessageID
 	headers["in_response_to_action"] = rh.InResponseToAction
 	headers["retry_count"] = fmt.Sprintf("%d", rh.RetryCount)
+
+	// Include the orchestration ID
+	headers["orchestration_id"] = rh.OrchestrationID
+	headers["orchestration_name"] = rh.OrchestrationName
 
 	// My context
 	headers["my_orchestration_id"] = rh.MyOrchestrationID

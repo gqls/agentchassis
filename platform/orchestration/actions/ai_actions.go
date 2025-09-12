@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Fake response
 func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	// Fake parsed result to return instead of calling the AI
 	parsedResult := map[string]interface{}{

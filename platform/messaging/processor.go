@@ -1144,16 +1144,18 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	var requestData map[string]interface{}
 	json.Unmarshal(msg.Value, &requestData)
 
+	// Always use the action from the ExecutionContext (derived from the header)
+	// for protocol-level decisions like initialization.
 	if msgCtx.ExecutionContext.Action == "initialize" {
-		p.logger.Info("Handling initialize action via interface.")
+		p.logger.Info("Handling protocol action: initialize")
 
 		var spawnRequest types.RequestMessage
 		if err := json.Unmarshal(msg.Value, &spawnRequest); err != nil {
-			p.logger.Error("Failed to unmarshal spawn request", zap.Error(err))
+			p.logger.Error("Failed to unmarshal spawn request during initialization", zap.Error(err))
 			return err
 		}
 
-		// Call the method on the interface, not a concrete type
+		// This will now be called correctly, sending the confirmation response.
 		return p.initializer.SendInitializationResponse(&spawnRequest)
 	}
 
