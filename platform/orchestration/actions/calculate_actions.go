@@ -7,10 +7,14 @@ import (
 )
 
 func CalculateAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	data := params.CollectedData
+	// Extract input_data first
+	inputData, ok := params.CollectedData["input_data"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("input_data not found in CollectedData")
+	}
 
-	operation, _ := data["operation"].(string)
-	operands, _ := data["operands"].([]interface{})
+	operation, _ := inputData["operation"].(string)
+	operands, _ := inputData["operands"].([]interface{})
 
 	if operation == "add" && len(operands) == 2 {
 		a, _ := operands[0].(float64)

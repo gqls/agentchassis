@@ -11,30 +11,20 @@ import (
 
 // ValidateInputAction validates the input data
 func ValidateInputAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	// Check if we have input data
-	if params.InputData == nil || len(params.InputData) == 0 {
-		return nil, fmt.Errorf("no input data provided")
-	}
-
-	var payload map[string]interface{}
-	if err := json.Unmarshal(params.InputData, &payload); err != nil {
-		return nil, fmt.Errorf("invalid input format: %w", err)
-	}
-
-	// The input data has structure: {"action": "...", "data": {...}}
-	data, ok := payload["data"].(map[string]interface{})
+	// Get input_data from CollectedData
+	inputData, ok := params.CollectedData["input_data"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("missing 'data' field in payload")
+		return nil, fmt.Errorf("no input_data in CollectedData")
 	}
 
-	// Now check for required fields in the data
-	if _, ok := data["message"]; !ok {
-		return nil, fmt.Errorf("missing required field: message in data")
+	// Check for required fields
+	if _, ok := inputData["message"]; !ok {
+		return nil, fmt.Errorf("missing required field: message")
 	}
 
 	return map[string]interface{}{
 		"validated": true,
-		"input":     data, // Return the data part, not the whole payload
+		"input":     inputData,
 	}, nil
 }
 
@@ -48,6 +38,12 @@ func TransformDataAction(ctx context.Context, params ActionParams) (interface{},
 
 	// Get data to transform
 	var data map[string]interface{}
+
+	// Get data from input_data
+	data, ok := params.CollectedData["input_data"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("no input_data to transform")
+	}
 
 	// Check if we have collected data from previous steps
 	if validatedData, ok := params.CollectedData["validate_input"]; ok {

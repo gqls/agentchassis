@@ -183,6 +183,27 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("job_name", jobName),
 		zap.String("agent_id", agentID))
 
+	// Determine what action the spawned agent should perform
+	targetAction := "calculate" // Or get from config
+	if action, ok := params.StepConfig.Config["target_action"].(string); ok {
+		targetAction = action
+	}
+
+	params.Logger.Info("The message body and spawn info",
+		zap.String("agent_id", agentID),
+		zap.String("agent_name", agentName),
+		zap.String("role", role),
+		zap.Any("config", params.StepConfig.Config["config"]),
+		zap.Any("params inputdata", params.CollectedData["input_data"]),
+		zap.Any("params input action", params.CollectedData["input_action"]),
+		zap.Any("targetAction", targetAction),
+	)
+
+	// Debug what's in CollectedData
+	params.Logger.Info("DEBUG: CollectedData contents before spawn",
+		zap.Any("all_collected_data", params.CollectedData),
+		zap.Any("input_data", params.CollectedData["input_data"]))
+
 	// Create spawn message
 	spawnMessage := &types.RequestMessage{
 		Headers: types.RequestHeaders{
@@ -193,6 +214,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			},
 			CorrelationID:         params.ExecutionContext.CorrelationID,
 			CorrelationName:       params.ExecutionContext.CorrelationName,
+			ClientID:              params.ExecutionContext.ClientID,
 			OrchestrationID:       params.ExecutionContext.OrchestrationID,
 			OrchestrationName:     params.ExecutionContext.OrchestrationName,
 			ParentOrchestrationID: params.ExecutionContext.ParentOrchestrationID,
@@ -204,24 +226,18 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			MessageType:           "request",
 			ToAgent:               agentID,
 			ToAgentType:           agentType,
-			Action:                "initialize",
+			Action:                targetAction,
 			Timestamp:             time.Now(),
 			FuelBudget:            params.ExecutionContext.FuelBudget - 100,
 			TimeoutSeconds:        30,
 			ResponsesTopic:        fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.FromAgentType),
 		},
-		Body: map[string]interface{}{
-			"agent_id":   agentID,
-			"agent_name": agentName,
-			"role":       role,
-			"config":     params.StepConfig.Config["config"],
-			"parent_info": map[string]interface{}{
-				"parent_agent_id":         params.ExecutionContext.FromAgentID,
-				"parent_agent_type":       params.ExecutionContext.FromAgentType,
-				"parent_orchestration_id": params.ExecutionContext.OrchestrationID,
-			},
-		},
+		Body: params.CollectedData["input_data"],
 	}
+
+	params.Logger.Info("DEBUG: Request Message - spawnMessage - for spawn",
+		zap.Any("spawn Message", spawnMessage),
+	)
 
 	// Send spawn message to agent's request topic
 	targetTopic := fmt.Sprintf("system.agent.%s.requests", agentType)

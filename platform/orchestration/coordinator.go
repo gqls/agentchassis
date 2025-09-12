@@ -59,6 +59,7 @@ var actionRegistry = map[string]actions.ActionFunc{
 	"discover_agents":       actions.DiscoverAgentsAction,
 	"execute_llm_prompt":    actions.ExecuteLLMPromptAction,
 	"start_orchestration":   actions.StartOrchestrationAction,
+	"await_response":        actions.AwaitResponseAction,
 	"complete_workflow":     actions.CompleteWorkflowAction,
 	"validate_schema":       actions.ValidateSchemaAction,
 	"retrieve_memory":       actions.RetrieveMemoryAction,
@@ -564,7 +565,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// Get action handler
 	handler, exists := actionRegistry[step.Action]
 	if !exists {
-		return fmt.Errorf("unknown action: %s", step.Action)
+		return fmt.Errorf("unknown action: %s, not found in registry", step.Action)
 	}
 
 	// Prepare action params
@@ -583,7 +584,8 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// Execute action
 	result, err := handler(ctx, params)
 	if err != nil {
-		return err
+		contextLogger.Error("Local action failed", zap.Error(err), zap.Any("params", params))
+		return fmt.Errorf("local action failed: %w", err)
 	}
 
 	// Handle subtree info if returned (for spawn actions)

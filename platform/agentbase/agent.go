@@ -345,6 +345,7 @@ func (a *Agent) initializeComponents() error {
 		a.orchestrator,
 		a.validator,
 		a.logger,
+		a,
 	)
 
 	// Set up consumers
@@ -941,8 +942,6 @@ func getErrorStatus(recoverable bool) string {
 	return "error_unrecoverable"
 }
 
-// FILE: platform/agentbase/agent.go (additional methods to add)
-
 // SendInitializationResponse sends a response confirming agent initialization
 func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) error {
 	response := &types.ResponseMessage{
@@ -964,9 +963,10 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 			InResponseToAction:         spawnRequest.Headers.Action,
 
 			// My context
-			MyOrchestrationID: a.AgentID,
-			MyRequestsTopic:   a.requestsTopic,
-			MyResponsesTopic:  a.responsesTopic,
+			MyOrchestrationID:   a.AgentID,
+			MyOrchestrationName: a.AgentName,
+			MyRequestsTopic:     a.requestsTopic,
+			MyResponsesTopic:    a.responsesTopic,
 
 			// Identity
 			CorrelationID:   spawnRequest.Headers.CorrelationID,
