@@ -108,7 +108,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	}
 
 	msgCtx.Logger.Info("Starting message processing",
-		zap.String("action", msgCtx.Action),
+		zap.String("action", msgCtx.ExecutionContext.Action),
 		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
 		zap.String("orchestration_name", msgCtx.ExecutionContext.OrchestrationName),
 	)
@@ -135,7 +135,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 			zap.String("agent_type", p.agentType),
 			zap.Error(err))
 		// Instead of processWithDefaults, create a workflow for the action
-		workflow := p.createWorkflowForAction(msgCtx.Action)
+		workflow := p.createWorkflowForAction(msgCtx.ExecutionContext.Action)
 		agentDef = &actions.AgentDefinition{
 			Type:          p.agentType,
 			DefaultConfig: make(map[string]interface{}),
@@ -427,12 +427,12 @@ func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgC
 
 func (p *MessageProcessor) handleError(ctx context.Context, msgCtx *MessageContext, err error, errorType string) error {
 	msgCtx.Logger.Error("Processing failed", zap.Error(err))
-	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.Action, errorType).Inc()
+	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action, errorType).Inc()
 
 	// Check for specific error types
 	if domainErr, ok := err.(*errors.DomainError); ok {
 		if domainErr.Code == errors.ErrInsufficientFuel {
-			observability.FuelExhausted.WithLabelValues(p.agentType, msgCtx.Action, msgCtx.Headers["client_id"]).Inc()
+			observability.FuelExhausted.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action, msgCtx.Headers["client_id"]).Inc()
 		}
 		p.sendErrorResponse(ctx, msgCtx, domainErr)
 	} else {
@@ -753,7 +753,6 @@ func (p *MessageProcessor) processNewAgentMessage(ctx context.Context, msg kafka
 	msgCtx := &MessageContext{
 		Message:       msg,
 		Headers:       headers,
-		Action:        agentMsg.Action,
 		StartTime:     startTime,
 		Logger:        p.logger.With(zap.String("message_id", agentMsg.MessageID)),
 		CollectedData: agentMsg.Data,
@@ -1032,7 +1031,7 @@ func (p *MessageProcessor) isIntentionalOrchestration(msgCtx *MessageContext) bo
 	}
 
 	// Check if the action indicates orchestration
-	action := msgCtx.Action
+	action := msgCtx.ExecutionContext.Action
 	return action == "spawn_group" || action == "start_orchestration" || action == "orchestrate"
 }
 
@@ -1128,12 +1127,6 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 	msgCtx.Logger = contextLogger
 
-	// Extract action
-	if err := msgCtx.ExtractAction(); err != nil {
-		contextLogger.Error("Failed to extract action", zap.Error(err))
-		return p.handleError(ctx, msgCtx, err, "invalid_payload")
-	}
-
 	// Validate context
 	if err := msgCtx.ValidateContext(); err != nil {
 		contextLogger.Error("Context validation failed", zap.Error(err))
@@ -1141,9 +1134,9 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	}
 
 	// Record metrics
-	observability.AgentTasksReceived.WithLabelValues(p.agentType, msgCtx.Action).Inc()
+	observability.AgentTasksReceived.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action).Inc()
 	defer func() {
-		observability.AgentProcessingDuration.WithLabelValues(p.agentType, msgCtx.Action).
+		observability.AgentProcessingDuration.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action).
 			Observe(time.Since(startTime).Seconds())
 	}()
 
@@ -1151,7 +1144,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	var requestData map[string]interface{}
 	json.Unmarshal(msg.Value, &requestData)
 
-	if msgCtx.Action == "initialize" {
+	if msgCtx.ExecutionContext.Action == "initialize" {
 		p.logger.Info("Handling initialize action via interface.")
 
 		var spawnRequest types.RequestMessage
@@ -1171,7 +1164,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	}
 
 	// Success
-	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.Action, "success").Inc()
+	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action, "success").Inc()
 	contextLogger.Info("ProcessMessage completed successfully")
 
 	// Trace outgoing response if one was sent
@@ -1206,7 +1199,6 @@ func (p *MessageProcessor) processWithoutContext(ctx context.Context, msg kafka.
 	msgCtx := &MessageContext{
 		Message:       msg,
 		Headers:       headers,
-		Action:        action,
 		StartTime:     time.Now(),
 		Logger:        p.logger,
 		CollectedData: make(map[string]interface{}),
@@ -1237,7 +1229,7 @@ func getFuncInfo(skip int) (current, caller string) {
 
 func (p *MessageProcessor) processRequest(ctx context.Context, msgCtx *MessageContext) error {
 	p.logger.Info("Processing request",
-		zap.String("action", msgCtx.Action),
+		zap.String("action", msgCtx.ExecutionContext.Action),
 		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
 		zap.String("request_id", msgCtx.ExecutionContext.RequestID),
 		zap.Bool("stateless", msgCtx.IsStateless))

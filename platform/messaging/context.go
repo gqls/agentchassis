@@ -1,7 +1,6 @@
 package messaging
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -18,7 +17,6 @@ type MessageContext struct {
 	ExecutionContext *types.ExecutionContext // NEW: Primary context
 	Logger           *zap.Logger
 	CollectedData    map[string]interface{}
-	Action           string
 	StartTime        time.Time
 
 	// For stateless operation
@@ -50,21 +48,6 @@ func NewMessageContext(msg kafka.Message, headers map[string]string) (*MessageCo
 		StartTime:        time.Now(),
 		CollectedData:    make(map[string]interface{}),
 	}, nil
-}
-
-// ExtractAction extracts the action from the message
-func (mc *MessageContext) ExtractAction() error {
-	var payload struct {
-		Action string `json:"action"`
-	}
-	if err := json.Unmarshal(mc.Message.Value, &payload); err != nil {
-		return fmt.Errorf("failed to extract action: %w", err)
-	}
-	mc.Action = payload.Action
-	if mc.ExecutionContext != nil {
-		mc.ExecutionContext.Action = payload.Action
-	}
-	return nil
 }
 
 // IsChildOrchestration checks if this is a child orchestration
