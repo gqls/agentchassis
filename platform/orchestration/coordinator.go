@@ -28,7 +28,7 @@ const (
 	// Timeout for stuck orchestrations
 	StuckOrchestrationTimeout = 5 * time.Minute
 	// Default request timeout
-	DefaultRequestTimeout = 30 * time.Second
+	DefaultRequestTimeout = 120 * time.Second
 )
 
 var (
@@ -486,6 +486,10 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		return fmt.Errorf("failed to reload state: %w", err)
 	}
 
+	l = s.logger.With(
+		zap.Any("DEBUGAA: state loaded from repo - in continueExecution", state),
+		zap.String("current_step", state.CurrentStep))
+
 	// Get current step
 	currentStepConfig, exists := state.WorkflowPlan.Steps[state.CurrentStep]
 	if !exists {
@@ -525,9 +529,11 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 
 // executeStep executes a single workflow step
 func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationState, step models.Step, execCtx *types.ExecutionContext) error {
-	s.logger.Info("Executing step",
+	s.logger.Info("Executing step in executeStep before executeLocalAction",
 		zap.String("step", state.CurrentStep),
-		zap.String("action", step.Action))
+		zap.String("action", step.Action),
+		zap.Any("state", state),
+	)
 
 	// Route to appropriate handler
 	if isLocalAction(step.Action) {
@@ -539,8 +545,7 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 	return fmt.Errorf("unknown action: %s", step.Action)
 }
 
-// executeLocalAction executes a local action
-// Update the executeLocalAction method to handle subtree info from both spawn actions
+// executeLocalAction executes a local action, handles subtree info from both spawn actions
 func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *OrchestrationState, step models.Step, execCtx *types.ExecutionContext) error {
 	// Update execution context for this step
 	execCtx.StepID = uuid.New().String()
@@ -550,7 +555,9 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	contextLogger := s.logger.With(
 		zap.String("orchestration_id", execCtx.OrchestrationID),
 		zap.String("step_name", execCtx.StepName),
-		zap.String("action", step.Action))
+		zap.String("action", step.Action),
+		zap.Any("state.CollectedData", state.CollectedData),
+	)
 
 	// Pre-generate request ID for actions that need responses
 	needsResponse := step.Action == "call_agent" || step.Action == "start_orchestration" ||
@@ -883,6 +890,7 @@ func (s *SagaCoordinator) determineOwnerAgentType(execCtx *types.ExecutionContex
 	if agentType := os.Getenv("AGENT_TYPE"); agentType != "" {
 		return agentType
 	}
+	s.logger.Error("Did not find agent type in determineOwnerAgentType (coordinator 887)")
 	return "generic"
 }
 

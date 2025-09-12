@@ -359,8 +359,20 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationI
 
 	// Prepare data for insertion
 	awaitedStepsJSON, _ := json.Marshal([]string{})
+
 	collectedData := map[string]interface{}{"agent_type": os.Getenv("AGENT_TYPE")}
+	// Parse and include initial data in collected data
+	if len(initialData) > 0 {
+		var inputData map[string]interface{}
+		if err := json.Unmarshal(initialData, &inputData); err == nil {
+			// Merge initial data into collected data
+			for k, v := range inputData {
+				collectedData[k] = v
+			}
+		}
+	}
 	collectedDataJSON, _ := json.Marshal(collectedData)
+
 	workflowPlanJSON, _ := json.Marshal(plan)
 	metadata := ExecutionMetadata{
 		TotalSteps:     len(plan.Steps),

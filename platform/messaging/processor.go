@@ -1306,7 +1306,9 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 		zap.String("start_step", config.Workflow.StartStep),
 		zap.Int("total_steps", len(config.Workflow.Steps)),
 		zap.String("agent_type", p.agentType),
-		zap.Bool("stateless", msgCtx.IsStateless))
+		zap.Bool("stateless", msgCtx.IsStateless),
+		zap.Any("DEBUGaa: processor 1310 executeWorkflow - does msgCtx have initial data?", msgCtx),
+	)
 
 	// Ensure ExecutionContext has agent type
 	if msgCtx.ExecutionContext.FromAgentType == "" {
@@ -1321,8 +1323,24 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 	observability.ActiveWorkflows.WithLabelValues(p.agentType).Inc()
 	defer observability.ActiveWorkflows.WithLabelValues(p.agentType).Dec()
 
+	// Include raw message in CollectedData if not already there
+	if _, exists := msgCtx.CollectedData["__raw_message__"]; !exists {
+		var rawMsg interface{}
+		if err := json.Unmarshal(msgCtx.Message.Value, &rawMsg); err == nil {
+			msgCtx.CollectedData["__raw_message__"] = rawMsg
+		}
+	}
+
+	// Marshal CollectedData (which now includes everything)
+	initialDataBytes, err := json.Marshal(msgCtx.CollectedData)
+	if err != nil {
+		p.logger.Error("Failed to marshal collected data", zap.Error(err))
+		// Fallback to raw message if marshaling fails
+		initialDataBytes = msgCtx.Message.Value
+	}
+
 	// Execute through orchestrator (use existing ExecuteWorkflow method)
-	return p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, headers, msgCtx.Message.Value)
+	return p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, headers, initialDataBytes)
 }
 
 // sendSuccessResponse sends a successful response

@@ -798,3 +798,43 @@ default_config = default_config || '{
 WHERE type = 'generic';
 EOF
 
+--
+
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db << 'EOF'
+INSERT INTO agent_definitions (
+type, display_name, description, category, default_config, capabilities
+) VALUES (
+'calculator',
+'Calculator Agent',
+'A simple agent that performs arithmetic calculations using an LLM.',
+'data-driven',
+'{
+"processing_mode": "task",
+"ai_service": {
+"provider": "anthropic",
+"model": "claude-3-haiku-20240307"
+},
+"prompt_template": "You are a calculator. Perform the operation ''{{.input_data.body.operation}}'' on the operands {{.input_data.body.operands}}. Respond ONLY with the final numerical result as a JSON object like {\"result\": 4}.",
+"workflow": {
+"start_step": "calculate",
+"steps": {
+"calculate": {
+"action": "execute_llm_prompt",
+"description": "Perform the calculation.",
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Finish the calculation task."
+}
+}
+}
+}'::jsonb,
+'["calculation", "arithmetic"]'::jsonb
+) ON CONFLICT (type) DO UPDATE SET
+display_name = EXCLUDED.display_name,
+description = EXCLUDED.description,
+default_config = EXCLUDED.default_config,
+capabilities = EXCLUDED.capabilities,
+updated_at = NOW();
+EOF

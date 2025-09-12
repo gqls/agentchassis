@@ -183,8 +183,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("job_name", jobName),
 		zap.String("agent_id", agentID))
 
-	// Determine what action the spawned agent should perform
-	targetAction := "calculate" // Or get from config
+	// Determine what action the spawned agent should perform after initializing
+	targetAction := "process" // A sensible default
 	if action, ok := params.StepConfig.Config["target_action"].(string); ok {
 		targetAction = action
 	}
@@ -215,9 +215,9 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			CorrelationID:         params.ExecutionContext.CorrelationID,
 			CorrelationName:       params.ExecutionContext.CorrelationName,
 			ClientID:              params.ExecutionContext.ClientID,
-			OrchestrationID:       params.ExecutionContext.OrchestrationID,
-			OrchestrationName:     params.ExecutionContext.OrchestrationName,
-			ParentOrchestrationID: params.ExecutionContext.ParentOrchestrationID,
+			OrchestrationID:       agentID,
+			OrchestrationName:     agentName,
+			ParentOrchestrationID: params.ExecutionContext.OrchestrationID,
 			StepID:                params.ExecutionContext.StepID,
 			StepName:              "spawn_agent",
 			RequestID:             requestID,
