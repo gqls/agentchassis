@@ -1159,6 +1159,56 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		return p.initializer.SendInitializationResponse(&spawnRequest)
 	}
 
+	// Route responses to orchestrator
+	if msgCtx.ExecutionContext.MessageType == "response" {
+		p.logger.Info("Routing response to orchestrator",
+			zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+			zap.String("status", msgCtx.ExecutionContext.Status),
+			zap.Bool("has_orchestrator", p.orchestrator != nil))
+
+		// The orchestrator needs to handle this response
+		if p.orchestrator != nil {
+			return p.orchestrator.ProcessResponse(ctx, msgCtx.ExecutionContext, msg.Value)
+		}
+
+		// If no orchestrator, log and return
+		p.logger.Warn("No orchestrator available to handle response")
+		return nil
+	}
+
+	// For ALL request messages, extract the body properly
+	// This is generic for any agent type and any action
+	var requestPayload map[string]interface{}
+	if err := json.Unmarshal(msg.Value, &requestPayload); err == nil {
+		// Handle both RequestMessage and AgentMessage formats
+
+		// Format 1: RequestMessage with headers and body
+		if body, ok := requestPayload["body"].(map[string]interface{}); ok {
+			// Merge body contents into CollectedData
+			for key, value := range body {
+				msgCtx.CollectedData[key] = value
+			}
+
+			// Special handling for "data" field if present
+			if data, ok := body["data"].(map[string]interface{}); ok {
+				msgCtx.CollectedData["input_data"] = data
+			}
+		}
+
+		// Format 2: AgentMessage with data field
+		if data, ok := requestPayload["data"].(map[string]interface{}); ok {
+			// If no body was found, use data directly
+			if _, hasBody := requestPayload["body"]; !hasBody {
+				msgCtx.CollectedData["input_data"] = data
+			}
+		}
+
+		// Store the action if present
+		if action, ok := requestPayload["action"].(string); ok && action != "" {
+			msgCtx.CollectedData["requested_action"] = action
+		}
+	}
+
 	// Process the message
 	if err := p.process(ctx, msgCtx); err != nil {
 		contextLogger.Error("Processing failed", zap.Error(err))

@@ -1733,3 +1733,43 @@ default_config,
 }'::jsonb
 )
 WHERE type = 'generic';
+
+
+--
+
+// In the database or configuration for generic agent
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+default_config,
+'{workflow}',
+'{
+"workflow": {
+"start_step": "spawn_calculator",
+"steps": {
+"spawn_calculator": {
+"action": "spawn_agent",
+"description": "Initialize calculator agent",
+"config": {
+"agent_type": "calculator"
+},
+"next_step": "call_calculator"
+},
+"call_calculator": {
+"action": "call_agent",
+"description": "Send calculation request",
+"config": {
+"agent_type": "calculator",
+"target_action": "calculate"
+},
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Complete workflow"
+}
+}
+}
+}'::jsonb
+)
+WHERE type = 'generic';
+

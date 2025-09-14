@@ -13,8 +13,129 @@ import (
 	"go.uber.org/zap"
 )
 
-// CallAgentAction creates child orchestrations with proper context
 func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	config := params.StepConfig.Config
+	targetAgentType, ok := config["agent_type"].(string)
+	if !ok {
+		return nil, fmt.Errorf("agent_type not specified in config")
+	}
+
+	// Get the previously spawned agent
+	var targetAgentID string
+	var spawnedAgentInfo map[string]interface{}
+
+	// Check spawn_calculator step result
+	spawnKey := fmt.Sprintf("spawn_%s", targetAgentType)
+	if spawnResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
+		targetAgentID, _ = spawnResult["agent_id"].(string)
+		spawnedAgentInfo = spawnResult
+		params.Logger.Info("Found spawned agent",
+			zap.String("agent_type", targetAgentType),
+			zap.String("agent_id", targetAgentID),
+			zap.String("spawn_key", spawnKey))
+	}
+
+	if targetAgentID == "" {
+		return nil, fmt.Errorf("no spawned %s agent found in step %s", targetAgentType, spawnKey)
+	}
+
+	// Check if we're still waiting for the spawn to complete
+	if awaitResponse, ok := spawnedAgentInfo["await_response"].(bool); ok && awaitResponse {
+		// The spawn step should have completed before we get here
+		// This is a workflow ordering issue
+		return nil, fmt.Errorf("spawn step %s has not completed yet", spawnKey)
+	}
+
+	requestID := uuid.New().String()
+
+	// Create child orchestration ID for this call
+	childOrchID := uuid.New().String()
+	childOrchName := fmt.Sprintf("%s-calc-%s", targetAgentType, time.Now().Format("1504"))
+
+	// Build the calculation request
+	// The calculator already has the data from initialization, but we send it again
+	// to ensure context is preserved
+	calcRequest := &types.RequestMessage{
+		Headers: types.RequestHeaders{
+			Sender: params.ExecutionContext.Sender,
+
+			CorrelationID:   params.ExecutionContext.CorrelationID,
+			CorrelationName: params.ExecutionContext.CorrelationName,
+			ClientID:        params.ExecutionContext.ClientID,
+
+			// Child orchestration context
+			OrchestrationID:   childOrchID,
+			OrchestrationName: childOrchName,
+			StepID:            uuid.New().String(),
+			StepName:          "process", // Match calculator's workflow start step
+			RequestID:         requestID,
+			RetryVersion:      0,
+
+			// Parent tracking
+			ParentOrchestrationID:   params.ExecutionContext.OrchestrationID,
+			ParentOrchestrationName: params.ExecutionContext.OrchestrationName,
+			ParentRequestID:         params.ExecutionContext.RequestID,
+
+			MessageID:   uuid.New().String(),
+			MessageType: "request",
+			FromAgent:   params.ExecutionContext.Sender.AgentID,
+			ToAgent:     targetAgentID,
+			ToAgentType: targetAgentType,
+			Action:      "process", // Trigger the calculator's workflow
+			Timestamp:   time.Now(),
+
+			FuelBudget:     params.ExecutionContext.FuelBudget - 100,
+			TimeoutSeconds: 30,
+
+			ResponsesTopic: fmt.Sprintf("system.agent.%s.responses",
+				params.ExecutionContext.Sender.AgentType),
+		},
+		//Body: params.CollectedData["input_data"], // Send the calculation data
+		Body: map[string]interface{}{
+			"input_data": params.CollectedData["input_data"], // Wrap it in the expected key
+		},
+	}
+
+	// Send to calculator's requests topic
+	targetTopic := fmt.Sprintf("system.agent.%s.requests", targetAgentType)
+	msgBytes, err := json.Marshal(calcRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	headers := calcRequest.Headers.ToMap()
+	key := []byte(params.ExecutionContext.CorrelationID)
+
+	params.Logger.Info("Sending calculation request",
+		zap.String("target_topic", targetTopic),
+		zap.String("request_id", requestID),
+		zap.String("child_orch_id", childOrchID),
+		zap.String("action", "process"))
+
+	err = params.Producer.Produce(ctx, targetTopic, headers, key, msgBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send CallAgentAction request: %w", err)
+	}
+
+	// Return result indicating we're waiting for the calculation
+	result := map[string]interface{}{
+		"agent_called":        targetAgentID,
+		"agent_type":          targetAgentType,
+		"request_id":          requestID,
+		"child_orchestration": childOrchID,
+		"action_sent":         "process",
+		"await_response":      true,
+		"target_agent_type":   targetAgentType,
+	}
+
+	params.Logger.Info("Call agent action completed, awaiting response",
+		zap.String("request_id", requestID))
+
+	return result, nil
+}
+
+// CallAgentAction creates child orchestrations with proper context
+func CallAgentActionOLD(ctx context.Context, params ActionParams) (interface{}, error) {
 	// Get parent execution context
 	parentCtx, err := types.FromHeaders(params.Headers)
 	if err != nil {

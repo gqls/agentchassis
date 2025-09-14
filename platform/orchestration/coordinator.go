@@ -575,6 +575,16 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return fmt.Errorf("unknown action: %s, not found in registry", step.Action)
 	}
 
+	// Ensure ExecutionContext has Sender before creating params
+	if execCtx.Sender.AgentType == "" {
+		execCtx.Sender = types.AgentIdentity{
+			AgentType:    state.OwnerAgentType, // From the state
+			AgentID:      state.OwnerAgentID,
+			PodName:      s.podName,
+			AgentVersion: os.Getenv("AGENT_VERSION"),
+		}
+	}
+
 	// Prepare action params
 	params := actions.ActionParams{
 		Context:          ctx,

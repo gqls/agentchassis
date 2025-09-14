@@ -204,11 +204,28 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.Any("all_collected_data", params.CollectedData),
 		zap.Any("input_data", params.CollectedData["input_data"]))
 
+	senderAgentType := params.ExecutionContext.FromAgentType
+	if senderAgentType == "" {
+		senderAgentType = params.ExecutionContext.Sender.AgentType
+	}
+	if senderAgentType == "" {
+		// Try to get from params
+		if params.AgentType != "" {
+			//senderAgentType = params.AgentType
+			senderAgentType = os.Getenv("AGENT_TYPE")
+		} else {
+			senderAgentType = "generic" // fallback
+		}
+	}
+
+	params.Logger.Info("Using sender agent type",
+		zap.String("sender_type", senderAgentType))
+
 	// Create spawn message
 	spawnMessage := &types.RequestMessage{
 		Headers: types.RequestHeaders{
 			Sender: types.AgentIdentity{
-				AgentType: params.ExecutionContext.FromAgentType,
+				AgentType: senderAgentType,
 				AgentID:   params.ExecutionContext.FromAgentID,
 				PodName:   params.ExecutionContext.ProcessingNode,
 			},
@@ -230,7 +247,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			Timestamp:             time.Now(),
 			FuelBudget:            params.ExecutionContext.FuelBudget - 100,
 			TimeoutSeconds:        30,
-			ResponsesTopic:        fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.FromAgentType),
+			ResponsesTopic:        fmt.Sprintf("system.agent.%s.responses", senderAgentType),
 		},
 		Body: params.CollectedData["input_data"],
 	}
@@ -261,12 +278,21 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		"agent_id":          agentID,
 		"agent_name":        agentName,
 		"agent_type":        agentType,
+		"status":            "initialized",
 		"role":              role,
 		"request_id":        requestID,
 		"await_response":    true,
 		"target_agent_type": agentType,
 		"subtree_info":      subtreeInfo,
 		"topic_sent_to":     targetTopic,
+		"result": map[string]interface{}{
+			"agent_id":   agentID,
+			"agent_type": agentType,
+			"topics": map[string]string{
+				"requests":  fmt.Sprintf("system.agent.%s.requests", agentType),
+				"responses": fmt.Sprintf("system.agent.%s.responses", agentType),
+			},
+		},
 	}, nil
 }
 
