@@ -174,7 +174,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 
 // ProcessResponse handles responses using ExecutionContext
 func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.ExecutionContext, response []byte) error {
-	
+
 	// Extract request ID from InResponseTo
 	var requestID string
 	if execCtx.InResponseTo != nil {
@@ -193,7 +193,9 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		zap.String("status", execCtx.Status),
 		zap.Int("retry_version", execCtx.RetryVersion))
 
-	contextLogger.Info("Processing response for request")
+	contextLogger.Info("ProcessResponse called",
+		zap.Any("execCtx", execCtx),
+		zap.String("response_preview", string(response)[:min(200, len(response))]))
 
 	current, caller := getFuncInfo(1)
 
@@ -474,7 +476,11 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 
 	l := s.logger.With(
 		zap.String("orchestration_id", state.OrchestrationID),
-		zap.String("current_step", state.CurrentStep))
+		zap.String("current_step", state.CurrentStep),
+		zap.String("exec_ctx_sender_type", execCtx.Sender.AgentType),
+		zap.String("exec_ctx_message_type", execCtx.MessageType),
+		zap.Any("exec_ctx_in_response_to", execCtx.InResponseTo),
+	)
 
 	// Check if already waiting
 	if state.Status == StatusAwaitingResponses {
@@ -585,9 +591,15 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		step.Action == "spawn_group" || step.Action == "spawn_agent"
 
 	if needsResponse {
-		execCtx.RequestID = uuid.New().String()
-		contextLogger.Info("Pre-generated request ID",
-			zap.String("request_id", execCtx.RequestID))
+		// Only generate new request ID if we don't already have one
+		if execCtx.RequestID == "" {
+			execCtx.RequestID = uuid.New().String()
+			contextLogger.Info("Generated new request ID",
+				zap.String("request_id", execCtx.RequestID))
+		} else {
+			contextLogger.Info("Using existing request ID for retry",
+				zap.String("request_id", execCtx.RequestID))
+		}
 	}
 
 	// Get action handler
@@ -605,6 +617,14 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 			AgentVersion: os.Getenv("AGENT_VERSION"),
 		}
 	}
+
+	// Ensure this is a request, not a response
+	execCtx.MessageType = "request"
+
+	// Clear any response-specific fields
+	execCtx.InResponseTo = nil
+	execCtx.Status = ""
+	execCtx.IsComplete = false
 
 	// Prepare action params
 	params := actions.ActionParams{
@@ -701,6 +721,23 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 // executeRemoteAction sends work to another agent
 func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *OrchestrationState, step models.Step, execCtx *types.ExecutionContext) error {
+	contextLogger := s.logger.With(
+		zap.String("orchestration_id", execCtx.OrchestrationID),
+		zap.String("step_name", execCtx.StepName),
+		zap.String("action", step.Action),
+		zap.Any("state.CollectedData", state.CollectedData),
+	)
+	contextLogger.Info("In executeRemoteAction",
+		zap.Any("ExecutionContext", execCtx))
+
+	current, caller := getFuncInfo(1)
+
+	contextLogger.Info("In file coordinator.go executeRemoteAction",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	// Update execution context
 	execCtx.RequestID = uuid.New().String()
 	execCtx.StepID = uuid.New().String()
@@ -764,7 +801,7 @@ func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *Orches
 
 // handleProgressUpdate handles progress updates from agents
 func (s *SagaCoordinator) handleProgressUpdate(ctx context.Context, state *OrchestrationState, execCtx *types.ExecutionContext) error {
-	s.logger.Info("Progress update received",
+	s.logger.Info("In handleProgressUpdate. Progress update received",
 		zap.String("status", execCtx.Status),
 		zap.String("from_agent", execCtx.Sender.AgentID))
 
@@ -784,6 +821,23 @@ func (s *SagaCoordinator) handleProgressUpdate(ctx context.Context, state *Orche
 
 // handleCompleteResponse processes a successful response
 func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response []byte) error {
+	contextLogger := s.logger.With(
+		zap.String("orchestration_id", execCtx.OrchestrationID),
+		zap.String("step_name", execCtx.StepName),
+		zap.String("requestId", requestID),
+		zap.Any("state.CollectedData", state.CollectedData),
+	)
+	contextLogger.Info("In handleCompleteResponse",
+		zap.Any("ExecutionContext", execCtx))
+
+	current, caller := getFuncInfo(1)
+
+	contextLogger.Info("In file coordinator.go handleCompleteResponse",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	repo := NewStateRepository(s.db, s.logger)
 
 	// Parse the response
@@ -812,7 +866,38 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	// If no more awaited requests, continue workflow
 	if len(state.AwaitedRequests) == 0 {
 		s.logger.Info("All responses received, continuing workflow")
-		return s.continueExecution(ctx, state, execCtx)
+
+		// Create fresh execution context for continuing
+		freshExecCtx := &types.ExecutionContext{
+			CorrelationID:   state.CorrelationID,
+			OrchestrationID: state.OrchestrationID,
+			ClientID:        state.ClientID,
+
+			// Reset to request mode
+			MessageType: "request",
+			MessageID:   uuid.New().String(),
+
+			// Set sender to the current orchestrator
+			Sender: types.AgentIdentity{
+				AgentType:    state.OwnerAgentType,
+				AgentID:      state.OwnerAgentID,
+				PodName:      s.podName,
+				AgentVersion: os.Getenv("AGENT_VERSION"),
+			},
+
+			// Clear any response fields
+			InResponseTo: nil,
+			Status:       "",
+			IsComplete:   false,
+
+			// Resources
+			FuelBudget:     state.FuelBudget,
+			TimeoutSeconds: 30,
+			Timestamp:      time.Now(),
+			Version:        "2.0",
+		}
+
+		return s.continueExecution(ctx, state, freshExecCtx)
 	}
 
 	s.logger.Info("Still waiting for responses",

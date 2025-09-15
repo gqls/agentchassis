@@ -88,8 +88,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	current, caller := getFuncInfo(1)
 
 	params.Logger.Info("In file spawn_actions.go SpawnAgentAction",
-		zap.String("function", current),
-		zap.String("called_by", caller),
+		zap.String("function FUNCTION", current),
+		zap.String("called_by CALLED_BY", caller),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
@@ -222,26 +222,40 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.Any("EXECUTION CONTEXTAA", params.ExecutionContext),
 	)
 
-	senderAgentType := params.ExecutionContext.FromAgentType
-	if senderAgentType == "" {
+	senderAgentType := "genericdefault" // Default
+
+	// Try ExecutionContext first
+	if params.ExecutionContext.FromAgentType != "" {
+		senderAgentType = params.ExecutionContext.FromAgentType
+	} else if params.ExecutionContext.Sender.AgentType != "" {
 		senderAgentType = params.ExecutionContext.Sender.AgentType
 	}
-	/*if senderAgentType == "" {
-		// Try to get from params
-		if params.AgentType != "" {
-			//senderAgentType = params.AgentType
-			senderAgentType = os.Getenv("AGENT_TYPE")
-		} else {
-			senderAgentType = "generic" // fallback
+
+	// Override with agent_config if available and valid
+	if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
+		if configAgentType, ok := agentConfig["agent_type"].(string); ok && configAgentType != "" {
+			senderAgentType = configAgentType
+			params.Logger.Info("Using agent type from config",
+				zap.String("agent_type", configAgentType))
 		}
-	}*/
+	}
+
+	params.Logger.Info("Determined sender agent type",
+		zap.String("sender_type", senderAgentType),
+		zap.String("response_topic", fmt.Sprintf("system.agent.%s.responses", senderAgentType)))
 
 	params.Logger.Info("Determining sender type for response topic",
 		zap.String("ExecutionContext.FromAgentType", params.ExecutionContext.FromAgentType),
 		zap.String("ExecutionContext.Sender.AgentType", params.ExecutionContext.Sender.AgentType),
-		zap.String("agent_config.agent_type", params.CollectedData["agent_config"].(map[string]interface{})["agent_type"].(string)),
-		zap.Any("agent config", params.CollectedData["agent_config"]),
 	)
+
+	// LOGGING only Log agent_config.agent_type safely
+	if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
+		if agentTypeFromConfig, ok := agentConfig["agent_type"].(string); ok {
+			params.Logger.Info("Agent type from config",
+				zap.String("agent_config.agent_type", agentTypeFromConfig))
+		}
+	}
 
 	// The most reliable source of the CURRENT agent's type is its own agent_config
 	// that was loaded by the processor.
@@ -300,7 +314,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	}
 
 	params.Logger.Info("DEBUGaa: 1 SpawnAgentAction Request Message - spawnMessage - for spawn",
-		zap.Any("spawn Message", spawnMessage),
+		zap.Any("spawn Message aa", spawnMessage),
 	)
 
 	// Send spawn message to agent's request topic
