@@ -47,7 +47,7 @@ type ExecutionContext struct {
 	PartCount           int              `json:"part_count,omitempty"`
 
 	// Routing
-	Sender         AgentIdentity `json:"sender"` // NEW: Who sent this message
+	Sender         AgentIdentity `json:"sender"` // Who sent this message
 	ToAgentType    string        `json:"to_agent_type"`
 	RequestsTopic  string        `json:"requests_topic,omitempty"`
 	ResponsesTopic string        `json:"responses_topic,omitempty"`

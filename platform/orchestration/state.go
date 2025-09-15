@@ -143,7 +143,7 @@ func NewStateRepository(db *sql.DB, logger *zap.Logger) *StateRepository {
 }
 
 // HasProcessedMessage checks if a request has been processed
-func (r *StateRepository) HasProcessedMessage(ctx context.Context, correlationID, requestID, orchestrationID string) (bool, error) {
+func (r *StateRepository) HasProcessedMessage(ctx context.Context, correlationID, requestID, agentID string) (bool, error) {
 	if requestID == "" {
 		return false, nil // Can't deduplicate without request_id
 	}
@@ -152,11 +152,12 @@ func (r *StateRepository) HasProcessedMessage(ctx context.Context, correlationID
         SELECT EXISTS(
             SELECT 1 FROM processed_messages 
             WHERE correlation_id = $1 
-            AND request_id = $2 
+            AND request_id = $2
+            AND agent_id = $3
         )`
 
 	var exists bool
-	err := r.db.QueryRowContext(ctx, query, correlationID, requestID).Scan(&exists)
+	err := r.db.QueryRowContext(ctx, query, correlationID, requestID, agentID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check processed request: %w", err)
 	}
@@ -165,7 +166,7 @@ func (r *StateRepository) HasProcessedMessage(ctx context.Context, correlationID
 }
 
 // RecordMessageProcessing records a request being processed
-func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *types.ExecutionContext) error {
+func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *types.ExecutionContext, agentID string) error {
 	if execCtx.RequestID == "" {
 		return nil // Can't record without request_id
 	}
@@ -177,8 +178,8 @@ func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *
 
 	query := `
         INSERT INTO processed_messages 
-        (message_id, correlation_id, orchestration_id, request_id, message_type, processed_at, processed_by)
-        VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+        (message_id, correlation_id, orchestration_id, request_id, agent_id, message_type, processed_at, processed_by)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
         ON CONFLICT (correlation_id, request_id) DO NOTHING
     `
 
@@ -187,6 +188,7 @@ func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *
 		execCtx.CorrelationID,
 		execCtx.OrchestrationID,
 		execCtx.RequestID,
+		agentID,
 		execCtx.MessageType,
 		processingNode)
 

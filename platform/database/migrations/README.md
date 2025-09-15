@@ -838,3 +838,15 @@ default_config = EXCLUDED.default_config,
 capabilities = EXCLUDED.capabilities,
 updated_at = NOW();
 EOF
+--
+-- Drop old constraint
+ALTER TABLE processed_messages DROP CONSTRAINT processed_messages_unique;
+
+-- Add column agent_id
+ALTER TABLE processed_messages
+ADD COLUMN agent_id UUID;
+
+-- Add new constraint including agent ID
+ALTER TABLE processed_messages
+ADD CONSTRAINT processed_messages_unique
+UNIQUE (correlation_id, request_id, agent_id);

@@ -1075,7 +1075,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 			isDuplicate, checkErr := repo.HasProcessedMessage(ctx,
 				execCtx.CorrelationID,
 				execCtx.RequestID,
-				execCtx.OrchestrationID)
+				execCtx.ToAgentID)
 
 			if checkErr != nil {
 				p.logger.Error("Failed to check for duplicate request",
@@ -1089,7 +1089,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 			}
 
 			// Record this request as processed
-			if err := repo.RecordMessageProcessing(ctx, execCtx); err != nil {
+			if err := repo.RecordMessageProcessing(ctx, execCtx, execCtx.ToAgentID); err != nil {
 				p.logger.Error("Failed to record request processing", zap.Error(err))
 			}
 		}
