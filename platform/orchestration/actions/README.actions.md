@@ -39,3 +39,24 @@ review_performance
 approve_agent_changes
 conditional_route
 
+
+# Action Pattern
+func SomeAction(ctx context.Context, params ActionParams) (interface{}, error) {
+// 1. Get input data
+inputData, ok := params.CollectedData["input_data"].(map[string]interface{})
+if !ok {
+return nil, fmt.Errorf("input_data not found")
+}
+
+    // 2. Get configuration (from agent_config or step config)
+    var config map[string]interface{}
+    if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
+        config = agentConfig
+    }
+    
+    // 3. Process using input_data
+    result := processData(inputData, config)
+    
+    // 4. Return result
+    return result, nil
+}

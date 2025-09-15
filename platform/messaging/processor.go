@@ -1046,9 +1046,6 @@ func extractAction(msgValue []byte) string {
 	return payload.Action
 }
 
-// platform/messaging/processor.go
-
-// Update ProcessMessage to use the tracer properly
 func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
 	current, caller := getFuncInfo(1)
 

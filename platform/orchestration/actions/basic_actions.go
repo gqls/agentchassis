@@ -17,9 +17,15 @@ func ValidateInputAction(ctx context.Context, params ActionParams) (interface{},
 		return nil, fmt.Errorf("no input_data in CollectedData")
 	}
 
-	// Check for required fields
+	// Validate specific fields within input_data
+	// Example: if the input should have a "message" field
 	if _, ok := inputData["message"]; !ok {
-		return nil, fmt.Errorf("missing required field: message")
+		// Check if it might be nested differently
+		if data, ok := inputData["data"].(map[string]interface{}); ok {
+			if _, ok := data["message"]; !ok {
+				return nil, fmt.Errorf("missing required field: message")
+			}
+		}
 	}
 
 	return map[string]interface{}{

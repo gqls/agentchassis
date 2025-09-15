@@ -209,23 +209,44 @@ func extractHTMLContent(params ActionParams, config map[string]interface{}) (map
 	content := make(map[string][]byte)
 	metadata := make(map[string]interface{})
 
-	// Look for HTML in various places
-	htmlSources := []string{"final_html", "processed_html", "html", "generated_html"}
+	// First check in input_data
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		// Look for HTML in input_data
+		if html, ok := inputData["html"].(string); ok && html != "" {
+			content["index.html"] = []byte(html)
+			metadata["content_type"] = "text/html"
+			metadata["source"] = "input_data.html"
+		}
 
-	for _, source := range htmlSources {
-		if htmlData, ok := params.CollectedData[source]; ok {
-			if html, ok := htmlData.(string); ok && html != "" {
-				content["index.html"] = []byte(html)
-				metadata["content_type"] = "text/html"
-				metadata["source"] = source
-				break
-			}
-			if htmlMap, ok := htmlData.(map[string]interface{}); ok {
-				if html, ok := htmlMap["html"].(string); ok && html != "" {
+		// Check for other web assets
+		if css, ok := inputData["css"].(string); ok {
+			content["styles.css"] = []byte(css)
+		}
+		if js, ok := inputData["javascript"].(string); ok {
+			content["script.js"] = []byte(js)
+		}
+	}
+
+	// Fall back to checking collected data from previous steps
+	if len(content) == 0 {
+		// Look for HTML in various places
+		htmlSources := []string{"final_html", "processed_html", "html", "generated_html"}
+
+		for _, source := range htmlSources {
+			if htmlData, ok := params.CollectedData[source]; ok {
+				if html, ok := htmlData.(string); ok && html != "" {
 					content["index.html"] = []byte(html)
 					metadata["content_type"] = "text/html"
 					metadata["source"] = source
 					break
+				}
+				if htmlMap, ok := htmlData.(map[string]interface{}); ok {
+					if html, ok := htmlMap["html"].(string); ok && html != "" {
+						content["index.html"] = []byte(html)
+						metadata["content_type"] = "text/html"
+						metadata["source"] = source
+						break
+					}
 				}
 			}
 		}

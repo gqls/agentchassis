@@ -113,9 +113,23 @@ func ExecuteLLMPromptActionREAL(ctx context.Context, params ActionParams) (inter
 		templateData[key] = value
 	}
 
-	// Make input_data available as both "input_data" and "input"
-	if inputData, ok := params.CollectedData["input_data"]; ok {
+	// The primary input is always in input_data
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		// Make it available as both "input_data" and "input" for template flexibility
+		templateData["input_data"] = inputData
 		templateData["input"] = inputData
+
+		// Also spread the input data fields at the top level for easier access
+		for k, v := range inputData {
+			templateData[k] = v
+		}
+	}
+
+	// Add other collected data for context
+	for key, value := range params.CollectedData {
+		if key != "input_data" { // Don't overwrite what we just set
+			templateData[key] = value
+		}
 	}
 
 	// Parse the input data if it exists
@@ -310,7 +324,20 @@ func ConditionalRouteAction(ctx context.Context, params ActionParams) (interface
 	routes := config["routes"].(map[string]interface{})
 
 	// Evaluate the condition
-	conditionValue := params.CollectedData[conditionField]
+	// Check for condition value in input_data first
+	var conditionValue interface{}
+
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		// Look in input_data first
+		if val, exists := inputData[conditionField]; exists {
+			conditionValue = val
+		}
+	}
+
+	// Fall back to collected data
+	if conditionValue == nil {
+		conditionValue = params.CollectedData[conditionField]
+	}
 
 	// If no explicit condition value, evaluate it
 	if conditionValue == nil {
@@ -319,7 +346,7 @@ func ConditionalRouteAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	// Determine next step
-	nextStep, ok := routes[conditionValue.(string)]
+	nextStep, ok := routes[fmt.Sprintf("%v", conditionValue)]
 	if !ok {
 		// Use default route if available
 		nextStep = routes["default"]

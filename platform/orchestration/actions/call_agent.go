@@ -51,8 +51,43 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	requestID := uuid.New().String()
 
 	// Create child orchestration ID for this call
-	childOrchID := uuid.New().String() // todo: who's orchestration is this?
-	childOrchName := fmt.Sprintf("%s-calc-%s", targetAgentType, time.Now().Format("1504"))
+	//childOrchID := uuid.New().String() // todo: who's orchestration is this?
+	//childOrchName := fmt.Sprintf("%s-calc-%s", targetAgentType, time.Now().Format("1504"))
+
+	// The calculator already has an orchestration - use it!
+	childOrchID := targetAgentID // The agent's ID IS its orchestration ID
+	childOrchName := spawnedAgentInfo["agent_name"].(string)
+
+	// Build the body based on what the target agent needs
+	bodyData := make(map[string]interface{})
+
+	// Always include input_data
+	if inputData, ok := params.CollectedData["input_data"]; ok {
+		bodyData["input_data"] = inputData
+	}
+
+	// Include the action the agent should perform
+	if targetAction, ok := params.StepConfig.Config["target_action"].(string); ok {
+		bodyData["action"] = targetAction
+	} else {
+		bodyData["action"] = "process" // Default action
+	}
+
+	// Include relevant context from previous steps if needed
+	if includeContext, ok := params.StepConfig.Config["include_context"].(bool); ok && includeContext {
+		// Add specific previous step results
+		if contextSteps, ok := params.StepConfig.Config["context_steps"].([]interface{}); ok {
+			localContext := make(map[string]interface{})
+			for _, step := range contextSteps {
+				if stepName, ok := step.(string); ok {
+					if stepData, exists := params.CollectedData[stepName]; exists {
+						localContext[stepName] = stepData
+					}
+				}
+			}
+			bodyData["context"] = localContext
+		}
+	}
 
 	// Build the calculation request
 	// The calculator already has the data from initialization, but we send it again
@@ -95,6 +130,8 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		//Body: params.CollectedData["input_data"], // Send the calculation data
 		Body: map[string]interface{}{
 			"input_data": params.CollectedData["input_data"], // Wrap it in the expected key
+			"action":     "process",                          // What the spawned agent should do
+			"config":     params.CollectedData["agent_config"],
 		},
 	}
 

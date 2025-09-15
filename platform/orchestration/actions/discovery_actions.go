@@ -43,9 +43,11 @@ func PlanAgentTeamAction(ctx context.Context, params ActionParams) (interface{},
 
 		// Group is performing well, use as-is
 		return map[string]interface{}{
-			"action":   "use_existing",
-			"group_id": existingGroup.ID,
-			"agents":   existingGroup.AgentConfigs,
+			"action":     "use_existing",
+			"group_id":   existingGroup.ID,
+			"group_name": existingGroup.Name,
+			"agents":     existingGroup.AgentConfigs,
+			"workflow":   existingGroup.Workflow,
 		}, nil
 	}
 

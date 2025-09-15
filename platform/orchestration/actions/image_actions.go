@@ -18,22 +18,26 @@ import (
 func GenerateImageAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Generating image")
 
-	// Get image generation config
-	config := params.StepConfig.Config
-	if config == nil {
-		config = make(map[string]interface{})
+	// Get the agent's own config from the standard location.
+	agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("agent_config not found in CollectedData")
 	}
 
-	// Build prompt from context
-	prompt := buildImagePrompt(params.CollectedData, config)
+	// Get task-specific data (e.g., a specific prompt override) from input_data.
+	inputData, _ := params.CollectedData["input_data"].(map[string]interface{})
 
-	// Get image generation parameters
-	model := getStringOrDefault(config, "model", "dall-e-3")
-	size := getStringOrDefault(config, "size", "1024x1024")
-	quality := getStringOrDefault(config, "quality", "standard")
-	style := getStringOrDefault(config, "style", "vivid")
+	// Build the prompt using all available context.
+	// The helper function is responsible for intelligently combining data.
+	prompt := buildImagePrompt(params.CollectedData, inputData, agentConfig)
 
-	// Call image generation API (placeholder - would integrate with actual API)
+	// Get image generation parameters from the agent's own config.
+	model := getStringOrDefault(agentConfig, "model", "dall-e-3")
+	size := getStringOrDefault(agentConfig, "size", "1024x1024")
+	quality := getStringOrDefault(agentConfig, "quality", "standard")
+	style := getStringOrDefault(agentConfig, "style", "vivid")
+
+	// Call image generation API (placeholder)
 	imageData, err := callImageGenerationAPI(ctx, prompt, model, size, quality, style)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate image: %w", err)
@@ -225,12 +229,20 @@ func ValidateImageAction(ctx context.Context, params ActionParams) (interface{},
 
 // Helper functions
 
-func buildImagePrompt(collectedData map[string]interface{}, config map[string]interface{}) string {
+func buildImagePrompt(collectedData map[string]interface{}, inputData, agentConfig map[string]interface{}) string {
 	// Extract context for image generation
 	var promptParts []string
 
-	if prompt, ok := config["prompt"].(string); ok {
+	// Priority 1: A specific prompt from the current task.
+	if prompt, ok := inputData["prompt"].(string); ok {
 		promptParts = append(promptParts, prompt)
+	}
+
+	// Priority 2: A base prompt from the agent's config.
+	if basePrompt, ok := agentConfig["base_prompt"].(string); ok {
+		promptParts = append(promptParts, basePrompt)
+	} else if basePrompt, ok := agentConfig["prompt"].(string); ok {
+		promptParts = append(promptParts, basePrompt)
 	}
 
 	// Add business context if available
@@ -241,7 +253,7 @@ func buildImagePrompt(collectedData map[string]interface{}, config map[string]in
 	}
 
 	// Add style preferences
-	if style, ok := config["style"].(string); ok {
+	if style, ok := agentConfig["style"].(string); ok {
 		promptParts = append(promptParts, fmt.Sprintf("in %s style", style))
 	}
 

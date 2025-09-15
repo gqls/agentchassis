@@ -291,7 +291,12 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			TimeoutSeconds:        30,
 			ResponsesTopic:        fmt.Sprintf("system.agent.%s.responses", senderAgentType),
 		},
-		Body: params.CollectedData["input_data"],
+		Body: map[string]interface{}{
+			// Always wrap the payload in the standard key
+			"input_data": params.CollectedData["input_data"],
+			"action":     "initialize", // What the spawned agent should do
+			"config":     params.CollectedData["agent_config"],
+		},
 	}
 
 	params.Logger.Info("DEBUGaa: 1 SpawnAgentAction Request Message - spawnMessage - for spawn",

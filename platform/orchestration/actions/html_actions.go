@@ -24,16 +24,25 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 	// Gather context from previous steps
 	context := gatherHTMLContext(params.CollectedData)
 
+	// Now, it gets its *own* configuration from the standard location.
+	agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("agent_config not found in CollectedData")
+	}
+
 	// Build the prompt
-	prompt := buildHTMLPrompt(context)
+	prompt := buildHTMLPrompt(context, agentConfig)
 
 	// Call LLM
-	llmParams := params
+	// It then calls the LLM action, passing the generated prompt in the
+	// standardized "input_data" field for the next action.
+	llmParams := params // copy params to avoid mutation
+	llmParams.CollectedData["input_data"] = map[string]interface{}{
+		"prompt": prompt,
+	}
 	llmParams.StepConfig.Config = map[string]interface{}{
-		"prompt":      prompt,
-		"model":       "claude-3-opus-20240229",
-		"max_tokens":  8000,
-		"temperature": 0.7,
+		"model":      "claude-3-opus-20240229",
+		"max_tokens": 8000,
 	}
 
 	result, err := ExecuteLLMPromptAction(ctx, llmParams)
@@ -290,7 +299,8 @@ func extractBusinessInfo(collectedData map[string]interface{}) map[string]interf
 	return info
 }
 
-func buildHTMLPrompt(context map[string]interface{}) string {
+func buildHTMLPrompt(context map[string]interface{}, agentConfig map[string]interface{}) string {
+	// todo bring in agentConfig
 	contextJSON, _ := json.MarshalIndent(context, "", "  ")
 
 	return fmt.Sprintf(`Generate a complete, modern, responsive HTML website based on the following context:
