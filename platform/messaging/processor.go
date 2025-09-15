@@ -1052,7 +1052,7 @@ func extractAction(msgValue []byte) string {
 func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
 	current, caller := getFuncInfo(1)
 
-	p.logger.Info("In file processor.go",
+	p.logger.Info("In file processor.go ProcessMessage",
 		zap.String("function", current),
 		zap.String("called_by", caller),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),

@@ -14,6 +14,8 @@ import (
 )
 
 func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("In CallAgentAction")
+
 	config := params.StepConfig.Config
 	targetAgentType, ok := config["agent_type"].(string)
 	if !ok {
@@ -32,7 +34,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		params.Logger.Info("Found spawned agent",
 			zap.String("agent_type", targetAgentType),
 			zap.String("agent_id", targetAgentID),
-			zap.String("spawn_key", spawnKey))
+			zap.String("DEBUGaa: spawn_key", spawnKey)) // ?
 	}
 
 	if targetAgentID == "" {
@@ -49,13 +51,13 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	requestID := uuid.New().String()
 
 	// Create child orchestration ID for this call
-	childOrchID := uuid.New().String()
+	childOrchID := uuid.New().String() // todo: who's orchestration is this?
 	childOrchName := fmt.Sprintf("%s-calc-%s", targetAgentType, time.Now().Format("1504"))
 
 	// Build the calculation request
 	// The calculator already has the data from initialization, but we send it again
 	// to ensure context is preserved
-	calcRequest := &types.RequestMessage{
+	actionRequest := &types.RequestMessage{
 		Headers: types.RequestHeaders{
 			Sender: params.ExecutionContext.Sender,
 
@@ -67,7 +69,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 			OrchestrationID:   childOrchID,
 			OrchestrationName: childOrchName,
 			StepID:            uuid.New().String(),
-			StepName:          "process", // Match calculator's workflow start step
+			StepName:          "process", // Match workflow start step
 			RequestID:         requestID,
 			RetryVersion:      0,
 
@@ -81,7 +83,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 			FromAgent:   params.ExecutionContext.Sender.AgentID,
 			ToAgent:     targetAgentID,
 			ToAgentType: targetAgentType,
-			Action:      "process", // Trigger the calculator's workflow
+			Action:      "process", // Trigger the workflow
 			Timestamp:   time.Now(),
 
 			FuelBudget:     params.ExecutionContext.FuelBudget - 100,
@@ -96,14 +98,21 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		},
 	}
 
+	params.Logger.Info("DEBUGaa: 2 CallAgentAction RequestMessage for calculator actionSending calculation request",
+		zap.Any("request message", actionRequest),
+		zap.String("Action", "process"),
+		zap.String("child_orch_id", childOrchID),
+		zap.String("orchestration id is child orchestration id", actionRequest.Headers.OrchestrationID),
+	)
+
 	// Send to calculator's requests topic
 	targetTopic := fmt.Sprintf("system.agent.%s.requests", targetAgentType)
-	msgBytes, err := json.Marshal(calcRequest)
+	msgBytes, err := json.Marshal(actionRequest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	headers := calcRequest.Headers.ToMap()
+	headers := actionRequest.Headers.ToMap()
 	key := []byte(params.ExecutionContext.CorrelationID)
 
 	params.Logger.Info("Sending calculation request",

@@ -80,6 +80,19 @@ func SpawnAgentSimpleGeminiAction(ctx context.Context, params ActionParams) (int
 // SpawnAgentAction spawns a single agent - supports both K8s Job creation and message sending with hierarchy tracking
 // func SpawnAgentWithEventDrivenKubeAction(ctx context.Context, params ActionParams) (interface{}, error) {
 func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("In SpawnAgentAction")
+
+	params.Logger.Info("SpawnAgentAction starting",
+		zap.Any("config", params.StepConfig))
+
+	current, caller := getFuncInfo(1)
+
+	params.Logger.Info("In file spawn_actions.go SpawnAgentAction",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	config := params.StepConfig.Config
 
 	agentType, ok := config["agent_type"].(string)
@@ -103,12 +116,15 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		params.Headers["request_id"] = requestID
 	}
 
-	params.Logger.Info("Spawning agent",
+	params.Logger.Info("Spawning agent in spawn_actions SpawnAgentAction:",
 		zap.String("agent_id", agentID),
 		zap.String("agent_name", agentName),
 		zap.String("agent_type", agentType),
 		zap.String("role", role),
-		zap.String("request_id", requestID))
+		zap.String("request_id", requestID),
+		zap.String("orchestration_id", requestID),
+		zap.String("orchestration_name", requestID),
+	)
 
 	// Create subtree info for hierarchy tracking
 	subtreeInfo := &types.SubtreeInfo{
@@ -200,15 +216,17 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	)
 
 	// Debug what's in CollectedData
-	params.Logger.Info("DEBUG: CollectedData contents before spawn",
+	params.Logger.Info("DEBUGaa: CollectedData contents before spawn",
 		zap.Any("all_collected_data", params.CollectedData),
-		zap.Any("input_data", params.CollectedData["input_data"]))
+		zap.Any("input_data", params.CollectedData["input_data"]),
+		zap.Any("EXECUTION CONTEXTAA", params.ExecutionContext),
+	)
 
 	senderAgentType := params.ExecutionContext.FromAgentType
 	if senderAgentType == "" {
 		senderAgentType = params.ExecutionContext.Sender.AgentType
 	}
-	if senderAgentType == "" {
+	/*if senderAgentType == "" {
 		// Try to get from params
 		if params.AgentType != "" {
 			//senderAgentType = params.AgentType
@@ -216,10 +234,34 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		} else {
 			senderAgentType = "generic" // fallback
 		}
+	}*/
+
+	params.Logger.Info("Determining sender type for response topic",
+		zap.String("ExecutionContext.FromAgentType", params.ExecutionContext.FromAgentType),
+		zap.String("ExecutionContext.Sender.AgentType", params.ExecutionContext.Sender.AgentType),
+		zap.String("agent_config.agent_type", params.CollectedData["agent_config"].(map[string]interface{})["agent_type"].(string)),
+		zap.Any("agent config", params.CollectedData["agent_config"]),
+	)
+
+	// The most reliable source of the CURRENT agent's type is its own agent_config
+	// that was loaded by the processor.
+	if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
+		if currentAgentType, ok := agentConfig["agent_type"].(string); ok && currentAgentType != "" {
+			senderAgentType = currentAgentType
+		}
+	}
+
+	if senderAgentType == "" {
+		senderAgentType = "generic" // fallback
 	}
 
 	params.Logger.Info("Using sender agent type",
 		zap.String("sender_type", senderAgentType))
+
+	params.Logger.Info("DEBUGaa: SpawnAgentAction - setting orchestration ID to agent ID",
+		zap.String("orchestration ID", agentID),
+		zap.String("orchestration Name", agentName),
+	)
 
 	// Create spawn message
 	spawnMessage := &types.RequestMessage{
@@ -252,7 +294,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		Body: params.CollectedData["input_data"],
 	}
 
-	params.Logger.Info("DEBUG: Request Message - spawnMessage - for spawn",
+	params.Logger.Info("DEBUGaa: 1 SpawnAgentAction Request Message - spawnMessage - for spawn",
 		zap.Any("spawn Message", spawnMessage),
 	)
 
@@ -300,6 +342,14 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("SpawnGroupAction starting",
 		zap.Any("config", params.StepConfig))
+
+	current, caller := getFuncInfo(1)
+
+	params.Logger.Info("In file spawn_actions.go SpawnGroupAction",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
 
 	// Extract group configuration
 	groupType, ok := params.StepConfig.Config["group_type"].(string)
@@ -1215,6 +1265,16 @@ func createAgentInDBFromDefinition(ctx context.Context, params ActionParams, age
 
 // spawnAgentKubernetesJobFromDefinition spawns job using database definition
 func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, agentDef *AgentDefinition, clientID string, logger *zap.Logger) (string, error) {
+	logger.Info("In spawnAgentKubernetesJobFromDefinition")
+
+	current, caller := getFuncInfo(1)
+
+	logger.Info("In file spawn_actions.go spawnAgentKubernetesJobFromDefinition",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	// Get in-cluster config
 	k8sConfig, err := rest.InClusterConfig()
 	if err != nil {

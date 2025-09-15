@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -173,6 +174,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 
 // ProcessResponse handles responses using ExecutionContext
 func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.ExecutionContext, response []byte) error {
+	
 	// Extract request ID from InResponseTo
 	var requestID string
 	if execCtx.InResponseTo != nil {
@@ -192,6 +194,14 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		zap.Int("retry_version", execCtx.RetryVersion))
 
 	contextLogger.Info("Processing response for request")
+
+	current, caller := getFuncInfo(1)
+
+	contextLogger.Info("In file coordinator.go ProcessResponse",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
 
 	repo := NewStateRepository(s.db, s.logger)
 
@@ -557,6 +567,17 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		zap.String("step_name", execCtx.StepName),
 		zap.String("action", step.Action),
 		zap.Any("state.CollectedData", state.CollectedData),
+	)
+
+	contextLogger.Info("In executeLocalAction",
+		zap.Any("DEBUGaa: executionContext", execCtx))
+
+	current, caller := getFuncInfo(1)
+
+	contextLogger.Info("In file coordinator.go executeLocalAction",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
 	// Pre-generate request ID for actions that need responses
@@ -996,4 +1017,16 @@ func extractFuelBudget(state *OrchestrationState) int {
 		return int(fuel)
 	}
 	return 1000 // Default
+}
+
+// Helper to get current and caller function names
+func getFuncInfo(skip int) (current, caller string) {
+	// skip=0 => this func, skip=1 => its caller, skip=2 => caller's caller, etc.
+	if pc, _, _, ok := runtime.Caller(skip); ok {
+		current = runtime.FuncForPC(pc).Name()
+	}
+	if pc, _, _, ok := runtime.Caller(skip + 1); ok {
+		caller = runtime.FuncForPC(pc).Name()
+	}
+	return
 }
