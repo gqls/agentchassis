@@ -844,7 +844,7 @@ ALTER TABLE processed_messages DROP CONSTRAINT processed_messages_unique;
 
 -- Add column agent_id
 ALTER TABLE processed_messages
-ADD COLUMN agent_id UUID;
+ADD COLUMN agent_id VARCHAR(255);
 
 -- Add new constraint including agent ID
 ALTER TABLE processed_messages

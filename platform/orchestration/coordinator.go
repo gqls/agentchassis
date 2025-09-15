@@ -867,6 +867,13 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	if len(state.AwaitedRequests) == 0 {
 		s.logger.Info("All responses received, continuing workflow")
 
+		// ADVANCE TO NEXT STEP
+		currentStep := state.WorkflowPlan.Steps[state.CurrentStep]
+		if currentStep.NextStep != "" {
+			state.CurrentStep = currentStep.NextStep
+			repo.UpdateState(ctx, state) // Save the step advancement
+		}
+
 		// Create fresh execution context for continuing
 		freshExecCtx := &types.ExecutionContext{
 			CorrelationID:   state.CorrelationID,
