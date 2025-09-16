@@ -474,6 +474,11 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 func (s *SagaCoordinator) continueExecution(ctx context.Context, state *OrchestrationState, execCtx *types.ExecutionContext) error {
 	repo := NewStateRepository(s.db, s.logger)
 
+	// Save current state (including any step advancement)
+	if err := repo.UpdateState(ctx, state); err != nil {
+		return err
+	}
+
 	l := s.logger.With(
 		zap.String("orchestration_id", state.OrchestrationID),
 		zap.String("current_step", state.CurrentStep),
@@ -852,6 +857,22 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	}
 	state.CollectedData[fmt.Sprintf("response_%s", requestID)] = taskResponse.Data
 
+	// Find which step this response belongs to
+	if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
+		stepName := awaitedReq.StepName
+		if stepName == "spawn_agent" {
+			// Store the spawn result under the step name
+			state.CollectedData["spawn_calculator"] = map[string]interface{}{
+				"agent_id":   taskResponse.Data["agent_id"],
+				"agent_name": taskResponse.Data["agent_name"],
+				"agent_type": taskResponse.Data["agent_type"],
+				"job_name":   taskResponse.Data["job_name"],
+				"status":     "initialized",
+				"spawned_at": time.Now(),
+			}
+		}
+	}
+
 	// Remove from awaited requests
 	if err := repo.RemoveAwaitedRequest(ctx, state.OrchestrationID, requestID); err != nil {
 		return err
@@ -902,6 +923,12 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			TimeoutSeconds: 30,
 			Timestamp:      time.Now(),
 			Version:        "2.0",
+		}
+
+		state.LastActivity = time.Now()
+
+		if err := repo.UpdateState(ctx, state); err != nil {
+			return fmt.Errorf("failed to save state transition: %w", err)
 		}
 
 		return s.continueExecution(ctx, state, freshExecCtx)
