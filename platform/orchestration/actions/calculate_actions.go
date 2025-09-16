@@ -18,11 +18,6 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 	var operation string
 	var operands []interface{}
 
-	params.Logger.Info("Completing workflow CompleteWorkflowAction",
-		zap.Any("action params", params),
-		zap.Any("action params.CollectedData", params.CollectedData),
-	)
-
 	// Path 1: Check input_data.body.input_data.data
 	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
 		if body, ok := inputData["body"].(map[string]interface{}); ok {
@@ -81,11 +76,15 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 		b, ok2 := toFloat64(operands[1])
 
 		if ok1 && ok2 {
-			return map[string]interface{}{
+			result := map[string]interface{}{
 				"result":    a + b,
 				"operation": operation,
 				"operands":  operands,
-			}, nil
+			}
+			params.Logger.Info("Calculation successful",
+				zap.Any("CALCULATION RESULT: addition ", result),
+			)
+			return result, nil
 		}
 	} else if operation == "subtract" && len(operands) == 2 {
 		a, ok1 := toFloat64(operands[0])
@@ -93,13 +92,12 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 
 		if ok1 && ok2 {
 			result := map[string]interface{}{
-				"result":    a + b,
+				"result":    a - b,
 				"operation": operation,
 				"operands":  operands,
 			}
-			// Step 5: Add a log for successful calculation.
 			params.Logger.Info("Calculation successful",
-				zap.Any("CALCULATION RESULT: addition ", result),
+				zap.Any("CALCULATION RESULT: subtraction ", result),
 			)
 			return result, nil
 		}

@@ -6,18 +6,26 @@ import (
 
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
+	"go.uber.org/zap"
 )
 
 // WorkflowValidator provides validation for workflow plans
 type WorkflowValidator struct {
+	logger *zap.Logger
 }
 
-func NewWorkflowValidator() *WorkflowValidator {
-	return &WorkflowValidator{}
+func NewWorkflowValidator(logger *zap.Logger) *WorkflowValidator {
+	return &WorkflowValidator{
+		logger: logger.Named("workflow_validator"),
+	}
 }
 
 // ValidateWorkflow validates a workflow configuration
 func (v *WorkflowValidator) ValidateWorkflow(workflow models.WorkflowPlan) error {
+	v.logger.Debug(" in ValidateWorkflow workflow.go",
+		zap.Any("workflow", workflow),
+	)
+
 	if workflow.StartStep == "" {
 		return fmt.Errorf("workflow must have a start_step")
 	}
@@ -60,8 +68,12 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 	// Use the global registry to check if it's a local action
 	isLocal := actions.IsLocalAction(step.Action)
 
-	fmt.Printf("Validating step '%s' with action '%s', isLocalAction: %v, has topic: %v\n",
-		name, step.Action, isLocal, step.Topic != "")
+	v.logger.Debug("Validating step, workflow.go",
+		zap.String("step", name),
+		zap.String("action", step.Action),
+		zap.Bool("is_local", isLocal),
+		zap.Bool("has_topic", step.Topic != ""),
+	)
 
 	// Remote actions need a topic unless they're local
 	if !isLocal && step.Topic == "" {
@@ -99,17 +111,30 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 
 // IsLocalAction checks if an action is executed locally
 func (v *WorkflowValidator) IsLocalAction(action string) bool {
+
+	v.logger.Debug(" in IsLocalAction workflow.go",
+		zap.Any("action", action),
+	)
+
 	return actions.IsLocalAction(action)
 }
 
 // RequiresTopic checks if action needs a Kafka topic
 func (v *WorkflowValidator) RequiresTopic(action string) bool {
 	// Local and built-in actions don't need topics
+	v.logger.Debug(" in RequiresTopic workflow.go",
+		zap.Any("action", action),
+	)
+	
 	return actions.IsLocalAction(action)
 }
 
 // validateDependencies ensures all dependencies exist
 func (v *WorkflowValidator) validateDependencies(plan models.WorkflowPlan) error {
+	v.logger.Debug(" in ValidateDependencies workflow.go",
+		zap.Any("plan", plan),
+	)
+
 	for stepName, step := range plan.Steps {
 		for _, dep := range step.Dependencies {
 			if _, ok := plan.Steps[dep]; !ok {
@@ -133,7 +158,10 @@ func (v *WorkflowValidator) checkForCycles(plan models.WorkflowPlan) error {
 		path = append(path, stepName) // Add to path
 
 		// Log current path
-		fmt.Printf("Checking step: %s, current path: %v\n", stepName, path)
+		v.logger.Debug("Checking step for cycle",
+			zap.String("step_name", stepName),
+			zap.Strings("path", path),
+		)
 
 		step, ok := plan.Steps[stepName]
 		if !ok {
@@ -144,28 +172,40 @@ func (v *WorkflowValidator) checkForCycles(plan models.WorkflowPlan) error {
 
 		// Check next step
 		if step.NextStep != "" {
-			fmt.Printf("  Step %s -> next_step: %s\n", stepName, step.NextStep)
+			v.logger.Debug("Following next_step",
+				zap.String("from", stepName),
+				zap.String("to next_step", step.NextStep),
+			)
 			if !visited[step.NextStep] {
 				if hasCycle(step.NextStep) {
 					return true
 				}
 			} else if recStack[step.NextStep] {
-				fmt.Printf("  CYCLE DETECTED: %s -> %s (already in recursion stack)\n", stepName, step.NextStep)
-				fmt.Printf("  Cycle path: %v -> %s\n", path, step.NextStep)
+				v.logger.Error("CYCLE DETECTED in workflow via next_step",
+					zap.String("from", stepName),
+					zap.String("to", step.NextStep),
+					zap.Strings("cycle_path", append(path, step.NextStep)),
+				)
 				return true
 			}
 		}
 
 		// Check dependencies
 		for _, dep := range step.Dependencies {
-			fmt.Printf("  Step %s depends on: %s\n", stepName, dep)
+			v.logger.Debug(" Step depends on",
+				zap.String("Step", stepName),
+				zap.String("depends on", dep),
+			)
 			if !visited[dep] {
 				if hasCycle(dep) {
 					return true
 				}
 			} else if recStack[dep] {
-				fmt.Printf("  CYCLE DETECTED: %s depends on %s (already in recursion stack)\n", stepName, dep)
-				fmt.Printf("  Cycle path: %v -> %s\n", path, dep)
+				v.logger.Error("CYCLE DETECTED in workflow - step dependencies",
+					zap.String("from", stepName),
+					zap.String("depends on", dep),
+					zap.Strings("cycle_path", append(path, dep)),
+				)
 				return true
 			}
 		}
@@ -176,7 +216,10 @@ func (v *WorkflowValidator) checkForCycles(plan models.WorkflowPlan) error {
 	}
 
 	// Start from the start step
-	fmt.Printf("Starting cycle check from: %s\n", plan.StartStep)
+	v.logger.Debug("Starting cycle check",
+		zap.String("start_step", plan.StartStep),
+	)
+
 	if hasCycle(plan.StartStep) {
 		return fmt.Errorf("workflow contains a cycle")
 	}
@@ -191,7 +234,7 @@ func (v *WorkflowValidator) checkForCycles(plan models.WorkflowPlan) error {
 		}
 	}
 
-	fmt.Printf("No cycles detected\n")
+	v.logger.Debug("No cycles detected")
 	return nil
 }
 

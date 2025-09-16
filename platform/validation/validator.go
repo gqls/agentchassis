@@ -15,7 +15,7 @@ type Validator struct {
 // NewValidator creates a new validator instance
 func NewValidator(logger *zap.Logger) *Validator {
 	return &Validator{
-		workflowValidator: NewWorkflowValidator(),
+		workflowValidator: NewWorkflowValidator(logger),
 		logger:            logger,
 	}
 }

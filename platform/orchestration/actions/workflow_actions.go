@@ -14,6 +14,10 @@ import (
 )
 
 func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Entering CompleteWorkflowAction",
+		zap.Any("action_params", params),
+	)
+
 	// Get execution context
 	execCtx, err := types.FromHeaders(params.Headers)
 	if err != nil {
