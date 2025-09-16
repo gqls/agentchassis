@@ -5,41 +5,15 @@ import (
 	"fmt"
 
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/actions"
 )
 
 // WorkflowValidator provides validation for workflow plans
 type WorkflowValidator struct {
-	localActions   map[string]bool // Actions executed within orchestrator
-	builtInActions map[string]bool // Built-in orchestration control actions
 }
 
 func NewWorkflowValidator() *WorkflowValidator {
-	// Actions that execute custom code locally
-	localActions := map[string]bool{
-		"validate_input":      true,
-		"transform_data":      true,
-		"send_notification":   true,
-		"spawn_agent":         true,
-		"spawn_group":         true,
-		"call_agent":          true,
-		"discover_agents":     true,
-		"execute_llm_prompt":  true,
-		"start_orchestration": true,
-	}
-
-	// Built-in orchestration control actions
-	builtInActions := map[string]bool{
-		"complete_workflow":     true,
-		"fan_out":               true,
-		"pause_for_human_input": true,
-		"store_memory":          true,
-		"retrieve_memory":       true,
-	}
-
-	return &WorkflowValidator{
-		localActions:   localActions,
-		builtInActions: builtInActions,
-	}
+	return &WorkflowValidator{}
 }
 
 // ValidateWorkflow validates a workflow configuration
@@ -83,21 +57,15 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 		return fmt.Errorf("step '%s' must have an action", name)
 	}
 
-	// Check if it's a local action
-	isLocalAction := v.localActions[step.Action]
+	// Use the global registry to check if it's a local action
+	isLocal := actions.IsLocalAction(step.Action)
 
 	fmt.Printf("Validating step '%s' with action '%s', isLocalAction: %v, has topic: %v\n",
-		name, step.Action, isLocalAction, step.Topic != "")
+		name, step.Action, isLocal, step.Topic != "")
 
-	// Remote actions need a topic (unless they're local or built-in)
-	if !isLocalAction && step.Topic == "" {
-		// Special cases that don't need topics
-		switch step.Action {
-		case "complete_workflow", "fan_out", "pause_for_human_input":
-			// These are OK without topics
-		default:
-			return fmt.Errorf("step '%s' with action '%s' requires a topic", name, step.Action)
-		}
+	// Remote actions need a topic unless they're local
+	if !isLocal && step.Topic == "" {
+		return fmt.Errorf("step '%s' with action '%s' requires a topic", name, step.Action)
 	}
 
 	// Validate next step exists (unless it's empty, which means end of workflow)
@@ -131,13 +99,13 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 
 // IsLocalAction checks if an action is executed locally
 func (v *WorkflowValidator) IsLocalAction(action string) bool {
-	return v.localActions[action]
+	return actions.IsLocalAction(action)
 }
 
 // RequiresTopic checks if action needs a Kafka topic
 func (v *WorkflowValidator) RequiresTopic(action string) bool {
 	// Local and built-in actions don't need topics
-	return !v.IsLocalAction(action)
+	return actions.IsLocalAction(action)
 }
 
 // validateDependencies ensures all dependencies exist

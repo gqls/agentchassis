@@ -41,18 +41,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		return nil, fmt.Errorf("no spawned %s agent found in step %s", targetAgentType, spawnKey)
 	}
 
-	// Check if we're still waiting for the spawn to complete
-	if awaitResponse, ok := spawnedAgentInfo["await_response"].(bool); ok && awaitResponse {
-		// The spawn step should have completed before we get here
-		// This is a workflow ordering issue
-		return nil, fmt.Errorf("spawn step %s has not completed yet", spawnKey)
-	}
-
 	requestID := uuid.New().String()
-
-	// Create child orchestration ID for this call
-	//childOrchID := uuid.New().String() // todo: who's orchestration is this?
-	//childOrchName := fmt.Sprintf("%s-calc-%s", targetAgentType, time.Now().Format("1504"))
 
 	// The calculator already has an orchestration - use it!
 	childOrchID := targetAgentID // The agent's ID IS its orchestration ID

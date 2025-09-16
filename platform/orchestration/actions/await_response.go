@@ -31,6 +31,7 @@ func AwaitResponseAction(ctx context.Context, params ActionParams) (interface{},
 
 	return map[string]interface{}{
 		"status":         "awaiting",
+		"message":        "Workflow paused, waiting for external responses",
 		"request_id":     requestID,
 		"await_response": false, // This action itself doesn't wait
 	}, nil

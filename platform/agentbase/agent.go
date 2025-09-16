@@ -650,7 +650,7 @@ func (a *Agent) sendErrorResponse(execCtx *types.ExecutionContext, response *typ
 		responseTopic = fmt.Sprintf("system.agent.%s.responses", execCtx.FromAgentType)
 	}
 	if responseTopic == "" {
-		responseTopic = "system.responses.error"
+		responseTopic = "system.agent.generic.errors"
 	}
 
 	responseBytes, err := json.Marshal(response)

@@ -50,43 +50,6 @@ type SagaCoordinator struct {
 	podName     string
 }
 
-var actionRegistry = map[string]actions.ActionFunc{
-	"validate_input":        actions.ValidateInputAction,
-	"transform_data":        actions.TransformDataAction,
-	"send_notification":     actions.SendNotificationAction,
-	"spawn_agent":           actions.SpawnAgentAction,
-	"spawn_group":           actions.SpawnGroupAction,
-	"call_agent":            actions.CallAgentAction,
-	"discover_agents":       actions.DiscoverAgentsAction,
-	"execute_llm_prompt":    actions.ExecuteLLMPromptAction,
-	"start_orchestration":   actions.StartOrchestrationAction,
-	"await_response":        actions.AwaitResponseAction,
-	"complete_workflow":     actions.CompleteWorkflowAction,
-	"validate_schema":       actions.ValidateSchemaAction,
-	"retrieve_memory":       actions.RetrieveMemoryAction,
-	"store_memory":          actions.StoreMemoryAction,
-	"validate_assets":       actions.ValidateAssetsAction,
-	"deploy_to_hosting":     actions.DeployToHostingAction,
-	"http_request":          actions.HTTPRequestAction,
-	"conditional_branch":    actions.ConditionalBranchAction,
-	"aggregate_data":        actions.AggregateDataAction,
-	"cache_lookup":          actions.CacheLookupAction,
-	"plan_agent_team":       actions.PlanAgentTeamAction,
-	"review_performance":    actions.ReviewPerformanceAction,
-	"approve_agent_changes": actions.ApproveAgentChangesAction,
-	"conditional_route":     actions.ConditionalRouteAction,
-	"generate_html":         actions.GenerateHTMLAction,
-	"process_html":          actions.ProcessHTMLAction,
-	"validate_html":         actions.ValidateHTMLAction,
-	"route_storage":         actions.RouteStorageAction,
-	"upload_to_s3":          actions.UploadToS3Action,
-	"s3_upload":             actions.UploadToS3Action,
-	"store_result":          actions.StoreResultAction,
-	"evaluate_task":         actions.EvaluateTaskAction,
-	"spawn_agent_k8s":       actions.SpawnAgentAction,
-	"calculate":             actions.CalculateAction,
-}
-
 // NewSagaCoordinator creates a new coordinator instance
 func NewSagaCoordinator(db *sql.DB, producer kafka.Producer, logger *zap.Logger) *SagaCoordinator {
 	podName := os.Getenv("HOSTNAME")
@@ -133,24 +96,6 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 	if execCtx.ClientID == "" {
 		return fmt.Errorf("client_id is required to execute a workflow")
 	}
-
-	//repo := NewStateRepository(s.db, s.logger)
-
-	// Message deduplication
-	/*	if execCtx.MessageID != "" {
-		isDuplicate, err := repo.HasProcessedMessage(ctx, execCtx.CorrelationID, execCtx.RequestID, execCtx.OrchestrationID)
-		if err != nil {
-			l.Error("Failed to check message duplication", zap.Error(err))
-		} else if isDuplicate {
-			l.Info("Duplicate message detected, skipping")
-			return nil
-		}
-
-		// Record message processing
-		if err := repo.RecordMessageProcessing(ctx, execCtx); err != nil {
-			l.Error("Failed to record message processing", zap.Error(err))
-		}
-	}*/
 
 	// Get or create orchestration state
 	state, orchestrationID, isNew, err := s.getOrCreateState(ctx, execCtx, plan, initialData)
@@ -474,11 +419,6 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 func (s *SagaCoordinator) continueExecution(ctx context.Context, state *OrchestrationState, execCtx *types.ExecutionContext) error {
 	repo := NewStateRepository(s.db, s.logger)
 
-	// Save current state (including any step advancement)
-	if err := repo.UpdateState(ctx, state); err != nil {
-		return err
-	}
-
 	l := s.logger.With(
 		zap.String("orchestration_id", state.OrchestrationID),
 		zap.String("current_step", state.CurrentStep),
@@ -524,31 +464,29 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 
 	// Execute the step
 	err = s.executeStep(ctx, state, currentStepConfig, execCtx)
-
-	// Always save the state after a step, which persists the result of the action
-	// *before* we check if we need to wait.
-	if err := repo.UpdateState(ctx, state); err != nil {
-		// If we can't even save the state, we must fail the workflow.
-		return s.failWorkflow(ctx, state, fmt.Sprintf("failed to save state after step %s: %v", state.CurrentStep, err))
+	if err != nil {
+		// If the action itself fails, fail the workflow.
+		return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
 	}
 
-	// Check if execution resulted in waiting
+	// Check if the action requires us to pause and wait for a response.
 	if state.Status == StatusAwaitingResponses {
 		l.Info("Execution paused - waiting for responses")
-		return nil
-	}
-
-	if err != nil {
-		return s.failWorkflow(ctx, state, err.Error())
+		//return nil
+		return repo.UpdateState(ctx, state)
 	}
 
 	// Move to next step if defined
 	if currentStepConfig.NextStep != "" {
 		state.CurrentStep = currentStepConfig.NextStep
-		if err := repo.UpdateState(ctx, state); err != nil {
-			return err
-		}
-		return s.continueExecution(ctx, state, execCtx)
+	} else {
+		// No next step, the workflow is complete.
+		return s.completeWorkflow(ctx, state)
+	}
+
+	// ATOMIC UPDATE: Save the new current step and the results of the previous step in one operation.
+	if err := repo.UpdateState(ctx, state); err != nil {
+		return err
 	}
 
 	// No next step - workflow complete
@@ -614,8 +552,8 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		}
 	}
 
-	// Get action handler
-	handler, exists := actionRegistry[step.Action]
+	// Get action handler from global registry
+	handler, exists := actions.GetAction(step.Action)
 	if !exists {
 		return fmt.Errorf("unknown action: %s, not found in registry", step.Action)
 	}
@@ -658,21 +596,22 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return fmt.Errorf("local action failed: %w", err)
 	}
 
-	// Handle subtree info if returned (for spawn actions)
+	// Store result
+	state.CollectedData[state.CurrentStep] = result
+
+	// Handle subtree info if returned (for spawn actions), handle all state modifications in memory
+	needsWaiting := false
 	if resultMap, ok := result.(map[string]interface{}); ok {
-		// Handle single agent subtree info
+		// Handle subtree info
 		if subtreeInfo, ok := resultMap["subtree_info"].(*types.SubtreeInfo); ok {
-			repo := NewStateRepository(s.db, s.logger)
-			if err := repo.AddSubtreeAgent(ctx, state.OrchestrationID, subtreeInfo); err != nil {
-				contextLogger.Error("Failed to add agent to subtree",
-					zap.Error(err),
-					zap.String("agent_id", subtreeInfo.AgentID))
-				// Don't fail the action, just log the error
-			} else {
-				contextLogger.Info("Added agent to subtree",
-					zap.String("agent_id", subtreeInfo.AgentID),
-					zap.String("agent_type", subtreeInfo.AgentType))
+			if state.SubtreeAgents == nil {
+				state.SubtreeAgents = make(map[string]*types.SubtreeInfo)
 			}
+			state.SubtreeAgents[subtreeInfo.AgentID] = subtreeInfo
+
+			contextLogger.Info("Added agent to subtree",
+				zap.String("agent_id", subtreeInfo.AgentID),
+				zap.String("agent_type", subtreeInfo.AgentType))
 		}
 
 		// Check if action requires waiting
@@ -683,27 +622,25 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 			}
 
 			if requestID != "" {
-				// Create awaited request entry
+				// Create awaited request entry IN MEMORY
 				awaitedReq := &AwaitedRequest{
 					RequestID:       requestID,
 					StepID:          execCtx.StepID,
 					StepName:        step.Action,
 					RetryVersion:    0,
 					TargetAgentType: getTargetAgentType(step, resultMap),
-					ResponseTopic:   execCtx.ResponsesTopic, // Store where we expect responses
+					ResponseTopic:   execCtx.ResponsesTopic,
 					SentAt:          time.Now(),
 					TimeoutAt:       time.Now().Add(getTimeout(step)),
 				}
 
-				// Add to awaited requests
-				repo := NewStateRepository(s.db, s.logger)
-				if err := repo.AddAwaitedRequest(ctx, state.OrchestrationID, awaitedReq); err != nil {
-					return err
+				// Add to state IN MEMORY
+				if state.AwaitedRequests == nil {
+					state.AwaitedRequests = make(map[string]*AwaitedRequest)
 				}
-
-				// Update state status
+				state.AwaitedRequests[requestID] = awaitedReq
 				state.Status = StatusAwaitingResponses
-				state.CollectedData[state.CurrentStep] = result
+				needsWaiting = true
 
 				contextLogger.Info("Action requires waiting for response",
 					zap.String("request_id", requestID),
@@ -715,10 +652,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		}
 	}
 
-	// Store result
-	state.CollectedData[state.CurrentStep] = result
-
-	// Add processing record
+	// Add processing record IN MEMORY
 	state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{
 		PodName:   s.podName,
 		StepID:    execCtx.StepID,
@@ -728,6 +662,16 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		Details:   fmt.Sprintf("Executed by %s", s.podName),
 	})
 
+	// If we need to wait, save state NOW before returning
+	if needsWaiting {
+		repo := NewStateRepository(s.db, s.logger)
+		if err := repo.UpdateState(ctx, state); err != nil {
+			return fmt.Errorf("failed to save state before waiting: %w", err)
+		}
+		contextLogger.Info("State saved before waiting for response")
+	}
+
+	// NO DATABASE SAVE HERE - let continueExecution handle it
 	return nil
 }
 
@@ -865,7 +809,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	state.CollectedData[fmt.Sprintf("response_%s", requestID)] = taskResponse.Data
 
 	// Find which step this response belongs to
-	if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
+	/*if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
 
 		contextLogger.Info("DEBUGaa: coordinator.go handleCompleteResponse parse response structure",
 			zap.Any("taskResponse", taskResponse),
@@ -881,6 +825,23 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 				"job_name":   taskResponse.Data["job_name"],
 				"status":     "initialized",
 				"spawned_at": time.Now(),
+			}
+		}
+	}*/
+
+	if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
+		if awaitedReq.StepName == "spawn_agent" {
+			// Parse the nested response structure
+			if body, ok := taskResponse.Data["body"].(map[string]interface{}); ok {
+				if result, ok := body["result"].(map[string]interface{}); ok {
+					state.CollectedData["spawn_calculator"] = map[string]interface{}{
+						"agent_id":   result["agent_id"],
+						"agent_name": result["agent_name"],
+						"agent_type": result["agent_type"],
+						"status":     "initialized",
+						"spawned_at": time.Now(),
+					}
+				}
 			}
 		}
 	}
@@ -1122,8 +1083,7 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 }
 
 func isLocalAction(action string) bool {
-	_, exists := actionRegistry[action]
-	return exists
+	return actions.IsLocalAction(action)
 }
 
 func getTargetAgentType(step models.Step, result map[string]interface{}) string {
