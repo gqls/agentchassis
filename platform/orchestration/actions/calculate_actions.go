@@ -9,6 +9,11 @@ import (
 )
 
 func CalculateAction(ctx context.Context, params ActionParams) (interface{}, error) {
+
+	params.Logger.Info("Entering CalculateAction",
+		zap.Any("action_params", params),
+	)
+
 	// Try multiple paths to find the input data
 	var operation string
 	var operands []interface{}
@@ -25,6 +30,11 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 				if data, ok := innerInputData["data"].(map[string]interface{}); ok {
 					operation, _ = data["operation"].(string)
 					operands, _ = data["operands"].([]interface{})
+
+					params.Logger.Info("Extracted data from Path 1",
+						zap.String("operation", operation),
+						zap.Any("operands", operands),
+					)
 				}
 			}
 		}
@@ -38,6 +48,11 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 					if data, ok := inputData["data"].(map[string]interface{}); ok {
 						operation, _ = data["operation"].(string)
 						operands, _ = data["operands"].([]interface{})
+
+						params.Logger.Info("Extracted data from Path 2",
+							zap.String("operation", operation),
+							zap.Any("operands", operands),
+						)
 					}
 				}
 			}
@@ -50,6 +65,11 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 			if data, ok := inputData["data"].(map[string]interface{}); ok {
 				operation, _ = data["operation"].(string)
 				operands, _ = data["operands"].([]interface{})
+
+				params.Logger.Info("Extracted data from Path 3",
+					zap.String("operation", operation),
+					zap.Any("operands", operands),
+				)
 			}
 		}
 	}
@@ -72,11 +92,16 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 		b, ok2 := toFloat64(operands[1])
 
 		if ok1 && ok2 {
-			return map[string]interface{}{
-				"result":    a - b,
+			result := map[string]interface{}{
+				"result":    a + b,
 				"operation": operation,
 				"operands":  operands,
-			}, nil
+			}
+			// Step 5: Add a log for successful calculation.
+			params.Logger.Info("Calculation successful",
+				zap.Any("CALCULATION RESULT: addition ", result),
+			)
+			return result, nil
 		}
 	} else if operation == "multiply" && len(operands) == 2 {
 		a, ok1 := toFloat64(operands[0])
@@ -102,7 +127,9 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 		}
 	}
 
-	return nil, fmt.Errorf("unsupported operation: %s with operands: %v", operation, operands)
+	err := fmt.Errorf("unsupported operation: '%s' with operands: %v", operation, operands)
+	params.Logger.Error("CalculateAction failed", zap.Error(err))
+	return nil, err
 }
 
 // Helper function to convert interface{} to float64
