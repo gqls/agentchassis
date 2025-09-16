@@ -4,12 +4,19 @@ package actions
 import (
 	"context"
 	"fmt"
+
+	"go.uber.org/zap"
 )
 
 func CalculateAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	// Try multiple paths to find the input data
 	var operation string
 	var operands []interface{}
+
+	params.Logger.Info("Completing workflow CompleteWorkflowAction",
+		zap.Any("action params", params),
+		zap.Any("action params.CollectedData", params.CollectedData),
+	)
 
 	// Path 1: Check input_data.body.input_data.data
 	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {

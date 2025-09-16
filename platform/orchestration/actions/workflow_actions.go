@@ -21,8 +21,11 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		return nil, err
 	}
 
-	params.Logger.Info("Completing workflow",
-		zap.String("orchestration_id", execCtx.OrchestrationID))
+	params.Logger.Info("Completing workflow CompleteWorkflowAction",
+		zap.String("orchestration_id", execCtx.OrchestrationID),
+		zap.Any("action params", params),
+		zap.Any("action params.CollectedData", params.CollectedData),
+	)
 
 	// Clean collected data
 	result := make(map[string]interface{})
