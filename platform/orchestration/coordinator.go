@@ -525,6 +525,13 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 	// Execute the step
 	err = s.executeStep(ctx, state, currentStepConfig, execCtx)
 
+	// Always save the state after a step, which persists the result of the action
+	// *before* we check if we need to wait.
+	if err := repo.UpdateState(ctx, state); err != nil {
+		// If we can't even save the state, we must fail the workflow.
+		return s.failWorkflow(ctx, state, fmt.Sprintf("failed to save state after step %s: %v", state.CurrentStep, err))
+	}
+
 	// Check if execution resulted in waiting
 	if state.Status == StatusAwaitingResponses {
 		l.Info("Execution paused - waiting for responses")
@@ -859,6 +866,11 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 
 	// Find which step this response belongs to
 	if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
+
+		contextLogger.Info("DEBUGaa: coordinator.go handleCompleteResponse parse response structure",
+			zap.Any("taskResponse", taskResponse),
+		)
+
 		stepName := awaitedReq.StepName
 		if stepName == "spawn_agent" {
 			// Store the spawn result under the step name

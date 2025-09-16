@@ -180,7 +180,7 @@ func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *
         INSERT INTO processed_messages 
         (message_id, correlation_id, orchestration_id, request_id, agent_id, message_type, processed_at, processed_by)
         VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
-        ON CONFLICT (correlation_id, request_id) DO NOTHING
+        ON CONFLICT (correlation_id, request_id, agent_id) DO NOTHING
     `
 
 	_, err := r.db.ExecContext(ctx, query,
