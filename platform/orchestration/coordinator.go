@@ -426,90 +426,85 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 func (s *SagaCoordinator) continueExecution(ctx context.Context, state *OrchestrationState, execCtx *types.ExecutionContext) error {
 	repo := NewStateRepository(s.db, s.logger)
 
-	l := s.logger.With(
-		zap.String("orchestration_id", state.OrchestrationID),
-		zap.String("current_step", state.CurrentStep),
-		zap.String("exec_ctx_sender_type", execCtx.Sender.AgentType),
-		zap.String("exec_ctx_message_type", execCtx.MessageType),
-		zap.Any("exec_ctx_in_response_to", execCtx.InResponseTo),
-		zap.Any("state.Status", state.Status),
-	)
-
-	// Check if already waiting
+	// This initial check remains outside the loop. If the function is called
+	// on a state that's already waiting, we should exit immediately.
 	if state.Status == StatusAwaitingResponses {
-		l.Info("Already in waiting state")
+		s.logger.Info("Already in waiting state", zap.String("orchestration_id", state.OrchestrationID))
 		return nil
 	}
 
-	l.Info("Continuing workflow execution continueExecution coordinator.go",
-		zap.Int("total_steps", len(state.WorkflowPlan.Steps)))
-
-	// Mark step as executing
-	if err := repo.SetExecutingStep(ctx, state.OrchestrationID, state.CurrentStep); err != nil {
-		return err
-	}
-
-	// Reload state
-	state, err := repo.GetState(ctx, state.OrchestrationID)
-	if err != nil {
-		return fmt.Errorf("failed to reload state: %w", err)
-	}
-
-	l = s.logger.With(
-		zap.Any("DEBUGAA: state loaded from repo - in continueExecution", state),
-		zap.String("current_step", state.CurrentStep),
-		zap.Any("state.Status", state.Status),
-		zap.Any("currentStepConfig", state.WorkflowPlan.Steps[state.CurrentStep]),
-	)
-
-	// Get current step
-	currentStepConfig, exists := state.WorkflowPlan.Steps[state.CurrentStep]
-	if !exists {
-		l.Error("Current step doesnt exist in the plan",
-			zap.Any("state.WorkflowPlan", state.WorkflowPlan),
+	// This loop replaces the recursion. It will run for each step in the workflow
+	// until a 'return' statement is hit.
+	for {
+		l := s.logger.With(
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("current_step", state.CurrentStep),
+			zap.String("exec_ctx_sender_type", execCtx.Sender.AgentType),
+			zap.String("exec_ctx_message_type", execCtx.MessageType),
+			zap.Any("exec_ctx_in_response_to", execCtx.InResponseTo),
+			zap.Any("state.Status", state.Status),
 		)
 
-		return s.failWorkflow(ctx, state, fmt.Sprintf("step '%s' not found", state.CurrentStep))
-	}
+		l.Info("Continuing workflow execution continueExecution coordinator.go",
+			zap.Int("total_steps", len(state.WorkflowPlan.Steps)))
 
-	// Check dependencies
-	if !s.dependenciesMet(currentStepConfig.Dependencies, state) {
-		return s.skipStep(ctx, state, "dependencies not met")
-	}
-
-	// Execute the step
-	err = s.executeStep(ctx, state, currentStepConfig, execCtx)
-	if err != nil {
-		// If the action itself fails, fail the workflow.
-		return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
-	}
-
-	// Check if the action requires us to pause and wait for a response.
-	if state.Status == StatusAwaitingResponses {
-		l.Info("Execution paused - waiting for responses")
-		//return nil
-		return repo.UpdateState(ctx, state)
-	}
-
-	// Move to next step if defined
-	if currentStepConfig.NextStep != "" {
-		l.Info("currentStepConfig.NextStep was not blank",
-			zap.Any("currentStepConfig.NextStep", currentStepConfig.NextStep),
-		)
-
-		state.CurrentStep = currentStepConfig.NextStep
-
-		// ATOMIC UPDATE for the next step
-		if err := repo.UpdateState(ctx, state); err != nil {
+		// Mark the current step as executing for this iteration
+		if err := repo.SetExecutingStep(ctx, state.OrchestrationID, state.CurrentStep); err != nil {
 			return err
 		}
 
-		// RECURSIVE CALL: This creates the loop to run the next step.
-		return s.continueExecution(ctx, state, execCtx)
-	} else {
-		l.Info("currentStepConfig.NextStep WAS blank, completing workflow.")
-		// No next step, the workflow is complete.
-		return s.completeWorkflow(ctx, state)
+		// Reload the state to ensure we have the latest version for this step
+		reloadedState, err := repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to reload state: %w", err)
+		}
+		state = reloadedState
+
+		l = s.logger.With(
+			zap.Any("DEBUGAA: state loaded from repo - in continueExecution", state),
+			zap.String("current_step", state.CurrentStep),
+			zap.Any("state.Status", state.Status),
+			zap.Any("currentStepConfig", state.WorkflowPlan.Steps[state.CurrentStep]),
+		)
+
+		currentStepConfig, exists := state.WorkflowPlan.Steps[state.CurrentStep]
+		if !exists {
+			l.Error("Current step doesnt exist in the plan", zap.Any("state.WorkflowPlan", state.WorkflowPlan))
+			return s.failWorkflow(ctx, state, fmt.Sprintf("step '%s' not found", state.CurrentStep))
+		}
+
+		if !s.dependenciesMet(currentStepConfig.Dependencies, state) {
+			return s.skipStep(ctx, state, "dependencies not met")
+		}
+
+		// Execute the single step for this iteration
+		err = s.executeStep(ctx, state, currentStepConfig, execCtx)
+		if err != nil {
+			return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
+		}
+
+		// If the step requires a pause, save the state and exit the loop.
+		if state.Status == StatusAwaitingResponses {
+			l.Info("Execution paused - waiting for responses")
+			return repo.UpdateState(ctx, state)
+		}
+
+		// --- This is the core step-transition logic ---
+		if currentStepConfig.NextStep != "" {
+			l.Info("currentStepConfig.NextStep was not blank", zap.String("next_step", currentStepConfig.NextStep))
+			state.CurrentStep = currentStepConfig.NextStep
+
+			if err := repo.UpdateState(ctx, state); err != nil {
+				return err
+			}
+
+			// Go to the top of the for loop to run the next step
+			continue
+		} else {
+			l.Info("currentStepConfig.NextStep WAS blank, completing workflow.")
+			// No next step, so complete the workflow and exit the loop
+			return s.completeWorkflow(ctx, state)
+		}
 	}
 }
 
@@ -1089,6 +1084,12 @@ func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *Orchestration
 }
 
 func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *OrchestrationState) error {
+	s.logger.Info("In coordinator.go completeWorkflow 1092",
+		zap.Any("state", state),
+		zap.String("container", os.Getenv("HOSTNAME")),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	state.Status = StatusCompleted
 
 	state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{
