@@ -125,7 +125,7 @@ func (v *WorkflowValidator) RequiresTopic(action string) bool {
 	v.logger.Debug(" in RequiresTopic workflow.go",
 		zap.Any("action", action),
 	)
-	
+
 	return actions.IsLocalAction(action)
 }
 

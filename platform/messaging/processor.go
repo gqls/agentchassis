@@ -1049,7 +1049,7 @@ func extractAction(msgValue []byte) string {
 func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
 	current, caller := getFuncInfo(1)
 
-	p.logger.Info("In file processor.go ProcessMessage",
+	p.logger.Info("In processor.go ProcessMessage",
 		zap.String("function", current),
 		zap.String("called_by", caller),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
@@ -1068,7 +1068,14 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		return p.processWithoutContext(ctx, msg, headers)
 	}
 
+	contextLogger := p.logger.With(execCtx.LogContext()...)
+	contextLogger.Info("In processor.go 1072 ProcessMessage",
+		zap.Bool("DEBUGaa: is p.sqlDB exists or is it different driver:", p.sqlDB != nil),
+	)
+
 	if p.sqlDB != nil {
+		contextLogger.Info("In processor.go 1072 ProcessMessage. p.sqlDB is not nil")
+
 		// Use request_id for deduplication, not message_id
 		if execCtx.RequestID != "" {
 			repo := orchestration.NewStateRepository(p.sqlDB, p.logger)
@@ -1078,26 +1085,26 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 				execCtx.ToAgentID)
 
 			if checkErr != nil {
-				p.logger.Error("Failed to check for duplicate request",
+				contextLogger.Error("Failed to check for duplicate request",
 					zap.String("request_id", execCtx.RequestID),
 					zap.Error(checkErr))
 			} else if isDuplicate {
-				p.logger.Warn("Duplicate request detected and ignored",
+				contextLogger.Warn("Duplicate request detected and ignored",
 					zap.String("request_id", execCtx.RequestID),
-					zap.String("correlation_id", execCtx.CorrelationID))
+					zap.String("correlation_id", execCtx.CorrelationID),
+					zap.String("orchestration_id", execCtx.OrchestrationID),
+				)
 				return nil
 			}
 
 			// Record this request as processed
 			if err := repo.RecordMessageProcessing(ctx, execCtx, execCtx.ToAgentID); err != nil {
-				p.logger.Error("Failed to record request processing", zap.Error(err))
+				contextLogger.Error("Failed to record request processing", zap.Error(err))
 			}
 		}
 	}
 
-	contextLogger := p.logger.With(execCtx.LogContext()...)
-
-	contextLogger.Info("TRACE: ProcessMessage entry",
+	contextLogger.Info("TRACE: processor.go ProcessMessage entry",
 		zap.String("agent_type", p.agentType),
 		zap.String("processing_orch", execCtx.OrchestrationID),
 		zap.Int("fuel_received", execCtx.FuelBudget),
@@ -1141,14 +1148,18 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	var requestData map[string]interface{}
 	json.Unmarshal(msg.Value, &requestData)
 
+	p.logger.Info("processor.go 1146 ProcessMessage",
+		zap.String("Action from ExecutionContext", msgCtx.ExecutionContext.Action),
+	)
+
 	// Always use the action from the ExecutionContext (derived from the header)
 	// for protocol-level decisions like initialization.
 	if msgCtx.ExecutionContext.Action == "initialize" {
-		p.logger.Info("Handling protocol action: initialize")
+		contextLogger.Info("Handling protocol action: initialize")
 
 		var spawnRequest types.RequestMessage
 		if err := json.Unmarshal(msg.Value, &spawnRequest); err != nil {
-			p.logger.Error("Failed to unmarshal spawn request during initialization", zap.Error(err))
+			contextLogger.Error("Failed to unmarshal spawn request during initialization", zap.Error(err))
 			return err
 		}
 
@@ -1156,9 +1167,13 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		return p.initializer.SendInitializationResponse(&spawnRequest)
 	}
 
+	contextLogger.Info("processor.go 1161 ProcessMessage",
+		zap.String("MessageType from ExecutionContext", msgCtx.ExecutionContext.MessageType),
+	)
+
 	// Route responses to orchestrator
 	if msgCtx.ExecutionContext.MessageType == "response" {
-		p.logger.Info("Routing response to orchestrator",
+		contextLogger.Info("Routing response to orchestrator",
 			zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
 			zap.String("status", msgCtx.ExecutionContext.Status),
 			zap.Bool("has_orchestrator", p.orchestrator != nil))
@@ -1169,7 +1184,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		}
 
 		// If no orchestrator, log and return
-		p.logger.Warn("No orchestrator available to handle response")
+		contextLogger.Warn("No orchestrator available to handle response")
 		return nil
 	}
 
@@ -1214,7 +1229,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 	// Success
 	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action, "success").Inc()
-	contextLogger.Info("ProcessMessage completed successfully")
+	contextLogger.Info("ProcessMessage (processor.go) completed successfully")
 
 	// Trace outgoing response if one was sent
 	if p.tracer != nil && msgCtx.ExecutionContext.MessageType == "request" {
@@ -1277,7 +1292,7 @@ func getFuncInfo(skip int) (current, caller string) {
 }
 
 func (p *MessageProcessor) processRequest(ctx context.Context, msgCtx *MessageContext) error {
-	p.logger.Info("Processing request",
+	p.logger.Info("Processing request processRequest processor.go 1295",
 		zap.String("action", msgCtx.ExecutionContext.Action),
 		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
 		zap.String("request_id", msgCtx.ExecutionContext.RequestID),
@@ -1343,12 +1358,12 @@ func (p *MessageProcessor) processResponse(ctx context.Context, msgCtx *MessageC
 
 // executeWorkflow executes a workflow through the orchestrator
 func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
-	p.logger.Info("Executing workflow",
+	p.logger.Info("Executing workflow executeWorkflow processor.go 1361",
 		zap.String("start_step", config.Workflow.StartStep),
 		zap.Int("total_steps", len(config.Workflow.Steps)),
 		zap.String("agent_type", p.agentType),
 		zap.Bool("stateless", msgCtx.IsStateless),
-		zap.Any("DEBUGaa: processor 1310 executeWorkflow - does msgCtx have initial data?", msgCtx),
+		zap.Any("processor 1364 executeWorkflow - does msgCtx have initial data?", msgCtx),
 	)
 
 	// Ensure ExecutionContext has agent type

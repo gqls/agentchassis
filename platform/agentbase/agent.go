@@ -545,14 +545,14 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 	// Process through message processor
 	if err := a.processor.ProcessMessage(a.ctx, msg); err != nil {
-		contextLogger.Error("Failed to process message",
+		contextLogger.Error("Failed to process message (agent.go)",
 			zap.Error(err),
 			zap.Duration("duration", time.Since(startTime)))
 
 		observability.MessagesFailed.WithLabelValues(a.AgentType, messageType).Inc()
 		a.handleProcessingError(execCtx, err)
 	} else {
-		contextLogger.Info("Message processed successfully",
+		contextLogger.Info("Message processed successfully (agent.go)",
 			zap.Duration("duration", time.Since(startTime)))
 
 		observability.MessagesProcessed.WithLabelValues(a.AgentType, messageType).Inc()

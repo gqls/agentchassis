@@ -89,8 +89,9 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 		zap.Bool("stateless", s.isStateless),
 		zap.String("pod_name", s.podName))
 
-	l.Info("ExecuteWorkflow called",
-		zap.String("start_step", plan.StartStep),
+	l.Info("ExecuteWorkflow called coordinator.go 92 PLAN",
+		zap.Any("plan", plan),
+		zap.String("start_step_", plan.StartStep),
 		zap.Int("total_steps", len(plan.Steps)))
 
 	if execCtx.ClientID == "" {
@@ -356,6 +357,12 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.E
 
 // handleOrchestrationStatus handles orchestration based on its current status
 func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *OrchestrationState, execCtx *types.ExecutionContext, isNew bool) error {
+	s.logger.Info("Handling orchestration status handleOrchestrationStatus coordinator.go 360",
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.Any("DEBUGaa: state.Status", state.Status),
+		zap.Any("state.CurrentlyExecuting", state.CurrentlyExecuting),
+	)
+
 	repo := NewStateRepository(s.db, s.logger)
 
 	switch state.Status {
@@ -425,6 +432,7 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		zap.String("exec_ctx_sender_type", execCtx.Sender.AgentType),
 		zap.String("exec_ctx_message_type", execCtx.MessageType),
 		zap.Any("exec_ctx_in_response_to", execCtx.InResponseTo),
+		zap.Any("state.Status", state.Status),
 	)
 
 	// Check if already waiting
@@ -433,7 +441,7 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		return nil
 	}
 
-	l.Info("Continuing workflow execution",
+	l.Info("Continuing workflow execution continueExecution coordinator.go",
 		zap.Int("total_steps", len(state.WorkflowPlan.Steps)))
 
 	// Mark step as executing
@@ -449,11 +457,18 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 
 	l = s.logger.With(
 		zap.Any("DEBUGAA: state loaded from repo - in continueExecution", state),
-		zap.String("current_step", state.CurrentStep))
+		zap.String("current_step", state.CurrentStep),
+		zap.Any("state.Status", state.Status),
+		zap.Any("currentStepConfig", state.WorkflowPlan.Steps[state.CurrentStep]),
+	)
 
 	// Get current step
 	currentStepConfig, exists := state.WorkflowPlan.Steps[state.CurrentStep]
 	if !exists {
+		l.Error("Current step doesnt exist in the plan",
+			zap.Any("state.WorkflowPlan", state.WorkflowPlan),
+		)
+
 		return s.failWorkflow(ctx, state, fmt.Sprintf("step '%s' not found", state.CurrentStep))
 	}
 
@@ -478,19 +493,24 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 
 	// Move to next step if defined
 	if currentStepConfig.NextStep != "" {
+		l.Info("currentStepConfig.NextStep was not blank",
+			zap.Any("currentStepConfig.NextStep", currentStepConfig.NextStep),
+		)
+
 		state.CurrentStep = currentStepConfig.NextStep
+
+		// ATOMIC UPDATE for the next step
+		if err := repo.UpdateState(ctx, state); err != nil {
+			return err
+		}
+
+		// RECURSIVE CALL: This creates the loop to run the next step.
+		return s.continueExecution(ctx, state, execCtx)
 	} else {
+		l.Info("currentStepConfig.NextStep WAS blank, completing workflow.")
 		// No next step, the workflow is complete.
 		return s.completeWorkflow(ctx, state)
 	}
-
-	// ATOMIC UPDATE: Save the new current step and the results of the previous step in one operation.
-	if err := repo.UpdateState(ctx, state); err != nil {
-		return err
-	}
-
-	// No next step - workflow complete
-	return s.completeWorkflow(ctx, state)
 }
 
 // executeStep executes a single workflow step

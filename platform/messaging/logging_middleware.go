@@ -33,7 +33,7 @@ func (m *LoggingMiddleware) ProcessMessage(ctx context.Context, msg kafka.Messag
 	execCtx, err := types.FromHeaders(headers)
 	if err != nil {
 		// Log with raw headers if context creation fails
-		m.logger.Error("Failed to create ExecutionContext",
+		m.logger.Error("in logging_middleware Failed to create ExecutionContext",
 			zap.Error(err),
 			zap.Any("headers", headers))
 		return m.next.ProcessMessage(ctx, msg)
@@ -43,7 +43,7 @@ func (m *LoggingMiddleware) ProcessMessage(ctx context.Context, msg kafka.Messag
 	contextLogger := m.logger.With(execCtx.LogContext()...)
 
 	// Log message receipt
-	contextLogger.Info("Message received",
+	contextLogger.Info("in logging middleware - Message received",
 		zap.String("topic", msg.Topic),
 		zap.Int("partition", msg.Partition),
 		zap.Int64("offset", msg.Offset),
