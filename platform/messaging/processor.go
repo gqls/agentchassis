@@ -210,6 +210,19 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
 	}
 
+	// Check if this is a child workflow that completed
+	if msgCtx.IsChildOrchestration() {
+		// Check if workflow is complete
+		if p.sqlDB != nil {
+			repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
+			state, _ := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
+			if state != nil && state.Status == orchestration.StatusCompleted {
+				msgCtx.Logger.Info("Child workflow completed, sending response to parent")
+				return p.sendWorkflowSuccessResponse(ctx, msgCtx)
+			}
+		}
+	}
+
 	msgCtx.Logger.Info("Workflow successfully handed off to the orchestrator.")
 	return nil // Return nil to acknowledge the message without sending a premature response.
 }
@@ -382,7 +395,7 @@ func (p *MessageProcessor) sendWorkflowSuccessResponse(ctx context.Context, msgC
 	current, caller := getFuncInfo(1)
 	caller, caller_called_by := getFuncInfo(2)
 
-	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go ",
+	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go sendWorkflowSuccessResponse",
 		zap.String("function", current),
 		zap.String("called_by", caller),
 		zap.String("caller_called_by", caller_called_by),

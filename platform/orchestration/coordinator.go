@@ -1086,10 +1086,14 @@ func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *Orchestration
 }
 
 func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *OrchestrationState) error {
-	s.logger.Info("In coordinator.go completeWorkflow 1092",
+	s.logger.Info("In coordinator.go completeWorkflow 1092 WORKFLOW_COMPLETION: Completing workflow",
 		zap.Any("state", state),
 		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.String("parent_orchestration_id", state.ParentOrchestrationID),
+		zap.Any("collected_data", state.CollectedData),
+		zap.String("owner_agent_type", state.OwnerAgentType),
 	)
 
 	state.Status = StatusCompleted
@@ -1105,13 +1109,6 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 	s.logger.Info("WORKFLOW_COMPLETION: Status updated",
 		zap.String("orchestration_id", state.OrchestrationID),
 		zap.String("new_status", string(state.Status)))
-
-	// Check if this is a child workflow that needs to send response to parent
-	if state.ParentOrchestrationID != "" {
-		s.logger.Info("WORKFLOW_COMPLETION: Child workflow completed, need to notify parent",
-			zap.String("child_orch_id", state.OrchestrationID),
-			zap.String("parent_orch_id", state.ParentOrchestrationID))
-	}
 
 	repo := NewStateRepository(s.db, s.logger)
 	return repo.UpdateState(ctx, state)

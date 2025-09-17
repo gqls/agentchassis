@@ -5,82 +5,126 @@ package actions
 import (
 	"context"
 	"encoding/json"
-	"strings"
+	"fmt"
 	"time"
 
-	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
 func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Entering CompleteWorkflowAction",
-		zap.Any("action_params", params),
-	)
-
-	// Get execution context
-	execCtx, err := types.FromHeaders(params.Headers)
-	if err != nil {
-		params.Logger.Error("Failed to get execution context", zap.Error(err))
-		return nil, err
-	}
-
 	params.Logger.Info("Completing workflow CompleteWorkflowAction",
-		zap.String("orchestration_id", execCtx.OrchestrationID),
-		zap.Any("action params", params),
-		zap.Any("action params.CollectedData", params.CollectedData),
-	)
+		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.String("parent_orchestration_id", params.ExecutionContext.ParentOrchestrationID),
+		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)))
 
-	// Clean collected data
-	result := make(map[string]interface{})
-	for k, v := range params.CollectedData {
-		if !strings.HasPrefix(k, "__") && !strings.HasSuffix(k, "_request") {
-			result[k] = v
-		}
+	// Prepare the result
+	result := map[string]interface{}{
+		"status":    "completed",
+		"result":    params.CollectedData,
+		"timestamp": time.Now(),
 	}
 
-	// Check if this is a child needing to respond to parent
-	if execCtx.IsChildOrchestration() {
-		// Look for stored parent context
-		if parentCtxData, ok := params.CollectedData["__execution_context__"]; ok {
-			if _, ok := parentCtxData.(*types.ExecutionContext); ok {
-				// Create response context
-				responseCtx := execCtx.CreateResponseContext("completed", 0)
+	// If this is a child orchestration, we need to send response to parent
+	if params.ExecutionContext.ParentOrchestrationID != "" {
+		params.Logger.Info("Child orchestration needs to notify parent",
+			zap.String("child_orch", params.ExecutionContext.OrchestrationID),
+			zap.String("parent_orch", params.ExecutionContext.ParentOrchestrationID))
 
-				// Build response
-				response := models.TaskResponse{
-					Success: true,
-					Data: map[string]interface{}{
-						"final_result":     result,
-						"status":           "completed",
-						"orchestration_id": execCtx.OrchestrationID,
+		// Get the original execution context stored when this child started
+		if execCtxData, ok := params.CollectedData["__execution_context__"]; ok {
+			var parentRequestID string
+			var parentResponseTopic string
+
+			// Handle different types the context might be stored as
+			switch ctx := execCtxData.(type) {
+			case *types.ExecutionContext:
+				parentRequestID = ctx.RequestID
+				parentResponseTopic = ctx.ResponsesTopic
+			case map[string]interface{}:
+				parentRequestID, _ = ctx["request_id"].(string)
+				parentResponseTopic, _ = ctx["responses_topic"].(string)
+			}
+
+			if parentRequestID != "" && parentResponseTopic != "" {
+				params.Logger.Info("Sending completion response to parent",
+					zap.String("parent_request_id", parentRequestID),
+					zap.String("response_topic", parentResponseTopic))
+
+				// Build response message
+				responseMsg := types.ResponseMessage{
+					Headers: types.ResponseHeaders{
+						Sender: types.AgentIdentity{
+							AgentType:    params.ExecutionContext.Sender.AgentType,
+							AgentID:      params.ExecutionContext.Sender.AgentID,
+							PodName:      params.ExecutionContext.Sender.PodName,
+							AgentVersion: params.ExecutionContext.Sender.AgentVersion,
+						},
+
+						// Response tracking
+						InResponseToRequestID:    parentRequestID,
+						InResponseToStepID:       params.ExecutionContext.StepID,
+						InResponseToStepName:     params.ExecutionContext.StepName,
+						InResponseToParentOrchID: params.ExecutionContext.ParentOrchestrationID,
+						InResponseToMessageID:    params.ExecutionContext.MessageID,
+						InResponseToAction:       params.ExecutionContext.Action,
+
+						// Context
+						MyOrchestrationID:   params.ExecutionContext.OrchestrationID,
+						MyOrchestrationName: params.ExecutionContext.OrchestrationName,
+						CorrelationID:       params.ExecutionContext.CorrelationID,
+						ClientID:            params.ExecutionContext.ClientID,
+
+						// Status
+						MessageType: "response",
+						Status:      "complete",
+						IsComplete:  true,
+						IsError:     false,
+
+						// Timing
+						TimeSent: time.Now(),
+					},
+					Body: types.ResponseBody{
+						Success: true,
+						Headers: nil,
+						Body: struct {
+							Result      interface{}      `json:"result"`
+							Calculation interface{}      `json:"calculation,omitempty"`
+							Error       *types.ErrorInfo `json:"error,omitempty"`
+						}{
+							Result: params.CollectedData,
+							Error:  nil,
+						},
 					},
 				}
 
-				responseBytes, _ := json.Marshal(response)
+				// Send the response
+				responseBytes, err := json.Marshal(responseMsg)
+				if err != nil {
+					params.Logger.Error("Failed to marshal response", zap.Error(err))
+					return result, fmt.Errorf("failed to marshal response: %w", err)
+				}
 
-				// Send to parent
-				err := params.Producer.Produce(ctx,
-					responseCtx.ReplyToTopic,
-					responseCtx.ToHeaders(),
-					[]byte(responseCtx.CorrelationID),
-					responseBytes)
+				headers := responseMsg.Headers.ToMap()
+				key := []byte(params.ExecutionContext.CorrelationID)
 
+				err = params.Producer.Produce(ctx, parentResponseTopic, headers, key, responseBytes)
 				if err != nil {
 					params.Logger.Error("Failed to send response to parent",
 						zap.Error(err),
-						zap.String("parent_orchestration_id", responseCtx.OrchestrationID))
-				} else {
-					params.Logger.Info("Sent completion to parent",
-						zap.String("parent_orchestration_id", responseCtx.OrchestrationID))
+						zap.String("topic", parentResponseTopic))
+					return result, fmt.Errorf("failed to send response: %w", err)
 				}
+
+				params.Logger.Info("Successfully sent response to parent orchestration",
+					zap.String("topic", parentResponseTopic),
+					zap.String("request_id", parentRequestID))
 			}
 		}
+	} else {
+		params.Logger.Info("Root orchestration completed - no parent to notify")
+		// Root orchestration - the processor will handle sending final response
 	}
 
-	return map[string]interface{}{
-		"status":    "completed",
-		"result":    result,
-		"timestamp": time.Now().UTC(),
-	}, nil
+	return result, nil
 }
