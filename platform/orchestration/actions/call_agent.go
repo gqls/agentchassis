@@ -41,6 +41,12 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		return nil, fmt.Errorf("no spawned %s agent found in step %s", targetAgentType, spawnKey)
 	}
 
+	params.Logger.Info("CALL_AGENT: Starting agent call",
+		zap.String("target_agent_type", targetAgentType),
+		zap.String("target_agent_id", targetAgentID),
+		zap.String("parent_orch_id", params.ExecutionContext.OrchestrationID),
+	)
+
 	requestID := uuid.New().String()
 
 	// The calculator already has an orchestration - use it!
@@ -151,6 +157,14 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to send CallAgentAction request: %w", err)
 	}
+
+	// After sending request
+	params.Logger.Info("CALL_AGENT: Request sent to agent",
+		zap.String("topic", targetTopic),
+		zap.String("request_id", requestID),
+		zap.String("child_orch_id", childOrchID),
+		zap.Any("headers_sent", headers),
+	)
 
 	// Return result indicating we're waiting for the calculation
 	result := map[string]interface{}{

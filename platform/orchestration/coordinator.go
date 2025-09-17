@@ -133,15 +133,15 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		return fmt.Errorf("no request ID in response")
 	}
 
+	s.logger.Info("RESPONSE_RECEIVED: Processing response in coordinator")
 	contextLogger := s.logger.With(
 		zap.String("request_id", requestID),
 		zap.String("orchestration_id", execCtx.OrchestrationID),
+		zap.String("from_agent", execCtx.FromAgentID),
 		zap.String("status", execCtx.Status),
-		zap.Int("retry_version", execCtx.RetryVersion))
-
-	contextLogger.Info("ProcessResponse called",
-		zap.Any("execCtx", execCtx),
-		zap.String("response_preview", string(response)[:min(200, len(response))]))
+		zap.Int("retry_version", execCtx.RetryVersion),
+		zap.String("response_preview", string(response)[:min(500, len(response))]),
+	)
 
 	current, caller := getFuncInfo(1)
 
@@ -179,9 +179,11 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		}
 	}
 
-	contextLogger.Info("Found orchestration waiting for response",
-		zap.String("orchestration_id", state.OrchestrationID),
-		zap.Int("remaining_awaited", len(state.AwaitedRequests)-1))
+	contextLogger.Info("RESPONSE_MATCHED: Found orchestration for response",
+		zap.String("state_orch_id", state.OrchestrationID),
+		zap.String("state_status", string(state.Status)),
+		zap.Int("awaited_requests", len(state.AwaitedRequests)),
+	)
 
 	// Handle based on response status
 	switch execCtx.Status {
@@ -1098,6 +1100,18 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 		Timestamp: time.Now(),
 		Details:   fmt.Sprintf("Completed after %d steps", state.ExecutionMetadata.CompletedSteps),
 	})
+
+	// After status update
+	s.logger.Info("WORKFLOW_COMPLETION: Status updated",
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.String("new_status", string(state.Status)))
+
+	// Check if this is a child workflow that needs to send response to parent
+	if state.ParentOrchestrationID != "" {
+		s.logger.Info("WORKFLOW_COMPLETION: Child workflow completed, need to notify parent",
+			zap.String("child_orch_id", state.OrchestrationID),
+			zap.String("parent_orch_id", state.ParentOrchestrationID))
+	}
 
 	repo := NewStateRepository(s.db, s.logger)
 	return repo.UpdateState(ctx, state)

@@ -468,12 +468,15 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	current, caller := getFuncInfo(1)
 	_, caller_called_by := getFuncInfo(2)
 
-	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
+	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("RESPONSE_CREATION: Starting to create response processor.go sendWorkflowResponse",
 		zap.String("function", current),
 		zap.String("called_by", caller),
 		zap.String("caller_called_by", caller_called_by),
 		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+		zap.String("parent_orchestration_id", msgCtx.ExecutionContext.ParentOrchestrationID),
+		zap.Any("result_data", result),
 	)
 
 	// Create response context
@@ -485,6 +488,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		zap.String("orchestration_name", msgCtx.ExecutionContext.OrchestrationName),
 		zap.String("original_request_id", msgCtx.ExecutionContext.RequestID),
 		zap.Any("in_response_to", msgCtx.ExecutionContext.InResponseTo),
+		zap.String("reply_to_topic", responseCtx.ReplyToTopic),
 		zap.Any("result_type", fmt.Sprintf("%T", result)))
 
 	// The 'result' is the full 'CollectedData' map from the orchestration state.
@@ -596,6 +600,12 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		Version:   responseCtx.Version,
 	}
 
+	// After building response headers
+	p.logger.Info("RESPONSE_HEADERS: Built response headers",
+		zap.Any("headers", responseHeaders),
+		zap.String("target_topic", responseCtx.ReplyToTopic),
+	)
+
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
 		return fmt.Errorf("failed to marshal response: %w", err)
@@ -607,12 +617,31 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		key = []byte(responseCtx.MessageID)
 	}
 
+	// Before sending
+	p.logger.Info("RESPONSE_SEND: Sending response message",
+		zap.String("topic", responseCtx.ReplyToTopic),
+		zap.String("key", string(key)),
+		zap.Int("payload_size", len(responseBytes)))
+
 	// Send using response context headers
-	return p.producer.Produce(ctx,
+	err = p.producer.Produce(ctx,
 		responseCtx.ReplyToTopic,
 		responseHeaders,
 		key,
 		responseBytes)
+
+	if err != nil {
+		p.logger.Error("KAFKA_SEND_ERROR: Failed to send message",
+			zap.String("topic", responseCtx.ReplyToTopic),
+			zap.Error(err))
+	} else {
+		p.logger.Info("KAFKA_SENT: Message sent successfully",
+			zap.String("topic", responseCtx.ReplyToTopic),
+			zap.String("key", string(key)),
+			zap.Any("headers", responseHeaders))
+	}
+
+	return err
 }
 
 func (p *MessageProcessor) determineResponseTopic(ctx context.Context, msgCtx *MessageContext, isChildResponse bool, parentContext map[string]interface{}) string {
@@ -695,12 +724,24 @@ func (p *MessageProcessor) sendResponse(ctx context.Context, msgCtx *MessageCont
 		zap.String("orchestration_id", headers["orchestration_id"]),
 		zap.String("in_response_to", headers["in_response_to"]))
 
-	return p.producer.Produce(ctx,
+	err = p.producer.Produce(ctx,
 		topic,
 		response.ToHeaders(),
 		[]byte(response.CorrelationID),
 		responseBytes,
 	)
+	if err != nil {
+		p.logger.Error("KAFKA_SEND_ERROR: Failed to send message",
+			zap.String("topic", topic),
+			zap.Error(err))
+	} else {
+		p.logger.Info("KAFKA_SENT: Message sent successfully",
+			zap.String("topic", topic),
+			zap.String("key", string(response.CorrelationID)),
+			zap.Any("headers", headers))
+	}
+
+	return err
 }
 
 func (p *MessageProcessor) normalizeResponseData(result interface{}) map[string]interface{} {
@@ -1572,7 +1613,19 @@ func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *Messag
 	headers := response.Headers.ToMap()
 	key := []byte(msgCtx.ExecutionContext.CorrelationID)
 
-	return p.producer.Produce(ctx, responseTopic, headers, key, responseBytes)
+	err = p.producer.Produce(ctx, responseTopic, headers, key, responseBytes)
+	if err != nil {
+		p.logger.Error("KAFKA_SEND_ERROR: Failed to send message",
+			zap.String("topic", responseTopic),
+			zap.Error(err))
+	} else {
+		p.logger.Info("KAFKA_SENT: Message sent successfully",
+			zap.String("topic", responseTopic),
+			zap.String("key", string(key)),
+			zap.Any("headers", headers))
+	}
+
+	return err
 }
 
 // handleDirectResponse handles responses for non-orchestrated flows
