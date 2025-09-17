@@ -18,10 +18,20 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		zap.String("parent_orchestration_id", params.ExecutionContext.ParentOrchestrationID),
 		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)))
 
-	// Prepare the result
+	// Filter out internal/system fields that might have cycles
+	filteredData := make(map[string]interface{})
+	for key, value := range params.CollectedData {
+		// Skip internal fields that can cause cycles
+		if key == "__raw_message__" || key == "__execution_context__" {
+			continue
+		}
+		filteredData[key] = value
+	}
+
+	// Prepare the result with filtered data
 	result := map[string]interface{}{
 		"status":    "completed",
-		"result":    params.CollectedData,
+		"result":    filteredData, // Use filtered data instead
 		"timestamp": time.Now(),
 	}
 
@@ -61,19 +71,28 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 							AgentVersion: params.ExecutionContext.Sender.AgentVersion,
 						},
 
+						OrchestrationID:   params.ExecutionContext.OrchestrationID,
+						OrchestrationName: params.ExecutionContext.OrchestrationName,
+
 						// Response tracking
-						InResponseToRequestID:    parentRequestID,
-						InResponseToStepID:       params.ExecutionContext.StepID,
-						InResponseToStepName:     params.ExecutionContext.StepName,
-						InResponseToParentOrchID: params.ExecutionContext.ParentOrchestrationID,
-						InResponseToMessageID:    params.ExecutionContext.MessageID,
-						InResponseToAction:       params.ExecutionContext.Action,
+						InResponseToRequestID:      parentRequestID,
+						InResponseToStepID:         params.ExecutionContext.StepID,
+						InResponseToStepName:       params.ExecutionContext.StepName,
+						InResponseToParentOrchID:   params.ExecutionContext.ParentOrchestrationID,
+						InResponseToParentOrchName: params.ExecutionContext.ParentOrchestrationName,
+						InResponseToMessageID:      params.ExecutionContext.MessageID,
+						InResponseToAction:         params.ExecutionContext.Action,
+						RetryCount:                 params.ExecutionContext.RetryVersion,
 
 						// Context
 						MyOrchestrationID:   params.ExecutionContext.OrchestrationID,
 						MyOrchestrationName: params.ExecutionContext.OrchestrationName,
 						CorrelationID:       params.ExecutionContext.CorrelationID,
+						CorrelationName:     params.ExecutionContext.CorrelationName,
 						ClientID:            params.ExecutionContext.ClientID,
+
+						ToAgent:     params.ExecutionContext.FromAgentID,
+						ToAgentType: params.ExecutionContext.FromAgentType,
 
 						// Status
 						MessageType: "response",
@@ -92,7 +111,7 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 							Calculation interface{}      `json:"calculation,omitempty"`
 							Error       *types.ErrorInfo `json:"error,omitempty"`
 						}{
-							Result: params.CollectedData,
+							Result: filteredData,
 							Error:  nil,
 						},
 					},

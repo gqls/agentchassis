@@ -1086,15 +1086,17 @@ func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *Orchestration
 }
 
 func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *OrchestrationState) error {
-	s.logger.Info("In coordinator.go completeWorkflow 1092 WORKFLOW_COMPLETION: Completing workflow",
-		zap.Any("state", state),
-		zap.String("container", os.Getenv("HOSTNAME")),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+
+	safeDataKeys := make([]string, 0, len(state.CollectedData))
+	for k := range state.CollectedData {
+		safeDataKeys = append(safeDataKeys, k)
+	}
+
+	s.logger.Info("WORKFLOW_COMPLETION: Completing workflow completeWorkflow coordinator.go",
 		zap.String("orchestration_id", state.OrchestrationID),
 		zap.String("parent_orchestration_id", state.ParentOrchestrationID),
-		zap.Any("collected_data", state.CollectedData),
-		zap.String("owner_agent_type", state.OwnerAgentType),
-	)
+		zap.Strings("collected_data_keys", safeDataKeys), // Just log the keys
+		zap.String("owner_agent_type", state.OwnerAgentType))
 
 	state.Status = StatusCompleted
 
