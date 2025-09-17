@@ -358,15 +358,22 @@ func (a *Agent) initializeComponents() error {
 
 // setupConsumers sets up Kafka consumers for the agent
 func (a *Agent) setupConsumers() error {
-	// Consumer group naming for stateless operation
-	requestConsumerGroup := fmt.Sprintf("%s-request-consumers", a.AgentType)
+	// Get the unique consumer group from environment variables for the request topic
+	requestConsumerGroup := os.Getenv("KAFKA_CONSUMER_GROUP")
+	if requestConsumerGroup == "" {
+		// Fallback to the old method if the env var is not set, to maintain backward compatibility.
+		a.logger.Warn("KAFKA_CONSUMER_GROUP not set, falling back to type-based consumer group. This may cause issues with multiple instances.")
+		requestConsumerGroup = fmt.Sprintf("%s-request-consumers", a.AgentType)
+	}
+
+	// Response consumers can still be shared as they listen on the agent's unique response topic
 	responseConsumerGroup := fmt.Sprintf("%s-response-consumers", a.AgentType)
 
 	// Create request consumer (ALL agents need this)
 	requestConsumer, err := kafka.NewConsumer(
 		a.config.KafkaBrokers,
 		a.requestsTopic,
-		requestConsumerGroup,
+		requestConsumerGroup, // <-- USES THE UNIQUE ID
 		a.logger,
 	)
 	if err != nil {

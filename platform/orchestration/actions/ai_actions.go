@@ -15,7 +15,7 @@ import (
 )
 
 // Fake response
-func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface{}, error) {
+func ExecuteLLMPromptActionFAKE(ctx context.Context, params ActionParams) (interface{}, error) {
 	// Fake parsed result to return instead of calling the AI
 	parsedResult := map[string]interface{}{
 		"summary": "This is a fake response for testing.",
@@ -35,7 +35,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 
 }
 
-func ExecuteLLMPromptActionREAL(ctx context.Context, params ActionParams) (interface{}, error) {
+func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing LLM prompt action",
 		zap.String("agent_type", params.AgentType),
 		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)),
