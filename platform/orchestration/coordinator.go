@@ -167,7 +167,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		if orchID != "" {
 			state, err = repo.GetState(ctx, orchID)
 			if err != nil {
-				return fmt.Errorf("no orchestration found for request_id: %s", requestID)
+				return fmt.Errorf("unable to get state when looking for orchestration by request id: %s", requestID)
 			}
 
 			// Verify this state is actually waiting for this request
@@ -663,6 +663,12 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 					zap.String("request_id", requestID),
 					zap.String("target_agent_type", awaitedReq.TargetAgentType))
 
+				// SAVE STATE BEFORE EXECUTING ACTION
+				repo := NewStateRepository(s.db, s.logger)
+				if err := repo.UpdateState(ctx, state); err != nil {
+					return fmt.Errorf("failed to save awaited request: %w", err)
+				}
+
 				// Set up timeout handler
 				go s.handleRequestTimeout(ctx, state.OrchestrationID, requestID, awaitedReq.TimeoutAt)
 			}
@@ -956,18 +962,20 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 	// Create retry request with same request ID
 	retryRequest := &types.RequestMessage{
 		Headers: types.RequestHeaders{
-			Sender:          execCtx.Sender,
-			RequestID:       requestID,            // Same request ID
-			RetryVersion:    awaited.RetryVersion, // Incremented retry version
-			StepID:          awaited.StepID,
-			StepName:        awaited.StepName,
-			OrchestrationID: state.OrchestrationID,
-			CorrelationID:   state.CorrelationID,
-			ToAgentType:     awaited.TargetAgentType,
-			MessageID:       uuid.New().String(),
-			MessageType:     "request",
-			Timestamp:       time.Now(),
-			Action:          "retry",
+			Sender:            execCtx.Sender,
+			RequestID:         requestID,            // Same request ID
+			RetryVersion:      awaited.RetryVersion, // Incremented retry version
+			StepID:            awaited.StepID,
+			StepName:          awaited.StepName,
+			OrchestrationID:   state.OrchestrationID,
+			OrchestrationName: state.OrchestrationName,
+			CorrelationID:     state.CorrelationID,
+			ToAgentType:       awaited.TargetAgentType,
+			ClientID:          state.ClientID,
+			MessageID:         uuid.New().String(),
+			MessageType:       "request",
+			Timestamp:         time.Now(),
+			Action:            "retry",
 		},
 	}
 
@@ -1022,7 +1030,6 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 }
 
 // Helper methods
-
 func (s *SagaCoordinator) determineOwnerAgentType(execCtx *types.ExecutionContext) string {
 	if execCtx.Sender.AgentType != "" {
 		return execCtx.Sender.AgentType

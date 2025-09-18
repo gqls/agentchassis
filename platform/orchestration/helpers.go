@@ -245,17 +245,19 @@ func (tm *TimeoutMonitor) retryTimedOutRequest(ctx context.Context, state *Orche
 	// Create retry message
 	retryRequest := &types.RequestMessage{
 		Headers: types.RequestHeaders{
-			RequestID:       awaited.RequestID, // Same request ID
-			RetryVersion:    awaited.RetryVersion,
-			StepID:          awaited.StepID,
-			StepName:        awaited.StepName,
-			OrchestrationID: state.OrchestrationID,
-			CorrelationID:   state.CorrelationID,
-			ToAgentType:     awaited.TargetAgentType,
-			MessageID:       uuid.New().String(),
-			MessageType:     "request",
-			Timestamp:       time.Now(),
-			Action:          "retry",
+			RequestID:         awaited.RequestID, // Same request ID
+			RetryVersion:      awaited.RetryVersion,
+			StepID:            awaited.StepID,
+			StepName:          awaited.StepName,
+			OrchestrationID:   state.OrchestrationID,
+			OrchestrationName: state.OrchestrationName,
+			CorrelationID:     state.CorrelationID,
+			ToAgentType:       awaited.TargetAgentType,
+			ClientID:          state.ClientID,
+			MessageID:         uuid.New().String(),
+			MessageType:       "request",
+			Timestamp:         time.Now(),
+			Action:            "retry",
 		},
 	}
 
