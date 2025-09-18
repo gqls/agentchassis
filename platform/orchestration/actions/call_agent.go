@@ -53,19 +53,40 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	childOrchID := targetAgentID // The agent's ID IS its orchestration ID
 	childOrchName := spawnedAgentInfo["agent_name"].(string)
 
-	// Build the body based on what the target agent needs
-	bodyData := make(map[string]interface{})
+	// Determine the action to send
+	var targetAction string
+	step := params.StepConfig
 
-	// Always include input_data
-	if inputData, ok := params.CollectedData["input_data"]; ok {
-		bodyData["input_data"] = inputData
+	// First check if it's explicitly configured
+	if action, ok := step.Config["target_action"].(string); ok {
+		targetAction = action
+	} else if action, ok := step.Config["action"].(string); ok {
+		targetAction = action
+	} else {
+		// Default to "process" for backward compatibility
+		targetAction = "process"
 	}
 
-	// Include the action the agent should perform
-	if targetAction, ok := params.StepConfig.Config["target_action"].(string); ok {
-		bodyData["action"] = targetAction
-	} else {
-		bodyData["action"] = "process" // Default action
+	// Get which input field to use
+	inputField := "input_data" // default
+	if field, ok := step.Config["input_field"].(string); ok {
+		inputField = field
+	}
+
+	// Build the request message body
+	requestBody := make(map[string]interface{})
+	requestBody["action"] = targetAction
+
+	// Add the input data from the specified field
+	if inputData, ok := params.CollectedData[inputField]; ok {
+		requestBody["input_data"] = inputData
+	} else if defaultInput, ok := params.CollectedData["input_data"]; ok {
+		requestBody["input_data"] = defaultInput
+	}
+
+	// Add any additional config if needed
+	if agentConfig, ok := params.CollectedData["agent_config"]; ok {
+		requestBody["config"] = agentConfig
 	}
 
 	// Include relevant context from previous steps if needed
@@ -80,7 +101,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 					}
 				}
 			}
-			bodyData["context"] = localContext
+			requestBody["context"] = localContext
 		}
 	}
 
@@ -370,11 +391,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -427,11 +448,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -482,10 +503,10 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }

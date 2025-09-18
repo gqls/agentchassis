@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -201,41 +203,164 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 }
 
 // AggregateDataAction combines data from multiple sources
+/** how to use it:
+{
+  "aggregate_results": {
+    "action": "aggregate_data",
+    "config": {
+      "strategy": "group_responses",  // or "combine_artifacts" for HTML
+      "index_by": "operation"  // optional: how to label results
+    },
+    "next_step": "complete"
+  }
+}
+*/
 func AggregateDataAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 
-	sources, _ := config["sources"].([]interface{})
-	aggregationType, _ := config["aggregation_type"].(string)
+	// Get aggregation strategy
+	strategy, _ := config["strategy"].(string)
+	if strategy == "" {
+		strategy = "group_responses"
+	}
 
 	aggregated := make(map[string]interface{})
 
-	switch aggregationType {
-	case "merge":
-		// Merge all source data
-		for _, source := range sources {
-			sourceName, _ := source.(string)
-			if data, exists := params.CollectedData[sourceName]; exists {
-				if dataMap, ok := data.(map[string]interface{}); ok {
-					for k, v := range dataMap {
-						aggregated[k] = v
+	switch strategy {
+	case "group_responses":
+		// Group all response_* keys by type
+		responses := make(map[string]interface{})
+		operations := make(map[string]interface{})
+		results := make([]interface{}, 0)
+
+		for key, value := range params.CollectedData {
+			if strings.HasPrefix(key, "response_") {
+				// Extract meaningful identifier from response key
+				respID := strings.TrimPrefix(key, "response_")
+
+				// Try to categorize the response
+				if respMap, ok := value.(map[string]interface{}); ok {
+					// Group by operation type if present
+					if op, hasOp := respMap["operation"]; hasOp {
+						operations[fmt.Sprintf("%v", op)] = respMap
+					}
+
+					// Add to sequential results
+					results = append(results, respMap)
+
+					// Store by ID
+					responses[respID] = respMap
+				}
+			}
+		}
+
+		aggregated["responses"] = responses
+		aggregated["by_operation"] = operations
+		aggregated["results_array"] = results
+		aggregated["count"] = len(results)
+
+	case "merge_outputs":
+		// Merge specific output fields from multiple steps
+		outputFields, _ := config["output_fields"].([]interface{})
+		merged := make(map[string]interface{})
+
+		for _, field := range outputFields {
+			fieldName, _ := field.(string)
+			if data, exists := params.CollectedData[fieldName]; exists {
+				merged[fieldName] = data
+			}
+		}
+		aggregated["merged"] = merged
+
+	case "combine_artifacts":
+		// For combining generated artifacts (HTML, code, etc)
+		artifacts := make(map[string]interface{})
+		metadata := make(map[string]interface{})
+
+		for key, value := range params.CollectedData {
+			// Check if it's an artifact-like response
+			if strings.Contains(key, "response_") || strings.Contains(key, "result_") {
+				if respMap, ok := value.(map[string]interface{}); ok {
+					// Extract artifact type if present
+					if artifactType, hasType := respMap["type"]; hasType {
+						artifacts[fmt.Sprintf("%v", artifactType)] = respMap
+					} else {
+						artifacts[key] = value
+					}
+
+					// Extract metadata
+					if meta, hasMeta := respMap["metadata"]; hasMeta {
+						metadata[key] = meta
 					}
 				}
 			}
 		}
-	case "collect":
-		// Collect all sources into an array
-		collected := []interface{}{}
-		for _, source := range sources {
-			sourceName, _ := source.(string)
-			if data, exists := params.CollectedData[sourceName]; exists {
-				collected = append(collected, data)
+
+		aggregated["artifacts"] = artifacts
+		aggregated["metadata"] = metadata
+
+	case "indexed":
+		// Create an indexed structure with semantic names
+		indexedResults := make([]map[string]interface{}, 0)
+
+		// Get index configuration
+		indexBy, _ := config["index_by"].(string)
+		if indexBy == "" {
+			indexBy = "sequence"
+		}
+
+		idx := 1
+		for key, value := range params.CollectedData {
+			if strings.HasPrefix(key, "response_") {
+				entry := map[string]interface{}{
+					"index": idx,
+					"key":   key,
+					"data":  value,
+				}
+
+				// Add semantic label if possible
+				if respMap, ok := value.(map[string]interface{}); ok {
+					if label, hasLabel := respMap[indexBy]; hasLabel {
+						entry["label"] = label
+					}
+				}
+
+				indexedResults = append(indexedResults, entry)
+				idx++
 			}
 		}
-		aggregated["collected"] = collected
+
+		aggregated["indexed_results"] = indexedResults
+
+	case "flatten":
+		// Flatten all response data into a single level
+		for key, value := range params.CollectedData {
+			if strings.HasPrefix(key, "response_") {
+				if respMap, ok := value.(map[string]interface{}); ok {
+					for k, v := range respMap {
+						// Create unique key
+						flatKey := fmt.Sprintf("%s_%s", strings.TrimPrefix(key, "response_"), k)
+						aggregated[flatKey] = v
+					}
+				}
+			}
+		}
+
 	default:
-		// Just combine everything
-		aggregated = params.CollectedData
+		// Default: semantic grouping
+		for key, value := range params.CollectedData {
+			if strings.HasPrefix(key, "response_") {
+				aggregated["outputs"] = append(
+					aggregated["outputs"].([]interface{}),
+					value,
+				)
+			}
+		}
 	}
+
+	// Add summary information
+	aggregated["aggregation_strategy"] = strategy
+	aggregated["timestamp"] = time.Now()
 
 	return aggregated, nil
 }

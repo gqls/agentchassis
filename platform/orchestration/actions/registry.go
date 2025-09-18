@@ -21,7 +21,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"calculate":       CalculateAction,
 
 	// LLM operations
-	"execute_llm_prompt": ExecuteLLMPromptAction,
+	"execute_llm_prompt": ExecuteLLMPromptActionFAKE,
 
 	// Memory operations
 	"retrieve_memory": RetrieveMemoryAction,
