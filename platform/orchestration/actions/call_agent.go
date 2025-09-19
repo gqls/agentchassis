@@ -24,13 +24,11 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Get the previously spawned agent
 	var targetAgentID string
-	// var spawnedAgentInfo map[string]interface{}
 
 	// Check spawn_calculator step result
 	spawnKey := fmt.Sprintf("spawn_%s", targetAgentType)
 	if spawnResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
 		targetAgentID, _ = spawnResult["agent_id"].(string)
-		// spawnedAgentInfo = spawnResult
 		params.Logger.Info("Found spawned agent",
 			zap.String("agent_type", targetAgentType),
 			zap.String("agent_id", targetAgentID),
@@ -70,19 +68,52 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Get which input field to use
 	inputField := "input_data" // default
-	if field, ok := step.Config["input_field"].(string); ok {
+	if field, ok := step.Config["input_field"].(string); ok && field != "" {
 		inputField = field
 	}
 
-	// Build the request message body
-	requestBody := make(map[string]interface{})
-	requestBody["action"] = targetAction
+	// Extract the specific data for this field
+	var dataToSend interface{}
 
-	// Add the input data from the specified field
-	if inputData, ok := params.CollectedData[inputField]; ok {
-		requestBody["input_data"] = inputData
-	} else if defaultInput, ok := params.CollectedData["input_data"]; ok {
-		requestBody["input_data"] = defaultInput
+	// First try to get the specific field from input_data
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		if inputField != "input_data" {
+			// Looking for a specific field like "first_calc" or "second_calc"
+			if fieldData, exists := inputData[inputField]; exists {
+				dataToSend = fieldData
+				params.Logger.Info("Found specific field data",
+					zap.String("field", inputField),
+					zap.Any("data", dataToSend))
+			}
+		} else {
+			// Use all input_data
+			dataToSend = inputData
+		}
+	}
+
+	// If not found at input_data level, try top level of CollectedData
+	if dataToSend == nil && inputField != "input_data" {
+		if fieldData, exists := params.CollectedData[inputField]; exists {
+			dataToSend = fieldData
+			params.Logger.Info("Found field at CollectedData level",
+				zap.String("field", inputField))
+		}
+	}
+
+	// Default to all input_data if we haven't found anything
+	if dataToSend == nil {
+		dataToSend = params.CollectedData["input_data"]
+		params.Logger.Warn("Using full input_data as fallback",
+			zap.String("requested_field", inputField))
+	}
+
+	// Build the request message body with the proper structure for calculator
+	requestBody := map[string]interface{}{
+		"action": targetAction,
+		"input_data": map[string]interface{}{
+			"action": "calculate", // The calculator's internal action
+			"data":   dataToSend,  // Wrap the data in a "data" field
+		},
 	}
 
 	// Add any additional config if needed
@@ -107,8 +138,6 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	// Build the calculation request
-	// The calculator already has the data from initialization, but we send it again
-	// to ensure context is preserved
 	actionRequest := &types.RequestMessage{
 		Headers: types.RequestHeaders{
 			Sender: params.ExecutionContext.Sender,
@@ -144,12 +173,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 			ResponsesTopic: fmt.Sprintf("system.agent.%s.responses",
 				params.ExecutionContext.Sender.AgentType),
 		},
-		//Body: params.CollectedData["input_data"], // Send the calculation data
-		Body: map[string]interface{}{
-			"input_data": params.CollectedData["input_data"], // Wrap it in the expected key
-			"action":     "process",                          // What the spawned agent should do
-			"config":     params.CollectedData["agent_config"],
-		},
+		Body: requestBody,
 	}
 
 	params.Logger.Info("DEBUGaa: 2 CallAgentAction RequestMessage for calculator actionSending calculation request",
@@ -159,7 +183,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.String("orchestration id is child orchestration id", actionRequest.Headers.OrchestrationID),
 	)
 
-	// Send to calculator's requests topic
+	// Send to target's requests topic
 	targetTopic := fmt.Sprintf("system.agent.%s.requests", targetAgentType)
 	msgBytes, err := json.Marshal(actionRequest)
 	if err != nil {
