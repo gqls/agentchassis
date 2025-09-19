@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"runtime"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 
 	// Kubernetes imports
 	batchv1 "k8s.io/api/batch/v1"
@@ -1403,6 +1405,17 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 			},
 		},
 		{
+			Name: "PGPASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-platform-secrets",
+					},
+					Key: "CLIENTS_DB_PASSWORD",
+				},
+			},
+		},
+		{
 			Name: "TEMPLATES_DB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
@@ -1530,17 +1543,93 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		}...)
 	}
 
-	dbURL := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable",
-		os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER"),
-		os.Getenv("CLIENTS_DB_PASSWORD"),
-		os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST"),
-		os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT"),
-		os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME"))
+	/*dbURL := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable",
+	os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER"),
+	os.Getenv("CLIENTS_DB_PASSWORD"),
+	os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST"),
+	os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT"),
+	os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME"))*/
 
-	logger.Info("DEBUGaa: In spawnAgentKubernetesJobFromDefinition in spawn_actions.go",
-		zap.String("dbURL", dbURL))
+	// fixme hardcoded values
+	// Read the config from the mounted ConfigMap
+	var dbHost, dbPort, dbUser, dbName string
+
+	// Try to read from the mounted ConfigMap first
+	configPath := "/app/configs/agent-chassis.yaml"
+	if configData, err := ioutil.ReadFile(configPath); err == nil {
+		var configMap map[string]interface{}
+		if err := yaml.Unmarshal(configData, &configMap); err == nil {
+			if infra, ok := configMap["infrastructure"].(map[interface{}]interface{}); ok {
+				if clientsDB, ok := infra["clients_database"].(map[interface{}]interface{}); ok {
+					dbHost, _ = clientsDB["host"].(string)
+					if port, ok := clientsDB["port"].(int); ok {
+						dbPort = fmt.Sprintf("%d", port)
+					}
+					dbUser, _ = clientsDB["user"].(string)
+					dbName, _ = clientsDB["db_name"].(string)
+
+					logger.Info("Loaded DB config from config file",
+						zap.String("host", dbHost),
+						zap.String("port", dbPort),
+						zap.String("user", dbUser),
+						zap.String("dbname", dbName))
+				}
+			}
+		}
+	} else {
+		logger.Warn("Could not read config file, using fallback values",
+			zap.String("path", configPath),
+			zap.Error(err))
+	}
+
+	// Fallback to environment variables if ConfigMap read failed
+	if dbHost == "" {
+		dbHost = os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST")
+		if dbHost == "" {
+			// Final fallback to hardcoded values
+			dbHost = "postgres-clients.ai-persona-system.svc.cluster.local"
+		}
+	}
+	if dbPort == "" {
+		dbPort = os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT")
+		if dbPort == "" {
+			dbPort = "5432"
+		}
+	}
+	if dbUser == "" {
+		dbUser = os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER")
+		if dbUser == "" {
+			dbUser = "clients_user"
+		}
+	}
+	if dbName == "" {
+		dbName = os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME")
+		if dbName == "" {
+			dbName = "clients_db"
+		}
+	}
+
+	// Build DATABASE_URL with the values from ConfigMap or fallbacks
+	dbURL := fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=disable",
+		dbHost, dbPort, dbUser, dbName)
+
+	logger.Info("Constructed DATABASE_URL for spawned agent",
+		zap.String("dbURL", dbURL),
+		zap.String("agent_type", agentDef.Type))
 
 	envList = append(envList, corev1.EnvVar{Name: "DATABASE_URL", Value: dbURL})
+
+	logger.Info("DEBUGaa: In spawnAgentKubernetesJobFromDefinition in spawn_actions.go",
+		zap.String("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER", os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER")),
+		zap.String("CLIENTS_DB_PASSWORD", os.Getenv("CLIENTS_DB_PASSWORD")),
+		zap.String("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST", os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST")),
+		zap.String("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT", os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT")),
+		zap.String("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME", os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME")),
+		zap.String("CLIENTS_DATABASE_USER", os.Getenv("CLIENTS_DATABASE_USER")),
+		zap.String("CLIENTS_DATABASE_HOST", os.Getenv("CLIENTS_DATABASE_HOST")),
+		zap.String("CLIENTS_DATABASE_PORT", os.Getenv("CLIENTS_DATABASE_PORT")),
+		zap.String("CLIENTS_DATABASE_DB_NAME", os.Getenv("CLIENTS_DATABASE_DB_NAME")),
+	)
 
 	// Define the Job
 	job := &batchv1.Job{
