@@ -358,6 +358,9 @@ func (a *Agent) initializeComponents() error {
 
 // setupConsumers sets up Kafka consumers for the agent
 func (a *Agent) setupConsumers() error {
+
+	a.logger.Info("setupConsumers in agent.go")
+
 	// Consumer group naming for stateless operation
 	requestConsumerGroup := fmt.Sprintf("%s-request-consumers", a.AgentType)
 	responseConsumerGroup := fmt.Sprintf("%s-response-consumers", a.AgentType)

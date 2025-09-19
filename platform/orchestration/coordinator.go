@@ -120,6 +120,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 
 // ProcessResponse handles responses using ExecutionContext
 func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.ExecutionContext, response []byte) error {
+	s.logger.Info("ProcessResponse in coordinator.go")
 
 	// Extract request ID from InResponseTo
 	var requestID string
@@ -156,6 +157,11 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	// Find state by request ID (not step ID!)
 	state, err := repo.FindByAwaitedRequestID(ctx, requestID)
 	if err != nil {
+		// This is not necessarily an error - it might be a response for another orchestrator
+		contextLogger.Debug("No orchestration waiting for this response, trying fallback",
+			zap.String("request_id", requestID),
+			zap.Error(err))
+
 		// Try fallback to orchestration ID
 		var orchID string
 		if execCtx.InResponseTo != nil && execCtx.InResponseTo.ParentOrchestrationID != "" {
@@ -167,16 +173,35 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		if orchID != "" {
 			state, err = repo.GetState(ctx, orchID)
 			if err != nil {
-				return fmt.Errorf("unable to get state when looking for orchestration by request id: %s", requestID)
+				// Not an error - this response is for a different orchestrator
+				contextLogger.Debug("Response not for this orchestrator, ignoring",
+					zap.String("request_id", requestID),
+					zap.String("orchestration_id", orchID))
+				return nil
 			}
 
 			// Verify this state is actually waiting for this request
 			if _, exists := state.AwaitedRequests[requestID]; !exists {
-				return fmt.Errorf("orchestration %s not waiting for request %s", orchID, requestID)
+				contextLogger.Debug("Orchestration not waiting for this request, ignoring",
+					zap.String("orchestration_id", orchID),
+					zap.String("request_id", requestID))
+				return nil
 			}
 		} else {
-			return fmt.Errorf("no orchestration found for request_id: %s", requestID)
+			// No orchestration ID either - this response is not for us
+			contextLogger.Debug("Response not for this orchestrator (no orchestration ID), ignoring",
+				zap.String("request_id", requestID))
+			return nil
 		}
+	}
+
+	// Additional check: verify this orchestrator owns this orchestration
+	if state.ProcessingNode != "" && state.ProcessingNode != s.podName {
+		contextLogger.Debug("Response for orchestration owned by different pod, ignoring",
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("owner_pod", state.ProcessingNode),
+			zap.String("my_pod", s.podName))
+		return nil
 	}
 
 	contextLogger.Info("RESPONSE_MATCHED: Found orchestration for response",
@@ -659,9 +684,10 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 				state.Status = StatusAwaitingResponses
 				needsWaiting = true
 
-				contextLogger.Info("Action requires waiting for response",
+				contextLogger.Info("Action requires waiting for response Added awaited request to state",
 					zap.String("request_id", requestID),
-					zap.String("target_agent_type", awaitedReq.TargetAgentType))
+					zap.String("target_agent_type", awaitedReq.TargetAgentType),
+					zap.Int("awaited_count", len(state.AwaitedRequests)))
 
 				// SAVE STATE BEFORE EXECUTING ACTION
 				repo := NewStateRepository(s.db, s.logger)
@@ -684,6 +710,12 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		Timestamp: time.Now(),
 		Details:   fmt.Sprintf("Executed by %s", s.podName),
 	})
+
+	// Right before UpdateState
+	s.logger.Info("About to save state with awaited requests",
+		zap.Int("awaited_count", len(state.AwaitedRequests)),
+		zap.Bool("needsWaiting", needsWaiting),
+	)
 
 	// If we need to wait, save state NOW before returning
 	if needsWaiting {

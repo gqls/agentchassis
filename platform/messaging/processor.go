@@ -61,6 +61,18 @@ func NewMessageProcessor(
 		if err != nil {
 			logger.Error("Failed to create SQL DB connection", zap.Error(err))
 		}
+	} else if host := os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST"); host != "" {
+		connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+			host,
+			os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT"),
+			os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER"),
+			os.Getenv("CLIENTS_DB_PASSWORD"),
+			os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME"))
+		var err error
+		sqlDB, err = sql.Open("pgx", connStr)
+		if err != nil {
+			logger.Error("Failed to create SQL DB connection from env vars", zap.Error(err))
+		}
 	}
 
 	// Create tracer if enabled

@@ -1530,6 +1530,18 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		}...)
 	}
 
+	dbURL := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable",
+		os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER"),
+		os.Getenv("CLIENTS_DB_PASSWORD"),
+		os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST"),
+		os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT"),
+		os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME"))
+
+	logger.Info("DEBUGaa: In spawnAgentKubernetesJobFromDefinition in spawn_actions.go",
+		zap.String("dbURL", dbURL))
+
+	envList = append(envList, corev1.EnvVar{Name: "DATABASE_URL", Value: dbURL})
+
 	// Define the Job
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{

@@ -290,6 +290,10 @@ func CallAgentActionOLD(ctx context.Context, params ActionParams) (interface{}, 
 }
 
 func findOrSpawnAgent(ctx context.Context, params ActionParams, targetAgentType string) (string, error) {
+	params.Logger.Info("call_agent.go findOrSpawnAgent",
+		zap.String("agent_type", targetAgentType),
+	)
+
 	// Check if agent already exists in collected data
 	agentKey := fmt.Sprintf("%s_agent_id", targetAgentType)
 	if agentID, ok := params.CollectedData[agentKey].(string); ok && agentID != "" {

@@ -216,6 +216,8 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 }
 */
 func AggregateDataAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("AggregateDataAction in generic_actions")
+	
 	config := params.StepConfig.Config
 
 	// Get aggregation strategy
