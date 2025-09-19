@@ -24,34 +24,35 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Get the previously spawned agent
 	var targetAgentID string
-	var spawnedAgentInfo map[string]interface{}
+	// var spawnedAgentInfo map[string]interface{}
 
 	// Check spawn_calculator step result
 	spawnKey := fmt.Sprintf("spawn_%s", targetAgentType)
 	if spawnResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
 		targetAgentID, _ = spawnResult["agent_id"].(string)
-		spawnedAgentInfo = spawnResult
+		// spawnedAgentInfo = spawnResult
 		params.Logger.Info("Found spawned agent",
 			zap.String("agent_type", targetAgentType),
 			zap.String("agent_id", targetAgentID),
-			zap.String("DEBUGaa: spawn_key", spawnKey)) // ?
+			zap.String("DEBUGaa: spawn_key", spawnKey),
+		)
 	}
 
 	if targetAgentID == "" {
 		return nil, fmt.Errorf("no spawned %s agent found in step %s", targetAgentType, spawnKey)
 	}
 
+	requestID := uuid.New().String()
+
+	// Create a NEW orchestration ID for the calculator's workflow
+	childOrchID := uuid.New().String() // New orchestration ID
+	childOrchName := fmt.Sprintf("%s-workflow-%s", targetAgentType, time.Now().Format("1504"))
+
 	params.Logger.Info("CALL_AGENT: Starting agent call",
 		zap.String("target_agent_type", targetAgentType),
 		zap.String("target_agent_id", targetAgentID),
-		zap.String("parent_orch_id", params.ExecutionContext.OrchestrationID),
-	)
-
-	requestID := uuid.New().String()
-
-	// The calculator already has an orchestration - use it!
-	childOrchID := targetAgentID // The agent's ID IS its orchestration ID
-	childOrchName := spawnedAgentInfo["agent_name"].(string)
+		zap.String("child_orch_id", childOrchID),
+		zap.String("parent_orch_id", params.ExecutionContext.OrchestrationID))
 
 	// Determine the action to send
 	var targetAction string
@@ -187,7 +188,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.Any("headers_sent", headers),
 	)
 
-	// Return result indicating we're waiting for the calculation
+	// Return result indicating we're waiting for the action result
 	result := map[string]interface{}{
 		"agent_called":        targetAgentID,
 		"agent_type":          targetAgentType,
@@ -199,7 +200,9 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	params.Logger.Info("Call agent action completed, awaiting response",
-		zap.String("request_id", requestID))
+		zap.String("request_id", requestID),
+		zap.Any("returning result to say we are waiting for response", result),
+	)
 
 	return result, nil
 }
@@ -395,11 +398,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -452,11 +455,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -507,10 +510,10 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
