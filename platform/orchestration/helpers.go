@@ -394,19 +394,12 @@ func (tm *TimeoutMonitor) sendTimeoutResponse(ctx context.Context, parentOrchID,
 		Body: types.ResponseBody{
 			Success: false,
 			Headers: nil,
-			Body: struct {
-				Result      interface{}      `json:"result"`
-				Calculation interface{}      `json:"calculation,omitempty"`
-				Error       *types.ErrorInfo `json:"error,omitempty"`
-			}{
-				Result:      nil,
-				Calculation: nil,
-				Error: &types.ErrorInfo{
-					Code:        "TIMEOUT",
-					Message:     fmt.Sprintf("Child orchestration %s timed out after %v", childOrchID, time.Since(awaitedReq.SentAt)),
-					Recoverable: false,
-					RetryAfter:  0,
-				},
+			Body:    nil, // No result for timeout
+			Error: &types.ErrorInfo{
+				Code:        "TIMEOUT",
+				Message:     fmt.Sprintf("Child orchestration %s timed out after %v", childOrchID, time.Since(awaitedReq.SentAt)),
+				Recoverable: false,
+				RetryAfter:  0,
 			},
 		},
 	}

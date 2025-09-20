@@ -1519,14 +1519,11 @@ func (p *MessageProcessor) sendSuccessResponse(ctx context.Context, msgCtx *Mess
 		Body: types.ResponseBody{
 			Success: true,
 			Headers: nil, // Optional headers
-			Body: struct {
-				Result      interface{}      `json:"result"`
-				Calculation interface{}      `json:"calculation,omitempty"`
-				Error       *types.ErrorInfo `json:"error,omitempty"`
-			}{
-				Result:      result,
-				Calculation: nil,
-				Error:       nil,
+			Body: types.ResponseBody{
+				Success: true,
+				Headers: nil,
+				Body:    result, // Direct assignment of the result
+				Error:   nil,
 			},
 		},
 	}
@@ -1605,18 +1602,11 @@ func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *Messag
 		Body: types.ResponseBody{
 			Success: false,
 			Headers: nil,
-			Body: struct {
-				Result      interface{}      `json:"result"`
-				Calculation interface{}      `json:"calculation,omitempty"`
-				Error       *types.ErrorInfo `json:"error,omitempty"`
-			}{
-				Result:      nil,
-				Calculation: nil,
-				Error: &types.ErrorInfo{
-					Code:        "PROCESSING_ERROR",
-					Message:     err.Error(),
-					Recoverable: false,
-				},
+			Body:    nil, // No result for error
+			Error: &types.ErrorInfo{
+				Code:        "PROCESSING_ERROR",
+				Message:     err.Error(),
+				Recoverable: false,
 			},
 		},
 	}
