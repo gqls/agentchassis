@@ -495,7 +495,7 @@ func AggregateDataAction(ctx context.Context, params ActionParams) (interface{},
 	aggregated["timestamp"] = time.Now()
 
 	params.Logger.Info("AggregateDataAction aggregated is",
-		zap.Any("aggregated", aggregated))
+		zap.Any("aggregated is:", aggregated))
 
 	return aggregated, nil
 }

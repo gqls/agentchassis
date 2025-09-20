@@ -11,125 +11,178 @@ import (
 func CalculateAction(ctx context.Context, params ActionParams) (interface{}, error) {
 
 	params.Logger.Info("Entering CalculateAction",
-		zap.Any("action_params", params),
+		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)),
 	)
 
 	// Try multiple paths to find the input data
 	var operation string
 	var operands []interface{}
 
-	// Path 1: Check input_data.body.input_data.data
+	// Path 1: Direct path - after our response simplification
+	// Check input_data.data (most direct path after fixes)
 	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-		if body, ok := inputData["body"].(map[string]interface{}); ok {
-			if innerInputData, ok := body["input_data"].(map[string]interface{}); ok {
-				if data, ok := innerInputData["data"].(map[string]interface{}); ok {
-					operation, _ = data["operation"].(string)
-					operands, _ = data["operands"].([]interface{})
+		if data, ok := inputData["data"].(map[string]interface{}); ok {
+			operation, _ = data["operation"].(string)
+			operands, _ = data["operands"].([]interface{})
 
-					params.Logger.Info("Extracted data from Path 1",
-						zap.String("operation", operation),
-						zap.Any("operands", operands),
-					)
-				}
+			params.Logger.Info("Extracted data from Path 1 (simplified)",
+				zap.String("operation", operation),
+				zap.Any("operands", operands))
+		}
+
+		// Also check directly in input_data for even simpler structure
+		if operation == "" {
+			operation, _ = inputData["operation"].(string)
+			operands, _ = inputData["operands"].([]interface{})
+
+			if operation != "" {
+				params.Logger.Info("Extracted data directly from input_data",
+					zap.String("operation", operation),
+					zap.Any("operands", operands))
 			}
 		}
 	}
 
-	// Path 2: Check __raw_message__.body.input_data.data
+	// Path 2: Legacy nested structure (for backward compatibility during transition)
 	if operation == "" {
-		if rawMsg, ok := params.CollectedData["__raw_message__"].(map[string]interface{}); ok {
-			if body, ok := rawMsg["body"].(map[string]interface{}); ok {
-				if inputData, ok := body["input_data"].(map[string]interface{}); ok {
-					if data, ok := inputData["data"].(map[string]interface{}); ok {
-						operation, _ = data["operation"].(string)
-						operands, _ = data["operands"].([]interface{})
+		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+			if body, ok := inputData["body"].(map[string]interface{}); ok {
+				// Check body.data
+				if data, ok := body["data"].(map[string]interface{}); ok {
+					operation, _ = data["operation"].(string)
+					operands, _ = data["operands"].([]interface{})
 
-						params.Logger.Info("Extracted data from Path 2",
-							zap.String("operation", operation),
-							zap.Any("operands", operands),
-						)
+					params.Logger.Info("Extracted from legacy body.data",
+						zap.String("operation", operation),
+						zap.Any("operands", operands))
+				}
+
+				// Check body.input_data.data (double nested legacy)
+				if operation == "" {
+					if innerInputData, ok := body["input_data"].(map[string]interface{}); ok {
+						if data, ok := innerInputData["data"].(map[string]interface{}); ok {
+							operation, _ = data["operation"].(string)
+							operands, _ = data["operands"].([]interface{})
+
+							params.Logger.Info("Extracted from legacy nested structure",
+								zap.String("operation", operation),
+								zap.Any("operands", operands))
+						}
 					}
 				}
 			}
 		}
 	}
 
-	// Path 3: Direct path for simpler cases
+	// Path 3: Check raw message as last resort
 	if operation == "" {
-		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-			if data, ok := inputData["data"].(map[string]interface{}); ok {
-				operation, _ = data["operation"].(string)
-				operands, _ = data["operands"].([]interface{})
+		if rawMsg, ok := params.CollectedData["__raw_message__"].(map[string]interface{}); ok {
+			// Try raw message body
+			if body, ok := rawMsg["body"].(map[string]interface{}); ok {
+				if data, ok := body["data"].(map[string]interface{}); ok {
+					operation, _ = data["operation"].(string)
+					operands, _ = data["operands"].([]interface{})
 
-				params.Logger.Info("Extracted data from Path 3",
-					zap.String("operation", operation),
-					zap.Any("operands", operands),
-				)
+					params.Logger.Info("Extracted from raw message",
+						zap.String("operation", operation),
+						zap.Any("operands", operands))
+				}
+			}
+
+			// Try raw message data directly
+			if operation == "" {
+				if data, ok := rawMsg["data"].(map[string]interface{}); ok {
+					operation, _ = data["operation"].(string)
+					operands, _ = data["operands"].([]interface{})
+
+					params.Logger.Info("Extracted from raw message data",
+						zap.String("operation", operation),
+						zap.Any("operands", operands))
+				}
 			}
 		}
 	}
 
+	// Validate we found the required data
+	if operation == "" || len(operands) == 0 {
+		params.Logger.Error("Failed to extract operation data",
+			zap.String("operation", operation),
+			zap.Int("operands_count", len(operands)),
+			zap.Any("collected_data", params.CollectedData))
+		return nil, fmt.Errorf("missing operation or operands")
+	}
+
 	// Perform the calculation
-	if operation == "add" && len(operands) == 2 {
-		// Convert operands to float64
-		a, ok1 := toFloat64(operands[0])
-		b, ok2 := toFloat64(operands[1])
+	switch operation {
+	case "add":
+		if len(operands) == 2 {
+			a, ok1 := toFloat64(operands[0])
+			b, ok2 := toFloat64(operands[1])
 
-		if ok1 && ok2 {
-			result := map[string]interface{}{
-				"result":    a + b,
-				"operation": operation,
-				"operands":  operands,
+			if ok1 && ok2 {
+				result := map[string]interface{}{
+					"result":    a + b,
+					"operation": operation,
+					"operands":  operands,
+				}
+				params.Logger.Info("Addition successful",
+					zap.Any("result", result))
+				return result, nil
 			}
-			params.Logger.Info("Calculation successful",
-				zap.Any("CALCULATION RESULT: addition ", result),
-			)
-			return result, nil
 		}
-	} else if operation == "subtract" && len(operands) == 2 {
-		a, ok1 := toFloat64(operands[0])
-		b, ok2 := toFloat64(operands[1])
 
-		if ok1 && ok2 {
-			result := map[string]interface{}{
-				"result":    a - b,
-				"operation": operation,
-				"operands":  operands,
+	case "subtract":
+		if len(operands) == 2 {
+			a, ok1 := toFloat64(operands[0])
+			b, ok2 := toFloat64(operands[1])
+
+			if ok1 && ok2 {
+				result := map[string]interface{}{
+					"result":    a - b,
+					"operation": operation,
+					"operands":  operands,
+				}
+				params.Logger.Info("Subtraction successful",
+					zap.Any("result", result))
+				return result, nil
 			}
-			params.Logger.Info("Calculation successful",
-				zap.Any("CALCULATION RESULT: subtraction ", result),
-			)
-			return result, nil
 		}
-	} else if operation == "multiply" && len(operands) == 2 {
-		a, ok1 := toFloat64(operands[0])
-		b, ok2 := toFloat64(operands[1])
 
-		if ok1 && ok2 {
-			result := map[string]interface{}{
-				"result":    a * b,
-				"operation": operation,
-				"operands":  operands,
+	case "multiply":
+		if len(operands) == 2 {
+			a, ok1 := toFloat64(operands[0])
+			b, ok2 := toFloat64(operands[1])
+
+			if ok1 && ok2 {
+				result := map[string]interface{}{
+					"result":    a * b,
+					"operation": operation,
+					"operands":  operands,
+				}
+				params.Logger.Info("Multiplication successful",
+					zap.Any("result", result))
+				return result, nil
 			}
-			params.Logger.Info("Calculation successful",
-				zap.Any("CALCULATION RESULT: multiplication ", result),
-			)
-			return result, nil
 		}
-	} else if operation == "divide" && len(operands) == 2 {
-		a, ok1 := toFloat64(operands[0])
-		b, ok2 := toFloat64(operands[1])
 
-		if ok1 && ok2 && b != 0 {
-			result := map[string]interface{}{
-				"result":    a / b,
-				"operation": operation,
-				"operands":  operands,
+	case "divide":
+		if len(operands) == 2 {
+			a, ok1 := toFloat64(operands[0])
+			b, ok2 := toFloat64(operands[1])
+
+			if ok1 && ok2 && b != 0 {
+				result := map[string]interface{}{
+					"result":    a / b,
+					"operation": operation,
+					"operands":  operands,
+				}
+				params.Logger.Info("Division successful",
+					zap.Any("result", result))
+				return result, nil
 			}
-			params.Logger.Info("Calculation successful",
-				zap.Any("CALCULATION RESULT: division ", result),
-			)
-			return result, nil
+			if b == 0 {
+				return nil, fmt.Errorf("division by zero")
+			}
 		}
 	}
 
@@ -147,29 +200,11 @@ func toFloat64(v interface{}) (float64, bool) {
 		return float64(val), true
 	case int64:
 		return float64(val), true
+	case int32:
+		return float64(val), true
+	case float32:
+		return float64(val), true
 	default:
 		return 0, false
 	}
-}
-
-func CalculateActionNormalFormat(ctx context.Context, params ActionParams) (interface{}, error) {
-	// Extract input_data first
-	inputData, ok := params.CollectedData["input_data"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("input_data not found in CollectedData")
-	}
-
-	operation, _ := inputData["operation"].(string)
-	operands, _ := inputData["operands"].([]interface{})
-
-	if operation == "add" && len(operands) == 2 {
-		a, _ := operands[0].(float64)
-		b, _ := operands[1].(float64)
-		return map[string]interface{}{
-			"result":    a + b,
-			"operation": operation,
-		}, nil
-	}
-
-	return nil, fmt.Errorf("unsupported operation")
 }

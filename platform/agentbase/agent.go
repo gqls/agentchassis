@@ -622,17 +622,13 @@ func (a *Agent) handleProcessingError(execCtx *types.ExecutionContext, err error
 			},
 			Body: types.ResponseBody{
 				Success: false,
-				Headers: nil, // Optional headers can be nil
-				Body: types.ResponseBody{
-					Success: false,
-					Headers: nil,
-					Body:    nil, // No result for error
-					Error: &types.ErrorInfo{
-						Code:        "PROCESSING_ERROR",
-						Message:     err.Error(),
-						Recoverable: recoverable,
-						RetryAfter:  30, // seconds
-					},
+				Headers: nil,
+				Body:    nil, // No result for error
+				Error: &types.ErrorInfo{
+					Code:        "PROCESSING_ERROR",
+					Message:     err.Error(),
+					Recoverable: recoverable,
+					RetryAfter:  30, // seconds
 				},
 			},
 		}
@@ -988,22 +984,19 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 		},
 		Body: types.ResponseBody{
 			Success: true,
-			Body: types.ResponseBody{
-				Success: true,
-				Headers: nil,
-				Body: map[string]interface{}{ // Direct assignment
-					"agent_id":    a.AgentID,
-					"agent_name":  a.AgentName,
-					"agent_type":  a.AgentType,
-					"role":        a.Role,
-					"initialized": true,
-					"topics": map[string]string{
-						"requests":  a.requestsTopic,
-						"responses": a.responsesTopic,
-					},
+			Headers: nil,
+			Body: map[string]interface{}{ // Direct assignment
+				"agent_id":    a.AgentID,
+				"agent_name":  a.AgentName,
+				"agent_type":  a.AgentType,
+				"role":        a.Role,
+				"initialized": true,
+				"topics": map[string]string{
+					"requests":  a.requestsTopic,
+					"responses": a.responsesTopic,
 				},
-				Error: nil,
 			},
+			Error: nil,
 		},
 	}
 

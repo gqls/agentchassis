@@ -1518,13 +1518,9 @@ func (p *MessageProcessor) sendSuccessResponse(ctx context.Context, msgCtx *Mess
 		},
 		Body: types.ResponseBody{
 			Success: true,
-			Headers: nil, // Optional headers
-			Body: types.ResponseBody{
-				Success: true,
-				Headers: nil,
-				Body:    result, // Direct assignment of the result
-				Error:   nil,
-			},
+			Headers: nil,
+			Body:    result, // Direct assignment
+			Error:   nil,
 		},
 	}
 

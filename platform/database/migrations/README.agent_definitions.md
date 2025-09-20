@@ -2037,3 +2037,109 @@ psql -U clients_user -d clients_db -t -A -c \
 }
 }
 ]
+--
+
+UPDATE agent_definitions
+SET default_config = jsonb_build_object(
+'ai_service', jsonb_build_object(
+'provider', 'anthropic',
+'model', 'claude-3-5-sonnet-20241022'
+),
+'processing_mode', 'orchestrator',
+'workflow', jsonb_build_object(
+'start_step', 'spawn_calculator',
+'steps', jsonb_build_object(
+'spawn_calculator', jsonb_build_object(
+'action', 'spawn_agent',
+'config', jsonb_build_object(
+'agent_type', 'calculator'
+),
+'description', 'Initialize calculator agent',
+'next_step', 'first_calculation'
+),
+'first_calculation', jsonb_build_object(
+'action', 'call_agent',
+'config', jsonb_build_object(
+'agent_type', 'calculator',
+'input_field', 'first_calc'
+),
+'description', 'First calculation',
+'next_step', 'second_calculation'
+),
+'second_calculation', jsonb_build_object(
+'action', 'call_agent',
+'config', jsonb_build_object(
+'agent_type', 'calculator',
+'input_field', 'second_calc'
+),
+'description', 'Second calculation',
+'next_step', 'aggregate_results'
+),
+'aggregate_results', jsonb_build_object(
+'action', 'aggregate_data',
+'config', jsonb_build_object(
+'strategy', 'group_responses',
+'response_fields', jsonb_build_array('first_calculation', 'second_calculation'),
+'sources', jsonb_build_array('first_calculation', 'second_calculation')
+),
+'description', 'Combine calculation results',
+'next_step', 'complete'
+),
+'complete', jsonb_build_object(
+'action', 'complete_workflow',
+'description', 'Complete workflow'
+)
+)
+)
+)
+WHERE type = 'generic' AND is_active = true;
+
+UPDATE agent_definitions
+SET default_config = '{
+"processing_mode": "orchestrator",
+"workflow": {
+"start_step": "spawn_calculator",
+"steps": {
+"spawn_calculator": {
+"action": "spawn_agent",
+"config": {
+"agent_type": "calculator"
+},
+"description": "Initialize calculator agent",
+"next_step": "first_calculation"
+},
+"first_calculation": {
+"action": "call_agent",
+"config": {
+"agent_type": "calculator",
+"input_field": "first_calc"
+},
+"description": "First calculation",
+"next_step": "second_calculation"
+},
+"second_calculation": {
+"action": "call_agent",
+"config": {
+"agent_type": "calculator",
+"input_field": "second_calc"
+},
+"description": "Second calculation",
+"next_step": "aggregate_results"
+},
+"aggregate_results": {
+"action": "aggregate_data",
+"config": {
+"strategy": "group_responses",
+"response_fields": ["first_calculation", "second_calculation"]
+},
+"description": "Combine calculation results",
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Complete workflow"
+}
+}
+}
+}'::jsonb
+WHERE type = 'generic' AND is_active = true;

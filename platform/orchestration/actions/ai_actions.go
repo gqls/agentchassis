@@ -54,8 +54,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// If not found, load it directly from the database
 	if !ok && params.AgentType != "" {
 		params.Logger.Info("Agent config not in collected data, loading from database",
-			zap.String("agent_type", params.AgentType),
-			zap.String("db_type", fmt.Sprintf("%T", params.DB)))
+			zap.String("agent_type", params.AgentType))
 
 		agentDef, err := loadAgentDefinitionForAction(ctx, params.DB, params.AgentType)
 		if err != nil {
@@ -65,28 +64,15 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			return nil, fmt.Errorf("failed to load agent definition: %w", err)
 		}
 
-		params.Logger.Info("Agent definition loaded",
-			zap.String("type", agentDef.Type),
-			zap.Int("config_size", len(agentDef.DefaultConfig)))
-
-		// DefaultConfig is already a map[string]interface{}, just use it directly
 		agentConfig = agentDef.DefaultConfig
-
-		params.Logger.Info("Agent config ready",
-			zap.Any("config_keys", getMapKeys(agentConfig)))
-
-		// Store it for future actions in this workflow
 		params.CollectedData["agent_config"] = agentConfig
 	}
 
 	if agentConfig == nil {
-		params.Logger.Error("Agent configuration is nil after all attempts",
-			zap.String("agent_type", params.AgentType),
-			zap.Bool("had_ok", ok))
+		params.Logger.Error("Agent configuration is nil after all attempts")
 		return nil, fmt.Errorf("agent configuration not found")
 	}
 
-	// Rest of the function remains the same...
 	// Extract AI service configuration
 	aiServiceConfig, ok := agentConfig["ai_service"].(map[string]interface{})
 	if !ok {
@@ -105,40 +91,38 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("failed to create AI client: %w", err)
 	}
 
-	// Prepare template data - merge all collected data and input data
+	// Prepare template data - SIMPLIFIED DATA EXTRACTION
 	templateData := make(map[string]interface{})
 
 	// Add all collected data from previous workflow steps
 	for key, value := range params.CollectedData {
+		// Skip internal fields
+		if key == "__raw_message__" || key == "__execution_context__" {
+			continue
+		}
 		templateData[key] = value
 	}
 
-	// The primary input is always in input_data
+	// Handle input_data with the simplified structure
 	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
 		// Make it available as both "input_data" and "input" for template flexibility
 		templateData["input_data"] = inputData
 		templateData["input"] = inputData
 
-		// Also spread the input data fields at the top level for easier access
-		for k, v := range inputData {
-			templateData[k] = v
-		}
-	}
-
-	// Add other collected data for context
-	for key, value := range params.CollectedData {
-		if key != "input_data" { // Don't overwrite what we just set
-			templateData[key] = value
-		}
-	}
-
-	// Parse the input data if it exists
-	if params.InputData != nil {
-		var inputPayload map[string]interface{}
-		if err := json.Unmarshal(params.InputData, &inputPayload); err == nil {
-			// Add the data field as "input" for template access
-			if data, ok := inputPayload["data"].(map[string]interface{}); ok {
-				templateData["input"] = data
+		// Check if there's a nested "data" field (transitional support)
+		if data, ok := inputData["data"].(map[string]interface{}); ok {
+			// Also make the data contents available at top level
+			for k, v := range data {
+				if _, exists := templateData[k]; !exists { // Don't overwrite existing keys
+					templateData[k] = v
+				}
+			}
+		} else {
+			// With simplified structure, spread input_data directly
+			for k, v := range inputData {
+				if _, exists := templateData[k]; !exists {
+					templateData[k] = v
+				}
 			}
 		}
 	}
@@ -158,7 +142,6 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	if model, ok := aiServiceConfig["model"].(string); ok {
 		options["model"] = model
 	}
-	// Check for temperature in agent config
 	if temp, ok := agentConfig["temperature"].(float64); ok {
 		options["temperature"] = temp
 	}

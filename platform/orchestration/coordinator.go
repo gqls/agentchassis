@@ -644,6 +644,11 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		zap.Any("CollectedData at current step", state.CollectedData[state.CurrentStep]),
 		zap.Any("current step will this overwrite something?", state.CurrentStep))
 
+	if state.CurrentStep == "" {
+		s.logger.Error("Cannot store result - CurrentStep is empty")
+		return fmt.Errorf("current step is empty")
+	}
+
 	// Store result
 	state.CollectedData[state.CurrentStep] = result
 
@@ -892,10 +897,17 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	}
 
 	// Store with response_ prefix for backward compatibility
-	state.CollectedData[fmt.Sprintf("response_%s", requestID)] = responseData
+	//state.CollectedData[fmt.Sprintf("response_%s", requestID)] = responseData
+
+	contextLogger.Info("DEBUG: CollectedData keys before searching for request",
+		zap.Any("keys", getMapKeys(state.CollectedData)))
 
 	// Find the step that owns this request and store the response there
 	for stepName, stepData := range state.CollectedData {
+		if stepName == "" {
+			contextLogger.Warn("Skipping empty step name in CollectedData")
+			continue
+		}
 		if stepMap, ok := stepData.(map[string]interface{}); ok {
 			if storedReqID, exists := stepMap["request_id"]; exists && storedReqID == requestID {
 				stepMap["response"] = responseData
@@ -905,7 +917,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 				contextLogger.Info("Stored response in parent step",
 					zap.String("step_name", stepName),
 					zap.String("request_id", requestID),
-					zap.Any("response_data", responseData))
+					zap.Any("response_data :", responseData))
 				break
 			}
 		}
@@ -1219,4 +1231,15 @@ func getFuncInfo(skip int) (current, caller string) {
 		caller = runtime.FuncForPC(pc).Name()
 	}
 	return
+}
+
+func getMapKeys(m map[string]interface{}) []string {
+	if m == nil {
+		return []string{}
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
