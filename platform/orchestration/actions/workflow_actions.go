@@ -35,6 +35,10 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		"timestamp": time.Now(),
 	}
 
+	params.Logger.Info("CompleteWorkflowAction Filtered data workflow_actions",
+		zap.Any("filtered data result", result),
+	)
+
 	// If this is a child orchestration, we need to send response to parent
 	if params.ExecutionContext.ParentOrchestrationID != "" {
 		params.Logger.Info("Child orchestration needs to notify parent",
@@ -137,7 +141,9 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 
 				params.Logger.Info("Successfully sent response to parent orchestration",
 					zap.String("topic", parentResponseTopic),
-					zap.String("request_id", parentRequestID))
+					zap.String("request_id", parentRequestID),
+					zap.Any("responseMsg", responseMsg),
+				)
 			}
 		}
 	} else {

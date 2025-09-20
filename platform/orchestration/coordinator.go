@@ -647,6 +647,10 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// Store result
 	state.CollectedData[state.CurrentStep] = result
 
+	s.logger.Info("coordinator executeLocalAction. 650 Local action completed: show result and look whats in CollectedData under current step AFTER",
+		zap.Any("CollectedData at current step", state.CollectedData[state.CurrentStep]),
+	)
+
 	// Handle subtree info if returned (for spawn actions), handle all state modifications in memory
 	needsWaiting := false
 	if resultMap, ok := result.(map[string]interface{}); ok {
