@@ -106,22 +106,30 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 		b, ok2 := toFloat64(operands[1])
 
 		if ok1 && ok2 {
-			return map[string]interface{}{
+			result := map[string]interface{}{
 				"result":    a * b,
 				"operation": operation,
 				"operands":  operands,
-			}, nil
+			}
+			params.Logger.Info("Calculation successful",
+				zap.Any("CALCULATION RESULT: multiplication ", result),
+			)
+			return result, nil
 		}
 	} else if operation == "divide" && len(operands) == 2 {
 		a, ok1 := toFloat64(operands[0])
 		b, ok2 := toFloat64(operands[1])
 
 		if ok1 && ok2 && b != 0 {
-			return map[string]interface{}{
+			result := map[string]interface{}{
 				"result":    a / b,
 				"operation": operation,
 				"operands":  operands,
-			}, nil
+			}
+			params.Logger.Info("Calculation successful",
+				zap.Any("CALCULATION RESULT: division ", result),
+			)
+			return result, nil
 		}
 	}
 

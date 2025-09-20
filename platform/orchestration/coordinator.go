@@ -638,6 +638,12 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return fmt.Errorf("local action failed: %w", err)
 	}
 
+	// what is in CollectedData
+	s.logger.Info("coordinator executeLocalAction. Local action completed: show result and look whats in CollectedData under current step BEFORE",
+		zap.Any("result", result),
+		zap.Any("CollectedData at current step", state.CollectedData[state.CurrentStep]),
+		zap.Any("current step will this overwrite something?", state.CurrentStep))
+
 	// Store result
 	state.CollectedData[state.CurrentStep] = result
 
@@ -861,30 +867,36 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	if state.CollectedData == nil {
 		state.CollectedData = make(map[string]interface{})
 	}
+	// Keep the original storage for backward compatibility
 	state.CollectedData[fmt.Sprintf("response_%s", requestID)] = taskResponse.Data
 
-	// Find which step this response belongs to
-	/*if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
+	// NEW: Find the step that owns this request and store the response there
+	var parentStepName string
+	for stepName, stepData := range state.CollectedData {
+		if stepMap, ok := stepData.(map[string]interface{}); ok {
+			if storedReqID, exists := stepMap["request_id"]; exists {
+				if storedReqID == requestID {
+					parentStepName = stepName
+					// Store the response within this step's data
+					stepMap["response"] = taskResponse.Data
+					stepMap["response_received_at"] = time.Now()
+					stepMap["response_status"] = "complete"
 
+					contextLogger.Info("Stored response in parent step",
+						zap.String("step_name", parentStepName),
+						zap.String("request_id", requestID),
+						zap.Any("response_data", taskResponse.Data))
+					break
+				}
+			}
+		}
+	}
+
+	// Find which step this response belongs to
+	if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
 		contextLogger.Info("DEBUGaa: coordinator.go handleCompleteResponse parse response structure",
 			zap.Any("taskResponse", taskResponse),
 		)
-
-		stepName := awaitedReq.StepName
-		if stepName == "spawn_agent" {
-			// Store the spawn result under the step name
-			state.CollectedData["spawn_calculator"] = map[string]interface{}{
-				"agent_id":   taskResponse.Data["agent_id"],
-				"agent_name": taskResponse.Data["agent_name"],
-				"agent_type": taskResponse.Data["agent_type"],
-				"job_name":   taskResponse.Data["job_name"],
-				"status":     "initialized",
-				"spawned_at": time.Now(),
-			}
-		}
-	}*/
-
-	if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
 		if awaitedReq.StepName == "spawn_agent" {
 			// Parse the nested response structure
 			if body, ok := taskResponse.Data["body"].(map[string]interface{}); ok {
