@@ -848,8 +848,8 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		zap.String("requestId", requestID),
 		zap.Any("state.CollectedData", state.CollectedData),
 	)
-	contextLogger.Info("In handleCompleteResponse",
-		zap.Any("ExecutionContext", execCtx))
+	/*	contextLogger.Info("In handleCompleteResponse",
+		zap.Any("ExecutionContext", execCtx))*/
 
 	current, caller := getFuncInfo(1)
 
@@ -861,57 +861,67 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 
 	repo := NewStateRepository(s.db, s.logger)
 
-	// Parse the response
-	var taskResponse models.TaskResponse
-	if err := json.Unmarshal(response, &taskResponse); err != nil {
+	// Parse response with flexible structure handling
+	var rawResponse map[string]interface{}
+	if err := json.Unmarshal(response, &rawResponse); err != nil {
 		return s.failWorkflow(ctx, state, fmt.Sprintf("failed to unmarshal response: %v", err))
+	}
+
+	contextLogger.Debug("Raw response structure", zap.Any("raw", rawResponse))
+
+	// Extract the actual data - simpler logic!
+	var responseData interface{}
+
+	// Check if there's a "body" field
+	if body, ok := rawResponse["body"].(map[string]interface{}); ok {
+		// If body contains "process" with actual result, use that
+		if process, ok := body["process"].(map[string]interface{}); ok {
+			responseData = process
+		} else {
+			// Otherwise use the whole body
+			responseData = body
+		}
+	} else {
+		// No "body" field - use entire response as data
+		responseData = rawResponse
 	}
 
 	// Store the response data
 	if state.CollectedData == nil {
 		state.CollectedData = make(map[string]interface{})
 	}
-	// Keep the original storage for backward compatibility
-	state.CollectedData[fmt.Sprintf("response_%s", requestID)] = taskResponse.Data
 
-	// NEW: Find the step that owns this request and store the response there
-	var parentStepName string
+	// Store with response_ prefix for backward compatibility
+	state.CollectedData[fmt.Sprintf("response_%s", requestID)] = responseData
+
+	// Find the step that owns this request and store the response there
 	for stepName, stepData := range state.CollectedData {
 		if stepMap, ok := stepData.(map[string]interface{}); ok {
-			if storedReqID, exists := stepMap["request_id"]; exists {
-				if storedReqID == requestID {
-					parentStepName = stepName
-					// Store the response within this step's data
-					stepMap["response"] = taskResponse.Data
-					stepMap["response_received_at"] = time.Now()
-					stepMap["response_status"] = "complete"
+			if storedReqID, exists := stepMap["request_id"]; exists && storedReqID == requestID {
+				stepMap["response"] = responseData
+				stepMap["response_received_at"] = time.Now()
+				stepMap["response_status"] = "complete"
 
-					contextLogger.Info("Stored response in parent step",
-						zap.String("step_name", parentStepName),
-						zap.String("request_id", requestID),
-						zap.Any("response_data", taskResponse.Data))
-					break
-				}
+				contextLogger.Info("Stored response in parent step",
+					zap.String("step_name", stepName),
+					zap.String("request_id", requestID),
+					zap.Any("response_data", responseData))
+				break
 			}
 		}
 	}
 
-	// Find which step this response belongs to
+	// Handle special case for spawn_agent responses
 	if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
-		contextLogger.Info("DEBUGaa: coordinator.go handleCompleteResponse parse response structure",
-			zap.Any("taskResponse", taskResponse),
-		)
 		if awaitedReq.StepName == "spawn_agent" {
-			// Parse the nested response structure
-			if body, ok := taskResponse.Data["body"].(map[string]interface{}); ok {
-				if result, ok := body["result"].(map[string]interface{}); ok {
-					state.CollectedData["spawn_calculator"] = map[string]interface{}{
-						"agent_id":   result["agent_id"],
-						"agent_name": result["agent_name"],
-						"agent_type": result["agent_type"],
-						"status":     "initialized",
-						"spawned_at": time.Now(),
-					}
+			// Extract agent info from response
+			if agentID, ok := responseData.(map[string]interface{})["agent_id"]; ok {
+				state.CollectedData["spawn_calculator"] = map[string]interface{}{
+					"agent_id":   agentID,
+					"agent_name": responseData.(map[string]interface{})["agent_name"],
+					"agent_type": responseData.(map[string]interface{})["agent_type"],
+					"status":     "initialized",
+					"spawned_at": time.Now(),
 				}
 			}
 		}

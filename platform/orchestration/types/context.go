@@ -176,14 +176,12 @@ type ResponseHeaders struct {
 	RemainingFuelBudget        int           `json:"remaining_fuel_budget"`
 }
 
+// In types package
 type ResponseBody struct {
 	Success bool                   `json:"success"`
 	Headers map[string]interface{} `json:"headers,omitempty"`
-	Body    struct {
-		Result      interface{} `json:"result"`
-		Calculation interface{} `json:"calculation,omitempty"`
-		Error       *ErrorInfo  `json:"error,omitempty"`
-	} `json:"body"`
+	Body    interface{}            `json:"body"` // Now accepts any type
+	Error   *ErrorInfo             `json:"error,omitempty"`
 }
 
 type ErrorInfo struct {
