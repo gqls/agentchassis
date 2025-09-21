@@ -13,8 +13,6 @@ import (
 )
 
 // FILE: platform/orchestration/actions/workflow_actions.go
-// FILE: platform/orchestration/actions/workflow_actions.go
-
 func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Completing workflow CompleteWorkflowAction",
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
@@ -54,21 +52,25 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		if execCtxData, ok := params.CollectedData["__execution_context__"]; ok {
 			var parentRequestID string
 			var parentResponseTopic string
+			var parentStepName string
 
 			// Handle different types the context might be stored as
 			switch ctx := execCtxData.(type) {
 			case *types.ExecutionContext:
 				parentRequestID = ctx.RequestID
 				parentResponseTopic = ctx.ResponsesTopic
+				parentStepName = ctx.StepName
 			case map[string]interface{}:
 				parentRequestID, _ = ctx["request_id"].(string)
 				parentResponseTopic, _ = ctx["responses_topic"].(string)
+				parentStepName, _ = ctx["step_name"].(string)
 			}
 
 			if parentRequestID == "" || parentResponseTopic == "" {
 				params.Logger.Error("Cannot notify parent: parent request ID or response topic is missing from execution context",
 					zap.String("parent_request_id", parentRequestID),
-					zap.String("parent_response_topic", parentResponseTopic))
+					zap.String("parent_response_topic", parentResponseTopic),
+					zap.String("parent_step_name", parentStepName))
 				return map[string]interface{}{"result": finalResult}, nil
 			}
 
@@ -89,7 +91,7 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 					OrchestrationName:          params.ExecutionContext.OrchestrationName,
 					InResponseToRequestID:      parentRequestID,
 					InResponseToStepID:         params.ExecutionContext.StepID,
-					InResponseToStepName:       params.ExecutionContext.StepName,
+					InResponseToStepName:       parentStepName,
 					InResponseToParentOrchID:   params.ExecutionContext.ParentOrchestrationID,
 					InResponseToParentOrchName: params.ExecutionContext.ParentOrchestrationName,
 					InResponseToMessageID:      params.ExecutionContext.MessageID,
@@ -111,7 +113,7 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 				Body: types.ResponseBody{
 					Success: true,
 					Headers: nil,
-					Body:    map[string]interface{}{"result": finalResult},
+					Body:    finalResult,
 					Error:   nil,
 				},
 			}
@@ -135,7 +137,8 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 
 			params.Logger.Info("Successfully sent response to parent orchestration",
 				zap.String("topic", parentResponseTopic),
-				zap.String("request_id", parentRequestID))
+				zap.String("request_id", parentRequestID),
+				zap.Any("result_sent", finalResult))
 		}
 		// Case 2: This is a ROOT orchestration completing its entire workflow.
 		// It needs to notify the original client.

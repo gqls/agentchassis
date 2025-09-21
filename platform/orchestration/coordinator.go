@@ -879,8 +879,11 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 
 	// Check if there's a "body" field
 	if body, ok := rawResponse["body"].(map[string]interface{}); ok {
-		// If body contains "process" with actual result, use that
-		if process, ok := body["process"].(map[string]interface{}); ok {
+		// Check if there's a nested body (from CompleteWorkflowAction responses)
+		if innerBody, ok := body["body"].(map[string]interface{}); ok {
+			responseData = innerBody
+		} else if process, ok := body["process"].(map[string]interface{}); ok {
+			// If body contains "process" with actual result, use that
 			responseData = process
 		} else {
 			// Otherwise use the whole body

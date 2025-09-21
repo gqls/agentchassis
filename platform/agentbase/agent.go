@@ -474,6 +474,9 @@ func (a *Agent) processResponses() {
 					a.logger.Error("Failed to consume response message", zap.Error(err))
 				}
 				continue
+			} else {
+				a.logger.Info("Response consumer received message",
+					zap.Int("size", len(msg.Value)))
 			}
 			a.processMessage(msg, "response")
 		}
@@ -1014,7 +1017,7 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 	headers := response.Headers.ToMap()
 	key := []byte(spawnRequest.Headers.CorrelationID)
 
-	a.logger.Info("DEBUGaa: RequestHeaders in SendInitializationResponse 1021",
+	a.logger.Info("DEBUGaa: ResponseHeaders in SendInitializationResponse 1021",
 		zap.Any("response", response),
 	)
 
