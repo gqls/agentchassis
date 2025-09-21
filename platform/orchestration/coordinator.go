@@ -156,44 +156,70 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	// Check if this is a child orchestration completing
 	// The child sends: orchestration_id (its own) and in_response_to_parent_orchestration_id (the parent)
 	var targetOrchID string
+	isChildResponse := false
+
 	if execCtx.InResponseTo != nil && execCtx.InResponseTo.ParentOrchestrationID != "" {
-		// This is a child responding to parent - use parent's orchestration
+		// This is a child orchestration completing - we need the PARENT's state
 		targetOrchID = execCtx.InResponseTo.ParentOrchestrationID
-		s.logger.Info("Child orchestration response - will update parent state",
+		isChildResponse = true
+		s.logger.Info("Child orchestration response detected - loading parent state",
 			zap.String("child_orch", execCtx.OrchestrationID),
 			zap.String("parent_orch", targetOrchID),
 			zap.String("request_id", requestID))
 	}
 
-	// First try to find by awaited request ID
-	state, err := repo.FindByAwaitedRequestID(ctx, requestID)
-	if err != nil || (targetOrchID != "" && state.OrchestrationID != targetOrchID) {
-		// Either not found, or found wrong orchestration (child instead of parent)
-		if targetOrchID != "" {
-			// Load the parent's state directly
-			state, err = repo.GetState(ctx, targetOrchID)
-			if err != nil {
-				contextLogger.Debug("Failed to load parent orchestration state",
-					zap.String("parent_orch", targetOrchID),
-					zap.Error(err))
-				return nil
-			}
+	// Try to find state by request ID
+	var state *OrchestrationState
+	var err error
 
-			// Verify parent is waiting for this request
-			if _, exists := state.AwaitedRequests[requestID]; !exists {
-				contextLogger.Debug("Parent not waiting for this request",
-					zap.String("parent_orch", targetOrchID),
-					zap.String("request_id", requestID))
-				return nil
-			}
+	if execCtx.InResponseTo != nil && execCtx.InResponseTo.ParentOrchestrationID != "" {
+		// Load parent state directly
+		state, err = repo.GetState(ctx, execCtx.InResponseTo.ParentOrchestrationID)
+		s.logger.Info("Loaded parent state in orchestrator ProcessResponse",
+			zap.String("parent orchestration id:", state.OrchestrationID),
+		)
+	} else {
+		state, err = repo.FindByAwaitedRequestID(ctx, requestID)
+		s.logger.Info("Loaded non parent state in orchestrator ProcessResponse",
+			zap.String("orchestration id is:", state.OrchestrationID),
+		)
+	}
 
-			contextLogger.Info("Found parent orchestration waiting for child response",
+	// If we found a state but it's the wrong one (child instead of parent), load the right one
+	if err == nil && isChildResponse && state.OrchestrationID != targetOrchID {
+		s.logger.Info("Found child state but need parent state",
+			zap.String("found_orch", state.OrchestrationID),
+			zap.String("need_orch", targetOrchID))
+
+		state, err = repo.GetState(ctx, targetOrchID)
+		if err != nil {
+			contextLogger.Error("Failed to load parent orchestration state",
 				zap.String("parent_orch", targetOrchID),
-				zap.String("request_id", requestID))
-		} else {
-			// No parent specified and not found by request ID
+				zap.Error(err))
+			return fmt.Errorf("failed to load parent state: %w", err)
+		}
+	} else if err != nil && isChildResponse {
+		// Didn't find by request ID but we know the parent
+		state, err = repo.GetState(ctx, targetOrchID)
+		if err != nil {
+			contextLogger.Debug("No state found for child response",
+				zap.String("parent_orch", targetOrchID),
+				zap.Error(err))
 			return nil
 		}
+	} else if err != nil {
+		// Not a child response and not found - not for us
+		contextLogger.Debug("No orchestration waiting for this response",
+			zap.String("request_id", requestID))
+		return nil
+	}
+
+	// Verify this state is actually waiting for this request
+	if _, exists := state.AwaitedRequests[requestID]; !exists {
+		contextLogger.Debug("Orchestration not waiting for this request",
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("request_id", requestID))
+		return nil
 	}
 
 	// Additional check: verify this orchestrator owns this orchestration
