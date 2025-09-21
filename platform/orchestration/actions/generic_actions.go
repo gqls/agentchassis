@@ -226,12 +226,70 @@ func AggregateDataAction(ctx context.Context, params ActionParams) (interface{},
 		strategy = "group_responses"
 	}
 
+	responseFields, _ := config["response_fields"].([]interface{})
+
 	params.Logger.Info("AggregateDataAction strategy is",
 		zap.String("strategy", strategy),
 		zap.Any("params look whats in collected data", params),
+		zap.Any("response fields are:", responseFields),
 	)
 
-	aggregated := make(map[string]interface{})
+	//aggregated := make(map[string]interface{})
+	results := make([]interface{}, 0)
+	responses := make(map[string]interface{})
+
+	// Collect responses from specified fields
+	for _, field := range responseFields {
+		fieldName, ok := field.(string)
+		if !ok {
+			continue
+		}
+
+		params.Logger.Info("Looking for response in field",
+			zap.String("field_name", fieldName))
+
+		// Check if this step has a response
+		if stepData, ok := params.CollectedData[fieldName].(map[string]interface{}); ok {
+			if response, ok := stepData["response"].(map[string]interface{}); ok {
+				responses[fieldName] = response
+				results = append(results, response)
+
+				params.Logger.Info("Found response for field",
+					zap.String("field_name", fieldName),
+					zap.Any("response", response))
+			} else {
+				params.Logger.Warn("No response found in step data",
+					zap.String("field_name", fieldName),
+					zap.Any("step_data", stepData))
+			}
+		} else {
+			params.Logger.Warn("Field not found or not a map",
+				zap.String("field_name", fieldName),
+				zap.Any("value", params.CollectedData[fieldName]))
+		}
+	}
+
+	// Build aggregated result based on strategy
+	aggregated := map[string]interface{}{
+		"timestamp":            time.Now(),
+		"aggregation_strategy": strategy,
+		"count":                len(results),
+		"responses":            responses,
+		"results_array":        results,
+	}
+
+	if strategy == "group_responses" {
+		// Group by operation if they're calculations
+		byOperation := make(map[string][]interface{})
+		for _, result := range results {
+			if calc, ok := result.(map[string]interface{}); ok {
+				if op, ok := calc["operation"].(string); ok {
+					byOperation[op] = append(byOperation[op], calc)
+				}
+			}
+		}
+		aggregated["by_operation"] = byOperation
+	}
 
 	switch strategy {
 	case "group_responses":

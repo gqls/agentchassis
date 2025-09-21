@@ -928,7 +928,40 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 
 	// Handle special case for spawn_agent responses
 	if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
+
+		stepName := awaitedReq.StepName
+
+		// Store the response under the step that initiated it
+		if stepData, ok := state.CollectedData[stepName].(map[string]interface{}); ok {
+			stepData["response"] = responseData
+			stepData["response_received_at"] = time.Now()
+			stepData["response_status"] = "complete"
+
+			if _, hasReqID := stepData["request_id"]; !hasReqID {
+				stepData["request_id"] = requestID
+			}
+
+			contextLogger.Info("Stored response under step",
+				zap.String("step_name", stepName),
+				zap.String("request_id", requestID),
+				zap.Any("response_data", responseData),
+			)
+		} else {
+			// If the step data doesn't exist or isn't a map, create it
+			state.CollectedData[stepName] = map[string]interface{}{
+				"response":             responseData,
+				"response_received_at": time.Now(),
+				"response_status":      "complete",
+				"request_id":           requestID,
+			}
+
+			contextLogger.Info("Created step data and stored response",
+				zap.String("step_name", stepName),
+				zap.Any("response_data", responseData))
+		}
+
 		if awaitedReq.StepName == "spawn_agent" {
+			s.logger.Info("In handleCompleteResponse, stepname in awaited requests is spawn_agent")
 			// Extract agent info from response
 			if agentID, ok := responseData.(map[string]interface{})["agent_id"]; ok {
 				state.CollectedData["spawn_calculator"] = map[string]interface{}{
