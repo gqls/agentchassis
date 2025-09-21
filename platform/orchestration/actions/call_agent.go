@@ -171,8 +171,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 			FuelBudget:     params.ExecutionContext.FuelBudget - 100,
 			TimeoutSeconds: 30,
 
-			//ResponsesTopic: fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.Sender.AgentType),
-			ResponsesTopic: params.ExecutionContext.ResponsesTopic,
+			ResponsesTopic: fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.Sender.AgentType),
 		},
 		Body: requestBody,
 	}
@@ -202,6 +201,11 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.String("child_orch_id", childOrchestrationID),
 		zap.String("action", "process"))
 
+	params.Logger.Info("ABOUT TO SEND to Kafka",
+		zap.String("target_topic", targetTopic),
+		zap.String("request_id", requestID),
+		zap.Any("headers", headers))
+
 	err = params.Producer.Produce(ctx, targetTopic, headers, key, msgBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send CallAgentAction request: %w", err)
@@ -215,7 +219,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 			"request_id":          actionRequest.Headers.RequestID,
 			"Sender :":            params.ExecutionContext.Sender,
 		})
-	
+
 	// After sending request
 	params.Logger.Info("CALL_AGENT: Request sent to agent",
 		zap.String("topic", targetTopic),

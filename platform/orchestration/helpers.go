@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"runtime"
 	"time"
 
 	"github.com/google/uuid"
