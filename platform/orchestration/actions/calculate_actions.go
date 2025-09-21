@@ -126,7 +126,7 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 					"operands":  operands,
 				}
 				params.Logger.Info("Addition successful",
-					zap.Any("result", result))
+					zap.Any("result from successful addition", result))
 				return result, nil
 			}
 		}
@@ -143,7 +143,7 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 					"operands":  operands,
 				}
 				params.Logger.Info("Subtraction successful",
-					zap.Any("result", result))
+					zap.Any("result from successful subtraction", result))
 				return result, nil
 			}
 		}
@@ -160,7 +160,7 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 					"operands":  operands,
 				}
 				params.Logger.Info("Multiplication successful",
-					zap.Any("result", result))
+					zap.Any("result from successful multiplication", result))
 				return result, nil
 			}
 		}
@@ -177,7 +177,7 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 					"operands":  operands,
 				}
 				params.Logger.Info("Division successful",
-					zap.Any("result", result))
+					zap.Any("result from successful division", result))
 				return result, nil
 			}
 			if b == 0 {
