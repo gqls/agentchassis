@@ -44,13 +44,13 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	requestID := uuid.New().String()
 
 	// Create a NEW orchestration ID for the calculator's workflow
-	childOrchID := uuid.New().String() // New orchestration ID
-	childOrchName := fmt.Sprintf("%s-workflow-%s", targetAgentType, time.Now().Format("1504"))
+	childOrchestrationID := uuid.New().String() // New orchestration ID
+	childOrchestrationName := fmt.Sprintf("%s-workflow-%s", targetAgentType, time.Now().Format("1504"))
 
 	params.Logger.Info("CALL_AGENT: Starting agent call",
 		zap.String("target_agent_type", targetAgentType),
 		zap.String("target_agent_id", targetAgentID),
-		zap.String("child_orch_id", childOrchID),
+		zap.String("child_orch_id", childOrchestrationID),
 		zap.String("parent_orch_id", params.ExecutionContext.OrchestrationID))
 
 	// Determine the action to send
@@ -148,8 +148,8 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 			ClientID:        params.ExecutionContext.ClientID,
 
 			// Child orchestration context
-			OrchestrationID:   childOrchID,
-			OrchestrationName: childOrchName,
+			OrchestrationID:   childOrchestrationID,
+			OrchestrationName: childOrchestrationName,
 			StepID:            uuid.New().String(),
 			StepName:          "process", // Match workflow start step
 			RequestID:         requestID,
@@ -177,18 +177,10 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		Body: requestBody,
 	}
 
-	params.Tracer.TraceMessage(params.ExecutionContext, "SEND_CHILD_REQUEST", targetTopic,
-		map[string]interface{}{
-			"responses_topic_set": childRequest.Headers.ResponsesTopic,
-			"parent_orch_id":      params.ExecutionContext.OrchestrationID,
-			"child_orch_id":       childOrchestrationID,
-			"request_id":          childRequest.Headers.RequestID,
-		})
-
 	params.Logger.Info("DEBUGaa: 2 CallAgentAction RequestMessage for calculator actionSending calculation request",
 		zap.Any("request message", actionRequest),
 		zap.String("Action", "process"),
-		zap.String("child_orch_id", childOrchID),
+		zap.String("child_orch_id", childOrchestrationID),
 		zap.String("responses topic in callagent action", params.ExecutionContext.ResponsesTopic),
 		zap.String("alternative (wrong) responses topic", fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.Sender.AgentType)),
 		zap.String("orchestration id is child orchestration id", actionRequest.Headers.OrchestrationID),
@@ -207,7 +199,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	params.Logger.Info("Sending calculation request",
 		zap.String("target_topic", targetTopic),
 		zap.String("request_id", requestID),
-		zap.String("child_orch_id", childOrchID),
+		zap.String("child_orch_id", childOrchestrationID),
 		zap.String("action", "process"))
 
 	err = params.Producer.Produce(ctx, targetTopic, headers, key, msgBytes)
@@ -215,11 +207,20 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		return nil, fmt.Errorf("failed to send CallAgentAction request: %w", err)
 	}
 
+	params.Tracer.TraceMessage(params.ExecutionContext, "SEND_CHILD_REQUEST CallAgentAction", targetTopic,
+		map[string]interface{}{
+			"responses_topic_set": actionRequest.Headers.ResponsesTopic,
+			"parent_orch_id":      params.ExecutionContext.OrchestrationID,
+			"child_orch_id":       childOrchestrationID,
+			"request_id":          actionRequest.Headers.RequestID,
+			"Sender :":            params.ExecutionContext.Sender,
+		})
+	
 	// After sending request
 	params.Logger.Info("CALL_AGENT: Request sent to agent",
 		zap.String("topic", targetTopic),
 		zap.String("request_id", requestID),
-		zap.String("child_orch_id", childOrchID),
+		zap.String("child_orch_id", childOrchestrationID),
 		zap.Any("headers_sent", headers),
 	)
 
@@ -228,7 +229,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		"agent_called":        targetAgentID,
 		"agent_type":          targetAgentType,
 		"request_id":          requestID,
-		"child_orchestration": childOrchID,
+		"child_orchestration": childOrchestrationID,
 		"action_sent":         "process",
 		"await_response":      true,
 		"target_agent_type":   targetAgentType,
@@ -433,11 +434,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -490,11 +491,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -545,10 +546,10 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }

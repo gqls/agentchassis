@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,6 +66,9 @@ func (t *TraceLogger) TraceMessage(execCtx interface{}, direction, topic string,
 		t.logger.Warn("Invalid execution context type in TraceMessage")
 		return
 	}
+
+	// Capture call stack
+	callStack := t.getCallStack(6) // Get last 6 functions
 
 	// Create payload preview
 	payloadPreview := t.createPayloadPreview(payload)
@@ -137,7 +143,61 @@ func (t *TraceLogger) TraceMessage(execCtx interface{}, direction, topic string,
 		zap.Int("message_count", len(trace.Messages)),
 		zap.String("in_response_to_request_id", inResponseToRequestID),
 		zap.String("in_response_to_step_id", inResponseToStepID),
+		zap.Strings("call_stack", callStack),
 	)
+}
+
+type CallFrame struct {
+	Function string
+	File     string
+	Line     int
+}
+
+func (t *TraceLogger) getCallStack(depth int) []string {
+	stack := make([]string, 0, depth)
+
+	// Skip frames: runtime.Callers, this function, and TraceMessage
+	skipFrames := 3
+
+	// Get program counters
+	pcs := make([]uintptr, depth+skipFrames)
+	n := runtime.Callers(skipFrames, pcs)
+
+	if n == 0 {
+		return stack
+	}
+
+	// Get function information
+	frames := runtime.CallersFrames(pcs[:n])
+
+	count := 0
+	for count < depth {
+		frame, more := frames.Next()
+		if !more {
+			break
+		}
+
+		// Format: package.function (file:line)
+		funcName := frame.Function
+
+		// Simplify function name by removing full path
+		if lastSlash := strings.LastIndex(funcName, "/"); lastSlash >= 0 {
+			funcName = funcName[lastSlash+1:]
+		}
+
+		// Format with file and line
+		entry := fmt.Sprintf("%s (%s:%d)", funcName, filepath.Base(frame.File), frame.Line)
+		stack = append(stack, entry)
+		/*stack = append(stack, CallFrame{
+			Function: funcName,
+			File:     filepath.Base(frame.File),
+			Line:     frame.Line,
+		})*/
+
+		count++
+	}
+
+	return stack
 }
 
 // Helper method to create a safe payload preview
