@@ -14,7 +14,8 @@ import (
 )
 
 func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("In CallAgentAction")
+	params.Logger.Info("In CallAgentAction",
+		zap.Any("params in callagentaction", params))
 
 	config := params.StepConfig.Config
 	targetAgentType, ok := config["agent_type"].(string)
@@ -170,16 +171,26 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 			FuelBudget:     params.ExecutionContext.FuelBudget - 100,
 			TimeoutSeconds: 30,
 
-			ResponsesTopic: fmt.Sprintf("system.agent.%s.responses",
-				params.ExecutionContext.Sender.AgentType),
+			//ResponsesTopic: fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.Sender.AgentType),
+			ResponsesTopic: params.ExecutionContext.ResponsesTopic,
 		},
 		Body: requestBody,
 	}
+
+	params.Tracer.TraceMessage(params.ExecutionContext, "SEND_CHILD_REQUEST", targetTopic,
+		map[string]interface{}{
+			"responses_topic_set": childRequest.Headers.ResponsesTopic,
+			"parent_orch_id":      params.ExecutionContext.OrchestrationID,
+			"child_orch_id":       childOrchestrationID,
+			"request_id":          childRequest.Headers.RequestID,
+		})
 
 	params.Logger.Info("DEBUGaa: 2 CallAgentAction RequestMessage for calculator actionSending calculation request",
 		zap.Any("request message", actionRequest),
 		zap.String("Action", "process"),
 		zap.String("child_orch_id", childOrchID),
+		zap.String("responses topic in callagent action", params.ExecutionContext.ResponsesTopic),
+		zap.String("alternative (wrong) responses topic", fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.Sender.AgentType)),
 		zap.String("orchestration id is child orchestration id", actionRequest.Headers.OrchestrationID),
 	)
 

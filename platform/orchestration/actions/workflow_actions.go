@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/gqls/agentchassis/platform/orchestration/types"
@@ -14,6 +15,15 @@ import (
 
 // FILE: platform/orchestration/actions/workflow_actions.go
 func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	current, caller := getFuncInfo(1)
+
+	params.Logger.Info("In workflow_actions.go CompleteWorkflowAction",
+		zap.String("function", current),
+		zap.String("called_by workflow actions", caller),
+		zap.String("container", os.Getenv("HOSTNAME")),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	params.Logger.Info("Completing workflow CompleteWorkflowAction",
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
 		zap.String("parent_orchestration_id", params.ExecutionContext.ParentOrchestrationID),
@@ -66,17 +76,41 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 				parentStepName, _ = ctx["step_name"].(string)
 			}
 
+			params.Tracer.TraceMessage(params.ExecutionContext, "EXTRACT_PARENT_TOPIC", "",
+				map[string]interface{}{
+					"extracted_response_topic": parentResponseTopic,
+					"parent_request_id":        parentRequestID,
+					"child_orch_id":            params.ExecutionContext.OrchestrationID,
+					"parent_orch_id":           params.ExecutionContext.ParentOrchestrationID,
+					"exec_ctx_type":            fmt.Sprintf("%T", execCtxData),
+				})
+
 			if parentRequestID == "" || parentResponseTopic == "" {
 				params.Logger.Error("Cannot notify parent: parent request ID or response topic is missing from execution context",
 					zap.String("parent_request_id", parentRequestID),
 					zap.String("parent_response_topic", parentResponseTopic),
 					zap.String("parent_step_name", parentStepName))
+
+				params.Tracer.TraceMessage(params.ExecutionContext, "MISSING_PARENT_INFO", "",
+					map[string]interface{}{
+						"parent_request_id":     parentRequestID,
+						"parent_response_topic": parentResponseTopic,
+						"exec_ctx_data":         execCtxData,
+					})
 				return map[string]interface{}{"result": finalResult}, nil
 			}
 
 			params.Logger.Info("Sending completion response to parent",
 				zap.String("parent_request_id", parentRequestID),
 				zap.String("response_topic", parentResponseTopic))
+
+			params.Tracer.TraceMessage(params.ExecutionContext, "SEND_TO_PARENT", parentResponseTopic,
+				map[string]interface{}{
+					"topic":      parentResponseTopic,
+					"request_id": parentRequestID,
+					"from_child": params.ExecutionContext.OrchestrationID,
+					"to_parent":  params.ExecutionContext.ParentOrchestrationID,
+				})
 
 			// Build SIMPLE response message
 			responseMsg := types.ResponseMessage{

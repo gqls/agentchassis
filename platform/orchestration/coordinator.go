@@ -121,6 +121,23 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.ExecutionContext, response []byte) error {
 	s.logger.Info("ProcessResponse in coordinator.go")
 
+	// Prepare values for tracing
+	var inResponseToParentOrch string
+	var inResponseToRequest string
+
+	if execCtx.InResponseTo != nil {
+		inResponseToParentOrch = execCtx.InResponseTo.ParentOrchestrationID
+		inResponseToRequest = execCtx.InResponseTo.RequestID
+	}
+	s.tracer.TraceMessage(execCtx, "RECEIVE_RESPONSE", execCtx.ResponsesTopic,
+		map[string]interface{}{
+			"consuming_agent_type":       os.Getenv("AGENT_TYPE"),
+			"consuming_agent_id":         os.Getenv("AGENT_ID"),
+			"response_orch_id":           execCtx.OrchestrationID,
+			"in_response_to_parent_orch": inResponseToParentOrch,
+			"in_response_to_request":     inResponseToRequest,
+		})
+
 	// Extract request ID from InResponseTo
 	var requestID string
 	if execCtx.InResponseTo != nil {

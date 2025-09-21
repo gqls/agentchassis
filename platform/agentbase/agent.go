@@ -522,9 +522,13 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 	contextLogger := a.logger.With(execCtx.LogContext()...)
 
-	contextLogger.Info("Processing message",
+	contextLogger.Info("Processing message STORE_EXEC_CONTEXT ish",
 		zap.String("message_type", messageType),
 		zap.String("message_id", execCtx.MessageID),
+		zap.String("stored_responses_topic", execCtx.ResponsesTopic),
+		zap.String("stored_request_id", execCtx.RequestID),
+		zap.String("orchestration_id", execCtx.OrchestrationID),
+		zap.String("parent_orch_id", execCtx.ParentOrchestrationID),
 		zap.Int("payload_size", len(msg.Value)))
 
 	// Check for duplicates if stateless

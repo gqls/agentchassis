@@ -107,9 +107,9 @@ func NewMessageProcessor(
 func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) error {
 	current, caller := getFuncInfo(1)
 
-	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
+	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go process 110",
 		zap.String("function", current),
-		zap.String("called_by", caller),
+		zap.String("called_by (in process)", caller),
 		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
@@ -123,6 +123,8 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		zap.String("action", msgCtx.ExecutionContext.Action),
 		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
 		zap.String("orchestration_name", msgCtx.ExecutionContext.OrchestrationName),
+		zap.String("reply to topic in process", msgCtx.ExecutionContext.ReplyToTopic),
+		zap.String("request id in process", msgCtx.ExecutionContext.RequestID),
 	)
 
 	// Ensure ExecutionContext has required fields
@@ -496,11 +498,10 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("RESPONSE_CREATION: Starting to create response processor.go sendWorkflowResponse",
 		zap.String("function", current),
 		zap.String("called_by", caller),
-		zap.String("caller_called_by", caller_called_by),
+		zap.String("caller_called_by in sendWorkflowResponse", caller_called_by),
 		zap.String("container", os.Getenv("HOSTNAME")),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
-		zap.String("parent_orchestration_id", msgCtx.ExecutionContext.ParentOrchestrationID),
+
 		zap.Any("result_data", result),
 	)
 
@@ -511,6 +512,8 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	contextLogger.Info("CRITICAL_FLOW: sendWorkflowResponse called",
 		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
 		zap.String("orchestration_name", msgCtx.ExecutionContext.OrchestrationName),
+		zap.String("parent_orchestration_id", msgCtx.ExecutionContext.ParentOrchestrationID),
+		zap.String("reply to topic is:", msgCtx.ExecutionContext.ReplyToTopic),
 		zap.String("original_request_id", msgCtx.ExecutionContext.RequestID),
 		zap.Any("in_response_to", msgCtx.ExecutionContext.InResponseTo),
 		zap.String("reply_to_topic", responseCtx.ReplyToTopic),
@@ -569,7 +572,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	// Trace outgoing response
 	if p.tracer != nil {
-		p.tracer.TraceMessage(responseCtx, "sending_response", responseCtx.ReplyToTopic, msgCtx.Message.Value)
+		p.tracer.TraceMessage(responseCtx, "sending_response in sendWorkflowResponse", responseCtx.ReplyToTopic, msgCtx.Message.Value)
 	}
 
 	// Determine target orchestration
