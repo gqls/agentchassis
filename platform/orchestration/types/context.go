@@ -153,7 +153,7 @@ type ResponseHeaders struct {
 	CorrelationID   string `json:"correlation_id"`
 	CorrelationName string `json:"correlation_name"`
 	ClientID        string `json:"client_id"`
-	MessageType     string `json:"message_type"` // "response"
+	MessageType     string `json:"message_type"`
 	FromAgent       string `json:"from_agent"`
 	ToAgent         string `json:"to_agent"`
 	ToAgentType     string `json:"to_agent_type"`
@@ -542,8 +542,8 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 			StepName:                headers["in_response_to_step_name"],
 			MessageID:               headers["in_response_to_message_id"],
 			Action:                  headers["in_response_to_action"],
-			ParentOrchestrationID:   headers["in_response_to_parent_orch_id"],
-			ParentOrchestrationName: headers["in_response_to_parent_orch_name"],
+			ParentOrchestrationID:   headers["in_response_to_parent_orchestration_id"],
+			ParentOrchestrationName: headers["in_response_to_parent_orchestration_name"],
 		}
 
 		// Parse status flags
@@ -647,8 +647,8 @@ func (ec *ExecutionContext) ToHeaders() map[string]string {
 		headers["in_response_to_step_name"] = ec.InResponseTo.StepName
 		headers["in_response_to_message_id"] = ec.InResponseTo.MessageID
 		headers["in_response_to_action"] = ec.InResponseTo.Action
-		headers["in_response_to_parent_orch_id"] = ec.InResponseTo.ParentOrchestrationID
-		headers["in_response_to_parent_orch_name"] = ec.InResponseTo.ParentOrchestrationName
+		headers["in_response_to_parent_orchestration_id"] = ec.InResponseTo.ParentOrchestrationID
+		headers["in_response_to_parent_orchestration_name"] = ec.InResponseTo.ParentOrchestrationName
 
 		// Add response status flags
 		headers["status"] = ec.Status
@@ -730,8 +730,8 @@ func (rh *ResponseHeaders) ToMap() map[string]string {
 	headers["in_response_to_request_id"] = rh.InResponseToRequestID
 	headers["in_response_to_step_id"] = rh.InResponseToStepID
 	headers["in_response_to_step_name"] = rh.InResponseToStepName
-	headers["in_response_to_parent_orch_id"] = rh.InResponseToParentOrchID
-	headers["in_response_to_parent_orch_name"] = rh.InResponseToParentOrchName
+	headers["in_response_to_parent_orchestration_id"] = rh.InResponseToParentOrchID
+	headers["in_response_to_parent_orchestration_name"] = rh.InResponseToParentOrchName
 	headers["in_response_to_message_id"] = rh.InResponseToMessageID
 	headers["in_response_to_action"] = rh.InResponseToAction
 	headers["retry_count"] = fmt.Sprintf("%d", rh.RetryCount)

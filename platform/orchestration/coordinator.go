@@ -118,8 +118,117 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 	return s.handleOrchestrationStatus(ctx, state, execCtx, isNew)
 }
 
-// ProcessResponse handles responses using ExecutionContext
 func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.ExecutionContext, response []byte) error {
+	s.logger.Info("ProcessResponse in coordinator.go")
+
+	// Extract request ID from InResponseTo
+	var requestID string
+	if execCtx.InResponseTo != nil {
+		requestID = execCtx.InResponseTo.RequestID
+	}
+	if requestID == "" {
+		requestID = execCtx.RequestID
+	}
+	if requestID == "" {
+		return fmt.Errorf("no request ID in response")
+	}
+
+	s.logger.Info("RESPONSE_RECEIVED: Processing response in coordinator")
+	contextLogger := s.logger.With(
+		zap.String("request_id", requestID),
+		zap.String("orchestration_id", execCtx.OrchestrationID),
+		zap.String("from_agent", execCtx.FromAgentID),
+		zap.String("status", execCtx.Status),
+		zap.Int("retry_version", execCtx.RetryVersion),
+		zap.String("response_preview", string(response)[:min(500, len(response))]),
+	)
+
+	current, caller := getFuncInfo(1)
+
+	contextLogger.Info("In file coordinator.go ProcessResponse",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
+	repo := NewStateRepository(s.db, s.logger)
+
+	// Check if this is a child orchestration completing
+	// The child sends: orchestration_id (its own) and in_response_to_parent_orchestration_id (the parent)
+	var targetOrchID string
+	if execCtx.InResponseTo != nil && execCtx.InResponseTo.ParentOrchestrationID != "" {
+		// This is a child responding to parent - use parent's orchestration
+		targetOrchID = execCtx.InResponseTo.ParentOrchestrationID
+		s.logger.Info("Child orchestration response - will update parent state",
+			zap.String("child_orch", execCtx.OrchestrationID),
+			zap.String("parent_orch", targetOrchID),
+			zap.String("request_id", requestID))
+	}
+
+	// First try to find by awaited request ID
+	state, err := repo.FindByAwaitedRequestID(ctx, requestID)
+	if err != nil || (targetOrchID != "" && state.OrchestrationID != targetOrchID) {
+		// Either not found, or found wrong orchestration (child instead of parent)
+		if targetOrchID != "" {
+			// Load the parent's state directly
+			state, err = repo.GetState(ctx, targetOrchID)
+			if err != nil {
+				contextLogger.Debug("Failed to load parent orchestration state",
+					zap.String("parent_orch", targetOrchID),
+					zap.Error(err))
+				return nil
+			}
+
+			// Verify parent is waiting for this request
+			if _, exists := state.AwaitedRequests[requestID]; !exists {
+				contextLogger.Debug("Parent not waiting for this request",
+					zap.String("parent_orch", targetOrchID),
+					zap.String("request_id", requestID))
+				return nil
+			}
+
+			contextLogger.Info("Found parent orchestration waiting for child response",
+				zap.String("parent_orch", targetOrchID),
+				zap.String("request_id", requestID))
+		} else {
+			// No parent specified and not found by request ID
+			return nil
+		}
+	}
+
+	// Additional check: verify this orchestrator owns this orchestration
+	if state.ProcessingNode != "" && state.ProcessingNode != s.podName {
+		contextLogger.Debug("Response for orchestration owned by different pod, ignoring",
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("owner_pod", state.ProcessingNode),
+			zap.String("my_pod", s.podName))
+		return nil
+	}
+
+	contextLogger.Info("RESPONSE_MATCHED: Found orchestration for response",
+		zap.String("state_orch_id", state.OrchestrationID),
+		zap.String("state_status", string(state.Status)),
+		zap.Int("awaited_requests", len(state.AwaitedRequests)),
+	)
+
+	// Handle based on response status
+	switch execCtx.Status {
+	case "awaiting", "processing":
+		return s.handleProgressUpdate(ctx, state, execCtx)
+	case "complete":
+		return s.handleCompleteResponse(ctx, state, requestID, execCtx, response)
+	case "error_recoverable":
+		return s.handleRecoverableError(ctx, state, requestID, execCtx, response)
+	case "error_unrecoverable":
+		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
+	default:
+		contextLogger.Warn("Unknown response status", zap.String("status", execCtx.Status))
+		return nil
+	}
+}
+
+// ProcessResponse handles responses using ExecutionContext
+func (s *SagaCoordinator) ProcessResponseOld(ctx context.Context, execCtx *types.ExecutionContext, response []byte) error {
 	s.logger.Info("ProcessResponse in coordinator.go")
 
 	// Extract request ID from InResponseTo
@@ -855,7 +964,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		zap.String("orchestration_id", execCtx.OrchestrationID),
 		zap.String("step_name", execCtx.StepName),
 		zap.String("requestId", requestID),
-		zap.Any("state.CollectedData", state.CollectedData),
+		zap.Any("state.CollectedData in handleCompleteResponse is:", state.CollectedData),
 	)
 	/*	contextLogger.Info("In handleCompleteResponse",
 		zap.Any("ExecutionContext", execCtx))*/
