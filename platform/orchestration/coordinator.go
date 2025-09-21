@@ -165,7 +165,11 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		// Try fallback to orchestration ID
 		var orchID string
 		if execCtx.InResponseTo != nil && execCtx.InResponseTo.ParentOrchestrationID != "" {
+			// This is a child orchestration responding to its parent
 			orchID = execCtx.InResponseTo.ParentOrchestrationID
+			s.logger.Info("Processing child orchestration response for parent",
+				zap.String("child_orch", execCtx.OrchestrationID),
+				zap.String("parent_orch", orchID))
 		} else {
 			orchID = execCtx.ParentOrchestrationID
 		}
