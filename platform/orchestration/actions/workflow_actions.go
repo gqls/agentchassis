@@ -179,9 +179,29 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 	} else {
 		params.Logger.Info("Root orchestration completed. Sending final response to client.")
 
-		responseTopic := params.ExecutionContext.ResponsesTopic
-		if responseTopic == "" {
-			params.Logger.Warn("No responses_topic specified in initial request. Cannot send final client response.")
+		originalResponseTopic := params.ExecutionContext.ResponsesTopic
+		originalRequestID := params.ExecutionContext.RequestID
+		if originalRequestID == "" {
+			params.Logger.Warn("No request_id specified in initial request. Cannot send final client request id.")
+			return map[string]interface{}{"result": finalResult}, nil
+		}
+
+		// If not there, check stored initial context
+		if originalResponseTopic == "" {
+			if initCtx, ok := params.CollectedData["__execution_context__"]; ok {
+				switch ctx := initCtx.(type) {
+				case *types.ExecutionContext:
+					originalResponseTopic = ctx.ResponsesTopic
+					originalRequestID = ctx.RequestID
+				case map[string]interface{}:
+					originalResponseTopic, _ = ctx["responses_topic"].(string)
+					originalRequestID, _ = ctx["request_id"].(string)
+				}
+			}
+		}
+
+		if originalResponseTopic == "" {
+			params.Logger.Warn("No responses_topic found for root orchestration")
 			return map[string]interface{}{"result": finalResult}, nil
 		}
 
@@ -235,16 +255,16 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 
 		// Note: The original code had a variable scope issue here, using 'parentResponseTopic'.
 		// This has been corrected to use 'responseTopic' which is defined in this 'else' block.
-		err = params.Producer.Produce(ctx, responseTopic, headers, key, responseBytes)
+		err = params.Producer.Produce(ctx, originalResponseTopic, headers, key, responseBytes)
 		if err != nil {
 			params.Logger.Error("Failed to send response to client",
 				zap.Error(err),
-				zap.String("topic", responseTopic))
+				zap.String("topic", originalResponseTopic))
 			return finalResult, fmt.Errorf("failed to send response: %w", err)
 		}
 
 		params.Logger.Info("Successfully sent response to client",
-			zap.String("topic", responseTopic),
+			zap.String("topic", originalResponseTopic),
 			zap.String("request_id", params.ExecutionContext.RequestID))
 	}
 

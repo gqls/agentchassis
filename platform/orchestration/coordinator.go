@@ -172,80 +172,18 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 
 	repo := NewStateRepository(s.db, s.logger)
 
-	// Check if this is a child orchestration completing
-	// The child sends: orchestration_id (its own) and in_response_to_parent_orchestration_id (the parent)
-	var targetOrchID string
-	isChildResponse := false
-
-	if execCtx.InResponseTo != nil && execCtx.InResponseTo.ParentOrchestrationID != "" {
-		// This is a child orchestration completing - we need the PARENT's state
-		targetOrchID = execCtx.InResponseTo.ParentOrchestrationID
-		isChildResponse = true
-		s.logger.Info("Child orchestration response detected - loading parent state",
-			zap.String("child_orch", execCtx.OrchestrationID),
-			zap.String("parent_orch? target orchestration id", targetOrchID),
-			zap.String("InResponseTo parent_orchestration id", execCtx.InResponseTo.ParentOrchestrationID),
-			zap.String("request_id", requestID))
-	}
-
-	// Try to find state by request ID
-	var err error
-	var state *OrchestrationState
-
-	if execCtx.InResponseTo != nil && execCtx.InResponseTo.ParentOrchestrationID != "" {
-		// Load parent state directly
-		state, err = repo.GetState(ctx, execCtx.InResponseTo.ParentOrchestrationID)
-		if err != nil {
-			return fmt.Errorf("failed to get parent state: %w", err)
-		}
-		if state == nil {
-			return fmt.Errorf("no parent state found for orchestration_id=%s", execCtx.InResponseTo.ParentOrchestrationID)
-		}
-
-		s.logger.Info("Loaded parent state in orchestrator ProcessResponse",
-			zap.String("parent_orchestration_id", state.OrchestrationID),
-		)
-	} else {
-		state, err = repo.FindByAwaitedRequestID(ctx, requestID)
-		if err != nil {
-			return fmt.Errorf("failed to get state for request_id=%s: %w", requestID, err)
-		}
-		if state == nil {
-			return fmt.Errorf("no state found for request_id=%s", requestID)
-		}
-
-		s.logger.Info("Loaded non parent state in orchestrator ProcessResponse",
-			zap.String("orchestration_id", state.OrchestrationID),
-		)
-	}
-
-	// If we found a state but it's the wrong one (child instead of parent), load the right one
-	if err == nil && isChildResponse && state.OrchestrationID != targetOrchID {
-		s.logger.Info("Found child state but need parent state",
-			zap.String("found_orch", state.OrchestrationID),
-			zap.String("need_orch", targetOrchID))
-
-		state, err = repo.GetState(ctx, targetOrchID)
-		if err != nil {
-			contextLogger.Error("Failed to load parent orchestration state",
-				zap.String("parent_orch", targetOrchID),
-				zap.Error(err))
-			return fmt.Errorf("failed to load parent state: %w", err)
-		}
-	} else if err != nil && isChildResponse {
-		// Didn't find by request ID but we know the parent
-		state, err = repo.GetState(ctx, targetOrchID)
-		if err != nil {
-			contextLogger.Debug("No state found for child response",
-				zap.String("parent_orch", targetOrchID),
-				zap.Error(err))
-			return nil
-		}
-	} else if err != nil {
-		// Not a child response and not found - not for us
+	// ALWAYS use FindByAwaitedRequestID first - this finds the orchestration that's waiting
+	state, err := repo.FindByAwaitedRequestID(ctx, requestID)
+	if err != nil {
+		// No orchestration is waiting for this response - it's not for us
 		contextLogger.Debug("No orchestration waiting for this response",
-			zap.String("request_id", requestID))
+			zap.String("request_id", requestID),
+			zap.Error(err))
 		return nil
+	}
+
+	if state == nil {
+		return fmt.Errorf("no state found for request_id=%s", requestID)
 	}
 
 	// Verify this state is actually waiting for this request
@@ -268,8 +206,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	contextLogger.Info("RESPONSE_MATCHED: Found orchestration for response",
 		zap.String("state_orch_id", state.OrchestrationID),
 		zap.String("state_status", string(state.Status)),
-		zap.Int("awaited_requests", len(state.AwaitedRequests)),
-	)
+		zap.Int("awaited_requests", len(state.AwaitedRequests)))
 
 	// Handle based on response status
 	switch execCtx.Status {
