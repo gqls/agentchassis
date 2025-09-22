@@ -176,11 +176,16 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		Body: requestBody,
 	}
 
+	responsesTopic := "no topic"
+	if params.ExecutionContext.ResponsesTopic != "" {
+		responsesTopic = responsesTopic
+	}
+
 	params.Logger.Info("DEBUGaa: 2 CallAgentAction RequestMessage for calculator actionSending calculation request",
 		zap.Any("request message", actionRequest),
 		zap.String("Action", "process"),
 		zap.String("child_orch_id", childOrchestrationID),
-		zap.String("responses topic in callagent action", params.ExecutionContext.ResponsesTopic),
+		zap.String("responses topic in callagent action", responsesTopic),
 		zap.String("alternative (wrong) responses topic", fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.Sender.AgentType)),
 		zap.String("orchestration id is child orchestration id", actionRequest.Headers.OrchestrationID),
 	)

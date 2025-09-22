@@ -122,19 +122,20 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	s.logger.Info("ProcessResponse in coordinator.go")
 
 	// Prepare values for tracing
-	var inResponseToParentOrch string
+	var inResponseToParentOrchestrationID string
 	var inResponseToRequest string
 
 	if execCtx.InResponseTo != nil {
-		inResponseToParentOrch = execCtx.InResponseTo.ParentOrchestrationID
+		inResponseToParentOrchestrationID = execCtx.InResponseTo.ParentOrchestrationID
 		inResponseToRequest = execCtx.InResponseTo.RequestID
 	}
+
 	s.tracer.TraceMessage(execCtx, "RECEIVE_RESPONSE", execCtx.ResponsesTopic,
 		map[string]interface{}{
 			"consuming_agent_type":       os.Getenv("AGENT_TYPE"),
 			"consuming_agent_id":         os.Getenv("AGENT_ID"),
 			"response_orch_id":           execCtx.OrchestrationID,
-			"in_response_to_parent_orch": inResponseToParentOrch,
+			"in_response_to_parent_orch": inResponseToParentOrchestrationID,
 			"in_response_to_request":     inResponseToRequest,
 		})
 
@@ -154,6 +155,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	contextLogger := s.logger.With(
 		zap.String("request_id", requestID),
 		zap.String("orchestration_id", execCtx.OrchestrationID),
+		zap.String("execCtx.InResponseTo.ParentOrchestrationID", execCtx.InResponseTo.ParentOrchestrationID),
 		zap.String("from_agent", execCtx.FromAgentID),
 		zap.String("status", execCtx.Status),
 		zap.Int("retry_version", execCtx.RetryVersion),
@@ -181,24 +183,39 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		isChildResponse = true
 		s.logger.Info("Child orchestration response detected - loading parent state",
 			zap.String("child_orch", execCtx.OrchestrationID),
-			zap.String("parent_orch", targetOrchID),
+			zap.String("parent_orch? target orchestration id", targetOrchID),
+			zap.String("InResponseTo parent_orchestration id", execCtx.InResponseTo.ParentOrchestrationID),
 			zap.String("request_id", requestID))
 	}
 
 	// Try to find state by request ID
-	var state *OrchestrationState
 	var err error
+	var state *OrchestrationState
 
 	if execCtx.InResponseTo != nil && execCtx.InResponseTo.ParentOrchestrationID != "" {
 		// Load parent state directly
 		state, err = repo.GetState(ctx, execCtx.InResponseTo.ParentOrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to get parent state: %w", err)
+		}
+		if state == nil {
+			return fmt.Errorf("no parent state found for orchestration_id=%s", execCtx.InResponseTo.ParentOrchestrationID)
+		}
+
 		s.logger.Info("Loaded parent state in orchestrator ProcessResponse",
-			zap.String("parent orchestration id:", state.OrchestrationID),
+			zap.String("parent_orchestration_id", state.OrchestrationID),
 		)
 	} else {
 		state, err = repo.FindByAwaitedRequestID(ctx, requestID)
+		if err != nil {
+			return fmt.Errorf("failed to get state for request_id=%s: %w", requestID, err)
+		}
+		if state == nil {
+			return fmt.Errorf("no state found for request_id=%s", requestID)
+		}
+
 		s.logger.Info("Loaded non parent state in orchestrator ProcessResponse",
-			zap.String("orchestration id is:", state.OrchestrationID),
+			zap.String("orchestration_id", state.OrchestrationID),
 		)
 	}
 

@@ -398,7 +398,7 @@ func (a *Agent) Run() error {
 		return fmt.Errorf("agent not initialized")
 	}
 
-	a.logger.Info("Agent starting",
+	a.logger.Info("Agent starting agent.go Run",
 		zap.String("agent_id", a.AgentID),
 		zap.String("agent_type", a.AgentType),
 		zap.String("role", a.Role))
@@ -435,7 +435,7 @@ func (a *Agent) Run() error {
 func (a *Agent) processRequests() {
 	defer a.wg.Done()
 
-	a.logger.Info("Starting request processor",
+	a.logger.Info("Starting request processor agent.go processRequests",
 		zap.String("topic", a.requestsTopic))
 
 	for {
@@ -460,7 +460,7 @@ func (a *Agent) processRequests() {
 func (a *Agent) processResponses() {
 	defer a.wg.Done()
 
-	a.logger.Info("Starting response processor",
+	a.logger.Info("Starting response processor agent.go processResponses",
 		zap.String("topic", a.responsesTopic))
 
 	for {
@@ -485,6 +485,10 @@ func (a *Agent) processResponses() {
 
 // processMessage handles a single message (request or response)
 func (a *Agent) processMessage(msg kafka.Message, messageType string) {
+
+	a.logger.Info("process single message agent.go processMessage",
+		zap.String("messageType", messageType))
+
 	startTime := time.Now()
 	a.lastActivity = startTime
 	a.messagesProcessed++
