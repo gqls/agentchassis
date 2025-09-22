@@ -1,0 +1,12 @@
+produce detailed sequence diagram with all function calls using trace
+follow particular struct throughout lifespan
+look at each page separately perhaps so we miss less
+try not to rely on missing values to determine that we are at the start of a chain of agents for example
+keep things simple
+prioritise complexity
+prioritise what we can add at the end once we've determined basic flow
+set up proper logging so we can turn off parts of it easily
+maybe create tree/diagram of all code and flows
+maybe create life cycle of all variables, structs and values
+represent overall objectives time and time again like each agent is an orchestrator, agents are dynamic, etc etc
+step names must always be unique in a workflow - first_calculation, second_calculation. process?, complete? etc as they act as keys, maybe should have compound keys
