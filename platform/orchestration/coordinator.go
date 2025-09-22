@@ -974,8 +974,6 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
-	repo := NewStateRepository(s.db, s.logger)
-
 	// Parse response with flexible structure handling
 	var rawResponse map[string]interface{}
 	if err := json.Unmarshal(response, &rawResponse); err != nil {
@@ -1009,9 +1007,6 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		state.CollectedData = make(map[string]interface{})
 	}
 
-	// Store with response_ prefix for backward compatibility
-	//state.CollectedData[fmt.Sprintf("response_%s", requestID)] = responseData
-
 	contextLogger.Info("DEBUG: CollectedData keys before searching for request",
 		zap.Any("keys", getMapKeys(state.CollectedData)))
 
@@ -1030,6 +1025,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 				contextLogger.Info("Stored response in parent step",
 					zap.String("step_name", stepName),
 					zap.String("request_id", requestID),
+					zap.Any("stepData", stepMap),
 					zap.Any("response_data :", responseData))
 				break
 			}
@@ -1083,6 +1079,11 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 				}
 			}
 		}
+	}
+
+	repo := NewStateRepository(s.db, s.logger)
+	if err := repo.UpdateState(ctx, state); err != nil {
+		return fmt.Errorf("failed to save response data: %w", err)
 	}
 
 	// Remove from awaited requests

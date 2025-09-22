@@ -1,3 +1,4 @@
+[parse all ai responses for confusions and restated bugs and reasoning steps]
 produce detailed sequence diagram with all function calls using trace
 follow particular struct throughout lifespan
 look at each page separately perhaps so we miss less
