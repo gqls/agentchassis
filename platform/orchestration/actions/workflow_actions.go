@@ -32,7 +32,7 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 	params.Logger.Info("Completing workflow CompleteWorkflowAction and GetCallStack",
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
 		zap.String("parent_orchestration_id", params.ExecutionContext.ParentOrchestrationID),
-		zap.Any("collected_data_keys for CollectedData", getMapKeys(params.CollectedData)),
+		zap.Any("collected_data_keys for CollectedData", GetMapKeys(params.CollectedData)),
 		zap.Strings("call stack", callstack),
 	)
 
@@ -302,7 +302,7 @@ func CompleteWorkflowActionold2(ctx context.Context, params ActionParams) (inter
 	params.Logger.Info("Completing workflow CompleteWorkflowAction",
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
 		zap.String("parent_orchestration_id", params.ExecutionContext.ParentOrchestrationID),
-		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)))
+		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)))
 
 	// Find the actual calculation/process result
 	var actualResult interface{}
@@ -434,7 +434,7 @@ func CompleteWorkflowActionold(ctx context.Context, params ActionParams) (interf
 	params.Logger.Info("Completing workflow CompleteWorkflowAction",
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
 		zap.String("parent_orchestration_id", params.ExecutionContext.ParentOrchestrationID),
-		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)))
+		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)))
 
 	// Filter out internal/system fields that might have cycles
 	filteredData := make(map[string]interface{})

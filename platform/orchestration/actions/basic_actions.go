@@ -12,8 +12,16 @@ import (
 // ValidateInputAction validates the input data
 func ValidateInputAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	// Get input_data from CollectedData
-	inputData, ok := params.CollectedData["input_data"].(map[string]interface{})
-	if !ok {
+	var inputData map[string]interface{}
+
+	// Check if input_data is a step with a response
+	if stepData, ok := params.CollectedData["input_data"]; ok {
+		extractedData := ExtractStepData(stepData)
+		inputData, ok = extractedData.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("no valid input_data in CollectedData")
+		}
+	} else {
 		return nil, fmt.Errorf("no input_data in CollectedData")
 	}
 
@@ -45,23 +53,33 @@ func TransformDataAction(ctx context.Context, params ActionParams) (interface{},
 	// Get data to transform
 	var data map[string]interface{}
 
-	// Get data from input_data
-	data, ok := params.CollectedData["input_data"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("no input_data to transform")
-	}
+	// First, check if we have data from a previous validation step
+	if validatedStepData, ok := params.CollectedData["validate_input"]; ok {
+		// Extract data from the step (checking for response field)
+		extractedData := ExtractStepData(validatedStepData)
 
-	// Check if we have collected data from previous steps
-	if validatedData, ok := params.CollectedData["validate_input"]; ok {
-		// Use the validated data from the previous step
-		if validated, ok := validatedData.(map[string]interface{}); ok {
+		// If it's a validated response, extract the input field
+		if validated, ok := extractedData.(map[string]interface{}); ok {
 			if input, ok := validated["input"].(map[string]interface{}); ok {
 				data = input
+			} else {
+				// Maybe the whole extracted data is what we need
+				data = validated
 			}
 		}
 	}
 
-	// If no collected data, try to parse from input
+	// If no validated data, try input_data
+	if data == nil {
+		if inputStepData, ok := params.CollectedData["input_data"]; ok {
+			extractedData := ExtractStepData(inputStepData)
+			if inputMap, ok := extractedData.(map[string]interface{}); ok {
+				data = inputMap
+			}
+		}
+	}
+
+	// If still no data, try to parse from raw InputData
 	if data == nil && params.InputData != nil {
 		var payload map[string]interface{}
 		if err := json.Unmarshal(params.InputData, &payload); err == nil {
@@ -103,10 +121,24 @@ func TransformDataAction(ctx context.Context, params ActionParams) (interface{},
 
 // SendNotificationAction sends a message to the response topic
 func SendNotificationAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	// Prepare notification with all collected data
+	// Prepare collected data with responses extracted
+	collectedResults := make(map[string]interface{})
+
+	// Extract responses from all steps
+	for key, value := range params.CollectedData {
+		// Skip internal fields
+		if key == "__raw_message__" || key == "__execution_context__" || key == "__original_request__" {
+			continue
+		}
+
+		// Extract data from step (checking for response field)
+		collectedResults[key] = ExtractStepData(value)
+	}
+
+	// Prepare notification with extracted data
 	notification := map[string]interface{}{
 		"type":      "workflow_completed",
-		"data":      params.CollectedData,
+		"data":      collectedResults, // Use extracted data
 		"step":      params.CurrentStep,
 		"timestamp": time.Now().UTC(),
 	}

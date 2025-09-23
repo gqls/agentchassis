@@ -11,7 +11,7 @@ import (
 func CalculateAction(ctx context.Context, params ActionParams) (interface{}, error) {
 
 	params.Logger.Info("Entering CalculateAction",
-		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)),
+		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
 	)
 
 	// Try multiple paths to find the input data

@@ -69,14 +69,17 @@ func UploadToS3Action(ctx context.Context, params ActionParams) (interface{}, er
 	// Get storage config
 	var storageConfig config.ObjectStorageConfig
 
-	// Extract config from agent or step
-	if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
-		if storageCfg, ok := agentConfig["storage_config"].(map[string]interface{}); ok {
-			storageConfig.Provider = getStringOrDefault(storageCfg, "provider", "s3")
-			storageConfig.Endpoint = getStringOrDefault(storageCfg, "endpoint", "")
-			storageConfig.Bucket = getStringOrDefault(storageCfg, "bucket", "")
-			storageConfig.AccessKeyEnvVar = getStringOrDefault(storageCfg, "access_key_env_var", "AWS_ACCESS_KEY_ID")
-			storageConfig.SecretKeyEnvVar = getStringOrDefault(storageCfg, "secret_key_env_var", "AWS_SECRET_ACCESS_KEY")
+	// Extract config from agent or step (checking for response field)
+	if agentConfigStep, ok := params.CollectedData["agent_config"]; ok {
+		extracted := ExtractStepData(agentConfigStep)
+		if agentConfig, ok := extracted.(map[string]interface{}); ok {
+			if storageCfg, ok := agentConfig["storage_config"].(map[string]interface{}); ok {
+				storageConfig.Provider = getStringOrDefault(storageCfg, "provider", "s3")
+				storageConfig.Endpoint = getStringOrDefault(storageCfg, "endpoint", "")
+				storageConfig.Bucket = getStringOrDefault(storageCfg, "bucket", "")
+				storageConfig.AccessKeyEnvVar = getStringOrDefault(storageCfg, "access_key_env_var", "AWS_ACCESS_KEY_ID")
+				storageConfig.SecretKeyEnvVar = getStringOrDefault(storageCfg, "secret_key_env_var", "AWS_SECRET_ACCESS_KEY")
+			}
 		}
 	}
 
@@ -160,13 +163,16 @@ func extractStorageConfig(params ActionParams) (map[string]interface{}, string) 
 	storageConfig := make(map[string]interface{})
 	storageType := ""
 
-	// First check agent configuration
-	if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
-		if storage, ok := agentConfig["storage"].(map[string]interface{}); ok {
-			for k, v := range storage {
-				storageConfig[k] = v
+	// First check agent configuration (checking for response field)
+	if agentConfigStep, ok := params.CollectedData["agent_config"]; ok {
+		extracted := ExtractStepData(agentConfigStep)
+		if agentConfig, ok := extracted.(map[string]interface{}); ok {
+			if storage, ok := agentConfig["storage"].(map[string]interface{}); ok {
+				for k, v := range storage {
+					storageConfig[k] = v
+				}
+				storageType = getStringOrDefault(storage, "type", "")
 			}
-			storageType = getStringOrDefault(storage, "type", "")
 		}
 	}
 
@@ -184,9 +190,6 @@ func extractStorageConfig(params ActionParams) (map[string]interface{}, string) 
 }
 
 func extractContentToStore(params ActionParams, config map[string]interface{}) (map[string][]byte, map[string]interface{}, error) {
-	// content := make(map[string][]byte)
-	// metadata := make(map[string]interface{})
-
 	// Check what type of content we're storing based on agent type
 	agentType := params.AgentType
 	if agentType == "" {
@@ -209,42 +212,56 @@ func extractHTMLContent(params ActionParams, config map[string]interface{}) (map
 	content := make(map[string][]byte)
 	metadata := make(map[string]interface{})
 
-	// First check in input_data
-	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-		// Look for HTML in input_data
-		if html, ok := inputData["html"].(string); ok && html != "" {
-			content["index.html"] = []byte(html)
-			metadata["content_type"] = "text/html"
-			metadata["source"] = "input_data.html"
-		}
+	// First check in input_data (checking for response field)
+	if inputStep, ok := params.CollectedData["input_data"]; ok {
+		extracted := ExtractStepData(inputStep)
+		if inputData, ok := extracted.(map[string]interface{}); ok {
+			// Look for HTML in input_data
+			if html, ok := inputData["html"].(string); ok && html != "" {
+				content["index.html"] = []byte(html)
+				metadata["content_type"] = "text/html"
+				metadata["source"] = "input_data.html"
+			}
 
-		// Check for other web assets
-		if css, ok := inputData["css"].(string); ok {
-			content["styles.css"] = []byte(css)
-		}
-		if js, ok := inputData["javascript"].(string); ok {
-			content["script.js"] = []byte(js)
+			// Check for other web assets
+			if css, ok := inputData["css"].(string); ok {
+				content["styles.css"] = []byte(css)
+			}
+			if js, ok := inputData["javascript"].(string); ok {
+				content["script.js"] = []byte(js)
+			}
 		}
 	}
 
 	// Fall back to checking collected data from previous steps
 	if len(content) == 0 {
-		// Look for HTML in various places
-		htmlSources := []string{"final_html", "processed_html", "html", "generated_html"}
+		// Look for HTML in various places (checking for response fields)
+		htmlSources := []string{"final_html", "processed_html", "html", "generated_html", "validate_html"}
 
 		for _, source := range htmlSources {
-			if htmlData, ok := params.CollectedData[source]; ok {
-				if html, ok := htmlData.(string); ok && html != "" {
+			if stepData, ok := params.CollectedData[source]; ok {
+				extracted := ExtractStepData(stepData)
+
+				// Check if extracted is a string
+				if html, ok := extracted.(string); ok && html != "" {
 					content["index.html"] = []byte(html)
 					metadata["content_type"] = "text/html"
 					metadata["source"] = source
 					break
 				}
-				if htmlMap, ok := htmlData.(map[string]interface{}); ok {
+
+				// Check if extracted is a map with html/final_html field
+				if htmlMap, ok := extracted.(map[string]interface{}); ok {
 					if html, ok := htmlMap["html"].(string); ok && html != "" {
 						content["index.html"] = []byte(html)
 						metadata["content_type"] = "text/html"
-						metadata["source"] = source
+						metadata["source"] = source + ".html"
+						break
+					}
+					if html, ok := htmlMap["final_html"].(string); ok && html != "" {
+						content["index.html"] = []byte(html)
+						metadata["content_type"] = "text/html"
+						metadata["source"] = source + ".final_html"
 						break
 					}
 				}
@@ -252,12 +269,18 @@ func extractHTMLContent(params ActionParams, config map[string]interface{}) (map
 		}
 	}
 
-	// Look for CSS and JS
-	if css, ok := params.CollectedData["css"].(string); ok {
-		content["styles.css"] = []byte(css)
+	// Look for CSS and JS (checking for response fields)
+	if cssStep, ok := params.CollectedData["css"]; ok {
+		extracted := ExtractStepData(cssStep)
+		if css, ok := extracted.(string); ok {
+			content["styles.css"] = []byte(css)
+		}
 	}
-	if js, ok := params.CollectedData["javascript"].(string); ok {
-		content["script.js"] = []byte(js)
+	if jsStep, ok := params.CollectedData["javascript"]; ok {
+		extracted := ExtractStepData(jsStep)
+		if js, ok := extracted.(string); ok {
+			content["script.js"] = []byte(js)
+		}
 	}
 
 	if len(content) == 0 {
@@ -271,13 +294,14 @@ func extractImageContent(params ActionParams, config map[string]interface{}) (ma
 	content := make(map[string][]byte)
 	metadata := make(map[string]interface{})
 
-	// Look for image data
+	// Look for image data (checking for response fields)
 	imageSources := []string{"generated_image", "processed_image", "image", "image_data"}
 
 	for _, source := range imageSources {
-		if imageData, ok := params.CollectedData[source]; ok {
+		if stepData, ok := params.CollectedData[source]; ok {
+			extracted := ExtractStepData(stepData)
 			filename := generateImageFilename(params, config)
-			content[filename] = convertToBytes(imageData)
+			content[filename] = convertToBytes(extracted)
 			metadata["content_type"] = detectImageType(content[filename])
 			metadata["source"] = source
 			break
@@ -295,13 +319,14 @@ func extractDocumentContent(params ActionParams, config map[string]interface{}) 
 	content := make(map[string][]byte)
 	metadata := make(map[string]interface{})
 
-	// Look for document data
+	// Look for document data (checking for response fields)
 	docSources := []string{"document", "generated_document", "pdf", "report"}
 
 	for _, source := range docSources {
-		if docData, ok := params.CollectedData[source]; ok {
+		if stepData, ok := params.CollectedData[source]; ok {
+			extracted := ExtractStepData(stepData)
 			filename := generateDocumentFilename(params, config)
-			content[filename] = convertToBytes(docData)
+			content[filename] = convertToBytes(extracted)
 			metadata["content_type"] = detectDocumentType(content[filename])
 			metadata["source"] = source
 			break
@@ -323,19 +348,23 @@ func extractGenericContent(params ActionParams, config map[string]interface{}) (
 	contentField := getStringOrDefault(config, "content_field", "")
 
 	if contentField != "" {
-		if data, ok := params.CollectedData[contentField]; ok {
+		if stepData, ok := params.CollectedData[contentField]; ok {
+			extracted := ExtractStepData(stepData)
 			filename := generateFilename(params, config)
-			content[filename] = convertToBytes(data)
+			content[filename] = convertToBytes(extracted)
 			metadata["source"] = contentField
 		}
 	} else {
-		// Look for common output fields
+		// Look for common output fields (checking for response fields)
 		for _, field := range []string{"output", "result", "generated_content", "data"} {
-			if data, ok := params.CollectedData[field]; ok && data != nil {
-				filename := generateFilename(params, config)
-				content[filename] = convertToBytes(data)
-				metadata["source"] = field
-				break
+			if stepData, ok := params.CollectedData[field]; ok {
+				extracted := ExtractStepData(stepData)
+				if extracted != nil {
+					filename := generateFilename(params, config)
+					content[filename] = convertToBytes(extracted)
+					metadata["source"] = field
+					break
+				}
 			}
 		}
 	}
@@ -350,20 +379,24 @@ func extractGenericContent(params ActionParams, config map[string]interface{}) (
 func extractFilesToUpload(params ActionParams) map[string][]byte {
 	files := make(map[string][]byte)
 
-	// Look for website files in collected data
+	// Look for website files in collected data (checking for response fields)
 	for key, value := range params.CollectedData {
 		if strings.Contains(key, "html") || strings.Contains(key, "site") || key == "develop_site" {
-			extracted := extractWebsiteFiles(value)
-			for filename, content := range extracted {
+			extracted := ExtractStepData(value)
+			websiteFiles := extractWebsiteFiles(extracted)
+			for filename, content := range websiteFiles {
 				files[filename] = convertToBytes(content)
 			}
 		}
 	}
 
-	// Also check for validate_html step results
-	if validateResult, ok := params.CollectedData["validate_html"].(map[string]interface{}); ok {
-		if html, ok := validateResult["final_html"].(string); ok {
-			files["index.html"] = []byte(html)
+	// Also check for validate_html step results (checking for response field)
+	if validateStep, ok := params.CollectedData["validate_html"]; ok {
+		extracted := ExtractStepData(validateStep)
+		if validateResult, ok := extracted.(map[string]interface{}); ok {
+			if html, ok := validateResult["final_html"].(string); ok {
+				files["index.html"] = []byte(html)
+			}
 		}
 	}
 
@@ -479,44 +512,47 @@ func storeToS3(ctx context.Context, params ActionParams, content map[string][]by
 	// Build ObjectStorageConfig from the config map
 	var storageConfig config.ObjectStorageConfig
 
-	// First, check if we have storage config in agent_config (from database)
-	if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
-		if agentStorage, ok := agentConfig["storage"].(map[string]interface{}); ok {
-			// Agent has storage configuration
-			if provider, ok := agentStorage["provider"].(string); ok {
-				storageConfig.Provider = provider
+	// First, check if we have storage config in agent_config (checking for response field)
+	if agentConfigStep, ok := params.CollectedData["agent_config"]; ok {
+		extracted := ExtractStepData(agentConfigStep)
+		if agentConfig, ok := extracted.(map[string]interface{}); ok {
+			// Check both "storage" and "storage_config" fields
+			if agentStorage, ok := agentConfig["storage"].(map[string]interface{}); ok {
+				// Agent has storage configuration
+				if provider, ok := agentStorage["provider"].(string); ok {
+					storageConfig.Provider = provider
+				}
+				if endpoint, ok := agentStorage["endpoint"].(string); ok {
+					storageConfig.Endpoint = endpoint
+				}
+				if bucket, ok := agentStorage["bucket"].(string); ok {
+					storageConfig.Bucket = bucket
+				}
+				if accessKey, ok := agentStorage["access_key_env_var"].(string); ok {
+					storageConfig.AccessKeyEnvVar = accessKey
+				}
+				if secretKey, ok := agentStorage["secret_key_env_var"].(string); ok {
+					storageConfig.SecretKeyEnvVar = secretKey
+				}
 			}
-			if endpoint, ok := agentStorage["endpoint"].(string); ok {
-				storageConfig.Endpoint = endpoint
-			}
-			if bucket, ok := agentStorage["bucket"].(string); ok {
-				storageConfig.Bucket = bucket
-			}
-			// These might be stored differently in the database
-			if accessKey, ok := agentStorage["access_key_env_var"].(string); ok {
-				storageConfig.AccessKeyEnvVar = accessKey
-			}
-			if secretKey, ok := agentStorage["secret_key_env_var"].(string); ok {
-				storageConfig.SecretKeyEnvVar = secretKey
-			}
-		}
 
-		// Also check for storage_config (as used in your existing UploadToS3Action)
-		if storageCfg, ok := agentConfig["storage_config"].(map[string]interface{}); ok {
-			if provider, ok := storageCfg["provider"].(string); ok && provider != "" {
-				storageConfig.Provider = provider
-			}
-			if endpoint, ok := storageCfg["endpoint"].(string); ok && endpoint != "" {
-				storageConfig.Endpoint = endpoint
-			}
-			if bucket, ok := storageCfg["bucket"].(string); ok && bucket != "" {
-				storageConfig.Bucket = bucket
-			}
-			if accessKey, ok := storageCfg["access_key_env_var"].(string); ok && accessKey != "" {
-				storageConfig.AccessKeyEnvVar = accessKey
-			}
-			if secretKey, ok := storageCfg["secret_key_env_var"].(string); ok && secretKey != "" {
-				storageConfig.SecretKeyEnvVar = secretKey
+			// Also check for storage_config (as used in your existing UploadToS3Action)
+			if storageCfg, ok := agentConfig["storage_config"].(map[string]interface{}); ok {
+				if provider, ok := storageCfg["provider"].(string); ok && provider != "" {
+					storageConfig.Provider = provider
+				}
+				if endpoint, ok := storageCfg["endpoint"].(string); ok && endpoint != "" {
+					storageConfig.Endpoint = endpoint
+				}
+				if bucket, ok := storageCfg["bucket"].(string); ok && bucket != "" {
+					storageConfig.Bucket = bucket
+				}
+				if accessKey, ok := storageCfg["access_key_env_var"].(string); ok && accessKey != "" {
+					storageConfig.AccessKeyEnvVar = accessKey
+				}
+				if secretKey, ok := storageCfg["secret_key_env_var"].(string); ok && secretKey != "" {
+					storageConfig.SecretKeyEnvVar = secretKey
+				}
 			}
 		}
 	}
@@ -569,7 +605,6 @@ func storeToS3(ctx context.Context, params ActionParams, content map[string][]by
 		return nil, fmt.Errorf("failed to create S3 client: %w", err)
 	}
 
-	// Rest of the function remains the same...
 	basePath := generateStoragePath(params, configMap)
 
 	uploadedFiles := make(map[string]string)

@@ -24,9 +24,15 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 	// Gather context from previous steps
 	context := gatherHTMLContext(params.CollectedData)
 
-	// Now, it gets its *own* configuration from the standard location.
-	agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{})
-	if !ok {
+	// Get agent config (checking for response field)
+	var agentConfig map[string]interface{}
+	if configData, ok := params.CollectedData["agent_config"]; ok {
+		extracted := ExtractStepData(configData)
+		agentConfig, ok = extracted.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("agent_config not found or invalid in CollectedData")
+		}
+	} else {
 		return nil, fmt.Errorf("agent_config not found in CollectedData")
 	}
 
@@ -34,8 +40,6 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 	prompt := buildHTMLPrompt(context, agentConfig)
 
 	// Call LLM
-	// It then calls the LLM action, passing the generated prompt in the
-	// standardized "input_data" field for the next action.
 	llmParams := params // copy params to avoid mutation
 	llmParams.CollectedData["input_data"] = map[string]interface{}{
 		"prompt": prompt,
@@ -64,12 +68,25 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 func ProcessHTMLAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Processing HTML content")
 
-	// Get HTML from previous step
+	// Get HTML from previous step (checking for response field)
 	var rawHTML string
-	if genResult, ok := params.CollectedData["generate_html"].(map[string]interface{}); ok {
-		rawHTML, _ = genResult["raw_html"].(string)
-	} else if content, ok := params.CollectedData["raw_html"].(string); ok {
-		rawHTML = content
+
+	// First check generate_html step
+	if genStep, ok := params.CollectedData["generate_html"]; ok {
+		extracted := ExtractStepData(genStep)
+		if genResult, ok := extracted.(map[string]interface{}); ok {
+			rawHTML, _ = genResult["raw_html"].(string)
+		}
+	}
+
+	// Fallback to direct raw_html field
+	if rawHTML == "" {
+		if htmlData, ok := params.CollectedData["raw_html"]; ok {
+			extracted := ExtractStepData(htmlData)
+			if str, ok := extracted.(string); ok {
+				rawHTML = str
+			}
+		}
 	}
 
 	if rawHTML == "" {
@@ -130,10 +147,15 @@ func ProcessHTMLAction(ctx context.Context, params ActionParams) (interface{}, e
 func ValidateHTMLAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Validating HTML content")
 
-	// Get processed HTML
+	// Get processed HTML (checking for response field)
 	var htmlContent string
-	if procResult, ok := params.CollectedData["process_html"].(map[string]interface{}); ok {
-		htmlContent, _ = procResult["processed_html"].(string)
+
+	// Check process_html step
+	if procStep, ok := params.CollectedData["process_html"]; ok {
+		extracted := ExtractStepData(procStep)
+		if procResult, ok := extracted.(map[string]interface{}); ok {
+			htmlContent, _ = procResult["processed_html"].(string)
+		}
 	}
 
 	if htmlContent == "" {
@@ -252,19 +274,19 @@ func extractHTMLFromResponse(result interface{}) string {
 func gatherHTMLContext(collectedData map[string]interface{}) map[string]interface{} {
 	context := make(map[string]interface{})
 
-	// Extract domain analysis
-	if domainData, ok := collectedData["analyze_domain"].(map[string]interface{}); ok {
-		context["domain_analysis"] = domainData
+	// Extract domain analysis (checking for response)
+	if domainStep, ok := collectedData["analyze_domain"]; ok {
+		context["domain_analysis"] = ExtractStepData(domainStep)
 	}
 
-	// Extract site architecture
-	if archData, ok := collectedData["architect_site"].(map[string]interface{}); ok {
-		context["site_structure"] = archData
+	// Extract site architecture (checking for response)
+	if archStep, ok := collectedData["architect_site"]; ok {
+		context["site_structure"] = ExtractStepData(archStep)
 	}
 
-	// Extract content
-	if contentData, ok := collectedData["create_content"].(map[string]interface{}); ok {
-		context["content"] = contentData
+	// Extract content (checking for response)
+	if contentStep, ok := collectedData["create_content"]; ok {
+		context["content"] = ExtractStepData(contentStep)
 	}
 
 	// Extract business info
@@ -276,23 +298,29 @@ func gatherHTMLContext(collectedData map[string]interface{}) map[string]interfac
 func extractBusinessInfo(collectedData map[string]interface{}) map[string]interface{} {
 	info := make(map[string]interface{})
 
-	// Try to get from input data
-	if inputData, ok := collectedData["input_data"].(map[string]interface{}); ok {
-		if businessName, ok := inputData["business_name"].(string); ok {
-			info["business_name"] = businessName
-		}
-		if domain, ok := inputData["domain"].(string); ok {
-			info["domain"] = domain
-		}
-		if desc, ok := inputData["description"].(string); ok {
-			info["description"] = desc
+	// Try to get from input data (checking for response field)
+	if inputStep, ok := collectedData["input_data"]; ok {
+		extracted := ExtractStepData(inputStep)
+		if inputData, ok := extracted.(map[string]interface{}); ok {
+			if businessName, ok := inputData["business_name"].(string); ok {
+				info["business_name"] = businessName
+			}
+			if domain, ok := inputData["domain"].(string); ok {
+				info["domain"] = domain
+			}
+			if desc, ok := inputData["description"].(string); ok {
+				info["description"] = desc
+			}
 		}
 	}
 
-	// Try to get from headers
-	if headers, ok := collectedData["headers"].(map[string]interface{}); ok {
-		if clientID, ok := headers["client_id"].(string); ok {
-			info["client_id"] = clientID
+	// Try to get from headers (checking for response field)
+	if headersStep, ok := collectedData["headers"]; ok {
+		extracted := ExtractStepData(headersStep)
+		if headers, ok := extracted.(map[string]interface{}); ok {
+			if clientID, ok := headers["client_id"].(string); ok {
+				info["client_id"] = clientID
+			}
 		}
 	}
 
@@ -300,7 +328,6 @@ func extractBusinessInfo(collectedData map[string]interface{}) map[string]interf
 }
 
 func buildHTMLPrompt(context map[string]interface{}, agentConfig map[string]interface{}) string {
-	// todo bring in agentConfig
 	contextJSON, _ := json.MarshalIndent(context, "", "  ")
 
 	return fmt.Sprintf(`Generate a complete, modern, responsive HTML website based on the following context:

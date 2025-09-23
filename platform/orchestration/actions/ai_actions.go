@@ -38,7 +38,7 @@ func ExecuteLLMPromptActionFAKE(ctx context.Context, params ActionParams) (inter
 func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing LLM prompt action",
 		zap.String("agent_type", params.AgentType),
-		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)),
+		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
 		zap.Bool("has_db", params.DB != nil))
 
 	// Get the agent's configuration
@@ -391,15 +391,4 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 	return map[string]interface{}{
 		"complexity": complexity,
 	}, nil
-}
-
-func getMapKeys(m map[string]interface{}) []string {
-	if m == nil {
-		return []string{}
-	}
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }
