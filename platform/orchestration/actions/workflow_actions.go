@@ -192,7 +192,25 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 			return map[string]interface{}{"result": finalResult}, nil
 		}
 
-		// If not there, check stored initial context
+		// FIRST: Check for stored original request (most reliable)
+		if origReq, ok := params.CollectedData["__original_request__"]; ok {
+			if reqMap, ok := origReq.(map[string]interface{}); ok {
+				originalResponseTopic, _ = reqMap["responses_topic"].(string)
+				originalRequestID, _ = reqMap["request_id"].(string)
+
+				params.Logger.Info("Found original request info",
+					zap.String("responses_topic", originalResponseTopic),
+					zap.String("request_id", originalRequestID))
+			}
+		}
+
+		// FALLBACK: Try current context (may have been transformed)
+		if originalResponseTopic == "" {
+			originalResponseTopic = params.ExecutionContext.ResponsesTopic
+			originalRequestID = params.ExecutionContext.RequestID
+		}
+
+		// LAST RESORT: Check execution context
 		if originalResponseTopic == "" {
 			if initCtx, ok := params.CollectedData["__execution_context__"]; ok {
 				switch ctx := initCtx.(type) {
@@ -204,6 +222,11 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 					originalRequestID, _ = ctx["request_id"].(string)
 				}
 			}
+		}
+
+		if originalResponseTopic == "" || originalRequestID == "" {
+			params.Logger.Warn("Cannot send final response - missing original request info")
+			return map[string]interface{}{"result": finalResult}, nil
 		}
 
 		if originalResponseTopic == "" {
@@ -259,8 +282,6 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		headers := responseMsg.Headers.ToMap()
 		key := []byte(params.ExecutionContext.CorrelationID)
 
-		// Note: The original code had a variable scope issue here, using 'parentResponseTopic'.
-		// This has been corrected to use 'responseTopic' which is defined in this 'else' block.
 		err = params.Producer.Produce(ctx, originalResponseTopic, headers, key, responseBytes)
 		if err != nil {
 			params.Logger.Error("Failed to send response to client",

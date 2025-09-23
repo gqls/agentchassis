@@ -346,7 +346,18 @@ func (r *StateRepository) CreateState(ctx context.Context, state *OrchestrationS
 	return nil
 }
 
-func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationID, orchestrationName string, correlationID, ownerAgentID, ownerAgentType string, parentOrchestrationID, clientID string, plan models.WorkflowPlan, initialData []byte) error {
+func (r *StateRepository) CreateInitialState(
+	ctx context.Context, orchestrationID,
+	orchestrationName string,
+	correlationID,
+	ownerAgentID,
+	ownerAgentType string,
+	parentOrchestrationID,
+	clientID string,
+	plan models.WorkflowPlan,
+	initialData []byte,
+	execCtx *types.ExecutionContext,
+) error {
 
 	query := `
 		INSERT INTO orchestration_states (
@@ -362,7 +373,23 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationI
 	// Prepare data for insertion
 	awaitedStepsJSON, _ := json.Marshal([]string{})
 
-	collectedData := map[string]interface{}{"agent_type": os.Getenv("AGENT_TYPE")}
+	collectedData := map[string]interface{}{
+		"agent_type": os.Getenv("AGENT_TYPE"),
+	}
+
+	// Store the original execution context for response routing
+	if execCtx != nil {
+		collectedData["__execution_context__"] = execCtx
+
+		// For root orchestrations, also store the original request info
+		if parentOrchestrationID == "" {
+			collectedData["__original_request__"] = map[string]interface{}{
+				"request_id":      execCtx.RequestID,
+				"responses_topic": execCtx.ResponsesTopic,
+				"correlation_id":  execCtx.CorrelationID,
+			}
+		}
+	}
 	// Parse and include initial data in collected data
 	if len(initialData) > 0 {
 		var inputData map[string]interface{}
@@ -373,6 +400,7 @@ func (r *StateRepository) CreateInitialState(ctx context.Context, orchestrationI
 			}
 		}
 	}
+
 	collectedDataJSON, _ := json.Marshal(collectedData)
 
 	workflowPlanJSON, _ := json.Marshal(plan)

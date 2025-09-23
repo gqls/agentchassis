@@ -406,11 +406,11 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.E
 				zap.String("parent_orchestration_id", execCtx.ParentOrchestrationID))
 
 			ownerAgentID := s.determineOwnerAgentID(execCtx)
-			ownerAgentType := s.determineOwnerAgentType(execCtx) // ADD THIS
+			ownerAgentType := s.determineOwnerAgentType(execCtx)
 
 			// When creating initial state, pass both ID and Type
 			err := repo.CreateInitialState(ctx, execCtx.OrchestrationID, execCtx.OrchestrationName, execCtx.CorrelationID,
-				ownerAgentID, ownerAgentType, execCtx.ParentOrchestrationID, execCtx.ClientID, plan, initialData)
+				ownerAgentID, ownerAgentType, execCtx.ParentOrchestrationID, execCtx.ClientID, plan, initialData, execCtx)
 
 			if err != nil {
 				if strings.Contains(err.Error(), "duplicate key") {
@@ -464,7 +464,7 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.E
 		zap.String("correlation_id", execCtx.CorrelationID))
 
 	err := repo.CreateInitialState(ctx, newOrchestrationID, newOrchestrationName, execCtx.CorrelationID,
-		ownerAgentID, ownerAgentType, execCtx.ParentOrchestrationID, execCtx.ClientID, plan, initialData)
+		ownerAgentID, ownerAgentType, execCtx.ParentOrchestrationID, execCtx.ClientID, plan, initialData, execCtx)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") {

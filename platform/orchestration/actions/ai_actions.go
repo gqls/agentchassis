@@ -96,11 +96,16 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 
 	// Add all collected data from previous workflow steps
 	for key, value := range params.CollectedData {
-		// Skip internal fields
-		if key == "__raw_message__" || key == "__execution_context__" {
-			continue
+		if stepMap, ok := value.(map[string]interface{}); ok {
+			if response, hasResponse := stepMap["response"]; hasResponse {
+				// Use the response for this step
+				templateData[key] = response
+			} else {
+				templateData[key] = value
+			}
+		} else {
+			templateData[key] = value
 		}
-		templateData[key] = value
 	}
 
 	// Handle input_data with the simplified structure

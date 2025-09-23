@@ -173,6 +173,17 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 
 	fieldValue := params.CollectedData[field]
 
+	// Check if field refers to a step with a response
+	if stepData, ok := params.CollectedData[field].(map[string]interface{}); ok {
+		if response, exists := stepData["response"]; exists {
+			fieldValue = response
+		} else {
+			fieldValue = stepData
+		}
+	} else {
+		fieldValue = params.CollectedData[field]
+	}
+
 	var conditionMet bool
 	switch operator {
 	case "equals":
