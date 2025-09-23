@@ -24,10 +24,16 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
-	params.Logger.Info("Completing workflow CompleteWorkflowAction",
+	var callstack []string
+	if params.Tracer != nil {
+		callstack = params.Tracer.GetCallStack(12)
+	}
+
+	params.Logger.Info("Completing workflow CompleteWorkflowAction and GetCallStack",
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
 		zap.String("parent_orchestration_id", params.ExecutionContext.ParentOrchestrationID),
 		zap.Any("collected_data_keys for CollectedData", getMapKeys(params.CollectedData)),
+		zap.Strings("call stack", callstack),
 	)
 
 	var finalResult interface{}

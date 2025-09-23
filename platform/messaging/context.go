@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,7 +27,7 @@ type MessageContext struct {
 }
 
 // NewMessageContext creates a new message context with ExecutionContext
-func NewMessageContext(msg kafka.Message, headers map[string]string) (*MessageContext, error) {
+func NewMessageContextOld(msg kafka.Message, headers map[string]string) (*MessageContext, error) {
 	// Create ExecutionContext from headers
 	execCtx, err := types.FromHeaders(headers)
 	if err != nil {
@@ -156,4 +157,31 @@ func (m *MessageContext) SyncContextFromHeaders() error {
 	}
 	m.ExecutionContext = newCtx
 	return nil
+}
+
+func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAgentType string) (*MessageContext, error) {
+	// Parse using existing functions
+	senderCtx, err := types.FromHeaders(headers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse headers: %w", err)
+	}
+
+	// Create receiver identity
+	receiverIdentity := types.AgentIdentity{
+		AgentType:    receivingAgentType,
+		AgentID:      os.Getenv("HOSTNAME"),
+		PodName:      os.Getenv("HOSTNAME"),
+		AgentVersion: os.Getenv("AGENT_VERSION"),
+	}
+
+	// Adjust to receiver's perspective
+	receiverCtx := senderCtx.AdjustToReceiverPerspective(receiverIdentity)
+
+	return &MessageContext{
+		Message:          msg,
+		ExecutionContext: receiverCtx,
+		Headers:          headers,
+		StartTime:        time.Now(),
+		CollectedData:    make(map[string]interface{}),
+	}, nil
 }

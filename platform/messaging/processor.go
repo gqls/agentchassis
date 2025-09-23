@@ -27,6 +27,7 @@ import (
 // MessageProcessor handles all message processing
 type MessageProcessor struct {
 	agentType    string
+	agentID      string
 	db           *sql.DB
 	sqlDB        *sql.DB
 	producer     kafka.Producer
@@ -46,6 +47,7 @@ type MessageProcessor struct {
 // NewMessageProcessor creates a new message processor
 func NewMessageProcessor(
 	agentType string,
+	agentID string,
 	db *sql.DB,
 	producer kafka.Producer,
 	orchestrator *orchestration.SagaCoordinator,
@@ -88,6 +90,7 @@ func NewMessageProcessor(
 
 	return &MessageProcessor{
 		agentType:    agentType,
+		agentID:      agentID,
 		db:           db,
 		sqlDB:        sqlDB,
 		producer:     producer,
@@ -1116,12 +1119,17 @@ func extractAction(msgValue []byte) string {
 }
 
 func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
-	current, caller := getFuncInfo(1)
+	var callstack []string
+	if p.tracer != nil {
+		callstack = p.tracer.GetCallStack(12)
+	}
 
+	current, caller := getFuncInfo(1)
 	p.logger.Info("In processor.go ProcessMessage",
 		zap.String("function", current),
 		zap.String("called_by", caller),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+		zap.Strings("call stack for processor ProcessMessage", callstack),
 	)
 
 	startTime := time.Now()
@@ -1191,8 +1199,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		}()
 	}
 
-	// Create message context with ExecutionContext
-	msgCtx, err := NewMessageContext(msg, headers)
+	msgCtx, err := NewMessageContext(msg, headers, p.agentType)
 	if err != nil {
 		contextLogger.Error("Failed to create message context", zap.Error(err))
 		return err

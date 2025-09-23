@@ -6,4 +6,5 @@ type MessageTracer interface {
 	TraceAwaitedSteps(execCtx *ExecutionContext, awaitedSteps []string, action string)
 	TraceError(execCtx *ExecutionContext, err error, context string)
 	DumpTrace(correlationID string)
+	GetCallStack(depth int) []string
 }

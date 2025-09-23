@@ -825,3 +825,41 @@ func (rh *RequestHeaders) ToMap() map[string]string {
 
 	return headers
 }
+
+// In types/context.go, add these methods:
+
+// AdjustToReceiverPerspective transforms the context from sender's to receiver's view
+func (ec *ExecutionContext) AdjustToReceiverPerspective(receiverIdentity AgentIdentity) *ExecutionContext {
+	if ec.MessageType == "response" {
+		// For responses, flip the perspective
+		return &ExecutionContext{
+			OrchestrationID:   ec.InResponseTo.ParentOrchestrationID,
+			OrchestrationName: ec.InResponseTo.ParentOrchestrationName,
+			Sender:            receiverIdentity,
+			InResponseTo:      ec.InResponseTo,
+			CorrelationID:     ec.CorrelationID,
+			ClientID:          ec.ClientID,
+			Status:            ec.Status,
+			MessageType:       "response",
+			Timestamp:         time.Now(),
+		}
+	} else {
+		// For requests, create new orchestration
+		return &ExecutionContext{
+			OrchestrationID:         uuid.New().String(),
+			OrchestrationName:       GenerateReadableName(receiverIdentity.AgentType, "orchestration"),
+			Sender:                  receiverIdentity,
+			ParentOrchestrationID:   ec.OrchestrationID,
+			ParentOrchestrationName: ec.OrchestrationName,
+			ParentRequestID:         ec.RequestID,
+			Action:                  ec.Action,
+			RequestID:               ec.RequestID,
+			ResponsesTopic:          ec.ResponsesTopic,
+			CorrelationID:           ec.CorrelationID,
+			ClientID:                ec.ClientID,
+			FuelBudget:              ec.FuelBudget,
+			MessageType:             "request",
+			Timestamp:               time.Now(),
+		}
+	}
+}

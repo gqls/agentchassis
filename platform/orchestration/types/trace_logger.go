@@ -68,7 +68,7 @@ func (t *TraceLogger) TraceMessage(execCtx interface{}, direction, topic string,
 	}
 
 	// Capture call stack
-	callStack := t.getCallStack(6) // Get last 6 functions
+	callStack := t.GetCallStack(6) // Get last 6 functions
 
 	// Create payload preview
 	payloadPreview := t.createPayloadPreview(payload)
@@ -153,7 +153,7 @@ type CallFrame struct {
 	Line     int
 }
 
-func (t *TraceLogger) getCallStack(depth int) []string {
+func (t *TraceLogger) GetCallStack(depth int) []string {
 	stack := make([]string, 0, depth)
 
 	// Skip frames: runtime.Callers, this function, and TraceMessage

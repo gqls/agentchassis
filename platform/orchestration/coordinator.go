@@ -494,10 +494,13 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.E
 
 // handleOrchestrationStatus handles orchestration based on its current status
 func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *OrchestrationState, execCtx *types.ExecutionContext, isNew bool) error {
+	callstack := s.tracer.GetCallStack(12)
+
 	s.logger.Info("Handling orchestration status handleOrchestrationStatus coordinator.go 360",
 		zap.String("orchestration_id", state.OrchestrationID),
 		zap.Any("DEBUGaa: state.Status", state.Status),
 		zap.Any("state.CurrentlyExecuting", state.CurrentlyExecuting),
+		zap.Any("call stack handleOrchestrationStatue", callstack),
 	)
 
 	repo := NewStateRepository(s.db, s.logger)

@@ -340,6 +340,7 @@ func (a *Agent) initializeComponents() error {
 	// Create message processor
 	a.processor = messaging.NewMessageProcessor(
 		a.AgentType,
+		a.AgentID,
 		a.db,
 		producer,
 		a.orchestrator,
