@@ -1183,7 +1183,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 			// Record this request as processed
 			if err := repo.RecordMessageProcessing(ctx, execCtx, execCtx.ToAgentID); err != nil {
-				contextLogger.Error("Failed to record request processing", zap.Error(err))
+				contextLogger.Error("Failed to record request processing -", zap.Error(err))
 			}
 		}
 	}

@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"os"
 	"time"
 
@@ -194,11 +193,6 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 
 		// FIRST: Check for stored original request (most reliable)
 		if origReq, ok := params.CollectedData["__original_request__"]; ok {
-
-			params.Logger.Info("DEBUG finalrequestid: Found __original_request__ key",
-				zap.Any("keys of CollectedData", maps.Keys(params.CollectedData)),
-				// zap.Any("original request", origReq),
-			)
 
 			if reqMap, ok := origReq.(map[string]interface{}); ok {
 				originalResponsesTopic, _ = reqMap["responses_topic"].(string)
