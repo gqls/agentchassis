@@ -24,10 +24,10 @@ import (
 )
 
 const (
-	AgentType     = "content-creator"
-	RequestTopic  = "system.agent.content-creator.requests"
-	ResponseTopic = "system.agent.content-creator.responses"
-	ConsumerGroup = "content-creator-agent-group"
+	AgentType      = "content-creator"
+	RequestTopic   = "system.agent.content-creator.requests"
+	ResponsesTopic = "system.agent.content-creator.responses"
+	ConsumerGroup  = "content-creator-agent-group"
 )
 
 // RequestPayload defines the enhanced data structure for content generation
@@ -700,12 +700,12 @@ func (a *Agent) sendSuccessResponse(headers map[string]string, payload ResponseP
 	responseBytes, _ := json.Marshal(payload)
 	responseHeaders := a.createResponseHeaders(headers)
 
-	if err := a.producer.Produce(a.ctx, ResponseTopic, responseHeaders,
+	if err := a.producer.Produce(a.ctx, ResponsesTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), responseBytes); err != nil {
 		a.logger.Error("Failed to produce response message", zap.Error(err))
 		observability.SystemErrors.WithLabelValues(AgentType, "produce_response").Inc()
 	} else {
-		observability.KafkaMessagesProduced.WithLabelValues(ResponseTopic).Inc()
+		observability.KafkaMessagesProduced.WithLabelValues(ResponsesTopic).Inc()
 	}
 }
 

@@ -43,7 +43,7 @@ Generic Agent           Database            Kafka              Calculator Agent
      |  to: calculator.requests                  |                      |
      |  request_id: fd1b94ed                     |                      |
      |  action: initialize                       |                      |
-     |  response_topic: generic.responses        |                      |
+     |  responses_topic: generic.responses        |                      |
      |                        |                  |                      |
 [Add to AwaitedRequests]      |                  |                      |
      |--[UpdateState]----->   |                  |                      |

@@ -26,31 +26,6 @@ type MessageContext struct {
 	IsStateless       bool
 }
 
-// NewMessageContext creates a new message context with ExecutionContext
-func NewMessageContextOld(msg kafka.Message, headers map[string]string) (*MessageContext, error) {
-	// Create ExecutionContext from headers
-	execCtx, err := types.FromHeaders(headers)
-	if err != nil {
-		// Try to create minimal context for error handling
-		execCtx = &types.ExecutionContext{
-			CorrelationID:   headers["correlation_id"],
-			OrchestrationID: headers["orchestration_id"],
-			ClientID:        headers["client_id"],
-			MessageType:     "request",
-			Timestamp:       time.Now().UTC(),
-			Version:         "2.0",
-		}
-	}
-
-	return &MessageContext{
-		Message:          msg,
-		ExecutionContext: execCtx,
-		Headers:          headers, // Keep for backward compatibility
-		StartTime:        time.Now(),
-		CollectedData:    make(map[string]interface{}),
-	}, nil
-}
-
 // IsChildOrchestration checks if this is a child orchestration
 func (mc *MessageContext) IsChildOrchestration() bool {
 	if mc.ExecutionContext != nil {
@@ -88,7 +63,7 @@ func (m *MessageContext) GetParentContext() map[string]interface{} {
 	return map[string]interface{}{
 		"orchestration_id": m.ExecutionContext.ParentOrchestrationID,
 		"request_id":       m.ExecutionContext.RequestID,
-		"reply_to_topic":   m.ExecutionContext.ReplyToTopic,
+		"responses_topic":  m.ExecutionContext.ResponsesTopic,
 	}
 }
 
@@ -114,13 +89,13 @@ func (mc *MessageContext) CreateResponseContext() *types.ExecutionContext {
 			ParentOrchestrationID: mc.Headers["orchestration_id"],
 			MessageID:             mc.Headers["message_id"],
 		},
-		FromAgentID:   mc.Headers["agent_id"],
-		FromAgentType: mc.Headers["agent_type"],
-		ToAgentID:     mc.Headers["from_agent_id"],
-		ToAgentType:   mc.Headers["from_agent_type"],
-		ReplyToTopic:  mc.Headers["reply_to_topic"],
-		Timestamp:     time.Now(),
-		Version:       "2.0",
+		FromAgentID:    mc.Headers["agent_id"],
+		FromAgentType:  mc.Headers["agent_type"],
+		ToAgentID:      mc.Headers["from_agent_id"],
+		ToAgentType:    mc.Headers["from_agent_type"],
+		ResponsesTopic: mc.Headers["responses_topic"],
+		Timestamp:      time.Now(),
+		Version:        "2.0",
 	}
 }
 
@@ -192,6 +167,10 @@ func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAg
 
 	// Adjust to receiver's perspective
 	receiverCtx := senderCtx.AdjustToReceiverPerspective(receiverIdentity)
+
+	if receiverCtx.ResponsesTopic == "" && headers["responses_topic"] != "" {
+		receiverCtx.ResponsesTopic = headers["responses_topic"]
+	}
 
 	// Log the transformed context
 	logger.Info("DEBUG uuidparse: NewMessageContext: After perspective adjustment",

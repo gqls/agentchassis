@@ -333,16 +333,16 @@ func (tm *TimeoutMonitor) sendTimeoutResponse(ctx context.Context, parentOrchID,
 	}
 
 	// Use the response topic from the awaited request
-	responseTopic := awaitedReq.ResponseTopic
-	if responseTopic == "" {
+	responsesTopic := awaitedReq.ResponsesTopic
+	if responsesTopic == "" {
 		// Fallback if not set (for backward compatibility)
 		if parentState.OwnerAgentType != "" {
-			responseTopic = fmt.Sprintf("system.agent.%s.responses", parentState.OwnerAgentType)
+			responsesTopic = fmt.Sprintf("system.agent.%s.responses", parentState.OwnerAgentType)
 		} else {
-			responseTopic = "system.orchestrator.responses"
+			responsesTopic = "system.orchestrator.responses"
 		}
-		tm.logger.Warn("ResponseTopic not set in awaited request, using fallback",
-			zap.String("fallback_topic", responseTopic))
+		tm.logger.Warn("ResponsesTopic not set in awaited request, using fallback",
+			zap.String("fallback_topic", responsesTopic))
 	}
 
 	response := &types.ResponseMessage{
@@ -387,7 +387,7 @@ func (tm *TimeoutMonitor) sendTimeoutResponse(ctx context.Context, parentOrchID,
 			TimeSent:                   time.Now(),
 			TimeSpent:                  time.Since(awaitedReq.SentAt),
 			OverallTimeBudgetRemaining: 0,
-			TopicSentTo:                responseTopic,
+			TopicSentTo:                responsesTopic,
 			FuelUsed:                   0,
 			RemainingFuelBudget:        0,
 		},
@@ -411,15 +411,15 @@ func (tm *TimeoutMonitor) sendTimeoutResponse(ctx context.Context, parentOrchID,
 	}
 
 	// Send to the correct response topic
-	if err := tm.producer.Produce(ctx, responseTopic, response.Headers.ToMap(),
+	if err := tm.producer.Produce(ctx, responsesTopic, response.Headers.ToMap(),
 		[]byte(requestID), responseBytes); err != nil {
 		tm.logger.Error("Failed to send timeout response",
 			zap.Error(err),
-			zap.String("topic", responseTopic),
+			zap.String("topic", responsesTopic),
 			zap.String("request_id", requestID))
 	} else {
 		tm.logger.Info("Sent timeout response",
-			zap.String("topic", responseTopic),
+			zap.String("topic", responsesTopic),
 			zap.String("request_id", requestID),
 			zap.String("parent_orch_id", parentOrchID),
 			zap.String("child_orch_id", childOrchID))
@@ -515,7 +515,7 @@ func BuildChildHeaders(
 	headers["client_id"] = parent.ClientID
 
 	// Set response topic for child to respond to parent
-	headers["parent_reply_to_topic"] = fmt.Sprintf("system.agent.%s.responses", parent.AgentType)
+	headers["parent_responses_topic"] = fmt.Sprintf("system.agent.%s.responses", parent.AgentType)
 
 	// Add agent mappings from spawn data
 	if agents, ok := spawnData["agents"].(map[string]interface{}); ok {
@@ -690,4 +690,36 @@ func (tm *TimeoutMonitor) getAgentType(ctx context.Context, agentID string) stri
 
 	// Fallback to parsing the ID
 	return ""
+}
+
+// containsKey recursively checks if a key exists in a nested map[string]interface{}
+/**
+exists := containsKey(collectedData, "__original_request__")
+fmt.Println("Found:", exists)
+*/
+func containsKey(m map[string]interface{}, target string) bool {
+	for k, v := range m {
+		if k == target {
+			return true
+		}
+
+		// if the target is another map, recurse
+		if nested, ok := v.(map[string]interface{}); ok {
+			if containsKey(nested, target) {
+				return true
+			}
+		}
+
+		// if the value is a slice check elements
+		if arr, ok := v.([]interface{}); ok {
+			for _, elem := range arr {
+				if nested, ok := elem.(map[string]interface{}); ok {
+					if containsKey(nested, target) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }

@@ -18,9 +18,9 @@ import (
 )
 
 const (
-	requestTopic  = "system.adapter.web.search"
-	responseTopic = "system.agent.websearch.responses"
-	consumerGroup = "web-search-adapter-group"
+	requestTopic   = "system.adapter.web.search"
+	responsesTopic = "system.agent.websearch.responses"
+	consumerGroup  = "web-search-adapter-group"
 )
 
 // RequestPayload for web search
@@ -284,7 +284,7 @@ func (a *Adapter) sendResponse(headers map[string]string, payload ResponsePayloa
 		"request_id":     uuid.NewString(),
 	}
 
-	if err := a.producer.Produce(a.ctx, responseTopic, responseHeaders,
+	if err := a.producer.Produce(a.ctx, responsesTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), responseBytes); err != nil {
 		a.logger.Error("Failed to produce response", zap.Error(err))
 	}
@@ -303,7 +303,7 @@ func (a *Adapter) sendErrorResponse(headers map[string]string, errorMsg string) 
 		"request_id":     uuid.NewString(),
 	}
 
-	if err := a.producer.Produce(a.ctx, responseTopic, responseHeaders,
+	if err := a.producer.Produce(a.ctx, responsesTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), responseBytes); err != nil {
 		a.logger.Error("Failed to produce error response", zap.Error(err))
 	}

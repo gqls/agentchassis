@@ -67,7 +67,7 @@ type AwaitedRequest struct {
 	RetryVersion    int       `json:"retry_version"`
 	TargetAgentID   string    `json:"target_agent_id,omitempty"`
 	TargetAgentType string    `json:"target_agent_type"`
-	ResponseTopic   string    `json:"response_topic"`
+	ResponsesTopic  string    `json:"responses_topic"`
 	SentAt          time.Time `json:"sent_at"`
 	TimeoutAt       time.Time `json:"timeout_at"`
 	ParentRequestID string    `json:"parent_request_id,omitempty"`
@@ -362,11 +362,12 @@ func (r *StateRepository) CreateInitialState(
 	fmt.Fprintf(os.Stderr, "DEBUG uuid: CreateInitialState START printf - orch=%s, parent=%s, owner=%s\n",
 		orchestrationID, parentOrchestrationID, ownerAgentID)
 
-	r.logger.Info("DEBUG uuidparse: CreateInitialState parameters",
+	r.logger.Info("DEBUG returntopic: CreateInitialState parameters",
 		zap.String("orchestrationID", orchestrationID),
 		zap.String("parentOrchestrationID", parentOrchestrationID),
 		zap.Any("parentOrchestrationID_length", len(parentOrchestrationID)),
 		zap.Any("parentOrchestrationID_bytes", []byte(parentOrchestrationID)),
+		zap.Any("initial data", initialData),
 	)
 
 	query := `
@@ -410,6 +411,10 @@ func (r *StateRepository) CreateInitialState(
 			}
 		}
 	}
+
+	r.logger.Info("DEBUG returntopic: CreateInitialState what ends up in collectedData",
+		zap.Any("collectedData in createinitialstate", collectedData),
+	)
 
 	collectedDataJSON, _ := json.Marshal(collectedData)
 

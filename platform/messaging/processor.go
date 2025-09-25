@@ -126,7 +126,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		zap.String("action", msgCtx.ExecutionContext.Action),
 		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
 		zap.String("orchestration_name", msgCtx.ExecutionContext.OrchestrationName),
-		zap.String("reply to topic in process", msgCtx.ExecutionContext.ReplyToTopic),
+		zap.String("RESPONSES topic in process", msgCtx.ExecutionContext.ResponsesTopic),
 		zap.String("request id in process", msgCtx.ExecutionContext.RequestID),
 	)
 
@@ -519,10 +519,9 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
 		zap.String("orchestration_name", msgCtx.ExecutionContext.OrchestrationName),
 		zap.String("parent_orchestration_id", msgCtx.ExecutionContext.ParentOrchestrationID),
-		zap.String("reply to topic is:", msgCtx.ExecutionContext.ReplyToTopic),
 		zap.String("original_request_id", msgCtx.ExecutionContext.RequestID),
 		zap.Any("in_response_to", msgCtx.ExecutionContext.InResponseTo),
-		zap.String("reply_to_topic", responseCtx.ReplyToTopic),
+		zap.String("responses_topic", responseCtx.ResponsesTopic),
 		zap.Any("result_type", fmt.Sprintf("%T", result)))
 
 	// The 'result' is the full 'CollectedData' map from the orchestration state.
@@ -578,7 +577,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	// Trace outgoing response
 	if p.tracer != nil {
-		p.tracer.TraceMessage(responseCtx, "sending_response in sendWorkflowResponse", responseCtx.ReplyToTopic, msgCtx.Message.Value)
+		p.tracer.TraceMessage(responseCtx, "sending_response in sendWorkflowResponse", responseCtx.ResponsesTopic, msgCtx.Message.Value)
 	}
 
 	// Determine target orchestration
@@ -595,25 +594,25 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	contextLogger.Info("TRACE: Sending workflow response",
 		zap.String("response_orch_id", targetOrchestrationID),
-		zap.String("reply_topic", responseCtx.ReplyToTopic),
+		zap.String("RESPONSES_topic", responseCtx.ResponsesTopic),
 		zap.Int("fuel_returning", msgCtx.ExecutionContext.FuelBudget),
 		zap.Any("response_headers", responseHeaders))
 
 	// Validate we have a reply topic
-	if responseCtx.ReplyToTopic == "" {
+	if responseCtx.ResponsesTopic == "" {
 		// Try to determine from context
-		if msgCtx.ExecutionContext.ReplyToTopic != "" {
-			responseCtx.ReplyToTopic = msgCtx.ExecutionContext.ReplyToTopic
+		if msgCtx.ExecutionContext.ResponsesTopic != "" {
+			responseCtx.ResponsesTopic = msgCtx.ExecutionContext.ResponsesTopic
 		} else if msgCtx.ExecutionContext.FromAgentType != "" {
-			responseCtx.ReplyToTopic = fmt.Sprintf("system.agent.%s.responses",
+			responseCtx.ResponsesTopic = fmt.Sprintf("system.agent.%s.responses",
 				msgCtx.ExecutionContext.FromAgentType)
 		} else {
 			// Fallback to generic
-			responseCtx.ReplyToTopic = "system.agent.generic.responses"
+			responseCtx.ResponsesTopic = "system.agent.generic.responses"
 		}
 
-		p.logger.Warn("Had to construct ReplyToTopic",
-			zap.String("reply_to_topic", responseCtx.ReplyToTopic))
+		p.logger.Warn("Had to construct ResponsesTopic",
+			zap.String("responses_topic", responseCtx.ResponsesTopic))
 	}
 
 	// Build response message
@@ -637,7 +636,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	// After building response headers
 	p.logger.Info("RESPONSE_HEADERS: Built response headers",
 		zap.Any("headers", responseHeaders),
-		zap.String("target_topic", responseCtx.ReplyToTopic),
+		zap.String("target_topic", responseCtx.ResponsesTopic),
 	)
 
 	responseBytes, err := json.Marshal(response)
@@ -653,24 +652,24 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	// Before sending
 	p.logger.Info("RESPONSE_SEND: Sending response message",
-		zap.String("topic", responseCtx.ReplyToTopic),
+		zap.String("topic", responseCtx.ResponsesTopic),
 		zap.String("key", string(key)),
 		zap.Int("payload_size", len(responseBytes)))
 
 	// Send using response context headers
 	err = p.producer.Produce(ctx,
-		responseCtx.ReplyToTopic,
+		responseCtx.ResponsesTopic,
 		responseHeaders,
 		key,
 		responseBytes)
 
 	if err != nil {
 		p.logger.Error("KAFKA_SEND_ERROR: Failed to send message",
-			zap.String("topic", responseCtx.ReplyToTopic),
+			zap.String("topic", responseCtx.ResponsesTopic),
 			zap.Error(err))
 	} else {
 		p.logger.Info("KAFKA_SENT: Message sent successfully",
-			zap.String("topic", responseCtx.ReplyToTopic),
+			zap.String("topic", responseCtx.ResponsesTopic),
 			zap.String("key", string(key)),
 			zap.Any("headers", responseHeaders))
 	}
@@ -678,21 +677,21 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	return err
 }
 
-func (p *MessageProcessor) determineResponseTopic(ctx context.Context, msgCtx *MessageContext, isChildResponse bool, parentContext map[string]interface{}) string {
+func (p *MessageProcessor) determineResponsesTopic(ctx context.Context, msgCtx *MessageContext, isChildResponse bool, parentContext map[string]interface{}) string {
 	// Priority 1: Child responding to parent's specified topic
 	if isChildResponse {
-		if replyTopic, ok := parentContext["reply_to_topic"].(string); ok && replyTopic != "" {
-			p.logger.Info("Using parent's reply_to_topic",
-				zap.String("reply_to_topic", replyTopic))
-			return replyTopic
+		if responsesTopic, ok := parentContext["responses_topic"].(string); ok && responsesTopic != "" {
+			p.logger.Info("Using parent's responses_topic",
+				zap.String("responses_topic", responsesTopic))
+			return responsesTopic
 		}
 	}
 
-	// Priority 2: Explicit reply_to_topic in headers
-	if replyTopic := msgCtx.Headers["reply_to_topic"]; replyTopic != "" {
-		p.logger.Info("Using reply_to_topic from headers",
-			zap.String("reply_to_topic", replyTopic))
-		return replyTopic
+	// Priority 2: Explicit responses_topic in headers
+	if responsesTopic := msgCtx.Headers["responses_topic"]; responsesTopic != "" {
+		p.logger.Info("Using responses_topic from headers",
+			zap.String("responses_topic", responsesTopic))
+		return responsesTopic
 	}
 
 	// Priority 3: Construct from parent agent type
@@ -700,7 +699,7 @@ func (p *MessageProcessor) determineResponseTopic(ctx context.Context, msgCtx *M
 		topic := fmt.Sprintf("system.agent.%s.responses", parentAgentType)
 		p.logger.Info("Constructed topic from parent_agent_type",
 			zap.String("parent_agent_type", parentAgentType),
-			zap.String("response_topic", topic))
+			zap.String("responses_topic", topic))
 		return topic
 	}
 
@@ -711,7 +710,7 @@ func (p *MessageProcessor) determineResponseTopic(ctx context.Context, msgCtx *M
 			p.logger.Info("Constructed topic from parent_agent_id lookup",
 				zap.String("parent_agent_id", parentAgentID),
 				zap.String("parent_type", parentType),
-				zap.String("response_topic", topic))
+				zap.String("responses_topic", topic))
 			return topic
 		}
 	}
@@ -1140,6 +1139,11 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 	// Create ExecutionContext for consistent logging
 	execCtx, err := types.FromHeaders(headers)
+	if err == nil {
+		p.logger.Info("DEBUG returntopic: ExecutionContext created",
+			zap.String("responses_topic", execCtx.ResponsesTopic),
+			zap.Any("all_headers", headers))
+	}
 	if err != nil {
 		p.logger.Error("FAILED TO CREATE EXECUTION CONTEXT: Failed to create ExecutionContext",
 			zap.Error(err),
@@ -1540,18 +1544,18 @@ func (p *MessageProcessor) sendSuccessResponse(ctx context.Context, msgCtx *Mess
 	}
 
 	// Determine response topic
-	responseTopic := msgCtx.ExecutionContext.ReplyToTopic
-	if responseTopic == "" {
+	responsesTopic := msgCtx.ExecutionContext.ResponsesTopic
+	if responsesTopic == "" {
 		// Use sender's response topic
 		if msgCtx.ExecutionContext.FromAgentType != "" {
-			responseTopic = fmt.Sprintf("system.agent.%s.responses", msgCtx.ExecutionContext.FromAgentType)
+			responsesTopic = fmt.Sprintf("system.agent.%s.responses", msgCtx.ExecutionContext.FromAgentType)
 		} else {
-			responseTopic = "system.agent.generic.responses"
+			responsesTopic = "system.agent.generic.responses"
 		}
 	}
 
 	// Update the topic in headers
-	response.Headers.TopicSentTo = responseTopic
+	response.Headers.TopicSentTo = responsesTopic
 
 	// Send response
 	responseBytes, err := json.Marshal(response)
@@ -1569,7 +1573,7 @@ func (p *MessageProcessor) sendSuccessResponse(ctx context.Context, msgCtx *Mess
 	}
 
 	// Producer.Produce signature: (ctx, topic, headers, key, value)
-	return p.producer.Produce(ctx, responseTopic, headers, key, responseBytes)
+	return p.producer.Produce(ctx, responsesTopic, headers, key, responseBytes)
 }
 
 // sendErrorResponse sends an error response
@@ -1623,12 +1627,12 @@ func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *Messag
 	}
 
 	// Determine response topic
-	responseTopic := msgCtx.ExecutionContext.ReplyToTopic
-	if responseTopic == "" && msgCtx.ExecutionContext.FromAgentType != "" {
-		responseTopic = fmt.Sprintf("system.agent.%s.responses", msgCtx.ExecutionContext.FromAgentType)
+	responsesTopic := msgCtx.ExecutionContext.ResponsesTopic
+	if responsesTopic == "" && msgCtx.ExecutionContext.FromAgentType != "" {
+		responsesTopic = fmt.Sprintf("system.agent.%s.responses", msgCtx.ExecutionContext.FromAgentType)
 	}
-	if responseTopic == "" {
-		responseTopic = "system.agent.generic.errors"
+	if responsesTopic == "" {
+		responsesTopic = "system.agent.generic.errors"
 	}
 
 	responseBytes, err := json.Marshal(response)
@@ -1639,14 +1643,14 @@ func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *Messag
 	headers := response.Headers.ToMap()
 	key := []byte(msgCtx.ExecutionContext.CorrelationID)
 
-	err = p.producer.Produce(ctx, responseTopic, headers, key, responseBytes)
+	err = p.producer.Produce(ctx, responsesTopic, headers, key, responseBytes)
 	if err != nil {
 		p.logger.Error("KAFKA_SEND_ERROR: Failed to send message",
-			zap.String("topic", responseTopic),
+			zap.String("topic", responsesTopic),
 			zap.Error(err))
 	} else {
 		p.logger.Info("KAFKA_SENT: Message sent successfully",
-			zap.String("topic", responseTopic),
+			zap.String("topic", responsesTopic),
 			zap.String("key", string(key)),
 			zap.Any("headers", headers))
 	}

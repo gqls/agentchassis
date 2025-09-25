@@ -59,7 +59,7 @@ Headers:
 
 correlation_id: (child's correlation ID)
 request_id: (new UUID)
-reply_to_topic: system.agent.website-builder.responses
+responses_topic: system.agent.website-builder.responses
 
 5. Domain Analyst Processes
 
@@ -75,7 +75,7 @@ Domain Analyst receives → agentbase.(*AgentServer).processMessage()
 → messaging.(*MessageProcessor).sendResponse()
 
 Response Message to Kafka:
-Topic: system.agent.website-builder.responses (from reply_to_topic)
+Topic: system.agent.website-builder.responses (from responses_topic)
 Headers:
 
 correlation_id: (child's correlation ID)
@@ -111,6 +111,6 @@ Parent orchestration → HandleResponse()
 The key issue points to check:
 
 Are the agent workflows calling themselves (self-recursion)?
-Is the reply_to_topic being set correctly?
+Is the responses_topic being set correctly?
 Are correlation IDs being maintained properly between parent/child?
 Is the website-builder agent actually listening to its responses topic?

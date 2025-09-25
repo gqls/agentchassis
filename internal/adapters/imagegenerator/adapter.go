@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	requestTopic  = "system.adapter.image.generate"
-	responseTopic = "system.agent.image.responses"
-	consumerGroup = "image-generator-adapter-group"
+	requestTopic   = "system.adapter.image.generate"
+	responsesTopic = "system.agent.image.responses"
+	consumerGroup  = "image-generator-adapter-group"
 )
 
 // RequestPayload defines the expected data for an image generation request
@@ -262,7 +262,7 @@ func (a *Adapter) sendSuccessResponse(headers map[string]string, payload Respons
 	responseBytes, _ := json.Marshal(payload)
 	responseHeaders := a.createResponseHeaders(headers)
 
-	if err := a.producer.Produce(a.ctx, responseTopic, responseHeaders,
+	if err := a.producer.Produce(a.ctx, responsesTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), responseBytes); err != nil {
 		a.logger.Error("Failed to produce response message", zap.Error(err))
 	}
@@ -275,7 +275,7 @@ func (a *Adapter) sendErrorResponse(headers map[string]string, domainErr *errors
 
 	errorBytes, _ := json.Marshal(domainErr)
 
-	if err := a.producer.Produce(a.ctx, responseTopic, responseHeaders,
+	if err := a.producer.Produce(a.ctx, responsesTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), errorBytes); err != nil {
 		a.logger.Error("Failed to produce error response", zap.Error(err))
 	}

@@ -48,7 +48,7 @@ type AwaitedRequest struct {
 	RetryVersion    int
 	TargetAgentID   string
 	TargetAgentType string
-	ResponseTopic   string
+	ResponsesTopic  string
 	SentAt          time.Time
 	TimeoutAt       time.Time
 	ParentRequestID string

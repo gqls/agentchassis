@@ -15,9 +15,9 @@ type AgentMessage struct {
 	CorrelationID     string `json:"correlation_id"`
 	OrchestrationID   string `json:"orchestration_id"`
 	OrchestrationName string `json:"orchestration_name"`
-	FromAgentID       string `json:"from_agent_id"`  // WHO sent this
-	ToAgentID         string `json:"to_agent_id"`    // WHO should process this
-	ReplyToTopic      string `json:"reply_to_topic"` // WHERE to send response
+	FromAgentID       string `json:"from_agent_id"`   // WHO sent this
+	ToAgentID         string `json:"to_agent_id"`     // WHO should process this
+	ResponsesTopic    string `json:"responses_topic"` // WHERE to send response
 
 	AgentInstanceID string `json:"agent_instance_id"`
 
@@ -53,7 +53,6 @@ func (am *AgentMessage) ToHeaders() map[string]string {
 		"orchestration_name": am.OrchestrationName,
 		"from_agent_id":      am.FromAgentID,
 		"to_agent_id":        am.ToAgentID,
-		"reply_to_topic":     am.ReplyToTopic,
 		"message_type":       am.MessageType,
 		"message_version":    am.Version,
 		"timestamp":          am.Timestamp.Format(time.RFC3339),
@@ -84,7 +83,7 @@ func AgentMessageFromHeaders(headers map[string]string, body []byte) (*AgentMess
 		OrchestrationName: headers["orchestration_name"],
 		FromAgentID:       headers["from_agent_id"],
 		ToAgentID:         headers["to_agent_id"],
-		ReplyToTopic:      headers["reply_to_topic"],
+		ResponsesTopic:    headers["responses_topic"],
 		MessageType:       headers["message_type"],
 		Version:           headers["message_version"],
 		Data:              data,

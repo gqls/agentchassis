@@ -375,7 +375,7 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.E
 
 	fmt.Fprintf(os.Stderr, "DEBUG uuid: getOrCreateState START printf - orch=%s, parent=%s\n",
 		execCtx.OrchestrationID, execCtx.ParentOrchestrationID)
-	
+
 	// Generate orchestration name if not provided
 	orchestrationName := execCtx.OrchestrationName
 	if orchestrationName == "" {
@@ -805,7 +805,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 					StepName:        step.Action,
 					RetryVersion:    0,
 					TargetAgentType: getTargetAgentType(step, resultMap),
-					ResponseTopic:   execCtx.ResponsesTopic,
+					ResponsesTopic:  execCtx.ResponsesTopic,
 					SentAt:          time.Now(),
 					TimeoutAt:       time.Now().Add(getTimeout(step)),
 				}
@@ -918,7 +918,7 @@ func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *Orches
 		StepName:        step.Action,
 		RetryVersion:    0,
 		TargetAgentType: step.TargetAgentType,
-		ResponseTopic:   execCtx.ResponsesTopic, // Store where we expect responses
+		ResponsesTopic:  execCtx.ResponsesTopic, // Store where we expect responses
 		SentAt:          time.Now(),
 		TimeoutAt:       time.Now().Add(getTimeout(step)),
 	}

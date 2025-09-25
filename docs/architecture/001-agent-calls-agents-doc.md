@@ -342,7 +342,7 @@ import (
 const (
 AgentType     = "project-manager"
 RequestTopic  = "system.agent.project-manager.process"
-ResponseTopic = "system.responses.project-manager"
+ResponsesTopic = "system.responses.project-manager"
 ConsumerGroup = "project-manager-agent-group"
 )
 
@@ -677,7 +677,7 @@ responseHeaders := map[string]string{
 "request_id":     uuid.NewString(),
 }
 
-	if err := a.producer.Produce(a.ctx, ResponseTopic, responseHeaders,
+	if err := a.producer.Produce(a.ctx, ResponsesTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), responseBytes); err != nil {
 		a.logger.Error("Failed to produce response", zap.Error(err))
 	}

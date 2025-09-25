@@ -244,7 +244,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	params.Logger.Info("Determined sender agent type",
 		zap.String("sender_type", senderAgentType),
-		zap.String("response_topic", fmt.Sprintf("system.agent.%s.responses", senderAgentType)))
+		zap.String("responses_topic", fmt.Sprintf("system.agent.%s.responses", senderAgentType)))
 
 	params.Logger.Info("Determining sender type for response topic",
 		zap.String("ExecutionContext.FromAgentType", params.ExecutionContext.FromAgentType),
@@ -1346,8 +1346,8 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 	// For orchestrator agents, they need to listen to responses too
 	kafkaTopics := processTopic
 	if agentDef.Category == "orchestrator" || agentDef.Type == "website-builder" {
-		responseTopic := strings.ReplaceAll(topics.Response, "{type}", agentDef.Type)
-		kafkaTopics = fmt.Sprintf("%s,%s", processTopic, responseTopic)
+		responsesTopic := strings.ReplaceAll(topics.Response, "{type}", agentDef.Type)
+		kafkaTopics = fmt.Sprintf("%s,%s", processTopic, responsesTopic)
 	}
 
 	// Build environment variables

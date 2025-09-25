@@ -49,7 +49,7 @@ spec:
           
               brokers := []string{"kafka-cluster-kafka-bootstrap:9092"}
               topic := fmt.Sprintf("system.agent.%s.requests", *agent)
-              responseTopic := fmt.Sprintf("system.agent.%s.responses", *agent)
+              responsesTopic := fmt.Sprintf("system.agent.%s.responses", *agent)
           
               // Create writer
               writer := kafka.NewWriter(kafka.WriterConfig{
@@ -61,7 +61,7 @@ spec:
               // Create reader
               reader := kafka.NewReader(kafka.ReaderConfig{
                   Brokers:   brokers,
-                  Topic:     responseTopic,
+                  Topic:     responsesTopic,
                   Partition: 0,
                   MinBytes:  1,
                   MaxBytes:  10e6,

@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	requestTopic  = "system.agent.reasoning.requests"
-	responseTopic = "system.agent.reasoning.responses"
-	consumerGroup = "reasoning-agent-group"
+	requestTopic   = "system.agent.reasoning.requests"
+	responsesTopic = "system.agent.reasoning.responses"
+	consumerGroup  = "reasoning-agent-group"
 )
 
 // RequestPayload defines the data this agent expects
@@ -287,7 +287,7 @@ func (a *Agent) sendResponse(headers map[string]string, payload ResponsePayload)
 		"request_id":     uuid.NewString(),
 	}
 
-	if err := a.producer.Produce(a.ctx, responseTopic, responseHeaders,
+	if err := a.producer.Produce(a.ctx, responsesTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), responseBytes); err != nil {
 		a.logger.Error("Failed to produce response", zap.Error(err))
 	}
@@ -306,7 +306,7 @@ func (a *Agent) sendErrorResponse(headers map[string]string, errorMsg string) {
 		"request_id":     uuid.NewString(),
 	}
 
-	a.producer.Produce(a.ctx, responseTopic, responseHeaders,
+	a.producer.Produce(a.ctx, responsesTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), responseBytes)
 }
 

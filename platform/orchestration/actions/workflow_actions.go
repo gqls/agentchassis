@@ -67,52 +67,52 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		// Get the original execution context stored when this child started
 		if execCtxData, ok := params.CollectedData["__execution_context__"]; ok {
 			var parentRequestID string
-			var parentResponseTopic string
+			var parentResponsesTopic string
 			var parentStepName string
 
 			// Handle different types the context might be stored as
 			switch ctx := execCtxData.(type) {
 			case *types.ExecutionContext:
 				parentRequestID = ctx.RequestID
-				parentResponseTopic = ctx.ResponsesTopic
+				parentResponsesTopic = ctx.ResponsesTopic
 				parentStepName = ctx.StepName
 			case map[string]interface{}:
 				parentRequestID, _ = ctx["request_id"].(string)
-				parentResponseTopic, _ = ctx["responses_topic"].(string)
+				parentResponsesTopic, _ = ctx["responses_topic"].(string)
 				parentStepName, _ = ctx["step_name"].(string)
 			}
 
 			params.Tracer.TraceMessage(params.ExecutionContext, "EXTRACT_PARENT_TOPIC", "",
 				map[string]interface{}{
-					"extracted_response_topic": parentResponseTopic,
-					"parent_request_id":        parentRequestID,
-					"child_orch_id":            params.ExecutionContext.OrchestrationID,
-					"parent_orch_id":           params.ExecutionContext.ParentOrchestrationID,
-					"exec_ctx_type":            fmt.Sprintf("%T", execCtxData),
+					"extracted_responses_topic": parentResponsesTopic,
+					"parent_request_id":         parentRequestID,
+					"child_orch_id":             params.ExecutionContext.OrchestrationID,
+					"parent_orch_id":            params.ExecutionContext.ParentOrchestrationID,
+					"exec_ctx_type":             fmt.Sprintf("%T", execCtxData),
 				})
 
-			if parentRequestID == "" || parentResponseTopic == "" {
+			if parentRequestID == "" || parentResponsesTopic == "" {
 				params.Logger.Error("Cannot notify parent: parent request ID or response topic is missing from execution context",
 					zap.String("parent_request_id", parentRequestID),
-					zap.String("parent_response_topic", parentResponseTopic),
+					zap.String("parent_responses_topic", parentResponsesTopic),
 					zap.String("parent_step_name", parentStepName))
 
 				params.Tracer.TraceMessage(params.ExecutionContext, "MISSING_PARENT_INFO", "",
 					map[string]interface{}{
-						"parent_request_id":     parentRequestID,
-						"parent_response_topic": parentResponseTopic,
-						"exec_ctx_data":         execCtxData,
+						"parent_request_id":      parentRequestID,
+						"parent_responses_topic": parentResponsesTopic,
+						"exec_ctx_data":          execCtxData,
 					})
 				return map[string]interface{}{"result": finalResult}, nil
 			}
 
 			params.Logger.Info("Sending completion response to parent",
 				zap.String("parent_request_id", parentRequestID),
-				zap.String("response_topic", parentResponseTopic))
+				zap.String("responses_topic", parentResponsesTopic))
 
-			params.Tracer.TraceMessage(params.ExecutionContext, "SEND_TO_PARENT", parentResponseTopic,
+			params.Tracer.TraceMessage(params.ExecutionContext, "SEND_TO_PARENT", parentResponsesTopic,
 				map[string]interface{}{
-					"topic":      parentResponseTopic,
+					"topic":      parentResponsesTopic,
 					"request_id": parentRequestID,
 					"from_child": params.ExecutionContext.OrchestrationID,
 					"to_parent":  params.ExecutionContext.ParentOrchestrationID,
@@ -167,16 +167,16 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 			headers := responseMsg.Headers.ToMap()
 			key := []byte(params.ExecutionContext.CorrelationID)
 
-			err = params.Producer.Produce(ctx, parentResponseTopic, headers, key, responseBytes)
+			err = params.Producer.Produce(ctx, parentResponsesTopic, headers, key, responseBytes)
 			if err != nil {
 				params.Logger.Error("Failed to send response to parent",
 					zap.Error(err),
-					zap.String("topic", parentResponseTopic))
+					zap.String("topic", parentResponsesTopic))
 				return finalResult, fmt.Errorf("failed to send response: %w", err)
 			}
 
 			params.Logger.Info("Successfully sent response to parent orchestration",
-				zap.String("topic", parentResponseTopic),
+				zap.String("topic", parentResponsesTopic),
 				zap.String("request_id", parentRequestID),
 				zap.Any("result_sent", finalResult))
 		}
@@ -185,7 +185,7 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 	} else {
 		params.Logger.Info("Root orchestration completed. Sending final response to client.")
 
-		/*		originalResponseTopic := params.ExecutionContext.ResponsesTopic
+		/*		originalResponsesTopic := params.ExecutionContext.ResponsesTopic
 				originalRequestID := params.ExecutionContext.RequestID
 				if originalRequestID == "" {
 					params.Logger.Warn("No request_id specified in initial request. Cannot send final client request id.")
@@ -197,7 +197,7 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 			zap.Any("All of CollectedData", params.CollectedData),
 		)
 
-		var originalResponseTopic string
+		var originalResponsesTopic string
 		var originalRequestID string
 
 		// FIRST: Check for stored original request (most reliable)
@@ -209,41 +209,41 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 			)
 
 			if reqMap, ok := origReq.(map[string]interface{}); ok {
-				originalResponseTopic, _ = reqMap["responses_topic"].(string)
+				originalResponsesTopic, _ = reqMap["responses_topic"].(string)
 				originalRequestID, _ = reqMap["request_id"].(string)
 
 				params.Logger.Info("Found original request info",
-					zap.String("responses_topic", originalResponseTopic),
+					zap.String("responses_topic", originalResponsesTopic),
 					zap.String("request_id", originalRequestID))
 			}
 		}
 
 		// FALLBACK: Try current context (may have been transformed)
-		if originalResponseTopic == "" {
-			originalResponseTopic = params.ExecutionContext.ResponsesTopic
+		if originalResponsesTopic == "" {
+			originalResponsesTopic = params.ExecutionContext.ResponsesTopic
 			originalRequestID = params.ExecutionContext.RequestID
 		}
 
 		// LAST RESORT: Check execution context
-		if originalResponseTopic == "" {
+		if originalResponsesTopic == "" {
 			if initCtx, ok := params.CollectedData["__execution_context__"]; ok {
 				switch ctx := initCtx.(type) {
 				case *types.ExecutionContext:
-					originalResponseTopic = ctx.ResponsesTopic
+					originalResponsesTopic = ctx.ResponsesTopic
 					originalRequestID = ctx.RequestID
 				case map[string]interface{}:
-					originalResponseTopic, _ = ctx["responses_topic"].(string)
+					originalResponsesTopic, _ = ctx["responses_topic"].(string)
 					originalRequestID, _ = ctx["request_id"].(string)
 				}
 			}
 		}
 
-		if originalResponseTopic == "" || originalRequestID == "" {
+		if originalResponsesTopic == "" || originalRequestID == "" {
 			params.Logger.Warn("Cannot send final response - missing original request info")
 			return map[string]interface{}{"result": finalResult}, nil
 		}
 
-		if originalResponseTopic == "" {
+		if originalResponsesTopic == "" {
 			params.Logger.Warn("No responses_topic found for root orchestration")
 			return map[string]interface{}{"result": finalResult}, nil
 		}
@@ -296,16 +296,16 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		headers := responseMsg.Headers.ToMap()
 		key := []byte(params.ExecutionContext.CorrelationID)
 
-		err = params.Producer.Produce(ctx, originalResponseTopic, headers, key, responseBytes)
+		err = params.Producer.Produce(ctx, originalResponsesTopic, headers, key, responseBytes)
 		if err != nil {
 			params.Logger.Error("Failed to send response to client",
 				zap.Error(err),
-				zap.String("topic", originalResponseTopic))
+				zap.String("topic", originalResponsesTopic))
 			return finalResult, fmt.Errorf("failed to send response: %w", err)
 		}
 
 		params.Logger.Info("Successfully sent response to client",
-			zap.String("topic", originalResponseTopic),
+			zap.String("topic", originalResponsesTopic),
 			zap.String("request_id", params.ExecutionContext.RequestID))
 	}
 
@@ -347,22 +347,22 @@ func CompleteWorkflowActionold2(ctx context.Context, params ActionParams) (inter
 		// Get the original execution context stored when this child started
 		if execCtxData, ok := params.CollectedData["__execution_context__"]; ok {
 			var parentRequestID string
-			var parentResponseTopic string
+			var parentResponsesTopic string
 
 			// Handle different types the context might be stored as
 			switch ctx := execCtxData.(type) {
 			case *types.ExecutionContext:
 				parentRequestID = ctx.RequestID
-				parentResponseTopic = ctx.ResponsesTopic
+				parentResponsesTopic = ctx.ResponsesTopic
 			case map[string]interface{}:
 				parentRequestID, _ = ctx["request_id"].(string)
-				parentResponseTopic, _ = ctx["responses_topic"].(string)
+				parentResponsesTopic, _ = ctx["responses_topic"].(string)
 			}
 
-			if parentRequestID != "" && parentResponseTopic != "" {
+			if parentRequestID != "" && parentResponsesTopic != "" {
 				params.Logger.Info("Sending completion response to parent",
 					zap.String("parent_request_id", parentRequestID),
-					zap.String("response_topic", parentResponseTopic))
+					zap.String("responses_topic", parentResponsesTopic))
 
 				// Build SIMPLE response message
 				responseMsg := types.ResponseMessage{
@@ -424,16 +424,16 @@ func CompleteWorkflowActionold2(ctx context.Context, params ActionParams) (inter
 				headers := responseMsg.Headers.ToMap()
 				key := []byte(params.ExecutionContext.CorrelationID)
 
-				err = params.Producer.Produce(ctx, parentResponseTopic, headers, key, responseBytes)
+				err = params.Producer.Produce(ctx, parentResponsesTopic, headers, key, responseBytes)
 				if err != nil {
 					params.Logger.Error("Failed to send response to parent",
 						zap.Error(err),
-						zap.String("topic", parentResponseTopic))
+						zap.String("topic", parentResponsesTopic))
 					return actualResult, fmt.Errorf("failed to send response: %w", err)
 				}
 
 				params.Logger.Info("Successfully sent response to parent orchestration",
-					zap.String("topic", parentResponseTopic),
+					zap.String("topic", parentResponsesTopic),
 					zap.String("request_id", parentRequestID))
 			}
 		}
@@ -497,22 +497,22 @@ func CompleteWorkflowActionold(ctx context.Context, params ActionParams) (interf
 		// Get the original execution context stored when this child started
 		if execCtxData, ok := params.CollectedData["__execution_context__"]; ok {
 			var parentRequestID string
-			var parentResponseTopic string
+			var parentResponsesTopic string
 
 			// Handle different types the context might be stored as
 			switch ctx := execCtxData.(type) {
 			case *types.ExecutionContext:
 				parentRequestID = ctx.RequestID
-				parentResponseTopic = ctx.ResponsesTopic
+				parentResponsesTopic = ctx.ResponsesTopic
 			case map[string]interface{}:
 				parentRequestID, _ = ctx["request_id"].(string)
-				parentResponseTopic, _ = ctx["responses_topic"].(string)
+				parentResponsesTopic, _ = ctx["responses_topic"].(string)
 			}
 
-			if parentRequestID != "" && parentResponseTopic != "" {
+			if parentRequestID != "" && parentResponsesTopic != "" {
 				params.Logger.Info("Sending completion response to parent",
 					zap.String("parent_request_id", parentRequestID),
-					zap.String("response_topic", parentResponseTopic))
+					zap.String("responses_topic", parentResponsesTopic))
 
 				// Build response message
 				responseMsg := types.ResponseMessage{
@@ -580,16 +580,16 @@ func CompleteWorkflowActionold(ctx context.Context, params ActionParams) (interf
 				headers := responseMsg.Headers.ToMap()
 				key := []byte(params.ExecutionContext.CorrelationID)
 
-				err = params.Producer.Produce(ctx, parentResponseTopic, headers, key, responseBytes)
+				err = params.Producer.Produce(ctx, parentResponsesTopic, headers, key, responseBytes)
 				if err != nil {
 					params.Logger.Error("Failed to send response to parent",
 						zap.Error(err),
-						zap.String("topic", parentResponseTopic))
+						zap.String("topic", parentResponsesTopic))
 					return result, fmt.Errorf("failed to send response: %w", err)
 				}
 
 				params.Logger.Info("Successfully sent response to parent orchestration",
-					zap.String("topic", parentResponseTopic),
+					zap.String("topic", parentResponsesTopic),
 					zap.String("request_id", parentRequestID),
 					zap.Any("responseMsg", responseMsg),
 				)

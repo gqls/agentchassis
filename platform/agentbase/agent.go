@@ -653,12 +653,13 @@ func (a *Agent) handleProcessingError(execCtx *types.ExecutionContext, err error
 // sendErrorResponse sends an error response
 func (a *Agent) sendErrorResponse(execCtx *types.ExecutionContext, response *types.ResponseMessage) {
 	// Determine response topic
-	responseTopic := execCtx.ReplyToTopic
-	if responseTopic == "" && execCtx.FromAgentType != "" {
-		responseTopic = fmt.Sprintf("system.agent.%s.responses", execCtx.FromAgentType)
-	}
-	if responseTopic == "" {
-		responseTopic = "system.agent.generic.errors"
+	var responsesTopic string
+	if execCtx.ResponsesTopic != "" {
+		responsesTopic = execCtx.ResponsesTopic
+	} else if execCtx.FromAgentType != "" {
+		responsesTopic = fmt.Sprintf("system.agent.%s.responses", execCtx.FromAgentType)
+	} else {
+		responsesTopic = "system.agent.generic.errors"
 	}
 
 	responseBytes, err := json.Marshal(response)
@@ -677,10 +678,10 @@ func (a *Agent) sendErrorResponse(execCtx *types.ExecutionContext, response *typ
 	}
 
 	// Use YOUR producer's signature
-	if err := a.producer.Produce(a.ctx, responseTopic, headers, key, responseBytes); err != nil {
+	if err := a.producer.Produce(a.ctx, responsesTopic, headers, key, responseBytes); err != nil {
 		a.logger.Error("Failed to send error response",
 			zap.Error(err),
-			zap.String("topic", responseTopic))
+			zap.String("topic", responsesTopic))
 	}
 }
 
@@ -1013,9 +1014,9 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 	}
 
 	// Send to parent's response topic
-	responseTopic := spawnRequest.Headers.ResponsesTopic
-	if responseTopic == "" {
-		responseTopic = fmt.Sprintf("system.agent.%s.responses", spawnRequest.Headers.Sender.AgentType)
+	responsesTopic := spawnRequest.Headers.ResponsesTopic
+	if responsesTopic == "" {
+		responsesTopic = fmt.Sprintf("system.agent.%s.responses", spawnRequest.Headers.Sender.AgentType)
 	}
 
 	responseBytes, err := json.Marshal(response)
@@ -1030,7 +1031,7 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 		zap.Any("response", response),
 	)
 
-	return a.producer.Produce(a.ctx, responseTopic, headers, key, responseBytes)
+	return a.producer.Produce(a.ctx, responsesTopic, headers, key, responseBytes)
 }
 
 // registerWithParent registers this agent with its parent orchestration

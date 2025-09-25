@@ -86,25 +86,25 @@ resource "kubernetes_job" "kafka_system_topics" {
             # --- SPECIALIZED AGENT & ADAPTER COMMUNICATION TOPICS (CRITICAL ALIGNMENT) ---
             # Reasoning Agent
             create_topic "system.agent.reasoning.requests" 6 3 "Reasoning agent requests"  # Matches internal/agents/reasoning/agent.go RequestTopic
-            create_topic "system.agent.reasoning.responses" 6 3 "Reasoning agent responses"      # Matches internal/agents/reasoning/agent.go ResponseTopic
+            create_topic "system.agent.reasoning.responses" 6 3 "Reasoning agent responses"      # Matches internal/agents/reasoning/agent.go ResponsesTopic
             create_topic "system.agent.reasoning.errors" 1 3 "Reasoning agent error DLQ"         # Matches platform/kafka/topic_manager.go error topic pattern
             create_topic "system.agent.reasoning.dlq" 1 3 "Reasoning agent dead letter queue"           # Consistent DLQ naming, used by Kafka Connect
 
             # Web Search Adapter
             create_topic "system.agent.websearch.requests" 3 3 "Web search adapter requests"     # Matches internal/adapters/websearch/adapter.go requestTopic
-            create_topic "system.agent.websearch.responses" 6 3 "Web search adapter responses"   # Matches internal/adapters/websearch/adapter.go responseTopic
+            create_topic "system.agent.websearch.responses" 6 3 "Web search adapter responses"   # Matches internal/adapters/websearch/adapter.go responsesTopic
             create_topic "system.agent.websearch.errors" 1 3 "Web search adapter error DLQ"      # Matches platform/kafka/topic_manager.go error topic pattern
             create_topic "system.agent.websearch.dlq" 1 3 "Web search adapter dead letter queue"        # Consistent DLQ naming
 
             # Image Generator Adapter
             create_topic "system.agent.image-generator.requests" 3 3 "Image generation adapter requests" # Matches internal/adapters/imagegenerator/adapter.go requestTopic
-            create_topic "system.agent.image-generator.responses" 6 3 "Image generation adapter responses"      # Matches internal/adapters/imagegenerator/adapter.go responseTopic
+            create_topic "system.agent.image-generator.responses" 6 3 "Image generation adapter responses"      # Matches internal/adapters/imagegenerator/adapter.go responsesTopic
             create_topic "system.agent.image-generator.errors" 1 3 "Image generation adapter error DLQ"         # Matches platform/kafka/topic_manager.go error topic pattern
             create_topic "system.agent.image-generator.dlq" 1 3 "Image generation adapter dead letter queue"           # Consistent DLQ naming
 
             # Content Creator Agent (NEW)
             create_topic "system.agent.content-creator.requests" 6 3 "Content creator process requests" # Matches internal/agents/contentcreator/agent.go RequestTopic
-            create_topic "system.agent.content-creator.responses" 6 3 "Content creator responses"      # Matches internal/agents/contentcreator/agent.go ResponseTopic
+            create_topic "system.agent.content-creator.responses" 6 3 "Content creator responses"      # Matches internal/agents/contentcreator/agent.go ResponsesTopic
             create_topic "system.agent.content-creator.errors" 1 3 "Content creator error DLQ"         # Matches platform/kafka/topic_manager.go error topic pattern
             create_topic "system.agent.content-creator.dlq" 1 3 "Content creator dead letter queue"           # Consistent DLQ naming
 

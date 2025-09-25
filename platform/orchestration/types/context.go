@@ -57,7 +57,6 @@ type ExecutionContext struct {
 	ToAgentID      string `json:"to_agent_id,omitempty"`
 	FromAgentID    string `json:"from_agent_id,omitempty"`
 	FromAgentType  string `json:"from_agent_type,omitempty"`
-	ReplyToTopic   string `json:"reply_to_topic,omitempty"`
 
 	// Resource Management
 	FuelBudget     int           `json:"fuel_budget"`
@@ -506,7 +505,6 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 		ToAgentType:    headers["to_agent_type"],
 		FromAgentID:    headers["from_agent_id"],
 		FromAgentType:  headers["from_agent_type"],
-		ReplyToTopic:   headers["reply_to_topic"],
 
 		// Step info
 		StepID:   headers["step_id"],
@@ -532,6 +530,10 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 			PodName:      headers["sender_pod_name"],
 			AgentVersion: headers["sender_agent_version"],
 		}
+	}
+
+	if responsesTopic := headers["responses_topic"]; responsesTopic != "" {
+		ec.ResponsesTopic = responsesTopic
 	}
 
 	// Handle response context
@@ -611,7 +613,7 @@ func (ec *ExecutionContext) ToHeaders() map[string]string {
 		"to_agent_type":   ec.ToAgentType,
 		"from_agent_id":   ec.FromAgentID,
 		"from_agent_type": ec.FromAgentType,
-		"reply_to_topic":  ec.ReplyToTopic,
+		"responses_topic": ec.ResponsesTopic,
 
 		// Step info
 		"step_id":   ec.StepID,
