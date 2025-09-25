@@ -413,10 +413,11 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.E
 
 			ownerAgentID := s.determineOwnerAgentID(execCtx)
 			ownerAgentType := s.determineOwnerAgentType(execCtx)
+			ownerAgentRole := execCtx.Sender.Role
 
 			// When creating initial state, pass both ID and Type
 			err := repo.CreateInitialState(ctx, execCtx.OrchestrationID, execCtx.OrchestrationName, execCtx.CorrelationID,
-				ownerAgentID, ownerAgentType, execCtx.ParentOrchestrationID, execCtx.ClientID, plan, initialData, execCtx)
+				ownerAgentID, ownerAgentType, ownerAgentRole, execCtx.ParentOrchestrationID, execCtx.ClientID, plan, initialData, execCtx)
 
 			if err != nil {
 				if strings.Contains(err.Error(), "duplicate key") {
@@ -463,6 +464,7 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.E
 
 	ownerAgentID := s.determineOwnerAgentID(execCtx)
 	ownerAgentType := s.determineOwnerAgentType(execCtx)
+	ownerAgentRole := execCtx.Sender.Role
 
 	s.logger.Info("Creating new orchestration",
 		zap.String("orchestration_id", newOrchestrationID),
@@ -470,7 +472,7 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.E
 		zap.String("correlation_id", execCtx.CorrelationID))
 
 	err := repo.CreateInitialState(ctx, newOrchestrationID, newOrchestrationName, execCtx.CorrelationID,
-		ownerAgentID, ownerAgentType, execCtx.ParentOrchestrationID, execCtx.ClientID, plan, initialData, execCtx)
+		ownerAgentID, ownerAgentType, ownerAgentRole, execCtx.ParentOrchestrationID, execCtx.ClientID, plan, initialData, execCtx)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") {
@@ -726,6 +728,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 			AgentID:      state.OwnerAgentID,
 			PodName:      s.podName,
 			AgentVersion: os.Getenv("AGENT_VERSION"),
+			Role:         state.OwnerAgentRole,
 		}
 	}
 

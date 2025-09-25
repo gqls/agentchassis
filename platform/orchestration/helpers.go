@@ -345,13 +345,35 @@ func (tm *TimeoutMonitor) sendTimeoutResponse(ctx context.Context, parentOrchID,
 			zap.String("fallback_topic", responsesTopic))
 	}
 
+	// Get the child state to get its role
+	childRole := ""
+	childAgentType := ""
+	childAgentID := ""
+
+	childState, err := tm.repo.GetState(ctx, childOrchID)
+	if err != nil {
+		tm.logger.Warn("Failed to get child state for timeout response", zap.Error(err))
+		// Use defaults - we don't know the child's details
+		childRole = "timeout-monitor"
+		childAgentType = tm.getPodName()
+		childAgentID = "no role available"
+	} else if childState != nil {
+		// Safely extract values only if state is not nil
+		childRole = childState.OwnerAgentRole
+		childAgentType = childState.OwnerAgentType
+		childAgentID = childState.OwnerAgentID
+	}
+
+	// the timeout monitor appears as if it's the timed-out child responding
+	// this way the parent sees a response "from" the child agent that timed out
 	response := &types.ResponseMessage{
 		Headers: types.ResponseHeaders{
 			Sender: types.AgentIdentity{
-				AgentType:    "timeout-monitor",
-				AgentID:      tm.getPodName(),
+				AgentType:    childAgentType, // Pretend to be the child
+				AgentID:      childAgentID,
 				PodName:      tm.getPodName(),
 				AgentVersion: "1.0.0",
+				Role:         childRole,
 			},
 
 			// Response tracking - matching what the parent expects

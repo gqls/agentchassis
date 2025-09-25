@@ -28,6 +28,7 @@ import (
 type MessageProcessor struct {
 	agentType    string
 	agentID      string
+	agentRole    string
 	db           *sql.DB
 	sqlDB        *sql.DB
 	producer     kafka.Producer
@@ -48,6 +49,7 @@ type MessageProcessor struct {
 func NewMessageProcessor(
 	agentType string,
 	agentID string,
+	agentRole string,
 	db *sql.DB,
 	producer kafka.Producer,
 	orchestrator *orchestration.SagaCoordinator,
@@ -91,6 +93,7 @@ func NewMessageProcessor(
 	return &MessageProcessor{
 		agentType:    agentType,
 		agentID:      agentID,
+		agentRole:    agentRole,
 		db:           db,
 		sqlDB:        sqlDB,
 		producer:     producer,
@@ -1206,7 +1209,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		}()
 	}
 
-	msgCtx, err := NewMessageContext(msg, headers, p.agentType, p.logger)
+	msgCtx, err := NewMessageContext(msg, headers, p.agentType, p.agentRole, p.logger)
 	if err != nil {
 		contextLogger.Error("Failed to create message context", zap.Error(err))
 		return err
@@ -1244,6 +1247,16 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		if err := json.Unmarshal(msg.Value, &spawnRequest); err != nil {
 			contextLogger.Error("Failed to unmarshal spawn request during initialization", zap.Error(err))
 			return err
+		}
+
+		// Extract role from the message body
+		if body, ok := spawnRequest.Body.(map[string]interface{}); ok {
+			if role, ok := body["role"].(string); ok && role != "" {
+				// Store the role in the processor
+				p.agentRole = role
+				contextLogger.Info("Agent role set from initialization",
+					zap.String("role", role))
+			}
 		}
 
 		// This will now be called correctly, sending the confirmation response.
@@ -1493,6 +1506,7 @@ func (p *MessageProcessor) sendSuccessResponse(ctx context.Context, msgCtx *Mess
 				AgentID:      p.podName,
 				PodName:      p.podName,
 				AgentVersion: os.Getenv("AGENT_VERSION"),
+				Role:         p.agentRole,
 			},
 
 			// Response tracking - individual fields, not InResponseTo struct
@@ -1589,6 +1603,7 @@ func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *Messag
 				AgentID:      p.podName,
 				PodName:      p.podName,
 				AgentVersion: os.Getenv("AGENT_VERSION"),
+				Role:         p.agentRole,
 			},
 
 			// Response tracking

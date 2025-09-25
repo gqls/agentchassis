@@ -30,55 +30,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func SpawnAgentSimpleGeminiAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	config := params.StepConfig.Config
-	agentType, ok := config["agent_type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("agent_type not specified")
-	}
-	clientID := params.Headers["client_id"]
-	if clientID == "" {
-		return nil, fmt.Errorf("client_id not specified in headers")
-	}
-
-	params.Logger.Info("Spawning agent via direct Kubernetes Job creation",
-		zap.String("agent_type", agentType),
-		zap.String("client_id", clientID))
-
-	// 1. Get agent definition from database
-	agentDef, err := getAgentDefinition(ctx, params.DB, agentType, params.Logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get agent definition: %w", err)
-	}
-
-	// 2. Create the agent instance record in the database
-	agentID := uuid.New().String()
-	if err := createAgentInDBFromDefinition(ctx, params, agentID, agentDef, clientID); err != nil {
-		return nil, fmt.Errorf("failed to create agent in database: %w", err)
-	}
-
-	// 3. Spawn the Kubernetes Job directly
-	jobName, err := spawnAgentKubernetesJobFromDefinition(ctx, agentID, agentDef, clientID, params.Logger)
-	if err != nil {
-		params.Logger.Error("Failed to spawn agent Kubernetes job", zap.Error(err))
-		// This is a critical failure, so we return the error
-		return nil, fmt.Errorf("failed to spawn kubernetes job: %w", err)
-	}
-
-	params.Logger.Info("Successfully spawned agent job",
-		zap.String("job_name", jobName),
-		zap.String("agent_id", agentID))
-
-	// The orchestrator does not need to wait for an "initialize" response
-	// because it directly created the job. The next step can begin.
-	return map[string]interface{}{
-		"agent_id":       agentID,
-		"status":         "spawned",
-		"job_name":       jobName,
-		"await_response": false, // No initialization message to wait for
-	}, nil
-}
-
 // SpawnAgentAction spawns a single agent - supports both K8s Job creation and message sending with hierarchy tracking
 // func SpawnAgentWithEventDrivenKubeAction(ctx context.Context, params ActionParams) (interface{}, error) {
 func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -102,9 +53,10 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		return nil, fmt.Errorf("agent_type is required")
 	}
 
-	role, _ := config["role"].(string)
-	if role == "" {
-		role = agentType
+	role, hasRole := config["role"].(string)
+	if !hasRole || role == "" {
+		// Use step name as fallback
+		role = params.ExecutionContext.StepName
 	}
 
 	// Generate unique agent ID and name
@@ -286,6 +238,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 				AgentType: senderAgentType,
 				AgentID:   params.ExecutionContext.FromAgentID,
 				PodName:   params.ExecutionContext.ProcessingNode,
+				Role:      params.ExecutionContext.Sender.Role,
 			},
 			CorrelationID:         params.ExecutionContext.CorrelationID,
 			CorrelationName:       params.ExecutionContext.CorrelationName,
@@ -297,6 +250,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			StepName:              "spawn_agent",
 			RequestID:             requestID,
 			RetryVersion:          0,
+			FunctionalRole:        role, // This is the role for the NEW agent being spawned
 			MessageID:             uuid.New().String(),
 			MessageType:           "request",
 			ToAgent:               agentID,
@@ -312,6 +266,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			"input_data": params.CollectedData["input_data"],
 			"action":     "initialize", // What the spawned agent should do
 			"config":     params.CollectedData["agent_config"],
+			"role":       role,
 		},
 	}
 
@@ -351,6 +306,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		"result": map[string]interface{}{
 			"agent_id":   agentID,
 			"agent_type": agentType,
+			"role":       role,
 			"topics": map[string]string{
 				"requests":  fmt.Sprintf("system.agent.%s.requests", agentType),
 				"responses": fmt.Sprintf("system.agent.%s.responses", agentType),
@@ -668,6 +624,12 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 		params.Headers["request_id"] = requestID
 	}
 
+	// Extract role from spawn data if available
+	childRole := ""
+	if role, ok := spawnData["role"].(string); ok {
+		childRole = role
+	}
+
 	// Create start orchestration message
 	startMessage := &types.RequestMessage{
 		Headers: types.RequestHeaders{
@@ -675,6 +637,7 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 				AgentType: params.ExecutionContext.FromAgentType,
 				AgentID:   params.ExecutionContext.FromAgentID,
 				PodName:   params.ExecutionContext.ProcessingNode,
+				Role:      params.ExecutionContext.Sender.Role,
 			},
 			CorrelationID:           params.ExecutionContext.CorrelationID,
 			CorrelationName:         params.ExecutionContext.CorrelationName,
@@ -682,6 +645,7 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 			OrchestrationName:       childOrchName,
 			ParentOrchestrationID:   params.ExecutionContext.OrchestrationID,
 			ParentOrchestrationName: params.ExecutionContext.OrchestrationName,
+			FunctionalRole:          childRole,
 			ParentRequestID:         requestID,
 			StepID:                  uuid.New().String(),
 			StepName:                "start_child_orchestration",

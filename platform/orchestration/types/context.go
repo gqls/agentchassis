@@ -75,6 +75,7 @@ type AgentIdentity struct {
 	AgentType    string `json:"agent_type"`
 	PodName      string `json:"pod_name"` // The new "ID" for stateless agents
 	AgentVersion string `json:"agent_version"`
+	Role         string `json:"role,omitempty"`
 }
 
 // Request Message Structure
@@ -529,6 +530,7 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 			AgentID:      headers["sender_agent_id"],
 			PodName:      headers["sender_pod_name"],
 			AgentVersion: headers["sender_agent_version"],
+			Role:         headers["sender_role"],
 		}
 	}
 
@@ -558,6 +560,8 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 			fmt.Sscanf(retryStr, "%d", &ec.RetryVersion)
 		}
 	}
+
+	ec.FunctionalRole = headers["functional_role"]
 
 	// Parse fuel budget
 	if fuel := headers["fuel_budget"]; fuel != "" {
@@ -641,6 +645,7 @@ func (ec *ExecutionContext) ToHeaders() map[string]string {
 	headers["sender_agent_id"] = ec.Sender.AgentID
 	headers["sender_pod_name"] = ec.Sender.PodName
 	headers["sender_agent_version"] = ec.Sender.AgentVersion
+	headers["sender_role"] = ec.Sender.Role
 
 	// Add response context if this is a response
 	if ec.InResponseTo != nil {
@@ -657,6 +662,11 @@ func (ec *ExecutionContext) ToHeaders() map[string]string {
 		headers["is_complete"] = fmt.Sprintf("%v", ec.IsComplete)
 		headers["is_error"] = fmt.Sprintf("%v", ec.IsError)
 		headers["retry_version"] = fmt.Sprintf("%d", ec.RetryVersion)
+	}
+
+	// Add functional role if present (for requests)
+	if ec.FunctionalRole != "" {
+		headers["functional_role"] = ec.FunctionalRole
 	}
 
 	return headers
@@ -769,6 +779,7 @@ func (rh *ResponseHeaders) ToMap() map[string]string {
 	headers["sender_agent_id"] = rh.Sender.AgentID
 	headers["sender_pod_name"] = rh.Sender.PodName
 	headers["sender_agent_version"] = rh.Sender.AgentVersion
+	headers["sender_role"] = rh.Sender.Role
 
 	// Timing & Resources
 	headers["time_sent"] = rh.TimeSent.Format(time.RFC3339)
@@ -796,6 +807,11 @@ func (rh *RequestHeaders) ToMap() map[string]string {
 	headers["sender_agent_id"] = rh.Sender.AgentID
 	headers["sender_pod_name"] = rh.Sender.PodName
 	headers["sender_agent_version"] = rh.Sender.AgentVersion
+	headers["sender_role"] = rh.Sender.Role
+
+	if rh.FunctionalRole != "" {
+		headers["functional_role"] = rh.FunctionalRole
+	}
 
 	// Orchestration Context
 	headers["orchestration_id"] = rh.OrchestrationID
@@ -860,6 +876,7 @@ func (ec *ExecutionContext) AdjustToReceiverPerspective(receiverIdentity AgentId
 			CorrelationID:           ec.CorrelationID,
 			ClientID:                ec.ClientID,
 			FuelBudget:              ec.FuelBudget,
+			FunctionalRole:          ec.FunctionalRole,
 			MessageType:             "request",
 			Timestamp:               time.Now(),
 		}

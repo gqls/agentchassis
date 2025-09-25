@@ -134,14 +134,15 @@ func (m *MessageContext) SyncContextFromHeaders() error {
 	return nil
 }
 
-func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAgentType string, logger *zap.Logger) (*MessageContext, error) {
+func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAgentType, receivingAgentRole string, logger *zap.Logger) (*MessageContext, error) {
 
-	logger.Info("DEBUG uuidparse: NewMessageContext: Incoming headers",
+	logger.Info("DEBUG agentRole: NewMessageContext: Incoming headers",
 		zap.String("orchestration_id", headers["orchestration_id"]),
 		zap.String("parent_orchestration_id", headers["parent_orchestration_id"]),
 		zap.String("message_type", headers["message_type"]),
 		zap.String("receiving_agent", receivingAgentType),
 		zap.Any("all headers NewMessageContext", headers),
+		zap.Any("receiving agent role in NewMessageContext", receivingAgentRole),
 	)
 
 	// Parse using existing functions
@@ -163,6 +164,7 @@ func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAg
 		AgentID:      agentID,
 		PodName:      os.Getenv("HOSTNAME"),
 		AgentVersion: os.Getenv("AGENT_VERSION"),
+		Role:         receivingAgentRole,
 	}
 
 	// Adjust to receiver's perspective

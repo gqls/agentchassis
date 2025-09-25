@@ -590,6 +590,7 @@ func (a *Agent) handleProcessingError(execCtx *types.ExecutionContext, err error
 					AgentID:      a.AgentID,
 					PodName:      a.PodName,
 					AgentVersion: a.AgentVersion,
+					Role:         a.Role,
 				},
 
 				// Response tracking - what we're responding to
@@ -781,10 +782,10 @@ func (a *Agent) GetIdentity() types.AgentIdentity {
 		AgentID:      a.AgentID,
 		PodName:      a.PodName,
 		AgentVersion: a.AgentVersion,
+		Role:         a.Role,
 	}
 }
 
-// SpawnChildAgent spawns a child agent and tracks it in the hierarchy
 // SpawnChildAgent spawns a child agent and tracks it in the hierarchy
 func (a *Agent) SpawnChildAgent(ctx context.Context, agentType, role string, config map[string]interface{}) (string, error) {
 	// Generate child agent ID
@@ -964,6 +965,7 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 				AgentID:      a.AgentID,
 				PodName:      a.PodName,
 				AgentVersion: a.AgentVersion,
+				Role:         a.Role,
 			},
 
 			// Response tracking

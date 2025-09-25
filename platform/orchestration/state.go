@@ -91,6 +91,7 @@ type OrchestrationState struct {
 	CorrelationID         string `db:"correlation_id"`
 	OwnerAgentID          string `db:"owner_agent_id"`
 	OwnerAgentType        string `db:"owner_agent_type"`
+	OwnerAgentRole        string `db:"owner_agent_role"`
 	ParentOrchestrationID string `db:"parent_orchestration_id"`
 	ClientID              string `db:"client_id"`
 
@@ -361,6 +362,7 @@ func (r *StateRepository) CreateInitialState(
 	correlationID,
 	ownerAgentID,
 	ownerAgentType string,
+	ownerAgentRole string,
 	parentOrchestrationID,
 	clientID string,
 	plan models.WorkflowPlan,
@@ -373,6 +375,7 @@ func (r *StateRepository) CreateInitialState(
 
 	r.logger.Info("DEBUG returntopic: CreateInitialState parameters",
 		zap.String("orchestrationID", orchestrationID),
+		zap.String("owner agent role", ownerAgentRole),
 		zap.String("parentOrchestrationID", parentOrchestrationID),
 		zap.Any("parentOrchestrationID_length", len(parentOrchestrationID)),
 		zap.Any("parentOrchestrationID_bytes", []byte(parentOrchestrationID)),
@@ -381,12 +384,12 @@ func (r *StateRepository) CreateInitialState(
 
 	query := `
 		INSERT INTO orchestration_states (
-			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id, client_id,
+			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, owner_agent_role, parent_orchestration_id, client_id,
 			status, current_step, awaited_steps, collected_data, initial_request_data,
 			workflow_plan, execution_metadata, execution_path, version, created_at, updated_at,
 			currently_executing, last_activity, processing_node
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
 		ON CONFLICT (orchestration_id) DO NOTHING
 	`
 
@@ -456,7 +459,7 @@ func (r *StateRepository) CreateInitialState(
 
 	// Attempt the atomic insert
 	result, err := r.db.ExecContext(ctx, query,
-		orchestrationID, orchestrationName, correlationID, ownerAgentID, ownerAgentType, parentOrchIDValue, clientID,
+		orchestrationID, orchestrationName, correlationID, ownerAgentID, ownerAgentType, ownerAgentRole, parentOrchIDValue, clientID,
 		StatusInitialized, plan.StartStep, awaitedStepsJSON, collectedDataJSON, initialData,
 		workflowPlanJSON, metadataJSON, executionPathJSON, 1, now, now,
 		nil, now, processingNode)
@@ -483,79 +486,12 @@ func (r *StateRepository) CreateInitialState(
 	return nil
 }
 
-func (r *StateRepository) CreateInitialStateOld(
-	ctx context.Context,
-	orchestrationID string,
-	orchestrationName string,
-	correlationID string,
-	ownerAgentID string,
-	ownerAgentType string,
-	parentOrchestrationID string,
-	clientID string,
-	plan models.WorkflowPlan,
-	initialData []byte,
-) error {
-
-	r.logger.Info("CreateInitialState called",
-		zap.String("orchestration_id", orchestrationID),
-		zap.String("orchestration_name", orchestrationName),
-		zap.Int("initial_data_len", len(initialData)))
-
-	executionTime := time.Now()
-
-	// Create the state object
-	state := &OrchestrationState{
-		OrchestrationID:       orchestrationID,
-		OrchestrationName:     orchestrationName,
-		CorrelationID:         correlationID,
-		OwnerAgentID:          ownerAgentID,
-		OwnerAgentType:        ownerAgentType,
-		ParentOrchestrationID: parentOrchestrationID,
-		ClientID:              clientID,
-		WorkflowPlan:          plan,
-		Status:                StatusInitialized,
-		CurrentStep:           plan.StartStep,
-		CollectedData:         make(map[string]interface{}),
-		AwaitedRequests:       make(map[string]*AwaitedRequest),
-		AwaitedSteps:          []string{},
-		SubtreeAgents:         make(map[string]*types.SubtreeInfo),
-		ProcessingHistory:     []ProcessingRecord{},
-		ExecutionMetadata: ExecutionMetadata{
-			StartTime:      time.Now(),
-			CompletedSteps: 0,
-			TotalSteps:     len(plan.Steps),
-			Checkpoints:    make(map[string]time.Time),
-			RetryCount:     make(map[string]int),
-		},
-		ExecutionPath:      []ExecutionRecord{},
-		InitialRequestData: initialData,
-		LastActivity:       time.Now(),
-		CreatedAt:          time.Now(),
-		UpdatedAt:          time.Now(),
-		ProcessingNode:     os.Getenv("HOSTNAME"),
-		ExecutionStartedAt: &executionTime,
-		FuelBudget:         1000, // Default fuel budget
-		Version:            1,
-	}
-
-	// Parse initial data if provided
-	if len(initialData) > 0 {
-		var inputData map[string]interface{}
-		if err := json.Unmarshal(initialData, &inputData); err == nil {
-			state.CollectedData["initial_input"] = inputData
-		}
-	}
-
-	// Use the existing CreateState method
-	return r.CreateState(ctx, state)
-}
-
 // GetState retrieves orchestration state by ID
 func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) (*OrchestrationState, error) {
 
 	query := `
 		SELECT 
-			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id,
+			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, owner_agent_role, parent_orchestration_id,
 			client_id, status, current_step, awaited_steps, awaited_requests,
 			currently_executing, last_activity, processing_node, execution_started_at,
 			collected_data, initial_request_data, final_result, workflow_plan,
@@ -577,6 +513,7 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 		&state.CorrelationID,
 		&state.OwnerAgentID,
 		&state.OwnerAgentType,
+		&state.OwnerAgentRole,
 		&parentOrchestrationIDNull,
 		&state.ClientID,
 		&state.Status,
@@ -699,8 +636,8 @@ func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *Orc
 			currently_executing = $5, collected_data = $6, initial_request_data = $7,
 			final_result = $8, error = $9, workflow_plan = $10, execution_metadata = $11,
 			execution_path = $12, processing_history = $13, subtree_agents = $14,
-			last_activity = $15, updated_at = $16, owner_agent_id = $17, owner_agent_type = $18, version = $19
-		WHERE orchestration_id = $20 AND version = $21
+			last_activity = $15, updated_at = $16, owner_agent_id = $17, owner_agent_type = $18, owner_agent_role = $19, version = $20
+		WHERE orchestration_id = $21 AND version = $22
 	`
 
 	result, err := r.db.ExecContext(ctx, query,
@@ -722,6 +659,7 @@ func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *Orc
 		now, // updated_at
 		state.OwnerAgentID,
 		state.OwnerAgentType,
+		state.OwnerAgentRole,
 		expectedVersion+1, // New version
 		state.OrchestrationID,
 		expectedVersion, // Expected current version
@@ -1018,7 +956,7 @@ func (r *StateRepository) ExecuteWithOptimisticLocking(ctx context.Context, orch
 
 func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlationID string) (*OrchestrationState, error) {
 	query := `
-        SELECT orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id,
+        SELECT orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, owner_agent_role, parent_orchestration_id,
                client_id, status, current_step, awaited_steps, awaited_requests,
                currently_executing, last_activity, processing_node, execution_started_at,
                collected_data, initial_request_data, final_result, workflow_plan,
@@ -1042,6 +980,7 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 		&state.CorrelationID,
 		&state.OwnerAgentID,
 		&state.OwnerAgentType,
+		&state.OwnerAgentRole,
 		&state.ParentOrchestrationID,
 		&state.ClientID,
 		&state.Status,
