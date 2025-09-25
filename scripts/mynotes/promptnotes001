@@ -11,3 +11,8 @@ maybe create tree/diagram of all code and flows
 maybe create life cycle of all variables, structs and values
 represent overall objectives time and time again like each agent is an orchestrator, agents are dynamic, etc etc
 step names must always be unique in a workflow - first_calculation, second_calculation. process?, complete? etc as they act as keys, maybe should have compound keys
+get where params are initiated throughout the code
+track executivecontext throughout agent to agent and messaging
+agents are dynamic
+every agent is an orchestrator
+messages contain full context, state is preserved in db in case of container failure

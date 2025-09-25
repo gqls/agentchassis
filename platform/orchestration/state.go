@@ -359,6 +359,16 @@ func (r *StateRepository) CreateInitialState(
 	execCtx *types.ExecutionContext,
 ) error {
 
+	fmt.Fprintf(os.Stderr, "DEBUG uuid: CreateInitialState START printf - orch=%s, parent=%s, owner=%s\n",
+		orchestrationID, parentOrchestrationID, ownerAgentID)
+
+	r.logger.Info("DEBUG uuidparse: CreateInitialState parameters",
+		zap.String("orchestrationID", orchestrationID),
+		zap.String("parentOrchestrationID", parentOrchestrationID),
+		zap.Any("parentOrchestrationID_length", len(parentOrchestrationID)),
+		zap.Any("parentOrchestrationID_bytes", []byte(parentOrchestrationID)),
+	)
+
 	query := `
 		INSERT INTO orchestration_states (
 			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, parent_orchestration_id, client_id,
@@ -427,6 +437,8 @@ func (r *StateRepository) CreateInitialState(
 	} else {
 		parentOrchIDValue = parentOrchestrationID
 	}
+
+	fmt.Fprintf(os.Stderr, "DEBUG uuid: printf About to execute SQL INSERT with parent=%v\n", parentOrchIDValue)
 
 	// Attempt the atomic insert
 	result, err := r.db.ExecContext(ctx, query,

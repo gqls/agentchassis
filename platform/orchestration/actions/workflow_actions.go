@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"time"
 
@@ -13,7 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// FILE: platform/orchestration/actions/workflow_actions.go
 func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	current, caller := getFuncInfo(1)
 
@@ -185,15 +185,29 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 	} else {
 		params.Logger.Info("Root orchestration completed. Sending final response to client.")
 
-		originalResponseTopic := params.ExecutionContext.ResponsesTopic
-		originalRequestID := params.ExecutionContext.RequestID
-		if originalRequestID == "" {
-			params.Logger.Warn("No request_id specified in initial request. Cannot send final client request id.")
-			return map[string]interface{}{"result": finalResult}, nil
-		}
+		/*		originalResponseTopic := params.ExecutionContext.ResponsesTopic
+				originalRequestID := params.ExecutionContext.RequestID
+				if originalRequestID == "" {
+					params.Logger.Warn("No request_id specified in initial request. Cannot send final client request id.")
+					return map[string]interface{}{"result": finalResult}, nil
+				}
+		*/
+
+		params.Logger.Info("DEBUG finalrequestid: look for __original_request__ key",
+			zap.Any("All of CollectedData", params.CollectedData),
+		)
+
+		var originalResponseTopic string
+		var originalRequestID string
 
 		// FIRST: Check for stored original request (most reliable)
 		if origReq, ok := params.CollectedData["__original_request__"]; ok {
+
+			params.Logger.Info("DEBUG finalrequestid: Found __original_request__ key",
+				zap.Any("keys of CollectedData", maps.Keys(params.CollectedData)),
+				// zap.Any("original request", origReq),
+			)
+
 			if reqMap, ok := origReq.(map[string]interface{}); ok {
 				originalResponseTopic, _ = reqMap["responses_topic"].(string)
 				originalRequestID, _ = reqMap["request_id"].(string)

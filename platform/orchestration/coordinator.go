@@ -70,9 +70,11 @@ func NewSagaCoordinator(db *sql.DB, producer kafka.Producer, logger *zap.Logger)
 
 // ExecuteWorkflow executes a workflow with stateless support
 func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.WorkflowPlan, headers map[string]string, initialData []byte) error {
+	fmt.Fprintf(os.Stderr, "DEBUG uuid: ExecuteWorkflow START printf - headers: %+v\n", headers)
 	// Create ExecutionContext from headers
 	execCtx, err := types.FromHeaders(headers)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "DEBUG uuid: ExecuteWorkflow failed to parse headers printf: %v\n", err)
 		// Create minimal context if parsing fails
 		execCtx = &types.ExecutionContext{
 			CorrelationID:   headers["correlation_id"],
@@ -82,6 +84,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 			Timestamp:       time.Now(),
 		}
 	}
+	fmt.Fprintf(os.Stderr, "DEBUG uuid: ExecuteWorkflow parsed context printf: orch=%s, parent=%s\n", execCtx.OrchestrationID, execCtx.ParentOrchestrationID)
 
 	l := s.logger.With(
 		zap.String("correlation_id", execCtx.CorrelationID),
@@ -370,6 +373,9 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.ExecutionContext, plan models.WorkflowPlan, initialData []byte) (*OrchestrationState, string, bool, error) {
 	repo := NewStateRepository(s.db, s.logger)
 
+	fmt.Fprintf(os.Stderr, "DEBUG uuid: getOrCreateState START printf - orch=%s, parent=%s\n",
+		execCtx.OrchestrationID, execCtx.ParentOrchestrationID)
+	
 	// Generate orchestration name if not provided
 	orchestrationName := execCtx.OrchestrationName
 	if orchestrationName == "" {

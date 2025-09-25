@@ -125,9 +125,10 @@ func New(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*A
 	}
 
 	// Generate agent ID
-	agentID := os.Getenv("HOSTNAME")
+	agentID := os.Getenv("AGENT_ID")
 	if agentID == "" {
-		agentID = fmt.Sprintf("%s-local-%d", agentType, os.Getpid())
+		// Generate a stable UUID based on hostname if AGENT_ID not set
+		agentID = "00000000-0000-0000-0000-000000000002"
 	}
 
 	// Generate agent name
@@ -222,13 +223,10 @@ func New(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*A
 // NewAgent creates a new agent (static or dynamic)
 func NewAgent(config AgentConfig) (*Agent, error) {
 	// Generate agent ID if not provided
-	agentID := config.AgentName
+	agentID := os.Getenv("AGENT_ID")
 	if agentID == "" {
-		podName := os.Getenv("HOSTNAME")
-		if podName == "" {
-			podName = fmt.Sprintf("%s-local-%d", config.AgentType, os.Getpid())
-		}
-		agentID = podName
+		// Generate a stable UUID based on hostname if AGENT_ID not set
+		agentID = "00000000-0000-0000-0000-000000000003"
 	}
 
 	// Generate agent name if not provided
@@ -445,6 +443,8 @@ func (a *Agent) processRequests() {
 			return
 		default:
 			msg, err := a.requestConsumer.Consume(a.ctx)
+			a.logger.Info("DEBUG uuidparse: agent.go processRequests the message was:",
+				zap.Any("message", msg))
 			if err != nil {
 				if err != context.Canceled {
 					a.logger.Error("Failed to consume request message", zap.Error(err))

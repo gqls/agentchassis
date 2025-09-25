@@ -109,7 +109,7 @@ func NewMessageProcessor(
 // process determines how to handle the message based on agent configuration
 func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) error {
 	current, caller := getFuncInfo(1)
-
+	fmt.Fprint(os.Stderr, "DEBUG uuid: process START printf")
 	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go process 110",
 		zap.String("function", current),
 		zap.String("called_by (in process)", caller),
@@ -212,6 +212,8 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	p.logger.Info("DEBUG: Executing workflow",
 		zap.Any("agentConfig", agentConfig))
 
+	fmt.Fprint(os.Stderr, "DEBUG uuid: process about to ExecuteWorkflow printf")
+
 	// Execute the workflow
 	err = p.executeWorkflow(ctx, msgCtx, agentConfig)
 
@@ -224,6 +226,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 			return nil
 		}
 		msgCtx.Logger.Error("Failed to start workflow execution", zap.Error(err))
+		fmt.Fprint(os.Stderr, "DEBUG uuid: process Failed to start workflow execution printf")
 		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
 	}
 
@@ -1125,7 +1128,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	}
 
 	current, caller := getFuncInfo(1)
-	p.logger.Info("In processor.go ProcessMessage",
+	p.logger.Info("In processor.go ProcessMessage start",
 		zap.String("function", current),
 		zap.String("called_by", caller),
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
@@ -1199,7 +1202,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		}()
 	}
 
-	msgCtx, err := NewMessageContext(msg, headers, p.agentType)
+	msgCtx, err := NewMessageContext(msg, headers, p.agentType, p.logger)
 	if err != nil {
 		contextLogger.Error("Failed to create message context", zap.Error(err))
 		return err
@@ -1434,6 +1437,7 @@ func (p *MessageProcessor) processResponse(ctx context.Context, msgCtx *MessageC
 
 // executeWorkflow executes a workflow through the orchestrator
 func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
+
 	p.logger.Info("Executing workflow executeWorkflow processor.go 1361",
 		zap.String("start_step", config.Workflow.StartStep),
 		zap.Int("total_steps", len(config.Workflow.Steps)),
@@ -1449,6 +1453,7 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 
 	// Convert ExecutionContext to headers for orchestrator
 	headers := msgCtx.ExecutionContext.ToHeaders()
+	fmt.Fprintf(os.Stderr, "DEBUG uuid: processor.executeWorkflow small e printf - headers: %+v\n", headers)
 
 	// Update metrics
 	observability.WorkflowsStarted.WithLabelValues(p.agentType, config.Workflow.StartStep, msgCtx.ExecutionContext.ClientID).Inc()

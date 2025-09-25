@@ -159,7 +159,16 @@ func (m *MessageContext) SyncContextFromHeaders() error {
 	return nil
 }
 
-func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAgentType string) (*MessageContext, error) {
+func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAgentType string, logger *zap.Logger) (*MessageContext, error) {
+
+	logger.Info("DEBUG uuidparse: NewMessageContext: Incoming headers",
+		zap.String("orchestration_id", headers["orchestration_id"]),
+		zap.String("parent_orchestration_id", headers["parent_orchestration_id"]),
+		zap.String("message_type", headers["message_type"]),
+		zap.String("receiving_agent", receivingAgentType),
+		zap.Any("all headers NewMessageContext", headers),
+	)
+
 	// Parse using existing functions
 	senderCtx, err := types.FromHeaders(headers)
 	if err != nil {
@@ -167,15 +176,28 @@ func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAg
 	}
 
 	// Create receiver identity
+	agentID := os.Getenv("AGENT_ID")
+	if agentID == "" {
+		// Generate a stable UUID based on hostname if AGENT_ID not set
+		agentID = "00000000-0000-0000-0000-000000000001"
+	}
+
+	// Create receiver identity
 	receiverIdentity := types.AgentIdentity{
 		AgentType:    receivingAgentType,
-		AgentID:      os.Getenv("HOSTNAME"),
+		AgentID:      agentID,
 		PodName:      os.Getenv("HOSTNAME"),
 		AgentVersion: os.Getenv("AGENT_VERSION"),
 	}
 
 	// Adjust to receiver's perspective
 	receiverCtx := senderCtx.AdjustToReceiverPerspective(receiverIdentity)
+
+	// Log the transformed context
+	logger.Info("DEBUG uuidparse: NewMessageContext: After perspective adjustment",
+		zap.String("receiver_orch_id", receiverCtx.OrchestrationID),
+		zap.String("receiver_parent_orch_id", receiverCtx.ParentOrchestrationID),
+		zap.String("receiver_type", receivingAgentType))
 
 	return &MessageContext{
 		Message:          msg,
