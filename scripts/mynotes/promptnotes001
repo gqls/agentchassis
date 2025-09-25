@@ -16,3 +16,4 @@ track executivecontext throughout agent to agent and messaging
 agents are dynamic
 every agent is an orchestrator
 messages contain full context, state is preserved in db in case of container failure
+kafka - principle of unidirectional message flow

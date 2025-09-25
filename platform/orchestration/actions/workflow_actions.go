@@ -185,14 +185,6 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 	} else {
 		params.Logger.Info("Root orchestration completed. Sending final response to client.")
 
-		/*		originalResponsesTopic := params.ExecutionContext.ResponsesTopic
-				originalRequestID := params.ExecutionContext.RequestID
-				if originalRequestID == "" {
-					params.Logger.Warn("No request_id specified in initial request. Cannot send final client request id.")
-					return map[string]interface{}{"result": finalResult}, nil
-				}
-		*/
-
 		params.Logger.Info("DEBUG finalrequestid: look for __original_request__ key",
 			zap.Any("All of CollectedData", params.CollectedData),
 		)
@@ -258,7 +250,7 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 				},
 				OrchestrationID:            params.ExecutionContext.OrchestrationID,
 				OrchestrationName:          params.ExecutionContext.OrchestrationName,
-				InResponseToRequestID:      params.ExecutionContext.RequestID, // Use original request ID
+				InResponseToRequestID:      originalRequestID, // Use original request ID
 				InResponseToStepID:         params.ExecutionContext.StepID,
 				InResponseToStepName:       params.ExecutionContext.StepName,
 				InResponseToParentOrchID:   params.ExecutionContext.ParentOrchestrationID,
