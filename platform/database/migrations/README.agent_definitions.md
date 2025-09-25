@@ -2143,3 +2143,38 @@ SET default_config = '{
 }
 }'::jsonb
 WHERE type = 'generic' AND is_active = true;
+
+
+--
+trial single calculation with simple role (roles not fully implemented)
+UPDATE agent_definitions
+SET default_config = '{
+"workflow": {
+"start_step": "spawn_calculator",
+"steps": {
+"spawn_calculator": {
+"action": "spawn_agent",
+"config": {
+"agent_type": "calculator",
+"role": "main_calculator"
+},
+"description": "Initialize calculator agent",
+"next_step": "perform_calculation"
+},
+"perform_calculation": {
+"action": "call_agent",
+"config": {
+"agent_type": "calculator",
+"input_field": "calculation"
+},
+"description": "Perform the calculation",
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Complete workflow"
+}
+}
+}
+}'::jsonb
+WHERE type = 'generic' AND is_active = true;
