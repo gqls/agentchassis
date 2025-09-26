@@ -487,6 +487,13 @@ func NewExecutionContext(correlationID, clientID, agentID, agentType string) *Ex
 
 // FromHeaders creates an ExecutionContext from Kafka headers
 func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
+
+	// Debug logging
+	fmt.Print("DEBUG: looking for sender_role in headers\n")
+	if role := headers["sender_role"]; role != "" {
+		fmt.Printf("DEBUG: Found sender_role in headers: %s\n", role)
+	}
+
 	ec := &ExecutionContext{
 		// Core fields
 		CorrelationID:         headers["correlation_id"],
@@ -731,8 +738,6 @@ func FromJSON(data []byte) (*ExecutionContext, error) {
 	}
 	return &ec, nil
 }
-
-// FILE: platform/orchestration/types/context.go (add this method to ResponseHeaders)
 
 // ToMap converts ResponseHeaders to a map for Kafka headers
 func (rh *ResponseHeaders) ToMap() map[string]string {

@@ -672,6 +672,9 @@ func (a *Agent) sendErrorResponse(execCtx *types.ExecutionContext, response *typ
 
 	// Convert headers to map
 	headers := response.Headers.ToMap()
+	p.logger.Info("Sending response with headers",
+		zap.String("sender_role", headers["sender_role"]),
+		zap.Any("all_headers", headers))
 
 	// Use correlation ID as key
 	key := []byte(execCtx.CorrelationID)
@@ -957,7 +960,17 @@ func getErrorStatus(recoverable bool) string {
 func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) error {
 	a.logger.Info("DEBUGaa: SendInitializationResponse agent.go 947",
 		zap.Any("spawnRequest.Headers", spawnRequest.Headers),
+		zap.Any("spawnRequest.Body", spawnRequest.Body),
 	)
+
+	// Extract role if not already set
+	if a.Role == "" {
+		if body, ok := spawnRequest.Body.(map[string]interface{}); ok {
+			if role, ok := body["role"].(string); ok {
+				a.Role = role // Store it!
+			}
+		}
+	}
 
 	response := &types.ResponseMessage{
 		Headers: types.ResponseHeaders{
