@@ -850,3 +850,7 @@ ADD COLUMN agent_id VARCHAR(255);
 ALTER TABLE processed_messages
 ADD CONSTRAINT processed_messages_unique
 UNIQUE (correlation_id, request_id, agent_id);
+
+-- add roles
+ALTER TABLE orchestration_states
+ADD COLUMN owner_agent_role VARCHAR(255) DEFAULT '';
