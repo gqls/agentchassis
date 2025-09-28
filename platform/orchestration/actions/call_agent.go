@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,22 +24,48 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		return nil, fmt.Errorf("agent_type not specified in config")
 	}
 
-	// Get the previously spawned agent
+	// Check if we're looking for a specific role
+	targetRole, hasRole := config["target_role"].(string)
+
 	var targetAgentID string
 
-	// Check spawn_calculator step result
-	spawnKey := fmt.Sprintf("spawn_%s", targetAgentType)
-	if spawnResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
-		targetAgentID, _ = spawnResult["agent_id"].(string)
-		params.Logger.Info("Found spawned agent",
-			zap.String("agent_type", targetAgentType),
-			zap.String("agent_id", targetAgentID),
-			zap.String("DEBUGaa: spawn_key", spawnKey),
-		)
+	if hasRole && targetRole != "" {
+		// NEW: Look for agent by role
+		params.Logger.Info("Looking for agent by role",
+			zap.String("target_role", targetRole))
+
+		// Search through all spawn results for matching role
+		for stepName, stepData := range params.CollectedData {
+			if strings.HasPrefix(stepName, "spawn_") {
+				if spawnResult, ok := stepData.(map[string]interface{}); ok {
+					if role, ok := spawnResult["role"].(string); ok && role == targetRole {
+						targetAgentID, _ = spawnResult["agent_id"].(string)
+						params.Logger.Info("Found agent with matching role",
+							zap.String("role", targetRole),
+							zap.String("agent_id", targetAgentID),
+							zap.String("from_step", stepName))
+						break
+					}
+				}
+			}
+		}
+	} else {
+		// EXISTING: Look by agent type using the spawn key pattern
+		spawnKey := fmt.Sprintf("spawn_%s", targetAgentType)
+		if spawnResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
+			targetAgentID, _ = spawnResult["agent_id"].(string)
+			params.Logger.Info("Found spawned agent by type",
+				zap.String("agent_type", targetAgentType),
+				zap.String("agent_id", targetAgentID),
+				zap.String("spawn_key", spawnKey))
+		}
 	}
 
 	if targetAgentID == "" {
-		return nil, fmt.Errorf("no spawned %s agent found in step %s", targetAgentType, spawnKey)
+		if hasRole {
+			return nil, fmt.Errorf("no agent with role '%s' found", targetRole)
+		}
+		return nil, fmt.Errorf("no spawned %s agent found", targetAgentType)
 	}
 
 	requestID := uuid.New().String()
@@ -443,11 +470,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",    // event_type
-		"orchestration", // entity_type
-		orchestrationID, // entity_id
-		metadataJSON,    // metadata
-		"info",          // severity
+		"AGENT_CALL",        // event_type
+		"orchestration",     // entity_type
+		orchestrationID,     // entity_id
+		metadataJSON,        // metadata
+		"info",              // severity
 		"call_agent_action") // source
 }
 
@@ -500,11 +527,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED", // event_type
-		"request",        // entity_type
-		requestID,        // entity_id
-		metadataJSON,     // metadata
-		"error",          // severity
+		"REQUEST_FAILED",    // event_type
+		"request",           // entity_type
+		requestID,           // entity_id
+		metadataJSON,        // metadata
+		"error",             // severity
 		"call_agent_action") // source
 }
 
@@ -555,10 +582,10 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,    // event_type
-		"agent",      // entity_type
-		agentID,      // entity_id
-		metadataJSON, // metadata
-		"info",       // severity
+		eventType,        // event_type
+		"agent",          // entity_type
+		agentID,          // entity_id
+		metadataJSON,     // metadata
+		"info",           // severity
 		"agent_activity") // source
 }
