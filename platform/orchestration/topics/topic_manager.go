@@ -3,8 +3,10 @@ package topics
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
+	"time"
+
+	"github.com/segmentio/kafka-go"
 )
 
 // GenerateJobTopic creates a unique topic name for a job
@@ -22,40 +24,58 @@ func GenerateJobTopic(correlationID, orchestrationID, stepName string) string {
 	return fmt.Sprintf("job.%s.%s.%s", correlationID, orchestrationID, stepName)
 }
 
-// CreateJobTopic actually creates the topic using kafka-topics.sh
+// CreateJobTopic creates the topic using Kafka admin client
 func CreateJobTopic(brokers []string, topicName string, partitions int) error {
 	if len(brokers) == 0 {
 		return fmt.Errorf("no brokers provided")
 	}
 
-	// Use the first broker
-	//broker := brokers[0]
-
-	// Create the topic using kafka-topics.sh via kubectl
-	cmd := exec.Command("kubectl", "-n", "kafka", "exec", "-i",
-		"personae-kafka-cluster-combined-pool-prod-0", "--",
-		"/opt/kafka/bin/kafka-topics.sh",
-		"--bootstrap-server", "localhost:9092",
-		"--create",
-		"--topic", topicName,
-		"--partitions", fmt.Sprintf("%d", partitions),
-		"--replication-factor", "1",
-		"--if-not-exists")
-
-	output, err := cmd.CombinedOutput()
+	// Create a connection to the Kafka cluster
+	conn, err := kafka.Dial("tcp", brokers[0])
 	if err != nil {
-		// Check if it's because the topic already exists
-		if strings.Contains(string(output), "already exists") {
-			return nil // Topic exists, that's fine
-		}
-		return fmt.Errorf("failed to create topic %s: %v - output: %s", topicName, err, string(output))
+		return fmt.Errorf("failed to dial kafka: %w", err)
 	}
+	defer conn.Close()
+
+	// Get controller
+	controller, err := conn.Controller()
+	if err != nil {
+		return fmt.Errorf("failed to get controller: %w", err)
+	}
+
+	// Connect to controller
+	controllerConn, err := kafka.Dial("tcp", fmt.Sprintf("%s:%d", controller.Host, controller.Port))
+	if err != nil {
+		return fmt.Errorf("failed to dial controller: %w", err)
+	}
+	defer controllerConn.Close()
+
+	// Create topic
+	topicConfigs := []kafka.TopicConfig{
+		{
+			Topic:             topicName,
+			NumPartitions:     partitions,
+			ReplicationFactor: 1,
+		},
+	}
+
+	err = controllerConn.CreateTopics(topicConfigs...)
+	if err != nil {
+		// Ignore "already exists" errors
+		if strings.Contains(err.Error(), "already exists") {
+			return nil
+		}
+		return fmt.Errorf("failed to create topic %s: %w", topicName, err)
+	}
+
+	// Give Kafka a moment to propagate the topic
+	time.Sleep(100 * time.Millisecond)
 
 	return nil
 }
 
 func sanitizeTopicPart(s string) string {
-	// Replace spaces with hyphens, remove other special chars
+	// Replace spaces and underscores with hyphens
 	s = strings.ReplaceAll(s, " ", "-")
 	s = strings.ReplaceAll(s, "_", "-")
 

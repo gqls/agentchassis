@@ -156,7 +156,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	kafkaBrokers := strings.Split(os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS"), ",")
 	if len(kafkaBrokers) == 0 || kafkaBrokers[0] == "" {
 		// Try to get from database config if available
-		kafkaBrokers = []string{"personae-kafka-cluster-kafka-bootstrap:9092"}
+		kafkaBrokers = []string{"personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"}
 	}
 
 	if err := topics.CreateJobTopic(kafkaBrokers, jobTopic, 2); err != nil {
@@ -1338,13 +1338,6 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 	// Build topic name
 	processTopic := strings.ReplaceAll(topics.Process, "{type}", agentDef.Type)
 
-	// For orchestrator agents, they need to listen to responses too
-	kafkaTopics := processTopic
-	if agentDef.Category == "orchestrator" || agentDef.Type == "website-builder" {
-		responsesTopic := strings.ReplaceAll(topics.Response, "{type}", agentDef.Type)
-		kafkaTopics = fmt.Sprintf("%s,%s", processTopic, responsesTopic)
-	}
-
 	// Build environment variables
 	envList := []corev1.EnvVar{
 		// Core configuration
@@ -1354,7 +1347,6 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 
 		// Dynamic topic configuration
 		{Name: "KAFKA_TOPIC", Value: processTopic},
-		{Name: "KAFKA_TOPICS", Value: kafkaTopics},
 		{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentDef.Type, agentID[:8])},
 
 		// Health server ports
@@ -1396,8 +1388,7 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 
 	// Add infrastructure configuration from orchestrator environment
 	envList = append(envList, []corev1.EnvVar{
-		{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentDef.Type, agentID[:8])},
-		{Name: "SERVICE_INFRASTRUCTURE_KAFKA_BROKERS", Value: os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS")},
+		{Name: "SERVICE_INFRASTRUCTURE_KAFKA_BROKERS", Value: os.Getenv("KAFKA_BROKERS")},
 		{Name: "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST", Value: os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST")},
 		{Name: "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT", Value: os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT")},
 		{Name: "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER", Value: os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER")},

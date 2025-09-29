@@ -28,36 +28,34 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	targetRole, hasRole := config["target_role"].(string)
 
 	var targetAgentID string
+	var jobTopic string
 
 	if hasRole && targetRole != "" {
-		// NEW: Look for agent by role
 		params.Logger.Info("Looking for agent by role",
 			zap.String("target_role", targetRole))
 
-		// Search through all spawn results for matching role
+		// Search through spawn results for matching role
 		for stepName, stepData := range params.CollectedData {
-			if strings.HasPrefix(stepName, "spawn_") {
-				if spawnResult, ok := stepData.(map[string]interface{}); ok {
-					if role, ok := spawnResult["role"].(string); ok && role == targetRole {
-						targetAgentID, _ = spawnResult["agent_id"].(string)
-						params.Logger.Info("Found agent with matching role",
-							zap.String("role", targetRole),
-							zap.String("agent_id", targetAgentID),
-							zap.String("from_step", stepName))
-						break
-					}
+			if spawnResult, ok := stepData.(map[string]interface{}); ok {
+				// Check both the role field and the step name
+				if role, ok := spawnResult["role"].(string); ok && role == targetRole {
+					targetAgentID, _ = spawnResult["agent_id"].(string)
+					jobTopic, _ = spawnResult["job_topic"].(string)
+					params.Logger.Info("Found agent with matching role",
+						zap.String("role", targetRole),
+						zap.String("agent_id", targetAgentID),
+						zap.String("job_topic", jobTopic),
+						zap.String("from_step", stepName))
+					break
 				}
 			}
 		}
 	} else {
-		// EXISTING: Look by agent type using the spawn key pattern
+		// Look by agent type
 		spawnKey := fmt.Sprintf("spawn_%s", targetAgentType)
 		if spawnResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
 			targetAgentID, _ = spawnResult["agent_id"].(string)
-			params.Logger.Info("Found spawned agent by type",
-				zap.String("agent_type", targetAgentType),
-				zap.String("agent_id", targetAgentID),
-				zap.String("spawn_key", spawnKey))
+			jobTopic, _ = spawnResult["job_topic"].(string)
 		}
 	}
 
@@ -68,7 +66,6 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		return nil, fmt.Errorf("no spawned %s agent found", targetAgentType)
 	}
 
-	var jobTopic string
 	if hasRole && targetRole != "" {
 		jobTopic = findJobTopicForRole(params, targetRole)
 	} else {
@@ -91,6 +88,10 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		targetTopic = fmt.Sprintf("system.agent.%s.requests", targetAgentType)
 		params.Logger.Warn("No job topic found, using standard topic",
 			zap.String("standard_topic", targetTopic))
+	} else {
+		params.Logger.Info("Using job-specific topic",
+			zap.String("job_topic", targetTopic),
+			zap.String("target_agent", targetAgentID))
 	}
 
 	requestID := uuid.New().String()
@@ -126,32 +127,42 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	// Extract the specific data for this field
+	// The data should come from what was passed to THIS orchestrator
 	var dataToSend interface{}
 
-	// First try to get the specific field from input_data
+	// First, check if there's input_data in CollectedData
 	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
 		if inputField != "input_data" {
 			// Looking for a specific field like "first_calc" or "second_calc"
 			if fieldData, exists := inputData[inputField]; exists {
 				dataToSend = fieldData
-				params.Logger.Info("Found specific field data",
+				params.Logger.Info("Found field in collected input_data",
 					zap.String("field", inputField),
 					zap.Any("data", dataToSend))
 			}
 		} else {
-			// Use all input_data
 			dataToSend = inputData
 		}
 	}
 
-	// If not found at input_data level, try top level of CollectedData
-	if dataToSend == nil && inputField != "input_data" {
-		if fieldData, exists := params.CollectedData[inputField]; exists {
-			dataToSend = fieldData
-			params.Logger.Info("Found field at CollectedData level",
-				zap.String("field", inputField))
+	// If not found, check the initial request data
+	if dataToSend == nil {
+		// This orchestrator was started with some initial data
+		if initialData, ok := params.CollectedData["InitialRequestData"].(map[string]interface{}); ok {
+			// Try to find in the nested structure
+			if inputField != "input_data" {
+				// Look for the specific field
+				if fieldData, exists := initialData[inputField]; exists {
+					dataToSend = fieldData
+				}
+			}
 		}
 	}
+
+	params.Logger.Info("CallAgentAction data extraction",
+		zap.String("requested_field", inputField),
+		zap.Any("data_found", dataToSend),
+		zap.Any("all_collected_keys", GetMapKeys(params.CollectedData)))
 
 	// Default to all input_data if we haven't found anything
 	if dataToSend == nil {
@@ -493,11 +504,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -550,11 +561,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -605,11 +616,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
 
