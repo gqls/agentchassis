@@ -1342,7 +1342,6 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		{Name: "AGENT_TYPE", Value: agentDef.Type},
 		{Name: "AGENT_ID", Value: agentID},
 		{Name: "CLIENT_ID", Value: clientID},
-		{Name: "JOB_TOPIC", Value: jobTopic},
 
 		// Dynamic topic configuration
 		{Name: "KAFKA_TOPIC", Value: processTopic},
@@ -1365,8 +1364,30 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		})
 	}
 
+	// Determine topic strategy based on agent category
+	if agentDef.Category == "orchestrator" {
+		// Orchestrators can work in both modes
+		if jobTopic != "" {
+			// Job-specific orchestrator
+			envList = append(envList, corev1.EnvVar{Name: "JOB_TOPIC", Value: jobTopic})
+		}
+		// Also set standard topics for fallback
+		processTopic := strings.ReplaceAll(topics.Process, "{type}", agentDef.Type)
+		responsesTopic := strings.ReplaceAll(topics.Response, "{type}", agentDef.Type)
+		envList = append(envList,
+			corev1.EnvVar{Name: "KAFKA_TOPIC", Value: processTopic},
+			corev1.EnvVar{Name: "KAFKA_TOPICS", Value: fmt.Sprintf("%s,%s", processTopic, responsesTopic)},
+		)
+	} else {
+		// Worker agents always use job topic
+		envList = append(envList, corev1.EnvVar{Name: "JOB_TOPIC", Value: jobTopic})
+		// Set KAFKA_TOPIC for compatibility
+		envList = append(envList, corev1.EnvVar{Name: "KAFKA_TOPIC", Value: jobTopic})
+	}
+
 	// Add infrastructure configuration from orchestrator environment
 	envList = append(envList, []corev1.EnvVar{
+		{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentDef.Type, agentID[:8])},
 		{Name: "SERVICE_INFRASTRUCTURE_KAFKA_BROKERS", Value: os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS")},
 		{Name: "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST", Value: os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST")},
 		{Name: "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT", Value: os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT")},
@@ -1529,13 +1550,6 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 			},
 		}...)
 	}
-
-	/*dbURL := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable",
-	os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER"),
-	os.Getenv("CLIENTS_DB_PASSWORD"),
-	os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST"),
-	os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT"),
-	os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME"))*/
 
 	// fixme hardcoded values
 	// Read the config from the mounted ConfigMap

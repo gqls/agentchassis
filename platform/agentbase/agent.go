@@ -361,7 +361,7 @@ func (a *Agent) setupConsumers() error {
 
 	a.logger.Info("setupConsumers in agent.go")
 
-	// Check for job-specific topic
+	// Check for job-specific topic, determine which topic to listen on
 	jobTopic := os.Getenv("JOB_TOPIC")
 	var requestsTopic string
 	var requestConsumerGroup string
@@ -370,16 +370,21 @@ func (a *Agent) setupConsumers() error {
 		// Job-specific mode
 		requestsTopic = jobTopic
 		requestConsumerGroup = a.AgentID // Unique per agent
-		a.logger.Info("Using job-specific topic",
-			zap.String("topic", jobTopic))
+		a.logger.Info("Agent listening on job-specific topic",
+			zap.String("job_topic", jobTopic),
+			zap.String("consumer_group", requestConsumerGroup))
 	} else {
 		// Legacy mode
 		requestsTopic = a.requestsTopic
 		requestConsumerGroup = fmt.Sprintf("%s-request-consumers", a.AgentType)
+		a.logger.Info("Agent listening on standard topic",
+			zap.String("requests_topic", requestsTopic),
+			zap.String("consumer_group", requestConsumerGroup))
 	}
 
 	// Consumer group naming for stateless operation
 	// requestConsumerGroup := fmt.Sprintf("%s-request-consumers", a.AgentType)
+	// Response consumer always uses standard topic
 	responseConsumerGroup := fmt.Sprintf("%s-response-consumers", a.AgentType)
 
 	// Create request consumer (ALL agents need this)

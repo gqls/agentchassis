@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
-	"github.com/gqls/agentchassis/platform/orchestration/topics"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
@@ -70,41 +69,19 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	var jobTopic string
-
-	// Search for job topic in spawn data
-	for stepName, stepData := range params.CollectedData {
-		if strings.HasPrefix(stepName, "spawn_") {
-			if spawnResult, ok := stepData.(map[string]interface{}); ok {
-				if (hasRole && spawnResult["role"] == targetRole) ||
-					(!hasRole && spawnResult["agent_id"] == targetAgentID) {
-					jobTopic, _ = spawnResult["job_topic"].(string)
-					break
-				}
-			}
-		}
-	}
-
-	// Fallback: generate deterministic topic name
-	if jobTopic == "" {
-		// Find which spawn step created this role/type
-		spawnStepName := ""
+	if hasRole && targetRole != "" {
+		jobTopic = findJobTopicForRole(params, targetRole)
+	} else {
+		// Find by agent type/ID
 		for stepName, stepData := range params.CollectedData {
 			if strings.HasPrefix(stepName, "spawn_") {
 				if spawnResult, ok := stepData.(map[string]interface{}); ok {
-					if spawnResult["role"] == targetRole ||
-						spawnResult["agent_type"] == targetAgentType {
-						spawnStepName = stepName
+					if agentID, ok := spawnResult["agent_id"].(string); ok && agentID == targetAgentID {
+						jobTopic, _ = spawnResult["job_topic"].(string)
 						break
 					}
 				}
 			}
-		}
-
-		if spawnStepName != "" {
-			jobTopic = topics.GenerateJobTopic(
-				params.ExecutionContext.CorrelationID,
-				params.ExecutionContext.OrchestrationID,
-				spawnStepName)
 		}
 	}
 
@@ -112,6 +89,8 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	targetTopic := jobTopic
 	if targetTopic == "" {
 		targetTopic = fmt.Sprintf("system.agent.%s.requests", targetAgentType)
+		params.Logger.Warn("No job topic found, using standard topic",
+			zap.String("standard_topic", targetTopic))
 	}
 
 	requestID := uuid.New().String()
@@ -632,4 +611,25 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
 		metadataJSON,     // metadata
 		"info",           // severity
 		"agent_activity") // source
+}
+
+func findJobTopicForRole(params ActionParams, targetRole string) string {
+	// Search through all spawn results for matching role
+	for stepName, stepData := range params.CollectedData {
+		if strings.HasPrefix(stepName, "spawn_") {
+			if spawnResult, ok := stepData.(map[string]interface{}); ok {
+				// Check if this spawn result matches our target role
+				if role, ok := spawnResult["role"].(string); ok && role == targetRole {
+					if jobTopic, ok := spawnResult["job_topic"].(string); ok && jobTopic != "" {
+						params.Logger.Info("Found job topic for role",
+							zap.String("role", targetRole),
+							zap.String("job_topic", jobTopic),
+							zap.String("from_step", stepName))
+						return jobTopic
+					}
+				}
+			}
+		}
+	}
+	return ""
 }
