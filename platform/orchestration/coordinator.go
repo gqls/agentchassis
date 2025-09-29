@@ -751,6 +751,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		Producer:         s.producer,
 		DB:               s.db,
 		Tracer:           s.tracer,
+		CurrentStep:      state.CurrentStep,
 	}
 
 	// Execute action
