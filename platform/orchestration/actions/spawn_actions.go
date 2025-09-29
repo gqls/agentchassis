@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/discovery"
+	"github.com/gqls/agentchassis/platform/orchestration/topics"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -138,8 +139,26 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	params.Logger.Info("Created agent in database",
 		zap.String("agent_id", agentID))
 
+	jobTopic := topics.GenerateJobTopic(
+		params.ExecutionContext.CorrelationID,
+		params.ExecutionContext.OrchestrationID,
+		params.CurrentStep)
+
+	kafkaBrokers := strings.Split(os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS"), ",")
+	if len(kafkaBrokers) == 0 || kafkaBrokers[0] == "" {
+		// Try to get from database config if available
+		kafkaBrokers = []string{"personae-kafka-cluster-kafka-bootstrap:9092"}
+	}
+
+	if err := topics.CreateJobTopic(kafkaBrokers, jobTopic, 2); err != nil {
+		params.Logger.Warn("Failed to create job topic (may already exist)",
+			zap.String("topic", jobTopic),
+			zap.Error(err))
+		// Don't fail - topic might already exist from a retry
+	}
+
 	// Always spawn K8s job
-	jobName, err := spawnAgentKubernetesJobFromDefinition(ctx, agentID, agentDef, clientID, params.Logger)
+	jobName, err := spawnAgentKubernetesJobFromDefinition(ctx, agentID, agentDef, clientID, jobTopic, params.Logger)
 	if err != nil {
 		params.Logger.Error("Failed to spawn K8s job",
 			zap.String("agent_id", agentID),
@@ -275,7 +294,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	)
 
 	// Send spawn message to agent's request topic
-	targetTopic := fmt.Sprintf("system.agent.%s.requests", agentType)
+	//targetTopic := fmt.Sprintf("system.agent.%s.requests", agentType)
+	targetTopic := jobTopic
 
 	messageBytes, err := json.Marshal(spawnMessage)
 	if err != nil {
@@ -298,6 +318,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		"agent_type":        agentType,
 		"status":            "initialized",
 		"role":              role,
+		"job_topic":         jobTopic,
 		"request_id":        requestID,
 		"await_response":    true,
 		"target_agent_type": agentType,
@@ -307,6 +328,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			"agent_id":   agentID,
 			"agent_type": agentType,
 			"role":       role,
+			"job_topic":  jobTopic,
 			"topics": map[string]string{
 				"requests":  fmt.Sprintf("system.agent.%s.requests", agentType),
 				"responses": fmt.Sprintf("system.agent.%s.responses", agentType),
@@ -1249,7 +1271,7 @@ func createAgentInDBFromDefinition(ctx context.Context, params ActionParams, age
 }
 
 // spawnAgentKubernetesJobFromDefinition spawns job using database definition
-func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, agentDef *AgentDefinition, clientID string, logger *zap.Logger) (string, error) {
+func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, agentDef *AgentDefinition, clientID, jobTopic string, logger *zap.Logger) (string, error) {
 	logger.Info("In spawnAgentKubernetesJobFromDefinition")
 
 	current, caller := getFuncInfo(1)
@@ -1320,6 +1342,7 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		{Name: "AGENT_TYPE", Value: agentDef.Type},
 		{Name: "AGENT_ID", Value: agentID},
 		{Name: "CLIENT_ID", Value: clientID},
+		{Name: "JOB_TOPIC", Value: jobTopic},
 
 		// Dynamic topic configuration
 		{Name: "KAFKA_TOPIC", Value: processTopic},

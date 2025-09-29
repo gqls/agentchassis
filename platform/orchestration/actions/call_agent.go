@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/topics"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
@@ -66,6 +67,51 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 			return nil, fmt.Errorf("no agent with role '%s' found", targetRole)
 		}
 		return nil, fmt.Errorf("no spawned %s agent found", targetAgentType)
+	}
+
+	var jobTopic string
+
+	// Search for job topic in spawn data
+	for stepName, stepData := range params.CollectedData {
+		if strings.HasPrefix(stepName, "spawn_") {
+			if spawnResult, ok := stepData.(map[string]interface{}); ok {
+				if (hasRole && spawnResult["role"] == targetRole) ||
+					(!hasRole && spawnResult["agent_id"] == targetAgentID) {
+					jobTopic, _ = spawnResult["job_topic"].(string)
+					break
+				}
+			}
+		}
+	}
+
+	// Fallback: generate deterministic topic name
+	if jobTopic == "" {
+		// Find which spawn step created this role/type
+		spawnStepName := ""
+		for stepName, stepData := range params.CollectedData {
+			if strings.HasPrefix(stepName, "spawn_") {
+				if spawnResult, ok := stepData.(map[string]interface{}); ok {
+					if spawnResult["role"] == targetRole ||
+						spawnResult["agent_type"] == targetAgentType {
+						spawnStepName = stepName
+						break
+					}
+				}
+			}
+		}
+
+		if spawnStepName != "" {
+			jobTopic = topics.GenerateJobTopic(
+				params.ExecutionContext.CorrelationID,
+				params.ExecutionContext.OrchestrationID,
+				spawnStepName)
+		}
+	}
+
+	// Use job topic if found, otherwise fallback to standard
+	targetTopic := jobTopic
+	if targetTopic == "" {
+		targetTopic = fmt.Sprintf("system.agent.%s.requests", targetAgentType)
 	}
 
 	requestID := uuid.New().String()
@@ -217,8 +263,6 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.String("orchestration id is child orchestration id", actionRequest.Headers.OrchestrationID),
 	)
 
-	// Send to target's requests topic
-	targetTopic := fmt.Sprintf("system.agent.%s.requests", targetAgentType)
 	msgBytes, err := json.Marshal(actionRequest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)

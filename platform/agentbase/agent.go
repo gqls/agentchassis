@@ -361,14 +361,31 @@ func (a *Agent) setupConsumers() error {
 
 	a.logger.Info("setupConsumers in agent.go")
 
+	// Check for job-specific topic
+	jobTopic := os.Getenv("JOB_TOPIC")
+	var requestsTopic string
+	var requestConsumerGroup string
+
+	if jobTopic != "" {
+		// Job-specific mode
+		requestsTopic = jobTopic
+		requestConsumerGroup = a.AgentID // Unique per agent
+		a.logger.Info("Using job-specific topic",
+			zap.String("topic", jobTopic))
+	} else {
+		// Legacy mode
+		requestsTopic = a.requestsTopic
+		requestConsumerGroup = fmt.Sprintf("%s-request-consumers", a.AgentType)
+	}
+
 	// Consumer group naming for stateless operation
-	requestConsumerGroup := fmt.Sprintf("%s-request-consumers", a.AgentType)
+	// requestConsumerGroup := fmt.Sprintf("%s-request-consumers", a.AgentType)
 	responseConsumerGroup := fmt.Sprintf("%s-response-consumers", a.AgentType)
 
 	// Create request consumer (ALL agents need this)
 	requestConsumer, err := kafka.NewConsumer(
 		a.config.KafkaBrokers,
-		a.requestsTopic,
+		requestsTopic,
 		requestConsumerGroup,
 		a.logger,
 	)
@@ -672,7 +689,7 @@ func (a *Agent) sendErrorResponse(execCtx *types.ExecutionContext, response *typ
 
 	// Convert headers to map
 	headers := response.Headers.ToMap()
-	p.logger.Info("Sending response with headers",
+	a.logger.Info("Sending response with headers",
 		zap.String("sender_role", headers["sender_role"]),
 		zap.Any("all_headers", headers))
 
