@@ -757,7 +757,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// Execute action
 	result, err := handler(ctx, params)
 	if err != nil {
-		contextLogger.Error("Local action failed", zap.Error(err), zap.Any("params", params))
+		contextLogger.Error("Local action failed in executeLocalAction", zap.Error(err), zap.Any("params", params))
 		return fmt.Errorf("local action failed: %w", err)
 	}
 

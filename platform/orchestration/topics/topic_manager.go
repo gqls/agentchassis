@@ -3,46 +3,74 @@ package topics
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 )
 
 // GenerateJobTopic creates a unique topic name for a job
 func GenerateJobTopic(correlationID, orchestrationID, stepName string) string {
-	// Sanitize the IDs to be Kafka-topic safe
-	correlationID = sanitizeTopicPart(correlationID)
-	orchestrationID = sanitizeTopicPart(orchestrationID)
+	// Take first 8 chars for brevity
+	if len(correlationID) > 8 {
+		correlationID = correlationID[:8]
+	}
+	if len(orchestrationID) > 8 {
+		orchestrationID = orchestrationID[:8]
+	}
+
 	stepName = sanitizeTopicPart(stepName)
 
 	return fmt.Sprintf("job.%s.%s.%s", correlationID, orchestrationID, stepName)
 }
 
-// CreateJobTopic creates the topic - simplified version using existing Kafka setup
+// CreateJobTopic actually creates the topic using kafka-topics.sh
 func CreateJobTopic(brokers []string, topicName string, partitions int) error {
-	// For now, topics are auto-created when first used
-	// If you need explicit creation, you'll need to implement using your Kafka client
-	// or shell out to kafka-topics.sh
+	if len(brokers) == 0 {
+		return fmt.Errorf("no brokers provided")
+	}
+
+	// Use the first broker
+	//broker := brokers[0]
+
+	// Create the topic using kafka-topics.sh via kubectl
+	cmd := exec.Command("kubectl", "-n", "kafka", "exec", "-i",
+		"personae-kafka-cluster-combined-pool-prod-0", "--",
+		"/opt/kafka/bin/kafka-topics.sh",
+		"--bootstrap-server", "localhost:9092",
+		"--create",
+		"--topic", topicName,
+		"--partitions", fmt.Sprintf("%d", partitions),
+		"--replication-factor", "1",
+		"--if-not-exists")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Check if it's because the topic already exists
+		if strings.Contains(string(output), "already exists") {
+			return nil // Topic exists, that's fine
+		}
+		return fmt.Errorf("failed to create topic %s: %v - output: %s", topicName, err, string(output))
+	}
+
 	return nil
 }
 
-// sanitizeTopicPart makes a string safe for use in Kafka topic names
 func sanitizeTopicPart(s string) string {
-	// Kafka topic names can contain alphanumeric, '.', '_', and '-'
-	// Replace any other characters with '_'
+	// Replace spaces with hyphens, remove other special chars
+	s = strings.ReplaceAll(s, " ", "-")
+	s = strings.ReplaceAll(s, "_", "-")
+
 	var result strings.Builder
 	for _, r := range s {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
-			(r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-' {
+			(r >= '0' && r <= '9') || r == '-' {
 			result.WriteRune(r)
-		} else {
-			result.WriteRune('_')
 		}
 	}
 
-	// Limit length to prevent overly long topic names
 	output := result.String()
-	if len(output) > 50 {
-		output = output[:50]
+	if len(output) > 30 {
+		output = output[:30]
 	}
 
-	return output
+	return strings.ToLower(output)
 }
