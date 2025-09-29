@@ -139,10 +139,19 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	params.Logger.Info("Created agent in database",
 		zap.String("agent_id", agentID))
 
+	// Get the actual step name
+	stepName := params.ExecutionContext.StepName
+	if stepName == "" {
+		stepName = "spawn_agent" // fallback
+	}
+
 	jobTopic := topics.GenerateJobTopic(
 		params.ExecutionContext.CorrelationID,
 		params.ExecutionContext.OrchestrationID,
-		params.CurrentStep)
+		stepName)
+
+	params.Logger.Info("Topic generated in SpawnAgentAction",
+		zap.String("jobTopic", jobTopic))
 
 	kafkaBrokers := strings.Split(os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS"), ",")
 	if len(kafkaBrokers) == 0 || kafkaBrokers[0] == "" {
