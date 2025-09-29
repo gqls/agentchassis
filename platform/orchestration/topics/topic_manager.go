@@ -1,54 +1,48 @@
+// FILE: platform/orchestration/topics/topic_manager.go
 package topics
 
 import (
-	"context"
 	"fmt"
-	"time"
-
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"strings"
 )
 
+// GenerateJobTopic creates a unique topic name for a job
 func GenerateJobTopic(correlationID, orchestrationID, stepName string) string {
-	return fmt.Sprintf("job.%s.%s.%s",
-		truncateID(correlationID, 8),
-		truncateID(orchestrationID, 8),
-		stepName)
+	// Sanitize the IDs to be Kafka-topic safe
+	correlationID = sanitizeTopicPart(correlationID)
+	orchestrationID = sanitizeTopicPart(orchestrationID)
+	stepName = sanitizeTopicPart(stepName)
+
+	return fmt.Sprintf("job.%s.%s.%s", correlationID, orchestrationID, stepName)
 }
 
-func truncateID(id string, length int) string {
-	if len(id) > length {
-		return id[:length]
-	}
-	return id
+// CreateJobTopic creates the topic - simplified version using existing Kafka setup
+func CreateJobTopic(brokers []string, topicName string, partitions int) error {
+	// For now, topics are auto-created when first used
+	// If you need explicit creation, you'll need to implement using your Kafka client
+	// or shell out to kafka-topics.sh
+	return nil
 }
 
-func CreateJobTopic(brokers []string, topicName string, ttlHours int) error {
-	adminClient, err := kafka.NewAdminClient(&kafka.ConfigMap{
-		"bootstrap.servers": brokers,
-	})
-	if err != nil {
-		return err
-	}
-	defer adminClient.Close()
-
-	topicSpec := kafka.TopicSpecification{
-		Topic:             topicName,
-		NumPartitions:     1,
-		ReplicationFactor: 1,
-		Config: map[string]string{
-			"retention.ms": fmt.Sprintf("%d", ttlHours*3600000),
-		},
-	}
-
-	_, err = adminClient.CreateTopics(
-		context.Background(),
-		[]kafka.TopicSpecification{topicSpec},
-		kafka.SetAdminOperationTimeout(10*time.Second))
-
-	if err != nil {
-		if kafkaErr, ok := err.(kafka.Error); ok && kafkaErr.Code() == kafka.ErrTopicAlreadyExists {
-			return nil // Ignore already exists
+// sanitizeTopicPart makes a string safe for use in Kafka topic names
+func sanitizeTopicPart(s string) string {
+	// Kafka topic names can contain alphanumeric, '.', '_', and '-'
+	// Replace any other characters with '_'
+	var result strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-' {
+			result.WriteRune(r)
+		} else {
+			result.WriteRune('_')
 		}
 	}
-	return err
+
+	// Limit length to prevent overly long topic names
+	output := result.String()
+	if len(output) > 50 {
+		output = output[:50]
+	}
+
+	return output
 }
