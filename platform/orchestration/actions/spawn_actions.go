@@ -145,13 +145,20 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		stepName = "spawn_agent" // fallback
 	}
 
-	jobTopic := topics.GenerateJobTopic(
+	jobRequestsTopic := fmt.Sprintf("%s.requests", topics.GenerateJobTopic(
 		params.ExecutionContext.CorrelationID,
 		params.ExecutionContext.OrchestrationID,
-		stepName)
+		stepName))
+
+	jobResponsesTopic := fmt.Sprintf("%s.responses", topics.GenerateJobTopic(
+		params.ExecutionContext.CorrelationID,
+		params.ExecutionContext.OrchestrationID,
+		stepName))
 
 	params.Logger.Info("Topic generated in SpawnAgentAction",
-		zap.String("jobTopic", jobTopic))
+		zap.String("jobResponseTopic", jobResponsesTopic),
+		zap.String("jobRequestTopic", jobRequestsTopic),
+	)
 
 	kafkaBrokers := strings.Split(os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS"), ",")
 	if len(kafkaBrokers) == 0 || kafkaBrokers[0] == "" {
@@ -159,15 +166,22 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		kafkaBrokers = []string{"personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"}
 	}
 
-	if err := topics.CreateJobTopic(kafkaBrokers, jobTopic, 2); err != nil {
-		params.Logger.Warn("Failed to create job topic (may already exist)",
-			zap.String("topic", jobTopic),
+	if err := topics.CreateJobTopic(kafkaBrokers, jobRequestsTopic, 2); err != nil {
+		params.Logger.Warn("Failed to create job requests topic (may already exist)",
+			zap.String("topic", jobRequestsTopic),
+			zap.Error(err))
+		// Don't fail - topic might already exist from a retry
+	}
+
+	if err := topics.CreateJobTopic(kafkaBrokers, jobResponsesTopic, 2); err != nil {
+		params.Logger.Warn("Failed to create job responses topic (may already exist)",
+			zap.String("topic", jobResponsesTopic),
 			zap.Error(err))
 		// Don't fail - topic might already exist from a retry
 	}
 
 	// Always spawn K8s job
-	jobName, err := spawnAgentKubernetesJobFromDefinition(ctx, agentID, agentDef, clientID, jobTopic, params.Logger)
+	jobName, err := spawnAgentKubernetesJobFromDefinition(ctx, agentID, agentDef, clientID, jobRequestsTopic, jobResponsesTopic, params.Logger)
 	if err != nil {
 		params.Logger.Error("Failed to spawn K8s job",
 			zap.String("agent_id", agentID),
@@ -287,7 +301,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			Timestamp:             time.Now(),
 			FuelBudget:            params.ExecutionContext.FuelBudget - 100,
 			TimeoutSeconds:        30,
-			ResponsesTopic:        fmt.Sprintf("system.agent.%s.responses", senderAgentType),
+			ResponsesTopic:        jobResponsesTopic,
 		},
 		Body: map[string]interface{}{
 			// Always wrap the payload in the standard key
@@ -304,7 +318,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	// Send spawn message to agent's request topic
 	//targetTopic := fmt.Sprintf("system.agent.%s.requests", agentType)
-	targetTopic := jobTopic
+	targetTopic := jobRequestsTopic
 
 	messageBytes, err := json.Marshal(spawnMessage)
 	if err != nil {
@@ -327,7 +341,6 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		"agent_type":        agentType,
 		"status":            "initialized",
 		"role":              role,
-		"job_topic":         jobTopic,
 		"request_id":        requestID,
 		"await_response":    true,
 		"target_agent_type": agentType,
@@ -337,10 +350,9 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			"agent_id":   agentID,
 			"agent_type": agentType,
 			"role":       role,
-			"job_topic":  jobTopic,
 			"topics": map[string]string{
-				"requests":  fmt.Sprintf("system.agent.%s.requests", agentType),
-				"responses": fmt.Sprintf("system.agent.%s.responses", agentType),
+				"requests":  jobRequestsTopic,
+				"responses": jobResponsesTopic,
 			},
 		},
 	}, nil
@@ -1280,7 +1292,7 @@ func createAgentInDBFromDefinition(ctx context.Context, params ActionParams, age
 }
 
 // spawnAgentKubernetesJobFromDefinition spawns job using database definition
-func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, agentDef *AgentDefinition, clientID, jobTopic string, logger *zap.Logger) (string, error) {
+func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, agentDef *AgentDefinition, clientID, jobRequestsTopic, jobResponsesTopic string, logger *zap.Logger) (string, error) {
 	logger.Info("In spawnAgentKubernetesJobFromDefinition")
 
 	current, caller := getFuncInfo(1)
@@ -1333,10 +1345,10 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 	envVars := parseEnvVars(agentDef.EnvVars)
 
 	// Parse topics from json.RawMessage
-	topics := parseTopicConfig(agentDef.Topics)
+	// topics := parseTopicConfig(agentDef.Topics)
 
 	// Build topic name
-	processTopic := strings.ReplaceAll(topics.Process, "{type}", agentDef.Type)
+	//processTopic := strings.ReplaceAll(topics.Process, "{type}", agentDef.Type)
 
 	// Build environment variables
 	envList := []corev1.EnvVar{
@@ -1346,7 +1358,10 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		{Name: "CLIENT_ID", Value: clientID},
 
 		// Dynamic topic configuration
-		{Name: "KAFKA_TOPIC", Value: processTopic},
+		{Name: "KAFKA_TOPIC", Value: jobRequestsTopic},     // legacy?
+		{Name: "KAFKA_TOPICS", Value: jobRequestsTopic},    // what to listen to
+		{Name: "JOB_TOPIC", Value: jobRequestsTopic},       // Primary listening topic
+		{Name: "RESPONSE_TOPIC", Value: jobResponsesTopic}, // Where to send responses
 		{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentDef.Type, agentID[:8])},
 
 		// Health server ports
@@ -1363,27 +1378,6 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 			Name:  envVar.Name,
 			Value: envVar.Value,
 		})
-	}
-
-	// Determine topic strategy based on agent category
-	if agentDef.Category == "orchestrator" {
-		// Orchestrators can work in both modes
-		if jobTopic != "" {
-			// Job-specific orchestrator
-			envList = append(envList, corev1.EnvVar{Name: "JOB_TOPIC", Value: jobTopic})
-		}
-		// Also set standard topics for fallback
-		processTopic := strings.ReplaceAll(topics.Process, "{type}", agentDef.Type)
-		responsesTopic := strings.ReplaceAll(topics.Response, "{type}", agentDef.Type)
-		envList = append(envList,
-			corev1.EnvVar{Name: "KAFKA_TOPIC", Value: processTopic},
-			corev1.EnvVar{Name: "KAFKA_TOPICS", Value: fmt.Sprintf("%s,%s", processTopic, responsesTopic)},
-		)
-	} else {
-		// Worker agents always use job topic
-		envList = append(envList, corev1.EnvVar{Name: "JOB_TOPIC", Value: jobTopic})
-		// Set KAFKA_TOPIC for compatibility
-		envList = append(envList, corev1.EnvVar{Name: "KAFKA_TOPIC", Value: jobTopic})
 	}
 
 	// Add infrastructure configuration from orchestrator environment

@@ -130,6 +130,11 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	// The data should come from what was passed to THIS orchestrator
 	var dataToSend interface{}
 
+	params.Logger.Info("DEBUG: CallAgentAction CollectedData contents",
+		zap.Any("all_keys", getMapKeys(params.CollectedData)),
+		zap.Any("has_input_data", params.CollectedData["input_data"] != nil),
+		zap.Any("has_initial_request", params.CollectedData["InitialRequestData"] != nil))
+
 	// First, check if there's input_data in CollectedData
 	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
 		if inputField != "input_data" {
@@ -643,4 +648,12 @@ func findJobTopicForRole(params ActionParams, targetRole string) string {
 		}
 	}
 	return ""
+}
+
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
