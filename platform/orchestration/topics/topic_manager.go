@@ -10,7 +10,7 @@ import (
 )
 
 // GenerateJobTopic creates a unique topic name for a job
-func GenerateJobTopic(correlationID, orchestrationID, stepName string) string {
+func GenerateJobTopic(correlationID, orchestrationID, stepName, agentType string) string {
 	// Take first 8 chars for brevity
 	if len(correlationID) > 8 {
 		correlationID = correlationID[:8]
@@ -18,10 +18,14 @@ func GenerateJobTopic(correlationID, orchestrationID, stepName string) string {
 	if len(orchestrationID) > 8 {
 		orchestrationID = orchestrationID[:8]
 	}
+	if len(agentType) > 10 {
+		agentType = agentType[:10]
+	}
 
 	stepName = sanitizeTopicPart(stepName)
+	agentType = sanitizeTopicPart(agentType)
 
-	return fmt.Sprintf("job.%s.%s.%s", correlationID, orchestrationID, stepName)
+	return fmt.Sprintf("job.%s.%s.%s.%s", correlationID, orchestrationID, agentType, stepName)
 }
 
 // CreateJobTopic creates the topic using Kafka admin client

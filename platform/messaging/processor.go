@@ -57,29 +57,13 @@ func NewMessageProcessor(
 	logger *zap.Logger,
 	initializer Initializer,
 ) *MessageProcessor {
-	// Also get SQL DB connection if available
+	// Simplified DB connection
 	var sqlDB *sql.DB
 	if connStr := os.Getenv("DATABASE_URL"); connStr != "" {
-		var err error
-		sqlDB, err = sql.Open("pgx", connStr)
-		if err != nil {
-			logger.Error("Failed to create SQL DB connection", zap.Error(err))
-		}
-	} else if host := os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST"); host != "" {
-		connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-			host,
-			os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT"),
-			os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER"),
-			os.Getenv("CLIENTS_DB_PASSWORD"),
-			os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME"))
-		var err error
-		sqlDB, err = sql.Open("pgx", connStr)
-		if err != nil {
-			logger.Error("Failed to create SQL DB connection from env vars", zap.Error(err))
-		}
+		sqlDB, _ = sql.Open("pgx", connStr)
 	}
 
-	// Create tracer if enabled
+	// Keep tracer for debugging
 	var tracer *types.TraceLogger
 	if os.Getenv("ENABLE_MESSAGE_TRACING") == "true" {
 		tracer = types.NewTraceLogger(logger)
@@ -103,7 +87,7 @@ func NewMessageProcessor(
 		logger:       logger,
 		tracer:       tracer,
 		initializer:  initializer,
-		isStateless:  os.Getenv("ENABLE_STATELESS_MODE") == "true",
+		isStateless:  true, // Always stateless now
 		podName:      podName,
 		stateRepo:    orchestration.NewStateRepository(sqlDB, logger),
 	}
