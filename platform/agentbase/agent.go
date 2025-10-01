@@ -358,6 +358,7 @@ func (a *Agent) initializeComponents() error {
 
 func (a *Agent) setupConsumers() error {
 	requestsTopic := os.Getenv("REQUESTS_TOPIC")
+	responsesTopic := os.Getenv("RESPONSES_TOPIC")
 
 	if requestsTopic == "" {
 		// Only the main orchestrator listens on the generic topic
@@ -378,6 +379,27 @@ func (a *Agent) setupConsumers() error {
 	)
 
 	a.requestConsumer = requestConsumer
+
+	if responsesTopic == "" {
+		// Only the main orchestrator listens on the generic topic
+		// waiting for client requests
+		responsesTopic = "system.agent.generic.responses"
+		a.logger.Info("Listening on generic topic for client responses")
+	} else {
+		a.logger.Info("Listening on job-specific topic for responses",
+			zap.String("responses topic", responsesTopic))
+	}
+
+	// Simple consumer group
+	responseConsumer, err := kafka.NewConsumer(
+		a.config.KafkaBrokers,
+		responsesTopic,
+		a.AgentID,
+		a.logger,
+	)
+
+	a.responseConsumer = responseConsumer
+
 	return err
 }
 

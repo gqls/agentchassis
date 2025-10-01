@@ -237,3 +237,141 @@ extractAction - Helper is useful
 getAgentTypeFromID - Database lookup is needed
 isKnownAgentType - Validation is good
 getAgentTypeAndIDFromHeaders - Helper is useful
+
+
+Agent Startup Scenarios:
+1. Initial/Root Agent (e.g., main orchestrator)
+
+Starts with no correlation context
+Needs to receive initial requests from clients
+Problem: Where do clients send requests if the agent hasn't created topics yet?
+Answer: Must have a well-known, pre-existing topic to receive initial requests
+
+2. Spawned Agent
+
+Gets topics via environment variables from spawner
+Topics already created by spawner
+Can immediately create consumers
+No problem here
+
+The Real Architecture Should Be:
+Standard Topics (Pre-created, Well-known):
+
+system.agent.{type}.requests   # Where clients send initial requests
+system.agent.{type}.responses  # Where clients listen for responses
+
+Dynamic Topics (Created per job/orchestration):
+
+job.{stable-identity}.requests   # For specific orchestration instances
+job.{stable-identity}.responses  # For specific orchestration responses
+
+Implementation:
+
+// In agent.go Run() method:
+func (a *Agent) Run(ctx context.Context) error {
+// ... initialization ...
+
+    // Determine which topics to use
+    requestsTopic := os.Getenv("REQUESTS_TOPIC")
+    responsesTopic := os.Getenv("RESPONSES_TOPIC")
+    
+    if requestsTopic == "" {
+        // Non-spawned agent: use STANDARD topics that must pre-exist
+        requestsTopic = fmt.Sprintf("system.agent.%s.requests", a.agentType)
+        responsesTopic = fmt.Sprintf("system.agent.%s.responses", a.agentType)
+        
+        a.logger.Info("Using standard topics for non-spawned agent",
+            zap.String("requests_topic", requestsTopic),
+            zap.String("responses_topic", responsesTopic))
+    } else {
+        // Spawned agent: use the dynamic topics created by spawner
+        a.logger.Info("Using dynamic topics from spawner",
+            zap.String("requests_topic", requestsTopic),
+            zap.String("responses_topic", responsesTopic))
+    }
+    
+    // Create request consumer (ALWAYS needed)
+    requestConsumer, err := kafka.NewConsumer(
+        kafka.ConsumerConfig{
+            Brokers: a.kafkaBrokers,
+            GroupID: fmt.Sprintf("%s-requests-%s", a.agentType, a.agentID),
+            Topics:  []string{requestsTopic},
+        },
+        a.logger,
+    )
+    if err != nil {
+        return fmt.Errorf("failed to create request consumer: %w", err)
+    }
+    
+    // Create response consumer (for orchestrators that need responses)
+    responseConsumer, err := kafka.NewConsumer(
+        kafka.ConsumerConfig{
+            Brokers: a.kafkaBrokers,
+            GroupID: fmt.Sprintf("%s-responses-%s", a.agentType, a.agentID),
+            Topics:  []string{responsesTopic},
+        },
+        a.logger,
+    )
+    if err != nil {
+        a.logger.Warn("Failed to create response consumer, continuing without it",
+            zap.Error(err))
+        // Not fatal - some agents don't need to consume responses
+    }
+    
+    // Start processors
+    go a.processRequests(requestConsumer)
+    if responseConsumer != nil {
+        go a.processResponses(responseConsumer)
+    }
+    
+    // ... rest of Run() ...
+}
+
+Then in processor.go, when processing a request:
+
+// In processor.go process() method:
+func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) error {
+// ... initialization ...
+
+    // Determine MY working topics for THIS orchestration
+    if msgCtx.ExecutionContext.OrchestrationID != "" {
+        // Create orchestration-specific topics for child spawning
+        stableIdentity := fmt.Sprintf("%s-%s-%s",
+            msgCtx.ExecutionContext.CorrelationID[:8],
+            msgCtx.ExecutionContext.OrchestrationID[:8],
+            p.agentType)
+        
+        myWorkingRequestsTopic := fmt.Sprintf("job.%s.requests", stableIdentity)
+        myWorkingResponsesTopic := fmt.Sprintf("job.%s.responses", stableIdentity)
+        
+        // Create these topics for spawning children
+        // ... create topics ...
+        
+        // Store for use when spawning children
+        msgCtx.ExecutionContext.RequestsTopic = myWorkingRequestsTopic
+        msgCtx.ExecutionContext.ResponsesTopic = myWorkingResponsesTopic
+    }
+    
+    // But I still LISTEN on my original topics (standard or spawned)
+    // Those don't change
+    
+    // ... rest of processing ...
+}
+
+The Key Insight:
+Two separate concerns:
+
+Where an agent LISTENS - Fixed at startup (standard for root, dynamic for spawned)
+Topics for SPAWNING children - Created per orchestration
+
+Root agents:
+
+Listen on standard topics (pre-existing)
+Create dynamic topics when spawning children
+
+Spawned agents:
+
+Listen on dynamic topics (created by parent)
+Create new dynamic topics when spawning their own children
+
+This eliminates the chicken-and-egg problem: standard topics must pre-exist for bootstrap, dynamic topics are created as needed for orchestrations.

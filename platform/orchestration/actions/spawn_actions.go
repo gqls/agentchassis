@@ -112,14 +112,17 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		return nil, fmt.Errorf("failed to create agent in DB: %w", err)
 	}
 
-	// NEW: Create stable identity for child's topics
+	parentResponsesTopic := params.ExecutionContext.ResponsesTopic
+
+	// Create stable identity for child's topics
 	// Using agentID for uniqueness since it's stable for this spawn
-	stableIdentity := fmt.Sprintf("%s-%s-%s",
+	stableIdentity := topics.CreateStableIdentity(
 		params.ExecutionContext.CorrelationID[:8],
-		agentID[:8],        // Use agent's ID for uniqueness
+		params.ExecutionContext.OrchestrationID,
+		agentType,
 		params.CurrentStep) // The step that's spawning this agent
 
-	// NEW: Create job-specific topics with new naming
+	// Create job-specific topics
 	childRequestsTopic := fmt.Sprintf("job.%s.requests", stableIdentity)
 	childResponsesTopic := fmt.Sprintf("job.%s.responses", stableIdentity)
 
@@ -146,7 +149,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			zap.Error(err))
 	}
 
-	// Spawn K8s job with new topic names - CRITICAL
+	// Spawn K8s job with new topic names
 	jobName, err := spawnAgentKubernetesJobFromDefinition(
 		ctx,
 		agentID,
@@ -168,12 +171,6 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("job_name", jobName),
 		zap.String("agent_id", agentID))
 
-	// Determine target action - KEEP
-	/*	targetAction := "process"
-		if action, ok := params.StepConfig.Config["target_action"].(string); ok {
-			targetAction = action
-		}*/
-
 	// Determine sender type - KEEP this logic (it's careful)
 	senderAgentType := "generic"
 	if params.ExecutionContext.FromAgentType != "" {
@@ -191,7 +188,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	params.Logger.Info("Determined sender agent type",
 		zap.String("sender_type", senderAgentType),
-		zap.String("parent_responses_topic", params.ExecutionContext.ResponsesTopic))
+		zap.String("parent_responses_topic", parentResponsesTopic))
 
 	// Create spawn initialization message
 	spawnMessage := &types.RequestMessage{
@@ -229,8 +226,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			FuelBudget:     params.ExecutionContext.FuelBudget - 100,
 			TimeoutSeconds: 30,
 
-			// CRITICAL: Tell child where parent listens for responses
-			ResponsesTopic: params.ExecutionContext.ResponsesTopic,
+			// Tell child where parent listens for responses
+			ResponsesTopic: parentResponsesTopic,
 			// Child's own topics will be set from environment
 			RequestsTopic: "",
 		},
@@ -245,7 +242,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	params.Logger.Info("Sending spawn initialization message",
 		zap.String("agent_id", agentID),
 		zap.String("to_topic", childRequestsTopic),
-		zap.String("parent_expects_responses_on", params.ExecutionContext.ResponsesTopic))
+		zap.String("parent_expects_responses_on", parentResponsesTopic))
 
 	// Send to child's requests topic
 	messageBytes, err := json.Marshal(spawnMessage)

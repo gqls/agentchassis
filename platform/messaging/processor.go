@@ -102,7 +102,9 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		zap.String("function", current),
 		zap.String("called_by", caller),
 		zap.String("action", msgCtx.ExecutionContext.Action),
-		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+		zap.Any("execution context in process", msgCtx.ExecutionContext),
+	)
 
 	// Initialize CollectedData if nil - KEEP
 	if msgCtx.CollectedData == nil {
@@ -122,13 +124,18 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 
 	if myRequestsTopic == "" {
 		// I wasn't spawned with specific topics, create my own
-		stableIdentity := fmt.Sprintf("%s-%s-%s",
-			msgCtx.ExecutionContext.CorrelationID[:8],
-			msgCtx.ExecutionContext.OrchestrationID[:8],
-			p.agentType)
+		stableIdentity := topics.CreateStableIdentity(
+			msgCtx.ExecutionContext.CorrelationID,
+			msgCtx.ExecutionContext.OrchestrationID,
+			p.agentType,
+			msgCtx.ExecutionContext.StepName)
 
 		myRequestsTopic = fmt.Sprintf("job.%s.requests", stableIdentity)
 		myResponsesTopic = fmt.Sprintf("job.%s.responses", stableIdentity)
+
+		// Store for use when spawning children
+		msgCtx.ExecutionContext.RequestsTopic = myRequestsTopic
+		msgCtx.ExecutionContext.ResponsesTopic = myResponsesTopic
 
 		// Create topics
 		kafkaBrokers := strings.Split(os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS"), ",")
@@ -1638,4 +1645,30 @@ func (p *MessageProcessor) handleDirectResponse(ctx context.Context, msgCtx *Mes
 	}
 
 	return nil
+}
+
+// Add these methods to processor.go (they were in the original but not in the updated version)
+
+func (p *MessageProcessor) determineWorkflowMode(msgCtx *MessageContext, agentDef *actions.AgentDefinition) string {
+	// Safe type checking
+	if delegationPrefs, ok := agentDef.DefaultConfig["delegation_preferences"].(map[string]interface{}); ok {
+		if preferDelegation, ok := delegationPrefs["prefer_delegation"].(bool); ok && preferDelegation {
+			if p.isComplexRequest(msgCtx) {
+				return "orchestration"
+			}
+		}
+	}
+
+	// Check if called by another agent (subordinate call)
+	if msgCtx.Headers["from_agent_id"] != "" &&
+		msgCtx.Headers["from_agent_id"] != "00000000-0000-0000-0000-000000000001" {
+		return "task"
+	}
+
+	// Default based on action
+	if action := msgCtx.Headers["action"]; action == "process" || action == "execute" {
+		return "task"
+	}
+
+	return "orchestration"
 }
