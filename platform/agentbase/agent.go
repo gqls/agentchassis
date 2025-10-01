@@ -356,8 +356,33 @@ func (a *Agent) initializeComponents() error {
 	return nil
 }
 
-// setupConsumers sets up Kafka consumers for the agent
 func (a *Agent) setupConsumers() error {
+	requestsTopic := os.Getenv("REQUESTS_TOPIC")
+
+	if requestsTopic == "" {
+		// Only the main orchestrator listens on the generic topic
+		// waiting for client requests
+		requestsTopic = "system.agent.generic.requests"
+		a.logger.Info("Listening on generic topic for client requests")
+	} else {
+		a.logger.Info("Listening on job-specific topic",
+			zap.String("topic", requestsTopic))
+	}
+
+	// Simple consumer group
+	requestConsumer, err := kafka.NewConsumer(
+		a.config.KafkaBrokers,
+		requestsTopic,
+		a.AgentID,
+		a.logger,
+	)
+
+	a.requestConsumer = requestConsumer
+	return err
+}
+
+// setupConsumers sets up Kafka consumers for the agent
+func (a *Agent) setupConsumersOld() error {
 
 	a.logger.Info("setupConsumers in agent.go")
 

@@ -127,32 +127,36 @@ func SendNotificationAction(ctx context.Context, params ActionParams) (interface
 	// Extract responses from all steps
 	for key, value := range params.CollectedData {
 		// Skip internal fields
-		if key == "__raw_message__" || key == "__execution_context__" || key == "__original_request__" {
+		if strings.HasPrefix(key, "__") {
 			continue
 		}
-
 		// Extract data from step (checking for response field)
 		collectedResults[key] = ExtractStepData(value)
 	}
 
-	// Prepare notification with extracted data
+	// Prepare notification
 	notification := map[string]interface{}{
 		"type":      "workflow_completed",
-		"data":      collectedResults, // Use extracted data
+		"data":      collectedResults,
 		"step":      params.CurrentStep,
 		"timestamp": time.Now().UTC(),
 	}
 
 	notificationBytes, _ := json.Marshal(notification)
 
-	// Use a fixed topic or get from step config
-	topic := "system.agent.generic.responses" // Fixed topic for generic agent
+	// CRITICAL: Use ResponsesTopic from ExecutionContext
+	topic := params.ExecutionContext.ResponsesTopic
 
-	// Or get from step config if you want it configurable
+	// Allow override from step config if needed
 	if params.StepConfig.Config != nil {
 		if customTopic, ok := params.StepConfig.Config["topic"].(string); ok {
 			topic = customTopic
 		}
+	}
+
+	// No fallback - must have a topic
+	if topic == "" {
+		return nil, fmt.Errorf("no response topic configured for notification")
 	}
 
 	err := params.Producer.Produce(ctx, topic, params.Headers,

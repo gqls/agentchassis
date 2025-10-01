@@ -242,10 +242,18 @@ func (tm *TimeoutMonitor) retryTimedOutRequest(ctx context.Context, state *Orche
 		zap.String("request_id", awaited.RequestID),
 		zap.Int("retry_version", awaited.RetryVersion))
 
+	// CRITICAL: Use the stored ResponsesTopic from awaited request
+	if awaited.ResponsesTopic == "" {
+		tm.logger.Error("No ResponsesTopic in awaited request",
+			zap.String("request_id", awaited.RequestID))
+		tm.failOrchestrationDueToTimeout(ctx, state, awaited.RequestID, "No response topic for retry")
+		return
+	}
+
 	// Create retry message
 	retryRequest := &types.RequestMessage{
 		Headers: types.RequestHeaders{
-			RequestID:         awaited.RequestID, // Same request ID
+			RequestID:         awaited.RequestID,
 			RetryVersion:      awaited.RetryVersion,
 			StepID:            awaited.StepID,
 			StepName:          awaited.StepName,
@@ -253,31 +261,38 @@ func (tm *TimeoutMonitor) retryTimedOutRequest(ctx context.Context, state *Orche
 			OrchestrationName: state.OrchestrationName,
 			CorrelationID:     state.CorrelationID,
 			ToAgentType:       awaited.TargetAgentType,
+			ToAgent:           awaited.TargetAgentID, // Add if available
 			ClientID:          state.ClientID,
 			MessageID:         uuid.New().String(),
 			MessageType:       "request",
 			Timestamp:         time.Now(),
 			Action:            "retry",
+			ResponsesTopic:    awaited.ResponsesTopic, // Pass it along
 		},
 	}
 
-	// Send retry
-	topic := fmt.Sprintf("system.agent.%s.requests", awaited.TargetAgentType)
+	// CRITICAL CHANGE: Must send to the child's REQUEST topic, not constructed
+	// The awaited request should store where to send retries
+	retryTopic := awaited.RequestsTopic // NEW field needed
+	if retryTopic == "" {
+		// This shouldn't happen with new architecture
+		tm.logger.Error("No requests topic for retry",
+			zap.String("request_id", awaited.RequestID))
+		tm.failOrchestrationDueToTimeout(ctx, state, awaited.RequestID, "No requests topic for retry")
+		return
+	}
+
 	retryBytes, _ := json.Marshal(retryRequest)
 
-	if err := tm.producer.Produce(ctx, topic, retryRequest.Headers.ToMap(), []byte(awaited.RequestID), retryBytes); err != nil {
+	if err := tm.producer.Produce(ctx, retryTopic, retryRequest.Headers.ToMap(),
+		[]byte(awaited.RequestID), retryBytes); err != nil {
 		tm.logger.Error("Failed to send retry request",
 			zap.Error(err),
 			zap.String("request_id", awaited.RequestID))
-
-		// If we can't retry, fail the orchestration
 		tm.failOrchestrationDueToTimeout(ctx, state, awaited.RequestID, "Failed to send retry request")
 	} else {
-		// Update the awaited request in state
 		state.AwaitedRequests[awaited.RequestID] = awaited
 		tm.repo.UpdateState(ctx, state)
-
-		// Start new timeout monitor
 		tm.MonitorRequest(state.OrchestrationID, awaited.RequestID, 30*time.Second)
 	}
 }
@@ -316,14 +331,12 @@ func (tm *TimeoutMonitor) failOrchestrationDueToTimeout(ctx context.Context, sta
 
 // sendTimeoutResponse sends a timeout response to parent
 func (tm *TimeoutMonitor) sendTimeoutResponse(ctx context.Context, parentOrchID, childOrchID, requestID string) {
-	// Get parent state to find the awaited request details
 	parentState, err := tm.repo.GetState(ctx, parentOrchID)
 	if err != nil {
 		tm.logger.Error("Failed to get parent state for timeout response", zap.Error(err))
 		return
 	}
 
-	// Find the awaited request to get the response topic
 	awaitedReq, exists := parentState.AwaitedRequests[requestID]
 	if !exists {
 		tm.logger.Error("Request not found in parent's awaited list",
@@ -332,65 +345,45 @@ func (tm *TimeoutMonitor) sendTimeoutResponse(ctx context.Context, parentOrchID,
 		return
 	}
 
-	// Use the response topic from the awaited request
+	// CRITICAL: Use the response topic from awaited request - NO FALLBACK
 	responsesTopic := awaitedReq.ResponsesTopic
 	if responsesTopic == "" {
-		// Fallback if not set (for backward compatibility)
-		if parentState.OwnerAgentType != "" {
-			responsesTopic = fmt.Sprintf("system.agent.%s.responses", parentState.OwnerAgentType)
-		} else {
-			responsesTopic = "system.orchestrator.responses"
-		}
-		tm.logger.Warn("ResponsesTopic not set in awaited request, using fallback",
-			zap.String("fallback_topic", responsesTopic))
+		tm.logger.Error("No ResponsesTopic in awaited request",
+			zap.String("request_id", requestID))
+		return // Can't send response without topic
 	}
 
-	// Get the child state to get its role
-	childRole := ""
-	childAgentType := ""
-	childAgentID := ""
+	// Get child details for the response
+	childRole := "unknown"
+	childAgentType := "unknown"
+	childAgentID := "unknown"
 
-	childState, err := tm.repo.GetState(ctx, childOrchID)
-	if err != nil {
-		tm.logger.Warn("Failed to get child state for timeout response", zap.Error(err))
-		// Use defaults - we don't know the child's details
-		childRole = "timeout-monitor"
-		childAgentType = tm.getPodName()
-		childAgentID = "no role available"
-	} else if childState != nil {
-		// Safely extract values only if state is not nil
+	if childState, err := tm.repo.GetState(ctx, childOrchID); err == nil && childState != nil {
 		childRole = childState.OwnerAgentRole
 		childAgentType = childState.OwnerAgentType
 		childAgentID = childState.OwnerAgentID
 	}
 
-	// the timeout monitor appears as if it's the timed-out child responding
-	// this way the parent sees a response "from" the child agent that timed out
+	// Create timeout response
 	response := &types.ResponseMessage{
 		Headers: types.ResponseHeaders{
 			Sender: types.AgentIdentity{
-				AgentType:    childAgentType, // Pretend to be the child
+				AgentType:    childAgentType,
 				AgentID:      childAgentID,
 				PodName:      tm.getPodName(),
 				AgentVersion: "1.0.0",
 				Role:         childRole,
 			},
 
-			// Response tracking - matching what the parent expects
-			InResponseToRequestID:      requestID,
-			InResponseToStepID:         awaitedReq.StepID,
-			InResponseToStepName:       awaitedReq.StepName,
-			InResponseToParentOrchID:   parentOrchID,
-			InResponseToParentOrchName: "", // Could store this too if needed
-			InResponseToMessageID:      "", // Could store this too
-			InResponseToAction:         "", // Could store this too
-			RetryCount:                 awaitedReq.RetryVersion,
+			InResponseToRequestID:    requestID,
+			InResponseToStepID:       awaitedReq.StepID,
+			InResponseToStepName:     awaitedReq.StepName,
+			InResponseToParentOrchID: parentOrchID,
+			RetryCount:               awaitedReq.RetryVersion,
 
-			// My context (the timeout monitor acting on behalf of child)
 			MyOrchestrationID:   childOrchID,
 			MyOrchestrationName: fmt.Sprintf("timeout-monitor-for-%s", childOrchID),
 
-			// Identity
 			CorrelationID: parentState.CorrelationID,
 			ClientID:      parentState.ClientID,
 			MessageType:   "response",
@@ -398,53 +391,35 @@ func (tm *TimeoutMonitor) sendTimeoutResponse(ctx context.Context, parentOrchID,
 			ToAgent:       parentState.OwnerAgentID,
 			ToAgentType:   parentState.OwnerAgentType,
 
-			// Status flags
-			IsComplete:          true,
-			IsError:             true,
-			IsMultipartResponse: false,
-			PartCount:           1,
-			Status:              "error_unrecoverable",
+			IsComplete: true,
+			IsError:    true,
+			Status:     "error_unrecoverable",
 
-			// Timing & Resources
-			TimeSent:                   time.Now(),
-			TimeSpent:                  time.Since(awaitedReq.SentAt),
-			OverallTimeBudgetRemaining: 0,
-			TopicSentTo:                responsesTopic,
-			FuelUsed:                   0,
-			RemainingFuelBudget:        0,
+			TimeSent:    time.Now(),
+			TimeSpent:   time.Since(awaitedReq.SentAt),
+			TopicSentTo: responsesTopic,
 		},
 		Body: types.ResponseBody{
 			Success: false,
-			Headers: nil,
-			Body:    nil, // No result for timeout
 			Error: &types.ErrorInfo{
 				Code:        "TIMEOUT",
-				Message:     fmt.Sprintf("Child orchestration %s timed out after %v", childOrchID, time.Since(awaitedReq.SentAt)),
+				Message:     fmt.Sprintf("Child orchestration %s timed out", childOrchID),
 				Recoverable: false,
-				RetryAfter:  0,
 			},
 		},
 	}
 
-	responseBytes, err := json.Marshal(response)
-	if err != nil {
-		tm.logger.Error("Failed to marshal timeout response", zap.Error(err))
-		return
-	}
+	responseBytes, _ := json.Marshal(response)
 
-	// Send to the correct response topic
 	if err := tm.producer.Produce(ctx, responsesTopic, response.Headers.ToMap(),
 		[]byte(requestID), responseBytes); err != nil {
 		tm.logger.Error("Failed to send timeout response",
 			zap.Error(err),
-			zap.String("topic", responsesTopic),
-			zap.String("request_id", requestID))
+			zap.String("topic", responsesTopic))
 	} else {
 		tm.logger.Info("Sent timeout response",
 			zap.String("topic", responsesTopic),
-			zap.String("request_id", requestID),
-			zap.String("parent_orch_id", parentOrchID),
-			zap.String("child_orch_id", childOrchID))
+			zap.String("request_id", requestID))
 	}
 }
 
@@ -536,8 +511,11 @@ func BuildChildHeaders(
 	headers["parent_agent_id"] = parent.AgentID
 	headers["client_id"] = parent.ClientID
 
-	// Set response topic for child to respond to parent
-	headers["parent_responses_topic"] = fmt.Sprintf("system.agent.%s.responses", parent.AgentType)
+	// CRITICAL: Pass parent's response topic so child knows where to respond
+	// This should come from parent's ExecutionContext
+	if parentResponsesTopic := parentHeaders["responses_topic"]; parentResponsesTopic != "" {
+		headers["responses_topic"] = parentResponsesTopic
+	}
 
 	// Add agent mappings from spawn data
 	if agents, ok := spawnData["agents"].(map[string]interface{}); ok {
@@ -547,13 +525,11 @@ func BuildChildHeaders(
 			}
 		}
 
-		// Set agent_instance_id to orchestrator if present
 		if orchestratorID, ok := agents["orchestrator"].(string); ok {
 			headers["agent_instance_id"] = orchestratorID
 		}
 	}
 
-	// If no agent_instance_id set, use parent's
 	if headers["agent_instance_id"] == "" {
 		headers["agent_instance_id"] = parent.AgentID
 	}

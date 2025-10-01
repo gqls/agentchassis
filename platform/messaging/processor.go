@@ -19,6 +19,7 @@ import (
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
+	"github.com/gqls/agentchassis/platform/orchestration/topics"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/platform/validation"
 	"go.uber.org/zap"
@@ -95,50 +96,97 @@ func NewMessageProcessor(
 
 // process determines how to handle the message based on agent configuration
 func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) error {
+	// Keep stack trace for debugging
 	current, caller := getFuncInfo(1)
-	fmt.Fprint(os.Stderr, "DEBUG uuid: process START printf")
-	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go process 110",
+	p.logger.Info("process starting",
 		zap.String("function", current),
-		zap.String("called_by (in process)", caller),
-		zap.String("container", os.Getenv("HOSTNAME")),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-	)
+		zap.String("called_by", caller),
+		zap.String("action", msgCtx.ExecutionContext.Action),
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
 
-	// Initialize CollectedData if nil
+	// Initialize CollectedData if nil - KEEP
 	if msgCtx.CollectedData == nil {
 		msgCtx.CollectedData = make(map[string]interface{})
 	}
 
-	msgCtx.Logger.Info("Starting message processing",
-		zap.String("action", msgCtx.ExecutionContext.Action),
-		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
-		zap.String("orchestration_name", msgCtx.ExecutionContext.OrchestrationName),
-		zap.String("RESPONSES topic in process", msgCtx.ExecutionContext.ResponsesTopic),
-		zap.String("request id in process", msgCtx.ExecutionContext.RequestID),
-	)
-
-	// Ensure ExecutionContext has required fields
+	// Ensure ExecutionContext has required fields - KEEP
 	if msgCtx.ExecutionContext.OrchestrationID == "" {
 		msgCtx.ExecutionContext.OrchestrationID = uuid.New().String()
 		msgCtx.Logger.Info("Generated new orchestration_id",
 			zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
 	}
 
-	// Sync headers from context for backward compatibility
-	msgCtx.SyncHeadersFromContext()
+	// NEW: Set up MY topics for this orchestration
+	myRequestsTopic := os.Getenv("REQUESTS_TOPIC")
+	myResponsesTopic := os.Getenv("RESPONSES_TOPIC")
 
-	// Store parent context if this is a child
-	if msgCtx.IsChildOrchestration() {
-		msgCtx.CollectedData["__execution_context__"] = msgCtx.ExecutionContext
+	if myRequestsTopic == "" {
+		// I wasn't spawned with specific topics, create my own
+		stableIdentity := fmt.Sprintf("%s-%s-%s",
+			msgCtx.ExecutionContext.CorrelationID[:8],
+			msgCtx.ExecutionContext.OrchestrationID[:8],
+			p.agentType)
+
+		myRequestsTopic = fmt.Sprintf("job.%s.requests", stableIdentity)
+		myResponsesTopic = fmt.Sprintf("job.%s.responses", stableIdentity)
+
+		// Create topics
+		kafkaBrokers := strings.Split(os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS"), ",")
+		if err := topics.CreateJobTopic(kafkaBrokers, myRequestsTopic, 2); err != nil {
+			msgCtx.Logger.Warn("Failed to create requests topic", zap.Error(err))
+		}
+		if err := topics.CreateJobTopic(kafkaBrokers, myResponsesTopic, 2); err != nil {
+			msgCtx.Logger.Warn("Failed to create responses topic", zap.Error(err))
+		}
+
+		msgCtx.Logger.Info("Created my orchestration topics",
+			zap.String("my_requests", myRequestsTopic),
+			zap.String("my_responses", myResponsesTopic),
+			zap.String("stable_identity", stableIdentity))
+	} else {
+		msgCtx.Logger.Info("Using spawned topics",
+			zap.String("my_requests", myRequestsTopic),
+			zap.String("my_responses", myResponsesTopic))
 	}
 
-	// Load agent definition
+	// Store MY topics in MY context
+	msgCtx.ExecutionContext.RequestsTopic = myRequestsTopic
+	msgCtx.ExecutionContext.ResponsesTopic = myResponsesTopic
+
+	// NEW: Store parent's response topic separately (from headers)
+	// This is where I send MY responses
+	if parentResponsesTopic := msgCtx.Headers["responses_topic"]; parentResponsesTopic != "" {
+		msgCtx.CollectedData["__parent_responses_topic__"] = parentResponsesTopic
+		msgCtx.Logger.Info("Will respond to parent on",
+			zap.String("parent_responses_topic", parentResponsesTopic))
+
+		// Override MY ResponsesTopic to be where parent expects responses
+		msgCtx.ExecutionContext.ResponsesTopic = parentResponsesTopic
+	}
+
+	msgCtx.Logger.Info("Topic configuration complete",
+		zap.String("action", msgCtx.ExecutionContext.Action),
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+		zap.String("my_requests_topic", myRequestsTopic),
+		zap.String("my_responses_topic", msgCtx.ExecutionContext.ResponsesTopic),
+		zap.String("request_id", msgCtx.ExecutionContext.RequestID))
+
+	// Sync headers from context for backward compatibility - KEEP
+	msgCtx.SyncHeadersFromContext()
+
+	// Store parent context if this is a child - KEEP but enhanced
+	if msgCtx.IsChildOrchestration() {
+		msgCtx.CollectedData["__execution_context__"] = msgCtx.ExecutionContext
+		msgCtx.Logger.Debug("Stored execution context as child",
+			zap.String("parent_orch_id", msgCtx.ExecutionContext.ParentOrchestrationID))
+	}
+
+	// Load agent definition - KEEP AS IS
 	agentDef, err := p.loadAgentDefinition(ctx, p.agentType)
 	if err != nil {
 		msgCtx.Logger.Warn("Failed to load agent definition, creating dynamic workflow",
 			zap.String("agent_type", p.agentType),
 			zap.Error(err))
-		// Instead of processWithDefaults, create a workflow for the action
 		workflow := p.createWorkflowForAction(msgCtx.ExecutionContext.Action)
 		agentDef = &actions.AgentDefinition{
 			Type:          p.agentType,
@@ -151,39 +199,39 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		zap.String("display_name", agentDef.DisplayName),
 		zap.String("category", agentDef.Category))
 
-	var workflow models.WorkflowPlan
-	// Select the appropriate workflow based on context
-	workflow, err = p.selectWorkflow(ctx, agentDef, msgCtx)
+	// Select the appropriate workflow based on context - KEEP AS IS
+	workflow, err := p.selectWorkflow(ctx, agentDef, msgCtx)
 	if err != nil {
 		msgCtx.Logger.Error("Failed to select workflow", zap.Error(err))
 		return err
 	}
 
-	// Store the agent configuration for actions to use
+	// Store the agent configuration for actions to use - KEEP
 	msgCtx.CollectedData["agent_config"] = agentDef.DefaultConfig
 
-	msgCtx.Logger.Info("Message value in msgCtx",
-		zap.ByteString("msgCtx.Message.Value", msgCtx.Message.Value),
-		zap.Any("agent config", agentDef.DefaultConfig))
+	msgCtx.Logger.Debug("Message value in msgCtx",
+		zap.ByteString("msgCtx.Message.Value", msgCtx.Message.Value))
 
-	// Store the input data
+	// Store the input data - KEEP AS IS (this logic is important)
 	var inputPayload map[string]interface{}
 	if err := json.Unmarshal(msgCtx.Message.Value, &inputPayload); err == nil {
-		// Store the entire payload as input_data, not just a "data" field
+		// Store the entire payload as input_data
 		msgCtx.CollectedData["input_data"] = inputPayload
-		msgCtx.CollectedData["input_action"] = inputPayload["action"]
+		if action, ok := inputPayload["action"]; ok {
+			msgCtx.CollectedData["input_action"] = action
+		}
 
-		msgCtx.Logger.Info("Input data stored",
+		msgCtx.Logger.Debug("Input data stored",
 			zap.Any("input_data", inputPayload))
 	}
 
-	// Create agent config with the workflow
+	// Create agent config with the workflow - KEEP AS IS
 	agentConfig := &models.AgentConfig{
 		CoreLogic: agentDef.DefaultConfig,
 		Workflow:  workflow,
 	}
 
-	// Validate workflow
+	// Validate workflow - KEEP AS IS
 	if err := p.validator.ValidateWorkflow(agentConfig.Workflow); err != nil {
 		msgCtx.Logger.Error("Invalid workflow configuration",
 			zap.Error(err),
@@ -195,31 +243,21 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 
 	msgCtx.Logger.Info("Workflow validated successfully, executing workflow")
 
-	// Add debug logging
-	p.logger.Info("DEBUG: Executing workflow",
-		zap.Any("agentConfig", agentConfig))
-
-	fmt.Fprint(os.Stderr, "DEBUG uuid: process about to ExecuteWorkflow printf")
-
-	// Execute the workflow
+	// Execute the workflow - KEEP AS IS
 	err = p.executeWorkflow(ctx, msgCtx, agentConfig)
 
-	// After handing off to the orchestrator, the message processor's job is done.
-	// The orchestrator is now responsible for the workflow's lifecycle.
+	// Handle workflow execution result - KEEP AS IS
 	if err != nil {
-		// Only handle errors related to *starting* the workflow
 		if err == orchestration.ErrWaitingForResponse {
-			msgCtx.Logger.Info("Workflow started and is now waiting for a response.")
+			msgCtx.Logger.Info("Workflow started and is now waiting for a response")
 			return nil
 		}
 		msgCtx.Logger.Error("Failed to start workflow execution", zap.Error(err))
-		fmt.Fprint(os.Stderr, "DEBUG uuid: process Failed to start workflow execution printf")
 		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
 	}
 
-	// Check if this is a child workflow that completed
+	// Check if this is a child workflow that completed - KEEP AS IS
 	if msgCtx.IsChildOrchestration() {
-		// Check if workflow is complete
 		if p.sqlDB != nil {
 			repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
 			state, _ := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
@@ -230,8 +268,8 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		}
 	}
 
-	msgCtx.Logger.Info("Workflow successfully handed off to the orchestrator.")
-	return nil // Return nil to acknowledge the message without sending a premature response.
+	msgCtx.Logger.Info("Workflow successfully handed off to the orchestrator")
+	return nil
 }
 
 func (p *MessageProcessor) createWorkflowForAction(action string) map[string]interface{} {
@@ -485,39 +523,18 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 }
 
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
+	// Keep stack trace for debugging
 	current, caller := getFuncInfo(1)
-	_, caller_called_by := getFuncInfo(2)
-
-	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("RESPONSE_CREATION: Starting to create response processor.go sendWorkflowResponse",
+	p.logger.Debug("sendWorkflowResponse",
 		zap.String("function", current),
-		zap.String("called_by", caller),
-		zap.String("caller_called_by in sendWorkflowResponse", caller_called_by),
-		zap.String("container", os.Getenv("HOSTNAME")),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+		zap.String("called_by", caller))
 
-		zap.Any("result_data", result),
-	)
-
-	// Create response context
 	responseCtx := msgCtx.CreateResponseContext()
 	contextLogger := p.logger.With(msgCtx.ExecutionContext.LogContext()...)
 
-	contextLogger.Info("CRITICAL_FLOW: sendWorkflowResponse called",
-		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
-		zap.String("orchestration_name", msgCtx.ExecutionContext.OrchestrationName),
-		zap.String("parent_orchestration_id", msgCtx.ExecutionContext.ParentOrchestrationID),
-		zap.String("original_request_id", msgCtx.ExecutionContext.RequestID),
-		zap.Any("in_response_to", msgCtx.ExecutionContext.InResponseTo),
-		zap.String("responses_topic", responseCtx.ResponsesTopic),
-		zap.Any("result_type", fmt.Sprintf("%T", result)))
-
-	// The 'result' is the full 'CollectedData' map from the orchestration state.
-	// We need to find the result of the last action within this map to see
-	// if we should suppress the response or use a specific request_id.
+	// Check if waiting for response (suppress premature responses) - KEEP THIS LOGIC
 	if allData, ok := result.(map[string]interface{}); ok {
 		var lastActionResult map[string]interface{}
-
-		// Find the map that contains the 'await_response' key, as this identifies the action result.
 		for _, value := range allData {
 			if resultMap, isMap := value.(map[string]interface{}); isMap {
 				if _, found := resultMap["await_response"]; found {
@@ -528,21 +545,13 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		}
 
 		if lastActionResult != nil {
-			// **FIX**: If the action is waiting for a response, DO NOT send a response now.
-			// This prevents the premature response and the subsequent error.
 			if await, ok := lastActionResult["await_response"].(bool); ok && await {
-				contextLogger.Info("CRITICAL_FLOW: Suppressing response because workflow is waiting",
-					zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
+				contextLogger.Info("Suppressing response - workflow waiting")
 				return nil
 			}
 
-			// If the action was NOT waiting but generated a request_id, use that ID for the response.
+			// Handle specific request_id - KEEP THIS LOGIC
 			if requestID, ok := lastActionResult["request_id"].(string); ok && requestID != "" {
-				contextLogger.Info("Using action's specific request_id for response",
-					zap.String("action_request_id", requestID),
-					zap.String("original_request_id", msgCtx.ExecutionContext.RequestID))
-
-				// FIX: Update InResponseTo properly - it's a *ResponseContext
 				if responseCtx.InResponseTo != nil {
 					responseCtx.InResponseTo.RequestID = requestID
 				} else {
@@ -556,53 +565,17 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 						ParentOrchestrationName: msgCtx.ExecutionContext.ParentOrchestrationName,
 					}
 				}
-				// Update the request ID in the response context
 				responseCtx.RequestID = requestID
 			}
 		}
 	}
 
-	// Trace outgoing response
-	if p.tracer != nil {
-		p.tracer.TraceMessage(responseCtx, "sending_response in sendWorkflowResponse", responseCtx.ResponsesTopic, msgCtx.Message.Value)
-	}
-
-	// Determine target orchestration
-	targetOrchestrationID := msgCtx.ExecutionContext.OrchestrationID
-	if msgCtx.ExecutionContext.ParentOrchestrationID != "" {
-		targetOrchestrationID = msgCtx.ExecutionContext.ParentOrchestrationID
-		contextLogger.Info("TRACE: Child sending response to parent",
-			zap.String("child_orch", msgCtx.ExecutionContext.OrchestrationID),
-			zap.String("parent_orch", targetOrchestrationID))
-	}
-
-	// Build response headers
-	responseHeaders := responseCtx.ToHeaders()
-
-	contextLogger.Info("TRACE: Sending workflow response",
-		zap.String("response_orch_id", targetOrchestrationID),
-		zap.String("RESPONSES_topic", responseCtx.ResponsesTopic),
-		zap.Int("fuel_returning", msgCtx.ExecutionContext.FuelBudget),
-		zap.Any("response_headers", responseHeaders))
-
-	// Validate we have a reply topic
+	// NO FALLBACK - ResponsesTopic must be set
 	if responseCtx.ResponsesTopic == "" {
-		// Try to determine from context
-		if msgCtx.ExecutionContext.ResponsesTopic != "" {
-			responseCtx.ResponsesTopic = msgCtx.ExecutionContext.ResponsesTopic
-		} else if msgCtx.ExecutionContext.FromAgentType != "" {
-			responseCtx.ResponsesTopic = fmt.Sprintf("system.agent.%s.responses",
-				msgCtx.ExecutionContext.FromAgentType)
-		} else {
-			// Fallback to generic
-			responseCtx.ResponsesTopic = "system.agent.generic.responses"
-		}
-
-		p.logger.Warn("Had to construct ResponsesTopic",
-			zap.String("responses_topic", responseCtx.ResponsesTopic))
+		return fmt.Errorf("no responses topic configured")
 	}
 
-	// Build response message
+	// Build response message - KEEP AS IS
 	response := models.AgentMessage{
 		MessageID:         responseCtx.MessageID,
 		CorrelationID:     responseCtx.CorrelationID,
@@ -614,54 +587,31 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		Action:            "response",
 		Data: map[string]interface{}{
 			"result":         result,
-			"in_response_to": responseCtx.RequestID, // Use the request ID here
+			"in_response_to": responseCtx.RequestID,
 		},
 		Timestamp: responseCtx.Timestamp,
 		Version:   responseCtx.Version,
 	}
-
-	// After building response headers
-	p.logger.Info("RESPONSE_HEADERS: Built response headers",
-		zap.Any("headers", responseHeaders),
-		zap.String("target_topic", responseCtx.ResponsesTopic),
-	)
 
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
 
-	// Get correlation ID for message key
 	key := []byte(responseCtx.CorrelationID)
 	if responseCtx.CorrelationID == "" {
 		key = []byte(responseCtx.MessageID)
 	}
 
-	// Before sending
-	p.logger.Info("RESPONSE_SEND: Sending response message",
+	contextLogger.Info("Sending response",
 		zap.String("topic", responseCtx.ResponsesTopic),
-		zap.String("key", string(key)),
-		zap.Int("payload_size", len(responseBytes)))
+		zap.String("key", string(key)))
 
-	// Send using response context headers
-	err = p.producer.Produce(ctx,
+	return p.producer.Produce(ctx,
 		responseCtx.ResponsesTopic,
-		responseHeaders,
+		response.ToHeaders(),
 		key,
 		responseBytes)
-
-	if err != nil {
-		p.logger.Error("KAFKA_SEND_ERROR: Failed to send message",
-			zap.String("topic", responseCtx.ResponsesTopic),
-			zap.Error(err))
-	} else {
-		p.logger.Info("KAFKA_SENT: Message sent successfully",
-			zap.String("topic", responseCtx.ResponsesTopic),
-			zap.String("key", string(key)),
-			zap.Any("headers", responseHeaders))
-	}
-
-	return err
 }
 
 func (p *MessageProcessor) determineResponsesTopic(ctx context.Context, msgCtx *MessageContext, isChildResponse bool, parentContext map[string]interface{}) string {
@@ -707,7 +657,7 @@ func (p *MessageProcessor) determineResponsesTopic(ctx context.Context, msgCtx *
 	return "system.agent.generic.responses"
 }
 
-func (p *MessageProcessor) sendResponse(ctx context.Context, msgCtx *MessageContext, headers map[string]string, topic string, result interface{}) error {
+func (p *MessageProcessor) sendResponseOLD(ctx context.Context, msgCtx *MessageContext, headers map[string]string, topic string, result interface{}) error {
 	current, caller := getFuncInfo(1)
 
 	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
@@ -790,7 +740,7 @@ func createSQLDB() (*sql.DB, error) {
 	return sql.Open("pgx", connStr)
 }
 
-func (p *MessageProcessor) processNewAgentMessage(ctx context.Context, msg kafka.Message, headers map[string]string, startTime time.Time) error {
+func (p *MessageProcessor) processNewAgentMessageOLD(ctx context.Context, msg kafka.Message, headers map[string]string, startTime time.Time) error {
 	current, caller := getFuncInfo(1)
 
 	p.logger.Info("In file processor.go",
@@ -982,7 +932,7 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 	return p.convertToWorkflowPlan(workflowConfig), nil
 }
 
-func (p *MessageProcessor) determineWorkflowMode(msgCtx *MessageContext, agentDef *actions.AgentDefinition) string {
+func (p *MessageProcessor) determineWorkflowModeOLD(msgCtx *MessageContext, agentDef *actions.AgentDefinition) string {
 	// Safe type checking
 	if delegationPrefs, ok := agentDef.DefaultConfig["delegation_preferences"].(map[string]interface{}); ok {
 		if preferDelegation, ok := delegationPrefs["prefer_delegation"].(bool); ok && preferDelegation {
@@ -1482,7 +1432,7 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 }
 
 // sendSuccessResponse sends a successful response
-func (p *MessageProcessor) sendSuccessResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
+func (p *MessageProcessor) sendSuccessResponseOLD(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
 	response := &types.ResponseMessage{
 		Headers: types.ResponseHeaders{
 			Sender: types.AgentIdentity{
@@ -1574,8 +1524,24 @@ func (p *MessageProcessor) sendSuccessResponse(ctx context.Context, msgCtx *Mess
 	return p.producer.Produce(ctx, responsesTopic, headers, key, responseBytes)
 }
 
-// sendErrorResponse sends an error response
 func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *MessageContext, err error) error {
+	responseCtx := msgCtx.CreateResponseContext()
+
+	// NO FALLBACK - must have ResponsesTopic
+	if responseCtx.ResponsesTopic == "" {
+		return fmt.Errorf("no responses topic for error response")
+	}
+
+	errorResponse := map[string]interface{}{
+		"error":  err.Error(),
+		"status": "failed",
+	}
+
+	return p.sendWorkflowResponse(ctx, msgCtx, errorResponse)
+}
+
+// sendErrorResponse sends an error response
+func (p *MessageProcessor) sendErrorResponseOLD(ctx context.Context, msgCtx *MessageContext, err error) error {
 	p.logger.Error("Sending error response",
 		zap.Error(err),
 		zap.String("request_id", msgCtx.ExecutionContext.RequestID))

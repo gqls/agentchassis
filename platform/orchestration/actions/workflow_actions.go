@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
+	"strings"
 	"time"
 
 	"github.com/gqls/agentchassis/platform/orchestration/types"
@@ -14,271 +14,123 @@ import (
 )
 
 func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	current, caller := getFuncInfo(1)
-
-	params.Logger.Info("In workflow_actions.go CompleteWorkflowAction",
-		zap.String("function", current),
-		zap.String("called_by workflow actions", caller),
-		zap.String("container", os.Getenv("HOSTNAME")),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-	)
-
-	var callstack []string
-	if params.Tracer != nil {
-		callstack = params.Tracer.GetCallStack(12)
-	}
-
-	params.Logger.Info("Completing workflow CompleteWorkflowAction and GetCallStack",
+	params.Logger.Info("Completing workflow",
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
-		zap.String("parent_orchestration_id", params.ExecutionContext.ParentOrchestrationID),
-		zap.Any("collected_data_keys for CollectedData", GetMapKeys(params.CollectedData)),
-		zap.Strings("call stack", callstack),
-	)
+		zap.String("parent_orchestration_id", params.ExecutionContext.ParentOrchestrationID))
 
+	// Extract final result
 	var finalResult interface{}
-
-	// If this agent's job was to run a "process" step (like the calculator),
-	// its result is the only thing that matters.
 	if processResult, ok := params.CollectedData["process"]; ok {
 		finalResult = processResult
 	} else if aggResult, ok := params.CollectedData["aggregate_results"]; ok {
-		// If this is an orchestrator that just ran an aggregation, that is the result.
 		finalResult = aggResult
 	} else {
-		// As a fallback, return all collected data, but clean out internal fields.
+		// Return filtered collected data
 		filteredData := make(map[string]interface{})
 		for key, value := range params.CollectedData {
-			if key != "__raw_message__" && key != "__execution_context__" {
+			if !strings.HasPrefix(key, "__") {
 				filteredData[key] = value
 			}
 		}
 		finalResult = filteredData
 	}
-	params.Logger.Info("CompleteWorkflowAction extracted result", zap.Any("result", finalResult))
 
-	// Case 1: This is a CHILD orchestration completing its task.
-	// It needs to notify its parent.
+	// Case 1: Child orchestration completing
 	if params.ExecutionContext.ParentOrchestrationID != "" {
-		params.Logger.Info("Child orchestration needs to notify parent",
-			zap.String("child_orch", params.ExecutionContext.OrchestrationID),
-			zap.String("parent_orch", params.ExecutionContext.ParentOrchestrationID))
+		params.Logger.Info("Child orchestration completing")
 
-		// Get the original execution context stored when this child started
-		if execCtxData, ok := params.CollectedData["__execution_context__"]; ok {
-			var parentRequestID string
-			var parentResponsesTopic string
-			var parentStepName string
+		// Get parent's response topic from stored context
+		var parentResponsesTopic string
+		var parentRequestID string
 
-			// Handle different types the context might be stored as
-			switch ctx := execCtxData.(type) {
+		// Check stored parent context
+		if parentTopic, ok := params.CollectedData["__parent_responses_topic__"]; ok {
+			parentResponsesTopic, _ = parentTopic.(string)
+		}
+
+		// Get parent request ID from execution context
+		if execCtx, ok := params.CollectedData["__execution_context__"]; ok {
+			switch ctx := execCtx.(type) {
 			case *types.ExecutionContext:
-				parentRequestID = ctx.RequestID
-				parentResponsesTopic = ctx.ResponsesTopic
-				parentStepName = ctx.StepName
+				if parentRequestID == "" {
+					parentRequestID = ctx.RequestID
+				}
+				if parentResponsesTopic == "" {
+					parentResponsesTopic = ctx.ResponsesTopic
+				}
 			case map[string]interface{}:
-				parentRequestID, _ = ctx["request_id"].(string)
-				parentResponsesTopic, _ = ctx["responses_topic"].(string)
-				parentStepName, _ = ctx["step_name"].(string)
-			}
-
-			params.Tracer.TraceMessage(params.ExecutionContext, "EXTRACT_PARENT_TOPIC", "",
-				map[string]interface{}{
-					"extracted_responses_topic": parentResponsesTopic,
-					"parent_request_id":         parentRequestID,
-					"child_orch_id":             params.ExecutionContext.OrchestrationID,
-					"parent_orch_id":            params.ExecutionContext.ParentOrchestrationID,
-					"exec_ctx_type":             fmt.Sprintf("%T", execCtxData),
-				})
-
-			if parentRequestID == "" || parentResponsesTopic == "" {
-				params.Logger.Error("Cannot notify parent: parent request ID or response topic is missing from execution context",
-					zap.String("parent_request_id", parentRequestID),
-					zap.String("parent_responses_topic", parentResponsesTopic),
-					zap.String("parent_step_name", parentStepName))
-
-				params.Tracer.TraceMessage(params.ExecutionContext, "MISSING_PARENT_INFO", "",
-					map[string]interface{}{
-						"parent_request_id":      parentRequestID,
-						"parent_responses_topic": parentResponsesTopic,
-						"exec_ctx_data":          execCtxData,
-					})
-				return map[string]interface{}{"result": finalResult}, nil
-			}
-
-			params.Logger.Info("Sending completion response to parent",
-				zap.String("parent_request_id", parentRequestID),
-				zap.String("responses_topic", parentResponsesTopic))
-
-			params.Tracer.TraceMessage(params.ExecutionContext, "SEND_TO_PARENT", parentResponsesTopic,
-				map[string]interface{}{
-					"topic":      parentResponsesTopic,
-					"request_id": parentRequestID,
-					"from_child": params.ExecutionContext.OrchestrationID,
-					"to_parent":  params.ExecutionContext.ParentOrchestrationID,
-				})
-
-			// Build SIMPLE response message
-			responseMsg := types.ResponseMessage{
-				Headers: types.ResponseHeaders{
-					Sender: types.AgentIdentity{
-						AgentType:    params.ExecutionContext.Sender.AgentType,
-						AgentID:      params.ExecutionContext.Sender.AgentID,
-						PodName:      params.ExecutionContext.Sender.PodName,
-						AgentVersion: params.ExecutionContext.Sender.AgentVersion,
-						Role:         params.ExecutionContext.Sender.Role,
-					},
-					OrchestrationID:            params.ExecutionContext.OrchestrationID,
-					OrchestrationName:          params.ExecutionContext.OrchestrationName,
-					InResponseToRequestID:      parentRequestID,
-					InResponseToStepID:         params.ExecutionContext.StepID,
-					InResponseToStepName:       parentStepName,
-					InResponseToParentOrchID:   params.ExecutionContext.ParentOrchestrationID,
-					InResponseToParentOrchName: params.ExecutionContext.ParentOrchestrationName,
-					InResponseToMessageID:      params.ExecutionContext.MessageID,
-					InResponseToAction:         params.ExecutionContext.Action,
-					RetryCount:                 params.ExecutionContext.RetryVersion,
-					MyOrchestrationID:          params.ExecutionContext.OrchestrationID,
-					MyOrchestrationName:        params.ExecutionContext.OrchestrationName,
-					CorrelationID:              params.ExecutionContext.CorrelationID,
-					CorrelationName:            params.ExecutionContext.CorrelationName,
-					ClientID:                   params.ExecutionContext.ClientID,
-					ToAgent:                    params.ExecutionContext.FromAgentID,
-					ToAgentType:                params.ExecutionContext.FromAgentType,
-					MessageType:                "response",
-					Status:                     "complete",
-					IsComplete:                 true,
-					IsError:                    false,
-					TimeSent:                   time.Now(),
-				},
-				Body: types.ResponseBody{
-					Success: true,
-					Headers: nil,
-					Body:    finalResult,
-					Error:   nil,
-				},
-			}
-
-			responseBytes, err := json.Marshal(responseMsg)
-			if err != nil {
-				params.Logger.Error("Failed to marshal response", zap.Error(err))
-				return finalResult, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			headers := responseMsg.Headers.ToMap()
-			key := []byte(params.ExecutionContext.CorrelationID)
-
-			err = params.Producer.Produce(ctx, parentResponsesTopic, headers, key, responseBytes)
-			if err != nil {
-				params.Logger.Error("Failed to send response to parent",
-					zap.Error(err),
-					zap.String("topic", parentResponsesTopic))
-				return finalResult, fmt.Errorf("failed to send response: %w", err)
-			}
-
-			params.Logger.Info("Successfully sent response to parent orchestration",
-				zap.String("topic", parentResponsesTopic),
-				zap.String("request_id", parentRequestID),
-				zap.Any("result_sent", finalResult))
-		}
-		// Case 2: This is a ROOT orchestration completing its entire workflow.
-		// It needs to notify the original client.
-	} else {
-		params.Logger.Info("Root orchestration completed. Sending final response to client.")
-
-		params.Logger.Info("DEBUG finalrequestid: look for __original_request__ key",
-			zap.Any("All of CollectedData", params.CollectedData),
-		)
-
-		var originalResponsesTopic string
-		var originalRequestID string
-
-		// FIRST: Check for stored original request (most reliable)
-		if origReq, ok := params.CollectedData["__original_request__"]; ok {
-
-			if reqMap, ok := origReq.(map[string]interface{}); ok {
-				originalResponsesTopic, _ = reqMap["responses_topic"].(string)
-				originalRequestID, _ = reqMap["request_id"].(string)
-
-				params.Logger.Info("Found original request info",
-					zap.String("responses_topic", originalResponsesTopic),
-					zap.String("request_id", originalRequestID))
-			}
-		}
-
-		// FALLBACK: Try current context (may have been transformed)
-		if originalResponsesTopic == "" {
-			originalResponsesTopic = params.ExecutionContext.ResponsesTopic
-			originalRequestID = params.ExecutionContext.RequestID
-		}
-
-		// LAST RESORT: Check execution context
-		if originalResponsesTopic == "" {
-			if initCtx, ok := params.CollectedData["__execution_context__"]; ok {
-				switch ctx := initCtx.(type) {
-				case *types.ExecutionContext:
-					originalResponsesTopic = ctx.ResponsesTopic
-					originalRequestID = ctx.RequestID
-				case map[string]interface{}:
-					originalResponsesTopic, _ = ctx["responses_topic"].(string)
-					originalRequestID, _ = ctx["request_id"].(string)
+				if parentRequestID == "" {
+					parentRequestID, _ = ctx["request_id"].(string)
+				}
+				if parentResponsesTopic == "" {
+					parentResponsesTopic, _ = ctx["responses_topic"].(string)
 				}
 			}
 		}
 
-		if originalResponsesTopic == "" || originalRequestID == "" {
-			params.Logger.Warn("Cannot send final response - missing original request info")
+		if parentRequestID == "" || parentResponsesTopic == "" {
+			params.Logger.Error("Missing parent info",
+				zap.String("request_id", parentRequestID),
+				zap.String("responses_topic", parentResponsesTopic))
 			return map[string]interface{}{"result": finalResult}, nil
 		}
 
-		if originalResponsesTopic == "" {
-			params.Logger.Warn("No responses_topic found for root orchestration")
-			return map[string]interface{}{"result": finalResult}, nil
-		}
-
-		responseMsg := types.ResponseMessage{
-			Headers: types.ResponseHeaders{
-				Sender: types.AgentIdentity{
-					AgentType:    params.ExecutionContext.Sender.AgentType,
-					AgentID:      params.ExecutionContext.Sender.AgentID,
-					PodName:      params.ExecutionContext.Sender.PodName,
-					AgentVersion: params.ExecutionContext.Sender.AgentVersion,
-					Role:         params.ExecutionContext.Sender.Role,
-				},
-				OrchestrationID:            params.ExecutionContext.OrchestrationID,
-				OrchestrationName:          params.ExecutionContext.OrchestrationName,
-				InResponseToRequestID:      originalRequestID, // Use original request ID
-				InResponseToStepID:         params.ExecutionContext.StepID,
-				InResponseToStepName:       params.ExecutionContext.StepName,
-				InResponseToParentOrchID:   params.ExecutionContext.ParentOrchestrationID,
-				InResponseToParentOrchName: params.ExecutionContext.ParentOrchestrationName,
-				InResponseToMessageID:      params.ExecutionContext.MessageID,
-				InResponseToAction:         params.ExecutionContext.Action,
-				RetryCount:                 params.ExecutionContext.RetryVersion,
-				MyOrchestrationID:          params.ExecutionContext.OrchestrationID,
-				MyOrchestrationName:        params.ExecutionContext.OrchestrationName,
-				CorrelationID:              params.ExecutionContext.CorrelationID,
-				CorrelationName:            params.ExecutionContext.CorrelationName,
-				ClientID:                   params.ExecutionContext.ClientID,
-				ToAgent:                    params.ExecutionContext.FromAgentID,
-				ToAgentType:                params.ExecutionContext.FromAgentType,
-				MessageType:                "response",
-				Status:                     "complete",
-				IsComplete:                 true,
-				IsError:                    false,
-				TimeSent:                   time.Now(),
-			},
-			Body: types.ResponseBody{
-				Success: true,
-				Headers: nil,
-				Body:    map[string]interface{}{"result": finalResult},
-				Error:   nil,
-			},
-		}
+		// Send response to parent
+		responseMsg := buildResponseMessage(params, parentRequestID, finalResult)
 
 		responseBytes, err := json.Marshal(responseMsg)
 		if err != nil {
-			params.Logger.Error("Failed to marshal response", zap.Error(err))
-			return finalResult, fmt.Errorf("failed to marshal response: %w", err)
+			return nil, fmt.Errorf("failed to marshal response: %w", err)
+		}
+
+		headers := responseMsg.Headers.ToMap()
+		key := []byte(params.ExecutionContext.CorrelationID)
+
+		err = params.Producer.Produce(ctx, parentResponsesTopic, headers, key, responseBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send response: %w", err)
+		}
+
+		params.Logger.Info("Sent response to parent",
+			zap.String("topic", parentResponsesTopic),
+			zap.String("request_id", parentRequestID))
+
+	} else {
+		// Case 2: Root orchestration completing
+		params.Logger.Info("Root orchestration completing")
+
+		var originalResponsesTopic string
+		var originalRequestID string
+
+		// Check for stored original request
+		if origReq, ok := params.CollectedData["__original_request__"]; ok {
+			if reqMap, ok := origReq.(map[string]interface{}); ok {
+				originalResponsesTopic, _ = reqMap["responses_topic"].(string)
+				originalRequestID, _ = reqMap["request_id"].(string)
+			}
+		}
+
+		// Fallback to current context
+		if originalResponsesTopic == "" {
+			originalResponsesTopic = params.ExecutionContext.ResponsesTopic
+		}
+		if originalRequestID == "" {
+			originalRequestID = params.ExecutionContext.RequestID
+		}
+
+		if originalResponsesTopic == "" || originalRequestID == "" {
+			params.Logger.Warn("No response destination",
+				zap.String("responses_topic", originalResponsesTopic),
+				zap.String("request_id", originalRequestID))
+			return map[string]interface{}{"result": finalResult}, nil
+		}
+
+		// Send final response
+		responseMsg := buildResponseMessage(params, originalRequestID, finalResult)
+
+		responseBytes, err := json.Marshal(responseMsg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal response: %w", err)
 		}
 
 		headers := responseMsg.Headers.ToMap()
@@ -286,16 +138,43 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 
 		err = params.Producer.Produce(ctx, originalResponsesTopic, headers, key, responseBytes)
 		if err != nil {
-			params.Logger.Error("Failed to send response to client",
-				zap.Error(err),
-				zap.String("topic", originalResponsesTopic))
-			return finalResult, fmt.Errorf("failed to send response: %w", err)
+			return nil, fmt.Errorf("failed to send response: %w", err)
 		}
 
-		params.Logger.Info("Successfully sent response to client",
+		params.Logger.Info("Sent final response",
 			zap.String("topic", originalResponsesTopic),
-			zap.String("request_id", params.ExecutionContext.RequestID))
+			zap.String("request_id", originalRequestID))
 	}
 
 	return map[string]interface{}{"result": finalResult}, nil
+}
+
+// Helper to build response message
+func buildResponseMessage(params ActionParams, requestID string, result interface{}) types.ResponseMessage {
+	return types.ResponseMessage{
+		Headers: types.ResponseHeaders{
+			Sender:                     params.ExecutionContext.Sender,
+			OrchestrationID:            params.ExecutionContext.OrchestrationID,
+			OrchestrationName:          params.ExecutionContext.OrchestrationName,
+			InResponseToRequestID:      requestID,
+			InResponseToStepID:         params.ExecutionContext.StepID,
+			InResponseToStepName:       params.ExecutionContext.StepName,
+			InResponseToParentOrchID:   params.ExecutionContext.ParentOrchestrationID,
+			InResponseToParentOrchName: params.ExecutionContext.ParentOrchestrationName,
+			MyOrchestrationID:          params.ExecutionContext.OrchestrationID,
+			MyOrchestrationName:        params.ExecutionContext.OrchestrationName,
+			CorrelationID:              params.ExecutionContext.CorrelationID,
+			ClientID:                   params.ExecutionContext.ClientID,
+			MessageType:                "response",
+			Status:                     "complete",
+			IsComplete:                 true,
+			IsError:                    false,
+			TimeSent:                   time.Now(),
+		},
+		Body: types.ResponseBody{
+			Success: true,
+			Body:    result,
+			Error:   nil,
+		},
+	}
 }

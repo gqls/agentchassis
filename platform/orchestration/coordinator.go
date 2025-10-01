@@ -678,26 +678,17 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *OrchestrationState, step models.Step, execCtx *types.ExecutionContext) error {
 	// Update execution context for this step
 	execCtx.StepID = uuid.New().String()
-	execCtx.StepName = step.Action
+	execCtx.StepName = state.CurrentStep // Use the actual step name, not the action
 	execCtx.Action = step.Action
 
 	contextLogger := s.logger.With(
 		zap.String("orchestration_id", execCtx.OrchestrationID),
-		zap.String("step_name", execCtx.StepName),
-		zap.String("action", step.Action),
-		zap.Any("state.CollectedData", state.CollectedData),
-	)
+		zap.String("step_name", state.CurrentStep),
+		zap.String("action", step.Action))
 
-	contextLogger.Info("In executeLocalAction",
-		zap.Any("DEBUGaa: executionContext", execCtx))
-
-	current, caller := getFuncInfo(1)
-
-	contextLogger.Info("In file coordinator.go executeLocalAction",
-		zap.String("function", current),
-		zap.String("called_by", caller),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-	)
+	contextLogger.Info("Executing local action",
+		zap.String("step", state.CurrentStep),
+		zap.Any("config", step.Config))
 
 	// Pre-generate request ID for actions that need responses
 	needsResponse := step.Action == "call_agent" || step.Action == "start_orchestration" ||
@@ -724,7 +715,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// Ensure ExecutionContext has Sender before creating params
 	if execCtx.Sender.AgentType == "" {
 		execCtx.Sender = types.AgentIdentity{
-			AgentType:    state.OwnerAgentType, // From the state
+			AgentType:    state.OwnerAgentType,
 			AgentID:      state.OwnerAgentID,
 			PodName:      s.podName,
 			AgentVersion: os.Getenv("AGENT_VERSION"),
@@ -757,27 +748,22 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// Execute action
 	result, err := handler(ctx, params)
 	if err != nil {
-		contextLogger.Error("Local action failed in executeLocalAction", zap.Error(err), zap.Any("params", params))
+		contextLogger.Error("Local action failed",
+			zap.Error(err),
+			zap.String("action", step.Action))
 		return fmt.Errorf("local action failed: %w", err)
 	}
 
-	// what is in CollectedData
-	s.logger.Info("coordinator executeLocalAction. Local action completed: show result and look whats in CollectedData under current step BEFORE",
-		zap.Any("result", result),
-		zap.Any("CollectedData at current step", state.CollectedData[state.CurrentStep]),
-		zap.Any("current step will this overwrite something?", state.CurrentStep))
-
+	// Store result under the current step name
 	if state.CurrentStep == "" {
 		s.logger.Error("Cannot store result - CurrentStep is empty")
 		return fmt.Errorf("current step is empty")
 	}
-
-	// Store result
 	state.CollectedData[state.CurrentStep] = result
 
-	s.logger.Info("coordinator executeLocalAction. 650 Local action completed: show result and look whats in CollectedData under current step AFTER",
-		zap.Any("CollectedData at current step", state.CollectedData[state.CurrentStep]),
-	)
+	contextLogger.Info("Local action completed",
+		zap.String("stored_under", state.CurrentStep),
+		zap.Any("result_keys", getMapKeys(result)))
 
 	// Handle subtree info if returned (for spawn actions), handle all state modifications in memory
 	needsWaiting := false
@@ -802,14 +788,23 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 			}
 
 			if requestID != "" {
+				// Determine the response topic from the result
+				responsesTopic := s.getResponsesTopicFromResult(resultMap, execCtx)
+				if responsesTopic == "" {
+					contextLogger.Error("No responses topic available for awaited request",
+						zap.String("request_id", requestID))
+					return fmt.Errorf("no responses topic for awaited request")
+				}
+
 				// Create awaited request entry IN MEMORY
 				awaitedReq := &AwaitedRequest{
 					RequestID:       requestID,
 					StepID:          execCtx.StepID,
-					StepName:        step.Action,
+					StepName:        state.CurrentStep, // Use actual step name
 					RetryVersion:    0,
 					TargetAgentType: getTargetAgentType(step, resultMap),
-					ResponsesTopic:  execCtx.ResponsesTopic,
+					TargetAgentID:   s.getTargetAgentID(resultMap),
+					ResponsesTopic:  responsesTopic,
 					SentAt:          time.Now(),
 					TimeoutAt:       time.Now().Add(getTimeout(step)),
 				}
@@ -822,16 +817,12 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 				state.Status = StatusAwaitingResponses
 				needsWaiting = true
 
-				contextLogger.Info("Action requires waiting for response Added awaited request to state",
+				contextLogger.Info("Action requires waiting for response",
 					zap.String("request_id", requestID),
 					zap.String("target_agent_type", awaitedReq.TargetAgentType),
+					zap.String("target_agent_id", awaitedReq.TargetAgentID),
+					zap.String("responses_topic", responsesTopic),
 					zap.Int("awaited_count", len(state.AwaitedRequests)))
-
-				// SAVE STATE BEFORE EXECUTING ACTION
-				repo := NewStateRepository(s.db, s.logger)
-				if err := repo.UpdateState(ctx, state); err != nil {
-					return fmt.Errorf("failed to save awaited request: %w", err)
-				}
 
 				// Set up timeout handler
 				go s.handleRequestTimeout(ctx, state.OrchestrationID, requestID, awaitedReq.TimeoutAt)
@@ -843,17 +834,11 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{
 		PodName:   s.podName,
 		StepID:    execCtx.StepID,
-		StepName:  step.Action,
+		StepName:  state.CurrentStep,
 		Action:    "executed",
 		Timestamp: time.Now(),
-		Details:   fmt.Sprintf("Executed by %s", s.podName),
+		Details:   fmt.Sprintf("Action %s executed by %s", step.Action, s.podName),
 	})
-
-	// Right before UpdateState
-	s.logger.Info("About to save state with awaited requests",
-		zap.Int("awaited_count", len(state.AwaitedRequests)),
-		zap.Bool("needsWaiting", needsWaiting),
-	)
 
 	// If we need to wait, save state NOW before returning
 	if needsWaiting {
@@ -861,7 +846,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		if err := repo.UpdateState(ctx, state); err != nil {
 			return fmt.Errorf("failed to save state before waiting: %w", err)
 		}
-		contextLogger.Info("State saved before waiting for response")
+		contextLogger.Info("State saved with awaited request")
 	}
 
 	// NO DATABASE SAVE HERE - let continueExecution handle it
@@ -872,32 +857,26 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *OrchestrationState, step models.Step, execCtx *types.ExecutionContext) error {
 	contextLogger := s.logger.With(
 		zap.String("orchestration_id", execCtx.OrchestrationID),
-		zap.String("step_name", execCtx.StepName),
-		zap.String("action", step.Action),
-		zap.Any("state.CollectedData", state.CollectedData),
-	)
-	contextLogger.Info("In executeRemoteAction",
-		zap.Any("ExecutionContext", execCtx))
+		zap.String("step_name", state.CurrentStep),
+		zap.String("action", step.Action))
 
-	current, caller := getFuncInfo(1)
-
-	contextLogger.Info("In file coordinator.go executeRemoteAction",
-		zap.String("function", current),
-		zap.String("called_by", caller),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-	)
+	contextLogger.Info("Executing remote action",
+		zap.String("topic", step.Topic),
+		zap.String("target_agent_type", step.TargetAgentType))
 
 	// Update execution context
 	execCtx.RequestID = uuid.New().String()
 	execCtx.StepID = uuid.New().String()
-	execCtx.StepName = step.Action
+	execCtx.StepName = state.CurrentStep
 	execCtx.Action = step.Action
 	execCtx.ToAgentType = step.TargetAgentType
-	execCtx.ResponsesTopic = fmt.Sprintf("system.agent.%s.responses", execCtx.Sender.AgentType)
 
-	l := s.logger.With(
-		zap.String("request_id", execCtx.RequestID),
-		zap.String("topic", step.Topic))
+	// ResponsesTopic should already be set in execCtx from the process() function
+	if execCtx.ResponsesTopic == "" {
+		contextLogger.Error("No responses topic configured",
+			zap.String("step", state.CurrentStep))
+		return fmt.Errorf("no responses topic configured for remote action")
+	}
 
 	// Prepare the message
 	requestMsg := &types.RequestMessage{
@@ -908,21 +887,30 @@ func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *Orches
 		},
 	}
 
-	msgBytes, _ := json.Marshal(requestMsg)
+	msgBytes, err := json.Marshal(requestMsg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
 
 	// Send the message
-	if err := s.producer.Produce(ctx, step.Topic, requestMsg.Headers.ToMap(), []byte(execCtx.CorrelationID), msgBytes); err != nil {
+	if err := s.producer.Produce(ctx, step.Topic, requestMsg.Headers.ToMap(),
+		[]byte(execCtx.CorrelationID), msgBytes); err != nil {
 		return fmt.Errorf("failed to produce message: %w", err)
 	}
+
+	contextLogger.Info("Remote request sent",
+		zap.String("request_id", execCtx.RequestID),
+		zap.String("topic", step.Topic),
+		zap.String("responses_topic", execCtx.ResponsesTopic))
 
 	// Create awaited request
 	awaitedReq := &AwaitedRequest{
 		RequestID:       execCtx.RequestID,
 		StepID:          execCtx.StepID,
-		StepName:        step.Action,
+		StepName:        state.CurrentStep,
 		RetryVersion:    0,
 		TargetAgentType: step.TargetAgentType,
-		ResponsesTopic:  execCtx.ResponsesTopic, // Store where we expect responses
+		ResponsesTopic:  execCtx.ResponsesTopic,
 		SentAt:          time.Now(),
 		TimeoutAt:       time.Now().Add(getTimeout(step)),
 	}
@@ -940,12 +928,69 @@ func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *Orches
 		return err
 	}
 
-	l.Info("Remote action initiated")
+	contextLogger.Info("Remote action initiated, waiting for response",
+		zap.String("request_id", execCtx.RequestID),
+		zap.String("awaiting_on_topic", execCtx.ResponsesTopic))
 
 	// Set up timeout
 	go s.handleRequestTimeout(ctx, state.OrchestrationID, execCtx.RequestID, awaitedReq.TimeoutAt)
 
 	return nil
+}
+
+func (s *SagaCoordinator) getResponsesTopicFromResult(result map[string]interface{}, execCtx *types.ExecutionContext) string {
+	// First check if the action result includes a responses_topic
+	// This would be set by spawn_agent or call_agent actions
+	if topic, ok := result["responses_topic"].(string); ok && topic != "" {
+		return topic
+	}
+
+	// For child agents, they might include the child's response topic
+	if topic, ok := result["child_responses_topic"].(string); ok && topic != "" {
+		return topic
+	}
+
+	// Otherwise use the execution context's topic
+	// This is where THIS orchestration expects to receive responses
+	if execCtx.ResponsesTopic != "" {
+		return execCtx.ResponsesTopic
+	}
+
+	// This shouldn't happen with proper setup
+	s.logger.Error("No responses topic available",
+		zap.Any("result_keys", getMapKeys(result)),
+		zap.String("exec_responses_topic", execCtx.ResponsesTopic))
+	return ""
+}
+
+func (s *SagaCoordinator) getTargetAgentID(result map[string]interface{}) string {
+	if agentID, ok := result["agent_id"].(string); ok {
+		return agentID
+	}
+	if agentID, ok := result["target_agent_id"].(string); ok {
+		return agentID
+	}
+	if agentID, ok := result["agent_called"].(string); ok {
+		return agentID
+	}
+	return ""
+}
+
+func getMapKeys(m interface{}) []string {
+	if m == nil {
+		return []string{}
+	}
+
+	switch v := m.(type) {
+	case map[string]interface{}:
+		keys := make([]string, 0, len(v))
+		for k := range v {
+			keys = append(keys, k)
+		}
+		return keys
+	default:
+		return []string{}
+	}
 }
 
 // handleProgressUpdate handles progress updates from agents
@@ -1391,15 +1436,4 @@ func getFuncInfo(skip int) (current, caller string) {
 		caller = runtime.FuncForPC(pc).Name()
 	}
 	return
-}
-
-func getMapKeys(m map[string]interface{}) []string {
-	if m == nil {
-		return []string{}
-	}
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }

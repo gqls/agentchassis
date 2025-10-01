@@ -68,6 +68,7 @@ type AwaitedRequest struct {
 	TargetAgentID   string    `json:"target_agent_id,omitempty"`
 	TargetAgentType string    `json:"target_agent_type"`
 	ResponsesTopic  string    `json:"responses_topic"`
+	RequestsTopic   string    `json:"requests_topic"`
 	SentAt          time.Time `json:"sent_at"`
 	TimeoutAt       time.Time `json:"timeout_at"`
 	ParentRequestID string    `json:"parent_request_id,omitempty"`
@@ -94,6 +95,9 @@ type OrchestrationState struct {
 	OwnerAgentRole        string `db:"owner_agent_role"`
 	ParentOrchestrationID string `db:"parent_orchestration_id"`
 	ClientID              string `db:"client_id"`
+
+	RequestsTopic  string `db:"requests_topic"`  // Where THIS orchestration listens
+	ResponsesTopic string `db:"responses_topic"` // Where THIS orchestration sends responses
 
 	// State
 	Status             OrchestrationStatus        `db:"status"`
@@ -357,80 +361,74 @@ func (r *StateRepository) CreateState(ctx context.Context, state *OrchestrationS
 }
 
 func (r *StateRepository) CreateInitialState(
-	ctx context.Context, orchestrationID,
+	ctx context.Context,
+	orchestrationID string,
 	orchestrationName string,
-	correlationID,
-	ownerAgentID,
+	correlationID string,
+	ownerAgentID string,
 	ownerAgentType string,
 	ownerAgentRole string,
-	parentOrchestrationID,
+	parentOrchestrationID string,
 	clientID string,
 	plan models.WorkflowPlan,
 	initialData []byte,
 	execCtx *types.ExecutionContext,
 ) error {
-
-	fmt.Fprintf(os.Stderr, "DEBUG uuid: CreateInitialState START printf - orch=%s, parent=%s, owner=%s\n",
-		orchestrationID, parentOrchestrationID, ownerAgentID)
-
-	r.logger.Info("DEBUG returntopic: CreateInitialState parameters",
+	r.logger.Info("CreateInitialState parameters",
 		zap.String("orchestrationID", orchestrationID),
-		zap.String("owner agent role", ownerAgentRole),
-		zap.String("parentOrchestrationID", parentOrchestrationID),
-		zap.Any("parentOrchestrationID_length", len(parentOrchestrationID)),
-		zap.Any("parentOrchestrationID_bytes", []byte(parentOrchestrationID)),
-		zap.Any("initial data", initialData),
-	)
+		zap.String("parentOrchestrationID", parentOrchestrationID))
 
+	// Updated query to include topics
 	query := `
 		INSERT INTO orchestration_states (
-			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, owner_agent_role, parent_orchestration_id, client_id,
+			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, 
+			owner_agent_role, parent_orchestration_id, client_id,
+			requests_topic, responses_topic,  -- NEW fields
 			status, current_step, awaited_steps, collected_data, initial_request_data,
 			workflow_plan, execution_metadata, execution_path, version, created_at, updated_at,
 			currently_executing, last_activity, processing_node
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
 		ON CONFLICT (orchestration_id) DO NOTHING
 	`
 
-	// Prepare data for insertion
-	awaitedStepsJSON, _ := json.Marshal([]string{})
-
+	// Prepare collected data
 	collectedData := map[string]interface{}{
-		"agent_type": os.Getenv("AGENT_TYPE"),
+		"agent_type": ownerAgentType,
 	}
 
-	// Store the original execution context for response routing
+	// Store execution context and topics properly
 	if execCtx != nil {
 		collectedData["__execution_context__"] = execCtx
 
-		// For root orchestrations, also store the original request info
-		if parentOrchestrationID == "" {
-			collectedData["__original_request__"] = map[string]interface{}{
-				"request_id":      execCtx.RequestID,
-				"responses_topic": execCtx.ResponsesTopic,
-				"correlation_id":  execCtx.CorrelationID,
-			}
+		// Store where THIS orchestration listens/responds
+		if execCtx.RequestsTopic != "" {
+			collectedData["__my_requests_topic__"] = execCtx.RequestsTopic
+		}
+		if execCtx.ResponsesTopic != "" {
+			// This is where I send MY responses (to parent)
+			collectedData["__parent_responses_topic__"] = execCtx.ResponsesTopic
 		}
 	}
-	// Parse and include initial data in collected data
+
+	// Parse and merge initial data
 	if len(initialData) > 0 {
 		var inputData map[string]interface{}
 		if err := json.Unmarshal(initialData, &inputData); err == nil {
-			// Merge initial data into collected data
 			for k, v := range inputData {
 				collectedData[k] = v
 			}
 		}
 	}
 
-	r.logger.Info("DEBUG returntopic: CreateInitialState what ends up in collectedData",
-		zap.Any("collectedData in createinitialstate", collectedData),
-	)
+	r.logger.Info("CreateInitialState collected data",
+		zap.Any("collectedData", collectedData))
 
+	// Serialize fields
+	awaitedStepsJSON, _ := json.Marshal([]string{})
 	collectedDataJSON, _ := json.Marshal(collectedData)
-
 	workflowPlanJSON, _ := json.Marshal(plan)
+
 	metadata := ExecutionMetadata{
 		TotalSteps:     len(plan.Steps),
 		CompletedSteps: 0,
@@ -442,6 +440,7 @@ func (r *StateRepository) CreateInitialState(
 	}
 	metadataJSON, _ := json.Marshal(metadata)
 	executionPathJSON, _ := json.Marshal([]ExecutionRecord{})
+
 	now := time.Now().UTC()
 	processingNode := os.Getenv("HOSTNAME")
 	if processingNode == "" {
@@ -455,31 +454,53 @@ func (r *StateRepository) CreateInitialState(
 		parentOrchIDValue = parentOrchestrationID
 	}
 
-	fmt.Fprintf(os.Stderr, "DEBUG uuid: printf About to execute SQL INSERT with parent=%v\n", parentOrchIDValue)
+	// Extract topics from ExecutionContext
+	var requestsTopic, responsesTopic string
+	if execCtx != nil {
+		requestsTopic = execCtx.RequestsTopic
+		responsesTopic = execCtx.ResponsesTopic
+	}
 
-	// Attempt the atomic insert
+	// Execute insert with topics
 	result, err := r.db.ExecContext(ctx, query,
-		orchestrationID, orchestrationName, correlationID, ownerAgentID, ownerAgentType, ownerAgentRole, parentOrchIDValue, clientID,
-		StatusInitialized, plan.StartStep, awaitedStepsJSON, collectedDataJSON, initialData,
-		workflowPlanJSON, metadataJSON, executionPathJSON, 1, now, now,
-		nil, now, processingNode)
+		orchestrationID,   // $1
+		orchestrationName, // $2
+		correlationID,     // $3
+		ownerAgentID,      // $4
+		ownerAgentType,    // $5
+		ownerAgentRole,    // $6
+		parentOrchIDValue, // $7
+		clientID,          // $8
+		requestsTopic,     // $9
+		responsesTopic,    // $10
+		StatusInitialized, // $11
+		plan.StartStep,    // $12
+		awaitedStepsJSON,  // $13
+		collectedDataJSON, // $14
+		initialData,       // $15
+		workflowPlanJSON,  // $16
+		metadataJSON,      // $17
+		executionPathJSON, // $18
+		1,                 // $19 - version
+		now,               // $20 - created_at
+		now,               // $21 - updated_at
+		nil,               // $22 - currently_executing
+		now,               // $23 - last_activity
+		processingNode)    // $24 - processing_node
 
 	if err != nil {
-		// This would be an unexpected database error, not a primary key violation
-		r.logger.Error("Failed to execute initial state creation",
+		r.logger.Error("Failed to create initial state",
 			zap.Error(err),
 			zap.String("orchestration_id", orchestrationID))
 		return fmt.Errorf("failed to create initial state: %w", err)
 	}
 
-	// If no rows were affected, it means another process won the race.
-	// The record already exists, so we don't need to do anything further.
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
-		r.logger.Info("Another process created the state, proceeding with existing record",
+		r.logger.Info("State already exists, proceeding",
 			zap.String("orchestration_id", orchestrationID))
 	} else {
-		r.logger.Info("Initial orchestration state created successfully",
+		r.logger.Info("Initial state created successfully",
 			zap.String("orchestration_id", orchestrationID))
 	}
 
@@ -490,16 +511,18 @@ func (r *StateRepository) CreateInitialState(
 func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) (*OrchestrationState, error) {
 
 	query := `
-		SELECT 
-			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, owner_agent_role, parent_orchestration_id,
-			client_id, status, current_step, awaited_steps, awaited_requests,
-			currently_executing, last_activity, processing_node, execution_started_at,
-			collected_data, initial_request_data, final_result, workflow_plan,
-			execution_path, execution_metadata, processing_history, subtree_agents,
-			fuel_budget, error, version, created_at, updated_at
-		FROM orchestration_states
-		WHERE orchestration_id = $1
-	`
+	SELECT 
+		orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, 
+		owner_agent_role, parent_orchestration_id, client_id, 
+		requests_topic, responses_topic,  -- NEW fields
+		status, current_step, awaited_steps, awaited_requests,
+		currently_executing, last_activity, processing_node, execution_started_at,
+		collected_data, initial_request_data, final_result, workflow_plan,
+		execution_path, execution_metadata, processing_history, subtree_agents,
+		fuel_budget, error, version, created_at, updated_at
+	FROM orchestration_states
+	WHERE orchestration_id = $1
+`
 
 	state := &OrchestrationState{}
 	var collectedDataJSON, workflowPlanJSON, executionMetadataJSON, executionPathJSON []byte
@@ -516,6 +539,8 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 		&state.OwnerAgentRole,
 		&parentOrchestrationIDNull,
 		&state.ClientID,
+		&state.RequestsTopic,
+		&state.ResponsesTopic,
 		&state.Status,
 		&state.CurrentStep,
 		&awaitedStepsJSON,
@@ -692,6 +717,13 @@ func (r *StateRepository) AddAwaitedRequest(ctx context.Context, orchestrationID
 	// Initialize if needed
 	if state.AwaitedRequests == nil {
 		state.AwaitedRequests = make(map[string]*AwaitedRequest)
+	}
+
+	// Store the child's response topic so we know where to listen
+	if request.ResponsesTopic == "" {
+		// This shouldn't happen with new architecture
+		r.logger.Warn("No responses topic in awaited request",
+			zap.String("request_id", request.RequestID))
 	}
 
 	// Check if already awaiting this request

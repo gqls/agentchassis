@@ -854,3 +854,10 @@ UNIQUE (correlation_id, request_id, agent_id);
 -- add roles
 ALTER TABLE orchestration_states
 ADD COLUMN owner_agent_role VARCHAR(255) DEFAULT '';
+
+
+ALTER TABLE orchestration_states
+ADD COLUMN responses_topic VARCHAR(255);
+
+ALTER TABLE orchestration_states
+ADD COLUMN requests_topic VARCHAR(255);

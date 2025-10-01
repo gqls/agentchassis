@@ -136,54 +136,48 @@ func (m *MessageContext) SyncContextFromHeaders() error {
 
 func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAgentType, receivingAgentRole string, logger *zap.Logger) (*MessageContext, error) {
 
-	logger.Info("DEBUG agentRole: NewMessageContext: Incoming headers",
-		zap.String("orchestration_id", headers["orchestration_id"]),
-		zap.String("parent_orchestration_id", headers["parent_orchestration_id"]),
-		zap.String("message_type", headers["message_type"]),
-		zap.String("receiving_agent", receivingAgentType),
-		zap.Any("all headers NewMessageContext", headers),
-		zap.Any("receiving agent role in NewMessageContext", receivingAgentRole),
-	)
+	// Parse sender's context
+	senderCtx, _ := types.FromHeaders(headers)
 
-	// Parse using existing functions
-	senderCtx, err := types.FromHeaders(headers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse headers: %w", err)
+	var execCtx *types.ExecutionContext
+
+	if senderCtx.MessageType == "response" {
+		// Keep child's context AS IS for orchestrator
+		execCtx = senderCtx
+
+	} else if senderCtx.Action == "initialize" {
+		// Being spawned - use provided orchestration ID
+		execCtx = &types.ExecutionContext{
+			OrchestrationID:       senderCtx.OrchestrationID,
+			ParentOrchestrationID: senderCtx.ParentOrchestrationID,
+			CorrelationID:         senderCtx.CorrelationID,
+			ClientID:              senderCtx.ClientID,
+			// ResponsesTopic will be set by process()
+		}
+
+	} else {
+		// Normal request - create new orchestration
+		execCtx = &types.ExecutionContext{
+			OrchestrationID:       uuid.New().String(),
+			ParentOrchestrationID: senderCtx.OrchestrationID,
+			CorrelationID:         senderCtx.CorrelationID,
+			ClientID:              senderCtx.ClientID,
+			// ResponsesTopic will be set by process()
+		}
 	}
 
-	// Create receiver identity
-	agentID := os.Getenv("AGENT_ID")
-	if agentID == "" {
-		// Generate a stable UUID based on hostname if AGENT_ID not set
-		agentID = "00000000-0000-0000-0000-000000000001"
+	// Always set my identity
+	execCtx.Sender = types.AgentIdentity{
+		AgentType: receivingAgentType,
+		AgentID:   os.Getenv("AGENT_ID"),
+		PodName:   os.Getenv("HOSTNAME"),
+		Role:      receivingAgentRole,
 	}
-
-	// Create receiver identity
-	receiverIdentity := types.AgentIdentity{
-		AgentType:    receivingAgentType,
-		AgentID:      agentID,
-		PodName:      os.Getenv("HOSTNAME"),
-		AgentVersion: os.Getenv("AGENT_VERSION"),
-		Role:         receivingAgentRole,
-	}
-
-	// Adjust to receiver's perspective
-	receiverCtx := senderCtx.AdjustToReceiverPerspective(receiverIdentity)
-
-	if receiverCtx.ResponsesTopic == "" && headers["responses_topic"] != "" {
-		receiverCtx.ResponsesTopic = headers["responses_topic"]
-	}
-
-	// Log the transformed context
-	logger.Info("DEBUG uuidparse: NewMessageContext: After perspective adjustment",
-		zap.String("receiver_orch_id", receiverCtx.OrchestrationID),
-		zap.String("receiver_parent_orch_id", receiverCtx.ParentOrchestrationID),
-		zap.String("receiver_type", receivingAgentType))
 
 	return &MessageContext{
 		Message:          msg,
-		ExecutionContext: receiverCtx,
-		Headers:          headers,
+		ExecutionContext: execCtx,
+		Headers:          headers, // Keep original for parent's response topic
 		StartTime:        time.Now(),
 		CollectedData:    make(map[string]interface{}),
 	}, nil

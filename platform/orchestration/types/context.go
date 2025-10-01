@@ -625,6 +625,7 @@ func (ec *ExecutionContext) ToHeaders() map[string]string {
 		"from_agent_id":   ec.FromAgentID,
 		"from_agent_type": ec.FromAgentType,
 		"responses_topic": ec.ResponsesTopic,
+		"requests_topic":  ec.RequestsTopic,
 
 		// Step info
 		"step_id":   ec.StepID,
@@ -852,7 +853,7 @@ func (rh *RequestHeaders) ToMap() map[string]string {
 // In types/context.go, add these methods:
 
 // AdjustToReceiverPerspective transforms the context from sender's to receiver's view
-func (ec *ExecutionContext) AdjustToReceiverPerspective(receiverIdentity AgentIdentity) *ExecutionContext {
+func (ec *ExecutionContext) AdjustToReceiverPerspectiveOLD(receiverIdentity AgentIdentity) *ExecutionContext {
 	if ec.MessageType == "response" {
 		// For responses, flip the perspective
 		return &ExecutionContext{

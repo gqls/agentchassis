@@ -202,3 +202,38 @@ RequestsTopic   string       // Where I listen for requests
 ParentOrchestrationID string // Who spawned me (context only)
 CollectedData   map[string]interface{} // MY workflow data
 }
+
+
+
+Functions to KEEP AS-IS:
+Good to keep unchanged:
+
+NewMessageProcessor - Already updated
+process - Already updated
+createWorkflowForAction - Simple, works fine
+validateNoSelfRecursion - Good validation
+loadAgentDefinition - Database logic is fine
+convertToWorkflowPlan - Conversion logic is good
+getStringValue - Helper is fine
+getDefaultWorkflow - Default workflows are fine
+sendWorkflowSuccessResponse - Works with sendWorkflowResponse
+sendWorkflowFailureResponse - Works with sendWorkflowResponse
+handleError - Error handling is good
+ProcessResponse - Routes to orchestrator correctly
+ProcessMessage - Main entry is good
+processWithoutContext - Fallback is important
+getFuncInfo - Debugging helper is useful
+processRequest - Workflow execution is fine
+processResponse - Response routing is good
+executeWorkflow - Orchestrator integration is good
+handleDirectResponse - Simple metrics update is fine
+selectWorkflow - Workflow selection logic is good
+determineWorkflowMode - Mode detection is useful
+isComplexRequest - Heuristic is fine
+getDefaultTaskWorkflow - Default is good
+getDefaultOrchestrationWorkflow - Default is good
+isIntentionalOrchestration - Detection logic is good
+extractAction - Helper is useful
+getAgentTypeFromID - Database lookup is needed
+isKnownAgentType - Validation is good
+getAgentTypeAndIDFromHeaders - Helper is useful

@@ -34,6 +34,273 @@ import (
 // SpawnAgentAction spawns a single agent - supports both K8s Job creation and message sending with hierarchy tracking
 // func SpawnAgentWithEventDrivenKubeAction(ctx context.Context, params ActionParams) (interface{}, error) {
 func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("SpawnAgentAction starting",
+		zap.Any("config", params.StepConfig))
+
+	config := params.StepConfig.Config
+
+	// Validate required fields - KEEP
+	agentType, ok := config["agent_type"].(string)
+	if !ok || agentType == "" {
+		return nil, fmt.Errorf("agent_type is required")
+	}
+
+	role, hasRole := config["role"].(string)
+	if !hasRole || role == "" {
+		role = params.ExecutionContext.StepName // Use step name as fallback
+	}
+
+	// Generate unique agent ID and name - KEEP
+	agentID := uuid.New().String()
+	agentName := GenerateAgentName(agentType, role)
+
+	// Pre-generate request ID - KEEP (critical for response matching)
+	requestID := params.Headers["request_id"]
+	if requestID == "" {
+		requestID = uuid.New().String()
+		params.Headers["request_id"] = requestID
+	}
+
+	params.Logger.Info("Spawning agent",
+		zap.String("agent_id", agentID),
+		zap.String("agent_name", agentName),
+		zap.String("agent_type", agentType),
+		zap.String("role", role),
+		zap.String("request_id", requestID))
+
+	// Create subtree info for hierarchy tracking - KEEP
+	subtreeInfo := &types.SubtreeInfo{
+		AgentID:       agentID,
+		AgentType:     agentType,
+		AgentName:     agentName,
+		ParentAgentID: params.ExecutionContext.FromAgentID,
+		Children:      make(map[string]*types.SubtreeInfo),
+		CreatedAt:     time.Now(),
+		LastActiveAt:  time.Now(),
+		Performance: &types.PerformanceMetrics{
+			TasksCompleted:   0,
+			TasksFailed:      0,
+			AverageLatencyMs: 0,
+			FuelConsumed:     0,
+			LastUpdated:      time.Now(),
+		},
+	}
+
+	clientID := params.Headers["client_id"]
+	if clientID == "" {
+		clientID = "demo_client"
+	}
+
+	// Get agent definition - KEEP
+	agentDef, err := getAgentDefinition(ctx, params.DB, agentType, params.Logger)
+	if err != nil {
+		params.Logger.Error("Failed to get agent definition",
+			zap.String("agent_type", agentType),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to get agent definition: %w", err)
+	}
+
+	params.Logger.Info("Got agent definition",
+		zap.String("agent_type", agentType),
+		zap.String("image", fmt.Sprintf("%s:%s", agentDef.ImageRepository, agentDef.ImageTag)))
+
+	// Create agent in DB - KEEP
+	if err := createAgentInDBFromDefinition(ctx, params, agentID, agentDef, clientID); err != nil {
+		params.Logger.Error("Failed to create agent in database",
+			zap.String("agent_id", agentID),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to create agent in DB: %w", err)
+	}
+
+	// NEW: Create stable identity for child's topics
+	// Using agentID for uniqueness since it's stable for this spawn
+	stableIdentity := fmt.Sprintf("%s-%s-%s",
+		params.ExecutionContext.CorrelationID[:8],
+		agentID[:8],        // Use agent's ID for uniqueness
+		params.CurrentStep) // The step that's spawning this agent
+
+	// NEW: Create job-specific topics with new naming
+	childRequestsTopic := fmt.Sprintf("job.%s.requests", stableIdentity)
+	childResponsesTopic := fmt.Sprintf("job.%s.responses", stableIdentity)
+
+	params.Logger.Info("Creating child agent topics",
+		zap.String("stable_identity", stableIdentity),
+		zap.String("requests_topic", childRequestsTopic),
+		zap.String("responses_topic", childResponsesTopic))
+
+	// Create topics - KEEP logic but use new names
+	kafkaBrokers := strings.Split(os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS"), ",")
+	if len(kafkaBrokers) == 0 || kafkaBrokers[0] == "" {
+		kafkaBrokers = []string{"personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"}
+	}
+
+	if err := topics.CreateJobTopic(kafkaBrokers, childRequestsTopic, 2); err != nil {
+		params.Logger.Warn("Failed to create requests topic (may already exist)",
+			zap.String("topic", childRequestsTopic),
+			zap.Error(err))
+	}
+
+	if err := topics.CreateJobTopic(kafkaBrokers, childResponsesTopic, 2); err != nil {
+		params.Logger.Warn("Failed to create responses topic (may already exist)",
+			zap.String("topic", childResponsesTopic),
+			zap.Error(err))
+	}
+
+	// Spawn K8s job with new topic names - CRITICAL
+	jobName, err := spawnAgentKubernetesJobFromDefinition(
+		ctx,
+		agentID,
+		agentDef,
+		clientID,
+		childRequestsTopic,  // Pass as REQUESTS_TOPIC env var
+		childResponsesTopic, // Pass as RESPONSES_TOPIC env var
+		params.Logger)
+
+	if err != nil {
+		params.Logger.Error("Failed to spawn K8s job",
+			zap.String("agent_id", agentID),
+			zap.String("agent_type", agentType),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to spawn K8s job: %w", err)
+	}
+
+	params.Logger.Info("Successfully spawned K8s job",
+		zap.String("job_name", jobName),
+		zap.String("agent_id", agentID))
+
+	// Determine target action - KEEP
+	/*	targetAction := "process"
+		if action, ok := params.StepConfig.Config["target_action"].(string); ok {
+			targetAction = action
+		}*/
+
+	// Determine sender type - KEEP this logic (it's careful)
+	senderAgentType := "generic"
+	if params.ExecutionContext.FromAgentType != "" {
+		senderAgentType = params.ExecutionContext.FromAgentType
+	} else if params.ExecutionContext.Sender.AgentType != "" {
+		senderAgentType = params.ExecutionContext.Sender.AgentType
+	}
+
+	// Check agent_config for override
+	if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
+		if configAgentType, ok := agentConfig["agent_type"].(string); ok && configAgentType != "" {
+			senderAgentType = configAgentType
+		}
+	}
+
+	params.Logger.Info("Determined sender agent type",
+		zap.String("sender_type", senderAgentType),
+		zap.String("parent_responses_topic", params.ExecutionContext.ResponsesTopic))
+
+	// Create spawn initialization message
+	spawnMessage := &types.RequestMessage{
+		Headers: types.RequestHeaders{
+			Sender: types.AgentIdentity{
+				AgentType: senderAgentType,
+				AgentID:   params.ExecutionContext.FromAgentID,
+				PodName:   params.ExecutionContext.ProcessingNode,
+				Role:      params.ExecutionContext.Sender.Role,
+			},
+			CorrelationID:   params.ExecutionContext.CorrelationID,
+			CorrelationName: params.ExecutionContext.CorrelationName,
+			ClientID:        params.ExecutionContext.ClientID,
+
+			// Child's orchestration info
+			OrchestrationID:         agentID,
+			OrchestrationName:       agentName,
+			ParentOrchestrationID:   params.ExecutionContext.OrchestrationID,
+			ParentOrchestrationName: params.ExecutionContext.OrchestrationName,
+			ParentRequestID:         params.ExecutionContext.RequestID,
+
+			StepID:         params.ExecutionContext.StepID,
+			StepName:       "spawn_agent",
+			RequestID:      requestID,
+			RetryVersion:   0,
+			FunctionalRole: role,
+
+			MessageID:   uuid.New().String(),
+			MessageType: "request",
+			ToAgent:     agentID,
+			ToAgentType: agentType,
+			Action:      "initialize",
+			Timestamp:   time.Now(),
+
+			FuelBudget:     params.ExecutionContext.FuelBudget - 100,
+			TimeoutSeconds: 30,
+
+			// CRITICAL: Tell child where parent listens for responses
+			ResponsesTopic: params.ExecutionContext.ResponsesTopic,
+			// Child's own topics will be set from environment
+			RequestsTopic: "",
+		},
+		Body: map[string]interface{}{
+			"input_data": params.CollectedData["input_data"],
+			"action":     "initialize",
+			"config":     params.CollectedData["agent_config"],
+			"role":       role,
+		},
+	}
+
+	params.Logger.Info("Sending spawn initialization message",
+		zap.String("agent_id", agentID),
+		zap.String("to_topic", childRequestsTopic),
+		zap.String("parent_expects_responses_on", params.ExecutionContext.ResponsesTopic))
+
+	// Send to child's requests topic
+	messageBytes, err := json.Marshal(spawnMessage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal spawn message: %w", err)
+	}
+
+	if err := params.Producer.Produce(
+		ctx,
+		childRequestsTopic, // Send to child's topic
+		spawnMessage.Headers.ToMap(),
+		[]byte(requestID),
+		messageBytes); err != nil {
+		return nil, fmt.Errorf("failed to send spawn message: %w", err)
+	}
+
+	params.Logger.Info("Agent spawn message sent",
+		zap.String("agent_id", agentID),
+		zap.String("sent_to_topic", childRequestsTopic),
+		zap.String("request_id", requestID))
+
+	// Return comprehensive result - KEEP all this info
+	return map[string]interface{}{
+		"agent_id":          agentID,
+		"agent_name":        agentName,
+		"agent_type":        agentType,
+		"status":            "initialized",
+		"role":              role,
+		"request_id":        requestID,
+		"await_response":    true,
+		"target_agent_type": agentType,
+		"subtree_info":      subtreeInfo,
+
+		// NEW: Use consistent naming
+		"requests_topic":  childRequestsTopic,
+		"responses_topic": childResponsesTopic,
+
+		// For backward compatibility and debugging
+		"stable_identity": stableIdentity,
+		"topic_sent_to":   childRequestsTopic,
+
+		// Nested result for consistency
+		"result": map[string]interface{}{
+			"agent_id":   agentID,
+			"agent_type": agentType,
+			"role":       role,
+			"topics": map[string]string{
+				"requests":  childRequestsTopic,
+				"responses": childResponsesTopic,
+			},
+		},
+	}, nil
+}
+
+func SpawnAgentActionOld(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("In SpawnAgentAction")
 
 	params.Logger.Info("SpawnAgentAction starting",
@@ -148,12 +415,14 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	jobRequestsTopic := fmt.Sprintf("%s.requests", topics.GenerateJobTopic(
 		params.ExecutionContext.CorrelationID,
 		params.ExecutionContext.OrchestrationID,
-		stepName))
+		stepName,
+		agentType))
 
 	jobResponsesTopic := fmt.Sprintf("%s.responses", topics.GenerateJobTopic(
 		params.ExecutionContext.CorrelationID,
 		params.ExecutionContext.OrchestrationID,
-		stepName))
+		stepName,
+		agentType))
 
 	params.Logger.Info("Topic generated in SpawnAgentAction",
 		zap.String("jobResponseTopic", jobResponsesTopic),
@@ -345,6 +614,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		"await_response":    true,
 		"target_agent_type": agentType,
 		"subtree_info":      subtreeInfo,
+		"requests_topic":    jobRequestsTopic,
+		"responses_topic":   jobResponsesTopic,
 		"topic_sent_to":     targetTopic,
 		"result": map[string]interface{}{
 			"agent_id":   agentID,
@@ -1358,10 +1629,11 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		{Name: "CLIENT_ID", Value: clientID},
 
 		// Dynamic topic configuration
-		{Name: "KAFKA_TOPIC", Value: jobRequestsTopic},     // legacy?
-		{Name: "KAFKA_TOPICS", Value: jobRequestsTopic},    // what to listen to
-		{Name: "JOB_TOPIC", Value: jobRequestsTopic},       // Primary listening topic
-		{Name: "RESPONSE_TOPIC", Value: jobResponsesTopic}, // Where to send responses
+		{Name: "KAFKA_TOPIC", Value: jobRequestsTopic},      // legacy?
+		{Name: "KAFKA_TOPICS", Value: jobRequestsTopic},     // what to listen to
+		{Name: "JOB_TOPIC", Value: jobRequestsTopic},        // Primary listening topic
+		{Name: "RESPONSES_TOPIC", Value: jobResponsesTopic}, // Where to send responses
+		{Name: "REQUESTS_TOPIC", Value: jobRequestsTopic},   // Where to send responses
 		{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentDef.Type, agentID[:8])},
 
 		// Health server ports
