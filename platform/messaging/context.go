@@ -136,48 +136,39 @@ func (m *MessageContext) SyncContextFromHeaders() error {
 
 func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAgentType, receivingAgentRole string, logger *zap.Logger) (*MessageContext, error) {
 
-	// Parse sender's context
-	senderCtx, _ := types.FromHeaders(headers)
+	logger.Info("IN NewMessageContext",
+		zap.Any("incoming headers are:", headers))
 
-	var execCtx *types.ExecutionContext
-
-	if senderCtx.MessageType == "response" {
-		// Keep child's context AS IS for orchestrator
-		execCtx = senderCtx
-
-	} else if senderCtx.Action == "initialize" {
-		// Being spawned - use provided orchestration ID
-		execCtx = &types.ExecutionContext{
-			OrchestrationID:       senderCtx.OrchestrationID,
-			ParentOrchestrationID: senderCtx.ParentOrchestrationID,
-			CorrelationID:         senderCtx.CorrelationID,
-			ClientID:              senderCtx.ClientID,
-			// ResponsesTopic will be set by process()
-		}
-
-	} else {
-		// Normal request - create new orchestration
-		execCtx = &types.ExecutionContext{
-			OrchestrationID:       uuid.New().String(),
-			ParentOrchestrationID: senderCtx.OrchestrationID,
-			CorrelationID:         senderCtx.CorrelationID,
-			ClientID:              senderCtx.ClientID,
-			// ResponsesTopic will be set by process()
+	// Parse sender's context from all headers.
+	execCtx, err := types.FromHeaders(headers)
+	if err != nil {
+		// Log the error but continue, as the validation step will catch critical missing fields.
+		logger.Warn("Could not fully parse headers into ExecutionContext", zap.Error(err))
+		if execCtx == nil {
+			// If parsing failed completely, create a minimal context to avoid a nil pointer.
+			execCtx = &types.ExecutionContext{}
 		}
 	}
 
-	// Always set my identity
+	// The previous logic incorrectly created a new, empty context for regular requests,
+	// discarding essential fields like message_type.
+	// By using the parsed context directly, we preserve all incoming header information.
+	// The process() function in the message processor is responsible for deciding
+	// if a new orchestration ID needs to be generated if one isn't present.
+
+	// Set the identity of this agent as the 'Sender' for any subsequent messages it might create.
 	execCtx.Sender = types.AgentIdentity{
-		AgentType: receivingAgentType,
-		AgentID:   os.Getenv("AGENT_ID"),
-		PodName:   os.Getenv("HOSTNAME"),
-		Role:      receivingAgentRole,
+		AgentType:    receivingAgentType,
+		AgentID:      os.Getenv("AGENT_ID"),
+		PodName:      os.Getenv("HOSTNAME"),
+		AgentVersion: os.Getenv("AGENT_VERSION"),
+		Role:         receivingAgentRole,
 	}
 
 	return &MessageContext{
 		Message:          msg,
 		ExecutionContext: execCtx,
-		Headers:          headers, // Keep original for parent's response topic
+		Headers:          headers, // Keep original headers for reference
 		StartTime:        time.Now(),
 		CollectedData:    make(map[string]interface{}),
 	}, nil

@@ -1,0 +1,28 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-chassis-debug
+  labels:
+    app: agent-chassis-debug
+  namespace: ai-persona-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-chassis-debug
+  template:
+    metadata:
+      labels:
+        app: agent-chassis-debug
+    spec:
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: agent
+          image: aqls/agent-chassis:debug
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 40000
+              name: delve
+

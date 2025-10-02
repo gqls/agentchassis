@@ -558,7 +558,9 @@ func (a *Agent) processResponses() {
 func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 	a.logger.Info("process single message agent.go processMessage",
-		zap.String("messageType", messageType))
+		zap.String("messageType", messageType),
+		zap.Any("full message in Agent processMessage 562", msg),
+	)
 
 	startTime := time.Now()
 	a.lastActivity = startTime
@@ -570,6 +572,9 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 	// Create or parse ExecutionContext
 	execCtx, err := types.FromHeaders(headers)
 	if err != nil {
+		a.logger.Info("legacy do I get here? agent.go processMessage",
+			zap.Any("error is", err),
+		)
 		// Create minimal context for legacy messages
 		execCtx = &types.ExecutionContext{
 			MessageID:      uuid.New().String(),

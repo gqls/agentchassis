@@ -536,10 +536,11 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		zap.String("function", current),
 		zap.String("called_by", caller))
 
+	// Create response context
 	responseCtx := msgCtx.CreateResponseContext()
 	contextLogger := p.logger.With(msgCtx.ExecutionContext.LogContext()...)
 
-	// Check if waiting for response (suppress premature responses) - KEEP THIS LOGIC
+	// Check if waiting for response (suppress premature responses)
 	if allData, ok := result.(map[string]interface{}); ok {
 		var lastActionResult map[string]interface{}
 		for _, value := range allData {
@@ -557,7 +558,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 				return nil
 			}
 
-			// Handle specific request_id - KEEP THIS LOGIC
+			// Handle specific request_id
 			if requestID, ok := lastActionResult["request_id"].(string); ok && requestID != "" {
 				if responseCtx.InResponseTo != nil {
 					responseCtx.InResponseTo.RequestID = requestID
@@ -582,22 +583,17 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		return fmt.Errorf("no responses topic configured")
 	}
 
-	// Build response message - KEEP AS IS
-	response := models.AgentMessage{
-		MessageID:         responseCtx.MessageID,
-		CorrelationID:     responseCtx.CorrelationID,
-		OrchestrationID:   responseCtx.OrchestrationID,
-		OrchestrationName: responseCtx.OrchestrationName,
-		FromAgentID:       responseCtx.FromAgentID,
-		ToAgentID:         responseCtx.ToAgentID,
-		MessageType:       "response",
-		Action:            "response",
-		Data: map[string]interface{}{
-			"result":         result,
-			"in_response_to": responseCtx.RequestID,
+	// Use ToResponseHeaders to get properly routed headers
+	responseHeaders := responseCtx.ToResponseHeaders()
+
+	// Create the ResponseMessage
+	response := &types.ResponseMessage{
+		Headers: responseHeaders,
+		Body: types.ResponseBody{
+			Success: true,
+			Body:    result,
+			Error:   nil,
 		},
-		Timestamp: responseCtx.Timestamp,
-		Version:   responseCtx.Version,
 	}
 
 	responseBytes, err := json.Marshal(response)
@@ -605,18 +601,25 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
 
+	// Convert headers to map for Kafka
+	headersMap := response.Headers.ToMap()
+
+	// Use correlation ID as key for partitioning
 	key := []byte(responseCtx.CorrelationID)
 	if responseCtx.CorrelationID == "" {
-		key = []byte(responseCtx.MessageID)
+		return fmt.Errorf("failed to find correlation id in response context: %w", err)
 	}
 
 	contextLogger.Info("Sending response",
 		zap.String("topic", responseCtx.ResponsesTopic),
-		zap.String("key", string(key)))
+		zap.String("key", string(key)),
+		zap.String("routing_to_orch", responseHeaders.OrchestrationID),
+		zap.String("from_my_orch", responseHeaders.MyOrchestrationID),
+		zap.Any("the responses context in sendWorkflowResponse", responseCtx))
 
 	return p.producer.Produce(ctx,
 		responseCtx.ResponsesTopic,
-		response.ToHeaders(),
+		headersMap,
 		key,
 		responseBytes)
 }
@@ -664,63 +667,6 @@ func (p *MessageProcessor) determineResponsesTopic(ctx context.Context, msgCtx *
 	return "system.agent.generic.responses"
 }
 
-func (p *MessageProcessor) sendResponseOLD(ctx context.Context, msgCtx *MessageContext, headers map[string]string, topic string, result interface{}) error {
-	current, caller := getFuncInfo(1)
-
-	p.logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go",
-		zap.String("function", current),
-		zap.String("called_by", caller),
-		zap.String("container", os.Getenv("HOSTNAME")),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-	)
-
-	response := models.AgentMessage{
-		MessageID:         uuid.New().String(),
-		CorrelationID:     headers["correlation_id"],
-		OrchestrationID:   headers["orchestration_id"],
-		OrchestrationName: headers["orchestration_name"],
-		FromAgentID:       headers["from_agent_id"],
-		ToAgentID:         headers["to_agent_id"],
-		MessageType:       "response",
-		Action:            "response",
-		Data: map[string]interface{}{
-			"result":         result,
-			"in_response_to": headers["in_response_to"],
-		},
-		Timestamp: time.Now(),
-		Version:   "2.0",
-	}
-
-	responseBytes, err := json.Marshal(response)
-	if err != nil {
-		return fmt.Errorf("failed to marshal v2 response: %w", err)
-	}
-
-	msgCtx.Logger.Info("Sending V2 response",
-		zap.String("topic", topic),
-		zap.String("orchestration_id", headers["orchestration_id"]),
-		zap.String("in_response_to", headers["in_response_to"]))
-
-	err = p.producer.Produce(ctx,
-		topic,
-		response.ToHeaders(),
-		[]byte(response.CorrelationID),
-		responseBytes,
-	)
-	if err != nil {
-		p.logger.Error("KAFKA_SEND_ERROR: Failed to send message",
-			zap.String("topic", topic),
-			zap.Error(err))
-	} else {
-		p.logger.Info("KAFKA_SENT: Message sent successfully",
-			zap.String("topic", topic),
-			zap.String("key", string(response.CorrelationID)),
-			zap.Any("headers", headers))
-	}
-
-	return err
-}
-
 func (p *MessageProcessor) normalizeResponseData(result interface{}) map[string]interface{} {
 	switch v := result.(type) {
 	case map[string]interface{}:
@@ -745,43 +691,6 @@ func createSQLDB() (*sql.DB, error) {
 		host, port, user, password, dbname)
 
 	return sql.Open("pgx", connStr)
-}
-
-func (p *MessageProcessor) processNewAgentMessageOLD(ctx context.Context, msg kafka.Message, headers map[string]string, startTime time.Time) error {
-	current, caller := getFuncInfo(1)
-
-	p.logger.Info("In file processor.go",
-		zap.String("function", current),
-		zap.String("called_by", caller),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-	)
-
-	p.logger.Info("Processing new format agent message",
-		zap.String("DEBUG_PROCESSOR_5: from_agent", headers["from_agent_id"]),
-		zap.String("DEBUG_PROCESSOR_5: to_agent", headers["to_agent_id"]),
-		zap.String("DEBUG_PROCESSOR_5: message_type", headers["message_type"]))
-
-	// Parse the message
-	var agentMsg models.AgentMessage
-	if err := json.Unmarshal(msg.Value, &agentMsg); err != nil {
-		return fmt.Errorf("failed to unmarshal agent message: %w", err)
-	}
-
-	// Create MessageContext for compatibility with existing workflow
-	msgCtx := &MessageContext{
-		Message:       msg,
-		Headers:       headers,
-		StartTime:     startTime,
-		Logger:        p.logger.With(zap.String("message_id", agentMsg.MessageID)),
-		CollectedData: agentMsg.Data,
-	}
-
-	// Execute using existing workflow engine
-	if err := p.process(ctx, msgCtx); err != nil {
-		return p.handleError(ctx, msgCtx, err, "processing_failed")
-	}
-
-	return nil
 }
 
 // getAgentTypeFromID retrieves the agent type from the database using the agent ID
@@ -1078,6 +987,10 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		zap.Strings("call stack for processor ProcessMessage", callstack),
 	)
 
+	p.logger.Info("In processor.go ProcessMessage 1081",
+		zap.Any("incoming message is:", msg),
+	)
+
 	startTime := time.Now()
 	headers := kafka.HeadersToMap(msg.Headers)
 
@@ -1210,9 +1123,17 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 	// Route responses to orchestrator
 	if msgCtx.ExecutionContext.MessageType == "response" {
+
+		// Parse as ResponseMessage now
+		var responseMsg types.ResponseMessage
+		if err := json.Unmarshal(msg.Value, &responseMsg); err != nil {
+			contextLogger.Error("Failed to unmarshal response message in Process Message (ResponseMessage)", zap.Error(err))
+			return err
+		}
+
 		contextLogger.Info("Routing response to orchestrator",
-			zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
-			zap.String("status", msgCtx.ExecutionContext.Status),
+			zap.String("orchestration_id", responseMsg.Headers.OrchestrationID),
+			zap.String("status", responseMsg.Headers.Status),
 			zap.Bool("has_orchestrator", p.orchestrator != nil))
 
 		// The orchestrator needs to handle this response

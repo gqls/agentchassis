@@ -245,9 +245,27 @@ func (ec *ExecutionContext) ToRequestHeaders() RequestHeaders {
 
 // ToResponseHeaders converts ExecutionContext to ResponseHeaders for sending responses
 func (ec *ExecutionContext) ToResponseHeaders() ResponseHeaders {
+
+	// Explicitly determine where this response should be routed
+	targetOrchID, targetOrchName := ec.DetermineResponseOrchestrationTarget()
+
 	headers := ResponseHeaders{
 		// Who Am I
 		Sender: ec.Sender,
+
+		// Where should this response be routed?
+		OrchestrationID:   targetOrchID,
+		OrchestrationName: targetOrchName,
+
+		// Response tracking - what we're responding to
+		InResponseToRequestID:      ec.RequestID,
+		InResponseToStepID:         ec.StepID,
+		InResponseToStepName:       ec.StepName,
+		InResponseToParentOrchID:   ec.ParentOrchestrationID,
+		InResponseToParentOrchName: ec.ParentOrchestrationName,
+		InResponseToMessageID:      ec.MessageID,
+		InResponseToAction:         ec.Action,
+		RetryCount:                 ec.RetryVersion,
 
 		// My Context
 		MyOrchestrationID:   ec.OrchestrationID,
@@ -261,7 +279,8 @@ func (ec *ExecutionContext) ToResponseHeaders() ResponseHeaders {
 		ClientID:        ec.ClientID,
 		MessageType:     "response",
 		FromAgent:       ec.Sender.AgentID,
-		ToAgent:         "", // Will be set based on InResponseTo
+		ToAgent:         ec.FromAgentID, // Responding back to sender
+		ToAgentType:     ec.FromAgentType,
 
 		// Status Flags
 		IsComplete:          ec.IsComplete,
@@ -490,6 +509,7 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 
 	// Debug logging
 	fmt.Print("DEBUG: looking for sender_role in headers\n")
+	fmt.Printf("DEBUG FromHeaders: headers = %+v\n", headers)
 	if role := headers["sender_role"]; role != "" {
 		fmt.Printf("DEBUG: Found sender_role in headers: %s\n", role)
 	}
@@ -544,6 +564,8 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 	if responsesTopic := headers["responses_topic"]; responsesTopic != "" {
 		ec.ResponsesTopic = responsesTopic
 	}
+
+	fmt.Printf("DEBUG FromHeaders: ec.MessageType = '%s'\n", ec.MessageType)
 
 	// Handle response context
 	if ec.MessageType == "response" {
@@ -887,4 +909,52 @@ func (ec *ExecutionContext) AdjustToReceiverPerspectiveOLD(receiverIdentity Agen
 			Timestamp:               time.Now(),
 		}
 	}
+}
+
+// DetermineResponseOrchestrationTarget explicitly determines which orchestration
+// should handle a response based on the relationship between sender and receiver
+func (ec *ExecutionContext) DetermineResponseOrchestrationTarget() (targetOrchestrationID, targetOrchestrationName string) {
+	// If this is a child responding to its parent
+	if ec.ParentOrchestrationID != "" {
+		// Response goes to the parent orchestration
+		return ec.ParentOrchestrationID, ec.ParentOrchestrationName
+	}
+
+	// If this is a response to a request (peer-to-peer or otherwise)
+	if ec.InResponseTo != nil && ec.InResponseTo.ParentOrchestrationID != "" {
+		// Response goes to whoever sent the original request
+		return ec.InResponseTo.ParentOrchestrationID, ec.InResponseTo.ParentOrchestrationName
+	}
+
+	// If we have a ResponsesTopic set, this implies someone is waiting for our response
+	// but we need to figure out who. This might need additional context.
+	// For now, log a warning
+	if ec.ResponsesTopic != "" {
+		fmt.Print("DEBUG error: no responses topic set in DetermineResponseOrchestrationTarget...\n")
+		// This is a problem - we have a topic but don't know the orchestration ID
+		// Return empty and let the caller handle it
+		return "", ""
+	}
+
+	// Default case - shouldn't happen in well-formed messages
+	return "", ""
+}
+
+// ValidateResponseRouting ensures a response has proper routing information
+func (rh *ResponseHeaders) ValidateResponseRouting() error {
+	if rh.OrchestrationID == "" {
+		return fmt.Errorf("response has no target orchestration_id - cannot route response")
+	}
+
+	if rh.MyOrchestrationID == "" {
+		return fmt.Errorf("response has no my_orchestration_id - sender identity missing")
+	}
+
+	// Ensure we're not routing to ourselves (unless intentional)
+	if rh.OrchestrationID == rh.MyOrchestrationID {
+		// This might be valid in some cases, but worth logging
+		return fmt.Errorf("response would route to self (orchestration_id == my_orchestration_id)")
+	}
+
+	return nil
 }

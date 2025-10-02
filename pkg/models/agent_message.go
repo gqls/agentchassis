@@ -2,16 +2,15 @@
 package models
 
 import (
-	"encoding/json"
 	"strings"
 	"time"
 )
 
 // AgentMessage is the new unified message format for agent-to-agent communication
-type AgentMessage struct {
+type AgentMessageOLD struct {
 	// Core routing - this is the KEY CHANGE
 	MessageID         string `json:"message_id"`
-	RequestID         string `json:"request_id"` // replicates MessageID, get rid whenever we can
+	RequestID         string `json:"request_id"`
 	CorrelationID     string `json:"correlation_id"`
 	OrchestrationID   string `json:"orchestration_id"`
 	OrchestrationName string `json:"orchestration_name"`
@@ -68,25 +67,4 @@ func (am *AgentMessage) ToHeaders() map[string]string {
 	}
 
 	return headers
-}
-
-func AgentMessageFromHeaders(headers map[string]string, body []byte) (*AgentMessage, error) {
-	var data map[string]interface{}
-	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, err
-	}
-
-	return &AgentMessage{
-		MessageID:         headers["message_id"],
-		CorrelationID:     headers["correlation_id"],
-		OrchestrationID:   headers["orchestration_id"],
-		OrchestrationName: headers["orchestration_name"],
-		FromAgentID:       headers["from_agent_id"],
-		ToAgentID:         headers["to_agent_id"],
-		ResponsesTopic:    headers["responses_topic"],
-		MessageType:       headers["message_type"],
-		Version:           headers["message_version"],
-		Data:              data,
-		Timestamp:         time.Now(),
-	}, nil
 }
