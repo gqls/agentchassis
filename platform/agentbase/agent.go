@@ -510,19 +510,31 @@ func (a *Agent) processRequests() {
 	for {
 		select {
 		case <-a.ctx.Done():
+			a.logger.Info("Request processor stopping due to context cancellation")
 			return
 		default:
 			msg, err := a.requestConsumer.Consume(a.ctx)
-			a.logger.Info("DEBUG uuidparse: agent.go processRequests the message was:",
-				zap.Any("message", msg))
+
 			if err != nil {
 				if err != context.Canceled {
 					a.logger.Error("Failed to consume request message", zap.Error(err))
 				}
 				continue
 			}
+
+			// Log the received message with all its fields
+			a.logger.Info("Request consumer received message",
+				zap.Any("message", msg),
+				zap.Int("value_length", len(msg.Value)),
+				zap.String("topic", msg.Topic),
+				zap.Int64("offset", msg.Offset),
+				zap.String("key", string(msg.Key)))
+
 			// Process the message
 			a.processMessage(msg, "request")
+
+			// If your consumer has a commit method, call it here
+			//a.requestConsumer.CommitMessages(msg)
 		}
 	}
 }
@@ -537,18 +549,22 @@ func (a *Agent) processResponses() {
 	for {
 		select {
 		case <-a.ctx.Done():
+			a.logger.Info("Response processor stopping due to context cancellation")
 			return
 		default:
 			msg, err := a.responseConsumer.Consume(a.ctx)
+
 			if err != nil {
 				if err != context.Canceled {
 					a.logger.Error("Failed to consume response message", zap.Error(err))
 				}
 				continue
-			} else {
-				a.logger.Info("Response consumer received message",
-					zap.Int("size", len(msg.Value)))
 			}
+
+			a.logger.Info("Response consumer received message",
+				zap.Int("size", len(msg.Value)))
+
+			// Process the message
 			a.processMessage(msg, "response")
 		}
 	}

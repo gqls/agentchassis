@@ -4,6 +4,7 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
@@ -31,9 +32,18 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 		Brokers:        brokers,
 		GroupID:        groupID,
 		Topic:          topic,
-		MinBytes:       10e3, // 10KB
-		MaxBytes:       10e6, // 10MB
-		CommitInterval: 0,    // Manual commit
+		MinBytes:       1,                 // 10KB
+		MaxBytes:       10e6,              // 10MB
+		CommitInterval: 0,                 // Manual commit
+		StartOffset:    kafka.FirstOffset, // Start from beginning if no offset stored
+		Dialer: &kafka.Dialer{
+			Timeout:   10 * time.Second,
+			DualStack: true,
+		},
+		// Add these for better consumer group behavior
+		SessionTimeout:   10 * time.Second,
+		RebalanceTimeout: 10 * time.Second,
+		MaxWait:          1 * time.Second, // Don't wait too long for messages
 	})
 
 	logger.Info("Kafka consumer created",
@@ -50,10 +60,32 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 
 // Consume fetches the next message from the topic
 func (c *Consumer) Consume(ctx context.Context) (Message, error) {
-	msg, err := c.reader.FetchMessage(ctx)
+	c.logger.Debug("Consume() called, attempting to fetch message")
+
+	// Use a timeout context to prevent infinite blocking
+	fetchCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	msg, err := c.reader.FetchMessage(fetchCtx)
 	if err != nil {
+		if err == context.DeadlineExceeded {
+			// Timeout is normal when no messages available
+			c.logger.Debug("No messages available within timeout")
+			return Message{}, nil
+		}
+		if err != context.Canceled {
+			c.logger.Error("Failed to fetch message",
+				zap.Error(err),
+				zap.String("topic", c.reader.Config().Topic))
+		}
 		return Message{}, err
 	}
+
+	c.logger.Info("Message fetched successfully",
+		zap.String("topic", msg.Topic),
+		zap.Int("partition", msg.Partition),
+		zap.Int64("offset", msg.Offset),
+		zap.Int("size", len(msg.Value)))
 
 	// After successful processing, commit the offset
 	if err := c.reader.CommitMessages(ctx, msg); err != nil {
