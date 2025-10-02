@@ -131,67 +131,54 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("requests_topic", childRequestsTopic),
 		zap.String("responses_topic", childResponsesTopic))
 
-	// Pre-create the topic before sending
-	// Get brokers with fallback
-	kafkaBrokersEnv := os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS")
-	if kafkaBrokersEnv == "" {
-		kafkaBrokersEnv = os.Getenv("KAFKA_BROKERS")
+	// Get Kafka brokers with proper fallback
+	kafkaBrokers := getConfiguredKafkaBrokers(params.Logger)
+
+	// Use the TopicManager to create topics properly
+	topicManager := kafka.NewTopicManager(kafkaBrokers, params.Logger)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Create the request topic
+	requestTopicDef := kafka.TopicDefinition{
+		Name:              childRequestsTopic,
+		Partitions:        2,
+		ReplicationFactor: 1, // Use 1 for quick creation
 	}
 
-	var kafkaBrokers []string
-	if kafkaBrokersEnv != "" {
-		kafkaBrokers = strings.Split(kafkaBrokersEnv, ",")
+	err = topicManager.CreateTopic(ctx, requestTopicDef)
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
+		params.Logger.Error("Failed to create requests topic",
+			zap.Error(err),
+			zap.String("topic", childRequestsTopic))
+		// Don't fail here - try to continue anyway
 	} else {
-		kafkaBrokers = []string{"personae-kafka-cluster-kafka-bootstrap.kafka:9092"}
+		params.Logger.Info("Created or verified requests topic",
+			zap.String("topic", childRequestsTopic))
 	}
 
-	// Create the topic with retry
-	maxRetries := 3
-	for i := 0; i < maxRetries; i++ {
-		err := kafka.CreateJobTopic(kafkaBrokers, childRequestsTopic, 2)
-		if err == nil {
-			params.Logger.Info("Pre-created requests topic for (child) spawned agent",
-				zap.String("topic", childRequestsTopic),
-				zap.Int("attempt", i+1))
-			break
-		}
+	// Create the response topic
+	responseTopicDef := kafka.TopicDefinition{
+		Name:              childResponsesTopic,
+		Partitions:        2,
+		ReplicationFactor: 1,
+	}
 
-		if strings.Contains(err.Error(), "already exists") {
-			break // Topic exists, that's fine
-		}
-
-		params.Logger.Warn("Failed to pre-create requests topic for spawned child, retrying",
+	err = topicManager.CreateTopic(ctx, responseTopicDef)
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
+		params.Logger.Error("Failed to create responses topic",
 			zap.Error(err),
-			zap.String("topic", childRequestsTopic),
-			zap.Int("attempt", i+1))
-
-		if i < maxRetries-1 {
-			time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
-		}
+			zap.String("topic", childResponsesTopic))
+	} else {
+		params.Logger.Info("Created or verified responses topic",
+			zap.String("topic", childResponsesTopic))
 	}
 
-	for i := 0; i < maxRetries; i++ {
-		err := kafka.CreateJobTopic(kafkaBrokers, childResponsesTopic, 2)
-		if err == nil {
-			params.Logger.Info("Pre-created responses topic for spawned agent",
-				zap.String("topic", childResponsesTopic),
-				zap.Int("attempt", i+1))
-			break
-		}
+	time.Sleep(3 * time.Second)
 
-		if strings.Contains(err.Error(), "Responses topic for spawned agent already exists") {
-			break // Topic exists, that's fine
-		}
-
-		params.Logger.Warn("Failed to pre-create responses topic for child, retrying",
-			zap.Error(err),
-			zap.String("topic", childResponsesTopic),
-			zap.Int("attempt", i+1))
-
-		if i < maxRetries-1 {
-			time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
-		}
-	}
+	params.Logger.Info("Topic creation completed, waiting for propagation",
+		zap.String("requests_topic", childRequestsTopic),
+		zap.String("responses_topic", childResponsesTopic))
 
 	// Spawn K8s job with new topic names
 	jobName, err := spawnAgentKubernetesJobFromDefinition(
@@ -339,6 +326,46 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			},
 		},
 	}, nil
+}
+
+// Helper function to get Kafka brokers with fallback
+func getConfiguredKafkaBrokers(logger *zap.Logger) []string {
+	// Try multiple environment variables
+	brokersEnv := os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS")
+	if brokersEnv == "" {
+		brokersEnv = os.Getenv("KAFKA_BROKERS")
+	}
+	if brokersEnv == "" {
+		brokersEnv = os.Getenv("KAFKA_BOOTSTRAP_SERVERS")
+	}
+
+	if brokersEnv != "" {
+		brokers := strings.Split(brokersEnv, ",")
+		validBrokers := []string{}
+		for _, broker := range brokers {
+			broker = strings.TrimSpace(broker)
+			if broker != "" && broker != ":9092" {
+				validBrokers = append(validBrokers, broker)
+			}
+		}
+		if len(validBrokers) > 0 {
+			logger.Info("Using configured Kafka brokers",
+				zap.Strings("brokers", validBrokers))
+			return validBrokers
+		}
+	}
+
+	// Fallback to default brokers
+	defaultBrokers := []string{
+		"personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092",
+		"personae-kafka-cluster-kafka-bootstrap.kafka:9092",
+		"kafka-0.kafka-headless.kafka:9092",
+	}
+
+	logger.Warn("No Kafka brokers configured, using defaults",
+		zap.Strings("brokers", defaultBrokers))
+
+	return defaultBrokers
 }
 
 func SpawnAgentActionOld(ctx context.Context, params ActionParams) (interface{}, error) {

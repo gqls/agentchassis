@@ -50,6 +50,7 @@ type WorkflowPlan struct {
 // Step represents a single action or sub-workflow within a plan
 type Step struct {
 	Action          string                 `json:"action"`
+	Name            string                 `json:"name"`
 	Description     string                 `json:"description"`
 	Topic           string                 `json:"topic,omitempty"`
 	TargetAgentType string                 `json:"target_agent_type"`

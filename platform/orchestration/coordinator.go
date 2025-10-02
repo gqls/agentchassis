@@ -10,6 +10,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,6 +49,10 @@ type SagaCoordinator struct {
 	// For stateless operation
 	isStateless bool
 	podName     string
+
+	// Retry tracking
+	retryCounters map[string]int
+	retryMutex    sync.RWMutex
 }
 
 // NewSagaCoordinator creates a new coordinator instance
@@ -690,6 +695,23 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		zap.String("step", state.CurrentStep),
 		zap.Any("config", step.Config))
 
+	// Add retry tracking for spawn actions
+	if step.Action == "spawn_agent" {
+		// Check if we've already tried this spawn too many times
+		retryKey := fmt.Sprintf("spawn_retry_%s_%s", state.OrchestrationID, step.Name)
+		retryCount := s.getRetryCount(retryKey)
+
+		if retryCount >= 3 {
+			s.logger.Error("Spawn action exceeded max retries, marking as failed",
+				zap.String("step_name", state.CurrentStep),
+				zap.Int("retry_count", retryCount))
+			return fmt.Errorf("spawn action failed after %d retries", retryCount)
+		}
+
+		// Increment retry count
+		s.incrementRetryCount(retryKey)
+	}
+
 	// Pre-generate request ID for actions that need responses
 	needsResponse := step.Action == "call_agent" || step.Action == "start_orchestration" ||
 		step.Action == "spawn_group" || step.Action == "spawn_agent"
@@ -748,10 +770,21 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// Execute action
 	result, err := handler(ctx, params)
 	if err != nil {
-		contextLogger.Error("Local action failed",
-			zap.Error(err),
-			zap.String("action", step.Action))
-		return fmt.Errorf("local action failed: %w", err)
+		s.logger.Error("Local action failed in executeLocalAction",
+			zap.String("step_name", step.Name),
+			zap.String("action", step.Action),
+			zap.Error(err))
+
+		// For spawn failures, check if it's a topic issue
+		if step.Action == "spawn_agent" && strings.Contains(err.Error(), "Unknown Topic") {
+			s.logger.Warn("Spawn failed due to missing topic, will retry with delay",
+				zap.String("step_name", step.Name))
+
+			// Add a delay before retry to allow topic propagation
+			time.Sleep(3 * time.Second)
+		}
+
+		return fmt.Errorf("failed to execute action %s: %w", step.Action, err)
 	}
 
 	// Store result under the current step name
@@ -1436,4 +1469,26 @@ func getFuncInfo(skip int) (current, caller string) {
 		caller = runtime.FuncForPC(pc).Name()
 	}
 	return
+}
+
+// Helper methods for retry tracking (add these to SagaCoordinator struct)
+func (s *SagaCoordinator) getRetryCount(key string) int {
+	// Simple in-memory tracking - you might want to use Redis or database
+	s.retryMutex.RLock()
+	defer s.retryMutex.RUnlock()
+
+	if s.retryCounters == nil {
+		return 0
+	}
+	return s.retryCounters[key]
+}
+
+func (s *SagaCoordinator) incrementRetryCount(key string) {
+	s.retryMutex.Lock()
+	defer s.retryMutex.Unlock()
+
+	if s.retryCounters == nil {
+		s.retryCounters = make(map[string]int)
+	}
+	s.retryCounters[key]++
 }
