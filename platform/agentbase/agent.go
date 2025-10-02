@@ -732,6 +732,26 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 			zap.Error(err),
 			zap.Duration("duration", time.Since(startTime)))
 
+		// CRITICAL: Check if this is a validation error
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "is required") ||
+			strings.Contains(errMsg, "validation") ||
+			strings.Contains(errMsg, "invalid") {
+
+			contextLogger.Warn("Validation error in message processing - not calling handleProcessingError",
+				zap.Error(err),
+				zap.String("message_type", messageType),
+				zap.String("correlation_id", execCtx.CorrelationID))
+
+			// Record metric but don't retry
+			observability.MessagesDropped.WithLabelValues(a.AgentType, "validation_error").Inc()
+
+			// Just return - don't call handleProcessingError
+			// This prevents the error from being propagated and causing a retry
+			return
+		}
+
+		// For non-validation errors, handle normally
 		observability.MessagesFailed.WithLabelValues(a.AgentType, messageType).Inc()
 		a.handleProcessingError(execCtx, err)
 	} else {

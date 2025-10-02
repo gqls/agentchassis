@@ -714,22 +714,46 @@ func (ec *ExecutionContext) IsResponse() bool {
 
 // Validate ensures all required fields are present
 func (ec *ExecutionContext) Validate() error {
+	// Basic validation for all messages
 	if ec.CorrelationID == "" {
 		return fmt.Errorf("correlation_id is required")
-	}
-	if ec.OrchestrationID == "" {
-		return fmt.Errorf("orchestration_id is required")
-	}
-	if ec.ClientID == "" {
-		return fmt.Errorf("client_id is required")
 	}
 	if ec.MessageType == "" {
 		return fmt.Errorf("message_type is required")
 	}
-	// FIXED: Check for InResponseTo properly
-	if ec.MessageType == "response" && ec.InResponseTo == nil {
-		return fmt.Errorf("in_response_to is required for response messages")
+
+	// Different validation based on message type
+	switch ec.MessageType {
+	case "request":
+		// Requests MUST have orchestration_id and client_id
+		if ec.OrchestrationID == "" {
+			return fmt.Errorf("orchestration_id is required for request messages")
+		}
+		if ec.ClientID == "" {
+			return fmt.Errorf("client_id is required for request messages")
+		}
+
+	case "response":
+		// Responses should have orchestration_id but client_id is optional
+		if ec.OrchestrationID == "" {
+			// For responses, this is less critical but still log it
+			// Don't fail validation - responses can come from agents without orchestration
+			// return fmt.Errorf("orchestration_id is required for response messages")
+		}
+		// Client ID is NOT required for responses
+		// Responses must have InResponseTo context
+		if ec.InResponseTo == nil {
+			return fmt.Errorf("in_response_to is required for response messages")
+		}
+
+	case "error":
+		// Error messages have relaxed validation
+		// They might not have all context if something went wrong
+
+	default:
+		return fmt.Errorf("unknown message_type: %s", ec.MessageType)
 	}
+
 	return nil
 }
 

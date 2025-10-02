@@ -515,6 +515,28 @@ func (p *MessageProcessor) handleError(ctx context.Context, msgCtx *MessageConte
 	msgCtx.Logger.Error("Processing failed", zap.Error(err))
 	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action, errorType).Inc()
 
+	// CRITICAL: Check if this is a validation error - DO NOT RETRY THESE
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "is required") ||
+		strings.Contains(errMsg, "validation") ||
+		strings.Contains(errMsg, "invalid") ||
+		strings.Contains(errMsg, "missing") {
+
+		msgCtx.Logger.Warn("Validation error detected - NOT retrying to prevent infinite loop",
+			zap.Error(err),
+			zap.String("message_type", msgCtx.ExecutionContext.MessageType),
+			zap.String("correlation_id", msgCtx.ExecutionContext.CorrelationID))
+
+		// For validation errors, send an error response but DON'T return the error
+		if domainErr, ok := err.(*errors.DomainError); ok {
+			p.sendErrorResponse(ctx, msgCtx, domainErr)
+		} else {
+			p.sendErrorResponse(ctx, msgCtx, errors.InternalError("VAlidation failed", err))
+		}
+
+		// IMPORTANT: Return nil to prevent retry/requeue
+		return nil
+	}
 	// Check for specific error types
 	if domainErr, ok := err.(*errors.DomainError); ok {
 		if domainErr.Code == errors.ErrInsufficientFuel {
@@ -525,7 +547,7 @@ func (p *MessageProcessor) handleError(ctx context.Context, msgCtx *MessageConte
 		p.sendErrorResponse(ctx, msgCtx, errors.InternalError("Processing failed", err))
 	}
 
-	return err
+	return err // Only return error for non-validation cases
 }
 
 // ProcessResponse handles response messages for orchestrated workflows
