@@ -516,19 +516,26 @@ func (a *Agent) processRequests() {
 			msg, err := a.requestConsumer.Consume(a.ctx)
 
 			if err != nil {
-				if err != context.Canceled && err != context.DeadlineExceeded {
+				// Handle timeout specifically
+				if err == context.DeadlineExceeded {
+					// Don't log, just continue - timeouts are normal
+					continue
+				}
+				if err != context.Canceled {
 					a.logger.Error("Failed to consume request message", zap.Error(err))
 				}
 				continue
 			}
 
-			// CRITICAL: Skip empty messages
+			// Skip empty messages
 			if msg.Value == nil || len(msg.Value) == 0 {
 				// This is a timeout or empty message, skip it
+				a.logger.Debug("Skipping empty requests message")
 				continue
 			}
 
 			a.logger.Info("Request consumer received message",
+				zap.Any("message", msg),
 				zap.Int("value_length", len(msg.Value)),
 				zap.String("topic", msg.Topic))
 
@@ -563,11 +570,15 @@ func (a *Agent) processResponses() {
 			// Skip empty messages
 			if msg.Value == nil || len(msg.Value) == 0 {
 				// This is a timeout or empty message, skip it
+				a.logger.Debug("Skipping empty response message")
 				continue
 			}
 
+			// Only log AFTER we've confirmed it's a real message
 			a.logger.Info("Response consumer received message",
-				zap.Int("size", len(msg.Value)))
+				zap.Any("message", msg),
+				zap.Int("value_length", len(msg.Value)),
+				zap.String("topic", msg.Topic))
 
 			// Process the message
 			a.processMessage(msg, "response")
@@ -583,12 +594,28 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		zap.Any("full message in Agent processMessage 562", msg),
 	)
 
+	// FIRST THING: Check for empty message
+	if msg.Value == nil || len(msg.Value) == 0 {
+		a.logger.Debug("Ignoring empty message in processMessage",
+			zap.String("messageType", messageType),
+			zap.String("topic", msg.Topic))
+		return
+	}
+
 	startTime := time.Now()
 	a.lastActivity = startTime
 	a.messagesProcessed++
 
 	// Extract headers
 	headers := kafka.HeadersToMap(msg.Headers)
+
+	// Check for empty headers as additional validation
+	if len(headers) == 0 && len(msg.Value) > 0 {
+		a.logger.Warn("Message has no headers but has value - possible malformed message",
+			zap.String("messageType", messageType),
+			zap.Int("value_length", len(msg.Value)))
+		// You might want to handle this case specially
+	}
 
 	// Create or parse ExecutionContext
 	execCtx, err := types.FromHeaders(headers)
