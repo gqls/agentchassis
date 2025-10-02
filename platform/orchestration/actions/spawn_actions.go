@@ -131,22 +131,66 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("requests_topic", childRequestsTopic),
 		zap.String("responses_topic", childResponsesTopic))
 
-	// Create topics - KEEP logic but use new names
-	kafkaBrokers := strings.Split(os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS"), ",")
-	if len(kafkaBrokers) == 0 || kafkaBrokers[0] == "" {
-		kafkaBrokers = []string{"personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"}
+	// Pre-create the topic before sending
+	// Get brokers with fallback
+	kafkaBrokersEnv := os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS")
+	if kafkaBrokersEnv == "" {
+		kafkaBrokersEnv = os.Getenv("KAFKA_BROKERS")
 	}
 
-	if err := kafka.CreateJobTopic(kafkaBrokers, childRequestsTopic, 2); err != nil {
-		params.Logger.Warn("Failed to create requests topic (may already exist)",
+	var kafkaBrokers []string
+	if kafkaBrokersEnv != "" {
+		kafkaBrokers = strings.Split(kafkaBrokersEnv, ",")
+	} else {
+		kafkaBrokers = []string{"personae-kafka-cluster-kafka-bootstrap.kafka:9092"}
+	}
+
+	// Create the topic with retry
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		err := kafka.CreateJobTopic(kafkaBrokers, childRequestsTopic, 2)
+		if err == nil {
+			params.Logger.Info("Pre-created requests topic for (child) spawned agent",
+				zap.String("topic", childRequestsTopic),
+				zap.Int("attempt", i+1))
+			break
+		}
+
+		if strings.Contains(err.Error(), "already exists") {
+			break // Topic exists, that's fine
+		}
+
+		params.Logger.Warn("Failed to pre-create requests topic for spawned child, retrying",
+			zap.Error(err),
 			zap.String("topic", childRequestsTopic),
-			zap.Error(err))
+			zap.Int("attempt", i+1))
+
+		if i < maxRetries-1 {
+			time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
+		}
 	}
 
-	if err := kafka.CreateJobTopic(kafkaBrokers, childResponsesTopic, 2); err != nil {
-		params.Logger.Warn("Failed to create responses topic (may already exist)",
+	for i := 0; i < maxRetries; i++ {
+		err := kafka.CreateJobTopic(kafkaBrokers, childResponsesTopic, 2)
+		if err == nil {
+			params.Logger.Info("Pre-created responses topic for spawned agent",
+				zap.String("topic", childResponsesTopic),
+				zap.Int("attempt", i+1))
+			break
+		}
+
+		if strings.Contains(err.Error(), "Responses topic for spawned agent already exists") {
+			break // Topic exists, that's fine
+		}
+
+		params.Logger.Warn("Failed to pre-create responses topic for child, retrying",
+			zap.Error(err),
 			zap.String("topic", childResponsesTopic),
-			zap.Error(err))
+			zap.Int("attempt", i+1))
+
+		if i < maxRetries-1 {
+			time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
+		}
 	}
 
 	// Spawn K8s job with new topic names

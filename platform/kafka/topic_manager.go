@@ -76,54 +76,76 @@ func GenerateJobTopic(correlationID, orchestrationID, stepName, agentType string
 	return fmt.Sprintf("job.%s.%s.%s.%s", correlationID, orchestrationID, agentType, stepName)
 }
 
-// CreateJobTopic creates the topic using Kafka admin client
+// CreateJobTopic creates a single job-specific topic
+// This is a simple wrapper that handles empty brokers gracefully
 func CreateJobTopic(brokers []string, topicName string, partitions int) error {
-	if len(brokers) == 0 {
-		return fmt.Errorf("no brokers provided")
+	// Validate and fix brokers
+	validBrokers := []string{}
+	for _, broker := range brokers {
+		broker = strings.TrimSpace(broker)
+		if broker != "" && broker != ":9092" { // Filter out empty or invalid brokers
+			validBrokers = append(validBrokers, broker)
+		}
 	}
 
-	// Create a connection to the Kafka cluster
-	conn, err := kafka.Dial("tcp", brokers[0])
-	if err != nil {
-		return fmt.Errorf("failed to dial kafka: %w", err)
-	}
-	defer conn.Close()
-
-	// Get controller
-	controller, err := conn.Controller()
-	if err != nil {
-		return fmt.Errorf("failed to get controller: %w", err)
+	// If no valid brokers provided, use defaults
+	if len(validBrokers) == 0 {
+		validBrokers = []string{
+			"personae-kafka-cluster-kafka-bootstrap.kafka:9092",
+			"kafka-0.kafka-headless.kafka:9092",
+		}
 	}
 
-	// Connect to controller
-	controllerConn, err := kafka.Dial("tcp", fmt.Sprintf("%s:%d", controller.Host, controller.Port))
-	if err != nil {
-		return fmt.Errorf("failed to dial controller: %w", err)
-	}
-	defer controllerConn.Close()
+	// Try to create the topic using each broker
+	var lastErr error
+	for _, broker := range validBrokers {
+		conn, err := kafka.Dial("tcp", broker)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to connect to broker %s: %w", broker, err)
+			continue
+		}
+		defer conn.Close()
 
-	// Create topic
-	topicConfigs := []kafka.TopicConfig{
-		{
+		// Set a timeout
+		conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+		// Check if topic already exists
+		partitionList, err := conn.ReadPartitions()
+		if err == nil {
+			for _, p := range partitionList {
+				if p.Topic == topicName {
+					// Topic already exists
+					return nil
+				}
+			}
+		}
+
+		// Create the topic
+		topicConfig := kafka.TopicConfig{
 			Topic:             topicName,
 			NumPartitions:     partitions,
-			ReplicationFactor: 1,
-		},
-	}
-
-	err = controllerConn.CreateTopics(topicConfigs...)
-	if err != nil {
-		// Ignore "already exists" errors
-		if strings.Contains(err.Error(), "already exists") {
-			return nil
+			ReplicationFactor: 1, // Use 1 for job topics
+			ConfigEntries: []kafka.ConfigEntry{
+				{ConfigName: "retention.ms", ConfigValue: "3600000"}, // 1 hour for job topics
+				{ConfigName: "compression.type", ConfigValue: "snappy"},
+			},
 		}
-		return fmt.Errorf("failed to create topic %s: %w", topicName, err)
+
+		err = conn.CreateTopics(topicConfig)
+		if err != nil {
+			if strings.Contains(err.Error(), "already exists") {
+				return nil // Topic exists, that's fine
+			}
+			lastErr = fmt.Errorf("failed to create topic on broker %s: %w", broker, err)
+			continue
+		}
+
+		// Success!
+		return nil
 	}
 
-	// Give Kafka a moment to propagate the topic
-	time.Sleep(100 * time.Millisecond)
-
-	return nil
+	// All attempts failed
+	return fmt.Errorf("failed to create topic %s on any broker: %w", topicName, lastErr)
 }
 
 // CreateTopic creates a single topic if it doesn't exist

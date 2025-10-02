@@ -117,7 +117,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 			zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
 	}
 
-	// NEW: Set up MY topics for this orchestration
+	// Set up MY topics for this orchestration
 	myRequestsTopic := os.Getenv("REQUESTS_TOPIC")
 	myResponsesTopic := os.Getenv("RESPONSES_TOPIC")
 
@@ -136,23 +136,45 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		msgCtx.ExecutionContext.RequestsTopic = myRequestsTopic
 		msgCtx.ExecutionContext.ResponsesTopic = myResponsesTopic
 
-		// Create topics
-		kafkaBrokers := strings.Split(os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS"), ",")
+		// Get Kafka brokers with fallback
+		kafkaBrokersEnv := os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS")
+		if kafkaBrokersEnv == "" {
+			// Try alternative env var
+			kafkaBrokersEnv = os.Getenv("KAFKA_BROKERS")
+		}
+		var kafkaBrokers []string
+		if kafkaBrokersEnv != "" {
+			kafkaBrokers = strings.Split(kafkaBrokersEnv, ",")
+		} else {
+			// Use default Kafka service names as fallback
+			msgCtx.Logger.Warn("No Kafka brokers configured, using defaults")
+			kafkaBrokers = []string{
+				"personae-kafka-cluster-kafka-bootstrap.kafka:9092",
+			}
+		}
+
+		// Create topics - now with valid brokers
 		if err := kafka.CreateJobTopic(kafkaBrokers, myRequestsTopic, 2); err != nil {
-			msgCtx.Logger.Warn("Failed to create requests topic", zap.Error(err))
+			msgCtx.Logger.Warn("Failed to create requests topic",
+				zap.Error(err),
+				zap.Strings("brokers", kafkaBrokers))
 		}
 		if err := kafka.CreateJobTopic(kafkaBrokers, myResponsesTopic, 2); err != nil {
-			msgCtx.Logger.Warn("Failed to create responses topic", zap.Error(err))
+			msgCtx.Logger.Warn("Failed to create responses topic",
+				zap.Error(err),
+				zap.Strings("brokers", kafkaBrokers))
 		}
 
 		msgCtx.Logger.Info("Created my orchestration topics",
 			zap.String("my_requests", myRequestsTopic),
 			zap.String("my_responses", myResponsesTopic),
-			zap.String("stable_identity", stableIdentity))
+			zap.String("stable_identity", stableIdentity),
+			zap.Strings("kafka_brokers", kafkaBrokers))
 	} else {
 		msgCtx.Logger.Info("Using spawned topics",
 			zap.String("my_requests", myRequestsTopic),
-			zap.String("my_responses", myResponsesTopic))
+			zap.String("my_responses", myResponsesTopic),
+		)
 	}
 
 	// Store MY topics in MY context
