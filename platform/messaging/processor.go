@@ -19,7 +19,6 @@ import (
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
-	"github.com/gqls/agentchassis/platform/orchestration/topics"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/platform/validation"
 	"go.uber.org/zap"
@@ -124,7 +123,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 
 	if myRequestsTopic == "" {
 		// I wasn't spawned with specific topics, create my own
-		stableIdentity := topics.CreateStableIdentity(
+		stableIdentity := kafka.CreateStableIdentity(
 			msgCtx.ExecutionContext.CorrelationID,
 			msgCtx.ExecutionContext.OrchestrationID,
 			p.agentType,
@@ -139,10 +138,10 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 
 		// Create topics
 		kafkaBrokers := strings.Split(os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS"), ",")
-		if err := topics.CreateJobTopic(kafkaBrokers, myRequestsTopic, 2); err != nil {
+		if err := kafka.CreateJobTopic(kafkaBrokers, myRequestsTopic, 2); err != nil {
 			msgCtx.Logger.Warn("Failed to create requests topic", zap.Error(err))
 		}
-		if err := topics.CreateJobTopic(kafkaBrokers, myResponsesTopic, 2); err != nil {
+		if err := kafka.CreateJobTopic(kafkaBrokers, myResponsesTopic, 2); err != nil {
 			msgCtx.Logger.Warn("Failed to create responses topic", zap.Error(err))
 		}
 

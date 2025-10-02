@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/discovery"
-	"github.com/gqls/agentchassis/platform/orchestration/topics"
+	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -116,7 +116,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	// Create stable identity for child's topics
 	// Using agentID for uniqueness since it's stable for this spawn
-	stableIdentity := topics.CreateStableIdentity(
+	stableIdentity := kafka.CreateStableIdentity(
 		params.ExecutionContext.CorrelationID[:8],
 		params.ExecutionContext.OrchestrationID,
 		agentType,
@@ -137,13 +137,13 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		kafkaBrokers = []string{"personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"}
 	}
 
-	if err := topics.CreateJobTopic(kafkaBrokers, childRequestsTopic, 2); err != nil {
+	if err := kafka.CreateJobTopic(kafkaBrokers, childRequestsTopic, 2); err != nil {
 		params.Logger.Warn("Failed to create requests topic (may already exist)",
 			zap.String("topic", childRequestsTopic),
 			zap.Error(err))
 	}
 
-	if err := topics.CreateJobTopic(kafkaBrokers, childResponsesTopic, 2); err != nil {
+	if err := kafka.CreateJobTopic(kafkaBrokers, childResponsesTopic, 2); err != nil {
 		params.Logger.Warn("Failed to create responses topic (may already exist)",
 			zap.String("topic", childResponsesTopic),
 			zap.Error(err))
@@ -409,13 +409,13 @@ func SpawnAgentActionOld(ctx context.Context, params ActionParams) (interface{},
 		stepName = "spawn_agent" // fallback
 	}
 
-	jobRequestsTopic := fmt.Sprintf("%s.requests", topics.GenerateJobTopic(
+	jobRequestsTopic := fmt.Sprintf("%s.requests", kafka.GenerateJobTopic(
 		params.ExecutionContext.CorrelationID,
 		params.ExecutionContext.OrchestrationID,
 		stepName,
 		agentType))
 
-	jobResponsesTopic := fmt.Sprintf("%s.responses", topics.GenerateJobTopic(
+	jobResponsesTopic := fmt.Sprintf("%s.responses", kafka.GenerateJobTopic(
 		params.ExecutionContext.CorrelationID,
 		params.ExecutionContext.OrchestrationID,
 		stepName,
@@ -432,14 +432,14 @@ func SpawnAgentActionOld(ctx context.Context, params ActionParams) (interface{},
 		kafkaBrokers = []string{"personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"}
 	}
 
-	if err := topics.CreateJobTopic(kafkaBrokers, jobRequestsTopic, 2); err != nil {
+	if err := kafka.CreateJobTopic(kafkaBrokers, jobRequestsTopic, 2); err != nil {
 		params.Logger.Warn("Failed to create job requests topic (may already exist)",
 			zap.String("topic", jobRequestsTopic),
 			zap.Error(err))
 		// Don't fail - topic might already exist from a retry
 	}
 
-	if err := topics.CreateJobTopic(kafkaBrokers, jobResponsesTopic, 2); err != nil {
+	if err := kafka.CreateJobTopic(kafkaBrokers, jobResponsesTopic, 2); err != nil {
 		params.Logger.Warn("Failed to create job responses topic (may already exist)",
 			zap.String("topic", jobResponsesTopic),
 			zap.Error(err))
