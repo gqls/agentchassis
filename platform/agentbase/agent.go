@@ -516,25 +516,24 @@ func (a *Agent) processRequests() {
 			msg, err := a.requestConsumer.Consume(a.ctx)
 
 			if err != nil {
-				if err != context.Canceled {
+				if err != context.Canceled && err != context.DeadlineExceeded {
 					a.logger.Error("Failed to consume request message", zap.Error(err))
 				}
 				continue
 			}
 
-			// Log the received message with all its fields
+			// CRITICAL: Skip empty messages
+			if msg.Value == nil || len(msg.Value) == 0 {
+				// This is a timeout or empty message, skip it
+				continue
+			}
+
 			a.logger.Info("Request consumer received message",
-				zap.Any("message", msg),
 				zap.Int("value_length", len(msg.Value)),
-				zap.String("topic", msg.Topic),
-				zap.Int64("offset", msg.Offset),
-				zap.String("key", string(msg.Key)))
+				zap.String("topic", msg.Topic))
 
 			// Process the message
 			a.processMessage(msg, "request")
-
-			// If your consumer has a commit method, call it here
-			//a.requestConsumer.CommitMessages(msg)
 		}
 	}
 }
@@ -555,9 +554,15 @@ func (a *Agent) processResponses() {
 			msg, err := a.responseConsumer.Consume(a.ctx)
 
 			if err != nil {
-				if err != context.Canceled {
+				if err != context.Canceled && err != context.DeadlineExceeded {
 					a.logger.Error("Failed to consume response message", zap.Error(err))
 				}
+				continue
+			}
+
+			// Skip empty messages
+			if msg.Value == nil || len(msg.Value) == 0 {
+				// This is a timeout or empty message, skip it
 				continue
 			}
 

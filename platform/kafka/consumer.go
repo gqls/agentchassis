@@ -71,7 +71,7 @@ func (c *Consumer) Consume(ctx context.Context) (Message, error) {
 		if err == context.DeadlineExceeded {
 			// Timeout is normal when no messages available
 			c.logger.Debug("No messages available within timeout")
-			return Message{}, nil
+			return Message{}, context.DeadlineExceeded
 		}
 		if err != context.Canceled {
 			c.logger.Error("Failed to fetch message",
