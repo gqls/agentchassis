@@ -595,6 +595,99 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		}
 	}
 
+	// Check if orchestration_id is missing for request messages
+	if execCtx.OrchestrationID == "" && messageType == "request" {
+		a.logger.Error("Request message missing orchestration_id",
+			zap.String("correlation_id", execCtx.CorrelationID),
+			zap.String("request_id", execCtx.RequestID),
+			zap.Any("headers", headers))
+
+		// Send error response to client
+		// Create proper error response
+		responseMessage := types.ResponseMessage{
+			Headers: types.ResponseHeaders{
+				// Response tracking - what we're responding to
+				InResponseToRequestID: execCtx.RequestID,
+				InResponseToMessageID: execCtx.MessageID,
+				InResponseToAction:    headers["action"],
+				RetryCount:            0,
+
+				// The orchestration that should process this response
+				// Since there's no orchestration_id, we can't route properly
+				OrchestrationID:   "", // Empty because request didn't have one
+				OrchestrationName: "",
+
+				// My Context - this agent's info
+				MyOrchestrationID:   a.AgentID, // Use agent ID as fallback
+				MyOrchestrationName: fmt.Sprintf("%s-validation", a.AgentType),
+				MyRequestsTopic:     "", // Not applicable for validation error
+				MyResponsesTopic:    "", // Not applicable for validation error
+
+				// Identity
+				CorrelationID:   execCtx.CorrelationID,
+				CorrelationName: headers["correlation_name"],
+				ClientID:        headers["client_id"],
+				MessageType:     "response",
+				FromAgent:       a.AgentID,
+				ToAgent:         headers["from_agent_id"], // Send back to sender if available
+				ToAgentType:     headers["from_agent_type"],
+
+				// Status Flags
+				IsComplete:          true, // This completes the request
+				IsError:             true, // This is an error
+				IsMultipartResponse: false,
+				PartCount:           0,
+				Status:              "error_validation",
+
+				// Sender identity
+				Sender: types.AgentIdentity{
+					AgentID:      a.AgentID,
+					AgentType:    a.AgentType,
+					PodName:      a.PodName,
+					AgentVersion: os.Getenv("AGENT_VERSION"),
+					Role:         a.Role,
+				},
+
+				// Timing & Resources
+				TimeSent:                   time.Now(),
+				TimeSpent:                  time.Since(startTime),
+				OverallTimeBudgetRemaining: 0, // No budget for failed validation
+				TopicSentTo:                headers["responses_topic"],
+				FuelUsed:                   0, // No fuel used for validation error
+				RemainingFuelBudget:        0,
+			},
+			Body: types.ResponseBody{
+				Success: false,
+				Headers: map[string]interface{}{
+					// Include the problematic headers for debugging
+					"received_headers": headers,
+					"missing_field":    "orchestration_id",
+				},
+				Body: map[string]interface{}{
+					"error_type":    "validation_error",
+					"error_message": "orchestration_id is required in request headers",
+					"details": map[string]interface{}{
+						"correlation_id": execCtx.CorrelationID,
+						"request_id":     execCtx.RequestID,
+						"message_id":     execCtx.MessageID,
+						"timestamp":      time.Now().Unix(),
+					},
+				},
+				Error: &types.ErrorInfo{
+					Code:        "MISSING_ORCHESTRATION_ID",
+					Message:     "orchestration_id is required in request headers",
+					Recoverable: false, // Client must fix their request
+					RetryAfter:  0,     // Don't retry
+				},
+			},
+		}
+		a.sendErrorResponse(execCtx, &responseMessage)
+
+		// Mark message as processed despite the error to prevent infinite retry
+		observability.MessagesDropped.WithLabelValues(a.AgentType, "missing_orchestration_id").Inc()
+		return
+	}
+
 	// Add agent context
 	execCtx.ProcessingNode = a.PodName
 	execCtx.ToAgentID = a.AgentID
