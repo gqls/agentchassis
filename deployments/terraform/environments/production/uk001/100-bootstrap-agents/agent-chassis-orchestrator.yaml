@@ -56,6 +56,7 @@ custom:
   mode: orchestrator
   topic: system.agent.generic.process
   kafka_consumer_group: generic-requests-group
+  KAFKA_CONSUMER_GROUP: generic-requests-group
   processing:
     mode: orchestrator
     spawn_method: kubernetes_job

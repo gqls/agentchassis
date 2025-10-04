@@ -307,6 +307,12 @@ func NewAgent(config AgentConfig) (*Agent, error) {
 
 // initializeComponents initializes all agent components
 func (a *Agent) initializeComponents() error {
+
+	// Debug logging for consumer configuration
+	a.logger.Info("Agent InitializeComponents",
+		zap.String("requests_topic", a.requestsTopic),
+		zap.Strings("kafka_brokers", a.config.KafkaBrokers))
+
 	// Initialize database if URL provided
 	if a.config.DatabaseURL != "" {
 		db, err := sql.Open("pgx", a.config.DatabaseURL)
@@ -505,7 +511,7 @@ func (a *Agent) processRequests() {
 	defer a.wg.Done()
 
 	a.logger.Info("Starting request processor agent.go processRequests",
-		zap.String("topic", a.requestsTopic))
+		zap.String("listening on requests topic", a.requestsTopic))
 
 	for {
 		select {
@@ -530,7 +536,7 @@ func (a *Agent) processRequests() {
 			// Skip empty messages
 			if msg.Value == nil || len(msg.Value) == 0 {
 				// This is a timeout or empty message, skip it
-				a.logger.Debug("Skipping empty requests message")
+				a.logger.Info("Skipping empty requests message")
 				continue
 			}
 

@@ -28,6 +28,8 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 		return nil, fmt.Errorf("kafka groupID cannot be empty")
 	}
 
+	logger.Info("consumer.go setting up NewConsumer")
+
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        brokers,
 		GroupID:        groupID,
