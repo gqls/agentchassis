@@ -624,6 +624,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 			// Send to parent's response topic
 			if headers["responses_topic"] != "" {
+				// error so no validation
 				a.producer.Produce(context.Background(),
 					headers["responses_topic"], headers, msg.Key, msg.Value)
 			}
@@ -652,6 +653,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 		// Send error back to sender
 		if responsesTopic := headers["responses_topic"]; responsesTopic != "" {
+			// error message so no validation
 			a.producer.Produce(context.Background(),
 				responsesTopic, errorHeaders, msg.Key, bodyBytes)
 		}
@@ -966,7 +968,7 @@ func (a *Agent) sendErrorResponse(execCtx *types.ExecutionContext, response *typ
 		key = []byte(execCtx.MessageID)
 	}
 
-	// Use YOUR producer's signature
+	// Use producer's signature // error so no message validation
 	if err := a.producer.Produce(a.ctx, responsesTopic, headers, key, responseBytes); err != nil {
 		a.logger.Error("Failed to send error response",
 			zap.Error(err),
@@ -1163,7 +1165,7 @@ func (a *Agent) SpawnChildAgent(ctx context.Context, agentType, role string, con
 	key := []byte(correlationID)
 
 	// Use the correct producer.Produce signature: (ctx, topic, headers, key, value)
-	if err := a.producer.Produce(ctx, topic, headers, key, spawnBytes); err != nil {
+	if err := a.producer.ProduceWithValidation(ctx, topic, headers, key, spawnBytes); err != nil {
 		return "", fmt.Errorf("failed to spawn child agent: %w", err)
 	}
 
@@ -1217,7 +1219,7 @@ func (a *Agent) SpawnChildAgentWithContext(ctx context.Context, execCtx *types.E
 	headers := spawnRequest.Headers.ToMap()
 	key := []byte(childCtx.CorrelationID)
 
-	if err := a.producer.Produce(ctx, topic, headers, key, spawnBytes); err != nil {
+	if err := a.producer.ProduceWithValidation(ctx, topic, headers, key, spawnBytes); err != nil {
 		return "", fmt.Errorf("failed to spawn child agent: %w", err)
 	}
 
@@ -1331,7 +1333,7 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 		zap.Any("response", response),
 	)
 
-	return a.producer.Produce(a.ctx, responsesTopic, headers, key, responseBytes)
+	return a.producer.ProduceWithValidation(a.ctx, responsesTopic, headers, key, responseBytes)
 }
 
 // registerWithParent registers this agent with its parent orchestration
@@ -1436,5 +1438,6 @@ func (a *Agent) sendHeartbeat() {
 	}
 
 	key := []byte(a.AgentID)
+	// heartbeat so no message validation
 	a.producer.Produce(a.ctx, topic, headers, key, heartbeatBytes)
 }

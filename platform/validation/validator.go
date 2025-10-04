@@ -2,18 +2,13 @@
 package validation
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/gqls/agentchassis/pkg/models"
-	"github.com/gqls/agentchassis/platform/kafka"
 	"go.uber.org/zap"
 )
 
 // Validator wraps workflow validation and other validation logic
 type Validator struct {
 	workflowValidator *WorkflowValidator
-	kafkaProducer     *kafka.KafkaProducer
 	logger            *zap.Logger
 }
 
@@ -80,25 +75,4 @@ func (v *Validator) ValidateIncomingMessage(headers map[string]string) bool {
 		return false
 	}
 	return true
-}
-
-func (v Validator) ProduceWithValidation(ctx context.Context, topic string, headers map[string]string, key, value []byte) error {
-	// Check if it's an error message - always send those
-	if headers["is_error"] == "true" {
-		v.logger.Info("Sending error message without validation",
-			zap.String("topic", topic),
-			zap.String("correlation_id", headers["correlation_id"]))
-		return v.kafkaProducer.Produce(ctx, topic, headers, key, value)
-	}
-
-	// Validate required fields
-	validator := NewValidator(v.logger)
-	if !validator.ValidateOutgoingMessage(headers) {
-		v.logger.Error("Message validation failed, not sending",
-			zap.String("topic", topic))
-		return fmt.Errorf("message missing required fields")
-	}
-
-	// Send the message
-	return v.kafkaProducer.Produce(ctx, topic, headers, key, value)
 }

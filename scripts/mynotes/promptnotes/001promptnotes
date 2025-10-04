@@ -21,3 +21,10 @@ agent versioning and agent groups, evolution
 
 keep your answers brief, to the point and use my existing code as a base wherever possible and don't over engineer things for now please claude.
 If you think that parts of my code might be missing in your context, ask first before rewriting it.
+
+if we have a structure in place like for instance a validation package, then don't suggest hardcoded inline validation as option 1 - this is hacky.
+I understand sometimes it is necessary or shortcuts very longwinded solutions and it can be suggested but not without considering the "proper" flow.
+
+Please always think things through such that you look for simpler solutions in preference to complicated ones.
+
+to jsut detect if a function exists, don't call it.

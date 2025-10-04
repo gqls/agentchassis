@@ -1,5 +1,7 @@
 package actions
 
+import "github.com/gqls/agentchassis/platform/orchestration/actions_list"
+
 // GlobalActionRegistry is the single source of truth for all available local actions
 var GlobalActionRegistry = map[string]ActionFunc{
 	// Core workflow control
@@ -60,9 +62,9 @@ var GlobalActionRegistry = map[string]ActionFunc{
 }
 
 // IsLocalAction checks if an action is available for local execution
+// delegates to actions_list
 func IsLocalAction(action string) bool {
-	_, exists := GlobalActionRegistry[action]
-	return exists
+	return actions_list.IsLocalAction(action)
 }
 
 // GetAction returns the action function if it exists
