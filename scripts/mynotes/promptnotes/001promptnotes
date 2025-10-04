@@ -18,3 +18,6 @@ every agent is an orchestrator
 messages contain full context, state is preserved in db in case of container failure
 kafka - principle of unidirectional message flow
 agent versioning and agent groups, evolution
+
+keep your answers brief, to the point and use my existing code as a base wherever possible and don't over engineer things for now please claude.
+If you think that parts of my code might be missing in your context, ask first before rewriting it.

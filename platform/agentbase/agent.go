@@ -609,6 +609,55 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 	// Extract headers
 	headers := kafka.HeadersToMap(msg.Headers)
 
+	// Check if this is an error message
+	if headers["is_error"] == "true" {
+		a.logger.Info("Received error message, passing up the chain",
+			zap.String("correlation_id", headers["correlation_id"]),
+			zap.String("error_from", headers["from_agent_type"]),
+			zap.String("the responses topic for the error should be parents:", headers["responses_topic"]))
+
+		// Pass error up to parent if this is a spawned agent
+		if a.spawned && a.ParentAgentID != "" {
+			// Add our agent to the error chain
+			headers["error_chain"] = headers["error_chain"] + "," + a.AgentType
+			headers["from_agent_type"] = a.AgentType
+
+			// Send to parent's response topic
+			if headers["responses_topic"] != "" {
+				a.producer.Produce(context.Background(),
+					headers["responses_topic"], headers, msg.Key, msg.Value)
+			}
+		}
+		// Agent can decide to handle error or just log it
+		return
+	}
+
+	// Validate incoming message
+	validator := validation.NewValidator(a.logger)
+	if !validator.ValidateIncomingMessage(headers) {
+		// Send error response
+		errorHeaders := make(map[string]string)
+		for k, v := range headers {
+			errorHeaders[k] = v
+		}
+		errorHeaders["is_error"] = "true"
+		errorHeaders["error_reason"] = "validation_failed"
+		errorHeaders["from_agent_type"] = a.AgentType
+
+		errorBody := map[string]string{
+			"error": "Message missing required fields",
+			"agent": a.AgentType,
+		}
+		bodyBytes, _ := json.Marshal(errorBody)
+
+		// Send error back to sender
+		if responsesTopic := headers["responses_topic"]; responsesTopic != "" {
+			a.producer.Produce(context.Background(),
+				responsesTopic, errorHeaders, msg.Key, bodyBytes)
+		}
+		return
+	}
+
 	// Check for empty headers as additional validation
 	if len(headers) == 0 && len(msg.Value) > 0 {
 		a.logger.Warn("Message has no headers but has value - possible malformed message",

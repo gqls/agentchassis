@@ -544,7 +544,7 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 
 		// Routing
 		RequestsTopic:  headers["requests_topic"],
-		ResponsesTopic: headers["responses_topic"],
+		ResponsesTopic: headers["responses_topic"], // whose responses topic is this?
 
 		// Version
 		Version: headers["version"],
