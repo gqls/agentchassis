@@ -28,3 +28,10 @@ I understand sometimes it is necessary or shortcuts very longwinded solutions an
 Please always think things through such that you look for simpler solutions in preference to complicated ones.
 
 to jsut detect if a function exists, don't call it.
+
+/tmp directory was full - errors showed when reading topics
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+  --topic job.42eab5fa-7fe55079-calculator-spawn_adder.requests \
+  --from-beginning --property print.headers=true --max-messages 5
+java.io.IOException: No space left on device ...

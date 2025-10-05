@@ -78,6 +78,14 @@ spec:
                   name: personae-storage-secrets
                   key: AWS_SECRET_ACCESS_KEY
 
+            # default request and responses topics
+            - name: RESPONSES_TOPIC
+              value: "system.agent.generic.responses"
+            - name: PARENT_RESPONSES_TOPIC
+              value: "system.responses.generic"
+            - name: REQUESTS_TOPIC
+              value: "system.agent.generic.requests"
+
           envFrom:
             - configMapRef:
                 name: personae-prod-config

@@ -54,16 +54,16 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	agentID := uuid.New().String()
 	agentName := GenerateAgentName(agentType, role)
 
-	// Pre-generate request ID - KEEP (critical for response matching)
+	// Pre-generate request ID
 	requestID := params.Headers["request_id"]
 	if requestID == "" {
 		requestID = uuid.New().String()
 		params.Headers["request_id"] = requestID
 	}
 
-	params.Logger.Info("Spawning agent",
-		zap.String("agent_id", agentID),
-		zap.String("agent_name", agentName),
+	params.Logger.Info("Spawning a new agent",
+		zap.String("new agent_id", agentID),
+		zap.String("new agent_name", agentName),
 		zap.String("agent_type", agentType),
 		zap.String("role", role),
 		zap.String("request_id", requestID))
@@ -88,13 +88,16 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	clientID := params.Headers["client_id"]
 	if clientID == "" {
+		params.Logger.Error("Failed to get client id in SpawnAgentAction reverting to default",
+			zap.String("clientID", clientID),
+		)
 		clientID = "demo_client"
 	}
 
-	// Get agent definition - KEEP
+	// Get agent definition
 	agentDef, err := getAgentDefinition(ctx, params.DB, agentType, params.Logger)
 	if err != nil {
-		params.Logger.Error("Failed to get agent definition",
+		params.Logger.Error("Failed to get agent definition in SpawnAgentAction",
 			zap.String("agent_type", agentType),
 			zap.Error(err))
 		return nil, fmt.Errorf("failed to get agent definition: %w", err)
@@ -102,9 +105,10 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	params.Logger.Info("Got agent definition",
 		zap.String("agent_type", agentType),
+		zap.String("is the client id the original? if its just demo_client then no its been changed", agentType),
 		zap.String("image", fmt.Sprintf("%s:%s", agentDef.ImageRepository, agentDef.ImageTag)))
 
-	// Create agent in DB - KEEP
+	// Create agent in DB
 	if err := createAgentInDBFromDefinition(ctx, params, agentID, agentDef, clientID); err != nil {
 		params.Logger.Error("Failed to create agent in database",
 			zap.String("agent_id", agentID),
@@ -112,6 +116,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		return nil, fmt.Errorf("failed to create agent in DB: %w", err)
 	}
 
+	// this is the new child's parentResponseTopic or the current agents normal response topic
 	parentResponsesTopic := params.ExecutionContext.ResponsesTopic
 
 	// Create stable identity for child's topics
@@ -188,6 +193,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		clientID,
 		childRequestsTopic,  // Pass as REQUESTS_TOPIC env var
 		childResponsesTopic, // Pass as RESPONSES_TOPIC env var
+		parentResponsesTopic,
 		params.Logger)
 
 	if err != nil {
@@ -202,7 +208,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("job_name", jobName),
 		zap.String("agent_id", agentID))
 
-	// Determine sender type - KEEP this logic (it's careful)
+	// Determine sender type
 	senderAgentType := "generic"
 	if params.ExecutionContext.FromAgentType != "" {
 		senderAgentType = params.ExecutionContext.FromAgentType
@@ -281,7 +287,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		return nil, fmt.Errorf("failed to marshal spawn message: %w", err)
 	}
 
-	if err := params.Producer.Produce(
+	if err := params.Producer.ProduceWithValidation(
 		ctx,
 		childRequestsTopic, // Send to child's topic
 		spawnMessage.Headers.ToMap(),
@@ -307,9 +313,10 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		"target_agent_type": agentType,
 		"subtree_info":      subtreeInfo,
 
-		// NEW: Use consistent naming
-		"requests_topic":  childRequestsTopic,
-		"responses_topic": childResponsesTopic,
+		// Use consistent naming
+		"requests_topic":         childRequestsTopic,
+		"responses_topic":        childResponsesTopic,
+		"parent_responses_topic": parentResponsesTopic,
 
 		// For backward compatibility and debugging
 		"stable_identity": stableIdentity,
@@ -321,8 +328,9 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			"agent_type": agentType,
 			"role":       role,
 			"topics": map[string]string{
-				"requests":  childRequestsTopic,
-				"responses": childResponsesTopic,
+				"requests":         childRequestsTopic,
+				"responses":        childResponsesTopic,
+				"parent_responses": parentResponsesTopic,
 			},
 		},
 	}, nil
@@ -517,8 +525,9 @@ func SpawnAgentActionOld(ctx context.Context, params ActionParams) (interface{},
 		// Don't fail - topic might already exist from a retry
 	}
 
+	parentResponsesTopic := params.ExecutionContext.ResponsesTopic
 	// Always spawn K8s job
-	jobName, err := spawnAgentKubernetesJobFromDefinition(ctx, agentID, agentDef, clientID, jobRequestsTopic, jobResponsesTopic, params.Logger)
+	jobName, err := spawnAgentKubernetesJobFromDefinition(ctx, agentID, agentDef, clientID, jobRequestsTopic, jobResponsesTopic, parentResponsesTopic, params.Logger)
 	if err != nil {
 		params.Logger.Error("Failed to spawn K8s job",
 			zap.String("agent_id", agentID),
@@ -1623,6 +1632,8 @@ func createAgentInDBFromDefinition(ctx context.Context, params ActionParams, age
 
 	params.Logger.Info("Agent instance created in database",
 		zap.String("agent_id", agentID),
+		zap.String("agent_definition id", agentDef.ID),
+		zap.String("agent_id", agentID),
 		zap.String("agent_type", agentDef.Type),
 		zap.String("instance_name", instanceName),
 		zap.String("client_id", clientID))
@@ -1631,7 +1642,7 @@ func createAgentInDBFromDefinition(ctx context.Context, params ActionParams, age
 }
 
 // spawnAgentKubernetesJobFromDefinition spawns job using database definition
-func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, agentDef *AgentDefinition, clientID, jobRequestsTopic, jobResponsesTopic string, logger *zap.Logger) (string, error) {
+func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, agentDef *AgentDefinition, clientID, jobRequestsTopic, jobResponsesTopic, parentResponsesTopic string, logger *zap.Logger) (string, error) {
 	logger.Info("In spawnAgentKubernetesJobFromDefinition")
 
 	current, caller := getFuncInfo(1)
@@ -1697,11 +1708,11 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		{Name: "CLIENT_ID", Value: clientID},
 
 		// Dynamic topic configuration
-		{Name: "KAFKA_TOPIC", Value: jobRequestsTopic},      // legacy?
-		{Name: "KAFKA_TOPICS", Value: jobRequestsTopic},     // what to listen to
-		{Name: "JOB_TOPIC", Value: jobRequestsTopic},        // Primary listening topic
-		{Name: "RESPONSES_TOPIC", Value: jobResponsesTopic}, // Where to send responses
-		{Name: "REQUESTS_TOPIC", Value: jobRequestsTopic},   // Where to send responses
+		{Name: "KAFKA_TOPIC", Value: jobRequestsTopic},  // legacy?
+		{Name: "KAFKA_TOPICS", Value: jobRequestsTopic}, // what to listen to
+		{Name: "RESPONSES_TOPIC", Value: jobResponsesTopic},
+		{Name: "REQUESTS_TOPIC", Value: jobRequestsTopic},
+		{Name: "PARENT_RESPONSES_TOPIC", Value: parentResponsesTopic},
 		{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentDef.Type, agentID[:8])},
 
 		// Health server ports

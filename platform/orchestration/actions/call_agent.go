@@ -28,7 +28,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	var targetAgentID string
 	var targetRequestsTopic string  // Changed from jobTopic
-	var targetResponsesTopic string // NEW - track child's response topic
+	var targetResponsesTopic string // track child's response topic
 
 	if hasRole && targetRole != "" {
 		params.Logger.Info("Looking for agent by role",
@@ -37,6 +37,10 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		// Search through spawn results for matching role
 		for stepName, stepData := range params.CollectedData {
 			if spawnResult, ok := stepData.(map[string]interface{}); ok {
+
+				params.Logger.Info("In CallAgentAction where is parent response topic?",
+					zap.Any("spawn result", spawnResult))
+
 				// Check both the role field and the step name
 				if role, ok := spawnResult["role"].(string); ok && role == targetRole {
 					targetAgentID, _ = spawnResult["agent_id"].(string)
@@ -245,7 +249,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 			FuelBudget:     params.ExecutionContext.FuelBudget - 100,
 			TimeoutSeconds: 30,
 
-			// CRITICAL FIX: Use parent's ResponsesTopic so child knows where to respond
+			// Use parent's ResponsesTopic so child knows where to respond
 			ResponsesTopic: params.ExecutionContext.ResponsesTopic,
 			// Child will create its own topics when it processes this
 			RequestsTopic: "",
@@ -306,7 +310,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		"action_sent":         "process",
 		"await_response":      true,
 		"target_agent_type":   targetAgentType,
-		// NEW: Track child's response topic for debugging
+		// Track child's response topic for debugging
 		"child_responses_topic": targetResponsesTopic,
 	}
 
@@ -748,11 +752,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -805,11 +809,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -860,11 +864,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
 

@@ -120,6 +120,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	// Set up MY topics for this orchestration
 	myRequestsTopic := os.Getenv("REQUESTS_TOPIC")
 	myResponsesTopic := os.Getenv("RESPONSES_TOPIC")
+	parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
 
 	if myRequestsTopic == "" {
 		// I wasn't spawned with specific topics, create my own
@@ -135,6 +136,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		// Store for use when spawning children
 		msgCtx.ExecutionContext.RequestsTopic = myRequestsTopic
 		msgCtx.ExecutionContext.ResponsesTopic = myResponsesTopic
+		msgCtx.ExecutionContext.ReplyToTopic = parentResponsesTopic
 
 		// Get Kafka brokers with fallback
 		kafkaBrokersEnv := os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS")
@@ -168,6 +170,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		msgCtx.Logger.Info("Created my orchestration topics",
 			zap.String("my_requests", myRequestsTopic),
 			zap.String("my_responses", myResponsesTopic),
+			zap.String("parentresponses topic", parentResponsesTopic),
 			zap.String("stable_identity", stableIdentity),
 			zap.Strings("kafka_brokers", kafkaBrokers))
 	} else {
@@ -181,22 +184,16 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	msgCtx.ExecutionContext.RequestsTopic = myRequestsTopic
 	msgCtx.ExecutionContext.ResponsesTopic = myResponsesTopic
 
-	// NEW: Store parent's response topic separately (from headers)
-	// This is where I send MY responses
-	if parentResponsesTopic := msgCtx.Headers["responses_topic"]; parentResponsesTopic != "" {
-		msgCtx.CollectedData["__parent_responses_topic__"] = parentResponsesTopic
-		msgCtx.Logger.Info("Will respond to parent on",
-			zap.String("parent_responses_topic", parentResponsesTopic))
-
-		// Override MY ResponsesTopic to be where parent expects responses
-		msgCtx.ExecutionContext.ResponsesTopic = parentResponsesTopic
-	}
+	msgCtx.Logger.Info("Will respond to parent on",
+		zap.String("parent_responses_topic", parentResponsesTopic))
+	msgCtx.ExecutionContext.ReplyToTopic = parentResponsesTopic
 
 	msgCtx.Logger.Info("Topic configuration complete",
 		zap.String("action", msgCtx.ExecutionContext.Action),
 		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
 		zap.String("my_requests_topic", myRequestsTopic),
 		zap.String("my_responses_topic", msgCtx.ExecutionContext.ResponsesTopic),
+		zap.String("reply to _topic", msgCtx.ExecutionContext.ReplyToTopic),
 		zap.String("request_id", msgCtx.ExecutionContext.RequestID))
 
 	// Sync headers from context for backward compatibility - KEEP

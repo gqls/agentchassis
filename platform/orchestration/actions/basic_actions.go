@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 )
@@ -144,8 +145,9 @@ func SendNotificationAction(ctx context.Context, params ActionParams) (interface
 
 	notificationBytes, _ := json.Marshal(notification)
 
-	// CRITICAL: Use ResponsesTopic from ExecutionContext
-	topic := params.ExecutionContext.ResponsesTopic
+	parentsResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+	// Use ResponsesTopic from ExecutionContext
+	topic := parentsResponsesTopic
 
 	// Allow override from step config if needed
 	if params.StepConfig.Config != nil {

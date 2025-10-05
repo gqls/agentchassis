@@ -376,13 +376,22 @@ func (a *Agent) setupConsumers() error {
 			zap.String("topic", requestsTopic))
 	}
 
-	// Simple consumer group
+	// Get consumer group from environment
+	consumerGroup := os.Getenv("KAFKA_CONSUMER_GROUP")
+	if consumerGroup == "" {
+		consumerGroup = fmt.Sprintf("%s-consumers", a.AgentType)
+	}
+
+	// Use the consumer group from environment
 	requestConsumer, err := kafka.NewConsumer(
 		a.config.KafkaBrokers,
 		requestsTopic,
-		a.AgentID,
+		consumerGroup,
 		a.logger,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to create request consumer: %w", err)
+	}
 
 	a.requestConsumer = requestConsumer
 
@@ -628,12 +637,10 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 			headers["error_chain"] = headers["error_chain"] + "," + a.AgentType
 			headers["from_agent_type"] = a.AgentType
 
+			parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
 			// Send to parent's response topic
-			if headers["responses_topic"] != "" {
-				// error so no validation
-				a.producer.Produce(context.Background(),
-					headers["responses_topic"], headers, msg.Key, msg.Value)
-			}
+			a.producer.Produce(context.Background(), parentResponsesTopic, headers, msg.Key, msg.Value)
+
 		}
 		// Agent can decide to handle error or just log it
 		return
@@ -657,12 +664,10 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		}
 		bodyBytes, _ := json.Marshal(errorBody)
 
-		// Send error back to sender
-		if responsesTopic := headers["responses_topic"]; responsesTopic != "" {
-			// error message so no validation
-			a.producer.Produce(context.Background(),
-				responsesTopic, errorHeaders, msg.Key, bodyBytes)
-		}
+		parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+		a.producer.Produce(context.Background(),
+			parentResponsesTopic, errorHeaders, msg.Key, bodyBytes)
+
 		return
 	}
 
@@ -677,7 +682,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 	// Create or parse ExecutionContext
 	execCtx, err := types.FromHeaders(headers)
 	if err != nil {
-		a.logger.Info("legacy do I get here? agent.go processMessage",
+		a.logger.Error("error: legacy do I get here? agent.go processMessage",
 			zap.Any("error is", err),
 		)
 		// Create minimal context for legacy messages
@@ -803,7 +808,8 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 	contextLogger.Info("Processing message STORE_EXEC_CONTEXT ish",
 		zap.String("message_type", messageType),
 		zap.String("message_id", execCtx.MessageID),
-		zap.String("stored_responses_topic", execCtx.ResponsesTopic),
+		zap.String("stored_responses_topic should be the parents one", execCtx.ResponsesTopic),
+		zap.String("I am in this agent type:", os.Getenv("AGENT_TYPE")),
 		zap.String("stored_request_id", execCtx.RequestID),
 		zap.String("orchestration_id", execCtx.OrchestrationID),
 		zap.String("parent_orch_id", execCtx.ParentOrchestrationID),
@@ -837,7 +843,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 			zap.Error(err),
 			zap.Duration("duration", time.Since(startTime)))
 
-		// CRITICAL: Check if this is a validation error
+		// Check if this is a validation error
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "is required") ||
 			strings.Contains(errMsg, "validation") ||

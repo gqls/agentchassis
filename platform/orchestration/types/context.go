@@ -51,6 +51,7 @@ type ExecutionContext struct {
 	ToAgentType    string        `json:"to_agent_type"`
 	RequestsTopic  string        `json:"requests_topic,omitempty"`
 	ResponsesTopic string        `json:"responses_topic,omitempty"`
+	ReplyToTopic   string        `json:"reply_to_topic,omitempty"`
 
 	// Processing info
 	ProcessingNode string `json:"processing_node,omitempty"`
