@@ -550,3 +550,22 @@ func sanitizeTopicPart(s string) string {
 
 	return strings.ToLower(output)
 }
+
+func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *zap.Logger) error {
+	conn, err := kafka.DialContext(ctx, "tcp", tm.brokers[0])
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	for i := 0; i < 10; i++ {
+		partitions, err := conn.ReadPartitions(topic)
+		if err == nil && len(partitions) > 0 {
+			logger.Info("Topic found and ready", zap.String("topic", topic))
+			return nil
+		}
+		logger.Info("Waiting for topic to propagate...", zap.Int("attempt", i+1))
+		time.Sleep(1 * time.Second)
+	}
+	return fmt.Errorf("topic %s not found after waiting", topic)
+}

@@ -44,18 +44,23 @@ func (v *Validator) ValidateOutgoingMessage(headers map[string]string) bool {
 		zap.Any("headers", headers),
 	)
 
+	stepName := headers["step_name"]
+	if stepName == "" {
+		stepName = headers["in_response_to_step_name"]
+	}
+
 	if headers["client_id"] == "" ||
 		headers["correlation_id"] == "" ||
 		headers["orchestration_id"] == "" ||
 		headers["sender_agent_type"] == "" ||
-		headers["in_response_to_step_name"] == "" {
+		stepName == "" {
 
 		v.logger.Error("Outgoing message missing required fields",
 			zap.String("client_id", headers["client_id"]),
 			zap.String("correlation_id", headers["correlation_id"]),
 			zap.String("orchestration_id", headers["orchestration_id"]),
 			zap.String("sender_agent_type", headers["sender_agent_type"]),
-			zap.String("in_response_to_step_name", headers["step_name"]))
+			zap.String("in_response_to_step_name", stepName))
 		return false
 	}
 	return true

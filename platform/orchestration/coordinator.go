@@ -686,10 +686,14 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	execCtx.StepName = state.CurrentStep // Use the actual step name, not the action
 	execCtx.Action = step.Action
 	fromAgentType := os.Getenv("AGENT_TYPE")
+	parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+	
+	execCtx.ReplyToTopic = parentResponsesTopic
 
 	s.logger.Info("Environment variable AGENT_TYPE in executeLocalAction",
 		zap.String("AGENT_TYPE from environment", fromAgentType),
 		zap.String("AGENT_TYPE from state", state.OwnerAgentType),
+		zap.String("respond to PARENT_RESPONSES_TOPIC", os.Getenv("PARENT_RESPONSES_TOPIC")),
 	)
 
 	contextLogger := s.logger.With(
@@ -828,7 +832,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 			}
 
 			if requestID != "" {
-				// Determine the response topic from the result
+				// Determine the response topic where this agent expects to receive responses from the result (not reply to)
 				responsesTopic := s.getResponsesTopicFromResult(resultMap, execCtx)
 				if responsesTopic == "" {
 					contextLogger.Error("No responses topic available for awaited request",

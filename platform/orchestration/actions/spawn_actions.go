@@ -18,6 +18,7 @@ import (
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/jackc/pgx/v5/pgxpool"
+	kafkago "github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
@@ -130,6 +131,10 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	// this is the new child's parentResponseTopic or the current agents normal response topic
 	parentResponsesTopic := params.ExecutionContext.ResponsesTopic
+	if parentResponsesTopic == "" {
+		// about to spawn child so it needs this agent's normal response topic
+		parentResponsesTopic = os.Getenv("RESPONSES_TOPIC")
+	}
 
 	// Create stable identity for child's topics
 	// Using agentID for uniqueness since it's stable for this spawn
@@ -174,6 +179,15 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			zap.String("topic", childRequestsTopic))
 	}
 
+	// wait 10 or so seconds to determine if requests topic is ready
+	err = topicManager.WaitForTopic(ctx, childRequestsTopic, params.Logger)
+	if err != nil {
+		params.Logger.Error("Requests topic never got ready in 10 seconds",
+			zap.Error(err),
+			zap.String("topic", childRequestsTopic),
+		)
+	}
+
 	// Create the response topic
 	responseTopicDef := kafka.TopicDefinition{
 		Name:              childResponsesTopic,
@@ -191,7 +205,14 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			zap.String("topic", childResponsesTopic))
 	}
 
-	time.Sleep(3 * time.Second)
+	// wait 10 or so seconds to determine if response topic is ready
+	err = topicManager.WaitForTopic(ctx, childResponsesTopic, params.Logger)
+	if err != nil {
+		params.Logger.Error("Responses topic never got ready in 10 seconds",
+			zap.Error(err),
+			zap.String("topic", childResponsesTopic),
+		)
+	}
 
 	params.Logger.Info("Topic creation completed, waiting for propagation",
 		zap.String("requests_topic", childRequestsTopic),
