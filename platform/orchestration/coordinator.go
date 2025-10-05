@@ -685,6 +685,12 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	execCtx.StepID = uuid.New().String()
 	execCtx.StepName = state.CurrentStep // Use the actual step name, not the action
 	execCtx.Action = step.Action
+	fromAgentType := os.Getenv("AGENT_TYPE")
+
+	s.logger.Info("Environment variable AGENT_TYPE in executeLocalAction",
+		zap.String("AGENT_TYPE from environment", fromAgentType),
+		zap.String("AGENT_TYPE from state", state.OwnerAgentType),
+	)
 
 	contextLogger := s.logger.With(
 		zap.String("orchestration_id", execCtx.OrchestrationID),
@@ -773,6 +779,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		s.logger.Error("Local action failed in executeLocalAction",
 			zap.String("step_name", step.Name),
 			zap.String("action", step.Action),
+			zap.String("from_agent_type", fromAgentType),
 			zap.Error(err))
 
 		// For spawn failures, check if it's a topic issue

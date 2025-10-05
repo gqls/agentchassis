@@ -17,6 +17,14 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	params.Logger.Info("In CallAgentAction",
 		zap.Any("params in callagentaction", params))
 
+	// Keep stack trace for debugging
+	current, caller := getFuncInfo(1)
+	params.Logger.Info("CallAgentAction starting",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.Any("params.Headers", params.Headers),
+	)
+
 	config := params.StepConfig.Config
 	targetAgentType, ok := config["agent_type"].(string)
 	if !ok {
@@ -342,310 +350,6 @@ func findTopicsForRole(params ActionParams, targetRole string) (string, string) 
 	return "", ""
 }
 
-func CallAgentActionOld3(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("In CallAgentAction",
-		zap.Any("params in callagentaction", params))
-
-	config := params.StepConfig.Config
-	targetAgentType, ok := config["agent_type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("agent_type not specified in config")
-	}
-
-	// Check if we're looking for a specific role
-	targetRole, hasRole := config["target_role"].(string)
-
-	var targetAgentID string
-	var jobTopic string
-
-	if hasRole && targetRole != "" {
-		params.Logger.Info("Looking for agent by role",
-			zap.String("target_role", targetRole))
-
-		// Search through spawn results for matching role
-		for stepName, stepData := range params.CollectedData {
-			if spawnResult, ok := stepData.(map[string]interface{}); ok {
-				// Check both the role field and the step name
-				if role, ok := spawnResult["role"].(string); ok && role == targetRole {
-					targetAgentID, _ = spawnResult["agent_id"].(string)
-					jobTopic, _ = spawnResult["job_topic"].(string)
-					params.Logger.Info("Found agent with matching role",
-						zap.String("role", targetRole),
-						zap.String("agent_id", targetAgentID),
-						zap.String("job_topic", jobTopic),
-						zap.String("from_step", stepName))
-					break
-				}
-			}
-		}
-	} else {
-		// Look by agent type
-		spawnKey := fmt.Sprintf("spawn_%s", targetAgentType)
-		if spawnResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
-			targetAgentID, _ = spawnResult["agent_id"].(string)
-			jobTopic, _ = spawnResult["job_topic"].(string)
-		}
-	}
-
-	if targetAgentID == "" {
-		if hasRole {
-			return nil, fmt.Errorf("no agent with role '%s' found", targetRole)
-		}
-		return nil, fmt.Errorf("no spawned %s agent found", targetAgentType)
-	}
-
-	if hasRole && targetRole != "" {
-		jobTopic = findJobTopicForRole(params, targetRole)
-	} else {
-		// Find by agent type/ID
-		for stepName, stepData := range params.CollectedData {
-			if strings.HasPrefix(stepName, "spawn_") {
-				if spawnResult, ok := stepData.(map[string]interface{}); ok {
-					if agentID, ok := spawnResult["agent_id"].(string); ok && agentID == targetAgentID {
-						jobTopic, _ = spawnResult["job_topic"].(string)
-						break
-					}
-				}
-			}
-		}
-	}
-
-	// Use job topic if found, otherwise fallback to standard
-	targetTopic := jobTopic
-	if targetTopic == "" {
-		targetTopic = fmt.Sprintf("system.agent.%s.requests", targetAgentType)
-		params.Logger.Warn("No job topic found, using standard topic",
-			zap.String("standard_topic", targetTopic))
-	} else {
-		params.Logger.Info("Using job-specific topic",
-			zap.String("job_topic", targetTopic),
-			zap.String("target_agent", targetAgentID))
-	}
-
-	requestID := uuid.New().String()
-
-	// Create a NEW orchestration ID for the calculator's workflow
-	childOrchestrationID := uuid.New().String() // New orchestration ID
-	childOrchestrationName := fmt.Sprintf("%s-workflow-%s", targetAgentType, time.Now().Format("1504"))
-
-	params.Logger.Info("CALL_AGENT: Starting agent call",
-		zap.String("target_agent_type", targetAgentType),
-		zap.String("target_agent_id", targetAgentID),
-		zap.String("child_orch_id", childOrchestrationID),
-		zap.String("parent_orch_id", params.ExecutionContext.OrchestrationID))
-
-	// Determine the action to send
-	var targetAction string
-	step := params.StepConfig
-
-	// First check if it's explicitly configured
-	if action, ok := step.Config["target_action"].(string); ok {
-		targetAction = action
-	} else if action, ok := step.Config["action"].(string); ok {
-		targetAction = action
-	} else {
-		// Default to "process" for backward compatibility
-		targetAction = "process"
-	}
-
-	// Get which input field to use
-	inputField := "input_data" // default
-	if field, ok := step.Config["input_field"].(string); ok && field != "" {
-		inputField = field
-	}
-
-	// Extract the specific data for this field
-	// The data should come from what was passed to THIS orchestrator
-	var dataToSend interface{}
-
-	params.Logger.Info("DEBUG: CallAgentAction CollectedData contents",
-		zap.Any("all_keys", getMapKeys(params.CollectedData)),
-		zap.Any("has_input_data", params.CollectedData["input_data"] != nil),
-		zap.Any("has_initial_request", params.CollectedData["InitialRequestData"] != nil))
-
-	// First, check if there's input_data in CollectedData
-	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-		if inputField != "input_data" {
-			// Looking for a specific field like "first_calc" or "second_calc"
-			if fieldData, exists := inputData[inputField]; exists {
-				dataToSend = fieldData
-				params.Logger.Info("Found field in collected input_data",
-					zap.String("field", inputField),
-					zap.Any("data", dataToSend))
-			}
-		} else {
-			dataToSend = inputData
-		}
-	}
-
-	// If not found, check the initial request data
-	if dataToSend == nil {
-		// This orchestrator was started with some initial data
-		if initialData, ok := params.CollectedData["InitialRequestData"].(map[string]interface{}); ok {
-			// Try to find in the nested structure
-			if inputField != "input_data" {
-				// Look for the specific field
-				if fieldData, exists := initialData[inputField]; exists {
-					dataToSend = fieldData
-				}
-			}
-		}
-	}
-
-	params.Logger.Info("CallAgentAction data extraction",
-		zap.String("requested_field", inputField),
-		zap.Any("data_found", dataToSend),
-		zap.Any("all_collected_keys", GetMapKeys(params.CollectedData)))
-
-	// Default to all input_data if we haven't found anything
-	if dataToSend == nil {
-		dataToSend = params.CollectedData["input_data"]
-		params.Logger.Warn("Using full input_data as fallback",
-			zap.String("requested_field", inputField))
-	}
-
-	// Build the request message body with the proper structure for calculator
-	requestBody := map[string]interface{}{
-		"action": targetAction,
-		"input_data": map[string]interface{}{
-			"action": "calculate", // The calculator's internal action
-			"data":   dataToSend,  // Wrap the data in a "data" field
-		},
-	}
-
-	// Add any additional config if needed
-	if agentConfig, ok := params.CollectedData["agent_config"]; ok {
-		requestBody["config"] = agentConfig
-	}
-
-	// Include relevant context from previous steps if needed
-	if includeContext, ok := params.StepConfig.Config["include_context"].(bool); ok && includeContext {
-		// Add specific previous step results
-		if contextSteps, ok := params.StepConfig.Config["context_steps"].([]interface{}); ok {
-			localContext := make(map[string]interface{})
-			for _, step := range contextSteps {
-				if stepName, ok := step.(string); ok {
-					if stepData, exists := params.CollectedData[stepName]; exists {
-						localContext[stepName] = stepData
-					}
-				}
-			}
-			requestBody["context"] = localContext
-		}
-	}
-
-	// Build the calculation request
-	actionRequest := &types.RequestMessage{
-		Headers: types.RequestHeaders{
-			Sender: params.ExecutionContext.Sender,
-
-			CorrelationID:   params.ExecutionContext.CorrelationID,
-			CorrelationName: params.ExecutionContext.CorrelationName,
-			ClientID:        params.ExecutionContext.ClientID,
-
-			// Child orchestration context
-			OrchestrationID:   childOrchestrationID,
-			OrchestrationName: childOrchestrationName,
-			StepID:            uuid.New().String(),
-			StepName:          "process", // Match workflow start step
-			RequestID:         requestID,
-			RetryVersion:      0,
-
-			// Parent tracking
-			ParentOrchestrationID:   params.ExecutionContext.OrchestrationID,
-			ParentOrchestrationName: params.ExecutionContext.OrchestrationName,
-			ParentRequestID:         params.ExecutionContext.RequestID,
-
-			MessageID:   uuid.New().String(),
-			MessageType: "request",
-			FromAgent:   params.ExecutionContext.Sender.AgentID,
-			ToAgent:     targetAgentID,
-			ToAgentType: targetAgentType,
-			Action:      "process", // Trigger the workflow
-			Timestamp:   time.Now(),
-
-			FuelBudget:     params.ExecutionContext.FuelBudget - 100,
-			TimeoutSeconds: 30,
-
-			ResponsesTopic: fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.Sender.AgentType),
-		},
-		Body: requestBody,
-	}
-
-	responsesTopic := "no topic"
-	if params.ExecutionContext.ResponsesTopic != "" {
-		responsesTopic = responsesTopic
-	}
-
-	params.Logger.Info("DEBUGaa: 2 CallAgentAction RequestMessage for calculator actionSending calculation request",
-		zap.Any("request message", actionRequest),
-		zap.String("Action", "process"),
-		zap.String("child_orch_id", childOrchestrationID),
-		zap.String("responses topic in callagent action", responsesTopic),
-		zap.String("alternative (wrong) responses topic", fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.Sender.AgentType)),
-		zap.String("orchestration id is child orchestration id", actionRequest.Headers.OrchestrationID),
-	)
-
-	msgBytes, err := json.Marshal(actionRequest)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	headers := actionRequest.Headers.ToMap()
-	key := []byte(params.ExecutionContext.CorrelationID)
-
-	params.Logger.Info("Sending calculation request",
-		zap.String("target_topic", targetTopic),
-		zap.String("request_id", requestID),
-		zap.String("child_orch_id", childOrchestrationID),
-		zap.String("action", "process"))
-
-	params.Logger.Info("ABOUT TO SEND to Kafka",
-		zap.String("target_topic", targetTopic),
-		zap.String("request_id", requestID),
-		zap.Any("headers", headers))
-
-	err = params.Producer.Produce(ctx, targetTopic, headers, key, msgBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send CallAgentAction request: %w", err)
-	}
-
-	params.Tracer.TraceMessage(params.ExecutionContext, "SEND_CHILD_REQUEST CallAgentAction", targetTopic,
-		map[string]interface{}{
-			"responses_topic_set": actionRequest.Headers.ResponsesTopic,
-			"parent_orch_id":      params.ExecutionContext.OrchestrationID,
-			"child_orch_id":       childOrchestrationID,
-			"request_id":          actionRequest.Headers.RequestID,
-			"Sender :":            params.ExecutionContext.Sender,
-		})
-
-	// After sending request
-	params.Logger.Info("CALL_AGENT: Request sent to agent",
-		zap.String("topic", targetTopic),
-		zap.String("request_id", requestID),
-		zap.String("child_orch_id", childOrchestrationID),
-		zap.Any("headers_sent", headers),
-	)
-
-	// Return result indicating we're waiting for the action result
-	result := map[string]interface{}{
-		"agent_called":        targetAgentID,
-		"agent_type":          targetAgentType,
-		"request_id":          requestID,
-		"child_orchestration": childOrchestrationID,
-		"action_sent":         "process",
-		"await_response":      true,
-		"target_agent_type":   targetAgentType,
-	}
-
-	params.Logger.Info("Call agent action completed, awaiting response",
-		zap.String("request_id", requestID),
-		zap.Any("returning result to say we are waiting for response", result),
-	)
-
-	return result, nil
-}
-
 func findOrSpawnAgent(ctx context.Context, params ActionParams, targetAgentType string) (string, error) {
 	params.Logger.Info("call_agent.go findOrSpawnAgent",
 		zap.String("agent_type", targetAgentType),
@@ -752,11 +456,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",    // event_type
-		"orchestration", // entity_type
-		orchestrationID, // entity_id
-		metadataJSON,    // metadata
-		"info",          // severity
+		"AGENT_CALL",        // event_type
+		"orchestration",     // entity_type
+		orchestrationID,     // entity_id
+		metadataJSON,        // metadata
+		"info",              // severity
 		"call_agent_action") // source
 }
 
@@ -809,11 +513,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED", // event_type
-		"request",        // entity_type
-		requestID,        // entity_id
-		metadataJSON,     // metadata
-		"error",          // severity
+		"REQUEST_FAILED",    // event_type
+		"request",           // entity_type
+		requestID,           // entity_id
+		metadataJSON,        // metadata
+		"error",             // severity
 		"call_agent_action") // source
 }
 
@@ -864,11 +568,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,    // event_type
-		"agent",      // entity_type
-		agentID,      // entity_id
-		metadataJSON, // metadata
-		"info",       // severity
+		eventType,        // event_type
+		"agent",          // entity_type
+		agentID,          // entity_id
+		metadataJSON,     // metadata
+		"info",           // severity
 		"agent_activity") // source
 }
 

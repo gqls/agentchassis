@@ -97,7 +97,7 @@ func NewMessageProcessor(
 func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) error {
 	// Keep stack trace for debugging
 	current, caller := getFuncInfo(1)
-	p.logger.Info("process starting",
+	p.logger.Info("process() in processor.go starting",
 		zap.String("function", current),
 		zap.String("called_by", caller),
 		zap.String("action", msgCtx.ExecutionContext.Action),

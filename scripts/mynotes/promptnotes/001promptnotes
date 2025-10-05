@@ -35,3 +35,5 @@ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
   --topic job.42eab5fa-7fe55079-calculator-spawn_adder.requests \
   --from-beginning --property print.headers=true --max-messages 5
 java.io.IOException: No space left on device ...
+
+do I have the latest code and initial messages and database contents and schema available to me?

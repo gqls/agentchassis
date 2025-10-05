@@ -40,18 +40,22 @@ func (v *Validator) IsLocalAction(action string) bool {
 
 // ValidateOutgoingMessage checks if all required fields are present
 func (v *Validator) ValidateOutgoingMessage(headers map[string]string) bool {
+	v.logger.Info("In ValidateOutgoingMessage",
+		zap.Any("headers", headers),
+	)
+
 	if headers["client_id"] == "" ||
 		headers["correlation_id"] == "" ||
 		headers["orchestration_id"] == "" ||
-		headers["from_agent_type"] == "" ||
-		headers["step_name"] == "" {
+		headers["sender_agent_type"] == "" ||
+		headers["in_response_to_step_name"] == "" {
 
 		v.logger.Error("Outgoing message missing required fields",
 			zap.String("client_id", headers["client_id"]),
 			zap.String("correlation_id", headers["correlation_id"]),
 			zap.String("orchestration_id", headers["orchestration_id"]),
-			zap.String("from_agent_type", headers["from_agent_type"]),
-			zap.String("step_name", headers["step_name"]))
+			zap.String("sender_agent_type", headers["sender_agent_type"]),
+			zap.String("in_response_to_step_name", headers["step_name"]))
 		return false
 	}
 	return true

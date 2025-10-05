@@ -34,8 +34,18 @@ import (
 // SpawnAgentAction spawns a single agent - supports both K8s Job creation and message sending with hierarchy tracking
 // func SpawnAgentWithEventDrivenKubeAction(ctx context.Context, params ActionParams) (interface{}, error) {
 func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	/*params.Logger.Info("SpawnAgentAction starting",
+	zap.Any("config", params.StepConfig),
+	zap.Any("params.Headers look for client_id", params.Headers))*/
+
+	// Keep stack trace for debugging
+	current, caller := getFuncInfo(1)
 	params.Logger.Info("SpawnAgentAction starting",
-		zap.Any("config", params.StepConfig))
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.Any("config", params.StepConfig),
+		zap.Any("params.Headers", params.Headers),
+	)
 
 	config := params.StepConfig.Config
 
@@ -87,6 +97,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	}
 
 	clientID := params.Headers["client_id"]
+	params.Logger.Info("looking for client id in SpawnAgentAction",
+		zap.String("client_id", clientID))
 	if clientID == "" {
 		params.Logger.Error("Failed to get client id in SpawnAgentAction reverting to default",
 			zap.String("clientID", clientID),
