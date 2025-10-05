@@ -18,7 +18,6 @@ import (
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/jackc/pgx/v5/pgxpool"
-	kafkago "github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
