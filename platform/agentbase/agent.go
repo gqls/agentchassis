@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +53,7 @@ type AgentConfig struct {
 }
 
 // Agent represents both statically configured and dynamically spawned agents
+// Agent should I guess belong only on the agent itself and not be passed. we shouldn't be able to access another agent's Agent
 type Agent struct {
 	// Identity
 	AgentID      string // Unique identifier
@@ -91,8 +93,9 @@ type Agent struct {
 	responseConsumer *kafka.Consumer
 
 	// Topics
-	requestsTopic  string
-	responsesTopic string
+	requestsTopic  string // as an agent this is my requests topic
+	responsesTopic string // as an agent this is my responses topic
+	replyToTopic   string // as an agent/workflow this is where workflow wants me to reply to - basically per agent for now
 
 	// State management
 	stateRepo *orchestration.StateRepository
@@ -199,6 +202,7 @@ func New(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*A
 		// Topics
 		requestsTopic:  os.Getenv("REQUESTS_TOPIC"),
 		responsesTopic: os.Getenv("RESPONSES_TOPIC"),
+		replyToTopic:   os.Getenv("PARENT_RESPONSES_TOPIC"),
 
 		// Metrics
 		lastActivity: time.Now(),
@@ -283,6 +287,7 @@ func NewAgent(config AgentConfig) (*Agent, error) {
 		// Topics
 		requestsTopic:  os.Getenv("REQUESTS_TOPIC"),
 		responsesTopic: os.Getenv("RESPONSES_TOPIC"),
+		replyToTopic:   os.Getenv("PARENT_RESPONSES_TOPIC"),
 
 		// Metrics
 		lastActivity: time.Now(),
@@ -395,6 +400,7 @@ func (a *Agent) setupConsumers() error {
 
 	a.requestConsumer = requestConsumer
 
+	// this is listening only, not replying to anything
 	if responsesTopic == "" {
 		// Only the main orchestrator listens on the generic topic
 		// waiting for client requests
@@ -522,6 +528,23 @@ func (a *Agent) processRequests() {
 	a.logger.Info("Starting request processor agent.go processRequests",
 		zap.String("listening on requests topic", a.requestsTopic))
 
+	// if it's a valid request we should check the reply to is what we'd expect
+	// as an agent my reply to topic should already be in env, we can decide later if we want messages to override this. for now no.
+	// does it exist? it should.
+	envParentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+	envMyAgentType := os.Getenv("AGENT_TYPE")
+	envRequestsTopic := os.Getenv("REQUESTS_TOPIC")
+	envResponsesTopic := os.Getenv("RESPONSES_TOPIC")
+
+	// when replying I either reply to their requests or my parent responses topic
+	a.logger.Info("Starting response processor agent.go processRequests",
+		zap.String("requests topic from agent struct - my requests topic?", a.requestsTopic),
+		zap.String("parent responses topic from environment", envParentResponsesTopic),
+		zap.String("my responses topic from environment", envResponsesTopic),
+		zap.String("my requests topic from environment", envRequestsTopic),
+		zap.String("which agent am I from environment", envMyAgentType),
+	)
+
 	for {
 		select {
 		case <-a.ctx.Done():
@@ -552,7 +575,7 @@ func (a *Agent) processRequests() {
 			a.logger.Info("Request consumer received message",
 				zap.Any("message", msg),
 				zap.Int("value_length", len(msg.Value)),
-				zap.String("topic", msg.Topic))
+			)
 
 			// Process the message
 			a.processMessage(msg, "request")
@@ -564,8 +587,21 @@ func (a *Agent) processRequests() {
 func (a *Agent) processResponses() {
 	defer a.wg.Done()
 
+	// my parent responses topic should not be altered by the incoming message
+	// does it exist? it should.
+	envParentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+	envMyAgentType := os.Getenv("AGENT_TYPE")
+	envRequestsTopic := os.Getenv("REQUESTS_TOPIC")
+	envResponsesTopic := os.Getenv("RESPONSES_TOPIC")
+
+	// when replying I either reply to their requests or my parent responses topic
 	a.logger.Info("Starting response processor agent.go processResponses",
-		zap.String("topic", a.responsesTopic))
+		zap.String("topic from agent struct - is this my reply to or my responses topic?", a.responsesTopic),
+		zap.String("parent responses topic from environment", envParentResponsesTopic),
+		zap.String("my responses topic from environment", envResponsesTopic),
+		zap.String("my requests topic from environment", envRequestsTopic),
+		zap.String("which agent am I from environment", envMyAgentType),
+	)
 
 	for {
 		select {
@@ -604,9 +640,17 @@ func (a *Agent) processResponses() {
 // processMessage handles a single message (request or response)
 func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
+	envRequestsTopic := os.Getenv("REQUESTS_TOPIC")
+	envResponsesTopic := os.Getenv("RESPONSES_TOPIC")
+	envParentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+
 	a.logger.Info("process single message agent.go processMessage",
 		zap.String("messageType", messageType),
-		zap.Any("full message in Agent processMessage 562", msg),
+		zap.Any("full message in Agent processMessage 610", msg),
+		zap.String("what is this agent (from env)", os.Getenv("AGENT_TYPE")),
+		zap.String("what is this agents REQUESTS_TOPIC (from env)", envRequestsTopic),
+		zap.String("what is this agents RESPONSES_TOPIC (from env)", envResponsesTopic),
+		zap.String("what is this agents PARENT_RESPONSES_TOPIC (from env)", envParentResponsesTopic),
 	)
 
 	// FIRST THING: Check for empty message
@@ -623,6 +667,10 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 	// Extract headers
 	headers := kafka.HeadersToMap(msg.Headers)
+
+	a.logger.Info("process single message agent.go processMessage whats in headers",
+		zap.Any("headers", headers),
+	)
 
 	// Check if this is an error message
 	if headers["is_error"] == "true" {
@@ -1263,6 +1311,13 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 		zap.Any("whats in the agent", a),
 	)
 
+	current, caller := getFuncInfo(1)
+	a.logger.Info("In agent.go SendInitializationResponse, callstack",
+		zap.String("current function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
 	// Extract role if not already set
 	if a.Role == "" {
 		if body, ok := spawnRequest.Body.(map[string]interface{}); ok {
@@ -1333,11 +1388,15 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 	responsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
 	if responsesTopic == "" {
 		responsesTopic = spawnRequest.Headers.ResponsesTopic
-	} else {
-		responsesTopic = responsesTopic + "." + spawnRequest.Headers.ResponsesTopic
-		var err error
-		err = fmt.Errorf("error: Sent message to wrong topic, sent it to responseTopic, see it there")
-		zap.Error(err)
+		a.logger.Error("error: environment var PARENT_RESPONSE_TOPIC was blank so probably sending to wrong topic now",
+			zap.String("responsesTopic", responsesTopic),
+		)
+
+	if responsesTopic == "" {
+		responsesTopic = "system.agent.generic.responses"
+		a.logger.Error("error: Sent message to wrong topic, sent it to system.agent.generic.responses for lack of anywhere else",
+			zap.String("responsesTopic", responsesTopic),
+		)
 	}
 
 	responseBytes, err := json.Marshal(response)
@@ -1459,4 +1518,16 @@ func (a *Agent) sendHeartbeat() {
 	key := []byte(a.AgentID)
 	// heartbeat so no message validation
 	a.producer.Produce(a.ctx, topic, headers, key, heartbeatBytes)
+}
+
+// Helper to get current and caller function names
+func getFuncInfo(skip int) (current, caller string) {
+	// skip=0 => this func, skip=1 => its caller, skip=2 => caller's caller, etc.
+	if pc, _, _, ok := runtime.Caller(skip); ok {
+		current = runtime.FuncForPC(pc).Name()
+	}
+	if pc, _, _, ok := runtime.Caller(skip + 1); ok {
+		caller = runtime.FuncForPC(pc).Name()
+	}
+	return
 }

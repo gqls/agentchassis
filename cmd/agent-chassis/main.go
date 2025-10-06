@@ -48,15 +48,23 @@ func main() {
 	// Get environment variables
 	agentType := os.Getenv("AGENT_TYPE")
 	kafkaTopic := os.Getenv("KAFKA_TOPIC")
+	kafkaTopics := os.Getenv("KAFKA_TOPICS")
 	consumerGroup := os.Getenv("KAFKA_CONSUMER_GROUP")
+	parentsResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+	thisAgentsResponsesTopic := os.Getenv("RESPONSES_TOPIC")
+	thisAgentsRequestsTopic := os.Getenv("REQUESTS_TOPIC")
 
 	// Log what we got from environment
 	appLogger.Info("Environment variables",
 		zap.String("AGENT_TYPE", agentType),
 		zap.String("KAFKA_TOPIC", kafkaTopic),
+		zap.String("KAFKA_TOPICS", kafkaTopics),
+		zap.String("PARENT_RESPONSES_TOPIC", parentsResponsesTopic),
+		zap.String("RESPONSES_TOPIC", thisAgentsResponsesTopic),
+		zap.String("REQUESTS_TOPIC", thisAgentsRequestsTopic),
 		zap.String("KAFKA_CONSUMER_GROUP", consumerGroup))
 
-	// ADD DEBUGGING: Log ALL database-related environment variables
+	// Log ALL database-related environment variables
 	appLogger.Info("Database environment variables check",
 		zap.String("CLIENTS_DB_PASSWORD_exists", fmt.Sprintf("%v", os.Getenv("CLIENTS_DB_PASSWORD") != "")),
 		zap.String("TEMPLATES_DB_PASSWORD_exists", fmt.Sprintf("%v", os.Getenv("TEMPLATES_DB_PASSWORD") != "")),
@@ -66,7 +74,7 @@ func main() {
 		zap.Int("CLIENTS_DB_PASSWORD_len", len(os.Getenv("CLIENTS_DB_PASSWORD"))),
 		zap.Int("TEMPLATES_DB_PASSWORD_len", len(os.Getenv("TEMPLATES_DB_PASSWORD"))))
 
-	// ADD DEBUGGING: Log the loaded configuration
+	// Log the loaded configuration
 	appLogger.Info("Loaded configuration",
 		zap.Any("infrastructure", cfg.Infrastructure),
 		zap.Any("custom", cfg.Custom))

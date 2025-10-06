@@ -4,6 +4,7 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/gqls/agentchassis/platform/validation"
@@ -69,13 +70,17 @@ func (p *KafkaProducer) Produce(ctx context.Context, send_to_topic string, heade
 		)
 		return fmt.Errorf("failed to write message to kafka: %w", err)
 	}
-
+	current, caller := getFuncInfo(1)
 	p.logger.Info("agent producer.go Successfully produced message",
 		zap.String("sent to topic", send_to_topic),
 		zap.String("key", string(key)),
 		zap.String("value", string(value)),
 		zap.Any("headers", headers),
+		zap.String("current function", current),
+		zap.String("caller", caller),
+		zap.Time("time", time.Now().UTC()),
 	)
+
 	return nil
 }
 
@@ -103,4 +108,16 @@ func (p *KafkaProducer) ProduceWithValidation(ctx context.Context, topic string,
 func (p *KafkaProducer) Close() error {
 	p.logger.Info("Closing Kafka producer...")
 	return p.writer.Close()
+}
+
+// Helper to get current and caller function names
+func getFuncInfo(skip int) (current, caller string) {
+	// skip=0 => this func, skip=1 => its caller, skip=2 => caller's caller, etc.
+	if pc, _, _, ok := runtime.Caller(skip); ok {
+		current = runtime.FuncForPC(pc).Name()
+	}
+	if pc, _, _, ok := runtime.Caller(skip + 1); ok {
+		caller = runtime.FuncForPC(pc).Name()
+	}
+	return
 }

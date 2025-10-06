@@ -257,7 +257,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	params.Logger.Info("Determined sender agent type",
 		zap.String("sender_type", senderAgentType),
-		zap.String("parent_responses_topic", parentResponsesTopic))
+		zap.String("parent_responses_topic, i.e. the response topic of me, the sender", parentResponsesTopic))
 
 	// Create spawn initialization message
 	spawnMessage := &types.RequestMessage{
@@ -296,7 +296,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			TimeoutSeconds: 30,
 
 			// Tell child where parent listens for responses
-			ResponsesTopic: parentResponsesTopic,
+			ResponsesTopic: parentResponsesTopic, // i.e. the response topic of the current me, the sender
 			// Child's own topics will be set from environment
 			RequestsTopic: "",
 		},
@@ -348,7 +348,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		// Use consistent naming
 		"requests_topic":         childRequestsTopic,
 		"responses_topic":        childResponsesTopic,
-		"parent_responses_topic": parentResponsesTopic,
+		"parent_responses_topic": parentResponsesTopic, //? how do we use this
 
 		// For backward compatibility and debugging
 		"stable_identity": stableIdentity,
@@ -1744,7 +1744,7 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		{Name: "KAFKA_TOPICS", Value: jobRequestsTopic}, // what to listen to
 		{Name: "RESPONSES_TOPIC", Value: jobResponsesTopic},
 		{Name: "REQUESTS_TOPIC", Value: jobRequestsTopic},
-		{Name: "PARENT_RESPONSES_TOPIC", Value: parentResponsesTopic},
+		{Name: "PARENT_RESPONSES_TOPIC", Value: parentResponsesTopic}, // this should set env var in agent container
 		{Name: "KAFKA_CONSUMER_GROUP", Value: fmt.Sprintf("%s-group-%s", agentDef.Type, agentID[:8])},
 
 		// Health server ports
@@ -1928,7 +1928,6 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		}...)
 	}
 
-	// fixme hardcoded values
 	// Read the config from the mounted ConfigMap
 	var dbHost, dbPort, dbUser, dbName string
 
