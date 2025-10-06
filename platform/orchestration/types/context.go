@@ -104,6 +104,7 @@ type RequestHeaders struct {
 	ParentOrchestrationID   string `json:"parent_orchestration_id"` // If spawned
 	ParentOrchestrationName string `json:"parent_orchestration_name"`
 	ParentRequestID         string `json:"parent_request_id"` // If spawned
+	ParentResponsesTopic    string `json:"parent_responses_topic"`
 
 	// Message Metadata
 	MessageID   string    `json:"message_id"`   // Unique per message

@@ -47,14 +47,14 @@ func NewProducer(brokers []string, logger *zap.Logger) (Producer, error) {
 }
 
 // Produce sends a message to a specific topic with standard headers
-func (p *KafkaProducer) Produce(ctx context.Context, topic string, headers map[string]string, key, value []byte) error {
+func (p *KafkaProducer) Produce(ctx context.Context, send_to_topic string, headers map[string]string, key, value []byte) error {
 	kafkaHeaders := make([]kafka.Header, 0, len(headers))
 	for k, v := range headers {
 		kafkaHeaders = append(kafkaHeaders, kafka.Header{Key: k, Value: []byte(v)})
 	}
 
 	msg := kafka.Message{
-		Topic:   topic,
+		Topic:   send_to_topic,
 		Key:     key,
 		Value:   value,
 		Headers: kafkaHeaders,
@@ -64,13 +64,18 @@ func (p *KafkaProducer) Produce(ctx context.Context, topic string, headers map[s
 	err := p.writer.WriteMessages(ctx, msg)
 	if err != nil {
 		p.logger.Error("Failed to produce Kafka message",
-			zap.String("topic", topic),
+			zap.String("send_to_topic", send_to_topic),
 			zap.Error(err),
 		)
 		return fmt.Errorf("failed to write message to kafka: %w", err)
 	}
 
-	p.logger.Debug("Successfully produced message", zap.String("topic", topic), zap.String("key", string(key)))
+	p.logger.Info("agent producer.go Successfully produced message",
+		zap.String("sent to topic", send_to_topic),
+		zap.String("key", string(key)),
+		zap.String("value", string(value)),
+		zap.Any("headers", headers),
+	)
 	return nil
 }
 

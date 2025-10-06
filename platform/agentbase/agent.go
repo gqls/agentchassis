@@ -197,8 +197,8 @@ func New(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*A
 		shutdownChan: make(chan struct{}),
 
 		// Topics
-		requestsTopic:  fmt.Sprintf("system.agent.%s.requests", agentType),
-		responsesTopic: fmt.Sprintf("system.agent.%s.responses", agentType),
+		requestsTopic:  os.Getenv("REQUESTS_TOPIC"),
+		responsesTopic: os.Getenv("RESPONSES_TOPIC"),
 
 		// Metrics
 		lastActivity: time.Now(),
@@ -242,7 +242,7 @@ func NewAgent(config AgentConfig) (*Agent, error) {
 	}
 
 	logger = logger.With(
-		zap.String("agent_type", config.AgentType),
+		zap.String("in unused? NewAgent - agent_type", config.AgentType),
 		zap.String("agent_id", agentID),
 		zap.String("pod_name", os.Getenv("HOSTNAME")),
 		zap.Bool("stateless", config.EnableStateless))
@@ -281,8 +281,8 @@ func NewAgent(config AgentConfig) (*Agent, error) {
 		shutdownChan: make(chan struct{}),
 
 		// Topics
-		requestsTopic:  fmt.Sprintf("system.agent.%s.requests", config.AgentType),
-		responsesTopic: fmt.Sprintf("system.agent.%s.responses", config.AgentType),
+		requestsTopic:  os.Getenv("REQUESTS_TOPIC"),
+		responsesTopic: os.Getenv("RESPONSES_TOPIC"),
 
 		// Metrics
 		lastActivity: time.Now(),
@@ -1256,9 +1256,11 @@ func getErrorStatus(recoverable bool) string {
 
 // SendInitializationResponse sends a response confirming agent initialization
 func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) error {
-	a.logger.Info("DEBUGaa: SendInitializationResponse agent.go 947",
+	a.logger.Info("DEBUGaa: SendInitializationResponse agent.go 947 looking for correct reply-to topic, check I am on sending agent",
 		zap.Any("spawnRequest.Headers", spawnRequest.Headers),
 		zap.Any("spawnRequest.Body", spawnRequest.Body),
+		zap.String("(TopicSentTo)/ParentResponsesTopic", spawnRequest.Headers.ParentResponsesTopic),
+		zap.Any("whats in the agent", a),
 	)
 
 	// Extract role if not already set
@@ -1328,9 +1330,14 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 	}
 
 	// Send to parent's response topic
-	responsesTopic := spawnRequest.Headers.ResponsesTopic
+	responsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
 	if responsesTopic == "" {
-		responsesTopic = fmt.Sprintf("system.agent.%s.responses", spawnRequest.Headers.Sender.AgentType)
+		responsesTopic = spawnRequest.Headers.ResponsesTopic
+	} else {
+		responsesTopic = responsesTopic + "." + spawnRequest.Headers.ResponsesTopic
+		var err error
+		err = fmt.Errorf("error: Sent message to wrong topic, sent it to responseTopic, see it there")
+		zap.Error(err)
 	}
 
 	responseBytes, err := json.Marshal(response)
