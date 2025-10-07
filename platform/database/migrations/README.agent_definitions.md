@@ -2178,3 +2178,52 @@ SET default_config = '{
 }
 }'::jsonb
 WHERE type = 'generic' AND is_active = true;
+
+
+-- change perform_calculation to calculate
+
+UPDATE agent_definitions
+SET
+display_name = 'Calculator Agent',
+description = 'Performs mathematical calculations including addition, multiplication, and other operations',
+category = 'data-driven',
+is_active = true,
+capabilities = '["mathematical_operations", "arithmetic", "calculations"]'::jsonb,
+image_repository = 'docker.io/aqls/agent-chassis',
+image_tag = 'v1.0.312',
+resources = '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}'::jsonb,
+topics = '{"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"}'::jsonb,
+health_config = '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}'::jsonb,
+env_vars = '[]'::jsonb,
+delegation_config = '{"fallback_to_self": true, "prefer_delegation": true}'::jsonb,
+default_config = '{
+"workflow": {
+"start_step": "validate",
+"steps": {
+"validate": {
+"action": "validate_input",
+"description": "Validate calculation request",
+"next_step": "calculate"
+},
+"calculate": {
+"action": "calculate",
+"description": "Execute the mathematical operation",
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Return calculation result"
+}
+}
+},
+"supported_operations": [
+"add",
+"subtract",
+"multiply",
+"divide",
+"modulo",
+"power"
+]
+}'::jsonb
+WHERE
+type = 'calculator';

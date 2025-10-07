@@ -4,6 +4,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"go.uber.org/zap"
 )
@@ -184,6 +185,44 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 				return nil, fmt.Errorf("division by zero")
 			}
 		}
+
+	case "modulo":
+		if len(operands) == 2 {
+			// Modulo requires integer operands in Go
+			a, ok1 := toInt64(operands[0])
+			b, ok2 := toInt64(operands[1])
+
+			if ok1 && ok2 {
+				if b == 0 {
+					return nil, fmt.Errorf("division by zero for modulo")
+				}
+				result := map[string]interface{}{
+					"result":    a % b, // Use the % operator
+					"operation": operation,
+					"operands":  operands,
+				}
+				params.Logger.Info("Modulo successful",
+					zap.Any("result from successful modulo", result))
+				return result, nil
+			}
+		}
+
+	case "power":
+		if len(operands) == 2 {
+			base, ok1 := toFloat64(operands[0])
+			exponent, ok2 := toFloat64(operands[1])
+
+			if ok1 && ok2 {
+				result := map[string]interface{}{
+					"result":    math.Pow(base, exponent), // Use math.Pow
+					"operation": operation,
+					"operands":  operands,
+				}
+				params.Logger.Info("Power calculation successful",
+					zap.Any("result from successful power calc", result))
+				return result, nil
+			}
+		}
 	}
 
 	err := fmt.Errorf("unsupported operation: '%s' with operands: %v", operation, operands)
@@ -204,6 +243,23 @@ func toFloat64(v interface{}) (float64, bool) {
 		return float64(val), true
 	case float32:
 		return float64(val), true
+	default:
+		return 0, false
+	}
+}
+
+func toInt64(v interface{}) (int64, bool) {
+	switch val := v.(type) {
+	case float64:
+		return int64(val), true
+	case int:
+		return int64(val), true
+	case int64:
+		return val, true
+	case int32:
+		return int64(val), true
+	case float32:
+		return int64(val), true
 	default:
 		return 0, false
 	}
