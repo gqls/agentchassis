@@ -151,35 +151,38 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Extract the specific data for this field - KEEP all this data extraction logic
 	var dataToSend interface{}
+	var found bool
 
 	params.Logger.Info("DEBUG: CallAgentAction CollectedData contents",
+		zap.String("input_field", inputField),
 		zap.Any("all_keys", getMapKeys(params.CollectedData)),
 		zap.Any("has_input_data", params.CollectedData["input_data"] != nil),
 		zap.Any("has_initial_request", params.CollectedData["InitialRequestData"] != nil))
 
-	// First, check if there's input_data in CollectedData
-	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-		if inputField != "input_data" {
-			// Looking for a specific field like "first_calc" or "second_calc"
-			if fieldData, exists := inputData[inputField]; exists {
-				dataToSend = fieldData
-				params.Logger.Info("Found field in collected input_data",
-					zap.String("field", inputField),
-					zap.Any("data", dataToSend))
-			}
-		} else {
-			dataToSend = inputData
+	// Define the search paths. We look for the most specific path first.
+	searchPaths := [][]string{
+		{"input_data", "input_data", inputField}, // Path from initial request: input_data.input_data.first_calc
+		{"input_data", inputField},               // A less nested path, for flexibility
+	}
+
+	// Search for the inputField in the most likely locations.
+	for _, path := range searchPaths {
+		if data, ok := getNestedInputValue(params.CollectedData, path...); ok {
+			dataToSend = data
+			found = true
+			params.Logger.Info("Found input field data via nested path",
+				zap.Strings("path_used", path),
+				zap.String("field", inputField))
+			break
 		}
 	}
 
-	// If not found, check the initial request data
-	if dataToSend == nil {
-		if initialData, ok := params.CollectedData["InitialRequestData"].(map[string]interface{}); ok {
-			if inputField != "input_data" {
-				if fieldData, exists := initialData[inputField]; exists {
-					dataToSend = fieldData
-				}
-			}
+	// If the specific field is not found, we might be asked to send the whole input_data block.
+	if !found && inputField == "input_data" {
+		if data, ok := getNestedInputValue(params.CollectedData, "input_data", "input_data"); ok {
+			dataToSend = data
+			found = true
+			params.Logger.Info("Using nested 'input_data' as requested field")
 		}
 	}
 
@@ -188,10 +191,10 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.Any("data_found", dataToSend),
 		zap.Any("all_collected_keys", getMapKeys(params.CollectedData)))
 
-	// Default to all input_data if we haven't found anything
-	if dataToSend == nil {
+	// Final fallback: if nothing is found, use the top-level input_data.
+	if !found {
 		dataToSend = params.CollectedData["input_data"]
-		params.Logger.Warn("Using full input_data as fallback (didnot find correct input data field)",
+		params.Logger.Warn("Could not find specific field, using full input_data as fallback",
 			zap.String("requested_field", inputField))
 	}
 
@@ -455,11 +458,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -512,11 +515,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -567,11 +570,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
 
@@ -602,4 +605,22 @@ func getMapKeys(m map[string]interface{}) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// Add this helper function to platform/orchestration/actions/call_agent.go
+
+// getNestedValue safely traverses a map[string]interface{} to find a value.
+func getNestedInputValue(data map[string]interface{}, path ...string) (interface{}, bool) {
+	var current interface{} = data
+	for _, key := range path {
+		m, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, false
+		}
+		current, ok = m[key]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
 }

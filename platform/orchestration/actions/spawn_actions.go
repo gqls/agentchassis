@@ -257,8 +257,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	// The initial request often nests the user's data inside {"input_data": {"input_data": ...}}.
 	// We prioritize finding this deeper, more specific data structure.
-	var dataToSend interface{}
-	if nestedData, ok := getNestedInputDataValue(params.CollectedData, "input_data", "input_data"); ok {
+	//var dataToSend interface{}
+	/*if nestedData, ok := getNestedInputDataValue(params.CollectedData, "input_data", "input_data"); ok {
 		params.Logger.Info("Found nested input_data for spawned agent.", zap.String("path", "input_data.input_data"))
 		dataToSend = nestedData
 	} else if topLevelData, ok := params.CollectedData["input_data"]; ok {
@@ -269,7 +269,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		// If no input_data is found at all, send an empty map to avoid errors.
 		params.Logger.Warn("No input_data found in CollectedData for spawned agent.")
 		dataToSend = make(map[string]interface{})
-	}
+	}*/
 
 	params.Logger.Info("Determined sender agent type",
 		zap.String("sender_type", senderAgentType),
@@ -317,7 +317,9 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			RequestsTopic: "",
 		},
 		Body: map[string]interface{}{
-			"input_data": dataToSend,
+			//"input_data": dataToSend,
+			// Send an empty map. The agent's task will be sent later by CallAgentAction.
+			"input_data": make(map[string]interface{}),
 			"action":     "initialize",
 			"config":     params.CollectedData["agent_config"],
 			"role":       role,

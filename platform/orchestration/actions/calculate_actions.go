@@ -18,6 +18,22 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 	// Try multiple paths to find the input data
 	var operation string
 	var operands []interface{}
+	found := false
+
+	// This logic now correctly targets the message from "CallAgentAction"
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		if op, ok := inputData["operation"].(string); ok {
+			if opr, ok := inputData["operands"].([]interface{}); ok {
+				operation, operands, found = op, opr, true
+			}
+		}
+	}
+
+	// This handles the "initialize" message from "SpawnAgentAction"
+	if !found {
+		params.Logger.Info("CalculateAction called without data. Completing initialization.")
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
 
 	// Path 1: Direct path - after our response simplification
 	// Check input_data.data (most direct path after fixes)
