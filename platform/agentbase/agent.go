@@ -606,7 +606,7 @@ func (a *Agent) processResponses() {
 	for {
 		select {
 		case <-a.ctx.Done():
-			a.logger.Info("Response processor stopping due to context cancellation")
+			a.logger.Info("warn: Response processor stopping due to context cancellation")
 			return
 		default:
 			msg, err := a.responseConsumer.Consume(a.ctx)
@@ -621,7 +621,7 @@ func (a *Agent) processResponses() {
 			// Skip empty messages
 			if msg.Value == nil || len(msg.Value) == 0 {
 				// This is a timeout or empty message, skip it
-				a.logger.Debug("Skipping empty response message")
+				a.logger.Info("Fail: Skipping empty response message")
 				continue
 			}
 
@@ -686,7 +686,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 			headers["from_agent_type"] = a.AgentType
 
 			parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
-			// Send to parent's response topic
+			// Send to parent's response topic (this is an error)
 			a.producer.Produce(context.Background(), parentResponsesTopic, headers, msg.Key, msg.Value)
 
 		}
@@ -713,6 +713,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		bodyBytes, _ := json.Marshal(errorBody)
 
 		parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+		// this is an error
 		a.producer.Produce(context.Background(),
 			parentResponsesTopic, errorHeaders, msg.Key, bodyBytes)
 
@@ -1391,7 +1392,9 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 		a.logger.Error("error: environment var PARENT_RESPONSE_TOPIC was blank so probably sending to wrong topic now",
 			zap.String("responsesTopic", responsesTopic),
 		)
+	}
 
+	// if still blank then send to default generic agent
 	if responsesTopic == "" {
 		responsesTopic = "system.agent.generic.responses"
 		a.logger.Error("error: Sent message to wrong topic, sent it to system.agent.generic.responses for lack of anywhere else",

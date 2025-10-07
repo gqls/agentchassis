@@ -510,8 +510,8 @@ func NewExecutionContext(correlationID, clientID, agentID, agentType string) *Ex
 func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 
 	// Debug logging
-	fmt.Print("DEBUG: looking for sender_role in headers\n")
-	fmt.Printf("DEBUG FromHeaders: headers = %+v\n", headers)
+	//fmt.Print("DEBUG: looking for sender_role in headers\n")
+	//fmt.Printf("DEBUG FromHeaders: headers = %+v\n", headers)
 	if role := headers["sender_role"]; role != "" {
 		fmt.Printf("DEBUG: Found sender_role in headers: %s\n", role)
 	}

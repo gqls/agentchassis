@@ -178,7 +178,7 @@ func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *
 
 	// Handle empty orchestration_id - we shouldn't have it in real life but when sending my own requests without them then:
 	orchestrationID := execCtx.OrchestrationID
-	fmt.Printf("DEBUG orch: in RecordMessageProcessing orchestrationID %s\n", orchestrationID)
+	//fmt.Printf("DEBUG orch: in RecordMessageProcessing orchestrationID %s\n", orchestrationID)
 	if orchestrationID == "" {
 		orchestrationID = "00000000-0000-0000-0214-000000000010" // NULL UUID orig - 0214
 		// Or just skip recording if no orchestration

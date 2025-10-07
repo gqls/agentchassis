@@ -347,7 +347,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 		// Use consistent naming
 		"requests_topic":         childRequestsTopic,
-		"responses_topic":        childResponsesTopic,
+		"responses_topic":        parentResponsesTopic, // does this fix it?
 		"parent_responses_topic": parentResponsesTopic, //? how do we use this
 
 		// For backward compatibility and debugging
@@ -361,7 +361,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			"role":       role,
 			"topics": map[string]string{
 				"requests":         childRequestsTopic,
-				"responses":        childResponsesTopic,
+				"responses":        parentResponsesTopic,
 				"parent_responses": parentResponsesTopic,
 			},
 		},

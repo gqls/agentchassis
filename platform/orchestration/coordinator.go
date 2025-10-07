@@ -75,7 +75,7 @@ func NewSagaCoordinator(db *sql.DB, producer kafka.Producer, logger *zap.Logger)
 
 // ExecuteWorkflow executes a workflow with stateless support
 func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.WorkflowPlan, headers map[string]string, initialData []byte) error {
-	fmt.Fprintf(os.Stderr, "DEBUG uuid: ExecuteWorkflow START printf - headers: %+v\n", headers)
+	// fmt.Fprintf(os.Stderr, "DEBUG uuid: ExecuteWorkflow START printf - headers: %+v\n", headers)
 	// Create ExecutionContext from headers
 	execCtx, err := types.FromHeaders(headers)
 	if err != nil {
@@ -89,7 +89,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 			Timestamp:       time.Now(),
 		}
 	}
-	fmt.Fprintf(os.Stderr, "DEBUG uuid: ExecuteWorkflow parsed context printf: orch=%s, parent=%s\n", execCtx.OrchestrationID, execCtx.ParentOrchestrationID)
+	// fmt.Fprintf(os.Stderr, "DEBUG uuid: ExecuteWorkflow parsed context printf: orch=%s, parent=%s\n", execCtx.OrchestrationID, execCtx.ParentOrchestrationID)
 
 	l := s.logger.With(
 		zap.String("correlation_id", execCtx.CorrelationID),
@@ -378,8 +378,8 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.ExecutionContext, plan models.WorkflowPlan, initialData []byte) (*OrchestrationState, string, bool, error) {
 	repo := NewStateRepository(s.db, s.logger)
 
-	fmt.Fprintf(os.Stderr, "DEBUG uuid: getOrCreateState START printf - orch=%s, parent=%s\n",
-		execCtx.OrchestrationID, execCtx.ParentOrchestrationID)
+	// fmt.Fprintf(os.Stderr, "DEBUG uuid: getOrCreateState START printf - orch=%s, parent=%s\n",
+	// execCtx.OrchestrationID, execCtx.ParentOrchestrationID)
 
 	// Generate orchestration name if not provided
 	orchestrationName := execCtx.OrchestrationName
@@ -687,12 +687,14 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	execCtx.Action = step.Action
 	fromAgentType := os.Getenv("AGENT_TYPE")
 	parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
-	
+
 	execCtx.ReplyToTopic = parentResponsesTopic
 
 	s.logger.Info("Environment variable AGENT_TYPE in executeLocalAction",
 		zap.String("AGENT_TYPE from environment", fromAgentType),
 		zap.String("AGENT_TYPE from state", state.OwnerAgentType),
+		zap.String("REQUESTS_TOPIC from environment", os.Getenv("REQUESTS_TOPIC")),
+		zap.String("RESPONSES_TOPIC from environment", os.Getenv("RESPONSES_TOPIC")),
 		zap.String("respond to PARENT_RESPONSES_TOPIC", os.Getenv("PARENT_RESPONSES_TOPIC")),
 	)
 
@@ -832,8 +834,10 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 			}
 
 			if requestID != "" {
-				// Determine the response topic where this agent expects to receive responses from the result (not reply to)
-				responsesTopic := s.getResponsesTopicFromResult(resultMap, execCtx)
+				// Determine the response topic where this agent expects to receive responses from the result
+				responsesTopic := os.Getenv("RESPONSES_TOPIC")
+				contextLogger.Info("in executeLocalAction while await_response from child agent, listens on own responses topic",
+					zap.String("agent thats awaiting, me, on my response topic", responsesTopic))
 				if responsesTopic == "" {
 					contextLogger.Error("No responses topic available for awaited request",
 						zap.String("request_id", requestID))

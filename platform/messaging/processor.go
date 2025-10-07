@@ -1134,6 +1134,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 	// Always use the action from the ExecutionContext (derived from the header)
 	// for protocol-level decisions like initialization.
+	// this could reasonably be the child agent starting it's stuff.
 	if msgCtx.ExecutionContext.Action == "initialize" {
 		contextLogger.Info("Handling protocol action: initialize")
 
@@ -1153,8 +1154,14 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 			}
 		}
 
+		p.logger.Info("DEBUGaa: processor.go 1156 ProcessMessage spawnRequest sent to SendInitializationResponse",
+			zap.Any("WHats in spawnRequest:", spawnRequest),
+		)
 		// This will now be called correctly, sending the confirmation response.
-		return p.initializer.SendInitializationResponse(&spawnRequest)
+		p.initializer.SendInitializationResponse(&spawnRequest)
+
+		// After setting the role and sending the response:
+		p.logger.Info("Probably child agent. Initialization complete, now starting agent's own workflow")
 	}
 
 	contextLogger.Info("processor.go 1161 ProcessMessage",
@@ -1372,7 +1379,7 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 
 	// Convert ExecutionContext to headers for orchestrator
 	headers := msgCtx.ExecutionContext.ToHeaders()
-	fmt.Fprintf(os.Stderr, "DEBUG uuid: processor.executeWorkflow small e printf - headers: %+v\n", headers)
+	// fmt.Fprintf(os.Stderr, "DEBUG uuid: processor.executeWorkflow small e printf - headers: %+v\n", headers)
 
 	// Update metrics
 	observability.WorkflowsStarted.WithLabelValues(p.agentType, config.Workflow.StartStep, msgCtx.ExecutionContext.ClientID).Inc()

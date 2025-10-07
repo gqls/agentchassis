@@ -12,3 +12,5 @@ func (v *Validator) ValidateOutgoingMessage(headers map[string]string) bool {
  and not worry about the format of the error messages, just send them as is, but with a header that says it's error. We should then just check for that flag and let each agent pass it back up the chain, or deal with it themselves and carry on. We can determine the algo for dealing with it per agent, but for now we can just pass it up the line.
 
  each agent handles just one workflow at a time
+
+ the child agent sends responses to the parent agent's responses topic, not it's own.

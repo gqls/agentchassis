@@ -37,3 +37,11 @@ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
 java.io.IOException: No space left on device ...
 
 do I have the latest code and initial messages and database contents and schema available to me?
+
+help me look at this step by step, function by function to see where it is failing.
+
+lets create a sequence diagram with each function and agent included to determine what is happening and what should be happening
+
+the calculator _should_ commence it's own workflow.
+
+It should have received the parameters from the request (which numbers to add. 12345, 1234) and then should initialize, complete it's own workflow and complete.
