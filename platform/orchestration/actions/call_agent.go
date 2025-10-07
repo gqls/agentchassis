@@ -197,11 +197,8 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Build the request message body - KEEP this structure
 	requestBody := map[string]interface{}{
-		"action": targetAction,
-		"input_data": map[string]interface{}{
-			"action": "calculate", // The calculator's internal action
-			"data":   dataToSend,  // Wrap the data in a "data" field
-		},
+		"action":     targetAction,
+		"input_data": dataToSend,
 	}
 
 	// Add any additional config if needed
@@ -270,7 +267,9 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.String("child_orch_id", childOrchestrationID),
 		zap.String("parent_responses_topic", params.ExecutionContext.ResponsesTopic),
 		zap.String("sending_to_topic", targetRequestsTopic),
-		zap.String("orchestration_id", actionRequest.Headers.OrchestrationID))
+		zap.String("orchestration_id", actionRequest.Headers.OrchestrationID),
+		zap.Any("DEBUGaa: requestBody", requestBody),
+	)
 
 	msgBytes, err := json.Marshal(actionRequest)
 	if err != nil {

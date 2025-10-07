@@ -567,7 +567,7 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 		ec.ResponsesTopic = responsesTopic
 	}
 
-	fmt.Printf("DEBUG FromHeaders: ec.MessageType = '%s'\n", ec.MessageType)
+	// fmt.Printf("DEBUG FromHeaders: ec.MessageType = '%s'\n", ec.MessageType)
 
 	// Handle response context
 	if ec.MessageType == "response" {
