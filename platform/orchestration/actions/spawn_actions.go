@@ -255,6 +255,22 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		}
 	}
 
+	// The initial request often nests the user's data inside {"input_data": {"input_data": ...}}.
+	// We prioritize finding this deeper, more specific data structure.
+	var dataToSend interface{}
+	if nestedData, ok := getNestedInputDataValue(params.CollectedData, "input_data", "input_data"); ok {
+		params.Logger.Info("Found nested input_data for spawned agent.", zap.String("path", "input_data.input_data"))
+		dataToSend = nestedData
+	} else if topLevelData, ok := params.CollectedData["input_data"]; ok {
+		// If the deeper structure isn't found, fall back to the top-level input_data.
+		params.Logger.Info("Using top-level input_data for spawned agent.", zap.String("path", "input_data"))
+		dataToSend = topLevelData
+	} else {
+		// If no input_data is found at all, send an empty map to avoid errors.
+		params.Logger.Warn("No input_data found in CollectedData for spawned agent.")
+		dataToSend = make(map[string]interface{})
+	}
+
 	params.Logger.Info("Determined sender agent type",
 		zap.String("sender_type", senderAgentType),
 		zap.String("parent_responses_topic, i.e. the response topic of me, the sender", parentResponsesTopic))
@@ -301,12 +317,16 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			RequestsTopic: "",
 		},
 		Body: map[string]interface{}{
-			"input_data": params.CollectedData["input_data"],
+			"input_data": dataToSend,
 			"action":     "initialize",
 			"config":     params.CollectedData["agent_config"],
 			"role":       role,
 		},
 	}
+
+	params.Logger.Info("DEBUGaa: the params.CollectedData input_data in SpawnAgentActions - we should extract",
+		zap.Any("Collected Data input_data, spawn agent action", params.CollectedData["input_data"]),
+	)
 
 	params.Logger.Info("Sending spawn initialization message",
 		zap.String("agent_id", agentID),
@@ -2359,4 +2379,22 @@ func parseHealthConfigFromMap(configMap map[string]interface{}) HealthCheckConfi
 	}
 
 	return config
+}
+
+// getNestedValue safely traverses a map[string]interface{} to find a value.
+func getNestedInputDataValue(data map[string]interface{}, path ...string) (interface{}, bool) {
+	var current interface{} = data
+	for _, key := range path {
+		m, ok := current.(map[string]interface{})
+		if !ok {
+			// This level is not a map, so we can't go deeper.
+			return nil, false
+		}
+		current, ok = m[key]
+		if !ok {
+			// The key doesn't exist at this level.
+			return nil, false
+		}
+	}
+	return current, true
 }

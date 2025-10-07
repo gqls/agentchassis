@@ -191,7 +191,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	// Default to all input_data if we haven't found anything
 	if dataToSend == nil {
 		dataToSend = params.CollectedData["input_data"]
-		params.Logger.Warn("Using full input_data as fallback",
+		params.Logger.Warn("Using full input_data as fallback (didnot find correct input data field)",
 			zap.String("requested_field", inputField))
 	}
 
@@ -221,7 +221,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		}
 	}
 
-	// Build the request with CORRECTED ResponsesTopic
+	// Build the request - check ResponsesTopic
 	actionRequest := &types.RequestMessage{
 		Headers: types.RequestHeaders{
 			Sender: params.ExecutionContext.Sender,
