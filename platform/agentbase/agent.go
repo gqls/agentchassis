@@ -596,7 +596,7 @@ func (a *Agent) processResponses() {
 
 	// when replying I either reply to their requests or my parent responses topic
 	a.logger.Info("Starting response processor agent.go processResponses",
-		zap.String("topic from agent struct - is this my reply to or my responses topic?", a.responsesTopic),
+		zap.String("topic from agent struct - is this not my reply to but my own responses topic", a.responsesTopic), // it is responses topic of calculator not parent
 		zap.String("parent responses topic from environment", envParentResponsesTopic),
 		zap.String("my responses topic from environment", envResponsesTopic),
 		zap.String("my requests topic from environment", envRequestsTopic),

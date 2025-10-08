@@ -179,13 +179,13 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	}
 
 	// wait 10 or so seconds to determine if requests topic is ready
-	err = topicManager.WaitForTopic(ctx, childRequestsTopic, params.Logger)
-	if err != nil {
-		params.Logger.Error("Requests topic never got ready in 10 seconds",
-			zap.Error(err),
-			zap.String("topic", childRequestsTopic),
-		)
-	}
+	/*	err = topicManager.WaitForTopic(ctx, childRequestsTopic, params.Logger)
+		if err != nil {
+			params.Logger.Error("Requests topic never got ready in 10 seconds",
+				zap.Error(err),
+				zap.String("topic", childRequestsTopic),
+			)
+		}*/
 
 	// Create the response topic
 	responseTopicDef := kafka.TopicDefinition{
@@ -204,14 +204,14 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			zap.String("topic", childResponsesTopic))
 	}
 
-	// wait 10 or so seconds to determine if response topic is ready
-	err = topicManager.WaitForTopic(ctx, childResponsesTopic, params.Logger)
-	if err != nil {
-		params.Logger.Error("Responses topic never got ready in 10 seconds",
-			zap.Error(err),
-			zap.String("topic", childResponsesTopic),
-		)
-	}
+	/*	// wait 10 or so seconds to determine if response topic is ready
+		err = topicManager.WaitForTopic(ctx, childResponsesTopic, params.Logger)
+		if err != nil {
+			params.Logger.Error("Responses topic never got ready in 10 seconds",
+				zap.Error(err),
+				zap.String("topic", childResponsesTopic),
+			)
+		}*/
 
 	params.Logger.Info("Topic creation completed, waiting for propagation",
 		zap.String("requests_topic", childRequestsTopic),
@@ -341,34 +341,43 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		return nil, fmt.Errorf("failed to marshal spawn message: %w", err)
 	}
 
-	var produceErr error
-	const maxRetries = 3
-	const retryDelay = 5 * time.Second
-	for i := 0; i < maxRetries; i++ {
-		produceErr = params.Producer.ProduceWithValidation(
-			ctx,
-			childRequestsTopic, // Send to child's topic
-			spawnMessage.Headers.ToMap(),
-			[]byte(requestID),
-			messageBytes)
-
-		if produceErr == nil {
-			break
-		}
-
-		if strings.Contains(produceErr.Error(), "Unknown Topic Or Partition") {
-			params.Logger.Warn("Failed to send spawn message due to unknown topic:",
-				zap.Int("attempt:", i+1),
-				zap.Int("max_attempts", maxRetries),
-				zap.Duration("delay", retryDelay),
-				zap.Error(produceErr),
-			)
-		}
+	if produceErr := params.Producer.ProduceWithValidation(
+		ctx,
+		childRequestsTopic, // Send to child's topic
+		spawnMessage.Headers.ToMap(),
+		[]byte(requestID),
+		messageBytes); produceErr != nil {
+		return nil, fmt.Errorf("failed to produce message SpawnAgentAction: %w", produceErr)
 	}
 
-	if produceErr != nil {
-		return nil, fmt.Errorf("failed to send spawn message after %d attempts: %w", maxRetries, err)
-	}
+	/*	var produceErr error
+		const maxRetries = 3
+		const retryDelay = 5 * time.Second
+		for i := 0; i < maxRetries; i++ {
+			produceErr = params.Producer.ProduceWithValidation(
+				ctx,
+				childRequestsTopic, // Send to child's topic
+				spawnMessage.Headers.ToMap(),
+				[]byte(requestID),
+				messageBytes)
+
+			if produceErr == nil {
+				break
+			}
+
+			if strings.Contains(produceErr.Error(), "Unknown Topic Or Partition") {
+				params.Logger.Warn("Failed to send spawn message due to unknown topic:",
+					zap.Int("attempt:", i+1),
+					zap.Int("max_attempts", maxRetries),
+					zap.Duration("delay", retryDelay),
+					zap.Error(produceErr),
+				)
+			}
+		}
+
+		if produceErr != nil {
+			return nil, fmt.Errorf("failed to send spawn message after %d attempts: %w", maxRetries, err)
+		}*/
 
 	params.Logger.Info("Agent spawn message sent successfully",
 		zap.String("agent_id", agentID),

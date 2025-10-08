@@ -39,3 +39,28 @@ Logs when timeout check passes (child completed in time)
 
 
 This implementation ensures that parent orchestrations don't wait forever for child orchestrations that may have failed silently or gotten stuck. The parent will receive a timeout notification and can continue or fail appropriately.
+
+
+----
+
+The Problem: The Workflow Isn't Advancing 🛑
+
+Let's re-examine the logic in the orchestrator's coordinator.go file. The workflow advances only when a response is received for a step that was waiting.
+
+    spawn_adder step: The orchestrator sends the initialize message and waits for a response (await_response: true).
+
+    adder agent: It receives the message, runs its internal workflow, and sends back an {"status": "initialized"} response.
+
+    Orchestrator: The handleCompleteResponse function receives this. It removes the awaited request. Since there are no other pending requests, it advances the workflow state to the next step, spawn_multiplier.
+
+    spawn_multiplier step: The orchestrator now executes this step, repeating the process and waiting for the multiplier to initialize.
+
+    multiplier agent: It initializes and sends its {"status": "initialized"} response back.
+
+    Orchestrator: It receives this second response, removes the awaited request, and advances the state to perform_addition.
+
+    perform_addition step: The orchestrator now executes CallAgentAction to send the addition task to the adder.
+
+Your logs show the calculator agents are being created and are running, but they never receive the process message. This indicates the orchestrator's workflow is getting stuck after the spawn steps and is never reaching the perform_addition step.
+
+This almost always happens if the "I'm initialized" response from the spawned agent is not correctly processed by the orchestrator.

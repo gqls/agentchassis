@@ -1280,7 +1280,10 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 
 	s.logger.Info("Retrying request",
 		zap.String("request_id", requestID),
-		zap.Int("retry_version", awaited.RetryVersion))
+		zap.Int("retry_version", awaited.RetryVersion),
+		zap.String("DEBUGaa: where to send this? execCtx.ReplyToTopic:", execCtx.ReplyToTopic),
+		zap.String("DEBUGaa: where to send this? execCtx.ResponseTopic:", execCtx.ResponsesTopic),
+	)
 
 	// Create retry request with same request ID
 	retryRequest := &types.RequestMessage{
@@ -1303,7 +1306,7 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 	}
 
 	// Send retry
-	topic := fmt.Sprintf("system.agent.%s.requests", awaited.TargetAgentType)
+	topic := execCtx.ResponsesTopic
 	retryBytes, _ := json.Marshal(retryRequest)
 
 	return s.producer.Produce(ctx, topic, retryRequest.Headers.ToMap(), []byte(requestID), retryBytes)

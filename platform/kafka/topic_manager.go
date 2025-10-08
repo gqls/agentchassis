@@ -572,7 +572,7 @@ func (tm *TopicManager) WaitForTopicOld(ctx context.Context, topic string, logge
 
 func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *zap.Logger) error {
 	const maxAttempts = 10
-	const pollInterval = 10 * time.Second
+	const pollInterval = 3 * time.Second
 
 	// We'll poll for a total of 10 seconds.
 	for i := 0; i < maxAttempts; i++ {

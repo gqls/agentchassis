@@ -82,14 +82,17 @@ func main() {
 	// Check if the environment variable exists
 	if cfg.Infrastructure.ClientsDatabase.PasswordEnvVar != "" {
 		envValue := os.Getenv(cfg.Infrastructure.ClientsDatabase.PasswordEnvVar)
-		log.Printf("  Env var '%s' exists: %v (length: %d)",
-			cfg.Infrastructure.ClientsDatabase.PasswordEnvVar,
-			envValue != "",
-			len(envValue))
+		appLogger.Info("Environment variable check",
+			zap.String("env_var", cfg.Infrastructure.ClientsDatabase.PasswordEnvVar),
+			zap.Bool("exists", envValue != ""),
+			zap.Int("length", len(envValue)),
+		)
 	} else {
-		log.Printf("  WARNING: PasswordEnvVar is empty!")
+		appLogger.Warn("PasswordEnvVar is empty!",
+			zap.String("env_var", cfg.Infrastructure.ClientsDatabase.PasswordEnvVar),
+		)
 	}
-	log.Printf("===================")
+	appLogger.Info("===================")
 
 	// Initialize Custom field as a map if it doesn't exist
 	if cfg.Custom == nil {
