@@ -36,7 +36,7 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 		Topic:          topic,
 		MinBytes:       1,                 // 10KB
 		MaxBytes:       10e6,              // 10MB
-		CommitInterval: time.Second,       // Manual commit
+		CommitInterval: 0,                 // Manual commit
 		StartOffset:    kafka.FirstOffset, // Start from beginning if no offset stored
 		Dialer: &kafka.Dialer{
 			Timeout:   10 * time.Second,
@@ -45,7 +45,6 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 		// Add these for better consumer group behavior
 		SessionTimeout:   10 * time.Second,
 		RebalanceTimeout: 10 * time.Second,
-		Partition:        0,
 		MaxWait:          1 * time.Second, // Don't wait too long for messages
 	})
 

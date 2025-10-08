@@ -4,7 +4,7 @@ follow particular struct throughout lifespan
 look at each page separately perhaps so we miss less
 try not to rely on missing values to determine that we are at the start of a chain of agents for example
 keep things simple
-prioritise complexity
+prioritise comprehensiveness
 prioritise what we can add at the end once we've determined basic flow
 set up proper logging so we can turn off parts of it easily
 maybe create tree/diagram of all code and flows
@@ -27,7 +27,7 @@ I understand sometimes it is necessary or shortcuts very longwinded solutions an
 
 Please always think things through such that you look for simpler solutions in preference to complicated ones.
 
-to jsut detect if a function exists, don't call it.
+to just detect if a function exists, don't call it.
 
 /tmp directory was full - errors showed when reading topics
 kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \

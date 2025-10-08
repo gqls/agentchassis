@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -35,18 +36,13 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		finalResult = filteredData
 	}
 
+	var parentResponsesTopic string
+	parentResponsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+
 	// Case 1: Child orchestration completing
 	if params.ExecutionContext.ParentOrchestrationID != "" {
 		params.Logger.Info("Child orchestration completing")
-
-		// Get parent's response topic from stored context
-		var parentResponsesTopic string
 		var parentRequestID string
-
-		// Check stored parent context
-		if parentTopic, ok := params.CollectedData["__parent_responses_topic__"]; ok {
-			parentResponsesTopic, _ = parentTopic.(string)
-		}
 
 		// Get parent request ID from execution context
 		if execCtx, ok := params.CollectedData["__execution_context__"]; ok {
@@ -55,23 +51,17 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 				if parentRequestID == "" {
 					parentRequestID = ctx.RequestID
 				}
-				if parentResponsesTopic == "" {
-					parentResponsesTopic = ctx.ResponsesTopic
-				}
 			case map[string]interface{}:
 				if parentRequestID == "" {
 					parentRequestID, _ = ctx["request_id"].(string)
 				}
-				if parentResponsesTopic == "" {
-					parentResponsesTopic, _ = ctx["responses_topic"].(string)
-				}
 			}
 		}
 
-		if parentRequestID == "" || parentResponsesTopic == "" {
-			params.Logger.Error("Missing parent info",
+		if parentRequestID == "" {
+			params.Logger.Error("Missing parent request ID",
 				zap.String("request_id", parentRequestID),
-				zap.String("responses_topic", parentResponsesTopic))
+			)
 			return map[string]interface{}{"result": finalResult}, nil
 		}
 
@@ -99,30 +89,17 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		// Case 2: Root orchestration completing
 		params.Logger.Info("Root orchestration completing")
 
-		var originalResponsesTopic string
 		var originalRequestID string
 
 		// Check for stored original request
 		if origReq, ok := params.CollectedData["__original_request__"]; ok {
 			if reqMap, ok := origReq.(map[string]interface{}); ok {
-				originalResponsesTopic, _ = reqMap["responses_topic"].(string)
 				originalRequestID, _ = reqMap["request_id"].(string)
 			}
 		}
 
-		// Fallback to current context
-		if originalResponsesTopic == "" {
-			originalResponsesTopic = params.ExecutionContext.ResponsesTopic
-		}
 		if originalRequestID == "" {
 			originalRequestID = params.ExecutionContext.RequestID
-		}
-
-		if originalResponsesTopic == "" || originalRequestID == "" {
-			params.Logger.Warn("No response destination",
-				zap.String("responses_topic", originalResponsesTopic),
-				zap.String("request_id", originalRequestID))
-			return map[string]interface{}{"result": finalResult}, nil
 		}
 
 		// Send final response
@@ -136,13 +113,13 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		headers := responseMsg.Headers.ToMap()
 		key := []byte(params.ExecutionContext.CorrelationID)
 
-		err = params.Producer.Produce(ctx, originalResponsesTopic, headers, key, responseBytes)
+		err = params.Producer.Produce(ctx, parentResponsesTopic, headers, key, responseBytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to send response: %w", err)
 		}
 
 		params.Logger.Info("Sent final response",
-			zap.String("topic", originalResponsesTopic),
+			zap.String("topic that it was sent to (parentResponsesTopic from environment)", parentResponsesTopic),
 			zap.String("request_id", originalRequestID))
 	}
 
