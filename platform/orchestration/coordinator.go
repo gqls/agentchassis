@@ -790,7 +790,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 		// For spawn failures, check if it's a topic issue
 		if step.Action == "spawn_agent" && strings.Contains(err.Error(), "Unknown Topic") {
-			s.logger.Warn("Spawn failed due to missing topic, will retry with delay",
+			s.logger.Warn("Spawn failed due to missing topic, will retry with delay.",
 				zap.String("step_name", step.Name))
 
 			// Add a delay before retry to allow topic propagation

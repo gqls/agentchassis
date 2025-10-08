@@ -196,11 +196,11 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	err = topicManager.CreateTopic(ctx, responseTopicDef)
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
-		params.Logger.Error("Failed to create responses topic",
+		params.Logger.Error("Failed to create responses topic.",
 			zap.Error(err),
 			zap.String("topic", childResponsesTopic))
 	} else {
-		params.Logger.Info("Created or verified responses topic",
+		params.Logger.Info("Created or verified responses topic.",
 			zap.String("topic", childResponsesTopic))
 	}
 
@@ -343,7 +343,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	var produceErr error
 	const maxRetries = 3
-	const retryDelay = 3 * time.Second
+	const retryDelay = 5 * time.Second
 	for i := 0; i < maxRetries; i++ {
 		produceErr = params.Producer.ProduceWithValidation(
 			ctx,
@@ -357,7 +357,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		}
 
 		if strings.Contains(produceErr.Error(), "Unknown Topic Or Partition") {
-			params.Logger.Warn("Failed to send spawn message due to unknown topic",
+			params.Logger.Warn("Failed to send spawn message due to unknown topic:",
 				zap.Int("attempt:", i+1),
 				zap.Int("max_attempts", maxRetries),
 				zap.Duration("delay", retryDelay),
