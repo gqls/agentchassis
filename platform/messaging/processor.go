@@ -618,9 +618,18 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 		}
 	}
 
-	// NO FALLBACK - ResponsesTopic must be set
-	if responseCtx.ResponsesTopic == "" {
-		return fmt.Errorf("no responses topic configured")
+	// ResponsesTopic must be set
+	parentResponsesTopic := msgCtx.ExecutionContext.ReplyToTopic
+	contextLogger.Info("parent response topic from exectx or from environment, are they the same?",
+		zap.String("parentResponsesTopic from the execCtx", parentResponsesTopic),
+		zap.String("parentResponsesTopic from the env", os.Getenv("PARENT_RESPONSES_TOPIC")),
+	)
+
+	if parentResponsesTopic == "" {
+		parentResponsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+		if parentResponsesTopic == "" {
+			return fmt.Errorf("no responses topic configured on the agent")
+		}
 	}
 
 	// Use ToResponseHeaders to get properly routed headers
@@ -651,14 +660,14 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	}
 
 	contextLogger.Info("Sending response",
-		zap.String("topic", responseCtx.ResponsesTopic),
+		zap.String("to resply totopic", parentResponsesTopic),
 		zap.String("key", string(key)),
 		zap.String("routing_to_orch", responseHeaders.OrchestrationID),
 		zap.String("from_my_orch", responseHeaders.MyOrchestrationID),
 		zap.Any("the responses context in sendWorkflowResponse", responseCtx))
 
 	return p.producer.Produce(ctx,
-		responseCtx.ResponsesTopic,
+		parentResponsesTopic,
 		headersMap,
 		key,
 		responseBytes)

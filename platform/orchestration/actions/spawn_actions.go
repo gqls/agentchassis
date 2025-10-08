@@ -350,34 +350,34 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		return nil, fmt.Errorf("failed to produce message SpawnAgentAction: %w", produceErr)
 	}
 
-	/*	var produceErr error
-		const maxRetries = 3
-		const retryDelay = 5 * time.Second
-		for i := 0; i < maxRetries; i++ {
-			produceErr = params.Producer.ProduceWithValidation(
-				ctx,
-				childRequestsTopic, // Send to child's topic
-				spawnMessage.Headers.ToMap(),
-				[]byte(requestID),
-				messageBytes)
+	var produceErr error
+	const maxRetries = 3
+	const retryDelay = 5 * time.Second
+	for i := 0; i < maxRetries; i++ {
+		produceErr = params.Producer.ProduceWithValidation(
+			ctx,
+			childRequestsTopic, // Send to child's topic
+			spawnMessage.Headers.ToMap(),
+			[]byte(requestID),
+			messageBytes)
 
-			if produceErr == nil {
-				break
-			}
-
-			if strings.Contains(produceErr.Error(), "Unknown Topic Or Partition") {
-				params.Logger.Warn("Failed to send spawn message due to unknown topic:",
-					zap.Int("attempt:", i+1),
-					zap.Int("max_attempts", maxRetries),
-					zap.Duration("delay", retryDelay),
-					zap.Error(produceErr),
-				)
-			}
+		if produceErr == nil {
+			break
 		}
 
-		if produceErr != nil {
-			return nil, fmt.Errorf("failed to send spawn message after %d attempts: %w", maxRetries, err)
-		}*/
+		if strings.Contains(produceErr.Error(), "Unknown Topic Or Partition") {
+			params.Logger.Warn("Failed to send spawn message due to unknown topic:",
+				zap.Int("attempt:", i+1),
+				zap.Int("max_attempts", maxRetries),
+				zap.Duration("delay", retryDelay),
+				zap.Error(produceErr),
+			)
+		}
+	}
+
+	if produceErr != nil {
+		return nil, fmt.Errorf("failed to send spawn message after %d attempts: %w", maxRetries, err)
+	}
 
 	params.Logger.Info("Agent spawn message sent successfully",
 		zap.String("agent_id", agentID),

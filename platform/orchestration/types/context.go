@@ -240,8 +240,9 @@ func (ec *ExecutionContext) ToRequestHeaders() RequestHeaders {
 		TimeoutSeconds: ec.TimeoutSeconds,
 
 		// Routing
-		RequestsTopic:  ec.RequestsTopic,
-		ResponsesTopic: ec.ResponsesTopic,
+		RequestsTopic:        ec.RequestsTopic,
+		ResponsesTopic:       ec.ResponsesTopic,
+		ParentResponsesTopic: ec.ReplyToTopic,
 	}
 }
 
