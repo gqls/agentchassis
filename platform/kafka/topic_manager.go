@@ -551,7 +551,7 @@ func sanitizeTopicPart(s string) string {
 	return strings.ToLower(output)
 }
 
-func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *zap.Logger) error {
+func (tm *TopicManager) WaitForTopicOld(ctx context.Context, topic string, logger *zap.Logger) error {
 	conn, err := kafka.DialContext(ctx, "tcp", tm.brokers[0])
 	if err != nil {
 		return err
@@ -568,4 +568,56 @@ func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *
 		time.Sleep(1 * time.Second)
 	}
 	return fmt.Errorf("topic %s not found after waiting", topic)
+}
+
+// In platform/kafka/topic_manager.go
+
+func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *zap.Logger) error {
+	const maxAttempts = 10
+	const pollInterval = 1 * time.Second
+
+	// We'll poll for a total of 10 seconds.
+	for i := 0; i < maxAttempts; i++ {
+		allBrokersReady := true
+		checkedBrokers := 0
+
+		// On each attempt, we now check ALL brokers in the list.
+		for _, brokerAddr := range tm.brokers {
+			conn, err := kafka.DialContext(ctx, "tcp", brokerAddr)
+			if err != nil {
+				logger.Warn("Could not connect to broker to verify topic, will retry",
+					zap.String("broker", brokerAddr),
+					zap.Error(err))
+				allBrokersReady = false
+				break // If one broker is down, fail this attempt and retry the poll.
+			}
+			defer conn.Close()
+
+			partitions, err := conn.ReadPartitions(topic)
+			if err != nil || len(partitions) == 0 {
+				// This broker does not know about the topic yet.
+				allBrokersReady = false
+				break // No need to check other brokers; we know it's not ready yet.
+			}
+			checkedBrokers++
+		}
+
+		// If all brokers were checked and all were ready, success!
+		if allBrokersReady {
+			logger.Info("Topic propagated and is ready on all brokers",
+				zap.String("topic", topic),
+				zap.Int("brokers_checked", checkedBrokers))
+			return nil
+		}
+
+		// If not ready, wait for the next polling interval.
+		logger.Info("Waiting for topic to propagate to all brokers...",
+			zap.String("topic", topic),
+			zap.Int("attempt", i+1),
+			zap.Int("max_attempts", maxAttempts))
+		time.Sleep(pollInterval)
+	}
+
+	// If the loop finishes, it means we timed out.
+	return fmt.Errorf("topic %s not ready on all brokers after %d seconds", topic, maxAttempts)
 }
