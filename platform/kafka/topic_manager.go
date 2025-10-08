@@ -570,11 +570,9 @@ func (tm *TopicManager) WaitForTopicOld(ctx context.Context, topic string, logge
 	return fmt.Errorf("topic %s not found after waiting", topic)
 }
 
-// In platform/kafka/topic_manager.go
-
 func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *zap.Logger) error {
 	const maxAttempts = 10
-	const pollInterval = 5 * time.Second
+	const pollInterval = 10 * time.Second
 
 	// We'll poll for a total of 10 seconds.
 	for i := 0; i < maxAttempts; i++ {
@@ -595,6 +593,9 @@ func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *
 
 			partitions, err := conn.ReadPartitions(topic)
 			if err != nil || len(partitions) == 0 {
+				logger.Warn("Could not connect to broker cannot ReadPartitions",
+					zap.Any("partitions", partitions),
+					zap.Error(err))
 				// This broker does not know about the topic yet.
 				allBrokersReady = false
 				break // No need to check other brokers; we know it's not ready yet.
