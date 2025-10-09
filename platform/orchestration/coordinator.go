@@ -828,19 +828,12 @@ func getActionHandler(action string) (actions.ActionFunc, error) {
 func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, state *OrchestrationState,
 	step models.Step, coordinator *SagaCoordinator, logger *zap.Logger, requestID string) actions.ActionParams {
 
-	// Extract input data from collected data if it exists
-	var inputData interface{}
-	if data, exists := state.CollectedData["input_data"]; exists {
-		inputData = data
-	}
-
 	return actions.ActionParams{
 		Context:          ctx,
 		ExecutionContext: execCtx,
 		StepConfig:       step,
 		Headers:          execCtx.ToHeaders(),
 		CollectedData:    state.CollectedData,
-		InputData:        inputData,
 		Logger:           logger,
 		Producer:         coordinator.producer,
 		DB:               coordinator.db,

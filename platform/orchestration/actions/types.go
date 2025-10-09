@@ -34,7 +34,7 @@ type ActionParams struct {
 	ExecutionContext *types.ExecutionContext
 	Headers          map[string]string
 	StepConfig       models.Step
-	InputData        interface{}
+	InputData        []byte
 	CollectedData    map[string]interface{}
 	SagaCoordinator  interface{}
 	Producer         kafka.Producer
