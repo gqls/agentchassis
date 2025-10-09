@@ -411,6 +411,11 @@ func (a *Agent) setupConsumers() error {
 			zap.String("responses topic", responsesTopic))
 	}
 
+	a.logger.Info("Setting up responseConsumer with:",
+		zap.String("responses topic", responsesTopic),
+		zap.String("groupID", a.AgentID),
+	)
+	
 	// Simple consumer group
 	responseConsumer, err := kafka.NewConsumer(
 		a.config.KafkaBrokers,

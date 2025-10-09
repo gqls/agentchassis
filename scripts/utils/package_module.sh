@@ -726,6 +726,7 @@ case "$COMPONENT_NAME" in
       "platform/agentbase/"
       "platform/kafka/"
       "platform/messaging/"
+      "platform/orchestration/"
       "platform/database/"
     )
     MODULE_FILES=( "makefile" "build/docker/backend/agent-chassis.dockerfile" )
@@ -740,6 +741,7 @@ case "$COMPONENT_NAME" in
       "platform/agentbase/"
       "platform/kafka/"
       "platform/messaging/"
+      "platform/orchestration/"
     )
     MODULE_FILES=(
       "makefile"
@@ -757,6 +759,7 @@ case "$COMPONENT_NAME" in
       "platform/agentbase/"
       "platform/kafka/"
       "platform/messaging/"
+      "platform/orchestration/"
     )
     MODULE_FILES=(
       "makefile"
@@ -774,6 +777,7 @@ case "$COMPONENT_NAME" in
       "platform/agentbase/"
       "platform/kafka/"
       "platform/messaging/"
+      "platform/orchestration/"
     )
     MODULE_FILES=(
       "makefile"
@@ -806,6 +810,8 @@ case "$COMPONENT_NAME" in
       "cmd/image-generator-adapter/"
       "platform/kafka/"
       "platform/messaging/"
+      "platform/agentbase"
+      "platform/orchestration/"
       "platform/contracts/"
     )
     MODULE_FILES=( "configs/core-manager.yaml" "configs/kafka_topics.yaml" )

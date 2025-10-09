@@ -1278,11 +1278,20 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 	awaited.SentAt = time.Now()
 	awaited.TimeoutAt = time.Now().Add(30 * time.Second)
 
+	topic := os.Getenv("PARENT_RESPONSES_TOPIC")
+	if topic == "" {
+		topic = execCtx.ReplyToTopic
+		if execCtx.ReplyToTopic == "" {
+			topic = execCtx.ResponsesTopic
+		}
+	}
+
 	s.logger.Info("Retrying request",
 		zap.String("request_id", requestID),
 		zap.Int("retry_version", awaited.RetryVersion),
 		zap.String("DEBUGaa: where to send this? execCtx.ReplyToTopic:", execCtx.ReplyToTopic),
 		zap.String("DEBUGaa: where to send this? execCtx.ResponseTopic:", execCtx.ResponsesTopic),
+		zap.String("DEBUGaa: os.Getenv(PARENT_RESPONSE_TOPIC)", os.Getenv("PARENT_RESPONSE_TOPIC")),
 	)
 
 	// Create retry request with same request ID
@@ -1306,13 +1315,6 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 	}
 
 	// Send retry
-	topic := os.Getenv("PARENT_RESPONSES_TOPIC")
-	if topic == "" {
-		topic = execCtx.ReplyToTopic
-		if execCtx.ReplyToTopic == "" {
-			topic = execCtx.ResponsesTopic
-		}
-	}
 	retryBytes, _ := json.Marshal(retryRequest)
 
 	return s.producer.Produce(ctx, topic, retryRequest.Headers.ToMap(), []byte(requestID), retryBytes)
