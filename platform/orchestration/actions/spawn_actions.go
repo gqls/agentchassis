@@ -321,8 +321,9 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			// Send an empty map. The agent's task will be sent later by CallAgentAction.
 			"input_data": make(map[string]interface{}),
 			"action":     "initialize",
-			"config":     params.CollectedData["agent_config"],
-			"role":       role,
+			//"config":     params.CollectedData["agent_config"],
+			"config": make(map[string]interface{}),
+			"role":   role,
 		},
 	}
 

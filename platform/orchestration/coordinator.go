@@ -1306,7 +1306,13 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 	}
 
 	// Send retry
-	topic := execCtx.ResponsesTopic
+	topic := os.Getenv("PARENT_RESPONSES_TOPIC")
+	if topic == "" {
+		topic = execCtx.ReplyToTopic
+		if execCtx.ReplyToTopic == "" {
+			topic = execCtx.ResponsesTopic
+		}
+	}
 	retryBytes, _ := json.Marshal(retryRequest)
 
 	return s.producer.Produce(ctx, topic, retryRequest.Headers.ToMap(), []byte(requestID), retryBytes)
