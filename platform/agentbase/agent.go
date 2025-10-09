@@ -415,7 +415,7 @@ func (a *Agent) setupConsumers() error {
 		zap.String("responses topic", responsesTopic),
 		zap.String("groupID", a.AgentID),
 	)
-	
+
 	// Simple consumer group
 	responseConsumer, err := kafka.NewConsumer(
 		a.config.KafkaBrokers,
@@ -578,7 +578,7 @@ func (a *Agent) processRequests() {
 			}
 
 			a.logger.Info("Request consumer received message",
-				zap.Any("message", msg),
+				//zap.Any("message", msg),
 				zap.Int("value_length", len(msg.Value)),
 			)
 

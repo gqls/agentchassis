@@ -1378,7 +1378,7 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 		zap.Int("total_steps", len(config.Workflow.Steps)),
 		zap.String("agent_type", p.agentType),
 		zap.Bool("stateless", msgCtx.IsStateless),
-		zap.Any("processor 1364 executeWorkflow - does msgCtx have initial data?", msgCtx),
+		//zap.Any("processor 1364 executeWorkflow - does msgCtx have initial data?", msgCtx),
 	)
 
 	// Ensure ExecutionContext has agent type

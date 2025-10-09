@@ -509,10 +509,11 @@ func (s *SagaCoordinator) getOrCreateState(ctx context.Context, execCtx *types.E
 func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *OrchestrationState, execCtx *types.ExecutionContext, isNew bool) error {
 	callstack := s.tracer.GetCallStack(12)
 
-	s.logger.Info("Handling orchestration status handleOrchestrationStatus coordinator.go 360",
+	s.logger.Info("Handling orchestration status handleOrchestrationStatus coordinator.go 512",
 		zap.String("orchestration_id", state.OrchestrationID),
 		zap.Any("DEBUGaa: state.Status", state.Status),
 		zap.Any("state.CurrentlyExecuting", state.CurrentlyExecuting),
+		zap.Any("state.CurrentStep", state.CurrentStep),
 		zap.Any("call stack handleOrchestrationStatue", callstack),
 	)
 
@@ -521,7 +522,8 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 	switch state.Status {
 	case StatusInitialized:
 		// New orchestration, start execution
-		s.logger.Info("Starting new orchestration execution")
+		s.logger.Info("DEBUGaa: Status Initialized Starting new orchestration execution in handleOrchestrationStatus",
+			zap.String("about to execute step", state.CurrentStep))
 
 		if err := repo.SetExecutingStep(ctx, state.OrchestrationID, state.CurrentStep); err != nil {
 			return err
@@ -536,6 +538,7 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 		return s.continueExecution(ctx, state, execCtx)
 
 	case StatusExecutingStep:
+		s.logger.Info("DEBUGaa: Status Executing Step in handleOrchestrationStatus")
 		// Check if stuck
 		if state.CurrentlyExecuting != nil && time.Since(state.LastActivity) > StuckOrchestrationTimeout {
 			s.logger.Warn("Found stuck orchestration, taking over",
@@ -557,7 +560,7 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 		return nil
 
 	case StatusAwaitingResponses:
-		s.logger.Info("Orchestration is awaiting responses",
+		s.logger.Info("Orchestration is awaiting responses in handleOrchestrationStatus",
 			zap.Int("awaited_count", len(state.AwaitedRequests)))
 		return ErrWaitingForResponse
 
@@ -666,7 +669,7 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 	s.logger.Info("Executing step in executeStep before executeLocalAction",
 		zap.String("step", state.CurrentStep),
 		zap.String("action", step.Action),
-		zap.Any("state", state),
+		//zap.Any("state", state),
 	)
 
 	// Route to appropriate handler
@@ -704,7 +707,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return err
 	}
 
-	// 6. Build action parameters
+	// 6. Build action parameters - get input data
 	params := buildActionParams(ctx, execCtx, state, step, s, contextLogger, requestID)
 
 	// 7. Execute the action
@@ -825,12 +828,19 @@ func getActionHandler(action string) (actions.ActionFunc, error) {
 func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, state *OrchestrationState,
 	step models.Step, coordinator *SagaCoordinator, logger *zap.Logger, requestID string) actions.ActionParams {
 
+	// Extract input data from collected data if it exists
+	var inputData interface{}
+	if data, exists := state.CollectedData["input_data"]; exists {
+		inputData = data
+	}
+
 	return actions.ActionParams{
 		Context:          ctx,
 		ExecutionContext: execCtx,
 		StepConfig:       step,
 		Headers:          execCtx.ToHeaders(),
 		CollectedData:    state.CollectedData,
+		InputData:        inputData,
 		Logger:           logger,
 		Producer:         coordinator.producer,
 		DB:               coordinator.db,
@@ -849,8 +859,10 @@ func executeAction(ctx context.Context, handler actions.ActionFunc, params actio
 		return nil, err
 	}
 
-	logger.Info("Action handler completed",
-		zap.String("action", params.StepConfig.Action))
+	logger.Info("Action handler completed - in executeAction",
+		zap.String("action", params.StepConfig.Action),
+		zap.Any("DEBUGaa: result", result),
+	)
 
 	return result, nil
 }
@@ -910,7 +922,8 @@ func storeActionResult(state *OrchestrationState, result interface{}, logger *za
 
 	logger.Info("Stored action result",
 		zap.String("step", state.CurrentStep),
-		zap.Any("result_keys", getMapKeys(result)))
+		zap.Any("result_keys", getMapKeys(result)),
+		zap.Any("DEBUGaa: result_value", result))
 
 	return nil
 }

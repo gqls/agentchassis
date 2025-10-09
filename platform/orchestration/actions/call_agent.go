@@ -188,7 +188,9 @@ func extractDataForAgent(params ActionParams) interface{} {
 
 	params.Logger.Info("Extracting data for agent",
 		zap.String("requested_field", inputField),
-		zap.Any("available_keys", getMapKeys(params.CollectedData)))
+		zap.Any("available_keys", getMapKeys(params.CollectedData)),
+		zap.Any("DEBUGaa: params.CollectedData for passing to the new agent in CallAgentAction 192", params.CollectedData),
+		)
 
 	// Define search paths from most to least specific
 	searchPaths := [][]string{

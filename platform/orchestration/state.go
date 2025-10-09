@@ -620,7 +620,7 @@ func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationS
 
 // UpdateStateWithVersion updates state with version check for optimistic locking
 func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *OrchestrationState, expectedVersion int) error {
-	r.logger.Info("UpdateStateWithVersion in state.go 607")
+	r.logger.Info("UpdateStateWithVersion in state.go 623")
 
 	// Add processing record for this update
 	state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{

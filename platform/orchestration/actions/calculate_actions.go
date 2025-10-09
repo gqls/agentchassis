@@ -13,6 +13,7 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	params.Logger.Info("Entering CalculateAction",
 		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
+		zap.Any("DEBUGaa: in CalculateAction CollectedData", params.CollectedData),
 	)
 
 	// Try multiple paths to find the input data
@@ -20,7 +21,16 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 	var operands []interface{}
 	found := false
 
-	// This logic now correctly targets the message from "CallAgentAction"
+	// Path 1.0: from where we put it in buildActionParams in executeLocalAction
+	if inputData, ok := params.InputData.(map[string]interface{}); ok {
+		if op, ok := inputData["operation"].(string); ok {
+			if opr, ok := inputData["operands"].([]interface{}); ok {
+				operation, operands, found = op, opr, true
+			}
+		}
+	}
+
+	// Path 1.1: This logic now correctly targets the message from "CallAgentAction"
 	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
 		if op, ok := inputData["operation"].(string); ok {
 			if opr, ok := inputData["operands"].([]interface{}); ok {
@@ -35,7 +45,7 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 
-	// Path 1: Direct path - after our response simplification
+	// Path 1.2: Direct path - after our response simplification
 	// Check input_data.data (most direct path after fixes)
 	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
 		if data, ok := inputData["data"].(map[string]interface{}); ok {
