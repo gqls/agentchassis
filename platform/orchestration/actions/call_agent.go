@@ -9,233 +9,311 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
+// CallAgentAction - Main entry point, orchestrates calling an already-spawned agent
 func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("In CallAgentAction",
-		zap.Any("params in callagentaction", params))
+	// Log entry
+	logCallStart(params)
 
-	// Keep stack trace for debugging
-	current, caller := getFuncInfo(1)
-	params.Logger.Info("CallAgentAction starting",
-		zap.String("function", current),
-		zap.String("called_by", caller),
-		zap.Any("params.Headers", params.Headers),
-	)
-
-	config := params.StepConfig.Config
-	targetAgentType, ok := config["agent_type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("agent_type not specified in config")
+	// 1. Extract and validate configuration
+	targetAgentType, targetRole, err := extractCallConfiguration(params)
+	if err != nil {
+		return nil, fmt.Errorf("configuration extraction failed: %w", err)
 	}
 
-	// Check if we're looking for a specific role
-	targetRole, hasRole := config["target_role"].(string)
+	// 2. Find the target agent from spawn results
+	targetAgent, err := findTargetAgent(params, targetAgentType, targetRole)
+	if err != nil {
+		return nil, err
+	}
 
-	var targetAgentID string
-	var targetRequestsTopic string  // Changed from jobTopic
-	var targetResponsesTopic string // track child's response topic
+	// 3. Extract the data to send to the agent
+	dataToSend := extractDataForAgent(params)
 
-	if hasRole && targetRole != "" {
+	// 4. Determine the action the agent should perform
+	targetAction := determineTargetAction(params.StepConfig)
+
+	// 5. Build the complete request body
+	requestBody := buildRequestBody(params, targetAction, dataToSend)
+
+	// 6. Create child orchestration context
+	childOrchID, childOrchName := createChildOrchestration(targetAgentType)
+
+	// 7. Build the request message
+	requestMessage := buildCallRequestMessage(
+		params,
+		targetAgent,
+		childOrchID,
+		childOrchName,
+		targetAction,
+		requestBody,
+	)
+
+	// 8. Send the message to the agent
+	if err := sendAgentRequest(ctx, params, targetAgent.RequestsTopic, requestMessage); err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	// 9. Build and return the result
+	return buildCallResult(targetAgent, childOrchID, targetAction, requestMessage.Headers.RequestID), nil
+}
+
+// Configuration extraction
+func extractCallConfiguration(params ActionParams) (targetAgentType string, targetRole string, err error) {
+	config := params.StepConfig.Config
+
+	targetAgentType, ok := config["agent_type"].(string)
+	if !ok || targetAgentType == "" {
+		return "", "", fmt.Errorf("agent_type not specified in config")
+	}
+
+	// Check for specific role (optional)
+	targetRole, _ = config["target_role"].(string)
+
+	return targetAgentType, targetRole, nil
+}
+
+// TargetAgentInfo holds information about the agent we're calling
+type TargetAgentInfo struct {
+	AgentID        string
+	AgentType      string
+	Role           string
+	RequestsTopic  string
+	ResponsesTopic string
+}
+
+// Find the target agent from spawn results
+func findTargetAgent(params ActionParams, targetAgentType, targetRole string) (*TargetAgentInfo, error) {
+	agent := &TargetAgentInfo{
+		AgentType: targetAgentType,
+		Role:      targetRole,
+	}
+
+	// If looking for a specific role
+	if targetRole != "" {
 		params.Logger.Info("Looking for agent by role",
 			zap.String("target_role", targetRole))
 
-		// Search through spawn results for matching role
-		for stepName, stepData := range params.CollectedData {
+		if found := findAgentByRole(params, targetRole, agent); found {
+			return agent, nil
+		}
+		return nil, fmt.Errorf("no agent with role '%s' found", targetRole)
+	}
+
+	// Look by agent type
+	if found := findAgentByType(params, targetAgentType, agent); found {
+		return agent, nil
+	}
+
+	// Check for standard agents with legacy topics
+	if isStandardAgent(targetAgentType) {
+		agent.RequestsTopic = fmt.Sprintf("system.agent.%s.requests", targetAgentType)
+		agent.ResponsesTopic = fmt.Sprintf("system.agent.%s.responses", targetAgentType)
+		params.Logger.Info("Using legacy topics for standard agent",
+			zap.String("agent_type", targetAgentType))
+		return agent, nil
+	}
+
+	return nil, fmt.Errorf("no spawned %s agent found", targetAgentType)
+}
+
+func findAgentByRole(params ActionParams, targetRole string, agent *TargetAgentInfo) bool {
+	// Search through spawn results
+	for stepName, stepData := range params.CollectedData {
+		if spawnResult, ok := stepData.(map[string]interface{}); ok {
+			if role, ok := spawnResult["role"].(string); ok && role == targetRole {
+				agent.AgentID, _ = spawnResult["agent_id"].(string)
+				agent.RequestsTopic, _ = spawnResult["requests_topic"].(string)
+				agent.ResponsesTopic, _ = spawnResult["responses_topic"].(string)
+
+				params.Logger.Info("Found agent with matching role",
+					zap.String("role", targetRole),
+					zap.String("agent_id", agent.AgentID),
+					zap.String("from_step", stepName))
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func findAgentByType(params ActionParams, targetAgentType string, agent *TargetAgentInfo) bool {
+	// Look for spawn_<type> key
+	spawnKey := fmt.Sprintf("spawn_%s", targetAgentType)
+	if spawnResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
+		agent.AgentID, _ = spawnResult["agent_id"].(string)
+		agent.RequestsTopic, _ = spawnResult["requests_topic"].(string)
+		agent.ResponsesTopic, _ = spawnResult["responses_topic"].(string)
+		return agent.AgentID != ""
+	}
+
+	// Search all spawn results
+	for stepName, stepData := range params.CollectedData {
+		if strings.HasPrefix(stepName, "spawn_") {
 			if spawnResult, ok := stepData.(map[string]interface{}); ok {
-
-				params.Logger.Info("In CallAgentAction where is parent response topic?",
-					zap.Any("spawn result", spawnResult))
-
-				// Check both the role field and the step name
-				if role, ok := spawnResult["role"].(string); ok && role == targetRole {
-					targetAgentID, _ = spawnResult["agent_id"].(string)
-					targetRequestsTopic, _ = spawnResult["requests_topic"].(string)   // Changed from job_topic
-					targetResponsesTopic, _ = spawnResult["responses_topic"].(string) // NEW
-					params.Logger.Info("Found agent with matching role",
-						zap.String("role", targetRole),
-						zap.String("agent_id", targetAgentID),
-						zap.String("requests_topic", targetRequestsTopic),
-						zap.String("responses_topic", targetResponsesTopic),
-						zap.String("from_step", stepName))
-					break
-				}
-			}
-		}
-	} else {
-		// Look by agent type
-		spawnKey := fmt.Sprintf("spawn_%s", targetAgentType)
-		if spawnResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
-			targetAgentID, _ = spawnResult["agent_id"].(string)
-			targetRequestsTopic, _ = spawnResult["requests_topic"].(string)
-			targetResponsesTopic, _ = spawnResult["responses_topic"].(string)
-		}
-	}
-
-	if targetAgentID == "" {
-		if hasRole {
-			return nil, fmt.Errorf("no agent with role '%s' found", targetRole)
-		}
-		return nil, fmt.Errorf("no spawned %s agent found", targetAgentType)
-	}
-
-	// If we didn't find topics in the first search, do a second pass
-	if targetRequestsTopic == "" {
-		if hasRole && targetRole != "" {
-			targetRequestsTopic, targetResponsesTopic = findTopicsForRole(params, targetRole)
-		} else {
-			// Find by agent type/ID
-			for stepName, stepData := range params.CollectedData {
-				if strings.HasPrefix(stepName, "spawn_") {
-					if spawnResult, ok := stepData.(map[string]interface{}); ok {
-						if agentID, ok := spawnResult["agent_id"].(string); ok && agentID == targetAgentID {
-							targetRequestsTopic, _ = spawnResult["requests_topic"].(string)
-							targetResponsesTopic, _ = spawnResult["responses_topic"].(string)
-							break
-						}
-					}
+				if agentType, ok := spawnResult["agent_type"].(string); ok && agentType == targetAgentType {
+					agent.AgentID, _ = spawnResult["agent_id"].(string)
+					agent.RequestsTopic, _ = spawnResult["requests_topic"].(string)
+					agent.ResponsesTopic, _ = spawnResult["responses_topic"].(string)
+					return agent.AgentID != ""
 				}
 			}
 		}
 	}
 
-	// Handle special standard agents (search, image) that use legacy topics
-	if targetRequestsTopic == "" {
-		if targetAgentType == "search" || targetAgentType == "image" {
-			targetRequestsTopic = fmt.Sprintf("system.agent.%s.requests", targetAgentType)
-			targetResponsesTopic = fmt.Sprintf("system.agent.%s.responses", targetAgentType)
-			params.Logger.Info("Using legacy topics for standard agent",
-				zap.String("agent_type", targetAgentType),
-				zap.String("requests_topic", targetRequestsTopic))
-		} else {
-			return nil, fmt.Errorf("no requests topic found for agent %s", targetAgentID)
+	return false
+}
+
+func isStandardAgent(agentType string) bool {
+	standardAgents := []string{"search", "image"}
+	for _, standard := range standardAgents {
+		if agentType == standard {
+			return true
 		}
 	}
+	return false
+}
 
-	params.Logger.Info("Using agent topics",
-		zap.String("requests_topic", targetRequestsTopic),
-		zap.String("responses_topic", targetResponsesTopic),
-		zap.String("target_agent", targetAgentID))
-
-	requestID := uuid.New().String()
-
-	// Create a NEW orchestration ID for the child's workflow
-	childOrchestrationID := uuid.New().String()
-	childOrchestrationName := fmt.Sprintf("%s-workflow-%s", targetAgentType, time.Now().Format("1504"))
-
-	params.Logger.Info("CALL_AGENT: Starting agent call",
-		zap.String("target_agent_type", targetAgentType),
-		zap.String("target_agent_id", targetAgentID),
-		zap.String("child_orch_id", childOrchestrationID),
-		zap.String("parent_orch_id", params.ExecutionContext.OrchestrationID))
-
-	// Determine the action to send - KEEP this logic as is
-	var targetAction string
-	step := params.StepConfig
-
-	if action, ok := step.Config["target_action"].(string); ok {
-		targetAction = action
-	} else if action, ok := step.Config["action"].(string); ok {
-		targetAction = action
-	} else {
-		targetAction = "process" // Default for backward compatibility
-	}
-
-	// Get which input field to use - KEEP this logic
+// Data extraction - clearer logic for finding the right data to send
+func extractDataForAgent(params ActionParams) interface{} {
+	// Get which input field to use
 	inputField := "input_data"
-	if field, ok := step.Config["input_field"].(string); ok && field != "" {
+	if field, ok := params.StepConfig.Config["input_field"].(string); ok && field != "" {
 		inputField = field
 	}
 
-	// Extract the specific data for this field - KEEP all this data extraction logic
-	var dataToSend interface{}
-	var found bool
+	params.Logger.Info("Extracting data for agent",
+		zap.String("requested_field", inputField),
+		zap.Any("available_keys", getMapKeys(params.CollectedData)))
 
-	params.Logger.Info("DEBUG: CallAgentAction CollectedData contents",
-		zap.String("input_field", inputField),
-		zap.Any("all_keys", getMapKeys(params.CollectedData)),
-		zap.Any("has_input_data", params.CollectedData["input_data"] != nil),
-		zap.Any("has_initial_request", params.CollectedData["InitialRequestData"] != nil))
-
-	// Define the search paths. We look for the most specific path first.
+	// Define search paths from most to least specific
 	searchPaths := [][]string{
-		{"input_data", "input_data", inputField}, // Path from initial request: input_data.input_data.first_calc
-		{"input_data", inputField},               // A less nested path, for flexibility
+		{"input_data", "input_data", inputField}, // Deeply nested
+		{"input_data", inputField},               // Medium nested
+		{inputField},                             // Top level
 	}
 
-	// Search for the inputField in the most likely locations.
+	// Try each path
 	for _, path := range searchPaths {
 		if data, ok := getNestedInputValue(params.CollectedData, path...); ok {
-			dataToSend = data
-			found = true
-			params.Logger.Info("Found input field data via nested path",
-				zap.Strings("path_used", path),
-				zap.String("field", inputField))
-			break
+			params.Logger.Info("Found data via path",
+				zap.Strings("path", path))
+			return data
 		}
 	}
 
-	// If the specific field is not found, we might be asked to send the whole input_data block.
-	if !found && inputField == "input_data" {
+	// Special case: if looking for input_data, try nested version
+	if inputField == "input_data" {
 		if data, ok := getNestedInputValue(params.CollectedData, "input_data", "input_data"); ok {
-			dataToSend = data
-			found = true
-			params.Logger.Info("Using nested 'input_data' as requested field")
+			params.Logger.Info("Using nested input_data")
+			return data
 		}
 	}
 
-	params.Logger.Info("CallAgentAction data extraction",
-		zap.String("requested_field", inputField),
-		zap.Any("data_found", dataToSend),
-		zap.Any("all_collected_keys", getMapKeys(params.CollectedData)))
-
-	// Final fallback: if nothing is found, use the top-level input_data.
-	if !found {
-		dataToSend = params.CollectedData["input_data"]
-		params.Logger.Warn("Could not find specific field, using full input_data as fallback",
-			zap.String("requested_field", inputField))
+	// Final fallback
+	data := params.CollectedData["input_data"]
+	if data == nil {
+		params.Logger.Warn("No data found, using empty map")
+		return make(map[string]interface{})
 	}
 
-	// Build the request message body - KEEP this structure
+	params.Logger.Info("Using top-level input_data as fallback")
+	return data
+}
+
+// Determine what action the agent should perform
+func determineTargetAction(stepConfig models.Step) string {
+	// Check for explicit target_action
+	if action, ok := stepConfig.Config["target_action"].(string); ok && action != "" {
+		return action
+	}
+
+	// Check for generic action
+	if action, ok := stepConfig.Config["action"].(string); ok && action != "" {
+		return action
+	}
+
+	// Default
+	return "process"
+}
+
+// Build the complete request body
+func buildRequestBody(params ActionParams, targetAction string, dataToSend interface{}) map[string]interface{} {
 	requestBody := map[string]interface{}{
 		"action":     targetAction,
 		"input_data": dataToSend,
 	}
 
-	// Add any additional config if needed
+	// Add any agent config
 	if agentConfig, ok := params.CollectedData["agent_config"]; ok {
 		requestBody["config"] = agentConfig
 	}
 
-	// Include relevant context from previous steps if needed - KEEP this logic
+	// Include context from previous steps if requested
 	if includeContext, ok := params.StepConfig.Config["include_context"].(bool); ok && includeContext {
-		if contextSteps, ok := params.StepConfig.Config["context_steps"].([]interface{}); ok {
-			localContext := make(map[string]interface{})
-			for _, step := range contextSteps {
-				if stepName, ok := step.(string); ok {
-					if stepData, exists := params.CollectedData[stepName]; exists {
-						localContext[stepName] = stepData
-					}
+		requestBody["context"] = extractContext(params)
+	}
+
+	params.Logger.Info("Built request body",
+		zap.String("action", targetAction),
+		zap.Any("has_data", dataToSend != nil),
+		zap.Any("has_config", requestBody["config"] != nil),
+		zap.Any("has_context", requestBody["context"] != nil))
+
+	return requestBody
+}
+
+func extractContext(params ActionParams) map[string]interface{} {
+	localContext := make(map[string]interface{})
+
+	if contextSteps, ok := params.StepConfig.Config["context_steps"].([]interface{}); ok {
+		for _, step := range contextSteps {
+			if stepName, ok := step.(string); ok {
+				if stepData, exists := params.CollectedData[stepName]; exists {
+					localContext[stepName] = stepData
 				}
 			}
-			requestBody["context"] = localContext
 		}
 	}
 
-	// Build the request - check ResponsesTopic
-	actionRequest := &types.RequestMessage{
+	return localContext
+}
+
+// Create child orchestration identifiers
+func createChildOrchestration(agentType string) (orchestrationID, orchestrationName string) {
+	orchestrationID = uuid.New().String()
+	orchestrationName = fmt.Sprintf("%s-workflow-%s", agentType, time.Now().Format("1504"))
+	return orchestrationID, orchestrationName
+}
+
+// Build the request message
+func buildCallRequestMessage(
+	params ActionParams,
+	targetAgent *TargetAgentInfo,
+	childOrchID string,
+	childOrchName string,
+	targetAction string,
+	requestBody map[string]interface{},
+) *types.RequestMessage {
+	requestID := uuid.New().String()
+
+	return &types.RequestMessage{
 		Headers: types.RequestHeaders{
+			// Sender identity
 			Sender: params.ExecutionContext.Sender,
 
+			// Core identity
 			CorrelationID:   params.ExecutionContext.CorrelationID,
 			CorrelationName: params.ExecutionContext.CorrelationName,
 			ClientID:        params.ExecutionContext.ClientID,
 
 			// Child orchestration context
-			OrchestrationID:   childOrchestrationID,
-			OrchestrationName: childOrchestrationName,
+			OrchestrationID:   childOrchID,
+			OrchestrationName: childOrchName,
 			StepID:            uuid.New().String(),
 			StepName:          "process",
 			RequestID:         requestID,
@@ -246,89 +324,86 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 			ParentOrchestrationName: params.ExecutionContext.OrchestrationName,
 			ParentRequestID:         params.ExecutionContext.RequestID,
 
+			// Message metadata
 			MessageID:   uuid.New().String(),
 			MessageType: "request",
 			FromAgent:   params.ExecutionContext.Sender.AgentID,
-			ToAgent:     targetAgentID,
-			ToAgentType: targetAgentType,
-			Action:      "process",
+			ToAgent:     targetAgent.AgentID,
+			ToAgentType: targetAgent.AgentType,
+			Action:      targetAction,
 			Timestamp:   time.Now(),
 
+			// Resource management
 			FuelBudget:     params.ExecutionContext.FuelBudget - 100,
 			TimeoutSeconds: 30,
 
-			// Use parent's ResponsesTopic so child knows where to respond
+			// Routing - child needs to know where to respond
 			ResponsesTopic: params.ExecutionContext.ResponsesTopic,
-			// Child will create its own topics when it processes this
-			RequestsTopic: "",
+			RequestsTopic:  "", // Child sets its own
 		},
 		Body: requestBody,
 	}
+}
 
-	params.Logger.Info("CallAgentAction RequestMessage prepared",
-		zap.String("Action", "process"),
-		zap.String("child_orch_id", childOrchestrationID),
-		zap.String("parent_responses_topic", params.ExecutionContext.ResponsesTopic),
-		zap.String("sending_to_topic", targetRequestsTopic),
-		zap.String("orchestration_id", actionRequest.Headers.OrchestrationID),
-		zap.Any("DEBUGaa: requestBody", requestBody),
-	)
-
-	msgBytes, err := json.Marshal(actionRequest)
+// Send the request to the agent
+func sendAgentRequest(ctx context.Context, params ActionParams, targetTopic string, message *types.RequestMessage) error {
+	// Marshal the message
+	msgBytes, err := json.Marshal(message)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	headers := actionRequest.Headers.ToMap()
+	// Convert headers
+	headers := message.Headers.ToMap()
 	key := []byte(params.ExecutionContext.CorrelationID)
 
-	params.Logger.Info("Sending request to child agent",
-		zap.String("target_topic", targetRequestsTopic),
-		zap.String("request_id", requestID),
-		zap.String("child_orch_id", childOrchestrationID),
-		zap.String("action", "process"))
+	params.Logger.Info("Sending request to agent",
+		zap.String("target_topic", targetTopic),
+		zap.String("request_id", message.Headers.RequestID),
+		zap.String("orchestration_id", message.Headers.OrchestrationID),
+		zap.String("action", message.Headers.Action))
 
-	// Send to child's requests topic
-	err = params.Producer.Produce(ctx, targetRequestsTopic, headers, key, msgBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send CallAgentAction request: %w", err)
+	// Send the message
+	if err := params.Producer.Produce(ctx, targetTopic, headers, key, msgBytes); err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 
+	// Trace if available
 	if params.Tracer != nil {
-		params.Tracer.TraceMessage(params.ExecutionContext, "SEND_CHILD_REQUEST CallAgentAction", targetRequestsTopic,
+		params.Tracer.TraceMessage(params.ExecutionContext, "SEND_CHILD_REQUEST", targetTopic,
 			map[string]interface{}{
-				"responses_topic_set": actionRequest.Headers.ResponsesTopic,
-				"parent_orch_id":      params.ExecutionContext.OrchestrationID,
-				"child_orch_id":       childOrchestrationID,
-				"request_id":          actionRequest.Headers.RequestID,
-				"Sender":              params.ExecutionContext.Sender,
+				"request_id":      message.Headers.RequestID,
+				"child_orch_id":   message.Headers.OrchestrationID,
+				"parent_orch_id":  params.ExecutionContext.OrchestrationID,
+				"responses_topic": message.Headers.ResponsesTopic,
 			})
 	}
 
-	params.Logger.Info("CALL_AGENT: Request sent to agent",
-		zap.String("topic", targetRequestsTopic),
-		zap.String("request_id", requestID),
-		zap.String("child_orch_id", childOrchestrationID),
-		zap.Any("headers_sent", headers))
+	return nil
+}
 
-	// Return result indicating we're waiting for the response
-	result := map[string]interface{}{
-		"agent_called":        targetAgentID,
-		"agent_type":          targetAgentType,
-		"request_id":          requestID,
-		"child_orchestration": childOrchestrationID,
-		"action_sent":         "process",
-		"await_response":      true,
-		"target_agent_type":   targetAgentType,
-		// Track child's response topic for debugging
-		"child_responses_topic": targetResponsesTopic,
+// Build the result to return
+func buildCallResult(targetAgent *TargetAgentInfo, childOrchID, targetAction, requestID string) map[string]interface{} {
+	return map[string]interface{}{
+		"agent_called":          targetAgent.AgentID,
+		"agent_type":            targetAgent.AgentType,
+		"request_id":            requestID,
+		"child_orchestration":   childOrchID,
+		"action_sent":           targetAction,
+		"await_response":        true,
+		"target_agent_type":     targetAgent.AgentType,
+		"child_responses_topic": targetAgent.ResponsesTopic, // For debugging
 	}
+}
 
-	params.Logger.Info("Call agent action completed, awaiting response",
-		zap.String("request_id", requestID),
-		zap.Any("returning result to say we are waiting for response", result))
-
-	return result, nil
+// Helper functions
+func logCallStart(params ActionParams) {
+	current, caller := getFuncInfo(1)
+	params.Logger.Info("CallAgentAction starting",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.Any("config", params.StepConfig),
+		zap.Any("headers", params.Headers))
 }
 
 // Helper function updated for new topic names
