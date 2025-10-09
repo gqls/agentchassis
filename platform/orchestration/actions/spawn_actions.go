@@ -380,7 +380,14 @@ func sendMessageWithRetries(ctx context.Context, params ActionParams, topic stri
 func determineSenderType(params ActionParams) string {
 	// Priority order for determining sender type
 
-	// 1. Check ExecutionContext
+	// I am the sender I think, so:
+	// 1.0 Check env vars
+	agentType := os.Getenv("AGENT_TYPE")
+	if agentType != "" {
+		return agentType
+	}
+
+	// 1.1 Check ExecutionContext
 	if params.ExecutionContext.FromAgentType != "" {
 		return params.ExecutionContext.FromAgentType
 	}
@@ -392,7 +399,7 @@ func determineSenderType(params ActionParams) string {
 
 	// 3. Check agent_config in CollectedData
 	if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
-		if agentType, ok := agentConfig["agent_type"].(string); ok && agentType != "" {
+		if agentType, ok = agentConfig["agent_type"].(string); ok && agentType != "" {
 			return agentType
 		}
 	}
