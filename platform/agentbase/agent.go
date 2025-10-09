@@ -627,7 +627,7 @@ func (a *Agent) processResponses() {
 
 			// Only log AFTER we've confirmed it's a real message
 			a.logger.Info("Response consumer received message",
-				zap.Any("message", msg),
+				//zap.Any("message", msg),
 				zap.Int("value_length", len(msg.Value)),
 				zap.String("topic", msg.Topic))
 
@@ -646,7 +646,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 	a.logger.Info("process single message agent.go processMessage",
 		zap.String("messageType", messageType),
-		zap.Any("full message in Agent processMessage 610", msg),
+		//zap.Any("full message in Agent processMessage 610", msg),
 		zap.String("what is this agent (from env)", os.Getenv("AGENT_TYPE")),
 		zap.String("what is this agents REQUESTS_TOPIC (from env)", envRequestsTopic),
 		zap.String("what is this agents RESPONSES_TOPIC (from env)", envResponsesTopic),

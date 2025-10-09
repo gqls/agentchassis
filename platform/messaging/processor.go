@@ -1036,9 +1036,9 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		zap.Strings("call stack for processor ProcessMessage", callstack),
 	)
 
-	p.logger.Info("In processor.go ProcessMessage 1081",
+	/*	p.logger.Info("In processor.go ProcessMessage 1081",
 		zap.Any("incoming message is:", msg),
-	)
+	)*/
 
 	startTime := time.Now()
 	headers := kafka.HeadersToMap(msg.Headers)
