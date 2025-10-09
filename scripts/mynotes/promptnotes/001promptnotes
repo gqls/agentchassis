@@ -45,3 +45,7 @@ lets create a sequence diagram with each function and agent included to determin
 the calculator _should_ commence it's own workflow.
 
 It should have received the parameters from the request (which numbers to add. 12345, 1234) and then should initialize, complete it's own workflow and complete.
+
+consolidate structs and don't introduce new ones until necessary across the code base
+
+

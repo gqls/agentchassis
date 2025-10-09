@@ -32,8 +32,441 @@ import (
 )
 
 // SpawnAgentAction spawns a single agent - supports both K8s Job creation and message sending with hierarchy tracking
-// func SpawnAgentWithEventDrivenKubeAction(ctx context.Context, params ActionParams) (interface{}, error) {
+// Main entry point, now orchestrates smaller functions
 func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	// Log entry
+	logSpawnStart(params)
+
+	// 1. Validate and extract configuration
+	agentType, role, clientID, requestID, sendInitData, err := extractSpawnConfiguration(params)
+	if err != nil {
+		return nil, fmt.Errorf("configuration extraction failed: %w", err)
+	}
+
+	// 2. Generate agent identities - use simple values
+	agentID := uuid.New().String()
+	agentName := GenerateAgentName(agentType, role)
+
+	// 3. Create agent hierarchy tracking
+	subtreeInfo := createSubtreeInfo(agentID, agentName, agentType, params.ExecutionContext.FromAgentID)
+
+	// 4. Get agent definition from database - use existing function
+	agentDef, err := getAgentDefinition(ctx, params.DB, agentType, params.Logger)
+	if err != nil {
+		params.Logger.Error("Failed to get agent definition",
+			zap.String("agent_type", agentType),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to get agent definition: %w", err)
+	}
+
+	// 5. Create agent in database - use existing function
+	if err := createAgentInDBFromDefinition(ctx, params, agentID, agentDef, clientID); err != nil {
+		params.Logger.Error("Failed to create agent in database",
+			zap.String("agent_id", agentID),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to create agent in DB: %w", err)
+	}
+
+	// 6. Setup topic configuration
+	childRequestsTopic, childResponsesTopic, parentResponsesTopic, stableIdentity, err := setupAgentTopics(ctx, params, agentType, agentID)
+	if err != nil {
+		params.Logger.Error("Failed to setup topics",
+			zap.String("agent_id", agentID),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to setup topics: %w", err)
+	}
+
+	// 7. Spawn Kubernetes job - use existing function
+	jobName, err := spawnAgentKubernetesJobFromDefinition(
+		ctx,
+		agentID,
+		agentDef,
+		clientID,
+		childRequestsTopic,
+		childResponsesTopic,
+		parentResponsesTopic,
+		params.Logger,
+	)
+	if err != nil {
+		params.Logger.Error("Failed to spawn K8s job",
+			zap.String("agent_id", agentID),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to spawn K8s job: %w", err)
+	}
+
+	params.Logger.Info("Successfully spawned K8s job",
+		zap.String("job_name", jobName),
+		zap.String("agent_id", agentID))
+
+	// 8. Decide whether to send initialization message
+	if shouldSendInitializationMessage(sendInitData) {
+		// 9. Prepare initialization data
+		initData := prepareInitializationData(params, sendInitData)
+
+		// 10. Build and send initialization message
+		if err := sendInitializationMessage(ctx, params, agentID, agentName, agentType, role,
+			requestID, childRequestsTopic, parentResponsesTopic, initData); err != nil {
+			params.Logger.Error("Failed to send initialization message",
+				zap.String("agent_id", agentID),
+				zap.Error(err))
+			// Don't fail the spawn if message send fails - agent is already created
+		}
+	} else {
+		params.Logger.Info("Skipping initialization message - will be sent by CallAgentAction",
+			zap.String("agent_id", agentID))
+	}
+
+	// 11. Build and return comprehensive result
+	return buildSpawnResult(agentID, agentName, agentType, role, requestID,
+		childRequestsTopic, childResponsesTopic, parentResponsesTopic,
+		stableIdentity, subtreeInfo), nil
+}
+
+// Configuration extraction - using existing structs, no new types
+func extractSpawnConfiguration(params ActionParams) (agentType, role, clientID, requestID string, sendInitData bool, err error) {
+	config := params.StepConfig.Config
+
+	// Extract agent type (required)
+	agentType, ok := config["agent_type"].(string)
+	if !ok || agentType == "" {
+		return "", "", "", "", false, fmt.Errorf("agent_type is required")
+	}
+
+	// Extract role (optional, defaults to step name)
+	role, hasRole := config["role"].(string)
+	if !hasRole || role == "" {
+		role = params.ExecutionContext.StepName
+	}
+
+	// Extract client ID
+	clientID = params.Headers["client_id"]
+	if clientID == "" {
+		params.Logger.Warn("No client_id in headers, using default")
+		clientID = "demo_client"
+	}
+
+	// Extract or generate request ID
+	requestID = params.Headers["request_id"]
+	if requestID == "" {
+		requestID = uuid.New().String()
+		params.Headers["request_id"] = requestID
+	}
+
+	// Check if we should send initialization data
+	sendInitData = false
+	if send, ok := config["send_init_data"].(bool); ok {
+		sendInitData = send
+	}
+
+	return agentType, role, clientID, requestID, sendInitData, nil
+}
+
+// Topic setup - setting up topics for the spawned agent so e.g. parentResponsesTopic should be _this_ agent's RESPONSES_TOPIC
+func setupAgentTopics(ctx context.Context, params ActionParams, agentType string, agentID string) (childRequestsTopic, childResponsesTopic, parentResponsesTopic, stableIdentity string, err error) {
+	// Get parent's response topic
+	parentResponsesTopic = os.Getenv("RESPONSES_TOPIC")
+	if parentResponsesTopic == "" {
+		//setting up topics for the spawned agent so e.g. parentResponsesTopic should be _this_ agent's RESPONSES_TOPIC
+		parentResponsesTopic = params.ExecutionContext.ResponsesTopic
+	}
+
+	// Create stable identity for topics
+	stableIdentity = kafka.CreateStableIdentity(
+		params.ExecutionContext.CorrelationID[:8],
+		params.ExecutionContext.OrchestrationID,
+		agentType,
+		params.CurrentStep,
+	)
+
+	// Generate topic names
+	childRequestsTopic = fmt.Sprintf("job.%s.requests", stableIdentity)
+	childResponsesTopic = fmt.Sprintf("job.%s.responses", stableIdentity)
+
+	params.Logger.Info("Creating child agent topics",
+		zap.String("stable_identity", stableIdentity),
+		zap.String("requests_topic", childRequestsTopic),
+		zap.String("responses_topic", childResponsesTopic),
+		zap.String("parent_responses_topic", parentResponsesTopic))
+
+	// Create topics using TopicManager
+	if err = createTopics(ctx, params.Logger, childRequestsTopic, childResponsesTopic); err != nil {
+		return "", "", "", "", fmt.Errorf("failed to create topics: %w", err)
+	}
+
+	return childRequestsTopic, childResponsesTopic, parentResponsesTopic, stableIdentity, nil
+}
+
+func createTopics(ctx context.Context, logger *zap.Logger, requestsTopic, responsesTopic string) error {
+	kafkaBrokers := getConfiguredKafkaBrokers(logger)
+	topicManager := kafka.NewTopicManager(kafkaBrokers, logger)
+
+	// Create requests topic
+	requestTopicDef := kafka.TopicDefinition{
+		Name:              requestsTopic,
+		Partitions:        2,
+		ReplicationFactor: 1,
+	}
+
+	if err := topicManager.CreateTopic(ctx, requestTopicDef); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("failed to create requests topic: %w", err)
+		}
+	}
+
+	// Wait for requests topic
+	if err := topicManager.WaitForTopic(ctx, requestsTopic, logger); err != nil {
+		logger.Warn("Requests topic not ready after waiting", zap.Error(err))
+	}
+
+	// Create responses topic
+	responseTopicDef := kafka.TopicDefinition{
+		Name:              responsesTopic,
+		Partitions:        2,
+		ReplicationFactor: 1,
+	}
+
+	if err := topicManager.CreateTopic(ctx, responseTopicDef); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("failed to create responses topic: %w", err)
+		}
+	}
+
+	// Wait for responses topic
+	if err := topicManager.WaitForTopic(ctx, responsesTopic, logger); err != nil {
+		logger.Warn("Responses topic not ready after waiting", zap.Error(err))
+	}
+
+	return nil
+}
+
+// Decision functions
+func shouldSendInitializationMessage(sendInitData bool) bool {
+	// By default, don't send init data during spawn
+	// Let CallAgentAction handle sending the actual task
+	return sendInitData
+}
+
+// Data preparation
+func prepareInitializationData(params ActionParams, sendInitData bool) map[string]interface{} {
+	// Start with empty data
+	initData := make(map[string]interface{})
+
+	// Only include data if explicitly configured to do so
+	if sendInitData {
+		// Look for input_data in collected data
+		if inputData, ok := params.CollectedData["input_data"]; ok {
+			initData["input_data"] = inputData
+		}
+
+		// Add any agent-specific configuration
+		if agentConfig, ok := params.CollectedData["agent_config"]; ok {
+			initData["config"] = agentConfig
+		}
+	} else {
+		// Send empty structures to avoid nil issues
+		initData["input_data"] = make(map[string]interface{})
+		initData["config"] = make(map[string]interface{})
+	}
+
+	params.Logger.Info("Prepared initialization data",
+		zap.Bool("send_init_data", sendInitData),
+		zap.Int("data_fields", len(initData)))
+
+	return initData
+}
+
+// Message building and sending
+func sendInitializationMessage(ctx context.Context, params ActionParams, agentID, agentName, agentType, role, requestID, childRequestsTopic, parentResponsesTopic string, initData map[string]interface{}) error {
+	// Determine sender type
+	senderType := determineSenderType(params)
+
+	// Build the initialization message using existing types.RequestMessage
+	message := buildInitializationMessage(params, agentID, agentName, agentType, role, requestID, parentResponsesTopic, senderType, initData)
+
+	// Marshal message
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	// Send with retries
+	return sendMessageWithRetries(ctx, params, childRequestsTopic, message.Headers.ToMap(), requestID, messageBytes)
+}
+
+func buildInitializationMessage(params ActionParams, agentID, agentName, agentType, role, requestID, parentResponsesTopic, senderType string, initData map[string]interface{}) *types.RequestMessage {
+	// Build request body
+	requestBody := map[string]interface{}{
+		"action": "initialize",
+		"role":   role,
+	}
+
+	// Add the initialization data we prepared
+	for key, value := range initData {
+		requestBody[key] = value
+	}
+
+	return &types.RequestMessage{
+		Headers: types.RequestHeaders{
+			Sender: types.AgentIdentity{
+				AgentType: senderType,
+				AgentID:   params.ExecutionContext.FromAgentID,
+				PodName:   params.ExecutionContext.ProcessingNode,
+				Role:      params.ExecutionContext.Sender.Role,
+			},
+			CorrelationID:           params.ExecutionContext.CorrelationID,
+			CorrelationName:         params.ExecutionContext.CorrelationName,
+			ClientID:                params.ExecutionContext.ClientID,
+			OrchestrationID:         agentID,
+			OrchestrationName:       agentName,
+			ParentOrchestrationID:   params.ExecutionContext.OrchestrationID,
+			ParentOrchestrationName: params.ExecutionContext.OrchestrationName,
+			ParentRequestID:         params.ExecutionContext.RequestID,
+			StepID:                  params.ExecutionContext.StepID,
+			StepName:                "spawn_agent",
+			RequestID:               requestID,
+			RetryVersion:            0,
+			FunctionalRole:          role,
+			MessageID:               uuid.New().String(),
+			MessageType:             "request",
+			ToAgent:                 agentID,
+			ToAgentType:             agentType,
+			Action:                  "initialize",
+			Timestamp:               time.Now(),
+			FuelBudget:              params.ExecutionContext.FuelBudget - 100,
+			TimeoutSeconds:          30,
+			ResponsesTopic:          parentResponsesTopic,
+			RequestsTopic:           "", // Child will set from environment
+		},
+		Body: requestBody,
+	}
+}
+
+func sendMessageWithRetries(ctx context.Context, params ActionParams, topic string, headers map[string]string, requestID string, messageBytes []byte) error {
+	const maxRetries = 3
+	const retryDelay = 5 * time.Second
+
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		err := params.Producer.ProduceWithValidation(
+			ctx,
+			topic,
+			headers,
+			[]byte(requestID),
+			messageBytes,
+		)
+
+		if err == nil {
+			params.Logger.Info("Message sent successfully",
+				zap.String("topic", topic),
+				zap.String("request_id", requestID))
+			return nil
+		}
+
+		lastErr = err
+		params.Logger.Warn("Failed to send message, retrying",
+			zap.Int("attempt", i+1),
+			zap.Int("max_attempts", maxRetries),
+			zap.Error(err))
+
+		if i < maxRetries-1 {
+			time.Sleep(retryDelay)
+		}
+	}
+
+	return fmt.Errorf("failed after %d attempts: %w", maxRetries, lastErr)
+}
+
+// Helper functions
+func determineSenderType(params ActionParams) string {
+	// Priority order for determining sender type
+
+	// 1. Check ExecutionContext
+	if params.ExecutionContext.FromAgentType != "" {
+		return params.ExecutionContext.FromAgentType
+	}
+
+	// 2. Check Sender in ExecutionContext
+	if params.ExecutionContext.Sender.AgentType != "" {
+		return params.ExecutionContext.Sender.AgentType
+	}
+
+	// 3. Check agent_config in CollectedData
+	if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
+		if agentType, ok := agentConfig["agent_type"].(string); ok && agentType != "" {
+			return agentType
+		}
+	}
+
+	// 4. Default
+	return "orchestrator"
+}
+
+func createSubtreeInfo(agentID, agentName, agentType, parentAgentID string) *types.SubtreeInfo {
+	return &types.SubtreeInfo{
+		AgentID:       agentID,
+		AgentType:     agentType,
+		AgentName:     agentName,
+		ParentAgentID: parentAgentID,
+		Children:      make(map[string]*types.SubtreeInfo),
+		CreatedAt:     time.Now(),
+		LastActiveAt:  time.Now(),
+		Performance: &types.PerformanceMetrics{
+			TasksCompleted:   0,
+			TasksFailed:      0,
+			AverageLatencyMs: 0,
+			FuelConsumed:     0,
+			LastUpdated:      time.Now(),
+		},
+	}
+}
+
+func buildSpawnResult(agentID, agentName, agentType, role, requestID,
+	childRequestsTopic, childResponsesTopic, parentResponsesTopic,
+	stableIdentity string, subtree *types.SubtreeInfo) map[string]interface{} {
+	return map[string]interface{}{
+		"agent_id":          agentID,
+		"agent_name":        agentName,
+		"agent_type":        agentType,
+		"status":            "initialized",
+		"role":              role,
+		"request_id":        requestID,
+		"await_response":    false, // Don't wait during spawn
+		"target_agent_type": agentType,
+		"subtree_info":      subtree,
+
+		// Topic information
+		"requests_topic":         childRequestsTopic,
+		"responses_topic":        parentResponsesTopic,
+		"parent_responses_topic": parentResponsesTopic,
+
+		// For backward compatibility
+		"stable_identity": stableIdentity,
+		"topic_sent_to":   childRequestsTopic,
+
+		// Nested result for consistency
+		"result": map[string]interface{}{
+			"agent_id":   agentID,
+			"agent_type": agentType,
+			"role":       role,
+			"topics": map[string]string{
+				"requests":         childRequestsTopic,
+				"responses":        parentResponsesTopic,
+				"parent_responses": parentResponsesTopic,
+			},
+		},
+	}
+}
+
+func logSpawnStart(params ActionParams) {
+	current, caller := getFuncInfo(1)
+	params.Logger.Info("SpawnAgentAction starting",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.Any("config", params.StepConfig),
+		zap.Any("headers", params.Headers))
+}
+
+func SpawnAgentActionOld2(ctx context.Context, params ActionParams) (interface{}, error) {
 	/*params.Logger.Info("SpawnAgentAction starting",
 	zap.Any("config", params.StepConfig),
 	zap.Any("params.Headers look for client_id", params.Headers))*/
