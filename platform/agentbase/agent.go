@@ -384,7 +384,7 @@ func (a *Agent) setupConsumers() error {
 	// Get consumer group from environment
 	consumerGroup := os.Getenv("KAFKA_CONSUMER_GROUP")
 	if consumerGroup == "" {
-		consumerGroup = fmt.Sprintf("%s-consumers", a.AgentType)
+		consumerGroup = fmt.Sprintf("%s-consumers-%s", a.AgentType, a.AgentID[0:8])
 	}
 
 	// Use the consumer group from environment
