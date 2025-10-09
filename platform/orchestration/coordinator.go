@@ -679,225 +679,412 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 	return fmt.Errorf("unknown action: %s", step.Action)
 }
 
-// executeLocalAction executes a local action, handles subtree info from both spawn actions
+// executeLocalAction - Main entry point, orchestrates local action execution
 func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *OrchestrationState, step models.Step, execCtx *types.ExecutionContext) error {
-	// Update execution context for this step
-	execCtx.StepID = uuid.New().String()
-	execCtx.StepName = state.CurrentStep // Use the actual step name, not the action
-	execCtx.Action = step.Action
-	fromAgentType := os.Getenv("AGENT_TYPE")
-	parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+	// 1. Prepare execution context for this step
+	prepareExecutionContext(execCtx, state, step, s.podName)
 
-	execCtx.ReplyToTopic = parentResponsesTopic
-
-	s.logger.Info("Environment variable AGENT_TYPE in executeLocalAction",
-		zap.String("AGENT_TYPE from environment", fromAgentType),
-		zap.String("AGENT_TYPE from state", state.OwnerAgentType),
-		zap.String("REQUESTS_TOPIC from environment", os.Getenv("REQUESTS_TOPIC")),
-		zap.String("RESPONSES_TOPIC from environment", os.Getenv("RESPONSES_TOPIC")),
-		zap.String("respond to PARENT_RESPONSES_TOPIC", os.Getenv("PARENT_RESPONSES_TOPIC")),
-	)
-
-	contextLogger := s.logger.With(
-		zap.String("orchestration_id", execCtx.OrchestrationID),
-		zap.String("step_name", state.CurrentStep),
-		zap.String("action", step.Action))
+	// 2. Create contextual logger
+	contextLogger := createActionLogger(s.logger, execCtx, state.CurrentStep, step.Action)
 
 	contextLogger.Info("Executing local action",
-		zap.String("step", state.CurrentStep),
 		zap.Any("config", step.Config))
 
-	// Add retry tracking for spawn actions
-	if step.Action == "spawn_agent" {
-		// Check if we've already tried this spawn too many times
-		retryKey := fmt.Sprintf("spawn_retry_%s_%s", state.OrchestrationID, step.Name)
-		retryCount := s.getRetryCount(retryKey)
-
-		if retryCount >= 3 {
-			s.logger.Error("Spawn action exceeded max retries, marking as failed",
-				zap.String("step_name", state.CurrentStep),
-				zap.Int("retry_count", retryCount))
-			return fmt.Errorf("spawn action failed after %d retries", retryCount)
-		}
-
-		// Increment retry count
-		s.incrementRetryCount(retryKey)
+	// 3. Handle retry logic for spawn actions
+	if shouldRetry := s.handleSpawnRetry(state, step, contextLogger); !shouldRetry {
+		return fmt.Errorf("spawn action failed after max retries")
 	}
 
-	// Pre-generate request ID for actions that need responses
-	needsResponse := step.Action == "call_agent" || step.Action == "start_orchestration" ||
-		step.Action == "spawn_group" || step.Action == "spawn_agent"
+	// 4. Prepare request ID if action needs response
+	requestID := prepareRequestID(execCtx, step.Action)
 
-	if needsResponse {
-		// Only generate new request ID if we don't already have one
-		if execCtx.RequestID == "" {
-			execCtx.RequestID = uuid.New().String()
-			contextLogger.Info("Generated new request ID",
-				zap.String("request_id", execCtx.RequestID))
-		} else {
-			contextLogger.Info("Using existing request ID for retry",
-				zap.String("request_id", execCtx.RequestID))
-		}
+	// 5. Get and validate action handler
+	handler, err := getActionHandler(step.Action)
+	if err != nil {
+		return err
 	}
 
-	// Get action handler from global registry
-	handler, exists := actions.GetAction(step.Action)
-	if !exists {
-		return fmt.Errorf("unknown action: %s, not found in registry", step.Action)
+	// 6. Build action parameters
+	params := buildActionParams(ctx, execCtx, state, step, s, contextLogger, requestID)
+
+	// 7. Execute the action
+	result, err := executeAction(ctx, handler, params, contextLogger)
+	if err != nil {
+		return handleActionError(err, step, contextLogger)
 	}
 
-	// Ensure ExecutionContext has Sender before creating params
+	// 8. Process action result
+	if err := processActionResult(state, result, step, execCtx, s, contextLogger); err != nil {
+		return err
+	}
+
+	// 9. Record processing history
+	recordActionExecution(state, execCtx, step, s.podName)
+
+	// 10. Save state if needed - pass the logger
+	return saveStateIfNeeded(ctx, state, s.db, s.logger)
+}
+
+// Prepare the execution context for this step
+func prepareExecutionContext(execCtx *types.ExecutionContext, state *OrchestrationState, step models.Step, podName string) {
+	// Generate step ID if not present
+	if execCtx.StepID == "" {
+		execCtx.StepID = uuid.New().String()
+	}
+
+	// Set step information
+	execCtx.StepName = state.CurrentStep
+	execCtx.Action = step.Action
+
+	// Set reply-to topic from environment
+	if parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC"); parentResponsesTopic != "" {
+		execCtx.ReplyToTopic = parentResponsesTopic
+	}
+
+	// Ensure sender is populated
 	if execCtx.Sender.AgentType == "" {
 		execCtx.Sender = types.AgentIdentity{
 			AgentType:    state.OwnerAgentType,
 			AgentID:      state.OwnerAgentID,
-			PodName:      s.podName,
+			PodName:      podName,
 			AgentVersion: os.Getenv("AGENT_VERSION"),
 			Role:         state.OwnerAgentRole,
 		}
 	}
 
-	// Ensure this is a request, not a response
+	// Ensure this is marked as a request
 	execCtx.MessageType = "request"
 
 	// Clear any response-specific fields
 	execCtx.InResponseTo = nil
 	execCtx.Status = ""
 	execCtx.IsComplete = false
+}
 
-	// Prepare action params
-	params := actions.ActionParams{
+// Create a contextual logger for the action
+func createActionLogger(baseLogger *zap.Logger, execCtx *types.ExecutionContext, stepName, action string) *zap.Logger {
+	return baseLogger.With(
+		zap.String("orchestration_id", execCtx.OrchestrationID),
+		zap.String("step_name", stepName),
+		zap.String("action", action),
+		zap.String("step_id", execCtx.StepID))
+}
+
+// Handle retry logic for spawn actions
+func (s *SagaCoordinator) handleSpawnRetry(state *OrchestrationState, step models.Step, logger *zap.Logger) bool {
+	if step.Action != "spawn_agent" {
+		return true // Not a spawn action, continue
+	}
+
+	retryKey := fmt.Sprintf("spawn_retry_%s_%s", state.OrchestrationID, step.Name)
+	retryCount := s.getRetryCount(retryKey)
+
+	if retryCount >= 3 {
+		logger.Error("Spawn action exceeded max retries",
+			zap.String("step_name", state.CurrentStep),
+			zap.Int("retry_count", retryCount))
+		return false
+	}
+
+	s.incrementRetryCount(retryKey)
+	return true
+}
+
+// Prepare request ID for actions that need responses
+func prepareRequestID(execCtx *types.ExecutionContext, action string) string {
+	// List of actions that need to track responses
+	needsResponse := map[string]bool{
+		"call_agent":          true,
+		"spawn_agent":         true,
+		"spawn_group":         true,
+		"start_orchestration": true,
+	}
+
+	if !needsResponse[action] {
+		return ""
+	}
+
+	// Generate or use existing request ID
+	if execCtx.RequestID == "" {
+		execCtx.RequestID = uuid.New().String()
+	}
+
+	return execCtx.RequestID
+}
+
+// Get and validate action handler
+func getActionHandler(action string) (actions.ActionFunc, error) {
+	handler, exists := actions.GetAction(action)
+	if !exists {
+		return nil, fmt.Errorf("unknown action: %s, not found in registry", action)
+	}
+	return handler, nil
+}
+
+// Build action parameters
+func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, state *OrchestrationState,
+	step models.Step, coordinator *SagaCoordinator, logger *zap.Logger, requestID string) actions.ActionParams {
+
+	return actions.ActionParams{
 		Context:          ctx,
 		ExecutionContext: execCtx,
 		StepConfig:       step,
 		Headers:          execCtx.ToHeaders(),
 		CollectedData:    state.CollectedData,
-		Logger:           contextLogger,
-		Producer:         s.producer,
-		DB:               s.db,
-		Tracer:           s.tracer,
+		Logger:           logger,
+		Producer:         coordinator.producer,
+		DB:               coordinator.db,
+		Tracer:           coordinator.tracer,
 		CurrentStep:      state.CurrentStep,
 	}
+}
 
-	// Execute action
+// Execute the action handler
+func executeAction(ctx context.Context, handler actions.ActionFunc, params actions.ActionParams, logger *zap.Logger) (interface{}, error) {
+	logger.Info("Calling action handler",
+		zap.String("action", params.StepConfig.Action))
+
 	result, err := handler(ctx, params)
 	if err != nil {
-		s.logger.Error("Local action failed in executeLocalAction",
-			zap.String("step_name", step.Name),
-			zap.String("action", step.Action),
-			zap.String("from_agent_type", fromAgentType),
-			zap.Error(err))
-
-		// For spawn failures, check if it's a topic issue
-		if step.Action == "spawn_agent" && strings.Contains(err.Error(), "Unknown Topic") {
-			s.logger.Warn("Spawn failed due to missing topic, will retry with delay.",
-				zap.String("step_name", step.Name))
-
-			// Add a delay before retry to allow topic propagation
-			time.Sleep(3 * time.Second)
-		}
-
-		return fmt.Errorf("failed to execute action %s: %w", step.Action, err)
+		return nil, err
 	}
 
-	// Store result under the current step name
+	logger.Info("Action handler completed",
+		zap.String("action", params.StepConfig.Action))
+
+	return result, nil
+}
+
+// Handle action execution errors
+func handleActionError(err error, step models.Step, logger *zap.Logger) error {
+	logger.Error("Local action failed",
+		zap.String("step_name", step.Name),
+		zap.String("action", step.Action),
+		zap.Error(err))
+
+	// Special handling for spawn failures with topic issues
+	if step.Action == "spawn_agent" && strings.Contains(err.Error(), "Unknown Topic") {
+		logger.Warn("Spawn failed due to missing topic, adding delay for retry")
+		time.Sleep(3 * time.Second)
+	}
+
+	return fmt.Errorf("failed to execute action %s: %w", step.Action, err)
+}
+
+// Process the result from the action
+func processActionResult(state *OrchestrationState, result interface{}, step models.Step,
+	execCtx *types.ExecutionContext, coordinator *SagaCoordinator, logger *zap.Logger) error {
+
+	// Store result in collected data
+	if err := storeActionResult(state, result, logger); err != nil {
+		return err
+	}
+
+	// Process result based on type
+	if resultMap, ok := result.(map[string]interface{}); ok {
+		// Handle subtree information (from spawn actions)
+		processSubtreeInfo(state, resultMap, logger)
+
+		// Check if action requires waiting for response
+		if needsWaiting := processAwaitResponse(state, resultMap, execCtx, step, coordinator, logger); needsWaiting {
+			// State needs to wait for response
+			state.Status = StatusAwaitingResponses
+		}
+	}
+
+	return nil
+}
+
+// Store action result in collected data
+func storeActionResult(state *OrchestrationState, result interface{}, logger *zap.Logger) error {
 	if state.CurrentStep == "" {
-		s.logger.Error("Cannot store result - CurrentStep is empty")
+		logger.Error("Cannot store result - CurrentStep is empty")
 		return fmt.Errorf("current step is empty")
 	}
-	state.CollectedData[state.CurrentStep] = result
 
-	contextLogger.Info("Local action completed",
-		zap.String("stored_under", state.CurrentStep),
-		zap.Any("result_keys", getMapKeys(result)))
-
-	// Handle subtree info if returned (for spawn actions), handle all state modifications in memory
-	needsWaiting := false
-	if resultMap, ok := result.(map[string]interface{}); ok {
-		// Handle subtree info
-		if subtreeInfo, ok := resultMap["subtree_info"].(*types.SubtreeInfo); ok {
-			if state.SubtreeAgents == nil {
-				state.SubtreeAgents = make(map[string]*types.SubtreeInfo)
-			}
-			state.SubtreeAgents[subtreeInfo.AgentID] = subtreeInfo
-
-			contextLogger.Info("Added agent to subtree",
-				zap.String("agent_id", subtreeInfo.AgentID),
-				zap.String("agent_type", subtreeInfo.AgentType))
-		}
-
-		// Check if action requires waiting
-		if awaitResponse, ok := resultMap["await_response"].(bool); ok && awaitResponse {
-			requestID := execCtx.RequestID
-			if resultRequestID, ok := resultMap["request_id"].(string); ok && resultRequestID != "" {
-				requestID = resultRequestID
-			}
-
-			if requestID != "" {
-				// Determine the response topic where this agent expects to receive responses from the result
-				responsesTopic := os.Getenv("RESPONSES_TOPIC")
-				contextLogger.Info("in executeLocalAction while await_response from child agent, listens on own responses topic",
-					zap.String("agent thats awaiting, me, on my response topic", responsesTopic))
-				if responsesTopic == "" {
-					contextLogger.Error("No responses topic available for awaited request",
-						zap.String("request_id", requestID))
-					return fmt.Errorf("no responses topic for awaited request")
-				}
-
-				// Create awaited request entry IN MEMORY
-				awaitedReq := &AwaitedRequest{
-					RequestID:       requestID,
-					StepID:          execCtx.StepID,
-					StepName:        state.CurrentStep, // Use actual step name
-					RetryVersion:    0,
-					TargetAgentType: getTargetAgentType(step, resultMap),
-					TargetAgentID:   s.getTargetAgentID(resultMap),
-					ResponsesTopic:  responsesTopic,
-					SentAt:          time.Now(),
-					TimeoutAt:       time.Now().Add(getTimeout(step)),
-				}
-
-				// Add to state IN MEMORY
-				if state.AwaitedRequests == nil {
-					state.AwaitedRequests = make(map[string]*AwaitedRequest)
-				}
-				state.AwaitedRequests[requestID] = awaitedReq
-				state.Status = StatusAwaitingResponses
-				needsWaiting = true
-
-				contextLogger.Info("Action requires waiting for response",
-					zap.String("request_id", requestID),
-					zap.String("target_agent_type", awaitedReq.TargetAgentType),
-					zap.String("target_agent_id", awaitedReq.TargetAgentID),
-					zap.String("responses_topic", responsesTopic),
-					zap.Int("awaited_count", len(state.AwaitedRequests)))
-
-				// Set up timeout handler
-				go s.handleRequestTimeout(ctx, state.OrchestrationID, requestID, awaitedReq.TimeoutAt)
-			}
-		}
+	if state.CollectedData == nil {
+		state.CollectedData = make(map[string]interface{})
 	}
 
-	// Add processing record IN MEMORY
+	state.CollectedData[state.CurrentStep] = result
+
+	logger.Info("Stored action result",
+		zap.String("step", state.CurrentStep),
+		zap.Any("result_keys", getMapKeys(result)))
+
+	return nil
+}
+
+// Process subtree information from spawn actions
+func processSubtreeInfo(state *OrchestrationState, result map[string]interface{}, logger *zap.Logger) {
+	subtreeInfo, ok := result["subtree_info"].(*types.SubtreeInfo)
+	if !ok {
+		return
+	}
+
+	if state.SubtreeAgents == nil {
+		state.SubtreeAgents = make(map[string]*types.SubtreeInfo)
+	}
+
+	state.SubtreeAgents[subtreeInfo.AgentID] = subtreeInfo
+
+	logger.Info("Added agent to subtree",
+		zap.String("agent_id", subtreeInfo.AgentID),
+		zap.String("agent_type", subtreeInfo.AgentType),
+		zap.String("agent_name", subtreeInfo.AgentName))
+}
+
+// Process await_response flag and setup waiting if needed
+func processAwaitResponse(state *OrchestrationState, result map[string]interface{},
+	execCtx *types.ExecutionContext, step models.Step, coordinator *SagaCoordinator, logger *zap.Logger) bool {
+
+	// Check if action requires waiting
+	awaitResponse, ok := result["await_response"].(bool)
+	if !ok || !awaitResponse {
+		return false
+	}
+
+	// Extract request ID
+	requestID := extractRequestID(result, execCtx)
+	if requestID == "" {
+		logger.Error("No request ID for awaited response")
+		return false
+	}
+
+	// Determine response topic
+	responsesTopic := determineResponsesTopic(result, execCtx, logger)
+	if responsesTopic == "" {
+		logger.Error("No responses topic available for awaited request",
+			zap.String("request_id", requestID))
+		return false
+	}
+
+	// Create awaited request entry
+	awaitedReq := createAwaitedRequest(requestID, execCtx, state, step, result, responsesTopic)
+
+	// Add to state
+	if state.AwaitedRequests == nil {
+		state.AwaitedRequests = make(map[string]*AwaitedRequest)
+	}
+	state.AwaitedRequests[requestID] = awaitedReq
+
+	logger.Info("Action requires waiting for response",
+		zap.String("request_id", requestID),
+		zap.String("target_agent_type", awaitedReq.TargetAgentType),
+		zap.String("target_agent_id", awaitedReq.TargetAgentID),
+		zap.String("responses_topic", responsesTopic),
+		zap.Int("total_awaited", len(state.AwaitedRequests)))
+
+	// Setup timeout handler
+	go coordinator.handleRequestTimeout(context.Background(), state.OrchestrationID, requestID, awaitedReq.TimeoutAt)
+
+	return true
+}
+
+// Extract request ID from result or context
+func extractRequestID(result map[string]interface{}, execCtx *types.ExecutionContext) string {
+	// Try to get from result first
+	if reqID, ok := result["request_id"].(string); ok && reqID != "" {
+		return reqID
+	}
+	// Fall back to execution context
+	return execCtx.RequestID
+}
+
+// Determine the responses topic for waiting
+func determineResponsesTopic(result map[string]interface{}, execCtx *types.ExecutionContext, logger *zap.Logger) string {
+	// Priority order:
+	// 1. Environment variable (most reliable)
+	if topic := os.Getenv("RESPONSES_TOPIC"); topic != "" {
+		logger.Info("Using RESPONSES_TOPIC from environment",
+			zap.String("topic", topic))
+		return topic
+	}
+
+	// 2. Result from action
+	if topic, ok := result["responses_topic"].(string); ok && topic != "" {
+		logger.Info("Using responses_topic from action result",
+			zap.String("topic", topic))
+		return topic
+	}
+
+	// 3. Execution context
+	if execCtx.ResponsesTopic != "" {
+		logger.Info("Using ResponsesTopic from execution context",
+			zap.String("topic", execCtx.ResponsesTopic))
+		return execCtx.ResponsesTopic
+	}
+
+	return ""
+}
+
+// Create an awaited request entry
+func createAwaitedRequest(requestID string, execCtx *types.ExecutionContext, state *OrchestrationState,
+	step models.Step, result map[string]interface{}, responsesTopic string) *AwaitedRequest {
+
+	return &AwaitedRequest{
+		RequestID:       requestID,
+		StepID:          execCtx.StepID,
+		StepName:        state.CurrentStep,
+		RetryVersion:    0,
+		TargetAgentType: extractTargetAgentType(step, result),
+		TargetAgentID:   extractTargetAgentID(result),
+		ResponsesTopic:  responsesTopic,
+		SentAt:          time.Now(),
+		TimeoutAt:       time.Now().Add(getTimeout(step)),
+	}
+}
+
+// Extract target agent type from step or result
+func extractTargetAgentType(step models.Step, result map[string]interface{}) string {
+	// Try result first
+	if agentType, ok := result["target_agent_type"].(string); ok && agentType != "" {
+		return agentType
+	}
+	// Try step config
+	if agentType, ok := step.Config["agent_type"].(string); ok && agentType != "" {
+		return agentType
+	}
+	return "unknown"
+}
+
+// Extract target agent ID from result
+func extractTargetAgentID(result map[string]interface{}) string {
+	// Try multiple possible keys
+	keys := []string{"agent_id", "target_agent_id", "agent_called"}
+	for _, key := range keys {
+		if id, ok := result[key].(string); ok && id != "" {
+			return id
+		}
+	}
+	return ""
+}
+
+// Record the action execution in processing history
+func recordActionExecution(state *OrchestrationState, execCtx *types.ExecutionContext, step models.Step, podName string) {
 	state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{
-		PodName:   s.podName,
+		PodName:   podName,
 		StepID:    execCtx.StepID,
 		StepName:  state.CurrentStep,
 		Action:    "executed",
 		Timestamp: time.Now(),
-		Details:   fmt.Sprintf("Action %s executed by %s", step.Action, s.podName),
+		Details:   fmt.Sprintf("Action %s executed by %s", step.Action, podName),
 	})
+}
 
-	// If we need to wait, save state NOW before returning
-	if needsWaiting {
-		repo := NewStateRepository(s.db, s.logger)
-		if err := repo.UpdateState(ctx, state); err != nil {
-			return fmt.Errorf("failed to save state before waiting: %w", err)
-		}
-		contextLogger.Info("State saved with awaited request")
+// Save state if it needs to be persisted (e.g., waiting for responses)
+func saveStateIfNeeded(ctx context.Context, state *OrchestrationState, db *sql.DB, logger *zap.Logger) error {
+	if state.Status != StatusAwaitingResponses {
+		// State will be saved by continueExecution
+		return nil
 	}
 
-	// NO DATABASE SAVE HERE - let continueExecution handle it
+	// We're waiting for responses, need to save now
+	repo := NewStateRepository(db, logger)
+	if err := repo.UpdateState(ctx, state); err != nil {
+		return fmt.Errorf("failed to save state before waiting: %w", err)
+	}
+
 	return nil
 }
 
