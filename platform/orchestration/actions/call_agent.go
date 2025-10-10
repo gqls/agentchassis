@@ -22,7 +22,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	// 1. Extract and validate configuration
 	targetAgentType, targetRole, err := extractCallConfiguration(params)
 	if err != nil {
-		return nil, fmt.Errorf("configuration extraction failed: %w", err)
+		return nil, fmt.Errorf("configuration extraction failed in call agent: %w", err)
 	}
 
 	// 2. Find the target agent from spawn results
@@ -190,7 +190,7 @@ func extractDataForAgent(params ActionParams) interface{} {
 		zap.String("requested_field", inputField),
 		zap.Any("available_keys", getMapKeys(params.CollectedData)),
 		zap.Any("DEBUGaa: params.CollectedData for passing to the new agent in CallAgentAction 192", params.CollectedData),
-		)
+	)
 
 	// Define search paths from most to least specific
 	searchPaths := [][]string{

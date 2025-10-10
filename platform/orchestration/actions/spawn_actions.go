@@ -40,7 +40,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	// 1. Validate and extract configuration
 	agentType, role, clientID, requestID, _, err := extractSpawnConfiguration(params)
 	if err != nil {
-		return nil, fmt.Errorf("configuration extraction failed: %w", err)
+		return nil, fmt.Errorf("configuration extraction failed in spawn actions: %w", err)
 	}
 
 	// 2. Generate agent identities - use simple values

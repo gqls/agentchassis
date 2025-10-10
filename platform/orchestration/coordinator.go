@@ -862,7 +862,7 @@ func executeAction(ctx context.Context, handler actions.ActionFunc, params actio
 
 // Handle action execution errors
 func handleActionError(err error, step models.Step, logger *zap.Logger) error {
-	logger.Error("Local action failed",
+	logger.Error("Local action failed in handleActionError",
 		zap.String("step_name", step.Name),
 		zap.String("action", step.Action),
 		zap.Error(err))
