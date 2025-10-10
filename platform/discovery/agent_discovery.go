@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
+	"go.uber.org/zap"
 )
 
 // Requirements defines what capabilities and constraints an agent must meet
@@ -117,13 +119,18 @@ func (d *AgentDiscovery) DiscoverAgents(ctx context.Context, requirements Requir
 
 // FindBestGroup finds the most suitable group for a task type
 // Now supports optional version specification
-func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, version string) (*AgentGroup, error) {
+func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, version string, logger zap.Logger) (*AgentGroup, error) {
 	var group AgentGroup
 	var lastPerf sql.NullFloat64
 	var capabilities []byte
 
 	var query string
 	var args []interface{}
+
+	logger.Info("In FindBestGroup ",
+		zap.String("task_type", taskType),
+		zap.String("version", version),
+	)
 
 	if version != "" {
 		query = `
@@ -158,6 +165,11 @@ func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, ver
 		&capabilities, &group.UsageCount, &group.Version,
 		&lastPerf)
 
+	logger.Info("DEBUGaa: In FindBestGroup after database query",
+		zap.String("task_type", taskType),
+		zap.String("version", version),
+	)
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("no group found for task type: %s", taskType)
@@ -171,6 +183,10 @@ func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, ver
 		group.Capabilities = []string{}
 	}
 
+	logger.Info("DEBUGaa: In FindBestGroup end",
+		zap.Any("group including Capabilities", group),
+	)
+
 	group.LastPerformance = lastPerf.Float64
 	return &group, nil
 }
@@ -181,7 +197,7 @@ func (d *GroupDiscovery) FindBestGroupOLD(ctx context.Context, taskType string, 
 	var lastPerf sql.NullFloat64
 	var capabilities []byte
 
-	err := d.db.QueryRow(ctx, `
+	err := d.db.QueryRowContext(ctx, `
         SELECT id, name, group_type, agent_configs, orchestration_workflow,
                capabilities, usage_count, version,
                COALESCE((performance_metrics->>'success_rate')::float, 0.5)
@@ -235,7 +251,7 @@ func (d *GroupDiscovery) DiscoverGroups(ctx context.Context, taskType string, ca
         LIMIT 10
     `
 
-	rows, err := d.db.Query(ctx, query, taskType, capabilitiesJSON)
+	rows, err := d.db.QueryContext(ctx, query, taskType, capabilitiesJSON)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover groups: %w", err)
 	}
@@ -279,7 +295,7 @@ func (d *AgentDiscovery) DiscoverAgentsByCapability(ctx context.Context, clientI
 
 // UpdateGroupPerformance updates the performance metrics for a group
 func (d *GroupDiscovery) UpdateGroupPerformance(ctx context.Context, groupID string, successRate float64) error {
-	_, err := d.db.Exec(ctx, `
+	_, err := d.db.ExecContext(ctx, `
         UPDATE agent_groups 
         SET performance_metrics = jsonb_set(
             COALESCE(performance_metrics, '{}'::jsonb),
@@ -315,7 +331,7 @@ func (d *GroupDiscovery) GetGroupHistory(ctx context.Context, groupID string) ([
         ORDER BY created_at ASC
     `
 
-	rows, err := d.db.Query(ctx, query, groupID)
+	rows, err := d.db.QueryContext(ctx, query, groupID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get group history: %w", err)
 	}

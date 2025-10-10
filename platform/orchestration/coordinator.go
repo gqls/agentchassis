@@ -511,7 +511,7 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 
 	s.logger.Info("Handling orchestration status handleOrchestrationStatus coordinator.go 512",
 		zap.String("orchestration_id", state.OrchestrationID),
-		zap.Any("DEBUGaa: state.Status", state.Status),
+		zap.Any("state.Status", state.Status),
 		zap.Any("state.CurrentlyExecuting", state.CurrentlyExecuting),
 		zap.Any("state.CurrentStep", state.CurrentStep),
 		zap.Any("call stack handleOrchestrationStatue", callstack),
@@ -522,7 +522,7 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 	switch state.Status {
 	case StatusInitialized:
 		// New orchestration, start execution
-		s.logger.Info("DEBUGaa: Status Initialized Starting new orchestration execution in handleOrchestrationStatus",
+		s.logger.Info("Status Initialized Starting new orchestration execution in handleOrchestrationStatus",
 			zap.String("about to execute step", state.CurrentStep))
 
 		if err := repo.SetExecutingStep(ctx, state.OrchestrationID, state.CurrentStep); err != nil {
@@ -538,7 +538,7 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 		return s.continueExecution(ctx, state, execCtx)
 
 	case StatusExecutingStep:
-		s.logger.Info("DEBUGaa: Status Executing Step in handleOrchestrationStatus")
+		s.logger.Info("Status Executing Step in handleOrchestrationStatus")
 		// Check if stuck
 		if state.CurrentlyExecuting != nil && time.Since(state.LastActivity) > StuckOrchestrationTimeout {
 			s.logger.Warn("Found stuck orchestration, taking over",
@@ -617,7 +617,7 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		state = reloadedState
 
 		l = s.logger.With(
-			zap.Any("DEBUGAA: state loaded from repo - in continueExecution", state),
+			zap.Any("state loaded from repo - in continueExecution", state),
 			zap.String("current_step", state.CurrentStep),
 			zap.Any("state.Status", state.Status),
 			zap.Any("currentStepConfig", state.WorkflowPlan.Steps[state.CurrentStep]),

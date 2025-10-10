@@ -413,7 +413,7 @@ func (a *Agent) setupConsumers() error {
 
 	a.logger.Info("Setting up responseConsumer with:",
 		zap.String("responses topic", responsesTopic),
-		zap.String("groupID", a.AgentID),
+		zap.String("groupID", a.AgentID[0:8]),
 	)
 
 	// Simple consumer group

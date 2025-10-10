@@ -887,8 +887,12 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 						zap.Bool("using_db", db != nil),
 						zap.Bool("using_sqlDB", p.sqlDB != nil))
 
-					discovery := discovery.NewGroupDiscovery(db)
-					group, err := discovery.FindBestGroup(ctx, groupType, version)
+					discovered := discovery.NewGroupDiscovery(db)
+					group, err := discovered.FindBestGroup(ctx, groupType, version, *p.logger)
+
+					p.logger.Info("DEBUGaa: Discovery and Group after finding FindBestGroup - didnt find it basically",
+						zap.Any("discovery", discovered),
+						zap.Any("group:", group))
 
 					if err == nil && group != nil {
 						var workflowConfig map[string]interface{}
@@ -1194,7 +1198,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 	contextLogger := p.logger.With(execCtx.LogContext()...)
 	contextLogger.Info("In processor.go 1072 ProcessMessage",
-		zap.Bool("DEBUGaa: is p.sqlDB exists or is it different driver:", p.sqlDB != nil),
+		zap.Bool("is p.sqlDB exists (or is it different driver):", p.sqlDB != nil),
 	)
 
 	if p.sqlDB != nil {

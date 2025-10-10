@@ -17,6 +17,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// this is no good - needs work
+
 // PlanAgentTeamAction - Used at the start of a workflow to plan the team
 func PlanAgentTeamAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
@@ -25,7 +27,7 @@ func PlanAgentTeamAction(ctx context.Context, params ActionParams) (interface{},
 
 	// First, try to find an existing group that matches
 	groupDiscovery := NewGroupDiscovery(params.DB)
-	existingGroup, err := groupDiscovery.FindBestGroup(ctx, taskType, requirements)
+	existingGroup, err := groupDiscovery.FindBestGroupOLD(ctx, taskType, requirements)
 
 	if err == nil && existingGroup != nil {
 		// Found a good group, but check if it needs improvement
@@ -692,18 +694,6 @@ func incrementVersion(currentVersion string) string {
 func NewGroupDiscovery(db interface{}) *discovery.GroupDiscovery {
 	switch d := db.(type) {
 	case *sql.DB:
-		// Create a pgxpool from sql.DB
-		connStr := "postgres://user:pass@localhost/db" // This needs proper config
-		config, err := pgxpool.ParseConfig(connStr)
-		if err != nil {
-			return nil
-		}
-		pool, err := pgxpool.NewWithConfig(context.Background(), config)
-		if err != nil {
-			return nil
-		}
-		return discovery.NewGroupDiscovery(pool)
-	case *pgxpool.Pool:
 		return discovery.NewGroupDiscovery(d)
 	default:
 		return nil
