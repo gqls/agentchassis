@@ -121,6 +121,73 @@ func (d *AgentDiscovery) DiscoverAgents(ctx context.Context, requirements Requir
 // Now supports optional version specification
 func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, version string, logger zap.Logger) (*AgentGroup, error) {
 	var group AgentGroup
+
+	var query string
+	var args []interface{}
+
+	logger.Info("In FindBestGroup ",
+		zap.String("task_type", taskType),
+		zap.String("version", version),
+	)
+
+	if version != "" {
+		query = `
+            SELECT id, name, group_type, agent_configs, orchestration_workflow,
+                   usage_count, version
+            FROM agent_group_definitions
+            WHERE group_type = $1
+            AND version >= $2
+            ORDER BY 
+                version DESC,
+                usage_count DESC
+            LIMIT 1
+        `
+		args = []interface{}{taskType, version}
+	} else {
+		query = `
+            SELECT id, name, group_type, agent_configs, orchestration_workflow,
+                   usage_count, version
+            FROM agent_group_definitions
+            WHERE group_type = $1
+            ORDER BY 
+                usage_count DESC, 
+                version DESC
+            LIMIT 1
+        `
+		args = []interface{}{taskType}
+	}
+
+	// Match the SELECT with exactly what we're scanning
+	err := d.db.QueryRowContext(ctx, query, args...).Scan(
+		&group.ID,
+		&group.Name,
+		&group.GroupType,
+		&group.AgentConfigs,
+		&group.Workflow,
+		&group.UsageCount,
+		&group.Version)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("no group found for task type: %s", taskType)
+		}
+		return nil, fmt.Errorf("failed to find group: %w", err)
+	}
+
+	// Set default values for fields not in the table
+	group.Capabilities = []string{} // No capabilities column in this table
+	group.LastPerformance = 0.0     // No performance metrics in this table
+
+	logger.Info("DEBUGaa: In FindBestGroup after database query",
+		zap.String("task_type", taskType),
+		zap.String("version", version),
+	)
+
+	return &group, nil
+}
+
+func (d *GroupDiscovery) FindBestGroupNO(ctx context.Context, taskType string, version string, logger zap.Logger) (*AgentGroup, error) {
+	var group AgentGroup
 	var lastPerf sql.NullFloat64
 	var capabilities []byte
 
