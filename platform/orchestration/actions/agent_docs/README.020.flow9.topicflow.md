@@ -81,7 +81,7 @@ participant DB as Database
     Orchestrator->>Kafka: Send final response to Client's response topic
     Note right of Orchestrator: Legacy: system.agent.client.responses
 
-![topicflow.png](topicflow.png)
+![topicflow.png](../topicflow.png)
 
 Key Topic Patterns and Issues
 1. Topic Creation Points

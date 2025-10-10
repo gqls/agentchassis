@@ -6,8 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Requirements defines what capabilities and constraints an agent must meet
@@ -91,7 +89,7 @@ func (d *AgentDiscovery) DiscoverAgents(ctx context.Context, requirements Requir
         LIMIT 10
     `, schemaName)
 
-	rows, err := d.db.Query(ctx, query, requirements.Capabilities, requirements.AgentType)
+	rows, err := d.db.Query(query, requirements.Capabilities, requirements.AgentType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover agents: %w", err)
 	}

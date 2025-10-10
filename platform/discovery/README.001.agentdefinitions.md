@@ -115,3 +115,32 @@ gen_random_uuid(),
 }'::jsonb,
 0
 );
+
+--
+
+Test Message Examples:
+
+// Use latest/best version:
+{
+"action": "orchestrate",
+"config": {
+"group_type": "welcome-message-generator"
+},
+"input_data": {
+"business_type": "pizza restaurant",
+"business_name": "Test Pizza"
+}
+}
+
+// Use specific version or newer:
+{
+"action": "orchestrate",
+"config": {
+"group_type": "welcome-message-generator",
+"group_version": "1.0.0"
+},
+"input_data": {
+"business_type": "pizza restaurant",
+"business_name": "Test Pizza"
+}
+}

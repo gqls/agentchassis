@@ -223,7 +223,9 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 
 	msgCtx.Logger.Info("Agent definition loaded",
 		zap.String("display_name", agentDef.DisplayName),
-		zap.String("category", agentDef.Category))
+		zap.String("category", agentDef.Category),
+		zap.Any("DEBUGaa: about to select Workflow", agentDef),
+	)
 
 	// Select the appropriate workflow based on context - KEEP AS IS
 	workflow, err := p.selectWorkflow(ctx, agentDef, msgCtx)
@@ -841,7 +843,7 @@ func (p *MessageProcessor) getAgentTypeAndIDFromHeaders(headers map[string]strin
 }
 
 func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions.AgentDefinition, msgCtx *MessageContext) (models.WorkflowPlan, error) {
-	p.logger.Info("DEBUG: selectWorkflow entry",
+	p.logger.Info("DEBUGaa: selectWorkflow entry",
 		zap.Any("default_config_keys", agentDef.DefaultConfig),
 		zap.Any("workflow_exists", agentDef.DefaultConfig["workflow"] != nil),
 		zap.Any("orchestration_workflow_exists", agentDef.DefaultConfig["orchestration_workflow"] != nil),
@@ -880,6 +882,11 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 				}
 
 				if db != nil {
+
+					p.logger.Info("DEBUGaa: Database connection available",
+						zap.Bool("using_db", db != nil),
+						zap.Bool("using_sqlDB", p.sqlDB != nil))
+
 					discovery := discovery.NewGroupDiscovery(db)
 					group, err := discovery.FindBestGroup(ctx, groupType, version)
 
@@ -911,6 +918,8 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 							zap.String("group_type", groupType),
 							zap.Error(err))
 					}
+				} else {
+					p.logger.Error("No database connection available for group lookup. In selectWorkflow in processor.go")
 				}
 			}
 		}
