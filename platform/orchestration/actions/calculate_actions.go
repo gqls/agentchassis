@@ -13,59 +13,86 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	params.Logger.Info("Entering CalculateAction",
 		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
-		zap.Any("DEBUGaa: in CalculateAction CollectedData", params.CollectedData),
+		zap.String("DEBUGaa: in CalculateAction action", params.ExecutionContext.Action),
+		//zap.Any("DEBUGaa: in CalculateAction CollectedData", params.CollectedData),
 	)
+
+	// Check if this is an initialization call
+	// Method 1: Check ExecutionContext action
+	if params.ExecutionContext.Action == "initialize" {
+		params.Logger.Info("CalculateAction handling initialization")
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	// Method 2: Check for initialization flag in collected data
+	if isInit, ok := params.CollectedData["is_initialization"].(bool); ok && isInit {
+		params.Logger.Info("CalculateAction initialization detected via flag")
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	// Method 3: Check the action from collected data (if passed through)
+	if action, ok := params.CollectedData["action"].(string); ok && action == "initialize" {
+		params.Logger.Info("CalculateAction initialization detected via action field")
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
 
 	// Try multiple paths to find the input data
 	var operation string
 	var operands []interface{}
-	found := false
 
-	// Path 1.0: from where we put it in buildActionParams in executeLocalAction
-	if inputData, ok := params.InputData.(map[string]interface{}); ok {
-		if op, ok := inputData["operation"].(string); ok {
-			if opr, ok := inputData["operands"].([]interface{}); ok {
-				operation, operands, found = op, opr, true
+	// Path 1.0: from where we put it in callagentaction in executeLocalAction
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		if body, ok := inputData["body"].(map[string]interface{}); ok {
+			if data, ok := body["input_data"].(map[string]interface{}); ok {
+				operation, _ = data["operation"].(string)
+				operands, _ = data["operands"].([]interface{})
+
+				params.Logger.Info("Extracted data from Path 1 (simplified)",
+					zap.String("operation", operation),
+					zap.Any("operands", operands))
 			}
 		}
 	}
 
 	// Path 1.1: This logic now correctly targets the message from "CallAgentAction"
-	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-		if op, ok := inputData["operation"].(string); ok {
-			if opr, ok := inputData["operands"].([]interface{}); ok {
-				operation, operands, found = op, opr, true
+	if operation == "" {
+		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+			if op, ok := inputData["operation"].(string); ok {
+				if opr, ok := inputData["operands"].([]interface{}); ok {
+					operation = op
+					operands = opr
+
+					params.Logger.Info("Extracted calculation data direct from input_data[operation] etc",
+						zap.String("operation", operation),
+						zap.Any("operands", operands))
+				}
 			}
 		}
 	}
 
-	// This handles the "initialize" message from "SpawnAgentAction"
-	if !found {
-		params.Logger.Info("CalculateAction called without data. Completing initialization.")
-		return map[string]interface{}{"status": "initialized"}, nil
-	}
-
 	// Path 1.2: Direct path - after our response simplification
 	// Check input_data.data (most direct path after fixes)
-	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-		if data, ok := inputData["data"].(map[string]interface{}); ok {
-			operation, _ = data["operation"].(string)
-			operands, _ = data["operands"].([]interface{})
+	if operation == "" {
+		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+			if data, ok := inputData["data"].(map[string]interface{}); ok {
+				operation, _ = data["operation"].(string)
+				operands, _ = data["operands"].([]interface{})
 
-			params.Logger.Info("Extracted data from Path 1 (simplified)",
-				zap.String("operation", operation),
-				zap.Any("operands", operands))
-		}
-
-		// Also check directly in input_data for even simpler structure
-		if operation == "" {
-			operation, _ = inputData["operation"].(string)
-			operands, _ = inputData["operands"].([]interface{})
-
-			if operation != "" {
-				params.Logger.Info("Extracted data directly from input_data",
+				params.Logger.Info("Extracted data from Path 1.2 - [input_data][data]",
 					zap.String("operation", operation),
 					zap.Any("operands", operands))
+			}
+
+			// Also check directly in input_data for even simpler structure
+			if operation == "" {
+				operation, _ = inputData["operation"].(string)
+				operands, _ = inputData["operands"].([]interface{})
+
+				if operation != "" {
+					params.Logger.Info("Extracted data directly from input_data",
+						zap.String("operation", operation),
+						zap.Any("operands", operands))
+				}
 			}
 		}
 	}

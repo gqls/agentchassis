@@ -38,7 +38,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	logSpawnStart(params)
 
 	// 1. Validate and extract configuration
-	agentType, role, clientID, requestID, sendInitData, err := extractSpawnConfiguration(params)
+	agentType, role, clientID, requestID, _, err := extractSpawnConfiguration(params)
 	if err != nil {
 		return nil, fmt.Errorf("configuration extraction failed: %w", err)
 	}
@@ -98,22 +98,14 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("job_name", jobName),
 		zap.String("agent_id", agentID))
 
-	// 8. Decide whether to send initialization message
-	if shouldSendInitializationMessage(sendInitData) {
-		// 9. Prepare initialization data
-		initData := prepareInitializationData(params, sendInitData)
-
-		// 10. Build and send initialization message
-		if err := sendInitializationMessage(ctx, params, agentID, agentName, agentType, role,
-			requestID, childRequestsTopic, parentResponsesTopic, initData); err != nil {
-			params.Logger.Error("Failed to send initialization message",
-				zap.String("agent_id", agentID),
-				zap.Error(err))
-			// Don't fail the spawn if message send fails - agent is already created
-		}
-	} else {
-		params.Logger.Info("Skipping initialization message - will be sent by CallAgentAction",
-			zap.String("agent_id", agentID))
+	// 8. Always send an initialization message to let the agent know it's been spawned
+	// This is separate from the actual task data which CallAgentAction will send later
+	if err := sendInitializationMessage(ctx, params, agentID, agentName, agentType, role,
+		requestID, childRequestsTopic, parentResponsesTopic); err != nil {
+		params.Logger.Error("Failed to send initialization message",
+			zap.String("agent_id", agentID),
+			zap.Error(err))
+		// Don't fail the spawn if message send fails - agent is already created
 	}
 
 	// 11. Build and return comprehensive result
@@ -276,9 +268,22 @@ func prepareInitializationData(params ActionParams, sendInitData bool) map[strin
 }
 
 // Message building and sending
-func sendInitializationMessage(ctx context.Context, params ActionParams, agentID, agentName, agentType, role, requestID, childRequestsTopic, parentResponsesTopic string, initData map[string]interface{}) error {
+func sendInitializationMessage(ctx context.Context, params ActionParams, agentID, agentName, agentType, role, requestID, childRequestsTopic, parentResponsesTopic string) error {
 	// Determine sender type
 	senderType := determineSenderType(params)
+
+	// Build a clear initialization message - NO calculation data
+	initData := map[string]interface{}{
+		"action":            "initialize", // Clear action type
+		"is_initialization": true,
+		"role":              role,
+		"agent_info": map[string]interface{}{
+			"agent_id":   agentID,
+			"agent_type": agentType,
+			"agent_name": agentName,
+		},
+		// Don't include calculation data - that comes later from CallAgentAction
+	}
 
 	// Build the initialization message using existing types.RequestMessage
 	message := buildInitializationMessage(params, agentID, agentName, agentType, role, requestID, parentResponsesTopic, senderType, initData)
@@ -289,21 +294,16 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
+	params.Logger.Info("Sending initialization message to spawned agent",
+		zap.String("agent_id", agentID),
+		zap.String("topic", childRequestsTopic),
+		zap.String("action", "initialize"))
+
 	// Send with retries
 	return sendMessageWithRetries(ctx, params, childRequestsTopic, message.Headers.ToMap(), requestID, messageBytes)
 }
 
 func buildInitializationMessage(params ActionParams, agentID, agentName, agentType, role, requestID, parentResponsesTopic, senderType string, initData map[string]interface{}) *types.RequestMessage {
-	// Build request body
-	requestBody := map[string]interface{}{
-		"action": "initialize",
-		"role":   role,
-	}
-
-	// Add the initialization data we prepared
-	for key, value := range initData {
-		requestBody[key] = value
-	}
 
 	return &types.RequestMessage{
 		Headers: types.RequestHeaders{
@@ -337,7 +337,7 @@ func buildInitializationMessage(params ActionParams, agentID, agentName, agentTy
 			ResponsesTopic:          parentResponsesTopic,
 			RequestsTopic:           "", // Child will set from environment
 		},
-		Body: requestBody,
+		Body: initData,
 	}
 }
 
