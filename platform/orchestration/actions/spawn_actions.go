@@ -269,6 +269,9 @@ func prepareInitializationData(params ActionParams, sendInitData bool) map[strin
 
 // Message building and sending
 func sendInitializationMessage(ctx context.Context, params ActionParams, agentID, agentName, agentType, role, requestID, childRequestsTopic, parentResponsesTopic string) error {
+	// Generate a NEW request ID for the initialization message
+	initRequestID := uuid.New().String()
+
 	// Determine sender type
 	senderType := determineSenderType(params)
 
@@ -286,7 +289,7 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 	}
 
 	// Build the initialization message using existing types.RequestMessage
-	message := buildInitializationMessage(params, agentID, agentName, agentType, role, requestID, parentResponsesTopic, senderType, initData)
+	message := buildInitializationMessage(params, agentID, agentName, agentType, role, initRequestID, parentResponsesTopic, senderType, initData)
 
 	// Marshal message
 	messageBytes, err := json.Marshal(message)
@@ -304,7 +307,6 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 }
 
 func buildInitializationMessage(params ActionParams, agentID, agentName, agentType, role, requestID, parentResponsesTopic, senderType string, initData map[string]interface{}) *types.RequestMessage {
-
 	return &types.RequestMessage{
 		Headers: types.RequestHeaders{
 			Sender: types.AgentIdentity{
