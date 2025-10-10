@@ -15,7 +15,7 @@ import (
 type MessageContext struct {
 	Message          kafka.Message
 	Headers          map[string]string
-	ExecutionContext *types.ExecutionContext // NEW: Primary context
+	ExecutionContext *types.ExecutionContext
 	Logger           *zap.Logger
 	CollectedData    map[string]interface{}
 	StartTime        time.Time

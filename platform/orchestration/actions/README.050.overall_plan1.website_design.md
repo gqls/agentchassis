@@ -190,3 +190,7 @@ workflow:
 5. **Monitor resource usage** - Ensure K8s pods have sufficient resources
 
 This plan builds on your successful calculator orchestration, applying the same patterns to a more complex, real-world use case. The key is maintaining clear data contracts between agents and ensuring each agent knows exactly what data structure to expect and produce.
+
+
+---------------
+

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/discovery"
 	"github.com/gqls/agentchassis/platform/errors"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/observability"
@@ -840,6 +841,130 @@ func (p *MessageProcessor) getAgentTypeAndIDFromHeaders(headers map[string]strin
 }
 
 func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions.AgentDefinition, msgCtx *MessageContext) (models.WorkflowPlan, error) {
+	p.logger.Info("DEBUG: selectWorkflow entry",
+		zap.Any("default_config_keys", agentDef.DefaultConfig),
+		zap.Any("workflow_exists", agentDef.DefaultConfig["workflow"] != nil),
+		zap.Any("orchestration_workflow_exists", agentDef.DefaultConfig["orchestration_workflow"] != nil),
+		zap.Any("task_workflow_exists", agentDef.DefaultConfig["task_workflow"] != nil))
+
+	// Parse message body
+	var msgBody map[string]interface{}
+	if err := json.Unmarshal(msgCtx.Message.Value, &msgBody); err == nil {
+
+		// Priority 1: Inline workflow override (for testing)
+		if config, ok := msgBody["config"].(map[string]interface{}); ok {
+			if workflow, ok := config["workflow"].(map[string]interface{}); ok {
+				p.logger.Info("Using inline workflow override from message")
+				return p.convertToWorkflowPlan(workflow), nil
+			}
+		}
+
+		// Priority 2: Group-based workflow
+		action := msgCtx.Headers["action"]
+		if action == "" && msgCtx.ExecutionContext != nil {
+			action = msgCtx.ExecutionContext.Action
+		}
+
+		if action == "spawn_group" || action == "orchestrate" {
+			groupType, version := p.extractGroupInfo(msgBody)
+
+			if groupType != "" {
+				p.logger.Info("Looking for agent group",
+					zap.String("group_type", groupType),
+					zap.String("version", version))
+
+				// Use the updated GroupDiscovery with sql.DB
+				db := p.db
+				if db == nil {
+					db = p.sqlDB
+				}
+
+				if db != nil {
+					discovery := discovery.NewGroupDiscovery(db)
+					group, err := discovery.FindBestGroup(ctx, groupType, version)
+
+					if err == nil && group != nil {
+						var workflowConfig map[string]interface{}
+						if err := json.Unmarshal(group.Workflow, &workflowConfig); err == nil {
+							p.logger.Info("Using group-based workflow",
+								zap.String("group_type", groupType),
+								zap.String("group_id", group.ID),
+								zap.String("group_name", group.Name),
+								zap.String("version", group.Version))
+
+							// Store group info for downstream actions
+							if msgCtx.CollectedData == nil {
+								msgCtx.CollectedData = make(map[string]interface{})
+							}
+							msgCtx.CollectedData["agent_group"] = map[string]interface{}{
+								"id":            group.ID,
+								"name":          group.Name,
+								"type":          group.GroupType,
+								"version":       group.Version,
+								"agent_configs": group.AgentConfigs,
+							}
+
+							return p.convertToWorkflowPlan(workflowConfig), nil
+						}
+					} else {
+						p.logger.Warn("No agent group found",
+							zap.String("group_type", groupType),
+							zap.Error(err))
+					}
+				}
+			}
+		}
+	}
+
+	// Priority 3: Agent's default workflow
+	if wf, ok := agentDef.DefaultConfig["workflow"].(map[string]interface{}); ok {
+		return p.convertToWorkflowPlan(wf), nil
+	}
+
+	// Fallback: Default orchestration workflow
+	return p.getDefaultOrchestrationWorkflow(), nil
+}
+
+// Extract group type and optional version from message
+func (p *MessageProcessor) extractGroupInfo(msgBody map[string]interface{}) (groupType, version string) {
+	// Check in config
+	if confg, ok := msgBody["config"].(map[string]interface{}); ok {
+		groupType, _ = confg["group_type"].(string)
+		version, _ = confg["group_version"].(string)
+	}
+
+	// Check directly in body
+	if groupType == "" {
+		groupType, _ = msgBody["group_type"].(string)
+	}
+	if version == "" {
+		version, _ = msgBody["group_version"].(string)
+	}
+
+	// Check in data field
+	if data, ok := msgBody["data"].(map[string]interface{}); ok {
+		if groupType == "" {
+			groupType, _ = data["group_type"].(string)
+		}
+		if version == "" {
+			version, _ = data["group_version"].(string)
+		}
+	}
+
+	// Check in input_data
+	if inputData, ok := msgBody["input_data"].(map[string]interface{}); ok {
+		if groupType == "" {
+			groupType, _ = inputData["group_type"].(string)
+		}
+		if version == "" {
+			version, _ = inputData["group_version"].(string)
+		}
+	}
+
+	return groupType, version
+}
+
+func (p *MessageProcessor) selectWorkflowOLD(ctx context.Context, agentDef *actions.AgentDefinition, msgCtx *MessageContext) (models.WorkflowPlan, error) {
 	p.logger.Info("DEBUG: selectWorkflow entry",
 		zap.Any("default_config_keys", agentDef.DefaultConfig),
 		zap.Any("workflow_exists", agentDef.DefaultConfig["workflow"] != nil),

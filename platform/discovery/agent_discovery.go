@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -43,21 +44,21 @@ type AgentGroup struct {
 
 // AgentDiscovery handles finding individual agents
 type AgentDiscovery struct {
-	db *pgxpool.Pool
+	db *sql.DB
 }
 
 // GroupDiscovery handles finding agent groups
 type GroupDiscovery struct {
-	db *pgxpool.Pool
+	db *sql.DB
 }
 
 // NewAgentDiscovery creates a new agent discovery service
-func NewAgentDiscovery(db *pgxpool.Pool) *AgentDiscovery {
+func NewAgentDiscovery(db *sql.DB) *AgentDiscovery {
 	return &AgentDiscovery{db: db}
 }
 
 // NewGroupDiscovery creates a new group discovery service
-func NewGroupDiscovery(db *pgxpool.Pool) *GroupDiscovery {
+func NewGroupDiscovery(db *sql.DB) *GroupDiscovery {
 	return &GroupDiscovery{db: db}
 }
 
@@ -117,7 +118,67 @@ func (d *AgentDiscovery) DiscoverAgents(ctx context.Context, requirements Requir
 }
 
 // FindBestGroup finds the most suitable group for a task type
-func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, requirements map[string]interface{}) (*AgentGroup, error) {
+// Now supports optional version specification
+func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, version string) (*AgentGroup, error) {
+	var group AgentGroup
+	var lastPerf sql.NullFloat64
+	var capabilities []byte
+
+	var query string
+	var args []interface{}
+
+	if version != "" {
+		query = `
+            SELECT id, name, group_type, agent_configs, orchestration_workflow,
+                   usage_count, version
+            FROM agent_group_definitions
+            WHERE group_type = $1
+            AND version >= $2
+            ORDER BY 
+                version DESC,
+                usage_count DESC
+            LIMIT 1
+        `
+		args = []interface{}{taskType, version}
+	} else {
+		query = `
+            SELECT id, name, group_type, agent_configs, orchestration_workflow,
+                   usage_count, version
+            FROM agent_group_definitions
+            WHERE group_type = $1
+            ORDER BY 
+                usage_count DESC, 
+                version DESC
+            LIMIT 1
+        `
+		args = []interface{}{taskType}
+	}
+
+	err := d.db.QueryRowContext(ctx, query, args...).Scan(
+		&group.ID, &group.Name, &group.GroupType,
+		&group.AgentConfigs, &group.Workflow,
+		&capabilities, &group.UsageCount, &group.Version,
+		&lastPerf)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("no group found for task type: %s", taskType)
+		}
+		return nil, fmt.Errorf("failed to find group: %w", err)
+	}
+
+	// Parse capabilities
+	if err := json.Unmarshal(capabilities, &group.Capabilities); err != nil {
+		// Don't fail, just log and continue
+		group.Capabilities = []string{}
+	}
+
+	group.LastPerformance = lastPerf.Float64
+	return &group, nil
+}
+
+// FindBestGroup finds the most suitable group for a task type
+func (d *GroupDiscovery) FindBestGroupOLD(ctx context.Context, taskType string, requirements map[string]interface{}) (*AgentGroup, error) {
 	var group AgentGroup
 	var lastPerf sql.NullFloat64
 	var capabilities []byte
