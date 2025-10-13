@@ -93,54 +93,56 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("failed to create AI client: %w", err)
 	}
 
-	// Prepare template data - SIMPLIFIED DATA EXTRACTION
-	templateData := make(map[string]interface{})
+	/*	// Prepare template data - SIMPLIFIED DATA EXTRACTION
+		templateData := make(map[string]interface{})
 
-	// Add all collected data from previous workflow steps
-	for key, value := range params.CollectedData {
-		if stepMap, ok := value.(map[string]interface{}); ok {
-			if response, hasResponse := stepMap["response"]; hasResponse {
-				// Use the response for this step
-				templateData[key] = response
+		// Add all collected data from previous workflow steps
+		for key, value := range params.CollectedData {
+			if stepMap, ok := value.(map[string]interface{}); ok {
+				if response, hasResponse := stepMap["response"]; hasResponse {
+					// Use the response for this step
+					templateData[key] = response
+				} else {
+					templateData[key] = value
+				}
 			} else {
 				templateData[key] = value
 			}
-		} else {
-			templateData[key] = value
 		}
-	}
 
-	// Handle input_data with the simplified structure
-	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-		// Make it available as both "input_data" and "input" for template flexibility
-		templateData["input_data"] = inputData
-		templateData["input"] = inputData
+		// Handle input_data with the simplified structure
+		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+			// Make it available as both "input_data" and "input" for template flexibility
+			templateData["input_data"] = inputData
+			templateData["input"] = inputData
 
-		// Check if there's a nested "data" field (transitional support)
-		if data, ok := inputData["data"].(map[string]interface{}); ok {
-			// Also make the data contents available at top level
-			for k, v := range data {
-				if _, exists := templateData[k]; !exists { // Don't overwrite existing keys
-					templateData[k] = v
+			// Check if there's a nested "data" field (transitional support)
+			if data, ok := inputData["data"].(map[string]interface{}); ok {
+				// Also make the data contents available at top level
+				for k, v := range data {
+					if _, exists := templateData[k]; !exists { // Don't overwrite existing keys
+						templateData[k] = v
+					}
+				}
+			} else {
+				// With simplified structure, spread input_data directly
+				for k, v := range inputData {
+					if _, exists := templateData[k]; !exists {
+						templateData[k] = v
+					}
 				}
 			}
-		} else {
-			// With simplified structure, spread input_data directly
-			for k, v := range inputData {
-				if _, exists := templateData[k]; !exists {
-					templateData[k] = v
-				}
-			}
-		}
-	}
+		}*/
 
-	templateData["input_data"] = extractDataForAiAgent(params)
+	extractedData := extractDataForAiAgent(params)
+	templateData := extractedData.(map[string]interface{})
 
 	params.Logger.Info("in ExecuteLLMPromptAction Template Data",
-		zap.Any("template_data DE", templateData),
+		// zap.Any("template_data DEBUGaa", templateData),
+		zap.Any("DEBUGaa template_data ai_actions this is what I want to pass - should be good ", templateData), // is good
 		zap.Any("agent_config", agentConfig),
-		zap.Any("DEBUGaa: params.CollectedData[input_data] when extracting data in ai actions", params.CollectedData["input_data"]),
-		zap.Any("promptTemplate", promptTemplate),
+		//zap.Any("DEBUGaa: params.CollectedData[input_data] when extracting data in ai actions", params.CollectedData["input_data"]), // neither data or template is not in here
+		zap.Any("promptTemplate", promptTemplate), // good
 	)
 
 	// Render the prompt template
@@ -419,7 +421,7 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 	}
 
 	params.Logger.Info("Extracting data for ai agent",
-		zap.String("requested_field", inputField),
+		zap.String("requested_field", inputField), // input_data
 		zap.Any("available_keys", getMapKeys(params.CollectedData)),
 		zap.Any("DEBUGaa: params.CollectedData for passing to the new agent in executellmprompt action extractDataForAiAgent", params.CollectedData),
 	)
@@ -428,6 +430,7 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 	searchPaths := [][]string{
 		{"input_data", "body", "input_data", inputField}, // Deeply nested with body
 		{"input_data", "input_data", inputField},         // Deeply nested
+		{"input_data", "body", inputField},               // medium nested with body
 		{"input_data", inputField},                       // Medium nested
 		{inputField},                                     // Top level
 	}
@@ -436,7 +439,9 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 	for _, path := range searchPaths {
 		if data, ok := getNestedInputValue(params.CollectedData, path...); ok {
 			params.Logger.Info("Found data via path",
-				zap.Strings("path", path))
+				zap.Strings("path", path),
+				zap.Any("DEBUGaa: data found via path", data),
+			)
 			return data
 		}
 	}
