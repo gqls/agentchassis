@@ -39,9 +39,28 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	params.Logger.Info("Executing LLM prompt action",
 		zap.String("agent_type", params.AgentType),
 		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
+		zap.String("action", params.ExecutionContext.Action),
 		zap.Bool("has_db", params.DB != nil),
 		zap.Any("DEBUGaa: full params in ExecuteLLMPromptAction", params),
 	)
+
+	// initialise
+	if params.ExecutionContext.Action == "initialize" {
+		params.Logger.Info("CalculateAction handling initialization")
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	// Method 2: Check for initialization flag in collected data
+	if isInit, ok := params.CollectedData["is_initialization"].(bool); ok && isInit {
+		params.Logger.Info("CalculateAction initialization detected via flag")
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	// Method 3: Check the action from collected data (if passed through)
+	if action, ok := params.CollectedData["action"].(string); ok && action == "initialize" {
+		params.Logger.Info("CalculateAction initialization detected via action field")
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
 
 	// Get the agent's configuration
 	var agentConfig map[string]interface{}
