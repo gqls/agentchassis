@@ -344,8 +344,8 @@ func buildInitializationMessage(params ActionParams, agentID, agentName, agentTy
 }
 
 func sendMessageWithRetries(ctx context.Context, params ActionParams, topic string, headers map[string]string, requestID string, messageBytes []byte) error {
-	const maxRetries = 3
-	const retryDelay = 5 * time.Second
+	const maxRetries = 10
+	const retryDelay = 8 * time.Second
 
 	var lastErr error
 	for i := 0; i < maxRetries; i++ {

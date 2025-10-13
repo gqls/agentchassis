@@ -572,9 +572,9 @@ func (tm *TopicManager) WaitForTopicOld(ctx context.Context, topic string, logge
 
 func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *zap.Logger) error {
 	const maxAttempts = 10
-	const pollInterval = 3 * time.Second
+	const pollInterval = 10 * time.Second
 
-	// We'll poll for a total of 10 seconds.
+	// We'll poll for a total of 100 seconds.
 	for i := 0; i < maxAttempts; i++ {
 		allBrokersReady := true
 		checkedBrokers := 0

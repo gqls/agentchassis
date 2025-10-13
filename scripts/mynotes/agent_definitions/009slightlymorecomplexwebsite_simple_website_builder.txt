@@ -1,0 +1,207 @@
+I'll help you build a more complex workflow for website creation. Let me first search the project knowledge to understand your existing architecture and code patterns.Good. Now let me look at the specific code for workflow actions and agent group configurations:Now let me search for workflow step execution patterns and available actions:Good. Now let me look at the database schema for agent groups and understanding how the system is configured:Now let me check what agent types currently exist:Based on my review of the project knowledge, I understand your architecture well. Let me help you design a more complex website creation workflow. I can see you have:
+
+1. **Working system**: `welcome-message-generator` group with `spawn_agent` → `call_agent` → `complete_workflow` pattern
+2. **Available agents**: `content-creator`, `calculator`, and a `generic` orchestrator
+3. **Available actions**: `spawn_agent`, `call_agent`, `execute_llm_prompt`, `aggregate_data`, `complete_workflow`
+
+Let me propose a **website builder workflow** that's more complex but still manageable. This will demonstrate:
+- Sequential spawning of multiple agents
+- Parallel execution of some tasks
+- Data aggregation
+- Workflow composition
+
+## Proposed Website Builder Workflow
+
+This workflow creates a simple website with multiple components:
+
+```sql
+-- First, let's create the agent group definition
+INSERT INTO agent_group_definitions (
+    group_type,
+    name,
+    description,
+    agent_configs,
+    orchestration_workflow
+) VALUES (
+    'simple-website-builder_contact',
+    'Simple Website Builder with Contact page',
+    'Builds a basic website with header, about section, and contact info',
+    '[
+        {"role": "header_writer", "agent_type": "content-creator"},
+        {"role": "about_writer", "agent_type": "content-creator"},
+        {"role": "contact_writer", "agent_type": "content-creator"}
+    ]'::jsonb,
+    '{
+        "start_step": "spawn_header_writer",
+        "steps": {
+            "spawn_header_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "header_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_about_writer",
+                "description": "Spawn agent to write header content"
+            },
+            "spawn_about_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "about_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_contact_writer",
+                "description": "Spawn agent to write about section"
+            },
+            "spawn_contact_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "contact_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "generate_header",
+                "description": "Spawn agent to write contact section"
+            },
+            "generate_header": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "header_writer",
+                    "prompt": "Create a compelling website header for {{business_name}}, a {{business_type}}. Include a catchy tagline."
+                },
+                "next_step": "generate_about",
+                "description": "Generate header content"
+            },
+            "generate_about": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "about_writer",
+                    "prompt": "Write an engaging About Us section for {{business_name}}, a {{business_type}}. Focus on their mission and values."
+                },
+                "next_step": "generate_contact",
+                "description": "Generate about section content"
+            },
+            "generate_contact": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "contact_writer",
+                    "prompt": "Create a friendly Contact section for {{business_name}}. Encourage visitors to get in touch."
+                },
+                "next_step": "aggregate_content",
+                "description": "Generate contact section content"
+            },
+            "aggregate_content": {
+                "action": "aggregate_data",
+                "config": {
+                    "strategy": "group_responses",
+                    "response_fields": ["generate_header", "generate_about", "generate_contact"]
+                },
+                "next_step": "complete",
+                "description": "Combine all website sections"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "description": "Complete workflow and return website content"
+            }
+        }
+    }'::jsonb
+)
+ON CONFLICT (group_type) DO UPDATE SET
+    orchestration_workflow = EXCLUDED.orchestration_workflow,
+    agent_configs = EXCLUDED.agent_configs,
+    updated_at = NOW()
+RETURNING id, group_type, name;
+```
+
+## Testing the Workflow
+
+Here's the test command similar to your working example:
+
+```bash
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="website-build-$(date +%H%M%S)"
+STEP_NAME="client_step_website_request"
+CLIENT_ID="demo_client"
+
+echo "Website builder test:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Orchestration: $ORCHESTRATION_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+echo "  Time: $(date '+%Y-%m-%d %H:%M:%S')"
+
+kubectl -n kafka run -i --rm kcat-producer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+    -b personae-kafka-cluster-kafka-bootstrap:9092 \
+    -t system.agent.generic.requests \
+    -H correlation_id=$CORRELATION_ID \
+    -H request_id=$REQUEST_ID \
+    -H message_id=$MESSAGE_ID \
+    -H orchestration_id=$ORCHESTRATION_ID \
+    -H orchestration_name=$ORCHESTRATION_NAME \
+    -H step_name=$STEP_NAME \
+    -H client_id=$CLIENT_ID \
+    -H message_type=request \
+    -H action=orchestrate \
+    -H from_agent_type=user \
+    -H from_agent_id=user-001 \
+    -H responses_topic=system.responses.generic <<EOF
+{"action":"orchestrate","config":{"group_type":"simple-website-builder"},"input_data":{"business_type":"boutique coffee shop","business_name":"The Daily Grind"}}
+EOF
+
+# Monitor the progress
+sleep 15
+echo "=== Checking spawned agents ==="
+kubectl -n ai-persona-system get jobs | grep content-creator
+kubectl -n ai-persona-system get pods | grep content-creator
+
+# Check for orchestration state
+echo "=== Checking orchestration state in database ==="
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c \
+  "SELECT orchestration_id, status, current_step, created_at
+   FROM orchestration_states
+   WHERE orchestration_id = '$ORCHESTRATION_ID';"
+
+# Monitor responses
+kubectl -n kafka run -i --rm kcat-consumer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -C \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.responses.generic \
+  -o end \
+  -f '%h\n%s\n'
+```
+
+## What This Workflow Demonstrates
+
+**Flow progression**:
+1. `spawn_header_writer` → spawns first content-creator with role "header_writer"
+2. `spawn_about_writer` → spawns second content-creator with role "about_writer"
+3. `spawn_contact_writer` → spawns third content-creator with role "contact_writer"
+4. `generate_header` → calls header_writer agent to create header content
+5. `generate_about` → calls about_writer agent to create about section
+6. `generate_contact` → calls contact_writer agent to create contact section
+7. `aggregate_content` → combines all three responses
+8. `complete` → returns final aggregated result
+
+**Key aspects**:
+- **Sequential spawning**: Each agent spawn happens one after another
+- **Sequential content generation**: Each section is generated in order
+- **Data aggregation**: All responses are combined using `aggregate_data` action
+- **Role-based routing**: Each `call_agent` uses `target_role` to find the right agent
+- **Template variables**: The `{{business_name}}` and `{{business_type}}` are passed through from `input_data`
+
+This workflow is more complex than your welcome message example but still follows the same patterns. Would you like me to:
+
+1. Explain any specific part of this workflow in more detail?
+2. Help you verify the SQL syntax before running it?
+3. Create a monitoring script to track the message flow?
+4. Design an even more complex workflow with parallel execution?

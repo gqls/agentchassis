@@ -1,0 +1,564 @@
+Good catch! I see your table structure and existing configuration. Your `simple-website-builder` already has an `html-developer` agent type that I don't see defined elsewhere in the project yet. Let me create a new, more complex workflow with a different name.
+
+Let me first check what we're working with:I see you have `html-developer` agent type referenced and an `upload_to_s3` action. Let me create a more complex workflow that builds on what you have but is distinctly different. I'll call it `multi-section-website-builder`:
+
+## New Multi-Section Website Builder
+
+This workflow will create a website with multiple content sections in parallel, then aggregate them:
+
+```sql
+-- Check current agent_group_definitions to avoid conflicts
+-- Then insert the new workflow
+INSERT INTO agent_group_definitions (
+    name,
+    group_type,
+    agent_configs,
+    orchestration_workflow,
+    usage_count,
+    version
+) VALUES (
+    'Multi-Section Website Builder',
+    'multi-section-website-builder',
+    '[
+        {"role": "hero_writer", "agent_type": "content-creator"},
+        {"role": "features_writer", "agent_type": "content-creator"},
+        {"role": "testimonials_writer", "agent_type": "content-creator"},
+        {"role": "cta_writer", "agent_type": "content-creator"}
+    ]'::jsonb,
+    '{
+        "start_step": "spawn_hero_writer",
+        "steps": {
+            "spawn_hero_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "hero_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_features_writer",
+                "description": "Spawn agent for hero section"
+            },
+            "spawn_features_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "features_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_testimonials_writer",
+                "description": "Spawn agent for features section"
+            },
+            "spawn_testimonials_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "testimonials_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_cta_writer",
+                "description": "Spawn agent for testimonials section"
+            },
+            "spawn_cta_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "cta_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "generate_hero",
+                "description": "Spawn agent for call-to-action section"
+            },
+            "generate_hero": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "hero_writer",
+                    "prompt": "Write a compelling hero section for {{business_name}}, a {{business_type}}. Include a powerful headline and subheadline."
+                },
+                "next_step": "generate_features",
+                "description": "Generate hero section"
+            },
+            "generate_features": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "features_writer",
+                    "prompt": "List 3-4 key features or benefits of {{business_name}}, a {{business_type}}. Make each feature clear and customer-focused."
+                },
+                "next_step": "generate_testimonials",
+                "description": "Generate features section"
+            },
+            "generate_testimonials": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "testimonials_writer",
+                    "prompt": "Create 2 realistic customer testimonials for {{business_name}}, a {{business_type}}. Make them authentic and specific."
+                },
+                "next_step": "generate_cta",
+                "description": "Generate testimonials section"
+            },
+            "generate_cta": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "cta_writer",
+                    "prompt": "Write a strong call-to-action section for {{business_name}}. Include action text and a reason to act now."
+                },
+                "next_step": "aggregate_all_sections",
+                "description": "Generate CTA section"
+            },
+            "aggregate_all_sections": {
+                "action": "aggregate_data",
+                "config": {
+                    "strategy": "group_responses",
+                    "response_fields": [
+                        "generate_hero",
+                        "generate_features", 
+                        "generate_testimonials",
+                        "generate_cta"
+                    ]
+                },
+                "next_step": "complete",
+                "description": "Combine all website sections"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "description": "Return complete website content"
+            }
+        }
+    }'::jsonb,
+    0,
+    1
+)
+ON CONFLICT (group_type) DO UPDATE SET
+    orchestration_workflow = EXCLUDED.orchestration_workflow,
+    agent_configs = EXCLUDED.agent_configs,
+    updated_at = NOW()
+RETURNING id, group_type, name;
+```
+
+## Test Command
+
+```bash
+#!/bin/bash
+# multi-section-website-test.sh
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="multi-section-$(date +%H%M%S)"
+STEP_NAME="client_step_website_request"
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "Multi-Section Website Builder Test"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-producer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+    -b personae-kafka-cluster-kafka-bootstrap:9092 \
+    -t system.agent.generic.requests \
+    -H correlation_id=$CORRELATION_ID \
+    -H request_id=$REQUEST_ID \
+    -H message_id=$MESSAGE_ID \
+    -H orchestration_id=$ORCHESTRATION_ID \
+    -H orchestration_name=$ORCHESTRATION_NAME \
+    -H step_name=$STEP_NAME \
+    -H client_id=$CLIENT_ID \
+    -H message_type=request \
+    -H action=orchestrate \
+    -H from_agent_type=user \
+    -H from_agent_id=user-001 \
+    -H responses_topic=system.responses.generic <<EOF
+{"action":"orchestrate","config":{"group_type":"multi-section-website-builder"},"input_data":{"business_type":"artisanal bakery","business_name":"Golden Crust Bakery"}}
+EOF
+
+echo ""
+echo "Message sent. Waiting 15 seconds for processing..."
+sleep 15
+
+echo ""
+echo "========================================="
+echo "Checking Spawned Agents"
+echo "========================================="
+kubectl -n ai-persona-system get jobs -l correlation-id=$CORRELATION_ID 2>/dev/null || echo "No jobs found yet"
+kubectl -n ai-persona-system get pods | grep content-creator | tail -10
+
+echo ""
+echo "========================================="
+echo "Checking Orchestration State"
+echo "========================================="
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c \
+  "SELECT 
+     orchestration_id,
+     status,
+     current_step,
+     owner_agent_type,
+     to_char(created_at, 'HH24:MI:SS') as created,
+     to_char(updated_at, 'HH24:MI:SS') as updated
+   FROM orchestration_states 
+   WHERE orchestration_id = '$ORCHESTRATION_ID';"
+
+echo ""
+echo "========================================="
+echo "Monitoring Response Topic"
+echo "========================================="
+echo "Listening for final response on system.responses.generic..."
+echo "Press Ctrl+C to stop monitoring"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-consumer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -C \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.responses.generic \
+  -o end \
+  -e \
+  -f '%h\n%s\n\n'
+```
+
+## What This Workflow Does
+
+**Sequential Flow**:
+1. Spawns 4 `content-creator` agents, each with a different role:
+   - `hero_writer`
+   - `features_writer`
+   - `testimonials_writer`
+   - `cta_writer`
+
+2. Calls each agent in sequence to generate their section:
+   - `generate_hero` → calls hero_writer
+   - `generate_features` → calls features_writer
+   - `generate_testimonials` → calls testimonials_writer
+   - `generate_cta` → calls cta_writer
+
+3. Aggregates all 4 responses into a single result
+
+4. Completes and returns the full website
+
+**Key Differences from Your Existing Workflow**:
+- Your `simple-website-builder` has 2 agents (content-creator + html-developer) and includes S3 upload
+- This `multi-section-website-builder` has 4 content-creator agents with different roles
+- This focuses on content generation only (no HTML generation or S3 upload yet)
+- Each section is a separate step with its own specialized prompt
+
+**Expected Message Flow** (from logs):
+```
+1. Generic orchestrator receives request
+2. Loads agent_group_definition for "multi-section-website-builder"
+3. Step: spawn_hero_writer → creates job for content-creator with role="hero_writer"
+4. Step: spawn_features_writer → creates job for content-creator with role="features_writer"
+5. Step: spawn_testimonials_writer → creates job for content-creator with role="testimonials_writer"
+6. Step: spawn_cta_writer → creates job for content-creator with role="cta_writer"
+7. Step: generate_hero → sends message to hero_writer agent
+8. Step: generate_features → sends message to features_writer agent
+9. Step: generate_testimonials → sends message to testimonials_writer agent
+10. Step: generate_cta → sends message to cta_writer agent
+11. Step: aggregate_all_sections → combines all 4 responses
+12. Step: complete → returns final result to system.responses.generic
+```
+
+======
+
+
+The error indicates there's no unique constraint on `group_type`. Let me check the table structure and fix this:Right, the table doesn't have a unique constraint on `group_type`. Let me provide the corrected SQL without the `ON CONFLICT` clause, and we'll just insert the new record:
+
+```sql
+-- Multi-Section Website Builder with Contact Section
+-- This creates a more complex workflow with 5 content sections
+
+INSERT INTO agent_group_definitions (
+    name,
+    group_type,
+    agent_configs,
+    orchestration_workflow,
+    usage_count,
+    version
+) VALUES (
+    'Multi-Section Website Builder',
+    'multi-section-website-builder',
+    '[
+        {"role": "hero_writer", "agent_type": "content-creator"},
+        {"role": "features_writer", "agent_type": "content-creator"},
+        {"role": "testimonials_writer", "agent_type": "content-creator"},
+        {"role": "contact_writer", "agent_type": "content-creator"},
+        {"role": "cta_writer", "agent_type": "content-creator"}
+    ]'::jsonb,
+    '{
+        "start_step": "spawn_hero_writer",
+        "steps": {
+            "spawn_hero_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "hero_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_features_writer",
+                "description": "Spawn agent for hero section"
+            },
+            "spawn_features_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "features_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_testimonials_writer",
+                "description": "Spawn agent for features section"
+            },
+            "spawn_testimonials_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "testimonials_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_contact_writer",
+                "description": "Spawn agent for testimonials section"
+            },
+            "spawn_contact_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "contact_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_cta_writer",
+                "description": "Spawn agent for contact section"
+            },
+            "spawn_cta_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "cta_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "generate_hero",
+                "description": "Spawn agent for call-to-action section"
+            },
+            "generate_hero": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "hero_writer",
+                    "prompt": "Write a compelling hero section for {{business_name}}, a {{business_type}}. Include a powerful headline and subheadline."
+                },
+                "next_step": "generate_features",
+                "description": "Generate hero section"
+            },
+            "generate_features": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "features_writer",
+                    "prompt": "List 3-4 key features or benefits of {{business_name}}, a {{business_type}}. Make each feature clear and customer-focused."
+                },
+                "next_step": "generate_testimonials",
+                "description": "Generate features section"
+            },
+            "generate_testimonials": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "testimonials_writer",
+                    "prompt": "Create 2 realistic customer testimonials for {{business_name}}, a {{business_type}}. Make them authentic and specific."
+                },
+                "next_step": "generate_contact",
+                "description": "Generate testimonials section"
+            },
+            "generate_contact": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "contact_writer",
+                    "prompt": "Write a contact section for {{business_name}}. Include inviting text that encourages customers to reach out."
+                },
+                "next_step": "generate_cta",
+                "description": "Generate contact section"
+            },
+            "generate_cta": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "cta_writer",
+                    "prompt": "Write a strong call-to-action section for {{business_name}}. Include action text and a reason to act now."
+                },
+                "next_step": "aggregate_all_sections",
+                "description": "Generate CTA section"
+            },
+            "aggregate_all_sections": {
+                "action": "aggregate_data",
+                "config": {
+                    "strategy": "group_responses",
+                    "response_fields": [
+                        "generate_hero",
+                        "generate_features",
+                        "generate_testimonials",
+                        "generate_contact",
+                        "generate_cta"
+                    ]
+                },
+                "next_step": "complete",
+                "description": "Combine all website sections"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "description": "Return complete website content"
+            }
+        }
+    }'::jsonb,
+    0,
+    1
+)
+RETURNING id, group_type, name;
+```
+
+Now let me create the test script for you:
+
+```bash
+#!/bin/bash
+# multi-section-website-test.sh
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="multi-site-$(date +%H%M%S)"
+STEP_NAME="client_step_website_request"
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "Multi-Section Website Builder Test"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-producer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+    -b personae-kafka-cluster-kafka-bootstrap:9092 \
+    -t system.agent.generic.requests \
+    -H correlation_id=$CORRELATION_ID \
+    -H request_id=$REQUEST_ID \
+    -H message_id=$MESSAGE_ID \
+    -H orchestration_id=$ORCHESTRATION_ID \
+    -H orchestration_name=$ORCHESTRATION_NAME \
+    -H step_name=$STEP_NAME \
+    -H client_id=$CLIENT_ID \
+    -H message_type=request \
+    -H action=orchestrate \
+    -H from_agent_type=user \
+    -H from_agent_id=user-001 \
+    -H responses_topic=system.responses.generic <<EOF
+{"action":"orchestrate","config":{"group_type":"multi-section-website-builder"},"input_data":{"business_type":"artisanal bakery","business_name":"Golden Crust Bakery"}}
+EOF
+
+echo ""
+echo "Message sent. Waiting 20 seconds for processing..."
+sleep 20
+
+echo ""
+echo "========================================="
+echo "Checking Spawned Jobs"
+echo "========================================="
+kubectl -n ai-persona-system get jobs | grep content-creator | tail -10
+
+echo ""
+echo "========================================="
+echo "Checking Spawned Pods"
+echo "========================================="
+kubectl -n ai-persona-system get pods | grep content-creator | tail -10
+
+echo ""
+echo "========================================="
+echo "Checking Orchestration State in Database"
+echo "========================================="
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c \
+  "SELECT
+     orchestration_id,
+     status,
+     current_step,
+     owner_agent_type,
+     to_char(created_at, 'HH24:MI:SS') as created,
+     to_char(updated_at, 'HH24:MI:SS') as updated
+   FROM orchestration_states
+   WHERE correlation_id = '$CORRELATION_ID'
+   ORDER BY created_at DESC
+   LIMIT 10;"
+
+echo ""
+echo "========================================="
+echo "Checking for Any Errors in Orchestration"
+echo "========================================="
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c \
+  "SELECT
+     orchestration_id,
+     status,
+     error
+   FROM orchestration_states
+   WHERE correlation_id = '$CORRELATION_ID'
+     AND (status = 'FAILED' OR error IS NOT NULL);"
+
+echo ""
+echo "========================================="
+echo "Monitoring Response Topic"
+echo "========================================="
+echo "Listening for final response on system.responses.generic..."
+echo "Will show correlation_id header and message body"
+echo "Press Ctrl+C when you see the final response"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-consumer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -C \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.responses.generic \
+  -o end \
+  -e \
+  -f 'CORRELATION: %h{correlation_id}\nBODY: %s\n\n========================================\n\n'
+```
+
+## Summary of the Workflow
+
+This workflow demonstrates:
+
+1. **Sequential agent spawning** (5 spawn steps)
+   - `spawn_hero_writer`
+   - `spawn_features_writer`
+   - `spawn_testimonials_writer`
+   - `spawn_contact_writer` ← Your requested contact section
+   - `spawn_cta_writer`
+
+2. **Sequential content generation** (5 call_agent steps)
+   - Each with a specialized prompt for that section
+   - Each targeting a specific role
+
+3. **Data aggregation** (1 aggregate step)
+   - Combines all 5 responses into a single result
+
+4. **Workflow completion** (1 complete step)
+
+**Expected Flow**:
+- Total steps: 12 (5 spawns + 5 calls + 1 aggregate + 1 complete)
+- Total agents spawned: 5 content-creator agents
+- Total messages sent between agents: ~10+
+- Expected duration: ~30-45 seconds end-to-end
+
+This is more complex than the welcome-message example because it has:
+- 5 agents vs 1 agent
+- 5 content generation steps vs 1
+- More data to aggregate
+
+Would you like me to help you run this and monitor the message flow through the logs?
