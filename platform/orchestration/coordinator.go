@@ -514,7 +514,7 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 		zap.Any("state.Status", state.Status),
 		zap.Any("state.CurrentlyExecuting", state.CurrentlyExecuting),
 		zap.Any("state.CurrentStep", state.CurrentStep),
-		zap.Any("call stack handleOrchestrationStatue", callstack),
+		zap.Any("call stack handleOrchestrationStatus", callstack),
 	)
 
 	repo := NewStateRepository(s.db, s.logger)

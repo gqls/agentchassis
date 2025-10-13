@@ -405,9 +405,12 @@ func (r *StateRepository) CreateInitialState(
 		if execCtx.RequestsTopic != "" {
 			collectedData["__my_requests_topic__"] = execCtx.RequestsTopic
 		}
-		if execCtx.ResponsesTopic != "" {
+		replyToTopic := execCtx.ReplyToTopic
+		if replyToTopic != "" {
 			// This is where I send MY responses (to parent)
-			collectedData["__parent_responses_topic__"] = execCtx.ResponsesTopic
+			replyToTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+			execCtx.ReplyToTopic = replyToTopic
+			collectedData["__parent_responses_topic__"] = replyToTopic
 		}
 	}
 

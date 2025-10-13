@@ -194,6 +194,7 @@ func extractDataForAgent(params ActionParams) interface{} {
 
 	// Define search paths from most to least specific
 	searchPaths := [][]string{
+		{"input_data", "body", "input_data", inputField},
 		{"input_data", "input_data", inputField}, // Deeply nested
 		{"input_data", inputField},               // Medium nested
 		{inputField},                             // Top level
@@ -264,7 +265,11 @@ func buildRequestBody(params ActionParams, targetAction string, dataToSend inter
 		zap.String("action", targetAction),
 		zap.Any("has_data", dataToSend != nil),
 		zap.Any("has_config", requestBody["config"] != nil),
-		zap.Any("has_context", requestBody["context"] != nil))
+		zap.Any("has_context", requestBody["context"] != nil),
+		zap.Any("DEBUGaa: callAgentAction buildRequestBody dataToSend extracted", requestBody["context"]),
+		zap.Any("DEBUGaa: callAgentAction buildRequestBody extracted from dataToSend", dataToSend),
+		zap.Any("DEBUGaa: callAgentAction buildRequestBody params were", params),
+	)
 
 	return requestBody
 }

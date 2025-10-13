@@ -39,7 +39,9 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	params.Logger.Info("Executing LLM prompt action",
 		zap.String("agent_type", params.AgentType),
 		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
-		zap.Bool("has_db", params.DB != nil))
+		zap.Bool("has_db", params.DB != nil),
+		zap.Any("DEBUGaa: full params in ExecuteLLMPromptAction", params),
+	)
 
 	// Get the agent's configuration
 	var agentConfig map[string]interface{}
@@ -132,15 +134,24 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	templateData["input_data"] = extractDataForAiAgent(params)
+
+	params.Logger.Info("in ExecuteLLMPromptAction Template Data",
+		zap.Any("template_data DE", templateData),
+		zap.Any("agent_config", agentConfig),
+		zap.Any("DEBUGaa: params.CollectedData[input_data] when extracting data in ai actions", params.CollectedData["input_data"]),
+		zap.Any("promptTemplate", promptTemplate),
+	)
+
 	// Render the prompt template
-	renderedPrompt, err := renderTemplate(promptTemplate, templateData)
+	renderedPrompt, err := renderTemplate(promptTemplate, templateData, *params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render prompt template: %w", err)
 	}
 
 	params.Logger.Info("Rendered prompt template",
 		zap.String("template_preview", truncateString(promptTemplate, 100)),
-		zap.String("rendered_preview", truncateString(renderedPrompt, 200)))
+		zap.String("rendered_preview - renderedPrompt", truncateString(renderedPrompt, 200)))
 
 	// Prepare AI service options
 	options := make(map[string]interface{})
@@ -284,10 +295,17 @@ func createAIClient(ctx context.Context, aiServiceConfig map[string]interface{})
 	}
 }
 
-func renderTemplate(templateStr string, data map[string]interface{}) (string, error) {
-	tmpl, err := template.New("agent_prompt").Parse(templateStr)
+func renderTemplate(templateStr string, data map[string]interface{}, logger zap.Logger) (string, error) {
+	tmpl := template.New("agent_prompt")
+	parsedTemplate, err := tmpl.Parse(templateStr)
+	logger.Info("DEBUGaa: parsing template in renderTemplate",
+		zap.String("template", templateStr),
+		zap.Any("data", data),
+		zap.Any("tmpl", tmpl),
+		zap.Any("parsedTemplate", parsedTemplate),
+	)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
+		return "", fmt.Errorf("failed to parse template in render template: %w", err)
 	}
 
 	var buf bytes.Buffer
@@ -391,4 +409,53 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 	return map[string]interface{}{
 		"complexity": complexity,
 	}, nil
+}
+
+func extractDataForAiAgent(params ActionParams) interface{} {
+	// Get which input field to use
+	inputField := "input_data"
+	if field, ok := params.StepConfig.Config["input_field"].(string); ok && field != "" {
+		inputField = field
+	}
+
+	params.Logger.Info("Extracting data for ai agent",
+		zap.String("requested_field", inputField),
+		zap.Any("available_keys", getMapKeys(params.CollectedData)),
+		zap.Any("DEBUGaa: params.CollectedData for passing to the new agent in executellmprompt action extractDataForAiAgent", params.CollectedData),
+	)
+
+	// Define search paths from most to least specific
+	searchPaths := [][]string{
+		{"input_data", "body", "input_data", inputField}, // Deeply nested with body
+		{"input_data", "input_data", inputField},         // Deeply nested
+		{"input_data", inputField},                       // Medium nested
+		{inputField},                                     // Top level
+	}
+
+	// Try each path
+	for _, path := range searchPaths {
+		if data, ok := getNestedInputValue(params.CollectedData, path...); ok {
+			params.Logger.Info("Found data via path",
+				zap.Strings("path", path))
+			return data
+		}
+	}
+
+	// Special case: if looking for input_data, try nested version
+	if inputField == "input_data" {
+		if data, ok := getNestedInputValue(params.CollectedData, "input_data", "input_data"); ok {
+			params.Logger.Info("Using nested input_data")
+			return data
+		}
+	}
+
+	// Final fallback
+	data := params.CollectedData["input_data"]
+	if data == nil {
+		params.Logger.Warn("No data found, using empty map")
+		return make(map[string]interface{})
+	}
+
+	params.Logger.Info("Using top-level input_data as fallback")
+	return data
 }
