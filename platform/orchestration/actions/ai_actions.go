@@ -101,57 +101,20 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	// Extract prompt template
-	promptTemplate, ok := agentConfig["prompt_template"].(string)
-	if !ok {
-		return nil, fmt.Errorf("prompt_template not found in agent config")
-	}
+	// THREE-TIER PRIORITY:
+	// Get prompt using three-tier priority system
+	promptTemplate, promptSource := getPromptWithPriority(params, agentConfig)
+
+	params.Logger.Info("Selected prompt for execution",
+		zap.String("source", promptSource),
+		zap.String("agent_type", params.AgentType),
+		zap.String("prompt_preview", truncateString(promptTemplate, 150)))
 
 	// Create AI client based on provider
 	aiClient, err := createAIClient(ctx, aiServiceConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AI client: %w", err)
 	}
-
-	/*	// Prepare template data - SIMPLIFIED DATA EXTRACTION
-		templateData := make(map[string]interface{})
-
-		// Add all collected data from previous workflow steps
-		for key, value := range params.CollectedData {
-			if stepMap, ok := value.(map[string]interface{}); ok {
-				if response, hasResponse := stepMap["response"]; hasResponse {
-					// Use the response for this step
-					templateData[key] = response
-				} else {
-					templateData[key] = value
-				}
-			} else {
-				templateData[key] = value
-			}
-		}
-
-		// Handle input_data with the simplified structure
-		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-			// Make it available as both "input_data" and "input" for template flexibility
-			templateData["input_data"] = inputData
-			templateData["input"] = inputData
-
-			// Check if there's a nested "data" field (transitional support)
-			if data, ok := inputData["data"].(map[string]interface{}); ok {
-				// Also make the data contents available at top level
-				for k, v := range data {
-					if _, exists := templateData[k]; !exists { // Don't overwrite existing keys
-						templateData[k] = v
-					}
-				}
-			} else {
-				// With simplified structure, spread input_data directly
-				for k, v := range inputData {
-					if _, exists := templateData[k]; !exists {
-						templateData[k] = v
-					}
-				}
-			}
-		}*/
 
 	extractedData := extractDataForAiAgent(params)
 	templateData := extractedData.(map[string]interface{})
@@ -482,4 +445,45 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 
 	params.Logger.Info("Using top-level input_data as fallback")
 	return data
+}
+
+// getPromptWithPriority implements three-tier priority for prompt selection
+func getPromptWithPriority(params ActionParams, agentConfig map[string]interface{}) (prompt string, source string) {
+	logger := params.Logger
+
+	// PRIORITY 1: Check incoming message for prompt (from parent's call_agent)
+	// Check in StepConfig.Config first (this is where call_agent passes it)
+	if configPrompt, ok := params.StepConfig.Config["prompt"].(string); ok && configPrompt != "" {
+		logger.Info("Using prompt from step config (Priority 1 - from parent)",
+			zap.String("prompt_preview", truncateString(configPrompt, 100)))
+		return configPrompt, "parent_message"
+	}
+
+	// Also check in CollectedData["prompt"] as a fallback
+	if collectedPrompt, ok := params.CollectedData["prompt"].(string); ok && collectedPrompt != "" {
+		logger.Info("Using prompt from collected data (Priority 1 - from parent)",
+			zap.String("prompt_preview", truncateString(collectedPrompt, 100)))
+		return collectedPrompt, "parent_message"
+	}
+
+	// PRIORITY 2: Check agent's own default_config.prompt_template
+	// This comes from the agent_definitions table for this specific agent type
+	if agentPrompt, ok := agentConfig["prompt_template"].(string); ok && agentPrompt != "" {
+		logger.Info("Using prompt from agent config (Priority 2 - agent's default)",
+			zap.String("agent_type", params.AgentType),
+			zap.String("prompt_preview", truncateString(agentPrompt, 100)))
+		return agentPrompt, "agent_default"
+	}
+
+	// PRIORITY 3: Check workflow step config (fallback)
+	// This is the hardcoded fallback in the workflow definition
+	if stepConfig, ok := params.StepConfig.Config["prompt_template"].(string); ok && stepConfig != "" {
+		logger.Info("Using prompt from workflow step config (Priority 3 - fallback)",
+			zap.String("prompt_preview", truncateString(stepConfig, 100)))
+		return stepConfig, "workflow_fallback"
+	}
+
+	// Generic fallback if nothing found
+	logger.Warn("No prompt found in any tier, using generic fallback")
+	return "Generate content based on the provided context.", "generic_fallback"
 }

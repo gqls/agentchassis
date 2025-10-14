@@ -850,6 +850,7 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 		zap.Any("orchestration_workflow_exists", agentDef.DefaultConfig["orchestration_workflow"] != nil),
 		zap.Any("task_workflow_exists", agentDef.DefaultConfig["task_workflow"] != nil),
 		zap.Any("DEBUGaa: msgbody look for config.workflow from message - look for headers.action or another time, msgCtx.message.value.config.workflow", msgCtx),
+		zap.Any("DEBUGaa: agentDef, looking to remove default calculator and replace with current workflow", agentDef),
 	)
 
 	// Parse message body

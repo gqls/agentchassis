@@ -86,4 +86,71 @@ This refactoring makes it much easier to:
 
 The code is now more maintainable and the data flow is transparent at each step.
 
+--
 
+Priority 1 (Message Prompt)**
+```
+Parent sends: call_agent with prompt="Test custom prompt"
+Expected: Child uses "Test custom prompt"
+Log: "Using prompt from incoming message (Priority 1)"
+```
+
+**Test 2: Priority 2 (Agent Config)**
+```
+Parent sends: call_agent WITHOUT prompt field
+Agent type: content-creator-hero (has prompt_template in database)
+Expected: Child uses hero-specific prompt from database
+Log: "Using prompt from agent config (Priority 2)"
+```
+
+**Test 3: Priority 3 (Fallback)**
+```
+Agent has NO prompt_template in database
+Workflow step has generic prompt
+Expected: Uses workflow step prompt
+Log: "Using prompt from workflow step config (Priority 3 - fallback)"
+
+===
+
+--
+
+===
+
+
+## Part 3: How the Flow Works Now
+
+**Scenario 1: Parent sends custom prompt (Priority 1)**
+```
+Parent workflow step:
+action: call_agent
+config:
+agent_type: content-creator-hero
+prompt: "Write a space-themed hero section for Mars Colony Inc..."
+
+→ CallAgentAction puts prompt in requestBody["prompt"]
+→ Child receives message with prompt in body
+→ ExecuteLLMPromptAction checks StepConfig.Config["prompt"] ✓ FOUND
+→ Uses parent's custom prompt (Priority 1)
+```
+
+**Scenario 2: No parent prompt, use agent's default (Priority 2)**
+```
+Parent workflow step:
+action: call_agent
+config:
+agent_type: content-creator-hero
+# NO prompt specified
+
+→ CallAgentAction doesn't add prompt to requestBody
+→ Child receives message without prompt
+→ ExecuteLLMPromptAction checks StepConfig.Config["prompt"] ✗ NOT FOUND
+→ Checks agentConfig["prompt_template"] ✓ FOUND
+→ Uses agent's database-defined prompt (Priority 2)
+```
+
+**Scenario 3: Fallback (Priority 3)**
+```
+Agent has NO prompt_template in database
+→ ExecuteLLMPromptAction checks all priorities
+→ Falls back to workflow step config or generic
+→ Uses workflow fallback (Priority 3)

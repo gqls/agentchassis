@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// CallAgentAction - Main entry point, orchestrates calling an already-spawned agent
+// CallAgentAction - Main entry point, orchestrates calling an already-spawned agent from the parent (this is on parent)
 func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	// Log entry
 	logCallStart(params)
@@ -54,6 +54,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	requestBody := buildRequestBody(params, targetAction, dataToSend)
 	params.Logger.Info("in CallAgentAction built request body",
 		zap.Any("requestBody", requestBody),
+		zap.Any("DEBUGaa: original params", params),
 	)
 
 	// 6. Create child orchestration context
@@ -68,7 +69,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		targetAction,
 		requestBody,
 	)
-	params.Logger.Info("in CallAgentAction built request message [?] request for agent I am on perhaps?",
+	params.Logger.Info("in CallAgentAction built request message for the child spawn",
 		zap.Any("requestMessage", requestMessage),
 	)
 
@@ -83,7 +84,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.Any("callResult", callResult),
 		zap.Any("agent type", os.Getenv("AGENT_TYPE")),
 	)
-	
+
 	return callResult, nil
 }
 
@@ -275,6 +276,13 @@ func buildRequestBody(params ActionParams, targetAction string, dataToSend inter
 	requestBody := map[string]interface{}{
 		"action":     targetAction,
 		"input_data": dataToSend,
+	}
+
+	// **NEW: Pass prompt from step config if present**
+	if prompt, ok := params.StepConfig.Config["prompt"].(string); ok && prompt != "" {
+		requestBody["prompt"] = prompt
+		params.Logger.Info("Including prompt in request body",
+			zap.String("prompt_preview", prompt[:min(50, len(prompt))]))
 	}
 
 	// Add any agent config
