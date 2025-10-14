@@ -695,7 +695,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 	// 3. Handle retry logic for spawn actions
 	if shouldRetry := s.handleSpawnRetry(state, step, contextLogger); !shouldRetry {
-		return fmt.Errorf("spawn action failed after max retries")
+		return fmt.Errorf("spawn action failed after max retries I think this is a maximum number of spawned agents")
 	}
 
 	// 4. Prepare request ID if action needs response
@@ -782,7 +782,7 @@ func (s *SagaCoordinator) handleSpawnRetry(state *OrchestrationState, step model
 	retryKey := fmt.Sprintf("spawn_retry_%s_%s", state.OrchestrationID, step.Name)
 	retryCount := s.getRetryCount(retryKey)
 
-	if retryCount >= 3 {
+	if retryCount >= 30 {
 		logger.Error("Spawn action exceeded max retries",
 			zap.String("step_name", state.CurrentStep),
 			zap.Int("retry_count", retryCount))
