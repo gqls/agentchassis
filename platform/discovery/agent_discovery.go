@@ -117,16 +117,16 @@ func (d *AgentDiscovery) DiscoverAgents(ctx context.Context, requirements Requir
 	return matches, nil
 }
 
-// FindBestGroup finds the most suitable group for a task type
+// FindBestGroup finds the most suitable group for a group type
 // Now supports optional version specification
-func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, version string, logger zap.Logger) (*AgentGroup, error) {
+func (d *GroupDiscovery) FindBestGroup(ctx context.Context, groupType string, version string, logger zap.Logger) (*AgentGroup, error) {
 	var group AgentGroup
 
 	var query string
 	var args []interface{}
 
 	logger.Info("In FindBestGroup ",
-		zap.String("task_type", taskType),
+		zap.String("group_type", groupType),
 		zap.String("version", version),
 	)
 
@@ -142,7 +142,7 @@ func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, ver
                 usage_count DESC
             LIMIT 1
         `
-		args = []interface{}{taskType, version}
+		args = []interface{}{groupType, version}
 	} else {
 		query = `
             SELECT id, name, group_type, agent_configs, orchestration_workflow,
@@ -154,7 +154,7 @@ func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, ver
                 version DESC
             LIMIT 1
         `
-		args = []interface{}{taskType}
+		args = []interface{}{groupType}
 	}
 
 	// Match the SELECT with exactly what we're scanning
@@ -169,7 +169,7 @@ func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, ver
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no group found for task type: %s", taskType)
+			return nil, fmt.Errorf("no group found for group type: %s", groupType)
 		}
 		return nil, fmt.Errorf("failed to find group: %w", err)
 	}
@@ -179,7 +179,7 @@ func (d *GroupDiscovery) FindBestGroup(ctx context.Context, taskType string, ver
 	group.LastPerformance = 0.0     // No performance metrics in this table
 
 	logger.Info("DEBUGaa: In FindBestGroup after database query",
-		zap.String("task_type", taskType),
+		zap.String("group_type", groupType),
 		zap.String("version", version),
 	)
 

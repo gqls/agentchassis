@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -28,17 +29,32 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	// 2. Find the target agent from spawn results
 	targetAgent, err := findTargetAgent(params, targetAgentType, targetRole)
 	if err != nil {
+		params.Logger.Info("in CallAgentAction failed to find target agent",
+			zap.Error(err),
+		)
 		return nil, err
 	}
+	params.Logger.Info("in CallAgentAction found target agent",
+		zap.Any("targetAgent", targetAgent),
+	)
 
 	// 3. Extract the data to send to the agent
 	dataToSend := extractDataForAgent(params)
+	params.Logger.Info("in CallAgentAction data being sent to agent",
+		zap.Any("dataToSend", dataToSend),
+	)
 
 	// 4. Determine the action the agent should perform
 	targetAction := determineTargetAction(params.StepConfig)
+	params.Logger.Info("in CallAgentAction determined target action",
+		zap.String("targetAction", targetAction),
+	)
 
 	// 5. Build the complete request body
 	requestBody := buildRequestBody(params, targetAction, dataToSend)
+	params.Logger.Info("in CallAgentAction built request body",
+		zap.Any("requestBody", requestBody),
+	)
 
 	// 6. Create child orchestration context
 	childOrchID, childOrchName := createChildOrchestration(targetAgentType)
@@ -52,6 +68,9 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		targetAction,
 		requestBody,
 	)
+	params.Logger.Info("in CallAgentAction built request message [?] request for agent I am on perhaps?",
+		zap.Any("requestMessage", requestMessage),
+	)
 
 	// 8. Send the message to the agent
 	if err := sendAgentRequest(ctx, params, targetAgent.RequestsTopic, requestMessage); err != nil {
@@ -59,7 +78,13 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	// 9. Build and return the result
-	return buildCallResult(targetAgent, childOrchID, targetAction, requestMessage.Headers.RequestID), nil
+	callResult := buildCallResult(targetAgent, childOrchID, targetAction, requestMessage.Headers.RequestID)
+	params.Logger.Info("in CallAgentAction built call result on agent",
+		zap.Any("callResult", callResult),
+		zap.Any("agent type", os.Getenv("AGENT_TYPE")),
+	)
+	
+	return callResult, nil
 }
 
 // Configuration extraction
@@ -230,6 +255,7 @@ func extractDataForAgent(params ActionParams) interface{} {
 
 // Determine what action the agent should perform
 func determineTargetAction(stepConfig models.Step) string {
+
 	// Check for explicit target_action
 	if action, ok := stepConfig.Config["target_action"].(string); ok && action != "" {
 		return action
@@ -540,11 +566,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -597,11 +623,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -652,11 +678,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
 

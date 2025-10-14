@@ -207,7 +207,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 			zap.String("parent_orch_id", msgCtx.ExecutionContext.ParentOrchestrationID))
 	}
 
-	// Load agent definition - KEEP AS IS
+	// Load agent definition from DB to put into config - agentDef.DefaultConfig["workflow"]
 	agentDef, err := p.loadAgentDefinition(ctx, p.agentType)
 	if err != nil {
 		msgCtx.Logger.Warn("Failed to load agent definition, creating dynamic workflow",
@@ -225,6 +225,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		zap.String("display_name", agentDef.DisplayName),
 		zap.String("category", agentDef.Category),
 		zap.Any("DEBUGaa: about to select Workflow", agentDef),
+		zap.Any("DEBUGaa: agentType from which database workflow is loaded", p.agentType),
 	)
 
 	// Select the appropriate workflow based on context - KEEP AS IS
@@ -847,12 +848,16 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 		zap.Any("default_config_keys", agentDef.DefaultConfig),
 		zap.Any("workflow_exists", agentDef.DefaultConfig["workflow"] != nil),
 		zap.Any("orchestration_workflow_exists", agentDef.DefaultConfig["orchestration_workflow"] != nil),
-		zap.Any("task_workflow_exists", agentDef.DefaultConfig["task_workflow"] != nil))
+		zap.Any("task_workflow_exists", agentDef.DefaultConfig["task_workflow"] != nil),
+		zap.Any("DEBUGaa: msgbody look for config.workflow from message - look for headers.action or another time, msgCtx.message.value.config.workflow", msgCtx),
+	)
 
 	// Parse message body
 	var msgBody map[string]interface{}
 	if err := json.Unmarshal(msgCtx.Message.Value, &msgBody); err == nil {
-
+		p.logger.Info("DEBUGaa: trying to find inline workflow override from message",
+			zap.Any("workflow_override from unmarshalled msgCtx.message.value", msgBody),
+		)
 		// Priority 1: Inline workflow override (for testing)
 		if config, ok := msgBody["config"].(map[string]interface{}); ok {
 			if workflow, ok := config["workflow"].(map[string]interface{}); ok {
@@ -873,7 +878,10 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 			if groupType != "" {
 				p.logger.Info("Looking for agent group",
 					zap.String("group_type", groupType),
-					zap.String("version", version))
+					zap.String("version", version),
+					zap.Any("action is:", msgCtx.Headers["action"]),
+					zap.Any("or action might be:", msgCtx.ExecutionContext.Action),
+				)
 
 				// Use the updated GroupDiscovery with sql.DB
 				db := p.db
@@ -883,17 +891,12 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 
 				if db != nil {
 
-					p.logger.Info("DEBUGaa: Database connection available",
+					p.logger.Info("DEBUGaa: Database connection available: ",
 						zap.Bool("using_db", db != nil),
 						zap.Bool("using_sqlDB", p.sqlDB != nil))
 
 					discovered := discovery.NewGroupDiscovery(db)
 					group, err := discovered.FindBestGroup(ctx, groupType, version, *p.logger)
-
-					p.logger.Info("DEBUGaa: Discovery and Group after finding FindBestGroup - didnt find it basically",
-						zap.Any("discovery", discovered),
-						zap.Any("group:", group))
-
 					if err == nil && group != nil {
 						var workflowConfig map[string]interface{}
 						if err := json.Unmarshal(group.Workflow, &workflowConfig); err == nil {
@@ -918,9 +921,13 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 							return p.convertToWorkflowPlan(workflowConfig), nil
 						}
 					} else {
-						p.logger.Warn("No agent group found",
+						p.logger.Info("DEBUGaa: Discovery and Group after finding FindBestGroup - didnt find it basically",
+							zap.Any("discovery", discovered),
+							zap.Any("group:", group),
 							zap.String("group_type", groupType),
-							zap.Error(err))
+							zap.String("version", version),
+							zap.Error(err),
+						)
 					}
 				} else {
 					p.logger.Error("No database connection available for group lookup. In selectWorkflow in processor.go")
@@ -929,7 +936,7 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 		}
 	}
 
-	// Priority 3: Agent's default workflow
+	// Priority 3: Agent's default workflow from DB
 	if wf, ok := agentDef.DefaultConfig["workflow"].(map[string]interface{}); ok {
 		return p.convertToWorkflowPlan(wf), nil
 	}
@@ -1301,9 +1308,13 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 			}
 		}
 
+		spawnRequest.Headers.ParentResponsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+
 		p.logger.Info("DEBUGaa: processor.go 1156 ProcessMessage spawnRequest sent to SendInitializationResponse",
 			zap.Any("WHats in spawnRequest:", spawnRequest),
+			zap.Any("We are no longer missing headers.parent_responses_topic:", spawnRequest.Headers.ParentResponsesTopic),
 		)
+
 		// This will now be called correctly, sending the confirmation response.
 		p.initializer.SendInitializationResponse(&spawnRequest)
 
@@ -1311,7 +1322,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		p.logger.Info("Probably child agent. Initialization complete, now starting agent's own workflow")
 	}
 
-	contextLogger.Info("processor.go 1161 ProcessMessage",
+	p.logger.Info("processor.go 1161 ProcessMessage",
 		zap.String("MessageType from ExecutionContext", msgCtx.ExecutionContext.MessageType),
 	)
 

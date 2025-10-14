@@ -28,14 +28,14 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	log.Printf("=== Configuration Debug ===")
-	log.Printf("Clients DB Config:")
-	log.Printf("  Host: %s", cfg.Infrastructure.ClientsDatabase.Host)
-	log.Printf("  Port: %d", cfg.Infrastructure.ClientsDatabase.Port)
-	log.Printf("  User: %s", cfg.Infrastructure.ClientsDatabase.User)
-	log.Printf("  DBName: %s", cfg.Infrastructure.ClientsDatabase.DBName)
-	log.Printf("  PasswordEnvVar: '%s'", cfg.Infrastructure.ClientsDatabase.PasswordEnvVar)
-	log.Printf("  SSLMode: %s", cfg.Infrastructure.ClientsDatabase.SSLMode)
+	/*	log.Printf("=== Configuration Debug ===")
+		log.Printf("Clients DB Config:")
+		log.Printf("  Host: %s", cfg.Infrastructure.ClientsDatabase.Host)
+		log.Printf("  Port: %d", cfg.Infrastructure.ClientsDatabase.Port)
+		log.Printf("  User: %s", cfg.Infrastructure.ClientsDatabase.User)
+		log.Printf("  DBName: %s", cfg.Infrastructure.ClientsDatabase.DBName)
+		log.Printf("  PasswordEnvVar: '%s'", cfg.Infrastructure.ClientsDatabase.PasswordEnvVar)
+		log.Printf("  SSLMode: %s", cfg.Infrastructure.ClientsDatabase.SSLMode)*/
 
 	// ###### DEBUG ###### //
 	// Initialize logger first

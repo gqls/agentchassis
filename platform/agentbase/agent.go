@@ -1361,6 +1361,7 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 			MyOrchestrationName: spawnRequest.Headers.OrchestrationName,
 			MyRequestsTopic:     a.requestsTopic,
 			MyResponsesTopic:    a.responsesTopic,
+			TopicSentTo:         spawnRequest.Headers.ParentResponsesTopic,
 
 			// Identity
 			CorrelationID:   spawnRequest.Headers.CorrelationID,

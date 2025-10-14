@@ -46,19 +46,19 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 
 	// initialise
 	if params.ExecutionContext.Action == "initialize" {
-		params.Logger.Info("CalculateAction handling initialization")
+		params.Logger.Info("handling initialization")
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 
 	// Method 2: Check for initialization flag in collected data
 	if isInit, ok := params.CollectedData["is_initialization"].(bool); ok && isInit {
-		params.Logger.Info("CalculateAction initialization detected via flag")
+		params.Logger.Info("initialization detected via flag")
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 
 	// Method 3: Check the action from collected data (if passed through)
 	if action, ok := params.CollectedData["action"].(string); ok && action == "initialize" {
-		params.Logger.Info("CalculateAction initialization detected via action field")
+		params.Logger.Info("initialization detected via action field")
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 

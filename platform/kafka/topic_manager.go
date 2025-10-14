@@ -4,6 +4,7 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -572,7 +573,10 @@ func (tm *TopicManager) WaitForTopicOld(ctx context.Context, topic string, logge
 
 func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *zap.Logger) error {
 	const maxAttempts = 10
-	const pollInterval = 10 * time.Second
+	var randomWaits = []int{3, 5, 7, 11, 13, 17, 21, 23, 29}
+	var pollInterval time.Duration
+	waitSeconds := randomWaits[rand.Intn(len(randomWaits))]
+	pollInterval = time.Duration(waitSeconds) * time.Second
 
 	// We'll poll for a total of 100 seconds.
 	for i := 0; i < maxAttempts; i++ {
