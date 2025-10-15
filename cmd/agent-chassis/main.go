@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -127,6 +128,32 @@ func main() {
 		zap.String("agent_type", cfg.Custom["agent_type"].(string)),
 		zap.String("topic", cfg.Custom["topic"].(string)),
 		zap.String("consumer_group", cfg.Custom["kafka_consumer_group"].(string)))
+
+	// Start health check server
+	healthPort := os.Getenv("HEALTH_PORT")
+	if healthPort == "" {
+		healthPort = "8080"
+	}
+
+	go func() {
+		mux := http.NewServeMux()
+
+		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		})
+
+		mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+			// Could add actual readiness checks here
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("READY"))
+		})
+
+		appLogger.Info("Starting health check server", zap.String("port", healthPort))
+		if err := http.ListenAndServe(":"+healthPort, mux); err != nil {
+			appLogger.Fatal("Health server failed", zap.Error(err))
+		}
+	}()
 
 	// Create context
 	ctx, cancel := context.WithCancel(context.Background())
