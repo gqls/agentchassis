@@ -1321,6 +1321,9 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 		// After setting the role and sending the response:
 		p.logger.Info("Probably child agent. Initialization complete, now starting agent's own workflow")
+
+		// it's initialisation, we don't want to continue to process the child's workflow at this step
+		return nil
 	}
 
 	p.logger.Info("processor.go 1161 ProcessMessage",
