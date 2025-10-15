@@ -439,7 +439,7 @@ func buildSpawnResult(agentID, agentName, agentType, role, requestID,
 		"status":            "initialized",
 		"role":              role,
 		"request_id":        requestID,
-		"await_response":    false, // Don't wait during spawn
+		"await_response":    true,
 		"target_agent_type": agentType,
 		"subtree_info":      subtree,
 

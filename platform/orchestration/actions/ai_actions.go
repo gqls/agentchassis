@@ -108,7 +108,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	params.Logger.Info("Selected prompt for execution",
 		zap.String("source", promptSource),
 		zap.String("agent_type", params.AgentType),
-		zap.String("prompt_preview", truncateString(promptTemplate, 150)))
+		zap.String("prompt_preview", truncateString(promptTemplate, 350)))
 
 	// Create AI client based on provider
 	aiClient, err := createAIClient(ctx, aiServiceConfig)
@@ -134,8 +134,8 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	params.Logger.Info("Rendered prompt template",
-		zap.String("template_preview", truncateString(promptTemplate, 100)),
-		zap.String("rendered_preview - renderedPrompt", truncateString(renderedPrompt, 200)))
+		zap.String("template_preview", truncateString(promptTemplate, 300)),
+		zap.String("rendered_preview - renderedPrompt", truncateString(renderedPrompt, 400)))
 
 	// Prepare AI service options
 	options := make(map[string]interface{})
