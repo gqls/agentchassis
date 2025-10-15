@@ -451,6 +451,8 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 func getPromptWithPriority(params ActionParams, agentConfig map[string]interface{}) (prompt string, source string) {
 	logger := params.Logger
 
+	logger.Info("in getPromptWithPriority")
+
 	// PRIORITY 1: Check incoming message for prompt (from parent's call_agent)
 	// Check in StepConfig.Config first (this is where call_agent passes it)
 	if configPrompt, ok := params.StepConfig.Config["prompt"].(string); ok && configPrompt != "" {

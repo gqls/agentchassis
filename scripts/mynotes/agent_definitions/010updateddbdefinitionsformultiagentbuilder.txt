@@ -20,8 +20,8 @@ INSERT INTO agent_definitions (
     'content-creator-hero',
     'Hero Section Writer',
     'Specialized in writing compelling hero sections with powerful headlines and engaging subheadlines',
-    'data-driven',  -- CHANGED FROM 'content-creation'
-    'docker.io/gqls/agent-chassis',  -- CHANGED FROM 'your-registry'
+    'data-driven',
+    'docker.io/gqls/agent-chassis',
     'latest',
     '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}',
     '{

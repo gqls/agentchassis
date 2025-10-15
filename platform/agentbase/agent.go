@@ -1395,7 +1395,7 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 	responsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
 	if responsesTopic == "" {
 		responsesTopic = spawnRequest.Headers.ResponsesTopic
-		a.logger.Error("error: environment var PARENT_RESPONSE_TOPIC was blank so probably sending to wrong topic now",
+		a.logger.Error("error: environment var PARENT_RESPONSES_TOPIC was blank so probably sending to wrong topic now",
 			zap.String("responsesTopic", responsesTopic),
 		)
 	}

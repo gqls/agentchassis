@@ -1484,7 +1484,7 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 		zap.Int("retry_version", awaited.RetryVersion),
 		zap.String("DEBUGaa: where to send this? execCtx.ReplyToTopic:", execCtx.ReplyToTopic),
 		zap.String("DEBUGaa: where to send this? execCtx.ResponseTopic:", execCtx.ResponsesTopic),
-		zap.String("DEBUGaa: os.Getenv(PARENT_RESPONSE_TOPIC)", os.Getenv("PARENT_RESPONSE_TOPIC")),
+		zap.String("DEBUGaa: os.Getenv(PARENT_RESPONSES_TOPIC)", os.Getenv("PARENT_RESPONSES_TOPIC")),
 	)
 
 	// Create retry request with same request ID

@@ -50,4 +50,6 @@ consolidate structs and don't introduce new ones until necessary across the code
 
 when looking at fresh logs, first take a look at the first date of the new logs and don't analyse old logs (that will have dates prior to this)
 
+let's always try and make things robust and not go for quick fixes. Let's always try and build on what we have already and not restructure unnecessarily.
+
 
