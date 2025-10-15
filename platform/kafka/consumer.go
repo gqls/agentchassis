@@ -31,8 +31,8 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 	logger.Info("consumer.go setting up NewConsumer")
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:        brokers,
-		GroupID:        groupID,
+		Brokers: brokers,
+		//GroupID:        groupID,
 		Topic:          topic,
 		MinBytes:       1,                 // 10KB
 		MaxBytes:       10e6,              // 10MB
