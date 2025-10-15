@@ -269,7 +269,7 @@ func main() {
 	appLogger.Info("Shutdown signal received, shutting down auth server...")
 
 	// Graceful shutdown with timeout
-	ctxShutdown, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctxShutdown, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctxShutdown); err != nil {

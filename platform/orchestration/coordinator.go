@@ -30,7 +30,7 @@ const (
 	// Timeout for stuck orchestrations
 	StuckOrchestrationTimeout = 5 * time.Minute
 	// Default request timeout
-	DefaultRequestTimeout = 120 * time.Second
+	DefaultRequestTimeout = 180 * time.Second
 )
 
 var (

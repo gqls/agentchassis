@@ -120,7 +120,7 @@ func main() {
 	appLogger.Info("Shutdown signal received", zap.String("signal", receivedSignal.String()))
 
 	// Graceful shutdown with timeout
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer shutdownCancel()
 
 	if err := apiServer.Shutdown(shutdownCtx); err != nil {
