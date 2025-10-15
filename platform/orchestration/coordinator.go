@@ -698,33 +698,30 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return fmt.Errorf("spawn action failed after max retries I think this is a maximum number of spawned agents")
 	}
 
-	// 4. Prepare request ID if action needs response
-	requestID := prepareRequestID(execCtx, step.Action)
-
-	// 5. Get and validate action handler
+	// 4. Get and validate action handler
 	handler, err := getActionHandler(step.Action)
 	if err != nil {
 		return err
 	}
 
-	// 6. Build action parameters - get input data
-	params := buildActionParams(ctx, execCtx, state, step, s, contextLogger, requestID)
+	// 5. Build action parameters - get input data
+	params := buildActionParams(ctx, execCtx, state, step, s, contextLogger)
 
-	// 7. Execute the action
+	// 6. Execute the action
 	result, err := executeAction(ctx, handler, params, contextLogger)
 	if err != nil {
 		return handleActionError(err, step, contextLogger)
 	}
 
-	// 8. Process action result
+	// 7. Process action result
 	if err := processActionResult(state, result, step, execCtx, s, contextLogger); err != nil {
 		return err
 	}
 
-	// 9. Record processing history
+	// 8. Record processing history
 	recordActionExecution(state, execCtx, step, s.podName)
 
-	// 10. Save state if needed - pass the logger
+	// 9. Save state if needed - pass the logger
 	return saveStateIfNeeded(ctx, state, s.db, s.logger)
 }
 
@@ -793,28 +790,6 @@ func (s *SagaCoordinator) handleSpawnRetry(state *OrchestrationState, step model
 	return true
 }
 
-// Prepare request ID for actions that need responses
-func prepareRequestID(execCtx *types.ExecutionContext, action string) string {
-	// List of actions that need to track responses
-	needsResponse := map[string]bool{
-		"call_agent":          true,
-		"spawn_agent":         true,
-		"spawn_group":         true,
-		"start_orchestration": true,
-	}
-
-	if !needsResponse[action] {
-		return ""
-	}
-
-	// Generate or use existing request ID
-	if execCtx.RequestID == "" {
-		execCtx.RequestID = uuid.New().String()
-	}
-
-	return execCtx.RequestID
-}
-
 // Get and validate action handler
 func getActionHandler(action string) (actions.ActionFunc, error) {
 	handler, exists := actions.GetAction(action)
@@ -826,7 +801,7 @@ func getActionHandler(action string) (actions.ActionFunc, error) {
 
 // Build action parameters
 func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, state *OrchestrationState,
-	step models.Step, coordinator *SagaCoordinator, logger *zap.Logger, requestID string) actions.ActionParams {
+	step models.Step, coordinator *SagaCoordinator, logger *zap.Logger) actions.ActionParams {
 
 	return actions.ActionParams{
 		Context:          ctx,

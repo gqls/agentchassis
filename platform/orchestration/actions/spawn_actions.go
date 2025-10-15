@@ -38,7 +38,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	logSpawnStart(params)
 
 	// 1. Validate and extract configuration
-	agentType, role, clientID, requestID, _, err := extractSpawnConfiguration(params)
+	agentType, role, clientID, _, err := extractSpawnConfiguration(params)
 	if err != nil {
 		return nil, fmt.Errorf("configuration extraction failed in spawn actions: %w", err)
 	}
@@ -100,8 +100,11 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	// 8. Always send an initialization message to let the agent know it's been spawned
 	// This is separate from the actual task data which CallAgentAction will send later
+
+	// Generate a NEW request ID for the initialization message
+	initRequestID := uuid.New().String()
 	if err := sendInitializationMessage(ctx, params, agentID, agentName, agentType, role,
-		requestID, childRequestsTopic, parentResponsesTopic); err != nil {
+		initRequestID, childRequestsTopic, parentResponsesTopic); err != nil {
 		params.Logger.Error("Failed to send initialization message",
 			zap.String("agent_id", agentID),
 			zap.Error(err))
@@ -109,19 +112,19 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	}
 
 	// 11. Build and return comprehensive result
-	return buildSpawnResult(agentID, agentName, agentType, role, requestID,
+	return buildSpawnResult(agentID, agentName, agentType, role, initRequestID,
 		childRequestsTopic, childResponsesTopic, parentResponsesTopic,
 		stableIdentity, subtreeInfo), nil
 }
 
 // Configuration extraction - using existing structs, no new types
-func extractSpawnConfiguration(params ActionParams) (agentType, role, clientID, requestID string, sendInitData bool, err error) {
+func extractSpawnConfiguration(params ActionParams) (agentType, role, clientID string, sendInitData bool, err error) {
 	config := params.StepConfig.Config
 
 	// Extract agent type (required)
 	agentType, ok := config["agent_type"].(string)
 	if !ok || agentType == "" {
-		return "", "", "", "", false, fmt.Errorf("agent_type is required")
+		return "", "", "", false, fmt.Errorf("agent_type is required")
 	}
 
 	// Extract role (optional, defaults to step name)
@@ -137,20 +140,13 @@ func extractSpawnConfiguration(params ActionParams) (agentType, role, clientID, 
 		clientID = "demo_client"
 	}
 
-	// Extract or generate request ID
-	requestID = params.Headers["request_id"]
-	if requestID == "" {
-		requestID = uuid.New().String()
-		params.Headers["request_id"] = requestID
-	}
-
 	// Check if we should send initialization data
 	sendInitData = false
 	if send, ok := config["send_init_data"].(bool); ok {
 		sendInitData = send
 	}
 
-	return agentType, role, clientID, requestID, sendInitData, nil
+	return agentType, role, clientID, sendInitData, nil
 }
 
 // Topic setup - setting up topics for the spawned agent so e.g. parentResponsesTopic should be _this_ agent's RESPONSES_TOPIC
@@ -269,9 +265,6 @@ func prepareInitializationData(params ActionParams, sendInitData bool) map[strin
 
 // Message building and sending
 func sendInitializationMessage(ctx context.Context, params ActionParams, agentID, agentName, agentType, role, requestID, childRequestsTopic, parentResponsesTopic string) error {
-	// Generate a NEW request ID for the initialization message
-	initRequestID := uuid.New().String()
-
 	// Determine sender type
 	senderType := determineSenderType(params)
 
@@ -289,7 +282,7 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 	}
 
 	// Build the initialization message using existing types.RequestMessage
-	message := buildInitializationMessage(params, agentID, agentName, agentType, role, initRequestID, parentResponsesTopic, senderType, initData)
+	message := buildInitializationMessage(params, agentID, agentName, agentType, role, requestID, parentResponsesTopic, senderType, initData)
 
 	// Marshal message
 	messageBytes, err := json.Marshal(message)
