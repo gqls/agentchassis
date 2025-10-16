@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"github.com/gqls/agentchassis/platform/orchestration/actions/aggregators"
 	"github.com/gqls/agentchassis/platform/orchestration/actions_list"
 )
 
@@ -28,7 +27,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 
 	// Data aggregation
 	"aggregate_data":    AggregateDataAction,
-	"aggregate_webpage": aggregators.AggregateWebpageAction,
+	"aggregate_webpage": AggregateWebpageAction,
 
 	// LLM operations
 	//"execute_llm_prompt": ExecuteLLMPromptActionFAKE,
