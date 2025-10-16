@@ -14,7 +14,7 @@ SET orchestration_workflow = '{
     "generate_hero": {
       "action": "call_agent",
       "config": {
-        "prompt": "Write a compelling hero section for {{business_name}}, a {{business_type}}. Include a powerful headline and subheadline.",
+        "prompt": "Write a compelling hero section for {{.business_name}}, a {{.business_type}}. Include a powerful headline and subheadline.",
         "agent_type": "content-creator-hero",
         "target_role": "hero_writer"
       },
@@ -33,7 +33,7 @@ SET orchestration_workflow = '{
     "generate_features": {
       "action": "call_agent",
       "config": {
-        "prompt": "List 3-4 key features or benefits of {{business_name}}, a {{business_type}}. Make each feature clear and customer-focused.",
+        "prompt": "List 3-4 key features or benefits of {{.business_name}}, a {{.business_type}}. Make each feature clear and customer-focused.",
         "agent_type": "content-creator-features",
         "target_role": "features_writer"
       },
@@ -52,7 +52,7 @@ SET orchestration_workflow = '{
     "generate_testimonials": {
       "action": "call_agent",
       "config": {
-        "prompt": "Create 2 realistic customer testimonials for {{business_name}}, a {{business_type}}. Make them authentic and specific.",
+        "prompt": "Create 2 realistic customer testimonials for {{.business_name}}, a {{.business_type}}. Make them authentic and specific.",
         "agent_type": "content-creator-testimonials",
         "target_role": "testimonials_writer"
       },
@@ -71,7 +71,7 @@ SET orchestration_workflow = '{
     "generate_contact": {
       "action": "call_agent",
       "config": {
-        "prompt": "Write a contact section for {{business_name}}. Include inviting text that encourages customers to reach out.",
+        "prompt": "Write a contact section for {{.business_name}}. Include inviting text that encourages customers to reach out.",
         "agent_type": "content-creator-contact",
         "target_role": "contact_writer"
       },
@@ -90,7 +90,7 @@ SET orchestration_workflow = '{
     "generate_cta": {
       "action": "call_agent",
       "config": {
-        "prompt": "Write a strong call-to-action section for {{business_name}}. Include action text and a reason to act now.",
+        "prompt": "Write a strong call-to-action section for {{.business_name}}. Include action text and a reason to act now.",
         "agent_type": "content-creator-cta",
         "target_role": "cta_writer"
       },
