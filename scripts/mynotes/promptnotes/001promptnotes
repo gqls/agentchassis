@@ -52,6 +52,5 @@ when looking at fresh logs, first take a look at the first date of the new logs 
 
 let's always try and make things robust and not go for quick fixes. Let's always try and build on what we have already and not restructure unnecessarily.
 
-don't use emojis
-don't make up urls
-don't make up addresses and phone numbers
+don't use emojis - actually do use emojis, I can find and replace later
+don't make up urls, don't make up addresses and phone numbers
