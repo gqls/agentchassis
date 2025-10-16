@@ -1,0 +1,308 @@
+Perfect! Now I can see `SpawnGroupAction` exists but it expects `agents` as a **map[string]interface{}** where the keys are roles and values are agent configs. 
+
+The current implementation **spawns agents sequentially** (in a for loop), waiting for each `SpawnAgentAction` to complete before starting the next.
+
+To make it truly parallel, we need to either:
+
+## Option 1: Modify `SpawnGroupAction` to spawn in parallel (Better)
+
+```go
+// Spawn each agent in the group IN PARALLEL
+var wg sync.WaitGroup
+var mu sync.Mutex
+errors := make([]error, 0)
+
+for role, agentConfig := range agents {
+    wg.Add(1)
+    
+    // Spawn in goroutine
+    go func(r string, cfg interface{}) {
+        defer wg.Done()
+        
+        agentConfigMap, ok := cfg.(map[string]interface{})
+        if !ok {
+            mu.Lock()
+            errors = append(errors, fmt.Errorf("invalid config for role %s", r))
+            mu.Unlock()
+            return
+        }
+
+        agentType, ok := agentConfigMap["type"].(string)
+        if !ok {
+            mu.Lock()
+            errors = append(errors, fmt.Errorf("no type for role %s", r))
+            mu.Unlock()
+            return
+        }
+
+        // Create spawn config
+        spawnConfig := models.Step{
+            Action: "spawn_agent",
+            Config: map[string]interface{}{
+                "agent_type": agentType,
+                "role":       r,
+                "config":     agentConfigMap["config"],
+                "group_id":   groupID,
+                "group_name": groupName,
+            },
+        }
+
+        spawnParams := params
+        spawnParams.StepConfig = spawnConfig
+
+        result, err := SpawnAgentAction(ctx, spawnParams)
+        if err != nil {
+            mu.Lock()
+            errors = append(errors, fmt.Errorf("failed to spawn %s: %w", r, err))
+            mu.Unlock()
+            return
+        }
+
+        agentResult, ok := result.(map[string]interface{})
+        if !ok {
+            return
+        }
+
+        agentID, ok := agentResult["agent_id"].(string)
+        if !ok {
+            return
+        }
+
+        mu.Lock()
+        spawnedAgents[r] = agentID
+        if subtreeInfo, ok := agentResult["subtree_info"].(*types.SubtreeInfo); ok {
+            spawnedSubtrees[agentID] = subtreeInfo
+        }
+        mu.Unlock()
+
+        params.Logger.Info("Successfully spawned agent in group",
+            zap.String("role", r),
+            zap.String("agent_id", agentID))
+    }(role, agentConfig)
+}
+
+// Wait for all spawns to complete
+wg.Wait()
+
+if len(errors) > 0 {
+    params.Logger.Error("Some agents failed to spawn",
+        zap.Int("error_count", len(errors)))
+    // Continue anyway with the agents that did spawn
+}
+```
+
+## Option 2: Use the existing `SpawnGroupAction` with proper config (Simpler)
+
+Let me create the correct workflow config for the existing implementation:
+
+```sql
+INSERT INTO agent_group_definitions (
+    group_type, 
+    group_name, 
+    orchestration_workflow,
+    version,
+    created_at,
+    updated_at
+) VALUES (
+    'multi-section-website-builder',
+    'Multi-Section Website Builder',
+    '{
+      "start_step": "spawn_all_writers",
+      "steps": {
+        "spawn_all_writers": {
+          "action": "spawn_group",
+          "config": {
+            "group_type": "website-content-team",
+            "agents": {
+              "hero_writer": {
+                "type": "content-creator-hero"
+              },
+              "features_writer": {
+                "type": "content-creator-features"
+              },
+              "testimonials_writer": {
+                "type": "content-creator-testimonials"
+              },
+              "contact_writer": {
+                "type": "content-creator-contact"
+              },
+              "cta_writer": {
+                "type": "content-creator-cta"
+              }
+            }
+          },
+          "next_step": "call_all_for_content",
+          "description": "Spawn all content writers as a group"
+        },
+        "call_all_for_content": {
+          "action": "call_agent",
+          "config": {
+            "target_role": "hero_writer",
+            "agent_type": "content-creator-hero",
+            "prompt": "Write a compelling hero section for {{.business_name}}, a {{.business_type}}. Include a powerful headline and subheadline."
+          },
+          "next_step": "call_features",
+          "description": "Generate hero content"
+        },
+        "call_features": {
+          "action": "call_agent",
+          "config": {
+            "target_role": "features_writer",
+            "agent_type": "content-creator-features",
+            "prompt": "List 3-4 key features or benefits of {{.business_name}}, a {{.business_type}}. Make each feature clear and customer-focused."
+          },
+          "next_step": "call_testimonials",
+          "description": "Generate features content"
+        },
+        "call_testimonials": {
+          "action": "call_agent",
+          "config": {
+            "target_role": "testimonials_writer",
+            "agent_type": "content-creator-testimonials",
+            "prompt": "Create 2 realistic customer testimonials for {{.business_name}}, a {{.business_type}}. Make them authentic and specific."
+          },
+          "next_step": "call_contact",
+          "description": "Generate testimonials content"
+        },
+        "call_contact": {
+          "action": "call_agent",
+          "config": {
+            "target_role": "contact_writer",
+            "agent_type": "content-creator-contact",
+            "prompt": "Write a contact section for {{.business_name}}. Include inviting text that encourages customers to reach out."
+          },
+          "next_step": "call_cta",
+          "description": "Generate contact content"
+        },
+        "call_cta": {
+          "action": "call_agent",
+          "config": {
+            "target_role": "cta_writer",
+            "agent_type": "content-creator-cta",
+            "prompt": "Write a strong call-to-action section for {{.business_name}}. Include action text and a reason to act now."
+          },
+          "next_step": "aggregate_all_sections",
+          "description": "Generate CTA content"
+        },
+        "aggregate_all_sections": {
+          "action": "aggregate_webpage",
+          "config": {
+            "response_fields": [
+              "call_all_for_content",
+              "call_features",
+              "call_testimonials",
+              "call_contact",
+              "call_cta"
+            ],
+            "section_order": [
+              "call_all_for_content",
+              "call_features",
+              "call_testimonials",
+              "call_contact",
+              "call_cta"
+            ],
+            "add_section_tags": true,
+            "wrapper": {
+              "html_head": "<!DOCTYPE html>\\n<html lang=\\"en\\">\\n<head>\\n<meta charset=\\"utf-8\\">\\n<meta name=\\"viewport\\" content=\\"width=device-width, initial-scale=1\\">\\n<title>Website</title>\\n<style>\\nbody { font-family: system-ui, sans-serif; line-height: 1.6; max-width: 1200px; margin: 0 auto; padding: 20px; }\\nsection { margin: 40px 0; padding: 20px; }\\n.hero-section { background: #f5f5f5; }\\n</style>\\n</head>\\n<body>",
+              "html_foot": "</body>\\n</html>"
+            }
+          },
+          "next_step": "complete",
+          "description": "Combine all sections into HTML"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Return complete website"
+        }
+      }
+    }'::jsonb,
+    8,
+    NOW(),
+    NOW()
+);
+```
+
+This workflow:
+1. **Spawns all 5 agents at once** (though sequentially in current code)
+2. **Calls each agent** separately after spawning
+3. **Aggregates** all results
+
+**But this still isn't truly parallel.** The current `SpawnGroupAction` waits for each spawn to complete.
+
+Which approach do you prefer?
+- **A**: Modify `SpawnGroupAction` to use goroutines (truly parallel spawning)
+- **B**: Use existing code with the workflow above (spawns sequentially, but doesn't wait for work to complete before spawning next)
+
+--
+
+Looking at the code, **YES** - with Option B it will wait for each agent to finish initialization before spawning the next one.
+
+Here's why:
+
+```go
+// Inside the for loop in SpawnGroupAction:
+result, err := SpawnAgentAction(ctx, spawnParams)
+if err != nil {
+    params.Logger.Error("Failed to spawn agent",
+        zap.String("role", role),
+        zap.Error(err))
+    continue  // Only continues to NEXT spawn if error
+}
+// This line only executes AFTER SpawnAgentAction returns
+agentResult, ok := result.(map[string]interface{})
+```
+
+And `SpawnAgentAction` does:
+1. Creates K8s Job
+2. Sends initialization message
+3. **Returns immediately** (doesn't wait for init response)
+
+So the waiting happens in the **coordinator** when `await_response: true` is set in the result:
+
+```go
+return map[string]interface{}{
+    "await_response": true,  // ← This tells coordinator to wait
+    // ...
+}
+```
+
+## The Flow with Option B:
+
+```
+Time 0: spawn_all_writers step executes
+├─ Loop iteration 1: SpawnAgentAction(hero_writer)
+│  ├─ Creates K8s Job
+│  ├─ Sends init message
+│  └─ Returns with await_response: true
+├─ Coordinator sees await_response: true
+├─ WAITS for hero_writer init response
+├─ Receives hero_writer init complete
+├─ Loop iteration 2: SpawnAgentAction(features_writer)
+│  ├─ Creates K8s Job
+│  ├─ Sends init message
+│  └─ Returns with await_response: true
+├─ WAITS for features_writer init response
+... (repeat for all 5 agents)
+```
+
+So **no improvement** over what you currently have - it's still sequential!
+
+## For True Parallelism, We Need Option A
+
+With goroutines in `SpawnGroupAction`, all spawns happen simultaneously:
+
+```
+Time 0: spawn_all_writers step executes
+├─ Start goroutine 1: SpawnAgentAction(hero_writer)
+├─ Start goroutine 2: SpawnAgentAction(features_writer)
+├─ Start goroutine 3: SpawnAgentAction(testimonials_writer)
+├─ Start goroutine 4: SpawnAgentAction(contact_writer)
+├─ Start goroutine 5: SpawnAgentAction(cta_writer)
+└─ Wait for all 5 to complete initialization
+
+All 5 K8s jobs created nearly simultaneously
+All 5 init messages sent in parallel
+All 5 agents initializing at the same time
+```
+
+**Should I create the modified `SpawnGroupAction` with goroutines for true parallel spawning?**

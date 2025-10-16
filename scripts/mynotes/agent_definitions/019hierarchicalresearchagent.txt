@@ -1,0 +1,191 @@
+Can we look at adding another layer of agent in the hierarchy. So say, generic agent spawns hero agent which as first step in _its-own_ workflow spawns another agent to say search the web for data. We could use a fixed web-search adapter but we'd need to get that working, so let's just start by spawning a new dynamic agent that calls an llm again and asks for some data that we then integrate into the hero text before sending it back.
+At the moment we don't need to have any more agents after that until we get this working.
+
+
+Good idea - let's build a simple 3-level hierarchy to test nested agent spawning and data flow.
+
+## The Goal
+
+```
+User Request
+    ↓
+Generic Agent (orchestrator)
+    ↓
+Hero Writer Agent (spawns child for research)
+    ↓  ↙
+    Research Agent (gathers data) → returns to Hero Writer
+    ↓
+Hero Writer (integrates research, generates final content)
+    ↓
+Generic Agent (receives complete hero section)
+```
+
+## Step 1: Create Research Agent Definition
+
+First, let's add a simple `content-researcher` agent:
+
+```sql
+INSERT INTO agent_definitions (
+    type,
+    display_name,
+    description,
+    category,
+    image_repository,
+    image_tag,
+    command,
+    default_config,
+    capabilities,
+    resources,
+    topics,
+    health_config,
+    env_vars,
+    is_active,
+    created_at,
+    updated_at
+) VALUES (
+    'content-researcher',
+    'Content Researcher',
+    'Researches and gathers contextual information for content creation',
+    'data-driven',
+    'docker.io/aqls/agent-chassis',
+    'v1.0.400',
+    ARRAY['/app/agent-chassis'],
+    '{
+      "ai_service": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "api_key_env_var": "ANTHROPIC_API_KEY"
+      },
+      "processing_mode": "task",
+      "temperature": 0.7,
+      "max_tokens": 1500,
+      "prompt_template": "Research background information about {{.business_type}} businesses. Focus on: industry trends, common customer pain points, and key value propositions. Provide 3-4 concise bullet points.",
+      "workflow": {
+        "start_step": "research",
+        "steps": {
+          "research": {
+            "action": "execute_llm_prompt",
+            "description": "Research topic",
+            "next_step": "complete"
+          },
+          "complete": {
+            "action": "complete_workflow",
+            "description": "Return research findings"
+          }
+        }
+      }
+    }'::jsonb,
+    '["research", "content-analysis", "information-gathering"]'::jsonb,
+    '{
+      "requests": {"cpu": "100m", "memory": "256Mi"},
+      "limits": {"cpu": "500m", "memory": "512Mi"}
+    }'::jsonb,
+    '{
+      "process": "system.agent.{type}.requests",
+      "response": "system.agent.{type}.responses",
+      "error": "system.agent.{type}.errors",
+      "dlq": "system.agent.{type}.dlq"
+    }'::jsonb,
+    '{
+      "liveness_path": "/health",
+      "readiness_path": "/ready",
+      "port": 8080,
+      "initial_delay_seconds": 30
+    }'::jsonb,
+    '[]'::jsonb,
+    true,
+    NOW(),
+    NOW()
+);
+```
+
+## Step 2: Update Hero Writer Agent with Nested Workflow
+
+Now modify the `content-creator-hero` agent to spawn a researcher first:
+
+```sql
+UPDATE agent_definitions
+SET default_config = '{
+  "ai_service": {
+    "provider": "anthropic",
+    "model": "claude-3-5-sonnet-20241022",
+    "api_key_env_var": "ANTHROPIC_API_KEY"
+  },
+  "processing_mode": "task",
+  "temperature": 0.7,
+  "max_tokens": 2000,
+  "prompt_template": "Using this research: {{.research_data}}\\n\\nWrite a compelling hero section for {{.business_name}}, a {{.business_type}}. Include a powerful headline and engaging subheadline that captures attention and communicates the core value proposition.",
+  "workflow": {
+    "start_step": "spawn_researcher",
+    "steps": {
+      "spawn_researcher": {
+        "action": "spawn_agent",
+        "config": {
+          "agent_type": "content-researcher",
+          "role": "researcher"
+        },
+        "next_step": "call_researcher",
+        "description": "Spawn research agent"
+      },
+      "call_researcher": {
+        "action": "call_agent",
+        "config": {
+          "agent_type": "content-researcher",
+          "target_role": "researcher",
+          "prompt": "Research background information about {{.business_type}} businesses"
+        },
+        "next_step": "generate_hero_content",
+        "description": "Get research data"
+      },
+      "generate_hero_content": {
+        "action": "execute_llm_prompt",
+        "config": {
+          "input_fields": ["call_researcher"]
+        },
+        "next_step": "complete",
+        "description": "Generate hero section with research"
+      },
+      "complete": {
+        "action": "complete_workflow",
+        "description": "Return hero content"
+      }
+    }
+  }
+}'::jsonb,
+updated_at = NOW()
+WHERE type = 'content-creator-hero';
+```
+
+## Step 3: Test the Hierarchy
+
+The same test request should now trigger the 3-level hierarchy:
+
+```bash
+curl -X POST http://your-api/orchestrate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "orchestrate",
+    "config": {"group_type": "multi-section-website-builder"},
+    "input_data": {
+      "business_name": "Golden Crust Bakery",
+      "business_type": "artisanal bakery"
+    }
+  }'
+```
+
+## What Should Happen
+
+1. **Generic Agent** spawns `hero_writer`
+2. **Hero Writer Agent** receives work request
+3. **Hero Writer** spawns `content-researcher` child
+4. **Researcher** receives work, calls LLM, returns research findings
+5. **Hero Writer** receives research, integrates it into prompt, generates final hero content
+6. **Generic Agent** receives complete hero section
+
+## Things to Watch For
+
+- **Topic routing**: Does researcher send response to hero_writer's response topic?
+- **Data flow**: Does `call_researcher` result get passed to `generate_hero_content`?
+- **Template variables**: Can hero writer access both `{{.business_type}}` AND `{{.research_data}}`?
+
+Should we start by just inserting the researcher agent definition and testing that it can be spawned?
