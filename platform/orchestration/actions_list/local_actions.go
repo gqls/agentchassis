@@ -21,8 +21,12 @@ var LocalActions = map[string]bool{
 	"validate_input":  true,
 	"transform_data":  true,
 	"validate_schema": true,
-	"aggregate_data":  true,
-	"calculate":       true,
+
+	"calculate": true,
+
+	// Data aggregation
+	"aggregate_data":    true,
+	"aggregate_webpage": true,
 
 	// LLM operations
 	"execute_llm_prompt": true,

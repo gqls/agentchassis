@@ -1,6 +1,9 @@
 package actions
 
-import "github.com/gqls/agentchassis/platform/orchestration/actions_list"
+import (
+	"github.com/gqls/agentchassis/platform/orchestration/actions/aggregators"
+	"github.com/gqls/agentchassis/platform/orchestration/actions_list"
+)
 
 // GlobalActionRegistry is the single source of truth for all available local actions
 var GlobalActionRegistry = map[string]ActionFunc{
@@ -19,8 +22,13 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"validate_input":  ValidateInputAction,
 	"transform_data":  TransformDataAction,
 	"validate_schema": ValidateSchemaAction,
-	"aggregate_data":  AggregateDataAction,
-	"calculate":       CalculateAction,
+
+	// maths actions
+	"calculate": CalculateAction,
+
+	// Data aggregation
+	"aggregate_data":    AggregateDataAction,
+	"aggregate_webpage": aggregators.AggregateWebpageAction,
 
 	// LLM operations
 	//"execute_llm_prompt": ExecuteLLMPromptActionFAKE,
