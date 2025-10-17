@@ -1,0 +1,41 @@
+[055a_adding_hierarchical_research_agent_below_hero 1cc61d1] updated db with new agent definition and hierarchical group definition
+
+UPDATE agent_definitions
+SET default_config = '{
+  "ai_service": {
+    "provider": "anthropic",
+    "model": "claude-3-5-sonnet-20241022",
+    "api_key_env_var": "ANTHROPIC_API_KEY"
+  },
+  "processing_mode": "task",
+  "temperature": 0.7,
+  "max_tokens": 1500,
+  "prompt_template": "Research background information about {{.business_type}} businesses. Focus on: industry trends, common customer pain points, and key value propositions. Provide 3-4 concise bullet points.",
+  "workflow": {
+    "start_step": "process",
+    "steps": {
+      "process": {
+        "action": "execute_llm_prompt",
+        "description": "Research topic and return findings",
+        "next_step": "complete"
+      },
+      "complete": {
+        "action": "complete_workflow",
+        "description": "Return research findings"
+      }
+    }
+  }
+}'::jsonb,
+updated_at = NOW()
+WHERE type = 'content-researcher';
+
+
+update the researcher to look for better path to find {{.business_type}} etc
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+  default_config,
+  '{prompt_template}',
+  '"Research background information about {{.body.input_data.business_type}} businesses. Focus on: industry trends, common customer pain points, and key value propositions. Provide 3-4 concise bullet points."'
+),
+updated_at = NOW()
+WHERE type = 'content-researcher';

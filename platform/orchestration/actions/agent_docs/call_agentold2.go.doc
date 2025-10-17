@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -206,7 +205,7 @@ func isStandardAgent(agentType string) bool {
 }
 
 // Data extraction - clearer logic for finding the right data to send
-/*func extractDataForAgent(params ActionParams) interface{} {
+func extractDataForAgent(params ActionParams) interface{} {
 	// Get which input field to use
 	inputField := "input_data"
 	if field, ok := params.StepConfig.Config["input_field"].(string); ok && field != "" {
@@ -253,7 +252,7 @@ func isStandardAgent(agentType string) bool {
 
 	params.Logger.Info("Using top-level input_data as fallback")
 	return data
-}*/
+}
 
 // Determine what action the agent should perform
 func determineTargetAction(stepConfig models.Step) string {
@@ -575,11 +574,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",    // event_type
-		"orchestration", // entity_type
-		orchestrationID, // entity_id
-		metadataJSON,    // metadata
-		"info",          // severity
+		"AGENT_CALL",        // event_type
+		"orchestration",     // entity_type
+		orchestrationID,     // entity_id
+		metadataJSON,        // metadata
+		"info",              // severity
 		"call_agent_action") // source
 }
 
@@ -632,11 +631,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED", // event_type
-		"request",        // entity_type
-		requestID,        // entity_id
-		metadataJSON,     // metadata
-		"error",          // severity
+		"REQUEST_FAILED",    // event_type
+		"request",           // entity_type
+		requestID,           // entity_id
+		metadataJSON,        // metadata
+		"error",             // severity
 		"call_agent_action") // source
 }
 
@@ -687,11 +686,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,    // event_type
-		"agent",      // entity_type
-		agentID,      // entity_id
-		metadataJSON, // metadata
-		"info",       // severity
+		eventType,        // event_type
+		"agent",          // entity_type
+		agentID,          // entity_id
+		metadataJSON,     // metadata
+		"info",           // severity
 		"agent_activity") // source
 }
 
@@ -714,167 +713,6 @@ func findJobTopicForRole(params ActionParams, targetRole string) string {
 		}
 	}
 	return ""
-}
-
-// Data extraction - with explicit template-based specification
-func extractDataForAgent(params ActionParams) interface{} {
-	params.Logger.Info("Extracting data for agent",
-		zap.Any("step_config", params.StepConfig.Config))
-
-	// PRIORITY 1: Check for explicit input_data specification in config
-	if inputDataSpec, ok := params.StepConfig.Config["input_data"].(map[string]interface{}); ok {
-		params.Logger.Info("Using explicit input_data specification from workflow config",
-			zap.Any("input_data_spec", inputDataSpec))
-
-		// Render templates in the specification
-		renderedData := renderTemplatesInData(inputDataSpec, params.CollectedData, params.Logger)
-
-		params.Logger.Info("Rendered input_data from template",
-			zap.Any("rendered_data", renderedData))
-
-		return renderedData
-	}
-
-	// PRIORITY 2: Check for input_field reference
-	if inputField, ok := params.StepConfig.Config["input_field"].(string); ok {
-		params.Logger.Info("Using input_field reference",
-			zap.String("input_field", inputField))
-
-		return extractByFieldReference(params, inputField)
-	}
-
-	// PRIORITY 3: Default behavior - extract clean input_data from parent
-	params.Logger.Info("Using default input_data extraction")
-	return extractDefaultInputData(params)
-}
-
-// Render templates in data structure
-func renderTemplatesInData(data map[string]interface{}, collectedData map[string]interface{}, logger *zap.Logger) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	for key, value := range data {
-		switch v := value.(type) {
-		case string:
-			// Render template strings like "{{.input_data.business_type}}"
-			rendered := renderTemplate(v, collectedData, logger)
-			result[key] = rendered
-
-		case map[string]interface{}:
-			// Recursively render nested maps
-			result[key] = renderTemplatesInData(v, collectedData, logger)
-
-		case []interface{}:
-			// Handle arrays
-			renderedArray := make([]interface{}, len(v))
-			for i, item := range v {
-				if itemStr, ok := item.(string); ok {
-					renderedArray[i] = renderTemplate(itemStr, collectedData, logger)
-				} else if itemMap, ok := item.(map[string]interface{}); ok {
-					renderedArray[i] = renderTemplatesInData(itemMap, collectedData, logger)
-				} else {
-					renderedArray[i] = item
-				}
-			}
-			result[key] = renderedArray
-
-		default:
-			// Pass through non-template values as-is
-			result[key] = value
-		}
-	}
-
-	return result
-}
-
-// Render a single template string
-func renderTemplate(template string, collectedData map[string]interface{}, logger *zap.Logger) interface{} {
-	// Check if it's a template (contains {{...}})
-	if !strings.Contains(template, "{{") {
-		return template
-	}
-
-	// Parse template syntax: {{.path.to.field}}
-	tmplRegex := regexp.MustCompile(`\{\{\.([^}]+)\}\}`)
-	matches := tmplRegex.FindStringSubmatch(template)
-
-	if len(matches) < 2 {
-		logger.Warn("Invalid template syntax",
-			zap.String("template", template))
-		return template
-	}
-
-	// Extract path (e.g., "input_data.business_type")
-	path := matches[1]
-	pathParts := strings.Split(path, ".")
-
-	// Navigate to the value
-	value, found := getNestedInputValue(collectedData, pathParts...)
-	if !found {
-		logger.Warn("Template path not found in collected data",
-			zap.String("path", path),
-			zap.Strings("path_parts", pathParts))
-		return ""
-	}
-
-	logger.Info("Resolved template",
-		zap.String("template", template),
-		zap.String("path", path),
-		zap.Any("value", value))
-
-	// If the entire string is just the template, return the value directly
-	if template == matches[0] {
-		return value
-	}
-
-	// Otherwise, replace the template in the string
-	result := strings.ReplaceAll(template, matches[0], fmt.Sprintf("%v", value))
-	return result
-}
-
-// Extract by field reference (e.g., "spawn_researcher.result")
-func extractByFieldReference(params ActionParams, fieldRef string) interface{} {
-	parts := strings.Split(fieldRef, ".")
-
-	value, found := getNestedInputValue(params.CollectedData, parts...)
-	if !found {
-		params.Logger.Warn("Field reference not found",
-			zap.String("field_ref", fieldRef))
-		return make(map[string]interface{})
-	}
-
-	params.Logger.Info("Extracted data via field reference",
-		zap.String("field_ref", fieldRef),
-		zap.Any("value", value))
-
-	return value
-}
-
-// Extract default input_data (backward compatibility)
-func extractDefaultInputData(params ActionParams) interface{} {
-	// Try to find clean input_data
-	if inputData, ok := params.CollectedData["input_data"]; ok {
-		// Check if it's a raw message structure
-		if dataMap, ok := inputData.(map[string]interface{}); ok {
-			// If it has "body" and "headers", extract from body
-			if body, hasBody := dataMap["body"]; hasBody {
-				if bodyMap, ok := body.(map[string]interface{}); ok {
-					if bodyInputData, ok := bodyMap["input_data"]; ok {
-						params.Logger.Info("Extracted clean input_data from message body")
-						return bodyInputData
-					}
-				}
-			}
-			// If already clean (has business fields), use directly
-			if _, hasBizName := dataMap["business_name"]; hasBizName {
-				params.Logger.Info("Using direct input_data (already clean)")
-				return dataMap
-			}
-		}
-	}
-
-	// Fallback to empty
-	params.Logger.Warn("No input_data found, using empty map")
-	return make(map[string]interface{})
 }
 
 func getMapKeys(m map[string]interface{}) []string {

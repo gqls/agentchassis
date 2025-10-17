@@ -128,7 +128,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	)
 
 	// Render the prompt template
-	renderedPrompt, err := renderTemplate(promptTemplate, templateData, *params.Logger)
+	renderedPrompt, err := renderPromptTemplate(promptTemplate, templateData, *params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render prompt template: %w", err)
 	}
@@ -279,7 +279,7 @@ func createAIClient(ctx context.Context, aiServiceConfig map[string]interface{})
 	}
 }
 
-func renderTemplate(templateStr string, data map[string]interface{}, logger zap.Logger) (string, error) {
+func renderPromptTemplate(templateStr string, data map[string]interface{}, logger zap.Logger) (string, error) {
 	tmpl := template.New("agent_prompt")
 	parsedTemplate, err := tmpl.Parse(templateStr)
 	logger.Info("DEBUGaa: parsing template in renderTemplate",

@@ -1,0 +1,252 @@
+Perfect! Let's implement **Option A with explicit template-based data specification**. This gives maximum control and clarity.
+
+## Implementation Plan
+
+### 1. Update `extractDataForAgent` in `call_agent.go`
+
+```go
+// Data extraction - with explicit template-based specification
+func extractDataForAgent(params ActionParams) interface{} {
+	params.Logger.Info("Extracting data for agent",
+		zap.Any("step_config", params.StepConfig.Config))
+
+	// PRIORITY 1: Check for explicit input_data specification in config
+	if inputDataSpec, ok := params.StepConfig.Config["input_data"].(map[string]interface{}); ok {
+		params.Logger.Info("Using explicit input_data specification from workflow config",
+			zap.Any("input_data_spec", inputDataSpec))
+
+		// Render templates in the specification
+		renderedData := renderTemplatesInData(inputDataSpec, params.CollectedData, params.Logger)
+
+		params.Logger.Info("Rendered input_data from template",
+			zap.Any("rendered_data", renderedData))
+
+		return renderedData
+	}
+
+	// PRIORITY 2: Check for input_field reference
+	if inputField, ok := params.StepConfig.Config["input_field"].(string); ok {
+		params.Logger.Info("Using input_field reference",
+			zap.String("input_field", inputField))
+
+		return extractByFieldReference(params, inputField)
+	}
+
+	// PRIORITY 3: Default behavior - extract clean input_data from parent
+	params.Logger.Info("Using default input_data extraction")
+	return extractDefaultInputData(params)
+}
+
+// Render templates in data structure
+func renderTemplatesInData(data map[string]interface{}, collectedData map[string]interface{}, logger *zap.Logger) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for key, value := range data {
+		switch v := value.(type) {
+		case string:
+			// Render template strings like "{{.input_data.business_type}}"
+			rendered := renderTemplate(v, collectedData, logger)
+			result[key] = rendered
+
+		case map[string]interface{}:
+			// Recursively render nested maps
+			result[key] = renderTemplatesInData(v, collectedData, logger)
+
+		case []interface{}:
+			// Handle arrays
+			renderedArray := make([]interface{}, len(v))
+			for i, item := range v {
+				if itemStr, ok := item.(string); ok {
+					renderedArray[i] = renderTemplate(itemStr, collectedData, logger)
+				} else if itemMap, ok := item.(map[string]interface{}); ok {
+					renderedArray[i] = renderTemplatesInData(itemMap, collectedData, logger)
+				} else {
+					renderedArray[i] = item
+				}
+			}
+			result[key] = renderedArray
+
+		default:
+			// Pass through non-template values as-is
+			result[key] = value
+		}
+	}
+
+	return result
+}
+
+// Render a single template string
+func renderTemplate(template string, collectedData map[string]interface{}, logger *zap.Logger) interface{} {
+	// Check if it's a template (contains {{...}})
+	if !strings.Contains(template, "{{") {
+		return template
+	}
+
+	// Parse template syntax: {{.path.to.field}}
+	tmplRegex := regexp.MustCompile(`\{\{\.([^}]+)\}\}`)
+	matches := tmplRegex.FindStringSubmatch(template)
+
+	if len(matches) < 2 {
+		logger.Warn("Invalid template syntax",
+			zap.String("template", template))
+		return template
+	}
+
+	// Extract path (e.g., "input_data.business_type")
+	path := matches[1]
+	pathParts := strings.Split(path, ".")
+
+	// Navigate to the value
+	value, found := getNestedInputValue(collectedData, pathParts...)
+	if !found {
+		logger.Warn("Template path not found in collected data",
+			zap.String("path", path),
+			zap.Strings("path_parts", pathParts))
+		return ""
+	}
+
+	logger.Info("Resolved template",
+		zap.String("template", template),
+		zap.String("path", path),
+		zap.Any("value", value))
+
+	// If the entire string is just the template, return the value directly
+	if template == matches[0] {
+		return value
+	}
+
+	// Otherwise, replace the template in the string
+	result := strings.ReplaceAll(template, matches[0], fmt.Sprintf("%v", value))
+	return result
+}
+
+// Extract by field reference (e.g., "spawn_researcher.result")
+func extractByFieldReference(params ActionParams, fieldRef string) interface{} {
+	parts := strings.Split(fieldRef, ".")
+
+	value, found := getNestedInputValue(params.CollectedData, parts...)
+	if !found {
+		params.Logger.Warn("Field reference not found",
+			zap.String("field_ref", fieldRef))
+		return make(map[string]interface{})
+	}
+
+	params.Logger.Info("Extracted data via field reference",
+		zap.String("field_ref", fieldRef),
+		zap.Any("value", value))
+
+	return value
+}
+
+// Extract default input_data (backward compatibility)
+func extractDefaultInputData(params ActionParams) interface{} {
+	// Try to find clean input_data
+	if inputData, ok := params.CollectedData["input_data"]; ok {
+		// Check if it's a raw message structure
+		if dataMap, ok := inputData.(map[string]interface{}); ok {
+			// If it has "body" and "headers", extract from body
+			if body, hasBody := dataMap["body"]; hasBody {
+				if bodyMap, ok := body.(map[string]interface{}); ok {
+					if bodyInputData, ok := bodyMap["input_data"]; ok {
+						params.Logger.Info("Extracted clean input_data from message body")
+						return bodyInputData
+					}
+				}
+			}
+			// If already clean (has business fields), use directly
+			if _, hasBizName := dataMap["business_name"]; hasBizName {
+				params.Logger.Info("Using direct input_data (already clean)")
+				return dataMap
+			}
+		}
+	}
+
+	// Fallback to empty
+	params.Logger.Warn("No input_data found, using empty map")
+	return make(map[string]interface{})
+}
+```
+
+### 2. Add required imports at top of `call_agent.go`
+
+```go
+import (
+	"regexp"
+	// ... existing imports
+)
+```
+
+### 3. Update Hero Writer Workflow
+
+```sql
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+  default_config,
+  '{workflow,steps,call_researcher}',
+  '{
+    "action": "call_agent",
+    "config": {
+      "agent_type": "content-researcher",
+      "target_role": "researcher",
+      "prompt": "Research background information about {{.business_type}} businesses",
+      "input_data": {
+        "business_type": "{{.input_data.business_type}}"
+      }
+    },
+    "description": "Get research data",
+    "next_step": "generate_hero_content"
+  }'::jsonb
+),
+updated_at = NOW()
+WHERE type = 'content-creator-hero';
+```
+
+### 4. Update Researcher's Prompt Template
+
+Now the researcher will receive clean data like:
+```json
+{
+  "business_type": "artisanal bakery"
+}
+```
+
+So update its template:
+
+```sql
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+  default_config,
+  '{prompt_template}',
+  '"Research background information about {{.business_type}} businesses. Focus on: industry trends, common customer pain points, and key value propositions. Provide 3-4 concise bullet points."'
+),
+updated_at = NOW()
+WHERE type = 'content-researcher';
+```
+
+## How It Works
+
+**Generic Agent** sends to Hero Writer:
+```yaml
+input_data:
+  business_name: "Golden Crust Bakery"
+  business_type: "artisanal bakery"
+```
+
+**Hero Writer** workflow specifies what to send to Researcher:
+```yaml
+call_researcher:
+  config:
+    input_data:
+      business_type: "{{.input_data.business_type}}"  # Extracts just this field
+```
+
+**Researcher** receives:
+```json
+{
+  "business_type": "artisanal bakery"
+}
+```
+
+This gives us **full control** over data flow and makes it **explicit and debuggable**!
+
+Should I prepare these changes as code snippets you can apply?
