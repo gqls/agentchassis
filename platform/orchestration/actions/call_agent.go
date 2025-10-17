@@ -21,6 +21,10 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	// Log entry
 	logCallStart(params)
 
+	params.Logger.Info("DEBUGaa: CallAgentAction starting - a) prompt b) data for prompt",
+		zap.Any("params", params),
+	)
+
 	// 1. Extract and validate configuration
 	targetAgentType, targetRole, err := extractCallConfiguration(params)
 	if err != nil {
@@ -279,7 +283,7 @@ func buildRequestBody(params ActionParams, targetAction string, dataToSend inter
 		"input_data": dataToSend,
 	}
 
-	// **NEW: Pass prompt from step config if present**
+	// ass prompt from step config if present
 	if prompt, ok := params.StepConfig.Config["prompt"].(string); ok && prompt != "" {
 		requestBody["prompt"] = prompt
 		params.Logger.Info("Including prompt in request body",

@@ -1,3 +1,6 @@
+[055a_adding_hierarchical_research_agent_below_hero 5e27454] looking at data structure and parsing in callAgentAction
+ make quick-agent-update ENVIRONMENT=production REGION=uk001
+
 Perfect! Let's implement **Option A with explicit template-based data specification**. This gives maximum control and clarity.
 
 ## Implementation Plan

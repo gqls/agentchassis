@@ -371,61 +371,122 @@ func (r *StateRepository) CreateInitialState(
 	parentOrchestrationID string,
 	clientID string,
 	plan models.WorkflowPlan,
-	initialData []byte,
+	initialData []byte, // message value
 	execCtx *types.ExecutionContext,
 ) error {
 	r.logger.Info("CreateInitialState parameters",
 		zap.String("orchestrationID", orchestrationID),
-		zap.String("parentOrchestrationID", parentOrchestrationID))
+		zap.String("parentOrchestrationID", parentOrchestrationID),
+		zap.String("DEBUGaa: CreateInitialState initialData look for action", string(initialData)),
+	)
 
 	// Updated query to include topics
 	query := `
 		INSERT INTO orchestration_states (
 			orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, 
 			owner_agent_role, parent_orchestration_id, client_id,
-			requests_topic, responses_topic,  -- NEW fields
+			requests_topic, responses_topic,
 			status, current_step, awaited_steps, collected_data, initial_request_data,
-			workflow_plan, execution_metadata, execution_path, version, created_at, updated_at,
+			workflow_plan, execution_metadata, execution_path, 
+		    processing_history, subtree_agents, fuel_budget,
+		    version, created_at, updated_at,
 			currently_executing, last_activity, processing_node
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
 		ON CONFLICT (orchestration_id) DO NOTHING
 	`
 
 	// Prepare collected data
 	collectedData := map[string]interface{}{
-		"agent_type": ownerAgentType,
+		"agent_type":            ownerAgentType,
+		"__execution_context__": execCtx,
+		"__raw_message__":       initialData,
 	}
 
-	// Store execution context and topics properly
-	if execCtx != nil {
-		collectedData["__execution_context__"] = execCtx
-
-		// Store where THIS orchestration listens/responds
-		if execCtx.RequestsTopic != "" {
-			collectedData["__my_requests_topic__"] = execCtx.RequestsTopic
-		}
-		replyToTopic := execCtx.ReplyToTopic
-		if replyToTopic != "" {
-			// This is where I send MY responses (to parent)
-			replyToTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
-			execCtx.ReplyToTopic = replyToTopic
-			collectedData["__parent_responses_topic__"] = replyToTopic
-		}
+	// Store where THIS orchestration listens/responds
+	if execCtx.RequestsTopic != "" {
+		collectedData["__my_requests_topic__"] = execCtx.RequestsTopic
 	}
 
+	replyToTopic := execCtx.ReplyToTopic
+	if replyToTopic != "" {
+		// This is where I send MY responses (to parent)
+		replyToTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+		execCtx.ReplyToTopic = replyToTopic
+		collectedData["__parent_responses_topic__"] = replyToTopic
+	}
+
+	var unmarshalledInitialData map[string]interface{}
 	// Parse and merge initial data
 	if len(initialData) > 0 {
-		var inputData map[string]interface{}
-		if err := json.Unmarshal(initialData, &inputData); err == nil {
-			for k, v := range inputData {
+		if err := json.Unmarshal(initialData, &unmarshalledInitialData); err == nil {
+			for k, v := range unmarshalledInitialData {
 				collectedData[k] = v
 			}
 		}
 	}
 
+	// Extract action from message
+	if action, ok := unmarshalledInitialData["action"].(string); ok {
+		collectedData["action"] = action
+	}
+
+	// Extract config from message (if present)
+	if config, ok := unmarshalledInitialData["config"].(map[string]interface{}); ok {
+		collectedData["config"] = config
+	}
+
+	// Extract agent_config if present (workflow definition)
+	if agentConfig, ok := unmarshalledInitialData["agent_config"].(map[string]interface{}); ok {
+		collectedData["agent_config"] = agentConfig
+	}
+
+	// Extract agent_group if present (for multi-agent spawns)
+	if agentGroup, ok := unmarshalledInitialData["agent_group"].(map[string]interface{}); ok {
+		collectedData["agent_group"] = agentGroup
+	}
+
+	// Extract agent_type if present
+	if agentType, ok := unmarshalledInitialData["agent_type"].(string); ok {
+		collectedData["agent_type"] = agentType
+	}
+
+	// Extract prompt if present (for LLM actions)
+	if prompt, ok := unmarshalledInitialData["prompt"].(string); ok {
+		collectedData["prompt"] = prompt
+	}
+
+	// Extract input_data to top level
+	// This is the actual user/business data that flows through the system
+	var inputData map[string]interface{}
+	// Try body.input_data first (for child agents receiving from parent)
+	if body, ok := unmarshalledInitialData["body"].(map[string]interface{}); ok {
+		if data, ok := body["input_data"].(map[string]interface{}); ok {
+			inputData = data
+			r.logger.Info("Extracted input_data from body.input_data")
+		}
+	}
+
+	// Fallback to message.input_data (for root agents receiving from external)
+	if inputData == nil {
+		if data, ok := unmarshalledInitialData["input_data"].(map[string]interface{}); ok {
+			inputData = data
+			r.logger.Info("Extracted input_data from message.input_data")
+		}
+	}
+
+	// Store at top level for easy template access
+	if inputData != nil {
+		collectedData["input_data"] = inputData
+	} else {
+		// Initialize empty map to avoid nil pointer issues
+		collectedData["input_data"] = map[string]interface{}{}
+		r.logger.Warn("No input_data found in message, initialized empty map")
+	}
+
 	r.logger.Info("CreateInitialState collected data",
-		zap.Any("collectedData", collectedData))
+		zap.Any("collectedData", collectedData),
+	)
 
 	// Serialize fields
 	awaitedStepsJSON, _ := json.Marshal([]string{})
@@ -464,6 +525,10 @@ func (r *StateRepository) CreateInitialState(
 		responsesTopic = execCtx.ResponsesTopic
 	}
 
+	processingHistory := []ProcessingRecord{}
+	subtreeAgents := make(map[string]*types.SubtreeInfo)
+	fuelBudget := execCtx.FuelBudget
+
 	// Execute insert with topics
 	result, err := r.db.ExecContext(ctx, query,
 		orchestrationID,   // $1
@@ -484,12 +549,15 @@ func (r *StateRepository) CreateInitialState(
 		workflowPlanJSON,  // $16
 		metadataJSON,      // $17
 		executionPathJSON, // $18
-		1,                 // $19 - version
-		now,               // $20 - created_at
-		now,               // $21 - updated_at
-		nil,               // $22 - currently_executing
-		now,               // $23 - last_activity
-		processingNode)    // $24 - processing_node
+		processingHistory, // $19
+		subtreeAgents,     // $20
+		fuelBudget,        // $21
+		1,                 // $22 - version
+		now,               // $23 - created_at
+		now,               // $24 - updated_at
+		nil,               // $25 - currently_executing
+		now,               // $26 - last_activity
+		processingNode)    // $27 - processing_node
 
 	if err != nil {
 		r.logger.Error("Failed to create initial state",
@@ -503,7 +571,7 @@ func (r *StateRepository) CreateInitialState(
 		r.logger.Info("State already exists, proceeding",
 			zap.String("orchestration_id", orchestrationID))
 	} else {
-		r.logger.Info("Initial state created successfully",
+		r.logger.Info("Initial Orchestration state created successfully",
 			zap.String("orchestration_id", orchestrationID))
 	}
 
