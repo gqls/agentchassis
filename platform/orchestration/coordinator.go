@@ -126,7 +126,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 	return s.handleOrchestrationStatus(ctx, state, execCtx, isNew)
 }
 
-func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.ExecutionContext, response []byte) error {
+func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
 	s.logger.Info("ProcessResponse in coordinator.go")
 
 	// Prepare values for tracing
@@ -232,120 +232,8 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	}
 }
 
-// ProcessResponse handles responses using ExecutionContext
-func (s *SagaCoordinator) ProcessResponseOld(ctx context.Context, execCtx *types.ExecutionContext, response []byte) error {
-	s.logger.Info("ProcessResponse in coordinator.go")
-
-	// Extract request ID from InResponseTo
-	var requestID string
-	if execCtx.InResponseTo != nil {
-		requestID = execCtx.InResponseTo.RequestID
-	}
-	if requestID == "" {
-		requestID = execCtx.RequestID
-	}
-	if requestID == "" {
-		return fmt.Errorf("no request ID in response")
-	}
-
-	s.logger.Info("RESPONSE_RECEIVED: Processing response in coordinator")
-	contextLogger := s.logger.With(
-		zap.String("request_id", requestID),
-		zap.String("orchestration_id", execCtx.OrchestrationID),
-		zap.String("from_agent", execCtx.FromAgentID),
-		zap.String("status", execCtx.Status),
-		zap.Int("retry_version", execCtx.RetryVersion),
-		zap.String("response_preview", string(response)[:min(500, len(response))]),
-	)
-
-	current, caller := getFuncInfo(1)
-
-	contextLogger.Info("In file coordinator.go ProcessResponse",
-		zap.String("function", current),
-		zap.String("called_by", caller),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-	)
-
-	repo := NewStateRepository(s.db, s.logger)
-
-	// Find state by request ID (not step ID!)
-	state, err := repo.FindByAwaitedRequestID(ctx, requestID)
-	if err != nil {
-		// This is not necessarily an error - it might be a response for another orchestrator
-		contextLogger.Debug("No orchestration waiting for this response, trying fallback",
-			zap.String("request_id", requestID),
-			zap.Error(err))
-
-		// Try fallback to orchestration ID
-		var orchID string
-		if execCtx.InResponseTo != nil && execCtx.InResponseTo.ParentOrchestrationID != "" {
-			// This is a child orchestration responding to its parent
-			orchID = execCtx.InResponseTo.ParentOrchestrationID
-			s.logger.Info("Processing child orchestration response for parent",
-				zap.String("child_orch", execCtx.OrchestrationID),
-				zap.String("parent_orch", orchID))
-		} else {
-			orchID = execCtx.ParentOrchestrationID
-		}
-
-		if orchID != "" {
-			state, err = repo.GetState(ctx, orchID)
-			if err != nil {
-				// Not an error - this response is for a different orchestrator
-				contextLogger.Debug("Response not for this orchestrator, ignoring",
-					zap.String("request_id", requestID),
-					zap.String("orchestration_id", orchID))
-				return nil
-			}
-
-			// Verify this state is actually waiting for this request
-			if _, exists := state.AwaitedRequests[requestID]; !exists {
-				contextLogger.Debug("Orchestration not waiting for this request, ignoring",
-					zap.String("orchestration_id", orchID),
-					zap.String("request_id", requestID))
-				return nil
-			}
-		} else {
-			// No orchestration ID either - this response is not for us
-			contextLogger.Debug("Response not for this orchestrator (no orchestration ID), ignoring",
-				zap.String("request_id", requestID))
-			return nil
-		}
-	}
-
-	// Additional check: verify this orchestrator owns this orchestration
-	if state.ProcessingNode != "" && state.ProcessingNode != s.podName {
-		contextLogger.Debug("Response for orchestration owned by different pod, ignoring",
-			zap.String("orchestration_id", state.OrchestrationID),
-			zap.String("owner_pod", state.ProcessingNode),
-			zap.String("my_pod", s.podName))
-		return nil
-	}
-
-	contextLogger.Info("RESPONSE_MATCHED: Found orchestration for response",
-		zap.String("state_orch_id", state.OrchestrationID),
-		zap.String("state_status", string(state.Status)),
-		zap.Int("awaited_requests", len(state.AwaitedRequests)),
-	)
-
-	// Handle based on response status
-	switch execCtx.Status {
-	case "awaiting", "processing":
-		return s.handleProgressUpdate(ctx, state, execCtx)
-	case "complete":
-		return s.handleCompleteResponse(ctx, state, requestID, execCtx, response)
-	case "error_recoverable":
-		return s.handleRecoverableError(ctx, state, requestID, execCtx, response)
-	case "error_unrecoverable":
-		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
-	default:
-		contextLogger.Warn("Unknown response status", zap.String("status", execCtx.Status))
-		return nil
-	}
-}
-
 // HandleResponse processes responses using headers (compatibility method)
-func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string]string, response []byte) error {
+func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string]string, response types.ResponseMessage) error {
 	execCtx, err := types.FromHeaders(headers)
 	if err != nil {
 		s.logger.Error("Failed to create ExecutionContext from headers", zap.Error(err))
@@ -1230,11 +1118,12 @@ func (s *SagaCoordinator) handleProgressUpdate(ctx context.Context, state *Orche
 }
 
 // handleCompleteResponse processes a successful response
-func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response []byte) error {
+func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
 	contextLogger := s.logger.With(
 		zap.String("orchestration_id", execCtx.OrchestrationID),
 		zap.String("step_name", execCtx.StepName),
-		zap.String("requestId", requestID),
+		zap.String("step_id", execCtx.StepID),
+		zap.String("requestId from arguments", requestID),
 		zap.Any("state.CollectedData in handleCompleteResponse is:", state.CollectedData),
 	)
 	/*	contextLogger.Info("In handleCompleteResponse",
@@ -1248,7 +1137,179 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
-	// Parse response with flexible structure handling
+	// Find the awaited request
+	var awaitedReq *AwaitedRequest
+
+	// Find the awaited request
+	awaitedReq, exists := state.AwaitedRequests[requestID]
+	if !exists {
+		s.logger.Error("No awaited request found for response",
+			zap.String("request_id", requestID),
+			zap.Any("state.AwaitedRequests (awaited_request_ids)", state.AwaitedRequests),
+		)
+		return fmt.Errorf("no awaited request found for request_id: %s", requestID)
+	}
+
+	s.logger.Info("Found awaited request",
+		zap.String("step_name", awaitedReq.StepName),
+		zap.String("step_id", awaitedReq.StepID))
+
+	for rid, req := range state.AwaitedRequests {
+		if req.RequestID == response.Headers.InResponseToRequestID {
+			awaitedReq = req
+			requestID = rid
+			break
+		}
+	}
+
+	// Parse response body - handle flexible structure
+	var responseBodyData map[string]interface{}
+
+	// Response.Body might be already a map or might be raw JSON
+	switch bodyData := response.Body.Body.(type) {
+	case map[string]interface{}:
+		responseBodyData = bodyData
+		s.logger.Debug("Response body is already a map")
+
+	case []byte:
+		if err := json.Unmarshal(bodyData, &responseBodyData); err != nil {
+			s.logger.Error("Failed to unmarshal response body bytes", zap.Error(err))
+			return fmt.Errorf("failed to unmarshal response body: %w", err)
+		}
+		s.logger.Debug("Unmarshaled response body from bytes")
+
+	case string:
+		if err := json.Unmarshal([]byte(bodyData), &responseBodyData); err != nil {
+			s.logger.Error("Failed to unmarshal response body string", zap.Error(err))
+			return fmt.Errorf("failed to unmarshal response body: %w", err)
+		}
+		s.logger.Debug("Unmarshaled response body from string")
+
+	default:
+		// Try to marshal and unmarshal to get it into map form
+		jsonBytes, err := json.Marshal(bodyData)
+		if err != nil {
+			s.logger.Error("Failed to marshal response body", zap.Error(err))
+			return fmt.Errorf("failed to marshal response body: %w", err)
+		}
+		if err := json.Unmarshal(jsonBytes, &responseBodyData); err != nil {
+			s.logger.Error("Failed to unmarshal marshaled response body", zap.Error(err))
+			return fmt.Errorf("failed to unmarshal response body: %w", err)
+		}
+		s.logger.Debug("Converted response body to map via marshal/unmarshal")
+	}
+
+	// Normalize the response data before storing
+	normalisedData := NormalizeResponseData(response.Body, s.logger)
+
+	// Store under the step name in CollectedData
+	stepName := awaitedReq.StepName
+	state.CollectedData[stepName] = normalisedData
+
+	s.logger.Info("handleCompleteResponse: stored normalized response",
+		zap.String("step_name", stepName),
+		zap.Int("original_fields", len(responseBodyData)),
+		zap.Int("normalized_fields", len(normalisedData)),
+		zap.Strings("normalised data_keys", getMapKeys(normalisedData)))
+
+	// Remove from awaited requests
+	delete(state.AwaitedRequests, requestID)
+
+	// ALSO find the step in CollectedData and update its metadata
+	// This preserves any existing step data while adding response info
+	for existingStepName, stepData := range state.CollectedData {
+		if existingStepName == "" {
+			s.logger.Warn("Skipping empty step name in CollectedData")
+			continue
+		}
+
+		if stepMap, ok := stepData.(map[string]interface{}); ok {
+			// Check if this step data contains our request_id
+			if storedReqID, exists := stepMap["request_id"]; exists && storedReqID == requestID {
+				// Update the existing step data with response info
+				stepMap["response"] = normalisedData
+				stepMap["response_received_at"] = time.Now().Format(time.RFC3339)
+				stepMap["response_status"] = "complete"
+
+				s.logger.Info("Updated step metadata with response",
+					zap.String("step_name", existingStepName),
+					zap.String("request_id", requestID))
+				break
+			}
+		}
+	}
+
+	s.logger.Info("handleCompleteResponse: removed from awaited requests",
+		zap.String("request_id", requestID),
+		zap.Int("remaining_awaited", len(state.AwaitedRequests)))
+
+	// Update state in database
+	repo := NewStateRepository(s.db, s.logger)
+	if err := repo.UpdateState(ctx, state); err != nil {
+		return fmt.Errorf("failed to save response data: %w", err)
+	}
+
+	// Check if all responses received
+	if len(state.AwaitedRequests) == 0 {
+		// If no more awaited requests, continue workflow
+		s.logger.Info("All responses received, continuing workflow")
+
+		// ADVANCE TO NEXT STEP
+		currentStep := state.WorkflowPlan.Steps[state.CurrentStep]
+		if currentStep.NextStep != "" {
+			state.CurrentStep = currentStep.NextStep
+			repo.UpdateState(ctx, state) // Save the step advancement
+		}
+
+		// Create fresh execution context for continuing
+		freshExecCtx := &types.ExecutionContext{
+			CorrelationID:   state.CorrelationID,
+			OrchestrationID: state.OrchestrationID,
+			ClientID:        state.ClientID,
+
+			// Reset to request mode
+			MessageType: "request",
+			MessageID:   uuid.New().String(),
+
+			// Set sender to the current orchestrator
+			Sender: types.AgentIdentity{
+				AgentType:    state.OwnerAgentType,
+				AgentID:      state.OwnerAgentID,
+				PodName:      s.podName,
+				AgentVersion: os.Getenv("AGENT_VERSION"),
+			},
+
+			// Clear any response fields
+			InResponseTo: nil,
+			Status:       "",
+			IsComplete:   false,
+
+			// Resources
+			FuelBudget:     state.FuelBudget,
+			TimeoutSeconds: 30,
+			Timestamp:      time.Now(),
+			Version:        "2.0",
+		}
+
+		state.LastActivity = time.Now()
+
+		if err := repo.UpdateState(ctx, state); err != nil {
+			return fmt.Errorf("failed to save state transition: %w", err)
+		}
+
+		s.logger.Info("handleCompleteResponse: all responses received, continuing workflow",
+			zap.Any("DEBUGaa: fresh exec ctx:", freshExecCtx),
+		)
+
+		return s.continueExecution(ctx, state, freshExecCtx)
+	}
+
+	s.logger.Info("handleCompleteResponse: still awaiting responses",
+		zap.Int("remaining", len(state.AwaitedRequests)))
+
+	return nil
+
+	/*// Parse response with flexible structure handling
 	var rawResponse map[string]interface{}
 	if err := json.Unmarshal(response, &rawResponse); err != nil {
 		return s.failWorkflow(ctx, state, fmt.Sprintf("failed to unmarshal response: %v", err))
@@ -1304,10 +1365,10 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 				break
 			}
 		}
-	}
+	}*/
 
 	// Handle special case for spawn_agent responses
-	if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
+	/*if awaitedReq, exists := state.AwaitedRequests[requestID]; exists {
 
 		stepName := awaitedReq.StepName
 
@@ -1353,82 +1414,82 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 				}
 			}
 		}
-	}
+	}*/
 
-	repo := NewStateRepository(s.db, s.logger)
-	if err := repo.UpdateState(ctx, state); err != nil {
-		return fmt.Errorf("failed to save response data: %w", err)
-	}
+	/*	repo := NewStateRepository(s.db, s.logger)
+		if err := repo.UpdateStateWithVersion(ctx, state); err != nil {
+			return fmt.Errorf("failed to save response data: %w", err)
+		}*/
 
-	// Remove from awaited requests
+	/*// Remove from awaited requests
 	if err := repo.RemoveAwaitedRequest(ctx, state.OrchestrationID, requestID); err != nil {
 		return err
-	}
+	}*/
 
-	// Reload state
-	state, err := repo.GetState(ctx, state.OrchestrationID)
-	if err != nil {
-		return fmt.Errorf("failed to reload state: %w", err)
-	}
-
-	// If no more awaited requests, continue workflow
-	if len(state.AwaitedRequests) == 0 {
-		s.logger.Info("All responses received, continuing workflow")
-
-		// ADVANCE TO NEXT STEP
-		currentStep := state.WorkflowPlan.Steps[state.CurrentStep]
-		if currentStep.NextStep != "" {
-			state.CurrentStep = currentStep.NextStep
-			repo.UpdateState(ctx, state) // Save the step advancement
+	/*	// Reload state
+		state, err := repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to reload state: %w", err)
 		}
 
-		// Create fresh execution context for continuing
-		freshExecCtx := &types.ExecutionContext{
-			CorrelationID:   state.CorrelationID,
-			OrchestrationID: state.OrchestrationID,
-			ClientID:        state.ClientID,
+		// If no more awaited requests, continue workflow
+		if len(state.AwaitedRequests) == 0 {
+			s.logger.Info("All responses received, continuing workflow")
 
-			// Reset to request mode
-			MessageType: "request",
-			MessageID:   uuid.New().String(),
+			// ADVANCE TO NEXT STEP
+			currentStep := state.WorkflowPlan.Steps[state.CurrentStep]
+			if currentStep.NextStep != "" {
+				state.CurrentStep = currentStep.NextStep
+				repo.UpdateState(ctx, state) // Save the step advancement
+			}
 
-			// Set sender to the current orchestrator
-			Sender: types.AgentIdentity{
-				AgentType:    state.OwnerAgentType,
-				AgentID:      state.OwnerAgentID,
-				PodName:      s.podName,
-				AgentVersion: os.Getenv("AGENT_VERSION"),
-			},
+			// Create fresh execution context for continuing
+			freshExecCtx := &types.ExecutionContext{
+				CorrelationID:   state.CorrelationID,
+				OrchestrationID: state.OrchestrationID,
+				ClientID:        state.ClientID,
 
-			// Clear any response fields
-			InResponseTo: nil,
-			Status:       "",
-			IsComplete:   false,
+				// Reset to request mode
+				MessageType: "request",
+				MessageID:   uuid.New().String(),
 
-			// Resources
-			FuelBudget:     state.FuelBudget,
-			TimeoutSeconds: 30,
-			Timestamp:      time.Now(),
-			Version:        "2.0",
+				// Set sender to the current orchestrator
+				Sender: types.AgentIdentity{
+					AgentType:    state.OwnerAgentType,
+					AgentID:      state.OwnerAgentID,
+					PodName:      s.podName,
+					AgentVersion: os.Getenv("AGENT_VERSION"),
+				},
+
+				// Clear any response fields
+				InResponseTo: nil,
+				Status:       "",
+				IsComplete:   false,
+
+				// Resources
+				FuelBudget:     state.FuelBudget,
+				TimeoutSeconds: 30,
+				Timestamp:      time.Now(),
+				Version:        "2.0",
+			}
+
+			state.LastActivity = time.Now()
+
+			if err := repo.UpdateState(ctx, state); err != nil {
+				return fmt.Errorf("failed to save state transition: %w", err)
+			}
+
+			return s.continueExecution(ctx, state, freshExecCtx)
 		}
 
-		state.LastActivity = time.Now()
+		s.logger.Info("Still waiting for responses",
+			zap.Int("remaining", len(state.AwaitedRequests)))
 
-		if err := repo.UpdateState(ctx, state); err != nil {
-			return fmt.Errorf("failed to save state transition: %w", err)
-		}
-
-		return s.continueExecution(ctx, state, freshExecCtx)
-	}
-
-	s.logger.Info("Still waiting for responses",
-		zap.Int("remaining", len(state.AwaitedRequests)))
-
-	return nil
+		return nil*/
 }
 
 // handleRecoverableError handles errors that can be retried
-func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response []byte) error {
+func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
 	awaited := state.AwaitedRequests[requestID]
 	if awaited == nil {
 		return fmt.Errorf("no awaited request found for %s", requestID)
@@ -1489,7 +1550,7 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 }
 
 // handleUnrecoverableError handles fatal errors
-func (s *SagaCoordinator) handleUnrecoverableError(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response []byte) error {
+func (s *SagaCoordinator) handleUnrecoverableError(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
 	s.logger.Error("Unrecoverable error received",
 		zap.String("request_id", requestID))
 

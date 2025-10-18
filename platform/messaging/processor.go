@@ -567,10 +567,16 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 	p.logger.Info("Processing orchestration response",
 		zap.String("DEBUG_PROCESSOR_3: correlation_id", headers["correlation_id"]),
 		zap.String("DEBUG_PROCESSOR_3: orchestration_id", headers["orchestration_id"]),
-		zap.String("DEBUG_PROCESSOR_3: causation_id", headers["causation_id"]))
+		zap.String("DEBUG_PROCESSOR_3: causation_id", headers["causation_id"]),
+	)
 
+	var responseMsg types.ResponseMessage
+	if err := json.Unmarshal(msg.Value, &responseMsg); err != nil {
+		p.logger.Error("Failed to unmarshal response message in ProcessResponse (processor.go)", zap.Error(err))
+		return err
+	}
 	// Route to orchestrator
-	return p.orchestrator.HandleResponse(ctx, headers, msg.Value)
+	return p.orchestrator.HandleResponse(ctx, headers, responseMsg)
 }
 
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
@@ -1347,7 +1353,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 		// The orchestrator needs to handle this response
 		if p.orchestrator != nil {
-			return p.orchestrator.ProcessResponse(ctx, msgCtx.ExecutionContext, msg.Value)
+			return p.orchestrator.ProcessResponse(ctx, msgCtx.ExecutionContext, responseMsg)
 		}
 
 		// If no orchestrator, log and return
@@ -1516,7 +1522,13 @@ func (p *MessageProcessor) processResponse(ctx context.Context, msgCtx *MessageC
 			orchestratorCtx.OrchestrationID = execCtx.OrchestrationID
 		}
 
-		return p.orchestrator.ProcessResponse(ctx, orchestratorCtx, msgCtx.Message.Value)
+		var responseMsg types.ResponseMessage
+		if err := json.Unmarshal(msgCtx.Message.Value, &responseMsg); err != nil {
+			p.logger.Error("Failed to unmarshal response message in Process Message (ResponseMessage)", zap.Error(err))
+			return err
+		}
+
+		return p.orchestrator.ProcessResponse(ctx, orchestratorCtx, responseMsg)
 	}
 
 	// Direct response handling for non-orchestrated agents

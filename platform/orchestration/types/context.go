@@ -182,7 +182,7 @@ type ResponseHeaders struct {
 type ResponseBody struct {
 	Success bool                   `json:"success"`
 	Headers map[string]interface{} `json:"headers,omitempty"`
-	Body    interface{}            `json:"body"` // Now accepts any type
+	Body    interface{}            `json:"body"`
 	Error   *ErrorInfo             `json:"error,omitempty"`
 }
 

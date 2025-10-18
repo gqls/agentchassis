@@ -377,7 +377,7 @@ func (r *StateRepository) CreateInitialState(
 	r.logger.Info("CreateInitialState parameters",
 		zap.String("orchestrationID", orchestrationID),
 		zap.String("parentOrchestrationID", parentOrchestrationID),
-		zap.String("DEBUGaa: CreateInitialState initialData look for action", string(initialData)),
+		zap.String("DEBUGaa: CreateInitialState initialData look for action, request id etc", string(initialData)),
 	)
 
 	// Updated query to include topics
@@ -396,27 +396,42 @@ func (r *StateRepository) CreateInitialState(
 		ON CONFLICT (orchestration_id) DO NOTHING
 	`
 
-	// Prepare collected data
-	collectedData := map[string]interface{}{
-		"agent_type":            ownerAgentType,
-		"__execution_context__": execCtx,
-		"__raw_message__":       initialData,
-	}
-
-	// Store where THIS orchestration listens/responds
-	if execCtx.RequestsTopic != "" {
-		collectedData["__my_requests_topic__"] = execCtx.RequestsTopic
-	}
-
-	replyToTopic := execCtx.ReplyToTopic
-	if replyToTopic != "" {
-		// This is where I send MY responses (to parent)
-		replyToTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
-		execCtx.ReplyToTopic = replyToTopic
-		collectedData["__parent_responses_topic__"] = replyToTopic
+	// Store where THIS orchestration listens
+	var requestsTopic, responsesTopic string
+	if execCtx != nil {
+		requestsTopic = execCtx.RequestsTopic
+		responsesTopic = execCtx.ResponsesTopic
+	} else {
+		execCtx = &types.ExecutionContext{}
+		requestsTopic = os.Getenv("REQUESTS_TOPIC")
+		responsesTopic = os.Getenv("RESPONSES_TOPIC")
 	}
 
 	var unmarshalledInitialData map[string]interface{}
+	// Parse and merge initial data
+	if len(initialData) > 0 {
+		if err := json.Unmarshal(initialData, &unmarshalledInitialData); err != nil {
+			r.logger.Error("failed to unmarshal initial data in CreateInitialState")
+		}
+	}
+
+	// Prepare collected data
+	collectedData := NormalizeCollectedData(unmarshalledInitialData, execCtx, requestsTopic, r.logger)
+
+	// Store where THIS orchestration listens/responds
+	/*if execCtx.RequestsTopic != "" {
+		collectedData["__my_requests_topic__"] = execCtx.RequestsTopic
+	}
+	*/
+	/*	replyToTopic := execCtx.ReplyToTopic
+		if replyToTopic != "" {
+			// This is where I send MY responses (to parent)
+			replyToTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+			execCtx.ReplyToTopic = replyToTopic
+			collectedData["__parent_responses_topic__"] = replyToTopic
+		}*/
+
+	/*var unmarshalledInitialData map[string]interface{}
 	// Parse and merge initial data
 	if len(initialData) > 0 {
 		if err := json.Unmarshal(initialData, &unmarshalledInitialData); err == nil {
@@ -424,41 +439,41 @@ func (r *StateRepository) CreateInitialState(
 				collectedData[k] = v
 			}
 		}
-	}
+	}*/
 
 	// Extract action from message
-	if action, ok := unmarshalledInitialData["action"].(string); ok {
+	/*if action, ok := unmarshalledInitialData["action"].(string); ok {
 		collectedData["action"] = action
-	}
+	}*/
 
 	// Extract config from message (if present)
-	if config, ok := unmarshalledInitialData["config"].(map[string]interface{}); ok {
+	/*if config, ok := unmarshalledInitialData["config"].(map[string]interface{}); ok {
 		collectedData["config"] = config
-	}
+	}*/
 
 	// Extract agent_config if present (workflow definition)
-	if agentConfig, ok := unmarshalledInitialData["agent_config"].(map[string]interface{}); ok {
+	/*if agentConfig, ok := unmarshalledInitialData["agent_config"].(map[string]interface{}); ok {
 		collectedData["agent_config"] = agentConfig
-	}
+	}*/
 
 	// Extract agent_group if present (for multi-agent spawns)
-	if agentGroup, ok := unmarshalledInitialData["agent_group"].(map[string]interface{}); ok {
+	/*if agentGroup, ok := unmarshalledInitialData["agent_group"].(map[string]interface{}); ok {
 		collectedData["agent_group"] = agentGroup
-	}
+	}*/
 
 	// Extract agent_type if present
-	if agentType, ok := unmarshalledInitialData["agent_type"].(string); ok {
+	/*if agentType, ok := unmarshalledInitialData["agent_type"].(string); ok {
 		collectedData["agent_type"] = agentType
-	}
+	}*/
 
 	// Extract prompt if present (for LLM actions)
-	if prompt, ok := unmarshalledInitialData["prompt"].(string); ok {
+	/*if prompt, ok := unmarshalledInitialData["prompt"].(string); ok {
 		collectedData["prompt"] = prompt
-	}
+	}*/
 
 	// Extract input_data to top level
 	// This is the actual user/business data that flows through the system
-	var inputData map[string]interface{}
+	/*var inputData map[string]interface{}
 	// Try body.input_data first (for child agents receiving from parent)
 	if body, ok := unmarshalledInitialData["body"].(map[string]interface{}); ok {
 		if data, ok := body["input_data"].(map[string]interface{}); ok {
@@ -482,7 +497,7 @@ func (r *StateRepository) CreateInitialState(
 		// Initialize empty map to avoid nil pointer issues
 		collectedData["input_data"] = map[string]interface{}{}
 		r.logger.Warn("No input_data found in message, initialized empty map")
-	}
+	}*/
 
 	r.logger.Info("CreateInitialState collected data",
 		zap.Any("collectedData", collectedData),
@@ -519,11 +534,11 @@ func (r *StateRepository) CreateInitialState(
 	}
 
 	// Extract topics from ExecutionContext
-	var requestsTopic, responsesTopic string
-	if execCtx != nil {
-		requestsTopic = execCtx.RequestsTopic
-		responsesTopic = execCtx.ResponsesTopic
-	}
+	/*	var requestsTopic, responsesTopic string
+		if execCtx != nil {
+			requestsTopic = execCtx.RequestsTopic
+			responsesTopic = execCtx.ResponsesTopic
+		}*/
 
 	processingHistory := []ProcessingRecord{}
 	subtreeAgents := make(map[string]*types.SubtreeInfo)
