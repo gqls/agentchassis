@@ -16,6 +16,7 @@ import (
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/discovery"
 	"github.com/gqls/agentchassis/platform/kafka"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -265,24 +266,35 @@ func prepareInitializationData(params ActionParams, sendInitData bool) map[strin
 
 // Message building and sending
 func sendInitializationMessage(ctx context.Context, params ActionParams, agentID, agentName, agentType, role, requestID, childRequestsTopic, parentResponsesTopic string) error {
-	// Determine sender type
-	senderType := determineSenderType(params)
 
-	// Build a clear initialization message - NO calculation data
-	initData := map[string]interface{}{
-		"action":            "initialize", // Clear action type
-		"is_initialization": true,
-		"role":              role,
-		"agent_info": map[string]interface{}{
-			"agent_id":   agentID,
-			"agent_type": agentType,
-			"agent_name": agentName,
-		},
-		// Don't include calculation data - that comes later from CallAgentAction
+	// Prepare clean initialization data (empty for spawn)
+	initData := make(map[string]interface{})
+
+	// Prepare agent configuration
+	agentConfig := map[string]interface{}{
+		"agent_id":   agentID,
+		"agent_type": agentType,
+		"agent_name": agentName,
+		"role":       role,
 	}
 
-	// Build the initialization message using existing types.RequestMessage
-	message := buildInitializationMessage(params, agentID, agentName, agentType, role, requestID, parentResponsesTopic, senderType, initData)
+	// Use the BuildInitializationRequest helper
+	message := datahelpers.BuildInitializationRequest(
+		params.ExecutionContext,
+		agentType,
+		role,
+		initData,
+		agentConfig,
+		params.Logger,
+	)
+
+	// Override specific fields for this spawn
+	message.Headers.OrchestrationID = agentID
+	message.Headers.OrchestrationName = agentName
+	message.Headers.ResponsesTopic = parentResponsesTopic
+	message.Headers.RequestID = requestID
+	message.Headers.ParentOrchestrationID = params.ExecutionContext.OrchestrationID
+	message.Headers.ParentOrchestrationName = params.ExecutionContext.OrchestrationName
 
 	// Marshal message
 	messageBytes, err := json.Marshal(message)

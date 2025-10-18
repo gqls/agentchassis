@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
@@ -416,7 +417,7 @@ func (r *StateRepository) CreateInitialState(
 	}
 
 	// Prepare collected data
-	collectedData := NormalizeCollectedData(unmarshalledInitialData, execCtx, requestsTopic, r.logger)
+	collectedData := datahelpers.NormalizeCollectedData(unmarshalledInitialData, execCtx, requestsTopic, r.logger)
 
 	// Store where THIS orchestration listens/responds
 	/*if execCtx.RequestsTopic != "" {

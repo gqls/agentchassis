@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
@@ -209,56 +210,6 @@ func isStandardAgent(agentType string) bool {
 	return false
 }
 
-// Data extraction - clearer logic for finding the right data to send
-/*func extractDataForAgent(params ActionParams) interface{} {
-	// Get which input field to use
-	inputField := "input_data"
-	if field, ok := params.StepConfig.Config["input_field"].(string); ok && field != "" {
-		inputField = field
-	}
-
-	params.Logger.Info("Extracting data for agent",
-		zap.String("requested_field", inputField),
-		zap.Any("available_keys", getMapKeys(params.CollectedData)),
-		zap.Any("DEBUGaa: params.CollectedData for passing to the new agent in CallAgentAction 192", params.CollectedData),
-	)
-
-	// Define search paths from most to least specific
-	searchPaths := [][]string{
-		{"input_data", "body", "input_data", inputField},
-		{"input_data", "input_data", inputField}, // Deeply nested
-		{"input_data", inputField},               // Medium nested
-		{inputField},                             // Top level
-	}
-
-	// Try each path
-	for _, path := range searchPaths {
-		if data, ok := getNestedInputValue(params.CollectedData, path...); ok {
-			params.Logger.Info("Found data via path",
-				zap.Strings("path", path))
-			return data
-		}
-	}
-
-	// Special case: if looking for input_data, try nested version
-	if inputField == "input_data" {
-		if data, ok := getNestedInputValue(params.CollectedData, "input_data", "input_data"); ok {
-			params.Logger.Info("Using nested input_data")
-			return data
-		}
-	}
-
-	// Final fallback
-	data := params.CollectedData["input_data"]
-	if data == nil {
-		params.Logger.Warn("No data found, using empty map")
-		return make(map[string]interface{})
-	}
-
-	params.Logger.Info("Using top-level input_data as fallback")
-	return data
-}*/
-
 // Determine what action the agent should perform
 func determineTargetAction(stepConfig models.Step) string {
 
@@ -278,16 +229,17 @@ func determineTargetAction(stepConfig models.Step) string {
 
 // Build the complete request body
 func buildRequestBody(params ActionParams, targetAction string, dataToSend interface{}) map[string]interface{} {
+	// Ensure dataToSend is clean
+	cleanData := datahelpers.ExtractDataFromMessage(dataToSend, params.Logger)
+
 	requestBody := map[string]interface{}{
-		"action":     targetAction,
-		"input_data": dataToSend,
+		"action": targetAction,
+		"data":   cleanData, // Use "data" as per the new standard structure
 	}
 
-	// ass prompt from step config if present
+	// Add prompt from step config if present
 	if prompt, ok := params.StepConfig.Config["prompt"].(string); ok && prompt != "" {
 		requestBody["prompt"] = prompt
-		params.Logger.Info("Including prompt in request body",
-			zap.String("prompt_preview", prompt[:min(50, len(prompt))]))
 	}
 
 	// Add any agent config
@@ -300,14 +252,9 @@ func buildRequestBody(params ActionParams, targetAction string, dataToSend inter
 		requestBody["context"] = extractContext(params)
 	}
 
-	params.Logger.Info("Built request body",
+	params.Logger.Info("Built request body with clean data",
 		zap.String("action", targetAction),
-		zap.Any("has_data", dataToSend != nil),
-		zap.Any("has_config", requestBody["config"] != nil),
-		zap.Any("has_context", requestBody["context"] != nil),
-		zap.Any("DEBUGaa: callAgentAction buildRequestBody dataToSend extracted", requestBody["context"]),
-		zap.Any("DEBUGaa: callAgentAction buildRequestBody extracted from dataToSend", dataToSend),
-		zap.Any("DEBUGaa: callAgentAction buildRequestBody params were", params),
+		zap.Any("data_fields", cleanData),
 	)
 
 	return requestBody
@@ -345,50 +292,27 @@ func buildCallRequestMessage(
 	targetAction string,
 	requestBody map[string]interface{},
 ) *types.RequestMessage {
-	requestID := uuid.New().String()
 
-	return &types.RequestMessage{
-		Headers: types.RequestHeaders{
-			// Sender identity
-			Sender: params.ExecutionContext.Sender,
+	// Use the BuildRequestMessage helper
+	message := datahelpers.BuildRequestMessage(
+		params.ExecutionContext,
+		targetAgent.AgentType,
+		targetAction,
+		requestBody["data"].(map[string]interface{}),
+		nil, // config will be added to body separately if needed
+		params.Logger,
+	)
 
-			// Core identity
-			CorrelationID:   params.ExecutionContext.CorrelationID,
-			CorrelationName: params.ExecutionContext.CorrelationName,
-			ClientID:        params.ExecutionContext.ClientID,
+	// Override specific fields for child orchestration
+	message.Headers.OrchestrationID = childOrchID
+	message.Headers.OrchestrationName = childOrchName
+	message.Headers.ToAgent = targetAgent.AgentID
+	message.Headers.RequestID = uuid.New().String()
 
-			// Child orchestration context
-			OrchestrationID:   childOrchID,
-			OrchestrationName: childOrchName,
-			StepID:            uuid.New().String(),
-			StepName:          "process",
-			RequestID:         requestID,
-			RetryVersion:      0,
+	// Update the body with the complete request body (includes prompt, config, etc.)
+	message.Body = requestBody
 
-			// Parent tracking
-			ParentOrchestrationID:   params.ExecutionContext.OrchestrationID,
-			ParentOrchestrationName: params.ExecutionContext.OrchestrationName,
-			ParentRequestID:         params.ExecutionContext.RequestID,
-
-			// Message metadata
-			MessageID:   uuid.New().String(),
-			MessageType: "request",
-			FromAgent:   params.ExecutionContext.Sender.AgentID,
-			ToAgent:     targetAgent.AgentID,
-			ToAgentType: targetAgent.AgentType,
-			Action:      targetAction,
-			Timestamp:   time.Now(),
-
-			// Resource management
-			FuelBudget:     params.ExecutionContext.FuelBudget - 100,
-			TimeoutSeconds: 30,
-
-			// Routing - child needs to know where to respond
-			ResponsesTopic: params.ExecutionContext.ResponsesTopic,
-			RequestsTopic:  "", // Child sets its own
-		},
-		Body: requestBody,
-	}
+	return message
 }
 
 // Send the request to the agent
@@ -579,11 +503,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",    // event_type
-		"orchestration", // entity_type
-		orchestrationID, // entity_id
-		metadataJSON,    // metadata
-		"info",          // severity
+		"AGENT_CALL",        // event_type
+		"orchestration",     // entity_type
+		orchestrationID,     // entity_id
+		metadataJSON,        // metadata
+		"info",              // severity
 		"call_agent_action") // source
 }
 
@@ -636,11 +560,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED", // event_type
-		"request",        // entity_type
-		requestID,        // entity_id
-		metadataJSON,     // metadata
-		"error",          // severity
+		"REQUEST_FAILED",    // event_type
+		"request",           // entity_type
+		requestID,           // entity_id
+		metadataJSON,        // metadata
+		"error",             // severity
 		"call_agent_action") // source
 }
 
@@ -691,11 +615,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,    // event_type
-		"agent",      // entity_type
-		agentID,      // entity_id
-		metadataJSON, // metadata
-		"info",       // severity
+		eventType,        // event_type
+		"agent",          // entity_type
+		agentID,          // entity_id
+		metadataJSON,     // metadata
+		"info",           // severity
 		"agent_activity") // source
 }
 
@@ -722,19 +646,21 @@ func findJobTopicForRole(params ActionParams, targetRole string) string {
 
 // Data extraction - with explicit template-based specification
 func extractDataForAgent(params ActionParams) interface{} {
-	params.Logger.Info("Extracting data for agent",
+	params.Logger.Info("Extracting data for agent using new helpers",
 		zap.Any("step_config", params.StepConfig.Config))
+
+	// Use the new ExtractDataFromMessage helper to get clean data
+	cleanData := datahelpers.ExtractDataFromMessage(params.CollectedData, params.Logger)
 
 	// PRIORITY 1: Check for explicit input_data specification in config
 	if inputDataSpec, ok := params.StepConfig.Config["input_data"].(map[string]interface{}); ok {
 		params.Logger.Info("Using explicit input_data specification from workflow config",
 			zap.Any("input_data_spec", inputDataSpec))
 
-		// Render templates in the specification
-		renderedData := renderTemplatesInData(inputDataSpec, params.CollectedData, params.Logger)
-
-		params.Logger.Info("Rendered input_data from template",
-			zap.Any("rendered_data", renderedData))
+		// Render templates in the specification using clean data
+		renderedData := renderTemplatesInData(inputDataSpec,
+			map[string]interface{}{"input_data": cleanData},
+			params.Logger)
 
 		return renderedData
 	}
@@ -744,12 +670,14 @@ func extractDataForAgent(params ActionParams) interface{} {
 		params.Logger.Info("Using input_field reference",
 			zap.String("input_field", inputField))
 
-		return extractByFieldReference(params, inputField)
+		if fieldData, err := datahelpers.GetFieldFromPath(cleanData, inputField, params.Logger); err == nil {
+			return fieldData
+		}
 	}
 
-	// PRIORITY 3: Default behavior - extract clean input_data from parent
-	params.Logger.Info("Using default input_data extraction")
-	return extractDefaultInputData(params)
+	// PRIORITY 3: Return the clean extracted data
+	params.Logger.Info("Using cleaned input_data")
+	return cleanData
 }
 
 // Render templates in data structure

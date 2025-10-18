@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/gqls/agentchassis/platform/aiservice"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -61,6 +62,17 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		params.Logger.Info("initialization detected via action field")
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
+
+	// Normalize the collected data using the helper
+	normalizedData := datahelpers.NormalizeCollectedData(
+		params.CollectedData,
+		params.ExecutionContext,
+		params.ExecutionContext.RequestsTopic,
+		params.Logger,
+	)
+
+	// Update params.CollectedData with normalized version
+	params.CollectedData = normalizedData
 
 	// Get the agent's configuration
 	var agentConfig map[string]interface{}
@@ -396,20 +408,34 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 }
 
 func extractDataForAiAgent(params ActionParams) interface{} {
-	// Get which input field to use
-	inputField := "input_data"
+	// Get which input field to use - ditching this for now
+	/*inputField := "input_data"
 	if field, ok := params.StepConfig.Config["input_field"].(string); ok && field != "" {
 		inputField = field
-	}
+	}*/
 
 	params.Logger.Info("Extracting data for ai agent",
-		zap.String("requested_field", inputField), // input_data
+		//zap.String("requested_field", inputField), // input_data
 		zap.Any("available_keys", getMapKeys(params.CollectedData)),
 		zap.Any("DEBUGaa: params.CollectedData for passing to the new agent in executellmprompt action extractDataForAiAgent", params.CollectedData),
 	)
 
+	// Use the GetInputData helper which handles all the extraction logic
+	cleanData := datahelpers.GetInputData(params.CollectedData, params.Logger)
+
+	// If we got a valid map, return it
+	if len(cleanData) > 0 {
+		params.Logger.Info("Extracted clean data for AI agent",
+			zap.Int("field_count", len(cleanData)))
+		return cleanData
+	}
+
+	// Fallback to empty map
+	params.Logger.Warn("No data found for AI agent, using empty map")
+	return make(map[string]interface{})
+
 	// Define search paths from most to least specific
-	searchPaths := [][]string{
+	/*searchPaths := [][]string{
 		{"input_data", "body", "input_data", inputField}, // Deeply nested with body
 		{"input_data", "input_data", inputField},         // Deeply nested
 		{"input_data", "body", inputField},               // medium nested with body
@@ -426,25 +452,25 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 			)
 			return data
 		}
-	}
+	}*/
 
 	// Special case: if looking for input_data, try nested version
-	if inputField == "input_data" {
-		if data, ok := getNestedInputValue(params.CollectedData, "input_data", "input_data"); ok {
-			params.Logger.Info("Using nested input_data")
-			return data
+	/*	if inputField == "input_data" {
+			if data, ok := getNestedInputValue(params.CollectedData, "input_data", "input_data"); ok {
+				params.Logger.Info("Using nested input_data")
+				return data
+			}
 		}
-	}
 
-	// Final fallback
-	data := params.CollectedData["input_data"]
-	if data == nil {
-		params.Logger.Warn("No data found, using empty map")
-		return make(map[string]interface{})
-	}
+		// Final fallback
+		data := params.CollectedData["input_data"]
+		if data == nil {
+			params.Logger.Warn("No data found, using empty map")
+			return make(map[string]interface{})
+		}
 
-	params.Logger.Info("Using top-level input_data as fallback")
-	return data
+		params.Logger.Info("Using top-level input_data as fallback")
+		return data*/
 }
 
 // getPromptWithPriority implements three-tier priority for prompt selection

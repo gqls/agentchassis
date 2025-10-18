@@ -18,6 +18,7 @@ import (
 	"github.com/gqls/agentchassis/platform/governance"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
@@ -1200,7 +1201,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	}
 
 	// Normalize the response data before storing
-	normalisedData := NormalizeResponseData(response.Body, s.logger)
+	normalisedData := datahelpers.NormalizeResponseData(response.Body, s.logger)
 
 	// Store under the step name in CollectedData
 	stepName := awaitedReq.StepName
