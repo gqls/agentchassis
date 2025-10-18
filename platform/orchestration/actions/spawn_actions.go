@@ -288,21 +288,60 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 		params.Logger,
 	)
 
-	sender := types.AgentIdentity{}
-	sender.AgentID = agentID
-	sender.AgentType = agentType
-	sender.Role = role
-	sender.AgentVersion = params.ExecutionContext.Version
-	sender.PodName = os.Getenv("HOST_NAME")
+	// Build sender identity - this is the SPAWNER (parent agent)
+	sender := types.AgentIdentity{
+		AgentID:      params.ExecutionContext.FromAgentID,   // Parent's AgentID
+		AgentType:    params.ExecutionContext.FromAgentType, // Parent's type
+		Role:         params.ExecutionContext.Sender.Role,
+		AgentVersion: params.ExecutionContext.Version,
+		PodName:      params.ExecutionContext.ProcessingNode,
+	}
 
-	// Override specific fields for this spawn
+	// If we don't have FromAgentType, use environment
+	if sender.AgentType == "" {
+		sender.AgentType = os.Getenv("AGENT_TYPE")
+		if sender.AgentType == "" {
+			sender.AgentType = "generic"
+		}
+	}
+
+	// Override specific fields for this spawn initialization
+	message.Headers.Sender = sender
+
+	// Child's identity
 	message.Headers.OrchestrationID = agentID
 	message.Headers.OrchestrationName = agentName
-	message.Headers.Sender = sender
-	message.Headers.ResponsesTopic = parentResponsesTopic
-	message.Headers.RequestID = requestID
+	message.Headers.ToAgent = agentID
+	message.Headers.ToAgentType = agentType
+
+	// Parent context
 	message.Headers.ParentOrchestrationID = params.ExecutionContext.OrchestrationID
 	message.Headers.ParentOrchestrationName = params.ExecutionContext.OrchestrationName
+	message.Headers.ParentRequestID = params.ExecutionContext.RequestID
+
+	// Step context - CRITICAL: Must be populated
+	message.Headers.StepID = params.ExecutionContext.StepID
+	message.Headers.StepName = params.ExecutionContext.StepName // e.g., "spawn_hero_writer"
+	message.Headers.RequestID = requestID
+	message.Headers.Action = "initialize"
+
+	// Routing
+	message.Headers.ResponsesTopic = parentResponsesTopic
+	message.Headers.RequestsTopic = "" // Child will set from environment
+
+	// Set functional role for the child
+	message.Headers.FunctionalRole = role
+
+	params.Logger.Info("Sending initialization message to spawned agent",
+		zap.String("agent_id", agentID),
+		zap.String("agent_name", agentName),
+		zap.String("topic", childRequestsTopic),
+		zap.String("action", "initialize"),
+		zap.String("step_name", message.Headers.StepName),
+		zap.String("step_id", message.Headers.StepID),
+		zap.String("sender_type", sender.AgentType),
+		zap.String("parent_orchestration_id", message.Headers.ParentOrchestrationID),
+	)
 
 	// Marshal message
 	messageBytes, err := json.Marshal(message)

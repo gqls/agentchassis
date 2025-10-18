@@ -160,6 +160,9 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		return fmt.Errorf("no request ID in response")
 	}
 
+	// Create response preview safely
+	responsePreview := createResponsePreview(response.Body.Body)
+
 	s.logger.Info("RESPONSE_RECEIVED: Processing response in coordinator")
 	contextLogger := s.logger.With(
 		zap.String("request_id", requestID),
@@ -168,7 +171,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		zap.String("from_agent", execCtx.FromAgentID),
 		zap.String("status", execCtx.Status),
 		zap.Int("retry_version", execCtx.RetryVersion),
-		zap.String("response_preview", response.Body.Body.(string)[:min(500, len(response.Body.Body.(string)))]),
+		zap.String("response_preview", responsePreview),
 	)
 
 	current, caller := getFuncInfo(1)
@@ -261,6 +264,48 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 	}
 
 	return s.ProcessResponse(ctx, execCtx, response)
+}
+
+// createResponsePreview safely creates a preview string from response body
+func createResponsePreview(body interface{}) string {
+	if body == nil {
+		return "<nil>"
+	}
+
+	switch v := body.(type) {
+	case string:
+		if len(v) > 500 {
+			return v[:500] + "..."
+		}
+		return v
+
+	case map[string]interface{}:
+		// Convert map to JSON string for preview
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Sprintf("<map with %d keys>", len(v))
+		}
+		preview := string(jsonBytes)
+		if len(preview) > 500 {
+			return preview[:500] + "..."
+		}
+		return preview
+
+	case []byte:
+		preview := string(v)
+		if len(preview) > 500 {
+			return preview[:500] + "..."
+		}
+		return preview
+
+	default:
+		// For any other type, use fmt.Sprintf
+		preview := fmt.Sprintf("%v", v)
+		if len(preview) > 500 {
+			return preview[:500] + "..."
+		}
+		return preview
+	}
 }
 
 // getOrCreateState gets or creates orchestration state
