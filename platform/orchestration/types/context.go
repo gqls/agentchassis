@@ -187,10 +187,12 @@ type ResponseBody struct {
 }
 
 type ErrorInfo struct {
-	Code        string `json:"code"`
-	Message     string `json:"message"`
-	Recoverable bool   `json:"recoverable"`
-	RetryAfter  int    `json:"retry_after_seconds,omitempty"`
+	Code        string                 `json:"code"`
+	Message     string                 `json:"message"`
+	Recoverable bool                   `json:"recoverable"`
+	Timestamp   time.Time              `json:"timestamp"`
+	RetryAfter  int                    `json:"retry_after_seconds,omitempty"`
+	Details     map[string]interface{} `json:"details,omitempty"`
 }
 
 // ResponseContext captures what we're responding to

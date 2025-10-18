@@ -168,7 +168,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		zap.String("from_agent", execCtx.FromAgentID),
 		zap.String("status", execCtx.Status),
 		zap.Int("retry_version", execCtx.RetryVersion),
-		zap.String("response_preview", string(response)[:min(500, len(response))]),
+		zap.String("response_preview", response.Body.Body.(string)[:min(500, len(response.Body.Body.(string)))]),
 	)
 
 	current, caller := getFuncInfo(1)
@@ -1491,6 +1491,11 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 
 // handleRecoverableError handles errors that can be retried
 func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
+	s.logger.Warn("Recoverable error received",
+		zap.String("request_id", requestID),
+		zap.Int("retry_version", execCtx.RetryVersion),
+	)
+
 	awaited := state.AwaitedRequests[requestID]
 	if awaited == nil {
 		return fmt.Errorf("no awaited request found for %s", requestID)
@@ -1507,6 +1512,7 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 	awaited.RetryVersion++
 	awaited.SentAt = time.Now()
 	awaited.TimeoutAt = time.Now().Add(30 * time.Second)
+	state.AwaitedRequests[requestID] = awaited
 
 	topic := os.Getenv("PARENT_RESPONSES_TOPIC")
 	if topic == "" {
@@ -1555,13 +1561,28 @@ func (s *SagaCoordinator) handleUnrecoverableError(ctx context.Context, state *O
 	s.logger.Error("Unrecoverable error received",
 		zap.String("request_id", requestID))
 
-	var errorResponse struct {
-		Error string `json:"error"`
-		Code  string `json:"code"`
-	}
-	json.Unmarshal(response, &errorResponse)
+	// Extract error message from the ResponseMessage structure
+	errorMsg := "Unknown error"
 
-	return s.failWorkflow(ctx, state, fmt.Sprintf("Request %s failed: %s", requestID, errorResponse.Error))
+	// Check if there's an Error field in the ResponseBody
+	if response.Body.Error != nil {
+		errorMsg = response.Body.Error.Message
+		if response.Body.Error.Code != "" {
+			errorMsg = fmt.Sprintf("%s (code: %s)", errorMsg, response.Body.Error.Code)
+		}
+	} else if response.Body.Body != nil {
+		// If no Error field, check the Body field for error information
+		switch body := response.Body.Body.(type) {
+		case map[string]interface{}:
+			if errStr, ok := body["error"].(string); ok {
+				errorMsg = errStr
+			}
+		case string:
+			errorMsg = body
+		}
+	}
+
+	return s.failWorkflow(ctx, state, fmt.Sprintf("Request %s failed: %s", requestID, errorMsg))
 }
 
 // handleRequestTimeout handles request timeouts
@@ -1576,8 +1597,10 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 
 	// Check if still waiting
 	if awaited, exists := state.AwaitedRequests[requestID]; exists {
-		s.logger.Warn("Request timed out",
-			zap.String("request_id", requestID))
+		s.logger.Error("Request timed out",
+			zap.String("request_id", requestID),
+			zap.Int("retry_version", awaited.RetryVersion),
+		)
 
 		// Retry or fail
 		if awaited.RetryVersion < 3 {
@@ -1586,7 +1609,36 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 				RequestID: requestID,
 				Status:    "error_recoverable",
 			}
-			s.handleRecoverableError(ctx, state, requestID, execCtx, []byte(`{"error": "timeout"}`))
+
+			// Create a timeout response message instead of raw bytes
+			timeoutResponse := types.ResponseMessage{
+				Headers: types.ResponseHeaders{
+					InResponseToRequestID: requestID,
+					InResponseToStepID:    awaited.StepID,
+					InResponseToStepName:  awaited.StepName,
+					InResponseToAction:    "unknown",
+					Status:                "error_recoverable",
+					IsError:               true,
+					MessageType:           "response",
+					TimeSent:              time.Now(),
+					OrchestrationID:       orchestrationID,
+					CorrelationID:         state.CorrelationID,
+				},
+				Body: types.ResponseBody{
+					Success: false,
+					Error: &types.ErrorInfo{
+						Code:        "TIMEOUT",
+						Message:     "Request timed out",
+						Recoverable: true,
+						Details: map[string]interface{}{
+							"timeout_after": timeoutAt.Sub(awaited.TimeoutAt).String(),
+							"retry_count":   awaited.RetryVersion,
+						},
+					},
+				},
+			}
+
+			s.handleRecoverableError(ctx, state, requestID, execCtx, timeoutResponse)
 		} else {
 			s.failWorkflow(ctx, state, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
 		}

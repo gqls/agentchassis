@@ -601,7 +601,7 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 	SELECT 
 		orchestration_id, orchestration_name, correlation_id, owner_agent_id, owner_agent_type, 
 		owner_agent_role, parent_orchestration_id, client_id, 
-		requests_topic, responses_topic,  -- NEW fields
+		requests_topic, responses_topic, 
 		status, current_step, awaited_steps, awaited_requests,
 		currently_executing, last_activity, processing_node, execution_started_at,
 		collected_data, initial_request_data, final_result, workflow_plan,
