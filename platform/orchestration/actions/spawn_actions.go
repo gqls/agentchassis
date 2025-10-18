@@ -288,9 +288,17 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 		params.Logger,
 	)
 
+	sender := types.AgentIdentity{}
+	sender.AgentID = agentID
+	sender.AgentType = agentType
+	sender.Role = role
+	sender.AgentVersion = params.ExecutionContext.Version
+	sender.PodName = os.Getenv("HOST_NAME")
+
 	// Override specific fields for this spawn
 	message.Headers.OrchestrationID = agentID
 	message.Headers.OrchestrationName = agentName
+	message.Headers.Sender = sender
 	message.Headers.ResponsesTopic = parentResponsesTopic
 	message.Headers.RequestID = requestID
 	message.Headers.ParentOrchestrationID = params.ExecutionContext.OrchestrationID
