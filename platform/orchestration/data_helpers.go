@@ -74,32 +74,32 @@ func extractFromRequestMessage(msg *types.RequestMessage, logger *zap.Logger) ma
 
 // extractFromResponseMessage extracts data from a typed ResponseMessage
 func extractFromResponseMessage(msg *types.ResponseMessage, logger *zap.Logger) map[string]interface{} {
-	if msg == nil || msg.Body == nil {
+	if msg == nil {
 		return map[string]interface{}{}
 	}
 
-	// Handle ResponseBody type
-	if responseBody, ok := msg.Body.(types.ResponseBody); ok {
-		// ResponseBody.Body contains the actual data
-		if body, ok := responseBody.Body.(map[string]interface{}); ok {
-			// Look for data field
-			if data, ok := body["data"].(map[string]interface{}); ok {
-				logger.Debug("extractFromResponseMessage: found body.body.data")
-				return data
-			}
-			// Return the body itself if it's clean data
-			return cleanDataMap(body)
-		}
+	// ResponseBody is a struct, not a pointer, so we work with it directly
+	responseBody := msg.Body
+
+	// Check if the Body field within ResponseBody has content
+	if responseBody.Body == nil && responseBody.Error == nil {
+		logger.Debug("extractFromResponseMessage: empty response body")
+		return map[string]interface{}{}
 	}
 
-	// Handle if Body is directly a map
-	if body, ok := msg.Body.(map[string]interface{}); ok {
+	// ResponseBody.Body contains the actual data
+	if body, ok := responseBody.Body.(map[string]interface{}); ok {
+		// Look for data field
 		if data, ok := body["data"].(map[string]interface{}); ok {
+			logger.Debug("extractFromResponseMessage: found body.data")
 			return data
 		}
+		// Return the body itself if it's clean data
+		logger.Debug("extractFromResponseMessage: using cleaned body")
 		return cleanDataMap(body)
 	}
 
+	logger.Debug("extractFromResponseMessage: body is not a map")
 	return map[string]interface{}{}
 }
 
