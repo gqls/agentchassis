@@ -159,12 +159,23 @@ func findAgentByRole(params ActionParams, targetRole string, agent *TargetAgentI
 		if spawnResult, ok := stepData.(map[string]interface{}); ok {
 			if role, ok := spawnResult["role"].(string); ok && role == targetRole {
 				agent.AgentID, _ = spawnResult["agent_id"].(string)
-				agent.RequestsTopic, _ = spawnResult["requests_topic"].(string)
-				agent.ResponsesTopic, _ = spawnResult["responses_topic"].(string)
+
+				// NEW: Extract topics from nested structure
+				if topics, ok := spawnResult["topics"].(map[string]interface{}); ok {
+					agent.RequestsTopic, _ = topics["requests"].(string)
+					agent.ResponsesTopic, _ = topics["responses"].(string)
+				}
+
+				// FALLBACK: Try flat structure for backward compatibility
+				if agent.RequestsTopic == "" {
+					agent.RequestsTopic, _ = spawnResult["requests_topic"].(string)
+					agent.ResponsesTopic, _ = spawnResult["responses_topic"].(string)
+				}
 
 				params.Logger.Info("Found agent with matching role",
 					zap.String("role", targetRole),
 					zap.String("agent_id", agent.AgentID),
+					zap.String("requests_topic", agent.RequestsTopic),
 					zap.String("from_step", stepName))
 				return true
 			}
@@ -178,8 +189,19 @@ func findAgentByType(params ActionParams, targetAgentType string, agent *TargetA
 	spawnKey := fmt.Sprintf("spawn_%s", targetAgentType)
 	if spawnResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
 		agent.AgentID, _ = spawnResult["agent_id"].(string)
-		agent.RequestsTopic, _ = spawnResult["requests_topic"].(string)
-		agent.ResponsesTopic, _ = spawnResult["responses_topic"].(string)
+
+		// NEW: Extract from nested topics structure
+		if topics, ok := spawnResult["topics"].(map[string]interface{}); ok {
+			agent.RequestsTopic, _ = topics["requests"].(string)
+			agent.ResponsesTopic, _ = topics["responses"].(string)
+		}
+
+		// FALLBACK: Try flat structure
+		if agent.RequestsTopic == "" {
+			agent.RequestsTopic, _ = spawnResult["requests_topic"].(string)
+			agent.ResponsesTopic, _ = spawnResult["responses_topic"].(string)
+		}
+
 		return agent.AgentID != ""
 	}
 
@@ -189,8 +211,19 @@ func findAgentByType(params ActionParams, targetAgentType string, agent *TargetA
 			if spawnResult, ok := stepData.(map[string]interface{}); ok {
 				if agentType, ok := spawnResult["agent_type"].(string); ok && agentType == targetAgentType {
 					agent.AgentID, _ = spawnResult["agent_id"].(string)
-					agent.RequestsTopic, _ = spawnResult["requests_topic"].(string)
-					agent.ResponsesTopic, _ = spawnResult["responses_topic"].(string)
+
+					// NEW: Extract from nested topics structure
+					if topics, ok := spawnResult["topics"].(map[string]interface{}); ok {
+						agent.RequestsTopic, _ = topics["requests"].(string)
+						agent.ResponsesTopic, _ = topics["responses"].(string)
+					}
+
+					// FALLBACK: Try flat structure
+					if agent.RequestsTopic == "" {
+						agent.RequestsTopic, _ = spawnResult["requests_topic"].(string)
+						agent.ResponsesTopic, _ = spawnResult["responses_topic"].(string)
+					}
+
 					return agent.AgentID != ""
 				}
 			}
@@ -503,11 +536,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -560,11 +593,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -615,11 +648,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
 
@@ -650,16 +683,19 @@ func extractDataForAgent(params ActionParams) interface{} {
 		zap.Any("step_config", params.StepConfig.Config))
 
 	// Use the new ExtractDataFromMessage helper to get clean data
-	cleanData := datahelpers.ExtractDataFromMessage(params.CollectedData, params.Logger)
+	// cleanData := datahelpers.ExtractDataFromMessage(params.CollectedData, params.Logger)
 
 	// PRIORITY 1: Check for explicit input_data specification in config
 	if inputDataSpec, ok := params.StepConfig.Config["input_data"].(map[string]interface{}); ok {
 		params.Logger.Info("Using explicit input_data specification from workflow config",
 			zap.Any("input_data_spec", inputDataSpec))
 
+		// Get the clean input_data from CollectedData to use for template rendering
+		cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
+
 		// Render templates in the specification using clean data
 		renderedData := renderTemplatesInData(inputDataSpec,
-			map[string]interface{}{"input_data": cleanData},
+			map[string]interface{}{"input_data": cleanInputData},
 			params.Logger)
 
 		return renderedData
@@ -670,14 +706,16 @@ func extractDataForAgent(params ActionParams) interface{} {
 		params.Logger.Info("Using input_field reference",
 			zap.String("input_field", inputField))
 
-		if fieldData, err := datahelpers.GetFieldFromPath(cleanData, inputField, params.Logger); err == nil {
+		cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
+		if fieldData, err := datahelpers.GetFieldFromPath(cleanInputData, inputField, params.Logger); err == nil {
 			return fieldData
 		}
 	}
 
 	// PRIORITY 3: Return the clean extracted data
 	params.Logger.Info("Using cleaned input_data")
-	return cleanData
+	cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
+	return cleanInputData
 }
 
 // Render templates in data structure
