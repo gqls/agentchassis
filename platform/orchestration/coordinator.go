@@ -630,7 +630,11 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	contextLogger := createActionLogger(s.logger, execCtx, state.CurrentStep, step.Action)
 
 	contextLogger.Info("Executing local action",
-		zap.Any("config", step.Config))
+		zap.Any("config", step.Config),
+		zap.Any("DEBUGaa: executeLocalAction step", step),
+		zap.Any("DEBUGaa: executeLocalAction state", state),
+		zap.Any("DEBUGaa: executeLocalAction execCtx", execCtx),
+	)
 
 	// 3. Handle retry logic for spawn actions
 	if shouldRetry := s.handleSpawnRetry(state, step, contextLogger); !shouldRetry {
@@ -645,6 +649,10 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 	// 5. Build action parameters - get input data
 	params := buildActionParams(ctx, execCtx, state, step, s, contextLogger)
+
+	s.logger.Info("Executing local action",
+		zap.Any("DEBUGaa: params sent to action handler", params),
+	)
 
 	// 6. Execute the action
 	result, err := executeAction(ctx, handler, params, contextLogger)
@@ -742,6 +750,11 @@ func getActionHandler(action string) (actions.ActionFunc, error) {
 func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, state *OrchestrationState,
 	step models.Step, coordinator *SagaCoordinator, logger *zap.Logger) actions.ActionParams {
 
+	logger.Info("in buildActionParams",
+		zap.Any("DEBUGaa: in buildActionParams state.CollectedData", state.CollectedData),
+		zap.Any("DEBUGaa: in buildActionParams headers are execCtx.ToHeaders", execCtx.ToHeaders()),
+		zap.Any("DEBUGaa: in buildActionParams current step", state.CurrentStep),
+	)
 	return actions.ActionParams{
 		Context:          ctx,
 		ExecutionContext: execCtx,
