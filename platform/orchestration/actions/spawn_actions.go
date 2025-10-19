@@ -1415,7 +1415,7 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 	if err != nil {
 		params.Logger.Error("Failed to marshal workflow",
 			zap.Error(err))
-		workflowBytes = []byte(`{"start_step": "execute", "steps": {"execute": {"action": "execute_llm_prompt"}}}`)
+		workflowBytes = []byte(`{"start_step": "execute", "steps": {"execute": {"action": "calculate"}}}`)
 	}
 
 	// Create group subtree info using types.SubtreeInfo

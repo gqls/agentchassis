@@ -514,6 +514,11 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 
 // continueExecution executes from the current step
 func (s *SagaCoordinator) continueExecution(ctx context.Context, state *OrchestrationState, execCtx *types.ExecutionContext) error {
+	s.logger.Info("in continueExecution",
+		zap.Any("DEBUGaa: orchestration state", state),
+		zap.Any("Exec context", execCtx),
+	)
+
 	repo := NewStateRepository(s.db, s.logger)
 
 	// This initial check remains outside the loop. If the function is called
@@ -1165,15 +1170,14 @@ func (s *SagaCoordinator) handleProgressUpdate(ctx context.Context, state *Orche
 
 // handleCompleteResponse processes a successful response
 func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
-	contextLogger := s.logger.With(
+	s.logger.Info("in handleCompleteResponse orchestrator ",
 		zap.String("orchestration_id", execCtx.OrchestrationID),
 		zap.String("step_name", execCtx.StepName),
 		zap.String("step_id", execCtx.StepID),
 		zap.String("requestId from arguments", requestID),
 		zap.Any("state.CollectedData in handleCompleteResponse is:", state.CollectedData),
 	)
-	/*	contextLogger.Info("In handleCompleteResponse",
-		zap.Any("ExecutionContext", execCtx))*/
+	contextLogger := s.logger
 
 	current, caller := getFuncInfo(1)
 
@@ -1215,21 +1219,21 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	switch bodyData := response.Body.Body.(type) {
 	case map[string]interface{}:
 		responseBodyData = bodyData
-		s.logger.Debug("Response body is already a map")
+		s.logger.Info("Response body is already a map")
 
 	case []byte:
 		if err := json.Unmarshal(bodyData, &responseBodyData); err != nil {
 			s.logger.Error("Failed to unmarshal response body bytes", zap.Error(err))
 			return fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
-		s.logger.Debug("Unmarshaled response body from bytes")
+		s.logger.Info("Unmarshaled response body from bytes")
 
 	case string:
 		if err := json.Unmarshal([]byte(bodyData), &responseBodyData); err != nil {
 			s.logger.Error("Failed to unmarshal response body string", zap.Error(err))
 			return fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
-		s.logger.Debug("Unmarshaled response body from string")
+		s.logger.Info("Unmarshaled response body from string")
 
 	default:
 		// Try to marshal and unmarshal to get it into map form
@@ -1242,7 +1246,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			s.logger.Error("Failed to unmarshal marshaled response body", zap.Error(err))
 			return fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
-		s.logger.Debug("Converted response body to map via marshal/unmarshal")
+		s.logger.Info("Converted response body to map via marshal/unmarshal")
 	}
 
 	// Normalize the response data before storing
@@ -1307,6 +1311,11 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			repo.UpdateState(ctx, state) // Save the step advancement
 		}
 
+		s.logger.Info("All responses received - steps",
+			zap.Any("current step_object", currentStep),
+			zap.String("next, (now current) step_name", state.CurrentStep),
+		)
+
 		// Create fresh execution context for continuing
 		freshExecCtx := &types.ExecutionContext{
 			CorrelationID:   state.CorrelationID,
@@ -1339,11 +1348,14 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 
 		state.LastActivity = time.Now()
 
+		state.Status = StatusExecutingStep
+		state.AwaitedRequests = make(map[string]*AwaitedRequest)
+
 		if err := repo.UpdateState(ctx, state); err != nil {
-			return fmt.Errorf("failed to save state transition: %w", err)
+			return fmt.Errorf("failed to update state after clearing awaited requests after responses: %w", err)
 		}
 
-		s.logger.Info("handleCompleteResponse: all responses received, continuing workflow",
+		s.logger.Info("handleCompleteResponse: all responses received continuing workflow",
 			zap.Any("DEBUGaa: fresh exec ctx:", freshExecCtx),
 		)
 
