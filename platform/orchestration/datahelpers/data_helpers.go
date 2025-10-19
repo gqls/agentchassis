@@ -21,6 +21,8 @@ import (
 // ExtractDataFromMessage extracts clean data from ANY message format
 // Works with types.RequestMessage, types.ResponseMessage, or raw maps
 func ExtractDataFromMessage(source interface{}, logger *zap.Logger) map[string]interface{} {
+	logger.Info("Now into ExtractDataFromMessage")
+
 	if source == nil {
 		logger.Debug("ExtractDataFromMessage: source is nil")
 		return map[string]interface{}{}
@@ -47,9 +49,15 @@ func ExtractDataFromMessage(source interface{}, logger *zap.Logger) map[string]i
 
 // extractFromRequestMessage extracts data from a typed RequestMessage
 func extractFromRequestMessage(msg *types.RequestMessage, logger *zap.Logger) map[string]interface{} {
+	logger.Info("extractDataFromRequestMessage",
+		zap.Any("DEBUGaa: msg was - look for empty Body", msg),
+	)
+
 	if msg == nil || msg.Body == nil {
 		return map[string]interface{}{}
 	}
+
+	logger.Info("extractDataFromRequestMessage wasnt empty")
 
 	// Body could be a map or another type
 	switch body := msg.Body.(type) {
@@ -74,9 +82,15 @@ func extractFromRequestMessage(msg *types.RequestMessage, logger *zap.Logger) ma
 
 // extractFromResponseMessage extracts data from a typed ResponseMessage
 func extractFromResponseMessage(msg *types.ResponseMessage, logger *zap.Logger) map[string]interface{} {
+	logger.Info("extractDataFromResponseMessage",
+		zap.Any("DEBUGaa: msg was ", msg),
+	)
+
 	if msg == nil {
 		return map[string]interface{}{}
 	}
+
+	logger.Info("extractDataFromResponseMessage wasnt empty")
 
 	// ResponseBody is a struct, not a pointer, so we work with it directly
 	responseBody := msg.Body
@@ -106,6 +120,10 @@ func extractFromResponseMessage(msg *types.ResponseMessage, logger *zap.Logger) 
 // extractFromRawMap handles raw map extraction (backward compatibility)
 func extractFromRawMap(source map[string]interface{}, logger *zap.Logger) map[string]interface{} {
 	// Try different extraction strategies in order of preference
+
+	logger.Info("extractFromRawMap",
+		zap.Any("DEBUGaa: source was ", source),
+	)
 
 	// Strategy 1: Look for body.data (clean format)
 	if data := extractFromPath(source, "body.data"); data != nil {
@@ -416,6 +434,9 @@ func GetInputData(collectedData map[string]interface{}, logger *zap.Logger) map[
 
 	// First try the normalized location
 	if data, ok := collectedData["input_data"].(map[string]interface{}); ok {
+		logger.Info("in GetInputData - we should have input data here",
+			zap.Any("input_data", data),
+		)
 		return data
 	}
 

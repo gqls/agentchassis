@@ -49,6 +49,12 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	params.Logger.Info("in CallAgentAction data being sent to agent",
 		zap.Any("dataToSend", dataToSend),
 	)
+	/**
+	dataToSend": {
+	    "business_name": "Golden Crust Bakery",
+	    "business_type": "artisanal bakery"
+	  }
+	*/
 
 	// 4. Determine the action the agent should perform
 	targetAction := determineTargetAction(params.StepConfig)
@@ -262,12 +268,14 @@ func determineTargetAction(stepConfig models.Step) string {
 
 // Build the complete request body
 func buildRequestBody(params ActionParams, targetAction string, dataToSend interface{}) map[string]interface{} {
-	// Ensure dataToSend is clean
-	cleanData := datahelpers.ExtractDataFromMessage(dataToSend, params.Logger)
+	params.Logger.Info("buildRequestBody data into function",
+		zap.String("action", targetAction),
+		zap.Any("data_to send", dataToSend),
+	)
 
 	requestBody := map[string]interface{}{
 		"action": targetAction,
-		"data":   cleanData, // Use "data" as per the new standard structure
+		"data":   dataToSend,
 	}
 
 	// Add prompt from step config if present
@@ -287,7 +295,8 @@ func buildRequestBody(params ActionParams, targetAction string, dataToSend inter
 
 	params.Logger.Info("Built request body with clean data",
 		zap.String("action", targetAction),
-		zap.Any("data_fields", cleanData),
+		zap.Any("context", requestBody["context"]),
+		zap.Any("data_fields", requestBody["data"]),
 	)
 
 	return requestBody
@@ -341,6 +350,14 @@ func buildCallRequestMessage(
 	message.Headers.OrchestrationName = childOrchName
 	message.Headers.ToAgent = targetAgent.AgentID
 	message.Headers.RequestID = uuid.New().String()
+
+	parentResponsesTopic := params.ExecutionContext.ResponsesTopic
+	if parentResponsesTopic == "" {
+		// Fallback to environment variable if not set in context
+		parentResponsesTopic = os.Getenv("RESPONSES_TOPIC")
+	}
+	message.Headers.ParentResponsesTopic = parentResponsesTopic
+	requestBody["parent_response_topic"] = parentResponsesTopic
 
 	// Update the body with the complete request body (includes prompt, config, etc.)
 	message.Body = requestBody
@@ -685,7 +702,7 @@ func extractDataForAgent(params ActionParams) interface{} {
 	// Use the new ExtractDataFromMessage helper to get clean data
 	// cleanData := datahelpers.ExtractDataFromMessage(params.CollectedData, params.Logger)
 
-	// PRIORITY 1: Check for explicit input_data specification in config
+	// PRIORITY 1b: Check for explicit input_data specification in config
 	if inputDataSpec, ok := params.StepConfig.Config["input_data"].(map[string]interface{}); ok {
 		params.Logger.Info("Using explicit input_data specification from workflow config",
 			zap.Any("input_data_spec", inputDataSpec))
@@ -715,6 +732,9 @@ func extractDataForAgent(params ActionParams) interface{} {
 	// PRIORITY 3: Return the clean extracted data
 	params.Logger.Info("Using cleaned input_data")
 	cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
+	params.Logger.Info("Extract Data for agent clean input data is:",
+		zap.Any("cleanInputData", cleanInputData),
+	)
 	return cleanInputData
 }
 
