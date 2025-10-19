@@ -1174,6 +1174,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		zap.String("orchestration_id", execCtx.OrchestrationID),
 		zap.String("step_name", execCtx.StepName),
 		zap.String("step_id", execCtx.StepID),
+		zap.String("functional role", execCtx.FunctionalRole),
 		zap.String("requestId from arguments", requestID),
 		zap.Any("state.CollectedData in handleCompleteResponse is:", state.CollectedData),
 	)

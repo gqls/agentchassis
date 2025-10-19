@@ -75,11 +75,13 @@ func (v *Validator) ValidateIncomingMessage(headers map[string]string) bool {
 
 	if headers["client_id"] == "" ||
 		headers["correlation_id"] == "" ||
+		//headers["role"] == "" ||
 		headers["orchestration_id"] == "" {
 
 		v.logger.Warn("Incoming message missing required fields",
 			zap.String("client_id", headers["client_id"]),
 			zap.String("correlation_id", headers["correlation_id"]),
+			//zap.String("role", headers["role"]),
 			zap.String("orchestration_id", headers["orchestration_id"]))
 		return false
 	}

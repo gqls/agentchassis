@@ -654,18 +654,18 @@ func cleanDataMap(source map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	systemFields := map[string]bool{
-		"action":                     true,
-		"config":                     true,
-		"agent_config":               true,
-		"agent_group":                true,
-		"__execution_context__":      true,
-		"__raw_message__":            true,
-		"__my_requests_topic__":      true,
-		"__parent_responses_topic__": true,
-		"headers":                    true,
-		"is_initialization":          true,
-		"agent_info":                 true,
-		"role":                       true,
+		//"action":                     true,
+		//"config":                     true,
+		//"agent_config":               true,
+		//"agent_group":                true,
+		"__execution_context__": true,
+		"__raw_message__":       true,
+		//"__my_requests_topic__":      true,
+		//"__parent_responses_topic__": true,
+		//"headers":                    true,
+		//"is_initialization":          true,
+		//"agent_info":                 true,
+		//"role":                       true,
 	}
 
 	for k, v := range source {
