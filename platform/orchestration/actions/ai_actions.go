@@ -21,7 +21,7 @@ func ExecuteLLMPromptActionFAKE(ctx context.Context, params ActionParams) (inter
 	parsedResult := map[string]interface{}{
 		"summary": "This is a fake response for testing.",
 		"status":  "success",
-		"data": map[string]interface{}{
+		"results": map[string]interface{}{
 			"business_name": "Test Company",
 			"domain":        "test.com",
 			"description":   "A test company",

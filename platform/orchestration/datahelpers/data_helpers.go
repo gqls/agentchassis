@@ -62,11 +62,6 @@ func extractFromRequestMessage(msg *types.RequestMessage, logger *zap.Logger) ma
 	// Body could be a map or another type
 	switch body := msg.Body.(type) {
 	case map[string]interface{}:
-		// Look for data field first
-		if data, ok := body["data"].(map[string]interface{}); ok {
-			logger.Debug("extractFromRequestMessage: found body.data")
-			return data
-		}
 		// Look for input_data field
 		if data, ok := body["input_data"].(map[string]interface{}); ok {
 			logger.Debug("extractFromRequestMessage: found body.input_data")
@@ -185,8 +180,8 @@ func BuildRequestMessage(
 
 	// Build body
 	body := map[string]interface{}{
-		"action": action,
-		"data":   data,
+		"action":     action,
+		"input_data": data,
 	}
 
 	if config != nil && len(config) > 0 {
@@ -225,7 +220,7 @@ func BuildResponseMessage(
 	// Build body
 	responseBody := types.ResponseBody{
 		Success: success,
-		Body:    map[string]interface{}{"data": responseData},
+		Body:    map[string]interface{}{"input_data": responseData},
 		Error:   errorInfo,
 	}
 
@@ -270,7 +265,7 @@ func BuildInitializationRequest(
 			"agent_type": childAgentType,
 			"agent_name": childCtx.OrchestrationName,
 		},
-		"data": initialData,
+		"input_data": initialData,
 	}
 
 	if role != "" {
@@ -416,7 +411,7 @@ func NormalizeResponseData(responseBody types.ResponseBody, logger *zap.Logger) 
 
 	// ResponseBody.Body contains the actual data
 	if body, ok := responseBody.Body.(map[string]interface{}); ok {
-		if data, ok := body["data"].(map[string]interface{}); ok {
+		if data, ok := body["input_data"].(map[string]interface{}); ok {
 			return data
 		}
 		return cleanDataMap(body)

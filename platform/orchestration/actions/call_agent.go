@@ -274,8 +274,8 @@ func buildRequestBody(params ActionParams, targetAction string, dataToSend inter
 	)
 
 	requestBody := map[string]interface{}{
-		"action": targetAction,
-		"data":   dataToSend,
+		"action":     targetAction,
+		"input_data": dataToSend,
 	}
 
 	// Add prompt from step config if present
@@ -296,7 +296,7 @@ func buildRequestBody(params ActionParams, targetAction string, dataToSend inter
 	params.Logger.Info("Built request body with clean data",
 		zap.String("action", targetAction),
 		zap.Any("context", requestBody["context"]),
-		zap.Any("data_fields", requestBody["data"]),
+		zap.Any("data_fields input data", requestBody["input_data"]),
 	)
 
 	return requestBody
@@ -340,7 +340,7 @@ func buildCallRequestMessage(
 		params.ExecutionContext,
 		targetAgent.AgentType,
 		targetAction,
-		requestBody["data"].(map[string]interface{}),
+		requestBody["input_data"].(map[string]interface{}),
 		nil, // config will be added to body separately if needed
 		params.Logger,
 	)
