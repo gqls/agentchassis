@@ -137,7 +137,10 @@ func (m *MessageContext) SyncContextFromHeaders() error {
 func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAgentType, receivingAgentRole string, logger *zap.Logger) (*MessageContext, error) {
 
 	logger.Info("IN NewMessageContext",
-		zap.Any("incoming headers are:", headers))
+		zap.Any("incoming headers are:", headers),
+		zap.Any("receiving agent type", receivingAgentType),
+		zap.Any("receiving agent role", receivingAgentRole),
+	)
 
 	// Parse sender's context from all headers.
 	execCtx, err := types.FromHeaders(headers)

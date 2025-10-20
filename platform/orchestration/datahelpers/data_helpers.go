@@ -291,7 +291,7 @@ func BuildInitializationRequest(
 // ============================================================================
 
 // BuildCollectedData builds CollectedData from an incoming message
-func BuildCollectedData(
+/*func BuildCollectedData(
 	message interface{},
 	execCtx *types.ExecutionContext,
 	logger *zap.Logger,
@@ -334,7 +334,7 @@ func BuildCollectedData(
 		zap.String("action", execCtx.Action))
 
 	return collected
-}
+}*/
 
 // ============================================================================
 // ORIGINAL FUNCTIONS - Maintained for backward compatibility
@@ -695,7 +695,7 @@ func cleanDataMap(source map[string]interface{}) map[string]interface{} {
 
 // hasSystemFields checks if a map contains system fields
 func hasSystemFields(data map[string]interface{}) bool {
-	systemFields := []string{"action", "config", "agent_config", "__execution_context__"}
+	systemFields := []string{"action", "config", "agent_config", "__execution_context__", "workflow", "headers"}
 	for _, field := range systemFields {
 		if _, exists := data[field]; exists {
 			return true
@@ -786,3 +786,125 @@ func determineStatus(success bool, errorInfo *types.ErrorInfo) string {
 	}
 	return "error_unrecoverable"
 }
+
+func BuildCollectedData(
+	messageBody interface{},
+	execCtx *types.ExecutionContext,
+	logger *zap.Logger,
+) map[string]interface{} {
+
+	logger.Info("Data helpers - BuildCollectedData inwards",
+		zap.Any("DEBUGaa: message body", messageBody),
+		zap.Any("DEBUGaa: exectCtx", execCtx))
+
+	collectedData := make(map[string]interface{})
+
+	// Add execution context (own exec ctx unless it's a child then overwrite later)
+	collectedData["__execution_context__"] = execCtx
+
+	// Add system topics
+	collectedData["__my_requests_topic__"] = execCtx.RequestsTopic
+	collectedData["__my_responses_topic__"] = execCtx.ResponsesTopic
+
+	// Extract from message body based on its structure
+	switch body := messageBody.(type) {
+	case map[string]interface{}:
+		// Extract the actual input_data if it exists
+		if inputData, ok := body["input_data"].(map[string]interface{}); ok {
+			logger.Info("Processor: found input_data in message body",
+				zap.Any("input_data", inputData))
+			collectedData["input_data"] = inputData
+		} else if data, ok := body["data"].(map[string]interface{}); ok {
+			// Fallback to "data" field
+			logger.Info("Processor: found data in message body",
+				zap.Any("data", data))
+			collectedData["input_data"] = data
+		} else {
+			// No explicit input_data or data field
+			// Check if body itself is the data (doesn't have system fields)
+			if !hasSystemFields(body) {
+				logger.Info("Processor: treating entire body as input_data")
+				collectedData["input_data"] = body
+			} else {
+				// Body has system fields, don't use it as input_data
+				logger.Info("Processor: no input_data found, using empty map")
+				collectedData["input_data"] = make(map[string]interface{})
+			}
+		}
+
+		// Store action separately if present
+		if action, ok := body["action"].(string); ok {
+			collectedData["action"] = action
+		}
+
+		// Store config separately if present
+		if config, ok := body["config"].(map[string]interface{}); ok {
+			collectedData["config"] = config
+		}
+
+		// Store prompt separately if present
+		if prompt, ok := body["prompt"].(string); ok {
+			collectedData["prompt"] = prompt
+		}
+
+		// Store the raw message for debugging
+		collectedData["__raw_message__"] = body
+
+	default:
+		// Non-map body, store as-is
+		logger.Warn("Data helpers: message body is not a map",
+			zap.Any("body_type", fmt.Sprintf("%T", messageBody)))
+		collectedData["input_data"] = make(map[string]interface{})
+		collectedData["__raw_message__"] = messageBody
+	}
+
+	// Add parent response topic if available
+	if execCtx.ReplyToTopic != "" {
+		collectedData["__parent_responses_topic__"] = execCtx.ReplyToTopic
+	}
+
+	logger.Info("Data helpers: built CollectedData",
+		zap.Any("collected_keys", GetMapKeys(collectedData)),
+		zap.Any("input_data", collectedData["input_data"]))
+
+	return collectedData
+}
+
+// GetMapKeys returns the keys of a map as a string slice
+func GetMapKeys(m map[string]interface{}) []string {
+	if m == nil {
+		return []string{}
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+/*func MaybeTHisOnebuildCollectedData(
+	messageBody interface{},
+	execCtx *types.ExecutionContext,
+	logger *zap.Logger,
+) map[string]interface{} {
+
+	// Use the NormalizeCollectedData function you already have
+	rawMessage := map[string]interface{}{
+		"body": messageBody,
+		"headers": execCtx.ToRequestHeaders(),
+	}
+
+	// This should properly extract input_data
+	collectedData := orchestration.NormalizeCollectedData(
+		rawMessage,
+		execCtx,
+		p.requestsTopic,
+		logger,
+	)
+
+	logger.Info("Processor: normalized CollectedData",
+		zap.Any("input_data", collectedData["input_data"]),
+		zap.Any("keys", getMapKeys(collectedData)))
+
+	return collectedData
+}*/

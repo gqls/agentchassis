@@ -20,6 +20,7 @@ import (
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/platform/validation"
 	"go.uber.org/zap"
@@ -200,13 +201,6 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	// Sync headers from context for backward compatibility - KEEP
 	msgCtx.SyncHeadersFromContext()
 
-	// Store parent context if this is a child - KEEP but enhanced
-	if msgCtx.IsChildOrchestration() {
-		msgCtx.CollectedData["__execution_context__"] = msgCtx.ExecutionContext
-		msgCtx.Logger.Debug("Stored execution context as child",
-			zap.String("parent_orch_id", msgCtx.ExecutionContext.ParentOrchestrationID))
-	}
-
 	// Load agent definition from DB to put into config - agentDef.DefaultConfig["workflow"]
 	agentDef, err := p.loadAgentDefinition(ctx, p.agentType)
 	if err != nil {
@@ -225,24 +219,34 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		zap.String("display_name", agentDef.DisplayName),
 		zap.String("category", agentDef.Category),
 		zap.Any("DEBUGaa: about to select Workflow", agentDef),
-		zap.Any("DEBUGaa: agentType from which database workflow is loaded", p.agentType),
+		//zap.Any("DEBUGaa: agentType from which database workflow is loaded", p.agentType),
 	)
 
-	// Select the appropriate workflow based on context - KEEP AS IS
+	// Select the appropriate workflow based on context
 	workflow, err := p.selectWorkflow(ctx, agentDef, msgCtx)
 	if err != nil {
 		msgCtx.Logger.Error("Failed to select workflow", zap.Error(err))
 		return err
 	}
 
-	// Store the agent configuration for actions to use - KEEP
-	msgCtx.CollectedData["agent_config"] = agentDef.DefaultConfig
-
-	msgCtx.Logger.Debug("Message value in msgCtx",
+	msgCtx.Logger.Info("Message value in msgCtx",
 		zap.ByteString("msgCtx.Message.Value", msgCtx.Message.Value))
 
-	// Store the input data - KEEP AS IS (this logic is important)
-	var inputPayload map[string]interface{}
+	// Store parent context if this is a child
+	if msgCtx.IsChildOrchestration() {
+		msgCtx.CollectedData["__execution_context__"] = msgCtx.ExecutionContext
+		msgCtx.Logger.Debug("Stored execution context as child",
+			zap.String("parent_orch_id", msgCtx.ExecutionContext.ParentOrchestrationID))
+	}
+
+	// Store the agent configuration for actions to use
+	msgCtx.CollectedData["agent_config"] = agentDef.DefaultConfig
+
+	msgCtx.Logger.Info("DEBUGaa: What have I done with CollectedData",
+		zap.Any("DEBUGaa: CollectedData in processor process is - look for input data etc", msgCtx.CollectedData))
+
+	// Store the input data
+	/*var inputPayload map[string]interface{}
 	if err := json.Unmarshal(msgCtx.Message.Value, &inputPayload); err == nil {
 		// Store the entire payload as input_data
 		msgCtx.CollectedData["input_data"] = inputPayload
@@ -250,9 +254,9 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 			msgCtx.CollectedData["input_action"] = action
 		}
 
-		msgCtx.Logger.Debug("Input data stored",
+		msgCtx.Logger.Info("Input data stored",
 			zap.Any("input_data", inputPayload))
-	}
+	}*/
 
 	// Create agent config with the workflow - KEEP AS IS
 	agentConfig := &models.AgentConfig{
@@ -285,7 +289,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
 	}
 
-	// Check if this is a child workflow that completed - KEEP AS IS
+	// Check if this is a child workflow that completed
 	if msgCtx.IsChildOrchestration() {
 		if p.sqlDB != nil {
 			repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
@@ -855,8 +859,8 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 		zap.Any("workflow_exists", agentDef.DefaultConfig["workflow"] != nil),
 		zap.Any("orchestration_workflow_exists", agentDef.DefaultConfig["orchestration_workflow"] != nil),
 		zap.Any("task_workflow_exists", agentDef.DefaultConfig["task_workflow"] != nil),
-		zap.Any("DEBUGaa: msgbody look for config.workflow from message - look for headers.action or another time, msgCtx.message.value.config.workflow", msgCtx),
-		zap.Any("DEBUGaa: agentDef, looking to remove default calculator and replace with current workflow", agentDef),
+		//zap.Any("DEBUGaa: msgbody look for config.workflow from message - look for headers.action or another time, msgCtx.message.value.config.workflow", msgCtx),
+		//zap.Any("DEBUGaa: agentDef, looking to remove default calculator and replace with current workflow", agentDef),
 	)
 
 	// Parse message body
@@ -1188,9 +1192,15 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		zap.Strings("call stack for processor ProcessMessage", callstack),
 	)
 
-	/*	p.logger.Info("In processor.go ProcessMessage 1081",
+	p.logger.Info("In processor.go just into ProcessMessage 1195",
 		zap.Any("incoming message is:", msg),
-	)*/
+		zap.String("topic", msg.Topic),
+		zap.Int("partition", msg.Partition),
+		zap.Int64("offset", msg.Offset),
+		zap.ByteString("key", msg.Key),
+		zap.ByteString("value", msg.Value),
+		zap.Any("headers", msg.Headers),
+	)
 
 	startTime := time.Now()
 	headers := kafka.HeadersToMap(msg.Headers)
@@ -1250,6 +1260,8 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		zap.String("agent_type", p.agentType),
 		zap.String("processing_orch", execCtx.OrchestrationID),
 		zap.Int("fuel_received", execCtx.FuelBudget),
+		zap.Any("headers before headersToMap", msg.Headers),
+		zap.Any("headers after headersToMap", headers),
 		zap.String("action", extractAction(msg.Value)))
 
 	// Trace incoming message if enabled in env vars
@@ -1264,6 +1276,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		}()
 	}
 
+	// NewMessageContext also produces empty CollectedData
 	msgCtx, err := NewMessageContext(msg, headers, p.agentType, p.agentRole, p.logger)
 	if err != nil {
 		contextLogger.Error("Failed to create message context", zap.Error(err))
@@ -1291,6 +1304,28 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 	p.logger.Info("processor.go 1146 ProcessMessage",
 		zap.String("Action from ExecutionContext", msgCtx.ExecutionContext.Action),
+		zap.Any("DEBUGaa: This is where I think we sort out CollectedData input_data", msg), //msg is still compressed
+		zap.Any("DEBUGaa: msgCtx is - why is input_data nil look at message.value too", msgCtx),
+		zap.Any("DEBUGaa: request data from unmarshalled msg.value", requestData),
+		/*
+		  "DEBUGaa: request data from unmarshalled msg.value": {
+		    "action": "orchestrate",
+		    "config": {
+		      "group_type": "multi-section-website-builder"
+		    },
+		    "input_data": {
+		      "business_name": "Golden Crust Bakery",
+		      "business_type": "artisanal bakery"
+		    }
+		  },
+		*/
+		zap.Any("DEBUGaa: execCtx from headersToMap", execCtx),
+	)
+
+	msgCtx.CollectedData = datahelpers.BuildCollectedData(requestData, msgCtx.ExecutionContext, msgCtx.Logger)
+
+	p.logger.Info("processor.go 1327 ProcessMessage after BuildCollectedData",
+		zap.Any("DEBUGaa: msgCtx.CollectedData", msgCtx.CollectedData),
 	)
 
 	// Always use the action from the ExecutionContext (derived from the header)
@@ -1367,26 +1402,35 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	if err := json.Unmarshal(msg.Value, &requestPayload); err == nil {
 		// Handle both RequestMessage and AgentMessage formats
 
+		contextLogger.Info("p.ProcessMessage Handle both RequestMessage and AgentMessage formats 1380",
+			zap.Any("DEBUGaa: what is in request payload, is there body and what is that and where should we put it", requestPayload),
+		)
+
 		// Format 1: RequestMessage with headers and body
 		if body, ok := requestPayload["body"].(map[string]interface{}); ok {
 			// Merge body contents into CollectedData
+			// fixme I think we just overwrote input_data
 			for key, value := range body {
 				msgCtx.CollectedData[key] = value
 			}
 
 			// Special handling for "data" field if present
-			if data, ok := body["data"].(map[string]interface{}); ok {
+			/*if data, ok := body["data"].(map[string]interface{}); ok {
 				msgCtx.CollectedData["input_data"] = data
-			}
+			}*/
 		}
 
+		contextLogger.Info("p.ProcessMessage Handle both RequestMessage and AgentMessage formats 1396",
+			zap.Any("DEBUGaa: what is in request payload, what did we just do", requestPayload),
+		)
+
 		// Format 2: AgentMessage with data field
-		if data, ok := requestPayload["data"].(map[string]interface{}); ok {
+		/*if data, ok := requestPayload["data"].(map[string]interface{}); ok {
 			// If no body was found, use data directly
 			if _, hasBody := requestPayload["body"]; !hasBody {
 				msgCtx.CollectedData["input_data"] = data
 			}
-		}
+		}*/
 
 		// Store the action if present
 		if action, ok := requestPayload["action"].(string); ok && action != "" {
