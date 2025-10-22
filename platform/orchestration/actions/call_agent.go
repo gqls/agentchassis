@@ -357,7 +357,7 @@ func buildCallRequestMessage(
 		parentResponsesTopic = os.Getenv("RESPONSES_TOPIC")
 	}
 	message.Headers.ParentResponsesTopic = parentResponsesTopic
-	requestBody["parent_response_topic"] = parentResponsesTopic
+	requestBody["parent_responses_topic"] = parentResponsesTopic
 
 	// Update the body with the complete request body (includes prompt, config, etc.)
 	message.Body = requestBody
@@ -696,8 +696,10 @@ func findJobTopicForRole(params ActionParams, targetRole string) string {
 
 // Data extraction - with explicit template-based specification
 func extractDataForAgent(params ActionParams) interface{} {
-	params.Logger.Info("Extracting data for agent using new helpers",
-		zap.Any("step_config", params.StepConfig.Config))
+	params.Logger.Info("extractDataForAgent Extracting data for agent using new helpers",
+		zap.Any("step_config", params.StepConfig.Config),
+		zap.Any("DEBUGaa: params into extractDataForAgent", params),
+	)
 
 	// Use the new ExtractDataFromMessage helper to get clean data
 	// cleanData := datahelpers.ExtractDataFromMessage(params.CollectedData, params.Logger)
@@ -709,6 +711,10 @@ func extractDataForAgent(params ActionParams) interface{} {
 
 		// Get the clean input_data from CollectedData to use for template rendering
 		cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
+
+		params.Logger.Info("clean input data from collected data in extractDataForAgent explicit input_data specification in config",
+			zap.Any("clean input data", cleanInputData),
+		)
 
 		// Render templates in the specification using clean data
 		renderedData := renderTemplatesInData(inputDataSpec,
@@ -724,6 +730,9 @@ func extractDataForAgent(params ActionParams) interface{} {
 			zap.String("input_field", inputField))
 
 		cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
+		params.Logger.Info("clean input data from Using input_field reference in extractDataForAgent",
+			zap.Any("clean input data", cleanInputData),
+		)
 		if fieldData, err := datahelpers.GetFieldFromPath(cleanInputData, inputField, params.Logger); err == nil {
 			return fieldData
 		}
@@ -740,6 +749,11 @@ func extractDataForAgent(params ActionParams) interface{} {
 
 // Render templates in data structure
 func renderTemplatesInData(data map[string]interface{}, collectedData map[string]interface{}, logger *zap.Logger) map[string]interface{} {
+	logger.Info("in renderTemplatesInData callAgentAction",
+		zap.Any("data", data),
+		zap.Any("collectedData", collectedData),
+	)
+
 	result := make(map[string]interface{})
 
 	for key, value := range data {
@@ -778,6 +792,11 @@ func renderTemplatesInData(data map[string]interface{}, collectedData map[string
 
 // Render a single template string
 func renderTemplate(template string, collectedData map[string]interface{}, logger *zap.Logger) interface{} {
+	logger.Info("in renderTemplate callAgentAction",
+		zap.String("template", template),
+		zap.Any("collectedData", collectedData),
+	)
+
 	// Check if it's a template (contains {{...}})
 	if !strings.Contains(template, "{{") {
 		return template

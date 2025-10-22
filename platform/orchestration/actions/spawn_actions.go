@@ -38,6 +38,9 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	// Log entry
 	logSpawnStart(params)
 
+	params.Logger.Info("in SpawnAgentAction check request ids",
+		zap.Any("DEBUGaa: params.ExecCtx with requestid and replyto request id, which is which and what is right", params.ExecutionContext))
+
 	// 1. Validate and extract configuration
 	agentType, role, clientID, _, err := extractSpawnConfiguration(params)
 	if err != nil {
@@ -267,6 +270,15 @@ func prepareInitializationData(params ActionParams, sendInitData bool) map[strin
 // Message building and sending
 func sendInitializationMessage(ctx context.Context, params ActionParams, agentID, agentName, agentType, role, requestID, childRequestsTopic, parentResponsesTopic string) error {
 
+	params.Logger.Info("Sending initialization message",
+		zap.String("I am on agent:", os.Getenv("AGENT_TYPE")),
+		zap.String("agent_type", agentType),
+		zap.String("agent_name", agentName),
+		zap.String("role", role),
+		zap.String("request_id", requestID),
+		zap.String("reply_to_request_id", params.ExecutionContext.ReplyToRequestID),
+		zap.String("reply_to_topic", params.ExecutionContext.ReplyToTopic),
+	)
 	// Prepare clean initialization data (empty for spawn)
 	initData := make(map[string]interface{})
 
@@ -317,7 +329,16 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 	// Parent context
 	message.Headers.ParentOrchestrationID = params.ExecutionContext.OrchestrationID
 	message.Headers.ParentOrchestrationName = params.ExecutionContext.OrchestrationName
-	message.Headers.ParentRequestID = params.ExecutionContext.RequestID
+
+	params.Logger.Info("Sending initialization message resetting the reply to request id, do I really need to?",
+		zap.String("DEBUGaa: do I really need to set replytorequest id here. Headers.ReplyToRequestID before are:", message.Headers.ReplyToRequestID),
+		zap.Any("DEBUGaa: in exec ctx look at what requestID (this is now replyto) and also what replyto request id was", params.ExecutionContext),
+	)
+
+	// maybe we try and get it from execution context
+	if message.Headers.ReplyToRequestID == "" {
+		message.Headers.ReplyToRequestID = params.ExecutionContext.RequestID
+	}
 
 	// Step context - CRITICAL: Must be populated
 	message.Headers.StepID = params.ExecutionContext.StepID
@@ -341,6 +362,8 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 		zap.String("step_id", message.Headers.StepID),
 		zap.String("sender_type", sender.AgentType),
 		zap.String("parent_orchestration_id", message.Headers.ParentOrchestrationID),
+		zap.String("reply_to_request_id", message.Headers.ReplyToRequestID),
+		zap.String("parent responses_topic", message.Headers.ParentResponsesTopic),
 	)
 
 	// Marshal message
@@ -352,6 +375,7 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 	params.Logger.Info("Sending initialization message to spawned agent",
 		zap.String("agent_id", agentID),
 		zap.String("topic", childRequestsTopic),
+		zap.String("reply to request id", message.Headers.ReplyToRequestID),
 		zap.String("action", "initialize"))
 
 	// Send with retries
@@ -374,7 +398,7 @@ func buildInitializationMessage(params ActionParams, agentID, agentName, agentTy
 			OrchestrationName:       agentName,
 			ParentOrchestrationID:   params.ExecutionContext.OrchestrationID,
 			ParentOrchestrationName: params.ExecutionContext.OrchestrationName,
-			ParentRequestID:         params.ExecutionContext.RequestID,
+			ReplyToRequestID:        params.ExecutionContext.RequestID,
 			StepID:                  params.ExecutionContext.StepID,
 			StepName:                "spawn_agent",
 			RequestID:               requestID,
@@ -787,7 +811,7 @@ func SpawnAgentActionOld2(ctx context.Context, params ActionParams) (interface{}
 			OrchestrationName:       agentName,
 			ParentOrchestrationID:   params.ExecutionContext.OrchestrationID,
 			ParentOrchestrationName: params.ExecutionContext.OrchestrationName,
-			ParentRequestID:         params.ExecutionContext.RequestID,
+			ReplyToRequestID:        params.ExecutionContext.RequestID,
 
 			StepID:         params.ExecutionContext.StepID,
 			StepName:       "spawn_agent",
@@ -1314,6 +1338,12 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	// Pre-generate request ID for the group
 	requestID := params.Headers["request_id"]
+	if params.Headers["reply_to_request_id"] == "" {
+		params.Headers["reply_to_request_id"] = params.Headers["request_id"]
+	}
+	if params.Headers["parent_responses_topic"] == "" {
+		params.Headers["parent_responses_topic"] = params.Headers["responsesTopic"]
+	}
 	if requestID == "" {
 		requestID = uuid.New().String()
 		params.Headers["request_id"] = requestID
@@ -1324,7 +1354,10 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("group_name", groupName),
 		zap.String("group_type", groupType),
 		zap.Int("agent_count", len(agents)),
-		zap.String("request_id", requestID))
+		zap.String("request_id", requestID),
+		zap.String("reply_to_request_id", params.Headers["reply_to_request_id"]),
+		zap.String("reply_to_/parents responses topic", params.Headers["parent_responses_topic"]),
+	)
 
 	// Track spawned agents
 	spawnedAgents := make(map[string]string)               // role -> agentID
@@ -1562,7 +1595,9 @@ func DiscoverAgentsAction(ctx context.Context, params ActionParams) (interface{}
 
 // StartOrchestrationAction starts a child orchestration
 func StartOrchestrationAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("StartOrchestrationAction starting")
+	params.Logger.Info("StartOrchestrationAction starting",
+		zap.Any("params into StartOrchestrationAction", params),
+	)
 
 	// Check if we're resuming from a previous attempt
 	if existingChild := checkExistingChild(params); existingChild != nil {
@@ -1593,6 +1628,8 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 		params.Headers["request_id"] = requestID
 	}
 
+	parentResponsesTopicForChild := os.Getenv("RESPONSES_TOPIC")
+
 	// Extract role from spawn data if available
 	childRole := ""
 	if role, ok := spawnData["role"].(string); ok {
@@ -1615,7 +1652,7 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 			ParentOrchestrationID:   params.ExecutionContext.OrchestrationID,
 			ParentOrchestrationName: params.ExecutionContext.OrchestrationName,
 			FunctionalRole:          childRole,
-			ParentRequestID:         requestID,
+			ReplyToRequestID:        requestID,
 			StepID:                  uuid.New().String(),
 			StepName:                "start_child_orchestration",
 			RequestID:               requestID,
@@ -1631,7 +1668,8 @@ func StartOrchestrationAction(ctx context.Context, params ActionParams) (interfa
 			"spawn_data": spawnData,
 			"parent_info": map[string]interface{}{
 				"parent_orchestration_id": params.ExecutionContext.OrchestrationID,
-				"parent_request_id":       requestID,
+				"reply_to_request_id":     requestID,
+				"parent_responses_topic":  parentResponsesTopicForChild,
 			},
 		},
 	}

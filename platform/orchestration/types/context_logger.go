@@ -14,7 +14,7 @@ func (ec *ExecutionContext) LogContext() []zapcore.Field {
 
 		zap.String("parent_orchestration_id", ec.ParentOrchestrationID),
 		zap.String("parent_orchestration_name", ec.ParentOrchestrationName),
-		zap.String("parent_request_id", ec.ParentRequestID),
+		zap.String("reply_to_request_id", ec.ReplyToRequestID),
 		zap.String("ec.StepID", ec.StepID),
 		zap.String("ec.StepName", ec.StepName),
 		zap.String("ec.Action", ec.Action),

@@ -1193,7 +1193,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	)
 
 	p.logger.Info("In processor.go just into ProcessMessage 1195",
-		zap.Any("incoming message is:", msg),
+		zap.Any("incoming message is (base64):", msg),
 		zap.String("topic", msg.Topic),
 		zap.Int("partition", msg.Partition),
 		zap.Int64("offset", msg.Offset),
@@ -1276,7 +1276,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		}()
 	}
 
-	// NewMessageContext also produces empty CollectedData
+	// NewMessageContext (also) produces empty CollectedData
 	msgCtx, err := NewMessageContext(msg, headers, p.agentType, p.agentRole, p.logger)
 	if err != nil {
 		contextLogger.Error("Failed to create message context", zap.Error(err))
@@ -1328,12 +1328,39 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		zap.Any("DEBUGaa: msgCtx.CollectedData", msgCtx.CollectedData),
 	)
 
+	// new stuff - __work_request__ key
+	// If this is a WORK request (not initialization), store reply-to metadata
+	if msgCtx.ExecutionContext.Action != "initialize" && msgCtx.ExecutionContext.Action != "" {
+		p.logger.Info("ProcessMessage: storing work request metadata",
+			zap.String("action", execCtx.Action),
+			zap.String("request_id", execCtx.RequestID),
+			zap.String("reply_to_topic", execCtx.ReplyToTopic))
+
+		workRequestMetadata := map[string]interface{}{
+			"request_id":             msgCtx.ExecutionContext.RequestID,        // The request we need to reply to
+			"parent_responses_topic": msgCtx.ExecutionContext.ReplyToTopic,     // Where to send response
+			"requester_agent_id":     msgCtx.ExecutionContext.Sender.AgentID,   // Who asked us
+			"requester_agent_type":   msgCtx.ExecutionContext.Sender.AgentType, // What type
+			"step_id":                msgCtx.ExecutionContext.StepID,           // Step in their workflow
+			"step_name":              msgCtx.ExecutionContext.StepName,         // Step name
+			"action":                 msgCtx.ExecutionContext.Action,           // What they asked us to do
+			"timestamp":              time.Now().Format(time.RFC3339),
+		}
+
+		msgCtx.CollectedData["__work_request__"] = workRequestMetadata
+
+		p.logger.Debug("ProcessMessage: work request metadata stored",
+			zap.Any("metadata", workRequestMetadata))
+	}
+	// end new stuff - __work_request__ key
+
 	// Always use the action from the ExecutionContext (derived from the header)
 	// for protocol-level decisions like initialization.
 	// this could reasonably be the child agent starting it's stuff.
 	if msgCtx.ExecutionContext.Action == "initialize" {
 		contextLogger.Info("Handling protocol action: initialize")
 
+		// parse intialisation request
 		var spawnRequest types.RequestMessage
 		if err := json.Unmarshal(msg.Value, &spawnRequest); err != nil {
 			contextLogger.Error("Failed to unmarshal spawn request during initialization", zap.Error(err))
@@ -1354,7 +1381,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 		p.logger.Info("DEBUGaa: processor.go 1156 ProcessMessage spawnRequest sent to SendInitializationResponse",
 			zap.Any("WHats in spawnRequest:", spawnRequest),
-			zap.Any("We are no longer missing headers.parent_responses_topic:", spawnRequest.Headers.ParentResponsesTopic),
+			zap.Any("We now have a headers.parent_responses_topic:", spawnRequest.Headers.ParentResponsesTopic),
 		)
 
 		// This will now be called correctly, sending the confirmation response.
@@ -1396,47 +1423,44 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		return nil
 	}
 
-	// For ALL request messages, extract the body properly
-	// This is generic for any agent type and any action
-	var requestPayload map[string]interface{}
-	if err := json.Unmarshal(msg.Value, &requestPayload); err == nil {
-		// Handle both RequestMessage and AgentMessage formats
+	/*	// For ALL request messages, extract the body properly
+		// This is generic for any agent type and any action
+		var requestPayload map[string]interface{}
+		if err := json.Unmarshal(msg.Value, &requestPayload); err == nil {
+			// Handle both RequestMessage and AgentMessage formats
 
-		contextLogger.Info("p.ProcessMessage Handle both RequestMessage and AgentMessage formats 1380",
-			zap.Any("DEBUGaa: what is in request payload, is there body and what is that and where should we put it", requestPayload),
-		)
+			contextLogger.Info("p.ProcessMessage Handle both RequestMessage and AgentMessage formats 1380",
+				zap.Any("DEBUGaa: what is in request payload, is there body and what is that and where should we put it", requestPayload),
+			)
 
-		// Format 1: RequestMessage with headers and body
-		if body, ok := requestPayload["body"].(map[string]interface{}); ok {
-			// Merge body contents into CollectedData
-			// fixme I think we just overwrote input_data
-			for key, value := range body {
-				msgCtx.CollectedData[key] = value
+			// Format 1: RequestMessage with headers and body
+			if body, ok := requestPayload["body"].(map[string]interface{}); ok {
+				// Merge body contents into CollectedData - except for input_data which is already there
+				for key, value := range body {
+					if key == "input_data" {
+						key = "input_data_from_message_body"
+					}
+					msgCtx.CollectedData[key] = value
+				}
 			}
 
-			// Special handling for "data" field if present
-			/*if data, ok := body["data"].(map[string]interface{}); ok {
-				msgCtx.CollectedData["input_data"] = data
-			}*/
-		}
+			contextLogger.Info("p.ProcessMessage Handle both RequestMessage and AgentMessage formats 1396",
+				zap.Any("DEBUGaa: what is in request payload, what did we just do", requestPayload),
+			)
 
-		contextLogger.Info("p.ProcessMessage Handle both RequestMessage and AgentMessage formats 1396",
-			zap.Any("DEBUGaa: what is in request payload, what did we just do", requestPayload),
-		)
+			// Format 2: AgentMessage with data field
+			if data, ok := requestPayload["data"].(map[string]interface{}); ok {
+				// If no body was found, use data directly
+				if _, hasBody := requestPayload["body"]; !hasBody {
+					msgCtx.CollectedData["input_data"] = data
+				}
+			}
 
-		// Format 2: AgentMessage with data field
-		/*if data, ok := requestPayload["data"].(map[string]interface{}); ok {
-			// If no body was found, use data directly
-			if _, hasBody := requestPayload["body"]; !hasBody {
-				msgCtx.CollectedData["input_data"] = data
+			// Store the action if present
+			if action, ok := requestPayload["action"].(string); ok && action != "" {
+				msgCtx.CollectedData["requested_action"] = action
 			}
 		}*/
-
-		// Store the action if present
-		if action, ok := requestPayload["action"].(string); ok && action != "" {
-			msgCtx.CollectedData["requested_action"] = action
-		}
-	}
 
 	// Process the message
 	if err := p.process(ctx, msgCtx); err != nil {

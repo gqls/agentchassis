@@ -623,6 +623,13 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 
 // executeLocalAction - Main entry point, orchestrates local action execution
 func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *OrchestrationState, step models.Step, execCtx *types.ExecutionContext) error {
+	s.logger.Info("just into executeLocalAction look for execCtx before it gets changed",
+		zap.String("step", state.CurrentStep),
+		zap.String("action", step.Action),
+		zap.Any("DEBUGaa: executeLocalAction execCtx before", execCtx),
+		zap.Any("before state", state),
+	)
+
 	// 1. Prepare execution context for this step
 	prepareExecutionContext(execCtx, state, step, s.podName)
 
@@ -632,8 +639,8 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	contextLogger.Info("Executing local action",
 		zap.Any("config", step.Config),
 		zap.Any("DEBUGaa: executeLocalAction step", step),
-		zap.Any("DEBUGaa: executeLocalAction state", state),
-		zap.Any("DEBUGaa: executeLocalAction execCtx", execCtx),
+		zap.Any("DEBUGaa: executeLocalAction state after", state),
+		zap.Any("DEBUGaa: executeLocalAction execCtx after", execCtx),
 	)
 
 	// 3. Handle retry logic for spawn actions
@@ -751,7 +758,7 @@ func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, sta
 	step models.Step, coordinator *SagaCoordinator, logger *zap.Logger) actions.ActionParams {
 
 	logger.Info("in buildActionParams",
-		zap.Any("DEBUGaa: in buildActionParams state.CollectedData", state.CollectedData),
+		zap.Any("DEBUGaa: in buildActionParams state.CollectedData", state.CollectedData), // good here in generic but not in hero
 		zap.Any("DEBUGaa: in buildActionParams headers are execCtx.ToHeaders", execCtx.ToHeaders()),
 		zap.Any("DEBUGaa: in buildActionParams current step", state.CurrentStep),
 	)
@@ -1190,6 +1197,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		zap.String("functional role", execCtx.FunctionalRole),
 		zap.String("requestId from arguments", requestID),
 		zap.Any("state.CollectedData in handleCompleteResponse is:", state.CollectedData),
+		zap.Any("execCts.InResponseTo in handleCompleteResponse is:", execCtx.InResponseTo),
 	)
 	contextLogger := s.logger
 
@@ -1274,7 +1282,9 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		zap.String("step_name", stepName),
 		zap.Int("original_fields", len(responseBodyData)),
 		zap.Int("normalized_fields", len(normalisedData)),
-		zap.Strings("normalised data_keys", getMapKeys(normalisedData)))
+		zap.Strings("normalised data_keys", getMapKeys(normalisedData)),
+		zap.Any("DEBUGaa: normalised data", normalisedData),
+	)
 
 	// Remove from awaited requests
 	delete(state.AwaitedRequests, requestID)
@@ -1330,6 +1340,28 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			zap.String("next, (now current) step_name", state.CurrentStep),
 		)
 
+		var stateExecCtx types.ExecutionContext
+		if execCtxData, ok := state.CollectedData["__execution_context__"].(map[string]interface{}); ok {
+			// Marshal the map to JSON, then unmarshal to ExecutionContext
+			execCtxBytes, err := json.Marshal(execCtxData)
+			if err != nil {
+				s.logger.Error("Failed to marshal execution context map", zap.Error(err))
+			} else {
+				if err := json.Unmarshal(execCtxBytes, &stateExecCtx); err != nil {
+					s.logger.Error("Failed to unmarshal execution context", zap.Error(err))
+				} else {
+					s.logger.Info("Successfully extracted execution context from CollectedData",
+						zap.String("request_id", stateExecCtx.RequestID),
+						zap.String("reply_to_request_id", stateExecCtx.ReplyToRequestID))
+				}
+			}
+		} else {
+			s.logger.Warn("__execution_context__ not found or wrong type in CollectedData",
+				zap.String("type", fmt.Sprintf("%T", state.CollectedData["__execution_context__"])))
+		}
+		s.logger.Info("Execution Context from Collected Data",
+			zap.Any("DEBUGaa: Execution context from collected data", stateExecCtx))
+
 		// Create fresh execution context for continuing
 		freshExecCtx := &types.ExecutionContext{
 			CorrelationID:   state.CorrelationID,
@@ -1337,8 +1369,9 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			ClientID:        state.ClientID,
 
 			// Reset to request mode
-			MessageType: "request",
-			MessageID:   uuid.New().String(),
+			MessageType:      "request",
+			MessageID:        uuid.New().String(),
+			ReplyToRequestID: stateExecCtx.RequestID,
 
 			// Set sender to the current orchestrator
 			Sender: types.AgentIdentity{
@@ -1349,7 +1382,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			},
 
 			// Clear any response fields
-			InResponseTo: nil,
+			InResponseTo: nil, //?
 			Status:       "",
 			IsComplete:   false,
 

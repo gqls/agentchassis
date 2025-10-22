@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
@@ -674,10 +675,10 @@ func cleanDataMap(source map[string]interface{}) map[string]interface{} {
 		//"config":                     true,
 		//"agent_config":               true,
 		//"agent_group":                true,
-		"__execution_context__": true,
-		"__raw_message__":       true,
+		// "__execution_context__": true,
+		"__raw_message__": true,
 		//"__my_requests_topic__":      true,
-		//"__parent_responses_topic__": true,
+		// "__reply_to_responses_topic__": true,
 		//"headers":                    true,
 		//"is_initialization":          true,
 		//"agent_info":                 true,
@@ -806,21 +807,36 @@ func BuildCollectedData(
 	collectedData["__my_requests_topic__"] = execCtx.RequestsTopic
 	collectedData["__my_responses_topic__"] = execCtx.ResponsesTopic
 
+	// Add parent response topic if available
+	if execCtx.ReplyToTopic != "" {
+		collectedData["__parent_responses_topic__"] = execCtx.ReplyToTopic
+	}
+
+	// Preserve the parent request ID that we need to respond to
+	if execCtx.ReplyToRequestID != "" {
+		collectedData["__reply_to_request_id__"] = execCtx.ReplyToRequestID
+	}
+
 	// Extract from message body based on its structure
+	var unnestedBody map[string]interface{}
+	var parentResponsesTopic string
 	switch body := messageBody.(type) {
 	case map[string]interface{}:
+		// Check if there's a nested "body" key
+		if bodyThatWasNested, hasBodyKey := body["body"].(map[string]interface{}); hasBodyKey {
+			logger.Info("BuildCollectedData: found nested 'body' key, unwrapping")
+			unnestedBody = bodyThatWasNested
+		} else {
+			unnestedBody = body
+		}
+
 		// Extract the actual input_data if it exists
-		if inputData, ok := body["input_data"].(map[string]interface{}); ok {
+		if inputData, ok := unnestedBody["input_data"].(map[string]interface{}); ok {
 			logger.Info("Processor: found input_data in message body",
 				zap.Any("input_data", inputData))
 			collectedData["input_data"] = inputData
-		} else if data, ok := body["data"].(map[string]interface{}); ok {
-			// Fallback to "data" field
-			logger.Info("Processor: found data in message body",
-				zap.Any("data", data))
-			collectedData["input_data"] = data
 		} else {
-			// No explicit input_data or data field
+			// No explicit input_data field
 			// Check if body itself is the data (doesn't have system fields)
 			if !hasSystemFields(body) {
 				logger.Info("Processor: treating entire body as input_data")
@@ -831,6 +847,23 @@ func BuildCollectedData(
 				collectedData["input_data"] = make(map[string]interface{})
 			}
 		}
+
+		// get responses topic from message value if it isn't in execCtx
+		if execCtx.ReplyToTopic == "" {
+			if val, ok := unnestedBody["parent_responses_topic"].(string); ok {
+				parentResponsesTopic = val
+				logger.Info("Processor: buildCollecteData helper: found parent_responses_topic in message body",
+					zap.Any("parent responses topic", parentResponsesTopic))
+			}
+		} else {
+			logger.Info("Processor buildCollecteData helper: used parentResponsesTopic from execCtx",
+				zap.Any("parent responses topic", parentResponsesTopic))
+			parentResponsesTopic = execCtx.ReplyToTopic
+		}
+		if parentResponsesTopic == "" {
+			parentResponsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+		}
+		collectedData["__parent_responses_topic__"] = parentResponsesTopic
 
 		// Store action separately if present
 		if action, ok := body["action"].(string); ok {
@@ -858,10 +891,30 @@ func BuildCollectedData(
 		collectedData["__raw_message__"] = messageBody
 	}
 
-	// Add parent response topic if available
-	if execCtx.ReplyToTopic != "" {
-		collectedData["__parent_responses_topic__"] = execCtx.ReplyToTopic
+	workRequestMetadata := map[string]interface{}{
+		"request_id":             execCtx.RequestID,
+		"parent_responses_topic": parentResponsesTopic,
+		"requester_agent_id":     execCtx.Sender.AgentID,
+		"requester_agent_type":   execCtx.Sender.AgentType,
+		"step_id":                execCtx.StepID,
+		"step_name":              execCtx.StepName,
+		"action":                 execCtx.Action,
+		"correlation_id":         execCtx.CorrelationID,
+		"timestamp":              time.Now().Format(time.RFC3339),
 	}
+	collectedData["__work_request__"] = workRequestMetadata
+
+	logger.Info("BuildCollectedData: stored work request metadata for initialize",
+		zap.String("request_id", workRequestMetadata["request_id"].(string)),
+		zap.String("parent_topic", workRequestMetadata["parent_responses_topic"].(string)),
+		zap.Any("work_request_metadata", workRequestMetadata),
+	)
+
+	logger.Info("DEBUGaa: Data helpers: built CollectedData requestIDs",
+		zap.String("what agent am I on", os.Getenv("AGENT_TYPE")),
+		zap.String("what should the request id be - where am I in the process and what was the request id should I move it to parent", "nothing to see here"),
+		zap.Any("DEBUGaa: _execution_context__ look for requestid and parent request id", execCtx),
+	)
 
 	logger.Info("Data helpers: built CollectedData",
 		zap.Any("collected_keys", GetMapKeys(collectedData)),
@@ -881,30 +934,3 @@ func GetMapKeys(m map[string]interface{}) []string {
 	}
 	return keys
 }
-
-/*func MaybeTHisOnebuildCollectedData(
-	messageBody interface{},
-	execCtx *types.ExecutionContext,
-	logger *zap.Logger,
-) map[string]interface{} {
-
-	// Use the NormalizeCollectedData function you already have
-	rawMessage := map[string]interface{}{
-		"body": messageBody,
-		"headers": execCtx.ToRequestHeaders(),
-	}
-
-	// This should properly extract input_data
-	collectedData := orchestration.NormalizeCollectedData(
-		rawMessage,
-		execCtx,
-		p.requestsTopic,
-		logger,
-	)
-
-	logger.Info("Processor: normalized CollectedData",
-		zap.Any("input_data", collectedData["input_data"]),
-		zap.Any("keys", getMapKeys(collectedData)))
-
-	return collectedData
-}*/

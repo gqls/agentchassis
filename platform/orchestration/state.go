@@ -62,17 +62,17 @@ type ExecutionMetadata struct {
 
 // AwaitedRequest tracks async requests with retry support
 type AwaitedRequest struct {
-	RequestID       string    `json:"request_id"`
-	StepID          string    `json:"step_id"`
-	StepName        string    `json:"step_name"`
-	RetryVersion    int       `json:"retry_version"`
-	TargetAgentID   string    `json:"target_agent_id,omitempty"`
-	TargetAgentType string    `json:"target_agent_type"`
-	ResponsesTopic  string    `json:"responses_topic"`
-	RequestsTopic   string    `json:"requests_topic"`
-	SentAt          time.Time `json:"sent_at"`
-	TimeoutAt       time.Time `json:"timeout_at"`
-	ParentRequestID string    `json:"parent_request_id,omitempty"`
+	RequestID        string    `json:"request_id"`
+	StepID           string    `json:"step_id"`
+	StepName         string    `json:"step_name"`
+	RetryVersion     int       `json:"retry_version"`
+	TargetAgentID    string    `json:"target_agent_id,omitempty"`
+	TargetAgentType  string    `json:"target_agent_type"`
+	ResponsesTopic   string    `json:"responses_topic"`
+	RequestsTopic    string    `json:"requests_topic"`
+	SentAt           time.Time `json:"sent_at"`
+	TimeoutAt        time.Time `json:"timeout_at"`
+	ReplyToRequestID string    `json:"reply_to_request_id,omitempty"`
 }
 
 // ProcessingRecord tracks which pod processed what (for debugging)

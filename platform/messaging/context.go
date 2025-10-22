@@ -1,6 +1,7 @@
 package messaging
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -142,6 +143,9 @@ func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAg
 		zap.Any("receiving agent role", receivingAgentRole),
 	)
 
+	var requestData map[string]interface{}
+	json.Unmarshal(msg.Value, &requestData)
+
 	// Parse sender's context from all headers.
 	execCtx, err := types.FromHeaders(headers)
 	if err != nil {
@@ -152,12 +156,6 @@ func NewMessageContext(msg kafka.Message, headers map[string]string, receivingAg
 			execCtx = &types.ExecutionContext{}
 		}
 	}
-
-	// The previous logic incorrectly created a new, empty context for regular requests,
-	// discarding essential fields like message_type.
-	// By using the parsed context directly, we preserve all incoming header information.
-	// The process() function in the message processor is responsible for deciding
-	// if a new orchestration ID needs to be generated if one isn't present.
 
 	// Set the identity of this agent as the 'Sender' for any subsequent messages it might create.
 	execCtx.Sender = types.AgentIdentity{

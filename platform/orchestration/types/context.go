@@ -21,7 +21,7 @@ type ExecutionContext struct {
 	// hierarchy
 	ParentOrchestrationID   string `json:"parent_orchestration_id,omitempty"`
 	ParentOrchestrationName string `json:"parent_orchestration_name,omitempty"`
-	ParentRequestID         string `json:"parent_request_id,omitempty"`
+	ReplyToRequestID        string `json:"reply_to_request_id,omitempty"`
 
 	// Group Management
 	GroupID        string `json:"group_id,omitempty"`
@@ -103,7 +103,7 @@ type RequestHeaders struct {
 	RetryVersion            int    `json:"retry_version"`           // 0, 1, 2 for retries
 	ParentOrchestrationID   string `json:"parent_orchestration_id"` // If spawned
 	ParentOrchestrationName string `json:"parent_orchestration_name"`
-	ParentRequestID         string `json:"parent_request_id"` // If spawned
+	ReplyToRequestID        string `json:"reply_to_request_id"` // If spawned
 	ParentResponsesTopic    string `json:"parent_responses_topic"`
 
 	// Message Metadata
@@ -133,6 +133,7 @@ type ResponseMessage struct {
 type ResponseHeaders struct {
 	// Response Tracking
 	InResponseToRequestID      string `json:"in_response_to_request_id"`
+	ReplyToRequestID           string `json:"reply_to_request_id"`
 	InResponseToStepID         string `json:"in_response_to_step_id"`
 	InResponseToStepName       string `json:"in_response_to_step_name"`
 	InResponseToParentOrchID   string `json:"in_response_to_parent_orchestration_id"`
@@ -227,7 +228,7 @@ func (ec *ExecutionContext) ToRequestHeaders() RequestHeaders {
 		RetryVersion:            ec.RetryVersion,
 		ParentOrchestrationID:   ec.ParentOrchestrationID,
 		ParentOrchestrationName: ec.ParentOrchestrationName,
-		ParentRequestID:         ec.ParentRequestID,
+		ReplyToRequestID:        ec.ReplyToRequestID,
 
 		// Message Metadata
 		MessageID:   ec.MessageID,
@@ -331,7 +332,7 @@ func FromRequestHeaders(headers RequestHeaders) *ExecutionContext {
 		// Hierarchy
 		ParentOrchestrationID:   headers.ParentOrchestrationID,
 		ParentOrchestrationName: headers.ParentOrchestrationName,
-		ParentRequestID:         headers.ParentRequestID,
+		ReplyToRequestID:        headers.ReplyToRequestID,
 
 		// Step Context
 		StepID:   headers.StepID,
@@ -417,7 +418,7 @@ func (ec *ExecutionContext) CreateChildContext(childAgentType string) *Execution
 		// Parent references
 		ParentOrchestrationID:   ec.OrchestrationID,
 		ParentOrchestrationName: ec.OrchestrationName,
-		ParentRequestID:         ec.RequestID,
+		ReplyToRequestID:        ec.RequestID,
 
 		// Inherit group if applicable
 		GroupID:        ec.GroupID,
@@ -512,13 +513,6 @@ func NewExecutionContext(correlationID, clientID, agentID, agentType string) *Ex
 // FromHeaders creates an ExecutionContext from Kafka headers
 func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 
-	// Debug logging
-	//fmt.Print("DEBUG: looking for sender_role in headers\n")
-	//fmt.Printf("DEBUG FromHeaders: headers = %+v\n", headers)
-	//if role := headers["sender_role"]; role != "" {
-	// fmt.Printf("DEBUG: Found sender_role in headers: %s\n", role)
-	//}
-
 	ec := &ExecutionContext{
 		// Core fields
 		CorrelationID:         headers["correlation_id"],
@@ -548,8 +542,9 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 		Status: headers["status"],
 
 		// Routing
-		RequestsTopic:  headers["requests_topic"],
-		ResponsesTopic: headers["responses_topic"], // whose responses topic is this?
+		RequestsTopic:    headers["requests_topic"],
+		ResponsesTopic:   headers["responses_topic"], // whose responses topic is this?
+		ReplyToRequestID: headers["reply_to_request_id"],
 
 		// Version
 		Version: headers["version"],
@@ -570,7 +565,13 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 		ec.ResponsesTopic = responsesTopic
 	}
 
-	// fmt.Printf("DEBUG FromHeaders: ec.MessageType = '%s'\n", ec.MessageType)
+	if replyToTopic := headers["reply_to_topic"]; replyToTopic != "" {
+		ec.ReplyToTopic = replyToTopic
+	} else {
+		if parentResponsesTopic := headers["parent_responses_topic"]; parentResponsesTopic != "" {
+			ec.ReplyToTopic = parentResponsesTopic
+		}
+	}
 
 	// Handle response context
 	if ec.MessageType == "response" {
@@ -646,13 +647,14 @@ func (ec *ExecutionContext) ToHeaders() map[string]string {
 		"message_type": ec.MessageType,
 
 		// Processing info
-		"processing_node": ec.ProcessingNode,
-		"to_agent_id":     ec.ToAgentID,
-		"to_agent_type":   ec.ToAgentType,
-		"from_agent_id":   ec.FromAgentID,
-		"from_agent_type": ec.FromAgentType,
-		"responses_topic": ec.ResponsesTopic,
-		"requests_topic":  ec.RequestsTopic,
+		"processing_node":     ec.ProcessingNode,
+		"to_agent_id":         ec.ToAgentID,
+		"to_agent_type":       ec.ToAgentType,
+		"from_agent_id":       ec.FromAgentID,
+		"from_agent_type":     ec.FromAgentType,
+		"responses_topic":     ec.ResponsesTopic,
+		"requests_topic":      ec.RequestsTopic,
+		"reply_to_request_id": ec.ReplyToRequestID,
 
 		// Step info
 		"step_id":   ec.StepID,
@@ -672,7 +674,7 @@ func (ec *ExecutionContext) ToHeaders() map[string]string {
 	if ec.ParentOrchestrationID != "" {
 		headers["parent_orchestration_id"] = ec.ParentOrchestrationID
 		headers["parent_orchestration_name"] = ec.ParentOrchestrationName
-		headers["parent_request_id"] = ec.ParentRequestID
+		headers["reply_to_request_id"] = ec.ReplyToRequestID
 	}
 
 	// Add sender info
@@ -879,7 +881,7 @@ func (rh *RequestHeaders) ToMap() map[string]string {
 	headers["retry_version"] = fmt.Sprintf("%d", rh.RetryVersion)
 	headers["parent_orchestration_id"] = rh.ParentOrchestrationID
 	headers["parent_orchestration_name"] = rh.ParentOrchestrationName
-	headers["parent_request_id"] = rh.ParentRequestID
+	headers["reply_to_request_id"] = rh.ReplyToRequestID
 
 	// Message Metadata
 	headers["message_id"] = rh.MessageID
@@ -926,7 +928,7 @@ func (ec *ExecutionContext) AdjustToReceiverPerspectiveOLD(receiverIdentity Agen
 			Sender:                  receiverIdentity,
 			ParentOrchestrationID:   ec.OrchestrationID,
 			ParentOrchestrationName: ec.OrchestrationName,
-			ParentRequestID:         ec.RequestID,
+			ReplyToRequestID:        ec.RequestID,
 			Action:                  ec.Action,
 			RequestID:               ec.RequestID,
 			ResponsesTopic:          ec.ResponsesTopic,
