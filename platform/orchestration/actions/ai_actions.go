@@ -451,9 +451,12 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 
 	params.Logger.Info("Merging data from input_fields", zap.Strings("fields", inputFields))
 
+	// Get the __raw_message__ map if it exists, as results are nested there
+	rawMessageMap, _ := params.CollectedData["__raw_message__"].(map[string]interface{})
+
 	for _, fieldName := range inputFields {
 		if fieldName == "input_data" {
-			// Get the input_data map and merge its contents into the root of templateData
+			// This part works. GetInputData finds and unpacks input_data.
 			inputDataMap := datahelpers.GetInputData(params.CollectedData, params.Logger)
 			for key, val := range inputDataMap {
 				if _, exists := templateData[key]; exists {
@@ -463,14 +466,28 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 			}
 		} else {
 			// Get data from other steps (e.g., "call_researcher")
-			if data, exists := params.CollectedData[fieldName]; exists {
+
+			// --- THIS IS THE FIX ---
+			// Try the top level first
+			data, exists := params.CollectedData[fieldName]
+
+			// If not found, check inside __raw_message__
+			if !exists && rawMessageMap != nil {
+				data, exists = rawMessageMap[fieldName]
+				if exists {
+					params.Logger.Info("Found requested input_field in __raw_message__", zap.String("field", fieldName))
+				}
+			}
+			// --- END FIX ---
+
+			if exists {
 				if _, exists := templateData[fieldName]; exists {
 					params.Logger.Warn("Data merge conflict: key already exists, overwriting.", zap.String("key", fieldName))
 				}
 				templateData[fieldName] = data
 				params.Logger.Debug("Merged step data", zap.String("key", fieldName))
 			} else {
-				params.Logger.Warn("Requested input_field not found in CollectedData", zap.String("field", fieldName))
+				params.Logger.Warn("Requested input_field not found in CollectedData or __raw_message__", zap.String("field", fieldName))
 			}
 		}
 	}
@@ -478,6 +495,7 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 	if len(templateData) > 0 {
 		params.Logger.Info("Extracted merged data for AI agent",
 			zap.Int("field_count", len(templateData)),
+			zap.Any("data_keys", getMapKeys(templateData)), // Added for better debugging
 		)
 		return templateData
 	}
