@@ -1,0 +1,240 @@
+This fails because the research data was stored from the previous step (call_researcher) and is likely accessible via {{.call_researcher.result}}, not {{.research_data}}.
+
+
+before:
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               default_config                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | is_active |          created_at           |          updated_at           | deleted_at |                     capabilities                      |       image_repository       | image_tag | command |                                          resources                                           |                                                                            topics                                                                            |                                            health_config                                            | env_vars | version | previous_version_id | task_workflow | orchestrator_workflow | orchestration_workflow |                delegation_preferences
+--------------------------------------+----------------------+---------------------+---------------------------------------------------------------------------------------------------+-------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------+-------------------------------+-------------------------------+------------+-------------------------------------------------------+------------------------------+-----------+---------+----------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+----------+---------+---------------------+---------------+-----------------------+------------------------+-------------------------------------------------------
+ d8b5e2c1-7539-4965-987b-25a4834ccf38 | content-creator-hero | Hero Section Writer | Specialized in writing compelling hero sections with powerful headlines and engaging subheadlines | data-driven | {"workflow": {"steps": {"complete": {"action": "complete_workflow", "description": "Return hero content"}, "call_researcher": {"action": "call_agent", "config": {"prompt": "Research background information about {{.business_type}} businesses", "agent_type": "content-researcher", "input_data": {"business_type": "{{.input_data.business_type}}"}, "target_role": "researcher"}, "next_step": "generate_hero_content", "description": "Get research data"}, "spawn_researcher": {"action": "spawn_agent", "config": {"role": "researcher", "agent_type": "content-researcher"}, "next_step": "call_researcher", "description": "Spawn research agent"}, "generate_hero_content": {"action": "execute_llm_prompt", "config": {"input_fields": ["call_researcher"]}, "next_step": "complete", "description": "Generate hero section with research"}}, "start_step": "spawn_researcher"}, "ai_service": {"model": "claude-3-5-sonnet-20241022", "provider": "anthropic", "api_key_env_var": "ANTHROPIC_API_KEY"}, "max_tokens": 2000, "temperature": 0.7, "processing_mode": "task", "prompt_template": "Using this research: {{.research_data}}\\n\\nWrite a compelling hero section for {{.business_name}}, a {{.business_type}}. Include a powerful headline and engaging subheadline that captures attention and communicates the core value proposition."} | t         | 2025-10-14 19:00:09.806276+00 | 2025-10-22 20:14:50.808693+00 |            | ["content", "hero", "headlines", "value-proposition"] | docker.io/aqls/agent-chassis | v1.0.386  |         | {"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}} | {"error": "system.errors.content-creator-hero", "process": "system.agent.content-creator-hero.process", "response": "system.responses.content-creator-hero"} | {"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30} | []       |       1 |                     |               |                       |                        | {"fallback_to_self": true, "prefer_delegation": true}
+(1 row)
+
+{
+  "workflow": {
+    "steps": {
+      "complete": {
+        "action": "complete_workflow",
+        "description": "Return hero content"
+      },
+      "call_researcher": {
+        "action": "call_agent",
+        "config": {
+          "prompt": "Research background information about {{.business_type}} businesses",
+          "agent_type": "content-researcher",
+          "input_data": {
+            "business_type": "{{.input_data.business_type}}"
+          },
+          "target_role": "researcher"
+        },
+        "next_step": "generate_hero_content",
+        "description": "Get research data"
+      },
+      "spawn_researcher": {
+        "action": "spawn_agent",
+        "config": {
+          "role": "researcher",
+          "agent_type": "content-researcher"
+        },
+        "next_step": "call_researcher",
+        "description": "Spawn research agent"
+      },
+      "generate_hero_content": {
+        "action": "execute_llm_prompt",
+        "config": {
+          "input_fields": [
+            "call_researcher"
+          ]
+        },
+        "next_step": "complete",
+        "description": "Generate hero section with research"
+      }
+    },
+    "start_step": "spawn_researcher"
+  },
+
+after:
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        default_config,
+        '{workflow,steps,generate_hero_content,config,input_fields}',
+        '["call_researcher", "input_data"]'::jsonb
+    ),
+    '{prompt_template}',
+    '"Using this research: {{.call_researcher.result}}\n\nWrite a compelling hero section for {{.input_data.business_name}}, a {{.input_data.business_type}}. Include a powerful headline and engaging subheadline that captures attention and communicates the core value proposition."'::jsonb
+)
+WHERE type = 'content-creator-hero';
+
+
+===
+
+
+         Column         |           Type           | Collation | Nullable |                                                           Default                                                           | Storage  | Compression | Stats target |                     Description
+------------------------+--------------------------+-----------+----------+-----------------------------------------------------------------------------------------------------------------------------+----------+-------------+--------------+------------------------------------------------------
+ id                     | uuid                     |           | not null | gen_random_uuid()                                                                                                           | plain    |             |              |
+ type                   | character varying(100)   |           | not null |                                                                                                                             | extended |             |              |
+ display_name           | character varying(255)   |           | not null |                                                                                                                             | extended |             |              |
+ description            | text                     |           |          |                                                                                                                             | extended |             |              |
+ category               | character varying(50)    |           | not null |                                                                                                                             | extended |             |              |
+ default_config         | jsonb                    |           | not null | '{}'::jsonb                                                                                                                 | extended |             |              |
+ is_active              | boolean                  |           |          | true                                                                                                                        | plain    |             |              |
+ created_at             | timestamp with time zone |           | not null | now()                                                                                                                       | plain    |             |              |
+ updated_at             | timestamp with time zone |           | not null | now()                                                                                                                       | plain    |             |              |
+ deleted_at             | timestamp with time zone |           |          |                                                                                                                             | plain    |             |              |
+ capabilities           | jsonb                    |           |          | '[]'::jsonb                                                                                                                 | extended |             |              |
+ image_repository       | character varying(255)   |           |          | 'docker.io/gqls/agent-chassis'::character varying                                                                           | extended |             |              | Full repository path for the agent Docker image
+ image_tag              | character varying(100)   |           |          | 'latest'::character varying                                                                                                 | extended |             |              | Docker image tag/version
+ command                | text[]                   |           |          |                                                                                                                             | extended |             |              | Container entrypoint command as array
+ resources              | jsonb                    |           |          | '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}'::jsonb                       | extended |             |              | Kubernetes resource requests and limits
+ topics                 | jsonb                    |           |          | '{"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"}'::jsonb | extended |             |              | Kafka topic patterns for this agent type
+ health_config          | jsonb                    |           |          | '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}'::jsonb                | extended |             |              | Health check endpoints and configuration
+ env_vars               | jsonb                    |           |          | '[]'::jsonb                                                                                                                 | extended |             |              | Additional environment variables for this agent type
+  version                | integer                  |           |          | 1                                                                                                                           | plain    |             |              |
+ previous_version_id    | uuid                     |           |          |                                                                                                                             | plain    |             |              |
+ task_workflow          | jsonb                    |           |          |                                                                                                                             | extended |             |              |
+ orchestrator_workflow  | jsonb                    |           |          |                                                                                                                             | extended |             |              |
+ orchestration_workflow | json                     |           |          |                                                                                                                             | extended |             |              |
+ delegation_preferences | jsonb                    |           |          | '{"fallback_to_self": true, "prefer_delegation": true}'::jsonb                                                              | extended |             |              |
+Indexes:
+    "agent_definitions_pkey" PRIMARY KEY, btree (id)
+    "agent_definitions_type_key" UNIQUE CONSTRAINT, btree (type)
+    "idx_agent_definitions_category" btree (category) WHERE is_active = true
+    "idx_agent_definitions_type_active" btree (type, is_active) WHERE deleted_at IS NULL
+    "idx_agent_definitions_version" btree (type, version)
+Check constraints:
+    "agent_definitions_category_check" CHECK (category::text = ANY (ARRAY['data-driven'::character varying, 'code-driven'::character varying, 'adapter'::character varying]::text[]))
+Foreign-key constraints:
+    "agent_definitions_previous_version_id_fkey" FOREIGN KEY (previous_version_id) REFERENCES agent_definitions(id)
+Referenced by:
+    TABLE "agent_capabilities" CONSTRAINT "agent_capabilities_agent_type_fkey" FOREIGN KEY (agent_type) REFERENCES agent_definitions(type)
+    TABLE "agent_default_configs" CONSTRAINT "agent_default_configs_agent_type_fkey" FOREIGN KEY (agent_type) REFERENCES agent_definitions(type)
+    TABLE "agent_definitions" CONSTRAINT "agent_definitions_previous_version_id_fkey" FOREIGN KEY (previous_version_id) REFERENCES agent_definitions(id)
+    TABLE "agent_dependencies" CONSTRAINT "agent_dependencies_agent_type_fkey" FOREIGN KEY (agent_type) REFERENCES agent_definitions(type)
+    TABLE "agent_group_members" CONSTRAINT "agent_group_members_agent_type_fkey" FOREIGN KEY (agent_type) REFERENCES agent_definitions(type)
+    TABLE "agent_metrics_config" CONSTRAINT "agent_metrics_config_agent_type_fkey" FOREIGN KEY (agent_type) REFERENCES agent_definitions(type)
+Access method: heap
+
+
+
+---
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        default_config,
+        '{workflow,steps,generate_hero_content,config,input_fields}',
+        '["call_researcher", "input_data"]'::jsonb
+    ),
+    '{prompt_template}',
+    '"Using this research: {{.call_researcher.result}}\n\nWrite a compelling hero section for {{.business_name}}, a {{.business_type}}. Include a powerful headline and engaging subheadline that captures attention and communicates the core value proposition."'::jsonb
+)
+WHERE type = 'content-creator-hero';
+#################
+now updating that hero above - moving prompt template
+UPDATE agent_definitions
+SET default_config =
+    jsonb_set(
+        default_config,
+        '{workflow,steps,generate_hero_content,config,prompt_template}',
+        '"Using this research: {{.call_researcher.result}}\n\nWrite a compelling hero section for {{.business_name}}, a {{.business_type}}. Include a powerful headline and engaging subheadline that captures attention and communicates the core value proposition."'::jsonb
+    )
+    - 'prompt_template'
+WHERE type = 'content-creator-hero';
+
+
+
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        default_config,
+        '{workflow,steps,generate_content,config}',
+        '{"input_fields": ["input_data"]}'::jsonb
+    ),
+    '{prompt_template}',
+    '"List 3-4 key features or benefits of {{.business_name}}, a {{.business_type}}. Make each feature clear, customer-focused, and emphasize the value proposition. Focus on how each feature solves customer problems."'::jsonb
+)
+WHERE type = 'content-creator-features';
+
+and for contact
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        default_config,
+        '{workflow,steps,generate_content,config}',
+        '{"input_fields": ["input_data"]}'::jsonb
+    ),
+    '{prompt_template}',
+    '"Write a contact section for {{.business_name}}. Include warm, inviting text that encourages customers to reach out. Make it approachable, helpful, and emphasize accessibility."'::jsonb
+)
+WHERE type = 'content-creator-contact';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        default_config,
+        '{workflow,steps,generate_content,config}',
+        '{"input_fields": ["input_data"]}'::jsonb
+    ),
+    '{prompt_template}',
+    '"Write a strong call-to-action section for {{.business_name}}. Include compelling action text and a clear reason to act now. Make it urgent, persuasive, and action-oriented."'::jsonb
+)
+WHERE type = 'content-creator-cta';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        default_config,
+        '{workflow,steps,generate_content,config}',
+        '{"input_fields": ["input_data"]}'::jsonb
+    ),
+    '{prompt_template}',
+    '"Create 2-3 realistic customer testimonials for {{.input_data.business_name}}, a {{.business_type}}. Make them authentic, specific, and emotionally resonant. Include customer names, contexts, and specific benefits they experienced."'::jsonb
+)
+WHERE type = 'content-creator-testimonials';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        default_config,
+        '{workflow,steps,process,config}',
+        '{"input_fields": ["input_data"]}'::jsonb
+    ),
+    '{prompt_template}',
+    '"Research background information about {{.business_type}} businesses. Focus on: industry trends, common customer pain points, and key value propositions. Provide 3-4 concise bullet points."'::jsonb
+)
+WHERE type = 'content-researcher';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        default_config,
+        '{workflow,steps,develop_code,config,input_fields}',
+        '["input_data"]'::jsonb
+    ),
+    '{workflow,steps,develop_code,config,prompt_template}',
+    '"Generate modern, responsive HTML/CSS/JS code based on: {{.site_architecture}} and {{.input_data.design_requirements}}"'::jsonb
+)
+WHERE type = 'html-developer';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        default_config,
+        '{workflow,steps,design,config,input_fields}',
+        '["input_data"]'::jsonb
+    ),
+    '{workflow,steps,design,config,prompt_template}',
+    '"Create visual design for: {{.business_type}}. Include color scheme, typography, layout patterns, and UI components."'::jsonb
+)
+WHERE type = 'visual-designer';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        default_config,
+        '{workflow,steps,analyze,config,input_fields}',
+        '["input_data"]'::jsonb
+    ),
+    '{workflow,steps,analyze,config,prompt_template}',
+    '"Analyze this business domain: {{.business_type}}. Provide insights on target audience, key features needed, and competitive advantages."'::jsonb
+)
+WHERE type = 'domain-analyst';

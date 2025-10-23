@@ -128,6 +128,10 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("failed to create AI client: %w", err)
 	}
 
+	params.Logger.Info("in ExecuteLLMPromptAction data from which were trying to extract templatedata",
+		zap.Any("DEBUGaa: params sent to extractDataForAIAgent hoping for the correct cleandata which were not getting", params),
+	)
+
 	extractedData := extractDataForAiAgent(params)
 	templateData := extractedData.(map[string]interface{})
 
@@ -407,12 +411,87 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 	}, nil
 }
 
+// (This is the original function you provided, for context)
+// func extractDataForAiAgent(params ActionParams) interface{} {
+//     params.Logger.Info("Extracting data for ai agent",
+//        zap.Any("available_keys", getMapKeys(params.CollectedData)),
+//     )
+//     // Use the GetInputData helper which handles all the extraction logic
+//     cleanData := datahelpers.GetInputData(params.CollectedData, params.Logger) // <-- THIS IS THE BUGGY LINE
+//     if len(cleanData) > 0 {
+//        params.Logger.Info("Extracted clean data for AI agent",
+//           zap.Int("field_count", len(cleanData)),
+//        )
+//        return cleanData
+//     }
+//     params.Logger.Warn("No data found for AI agent, using empty map")
+//     return make(map[string]interface{})
+// }
+
+// extractDataForAiAgent merges data from multiple sources specified in the step's 'input_fields' config.
 func extractDataForAiAgent(params ActionParams) interface{} {
+	params.Logger.Info("Extracting data for AI agent",
+		zap.Any("available_keys", getMapKeys(params.CollectedData)),
+	)
+
+	templateData := make(map[string]interface{})
+
+	// Default to only using input_data if config is missing
+	var inputFields []string
+	if fields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
+		for _, fieldInterface := range fields {
+			if field, ok := fieldInterface.(string); ok {
+				inputFields = append(inputFields, field)
+			}
+		}
+	} else {
+		params.Logger.Warn("No 'input_fields' found in step config, defaulting to [\"input_data\"]")
+		inputFields = []string{"input_data"}
+	}
+
+	params.Logger.Info("Merging data from input_fields", zap.Strings("fields", inputFields))
+
+	for _, fieldName := range inputFields {
+		if fieldName == "input_data" {
+			// Get the input_data map and merge its contents into the root of templateData
+			inputDataMap := datahelpers.GetInputData(params.CollectedData, params.Logger)
+			for key, val := range inputDataMap {
+				if _, exists := templateData[key]; exists {
+					params.Logger.Warn("Data merge conflict: key already exists, overwriting.", zap.String("key", key))
+				}
+				templateData[key] = val
+			}
+		} else {
+			// Get data from other steps (e.g., "call_researcher")
+			if data, exists := params.CollectedData[fieldName]; exists {
+				if _, exists := templateData[fieldName]; exists {
+					params.Logger.Warn("Data merge conflict: key already exists, overwriting.", zap.String("key", fieldName))
+				}
+				templateData[fieldName] = data
+				params.Logger.Debug("Merged step data", zap.String("key", fieldName))
+			} else {
+				params.Logger.Warn("Requested input_field not found in CollectedData", zap.String("field", fieldName))
+			}
+		}
+	}
+
+	if len(templateData) > 0 {
+		params.Logger.Info("Extracted merged data for AI agent",
+			zap.Int("field_count", len(templateData)),
+		)
+		return templateData
+	}
+
+	params.Logger.Warn("No data found for AI agent, using empty map")
+	return make(map[string]interface{})
+}
+
+/*func extractDataForAiAgent(params ActionParams) interface{} {
 	// Get which input field to use - ditching this for now
-	/*inputField := "input_data"
+	inputField := "input_data"
 	if field, ok := params.StepConfig.Config["input_field"].(string); ok && field != "" {
 		inputField = field
-	}*/
+	}
 
 	params.Logger.Info("Extracting data for ai agent",
 		//zap.String("requested_field", inputField), // input_data
@@ -426,7 +505,9 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 	// If we got a valid map, return it
 	if len(cleanData) > 0 {
 		params.Logger.Info("Extracted clean data for AI agent",
-			zap.Int("field_count", len(cleanData)))
+			zap.Int("field_count", len(cleanData)),
+			zap.Any("DEBUGaa: cleanData", cleanData),
+		)
 		return cleanData
 	}
 
@@ -435,7 +516,7 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 	return make(map[string]interface{})
 
 	// Define search paths from most to least specific
-	/*searchPaths := [][]string{
+	searchPaths := [][]string{
 		{"input_data", "body", "input_data", inputField}, // Deeply nested with body
 		{"input_data", "input_data", inputField},         // Deeply nested
 		{"input_data", "body", inputField},               // medium nested with body
@@ -452,10 +533,10 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 			)
 			return data
 		}
-	}*/
+	}
 
 	// Special case: if looking for input_data, try nested version
-	/*	if inputField == "input_data" {
+		if inputField == "input_data" {
 			if data, ok := getNestedInputValue(params.CollectedData, "input_data", "input_data"); ok {
 				params.Logger.Info("Using nested input_data")
 				return data
@@ -470,8 +551,8 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 		}
 
 		params.Logger.Info("Using top-level input_data as fallback")
-		return data*/
-}
+		return data
+}*/
 
 // getPromptWithPriority implements three-tier priority for prompt selection
 func getPromptWithPriority(params ActionParams, agentConfig map[string]interface{}) (prompt string, source string) {
