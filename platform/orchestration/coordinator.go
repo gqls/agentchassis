@@ -128,7 +128,10 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 }
 
 func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
-	s.logger.Info("ProcessResponse in coordinator.go")
+	s.logger.Info("ProcessResponse in coordinator.go",
+		zap.Any("response", response),
+		zap.Any("DEBUGaa: incoming execCtx", execCtx),
+	)
 
 	// Prepare values for tracing
 	var inResponseToParentOrchestrationID string
@@ -262,6 +265,10 @@ func (s *SagaCoordinator) HandleResponse(ctx context.Context, headers map[string
 			},
 		}
 	}
+	s.logger.Info("in HandleResponse making execCtx from headers looks old",
+		zap.Any("execCtx", execCtx),
+		zap.Any("from the headers", headers),
+	)
 
 	return s.ProcessResponse(ctx, execCtx, response)
 }
@@ -850,10 +857,12 @@ func storeActionResult(state *OrchestrationState, result interface{}, logger *za
 
 	state.CollectedData[state.CurrentStep] = result
 
-	logger.Info("Stored action result",
+	logger.Info("Stored action result in storeActionResult",
 		zap.String("step", state.CurrentStep),
 		zap.Any("result_keys", getMapKeys(result)),
-		zap.Any("DEBUGaa: result_value", result))
+		zap.Any("DEBUGaa: result_value", result),
+		zap.Any("DEBUGaa: state look at collected data", result),
+	)
 
 	return nil
 }
@@ -1281,12 +1290,13 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	stepName := awaitedReq.StepName
 	state.CollectedData[stepName] = normalisedData
 
-	s.logger.Info("handleCompleteResponse: stored normalized response",
+	s.logger.Info("handleCompleteResponse: stored normalized response", // so far so good, at least in hero it is good
 		zap.String("step_name", stepName),
 		zap.Int("original_fields", len(responseBodyData)),
 		zap.Int("normalized_fields", len(normalisedData)),
 		zap.Strings("normalised data_keys", getMapKeys(normalisedData)),
 		zap.Any("DEBUGaa: normalised data", normalisedData),
+		zap.Any("state.CollectedData[stepName] should have the result data", state.CollectedData[stepName]),
 	)
 
 	// Remove from awaited requests

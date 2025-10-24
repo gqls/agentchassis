@@ -648,8 +648,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	// Use ToResponseHeaders to get properly routed headers
 	responseHeaders := responseCtx.ToResponseHeaders()
-
-	// Create the ResponseMessage
+	
 	response := &types.ResponseMessage{
 		Headers: responseHeaders,
 		Body: types.ResponseBody{
@@ -1308,7 +1307,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		zap.Any("DEBUGaa: msgCtx is - why is input_data nil look at message.value too", msgCtx),
 		zap.Any("DEBUGaa: request data from unmarshalled msg.value", requestData),
 		/*
-		  "DEBUGaa: request data from unmarshalled msg.value": {
+		  "DEBUGaa: request data from an unmarshalled msg.value": {
 		    "action": "orchestrate",
 		    "config": {
 		      "group_type": "multi-section-website-builder"

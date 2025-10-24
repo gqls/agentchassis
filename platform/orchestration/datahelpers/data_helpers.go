@@ -788,6 +788,7 @@ func determineStatus(success bool, errorInfo *types.ErrorInfo) string {
 	return "error_unrecoverable"
 }
 
+// BuildCollectedData with double body.body unwrapping
 func BuildCollectedData(
 	messageBody interface{},
 	execCtx *types.ExecutionContext,
@@ -824,8 +825,18 @@ func BuildCollectedData(
 	case map[string]interface{}:
 		// Check if there's a nested "body" key
 		if bodyThatWasNested, hasBodyKey := body["body"].(map[string]interface{}); hasBodyKey {
-			logger.Info("BuildCollectedData: found nested 'body' key, unwrapping")
+			logger.Info("BuildCollectedData: found nested 'body' key, unwrapping once")
 			unnestedBody = bodyThatWasNested
+
+			// Check if there's ANOTHER nested "body" key (double nesting from ResponseBody structure)
+			// This happens when responses have: { body: { body: {actual data}, success: true } }
+			// The outer "body" is the ResponseMessage.Body field
+			// The inner "body" is the ResponseBody.Body field
+			if bodyThatWasDoubleNested, hasSecondBodyKey := unnestedBody["body"].(map[string]interface{}); hasSecondBodyKey {
+				logger.Info("BuildCollectedData: found DOUBLE nested 'body' key, unwrapping again",
+					zap.Bool("has_success_field", unnestedBody["success"] != nil))
+				unnestedBody = bodyThatWasDoubleNested
+			}
 		} else {
 			unnestedBody = body
 		}
@@ -838,9 +849,9 @@ func BuildCollectedData(
 		} else {
 			// No explicit input_data field
 			// Check if body itself is the data (doesn't have system fields)
-			if !hasSystemFields(body) {
-				logger.Info("Processor: treating entire body as input_data")
-				collectedData["input_data"] = body
+			if !hasSystemFields(unnestedBody) {
+				logger.Info("Processor: treating entire unnested body as input_data")
+				collectedData["input_data"] = unnestedBody
 			} else {
 				// Body has system fields, don't use it as input_data
 				logger.Info("Processor: no input_data found, using empty map")
@@ -866,21 +877,21 @@ func BuildCollectedData(
 		collectedData["__parent_responses_topic__"] = parentResponsesTopic
 
 		// Store action separately if present
-		if action, ok := body["action"].(string); ok {
+		if action, ok := unnestedBody["action"].(string); ok {
 			collectedData["action"] = action
 		}
 
 		// Store config separately if present
-		if config, ok := body["config"].(map[string]interface{}); ok {
+		if config, ok := unnestedBody["config"].(map[string]interface{}); ok {
 			collectedData["config"] = config
 		}
 
 		// Store prompt separately if present
-		if prompt, ok := body["prompt"].(string); ok {
+		if prompt, ok := unnestedBody["prompt"].(string); ok {
 			collectedData["prompt"] = prompt
 		}
 
-		// Store the raw message for debugging
+		// Store the raw message for debugging (use original body, not unnested)
 		collectedData["__raw_message__"] = body
 
 	default:

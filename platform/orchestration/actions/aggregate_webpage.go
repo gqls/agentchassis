@@ -12,7 +12,9 @@ import (
 
 // AggregateWebpageAction combines content sections into a complete HTML webpage
 func AggregateWebpageAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("AggregateWebpageAction executing")
+	params.Logger.Info("AggregateWebpageAction executing",
+		zap.Any("DEBUGaa: AggregateWebpage params", params),
+	)
 
 	config := params.StepConfig.Config
 
@@ -30,6 +32,13 @@ func AggregateWebpageAction(ctx context.Context, params ActionParams) (interface
 	wrapper := getConfigMap(config, "wrapper")
 	addSectionTags := getConfigBool(config, "add_section_tags", true)
 
+	params.Logger.Info("AggregateWebpageAction collected data",
+		zap.Any("responseFields", responseFields),
+		zap.Any("responses", responses),
+		zap.Any("sectionOrder", sectionOrder),
+		zap.Any("wrapper", wrapper),
+		zap.Any("addSectionTags", addSectionTags),
+	)
 	// Extract head and foot with defaults
 	htmlHead := getConfigString(wrapper, "html_head",
 		"<!DOCTYPE html>\n<html lang='en'>\n<head>\n<meta charset='utf-8'>\n<meta name='viewport' content='width=device-width, initial-scale=1'>\n<title>Generated Website</title>\n</head>\n<body>")
@@ -45,6 +54,10 @@ func AggregateWebpageAction(ctx context.Context, params ActionParams) (interface
 
 		if response, ok := responses[sectionKey]; ok {
 			content := extractResponseContent(response)
+			params.Logger.Info("AggregateWebpageAction in loop",
+				zap.Any("DEBUGaa: extracted content", content),
+				zap.String("DEBUGaa: which was for section key", sectionKey),
+			)
 
 			if content == "" {
 				params.Logger.Warn("Empty content for section",
