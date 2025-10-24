@@ -1210,6 +1210,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		zap.String("requestId from arguments", requestID),
 		zap.Any("state.CollectedData in handleCompleteResponse is:", state.CollectedData),
 		zap.Any("execCts.InResponseTo in handleCompleteResponse is:", execCtx.InResponseTo),
+		zap.Any("DEBUGaa: the actual response - response", response),
 	)
 	contextLogger := s.logger
 

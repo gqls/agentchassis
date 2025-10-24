@@ -118,24 +118,117 @@ func getResponseFields(config map[string]interface{}) []string {
 	return fields
 }
 
-// Helper: Collect responses from CollectedData
+// collectResponses collects responses from CollectedData for aggregation
+// It handles multiple storage patterns for compatibility
 func collectResponses(collectedData map[string]interface{}, responseFields []string, logger *zap.Logger) map[string]interface{} {
 	responses := make(map[string]interface{})
 
 	for _, fieldName := range responseFields {
+		logger.Debug("collectResponses: looking for field",
+			zap.String("field", fieldName))
+
+		// Check if field exists directly in CollectedData
 		if stepData, ok := collectedData[fieldName].(map[string]interface{}); ok {
+			logger.Debug("collectResponses: found step data",
+				zap.String("field", fieldName),
+				zap.Strings("step_data_keys", getMapKeys(stepData)))
+
+			// Pattern 1: Look for explicit "response" field (from handleCompleteResponse)
 			if response, ok := stepData["response"].(map[string]interface{}); ok {
 				responses[fieldName] = response
-				logger.Debug("Found response for field", zap.String("field", fieldName))
+				logger.Debug("collectResponses: found response field",
+					zap.String("field", fieldName))
+				continue
+			}
+
+			// Pattern 2: The step data itself IS the response (after our fix)
+			// Look for actual content indicators
+			hasContent := false
+			for key := range stepData {
+				if strings.Contains(key, "generate_") ||
+					strings.Contains(key, "result") ||
+					strings.Contains(key, "content") ||
+					key == "input_data" {
+					hasContent = true
+					break
+				}
+			}
+
+			if hasContent {
+				responses[fieldName] = stepData
+				logger.Debug("collectResponses: using step data as response",
+					zap.String("field", fieldName))
+				continue
 			}
 		}
+
+		logger.Warn("collectResponses: field not found or empty",
+			zap.String("field", fieldName))
 	}
+
+	logger.Info("collectResponses: collection complete",
+		zap.Int("requested", len(responseFields)),
+		zap.Int("found", len(responses)),
+		zap.Strings("found_fields", getMapKeys(responses)))
 
 	return responses
 }
 
 // Helper: Extract actual content from nested response structure
+// extractResponseContent extracts actual content from nested response structure
+// It handles multiple patterns:
+// 1. Direct step results: response["step_name"]["result"]
+// 2. Nested generate_content: response["generate_content"]["result"]
+// 3. Direct result: response["result"]
+// 4. Direct content: response["content"]
 func extractResponseContent(response interface{}) string {
+	if respMap, ok := response.(map[string]interface{}); ok {
+
+		// Pattern 1: Look for step results from hierarchical workflows
+		// Example: {"call_researcher": {"result": "..."}, "generate_hero_content": {"result": "..."}}
+		for key, value := range respMap {
+			// Look for keys that might contain step results
+			if strings.Contains(key, "generate_") ||
+				strings.Contains(key, "_content") ||
+				strings.HasSuffix(key, "_result") {
+				if stepMap, ok := value.(map[string]interface{}); ok {
+					if result, ok := stepMap["result"].(string); ok && result != "" {
+						return result
+					}
+				}
+			}
+		}
+
+		// Pattern 2: Try nested generate_content.result (legacy structure)
+		if genContent, ok := respMap["generate_content"].(map[string]interface{}); ok {
+			if result, ok := genContent["result"].(string); ok {
+				return result
+			}
+		}
+
+		// Pattern 3: Try direct result field
+		if result, ok := respMap["result"].(string); ok {
+			return result
+		}
+
+		// Pattern 4: Try content field
+		if content, ok := respMap["content"].(string); ok {
+			return content
+		}
+
+		// Pattern 5: Look for ANY field with "result" in it as last resort
+		for key, value := range respMap {
+			if strings.Contains(strings.ToLower(key), "result") {
+				if strVal, ok := value.(string); ok && strVal != "" {
+					return strVal
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func extractResponseContentOld(response interface{}) string {
 	if respMap, ok := response.(map[string]interface{}); ok {
 		// Try nested generate_content.result (your structure)
 		if genContent, ok := respMap["generate_content"].(map[string]interface{}); ok {

@@ -467,7 +467,6 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 		} else {
 			// Get data from other steps (e.g., "call_researcher")
 
-			// --- THIS IS THE FIX ---
 			// Try the top level first
 			data, exists := params.CollectedData[fieldName]
 

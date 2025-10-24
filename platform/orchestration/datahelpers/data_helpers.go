@@ -406,18 +406,25 @@ func NormalizeCollectedData(
 // NormalizeResponseData cleans response data before storing in CollectedData
 func NormalizeResponseData(responseBody types.ResponseBody, logger *zap.Logger) map[string]interface{} {
 	if responseBody.Body == nil && responseBody.Error == nil {
-		logger.Debug("NormalizeResponseData: responseBody is nil")
+		logger.Info("NormalizeResponseData: responseBody is nil")
 		return map[string]interface{}{}
 	}
 
 	// ResponseBody.Body contains the actual data
 	if body, ok := responseBody.Body.(map[string]interface{}); ok {
-		if data, ok := body["input_data"].(map[string]interface{}); ok {
-			return data
-		}
-		return cleanDataMap(body)
-	}
+		logger.Info("NormalizeResponseData: processing body",
+			zap.Any("body", body),
+		)
 
+		cleanResult := cleanDataMap(body)
+
+		logger.Info("NormalizeResponseData: preserved fields",
+			zap.Any("clean result", cleanResult),
+		)
+
+		return cleanResult
+	}
+	logger.Info("NormalizeResponseData: body is not a map")
 	return map[string]interface{}{}
 }
 
@@ -671,17 +678,18 @@ func cleanDataMap(source map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	systemFields := map[string]bool{
-		//"action":                     true,
-		//"config":                     true,
-		//"agent_config":               true,
-		//"agent_group":                true,
-		// "__execution_context__": true,
-		"__raw_message__": true,
-		//"__my_requests_topic__":      true,
-		// "__reply_to_responses_topic__": true,
-		//"headers":                    true,
-		//"is_initialization":          true,
-		//"agent_info":                 true,
+		"action":                       true,
+		"config":                       true,
+		"agent_config":                 true,
+		"agent_group":                  true,
+		"__execution_context__":        true,
+		"__raw_message__":              true,
+		"__my_requests_topic__":        true,
+		"__reply_to_responses_topic__": true,
+		"__parent_responses_topic__":   true,
+		"headers":                      true,
+		"is_initialization":            true,
+		"agent_info":                   true,
 		//"role":                       true,
 	}
 
