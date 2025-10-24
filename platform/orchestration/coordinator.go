@@ -689,8 +689,8 @@ func prepareExecutionContext(execCtx *types.ExecutionContext, state *Orchestrati
 	// Set step information
 	execCtx.StepName = state.CurrentStep
 	execCtx.Action = step.Action
-	execCtx.RequestID = uuid.New().String()
-	execCtx.MessageID = uuid.New().String()
+	//execCtx.RequestID = uuid.New().String()
+	//execCtx.MessageID = uuid.New().String()
 	execCtx.Timestamp = time.Now().UTC()
 
 	// Set reply-to topic from environment

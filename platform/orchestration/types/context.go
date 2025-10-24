@@ -464,7 +464,7 @@ func (ec *ExecutionContext) CreateResponseContext(status string, fuelUsed int) *
 
 		// What we're responding to
 		InResponseTo: &ResponseContext{
-			RequestID:               ec.RequestID,
+			RequestID:               ec.ReplyToRequestID, // changed from request id
 			StepID:                  ec.StepID,
 			StepName:                ec.StepName,
 			MessageID:               ec.MessageID,
