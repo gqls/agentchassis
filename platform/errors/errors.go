@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -200,4 +201,113 @@ func GetRetryAfter(err error) *time.Duration {
 		return domainErr.RetryAfter
 	}
 	return nil
+}
+
+// AgentError represents an error with agent context
+type AgentError struct {
+	Err             error  // The underlying error
+	Message         string // Human-readable message
+	AgentType       string // Type of agent where error occurred
+	AgentID         string // ID of agent where error occurred
+	OrchestrationID string // Orchestration context
+	StepName        string // Workflow step name
+	Action          string // Action being executed
+}
+
+// Error implements the error interface
+func (e *AgentError) Error() string {
+	if e.Message != "" {
+		return fmt.Sprintf("%s: %v (agent=%s, orch=%s, step=%s, action=%s)",
+			e.Message,
+			e.Err,
+			e.AgentType,
+			e.OrchestrationID,
+			e.StepName,
+			e.Action)
+	}
+	return fmt.Sprintf("%v (agent=%s, orch=%s, step=%s, action=%s)",
+		e.Err,
+		e.AgentType,
+		e.OrchestrationID,
+		e.StepName,
+		e.Action)
+}
+
+// Unwrap returns the underlying error (for errors.Is and errors.As)
+func (e *AgentError) Unwrap() error {
+	return e.Err
+}
+
+// WrapWithAgentContext wraps an error with agent execution context
+func WrapWithAgentContext(
+	err error,
+	message string,
+	agentType string,
+	agentID string,
+	orchestrationID string,
+	stepName string,
+	action string,
+) error {
+	if err == nil {
+		return nil
+	}
+
+	return &AgentError{
+		Err:             err,
+		Message:         message,
+		AgentType:       agentType,
+		AgentID:         agentID,
+		OrchestrationID: orchestrationID,
+		StepName:        stepName,
+		Action:          action,
+	}
+}
+
+// Wrap wraps an error with additional context message
+func Wrap(err error, message string) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", message, err)
+}
+
+// GetAgentContext extracts agent context from an error if available
+func GetAgentContext(err error) (agentType, agentID, orchestrationID, stepName, action string, ok bool) {
+	if ae, isAgentError := err.(*AgentError); isAgentError {
+		return ae.AgentType, ae.AgentID, ae.OrchestrationID, ae.StepName, ae.Action, true
+	}
+	return "", "", "", "", "", false
+}
+
+// IsRecoverable determines if an error is recoverable
+func IsRecoverable(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+
+	// Recoverable error patterns
+	recoverablePatterns := []string{
+		"timeout",
+		"connection refused",
+		"temporary failure",
+		"network",
+		"dial tcp",
+		"i/o timeout",
+		"context deadline exceeded",
+		"too many requests",
+		"rate limit",
+		"503",
+		"502",
+		"504",
+	}
+
+	for _, pattern := range recoverablePatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+
+	return false
 }

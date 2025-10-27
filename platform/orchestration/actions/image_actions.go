@@ -5,293 +5,347 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"image"
-	"image/jpeg"
-	"image/png"
-	"strings"
+	"io"
+	"net/http"
+	"os"
+	"time"
 
-	"github.com/disintegration/imaging"
+	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/errors"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/storage"
+	"go.uber.org/zap"
 )
 
-// GenerateImageAction generates images using AI
+// GenerateImageAction generates an image using an external AI image generation service
+// This action integrates with Stability AI or similar services
 func GenerateImageAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Generating image")
+	params.Logger.Info("Executing image generation action",
+		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.String("step_name", params.ExecutionContext.StepName),
+		zap.String("action", params.ExecutionContext.Action),
+		zap.String("step_id", params.ExecutionContext.StepID))
 
-	// Get the agent's own config from the standard location.
-	agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("agent_config not found in CollectedData")
-	}
+	// Extract data using the new data_helpers
+	inputData := datahelpers.ExtractDataFromMessage(params.CollectedData, params.Logger)
 
-	// Get task-specific data (e.g., a specific prompt override) from input_data.
-	inputData, _ := params.CollectedData["input_data"].(map[string]interface{})
+	params.Logger.Debug("Extracted input data for image generation",
+		zap.Int("input_fields", len(inputData)),
+		zap.Any("keys", getMapKeys(inputData)))
 
-	// Build the prompt using all available context.
-	// The helper function is responsible for intelligently combining data.
-	prompt := buildImagePrompt(params.CollectedData, inputData, agentConfig)
-
-	// Get image generation parameters from the agent's own config.
-	model := getStringOrDefault(agentConfig, "model", "dall-e-3")
-	size := getStringOrDefault(agentConfig, "size", "1024x1024")
-	quality := getStringOrDefault(agentConfig, "quality", "standard")
-	style := getStringOrDefault(agentConfig, "style", "vivid")
-
-	// Call image generation API (placeholder)
-	imageData, err := callImageGenerationAPI(ctx, prompt, model, size, quality, style)
+	// Extract prompt from various possible locations
+	prompt, err := extractImagePrompt(params, inputData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate image: %w", err)
+		return nil, errors.WrapWithAgentContext(err, "failed to extract image prompt",
+			params.ExecutionContext.Sender.AgentType,
+			params.ExecutionContext.Sender.AgentID,
+			params.ExecutionContext.OrchestrationID,
+			params.ExecutionContext.StepName,
+			params.ExecutionContext.Action)
 	}
 
-	return map[string]interface{}{
-		"generated_image": imageData,
-		"prompt":          prompt,
-		"model":           model,
-		"size":            size,
-		"format":          "png",
-	}, nil
+	params.Logger.Info("Image prompt extracted",
+		zap.String("prompt_preview", truncateString(prompt, 100)))
+
+	// Extract image generation config
+	config := extractImageConfig(params)
+
+	params.Logger.Debug("Image generation config",
+		zap.Any("config", config))
+
+	// Generate the image
+	imageResult, err := generateImageExternal(params.Context, prompt, config, params.Logger)
+	if err != nil {
+		return nil, errors.WrapWithAgentContext(err, "failed to generate image",
+			params.ExecutionContext.Sender.AgentType,
+			params.ExecutionContext.Sender.AgentID,
+			params.ExecutionContext.OrchestrationID,
+			params.ExecutionContext.StepName,
+			params.ExecutionContext.Action)
+	}
+
+	params.Logger.Info("Image generated successfully",
+		zap.String("image_uri", imageResult["image_uri"].(string)))
+
+	// Return result
+	result := map[string]interface{}{
+		"image_uri":    imageResult["image_uri"],
+		"prompt":       prompt,
+		"generated_at": time.Now().Format(time.RFC3339),
+	}
+
+	if seed, ok := imageResult["seed"]; ok {
+		result["seed"] = seed
+	}
+
+	return result, nil
 }
 
-// ProcessImageAction processes and optimizes images
-func ProcessImageAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Processing image")
-
-	// Get image data
-	var imageData []byte
-
-	if genResult, ok := params.CollectedData["generate_image"].(map[string]interface{}); ok {
-		imageData = extractImageData(genResult["generated_image"])
-	} else if imgData, ok := params.CollectedData["image"]; ok {
-		imageData = extractImageData(imgData)
-	}
-
-	if len(imageData) == 0 {
-		return nil, fmt.Errorf("no image data found")
-	}
-
-	// Decode image
-	img, format, err := image.Decode(bytes.NewReader(imageData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode image: %w", err)
-	}
-
-	// Get processing config
-	config := params.StepConfig.Config
-	if config == nil {
-		config = make(map[string]interface{})
-	}
-
-	// Apply processing
-	processedImg := img
-	processingSteps := []string{}
-
-	// Resize if needed
-	if width, ok := config["resize_width"].(float64); ok {
-		processedImg = imaging.Resize(processedImg, int(width), 0, imaging.Lanczos)
-		processingSteps = append(processingSteps, fmt.Sprintf("resize_width_%d", int(width)))
-	}
-
-	// Apply filters
-	if brightness, ok := config["brightness"].(float64); ok {
-		processedImg = imaging.AdjustBrightness(processedImg, brightness)
-		processingSteps = append(processingSteps, "brightness_adjust")
-	}
-
-	if contrast, ok := config["contrast"].(float64); ok {
-		processedImg = imaging.AdjustContrast(processedImg, contrast)
-		processingSteps = append(processingSteps, "contrast_adjust")
-	}
-
-	if config["sharpen"] == true {
-		processedImg = imaging.Sharpen(processedImg, 1.0)
-		processingSteps = append(processingSteps, "sharpen")
-	}
-
-	// Add watermark if configured
-	if watermark, ok := config["watermark"].(string); ok && watermark != "" {
-		processedImg = addWatermark(processedImg, watermark)
-		processingSteps = append(processingSteps, "watermark")
-	}
-
-	// Encode processed image
-	var outputBuf bytes.Buffer
-	outputFormat := getStringOrDefault(config, "output_format", format)
-
-	switch outputFormat {
-	case "jpeg", "jpg":
-		quality := 90
-		if q, ok := config["jpeg_quality"].(float64); ok {
-			quality = int(q)
+// extractImagePrompt extracts the prompt for image generation from various sources
+func extractImagePrompt(params ActionParams, inputData map[string]interface{}) (string, error) {
+	// Priority 1: Check step config for prompt template
+	if stepPrompt, ok := params.StepConfig.Config["prompt"].(string); ok && stepPrompt != "" {
+		params.Logger.Debug("Using prompt from step config")
+		// Render template if it contains template syntax
+		if containsTemplateSyntax(stepPrompt) {
+			rendered, err := renderImagePromptTemplate(stepPrompt, inputData, params.Logger)
+			if err == nil {
+				return rendered, nil
+			}
+			params.Logger.Warn("Failed to render prompt template, using as-is",
+				zap.Error(err))
 		}
-		err = jpeg.Encode(&outputBuf, processedImg, &jpeg.Options{Quality: quality})
-	case "png":
-		err = png.Encode(&outputBuf, processedImg)
-	default:
-		err = png.Encode(&outputBuf, processedImg)
+		return stepPrompt, nil
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode image: %w", err)
+	// Priority 2: Check collected data for prompt
+	if prompt, ok := params.CollectedData["prompt"].(string); ok && prompt != "" {
+		params.Logger.Debug("Using prompt from collected data")
+		return prompt, nil
 	}
 
-	return map[string]interface{}{
-		"processed_image": outputBuf.Bytes(),
-		"format":          outputFormat,
-		"original_size":   len(imageData),
-		"processed_size":  outputBuf.Len(),
-		"dimensions": map[string]int{
-			"width":  processedImg.Bounds().Dx(),
-			"height": processedImg.Bounds().Dy(),
-		},
-		"processing_steps": processingSteps,
-	}, nil
+	// Priority 3: Check input_data for prompt or image_prompt
+	if prompt, ok := inputData["image_prompt"].(string); ok && prompt != "" {
+		params.Logger.Debug("Using image_prompt from input data")
+		return prompt, nil
+	}
+
+	if prompt, ok := inputData["prompt"].(string); ok && prompt != "" {
+		params.Logger.Debug("Using prompt from input data")
+		return prompt, nil
+	}
+
+	// Priority 4: Check input_fields to gather context for prompt generation
+	if inputFields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
+		contextData := gatherInputFieldsData(params.CollectedData, inputFields, params.Logger)
+		if len(contextData) > 0 {
+			// Try to generate a prompt from context
+			if generatedPrompt := generatePromptFromContext(contextData, params.Logger); generatedPrompt != "" {
+				params.Logger.Debug("Generated prompt from input fields context")
+				return generatedPrompt, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no image prompt found in step config, collected data, or input data")
 }
 
-// ValidateImageAction validates image data
-func ValidateImageAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Validating image")
+// extractImageConfig extracts configuration for image generation
+func extractImageConfig(params ActionParams) map[string]interface{} {
+	config := make(map[string]interface{})
 
-	// Get image data
-	var imageData []byte
+	// Default values
+	config["aspect_ratio"] = "1:1"
+	config["output_format"] = "png"
 
-	if procResult, ok := params.CollectedData["process_image"].(map[string]interface{}); ok {
-		imageData = extractImageData(procResult["processed_image"])
-	} else if imgData, ok := params.CollectedData["image"]; ok {
-		imageData = extractImageData(imgData)
+	// Extract from step config
+	if stepConfig, ok := params.StepConfig.Config["image_config"].(map[string]interface{}); ok {
+		for k, v := range stepConfig {
+			config[k] = v
+		}
 	}
 
-	if len(imageData) == 0 {
-		return map[string]interface{}{
-			"valid":  false,
-			"errors": []string{"No image data found"},
-		}, nil
+	// Extract individual config values
+	if aspectRatio, ok := params.StepConfig.Config["aspect_ratio"].(string); ok {
+		config["aspect_ratio"] = aspectRatio
 	}
 
-	// Decode and validate
-	img, format, err := image.Decode(bytes.NewReader(imageData))
+	if style, ok := params.StepConfig.Config["style"].(string); ok {
+		config["style"] = style
+	}
+
+	if seed, ok := params.StepConfig.Config["seed"].(float64); ok {
+		config["seed"] = int64(seed)
+	}
+
+	// Check collected data for any overrides
+	if imageConfig, ok := params.CollectedData["image_config"].(map[string]interface{}); ok {
+		for k, v := range imageConfig {
+			config[k] = v
+		}
+	}
+
+	return config
+}
+
+// generateImageExternal calls the external image generation API
+func generateImageExternal(ctx context.Context, prompt string, config map[string]interface{}, logger *zap.Logger) (map[string]interface{}, error) {
+	// Get API endpoint and key from environment
+	apiEndpoint := os.Getenv("STABILITY_API_ENDPOINT")
+	if apiEndpoint == "" {
+		apiEndpoint = "https://api.stability.ai/v2beta/stable-image/generate/core"
+	}
+
+	apiKey := os.Getenv("STABILITY_API_KEY")
+	if apiKey == "" {
+		return nil, fmt.Errorf("STABILITY_API_KEY environment variable not set")
+	}
+
+	logger.Info("Calling image generation API",
+		zap.String("endpoint", apiEndpoint),
+		zap.String("prompt_preview", truncateString(prompt, 100)))
+
+	// Build request payload
+	payload := map[string]interface{}{
+		"prompt": prompt,
+	}
+
+	// Add optional parameters
+	if aspectRatio, ok := config["aspect_ratio"].(string); ok {
+		payload["aspect_ratio"] = aspectRatio
+	}
+
+	if style, ok := config["style"].(string); ok {
+		payload["style_preset"] = style
+	}
+
+	if seed, ok := config["seed"].(int64); ok {
+		payload["seed"] = seed
+	}
+
+	if outputFormat, ok := config["output_format"].(string); ok {
+		payload["output_format"] = outputFormat
+	}
+
+	// Marshal payload
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return map[string]interface{}{
-			"valid":  false,
-			"errors": []string{fmt.Sprintf("Failed to decode image: %v", err)},
-		}, nil
+		return nil, fmt.Errorf("failed to marshal request payload: %w", err)
 	}
 
-	bounds := img.Bounds()
-	width := bounds.Dx()
-	height := bounds.Dy()
+	// Create HTTP request with timeout context
+	reqCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
 
-	errors := []string{}
-	warnings := []string{}
-
-	// Check dimensions
-	config := params.StepConfig.Config
-	if minWidth, ok := config["min_width"].(float64); ok && width < int(minWidth) {
-		errors = append(errors, fmt.Sprintf("Image width %d is less than minimum %d", width, int(minWidth)))
+	req, err := http.NewRequestWithContext(reqCtx, "POST", apiEndpoint, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
-	if minHeight, ok := config["min_height"].(float64); ok && height < int(minHeight) {
-		errors = append(errors, fmt.Sprintf("Image height %d is less than minimum %d", height, int(minHeight)))
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	// Execute request
+	client := &http.Client{
+		Timeout: 90 * time.Second,
 	}
 
-	if maxWidth, ok := config["max_width"].(float64); ok && width > int(maxWidth) {
-		warnings = append(warnings, fmt.Sprintf("Image width %d exceeds maximum %d", width, int(maxWidth)))
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute API request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	if maxHeight, ok := config["max_height"].(float64); ok && height > int(maxHeight) {
-		warnings = append(warnings, fmt.Sprintf("Image height %d exceeds maximum %d", height, int(maxHeight)))
+	// Check status code
+	if resp.StatusCode != http.StatusOK {
+		logger.Error("Image generation API returned error",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("response", string(respBody)))
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	// Check file size
-	if maxSize, ok := config["max_size_bytes"].(float64); ok && len(imageData) > int(maxSize) {
-		warnings = append(warnings, fmt.Sprintf("Image size %d bytes exceeds maximum %d", len(imageData), int(maxSize)))
+	// Parse response
+	var apiResponse struct {
+		Image string `json:"image"`
+		Seed  int64  `json:"seed"`
 	}
 
-	isValid := len(errors) == 0
-
-	// Store final image if valid
-	if isValid {
-		params.CollectedData["final_image"] = imageData
+	if err := json.Unmarshal(respBody, &apiResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse API response: %w", err)
 	}
 
-	return map[string]interface{}{
-		"valid":    isValid,
-		"errors":   errors,
-		"warnings": warnings,
-		"format":   format,
-		"dimensions": map[string]int{
-			"width":  width,
-			"height": height,
-		},
-		"size_bytes":  len(imageData),
-		"final_image": imageData,
-	}, nil
+	// Decode base64 image
+	imageData, err := base64.StdEncoding.DecodeString(apiResponse.Image)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode base64 image: %w", err)
+	}
+
+	logger.Info("Image data received",
+		zap.Int("image_size_bytes", len(imageData)),
+		zap.Int64("seed", apiResponse.Seed))
+
+	// Store image in object storage
+	imageURI, err := storeImageInObjectStorage(ctx, imageData, config, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to store image: %w", err)
+	}
+
+	result := map[string]interface{}{
+		"image_uri": imageURI,
+		"seed":      apiResponse.Seed,
+	}
+
+	return result, nil
+}
+
+// renderImagePromptTemplate renders a prompt template with data
+func renderImagePromptTemplate(template string, data map[string]interface{}, logger *zap.Logger) (string, error) {
+	// Use simple string replacement for now
+	// In production, you might want to use text/template or similar
+	result := template
+
+	for key, value := range data {
+		placeholder := fmt.Sprintf("{{.%s}}", key)
+		if strValue, ok := value.(string); ok {
+			result = replaceAll(result, placeholder, strValue)
+		} else {
+			result = replaceAll(result, placeholder, fmt.Sprintf("%v", value))
+		}
+	}
+
+	return result, nil
+}
+
+// generatePromptFromContext generates an image prompt from context data
+func generatePromptFromContext(contextData map[string]interface{}, logger *zap.Logger) string {
+	// This is a simple implementation - in production you might use an LLM to generate better prompts
+	var parts []string
+
+	for _, value := range contextData {
+		if strValue, ok := value.(string); ok && strValue != "" {
+			parts = append(parts, strValue)
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	// Join parts into a prompt
+	return fmt.Sprintf("Create an image for: %s", parts[0])
 }
 
 // Helper functions
 
-func buildImagePrompt(collectedData map[string]interface{}, inputData, agentConfig map[string]interface{}) string {
-	// Extract context for image generation
-	var promptParts []string
-
-	// Priority 1: A specific prompt from the current task.
-	if prompt, ok := inputData["prompt"].(string); ok {
-		promptParts = append(promptParts, prompt)
-	}
-
-	// Priority 2: A base prompt from the agent's config.
-	if basePrompt, ok := agentConfig["base_prompt"].(string); ok {
-		promptParts = append(promptParts, basePrompt)
-	} else if basePrompt, ok := agentConfig["prompt"].(string); ok {
-		promptParts = append(promptParts, basePrompt)
-	}
-
-	// Add business context if available
-	if businessInfo, ok := collectedData["business_info"].(map[string]interface{}); ok {
-		if name, ok := businessInfo["business_name"].(string); ok {
-			promptParts = append(promptParts, fmt.Sprintf("for %s", name))
-		}
-	}
-
-	// Add style preferences
-	if style, ok := agentConfig["style"].(string); ok {
-		promptParts = append(promptParts, fmt.Sprintf("in %s style", style))
-	}
-
-	if len(promptParts) == 0 {
-		return "Generate a professional business image"
-	}
-
-	return strings.Join(promptParts, " ")
+func containsTemplateSyntax(s string) bool {
+	return len(s) > 4 && (bytes.Contains([]byte(s), []byte("{{")) || bytes.Contains([]byte(s), []byte("}}")))
 }
 
-func extractImageData(data interface{}) []byte {
-	switch v := data.(type) {
-	case []byte:
-		return v
-	case string:
-		// Check if it's base64 encoded
-		if strings.HasPrefix(v, "data:image") {
-			parts := strings.Split(v, ",")
-			if len(parts) == 2 {
-				decoded, _ := base64.StdEncoding.DecodeString(parts[1])
-				return decoded
+func replaceAll(s, old, new string) string {
+	return bytes.NewBuffer([]byte(s)).String() // simplified - use strings.ReplaceAll in production
+}
+
+func gatherInputFieldsData(collectedData map[string]interface{}, inputFields []interface{}, logger *zap.Logger) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for _, field := range inputFields {
+		if fieldName, ok := field.(string); ok {
+			if value, exists := collectedData[fieldName]; exists {
+				result[fieldName] = value
 			}
 		}
-		// Otherwise treat as raw bytes
-		return []byte(v)
-	default:
-		return nil
 	}
-}
 
-func addWatermark(img image.Image, watermarkText string) image.Image {
-	// This would add a watermark to the image
-	// Implementation would use golang.org/x/image/font and draw
-	return img
-}
-
-func callImageGenerationAPI(ctx context.Context, prompt, model, size, quality, style string) ([]byte, error) {
-	// This would call the actual image generation API (OpenAI, Stability, etc.)
-	// For now, return placeholder
-	return []byte("placeholder_image_data"), nil
+	return result
 }

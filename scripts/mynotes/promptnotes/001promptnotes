@@ -55,3 +55,6 @@ let's always try and make things robust and not go for quick fixes. Let's always
 don't use emojis - actually do use emojis, I can find and replace later
 don't make up urls, don't make up addresses and phone numbers
 
+IMPORTANT: You must respond with ONLY a valid JSON object, nothing else. Do not include any explanatory text before or after the JSON. Do not wrap the JSON in markdown code blocks.
+
+

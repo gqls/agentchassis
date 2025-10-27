@@ -46,19 +46,32 @@ type ResponsePayload struct {
 }
 
 // Adapter handles the translation between our internal system and an external API
+// handles image generation requests
 type Adapter struct {
-	ctx           context.Context
-	logger        *zap.Logger
-	consumer      *kafka.Consumer
+	serviceConfig *config.ServiceConfig
 	producer      kafka.Producer
-	storageClient storage.Client
+	consumer      *kafka.Consumer
+	logger        *zap.Logger
+	ctx           context.Context
+	cancel        context.CancelFunc
 	httpClient    *resilience.HTTPClientWithBreaker
 	externalAPI   string
 	apiKey        string
+
+	// Adapter identity
+	adapterID   string
+	adapterType string
+	podName     string
 }
 
 // NewAdapter initializes all dependencies for the adapter
 func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*Adapter, error) {
+
+	adapterID := os.Getenv("HOSTNAME")
+	if adapterID == "" {
+		adapterID = uuid.New().String()
+	}
+
 	// Initialize Kafka consumer
 	consumer, err := kafka.NewConsumer(cfg.Infrastructure.KafkaBrokers, requestTopic, consumerGroup, logger)
 	if err != nil {

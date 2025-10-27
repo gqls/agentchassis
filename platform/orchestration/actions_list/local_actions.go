@@ -17,6 +17,9 @@ var LocalActions = map[string]bool{
 	"discover_agents":     true,
 	"start_orchestration": true,
 
+	// Image handling
+	"generate_image": true,
+
 	// Data operations
 	"validate_input":  true,
 	"transform_data":  true,

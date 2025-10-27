@@ -857,6 +857,13 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 	execCtx.ToAgentID = a.AgentID
 	execCtx.ToAgentType = a.AgentType
 
+	// For static agents, capture the response topic from request headers
+	if a.IsStaticAgent() && headers["responses_topic"] != "" {
+		execCtx.ResponsesTopic = headers["responses_topic"]
+		a.logger.Info("Static agent storing response topic from request",
+			zap.String("response_topic", execCtx.ResponsesTopic))
+	}
+
 	contextLogger := a.logger.With(execCtx.LogContext()...)
 
 	contextLogger.Info("Processing message STORE_EXEC_CONTEXT ish",
@@ -1008,8 +1015,17 @@ func (a *Agent) handleProcessingError(execCtx *types.ExecutionContext, err error
 func (a *Agent) sendErrorResponse(execCtx *types.ExecutionContext, response *types.ResponseMessage) {
 	// Determine response topic
 	var responsesTopic string
-	if execCtx.ResponsesTopic != "" {
+
+	// For static agents, use the topic specified in the request
+	if a.IsStaticAgent() && execCtx.ResponsesTopic != "" {
 		responsesTopic = execCtx.ResponsesTopic
+		a.logger.Debug("Static agent using request-specified response topic",
+			zap.String("response_topic", responsesTopic))
+	} else if execCtx.ResponsesTopic != "" {
+		responsesTopic = execCtx.ResponsesTopic
+	} else if os.Getenv("PARENT_RESPONSES_TOPIC") != "" {
+		// Fallback to parent responses topic for spawned agents
+		responsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
 	} else if execCtx.FromAgentType != "" {
 		responsesTopic = fmt.Sprintf("system.agent.%s.responses", execCtx.FromAgentType)
 	} else {
@@ -1242,21 +1258,33 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 		},
 	}
 
-	// Send to parent's response topic
-	responsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
-	if responsesTopic == "" {
-		responsesTopic = spawnRequest.Headers.ResponsesTopic
-		a.logger.Error("error: environment var PARENT_RESPONSES_TOPIC was blank so probably sending to wrong topic now",
-			zap.String("responsesTopic", responsesTopic),
-		)
-	}
+	// Send to parent's response topic or request-specified topic
+	var responsesTopic string
 
-	// if still blank then send to default generic agent
-	if responsesTopic == "" {
-		responsesTopic = "system.agent.generic.responses"
-		a.logger.Error("error: Sent message to wrong topic, sent it to system.agent.generic.responses for lack of anywhere else",
-			zap.String("responsesTopic", responsesTopic),
-		)
+	// For static agents, prefer the topic from request headers
+	if a.IsStaticAgent() && spawnRequest.Headers.ResponsesTopic != "" {
+		responsesTopic = spawnRequest.Headers.ResponsesTopic
+		a.logger.Info("Static agent using request-specified response topic - SendInitializationResponse",
+			zap.String("response_topic", responsesTopic))
+	} else if spawnRequest.Headers.ResponsesTopic != "" {
+		// Use topic from request if specified
+		responsesTopic = spawnRequest.Headers.ResponsesTopic
+		a.logger.Info("request was specified in the request headers",
+			zap.String("response_topic", responsesTopic))
+	} else {
+		// Fallback to environment variable
+		responsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+		if responsesTopic == "" {
+			responsesTopic = spawnRequest.Headers.ParentResponsesTopic
+			a.logger.Warn("error: environment var PARENT_RESPONSES_TOPIC was blank so probably sending to wrong topic now",
+				zap.String("responsesTopic", responsesTopic),
+			)
+		}
+		if responsesTopic == "" {
+			responsesTopic = "system.agent.generic.responses"
+			a.logger.Warn("Using default responses topic - no other responses topics found - SendInitializationResponse",
+				zap.String("responsesTopic", responsesTopic))
+		}
 	}
 
 	responseBytes, err := json.Marshal(response)
@@ -1390,4 +1418,10 @@ func getFuncInfo(skip int) (current, caller string) {
 		caller = runtime.FuncForPC(pc).Name()
 	}
 	return
+}
+
+// IsStaticAgent checks if this agent is statically deployed
+func (a *Agent) IsStaticAgent() bool {
+	// Static agents have well-known request topics FIXME
+	return strings.HasPrefix(a.requestsTopic, "system.agent.")
 }

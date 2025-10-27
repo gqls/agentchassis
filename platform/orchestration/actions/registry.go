@@ -17,6 +17,9 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"discover_agents":     DiscoverAgentsAction,
 	"start_orchestration": StartOrchestrationAction,
 
+	// Image generation
+	"generate_image": GenerateImageAction,
+
 	// Data operations
 	"validate_input":  ValidateInputAction,
 	"transform_data":  TransformDataAction,
