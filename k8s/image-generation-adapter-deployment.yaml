@@ -1,0 +1,272 @@
+# k8s/image-generator-adapter-deployment.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: image-adapter-config
+  namespace: agent-system
+data:
+  image-adapter.yaml: |
+    service_info:
+      name: "image-generator-adapter"
+      version: "1.0.0"
+      environment: "production"
+    
+    server:
+      port: "9090"
+    
+    logging:
+      level: "info"
+    
+    observability:
+      tracing_endpoint: "http://jaeger-collector.observability:14268/api/traces"
+    
+    infrastructure:
+      kafka_brokers:
+        - "kafka-0.kafka-headless.kafka:9092"
+        - "kafka-1.kafka-headless.kafka:9092"
+        - "kafka-2.kafka-headless.kafka:9092"
+      
+      object_storage:
+        provider: "s3"
+        endpoint: "https://s3.amazonaws.com"
+        bucket: "agent-images"
+        access_key_env_var: "S3_ACCESS_KEY"
+        secret_key_env_var: "S3_SECRET_KEY"
+      
+      # Empty database configs (required by ServiceConfig structure)
+      clients_database:
+        host: ""
+        port: 0
+        user: ""
+        password_env_var: ""
+        db_name: ""
+        sslmode: "disable"
+      
+      templates_database:
+        host: ""
+        port: 0
+        user: ""
+        password_env_var: ""
+        db_name: ""
+        sslmode: "disable"
+      
+      auth_database:
+        host: ""
+        port: 0
+        user: ""
+        password_env_var: ""
+        db_name: ""
+        sslmode: "disable"
+    
+    custom:
+      adapter_settings:
+        consumer_group: "image-generator-adapter-group"
+        main_topic: "system.adapter.image-generator.requests"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: image-adapter-secrets
+  namespace: agent-system
+type: Opaque
+stringData:
+  s3-access-key: "YOUR_S3_ACCESS_KEY"
+  s3-secret-key: "YOUR_S3_SECRET_KEY"
+  image-api-key: "YOUR_STABILITY_API_KEY"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-generator-adapter
+  namespace: agent-system
+  labels:
+    app: image-generator-adapter
+    component: adapter
+    agent-type: image-generator
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: image-generator-adapter
+  template:
+    metadata:
+      labels:
+        app: image-generator-adapter
+        component: adapter
+        agent-type: image-generator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: agent-service-account
+      containers:
+        - name: adapter
+          image: your-registry/image-generator-adapter:latest
+          imagePullPolicy: Always
+          command: ["/app/image-generator-adapter"]
+          args: ["--config", "/config/image-adapter.yaml"]
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
+            # S3 Configuration
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: image-adapter-secrets
+                  key: s3-access-key
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: image-adapter-secrets
+                  key: s3-secret-key
+            - name: S3_REGION
+              value: "us-east-1"
+            - name: S3_USE_SSL
+              value: "true"
+
+            # Image API Configuration
+            - name: IMAGE_API_URL
+              value: "https://api.stability.ai/v1/generation/stable-diffusion-v1-6/text-to-image"
+            - name: IMAGE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: image-adapter-secrets
+                  key: image-api-key
+
+            # Service Configuration Overrides
+            - name: SERVICE_LOGGING_LEVEL
+              value: "info"
+            - name: SERVICE_ENVIRONMENT
+              value: "production"
+
+          ports:
+            - name: health
+              containerPort: 9090
+              protocol: TCP
+
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+
+      volumes:
+        - name: config
+          configMap:
+            name: image-adapter-config
+
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - image-generator-adapter
+                topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: image-generator-adapter
+  namespace: agent-system
+  labels:
+    app: image-generator-adapter
+spec:
+  type: ClusterIP
+  selector:
+    app: image-generator-adapter
+  ports:
+    - name: health
+      port: 9090
+      targetPort: health
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent-service-account
+  namespace: agent-system
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: image-generator-adapter-pdb
+  namespace: agent-system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: image-generator-adapter
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: image-generator-adapter-hpa
+  namespace: agent-system
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: image-generator-adapter
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

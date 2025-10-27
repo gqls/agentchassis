@@ -1,351 +1,440 @@
-// FILE: platform/orchestration/actions/image_actions.go
+// internal/backend/agent-chassis/internal/actions/image_actions.go
 package actions
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
-	"time"
+	"strings"
 
 	"github.com/google/uuid"
-	"github.com/gqls/agentchassis/platform/config"
-	"github.com/gqls/agentchassis/platform/errors"
+	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
-	"github.com/gqls/agentchassis/platform/storage"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
-// GenerateImageAction generates an image using an external AI image generation service
-// This action integrates with Stability AI or similar services
-func GenerateImageAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Executing image generation action",
-		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+// ImageGenerationResult represents the result of an image generation request
+type ImageGenerationResult struct {
+	Success              bool   `json:"success"`
+	ImageURI             string `json:"image_uri,omitempty"`
+	ErrorMessage         string `json:"error_message,omitempty"`
+	RequestID            string `json:"request_id"`
+	ChildOrchestrationID string `json:"child_orchestration,omitempty"`
+	ChildResponsesTopic  string `json:"child_responses_topic,omitempty"`
+	TargetAgentType      string `json:"target_agent_type"`
+	TopicSentTo          string `json:"topic_sent_to"`
+	StableIdentity       string `json:"stable_identity"`
+	AwaitResponse        bool   `json:"await_response"`
+}
+
+// GenerateImageAction handles image generation requests with dynamic topics
+func GenerateImageAction(params *ActionParams) (interface{}, error) {
+	if params.Logger == nil {
+		return nil, fmt.Errorf("logger is required")
+	}
+
+	logger := params.Logger.With(
+		zap.String("action", "generate_image"),
 		zap.String("step_name", params.ExecutionContext.StepName),
-		zap.String("action", params.ExecutionContext.Action),
-		zap.String("step_id", params.ExecutionContext.StepID))
+		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.String("correlation_id", params.ExecutionContext.CorrelationID),
+	)
 
-	// Extract data using the new data_helpers
-	inputData := datahelpers.ExtractDataFromMessage(params.CollectedData, params.Logger)
+	// Extract input data
+	inputData := datahelpers.GetInputData(params.CollectedData, logger)
 
-	params.Logger.Debug("Extracted input data for image generation",
-		zap.Int("input_fields", len(inputData)),
-		zap.Any("keys", getMapKeys(inputData)))
-
-	// Extract prompt from various possible locations
-	prompt, err := extractImagePrompt(params, inputData)
-	if err != nil {
-		return nil, errors.WrapWithAgentContext(err, "failed to extract image prompt",
-			params.ExecutionContext.Sender.AgentType,
-			params.ExecutionContext.Sender.AgentID,
-			params.ExecutionContext.OrchestrationID,
-			params.ExecutionContext.StepName,
-			params.ExecutionContext.Action)
+	// Get the prompt from input data
+	prompt, ok := inputData["prompt"].(string)
+	if !ok || prompt == "" {
+		return nil, fmt.Errorf("prompt is required for image generation")
 	}
 
-	params.Logger.Info("Image prompt extracted",
-		zap.String("prompt_preview", truncateString(prompt, 100)))
+	// Optional parameters
+	style, _ := inputData["style"].(string)
+	width, _ := inputData["width"].(int)
+	height, _ := inputData["height"].(int)
 
-	// Extract image generation config
-	config := extractImageConfig(params)
-
-	params.Logger.Debug("Image generation config",
-		zap.Any("config", config))
-
-	// Generate the image
-	imageResult, err := generateImageExternal(params.Context, prompt, config, params.Logger)
-	if err != nil {
-		return nil, errors.WrapWithAgentContext(err, "failed to generate image",
-			params.ExecutionContext.Sender.AgentType,
-			params.ExecutionContext.Sender.AgentID,
-			params.ExecutionContext.OrchestrationID,
-			params.ExecutionContext.StepName,
-			params.ExecutionContext.Action)
+	// Set defaults if not provided
+	if width == 0 {
+		width = 1024
+	}
+	if height == 0 {
+		height = 1024
 	}
 
-	params.Logger.Info("Image generated successfully",
-		zap.String("image_uri", imageResult["image_uri"].(string)))
+	// Create stable identity for this image generation request
+	// This ensures unique topics for each image generation
+	stableIdentity := fmt.Sprintf("%s-%s-image-generator-%s",
+		extractShortCorrelation(params.ExecutionContext.CorrelationID),
+		extractShortOrchestration(params.ExecutionContext.OrchestrationID),
+		params.ExecutionContext.StepName,
+	)
+
+	// Create dynamic topics for this specific image generation
+	requestsTopic := fmt.Sprintf("job.%s.requests", stableIdentity)
+	responsesTopic := fmt.Sprintf("job.%s.responses", stableIdentity)
+
+	// Get parent responses topic - where we should get the response
+	parentResponsesTopic := params.ExecutionContext.ResponsesTopic
+	if parentResponsesTopic == "" {
+		parentResponsesTopic = params.ExecutionContext.ReplyToTopic
+	}
+
+	logger.Info("Creating image generation topics",
+		zap.String("stable_identity", stableIdentity),
+		zap.String("requests_topic", requestsTopic),
+		zap.String("responses_topic", responsesTopic),
+		zap.String("parent_responses_topic", parentResponsesTopic),
+	)
+
+	// Create topics using the topic manager
+	if err := createImageGenerationTopics(params.Context, requestsTopic, responsesTopic, params.Logger); err != nil {
+		logger.Error("Failed to create image generation topics", zap.Error(err))
+		return nil, fmt.Errorf("failed to create topics: %w", err)
+	}
+
+	// Build the image generation request
+	imageRequest := buildImageGenerationRequest(
+		params.ExecutionContext,
+		prompt,
+		style,
+		width,
+		height,
+		stableIdentity,
+		responsesTopic,       // The image generator should respond to this topic
+		parentResponsesTopic, // But ultimately the response goes to parent
+		logger,
+	)
+
+	// Determine which image generator topic to use
+	// We use a stable topic that multiple image generator containers listen to
+	imageGeneratorTopic := "system.adapter.image-generator.requests"
+
+	// Send the request
+	requestID := uuid.NewString()
+	if err := sendImageGenerationRequest(
+		params.Context,
+		params.Producer,
+		imageGeneratorTopic,
+		requestID,
+		imageRequest,
+		logger,
+	); err != nil {
+		logger.Error("Failed to send image generation request", zap.Error(err))
+		return nil, err
+	}
+
+	// Store request tracking info in collected data
+	if params.CollectedData != nil {
+		params.CollectedData[params.ExecutionContext.StepName] = map[string]interface{}{
+			"request_id":      requestID,
+			"stable_identity": stableIdentity,
+			"requests_topic":  requestsTopic,
+			"responses_topic": responsesTopic,
+			"prompt":          prompt,
+			"status":          "awaiting_response",
+		}
+	}
+
+	// Return result with await flag
+	result := ImageGenerationResult{
+		Success:             true,
+		RequestID:           requestID,
+		ChildResponsesTopic: responsesTopic,
+		TargetAgentType:     "image-generator",
+		TopicSentTo:         imageGeneratorTopic,
+		StableIdentity:      stableIdentity,
+		AwaitResponse:       true, // We need to wait for the image generation
+	}
+
+	logger.Info("Image generation request sent",
+		zap.String("request_id", requestID),
+		zap.String("topic", imageGeneratorTopic),
+		zap.Bool("await_response", true),
+	)
+
+	return result, nil
+}
+
+// CallImageGeneratorAction is an alternative action for calling an existing image generator agent
+func CallImageGeneratorAction(params *ActionParams) (interface{}, error) {
+	if params.Logger == nil {
+		return nil, fmt.Errorf("logger is required")
+	}
+
+	logger := params.Logger.With(
+		zap.String("action", "call_image_generator"),
+		zap.String("step_name", params.ExecutionContext.StepName),
+	)
+
+	// Extract target agent info from collected data
+	inputData := datahelpers.GetInputData(params.CollectedData, logger)
+
+	// Check if we have a specific image generator agent to call
+	imageGeneratorInfo, ok := params.CollectedData["image_generator_agent"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("no image generator agent info found")
+	}
+
+	agentID, _ := imageGeneratorInfo["agent_id"].(string)
+	requestsTopic, _ := imageGeneratorInfo["requests_topic"].(string)
+	responsesTopic, _ := imageGeneratorInfo["responses_topic"].(string)
+
+	if agentID == "" || requestsTopic == "" {
+		return nil, fmt.Errorf("invalid image generator agent info")
+	}
+
+	// Build request message for the image generator
+	childCtx := params.ExecutionContext.CreateChildContext("image-generator")
+	childCtx.Action = "generate"
+
+	requestMessage := datahelpers.BuildRequestMessage(
+		childCtx,
+		"image-generator",
+		"generate",
+		inputData,
+		nil,
+		logger,
+	)
+
+	// Send to the image generator's request topic
+	requestID := uuid.NewString()
+	if err := sendAgentImageRequest(
+		params.Context,
+		params.Producer,
+		requestsTopic,
+		requestID,
+		requestMessage,
+		logger,
+	); err != nil {
+		return nil, fmt.Errorf("failed to call image generator: %w", err)
+	}
 
 	// Return result
 	result := map[string]interface{}{
-		"image_uri":    imageResult["image_uri"],
-		"prompt":       prompt,
-		"generated_at": time.Now().Format(time.RFC3339),
-	}
-
-	if seed, ok := imageResult["seed"]; ok {
-		result["seed"] = seed
-	}
-
-	return result, nil
-}
-
-// extractImagePrompt extracts the prompt for image generation from various sources
-func extractImagePrompt(params ActionParams, inputData map[string]interface{}) (string, error) {
-	// Priority 1: Check step config for prompt template
-	if stepPrompt, ok := params.StepConfig.Config["prompt"].(string); ok && stepPrompt != "" {
-		params.Logger.Debug("Using prompt from step config")
-		// Render template if it contains template syntax
-		if containsTemplateSyntax(stepPrompt) {
-			rendered, err := renderImagePromptTemplate(stepPrompt, inputData, params.Logger)
-			if err == nil {
-				return rendered, nil
-			}
-			params.Logger.Warn("Failed to render prompt template, using as-is",
-				zap.Error(err))
-		}
-		return stepPrompt, nil
-	}
-
-	// Priority 2: Check collected data for prompt
-	if prompt, ok := params.CollectedData["prompt"].(string); ok && prompt != "" {
-		params.Logger.Debug("Using prompt from collected data")
-		return prompt, nil
-	}
-
-	// Priority 3: Check input_data for prompt or image_prompt
-	if prompt, ok := inputData["image_prompt"].(string); ok && prompt != "" {
-		params.Logger.Debug("Using image_prompt from input data")
-		return prompt, nil
-	}
-
-	if prompt, ok := inputData["prompt"].(string); ok && prompt != "" {
-		params.Logger.Debug("Using prompt from input data")
-		return prompt, nil
-	}
-
-	// Priority 4: Check input_fields to gather context for prompt generation
-	if inputFields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
-		contextData := gatherInputFieldsData(params.CollectedData, inputFields, params.Logger)
-		if len(contextData) > 0 {
-			// Try to generate a prompt from context
-			if generatedPrompt := generatePromptFromContext(contextData, params.Logger); generatedPrompt != "" {
-				params.Logger.Debug("Generated prompt from input fields context")
-				return generatedPrompt, nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("no image prompt found in step config, collected data, or input data")
-}
-
-// extractImageConfig extracts configuration for image generation
-func extractImageConfig(params ActionParams) map[string]interface{} {
-	config := make(map[string]interface{})
-
-	// Default values
-	config["aspect_ratio"] = "1:1"
-	config["output_format"] = "png"
-
-	// Extract from step config
-	if stepConfig, ok := params.StepConfig.Config["image_config"].(map[string]interface{}); ok {
-		for k, v := range stepConfig {
-			config[k] = v
-		}
-	}
-
-	// Extract individual config values
-	if aspectRatio, ok := params.StepConfig.Config["aspect_ratio"].(string); ok {
-		config["aspect_ratio"] = aspectRatio
-	}
-
-	if style, ok := params.StepConfig.Config["style"].(string); ok {
-		config["style"] = style
-	}
-
-	if seed, ok := params.StepConfig.Config["seed"].(float64); ok {
-		config["seed"] = int64(seed)
-	}
-
-	// Check collected data for any overrides
-	if imageConfig, ok := params.CollectedData["image_config"].(map[string]interface{}); ok {
-		for k, v := range imageConfig {
-			config[k] = v
-		}
-	}
-
-	return config
-}
-
-// generateImageExternal calls the external image generation API
-func generateImageExternal(ctx context.Context, prompt string, config map[string]interface{}, logger *zap.Logger) (map[string]interface{}, error) {
-	// Get API endpoint and key from environment
-	apiEndpoint := os.Getenv("STABILITY_API_ENDPOINT")
-	if apiEndpoint == "" {
-		apiEndpoint = "https://api.stability.ai/v2beta/stable-image/generate/core"
-	}
-
-	apiKey := os.Getenv("STABILITY_API_KEY")
-	if apiKey == "" {
-		return nil, fmt.Errorf("STABILITY_API_KEY environment variable not set")
-	}
-
-	logger.Info("Calling image generation API",
-		zap.String("endpoint", apiEndpoint),
-		zap.String("prompt_preview", truncateString(prompt, 100)))
-
-	// Build request payload
-	payload := map[string]interface{}{
-		"prompt": prompt,
-	}
-
-	// Add optional parameters
-	if aspectRatio, ok := config["aspect_ratio"].(string); ok {
-		payload["aspect_ratio"] = aspectRatio
-	}
-
-	if style, ok := config["style"].(string); ok {
-		payload["style_preset"] = style
-	}
-
-	if seed, ok := config["seed"].(int64); ok {
-		payload["seed"] = seed
-	}
-
-	if outputFormat, ok := config["output_format"].(string); ok {
-		payload["output_format"] = outputFormat
-	}
-
-	// Marshal payload
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request payload: %w", err)
-	}
-
-	// Create HTTP request with timeout context
-	reqCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(reqCtx, "POST", apiEndpoint, bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
-	}
-
-	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Accept", "application/json")
-
-	// Execute request
-	client := &http.Client{
-		Timeout: 90 * time.Second,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute API request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	// Check status code
-	if resp.StatusCode != http.StatusOK {
-		logger.Error("Image generation API returned error",
-			zap.Int("status_code", resp.StatusCode),
-			zap.String("response", string(respBody)))
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	// Parse response
-	var apiResponse struct {
-		Image string `json:"image"`
-		Seed  int64  `json:"seed"`
-	}
-
-	if err := json.Unmarshal(respBody, &apiResponse); err != nil {
-		return nil, fmt.Errorf("failed to parse API response: %w", err)
-	}
-
-	// Decode base64 image
-	imageData, err := base64.StdEncoding.DecodeString(apiResponse.Image)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode base64 image: %w", err)
-	}
-
-	logger.Info("Image data received",
-		zap.Int("image_size_bytes", len(imageData)),
-		zap.Int64("seed", apiResponse.Seed))
-
-	// Store image in object storage
-	imageURI, err := storeImageInObjectStorage(ctx, imageData, config, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to store image: %w", err)
-	}
-
-	result := map[string]interface{}{
-		"image_uri": imageURI,
-		"seed":      apiResponse.Seed,
+		"success":               true,
+		"request_id":            requestID,
+		"agent_called":          agentID,
+		"agent_type":            "image-generator",
+		"child_responses_topic": responsesTopic,
+		"await_response":        true,
+		"action_sent":           "generate",
 	}
 
 	return result, nil
 }
 
-// renderImagePromptTemplate renders a prompt template with data
-func renderImagePromptTemplate(template string, data map[string]interface{}, logger *zap.Logger) (string, error) {
-	// Use simple string replacement for now
-	// In production, you might want to use text/template or similar
-	result := template
+// buildImageGenerationRequest creates the request message for image generation
+func buildImageGenerationRequest(
+	execCtx *types.ExecutionContext,
+	prompt string,
+	style string,
+	width int,
+	height int,
+	stableIdentity string,
+	responsesTopic string,
+	parentResponsesTopic string,
+	logger *zap.Logger,
+) *types.RequestMessage {
 
-	for key, value := range data {
-		placeholder := fmt.Sprintf("{{.%s}}", key)
-		if strValue, ok := value.(string); ok {
-			result = replaceAll(result, placeholder, strValue)
+	// Create a child context for the image generation
+	childCtx := execCtx.CreateChildContext("image-generator")
+	childCtx.Action = "generate"
+	childCtx.RequestsTopic = fmt.Sprintf("job.%s.requests", stableIdentity)
+	childCtx.ResponsesTopic = responsesTopic
+	childCtx.ReplyToTopic = parentResponsesTopic // Image generator should ultimately reply here
+
+	// Build headers
+	headers := childCtx.ToRequestHeaders()
+
+	// Build body with image generation parameters
+	body := map[string]interface{}{
+		"action": "generate",
+		"data": map[string]interface{}{
+			"prompt": prompt,
+			"style":  style,
+			"width":  width,
+			"height": height,
+		},
+		// Add specific image generation values
+		"stable_identity": stableIdentity,
+		"image_request":   true,
+		"reply_to_topic":  parentResponsesTopic, // Explicitly tell where to reply
+		"metadata": map[string]interface{}{
+			"stable_identity":       stableIdentity,
+			"parent_orchestration":  execCtx.ParentOrchestrationID,
+			"requesting_agent_type": execCtx.Sender.AgentType,
+			"requesting_step":       execCtx.StepName,
+		},
+	}
+
+	logger.Debug("Built image generation request",
+		zap.String("stable_identity", stableIdentity),
+		zap.String("prompt", prompt),
+		zap.String("reply_to_topic", parentResponsesTopic),
+	)
+
+	return &types.RequestMessage{
+		Headers: headers,
+		Body:    body,
+	}
+}
+
+// createImageGenerationTopics creates the dynamic topics for image generation
+func createImageGenerationTopics(ctx context.Context, requestsTopic, responsesTopic string, logger *zap.Logger) error {
+	// Get Kafka brokers from environment or config
+	brokers := strings.Split(getEnvOrDefault("KAFKA_BROKERS", "kafka:9092"), ",")
+
+	// Create topic manager
+	topicManager := kafka.NewTopicManager(brokers, logger)
+
+	// Define topic configurations
+	topics := []kafka.TopicDefinition{
+		{
+			Name:              requestsTopic,
+			Partitions:        2,
+			ReplicationFactor: 1,
+		},
+		{
+			Name:              responsesTopic,
+			Partitions:        2,
+			ReplicationFactor: 1,
+		},
+	}
+
+	// Create topics
+	for _, topic := range topics {
+		if err := topicManager.CreateTopic(ctx, topic); err != nil {
+			// Check if topic already exists (not an error)
+			if !strings.Contains(err.Error(), "already exists") {
+				return fmt.Errorf("failed to create topic %s: %w", topic.Name, err)
+			}
+			logger.Debug("Topic already exists", zap.String("topic", topic.Name))
 		} else {
-			result = replaceAll(result, placeholder, fmt.Sprintf("%v", value))
+			logger.Info("Created image generation topic",
+				zap.String("topic", topic.Name),
+				zap.Int("partitions", topic.Partitions),
+			)
+		}
+
+		// Wait for topic to be ready
+		if err := topicManager.WaitForTopic(ctx, topic.Name, logger); err != nil {
+			logger.Warn("Topic may not be fully ready",
+				zap.String("topic", topic.Name),
+				zap.Error(err),
+			)
 		}
 	}
 
-	return result, nil
+	return nil
 }
 
-// generatePromptFromContext generates an image prompt from context data
-func generatePromptFromContext(contextData map[string]interface{}, logger *zap.Logger) string {
-	// This is a simple implementation - in production you might use an LLM to generate better prompts
-	var parts []string
+// sendImageGenerationRequest sends the request to the image generator
+func sendImageGenerationRequest(
+	ctx context.Context,
+	producer kafka.Producer,
+	topic string,
+	requestID string,
+	message *types.RequestMessage,
+	logger *zap.Logger,
+) error {
 
-	for _, value := range contextData {
-		if strValue, ok := value.(string); ok && strValue != "" {
-			parts = append(parts, strValue)
+	// Serialize the message
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Convert headers to Kafka headers
+	headers := message.Headers.ToMap()
+	headers["request_id"] = requestID
+
+	// Send the message
+	key := []byte(message.Headers.CorrelationID)
+
+	logger.Debug("Sending image generation request",
+		zap.String("topic", topic),
+		zap.String("request_id", requestID),
+		zap.Int("message_size", len(messageBytes)),
+	)
+
+	return producer.ProduceWithValidation(ctx, topic, headers, key, messageBytes)
+}
+
+// sendAgentRequest sends a request to a specific agent
+func sendAgentImageRequest(
+	ctx context.Context,
+	producer kafka.Producer,
+	topic string,
+	requestID string,
+	message *types.RequestMessage,
+	logger *zap.Logger,
+) error {
+	return sendImageGenerationRequest(ctx, producer, topic, requestID, message, logger)
+}
+
+// ProcessImageResponse processes responses from image generation
+func ProcessImageResponse(params *ActionParams) (interface{}, error) {
+	logger := params.Logger.With(
+		zap.String("action", "process_image_response"),
+		zap.String("step_name", params.ExecutionContext.StepName),
+	)
+
+	// Get the response from collected data
+	stepData, ok := datahelpers.GetStepData(params.CollectedData, params.ExecutionContext.StepName, logger)
+	if !ok {
+		return nil, fmt.Errorf("no response data found for step %s", params.ExecutionContext.StepName)
+	}
+
+	// Extract image URI from response
+	imageURI, _ := stepData["image_uri"].(string)
+	if imageURI == "" {
+		// Check for error
+		if errorMsg, ok := stepData["error"].(string); ok {
+			return nil, fmt.Errorf("image generation failed: %s", errorMsg)
+		}
+		return nil, fmt.Errorf("no image URI in response")
+	}
+
+	// Store in collected data for use by other steps
+	if params.CollectedData != nil {
+		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+			inputData["generated_image_uri"] = imageURI
+			inputData["image_generation_complete"] = true
 		}
 	}
 
-	if len(parts) == 0 {
-		return ""
-	}
+	logger.Info("Image generation complete",
+		zap.String("image_uri", imageURI),
+	)
 
-	// Join parts into a prompt
-	return fmt.Sprintf("Create an image for: %s", parts[0])
+	return map[string]interface{}{
+		"success":   true,
+		"image_uri": imageURI,
+	}, nil
 }
 
 // Helper functions
 
-func containsTemplateSyntax(s string) bool {
-	return len(s) > 4 && (bytes.Contains([]byte(s), []byte("{{")) || bytes.Contains([]byte(s), []byte("}}")))
-}
-
-func replaceAll(s, old, new string) string {
-	return bytes.NewBuffer([]byte(s)).String() // simplified - use strings.ReplaceAll in production
-}
-
-func gatherInputFieldsData(collectedData map[string]interface{}, inputFields []interface{}, logger *zap.Logger) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	for _, field := range inputFields {
-		if fieldName, ok := field.(string); ok {
-			if value, exists := collectedData[fieldName]; exists {
-				result[fieldName] = value
-			}
-		}
+func extractShortCorrelation(correlationID string) string {
+	if len(correlationID) >= 8 {
+		return correlationID[:8]
 	}
+	return correlationID
+}
 
-	return result
+func extractShortOrchestration(orchestrationID string) string {
+	if len(orchestrationID) >= 8 {
+		return orchestrationID[:8]
+	}
+	return orchestrationID
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

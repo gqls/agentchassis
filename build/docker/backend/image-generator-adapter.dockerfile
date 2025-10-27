@@ -13,4 +13,18 @@ COPY --from=builder /app/image-generator-adapter /app/
 COPY configs/image-adapter.yaml /app/configs/
 RUN chown -R appuser:appgroup /app
 USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:9090/health || exit 1
+
+# Expose health check port
+EXPOSE 9090
+
+# Set default environment variables
+ENV SERVICE_ENVIRONMENT=production \
+    SERVICE_LOGGING_LEVEL=info \
+    S3_USE_SSL=true \
+    S3_REGION=us-east-1
+
 CMD ["./image-generator-adapter", "-config", "configs/image-adapter.yaml"]

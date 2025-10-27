@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	platform_config "github.com/gqls/agentchassis/platform/config"
+	"go.uber.org/zap"
 )
 
 // S3Client implements the Client interface for S3-compatible services
@@ -22,15 +23,19 @@ type S3Client struct {
 	bucket string
 }
 
-func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig) (*S3Client, error) {
+func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig, logger zap.Logger) (*S3Client, error) {
 	// Use the env vars specified in config
 	accessKey := os.Getenv(cfg.AccessKeyEnvVar)
 	secretKey := os.Getenv(cfg.SecretKeyEnvVar)
 
 	// Add debug logging
-	fmt.Printf("DEBUG: AccessKeyEnvVar=%s, SecretKeyEnvVar=%s\n", cfg.AccessKeyEnvVar, cfg.SecretKeyEnvVar)
-	fmt.Printf("DEBUG: AccessKey=%s...\n", accessKey[:10])
-	fmt.Printf("DEBUG: Endpoint=%s, Bucket=%s\n", cfg.Endpoint, cfg.Bucket)
+	logger.Info("NewS3Client",
+		zap.String("DEBUG: AccessKeyEnvVar=%s", cfg.AccessKeyEnvVar),
+		zap.String("DEBUG: cfg.SecretKeyEnvVar", cfg.AccessKeyEnvVar),
+		zap.String("DEBUG: AccessKey", accessKey[:10]),
+		zap.String("DEBUG: Endpoint", cfg.Endpoint),
+		zap.String("DEBUG: Bucket", cfg.Bucket),
+	)
 
 	if accessKey == "" || secretKey == "" {
 		return nil, fmt.Errorf("object storage credentials not found in environment variables (%s, %s)",
