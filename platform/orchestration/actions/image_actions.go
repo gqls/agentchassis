@@ -30,7 +30,7 @@ type ImageGenerationResult struct {
 }
 
 // GenerateImageAction handles image generation requests with dynamic topics
-func GenerateImageAction(params *ActionParams) (interface{}, error) {
+func GenerateImageAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	if params.Logger == nil {
 		return nil, fmt.Errorf("logger is required")
 	}
@@ -159,7 +159,7 @@ func GenerateImageAction(params *ActionParams) (interface{}, error) {
 }
 
 // CallImageGeneratorAction is an alternative action for calling an existing image generator agent
-func CallImageGeneratorAction(params *ActionParams) (interface{}, error) {
+func CallImageGeneratorAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	if params.Logger == nil {
 		return nil, fmt.Errorf("logger is required")
 	}

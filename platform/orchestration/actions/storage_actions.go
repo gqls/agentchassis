@@ -91,7 +91,7 @@ func UploadToS3Action(ctx context.Context, params ActionParams) (interface{}, er
 	}
 
 	// Create S3 client
-	s3Client, err := storage.NewS3Client(ctx, storageConfig)
+	s3Client, err := storage.NewS3Client(ctx, storageConfig, *params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create S3 client: %w", err)
 	}
@@ -600,7 +600,7 @@ func storeToS3(ctx context.Context, params ActionParams, content map[string][]by
 		zap.Bool("has_secret_key_env", storageConfig.SecretKeyEnvVar != ""))
 
 	// Now create the S3 client with properly structured config
-	s3Client, err := storage.NewS3Client(ctx, storageConfig)
+	s3Client, err := storage.NewS3Client(ctx, storageConfig, *params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create S3 client: %w", err)
 	}
