@@ -45,8 +45,13 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// Extract input data
 	inputData := datahelpers.GetInputData(params.CollectedData, logger)
 
-	// Get the prompt from input data
-	prompt, ok := inputData["prompt"].(string)
+	// Get the prompt from CollectedData top level
+	prompt, ok := params.CollectedData["prompt"].(string)
+	if !ok || prompt == "" {
+		// or from input data
+		prompt, ok = inputData["prompt"].(string)
+	}
+
 	if !ok || prompt == "" {
 		return nil, fmt.Errorf("prompt is required for image generation")
 	}
