@@ -110,7 +110,7 @@ func NewDynamicImageAdapter(ctx context.Context, cfg *config.ServiceConfig, logg
 	storageConfig.Bucket = cfg.Infrastructure.ObjectStorage.Bucket
 	storageConfig.AccessKeyEnvVar = accessKey
 	storageConfig.SecretKeyEnvVar = secretKey
-	
+
 	if storageConfig.Endpoint == "" {
 		storageConfig.Endpoint = os.Getenv("S3_ENDPOINT")
 	}
@@ -337,10 +337,16 @@ func (a *DynamicImageAdapter) generateImage(prompt string, width, height int) ([
 
 // uploadImage uploads the generated image to S3
 func (a *DynamicImageAdapter) uploadImage(imageData []byte, clientID string, logger *zap.Logger) (string, error) {
+
 	// Generate unique filename
 	timestamp := time.Now().Format("20060102-150405")
 	imageID := uuid.NewString()
 	fileName := fmt.Sprintf("images/%s/%s/%s.png", clientID, timestamp[:8], imageID)
+
+	logger.Info("uploadeImage about to upload image",
+		zap.String("filename", fileName),
+		zap.String("imageID uuid", imageID),
+	)
 
 	// Upload to S3
 	imageURI, err := a.storageClient.Upload(

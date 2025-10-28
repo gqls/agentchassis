@@ -100,18 +100,49 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		return nil, fmt.Errorf("failed to create topics: %w", err)
 	}
 
-	// Build the image generation request
-	imageRequest := buildImageGenerationRequest(
+	// Build the image generation request using the new data helpers
+	// This ensures all required fields are properly populated
+	imageData := map[string]interface{}{
+		"prompt": prompt,
+		"style":  style,
+		"width":  width,
+		"height": height,
+	}
+
+	// Use BuildRequestMessage from data_helpers to construct a properly formatted message
+	imageRequest := datahelpers.BuildRequestMessage(
 		params.ExecutionContext,
-		prompt,
-		style,
-		width,
-		height,
-		stableIdentity,
-		responsesTopic,       // The image generator should respond to this topic
-		parentResponsesTopic, // But ultimately the response goes to parent
+		"image-generator", // target agent type
+		"generate",        // action
+		imageData,         // data
+		map[string]interface{}{ // config
+			"stable_identity":        stableIdentity,
+			"parent_responses_topic": parentResponsesTopic,
+		},
 		logger,
 	)
+
+	// Override the response topics to use our custom ones
+	imageRequest.Headers.RequestsTopic = requestsTopic
+	imageRequest.Headers.ResponsesTopic = responsesTopic
+	imageRequest.Headers.ParentResponsesTopic = parentResponsesTopic
+	imageRequest.Headers.Sender = params.ExecutionContext.Sender
+	imageRequest.Headers.StepID = params.ExecutionContext.StepID
+	imageRequest.Headers.StepName = params.ExecutionContext.StepName
+
+	// Add image generation specific metadata to body
+	if body, ok := imageRequest.Body.(map[string]interface{}); ok {
+		body["reply_to_topic"] = parentResponsesTopic
+		body["parent_responses_topic"] = parentResponsesTopic
+		body["stable_identity"] = stableIdentity
+		body["image_request"] = true
+		body["metadata"] = map[string]interface{}{
+			"stable_identity":       stableIdentity,
+			"parent_orchestration":  params.ExecutionContext.ParentOrchestrationID,
+			"requesting_agent_type": params.ExecutionContext.Sender.AgentType,
+			"requesting_step":       params.ExecutionContext.StepName,
+		}
+	}
 
 	// Determine which image generator topic to use
 	// We use a stable topic that multiple image generator containers listen to
@@ -131,15 +162,23 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		return nil, err
 	}
 
+	logger.Info("Image generation request sent successfully",
+		zap.String("request_id", requestID),
+		zap.String("topic", imageGeneratorTopic),
+		zap.String("stable_identity", stableIdentity),
+	)
+
 	// Store request tracking info in collected data
 	if params.CollectedData != nil {
 		params.CollectedData[params.ExecutionContext.StepName] = map[string]interface{}{
-			"request_id":      requestID,
-			"stable_identity": stableIdentity,
-			"requests_topic":  requestsTopic,
-			"responses_topic": responsesTopic,
-			"prompt":          prompt,
-			"status":          "awaiting_response",
+			"request_id":            requestID,
+			"stable_identity":       stableIdentity,
+			"requests_topic":        requestsTopic,
+			"responses_topic":       responsesTopic,
+			"parent_topic":          parentResponsesTopic,
+			"image_generator_topic": imageGeneratorTopic,
+			"prompt":                prompt,
+			"status":                "awaiting_response",
 		}
 	}
 
@@ -163,180 +202,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	return result, nil
 }
 
-// CallImageGeneratorAction is an alternative action for calling an existing image generator agent
-func CallImageGeneratorAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	if params.Logger == nil {
-		return nil, fmt.Errorf("logger is required")
-	}
-
-	logger := params.Logger.With(
-		zap.String("action", "call_image_generator"),
-		zap.String("step_name", params.ExecutionContext.StepName),
-	)
-
-	// Extract target agent info from collected data
-	inputData := datahelpers.GetInputData(params.CollectedData, logger)
-
-	// Check if we have a specific image generator agent to call
-	imageGeneratorInfo, ok := params.CollectedData["image_generator_agent"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("no image generator agent info found")
-	}
-
-	agentID, _ := imageGeneratorInfo["agent_id"].(string)
-	requestsTopic, _ := imageGeneratorInfo["requests_topic"].(string)
-	responsesTopic, _ := imageGeneratorInfo["responses_topic"].(string)
-
-	if agentID == "" || requestsTopic == "" {
-		return nil, fmt.Errorf("invalid image generator agent info")
-	}
-
-	// Build request message for the image generator
-	childCtx := params.ExecutionContext.CreateChildContext("image-generator")
-	childCtx.Action = "generate"
-
-	requestMessage := datahelpers.BuildRequestMessage(
-		childCtx,
-		"image-generator",
-		"generate",
-		inputData,
-		nil,
-		logger,
-	)
-
-	// Send to the image generator's request topic
-	requestID := uuid.NewString()
-	if err := sendAgentImageRequest(
-		params.Context,
-		params.Producer,
-		requestsTopic,
-		requestID,
-		requestMessage,
-		logger,
-	); err != nil {
-		return nil, fmt.Errorf("failed to call image generator: %w", err)
-	}
-
-	// Return result
-	result := map[string]interface{}{
-		"success":               true,
-		"request_id":            requestID,
-		"agent_called":          agentID,
-		"agent_type":            "image-generator",
-		"child_responses_topic": responsesTopic,
-		"await_response":        true,
-		"action_sent":           "generate",
-	}
-
-	return result, nil
-}
-
-// buildImageGenerationRequest creates the request message for image generation
-func buildImageGenerationRequest(
-	execCtx *types.ExecutionContext,
-	prompt string,
-	style string,
-	width int,
-	height int,
-	stableIdentity string,
-	responsesTopic string,
-	parentResponsesTopic string,
-	logger *zap.Logger,
-) *types.RequestMessage {
-
-	// Create a child context for the image generation
-	childCtx := execCtx.CreateChildContext("image-generator")
-	childCtx.Action = "generate"
-	childCtx.RequestsTopic = fmt.Sprintf("job.%s.requests", stableIdentity)
-	childCtx.ResponsesTopic = responsesTopic
-	childCtx.ReplyToTopic = parentResponsesTopic // Image generator should ultimately reply here
-
-	// Build headers
-	headers := childCtx.ToRequestHeaders()
-
-	// Build body with image generation parameters
-	body := map[string]interface{}{
-		"action": "generate",
-		"data": map[string]interface{}{
-			"prompt": prompt,
-			"style":  style,
-			"width":  width,
-			"height": height,
-		},
-		// Add specific image generation values
-		"stable_identity": stableIdentity,
-		"image_request":   true,
-		"reply_to_topic":  parentResponsesTopic, // Explicitly tell where to reply
-		"metadata": map[string]interface{}{
-			"stable_identity":       stableIdentity,
-			"parent_orchestration":  execCtx.ParentOrchestrationID,
-			"requesting_agent_type": execCtx.Sender.AgentType,
-			"requesting_step":       execCtx.StepName,
-		},
-	}
-
-	logger.Debug("Built image generation request",
-		zap.String("stable_identity", stableIdentity),
-		zap.String("prompt", prompt),
-		zap.String("reply_to_topic", parentResponsesTopic),
-	)
-
-	return &types.RequestMessage{
-		Headers: headers,
-		Body:    body,
-	}
-}
-
-// createImageGenerationTopics creates the dynamic topics for image generation
-func createImageGenerationTopics(ctx context.Context, requestsTopic, responsesTopic string, logger *zap.Logger) error {
-	// Get Kafka brokers from environment or config
-	brokers := strings.Split(getEnvOrDefault("KAFKA_BROKERS", "kafka:9092"), ",")
-
-	// Create topic manager
-	topicManager := kafka.NewTopicManager(brokers, logger)
-
-	// Define topic configurations
-	topics := []kafka.TopicDefinition{
-		{
-			Name:              requestsTopic,
-			Partitions:        2,
-			ReplicationFactor: 1,
-		},
-		{
-			Name:              responsesTopic,
-			Partitions:        2,
-			ReplicationFactor: 1,
-		},
-	}
-
-	// Create topics
-	for _, topic := range topics {
-		if err := topicManager.CreateTopic(ctx, topic); err != nil {
-			// Check if topic already exists (not an error)
-			if !strings.Contains(err.Error(), "already exists") {
-				return fmt.Errorf("failed to create topic %s: %w", topic.Name, err)
-			}
-			logger.Debug("Topic already exists", zap.String("topic", topic.Name))
-		} else {
-			logger.Info("Created image generation topic",
-				zap.String("topic", topic.Name),
-				zap.Int("partitions", topic.Partitions),
-			)
-		}
-
-		// Wait for topic to be ready
-		if err := topicManager.WaitForTopic(ctx, topic.Name, logger); err != nil {
-			logger.Warn("Topic may not be fully ready",
-				zap.String("topic", topic.Name),
-				zap.Error(err),
-			)
-		}
-	}
-
-	return nil
-}
-
-// sendImageGenerationRequest sends the request to the image generator
+// sendImageGenerationRequest sends the request message with proper validation
 func sendImageGenerationRequest(
 	ctx context.Context,
 	producer kafka.Producer,
@@ -345,39 +211,40 @@ func sendImageGenerationRequest(
 	message *types.RequestMessage,
 	logger *zap.Logger,
 ) error {
+	// Ensure the message has the request_id in headers
+	if message.Headers.RequestID == "" {
+		message.Headers.RequestID = requestID
+	}
 
-	// Serialize the message
+	// Ensure all required validation fields are present
+	// The validator checks these specific fields
+	if message.Headers.SenderAgentType == "" && message.Headers.Sender.AgentType != "" {
+		message.Headers.SenderAgentType = message.Headers.Sender.AgentType
+	}
+	if message.Headers.InResponseToStepName == "" && message.Headers.StepName != "" {
+		message.Headers.InResponseToStepName = message.Headers.StepName
+	}
+
+	logger.Debug("Sending image generation request",
+		zap.String("topic", topic),
+		zap.String("request_id", requestID),
+		zap.String("correlation_id", message.Headers.CorrelationID),
+		zap.String("sender_agent_type", message.Headers.SenderAgentType),
+		zap.String("to_agent_type", message.Headers.ToAgentType),
+	)
+
+	// Convert headers to map
+	headers := message.Headers.ToMap()
+
+	// Convert message to bytes
 	messageBytes, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// Convert headers to Kafka headers
-	headers := message.Headers.ToMap()
-	headers["request_id"] = requestID
-
-	// Send the message
+	// Send with validation
 	key := []byte(message.Headers.CorrelationID)
-
-	logger.Debug("Sending image generation request",
-		zap.String("topic", topic),
-		zap.String("request_id", requestID),
-		zap.Int("message_size", len(messageBytes)),
-	)
-
 	return producer.ProduceWithValidation(ctx, topic, headers, key, messageBytes)
-}
-
-// sendAgentRequest sends a request to a specific agent
-func sendAgentImageRequest(
-	ctx context.Context,
-	producer kafka.Producer,
-	topic string,
-	requestID string,
-	message *types.RequestMessage,
-	logger *zap.Logger,
-) error {
-	return sendImageGenerationRequest(ctx, producer, topic, requestID, message, logger)
 }
 
 // ProcessImageResponse processes responses from image generation
@@ -442,4 +309,53 @@ func getEnvOrDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// createImageGenerationTopics creates the dynamic topics for image generation
+func createImageGenerationTopics(ctx context.Context, requestsTopic, responsesTopic string, logger *zap.Logger) error {
+	// Get Kafka brokers from environment or config
+	brokers := strings.Split(getEnvOrDefault("KAFKA_BROKERS", "kafka:9092"), ",")
+
+	// Create topic manager
+	topicManager := kafka.NewTopicManager(brokers, logger)
+
+	// Define topic configurations
+	topics := []kafka.TopicDefinition{
+		{
+			Name:              requestsTopic,
+			Partitions:        2,
+			ReplicationFactor: 1,
+		},
+		{
+			Name:              responsesTopic,
+			Partitions:        2,
+			ReplicationFactor: 1,
+		},
+	}
+
+	// Create topics
+	for _, topic := range topics {
+		if err := topicManager.CreateTopic(ctx, topic); err != nil {
+			// Check if topic already exists (not an error)
+			if !strings.Contains(err.Error(), "already exists") {
+				return fmt.Errorf("failed to create topic %s: %w", topic.Name, err)
+			}
+			logger.Debug("Topic already exists", zap.String("topic", topic.Name))
+		} else {
+			logger.Info("Created image generation topic",
+				zap.String("topic", topic.Name),
+				zap.Int("partitions", topic.Partitions),
+			)
+		}
+
+		// Wait for topic to be ready
+		if err := topicManager.WaitForTopic(ctx, topic.Name, logger); err != nil {
+			logger.Warn("Topic may not be fully ready",
+				zap.String("topic", topic.Name),
+				zap.Error(err),
+			)
+		}
+	}
+
+	return nil
 }

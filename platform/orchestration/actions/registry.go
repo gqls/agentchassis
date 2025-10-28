@@ -18,8 +18,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"start_orchestration": StartOrchestrationAction,
 
 	// Image generation
-	"generate_image":       GenerateImageAction,
-	"call_image_generator": CallImageGeneratorAction,
+	"generate_image": GenerateImageAction,
 
 	// Data operations
 	"validate_input":  ValidateInputAction,

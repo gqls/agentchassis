@@ -105,6 +105,9 @@ type RequestHeaders struct {
 	ParentOrchestrationName string `json:"parent_orchestration_name"`
 	ReplyToRequestID        string `json:"reply_to_request_id"` // If spawned
 	ParentResponsesTopic    string `json:"parent_responses_topic"`
+	ReplyToTopic            string `json:"reply_to_topic"`           // not yet used properly - just in generateimageactions
+	SenderAgentType         string `json:"sender_agent_type"`        // not yet used properly - just in generateimageactions
+	InResponseToStepName    string `json:"in_response_to_step_name"` // not yet used properly - just in generateimageactions
 
 	// Message Metadata
 	MessageID   string    `json:"message_id"`   // Unique per message
