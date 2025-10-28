@@ -1,0 +1,2 @@
+every agent is an orchestrator even if it just has one step
+we need to keep the versions in the database, you can specify different versions of agent in the messages.

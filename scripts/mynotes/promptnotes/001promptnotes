@@ -57,4 +57,9 @@ don't make up urls, don't make up addresses and phone numbers
 
 IMPORTANT: You must respond with ONLY a valid JSON object, nothing else. Do not include any explanatory text before or after the JSON. Do not wrap the JSON in markdown code blocks.
 
+don't make up db schemas, column names/field names, enums, column types, indices - always ask
+
+
+
+
 

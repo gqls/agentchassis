@@ -283,9 +283,30 @@ func buildRequestBody(params ActionParams, targetAction string, dataToSend inter
 		requestBody["prompt"] = prompt
 	}
 
-	// Add any agent config
-	if agentConfig, ok := params.CollectedData["agent_config"]; ok {
-		requestBody["config"] = agentConfig
+	// Add any agent config - maybe reinstate this if we want to pass workflows down in messages
+	//if agentConfig, ok := params.CollectedData["agent_config"]; ok {
+	//	requestBody["config"] = agentConfig
+	//}
+	// Filter agent_config to remove workflow before passing to child
+	// Child agents should use their own workflows, not inherit parent's workflow
+	if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
+		// Create a clean copy without workflow
+		cleanConfig := make(map[string]interface{})
+		for k, v := range agentConfig {
+			// Skip workflow-related fields that should not be passed to children
+			if k != "workflow" && k != "task_workflow" && k != "orchestration_workflow" && k != "orchestrator_workflow" {
+				cleanConfig[k] = v
+			}
+		}
+
+		// Only add config if it has meaningful content after filtering
+		if len(cleanConfig) > 0 {
+			requestBody["config"] = cleanConfig
+			params.Logger.Debug("Added filtered config to request body",
+				zap.Int("config_fields", len(cleanConfig)),
+				zap.Strings("excluded_fields", []string{"workflow", "task_workflow", "orchestration_workflow"}),
+			)
+		}
 	}
 
 	// Include context from previous steps if requested
@@ -553,11 +574,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -610,11 +631,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -665,11 +686,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
 
