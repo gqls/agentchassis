@@ -32,7 +32,9 @@ func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig, l
 	logger.Info("NewS3Client",
 		zap.String("DEBUG: AccessKeyEnvVar=%s", cfg.AccessKeyEnvVar),
 		zap.String("DEBUG: cfg.SecretKeyEnvVar", cfg.AccessKeyEnvVar),
-		zap.String("DEBUG: AccessKey", accessKey[:10]),
+		zap.String("DEBUG: AccessKey", accessKey),
+		zap.String("DEBUGaa: B2_APPLICATION_KEY_ID from env", os.Getenv("B2_APPLICATION_KEY_ID")),
+		zap.String("DEBUGaa: B2_APPLICATION_KEY from env", os.Getenv("B2_APPLICATION_KEY")),
 		zap.String("DEBUG: Endpoint", cfg.Endpoint),
 		zap.String("DEBUG: Bucket", cfg.Bucket),
 	)

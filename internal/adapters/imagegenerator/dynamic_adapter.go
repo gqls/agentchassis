@@ -92,24 +92,24 @@ func NewDynamicImageAdapter(ctx context.Context, cfg *config.ServiceConfig, logg
 		return nil, fmt.Errorf("failed to create producer: %w", err)
 	}
 
-	// Get S3 credentials from environment variables
-	accessKey := os.Getenv(cfg.Infrastructure.ObjectStorage.AccessKeyEnvVar)
-	if accessKey == "" && cfg.Infrastructure.ObjectStorage.AccessKeyEnvVar != "" {
-		accessKey = os.Getenv("S3_ACCESS_KEY") // fallback
-	}
+	/*	// Get S3 credentials from environment variables
+		accessKey := os.Getenv(cfg.Infrastructure.ObjectStorage.AccessKeyEnvVar)
+		if accessKey == "" && cfg.Infrastructure.ObjectStorage.AccessKeyEnvVar != "" {
+			accessKey = os.Getenv("S3_ACCESS_KEY") // fallback
+		}
 
-	secretKey := os.Getenv(cfg.Infrastructure.ObjectStorage.SecretKeyEnvVar)
-	if secretKey == "" && cfg.Infrastructure.ObjectStorage.SecretKeyEnvVar != "" {
-		secretKey = os.Getenv("S3_SECRET_KEY") // fallback
-	}
+		secretKey := os.Getenv(cfg.Infrastructure.ObjectStorage.SecretKeyEnvVar)
+		if secretKey == "" && cfg.Infrastructure.ObjectStorage.SecretKeyEnvVar != "" {
+			secretKey = os.Getenv("S3_SECRET_KEY") // fallback
+		}*/
 
 	// Initialize storage client (S3)
 	storageConfig := cfg.Infrastructure.ObjectStorage
 	storageConfig.Provider = cfg.Infrastructure.ObjectStorage.Provider
 	storageConfig.Endpoint = cfg.Infrastructure.ObjectStorage.Endpoint
 	storageConfig.Bucket = cfg.Infrastructure.ObjectStorage.Bucket
-	storageConfig.AccessKeyEnvVar = accessKey
-	storageConfig.SecretKeyEnvVar = secretKey
+	storageConfig.AccessKeyEnvVar = cfg.Infrastructure.ObjectStorage.AccessKeyEnvVar
+	storageConfig.SecretKeyEnvVar = cfg.Infrastructure.ObjectStorage.SecretKeyEnvVar
 
 	if storageConfig.Endpoint == "" {
 		storageConfig.Endpoint = os.Getenv("S3_ENDPOINT")
