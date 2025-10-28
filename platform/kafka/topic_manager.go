@@ -391,6 +391,10 @@ func (tm *TopicManager) CreateSystemTopics(ctx context.Context) error {
 		// Dead letter queues for system-level issues
 		{Name: "system.dlq.unroutable", Partitions: 1, ReplicationFactor: 2},
 		{Name: "system.dlq.parsing-errors", Partitions: 1, ReplicationFactor: 2},
+
+		// Adapter service topics (permanent services for third-party integrations)
+		{Name: "system.adapter.image-generator.requests", Partitions: 3, ReplicationFactor: 2},
+		{Name: "system.adapter.image-generator.responses", Partitions: 3, ReplicationFactor: 2},
 	}
 
 	for _, topic := range systemTopics {
