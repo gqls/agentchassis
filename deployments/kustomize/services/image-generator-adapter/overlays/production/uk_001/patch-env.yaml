@@ -28,6 +28,16 @@ spec:
               value: "personae-prod-uk001-images"
             - name: S3_USE_PATH_STYLE
               value: "false"
+            - name: B2_APPLICATION_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY_ID
+            - name: B2_APPLICATION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY
 
           envFrom:
             # B2/S3 credentials

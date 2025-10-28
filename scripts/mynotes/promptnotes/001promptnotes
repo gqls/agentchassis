@@ -59,6 +59,8 @@ IMPORTANT: You must respond with ONLY a valid JSON object, nothing else. Do not 
 
 don't make up db schemas, column names/field names, enums, column types, indices - always ask
 
+don't just give quick fixes, we are in it for the long term
+
 
 
 
