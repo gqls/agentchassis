@@ -1,4 +1,318 @@
 // internal/backend/agent-chassis/internal/actions/image_actions.go
+// CORRECTED VERSION - Properly routes through agent orchestration
+package actions
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+
+	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"go.uber.org/zap"
+)
+
+// ImageGenerationResult represents the result of an image generation request
+type ImageGenerationResult struct {
+	Success              bool   `json:"success"`
+	ImageURI             string `json:"image_uri,omitempty"`
+	ErrorMessage         string `json:"error_message,omitempty"`
+	RequestID            string `json:"request_id"`
+	ChildOrchestrationID string `json:"child_orchestration,omitempty"`
+	ChildResponsesTopic  string `json:"child_responses_topic,omitempty"`
+	TargetAgentType      string `json:"target_agent_type"`
+	TopicSentTo          string `json:"topic_sent_to"`
+	StableIdentity       string `json:"stable_identity"`
+	AwaitResponse        bool   `json:"await_response"`
+}
+
+// GenerateImageAction is called FROM WITHIN the image-generator agent's workflow
+// It should send to the adapter and wait for response
+func GenerateImageAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	if params.Logger == nil {
+		return nil, fmt.Errorf("logger is required")
+	}
+
+	logger := params.Logger.With(
+		zap.String("action", "generate_image"),
+		zap.String("step_name", params.ExecutionContext.StepName),
+		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.String("correlation_id", params.ExecutionContext.CorrelationID),
+	)
+
+	logger.Info("GenerateImageAction starting within image-generator agent",
+		zap.String("agent_type", params.ExecutionContext.Sender.AgentType),
+		zap.String("functional_role", params.ExecutionContext.FunctionalRole),
+	)
+
+	// Extract input data
+	inputData := datahelpers.GetInputData(params.CollectedData, logger)
+
+	// Get the prompt - could be in multiple places
+	prompt, ok := params.CollectedData["prompt"].(string)
+	if !ok || prompt == "" {
+		prompt, ok = inputData["prompt"].(string)
+	}
+	if !ok || prompt == "" {
+		// Check if there's a data field with prompt
+		if data, ok := inputData["data"].(map[string]interface{}); ok {
+			prompt, _ = data["prompt"].(string)
+		}
+	}
+
+	if prompt == "" {
+		return nil, fmt.Errorf("prompt is required for image generation")
+	}
+
+	// Optional parameters
+	style, _ := inputData["style"].(string)
+	width, _ := inputData["width"].(int)
+	height, _ := inputData["height"].(int)
+
+	// Set defaults if not provided
+	if width == 0 {
+		width = 1024
+	}
+	if height == 0 {
+		height = 1024
+	}
+
+	// THIS IS THE KEY DIFFERENCE:
+	// When running within the image-generator agent, we send to the adapter topic
+	// The adapter will respond back to us (the image-generator agent)
+	imageGeneratorAdapterTopic := "system.adapter.image-generator.requests"
+
+	// Get our own responses topic - where the adapter should respond to
+	myResponsesTopic := params.ExecutionContext.ResponsesTopic
+	if myResponsesTopic == "" {
+		// Fallback to environment variable if not in context
+		myResponsesTopic = os.Getenv("RESPONSES_TOPIC")
+	}
+	if myResponsesTopic == "" {
+		// Build it from the context
+		myResponsesTopic = fmt.Sprintf("job.%s-%s-%s-%s.responses",
+			extractShortCorrelation(params.ExecutionContext.CorrelationID),
+			extractShortOrchestration(params.ExecutionContext.OrchestrationID),
+			"image-generator",
+			params.ExecutionContext.StepName,
+		)
+	}
+
+	logger.Info("Image-generator agent sending to adapter",
+		zap.String("adapter_topic", imageGeneratorAdapterTopic),
+		zap.String("my_responses_topic", myResponsesTopic),
+		zap.String("prompt", prompt),
+	)
+
+	// Build the image generation request for the adapter
+	imageData := map[string]interface{}{
+		"prompt": prompt,
+		"style":  style,
+		"width":  width,
+		"height": height,
+	}
+
+	// Create a request message for the adapter
+	// The adapter expects certain fields in a specific format
+	adapterRequest := map[string]interface{}{
+		"headers": map[string]interface{}{
+			"correlation_id":          params.ExecutionContext.CorrelationID,
+			"orchestration_id":        params.ExecutionContext.OrchestrationID,
+			"orchestration_name":      params.ExecutionContext.OrchestrationName,
+			"parent_orchestration_id": params.ExecutionContext.ParentOrchestrationID,
+			"client_id":               params.ExecutionContext.ClientID,
+			"step_name":               params.ExecutionContext.StepName,
+			"step_id":                 params.ExecutionContext.StepID,
+			"request_id":              uuid.NewString(),
+			"message_type":            "request",
+			"sender": map[string]interface{}{
+				"agent_type": params.ExecutionContext.Sender.AgentType,
+				"agent_id":   params.ExecutionContext.OrchestrationID,
+				"pod_name":   params.ExecutionContext.Sender.PodName,
+			},
+			// IMPORTANT: Tell adapter where to send response
+			"responses_topic":        myResponsesTopic,
+			"parent_responses_topic": myResponsesTopic,
+		},
+		"body": map[string]interface{}{
+			"action": "generate",
+			"data":   imageData,
+			// CRITICAL: Tell adapter where to reply
+			"reply_to_topic":         myResponsesTopic,
+			"parent_responses_topic": myResponsesTopic,
+			"metadata": map[string]interface{}{
+				"requesting_agent_id":   params.ExecutionContext.OrchestrationID,
+				"requesting_agent_type": params.ExecutionContext.Sender.AgentType,
+				"requesting_step":       params.ExecutionContext.StepName,
+			},
+		},
+	}
+
+	// produce map[string]string headers for validation
+	rawHeaders := adapterRequest["headers"].(map[string]interface{})
+	headers := make(map[string]string)
+
+	for k, v := range rawHeaders {
+		if k == "sender" {
+			continue // skip nested map
+		}
+		if str, ok := v.(string); ok {
+			headers[k] = str
+		} else {
+			headers[k] = fmt.Sprintf("%v", v) // fallback stringify
+		}
+	}
+
+	// Convert to JSON
+	messageBytes, err := json.Marshal(adapterRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal adapter request: %w", err)
+	}
+
+	// Send to adapter
+	requestID := uuid.NewString()
+	key := []byte(params.ExecutionContext.CorrelationID)
+
+	logger.Info("Sending request to image adapter",
+		zap.String("topic", imageGeneratorAdapterTopic),
+		zap.String("request_id", requestID),
+		zap.String("reply_to_topic", myResponsesTopic),
+		zap.Any("request", adapterRequest),
+	)
+
+	// Send the message
+	if err := params.Producer.ProduceWithValidation(
+		ctx,
+		imageGeneratorAdapterTopic,
+		headers,
+		key,
+		messageBytes,
+	); err != nil {
+		return nil, fmt.Errorf("failed to send to adapter: %w", err)
+	}
+
+	// Store tracking info in collected data
+	if params.CollectedData != nil {
+		params.CollectedData[params.ExecutionContext.StepName] = map[string]interface{}{
+			"request_id":      requestID,
+			"adapter_topic":   imageGeneratorAdapterTopic,
+			"responses_topic": myResponsesTopic,
+			"prompt":          prompt,
+			"status":          "awaiting_adapter_response",
+			"width":           width,
+			"height":          height,
+		}
+	}
+
+	// The image-generator agent will receive the response from the adapter
+	// on its responses topic and can then complete the workflow
+	result := ImageGenerationResult{
+		Success:             true,
+		RequestID:           requestID,
+		ChildResponsesTopic: myResponsesTopic,
+		TargetAgentType:     "adapter",
+		TopicSentTo:         imageGeneratorAdapterTopic,
+		AwaitResponse:       true, // Agent needs to wait for adapter response
+	}
+
+	logger.Info("Image generation request sent to adapter, awaiting response",
+		zap.String("request_id", requestID),
+		zap.String("expecting_response_on", myResponsesTopic),
+	)
+
+	return result, nil
+}
+
+// ProcessImageResponse processes the response from the image adapter
+// This is called when the adapter sends back the result
+func ProcessImageResponse(params *ActionParams) (interface{}, error) {
+	logger := params.Logger.With(
+		zap.String("action", "process_image_response"),
+		zap.String("step_name", params.ExecutionContext.StepName),
+	)
+
+	// Get the response from collected data
+	// The response from the adapter should be stored here
+	stepData, ok := datahelpers.GetStepData(params.CollectedData, params.ExecutionContext.StepName, logger)
+	if !ok {
+		// Check if response came in a different way
+		if responseData, ok := params.CollectedData["adapter_response"].(map[string]interface{}); ok {
+			stepData = responseData
+		} else {
+			return nil, fmt.Errorf("no response data found from adapter")
+		}
+	}
+
+	// Extract image URI from response
+	imageURI, _ := stepData["image_uri"].(string)
+	if imageURI == "" {
+		// Check in body.data structure
+		if body, ok := stepData["body"].(map[string]interface{}); ok {
+			if data, ok := body["data"].(map[string]interface{}); ok {
+				imageURI, _ = data["image_uri"].(string)
+			}
+		}
+	}
+
+	if imageURI == "" {
+		// Check for error
+		if errorMsg, ok := stepData["error"].(string); ok {
+			return nil, fmt.Errorf("image generation failed: %s", errorMsg)
+		}
+		return nil, fmt.Errorf("no image URI in adapter response")
+	}
+
+	// Store result for parent agent
+	result := map[string]interface{}{
+		"success":   true,
+		"image_uri": imageURI,
+	}
+
+	// Update collected data so parent can access the result
+	if params.CollectedData != nil {
+		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+			inputData["generated_image_uri"] = imageURI
+			inputData["image_generation_complete"] = true
+		}
+		params.CollectedData["image_result"] = result
+	}
+
+	logger.Info("Image generation complete",
+		zap.String("image_uri", imageURI),
+	)
+
+	return result, nil
+}
+
+// Helper functions
+func extractShortCorrelation(correlationID string) string {
+	if len(correlationID) >= 8 {
+		return correlationID[:8]
+	}
+	return correlationID
+}
+
+func extractShortOrchestration(orchestrationID string) string {
+	if len(orchestrationID) >= 8 {
+		return orchestrationID[:8]
+	}
+	return orchestrationID
+}
+
+func createImageGenerationTopics(ctx context.Context, requestsTopic, responsesTopic string, logger *zap.Logger) error {
+	// Topic creation logic if needed
+	// This might be handled by the platform automatically
+	logger.Info("Topics for image generation",
+		zap.String("requests", requestsTopic),
+		zap.String("responses", responsesTopic),
+	)
+	return nil
+}
+
+// sendImageGenerationRequest is no longer needed as we use producer directly
+//
+/*// internal/backend/agent-chassis/internal/actions/image_actions.go
 package actions
 
 import (
@@ -369,3 +683,4 @@ func createImageGenerationTopics(ctx context.Context, requestsTopic, responsesTo
 
 	return nil
 }
+*/
