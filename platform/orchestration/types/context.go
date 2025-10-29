@@ -232,14 +232,16 @@ func (ec *ExecutionContext) ToRequestHeaders() RequestHeaders {
 		ParentOrchestrationID:   ec.ParentOrchestrationID,
 		ParentOrchestrationName: ec.ParentOrchestrationName,
 		ReplyToRequestID:        ec.ReplyToRequestID,
+		//InResponseToStepName:
 
 		// Message Metadata
-		MessageID:   ec.MessageID,
-		MessageType: "request",
-		FromAgent:   ec.Sender.AgentID, // Legacy field
-		ToAgentType: ec.ToAgentType,
-		Action:      ec.Action,
-		Timestamp:   ec.Timestamp,
+		MessageID:       ec.MessageID,
+		MessageType:     "request",
+		FromAgent:       ec.Sender.AgentID,   // Legacy field
+		SenderAgentType: ec.Sender.AgentType, // for image processing adapter
+		ToAgentType:     ec.ToAgentType,
+		Action:          ec.Action,
+		Timestamp:       ec.Timestamp,
 
 		// Resource Management
 		FuelBudget:     ec.FuelBudget,
@@ -249,6 +251,7 @@ func (ec *ExecutionContext) ToRequestHeaders() RequestHeaders {
 		RequestsTopic:        ec.RequestsTopic,
 		ResponsesTopic:       ec.ResponsesTopic,
 		ParentResponsesTopic: ec.ReplyToTopic,
+		ReplyToTopic:         ec.ReplyToTopic,
 	}
 }
 

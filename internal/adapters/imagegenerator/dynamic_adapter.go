@@ -215,9 +215,11 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 		zap.String("request_id", request.Headers.RequestID),
 	)
 
-	logger.Info("Processing image generation request",
+	a.logger.Info("Processing image generation request",
 		zap.String("prompt", request.Body.Data.Prompt),
 		zap.String("reply_to_topic", request.Body.ReplyToTopic),
+		zap.Any("the request body", request.Body),
+		zap.Any("the request headers", request.Headers),
 	)
 
 	// Determine where to send the response
@@ -240,6 +242,10 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 		a.consumer.CommitMessages(context.Background(), msg)
 		return
 	}
+
+	a.logger.Info("image about to be uploaded in handleMessage dynamic adapter",
+		zap.Binary("DEBUGaa: image binary", imageData),
+	)
 
 	// Upload to S3
 	imageURI, err := a.uploadImage(imageData, request.Headers.ClientID, logger)
@@ -290,6 +296,10 @@ func (a *DynamicImageAdapter) generateImage(prompt string, width, height int) ([
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
+	a.logger.Info("in generate Image dynamic adapter",
+		zap.Any("jsonBody of request Body", string(jsonBody)),
+	)
+
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(a.ctx, "POST", a.externalAPI, bytes.NewBuffer(jsonBody))
 	if err != nil {
@@ -300,6 +310,9 @@ func (a *DynamicImageAdapter) generateImage(prompt string, width, height int) ([
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", a.apiKey))
 	req.Header.Set("Accept", "application/json")
 
+	a.logger.Info("in generate Image about to execute request dynamic adapter",
+		zap.Any("the request that were sending to httpClient", req),
+	)
 	// Execute request through circuit breaker
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
@@ -326,6 +339,10 @@ func (a *DynamicImageAdapter) generateImage(prompt string, width, height int) ([
 	if err := json.Unmarshal(body, &apiResponse); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
+
+	a.logger.Info("in generate Image after sending, here is the api response. dynamic adapter",
+		zap.Any("apiResponse", apiResponse),
+	)
 
 	if len(apiResponse.Artifacts) == 0 {
 		return nil, fmt.Errorf("no images in response")
@@ -420,6 +437,10 @@ func (a *DynamicImageAdapter) sendSuccessResponse(
 		Body:    responseBody,
 	}
 
+	a.logger.Info("In sending success response here are response details",
+		zap.Any("response", response),
+	)
+
 	// Send the response
 	a.sendResponse(topic, response, logger)
 }
@@ -467,6 +488,10 @@ func (a *DynamicImageAdapter) sendErrorResponse(
 		Headers: responseHeaders,
 		Body:    responseBody,
 	}
+
+	a.logger.Info("In sending error response here are error response details",
+		zap.Any("response", response),
+	)
 
 	a.sendResponse(topic, response, logger)
 }

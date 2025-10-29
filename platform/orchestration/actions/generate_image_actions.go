@@ -35,6 +35,10 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		return nil, fmt.Errorf("logger is required")
 	}
 
+	params.Logger.Info("in GenerateImageAction",
+		zap.Any("DEBUGaa: input action params", params),
+	)
+
 	logger := params.Logger.With(
 		zap.String("action", "generate_image"),
 		zap.String("step_name", params.ExecutionContext.StepName),
@@ -166,6 +170,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		zap.String("request_id", requestID),
 		zap.String("topic", imageGeneratorTopic),
 		zap.String("stable_identity", stableIdentity),
+		zap.Any("DEBUGaa: image request sent", imageRequest),
 	)
 
 	// Store request tracking info in collected data
@@ -225,16 +230,21 @@ func sendImageGenerationRequest(
 		message.Headers.InResponseToStepName = message.Headers.StepName
 	}
 
-	logger.Debug("Sending image generation request",
+	logger.Info("Sending image generation request",
 		zap.String("topic", topic),
 		zap.String("request_id", requestID),
 		zap.String("correlation_id", message.Headers.CorrelationID),
 		zap.String("sender_agent_type", message.Headers.SenderAgentType),
 		zap.String("to_agent_type", message.Headers.ToAgentType),
+		zap.Any("DEBUGaa: message", message),
 	)
 
 	// Convert headers to map
 	headers := message.Headers.ToMap()
+
+	logger.Info("Sending image generation request - headers",
+		zap.Any("headers", headers),
+	)
 
 	// Convert message to bytes
 	messageBytes, err := json.Marshal(message)
