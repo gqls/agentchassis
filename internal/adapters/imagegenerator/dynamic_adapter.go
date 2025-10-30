@@ -350,7 +350,7 @@ func (a *DynamicImageAdapter) generateImage(prompt string, width, height int) ([
 	}
 
 	a.logger.Info("in generate Image after sending, here is the api response. dynamic adapter",
-		zap.Any("apiResponse", apiResponse),
+		zap.Any("apiResponse", "too big for the moment dynamic_adapter"),
 	)
 
 	if len(apiResponse.Artifacts) == 0 {
