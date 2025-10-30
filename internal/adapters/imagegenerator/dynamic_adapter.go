@@ -111,6 +111,11 @@ func NewDynamicImageAdapter(ctx context.Context, cfg *config.ServiceConfig, logg
 	storageConfig.AccessKeyEnvVar = cfg.Infrastructure.ObjectStorage.AccessKeyEnvVar
 	storageConfig.SecretKeyEnvVar = cfg.Infrastructure.ObjectStorage.SecretKeyEnvVar
 
+	zap.Strings("environment Environ", os.Environ())
+
+	externalAPI := os.Getenv("STABILITY_API_ENDPOINT")
+	apiKey := os.Getenv("STABILITY_API_KEY")
+
 	if storageConfig.Endpoint == "" {
 		storageConfig.Endpoint = os.Getenv("S3_ENDPOINT")
 	}
@@ -151,8 +156,8 @@ func NewDynamicImageAdapter(ctx context.Context, cfg *config.ServiceConfig, logg
 		producer:      producer,
 		storageClient: storageClient,
 		httpClient:    httpClient,
-		externalAPI:   os.Getenv("IMAGE_API_URL"),
-		apiKey:        os.Getenv("IMAGE_API_KEY"),
+		externalAPI:   externalAPI,
+		apiKey:        apiKey,
 		adapterID:     adapterID,
 		podName:       podName,
 	}
@@ -161,6 +166,10 @@ func NewDynamicImageAdapter(ctx context.Context, cfg *config.ServiceConfig, logg
 		zap.String("adapter_id", adapterID),
 		zap.String("pod_name", podName),
 		zap.String("consumer_group", consumerGroup),
+		zap.Any("storageClient", storageClient),
+		zap.String("externalAPI", externalAPI),
+		zap.String("apiKey", apiKey),
+		zap.String("adapterID", adapterID),
 	)
 
 	return adapter, nil
@@ -296,8 +305,9 @@ func (a *DynamicImageAdapter) generateImage(prompt string, width, height int) ([
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	a.logger.Info("in generate Image dynamic adapter",
+	a.logger.Info("in generateImage dynamic adapter just before http request to stability",
 		zap.Any("jsonBody of request Body", string(jsonBody)),
+		zap.String("a.externalAPI", a.externalAPI),
 	)
 
 	// Create HTTP request
