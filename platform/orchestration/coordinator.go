@@ -666,6 +666,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 	s.logger.Info("Executing local action",
 		zap.Any("DEBUGaa: params sent to action handler", params),
+		zap.Any("action handler", handler),
 	)
 
 	// 6. Execute the action

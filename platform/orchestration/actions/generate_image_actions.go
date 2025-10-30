@@ -163,8 +163,8 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		"height": height,
 	}
 
-	// Create a request message for the adapter
 	// The adapter expects certain fields in a specific format
+	// Build the image generation request for the adapter
 	adapterRequest := map[string]interface{}{
 		"headers": map[string]interface{}{
 			"correlation_id":          params.ExecutionContext.CorrelationID,
@@ -176,19 +176,22 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 			"step_id":                 params.ExecutionContext.StepID,
 			"request_id":              uuid.NewString(),
 			"message_type":            "request",
-			"sender": map[string]interface{}{
-				"agent_type": params.ExecutionContext.Sender.AgentType,
-				"agent_id":   params.ExecutionContext.OrchestrationID,
-				"pod_name":   params.ExecutionContext.Sender.PodName,
-			},
-			// IMPORTANT: Tell adapter where to send response
+
+			// FLAT sender fields (not nested!)
+			"sender_agent_type":    params.ExecutionContext.Sender.AgentType,
+			"sender_agent_id":      params.ExecutionContext.OrchestrationID,
+			"sender_pod_name":      params.ExecutionContext.Sender.PodName,
+			"sender_agent_version": params.ExecutionContext.Sender.AgentVersion,
+			"sender_role":          params.ExecutionContext.Sender.Role,
+
+			// Response routing
 			"responses_topic":        myResponsesTopic,
 			"parent_responses_topic": myResponsesTopic,
 		},
 		"body": map[string]interface{}{
 			"action": "generate",
 			"data":   imageData,
-			// CRITICAL: Tell adapter where to reply
+			// Tell adapter where to reply
 			"reply_to_topic":         myResponsesTopic,
 			"parent_responses_topic": myResponsesTopic,
 			"metadata": map[string]interface{}{
@@ -204,9 +207,6 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	headers := make(map[string]string)
 
 	for k, v := range rawHeaders {
-		if k == "sender" {
-			continue // skip nested map
-		}
 		if str, ok := v.(string); ok {
 			headers[k] = str
 		} else {
