@@ -648,7 +648,7 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	// Use ToResponseHeaders to get properly routed headers
 	responseHeaders := responseCtx.ToResponseHeaders()
-	
+
 	response := &types.ResponseMessage{
 		Headers: responseHeaders,
 		Body: types.ResponseBody{
@@ -1303,7 +1303,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 	p.logger.Info("processor.go 1146 ProcessMessage",
 		zap.String("Action from ExecutionContext", msgCtx.ExecutionContext.Action),
-		zap.Any("DEBUGaa: This is where I think we sort out CollectedData input_data", msg), //msg is still compressed
+		zap.Any("DEBUGaa: This is where I think we sort out CollectedData input_data", "too big msg"), //msg is still compressed
 		zap.Any("DEBUGaa: msgCtx is - why is input_data nil look at message.value too", msgCtx),
 		zap.Any("DEBUGaa: request data from unmarshalled msg.value", requestData),
 		/*

@@ -120,7 +120,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	params.Logger.Info("Selected prompt for execution",
 		zap.String("source", promptSource),
 		zap.String("agent_type", params.AgentType),
-		zap.String("prompt_preview", truncateString(promptTemplate, 350)))
+		zap.String("prompt_preview", datahelpers.TruncateString(promptTemplate, 350)))
 
 	// Create AI client based on provider
 	aiClient, err := createAIClient(ctx, aiServiceConfig)
@@ -150,8 +150,8 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	params.Logger.Info("Rendered prompt template",
-		zap.String("template_preview", truncateString(promptTemplate, 300)),
-		zap.String("rendered_preview - renderedPrompt", truncateString(renderedPrompt, 400)))
+		zap.String("template_preview", datahelpers.TruncateString(promptTemplate, 300)),
+		zap.String("rendered_preview - renderedPrompt", datahelpers.TruncateString(renderedPrompt, 400)))
 
 	// Prepare AI service options
 	options := make(map[string]interface{})
@@ -172,7 +172,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	params.Logger.Info("LLM response received",
-		zap.String("result_preview", truncateString(result, 200)))
+		zap.String("result_preview", datahelpers.TruncateString(result, 200)))
 
 	// Try to parse as JSON, if it fails return as plain text
 	var parsedResult interface{}
@@ -314,13 +314,6 @@ func renderPromptTemplate(templateStr string, data map[string]interface{}, logge
 	}
 
 	return buf.String(), nil
-}
-
-func truncateString(s string, maxLength int) string {
-	if len(s) <= maxLength {
-		return s
-	}
-	return s[:maxLength] + "..."
 }
 
 func ConditionalRouteAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -581,14 +574,14 @@ func getPromptWithPriority(params ActionParams, agentConfig map[string]interface
 	// Check in StepConfig.Config first (this is where call_agent passes it)
 	if configPrompt, ok := params.StepConfig.Config["prompt"].(string); ok && configPrompt != "" {
 		logger.Info("Using prompt from step config (Priority 1 - from parent)",
-			zap.String("prompt_preview", truncateString(configPrompt, 100)))
+			zap.String("prompt_preview", datahelpers.TruncateString(configPrompt, 100)))
 		return configPrompt, "parent_message"
 	}
 
 	// Also check in CollectedData["prompt"] as a fallback
 	if collectedPrompt, ok := params.CollectedData["prompt"].(string); ok && collectedPrompt != "" {
 		logger.Info("Using prompt from collected data (Priority 1 - from parent)",
-			zap.String("prompt_preview", truncateString(collectedPrompt, 100)))
+			zap.String("prompt_preview", datahelpers.TruncateString(collectedPrompt, 100)))
 		return collectedPrompt, "parent_message"
 	}
 
@@ -597,7 +590,7 @@ func getPromptWithPriority(params ActionParams, agentConfig map[string]interface
 	if agentPrompt, ok := agentConfig["prompt_template"].(string); ok && agentPrompt != "" {
 		logger.Info("Using prompt from agent config (Priority 2 - agent's default)",
 			zap.String("agent_type", params.AgentType),
-			zap.String("prompt_preview", truncateString(agentPrompt, 100)))
+			zap.String("prompt_preview", datahelpers.TruncateString(agentPrompt, 100)))
 		return agentPrompt, "agent_default"
 	}
 
@@ -605,7 +598,7 @@ func getPromptWithPriority(params ActionParams, agentConfig map[string]interface
 	// This is the hardcoded fallback in the workflow definition
 	if stepConfig, ok := params.StepConfig.Config["prompt_template"].(string); ok && stepConfig != "" {
 		logger.Info("Using prompt from workflow step config (Priority 3 - fallback)",
-			zap.String("prompt_preview", truncateString(stepConfig, 100)))
+			zap.String("prompt_preview", datahelpers.TruncateString(stepConfig, 100)))
 		return stepConfig, "workflow_fallback"
 	}
 

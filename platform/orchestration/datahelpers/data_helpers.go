@@ -953,3 +953,10 @@ func GetMapKeys(m map[string]interface{}) []string {
 	}
 	return keys
 }
+
+func TruncateString(s string, maxLength int) string {
+	if len(s) <= maxLength {
+		return s
+	}
+	return s[:maxLength] + "..."
+}

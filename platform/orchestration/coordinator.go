@@ -191,7 +191,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	state, err := repo.FindByAwaitedRequestID(ctx, requestID)
 	if err != nil {
 		// No orchestration is waiting for this response - it's not for us
-		contextLogger.Debug("No orchestration waiting for this response",
+		contextLogger.Info("No orchestration waiting for this response",
 			zap.String("request_id", requestID),
 			zap.Error(err))
 		return nil
@@ -203,7 +203,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 
 	// Verify this state is actually waiting for this request
 	if _, exists := state.AwaitedRequests[requestID]; !exists {
-		contextLogger.Debug("Orchestration not waiting for this request",
+		contextLogger.Info("Orchestration not waiting for this request",
 			zap.String("orchestration_id", state.OrchestrationID),
 			zap.String("request_id", requestID))
 		return nil
@@ -211,7 +211,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 
 	// Additional check: verify this orchestrator owns this orchestration
 	if state.ProcessingNode != "" && state.ProcessingNode != s.podName {
-		contextLogger.Debug("Response for orchestration owned by different pod, ignoring",
+		contextLogger.Info("Response for orchestration owned by different pod, ignoring",
 			zap.String("orchestration_id", state.OrchestrationID),
 			zap.String("owner_pod", state.ProcessingNode),
 			zap.String("my_pod", s.podName))

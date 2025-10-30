@@ -1,15 +1,16 @@
 // internal/backend/agent-chassis/internal/actions/image_actions.go
-// CORRECTED VERSION - Properly routes through agent orchestration
 package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
@@ -27,43 +28,83 @@ type ImageGenerationResult struct {
 	AwaitResponse        bool   `json:"await_response"`
 }
 
-// GenerateImageAction is called FROM WITHIN the image-generator agent's workflow
+// GenerateImageAction handles image generation requests with dynamic topics
 // It should send to the adapter and wait for response
 func GenerateImageAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	if params.Logger == nil {
-		return nil, fmt.Errorf("logger is required")
-	}
-
-	logger := params.Logger.With(
-		zap.String("action", "generate_image"),
+	params.Logger.Info("Executing GenerateImageAction action",
+		zap.String("agent_type", params.AgentType),
+		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
+		zap.String("action", params.ExecutionContext.Action),
+		zap.Bool("has_db", params.DB != nil),
 		zap.String("step_name", params.ExecutionContext.StepName),
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
 		zap.String("correlation_id", params.ExecutionContext.CorrelationID),
+		zap.Any("DEBUGaa: full params in GenerateImageAction", params),
 	)
 
-	logger.Info("GenerateImageAction starting within image-generator agent",
-		zap.String("agent_type", params.ExecutionContext.Sender.AgentType),
-		zap.String("functional_role", params.ExecutionContext.FunctionalRole),
+	// initialise
+	if params.ExecutionContext.Action == "initialize" {
+		params.Logger.Info("handling initialization")
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	// Method 2: Check for initialization flag in collected data
+	if isInit, ok := params.CollectedData["is_initialization"].(bool); ok && isInit {
+		params.Logger.Info("initialization detected via flag")
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	// Method 3: Check the action from collected data (if passed through)
+	if action, ok := params.CollectedData["action"].(string); ok && action == "initialize" {
+		params.Logger.Info("initialization detected via action field")
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	// Normalize the collected data using the helper
+	normalizedData := datahelpers.NormalizeCollectedData(
+		params.CollectedData,
+		params.ExecutionContext,
+		params.ExecutionContext.RequestsTopic,
+		params.Logger,
 	)
+
+	// Update params.CollectedData with normalized version
+	params.CollectedData = normalizedData
+
+	// Get the agent's configuration
+	var agentConfig map[string]interface{}
+	var ok bool
+
+	// First try CollectedData (for orchestrated agents)
+	agentConfig, ok = params.CollectedData["agent_config"].(map[string]interface{})
+	params.Logger.Info("Checking agent_config in CollectedData",
+		zap.Bool("found", ok),
+		zap.Bool("is_nil", agentConfig == nil))
+
+	// If not found, load it directly from the database
+	if !ok && params.AgentType != "" {
+		params.Logger.Info("Agent config not in collected data, loading from database",
+			zap.String("agent_type", params.AgentType))
+
+		agentDef, err := loadAgentDefinitionForImageAction(ctx, params.DB, params.AgentType)
+		if err != nil {
+			params.Logger.Error("Failed to load agent definition",
+				zap.String("agent_type", params.AgentType),
+				zap.Error(err))
+			return nil, fmt.Errorf("failed to load agent definition: %w", err)
+		}
+
+		agentConfig = agentDef.DefaultConfig
+		params.CollectedData["agent_config"] = agentConfig
+	}
+
+	if agentConfig == nil {
+		params.Logger.Error("Agent configuration is nil after all attempts")
+		return nil, fmt.Errorf("agent configuration not found")
+	}
 
 	// Extract input data
-	inputData := datahelpers.GetInputData(params.CollectedData, logger)
-
-	// Get the prompt - could be in multiple places
-	prompt, ok := params.CollectedData["prompt"].(string)
-	if !ok || prompt == "" {
-		prompt, ok = inputData["prompt"].(string)
-	}
-	if !ok || prompt == "" {
-		// Check if there's a data field with prompt
-		if data, ok := inputData["data"].(map[string]interface{}); ok {
-			prompt, _ = data["prompt"].(string)
-		}
-	}
-
-	if prompt == "" {
-		return nil, fmt.Errorf("prompt is required for image generation")
-	}
+	inputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
 
 	// Optional parameters
 	style, _ := inputData["style"].(string)
@@ -78,7 +119,15 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		height = 1024
 	}
 
-	// THIS IS THE KEY DIFFERENCE:
+	// Extract prompt template
+	// Get prompt using three-tier priority system
+	promptTemplate, promptSource := getImagePromptWithPriority(params, agentConfig)
+
+	params.Logger.Info("Selected prompt for execution",
+		zap.String("source", promptSource),
+		zap.String("agent_type", params.AgentType),
+		zap.String("prompt_preview", datahelpers.TruncateString(promptTemplate, 350)))
+
 	// When running within the image-generator agent, we send to the adapter topic
 	// The adapter will respond back to us (the image-generator agent)
 	imageGeneratorAdapterTopic := "system.adapter.image-generator.requests"
@@ -99,15 +148,16 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		)
 	}
 
-	logger.Info("Image-generator agent sending to adapter",
+	params.Logger.Info("Image-generator agent sending to adapter",
 		zap.String("adapter_topic", imageGeneratorAdapterTopic),
 		zap.String("my_responses_topic", myResponsesTopic),
-		zap.String("prompt", prompt),
+		zap.String("DEBUGaa: DEBUGbb: which one: prompt template", promptTemplate),
+		zap.String("prompt source", promptSource),
 	)
 
 	// Build the image generation request for the adapter
 	imageData := map[string]interface{}{
-		"prompt": prompt,
+		"prompt": promptTemplate,
 		"style":  style,
 		"width":  width,
 		"height": height,
@@ -174,7 +224,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	requestID := uuid.NewString()
 	key := []byte(params.ExecutionContext.CorrelationID)
 
-	logger.Info("Sending request to image adapter",
+	params.Logger.Info("Sending request to image adapter",
 		zap.String("topic", imageGeneratorAdapterTopic),
 		zap.String("request_id", requestID),
 		zap.String("reply_to_topic", myResponsesTopic),
@@ -198,7 +248,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 			"request_id":      requestID,
 			"adapter_topic":   imageGeneratorAdapterTopic,
 			"responses_topic": myResponsesTopic,
-			"prompt":          prompt,
+			"prompt":          promptTemplate,
 			"status":          "awaiting_adapter_response",
 			"width":           width,
 			"height":          height,
@@ -216,12 +266,99 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		AwaitResponse:       true, // Agent needs to wait for adapter response
 	}
 
-	logger.Info("Image generation request sent to adapter, awaiting response",
+	params.Logger.Info("Image generation request sent to adapter, awaiting response",
 		zap.String("request_id", requestID),
 		zap.String("expecting_response_on", myResponsesTopic),
 	)
 
 	return result, nil
+}
+
+// Add this helper function to load agent definition
+func loadAgentDefinitionForImageAction(ctx context.Context, db interface{}, agentType string) (*AgentDefinition, error) {
+
+	fmt.Printf("DEBUG: loadAgentDefinitionForAction called with agentType=%s, db type=%T\n", agentType, db)
+
+	query := `
+		SELECT id, type, display_name, description, category,
+		       image_repository, image_tag, 
+		       resources, default_config, capabilities, topics,
+		       health_config, env_vars, is_active
+		FROM agent_definitions
+		WHERE type = $1 AND is_active = true
+		LIMIT 1
+	`
+
+	var def AgentDefinition
+	var defaultConfigJSON json.RawMessage // Read as RawMessage first
+	var capabilitiesJSON json.RawMessage
+
+	// Handle both *sql.DB and *pgxpool.Pool
+	switch d := db.(type) {
+	case *sql.DB:
+		// For *sql.DB, we need to handle the Command field differently
+		err := d.QueryRowContext(ctx, query, agentType).Scan(
+			&def.ID,
+			&def.Type,
+			&def.DisplayName,
+			&def.Description,
+			&def.Category,
+			&def.ImageRepository,
+			&def.ImageTag,
+			&def.Resources,
+			&def.DefaultConfig,
+			&def.Capabilities,
+			&def.Topics,
+			&def.HealthConfig,
+			&def.EnvVars,
+			&def.IsActive,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query agent definition: %w", err)
+		}
+		// Note: Command field is not loaded here as it's not needed for LLM prompt
+	case *pgxpool.Pool:
+		err := d.QueryRow(ctx, query, agentType).Scan(
+			&def.ID,
+			&def.Type,
+			&def.DisplayName,
+			&def.Description,
+			&def.Category,
+			&def.ImageRepository,
+			&def.ImageTag,
+			&def.Resources,
+			&def.DefaultConfig,
+			&def.Capabilities,
+			&def.Topics,
+			&def.HealthConfig,
+			&def.EnvVars,
+			&def.IsActive,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query agent definition: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported database type: %T", db)
+	}
+
+	// Now unmarshal the JSON into the map
+	if len(defaultConfigJSON) > 0 && string(defaultConfigJSON) != "null" {
+		if err := json.Unmarshal(defaultConfigJSON, &def.DefaultConfig); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal default_config: %w", err)
+		}
+	}
+
+	// Unmarshal capabilities
+	if len(capabilitiesJSON) > 0 {
+		json.Unmarshal(capabilitiesJSON, &def.Capabilities)
+	}
+
+	// Validate that we have a config
+	if def.DefaultConfig == nil {
+		return nil, fmt.Errorf("agent %s has no default config", agentType)
+	}
+
+	return &def, nil
 }
 
 // ProcessImageResponse processes the response from the image adapter
@@ -684,3 +821,46 @@ func createImageGenerationTopics(ctx context.Context, requestsTopic, responsesTo
 	return nil
 }
 */
+
+// getPromptWithPriority implements three-tier priority for prompt selection
+func getImagePromptWithPriority(params ActionParams, agentConfig map[string]interface{}) (prompt string, source string) {
+	logger := params.Logger
+
+	logger.Info("in getPromptWithPriority")
+
+	// PRIORITY 1: Check incoming message for prompt (from parent's call_agent)
+	// Check in StepConfig.Config first (this is where call_agent passes it)
+	if configPrompt, ok := params.StepConfig.Config["prompt"].(string); ok && configPrompt != "" {
+		logger.Info("Using prompt from step config (Priority 1 - from parent)",
+			zap.String("prompt_preview", datahelpers.TruncateString(configPrompt, 100)))
+		return configPrompt, "parent_message"
+	}
+
+	// Also check in CollectedData["prompt"] as a fallback
+	if collectedPrompt, ok := params.CollectedData["prompt"].(string); ok && collectedPrompt != "" {
+		logger.Info("Using prompt from collected data (Priority 1 - from parent)",
+			zap.String("prompt_preview", datahelpers.TruncateString(collectedPrompt, 100)))
+		return collectedPrompt, "parent_message"
+	}
+
+	// PRIORITY 2: Check agent's own default_config.prompt_template
+	// This comes from the agent_definitions table for this specific agent type
+	if agentPrompt, ok := agentConfig["prompt_template"].(string); ok && agentPrompt != "" {
+		logger.Info("Using prompt from agent config (Priority 2 - agent's default)",
+			zap.String("agent_type", params.AgentType),
+			zap.String("prompt_preview", datahelpers.TruncateString(agentPrompt, 100)))
+		return agentPrompt, "agent_default"
+	}
+
+	// PRIORITY 3: Check workflow step config (fallback)
+	// This is the hardcoded fallback in the workflow definition
+	if stepConfig, ok := params.StepConfig.Config["prompt_template"].(string); ok && stepConfig != "" {
+		logger.Info("Using prompt from workflow step config (Priority 3 - fallback)",
+			zap.String("prompt_preview", datahelpers.TruncateString(stepConfig, 100)))
+		return stepConfig, "workflow_fallback"
+	}
+
+	// Generic fallback if nothing found
+	logger.Warn("No prompt found in any tier, using generic fallback")
+	return "Generate content based on the provided context.", "generic_fallback"
+}
