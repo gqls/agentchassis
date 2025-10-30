@@ -252,12 +252,10 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 		return
 	}
 
-	a.logger.Info("image about to be uploaded in handleMessage dynamic adapter",
-		zap.Binary("DEBUGaa: image binary", imageData),
-	)
+	a.logger.Info("image about to be uploaded in handleMessage dynamic adapter") //zap.Binary("DEBUGaa: image binary", imageData),
 
-	// Upload to S3
-	imageURI, err := a.uploadImage(imageData, request.Headers.ClientID, logger)
+	// Upload to S3 and get presigned URL
+	imageURI, presignedURL, err := a.uploadImage(imageData, request.Headers.ClientID, logger)
 	if err != nil {
 		logger.Error("Failed to upload image", zap.Error(err))
 		a.sendErrorResponse(responseTopic, &request, err, logger)
@@ -265,14 +263,15 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 		return
 	}
 
-	// Send success response
-	a.sendSuccessResponse(responseTopic, &request, imageURI, time.Since(startTime), logger)
+	// Send success response with both S3 URI and presigned URL
+	a.sendSuccessResponse(responseTopic, &request, imageURI, presignedURL, time.Since(startTime), logger)
 
 	// Commit the message
 	a.consumer.CommitMessages(context.Background(), msg)
 
 	logger.Info("Image generation complete",
 		zap.String("image_uri", imageURI),
+		zap.String("presigned_url", presignedURL),
 		zap.Duration("duration", time.Since(startTime)),
 	)
 }
@@ -362,15 +361,15 @@ func (a *DynamicImageAdapter) generateImage(prompt string, width, height int) ([
 	return base64.StdEncoding.DecodeString(apiResponse.Artifacts[0].Base64)
 }
 
-// uploadImage uploads the generated image to S3
-func (a *DynamicImageAdapter) uploadImage(imageData []byte, clientID string, logger *zap.Logger) (string, error) {
+// uploadImage uploads the generated image to S3 and returns both URI and presigned URL
+func (a *DynamicImageAdapter) uploadImage(imageData []byte, clientID string, logger *zap.Logger) (string, string, error) {
 
 	// Generate unique filename
 	timestamp := time.Now().Format("20060102-150405")
 	imageID := uuid.NewString()
 	fileName := fmt.Sprintf("images/%s/%s/%s.png", clientID, timestamp[:8], imageID)
 
-	logger.Info("uploadeImage about to upload image",
+	logger.Info("uploadImage about to upload image",
 		zap.String("filename", fileName),
 		zap.String("imageID uuid", imageID),
 	)
@@ -383,7 +382,7 @@ func (a *DynamicImageAdapter) uploadImage(imageData []byte, clientID string, log
 		bytes.NewReader(imageData),
 	)
 	if err != nil {
-		return "", fmt.Errorf("failed to upload to S3: %w", err)
+		return "", "", fmt.Errorf("failed to upload to S3: %w", err)
 	}
 
 	logger.Info("Image uploaded to S3",
@@ -392,7 +391,24 @@ func (a *DynamicImageAdapter) uploadImage(imageData []byte, clientID string, log
 		zap.Int("size", len(imageData)),
 	)
 
-	return imageURI, nil
+	// Generate presigned URL (valid for 7 days = 10080 minutes)
+	presignedURL, err := a.storageClient.GetPresignedURL(a.ctx, fileName, 10080)
+	if err != nil {
+		logger.Warn("Failed to generate presigned URL, continuing with S3 URI only",
+			zap.Error(err),
+			zap.String("uri", imageURI),
+		)
+		// Return S3 URI even if presigned URL generation fails
+		return imageURI, "", nil
+	}
+
+	logger.Info("Generated presigned URL for image",
+		zap.String("uri", imageURI),
+		zap.String("presigned_url", presignedURL),
+		zap.String("expires_in", "7 days"),
+	)
+
+	return imageURI, presignedURL, nil
 }
 
 // sendSuccessResponse sends a successful response to the parent
@@ -400,6 +416,7 @@ func (a *DynamicImageAdapter) sendSuccessResponse(
 	topic string,
 	request *ImageRequest,
 	imageURI string,
+	presignedURL string,
 	duration time.Duration,
 	logger *zap.Logger,
 ) {
@@ -415,10 +432,10 @@ func (a *DynamicImageAdapter) sendSuccessResponse(
 		ReplyToRequestID:      request.Headers.ReplyToRequestID,
 		InResponseToStepID:    request.Headers.StepID,
 		InResponseToStepName:  request.Headers.StepName,
-		OrchestrationID:       request.Headers.ParentOrchestrationID,
-		OrchestrationName:     request.Headers.ParentOrchestrationName,
-		MyOrchestrationID:     request.Headers.OrchestrationID,
-		MyOrchestrationName:   request.Headers.OrchestrationName,
+		OrchestrationID:       request.Headers.OrchestrationID,
+		OrchestrationName:     request.Headers.OrchestrationName,
+		MyOrchestrationID:     a.adapterID,
+		MyOrchestrationName:   "orchestration name in dynamic adapter",
 		TopicSentTo:           topic,
 		CorrelationID:         request.Headers.CorrelationID,
 		ClientID:              request.Headers.ClientID,
@@ -429,11 +446,12 @@ func (a *DynamicImageAdapter) sendSuccessResponse(
 		TimeSpent:             duration,
 	}
 
-	// Build response body
+	// Build response body with both S3 URI and presigned URL
 	responseBody := types.ResponseBody{
 		Success: true,
 		Body: map[string]interface{}{
-			"image_uri":       imageURI,
+			"image_uri":       imageURI,     // S3 URI for storage/reference
+			"image_url":       presignedURL, // Presigned URL for web use (7 days)
 			"prompt":          request.Body.Data.Prompt,
 			"generated_at":    time.Now().Format(time.RFC3339),
 			"generation_time": duration.Seconds(),
@@ -470,7 +488,8 @@ func (a *DynamicImageAdapter) sendErrorResponse(
 			AgentVersion: "1.0",
 		},
 		InResponseToRequestID: request.Headers.RequestID,
-		OrchestrationID:       request.Headers.ParentOrchestrationID,
+		OrchestrationID:       request.Headers.OrchestrationID,
+		MyOrchestrationID:     a.adapterID,
 		TopicSentTo:           topic,
 		CorrelationID:         request.Headers.CorrelationID,
 		ClientID:              request.Headers.ClientID,

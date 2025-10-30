@@ -381,13 +381,15 @@ func ProcessImageResponse(params *ActionParams) (interface{}, error) {
 		}
 	}
 
-	// Extract image URI from response
+	// Extract image  URI  and  URL  from response
 	imageURI, _ := stepData["image_uri"].(string)
+	imageURL, _ := stepData["image_url"].(string)
 	if imageURI == "" {
 		// Check in body.data structure
 		if body, ok := stepData["body"].(map[string]interface{}); ok {
 			if data, ok := body["data"].(map[string]interface{}); ok {
 				imageURI, _ = data["image_uri"].(string)
+				imageURL, _ = data["image_url"].(string)
 			}
 		}
 	}
@@ -400,16 +402,18 @@ func ProcessImageResponse(params *ActionParams) (interface{}, error) {
 		return nil, fmt.Errorf("no image URI in adapter response")
 	}
 
-	// Store result for parent agent
+	// Store result for parent agent with both S3 URI and presigned URL
 	result := map[string]interface{}{
 		"success":   true,
-		"image_uri": imageURI,
+		"image_uri": imageURI, // S3 URI for storage reference
+		"image_url": imageURL, // Presigned URL for web use (valid for 7 days)
 	}
 
 	// Update collected data so parent can access the result
 	if params.CollectedData != nil {
 		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
 			inputData["generated_image_uri"] = imageURI
+			inputData["generated_image_url"] = imageURL
 			inputData["image_generation_complete"] = true
 		}
 		params.CollectedData["image_result"] = result
@@ -417,6 +421,7 @@ func ProcessImageResponse(params *ActionParams) (interface{}, error) {
 
 	logger.Info("Image generation complete",
 		zap.String("image_uri", imageURI),
+		zap.String("image_url", imageURL),
 	)
 
 	return result, nil
@@ -721,8 +726,9 @@ func ProcessImageResponse(params *ActionParams) (interface{}, error) {
 		return nil, fmt.Errorf("no response data found for step %s", params.ExecutionContext.StepName)
 	}
 
-	// Extract image URI from response
+	// Extract image URI and URL from response
 	imageURI, _ := stepData["image_uri"].(string)
+	imageURL, _ := stepData["image_url"].(string)
 	if imageURI == "" {
 		// Check for error
 		if errorMsg, ok := stepData["error"].(string); ok {
@@ -735,17 +741,20 @@ func ProcessImageResponse(params *ActionParams) (interface{}, error) {
 	if params.CollectedData != nil {
 		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
 			inputData["generated_image_uri"] = imageURI
+			inputData["generated_image_url"] = imageURL
 			inputData["image_generation_complete"] = true
 		}
 	}
 
 	logger.Info("Image generation complete",
 		zap.String("image_uri", imageURI),
+		zap.String("image_url", imageURL),
 	)
 
 	return map[string]interface{}{
 		"success":   true,
-		"image_uri": imageURI,
+		"image_uri": imageURI,  // S3 URI for storage reference
+		"image_url": imageURL,  // Presigned URL for web use (valid for 7 days)
 	}, nil
 }
 
