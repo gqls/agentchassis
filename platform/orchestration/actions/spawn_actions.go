@@ -2077,6 +2077,7 @@ func getAgentDefinition(ctx context.Context, db interface{}, agentType string, l
                health_config, env_vars, is_active
         FROM agent_definitions
         WHERE type = $1 AND deleted_at IS NULL
+		ORDER BY version DESC
         LIMIT 1
     `
 

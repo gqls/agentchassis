@@ -341,6 +341,7 @@ func (p *MessageProcessor) loadAgentDefinition(ctx context.Context, agentType st
         SELECT type, display_name, description, category, default_config, capabilities
         FROM agent_definitions
         WHERE type = $1
+		ORDER BY version DESC
     `
 
 	var def actions.AgentDefinition
@@ -814,6 +815,7 @@ func (p *MessageProcessor) isKnownAgentType(ctx context.Context, agentType strin
 		SELECT EXISTS(
 			SELECT 1 FROM agent_definitions 
 			WHERE type = $1 AND is_active = true
+			ORDER BY version DESC
 		)
 	`
 

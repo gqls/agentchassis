@@ -203,6 +203,7 @@ func loadAgentDefinitionForAction(ctx context.Context, db interface{}, agentType
 		       health_config, env_vars, is_active
 		FROM agent_definitions
 		WHERE type = $1 AND is_active = true
+		ORDER BY version DESC
 		LIMIT 1
 	`
 
