@@ -680,6 +680,25 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return err
 	}
 
+	// 7a. check if we need to wait for a response
+	repo := NewStateRepository(s.db, s.logger)
+	if state.Status == StatusAwaitingResponses {
+		contextLogger.Info("Action requires waiting - pausing execution",
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("step", state.CurrentStep),
+			zap.Int("awaited_requests", len(state.AwaitedRequests)))
+
+		// Save state with awaited request immediately
+		if err := repo.UpdateState(ctx, state); err != nil {
+			contextLogger.Error("Failed to save awaiting state", zap.Error(err))
+			return fmt.Errorf("failed to save awaiting state: %w", err)
+		}
+
+		// Return early - don't continue to next step
+		// The workflow will resume when the awaited response arrives
+		return nil
+	}
+
 	// 8. Record processing history
 	recordActionExecution(state, execCtx, step, s.podName)
 
@@ -779,6 +798,7 @@ func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, sta
 		StepConfig:       step,
 		Headers:          execCtx.ToHeaders(),
 		CollectedData:    state.CollectedData,
+		SagaCoordinator:  coordinator,
 		Logger:           logger,
 		Producer:         coordinator.producer,
 		DB:               coordinator.db,
