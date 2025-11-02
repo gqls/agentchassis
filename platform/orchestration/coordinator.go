@@ -871,10 +871,24 @@ func processActionResult(state *OrchestrationState, result interface{}, step mod
 	logger.Info("in processActionResult what is result",
 		zap.String("step_name", step.Name),
 		zap.Any("result", result),
+		zap.String("result_type", fmt.Sprintf("%T", result)),
 	)
 
+	// Process result by converting it to a map[string]interface{}
+	// This robustly handles both map[string]interface{} and struct types
+	var resultMap map[string]interface{}
+	jsonBytes, err := json.Marshal(result)
+	if err != nil {
+		logger.Error("Failed to marshal action result", zap.Error(err), zap.Any("result_type", fmt.Sprintf("%T", result)))
+		return err // Can't proceed
+	}
+	if err := json.Unmarshal(jsonBytes, &resultMap); err != nil {
+		logger.Error("Failed to unmarshal action result into map", zap.Error(err))
+		return err // Can't proceed
+	}
+
 	// Process result based on type
-	if resultMap, ok := result.(map[string]interface{}); ok {
+	if resultMap != nil {
 		// Handle subtree information (from spawn actions)
 		processSubtreeInfo(state, resultMap, logger)
 
@@ -896,6 +910,10 @@ func processActionResult(state *OrchestrationState, result interface{}, step mod
 				zap.String("step_name", step.Name),
 			)
 		}
+	} else {
+		logger.Info("in processActionResult did not create resultMap successfully",
+			zap.String("step_name", step.Name),
+		)
 	}
 
 	return nil
@@ -951,6 +969,7 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 		zap.String("step_name", step.Name),
 		zap.Any("what type was await response - it is true but being seen as false perhaps?", result["await_response"]),
 		zap.Any("how deep is the await response key - keyed by action I think. result is:", result),
+		zap.String("result[await_response]_type in processAwaitResponse", fmt.Sprintf("%T", result["await_response"])),
 	)
 
 	// Check if action requires waiting
