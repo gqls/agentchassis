@@ -324,6 +324,16 @@ func (a *Agent) initializeComponents() error {
 		if err != nil {
 			return fmt.Errorf("failed to connect to database: %w", err)
 		}
+
+		// Set a low, fixed number of max connections per pod
+		db.SetMaxOpenConns(4)
+
+		// Only keep one idle connection open per pod
+		db.SetMaxIdleConns(1)
+
+		// Close connections after a while to force recycling
+		db.SetConnMaxLifetime(time.Minute * 10)
+
 		a.db = db
 		a.stateRepo = orchestration.NewStateRepository(db, a.logger)
 	}

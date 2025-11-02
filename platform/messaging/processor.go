@@ -64,6 +64,14 @@ func NewMessageProcessor(
 	if connStr := os.Getenv("DATABASE_URL"); connStr != "" {
 		sqlDB, _ = sql.Open("pgx", connStr)
 	}
+	// Set a low, fixed number of max connections per pod
+	db.SetMaxOpenConns(4)
+
+	// Only keep one idle connection open per pod
+	db.SetMaxIdleConns(1)
+
+	// Close connections after a while to force recycling
+	db.SetConnMaxLifetime(time.Minute * 10)
 
 	// Keep tracer for debugging
 	var tracer *types.TraceLogger
