@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -222,38 +221,6 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		} else {
 			headers[k] = fmt.Sprintf("%v", v) // fallback stringify
 		}
-	}
-
-	// Register the awaited request with the orchestration state
-	// This is what was missing - we need to tell the orchestration that we're waiting for this request
-	if params.SagaCoordinator != nil {
-		// Create an awaited request entry
-		awaitedRequest := &state.AwaitedRequest{
-			RequestID:       newRequestID,
-			StepID:          params.ExecutionContext.StepID,
-			StepName:        params.ExecutionContext.StepName,
-			Timestamp:       time.Now(),
-			TargetAgentType: "image-generator",
-			TimeoutSeconds:  60, // Give image generation 60 seconds
-		}
-
-		// Register with the state manager
-		if err := params.SagaCoordinator.CreateAwaitedRequest(
-			params.ExecutionContext.OrchestrationID,
-			newRequestID,
-			awaitedRequest,
-		); err != nil {
-			params.Logger.Error("Failed to register awaited request",
-				zap.Error(err),
-				zap.String("request_id", newRequestID),
-			)
-			return nil, fmt.Errorf("failed to register awaited request: %w", err)
-		}
-
-		params.Logger.Info("Registered awaited request with orchestration",
-			zap.String("request_id", newRequestID),
-			zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
-		)
 	}
 
 	// Convert to JSON
