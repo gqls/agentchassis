@@ -675,6 +675,14 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return handleActionError(err, step, contextLogger)
 	}
 
+	s.logger.Info("Executing local action - result back is: look for request id",
+		zap.Any("DEBUGaa: result", result),
+		zap.Any("action handler", handler),
+		zap.Any("state awaiting status", state.Status),
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.Any("DEBUGaa: state", state),
+	)
+
 	// 7. Process action result
 	if err := processActionResult(state, result, step, execCtx, s, contextLogger); err != nil {
 		return err
@@ -798,12 +806,13 @@ func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, sta
 		StepConfig:       step,
 		Headers:          execCtx.ToHeaders(),
 		CollectedData:    state.CollectedData,
-		SagaCoordinator:  coordinator,
-		Logger:           logger,
-		Producer:         coordinator.producer,
-		DB:               coordinator.db,
-		Tracer:           coordinator.tracer,
-		CurrentStep:      state.CurrentStep,
+		//SagaCoordinator:  coordinator,
+		SagaCoordinator: nil,
+		Logger:          logger,
+		Producer:        coordinator.producer,
+		DB:              coordinator.db,
+		Tracer:          coordinator.tracer,
+		CurrentStep:     state.CurrentStep,
 	}
 }
 
@@ -845,20 +854,47 @@ func handleActionError(err error, step models.Step, logger *zap.Logger) error {
 func processActionResult(state *OrchestrationState, result interface{}, step models.Step,
 	execCtx *types.ExecutionContext, coordinator *SagaCoordinator, logger *zap.Logger) error {
 
+	logger.Info("in processActionResult just",
+		zap.String("step_name", step.Name),
+		zap.Any("step - whats in step", step),
+	)
+
 	// Store result in collected data
 	if err := storeActionResult(state, result, logger); err != nil {
+		logger.Info("in processActionResult error when storing action result",
+			zap.String("step_name", step.Name),
+			zap.Any("result", result),
+		)
 		return err
 	}
+
+	logger.Info("in processActionResult what is result",
+		zap.String("step_name", step.Name),
+		zap.Any("result", result),
+	)
 
 	// Process result based on type
 	if resultMap, ok := result.(map[string]interface{}); ok {
 		// Handle subtree information (from spawn actions)
 		processSubtreeInfo(state, resultMap, logger)
 
+		logger.Info("in processActionResult was ok creating resultMap",
+			zap.Any("result map is", resultMap),
+		)
+
 		// Check if action requires waiting for response
 		if needsWaiting := processAwaitResponse(state, resultMap, execCtx, step, coordinator, logger); needsWaiting {
+			logger.Info("in processActionResult checking action",
+				zap.String("step_name", step.Name),
+				zap.Any("needs waiting", needsWaiting),
+			)
+
 			// State needs to wait for response
 			state.Status = StatusAwaitingResponses
+		} else {
+			logger.Info("in processActionResult was ok creating resultMap but didnt consider it needsWaiting",
+				zap.String("step_name", step.Name),
+			)
 		}
 	}
 
@@ -911,10 +947,45 @@ func processSubtreeInfo(state *OrchestrationState, result map[string]interface{}
 func processAwaitResponse(state *OrchestrationState, result map[string]interface{},
 	execCtx *types.ExecutionContext, step models.Step, coordinator *SagaCoordinator, logger *zap.Logger) bool {
 
+	logger.Info("in processAwaitResponse",
+		zap.String("step_name", step.Name),
+		zap.Any("what type was await response - it is true but being seen as false perhaps?", result["await_response"]),
+		zap.Any("how deep is the await response key - keyed by action I think. result is:", result),
+	)
+
 	// Check if action requires waiting
 	awaitResponse, ok := result["await_response"].(bool)
-	if !ok || !awaitResponse {
+	logger.Info("in processAwaitResponse",
+		zap.Any("what is await response is it true or false", result["await_response"]),
+	)
+
+	// extra checking
+	awaitVal, ok := result["await_response"]
+	if !ok {
+		return false // Key doesn't exist
+	}
+
+	switch v := awaitVal.(type) {
+	case bool:
+		logger.Info("in processAwaitResponse all good? recognised as bool",
+			zap.Any("what is await response", awaitResponse),
+		)
+		awaitResponse = v
+	case string:
+		logger.Info("in processAwaitResponse all good? recognised as string",
+			zap.Any("what is await response", awaitResponse),
+		)
+		awaitResponse = (v == "true" || v == "True")
+	default:
+		// Don't know how to handle this type, assume false
+		logger.Warn("Unknown type for 'await_response' in action result",
+			zap.String("step_name", step.Name),
+			zap.Any("value", awaitVal))
 		return false
+	}
+
+	if !awaitResponse {
+		return false // Value was false or not "true"
 	}
 
 	// Extract request ID

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -61,11 +60,11 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 
-	// Check if we have a SagaCoordinator
-	if params.SagaCoordinator == nil {
+	// Check if we have a SagaCoordinator - not used
+	/*if params.SagaCoordinator == nil {
 		params.Logger.Error("SagaCoordinator is nil - cannot register awaited request")
 		return nil, fmt.Errorf("SagaCoordinator is required for async image generation")
-	}
+	}*/
 
 	// Normalize the collected data using the helper
 	normalizedData := datahelpers.NormalizeCollectedData(
@@ -186,7 +185,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 			"request_id":              newRequestID,
 			"message_type":            "request",
 
-			// FLAT sender fields (not nested!)
+			// flat sender fields (not nested!)
 			"sender_agent_type":    params.ExecutionContext.Sender.AgentType,
 			"sender_agent_id":      params.ExecutionContext.OrchestrationID,
 			"sender_pod_name":      params.ExecutionContext.Sender.PodName,

@@ -573,7 +573,7 @@ func (r *StateRepository) CreateInitialState(
 		now,               // $24 - updated_at
 		nil,               // $25 - currently_executing
 		now,               // $26 - last_activity
-		processingNode)    // $27 - processing_node
+		processingNode) // $27 - processing_node
 
 	if err != nil {
 		r.logger.Error("Failed to create initial state",
@@ -898,6 +898,20 @@ func (r *StateRepository) FindByAwaitedRequestID(ctx context.Context, requestID 
 
 	var orchestrationID string
 	err := r.db.QueryRowContext(ctx, query, requestID).Scan(&orchestrationID)
+
+	// DEBUGaa what is in db, where is it being overwritten
+	queryDebug := `
+		SELECT orchestration_id
+		FROM orchestration_states
+		WHERE status = 'AWAITING_RESPONSES' ;
+	`
+
+	rows := r.db.QueryRowContext(ctx, queryDebug, requestID)
+	r.logger.Info("FindByAwaitedRequestID DEBUGaa: what is in db now",
+		zap.String("orchestration_id", orchestrationID),
+		zap.String("request_id", requestID),
+		zap.Any("DEBUGaa: rows", rows),
+	)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
