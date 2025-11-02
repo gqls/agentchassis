@@ -163,6 +163,8 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		"height": height,
 	}
 
+	newRequestID := uuid.NewString()
+
 	// The adapter expects certain fields in a specific format
 	// Build the image generation request for the adapter
 	adapterRequest := map[string]interface{}{
@@ -174,7 +176,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 			"client_id":               params.ExecutionContext.ClientID,
 			"step_name":               params.ExecutionContext.StepName,
 			"step_id":                 params.ExecutionContext.StepID,
-			"request_id":              uuid.NewString(),
+			"request_id":              newRequestID,
 			"message_type":            "request",
 
 			// FLAT sender fields (not nested!)
@@ -221,12 +223,11 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	}
 
 	// Send to adapter
-	requestID := uuid.NewString()
 	key := []byte(params.ExecutionContext.CorrelationID)
 
 	params.Logger.Info("Sending request to image adapter",
 		zap.String("topic", imageGeneratorAdapterTopic),
-		zap.String("request_id", requestID),
+		zap.String("request_id", newRequestID),
 		zap.String("reply_to_topic", myResponsesTopic),
 		zap.Any("request", adapterRequest),
 	)
@@ -245,7 +246,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// Store tracking info in collected data
 	if params.CollectedData != nil {
 		params.CollectedData[params.ExecutionContext.StepName] = map[string]interface{}{
-			"request_id":      requestID,
+			"request_id":      newRequestID,
 			"adapter_topic":   imageGeneratorAdapterTopic,
 			"responses_topic": myResponsesTopic,
 			"prompt":          promptTemplate,
@@ -259,7 +260,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// on its responses topic and can then complete the workflow
 	result := ImageGenerationResult{
 		Success:             true,
-		RequestID:           requestID,
+		RequestID:           newRequestID,
 		ChildResponsesTopic: myResponsesTopic,
 		TargetAgentType:     "adapter",
 		TopicSentTo:         imageGeneratorAdapterTopic,
@@ -267,7 +268,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	}
 
 	params.Logger.Info("Image generation request sent to adapter, awaiting response",
-		zap.String("request_id", requestID),
+		zap.String("request_id", newRequestID),
 		zap.String("expecting_response_on", myResponsesTopic),
 	)
 

@@ -884,7 +884,7 @@ func (r *StateRepository) RemoveAwaitedRequest(ctx context.Context, orchestratio
 
 // FindByAwaitedRequestID finds orchestration waiting for a specific request
 func (r *StateRepository) FindByAwaitedRequestID(ctx context.Context, requestID string) (*OrchestrationState, error) {
-	r.logger.Info("Searching for orchestration awaiting request",
+	r.logger.Info("FindByAwaitedRequestID Searching for orchestration awaiting request",
 		zap.String("request_id", requestID))
 
 	// Query using JSONB contains for the awaited_requests map
@@ -906,7 +906,7 @@ func (r *StateRepository) FindByAwaitedRequestID(ctx context.Context, requestID 
 				SELECT orchestration_id
 				FROM orchestration_states
 				WHERE status = 'AWAITING_RESPONSES'
-				  AND $1 = ANY(awaited_steps)
+				  AND awaited_steps ? $1
 				LIMIT 1
 			`
 

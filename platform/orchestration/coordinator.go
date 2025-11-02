@@ -187,7 +187,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 
 	repo := NewStateRepository(s.db, s.logger)
 
-	// ALWAYS use FindByAwaitedRequestID first - this finds the orchestration that's waiting
+	// Always use FindByAwaitedRequestID first - this finds the orchestration that's waiting
 	state, err := repo.FindByAwaitedRequestID(ctx, requestID)
 	if err != nil {
 		// No orchestration is waiting for this response - it's not for us
