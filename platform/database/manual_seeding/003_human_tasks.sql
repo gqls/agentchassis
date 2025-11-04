@@ -2,7 +2,7 @@
 -- Create human tasks table for testing human-in-the-loop
 
 CREATE TABLE IF NOT EXISTS human_tasks (
-                                           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     correlation_id VARCHAR(255) NOT NULL,
     client_id VARCHAR(255) NOT NULL,
     task_type VARCHAR(100) NOT NULL,
@@ -28,7 +28,7 @@ CREATE INDEX idx_human_tasks_timeout ON human_tasks(timeout_at);
 
 -- Create notifications table
 CREATE TABLE IF NOT EXISTS human_task_notifications (
-                                                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID NOT NULL,
     notification_type VARCHAR(50) NOT NULL,
     recipient VARCHAR(255) NOT NULL,
@@ -41,3 +41,21 @@ CREATE TABLE IF NOT EXISTS human_task_notifications (
     FOREIGN KEY (task_id)
     REFERENCES human_tasks(id)
     );
+
+
+CREATE TABLE approval_requests (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       request_id VARCHAR(255) UNIQUE NOT NULL,
+       orchestration_id VARCHAR(255) NOT NULL,
+       correlation_id VARCHAR(255) NOT NULL,
+       agent_type VARCHAR(100),
+       agent_id VARCHAR(255),
+       step_name VARCHAR(255),
+       data JSONB,
+       status VARCHAR(50) DEFAULT 'pending',
+       approved_by VARCHAR(255),
+       comments TEXT,
+       created_at TIMESTAMP DEFAULT NOW(),
+       updated_at TIMESTAMP DEFAULT NOW(),
+       approved_at TIMESTAMP
+);

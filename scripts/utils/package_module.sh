@@ -464,7 +464,14 @@ SHARED_ROOT_FILES=("Makefile" "go.mod" "go.sum" "docker-compose.yaml")
 case "$COMPONENT_NAME" in
   # --- Horizontal Slices ---
   code-all)
-    MODULE_DIRS=( "cmd/" "internal/" "pkg/" "platform/" )
+    MODULE_DIRS=(
+    "cmd/"
+    "internal/"
+    "pkg/"
+    "platform/"
+    "configs/"
+    "deployments/"
+    )
     MODULE_FILES=( "go.mod" "go.sum" )
     ;;
 

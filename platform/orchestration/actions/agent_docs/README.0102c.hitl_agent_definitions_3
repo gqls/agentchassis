@@ -1,0 +1,240 @@
+-- Example Agent Definition with HITL Approval Workflow
+-- This shows how to use the new HITL actions in an agent's workflow
+
+-- SQL to insert a content writer agent that requires approval before publishing
+INSERT INTO agent_definitions (
+    type,
+    display_name,
+    description,
+    category,
+    default_config,
+    capabilities
+) VALUES (
+    'content-writer-with-approval',
+    'Content Writer with Approval',
+    'Creates content that requires human approval before completion',
+    'data-driven',
+    '{
+        "workflow": {
+            "start_step": "validate_input",
+            "steps": {
+                "validate_input": {
+                    "action": "validate_input",
+                    "config": {
+                        "required_fields": ["topic", "content_type"],
+                        "optional_fields": ["tone", "length", "keywords"]
+                    },
+                    "next_step": "generate_content",
+                    "description": "Validate input parameters"
+                },
+                "generate_content": {
+                    "action": "execute_llm_prompt",
+                    "config": {
+                        "prompt_template": "Write a {{content_type}} about {{topic}}. Tone: {{tone}}. Include keywords: {{keywords}}.",
+                        "input_fields": ["topic", "content_type", "tone", "keywords"]
+                    },
+                    "next_step": "await_approval",
+                    "description": "Generate initial content"
+                },
+                "await_approval": {
+                    "action": "await_approval",
+                    "config": {
+                        "approval_fields": ["generate_content"],
+                        "notification_topic": "system.notifications.ui",
+                        "approval_type": "content_review",
+                        "timeout_seconds": 3600,
+                        "ui_config": {
+                            "title": "Content Review Required",
+                            "description": "Please review and approve the generated content",
+                            "editable_fields": ["content"],
+                            "actions": ["approve", "reject", "modify"]
+                        }
+                    },
+                    "next_step": "process_approval",
+                    "description": "Wait for human approval"
+                },
+                "process_approval": {
+                    "action": "process_approval_decision",
+                    "config": {
+                        "stop_on_reject": false
+                    },
+                    "next_step": "conditional_route",
+                    "description": "Process the approval decision"
+                },
+                "conditional_route": {
+                    "action": "conditional_route",
+                    "config": {
+                        "condition_field": "process_approval.approved",
+                        "routes": {
+                            "true": "finalize_content",
+                            "false": "handle_rejection"
+                        }
+                    },
+                    "description": "Route based on approval decision"
+                },
+                "finalize_content": {
+                    "action": "transform_data",
+                    "config": {
+                        "transformations": {
+                            "final_content": "{{process_approval.modified_data.content|default:generate_content.result}}",
+                            "approved_by": "{{process_approval.approved_by}}",
+                            "approval_timestamp": "{{process_approval.timestamp}}"
+                        }
+                    },
+                    "next_step": "complete",
+                    "description": "Prepare final approved content"
+                },
+                "handle_rejection": {
+                    "action": "transform_data",
+                    "config": {
+                        "transformations": {
+                            "status": "rejected",
+                            "rejection_reason": "{{process_approval.comments}}",
+                            "rejected_by": "{{process_approval.approved_by}}",
+                            "original_content": "{{generate_content.result}}"
+                        }
+                    },
+                    "next_step": "complete",
+                    "description": "Handle rejected content"
+                },
+                "complete": {
+                    "action": "complete_workflow",
+                    "description": "Return final result"
+                }
+            }
+        },
+        "ai_service": {
+            "provider": "anthropic",
+            "model": "claude-3-5-sonnet-20241022",
+            "api_key_env_var": "ANTHROPIC_API_KEY"
+        },
+        "processing_mode": "task"
+    }'::jsonb,
+    '["content_generation", "human_approval", "conditional_routing"]'::jsonb
+);
+
+-- Example Agent Group Definition with Multi-Step Approval
+INSERT INTO agent_group_definitions (
+    name,
+    group_type,
+    agent_configs,
+    orchestration_workflow
+) VALUES (
+    'website-builder-with-approvals',
+    'multi-section-website-with-approvals',
+    '{
+        "agents": [
+            {
+                "type": "content-writer-with-approval",
+                "role": "hero_writer",
+                "config": {
+                    "content_type": "hero section"
+                }
+            },
+            {
+                "type": "content-writer-with-approval",
+                "role": "features_writer",
+                "config": {
+                    "content_type": "features section"
+                }
+            }
+        ]
+    }'::jsonb,
+    '{
+        "start_step": "create_approval_request",
+        "steps": {
+            "create_approval_request": {
+                "action": "create_approval_request",
+                "config": {
+                    "metadata": {
+                        "project_type": "website",
+                        "requires_multi_approval": true
+                    }
+                },
+                "next_step": "spawn_hero_writer",
+                "description": "Create tracking request for approvals"
+            },
+            "spawn_hero_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "agent_type": "content-writer-with-approval",
+                    "role": "hero_writer"
+                },
+                "next_step": "spawn_features_writer",
+                "description": "Spawn hero content writer"
+            },
+            "spawn_features_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "agent_type": "content-writer-with-approval",
+                    "role": "features_writer"
+                },
+                "next_step": "write_hero",
+                "description": "Spawn features content writer"
+            },
+            "write_hero": {
+                "action": "call_agent",
+                "config": {
+                    "target_role": "hero_writer",
+                    "input_data": {
+                        "topic": "{{input_data.business_name}}",
+                        "content_type": "hero section",
+                        "tone": "professional",
+                        "keywords": "{{input_data.keywords}}"
+                    }
+                },
+                "next_step": "write_features",
+                "description": "Generate hero section with approval"
+            },
+            "write_features": {
+                "action": "call_agent",
+                "config": {
+                    "target_role": "features_writer",
+                    "input_data": {
+                        "topic": "{{input_data.business_name}}",
+                        "content_type": "features section",
+                        "tone": "informative",
+                        "features": "{{input_data.features}}"
+                    }
+                },
+                "next_step": "aggregate_content",
+                "description": "Generate features section with approval"
+            },
+            "aggregate_content": {
+                "action": "aggregate_webpage",
+                "config": {
+                    "response_fields": ["write_hero", "write_features"],
+                    "template": "basic"
+                },
+                "next_step": "final_approval",
+                "description": "Combine all approved content"
+            },
+            "final_approval": {
+                "action": "await_approval",
+                "config": {
+                    "approval_fields": ["aggregate_content"],
+                    "approval_type": "final_website_review",
+                    "ui_config": {
+                        "title": "Final Website Review",
+                        "description": "Review the complete website before publishing",
+                        "preview_enabled": true
+                    }
+                },
+                "next_step": "process_final_approval",
+                "description": "Final approval for complete website"
+            },
+            "process_final_approval": {
+                "action": "process_approval_decision",
+                "config": {
+                    "stop_on_reject": true
+                },
+                "next_step": "complete",
+                "description": "Process final approval"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "description": "Return approved website"
+            }
+        }
+    }'::jsonb
+);

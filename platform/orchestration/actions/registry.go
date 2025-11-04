@@ -68,6 +68,12 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"approve_agent_changes": ApproveAgentChangesAction,
 	"evaluate_task":         EvaluateTaskAction,
 
+	// HITL / Approval actions
+	"await_approval":             AwaitApprovalAction,
+	"process_approval_decision":  ProcessApprovalDecisionAction,
+	"create_approval_request":    CreateApprovalRequestAction,
+	"wait_for_approval_response": WaitForApprovalResponseAction,
+
 	// Legacy/duplicate
 	"spawn_agent_k8s": SpawnAgentAction, // Same as spawn_agent
 }

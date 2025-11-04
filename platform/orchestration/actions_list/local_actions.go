@@ -66,6 +66,12 @@ var LocalActions = map[string]bool{
 	"approve_agent_changes": true,
 	"evaluate_task":         true,
 
+	// HITL / Approval actions
+	"await_approval":             true,
+	"process_approval_decision":  true,
+	"create_approval_request":    true,
+	"wait_for_approval_response": true,
+
 	// Legacy/duplicate
 	"spawn_agent_k8s": true,
 }
