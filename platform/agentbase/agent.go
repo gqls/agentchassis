@@ -687,6 +687,21 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		zap.Any("headers", headers),
 	)
 
+	// Check for approval responses *before* sending to the generic processor
+	/*	if messageType == "response" && (headers["action"] == "approved" || headers["action"] == "rejected") {
+		a.logger.Info("Received approval response, routing to approval handler",
+			zap.String("action", headers["action"]),
+			zap.String("orchestration_id", headers["orchestration_id"]),
+			zap.String("correlation_id", headers["correlation_id"]),
+			zap.String("approval_token", headers["approval_token"]),
+		)
+
+		// You will need to implement this function, likely by copying/adapting
+		// handleApprovalResponse from internal/agents/orchestration/agent.go
+		// It needs access to the stateManager and orchestrator logic.
+		return a.handleApprovalResponse(ctx, msg)
+	}*/
+
 	// Check if this is an error message
 	if headers["is_error"] == "true" {
 		a.logger.Info("Received error message, passing up the chain",

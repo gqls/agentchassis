@@ -899,6 +899,11 @@ func BuildCollectedData(
 			collectedData["prompt"] = prompt
 		}
 
+		// Add agent_config extraction
+		if agentConfig, ok := unnestedBody["agent_config"].(map[string]interface{}); ok {
+			collectedData["agent_config"] = agentConfig
+		}
+		
 		// Store the raw message for debugging (use original body, not unnested)
 		collectedData["__raw_message__"] = body
 

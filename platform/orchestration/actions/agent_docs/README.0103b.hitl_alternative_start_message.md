@@ -1,3 +1,5 @@
+059_human_in_the_loop_adventures 5f91200
+
 #!/bin/bash
 # Testing HITL Approval Actions - Step by Step Guide
 
@@ -84,6 +86,26 @@ kcat -P -b personae-kafka-cluster-kafka-bootstrap:9092 \
 }
 JSON
 EOF
+
+# on one line
+echo ""
+echo "STEP 2: Trigger a workflow that needs approval"
+echo "----------------------------------------------"
+echo "In Terminal 2, send a test message to trigger the workflow:"
+cat << 'EOF'
+CORRELATION_ID=$(uuidgen)
+REQUEST_ID=$(uuidgen)
+
+kubectl -n kafka run -i --rm kcat-producer-test \
+--image=edenhill/kcat:1.7.1 --restart=Never -- \
+kcat -P -b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_type=request \
+-H action=orchestrate \
+{"action":"orchestrate","config":{"workflow":{"start_step":"generate","steps":{"generate":{"action":"execute_llm_prompt","config":{"prompt_template":"Write a short greeting for {{name}}","input_fields":["name"]},"next_step":"await_approval","description":"Generate content"},"await_approval":{"action":"await_approval","config":{"approval_fields":["generate"],"approval_type":"content_review","ui_config":{"title":"Content Approval Required","description":"Please approve the generated greeting"}},"next_step":"process_approval","description":"Wait for approval"},"process_approval":{"action":"process_approval_decision","next_step":"complete","description":"Process the decision"},"complete":{"action":"complete_workflow","description":"Complete"}}}},"input_data":{"name":"Test User"}}
+
 
 # Step 3: Get the approval token
 echo ""

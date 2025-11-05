@@ -71,6 +71,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	// HITL / Approval actions
 	"await_approval":             AwaitApprovalAction,
 	"process_approval_decision":  ProcessApprovalDecisionAction,
+	"process_data":               ProcessApprovalDecisionAction, // for one of the workflows - prob delete this later
 	"create_approval_request":    CreateApprovalRequestAction,
 	"wait_for_approval_response": WaitForApprovalResponseAction,
 

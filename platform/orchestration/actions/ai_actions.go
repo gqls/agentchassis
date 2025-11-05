@@ -82,7 +82,9 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	agentConfig, ok = params.CollectedData["agent_config"].(map[string]interface{})
 	params.Logger.Info("Checking agent_config in CollectedData",
 		zap.Bool("found", ok),
-		zap.Bool("is_nil", agentConfig == nil))
+		zap.Bool("is_nil", agentConfig == nil),
+		zap.Any("DEBUGaa: collected Data at this stage is:", params.CollectedData),
+	)
 
 	// If not found, load it directly from the database
 	if !ok && params.AgentType != "" {
@@ -129,7 +131,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	params.Logger.Info("in ExecuteLLMPromptAction data from which were trying to extract templatedata",
-		zap.Any("DEBUGaa: params sent to extractDataForAIAgent hoping for the correct cleandata which were not getting", params),
+		zap.Any("DEBUGaa: params sent to extractDataForAIAgent hoping for the correct cleandata", params),
 	)
 
 	extractedData := extractDataForAiAgent(params)

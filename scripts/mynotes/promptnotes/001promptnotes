@@ -1,3 +1,49 @@
+architecture is a recursive orchestrator model
+
+
+Agent Orchestration Architecture
+Problem Statement
+
+I would like to closely log and track the creation of agents, the messages (with headers and body) that are passed between agents.
+
+Image creation is now working, as is the website creation flow (to a limited extent but that is ok for now).
+
+I'd like to now start creating human in the loop functionality including developing the api.
+
+To begin with we can keep it really simple with perhaps just one agent and an hitl approval - without any images or anything complicated.
+
+We'll need an agent group definition in the database with a workflow that can create something, perhaps a website but with approval steps for each piece of content.
+
+We'll need agent definitions for each agent we use or create with their own workflows.
+
+We can use the image adapter to create presigned urls of images using GenerateImageAction as we have been doing. To begin with we don't need this step.
+
+I'd like to break it down into several sections, with separate agents concentrating on each section. We can do detailed prompts for each section and we can, if we want to, spawn sub agents for e.g. research before writing the content. To begin with we don't need more than one example agent.
+
+We're using groups of workflows for the tasks. Agents should always respond to the responses topic of the caller and not to their own responses topic.
+
+Please always work small steps at a time and think hard.
+
+Please keep in mind the flow of work at all times and phrase your responses in this context including the function calls that lead up to the problem sometimes, so I can understand what's going on.
+
+Please don't jump to conclusions.
+
+Please don't create summary documents unless asked for, instead, moderately brief summaries at the end as you usually do will suffice.
+
+Please don't say that any fixes are the final or last fixes. Don't use the words perfect, critical or excellent.
+
+Please don't congratulate me but keep everything pragmatic and focused on the continuous debugging tasks we have ahead of us.
+
+Every agent is an orchestrator.
+
+Always look through existing code and see if we have similar functions or structs that already exist and that can be improved before creating new code.
+
+Let's reuse (and alter if necessary) the functions and architecture that we already have before recreating similar structures. Please think hard about this every time.
+
+
+
+
+
 [parse all ai responses for confusions and restated bugs and reasoning steps]
 produce detailed sequence diagram with all function calls using trace
 follow particular struct throughout lifespan
@@ -61,7 +107,29 @@ don't make up db schemas, column names/field names, enums, column types, indices
 
 don't just give quick fixes, we are in it for the long term
 
+modular
 
+all agents are orchestrators and all agents have two topics (per orchestration but at the moment it's just one orchestration per agent) a requests topic and a responses topic. The topics are specific to the parent step so that if an agent fails the workflow can resume on another.
+
+In this current architecture, all agents are orchestrators and all agents have two topics (per orchestration but at the moment it's just one orchestration per agent) a requests topic and a responses topic. The topics are specific to the parent step so that if an agent fails the workflow can resume on another.
+
+The other point is that agents can spawn other agents in a hierarchical/graph fashion, so the awaitApproval agent could spawn another agent that handles the response or it could have in its own workflow a ProcessApprovalDecision action.
+
+Currently the orchestration for the agents is working ok and it doesn't want changing unless completely necessary - it does it's job.
+
+So how about this design:
+
+the awaitApproval agent workflow has a ProcessApprovalDecision action and it waits for responses on its own responses topic.
+
+another possibility given that this topic might be unintentionally ephemeral, is that the approval responses go to a central topic and are then forwarded to this agent's own responses topic, so there is a central store of responses in that central topic. I'd need to think further about that though. Please think about a modular design that doesn't involve every agent (i.e. the orchestrator) having to handle every possible action response (in the orchestrator code) and that follows our existing multi agent, potentially hierarchical agent, pattern.
+
+I would want all major work, including transformations, to happen in a child agent of generic agent (or child's child etc), as the generic agent is mentally a sort of initial orchestrator fanning out work to agents and shouldn't really do much work itself except for managing requests, spawning agents, and keeping track of responses etc. Technically it should remain the same as any other agent though, i.e. the orchestration code is shared with all agents.
+
+However, it should be able to work as part of the generic agent's own workflow of course.
+
+architecture is a recursive orchestrator model
+
+it would be good to have the ability to run parallel tasks in the workflow, so the whole generic agent workflow for instance won't stall waiting for a human response.
 
 
 

@@ -4,7 +4,9 @@ package actions
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,6 +40,7 @@ func AwaitApprovalAction(ctx context.Context, params ActionParams) (interface{},
 		approvalToken,
 		dataForApproval,
 		params.StepConfig.Config,
+		*params.Logger,
 	)
 
 	// Send notification to HITL service
@@ -61,9 +64,10 @@ func AwaitApprovalAction(ctx context.Context, params ActionParams) (interface{},
 	}
 
 	params.Logger.Info("AwaitApprovalAction: Sent approval request",
-		zap.String("approval_token", approvalToken),
+		zap.String("approval_token and request id", approvalToken),
 		zap.String("notification_topic", notificationTopic),
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.String("correlation_id", params.ExecutionContext.CorrelationID),
 	)
 
 	// Store approval request in database if DB is available
@@ -82,7 +86,7 @@ func AwaitApprovalAction(ctx context.Context, params ActionParams) (interface{},
 		"message":           "Workflow paused for human approval",
 		"await_response":    true, // This tells SagaCoordinator to pause
 		"request_id":        approvalToken,
-		"reply_to_topic":    "system.commands.workflow.resume",
+		"reply_to_topic":    params.ExecutionContext.ResponsesTopic,
 		"data_for_approval": dataForApproval,
 	}, nil
 }
@@ -263,7 +267,18 @@ func buildApprovalNotification(
 	approvalToken string,
 	dataForApproval map[string]interface{},
 	config map[string]interface{},
+	logger zap.Logger,
 ) map[string]interface{} {
+
+	replyTopic := execCtx.ResponsesTopic
+	if replyTopic == "" {
+		replyTopic = os.Getenv("RESPONSES_TOPIC")
+		if replyTopic == "" {
+			err := errors.New("missing required env var RESPONSES_TOPIC")
+			logger.Error("reply topic missing in buildApprovalNotification in hitl_actions.go", zap.Error(err))
+			replyTopic = "system.generic.responses"
+		}
+	}
 
 	notification := map[string]interface{}{
 		"type":             "approval_request",
