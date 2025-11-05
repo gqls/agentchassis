@@ -95,6 +95,7 @@ func AwaitApprovalAction(ctx context.Context, params ActionParams) (interface{},
 func ProcessApprovalDecisionAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("ProcessApprovalDecisionAction: Starting",
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.Any("DEBUGaa: in ProcessApprovalDecisionAction Collected Data", params.CollectedData),
 	)
 
 	// Extract approval response from CollectedData
@@ -112,6 +113,7 @@ func ProcessApprovalDecisionAction(ctx context.Context, params ActionParams) (in
 		zap.Bool("approved", approved),
 		zap.String("comments", comments),
 		zap.String("approved_by", approvedBy),
+		zap.Any("approval response", approvalResponse),
 	)
 
 	// Update approval request in database if available
@@ -314,21 +316,32 @@ func buildApprovalNotification(
 func extractApprovalResponse(collectedData map[string]interface{}, logger *zap.Logger) map[string]interface{} {
 	// Check for approval response in various locations
 	if response, ok := collectedData["approval_response"].(map[string]interface{}); ok {
+		logger.Info("Found approval data in 'approval_response' key")
 		return response
 	}
 
 	if response, ok := collectedData["await_approval"].(map[string]interface{}); ok {
+		logger.Info("Found 'await_approval' key", zap.Any("data", response))
+		// Check for a nested 'body'
 		if body, ok := response["body"].(map[string]interface{}); ok {
+			logger.Info("Found nested 'body' key")
 			return body
+		}
+		// If the 'await_approval' map *itself* is the data
+		if _, exists := response["approved"]; exists {
+			logger.Info("Found 'approved' key directly in 'await_approval' data")
+			return response
 		}
 	}
 
 	// Check in input_data
 	inputData := datahelpers.GetInputData(collectedData, logger)
 	if _, exists := inputData["approved"]; exists {
+		logger.Info("Found approval data in 'input_data' key")
 		return inputData
 	}
 
+	logger.Warn("Could not find approval response in 'approval_response', 'await_approval', or 'input_data'")
 	return nil
 }
 
