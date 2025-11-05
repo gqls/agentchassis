@@ -1314,7 +1314,7 @@ func (s *SagaCoordinator) handleProgressUpdate(ctx context.Context, state *Orche
 // handleCompleteResponse processes a successful response
 func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
 	s.logger.Info("in handleCompleteResponse orchestrator ",
-		zap.String("orchestration_id", execCtx.OrchestrationID),
+		zap.String("orchestration_id is", execCtx.OrchestrationID),
 		zap.String("step_name", execCtx.StepName),
 		zap.String("step_id", execCtx.StepID),
 		zap.String("functional role", execCtx.FunctionalRole),
@@ -1395,8 +1395,9 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		s.logger.Info("Converted response body to map via marshal/unmarshal")
 	}
 
+	normalisedData := datahelpers.CleanDataMap(responseBodyData)
 	// Normalize the response data before storing
-	normalisedData := datahelpers.NormalizeResponseData(response.Body, s.logger)
+	//normalisedData := datahelpers.NormalizeResponseData(responseBodyData, s.logger)
 
 	// Store under the step name in CollectedData
 	stepName := awaitedReq.StepName

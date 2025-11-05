@@ -314,6 +314,8 @@ func buildApprovalNotification(
 }
 
 func extractApprovalResponse(collectedData map[string]interface{}, logger *zap.Logger) map[string]interface{} {
+	logger.Info("In extractApprovalResponse")
+
 	// Check for approval response in various locations
 	if response, ok := collectedData["approval_response"].(map[string]interface{}); ok {
 		logger.Info("Found approval data in 'approval_response' key")

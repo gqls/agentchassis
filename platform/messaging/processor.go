@@ -1358,7 +1358,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 		msgCtx.CollectedData["__work_request__"] = workRequestMetadata
 
-		p.logger.Debug("ProcessMessage: work request metadata stored",
+		p.logger.Info("ProcessMessage: work request metadata stored",
 			zap.Any("metadata", workRequestMetadata))
 	}
 	// end new stuff - __work_request__ key
@@ -1420,7 +1420,35 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		contextLogger.Info("Routing response to orchestrator",
 			zap.String("orchestration_id", responseMsg.Headers.OrchestrationID),
 			zap.String("status", responseMsg.Headers.Status),
-			zap.Bool("has_orchestrator", p.orchestrator != nil))
+			zap.Bool("has_orchestrator", p.orchestrator != nil),
+			zap.Any("DEBUGaa: response msg", responseMsg),
+			zap.Any("DEBUGaa: responseMsg.Body.Body is it nil? null is yes", responseMsg.Body.Body),
+		)
+
+		// Manually extract body if unmarshal didn't populate it
+		if responseMsg.Body.Body == nil {
+			p.logger.Warn("Body.Body is nil - manually extracting from raw JSON",
+				zap.Any("DEBUGaa: and that raw JSON is msg.Value: ", msg.Value),
+			)
+
+			var rawMsg map[string]interface{}
+			if err := json.Unmarshal(msg.Value, &rawMsg); err == nil {
+				if bodyMap, ok := rawMsg["body"].(map[string]interface{}); ok {
+					// Extract actual data (skip meta fields)
+					bodyData := make(map[string]interface{})
+					for k, v := range bodyMap {
+						if k != "success" && k != "status" && k != "error" {
+							bodyData[k] = v
+						}
+					}
+
+					if len(bodyData) > 0 {
+						responseMsg.Body.Body = bodyData
+						p.logger.Info("Extracted body", zap.Int("fields", len(bodyData)))
+					}
+				}
+			}
+		}
 
 		// The orchestrator needs to handle this response
 		if p.orchestrator != nil {

@@ -69,7 +69,7 @@ func extractFromRequestMessage(msg *types.RequestMessage, logger *zap.Logger) ma
 			return data
 		}
 		// Return cleaned body
-		return cleanDataMap(body)
+		return CleanDataMap(body)
 	default:
 		logger.Debug("extractFromRequestMessage: body is not a map")
 		return map[string]interface{}{}
@@ -106,7 +106,7 @@ func extractFromResponseMessage(msg *types.ResponseMessage, logger *zap.Logger) 
 		}
 		// Return the body itself if it's clean data
 		logger.Debug("extractFromResponseMessage: using cleaned body")
-		return cleanDataMap(body)
+		return CleanDataMap(body)
 	}
 
 	logger.Debug("extractFromResponseMessage: body is not a map")
@@ -147,7 +147,7 @@ func extractFromRawMap(source map[string]interface{}, logger *zap.Logger) map[st
 
 	// Strategy 5: Clean the body itself
 	if body, ok := source["body"].(map[string]interface{}); ok {
-		cleaned := cleanDataMap(body)
+		cleaned := CleanDataMap(body)
 		if len(cleaned) > 0 {
 			logger.Debug("extractFromRawMap: using cleaned body")
 			return cleaned
@@ -404,19 +404,22 @@ func NormalizeCollectedData(
 }
 
 // NormalizeResponseData cleans response data before storing in CollectedData
-func NormalizeResponseData(responseBody types.ResponseBody, logger *zap.Logger) map[string]interface{} {
-	if responseBody.Body == nil && responseBody.Error == nil {
+/*func NormalizeResponseData(responseBodyData map[string]interface{}, logger *zap.Logger) map[string]interface{} {
+	logger.Info("In NormalizeResponseData",
+		zap.Any("responseBodyData", responseBodyData),
+	)
+	if responseBodyData.Body == nil && responseBodyData.Error == nil {
 		logger.Info("NormalizeResponseData: responseBody is nil")
 		return map[string]interface{}{}
 	}
 
 	// ResponseBody.Body contains the actual data
-	if body, ok := responseBody.Body.(map[string]interface{}); ok {
+	if body, ok := responseBodyData.Body.(map[string]interface{}); ok {
 		logger.Info("NormalizeResponseData: processing body",
 			zap.Any("body", body),
 		)
 
-		cleanResult := cleanDataMap(body)
+		cleanResult := CleanDataMap(body)
 
 		logger.Info("NormalizeResponseData: preserved fields",
 			zap.Any("clean result", cleanResult),
@@ -426,7 +429,7 @@ func NormalizeResponseData(responseBody types.ResponseBody, logger *zap.Logger) 
 	}
 	logger.Info("NormalizeResponseData: body is not a map")
 	return map[string]interface{}{}
-}
+}*/
 
 // GetInputData safely retrieves input_data from CollectedData
 func GetInputData(collectedData map[string]interface{}, logger *zap.Logger) map[string]interface{} {
@@ -539,7 +542,7 @@ func MergeInputData(existing, new map[string]interface{}, logger *zap.Logger) ma
 	return result
 }
 
-// UpdateCollectedData safely updates CollectedData with new information
+/*// UpdateCollectedData safely updates CollectedData with new information
 func UpdateCollectedData(
 	collected map[string]interface{},
 	stepName string,
@@ -556,7 +559,7 @@ func UpdateCollectedData(
 	// Also merge into input_data if it's a data update
 	if currentData, ok := collected["input_data"].(map[string]interface{}); ok {
 		// Only merge actual data fields, not system fields
-		cleanStepData := cleanDataMap(stepData)
+		cleanStepData := CleanDataMap(stepData)
 		for k, v := range cleanStepData {
 			currentData[k] = v
 		}
@@ -564,7 +567,7 @@ func UpdateCollectedData(
 			zap.String("step", stepName),
 			zap.Int("merged_fields", len(cleanStepData)))
 	}
-}
+}*/
 
 // ============================================================================
 // TRANSFORMATION FUNCTIONS
@@ -673,8 +676,8 @@ func findDataField(source map[string]interface{}, fieldName string) map[string]i
 	return nil
 }
 
-// cleanDataMap removes system fields from a map
-func cleanDataMap(source map[string]interface{}) map[string]interface{} {
+// CleanDataMap removes system fields from a map
+func CleanDataMap(source map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	systemFields := map[string]bool{
@@ -903,7 +906,7 @@ func BuildCollectedData(
 		if agentConfig, ok := unnestedBody["agent_config"].(map[string]interface{}); ok {
 			collectedData["agent_config"] = agentConfig
 		}
-		
+
 		// Store the raw message for debugging (use original body, not unnested)
 		collectedData["__raw_message__"] = body
 
