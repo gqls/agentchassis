@@ -82,7 +82,7 @@ spec:
             - name: RESPONSES_TOPIC
               value: "system.agent.generic.responses"
             - name: PARENT_RESPONSES_TOPIC
-              value: "system.responses.generic"
+              value: "system.generic.responses"
             - name: REQUESTS_TOPIC
               value: "system.agent.generic.requests"
 

@@ -237,7 +237,7 @@ func WaitForApprovalResponseAction(ctx context.Context, params ActionParams) (in
 		"status":         "waiting",
 		"message":        "Waiting for approval response",
 		"await_response": true,
-		"reply_to_topic": "system.commands.workflow.resume",
+		"reply_to_topic": params.ExecutionContext.ReplyToTopic,
 	}, nil
 }
 
@@ -288,7 +288,7 @@ func buildApprovalNotification(
 		"agent_type":       execCtx.Sender.AgentType,
 		"agent_id":         execCtx.Sender.AgentID,
 		"step_name":        execCtx.StepName,
-		"reply_to_topic":   "system.commands.workflow.resume",
+		"reply_to_topic":   replyTopic,
 		"data":             dataForApproval,
 		"timestamp":        time.Now().UTC().Format(time.RFC3339),
 	}

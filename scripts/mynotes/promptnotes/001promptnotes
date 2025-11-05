@@ -131,5 +131,7 @@ architecture is a recursive orchestrator model
 
 it would be good to have the ability to run parallel tasks in the workflow, so the whole generic agent workflow for instance won't stall waiting for a human response.
 
+data flow
+
 
 

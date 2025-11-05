@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // ValidateInputAction validates the input data
@@ -45,6 +47,8 @@ func ValidateInputAction(ctx context.Context, params ActionParams) (interface{},
 
 // TransformDataAction transforms data (e.g., uppercase)
 func TransformDataAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("In TransformDataAction ")
+
 	// Get transformation config from step
 	var transformation string
 	if params.StepConfig.Config != nil {
@@ -116,6 +120,11 @@ func TransformDataAction(ctx context.Context, params ActionParams) (interface{},
 	default:
 		return nil, fmt.Errorf("unknown transformation: %s", transformation)
 	}
+
+	params.Logger.Info("In TransformDataAction at the end",
+		zap.String("transformation", transformation),
+		zap.Any("the result of the transformation is:", result),
+	)
 
 	return result, nil
 }
