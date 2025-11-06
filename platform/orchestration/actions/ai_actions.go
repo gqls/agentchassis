@@ -84,6 +84,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		zap.Bool("found", ok),
 		zap.Bool("is_nil", agentConfig == nil),
 		zap.Any("agentConfig in first try", agentConfig),
+		zap.Any("Config in first try", agentConfig),
 		zap.String("step name is", params.ExecutionContext.StepName),
 		zap.Any("DEBUGaa: collected Data at this stage is:", params.CollectedData),
 	)
@@ -112,24 +113,31 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("agent configuration not found")
 	}
 
-	params.Logger.Info("Checking agent_config (not nil) in CollectedData",
-		zap.Any("agentConfig", agentConfig),
+	config, ok := params.CollectedData["config"].(map[string]interface{})
+	if !ok {
+		params.Logger.Error("Failed to load normal config (overridden config)",
+			zap.String("agent_type", params.AgentType),
+		)
+	}
+
+	params.Logger.Info("Checking normal just config in CollectedData",
+		zap.Any("config", config),
 	)
 
 	// Extract AI service configuration
-	aiServiceConfig, ok := agentConfig["ai_service"].(map[string]interface{})
+	aiServiceConfig, ok := config["ai_service"].(map[string]interface{})
 	if !ok {
-		params.Logger.Info("ai_actions.go Looking in current step for ai_service configuration")
+		params.Logger.Info("ai_actions.go Looking in current step in normal config for ai_service configuration")
 		// try to get step specific ai_service
-		aiServiceWorkflow, _ := agentConfig["workflow"].(map[string]interface{})
+		aiServiceWorkflow, _ := config["workflow"].(map[string]interface{})
 		aiServiceSteps, _ := aiServiceWorkflow["steps"].(map[string]interface{})
 		aiCurrentStep, _ := aiServiceSteps[currentStep].(map[string]interface{})
 		aiServiceConfig, _ = aiCurrentStep["ai_service"].(map[string]interface{})
 
 		if len(aiServiceConfig) == 0 {
-			return nil, fmt.Errorf("ai_service configuration not found in agent config at step level")
+			return nil, fmt.Errorf("ai_service configuration not found in normal config at step level")
 		}
-		params.Logger.Info("ExecuteLLMPrompt Looked in current step for ai_service configuration",
+		params.Logger.Info("ExecuteLLMPrompt Looked and found in current step for ai_service configuration",
 			zap.Any("ai_service in current step", aiCurrentStep["ai_service"]),
 		)
 	}
@@ -510,7 +518,7 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 	if len(templateData) > 0 {
 		params.Logger.Info("Extracted merged data for AI agent",
 			zap.Int("field_count", len(templateData)),
-			zap.Any("data_keys", getMapKeys(templateData)), // Added for better debugging
+			zap.Any("template data", templateData),
 		)
 		return templateData
 	}

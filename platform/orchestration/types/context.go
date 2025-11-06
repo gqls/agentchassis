@@ -615,7 +615,7 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 	if timeout := headers["timeout_seconds"]; timeout != "" {
 		fmt.Sscanf(timeout, "%d", &ec.TimeoutSeconds)
 	} else {
-		ec.TimeoutSeconds = 60 // Default
+		ec.TimeoutSeconds = 120 // Default
 	}
 
 	// Parse timestamp
