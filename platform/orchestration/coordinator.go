@@ -31,7 +31,7 @@ const (
 	// Timeout for stuck orchestrations
 	StuckOrchestrationTimeout = 5 * time.Minute
 	// Default request timeout
-	DefaultRequestTimeout = 180 * time.Second
+	//DefaultRequestTimeout = 180 * time.Second
 )
 
 var (
@@ -615,7 +615,14 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 	s.logger.Info("Executing step in executeStep before executeLocalAction",
 		zap.String("step", state.CurrentStep),
 		zap.String("action", step.Action),
-		//zap.Any("state", state),
+		zap.Any("step before timeout change", step),
+	)
+
+	// Convert config.timeout_seconds to step.Timeout
+	datahelpers.ConvertStepTimeout(&step, s.logger)
+
+	s.logger.Info("ExecuteStep before executeLocalAction",
+		zap.Any("step aftertimeout change", step),
 	)
 
 	// Route to appropriate handler
@@ -1984,10 +1991,7 @@ func getTargetAgentType(step models.Step, result map[string]interface{}) string 
 }
 
 func getTimeout(step models.Step) time.Duration {
-	if step.Timeout > 0 {
-		return step.Timeout
-	}
-	return DefaultRequestTimeout
+	return datahelpers.GetStepTimeout(step)
 }
 
 func extractFuelBudget(state *OrchestrationState) int {
