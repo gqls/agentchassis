@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cpu-finetune-job
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: finetuner
+          image: python:3.10-slim
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              apt-get update && apt-get install -y git build-essential wget
+              pip install --upgrade pip
+              pip install torch --index-url https://download.pytorch.org/whl/cpu
+              pip install transformers datasets accelerate sentencepiece
+              python /workspace/train.py
+          volumeMounts:
+            - name: script
+              mountPath: /workspace
+          resources:
+            requests:
+              cpu: "4"
+              memory: "8Gi"
+            limits:
+              cpu: "16"
+              memory: "32Gi"
+      volumes:
+        - name: script
+          configMap:
+            name: finetune-script
