@@ -1,0 +1,29 @@
+- op: replace
+  path: /spec/replicas
+  value: 1
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-dev-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-dev-secrets
+- op: add
+  path: /spec/template/spec/containers/0/env
+  value:
+    - name: LOG_LEVEL
+      value: "debug"
+    - name: KAFKA_BROKERS
+      value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+    - name: FIRECRAWL_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: personae-dev-secrets
+          key: FIRECRAWL_API_KEY
+    - name: FIRECRAWL_API_URL
+      value: "https://api.firecrawl.dev/v1"
+- op: replace
+  path: /spec/template/spec/containers/0/resources/requests/memory
+  value: "64Mi"
+- op: replace
+  path: /spec/template/spec/containers/0/resources/limits/memory
+  value: "256Mi"

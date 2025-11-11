@@ -113,6 +113,12 @@ build-web-search-adapter: ## Build web-search-adapter image
 	docker build -t $(REGISTRY)/web-search-adapter:$(IMAGE_TAG) \
 		-f build/docker/backend/web-search-adapter.dockerfile .
 
+.PHONY: build-web-scrape-adapter
+build-web-scrape-adapter: ## Build web-scrape-adapter image
+	@echo "$(YELLOW)Building web-scrape-adapter...$(NC)"
+	docker build -t $(REGISTRY)/web-scrape-adapter:$(IMAGE_TAG) \
+		-f build/docker/backend/web-scrape-adapter.dockerfile .
+
 .PHONY: build-image-generator-adapter
 build-image-generator-adapter: ## Build image-generator-adapter image
 	@echo "$(YELLOW)Building image-generator-adapter...$(NC)"
@@ -131,7 +137,7 @@ build-content-creator-agent: ## Build content-creator-agent image
 build-agents: build-agent-chassis build-reasoning-agent build-content-creator-agent ## Build all agents
 
 .PHONY: build-adapters
-build-adapters: build-web-search-adapter build-image-generator-adapter ## Build all adapters
+build-adapters: build-web-search-adapter build-web-scrape-adapter build-image-generator-adapter ## Build all adapters
 
 # Frontend applications
 .PHONY: build-admin-dashboard
@@ -169,6 +175,7 @@ push-backend: ## Push all backend images
 	docker push $(REGISTRY)/agent-chassis:$(IMAGE_TAG)
 	docker push $(REGISTRY)/reasoning-agent:$(IMAGE_TAG)
 	docker push $(REGISTRY)/web-search-adapter:$(IMAGE_TAG)
+	docker push $(REGISTRY)/web-scrape-adapter:$(IMAGE_TAG)
 	docker push $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG)
 	docker push $(REGISTRY)/content-creator-agent:$(IMAGE_TAG)
 
@@ -487,7 +494,7 @@ destroy-core-manager: ## Destroy core-manager using Terraform
 .PHONY: update-kustomization-images
 update-kustomization-images: ## Update image tags in kustomization.yaml files
 	@echo "$(YELLOW)Updating kustomization.yaml files with image tag $(IMAGE_TAG)...$(NC)"
-	@for agent in agent-chassis reasoning-agent web-search-adapter image-generator-adapter content-creator-agent; do \
+	@for agent in agent-chassis reasoning-agent web-search-adapter web-scrape-adapter image-generator-adapter content-creator-agent; do \
 		kust_file="$(KUSTOMIZE_DIR)/services/$$agent/overlays/$(OVERLAY_PATH)/kustomization.yaml"; \
 		if [ -f "$$kust_file" ]; then \
 			echo "Updating $$agent kustomization.yaml..."; \
@@ -536,6 +543,13 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-search-adapter/overlays/$(OVERLAY_PATH); \
 	fi
 
+	# Update web-scrape-adapter kustomization.yaml
+	@echo "Updating web-scrape-adapter to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/web-scrape-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
+	@if [ -d "$(KUSTOMIZE_DIR)/services/web-scrape-adapter/overlays/$(OVERLAY_PATH)" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/web-scrape-adapter/overlays/$(OVERLAY_PATH); \
+	fi
+
 	# Update image-generator-adapter kustomization.yaml
 	@echo "Updating image-generator-adapter to $(IMAGE_TAG)..."
 	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
@@ -566,6 +580,7 @@ redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	kubectl rollout restart deployment agent-chassis -n ai-persona-system
 	kubectl rollout restart deployment reasoning-agent -n ai-persona-system
 	kubectl rollout restart deployment web-search-adapter -n ai-persona-system
+	kubectl rollout restart deployment web-scrape-adapter -n ai-persona-system
 	kubectl rollout restart deployment image-generator-adapter -n ai-persona-system
 	kubectl rollout restart deployment content-creator-agent -n ai-persona-system
 
@@ -942,6 +957,7 @@ kind-load-images: ## Load Docker images into Kind
 	kind load docker-image $(REGISTRY)/agent-chassis:$(IMAGE_TAG) --name personae-dev
 	kind load docker-image $(REGISTRY)/reasoning-agent:$(IMAGE_TAG) --name personae-dev
 	kind load docker-image $(REGISTRY)/web-search-adapter:$(IMAGE_TAG) --name personae-dev
+	kind load docker-image $(REGISTRY)/web-scrape-adapter:$(IMAGE_TAG) --name personae-dev
 	kind load docker-image $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG) --name personae-dev
 	kind load docker-image $(REGISTRY)/content-creator-agent:$(IMAGE_TAG) --name personae-dev
 

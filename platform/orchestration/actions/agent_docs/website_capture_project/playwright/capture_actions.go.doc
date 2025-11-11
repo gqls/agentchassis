@@ -1,0 +1,436 @@
+// internal/backend/agent-chassis/platform/orchestration/actions/capture_actions.go
+package actions
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
+	"go.uber.org/zap"
+)
+
+// ============================================================================
+// CAPTURE SITE ACTION - Sends requests to Playwright adapter
+// ============================================================================
+
+// CaptureSiteResult represents the result of a capture operation
+type CaptureSiteResult struct {
+	Success         bool                   `json:"success"`
+	RequestID       string                 `json:"request_id"`
+	TopicSentTo     string                 `json:"topic_sent_to"`
+	AwaitResponse   bool                   `json:"await_response"`
+	CaptureMetadata map[string]interface{} `json:"capture_metadata,omitempty"`
+}
+
+// CaptureSiteAction sends a capture request to the Playwright adapter
+func CaptureSiteAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Executing CaptureSiteAction",
+		zap.String("step_name", params.ExecutionContext.StepName),
+		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID))
+
+	// Extract configuration
+	config, ok := params.StepConfig.Config.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid or missing config for capture_site action")
+	}
+
+	// Get adapter type (default to playwright)
+	adapterType := "playwright"
+	if at, ok := config["adapter_type"].(string); ok {
+		adapterType = at
+	}
+
+	// Get capture configuration
+	captureConfig, ok := config["capture_config"].(map[string]interface{})
+	if !ok {
+		captureConfig = make(map[string]interface{})
+	}
+
+	// Extract URL from input data
+	url := ""
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		if targetURL, ok := inputData["target_url"].(string); ok {
+			url = targetURL
+		}
+	}
+
+	if url == "" {
+		return nil, fmt.Errorf("target_url not found in input_data")
+	}
+
+	// Generate request ID
+	requestID := uuid.New().String()
+
+	// Determine the adapter topic
+	adapterTopic := fmt.Sprintf("system.adapter.%s.requests", adapterType)
+
+	// Build the request payload
+	requestPayload := map[string]interface{}{
+		"request_id":      requestID,
+		"action":          "capture",
+		"url":             url,
+		"capture_config":  captureConfig,
+		"correlation_id":  params.ExecutionContext.CorrelationID,
+		"orchestration_id": params.ExecutionContext.OrchestrationID,
+		"reply_to_topic":  params.ExecutionContext.ResponsesTopic,
+		"timestamp":       time.Now().UTC().Format(time.RFC3339),
+	}
+
+	// Log the capture request
+	params.Logger.Debug("Sending capture request to adapter",
+		zap.String("adapter_type", adapterType),
+		zap.String("topic", adapterTopic),
+		zap.String("url", url),
+		zap.String("request_id", requestID))
+
+	// Send to Kafka topic
+	err := params.Producer.SendMessage(ctx, adapterTopic, requestID, requestPayload)
+	if err != nil {
+		params.Logger.Error("Failed to send capture request",
+			zap.Error(err),
+			zap.String("topic", adapterTopic))
+		return nil, fmt.Errorf("failed to send capture request: %w", err)
+	}
+
+	// Store request metadata for tracking
+	captureMetadata := map[string]interface{}{
+		"url":           url,
+		"adapter_type":  adapterType,
+		"viewport":      captureConfig["viewport"],
+		"initiated_at":  time.Now().UTC().Format(time.RFC3339),
+		"step_name":     params.ExecutionContext.StepName,
+	}
+
+	// Return result indicating we're waiting for response
+	return &CaptureSiteResult{
+		Success:         true,
+		RequestID:       requestID,
+		TopicSentTo:     adapterTopic,
+		AwaitResponse:   true,
+		CaptureMetadata: captureMetadata,
+	}, nil
+}
+
+// ============================================================================
+// CAPTURE HOVER STATES ACTION
+// ============================================================================
+
+// CaptureHoverStatesAction captures hover and interaction states
+func CaptureHoverStatesAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Executing CaptureHoverStatesAction",
+		zap.String("step_name", params.ExecutionContext.StepName))
+
+	config, ok := params.StepConfig.Config.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid config for capture_hover_states action")
+	}
+
+	// Get the base URL from previous capture step
+	var baseURL string
+	if desktopData, ok := params.CollectedData["capture_desktop"].(map[string]interface{}); ok {
+		if metadata, ok := desktopData["capture_metadata"].(map[string]interface{}); ok {
+			baseURL = metadata["url"].(string)
+		}
+	}
+
+	if baseURL == "" {
+		return nil, fmt.Errorf("base URL not found from previous capture")
+	}
+
+	adapterType := "playwright"
+	if at, ok := config["adapter_type"].(string); ok {
+		adapterType = at
+	}
+
+	captureConfig := config["capture_config"].(map[string]interface{})
+	requestID := uuid.New().String()
+	adapterTopic := fmt.Sprintf("system.adapter.%s.requests", adapterType)
+
+	// Build hover capture request
+	requestPayload := map[string]interface{}{
+		"request_id":       requestID,
+		"action":           "capture_interactions",
+		"url":              baseURL,
+		"capture_config":   captureConfig,
+		"correlation_id":   params.ExecutionContext.CorrelationID,
+		"orchestration_id": params.ExecutionContext.OrchestrationID,
+		"reply_to_topic":   params.ExecutionContext.ResponsesTopic,
+		"timestamp":        time.Now().UTC().Format(time.RFC3339),
+	}
+
+	err := params.Producer.SendMessage(ctx, adapterTopic, requestID, requestPayload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send hover capture request: %w", err)
+	}
+
+	return &CaptureSiteResult{
+		Success:       true,
+		RequestID:     requestID,
+		TopicSentTo:   adapterTopic,
+		AwaitResponse: true,
+	}, nil
+}
+
+// ============================================================================
+// CAPTURE SCROLL ANIMATION ACTION
+// ============================================================================
+
+// CaptureScrollAnimationAction captures scroll behaviors and animations
+func CaptureScrollAnimationAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Executing CaptureScrollAnimationAction",
+		zap.String("step_name", params.ExecutionContext.StepName))
+
+	config, ok := params.StepConfig.Config.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid config for capture_scroll_animation action")
+	}
+
+	// Get the base URL
+	var baseURL string
+	if desktopData, ok := params.CollectedData["capture_desktop"].(map[string]interface{}); ok {
+		if metadata, ok := desktopData["capture_metadata"].(map[string]interface{}); ok {
+			baseURL = metadata["url"].(string)
+		}
+	}
+
+	if baseURL == "" {
+		return nil, fmt.Errorf("base URL not found")
+	}
+
+	adapterType := "playwright"
+	if at, ok := config["adapter_type"].(string); ok {
+		adapterType = at
+	}
+
+	requestID := uuid.New().String()
+	adapterTopic := fmt.Sprintf("system.adapter.%s.requests", adapterType)
+
+	requestPayload := map[string]interface{}{
+		"request_id":       requestID,
+		"action":           "capture_scroll",
+		"url":              baseURL,
+		"capture_config":   config["capture_config"],
+		"correlation_id":   params.ExecutionContext.CorrelationID,
+		"orchestration_id": params.ExecutionContext.OrchestrationID,
+		"reply_to_topic":   params.ExecutionContext.ResponsesTopic,
+		"timestamp":        time.Now().UTC().Format(time.RFC3339),
+	}
+
+	err := params.Producer.SendMessage(ctx, adapterTopic, requestID, requestPayload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send scroll capture request: %w", err)
+	}
+
+	return &CaptureSiteResult{
+		Success:       true,
+		RequestID:     requestID,
+		TopicSentTo:   adapterTopic,
+		AwaitResponse: true,
+	}, nil
+}
+
+// ============================================================================
+// VALIDATE URL ACTION
+// ============================================================================
+
+// ValidateURLAction validates and normalizes URLs
+func ValidateURLAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Executing ValidateURLAction")
+
+	config := params.StepConfig.Config.(map[string]interface{})
+	urlField := "target_url"
+	if uf, ok := config["url_field"].(string); ok {
+		urlField = uf
+	}
+
+	// Get URL from input data
+	var url string
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		if u, ok := inputData[urlField].(string); ok {
+			url = u
+		}
+	}
+
+	if url == "" {
+		return nil, fmt.Errorf("URL field '%s' not found in input_data", urlField)
+	}
+
+	// Add protocol if missing
+	if addProtocol, ok := config["add_protocol_if_missing"].(bool); ok && addProtocol {
+		if !hasProtocol(url) {
+			url = "https://" + url
+		}
+	}
+
+	// Update the input data with normalized URL
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		inputData[urlField] = url
+	}
+
+	params.Logger.Debug("URL validated",
+		zap.String("original_field", urlField),
+		zap.String("normalized_url", url))
+
+	return map[string]interface{}{
+		"validated_url": url,
+		"url_field":     urlField,
+		"success":       true,
+	}, nil
+}
+
+// Helper function to check if URL has protocol
+func hasProtocol(url string) bool {
+	return len(url) >= 7 && (url[:7] == "http://" || url[:8] == "https://")
+}
+
+// ============================================================================
+// EXTRACT WEBSITE ASSETS ACTION
+// ============================================================================
+
+// ExtractWebsiteAssetsAction extracts images, fonts, and other assets
+func ExtractWebsiteAssetsAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Executing ExtractWebsiteAssetsAction")
+
+	// This would typically process the captured HTML/CSS to extract asset URLs
+	// For now, we'll create a placeholder that marks this step as complete
+
+	config := params.StepConfig.Config.(map[string]interface{})
+
+	// Gather asset URLs from previous captures
+	assetList := make(map[string][]string)
+
+	if config["extract_images"] == true {
+		assetList["images"] = []string{} // Would be populated from HTML parsing
+	}
+
+	if config["extract_fonts"] == true {
+		assetList["fonts"] = []string{} // Would be populated from CSS parsing
+	}
+
+	if config["extract_icons"] == true {
+		assetList["icons"] = []string{} // Would be populated from HTML parsing
+	}
+
+	return map[string]interface{}{
+		"success":     true,
+		"assets":      assetList,
+		"asset_count": len(assetList),
+		"timestamp":   time.Now().UTC().Format(time.RFC3339),
+	}, nil
+}
+
+// ============================================================================
+// UPLOAD TO S3 ACTION
+// ============================================================================
+
+// UploadToS3Action uploads captured data to S3 storage
+func UploadToS3Action(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Executing UploadToS3Action")
+
+	config := params.StepConfig.Config.(map[string]interface{})
+	bucket := config["bucket"].(string)
+
+	// Generate S3 paths
+	timestamp := time.Now().UTC().Format("2006-01-02T15-04-05")
+	var domain string
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		if url, ok := inputData["target_url"].(string); ok {
+			// Extract domain from URL (simplified)
+			domain = extractDomain(url)
+		}
+	}
+
+	basePath := fmt.Sprintf("%s/%s", domain, timestamp)
+
+	// Prepare S3 upload request
+	requestID := uuid.New().String()
+	adapterTopic := "system.adapter.s3.requests"
+
+	uploadPayload := map[string]interface{}{
+		"request_id":       requestID,
+		"action":           "upload_batch",
+		"bucket":           bucket,
+		"base_path":        basePath,
+		"files_to_upload":  gatherFilesToUpload(params.CollectedData),
+		"generate_manifest": config["generate_manifest"],
+		"reply_to_topic":   params.ExecutionContext.ResponsesTopic,
+	}
+
+	err := params.Producer.SendMessage(ctx, adapterTopic, requestID, uploadPayload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send S3 upload request: %w", err)
+	}
+
+	return map[string]interface{}{
+		"success":       true,
+		"request_id":    requestID,
+		"s3_base_path":  basePath,
+		"await_response": true,
+	}, nil
+}
+
+// Helper to extract domain from URL
+func extractDomain(url string) string {
+	// Simplified domain extraction
+	// In production, use proper URL parsing
+	domain := url
+	if hasProtocol(url) {
+		if len(url) > 8 {
+			domain = url[8:]
+		}
+	}
+	// Remove path
+	if idx := len(domain); idx > 0 {
+		for i, c := range domain {
+			if c == '/' {
+				domain = domain[:i]
+				break
+			}
+		}
+	}
+	return domain
+}
+
+// Helper to gather files from collected data
+func gatherFilesToUpload(collectedData map[string]interface{}) []map[string]interface{} {
+	files := []map[string]interface{}{}
+
+	// Add desktop screenshot
+	if desktop, ok := collectedData["capture_desktop"].(map[string]interface{}); ok {
+		files = append(files, map[string]interface{}{
+			"key":      "desktop_screenshot.png",
+			"content":  desktop["screenshot_base64"],
+			"type":     "image/png",
+		})
+		files = append(files, map[string]interface{}{
+			"key":      "desktop.html",
+			"content":  desktop["html_content"],
+			"type":     "text/html",
+		})
+	}
+
+	// Add mobile screenshot
+	if mobile, ok := collectedData["capture_mobile"].(map[string]interface{}); ok {
+		files = append(files, map[string]interface{}{
+			"key":      "mobile_screenshot.png",
+			"content":  mobile["screenshot_base64"],
+			"type":     "image/png",
+		})
+	}
+
+	// Add interaction states
+	if interactions, ok := collectedData["capture_interactions"].(map[string]interface{}); ok {
+		if states, ok := interactions["hover_states"].([]interface{}); ok {
+			files = append(files, map[string]interface{}{
+				"key":      "interaction_states.json",
+				"content":  states,
+				"type":     "application/json",
+			})
+		}
+	}
+
+	return files
+}
