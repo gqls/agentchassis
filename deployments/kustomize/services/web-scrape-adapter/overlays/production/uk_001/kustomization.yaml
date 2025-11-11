@@ -13,15 +13,9 @@ labels:
       region: uk
       cluster: uk_001
 
-annotations:
-  - pairs:
-      prometheus.io/scrape: "true"
-      prometheus.io/port: "9090"
-      prometheus.io/path: "/metrics"
-
 images:
   - name: docker.io/aqls/web-scrape-adapter
-    newTag: v1.0.1
+    newTag: v1.0.425
 
 replicas:
   - name: web-scrape-adapter
@@ -36,3 +30,8 @@ patches:
     target:
       kind: Deployment
       name: web-scrape-adapter
+
+commonAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+  prometheus.io/path: "/metrics"
