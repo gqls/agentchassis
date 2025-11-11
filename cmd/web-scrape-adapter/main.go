@@ -1,50 +1,99 @@
-// cmd/webscrape-adapter/main.go
+// cmd/web-scrape-adapter/main.go
 package main
 
 import (
 	"context"
+	"flag"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gqls/agentchassis/internal/adapters/webscrape"
 	"github.com/gqls/agentchassis/platform/config"
-	"github.com/gqls/agentchassis/platform/logging"
+	"github.com/gqls/agentchassis/platform/logger"
 	"go.uber.org/zap"
 )
 
 func main() {
-	// Initialize logger
-	logger := logging.NewLogger("webscrape-adapter")
-	defer logger.Sync()
+	// Parse command line flags
+	configPath := flag.String("config", "configs/web-scrape-adapter.yaml", "Path to config file")
+	flag.Parse()
 
 	// Load configuration
-	cfg, err := config.LoadServiceConfig()
+	cfg, err := config.Load(*configPath)
 	if err != nil {
-		logger.Fatal("Failed to load configuration", zap.Error(err))
+		log.Fatalf("Failed to load config: %v", err)
 	}
+
+	// Initialize logger
+	appLogger, err := logger.New(cfg.Logging.Level)
+	if err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer appLogger.Sync()
+
+	// Log startup information
+	appLogger.Info("Starting webscrape adapter",
+		zap.String("service", cfg.ServiceInfo.Name),
+		zap.String("version", cfg.ServiceInfo.Version),
+		zap.String("environment", cfg.ServiceInfo.Environment),
+	)
 
 	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Handle shutdown signals
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	// Create the adapter
+	adapter, err := webscrape.NewAdapter(ctx, cfg, appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize webscrape adapter", zap.Error(err))
+	}
+
+	// Start health check server
+	healthPort := cfg.Server.Port
+	if healthPort == "" {
+		healthPort = "9090"
+	}
+	adapter.StartHealthServer(healthPort)
+	appLogger.Info("Health server started", zap.String("port", healthPort))
+
+	// Start the adapter's main run loop in a goroutine
 	go func() {
-		<-sigChan
-		logger.Info("Received shutdown signal")
-		cancel()
+		appLogger.Info("Starting adapter message processing")
+		if err := adapter.Run(); err != nil {
+			appLogger.Error("Webscrape adapter error", zap.Error(err))
+			cancel()
+		}
 	}()
 
-	// Create and run adapter
-	adapter, err := webscrape.NewAdapter(ctx, cfg, logger)
-	if err != nil {
-		logger.Fatal("Failed to create adapter", zap.Error(err))
+	// Wait for shutdown signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quit
+
+	appLogger.Info("Shutdown signal received, shutting down webscrape adapter",
+		zap.String("signal", sig.String()),
+	)
+
+	// Graceful shutdown
+	cancel()
+
+	// Give components time to clean up
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	// Shutdown adapter
+	adapter.Shutdown()
+
+	// Wait for shutdown or timeout
+	select {
+	case <-shutdownCtx.Done():
+		appLogger.Warn("Shutdown timeout exceeded")
+	case <-time.After(2 * time.Second):
+		appLogger.Info("Graceful shutdown completed")
 	}
 
-	logger.Info("Starting webscrape adapter")
-	if err := adapter.Run(); err != nil {
-		logger.Error("Adapter error", zap.Error(err))
-	}
+	appLogger.Info("Webscrape adapter stopped")
 }

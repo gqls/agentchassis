@@ -84,7 +84,7 @@ func (c *AgentClient) processResponse(msg kafka.Message) {
 
 	c.logger.Info("Processing response",
 		zap.String("correlation_id", headers["correlation_id"]),
-		zap.String("orchestration_id", headers["orchestration_id"]), // Add this for debugging
+		zap.String("orchestration_id", headers["orchestration_id"]),
 		zap.String("causation_id", headers["causation_id"]))
 
 	// Route to processor which will handle orchestration responses

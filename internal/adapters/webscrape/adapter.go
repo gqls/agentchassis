@@ -49,6 +49,7 @@ type ResponsePayload struct {
 // Adapter handles web scraping requests with s3 storage
 type Adapter struct {
 	ctx           context.Context
+	cancel        context.CancelFunc
 	logger        *zap.Logger
 	consumer      *kafka.Consumer
 	producer      kafka.Producer
@@ -56,18 +57,24 @@ type Adapter struct {
 	storageClient storage.Client
 	httpClient    *http.Client
 	config        *config.ServiceConfig
+	healthServer  *http.Server
 }
 
 // NewAdapter creates a new web scraping adapter
 func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*Adapter, error) {
+	// Create a cancelable context
+	adapterCtx, cancel := context.WithCancel(ctx)
+
 	consumer, err := kafka.NewConsumer(cfg.Infrastructure.KafkaBrokers, requestTopic, consumerGroup, logger)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("failed to create consumer: %w", err)
 	}
 
 	producer, err := kafka.NewProducer(cfg.Infrastructure.KafkaBrokers, logger)
 	if err != nil {
 		consumer.Close()
+		cancel()
 		return nil, fmt.Errorf("failed to create producer: %w", err)
 	}
 
@@ -81,9 +88,6 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 
 	zap.Strings("environment Environ", os.Environ())
 
-	//externalAPI := os.Getenv("STABILITY_API_ENDPOINT")
-	//apiKey := os.Getenv("STABILITY_API_KEY")
-
 	if storageConfig.Endpoint == "" {
 		storageConfig.Endpoint = os.Getenv("S3_ENDPOINT")
 	}
@@ -96,6 +100,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	if err != nil {
 		consumer.Close()
 		producer.Close()
+		cancel()
 		return nil, fmt.Errorf("failed to create storage client: %w", err)
 	}
 
@@ -123,11 +128,13 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	if len(scrapingProviders) == 0 {
 		consumer.Close()
 		producer.Close()
+		cancel()
 		return nil, fmt.Errorf("no scraping providers available - check API keys")
 	}
 
 	return &Adapter{
-		ctx:           ctx,
+		ctx:           adapterCtx,
+		cancel:        cancel,
 		logger:        logger,
 		consumer:      consumer,
 		producer:      producer,
@@ -622,4 +629,86 @@ func (a *Adapter) uploadContent(data []byte, key string, contentType string, log
 	)
 
 	return uri, presignedURL, nil
+}
+
+// StartHealthServer starts the health check HTTP server
+func (a *Adapter) StartHealthServer(port string) {
+	mux := http.NewServeMux()
+
+	// Health check endpoint
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"healthy"}`))
+	})
+
+	// Ready check endpoint
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		// Check if consumer is connected
+		if a.consumer != nil {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status":"ready"}`))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status":"not ready"}`))
+		}
+	})
+
+	// Metrics endpoint (placeholder)
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		// TODO: Add Prometheus metrics
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("# HELP webscrape_adapter_info Webscrape adapter information\n"))
+		w.Write([]byte("# TYPE webscrape_adapter_info gauge\n"))
+		w.Write([]byte("webscrape_adapter_info{version=\"1.0.0\"} 1\n"))
+	})
+
+	a.healthServer = &http.Server{
+		Addr:    ":" + port,
+		Handler: mux,
+	}
+
+	go func() {
+		if err := a.healthServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			a.logger.Error("Health server error", zap.Error(err))
+		}
+	}()
+}
+
+// Shutdown gracefully shuts down the adapter
+func (a *Adapter) Shutdown() {
+	a.logger.Info("Shutting down webscrape adapter")
+
+	// Cancel context to stop Run loop
+	if a.cancel != nil {
+		a.cancel()
+	}
+
+	// Shutdown health server
+	if a.healthServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := a.healthServer.Shutdown(ctx); err != nil {
+			a.logger.Error("Failed to shutdown health server", zap.Error(err))
+		}
+	}
+
+	// Close Kafka connections
+	if a.consumer != nil {
+		a.consumer.Close()
+	}
+	if a.producer != nil {
+		a.producer.Close()
+	}
+
+	// Close storage client
+	/*	if a.storageClient != nil {
+		a.storageClient.Close()
+	}*/
+
+	// Close HTTP client (if it has idle connections)
+	if a.httpClient != nil {
+		a.httpClient.CloseIdleConnections()
+	}
+
+	a.logger.Info("Webscrape adapter shutdown complete")
 }

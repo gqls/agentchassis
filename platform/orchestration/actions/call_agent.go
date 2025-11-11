@@ -574,11 +574,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",    // event_type
-		"orchestration", // entity_type
-		orchestrationID, // entity_id
-		metadataJSON,    // metadata
-		"info",          // severity
+		"AGENT_CALL",        // event_type
+		"orchestration",     // entity_type
+		orchestrationID,     // entity_id
+		metadataJSON,        // metadata
+		"info",              // severity
 		"call_agent_action") // source
 }
 
@@ -631,11 +631,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED", // event_type
-		"request",        // entity_type
-		requestID,        // entity_id
-		metadataJSON,     // metadata
-		"error",          // severity
+		"REQUEST_FAILED",    // event_type
+		"request",           // entity_type
+		requestID,           // entity_id
+		metadataJSON,        // metadata
+		"error",             // severity
 		"call_agent_action") // source
 }
 
@@ -687,11 +687,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,    // event_type
-		"agent",      // entity_type
-		agentID,      // entity_id
-		metadataJSON, // metadata
-		"info",       // severity
+		eventType,        // event_type
+		"agent",          // entity_type
+		agentID,          // entity_id
+		metadataJSON,     // metadata
+		"info",           // severity
 		"agent_activity") // source
 }
 
@@ -916,7 +916,7 @@ func getMapKeys(m map[string]interface{}) []string {
 	return keys
 }
 
-// Add this helper function to platform/orchestration/actions/call_agent.go
+// helper function to platform/orchestration/actions/call_agent.go
 
 // getNestedValue safely traverses a map[string]interface{} to find a value.
 func getNestedInputValue(data map[string]interface{}, path ...string) (interface{}, bool) {

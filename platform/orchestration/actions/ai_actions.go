@@ -221,7 +221,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	}, nil
 }
 
-// Add this helper function to load agent definition
+// helper function to load agent definition
 func loadAgentDefinitionForAction(ctx context.Context, db interface{}, agentType string) (*AgentDefinition, error) {
 
 	fmt.Printf("DEBUG: loadAgentDefinitionForAction called with agentType=%s, db type=%T\n", agentType, db)

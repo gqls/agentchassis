@@ -281,7 +281,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	return result, nil
 }
 
-// Add this helper function to load agent definition
+// helper function to load agent definition
 func loadAgentDefinitionForImageAction(ctx context.Context, db interface{}, agentType string) (*AgentDefinition, error) {
 
 	fmt.Printf("DEBUG: loadAgentDefinitionForAction called with agentType=%s, db type=%T\n", agentType, db)

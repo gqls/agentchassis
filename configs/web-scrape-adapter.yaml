@@ -5,10 +5,11 @@ service_info:
   environment: "development"
 
 server:
-  port: "8083"
+  port: "9090"
 
 logging:
   level: "info"
+  format: "json"
 
 infrastructure:
   kafka_brokers:
@@ -25,6 +26,18 @@ infrastructure:
     secret_key_env_var: "B2_APPLICATION_KEY"     # Tells adapter which env var to read
     use_ssl: true
     use_path_style: false
+
+  adapter:
+    request_topic: "system.adapter.webscrape.requests"
+    consumer_group: "webscrape-adapter-group"
+    max_retries: 3
+    timeout: 120s
+
+  providers:
+    firecrawl:
+      enabled: true
+      api_url: "https://api.firecrawl.dev/v1"
+      timeout: 60s
 
 custom:
   scrape_provider: "firecrawl"
