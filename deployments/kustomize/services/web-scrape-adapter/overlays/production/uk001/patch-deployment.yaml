@@ -19,7 +19,7 @@
                 - key: app
                   operator: In
                   values:
-                    - webscrape-adapter
+                    - web-scrape-adapter
             topologyKey: kubernetes.io/hostname
 - op: replace
   path: /spec/template/spec/containers/0/resources

@@ -20,19 +20,19 @@ annotations:
       prometheus.io/path: "/metrics"
 
 images:
-  - name: docker.io/aqls/webscrape-adapter
+  - name: docker.io/aqls/web-scrape-adapter
     newTag: v1.0.1
 
 replicas:
-  - name: webscrape-adapter
+  - name: web-scrape-adapter
     count: 3
 
 patches:
   - path: patch-deployment.yaml
     target:
       kind: Deployment
-      name: webscrape-adapter
+      name: web-scrape-adapter
   - path: patch-env.yaml
     target:
       kind: Deployment
-      name: webscrape-adapter
+      name: web-scrape-adapter

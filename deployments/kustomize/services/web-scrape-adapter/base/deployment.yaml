@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webscrape-adapter
+  name: web-scrape-adapter
   labels:
-    app: webscrape-adapter
+    app: web-scrape-adapter
     component: adapter
     type: webscraping
 spec:
   selector:
     matchLabels:
-      app: webscrape-adapter
+      app: web-scrape-adapter
   template:
     metadata:
       labels:
-        app: webscrape-adapter
+        app: web-scrape-adapter
         component: adapter
         type: webscraping
     spec:
@@ -21,9 +21,9 @@ spec:
       imagePullSecrets:
         - name: docker-hub-creds
       containers:
-        - name: webscrape-adapter
-          image: docker.io/aqls/webscrape-adapter:latest
-          command: ["./webscrape-adapter"]
+        - name: web-scrape-adapter
+          image: docker.io/aqls/web-scrape-adapter:latest
+          command: ["./web-scrape-adapter"]
           envFrom:
             - configMapRef:
                 name: placeholder-config # Patched by overlays
@@ -59,4 +59,4 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: webscrape-adapter-config
+            name: web-scrape-adapter-config

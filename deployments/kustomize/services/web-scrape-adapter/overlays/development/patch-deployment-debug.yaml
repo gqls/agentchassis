@@ -16,7 +16,7 @@
       echo "=== Checking mounted config ==="
       ls -la /app/configs/
       echo "=== Content of mounted config ==="
-      cat /app/configs/webscrape-adapter.yaml || echo "Config file not found"
+      cat /app/configs/web-scrape-adapter.yaml || echo "Config file not found"
       echo "=== Environment Variables ==="
       env | grep -E "(KAFKA|FIRECRAWL|SCRAPING)" || echo "No relevant env vars"
       echo "=== Testing Kafka connectivity ==="

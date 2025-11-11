@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: webscrape-adapter
+  name: web-scrape-adapter
   labels:
-    app: webscrape-adapter
+    app: web-scrape-adapter
 spec:
   type: ClusterIP
   selector:
-    app: webscrape-adapter
+    app: web-scrape-adapter
   ports:
     - name: metrics
       port: 9090

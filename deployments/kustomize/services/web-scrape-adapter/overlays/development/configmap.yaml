@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: webscrape-adapter-config
+  name: web-scrape-adapter-config
 data:
-  webscrape-adapter.yaml: |
+  web-scrape-adapter.yaml: |
     server:
       metrics_port: 9090
       shutdown_timeout: 5s

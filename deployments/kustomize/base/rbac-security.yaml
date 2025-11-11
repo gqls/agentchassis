@@ -228,6 +228,9 @@ spec:
               app: web-search-adapter
         - podSelector:
             matchLabels:
+              app: web-scrape-adapter
+        - podSelector:
+            matchLabels:
               component: initialization
       ports:
         - protocol: TCP

@@ -6,6 +6,6 @@ resources:
   - service.yaml
 
 commonLabels:
-  app.kubernetes.io/name: webscrape-adapter
+  app.kubernetes.io/name: web-scrape-adapter
   app.kubernetes.io/component: adapter
   app.kubernetes.io/part-of: agent-chassis

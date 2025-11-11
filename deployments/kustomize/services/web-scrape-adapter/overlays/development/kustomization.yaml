@@ -13,15 +13,15 @@ labels:
       team: platform
 
 images:
-  - name: docker.io/aqls/webscrape-adapter
+  - name: docker.io/aqls/web-scrape-adapter
     newTag: latest
 
 replicas:
-  - name: webscrape-adapter
+  - name: web-scrape-adapter
     count: 1
 
 patches:
   - path: patch-deployment-dev.yaml
     target:
       kind: Deployment
-      name: webscrape-adapter
+      name: web-scrape-adapter

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webscrape-adapter
+  name: web-scrape-adapter
 spec:
   template:
     spec:
@@ -9,7 +9,7 @@ spec:
       imagePullSecrets:
         - name: docker-hub-creds
       containers:
-        - name: webscrape-adapter
+        - name: web-scrape-adapter
           env:
             # Kafka configuration
             - name: KAFKA_BROKERS
