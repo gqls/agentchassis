@@ -7,8 +7,9 @@ import (
 // GlobalActionRegistry is the single source of truth for all available local actions
 var GlobalActionRegistry = map[string]ActionFunc{
 	// Core workflow control
-	"complete_workflow": CompleteWorkflowAction,
-	"await_response":    AwaitResponseAction,
+	"complete_workflow":  CompleteWorkflowAction,
+	"await_response":     AwaitResponseAction,
+	"evaluate_condition": EvaluateConditionAction,
 
 	// Agent management
 	"spawn_agent":         SpawnAgentAction,
@@ -19,6 +20,15 @@ var GlobalActionRegistry = map[string]ActionFunc{
 
 	// Image generation
 	"generate_image": GenerateImageAction,
+
+	// Web scraping
+	"scrape_web":             WebscrapeAction,        // Main action
+	"firecrawl_scrape":       FirecrawlScrapeAction,  // Single page
+	"firecrawl_crawl":        FirecrawlCrawlAction,   // Multi-page crawl
+	"firecrawl_extract":      FirecrawlExtractAction, // Structured extraction
+	"validate_url":           ValidateURLAction,      // URL validation
+	"aggregate_scraped_data": AggregateScrapedDataAction,
+	"split_urls":             SplitURLsAction,
 
 	// Data operations
 	"validate_input":  ValidateInputAction,

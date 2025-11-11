@@ -7,8 +7,9 @@ package actions_list
 // LocalActions is just a list of action names that are executed locally
 var LocalActions = map[string]bool{
 	// Core workflow control
-	"complete_workflow": true,
-	"await_response":    true,
+	"complete_workflow":  true,
+	"await_response":     true,
+	"evaluate_condition": true,
 
 	// Agent management
 	"spawn_agent":         true,
@@ -19,6 +20,15 @@ var LocalActions = map[string]bool{
 
 	// Image handling
 	"generate_image": true,
+
+	// Web scraping
+	"scrape_web":             true,
+	"firecrawl_scrape":       true,
+	"firecrawl_crawl":        true,
+	"firecrawl_extract":      true,
+	"validate_url":           true,
+	"aggregate_scraped_data": true,
+	"split_urls":             true,
 
 	// Data operations
 	"validate_input":  true,

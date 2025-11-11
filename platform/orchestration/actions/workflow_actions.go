@@ -6,7 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/gqls/agentchassis/platform/orchestration/types"
@@ -344,4 +346,259 @@ func getStringField(m map[string]interface{}, key string) string {
 		return v
 	}
 	return ""
+}
+
+// EvaluateConditionAction evaluates a condition and returns true/false for conditional workflow branching
+func EvaluateConditionAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Executing EvaluateConditionAction",
+		zap.String("step_name", params.ExecutionContext.StepName))
+
+	config := params.StepConfig.Config
+	var err error
+
+	// Get the condition template
+	conditionTemplate, ok := config["condition"].(string)
+	if !ok {
+		return nil, fmt.Errorf("condition not specified in config")
+	}
+
+	// Get default value if condition fails or is empty
+	defaultValue := false
+	if def, ok := config["default"].(bool); ok {
+		defaultValue = def
+	}
+
+	// Parse and execute the condition template
+	tmpl, err := template.New("condition").Parse(conditionTemplate)
+	if err != nil {
+		params.Logger.Error("Failed to parse condition template",
+			zap.Error(err),
+			zap.String("template", conditionTemplate))
+		return map[string]interface{}{
+			"result": defaultValue,
+			"error":  err.Error(),
+		}, nil
+	}
+
+	// Execute template with collected data
+	var result strings.Builder
+	if err := tmpl.Execute(&result, params.CollectedData); err != nil {
+		params.Logger.Warn("Condition evaluation failed, using default",
+			zap.Error(err),
+			zap.Bool("default", defaultValue))
+		return map[string]interface{}{
+			"result": defaultValue,
+			"error":  err.Error(),
+		}, nil
+	}
+
+	// Evaluate the result
+	conditionResult := evaluateConditionString(result.String(), defaultValue, params.Logger)
+
+	params.Logger.Debug("Condition evaluated",
+		zap.String("condition", conditionTemplate),
+		zap.String("evaluated_to", result.String()),
+		zap.Bool("result", conditionResult))
+
+	// Return the result for workflow branching
+	return map[string]interface{}{
+		"result":    conditionResult,
+		"condition": conditionTemplate,
+		"evaluated": result.String(),
+	}, nil
+}
+
+// evaluateConditionString converts various string values to boolean
+func evaluateConditionString(value string, defaultValue bool, logger *zap.Logger) bool {
+	trimmed := strings.TrimSpace(strings.ToLower(value))
+
+	// Handle empty values
+	if trimmed == "" || trimmed == "<no value>" {
+		return defaultValue
+	}
+
+	// Handle boolean strings
+	switch trimmed {
+	case "true", "yes", "1", "on", "enabled":
+		return true
+	case "false", "no", "0", "off", "disabled":
+		return false
+	}
+
+	// Try parsing as number
+	if num, err := strconv.ParseFloat(trimmed, 64); err == nil {
+		return num != 0
+	}
+
+	// Non-empty string = true, unless it explicitly looks like a negative
+	if strings.HasPrefix(trimmed, "not ") || strings.HasPrefix(trimmed, "no ") {
+		return false
+	}
+
+	// Any other non-empty string is considered true
+	return trimmed != ""
+}
+
+// SplitURLsAction splits a list of URLs for batch processing
+func SplitURLsAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Executing SplitURLsAction")
+
+	config := params.StepConfig.Config
+	urlsField := "target_urls"
+	if field, ok := config["urls_field"].(string); ok {
+		urlsField = field
+	}
+
+	maxParallel := 3
+	if max, ok := config["max_parallel"].(float64); ok {
+		maxParallel = int(max)
+	}
+
+	// Get URLs from input data
+	var urls []string
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		// Handle both single URL and multiple URLs
+		if singleURL, ok := inputData["target_url"].(string); ok {
+			urls = []string{singleURL}
+		} else if urlList, ok := inputData[urlsField].([]interface{}); ok {
+			for _, u := range urlList {
+				if urlStr, ok := u.(string); ok {
+					urls = append(urls, urlStr)
+				}
+			}
+		} else if urlList, ok := inputData[urlsField].([]string); ok {
+			urls = urlList
+		}
+	}
+
+	if len(urls) == 0 {
+		return nil, fmt.Errorf("no URLs found in %s", urlsField)
+	}
+
+	// Split URLs into batches
+	batches := make(map[string]interface{})
+	batchSize := (len(urls) + maxParallel - 1) / maxParallel
+
+	for i := 0; i < maxParallel && i < len(urls); i++ {
+		start := i * batchSize
+		end := start + batchSize
+		if end > len(urls) {
+			end = len(urls)
+		}
+
+		if start < len(urls) {
+			batchKey := fmt.Sprintf("batch_%d", i+1)
+			if end-start == 1 {
+				// Single URL in batch
+				batches[batchKey] = urls[start]
+			} else {
+				// Multiple URLs in batch
+				batches[batchKey] = urls[start:end]
+			}
+		}
+	}
+
+	params.Logger.Debug("URLs split into batches",
+		zap.Int("total_urls", len(urls)),
+		zap.Int("batches", len(batches)))
+
+	return batches, nil
+}
+
+// AggregateDataAction combines data from multiple workflow steps
+func AggregateScrapedDataAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Executing AggregateDataAction")
+
+	config := params.StepConfig.Config
+
+	// Get fields to aggregate
+	responseFields, ok := config["response_fields"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("response_fields not specified")
+	}
+
+	aggregated := make(map[string]interface{})
+
+	// Collect data from specified fields
+	for _, field := range responseFields {
+		fieldName, ok := field.(string)
+		if !ok {
+			continue
+		}
+
+		if data, exists := params.CollectedData[fieldName]; exists && data != nil {
+			aggregated[fieldName] = data
+		}
+	}
+
+	// Add metadata if requested
+	if includeMetadata, ok := config["include_metadata"].(bool); ok && includeMetadata {
+		aggregated["metadata"] = map[string]interface{}{
+			"aggregated_at":    params.ExecutionContext.StepName,
+			"fields_count":     len(aggregated),
+			"orchestration_id": params.ExecutionContext.OrchestrationID,
+		}
+	}
+
+	// Apply formatting if specified
+	if formatConfig, ok := config["format_output"].(map[string]interface{}); ok {
+		if formatConfig["summary"] == true {
+			aggregated["summary"] = generateSummary(aggregated)
+		}
+		if formatConfig["s3_links"] == true {
+			aggregated["s3_links"] = extractS3Links(aggregated)
+		}
+	}
+
+	params.Logger.Debug("Data aggregated",
+		zap.Int("fields_aggregated", len(aggregated)))
+
+	return aggregated, nil
+}
+
+// Helper functions
+func generateSummary(data map[string]interface{}) map[string]interface{} {
+	summary := map[string]interface{}{
+		"total_items": len(data),
+		"has_errors":  false,
+	}
+
+	// Check for errors in the data
+	for key, value := range data {
+		if valueMap, ok := value.(map[string]interface{}); ok {
+			if _, hasError := valueMap["error"]; hasError {
+				summary["has_errors"] = true
+				break
+			}
+		}
+		summary[key+"_present"] = value != nil
+	}
+
+	return summary
+}
+
+func extractS3Links(data map[string]interface{}) []string {
+	var links []string
+
+	var extractLinks func(interface{})
+	extractLinks = func(v interface{}) {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			for key, value := range val {
+				if strings.Contains(key, "_uri") || strings.Contains(key, "_url") {
+					if str, ok := value.(string); ok && strings.Contains(str, "s3://") {
+						links = append(links, str)
+					}
+				}
+				extractLinks(value)
+			}
+		case []interface{}:
+			for _, item := range val {
+				extractLinks(item)
+			}
+		}
+	}
+
+	extractLinks(data)
+	return links
 }

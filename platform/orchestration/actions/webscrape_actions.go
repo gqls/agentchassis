@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -202,5 +203,88 @@ func WebscrapeAction(ctx context.Context, params ActionParams) (interface{}, err
 			"timestamp":      time.Now().UTC().Format(time.RFC3339),
 			"response_topic": myResponsesTopic,
 		},
+	}, nil
+}
+
+// FirecrawlScrapeAction wraps WebscrapeAction for single page scraping
+func FirecrawlScrapeAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	// Set the action to "scrape" in config
+	if params.StepConfig.Config == nil {
+		params.StepConfig.Config = make(map[string]interface{})
+	}
+	params.StepConfig.Config["action"] = "scrape"
+
+	// Call the main WebscrapeAction
+	return WebscrapeAction(ctx, params)
+}
+
+// FirecrawlCrawlAction wraps WebscrapeAction for multi-page crawling
+func FirecrawlCrawlAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	// Set the action to "crawl" in config
+	if params.StepConfig.Config == nil {
+		params.StepConfig.Config = make(map[string]interface{})
+	}
+	params.StepConfig.Config["action"] = "crawl"
+
+	// Call the main WebscrapeAction
+	return WebscrapeAction(ctx, params)
+}
+
+// FirecrawlExtractAction wraps WebscrapeAction for structured extraction
+func FirecrawlExtractAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	// Set the action to "extract" in config
+	if params.StepConfig.Config == nil {
+		params.StepConfig.Config = make(map[string]interface{})
+	}
+	params.StepConfig.Config["action"] = "extract"
+
+	// Call the main WebscrapeAction
+	return WebscrapeAction(ctx, params)
+}
+
+// ValidateURLAction validates and normalizes URLs before scraping
+func ValidateURLAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Executing ValidateURLAction",
+		zap.String("step_name", params.ExecutionContext.StepName))
+
+	config := params.StepConfig.Config
+	urlField := "target_url"
+	if uf, ok := config["url_field"].(string); ok {
+		urlField = uf
+	}
+
+	// Get URL from input data
+	var url string
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		if u, ok := inputData[urlField].(string); ok {
+			url = u
+		}
+	}
+
+	if url == "" {
+		return nil, fmt.Errorf("URL field '%s' not found in input_data", urlField)
+	}
+
+	// Add protocol if missing
+	if addProtocol, ok := config["add_protocol_if_missing"].(bool); ok && addProtocol {
+		if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+			url = "https://" + url
+		}
+	}
+
+	// Update the input data with normalized URL
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		inputData[urlField] = url
+		params.CollectedData["input_data"] = inputData
+	}
+
+	params.Logger.Debug("URL validated",
+		zap.String("original_field", urlField),
+		zap.String("normalized_url", url))
+
+	return map[string]interface{}{
+		"validated_url": url,
+		"url_field":     urlField,
+		"success":       true,
 	}, nil
 }
