@@ -98,7 +98,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 		zap.Bool("stateless", s.isStateless),
 		zap.String("pod_name", s.podName))
 
-	l.Info("ExecuteWorkflow called coordinator.go 92 PLAN",
+	l.Info("ExecuteWorkflow called coordinator.go 101 PLAN",
 		zap.Any("plan", plan),
 		zap.String("start_step_", plan.StartStep),
 		zap.Int("total_steps", len(plan.Steps)))

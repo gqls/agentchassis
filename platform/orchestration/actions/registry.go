@@ -7,9 +7,9 @@ import (
 // GlobalActionRegistry is the single source of truth for all available local actions
 var GlobalActionRegistry = map[string]ActionFunc{
 	// Core workflow control
-	"complete_workflow":  CompleteWorkflowAction,
-	"await_response":     AwaitResponseAction,
-	"evaluate_condition": EvaluateConditionAction,
+	"complete_workflow": CompleteWorkflowAction,
+	"await_response":    AwaitResponseAction,
+	// "evaluate_condition": EvaluateConditionAction,
 
 	// Agent management
 	"spawn_agent":         SpawnAgentAction,
