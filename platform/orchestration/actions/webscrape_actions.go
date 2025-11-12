@@ -163,15 +163,18 @@ func WebscrapeAction(ctx context.Context, params ActionParams) (interface{}, err
 	// Use correlation ID as message key for Kafka partitioning
 	key := []byte(params.ExecutionContext.CorrelationID)
 
-	params.Logger.Info("Sending request to webscrape adapter",
+	params.Logger.Info("still in WebscrapeAction Sending request to webscrape adapter",
 		zap.String("topic", webscrapeAdapterTopic),
 		zap.String("request_id", newRequestID),
 		zap.String("reply_to_topic", myResponsesTopic),
 		zap.String("action", action),
 		zap.String("url", url),
 		zap.Bool("upload_results", uploadResults),
+		zap.String("step_name", params.ExecutionContext.StepName),
 		zap.String("client_id", clientID),
 		zap.Int("message_size", len(messageBytes)),
+		zap.Any("DEBUGaa: headers", headers),
+		zap.Any("DEBUGaa: Adapter request", adapterRequest),
 	)
 
 	// Log the full request for debugging (be careful in production)
@@ -208,6 +211,10 @@ func WebscrapeAction(ctx context.Context, params ActionParams) (interface{}, err
 
 // FirecrawlScrapeAction wraps WebscrapeAction for single page scraping
 func FirecrawlScrapeAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("in FirecrawlScrapeAction",
+		zap.String("step_name", params.ExecutionContext.StepName),
+	)
+
 	// Set the action to "scrape" in config
 	if params.StepConfig.Config == nil {
 		params.StepConfig.Config = make(map[string]interface{})
@@ -220,6 +227,10 @@ func FirecrawlScrapeAction(ctx context.Context, params ActionParams) (interface{
 
 // FirecrawlCrawlAction wraps WebscrapeAction for multi-page crawling
 func FirecrawlCrawlAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("in FirecrawlCrawlAction",
+		zap.String("step_name", params.ExecutionContext.StepName),
+	)
+
 	// Set the action to "crawl" in config
 	if params.StepConfig.Config == nil {
 		params.StepConfig.Config = make(map[string]interface{})
@@ -232,6 +243,9 @@ func FirecrawlCrawlAction(ctx context.Context, params ActionParams) (interface{}
 
 // FirecrawlExtractAction wraps WebscrapeAction for structured extraction
 func FirecrawlExtractAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("in FirecrawlExtractAction",
+		zap.String("step_name", params.ExecutionContext.StepName))
+
 	// Set the action to "extract" in config
 	if params.StepConfig.Config == nil {
 		params.StepConfig.Config = make(map[string]interface{})
@@ -278,7 +292,7 @@ func ValidateURLAction(ctx context.Context, params ActionParams) (interface{}, e
 		params.CollectedData["input_data"] = inputData
 	}
 
-	params.Logger.Debug("URL validated",
+	params.Logger.Debug("URL validated - returning",
 		zap.String("original_field", urlField),
 		zap.String("normalized_url", url))
 

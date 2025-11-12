@@ -28,6 +28,10 @@ func NewFirecrawlScrapingProvider(httpClient *http.Client, storageClient storage
 		apiURL = "https://api.firecrawl.dev/v1"
 	}
 
+	logger.Info("In NewFirecrawlScrapingProvider",
+		zap.String("url", apiURL),
+	)
+
 	return &FirecrawlScrapingProvider{
 		BaseProvider: BaseProvider{
 			httpClient:    httpClient,
@@ -100,6 +104,10 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		payload["screenshotConfig"] = screenshotConfig
 	}
 
+	f.logger.Info("In Firecrawl go Scrape",
+		zap.Any("DEBUGaa: payload", payload),
+	)
+
 	// Make API request
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -124,6 +132,10 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 	if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
+
+	f.logger.Info("In Firecrawl go Scrape - response",
+		zap.Any("DEBUGaa: firecrawl apiResponse", apiResponse),
+	)
 
 	if resp.StatusCode != http.StatusOK {
 		if errorMsg, ok := apiResponse["error"].(string); ok {
@@ -220,6 +232,10 @@ func (f *FirecrawlScrapingProvider) Crawl(ctx context.Context, url string, confi
 	}
 	payload["formats"] = formats
 
+	f.logger.Info("In Firecrawl go Crawl",
+		zap.Any("DEBUGaa: payload", payload),
+	)
+
 	// Start crawl job
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -244,6 +260,10 @@ func (f *FirecrawlScrapingProvider) Crawl(ctx context.Context, url string, confi
 	if err := json.NewDecoder(resp.Body).Decode(&crawlResponse); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
+
+	f.logger.Info("In Firecrawl go Crawl - response",
+		zap.Any("DEBUGaa: firecrawl crawlResponse", crawlResponse),
+	)
 
 	if resp.StatusCode != http.StatusOK {
 		if errorMsg, ok := crawlResponse["error"].(string); ok {
@@ -350,6 +370,10 @@ func (f *FirecrawlScrapingProvider) ExtractStructured(ctx context.Context, url s
 		},
 	}
 
+	f.logger.Info("In Firecrawl go ExtractStructured",
+		zap.Any("DEBUGaa: payload for extract structured", payload),
+	)
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
@@ -373,6 +397,10 @@ func (f *FirecrawlScrapingProvider) ExtractStructured(ctx context.Context, url s
 	if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
+
+	f.logger.Info("In Firecrawl go ExtractStructured - response",
+		zap.Any("DEBUGaa: firecrawl apiResponse", apiResponse),
+	)
 
 	if resp.StatusCode != http.StatusOK {
 		if errorMsg, ok := apiResponse["error"].(string); ok {

@@ -315,16 +315,26 @@ func (a *Adapter) sendSuccessResponse(requestID, correlationID, orchestrationID,
 
 	response := map[string]interface{}{
 		"headers": map[string]interface{}{
-			"correlation_id":   correlationID,
-			"orchestration_id": orchestrationID,
-			"request_id":       requestID,
-			"message_type":     "response",
-			"timestamp":        time.Now().UTC().Format(time.RFC3339),
-			"success":          true,
+			"correlation_id":            correlationID,
+			"orchestration_id":          orchestrationID,
+			"in_response_to_request_id": requestID,
+			"status":                    "complete",
+			"request_id":                requestID,
+			"message_type":              "response",
+			"timestamp":                 time.Now().UTC().Format(time.RFC3339),
+			"success":                   true,
+			"sender": map[string]interface{}{
+				"agent_type": "webscrape-adapter",
+				"agent_id":   "webscrape-adapter-001",
+				"pod_name":   os.Getenv("HOSTNAME"),
+			},
 		},
 		"body": map[string]interface{}{
 			"success": true,
-			"data":    result,
+			"body": map[string]interface{}{
+				"data": result,
+			},
+			"error": nil,
 			"metadata": map[string]interface{}{
 				"processed_at": time.Now().UTC().Format(time.RFC3339),
 				"adapter":      "webscrape",
@@ -337,9 +347,16 @@ func (a *Adapter) sendSuccessResponse(requestID, correlationID, orchestrationID,
 	// Create headers map for Kafka
 	headers := make(map[string]string)
 	headers["correlation_id"] = correlationID
+	headers["in_response_to_request_id"] = requestID
 	headers["request_id"] = requestID
 	headers["orchestration_id"] = orchestrationID
 	headers["message_type"] = "response"
+	headers["status"] = "complete"
+
+	a.logger.Info("Sending success response",
+		zap.String("request_id", requestID),
+		zap.String("reply_topic", replyTopic),
+		zap.String("status", "complete"))
 
 	if err := a.producer.ProduceWithValidation(
 		a.ctx,
@@ -362,16 +379,30 @@ func (a *Adapter) sendErrorResponse(requestID, correlationID, orchestrationID, r
 
 	response := map[string]interface{}{
 		"headers": map[string]interface{}{
-			"correlation_id":   correlationID,
-			"orchestration_id": orchestrationID,
-			"request_id":       requestID,
-			"message_type":     "response",
-			"timestamp":        time.Now().UTC().Format(time.RFC3339),
-			"success":          false,
+			"correlation_id":            correlationID,
+			"orchestration_id":          orchestrationID,
+			"in_response_to_request_id": requestID,
+			"request_id":                requestID,
+			"status":                    "error_recoverable",
+			"message_type":              "response",
+			"timestamp":                 time.Now().UTC().Format(time.RFC3339),
+			"success":                   false,
+			"sender": map[string]interface{}{
+				"agent_type": "webscrape-adapter",
+				"agent_id":   "webscrape-adapter-001",
+				"pod_name":   os.Getenv("HOSTNAME"),
+			},
 		},
 		"body": map[string]interface{}{
 			"success": false,
-			"error":   errorMsg,
+			"body": map[string]interface{}{
+				"data": nil,
+			},
+			"error": map[string]interface{}{
+				"message":     errorMsg,
+				"code":        "WEBSCRAPE_ERROR",
+				"recoverable": true,
+			},
 			"metadata": map[string]interface{}{
 				"processed_at": time.Now().UTC().Format(time.RFC3339),
 				"adapter":      "webscrape",
@@ -384,10 +415,16 @@ func (a *Adapter) sendErrorResponse(requestID, correlationID, orchestrationID, r
 	// Create headers map for Kafka
 	headers := make(map[string]string)
 	headers["correlation_id"] = correlationID
+	headers["in_response_to_request_id"] = requestID
 	headers["request_id"] = requestID
 	headers["orchestration_id"] = orchestrationID
 	headers["message_type"] = "response"
+	headers["status"] = "error_recoverable"
 	headers["success"] = "false"
+
+	a.logger.Error("Sending error response",
+		zap.String("request_id", requestID),
+		zap.String("error", errorMsg))
 
 	if err := a.producer.ProduceWithValidation(
 		a.ctx,
@@ -404,6 +441,11 @@ func (a *Adapter) sendErrorResponse(requestID, correlationID, orchestrationID, r
 
 // uploadScrapingResults uploads various scraping results to S3
 func (a *Adapter) uploadScrapingResults(result interface{}, req RequestPayload, logger *zap.Logger) (map[string]interface{}, error) {
+	a.logger.Error("In uploadScrapingResults",
+		zap.Any("DEBUGaa: result", result),
+		zap.Any("DEBUGaa: request payload", req),
+	)
+
 	resultMap, ok := result.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("result is not a map")
@@ -582,6 +624,7 @@ func (a *Adapter) uploadScrapingResults(result interface{}, req RequestPayload, 
 		zap.String("base_path", basePath),
 		zap.String("scrape_id", scrapeID),
 		zap.Int("files_uploaded", len(uploadInfo)-3), // Subtract metadata fields
+		zap.Any("DEBUGaa: files_uploaded uploadedInfo", uploadInfo),
 	)
 
 	return uploadInfo, nil

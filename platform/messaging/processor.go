@@ -1202,7 +1202,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	)
 
 	p.logger.Info("In processor.go just into ProcessMessage 1195",
-		zap.Any("incoming message is (base64):", msg),
+		//zap.Any("incoming message is (base64):", msg),
 		zap.String("topic", msg.Topic),
 		zap.Int("partition", msg.Partition),
 		zap.Int64("offset", msg.Offset),
@@ -1314,7 +1314,7 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	p.logger.Info("processor.go 1146 ProcessMessage",
 		zap.String("Action from ExecutionContext", msgCtx.ExecutionContext.Action),
 		zap.Any("DEBUGaa: This is where I think we sort out CollectedData input_data", "too big msg"), //msg is still compressed
-		zap.Any("DEBUGaa: msgCtx is - why is input_data nil look at message.value too", msgCtx),
+		//zap.Any("DEBUGaa: msgCtx is - why is input_data nil look at message.value too", msgCtx),
 		zap.Any("DEBUGaa: request data from unmarshalled msg.value", requestData),
 		/*
 		  "DEBUGaa: request data from an unmarshalled msg.value": {
