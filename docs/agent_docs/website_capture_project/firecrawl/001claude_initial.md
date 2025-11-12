@@ -34,7 +34,7 @@ KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'kafka:9092')
 KAFKA_GROUP_ID = os.getenv('KAFKA_GROUP_ID', 'firecrawl-adapter-group')
 REQUEST_TOPIC = os.getenv('REQUEST_TOPIC', 'system.adapter.firecrawl.requests')
 FIRECRAWL_API_KEY = os.getenv('FIRECRAWL_API_KEY')
-FIRECRAWL_API_URL = os.getenv('FIRECRAWL_API_URL', 'https://api.firecrawl.dev/v1')
+FIRECRAWL_API_URL = os.getenv('FIRECRAWL_API_URL', 'https://api.firecrawl.dev/v2')
 
 
 class FirecrawlAdapter:
@@ -748,7 +748,7 @@ spec:
               name: firecrawl-credentials
               key: api-key
         - name: FIRECRAWL_API_URL
-          value: "https://api.firecrawl.dev/v1"
+          value: "https://api.firecrawl.dev/v2"
         resources:
           requests:
             memory: "256Mi"

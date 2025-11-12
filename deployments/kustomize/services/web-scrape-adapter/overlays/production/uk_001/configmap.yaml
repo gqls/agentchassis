@@ -34,7 +34,7 @@ data:
     providers:
       firecrawl:
         enabled: true
-        api_url: "https://api.firecrawl.dev/v1"
+        api_url: "https://api.firecrawl.dev/v2"
         timeout: 120s
         max_pages_per_crawl: 50
       scrapingbee:

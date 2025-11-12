@@ -15,6 +15,7 @@ import (
 )
 
 // FirecrawlScrapingProvider implements scraping via Firecrawl API
+// https://docs.firecrawl.dev/migrate-to-v2
 type FirecrawlScrapingProvider struct {
 	BaseProvider
 	apiKey string
@@ -25,7 +26,7 @@ type FirecrawlScrapingProvider struct {
 func NewFirecrawlScrapingProvider(httpClient *http.Client, storageClient storage.Client, logger *zap.Logger) *FirecrawlScrapingProvider {
 	apiURL := os.Getenv("FIRECRAWL_API_URL")
 	if apiURL == "" {
-		apiURL = "https://api.firecrawl.dev/v1"
+		apiURL = "https://api.firecrawl.dev/v2"
 	}
 
 	logger.Info("In NewFirecrawlScrapingProvider",
@@ -56,10 +57,7 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 	f.logger.Info("Starting scrape", zap.String("url", url))
 
 	// Build scrape configuration
-	formats := []string{"markdown", "html"}
-	if formatList, ok := config["formats"].([]string); ok {
-		formats = formatList
-	}
+	formats := []interface{}{"markdown", "html"}
 
 	captureScreenshot := true
 	if capture, ok := config["capture_screenshot"].(bool); ok {
@@ -71,37 +69,39 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		onlyMainContent = mainContent
 	}
 
-	waitFor := 0
+	waitFor := 1
 	if wait, ok := config["wait_for"].(int); ok {
 		waitFor = wait
 	}
 
-	// Build request payload
-	payload := map[string]interface{}{
-		"url":             url,
-		"formats":         formats,
-		"onlyMainContent": onlyMainContent,
-		"waitFor":         waitFor,
-		"includeRawHtml":  true,
-	}
-
-	// Add screenshot config if needed
+	// Add screenshot as object format in formats array (v2 style)
 	if captureScreenshot {
-		screenshotConfig := map[string]interface{}{
+		screenshotObj := map[string]interface{}{
+			"type":     "screenshot",
 			"fullPage": true,
 		}
 
+		// Add viewport if specified
 		if viewport, ok := config["viewport"].(map[string]interface{}); ok {
-			if width, ok := viewport["width"].(float64); ok {
-				screenshotConfig["width"] = int(width)
-			}
-			if height, ok := viewport["height"].(float64); ok {
-				screenshotConfig["height"] = int(height)
-			}
+			screenshotObj["viewport"] = viewport
 		}
 
-		payload["screenshot"] = true
-		payload["screenshotConfig"] = screenshotConfig
+		formats = append(formats, screenshotObj)
+	}
+
+	// Build request payload
+	payload := map[string]interface{}{
+		"url":     url,
+		"formats": formats,
+	}
+
+	// Add optional parameters
+	if onlyMainContent {
+		payload["onlyMainContent"] = onlyMainContent
+	}
+
+	if waitFor > 0 {
+		payload["waitFor"] = waitFor
 	}
 
 	f.logger.Info("In Firecrawl go Scrape",
@@ -187,7 +187,7 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 	return result, nil
 }
 
-// Crawl performs multi-page crawling
+// Crawl performs multi-page crawling using Firecrawl API v2
 func (f *FirecrawlScrapingProvider) Crawl(ctx context.Context, url string, config map[string]interface{}) (map[string]interface{}, error) {
 	f.logger.Info("Starting crawl", zap.String("url", url))
 
@@ -197,16 +197,19 @@ func (f *FirecrawlScrapingProvider) Crawl(ctx context.Context, url string, confi
 		limit = int(l)
 	}
 
-	maxDepth := 2
+	// v2 uses maxDiscoveryDepth instead of maxDepth
+	maxDiscoveryDepth := 2
 	if depth, ok := config["max_depth"].(float64); ok {
-		maxDepth = int(depth)
+		maxDiscoveryDepth = int(depth)
+	} else if depth, ok := config["max_discovery_depth"].(float64); ok {
+		maxDiscoveryDepth = int(depth)
 	}
 
-	// Build request payload
+	// Build request payload (v2 format)
 	payload := map[string]interface{}{
-		"url":      url,
-		"limit":    limit,
-		"maxDepth": maxDepth,
+		"url":               url,
+		"limit":             limit,
+		"maxDiscoveryDepth": maxDiscoveryDepth,
 	}
 
 	// Add optional parameters
@@ -216,8 +219,20 @@ func (f *FirecrawlScrapingProvider) Crawl(ctx context.Context, url string, confi
 	if includePaths, ok := config["include_paths"].([]interface{}); ok {
 		payload["includePaths"] = includePaths
 	}
-	if allowBackward, ok := config["allow_backward_links"].(bool); ok {
-		payload["allowBackwardLinks"] = allowBackward
+
+	// v2: use crawlEntireDomain instead of allowBackwardCrawling
+	if crawlEntire, ok := config["crawl_entire_domain"].(bool); ok {
+		payload["crawlEntireDomain"] = crawlEntire
+	}
+
+	// v2: sitemap handling (can be "only", "skip", or "include")
+	if sitemap, ok := config["sitemap"].(string); ok {
+		payload["sitemap"] = sitemap
+	}
+
+	// v2: optional prompt for smart crawling
+	if prompt, ok := config["prompt"].(string); ok {
+		payload["prompt"] = prompt
 	}
 
 	formats := []string{"markdown", "html"}
@@ -299,7 +314,7 @@ func (f *FirecrawlScrapingProvider) pollCrawlJob(ctx context.Context, jobID stri
 		case <-ctx.Done():
 			return nil, fmt.Errorf("context cancelled while polling")
 		case <-time.After(pollInterval):
-			// Check job status
+			// Check job status (v2 endpoint)
 			req, err := http.NewRequestWithContext(ctx, "GET", f.apiURL+"/crawl/"+jobID, nil)
 			if err != nil {
 				return nil, err
@@ -344,30 +359,29 @@ func (f *FirecrawlScrapingProvider) pollCrawlJob(ctx context.Context, jobID stri
 	return nil, fmt.Errorf("crawl job timeout after %d attempts", maxAttempts)
 }
 
-// ExtractStructured extracts structured data using LLM
+// ExtractStructured extracts structured data using LLM (v2 format)
 func (f *FirecrawlScrapingProvider) ExtractStructured(ctx context.Context, url string, schema map[string]interface{}, config map[string]interface{}) (map[string]interface{}, error) {
 	f.logger.Info("Starting structured extraction", zap.String("url", url))
 
 	// Build extraction configuration
-	systemPrompt := "Extract the requested information from the webpage content"
-	if prompt, ok := config["system_prompt"].(string); ok {
-		systemPrompt = prompt
-	}
-
-	userPrompt := ""
+	extractPrompt := "Extract the requested information from the webpage content"
 	if prompt, ok := config["prompt"].(string); ok {
-		userPrompt = prompt
+		extractPrompt = prompt
+	} else if prompt, ok := config["system_prompt"].(string); ok {
+		extractPrompt = prompt
 	}
 
-	// Build request payload
+	// Build JSON extraction format (v2 style)
+	jsonFormat := map[string]interface{}{
+		"type":   "json",
+		"prompt": extractPrompt,
+		"schema": schema,
+	}
+
+	// Build request payload (v2 format)
 	payload := map[string]interface{}{
 		"url":     url,
-		"formats": []string{"extract"},
-		"extract": map[string]interface{}{
-			"schema":       schema,
-			"systemPrompt": systemPrompt,
-			"prompt":       userPrompt,
-		},
+		"formats": []interface{}{jsonFormat},
 	}
 
 	f.logger.Info("In Firecrawl go ExtractStructured",
@@ -416,7 +430,8 @@ func (f *FirecrawlScrapingProvider) ExtractStructured(ctx context.Context, url s
 
 	if success, ok := apiResponse["success"].(bool); ok && success {
 		if data, ok := apiResponse["data"].(map[string]interface{}); ok {
-			if extracted, ok := data["extract"].(map[string]interface{}); ok {
+			// v2: extracted JSON data is in the "json" field
+			if extracted, ok := data["json"].(map[string]interface{}); ok {
 				result["extracted_data"] = extracted
 			}
 			if metadata, ok := data["metadata"].(map[string]interface{}); ok {

@@ -199,6 +199,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	correlationID, _ := headers["correlation_id"].(string)
 	orchestrationID, _ := headers["orchestration_id"].(string)
 	clientID, _ := headers["client_id"].(string)
+	stepName, _ := headers["step_name"].(string)
 
 	// Extract action and data from body
 	action, _ := body["action"].(string)
@@ -237,7 +238,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	// Validate required fields
 	if url == "" {
 		l.Error("Empty URL in request")
-		a.sendErrorResponse(requestID, correlationID, orchestrationID, replyToTopic, "URL cannot be empty")
+		a.sendErrorResponse(requestID, correlationID, orchestrationID, replyToTopic, clientID, stepName, "URL cannot be empty")
 		a.consumer.CommitMessages(context.Background(), msg)
 		return
 	}
@@ -251,7 +252,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	provider, ok := a.providers[providerName]
 	if !ok {
 		l.Error("Provider not found", zap.String("provider", providerName))
-		a.sendErrorResponse(requestID, correlationID, orchestrationID, replyToTopic,
+		a.sendErrorResponse(requestID, correlationID, orchestrationID, replyToTopic, clientID, stepName,
 			fmt.Sprintf("Provider %s not available", providerName))
 		a.consumer.CommitMessages(context.Background(), msg)
 		return
@@ -279,7 +280,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 
 	if err != nil {
 		l.Error("Action failed", zap.Error(err))
-		a.sendErrorResponse(requestID, correlationID, orchestrationID, replyToTopic, err.Error())
+		a.sendErrorResponse(requestID, correlationID, orchestrationID, replyToTopic, clientID, stepName, err.Error())
 		a.consumer.CommitMessages(context.Background(), msg)
 		return
 	}
@@ -299,7 +300,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	}
 
 	// Send success response
-	a.sendSuccessResponse(requestID, correlationID, orchestrationID, replyToTopic, result)
+	a.sendSuccessResponse(requestID, correlationID, orchestrationID, replyToTopic, clientID, stepName, result)
 	a.consumer.CommitMessages(context.Background(), msg)
 
 	l.Info("Request processed successfully",
@@ -307,7 +308,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 }
 
 // Updated response methods to handle new parameters
-func (a *Adapter) sendSuccessResponse(requestID, correlationID, orchestrationID, replyTopic string, result interface{}) {
+func (a *Adapter) sendSuccessResponse(requestID, correlationID, orchestrationID, replyTopic, clientID, stepName string, result interface{}) {
 	if replyTopic == "" {
 		a.logger.Warn("No reply topic specified", zap.String("request_id", requestID))
 		return
@@ -323,6 +324,9 @@ func (a *Adapter) sendSuccessResponse(requestID, correlationID, orchestrationID,
 			"message_type":              "response",
 			"timestamp":                 time.Now().UTC().Format(time.RFC3339),
 			"success":                   true,
+			"client_id":                 clientID,
+			"sender_agent_type":         "webscrape-adapter",
+			"in_response_to_step_name":  stepName,
 			"sender": map[string]interface{}{
 				"agent_type": "webscrape-adapter",
 				"agent_id":   "webscrape-adapter-001",
@@ -352,6 +356,9 @@ func (a *Adapter) sendSuccessResponse(requestID, correlationID, orchestrationID,
 	headers["orchestration_id"] = orchestrationID
 	headers["message_type"] = "response"
 	headers["status"] = "complete"
+	headers["client_id"] = clientID
+	headers["sender_agent_type"] = "webscrape-adapter"
+	headers["in_response_to_step_name"] = stepName
 
 	a.logger.Info("Sending success response",
 		zap.String("request_id", requestID),
@@ -371,7 +378,7 @@ func (a *Adapter) sendSuccessResponse(requestID, correlationID, orchestrationID,
 	}
 }
 
-func (a *Adapter) sendErrorResponse(requestID, correlationID, orchestrationID, replyTopic, errorMsg string) {
+func (a *Adapter) sendErrorResponse(requestID, correlationID, orchestrationID, replyTopic, clientID, stepName, errorMsg string) {
 	if replyTopic == "" {
 		a.logger.Warn("No reply topic specified for error response", zap.String("request_id", requestID))
 		return
@@ -387,6 +394,9 @@ func (a *Adapter) sendErrorResponse(requestID, correlationID, orchestrationID, r
 			"message_type":              "response",
 			"timestamp":                 time.Now().UTC().Format(time.RFC3339),
 			"success":                   false,
+			"client_id":                 clientID,
+			"sender_agent_type":         "webscrape-adapter",
+			"in_response_to_step_name":  stepName,
 			"sender": map[string]interface{}{
 				"agent_type": "webscrape-adapter",
 				"agent_id":   "webscrape-adapter-001",
@@ -421,6 +431,9 @@ func (a *Adapter) sendErrorResponse(requestID, correlationID, orchestrationID, r
 	headers["message_type"] = "response"
 	headers["status"] = "error_recoverable"
 	headers["success"] = "false"
+	headers["client_id"] = clientID
+	headers["sender_agent_type"] = "webscrape-adapter"
+	headers["in_response_to_step_name"] = stepName
 
 	a.logger.Error("Sending error response",
 		zap.String("request_id", requestID),

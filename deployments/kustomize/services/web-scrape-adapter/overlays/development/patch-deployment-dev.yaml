@@ -20,7 +20,7 @@
           name: personae-dev-secrets
           key: FIRECRAWL_API_KEY
     - name: FIRECRAWL_API_URL
-      value: "https://api.firecrawl.dev/v1"
+      value: "https://api.firecrawl.dev/v2"
 - op: replace
   path: /spec/template/spec/containers/0/resources/requests/memory
   value: "64Mi"

@@ -25,7 +25,7 @@ data:
     providers:
       firecrawl:
         enabled: true
-        api_url: "https://api.firecrawl.dev/v1"
+        api_url: "https://api.firecrawl.dev/v2"
         timeout: 60s
       # Can add other providers later
       # playwright:
