@@ -285,9 +285,15 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		return
 	}
 
+	l.Info("In handleMessage in adapter.go about to upload results",
+		zap.Any("DEBUGaa: result", result))
+
 	// Upload results to S3 if requested
 	if uploadResults && a.storageClient != nil {
 		uploadedResult, err := a.uploadScrapingResults(result, req, l)
+		l.Info("In handleMessage result of upload to S3",
+			zap.Any("uploadedResult", uploadedResult),
+		)
 		if err != nil {
 			l.Error("Failed to upload results", zap.Error(err))
 		} else {
@@ -298,6 +304,8 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 			}
 		}
 	}
+
+	l.Info("In handleMessage in adapter.go just uploaded results - about to send success response")
 
 	// Send success response
 	a.sendSuccessResponse(requestID, correlationID, orchestrationID, replyToTopic, clientID, stepName, result)
