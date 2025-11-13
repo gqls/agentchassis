@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
 
-// FirecrawlScrapingProvider implements scraping via Firecrawl API
+// FirecrawlScrapingProvider implements scraping via Firecrawl API v2
 // https://docs.firecrawl.dev/migrate-to-v2
 type FirecrawlScrapingProvider struct {
 	BaseProvider
@@ -22,7 +23,7 @@ type FirecrawlScrapingProvider struct {
 	apiURL string
 }
 
-// NewFirecrawlScrapingProvider creates a new Firecrawl scraping provider with storage support
+// NewFirecrawlScrapingProvider creates a new Firecrawl v2 scraping provider with storage support
 func NewFirecrawlScrapingProvider(httpClient *http.Client, storageClient storage.Client, logger *zap.Logger) *FirecrawlScrapingProvider {
 	apiURL := os.Getenv("FIRECRAWL_API_URL")
 	if apiURL == "" {
@@ -31,6 +32,7 @@ func NewFirecrawlScrapingProvider(httpClient *http.Client, storageClient storage
 
 	logger.Info("In NewFirecrawlScrapingProvider",
 		zap.String("url", apiURL),
+		zap.String("version", "v2"),
 	)
 
 	return &FirecrawlScrapingProvider{
@@ -52,12 +54,12 @@ func (f *FirecrawlScrapingProvider) IsAvailable() bool {
 	return f.apiKey != ""
 }
 
-// Scrape performs single page scraping
+// Scrape performs single page scraping using Firecrawl API v2
 func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, config map[string]interface{}) (map[string]interface{}, error) {
 	f.logger.Info("Starting scrape", zap.String("url", url))
 
-	// Build scrape configuration
-	formats := []interface{}{"markdown", "html"}
+	// Build formats array (v2 format)
+	formats := []interface{}{"markdown", "html", "rawHtml", "links"}
 
 	captureScreenshot := true
 	if capture, ok := config["capture_screenshot"].(bool); ok {
@@ -69,7 +71,7 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		onlyMainContent = mainContent
 	}
 
-	waitFor := 1
+	waitFor := 0
 	if wait, ok := config["wait_for"].(int); ok {
 		waitFor = wait
 	}
@@ -89,7 +91,7 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		formats = append(formats, screenshotObj)
 	}
 
-	// Build request payload
+	// Build request payload (v2 format)
 	payload := map[string]interface{}{
 		"url":     url,
 		"formats": formats,
@@ -162,8 +164,16 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 			if rawHtml, ok := data["rawHtml"].(string); ok {
 				result["raw_html"] = rawHtml
 			}
+			// v2 screenshot handling - could be base64 or URL
 			if screenshot, ok := data["screenshot"].(string); ok {
-				result["screenshot_url"] = screenshot
+				// Check if it's base64 or URL
+				if len(screenshot) > 0 {
+					if screenshot[:4] == "http" {
+						result["screenshot_url"] = screenshot
+					} else {
+						result["screenshot_base64"] = screenshot
+					}
+				}
 			}
 			if metadata, ok := data["metadata"].(map[string]interface{}); ok {
 				result["metadata"] = metadata
@@ -174,8 +184,71 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 					result["description"] = description
 				}
 			}
+			// Extract images from response (Firecrawl v2)
+			if images, ok := data["images"].([]interface{}); ok && len(images) > 0 {
+				result["images"] = images
+			}
+
 			if links, ok := data["links"].([]interface{}); ok {
 				result["links"] = links
+
+				// Extract image URLs from links
+				imageLinks := []map[string]interface{}{}
+				for _, link := range links {
+					if linkStr, ok := link.(string); ok {
+						// Simple string URL - check if it's an image
+						lowerLink := strings.ToLower(linkStr)
+						if strings.HasSuffix(lowerLink, ".jpg") ||
+							strings.HasSuffix(lowerLink, ".jpeg") ||
+							strings.HasSuffix(lowerLink, ".png") ||
+							strings.HasSuffix(lowerLink, ".gif") ||
+							strings.HasSuffix(lowerLink, ".webp") ||
+							strings.HasSuffix(lowerLink, ".tif") ||
+							strings.HasSuffix(lowerLink, ".tiff") ||
+							strings.HasSuffix(lowerLink, ".bmp") ||
+							strings.HasSuffix(lowerLink, ".svg") {
+							imageLinks = append(imageLinks, map[string]interface{}{
+								"url": linkStr,
+							})
+						}
+					} else if linkMap, ok := link.(map[string]interface{}); ok {
+						// Object with href/url
+						var href string
+						if h, ok := linkMap["href"].(string); ok {
+							href = h
+						} else if h, ok := linkMap["url"].(string); ok {
+							href = h
+						}
+
+						if href != "" {
+							lowerHref := strings.ToLower(href)
+							if strings.HasSuffix(lowerHref, ".jpg") ||
+								strings.HasSuffix(lowerHref, ".jpeg") ||
+								strings.HasSuffix(lowerHref, ".png") ||
+								strings.HasSuffix(lowerHref, ".gif") ||
+								strings.HasSuffix(lowerHref, ".webp") ||
+								strings.HasSuffix(lowerHref, ".tif") ||
+								strings.HasSuffix(lowerHref, ".tiff") ||
+								strings.HasSuffix(lowerHref, ".bmp") ||
+								strings.HasSuffix(lowerHref, ".svg") {
+								imgInfo := map[string]interface{}{
+									"url": href,
+								}
+								if alt, ok := linkMap["alt"].(string); ok {
+									imgInfo["alt"] = alt
+								}
+								if text, ok := linkMap["text"].(string); ok {
+									imgInfo["text"] = text
+								}
+								imageLinks = append(imageLinks, imgInfo)
+							}
+						}
+					}
+				}
+
+				if len(imageLinks) > 0 {
+					result["images"] = imageLinks
+				}
 			}
 			if content, ok := data["content"].(string); ok {
 				result["clean_content"] = content

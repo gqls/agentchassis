@@ -515,25 +515,183 @@ func (a *Adapter) uploadScrapingResults(result interface{}, req RequestPayload, 
 		}
 	}
 
-	// Upload screenshot if it's base64 encoded
+	// Upload screenshot - handle both base64 and URL formats
+	var screenshotData []byte
+	var screenshotSource string
+
+	// Try base64 first
 	if screenshot, ok := resultMap["screenshot_base64"].(string); ok && screenshot != "" {
-		// Decode base64 screenshot
-		screenshotData, err := base64.StdEncoding.DecodeString(screenshot)
+		data, err := base64.StdEncoding.DecodeString(screenshot)
 		if err == nil {
-			screenshotURI, screenshotURL, err := a.uploadContent(
-				screenshotData,
-				fmt.Sprintf("%s/screenshot.png", basePath),
-				"image/png",
+			screenshotData = data
+			screenshotSource = "base64"
+			logger.Debug("Screenshot from base64", zap.Int("size", len(screenshotData)))
+		} else {
+			logger.Warn("Failed to decode base64 screenshot", zap.Error(err))
+		}
+	}
+
+	// Try URL if no base64 data
+	if len(screenshotData) == 0 {
+		if screenshotURL, ok := resultMap["screenshot_url"].(string); ok && screenshotURL != "" {
+			logger.Info("Downloading screenshot from URL", zap.String("url", screenshotURL))
+
+			// Download screenshot from URL (e.g., Google Cloud Storage)
+			data, contentType, err := a.downloadImage(a.ctx, screenshotURL)
+			if err != nil {
+				logger.Warn("Failed to download screenshot from URL",
+					zap.String("url", screenshotURL),
+					zap.Error(err))
+			} else {
+				screenshotData = data
+				screenshotSource = "url"
+				logger.Info("Screenshot downloaded from URL",
+					zap.Int("size", len(screenshotData)),
+					zap.String("content_type", contentType))
+			}
+		}
+	}
+
+	// Upload screenshot to S3 if we have data
+	if len(screenshotData) > 0 {
+		screenshotURI, screenshotURL, err := a.uploadContent(
+			screenshotData,
+			fmt.Sprintf("%s/screenshot.png", basePath),
+			"image/png",
+			logger,
+		)
+		if err != nil {
+			logger.Warn("Failed to upload screenshot", zap.Error(err))
+		} else {
+			uploadInfo["screenshot_uri"] = screenshotURI
+			if screenshotURL != "" {
+				uploadInfo["screenshot_url"] = screenshotURL
+			}
+			uploadInfo["screenshot_source"] = screenshotSource
+			logger.Info("Screenshot uploaded to S3",
+				zap.String("uri", screenshotURI),
+				zap.String("source", screenshotSource),
+				zap.Int("size", len(screenshotData)))
+		}
+	}
+
+	// Upload site images if present
+	if images, ok := resultMap["images"].([]interface{}); ok && len(images) > 0 {
+		logger.Info("Found images to upload", zap.Int("count", len(images)))
+
+		imageUploadInfo := []map[string]interface{}{}
+		successCount := 0
+		failCount := 0
+
+		for i, img := range images {
+			// Limit to reasonable number of images
+			if i >= 50 {
+				logger.Warn("Reached image upload limit", zap.Int("limit", 50))
+				break
+			}
+
+			var imageURL string
+			var imageAlt string
+
+			// Images can be strings (URLs) or objects with url/alt
+			switch imgData := img.(type) {
+			case string:
+				imageURL = imgData
+			case map[string]interface{}:
+				if url, ok := imgData["url"].(string); ok {
+					imageURL = url
+				}
+				if alt, ok := imgData["alt"].(string); ok {
+					imageAlt = alt
+				}
+			default:
+				logger.Warn("Unexpected image format", zap.Any("image", img))
+				continue
+			}
+
+			if imageURL == "" {
+				continue
+			}
+
+			// Skip data URLs (too large, already embedded)
+			if len(imageURL) > 10 && imageURL[:5] == "data:" {
+				logger.Debug("Skipping data URL image", zap.Int("index", i))
+				continue
+			}
+
+			// Download the image
+			imageData, contentType, err := a.downloadImage(a.ctx, imageURL)
+			if err != nil {
+				logger.Warn("Failed to download image",
+					zap.Int("index", i),
+					zap.String("url", imageURL),
+					zap.Error(err))
+				failCount++
+				continue
+			}
+
+			// Skip very small images (likely tracking pixels)
+			if len(imageData) < 1024 {
+				logger.Debug("Skipping small image",
+					zap.Int("index", i),
+					zap.Int("size", len(imageData)))
+				continue
+			}
+
+			// Upload to S3
+			ext := getImageExtension(contentType)
+			imageKey := fmt.Sprintf("%s/images/image_%03d%s", basePath, i, ext)
+
+			imageURI, imagePresignedURL, err := a.uploadContent(
+				imageData,
+				imageKey,
+				contentType,
 				logger,
 			)
 			if err != nil {
-				logger.Warn("Failed to upload screenshot", zap.Error(err))
-			} else {
-				uploadInfo["screenshot_uri"] = screenshotURI
-				if screenshotURL != "" {
-					uploadInfo["screenshot_url"] = screenshotURL
-				}
+				logger.Warn("Failed to upload image",
+					zap.Int("index", i),
+					zap.String("url", imageURL),
+					zap.Error(err))
+				failCount++
+				continue
 			}
+
+			// Store image info
+			imgInfo := map[string]interface{}{
+				"index":        i,
+				"original_url": imageURL,
+				"s3_uri":       imageURI,
+				"content_type": contentType,
+				"size_bytes":   len(imageData),
+			}
+
+			if imagePresignedURL != "" {
+				imgInfo["s3_url"] = imagePresignedURL
+			}
+
+			if imageAlt != "" {
+				imgInfo["alt"] = imageAlt
+			}
+
+			imageUploadInfo = append(imageUploadInfo, imgInfo)
+			successCount++
+
+			logger.Debug("Image uploaded successfully",
+				zap.Int("index", i),
+				zap.String("uri", imageURI),
+				zap.Int("size", len(imageData)))
+		}
+
+		if len(imageUploadInfo) > 0 {
+			uploadInfo["images"] = imageUploadInfo
+			uploadInfo["images_uploaded_count"] = successCount
+			uploadInfo["images_failed_count"] = failCount
+
+			logger.Info("Images upload complete",
+				zap.Int("success", successCount),
+				zap.Int("failed", failCount),
+				zap.Int("total", len(images)))
 		}
 	}
 
@@ -693,6 +851,61 @@ func (a *Adapter) uploadContent(data []byte, key string, contentType string, log
 	)
 
 	return uri, presignedURL, nil
+}
+
+// downloadImage downloads an image from a URL
+func (a *Adapter) downloadImage(ctx context.Context, imageURL string) ([]byte, string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", imageURL, nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to download image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("image download failed with status: %d", resp.StatusCode)
+	}
+
+	// Read image data
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(resp.Body); err != nil {
+		return nil, "", fmt.Errorf("failed to read image data: %w", err)
+	}
+
+	// Get content type
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		// Try to detect from data
+		contentType = http.DetectContentType(buf.Bytes())
+	}
+
+	return buf.Bytes(), contentType, nil
+}
+
+// getImageExtension returns file extension for content type
+func getImageExtension(contentType string) string {
+	switch contentType {
+	case "image/jpeg", "image/jpg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/gif":
+		return ".gif"
+	case "image/webp":
+		return ".webp"
+	case "image/svg+xml":
+		return ".svg"
+	case "image/bmp":
+		return ".bmp"
+	case "image/tiff":
+		return ".tiff"
+	default:
+		return ".jpg" // default
+	}
 }
 
 // StartHealthServer starts the health check HTTP server
