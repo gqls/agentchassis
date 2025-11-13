@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -25,7 +26,9 @@ type WebscrapeResult struct {
 func WebscrapeAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing WebscrapeAction",
 		zap.String("step_name", params.ExecutionContext.StepName),
-		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID))
+		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.Any("DEBUGaa: where is the responses topic in the execcontext?", params.ExecutionContext),
+	)
 
 	// Extract configuration
 	config := params.StepConfig.Config
@@ -69,9 +72,17 @@ func WebscrapeAction(ctx context.Context, params ActionParams) (interface{}, err
 	// Get response topic (where we want the adapter to reply)
 	myResponsesTopic := params.ExecutionContext.ResponsesTopic
 	if myResponsesTopic == "" {
-		// Fallback to a default if not set
+		// First try RESPONSES_TOPIC from environment (for job agents)
+		myResponsesTopic = os.Getenv("RESPONSES_TOPIC")
+	}
+	if myResponsesTopic == "" {
+		// Last resort: use generic agent type topic
 		myResponsesTopic = fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.Sender.AgentType)
 	}
+
+	params.Logger.Info("Using responses topic",
+		zap.String("responses_topic", myResponsesTopic),
+		zap.String("from", "execution_context"))
 
 	// Build the scraping data payload
 	scrapeData := map[string]interface{}{
@@ -199,12 +210,12 @@ func WebscrapeAction(ctx context.Context, params ActionParams) (interface{}, err
 		TopicSentTo:   webscrapeAdapterTopic,
 		AwaitResponse: true,
 		Metadata: map[string]interface{}{
-			"url":            url,
-			"action":         action,
-			"upload_results": uploadResults,
-			"client_id":      clientID,
-			"timestamp":      time.Now().UTC().Format(time.RFC3339),
-			"response_topic": myResponsesTopic,
+			"url":             url,
+			"action":          action,
+			"upload_results":  uploadResults,
+			"client_id":       clientID,
+			"timestamp":       time.Now().UTC().Format(time.RFC3339),
+			"responses_topic": myResponsesTopic,
 		},
 	}, nil
 }

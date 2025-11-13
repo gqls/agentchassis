@@ -886,7 +886,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 	if a.IsStaticAgent() && headers["responses_topic"] != "" {
 		execCtx.ResponsesTopic = headers["responses_topic"]
 		a.logger.Info("Static agent storing response topic from request",
-			zap.String("response_topic", execCtx.ResponsesTopic))
+			zap.String("responses_topic", execCtx.ResponsesTopic))
 	}
 
 	contextLogger := a.logger.With(execCtx.LogContext()...)
@@ -1045,7 +1045,7 @@ func (a *Agent) sendErrorResponse(execCtx *types.ExecutionContext, response *typ
 	if a.IsStaticAgent() && execCtx.ResponsesTopic != "" {
 		responsesTopic = execCtx.ResponsesTopic
 		a.logger.Debug("Static agent using request-specified response topic",
-			zap.String("response_topic", responsesTopic))
+			zap.String("responses_topic", responsesTopic))
 	} else if execCtx.ResponsesTopic != "" {
 		responsesTopic = execCtx.ResponsesTopic
 	} else if os.Getenv("PARENT_RESPONSES_TOPIC") != "" {
@@ -1290,12 +1290,12 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 	if a.IsStaticAgent() && spawnRequest.Headers.ResponsesTopic != "" {
 		responsesTopic = spawnRequest.Headers.ResponsesTopic
 		a.logger.Info("Static agent using request-specified response topic - SendInitializationResponse",
-			zap.String("response_topic", responsesTopic))
+			zap.String("response_stopic", responsesTopic))
 	} else if spawnRequest.Headers.ResponsesTopic != "" {
 		// Use topic from request if specified
 		responsesTopic = spawnRequest.Headers.ResponsesTopic
 		a.logger.Info("request was specified in the request headers",
-			zap.String("response_topic", responsesTopic))
+			zap.String("responses_topic", responsesTopic))
 	} else {
 		// Fallback to environment variable
 		responsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")

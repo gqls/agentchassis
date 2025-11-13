@@ -106,9 +106,7 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		payload["waitFor"] = waitFor
 	}
 
-	f.logger.Info("In Firecrawl go Scrape",
-		zap.Any("DEBUGaa: payload", payload),
-	)
+	f.logger.Info("In Firecrawl go Scrape")// zap.Any("DEBUGaa: payload", payload),
 
 	// Make API request
 	body, err := json.Marshal(payload)
@@ -135,9 +133,7 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	f.logger.Info("In Firecrawl go Scrape - response",
-		zap.Any("DEBUGaa: firecrawl apiResponse", apiResponse),
-	)
+	f.logger.Info("In Firecrawl go Scrape - response")// zap.Any("DEBUGaa: firecrawl apiResponse", apiResponse),
 
 	if resp.StatusCode != http.StatusOK {
 		if errorMsg, ok := apiResponse["error"].(string); ok {
@@ -457,9 +453,7 @@ func (f *FirecrawlScrapingProvider) ExtractStructured(ctx context.Context, url s
 		"formats": []interface{}{jsonFormat},
 	}
 
-	f.logger.Info("In Firecrawl go ExtractStructured",
-		zap.Any("DEBUGaa: payload for extract structured", payload),
-	)
+	f.logger.Info("In Firecrawl go ExtractStructured")// zap.Any("DEBUGaa: payload for extract structured", payload),
 
 	body, err := json.Marshal(payload)
 	if err != nil {

@@ -803,7 +803,7 @@ func (a *Adapter) uploadScrapingResults(result interface{}, req RequestPayload, 
 		zap.String("base_path", basePath),
 		zap.String("scrape_id", scrapeID),
 		zap.Int("files_uploaded", len(uploadInfo)-3), // Subtract metadata fields
-		zap.Any("DEBUGaa: files_uploaded uploadedInfo", uploadInfo),
+		// zap.Any("DEBUGaa: files_uploaded uploadedInfo", uploadInfo),
 	)
 
 	return uploadInfo, nil
