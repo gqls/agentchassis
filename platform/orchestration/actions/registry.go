@@ -46,6 +46,10 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	//"execute_llm_prompt": ExecuteLLMPromptActionFAKE,
 	"execute_llm_prompt": ExecuteLLMPromptAction,
 
+	// Web build
+	"git_commit":         GitCommitAction,
+	"new_site_architect": AssembleFromLibraryAction,
+
 	// Memory operations
 	"retrieve_memory": RetrieveMemoryAction,
 	"store_memory":    StoreMemoryAction,

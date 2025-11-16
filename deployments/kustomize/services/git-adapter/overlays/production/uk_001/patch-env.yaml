@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: git-adapter
+spec:
+  template:
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: git-adapter
+          env:
+            - name: KAFKA_BROKERS
+              value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+            - name: GITHUB_TOKEN
+              value: "githubTokenInPatchDeployment"
+
+          envFrom:
+            # B2/S3 credentials
+            - secretRef:
+                name: personae-storage-secrets
+            # Load storage config
+            - configMapRef:
+                name: storage-config
+            # Keep existing configmap
+            - configMapRef:
+                name: personae-prod-config

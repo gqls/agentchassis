@@ -1,0 +1,9 @@
+- op: replace
+  path: /spec/replicas
+  value: 2
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-prod-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-default-secrets

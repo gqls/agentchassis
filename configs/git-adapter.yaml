@@ -1,0 +1,15 @@
+# configs/git-adapter.yaml
+logging:
+  level: "info" # "debug" for development
+
+kafka:
+  brokers:
+    - "personae-kafka-cluster-kafka-bootstrap:9092" # Your broker
+  topics:
+    - "system.adapter.git.requests" # Topic to LISTEN on
+  consumer_group: "git-adapter-group-v1"
+
+github:
+  token_env_var: "GITHUB_TOKEN" # Name of the env var holding the token
+  org_env_var: "GITHUB_ORG"     # (Optional) Name of env var for your org
+  api_base: "https://api.github.com"

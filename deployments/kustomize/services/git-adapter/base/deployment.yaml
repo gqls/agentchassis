@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: git-adapter
+  labels:
+    app: git-adapter
+spec:
+  selector:
+    matchLabels:
+      app: git-adapter
+  template:
+    metadata:
+      labels:
+        app: git-adapter
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: git-adapter
+          image: docker.io/aqls/git-adapter:latest # Patched by overlays
+          command: ["./git-adapter", "-config", "/app/configs/git-adapter.yaml"]
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: config
+          configMap:
+            name: git-adapter-config
