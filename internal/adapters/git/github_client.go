@@ -45,6 +45,9 @@ func NewGitHubClient(token, org, apiBase string, log *zap.Logger) (*GitHubClient
 			return nil, fmt.Errorf("failed to get authenticated user: %w", err)
 		}
 		c.userLogin = login
+		log.Info("Authenticated as user", zap.String("login", login))
+	} else {
+		log.Info("Operating in organization mode", zap.String("org", org))
 	}
 
 	return c, nil

@@ -472,7 +472,7 @@ case "$COMPONENT_NAME" in
     "configs/"
     "deployments/"
     )
-    MODULE_FILES=( "go.mod" "go.sum" )
+    MODULE_FILES=( "makefile" )
     ;;
 
   deployments-all)

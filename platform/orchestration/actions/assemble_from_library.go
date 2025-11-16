@@ -3,11 +3,11 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
@@ -119,7 +119,7 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 
 // queryComponent is a local helper function for our P1/P3 logic.
 // It's not an "action" itself.
-func queryComponent(ctx context.Context, db *pgxpool.Pool, log *zap.Logger, function string) (*ComponentTemplate, error) {
+func queryComponent(ctx context.Context, db *sql.DB, log *zap.Logger, function string) (*ComponentTemplate, error) {
 	query := `
 		SELECT id, html_template, input_schema, "function"
 		FROM content_components
@@ -127,7 +127,7 @@ func queryComponent(ctx context.Context, db *pgxpool.Pool, log *zap.Logger, func
 		LIMIT 1`
 
 	var component ComponentTemplate
-	err := db.QueryRow(ctx, query, function).Scan(
+	err := db.QueryRowContext(ctx, query, function).Scan(
 		&component.ID,
 		&component.HTMLTemplate,
 		&component.InputSchema,
