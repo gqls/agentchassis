@@ -4,6 +4,7 @@ package git
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -128,13 +129,27 @@ func (a *GitAdapter) Run() error {
 
 		default:
 			// Consume a message
-			msg, err := a.consumer.Consume(a.ctx)
+			// Use timeout context for consume (not main context)
+			consumeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			msg, err := a.consumer.Consume(consumeCtx)
+			cancel()
+
 			if err != nil {
+				// Check if shutting down
 				if a.ctx.Err() != nil {
 					return a.ctx.Err()
 				}
-				a.logger.Error("Error consuming message", zap.Error(err))
-				time.Sleep(time.Second)
+
+				// Ignore timeout errors (normal when queue is empty)
+				if errors.Is(a.ctx.Err(), context.DeadlineExceeded) {
+					continue // Just try again
+				}
+
+				// Only log real errors
+				if !errors.Is(err, context.Canceled) {
+					a.logger.Error("Error consuming message", zap.Error(err))
+					time.Sleep(time.Second)
+				}
 				continue
 			}
 

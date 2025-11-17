@@ -17,8 +17,12 @@ spec:
               value: "Personae"
             - name: GITHUB_API_BASE
               value: https://api.github.com
-            - name: KAFKA_TOPIC
+            - name: RESPONSES_TOPIC
+              value: system.adapter.git.responses
+            - name: REQUESTS_TOPIC
               value: system.adapter.git.requests
+            - name: CONSUMER_GROUP
+              value: git.adapter.group
 
             - name: GITHUB_TOKEN
               valueFrom:
