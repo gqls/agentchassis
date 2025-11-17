@@ -40,6 +40,7 @@ func main() {
 		zap.String("service", cfg.ServiceInfo.Name),
 		zap.String("version", cfg.ServiceInfo.Version),
 		zap.String("environment", cfg.ServiceInfo.Environment),
+		zap.String("server port", cfg.Server.Port),
 	)
 
 	// Create context with cancellation
@@ -55,7 +56,7 @@ func main() {
 	// Start health check server
 	healthPort := cfg.Server.Port
 	if healthPort == "" {
-		healthPort = "9090"
+		healthPort = "8080"
 	}
 	adapter.StartHealthServer(healthPort)
 	appLogger.Info("Health server started", zap.String("port", healthPort))

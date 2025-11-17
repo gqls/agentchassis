@@ -255,7 +255,7 @@ func min(a, b int) int {
 }
 
 // Alternative simpler version if you prefer
-func (a *GitAdapter) RunSimple() error {
+func (a *GitAdapter) RunSimpleNotUsed() error {
 	a.logger.Info("Starting git adapter (simple mode)")
 
 	a.shutdownWg.Add(1)

@@ -43,7 +43,7 @@ monitoring:
 
 health:
   enabled: true
-  port: "9090"
+  port: "8080"
   endpoints:
     - /health
     - /ready
