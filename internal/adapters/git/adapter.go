@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -112,6 +113,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 }
 
 // Run starts the main message processing loop
+// This method should ONLY return when actually shutting down
 func (a *GitAdapter) Run() error {
 	a.logger.Info("Starting git adapter message processing",
 		zap.String("topic", a.requestsTopic),
@@ -120,42 +122,174 @@ func (a *GitAdapter) Run() error {
 	a.shutdownWg.Add(1)
 	defer a.shutdownWg.Done()
 
-	// Message processing loop
+	// Keep track of consecutive errors for backoff
+	consecutiveErrors := 0
+
+	// Message processing loop - runs forever until shutdown
 	for {
+		// Check if we're shutting down
 		select {
 		case <-a.ctx.Done():
-			a.logger.Info("Context cancelled, stopping consumer")
-			return a.ctx.Err()
-
+			a.logger.Info("Shutdown signal received, stopping message processing")
+			return nil // Return nil, not an error - this is normal shutdown
 		default:
-			// Consume a message
-			// Use timeout context for consume (not main context)
-			consumeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			msg, err := a.consumer.Consume(consumeCtx)
-			cancel()
+			// Continue processing
+		}
 
-			if err != nil {
-				// Check if shutting down
-				if a.ctx.Err() != nil {
-					return a.ctx.Err()
-				}
+		// Try to consume a message
+		// Use a child context with timeout to avoid blocking forever
+		consumeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		msg, err := a.consumer.Consume(consumeCtx)
+		cancel() // Always clean up the context
 
-				// Ignore timeout errors (normal when queue is empty)
-				if errors.Is(a.ctx.Err(), context.DeadlineExceeded) {
-					continue // Just try again
-				}
-
-				// Only log real errors
-				if !errors.Is(err, context.Canceled) {
-					a.logger.Error("Error consuming message", zap.Error(err))
-					time.Sleep(time.Second)
-				}
-				continue
+		// Handle the consume result
+		if err != nil {
+			// First check if WE are shutting down (not the consume context)
+			select {
+			case <-a.ctx.Done():
+				a.logger.Debug("Adapter shutting down during consume")
+				return nil // Normal shutdown, not an error
+			default:
+				// Not shutting down, handle the error
 			}
 
-			// Process the message
-			a.processMessage(&msg)
+			// Determine if this is a real error or just a timeout
+			isRealError := false
+
+			switch {
+			case errors.Is(err, context.DeadlineExceeded):
+				// Timeout - this is normal, not an error
+				// Reset error counter since this isn't a real error
+				consecutiveErrors = 0
+				// Just continue to next iteration silently
+				continue
+
+			case errors.Is(err, context.Canceled):
+				// Context was cancelled, check if we're shutting down
+				if a.ctx.Err() != nil {
+					return nil
+				}
+				// Otherwise just continue
+				continue
+
+			case strings.Contains(err.Error(), "EOF"):
+				// Kafka EOF - can happen during rebalancing or shutdown
+				// Log at debug level only
+				a.logger.Debug("Kafka EOF received, continuing", zap.Error(err))
+				continue
+
+			case strings.Contains(strings.ToLower(err.Error()), "timeout"):
+				// Another form of timeout
+				consecutiveErrors = 0
+				continue
+
+			default:
+				// This is a real error
+				isRealError = true
+				consecutiveErrors++
+				a.logger.Warn("Error consuming message",
+					zap.Error(err),
+					zap.Int("consecutive_errors", consecutiveErrors),
+				)
+			}
+
+			// Handle real errors with backoff
+			if isRealError {
+				// Implement exponential backoff for real errors
+				backoffDuration := time.Duration(min(consecutiveErrors, 10)) * time.Second
+
+				a.logger.Debug("Backing off after error",
+					zap.Duration("backoff", backoffDuration),
+					zap.Int("consecutive_errors", consecutiveErrors),
+				)
+
+				// Sleep with cancellation check
+				select {
+				case <-time.After(backoffDuration):
+					// Continue after backoff
+				case <-a.ctx.Done():
+					// Shutdown during backoff
+					return nil
+				}
+
+				// If we've had too many consecutive errors, log a warning
+				if consecutiveErrors > 10 {
+					a.logger.Error("Too many consecutive consume errors",
+						zap.Int("count", consecutiveErrors),
+						zap.Error(err),
+					)
+					// Reset counter to avoid overflow
+					consecutiveErrors = 10
+				}
+			}
+
+			// Continue to next iteration
+			continue
 		}
+
+		// Successfully received a message
+		consecutiveErrors = 0 // Reset error counter
+
+		// Process the message in a safe way
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					a.logger.Error("Panic while processing message",
+						zap.Any("panic", r),
+						zap.Stack("stack"),
+					)
+				}
+			}()
+
+			a.processMessage(&msg)
+		}()
+	}
+}
+
+// Helper function for min
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// Alternative simpler version if you prefer
+func (a *GitAdapter) RunSimple() error {
+	a.logger.Info("Starting git adapter (simple mode)")
+
+	a.shutdownWg.Add(1)
+	defer a.shutdownWg.Done()
+
+	for {
+		// Check shutdown
+		if a.ctx.Err() != nil {
+			return nil // Normal shutdown
+		}
+
+		// Try to get a message (with timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		msg, err := a.consumer.Consume(ctx)
+		cancel()
+
+		if err != nil {
+			// Only process if not shutting down
+			if a.ctx.Err() == nil {
+				// Only log if it's not a timeout
+				if !errors.Is(err, context.DeadlineExceeded) &&
+					!errors.Is(err, context.Canceled) &&
+					!strings.Contains(err.Error(), "EOF") {
+					a.logger.Warn("Consume error (continuing)", zap.Error(err))
+					time.Sleep(time.Second)
+				}
+			} else {
+				return nil // Shutting down
+			}
+			continue
+		}
+
+		// Process message
+		a.processMessage(&msg)
 	}
 }
 
