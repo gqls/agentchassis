@@ -13,8 +13,18 @@ spec:
           env:
             - name: KAFKA_BROKERS
               value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+            - name: GITHUB_ORG
+              value: "Personae"
+            - name: GITHUB_API_BASE
+              value: https://api.github.com
+            - name: KAFKA_TOPIC
+              value: system.adapter.git.requests
+
             - name: GITHUB_TOKEN
-              value: "githubTokenInPatchDeployment"
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: GITHUB_TOKEN
 
           envFrom:
             # B2/S3 credentials

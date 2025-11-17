@@ -1,31 +1,33 @@
 # build/docker/backend/Dockerfile.git-adapter
+FROM golang:1.21-alpine AS builder
 
-# --- Builder Stage ---
-FROM golang:1.24-alpine AS builder
-
-WORKDIR /src
-
-# Copy all go modules
-COPY go.mod go.sum ./
-RUN go mod download
-
-# Copy the entire project
-COPY . .
-
-# Build the git-adapter binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -o /app/git-adapter ./cmd/git-adapter/main.go
-
-# --- Final Stage ---
-FROM gcr.io/distroless/static-debian11
+RUN apk add --no-cache git
 
 WORKDIR /app
 
-# Copy the binary from the builder
-COPY --from=builder /app/git-adapter /app/git-adapter
+# Copy go mod files (you'll need to create these)
+# COPY go.mod go.sum ./
+# RUN go mod download
 
-# Copy the config file
-# This assumes you have a 'configs' dir in your build context
-COPY configs/git-adapter.yaml /app/configs/git-adapter.yaml
+# Copy source code
+COPY . .
 
-# Set the entrypoint
-ENTRYPOINT ["/app/git-adapter", "-config", "/app/configs/git-adapter.yaml"]
+# Build the binary
+RUN go build -o git-adapter cmd/git-adapter/main.go
+
+# Final stage
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /root/
+
+# Copy the binary from builder
+COPY --from=builder /app/git-adapter .
+
+# Health check endpoint (optional)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD ["/bin/sh", "-c", "ps aux | grep git-adapter | grep -v grep || exit 1"]
+
+# Run the binary
+CMD ["./git-adapter"]

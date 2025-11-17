@@ -244,7 +244,7 @@ func (c *GitHubClient) updateRef(ctx context.Context, owner, repo, branch, commi
 	url := fmt.Sprintf("%s/repos/%s/%s/git/refs/heads/%s", c.apiBase, owner, repo, branch)
 	body := map[string]string{
 		"sha":   commitSHA,
-		"force": false,
+		"force": "false", // false with interface
 	}
 	jsonBody, _ := json.Marshal(body)
 	req, _ := http.NewRequestWithContext(ctx, "PATCH", url, bytes.NewBuffer(jsonBody))
