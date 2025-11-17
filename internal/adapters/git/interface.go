@@ -12,10 +12,21 @@ type AdapterRequest struct {
 
 // AdapterHeaders matches the agent's header structure
 type AdapterHeaders struct {
+	// Core identifiers
 	CorrelationID   string `json:"correlation_id"`
 	OrchestrationID string `json:"orchestration_id"`
 	RequestID       string `json:"request_id"`
-	ResponsesTopic  string `json:"responses_topic"`
+
+	// Parent context (critical for orchestration)
+	ParentOrchestrationID string `json:"parent_orchestration_id,omitempty"`
+	ParentRequestID       string `json:"parent_request_id,omitempty"`
+
+	// Step context
+	StepID   string `json:"step_id,omitempty"`
+	StepName string `json:"step_name,omitempty"`
+
+	// Response routing
+	ResponsesTopic string `json:"responses_topic"`
 }
 
 // AdapterBody is the agent's body structure

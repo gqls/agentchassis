@@ -1,15 +1,56 @@
 # configs/git-adapter.yaml
-logging:
-  level: "info" # "debug" for development
+service_info:
+  name: git-adapter
+  version: 1.0.0
+  environment: production
+  description: Git repository management adapter
+
+server:
+  port: "9090"
+  timeout: 30s
+  shutdown_timeout: 10s
 
 kafka:
   brokers:
-    - "personae-kafka-cluster-kafka-bootstrap:9092" # Your broker
+    - localhost:9092
+  consumer_group: git-adapter-group
   topics:
-    - "system.adapter.git.requests" # Topic to LISTEN on
-  consumer_group: "git-adapter-group-v1"
+    requests_topic: system.adapter.git.requests
+    responses_topic: system.adapter.git.responses
+  producer:
+    retry_max: 5
+    required_acks: all
+  consumer:
+    offset_initial: oldest
+    rebalance_strategy: roundrobin
 
 github:
-  token_env_var: "GITHUB_TOKEN" # Name of the env var holding the token
-  org_env_var: "GITHUB_ORG"     # (Optional) Name of env var for your org
+  # Token should be set via environment variable GITHUB_TOKEN for security
+  token: "${GITHUB_TOKEN}"
+  # Optional: Organization name for creating repos under an org
+  org: "${GITHUB_ORG}"
+  # API base URL (defaults to https://api.github.com)
   api_base: "https://api.github.com"
+
+logging:
+  level: info
+  format: json
+  output: stdout
+
+monitoring:
+  metrics_enabled: true
+  metrics_port: "9091"
+
+health:
+  enabled: true
+  port: "9090"
+  endpoints:
+    - /health
+    - /ready
+    - /live
+
+# Environment variables that can override config
+env:
+  GITHUB_TOKEN: ""
+  GITHUB_ORG: ""
+  KAFKA_BROKERS: ""

@@ -72,6 +72,12 @@ func NewDynamicImageAdapter(ctx context.Context, cfg *config.ServiceConfig, logg
 		podName = fmt.Sprintf("image-adapter-%s", adapterID[:8])
 	}
 
+	// debug
+	envVars := os.Environ()
+	logger.Info("New Dynamic Image Adapter - environment variables, try to un-hardcode vars",
+		zap.Strings("DEBUGaa: try to un-hardcode env vars", envVars),
+	)
+
 	// Subscribe to the main image generator request topic
 	// All adapters in the consumer group listen to this topic
 	mainTopic := "system.adapter.image-generator.requests"

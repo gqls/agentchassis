@@ -12,6 +12,15 @@ data:
     logger:
       level: "info"
       format: "json"
+      
+    custom:
+      adapter:
+        requests_topic: "system.adapter.git.requests"
+        responses_topic: "system.adapter.git.responses"
+        consumer_group: "git-adapter-group"
+        max_retries: 5
+        timeout: 180s
+        max_concurrent_requests: 10
     
     infrastructure:
       kafka_brokers:
