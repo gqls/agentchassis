@@ -149,7 +149,7 @@ func mainSimple() {
 		appLogger.Fatal("Failed to initialize git adapter", zap.Error(err))
 	}
 
-	adapter.StartHealthServer("9090")
+	adapter.StartHealthServer("8080")
 
 	// Run adapter in goroutine - don't care about its return
 	go func() {

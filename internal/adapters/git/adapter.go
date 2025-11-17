@@ -694,9 +694,26 @@ func (a *GitAdapter) StartHealthServer(port string) {
 		if a.consumer != nil {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"status":"ready"}`))
+			a.logger.Debug("Readiness probe hit", zap.String("path", "/ready"))
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			w.Write([]byte(`{"status":"not ready"}`))
+			a.logger.Debug("Readiness probe failed", zap.String("path", "/ready"))
+
+		}
+	})
+
+	// Live check endpoint
+	mux.HandleFunc("/live", func(w http.ResponseWriter, r *http.Request) {
+		// Check if consumer is connected
+		if a.consumer != nil {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status":"live"}`))
+			a.logger.Debug("Liveness probe hit", zap.String("path", "/live"))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status":"not live"}`))
+			a.logger.Debug("Liveness probe failed", zap.String("path", "/live"))
 		}
 	})
 
@@ -713,6 +730,11 @@ func (a *GitAdapter) StartHealthServer(port string) {
 		Addr:    ":" + port,
 		Handler: mux,
 	}
+
+	a.logger.Info("Health server starting",
+		zap.String("port", port),
+		zap.Strings("endpoints", []string{"/live", "/ready", "/health"}),
+	)
 
 	go func() {
 		if err := a.healthServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
