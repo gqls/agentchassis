@@ -513,6 +513,26 @@ default_config,
 WHERE type = 'chief-strategist';
 
 
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+default_config,
+'{workflow,steps,generate_build_plan,config,input_fields}',
+'["input_data.domain", "input_data.objective", "input_data.model"]'::jsonb
+)
+WHERE type = 'chief-strategist';
+
+
+'{
+"workflow": {
+"start_step": "generate_build_plan",
+"steps": {
+"generate_build_plan": {
+"action": "execute_llm_prompt",
+"description": "Create the Build Plan from a behavioral model",
+"config": {
+"prompt_template": "You are a Chief Marketing Strategist. A client wants a new site for ''{{.domain}}'' with the objective ''{{.objective}}''. Your task is to generate a simple JSON ''Build Plan'' based on the ''{{.model}}'' behavioral model. The plan must only contain an array of section ''functions''. Example Response: {\"sections\": [\"problem_statement\", \"agitation\", \"solution_provider\"]}",
+"input_fields": ["input_data.domain", "input_data.objective"
+
 ---
 
 
@@ -548,4 +568,11 @@ WHERE group_type = 'mvp-site-builder';
 
 ---
 
-
+-- Make architect look for the field the code expects
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+default_config,
+'{workflow,steps,assemble_template,config,build_plan_field}',
+'"build_plan_data"'::jsonb
+)
+WHERE type = 'site-component-architect';
