@@ -457,3 +457,43 @@ true,
 'docker.io/aqls/agent-chassis', -- Using your standard image
 'v1.0.407'                      -- Using your standard tag
 );
+
+
+---
+
+adding ai_service (AI model)
+
+UPDATE agent_definitions
+SET default_config = '{
+"workflow": {
+"steps": {
+"complete": {
+"action": "complete_workflow",
+"description": "Return the Build Plan"
+},
+"generate_build_plan": {
+"action": "execute_llm_prompt",
+"config": {
+"ai_service": {
+"model": "claude-haiku-4-5-20251001",
+"provider": "anthropic",
+"api_key_env_var": "ANTHROPIC_API_KEY"
+},
+"input_fields": [
+"input_data.domain",
+"input_data.objective",
+"input_data.model"
+],
+"output_field": "build_plan_json",
+"prompt_template": "You are a Chief Marketing Strategist..."
+},
+"next_step": "complete",
+"description": "Create the Build Plan from a behavioral model"
+}
+},
+"start_step": "generate_build_plan"
+},
+"processing_mode": "task",
+"timeout_seconds": 120
+}'::jsonb
+WHERE type = 'chief-strategist';

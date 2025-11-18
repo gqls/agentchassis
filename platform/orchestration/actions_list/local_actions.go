@@ -37,6 +37,11 @@ var LocalActions = map[string]bool{
 
 	"calculate": true,
 
+	// Web build
+	"git_commit":            true,
+	"new_site_architect":    true,
+	"assemble_from_library": true,
+
 	// Data aggregation
 	"aggregate_data":    true,
 	"aggregate_webpage": true,
