@@ -497,3 +497,55 @@ SET default_config = '{
 "timeout_seconds": 120
 }'::jsonb
 WHERE type = 'chief-strategist';
+
+
+---
+
+
+updates:
+-- Update the chief-strategist prompt to be more explicit
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+default_config,
+'{workflow,steps,generate_build_plan,config,prompt_template}',
+'"Generate a JSON build plan for a website about {{.input_data.domain}} with objective {{.input_data.objective}} using the {{.input_data.model}} model.\n\nRETURN ONLY VALID JSON with this exact structure:\n{\"sections\": [\"section1\", \"section2\", \"section3\"]}\n\nFor PAS model, use: [\"problem_statement\", \"agitation\", \"solution_provider\"]\n\nDO NOT include any other text, markdown, or explanation. ONLY return the JSON object."'::jsonb
+)
+WHERE type = 'chief-strategist';
+
+
+---
+
+
+-- Update the architect to look for the correct field
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+default_config,
+'{workflow,steps,assemble_template,config,build_plan_field}',
+'"generate_build_plan.result"'::jsonb
+)
+WHERE type = 'site-component-architect';
+
+
+---
+
+-- Update the group workflow to properly pass data between agents
+UPDATE agent_group_definitions
+SET orchestration_workflow = jsonb_set(
+orchestration_workflow,
+'{steps,call_strategist,output_field}',
+'"generate_build_plan"'::jsonb
+)
+WHERE group_type = 'mvp-site-builder';
+
+-- Also update architect step to pass the right data
+UPDATE agent_group_definitions
+SET orchestration_workflow = jsonb_set(
+orchestration_workflow,
+'{steps,call_architect,config,input_fields}',
+'["generate_build_plan", "input_data"]'::jsonb
+)
+WHERE group_type = 'mvp-site-builder';
+
+---
+
+
