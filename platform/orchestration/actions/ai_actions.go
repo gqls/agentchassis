@@ -125,21 +125,52 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	)
 
 	// Extract AI service configuration
-	aiServiceConfig, ok := config["ai_service"].(map[string]interface{})
-	if !ok {
-		params.Logger.Info("ai_actions.go Looking in current step in normal config for ai_service configuration")
-		// try to get step specific ai_service
-		aiServiceWorkflow, _ := config["workflow"].(map[string]interface{})
-		aiServiceSteps, _ := aiServiceWorkflow["steps"].(map[string]interface{})
-		aiCurrentStep, _ := aiServiceSteps[currentStep].(map[string]interface{})
-		aiServiceConfig, _ = aiCurrentStep["ai_service"].(map[string]interface{})
+	// First try to get ai_service from top-level agent_config
+	var aiServiceConfig map[string]interface{}
 
-		if len(aiServiceConfig) == 0 {
-			return nil, fmt.Errorf("ai_service configuration not found in normal config at step level")
+	// Check if agent_config has ai_service at top level
+	if agentConfig != nil {
+		if aiService, ok := agentConfig["ai_service"].(map[string]interface{}); ok && aiService != nil {
+			aiServiceConfig = aiService
+			params.Logger.Info("Found ai_service at top level of agent_config",
+				zap.Any("ai_service", aiService))
 		}
-		params.Logger.Info("ExecuteLLMPrompt Looked and found in current step for ai_service configuration",
-			zap.Any("ai_service in current step", aiCurrentStep["ai_service"]),
-		)
+	}
+
+	// If not found at top level, check in step config
+	if aiServiceConfig == nil {
+		params.Logger.Info("ai_service not at top level, checking step config")
+
+		// Look in the workflow steps for the current step's config
+		if workflow, ok := agentConfig["workflow"].(map[string]interface{}); ok {
+			if steps, ok := workflow["steps"].(map[string]interface{}); ok {
+				if currentStepConfig, ok := steps[currentStep].(map[string]interface{}); ok {
+					if stepConfig, ok := currentStepConfig["config"].(map[string]interface{}); ok {
+						if aiService, ok := stepConfig["ai_service"].(map[string]interface{}); ok {
+							aiServiceConfig = aiService
+							params.Logger.Info("Found ai_service in step config",
+								zap.String("step", currentStep),
+								zap.Any("ai_service", aiService))
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Also check StepConfig if provided
+	if aiServiceConfig == nil && params.StepConfig.Config != nil {
+		if aiService, ok := params.StepConfig.Config["ai_service"].(map[string]interface{}); ok {
+			aiServiceConfig = aiService
+			params.Logger.Info("Found ai_service in StepConfig",
+				zap.Any("ai_service", aiService))
+		}
+	}
+
+	if aiServiceConfig == nil || len(aiServiceConfig) == 0 {
+		params.Logger.Error("ai_service configuration not found after checking all locations",
+			zap.String("checked_locations", "agent_config top-level, workflow.steps.config, StepConfig"))
+		return nil, fmt.Errorf("ai_service configuration not found")
 	}
 
 	// Extract prompt template
