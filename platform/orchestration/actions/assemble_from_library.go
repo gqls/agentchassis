@@ -45,27 +45,49 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 		return nil, fmt.Errorf("database connection is not available")
 	}
 
-	// 2. Get the Build Plan JSON string from CollectedData
-	// The 'call_strategist' step stored its output in 'build_plan_data'.
-	var buildPlanData map[string]interface{}
-	if bpData, ok := params.CollectedData["build_plan_data"].(map[string]interface{}); ok {
-		buildPlanData = bpData
-	} else {
-		return nil, fmt.Errorf("'build_plan_data' not found or invalid in CollectedData")
+	var buildPlanJSON string
+
+	// 1. Check if a specific path is defined in the Step Configuration
+	// Example config in YAML:
+	// config:
+	//   build_plan_path: "planner_step.result.build_plan_json"
+	if pathRaw, ok := params.CollectedData["build_plan_path"]; ok {
+		if pathStr, ok := pathRaw.(string); ok && pathStr != "" {
+			params.Logger.Debug("Using configured path for build plan", zap.String("path", pathStr))
+			if val, found := getValueByPath(params.CollectedData, pathStr); found {
+				if strVal, ok := val.(string); ok {
+					buildPlanJSON = strVal
+				}
+			}
+		}
 	}
 
-	var buildPlanJSON string
-	if bpJSON, ok := buildPlanData["build_plan_json"].(string); ok {
-		buildPlanJSON = bpJSON
-	} else {
-		return nil, fmt.Errorf("'build_plan_json' string not found in build_plan_data")
+	// 2. Fallback: If not found via config, use the Heuristic Search (Auto-discovery)
+	if buildPlanJSON == "" {
+		params.Logger.Debug("build_plan_path not configured or not found, attempting heuristic search")
+		buildPlanJSON = findBuildPlanHeuristically(params.CollectedData)
+	}
+
+	// --- LOGIC END: Generic Key Extraction ---
+
+	if buildPlanJSON == "" {
+		params.Logger.Error("Build Plan JSON not found. Checked specific config path and standard locations.")
+		return nil, fmt.Errorf("build_plan_json not found in collected data")
 	}
 
 	// 3. Unmarshal the Build Plan
 	var buildPlan BuildPlan
 	if err := json.Unmarshal([]byte(buildPlanJSON), &buildPlan); err != nil {
-		params.Logger.Error("Failed to unmarshal Build Plan JSON", zap.Error(err), zap.String("json", buildPlanJSON))
-		return nil, fmt.Errorf("failed to parse build plan: %w", err)
+		// Attempt to clean string if it was double-encoded (common issue with LLM outputs)
+		var unquoted string
+		if unqErr := json.Unmarshal([]byte(buildPlanJSON), &unquoted); unqErr == nil {
+			// If we successfully unquoted it, try unmarshalling into struct again
+			if err2 := json.Unmarshal([]byte(unquoted), &buildPlan); err2 != nil {
+				return nil, fmt.Errorf("failed to parse build plan (nested): %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to parse build plan: %w", err)
+		}
 	}
 
 	if len(buildPlan.Sections) == 0 {
@@ -138,4 +160,74 @@ func queryComponent(ctx context.Context, db *sql.DB, log *zap.Logger, function s
 		return nil, err
 	}
 	return &component, nil
+}
+
+// getValueByPath traverses a map using dot notation (e.g. "step1.result.data")
+func getValueByPath(data map[string]interface{}, path string) (interface{}, bool) {
+	keys := strings.Split(path, ".")
+	var current interface{} = data
+
+	for _, key := range keys {
+		// Ensure current is a map
+		currMap, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, false
+		}
+
+		// Check if key exists
+		val, exists := currMap[key]
+		if !exists {
+			return nil, false
+		}
+		current = val
+	}
+	return current, true
+}
+
+// findBuildPlanHeuristically contains the original "hardcoded" logic to ensure
+// backward compatibility with existing workflows that don't use the config.
+func findBuildPlanHeuristically(data map[string]interface{}) string {
+	// Helper to check a specific map layer
+	checkMap := func(m map[string]interface{}) string {
+		// Check direct key
+		if val, ok := m["build_plan_json"].(string); ok {
+			return val
+		}
+
+		// Check inside "result" (common wrapper)
+		if res, ok := m["result"].(map[string]interface{}); ok {
+			if val, ok := res["build_plan_json"].(string); ok {
+				return val
+			}
+		}
+		return ""
+	}
+
+	// A. Check Top Level
+	if val := checkMap(data); val != "" {
+		return val
+	}
+
+	// B. Check "generate_build_plan" (Common previous step name)
+	if sub, ok := data["generate_build_plan"].(map[string]interface{}); ok {
+		if val := checkMap(sub); val != "" {
+			return val
+		}
+	}
+
+	// C. Check "input_data" (Passed from parent)
+	if inputData, ok := data["input_data"].(map[string]interface{}); ok {
+		if val := checkMap(inputData); val != "" {
+			return val
+		}
+	}
+
+	// D. Legacy fallback
+	if bpData, ok := data["build_plan_data"].(map[string]interface{}); ok {
+		if val, ok := bpData["build_plan_json"].(string); ok {
+			return val
+		}
+	}
+
+	return ""
 }

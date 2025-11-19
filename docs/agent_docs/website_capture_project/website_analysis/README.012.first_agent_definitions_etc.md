@@ -508,7 +508,7 @@ UPDATE agent_definitions
 SET default_config = jsonb_set(
 default_config,
 '{workflow,steps,generate_build_plan,config,prompt_template}',
-'"Generate a JSON build plan for a website about {{.input_data.domain}} with objective {{.input_data.objective}} using the {{.input_data.model}} model.\n\nRETURN ONLY VALID JSON with this exact structure:\n{\"sections\": [\"section1\", \"section2\", \"section3\"]}\n\nFor PAS model, use: [\"problem_statement\", \"agitation\", \"solution_provider\"]\n\nDO NOT include any other text, markdown, or explanation. ONLY return the JSON object."'::jsonb
+'"Generate a JSON build plan for a website about {{.domain}} with objective {{.objective}} using the {{.model}} model.\n\nRETURN ONLY VALID JSON with this exact structure:\n{\"sections\": [\"section1\", \"section2\", \"section3\"]}\n\nFor PAS model, use: [\"problem_statement\", \"agitation\", \"solution_provider\"]\n\nDO NOT include any other text, markdown, or explanation. ONLY return the JSON object."'::jsonb
 )
 WHERE type = 'chief-strategist';
 
@@ -517,7 +517,7 @@ UPDATE agent_definitions
 SET default_config = jsonb_set(
 default_config,
 '{workflow,steps,generate_build_plan,config,input_fields}',
-'["input_data.domain", "input_data.objective", "input_data.model"]'::jsonb
+'["input_data", "template_data"]'::jsonb
 )
 WHERE type = 'chief-strategist';
 

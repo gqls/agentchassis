@@ -718,55 +718,61 @@ func findJobTopicForRole(params ActionParams, targetRole string) string {
 
 // Data extraction - with explicit template-based specification
 func extractDataForAgent(params ActionParams) interface{} {
-	params.Logger.Info("extractDataForAgent Extracting data for agent using new helpers",
-		zap.Any("step_config", params.StepConfig.Config),
-		zap.Any("DEBUGaa: params into extractDataForAgent", params),
-	)
+	params.Logger.Info("extractDataForAgent Extracting data for agent",
+		zap.Any("step_config", params.StepConfig.Config))
 
-	// Use the new ExtractDataFromMessage helper to get clean data
-	// cleanData := datahelpers.ExtractDataFromMessage(params.CollectedData, params.Logger)
+	// PRIORITY 1: Check for plural "input_fields" (Array of keys)
+	// This is what the group definition uses: ["generate_build_plan", "input_data"]
+	if fields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
+		result := make(map[string]interface{})
+		params.Logger.Info("Using input_fields list", zap.Any("fields", fields))
 
-	// PRIORITY 1b: Check for explicit input_data specification in config
-	if inputDataSpec, ok := params.StepConfig.Config["input_data"].(map[string]interface{}); ok {
-		params.Logger.Info("Using explicit input_data specification from workflow config",
-			zap.Any("input_data_spec", inputDataSpec))
+		for _, f := range fields {
+			fieldName, ok := f.(string)
+			if !ok {
+				continue
+			}
 
-		// Get the clean input_data from CollectedData to use for template rendering
-		cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
+			// Special handling for "input_data" - flatten it or keep it?
+			// Usually, we pass it as a key to keep context clear for the child
 
-		params.Logger.Info("clean input data from collected data in extractDataForAgent explicit input_data specification in config",
-			zap.Any("clean input data", cleanInputData),
-		)
-
-		// Render templates in the specification using clean data
-		renderedData := renderTemplatesInData(inputDataSpec,
-			map[string]interface{}{"input_data": cleanInputData},
-			params.Logger)
-
-		return renderedData
+			// Look in CollectedData
+			if val, exists := params.CollectedData[fieldName]; exists {
+				// If the value is a step result with a "response" wrapper, extract it?
+				// For now, pass raw to let child handle it, or use ExtractStepData logic if needed.
+				// Actions often wrap results in map[string]interface{}
+				result[fieldName] = val
+			} else {
+				// Check raw message
+				if raw, ok := params.CollectedData["__raw_message__"].(map[string]interface{}); ok {
+					if val, exists := raw[fieldName]; exists {
+						result[fieldName] = val
+					}
+				}
+			}
+		}
+		return result
 	}
 
-	// PRIORITY 2: Check for input_field reference
-	if inputField, ok := params.StepConfig.Config["input_field"].(string); ok {
-		params.Logger.Info("Using input_field reference",
-			zap.String("input_field", inputField))
-
+	// PRIORITY 1b: Check for explicit input_data specification in config (map)
+	if inputDataSpec, ok := params.StepConfig.Config["input_data"].(map[string]interface{}); ok {
+		// ... (Keep existing template rendering logic)
 		cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
-		params.Logger.Info("clean input data from Using input_field reference in extractDataForAgent",
-			zap.Any("clean input data", cleanInputData),
-		)
+		return renderTemplatesInData(inputDataSpec, map[string]interface{}{"input_data": cleanInputData}, params.Logger)
+	}
+
+	// PRIORITY 2: Check for input_field reference (single string)
+	if inputField, ok := params.StepConfig.Config["input_field"].(string); ok {
+		// ... (Keep existing logic)
+		cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
 		if fieldData, err := datahelpers.GetFieldFromPath(cleanInputData, inputField, params.Logger); err == nil {
 			return fieldData
 		}
 	}
 
-	// PRIORITY 3: Return the clean extracted data
-	params.Logger.Info("Using cleaned input_data")
-	cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
-	params.Logger.Info("Extract Data for agent clean input data is:",
-		zap.Any("cleanInputData", cleanInputData),
-	)
-	return cleanInputData
+	// PRIORITY 3: Return the clean extracted data (default)
+	params.Logger.Info("Using cleaned input_data default")
+	return datahelpers.GetInputData(params.CollectedData, params.Logger)
 }
 
 // Render templates in data structure

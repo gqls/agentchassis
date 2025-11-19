@@ -673,7 +673,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 	s.logger.Info("Executing local action",
 		zap.Any("DEBUGaa: params sent to action handler", params),
-		zap.Any("action handler", handler),
+		zap.Any("action in handler", step.Action),
 	)
 
 	// 6. Execute the action
@@ -684,7 +684,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 
 	s.logger.Info("Executing local action - result back is: look for request id",
 		zap.Any("DEBUGaa: result", result),
-		zap.Any("action handler", handler),
+		zap.Any("action handler - (back from)", step.Action),
 		zap.Any("state awaiting status", state.Status),
 		zap.String("orchestration_id", state.OrchestrationID),
 		zap.Any("DEBUGaa: state", state),

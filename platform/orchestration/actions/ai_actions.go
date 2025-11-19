@@ -532,7 +532,6 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 					params.Logger.Info("Found requested input_field in __raw_message__", zap.String("field", fieldName))
 				}
 			}
-			// --- END FIX ---
 
 			if exists {
 				if _, exists := templateData[fieldName]; exists {
