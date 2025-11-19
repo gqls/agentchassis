@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -54,7 +55,7 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 	if pathRaw, ok := params.CollectedData["build_plan_path"]; ok {
 		if pathStr, ok := pathRaw.(string); ok && pathStr != "" {
 			params.Logger.Debug("Using configured path for build plan", zap.String("path", pathStr))
-			if val, found := getValueByPath(params.CollectedData, pathStr); found {
+			if val, found := datahelpers.GetValueByPath(params.CollectedData, pathStr); found {
 				if strVal, ok := val.(string); ok {
 					buildPlanJSON = strVal
 				}
@@ -160,28 +161,6 @@ func queryComponent(ctx context.Context, db *sql.DB, log *zap.Logger, function s
 		return nil, err
 	}
 	return &component, nil
-}
-
-// getValueByPath traverses a map using dot notation (e.g. "step1.result.data")
-func getValueByPath(data map[string]interface{}, path string) (interface{}, bool) {
-	keys := strings.Split(path, ".")
-	var current interface{} = data
-
-	for _, key := range keys {
-		// Ensure current is a map
-		currMap, ok := current.(map[string]interface{})
-		if !ok {
-			return nil, false
-		}
-
-		// Check if key exists
-		val, exists := currMap[key]
-		if !exists {
-			return nil, false
-		}
-		current = val
-	}
-	return current, true
 }
 
 // findBuildPlanHeuristically contains the original "hardcoded" logic to ensure

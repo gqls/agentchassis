@@ -489,14 +489,17 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 // }
 
 // extractDataForAiAgent merges data from multiple sources specified in the step's 'input_fields' config.
+// FILE: platform/orchestration/actions/ai_actions.go
+
 func extractDataForAiAgent(params ActionParams) interface{} {
+	// Log available keys to help debugging if this fails again
 	params.Logger.Info("Extracting data for AI agent",
 		zap.Any("available_keys", GetMapKeys(params.CollectedData)),
 	)
 
 	templateData := make(map[string]interface{})
 
-	// 1. Determine which fields to fetch
+	// 1. Determine inputs to fetch
 	var inputFields []string
 	if fields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
 		for _, fieldInterface := range fields {
@@ -505,16 +508,15 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 			}
 		}
 	} else {
-		// Default to dumping everything from input_data if nothing specified
-		params.Logger.Warn("No 'input_fields' found, defaulting to ['input_data']")
+		params.Logger.Warn("No 'input_fields' found in config, defaulting to ['input_data']")
 		inputFields = []string{"input_data"}
 	}
 
-	// 2. Iterate and extract
+	// 2. Smart Extraction Loop
 	for _, fieldName := range inputFields {
 
-		// CASE A: Special "input_data" keyword
-		// This flattens the entire input_data map into the template root
+		// Scenario A: "input_data" keyword (Legacy/Bulk behavior)
+		// Flattens the entire input_data map into the template root
 		if fieldName == "input_data" {
 			inputDataMap := datahelpers.GetInputData(params.CollectedData, params.Logger)
 			for key, val := range inputDataMap {
@@ -523,39 +525,48 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 			continue
 		}
 
-		// CASE B: Smart Lookup (Root -> DotNotation -> InputData Fallback)
+		// Scenario B: Specific Field Lookup
+		// We search: 1. Exact Root Key, 2. Dot Notation, 3. Inside "input_data" wrapper
 		var foundValue interface{}
 		var found bool
 
-		// 1. Try generic dot notation path (covers Root keys too)
-		// Note: Assumes you have the getValueByPath helper from the previous task
+		// Check 1: Direct lookup (or dot notation) in CollectedData
 		if val, ok := getValueByPath(params.CollectedData, fieldName); ok {
 			foundValue = val
 			found = true
 		}
 
-		// 2. Fallback: Look inside "input_data" automatically
-		// If user asked for "domain" but it's actually at "input_data.domain"
+		// Check 2: Fallback - Look inside "input_data" automatically
+		// (e.g. User asked for "domain", but it's at "input_data.domain")
 		if !found {
 			if val, ok := getValueByPath(params.CollectedData, "input_data."+fieldName); ok {
-				params.Logger.Debug("Found requested field inside input_data", zap.String("field", fieldName))
 				foundValue = val
 				found = true
 			}
 		}
 
-		// 3. Add to template data
+		// Check 3: Fallback - Look inside "__raw_message__" (Legacy/Message Processor artifact)
+		if !found {
+			if raw, ok := params.CollectedData["__raw_message__"].(map[string]interface{}); ok {
+				if val, ok := datahelpers.GetValueByPath(raw, fieldName); ok {
+					foundValue = val
+					found = true
+				}
+			}
+		}
+
 		if found {
-			// We use the "base name" of the key for the template
-			// e.g. "upstream_agent.result.advice" -> {{.advice}}
+			// Use the simple name for the template key
+			// e.g. "input_data.domain" -> {{.domain}}
 			keyParts := strings.Split(fieldName, ".")
 			simpleKey := keyParts[len(keyParts)-1]
 
 			templateData[simpleKey] = foundValue
+			params.Logger.Debug("Found and merged field", zap.String("field", fieldName), zap.String("template_key", simpleKey))
 		} else {
 			params.Logger.Warn("Requested input_field not found",
 				zap.String("field", fieldName),
-				zap.Any("checked_locations", []string{"root", "input_data." + fieldName}),
+				zap.Any("checked_paths", []string{fieldName, "input_data." + fieldName}),
 			)
 		}
 	}

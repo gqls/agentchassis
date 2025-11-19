@@ -375,3 +375,84 @@ default_config = '{
 "timeout_seconds": 120
 }'::jsonb
 WHERE type = 'chief-strategist';
+
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+default_config,
+'{workflow,steps,generate_build_plan,config,input_fields}',
+'["input_data"]'
+)
+WHERE type = 'chief-strategist';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+default_config,
+'{workflow,steps,generate_build_plan,config,input_data}',
+'["domain", "objective", "model"]'
+)
+WHERE type = 'chief-strategist';
+
+UPDATE agent_definitions
+SET
+updated_at = now(),
+default_config = '{
+"workflow": {
+"start_step": "generate_build_plan",
+"steps": {
+"generate_build_plan": {
+"action": "execute_llm_prompt",
+"description": "Create the Build Plan",
+"config": {
+"prompt_template": "You are a Strategist. Client: {{.domain}}. Objective: {{.objective}}. Model: {{.model}}. Output JSON only: {\"sections\": [...] }",
+-- Explicitly ask for the variables you need in the template
+"input_fields": ["domain", "objective", "model"],
+"ai_service": {
+"provider": "anthropic",
+"model": "claude-3-haiku-20240307",
+"api_key_env_var": "ANTHROPIC_API_KEY"
+}
+},
+"output_field": "build_plan_json",
+"next_step": "complete"
+},
+"complete": { "action": "complete_workflow" }
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 120
+}'::jsonb
+WHERE type = 'chief-strategist';
+
+
+UPDATE agent_definitions
+SET
+updated_at = now(),
+default_config = '{
+"workflow": {
+"start_step": "generate_build_plan",
+"steps": {
+"generate_build_plan": {
+"action": "execute_llm_prompt",
+"description": "Create the Build Plan",
+"config": {
+"ai_service": {
+"provider": "anthropic",
+"model": "claude-3-haiku-20240307",
+"api_key_env_var": "ANTHROPIC_API_KEY"
+},
+"input_fields": ["domain", "objective", "model"],
+"prompt_template": "You are a Chief Marketing Strategist. Client: {{.domain}}. Objective: {{.objective}}. Model: {{.model}}. \n\nAvailable Components: [header, hero, features, social_proof, pricing, faq, call_to_action, footer].\n\nBased on the {{.model}} model, select the best sequence of components.\nOutput JSON ONLY: {\"sections\": [\"component_name\", ...] }"
+},
+"output_field": "build_plan_json",
+"next_step": "complete"
+},
+"complete": { "action": "complete_workflow" }
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 120
+}'::jsonb
+WHERE type = 'chief-strategist';
+
+

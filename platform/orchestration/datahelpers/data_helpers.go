@@ -968,3 +968,21 @@ func TruncateString(s string, maxLength int) string {
 	}
 	return s[:maxLength] + "..."
 }
+
+func GetValueByPath(data map[string]interface{}, path string) (interface{}, bool) {
+	keys := strings.Split(path, ".")
+	var current interface{} = data
+
+	for _, key := range keys {
+		currMap, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, false
+		}
+		val, exists := currMap[key]
+		if !exists {
+			return nil, false
+		}
+		current = val
+	}
+	return current, true
+}
