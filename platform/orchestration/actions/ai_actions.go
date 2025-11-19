@@ -531,7 +531,7 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 		var found bool
 
 		// Check 1: Direct lookup (or dot notation) in CollectedData
-		if val, ok := getValueByPath(params.CollectedData, fieldName); ok {
+		if val, ok := datahelpers.GetValueByPath(params.CollectedData, fieldName); ok {
 			foundValue = val
 			found = true
 		}
@@ -539,7 +539,7 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 		// Check 2: Fallback - Look inside "input_data" automatically
 		// (e.g. User asked for "domain", but it's at "input_data.domain")
 		if !found {
-			if val, ok := getValueByPath(params.CollectedData, "input_data."+fieldName); ok {
+			if val, ok := datahelpers.GetValueByPath(params.CollectedData, "input_data."+fieldName); ok {
 				foundValue = val
 				found = true
 			}

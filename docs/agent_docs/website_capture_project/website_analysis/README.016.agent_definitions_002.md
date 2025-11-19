@@ -456,3 +456,92 @@ default_config = '{
 WHERE type = 'chief-strategist';
 
 
+UPDATE agent_group_definitions
+SET
+updated_at = now(),
+orchestration_workflow = $$
+{
+"start_step": "spawn_strategist",
+"steps": {
+"spawn_strategist": {
+"action": "spawn_agent",
+"config": { "role": "chief_strategist", "agent_type": "chief-strategist" },
+"next_step": "spawn_architect"
+},
+"spawn_architect": {
+"action": "spawn_agent",
+"config": { "role": "site_component_architect", "agent_type": "site-component-architect" },
+"next_step": "spawn_content_creator"
+},
+"spawn_content_creator": {
+"action": "spawn_agent",
+"config": { "role": "content_creator", "agent_type": "content-creator" },
+"next_step": "spawn_deployer"
+},
+"spawn_deployer": {
+"action": "spawn_agent",
+"config": { "role": "deployer", "agent_type": "deployer-agent" },
+"next_step": "call_strategist"
+},
+"call_strategist": {
+"action": "call_agent",
+"description": "Get the Build Plan",
+"config": {
+"agent_type": "chief-strategist",
+"target_role": "chief_strategist",
+"timeout_seconds": 120,
+"input_fields": [
+"input_data",
+"template_data"
+],
+"input_data": [
+"domain",
+"objective",
+"model"
+]
+},
+"output_field": "build_plan_data",
+"next_step": "call_architect"
+},
+"call_architect": {
+"action": "call_agent",
+"description": "Build the empty template",
+"config": {
+"agent_type": "site-component-architect",
+"target_role": "site_component_architect",
+"timeout_seconds": 120,
+"input_fields": ["build_plan_data"]
+},
+"output_field": "template_data",
+"next_step": "call_content_creator"
+},
+"call_content_creator": {
+"action": "call_agent",
+"config": {
+"agent_type": "content-creator",
+"target_role": "content_creator",
+"input_fields": ["template_data", "input_data"],
+"timeout_seconds": 300
+},
+"output_field": "final_site_data",
+"next_step": "call_deployer"
+},
+"call_deployer": {
+"action": "call_agent",
+"config": {
+"agent_type": "deployer-agent",
+"target_role": "deployer",
+"input_fields": ["final_site_data", "input_data.domain"],
+"timeout_seconds": 180
+},
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Site build is complete."
+}
+}
+}
+$$::jsonb
+WHERE group_type = 'mvp-site-builder';
+
