@@ -192,7 +192,7 @@ INSERT INTO agent_definitions (
                     "config": {
                         "prompt_template": "You are a Strategist. Client: {{.domain}}. Objective: {{.objective}}. Model: {{.model}}. Output JSON only: {\"sections\": [...] }",
                         "input_fields": ["domain", "objective", "model"],
-                        "ai_service": { "provider": "anthropic", "model": "claude-3-haiku-20240307" },
+                        "ai_service": { "provider": "anthropic", "model": "claude-haiku-4-5-20251001" },
                         "api_key_env_var": "ANTHROPIC_API_KEY"
                     },
                     "output_field": "build_plan_json",
@@ -336,3 +336,42 @@ orchestration_workflow = $$
 }
 $$::jsonb
 WHERE group_type = 'mvp-site-builder';
+
+
+===
+
+------
+
+inevitable update
+
+UPDATE agent_definitions
+SET
+updated_at = now(),
+default_config = '{
+"workflow": {
+"start_step": "generate_build_plan",
+"steps": {
+"generate_build_plan": {
+"action": "execute_llm_prompt",
+"description": "Create the Build Plan",
+"config": {
+"prompt_template": "You are a Strategist. Client: {{.domain}}. Objective: {{.objective}}. Model: {{.model}}. Output JSON only: {\"sections\": [...] }",
+"input_fields": ["domain", "objective", "model"],
+"ai_service": {
+"provider": "anthropic",
+"model": "claude-haiku-4-5-20251001",
+"api_key_env_var": "ANTHROPIC_API_KEY"
+}
+},
+"output_field": "build_plan_json",
+"next_step": "complete"
+},
+"complete": { 
+"action": "complete_workflow",
+"description": "Return the Build Plan"}
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 120
+}'::jsonb
+WHERE type = 'chief-strategist';

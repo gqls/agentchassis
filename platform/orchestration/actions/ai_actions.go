@@ -342,11 +342,15 @@ func loadAgentDefinitionForAction(ctx context.Context, db interface{}, agentType
 
 // Keep all existing helper functions...
 func createAIClient(ctx context.Context, aiServiceConfig map[string]interface{}) (aiservice.AIService, error) {
-	provider, ok := aiServiceConfig["provider"].(string)
-	if !ok {
-		return nil, fmt.Errorf("provider not specified in ai_service config")
+	rawProvider, exists := aiServiceConfig["provider"]
+	if !exists || rawProvider == nil {
+		return nil, fmt.Errorf("provider not specified in ai_service config - api_key_env_var included in config.ai_service?")
 	}
 
+	provider, ok := rawProvider.(string)
+	if !ok || provider == "" {
+		return nil, fmt.Errorf("provider must be a non-empty string in ai_service config")
+	}
 	switch provider {
 	case "anthropic":
 		return aiservice.NewAnthropicClient(ctx, aiServiceConfig)
