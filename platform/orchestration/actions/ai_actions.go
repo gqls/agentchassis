@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"text/template"
 
 	"github.com/gqls/agentchassis/platform/aiservice"
@@ -490,12 +491,12 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 // extractDataForAiAgent merges data from multiple sources specified in the step's 'input_fields' config.
 func extractDataForAiAgent(params ActionParams) interface{} {
 	params.Logger.Info("Extracting data for AI agent",
-		zap.Any("available_keys", getMapKeys(params.CollectedData)),
+		zap.Any("available_keys", GetMapKeys(params.CollectedData)),
 	)
 
 	templateData := make(map[string]interface{})
 
-	// Default to only using input_data if config is missing
+	// 1. Determine which fields to fetch
 	var inputFields []string
 	if fields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
 		for _, fieldInterface := range fields {
@@ -504,61 +505,62 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 			}
 		}
 	} else {
-		params.Logger.Warn("No 'input_fields' found in step config, defaulting to [\"input_data\"]")
+		// Default to dumping everything from input_data if nothing specified
+		params.Logger.Warn("No 'input_fields' found, defaulting to ['input_data']")
 		inputFields = []string{"input_data"}
 	}
 
-	params.Logger.Info("Merging data from input_fields", zap.Strings("fields", inputFields))
-
-	// Get the __raw_message__ map if it exists, as results are nested there
-	rawMessageMap, _ := params.CollectedData["__raw_message__"].(map[string]interface{})
-
+	// 2. Iterate and extract
 	for _, fieldName := range inputFields {
+
+		// CASE A: Special "input_data" keyword
+		// This flattens the entire input_data map into the template root
 		if fieldName == "input_data" {
-			// This part works. GetInputData finds and unpacks input_data.
 			inputDataMap := datahelpers.GetInputData(params.CollectedData, params.Logger)
 			for key, val := range inputDataMap {
-				if _, exists := templateData[key]; exists {
-					params.Logger.Warn("Data merge conflict: key already exists, overwriting.", zap.String("key", key))
-				}
 				templateData[key] = val
 			}
+			continue
+		}
+
+		// CASE B: Smart Lookup (Root -> DotNotation -> InputData Fallback)
+		var foundValue interface{}
+		var found bool
+
+		// 1. Try generic dot notation path (covers Root keys too)
+		// Note: Assumes you have the getValueByPath helper from the previous task
+		if val, ok := getValueByPath(params.CollectedData, fieldName); ok {
+			foundValue = val
+			found = true
+		}
+
+		// 2. Fallback: Look inside "input_data" automatically
+		// If user asked for "domain" but it's actually at "input_data.domain"
+		if !found {
+			if val, ok := getValueByPath(params.CollectedData, "input_data."+fieldName); ok {
+				params.Logger.Debug("Found requested field inside input_data", zap.String("field", fieldName))
+				foundValue = val
+				found = true
+			}
+		}
+
+		// 3. Add to template data
+		if found {
+			// We use the "base name" of the key for the template
+			// e.g. "upstream_agent.result.advice" -> {{.advice}}
+			keyParts := strings.Split(fieldName, ".")
+			simpleKey := keyParts[len(keyParts)-1]
+
+			templateData[simpleKey] = foundValue
 		} else {
-			// Get data from other steps (e.g., "call_researcher")
-
-			// Try the top level first
-			data, exists := params.CollectedData[fieldName]
-
-			// If not found, check inside __raw_message__
-			if !exists && rawMessageMap != nil {
-				data, exists = rawMessageMap[fieldName]
-				if exists {
-					params.Logger.Info("Found requested input_field in __raw_message__", zap.String("field", fieldName))
-				}
-			}
-
-			if exists {
-				if _, exists := templateData[fieldName]; exists {
-					params.Logger.Warn("Data merge conflict: key already exists, overwriting.", zap.String("key", fieldName))
-				}
-				templateData[fieldName] = data
-				params.Logger.Debug("Merged step data", zap.String("key", fieldName))
-			} else {
-				params.Logger.Warn("Requested input_field not found in CollectedData or __raw_message__", zap.String("field", fieldName))
-			}
+			params.Logger.Warn("Requested input_field not found",
+				zap.String("field", fieldName),
+				zap.Any("checked_locations", []string{"root", "input_data." + fieldName}),
+			)
 		}
 	}
 
-	if len(templateData) > 0 {
-		params.Logger.Info("Extracted merged data for AI agent",
-			zap.Int("field_count", len(templateData)),
-			zap.Any("template data", templateData),
-		)
-		return templateData
-	}
-
-	params.Logger.Warn("No data found for AI agent, using empty map")
-	return make(map[string]interface{})
+	return templateData
 }
 
 /*func extractDataForAiAgent(params ActionParams) interface{} {

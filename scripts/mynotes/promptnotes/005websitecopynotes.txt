@@ -1,0 +1,29 @@
+cialdini 7 principles of influence
+The seven principles of influence:
+
+    Reciprocity: The obligation to give back to others what they have given to us.
+    Commitment and Consistency: People feel pressure to act consistently with what they have already said or done. This is built by getting a small commitment first.
+    Social Proof: People look to the actions and behaviors of others to determine their own. If many people are doing it, it must be the right thing to do.
+    Authority: People tend to follow the lead of credible and knowledgeable experts. This is why credentials, uniforms, and titles are so influential.
+    Liking: People are more likely to be persuaded by those they like. This is influenced by factors like physical attractiveness, similarity, and praise.
+    Scarcity: People are more motivated by things that are limited in availability. This is based on the principle that opportunities seem more valuable to us when they are less available.
+    Unity: People are more likely to be influenced by those they perceive as being "one of them". This can be based on shared identity, like family, ethnicity, or even a sports team.
+
+
+Porters 5 forces
+AIDA
+PAS problem agitation solution
+SWOT
+Blue Ocean Strategy BOS
+Key Blue Ocean Strategy Tools
+The BOS framework uses specific tools to achieve "value innovation" (simultaneously pursuing differentiation and low cost):
+
+    The Strategy Canvas: A visual tool to understand the current competitive landscape and identify factors where a company can differentiate itself.
+    The Four Actions Framework (ERRC Grid): Poses four central questions to reconstruct market boundaries:
+        Eliminate: Which factors should be eliminated that the industry has long competed on?
+        Reduce: Which factors should be reduced well below the industry standard?
+        Raise: Which factors should be raised well above the industry standard?
+        Create: Which factors should be created that the industry has never offered?
+
+
+
