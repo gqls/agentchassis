@@ -492,7 +492,6 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 // FILE: platform/orchestration/actions/ai_actions.go
 
 func extractDataForAiAgent(params ActionParams) interface{} {
-	// Log available keys to help debugging if this fails again
 	params.Logger.Info("Extracting data for AI agent",
 		zap.Any("available_keys", GetMapKeys(params.CollectedData)),
 	)
@@ -512,64 +511,102 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 		inputFields = []string{"input_data"}
 	}
 
+	params.Logger.Info("Processing input_fields", zap.Strings("fields", inputFields))
+
+	// Get input_data once for reuse
+	inputDataMap := datahelpers.GetInputData(params.CollectedData, params.Logger)
+
+	// Check for double-nesting and unwrap if needed
+	if nestedInputData, ok := inputDataMap["input_data"].(map[string]interface{}); ok {
+		params.Logger.Warn("Detected double-nested input_data, unwrapping")
+		inputDataMap = nestedInputData
+	}
+
 	// 2. Smart Extraction Loop
 	for _, fieldName := range inputFields {
 
 		// Scenario A: "input_data" keyword (Legacy/Bulk behavior)
 		// Flattens the entire input_data map into the template root
 		if fieldName == "input_data" {
-			inputDataMap := datahelpers.GetInputData(params.CollectedData, params.Logger)
 			for key, val := range inputDataMap {
 				templateData[key] = val
 			}
+			params.Logger.Info("Flattened input_data to root", zap.Int("field_count", len(inputDataMap)))
 			continue
 		}
 
 		// Scenario B: Specific Field Lookup
-		// We search: 1. Exact Root Key, 2. Dot Notation, 3. Inside "input_data" wrapper
 		var foundValue interface{}
 		var found bool
+		var foundPath string
 
-		// Check 1: Direct lookup (or dot notation) in CollectedData
+		// Check 1: Direct lookup in CollectedData
 		if val, ok := datahelpers.GetValueByPath(params.CollectedData, fieldName); ok {
 			foundValue = val
 			found = true
+			foundPath = fieldName
 		}
 
-		// Check 2: Fallback - Look inside "input_data" automatically
-		// (e.g. User asked for "domain", but it's at "input_data.domain")
+		// Check 2: Look in the unwrapped input_data map directly
+		if !found && inputDataMap != nil {
+			if val, ok := inputDataMap[fieldName]; ok {
+				foundValue = val
+				found = true
+				foundPath = "input_data." + fieldName
+				params.Logger.Debug("Found field in input_data", zap.String("field", fieldName))
+			}
+		}
+
+		// Check 3: Try dot notation in CollectedData
 		if !found {
 			if val, ok := datahelpers.GetValueByPath(params.CollectedData, "input_data."+fieldName); ok {
 				foundValue = val
 				found = true
+				foundPath = "input_data." + fieldName
 			}
 		}
 
-		// Check 3: Fallback - Look inside "__raw_message__" (Legacy/Message Processor artifact)
+		// Check 4: Look inside __raw_message__
 		if !found {
 			if raw, ok := params.CollectedData["__raw_message__"].(map[string]interface{}); ok {
 				if val, ok := datahelpers.GetValueByPath(raw, fieldName); ok {
 					foundValue = val
 					found = true
+					foundPath = "__raw_message__." + fieldName
 				}
 			}
 		}
 
 		if found {
-			// Use the simple name for the template key
-			// e.g. "input_data.domain" -> {{.domain}}
+			// Use the simple field name for the template key
+			// e.g. if we found "input_data.domain", store as "domain"
 			keyParts := strings.Split(fieldName, ".")
 			simpleKey := keyParts[len(keyParts)-1]
 
 			templateData[simpleKey] = foundValue
-			params.Logger.Debug("Found and merged field", zap.String("field", fieldName), zap.String("template_key", simpleKey))
+			params.Logger.Info("Extracted field",
+				zap.String("field", fieldName),
+				zap.String("template_key", simpleKey),
+				zap.String("found_at", foundPath),
+				zap.Any("value", foundValue),
+			)
 		} else {
 			params.Logger.Warn("Requested input_field not found",
 				zap.String("field", fieldName),
-				zap.Any("checked_paths", []string{fieldName, "input_data." + fieldName}),
+				zap.Strings("checked_paths", []string{
+					fieldName,
+					"input_data." + fieldName,
+					"CollectedData[input_data][" + fieldName + "]",
+					"__raw_message__." + fieldName,
+				}),
 			)
 		}
 	}
+
+	params.Logger.Info("Final template data",
+		zap.Any("template_data", templateData),
+		zap.Int("field_count", len(templateData)),
+	)
 
 	return templateData
 }
