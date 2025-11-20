@@ -19,10 +19,10 @@ type AssembleOutput struct {
 	ComponentIDs         []string               `json:"component_ids"`
 }
 
-// BuildPlan defines the structure of the JSON we expect from the strategist.
-// BuildPlan defines the structure of the JSON we expect from the strategist.
+// BuildPlan can handle multiple formats from the strategist
 type BuildPlan struct {
-	Sections []Section `json:"sections"`
+	Sections []json.RawMessage      `json:"sections"`           // Can be strings OR objects
+	Strategy map[string]interface{} `json:"strategy,omitempty"` // Optional detailed strategy
 }
 
 // Section represents a single component in the build plan
@@ -47,6 +47,7 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 	params.Logger.Info("Executing AssembleFromLibraryAction",
 		zap.String("step_name", params.ExecutionContext.StepName),
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.Any("DEBUGaa: assemble - params", params),
 	)
 
 	// 1. Get DB connection
@@ -68,15 +69,28 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 		return nil, err
 	}
 
-	if len(buildPlan.Sections) == 0 {
-		return nil, fmt.Errorf("build plan has no sections")
-	}
-
-	// 4. Assemble components from library
-	output, err := assembleComponents(ctx, db, buildPlan, params.Logger)
+	// 4. Extract component names (handles both formats)
+	componentNames, err := extractComponentNames(buildPlan, params.Logger)
 	if err != nil {
 		return nil, err
 	}
+
+	/*	if len(buildPlan.Sections) == 0 {
+		return nil, fmt.Errorf("build plan has no sections")
+	}*/
+
+	// 5. Assemble components from library
+	output, err := assembleComponentsByName(ctx, params.DB, componentNames, params.Logger)
+	if err != nil {
+		return nil, err
+	}
+
+	params.Logger.Info("In AssembleFromLibraryAction",
+		zap.String("build plan (json)", buildPlanJSON),
+		zap.Any("parsed build plan", buildPlan),
+		zap.Any("assembledComponents, output", output),
+		zap.Any("DEBUGaa: assemble - params", params),
+	)
 
 	params.Logger.Info("Successfully assembled template",
 		zap.Int("component_count", len(output.ComponentIDs)),
@@ -84,6 +98,57 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 	)
 
 	return output, nil
+}
+
+// extractComponentNames handles both string and object formats
+func extractComponentNames(buildPlan *BuildPlan, logger *zap.Logger) ([]string, error) {
+	var componentNames []string
+
+	for idx, rawSection := range buildPlan.Sections {
+		var componentName string
+
+		// Try parsing as string first (simpler format)
+		var strSection string
+		if err := json.Unmarshal(rawSection, &strSection); err == nil {
+			componentName = strSection
+			logger.Debug("Parsed section as string",
+				zap.Int("index", idx),
+				zap.String("component", componentName))
+		} else {
+			// Try parsing as object (complex format)
+			var objSection struct {
+				Component string `json:"component"`
+			}
+			if err := json.Unmarshal(rawSection, &objSection); err == nil {
+				componentName = objSection.Component
+				logger.Debug("Parsed section as object",
+					zap.Int("index", idx),
+					zap.String("component", componentName))
+			} else {
+				logger.Error("Could not parse section as string or object",
+					zap.Int("index", idx),
+					zap.String("raw", string(rawSection)))
+				continue
+			}
+		}
+
+		if componentName == "" {
+			logger.Warn("Empty component name", zap.Int("index", idx))
+			continue
+		}
+
+		componentNames = append(componentNames, componentName)
+	}
+
+	if len(componentNames) == 0 {
+		return nil, fmt.Errorf("no valid component names found in build plan")
+	}
+
+	logger.Info("Extracted component names",
+		zap.Strings("components", componentNames),
+		zap.Int("count", len(componentNames)))
+
+	return componentNames, nil
 }
 
 // extractBuildPlan uses the standard input_fields mechanism to find the build plan JSON.
@@ -242,25 +307,23 @@ func parseBuildPlan(buildPlanJSON string, logger *zap.Logger) (*BuildPlan, error
 	return &buildPlan, nil
 }
 
-// assembleComponents queries the database and stitches together the HTML.
-func assembleComponents(ctx context.Context, db *sql.DB, buildPlan *BuildPlan, logger *zap.Logger) (*AssembleOutput, error) {
+// assembleComponentsByName queries the database and stitches together HTML from component names.
+func assembleComponentsByName(ctx context.Context, db *sql.DB, componentNames []string, logger *zap.Logger) (*AssembleOutput, error) {
 	var finalHTML strings.Builder
 	contentRequirements := make(map[string]interface{})
 	var componentIDs []string
 
-	for idx, section := range buildPlan.Sections {
-		function := section.Component // ← Get component name from the object
-
+	for idx, componentName := range componentNames {
 		logger.Info("Querying for component",
 			zap.Int("index", idx),
-			zap.String("function", function),
+			zap.String("function", componentName),
 		)
 
 		// Query for the component (with fallback)
-		component, err := queryComponentWithFallback(ctx, db, logger, function)
+		component, err := queryComponentWithFallback(ctx, db, logger, componentName)
 		if err != nil {
 			logger.Error("Failed to get component (even with fallback)",
-				zap.String("function", function),
+				zap.String("function", componentName),
 				zap.Error(err),
 			)
 			continue
@@ -271,14 +334,34 @@ func assembleComponents(ctx context.Context, db *sql.DB, buildPlan *BuildPlan, l
 		templatedHTML := strings.Replace(component.HTMLTemplate, "{{.ComponentID}}", componentID, -1)
 		finalHTML.WriteString(templatedHTML + "\n")
 
+		logger.Info("Stitched HTML for component",
+			zap.String("component_function", component.Function),
+			zap.String("component_id", componentID),
+			zap.Int("html_length", len(templatedHTML)),
+		)
+
 		// Collect content requirements for this component
 		var schema interface{}
 		if err := json.Unmarshal(component.InputSchema, &schema); err == nil {
 			contentRequirements[componentID] = schema
+		} else {
+			logger.Warn("Failed to unmarshal input schema for component",
+				zap.String("component_id", componentID),
+				zap.Error(err),
+			)
 		}
 
 		componentIDs = append(componentIDs, component.ID)
 	}
+
+	if len(componentIDs) == 0 {
+		return nil, fmt.Errorf("no components were successfully assembled")
+	}
+
+	logger.Info("Successfully assembled all components",
+		zap.Int("total_components", len(componentIDs)),
+		zap.Int("total_html_length", finalHTML.Len()),
+	)
 
 	return &AssembleOutput{
 		StitchedHTMLTemplate: finalHTML.String(),
