@@ -37,6 +37,7 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 	params.Logger.Info("Executing AssembleFromLibraryAction",
 		zap.String("step_name", params.ExecutionContext.StepName),
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.Any("DEBUGaa: Collected Data in AssembleFromLibraryAction", params.CollectedData),
 	)
 
 	// 1. Get DB connection from ActionParams
@@ -54,8 +55,14 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 	//   build_plan_path: "planner_step.result.build_plan_json"
 	if pathRaw, ok := params.CollectedData["build_plan_path"]; ok {
 		if pathStr, ok := pathRaw.(string); ok && pathStr != "" {
-			params.Logger.Debug("Using configured path for build plan", zap.String("path", pathStr))
-			if val, found := datahelpers.GetValueByPath(params.CollectedData, pathStr); found {
+			params.Logger.Info("Using configured path for build plan",
+				zap.String("path", pathStr),
+			)
+			if val, found := datahelpers.GetValueByPath(params.CollectedData, pathStr, params.Logger); found {
+				params.Logger.Info("datahelpers.GetValueByPath",
+					zap.String("full path", pathStr),
+					zap.Any("value val", val),
+				)
 				if strVal, ok := val.(string); ok {
 					buildPlanJSON = strVal
 				}
@@ -65,7 +72,7 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 
 	// 2. Fallback: If not found via config, use the Heuristic Search (Auto-discovery)
 	if buildPlanJSON == "" {
-		params.Logger.Debug("build_plan_path not configured or not found, attempting heuristic search")
+		params.Logger.Info("build_plan_path not configured or not found, attempting heuristic search")
 		buildPlanJSON = findBuildPlanHeuristically(params.CollectedData)
 	}
 

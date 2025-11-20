@@ -442,7 +442,7 @@ default_config = '{
 "api_key_env_var": "ANTHROPIC_API_KEY"
 },
 "input_data": ["domain", "objective", "model"],
-"prompt_template": "You are a Chief Marketing Strategist. Client: {{.domain}}. Objective: {{.objective}}. Model: {{.model}}. \n\nAvailable Components: [header, hero, features, social_proof, pricing, faq, call_to_action, footer].\n\nBased on the {{.model}} model, select the best sequence of components.\nOutput JSON ONLY: {\"sections\": [\"component_name\", ...] }"
+"prompt_template": "You are a Chief Marketing Strategist. Client: {{.domain}}. Objective: {{.objective}}. Model: {{.model}}. \n\nAvailable Components: [header, hero, features, social_proof, pricing, faq, call_to_action, footer].\n\nBased on the {{.model}} model, select the best sequence of components. Then for each component devise a plan for the copy structure, suggested copy and suggested graphics style that suits the objective {{ .objective }} and the marketing model {{ .model }}.\nOutput JSON ONLY: {\"sections\": [\"component_name\", ...] }"
 },
 "output_field": "build_plan_json",
 "next_step": "complete"
@@ -505,7 +505,7 @@ orchestration_workflow = $$
 "agent_type": "site-component-architect",
 "target_role": "site_component_architect",
 "timeout_seconds": 120,
-"input_fields": ["generate_build_plan"]
+"input_fields": ["call_strategist", "generate_build_plan", "call_strategist.generate_build_plan"]
 },
 "output_field": "template_data",
 "next_step": "call_content_creator"
@@ -542,17 +542,40 @@ WHERE group_type = 'mvp-site-builder';
 
 architect
 
+{
 "workflow": {
 "start_step": "assemble_template",
 "steps": {
 "assemble_template": {
 "action": "assemble_from_library",
 "config": {
-"build_plan_path": "build_plan_data.build_plan_json"
+"build_plan_path": "input_data.call_strategist.generate_build_plan.result"
+},
+"next_step": "complete"
+},
+"complete": {"action": "complete_workflow"}
+}
+}
+}
+
+UPDATE agent_definitions
+SET
+updated_at = now(),
+default_config = '{
+"workflow": {
+"start_step": "assemble_template",
+"steps": {
+"assemble_template": {
+"action": "assemble_from_library",
+"config": {
+"build_plan_path": "input_data.call_strategist.generate_build_plan.result"
 },
 "next_step": "complete"
 },
 "complete": { "action": "complete_workflow" }
 }
-}
-
+},
+"processing_mode": "task",
+"timeout_seconds": 120
+}'::jsonb
+WHERE type = 'site-component-architect';

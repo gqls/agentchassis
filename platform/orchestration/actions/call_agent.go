@@ -46,7 +46,7 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// 3. Extract the data to send to the agent
 	dataToSend := extractDataForAgent(params)
-	params.Logger.Info("in CallAgentAction data being sent to agent",
+	params.Logger.Info("",
 		zap.Any("dataToSend", dataToSend),
 	)
 	/**

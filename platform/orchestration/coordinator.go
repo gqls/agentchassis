@@ -1837,6 +1837,8 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 	if awaited, exists := state.AwaitedRequests[requestID]; exists {
 		s.logger.Error("Request timed out",
 			zap.String("request_id", requestID),
+			zap.String("awaited step id", awaited.StepID),
+			zap.String("awaited step name", awaited.StepName),
 			zap.Int("retry_version", awaited.RetryVersion),
 		)
 

@@ -773,6 +773,7 @@ func isSystemConfig(config map[string]interface{}) bool {
 }
 
 // getFieldByPath retrieves a field using dot notation
+// possibly legacy / unused
 func getFieldByPath(data map[string]interface{}, path string) interface{} {
 	segments := strings.Split(path, ".")
 	var current interface{} = data
@@ -969,10 +970,17 @@ func TruncateString(s string, maxLength int) string {
 	return s[:maxLength] + "..."
 }
 
-func GetValueByPath(data map[string]interface{}, path string) (interface{}, bool) {
+func GetValueByPath(data map[string]interface{}, path string, logger zap.Logger) (interface{}, bool) {
 	keys := strings.Split(path, ".")
 	var current interface{} = data
 
+	logger.Info("In GetValueByPath",
+		zap.String("path", path),
+		zap.Any("keys", keys),
+		zap.Any("DEBUGaa: data", current),
+	)
+
+	// traverses down the dotted keys
 	for _, key := range keys {
 		currMap, ok := current.(map[string]interface{})
 		if !ok {
@@ -982,6 +990,7 @@ func GetValueByPath(data map[string]interface{}, path string) (interface{}, bool
 		if !exists {
 			return nil, false
 		}
+		// write to current and start loop again looking for next key
 		current = val
 	}
 	return current, true
