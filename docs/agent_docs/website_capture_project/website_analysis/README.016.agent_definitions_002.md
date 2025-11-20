@@ -505,7 +505,7 @@ orchestration_workflow = $$
 "agent_type": "site-component-architect",
 "target_role": "site_component_architect",
 "timeout_seconds": 120,
-"input_fields": ["call_strategist", "generate_build_plan", "call_strategist.generate_build_plan"]
+"input_fields": ["build_plan_data"]
 },
 "output_field": "template_data",
 "next_step": "call_content_creator"
@@ -568,14 +568,17 @@ default_config = '{
 "assemble_template": {
 "action": "assemble_from_library",
 "config": {
-"build_plan_path": "input_data.call_strategist.generate_build_plan.result"
+"input_fields": ["build_plan_data"]
 },
 "next_step": "complete"
 },
-"complete": { "action": "complete_workflow" }
+"complete": {
+"action": "complete_workflow"
+}
 }
 },
 "processing_mode": "task",
 "timeout_seconds": 120
 }'::jsonb
 WHERE type = 'site-component-architect';
+

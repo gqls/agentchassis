@@ -537,7 +537,7 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 		var foundPath string
 
 		// Check 1: Direct lookup in CollectedData
-		if val, ok := datahelpers.GetValueByPath(params.CollectedData, fieldName); ok {
+		if val, ok := datahelpers.GetValueByPath(params.CollectedData, fieldName, params.Logger); ok {
 			foundValue = val
 			found = true
 			foundPath = fieldName
@@ -555,7 +555,7 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 
 		// Check 3: Try dot notation in CollectedData
 		if !found {
-			if val, ok := datahelpers.GetValueByPath(params.CollectedData, "input_data."+fieldName); ok {
+			if val, ok := datahelpers.GetValueByPath(params.CollectedData, "input_data."+fieldName, params.Logger); ok {
 				foundValue = val
 				found = true
 				foundPath = "input_data." + fieldName
@@ -565,7 +565,7 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 		// Check 4: Look inside __raw_message__
 		if !found {
 			if raw, ok := params.CollectedData["__raw_message__"].(map[string]interface{}); ok {
-				if val, ok := datahelpers.GetValueByPath(raw, fieldName); ok {
+				if val, ok := datahelpers.GetValueByPath(raw, fieldName, params.Logger); ok {
 					foundValue = val
 					found = true
 					foundPath = "__raw_message__." + fieldName

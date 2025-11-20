@@ -970,7 +970,7 @@ func TruncateString(s string, maxLength int) string {
 	return s[:maxLength] + "..."
 }
 
-func GetValueByPath(data map[string]interface{}, path string, logger zap.Logger) (interface{}, bool) {
+func GetValueByPath(data map[string]interface{}, path string, logger *zap.Logger) (interface{}, bool) {
 	keys := strings.Split(path, ".")
 	var current interface{} = data
 

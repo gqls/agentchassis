@@ -15,7 +15,7 @@ import (
 // AssembleOutput is the successful return value for the action.
 type AssembleOutput struct {
 	StitchedHTMLTemplate string                 `json:"stitched_html_template"`
-	ContentRequirements  map[string]interface{} `json:"content_requirements"` // This tells the Content Creator what to do
+	ContentRequirements  map[string]interface{} `json:"content_requirements"`
 	ComponentIDs         []string               `json:"component_ids"`
 }
 
@@ -32,124 +32,261 @@ type ComponentTemplate struct {
 	Function     string          `db:"function"`
 }
 
-// AssembleFromLibraryAction is the core "Intelligent Fallback" action.
+// AssembleFromLibraryAction uses standard input_fields to find the build plan.
 func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing AssembleFromLibraryAction",
 		zap.String("step_name", params.ExecutionContext.StepName),
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
-		zap.Any("DEBUGaa: Collected Data in AssembleFromLibraryAction", params.CollectedData),
 	)
 
-	// 1. Get DB connection from ActionParams
+	// 1. Get DB connection
 	db := params.DB
 	if db == nil {
 		params.Logger.Error("Database pool (params.DB) is nil")
 		return nil, fmt.Errorf("database connection is not available")
 	}
 
-	var buildPlanJSON string
-
-	// 1. Check if a specific path is defined in the Step Configuration
-	// Example config in YAML:
-	// config:
-	//   build_plan_path: "planner_step.result.build_plan_json"
-	if pathRaw, ok := params.CollectedData["build_plan_path"]; ok {
-		if pathStr, ok := pathRaw.(string); ok && pathStr != "" {
-			params.Logger.Info("Using configured path for build plan",
-				zap.String("path", pathStr),
-			)
-			if val, found := datahelpers.GetValueByPath(params.CollectedData, pathStr, params.Logger); found {
-				params.Logger.Info("datahelpers.GetValueByPath",
-					zap.String("full path", pathStr),
-					zap.Any("value val", val),
-				)
-				if strVal, ok := val.(string); ok {
-					buildPlanJSON = strVal
-				}
-			}
-		}
+	// 2. Extract build plan using standard input_fields mechanism
+	buildPlanJSON, err := extractBuildPlan(params)
+	if err != nil {
+		return nil, err
 	}
 
-	// 2. Fallback: If not found via config, use the Heuristic Search (Auto-discovery)
-	if buildPlanJSON == "" {
-		params.Logger.Info("build_plan_path not configured or not found, attempting heuristic search")
-		buildPlanJSON = findBuildPlanHeuristically(params.CollectedData)
-	}
-
-	// --- LOGIC END: Generic Key Extraction ---
-
-	if buildPlanJSON == "" {
-		params.Logger.Error("Build Plan JSON not found. Checked specific config path and standard locations.")
-		return nil, fmt.Errorf("build_plan_json not found in collected data")
-	}
-
-	// 3. Unmarshal the Build Plan
-	var buildPlan BuildPlan
-	if err := json.Unmarshal([]byte(buildPlanJSON), &buildPlan); err != nil {
-		// Attempt to clean string if it was double-encoded (common issue with LLM outputs)
-		var unquoted string
-		if unqErr := json.Unmarshal([]byte(buildPlanJSON), &unquoted); unqErr == nil {
-			// If we successfully unquoted it, try unmarshalling into struct again
-			if err2 := json.Unmarshal([]byte(unquoted), &buildPlan); err2 != nil {
-				return nil, fmt.Errorf("failed to parse build plan (nested): %w", err)
-			}
-		} else {
-			return nil, fmt.Errorf("failed to parse build plan: %w", err)
-		}
+	// 3. Parse the build plan
+	buildPlan, err := parseBuildPlan(buildPlanJSON, params.Logger)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(buildPlan.Sections) == 0 {
 		return nil, fmt.Errorf("build plan has no sections")
 	}
 
-	// 4. Loop through sections and query DB
-	var finalHTML strings.Builder
-	contentRequirements := make(map[string]interface{})
-	var componentIDs []string
-
-	for _, function := range buildPlan.Sections {
-		params.Logger.Info("Querying for component", zap.String("function", function))
-
-		// 5. Query for the component (P1: Perfect Match)
-		component, err := queryComponent(ctx, db, params.Logger, function)
-		if err != nil {
-			params.Logger.Warn("P1 query failed, trying fallback", zap.String("function", function), zap.Error(err))
-
-			// 6. Fallback Logic (P3: Base Fallback)
-			component, err = queryComponent(ctx, db, params.Logger, "generic-text-block")
-			if err != nil {
-				params.Logger.Error("Fallback query for 'generic-text-block' failed", zap.String("function", function), zap.Error(err))
-				continue // Skip this component
-			}
-		}
-
-		// 7. Stitch the HTML
-		// We templatize the HTML to add placeholders for the Content Creator
-		componentID := fmt.Sprintf("component_%s", component.ID[:8])
-		templatedHTML := strings.Replace(component.HTMLTemplate, "{{.ComponentID}}", componentID, -1)
-		finalHTML.WriteString(templatedHTML + "\n")
-
-		// 8. Collect the content requirements
-		var schema interface{}
-		if err := json.Unmarshal(component.InputSchema, &schema); err == nil {
-			contentRequirements[componentID] = schema
-		}
-		componentIDs = append(componentIDs, component.ID)
+	// 4. Assemble components from library
+	output, err := assembleComponents(ctx, db, buildPlan, params.Logger)
+	if err != nil {
+		return nil, err
 	}
 
-	// 9. Create and return the output struct
-	output := AssembleOutput{
-		StitchedHTMLTemplate: finalHTML.String(),
-		ContentRequirements:  contentRequirements,
-		ComponentIDs:         componentIDs,
-	}
+	params.Logger.Info("Successfully assembled template",
+		zap.Int("component_count", len(output.ComponentIDs)),
+		zap.Int("html_length", len(output.StitchedHTMLTemplate)),
+	)
 
 	return output, nil
 }
 
-// queryComponent is a local helper function for our P1/P3 logic.
-// It's not an "action" itself.
-func queryComponent(ctx context.Context, db *sql.DB, log *zap.Logger, function string) (*ComponentTemplate, error) {
+// extractBuildPlan uses the standard input_fields mechanism to find the build plan JSON.
+func extractBuildPlan(params ActionParams) (string, error) {
+	// Get input_fields from config (standard approach)
+	var inputFields []string
+	if fields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
+		for _, fieldInterface := range fields {
+			if field, ok := fieldInterface.(string); ok {
+				inputFields = append(inputFields, field)
+			}
+		}
+	}
+
+	// Default: look for common field names if not specified
+	if len(inputFields) == 0 {
+		params.Logger.Warn("No input_fields specified, using defaults",
+			zap.Strings("defaults", []string{"build_plan_data", "call_strategist"}),
+		)
+		inputFields = []string{"build_plan_data", "call_strategist"}
+	}
+
+	params.Logger.Info("Searching for build plan", zap.Strings("input_fields", inputFields))
+
+	// Try each input field in order
+	for _, fieldName := range inputFields {
+		buildPlanJSON, found := findBuildPlanInField(fieldName, params)
+		if found {
+			params.Logger.Info("Found build plan",
+				zap.String("field", fieldName),
+				zap.Int("json_length", len(buildPlanJSON)),
+			)
+			return buildPlanJSON, nil
+		}
+	}
+
+	// Log what we have for debugging
+	params.Logger.Error("Build plan not found in any input_fields",
+		zap.Strings("searched_fields", inputFields),
+		zap.Strings("available_keys", datahelpers.GetMapKeys(params.CollectedData)),
+	)
+
+	return "", fmt.Errorf("build plan not found in input_fields: %v", inputFields)
+}
+
+// findBuildPlanInField searches for build plan JSON in a specific field.
+func findBuildPlanInField(fieldName string, params ActionParams) (string, bool) {
+	// Try direct lookup with dot notation support
+	if val, ok := datahelpers.GetValueByPath(params.CollectedData, fieldName, params.Logger); ok {
+		if buildPlanJSON := extractJSONFromValue(val, params.Logger); buildPlanJSON != "" {
+			return buildPlanJSON, true
+		}
+	}
+
+	// Try looking inside the field for common sub-keys
+	commonSubKeys := []string{
+		"result",
+		"generate_build_plan.result",
+		"build_plan_json",
+	}
+
+	for _, subKey := range commonSubKeys {
+		fullPath := fieldName + "." + subKey
+		if val, ok := datahelpers.GetValueByPath(params.CollectedData, fullPath, params.Logger); ok {
+			if buildPlanJSON := extractJSONFromValue(val, params.Logger); buildPlanJSON != "" {
+				params.Logger.Debug("Found build plan in subkey",
+					zap.String("full_path", fullPath),
+				)
+				return buildPlanJSON, true
+			}
+		}
+	}
+
+	return "", false
+}
+
+// extractJSONFromValue tries to extract a JSON string from various value types.
+func extractJSONFromValue(val interface{}, logger *zap.Logger) string {
+	switch v := val.(type) {
+	case string:
+		// Direct string - might be JSON or might be markdown-wrapped
+		return cleanMarkdownJSON(v)
+
+	case map[string]interface{}:
+		// If it's already a map, check for common keys
+		if result, ok := v["result"].(string); ok {
+			return cleanMarkdownJSON(result)
+		}
+		if buildPlan, ok := v["build_plan_json"].(string); ok {
+			return cleanMarkdownJSON(buildPlan)
+		}
+		// Try marshaling the whole map as JSON
+		if jsonBytes, err := json.Marshal(v); err == nil {
+			return string(jsonBytes)
+		}
+
+	default:
+		logger.Debug("Unexpected value type for build plan",
+			zap.String("type", fmt.Sprintf("%T", val)),
+		)
+	}
+
+	return ""
+}
+
+// cleanMarkdownJSON removes markdown code fences if present.
+func cleanMarkdownJSON(s string) string {
+	s = strings.TrimSpace(s)
+
+	// Remove ```json ... ``` wrappers
+	s = strings.TrimPrefix(s, "```json")
+	s = strings.TrimPrefix(s, "```")
+	s = strings.TrimSuffix(s, "```")
+
+	return strings.TrimSpace(s)
+}
+
+// parseBuildPlan unmarshals the JSON into a BuildPlan struct.
+func parseBuildPlan(buildPlanJSON string, logger *zap.Logger) (*BuildPlan, error) {
+	var buildPlan BuildPlan
+
+	if err := json.Unmarshal([]byte(buildPlanJSON), &buildPlan); err != nil {
+		// Try double-unquoting (common with LLM outputs)
+		var unquoted string
+		if unqErr := json.Unmarshal([]byte(buildPlanJSON), &unquoted); unqErr == nil {
+			if err2 := json.Unmarshal([]byte(unquoted), &buildPlan); err2 == nil {
+				logger.Info("Successfully parsed double-encoded build plan")
+				return &buildPlan, nil
+			}
+		}
+
+		logger.Error("Failed to parse build plan",
+			zap.Error(err),
+			zap.String("json_preview", buildPlanJSON[:min(len(buildPlanJSON), 200)]),
+		)
+		return nil, fmt.Errorf("failed to parse build plan: %w", err)
+	}
+
+	logger.Info("Successfully parsed build plan",
+		zap.Int("section_count", len(buildPlan.Sections)),
+		zap.Strings("sections", buildPlan.Sections),
+	)
+
+	return &buildPlan, nil
+}
+
+// assembleComponents queries the database and stitches together the HTML.
+func assembleComponents(ctx context.Context, db *sql.DB, buildPlan *BuildPlan, logger *zap.Logger) (*AssembleOutput, error) {
+	var finalHTML strings.Builder
+	contentRequirements := make(map[string]interface{})
+	var componentIDs []string
+
+	for idx, function := range buildPlan.Sections {
+		logger.Info("Querying for component",
+			zap.Int("index", idx),
+			zap.String("function", function),
+		)
+
+		// Query for the component (with fallback)
+		component, err := queryComponentWithFallback(ctx, db, logger, function)
+		if err != nil {
+			logger.Error("Failed to get component (even with fallback)",
+				zap.String("function", function),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		// Stitch the HTML with a unique component ID
+		componentID := fmt.Sprintf("component_%s_%d", component.Function, idx)
+		templatedHTML := strings.Replace(component.HTMLTemplate, "{{.ComponentID}}", componentID, -1)
+		finalHTML.WriteString(templatedHTML + "\n")
+
+		// Collect content requirements for this component
+		var schema interface{}
+		if err := json.Unmarshal(component.InputSchema, &schema); err == nil {
+			contentRequirements[componentID] = schema
+		}
+
+		componentIDs = append(componentIDs, component.ID)
+	}
+
+	return &AssembleOutput{
+		StitchedHTMLTemplate: finalHTML.String(),
+		ContentRequirements:  contentRequirements,
+		ComponentIDs:         componentIDs,
+	}, nil
+}
+
+// queryComponentWithFallback tries to get a component, falling back to generic if needed.
+func queryComponentWithFallback(ctx context.Context, db *sql.DB, logger *zap.Logger, function string) (*ComponentTemplate, error) {
+	// Try primary query
+	component, err := queryComponent(ctx, db, logger, function)
+	if err == nil {
+		return component, nil
+	}
+
+	logger.Warn("Component not found, using fallback",
+		zap.String("requested_function", function),
+		zap.String("fallback", "generic-text-block"),
+	)
+
+	// Fallback to generic component
+	component, err = queryComponent(ctx, db, logger, "generic-text-block")
+	if err != nil {
+		return nil, fmt.Errorf("fallback component 'generic-text-block' not found: %w", err)
+	}
+
+	return component, nil
+}
+
+// queryComponent fetches a single component from the database.
+func queryComponent(ctx context.Context, db *sql.DB, logger *zap.Logger, function string) (*ComponentTemplate, error) {
 	query := `
 		SELECT id, html_template, input_schema, "function"
 		FROM content_components
@@ -163,57 +300,20 @@ func queryComponent(ctx context.Context, db *sql.DB, log *zap.Logger, function s
 		&component.InputSchema,
 		&component.Function,
 	)
+
 	if err != nil {
-		log.Warn("queryComponent failed", zap.String("function", function), zap.Error(err))
-		return nil, err
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("component not found: %s", function)
+		}
+		return nil, fmt.Errorf("database query failed: %w", err)
 	}
+
 	return &component, nil
 }
 
-// findBuildPlanHeuristically contains the original "hardcoded" logic to ensure
-// backward compatibility with existing workflows that don't use the config.
-func findBuildPlanHeuristically(data map[string]interface{}) string {
-	// Helper to check a specific map layer
-	checkMap := func(m map[string]interface{}) string {
-		// Check direct key
-		if val, ok := m["build_plan_json"].(string); ok {
-			return val
-		}
-
-		// Check inside "result" (common wrapper)
-		if res, ok := m["result"].(map[string]interface{}); ok {
-			if val, ok := res["build_plan_json"].(string); ok {
-				return val
-			}
-		}
-		return ""
+func min(a, b int) int {
+	if a < b {
+		return a
 	}
-
-	// A. Check Top Level
-	if val := checkMap(data); val != "" {
-		return val
-	}
-
-	// B. Check "generate_build_plan" (Common previous step name)
-	if sub, ok := data["generate_build_plan"].(map[string]interface{}); ok {
-		if val := checkMap(sub); val != "" {
-			return val
-		}
-	}
-
-	// C. Check "input_data" (Passed from parent)
-	if inputData, ok := data["input_data"].(map[string]interface{}); ok {
-		if val := checkMap(inputData); val != "" {
-			return val
-		}
-	}
-
-	// D. Legacy fallback
-	if bpData, ok := data["build_plan_data"].(map[string]interface{}); ok {
-		if val, ok := bpData["build_plan_json"].(string); ok {
-			return val
-		}
-	}
-
-	return ""
+	return b
 }
