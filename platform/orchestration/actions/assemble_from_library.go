@@ -20,8 +20,18 @@ type AssembleOutput struct {
 }
 
 // BuildPlan defines the structure of the JSON we expect from the strategist.
+// BuildPlan defines the structure of the JSON we expect from the strategist.
 type BuildPlan struct {
-	Sections []string `json:"sections"`
+	Sections []Section `json:"sections"`
+}
+
+// Section represents a single component in the build plan
+type Section struct {
+	Component            string      `json:"component"`
+	MessageStrategyStage string      `json:"message_strategy_stage"`
+	CopyStructure        string      `json:"copy_structure"`
+	SuggestedCopy        interface{} `json:"suggested_copy"` // Can be string or []string
+	GraphicsStyle        string      `json:"graphics_style"`
 }
 
 // ComponentTemplate is a helper struct for our DB query.
@@ -226,7 +236,7 @@ func parseBuildPlan(buildPlanJSON string, logger *zap.Logger) (*BuildPlan, error
 
 	logger.Info("Successfully parsed build plan",
 		zap.Int("section_count", len(buildPlan.Sections)),
-		zap.Strings("sections", buildPlan.Sections),
+		zap.Any("build plan sections (objects)", buildPlan.Sections),
 	)
 
 	return &buildPlan, nil
@@ -238,7 +248,9 @@ func assembleComponents(ctx context.Context, db *sql.DB, buildPlan *BuildPlan, l
 	contentRequirements := make(map[string]interface{})
 	var componentIDs []string
 
-	for idx, function := range buildPlan.Sections {
+	for idx, section := range buildPlan.Sections {
+		function := section.Component // ← Get component name from the object
+
 		logger.Info("Querying for component",
 			zap.Int("index", idx),
 			zap.String("function", function),
