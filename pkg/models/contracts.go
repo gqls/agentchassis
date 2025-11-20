@@ -56,6 +56,7 @@ type Step struct {
 	TargetAgentType string                 `json:"target_agent_type"`
 	Dependencies    []string               `json:"dependencies,omitempty"`
 	NextStep        string                 `json:"next_step,omitempty"`
+	OutputField     string                 `json:"output_field,omitempty"`
 	SubTasks        []SubTask              `json:"sub_tasks,omitempty"`
 	StoreMemory     bool                   `json:"store_memory,omitempty"`
 	Config          map[string]interface{} `json:"config,omitempty"`

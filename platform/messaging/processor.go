@@ -416,6 +416,7 @@ func (p *MessageProcessor) convertToWorkflowPlan(workflowConfig map[string]inter
 					Action:      p.getStringValue(stepMap, "action"),
 					Description: p.getStringValue(stepMap, "description"),
 					NextStep:    p.getStringValue(stepMap, "next_step"),
+					OutputField: p.getStringValue(stepMap, "output_field"),
 					Topic:       p.getStringValue(stepMap, "topic"),
 				}
 
@@ -437,7 +438,9 @@ func (p *MessageProcessor) convertToWorkflowPlan(workflowConfig map[string]inter
 				p.logger.Debug("Converted workflow step",
 					zap.String("step_name", stepName),
 					zap.String("action", step.Action),
-					zap.String("next_step", step.NextStep))
+					zap.String("next_step", step.NextStep),
+					zap.String("output_field outputField", step.OutputField),
+				)
 			}
 		}
 	}

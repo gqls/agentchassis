@@ -1409,6 +1409,22 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	// Store under the step name in CollectedData
 	stepName := awaitedReq.StepName
 	state.CollectedData[stepName] = normalisedData
+	// Get the step definition to check for output_field
+	if step, exists := state.WorkflowPlan.Steps[stepName]; exists {
+		if step.OutputField != "" {
+			// ALSO store in the specified output field name
+			state.CollectedData[step.OutputField] = normalisedData
+			s.logger.Info("Stored response in output_field",
+				zap.String("step_name", stepName),
+				zap.String("output_field", step.OutputField))
+		} else {
+			s.logger.Debug("No output_field specified, response stored only under step name",
+				zap.String("step_name", stepName))
+		}
+	} else {
+		s.logger.Warn("Step not found in workflow plan",
+			zap.String("step_name", stepName))
+	}
 
 	s.logger.Info("handleCompleteResponse: stored normalized response", // so far so good, at least in hero it is good
 		zap.String("step_name", stepName),
