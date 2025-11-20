@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/gqls/agentchassis/platform/aiservice"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -230,7 +231,21 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// Call the AI service
 	result, err := aiClient.GenerateText(ctx, renderedPrompt, options)
 	if err != nil {
-		return nil, fmt.Errorf("AI service call failed: %w", err)
+		params.Logger.Info("AI call failed once",
+			zap.Error(err),
+		)
+		errStr := err.Error()
+		if strings.Contains(errStr, "529") || // overloaded
+			strings.Contains(errStr, "503") || // service unavailable
+			strings.Contains(errStr, "502") || // bad gateway
+			strings.Contains(errStr, "500") { // internal Server Error
+
+			time.Sleep(3 * time.Second)
+			result, err = aiClient.GenerateText(ctx, renderedPrompt, options)
+			if err != nil {
+				return nil, fmt.Errorf("AI call failed a second time. Aborting: %w", err)
+			}
+		}
 	}
 
 	params.Logger.Info("LLM response received",
@@ -471,26 +486,7 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 	}, nil
 }
 
-// (This is the original function you provided, for context)
-// func extractDataForAiAgent(params ActionParams) interface{} {
-//     params.Logger.Info("Extracting data for ai agent",
-//        zap.Any("available_keys", getMapKeys(params.CollectedData)),
-//     )
-//     // Use the GetInputData helper which handles all the extraction logic
-//     cleanData := datahelpers.GetInputData(params.CollectedData, params.Logger) // <-- THIS IS THE BUGGY LINE
-//     if len(cleanData) > 0 {
-//        params.Logger.Info("Extracted clean data for AI agent",
-//           zap.Int("field_count", len(cleanData)),
-//        )
-//        return cleanData
-//     }
-//     params.Logger.Warn("No data found for AI agent, using empty map")
-//     return make(map[string]interface{})
-// }
-
 // extractDataForAiAgent merges data from multiple sources specified in the step's 'input_fields' config.
-// FILE: platform/orchestration/actions/ai_actions.go
-
 func extractDataForAiAgent(params ActionParams) interface{} {
 	params.Logger.Info("Extracting data for AI agent",
 		zap.Any("available_keys", GetMapKeys(params.CollectedData)),

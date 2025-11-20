@@ -61,3 +61,5 @@
     }
   ]
 }
+
+  "result_preview": "```json\n{\n  \"sections\": [\n    \"header\",\n    \"hero\",\n    \"social_proof\",\n    \"features\",\n    \"pricing\",\n    \"call_to_action\",\n    \"faq\",\n    \"footer\"\n  ]\n}\n```"

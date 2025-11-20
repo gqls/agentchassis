@@ -1412,6 +1412,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 
 	s.logger.Info("handleCompleteResponse: stored normalized response", // so far so good, at least in hero it is good
 		zap.String("step_name", stepName),
+		zap.String("step_name", stepName),
 		zap.Int("original_fields", len(responseBodyData)),
 		zap.Int("normalized_fields", len(normalisedData)),
 		zap.Strings("normalised data_keys", getMapKeys(normalisedData)),

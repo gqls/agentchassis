@@ -505,7 +505,7 @@ orchestration_workflow = $$
 "agent_type": "site-component-architect",
 "target_role": "site_component_architect",
 "timeout_seconds": 120,
-"input_fields": ["build_plan_data"]
+"input_fields": ["generate_build_plan"]
 },
 "output_field": "template_data",
 "next_step": "call_content_creator"
@@ -539,4 +539,20 @@ orchestration_workflow = $$
 }
 $$::jsonb
 WHERE group_type = 'mvp-site-builder';
+
+architect
+
+"workflow": {
+"start_step": "assemble_template",
+"steps": {
+"assemble_template": {
+"action": "assemble_from_library",
+"config": {
+"build_plan_path": "build_plan_data.build_plan_json"
+},
+"next_step": "complete"
+},
+"complete": { "action": "complete_workflow" }
+}
+}
 
