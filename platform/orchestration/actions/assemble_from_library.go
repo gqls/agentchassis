@@ -96,11 +96,23 @@ func extractBuildPlan(params ActionParams) (string, error) {
 		inputFields = []string{"build_plan_data", "call_strategist"}
 	}
 
-	params.Logger.Info("Searching for build plan", zap.Strings("input_fields", inputFields))
+	params.Logger.Info("Searching for build plan",
+		zap.Strings("input_fields", inputFields),
+		zap.Strings("available_root_keys", datahelpers.GetMapKeys(params.CollectedData)),
+	)
+
+	// Check if data is wrapped in "input_data" and unwrap it
+	dataToSearch := params.CollectedData
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		params.Logger.Info("Found input_data wrapper, searching within it",
+			zap.Strings("wrapped_keys", datahelpers.GetMapKeys(inputData)),
+		)
+		dataToSearch = inputData
+	}
 
 	// Try each input field in order
 	for _, fieldName := range inputFields {
-		buildPlanJSON, found := findBuildPlanInField(fieldName, params)
+		buildPlanJSON, found := findBuildPlanInField(fieldName, dataToSearch, params.Logger)
 		if found {
 			params.Logger.Info("Found build plan",
 				zap.String("field", fieldName),
@@ -113,17 +125,17 @@ func extractBuildPlan(params ActionParams) (string, error) {
 	// Log what we have for debugging
 	params.Logger.Error("Build plan not found in any input_fields",
 		zap.Strings("searched_fields", inputFields),
-		zap.Strings("available_keys", datahelpers.GetMapKeys(params.CollectedData)),
+		zap.Strings("available_keys", datahelpers.GetMapKeys(dataToSearch)),
 	)
 
 	return "", fmt.Errorf("build plan not found in input_fields: %v", inputFields)
 }
 
-// findBuildPlanInField searches for build plan JSON in a specific field.
-func findBuildPlanInField(fieldName string, params ActionParams) (string, bool) {
+// findBuildPlanInFieldWithData searches for build plan JSON in a specific field within provided data.
+func findBuildPlanInField(fieldName string, data map[string]interface{}, logger *zap.Logger) (string, bool) {
 	// Try direct lookup with dot notation support
-	if val, ok := datahelpers.GetValueByPath(params.CollectedData, fieldName, params.Logger); ok {
-		if buildPlanJSON := extractJSONFromValue(val, params.Logger); buildPlanJSON != "" {
+	if val, ok := datahelpers.GetValueByPath(data, fieldName, logger); ok {
+		if buildPlanJSON := extractJSONFromValue(val, logger); buildPlanJSON != "" {
 			return buildPlanJSON, true
 		}
 	}
@@ -137,9 +149,9 @@ func findBuildPlanInField(fieldName string, params ActionParams) (string, bool) 
 
 	for _, subKey := range commonSubKeys {
 		fullPath := fieldName + "." + subKey
-		if val, ok := datahelpers.GetValueByPath(params.CollectedData, fullPath, params.Logger); ok {
-			if buildPlanJSON := extractJSONFromValue(val, params.Logger); buildPlanJSON != "" {
-				params.Logger.Debug("Found build plan in subkey",
+		if val, ok := datahelpers.GetValueByPath(data, fullPath, logger); ok {
+			if buildPlanJSON := extractJSONFromValue(val, logger); buildPlanJSON != "" {
+				logger.Debug("Found build plan in subkey",
 					zap.String("full_path", fullPath),
 				)
 				return buildPlanJSON, true
