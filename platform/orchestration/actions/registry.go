@@ -48,6 +48,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 
 	// Web build
 	"git_commit":            GitCommitAction,
+	"git_commit_action":     GitCommitAction,
 	"new_site_architect":    AssembleFromLibraryAction,
 	"assemble_from_library": AssembleFromLibraryAction,
 

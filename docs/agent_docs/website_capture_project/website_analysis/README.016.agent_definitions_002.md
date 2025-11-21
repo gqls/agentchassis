@@ -582,3 +582,72 @@ default_config = '{
 }'::jsonb
 WHERE type = 'site-component-architect';
 
+UPDATE agent_definitions
+SET default_config = '{
+"workflow": {
+"start_step": "generate_content",
+"steps": {
+"generate_content": {
+"action": "execute_llm_prompt",
+"config": {
+"ai_service": {
+"provider": "anthropic",
+"model": "claude-haiku-4-5-20251001",
+"api_key_env_var": "ANTHROPIC_API_KEY"
+},
+"input_fields": ["input_data"],
+"output_field": "generated_content",
+"prompt_template": "You are creating website content for {{.input_data.input_data.domain}} with objective: {{.input_data.input_data.objective}}.\n\nHere is the HTML template with placeholders:\n{{.input_data.template_data.assemble_template.stitched_html_template}}\n\nHere are the content requirements (default values to customize):\n{{.input_data.template_data.assemble_template.content_requirements}}\n\nGenerate customized, compelling content for this boxing ticket sales website. Replace the generic placeholder values with boxing-specific, sales-focused copy.\n\nReturn ONLY the complete HTML with all placeholders replaced with actual content. Do not include any explanation."
+},
+"next_step": "complete",
+"description": "Generate customized website content"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Return final HTML"
+}
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 300
+}'::jsonb
+WHERE type = 'content-creator';
+
+
+UPDATE agent_definitions
+SET default_config = '{
+"workflow": {
+"start_step": "prepare_commit_data",
+"steps": {
+"prepare_commit_data": {
+"action": "json_transform",
+"config": {
+"input_field": "input_data.final_site_data.final_html",
+"jq_expression": "{\"index.html\": .}",
+"output_field": "files_map"
+},
+"description": "Transform final_html into a files object for the adapter",
+"next_step": "commit_to_git"
+},
+"commit_to_git": {
+"action": "git_commit",
+"config": {
+"commit_message": "MVP v1: Initial site build.",
+"files": "{{.files_map}}",
+"repo_name": "{{.input_data.domain}}"
+},
+"description": "Send commit request to the git-adapter",
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Return the Git repo URL"
+}
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 180
+}'::jsonb
+WHERE type = 'deployer-agent';
+
+

@@ -347,7 +347,7 @@ func extractJSONFromValue(val interface{}, logger *zap.Logger) string {
 		}
 		logger.Warn("No known build plan pattern found, marshaling entire map",
 			zap.Strings("available_keys", keys))
-		
+
 		// Try marshaling the whole map as JSON
 		if jsonBytes, err := json.Marshal(v); err == nil {
 			jsonStr := string(jsonBytes)
