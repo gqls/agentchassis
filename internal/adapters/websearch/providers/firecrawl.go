@@ -59,7 +59,7 @@ func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	f.logger.Debug("Executing search",
+	f.logger.Info("Executing search",
 		zap.String("query", query),
 		zap.Int("num_results", numResults))
 

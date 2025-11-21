@@ -104,6 +104,10 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 func extractComponentNames(buildPlan *BuildPlan, logger *zap.Logger) ([]string, error) {
 	var componentNames []string
 
+	logger.Info("in extractComponentNames",
+		zap.Any("build plan inward is:", buildPlan),
+	)
+
 	for idx, rawSection := range buildPlan.Sections {
 		var componentName string
 
@@ -111,7 +115,7 @@ func extractComponentNames(buildPlan *BuildPlan, logger *zap.Logger) ([]string, 
 		var strSection string
 		if err := json.Unmarshal(rawSection, &strSection); err == nil {
 			componentName = strSection
-			logger.Debug("Parsed section as string",
+			logger.Info("Parsed section as string",
 				zap.Int("index", idx),
 				zap.String("component", componentName))
 		} else {
@@ -121,7 +125,7 @@ func extractComponentNames(buildPlan *BuildPlan, logger *zap.Logger) ([]string, 
 			}
 			if err := json.Unmarshal(rawSection, &objSection); err == nil {
 				componentName = objSection.Component
-				logger.Debug("Parsed section as object",
+				logger.Info("Parsed section as object",
 					zap.Int("index", idx),
 					zap.String("component", componentName))
 			} else {
@@ -191,7 +195,7 @@ func extractBuildPlan(params ActionParams) (string, error) {
 		if found {
 			params.Logger.Info("Found build plan",
 				zap.String("field", fieldName),
-				zap.Int("json_length", len(buildPlanJSON)),
+				zap.Any("build plan json is", buildPlanJSON),
 			)
 			return buildPlanJSON, nil
 		}
@@ -210,10 +214,19 @@ func extractBuildPlan(params ActionParams) (string, error) {
 func findBuildPlanInField(fieldName string, data map[string]interface{}, logger *zap.Logger) (string, bool) {
 	// Try direct lookup with dot notation support
 	if val, ok := datahelpers.GetValueByPath(data, fieldName, logger); ok {
+		logger.Info("In findBuildPlanInField got some value",
+			zap.String("field name", fieldName),
+			zap.Any("val", val),
+		)
 		if buildPlanJSON := extractJSONFromValue(val, logger); buildPlanJSON != "" {
 			return buildPlanJSON, true
 		}
 	}
+
+	logger.Info("In findBuildPlanInField didnt find build plan in field first attempt",
+		zap.String("field name", fieldName),
+		zap.Any("data", data),
+	)
 
 	// Try looking inside the field for common sub-keys
 	commonSubKeys := []string{
@@ -226,7 +239,7 @@ func findBuildPlanInField(fieldName string, data map[string]interface{}, logger 
 		fullPath := fieldName + "." + subKey
 		if val, ok := datahelpers.GetValueByPath(data, fullPath, logger); ok {
 			if buildPlanJSON := extractJSONFromValue(val, logger); buildPlanJSON != "" {
-				logger.Debug("Found build plan in subkey",
+				logger.Info("Found build plan in subkey",
 					zap.String("full_path", fullPath),
 				)
 				return buildPlanJSON, true
@@ -234,31 +247,82 @@ func findBuildPlanInField(fieldName string, data map[string]interface{}, logger 
 		}
 	}
 
+	logger.Info("In findBuildPlanInField didnt find build plan in field fionalattempt",
+		zap.String("field name", fieldName),
+		zap.Any("data", data),
+	)
+
 	return "", false
 }
 
 // extractJSONFromValue tries to extract a JSON string from various value types.
+// extractJSONFromValue tries to extract a JSON string from various value types.
+// It handles common LLM response patterns without hardcoding specific field names.
 func extractJSONFromValue(val interface{}, logger *zap.Logger) string {
 	switch v := val.(type) {
 	case string:
 		// Direct string - might be JSON or might be markdown-wrapped
-		return cleanMarkdownJSON(v)
+		cleaned := datahelpers.CleanMarkdownJSON(v)
+		logger.Debug("Extracted string value",
+			zap.Int("original_length", len(v)),
+			zap.Int("cleaned_length", len(cleaned)),
+		)
+		return cleaned
 
 	case map[string]interface{}:
-		// If it's already a map, check for common keys
-		if result, ok := v["result"].(string); ok {
-			return cleanMarkdownJSON(result)
+		// Common LLM response field names to try (in priority order)
+		commonResultFields := []string{
+			"result",          // Most common
+			"output",          // Alternative
+			"response",        // Alternative
+			"data",            // Alternative
+			"content",         // Alternative
+			"build_plan_json", // Legacy/specific format
 		}
-		if buildPlan, ok := v["build_plan_json"].(string); ok {
-			return cleanMarkdownJSON(buildPlan)
+
+		// Try direct access to common result fields
+		for _, fieldName := range commonResultFields {
+			if result, ok := v[fieldName].(string); ok {
+				cleaned := datahelpers.CleanMarkdownJSON(result)
+				logger.Debug("Found result in common field",
+					zap.String("field_name", fieldName),
+					zap.Int("cleaned_length", len(cleaned)),
+				)
+				return cleaned
+			}
 		}
-		// Try marshaling the whole map as JSON
+
+		// Recursively search nested maps for result fields
+		// This handles patterns like: {any_key: {result: "..."}}
+		jsonStr := datahelpers.SearchNestedForJSON(v, commonResultFields, logger, 0)
+		if jsonStr != "" {
+			return jsonStr
+		}
+
+		// Check if the map itself looks like a valid BuildPlan
+		// (has "sections" array at top level)
+		if _, ok := v["sections"]; ok {
+			if jsonBytes, err := json.Marshal(v); err == nil {
+				jsonStr := string(jsonBytes)
+				logger.Debug("Map has 'sections' field, using as-is",
+					zap.Int("json_length", len(jsonStr)),
+				)
+				return jsonStr
+			}
+		}
+
+		// Last resort: marshal the whole map (but log warning)
 		if jsonBytes, err := json.Marshal(v); err == nil {
-			return string(jsonBytes)
+			jsonStr := string(jsonBytes)
+			logger.Warn("Marshaling entire map as JSON (no known patterns found)",
+				zap.Int("json_length", len(jsonStr)),
+				zap.Strings("top_level_keys", getMapKeys(v)),
+			)
+			return jsonStr
 		}
 
 	default:
-		logger.Debug("Unexpected value type for build plan",
+		logger.Warn("Unexpected value type for build plan",
 			zap.String("type", fmt.Sprintf("%T", val)),
 		)
 	}
@@ -266,41 +330,36 @@ func extractJSONFromValue(val interface{}, logger *zap.Logger) string {
 	return ""
 }
 
-// cleanMarkdownJSON removes markdown code fences if present.
-func cleanMarkdownJSON(s string) string {
-	s = strings.TrimSpace(s)
-
-	// Remove ```json ... ``` wrappers
-	s = strings.TrimPrefix(s, "```json")
-	s = strings.TrimPrefix(s, "```")
-	s = strings.TrimSuffix(s, "```")
-
-	return strings.TrimSpace(s)
-}
-
 // parseBuildPlan unmarshals the JSON into a BuildPlan struct.
 func parseBuildPlan(buildPlanJSON string, logger *zap.Logger) (*BuildPlan, error) {
 	var buildPlan BuildPlan
+
+	logger.Info("Parsing build plan JSON",
+		zap.String("json_preview", buildPlanJSON[:min(len(buildPlanJSON), 500)]),
+		zap.Int("json_length", len(buildPlanJSON)),
+	)
 
 	if err := json.Unmarshal([]byte(buildPlanJSON), &buildPlan); err != nil {
 		// Try double-unquoting (common with LLM outputs)
 		var unquoted string
 		if unqErr := json.Unmarshal([]byte(buildPlanJSON), &unquoted); unqErr == nil {
 			if err2 := json.Unmarshal([]byte(unquoted), &buildPlan); err2 == nil {
-				logger.Info("Successfully parsed double-encoded build plan")
+				logger.Info("Successfully parsed double-encoded build plan",
+					zap.Any("build plan", buildPlan),
+				)
 				return &buildPlan, nil
 			}
 		}
 
-		logger.Error("Failed to parse build plan",
+		logger.Error("In parseBuildPlan Failed to parse build plan",
 			zap.Error(err),
 			zap.String("json_preview", buildPlanJSON[:min(len(buildPlanJSON), 200)]),
 		)
 		return nil, fmt.Errorf("failed to parse build plan: %w", err)
 	}
 
-	logger.Info("Successfully parsed build plan",
-		zap.Int("section_count", len(buildPlan.Sections)),
+	logger.Info("In parseBuildPlan didnot parse build plan",
+		zap.Any("build plan, look for section_count", buildPlan),
 		zap.Any("build plan sections (objects)", buildPlan.Sections),
 	)
 

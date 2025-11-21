@@ -152,7 +152,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		zap.String("request_id", headers["request_id"]),
 	)
 
-	l.Debug("Processing search request")
+	l.Info("Processing search request")
 
 	var req RequestPayload
 	if err := json.Unmarshal(msg.Value, &req); err != nil {

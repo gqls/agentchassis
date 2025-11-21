@@ -995,3 +995,64 @@ func GetValueByPath(data map[string]interface{}, path string, logger *zap.Logger
 	}
 	return current, true
 }
+
+// searchNestedForJSON recursively searches nested maps for common result field patterns.
+// maxDepth prevents infinite recursion.
+func SearchNestedForJSON(m map[string]interface{}, resultFields []string, logger *zap.Logger, depth int) string {
+	const maxDepth = 3 // Prevent going too deep
+
+	if depth > maxDepth {
+		return ""
+	}
+
+	// For each value in the map, check if it's a nested map
+	for key, val := range m {
+		if nestedMap, ok := val.(map[string]interface{}); ok {
+			// Check if this nested map has any of the result fields
+			for _, fieldName := range resultFields {
+				if result, ok := nestedMap[fieldName].(string); ok {
+					cleaned := CleanMarkdownJSON(result)
+					logger.Debug("Found result in nested structure",
+						zap.String("parent_key", key),
+						zap.String("result_field", fieldName),
+						zap.Int("depth", depth),
+						zap.Int("cleaned_length", len(cleaned)),
+					)
+					return cleaned
+				}
+			}
+
+			// Recurse deeper
+			if jsonStr := SearchNestedForJSON(nestedMap, resultFields, logger, depth+1); jsonStr != "" {
+				return jsonStr
+			}
+		}
+	}
+
+	return ""
+}
+
+// cleanMarkdownJSON removes markdown code fences and other LLM artifacts.
+func CleanMarkdownJSON(s string) string {
+	s = strings.TrimSpace(s)
+
+	// Remove ```json ... ``` wrappers (most common)
+	s = strings.TrimPrefix(s, "```json")
+	s = strings.TrimSpace(s) // Remove newline after ```json
+
+	// Remove plain ``` wrappers
+	s = strings.TrimPrefix(s, "```")
+	s = strings.TrimSpace(s)
+
+	// Remove trailing ```
+	s = strings.TrimSuffix(s, "```")
+	s = strings.TrimSpace(s)
+
+	// Extra cleanup: remove any leading/trailing quotes if the entire thing is quoted
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		// This might be double-encoded JSON
+		s = s[1 : len(s)-1]
+	}
+
+	return strings.TrimSpace(s)
+}
