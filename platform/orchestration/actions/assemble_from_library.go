@@ -312,13 +312,42 @@ func extractJSONFromValue(val interface{}, logger *zap.Logger) string {
 		return cleaned
 
 	case map[string]interface{}:
-		// If it's already a map, check for common keys
+		// Check for nested generate_build_plan.result pattern (common from strategist)
+		if genBuildPlan, ok := v["generate_build_plan"].(map[string]interface{}); ok {
+			if result, ok := genBuildPlan["result"].(string); ok {
+				logger.Debug("Found build plan in generate_build_plan.result")
+				return datahelpers.CleanMarkdownJSON(result)
+			}
+		}
+
+		// Check for nested call_strategist.result pattern
+		if callStrategist, ok := v["call_strategist"].(map[string]interface{}); ok {
+			if result, ok := callStrategist["result"].(string); ok {
+				logger.Debug("Found build plan in call_strategist.result")
+				return datahelpers.CleanMarkdownJSON(result)
+			}
+		}
+
+		// Direct result key
 		if result, ok := v["result"].(string); ok {
+			logger.Debug("Found build plan in direct result key")
 			return datahelpers.CleanMarkdownJSON(result)
 		}
+
+		// build_plan_json key
 		if buildPlan, ok := v["build_plan_json"].(string); ok {
+			logger.Debug("Found build plan in build_plan_json key")
 			return datahelpers.CleanMarkdownJSON(buildPlan)
 		}
+
+		// Log available keys for debugging before fallback
+		keys := make([]string, 0, len(v))
+		for k := range v {
+			keys = append(keys, k)
+		}
+		logger.Warn("No known build plan pattern found, marshaling entire map",
+			zap.Strings("available_keys", keys))
+		
 		// Try marshaling the whole map as JSON
 		if jsonBytes, err := json.Marshal(v); err == nil {
 			jsonStr := string(jsonBytes)
