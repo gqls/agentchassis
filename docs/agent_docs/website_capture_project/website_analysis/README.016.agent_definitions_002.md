@@ -436,11 +436,11 @@ default_config = '{
 "action": "execute_llm_prompt",
 "description": "Create the Build Plan",
 "config": {
-"ai_service": {
+`"ai_service": {
 "provider": "anthropic",
 "model": "claude-haiku-4-5-20251001",
 "api_key_env_var": "ANTHROPIC_API_KEY"
-},
+},`
 "input_data": ["domain", "objective", "model"],
 "prompt_template": "You are a Chief Marketing Strategist. Client: {{.domain}}. Objective: {{.objective}}. Model: {{.model}}. \n\nAvailable Components: [header, hero, features, social_proof, pricing, faq, call_to_action, footer].\n\nBased on the {{.model}} model, select the best sequence of components. Then for each component devise a plan for the copy structure, suggested copy and suggested graphics style that suits the objective {{ .objective }} and the marketing model {{ .model }}.\nOutput JSON ONLY: {\"sections\": [\"component_name\", ...] }"
 },

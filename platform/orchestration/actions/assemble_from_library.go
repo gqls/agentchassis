@@ -57,30 +57,40 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 		return nil, fmt.Errorf("database connection is not available")
 	}
 
-	// 2. Extract build plan using standard input_fields mechanism
+	// 2. Extract domain from input_data
+	domain := extractDomain(params)
+
+	// 3. Select theme based on domain
+	themeName := selectTheme(domain, params.Logger)
+
+	// 4. Fetch theme CSS from database
+	themeCSS, err := fetchThemeCSS(ctx, db, themeName, params.Logger)
+	if err != nil {
+		params.Logger.Error("Failed to fetch theme CSS, proceeding without theme",
+			zap.Error(err))
+		themeCSS = "" // Continue without theme
+	}
+
+	// 5. Extract build plan using standard input_fields mechanism
 	buildPlanJSON, err := extractBuildPlan(params)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Parse the build plan
+	// 6. Parse the build plan
 	buildPlan, err := parseBuildPlan(buildPlanJSON, params.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	// 4. Extract component names (handles both formats)
+	// 7. Extract component names (handles both formats)
 	componentNames, err := extractComponentNames(buildPlan, params.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	/*	if len(buildPlan.Sections) == 0 {
-		return nil, fmt.Errorf("build plan has no sections")
-	}*/
-
-	// 5. Assemble components from library
-	output, err := assembleComponentsByName(ctx, params.DB, componentNames, params.Logger)
+	// 8. Assemble components from library
+	output, err := assembleComponentsByName(ctx, db, componentNames, domain, themeCSS, params.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -153,6 +163,32 @@ func extractComponentNames(buildPlan *BuildPlan, logger *zap.Logger) ([]string, 
 		zap.Int("count", len(componentNames)))
 
 	return componentNames, nil
+}
+
+// extractDomain gets the domain from input_data
+func extractDomain(params ActionParams) string {
+	// Check input_data wrapper first
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		if buildPlanData, ok := inputData["build_plan_data"].(map[string]interface{}); ok {
+			if inputDataNested, ok := buildPlanData["input_data"].(map[string]interface{}); ok {
+				if inputDataFinal, ok := inputDataNested["input_data"].(map[string]interface{}); ok {
+					if domain, ok := inputDataFinal["domain"].(string); ok {
+						return domain
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback: try direct path
+	if domain, ok := datahelpers.GetValueByPath(params.CollectedData, "input_data.domain", params.Logger); ok {
+		if domainStr, ok := domain.(string); ok {
+			return domainStr
+		}
+	}
+
+	params.Logger.Warn("Could not extract domain, using empty string")
+	return ""
 }
 
 // extractBuildPlan uses the standard input_fields mechanism to find the build plan JSON.
@@ -366,8 +402,80 @@ func parseBuildPlan(buildPlanJSON string, logger *zap.Logger) (*BuildPlan, error
 	return &buildPlan, nil
 }
 
+// selectTheme chooses a CSS theme based on domain keywords
+func selectTheme(domain string, logger *zap.Logger) string {
+	domain = strings.ToLower(domain)
+
+	// Sports & Competition
+	if strings.Contains(domain, "box") || strings.Contains(domain, "fight") ||
+		strings.Contains(domain, "sport") || strings.Contains(domain, "gym") {
+		logger.Info("Selected boxing theme", zap.String("domain", domain))
+		return "boxing"
+	}
+
+	// Food & Hospitality
+	if strings.Contains(domain, "bak") || strings.Contains(domain, "food") ||
+		strings.Contains(domain, "cafe") || strings.Contains(domain, "restaurant") {
+		logger.Info("Selected bakery theme", zap.String("domain", domain))
+		return "bakery"
+	}
+
+	// Tech & SaaS
+	if strings.Contains(domain, "tech") || strings.Contains(domain, "software") ||
+		strings.Contains(domain, "app") || strings.Contains(domain, "ai") ||
+		strings.Contains(domain, "cloud") || strings.Contains(domain, "dev") {
+		logger.Info("Selected tech theme", zap.String("domain", domain))
+		return "tech"
+	}
+
+	// Law & Finance
+	if strings.Contains(domain, "law") || strings.Contains(domain, "legal") ||
+		strings.Contains(domain, "finance") || strings.Contains(domain, "invest") ||
+		strings.Contains(domain, "consult") {
+		logger.Info("Selected professional-dark theme", zap.String("domain", domain))
+		return "professional-dark"
+	}
+
+	// Default fallback
+	logger.Info("Selected default theme", zap.String("domain", domain))
+	return "default"
+}
+
+// fetchThemeCSS retrieves CSS content from the database
+func fetchThemeCSS(ctx context.Context, db *sql.DB, themeName string, logger *zap.Logger) (string, error) {
+	query := `
+		SELECT css_content 
+		FROM css_themes 
+		WHERE name = $1 AND is_active = true
+		LIMIT 1`
+
+	var cssContent string
+	err := db.QueryRowContext(ctx, query, themeName).Scan(&cssContent)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Theme not found, try default
+			logger.Warn("Theme not found, falling back to default",
+				zap.String("requested_theme", themeName))
+
+			err = db.QueryRowContext(ctx, query, "default").Scan(&cssContent)
+			if err != nil {
+				return "", fmt.Errorf("default theme not found: %w", err)
+			}
+			return cssContent, nil
+		}
+		return "", fmt.Errorf("failed to fetch theme CSS: %w", err)
+	}
+
+	logger.Info("Successfully fetched theme CSS",
+		zap.String("theme", themeName),
+		zap.Int("css_length", len(cssContent)))
+
+	return cssContent, nil
+}
+
 // assembleComponentsByName queries the database and stitches together HTML from component names.
-func assembleComponentsByName(ctx context.Context, db *sql.DB, componentNames []string, logger *zap.Logger) (*AssembleOutput, error) {
+func assembleComponentsByName(ctx context.Context, db *sql.DB, componentNames []string, domain string, themeCSS string, logger *zap.Logger) (*AssembleOutput, error) {
 	var finalHTML strings.Builder
 	contentRequirements := make(map[string]interface{})
 	var componentIDs []string
@@ -391,6 +499,15 @@ func assembleComponentsByName(ctx context.Context, db *sql.DB, componentNames []
 		// Stitch the HTML with a unique component ID
 		componentID := fmt.Sprintf("component_%s_%d", component.Function, idx)
 		templatedHTML := strings.Replace(component.HTMLTemplate, "{{.ComponentID}}", componentID, -1)
+
+		// Special handling for HEAD component - inject theme CSS
+		if component.Function == "head" {
+			templatedHTML = strings.Replace(templatedHTML, "{{.theme_css}}", themeCSS, -1)
+			// Also inject title and description if available
+			templatedHTML = strings.Replace(templatedHTML, "{{.title}}", domain, -1)
+			templatedHTML = strings.Replace(templatedHTML, "{{.description}}", "Welcome to "+domain, -1)
+		}
+
 		finalHTML.WriteString(templatedHTML + "\n")
 
 		logger.Info("Stitched HTML for component",
