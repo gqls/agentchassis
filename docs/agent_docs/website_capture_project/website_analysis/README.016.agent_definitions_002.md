@@ -690,7 +690,7 @@ SET default_config = '{
 "commit_message": "MVP v1: Initial site build for {{.domain}}",
 "content_field": "input_data.final_site_data.generate_content.result",
 "filename": "index.html",
-"repo_name": "{{.input_data.input_data.domain}}"
+"repo_name": "{{.domain}}"
 },
 "description": "Commit the generated HTML to git",
 "next_step": "complete"

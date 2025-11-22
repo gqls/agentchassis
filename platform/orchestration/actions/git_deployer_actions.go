@@ -46,7 +46,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	// 3. Get adapter topic
-	adapterTopic := "system.adapter.gitcommit.requests"
+	adapterTopic := "system.adapter.git.requests"
 
 	// 4. Extract specific parameters from the config
 	// Build template data using existing function
