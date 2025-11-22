@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,7 +13,6 @@ import (
 )
 
 // GitCommitResult represents the result of a Git commit operation.
-// (This matches the structure of your WebscrapeResult)
 type GitCommitResult struct {
 	Success       bool                   `json:"success"`
 	RequestID     string                 `json:"request_id"`
@@ -21,7 +21,10 @@ type GitCommitResult struct {
 	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// GitCommitAction sends a commit request to the configured git-adapter,
+// GitCommitAction sends a commit request to the configured git-adapter.
+// Supports two modes:
+//   1. Direct files map: config["files"] = {"filename": "content", ...}
+//   2. Content field reference: config["content_field"] = "path.to.content" + config["filename"] = "index.html"
 func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing GitCommitAction",
 		zap.String("step_name", params.ExecutionContext.StepName),
@@ -30,7 +33,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// 1. Extract configuration
 	config := params.StepConfig.Config
-	action := "commit" // This is our specific action
+	action := "commit"
 
 	// 2. Get client_id and response topic
 	clientID := params.ExecutionContext.ClientID
@@ -39,7 +42,6 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 		params.Logger.Warn("ResponsesTopic not set in ExecutionContext, responses may be lost",
 			zap.String("step_name", params.ExecutionContext.StepName),
 		)
-		// Define a default or just log, depending on your system's strictness
 	}
 
 	// 3. Get adapter topic
@@ -49,34 +51,79 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	repoName, _ := config["repo_name"].(string)
 	commitMessage, _ := config["commit_message"].(string)
 
-	// Convert 'files' map from map[string]interface{} to map[string]string
-	filesRaw, _ := config["files"].(map[string]interface{})
+	// 5. Build filesMap - support two modes
 	filesMap := make(map[string]string)
-	for filename, content := range filesRaw {
-		if contentStr, ok := content.(string); ok {
-			filesMap[filename] = contentStr
-		} else {
-			params.Logger.Warn("Skipping non-string file content in commit",
-				zap.String("file", filename),
-				zap.Any("content_type", fmt.Sprintf("%T", content)),
-			)
+
+	// Mode 1: Check for content_field + filename (new simplified approach)
+	if contentField, ok := config["content_field"].(string); ok && contentField != "" {
+		filename, _ := config["filename"].(string)
+		if filename == "" {
+			filename = "index.html" // Default filename
 		}
+
+		// Extract content from CollectedData using the field path
+		content := extractNestedFieldForGit(params.CollectedData, contentField)
+		if content == nil {
+			params.Logger.Error("Content field not found in CollectedData",
+				zap.String("content_field", contentField),
+				zap.Any("available_keys", getMapKeys(params.CollectedData)),
+			)
+			return nil, fmt.Errorf("content_field '%s' not found in CollectedData", contentField)
+		}
+
+		contentStr, ok := content.(string)
+		if !ok {
+			params.Logger.Error("Content is not a string",
+				zap.String("content_field", contentField),
+				zap.String("actual_type", fmt.Sprintf("%T", content)),
+			)
+			return nil, fmt.Errorf("content at '%s' is not a string, got %T", contentField, content)
+		}
+
+		// Strip markdown code fences if present (LLM often wraps HTML in ```html ... ```)
+		contentStr = stripCodeFences(contentStr)
+
+		filesMap[filename] = contentStr
+
+		params.Logger.Info("Built files map from content_field",
+			zap.String("content_field", contentField),
+			zap.String("filename", filename),
+			zap.Int("content_length", len(contentStr)),
+		)
+
+	} else if filesRaw, ok := config["files"].(map[string]interface{}); ok {
+		// Mode 2: Direct files map (existing behavior)
+		for filename, content := range filesRaw {
+			if contentStr, ok := content.(string); ok {
+				filesMap[filename] = contentStr
+			} else {
+				params.Logger.Warn("Skipping non-string file content in commit",
+					zap.String("file", filename),
+					zap.Any("content_type", fmt.Sprintf("%T", content)),
+				)
+			}
+		}
+	} else {
+		return nil, fmt.Errorf("GitCommitAction requires either 'content_field' or 'files' in config")
 	}
 
-	// 5. Build the specific 'data' payload for the adapter's body
+	if len(filesMap) == 0 {
+		return nil, fmt.Errorf("no files to commit")
+	}
+
+	// 6. Build the specific 'data' payload for the adapter's body
 	gitData := map[string]interface{}{
 		"repo_name":      repoName,
 		"files":          filesMap,
 		"commit_message": commitMessage,
 	}
 
-	// 6. Generate a unique request ID for this specific adapter call
+	// 7. Generate a unique request ID for this specific adapter call
 	newRequestID := uuid.New().String()
 
-	// 7. Build the full adapterRequest, matching your example
+	// 8. Build the full adapterRequest
 	adapterRequest := map[string]interface{}{
 		"headers": map[string]interface{}{
-			// Core message identification
 			"correlation_id":          params.ExecutionContext.CorrelationID,
 			"orchestration_id":        params.ExecutionContext.OrchestrationID,
 			"orchestration_name":      params.ExecutionContext.OrchestrationName,
@@ -86,39 +133,27 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 			"step_id":                 params.ExecutionContext.StepID,
 			"request_id":              newRequestID,
 			"message_type":            "request",
-
-			// Sender information
-			"sender_agent_type":    params.ExecutionContext.Sender.AgentType,
-			"sender_agent_id":      params.ExecutionContext.OrchestrationID,
-			"sender_pod_name":      params.ExecutionContext.Sender.PodName,
-			"sender_agent_version": params.ExecutionContext.Sender.AgentVersion,
-			"sender_role":          params.ExecutionContext.Sender.Role,
-
-			// Response routing
-			"responses_topic":        myResponsesTopic,
-			"parent_responses_topic": myResponsesTopic,
-
-			// Additional metadata
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-			"action":    action,
+			"sender_agent_type":       params.ExecutionContext.Sender.AgentType,
+			"sender_agent_id":         params.ExecutionContext.OrchestrationID,
+			"sender_pod_name":         params.ExecutionContext.Sender.PodName,
+			"sender_agent_version":    params.ExecutionContext.Sender.AgentVersion,
+			"sender_role":             params.ExecutionContext.Sender.Role,
+			"responses_topic":         myResponsesTopic,
+			"parent_responses_topic":  myResponsesTopic,
+			"timestamp":               time.Now().UTC().Format(time.RFC3339),
+			"action":                  action,
 		},
 		"body": map[string]interface{}{
-			"action": action,
-			"data":   gitData, // This is our Git-specific payload
-
-			// Response routing in body as well
+			"action":                 action,
+			"data":                   gitData,
 			"reply_to_topic":         myResponsesTopic,
 			"parent_responses_topic": myResponsesTopic,
-
-			// Additional metadata for the adapter
 			"metadata": map[string]interface{}{
 				"requesting_agent_id":   params.ExecutionContext.OrchestrationID,
 				"requesting_agent_type": params.ExecutionContext.Sender.AgentType,
 				"requesting_step":       params.ExecutionContext.StepName,
 				"client_id":             clientID,
 			},
-
-			// Include original request context
 			"request_context": map[string]interface{}{
 				"correlation_id":   params.ExecutionContext.CorrelationID,
 				"orchestration_id": params.ExecutionContext.OrchestrationID,
@@ -127,49 +162,35 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 		},
 	}
 
-	// 8. Marshal the *entire* adapterRequest map
-	// Convert entire request to JSON
+	// 9. Marshal and send
 	messageBytes, err := json.Marshal(adapterRequest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal adapter request: %w", err)
 	}
 
-	// Convert headers to map[string]string for validation
 	rawHeaders := adapterRequest["headers"].(map[string]interface{})
 	headers := make(map[string]string)
-
 	for k, v := range rawHeaders {
 		if str, ok := v.(string); ok {
 			headers[k] = str
 		} else {
-			headers[k] = fmt.Sprintf("%v", v) // fallback stringify for non-string values
+			headers[k] = fmt.Sprintf("%v", v)
 		}
 	}
 
 	key := []byte(params.ExecutionContext.CorrelationID)
 
-	// 9. Send the message to the adapter topic
-	if err := params.Producer.ProduceWithValidation(
-		ctx,
-		adapterTopic,
-		headers,
-		key,
-		messageBytes,
-	); err != nil {
-		return nil, fmt.Errorf("failed to send to webscrape adapter: %w", err)
-	}
-
-	if err != nil {
+	if err := params.Producer.ProduceWithValidation(ctx, adapterTopic, headers, key, messageBytes); err != nil {
 		params.Logger.Error("Failed to send Kafka message to git-adapter", zap.Error(err), zap.String("topic", adapterTopic))
 		return nil, fmt.Errorf("failed to send message to adapter: %w", err)
 	}
 
-	// 10. Return the result struct
+	// 10. Return result
 	result := GitCommitResult{
 		Success:       true,
 		RequestID:     newRequestID,
 		TopicSentTo:   adapterTopic,
-		AwaitResponse: true, // We expect the orchestrator to wait for the adapter's response
+		AwaitResponse: true,
 		Metadata: map[string]interface{}{
 			"repo_name":  repoName,
 			"file_count": len(filesMap),
@@ -177,4 +198,45 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	return result, nil
+}
+
+// extractNestedFieldForGit extracts a value from a nested map using dot notation
+// e.g., "final_site_data.generate_content.result" extracts data["final_site_data"]["generate_content"]["result"]
+func extractNestedFieldForGit(data map[string]interface{}, fieldPath string) interface{} {
+	parts := strings.Split(fieldPath, ".")
+	var current interface{} = data
+
+	for _, part := range parts {
+		if currentMap, ok := current.(map[string]interface{}); ok {
+			current = currentMap[part]
+			if current == nil {
+				return nil
+			}
+		} else {
+			return nil
+		}
+	}
+
+	return current
+}
+
+// stripCodeFences removes markdown code fences (```html ... ``` or ``` ... ```) from content
+func stripCodeFences(content string) string {
+	content = strings.TrimSpace(content)
+
+	// Check for opening fence with language hint (```html, ```xml, etc.)
+	if strings.HasPrefix(content, "```") {
+		// Find end of first line (the opening fence)
+		if idx := strings.Index(content, "\n"); idx != -1 {
+			content = content[idx+1:]
+		}
+	}
+
+	// Check for closing fence
+	if strings.HasSuffix(content, "```") {
+		content = strings.TrimSuffix(content, "```")
+		content = strings.TrimSpace(content)
+	}
+
+	return content
 }
