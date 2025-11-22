@@ -597,7 +597,7 @@ SET default_config = '{
 },
 "input_fields": ["input_data"],
 "output_field": "generated_content",
-"prompt_template": "You are creating website content for {{.input_data.input_data.domain}} with objective: {{.input_data.input_data.objective}}.\n\nHere is the HTML template with placeholders:\n{{.input_data.template_data.assemble_template.stitched_html_template}}\n\nHere are the content requirements (default values to customize):\n{{.input_data.template_data.assemble_template.content_requirements}}\n\nGenerate customized, compelling content for this boxing ticket sales website. Replace the generic placeholder values with boxing-specific, sales-focused copy.\n\nReturn ONLY the complete HTML with all placeholders replaced with actual content. Do not include any explanation."
+"prompt_template": "You are creating website content for {{.input_data.input_data.domain}} with objective: {{.input_data.input_data.objective}}.\n\nHere is the HTML template with placeholders:\n{{.input_data.template_data.assemble_template.stitched_html_template}}\n\nHere are the content requirements (default values to customize):\n{{.input_data.template_data.assemble_template.content_requirements}}\n\nGenerate customized, compelling content for this boxing ticket sales website. Replace the generic placeholder values with boxing-specific, subtle sales-focused copy.\n\nReturn ONLY the complete HTML with all placeholders replaced with actual content. Do not include any explanation."
 },
 "next_step": "complete",
 "description": "Generate customized website content"
@@ -651,3 +651,168 @@ SET default_config = '{
 WHERE type = 'deployer-agent';
 
 
+===
+revised
+===
+
+-- Update the orchestration workflow to properly pass data between agents
+UPDATE agent_group_definitions
+SET
+updated_at = now(),
+orchestration_workflow = $$
+{
+"start_step": "spawn_strategist",
+"steps": {
+"spawn_strategist": {
+"action": "spawn_agent",
+"config": {
+"role": "chief_strategist",
+"agent_type": "chief-strategist"
+},
+"next_step": "spawn_architect",
+"description": "Spawn Chief Strategist"
+},
+"spawn_architect": {
+"action": "spawn_agent",
+"config": {
+"role": "site_component_architect",
+"agent_type": "site-component-architect"
+},
+"next_step": "spawn_content_creator",
+"description": "Spawn Site Component Architect"
+},
+"spawn_content_creator": {
+"action": "spawn_agent",
+"config": {
+"role": "content_creator",
+"agent_type": "content-creator"
+},
+"next_step": "spawn_deployer",
+"description": "Spawn Content Creator"
+},
+"spawn_deployer": {
+"action": "spawn_agent",
+"config": {
+"role": "deployer",
+"agent_type": "deployer-agent"
+},
+"next_step": "call_strategist",
+"description": "Spawn Deployer"
+},
+"call_strategist": {
+"action": "call_agent",
+"description": "Get the Build Plan from the Strategist",
+"config": {
+"agent_type": "chief-strategist",
+"target_role": "chief_strategist",
+"timeout_seconds": 120
+},
+"output_field": "build_plan_data",
+"next_step": "call_architect"
+},
+"call_architect": {
+"action": "call_agent",
+"description": "Build the empty template from the Build Plan",
+"config": {
+"agent_type": "site-component-architect",
+"target_role": "site_component_architect",
+"timeout_seconds": 120,
+"input_fields": ["build_plan_data", "input_data"]
+},
+"output_field": "template_data",
+"next_step": "call_content_creator"
+},
+"call_content_creator": {
+"action": "call_agent",
+"description": "Fill the template with content",
+"config": {
+"agent_type": "content-creator",
+"target_role": "content_creator",
+"input_fields": ["template_data", "build_plan_data", "input_data"],
+"timeout_seconds": 300
+},
+"output_field": "final_site_data",
+"next_step": "call_deployer"
+},
+"call_deployer": {
+"action": "call_agent",
+"description": "Push the final site to Git",
+"config": {
+"agent_type": "deployer-agent",
+"target_role": "deployer",
+"input_fields": ["final_site_data", "input_data"],
+"timeout_seconds": 180
+},
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Site build is complete."
+}
+}
+}
+$$::jsonb
+WHERE group_type = 'mvp-site-builder';
+
+-- Update the site-component-architect agent definition
+UPDATE agent_definitions
+SET
+updated_at = now(),
+default_config = '{
+"workflow": {
+"start_step": "assemble_template",
+"steps": {
+"assemble_template": {
+"action": "assemble_from_library",
+"config": {
+-- "build_plan_field": "build_plan_data",
+"input_fields": ["build_plan_data"]
+},
+"next_step": "complete",
+"description": "Assemble HTML template from component library"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Return the assembled template"
+}
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 180,
+}'::jsonb
+WHERE type = 'site-component-architect';
+
+-- Update the content-creator agent definition with corrected prompt template
+UPDATE agent_definitions
+SET
+updated_at = now(),
+default_config = '{
+"workflow": {
+"start_step": "generate_content",
+"steps": {
+"generate_content": {
+"action": "execute_llm_prompt",
+"config": {
+"ai_service": {
+"provider": "anthropic",
+"model": "claude-3-5-sonnet-20241022",
+"api_key_env_var": "ANTHROPIC_API_KEY",
+"max_tokens": 4000
+},
+"input_fields": ["template_data", "build_plan_data", "input_data"],
+"output_field": "filled_html",
+"prompt_template": "You are a professional website content creator specialising in creating compelling, industry-specific content.\n\nWebsite Details:\n- Domain: {{.input_data.domain}}\n- Objective: {{.input_data.objective}}\n- Model: {{.input_data.model}}\n\nBuild Strategy (from strategist):\n{{.build_plan.result}}\n\nHTML Template to Fill:\n{{.template.stitched_html_template}}\n\nContent Requirements (placeholders to replace):\n{{.template.content_requirements}}\n\nYour Task:\n1. Parse the HTML template and identify ALL placeholder variables (format: {{.placeholder_name}})\n2. For each placeholder, create compelling, industry-specific content that:\n   - Matches the domain ({{.input_data.domain}})\n   - Aligns with the objective ({{.input_data.objective}})\n   - Uses the suggested copy from the build strategy where available\n   - Is subtle, sales-focused and conversion-optimised\n3. Replace EVERY placeholder with actual, high quality, well written, subtle, copy\n\nGuidelines:\n- We do not have real testimonials and we do not want to give fake content so please fill this area with copy that expounds the benefits of our products and services and is domain specific but the people credited to the quotes or statements are like: - Future You -, or - Soon to be Delighted Customer -, or things like that (happy, pleased, delighted, will/would make you want to return).\n- Use action-oriented language for CTAs\n- Include trust signals and security messaging\n- Keep brand consistency throughout\n\nReturn ONLY the complete HTML with all placeholders replaced. No explanations or markdown.\nPlease double check that all placeholders have been replaced with copy."
+},
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Return the filled HTML template",
+"output_field": ["final_html"]
+}
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 300
+}'::jsonb
+WHERE type = 'content-creator';

@@ -166,3 +166,16 @@ Start writing
 
  One attachment  •  Scanned by Gmail
 
+==
+
+[Primary Goal]: I need [output type] that [accomplishes what]
+
+[Context]: This is for [audience/domain], where [what matters]
+
+[Examples & Performance]: Success means [specific observable outcome], not [what failure looks like]
+
+[Constraints]: Focus on [priority], avoid [anti-priority]
+
+[Outcome]: The reader should [what they'll be able to do after]
+
+LLMs perform best with rich context, the more you provide, the better their answers.
