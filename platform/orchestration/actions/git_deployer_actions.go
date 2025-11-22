@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -23,8 +24,8 @@ type GitCommitResult struct {
 
 // GitCommitAction sends a commit request to the configured git-adapter.
 // Supports two modes:
-//   1. Direct files map: config["files"] = {"filename": "content", ...}
-//   2. Content field reference: config["content_field"] = "path.to.content" + config["filename"] = "index.html"
+//  1. Direct files map: config["files"] = {"filename": "content", ...}
+//  2. Content field reference: config["content_field"] = "path.to.content" + config["filename"] = "index.html"
 func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing GitCommitAction",
 		zap.String("step_name", params.ExecutionContext.StepName),
@@ -81,7 +82,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 		}
 
 		// Strip markdown code fences if present (LLM often wraps HTML in ```html ... ```)
-		contentStr = stripCodeFences(contentStr)
+		contentStr = datahelpers.CleanMarkdownJSON(contentStr)
 
 		filesMap[filename] = contentStr
 
@@ -218,25 +219,4 @@ func extractNestedFieldForGit(data map[string]interface{}, fieldPath string) int
 	}
 
 	return current
-}
-
-// stripCodeFences removes markdown code fences (```html ... ``` or ``` ... ```) from content
-func stripCodeFences(content string) string {
-	content = strings.TrimSpace(content)
-
-	// Check for opening fence with language hint (```html, ```xml, etc.)
-	if strings.HasPrefix(content, "```") {
-		// Find end of first line (the opening fence)
-		if idx := strings.Index(content, "\n"); idx != -1 {
-			content = content[idx+1:]
-		}
-	}
-
-	// Check for closing fence
-	if strings.HasSuffix(content, "```") {
-		content = strings.TrimSuffix(content, "```")
-		content = strings.TrimSpace(content)
-	}
-
-	return content
 }
