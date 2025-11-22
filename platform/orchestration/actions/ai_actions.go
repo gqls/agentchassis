@@ -2,13 +2,11 @@
 package actions
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/gqls/agentchassis/platform/aiservice"
@@ -207,7 +205,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	)
 
 	// Render the prompt template
-	renderedPrompt, err := renderPromptTemplate(promptTemplate, templateData, *params.Logger)
+	renderedPrompt, err := datahelpers.RenderPromptTemplate(promptTemplate, templateData, *params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render prompt template: %w", err)
 	}
@@ -375,27 +373,6 @@ func createAIClient(ctx context.Context, aiServiceConfig map[string]interface{})
 	default:
 		return nil, fmt.Errorf("unsupported AI provider: %s", provider)
 	}
-}
-
-func renderPromptTemplate(templateStr string, data map[string]interface{}, logger zap.Logger) (string, error) {
-	tmpl := template.New("agent_prompt")
-	parsedTemplate, err := tmpl.Parse(templateStr)
-	logger.Info("DEBUGaa: parsing template in renderTemplate",
-		zap.String("template", templateStr),
-		zap.Any("data", data),
-		zap.Any("tmpl", tmpl),
-		zap.Any("parsedTemplate", parsedTemplate),
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse template in render template: %w", err)
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
-	}
-
-	return buf.String(), nil
 }
 
 func ConditionalRouteAction(ctx context.Context, params ActionParams) (interface{}, error) {

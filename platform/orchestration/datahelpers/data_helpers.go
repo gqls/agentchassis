@@ -2,9 +2,11 @@
 package datahelpers
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/gqls/agentchassis/platform/orchestration/types"
@@ -1055,4 +1057,25 @@ func CleanMarkdownJSON(s string) string {
 	}
 
 	return strings.TrimSpace(s)
+}
+
+func RenderPromptTemplate(templateStr string, data map[string]interface{}, logger zap.Logger) (string, error) {
+	tmpl := template.New("agent_prompt")
+	parsedTemplate, err := tmpl.Parse(templateStr)
+	logger.Info("DEBUGaa: parsing template in renderTemplate",
+		zap.String("template", templateStr),
+		zap.Any("data", data),
+		zap.Any("tmpl", tmpl),
+		zap.Any("parsedTemplate", parsedTemplate),
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template in render template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	return buf.String(), nil
 }

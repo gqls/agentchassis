@@ -677,6 +677,35 @@ SET default_config = '{
 }'::jsonb
 WHERE type = 'deployer-agent';
 
+
+
+UPDATE agent_definitions
+SET default_config = '{
+"workflow": {
+"start_step": "commit_to_git",
+"steps": {
+"commit_to_git": {
+"action": "git_commit",
+"config": {
+"commit_message": "MVP v1: Initial site build for {{.domain}}",
+"content_field": "input_data.final_site_data.generate_content.result",
+"filename": "index.html",
+"repo_name": "{{.input_data.input_data.domain}}"
+},
+"description": "Commit the generated HTML to git",
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Return the Git repo URL"
+}
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 180
+}'::jsonb
+WHERE type = 'deployer-agent';
+
 ===
 revised
 ===

@@ -49,9 +49,36 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	adapterTopic := "system.adapter.gitcommit.requests"
 
 	// 4. Extract specific parameters from the config
+	// Build template data using existing function
+	templateData := extractDataForGitAgent(params).(map[string]interface{})
+
+	// Extract and resolve template variables
 	repoName, _ := config["repo_name"].(string)
 	commitMessage, _ := config["commit_message"].(string)
 
+	// Resolve templates
+	if strings.Contains(repoName, "{{") {
+		resolved, err := datahelpers.RenderPromptTemplate(repoName, templateData, *params.Logger)
+		if err != nil {
+			params.Logger.Warn("Failed to resolve repo_name template", zap.Error(err))
+		} else {
+			repoName = resolved
+		}
+	}
+
+	if strings.Contains(commitMessage, "{{") {
+		resolved, err := datahelpers.RenderPromptTemplate(commitMessage, templateData, *params.Logger)
+		if err != nil {
+			params.Logger.Warn("Failed to resolve commit_message template", zap.Error(err))
+		} else {
+			commitMessage = resolved
+		}
+	}
+
+	params.Logger.Info("Resolved template values",
+		zap.String("repo_name", repoName),
+		zap.String("commit_message", commitMessage),
+	)
 	// 5. Build filesMap - support two modes
 	filesMap := make(map[string]string)
 
@@ -219,4 +246,126 @@ func extractNestedFieldForGit(data map[string]interface{}, fieldPath string) int
 	}
 
 	return current
+}
+
+// extractDataForGitAgent merges data from multiple sources specified in the step's 'input_fields' config.
+// very similar to extractDataForAgent and extractDataForAIAgent - needs consolidation
+func extractDataForGitAgent(params ActionParams) interface{} {
+	params.Logger.Info("Extracting data for AI agent",
+		zap.Any("available_keys", GetMapKeys(params.CollectedData)),
+	)
+
+	templateData := make(map[string]interface{})
+
+	// 1. Determine inputs to fetch
+	var inputFields []string
+	if fields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
+		for _, fieldInterface := range fields {
+			if field, ok := fieldInterface.(string); ok {
+				inputFields = append(inputFields, field)
+			}
+		}
+	} else {
+		params.Logger.Warn("No 'input_fields' found in config, defaulting to ['input_data']")
+		inputFields = []string{"input_data"}
+	}
+
+	params.Logger.Info("Processing input_fields", zap.Strings("fields", inputFields))
+
+	// Get input_data once for reuse
+	inputDataMap := datahelpers.GetInputData(params.CollectedData, params.Logger)
+
+	// Check for double-nesting and unwrap if needed
+	if nestedInputData, ok := inputDataMap["input_data"].(map[string]interface{}); ok {
+		params.Logger.Warn("Detected double-nested input_data, unwrapping")
+		inputDataMap = nestedInputData
+	}
+
+	// 2. Smart Extraction Loop
+	for _, fieldName := range inputFields {
+
+		// Scenario A: "input_data" keyword (Legacy/Bulk behavior)
+		// Flattens the entire input_data map into the template root
+		if fieldName == "input_data" {
+			for key, val := range inputDataMap {
+				templateData[key] = val
+			}
+			params.Logger.Info("Flattened input_data to root", zap.Int("field_count", len(inputDataMap)))
+			continue
+		}
+
+		// Scenario B: Specific Field Lookup
+		var foundValue interface{}
+		var found bool
+		var foundPath string
+
+		// Check 1: Direct lookup in CollectedData
+		if val, ok := datahelpers.GetValueByPath(params.CollectedData, fieldName, params.Logger); ok {
+			foundValue = val
+			found = true
+			foundPath = fieldName
+		}
+
+		// Check 2: Look in the unwrapped input_data map directly
+		if !found && inputDataMap != nil {
+			if val, ok := inputDataMap[fieldName]; ok {
+				foundValue = val
+				found = true
+				foundPath = "input_data." + fieldName
+				params.Logger.Debug("Found field in input_data", zap.String("field", fieldName))
+			}
+		}
+
+		// Check 3: Try dot notation in CollectedData
+		if !found {
+			if val, ok := datahelpers.GetValueByPath(params.CollectedData, "input_data."+fieldName, params.Logger); ok {
+				foundValue = val
+				found = true
+				foundPath = "input_data." + fieldName
+			}
+		}
+
+		// Check 4: Look inside __raw_message__
+		if !found {
+			if raw, ok := params.CollectedData["__raw_message__"].(map[string]interface{}); ok {
+				if val, ok := datahelpers.GetValueByPath(raw, fieldName, params.Logger); ok {
+					foundValue = val
+					found = true
+					foundPath = "__raw_message__." + fieldName
+				}
+			}
+		}
+
+		if found {
+			// Use the simple field name for the template key
+			// e.g. if we found "input_data.domain", store as "domain"
+			keyParts := strings.Split(fieldName, ".")
+			simpleKey := keyParts[len(keyParts)-1]
+
+			templateData[simpleKey] = foundValue
+			params.Logger.Info("Extracted field",
+				zap.String("field", fieldName),
+				zap.String("template_key", simpleKey),
+				zap.String("found_at", foundPath),
+				zap.Any("value", foundValue),
+			)
+		} else {
+			params.Logger.Warn("Requested input_field not found",
+				zap.String("field", fieldName),
+				zap.Strings("checked_paths", []string{
+					fieldName,
+					"input_data." + fieldName,
+					"CollectedData[input_data][" + fieldName + "]",
+					"__raw_message__." + fieldName,
+				}),
+			)
+		}
+	}
+
+	params.Logger.Info("Final template data",
+		zap.Any("template_data", templateData),
+		zap.Int("field_count", len(templateData)),
+	)
+
+	return templateData
 }
