@@ -16,6 +16,7 @@ type AdapterHeaders struct {
 	CorrelationID   string `json:"correlation_id"`
 	OrchestrationID string `json:"orchestration_id"`
 	RequestID       string `json:"request_id"`
+	ClientID        string `json:"client_id"`
 
 	// Parent context (critical for orchestration)
 	ParentOrchestrationID string `json:"parent_orchestration_id,omitempty"`

@@ -300,6 +300,7 @@ func (a *GitAdapter) processMessage(msg *kafka.Message) {
 	a.logger.Debug("Processing message",
 		zap.String("topic", msg.Topic),
 		zap.Int64("offset", msg.Offset),
+		zap.Any("headers", msg.Headers),
 	)
 
 	// Parse the request
@@ -313,7 +314,7 @@ func (a *GitAdapter) processMessage(msg *kafka.Message) {
 	}
 
 	// Validate request
-	responsesTopic := req.Headers.ResponsesTopic
+	responsesTopic := req.Headers.ClientID
 	if responsesTopic == "" {
 		a.logger.Error("No responses_topic in headers",
 			zap.String("request_id", req.Headers.RequestID),
@@ -321,11 +322,12 @@ func (a *GitAdapter) processMessage(msg *kafka.Message) {
 		return
 	}
 
-	a.logger.Info("Handling request",
+	a.logger.Info("In adapter processsMessage Handling request",
 		zap.String("action", req.Body.Action),
 		zap.String("request_id", req.Headers.RequestID),
 		zap.String("correlation_id", req.Headers.CorrelationID),
 		zap.String("responses_topic", responsesTopic),
+		zap.Any("DEBUGaa: request headers", req.Headers),
 	)
 
 	// Handle the request based on action and get response payload
@@ -499,11 +501,14 @@ func (a *GitAdapter) sendSuccessResponse(topic string, requestHeaders AdapterHea
 	// Build response headers as map[string]string for ProduceWithValidation
 	responseHeaders := map[string]string{
 		// Core orchestration context
-		"correlation_id":          requestHeaders.CorrelationID,
-		"orchestration_id":        requestHeaders.OrchestrationID,
-		"request_id":              requestHeaders.RequestID,
-		"parent_request_id":       requestHeaders.ParentRequestID,
-		"parent_orchestration_id": requestHeaders.ParentOrchestrationID,
+		"correlation_id":            requestHeaders.CorrelationID,
+		"orchestration_id":          requestHeaders.OrchestrationID,
+		"client_id":                 requestHeaders.ClientID,
+		"request_id":                requestHeaders.RequestID,
+		"parent_request_id":         requestHeaders.ParentRequestID,
+		"parent_orchestration_id":   requestHeaders.ParentOrchestrationID,
+		"in_response_to_request_id": requestHeaders.RequestID,
+		"in_response_to_step_name":  requestHeaders.StepName,
 
 		// Response metadata
 		"message_type": "response",
@@ -512,8 +517,9 @@ func (a *GitAdapter) sendSuccessResponse(topic string, requestHeaders AdapterHea
 		"status":       "success",
 
 		// Agent identification
-		"from_agent":      a.adapterID.String(),
-		"from_agent_type": "git-adapter",
+		"sender_agent_id":   a.adapterID.String(),
+		"sender_agent_type": "git-adapter",
+		"sender_pod_name":   os.Getenv("HOSTNAME"),
 
 		// Resource tracking
 		"fuel_used": "10",
@@ -564,11 +570,14 @@ func (a *GitAdapter) sendErrorResponse(topic string, requestHeaders AdapterHeade
 	// Build response headers as map[string]string for ProduceWithValidation
 	responseHeaders := map[string]string{
 		// Core orchestration context
-		"correlation_id":          requestHeaders.CorrelationID,
-		"orchestration_id":        requestHeaders.OrchestrationID,
-		"request_id":              requestHeaders.RequestID,
-		"parent_request_id":       requestHeaders.ParentRequestID,
-		"parent_orchestration_id": requestHeaders.ParentOrchestrationID,
+		"correlation_id":            requestHeaders.CorrelationID,
+		"orchestration_id":          requestHeaders.OrchestrationID,
+		"client_id":                 requestHeaders.ClientID,
+		"request_id":                requestHeaders.RequestID,
+		"parent_request_id":         requestHeaders.ParentRequestID,
+		"parent_orchestration_id":   requestHeaders.ParentOrchestrationID,
+		"in_response_to_request_id": requestHeaders.RequestID,
+		"in_response_to_step_name":  requestHeaders.StepName,
 
 		// Error-specific metadata
 		"message_type": "response",
@@ -577,8 +586,9 @@ func (a *GitAdapter) sendErrorResponse(topic string, requestHeaders AdapterHeade
 		"timestamp":    time.Now().UTC().Format(time.RFC3339),
 
 		// Agent identification
-		"from_agent":      a.adapterID.String(),
-		"from_agent_type": "git-adapter",
+		"sender_agent_id":   a.adapterID.String(),
+		"sender_agent_type": "git-adapter",
+		"sender_pod_name":   os.Getenv("HOSTNAME"),
 
 		// Resource tracking
 		"fuel_used": "5",

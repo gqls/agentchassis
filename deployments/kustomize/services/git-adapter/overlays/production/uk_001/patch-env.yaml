@@ -14,7 +14,7 @@ spec:
             - name: KAFKA_BROKERS
               value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
             - name: GITHUB_ORG
-              value: "Personae"
+              value: "gqls"
             - name: GITHUB_API_BASE
               value: https://api.github.com
             - name: RESPONSES_TOPIC

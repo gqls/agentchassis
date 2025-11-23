@@ -706,6 +706,33 @@ SET default_config = '{
 }'::jsonb
 WHERE type = 'deployer-agent';
 
+UPDATE agent_definitions
+SET default_config = '{
+"workflow": {
+"start_step": "commit_to_git",
+"steps": {
+"commit_to_git": {
+"action": "git_commit",
+"config": {
+"commit_message": "MVP v1: Initial site build for {{.domain}}",
+"content_field": "input_data.final_site_data.generate_content.result",
+"filename": "index.html",
+"repo_name": "{{.reponame}}"
+},
+"description": "Commit the generated HTML to git",
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Return the Git repo URL"
+}
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 180
+}'::jsonb
+WHERE type = 'deployer-agent';
+
 ===
 revised
 ===
@@ -856,7 +883,7 @@ default_config = '{
 },
 "input_fields": ["template_data", "build_plan_data", "input_data"],
 "output_field": "filled_html",
-"prompt_template": "You are a professional website content creator specialising in creating compelling, industry-specific content.\n\nWebsite Details:\n- Domain: {{.domain}}\n- Objective: {{.objective}}\n- Model: {{.model}}\n\nBuild Strategy (from strategist):\n{{.build_plan_data.generate_build_plan.result}}\n\nHTML Template to Fill:\n{{.template_data.assemble_template.stitched_html_template}}\n\nContent Requirements (placeholders to replace):\n{{.template_data.assemble_template.content_requirements}}\n\nYour Task:\n1. Parse the HTML template and identify ALL placeholder variables (format: {{.placeholder_name}})\n2. For each placeholder, create compelling, industry-specific content that:\n   - Matches the domain ({{.domain}})\n   - Aligns with the objective ({{.objective}})\n   - Uses the suggested copy from the build strategy where available\n   - Is subtle, sales-focused and conversion-optimised\n3. Replace EVERY placeholder with actual, high quality, well written, subtle, copy\n\nGuidelines:\n- We do not have real testimonials and we do not want to give fake content so please fill this area with copy that expounds the benefits of our products and services and is domain specific but the people credited to the quotes or statements are like: [Future You], or [Soon to be Delighted Customer] -, or other non-fake endorsements like that. (happy, pleased, delighted, will/would make you want to return).\n- Use action-oriented language for CTAs\n- Include trust signals and security messaging\n- Keep brand consistency throughout\n\nReturn ONLY the complete HTML with all placeholders replaced. No explanations or markdown.\nPlease double check that all placeholders have been replaced with copy."
+"prompt_template": "You are a professional website content creator specialising in creating compelling, industry-specific content.\n\nWebsite Details:\n- Domain: {{.domain}}\n- Objective: {{.objective}}\n- Model: {{.model}}\n\nBuild Strategy (from strategist):\n{{.build_plan_data.generate_build_plan.result}}\n\nHTML Template to Fill:\n{{.template_data.assemble_template.stitched_html_template}}\n\nContent Requirements (placeholders to replace):\n{{.template_data.assemble_template.content_requirements}}\n\nYour Task:\n1. Parse the HTML template and identify ALL placeholder variables (format: {{.placeholder_name}})\n2. For each placeholder, create compelling, industry-specific content that:\n   - Matches the domain ({{.domain}})\n   - Aligns with the objective ({{.objective}})\n   - Uses the suggested copy from the build strategy where available\n   - Is subtle, sales-focused and conversion-optimised\n3. Replace EVERY placeholder with actual, high quality, well written, subtle, copy\n\nGuidelines:\n- We do not have real testimonials and we do not want to give fake content so please fill this area with copy that expounds the benefits of our products and services and is domain specific but the people credited to the quotes or statements are like: Future You, or Soon to be Delighted Customer, or other non-fake endorsements like that. (happy, pleased, delighted, will/would make you want to return).\n- Use action-oriented language for CTAs\n- Include trust signals and security messaging\n- Keep brand consistency throughout\n\nReturn ONLY the complete HTML with all placeholders replaced. No explanations or markdown.\nPlease double check that all placeholders have been replaced with copy."
 },
 "next_step": "complete"
 },

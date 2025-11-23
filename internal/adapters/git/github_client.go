@@ -59,6 +59,11 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 		return "", fmt.Errorf("repo_name and files are required")
 	}
 
+	c.log.Info("Committing to repo",
+		zap.String("repo_name", data.RepoName),
+		zap.Any("DEBUGaa: data", data),
+	)
+
 	// 1. Create or Get the Repo
 	repo, err := c.createOrGetRepo(ctx, data.RepoName)
 	if err != nil {
@@ -117,6 +122,11 @@ func (c *GitHubClient) createOrGetRepo(ctx context.Context, repoName string) (*G
 	owner := c.getRepoOwner()
 	url := fmt.Sprintf("%s/repos/%s/%s", c.apiBase, owner, repoName)
 	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+
+	c.log.Info("In createOrGetRepo github_client.go GitHub repo",
+		zap.String("url", url),
+		zap.String("owner", owner),
+	)
 
 	repo := &GitHubRepo{}
 	if err := c.sendGitHubRequest(req, &repo); err == nil {
