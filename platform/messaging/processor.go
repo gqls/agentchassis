@@ -223,7 +223,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		agentDef.DefaultConfig["workflow"] = workflow
 	}
 
-	msgCtx.Logger.Info("Agent definition loaded",
+	msgCtx.Logger.Info("in processor process Agent definition loaded",
 		zap.String("display_name", agentDef.DisplayName),
 		zap.String("category", agentDef.Category),
 		zap.Any("DEBUGaa: about to select Workflow", agentDef),

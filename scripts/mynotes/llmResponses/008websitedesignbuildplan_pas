@@ -1,0 +1,120 @@
+"template_data": {
+          "assemble_template": {
+            "component_ids": [
+              "3f2fb70c-74c3-463b-a987-a3ee3767819d",
+              "ad64fada-3e73-493d-b906-bf32517031f0",
+              "1b10c1e5-e505-4cbf-8324-55c5c4e94750",
+              "94e29a23-aac6-4479-a240-00d19f0a47d0",
+              "6175e049-4a2a-4e91-9db2-acbe325a2bca",
+              "d91e7be1-65ed-4a6d-b694-1f9a0ddfcd59",
+              "dd161c04-ef97-46da-b3ae-6e64819d12f9",
+              "fe11c787-919f-4965-9f3d-c90ec4cdf1c8"
+            ],
+            "content_requirements": {
+              "component_call_to_action_6": {
+                "headline": "Ready to Get Started?",
+                "primary_button": "Start Free Trial",
+                "secondary_button": "Schedule Demo",
+                "subheadline": "Join thousands of satisfied customers today"
+              },
+              "component_faq_5": {
+                "answer_1": "Our platform is designed to be intuitive and easy to use. Simply sign up, configure your settings, and start seeing results.",
+                "answer_2": "We accept all major credit cards, PayPal, and bank transfers for annual plans.",
+                "answer_3": "Yes! You can cancel your subscription at any time with no penalties or fees.",
+                "answer_4": "Absolutely! We offer 24/7 support via email, chat, and phone for all our customers.",
+                "question_1": "How does it work?",
+                "question_2": "What payment methods do you accept?",
+                "question_3": "Can I cancel anytime?",
+                "question_4": "Do you offer customer support?",
+                "section_title": "Frequently Asked Questions"
+              },
+              "component_features_2": {
+                "feature_1_description": "Lightning-fast performance you can count on",
+                "feature_1_title": "Fast & Reliable",
+                "feature_2_description": "Bank-level security for your peace of mind",
+                "feature_2_title": "Secure",
+                "feature_3_description": "Works perfectly on any device",
+                "feature_3_title": "Mobile Ready",
+                "feature_4_description": "Always here when you need us",
+                "feature_4_title": "24/7 Support",
+                "icon_1": "✓",
+                "icon_2": "🔒",
+                "icon_3": "📱",
+                "icon_4": "💪",
+                "section_title": "Why Choose Us"
+              },
+              "component_footer_7": {
+                "brand_name": "Your Brand",
+                "copyright": "© 2024 Your Company. All rights reserved.",
+                "tagline": "Making the world a better place"
+              },
+              "component_header_0": {
+                "brand_name": "Your Brand",
+                "cta_text": "Get Started"
+              },
+              "component_hero_1": {
+                "headline": "Transform Your Business Today",
+                "primary_cta": "Get Started Now",
+                "secondary_cta": "Learn More",
+                "subheadline": "The ultimate solution for modern teams"
+              },
+              "component_pricing_4": {
+                "section_title": "Choose Your Plan",
+                "tier_1_cta": "Get Started",
+                "tier_1_feature_1": "Basic features",
+                "tier_1_feature_2": "Up to 10 users",
+                "tier_1_feature_3": "Email support",
+                "tier_1_name": "Basic",
+                "tier_1_price": "$29/mo",
+                "tier_2_cta": "Start Free Trial",
+                "tier_2_feature_1": "All Basic features",
+                "tier_2_feature_2": "Up to 50 users",
+                "tier_2_feature_3": "Priority support",
+                "tier_2_feature_4": "Advanced analytics",
+                "tier_2_name": "Pro",
+                "tier_2_price": "$79/mo",
+                "tier_3_cta": "Contact Sales",
+                "tier_3_feature_1": "All Pro features",
+                "tier_3_feature_2": "Unlimited users",
+                "tier_3_feature_3": "24/7 phone support",
+                "tier_3_feature_4": "Custom integrations",
+                "tier_3_feature_5": "Dedicated account manager",
+                "tier_3_name": "Enterprise",
+                "tier_3_price": "$199/mo"
+              },
+              "component_social_proof_3": {
+                "author_1": "Jane Smith, CEO",
+                "author_2": "John Doe, Founder",
+                "author_3": "Sarah Johnson, Manager",
+                "stat_label": "Happy Customers",
+                "stat_number": "50,000+",
+                "testimonial_1": "This product changed everything for our team.",
+                "testimonial_2": "Best decision we made this year.",
+                "testimonial_3": "Incredible results in just 30 days."
+              }
+            },
+            "stitched_html_template": "<header id=\"component_header_0\" class=\"site-header\">\n  <nav class=\"site-header__nav container\">\n    <div class=\"site-header__brand\">{{.brand_name}}</div>\n    <ul class=\"site-header__menu\">\n      <li class=\"site-header__menu-item\"><a href=\"#hero\" class=\"site-header__link\">Home</a></li>\n      <li class=\"site-header__menu-item\"><a href=\"#features\" class=\"site-header__link\">Features</a></li>\n      <li class=\"site-header__menu-item\"><a href=\"#pricing\" class=\"site-header__link\">Pricing</a></li>\n      <li class=\"site-header__menu-item\"><a href=\"#faq\" class=\"site-header__link\">FAQ</a></li>\n    </ul>\n    <a href=\"#call_to_action\" class=\"button button--primary button--small\">{{.cta_text}}</a>\n  </nav>\n</header>\n<section id=\"component_hero_1\" class=\"section section--hero\">\n  <div class=\"container hero\">\n    <h1 class=\"hero__title\">{{.headline}}</h1>\n    <p class=\"hero__subtitle\">{{.subheadline}}</p>\n    <div class=\"hero__actions\">\n      <a href=\"#pricing\" class=\"button button--primary button--large\">{{.primary_cta}}</a>\n      <a href=\"#features\" class=\"button button--secondary button--large\">{{.secondary_cta}}</a>\n    </div>\n  </div>\n</section>\n<section id=\"component_features_2\" class=\"section section--features\">\n  <div class=\"container\">\n    <h2 class=\"section__title section__title--center\">{{.section_title}}</h2>\n    <div class=\"features grid grid--4\">\n      <div class=\"feature\">\n        <div class=\"feature__icon\">{{.icon_1}}</div>\n        <h3 class=\"feature__title\">{{.feature_1_title}}</h3>\n        <p class=\"feature__description\">{{.feature_1_description}}</p>\n      </div>\n      <div class=\"feature\">\n        <div class=\"feature__icon\">{{.icon_2}}</div>\n        <h3 class=\"feature__title\">{{.feature_2_title}}</h3>\n        <p class=\"feature__description\">{{.feature_2_description}}</p>\n      </div>\n      <div class=\"feature\">\n        <div class=\"feature__icon\">{{.icon_3}}</div>\n        <h3 class=\"feature__title\">{{.feature_3_title}}</h3>\n        <p class=\"feature__description\">{{.feature_3_description}}</p>\n      </div>\n      <div class=\"feature\">\n        <div class=\"feature__icon\">{{.icon_4}}</div>\n        <h3 class=\"feature__title\">{{.feature_4_title}}</h3>\n        <p class=\"feature__description\">{{.feature_4_description}}</p>\n      </div>\n    </div>\n  </div>\n</section>\n<section id=\"component_social_proof_3\" class=\"section section--social-proof\">\n  <div class=\"container\">\n    <div class=\"stat-highlight\">\n      <div class=\"stat-highlight__number\">{{.stat_number}}</div>\n      <div class=\"stat-highlight__label\">{{.stat_label}}</div>\n    </div>\n    <div class=\"testimonials grid grid--3\">\n      <div class=\"testimonial card\">\n        <div class=\"testimonial__rating\">★★★★★</div>\n        <p class=\"testimonial__text\">\"{{.testimonial_1}}\"</p>\n        <p class=\"testimonial__author\">{{.author_1}}</p>\n      </div>\n      <div class=\"testimonial card\">\n        <div class=\"testimonial__rating\">★★★★★</div>\n        <p class=\"testimonial__text\">\"{{.testimonial_2}}\"</p>\n        <p class=\"testimonial__author\">{{.author_2}}</p>\n      </div>\n      <div class=\"testimonial card\">\n        <div class=\"testimonial__rating\">★★★★★</div>\n        <p class=\"testimonial__text\">\"{{.testimonial_3}}\"</p>\n        <p class=\"testimonial__author\">{{.author_3}}</p>\n      </div>\n    </div>\n  </div>\n</section>\n<section id=\"component_pricing_4\" class=\"section section--pricing\">\n  <div class=\"container\">\n    <h2 class=\"section__title section__title--center\">{{.section_title}}</h2>\n    <div class=\"pricing-tiers grid grid--3\">\n      <div class=\"pricing-tier card\">\n        <h3 class=\"pricing-tier__name\">{{.tier_1_name}}</h3>\n        <div class=\"pricing-tier__price\">{{.tier_1_price}}</div>\n        <ul class=\"pricing-tier__features\">\n          <li class=\"pricing-tier__feature\">{{.tier_1_feature_1}}</li>\n          <li class=\"pricing-tier__feature\">{{.tier_1_feature_2}}</li>\n          <li class=\"pricing-tier__feature\">{{.tier_1_feature_3}}</li>\n        </ul>\n        <a href=\"#\" class=\"button button--secondary button--full-width\">{{.tier_1_cta}}</a>\n      </div>\n      <div class=\"pricing-tier pricing-tier--featured card\">\n        <div class=\"pricing-tier__badge\">Popular</div>\n        <h3 class=\"pricing-tier__name\">{{.tier_2_name}}</h3>\n        <div class=\"pricing-tier__price\">{{.tier_2_price}}</div>\n        <ul class=\"pricing-tier__features\">\n          <li class=\"pricing-tier__feature\">{{.tier_2_feature_1}}</li>\n          <li class=\"pricing-tier__feature\">{{.tier_2_feature_2}}</li>\n          <li class=\"pricing-tier__feature\">{{.tier_2_feature_3}}</li>\n          <li class=\"pricing-tier__feature\">{{.tier_2_feature_4}}</li>\n        </ul>\n        <a href=\"#\" class=\"button button--primary button--full-width\">{{.tier_2_cta}}</a>\n      </div>\n      <div class=\"pricing-tier card\">\n        <h3 class=\"pricing-tier__name\">{{.tier_3_name}}</h3>\n        <div class=\"pricing-tier__price\">{{.tier_3_price}}</div>\n        <ul class=\"pricing-tier__features\">\n          <li class=\"pricing-tier__feature\">{{.tier_3_feature_1}}</li>\n          <li class=\"pricing-tier__feature\">{{.tier_3_feature_2}}</li>\n          <li class=\"pricing-tier__feature\">{{.tier_3_feature_3}}</li>\n          <li class=\"pricing-tier__feature\">{{.tier_3_feature_4}}</li>\n          <li class=\"pricing-tier__feature\">{{.tier_3_feature_5}}</li>\n        </ul>\n        <a href=\"#\" class=\"button button--secondary button--full-width\">{{.tier_3_cta}}</a>\n      </div>\n    </div>\n  </div>\n</section>\n<section id=\"component_faq_5\" class=\"section section--faq\">\n  <div class=\"container container--narrow\">\n    <h2 class=\"section__title section__title--center\">{{.section_title}}</h2>\n    <div class=\"faq-list\">\n      <details class=\"faq-item\">\n        <summary class=\"faq-item__question\">{{.question_1}}</summary>\n        <p class=\"faq-item__answer\">{{.answer_1}}</p>\n      </details>\n      <details class=\"faq-item\">\n        <summary class=\"faq-item__question\">{{.question_2}}</summary>\n        <p class=\"faq-item__answer\">{{.answer_2}}</p>\n      </details>\n      <details class=\"faq-item\">\n        <summary class=\"faq-item__question\">{{.question_3}}</summary>\n        <p class=\"faq-item__answer\">{{.answer_3}}</p>\n      </details>\n      <details class=\"faq-item\">\n        <summary class=\"faq-item__question\">{{.question_4}}</summary>\n        <p class=\"faq-item__answer\">{{.answer_4}}</p>\n      </details>\n    </div>\n  </div>\n</section>\n<section id=\"component_call_to_action_6\" class=\"section section--cta\">\n  <div class=\"container container--narrow cta\">\n    <h2 class=\"cta__title\">{{.headline}}</h2>\n    <p class=\"cta__subtitle\">{{.subheadline}}</p>\n    <div class=\"cta__actions\">\n      <a href=\"#\" class=\"button button--primary-inverse button--large\">{{.primary_button}}</a>\n      <a href=\"#\" class=\"button button--secondary-inverse button--large\">{{.secondary_button}}</a>\n    </div>\n  </div>\n</section>\n<footer id=\"component_footer_7\" class=\"site-footer\">\n  <div class=\"container\">\n    <div class=\"site-footer__content grid grid--4\">\n      <div class=\"site-footer__col\">\n        <h3 class=\"site-footer__brand\">{{.brand_name}}</h3>\n        <p class=\"site-footer__tagline\">{{.tagline}}</p>\n      </div>\n      <div class=\"site-footer__col\">\n        <h4 class=\"site-footer__heading\">Product</h4>\n        <ul class=\"site-footer__links\">\n          <li><a href=\"#features\" class=\"site-footer__link\">Features</a></li>\n          <li><a href=\"#pricing\" class=\"site-footer__link\">Pricing</a></li>\n          <li><a href=\"#\" class=\"site-footer__link\">Updates</a></li>\n        </ul>\n      </div>\n      <div class=\"site-footer__col\">\n        <h4 class=\"site-footer__heading\">Company</h4>\n        <ul class=\"site-footer__links\">\n          <li><a href=\"#\" class=\"site-footer__link\">About</a></li>\n          <li><a href=\"#\" class=\"site-footer__link\">Blog</a></li>\n          <li><a href=\"#\" class=\"site-footer__link\">Careers</a></li>\n        </ul>\n      </div>\n      <div class=\"site-footer__col\">\n        <h4 class=\"site-footer__heading\">Legal</h4>\n        <ul class=\"site-footer__links\">\n          <li><a href=\"#\" class=\"site-footer__link\">Privacy</a></li>\n          <li><a href=\"#\" class=\"site-footer__link\">Terms</a></li>\n          <li><a href=\"#\" class=\"site-footer__link\">Contact</a></li>\n        </ul>\n      </div>\n    </div>\n    <div class=\"site-footer__bottom\">\n      <p class=\"site-footer__copyright\">{{.copyright}}</p>\n    </div>\n  </div>\n</footer>\n"
+          },
+          "input_data": {
+            "build_plan_data": {
+              "generate_build_plan": {
+                "result": "```json\n{\n  \"sections\": [\n    {\n      \"component\": \"header\",\n      \"copy_structure\": \"Brand + Value Proposition\",\n      \"suggested_copy\": \"website-design.com | AI-Powered Web Design in Minutes\",\n      \"graphics_style\": \"Minimalist, modern tech aesthetic with subtle AI motifs\"\n    },\n    {\n      \"component\": \"hero\",\n      \"copy_structure\": \"Problem Statement (PAS - Problem)\",\n      \"suggested_copy\": \"Tired of expensive web designers? Slow turnarounds? Limited revisions? Your AI web design solution is here.\",\n      \"graphics_style\": \"Split-screen: frustrated designer on left, sleek AI interface on right; animated gradient background\"\n    },\n    {\n      \"component\": \"features\",\n      \"copy_structure\": \"Agitation + Solution (PAS - Agitation & Solution)\",\n      \"suggested_copy\": [\n        \"Feature 1: 'Stop waiting weeks for designs' → 'Get professional websites in hours'\",\n        \"Feature 2: 'End budget overruns' → 'Fixed, affordable pricing'\",\n        \"Feature 3: 'Eliminate revision bottlenecks' → 'Unlimited AI-powered iterations'\",\n        \"Feature 4: 'No design skills needed' → 'Intuitive drag-and-drop AI builder'\"\n      ],\n      \"graphics_style\": \"Icon-driven cards with before/after comparisons; vibrant accent colors; motion graphics showing speed\"\n    },\n    {\n      \"component\": \"social_proof\",\n      \"copy_structure\": \"Credibility & Trust (PAS - Solution validation)\",\n      \"suggested_copy\": \"5,000+ businesses designed | 4.9/5 star rating | 'Saved us $15K in design costs' - TechStartup CEO\",\n      \"graphics_style\": \"Client logos, testimonial video snippets, animated rating stars, case study thumbnails\"\n    },\n    {\n      \"component\": \"pricing\",\n      \"copy_structure\": \"Value Clarity (PAS - Solution reinforcement)\",\n      \"suggested_copy\": \"Starter: $49/mo | Pro: $149/mo | Enterprise: Custom | 'All plans include unlimited designs'\",\n      \"graphics_style\": \"Clean comparison table with checkmarks, money-back guarantee badge, savings calculator visualization\"\n    },\n    {\n      \"component\": \"faq\",\n      \"copy_structure\": \"Objection Handling (PAS - Addressing remaining friction)\",\n      \"suggested_copy\": [\n        \"Q: 'Will AI designs look generic?' A: 'Our AI learns your brand identity for custom, unique designs'\",\n        \"Q: 'Can I edit designs myself?' A: 'Yes, full customization available in our editor'\",\n        \"Q: 'What about SEO?' A: 'All designs are SEO-optimized by default'\"\n      ],\n      \"graphics_style\": \"Accordion layout with icons; subtle background patterns; helpful illustrations\"\n    },\n    {\n      \"component\": \"call_to_action\",\n      \"copy_structure\": \"Urgency + Clear Action (PAS - Final push to solution)\",\n      \"suggested_copy\": \"Start Your Free AI Design Today | 14-Day Free Trial, No Credit Card Required | Limited Time: Get 50% Off First 3 Months\",\n      \"graphics_style\": \"Contrasting CTA button (neon/vibrant), countdown timer animation, risk-reversal guarantee seal\"\n    },\n    {\n      \"component\": \"footer\",\n      \"copy_structure\": \"Trust & Navigation\",\n      \"suggested_copy\": \"© website-design.com | Security Certified | Privacy Policy | Contact Support | Follow Us\",\n      \"graphics_style\": \"Dark background, trust badges, social media icons, subtle tech pattern\"\n    }\n  ]\n}\n```",
+                "type": "text"
+              },
+              "input_data": {
+                "domain": "website-design.com",
+                "model": "PAS",
+                "objective": "ai webdesign services",
+                "reponame": "website-design-com"
+              }
+            },
+            "input_data": {
+              "domain": "website-design.com",
+              "model": "PAS",
+              "objective": "ai webdesign services",
+              "reponame": "website-design-com"
+            }
+          }
+        }
+      }
+    },
