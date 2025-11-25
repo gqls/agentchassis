@@ -456,6 +456,39 @@ default_config = '{
 WHERE type = 'chief-strategist';
 
 
+-- reduce sections to reduce size for testing
+-- was [header, hero, features, social_proof, pricing, faq, call_to_action, footer]
+UPDATE agent_definitions
+SET
+updated_at = now(),
+default_config = '{
+"workflow": {
+"start_step": "generate_build_plan",
+"steps": {
+"generate_build_plan": {
+"action": "execute_llm_prompt",
+"description": "Create the Build Plan",
+"config": {
+`"ai_service": {
+"provider": "anthropic",
+"model": "claude-haiku-4-5-20251001",
+"api_key_env_var": "ANTHROPIC_API_KEY"
+},`
+"input_data": ["domain", "objective", "model"],
+"prompt_template": "You are a Chief Marketing Strategist. Client: {{.domain}}. Objective: {{.objective}}. Model: {{.model}}. \n\nAvailable Components: [header, hero, features, social_proof, footer].\n\nBased on the {{.model}} model, select the best sequence of components. Then for each component devise a plan for the copy structure, suggested copy and suggested graphics style that suits the objective {{ .objective }} and the marketing model {{ .model }}.\nOutput JSON ONLY: {\"sections\": [\"component_name\", ...] }"
+},
+"output_field": "build_plan_json",
+"next_step": "complete"
+},
+"complete": { "action": "complete_workflow" }
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 120
+}'::jsonb
+WHERE type = 'chief-strategist';
+
+
 UPDATE agent_group_definitions
 SET
 updated_at = now(),
@@ -762,6 +795,36 @@ SET default_config = '{
 }'::jsonb
 WHERE type = 'deployer-agent';
 
+UPDATE agent_definitions
+SET default_config = '{
+"workflow": {
+"start_step": "commit_to_git",
+"steps": {
+"commit_to_git": {
+"action": "git_commit",
+"config": {
+"input_fields": ["input_data"],
+"repo_name": "sites",
+"domain_field": "domain",
+"commit_message": "Update site: {{.domain}}",
+"content_field": "input_data.final_site_data.generate_content.result",
+"filename": "index.html"
+},
+"description": "Commit to sites repo",
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Deployment complete"
+}
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 180
+}'::jsonb
+WHERE type = 'deployer-agent';
+
+
 
 ===
 revised
@@ -895,6 +958,7 @@ default_config = '{
 WHERE type = 'site-component-architect';
 
 -- Update the content-creator agent definition with corrected prompt template
+-- 4000 tokens not quite enough
 UPDATE agent_definitions
 SET
 updated_at = now(),
@@ -909,7 +973,7 @@ default_config = '{
 "provider": "anthropic",
 "model": "claude-haiku-4-5-20251001",
 "api_key_env_var": "ANTHROPIC_API_KEY",
-"max_tokens": 4000
+"max_tokens": 6000
 },
 "input_fields": ["template_data", "build_plan_data", "input_data"],
 "output_field": "filled_html",
@@ -928,3 +992,4 @@ default_config = '{
 "timeout_seconds": 300
 }'::jsonb
 WHERE type = 'content-creator';
+

@@ -54,8 +54,19 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Extract and resolve template variables
 	repoName, _ := config["repo_name"].(string)
-	domain, _ := config["domain"].(string)
 	commitMessage, _ := config["commit_message"].(string)
+
+	// Extract domain (either from config or from templateData)
+	var domain string
+	if domainField, ok := config["domain_field"].(string); ok && domainField != "" {
+		// Config specifies where to get domain from (e.g., "domain")
+		if val, exists := templateData[domainField]; exists {
+			domain, _ = val.(string)
+		}
+	} else if domainVal, ok := config["domain"].(string); ok {
+		// Or domain might be directly in config as a template
+		domain = domainVal
+	}
 
 	// Resolve templates
 	if strings.Contains(repoName, "{{") {
@@ -76,10 +87,22 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 		}
 	}
 
+	// Resolve domain template
+	if strings.Contains(domain, "{{") {
+		resolved, err := datahelpers.RenderPromptTemplate(domain, templateData, *params.Logger)
+		if err != nil {
+			params.Logger.Warn("Failed to resolve domain template", zap.Error(err))
+		} else {
+			domain = resolved
+		}
+	}
+
 	params.Logger.Info("Resolved template values",
 		zap.String("repo_name", repoName),
 		zap.String("commit_message", commitMessage),
+		zap.String("domain", domain),
 	)
+
 	// 5. Build filesMap - support two modes
 	filesMap := make(map[string]string)
 
