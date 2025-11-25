@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -260,10 +261,16 @@ func (c *GitHubClient) createCommit(ctx context.Context, owner, repo, message, t
 
 func (c *GitHubClient) updateRef(ctx context.Context, owner, repo, branch, commitSHA string) error {
 	url := fmt.Sprintf("%s/repos/%s/%s/git/refs/heads/%s", c.apiBase, owner, repo, branch)
-	body := map[string]string{
+	body := map[string]interface{}{
 		"sha":   commitSHA,
-		"force": "false", // false with interface
+		"force": false, // Boolean, not string
 	}
+
+	c.log.Error("updateRef failed",
+		zap.String("branch", branch),
+		zap.String("commitSHA", commitSHA),
+	)
+
 	jsonBody, _ := json.Marshal(body)
 	req, _ := http.NewRequestWithContext(ctx, "PATCH", url, bytes.NewBuffer(jsonBody))
 
@@ -295,7 +302,13 @@ func (c *GitHubClient) sendGitHubRequest(req *http.Request, v interface{}) error
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("github API request failed with status: %s", resp.Status)
+		// Read error body for debugging
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		c.log.Error("updateRef failed",
+			zap.Int("status", resp.StatusCode),
+			zap.String("response", string(bodyBytes)),
+		)
+		return fmt.Errorf("github API request failed with status: %s - %s", resp.Status, string(bodyBytes))
 	}
 
 	if v == nil {

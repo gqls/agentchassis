@@ -301,6 +301,7 @@ func (a *GitAdapter) processMessage(msg *kafka.Message) {
 		zap.String("topic", msg.Topic),
 		zap.Int64("offset", msg.Offset),
 		zap.Any("headers", msg.Headers),
+		zap.Any("DEBUGaa: msg - looking for replytotopic", msg),
 	)
 
 	// Parse the request
@@ -326,7 +327,7 @@ func (a *GitAdapter) processMessage(msg *kafka.Message) {
 		zap.String("action", req.Body.Action),
 		zap.String("request_id", req.Headers.RequestID),
 		zap.String("correlation_id", req.Headers.CorrelationID),
-		zap.String("responses_topic", responsesTopic),
+		zap.String("responses_topic is this right?", responsesTopic),
 		zap.Any("DEBUGaa: request headers", req.Headers),
 	)
 
@@ -348,6 +349,10 @@ func (a *GitAdapter) processMessage(msg *kafka.Message) {
 			"error":   fmt.Sprintf("unknown action: %s", req.Body.Action),
 		}
 	}
+
+	a.logger.Info("processMessage about to sendError or Success Response",
+		zap.String("topic", responsesTopic),
+	)
 
 	// Send the response based on success/failure
 	if respMap, ok := responsePayload.(map[string]interface{}); ok {
@@ -384,6 +389,10 @@ func (a *GitAdapter) handleCommitAction(data json.RawMessage) interface{} {
 			"error":   fmt.Sprintf("failed to parse commit data: %v", err),
 		}
 	}
+
+	a.logger.Info("in HandleCommitAction",
+		zap.Any("commitData", commitData),
+	)
 
 	// Create timeout context for GitHub operations
 	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
@@ -622,6 +631,10 @@ func (a *GitAdapter) sendErrorResponse(topic string, requestHeaders AdapterHeade
 		return
 	}
 
+	a.logger.Info("sendErrorResponse",
+		zap.String("topic", topic),
+		zap.String("request_id", requestHeaders.RequestID),
+	)
 	key := []byte(requestHeaders.CorrelationID)
 
 	// Call ProduceWithValidation with headers as map[string]string
