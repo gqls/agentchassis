@@ -1,0 +1,7 @@
+You trigger: MVP site builder with domain: "boxing-tickets.com"
+Pipeline runs: Strategist → Architect → Content Creator → Deployer
+Deployer commits: sites/boxing-tickets.com/index.html to GitHub
+GitHub Action: Automatically syncs that folder to B2
+Site is live: At https://boxing-tickets.com
+
+The action is automatic - you just need to commit to GitHub, and the rest happens via the GitHub Action workflow.

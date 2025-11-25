@@ -39,6 +39,7 @@ type AdapterBody struct {
 // GitCommitData is the expected structure of the 'data' field for a 'commit' action
 type GitCommitData struct {
 	RepoName      string            `json:"repo_name"`
+	Domain        string            `json:"domain"`
 	Files         map[string]string `json:"files"`
 	CommitMessage string            `json:"commit_message"`
 }

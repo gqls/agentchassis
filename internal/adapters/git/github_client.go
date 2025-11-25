@@ -59,6 +59,14 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 		return "", fmt.Errorf("repo_name and files are required")
 	}
 
+	// Files now go to {domain}/{filename}
+	prefixedFiles := make(map[string]string)
+	for path, content := range data.Files {
+		prefixedPath := data.Domain + "/" + path // e.g., "boxing-tickets.com/index.html"
+		prefixedFiles[prefixedPath] = content
+	}
+	data.Files = prefixedFiles
+
 	c.log.Info("Committing to repo",
 		zap.String("repo_name", data.RepoName),
 		zap.Any("DEBUGaa: data", data),

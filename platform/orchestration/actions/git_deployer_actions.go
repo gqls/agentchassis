@@ -54,6 +54,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// Extract and resolve template variables
 	repoName, _ := config["repo_name"].(string)
+	domain, _ := config["domain"].(string)
 	commitMessage, _ := config["commit_message"].(string)
 
 	// Resolve templates
@@ -142,6 +143,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	// 6. Build the specific 'data' payload for the adapter's body
 	gitData := map[string]interface{}{
 		"repo_name":      repoName,
+		"domain":         domain,
 		"files":          filesMap,
 		"commit_message": commitMessage,
 	}

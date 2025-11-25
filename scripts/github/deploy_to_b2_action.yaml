@@ -1,0 +1,53 @@
+name: Deploy Sites to B2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sites/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Get previous commit for diff
+
+      - name: Get changed sites
+        id: changed
+        run: |
+          # Get list of changed site folders
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- sites/ | cut -d'/' -f2 | sort -u | tr '\n' ' ')
+          echo "sites=$CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed sites: $CHANGED"
+
+      - name: Install B2 CLI
+        run: |
+          pip install b2
+
+      - name: Sync changed sites to B2
+        env:
+          B2_APPLICATION_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APP_KEY }}
+        run: |
+          b2 authorize-account $B2_APPLICATION_KEY_ID $B2_APPLICATION_KEY
+          
+          for site in ${{ steps.changed.outputs.sites }}; do
+            if [ -d "sites/$site" ]; then
+              echo "Syncing $site..."
+              b2 sync --delete sites/$site b2://portfolio-sites/$site
+            fi
+          done
+
+      - name: Purge Cloudflare cache
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: |
+          for site in ${{ steps.changed.outputs.sites }}; do
+            curl -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
+              -H "Authorization: Bearer $CF_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "{\"hosts\":[\"$site\"]}"
+          done
