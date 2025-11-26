@@ -26,11 +26,14 @@ meanwhile here's a brief starter prompt:
 
 ---
 
-**Regarding human-in-the-loop at the start:**
+Briefing Agent Summary (for later):
+A new agent type briefing-agent that:
 
-A simple approach would be a "briefing agent" that runs first. Here's a concept:
-```
-User Input → Briefing Agent (gathers context, asks clarifying questions)
-→ Human reviews/approves brief
-→ Strategist (uses the enriched brief)
-→ Architect → Content Creator → Deployer
+Sits before chief-strategist in the workflow
+Takes raw user input (domain, rough objective)
+Generates clarifying questions based on the industry/objective detected
+Collects answers (via Kafka message back to client, or stored for human review)
+Outputs a structured brief: target audience, tone, USPs, competitor context, key messages, desired sections
+Passes enriched brief to strategist
+
+Workflow change: spawn_briefing → call_briefing → (human approval pause) → spawn_strategist → ...

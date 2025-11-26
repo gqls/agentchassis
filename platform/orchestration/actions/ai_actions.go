@@ -222,7 +222,11 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	if temp, ok := agentConfig["temperature"].(float64); ok {
 		options["temperature"] = temp
 	}
-	if maxTokens, ok := agentConfig["max_tokens"].(float64); ok {
+
+	var maxTokens float64
+	if maxTokens, ok = agentConfig["max_tokens"].(float64); ok {
+		options["max_tokens"] = int(maxTokens)
+	} else if maxTokens, ok = aiServiceConfig["max_tokens"].(float64); ok {
 		options["max_tokens"] = int(maxTokens)
 	}
 

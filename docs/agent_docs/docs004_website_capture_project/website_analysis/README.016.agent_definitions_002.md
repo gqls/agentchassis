@@ -1008,7 +1008,7 @@ default_config = '{
 "provider": "anthropic",
 "model": "claude-haiku-4-5-20251001",
 "api_key_env_var": "ANTHROPIC_API_KEY",
-"max_tokens": 16000
+"max_tokens": 32000
 },
 "input_fields": ["template_data", "build_plan_data", "input_data"],
 "output_field": "filled_html",
