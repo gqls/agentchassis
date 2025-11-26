@@ -1,0 +1,19 @@
+Quick Fix: Clear the Deduplication Table
+DELETE FROM processed_messages WHERE processed_at < NOW();
+
+clear specific message:
+DELETE FROM processed_messages WHERE message_id = '279558b7-ecf3-4069-bc7d-7996c97a26be';
+
+# Check what's in the processed_messages table
+SELECT message_id, correlation_id, orchestration_id, processed_at FROM processed_messages ORDER BY processed_at DESC LIMIT 10;
+
+# Clear old messages
+TRUNCATE TABLE processed_messages;
+
+#check if orchestration states exist
+SELECT orchestration_id, correlation_id, status, current_step, created_at FROM orchestration_states ORDER BY created_at DESC LIMIT 5;
+
+kubectl -n ai-persona-system exec postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -t -A -c \
+  "SELECT row_to_json(t) FROM (SELECT * FROM agent_definitions WHERE type = 'generic') t;" \
+  | jq .

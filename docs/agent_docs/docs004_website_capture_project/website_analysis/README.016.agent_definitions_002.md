@@ -958,7 +958,7 @@ default_config = '{
 WHERE type = 'site-component-architect';
 
 -- Update the content-creator agent definition with corrected prompt template
--- 4000 tokens not quite enough
+-- 4000 tokens not quite enough, asked content to add html for now
 UPDATE agent_definitions
 SET
 updated_at = now(),
@@ -973,11 +973,46 @@ default_config = '{
 "provider": "anthropic",
 "model": "claude-haiku-4-5-20251001",
 "api_key_env_var": "ANTHROPIC_API_KEY",
-"max_tokens": 6000
+"max_tokens": 16000
 },
 "input_fields": ["template_data", "build_plan_data", "input_data"],
 "output_field": "filled_html",
-"prompt_template": "You are a professional website content creator specialising in creating compelling, industry-specific content.\n\nWebsite Details:\n- Domain: {{.domain}}\n- Objective: {{.objective}}\n- Model: {{.model}}\n\nBuild Strategy (from strategist):\n{{.build_plan_data.generate_build_plan.result}}\n\nHTML Template to Fill:\n{{.template_data.assemble_template.stitched_html_template}}\n\nContent Requirements (placeholders to replace):\n{{.template_data.assemble_template.content_requirements}}\n\nYour Task:\n1. Parse the HTML template and identify ALL placeholder variables (format: {{.placeholder_name}})\n2. For each placeholder, create compelling, industry-specific content that:\n   - Matches the domain ({{.domain}})\n   - Aligns with the objective ({{.objective}})\n   - Uses the suggested copy from the build strategy where available\n   - Is subtle, sales-focused and conversion-optimised\n3. Replace EVERY placeholder with actual, high quality, well written, subtle, copy\n\nGuidelines:\n- We do not have real testimonials and we do not want to give fake content so please fill this area with copy that expounds the benefits of our products and services and is domain specific but the people credited to the quotes or statements are like: Future You, or Soon to be Delighted Customer, or other non-fake endorsements like that. (happy, pleased, delighted, will/would make you want to return).\n- Use action-oriented language for CTAs\n- Include trust signals and security messaging\n- Keep brand consistency throughout\n\nReturn ONLY the complete HTML with all placeholders replaced. No explanations or markdown.\nPlease double check that all placeholders have been replaced with copy."
+"prompt_template": "You are a professional website content creator specialising in creating compelling, industry-specific content.\n\nWebsite Details:\n- Domain: {{.domain}}\n- Objective: {{.objective}}\n- Model: {{.model}}\n\nBuild Strategy (from strategist):\n{{.build_plan_data.generate_build_plan.result}}\n\nHTML Template to Fill:\n{{.template_data.assemble_template.stitched_html_template}}\n\nContent Requirements (placeholders to replace):\n{{.template_data.assemble_template.content_requirements}}\n\nYour Task:\n1. Parse the HTML template and identify ALL placeholder variables (format: {{.placeholder_name}})\n2. For each placeholder, create compelling, industry-specific content that:\n   - Matches the domain ({{.domain}})\n   - Aligns with the objective ({{.objective}})\n   - Uses the suggested copy from the build strategy where available\n   - Is subtle, sales-focused and conversion-optimised\n3. Replace EVERY placeholder with actual, high quality, well written, subtle, copy\n\nGuidelines:\n- We do not have real testimonials and we do not want to give fake content so please fill this area with copy that expounds the benefits of our products and services and is domain specific but the people credited to the quotes or statements are like: Future You, or Soon to be Delighted Customer, or other non-fake endorsements like that. (happy, pleased, delighted, will/would make you want to return).\n- Use action-oriented language for CTAs\n- Include trust signals and security messaging\n- Keep brand consistency throughout\n\nReturn ONLY the complete HTML with all placeholders replaced. No explanations or markdown.\nPlease double check that all placeholders have been replaced with copy. Please also, at the end, package the html into a properly structured html page with <html> <head> and <body> tags."
+},
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Return the filled HTML template",
+"output_field": ["final_html"]
+}
+}
+},
+"processing_mode": "task",
+"timeout_seconds": 300
+}'::jsonb
+WHERE type = 'content-creator';
+
+-- changed prompt
+UPDATE agent_definitions
+SET
+updated_at = now(),
+default_config = '{
+"workflow": {
+"start_step": "generate_content",
+"steps": {
+"generate_content": {
+"action": "execute_llm_prompt",
+"config": {
+"ai_service": {
+"provider": "anthropic",
+"model": "claude-haiku-4-5-20251001",
+"api_key_env_var": "ANTHROPIC_API_KEY",
+"max_tokens": 16000
+},
+"input_fields": ["template_data", "build_plan_data", "input_data"],
+"output_field": "filled_html",
+"prompt_template": "You are a professional website content creator specialising in creating compelling, industry-specific content.\n\nWebsite Details:\n- Domain: {{.domain}}\n- Objective: {{.objective}}\n- Model: {{.model}}\n\nBuild Strategy (from strategist):\n{{.build_plan_data.generate_build_plan.result}}\n\nHTML Template to Fill:\n{{.template_data.assemble_template.stitched_html_template}}\n\nContent Requirements (placeholders to replace):\n{{.template_data.assemble_template.content_requirements}}\n\nYour Task:\n1. Parse the HTML template and identify ALL placeholder variables (format: {{.placeholder_name}})\n2. For each placeholder, create compelling, industry-specific content that:\n   - Matches the domain ({{.domain}})\n   - Aligns with the objective ({{.objective}})\n   - Uses the suggested copy from the build strategy where available\n   - Is subtle, sales-focused and conversion-optimised\n3. Replace EVERY placeholder with actual, high quality, well written, subtle, copy\n\nGuidelines:\n- We do not have real testimonials and we do not want to give fake content so please fill this area with copy that expounds the benefits of our products and services and is domain specific but the people credited to the quotes or statements might be for instance: Future You, or Soon to be Delighted Customer, or other non-fake optimistic but not verifiably untrue statements.\n- Use action-oriented language for CTAs\n- Include trust signals and security messaging\n- Keep brand consistency throughout\n\nReturn ONLY the complete HTML with all placeholders replaced. No explanations or markdown.\nPlease double check that all placeholders have been replaced with copy. Please also, at the end, package the html into a properly structured html page with <html> <head> and <body> tags."
 },
 "next_step": "complete"
 },

@@ -30,6 +30,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	params.Logger.Info("Executing GitCommitAction",
 		zap.String("step_name", params.ExecutionContext.StepName),
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.Any("DEBUGaa: params.ExecutionContext", params.ExecutionContext),
 	)
 
 	// 1. Extract configuration

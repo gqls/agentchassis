@@ -1,0 +1,303 @@
+# 1. FIRST - Stop all consumers by scaling down deployments
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+
+# Wait for pods to terminate
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+# 2. NOW reset the consumer group offsets (consumers are stopped)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-request-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.requests \
+  --to-latest \
+  --execute
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-response-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.responses \
+  --to-latest \
+  --execute
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states CASCADE;"
+
+# 4. Scale back up
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+# 5. Delete old calculator jobs
+kubectl -n ai-persona-system delete jobs -l agent-type=calculator
+
+# 6. delete the topic
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-topics.sh \
+--bootstrap-server localhost:9092 \
+--delete \
+--topic system.agent.generic.responses
+
+# list all topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap:9092 \
+  --list
+
+# consume new topic in separate terminal
+ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-console-consumer.sh \
+--bootstrap-server localhost:9092 \
+--topic system.responses.generic \
+--from-beginning \
+--property print.headers=true
+
+# purge topic
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter --topic system.responses.generic \
+  --add-config retention.ms=0
+
+# restore retention period for topic
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+--alter --topic system.responses.generic \
+--delete-config retention.ms
+
+
+==
+#=== new with new topic structure (correlation id, orchestration id, unique step id)
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="dual-calc-$(date +%H%M%S)"
+
+echo "Dual calculation test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Orchestration: $ORCHESTRATION_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+
+kubectl -n kafka run -i --rm kcat \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -P \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.requests \
+  -H "correlation_id=$CORRELATION_ID" \
+  -H "request_id=$REQUEST_ID" \
+  -H "message_id=$MESSAGE_ID" \
+  -H "orchestration_id=$ORCHESTRATION_ID" \
+  -H "orchestration_name=$ORCHESTRATION_NAME" \
+  -H "client_id=demo_client" \
+  -H "message_type=request" \
+  -H "action=orchestrate" \
+  -H "from_agent_type=user" \
+  -H "from_agent_id=user-001" \
+  -H "responses_topic=system.agent.generic.responses" <<EOF
+{
+  "action": "orchestrate",
+  "data": {
+    "first_calc": {
+      "operation": "add",
+      "operands": [12345, 1234]
+    },
+    "second_calc": {
+      "operation": "multiply", 
+      "operands": [100, 50]
+    }
+  }
+}
+EOF
+
+=========
+#=== new with simple roles and two calculations ===
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="dual-calc-$(date +%H%M%S)"
+RESPONSES_TOPIC="system.responses.generic"
+
+echo "Dual calculation test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Message: $MESSAGE_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+echo "  Responses Topic: $RESPONSES_TOPIC"
+
+kubectl -n kafka run -i --rm kcat \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -P \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.requests \
+  -H "correlation_id=$CORRELATION_ID" \
+  -H "request_id=$REQUEST_ID" \
+  -H "message_id=$MESSAGE_ID" \
+  -H "client_id=demo_client" \
+  -H "message_type=request" \
+  -H "responses_topic=$RESPONSES_TOPIC" <<EOF
+{"action":"calculate","first_calc":{"operation":"add","operands":[12345,1234]},"second_calc":{"operation":"multiply","operands":[100,50]}}
+EOF
+
+# Check for spawned calculators
+sleep 15
+kubectl -n ai-persona-system get jobs | grep calculator
+kubectl -n ai-persona-system get pods | grep calculator
+
+
+
+
+#=== new with roles and just one calculation ===
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="single-calc-$(date +%H%M%S)"
+RESPONSES_TOPIC="system.responses.generic"
+
+echo "Single calculation test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Message: $MESSAGE_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+echo "  Responses Topic: $RESPONSES_TOPIC"
+
+kubectl -n kafka run -i --rm kcat \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -P \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.requests \
+  -H "correlation_id=$CORRELATION_ID" \
+  -H "request_id=$REQUEST_ID" \
+  -H "message_id=$MESSAGE_ID" \
+  -H "client_id=demo_client" \
+  -H "message_type=request" \
+  -H "responses_topic=$RESPONSES_TOPIC" <<EOF
+{"action":"calculate","calculation":{"operation":"add","operands":[100,50]}}
+EOF
+
+# Wait and check for calculator job
+sleep 11
+kubectl -n ai-persona-system get jobs | grep calculator
+kubectl -n ai-persona-system get pods | grep calculator
+
+
+==
+
+# new format with kafkacat no orchestration id different topic - two calculations, same agent:
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+# ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="dual-calc-$(date +%H%M%S)"
+RESPONSES_TOPIC="system.responses.generic"
+echo "Dual calculation test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Orchestration: No orchestration id"
+echo "  Message: $MESSAGE_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+echo "  Responses Topic: $RESPONSES_TOPIC"
+
+kubectl -n kafka run -i --rm kcat \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -P \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.requests \
+  -H "correlation_id=$CORRELATION_ID" \
+  -H "request_id=$REQUEST_ID" \
+  -H "message_id=$MESSAGE_ID" \
+  -H "client_id=demo_client" \
+  -H "message_type=request" \
+  -H "responses_topic=$RESPONSES_TOPIC" <<EOF
+{"action":"calculate","first_calc":{"operation":"add","operands":[12345,1234]},"second_calc":{"operation":"multiply","operands":[54321,321]}}
+EOF
+
+# Wait and check for calculator job
+sleep 11
+kubectl -n ai-persona-system get jobs | grep calculator
+kubectl -n ai-persona-system get pods | grep calculator
+
+
+
+==== old ====
+
+# send two calculations
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash << 'EOF'
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="dual-calc-$(date +%H%M%S)"
+echo "Dual calculation test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Orchestration: $ORCHESTRATION_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+
+# Create the message with two calculations
+cat << JSON | \
+  /opt/kafka/bin/kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic system.agent.generic.requests \
+  --property parse.headers=true \
+  --property headers.delimiter=$'\t'
+correlation_id:$CORRELATION_ID,orchestration_id:$ORCHESTRATION_ID,request_id:$REQUEST_ID,message_id:$MESSAGE_ID,client_id:demo_client,message_type:request,responses_topic:system.agent.generic.responses	{"action":"calculate","first_calc":{"operation":"add","operands":[12345,1234]},"second_calc":{"operation":"multiply","operands":[54321,321]}}
+JSON
+EOF
+
+# Wait and check for calculator job
+sleep 10
+kubectl -n ai-persona-system get jobs | grep calculator
+kubectl -n ai-persona-system get pods | grep calculator
+
+
+
+== old not kcat ==
+
+# new format with kafkacat:
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="dual-calc-$(date +%H%M%S)"
+echo "Dual calculation test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Orchestration: $ORCHESTRATION_ID"
+echo "  Message: $MESSAGE_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+
+kubectl -n kafka run -i --rm kcat \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -P \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.requests \
+  -H "correlation_id=$CORRELATION_ID" \
+  -H "orchestration_id=$ORCHESTRATION_ID" \
+  -H "request_id=$REQUEST_ID" \
+  -H "message_id=$MESSAGE_ID" \
+  -H "client_id=demo_client" \
+  -H "message_type=request" \
+  -H "responses_topic=system.agent.generic.responses" <<EOF
+{"action":"calculate","first_calc":{"operation":"add","operands":[12345,1234]},"second_calc":{"operation":"multiply","operands":[54321,321]}}
+EOF
+
+# Wait and check for calculator job
+sleep 11
+kubectl -n ai-persona-system get jobs | grep calculator
+kubectl -n ai-persona-system get pods | grep calculator
+
+
+

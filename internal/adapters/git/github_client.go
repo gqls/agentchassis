@@ -266,7 +266,7 @@ func (c *GitHubClient) updateRef(ctx context.Context, owner, repo, branch, commi
 		"force": false, // Boolean, not string
 	}
 
-	c.log.Error("updateRef failed",
+	c.log.Info("in updateRef ",
 		zap.String("branch", branch),
 		zap.String("commitSHA", commitSHA),
 	)
@@ -304,7 +304,7 @@ func (c *GitHubClient) sendGitHubRequest(req *http.Request, v interface{}) error
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Read error body for debugging
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		c.log.Error("updateRef failed",
+		c.log.Error("oin sendGithubRequest updateRef failed",
 			zap.Int("status", resp.StatusCode),
 			zap.String("response", string(bodyBytes)),
 		)

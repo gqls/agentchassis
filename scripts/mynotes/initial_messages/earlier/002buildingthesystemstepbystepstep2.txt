@@ -1,0 +1,346 @@
+Potential Issue #3: Message Ordering
+
+Kafka partitioning should use orchestration_id as key
+This ensures all messages for one orchestration go to same partition
+Maintains order even with multiple replicas
+
+\d agent_capabilities 
+\d agent_default_configs 
+\d agent_definitions 
+\d agent_dependencies 
+\d agent_group_definitions 
+\d agent_group_members 
+\d agent_groups 
+\d agent_metrics 
+\d agent_metrics_config 
+\d event_statistics 
+\d orchestration_states 
+\d orchestration_requests 
+\d pending_requests 
+\d processed_messages 
+\d recent_agent_events 
+\d system_events 
+\d workflow_templates
+
+Table "public.agent_capabilities"
+   Column   |           Type           | Collation | Nullable |      Default      
+------------+--------------------------+-----------+----------+-------------------
+ id         | uuid                     |           | not null | gen_random_uuid()
+ agent_type | character varying(100)   |           | not null | 
+ capability | character varying(255)   |           | not null | 
+ strength   | numeric(3,2)             |           |          | 1.0
+ metadata   | jsonb                    |           |          | '{}'::jsonb
+ created_at | timestamp with time zone |           |          | now()
+ updated_at | timestamp with time zone |           |          | now()
+Indexes:
+    "agent_capabilities_pkey" PRIMARY KEY, btree (id)
+    "agent_capabilities_agent_type_capability_key" UNIQUE CONSTRAINT, btree (agent_type, capability)
+    "idx_agent_capabilities_agent" btree (agent_type)
+Check constraints:
+    "agent_capabilities_strength_check" CHECK (strength >= 0::numeric AND strength <= 1::numeric)
+Foreign-key constraints:
+    "agent_capabilities_agent_type_fkey" FOREIGN KEY (agent_type) REFERENCES agent_definitions(type)
+
+                              Table "public.agent_default_configs"
+   Column    |           Type           | Collation | Nullable |             Default             
+-------------+--------------------------+-----------+----------+---------------------------------
+ id          | uuid                     |           | not null | gen_random_uuid()
+ config_name | character varying(255)   |           | not null | 
+ agent_type  | character varying(100)   |           | not null | 
+ environment | character varying(50)    |           |          | 'production'::character varying
+ config      | jsonb                    |           | not null | 
+ created_at  | timestamp with time zone |           |          | now()
+ updated_at  | timestamp with time zone |           |          | now()
+Indexes:
+    "agent_default_configs_pkey" PRIMARY KEY, btree (id)
+    "agent_default_configs_config_name_key" UNIQUE CONSTRAINT, btree (config_name)
+    "idx_agent_default_configs_agent" btree (agent_type)
+    "idx_agent_default_configs_name" btree (config_name)
+Foreign-key constraints:
+    "agent_default_configs_agent_type_fkey" FOREIGN KEY (agent_type) REFERENCES agent_definitions(type)
+
+                           Table "public.agent_dependencies"
+     Column      |           Type           | Collation | Nullable |      Default      
+-----------------+--------------------------+-----------+----------+-------------------
+ id              | uuid                     |           | not null | gen_random_uuid()
+ agent_type      | character varying(100)   |           | not null | 
+ depends_on      | character varying(100)   |           | not null | 
+ dependency_type | character varying(50)    |           | not null | 
+ config          | jsonb                    |           |          | '{}'::jsonb
+ created_at      | timestamp with time zone |           |          | now()
+ updated_at      | timestamp with time zone |           |          | now()
+Indexes:
+    "agent_dependencies_pkey" PRIMARY KEY, btree (id)
+    "agent_dependencies_agent_type_depends_on_key" UNIQUE CONSTRAINT, btree (agent_type, depends_on)
+    "idx_agent_dependencies_agent" btree (agent_type)
+Check constraints:
+    "agent_dependencies_dependency_type_check" CHECK (dependency_type::text = ANY (ARRAY['data'::character varying, 'optional'::character varying, 'orchestration'::character varying]::text[]))
+Foreign-key constraints:
+    "agent_dependencies_agent_type_fkey" FOREIGN KEY (agent_type) REFERENCES agent_definitions(type)
+
+                             Table "public.agent_group_definitions"
+         Column         |            Type             | Collation | Nullable |      Default      
+------------------------+-----------------------------+-----------+----------+-------------------
+ id                     | uuid                        |           | not null | gen_random_uuid()
+ name                   | character varying(255)      |           | not null | 
+ group_type             | character varying(100)      |           | not null | 
+ agent_configs          | jsonb                       |           | not null | 
+ orchestration_workflow | jsonb                       |           |          | 
+ usage_count            | integer                     |           |          | 0
+ version                | integer                     |           |          | 1
+ created_at             | timestamp without time zone |           |          | now()
+ updated_at             | timestamp without time zone |           |          | now()
+Indexes:
+    "agent_group_definitions_pkey" PRIMARY KEY, btree (id)
+
+                        Table "public.agent_group_members"
+   Column   |           Type           | Collation | Nullable |      Default      
+------------+--------------------------+-----------+----------+-------------------
+ id         | uuid                     |           | not null | gen_random_uuid()
+ group_name | character varying(255)   |           | not null | 
+ agent_type | character varying(100)   |           | not null | 
+ role       | character varying(100)   |           | not null | 
+ required   | boolean                  |           |          | true
+ config     | jsonb                    |           |          | '{}'::jsonb
+ created_at | timestamp with time zone |           |          | now()
+ updated_at | timestamp with time zone |           |          | now()
+Indexes:
+    "agent_group_members_pkey" PRIMARY KEY, btree (id)
+    "agent_group_members_group_name_agent_type_key" UNIQUE CONSTRAINT, btree (group_name, agent_type)
+    "idx_agent_group_members_agent" btree (agent_type)
+    "idx_agent_group_members_group" btree (group_name)
+Foreign-key constraints:
+    "agent_group_members_agent_type_fkey" FOREIGN KEY (agent_type) REFERENCES agent_definitions(type)
+
+                          Table "public.agent_groups"
+     Column     |            Type             | Collation | Nullable | Default 
+----------------+-----------------------------+-----------+----------+---------
+ group_id       | uuid                        |           | not null | 
+ parent_orch_id | uuid                        |           | not null | 
+ group_type     | character varying(100)      |           |          | 
+ members        | jsonb                       |           | not null | 
+ created_at     | timestamp without time zone |           |          | now()
+Indexes:
+    "agent_groups_pkey" PRIMARY KEY, btree (group_id)
+Foreign-key constraints:
+    "fk_agent_groups_parent" FOREIGN KEY (parent_orch_id) REFERENCES orchestration_states(orchestration_id) ON DELETE CASCADE
+
+                                                                Table "public.agent_metrics"
+         Column          |           Type           | Collation | Nullable |                                    Default                                     
+-------------------------+--------------------------+-----------+----------+--------------------------------------------------------------------------------
+ id                      | uuid                     |           | not null | gen_random_uuid()
+ agent_id                | uuid                     |           | not null | 
+ agent_type              | character varying(100)   |           | not null | 
+ total_tasks             | integer                  |           |          | 0
+ successful_tasks        | integer                  |           |          | 0
+ failed_tasks            | integer                  |           |          | 0
+ success_rate            | numeric(5,4)             |           |          | generated always as (                                                         +
+                         |                          |           |          | CASE                                                                          +
+                         |                          |           |          |     WHEN total_tasks > 0 THEN successful_tasks::numeric / total_tasks::numeric+
+                         |                          |           |          |     ELSE 0::numeric                                                           +
+                         |                          |           |          | END) stored
+ total_execution_time_ms | bigint                   |           |          | 0
+ avg_response_time_ms    | integer                  |           |          | generated always as (                                                         +
+                         |                          |           |          | CASE                                                                          +
+                         |                          |           |          |     WHEN total_tasks > 0 THEN total_execution_time_ms / total_tasks           +
+                         |                          |           |          |     ELSE 0::bigint                                                            +
+                         |                          |           |          | END) stored
+ total_fuel_consumed     | integer                  |           |          | 0
+ avg_fuel_per_task       | integer                  |           |          | generated always as (                                                         +
+                         |                          |           |          | CASE                                                                          +
+                         |                          |           |          |     WHEN total_tasks > 0 THEN total_fuel_consumed / total_tasks               +
+                         |                          |           |          |     ELSE 0                                                                    +
+                         |                          |           |          | END) stored
+ quality_ratings         | jsonb                    |           |          | '[]'::jsonb
+ avg_quality_score       | numeric(3,2)             |           |          | 
+ created_at              | timestamp with time zone |           |          | now()
+ updated_at              | timestamp with time zone |           |          | now()
+Indexes:
+    "agent_metrics_pkey" PRIMARY KEY, btree (id)
+    "idx_agent_metrics_agent" btree (agent_id)
+    "idx_agent_metrics_performance" btree (success_rate DESC, avg_response_time_ms)
+    "idx_agent_metrics_type" btree (agent_type)
+
+                            Table "public.agent_metrics_config"
+       Column        |           Type           | Collation | Nullable |      Default      
+---------------------+--------------------------+-----------+----------+-------------------
+ id                  | uuid                     |           | not null | gen_random_uuid()
+ agent_type          | character varying(100)   |           | not null | 
+ metrics_enabled     | boolean                  |           |          | true
+ collection_interval | integer                  |           |          | 60
+ retention_days      | integer                  |           |          | 30
+ metrics_config      | jsonb                    |           |          | '{}'::jsonb
+ created_at          | timestamp with time zone |           |          | now()
+ updated_at          | timestamp with time zone |           |          | now()
+Indexes:
+    "agent_metrics_config_pkey" PRIMARY KEY, btree (id)
+    "agent_metrics_config_agent_type_key" UNIQUE CONSTRAINT, btree (agent_type)
+    "idx_agent_metrics_config_agent" btree (agent_type)
+Foreign-key constraints:
+    "agent_metrics_config_agent_type_fkey" FOREIGN KEY (agent_type) REFERENCES agent_definitions(type)
+
+                 Materialized view "public.event_statistics"
+     Column      |           Type           | Collation | Nullable | Default 
+-----------------+--------------------------+-----------+----------+---------
+ hour            | timestamp with time zone |           |          | 
+ event_type      | character varying(100)   |           |          | 
+ entity_type     | character varying(50)    |           |          | 
+ severity        | character varying(20)    |           |          | 
+ event_count     | bigint                   |           |          | 
+ unique_entities | bigint                   |           |          | 
+ unique_clients  | bigint                   |           |          | 
+Indexes:
+    "idx_event_statistics_hour" btree (hour DESC)
+
+                            Table "public.orchestration_states"
+         Column          |            Type             | Collation | Nullable |   Default   
+-------------------------+-----------------------------+-----------+----------+-------------
+ orchestration_id        | uuid                        |           | not null | 
+ correlation_id          | uuid                        |           | not null | 
+ owner_agent_id          | uuid                        |           | not null | 
+ client_id               | character varying(100)      |           | not null | 
+ status                  | character varying(50)       |           | not null | 
+ current_step            | character varying(255)      |           | not null | 
+ awaited_steps           | jsonb                       |           |          | '[]'::jsonb
+ collected_data          | jsonb                       |           |          | '{}'::jsonb
+ initial_request_data    | jsonb                       |           |          | 
+ final_result            | jsonb                       |           |          | 
+ error                   | text                        |           |          | 
+ workflow_plan           | jsonb                       |           | not null | 
+ execution_metadata      | jsonb                       |           |          | '{}'::jsonb
+ execution_path          | jsonb                       |           |          | '[]'::jsonb
+ version                 | integer                     |           |          | 1
+ created_at              | timestamp with time zone    |           | not null | now()
+ updated_at              | timestamp with time zone    |           | not null | now()
+ parent_orchestration_id | uuid                        |           |          | 
+ fuel_budget             | integer                     |           |          | 1000
+ currently_executing     | character varying(100)      |           |          | 
+ last_activity           | timestamp without time zone |           |          | now()
+ processing_node         | character varying(100)      |           |          | 
+ execution_started_at    | timestamp without time zone |           |          | 
+Indexes:
+    "orchestration_states_pkey" PRIMARY KEY, btree (orchestration_id)
+    "idx_client" btree (client_id)
+    "idx_correlation" btree (correlation_id)
+    "idx_owner" btree (owner_agent_id, status)
+    "idx_parent_orchestration" btree (parent_orchestration_id) WHERE parent_orchestration_id IS NOT NULL
+    "idx_status" btree (status)
+    "idx_updated" btree (updated_at)
+    "uk_orchestration_owner" UNIQUE CONSTRAINT, btree (orchestration_id, owner_agent_id)
+Referenced by:
+    TABLE "agent_groups" CONSTRAINT "fk_agent_groups_parent" FOREIGN KEY (parent_orch_id) REFERENCES orchestration_states(orchestration_id) ON DELETE CASCADE
+    TABLE "orchestration_requests" CONSTRAINT "fk_orch" FOREIGN KEY (orchestration_id) REFERENCES orchestration_states(orchestration_id)
+    TABLE "pending_requests" CONSTRAINT "fk_pending_orch" FOREIGN KEY (orchestration_id) REFERENCES orchestration_states(orchestration_id) ON DELETE CASCADE
+
+                                Table "public.orchestration_requests"
+      Column      |            Type             | Collation | Nullable |           Default            
+------------------+-----------------------------+-----------+----------+------------------------------
+ request_id       | uuid                        |           | not null | gen_random_uuid()
+ orchestration_id | uuid                        |           | not null | 
+ from_agent_id    | uuid                        |           | not null | 
+ to_agent_id      | uuid                        |           | not null | 
+ message_type     | character varying(50)       |           |          | 'request'::character varying
+ in_response_to   | uuid                        |           |          | 
+ status           | character varying(50)       |           |          | 'pending'::character varying
+ timeout_at       | timestamp without time zone |           |          | 
+ created_at       | timestamp without time zone |           |          | now()
+ completed_at     | timestamp without time zone |           |          | 
+Indexes:
+    "orchestration_requests_pkey" PRIMARY KEY, btree (request_id)
+    "idx_orch_requests" btree (orchestration_id, status)
+    "idx_response_tracking" btree (in_response_to)
+Foreign-key constraints:
+    "fk_orch" FOREIGN KEY (orchestration_id) REFERENCES orchestration_states(orchestration_id)
+
+                                   Table "public.pending_requests"
+      Column      |            Type             | Collation | Nullable |           Default            
+------------------+-----------------------------+-----------+----------+------------------------------
+ request_id       | uuid                        |           | not null | 
+ orchestration_id | uuid                        |           | not null | 
+ to_agent_id      | uuid                        |           | not null | 
+ status           | character varying(50)       |           |          | 'pending'::character varying
+ timeout_at       | timestamp without time zone |           |          | 
+ created_at       | timestamp without time zone |           |          | now()
+ completed_at     | timestamp without time zone |           |          | 
+Indexes:
+    "pending_requests_pkey" PRIMARY KEY, btree (request_id)
+    "idx_orchestration" btree (orchestration_id)
+    "idx_timeout" btree (timeout_at)
+Foreign-key constraints:
+    "fk_pending_orch" FOREIGN KEY (orchestration_id) REFERENCES orchestration_states(orchestration_id) ON DELETE CASCADE
+
+                      Table "public.processed_messages"
+      Column      |           Type           | Collation | Nullable | Default 
+------------------+--------------------------+-----------+----------+---------
+ message_id       | uuid                     |           | not null | 
+ orchestration_id | uuid                     |           |          | 
+ processed_at     | timestamp with time zone |           | not null | now()
+ node_id          | character varying(255)   |           |          | 
+ correlation_id   | uuid                     |           |          | 
+ processed_by     | character varying(255)   |           |          | 
+Indexes:
+    "processed_messages_pkey" PRIMARY KEY, btree (message_id)
+    "idx_processed_messages_orchestration_id" btree (orchestration_id)
+
+                   View "public.recent_agent_events"
+   Column   |           Type           | Collation | Nullable | Default 
+------------+--------------------------+-----------+----------+---------
+ id         | uuid                     |           |          | 
+ event_type | character varying(100)   |           |          | 
+ agent_id   | character varying(255)   |           |          | 
+ client_id  | character varying(100)   |           |          | 
+ metadata   | jsonb                    |           |          | 
+ severity   | character varying(20)    |           |          | 
+ created_at | timestamp with time zone |           |          | 
+
+                               Table "public.system_events"
+   Column    |           Type           | Collation | Nullable |          Default          
+-------------+--------------------------+-----------+----------+---------------------------
+ id          | uuid                     |           | not null | gen_random_uuid()
+ event_type  | character varying(100)   |           | not null | 
+ entity_type | character varying(50)    |           | not null | 
+ entity_id   | character varying(255)   |           | not null | 
+ client_id   | character varying(100)   |           |          | 
+ user_id     | character varying(255)   |           |          | 
+ metadata    | jsonb                    |           |          | '{}'::jsonb
+ severity    | character varying(20)    |           |          | 'info'::character varying
+ source      | character varying(255)   |           |          | 
+ ip_address  | inet                     |           |          | 
+ user_agent  | text                     |           |          | 
+ created_at  | timestamp with time zone |           | not null | now()
+Indexes:
+    "system_events_pkey" PRIMARY KEY, btree (id)
+    "idx_system_events_client_id" btree (client_id) WHERE client_id IS NOT NULL
+    "idx_system_events_created_at" btree (created_at DESC)
+    "idx_system_events_entity" btree (entity_type, entity_id)
+    "idx_system_events_entity_time" btree (entity_type, entity_id, created_at DESC)
+    "idx_system_events_event_type" btree (event_type)
+    "idx_system_events_metadata" gin (metadata)
+    "idx_system_events_severity" btree (severity) WHERE severity::text = ANY (ARRAY['error'::character varying, 'critical'::character varying]::text[])
+Check constraints:
+    "check_entity_id" CHECK (entity_id::text <> ''::text)
+    "check_entity_type" CHECK (entity_type::text <> ''::text)
+    "check_event_type" CHECK (event_type::text <> ''::text)
+    "system_events_severity_check" CHECK (severity::text = ANY (ARRAY['debug'::character varying, 'info'::character varying, 'warning'::character varying, 'error'::character varying, 'critical'::character varying]::text[]))
+
+                             Table "public.workflow_templates"
+       Column        |           Type           | Collation | Nullable |      Default      
+---------------------+--------------------------+-----------+----------+-------------------
+ id                  | uuid                     |           | not null | gen_random_uuid()
+ name                | character varying(255)   |           | not null | 
+ description         | text                     |           |          | 
+ category            | character varying(100)   |           |          | 
+ workflow_definition | jsonb                    |           | not null | 
+ default_config      | jsonb                    |           |          | '{}'::jsonb
+ created_at          | timestamp with time zone |           |          | now()
+ updated_at          | timestamp with time zone |           |          | now()
+Indexes:
+    "workflow_templates_pkey" PRIMARY KEY, btree (id)
+    "idx_workflow_templates_category" btree (category)
+    "idx_workflow_templates_name" btree (name)
+    "workflow_templates_name_key" UNIQUE CONSTRAINT, btree (name)
+
+
+
+
+

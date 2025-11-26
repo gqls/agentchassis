@@ -1,0 +1,328 @@
+Function flow:
+
+1. [12:03:24.167Z] agentbase/server.go:processMessage() 
+   ← called by agentbase/server.go:Run()
+   
+2. [12:03:24.167Z] messaging/processor.go:ProcessMessage()
+   ← called by agentbase/server.go:processMessage()
+   
+3. [12:03:24.167Z] messaging/processor.go:process()
+   ← called by messaging/processor.go:ProcessMessage()
+   
+4. [12:03:24.173Z] messaging/processor.go:loadAgentDefinition()
+   ← called by messaging/processor.go:process()
+   
+5. [12:03:24.176Z] messaging/processor.go:executeWorkflow()
+   ← called by messaging/processor.go:process()
+   
+6. [12:03:24.176Z] orchestration/coordinator.go:ExecuteWorkflow()
+   ← called by messaging/processor.go:executeWorkflow()
+   
+7. [12:03:24.193Z] orchestration/coordinator.go:getOrCreateStateWithFlag()
+   ← called by orchestration/coordinator.go:ExecuteWorkflow()
+   
+8. [12:03:24.221Z] orchestration/coordinator.go:continueExecution()
+   ← called by orchestration/coordinator.go:ExecuteWorkflow()
+   
+9. [12:03:24.225Z] orchestration/coordinator.go:executeStep()
+   ← called by orchestration/coordinator.go:continueExecution()
+   
+10. [12:03:24.225Z] orchestration/coordinator.go:executeLocalAction()
+    ← called by orchestration/coordinator.go:handleSpawnGroup()
+    
+11. [12:03:24.225Z] actions/spawn_actions.go:SpawnGroupAction()
+    ← called by orchestration/coordinator.go:executeLocalAction()
+    - Spawns 3 agents successfully
+    - Returns: await_response=true, request_id="74b653f3-0902-425c-9d24-5b6cade13e38"
+    
+12. [12:03:26.412Z] State updated to AWAITING_RESPONSES
+    - awaited_steps=["74b653f3-0902-425c-9d24-5b6cade13e38"]
+    
+13. [12:03:26.423Z] messaging/processor.go:sendWorkflowSuccessResponse()
+    ← called by messaging/processor.go:process()
+    
+14. [12:03:26.423Z] messaging/processor.go:sendWorkflowResponse()
+    ← called by messaging/processor.go:sendWorkflowSuccessResponse()
+    - Sends response with in_response_to="666d15c2-f1a7-4a86-804f-9c22298ff929"
+    
+15. [12:03:27.465Z] messaging/processor.go:sendWorkflowSuccessResponse() [DUPLICATE!]
+    ← called by messaging/processor.go:process()
+    
+16. [12:03:27.465Z] messaging/processor.go:sendWorkflowResponse()
+    ← called by messaging/processor.go:sendWorkflowSuccessResponse()
+    - Sends DUPLICATE response with same in_response_to
+    
+17. [12:03:35.181Z] agentbase/client.go:processResponse()
+    ← called by agentbase/client.go:Run()
+    
+18. [12:03:35.181Z] messaging/processor.go:ProcessResponse()
+    ← called by agentbase/client.go:processResponse()
+    
+19. [12:03:35.181Z] orchestration/coordinator.go:HandleResponse()
+    ← called by messaging/processor.go:ProcessResponse()
+    - ERROR: State waiting for "74b653f3..." but received response for "666d15c2..."
+    
+    
+    Based on the logs, this is all happening in the generic orchestrator agent (agent_type: "generic"):
+
+Agent ID: 00ef8982-72ce-49b5-8576-6b9078a8c09b
+Container: agent-chassis-5ddb96cc4-r6mbw
+Processing mode: orchestrator
+Category: code-driven
+
+
+=====
+
+
+# Agent Orchestration Debugging Trace
+
+## Initial Error Analysis
+
+### Error 1: State Management Issue
+**Pod:** `agent-chassis-64f4f9cb67-s7n5p`  
+**Timestamp:** `2025-08-31T16:08:10.668Z`
+
+```
+"State found but not waiting for this request"
+orchestration_id: de13b1bb-5698-4511-b088-d372293a3b87
+request_id: b4476bc4-1297-4c3e-8e8d-6c8da731011c
+awaited_steps: ["bb985762-459d-4153-9647-cbb482cf4e45"]
+```
+
+**Key Observations:**
+- The orchestration exists but is waiting for a different step ID
+- Request ID `b4476bc4` was received but orchestration expects step `bb985762`
+- This suggests a **state synchronization problem**
+
+### Error 2: Network Timeout (Intermittent)
+**Pod:** `agent-chassis-8c688bdd7-wz8t8`  
+**Timestamp:** `2025-09-01T18:28:30.520Z`
+
+```
+"failed to dial: failed to open connection to kafka broker"
+But: nc test shows port is open
+```
+
+**Key Observations:**
+- Connection works with `nc` but fails in application
+- Suggests **connection pooling or timeout configuration issue**
+
+---
+
+## Systematic Debugging Approach
+
+### Phase 1: Simple Two-Agent Communication Test
+
+#### Step 1.1: Trace Request Flow
+```go
+// Points to instrument:
+1. Agent A sends request → Log complete message with IDs
+2. Kafka receives message → Log topic, partition, offset
+3. Agent B consumes message → Log consumption details
+4. Agent B processes request → Log processing start/end
+5. Agent B sends response → Log response message with IDs
+6. Kafka receives response → Log topic, partition, offset
+7. Agent A consumes response → Log consumption details
+8. Coordinator processes response → Log state before/after
+```
+
+#### Step 1.2: Message ID Tracking
+Create a trace table for each message:
+
+| Timestamp | Component | Event | Message_ID | Request_ID | Orchestration_ID | Awaited_Steps | Notes |
+|-----------|-----------|-------|------------|------------|------------------|---------------|-------|
+| T0 | Agent A | Send Request | msg_001 | req_001 | orch_001 | [] | Initial |
+| T1 | Kafka | Publish | msg_001 | req_001 | orch_001 | [] | Topic: requests |
+| T2 | Agent B | Consume | msg_001 | req_001 | orch_001 | [] | Processing |
+| ... | ... | ... | ... | ... | ... | ... | ... |
+
+### Phase 2: State Management Deep Dive
+
+#### Step 2.1: Orchestration State Tracking
+```go
+// Key questions to answer:
+1. When is orchestration state created?
+2. What updates the awaited_steps array?
+3. How are request_ids mapped to step_ids?
+4. Is there a race between state updates and response arrival?
+```
+
+#### Step 2.2: Coordinator State Inspection
+Add logging at these critical points:
+
+```go
+// In SagaCoordinator.HandleResponse
+log.Info("Response received", 
+    "request_id", requestID,
+    "current_awaited_steps", state.AwaitedSteps,
+    "state_last_updated", state.LastUpdated,
+    "response_timestamp", response.Timestamp)
+
+// Check timing
+if response.Timestamp < state.LastUpdated {
+    log.Warn("Response older than state update - possible race condition")
+}
+```
+
+### Phase 3: Race Condition Detection
+
+#### Step 3.1: Timing Analysis
+Track precise timings for:
+- Request sent → State updated
+- State updated → Response received
+- Response received → State checked
+
+#### Step 3.2: Concurrent Access Points
+Identify all goroutines that:
+1. Read orchestration state
+2. Write orchestration state
+3. Modify awaited_steps
+
+Check for:
+- Missing mutex locks
+- Incorrect lock scope
+- Deadlock potential
+
+### Phase 4: Message Flow Verification
+
+#### Step 4.1: Add Sequence Numbers
+```go
+type Message struct {
+    // existing fields...
+    SequenceNum int64 `json:"sequence_num"`
+    SentAt      time.Time `json:"sent_at"`
+    ReceivedAt  time.Time `json:"received_at"`
+}
+```
+
+#### Step 4.2: Create Message Flow Diagram
+For each test run, generate:
+```
+Agent A [seq:1] ──request──> Kafka ──> Agent B
+                                         │
+                                         ↓ process
+Agent A <──response── Kafka <────────Agent B [seq:2]
+     │
+     ↓ verify seq:2 follows seq:1
+```
+
+---
+
+## Specific Test Cases
+
+### Test 1: Basic Request-Response
+```yaml
+scenario: simple_request_response
+agents:
+  - name: agent_a
+    role: client
+    action: send_single_request
+  - name: agent_b
+    role: server
+    action: respond_immediately
+expected:
+  - request_received: true
+  - response_received: true
+  - state_consistent: true
+```
+
+### Test 2: Delayed Response
+```yaml
+scenario: delayed_response
+agents:
+  - name: agent_a
+    role: client
+    action: send_request_with_timeout
+  - name: agent_b
+    role: server
+    action: respond_after_delay(5s)
+expected:
+  - check_state_before_response: true
+  - check_state_after_response: true
+  - verify_no_race_condition: true
+```
+
+### Test 3: Concurrent Requests
+```yaml
+scenario: concurrent_requests
+agents:
+  - name: agent_a
+    role: client
+    action: send_multiple_requests(3)
+  - name: agent_b
+    role: server
+    action: respond_to_all
+expected:
+  - all_requests_tracked: true
+  - awaited_steps_correct: true
+  - no_request_id_collision: true
+```
+
+---
+
+## Diagnostic Commands
+
+### 1. Check Orchestration State
+```bash
+# Get current orchestration state
+curl -X GET http://coordinator:8080/debug/orchestration/{orchestration_id}
+```
+
+### 2. Monitor Kafka Messages
+```bash
+# Watch request topic
+kafka-console-consumer --bootstrap-server kafka:9092 \
+  --topic system.agent.generic.requests \
+  --property print.timestamp=true \
+  --property print.key=true
+```
+
+### 3. Trace Request Path
+```bash
+# Enable detailed tracing
+export TRACE_LEVEL=debug
+export TRACE_REQUESTS=true
+export LOG_CORRELATION_ID=true
+```
+
+### 4. Check for Race Conditions
+```go
+// Add race detector
+go test -race ./orchestration/...
+```
+
+---
+
+## Hypothesis Priority List
+
+1. **State Update Race Condition** (Most Likely)
+   - Response arrives before state is fully updated
+   - Solution: Add proper synchronization
+
+2. **Step ID Mismatch**
+   - Request ID not properly mapped to step ID
+   - Solution: Verify ID generation and mapping logic
+
+3. **Message Ordering Issue**
+   - Kafka partitioning causes out-of-order delivery
+   - Solution: Ensure proper partition key usage
+
+4. **Timeout Configuration**
+   - Network timeouts too aggressive
+   - Solution: Adjust timeout values and retry logic
+
+5. **State Persistence Problem**
+   - State not properly persisted between operations
+   - Solution: Verify state storage mechanism
+
+---
+
+## Next Steps
+
+1. **Implement Phase 1 tracing** in a test environment
+2. **Run Test Case 1** (simple request-response)
+3. **Collect and analyze** trace data
+4. **Identify exact failure point**
+5. **Move to Phase 2** if Phase 1 passes
+
+Each phase should be completed and verified before moving to the next. This methodical approach will help isolate the exact failure point before attempting fixes.

@@ -315,10 +315,10 @@ func (a *GitAdapter) processMessage(msg *kafka.Message) {
 	}
 
 	// Validate request
-	responsesTopic := req.Headers.ClientID
+	responsesTopic := req.Headers.ResponsesTopic
 	if responsesTopic == "" {
 		a.logger.Error("No responses_topic in headers",
-			zap.String("request_id", req.Headers.RequestID),
+			zap.Any("req.Headers", req.Headers),
 		)
 		return
 	}
@@ -328,7 +328,7 @@ func (a *GitAdapter) processMessage(msg *kafka.Message) {
 		zap.String("request_id", req.Headers.RequestID),
 		zap.String("correlation_id", req.Headers.CorrelationID),
 		zap.String("responses_topic is this right?", responsesTopic),
-		zap.Any("DEBUGaa: request headers", req.Headers),
+		//zap.Any("DEBUGaa: request headers", req.Headers),
 	)
 
 	// Handle the request based on action and get response payload
