@@ -507,48 +507,61 @@ func (a *GitAdapter) handleDeleteRepoAction(data json.RawMessage) interface{} {
 
 // sendSuccessResponse sends a successful response back via Kafka
 func (a *GitAdapter) sendSuccessResponse(topic string, requestHeaders AdapterHeaders, data interface{}) {
-	// Build response headers as map[string]string for ProduceWithValidation
-	responseHeaders := map[string]string{
-		// Core orchestration context
-		"correlation_id":            requestHeaders.CorrelationID,
-		"orchestration_id":          requestHeaders.OrchestrationID,
-		"client_id":                 requestHeaders.ClientID,
-		"request_id":                requestHeaders.RequestID,
-		"parent_request_id":         requestHeaders.ParentRequestID,
-		"parent_orchestration_id":   requestHeaders.ParentOrchestrationID,
-		"in_response_to_request_id": requestHeaders.RequestID,
-		"in_response_to_step_name":  requestHeaders.StepName,
+	now := time.Now().UTC()
+	messageID := fmt.Sprintf("msg-%d", now.UnixNano())
 
-		// Response metadata
-		"message_type": "response",
-		"message_id":   uuid.New().String(),
-		"timestamp":    time.Now().UTC().Format(time.RFC3339),
-		"status":       "success",
+	// Build typed response headers
+	respHeaders := ResponseHeaders{
+		// Response tracking
+		InResponseToRequestID: requestHeaders.RequestID,
+		InResponseToStepName:  requestHeaders.StepName,
+		InResponseTo:          requestHeaders.StepID,
 
-		// Agent identification
-		"sender_agent_id":   a.adapterID.String(),
-		"sender_agent_type": "git-adapter",
-		"sender_pod_name":   os.Getenv("HOSTNAME"),
+		// Orchestration context
+		OrchestrationID:       requestHeaders.OrchestrationID,
+		ParentOrchestrationID: requestHeaders.ParentOrchestrationID,
+		ParentRequestID:       requestHeaders.ParentRequestID,
 
-		// Resource tracking
-		"fuel_used": "10",
+		// Identity
+		CorrelationID: requestHeaders.CorrelationID,
+		ClientID:      requestHeaders.ClientID,
+		MessageType:   "response",
+		MessageID:     messageID,
+		RequestID:     requestHeaders.RequestID,
+
+		// Step context
+		StepID:   requestHeaders.StepID,
+		StepName: requestHeaders.StepName,
+
+		// Status
+		Status:  "success",
+		IsError: false,
+
+		// Sender identification
+		SenderAgentID:   a.adapterID.String(),
+		SenderAgentType: "git-adapter",
+		SenderPodName:   os.Getenv("HOSTNAME"),
+		Sender: AgentIdentity{
+			AgentID:   a.adapterID.String(),
+			AgentType: "git-adapter",
+			PodName:   os.Getenv("HOSTNAME"),
+		},
+
+		// Resources
+		Timestamp: now,
+		FuelUsed:  10, // int, not string!
 	}
 
-	// Add step tracking if present
-	if requestHeaders.StepID != "" {
-		responseHeaders["step_id"] = requestHeaders.StepID
-		responseHeaders["step_name"] = requestHeaders.StepName
-		responseHeaders["in_response_to"] = requestHeaders.StepID
+	// Build typed response body
+	respBody := ResponseBody{
+		Success: true,
+		Data:    data,
 	}
 
-	responseBody := map[string]interface{}{
-		"success": true,
-		"data":    data,
-	}
-
-	responseMsg := map[string]interface{}{
-		"headers": responseHeaders,
-		"body":    responseBody,
+	// Build complete response message
+	responseMsg := ResponseMessage{
+		Headers: respHeaders,
+		Body:    respBody,
 	}
 
 	// Marshal the message
@@ -558,11 +571,14 @@ func (a *GitAdapter) sendSuccessResponse(topic string, requestHeaders AdapterHea
 		return
 	}
 
+	// Convert headers to map[string]string for Kafka
+	kafkaHeaders := respHeaders.ToKafkaHeaders()
+
 	// Use correlation ID as key
 	key := []byte(requestHeaders.CorrelationID)
 
-	// Call ProduceWithValidation with headers as map[string]string
-	err = a.producer.ProduceWithValidation(a.ctx, topic, responseHeaders, key, responseBytes)
+	// Send via Kafka
+	err = a.producer.ProduceWithValidation(a.ctx, topic, kafkaHeaders, key, responseBytes)
 	if err != nil {
 		a.logger.Error("Failed to send success response", zap.Error(err))
 		return
@@ -576,80 +592,93 @@ func (a *GitAdapter) sendSuccessResponse(topic string, requestHeaders AdapterHea
 
 // sendErrorResponse sends an error response back via Kafka
 func (a *GitAdapter) sendErrorResponse(topic string, requestHeaders AdapterHeaders, err error) {
-	// Build response headers as map[string]string for ProduceWithValidation
-	responseHeaders := map[string]string{
-		// Core orchestration context
-		"correlation_id":            requestHeaders.CorrelationID,
-		"orchestration_id":          requestHeaders.OrchestrationID,
-		"client_id":                 requestHeaders.ClientID,
-		"request_id":                requestHeaders.RequestID,
-		"parent_request_id":         requestHeaders.ParentRequestID,
-		"parent_orchestration_id":   requestHeaders.ParentOrchestrationID,
-		"in_response_to_request_id": requestHeaders.RequestID,
-		"in_response_to_step_name":  requestHeaders.StepName,
+	now := time.Now().UTC()
+	messageID := fmt.Sprintf("msg-%d", now.UnixNano())
 
-		// Error-specific metadata
-		"message_type": "response",
-		"status":       "error",
-		"error":        err.Error(),
-		"timestamp":    time.Now().UTC().Format(time.RFC3339),
+	// Build typed response headers
+	respHeaders := ResponseHeaders{
+		// Response tracking
+		InResponseToRequestID: requestHeaders.RequestID,
+		InResponseToStepName:  requestHeaders.StepName,
+		InResponseTo:          requestHeaders.StepID,
 
-		// Agent identification
-		"sender_agent_id":   a.adapterID.String(),
-		"sender_agent_type": "git-adapter",
-		"sender_pod_name":   os.Getenv("HOSTNAME"),
+		// Orchestration context
+		OrchestrationID:       requestHeaders.OrchestrationID,
+		ParentOrchestrationID: requestHeaders.ParentOrchestrationID,
+		ParentRequestID:       requestHeaders.ParentRequestID,
 
-		// Resource tracking
-		"fuel_used": "5",
+		// Identity
+		CorrelationID: requestHeaders.CorrelationID,
+		ClientID:      requestHeaders.ClientID,
+		MessageType:   "response",
+		MessageID:     messageID,
+		RequestID:     requestHeaders.RequestID,
+
+		// Step context
+		StepID:   requestHeaders.StepID,
+		StepName: requestHeaders.StepName,
+
+		// Status
+		Status:  "error",
+		IsError: true,
+
+		// Sender identification
+		SenderAgentID:   a.adapterID.String(),
+		SenderAgentType: "git-adapter",
+		SenderPodName:   os.Getenv("HOSTNAME"),
+		Sender: AgentIdentity{
+			AgentID:   a.adapterID.String(),
+			AgentType: "git-adapter",
+			PodName:   os.Getenv("HOSTNAME"),
+		},
+
+		// Resources
+		Timestamp: now,
+		FuelUsed:  5, // int, not string!
 	}
 
-	// Add step tracking if present
-	if requestHeaders.StepID != "" {
-		responseHeaders["step_id"] = requestHeaders.StepID
-		responseHeaders["step_name"] = requestHeaders.StepName
-		responseHeaders["in_response_to"] = requestHeaders.StepID
-	}
-
-	responseBody := map[string]interface{}{
-		"success": false,
-		"error": map[string]interface{}{
-			"message":     err.Error(),
-			"type":        "GitAdapterError",
-			"recoverable": true,
-			"timestamp":   time.Now().UTC().Format(time.RFC3339),
+	// Build typed response body with error info
+	respBody := ResponseBody{
+		Success: false,
+		Error: &ErrorInfo{
+			Type:        "GitAdapterError",
+			Message:     err.Error(),
+			Recoverable: true,
+			Timestamp:   now.Format(time.RFC3339),
 		},
 	}
 
-	responseMsg := map[string]interface{}{
-		"headers": responseHeaders,
-		"body":    responseBody,
+	// Build complete response message
+	responseMsg := ResponseMessage{
+		Headers: respHeaders,
+		Body:    respBody,
 	}
 
+	// Marshal the message
 	responseBytes, marshalErr := json.Marshal(responseMsg)
 	if marshalErr != nil {
 		a.logger.Error("Failed to marshal error response", zap.Error(marshalErr))
 		return
 	}
 
-	a.logger.Info("sendErrorResponse",
-		zap.String("topic", topic),
-		zap.String("request_id", requestHeaders.RequestID),
-	)
+	// Convert headers to map[string]string for Kafka
+	kafkaHeaders := respHeaders.ToKafkaHeaders()
+	kafkaHeaders["error"] = err.Error() // Add error to Kafka headers too
+
+	// Use correlation ID as key
 	key := []byte(requestHeaders.CorrelationID)
 
-	// Call ProduceWithValidation with headers as map[string]string
-	produceErr := a.producer.ProduceWithValidation(a.ctx, topic, responseHeaders, key, responseBytes)
-	if produceErr != nil {
-		a.logger.Error("Failed to send error response",
-			zap.Error(produceErr),
-			zap.String("original_error", err.Error()),
-		)
+	// Send via Kafka
+	sendErr := a.producer.ProduceWithValidation(a.ctx, topic, kafkaHeaders, key, responseBytes)
+	if sendErr != nil {
+		a.logger.Error("Failed to send error response", zap.Error(sendErr))
+		return
 	}
 
 	a.logger.Info("Error response sent",
 		zap.String("topic", topic),
 		zap.String("request_id", requestHeaders.RequestID),
-		zap.String("error", err.Error()),
+		zap.Error(err),
 	)
 }
 
