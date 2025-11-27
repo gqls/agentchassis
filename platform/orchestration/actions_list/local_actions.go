@@ -41,6 +41,8 @@ var LocalActions = map[string]bool{
 	"git_commit":            true,
 	"new_site_architect":    true,
 	"assemble_from_library": true,
+	"git_commit_action":     true,
+	"assemble_full_page":    true,
 
 	// Data aggregation
 	"aggregate_data":    true,

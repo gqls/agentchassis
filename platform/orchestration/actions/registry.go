@@ -51,6 +51,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"git_commit_action":     GitCommitAction,
 	"new_site_architect":    AssembleFromLibraryAction,
 	"assemble_from_library": AssembleFromLibraryAction,
+	"assemble_full_page":    AssembleFullPageAction,
 
 	// Memory operations
 	"retrieve_memory": RetrieveMemoryAction,

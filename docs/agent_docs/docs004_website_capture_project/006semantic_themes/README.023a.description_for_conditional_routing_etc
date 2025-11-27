@@ -1,0 +1,57 @@
+https://claude.ai/chat/a36b6fe1-efa1-4d53-b30e-768ab6c9bf68
+
+
+Not too much work. Let me create:
+
+1. Updated briefing agent that detects `site_type`
+2. Rename current architect to `landing-page-architect`
+3. New `content-site-architect`
+4. Content components for content sites
+5. Routing mechanism in the workflowNow I need to create the `route_by_field` action for the conditional routing:I need to also provide a coordinator update to handle dynamic routing from `route_by_field`. The current coordinator reads `next_step` from step config statically:Actually, let me provide a cleaner self-contained solution that doesn't require coordinator changes:Now let me update the workflow to use this simpler approach:Now let me copy all files to outputs:Done. Here's what was added:
+
+## New Files
+
+**SQL:**
+- [specialist_architects.sql](computer:///mnt/user-data/outputs/specialist_architects.sql) - Specialist architect system including:
+  - Updated briefing agent with `site_type` detection
+  - `landing-page-architect` (renamed from current)
+  - `content-site-architect` (new)
+  - `portfolio-architect` (new, for future use)
+  - Content site components (article grid, sidebar, ad zones, featured article, category sections)
+  - `content-modern` CSS theme
+  - Updated workflow using `conditional_call_agent`
+
+**Go:**
+- [conditional_call_agent.go](computer:///mnt/user-data/outputs/conditional_call_agent.go) - Routes to and calls the appropriate agent in one step
+- [route_by_field.go](computer:///mnt/user-data/outputs/route_by_field.go) - Standalone routing action (alternative, kept for reference)
+
+## How Routing Works
+
+The `conditional_call_agent` action:
+1. Reads `brief_data.structured_brief.result.site_type`
+2. Maps value to agent: `landing` → `landing-page-architect`, `content` → `content-site-architect`, etc.
+3. Calls that agent directly
+4. Returns result with routing metadata
+
+No coordinator changes needed - it wraps `CallAgentAction` internally.
+
+## Registry Updates Needed
+
+```go
+"conditional_call_agent": ConditionalCallAgentAction,
+"route_by_field":         RouteByFieldAction,  // optional
+"assemble_full_page":     AssembleFullPageAction,
+```
+
+## Site Type Detection
+
+The briefing agent now outputs:
+```json
+{
+  "site_type": "landing|content|portfolio|directory",
+  "site_type_confidence": 0.85,
+  "site_type_reasoning": "Domain suggests news/publishing site with ad revenue model"
+}
+```
+
+This flows through to architect selection automatically.
