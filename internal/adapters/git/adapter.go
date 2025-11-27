@@ -521,7 +521,7 @@ func (a *GitAdapter) sendSuccessResponse(topic string, requestHeaders AdapterHea
 
 		// Response metadata
 		"message_type": "response",
-		"message_id":   fmt.Sprintf("msg-%d", time.Now().UnixNano()),
+		"message_id":   uuid.New().String(),
 		"timestamp":    time.Now().UTC().Format(time.RFC3339),
 		"status":       "success",
 
