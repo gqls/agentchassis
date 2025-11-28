@@ -1309,7 +1309,7 @@ func SpawnAgentActionOld(ctx context.Context, params ActionParams) (interface{},
 }
 
 // SpawnGroupAction spawns a group of agents with hierarchy tracking
-func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, error) {
+func SpawnGroupActionOld(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("SpawnGroupAction starting",
 		zap.Any("config", params.StepConfig))
 

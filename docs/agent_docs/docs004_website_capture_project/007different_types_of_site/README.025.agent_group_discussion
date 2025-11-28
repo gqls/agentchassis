@@ -396,3 +396,157 @@ Does this feel like it's converging on something workable? What aspects need mor
 
 --
 
+===
+===
+decision
+========
+
+Key components needed:
+
+SpawnGroupAction - new action to spawn an agent group workflow
+Site Classifier Agent - determines site_type from domain/objective
+Intake Orchestrator Group - the workflow that classifies, briefs, dispatches
+Briefing Questionnaire Pattern - questionnaires stored in group definitions
+Updated Briefing Agent - executes questionnaires
+Group Definitions - landing-page-builder, content-site-builder, etc.
+HITL integration points - already have Kafka mechanism
+
+Let me work through each carefully.
+Current state:
+
+We have spawn_agent action
+We have agent_group_definitions table
+We have briefing-agent (but needs questionnaire pattern)
+We have HITL via Kafka
+
+Need to create:
+
+spawn_group action (Go code)
+site-classifier agent definition (SQL)
+intake-orchestrator group definition (SQL)
+Update briefing agent to use questionnaire pattern
+Update agent_group_definitions to include briefing_questionnaire
+landing-page-builder group (rename from mvp-site-builder)
+content-site-builder group (new)
+
+I should be methodical and create clean, well-organized files.
+
+User Input (domain, objective)
+           │
+           ▼
+┌─────────────────────────────────────────────────────┐
+│           INTAKE-ORCHESTRATOR (group)               │
+│                                                     │
+│  1. spawn_agent: site-classifier                    │
+│  2. spawn_agent: briefing-agent                     │
+│  3. call_agent: site-classifier                     │
+│        → outputs: site_type, recommended_group      │
+│  4. request_human_input: confirm type    [HITL 1]   │
+│  5. fetch_group_questionnaire                       │
+│        → gets questionnaire from target group       │
+│  6. call_agent: briefing-agent                      │
+│        → executes questionnaire (LLM or HITL)       │
+│  7. request_human_input: review brief    [HITL 2]   │
+│  8. spawn_group: {confirmed_type.recommended_group} │
+│        → dynamically spawns the right builder       │
+└─────────────────────────────────────────────────────┘
+           │
+           ├─────────────────┬─────────────────┐
+           ▼                 ▼                 ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ landing-page-   │ │ content-site-   │ │ portfolio-      │
+│ builder         │ │ builder         │ │ builder         │
+│                 │ │                 │ │ (future)        │
+│ Own workflow    │ │ Own workflow    │ │                 │
+│ Own questionnaire│ │ Own questionnaire│ │                 │
+│ Own agents      │ │ Own agents      │ │                 │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+
+
+---------------------------
+Let me work through this systematically.
+
+## Components Needed
+
+1. **`spawn_group` action** - spawns a group workflow, supports dynamic group_type from collected_data
+2. **`site-classifier` agent** - determines site_type from domain/objective
+3. **`intake-orchestrator` group** - classifies → HITL → briefs → HITL → spawns target group
+4. **Briefing questionnaire schema** - add to agent_group_definitions
+5. **Updated briefing agent** - executes questionnaire (LLM-inferred or HITL-answered)
+6. **`landing-page-builder` group** - renamed from mvp-site-builder
+7. **`content-site-builder` group** - new
+
+---
+
+Let me start with the core action:Now the SQL for the schema updates, agents, and groups:Now the supporting actions:Now let me copy everything to outputs:Here's the complete picture:
+
+## Architecture Summary
+
+```
+User Input (domain, objective)
+           │
+           ▼
+┌─────────────────────────────────────────────────────┐
+│           INTAKE-ORCHESTRATOR (group)               │
+│                                                     │
+│  1. spawn_agent: site-classifier                    │
+│  2. spawn_agent: briefing-agent                     │
+│  3. call_agent: site-classifier                     │
+│        → outputs: site_type, recommended_group      │
+│  4. request_human_input: confirm type    [HITL 1]   │
+│  5. fetch_group_questionnaire                       │
+│        → gets questionnaire from target group       │
+│  6. call_agent: briefing-agent                      │
+│        → executes questionnaire (LLM or HITL)       │
+│  7. request_human_input: review brief    [HITL 2]   │
+│  8. spawn_group: {confirmed_type.recommended_group} │
+│        → dynamically spawns the right builder       │
+└─────────────────────────────────────────────────────┘
+           │
+           ├─────────────────┬─────────────────┐
+           ▼                 ▼                 ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ landing-page-   │ │ content-site-   │ │ portfolio-      │
+│ builder         │ │ builder         │ │ builder         │
+│                 │ │                 │ │ (future)        │
+│ Own workflow    │ │ Own workflow    │ │                 │
+│ Own questionnaire│ │ Own questionnaire│ │                 │
+│ Own agents      │ │ Own agents      │ │                 │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+```
+
+---
+
+## Files Created
+
+**Go Actions:**
+| File | Action | Purpose |
+|------|--------|---------|
+| [spawn_group.go](computer:///mnt/user-data/outputs/spawn_group.go) | `spawn_group` | Spawns an agent group, supports dynamic group_type |
+| [fetch_group_questionnaire.go](computer:///mnt/user-data/outputs/fetch_group_questionnaire.go) | `fetch_group_questionnaire` | Fetches briefing questionnaire from target group |
+| [request_human_input.go](computer:///mnt/user-data/outputs/request_human_input.go) | `request_human_input` | HITL via Kafka, with skip conditions |
+| [assemble_full_page.go](computer:///mnt/user-data/outputs/assemble_full_page.go) | `assemble_full_page` | Assembles HTML with CSS/JS |
+
+**SQL:**
+| File | Contents |
+|------|----------|
+| [intake_and_groups.sql](computer:///mnt/user-data/outputs/intake_and_groups.sql) | Schema update, site-classifier agent, briefing-agent update, intake-orchestrator group, landing-page-builder group, content-site-builder group |
+| [css_js_schema.sql](computer:///mnt/user-data/outputs/css_js_schema.sql) | CSS/JS snippets, themes, semantic tags |
+
+**Registry additions needed:**
+```go
+"spawn_group":               SpawnGroupAction,
+"fetch_group_questionnaire": FetchGroupQuestionnaireAction,
+"request_human_input":       RequestHumanInputAction,
+"assemble_full_page":        AssembleFullPageAction,
+```
+
+---
+
+## Key Design Points
+
+1. **Branching at group level** - `spawn_group` with dynamic `group_type_field`
+2. **Questionnaires stored in group definitions** - briefing agent is generic, questions vary per group
+3. **HITL points have skip conditions** - `skip_if: "input_data.hitl_mode == auto"` for automated runs
+4. **Groups are self-contained** - each has its own agent list, workflow, questionnaire
+5. **Versioning ready** - groups have version numbers, sites can pin to specific versions
