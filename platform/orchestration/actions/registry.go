@@ -55,9 +55,6 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"fetch_group_questionnaire": FetchGroupQuestionnaireAction,
 	"request_human_input":       RequestHumanInputAction,
 
-	// Group spawn
-	"spawn_group": SpawnGroupAction,
-
 	// Memory operations
 	"retrieve_memory": RetrieveMemoryAction,
 	"store_memory":    StoreMemoryAction,
