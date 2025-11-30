@@ -58,11 +58,31 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	commitMessage, _ := config["commit_message"].(string)
 
 	// Extract domain (either from config or from templateData)
-	var domain string
+	/*var domain string
 	if domainField, ok := config["domain_field"].(string); ok && domainField != "" {
 		// Config specifies where to get domain from (e.g., "domain")
 		if val, exists := templateData[domainField]; exists {
 			domain, _ = val.(string)
+		}
+	} else if domainVal, ok := config["domain"].(string); ok {
+		// Or domain might be directly in config as a template
+		domain = domainVal
+	}*/
+	// Extract domain using nested field extraction (handles dot notation paths)
+	var domain string
+	if domainField, ok := config["domain_field"].(string); ok && domainField != "" {
+		// Use extractNestedFieldForGit to handle paths like "input_data.domain"
+		domainVal := extractNestedFieldForGit(templateData, domainField)
+		if domainVal != nil {
+			domain, _ = domainVal.(string)
+		}
+
+		// Log for debugging
+		if domain == "" {
+			params.Logger.Warn("Domain field not found or empty",
+				zap.String("domain_field", domainField),
+				zap.Any("templateData_keys", getMapKeys(templateData)),
+			)
 		}
 	} else if domainVal, ok := config["domain"].(string); ok {
 		// Or domain might be directly in config as a template
