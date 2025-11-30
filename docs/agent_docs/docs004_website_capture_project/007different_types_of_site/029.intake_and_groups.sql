@@ -68,12 +68,12 @@ VALUES (
     default_config = EXCLUDED.default_config,
                               updated_at = now();
 
+
 -- ============================================================================
 -- 3. BRIEFING AGENT - Executes questionnaires via LLM or HITL
 -- ============================================================================
--- updated later in doc 030.briefing_agent.sql
 
-/*INSERT INTO agent_definitions (
+INSERT INTO agent_definitions (
     id, type, display_name, description, category,
     default_config, is_active, capabilities,
     image_repository, image_tag, resources, topics, health_config
@@ -145,10 +145,10 @@ VALUES (
            '{"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"}'::jsonb,
            '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 15}'::jsonb
        )
-    ON CONFLICT (type, version) DO UPDATE SET
+    ON CONFLICT (type,version) DO UPDATE SET
     default_config = EXCLUDED.default_config,
                               description = EXCLUDED.description,
-                              updated_at = now();*/
+                              updated_at = now();
 
 -- ============================================================================
 -- 4. INTAKE ORCHESTRATOR GROUP
@@ -286,9 +286,6 @@ VALUES (
                                     updated_at = now();
 
 
-
-
-
 -- ============================================================================
 -- 5. LANDING PAGE BUILDER GROUP (renamed from mvp-site-builder)
 -- ============================================================================
@@ -304,7 +301,7 @@ VALUES (
            1,
            'Builds conversion-focused landing pages with clear CTAs',
            '[
-             {"role": "strategist", "agent_type": "chief-strategist"},
+             {"role": "strategist", "agent_type": "site-strategist"},
              {"role": "architect", "agent_type": "landing-page-architect"},
              {"role": "writer", "agent_type": "content-writer"},
              {"role": "assembler", "agent_type": "html-assembler"},
@@ -315,7 +312,7 @@ VALUES (
              "steps": {
                "spawn_strategist": {
                  "action": "spawn_agent",
-                 "config": {"role": "strategist", "agent_type": "chief-strategist"},
+                 "config": {"role": "strategist", "agent_type": "site-strategist"},
                  "next_step": "spawn_architect",
                  "description": "Spawn strategist"
                },
@@ -346,7 +343,7 @@ VALUES (
                "call_strategist": {
                  "action": "call_agent",
                  "config": {
-                   "agent_type": "chief-strategist",
+                   "agent_type": "site-strategist",
                    "target_role": "strategist",
                    "input_fields": ["input_data", "brief_data"],
                    "timeout_seconds": 120
@@ -469,7 +466,6 @@ VALUES (
                                     version = agent_group_definitions.version + 1,
                                     updated_at = now();
 
-
 -- ============================================================================
 -- 6. CONTENT SITE BUILDER GROUP
 -- ============================================================================
@@ -485,7 +481,7 @@ VALUES (
            1,
            'Builds content/publishing sites with article grids, categories, and ad support',
            '[
-             {"role": "strategist", "agent_type": "chief-strategist"},
+             {"role": "strategist", "agent_type": "site-strategist"},
              {"role": "architect", "agent_type": "content-site-architect"},
              {"role": "writer", "agent_type": "content-writer"},
              {"role": "assembler", "agent_type": "html-assembler"},
@@ -496,7 +492,7 @@ VALUES (
              "steps": {
                "spawn_strategist": {
                  "action": "spawn_agent",
-                 "config": {"role": "strategist", "agent_type": "chief-strategist"},
+                 "config": {"role": "strategist", "agent_type": "site-strategist"},
                  "next_step": "spawn_architect",
                  "description": "Spawn strategist"
                },
@@ -527,7 +523,7 @@ VALUES (
                "call_strategist": {
                  "action": "call_agent",
                  "config": {
-                   "agent_type": "chief-strategist",
+                   "agent_type": "site-strategist",
                    "target_role": "strategist",
                    "input_fields": ["input_data", "brief_data"],
                    "timeout_seconds": 120
@@ -648,7 +644,6 @@ VALUES (
                                     briefing_questionnaire = EXCLUDED.briefing_questionnaire,
                                     version = agent_group_definitions.version + 1,
                                     updated_at = now();
-
 
 -- ============================================================================
 -- 7. HELPER ACTION: fetch_group_questionnaire
@@ -785,7 +780,7 @@ VALUES (
                      },
                      "input_fields": ["template_data", "build_plan", "brief_data", "input_data"],
                      "output_field": "content_json",
-                     "prompt_template": "You are a professional website content creator. Your job is to create compelling, industry-specific CONTENT (not HTML structure).\n\nWebsite Details:\n- Domain: {{.input_data.domain}}\n- Objective: {{.input_data.objective}}\n\nBrief Data (from questionnaire):\n{{.brief_data}}\n\nBuild Strategy (from strategist):\n{{.build_plan}}\n\nContent Requirements - these are the placeholders you need to fill:\n{{.template_data.content_requirements}}\n\nYour Task:\nCreate a JSON object with content for each placeholder. Group by component.\n\nGuidelines:\n- Write compelling, conversion-focused copy\n- Use the brief data to inform tone, messaging, and specifics\n- Match the domain and industry tone\n- For testimonials, use optimistic placeholder attributions like \"[Future You]\", \"[Soon-to-be Satisfied Customer]\" - NOT fake names\n- Use action-oriented language for CTAs\n- Keep brand consistency throughout\n- Stats/numbers should be realistic placeholders like \"500+\" or \"10,000+\"\n- If brief contains brand_name, use it consistently\n- If brief contains primary_cta, use that exact text for main call-to-action\n\nReturn ONLY valid JSON in this exact structure:\n{\n  \"meta\": {\n    \"title\": \"Page title for browser tab\",\n    \"description\": \"SEO meta description (150-160 chars)\"\n  },\n  \"theme\": \"recommended theme name from: default, clean-minimal, bold-conversion, warm-friendly, tech-saas, luxury-premium\",\n  \"theme_tags\": [\"semantic\", \"tags\", \"for\", \"theme\", \"matching\"],\n  \"sections\": {\n    \"component_header_0\": {\n      \"brand_name\": \"Your Brand Name\",\n      \"cta_text\": \"CTA Button Text\"\n    },\n    \"component_hero_1\": {\n      \"headline\": \"Main headline\",\n      \"subheadline\": \"Supporting text\",\n      \"primary_cta\": \"Primary button\",\n      \"secondary_cta\": \"Secondary button\"\n    }\n  }\n}\n\nFill ALL placeholders from the content requirements. Return ONLY the JSON object, no markdown or explanation."
+                     "prompt_template": "You are a professional website content creator. Your job is to create compelling, industry-specific CONTENT (not HTML structure).\n\nWebsite Details:\n- Domain: {{.input_data.domain}}\n- Objective: {{.input_data.objective}}\n\nBrief Data (from questionnaire):\n{{.brief_data}}\n\nBuild Strategy (from strategist):\n{{.build_plan}}\n\nContent Requirements - these are the placeholders you need to fill:\n{{.template_data.content_requirements}}\n\nYour Task:\nCreate a JSON object with content for each placeholder. Group by component.\n\nGuidelines:\n- Write compelling, conversion-focused copy\n- Use the brief data to inform tone, messaging, and specifics\n- Match the domain and industry tone\n- For testimonials, use optimistic placeholder attributions like \"[Future You]\", \"[Soon-to-be Satisfied Customer]\" - NOT fake names\n- Use action-oriented language for CTAs\n- Keep brand consistency throughout\n- Stats/numbers should be truthful at all times, if there are no real stats available then do not use made up ones - we will have created maybe over 1000 of these sites.\"\n- If brief contains brand_name, use it consistently\n- If brief contains primary_cta, use that exact text for main call-to-action\n\nReturn ONLY valid JSON in this exact structure:\n{\n  \"meta\": {\n    \"title\": \"Page title for browser tab\",\n    \"description\": \"SEO meta description (150-160 chars)\"\n  },\n  \"theme\": \"recommended theme name from: default, clean-minimal, bold-conversion, warm-friendly, tech-saas, luxury-premium\",\n  \"theme_tags\": [\"semantic\", \"tags\", \"for\", \"theme\", \"matching\"],\n  \"sections\": {\n    \"component_header_0\": {\n      \"brand_name\": \"Your Brand Name\",\n      \"cta_text\": \"CTA Button Text\"\n    },\n    \"component_hero_1\": {\n      \"headline\": \"Main headline\",\n      \"subheadline\": \"Supporting text\",\n      \"primary_cta\": \"Primary button\",\n      \"secondary_cta\": \"Secondary button\"\n    }\n  }\n}\n\nFill ALL placeholders from the content requirements. Return ONLY the JSON object, no markdown or explanation."
                    },
                    "next_step": "complete"
                  },
@@ -976,8 +971,9 @@ VALUES (
        )
     ON CONFLICT (type, version) DO UPDATE SET
     default_config = EXCLUDED.default_config,
-                                       description = EXCLUDED.description,
-                                       updated_at = now();
+                              description = EXCLUDED.description,
+                              updated_at = now();
+
 
 
 
@@ -1955,3 +1951,64 @@ WHERE group_type = 'mvp-site-builder';*/
 
 ===
 ---
+
+updated
+-------
+
+-- ============================================================================
+-- UPDATE ARCHITECT AGENTS - Fix build_plan_field configuration
+-- ============================================================================
+
+-- Fix landing-page-architect to look for "build_plan" instead of "build_plan_data"
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = '{
+    "workflow": {
+      "start_step": "assemble_template",
+      "steps": {
+        "assemble_template": {
+          "action": "assemble_from_library",
+          "config": {
+            "build_plan_field": "build_plan"
+          },
+          "next_step": "complete",
+          "description": "Build the site template using component library"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Return the empty template and content requirements"
+        }
+      }
+    },
+    "processing_mode": "task",
+    "timeout_seconds": 180
+  }'::jsonb
+WHERE type = 'landing-page-architect';
+
+-- Fix content-site-architect to look for "build_plan" instead of "build_plan_data"
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = '{
+    "workflow": {
+      "start_step": "assemble_template",
+      "steps": {
+        "assemble_template": {
+          "action": "assemble_from_library",
+          "config": {
+            "build_plan_field": "build_plan"
+          },
+          "next_step": "complete",
+          "description": "Build the content site template using component library"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Return the template and content requirements"
+        }
+      }
+    },
+    "processing_mode": "task",
+    "timeout_seconds": 180
+  }'::jsonb
+WHERE type = 'content-site-architect';

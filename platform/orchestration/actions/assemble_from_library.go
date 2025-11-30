@@ -108,6 +108,14 @@ func extractDomain(params ActionParams) string {
 					}
 				}
 			}
+		} else if buildPlanData, ok = inputData["build_plan"].(map[string]interface{}); ok {
+			if inputDataNested, ok := buildPlanData["input_data"].(map[string]interface{}); ok {
+				if inputDataFinal, ok := inputDataNested["input_data"].(map[string]interface{}); ok {
+					if domain, ok := inputDataFinal["domain"].(string); ok {
+						return domain
+					}
+				}
+			}
 		}
 	}
 
@@ -217,7 +225,7 @@ func extractBuildPlan(params ActionParams) (string, error) {
 		params.Logger.Warn("No input_fields specified, using defaults",
 			zap.Strings("defaults", []string{"build_plan_data", "call_strategist"}),
 		)
-		inputFields = []string{"build_plan_data", "call_strategist"}
+		inputFields = []string{"build_plan", "build_plan_data", "call_strategist"}
 	}
 
 	params.Logger.Info("Searching for build plan",
@@ -286,7 +294,7 @@ func findBuildPlanInFieldWithData(fieldName string, data map[string]interface{},
 		}
 	}
 
-	logger.Info("In findBuildPlanInField didnt find build plan in field fionalattempt",
+	logger.Error("In findBuildPlanInField didnt find build plan in field final attempt",
 		zap.String("field name", fieldName),
 		zap.Any("data", data),
 	)
