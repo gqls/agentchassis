@@ -2093,9 +2093,9 @@ SET
           "action": "git_commit",
           "config": {
             "repo_name": "sites",
-            "domain_field": "input_data.domain",
-            "content_field": "final_html.assemble_html.final_html",
-            "commit_message": "Update site: {{.input_data.domain}}",
+            "domain_field": "domain",
+            "content_field": "input_data.final_html.assemble_html.final_html",
+            "commit_message": "Update site: {{.domain}}",
             "filename": "index.html"
           },
           "next_step": "complete",
@@ -2147,3 +2147,15 @@ SET
     "timeout_seconds": 120
   }'::jsonb
 WHERE type = 'site-strategist';
+
+---
+Added explicit instruction: "use the EXACT key names from content_requirements"
+
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_content,config,prompt_template}',
+        '"You are a professional website content creator. Your job is to create compelling, industry-specific CONTENT.\n\nWebsite Details:\n- Domain: {{.input_data.domain}}\n- Objective: {{.input_data.objective}}\n\nBuild Strategy (for tone and messaging guidance):\n{{.build_plan}}\n\nContent Requirements - THESE ARE THE EXACT PLACEHOLDERS YOU MUST FILL:\n{{.template_data.assemble_template.content_requirements}}\n\nIMPORTANT: You must use the EXACT key names from content_requirements. Do not rename, abbreviate, or restructure them.\n\nFor example, if content_requirements has:\n  \"feature_1_title\": \"Fast & Reliable\"\nYour output must use \"feature_1_title\" as the key, NOT \"feature_1_headline\".\n\nGuidelines:\n- Write compelling, conversion-focused copy\n- Match the domain and industry tone\n- For testimonials, use placeholder attributions like \"[Future Customer]\" - NOT fake names\n- Stats/numbers must be truthful - do not invent metrics\n\nReturn ONLY valid JSON in this structure:\n{\n  \"meta\": {\n    \"title\": \"Page title for browser tab\",\n    \"description\": \"SEO meta description (150-160 chars)\"\n  },\n  \"theme\": \"tech-saas\",\n  \"sections\": {\n    \"component_header_0\": {\n      \"brand_name\": \"Your value here\",\n      \"cta_text\": \"Your value here\"\n    }\n  }\n}\n\nFill ALL placeholders using their EXACT key names. Return ONLY JSON, no markdown."'
+                     )
+WHERE type = 'content-writer';
