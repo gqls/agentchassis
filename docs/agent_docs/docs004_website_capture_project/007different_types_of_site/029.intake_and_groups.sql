@@ -2012,3 +2012,102 @@ SET
     "timeout_seconds": 180
   }'::jsonb
 WHERE type = 'content-site-architect';
+
+
+====
+
+updated paths
+-- ============================================================================
+-- UPDATE ARCHITECT AGENTS - Fix build_plan_field configuration
+-- ============================================================================
+
+-- Fix landing-page-architect to look for "build_plan" instead of "build_plan_data"
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = '{
+    "workflow": {
+      "start_step": "assemble_template",
+      "steps": {
+        "assemble_template": {
+          "action": "assemble_from_library",
+          "config": {
+            "build_plan_field": "build_plan"
+          },
+          "next_step": "complete",
+          "description": "Build the site template using component library"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Return the empty template and content requirements"
+        }
+      }
+    },
+    "processing_mode": "task",
+    "timeout_seconds": 180
+  }'::jsonb
+WHERE type = 'landing-page-architect';
+
+-- Fix content-site-architect to look for "build_plan" instead of "build_plan_data"
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = '{
+    "workflow": {
+      "start_step": "assemble_template",
+      "steps": {
+        "assemble_template": {
+          "action": "assemble_from_library",
+          "config": {
+            "build_plan_field": "build_plan"
+          },
+          "next_step": "complete",
+          "description": "Build the content site template using component library"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Return the template and content requirements"
+        }
+      }
+    },
+    "processing_mode": "task",
+    "timeout_seconds": 180
+  }'::jsonb
+WHERE type = 'content-site-architect';
+
+-- ============================================================================
+-- UPDATE SITE-DEPLOYER - Fix field paths based on actual data structure
+-- Structure is:
+--   input_data.domain
+--   input_data.final_html.assemble_html.final_html
+-- ============================================================================
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = '{
+    "workflow": {
+      "start_step": "commit_to_git",
+      "steps": {
+        "commit_to_git": {
+          "action": "git_commit",
+          "config": {
+            "repo_name": "sites",
+            "domain_field": "input_data.input_data.domain",
+            "content_field": "input_data.final_html.assemble_html.final_html",
+            "commit_message": "Update site: {{.input_data.input_data.domain}}",
+            "filename": "index.html"
+          },
+          "next_step": "complete",
+          "description": "Commit to sites repo"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Deployment complete"
+        }
+      }
+    },
+    "processing_mode": "task",
+    "timeout_seconds": 180
+  }'::jsonb
+WHERE type = 'site-deployer';

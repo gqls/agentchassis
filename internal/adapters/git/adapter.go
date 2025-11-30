@@ -394,6 +394,14 @@ func (a *GitAdapter) handleCommitAction(data json.RawMessage) interface{} {
 		zap.Any("commitData", commitData),
 	)
 
+	// Check for empty domain
+	if commitData.Domain == "" {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "no domain in commit data",
+		}
+	}
+
 	// Create timeout context for GitHub operations
 	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
 	defer cancel()
@@ -508,7 +516,7 @@ func (a *GitAdapter) handleDeleteRepoAction(data json.RawMessage) interface{} {
 // sendSuccessResponse sends a successful response back via Kafka
 func (a *GitAdapter) sendSuccessResponse(topic string, requestHeaders AdapterHeaders, data interface{}) {
 	now := time.Now().UTC()
-	messageID := fmt.Sprintf("msg-%d", now.UnixNano())
+	messageID, _ := uuid.NewUUID()
 
 	// Build typed response headers
 	respHeaders := ResponseHeaders{
@@ -526,7 +534,7 @@ func (a *GitAdapter) sendSuccessResponse(topic string, requestHeaders AdapterHea
 		CorrelationID: requestHeaders.CorrelationID,
 		ClientID:      requestHeaders.ClientID,
 		MessageType:   "response",
-		MessageID:     messageID,
+		MessageID:     messageID.String(),
 		RequestID:     requestHeaders.RequestID,
 
 		// Step context
@@ -593,7 +601,7 @@ func (a *GitAdapter) sendSuccessResponse(topic string, requestHeaders AdapterHea
 // sendErrorResponse sends an error response back via Kafka
 func (a *GitAdapter) sendErrorResponse(topic string, requestHeaders AdapterHeaders, err error) {
 	now := time.Now().UTC()
-	messageID := fmt.Sprintf("msg-%d", now.UnixNano())
+	messageID, _ := uuid.NewUUID()
 
 	// Build typed response headers
 	respHeaders := ResponseHeaders{
@@ -611,7 +619,7 @@ func (a *GitAdapter) sendErrorResponse(topic string, requestHeaders AdapterHeade
 		CorrelationID: requestHeaders.CorrelationID,
 		ClientID:      requestHeaders.ClientID,
 		MessageType:   "response",
-		MessageID:     messageID,
+		MessageID:     messageID.String(),
 		RequestID:     requestHeaders.RequestID,
 
 		// Step context
