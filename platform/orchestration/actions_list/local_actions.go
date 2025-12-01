@@ -45,6 +45,7 @@ var LocalActions = map[string]bool{
 	"assemble_full_page":        true,
 	"fetch_group_questionnaire": true,
 	"request_human_input":       true,
+	"wrap_multipage":            true,
 
 	// Data aggregation
 	"aggregate_data":    true,

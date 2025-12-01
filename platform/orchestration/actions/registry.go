@@ -54,6 +54,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"assemble_full_page":        AssembleFullPageAction,
 	"fetch_group_questionnaire": FetchGroupQuestionnaireAction,
 	"request_human_input":       RequestHumanInputAction,
+	"wrap_multipage":            WrapMultipageAction,
 
 	// Memory operations
 	"retrieve_memory": RetrieveMemoryAction,
