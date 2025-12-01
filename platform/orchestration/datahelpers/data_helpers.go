@@ -1079,3 +1079,57 @@ func RenderPromptTemplate(templateStr string, data map[string]interface{}, logge
 
 	return buf.String(), nil
 }
+
+// ExtractNestedField extracts a value from nested map using dot notation path.
+// Returns nil if any part of the path is not found.
+//
+// Example usage:
+//
+//	value := ExtractNestedField(data, "input_data.domain")
+//	if value != nil {
+//	    domain := value.(string)
+//	}
+//
+// Paths like "input_data.content_json.sections.component_header_0.brand_name"
+// will traverse: data["input_data"]["content_json"]["sections"]["component_header_0"]["brand_name"]
+func ExtractNestedField(data map[string]interface{}, fieldPath string) interface{} {
+	parts := strings.Split(fieldPath, ".")
+	var current interface{} = data
+
+	for _, part := range parts {
+		if currentMap, ok := current.(map[string]interface{}); ok {
+			current = currentMap[part]
+			if current == nil {
+				return nil
+			}
+		} else {
+			return nil
+		}
+	}
+
+	return current
+}
+
+// ExtractNestedFieldString is a convenience wrapper that returns empty string if not found or not a string
+func ExtractNestedFieldString(data map[string]interface{}, fieldPath string) string {
+	value := ExtractNestedField(data, fieldPath)
+	if value == nil {
+		return ""
+	}
+	if str, ok := value.(string); ok {
+		return str
+	}
+	return ""
+}
+
+// ExtractNestedFieldMap is a convenience wrapper that returns nil if not found or not a map
+func ExtractNestedFieldMap(data map[string]interface{}, fieldPath string) map[string]interface{} {
+	value := ExtractNestedField(data, fieldPath)
+	if value == nil {
+		return nil
+	}
+	if m, ok := value.(map[string]interface{}); ok {
+		return m
+	}
+	return nil
+}

@@ -1,11 +1,15 @@
-// internal/backend/agent-chassis/platform/orchestration/actions/deployer_actions.go
+// git_deployer_actions_updated.go
+// Updates to GitCommitAction to support files_field extraction from CollectedData
+
 package actions
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,180 +26,66 @@ type GitCommitResult struct {
 	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// GitCommitAction sends a commit request to the configured git-adapter.
-// Supports two modes:
-//  1. Direct files map: config["files"] = {"filename": "content", ...}
-//  2. Content field reference: config["content_field"] = "path.to.content" + config["filename"] = "index.html"
+// GitCommitAction sends a commit request to the configured git-adapter
+// Supports both direct files in config and files_field path to extract from CollectedData
 func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing GitCommitAction",
 		zap.String("step_name", params.ExecutionContext.StepName),
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
-		zap.Any("DEBUGaa: params.ExecutionContext", params.ExecutionContext),
+		zap.Any("config_keys", getMapKeysGit(params.StepConfig.Config)),
 	)
 
 	// 1. Extract configuration
 	config := params.StepConfig.Config
-	action := "commit"
 
-	// 2. Get client_id and response topic
+	// Get client_id and response topic
 	clientID := params.ExecutionContext.ClientID
 	myResponsesTopic := params.ExecutionContext.ResponsesTopic
 	if myResponsesTopic == "" {
-		params.Logger.Warn("ResponsesTopic not set in ExecutionContext, responses may be lost",
-			zap.String("step_name", params.ExecutionContext.StepName),
-		)
+		params.Logger.Warn("ResponsesTopic not set in ExecutionContext")
 	}
 
-	// 3. Get adapter topic
-	adapterTopic := "system.adapter.git.requests"
+	// Adapter topic
+	adapterTopic := "system.adapter.gitcommit.requests"
 
-	// 4. Extract specific parameters from the config
-	// Build template data using existing function
-	templateData := extractDataForGitAgent(params).(map[string]interface{})
-
-	// Extract and resolve template variables
+	// Extract repo name (can be from config or from CollectedData)
 	repoName, _ := config["repo_name"].(string)
-	commitMessage, _ := config["commit_message"].(string)
-
-	// Extract domain (either from config or from templateData)
-	/*var domain string
-	if domainField, ok := config["domain_field"].(string); ok && domainField != "" {
-		// Config specifies where to get domain from (e.g., "domain")
-		if val, exists := templateData[domainField]; exists {
-			domain, _ = val.(string)
-		}
-	} else if domainVal, ok := config["domain"].(string); ok {
-		// Or domain might be directly in config as a template
-		domain = domainVal
-	}*/
-	// Extract domain using nested field extraction (handles dot notation paths)
-	var domain string
-	if domainField, ok := config["domain_field"].(string); ok && domainField != "" {
-		// Use extractNestedFieldForGit to handle paths like "input_data.domain"
-		domainVal := extractNestedFieldForGit(templateData, domainField)
-		if domainVal != nil {
-			domain, _ = domainVal.(string)
-		}
-
-		// Log for debugging
-		if domain == "" {
-			params.Logger.Warn("Domain field not found or empty",
-				zap.String("domain_field", domainField),
-				zap.Any("templateData_keys", getMapKeys(templateData)),
-			)
-		}
-	} else if domainVal, ok := config["domain"].(string); ok {
-		// Or domain might be directly in config as a template
-		domain = domainVal
+	if repoName == "" {
+		repoName = "sites" // default
 	}
 
-	// Resolve templates
-	if strings.Contains(repoName, "{{") {
-		resolved, err := datahelpers.RenderPromptTemplate(repoName, templateData, *params.Logger)
-		if err != nil {
-			params.Logger.Warn("Failed to resolve repo_name template", zap.Error(err))
-		} else {
-			repoName = resolved
-		}
-	}
+	// Extract domain - supports field path extraction
+	domain := extractDomainForGit(params.CollectedData, config, params.Logger)
 
-	if strings.Contains(commitMessage, "{{") {
-		resolved, err := datahelpers.RenderPromptTemplate(commitMessage, templateData, *params.Logger)
-		if err != nil {
-			params.Logger.Warn("Failed to resolve commit_message template", zap.Error(err))
-		} else {
-			commitMessage = resolved
-		}
-	}
-
-	// Resolve domain template
-	if strings.Contains(domain, "{{") {
-		resolved, err := datahelpers.RenderPromptTemplate(domain, templateData, *params.Logger)
-		if err != nil {
-			params.Logger.Warn("Failed to resolve domain template", zap.Error(err))
-		} else {
-			domain = resolved
-		}
-	}
-
-	params.Logger.Info("Resolved template values",
-		zap.String("repo_name", repoName),
-		zap.String("commit_message", commitMessage),
-		zap.String("domain", domain),
-	)
-
-	// 5. Build filesMap - support two modes
-	filesMap := make(map[string]string)
-
-	// Mode 1: Check for content_field + filename (new simplified approach)
-	if contentField, ok := config["content_field"].(string); ok && contentField != "" {
-		filename, _ := config["filename"].(string)
-		if filename == "" {
-			filename = "index.html" // Default filename
-		}
-
-		// Extract content from CollectedData using the field path
-		content := extractNestedFieldForGit(params.CollectedData, contentField)
-		if content == nil {
-			params.Logger.Error("Content field not found in CollectedData",
-				zap.String("content_field", contentField),
-				zap.Any("available_keys", getMapKeys(params.CollectedData)),
-			)
-			return nil, fmt.Errorf("content_field '%s' not found in CollectedData", contentField)
-		}
-
-		contentStr, ok := content.(string)
-		if !ok {
-			params.Logger.Error("Content is not a string",
-				zap.String("content_field", contentField),
-				zap.String("actual_type", fmt.Sprintf("%T", content)),
-			)
-			return nil, fmt.Errorf("content at '%s' is not a string, got %T", contentField, content)
-		}
-
-		// Strip markdown code fences if present (LLM often wraps HTML in ```html ... ```)
-		contentStr = datahelpers.CleanMarkdownJSON(contentStr)
-
-		filesMap[filename] = contentStr
-
-		params.Logger.Info("Built files map from content_field",
-			zap.String("content_field", contentField),
-			zap.String("filename", filename),
-			zap.Int("content_length", len(contentStr)),
-		)
-
-	} else if filesRaw, ok := config["files"].(map[string]interface{}); ok {
-		// Mode 2: Direct files map (existing behavior)
-		for filename, content := range filesRaw {
-			if contentStr, ok := content.(string); ok {
-				filesMap[filename] = contentStr
-			} else {
-				params.Logger.Warn("Skipping non-string file content in commit",
-					zap.String("file", filename),
-					zap.Any("content_type", fmt.Sprintf("%T", content)),
-				)
-			}
-		}
-	} else {
-		return nil, fmt.Errorf("GitCommitAction requires either 'content_field' or 'files' in config")
-	}
+	// Extract files - NEW: supports files_field path
+	filesMap := extractFilesForGit(params.CollectedData, config, domain, params.Logger)
 
 	if len(filesMap) == 0 {
 		return nil, fmt.Errorf("no files to commit")
 	}
 
-	// 6. Build the specific 'data' payload for the adapter's body
+	// Build commit message with template support
+	commitMessage := buildCommitMessage(config, domain, len(filesMap))
+
+	params.Logger.Info("Git commit prepared",
+		zap.String("repo_name", repoName),
+		zap.String("domain", domain),
+		zap.Int("file_count", len(filesMap)),
+		zap.String("commit_message", commitMessage),
+		zap.Any("file_names", getFileNames(filesMap)),
+	)
+
+	// Build the git data payload
 	gitData := map[string]interface{}{
 		"repo_name":      repoName,
-		"domain":         domain,
 		"files":          filesMap,
 		"commit_message": commitMessage,
 	}
 
-	// 7. Generate a unique request ID for this specific adapter call
+	// Generate request ID
 	newRequestID := uuid.New().String()
 
-	// 8. Build the full adapterRequest
+	// Build full adapter request
 	adapterRequest := map[string]interface{}{
 		"headers": map[string]interface{}{
 			"correlation_id":          params.ExecutionContext.CorrelationID,
@@ -215,10 +105,10 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 			"responses_topic":         myResponsesTopic,
 			"parent_responses_topic":  myResponsesTopic,
 			"timestamp":               time.Now().UTC().Format(time.RFC3339),
-			"action":                  action,
+			"action":                  "commit",
 		},
 		"body": map[string]interface{}{
-			"action":                 action,
+			"action":                 "commit",
 			"data":                   gitData,
 			"reply_to_topic":         myResponsesTopic,
 			"parent_responses_topic": myResponsesTopic,
@@ -227,6 +117,8 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 				"requesting_agent_type": params.ExecutionContext.Sender.AgentType,
 				"requesting_step":       params.ExecutionContext.StepName,
 				"client_id":             clientID,
+				"domain":                domain,
+				"file_count":            len(filesMap),
 			},
 			"request_context": map[string]interface{}{
 				"correlation_id":   params.ExecutionContext.CorrelationID,
@@ -236,7 +128,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 		},
 	}
 
-	// 9. Marshal and send
+	// Marshal and send
 	messageBytes, err := json.Marshal(adapterRequest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal adapter request: %w", err)
@@ -255,11 +147,10 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	key := []byte(params.ExecutionContext.CorrelationID)
 
 	if err := params.Producer.ProduceWithValidation(ctx, adapterTopic, headers, key, messageBytes); err != nil {
-		params.Logger.Error("Failed to send Kafka message to git-adapter", zap.Error(err), zap.String("topic", adapterTopic))
+		params.Logger.Error("Failed to send to git-adapter", zap.Error(err))
 		return nil, fmt.Errorf("failed to send message to adapter: %w", err)
 	}
 
-	// 10. Return result
 	result := GitCommitResult{
 		Success:       true,
 		RequestID:     newRequestID,
@@ -267,15 +158,132 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 		AwaitResponse: true,
 		Metadata: map[string]interface{}{
 			"repo_name":  repoName,
+			"domain":     domain,
 			"file_count": len(filesMap),
+			"files":      getFileNames(filesMap),
 		},
 	}
 
 	return result, nil
 }
 
-// extractNestedFieldForGit extracts a value from a nested map using dot notation
-// e.g., "final_site_data.generate_content.result" extracts data["final_site_data"]["generate_content"]["result"]
+// extractDomainForGit extracts domain from CollectedData using field path
+func extractDomainForGit(data map[string]interface{}, config map[string]interface{}, logger *zap.Logger) string {
+	// First check domain_field config
+	if domainField, ok := config["domain_field"].(string); ok && domainField != "" {
+		if domain := datahelpers.ExtractNestedField(data, domainField); domain != nil {
+			if domainStr, ok := domain.(string); ok && domainStr != "" {
+				logger.Info("Extracted domain from field path",
+					zap.String("field", domainField),
+					zap.String("domain", domainStr))
+				return domainStr
+			}
+		}
+	}
+
+	// Fallback: check input_data.domain
+	if domain := datahelpers.ExtractNestedField(data, "input_data.domain"); domain != nil {
+		if domainStr, ok := domain.(string); ok && domainStr != "" {
+			return domainStr
+		}
+	}
+
+	// Fallback: check flattened domain
+	if domain, ok := data["domain"].(string); ok && domain != "" {
+		return domain
+	}
+
+	return "unknown-domain"
+}
+
+// extractFilesForGit extracts files map from CollectedData or config
+func extractFilesForGit(data map[string]interface{}, config map[string]interface{}, domain string, logger *zap.Logger) map[string]string {
+	filesMap := make(map[string]string)
+
+	// Method 1: Check files_field config (NEW - for multi-page support)
+	if filesField, ok := config["files_field"].(string); ok && filesField != "" {
+		logger.Info("Attempting to extract files from field path",
+			zap.String("files_field", filesField))
+
+		if filesData := datahelpers.ExtractNestedField(data, filesField); filesData != nil {
+			if files, ok := filesData.(map[string]interface{}); ok {
+				for filename, content := range files {
+					if contentStr, ok := content.(string); ok {
+						// Prepend domain to create path: domain/filename
+						fullPath := filepath.Join(domain, filename)
+						filesMap[fullPath] = contentStr
+						logger.Info("Added file from files_field",
+							zap.String("path", fullPath),
+							zap.Int("size", len(contentStr)))
+					}
+				}
+				if len(filesMap) > 0 {
+					return filesMap
+				}
+			}
+		}
+	}
+
+	// Method 2: Check direct files in config (legacy support)
+	if filesRaw, ok := config["files"].(map[string]interface{}); ok {
+		for filename, content := range filesRaw {
+			if contentStr, ok := content.(string); ok {
+				fullPath := filepath.Join(domain, filename)
+				filesMap[fullPath] = contentStr
+			}
+		}
+		if len(filesMap) > 0 {
+			return filesMap
+		}
+	}
+
+	// Method 3: Check content_field for single file (backward compatibility)
+	if contentField, ok := config["content_field"].(string); ok && contentField != "" {
+		if content := datahelpers.ExtractNestedField(data, contentField); content != nil {
+			if contentStr, ok := content.(string); ok && contentStr != "" {
+				fullPath := filepath.Join(domain, "index.html")
+				filesMap[fullPath] = contentStr
+				logger.Info("Using content_field for single file",
+					zap.String("path", fullPath))
+				return filesMap
+			}
+		}
+	}
+
+	logger.Warn("No files found via any method",
+		zap.Any("config_keys", getMapKeysGit(config)),
+		zap.Any("data_keys", getMapKeysGit(data)))
+
+	return filesMap
+}
+
+// buildCommitMessage creates commit message with template support
+func buildCommitMessage(config map[string]interface{}, domain string, fileCount int) string {
+	messageTemplate, _ := config["commit_message"].(string)
+	if messageTemplate == "" {
+		messageTemplate = "Update site: {{.domain}}"
+	}
+
+	// Simple template replacement
+	tmpl, err := template.New("commit").Parse(messageTemplate)
+	if err != nil {
+		return fmt.Sprintf("Update site: %s", domain)
+	}
+
+	var buf strings.Builder
+	data := map[string]interface{}{
+		"domain":     domain,
+		"file_count": fileCount,
+	}
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return fmt.Sprintf("Update site: %s", domain)
+	}
+
+	return buf.String()
+}
+
+/*// extractNestedFieldForGit extracts a value from nested map using dot notation
+// Returns nil if path not found
 func extractNestedFieldForGit(data map[string]interface{}, fieldPath string) interface{} {
 	parts := strings.Split(fieldPath, ".")
 	var current interface{} = data
@@ -292,126 +300,22 @@ func extractNestedFieldForGit(data map[string]interface{}, fieldPath string) int
 	}
 
 	return current
+}*/
+
+// getFileNames returns list of file names from files map
+func getFileNames(files map[string]string) []string {
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	return names
 }
 
-// extractDataForGitAgent merges data from multiple sources specified in the step's 'input_fields' config.
-// very similar to extractDataForAgent and extractDataForAIAgent - needs consolidation
-func extractDataForGitAgent(params ActionParams) interface{} {
-	params.Logger.Info("Extracting data for AI agent",
-		zap.Any("available_keys", GetMapKeys(params.CollectedData)),
-	)
-
-	templateData := make(map[string]interface{})
-
-	// 1. Determine inputs to fetch
-	var inputFields []string
-	if fields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
-		for _, fieldInterface := range fields {
-			if field, ok := fieldInterface.(string); ok {
-				inputFields = append(inputFields, field)
-			}
-		}
-	} else {
-		params.Logger.Warn("No 'input_fields' found in config, defaulting to ['input_data']")
-		inputFields = []string{"input_data"}
+// getMapKeysGit returns keys of a map (helper)
+func getMapKeysGit(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
 	}
-
-	params.Logger.Info("Processing input_fields", zap.Strings("fields", inputFields))
-
-	// Get input_data once for reuse
-	inputDataMap := datahelpers.GetInputData(params.CollectedData, params.Logger)
-
-	// Check for double-nesting and unwrap if needed
-	if nestedInputData, ok := inputDataMap["input_data"].(map[string]interface{}); ok {
-		params.Logger.Warn("Detected double-nested input_data, unwrapping")
-		inputDataMap = nestedInputData
-	}
-
-	// 2. Smart Extraction Loop
-	for _, fieldName := range inputFields {
-
-		// Scenario A: "input_data" keyword (Legacy/Bulk behavior)
-		// Flattens the entire input_data map into the template root
-		if fieldName == "input_data" {
-			for key, val := range inputDataMap {
-				templateData[key] = val
-			}
-			params.Logger.Info("Flattened input_data to root", zap.Int("field_count", len(inputDataMap)))
-			continue
-		}
-
-		// Scenario B: Specific Field Lookup
-		var foundValue interface{}
-		var found bool
-		var foundPath string
-
-		// Check 1: Direct lookup in CollectedData
-		if val, ok := datahelpers.GetValueByPath(params.CollectedData, fieldName, params.Logger); ok {
-			foundValue = val
-			found = true
-			foundPath = fieldName
-		}
-
-		// Check 2: Look in the unwrapped input_data map directly
-		if !found && inputDataMap != nil {
-			if val, ok := inputDataMap[fieldName]; ok {
-				foundValue = val
-				found = true
-				foundPath = "input_data." + fieldName
-				params.Logger.Debug("Found field in input_data", zap.String("field", fieldName))
-			}
-		}
-
-		// Check 3: Try dot notation in CollectedData
-		if !found {
-			if val, ok := datahelpers.GetValueByPath(params.CollectedData, "input_data."+fieldName, params.Logger); ok {
-				foundValue = val
-				found = true
-				foundPath = "input_data." + fieldName
-			}
-		}
-
-		// Check 4: Look inside __raw_message__
-		if !found {
-			if raw, ok := params.CollectedData["__raw_message__"].(map[string]interface{}); ok {
-				if val, ok := datahelpers.GetValueByPath(raw, fieldName, params.Logger); ok {
-					foundValue = val
-					found = true
-					foundPath = "__raw_message__." + fieldName
-				}
-			}
-		}
-
-		if found {
-			// Use the simple field name for the template key
-			// e.g. if we found "input_data.domain", store as "domain"
-			keyParts := strings.Split(fieldName, ".")
-			simpleKey := keyParts[len(keyParts)-1]
-
-			templateData[simpleKey] = foundValue
-			params.Logger.Info("Extracted field",
-				zap.String("field", fieldName),
-				zap.String("template_key", simpleKey),
-				zap.String("found_at", foundPath),
-				zap.Any("value", foundValue),
-			)
-		} else {
-			params.Logger.Warn("Requested input_field not found",
-				zap.String("field", fieldName),
-				zap.Strings("checked_paths", []string{
-					fieldName,
-					"input_data." + fieldName,
-					"CollectedData[input_data][" + fieldName + "]",
-					"__raw_message__." + fieldName,
-				}),
-			)
-		}
-	}
-
-	params.Logger.Info("Final template data",
-		zap.Any("template_data", templateData),
-		zap.Int("field_count", len(templateData)),
-	)
-
-	return templateData
+	return keys
 }
