@@ -580,7 +580,7 @@ func (tm *TopicManager) WaitForTopicOld(ctx context.Context, topic string, logge
 
 func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *zap.Logger) error {
 	const maxAttempts = 10
-	var randomWaits = []int{3, 5, 7, 11, 13, 17, 21, 23, 29}
+	var randomWaits = []int{3, 4, 5, 7, 9, 10, 11, 12, 14, 15}
 	var pollInterval time.Duration
 	waitSeconds := randomWaits[rand.Intn(len(randomWaits))]
 	pollInterval = time.Duration(waitSeconds) * time.Second

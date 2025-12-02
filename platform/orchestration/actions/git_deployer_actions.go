@@ -222,6 +222,37 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 				}
 			}
 		}
+
+		// Try further multiple possible paths for files_field
+		pathsToTry := []string{
+			filesField,                 // Original path: "site_files.files"
+			"input_data." + filesField, // input_data.site_files.files
+			"input_data.site_files.wrap_multipage.files", // Known multipage path
+		}
+
+		for _, path := range pathsToTry {
+			if filesData := datahelpers.ExtractNestedField(data, path); filesData != nil {
+				logger.Info("Found files from further search at path",
+					zap.String("path", path),
+				)
+
+				if files, ok := filesData.(map[string]interface{}); ok {
+					for filename, content := range files {
+						if contentStr, ok := content.(string); ok {
+							// Prepend domain to create path: domain/filename
+							fullPath := filepath.Join(domain, filename)
+							filesMap[fullPath] = contentStr
+							logger.Info("Successfully added file from files_field",
+								zap.String("path", fullPath),
+								zap.Int("size", len(contentStr)))
+						}
+					}
+					if len(filesMap) > 0 {
+						return filesMap
+					}
+				}
+			}
+		}
 	}
 
 	// Method 2: Check direct files in config (legacy support)
@@ -249,6 +280,8 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 			}
 		}
 	}
+
+	// Returns first one that works
 
 	logger.Warn("No files found via any method",
 		zap.Any("config_keys", getMapKeysGit(config)),

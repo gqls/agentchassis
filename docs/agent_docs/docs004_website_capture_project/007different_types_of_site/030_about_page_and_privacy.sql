@@ -474,6 +474,18 @@ SET default_config = '{
 WHERE type = 'site-deployer';
 
 
+-- Fix the deployer files_field to match actual data path
+-- The wrap_multipage local action stores its result under the step name
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,deploy_to_git,config,files_field}',
+        '"input_data.site_files.wrap_multipage.files"'::jsonb
+                     )
+WHERE type = 'site-deployer';
+
+
 -- Step 3: Verify the new group was created
 SELECT
     group_type,
@@ -647,3 +659,271 @@ INSERT INTO agent_group_definitions (
   }'::jsonb,
 1
 );
+
+
+---
+
+some more themes
+
+INSERT INTO css_themes (
+    name,
+    display_name,
+    description,
+    category,
+    semantic_tags,
+    css_content
+) VALUES
+(
+    'modern-engineering-clean',
+    'Modern Engineering',
+    'A precise, architectural design using cool grays, deep blues, and structural layouts. Professional and authoritative.',
+    'modern',
+    '{professional,clean,corporate,saas,trust}',
+    ':root {
+        /* Palette: Precision & Trust */
+        --color-primary: #0f172a;        /* Slate 900 */
+        --color-primary-hover: #334155;  /* Slate 700 */
+        --color-primary-text: #ffffff;
+
+        --color-secondary: #0ea5e9;      /* Sky 500 - used sparingly for active states */
+        --color-secondary-hover: #0284c7;
+        --color-secondary-text: #ffffff;
+
+        --color-accent: #64748b;         /* Slate 500 - subtle accent */
+
+        --color-text: #334155;           /* Slate 700 - softer than black */
+        --color-text-muted: #64748b;     /* Slate 500 */
+        --color-heading: #020617;        /* Slate 950 */
+
+        --color-background: #ffffff;
+        --color-background-alt: #f8fafc; /* Slate 50 */
+
+        --color-border: #e2e8f0;         /* Slate 200 */
+
+        /* Specialized Areas */
+        --color-header-bg: rgba(255, 255, 255, 0.9);
+        --color-header-text: #0f172a;
+
+        --color-hero-title: #0f172a;
+        --color-hero-subtitle: #475569;
+
+        --color-card-bg: #ffffff;
+
+        /* Gradient is subtle, almost metallic */
+        --color-cta-bg: #0f172a;
+        --color-cta-text: #ffffff;
+
+        --color-footer-bg: #f8fafc;
+        --color-footer-text: #475569;
+
+        /* Design Tokens */
+        --border-radius: 6px; /* Tighter radius for precision look */
+        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+        font-family: var(--font-sans);
+        background-color: var(--color-background);
+        color: var(--color-text);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* Subtle backdrop blur for a modern glass feel on headers */
+    header {
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    /* Cards are clean, bordered, minimal shadow */
+    .card {
+        border: 1px solid var(--color-border);
+        border-radius: var(--border-radius);
+        background: var(--color-card-bg);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--color-secondary);
+    }
+
+    /* Buttons are solid, geometric */
+    .button {
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        border-radius: var(--border-radius);
+    }
+    '
+),
+(
+    'soft-editorial',
+    'Soft Editorial',
+    'A gentle, smart aesthetic with warmer tones and serif typography. Uses whitespace to create a premium, thoughtful feel.',
+    'elegant',
+    '{subtle,gentle,premium,blog,publishing,agency}',
+    ':root {
+        /* Palette: Organic & Calm */
+        --color-primary: #4338ca;        /* Indigo 700 - muted */
+        --color-primary-hover: #3730a3;
+        --color-primary-text: #ffffff;
+
+        --color-secondary: #e0e7ff;      /* Indigo 100 */
+        --color-secondary-hover: #c7d2fe;
+        --color-secondary-text: #312e81;
+
+        --color-accent: #f59e0b;         /* Amber - mainly for small highlights */
+
+        --color-text: #292524;           /* Warm Grey/Stone 800 */
+        --color-text-muted: #57534e;     /* Stone 600 */
+        --color-heading: #1c1917;        /* Stone 900 */
+
+        /* The background is not pure white, it is "paper" */
+        --color-background: #fafaf9;     /* Stone 50 */
+        --color-background-alt: #f5f5f4; /* Stone 100 */
+
+        --color-border: #e7e5e4;         /* Stone 200 */
+
+        /* Specialized Areas */
+        --color-header-bg: #fafaf9;
+        --color-header-text: #1c1917;
+
+        --color-hero-title: #1c1917;
+        --color-hero-subtitle: #44403c;
+
+        --color-card-bg: #ffffff;
+
+        --color-cta-bg: #4338ca;
+        --color-cta-text: #ffffff;
+
+        --color-footer-bg: #e7e5e4;
+        --color-footer-text: #44403c;
+
+        /* Design Tokens */
+        --border-radius: 12px; /* Softer, friendlier corners */
+        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05); /* Very diffused */
+        --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.01);
+
+        --font-display: "Merriweather", "Georgia", serif;
+        --font-body: "Lato", system-ui, sans-serif;
+    }
+
+    body {
+        font-family: var(--font-body);
+        background-color: var(--color-background);
+        color: var(--color-text);
+        line-height: 1.7; /* Relaxed reading experience */
+    }
+
+    h1, h2, h3, h4, .hero-title {
+        font-family: var(--font-display);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+
+    /* Header is minimal, no border, just floats */
+    header {
+        background: transparent;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+
+    /* Cards are soft, elevating gently */
+    .card {
+        border: 1px solid rgba(0,0,0,0.03); /* Almost invisible border */
+        border-radius: var(--border-radius);
+        background: var(--color-card-bg);
+        box-shadow: var(--shadow);
+    }
+
+    .hero-section {
+        /* A gentle fade overlay instead of a block color */
+        background: linear-gradient(to bottom, transparent 0%, rgba(67, 56, 202, 0.03) 100%);
+    }
+
+    .button {
+        border-radius: 50px; /* Pill shapes are friendlier */
+        padding-left: 2rem;
+        padding-right: 2rem;
+        font-family: var(--font-body);
+    }
+    '
+);
+
+
+-- Insert a new agent definition for multipage-wrapper
+-- This agent simply executes the wrap_multipage action
+
+INSERT INTO agent_definitions (
+    id,
+    type,
+    display_name,
+    description,
+    category,
+    default_config,
+    is_active,
+    capabilities,
+    image_repository,
+    image_tag,
+    resources,
+    topics,
+    health_config,
+    env_vars,
+    version,
+    delegation_preferences
+) VALUES (
+             gen_random_uuid(),
+             'multipage-wrapper',
+             'Multi-Page Site Wrapper',
+             'Wraps single-page site into multi-page structure (index, about, contact)',
+             'data-driven',
+             '{
+               "processing_mode": "task",
+               "timeout_seconds": 30,
+               "workflow": {
+                 "start_step": "wrap_multipage",
+                 "steps": {
+                   "wrap_multipage": {
+                     "action": "wrap_multipage",
+                     "config": {
+                       "index_html_field": "input_data.final_html.assemble_html.final_html"
+                     },
+                     "next_step": "complete",
+                     "description": "Create about and contact pages"
+                   },
+                   "complete": {
+                     "action": "complete_workflow",
+                     "description": "Return files map"
+                   }
+                 }
+               }
+             }'::jsonb,
+             true,
+             '["data-transformation", "html", "multipage"]'::jsonb,
+             'docker.io/aqls/agent-chassis',
+             'v1.0.484',
+             '{
+               "requests": {"cpu": "100m", "memory": "256Mi"},
+               "limits": {"cpu": "500m", "memory": "512Mi"}
+             }'::jsonb,
+             '{
+               "process": "system.agent.{type}.process",
+               "response": "system.responses.{type}",
+               "error": "system.errors.{type}"
+             }'::jsonb,
+             '{
+               "port": 8080,
+               "liveness_path": "/health",
+               "readiness_path": "/ready",
+               "initial_delay_seconds": 15
+             }'::jsonb,
+             '[]'::jsonb,
+             1,
+             '{
+               "prefer_delegation": true,
+               "fallback_to_self": true
+             }'::jsonb
+         );
