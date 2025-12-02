@@ -485,6 +485,14 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'site-deployer';
 
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,deploy_to_git,config,domain_field}',
+        '"input_data.domain"'::jsonb
+                     )
+WHERE type = 'site-deployer';
+
 
 -- Step 3: Verify the new group was created
 SELECT

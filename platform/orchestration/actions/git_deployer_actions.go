@@ -169,29 +169,57 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 
 // extractDomainForGit extracts domain from CollectedData using field path
 func extractDomainForGit(data map[string]interface{}, config map[string]interface{}, logger *zap.Logger) string {
-	// First check domain_field config
-	if domainField, ok := config["domain_field"].(string); ok && domainField != "" {
-		if domain := datahelpers.ExtractNestedField(data, domainField); domain != nil {
-			if domainStr, ok := domain.(string); ok && domainStr != "" {
-				logger.Info("Extracted domain from field path",
-					zap.String("field", domainField),
+	// Get configured domain_field
+	domainField, _ := config["domain_field"].(string)
+
+	logger.Info("Attempting to extract domain",
+		zap.String("configured_field", domainField))
+
+	// Build list of paths to try
+	pathsToTry := []string{}
+
+	// If domain_field is configured, try it and variations
+	if domainField != "" {
+		pathsToTry = append(pathsToTry,
+			domainField,               // Original configured field
+			"input_data."+domainField, // With input_data prefix
+		)
+	}
+
+	// Add common fallback paths
+	pathsToTry = append(pathsToTry,
+		"input_data.domain",            // Standard location
+		"domain",                       // Top-level
+		"input_data.input_data.domain", // Double-nested (in case of agent call wrapping)
+	)
+
+	// Remove duplicates
+	seen := make(map[string]bool)
+	uniquePaths := []string{}
+	for _, path := range pathsToTry {
+		if !seen[path] {
+			seen[path] = true
+			uniquePaths = append(uniquePaths, path)
+		}
+	}
+
+	// Try each path
+	for _, path := range uniquePaths {
+		logger.Debug("Trying domain path", zap.String("path", path))
+
+		domainData := datahelpers.ExtractNestedField(data, path)
+		if domainData != nil {
+			if domainStr, ok := domainData.(string); ok && domainStr != "" {
+				logger.Info("Successfully extracted domain",
+					zap.String("path_used", path),
 					zap.String("domain", domainStr))
 				return domainStr
 			}
 		}
 	}
 
-	// Fallback: check input_data.domain
-	if domain := datahelpers.ExtractNestedField(data, "input_data.domain"); domain != nil {
-		if domainStr, ok := domain.(string); ok && domainStr != "" {
-			return domainStr
-		}
-	}
-
-	// Fallback: check flattened domain
-	if domain, ok := data["domain"].(string); ok && domain != "" {
-		return domain
-	}
+	logger.Warn("Failed to extract domain from any path",
+		zap.Strings("tried_paths", uniquePaths))
 
 	return "unknown-domain"
 }
