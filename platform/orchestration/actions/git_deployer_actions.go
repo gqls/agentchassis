@@ -46,7 +46,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	// Adapter topic
-	adapterTopic := "system.adapter.gitcommit.requests"
+	adapterTopic := "system.adapter.git.requests"
 
 	// Extract repo name (can be from config or from CollectedData)
 	repoName, _ := config["repo_name"].(string)
