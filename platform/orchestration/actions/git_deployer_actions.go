@@ -78,6 +78,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	// Build the git data payload
 	gitData := map[string]interface{}{
 		"repo_name":      repoName,
+		"domain":         domain,
 		"files":          filesMap,
 		"commit_message": commitMessage,
 	}

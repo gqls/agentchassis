@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.487
+IMAGE_TAG ?= v1.0.488
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
