@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -240,9 +239,9 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 					if contentStr, ok := content.(string); ok {
 						// Prepend domain to create path: domain/filename
 						fullPath := filename
-						if !strings.HasPrefix(filename, domain+"/") && !strings.HasPrefix(filename, domain+"\\") {
+						/*if !strings.HasPrefix(filename, domain+"/") && !strings.HasPrefix(filename, domain+"\\") {
 							fullPath = filepath.Join(domain, filename)
-						}
+						}*/
 						filesMap[fullPath] = contentStr
 						logger.Info("Added file from files_field",
 							zap.String("path", fullPath),
@@ -272,10 +271,10 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 					for filename, content := range files {
 						if contentStr, ok := content.(string); ok {
 							// Prepend domain to create path: domain/filename
-							fullPath := filepath.Join(domain, filename)
-							filesMap[fullPath] = contentStr
+							// fullPath := filepath.Join(domain, filename)
+							filesMap[filename] = contentStr
 							logger.Info("Successfully added file from files_field",
-								zap.String("path", fullPath),
+								zap.String("path", filename),
 								zap.Int("size", len(contentStr)))
 						}
 					}
@@ -292,9 +291,9 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 		for filename, content := range filesRaw {
 			if contentStr, ok := content.(string); ok {
 				fullPath := filename
-				if !strings.HasPrefix(filename, domain+"/") && !strings.HasPrefix(filename, domain+"\\") {
+				/*if !strings.HasPrefix(filename, domain+"/") && !strings.HasPrefix(filename, domain+"\\") {
 					fullPath = filepath.Join(domain, filename)
-				}
+				}*/
 				filesMap[fullPath] = contentStr
 			}
 		}
@@ -307,7 +306,8 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 	if contentField, ok := config["content_field"].(string); ok && contentField != "" {
 		if content := datahelpers.ExtractNestedField(data, contentField); content != nil {
 			if contentStr, ok := content.(string); ok && contentStr != "" {
-				fullPath := filepath.Join(domain, "index.html")
+				//fullPath := filepath.Join(domain, "index.html")
+				fullPath := "index.html"
 				filesMap[fullPath] = contentStr
 				logger.Info("Using content_field for single file",
 					zap.String("path", fullPath))
