@@ -2148,6 +2148,42 @@ SET
   }'::jsonb
 WHERE type = 'site-strategist';
 
+--
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = '{
+    "workflow": {
+      "start_step": "generate_build_plan",
+      "steps": {
+        "generate_build_plan": {
+          "action": "execute_llm_prompt",
+          "config": {
+            "ai_service": {
+              "provider": "anthropic",
+              "model": "claude-haiku-4-5-20251001",
+              "api_key_env_var": "ANTHROPIC_API_KEY",
+              "max_tokens": 16000
+            },
+            "input_fields": ["input_data", "brief_data"],
+            "output_field": "build_plan_json",
+            "prompt_template": "You are an english website strategist creating a Build Plan based on behavioural psychology.\n\nWebsite Request:\n- Domain: {{.input_data.domain}}\n- Objective: {{.input_data.objective}}\n- Model: {{.input_data.model}}\n\n{{if .brief_data}}Brief Data:\n{{.brief_data}}\n{{end}}\n\nBehavioural Models:\n- AIDA: Attention → Interest → Desire → (Conviction) -> Action\n- PAS: Problem → Agitate → Solution\n- FAB: Features → Advantages → Benefits\n- 4Ps: Promise → Picture → Proof → Push\n\nAvailable Components: header, hero, features, social_proof, pricing, faq, call_to_action, footer\n\nCreate a build plan that maps the behavioural model to sections with specific guidance.\n\nReturn ONLY valid JSON:\n{\n  \"model\": \"AIDA\",\n  \"sections\": [\"header\", \"hero\", \"features\", \"social_proof\", \"pricing\", \"faq\", \"call_to_action\", \"footer\"],\n  \"section_guidance\": {\n    \"hero\": {\n      \"stage\": \"Attention\",\n      \"purpose\": \"Grab attention with bold value proposition\",\n      \"key_message\": \"Main benefit headline\",\n      \"tone\": \"Confident, clear\"\n    },\n    \"features\": {\n      \"stage\": \"Interest\",\n      \"purpose\": \"Build interest with capabilities\",\n      \"key_message\": \"What it does\",\n      \"tone\": \"Informative\"\n    }\n  },\n  \"theme\": \"tech-saas\"\n}\n\nProvide section_guidance for each section in the sections array. Keep this guidance concise (1 or 2 sentences for the guidance part). Return ONLY the JSON object."
+          },
+          "next_step": "complete"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Return the Build Plan"
+        }
+      }
+    },
+    "processing_mode": "task",
+    "timeout_seconds": 120
+  }'::jsonb
+WHERE type = 'site-strategist';
+
+
 ---
 Added explicit instruction: "use the EXACT key names from content_requirements"
 

@@ -886,6 +886,7 @@ func SpawnAgentActionOld2(ctx context.Context, params ActionParams) (interface{}
 
 		if strings.Contains(produceErr.Error(), "Unknown Topic Or Partition") {
 			params.Logger.Warn("Failed to send spawn message due to unknown topic:",
+				zap.String("to_topic", childRequestsTopic),
 				zap.Int("attempt:", i+1),
 				zap.Int("max_attempts", maxRetries),
 				zap.Duration("delay", retryDelay),

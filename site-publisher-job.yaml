@@ -1,0 +1,195 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  creationTimestamp: "2025-08-21T17:18:00Z"
+  generation: 1
+  labels:
+    agent-id: 8bfdcf2e-af78-4977-953f-dcc9d6a63867
+    agent-type: site-publisher
+    app: dynamic-agent
+    category: adapter
+    client-id: demo_client
+    component: agent
+    spawned-by: orchestrator
+  name: agent-site-publisher-8bfdcf2e
+  namespace: ai-persona-system
+  resourceVersion: "9643573"
+  uid: 3c94bf52-093c-49a8-8715-c8fb01daf32a
+spec:
+  activeDeadlineSeconds: 86400
+  backoffLimit: 3
+  completionMode: NonIndexed
+  completions: 1
+  manualSelector: false
+  parallelism: 1
+  podReplacementPolicy: TerminatingOrFailed
+  selector:
+    matchLabels:
+      batch.kubernetes.io/controller-uid: 3c94bf52-093c-49a8-8715-c8fb01daf32a
+  suspend: false
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9090"
+        prometheus.io/scrape: "true"
+      creationTimestamp: null
+      labels:
+        agent-id: 8bfdcf2e-af78-4977-953f-dcc9d6a63867
+        agent-type: site-publisher
+        app: dynamic-agent
+        batch.kubernetes.io/controller-uid: 3c94bf52-093c-49a8-8715-c8fb01daf32a
+        batch.kubernetes.io/job-name: agent-site-publisher-8bfdcf2e
+        client-id: demo_client
+        controller-uid: 3c94bf52-093c-49a8-8715-c8fb01daf32a
+        job-name: agent-site-publisher-8bfdcf2e
+    spec:
+      containers:
+      - env:
+        - name: AGENT_TYPE
+          value: site-publisher
+        - name: AGENT_ID
+          value: 8bfdcf2e-af78-4977-953f-dcc9d6a63867
+        - name: CLIENT_ID
+          value: demo_client
+        - name: KAFKA_TOPIC
+          value: system.agent.site-publisher.process
+        - name: KAFKA_CONSUMER_GROUP
+          value: site-publisher-group-8bfdcf2e
+        - name: HEALTH_PORT
+          value: "8080"
+        - name: METRICS_PORT
+          value: "9090"
+        - name: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+        - name: S3_ENDPOINT
+          value: https://s3.us-east-005.backblazeb2.com
+        - name: S3_REGION
+          value: us-west-004
+        - name: IMAGE_BUCKET
+          value: personae-prod-uk001-images
+        - name: ASSETS_BUCKET
+          value: personae-prod-uk001-site-assets
+        - name: S3_USE_PATH_STYLE
+          value: "false"
+        - name: SERVICE_INFRASTRUCTURE_KAFKA_BROKERS
+        - name: SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST
+        - name: SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT
+        - name: SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER
+        - name: SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME
+        - name: SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_HOST
+        - name: SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_PORT
+        - name: SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_USER
+        - name: SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_DB_NAME
+        - name: CLIENTS_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: CLIENTS_DB_PASSWORD
+              name: personae-platform-secrets
+        - name: TEMPLATES_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: TEMPLATES_DB_PASSWORD
+              name: personae-platform-secrets
+        - name: AUTH_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: AUTH_DB_PASSWORD
+              name: personae-platform-secrets
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: ANTHROPIC_API_KEY
+              name: personae-default-secrets
+        - name: AGENT_BOOTSTRAP_KEY
+          valueFrom:
+            secretKeyRef:
+              key: agent-bootstrap-key
+              name: personae-platform-secrets
+        - name: CORE_MANAGER_URL
+          value: http://core-manager.ai-persona-system.svc.cluster.local:8088
+        - name: CLIENTS_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: CLIENTS_DB_PASSWORD
+              name: personae-platform-secrets
+        - name: TEMPLATES_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: TEMPLATES_DB_PASSWORD
+              name: personae-platform-secrets
+        - name: AUTH_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: AUTH_DB_PASSWORD
+              name: personae-platform-secrets
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: ANTHROPIC_API_KEY
+              name: personae-default-secrets
+        - name: AGENT_BOOTSTRAP_KEY
+          valueFrom:
+            secretKeyRef:
+              key: agent-bootstrap-key
+              name: personae-platform-secrets
+        - name: CORE_MANAGER_URL
+          value: http://core-manager.ai-persona-system.svc.cluster.local:8088
+        envFrom:
+        - configMapRef:
+            name: personae-prod-config
+        image: docker.io/aqls/agent-chassis:v1.0.49
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: agent
+        ports:
+        - containerPort: 8080
+          name: health
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /ready
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 3
+        resources:
+          limits:
+            cpu: 400m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: docker-hub-creds
+      restartPolicy: OnFailure
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: ai-persona-app
+      serviceAccountName: ai-persona-app
+      terminationGracePeriodSeconds: 30
+  ttlSecondsAfterFinished: 3600
+status:
+  active: 1
+  ready: 1
+  startTime: "2025-08-21T17:18:01Z"
+  terminating: 0
+  uncountedTerminatedPods: {}
