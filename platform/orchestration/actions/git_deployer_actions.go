@@ -239,7 +239,10 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 				for filename, content := range files {
 					if contentStr, ok := content.(string); ok {
 						// Prepend domain to create path: domain/filename
-						fullPath := filepath.Join(domain, filename)
+						fullPath := filename
+						if !strings.HasPrefix(filename, domain+"/") && !strings.HasPrefix(filename, domain+"\\") {
+							fullPath = filepath.Join(domain, filename)
+						}
 						filesMap[fullPath] = contentStr
 						logger.Info("Added file from files_field",
 							zap.String("path", fullPath),
@@ -288,7 +291,10 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 	if filesRaw, ok := config["files"].(map[string]interface{}); ok {
 		for filename, content := range filesRaw {
 			if contentStr, ok := content.(string); ok {
-				fullPath := filepath.Join(domain, filename)
+				fullPath := filename
+				if !strings.HasPrefix(filename, domain+"/") && !strings.HasPrefix(filename, domain+"\\") {
+					fullPath = filepath.Join(domain, filename)
+				}
 				filesMap[fullPath] = contentStr
 			}
 		}
