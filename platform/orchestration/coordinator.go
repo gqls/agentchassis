@@ -867,7 +867,7 @@ func processActionResult(state *OrchestrationState, result interface{}, step mod
 	)
 
 	// Store result in collected data
-	if err := storeActionResult(state, result, logger); err != nil {
+	if err := storeActionResult(state, result, step, logger); err != nil {
 		logger.Info("in processActionResult error when storing action result",
 			zap.String("step_name", step.Name),
 			zap.Any("result", result),
@@ -927,7 +927,7 @@ func processActionResult(state *OrchestrationState, result interface{}, step mod
 }
 
 // Store action result in collected data
-func storeActionResult(state *OrchestrationState, result interface{}, logger *zap.Logger) error {
+func storeActionResult(state *OrchestrationState, result interface{}, step models.Step, logger *zap.Logger) error {
 	if state.CurrentStep == "" {
 		logger.Error("Cannot store result - CurrentStep is empty")
 		return fmt.Errorf("current step is empty")
@@ -938,6 +938,15 @@ func storeActionResult(state *OrchestrationState, result interface{}, logger *za
 	}
 
 	state.CollectedData[state.CurrentStep] = result
+
+	// ALSO store under output_field if specified (matching handleCompleteResponse behavior)
+	if step.OutputField != "" {
+		state.CollectedData[step.OutputField] = result
+		logger.Info("Stored action result under output_field",
+			zap.Any("step", step),
+			zap.String("output_field", step.OutputField),
+		)
+	}
 
 	logger.Info("Stored action result in storeActionResult",
 		zap.String("step", state.CurrentStep),
