@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
@@ -82,7 +83,7 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 	}
 
 	// 8. Assemble components from library
-	output, err := assembleComponentsByName(ctx, db, componentNames, domain, themeCSS, params.Logger)
+	output, err := assembleComponentsByName(ctx, db, componentNames, domain, themeName, themeCSS, params.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -461,11 +462,31 @@ func extractComponentNames(buildPlan *BuildPlan, logger *zap.Logger) ([]string, 
 	return componentNames, nil
 }
 
+// buildThemeMetadataComment creates a CSS comment with theme and component info for traceability
+func buildThemeMetadataComment(themeName string, componentFunctions []string, domain string) string {
+	timestamp := time.Now().UTC().Format(time.RFC3339)
+	components := strings.Join(componentFunctions, ", ")
+
+	return fmt.Sprintf(`/*
+ * ============================================
+ * SITE BUILD METADATA
+ * ============================================
+ * Theme: %s
+ * Domain: %s
+ * Components: %s
+ * Generated: %s
+ * Source: component-library (assemble_from_library)
+ * ============================================
+ */
+`, themeName, domain, components, timestamp)
+}
+
 // assembleComponentsByName queries the database and stitches together HTML from component names.
-func assembleComponentsByName(ctx context.Context, db *sql.DB, componentNames []string, domain string, themeCSS string, logger *zap.Logger) (*AssembleOutput, error) {
+func assembleComponentsByName(ctx context.Context, db *sql.DB, componentNames []string, domain string, themeName string, themeCSS string, logger *zap.Logger) (*AssembleOutput, error) {
 	var finalHTML strings.Builder
 	contentRequirements := make(map[string]interface{})
 	var componentIDs []string
+	var componentFunctions []string // Track function names for metadata
 
 	for idx, componentName := range componentNames {
 		logger.Info("Querying for component",
@@ -481,13 +502,20 @@ func assembleComponentsByName(ctx context.Context, db *sql.DB, componentNames []
 			continue
 		}
 
+		// Track component function for metadata
+		componentFunctions = append(componentFunctions, component.Function)
+
 		// Stitch the HTML with a unique component ID
 		componentID := fmt.Sprintf("component_%s_%d", component.Function, idx)
 		templatedHTML := strings.Replace(component.HTMLTemplate, "{{.ComponentID}}", componentID, -1)
 
-		// Special handling for HEAD component - inject theme CSS and metadata
+		// Special handling for HEAD component - inject theme CSS with metadata and other values
 		if component.Function == "head" {
-			templatedHTML = strings.Replace(templatedHTML, "{{.theme_css}}", themeCSS, -1)
+			// Build metadata comment and prepend to theme CSS
+			metadataComment := buildThemeMetadataComment(themeName, componentNames, domain)
+			labeledThemeCSS := metadataComment + themeCSS
+
+			templatedHTML = strings.Replace(templatedHTML, "{{.theme_css}}", labeledThemeCSS, -1)
 			// Also inject title and description if available
 			templatedHTML = strings.Replace(templatedHTML, "{{.title}}", domain, -1)
 			templatedHTML = strings.Replace(templatedHTML, "{{.description}}", "Welcome to "+domain, -1)
@@ -519,7 +547,9 @@ func assembleComponentsByName(ctx context.Context, db *sql.DB, componentNames []
 
 	logger.Info("Successfully assembled all components",
 		zap.Int("total_components", len(componentIDs)),
-		zap.Int("total_html_length", finalHTML.Len()))
+		zap.Int("total_html_length", finalHTML.Len()),
+		zap.String("theme_used", themeName),
+		zap.Strings("component_functions", componentFunctions))
 
 	return &AssembleOutput{
 		StitchedHTMLTemplate: finalHTML.String(),
