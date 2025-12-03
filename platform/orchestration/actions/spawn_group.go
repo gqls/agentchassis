@@ -68,8 +68,11 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	// 3. Fetch group definition from database
 	groupDef, err := fetchGroupDefinitionFromDB(ctx, db, groupType, config, params.Logger)
+	params.Logger.Info("Looking for chosen group type in db",
+		zap.Any("chosen group definition", groupDef),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch group definition: %w", err)
+		return nil, fmt.Errorf("failed to fetch group definition from db: %w", err)
 	}
 
 	params.Logger.Info("Fetched group definition from DB",
@@ -198,6 +201,14 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 		},
 	}
 
+	// Check if we should wait for responses (default: false for spawn_group)
+	// When wait_for_completion is false, we spawn the group and immediately
+	// proceed to the next step without waiting for agent initialization responses.
+	waitForCompletion := false
+	if wait, ok := config["wait_for_completion"].(bool); ok {
+		waitForCompletion = wait
+	}
+
 	params.Logger.Info("SpawnGroupFromDBAction completed",
 		zap.String("group_id", groupID),
 		zap.String("group_type", groupType),
@@ -206,14 +217,15 @@ func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	// 11. Return result (same pattern as existing SpawnGroupAction)
 	return map[string]interface{}{
-		"group_id":               groupID,
-		"group_name":             groupName,
-		"group_type":             groupType,
-		"group_version":          groupDef.Version,
-		"agents":                 spawnedAgents,
-		"workflow":               workflowBytes,
-		"request_id":             requestID,
-		"await_response":         true, // Wait for group initialization
+		"group_id":      groupID,
+		"group_name":    groupName,
+		"group_type":    groupType,
+		"group_version": groupDef.Version,
+		"agents":        spawnedAgents,
+		"workflow":      workflowBytes,
+		"request_id":    requestID,
+		// "await_response":         true, // Wait for group initialization
+		"await_response":         waitForCompletion,
 		"target_agent_type":      groupType,
 		"subtree_info":           groupSubtree,
 		"spawn_count":            len(spawnedAgents),
