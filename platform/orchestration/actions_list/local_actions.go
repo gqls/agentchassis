@@ -44,7 +44,6 @@ var LocalActions = map[string]bool{
 	"git_commit_action":         true,
 	"assemble_full_page":        true,
 	"fetch_group_questionnaire": true,
-	"request_human_input":       true,
 	"wrap_multipage":            true,
 
 	// Data aggregation
@@ -87,10 +86,12 @@ var LocalActions = map[string]bool{
 	"evaluate_task":         true,
 
 	// HITL / Approval actions
-	"await_approval":             true,
-	"process_approval_decision":  true,
-	"create_approval_request":    true,
-	"wait_for_approval_response": true,
+	"await_approval":               true,
+	"process_approval_decision":    true,
+	"create_approval_request":      true,
+	"wait_for_approval_response":   true,
+	"request_human_input":          true,
+	"process_human_input_response": true,
 
 	// Legacy/duplicate
 	"spawn_agent_k8s": true,
