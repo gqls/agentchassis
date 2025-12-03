@@ -592,9 +592,19 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		}
 
 		// --- This is the core step-transition logic ---
-		if currentStepConfig.NextStep != "" {
-			l.Info("currentStepConfig.NextStep was not blank", zap.String("next_step", currentStepConfig.NextStep))
-			state.CurrentStep = currentStepConfig.NextStep
+
+		// First, check if the action result specified a next_step override
+		nextStep := currentStepConfig.NextStep
+		if overrideStep, found := getNextStepFromResult(state.CollectedData, state.CurrentStep); found {
+			l.Info("Action result specified next_step override",
+				zap.String("configured_next_step", currentStepConfig.NextStep),
+				zap.String("override_next_step", overrideStep))
+			nextStep = overrideStep
+		}
+
+		if nextStep != "" {
+			l.Info("Transitioning to next step", zap.String("next_step", nextStep))
+			state.CurrentStep = nextStep
 
 			if err := repo.UpdateState(ctx, state); err != nil {
 				return err
@@ -603,11 +613,37 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 			// Go to the top of the for loop to run the next step
 			continue
 		} else {
-			l.Info("currentStepConfig.NextStep WAS blank, completing workflow.")
+			l.Info("No next step defined, completing workflow.")
 			// No next step, so complete the workflow and exit the loop
 			return s.completeWorkflow(ctx, state)
 		}
 	}
+}
+
+// getNextStepFromResult extracts a next_step override from an action result if present.
+// Returns the override step name and true if found, or empty string and false if not.
+func getNextStepFromResult(collectedData map[string]interface{}, currentStep string) (string, bool) {
+	stepResult, ok := collectedData[currentStep]
+	if !ok {
+		return "", false
+	}
+
+	resultMap, ok := stepResult.(map[string]interface{})
+	if !ok {
+		return "", false
+	}
+
+	// Check for next_step (preferred)
+	if nextStep, ok := resultMap["next_step"].(string); ok && nextStep != "" {
+		return nextStep, true
+	}
+
+	// Also check for next_step_override (legacy compatibility)
+	if nextStep, ok := resultMap["next_step_override"].(string); ok && nextStep != "" {
+		return nextStep, true
+	}
+
+	return "", false
 }
 
 // executeStep executes a single workflow step

@@ -348,18 +348,125 @@ func getStringField(m map[string]interface{}, key string) string {
 	return ""
 }
 
-// EvaluateConditionAction evaluates a condition and returns true/false for conditional workflow branching
+// EvaluateConditionAction evaluates a condition for conditional workflow branching.
+// Supports two config formats
+// supports two config formats:
+//
+// Format 1 (Original - template-based):
+//
+//	config: {
+//	  "condition": "{{.input_data.some_field}}",  // Go template
+//	  "default": false                             // boolean default
+//	}
+//	Returns: {"result": bool, "condition": string, "evaluated": string}
+//
+// Format 2 (New - field + conditions map, used by briefing-agent):
+//
+//	config: {
+//	  "condition_field": "input_data.hitl_mode",   // dot-path to field
+//	  "conditions": {                              // value -> next_step map
+//	    "interactive": "collect_via_hitl",
+//	    "auto": "infer_via_llm"
+//	  },
+//	  "default": "infer_via_llm"                   // default next_step (string)
+//	}
+//	Returns: {"next_step": string, "condition_value": string, "matched": bool}
+/*{
+"condition_field": "input_data.hitl_mode",
+"conditions": {"interactive": "step1", "auto": "step2"},
+"default": "step2"
+}*/
 func EvaluateConditionAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing EvaluateConditionAction",
 		zap.String("step_name", params.ExecutionContext.StepName))
 
 	config := params.StepConfig.Config
-	var err error
+
+	// Detect which format we're using
+	if conditionField, ok := config["condition_field"].(string); ok {
+		// Format 2: condition_field + conditions map
+		return evaluateConditionFieldFormat(params, conditionField, config)
+	}
+
+	// Format 1: template-based condition
+	return evaluateConditionTemplateFormat(params, config)
+}
+
+// evaluateConditionFieldFormat handles the new format used by briefing-agent
+// config: {"condition_field": "path.to.field", "conditions": {"value1": "step1", ...}, "default": "default_step"}
+func evaluateConditionFieldFormat(params ActionParams, conditionField string, config map[string]interface{}) (interface{}, error) {
+	logger := params.Logger
+
+	// Get the conditions map
+	conditionsRaw, ok := config["conditions"]
+	if !ok {
+		return nil, fmt.Errorf("evaluate_condition with condition_field requires 'conditions' map in config")
+	}
+
+	conditions, ok := conditionsRaw.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("'conditions' must be a map[string]interface{}, got %T", conditionsRaw)
+	}
+
+	// Get default next step
+	defaultStep := ""
+	if def, ok := config["default"].(string); ok {
+		defaultStep = def
+	}
+
+	// Resolve the condition field value from collected data
+	conditionValue := resolveFieldPath(params.CollectedData, conditionField)
+
+	logger.Debug("Evaluating condition field",
+		zap.String("condition_field", conditionField),
+		zap.Any("condition_value", conditionValue),
+		zap.Any("conditions", conditions),
+		zap.String("default", defaultStep))
+
+	// Convert condition value to string for lookup
+	valueStr := fmt.Sprintf("%v", conditionValue)
+	if conditionValue == nil {
+		valueStr = ""
+	}
+
+	// Look up the next step based on condition value
+	var nextStep string
+	var matched bool
+
+	if step, exists := conditions[valueStr]; exists {
+		nextStep = fmt.Sprintf("%v", step)
+		matched = true
+	} else if defaultStep != "" {
+		nextStep = defaultStep
+		matched = false
+	} else {
+		// No match and no default - this is an error
+		return nil, fmt.Errorf("condition value '%s' not found in conditions map and no default specified", valueStr)
+	}
+
+	logger.Info("Condition evaluated (field format)",
+		zap.String("condition_field", conditionField),
+		zap.String("condition_value", valueStr),
+		zap.String("next_step", nextStep),
+		zap.Bool("matched", matched))
+
+	return map[string]interface{}{
+		"next_step":       nextStep,
+		"condition_value": valueStr,
+		"condition_field": conditionField,
+		"matched":         matched,
+	}, nil
+}
+
+// evaluateConditionTemplateFormat handles the original template-based format
+// config: {"condition": "{{.field}}", "default": bool}
+func evaluateConditionTemplateFormat(params ActionParams, config map[string]interface{}) (interface{}, error) {
+	logger := params.Logger
 
 	// Get the condition template
 	conditionTemplate, ok := config["condition"].(string)
 	if !ok {
-		return nil, fmt.Errorf("condition not specified in config")
+		return nil, fmt.Errorf("condition not specified in config (expected 'condition' template string or 'condition_field' path)")
 	}
 
 	// Get default value if condition fails or is empty
@@ -371,7 +478,7 @@ func EvaluateConditionAction(ctx context.Context, params ActionParams) (interfac
 	// Parse and execute the condition template
 	tmpl, err := template.New("condition").Parse(conditionTemplate)
 	if err != nil {
-		params.Logger.Error("Failed to parse condition template",
+		logger.Error("Failed to parse condition template",
 			zap.Error(err),
 			zap.String("template", conditionTemplate))
 		return map[string]interface{}{
@@ -383,7 +490,7 @@ func EvaluateConditionAction(ctx context.Context, params ActionParams) (interfac
 	// Execute template with collected data
 	var result strings.Builder
 	if err := tmpl.Execute(&result, params.CollectedData); err != nil {
-		params.Logger.Warn("Condition evaluation failed, using default",
+		logger.Warn("Condition evaluation failed, using default",
 			zap.Error(err),
 			zap.Bool("default", defaultValue))
 		return map[string]interface{}{
@@ -393,9 +500,9 @@ func EvaluateConditionAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	// Evaluate the result
-	conditionResult := evaluateConditionString(result.String(), defaultValue, params.Logger)
+	conditionResult := evaluateConditionString(result.String(), defaultValue, logger)
 
-	params.Logger.Debug("Condition evaluated",
+	logger.Debug("Condition evaluated (template format)",
 		zap.String("condition", conditionTemplate),
 		zap.String("evaluated_to", result.String()),
 		zap.Bool("result", conditionResult))
@@ -406,6 +513,30 @@ func EvaluateConditionAction(ctx context.Context, params ActionParams) (interfac
 		"condition": conditionTemplate,
 		"evaluated": result.String(),
 	}, nil
+}
+
+// resolveFieldPath gets a value from nested maps using dot notation
+// e.g., "input_data.hitl_mode" -> collectedData["input_data"]["hitl_mode"]
+func resolveFieldPath(data map[string]interface{}, path string) interface{} {
+	parts := strings.Split(path, ".")
+	current := interface{}(data)
+
+	for _, part := range parts {
+		if current == nil {
+			return nil
+		}
+
+		switch v := current.(type) {
+		case map[string]interface{}:
+			current = v[part]
+		case map[interface{}]interface{}:
+			current = v[part]
+		default:
+			return nil
+		}
+	}
+
+	return current
 }
 
 // evaluateConditionString converts various string values to boolean
