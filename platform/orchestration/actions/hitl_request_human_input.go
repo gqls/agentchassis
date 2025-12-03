@@ -42,15 +42,33 @@ func RequestHumanInputAction(ctx context.Context, params ActionParams) (interfac
 		result := map[string]interface{}{
 			"skipped":     true,
 			"skip_reason": reason,
-			"status":      "skipped",
-			"message":     "HITL skipped due to skip condition",
+			"status":      "auto_confirmed",
+			"message":     "HITL skipped - using defaults from classification",
 		}
 
 		// Populate field defaults as the "response"
 		if fields, ok := config["fields"].([]interface{}); ok {
 			defaults := extractFieldDefaults(fields, params.CollectedData, params.Logger)
+
+			// Log the populated defaults for traceability
+			defaultKeys := make([]string, 0, len(defaults))
+			for k := range defaults {
+				defaultKeys = append(defaultKeys, k)
+			}
+			params.Logger.Info("RequestHumanInputAction: Populated defaults for skipped HITL",
+				zap.Strings("populated_fields", defaultKeys),
+				zap.Any("default_values", defaults),
+			)
+
 			for k, v := range defaults {
 				result[k] = v
+			}
+
+			// If no defaults were populated, log a warning
+			if len(defaults) == 0 {
+				params.Logger.Warn("RequestHumanInputAction: No defaults could be populated - downstream steps may fail",
+					zap.Int("field_count", len(fields)),
+				)
 			}
 		}
 
@@ -238,7 +256,7 @@ func checkInputSkipCondition(config map[string]interface{}, collectedData map[st
 		return false, ""
 	}
 
-	// Get actual value using dot notation
+	// Get actual value using dot notation (with JSON string support)
 	actualValue, err := getNestedFieldValue(collectedData, fieldPath)
 	if err != nil {
 		logger.Debug("Skip condition field not found",
@@ -429,6 +447,12 @@ func populateInputFieldDefaults(fields []interface{}, collectedData map[string]i
 					zap.String("from", defaultFrom),
 					zap.Any("value", value),
 				)
+			} else {
+				logger.Debug("Could not populate field default",
+					zap.Any("field", fieldMap["name"]),
+					zap.String("from", defaultFrom),
+					zap.Error(err),
+				)
 			}
 		}
 
@@ -454,19 +478,74 @@ func extractFieldDefaults(fields []interface{}, collectedData map[string]interfa
 
 		// Try default_from first
 		if defaultFrom, ok := fieldMap["default_from"].(string); ok {
+			logger.Debug("Attempting to extract default",
+				zap.String("field", fieldName),
+				zap.String("default_from", defaultFrom),
+			)
+
 			if value, err := getNestedFieldValue(collectedData, defaultFrom); err == nil {
 				result[fieldName] = value
+				logger.Info("Successfully extracted default for field",
+					zap.String("field", fieldName),
+					zap.String("from", defaultFrom),
+					zap.Any("value", value),
+				)
 				continue
+			} else {
+				logger.Warn("Failed to extract default for field",
+					zap.String("field", fieldName),
+					zap.String("from", defaultFrom),
+					zap.Error(err),
+				)
 			}
 		}
 
 		// Fall back to static default
 		if defaultVal, ok := fieldMap["default"]; ok {
 			result[fieldName] = defaultVal
+			logger.Debug("Using static default for field",
+				zap.String("field", fieldName),
+				zap.Any("value", defaultVal),
+			)
 		}
 	}
 
 	return result
+}
+
+// cleanMarkdownJSON removes markdown code fences from JSON strings
+func cleanMarkdownJSON(s string) string {
+	s = strings.TrimSpace(s)
+
+	// Remove ```json ... ``` wrapper
+	if strings.HasPrefix(s, "```json") {
+		s = strings.TrimPrefix(s, "```json")
+		s = strings.TrimSpace(s)
+	} else if strings.HasPrefix(s, "```") {
+		s = strings.TrimPrefix(s, "```")
+		s = strings.TrimSpace(s)
+	}
+
+	if strings.HasSuffix(s, "```") {
+		s = strings.TrimSuffix(s, "```")
+		s = strings.TrimSpace(s)
+	}
+
+	return s
+}
+
+// tryParseJSONString attempts to parse a string as JSON (including markdown-wrapped JSON)
+// Returns the parsed map and true if successful, nil and false otherwise
+func tryParseJSONString(s string) (map[string]interface{}, bool) {
+	// Clean markdown fences if present
+	cleaned := cleanMarkdownJSON(s)
+
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(cleaned), &result); err == nil {
+		return result, true
+	}
+
+	return nil, false
 }
 
 func getNestedFieldValue(data map[string]interface{}, path string) (interface{}, error) {
@@ -481,6 +560,19 @@ func getNestedFieldValue(data map[string]interface{}, path string) (interface{},
 				return nil, fmt.Errorf("key '%s' not found at position %d", part, i)
 			}
 			current = val
+
+		case string:
+			// Try to parse the string as JSON (handles LLM outputs with markdown-wrapped JSON)
+			if parsed, ok := tryParseJSONString(v); ok {
+				val, exists := parsed[part]
+				if !exists {
+					return nil, fmt.Errorf("key '%s' not found in parsed JSON at position %d", part, i)
+				}
+				current = val
+			} else {
+				return nil, fmt.Errorf("cannot navigate into string at '%s' (position %d) - not valid JSON", part, i)
+			}
+
 		default:
 			return nil, fmt.Errorf("cannot navigate into type %T at '%s'", current, part)
 		}

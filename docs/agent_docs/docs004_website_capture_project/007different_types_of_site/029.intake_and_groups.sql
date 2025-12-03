@@ -68,6 +68,50 @@ VALUES (
     default_config = EXCLUDED.default_config,
                               updated_at = now();
 
+-- ============================================================================
+-- FIX: Site Classifier Prompt Template
+-- The execute_llm_prompt action FLATTENS input_data when input_fields includes "input_data"
+-- So template should use {{.domain}} not {{.input_data.domain}}
+-- ============================================================================
+
+UPDATE agent_definitions
+SET default_config = '{
+  "workflow": {
+    "start_step": "classify_site",
+    "steps": {
+      "classify_site": {
+        "action": "execute_llm_prompt",
+        "config": {
+          "ai_service": {
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
+            "api_key_env_var": "ANTHROPIC_API_KEY",
+            "max_tokens": 1500
+          },
+          "input_fields": ["input_data"],
+          "output_field": "classification",
+          "prompt_template": "Classify this website project and recommend the appropriate builder.\n\nInput:\n- Domain: {{.domain}}\n- Objective: {{.objective}}\n\nClassify into ONE of these site types:\n\n**landing** - Conversion-focused single-purpose sites:\n- Product/service sales pages\n- SaaS landing pages, app downloads\n- Lead generation, signups\n- Event registration\n- Clear single CTA goal\n- Examples: stripe.com landing, mailchimp signup, product launches\n\n**content** - Publishing/content sites:\n- News, blogs, magazines, articles\n- Content aggregation\n- Ad-revenue or subscription models\n- SEO/traffic focused\n- Category navigation, archives\n- Examples: medium.com, techcrunch, recipe blogs\n\n**portfolio** - Showcase/portfolio sites:\n- Creative portfolios, agencies\n- Case studies, project galleries\n- Visual/image heavy\n- Client testimonials\n- Examples: dribbble profiles, agency sites\n\n**brochure** - Multi-page business sites:\n- Company websites with multiple pages\n- About, services, team, contact\n- Informational focus\n- Examples: law firms, consultancies, local businesses\n\nAnalyze the domain name and stated objective to determine the best fit.\n\nReturn ONLY valid JSON (no markdown fences):\n{\n  \"site_type\": \"landing|content|portfolio|brochure\",\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"Brief explanation of classification\",\n  \"recommended_group\": \"landing-page-builder|content-site-builder|portfolio-builder|brochure-builder\",\n  \"detected_industry\": \"Industry/niche if detectable\",\n  \"detected_signals\": [\"Signal 1 from domain/objective\", \"Signal 2\"]\n}"
+        },
+        "next_step": "complete"
+      },
+      "complete": {
+        "action": "complete_workflow",
+        "description": "Return classification result"
+      }
+    }
+  },
+  "processing_mode": "task",
+  "timeout_seconds": 30
+}'::jsonb,
+updated_at = now()
+WHERE type = 'site-classifier';
+
+-- Verify the update
+SELECT type,
+       default_config->'workflow'->'steps'->'classify_site'->'config'->>'prompt_template' as prompt_preview
+FROM agent_definitions
+WHERE type = 'site-classifier';
+
 
 -- ============================================================================
 -- 3. BRIEFING AGENT - Executes questionnaires via LLM or HITL

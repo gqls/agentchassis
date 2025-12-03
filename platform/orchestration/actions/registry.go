@@ -53,7 +53,6 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"assemble_from_library":     AssembleFromLibraryAction,
 	"assemble_full_page":        AssembleFullPageAction,
 	"fetch_group_questionnaire": FetchGroupQuestionnaireAction,
-	"request_human_input":       RequestHumanInputAction,
 	"wrap_multipage":            WrapMultipageAction,
 
 	// Memory operations
@@ -89,11 +88,13 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"evaluate_task":         EvaluateTaskAction,
 
 	// HITL / Approval actions
-	"await_approval":             AwaitApprovalAction,
-	"process_approval_decision":  ProcessApprovalDecisionAction,
-	"process_data":               ProcessApprovalDecisionAction, // for one of the workflows - prob delete this later
-	"create_approval_request":    CreateApprovalRequestAction,
-	"wait_for_approval_response": WaitForApprovalResponseAction,
+	"await_approval":               AwaitApprovalAction,
+	"process_approval_decision":    ProcessApprovalDecisionAction,
+	"process_data":                 ProcessApprovalDecisionAction, // for one of the workflows - prob delete this later
+	"create_approval_request":      CreateApprovalRequestAction,
+	"wait_for_approval_response":   WaitForApprovalResponseAction,
+	"request_human_input":          RequestHumanInputAction,
+	"process_human_input_response": ProcessHumanInputResponseAction,
 
 	// Legacy/duplicate
 	"spawn_agent_k8s": SpawnAgentAction, // Same as spawn_agent
