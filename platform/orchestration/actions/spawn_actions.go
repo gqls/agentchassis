@@ -336,14 +336,15 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 	)
 
 	// maybe we try and get it from execution context
-	if message.Headers.ReplyToRequestID == "" {
+	/*	if message.Headers.ReplyToRequestID == "" {
 		message.Headers.ReplyToRequestID = params.ExecutionContext.RequestID
-	}
+	}*/
 
-	// Step context - CRITICAL: Must be populated
+	// Step context - Must be populated
 	message.Headers.StepID = params.ExecutionContext.StepID
 	message.Headers.StepName = params.ExecutionContext.StepName // e.g., "spawn_hero_writer"
 	message.Headers.RequestID = requestID
+	message.Headers.ReplyToRequestID = requestID
 	message.Headers.Action = "initialize"
 
 	// Routing
