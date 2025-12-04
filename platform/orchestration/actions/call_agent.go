@@ -70,7 +70,12 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	)
 
 	// 6. Create child orchestration context
-	childOrchID, childOrchName := createChildOrchestration(targetAgentType)
+	//childOrchID, childOrchName := createChildOrchestration(targetAgentType)
+	agentTypeForOrch := targetAgentType
+	if agentTypeForOrch == "" {
+		agentTypeForOrch = targetAgent.AgentType
+	}
+	childOrchID, childOrchName := createChildOrchestration(agentTypeForOrch)
 
 	// 7. Build the request message
 	requestMessage := buildCallRequestMessage(
@@ -104,15 +109,60 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 func extractCallConfiguration(params ActionParams) (targetAgentType string, targetRole string, err error) {
 	config := params.StepConfig.Config
 
-	targetAgentType, ok := config["agent_type"].(string)
-	if !ok || targetAgentType == "" {
-		return "", "", fmt.Errorf("agent_type not specified in config")
-	}
-
-	// Check for specific role (optional)
+	// Check for target_role first - if specified, agent_type is optional
 	targetRole, _ = config["target_role"].(string)
 
+	// Try static agent_type
+	targetAgentType, _ = config["agent_type"].(string)
+
+	// Try dynamic agent_type_field if static not provided
+	if targetAgentType == "" {
+		if agentTypeField, ok := config["agent_type_field"].(string); ok && agentTypeField != "" {
+			if resolved := resolveFieldPathCallAgent(agentTypeField, params.CollectedData); resolved != "" {
+				targetAgentType = resolved
+				params.Logger.Info("Resolved agent_type from field",
+					zap.String("field", agentTypeField),
+					zap.String("resolved", targetAgentType))
+			}
+		}
+	}
+
+	// If we have a target_role, agent_type is optional (we can find the agent by role)
+	if targetRole != "" {
+		return targetAgentType, targetRole, nil
+	}
+
+	// Without target_role, we need agent_type
+	if targetAgentType == "" {
+		return "", "", fmt.Errorf("agent_type not specified in config (required when target_role is not set)")
+	}
+
 	return targetAgentType, targetRole, nil
+}
+
+// resolveFieldPathCallAgent extracts a nested string value from a map using dot notation
+// e.g., "spawn_builder.agent_type" or "confirmed_type.recommended_builder"
+func resolveFieldPathCallAgent(path string, data map[string]interface{}) string {
+	parts := strings.Split(path, ".")
+	var current interface{} = data
+
+	for _, part := range parts {
+		switch v := current.(type) {
+		case map[string]interface{}:
+			val, exists := v[part]
+			if !exists {
+				return ""
+			}
+			current = val
+		default:
+			return ""
+		}
+	}
+
+	if result, ok := current.(string); ok {
+		return result
+	}
+	return ""
 }
 
 // TargetAgentInfo holds information about the agent we're calling
@@ -166,7 +216,12 @@ func findAgentByRole(params ActionParams, targetRole string, agent *TargetAgentI
 			if role, ok := spawnResult["role"].(string); ok && role == targetRole {
 				agent.AgentID, _ = spawnResult["agent_id"].(string)
 
-				// NEW: Extract topics from nested structure
+				// NEW: Also extract agent_type from spawn result
+				if agentType, ok := spawnResult["agent_type"].(string); ok {
+					agent.AgentType = agentType
+				}
+
+				// Extract topics from nested structure
 				if topics, ok := spawnResult["topics"].(map[string]interface{}); ok {
 					agent.RequestsTopic, _ = topics["requests"].(string)
 					agent.ResponsesTopic, _ = topics["responses"].(string)
@@ -181,6 +236,7 @@ func findAgentByRole(params ActionParams, targetRole string, agent *TargetAgentI
 				params.Logger.Info("Found agent with matching role",
 					zap.String("role", targetRole),
 					zap.String("agent_id", agent.AgentID),
+					zap.String("agent_type", agent.AgentType),
 					zap.String("requests_topic", agent.RequestsTopic),
 					zap.String("from_step", stepName))
 				return true
@@ -574,11 +630,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -631,11 +687,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -687,11 +743,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
 

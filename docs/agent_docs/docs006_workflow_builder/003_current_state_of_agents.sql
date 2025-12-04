@@ -3803,6 +3803,35 @@ VALUES (
     default_config = EXCLUDED.default_config,
                                        description = EXCLUDED.description,
                                        updated_at = now();
+------
+update intake-orchestrator
+add call website-builder
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = jsonb_set(
+            jsonb_set(
+                    default_config,
+                    '{workflow,steps,call_builder}',
+                    '{
+                        "action": "call_agent",
+                        "config": {
+                            "target_role": "builder",
+                            "input_fields": ["input_data", "classification", "confirmed_type", "brief_data", "reviewed_brief", "questionnaire"],
+                            "timeout_seconds": 600
+                        },
+                        "output_field": "build_result",
+                        "next_step": "complete",
+                        "description": "Call the spawned builder to execute the site build"
+                    }'::jsonb
+            ),
+            '{workflow,steps,spawn_builder,next_step}',
+            '"call_builder"'::jsonb
+                     )
+WHERE type = 'intake-orchestrator';
+
+
 
 -- ============================================================================
 -- 4. LANDING PAGE BUILDER AGENT
