@@ -1,4 +1,6 @@
-// platform/discovery/agent_discovery.go
+// FILE: platform/discovery/agent_discovery.go
+// Every agent is an orchestrator - queries agent_definitions only
+
 package discovery
 
 import (
@@ -29,26 +31,29 @@ type AgentMatch struct {
 	Available   bool
 }
 
-// AgentGroup represents a collection of agents that work together
-type AgentGroup struct {
-	ID              string
-	Name            string
-	GroupType       string
-	AgentConfigs    json.RawMessage
-	Workflow        json.RawMessage
-	Capabilities    []string
-	UsageCount      int
-	LastPerformance float64
-	Version         string
+// AgentDefinitionResult represents an agent definition lookup result
+type AgentDefinitionResult struct {
+	ID                    string
+	Type                  string
+	DisplayName           string
+	Description           string
+	Category              string
+	Workflow              json.RawMessage // from default_config->'workflow'
+	DefaultConfig         json.RawMessage // full default_config
+	Capabilities          []string
+	BriefingQuestionnaire json.RawMessage
+	UsageCount            int
+	Version               int
+	IsSnapshot            bool
 }
 
-// AgentDiscovery handles finding individual agents
+// AgentDiscovery handles finding individual agent instances
 type AgentDiscovery struct {
 	db *sql.DB
 }
 
-// GroupDiscovery handles finding agent groups
-type GroupDiscovery struct {
+// AgentDefinitionDiscovery handles finding agent definitions
+type AgentDefinitionDiscovery struct {
 	db *sql.DB
 }
 
@@ -57,39 +62,228 @@ func NewAgentDiscovery(db *sql.DB) *AgentDiscovery {
 	return &AgentDiscovery{db: db}
 }
 
-// NewGroupDiscovery creates a new group discovery service
-func NewGroupDiscovery(db *sql.DB) *GroupDiscovery {
-	return &GroupDiscovery{db: db}
+// NewAgentDefinitionDiscovery creates a new agent definition discovery service
+func NewAgentDefinitionDiscovery(db *sql.DB) *AgentDefinitionDiscovery {
+	return &AgentDefinitionDiscovery{db: db}
 }
 
-// DiscoverAgents finds agents matching the given requirements
+// ============================================================================
+// Agent Definition Discovery
+// ============================================================================
+
+// FindByType finds an agent definition by type, optionally with minimum version
+func (d *AgentDefinitionDiscovery) FindByType(ctx context.Context, agentType string, minVersion int, logger *zap.Logger) (*AgentDefinitionResult, error) {
+	var result AgentDefinitionResult
+	var capabilitiesJSON []byte
+	var defaultConfigJSON []byte
+	var briefingQuestionnaireJSON sql.NullString
+
+	logger.Info("AgentDefinitionDiscovery.FindByType",
+		zap.String("agent_type", agentType),
+		zap.Int("min_version", minVersion),
+	)
+
+	var query string
+	var args []interface{}
+
+	if minVersion > 0 {
+		query = `
+			SELECT 
+				id::text, type, display_name, COALESCE(description, ''), COALESCE(category, ''),
+				default_config, 
+				default_config->'workflow' as workflow,
+				COALESCE(capabilities, '[]'::jsonb) as capabilities,
+				briefing_questionnaire,
+				COALESCE(usage_count, 0) as usage_count,
+				version,
+				COALESCE(is_snapshot, false) as is_snapshot
+			FROM agent_definitions
+			WHERE type = $1
+			AND version >= $2
+			AND is_active = true
+			ORDER BY version DESC
+			LIMIT 1
+		`
+		args = []interface{}{agentType, minVersion}
+	} else {
+		query = `
+			SELECT 
+				id::text, type, display_name, COALESCE(description, ''), COALESCE(category, ''),
+				default_config,
+				default_config->'workflow' as workflow,
+				COALESCE(capabilities, '[]'::jsonb) as capabilities,
+				briefing_questionnaire,
+				COALESCE(usage_count, 0) as usage_count,
+				version,
+				COALESCE(is_snapshot, false) as is_snapshot
+			FROM agent_definitions
+			WHERE type = $1
+			AND is_active = true
+			ORDER BY version DESC
+			LIMIT 1
+		`
+		args = []interface{}{agentType}
+	}
+
+	err := d.db.QueryRowContext(ctx, query, args...).Scan(
+		&result.ID,
+		&result.Type,
+		&result.DisplayName,
+		&result.Description,
+		&result.Category,
+		&defaultConfigJSON,
+		&result.Workflow,
+		&capabilitiesJSON,
+		&briefingQuestionnaireJSON,
+		&result.UsageCount,
+		&result.Version,
+		&result.IsSnapshot,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("no agent definition found for type: %s", agentType)
+		}
+		return nil, fmt.Errorf("failed to find agent definition: %w", err)
+	}
+
+	result.DefaultConfig = defaultConfigJSON
+
+	if briefingQuestionnaireJSON.Valid {
+		result.BriefingQuestionnaire = json.RawMessage(briefingQuestionnaireJSON.String)
+	} else {
+		result.BriefingQuestionnaire = json.RawMessage("{}")
+	}
+
+	if err := json.Unmarshal(capabilitiesJSON, &result.Capabilities); err != nil {
+		result.Capabilities = []string{}
+	}
+
+	logger.Info("AgentDefinitionDiscovery.FindByType: found",
+		zap.String("agent_type", agentType),
+		zap.String("agent_id", result.ID),
+		zap.String("display_name", result.DisplayName),
+		zap.Int("version", result.Version),
+	)
+
+	return &result, nil
+}
+
+// FindByCapabilities finds agent definitions that have all specified capabilities
+func (d *AgentDefinitionDiscovery) FindByCapabilities(ctx context.Context, capabilities []string, logger *zap.Logger) ([]*AgentDefinitionResult, error) {
+	capabilitiesJSON, err := json.Marshal(capabilities)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal capabilities: %w", err)
+	}
+
+	query := `
+		SELECT 
+			id::text, type, display_name, COALESCE(description, ''), COALESCE(category, ''),
+			default_config, 
+			default_config->'workflow' as workflow,
+			COALESCE(capabilities, '[]'::jsonb) as capabilities,
+			briefing_questionnaire,
+			COALESCE(usage_count, 0) as usage_count,
+			version,
+			COALESCE(is_snapshot, false) as is_snapshot
+		FROM agent_definitions
+		WHERE capabilities @> $1::jsonb
+		AND is_active = true
+		ORDER BY usage_count DESC, version DESC
+		LIMIT 10
+	`
+
+	rows, err := d.db.QueryContext(ctx, query, capabilitiesJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find agents by capabilities: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*AgentDefinitionResult
+	for rows.Next() {
+		var result AgentDefinitionResult
+		var capabilitiesJSON []byte
+		var defaultConfigJSON []byte
+		var briefingQuestionnaireJSON sql.NullString
+
+		err := rows.Scan(
+			&result.ID,
+			&result.Type,
+			&result.DisplayName,
+			&result.Description,
+			&result.Category,
+			&defaultConfigJSON,
+			&result.Workflow,
+			&capabilitiesJSON,
+			&briefingQuestionnaireJSON,
+			&result.UsageCount,
+			&result.Version,
+			&result.IsSnapshot,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan agent definition: %w", err)
+		}
+
+		result.DefaultConfig = defaultConfigJSON
+
+		if briefingQuestionnaireJSON.Valid {
+			result.BriefingQuestionnaire = json.RawMessage(briefingQuestionnaireJSON.String)
+		} else {
+			result.BriefingQuestionnaire = json.RawMessage("{}")
+		}
+
+		if err := json.Unmarshal(capabilitiesJSON, &result.Capabilities); err != nil {
+			result.Capabilities = []string{}
+		}
+
+		results = append(results, &result)
+	}
+
+	return results, nil
+}
+
+// UpdateUsageCount increments the usage count for an agent definition
+func (d *AgentDefinitionDiscovery) UpdateUsageCount(ctx context.Context, agentType string) error {
+	_, err := d.db.ExecContext(ctx, `
+		UPDATE agent_definitions 
+		SET usage_count = COALESCE(usage_count, 0) + 1,
+		    updated_at = NOW()
+		WHERE type = $1
+	`, agentType)
+	return err
+}
+
+// ============================================================================
+// Agent Instance Discovery (for client schemas)
+// ============================================================================
+
+// DiscoverAgents finds agent instances matching the given requirements
 func (d *AgentDiscovery) DiscoverAgents(ctx context.Context, requirements Requirements) ([]AgentMatch, error) {
-	// Build dynamic query based on client schema
 	schemaName := fmt.Sprintf("client_%s", requirements.ClientID)
 
 	query := fmt.Sprintf(`
-        SELECT 
-            ai.id,
-            ai.name,
-            ai.config->>'agent_type' as agent_type,
-            ai.config->>'topic' as topic,
-            COALESCE(am.success_rate, 0.5) as performance,
-            CASE 
-                WHEN ai.config->>'last_activity' IS NOT NULL 
-                AND (ai.config->>'last_activity')::timestamp > NOW() - INTERVAL '5 minutes'
-                THEN true 
-                ELSE false 
-            END as available
-        FROM %s.agent_instances ai
-        LEFT JOIN agent_metrics am ON ai.id = am.agent_id
-        WHERE ai.is_active = true
-        AND ($1::text[] IS NULL OR ai.config->'capabilities' ?| $1)
-        AND ($2::text IS NULL OR ai.config->>'agent_type' = $2)
-        ORDER BY 
-            am.success_rate DESC NULLS LAST,
-            am.avg_response_time ASC NULLS LAST
-        LIMIT 10
-    `, schemaName)
+		SELECT 
+			ai.id,
+			ai.name,
+			ai.config->>'agent_type' as agent_type,
+			ai.config->>'topic' as topic,
+			COALESCE(am.success_rate, 0.5) as performance,
+			CASE 
+				WHEN ai.config->>'last_activity' IS NOT NULL 
+				AND (ai.config->>'last_activity')::timestamp > NOW() - INTERVAL '5 minutes'
+				THEN true 
+				ELSE false 
+			END as available
+		FROM %s.agent_instances ai
+		LEFT JOIN agent_metrics am ON ai.id = am.agent_id
+		WHERE ai.is_active = true
+		AND ($1::text[] IS NULL OR ai.config->'capabilities' ?| $1)
+		AND ($2::text IS NULL OR ai.config->>'agent_type' = $2)
+		ORDER BY 
+			am.success_rate DESC NULLS LAST,
+			am.avg_response_time ASC NULLS LAST
+		LIMIT 10
+	`, schemaName)
 
 	rows, err := d.db.Query(query, requirements.Capabilities, requirements.AgentType)
 	if err != nil {
@@ -106,7 +300,6 @@ func (d *AgentDiscovery) DiscoverAgents(ctx context.Context, requirements Requir
 			return nil, fmt.Errorf("failed to scan agent match: %w", err)
 		}
 
-		// Apply additional filters
 		if requirements.MinPerformance > 0 && m.Performance < requirements.MinPerformance {
 			continue
 		}
@@ -117,241 +310,6 @@ func (d *AgentDiscovery) DiscoverAgents(ctx context.Context, requirements Requir
 	return matches, nil
 }
 
-// FindBestGroup finds the most suitable group for a group type
-// Now supports optional version specification
-func (d *GroupDiscovery) FindBestGroup(ctx context.Context, groupType string, version string, logger zap.Logger) (*AgentGroup, error) {
-	var group AgentGroup
-
-	var query string
-	var args []interface{}
-
-	logger.Info("In FindBestGroup ",
-		zap.String("group_type", groupType),
-		zap.String("version", version),
-	)
-
-	if version != "" {
-		query = `
-            SELECT id, name, group_type, agent_configs, orchestration_workflow,
-                   usage_count, version
-            FROM agent_group_definitions
-            WHERE group_type = $1
-            AND version >= $2
-            ORDER BY 
-                version DESC,
-                usage_count DESC
-            LIMIT 1
-        `
-		args = []interface{}{groupType, version}
-	} else {
-		query = `
-            SELECT id, name, group_type, agent_configs, orchestration_workflow,
-                   usage_count, version
-            FROM agent_group_definitions
-            WHERE group_type = $1
-            ORDER BY 
-                usage_count DESC, 
-                version DESC
-            LIMIT 1
-        `
-		args = []interface{}{groupType}
-	}
-
-	// Match the SELECT with exactly what we're scanning
-	err := d.db.QueryRowContext(ctx, query, args...).Scan(
-		&group.ID,
-		&group.Name,
-		&group.GroupType,
-		&group.AgentConfigs,
-		&group.Workflow,
-		&group.UsageCount,
-		&group.Version)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no group found for group type: %s", groupType)
-		}
-		return nil, fmt.Errorf("failed to find group: %w", err)
-	}
-
-	// Set default values for fields not in the table
-	group.Capabilities = []string{} // No capabilities column in this table
-	group.LastPerformance = 0.0     // No performance metrics in this table
-
-	logger.Info("DEBUGaa: In FindBestGroup after database query",
-		zap.String("group_type", groupType),
-		zap.String("version", version),
-	)
-
-	return &group, nil
-}
-
-func (d *GroupDiscovery) FindBestGroupNO(ctx context.Context, taskType string, version string, logger zap.Logger) (*AgentGroup, error) {
-	var group AgentGroup
-	var lastPerf sql.NullFloat64
-	var capabilities []byte
-
-	var query string
-	var args []interface{}
-
-	logger.Info("In FindBestGroup ",
-		zap.String("task_type", taskType),
-		zap.String("version", version),
-	)
-
-	if version != "" {
-		query = `
-            SELECT id, name, group_type, agent_configs, orchestration_workflow,
-                   usage_count, version
-            FROM agent_group_definitions
-            WHERE group_type = $1
-            AND version >= $2
-            ORDER BY 
-                version DESC,
-                usage_count DESC
-            LIMIT 1
-        `
-		args = []interface{}{taskType, version}
-	} else {
-		query = `
-            SELECT id, name, group_type, agent_configs, orchestration_workflow,
-                   usage_count, version
-            FROM agent_group_definitions
-            WHERE group_type = $1
-            ORDER BY 
-                usage_count DESC, 
-                version DESC
-            LIMIT 1
-        `
-		args = []interface{}{taskType}
-	}
-
-	err := d.db.QueryRowContext(ctx, query, args...).Scan(
-		&group.ID, &group.Name, &group.GroupType,
-		&group.AgentConfigs, &group.Workflow,
-		&capabilities, &group.UsageCount, &group.Version,
-		&lastPerf)
-
-	logger.Info("DEBUGaa: In FindBestGroup after database query",
-		zap.String("task_type", taskType),
-		zap.String("version", version),
-	)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no group found for task type: %s", taskType)
-		}
-		return nil, fmt.Errorf("failed to find group: %w", err)
-	}
-
-	// Parse capabilities
-	if err := json.Unmarshal(capabilities, &group.Capabilities); err != nil {
-		// Don't fail, just log and continue
-		group.Capabilities = []string{}
-	}
-
-	logger.Info("DEBUGaa: In FindBestGroup end",
-		zap.Any("group including Capabilities", group),
-	)
-
-	group.LastPerformance = lastPerf.Float64
-	return &group, nil
-}
-
-// FindBestGroup finds the most suitable group for a task type
-func (d *GroupDiscovery) FindBestGroupOLD(ctx context.Context, taskType string, requirements map[string]interface{}) (*AgentGroup, error) {
-	var group AgentGroup
-	var lastPerf sql.NullFloat64
-	var capabilities []byte
-
-	err := d.db.QueryRowContext(ctx, `
-        SELECT id, name, group_type, agent_configs, orchestration_workflow,
-               capabilities, usage_count, version,
-               COALESCE((performance_metrics->>'success_rate')::float, 0.5)
-        FROM agent_groups
-        WHERE group_type = $1
-        AND is_active = true
-        ORDER BY 
-            COALESCE((performance_metrics->>'success_rate')::float, 0.5) DESC,
-            usage_count DESC, 
-            version DESC
-        LIMIT 1
-    `, taskType).Scan(
-		&group.ID, &group.Name, &group.GroupType,
-		&group.AgentConfigs, &group.Workflow,
-		&capabilities, &group.UsageCount, &group.Version,
-		&lastPerf)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no group found for task type: %s", taskType)
-		}
-		return nil, fmt.Errorf("failed to find group: %w", err)
-	}
-
-	// Parse capabilities
-	if err := json.Unmarshal(capabilities, &group.Capabilities); err != nil {
-		return nil, fmt.Errorf("failed to parse capabilities: %w", err)
-	}
-
-	group.LastPerformance = lastPerf.Float64
-
-	return &group, nil
-}
-
-// DiscoverGroups finds groups that can handle the specified task type or have required capabilities
-func (d *GroupDiscovery) DiscoverGroups(ctx context.Context, taskType string, capabilities []string) ([]*AgentGroup, error) {
-	capabilitiesJSON, _ := json.Marshal(capabilities)
-
-	query := `
-        SELECT id, name, group_type, agent_configs, orchestration_workflow,
-               capabilities, usage_count, version,
-               COALESCE((performance_metrics->>'success_rate')::float, 0.5) as performance
-        FROM agent_groups
-        WHERE (group_type = $1 OR capabilities @> $2::jsonb)
-        AND is_active = true
-        ORDER BY 
-            CASE WHEN group_type = $1 THEN 0 ELSE 1 END,  -- Exact matches first
-            performance DESC,
-            usage_count DESC,
-            version DESC
-        LIMIT 10
-    `
-
-	rows, err := d.db.QueryContext(ctx, query, taskType, capabilitiesJSON)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover groups: %w", err)
-	}
-	defer rows.Close()
-
-	var groups []*AgentGroup
-	for rows.Next() {
-		var group AgentGroup
-		var caps []byte
-		var perf float64
-
-		err := rows.Scan(
-			&group.ID, &group.Name, &group.GroupType,
-			&group.AgentConfigs, &group.Workflow,
-			&caps, &group.UsageCount, &group.Version,
-			&perf)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan group: %w", err)
-		}
-
-		// Parse capabilities
-		if err := json.Unmarshal(caps, &group.Capabilities); err != nil {
-			continue // Skip groups with invalid capabilities
-		}
-
-		group.LastPerformance = perf
-		groups = append(groups, &group)
-	}
-
-	return groups, nil
-}
-
 // DiscoverAgentsByCapability finds all agents with specific capabilities
 func (d *AgentDiscovery) DiscoverAgentsByCapability(ctx context.Context, clientID string, capabilities []string) ([]AgentMatch, error) {
 	return d.DiscoverAgents(ctx, Requirements{
@@ -360,73 +318,59 @@ func (d *AgentDiscovery) DiscoverAgentsByCapability(ctx context.Context, clientI
 	})
 }
 
-// UpdateGroupPerformance updates the performance metrics for a group
-func (d *GroupDiscovery) UpdateGroupPerformance(ctx context.Context, groupID string, successRate float64) error {
-	_, err := d.db.ExecContext(ctx, `
-        UPDATE agent_groups 
-        SET performance_metrics = jsonb_set(
-            COALESCE(performance_metrics, '{}'::jsonb),
-            '{success_rate}',
-            to_jsonb($1::float)
-        ),
-        last_used_at = NOW()
-        WHERE id = $2
-    `, successRate, groupID)
+// ============================================================================
+// BACKWARD COMPATIBILITY: GroupDiscovery alias
+// Allows existing code using GroupDiscovery to continue working
+// ============================================================================
 
-	return err
+// GroupDiscovery is an alias for AgentDefinitionDiscovery
+// Deprecated: Use AgentDefinitionDiscovery directly
+type GroupDiscovery = AgentDefinitionDiscovery
+
+// NewGroupDiscovery creates a new discovery service
+// Deprecated: Use NewAgentDefinitionDiscovery
+func NewGroupDiscovery(db *sql.DB) *GroupDiscovery {
+	return NewAgentDefinitionDiscovery(db)
 }
 
-// GetGroupHistory returns the evolution history of a group
-func (d *GroupDiscovery) GetGroupHistory(ctx context.Context, groupID string) ([]*AgentGroup, error) {
-	// Recursive CTE to get all versions in the lineage
-	query := `
-        WITH RECURSIVE group_history AS (
-            -- Base case: start with the given group
-            SELECT * FROM agent_groups WHERE id = $1
-            
-            UNION ALL
-            
-            -- Recursive case: find parent groups
-            SELECT g.* 
-            FROM agent_groups g
-            INNER JOIN group_history h ON g.id = h.parent_id
-        )
-        SELECT id, name, group_type, agent_configs, orchestration_workflow,
-               capabilities, usage_count, version,
-               COALESCE((performance_metrics->>'success_rate')::float, 0.5) as performance
-        FROM group_history
-        ORDER BY created_at ASC
-    `
+// AgentGroup is kept for code that expects this type
+// The new code should use AgentDefinitionResult
+type AgentGroup struct {
+	ID              string
+	Name            string
+	GroupType       string
+	AgentConfigs    json.RawMessage
+	Workflow        json.RawMessage
+	Capabilities    []string
+	UsageCount      int
+	LastPerformance float64
+	Version         string
+}
 
-	rows, err := d.db.QueryContext(ctx, query, groupID)
+// FindBestGroup provides backward compatibility
+// Converts AgentDefinitionResult to AgentGroup format
+func (d *AgentDefinitionDiscovery) FindBestGroup(ctx context.Context, agentType string, version string, logger zap.Logger) (*AgentGroup, error) {
+	// Convert version string to int
+	versionInt := 0
+	if version != "" {
+		fmt.Sscanf(version, "%d", &versionInt)
+	}
+
+	result, err := d.FindByType(ctx, agentType, versionInt, &logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group history: %w", err)
-	}
-	defer rows.Close()
-
-	var groups []*AgentGroup
-	for rows.Next() {
-		var group AgentGroup
-		var caps []byte
-		var perf float64
-
-		err := rows.Scan(
-			&group.ID, &group.Name, &group.GroupType,
-			&group.AgentConfigs, &group.Workflow,
-			&caps, &group.UsageCount, &group.Version,
-			&perf)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan group history: %w", err)
-		}
-
-		if err := json.Unmarshal(caps, &group.Capabilities); err != nil {
-			continue
-		}
-
-		group.LastPerformance = perf
-		groups = append(groups, &group)
+		return nil, err
 	}
 
-	return groups, nil
+	// Convert to legacy format
+	return &AgentGroup{
+		ID:              result.ID,
+		Name:            result.DisplayName,
+		GroupType:       result.Type,
+		Workflow:        result.Workflow,
+		Capabilities:    result.Capabilities,
+		UsageCount:      result.UsageCount,
+		Version:         fmt.Sprintf("%d", result.Version),
+		AgentConfigs:    json.RawMessage("[]"),
+		LastPerformance: 0.0,
+	}, nil
 }

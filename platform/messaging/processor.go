@@ -895,12 +895,12 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 			action = msgCtx.ExecutionContext.Action
 		}
 
-		if action == "spawn_group" || action == "orchestrate" {
-			groupType, version := p.extractGroupInfo(msgBody)
+		if isOrchestrationAction(action) {
+			groupOrAgentType, version := p.extractGroupInfo(msgBody)
 
-			if groupType != "" {
+			if groupOrAgentType != "" {
 				p.logger.Info("Looking for agent group",
-					zap.String("group_type", groupType),
+					zap.String("group_type", groupOrAgentType),
 					zap.String("version", version),
 					zap.Any("action is:", msgCtx.Headers["action"]),
 					zap.Any("or action might be:", msgCtx.ExecutionContext.Action),
@@ -918,13 +918,13 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 						zap.Bool("using_db", db != nil),
 						zap.Bool("using_sqlDB", p.sqlDB != nil))
 
-					discovered := discovery.NewGroupDiscovery(db)
-					group, err := discovered.FindBestGroup(ctx, groupType, version, *p.logger)
+					discovered := discovery.NewAgentDefinitionDiscovery(db)
+					group, err := discovered.FindBestGroup(ctx, groupOrAgentType, version, *p.logger)
 					if err == nil && group != nil {
 						var workflowConfig map[string]interface{}
 						if err := json.Unmarshal(group.Workflow, &workflowConfig); err == nil {
 							p.logger.Info("Using group-based workflow",
-								zap.String("group_type", groupType),
+								zap.String("group_or_agent_type", groupOrAgentType),
 								zap.String("group_id", group.ID),
 								zap.String("group_name", group.Name),
 								zap.String("version", group.Version))
@@ -933,21 +933,24 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 							if msgCtx.CollectedData == nil {
 								msgCtx.CollectedData = make(map[string]interface{})
 							}
-							msgCtx.CollectedData["agent_group"] = map[string]interface{}{
-								"id":            group.ID,
-								"name":          group.Name,
-								"type":          group.GroupType,
-								"version":       group.Version,
-								"agent_configs": group.AgentConfigs,
+							// Store both agent type and group type for compatibility (deprecated agent_group_definitions)
+							agentInfo := map[string]interface{}{
+								"id":           group.ID,
+								"type":         group.GroupType,
+								"name":         group.Name,
+								"display_name": group.Name,
+								"version":      group.Version,
 							}
+							msgCtx.CollectedData["agent_group"] = agentInfo // legacy from agent_group_definitions
+							msgCtx.CollectedData["agent_definition"] = agentInfo
 
 							return p.convertToWorkflowPlan(workflowConfig), nil
 						}
 					} else {
-						p.logger.Info("DEBUGaa: Discovery and Group after finding FindBestGroup - didnt find it basically",
+						p.logger.Info("DEBUGaa: Discovery and Group after finding FindBestGroup or Agent - didnt find it basically",
 							zap.Any("discovery", discovered),
 							zap.Any("group:", group),
-							zap.String("group_type", groupType),
+							zap.String("group_or_agent_type", groupOrAgentType),
 							zap.String("version", version),
 							zap.Error(err),
 						)
@@ -968,15 +971,43 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 	return p.getDefaultOrchestrationWorkflow(), nil
 }
 
-// Extract group type and optional version from message
+func isOrchestrationAction(action string) bool {
+	return action == "orchestrate" ||
+		action == "spawn_agent" ||
+		action == "spawn_group" || // Keep for backward compat
+		action == "start_orchestration"
+}
+
+// Extract agent type (or group type) and optional version from message
 func (p *MessageProcessor) extractGroupInfo(msgBody map[string]interface{}) (groupType, version string) {
-	// Check in config
-	if confg, ok := msgBody["config"].(map[string]interface{}); ok {
-		groupType, _ = confg["group_type"].(string)
-		version, _ = confg["group_version"].(string)
+	// Check in config - try agent_type first, fall back to group_type
+	if config, ok := msgBody["config"].(map[string]interface{}); ok {
+		// New: agent_type
+		if at, ok := config["agent_type"].(string); ok && at != "" {
+			groupType = at
+		}
+		// Legacy: group_type
+		if groupType == "" {
+			groupType, _ = config["group_type"].(string)
+		}
+		// Version
+		version, _ = config["group_version"].(string)
+		if version == "" {
+			version, _ = config["agent_version"].(string)
+		}
+		if version == "" {
+			if v, ok := config["version"].(float64); ok {
+				version = fmt.Sprintf("%d", int(v))
+			}
+		}
 	}
 
 	// Check directly in body
+	if groupType == "" {
+		if at, _ := msgBody["agent_type"].(string); at != "" {
+			groupType = at
+		}
+	}
 	if groupType == "" {
 		groupType, _ = msgBody["group_type"].(string)
 	}
@@ -987,6 +1018,11 @@ func (p *MessageProcessor) extractGroupInfo(msgBody map[string]interface{}) (gro
 	// Check in data field
 	if data, ok := msgBody["data"].(map[string]interface{}); ok {
 		if groupType == "" {
+			if at, _ := data["agent_type"].(string); at != "" {
+				groupType = at
+			}
+		}
+		if groupType == "" {
 			groupType, _ = data["group_type"].(string)
 		}
 		if version == "" {
@@ -996,6 +1032,11 @@ func (p *MessageProcessor) extractGroupInfo(msgBody map[string]interface{}) (gro
 
 	// Check in input_data
 	if inputData, ok := msgBody["input_data"].(map[string]interface{}); ok {
+		if groupType == "" {
+			if at, _ := inputData["agent_type"].(string); at != "" {
+				groupType = at
+			}
+		}
 		if groupType == "" {
 			groupType, _ = inputData["group_type"].(string)
 		}
