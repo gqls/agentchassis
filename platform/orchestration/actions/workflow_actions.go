@@ -11,6 +11,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
@@ -415,7 +416,7 @@ func evaluateConditionFieldFormat(params ActionParams, conditionField string, co
 	}
 
 	// Resolve the condition field value from collected data
-	conditionValue := resolveFieldPath(params.CollectedData, conditionField)
+	conditionValue := datahelpers.ExtractNestedField(params.CollectedData, conditionField)
 
 	logger.Debug("Evaluating condition field",
 		zap.String("condition_field", conditionField),
@@ -515,7 +516,7 @@ func evaluateConditionTemplateFormat(params ActionParams, config map[string]inte
 	}, nil
 }
 
-// resolveFieldPath gets a value from nested maps using dot notation
+/*// resolveFieldPath gets a value from nested maps using dot notation
 // e.g., "input_data.hitl_mode" -> collectedData["input_data"]["hitl_mode"]
 func resolveFieldPath(data map[string]interface{}, path string) interface{} {
 	parts := strings.Split(path, ".")
@@ -537,7 +538,7 @@ func resolveFieldPath(data map[string]interface{}, path string) interface{} {
 	}
 
 	return current
-}
+}*/
 
 // evaluateConditionString converts various string values to boolean
 func evaluateConditionString(value string, defaultValue bool, logger *zap.Logger) bool {

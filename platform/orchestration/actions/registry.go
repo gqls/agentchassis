@@ -52,7 +52,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"new_site_architect":        AssembleFromLibraryAction,
 	"assemble_from_library":     AssembleFromLibraryAction,
 	"assemble_full_page":        AssembleFullPageAction,
-	"fetch_group_questionnaire": FetchGroupQuestionnaireAction,
+	"fetch_agent_questionnaire": FetchAgentQuestionnaireAction,
 	"wrap_multipage":            WrapMultipageAction,
 
 	// Memory operations
@@ -95,6 +95,13 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"wait_for_approval_response":   WaitForApprovalResponseAction,
 	"request_human_input":          RequestHumanInputAction,
 	"process_human_input_response": ProcessHumanInputResponseAction,
+
+	// Entity and storage actions
+	"append_entity_state":      AppendEntityStateAction,
+	"read_latest_entity_state": ReadLatestEntityStateAction,
+	"read_entity_history":      ReadEntityHistoryAction,
+	"read_my_state":            ReadMyStateAction,
+	"write_my_state":           WriteMyStateAction,
 
 	// Legacy/duplicate
 	"spawn_agent_k8s": SpawnAgentAction, // Same as spawn_agent

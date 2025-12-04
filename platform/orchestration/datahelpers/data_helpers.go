@@ -1133,3 +1133,25 @@ func ExtractNestedFieldMap(data map[string]interface{}, fieldPath string) map[st
 	}
 	return nil
 }
+
+func resolveFieldPath(data map[string]interface{}, path string) interface{} {
+	parts := strings.Split(path, ".")
+	current := interface{}(data)
+
+	for _, part := range parts {
+		if current == nil {
+			return nil
+		}
+
+		switch v := current.(type) {
+		case map[string]interface{}:
+			current = v[part]
+		case map[interface{}]interface{}:
+			current = v[part]
+		default:
+			return nil
+		}
+	}
+
+	return current
+}

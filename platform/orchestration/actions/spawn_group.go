@@ -18,9 +18,125 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
+
+// FILE: platform/orchestration/actions/spawn_group.go
+
+// SpawnGroupAction spawns an orchestrator agent for a group type
+// This is now a thin wrapper around SpawnAgentAction - the group_type
+// maps directly to an agent_type that contains the orchestration workflow.
+func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("SpawnGroupAction starting - will delegate to SpawnAgentAction")
+
+	config := params.StepConfig.Config
+
+	// 1. Resolve group_type (static or dynamic from field)
+	groupType, err := resolveGroupType(config, params.CollectedData, params.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve group_type: %w", err)
+	}
+
+	params.Logger.Info("Resolved group type, spawning as agent",
+		zap.String("group_type", groupType))
+
+	// 2. Build spawn_agent config
+	spawnConfig := map[string]interface{}{
+		"agent_type": groupType,
+		"role":       "orchestrator",
+	}
+
+	// Copy any additional config (like send_init_data)
+	if sendInit, ok := config["send_init_data"].(bool); ok {
+		spawnConfig["send_init_data"] = sendInit
+	}
+
+	// 3. Prepare input data to pass to the spawned orchestrator
+	inputData := prepareInputDataForSpawn(config, params.CollectedData, params.Logger)
+
+	// Store input_data in collected_data so SpawnAgentAction can access it
+	if params.CollectedData == nil {
+		params.CollectedData = make(map[string]interface{})
+	}
+	params.CollectedData["__spawn_input_data__"] = inputData
+
+	// 4. Create spawn params
+	spawnParams := params
+	spawnParams.StepConfig = models.Step{
+		Action:      "spawn_agent",
+		Config:      spawnConfig,
+		NextStep:    params.StepConfig.NextStep,
+		OutputField: params.StepConfig.OutputField,
+		Description: fmt.Sprintf("Spawn %s orchestrator", groupType),
+	}
+
+	// 5. Delegate to SpawnAgentAction
+	result, err := SpawnAgentAction(ctx, spawnParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to spawn group orchestrator: %w", err)
+	}
+
+	// 6. Add group-specific metadata to result
+	if resultMap, ok := result.(map[string]interface{}); ok {
+		resultMap["group_type"] = groupType
+		resultMap["is_group_orchestrator"] = true
+	}
+
+	params.Logger.Info("SpawnGroupAction completed - orchestrator agent spawned",
+		zap.String("group_type", groupType))
+
+	return result, nil
+}
+
+// resolveGroupType gets the group type from static config or dynamic field
+func resolveGroupType(config map[string]interface{}, collectedData map[string]interface{}, logger *zap.Logger) (string, error) {
+	// Static group_type
+	if groupType, ok := config["group_type"].(string); ok && groupType != "" {
+		return groupType, nil
+	}
+
+	// Dynamic from field path
+	if fieldPath, ok := config["group_type_field"].(string); ok && fieldPath != "" {
+		value := datahelpers.ExtractNestedField(collectedData, fieldPath)
+		if groupType, ok := value.(string); ok && groupType != "" {
+			// Apply suffix if configured
+			if suffix, ok := config["group_type_suffix"].(string); ok {
+				groupType = groupType + suffix
+			}
+			return groupType, nil
+		}
+		return "", fmt.Errorf("field %s did not resolve to a string", fieldPath)
+	}
+
+	return "", fmt.Errorf("spawn_group requires 'group_type' or 'group_type_field' in config")
+}
+
+// prepareInputDataForSpawn gathers input data to pass to spawned orchestrator
+func prepareInputDataForSpawn(config map[string]interface{}, collectedData map[string]interface{}, logger *zap.Logger) map[string]interface{} {
+	inputData := make(map[string]interface{})
+
+	// Get input_fields from config
+	inputFields, _ := config["input_fields"].([]interface{})
+
+	for _, field := range inputFields {
+		fieldName, ok := field.(string)
+		if !ok {
+			continue
+		}
+		if value, exists := collectedData[fieldName]; exists {
+			inputData[fieldName] = value
+		}
+	}
+
+	// Always include input_data if present
+	if existingInput, ok := collectedData["input_data"]; ok {
+		inputData["input_data"] = existingInput
+	}
+
+	return inputData
+}
 
 // SpawnGroupFromDBAction spawns an agent group by looking up its definition
 // from the agent_group_definitions table. This is useful when the group type
@@ -44,7 +160,7 @@ import (
 //	Dynamic with suffix:
 //	{"group_type_field": "classification.site_type", "group_type_suffix": "-builder"}
 //	// If classification.site_type = "content", spawns "content-builder"
-func SpawnGroupAction(ctx context.Context, params ActionParams) (interface{}, error) {
+func SpawnGroupActionNewerOld(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("SpawnGroupFromDBAction starting",
 		zap.Any("config", params.StepConfig))
 

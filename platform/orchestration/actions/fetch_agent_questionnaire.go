@@ -1,4 +1,4 @@
-// FILE: platform/orchestration/actions/fetch_group_questionnaire.go
+// FILE: platform/orchestration/actions/fetch_agent_questionnaire.go
 package actions
 
 import (
@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// FetchGroupQuestionnaireAction retrieves the briefing questionnaire
-// from an agent_group_definition.
+// FetchAgentQuestionnaireAction retrieves the briefing questionnaire
+// from an agent_agent_definition.
 //
 // Config:
 //   - group_type: string - explicit group type
@@ -22,7 +22,7 @@ import (
 //   - questionnaire: the briefing_questionnaire JSON from the group definition
 //   - group_type: the resolved group type
 //   - group_name: the group's display name
-func FetchGroupQuestionnaireAction(ctx context.Context, params ActionParams) (interface{}, error) {
+func FetchAgentQuestionnaireAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("FetchGroupQuestionnaireAction starting",
 		zap.String("step_name", params.ExecutionContext.StepName),
 	)
@@ -133,5 +133,5 @@ func countSections(questionnaire map[string]interface{}) int {
 // ============================================================================
 // Add to GlobalActionRegistry in registry.go:
 //
-// "fetch_group_questionnaire": FetchGroupQuestionnaireAction,
+// "fetch_agent_questionnaire": FetchAgentQuestionnaireAction,
 //

@@ -43,7 +43,7 @@ var LocalActions = map[string]bool{
 	"assemble_from_library":     true,
 	"git_commit_action":         true,
 	"assemble_full_page":        true,
-	"fetch_group_questionnaire": true,
+	"fetch_agent_questionnaire": true,
 	"wrap_multipage":            true,
 
 	// Data aggregation
@@ -92,6 +92,13 @@ var LocalActions = map[string]bool{
 	"wait_for_approval_response":   true,
 	"request_human_input":          true,
 	"process_human_input_response": true,
+
+	// Entity and storage actions
+	"append_entity_state":      true,
+	"read_latest_entity_state": true,
+	"read_entity_history":      true,
+	"read_my_state":            true,
+	"write_my_state":           true,
 
 	// Legacy/duplicate
 	"spawn_agent_k8s": true,
