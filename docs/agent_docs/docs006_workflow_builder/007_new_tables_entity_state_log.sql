@@ -812,3 +812,259 @@ COMMENT ON COLUMN improvement_proposals.target_type IS 'What type of thing is be
 COMMENT ON COLUMN improvement_proposals.source IS 'How the proposal was generated: metrics analysis, agent observation, or human suggestion';
 COMMENT ON COLUMN improvement_proposals.status IS 'pending=awaiting review, approved=will apply, rejected=declined, applied=done';
 
+----
+additions - changes to accommodate deprecation of agent_group_definitions
+and improvement of site classifier to allow for dynamic choice of site builder
+
+-- ============================================================================
+-- UPDATE INTAKE ORCHESTRATOR WITH DYNAMIC BUILDER DISCOVERY
+-- ============================================================================
+--
+-- This update makes the intake-orchestrator self-describing:
+-- 1. Queries available builders from agent_definitions
+-- 2. Passes them to the classifier so it knows what's available
+-- 3. Uses dynamic spawn to call the recommended builder
+--
+-- Prerequisites:
+-- - query_agent_definitions action deployed
+-- - spawn_agent dynamic field resolution patch deployed
+-- ============================================================================
+
+BEGIN;
+
+-- ============================================================================
+-- 1. UPDATE INTAKE-ORCHESTRATOR WORKFLOW
+-- ============================================================================
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = '{
+      "workflow": {
+        "start_step": "fetch_available_builders",
+        "steps": {
+          "fetch_available_builders": {
+            "action": "query_agent_definitions",
+            "config": {
+              "filter": {
+                "type_pattern": "%-builder"
+              },
+              "fields": ["type", "display_name", "description"]
+            },
+            "output_field": "available_builders",
+            "next_step": "spawn_classifier",
+            "description": "Discover what builder agents are available"
+          },
+
+          "spawn_classifier": {
+            "action": "spawn_agent",
+            "config": {"role": "classifier", "agent_type": "site-classifier"},
+            "next_step": "spawn_briefer",
+            "description": "Spawn site classifier agent"
+          },
+
+          "spawn_briefer": {
+            "action": "spawn_agent",
+            "config": {"role": "briefer", "agent_type": "briefing-agent"},
+            "next_step": "call_classifier",
+            "description": "Spawn briefing agent"
+          },
+
+          "call_classifier": {
+            "action": "call_agent",
+            "config": {
+              "agent_type": "site-classifier",
+              "target_role": "classifier",
+              "input_fields": ["input_data", "available_builders"],
+              "timeout_seconds": 30
+            },
+            "output_field": "classification",
+            "next_step": "hitl_confirm_type",
+            "description": "Classify the site type from domain and objective"
+          },
+
+          "hitl_confirm_type": {
+            "action": "request_human_input",
+            "config": {
+              "request_type": "confirmation",
+              "title": "Confirm Site Type",
+              "message": "Please confirm or adjust the site classification",
+              "fields": [
+                {
+                  "name": "site_type",
+                  "type": "select",
+                  "label": "Site Type",
+                  "options": ["landing", "content", "portfolio", "brochure"],
+                  "default_from": "classification.classify_site.result.site_type"
+                },
+                {
+                  "name": "recommended_builder",
+                  "type": "dynamic_select",
+                  "label": "Builder",
+                  "options_from": "available_builders.agents",
+                  "option_value_field": "type",
+                  "option_label_field": "display_name",
+                  "default_from": "classification.classify_site.result.recommended_builder"
+                }
+              ],
+              "timeout_seconds": 86400,
+              "skip_if": "input_data.hitl_mode == auto"
+            },
+            "output_field": "confirmed_type",
+            "next_step": "fetch_questionnaire",
+            "description": "Human confirms or adjusts the site type classification"
+          },
+
+          "fetch_questionnaire": {
+            "action": "fetch_agent_questionnaire",
+            "config": {
+              "agent_type_field": "confirmed_type.recommended_builder"
+            },
+            "output_field": "questionnaire",
+            "next_step": "call_briefer",
+            "description": "Fetch the briefing questionnaire for the target builder"
+          },
+
+          "call_briefer": {
+            "action": "call_agent",
+            "config": {
+              "agent_type": "briefing-agent",
+              "target_role": "briefer",
+              "input_fields": ["input_data", "classification", "confirmed_type", "questionnaire"],
+              "timeout_seconds": 120
+            },
+            "output_field": "brief_data",
+            "next_step": "hitl_review_brief",
+            "description": "Run the briefing questionnaire"
+          },
+
+          "hitl_review_brief": {
+            "action": "request_human_input",
+            "config": {
+              "request_type": "review",
+              "title": "Review Brief",
+              "message": "Please review and adjust the briefing answers if needed",
+              "data_field": "brief_data",
+              "editable": true,
+              "timeout_seconds": 86400,
+              "skip_if": "input_data.hitl_mode == auto"
+            },
+            "output_field": "reviewed_brief",
+            "next_step": "spawn_builder",
+            "description": "Human reviews the completed brief"
+          },
+
+          "spawn_builder": {
+            "action": "spawn_agent",
+            "config": {
+              "agent_type_field": "confirmed_type.recommended_builder",
+              "role": "builder",
+              "input_fields": ["input_data", "classification", "brief_data", "reviewed_brief"]
+            },
+            "output_field": "spawned_builder",
+            "next_step": "complete",
+            "description": "Spawn the appropriate builder agent with all collected data"
+          },
+
+          "complete": {
+            "action": "complete_workflow",
+            "description": "Intake complete - builder has been spawned"
+          }
+        }
+      },
+      "processing_mode": "orchestration",
+      "timeout_seconds": 600
+    }'::jsonb
+WHERE type = 'intake-orchestrator';
+
+
+-- ============================================================================
+-- 2. UPDATE SITE-CLASSIFIER TO USE AVAILABLE BUILDERS
+-- ============================================================================
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = '{
+      "workflow": {
+        "start_step": "classify_site",
+        "steps": {
+          "classify_site": {
+            "action": "execute_llm_prompt",
+            "config": {
+              "ai_service": {
+                "provider": "anthropic",
+                "model": "claude-haiku-4-5-20251001",
+                "api_key_env_var": "ANTHROPIC_API_KEY",
+                "max_tokens": 1500
+              },
+              "input_fields": ["input_data", "available_builders"],
+              "output_field": "classification_result",
+              "prompt_template": "Classify this website project and recommend the appropriate builder.\n\nInput:\n- Domain: {{.input_data.domain}}\n- Objective: {{.input_data.objective}}\n\nAvailable Builders:\n{{range .available_builders.agents}}- {{.type}}: {{.description}}\n{{end}}\n\nClassify the site into ONE of these types based on the objective:\n\n**landing** - Conversion-focused single-purpose sites:\n- Product/service sales pages, SaaS landing pages\n- Lead generation, signups, app downloads\n- Event registration, clear single CTA goal\n\n**content** - Publishing/content sites:\n- News, blogs, magazines, articles\n- Content aggregation, SEO/traffic focused\n- Category navigation, archives\n\n**portfolio** - Showcase/portfolio sites:\n- Creative portfolios, agencies, case studies\n- Visual/image heavy, project galleries\n\n**brochure** - Multi-page business sites:\n- Company websites with About, Services, Team, Contact\n- Informational focus\n\nAnalyze the domain name and stated objective to determine the best fit.\n\nReturn ONLY valid JSON:\n{\n  \"site_type\": \"landing|content|portfolio|brochure\",\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"Brief explanation of classification\",\n  \"recommended_builder\": \"<exact type from Available Builders list>\",\n  \"detected_industry\": \"Industry/niche if detectable\",\n  \"detected_signals\": [\"Signal 1\", \"Signal 2\"]\n}"
+            },
+            "next_step": "complete"
+          },
+          "complete": {
+            "action": "complete_workflow",
+            "description": "Return classification result"
+          }
+        }
+      },
+      "processing_mode": "task",
+      "timeout_seconds": 30
+    }'::jsonb
+WHERE type = 'site-classifier';
+
+
+-- ============================================================================
+-- 3. VERIFY CHANGES
+-- ============================================================================
+
+DO $$
+DECLARE
+intake_start_step TEXT;
+    classifier_input_fields JSONB;
+BEGIN
+    -- Check intake-orchestrator has fetch_available_builders as start
+SELECT default_config->'workflow'->>'start_step' INTO intake_start_step
+FROM agent_definitions WHERE type = 'intake-orchestrator';
+
+IF intake_start_step != 'fetch_available_builders' THEN
+        RAISE EXCEPTION 'intake-orchestrator start_step not updated. Got: %', intake_start_step;
+END IF;
+
+    -- Check classifier uses available_builders input
+SELECT default_config->'workflow'->'steps'->'classify_site'->'config'->'input_fields' INTO classifier_input_fields
+FROM agent_definitions WHERE type = 'site-classifier';
+
+IF NOT classifier_input_fields @> '["available_builders"]'::jsonb THEN
+        RAISE EXCEPTION 'site-classifier not using available_builders input';
+END IF;
+
+    RAISE NOTICE 'Intake flow updated successfully with dynamic builder discovery';
+END $$;
+
+COMMIT;
+
+
+-- ============================================================================
+-- NOTES
+-- ============================================================================
+--
+-- Field name changes:
+--   recommended_group -> recommended_builder
+--
+-- This is clearer because:
+--   1. It describes what's being recommended (a builder agent)
+--   2. It's not tied to the deprecated "group" concept
+--
+-- The flow now:
+--   1. fetch_available_builders - queries agent_definitions for *-builder types
+--   2. call_classifier - passes available_builders to LLM so it knows options
+--   3. hitl_confirm_type - shows dynamic dropdown from available_builders
+--   4. spawn_builder - uses agent_type_field to spawn the recommended one
+--
+-- To add a new builder:
+--   1. INSERT into agent_definitions with type ending in '-builder'
+--   2. It automatically appears in classifier options and HITL dropdown
+--   3. No workflow changes needed

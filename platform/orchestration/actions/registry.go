@@ -101,9 +101,10 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"write_my_state":           WriteMyStateAction,
 
 	// Best Agent discovery actions
-	"discover_best_agents": DiscoverBestAgentsAction,
-	"review_performance":   ReviewPerformanceAction,
-	"approve_improvement":  ApproveImprovementAction,
+	"discover_best_agents":    DiscoverBestAgentsAction,
+	"review_performance":      ReviewPerformanceAction,
+	"approve_improvement":     ApproveImprovementAction,
+	"query_agent_definitions": QueryAgentDefinitionsAction,
 
 	// Legacy/duplicate
 	"spawn_agent_k8s": SpawnAgentAction, // Same as spawn_agent

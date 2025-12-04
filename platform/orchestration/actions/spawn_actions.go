@@ -126,9 +126,9 @@ func extractSpawnConfiguration(params ActionParams) (agentType, role, clientID s
 	config := params.StepConfig.Config
 
 	// Extract agent type (required)
-	agentType, ok := config["agent_type"].(string)
-	if !ok || agentType == "" {
-		return "", "", "", false, fmt.Errorf("agent_type is required")
+	agentType = resolveAgentTypeForSpawn(config, params.CollectedData)
+	if agentType == "" {
+		return "", "", "", false, fmt.Errorf("configuration extraction failed in spawn actions: agent_type is required (provide 'agent_type' or 'agent_type_field')")
 	}
 
 	// Extract role (optional, defaults to step name)
@@ -1540,9 +1540,10 @@ func createDefaultGroupWorkflow() map[string]interface{} {
 func DiscoverAgentsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 
-	agentType, ok := config["agent_type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("agent_type not specified")
+	// agentType, ok := config["agent_type"].(string)
+	agentType := resolveAgentTypeForSpawn(config, params.CollectedData)
+	if agentType == "" {
+		return nil, fmt.Errorf("agent_type not specified. configuration extraction failed in spawn actions: agent_type is required (provide 'agent_type' or 'agent_type_field')")
 	}
 
 	discover := NewAgentDiscovery(params.DB)
@@ -2964,4 +2965,72 @@ func getNestedInputDataValue(data map[string]interface{}, path ...string) (inter
 		}
 	}
 	return current, true
+}
+
+// resolveAgentTypeForSpawn extracts agent_type from config, supporting both
+// static agent_type and dynamic agent_type_field resolution from CollectedData
+//
+// Config options (checked in order):
+//   - agent_type: static string value
+//   - agent_type_field: dot-notation path to resolve from CollectedData
+//   - group_type: (backward compat) static string
+//   - group_type_field: (backward compat) dot-notation path
+//
+// Example:
+//
+//	config: {"agent_type_field": "confirmed_type.recommended_builder"}
+//	collectedData: {"confirmed_type": {"recommended_builder": "landing-page-builder"}}
+//	returns: "landing-page-builder"
+func resolveAgentTypeForSpawn(config map[string]interface{}, collectedData map[string]interface{}) string {
+	// Try static agent_type first
+	if at, ok := config["agent_type"].(string); ok && at != "" {
+		return at
+	}
+
+	// Try dynamic agent_type_field
+	if fieldPath, ok := config["agent_type_field"].(string); ok && fieldPath != "" {
+		if value := resolveFieldPathForSpawn(fieldPath, collectedData); value != "" {
+			return value
+		}
+	}
+
+	// Backward compat: try group_type
+	if gt, ok := config["group_type"].(string); ok && gt != "" {
+		return gt
+	}
+
+	// Backward compat: try group_type_field
+	if fieldPath, ok := config["group_type_field"].(string); ok && fieldPath != "" {
+		if value := resolveFieldPathForSpawn(fieldPath, collectedData); value != "" {
+			return value
+		}
+	}
+
+	return ""
+}
+
+// resolveFieldPathForSpawn extracts a nested string value using dot notation
+func resolveFieldPathForSpawn(path string, data map[string]interface{}) string {
+	parts := strings.Split(path, ".")
+	current := data
+
+	for i, part := range parts {
+		if current == nil {
+			return ""
+		}
+
+		if i == len(parts)-1 {
+			if val, ok := current[part].(string); ok {
+				return val
+			}
+			return ""
+		}
+
+		if next, ok := current[part].(map[string]interface{}); ok {
+			current = next
+		} else {
+			return ""
+		}
+	}
+	return ""
 }

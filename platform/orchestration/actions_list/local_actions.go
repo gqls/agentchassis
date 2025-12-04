@@ -98,9 +98,10 @@ var LocalActions = map[string]bool{
 	"write_my_state":           true,
 
 	// Best Agent discovery actions
-	"discover_best_agents": true,
-	"review_performance":   true,
-	"approve_improvement":  true,
+	"discover_best_agents":    true,
+	"review_performance":      true,
+	"approve_improvement":     true,
+	"query_agent_definitions": true,
 
 	// Legacy/duplicate
 	"spawn_agent_k8s": true,

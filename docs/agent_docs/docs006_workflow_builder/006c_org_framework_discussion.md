@@ -397,3 +397,23 @@ Future consideration:
 1. Roles table and assignments
 2. Position vs identity distinction
 3. Strategy breakdown workflows
+
+
+===
+
+self describing
+
+1. fetch_available_builders
+   └─> queries: SELECT type, display_name, description
+   FROM agent_definitions WHERE type LIKE '%-builder'
+   └─> returns: [{"type": "landing-page-builder", ...}, ...]
+
+2. call_classifier  
+   └─> passes available_builders to LLM
+   └─> prompt: "Available Builders:\n{{range .available_builders.agents}}..."
+   └─> LLM picks from actual available options
+
+3. spawn_builder
+   └─> config: {"agent_type_field": "confirmed_type.recommended_builder"}
+   └─> resolves to "landing-page-builder" from CollectedData
+   └─> spawns that agent
