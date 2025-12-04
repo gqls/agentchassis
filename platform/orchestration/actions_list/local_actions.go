@@ -80,10 +80,7 @@ var LocalActions = map[string]bool{
 	"conditional_route":  true,
 
 	// Planning and review
-	"plan_agent_team":       true,
-	"review_performance":    true,
-	"approve_agent_changes": true,
-	"evaluate_task":         true,
+	"evaluate_task": true,
 
 	// HITL / Approval actions
 	"await_approval":               true,
@@ -99,6 +96,11 @@ var LocalActions = map[string]bool{
 	"read_entity_history":      true,
 	"read_my_state":            true,
 	"write_my_state":           true,
+
+	// Best Agent discovery actions
+	"discover_best_agents": true,
+	"review_performance":   true,
+	"approve_improvement":  true,
 
 	// Legacy/duplicate
 	"spawn_agent_k8s": true,

@@ -17,55 +17,101 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// this is no good - needs work
+// ============================================================================
+// DISCOVERY ACTIONS - Updated for agent_definitions architecture
+// ============================================================================
 
-// PlanAgentTeamAction - Used at the start of a workflow to plan the team
-func PlanAgentTeamAction(ctx context.Context, params ActionParams) (interface{}, error) {
+// DiscoverBestAgentsAction finds agents matching requirements
+// This replaces PlanAgentTeamAction with a simpler, more focused approach
+//
+// Config:
+//   - capabilities: []string - required capabilities
+//   - task_type: string - optional, used for proposal generation if no agents found
+//   - min_version: int - optional minimum version
+//
+// Returns:
+//   - agents: []AgentDefinitionResult - matching agents
+//   - proposal: map - if no agents found, a proposal for creating them
+func DiscoverBestAgentsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
-	taskType := config["task_type"].(string)
-	requirements := config["requirements"].(map[string]interface{})
 
-	// First, try to find an existing group that matches
-	groupDiscovery := NewGroupDiscovery(params.DB)
-	existingGroup, err := groupDiscovery.FindBestGroupOLD(ctx, taskType, requirements)
+	// Extract capabilities to search for
+	var capabilities []string
+	if caps, ok := config["capabilities"].([]interface{}); ok {
+		for _, c := range caps {
+			if s, ok := c.(string); ok {
+				capabilities = append(capabilities, s)
+			}
+		}
+	}
 
-	if err == nil && existingGroup != nil {
-		// Found a good group, but check if it needs improvement
-		if existingGroup.LastPerformance < 0.8 {
-			// Suggest improvements but require human approval
-			suggestions := analyzeGroupPerformance(ctx, params.DB, existingGroup)
+	if len(capabilities) == 0 {
+		return nil, fmt.Errorf("capabilities required for agent discovery")
+	}
 
-			return map[string]interface{}{
-				"action":                 "request_approval",
-				"existing_group":         existingGroup,
-				"suggested_improvements": suggestions,
-				"message":                fmt.Sprintf("Found team '%s' but it could be improved. Review suggestions?", existingGroup.Name),
-			}, nil
+	// Get database connection
+	sqlDB := getSQLDB(params.DB)
+	if sqlDB == nil {
+		return nil, fmt.Errorf("database connection required for discovery")
+	}
+
+	agentDiscovery := discovery.NewAgentDefinitionDiscovery(sqlDB)
+
+	// Find agents by capabilities
+	agents, err := agentDiscovery.FindByCapabilities(ctx, capabilities, params.Logger)
+	if err != nil {
+		params.Logger.Warn("Error finding agents by capabilities",
+			zap.Strings("capabilities", capabilities),
+			zap.Error(err))
+	}
+
+	if len(agents) > 0 {
+		// Found matching agents
+		agentList := make([]map[string]interface{}, len(agents))
+		for i, agent := range agents {
+			agentList[i] = map[string]interface{}{
+				"id":           agent.ID,
+				"type":         agent.Type,
+				"display_name": agent.DisplayName,
+				"capabilities": agent.Capabilities,
+				"version":      agent.Version,
+				"usage_count":  agent.UsageCount,
+			}
 		}
 
-		// Group is performing well, use as-is
 		return map[string]interface{}{
-			"action":     "use_existing",
-			"group_id":   existingGroup.ID,
-			"group_name": existingGroup.Name,
-			"agents":     existingGroup.AgentConfigs,
-			"workflow":   existingGroup.Workflow,
+			"found":  true,
+			"agents": agentList,
+			"count":  len(agents),
 		}, nil
 	}
 
-	// No existing group, create a proposal
-	proposal := createTeamProposal(taskType, requirements)
+	// No agents found - create a proposal
+	taskType, _ := config["task_type"].(string)
+	proposal := createAgentProposal(taskType, capabilities)
 
 	return map[string]interface{}{
-		"action":        "request_approval",
-		"proposed_team": proposal,
-		"message":       "No existing team found. Approve this new team composition?",
+		"found":    false,
+		"proposal": proposal,
+		"message":  "No agents found with required capabilities. Review proposal?",
+		"action":   "request_approval",
 	}, nil
 }
 
-// ReviewPerformanceAction - Called after task completion to analyze if improvements needed
+// ReviewPerformanceAction analyzes execution performance and suggests improvements
+// Records metrics to entity_state_log and creates improvement_proposals if needed
+//
+// Reads from CollectedData:
+//   - execution_metrics: map with duration, step_durations, failed_steps
+//   - agent_type or agent_definition.type: the agent being reviewed
+//   - entity_id: the entity this execution was for (e.g., domain name)
+//
+// Returns:
+//   - needs_improvement: bool
+//   - analysis: performance details
+//   - proposal_id: if improvement needed, ID of created proposal
 func ReviewPerformanceAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	// Get the execution metrics from collected data
+	// Get execution metrics
 	metricsRaw, ok := params.CollectedData["execution_metrics"]
 	if !ok {
 		return nil, fmt.Errorf("execution_metrics not found in collected data")
@@ -76,32 +122,19 @@ func ReviewPerformanceAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("execution_metrics is not a map")
 	}
 
-	groupIDRaw, ok := params.CollectedData["group_id"]
-	if !ok {
-		return nil, fmt.Errorf("group_id not found in collected data")
+	// Get agent type being reviewed
+	agentType := extractAgentType(params.CollectedData)
+	if agentType == "" {
+		return nil, fmt.Errorf("agent_type not found in collected data")
 	}
 
-	groupID, ok := groupIDRaw.(string)
-	if !ok {
-		return nil, fmt.Errorf("group_id is not a string")
-	}
+	// Get entity ID for state logging
+	entityID := extractEntityID(params.CollectedData)
 
-	// Extract metrics safely
-	duration := float64(0)
-	if d, ok := metrics["duration"].(float64); ok {
-		duration = d
-	}
+	// Extract and analyze metrics
+	duration := extractFloat(metrics, "duration")
+	failedSteps := extractStringSlice(metrics, "failed_steps")
 
-	var failedSteps []string
-	if fs, ok := metrics["failed_steps"].([]interface{}); ok {
-		for _, step := range fs {
-			if s, ok := step.(string); ok {
-				failedSteps = append(failedSteps, s)
-			}
-		}
-	}
-
-	// Analyze what went well and what didn't
 	analysis := performanceAnalysis{
 		TotalDuration:   duration,
 		BottleneckSteps: identifyBottlenecks(metrics),
@@ -109,20 +142,36 @@ func ReviewPerformanceAction(ctx context.Context, params ActionParams) (interfac
 		QualityScore:    calculateQuality(params.CollectedData),
 	}
 
-	// Only suggest changes if performance was suboptimal
-	if analysis.QualityScore < 0.8 || len(analysis.BottleneckSteps) > 0 {
+	// Record performance to entity_state_log
+	if entityID != "" {
+		recordPerformanceToEntityState(ctx, params.DB, entityID, agentType, analysis, params.Logger)
+	}
+
+	// Update agent usage count
+	sqlDB := getSQLDB(params.DB)
+	if sqlDB != nil {
+		agentDiscovery := discovery.NewAgentDefinitionDiscovery(sqlDB)
+		go agentDiscovery.UpdateUsageCount(context.Background(), agentType)
+	}
+
+	// Check if improvements needed
+	if analysis.QualityScore < 0.8 || len(analysis.BottleneckSteps) > 0 || len(analysis.FailedSteps) > 0 {
 		suggestions := generateImprovementSuggestions(analysis)
+
+		// Create improvement proposal
+		proposalID, err := createImprovementProposal(ctx, params.DB, agentType, analysis, suggestions, params.Logger)
+		if err != nil {
+			params.Logger.Warn("Failed to create improvement proposal", zap.Error(err))
+		}
 
 		return map[string]interface{}{
 			"needs_improvement": true,
 			"analysis":          analysis,
 			"suggestions":       suggestions,
+			"proposal_id":       proposalID,
 			"action":            "pause_for_human_review",
 		}, nil
 	}
-
-	// Performance was good, just record it
-	recordGroupPerformance(ctx, params.DB, groupID, analysis)
 
 	return map[string]interface{}{
 		"needs_improvement": false,
@@ -130,9 +179,15 @@ func ReviewPerformanceAction(ctx context.Context, params ActionParams) (interfac
 	}, nil
 }
 
-// ApproveAgentChangesAction - Human approves proposed agent changes
-// Update ApproveAgentChangesAction to handle deactivateAgent with clientID
-func ApproveAgentChangesAction(ctx context.Context, params ActionParams) (interface{}, error) {
+// ApproveImprovementAction handles human approval of proposed improvements
+// Updates agent_definitions with approved changes, creates new version if needed
+//
+// Reads from CollectedData:
+//   - human_approval.approved: bool
+//   - human_approval.proposal_id: string
+//   - human_approval.approved_changes: []changes to apply
+//   - human_approval.rejection_reason: string (if rejected)
+func ApproveImprovementAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	approvalRaw, ok := params.CollectedData["human_approval"]
 	if !ok {
 		return nil, fmt.Errorf("human_approval not found in collected data")
@@ -143,20 +198,26 @@ func ApproveAgentChangesAction(ctx context.Context, params ActionParams) (interf
 		return nil, fmt.Errorf("human_approval is not a map")
 	}
 
+	proposalID, _ := approval["proposal_id"].(string)
+
 	approved, ok := approval["approved"].(bool)
 	if !ok || !approved {
-		// Human rejected changes, continue with existing setup
+		// Rejected
 		reason := "No reason provided"
 		if r, ok := approval["rejection_reason"].(string); ok {
 			reason = r
 		}
+
+		// Update proposal status
+		updateProposalStatus(ctx, params.DB, proposalID, "rejected", reason, params.Logger)
+
 		return map[string]interface{}{
 			"changes_applied": false,
 			"reason":          reason,
 		}, nil
 	}
 
-	// Apply the approved changes
+	// Get approved changes
 	changesRaw, ok := approval["approved_changes"]
 	if !ok {
 		return nil, fmt.Errorf("approved_changes not found")
@@ -167,8 +228,9 @@ func ApproveAgentChangesAction(ctx context.Context, params ActionParams) (interf
 		return nil, fmt.Errorf("approved_changes is not an array")
 	}
 
-	newGroupID := uuid.New().String()
-	clientID := params.Headers["client_id"] // Get clientID from headers
+	// Apply changes
+	appliedChanges := []map[string]interface{}{}
+	clientID := params.Headers["client_id"]
 
 	for _, change := range changes {
 		changeMap, ok := change.(map[string]interface{})
@@ -176,140 +238,49 @@ func ApproveAgentChangesAction(ctx context.Context, params ActionParams) (interf
 			continue
 		}
 
-		// Ensure clientID is in the changeMap
-		if _, ok := changeMap["client_id"]; !ok {
-			changeMap["client_id"] = clientID
-		}
-
 		changeType, _ := changeMap["type"].(string)
-
-		switch changeType {
-		case "add_agent":
-			// Create new agent with specified role
-			if err := createApprovedAgent(ctx, params, changeMap); err != nil {
-				params.Logger.Error("Failed to create approved agent", zap.Error(err))
-			}
-		case "modify_workflow":
-			// Update workflow configuration
-			if err := updateWorkflow(ctx, params.DB, changeMap); err != nil {
-				params.Logger.Error("Failed to update workflow", zap.Error(err))
-			}
-		case "remove_agent":
-			// Mark agent as inactive with client context
-			if agentID, ok := changeMap["agent_id"].(string); ok {
-				if err := deactivateAgent(ctx, params.DB, agentID, clientID); err != nil {
-					params.Logger.Error("Failed to deactivate agent", zap.Error(err))
-				}
-			}
-		}
+		result := applyChange(ctx, params, changeType, changeMap, clientID)
+		appliedChanges = append(appliedChanges, result)
 	}
 
-	// Create new version of the group
-	parentGroupID, _ := approval["parent_group_id"].(string)
-	parentVersion, _ := approval["parent_version"].(string)
-
-	if err := createGroupVersion(ctx, params.DB, newGroupID, parentGroupID, changes); err != nil {
-		return nil, fmt.Errorf("failed to create group version: %w", err)
-	}
+	// Update proposal status
+	updateProposalStatus(ctx, params.DB, proposalID, "approved", "", params.Logger)
 
 	return map[string]interface{}{
 		"changes_applied": true,
-		"new_group_id":    newGroupID,
-		"version":         incrementVersion(parentVersion),
+		"applied":         appliedChanges,
+		"proposal_id":     proposalID,
 	}, nil
 }
 
-// ConditionalRouteAction routes workflow based on conditions
-func ConditionalRouteActionOld(ctx context.Context, params ActionParams) (interface{}, error) {
-	config := params.StepConfig.Config
+// ============================================================================
+// HELPER TYPES
+// ============================================================================
 
-	conditionFieldRaw, ok := config["condition_field"]
-	if !ok {
-		return nil, fmt.Errorf("condition_field not specified")
-	}
-
-	conditionField, ok := conditionFieldRaw.(string)
-	if !ok {
-		return nil, fmt.Errorf("condition_field is not a string")
-	}
-
-	routesRaw, ok := config["routes"]
-	if !ok {
-		return nil, fmt.Errorf("routes not specified")
-	}
-
-	routes, ok := routesRaw.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("routes is not a map")
-	}
-
-	// Get the condition value from collected data
-	value := getNestedValue(params.CollectedData, conditionField)
-
-	// Determine next step
-	var nextStep string
-	switch v := value.(type) {
-	case bool:
-		if v {
-			if step, ok := routes["true"].(string); ok {
-				nextStep = step
-			}
-		} else {
-			if step, ok := routes["false"].(string); ok {
-				nextStep = step
-			}
-		}
-	case string:
-		if step, ok := routes[v].(string); ok {
-			nextStep = step
-		}
-	default:
-		if step, ok := routes["default"].(string); ok {
-			nextStep = step
-		}
-	}
-
-	if nextStep == "" {
-		return nil, fmt.Errorf("no route found for condition value: %v", value)
-	}
-
-	// Update workflow to use the determined next step
-	if err := updateWorkflowNextStep(ctx, params.DB, params.Headers["correlation_id"], nextStep); err != nil {
-		return nil, fmt.Errorf("failed to update workflow next step: %w", err)
-	}
-
-	return map[string]interface{}{
-		"routed_to":       nextStep,
-		"condition_value": value,
-	}, nil
-}
-
-// performanceAnalysis structure
 type performanceAnalysis struct {
-	TotalDuration   float64
-	BottleneckSteps []string
-	FailedSteps     []string
-	QualityScore    float64
+	TotalDuration   float64  `json:"total_duration"`
+	BottleneckSteps []string `json:"bottleneck_steps"`
+	FailedSteps     []string `json:"failed_steps"`
+	QualityScore    float64  `json:"quality_score"`
 }
+
+// ============================================================================
+// HELPER FUNCTIONS - Analysis
+// ============================================================================
 
 func identifyBottlenecks(metrics map[string]interface{}) []string {
 	bottlenecks := []string{}
 
-	stepDurationsRaw, ok := metrics["step_durations"]
+	stepDurations, ok := metrics["step_durations"].(map[string]interface{})
 	if !ok {
 		return bottlenecks
 	}
 
-	stepDurations, ok := stepDurationsRaw.(map[string]interface{})
-	if !ok {
-		return bottlenecks
-	}
-
-	// Calculate average duration
+	// Calculate average
 	totalDuration := 0.0
 	count := 0
-	for _, durationRaw := range stepDurations {
-		if duration, ok := durationRaw.(float64); ok {
+	for _, d := range stepDurations {
+		if duration, ok := d.(float64); ok {
 			totalDuration += duration
 			count++
 		}
@@ -322,12 +293,10 @@ func identifyBottlenecks(metrics map[string]interface{}) []string {
 	avgDuration := totalDuration / float64(count)
 	threshold := avgDuration * 2
 
-	// Find steps that exceed threshold
-	for step, durationRaw := range stepDurations {
-		if duration, ok := durationRaw.(float64); ok {
-			if duration > threshold {
-				bottlenecks = append(bottlenecks, step)
-			}
+	// Find steps exceeding threshold
+	for step, d := range stepDurations {
+		if duration, ok := d.(float64); ok && duration > threshold {
+			bottlenecks = append(bottlenecks, step)
 		}
 	}
 
@@ -337,29 +306,25 @@ func identifyBottlenecks(metrics map[string]interface{}) []string {
 func calculateQuality(collectedData map[string]interface{}) float64 {
 	quality := 1.0
 
-	// Check for errors
-	if errorsRaw, ok := collectedData["errors"]; ok {
-		if errors, ok := errorsRaw.([]interface{}); ok {
-			quality -= float64(len(errors)) * 0.1
+	// Deduct for errors
+	if errors, ok := collectedData["errors"].([]interface{}); ok {
+		quality -= float64(len(errors)) * 0.1
+	}
+
+	// Use human feedback if available
+	if feedback, ok := collectedData["human_feedback"].(map[string]interface{}); ok {
+		if rating, ok := feedback["rating"].(float64); ok {
+			quality = rating / 5.0
 		}
 	}
 
-	// Check for human feedback
-	if feedbackRaw, ok := collectedData["human_feedback"]; ok {
-		if feedback, ok := feedbackRaw.(map[string]interface{}); ok {
-			if rating, ok := feedback["rating"].(float64); ok {
-				quality = rating / 5.0
-			}
-		}
-	}
-
-	// Ensure quality stays within bounds
+	// Clamp to [0, 1]
 	if quality < 0 {
-		quality = 0
-	} else if quality > 1 {
-		quality = 1
+		return 0
 	}
-
+	if quality > 1 {
+		return 1
+	}
 	return quality
 }
 
@@ -368,70 +333,97 @@ func generateImprovementSuggestions(analysis performanceAnalysis) []map[string]i
 
 	if len(analysis.BottleneckSteps) > 0 {
 		suggestions = append(suggestions, map[string]interface{}{
-			"type":   "add_parallel_agents",
-			"target": analysis.BottleneckSteps,
-			"reason": "Steps taking too long",
+			"type":       "optimize_steps",
+			"target":     analysis.BottleneckSteps,
+			"reason":     "Steps taking longer than average",
+			"impact":     "medium",
+			"auto_apply": false,
 		})
 	}
 
 	if analysis.QualityScore < 0.7 {
 		suggestions = append(suggestions, map[string]interface{}{
-			"type":   "add_quality_checker",
-			"reason": "Output quality below threshold",
+			"type":       "add_quality_check",
+			"reason":     "Output quality below threshold",
+			"impact":     "high",
+			"auto_apply": false,
 		})
 	}
 
 	if len(analysis.FailedSteps) > 0 {
 		suggestions = append(suggestions, map[string]interface{}{
-			"type":   "add_retry_mechanism",
-			"target": analysis.FailedSteps,
-			"reason": "Steps are failing",
+			"type":       "add_retry_logic",
+			"target":     analysis.FailedSteps,
+			"reason":     "Steps are failing",
+			"impact":     "high",
+			"auto_apply": false,
 		})
 	}
 
 	return suggestions
 }
 
-// recordGroupPerformance to handle both DB types
-func recordGroupPerformance(ctx context.Context, db interface{}, groupID string, analysis performanceAnalysis) {
-	performanceData := map[string]interface{}{
-		"duration":     analysis.TotalDuration,
-		"quality":      analysis.QualityScore,
-		"bottlenecks":  analysis.BottleneckSteps,
-		"failed_steps": analysis.FailedSteps,
-		"timestamp":    time.Now(),
+// ============================================================================
+// HELPER FUNCTIONS - Data Extraction
+// ============================================================================
+
+func extractAgentType(data map[string]interface{}) string {
+	// Try direct field
+	if at, ok := data["agent_type"].(string); ok && at != "" {
+		return at
 	}
 
-	performanceJSON, err := json.Marshal(performanceData)
-	if err != nil {
-		return
+	// Try from agent_definition
+	if ad, ok := data["agent_definition"].(map[string]interface{}); ok {
+		if at, ok := ad["type"].(string); ok {
+			return at
+		}
 	}
 
-	query := `
-        UPDATE agent_groups 
-        SET performance_metrics = jsonb_set(
-            COALESCE(performance_metrics, '{}'),
-            '{last_execution}',
-            $1::jsonb
-        ),
-        last_used_at = NOW()
-        WHERE id = $2
-    `
-
-	switch d := db.(type) {
-	case *sql.DB:
-		_, err = d.ExecContext(ctx, query, performanceJSON, groupID)
-	case *pgxpool.Pool:
-		_, err = d.Exec(ctx, query, performanceJSON, groupID)
+	// Try from agent_group (backward compat)
+	if ag, ok := data["agent_group"].(map[string]interface{}); ok {
+		if at, ok := ag["type"].(string); ok {
+			return at
+		}
 	}
 
-	if err != nil {
-		// Log error but don't fail
-		// In production, use proper logging
-	}
+	return ""
 }
 
-// Helper functions
+func extractEntityID(data map[string]interface{}) string {
+	// Try direct field
+	if id, ok := data["entity_id"].(string); ok && id != "" {
+		return id
+	}
+
+	// Try from input_data.domain
+	if input, ok := data["input_data"].(map[string]interface{}); ok {
+		if domain, ok := input["domain"].(string); ok {
+			return domain
+		}
+	}
+
+	return ""
+}
+
+func extractFloat(data map[string]interface{}, key string) float64 {
+	if v, ok := data[key].(float64); ok {
+		return v
+	}
+	return 0
+}
+
+func extractStringSlice(data map[string]interface{}, key string) []string {
+	result := []string{}
+	if arr, ok := data[key].([]interface{}); ok {
+		for _, v := range arr {
+			if s, ok := v.(string); ok {
+				result = append(result, s)
+			}
+		}
+	}
+	return result
+}
 
 func getNestedValue(data map[string]interface{}, path string) interface{} {
 	parts := strings.Split(path, ".")
@@ -441,104 +433,174 @@ func getNestedValue(data map[string]interface{}, path string) interface{} {
 		if i == len(parts)-1 {
 			return current[part]
 		}
-
 		if next, ok := current[part].(map[string]interface{}); ok {
 			current = next
 		} else {
 			return nil
 		}
 	}
-
 	return nil
 }
 
-// updateWorkflowNextStep to handle both DB types
-func updateWorkflowNextStep(ctx context.Context, db interface{}, correlationID string, nextStep string) error {
-	query := `
-        UPDATE orchestrator_state 
-        SET current_step = $1, updated_at = NOW()
-        WHERE correlation_id = $2
-    `
+// ============================================================================
+// HELPER FUNCTIONS - Database
+// ============================================================================
 
+func getSQLDB(db interface{}) *sql.DB {
+	switch d := db.(type) {
+	case *sql.DB:
+		return d
+	default:
+		return nil
+	}
+}
+
+func execQuery(ctx context.Context, db interface{}, query string, args ...interface{}) error {
 	var err error
 	switch d := db.(type) {
 	case *sql.DB:
-		_, err = d.ExecContext(ctx, query, nextStep, correlationID)
+		_, err = d.ExecContext(ctx, query, args...)
 	case *pgxpool.Pool:
-		_, err = d.Exec(ctx, query, nextStep, correlationID)
+		_, err = d.Exec(ctx, query, args...)
 	default:
 		err = fmt.Errorf("unsupported database type: %T", db)
 	}
-
 	return err
 }
 
-func createTeamProposal(taskType string, requirements map[string]interface{}) map[string]interface{} {
-	switch taskType {
-	case "website_builder":
-		return map[string]interface{}{
-			"name": "Website Builder Team",
-			"agents": []map[string]interface{}{
-				{"role": "architect", "agent_type": "site-architect"},
-				{"role": "designer", "agent_type": "visual-designer"},
-				{"role": "developer", "agent_type": "html-developer"},
-				{"role": "publisher", "agent_type": "site-publisher"},
-			},
-			"estimated_fuel": 1000,
-		}
-	case "content_creation":
-		return map[string]interface{}{
-			"name": "Content Creation Team",
-			"agents": []map[string]interface{}{
-				{"role": "researcher", "agent_type": "researcher"},
-				{"role": "writer", "agent_type": "content-creator"},
-				{"role": "editor", "agent_type": "editor"},
-			},
-			"estimated_fuel": 750,
-		}
-	default:
-		return map[string]interface{}{
-			"name": fmt.Sprintf("%s Team", taskType),
-			"agents": []map[string]interface{}{
-				{"role": "coordinator", "agent_type": "generic"},
-			},
-			"estimated_fuel": 500,
-		}
+// ============================================================================
+// HELPER FUNCTIONS - Entity State
+// ============================================================================
+
+func recordPerformanceToEntityState(ctx context.Context, db interface{}, entityID, agentType string, analysis performanceAnalysis, logger *zap.Logger) {
+	performanceData := map[string]interface{}{
+		"duration":     analysis.TotalDuration,
+		"quality":      analysis.QualityScore,
+		"bottlenecks":  analysis.BottleneckSteps,
+		"failed_steps": analysis.FailedSteps,
+		"timestamp":    time.Now(),
+	}
+
+	dataJSON, err := json.Marshal(performanceData)
+	if err != nil {
+		logger.Warn("Failed to marshal performance data", zap.Error(err))
+		return
+	}
+
+	query := `
+		INSERT INTO entity_state_log (entity_id, entity_type, namespace, path, data, created_by_agent_type)
+		VALUES ($1, 'domain', $2, 'performance.execution', $3::jsonb, $2)
+	`
+
+	if err := execQuery(ctx, db, query, entityID, agentType, dataJSON); err != nil {
+		logger.Warn("Failed to record performance to entity_state_log", zap.Error(err))
 	}
 }
 
-func analyzeGroupPerformance(ctx context.Context, db interface{}, group *discovery.AgentGroup) []map[string]interface{} {
-	suggestions := []map[string]interface{}{}
+// ============================================================================
+// HELPER FUNCTIONS - Improvement Proposals
+// ============================================================================
 
-	if group.LastPerformance < 0.8 {
-		suggestions = append(suggestions, map[string]interface{}{
-			"type":   "optimize_workflow",
-			"reason": "Performance below threshold",
-			"impact": "medium",
-		})
+func createImprovementProposal(ctx context.Context, db interface{}, agentType string, analysis performanceAnalysis, suggestions []map[string]interface{}, logger *zap.Logger) (string, error) {
+	proposalID := uuid.New().String()
+
+	proposedChanges := map[string]interface{}{
+		"analysis":    analysis,
+		"suggestions": suggestions,
+	}
+	changesJSON, err := json.Marshal(proposedChanges)
+	if err != nil {
+		return "", err
 	}
 
-	// In a real implementation, would query historical data
-	// and analyze patterns
+	query := `
+		INSERT INTO improvement_proposals (id, target_type, target_id, proposed_changes, source, status)
+		VALUES ($1, 'agent_definition', $2, $3::jsonb, 'metrics', 'pending')
+	`
 
-	return suggestions
+	if err := execQuery(ctx, db, query, proposalID, agentType, changesJSON); err != nil {
+		return "", err
+	}
+
+	logger.Info("Created improvement proposal",
+		zap.String("proposal_id", proposalID),
+		zap.String("agent_type", agentType))
+
+	return proposalID, nil
+}
+
+func updateProposalStatus(ctx context.Context, db interface{}, proposalID, status, reason string, logger *zap.Logger) {
+	if proposalID == "" {
+		return
+	}
+
+	query := `
+		UPDATE improvement_proposals 
+		SET status = $1, 
+		    reviewed_at = NOW(),
+		    review_notes = $2
+		WHERE id = $3
+	`
+
+	if err := execQuery(ctx, db, query, status, reason, proposalID); err != nil {
+		logger.Warn("Failed to update proposal status", zap.Error(err))
+	}
+}
+
+// ============================================================================
+// HELPER FUNCTIONS - Apply Changes
+// ============================================================================
+
+func applyChange(ctx context.Context, params ActionParams, changeType string, config map[string]interface{}, clientID string) map[string]interface{} {
+	result := map[string]interface{}{
+		"type":    changeType,
+		"success": false,
+	}
+
+	var err error
+
+	switch changeType {
+	case "add_agent":
+		err = createApprovedAgent(ctx, params, config)
+
+	case "modify_workflow":
+		err = updateAgentWorkflow(ctx, params.DB, config)
+
+	case "remove_agent", "deactivate_agent":
+		if agentID, ok := config["agent_id"].(string); ok {
+			err = deactivateAgentInstance(ctx, params.DB, agentID, clientID)
+		} else {
+			err = fmt.Errorf("agent_id required")
+		}
+
+	case "create_variant":
+		err = createAgentVariant(ctx, params.DB, config, params.Logger)
+
+	default:
+		err = fmt.Errorf("unknown change type: %s", changeType)
+	}
+
+	if err != nil {
+		result["error"] = err.Error()
+		params.Logger.Warn("Failed to apply change",
+			zap.String("type", changeType),
+			zap.Error(err))
+	} else {
+		result["success"] = true
+	}
+
+	return result
 }
 
 func createApprovedAgent(ctx context.Context, params ActionParams, config map[string]interface{}) error {
-	clientID, ok := config["client_id"].(string)
-	if !ok {
-		return fmt.Errorf("client_id not found in config")
-	}
-
-	userID, ok := config["user_id"].(string)
-	if !ok {
+	clientID, _ := config["client_id"].(string)
+	userID, _ := config["user_id"].(string)
+	if userID == "" {
 		userID = "system"
 	}
 
 	_, err := SpawnAgentAction(ctx, ActionParams{
-		StepConfig: models.Step{
-			Config: config,
-		},
+		StepConfig: models.Step{Config: config},
 		Headers: map[string]string{
 			"client_id": clientID,
 			"user_id":   userID,
@@ -551,20 +613,15 @@ func createApprovedAgent(ctx context.Context, params ActionParams, config map[st
 	return err
 }
 
-func updateWorkflow(ctx context.Context, db interface{}, config map[string]interface{}) error {
-	agentID, ok := config["agent_id"].(string)
+func updateAgentWorkflow(ctx context.Context, db interface{}, config map[string]interface{}) error {
+	agentType, ok := config["agent_type"].(string)
 	if !ok {
-		return fmt.Errorf("agent_id not found")
-	}
-
-	clientID, ok := config["client_id"].(string)
-	if !ok {
-		return fmt.Errorf("client_id not found")
+		return fmt.Errorf("agent_type required")
 	}
 
 	workflowUpdates, ok := config["workflow_updates"].(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("workflow_updates not found")
+		return fmt.Errorf("workflow_updates required")
 	}
 
 	updateJSON, err := json.Marshal(workflowUpdates)
@@ -572,130 +629,117 @@ func updateWorkflow(ctx context.Context, db interface{}, config map[string]inter
 		return err
 	}
 
-	query := fmt.Sprintf(`
-        UPDATE client_%s.agent_instances 
-        SET config = jsonb_set(config, '{workflow}', $1::jsonb),
-            updated_at = NOW()
-        WHERE id = $2
-    `, clientID)
-
-	switch d := db.(type) {
-	case *sql.DB:
-		_, err = d.ExecContext(ctx, query, updateJSON, agentID)
-	case *pgxpool.Pool:
-		_, err = d.Exec(ctx, query, updateJSON, agentID)
-	default:
-		err = fmt.Errorf("unsupported database type: %T", db)
-	}
-
-	return err
-}
-
-// deactivateAgent needs client context
-func deactivateAgent(ctx context.Context, db interface{}, agentID string, clientID string) error {
-	if clientID == "" {
-		return fmt.Errorf("client_id is required")
-	}
-
-	// Build client-specific query
-	query := fmt.Sprintf(`
-        UPDATE client_%s.agent_instances 
-        SET is_active = false, updated_at = NOW()
-        WHERE id = $1
-    `, clientID)
-
-	var err error
-	switch d := db.(type) {
-	case *sql.DB:
-		_, err = d.ExecContext(ctx, query, agentID)
-	case *pgxpool.Pool:
-		_, err = d.Exec(ctx, query, agentID)
-	default:
-		err = fmt.Errorf("unsupported database type: %T", db)
-	}
-
-	return err
-}
-
-func createGroupVersion(ctx context.Context, db interface{}, newGroupID string, parentGroupID string, changes []interface{}) error {
-	if parentGroupID == "" {
-		return fmt.Errorf("parent group ID is required")
-	}
-
-	// Build mutation history entry
-	mutationEntry := map[string]interface{}{
-		"timestamp": time.Now(),
-		"type":      "evolution",
-		"changes":   changes,
-		"parent_id": parentGroupID,
-	}
-
-	mutationJSON, err := json.Marshal([]interface{}{mutationEntry})
-	if err != nil {
-		return err
-	}
-
-	// Query to create new version with mutation history
+	// Update the agent definition's workflow
 	query := `
-        INSERT INTO agent_groups (id, name, group_type, parent_id, version, 
-                                  agent_configs, orchestration_workflow, capabilities,
-                                  tags, mutation_history)
-        SELECT 
-            $1, 
-            name || ' (v' || COALESCE(
-                (SELECT COALESCE(MAX(CAST(SUBSTRING(version FROM '^[0-9]+') AS INT)), 0) + 1 
-                 FROM agent_groups WHERE parent_id = $2), 
-                2
-            )::text || '.0.0)',
-            group_type,
-            $2,
-            COALESCE(
-                (SELECT COALESCE(MAX(CAST(SUBSTRING(version FROM '^[0-9]+') AS INT)), 0) + 1 
-                 FROM agent_groups WHERE parent_id = $2), 
-                2
-            )::text || '.0.0',
-            agent_configs,
-            orchestration_workflow,
-            capabilities,
-            tags,
-            $3::jsonb
-        FROM agent_groups 
-        WHERE id = $2
-    `
+		UPDATE agent_definitions 
+		SET default_config = jsonb_set(default_config, '{workflow}', $1::jsonb),
+		    updated_at = NOW()
+		WHERE type = $2 AND is_active = true
+	`
 
-	switch d := db.(type) {
-	case *sql.DB:
-		_, err = d.ExecContext(ctx, query, newGroupID, parentGroupID, mutationJSON)
-	case *pgxpool.Pool:
-		_, err = d.Exec(ctx, query, newGroupID, parentGroupID, mutationJSON)
-	default:
-		err = fmt.Errorf("unsupported database type: %T", db)
-	}
-
-	return err
+	return execQuery(ctx, db, query, updateJSON, agentType)
 }
 
-func incrementVersion(currentVersion string) string {
-	if currentVersion == "" {
-		return "1.0.0"
+func deactivateAgentInstance(ctx context.Context, db interface{}, agentID, clientID string) error {
+	if clientID == "" {
+		return fmt.Errorf("client_id required")
 	}
 
-	var major, minor, patch int
-	n, _ := fmt.Sscanf(currentVersion, "%d.%d.%d", &major, &minor, &patch)
+	query := fmt.Sprintf(`
+		UPDATE client_%s.agent_instances 
+		SET is_active = false, updated_at = NOW()
+		WHERE id = $1
+	`, clientID)
 
-	if n == 3 {
-		return fmt.Sprintf("%d.%d.%d", major, minor+1, patch)
-	}
-
-	return currentVersion + ".1"
+	return execQuery(ctx, db, query, agentID)
 }
 
-// NewGroupDiscovery creates a discovery service from the database connection
-func NewGroupDiscovery(db interface{}) *discovery.GroupDiscovery {
-	switch d := db.(type) {
-	case *sql.DB:
-		return discovery.NewGroupDiscovery(d)
+func createAgentVariant(ctx context.Context, db interface{}, config map[string]interface{}, logger *zap.Logger) error {
+	baseType, ok := config["base_agent_type"].(string)
+	if !ok {
+		return fmt.Errorf("base_agent_type required")
+	}
+
+	variantName, ok := config["variant_name"].(string)
+	if !ok {
+		return fmt.Errorf("variant_name required")
+	}
+
+	overrides, _ := config["config_overrides"].(map[string]interface{})
+	overridesJSON, _ := json.Marshal(overrides)
+
+	// Create variant in agent_variants table (if exists) or as new agent_definition
+	query := `
+		INSERT INTO agent_definitions (
+			type, display_name, description, category,
+			default_config, is_active, version,
+			capabilities
+		)
+		SELECT 
+			$1,  -- new type (base + variant name)
+			display_name || ' (' || $2 || ')',
+			description || ' [Variant: ' || $2 || ']',
+			category,
+			default_config || $3::jsonb,  -- merge overrides
+			true,
+			1,
+			capabilities
+		FROM agent_definitions
+		WHERE type = $4 AND is_active = true
+		ORDER BY version DESC
+		LIMIT 1
+	`
+
+	newType := baseType + "-" + strings.ReplaceAll(strings.ToLower(variantName), " ", "-")
+
+	return execQuery(ctx, db, query, newType, variantName, overridesJSON, baseType)
+}
+
+// ============================================================================
+// HELPER FUNCTIONS - Proposals
+// ============================================================================
+
+func createAgentProposal(taskType string, capabilities []string) map[string]interface{} {
+	// Generate proposal based on task type
+	switch taskType {
+	case "website_builder", "site_builder":
+		return map[string]interface{}{
+			"name": "Website Builder Team",
+			"agents": []map[string]interface{}{
+				{"role": "strategist", "agent_type": "site-strategist", "capabilities": []string{"strategy", "planning"}},
+				{"role": "architect", "agent_type": "landing-page-architect", "capabilities": []string{"build", "assemble"}},
+				{"role": "writer", "agent_type": "content-writer", "capabilities": []string{"content", "writing"}},
+				{"role": "assembler", "agent_type": "html-assembler", "capabilities": []string{"html", "assembly"}},
+				{"role": "deployer", "agent_type": "site-deployer", "capabilities": []string{"deploy", "git"}},
+			},
+			"estimated_cost": 1000,
+		}
+
+	case "content_creation":
+		return map[string]interface{}{
+			"name": "Content Creation Team",
+			"agents": []map[string]interface{}{
+				{"role": "researcher", "agent_type": "researcher", "capabilities": []string{"research", "analysis"}},
+				{"role": "writer", "agent_type": "content-writer", "capabilities": []string{"content", "writing"}},
+				{"role": "editor", "agent_type": "editor", "capabilities": []string{"editing", "review"}},
+			},
+			"estimated_cost": 750,
+		}
+
 	default:
-		return nil
+		// Generate based on capabilities
+		agents := []map[string]interface{}{}
+		for i, cap := range capabilities {
+			agents = append(agents, map[string]interface{}{
+				"role":         fmt.Sprintf("agent_%d", i+1),
+				"agent_type":   "generic",
+				"capabilities": []string{cap},
+			})
+		}
+		return map[string]interface{}{
+			"name":           fmt.Sprintf("%s Team", taskType),
+			"agents":         agents,
+			"estimated_cost": 500,
+		}
 	}
 }

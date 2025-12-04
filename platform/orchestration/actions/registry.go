@@ -81,11 +81,8 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"conditional_branch": ConditionalBranchAction,
 	"conditional_route":  ConditionalRouteAction,
 
-	// Planning and review
-	"plan_agent_team":       PlanAgentTeamAction,
-	"review_performance":    ReviewPerformanceAction,
-	"approve_agent_changes": ApproveAgentChangesAction,
-	"evaluate_task":         EvaluateTaskAction,
+	// Planning and review and agent discovery
+	"evaluate_task": EvaluateTaskAction,
 
 	// HITL / Approval actions
 	"await_approval":               AwaitApprovalAction,
@@ -102,6 +99,11 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"read_entity_history":      ReadEntityHistoryAction,
 	"read_my_state":            ReadMyStateAction,
 	"write_my_state":           WriteMyStateAction,
+
+	// Best Agent discovery actions
+	"discover_best_agents": DiscoverBestAgentsAction,
+	"review_performance":   ReviewPerformanceAction,
+	"approve_improvement":  ApproveImprovementAction,
 
 	// Legacy/duplicate
 	"spawn_agent_k8s": SpawnAgentAction, // Same as spawn_agent

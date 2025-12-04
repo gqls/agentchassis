@@ -750,3 +750,65 @@ END IF;
 END $$;
 
 COMMIT;
+
+===
+
+
+adding improvement proposals table for when using discovery_actions
+-- ============================================================================
+-- 8. IMPROVEMENT PROPOSALS TABLE
+-- Queue of proposed improvements awaiting HITL review
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS improvement_proposals (
+                                                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- What is being improved
+    target_type VARCHAR(50) NOT NULL,         -- 'agent_definition', 'variant', 'entity'
+    target_id VARCHAR(255) NOT NULL,          -- agent type, variant ID, or entity ID
+
+-- The proposal
+    proposed_changes JSONB NOT NULL,          -- analysis, suggestions, specific changes
+
+-- Source of the proposal
+    source VARCHAR(50) NOT NULL,              -- 'metrics', 'agent_observation', 'human'
+    source_agent_type VARCHAR(100),           -- if proposed by an agent
+    source_orchestration_id UUID,             -- originating orchestration
+
+-- Review status
+    status VARCHAR(50) DEFAULT 'pending',     -- 'pending', 'approved', 'rejected', 'applied'
+    reviewed_by VARCHAR(255),                 -- user or agent that reviewed
+    reviewed_at TIMESTAMP,
+    review_notes TEXT,
+
+    -- Applied changes (if approved)
+    applied_changes JSONB,                    -- what was actually applied
+    applied_at TIMESTAMP,
+
+    -- Lifecycle
+    created_at TIMESTAMP DEFAULT now(),
+    expires_at TIMESTAMP,                     -- optional expiry for time-sensitive proposals
+
+-- For grouping related proposals
+    correlation_id VARCHAR(100)
+    );
+
+-- Index for pending proposals
+CREATE INDEX IF NOT EXISTS idx_improvement_proposals_pending
+    ON improvement_proposals(target_type, target_id, status)
+    WHERE status = 'pending';
+
+-- Index for finding proposals by source
+CREATE INDEX IF NOT EXISTS idx_improvement_proposals_source
+    ON improvement_proposals(source, created_at DESC);
+
+-- Index for reviewing proposals
+CREATE INDEX IF NOT EXISTS idx_improvement_proposals_review
+    ON improvement_proposals(status, created_at ASC)
+    WHERE status = 'pending';
+
+COMMENT ON TABLE improvement_proposals IS 'Queue of proposed improvements to agents, variants, or entities, awaiting human review';
+COMMENT ON COLUMN improvement_proposals.target_type IS 'What type of thing is being improved';
+COMMENT ON COLUMN improvement_proposals.source IS 'How the proposal was generated: metrics analysis, agent observation, or human suggestion';
+COMMENT ON COLUMN improvement_proposals.status IS 'pending=awaiting review, approved=will apply, rejected=declined, applied=done';
+
