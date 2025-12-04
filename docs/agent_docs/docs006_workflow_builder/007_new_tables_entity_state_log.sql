@@ -1068,3 +1068,148 @@ COMMIT;
 --   1. INSERT into agent_definitions with type ending in '-builder'
 --   2. It automatically appears in classifier options and HITL dropdown
 --   3. No workflow changes needed
+
+==
+fix for site categorisation
+
+-- ============================================================================
+-- FIX: Update site-classifier to output recommended_builder instead of recommended_group
+-- ============================================================================
+--
+-- The intake-orchestrator workflow expects:
+--   classification.classify_site.result.recommended_builder
+--
+-- But the classifier was outputting:
+--   classification.classify_site.result.recommended_group
+--
+-- This updates the classifier prompt to use the new field name.
+-- ============================================================================
+
+BEGIN;
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = jsonb_set(
+            default_config,
+            '{workflow,steps,classify_site,config,prompt_template}',
+            to_jsonb(
+                    'Classify this website project and recommend the appropriate builder.
+
+        Input:
+        - Domain: {{.input_data.domain}}
+        - Objective: {{.input_data.objective}}
+
+        Available Builders:
+        {{range .available_builders.agents}}- {{.type}}: {{.description}}
+        {{end}}
+
+        Classify the site into ONE of these types based on the objective:
+
+        **landing** - Conversion-focused single-purpose sites:
+        - Product/service sales pages, SaaS landing pages
+        - Lead generation, signups, app downloads
+        - Event registration, clear single CTA goal
+
+        **content** - Publishing/content sites:
+        - News, blogs, magazines, articles
+        - Content aggregation, SEO/traffic focused
+        - Category navigation, archives
+
+        **portfolio** - Showcase/portfolio sites:
+        - Creative portfolios, agencies, case studies
+        - Visual/image heavy, project galleries
+
+        **brochure** - Multi-page business sites:
+        - Company websites with About, Services, Team, Contact
+        - Informational focus
+
+        Analyze the domain name and stated objective to determine the best fit.
+
+        Return ONLY valid JSON:
+        {
+          "site_type": "landing|content|portfolio|brochure",
+          "confidence": 0.0-1.0,
+          "reasoning": "Brief explanation of classification",
+          "recommended_builder": "<exact type from Available Builders list>",
+          "detected_industry": "Industry/niche if detectable",
+          "detected_signals": ["Signal 1", "Signal 2"]
+        }'
+            )
+                     )
+WHERE type = 'site-classifier';
+
+-- Also update the HITL confirmation fields to use recommended_builder
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = jsonb_set(
+            default_config,
+            '{workflow,steps,hitl_confirm_type,config,fields}',
+            '[
+              {
+                "name": "site_type",
+                "type": "select",
+                "label": "Site Type",
+                "options": ["landing", "content", "portfolio", "brochure"],
+                "default_from": "classification.classify_site.result.site_type"
+              },
+              {
+                "name": "recommended_builder",
+                "type": "dynamic_select",
+                "label": "Builder",
+                "options_from": "available_builders.agents",
+                "option_value_field": "type",
+                "option_label_field": "display_name",
+                "default_from": "classification.classify_site.result.recommended_builder"
+              }
+            ]'::jsonb
+                     )
+WHERE type = 'intake-orchestrator';
+
+-- Verify the changes
+DO $$
+DECLARE
+classifier_prompt TEXT;
+    intake_fields JSONB;
+BEGIN
+    -- Check classifier prompt contains recommended_builder
+SELECT default_config->'workflow'->'steps'->'classify_site'->'config'->>'prompt_template'
+INTO classifier_prompt
+FROM agent_definitions WHERE type = 'site-classifier';
+
+IF classifier_prompt NOT LIKE '%recommended_builder%' THEN
+        RAISE EXCEPTION 'Classifier prompt not updated - still using old field name';
+END IF;
+
+    IF classifier_prompt LIKE '%recommended_group%' THEN
+        RAISE EXCEPTION 'Classifier prompt still contains recommended_group';
+END IF;
+
+    -- Check intake fields use recommended_builder
+SELECT default_config->'workflow'->'steps'->'hitl_confirm_type'->'config'->'fields'
+INTO intake_fields
+FROM agent_definitions WHERE type = 'intake-orchestrator';
+
+IF intake_fields::text NOT LIKE '%recommended_builder%' THEN
+        RAISE EXCEPTION 'Intake HITL fields not updated';
+END IF;
+
+    RAISE NOTICE 'Successfully updated classifier and intake to use recommended_builder';
+END $$;
+
+COMMIT;
+
+--
+update cleaner
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = jsonb_set(
+            default_config,
+            '{workflow,steps,classify_site,config,prompt_template}',
+            '"Classify this website project and recommend the appropriate builder.\n\nInput:\n- Domain: {{.input_data.domain}}\n- Objective: {{.input_data.objective}}\n\nAvailable Builders:\n{{range .available_builders.agents}}- {{.type}}: {{.description}}\n{{end}}\n\nClassify the site into ONE of these types based on the objective:\n\n**landing** - Conversion-focused single-purpose sites:\n- Product/service sales pages, SaaS landing pages\n- Lead generation, signups, app downloads\n- Event registration, clear single CTA goal\n\n**content** - Publishing/content sites:\n- News, blogs, magazines, articles\n- Content aggregation, SEO/traffic focused\n- Category navigation, archives\n\n**portfolio** - Showcase/portfolio sites:\n- Creative portfolios, agencies, case studies\n- Visual/image heavy, project galleries\n\n**brochure** - Multi-page business sites:\n- Company websites with About, Services, Team, Contact\n- Informational focus\n\nAnalyze the domain name and stated objective to determine the best fit.\n\nReturn ONLY valid JSON:\n{\n  \"site_type\": \"landing|content|portfolio|brochure\",\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"Brief explanation of classification\",\n  \"recommended_builder\": \"<exact type from Available Builders list>\",\n  \"detected_industry\": \"Industry/niche if detectable\",\n  \"detected_signals\": [\"Signal 1\", \"Signal 2\"]\n}"'::jsonb
+                     )
+WHERE type = 'site-classifier';
+

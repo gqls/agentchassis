@@ -514,19 +514,31 @@ func extractFieldDefaults(fields []interface{}, collectedData map[string]interfa
 }
 
 // cleanMarkdownJSON removes markdown code fences from JSON strings
+// Handles cases where there's extra text after the closing ```
 func cleanMarkdownJSON(s string) string {
 	s = strings.TrimSpace(s)
 
-	// Remove ```json ... ``` wrapper
-	if strings.HasPrefix(s, "```json") {
+	// Check for ```json or ``` prefix
+	hasJSONFence := strings.HasPrefix(s, "```json")
+	hasPlainFence := strings.HasPrefix(s, "```")
+
+	if hasJSONFence {
 		s = strings.TrimPrefix(s, "```json")
 		s = strings.TrimSpace(s)
-	} else if strings.HasPrefix(s, "```") {
+	} else if hasPlainFence {
 		s = strings.TrimPrefix(s, "```")
 		s = strings.TrimSpace(s)
 	}
 
-	if strings.HasSuffix(s, "```") {
+	// If we removed a prefix fence, look for the closing fence
+	// It might not be at the very end (LLM might add extra text after)
+	if hasJSONFence || hasPlainFence {
+		if idx := strings.Index(s, "```"); idx >= 0 {
+			s = s[:idx]
+			s = strings.TrimSpace(s)
+		}
+	} else if strings.HasSuffix(s, "```") {
+		// No opening fence but has closing - just trim it
 		s = strings.TrimSuffix(s, "```")
 		s = strings.TrimSpace(s)
 	}
