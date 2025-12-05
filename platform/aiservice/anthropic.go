@@ -20,14 +20,39 @@ type AnthropicClient struct {
 
 // NewAnthropicClient creates a new Anthropic client
 func NewAnthropicClient(ctx context.Context, config map[string]interface{}) (*AnthropicClient, error) {
-	apiKeyEnvVar := config["api_key_env_var"].(string)
-	apiKey := os.Getenv(apiKeyEnvVar)
-	if apiKey == "" {
-		return nil, fmt.Errorf("API key not found in environment variable %s", apiKeyEnvVar)
+	// Validate config exists
+	if config == nil {
+		return nil, fmt.Errorf("ai_service config is nil - ensure 'ai_service' block exists in step config")
 	}
 
-	model := config["model"].(string)
+	// Safely extract api_key_env_var with helpful error message
+	apiKeyEnvVarRaw, exists := config["api_key_env_var"]
+	if !exists || apiKeyEnvVarRaw == nil {
+		return nil, fmt.Errorf("ai_service.api_key_env_var not configured - add 'api_key_env_var: \"ANTHROPIC_API_KEY\"' to ai_service config")
+	}
+	apiKeyEnvVar, ok := apiKeyEnvVarRaw.(string)
+	if !ok || apiKeyEnvVar == "" {
+		return nil, fmt.Errorf("ai_service.api_key_env_var must be a non-empty string, got: %T", apiKeyEnvVarRaw)
+	}
 
+	// Get API key from environment
+	apiKey := os.Getenv(apiKeyEnvVar)
+	if apiKey == "" {
+		return nil, fmt.Errorf("API key environment variable '%s' is not set or empty", apiKeyEnvVar)
+	}
+
+	// Safely extract model with default fallback
+	//model := "claude-sonnet-4-5-20250514" // sensible default
+	model := ""
+	if modelRaw, exists := config["model"]; exists && modelRaw != nil {
+		if modelStr, ok := modelRaw.(string); ok && modelStr != "" {
+			model = modelStr
+		}
+	}
+
+	if model == "" {
+		return nil, fmt.Errorf("no AI model selected")
+	}
 	return &AnthropicClient{
 		apiKey:     apiKey,
 		model:      model,
