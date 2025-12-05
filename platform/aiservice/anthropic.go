@@ -43,16 +43,16 @@ func NewAnthropicClient(ctx context.Context, config map[string]interface{}) (*An
 
 	// Safely extract model with default fallback
 	//model := "claude-sonnet-4-5-20250514" // sensible default
-	model := ""
+	model := "claude-haiku-4-5-20251001"
 	if modelRaw, exists := config["model"]; exists && modelRaw != nil {
 		if modelStr, ok := modelRaw.(string); ok && modelStr != "" {
 			model = modelStr
 		}
 	}
 
-	if model == "" {
+	/*if model == "" {
 		return nil, fmt.Errorf("no AI model selected")
-	}
+	}*/
 	return &AnthropicClient{
 		apiKey:     apiKey,
 		model:      model,
