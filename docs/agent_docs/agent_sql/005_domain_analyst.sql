@@ -74,3 +74,23 @@ SET
                     }'::jsonb
                              )
 WHERE type = 'domain-analyst';
+
+-- Domain Analyst
+UPDATE agent_definitions
+SET
+    input_contract = '{
+        "required": ["input_data"],
+        "expects": {
+            "domain": "string",
+            "objective": "string"
+        }
+    }'::jsonb,
+    output_contract = '{
+        "produces": "domain_analysis",
+        "format": {
+            "type": "object",
+            "description": "Analysis of domain name and business objective"
+        }
+    }'::jsonb
+WHERE type = 'domain-analyst';
+

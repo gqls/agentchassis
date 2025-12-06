@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -1154,4 +1155,16 @@ func resolveFieldPath(data map[string]interface{}, path string) interface{} {
 	}
 
 	return current
+}
+
+// CleanHTMLString removes markdown code blocks and extra whitespace
+func CleanHTMLString(s string) string {
+	// Remove markdown code blocks
+	codeBlockRe := regexp.MustCompile("```(?:html|css)?\n([\\s\\S]*?)```")
+	s = codeBlockRe.ReplaceAllString(s, "$1")
+
+	// Trim leading/trailing whitespace
+	s = strings.TrimSpace(s)
+
+	return s
 }

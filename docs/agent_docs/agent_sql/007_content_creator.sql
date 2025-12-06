@@ -74,3 +74,22 @@ SET
             }'::jsonb
                      )
 WHERE type = 'content-creator';
+
+-- Content Creator
+UPDATE agent_definitions
+SET
+    input_contract = '{
+        "required": ["input_data", "domain_analysis", "site_architecture"],
+        "expects": {
+            "domain_analysis": "object",
+            "site_architecture": "object"
+        }
+    }'::jsonb,
+    output_contract = '{
+        "produces": "site_content",
+        "format": {
+            "type": "object",
+            "description": "Content data for all site sections"
+        }
+    }'::jsonb
+WHERE type = 'content-creator';

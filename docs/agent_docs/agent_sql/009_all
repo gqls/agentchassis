@@ -1,2 +1,100 @@
 claude-haiku-4-5-20251001
 
+contracts
+-- Domain Analyst
+UPDATE agent_definitions
+SET
+    input_contract = '{
+        "required": ["input_data"],
+        "expects": {
+            "domain": "string",
+            "objective": "string"
+        }
+    }'::jsonb,
+    output_contract = '{
+        "produces": "domain_analysis",
+        "format": {
+            "type": "object",
+            "description": "Analysis of domain name and business objective"
+        }
+    }'::jsonb
+WHERE type = 'domain-analyst';
+
+-- Site Architect
+UPDATE agent_definitions
+SET
+    input_contract = '{
+        "required": ["input_data", "domain_analysis"],
+        "expects": {
+            "domain_analysis": "object"
+        }
+    }'::jsonb,
+    output_contract = '{
+        "produces": "site_architecture",
+        "format": {
+            "type": "object",
+            "description": "Site structure, pages, and component layout"
+        }
+    }'::jsonb
+WHERE type = 'site-architect';
+
+-- Content Creator
+UPDATE agent_definitions
+SET
+    input_contract = '{
+        "required": ["input_data", "domain_analysis", "site_architecture"],
+        "expects": {
+            "domain_analysis": "object",
+            "site_architecture": "object"
+        }
+    }'::jsonb,
+    output_contract = '{
+        "produces": "site_content",
+        "format": {
+            "type": "object",
+            "description": "Content data for all site sections"
+        }
+    }'::jsonb
+WHERE type = 'content-creator';
+
+-- HTML Developer
+UPDATE agent_definitions
+SET
+    input_contract = '{
+        "required": ["input_data", "site_architecture", "site_content"],
+        "expects": {
+            "site_architecture": "object",
+            "site_content": "object"
+        }
+    }'::jsonb,
+    output_contract = '{
+        "produces": "final_html",
+        "format": {
+            "type": "object",
+            "properties": {
+                "html": "string",
+                "css": "string"
+            },
+            "description": "Developed HTML and CSS for the site"
+        }
+    }'::jsonb
+WHERE type = 'html-developer';
+
+-- Multipage Wrapper
+UPDATE agent_definitions
+SET
+    input_contract = '{
+        "required": ["final_html", "input_data"],
+        "expects": {
+            "final_html": "object with html property"
+        }
+    }'::jsonb,
+    output_contract = '{
+        "produces": "site_files",
+        "format": {
+            "type": "object",
+            "description": "Map of filename to HTML content for all pages"
+        }
+    }'::jsonb
+WHERE type = 'multipage-wrapper';
+

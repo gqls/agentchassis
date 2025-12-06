@@ -74,3 +74,22 @@ SET
             }'::jsonb
                      )
 WHERE type = 'site-architect';
+
+-- Site Architect
+UPDATE agent_definitions
+SET
+    input_contract = '{
+        "required": ["input_data", "domain_analysis"],
+        "expects": {
+            "domain_analysis": "object"
+        }
+    }'::jsonb,
+    output_contract = '{
+        "produces": "site_architecture",
+        "format": {
+            "type": "object",
+            "description": "Site structure, pages, and component layout"
+        }
+    }'::jsonb
+WHERE type = 'site-architect';
+

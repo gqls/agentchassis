@@ -400,4 +400,90 @@ SET
 WHERE type = 'website-builder';
 
 
+--
 
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = jsonb_set(
+            default_config,
+            '{workflow,steps,develop_site}',
+            '{
+                "action": "call_agent",
+                "config": {
+                    "target_role": "developer",
+                    "input_fields": ["input_data", "site_architecture", "site_content"],
+                    "timeout_seconds": 300
+                },
+                "output_field": "final_html",
+                "next_step": "wrap_multipage",
+                "description": "Develop the HTML/CSS for the site"
+            }'::jsonb
+                     )
+WHERE type = 'website-builder';
+
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = jsonb_set(
+            default_config,
+            '{workflow,steps,wrap_multipage}',
+            '{
+                "action": "call_agent",
+                "config": {
+                    "target_role": "wrapper",
+                    "input_fields": ["final_html", "input_data"],
+                    "timeout_seconds": 60
+                },
+                "output_field": "site_files",
+                "next_step": "deploy_site",
+                "description": "Create about and contact pages, package as files map"
+            }'::jsonb
+                     )
+WHERE type = 'website-builder';
+
+
+## Suggested Data Contract Standards
+
+Create a convention for common outputs:
+
+Standard Output Fields:
+- domain_analysis    → Analysis of domain/objective
+- site_architecture  → Site structure/components
+- site_content       → Content JSON/data
+- final_html         → Assembled HTML (single page)
+- site_files         → Map of files (multipage)
+- deployment_result  → Deployment status/URLs
+
+                     --
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = jsonb_set(
+            default_config,
+            '{workflow,steps,wrap_multipage}',
+            '{
+                "action": "call_agent",
+                "config": {
+                    "target_role": "wrapper",
+                    "input_fields": ["final_html", "input_data"],
+                    "timeout_seconds": 60
+                },
+                "output_field": "site_files",
+                "next_step": "deploy_site",
+                "description": "Create about and contact pages, package as files map"
+            }'::jsonb
+                     )
+WHERE type = 'website-builder';
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = jsonb_set(
+            default_config,
+            '{workflow,steps,wrap_multipage,config,index_html_field}',
+            '"developed_html.html_result"'::jsonb
+                     )
+WHERE type = 'website-builder';

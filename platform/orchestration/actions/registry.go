@@ -52,6 +52,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"new_site_architect":        AssembleFromLibraryAction,
 	"assemble_from_library":     AssembleFromLibraryAction,
 	"assemble_full_page":        AssembleFullPageAction,
+	"assemble_html_parts":       AssembleHTMLPartsAction,
 	"fetch_agent_questionnaire": FetchAgentQuestionnaireAction,
 	"wrap_multipage":            WrapMultipageAction,
 

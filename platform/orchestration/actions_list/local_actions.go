@@ -39,10 +39,11 @@ var LocalActions = map[string]bool{
 
 	// Web build
 	"git_commit":                true,
+	"git_commit_action":         true,
 	"new_site_architect":        true,
 	"assemble_from_library":     true,
-	"git_commit_action":         true,
 	"assemble_full_page":        true,
+	"assemble_html_parts":       true,
 	"fetch_agent_questionnaire": true,
 	"wrap_multipage":            true,
 
