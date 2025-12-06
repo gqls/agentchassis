@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
@@ -71,7 +72,7 @@ func UploadToS3Action(ctx context.Context, params ActionParams) (interface{}, er
 
 	// Extract config from agent or step (checking for response field)
 	if agentConfigStep, ok := params.CollectedData["agent_config"]; ok {
-		extracted := ExtractStepData(agentConfigStep)
+		extracted := datahelpers.ExtractStepData(agentConfigStep)
 		if agentConfig, ok := extracted.(map[string]interface{}); ok {
 			if storageCfg, ok := agentConfig["storage_config"].(map[string]interface{}); ok {
 				storageConfig.Provider = getStringOrDefault(storageCfg, "provider", "s3")
@@ -165,7 +166,7 @@ func extractStorageConfig(params ActionParams) (map[string]interface{}, string) 
 
 	// First check agent configuration (checking for response field)
 	if agentConfigStep, ok := params.CollectedData["agent_config"]; ok {
-		extracted := ExtractStepData(agentConfigStep)
+		extracted := datahelpers.ExtractStepData(agentConfigStep)
 		if agentConfig, ok := extracted.(map[string]interface{}); ok {
 			if storage, ok := agentConfig["storage"].(map[string]interface{}); ok {
 				for k, v := range storage {
@@ -214,7 +215,7 @@ func extractHTMLContent(params ActionParams, config map[string]interface{}) (map
 
 	// First check in input_data (checking for response field)
 	if inputStep, ok := params.CollectedData["input_data"]; ok {
-		extracted := ExtractStepData(inputStep)
+		extracted := datahelpers.ExtractStepData(inputStep)
 		if inputData, ok := extracted.(map[string]interface{}); ok {
 			// Look for HTML in input_data
 			if html, ok := inputData["html"].(string); ok && html != "" {
@@ -240,7 +241,7 @@ func extractHTMLContent(params ActionParams, config map[string]interface{}) (map
 
 		for _, source := range htmlSources {
 			if stepData, ok := params.CollectedData[source]; ok {
-				extracted := ExtractStepData(stepData)
+				extracted := datahelpers.ExtractStepData(stepData)
 
 				// Check if extracted is a string
 				if html, ok := extracted.(string); ok && html != "" {
@@ -271,13 +272,13 @@ func extractHTMLContent(params ActionParams, config map[string]interface{}) (map
 
 	// Look for CSS and JS (checking for response fields)
 	if cssStep, ok := params.CollectedData["css"]; ok {
-		extracted := ExtractStepData(cssStep)
+		extracted := datahelpers.ExtractStepData(cssStep)
 		if css, ok := extracted.(string); ok {
 			content["styles.css"] = []byte(css)
 		}
 	}
 	if jsStep, ok := params.CollectedData["javascript"]; ok {
-		extracted := ExtractStepData(jsStep)
+		extracted := datahelpers.ExtractStepData(jsStep)
 		if js, ok := extracted.(string); ok {
 			content["script.js"] = []byte(js)
 		}
@@ -299,7 +300,7 @@ func extractImageContent(params ActionParams, config map[string]interface{}) (ma
 
 	for _, source := range imageSources {
 		if stepData, ok := params.CollectedData[source]; ok {
-			extracted := ExtractStepData(stepData)
+			extracted := datahelpers.ExtractStepData(stepData)
 			filename := generateImageFilename(params, config)
 			content[filename] = convertToBytes(extracted)
 			metadata["content_type"] = detectImageType(content[filename])
@@ -324,7 +325,7 @@ func extractDocumentContent(params ActionParams, config map[string]interface{}) 
 
 	for _, source := range docSources {
 		if stepData, ok := params.CollectedData[source]; ok {
-			extracted := ExtractStepData(stepData)
+			extracted := datahelpers.ExtractStepData(stepData)
 			filename := generateDocumentFilename(params, config)
 			content[filename] = convertToBytes(extracted)
 			metadata["content_type"] = detectDocumentType(content[filename])
@@ -349,7 +350,7 @@ func extractGenericContent(params ActionParams, config map[string]interface{}) (
 
 	if contentField != "" {
 		if stepData, ok := params.CollectedData[contentField]; ok {
-			extracted := ExtractStepData(stepData)
+			extracted := datahelpers.ExtractStepData(stepData)
 			filename := generateFilename(params, config)
 			content[filename] = convertToBytes(extracted)
 			metadata["source"] = contentField
@@ -358,7 +359,7 @@ func extractGenericContent(params ActionParams, config map[string]interface{}) (
 		// Look for common output fields (checking for response fields)
 		for _, field := range []string{"output", "result", "generated_content", "data"} {
 			if stepData, ok := params.CollectedData[field]; ok {
-				extracted := ExtractStepData(stepData)
+				extracted := datahelpers.ExtractStepData(stepData)
 				if extracted != nil {
 					filename := generateFilename(params, config)
 					content[filename] = convertToBytes(extracted)
@@ -382,7 +383,7 @@ func extractFilesToUpload(params ActionParams) map[string][]byte {
 	// Look for website files in collected data (checking for response fields)
 	for key, value := range params.CollectedData {
 		if strings.Contains(key, "html") || strings.Contains(key, "site") || key == "develop_site" {
-			extracted := ExtractStepData(value)
+			extracted := datahelpers.ExtractStepData(value)
 			websiteFiles := extractWebsiteFiles(extracted)
 			for filename, content := range websiteFiles {
 				files[filename] = convertToBytes(content)
@@ -392,7 +393,7 @@ func extractFilesToUpload(params ActionParams) map[string][]byte {
 
 	// Also check for validate_html step results (checking for response field)
 	if validateStep, ok := params.CollectedData["validate_html"]; ok {
-		extracted := ExtractStepData(validateStep)
+		extracted := datahelpers.ExtractStepData(validateStep)
 		if validateResult, ok := extracted.(map[string]interface{}); ok {
 			if html, ok := validateResult["final_html"].(string); ok {
 				files["index.html"] = []byte(html)
@@ -514,7 +515,7 @@ func storeToS3(ctx context.Context, params ActionParams, content map[string][]by
 
 	// First, check if we have storage config in agent_config (checking for response field)
 	if agentConfigStep, ok := params.CollectedData["agent_config"]; ok {
-		extracted := ExtractStepData(agentConfigStep)
+		extracted := datahelpers.ExtractStepData(agentConfigStep)
 		if agentConfig, ok := extracted.(map[string]interface{}); ok {
 			// Check both "storage" and "storage_config" fields
 			if agentStorage, ok := agentConfig["storage"].(map[string]interface{}); ok {

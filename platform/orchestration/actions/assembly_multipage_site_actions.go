@@ -405,7 +405,7 @@ func extractNestedField(data map[string]interface{}, fieldPath string) interface
 				continue
 			}
 			// Try ExtractStepData
-			if extracted := ExtractStepData(v[part]); extracted != nil {
+			if extracted := datahelpers.ExtractStepData(v[part]); extracted != nil {
 				current = extracted
 				continue
 			}

@@ -85,7 +85,7 @@ func extractFieldValue(data map[string]interface{}, fieldPath string, logger *za
 				continue
 			}
 			// Then try ExtractStepData if it looks like a step result
-			if extracted := ExtractStepData(v[part]); extracted != nil {
+			if extracted := datahelpers.ExtractStepData(v[part]); extracted != nil {
 				current = extracted
 				continue
 			}

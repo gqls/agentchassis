@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +20,7 @@ func ValidateInputAction(ctx context.Context, params ActionParams) (interface{},
 
 	// Check if input_data is a step with a response
 	if stepData, ok := params.CollectedData["input_data"]; ok {
-		extractedData := ExtractStepData(stepData)
+		extractedData := datahelpers.ExtractStepData(stepData)
 		inputData, ok = extractedData.(map[string]interface{})
 		if !ok {
 			return nil, fmt.Errorf("no valid input_data in CollectedData")
@@ -61,7 +62,7 @@ func TransformDataAction(ctx context.Context, params ActionParams) (interface{},
 	// First, check if we have data from a previous validation step
 	if validatedStepData, ok := params.CollectedData["validate_input"]; ok {
 		// Extract data from the step (checking for response field)
-		extractedData := ExtractStepData(validatedStepData)
+		extractedData := datahelpers.ExtractStepData(validatedStepData)
 
 		// If it's a validated response, extract the input field
 		if validated, ok := extractedData.(map[string]interface{}); ok {
@@ -77,7 +78,7 @@ func TransformDataAction(ctx context.Context, params ActionParams) (interface{},
 	// If no validated data, try input_data
 	if data == nil {
 		if inputStepData, ok := params.CollectedData["input_data"]; ok {
-			extractedData := ExtractStepData(inputStepData)
+			extractedData := datahelpers.ExtractStepData(inputStepData)
 			if inputMap, ok := extractedData.(map[string]interface{}); ok {
 				data = inputMap
 			}
@@ -141,7 +142,7 @@ func SendNotificationAction(ctx context.Context, params ActionParams) (interface
 			continue
 		}
 		// Extract data from step (checking for response field)
-		collectedResults[key] = ExtractStepData(value)
+		collectedResults[key] = datahelpers.ExtractStepData(value)
 	}
 
 	// Prepare notification
