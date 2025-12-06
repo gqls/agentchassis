@@ -274,3 +274,129 @@ SELECT
     image_tag
 FROM agent_definitions
 WHERE type = 'html-developer';
+
+===
+with passing input params properly
+-- ============================================================================
+-- CORRECT: html-developer workflow using input_fields configuration
+-- No hardcoded field names - workflow defines what data to pass
+-- ============================================================================
+
+UPDATE agent_definitions
+SET default_config = '{
+    "workflow": {
+        "start_step": "generate_html",
+        "steps": {
+            "generate_html": {
+                "action": "generate_html",
+                "config": {
+                    "input_fields": ["input_data", "site_architecture", "site_content", "domain_analysis"],
+                    "generation_type": "full",
+                    "max_tokens": 16000
+                },
+                "description": "Generate HTML from configurable input fields",
+                "next_step": "process_html",
+                "output_field": "html_generation"
+            },
+            "process_html": {
+                "action": "process_html",
+                "config": {
+                    "input_fields": ["html_generation"]
+                },
+                "description": "Process and enhance HTML",
+                "next_step": "validate_html",
+                "output_field": "html_processing"
+            },
+            "validate_html": {
+                "action": "validate_html",
+                "config": {
+                    "input_fields": ["html_processing"]
+                },
+                "description": "Validate HTML structure",
+                "next_step": "complete",
+                "output_field": "html_validation"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "description": "Return complete HTML"
+            }
+        }
+    },
+    "storage": {
+        "type": "s3",
+        "enabled": true,
+        "auto_store": true,
+        "bucket_env": "ASSETS_BUCKET",
+        "public_access": true
+    },
+    "processing_mode": "task",
+    "timeout_seconds": 300
+}'::jsonb,
+    image_tag = 'v1.0.510',
+    updated_at = now()
+WHERE type = 'html-developer';
+
+-- ============================================================================
+-- HOW THIS WORKS (properly configurable):
+-- ============================================================================
+--
+-- 1. The workflow specifies input_fields:
+--    "input_fields": ["input_data", "site_architecture", "site_content"]
+--
+-- 2. The action extracts those fields from CollectedData:
+--    context["input_data"] = CollectedData["input_data"]
+--    context["site_architecture"] = CollectedData["site_architecture"]
+--    context["site_content"] = CollectedData["site_content"]
+--
+-- 3. Different workflows can pass different fields:
+--
+--    Example A (full pipeline):
+--    "input_fields": ["input_data", "domain_analysis", "site_architecture", "site_content"]
+--
+--    Example B (minimal):
+--    "input_fields": ["input_data"]
+--
+--    Example C (custom names):
+--    "input_fields": ["business_info", "page_structure", "page_content"]
+--
+-- The action works with whatever fields are specified - NO HARDCODING!
+--
+-- ============================================================================
+
+-- Example: Different workflow with different field names
+-- This shows the flexibility of using input_fields
+
+-- CREATE OR REPLACE FUNCTION example_custom_workflow() RETURNS void AS $$
+-- BEGIN
+--   -- Imagine this workflow has different step names:
+--   -- - "analyze_business" instead of "analyze_domain"
+--   -- - "design_layout" instead of "architect_site"
+--   -- - "write_copy" instead of "create_content"
+--
+--   -- The html-developer can still work because we configure input_fields:
+--   INSERT INTO agent_definitions (type, default_config) VALUES (
+--     'custom-html-developer',
+--     '{
+--       "workflow": {
+--         "steps": {
+--           "generate_html": {
+--             "action": "generate_html",
+--             "config": {
+--               "input_fields": ["input_data", "analyze_business", "design_layout", "write_copy"]
+--             }
+--           }
+--         }
+--       }
+--     }'::jsonb
+--   );
+-- END;
+-- $$ LANGUAGE plpgsql;
+
+-- Verify the configuration
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'generate_html'->'config'->>'input_fields' as input_fields_config,
+    default_config->'workflow'->'steps'->'generate_html'->'config'->>'generation_type' as generation_type,
+    image_tag
+FROM agent_definitions
+WHERE type = 'html-developer';

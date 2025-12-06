@@ -487,3 +487,14 @@ SET
             '"developed_html.html_result"'::jsonb
                      )
 WHERE type = 'website-builder';
+
+
+----
+changing it back again
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,wrap_multipage,config,index_html_field}',
+        '"final_html.html_result"'::jsonb
+                     )
+WHERE type = 'website-builder';
