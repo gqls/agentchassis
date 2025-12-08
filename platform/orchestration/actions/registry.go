@@ -75,8 +75,8 @@ var GlobalActionRegistry = map[string]ActionFunc{
 
 	// HTML operations
 	"generate_html": GenerateHTMLAction,
-	//"process_html":  ProcessHTMLAction,
-	//"validate_html": ValidateHTMLAction,
+	"process_html":  ProcessHTMLAction,
+	"validate_html": ValidateHTMLAction,
 
 	// Workflow control
 	"conditional_branch": ConditionalBranchAction,

@@ -292,7 +292,13 @@ SET default_config = '{
                 "config": {
                     "input_fields": ["input_data", "site_architecture", "site_content", "domain_analysis"],
                     "generation_type": "full",
-                    "max_tokens": 16000
+                    "max_tokens": 16000,
+                     "ai_service": {
+                            "model": "claude-haiku-4-5-20251001",
+                            "provider": "anthropic",
+                            "max_tokens": 16000,
+                            "api_key_env_var": "ANTHROPIC_API_KEY"
+                          }
                 },
                 "description": "Generate HTML from configurable input fields",
                 "next_step": "process_html",
@@ -332,7 +338,7 @@ SET default_config = '{
     "processing_mode": "task",
     "timeout_seconds": 300
 }'::jsonb,
-    image_tag = 'v1.0.510',
+    image_tag = 'v1.0.511',
     updated_at = now()
 WHERE type = 'html-developer';
 
@@ -399,4 +405,62 @@ SELECT
     default_config->'workflow'->'steps'->'generate_html'->'config'->>'generation_type' as generation_type,
     image_tag
 FROM agent_definitions
+WHERE type = 'html-developer';
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = jsonb_set(
+            default_config,
+            '{workflow}',
+            '{
+                "start_step": "generate_html",
+                "steps": {
+                    "generate_html": {
+                        "action": "generate_html",
+                        "config": {
+                            "input_fields": [
+                                "input_data",
+                                "site_architecture",
+                                "site_content",
+                                "domain_analysis"
+                            ],
+                            "generation_type": "full",
+                            "max_tokens": 16000,
+                            "ai_service": {
+                                "model": "claude-haiku-4-5-20251001",
+                                "provider": "anthropic",
+                                "max_tokens": 16000,
+                                "api_key_env_var": "ANTHROPIC_API_KEY"
+                            }
+                        },
+                        "description": "Generate HTML from configurable input fields",
+                        "next_step": "process_html",
+                        "output_field": "html_generation"
+                    },
+                    "process_html": {
+                        "action": "process_html",
+                        "config": {
+                            "input_fields": ["html_generation"]
+                        },
+                        "description": "Process and enhance HTML",
+                        "next_step": "validate_html",
+                        "output_field": "html_processing"
+                    },
+                    "validate_html": {
+                        "action": "validate_html",
+                        "config": {
+                            "input_fields": ["html_processing"]
+                        },
+                        "description": "Validate HTML structure",
+                        "next_step": "complete",
+                        "output_field": "html_validation"
+                    },
+                    "complete": {
+                        "action": "complete_workflow",
+                        "description": "Return complete HTML"
+                    }
+                }
+            }'::jsonb
+                     )
 WHERE type = 'html-developer';

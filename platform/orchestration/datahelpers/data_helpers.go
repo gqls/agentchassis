@@ -1203,30 +1203,6 @@ func ExtractHTMLFromResponse(result interface{}) string {
 	return response
 }
 
-func GatherHTMLContext(collectedData map[string]interface{}) map[string]interface{} {
-	context := make(map[string]interface{})
-
-	// Extract domain analysis (checking for response)
-	if domainStep, ok := collectedData["analyze_domain"]; ok {
-		context["domain_analysis"] = ExtractStepData(domainStep)
-	}
-
-	// Extract site architecture (checking for response)
-	if archStep, ok := collectedData["architect_site"]; ok {
-		context["site_structure"] = ExtractStepData(archStep)
-	}
-
-	// Extract content (checking for response)
-	if contentStep, ok := collectedData["create_content"]; ok {
-		context["content"] = ExtractStepData(contentStep)
-	}
-
-	// Extract business info
-	context["business"] = ExtractBusinessInfo(collectedData)
-
-	return context
-}
-
 func ExtractBusinessInfo(collectedData map[string]interface{}) map[string]interface{} {
 	info := make(map[string]interface{})
 

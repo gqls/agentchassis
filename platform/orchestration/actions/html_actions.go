@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -37,7 +38,7 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 		}
 	}
 
-	params.Logger.Info("Using input fields",
+	params.Logger.Info("generate html action Using input fields",
 		zap.Strings("input_fields", inputFields),
 		zap.String("generation_type", generationType),
 	)
@@ -95,6 +96,182 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 		"generation_type": generationType,
 		"generated_at":    time.Now().UTC(),
 		"tokens_used":     maxTokens,
+	}, nil
+}
+
+// ProcessHTMLAction processes and enhances generated HTML
+func ProcessHTMLAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Processing HTML content")
+
+	// Get HTML from previous step (checking for response field)
+	var rawHTML string
+
+	// First check generate_html step
+	if genStep, ok := params.CollectedData["generate_html"]; ok {
+		extracted := datahelpers.ExtractStepData(genStep)
+		if genResult, ok := extracted.(map[string]interface{}); ok {
+			rawHTML, _ = genResult["raw_html"].(string)
+		}
+	}
+
+	// Fallback to direct raw_html field
+	if rawHTML == "" {
+		if htmlData, ok := params.CollectedData["raw_html"]; ok {
+			extracted := datahelpers.ExtractStepData(htmlData)
+			if str, ok := extracted.(string); ok {
+				rawHTML = str
+			}
+		}
+	}
+
+	if rawHTML == "" {
+		return nil, fmt.Errorf("no HTML content to process")
+	}
+
+	// Parse HTML
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rawHTML))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse HTML: %w", err)
+	}
+
+	// Get business context
+	businessInfo := datahelpers.ExtractBusinessInfo(params.CollectedData)
+
+	// Process based on configuration
+	processingSteps := []string{}
+
+	// Ensure proper structure
+	datahelpers.EnsureHTMLStructure(doc)
+	processingSteps = append(processingSteps, "structure_validation")
+
+	// Add meta tags
+	datahelpers.AddMetaTags(doc, businessInfo)
+	processingSteps = append(processingSteps, "meta_tags")
+
+	// Ensure responsive design
+	datahelpers.EnsureResponsiveDesign(doc)
+	processingSteps = append(processingSteps, "responsive_design")
+
+	// Optimize images
+	datahelpers.OptimizeImages(doc)
+	processingSteps = append(processingSteps, "image_optimization")
+
+	// Add structured data
+	datahelpers.AddStructuredData(doc, businessInfo)
+	processingSteps = append(processingSteps, "structured_data")
+
+	// Get processed HTML
+	processedHTML, _ := doc.Html()
+
+	// Minify if needed
+	if shouldMinify(params) {
+		processedHTML = datahelpers.MinifyHTML(processedHTML, params.Logger)
+		processingSteps = append(processingSteps, "minification")
+	}
+
+	return map[string]interface{}{
+		"processed_html":   processedHTML,
+		"original_size":    len(rawHTML),
+		"processed_size":   len(processedHTML),
+		"processing_steps": processingSteps,
+		"business_info":    businessInfo,
+	}, nil
+}
+
+// ValidateHTMLAction validates the processed HTML
+func ValidateHTMLAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Validating HTML content")
+
+	// Get processed HTML (checking for response field)
+	var htmlContent string
+
+	// Check process_html step
+	if procStep, ok := params.CollectedData["process_html"]; ok {
+		extracted := datahelpers.ExtractStepData(procStep)
+		if procResult, ok := extracted.(map[string]interface{}); ok {
+			htmlContent, _ = procResult["processed_html"].(string)
+		}
+	}
+
+	if htmlContent == "" {
+		return nil, fmt.Errorf("no HTML content to validate")
+	}
+
+	// Parse for validation
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlContent))
+	if err != nil {
+		return map[string]interface{}{
+			"valid":  false,
+			"errors": []string{fmt.Sprintf("Failed to parse HTML: %v", err)},
+		}, nil
+	}
+
+	errors := []string{}
+	warnings := []string{}
+
+	// Required elements
+	if doc.Find("html").Length() == 0 {
+		errors = append(errors, "Missing <html> element")
+	}
+
+	if doc.Find("head").Length() == 0 {
+		errors = append(errors, "Missing <head> element")
+	}
+
+	if doc.Find("body").Length() == 0 {
+		errors = append(errors, "Missing <body> element")
+	}
+
+	if doc.Find("title").Length() == 0 {
+		warnings = append(warnings, "Missing <title> element")
+	}
+
+	// Check meta tags
+	if doc.Find("meta[charset]").Length() == 0 {
+		warnings = append(warnings, "Missing charset meta tag")
+	}
+
+	if doc.Find("meta[name='viewport']").Length() == 0 {
+		warnings = append(warnings, "Missing viewport meta tag")
+	}
+
+	// Check images
+	doc.Find("img").Each(func(i int, s *goquery.Selection) {
+		src, _ := s.Attr("src")
+		alt, hasAlt := s.Attr("alt")
+
+		if src == "" {
+			errors = append(errors, fmt.Sprintf("Image %d has no src attribute", i+1))
+		}
+
+		if !hasAlt || alt == "" {
+			warnings = append(warnings, fmt.Sprintf("Image %d missing alt text", i+1))
+		}
+	})
+
+	// Check links
+	doc.Find("a").Each(func(i int, s *goquery.Selection) {
+		href, _ := s.Attr("href")
+		if href == "" || href == "#" {
+			warnings = append(warnings, fmt.Sprintf("Link %d has empty or placeholder href", i+1))
+		}
+	})
+
+	isValid := len(errors) == 0
+
+	// Store the final HTML if valid
+	finalHTML := htmlContent
+	if isValid {
+		params.CollectedData["final_html"] = finalHTML
+	}
+
+	return map[string]interface{}{
+		"valid":         isValid,
+		"errors":        errors,
+		"warnings":      warnings,
+		"html_size":     len(finalHTML),
+		"element_count": datahelpers.CountElements(doc),
+		"final_html":    finalHTML,
 	}, nil
 }
 
@@ -338,4 +515,11 @@ func ifNotEmpty(s, prefix string) string {
 		return ""
 	}
 	return prefix
+}
+
+func shouldMinify(params ActionParams) bool {
+	if config, ok := params.StepConfig.Config["minify"].(bool); ok {
+		return config
+	}
+	return true // Default to minifying
 }
