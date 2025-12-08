@@ -498,3 +498,13 @@ SET default_config = jsonb_set(
         '"final_html.html_result"'::jsonb
                      )
 WHERE type = 'website-builder';
+
+--
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,develop_site,config,input_fields}',
+        '["input_data", "site_architecture", "site_content", "domain_analysis"]'::jsonb
+                     )
+WHERE type = 'website-builder';

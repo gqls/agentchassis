@@ -3,3 +3,5 @@ amazon feed
 tickets feed
 source affiliate schemes for the domain - e.g. wellfound.
 sites that attract leads and pass them to affiliate schemes
+git storage rather than or as well as s3
+more than one page - gemini https://gemini.google.com/app/89669bda505f18d9  (Fractal CMS Engine)

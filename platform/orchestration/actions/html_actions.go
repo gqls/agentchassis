@@ -18,7 +18,16 @@ import (
 // GenerateHTMLAction generates HTML using LLM based on input_fields configuration
 // This properly uses workflow field mappings instead of hardcoding field names
 func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Generating HTML content")
+	params.Logger.Info("Generating HTML content",
+		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
+		//zap.Any("DEBUGaa: collected_data", params.CollectedData),
+	)
+
+	params.Logger.Info("Checking for input fields",
+		zap.Bool("has_input_data", params.CollectedData["input_data"] != nil),
+		zap.Bool("has_site_architecture", params.CollectedData["site_architecture"] != nil),
+		zap.Bool("has_site_content", params.CollectedData["site_content"] != nil),
+	)
 
 	// Get configuration
 	config := params.StepConfig.Config
