@@ -469,13 +469,11 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 
 // extractDataForAiAgent merges data from multiple sources specified in the step's 'input_fields' config.
 func extractDataForAiAgent(params ActionParams) interface{} {
-	params.Logger.Info("Extracting data for AI agent",
+	params.Logger.Info("Extracting data for AI agent using UNIFIED EXTRACTOR",
 		zap.Any("available_keys", GetMapKeys(params.CollectedData)),
 	)
 
-	templateData := make(map[string]interface{})
-
-	// 1. Determine inputs to fetch
+	// Determine which fields to extract
 	var inputFields []string
 	if fields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
 		for _, fieldInterface := range fields {
@@ -490,171 +488,16 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 
 	params.Logger.Info("Processing input_fields", zap.Strings("fields", inputFields))
 
-	// Get input_data once for reuse
-	inputDataMap := datahelpers.GetInputData(params.CollectedData, params.Logger)
+	// USE THE UNIFIED EXTRACTOR
+	templateData := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
 
-	// Check for double-nesting and unwrap if needed
-	if nestedInputData, ok := inputDataMap["input_data"].(map[string]interface{}); ok {
-		params.Logger.Warn("Detected double-nested input_data, unwrapping")
-		inputDataMap = nestedInputData
-	}
-
-	// 2. Smart Extraction Loop
-	for _, fieldName := range inputFields {
-
-		// Scenario A: "input_data" keyword (Legacy/Bulk behavior)
-		// Flattens the entire input_data map into the template root
-		if fieldName == "input_data" {
-			for key, val := range inputDataMap {
-				templateData[key] = val
-			}
-			params.Logger.Info("Flattened input_data to root", zap.Int("field_count", len(inputDataMap)))
-			continue
-		}
-
-		// Scenario B: Specific Field Lookup
-		var foundValue interface{}
-		var found bool
-		var foundPath string
-
-		// Check 1: Direct lookup in CollectedData
-		if val, ok := datahelpers.GetValueByPath(params.CollectedData, fieldName, params.Logger); ok {
-			foundValue = val
-			found = true
-			foundPath = fieldName
-		}
-
-		// Check 2: Look in the unwrapped input_data map directly
-		if !found && inputDataMap != nil {
-			if val, ok := inputDataMap[fieldName]; ok {
-				foundValue = val
-				found = true
-				foundPath = "input_data." + fieldName
-				params.Logger.Debug("Found field in input_data", zap.String("field", fieldName))
-			}
-		}
-
-		// Check 3: Try dot notation in CollectedData
-		if !found {
-			if val, ok := datahelpers.GetValueByPath(params.CollectedData, "input_data."+fieldName, params.Logger); ok {
-				foundValue = val
-				found = true
-				foundPath = "input_data." + fieldName
-			}
-		}
-
-		// Check 4: Look inside __raw_message__
-		if !found {
-			if raw, ok := params.CollectedData["__raw_message__"].(map[string]interface{}); ok {
-				if val, ok := datahelpers.GetValueByPath(raw, fieldName, params.Logger); ok {
-					foundValue = val
-					found = true
-					foundPath = "__raw_message__." + fieldName
-				}
-			}
-		}
-
-		if found {
-			// Use the simple field name for the template key
-			// e.g. if we found "input_data.domain", store as "domain"
-			keyParts := strings.Split(fieldName, ".")
-			simpleKey := keyParts[len(keyParts)-1]
-
-			templateData[simpleKey] = foundValue
-			params.Logger.Info("Extracted field",
-				zap.String("field", fieldName),
-				zap.String("template_key", simpleKey),
-				zap.String("found_at", foundPath),
-				zap.Any("value", foundValue),
-			)
-		} else {
-			params.Logger.Warn("Requested input_field not found",
-				zap.String("field", fieldName),
-				zap.Strings("checked_paths", []string{
-					fieldName,
-					"input_data." + fieldName,
-					"CollectedData[input_data][" + fieldName + "]",
-					"__raw_message__." + fieldName,
-				}),
-			)
-		}
-	}
-
-	params.Logger.Info("Final template data",
-		zap.Any("template_data", templateData),
+	params.Logger.Info("Template data extracted",
 		zap.Int("field_count", len(templateData)),
+		zap.Strings("keys", GetMapKeys(templateData)),
 	)
 
 	return templateData
 }
-
-/*func extractDataForAiAgent(params ActionParams) interface{} {
-	// Get which input field to use - ditching this for now
-	inputField := "input_data"
-	if field, ok := params.StepConfig.Config["input_field"].(string); ok && field != "" {
-		inputField = field
-	}
-
-	params.Logger.Info("Extracting data for ai agent",
-		//zap.String("requested_field", inputField), // input_data
-		zap.Any("available_keys", getMapKeys(params.CollectedData)),
-		zap.Any("DEBUGaa: params.CollectedData for passing to the new agent in executellmprompt action extractDataForAiAgent", params.CollectedData),
-	)
-
-	// Use the GetInputData helper which handles all the extraction logic
-	cleanData := datahelpers.GetInputData(params.CollectedData, params.Logger)
-
-	// If we got a valid map, return it
-	if len(cleanData) > 0 {
-		params.Logger.Info("Extracted clean data for AI agent",
-			zap.Int("field_count", len(cleanData)),
-			zap.Any("DEBUGaa: cleanData", cleanData),
-		)
-		return cleanData
-	}
-
-	// Fallback to empty map
-	params.Logger.Warn("No data found for AI agent, using empty map")
-	return make(map[string]interface{})
-
-	// Define search paths from most to least specific
-	searchPaths := [][]string{
-		{"input_data", "body", "input_data", inputField}, // Deeply nested with body
-		{"input_data", "input_data", inputField},         // Deeply nested
-		{"input_data", "body", inputField},               // medium nested with body
-		{"input_data", inputField},                       // Medium nested
-		{inputField},                                     // Top level
-	}
-
-	// Try each path
-	for _, path := range searchPaths {
-		if data, ok := getNestedInputValue(params.CollectedData, path...); ok {
-			params.Logger.Info("Found data via path",
-				zap.Strings("path", path),
-				zap.Any("DEBUGaa: data found via path", data),
-			)
-			return data
-		}
-	}
-
-	// Special case: if looking for input_data, try nested version
-		if inputField == "input_data" {
-			if data, ok := getNestedInputValue(params.CollectedData, "input_data", "input_data"); ok {
-				params.Logger.Info("Using nested input_data")
-				return data
-			}
-		}
-
-		// Final fallback
-		data := params.CollectedData["input_data"]
-		if data == nil {
-			params.Logger.Warn("No data found, using empty map")
-			return make(map[string]interface{})
-		}
-
-		params.Logger.Info("Using top-level input_data as fallback")
-		return data
-}*/
 
 // getPromptWithPriority implements three-tier priority for prompt selection
 func getPromptWithPriority(params ActionParams, agentConfig map[string]interface{}) (prompt string, source string) {

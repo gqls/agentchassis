@@ -256,49 +256,22 @@ func ValidateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 
 // buildContextSmart uses intelligent search to find data regardless of nesting
 func buildContextSmart(collectedData map[string]interface{}, inputFields []string, logger *zap.Logger) map[string]interface{} {
-	context := make(map[string]interface{})
-
 	if len(inputFields) == 0 {
 		logger.Warn("No input_fields specified, using fallback field names")
 		inputFields = []string{"input_data", "site_architecture", "site_content", "domain_analysis"}
 	}
 
-	for _, fieldPath := range inputFields {
-		logger.Info("Extracting field with smart search",
-			zap.String("field_path", fieldPath),
-		)
+	logger.Info("Building context with UNIFIED EXTRACTOR",
+		zap.Strings("input_fields", inputFields),
+	)
 
-		// Try path-based extraction first
-		value := datahelpers.FindByPath(collectedData, fieldPath, logger)
+	// USE THE UNIFIED EXTRACTOR
+	context := datahelpers.ExtractFields(collectedData, inputFields, logger)
 
-		// If not found at top level, try nested inside input_data
-		if value == nil && fieldPath != "input_data" {
-			nestedPath := "input_data." + fieldPath
-			logger.Info("Trying nested path",
-				zap.String("nested_path", nestedPath),
-			)
-			value = datahelpers.FindByPath(collectedData, nestedPath, logger)
-		}
-
-		if value != nil {
-			parts := strings.Split(fieldPath, ".")
-			fieldName := parts[len(parts)-1]
-			context[fieldName] = value
-
-			logger.Info("Successfully extracted field",
-				zap.String("field_path", fieldPath),
-				zap.String("stored_as", fieldName),
-				zap.String("type", fmt.Sprintf("%T", value)),
-			)
-		} else {
-			logger.Warn("Field not found",
-				zap.String("field_path", fieldPath),
-			)
-		}
-	}
-
-	// Ensure we have domain and objective even if deeply nested
-	ensureCoreDomainInfo(context, collectedData, logger)
+	logger.Info("Context built successfully",
+		zap.Int("field_count", len(context)),
+		zap.Strings("context_keys", getMapKeys(context)),
+	)
 
 	return context
 }
