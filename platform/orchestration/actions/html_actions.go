@@ -1,5 +1,5 @@
 // FILE: platform/orchestration/actions/html_actions.go
-// Recursive nested extraction + robust HTML processing
+// HTML generation with smart content-aware data extraction
 
 package actions
 
@@ -16,9 +16,8 @@ import (
 )
 
 // GenerateHTMLAction generates HTML using LLM based on input_fields configuration
-// This properly uses workflow field mappings with deep recursive extraction
 func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Generating HTML content with deep extraction",
+	params.Logger.Info("Generating HTML content with smart extraction",
 		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
 	)
 
@@ -27,7 +26,7 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 	generationType, _ := config["generation_type"].(string)
 	maxTokens := getMaxTokens(config, 16000)
 
-	// Get input_fields from config (like call_agent does)
+	// Get input_fields from config
 	inputFieldsRaw, hasInputFields := config["input_fields"]
 	var inputFields []string
 	if hasInputFields {
@@ -45,32 +44,29 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 		zap.String("generation_type", generationType),
 	)
 
-	// Build context from specified input_fields WITH DEEP EXTRACTION
-	context := buildContextWithDeepExtraction(params.CollectedData, inputFields, params.Logger)
+	// Build context with SMART extraction
+	context := buildContextSmart(params.CollectedData, inputFields, params.Logger)
 
 	params.Logger.Info("Context built",
 		zap.Any("context_keys", GetMapKeys(context)),
 	)
 
-	// Build prompt based on generation type
+	// Build prompt
 	var prompt string
 	switch generationType {
 	case "structure":
 		prompt = buildStructurePrompt(context)
-		params.Logger.Info("Generating HTML structure")
 	case "styles":
 		prompt = buildStylesPrompt(context)
-		params.Logger.Info("Generating CSS styles")
 	case "content":
 		prompt = buildContentPrompt(context)
-		params.Logger.Info("Generating HTML content")
 	default:
 		prompt = buildFullHTMLPrompt(context)
-		params.Logger.Info("Generating complete HTML")
 	}
 
 	params.Logger.Info("Generated prompt",
 		zap.Int("prompt_length", len(prompt)),
+		zap.String("prompt_preview", prompt[:min(500, len(prompt))]),
 	)
 
 	// Call LLM
@@ -92,18 +88,10 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 		return nil, fmt.Errorf("failed to generate HTML: %w", err)
 	}
 
-	// Extract HTML from response
 	htmlContent := datahelpers.ExtractHTMLFromResponse(result)
-
-	if htmlContent == "" {
-		params.Logger.Warn("LLM returned empty HTML",
-			zap.String("generation_type", generationType),
-		)
-	}
 
 	params.Logger.Info("HTML generation complete",
 		zap.Int("html_length", len(htmlContent)),
-		zap.Int("tokens_used", maxTokens),
 	)
 
 	return map[string]interface{}{
@@ -118,10 +106,9 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 func ProcessHTMLAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Processing HTML content")
 
-	// Get HTML from previous step (checking for response field)
 	var rawHTML string
 
-	// First check generate_html step
+	// Check generate_html step
 	if genStep, ok := params.CollectedData["generate_html"]; ok {
 		extracted := datahelpers.ExtractStepData(genStep)
 		if genResult, ok := extracted.(map[string]interface{}); ok {
@@ -143,42 +130,31 @@ func ProcessHTMLAction(ctx context.Context, params ActionParams) (interface{}, e
 		return nil, fmt.Errorf("no HTML content to process")
 	}
 
-	// Parse HTML
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rawHTML))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
-	// Get business context
 	businessInfo := datahelpers.ExtractBusinessInfo(params.CollectedData)
-
-	// Process based on configuration
 	processingSteps := []string{}
 
-	// Ensure proper structure
 	datahelpers.EnsureHTMLStructure(doc)
 	processingSteps = append(processingSteps, "structure_validation")
 
-	// Add meta tags
 	datahelpers.AddMetaTags(doc, businessInfo)
 	processingSteps = append(processingSteps, "meta_tags")
 
-	// Ensure responsive design
 	datahelpers.EnsureResponsiveDesign(doc)
 	processingSteps = append(processingSteps, "responsive_design")
 
-	// Optimize images
 	datahelpers.OptimizeImages(doc)
 	processingSteps = append(processingSteps, "image_optimization")
 
-	// Add structured data
 	datahelpers.AddStructuredData(doc, businessInfo)
 	processingSteps = append(processingSteps, "structured_data")
 
-	// Get processed HTML
 	processedHTML, _ := doc.Html()
 
-	// Minify if needed
 	if shouldMinify(params) {
 		processedHTML = datahelpers.MinifyHTML(processedHTML, params.Logger)
 		processingSteps = append(processingSteps, "minification")
@@ -197,10 +173,8 @@ func ProcessHTMLAction(ctx context.Context, params ActionParams) (interface{}, e
 func ValidateHTMLAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Validating HTML content")
 
-	// Get processed HTML (checking for response field)
 	var htmlContent string
 
-	// Check process_html step
 	if procStep, ok := params.CollectedData["process_html"]; ok {
 		extracted := datahelpers.ExtractStepData(procStep)
 		if procResult, ok := extracted.(map[string]interface{}); ok {
@@ -212,7 +186,6 @@ func ValidateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 		return nil, fmt.Errorf("no HTML content to validate")
 	}
 
-	// Parse for validation
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlContent))
 	if err != nil {
 		return map[string]interface{}{
@@ -224,47 +197,36 @@ func ValidateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 	errors := []string{}
 	warnings := []string{}
 
-	// Required elements
 	if doc.Find("html").Length() == 0 {
 		errors = append(errors, "Missing <html> element")
 	}
-
 	if doc.Find("head").Length() == 0 {
 		errors = append(errors, "Missing <head> element")
 	}
-
 	if doc.Find("body").Length() == 0 {
 		errors = append(errors, "Missing <body> element")
 	}
-
 	if doc.Find("title").Length() == 0 {
 		warnings = append(warnings, "Missing <title> element")
 	}
-
-	// Check meta tags
 	if doc.Find("meta[charset]").Length() == 0 {
 		warnings = append(warnings, "Missing charset meta tag")
 	}
-
 	if doc.Find("meta[name='viewport']").Length() == 0 {
 		warnings = append(warnings, "Missing viewport meta tag")
 	}
 
-	// Check images
 	doc.Find("img").Each(func(i int, s *goquery.Selection) {
 		src, _ := s.Attr("src")
 		alt, hasAlt := s.Attr("alt")
-
 		if src == "" {
 			errors = append(errors, fmt.Sprintf("Image %d has no src attribute", i+1))
 		}
-
 		if !hasAlt || alt == "" {
 			warnings = append(warnings, fmt.Sprintf("Image %d missing alt text", i+1))
 		}
 	})
 
-	// Check links
 	doc.Find("a").Each(func(i int, s *goquery.Selection) {
 		href, _ := s.Attr("href")
 		if href == "" || href == "#" {
@@ -273,8 +235,6 @@ func ValidateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 	})
 
 	isValid := len(errors) == 0
-
-	// Store the final HTML if valid
 	finalHTML := htmlContent
 	if isValid {
 		params.CollectedData["final_html"] = finalHTML
@@ -291,12 +251,11 @@ func ValidateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 }
 
 // ============================================================================
-// DEEP EXTRACTION - NEW RECURSIVE LOGIC
+// SMART CONTEXT EXTRACTION
 // ============================================================================
 
-// buildContextWithDeepExtraction extracts data with recursive nested unwrapping
-// This handles agent hierarchies where each level wraps results deeper
-func buildContextWithDeepExtraction(collectedData map[string]interface{}, inputFields []string, logger *zap.Logger) map[string]interface{} {
+// buildContextSmart uses intelligent search to find data regardless of nesting
+func buildContextSmart(collectedData map[string]interface{}, inputFields []string, logger *zap.Logger) map[string]interface{} {
 	context := make(map[string]interface{})
 
 	if len(inputFields) == 0 {
@@ -305,184 +264,124 @@ func buildContextWithDeepExtraction(collectedData map[string]interface{}, inputF
 	}
 
 	for _, fieldPath := range inputFields {
-		// First try direct extraction
-		value := extractFieldByPath(collectedData, fieldPath)
+		logger.Info("Extracting field with smart search",
+			zap.String("field_path", fieldPath),
+		)
+
+		// Try path-based extraction first
+		value := datahelpers.FindByPath(collectedData, fieldPath, logger)
 
 		if value != nil {
-			// Apply recursive deep extraction to unwrap nested structures
-			extracted := extractNestedDataRecursive(value, 0, logger)
-
-			// Store by the field name (last part of path)
 			parts := strings.Split(fieldPath, ".")
 			fieldName := parts[len(parts)-1]
-			context[fieldName] = extracted
+			context[fieldName] = value
 
-			logger.Info("Collected field with deep extraction",
+			logger.Info("Successfully extracted field",
 				zap.String("field_path", fieldPath),
 				zap.String("stored_as", fieldName),
-				zap.String("type", fmt.Sprintf("%T", extracted)),
+				zap.String("type", fmt.Sprintf("%T", value)),
 			)
 		} else {
-			logger.Warn("Field not found in collected data",
+			logger.Warn("Field not found",
 				zap.String("field_path", fieldPath),
 			)
 		}
 	}
+
+	// Ensure we have domain and objective even if deeply nested
+	ensureCoreDomainInfo(context, collectedData, logger)
 
 	return context
 }
 
-// extractNestedDataRecursive handles arbitrary levels of nesting from agent hierarchies
-// Pattern: site_architecture → architecture_result → result → "```json\n{...}\n```" → parsed object
-func extractNestedDataRecursive(value interface{}, depth int, logger *zap.Logger) interface{} {
-	// Prevent infinite recursion
-	if depth > 10 {
-		logger.Warn("Max recursion depth reached", zap.Int("depth", depth))
-		return value
-	}
-
-	valueMap, ok := value.(map[string]interface{})
-	if !ok {
-		return value // Return as-is if not a map
-	}
-
-	logger.Debug("Extracting nested data",
-		zap.Int("depth", depth),
-		zap.Int("keys_count", len(valueMap)),
-	)
-
-	// Pattern 1: {field}_result.result pattern (e.g., architecture_result.result)
-	for key, val := range valueMap {
-		if strings.HasSuffix(key, "_result") {
-			logger.Debug("Found _result suffix field",
-				zap.String("key", key),
-				zap.Int("depth", depth),
-			)
-
-			if resultMap, ok := val.(map[string]interface{}); ok {
-				if result, hasResult := resultMap["result"]; hasResult {
-					// Try to parse JSON string
-					if parsed := parseJSONString(result, logger); parsed != nil {
-						logger.Info("Successfully parsed JSON from nested result",
-							zap.String("key", key),
-							zap.Int("depth", depth),
-						)
-						return extractNestedDataRecursive(parsed, depth+1, logger)
-					}
-					// If not JSON, recursively extract
-					return extractNestedDataRecursive(result, depth+1, logger)
-				}
+// ensureCoreDomainInfo searches for domain/objective anywhere in the structure
+func ensureCoreDomainInfo(context map[string]interface{}, collectedData map[string]interface{}, logger *zap.Logger) {
+	// Check if input_data already has domain/objective
+	if inputData, ok := context["input_data"].(map[string]interface{}); ok {
+		if domain, ok := inputData["domain"].(string); ok && domain != "" {
+			if objective, ok := inputData["objective"].(string); ok && objective != "" {
+				logger.Info("Domain and objective already in input_data")
+				return // Already have both
 			}
 		}
 	}
 
-	// Pattern 2: Direct result field
-	if result, hasResult := valueMap["result"]; hasResult {
-		logger.Debug("Found direct result field", zap.Int("depth", depth))
+	// Use aggressive search to find domain and objective
+	logger.Info("Using aggressive search to find core data")
+	coreData := datahelpers.ExtractCoreInputData(collectedData, logger)
 
-		// Try to parse JSON string
-		if parsed := parseJSONString(result, logger); parsed != nil {
-			logger.Info("Successfully parsed JSON from direct result",
-				zap.Int("depth", depth),
-			)
-			return extractNestedDataRecursive(parsed, depth+1, logger)
+	if len(coreData) > 0 {
+		logger.Info("Found core data via aggressive search",
+			zap.Any("found_fields", getMapKeys(coreData)),
+		)
+
+		// Ensure input_data exists in context
+		if context["input_data"] == nil {
+			context["input_data"] = make(map[string]interface{})
 		}
-		// If not JSON, recursively extract
-		return extractNestedDataRecursive(result, depth+1, logger)
+
+		// Merge found data into input_data
+		if inputDataMap, ok := context["input_data"].(map[string]interface{}); ok {
+			for key, val := range coreData {
+				if inputDataMap[key] == nil || inputDataMap[key] == "" {
+					inputDataMap[key] = val
+					logger.Info("Added field to input_data",
+						zap.String("field", key),
+						zap.Int("value_length", len(fmt.Sprintf("%v", val))),
+					)
+				}
+			}
+		}
+	} else {
+		logger.Warn("Aggressive search found no core data")
+	}
+}
+
+// findStringField recursively searches for a string field by name
+func findStringField(data interface{}, fieldName string, depth int, logger *zap.Logger) string {
+	if depth > 15 {
+		return ""
 	}
 
-	// Pattern 3: Single key that looks like a wrapper (e.g., only one key that ends with _data or _result)
-	if len(valueMap) == 1 {
-		for key, val := range valueMap {
-			if strings.HasSuffix(key, "_data") || strings.HasSuffix(key, "_result") ||
-				strings.HasSuffix(key, "_output") || strings.HasSuffix(key, "_response") {
-				logger.Debug("Found single wrapper key",
-					zap.String("key", key),
+	if m, ok := data.(map[string]interface{}); ok {
+		// Check direct field
+		if val, ok := m[fieldName]; ok {
+			if str, ok := val.(string); ok && str != "" {
+				logger.Debug("Found field",
+					zap.String("field", fieldName),
 					zap.Int("depth", depth),
 				)
-				return extractNestedDataRecursive(val, depth+1, logger)
+				return str
+			}
+		}
+
+		// Recurse into all values
+		for _, val := range m {
+			if result := findStringField(val, fieldName, depth+1, logger); result != "" {
+				return result
 			}
 		}
 	}
 
-	// No extraction patterns found, return as-is
-	return value
-}
-
-// parseJSONString attempts to parse a JSON string, handling markdown code fences
-func parseJSONString(value interface{}, logger *zap.Logger) interface{} {
-	str, ok := value.(string)
-	if !ok {
-		return nil
-	}
-
-	// Remove markdown code fences
-	str = strings.TrimSpace(str)
-	str = strings.TrimPrefix(str, "```json\n")
-	str = strings.TrimPrefix(str, "```json")
-	str = strings.TrimPrefix(str, "```\n")
-	str = strings.TrimPrefix(str, "```")
-	str = strings.TrimSuffix(str, "\n```")
-	str = strings.TrimSuffix(str, "```")
-	str = strings.TrimSpace(str)
-
-	// Try to parse as JSON
-	var parsed interface{}
-	if err := json.Unmarshal([]byte(str), &parsed); err != nil {
-		logger.Debug("Could not parse as JSON",
-			zap.String("value_preview", str[:min(100, len(str))]),
-			zap.Error(err),
-		)
-		return nil
-	}
-
-	logger.Debug("Successfully parsed JSON string",
-		zap.Int("length", len(str)),
-	)
-
-	return parsed
-}
-
-// ============================================================================
-// EXISTING EXTRACTION LOGIC (from previous version)
-// ============================================================================
-
-// extractFieldByPath navigates nested field paths like "step_name.result"
-func extractFieldByPath(data map[string]interface{}, path string) interface{} {
-	parts := strings.Split(path, ".")
-	var current interface{} = data
-
-	for _, part := range parts {
-		switch v := current.(type) {
-		case map[string]interface{}:
-			if val, ok := v[part]; ok {
-				current = val
-			} else {
-				// Try ExtractStepData for wrapped responses
-				if extracted := datahelpers.ExtractStepData(v[part]); extracted != nil {
-					current = extracted
-				} else {
-					return nil
-				}
+	if slice, ok := data.([]interface{}); ok {
+		for _, val := range slice {
+			if result := findStringField(val, fieldName, depth+1, logger); result != "" {
+				return result
 			}
-		default:
-			return nil
 		}
 	}
 
-	return current
+	return ""
 }
 
 // ============================================================================
-// PROMPT BUILDING (from previous version - better than new version)
+// PROMPT BUILDING
 // ============================================================================
 
-// buildFullHTMLPrompt creates prompt for complete HTML generation
 func buildFullHTMLPrompt(context map[string]interface{}) string {
-	// Extract available data (might have different field names depending on workflow)
 	var domainInfo, architectureInfo, contentInfo string
 
-	// Try to find domain/business info
+	// Extract domain/business info
 	if inputData, ok := context["input_data"].(map[string]interface{}); ok {
 		if domain, ok := inputData["domain"].(string); ok {
 			domainInfo = domain
@@ -491,7 +390,7 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 		}
 	}
 
-	// Try to find architecture/structure
+	// Extract architecture
 	if arch, ok := context["site_architecture"]; ok {
 		if archStr, ok := arch.(string); ok {
 			architectureInfo = archStr
@@ -500,12 +399,11 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 		}
 	}
 
-	// Try to find content
+	// Extract content
 	if content, ok := context["site_content"]; ok {
 		if contentStr, ok := content.(string); ok {
 			contentInfo = contentStr
 		} else if contentJSON, err := json.Marshal(content); err == nil {
-			// Truncate if too large
 			if len(contentJSON) > 3000 {
 				contentInfo = string(contentJSON[:3000]) + "... [truncated]"
 			} else {
@@ -537,10 +435,8 @@ Output ONLY the HTML code, starting with <!DOCTYPE html>.`,
 	)
 }
 
-// buildStructurePrompt creates prompt for HTML structure only
 func buildStructurePrompt(context map[string]interface{}) string {
 	domainInfo := extractDomainInfo(context)
-
 	return fmt.Sprintf(`Generate HTML structure skeleton.
 
 Domain: %s
@@ -555,10 +451,8 @@ DO NOT include actual content or CSS.
 Return ONLY the HTML structure.`, domainInfo)
 }
 
-// buildStylesPrompt creates prompt for CSS only
 func buildStylesPrompt(context map[string]interface{}) string {
 	domainInfo := extractDomainInfo(context)
-
 	return fmt.Sprintf(`Generate complete CSS for a website.
 
 Domain: %s
@@ -573,11 +467,9 @@ Include:
 Return ONLY CSS (or wrapped in <style> tags).`, domainInfo)
 }
 
-// buildContentPrompt creates prompt for HTML content only
 func buildContentPrompt(context map[string]interface{}) string {
 	domainInfo := extractDomainInfo(context)
 	contentData := extractContentInfo(context)
-
 	return fmt.Sprintf(`Generate HTML body content.
 
 Domain: %s
@@ -610,9 +502,7 @@ func getMaxTokens(config map[string]interface{}, defaultVal int) int {
 }
 
 func extractDomainInfo(context map[string]interface{}) string {
-	// Try various field names that might contain domain info
 	possibleFields := []string{"input_data", "domain", "business", "domain_analysis"}
-
 	for _, fieldName := range possibleFields {
 		if val, ok := context[fieldName]; ok {
 			if m, ok := val.(map[string]interface{}); ok {
@@ -628,12 +518,10 @@ func extractDomainInfo(context map[string]interface{}) string {
 			}
 		}
 	}
-
 	return "this website"
 }
 
 func extractContentInfo(context map[string]interface{}) string {
-	// Try to find content field
 	if content, ok := context["site_content"]; ok {
 		if str, ok := content.(string); ok {
 			return str
@@ -647,7 +535,6 @@ func extractContentInfo(context map[string]interface{}) string {
 			}
 		}
 	}
-
 	return "professional content appropriate for the business"
 }
 
@@ -669,5 +556,5 @@ func shouldMinify(params ActionParams) bool {
 	if config, ok := params.StepConfig.Config["minify"].(bool); ok {
 		return config
 	}
-	return true // Default to minifying
+	return true
 }

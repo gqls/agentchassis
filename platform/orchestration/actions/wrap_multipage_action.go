@@ -1,289 +1,279 @@
-// wrap_multipage_action.go
-// Wraps a single-page site into a multi-page structure with about and contact pages
+// FILE: platform/orchestration/actions/wrap_multipage_action.go
+// Smart multipage wrapper with content-aware HTML search
+
 package actions
 
 import (
 	"context"
 	"fmt"
-	"html/template"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
-// WrapMultipageAction takes the assembled index.html and creates about/contact pages
-// Returns a files map ready for the git deployer
+// WrapMultipageAction wraps a single-page site into a multi-page structure
 func WrapMultipageAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	config := params.StepConfig.Config
-	logger := params.Logger
-
-	logger.Info("Executing WrapMultipageAction",
-		zap.String("step_name", params.ExecutionContext.StepName),
-		zap.Any("config_keys", getMapKeys(config)),
+	params.Logger.Info("Executing WrapMultipageAction",
+		zap.Any("config_keys", getConfigKeys(params.StepConfig.Config)),
 	)
 
-	// Extract the main HTML content
-	indexHTMLField, _ := config["index_html_field"].(string)
-	if indexHTMLField == "" {
-		indexHTMLField = "input_data.final_html.assemble_html.final_html"
-	}
+	// Get the configured path hint (optional)
+	indexHTMLField, _ := params.StepConfig.Config["index_html_field"].(string)
 
-	indexHTML := datahelpers.ExtractNestedField(params.CollectedData, indexHTMLField)
-	if indexHTML == nil {
+	// Smart HTML search with fallback
+	indexHTML := datahelpers.FindHTMLWithFallback(params.CollectedData, indexHTMLField, params.Logger)
+
+	if indexHTML == "" {
+		// Log what we have for debugging
+		params.Logger.Error("Failed to find HTML content",
+			zap.String("config_path", indexHTMLField),
+			zap.Any("collected_data_keys", getCollectedDataKeys(params.CollectedData)),
+		)
 		return nil, fmt.Errorf("failed to extract index HTML from %s", indexHTMLField)
 	}
 
-	indexHTMLStr, ok := indexHTML.(string)
-	if !ok {
-		return nil, fmt.Errorf("index HTML is not a string")
-	}
-
-	// Extract brand info for about/contact pages
-	brandName := extractBrandNameForMultipage(params.CollectedData, config)
-	domain := extractDomainForMultipage(params.CollectedData, config)
-	tagline := extractTaglineForMultipage(params.CollectedData, config)
-
-	logger.Info("Building multi-page site",
-		zap.String("brand_name", brandName),
-		zap.String("domain", domain),
-		zap.Int("index_html_length", len(indexHTMLStr)),
+	params.Logger.Info("Found index HTML",
+		zap.Int("html_length", len(indexHTML)),
 	)
 
-	// Generate about.html
-	aboutHTML, err := generateAboutPage(brandName, domain, tagline)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate about page: %w", err)
-	}
+	// Extract business info for page generation
+	domain := extractDomainFromCollectedData(params.CollectedData)
+	businessInfo := extractBusinessInfoMap(params.CollectedData)
 
-	// Generate contact.html
-	contactHTML, err := generateContactPage(brandName, domain)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate contact page: %w", err)
-	}
+	// Generate about page
+	aboutHTML := generateAboutPage(domain, businessInfo)
 
-	// Build the files map
-	files := map[string]string{
-		"index.html":   indexHTMLStr,
+	// Generate contact page
+	contactHTML := generateContactPage(domain, businessInfo)
+
+	// Create files map
+	filesMap := map[string]interface{}{
+		"index.html":   indexHTML,
 		"about.html":   aboutHTML,
 		"contact.html": contactHTML,
 	}
 
-	logger.Info("Multi-page site assembled",
-		zap.Int("file_count", len(files)),
-		zap.Int("index_size", len(indexHTMLStr)),
+	params.Logger.Info("Generated multipage site",
+		zap.Int("page_count", len(filesMap)),
+		zap.Int("index_size", len(indexHTML)),
 		zap.Int("about_size", len(aboutHTML)),
 		zap.Int("contact_size", len(contactHTML)),
 	)
 
 	return map[string]interface{}{
-		"files":      files,
-		"file_count": len(files),
+		"files":      filesMap,
+		"page_count": len(filesMap),
 		"pages":      []string{"index.html", "about.html", "contact.html"},
 	}, nil
 }
 
-// extractBrandNameForMultipage tries to find brand name from various places in collected data
-func extractBrandNameForMultipage(data map[string]interface{}, config map[string]interface{}) string {
-	// Try config first
-	if brand, ok := config["brand_name"].(string); ok && brand != "" {
-		return brand
+// generateAboutPage creates a simple about page
+func generateAboutPage(domain string, businessInfo map[string]interface{}) string {
+	objective := ""
+	if obj, ok := businessInfo["objective"].(string); ok {
+		objective = obj
 	}
 
-	// Try input_data.domain and convert to title case
-	if domain := datahelpers.ExtractNestedField(data, "input_data.domain"); domain != nil {
-		if domainStr, ok := domain.(string); ok {
-			// Convert domain to brand name: "ai-agent-orchestration.com" -> "AI Agent Orchestration"
-			name := strings.TrimSuffix(domainStr, ".com")
-			name = strings.TrimSuffix(name, ".io")
-			name = strings.TrimSuffix(name, ".co")
-			name = strings.ReplaceAll(name, "-", " ")
-			name = strings.ReplaceAll(name, "_", " ")
-			return strings.Title(name)
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - %s</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6; 
+            padding: 40px 20px; 
+            max-width: 800px; 
+            margin: 0 auto;
+        }
+        nav { margin-bottom: 40px; }
+        nav a { margin-right: 20px; text-decoration: none; color: #0066cc; }
+        nav a:hover { text-decoration: underline; }
+        h1 { margin-bottom: 20px; color: #333; }
+        p { margin-bottom: 15px; color: #666; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+    </nav>
+    <h1>About %s</h1>
+    <p>%s</p>
+    <p>We're dedicated to providing quality solutions for our customers.</p>
+</body>
+</html>`, domain, domain, ifEmpty(objective, "Learn more about our company and what we do."))
+}
+
+// generateContactPage creates a simple contact page
+func generateContactPage(domain string, businessInfo map[string]interface{}) string {
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact - %s</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6; 
+            padding: 40px 20px; 
+            max-width: 800px; 
+            margin: 0 auto;
+        }
+        nav { margin-bottom: 40px; }
+        nav a { margin-right: 20px; text-decoration: none; color: #0066cc; }
+        nav a:hover { text-decoration: underline; }
+        h1 { margin-bottom: 20px; color: #333; }
+        form { margin-top: 30px; }
+        label { display: block; margin-bottom: 5px; color: #333; font-weight: 500; }
+        input, textarea { 
+            width: 100%%; 
+            padding: 10px; 
+            margin-bottom: 20px; 
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+        button { 
+            background: #0066cc; 
+            color: white; 
+            padding: 12px 30px; 
+            border: none; 
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover { background: #0052a3; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+    </nav>
+    <h1>Contact Us</h1>
+    <p>Get in touch with us for more information.</p>
+    <form>
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name" required>
+        
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required>
+        
+        <label for="message">Message</label>
+        <textarea id="message" name="message" rows="5" required></textarea>
+        
+        <button type="submit">Send Message</button>
+    </form>
+</body>
+</html>`, domain)
+}
+
+// Helper functions
+
+// extractDomainFromCollectedData searches for domain in collected data
+func extractDomainFromCollectedData(collectedData map[string]interface{}) string {
+	// Try input_data first
+	if inputData, ok := collectedData["input_data"]; ok {
+		if inputMap, ok := inputData.(map[string]interface{}); ok {
+			if domain, ok := inputMap["domain"].(string); ok && domain != "" {
+				return domain
+			}
 		}
+	}
+
+	// Search recursively
+	domain := findStringInMap(collectedData, "domain", 0)
+	if domain != "" {
+		return domain
 	}
 
 	return "Our Company"
 }
 
-// extractDomainForMultipage gets the domain from collected data
-func extractDomainForMultipage(data map[string]interface{}, config map[string]interface{}) string {
-	if domain := datahelpers.ExtractNestedField(data, "input_data.domain"); domain != nil {
-		if domainStr, ok := domain.(string); ok {
-			return domainStr
+// extractBusinessInfoMap extracts business info from collected data
+func extractBusinessInfoMap(collectedData map[string]interface{}) map[string]interface{} {
+	businessInfo := make(map[string]interface{})
+
+	// Try to find domain
+	domain := extractDomainFromCollectedData(collectedData)
+	if domain != "" {
+		businessInfo["domain"] = domain
+	}
+
+	// Try to find objective
+	if inputData, ok := collectedData["input_data"]; ok {
+		if inputMap, ok := inputData.(map[string]interface{}); ok {
+			if objective, ok := inputMap["objective"].(string); ok && objective != "" {
+				businessInfo["objective"] = objective
+			}
 		}
 	}
-	if domain := datahelpers.ExtractNestedField(data, "domain"); domain != nil {
-		if domainStr, ok := domain.(string); ok {
-			return domainStr
+
+	// Fallback: search recursively
+	if businessInfo["objective"] == nil {
+		objective := findStringInMap(collectedData, "objective", 0)
+		if objective != "" {
+			businessInfo["objective"] = objective
 		}
 	}
-	return "example.com"
+
+	return businessInfo
 }
 
-// extractTaglineForMultipage tries to find tagline from collected data
-func extractTaglineForMultipage(data map[string]interface{}, config map[string]interface{}) string {
-	// Try to find tagline in content JSON
-	if tagline := datahelpers.ExtractNestedField(data, "input_data.content_json.sections.component_footer_7.tagline"); tagline != nil {
-		if taglineStr, ok := tagline.(string); ok && taglineStr != "" {
-			return taglineStr
+// findStringInMap recursively searches for a string field
+func findStringInMap(data interface{}, key string, depth int) string {
+	if depth > 10 {
+		return ""
+	}
+
+	m, ok := data.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	// Direct match
+	if val, ok := m[key]; ok {
+		if str, ok := val.(string); ok && str != "" {
+			return str
 		}
 	}
-	return "Building the future, one step at a time"
+
+	// Recurse into values
+	for _, val := range m {
+		if result := findStringInMap(val, key, depth+1); result != "" {
+			return result
+		}
+	}
+
+	return ""
 }
 
-// generateAboutPage creates a simple about page
-func generateAboutPage(brandName, domain, tagline string) (string, error) {
-	tmpl := `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>About - {{.BrandName}}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; background: #f8fafc; }
-    nav { background: #1a1a2e; padding: 1rem 2rem; position: fixed; top: 0; width: 100%; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    nav ul { list-style: none; display: flex; gap: 2rem; align-items: center; max-width: 1200px; margin: 0 auto; }
-    nav a { color: #fff; text-decoration: none; font-weight: 500; transition: color 0.3s; }
-    nav a:hover { color: #4a9eff; }
-    .content { max-width: 800px; margin: 6rem auto 4rem; padding: 3rem; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-    .content h1 { font-size: 2.5rem; color: #1a1a2e; margin-bottom: 1.5rem; }
-    .content p { font-size: 1.1rem; margin-bottom: 1.5rem; line-height: 1.8; color: #555; }
-    .content h2 { font-size: 1.5rem; color: #1a1a2e; margin: 2rem 0 1rem; }
-    .highlight { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 600; }
-    footer { background: #1a1a2e; color: white; text-align: center; padding: 2rem; margin-top: 4rem; }
-    footer a { color: #4a9eff; text-decoration: none; }
-  </style>
-</head>
-<body>
-  <nav>
-    <ul>
-      <li><a href="index.html">Home</a></li>
-      <li><a href="about.html">About</a></li>
-      <li><a href="contact.html">Contact</a></li>
-    </ul>
-  </nav>
-  
-  <main class="content">
-    <h1>About {{.BrandName}}</h1>
-    
-    <p>{{.Tagline}}</p>
-    
-    <h2>Our Mission</h2>
-    <p>We're dedicated to delivering exceptional value to our customers through innovation, quality, and outstanding service. Every decision we make is guided by our commitment to excellence.</p>
-    
-    <h2>Why Choose Us</h2>
-    <p>With a focus on results and customer satisfaction, we've built a reputation for reliability and expertise. Our team brings together diverse skills and perspectives to solve complex challenges.</p>
-    
-    <h2>Looking Forward</h2>
-    <p>We're constantly evolving and improving. As technology and markets change, we adapt—always keeping our customers' needs at the center of everything we do.</p>
-  </main>
-  
-  <footer>
-    <p>&copy; 2025 {{.BrandName}}. All rights reserved.</p>
-  </footer>
-</body>
-</html>`
+// extractDomain extracts domain from business info map
 
-	t, err := template.New("about").Parse(tmpl)
-	if err != nil {
-		return "", err
+func getConfigKeys(config map[string]interface{}) []string {
+	keys := make([]string, 0, len(config))
+	for k := range config {
+		keys = append(keys, k)
 	}
-
-	var buf strings.Builder
-	err = t.Execute(&buf, map[string]string{
-		"BrandName": brandName,
-		"Domain":    domain,
-		"Tagline":   tagline,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	return keys
 }
 
-// generateContactPage creates a simple contact page
-func generateContactPage(brandName, domain string) (string, error) {
-	// Generate email from domain
-	email := "hello@" + domain
-
-	tmpl := `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Contact - {{.BrandName}}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; background: #f8fafc; }
-    nav { background: #1a1a2e; padding: 1rem 2rem; position: fixed; top: 0; width: 100%; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    nav ul { list-style: none; display: flex; gap: 2rem; align-items: center; max-width: 1200px; margin: 0 auto; }
-    nav a { color: #fff; text-decoration: none; font-weight: 500; transition: color 0.3s; }
-    nav a:hover { color: #4a9eff; }
-    .content { max-width: 800px; margin: 6rem auto 4rem; padding: 3rem; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-    .content h1 { font-size: 2.5rem; color: #1a1a2e; margin-bottom: 1.5rem; }
-    .content p { font-size: 1.1rem; margin-bottom: 1.5rem; line-height: 1.8; color: #555; }
-    .contact-card { background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%); padding: 2rem; border-radius: 10px; margin: 2rem 0; }
-    .contact-card h2 { color: #1a1a2e; margin-bottom: 1rem; font-size: 1.3rem; }
-    .contact-item { margin: 1rem 0; }
-    .contact-item strong { color: #1a1a2e; }
-    .contact-item a { color: #4a9eff; text-decoration: none; }
-    .contact-item a:hover { text-decoration: underline; }
-    footer { background: #1a1a2e; color: white; text-align: center; padding: 2rem; margin-top: 4rem; }
-    footer a { color: #4a9eff; text-decoration: none; }
-  </style>
-</head>
-<body>
-  <nav>
-    <ul>
-      <li><a href="index.html">Home</a></li>
-      <li><a href="about.html">About</a></li>
-      <li><a href="contact.html">Contact</a></li>
-    </ul>
-  </nav>
-  
-  <main class="content">
-    <h1>Get in Touch</h1>
-    
-    <p>We'd love to hear from you! Whether you have questions, feedback, or just want to say hello, don't hesitate to reach out.</p>
-    
-    <div class="contact-card">
-      <h2>Contact Information</h2>
-      
-      <div class="contact-item">
-        <strong>Email:</strong> <a href="mailto:{{.Email}}">{{.Email}}</a>
-      </div>
-      
-      <div class="contact-item">
-        <strong>Website:</strong> <a href="https://{{.Domain}}">{{.Domain}}</a>
-      </div>
-    </div>
-    
-    <p>We typically respond within 24-48 hours during business days. For urgent matters, please indicate so in your message subject line.</p>
-  </main>
-  
-  <footer>
-    <p>&copy; 2025 {{.BrandName}}. All rights reserved.</p>
-  </footer>
-</body>
-</html>`
-
-	t, err := template.New("contact").Parse(tmpl)
-	if err != nil {
-		return "", err
+func getCollectedDataKeys(data map[string]interface{}) []string {
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		// Skip internal fields
+		if !strings.HasPrefix(k, "__") {
+			keys = append(keys, k)
+		}
 	}
-
-	var buf strings.Builder
-	err = t.Execute(&buf, map[string]string{
-		"BrandName": brandName,
-		"Domain":    domain,
-		"Email":     email,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	return keys
 }

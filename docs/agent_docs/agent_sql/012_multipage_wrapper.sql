@@ -25,3 +25,11 @@ SET
             '"final_html"'::jsonb
                      )
 WHERE type = 'multipage-wrapper';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,wrap_multipage,config,index_html_field}',
+        '"final_html.final_html"'::jsonb
+                     )
+WHERE type = 'multipage-wrapper';

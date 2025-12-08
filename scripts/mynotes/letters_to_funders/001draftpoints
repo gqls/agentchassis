@@ -18,3 +18,27 @@ and constantly giving me more ideas
 multilevel memory
 see google prompt engineering pdf https://drive.google.com/file/d/1JW6Q_wwvBjMz9xzOtTldFfPiF7BrdEeQ/view
 copied to local drive: /home/ant/projects/domains/context_engineer.uk/002_google_context_engineering_pdf
+
+without being too detailed
+to get an idea of the underlying architecture
+we've used:
+golang - separate play (python) from real (golang)
+kubernetes
+kafka
+cloud
+apis
+authentication
+multilevel agent memory
+postgres
+postgres vector storage and search
+hierarchical agents
+agent to agent communication
+saga pattern
+[evals, filters and error catching/correction]
+[languages]
+multiple agents incl, opensource, reasoning, rag,
+own trained agents - lora, rag, reasoning
+not all agents are llms
+handles images
+adapters for third party services
+[populated over 1000 domains]

@@ -14,3 +14,7 @@ func (v *Validator) ValidateOutgoingMessage(headers map[string]string) bool {
  each agent handles just one workflow at a time
 
  the child agent sends responses to the parent agent's responses topic, not it's own.
+
+ as the hierachical agents get deeper i.e one agent spawns another which in its workflow spawns another, so the data gets buried deeper in CollectedData
+we could probably find a better way around this
+
