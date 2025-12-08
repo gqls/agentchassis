@@ -271,15 +271,6 @@ func buildContextSmart(collectedData map[string]interface{}, inputFields []strin
 		// Try path-based extraction first
 		value := datahelpers.FindByPath(collectedData, fieldPath, logger)
 
-		// If not found at top level, try nested inside input_data
-		if value == nil && fieldPath != "input_data" {
-			nestedPath := "input_data." + fieldPath
-			logger.Info("Trying nested path",
-				zap.String("nested_path", nestedPath),
-			)
-			value = datahelpers.FindByPath(collectedData, nestedPath, logger)
-		}
-
 		if value != nil {
 			parts := strings.Split(fieldPath, ".")
 			fieldName := parts[len(parts)-1]
