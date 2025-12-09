@@ -189,10 +189,10 @@ func extractDomainForGit(data map[string]interface{}, config map[string]interfac
 	// Add common fallback paths with increasing nesting levels
 	// These handle the case where agent calls wrap data in additional input_data layers
 	pathsToTry = append(pathsToTry,
-		"domain",                                                                                                                                                // Top-level
-		"input_data.domain",                                                                                                                                     // 1 level deep
-		"input_data.input_data.domain",                                                                                                                          // 2 levels deep
-		"input_data.input_data.input_data.domain",                                                                                                               // 3 levels deep
+		"domain",                                  // Top-level
+		"input_data.domain",                       // 1 level deep
+		"input_data.input_data.domain",            // 2 levels deep
+		"input_data.input_data.input_data.domain", // 3 levels deep
 		"input_data.input_data.input_data.input_data.domain",                                                                                                    // 4 levels deep
 		"input_data.input_data.input_data.input_data.input_data.domain",                                                                                         // 5 levels deep
 		"input_data.input_data.input_data.input_data.input_data.input_data.domain",                                                                              // 6 levels deep
