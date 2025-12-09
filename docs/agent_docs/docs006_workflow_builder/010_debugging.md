@@ -61,3 +61,6 @@ kubectl logs <pod-name> | grep -A 20 "Final template data"
 The Golden Search (most likely to show the problem):
 kubectl logs <pod-name> | grep -B 5 -A 30 "generate_html"
 
+If extraction still fails after deployment:
+
+Check logs for "=== MASTER EXTRACTOR START ===" message

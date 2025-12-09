@@ -363,11 +363,16 @@ func findStringField(data interface{}, fieldName string, depth int, logger *zap.
 func buildFullHTMLPrompt(context map[string]interface{}) string {
 	var domainInfo, architectureInfo, contentInfo string
 
-	// Extract domain/business info
-	if inputData, ok := context["input_data"].(map[string]interface{}); ok {
-		if domain, ok := inputData["domain"].(string); ok {
+	// Extract domain/business info - check root level first (after flattening)
+	if domain, ok := context["domain"].(string); ok && domain != "" {
+		domainInfo = domain
+	} else if bizName, ok := context["business_name"].(string); ok && bizName != "" {
+		domainInfo = bizName
+	} else if inputData, ok := context["input_data"].(map[string]interface{}); ok {
+		// Fallback: check inside input_data if not flattened
+		if domain, ok := inputData["domain"].(string); ok && domain != "" {
 			domainInfo = domain
-		} else if bizName, ok := inputData["business_name"].(string); ok {
+		} else if bizName, ok := inputData["business_name"].(string); ok && bizName != "" {
 			domainInfo = bizName
 		}
 	}
@@ -484,7 +489,16 @@ func getMaxTokens(config map[string]interface{}, defaultVal int) int {
 }
 
 func extractDomainInfo(context map[string]interface{}) string {
-	possibleFields := []string{"input_data", "domain", "business", "domain_analysis"}
+	// Check root level first (after flattening from unified extractor)
+	if domain, ok := context["domain"].(string); ok && domain != "" {
+		return domain
+	}
+	if bizName, ok := context["business_name"].(string); ok && bizName != "" {
+		return bizName
+	}
+
+	// Check nested fields
+	possibleFields := []string{"input_data", "business", "domain_analysis"}
 	for _, fieldName := range possibleFields {
 		if val, ok := context[fieldName]; ok {
 			if m, ok := val.(map[string]interface{}); ok {
