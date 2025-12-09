@@ -186,11 +186,22 @@ func extractDomainForGit(data map[string]interface{}, config map[string]interfac
 		)
 	}
 
-	// Add common fallback paths
+	// Add common fallback paths with increasing nesting levels
+	// These handle the case where agent calls wrap data in additional input_data layers
 	pathsToTry = append(pathsToTry,
-		"input_data.domain",            // Standard location
-		"domain",                       // Top-level
-		"input_data.input_data.domain", // Double-nested (in case of agent call wrapping)
+		"domain",                                                                                                                                                // Top-level
+		"input_data.domain",                                                                                                                                     // 1 level deep
+		"input_data.input_data.domain",                                                                                                                          // 2 levels deep
+		"input_data.input_data.input_data.domain",                                                                                                               // 3 levels deep
+		"input_data.input_data.input_data.input_data.domain",                                                                                                    // 4 levels deep
+		"input_data.input_data.input_data.input_data.input_data.domain",                                                                                         // 5 levels deep
+		"input_data.input_data.input_data.input_data.input_data.input_data.domain",                                                                              // 6 levels deep
+		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain",                                                                   // 7 levels deep
+		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain",                                                        // 8 levels deep
+		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain",                                             // 9 levels deep
+		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain",                                  // 10 levels deep
+		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain",                       // 11 levels deep
+		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain", // 12 levels deep
 	)
 
 	// Remove duplicates
@@ -218,10 +229,46 @@ func extractDomainForGit(data map[string]interface{}, config map[string]interfac
 		}
 	}
 
+	// Last resort: recursive search for "domain" key anywhere in the structure
+	logger.Info("Trying recursive search for domain")
+	if foundDomain := recursiveFindDomain(data, logger); foundDomain != "" {
+		logger.Info("Found domain via recursive search", zap.String("domain", foundDomain))
+		return foundDomain
+	}
+
 	logger.Warn("Failed to extract domain from any path",
 		zap.Strings("tried_paths", uniquePaths))
 
 	return "unknown-domain"
+}
+
+// recursiveFindDomain searches recursively for a "domain" key in nested maps
+func recursiveFindDomain(data interface{}, logger *zap.Logger) string {
+	switch v := data.(type) {
+	case map[string]interface{}:
+		// Check if this map has a "domain" key directly
+		if domain, ok := v["domain"].(string); ok && domain != "" {
+			return domain
+		}
+		// Recursively search nested maps
+		for key, value := range v {
+			// Skip special internal keys
+			if strings.HasPrefix(key, "__") {
+				continue
+			}
+			if found := recursiveFindDomain(value, logger); found != "" {
+				return found
+			}
+		}
+	case []interface{}:
+		// Search arrays
+		for _, item := range v {
+			if found := recursiveFindDomain(item, logger); found != "" {
+				return found
+			}
+		}
+	}
+	return ""
 }
 
 // extractFilesForGit extracts files map from CollectedData or config
@@ -349,26 +396,6 @@ func buildCommitMessage(config map[string]interface{}, domain string, fileCount 
 
 	return buf.String()
 }
-
-/*// extractNestedFieldForGit extracts a value from nested map using dot notation
-// Returns nil if path not found
-func extractNestedFieldForGit(data map[string]interface{}, fieldPath string) interface{} {
-	parts := strings.Split(fieldPath, ".")
-	var current interface{} = data
-
-	for _, part := range parts {
-		if currentMap, ok := current.(map[string]interface{}); ok {
-			current = currentMap[part]
-			if current == nil {
-				return nil
-			}
-		} else {
-			return nil
-		}
-	}
-
-	return current
-}*/
 
 // getFileNames returns list of file names from files map
 func getFileNames(files map[string]string) []string {
