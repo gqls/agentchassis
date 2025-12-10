@@ -217,9 +217,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=8424db1a-1045-4126-8f2b-04549a7918a1
-ORCHESTRATION_ID=cffa8112-4f46-4d6d-b918-f4f67afef05d
-HITL_REQUEST_ID=d29647df-fa56-4888-a067-a4df315fa460
+CORRELATION_ID=f6bb4498-a331-4e54-94b3-86e359fa47a0
+ORCHESTRATION_ID=c9f561db-1d55-4bfa-82c1-3b68eef91ff8
+HITL_REQUEST_ID=7705ea4e-9859-4a91-b7b1-e4c2a3a9800d
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -253,7 +253,7 @@ kcat -P \
 -H sender_agent_type=human \
 -H sender_agent_id=cli-user \
 -H timestamp=$TIMESTAMP <<'JSON'
-{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"site_type":"brochure","recommended_builder":"content-site-builder","status":"confirmed","message":"Site type confirmed by user"}}
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"site_type":"brochure","recommended_builder":"multipage-website-builder","status":"confirmed","message":"Site type confirmed by user"}}
 JSON
 
 echo ""
@@ -281,6 +281,8 @@ kubectl logs -n default -l app=agent-chassis --tail=200 | \
   grep "Action requires waiting"
 
 
+this one made it into a content-site-builder
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"site_type":"brochure","recommended_builder":"content-site-builder","status":"confirmed","message":"Site type confirmed by user"}}
 
 ====================
 ====================
@@ -291,16 +293,16 @@ kubectl logs -n default -l app=agent-chassis --tail=200 | \
 SEND BROCHURE BRIEF (SECOND confirm - actual brief)
 ------------------------------------
 
-CORRELATION_ID=$1
-ORCHESTRATION_ID=$2
-HITL_REQUEST_ID=$3
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=8424db1a-1045-4126-8f2b-04549a7918a1
-ORCHESTRATION_ID=cffa8112-4f46-4d6d-b918-f4f67afef05d
-HITL_REQUEST_ID=139f155f-da26-4eef-b3a5-ad9f1b5c07aa
+CORRELATION_ID=f6bb4498-a331-4e54-94b3-86e359fa47a0
+ORCHESTRATION_ID=c9f561db-1d55-4bfa-82c1-3b68eef91ff8
+HITL_REQUEST_ID=5d441ea1-dcef-4863-a043-7d826ca95b13
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
