@@ -247,6 +247,92 @@ echo "========================================="
 
 kubectl -n ai-persona-system logs --tail=300 -l app=agent-chassis  -f | tee logs-agent-chassis.json | grep "56a1f58e-9009-4e0d-86b7-ee0d27cae8b9" | grep "hitl_confirm_type" | grep "Action requires waiting"
 
+
+SECOND response:
+kubectl logs -n ai-persona-system -l app=agent-chassis --tail=200 |   grep "d7da4ca5(orchestration_id))7e8-477f-9b0b-7e6779d3a3f1" |   grep "hitl_review_brief" |   grep "Action requires waiting"
+
+Find the New HITL Request ID:
+kubectl logs -n ai-persona-system -l app=agent-chassis --tail=200 | \
+  grep "d7da4ca5-f7ORCHESTRATION_IDb-7e6779d3a3f1" | \
+  grep "hitl_review_brief" | \
+  grep "Action requires waiting"
+
+
+curl -X POST http://localhost:8080/api/v1/messages \
+  -H "Content-Type: application/json" \
+  -d {"headers":{"correlation_id":"b0f7d16a-8538-45ff-9bde-c43ba128c5c2","message_type":"response","client_id":"demo_client","in_response_to_request_id":"3976d0c6-511d-4895-ab6a-983a9452c132","to_agent_type":"generic"},"body":{"brand_name":"Orchestrix AI","tagline":"Intelligent Multi-Agent Orchestration at Scale","tone":"professional","primary_benefit":"Build autonomous AI systems that coordinate multiple specialized agents to handle complex workflows without manual intervention","unique_selling_points":"Dynamic task delegation between agents\nSophisticated workflow orchestration\nScalable multi-agent coordination\nIntelligent failure recovery\nReal-time agent communication","target_audience":"CTOs and technical decision-makers at scale-up and enterprise companies building AI-powered products","primary_cta":"Start Building","primary_cta_url":"/signup","secondary_cta":"See Demo","has_testimonials":false,"client_count":"","notable_clients":""}}
+
+--
+
+
+#!/bin/bash
+
+CORRELATION_ID="b0f7d16a-8538-45ff-9bde-c43ba128c5c2"
+ORCHESTRATION_ID="d7da4ca5-f7e8-477f-9b0b-7e6779d3a3f1"
+ORIGINAL_REQUEST_ID="3976d0c6-511d-4895-ab6a-983a9452c132"
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+echo "========================================="
+echo "Sending HITL Response"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Request ID:       $ORIGINAL_REQUEST_ID"
+echo "  Step:             hitl_review_brief"
+echo "  Time:             $TIMESTAMP"
+echo "========================================="
+echo ""
+
+kubectl -n kafka run -i --rm kcat-producer-hitl-response \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.responses \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=response \
+-H client_id=demo_client \
+-H in_response_to_request_id=$ORIGINAL_REQUEST_ID \
+-H in_response_to_step_name=hitl_review_brief \
+-H status=complete \
+-H sender_agent_type=human \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<'EOF'
+{"brand_name":"Orchestrix AI","tagline":"Intelligent Multi-Agent Orchestration at Scale","tone":"professional","primary_benefit":"Build autonomous AI systems that coordinate multiple specialized agents to handle complex workflows without manual intervention","unique_selling_points":"Dynamic task delegation between agents\nSophisticated workflow orchestration\nScalable multi-agent coordination\nIntelligent failure recovery\nReal-time agent communication","target_audience":"CTOs and technical decision-makers at scale-up and enterprise companies building AI-powered products","primary_cta":"Start Building","primary_cta_url":"/signup","secondary_cta":"See Demo","has_testimonials":false,"client_count":"1","notable_clients":"Fine Tune Ltd"}
+EOF
+
+-----
+  -d '{
+    "headers": {
+      "correlation_id": "b0f7d16a-8538-45ff-9bde-c43ba128c5c2",
+      "message_type": "response",
+      "client_id": "demo_client",
+      "in_response_to_request_id": "3976d0c6-511d-4895-ab6a-983a9452c132",
+      "to_agent_type": "generic"
+    },
+    "body": {
+      "brand_name": "Orchestrix AI",
+      "tagline": "Intelligent Multi-Agent Orchestration at Scale",
+      "tone": "professional",
+      "primary_benefit": "Build autonomous AI systems that coordinate multiple specialized agents to handle complex workflows without manual intervention",
+      "unique_selling_points": "Dynamic task delegation between agents\nSophisticated workflow orchestration\nScalable multi-agent coordination\nIntelligent failure recovery\nReal-time agent communication",
+      "target_audience": "CTOs and technical decision-makers at scale-up and enterprise companies building AI-powered products",
+      "primary_cta": "Start Building",
+      "primary_cta_url": "/signup",
+      "secondary_cta": "See Demo",
+      "has_testimonials": false,
+      "client_count": "",
+      "notable_clients": ""
+    }
+  }'
+
+
+
+
 {
   "headers": {
     "correlation_id": "${CORRELATION_ID}",
