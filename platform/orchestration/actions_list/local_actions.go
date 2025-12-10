@@ -43,7 +43,7 @@ var LocalActions = map[string]bool{
 	"new_site_architect":        true,
 	"assemble_from_library":     true,
 	"assemble_full_page":        true,
-	"assemble_multi_page_site":  true,
+	"assemble_multipage_site":   true,
 	"assemble_html_parts":       true,
 	"fetch_agent_questionnaire": true,
 	"wrap_multipage":            true,
