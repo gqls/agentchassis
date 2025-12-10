@@ -587,7 +587,11 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 
 		// If the step requires a pause, save the state and exit the loop.
 		if state.Status == StatusAwaitingResponses {
-			l.Info("Execution paused - waiting for responses")
+			l.Info("Execution paused - waiting for responses",
+				zap.String("current_step", state.CurrentStep),
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.String("correlation_id", state.CorrelationID),
+			)
 			return repo.UpdateState(ctx, state)
 		}
 
