@@ -196,9 +196,13 @@ response to questionnaire:
 # HITL Response for orchestration e34e4c8d-ec14-4e91-a556-cebbf01a8a2b
 # This responds to the hitl_confirm_type step that's currently waiting
 
-CORRELATION_ID="850d3213-f67f-45ed-a0c1-4d2de495f5b0"
-ORCHESTRATION_ID="cc78ce3f-077c-42b5-a942-74e519db09b7"
-ORIGINAL_REQUEST_ID="804ce266-9cb0-4009-9211-6d698ee9acd4"
+---------------------------------------------------------------------------------------
+---==== get HITL request_id from the "Action requires waiting for response" log ====---
+---------------------------------------------------------------------------------------
+
+CORRELATION_ID="b0f7d16a-8538-45ff-9bde-c43ba128c5c2"
+ORCHESTRATION_ID="d7da4ca5-f7e8-477f-9b0b-7e6779d3a3f1"
+ORIGINAL_REQUEST_ID="161ca63f-42dc-43a0-b50d-f39ade00882f"
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 RESPONSE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -232,7 +236,7 @@ kcat -P \
 -H sender_agent_type=human \
 -H sender_agent_id=cli-user \
 -H timestamp=$TIMESTAMP <<EOF
-{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${ORIGINAL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"confirmed_type":{"site_type":"landing","recommended_builder":"landing-page-builder","status":"confirmed","message":"Site type confirmed by user"}}}
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${ORIGINAL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"site_type":"landing","recommended_builder":"landing-page-builder","status":"confirmed","message":"Site type confirmed by user"}}
 EOF
 
 echo ""
@@ -241,6 +245,7 @@ echo "HITL response sent!"
 echo "Check orchestrator logs to see if workflow continues..."
 echo "========================================="
 
+kubectl -n ai-persona-system logs --tail=300 -l app=agent-chassis  -f | tee logs-agent-chassis.json | grep "56a1f58e-9009-4e0d-86b7-ee0d27cae8b9" | grep "hitl_confirm_type" | grep "Action requires waiting"
 
 {
   "headers": {
