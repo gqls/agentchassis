@@ -1180,6 +1180,9 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 		zap.Any("response", response),
 	)
 
+	// Wait for consumers to be ready
+	time.Sleep(2 * time.Second)
+
 	return a.producer.ProduceWithValidation(a.ctx, responsesTopic, headers, key, responseBytes)
 }
 

@@ -105,6 +105,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	// 8. Always send an initialization message to let the agent know it's been spawned
 	// This is separate from the actual task data which CallAgentAction will send later
 
+	time.Sleep(3 * time.Second)
+
 	// Generate a NEW request ID for the initialization message
 	initRequestID := uuid.New().String()
 	if err := sendInitializationMessage(ctx, params, agentID, agentName, agentType, role,
@@ -114,8 +116,6 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			zap.Error(err))
 		// Don't fail the spawn if message send fails - agent is already created
 	}
-
-	time.Sleep(2 * time.Second)
 
 	// 11. Build and return comprehensive result
 	return buildSpawnResult(agentID, agentName, agentType, role, initRequestID,
