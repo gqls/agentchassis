@@ -111,7 +111,7 @@ type Agent struct {
 	lastActivity      time.Time
 }
 
-// NewAgent creates a new agent with the standard constructor signature
+// New creates a new agent with the standard constructor signature
 func New(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*Agent, error) {
 	// Extract agent type from config or environment
 	agentType := ""
@@ -220,92 +220,6 @@ func New(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*A
 		zap.String("agent_id", agent.AgentID),
 		zap.String("requests_topic", agent.requestsTopic),
 		zap.String("responses_topic", agent.responsesTopic))
-
-	return agent, nil
-}
-
-// NewAgent creates a new agent (static or dynamic)
-func NewAgent(config AgentConfig) (*Agent, error) {
-	// Generate agent ID if not provided
-	agentID := os.Getenv("AGENT_ID")
-	if agentID == "" {
-		// Generate a stable UUID based on hostname if AGENT_ID not set
-		agentID = "00000000-0000-0000-0000-000000000003"
-	}
-
-	// Generate agent name if not provided
-	agentName := config.AgentName
-	if agentName == "" {
-		agentName = fmt.Sprintf("%s-%s", config.AgentType, time.Now().Format("0102-1504"))
-	}
-
-	// Create logger
-	logger, err := zap.NewProduction()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create logger: %w", err)
-	}
-
-	logger = logger.With(
-		zap.String("in unused? NewAgent - agent_type", config.AgentType),
-		zap.String("agent_id", agentID),
-		zap.String("pod_name", os.Getenv("HOSTNAME")),
-		zap.Bool("stateless", config.EnableStateless))
-
-	// Create context
-	ctx, cancel := context.WithCancel(context.Background())
-
-	agent := &Agent{
-		// Identity
-		AgentID:      agentID,
-		AgentName:    agentName,
-		AgentType:    config.AgentType,
-		AgentVersion: config.AgentVersion,
-		Role:         config.Role,
-
-		// Pod identity
-		PodName:   os.Getenv("HOSTNAME"),
-		NodeName:  os.Getenv("NODE_NAME"),
-		Namespace: os.Getenv("POD_NAMESPACE"),
-
-		// Parent relationship
-		ParentAgentID:         config.ParentAgentID,
-		ParentAgentType:       config.ParentAgentType,
-		ParentOrchestrationID: config.ParentOrchestrationID,
-
-		// Configuration
-		config:        &config,
-		DynamicConfig: config.DynamicConfig,
-		isStateless:   config.EnableStateless,
-		spawned:       config.ParentAgentID != "", // If has parent, it was spawned
-
-		// Core components
-		logger:       logger,
-		ctx:          ctx,
-		cancel:       cancel,
-		shutdownChan: make(chan struct{}),
-
-		// Topics
-		requestsTopic:  os.Getenv("REQUESTS_TOPIC"),
-		responsesTopic: os.Getenv("RESPONSES_TOPIC"),
-		replyToTopic:   os.Getenv("PARENT_RESPONSES_TOPIC"),
-
-		// Metrics
-		lastActivity: time.Now(),
-	}
-
-	// Initialize components
-	if err := agent.initializeComponents(); err != nil {
-		cancel()
-		return nil, err
-	}
-
-	agent.initialized = true
-
-	logger.Info("Agent created",
-		zap.String("agent_id", agent.AgentID),
-		zap.String("requests_topic", agent.requestsTopic),
-		zap.String("responses_topic", agent.responsesTopic),
-		zap.Bool("spawned", agent.spawned))
 
 	return agent, nil
 }
@@ -437,64 +351,6 @@ func (a *Agent) setupConsumers() error {
 	a.responseConsumer = responseConsumer
 
 	return err
-}
-
-// setupConsumers sets up Kafka consumers for the agent
-func (a *Agent) setupConsumersOld() error {
-
-	a.logger.Info("setupConsumers in agent.go")
-
-	// Check for job-specific topic, determine which topic to listen on
-	jobTopic := os.Getenv("JOB_TOPIC")
-	var requestsTopic string
-	var requestConsumerGroup string
-
-	if jobTopic != "" {
-		// Job-specific mode
-		requestsTopic = jobTopic
-		requestConsumerGroup = a.AgentID // Unique per agent
-		a.logger.Info("Agent listening on job-specific topic",
-			zap.String("job_topic", jobTopic),
-			zap.String("consumer_group", requestConsumerGroup))
-	} else {
-		// Legacy mode
-		requestsTopic = a.requestsTopic
-		requestConsumerGroup = fmt.Sprintf("%s-request-consumers", a.AgentType)
-		a.logger.Info("Agent listening on standard topic",
-			zap.String("requests_topic", requestsTopic),
-			zap.String("consumer_group", requestConsumerGroup))
-	}
-
-	// Consumer group naming for stateless operation
-	// requestConsumerGroup := fmt.Sprintf("%s-request-consumers", a.AgentType)
-	// Response consumer always uses standard topic
-	responseConsumerGroup := fmt.Sprintf("%s-response-consumers", a.AgentType)
-
-	// Create request consumer (ALL agents need this)
-	requestConsumer, err := kafka.NewConsumer(
-		a.config.KafkaBrokers,
-		requestsTopic,
-		requestConsumerGroup,
-		a.logger,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create request consumer: %w", err)
-	}
-	a.requestConsumer = requestConsumer
-
-	// Create response consumer (ALL agents need this since they all orchestrate)
-	responseConsumer, err := kafka.NewConsumer(
-		a.config.KafkaBrokers,
-		a.responsesTopic,
-		responseConsumerGroup,
-		a.logger,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create response consumer: %w", err)
-	}
-	a.responseConsumer = responseConsumer
-
-	return nil
 }
 
 // Run starts the agent's message processing loops
