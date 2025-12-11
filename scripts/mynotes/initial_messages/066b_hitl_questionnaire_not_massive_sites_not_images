@@ -209,7 +209,7 @@ echo ""
 
 
 BROCHURE FIRST Confirm
------------------
+----------------------
 
 CORRELATION_ID=
 ORCHESTRATION_ID=
@@ -218,9 +218,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=90f36483-f6ca-4fb0-89cb-1c3aae5ee4d4
-ORCHESTRATION_ID=9437bb15-7962-4256-829b-ebd5d8c0587f
-HITL_REQUEST_ID=672e0bdb-8e29-414b-af4e-c099256fa1e0
+CORRELATION_ID=0cee86f0-babf-4290-b141-c149b90c6f99
+ORCHESTRATION_ID=1406cf49-988e-4b90-8655-d8bdfc24aa85
+HITL_REQUEST_ID=6fd9295d-1886-43e5-b475-089d87b1c810
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -301,9 +301,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=90f36483-f6ca-4fb0-89cb-1c3aae5ee4d4
-ORCHESTRATION_ID=9437bb15-7962-4256-829b-ebd5d8c0587f
-HITL_REQUEST_ID=73ecff49-dbce-412a-b8f8-558c99948b8f
+CORRELATION_ID=0cee86f0-babf-4290-b141-c149b90c6f99
+ORCHESTRATION_ID=1406cf49-988e-4b90-8655-d8bdfc24aa85
+HITL_REQUEST_ID=860d5ee3-e7bd-467f-bde8-f0facce8442e
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"

@@ -115,6 +115,8 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		// Don't fail the spawn if message send fails - agent is already created
 	}
 
+	time.Sleep(2 * time.Second)
+
 	// 11. Build and return comprehensive result
 	return buildSpawnResult(agentID, agentName, agentType, role, initRequestID,
 		childRequestsTopic, childResponsesTopic, parentResponsesTopic,
