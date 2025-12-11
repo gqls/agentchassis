@@ -109,7 +109,7 @@ kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 
 
 
-BROCHURE Site Start
+BROCHURE Site Start - START
 
 # Generate unique IDs
 # Generate unique IDs
@@ -218,9 +218,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=8a3f65d1-f97f-426b-9635-b7d621ec99e1
-ORCHESTRATION_ID=8067ff55-81cf-40ac-865e-6737f10e5266
-HITL_REQUEST_ID=31b6edce-1fd4-48e3-a428-a787b18f4750
+CORRELATION_ID=f5406cc3-dd13-4817-a2a3-bb9d99cabc97
+ORCHESTRATION_ID=1c7e07ac-3c20-4169-a0cf-ee32b714ab1b
+HITL_REQUEST_ID=4dc43af4-f488-4abc-8700-7d7fbc6c95f2
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -301,9 +301,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=8a3f65d1-f97f-426b-9635-b7d621ec99e1
-ORCHESTRATION_ID=8067ff55-81cf-40ac-865e-6737f10e5266
-HITL_REQUEST_ID=30a0e6fb-17c9-437c-9b58-04dd860130d5
+CORRELATION_ID=f5406cc3-dd13-4817-a2a3-bb9d99cabc97
+ORCHESTRATION_ID=1c7e07ac-3c20-4169-a0cf-ee32b714ab1b
+HITL_REQUEST_ID=bcdd0318-1d3c-49f1-9922-a2e9f5a2d24f
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
