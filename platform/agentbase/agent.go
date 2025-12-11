@@ -364,6 +364,9 @@ func (a *Agent) Run() error {
 		zap.String("agent_type", a.AgentType),
 		zap.String("role", a.Role))
 
+	// yet another sleep
+	time.Sleep(2 * time.Second)
+
 	// Start request processing
 	a.wg.Add(1)
 	go a.processRequests()

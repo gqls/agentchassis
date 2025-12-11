@@ -526,3 +526,187 @@ WHERE type = 'website-builder';
 
 --
 
+-- Add briefing questionnaires to builder agents that are missing them
+
+-- 1. website-builder: Comprehensive website builder
+UPDATE agent_definitions
+SET briefing_questionnaire = '{
+  "sections": [
+    {
+      "name": "company_info",
+      "title": "Company Information",
+      "questions": [
+        {
+          "type": "text",
+          "field": "company_name",
+          "label": "Company/Brand Name",
+          "required": true
+        },
+        {
+          "type": "text",
+          "field": "tagline",
+          "label": "Tagline or Slogan",
+          "required": false,
+          "placeholder": "Your memorable one-liner"
+        },
+        {
+          "type": "textarea",
+          "field": "about_us",
+          "label": "About Your Company",
+          "required": true,
+          "placeholder": "Tell us about your company, mission, and what you do"
+        },
+        {
+          "type": "text",
+          "field": "industry_type",
+          "label": "Industry",
+          "required": false,
+          "placeholder": "e.g., Technology, Healthcare, Consulting"
+        }
+      ]
+    },
+    {
+      "name": "offerings",
+      "title": "Services & Products",
+      "questions": [
+        {
+          "type": "json_array",
+          "field": "services",
+          "label": "Services or Products (list of {name, description})",
+          "required": true,
+          "placeholder": "[{\"name\": \"Service Name\", \"description\": \"What it does\"}]"
+        },
+        {
+          "type": "textarea",
+          "field": "key_differentiators",
+          "label": "What Makes You Different?",
+          "required": true,
+          "placeholder": "Your unique value propositions"
+        }
+      ]
+    },
+    {
+      "name": "team",
+      "title": "Team & Leadership",
+      "questions": [
+        {
+          "type": "json_array",
+          "field": "leadership_team",
+          "label": "Leadership Team (list of {name, title, bio})",
+          "required": false,
+          "placeholder": "[{\"name\": \"Jane Doe\", \"title\": \"CEO\", \"bio\": \"Background and expertise\"}]"
+        }
+      ]
+    },
+    {
+      "name": "portfolio",
+      "title": "Portfolio & Social Proof",
+      "questions": [
+        {
+          "type": "json_array",
+          "field": "case_studies",
+          "label": "Case Studies or Projects (list of {client, challenge, result})",
+          "required": false,
+          "placeholder": "[{\"client\": \"Company Name\", \"challenge\": \"Problem solved\", \"result\": \"Outcomes achieved\"}]"
+        },
+        {
+          "type": "text",
+          "field": "client_count",
+          "label": "Number of Clients/Customers",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "contact",
+      "title": "Contact Information",
+      "questions": [
+        {
+          "type": "text",
+          "field": "contact_email",
+          "label": "Contact Email",
+          "required": true
+        },
+        {
+          "type": "text",
+          "field": "contact_phone",
+          "label": "Phone Number",
+          "required": false
+        },
+        {
+          "type": "text",
+          "field": "headquarters",
+          "label": "Location/Headquarters",
+          "required": false,
+          "placeholder": "City, Country"
+        }
+      ]
+    },
+    {
+      "name": "design",
+      "title": "Design Preferences",
+      "questions": [
+        {
+          "type": "select",
+          "field": "tone",
+          "label": "Brand Tone",
+          "default": "professional",
+          "options": ["professional", "friendly", "bold", "innovative", "traditional", "playful"]
+        },
+        {
+          "type": "text",
+          "field": "color_scheme",
+          "label": "Preferred Color Scheme",
+          "required": false,
+          "placeholder": "e.g., Blue and white, Modern neutrals"
+        }
+      ]
+    },
+    {
+      "name": "features",
+      "title": "Website Features",
+      "questions": [
+        {
+          "type": "boolean",
+          "field": "has_blog",
+          "label": "Include Blog/Insights Section?",
+          "default": false
+        },
+        {
+          "type": "boolean",
+          "field": "has_careers",
+          "label": "Include Careers Page?",
+          "default": false
+        },
+        {
+          "type": "text",
+          "field": "primary_cta",
+          "label": "Primary Call-to-Action",
+          "required": false,
+          "placeholder": "e.g., Contact Us, Get Started, Learn More"
+        },
+        {
+          "type": "text",
+          "field": "primary_cta_url",
+          "label": "Primary CTA Link",
+          "required": false,
+          "placeholder": "/contact or external URL"
+        }
+      ]
+    },
+    {
+      "name": "audience",
+      "title": "Target Audience",
+      "questions": [
+        {
+          "type": "textarea",
+          "field": "target_audience",
+          "label": "Who is your target audience?",
+          "required": true,
+          "placeholder": "Describe your ideal visitors/customers"
+        }
+      ]
+    }
+  ]
+}'::jsonb
+WHERE type = 'website-builder';

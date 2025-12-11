@@ -105,7 +105,11 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	// 8. Always send an initialization message to let the agent know it's been spawned
 	// This is separate from the actual task data which CallAgentAction will send later
 
-	time.Sleep(3 * time.Second)
+	// First delay: Allow pod to start and initialize
+	params.Logger.Info("Waiting for pod startup and agent initialization...",
+		zap.String("agent_id", agentID),
+		zap.String("agent_type", agentType))
+	time.Sleep(5 * time.Second)
 
 	// Generate a NEW request ID for the initialization message
 	initRequestID := uuid.New().String()
@@ -116,6 +120,14 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 			zap.Error(err))
 		// Don't fail the spawn if message send fails - agent is already created
 	}
+
+	// Second delay: Allow agent to process initialization message and start Kafka consumers
+	// The agent sends initialization response BEFORE Run() starts consumer goroutines,
+	// so we need extra time for consumers to subscribe and be ready to receive work messages
+	params.Logger.Info("Initialization message sent, waiting for Kafka consumers to start...",
+		zap.String("agent_id", agentID),
+		zap.String("agent_type", agentType))
+	time.Sleep(5 * time.Second)
 
 	// 11. Build and return comprehensive result
 	return buildSpawnResult(agentID, agentName, agentType, role, initRequestID,
