@@ -57,6 +57,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	// "assemble_html_parts":       AssemblePageAction,
 	"fetch_agent_questionnaire": FetchAgentQuestionnaireAction,
 	// "wrap_multipage":            AssembleMultipageSiteAction,
+	"loop":
 
 	// Memory operations
 	"retrieve_memory": RetrieveMemoryAction,

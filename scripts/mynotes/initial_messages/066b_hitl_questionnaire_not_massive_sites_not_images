@@ -218,9 +218,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=6e7727b4-03d5-4945-8c97-cf3728d20dca
-ORCHESTRATION_ID=1531e5f7-091b-427b-8524-fd8c800ad321
-HITL_REQUEST_ID=
+CORRELATION_ID=a5a907fe-6b23-4a2f-9256-bc15d7d17396
+ORCHESTRATION_ID=19ed2217-f967-4b33-b622-75e7c372c2f5
+HITL_REQUEST_ID=fbb5b3d2-72d2-4a51-9b72-13c24e6251e8
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -291,7 +291,7 @@ this one made it into a content-site-builder
 
 
 
-SEND BROCHURE BRIEF (SECOND confirm - actual brief)
+SEND BROCHURE BRIEF (SECOND confirm - actual filled brief)
 ------------------------------------
 
 CORRELATION_ID=
@@ -301,9 +301,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=6e7727b4-03d5-4945-8c97-cf3728d20dca
-ORCHESTRATION_ID=1531e5f7-091b-427b-8524-fd8c800ad321
-HITL_REQUEST_ID=1a02f04b-e987-4988-b197-70033ad54db4
+CORRELATION_ID=a5a907fe-6b23-4a2f-9256-bc15d7d17396
+ORCHESTRATION_ID=19ed2217-f967-4b33-b622-75e7c372c2f5
+HITL_REQUEST_ID=73578ab8-65df-4383-8282-ec7f151c16fa
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
