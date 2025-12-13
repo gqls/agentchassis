@@ -711,6 +711,14 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// 5. Build action parameters - get input data
 	params := buildActionParams(ctx, execCtx, state, step, s, contextLogger)
 
+	// 5a. Set loop variable if this is a loop iteration step
+	s.setLoopVariable(state, step, contextLogger)
+
+	s.logger.Info("Executing local action",
+		zap.Any("DEBUGaa: params sent to action handler", params),
+		zap.Any("action in handler", step.Action),
+	)
+
 	s.logger.Info("Executing local action",
 		zap.Any("DEBUGaa: params sent to action handler", params),
 		zap.Any("action in handler", step.Action),
@@ -729,6 +737,32 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		zap.String("orchestration_id", state.OrchestrationID),
 		zap.Any("DEBUGaa: state", state),
 	)
+
+	// 6a. Check if result is a loop expansion
+	if resultMap, ok := result.(map[string]interface{}); ok {
+		if isLoop, _ := resultMap["loop_action"].(bool); isLoop {
+			contextLogger.Info("Detected loop action, expanding workflow")
+
+			// Handle loop expansion - this injects all iteration steps
+			if err := s.handleLoopExpansion(state, resultMap, contextLogger); err != nil {
+				return fmt.Errorf("failed to expand loop: %w", err)
+			}
+
+			// Loop expansion sets state.CurrentStep to first iteration step
+			// Save state immediately
+			repo := NewStateRepository(s.db, s.logger)
+			if err := repo.UpdateState(ctx, state); err != nil {
+				contextLogger.Error("Failed to save state after loop expansion", zap.Error(err))
+				return fmt.Errorf("failed to save state after loop expansion: %w", err)
+			}
+
+			// Continue workflow with first iteration step
+			contextLogger.Info("Loop expanded, continuing to first iteration",
+				zap.String("next_step", state.CurrentStep),
+			)
+			return s.continueExecution(ctx, state, execCtx)
+		}
+	}
 
 	// 7. Process action result
 	if err := processActionResult(state, result, step, execCtx, s, contextLogger); err != nil {

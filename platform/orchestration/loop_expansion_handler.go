@@ -54,7 +54,6 @@ func (s *SagaCoordinator) handleLoopExpansion(
 
 	// Inject steps for each iteration
 	firstStepName := ""
-	lastStepName := ""
 
 	for iterIdx, item := range items {
 		logger.Debug("Creating iteration steps",
@@ -106,7 +105,7 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			if iterIdx == 0 && substepIdx == 0 {
 				firstStepName = injectedStepName
 			}
-			lastStepName = injectedStep.NextStep
+			//lastStepName = injectedStep.NextStep
 
 			// Inject into workflow plan
 			state.WorkflowPlan.Steps[injectedStepName] = injectedStep
