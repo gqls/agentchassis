@@ -48,6 +48,8 @@ var LocalActions = map[string]bool{
 	// "assemble_html_parts":       true,
 	"fetch_agent_questionnaire": true,
 	// "wrap_multipage":            true,
+	"loop":          true,
+	"loop_complete": true,
 
 	// Data aggregation
 	"aggregate_data":    true,
