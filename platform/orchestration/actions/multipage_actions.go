@@ -452,7 +452,7 @@ func extractNestedField(data map[string]interface{}, fieldPath string) interface
 }
 
 // extractFieldValue extracts a string value from nested field path
-func extractFieldValue(data map[string]interface{}, fieldPath string, logger *zap.Logger) string {
+/*func extractFieldValue(data map[string]interface{}, fieldPath string, logger *zap.Logger) string {
 	value := extractNestedField(data, fieldPath)
 	if value == nil {
 		logger.Warn("Field not found",
@@ -481,6 +481,69 @@ func extractFieldValue(data map[string]interface{}, fieldPath string, logger *za
 		zap.String("type", fmt.Sprintf("%T", value)),
 	)
 	return ""
+}*/
+
+// extractFieldValue navigates nested field paths like "base_structure.result"
+func extractFieldValue(data map[string]interface{}, fieldPath string, logger *zap.Logger) string {
+	parts := strings.Split(fieldPath, ".")
+
+	var current interface{} = data
+	for _, part := range parts {
+		switch v := current.(type) {
+		case map[string]interface{}:
+			// First try direct access
+			if val, ok := v[part]; ok {
+				current = val
+				continue
+			}
+			// Then try ExtractStepData if it looks like a step result
+			if extracted := datahelpers.ExtractStepData(v[part]); extracted != nil {
+				current = extracted
+				continue
+			}
+			logger.Warn("Field not found in path",
+				zap.String("field", part),
+				zap.String("full_path", fieldPath),
+			)
+			return ""
+		default:
+			// If we're at a terminal value and still have more parts, something's wrong
+			if len(parts) > 1 {
+				logger.Warn("Cannot traverse further, value is not a map",
+					zap.String("field", part),
+					zap.String("full_path", fieldPath),
+				)
+				return ""
+			}
+		}
+	}
+
+	// Convert final value to string
+	switch v := current.(type) {
+	case string:
+		return v
+	case map[string]interface{}:
+		// If it's still a map, try to get "result" or "html" or "content"
+		if result, ok := v["result"].(string); ok {
+			return result
+		}
+		if html, ok := v["html"].(string); ok {
+			return html
+		}
+		if content, ok := v["content"].(string); ok {
+			return content
+		}
+		logger.Warn("Final value is a map but couldn't extract string",
+			zap.String("full_path", fieldPath),
+		)
+		return ""
+	default:
+		logger.Warn("Final value is not a string",
+			zap.String("full_path", fieldPath),
+			zap.String("type", fmt.Sprintf("%T", current)),
+		)
+		return ""
+	}
 }
 
 // calculateTotalSize calculates total bytes across all pages
@@ -499,4 +562,103 @@ func getPageNames(pages map[string]string) []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// extractDomainFromCollectedData searches for domain in collected data
+func extractDomainFromCollectedData(collectedData map[string]interface{}) string {
+	// Try input_data first
+	if inputData, ok := collectedData["input_data"]; ok {
+		if inputMap, ok := inputData.(map[string]interface{}); ok {
+			if domain, ok := inputMap["domain"].(string); ok && domain != "" {
+				return domain
+			}
+		}
+	}
+
+	// Search recursively
+	domain := findStringInMap(collectedData, "domain", 0)
+	if domain != "" {
+		return domain
+	}
+
+	return "Our Company"
+}
+
+// extractBusinessInfoMap extracts business info from collected data
+func extractBusinessInfoMap(collectedData map[string]interface{}) map[string]interface{} {
+	businessInfo := make(map[string]interface{})
+
+	// Try to find domain
+	domain := extractDomainFromCollectedData(collectedData)
+	if domain != "" {
+		businessInfo["domain"] = domain
+	}
+
+	// Try to find objective
+	if inputData, ok := collectedData["input_data"]; ok {
+		if inputMap, ok := inputData.(map[string]interface{}); ok {
+			if objective, ok := inputMap["objective"].(string); ok && objective != "" {
+				businessInfo["objective"] = objective
+			}
+		}
+	}
+
+	// Fallback: search recursively
+	if businessInfo["objective"] == nil {
+		objective := findStringInMap(collectedData, "objective", 0)
+		if objective != "" {
+			businessInfo["objective"] = objective
+		}
+	}
+
+	return businessInfo
+}
+
+// findStringInMap recursively searches for a string field
+func findStringInMap(data interface{}, key string, depth int) string {
+	if depth > 10 {
+		return ""
+	}
+
+	m, ok := data.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	// Direct match
+	if val, ok := m[key]; ok {
+		if str, ok := val.(string); ok && str != "" {
+			return str
+		}
+	}
+
+	// Recurse into values
+	for _, val := range m {
+		if result := findStringInMap(val, key, depth+1); result != "" {
+			return result
+		}
+	}
+
+	return ""
+}
+
+// extractDomain extracts domain from business info map
+
+func getConfigKeys(config map[string]interface{}) []string {
+	keys := make([]string, 0, len(config))
+	for k := range config {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func getCollectedDataKeys(data map[string]interface{}) []string {
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		// Skip internal fields
+		if !strings.HasPrefix(k, "__") {
+			keys = append(keys, k)
+		}
+	}
+	return keys
 }

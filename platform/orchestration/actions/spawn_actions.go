@@ -110,7 +110,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("agent_id", agentID),
 		zap.String("agent_type", agentType))
 
-	// time.Sleep(5 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Generate a NEW request ID for the initialization message
 	initRequestID := uuid.New().String()
@@ -129,7 +129,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("agent_id", agentID),
 		zap.String("agent_type", agentType))
 
-	// time.Sleep(5 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// 11. Build and return comprehensive result
 	return buildSpawnResult(agentID, agentName, agentType, role, initRequestID,

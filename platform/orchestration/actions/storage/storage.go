@@ -5,7 +5,7 @@ package storage
 import (
 	"context"
 
-	"github.com/aqls/personae/platform/orchestration/actions/registry"
+	"github.com/aqls/agentchassis/platform/orchestration/actions/registry"
 )
 
 func init() {
