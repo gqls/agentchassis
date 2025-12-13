@@ -1452,20 +1452,44 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	}
 
 	normalisedData := datahelpers.CleanDataMap(responseBodyData)
-	// Normalize the response data before storing
-	//normalisedData := datahelpers.NormalizeResponseData(responseBodyData, s.logger)
 
 	// Store under the step name in CollectedData
 	stepName := awaitedReq.StepName
 	state.CollectedData[stepName] = normalisedData
+
 	// Get the step definition to check for output_field
 	if step, exists := state.WorkflowPlan.Steps[stepName]; exists {
 		if step.OutputField != "" {
-			// ALSO store in the specified output field name
-			state.CollectedData[step.OutputField] = normalisedData
+			// Determine what data to store based on action type
+			var dataToStore interface{} = normalisedData
+
+			// Special handling for request_human_input and similar actions
+			// Extract only form field values, not metadata or review data
+			if shouldExtractFormFields(step) {
+				formFieldValues := extractHITLFormFields(normalisedData, step.Config, s.logger)
+				if len(formFieldValues) > 0 {
+					dataToStore = formFieldValues
+					s.logger.Info("Extracted form fields from HITL response",
+						zap.String("step_name", stepName),
+						zap.String("output_field", step.OutputField),
+						zap.Strings("field_names", getMapKeys(formFieldValues)),
+						zap.Int("field_count", len(formFieldValues)),
+					)
+				} else {
+					s.logger.Warn("No form fields extracted from HITL response, using full response",
+						zap.String("step_name", stepName),
+						zap.Strings("response_keys", getMapKeys(normalisedData)),
+					)
+				}
+			}
+
+			// Store the appropriate data in output_field
+			state.CollectedData[step.OutputField] = dataToStore
 			s.logger.Info("Stored response in output_field",
 				zap.String("step_name", stepName),
-				zap.String("output_field", step.OutputField))
+				zap.String("output_field", step.OutputField),
+				zap.Bool("is_hitl_filtered", shouldExtractFormFields(step)),
+			)
 		} else {
 			s.logger.Debug("No output_field specified, response stored only under step name",
 				zap.String("step_name", stepName))

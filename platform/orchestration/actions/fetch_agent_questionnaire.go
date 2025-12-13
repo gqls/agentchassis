@@ -1,6 +1,4 @@
 // FILE: platform/orchestration/actions/fetch_agent_questionnaire.go
-// New action to replace fetch_group_questionnaire when we eliminate agent_group_definitions
-
 package actions
 
 import (
@@ -10,30 +8,54 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
-// resolveFieldPathQuestionnaire extracts a nested value from a map using dot notation
-// Handles cases where intermediate values are JSON strings (e.g., LLM output with markdown)
-// e.g., "confirmed_type.recommended_builder" or "classification.classify_site.result.recommended_builder"
-func resolveFieldPathQuestionnaire(path string, data map[string]interface{}) interface{} {
+// resolveFieldPathQuestionnaire extracts value from nested map using dot notation
+// Now with multiple extraction strategies
+func resolveFieldPathQuestionnaire(path string, data map[string]interface{}, logger *zap.Logger) interface{} {
 	parts := strings.Split(path, ".")
-	var current interface{} = data
 
-	for _, part := range parts {
+	logger.Debug("Resolving field path",
+		zap.String("path", path),
+		zap.Strings("parts", parts),
+	)
+
+	// Strategy 1: Direct navigation
+	var current interface{} = data
+	for i, part := range parts {
+		logger.Debug("Navigating part",
+			zap.Int("index", i),
+			zap.String("part", part),
+			zap.String("current_type", fmt.Sprintf("%T", current)),
+		)
+
 		switch v := current.(type) {
 		case map[string]interface{}:
 			val, exists := v[part]
 			if !exists {
+				logger.Warn("Part not found in map",
+					zap.String("part", part),
+					zap.Strings("available_keys", getMapKeys(v)),
+				)
+				// Try ExtractStepData as fallback
+				if extracted := datahelpers.ExtractStepData(v[part]); extracted != nil {
+					current = extracted
+					continue
+				}
 				return nil
 			}
 			current = val
 
 		case string:
-			// Try to parse the string as JSON (handles LLM outputs with markdown-wrapped JSON)
+			// Try to parse as JSON
 			parsed, ok := tryParseJSONStringQuestionnaire(v)
 			if !ok {
+				logger.Warn("Failed to parse string as JSON",
+					zap.String("string_preview", truncate(v, 100)),
+				)
 				return nil
 			}
 			val, exists := parsed[part]
@@ -43,19 +65,80 @@ func resolveFieldPathQuestionnaire(path string, data map[string]interface{}) int
 			current = val
 
 		default:
+			logger.Warn("Unexpected type during navigation",
+				zap.String("type", fmt.Sprintf("%T", current)),
+			)
 			return nil
 		}
 	}
 
+	logger.Debug("Resolved to value",
+		zap.String("type", fmt.Sprintf("%T", current)),
+		zap.Any("value", current),
+	)
+
 	return current
 }
 
-// cleanMarkdownJSONQuestionnaire removes markdown code fences from JSON strings
-// Handles cases where there's extra text after the closing ```
+// Strategy 2: Try ExtractStepData first (handles step result wrappers)
+func resolveFieldPathWithStepData(path string, data map[string]interface{}, logger *zap.Logger) interface{} {
+	parts := strings.Split(path, ".")
+	if len(parts) == 0 {
+		return nil
+	}
+
+	// First part might be a step name
+	firstPart := parts[0]
+
+	// Try to extract step data
+	if stepVal, ok := data[firstPart]; ok {
+		extracted := datahelpers.ExtractStepData(stepVal)
+		if extracted != nil {
+			// Now navigate the rest of the path through the extracted data
+			if len(parts) == 1 {
+				return extracted
+			}
+
+			// Continue with remaining parts
+			remaining := strings.Join(parts[1:], ".")
+			if extractedMap, ok := extracted.(map[string]interface{}); ok {
+				return resolveFieldPathQuestionnaire(remaining, extractedMap, logger)
+			}
+		}
+	}
+
+	return nil
+}
+
+// Strategy 3: Check if entire path is in a step result wrapper
+func tryExtractFromStepResult(path string, data map[string]interface{}, logger *zap.Logger) interface{} {
+	parts := strings.Split(path, ".")
+
+	for i := len(parts); i > 0; i-- {
+		// Try treating first i parts as step name
+		stepName := strings.Join(parts[:i], ".")
+		if stepVal, ok := data[stepName]; ok {
+			extracted := datahelpers.ExtractStepData(stepVal)
+			if extracted != nil {
+				// If we used all parts, return the extracted value
+				if i == len(parts) {
+					return extracted
+				}
+				// Otherwise continue with remaining path
+				remaining := strings.Join(parts[i:], ".")
+				if extractedMap, ok := extracted.(map[string]interface{}); ok {
+					return resolveFieldPathQuestionnaire(remaining, extractedMap, logger)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func cleanMarkdownJSONQuestionnaire(s string) string {
 	s = strings.TrimSpace(s)
 
-	// Check for ```json or ``` prefix
 	hasJSONFence := strings.HasPrefix(s, "```json")
 	hasPlainFence := strings.HasPrefix(s, "```")
 
@@ -67,15 +150,12 @@ func cleanMarkdownJSONQuestionnaire(s string) string {
 		s = strings.TrimSpace(s)
 	}
 
-	// If we removed a prefix fence, look for the closing fence
-	// It might not be at the very end (LLM might add extra text after)
 	if hasJSONFence || hasPlainFence {
 		if idx := strings.Index(s, "```"); idx >= 0 {
 			s = s[:idx]
 			s = strings.TrimSpace(s)
 		}
 	} else if strings.HasSuffix(s, "```") {
-		// No opening fence but has closing - just trim it
 		s = strings.TrimSuffix(s, "```")
 		s = strings.TrimSpace(s)
 	}
@@ -83,7 +163,6 @@ func cleanMarkdownJSONQuestionnaire(s string) string {
 	return s
 }
 
-// tryParseJSONStringQuestionnaire attempts to parse a string as JSON (including markdown-wrapped JSON)
 func tryParseJSONStringQuestionnaire(s string) (map[string]interface{}, bool) {
 	cleaned := cleanMarkdownJSONQuestionnaire(s)
 
@@ -95,7 +174,6 @@ func tryParseJSONStringQuestionnaire(s string) (map[string]interface{}, bool) {
 	return nil, false
 }
 
-// queryBriefingQuestionnaire handles both sql.DB and pgxpool.Pool
 func queryBriefingQuestionnaire(ctx context.Context, db interface{}, agentType string) ([]byte, error) {
 	query := `
 		SELECT COALESCE(briefing_questionnaire, '{}'::jsonb)
@@ -119,18 +197,6 @@ func queryBriefingQuestionnaire(ctx context.Context, db interface{}, agentType s
 	}
 }
 
-// FetchAgentQuestionnaireAction retrieves the briefing_questionnaire from an agent definition
-// This replaces fetch_group_questionnaire now that groups are eliminated
-//
-// Config (accepts both old and new naming):
-//
-//	agent_type OR group_type: static agent type to fetch questionnaire for
-//	agent_type_field OR group_type_field: field path to get agent type dynamically
-//
-// Returns:
-//
-//	questionnaire: the briefing_questionnaire JSON from agent_definitions
-//	agent_type: the resolved agent type
 func FetchAgentQuestionnaireAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 	logger := params.Logger
@@ -140,64 +206,100 @@ func FetchAgentQuestionnaireAction(ctx context.Context, params ActionParams) (in
 		zap.Any("config", config),
 	)
 
-	// Debug: log what we're working with
-	logger.Debug("FetchAgentQuestionnaireAction debug",
-		zap.Any("step_config", params.StepConfig),
-		zap.Any("collected_data_keys", getMapKeys(params.CollectedData)),
+	// Log collected data structure for debugging
+	logger.Info("Collected data structure",
+		zap.Strings("top_level_keys", getMapKeys(params.CollectedData)),
 	)
 
-	// Resolve agent type - check both new and old naming for backward compat
+	// Resolve agent type - check both new and old naming
 	var agentType string
 
-	// Try static config first (new naming, then old)
+	// Try static config first
 	if at, ok := config["agent_type"].(string); ok && at != "" {
 		agentType = at
-		logger.Debug("Found static agent_type", zap.String("agent_type", at))
+		logger.Info("Using static agent_type", zap.String("agent_type", at))
 	} else if at, ok := config["group_type"].(string); ok && at != "" {
 		agentType = at
-		logger.Debug("Found static group_type", zap.String("group_type", at))
+		logger.Info("Using static group_type (old naming)", zap.String("agent_type", at))
 	}
 
-	// Try dynamic field (new naming, then old)
+	// Try dynamic field if not found
 	if agentType == "" {
 		var fieldPath string
 		if fp, ok := config["agent_type_field"].(string); ok && fp != "" {
 			fieldPath = fp
-			logger.Debug("Found agent_type_field", zap.String("field_path", fp))
+			logger.Info("Using dynamic agent_type_field", zap.String("field_path", fp))
 		} else if fp, ok := config["group_type_field"].(string); ok && fp != "" {
 			fieldPath = fp
-			logger.Debug("Found group_type_field", zap.String("field_path", fp))
+			logger.Info("Using dynamic group_type_field (old naming)", zap.String("field_path", fp))
 		}
 
 		if fieldPath != "" {
-			value := resolveFieldPathQuestionnaire(fieldPath, params.CollectedData)
-			logger.Debug("Resolved field path",
-				zap.String("field_path", fieldPath),
-				zap.Any("resolved_value", value),
-			)
-			if at, ok := value.(string); ok && at != "" {
-				agentType = at
+			// Try multiple extraction strategies
+			var value interface{}
+
+			// Strategy 1: Direct navigation
+			value = resolveFieldPathQuestionnaire(fieldPath, params.CollectedData, logger)
+			if value == nil {
+				logger.Debug("Strategy 1 (direct navigation) failed, trying strategy 2")
+
+				// Strategy 2: ExtractStepData first
+				value = resolveFieldPathWithStepData(fieldPath, params.CollectedData, logger)
 			}
-		} else {
-			logger.Warn("No field path found in config",
-				zap.Any("config_keys", getMapKeys(config)),
-			)
+			if value == nil {
+				logger.Debug("Strategy 2 (step data) failed, trying strategy 3")
+
+				// Strategy 3: Check step result wrappers
+				value = tryExtractFromStepResult(fieldPath, params.CollectedData, logger)
+			}
+
+			if value != nil {
+				logger.Info("Resolved field path",
+					zap.String("field_path", fieldPath),
+					zap.String("value_type", fmt.Sprintf("%T", value)),
+					zap.Any("value", value),
+				)
+
+				if at, ok := value.(string); ok && at != "" {
+					agentType = at
+				} else {
+					logger.Warn("Resolved value is not a string",
+						zap.String("type", fmt.Sprintf("%T", value)),
+						zap.Any("value", value),
+					)
+				}
+			} else {
+				logger.Error("All extraction strategies failed",
+					zap.String("field_path", fieldPath),
+					zap.Strings("available_keys", getMapKeys(params.CollectedData)),
+				)
+
+				// Dump collected data for debugging
+				if cdJSON, err := json.MarshalIndent(params.CollectedData, "", "  "); err == nil {
+					logger.Debug("Full collected data",
+						zap.String("data", truncate(string(cdJSON), 1000)),
+					)
+				}
+			}
 		}
 	}
 
 	if agentType == "" {
-		return nil, fmt.Errorf("could not resolve agent_type - provide 'agent_type', 'agent_type_field', 'group_type', or 'group_type_field' in config. Config keys: %v", getMapKeys(config))
+		return nil, fmt.Errorf("could not resolve agent_type - provide 'agent_type', 'agent_type_field', 'group_type', or 'group_type_field' in config. Config keys: %v. Tried to extract from: %v",
+			getMapKeys(config),
+			getMapKeys(params.CollectedData),
+		)
 	}
 
 	logger.Info("Resolved agent type", zap.String("agent_type", agentType))
 
-	// Query agent_definitions for the briefing_questionnaire
+	// Query agent_definitions for briefing_questionnaire
 	questionnaireJSON, err := queryBriefingQuestionnaire(ctx, params.DB, agentType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch questionnaire for agent type %s: %w", agentType, err)
 	}
 
-	// Parse the questionnaire
+	// Parse questionnaire
 	var questionnaire interface{}
 	if err := json.Unmarshal(questionnaireJSON, &questionnaire); err != nil {
 		return nil, fmt.Errorf("failed to parse questionnaire JSON: %w", err)
@@ -212,4 +314,12 @@ func FetchAgentQuestionnaireAction(ctx context.Context, params ActionParams) (in
 		"questionnaire": questionnaire,
 		"agent_type":    agentType,
 	}, nil
+}
+
+// Helper functions
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
