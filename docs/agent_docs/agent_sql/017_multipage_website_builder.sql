@@ -262,3 +262,261 @@ WHERE type = 'multipage-website-builder';
   "processing_mode": "orchestrator",
   "timeout_seconds": 600
 }
+
+
+===========================================================================================
+===========================================================================================
+===========================================================================================
+
+Revised: simplified. adds loop. one page at a time
+
+{
+    "workflow": {
+        "start_step": "call_strategist",
+        "steps": {
+            "call_strategist": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "chief-strategist",
+                    "timeout_seconds": 120
+                },
+                "next_step": "generate_pages_loop",
+                "output_field": "page_plan"
+            },
+
+            "generate_pages_loop": {
+                "action": "loop",
+                "config": {
+                    "iterate_over": "page_plan.pages",
+                    "loop_var": "current_page",
+                    "max_iterations": 10,
+                    "substeps": {
+                        "generate_page": {
+                            "action": "call_agent",
+                            "config": {
+                                "agent_type": "content-creator",
+                                "input_fields": ["current_page"],
+                                "timeout_seconds": 180
+                            },
+                            "output_field": "page_html"
+                        }
+                    }
+                },
+                "next_step": "assemble_site",
+                "output_field": "all_pages"
+            },
+
+            "assemble_site": {
+                "action": "assemble_multipage_site",
+                "config": {
+                    "pages_field": "all_pages",
+                    "add_navigation": true
+                },
+                "next_step": "deploy",
+                "output_field": "site_files"
+            },
+
+            "deploy": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "deployer-agent",
+                    "input_fields": ["site_files"]
+                },
+                "next_step": "complete"
+            },
+
+            "complete": {
+                "action": "complete_workflow"
+            }
+        }
+    }
+}
+
+---
+update statement for above
+
+-- ============================================================================
+-- UPDATE: multipage-website-builder Agent Definition
+-- New simplified workflow using consolidated actions
+-- ============================================================================
+
+-- First, let's see the current config (for reference)
+-- SELECT type, display_name, default_config FROM agent_definitions
+-- WHERE type = 'multipage-website-builder';
+
+-- Update the multipage-website-builder with new sequential workflow
+UPDATE agent_definitions
+SET default_config = '{
+    "processing_mode": "task",
+    "timeout_seconds": 600,
+    "workflow": {
+        "start_step": "call_strategist",
+        "steps": {
+            "call_strategist": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "chief-strategist",
+                    "target_role": "strategist",
+                    "timeout_seconds": 120
+                },
+                "next_step": "generate_pages_loop",
+                "output_field": "page_plan",
+                "description": "Get page plan from chief strategist"
+            },
+
+            "generate_pages_loop": {
+                "action": "loop",
+                "config": {
+                    "iterate_over": "page_plan.pages",
+                    "loop_var": "current_page",
+                    "max_iterations": 10,
+                    "substeps": {
+                        "generate_page": {
+                            "action": "call_agent",
+                            "config": {
+                                "agent_type": "content-creator",
+                                "target_role": "writer",
+                                "input_fields": ["current_page", "input_data"],
+                                "timeout_seconds": 180
+                            },
+                            "output_field": "page_html",
+                            "description": "Generate content for each page"
+                        }
+                    }
+                },
+                "next_step": "assemble_site",
+                "output_field": "all_pages",
+                "description": "Generate all pages sequentially"
+            },
+
+            "assemble_site": {
+                "action": "assemble_multipage_site",
+                "config": {
+                    "pages_field": "all_pages",
+                    "add_navigation": true,
+                    "generate_standard_pages": true
+                },
+                "next_step": "deploy",
+                "output_field": "site_files",
+                "description": "Assemble pages into complete site with navigation"
+            },
+
+            "deploy": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "deployer-agent",
+                    "target_role": "deployer",
+                    "input_fields": ["site_files", "input_data"],
+                    "timeout_seconds": 180
+                },
+                "next_step": "complete",
+                "output_field": "deployment_result",
+                "description": "Deploy site to git repository"
+            },
+
+            "complete": {
+                "action": "complete_workflow",
+                "description": "Multipage site build complete"
+            }
+        }
+    }
+}'::jsonb,
+updated_at = now()
+WHERE type = 'multipage-website-builder';
+
+-- Verify the update
+SELECT
+    type,
+    display_name,
+    jsonb_pretty(default_config->'workflow'->'steps') as workflow_steps,
+    updated_at
+FROM agent_definitions
+WHERE type = 'multipage-website-builder';
+
+-- ============================================================================
+-- NOTES
+-- ============================================================================
+
+/*
+This workflow is now:
+
+1. SEQUENTIAL (not parallel)
+   - Strategist creates page plan
+   - Loop generates pages one at a time
+   - Assembly happens after all pages done
+   - Deployment happens last
+
+2. SIMPLE (like landing-page-builder)
+   - Clear step progression
+   - No complex nested data structures
+   - Easy to debug
+
+3. USES CONSOLIDATED ACTIONS
+   - assemble_multipage_site (single clear purpose)
+   - No SQL in config
+   - All complexity hidden in actions
+
+Expected flow:
+- Input: {"domain": "example.com", "objective": "consulting site"}
+- Strategist returns: {"pages": ["index", "services", "about"]}
+- Loop generates: {"index": "...", "services": "...", "about": "..."}
+- Assembly adds: navigation + contact page
+- Deployer commits: all files to git
+- Output: {"deployment_result": {...}}
+
+If this completes successfully, you have a working multipage builder.
+*/
+
+-- ============================================================================
+-- TROUBLESHOOTING QUERIES
+-- ============================================================================
+
+-- Check if agent definition exists
+SELECT COUNT(*) as exists
+FROM agent_definitions
+WHERE type = 'multipage-website-builder';
+
+-- If count is 0, the agent doesn't exist and you'll need to create it first:
+/*
+INSERT INTO agent_definitions (
+    type,
+    display_name,
+    description,
+    category,
+    default_config,
+    capabilities,
+    is_active
+)
+VALUES (
+    'multipage-website-builder',
+    'Multipage Website Builder',
+    'Builds complete multi-page websites with navigation',
+    'website_builder',
+    '{...workflow config from above...}'::jsonb,
+    '["website_building", "multipage", "orchestration"]'::jsonb,
+    true
+);
+*/
+
+-- View current orchestrations using this agent
+SELECT
+    o.id,
+    o.status,
+    o.current_step,
+    o.created_at,
+    o.updated_at
+FROM orchestrator_state o
+WHERE o.workflow_type = 'multipage-website-builder'
+ORDER BY o.created_at DESC
+    LIMIT 10;
+
+-- Check for stuck workflows
+SELECT
+    id,
+    status,
+    current_step,
+    EXTRACT(EPOCH FROM (NOW() - updated_at))/3600 as hours_since_update
+FROM orchestrator_state
+WHERE workflow_type = 'multipage-website-builder'
+  AND status IN ('RUNNING', 'AWAITING_RESPONSES')
+  AND updated_at < NOW() - INTERVAL '1 hour';

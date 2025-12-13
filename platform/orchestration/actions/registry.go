@@ -47,15 +47,16 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"execute_llm_prompt": ExecuteLLMPromptAction,
 
 	// Web build
-	"git_commit":                GitCommitAction,
-	"git_commit_action":         GitCommitAction,
-	"new_site_architect":        AssembleFromLibraryAction,
-	"assemble_from_library":     AssembleFromLibraryAction,
-	"assemble_full_page":        AssembleFullPageAction,
-	"assemble_multipage_site":   AssembleMultipageSiteAction,
-	"assemble_html_parts":       AssembleHTMLPartsAction,
+	"git_commit":         GitCommitAction,
+	"git_commit_action":  GitCommitAction,
+	"new_site_architect": AssembleFromLibraryAction,
+	// "assemble_from_library":     AssembleFromLibraryAction,
+	// "assemble_full_page":        AssembleFullPageAction,
+	"assemble_page":           AssemblePageAction,
+	"assemble_multipage_site": AssembleMultipageSiteAction,
+	// "assemble_html_parts":       AssemblePageAction,
 	"fetch_agent_questionnaire": FetchAgentQuestionnaireAction,
-	"wrap_multipage":            WrapMultipageAction,
+	// "wrap_multipage":            AssembleMultipageSiteAction,
 
 	// Memory operations
 	"retrieve_memory": RetrieveMemoryAction,

@@ -38,15 +38,16 @@ var LocalActions = map[string]bool{
 	"calculate": true,
 
 	// Web build
-	"git_commit":                true,
-	"git_commit_action":         true,
-	"new_site_architect":        true,
-	"assemble_from_library":     true,
-	"assemble_full_page":        true,
-	"assemble_multipage_site":   true,
-	"assemble_html_parts":       true,
+	"git_commit":         true,
+	"git_commit_action":  true,
+	"new_site_architect": true,
+	// "assemble_from_library":     true,
+	// "assemble_full_page":        true,
+	"assemble_page":           true,
+	"assemble_multipage_site": true,
+	// "assemble_html_parts":       true,
 	"fetch_agent_questionnaire": true,
-	"wrap_multipage":            true,
+	// "wrap_multipage":            true,
 
 	// Data aggregation
 	"aggregate_data":    true,
