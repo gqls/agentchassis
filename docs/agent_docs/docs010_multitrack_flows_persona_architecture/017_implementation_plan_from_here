@@ -1,0 +1,1241 @@
+https://claude.ai/chat/da753fb0-02e8-4e63-a787-0a62e2c2f131
+
+# Multipage Website Builder Evolution Roadmap
+## From Simple Agent Framework to Flow-Based Cognitive Architecture
+
+**Date:** December 13, 2025
+**Purpose:** Comprehensive plan showing incremental steps from current state to full vision
+
+---
+
+## Current State Assessment
+
+### What Works
+✅ **Landing Page Builder** - Successfully generates single-page sites
+✅ **Agent Spawning** - Agents can spawn sub-agents, communicate via Kafka
+✅ **Git Deployment** - Sites can be committed to git repositories
+✅ **Basic Orchestration** - Multi-step workflows execute successfully
+✅ **Agent Definitions** - Agent types stored in database, configurable
+
+### What's Broken
+❌ **Multipage Website Builder** - Race conditions, doesn't complete
+❌ **Batch Generation** - Trying to generate 4 pages at once fails
+❌ **Component Assembly** - Not integrated yet
+❌ **Content Quality** - All pages sound the same (no personas)
+
+### The Gap
+We want to get from simple single-page generation to:
+- Multi-page sites with narrative flows
+- Different voice/personas per stage
+- Component library with intelligent assembly
+- Site interrogation for learning from good examples
+- Cognitive personas that remember and learn
+
+**Key Constraint:** Keep it simple at each step, but build architecture that can scale.
+
+---
+
+## Phase 0: Fix Current Multipage Builder (Week 1-2)
+
+**Goal:** Make multipage-website-builder work reliably by copying landing-page-builder pattern
+
+### Problem Analysis
+Current multipage-builder fails because:
+1. Tries to batch-generate pages (4 at a time)
+2. Race conditions between spawned agents
+3. Complex nested data structures (CollectedData)
+4. No clear separation of concerns
+
+### Solution: Sequential Page Generation
+
+**Model after landing-page-builder which works:**
+```
+landing-page-builder:
+  1. Spawn research agent → wait → get result
+  2. Spawn strategist → wait → get result
+  3. Spawn writer → wait → get result
+  4. Assemble and deploy
+
+multipage-builder should do:
+  1. Spawn strategist → wait → get page list
+  2. FOR EACH page:
+     a. Spawn researcher for this page → wait
+     b. Spawn writer for this page → wait
+     c. Store page HTML
+  3. Wrap all pages together
+  4. Deploy
+```
+
+### Changes Required
+
+**File: multipage-website-builder agent definition**
+
+```sql
+UPDATE agent_definitions
+SET default_config = '{
+    "workflow": {
+        "start_step": "spawn_strategist",
+        "steps": {
+            "spawn_strategist": {
+                "action": "spawn_agent",
+                "config": {
+                    "agent_type": "chief-strategist",
+                    "role": "strategist"
+                },
+                "next_step": "call_strategist"
+            },
+
+            "call_strategist": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "chief-strategist",
+                    "target_role": "strategist",
+                    "timeout_seconds": 120
+                },
+                "next_step": "generate_pages_loop",
+                "output_field": "page_plan"
+            },
+
+            "generate_pages_loop": {
+                "action": "loop",
+                "config": {
+                    "iterate_over": "page_plan.pages",
+                    "loop_var": "current_page",
+                    "max_iterations": 10,
+                    "substeps": {
+                        "research_page": {
+                            "action": "call_agent",
+                            "config": {
+                                "agent_type": "content-researcher",
+                                "input_fields": ["current_page.topic"]
+                            },
+                            "output_field": "research"
+                        },
+                        "write_page": {
+                            "action": "call_agent",
+                            "config": {
+                                "agent_type": "content-creator",
+                                "input_fields": ["current_page", "research"]
+                            },
+                            "output_field": "page_html"
+                        }
+                    }
+                },
+                "next_step": "wrap_pages",
+                "output_field": "all_pages"
+            },
+
+            "wrap_pages": {
+                "action": "wrap_multipage",
+                "config": {
+                    "pages_field": "all_pages",
+                    "navigation": "auto"
+                },
+                "next_step": "deploy"
+            },
+
+            "deploy": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "deployer-agent",
+                    "input_fields": ["wrapped_site"]
+                },
+                "next_step": "complete"
+            },
+
+            "complete": {
+                "action": "complete_workflow"
+            }
+        }
+    }
+}'
+WHERE type = 'multipage-website-builder';
+```
+
+**New Actions Needed:**
+- ✅ Already have: `loop` action
+- ✅ Already have: `call_agent` action
+- ❌ Need: `wrap_multipage` action (combines pages, adds nav, creates index)
+
+**Deliverables:**
+- [ ] Implement `wrap_multipage` action in Go
+- [ ] Update multipage-website-builder workflow
+- [ ] Test with 3-page site
+- [ ] Verify pages generated sequentially
+- [ ] Confirm deployment works
+
+**Success Criteria:**
+- ✅ Can generate 3-5 page site reliably
+- ✅ All pages deploy to git
+- ✅ Navigation works between pages
+- ✅ Process completes without timeouts
+
+**Timeline:** 1-2 weeks
+
+---
+
+## Phase 1: Single-Flow Architecture (Week 3-4)
+
+**Goal:** Add simple narrative structure WITHOUT full complexity
+
+### What We're Adding
+- Basic flow concept (awareness → consideration → conversion)
+- Voice parameters per stage (formality increases)
+- Better prompts for content creators
+
+### What We're NOT Adding Yet
+- Multiple flows per site
+- Personas as agents
+- Component library
+- Interrogation system
+
+### Database Changes
+
+**Simple version of flow tables:**
+
+```sql
+-- Minimal flow table
+CREATE TABLE IF NOT EXISTS site_flows (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    orchestration_id UUID NOT NULL,
+    domain TEXT NOT NULL,
+
+    -- Simple 3-stage flow
+    flow_config JSONB NOT NULL,
+    /*
+    {
+        "stage_1": {
+            "name": "awareness",
+            "voice_formality": 0.6,
+            "technical_depth": 0.4,
+            "pages": ["index.html"]
+        },
+        "stage_2": {
+            "name": "consideration",
+            "voice_formality": 0.7,
+            "technical_depth": 0.6,
+            "pages": ["services.html", "about.html"]
+        },
+        "stage_3": {
+            "name": "conversion",
+            "voice_formality": 0.7,
+            "technical_depth": 0.5,
+            "pages": ["contact.html"]
+        }
+    }
+    */
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Simple function to get voice params for a page
+CREATE OR REPLACE FUNCTION get_page_voice_params(
+    p_orchestration_id UUID,
+    p_page_path TEXT
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_flow_config JSONB;
+    v_stage_key TEXT;
+    v_stage_config JSONB;
+BEGIN
+    -- Get flow config
+    SELECT flow_config INTO v_flow_config
+    FROM site_flows
+    WHERE orchestration_id = p_orchestration_id;
+
+    -- Find which stage this page belongs to
+    FOR v_stage_key IN SELECT jsonb_object_keys(v_flow_config)
+    LOOP
+        v_stage_config := v_flow_config->v_stage_key;
+
+        IF v_stage_config->'pages' ? p_page_path THEN
+            RETURN v_stage_config;
+        END IF;
+    END LOOP;
+
+    -- Default if not found
+    RETURN '{"voice_formality": 0.7, "technical_depth": 0.5}'::jsonb;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### Updated Chief Strategist
+
+**Generates simple flow:**
+
+```sql
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,generate_plan,config,prompt_template}',
+    '"Create a simple 3-stage flow for domain: {{.domain}}
+
+Stage 1 (Awareness): 1 page, casual voice (formality 0.6)
+Stage 2 (Consideration): 2-3 pages, professional voice (formality 0.7-0.8)
+Stage 3 (Conversion): 1 page, formal voice (formality 0.8)
+
+Return JSON:
+{
+    \"stage_1\": {
+        \"name\": \"awareness\",
+        \"voice_formality\": 0.6,
+        \"pages\": [\"index.html\"]
+    },
+    \"stage_2\": {...},
+    \"stage_3\": {...}
+}"'::jsonb
+)
+WHERE type = 'chief-strategist';
+```
+
+### Updated Content Creator
+
+**Uses voice params:**
+
+```sql
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,generate,config,prompt_template}',
+    '"Write content for page: {{.page_path}}
+
+Voice parameters:
+- Formality: {{.voice_params.voice_formality}}
+- Technical depth: {{.voice_params.technical_depth}}
+
+Content requirements: {{.content_requirements}}
+
+Adjust your writing style to match the formality level.
+Lower formality = casual, conversational
+Higher formality = professional, polished"'::jsonb
+)
+WHERE type = 'content-creator';
+```
+
+### Updated Multipage Builder
+
+**Queries flow for each page:**
+
+```sql
+-- In generate_pages_loop substep
+"write_page": {
+    "action": "execute_sql_then_call",
+    "config": {
+        "query": "SELECT get_page_voice_params($1, $2)",
+        "params": ["orchestration_id", "current_page.path"],
+        "then_call": {
+            "agent_type": "content-creator",
+            "input_fields": ["current_page", "voice_params", "research"]
+        }
+    }
+}
+```
+
+**Deliverables:**
+- [ ] Create site_flows table
+- [ ] Update chief-strategist to generate flows
+- [ ] Update content-creator to use voice params
+- [ ] Update multipage-builder to query flow
+- [ ] Test voice variation across stages
+
+**Success Criteria:**
+- ✅ Pages have different voice levels (measurable formality)
+- ✅ Home page more casual than contact page
+- ✅ Flow stored in database
+- ✅ Can regenerate site with same flow
+
+**Timeline:** 1 week
+
+---
+
+## Phase 2: Persona-as-Profiles (Week 5-6)
+
+**Goal:** Add personas WITHOUT full cognitive architecture
+
+### Simplified Personas Table
+
+**Just profiles, not full agents:**
+
+```sql
+CREATE TABLE IF NOT EXISTS personas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT UNIQUE NOT NULL,
+    persona_type TEXT NOT NULL, -- 'copywriter', 'technical', 'thought_leader'
+
+    voice_profile JSONB NOT NULL,
+    /*
+    {
+        "formality_baseline": 0.75,
+        "vocabulary_level": "professional",
+        "sentence_complexity": 0.6,
+        "preferred_words": ["transform", "streamline", "optimize"],
+        "avoided_words": ["revolutionary", "game-changing"],
+        "special_instructions": [
+            "Lead with benefits, not features",
+            "Use second person (you/your)",
+            "Keep paragraphs focused"
+        ]
+    }
+    */
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Simple assignment: one persona per stage
+CREATE TABLE IF NOT EXISTS flow_stage_personas (
+    flow_id UUID REFERENCES site_flows(id),
+    stage_name TEXT,
+    persona_id UUID REFERENCES personas(id),
+    UNIQUE(flow_id, stage_name)
+);
+```
+
+### Create 3 Basic Personas
+
+**Minimal persona definitions:**
+
+```sql
+-- Casual copywriter
+INSERT INTO personas (name, persona_type, voice_profile)
+VALUES (
+    'Friendly Copywriter',
+    'copywriter',
+    '{
+        "formality_baseline": 0.5,
+        "vocabulary_level": "everyday",
+        "sentence_complexity": 0.3,
+        "preferred_words": ["you", "your", "simple", "easy"],
+        "special_instructions": [
+            "Use contractions",
+            "Short sentences",
+            "Conversational tone"
+        ]
+    }'
+);
+
+-- Professional copywriter
+INSERT INTO personas (name, persona_type, voice_profile)
+VALUES (
+    'Professional Copywriter',
+    'copywriter',
+    '{
+        "formality_baseline": 0.75,
+        "vocabulary_level": "professional",
+        "sentence_complexity": 0.6,
+        "preferred_words": ["proven", "professional", "comprehensive"],
+        "special_instructions": [
+            "Lead with benefits",
+            "Use industry terminology appropriately",
+            "Maintain professional tone"
+        ]
+    }'
+);
+
+-- Technical writer
+INSERT INTO personas (name, persona_type, voice_profile)
+VALUES (
+    'Technical Writer',
+    'technical',
+    '{
+        "formality_baseline": 0.7,
+        "vocabulary_level": "technical",
+        "sentence_complexity": 0.7,
+        "preferred_words": ["implements", "executes", "configures"],
+        "avoided_words": ["easy", "simple", "just"],
+        "special_instructions": [
+            "Use precise technical terminology",
+            "Provide exact specifications",
+            "Assume baseline technical knowledge"
+        ]
+    }'
+);
+```
+
+### Auto-Assign Personas to Stages
+
+```sql
+CREATE OR REPLACE FUNCTION assign_default_personas(p_flow_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    -- Stage 1: Friendly
+    INSERT INTO flow_stage_personas (flow_id, stage_name, persona_id)
+    SELECT p_flow_id, 'stage_1', id
+    FROM personas WHERE name = 'Friendly Copywriter';
+
+    -- Stage 2: Professional
+    INSERT INTO flow_stage_personas (flow_id, stage_name, persona_id)
+    SELECT p_flow_id, 'stage_2', id
+    FROM personas WHERE name = 'Professional Copywriter';
+
+    -- Stage 3: Professional (same as stage 2)
+    INSERT INTO flow_stage_personas (flow_id, stage_name, persona_id)
+    SELECT p_flow_id, 'stage_3', id
+    FROM personas WHERE name = 'Professional Copywriter';
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### Updated Content Creator
+
+**Uses persona profile:**
+
+```sql
+-- Content creator now gets persona profile
+"write_page": {
+    "action": "execute_sql_then_call",
+    "config": {
+        "query": "SELECT p.voice_profile FROM personas p JOIN flow_stage_personas fsp ON p.id = fsp.persona_id WHERE fsp.stage_name = $1",
+        "params": ["current_page.stage"],
+        "then_call": {
+            "agent_type": "content-creator",
+            "input_fields": ["current_page", "voice_profile", "research"]
+        }
+    }
+}
+```
+
+**Updated prompt:**
+
+```
+You are writing as: {{.persona_name}}
+
+Voice characteristics:
+{{.voice_profile}}
+
+Write content for: {{.page_requirements}}
+
+Apply the voice characteristics listed above.
+```
+
+**Deliverables:**
+- [ ] Create personas table
+- [ ] Create 3 basic personas
+- [ ] Create flow_stage_personas table
+- [ ] Update content-creator to use persona profiles
+- [ ] Test persona variation
+
+**Success Criteria:**
+- ✅ Stage 1 pages sound casual/friendly
+- ✅ Stage 2/3 pages sound professional
+- ✅ Measurable difference in voice
+- ✅ Personas reusable across sites
+
+**Timeline:** 1 week
+
+---
+
+## Phase 3: Component Library Foundation (Week 7-10)
+
+**Goal:** Build component system for intelligent assembly
+
+### Step 3A: Component Schema (Week 7)
+
+```sql
+CREATE TABLE IF NOT EXISTS content_components (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Component identity
+    component_name TEXT UNIQUE NOT NULL,
+    component_type TEXT NOT NULL, -- 'hero', 'cta', 'testimonial', 'feature_grid'
+    category TEXT, -- 'header', 'body', 'footer'
+
+    -- HTML template
+    html_template TEXT NOT NULL,
+    /* Example:
+    <section class="hero">
+        <h1>{{.title}}</h1>
+        <p>{{.subtitle}}</p>
+        {{.slot_cta}}
+    </section>
+    */
+
+    -- What data this component needs
+    data_schema JSONB,
+    /*
+    {
+        "title": {"type": "string", "required": true},
+        "subtitle": {"type": "string", "required": false},
+        "cta_text": {"type": "string", "via_slot": "slot_cta"}
+    }
+    */
+
+    -- What slots it has (for nesting)
+    defined_slots TEXT[], -- ['slot_cta', 'slot_sidebar']
+
+    -- CSS/JS dependencies
+    css_dependencies TEXT[],
+    js_dependencies TEXT[],
+
+    -- When to use this component
+    usage_context JSONB,
+    /*
+    {
+        "page_types": ["landing", "home"],
+        "position": ["top", "above_fold"],
+        "purpose": ["capture_attention", "display_value_prop"]
+    }
+    */
+
+    -- Metadata
+    created_by TEXT DEFAULT 'system',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    usage_count INTEGER DEFAULT 0
+);
+
+CREATE INDEX idx_components_type ON content_components(component_type);
+CREATE INDEX idx_components_category ON content_components(category);
+```
+
+### Step 3B: Seed Basic Components (Week 7)
+
+```sql
+-- Hero section
+INSERT INTO content_components (
+    component_name,
+    component_type,
+    category,
+    html_template,
+    data_schema,
+    defined_slots,
+    css_dependencies,
+    usage_context
+)
+VALUES (
+    'hero_modern',
+    'hero',
+    'header',
+    '<section class="hero">
+        <div class="container">
+            <h1>{{.title}}</h1>
+            <p class="subtitle">{{.subtitle}}</p>
+            {{.slot_cta}}
+        </div>
+    </section>',
+    '{"title": {"type": "string", "required": true}, "subtitle": {"type": "string"}}'::jsonb,
+    ARRAY['slot_cta'],
+    ARRAY['/css/hero.css'],
+    '{"page_types": ["home", "landing"], "position": ["top"]}'::jsonb
+);
+
+-- CTA button
+INSERT INTO content_components (
+    component_name,
+    component_type,
+    category,
+    html_template,
+    data_schema,
+    css_dependencies,
+    usage_context
+)
+VALUES (
+    'cta_button_primary',
+    'cta',
+    'interactive',
+    '<a href="{{.href}}" class="btn btn-primary">{{.text}}</a>',
+    '{"text": {"type": "string", "required": true}, "href": {"type": "string", "required": true}}'::jsonb,
+    ARRAY[],
+    ARRAY['/css/buttons.css'],
+    '{"purpose": ["conversion", "action"]}'::jsonb
+);
+
+-- Feature grid
+INSERT INTO content_components (
+    component_name,
+    component_type,
+    category,
+    html_template,
+    data_schema,
+    defined_slots,
+    css_dependencies,
+    usage_context
+)
+VALUES (
+    'feature_grid_3col',
+    'feature_grid',
+    'body',
+    '<section class="features">
+        <div class="container">
+            <h2>{{.heading}}</h2>
+            <div class="grid grid-3">
+                {{range .features}}
+                <div class="feature-card">
+                    <h3>{{.title}}</h3>
+                    <p>{{.description}}</p>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </section>',
+    '{"heading": {"type": "string"}, "features": {"type": "array", "items": {"title": "string", "description": "string"}}}'::jsonb,
+    ARRAY[],
+    ARRAY['/css/grid.css'],
+    '{"page_types": ["landing", "product"], "purpose": ["display_features"]}'::jsonb
+);
+```
+
+**Deliverables:**
+- [ ] Create content_components table
+- [ ] Seed 10-15 basic components
+- [ ] Create CSS files for components
+- [ ] Document component usage
+
+**Success Criteria:**
+- ✅ Components stored in database
+- ✅ Can query components by type
+- ✅ HTML templates valid
+- ✅ CSS files created
+
+**Timeline:** 1 week
+
+### Step 3C: Component Assembly Action (Week 8)
+
+**New action: `assemble_from_components`**
+
+```go
+// Action: assemble_from_components
+// Selects and assembles components based on page requirements
+func AssembleFromComponents(ctx ActionContext) error {
+    pageType := ctx.Config["page_type"] // "landing", "home", "services"
+    requirements := ctx.InputData["requirements"]
+
+    // 1. Query relevant components
+    components := queryComponents(pageType, requirements)
+
+    // 2. Build component tree
+    tree := buildComponentTree(components, requirements)
+
+    // 3. Render with data
+    html := renderComponentTree(tree, requirements.Data)
+
+    // 4. Collect CSS/JS dependencies
+    assets := collectDependencies(tree)
+
+    ctx.Output = map[string]interface{}{
+        "html": html,
+        "css": assets.CSS,
+        "js": assets.JS,
+    }
+
+    return nil
+}
+
+func queryComponents(pageType string, requirements Requirements) []Component {
+    // Simple SQL query
+    query := `
+        SELECT * FROM content_components
+        WHERE usage_context->>'page_types' ? $1
+        ORDER BY usage_count DESC
+    `
+
+    return db.Query(query, pageType)
+}
+
+func buildComponentTree(components []Component, requirements Requirements) ComponentTree {
+    // Start with page archetype
+    switch requirements.Archetype {
+    case "landing":
+        return ComponentTree{
+            Root: "hero_modern",
+            Children: {
+                "slot_cta": "cta_button_primary",
+            },
+            Next: "feature_grid_3col",
+        }
+    case "services":
+        return ComponentTree{
+            Root: "header_simple",
+            Next: "service_details",
+        }
+    }
+}
+```
+
+**Deliverables:**
+- [ ] Implement `assemble_from_components` action
+- [ ] Component query logic
+- [ ] Tree building logic
+- [ ] Rendering engine
+- [ ] Dependency collection
+
+**Success Criteria:**
+- ✅ Can assemble page from components
+- ✅ CSS/JS dependencies included
+- ✅ Nested components work (slots)
+- ✅ Data binding works
+
+**Timeline:** 1 week
+
+### Step 3D: Integrate with Multipage Builder (Week 9)
+
+**Updated workflow:**
+
+```json
+{
+    "generate_pages_loop": {
+        "action": "loop",
+        "substeps": {
+            "plan_page_structure": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "site-component-architect",
+                    "input_fields": ["current_page.type"]
+                },
+                "output_field": "page_structure"
+            },
+
+            "assemble_components": {
+                "action": "assemble_from_components",
+                "config": {
+                    "page_type": "current_page.type",
+                    "requirements": "page_structure"
+                },
+                "output_field": "assembled_page"
+            },
+
+            "generate_content": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "input_fields": ["assembled_page", "persona", "research"]
+                },
+                "output_field": "final_page"
+            }
+        }
+    }
+}
+```
+
+**Process:**
+1. Architect decides page structure
+2. Components assembled into skeleton
+3. Content creator fills in data
+4. Final page rendered
+
+**Deliverables:**
+- [ ] Update multipage-builder workflow
+- [ ] Create site-component-architect agent
+- [ ] Test component assembly
+- [ ] Verify content fills components correctly
+
+**Success Criteria:**
+- ✅ Pages built from components
+- ✅ No hardcoded HTML in workflow
+- ✅ Components reusable
+- ✅ Can swap components easily
+
+**Timeline:** 1 week
+
+---
+
+## Phase 4: Site Interrogation (Week 11-14)
+
+**Goal:** Learn from successful sites
+
+### Step 4A: Web Scraping Infrastructure (Week 11)
+
+**New tables:**
+
+```sql
+CREATE TABLE IF NOT EXISTS interrogated_sites (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    url TEXT UNIQUE NOT NULL,
+    domain_category TEXT, -- 'saas', 'consulting', 'ecommerce'
+
+    -- Captured data
+    html_snapshot TEXT,
+    screenshot_url TEXT,
+    dom_structure JSONB,
+
+    -- Metadata
+    captured_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    quality_score DECIMAL,
+    is_analyzed BOOLEAN DEFAULT false
+);
+
+CREATE TABLE IF NOT EXISTS extracted_components (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    site_id UUID REFERENCES interrogated_sites(id),
+
+    -- What we extracted
+    component_type TEXT,
+    html_snippet TEXT,
+    css_snippet TEXT,
+
+    -- Where it was
+    dom_path TEXT,
+    position JSONB, -- {"section": "header", "order": 1}
+
+    -- Why it's interesting
+    pattern_notes TEXT,
+    conversion_context TEXT,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+**New action: `interrogate_site`**
+
+```go
+func InterrogateSite(ctx ActionContext) error {
+    url := ctx.InputData["url"]
+
+    // 1. Fetch page
+    html := fetchURL(url)
+
+    // 2. Capture screenshot
+    screenshot := captureScreenshot(url)
+
+    // 3. Parse DOM
+    dom := parseDOM(html)
+
+    // 4. Store
+    siteID := storeInterrogatedSite(url, html, screenshot, dom)
+
+    ctx.Output = map[string]interface{}{
+        "site_id": siteID,
+        "dom_structure": dom,
+    }
+
+    return nil
+}
+```
+
+**Deliverables:**
+- [ ] Create interrogation tables
+- [ ] Implement `interrogate_site` action
+- [ ] Web scraping logic
+- [ ] Screenshot capture
+- [ ] DOM parsing
+
+**Success Criteria:**
+- ✅ Can scrape any URL
+- ✅ HTML and screenshot stored
+- ✅ DOM structure extracted
+- ✅ Ready for analysis
+
+**Timeline:** 1 week
+
+### Step 4B: Pattern Extraction with VLM (Week 12)
+
+**Use Claude with vision to analyze captured sites:**
+
+```go
+func AnalyzeSitePatterns(ctx ActionContext) error {
+    siteID := ctx.InputData["site_id"]
+
+    // Load site data
+    site := loadInterrogatedSite(siteID)
+
+    // Send to Claude with vision
+    prompt := `
+Analyze this website screenshot and HTML.
+
+Identify:
+1. Layout patterns (hero, grid, sidebar, etc.)
+2. Component types (CTA, testimonials, features)
+3. Visual hierarchy
+4. Conversion elements
+5. Design style (modern, minimal, corporate)
+
+For each pattern found, describe:
+- Purpose (what it does)
+- Position (where it is)
+- Effectiveness (why it works)
+
+Return JSON.
+    `
+
+    analysis := callClaudeVision(prompt, site.Screenshot, site.HTML)
+
+    // Extract components based on analysis
+    extractedComponents := extractComponentsFromAnalysis(analysis, site.DOM)
+
+    // Store
+    for _, comp := range extractedComponents {
+        storeExtractedComponent(siteID, comp)
+    }
+
+    // Mark site as analyzed
+    updateSiteAnalysis(siteID, true)
+
+    return nil
+}
+```
+
+**Deliverables:**
+- [ ] Implement VLM analysis
+- [ ] Pattern extraction logic
+- [ ] Component storage
+- [ ] Classification system
+
+**Success Criteria:**
+- ✅ VLM identifies components
+- ✅ Patterns extracted
+- ✅ Components stored with context
+- ✅ Can query patterns by type
+
+**Timeline:** 1 week
+
+### Step 4C: Learning Loop Integration (Week 13-14)
+
+**Pattern library workflow:**
+
+```
+1. User: "Build a consulting site"
+
+2. Interrogator: "Find 5 successful consulting sites"
+   └─> Query existing or scrape new ones
+
+3. Analyzer: "What patterns do they use?"
+   └─> VLM analysis of each site
+
+4. Extractor: "Pull out common components"
+   └─> Identify shared patterns
+
+5. Synthesizer: "Adapt patterns for our site"
+   └─> Don't copy, understand why they work
+
+6. Builder: "Assemble new site using learned patterns"
+   └─> Apply patterns with our content
+```
+
+**New agent: `pattern-synthesizer`**
+
+```json
+{
+    "workflow": {
+        "steps": {
+            "find_similar_sites": {
+                "action": "query_interrogated_sites",
+                "config": {
+                    "category": "input_data.domain_category",
+                    "limit": 5
+                }
+            },
+
+            "analyze_patterns": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "site-analyzer",
+                    "input_fields": ["similar_sites"]
+                }
+            },
+
+            "extract_components": {
+                "action": "extract_common_patterns",
+                "config": {
+                    "sites": "similar_sites",
+                    "min_frequency": 3
+                }
+            },
+
+            "synthesize_approach": {
+                "action": "execute_llm_prompt",
+                "config": {
+                    "prompt": "Based on these patterns, what should we build? Don't copy, but understand why they work and adapt."
+                }
+            }
+        }
+    }
+}
+```
+
+**Deliverables:**
+- [ ] Create pattern-synthesizer agent
+- [ ] Pattern frequency analysis
+- [ ] Adaptation logic (not copying)
+- [ ] Integration with multipage-builder
+
+**Success Criteria:**
+- ✅ Can query pattern library
+- ✅ Patterns inform site design
+- ✅ Not direct copying
+- ✅ Quality improves over time
+
+**Timeline:** 2 weeks
+
+---
+
+## Phase 5: Full Cognitive Personas (Week 15-20)
+
+**Goal:** Upgrade personas from profiles to cognitive agents
+
+### Only When Phase 1-4 Proven
+
+Don't start this until previous phases are stable and working.
+
+### Step 5A: Deploy Cognitive Schema (Week 15)
+
+```bash
+psql $DATABASE_URL -f persona_cognitive_architecture.sql
+```
+
+**Adds:**
+- `personas` (full personality DNA)
+- `persona_cognitive_components` (swappable subsystems)
+- `persona_instances` (running state)
+- `persona_knowledge` (expertise)
+- `persona_task_executions` (learning)
+
+### Step 5B: Implement Cognitive Actions (Week 16-18)
+
+**8 new actions:**
+1. `load_cognitive_system`
+2. `perceive_task`
+3. `retrieve_from_memory`
+4. `reason_and_plan`
+5. `generate_response`
+6. `apply_style`
+7. `update_memory`
+8. (existing) `complete_workflow`
+
+**All start LLM-based**, can evolve later.
+
+### Step 5C: Create First Cognitive Persona (Week 19)
+
+```bash
+psql $DATABASE_URL -f dr_bimpton_setup_example.sql
+```
+
+**Sets up Dr. Bimpton:**
+- Complete personality profile
+- 8 LLM-based cognitive components
+- Knowledge base seeded
+- Agent definition created
+
+### Step 5D: Integrate with Builder (Week 20)
+
+**Multipage builder calls cognitive personas:**
+
+```json
+{
+    "write_page": {
+        "action": "call_agent",
+        "config": {
+            "agent_type": "persona-dr-bimpton",
+            "input_fields": {
+                "task_type": "write_content",
+                "task_input": "current_page"
+            }
+        }
+    }
+}
+```
+
+**Success Criteria:**
+- ✅ Cognitive persona writes content
+- ✅ Memory persists across pages
+- ✅ Quality measurably better
+- ✅ Personality consistent
+
+**Timeline:** 6 weeks total
+
+---
+
+## Critical Success Factors
+
+### Keep Each Phase Independent
+- Phase 1 doesn't need Phase 2
+- Phase 2 doesn't need Phase 3
+- Can stop at any phase and have working system
+
+### Test Thoroughly Before Advancing
+- Each phase should be stable
+- Regression tests at each phase
+- Don't accumulate technical debt
+
+### Measure Quality
+- Track content quality scores
+- Monitor user satisfaction
+- Compare persona vs non-persona output
+- Validate component reusability
+
+### Prioritize Learning
+- Phase 4 (interrogation) teaches Phase 3 (components)
+- Phase 5 (cognitive) applies to all content
+- Each phase makes previous phases better
+
+---
+
+## Minimum Viable Product (MVP) Decision Points
+
+### MVP Level 1: Basic Multipage (Phase 0-1)
+**Delivers:** Working multipage sites with voice variation
+**Timeline:** 3-4 weeks
+**Value:** Better than current broken state
+
+### MVP Level 2: Persona Profiles (Phase 0-2)
+**Delivers:** Different writers for different stages
+**Timeline:** 5-6 weeks
+**Value:** Measurably better content quality
+
+### MVP Level 3: Component Library (Phase 0-3)
+**Delivers:** Intelligent assembly from components
+**Timeline:** 9-10 weeks
+**Value:** Professional-looking sites, faster generation
+
+### MVP Level 4: Learning System (Phase 0-4)
+**Delivers:** Sites improve by learning from examples
+**Timeline:** 13-14 weeks
+**Value:** Quality approaches professional web design
+
+### Full Vision: Cognitive Architecture (Phase 0-5)
+**Delivers:** AI personas with memory and learning
+**Timeline:** 19-20 weeks
+**Value:** Cutting-edge AI content generation
+
+---
+
+## Recommended Approach
+
+### Option A: Conservative (Recommended)
+1. **Weeks 1-4:** Fix multipage + add simple flows (Phase 0-1)
+2. **Weeks 5-6:** Add persona profiles (Phase 2)
+3. **Assess:** If quality good enough, stop here
+4. **If not:** Continue to Phase 3-4 as needed
+
+### Option B: Ambitious
+1. **Weeks 1-4:** Phase 0-1
+2. **Weeks 5-10:** Phase 2-3 (personas + components)
+3. **Assess:** Measure quality gains
+4. **If promising:** Continue to Phase 4-5
+
+### Option C: All In
+Execute all phases in sequence (20 weeks)
+
+**My Recommendation:** Option A
+- Get to working system fast (4 weeks)
+- Add persona profiles (6 weeks total)
+- Assess if further investment justified
+- Don't build complexity until proven needed
+
+---
+
+## Files Reference
+
+**Immediately Useful:**
+- `multi_track_schema.sql` - Flow architecture (Phase 1)
+- `personas_simplified_schema.sql` - Persona profiles (Phase 2)
+
+**Future Use:**
+- `persona_cognitive_architecture.sql` - Full cognitive system (Phase 5)
+- `persona_cognitive_actions.sql` - Action specs (Phase 5)
+- `dr_bimpton_setup_example.sql` - Example persona (Phase 5)
+
+**Documentation:**
+- `PERSONA_ARCHITECTURE_README.md` - Full vision guide
+
+---
+
+## Next Immediate Steps
+
+1. **Review this roadmap** - Decide which phase to target
+2. **Fix multipage-builder** - Start with Phase 0
+3. **Test thoroughly** - Ensure stable before advancing
+4. **Measure quality** - Know if improvements working
+5. **Iterate** - Each phase informs the next
+
+The architecture is designed for the full vision but starts simple at each step.
