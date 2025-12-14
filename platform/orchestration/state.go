@@ -63,6 +63,8 @@ type ExecutionMetadata struct {
 // AwaitedRequest tracks async requests with retry support
 type AwaitedRequest struct {
 	RequestID        string    `json:"request_id"`
+	OrchestrationID  string    `json:"orchestration_id"`
+	CorrelationID    string    `json:"correlation_id"`
 	StepID           string    `json:"step_id"`
 	StepName         string    `json:"step_name"`
 	RetryVersion     int       `json:"retry_version"`
@@ -573,7 +575,7 @@ func (r *StateRepository) CreateInitialState(
 		now,               // $24 - updated_at
 		nil,               // $25 - currently_executing
 		now,               // $26 - last_activity
-		processingNode)    // $27 - processing_node
+		processingNode) // $27 - processing_node
 
 	if err != nil {
 		r.logger.Error("Failed to create initial state",

@@ -54,6 +54,10 @@ type SagaCoordinator struct {
 	// Retry tracking
 	retryCounters map[string]int
 	retryMutex    sync.RWMutex
+
+	// in-memory awaited requests (prevents database race condition)
+	awaitedRequestsMu sync.RWMutex
+	awaitedRequests   map[string]*AwaitedRequest
 }
 
 // NewSagaCoordinator creates a new coordinator instance
@@ -63,15 +67,20 @@ func NewSagaCoordinator(db *sql.DB, producer kafka.Producer, logger *zap.Logger)
 		podName = fmt.Sprintf("coordinator-local-%d", os.Getpid())
 	}
 
-	return &SagaCoordinator{
-		db:          db,
-		producer:    producer,
-		logger:      logger,
-		fuelManager: governance.NewFuelManager(),
-		tracer:      types.NewTraceLogger(logger),
-		isStateless: os.Getenv("ENABLE_STATELESS_MODE") == "true",
-		podName:     podName,
+	coordinator := &SagaCoordinator{
+		db:              db,
+		producer:        producer,
+		logger:          logger,
+		fuelManager:     governance.NewFuelManager(),
+		tracer:          types.NewTraceLogger(logger),
+		isStateless:     os.Getenv("ENABLE_STATELESS_MODE") == "true",
+		podName:         podName,
+		awaitedRequests: make(map[string]*AwaitedRequest),
 	}
+
+	go coordinator.cleanupStaleAwaitedRequests()
+
+	return coordinator
 }
 
 // ExecuteWorkflow executes a workflow with stateless support
@@ -187,14 +196,40 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 
 	repo := NewStateRepository(s.db, s.logger)
 
-	// Always use FindByAwaitedRequestID first - this finds the orchestration that's waiting
-	state, err := repo.FindByAwaitedRequestID(ctx, requestID)
-	if err != nil {
-		// No orchestration is waiting for this response - it's not for us
-		contextLogger.Info("No orchestration waiting for this response",
+	// FAST PATH: Check in-memory map first (no database race condition!)
+	s.awaitedRequestsMu.RLock()
+	awaitedReq, existsInMemory := s.awaitedRequests[requestID]
+	s.awaitedRequestsMu.RUnlock()
+
+	var state *OrchestrationState
+	var err error
+
+	if existsInMemory {
+		contextLogger.Info("Found awaited request in memory (fast path - no DB race)",
 			zap.String("request_id", requestID),
-			zap.Error(err))
-		return nil
+			zap.String("orchestration_id", awaitedReq.OrchestrationID))
+
+		// Load the full orchestration state
+		state, err = repo.GetState(ctx, awaitedReq.OrchestrationID)
+		if err != nil {
+			contextLogger.Error("Failed to load orchestration state from memory lookup",
+				zap.String("orchestration_id", awaitedReq.OrchestrationID),
+				zap.Error(err))
+			return fmt.Errorf("failed to load state for orchestration %s: %w", awaitedReq.OrchestrationID, err)
+		}
+
+	} else {
+		// SLOW PATH: Not in memory - check database (recovery after pod restart)
+		contextLogger.Info("Awaited request not in memory, checking database (recovery path)",
+			zap.String("request_id", requestID))
+
+		state, err = repo.FindByAwaitedRequestID(ctx, requestID)
+		if err != nil {
+			contextLogger.Info("No orchestration waiting for this response",
+				zap.String("request_id", requestID),
+				zap.Error(err))
+			return nil
+		}
 	}
 
 	if state == nil {
@@ -1115,6 +1150,14 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 	// Create awaited request entry
 	awaitedReq := createAwaitedRequest(requestID, execCtx, state, step, result, responsesTopic)
 
+	coordinator.awaitedRequestsMu.Lock()
+	coordinator.awaitedRequests[requestID] = awaitedReq
+	coordinator.awaitedRequestsMu.Unlock()
+
+	logger.Info("Added awaited request to in-memory map (no race condition)",
+		zap.String("request_id", requestID),
+		zap.String("orchestration_id", state.OrchestrationID))
+
 	// Add to state
 	if state.AwaitedRequests == nil {
 		state.AwaitedRequests = make(map[string]*AwaitedRequest)
@@ -1177,6 +1220,8 @@ func createAwaitedRequest(requestID string, execCtx *types.ExecutionContext, sta
 
 	return &AwaitedRequest{
 		RequestID:       requestID,
+		OrchestrationID: state.OrchestrationID,
+		CorrelationID:   state.CorrelationID,
 		StepID:          execCtx.StepID,
 		StepName:        state.CurrentStep,
 		RetryVersion:    0,
@@ -1545,6 +1590,14 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 
 	// Remove from awaited requests
 	delete(state.AwaitedRequests, requestID)
+
+	// remove in-memory awaited requests
+	s.awaitedRequestsMu.Lock()
+	delete(s.awaitedRequests, requestID)
+	s.awaitedRequestsMu.Unlock()
+
+	contextLogger.Info("Removed awaited request from memory (response processed)",
+		zap.String("request_id", requestID))
 
 	// ALSO find the step in CollectedData and update its metadata
 	// This preserves any existing step data while adding response info
@@ -2100,6 +2153,36 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 
 	repo := NewStateRepository(s.db, s.logger)
 	return repo.UpdateState(ctx, state)
+}
+
+// cleanupStaleAwaitedRequests removes timed-out entries from in-memory map
+func (s *SagaCoordinator) cleanupStaleAwaitedRequests() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		now := time.Now()
+		var toDelete []string
+
+		s.awaitedRequestsMu.RLock()
+		for requestID, req := range s.awaitedRequests {
+			if now.After(req.TimeoutAt) {
+				toDelete = append(toDelete, requestID)
+			}
+		}
+		s.awaitedRequestsMu.RUnlock()
+
+		if len(toDelete) > 0 {
+			s.awaitedRequestsMu.Lock()
+			for _, requestID := range toDelete {
+				delete(s.awaitedRequests, requestID)
+			}
+			s.awaitedRequestsMu.Unlock()
+
+			s.logger.Info("Cleaned up stale awaited requests from memory",
+				zap.Int("count", len(toDelete)))
+		}
+	}
 }
 
 func isLocalAction(action string) bool {
