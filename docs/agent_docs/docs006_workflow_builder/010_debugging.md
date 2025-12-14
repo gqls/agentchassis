@@ -64,3 +64,6 @@ kubectl logs <pod-name> | grep -B 5 -A 30 "generate_html"
 If extraction still fails after deployment:
 
 Check logs for "=== MASTER EXTRACTOR START ===" message
+
+
+No state found for awaited request_id

@@ -107,6 +107,32 @@ kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 
 ========================================================================
 
+====--------------
+==================
+==================
+  listen on a topic
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/kafka/bin/kafka-console-consumer.sh   --bootstrap-server localhost:9092   --topic system.agent.generic.requests   --from-beginning   --property print.headers=true
+==================
+==================
+===
+Aspect		Option 1 (Intake)		Option 2 (Direct)Group Type
+		intake-orchestrator    		landing-page-builder
+Classification 	Yes (site-classifier runs)	No (skipped)
+BriefingYes (	briefing-agent runs)		No (brief_data provided)
+HITL Points	2 (can skip with hitl_mode)	0
+Use Case	Production flow			Testing builder pipeline
+==================
+==================
+====--------------
+========================================================================
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/kafka/bin/kafka-console-consumer.sh   --bootstrap-server localhost:9092   --topic job.c897233a-61536014-multipage-website-builder-spawn_builder.requests   --from-beginning   --property print.headers=true
+
+
+
+========================================================================
+
+
 
 
 BROCHURE Site Start - START
@@ -157,7 +183,7 @@ kcat -P \
 -H from_agent_type=user \
 -H from_agent_id=cli \
 -H responses_topic=system.generic.responses <<'JSON'
-{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain":"leopardessconsulting.co.uk","objective":"Create a comprehensive corporate website for Leopardess Consulting, a web and digital transformation consulting firm. The site should showcase our company overview, leadership values, detailed service offerings across strategy, operations, and digital transformation, potential for ai agent involvement in product, finance, marketing management and human resources, insights blog, careers section, and contact information. Target audience: C-suite executives and senior managers at mid-to-large enterprises seeking strategic consulting services.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain":"leopardessconsulting.co.uk","objective":"Create a comprehensive corporate website for Leopardess Consulting, a web and digital transformation consulting firm. The site should showcase our company overview, leadership values, detailed service offerings across strategy, operations, and digital transformation, potential for ai agent integration in product, finance, marketing, management and human resources, insights blog, careers section, and contact information. Target audience: C-suite executives, HR and senior managers at mid-to-large enterprises seeking strategic consulting services.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
 JSON
 
 echo ""
@@ -218,9 +244,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=a5a907fe-6b23-4a2f-9256-bc15d7d17396
-ORCHESTRATION_ID=19ed2217-f967-4b33-b622-75e7c372c2f5
-HITL_REQUEST_ID=fbb5b3d2-72d2-4a51-9b72-13c24e6251e8
+CORRELATION_ID=c897233a-daa3-4822-b26c-196858819ad6
+ORCHESTRATION_ID=61536014-dfea-41f0-93a8-c716baf28807
+HITL_REQUEST_ID=80f3d97d-b28a-4821-8aa6-a6ca43ef3744
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -301,9 +327,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=a5a907fe-6b23-4a2f-9256-bc15d7d17396
-ORCHESTRATION_ID=19ed2217-f967-4b33-b622-75e7c372c2f5
-HITL_REQUEST_ID=73578ab8-65df-4383-8282-ec7f151c16fa
+CORRELATION_ID=c897233a-daa3-4822-b26c-196858819ad6
+ORCHESTRATION_ID=61536014-dfea-41f0-93a8-c716baf28807
+HITL_REQUEST_ID=a31c61fe-777c-488d-959c-b8b8f3526a20
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"

@@ -520,3 +520,123 @@ FROM orchestrator_state
 WHERE workflow_type = 'multipage-website-builder'
   AND status IN ('RUNNING', 'AWAITING_RESPONSES')
   AND updated_at < NOW() - INTERVAL '1 hour';
+
+==
+
+add spawning
+
+-- Fixed multipage-website-builder workflow with spawn steps
+
+-- Fixed multipage-website-builder workflow with all agents spawned first
+
+UPDATE agent_definitions
+SET default_config = '{
+    "processing_mode": "task",
+    "timeout_seconds": 600,
+    "workflow": {
+        "start_step": "spawn_strategist",
+        "steps": {
+            "spawn_strategist": {
+                "action": "spawn_agent",
+                "config": {
+                    "agent_type": "chief-strategist",
+                    "role": "strategist"
+                },
+                "next_step": "spawn_content_creator",
+                "output_field": "strategist_info",
+                "description": "Spawn chief strategist agent"
+            },
+
+            "spawn_content_creator": {
+                "action": "spawn_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "role": "writer"
+                },
+                "next_step": "spawn_deployer",
+                "output_field": "writer_info",
+                "description": "Spawn content creator agent for loop iterations"
+            },
+
+            "spawn_deployer": {
+                "action": "spawn_agent",
+                "config": {
+                    "agent_type": "deployer-agent",
+                    "role": "deployer"
+                },
+                "next_step": "call_strategist",
+                "output_field": "deployer_info",
+                "description": "Spawn deployer agent"
+            },
+
+            "call_strategist": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "chief-strategist",
+                    "target_role": "strategist",
+                    "timeout_seconds": 120
+                },
+                "next_step": "generate_pages_loop",
+                "output_field": "page_plan",
+                "description": "Get page plan from chief strategist"
+            },
+
+            "generate_pages_loop": {
+                "action": "loop",
+                "config": {
+                    "iterate_over": "page_plan.pages",
+                    "loop_var": "current_page",
+                    "max_iterations": 10,
+                    "substeps": {
+                        "generate_page": {
+                            "action": "call_agent",
+                            "config": {
+                                "agent_type": "content-creator",
+                                "target_role": "writer",
+                                "input_fields": ["current_page", "input_data"],
+                                "timeout_seconds": 180
+                            },
+                            "output_field": "page_html",
+                            "description": "Generate content for each page"
+                        }
+                    }
+                },
+                "next_step": "assemble_site",
+                "output_field": "all_pages",
+                "description": "Generate all pages sequentially"
+            },
+
+            "assemble_site": {
+                "action": "assemble_multipage_site",
+                "config": {
+                    "pages_field": "all_pages",
+                    "add_navigation": true,
+                    "generate_standard_pages": true
+                },
+                "next_step": "deploy",
+                "output_field": "site_files",
+                "description": "Assemble pages into complete site with navigation"
+            },
+
+            "deploy": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "deployer-agent",
+                    "target_role": "deployer",
+                    "input_fields": ["site_files", "input_data"],
+                    "timeout_seconds": 180
+                },
+                "next_step": "complete",
+                "output_field": "deployment_result",
+                "description": "Deploy site to git repository"
+            },
+
+            "complete": {
+                "action": "complete_workflow",
+                "description": "Multipage site build complete"
+            }
+        }
+    }
+}'::jsonb,
+updated_at = now()
+WHERE type = 'multipage-website-builder';
