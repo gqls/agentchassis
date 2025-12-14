@@ -173,3 +173,33 @@
   "processing_mode": "orchestration",
   "timeout_seconds": 600
 }
+
+
+===
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,fetch_questionnaire,config,agent_type_field}',
+        '"spawn_briefer.recommended_builder"'
+                     )
+WHERE type = 'intake-orchestrator';
+
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_briefer,output_field}',
+        '"briefer_agent"'
+                     )
+WHERE type = 'intake-orchestrator';
+
+
+-- revert back to original path
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,fetch_questionnaire,config,agent_type_field}',
+        '"confirmed_type.recommended_builder"'
+                     )
+WHERE type = 'intake-orchestrator';

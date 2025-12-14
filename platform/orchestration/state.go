@@ -928,7 +928,7 @@ func (r *StateRepository) FindByAwaitedRequestID(ctx context.Context, requestID 
 
 			err = r.db.QueryRowContext(ctx, alternativeQuery, requestID).Scan(&orchestrationID)
 			if err != nil {
-				r.logger.Info("No state found for awaited request_id",
+				r.logger.Error("No state found for awaited request_id",
 					zap.String("request_id", requestID),
 					zap.Error(err))
 				return nil, fmt.Errorf("state not found for awaited request_id: %s", requestID)
