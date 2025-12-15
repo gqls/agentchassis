@@ -249,6 +249,11 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	case "awaiting", "processing":
 		return s.handleProgressUpdate(ctx, state, execCtx)
 	case "complete":
+		// Before calling handleCompleteResponse, reload state to get latest version
+		state, err = repo.GetState(ctx, awaitedReq.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to reload state before processing response: %w", err)
+		}
 		return s.handleCompleteResponse(ctx, state, requestID, execCtx, response, awaitedReq)
 	case "error_recoverable":
 		return s.handleRecoverableError(ctx, state, requestID, execCtx, response)
