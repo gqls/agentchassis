@@ -75,6 +75,9 @@ type AwaitedRequest struct {
 	SentAt           time.Time `json:"sent_at"`
 	TimeoutAt        time.Time `json:"timeout_at"`
 	ReplyToRequestID string    `json:"reply_to_request_id,omitempty"`
+
+	Status      string     `json:"status,omitempty" db:"status"`
+	ProcessedAt *time.Time `json:"processed_at,omitempty" db:"processed_at"`
 }
 
 // ProcessingRecord tracks which pod processed what (for debugging)
@@ -1208,4 +1211,226 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 	}
 
 	return state, nil
+}
+
+// InsertAwaitedRequest atomically inserts a new awaited request into the table
+// Returns error if request_id already exists
+func (r *StateRepository) InsertAwaitedRequest(ctx context.Context, req *AwaitedRequest) error {
+	query := `
+		INSERT INTO awaited_requests (
+			request_id, orchestration_id, correlation_id, step_id, step_name,
+			retry_version, target_agent_id, target_agent_type,
+			responses_topic, requests_topic, sent_at, timeout_at,
+			reply_to_request_id, status
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'waiting')
+		ON CONFLICT (request_id) DO NOTHING
+	`
+
+	result, err := r.db.ExecContext(ctx, query,
+		req.RequestID,
+		req.OrchestrationID,
+		req.CorrelationID,
+		req.StepID,
+		req.StepName,
+		req.RetryVersion,
+		req.TargetAgentID,
+		req.TargetAgentType,
+		req.ResponsesTopic,
+		req.RequestsTopic,
+		req.SentAt,
+		req.TimeoutAt,
+		req.ReplyToRequestID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert awaited request: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check insert result: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("awaited request already exists: %s", req.RequestID)
+	}
+
+	r.logger.Info("Inserted awaited request into database",
+		zap.String("request_id", req.RequestID),
+		zap.String("orchestration_id", req.OrchestrationID),
+	)
+
+	return nil
+}
+
+// GetAwaitedRequest retrieves an awaited request by request_id
+// Returns nil if not found or already processed
+func (r *StateRepository) GetAwaitedRequest(ctx context.Context, requestID string) (*AwaitedRequest, error) {
+	query := `
+		SELECT 
+			request_id, orchestration_id, correlation_id, step_id, step_name,
+			retry_version, target_agent_id, target_agent_type,
+			responses_topic, requests_topic, sent_at, timeout_at,
+			reply_to_request_id, status, processed_at
+		FROM awaited_requests
+		WHERE request_id = $1
+		  AND status = 'waiting'
+	`
+
+	record := &AwaitedRequest{}
+	var processedAt sql.NullTime
+
+	err := r.db.QueryRowContext(ctx, query, requestID).Scan(
+		&record.RequestID,
+		&record.OrchestrationID,
+		&record.CorrelationID,
+		&record.StepID,
+		&record.StepName,
+		&record.RetryVersion,
+		&record.TargetAgentID,
+		&record.TargetAgentType,
+		&record.ResponsesTopic,
+		&record.RequestsTopic,
+		&record.SentAt,
+		&record.TimeoutAt,
+		&record.ReplyToRequestID,
+		&record.Status,
+		&processedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get awaited request: %w", err)
+	}
+
+	if processedAt.Valid {
+		record.ProcessedAt = &processedAt.Time
+	}
+
+	return record, nil
+}
+
+// GetAwaitedRequestWithRetry tries multiple times to find an awaited request
+// Handles race condition where INSERT may not be visible yet
+func (r *StateRepository) GetAwaitedRequestWithRetry(ctx context.Context, requestID string, maxRetries int) (*AwaitedRequest, error) {
+	retryDelay := 50 * time.Millisecond
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		record, err := r.GetAwaitedRequest(ctx, requestID)
+		if err != nil {
+			return nil, err
+		}
+
+		if record != nil {
+			if attempt > 0 {
+				r.logger.Info("Found awaited request after retry",
+					zap.String("request_id", requestID),
+					zap.Int("attempts", attempt+1),
+				)
+			}
+			return record, nil
+		}
+
+		// Not found, retry if not last attempt
+		if attempt < maxRetries-1 {
+			r.logger.Debug("Awaited request not found, retrying",
+				zap.String("request_id", requestID),
+				zap.Int("attempt", attempt+1),
+				zap.Duration("delay", retryDelay),
+			)
+			time.Sleep(retryDelay)
+		}
+	}
+
+	r.logger.Warn("Awaited request not found after all retries",
+		zap.String("request_id", requestID),
+		zap.Int("max_retries", maxRetries),
+	)
+	return nil, nil
+}
+
+// MarkAwaitedRequestProcessed marks a request as processed
+func (r *StateRepository) MarkAwaitedRequestProcessed(ctx context.Context, requestID string) error {
+	query := `
+		UPDATE awaited_requests
+		SET status = 'processed',
+		    processed_at = NOW()
+		WHERE request_id = $1
+		  AND status = 'waiting'
+	`
+
+	result, err := r.db.ExecContext(ctx, query, requestID)
+	if err != nil {
+		return fmt.Errorf("failed to mark awaited request as processed: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check update result: %w", err)
+	}
+
+	if rows == 0 {
+		r.logger.Warn("No awaited request was marked as processed (already processed or not found)",
+			zap.String("request_id", requestID),
+		)
+	} else {
+		r.logger.Info("Marked awaited request as processed",
+			zap.String("request_id", requestID),
+		)
+	}
+
+	return nil
+}
+
+// CancelAwaitedRequestsForOrchestration cancels all waiting requests for an orchestration
+// Called when orchestration completes or fails
+func (r *StateRepository) CancelAwaitedRequestsForOrchestration(ctx context.Context, orchestrationID string) error {
+	query := `
+		UPDATE awaited_requests
+		SET status = 'cancelled',
+		    processed_at = NOW()
+		WHERE orchestration_id = $1
+		  AND status = 'waiting'
+	`
+
+	result, err := r.db.ExecContext(ctx, query, orchestrationID)
+	if err != nil {
+		return fmt.Errorf("failed to cancel awaited requests: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check cancel result: %w", err)
+	}
+
+	if rows > 0 {
+		r.logger.Info("Cancelled awaited requests for orchestration",
+			zap.String("orchestration_id", orchestrationID),
+			zap.Int64("count", rows),
+		)
+	}
+
+	return nil
+}
+
+// CleanupExpiredAwaitedRequests marks expired requests and deletes old ones
+// Should be called periodically (e.g., every minute)
+func (r *StateRepository) CleanupExpiredAwaitedRequests(ctx context.Context) (int, error) {
+	query := `SELECT cleanup_expired_awaited_requests()`
+
+	var expiredCount int
+	err := r.db.QueryRowContext(ctx, query).Scan(&expiredCount)
+	if err != nil {
+		return 0, fmt.Errorf("failed to cleanup expired awaited requests: %w", err)
+	}
+
+	if expiredCount > 0 {
+		r.logger.Info("Cleaned up expired awaited requests",
+			zap.Int("count", expiredCount),
+		)
+	}
+
+	return expiredCount, nil
 }
