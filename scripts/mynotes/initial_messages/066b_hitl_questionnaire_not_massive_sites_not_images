@@ -15,6 +15,10 @@ kubectl -n ai-persona-system scale deployment/web-search-adapter --replicas=0
 kubectl -n ai-persona-system scale deployment/content-creator-agent --replicas=0
 kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=0
 
+kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas=2
+kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
+kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
+
 # 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
 # List all job topics
 kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
@@ -72,7 +76,7 @@ kubectl -n ai-persona-system delete jobs -l agent-type=calculator
 kubectl -n ai-persona-system delete pods -l agent-type=calculator
 
 # 6. Scale back up
-kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+# kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 
 
 # =======
@@ -137,7 +141,6 @@ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/k
 
 BROCHURE Site Start - START
 
-# Generate unique IDs
 # Generate unique IDs
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -244,9 +247,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=1751078b-2ad2-41bb-874b-d1e20c97b6ed
-ORCHESTRATION_ID=06f33825-8afd-4128-928c-a486cd08d5d5
-HITL_REQUEST_ID=c2e62d29-3540-416b-91ea-53ea847204c0
+CORRELATION_ID=adbe6ac6-05be-49bd-9de7-b4259999680c
+ORCHESTRATION_ID=4e28b277-6658-4f6a-8fb1-be210961699b
+HITL_REQUEST_ID=
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -327,9 +330,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=1751078b-2ad2-41bb-874b-d1e20c97b6ed
-ORCHESTRATION_ID=9bff408b-e8a6-4e7a-aa76-0446d191e9d2
-HITL_REQUEST_ID=384801c8-e339-42f1-b12e-14c23f8aa36b
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
