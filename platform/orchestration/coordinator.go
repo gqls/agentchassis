@@ -249,7 +249,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	case "awaiting", "processing":
 		return s.handleProgressUpdate(ctx, state, execCtx)
 	case "complete":
-		return s.handleCompleteResponse(ctx, state, requestID, execCtx, response)
+		return s.handleCompleteResponse(ctx, state, requestID, execCtx, response, awaitedReq)
 	case "error_recoverable":
 		return s.handleRecoverableError(ctx, state, requestID, execCtx, response)
 	case "error_unrecoverable":
@@ -1442,7 +1442,7 @@ func (s *SagaCoordinator) handleProgressUpdate(ctx context.Context, state *Orche
 }
 
 // handleCompleteResponse processes a successful response
-func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
+func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage, awaitedReq *AwaitedRequest) error {
 	s.logger.Info("in handleCompleteResponse orchestrator ",
 		zap.String("orchestration_id is", execCtx.OrchestrationID),
 		zap.String("step_name", execCtx.StepName),
@@ -1463,30 +1463,10 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
-	// Find the awaited request
-	var awaitedReq *AwaitedRequest
-
-	// Find the awaited request
-	awaitedReq, exists := state.AwaitedRequests[requestID]
-	if !exists {
-		s.logger.Error("No awaited request found for response",
-			zap.String("request_id", requestID),
-			zap.Any("state.AwaitedRequests (awaited_request_ids)", state.AwaitedRequests),
-		)
-		return fmt.Errorf("no awaited request found for request_id: %s", requestID)
-	}
-
-	s.logger.Info("Found awaited request",
+	s.logger.Info("Processing complete response",
 		zap.String("step_name", awaitedReq.StepName),
-		zap.String("step_id", awaitedReq.StepID))
-
-	for rid, req := range state.AwaitedRequests {
-		if req.RequestID == response.Headers.InResponseToRequestID {
-			awaitedReq = req
-			requestID = rid
-			break
-		}
-	}
+		zap.String("step_id", awaitedReq.StepID),
+		zap.String("request_id", requestID))
 
 	// Parse response body - handle flexible structure
 	var responseBodyData map[string]interface{}
