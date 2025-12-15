@@ -244,9 +244,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=9b5a80bb-8b4c-4902-a18b-82218e61634e
-ORCHESTRATION_ID=dd751ae7-4040-4472-9575-9b5b3c16b9d7
-HITL_REQUEST_ID=9916e7ab-f310-497e-a0ba-ded4c6e7ca9b
+CORRELATION_ID=42373b65-35e8-4372-bdf4-8ac4878d1429
+ORCHESTRATION_ID=6970a0b1-a02c-430a-91c2-fcd2aae75bd2
+HITL_REQUEST_ID=b73a7960-ad1b-450d-bac3-8b22ce8e050a
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -327,9 +327,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
-CORRELATION_ID=9b5a80bb-8b4c-4902-a18b-82218e61634e
-ORCHESTRATION_ID=dd751ae7-4040-4472-9575-9b5b3c16b9d7
-HITL_REQUEST_ID=353ff62b-487e-4595-913f-850f7520b68c
+CORRELATION_ID=42373b65-35e8-4372-bdf4-8ac4878d1429
+ORCHESTRATION_ID=6970a0b1-a02c-430a-91c2-fcd2aae75bd2
+HITL_REQUEST_ID=982bf889-61c6-4678-b0bf-0f5ef6f6acfd
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -363,7 +363,7 @@ kcat -P \
 -H sender_agent_type=human \
 -H sender_agent_id=cli-user \
 -H timestamp=$TIMESTAMP <<'JSON'
-{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Intelligent Digital Solutions for Modern Business","about_us":"Leopardess Consulting delivers cutting-edge web solutions and digital transformation services powered by advanced AI technology. We specialize in multi-agent systems, automated website deployment, and strategic technology implementation that helps businesses modernize their digital presence rapidly and reliably.","services":[{"name":"Automated Website Solutions","description":"Production-ready websites deployed in minutes, not weeks. Secure, reliable, professionally hosted with automated builds using AI-powered multi-agent orchestration."},{"name":"Multi-Agent Systems","description":"Custom AI agent architectures for complex workflows. Intelligent task delegation, autonomous execution, and sophisticated orchestration for scalable business automation."},{"name":"Digital Transformation Strategy","description":"Strategic guidance for adopting modern technologies. Web architecture consulting, AI integration planning, and technical roadmap development for digital-first businesses."},{"name":"Web Consultancy","description":"Expert advice on web technologies, architecture, and deployment strategies. Technical consulting for teams building modern, scalable web applications and services."}],"target_audience":"Technology leaders, CTOs, and businesses seeking modern web solutions and AI-powered automation","tone":"professional","key_differentiators":"AI-powered multi-agent automation\nRapid deployment (minutes, not weeks)\nSecure, reliable, professionally hosted\nCutting-edge technology stack\nExpertise in complex orchestration systems\nFocus on modern, scalable solutions","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"Technology strategist with deep expertise in web architecture, AI systems, and digital transformation. Specialized in multi-agent orchestration and automated deployment systems."}],"case_studies":[],"contact_email":"sales-information-online@leopardessconsulting.co.uk","contact_phone":"07936 8273756","headquarters":"West Surrey, UK","has_blog":true,"has_careers":false,"primary_cta":"Get Started","primary_cta_url":"/contact"}}
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Agile AI Agents: Pounce on Digital Transformation with Speed and Precision","about_us":"Leopardess Consulting harnesses the power of hierarchical AI agent frameworks to deliver swift, adaptive digital solutions. Our Kubernetes-orchestrated systems with Kafka messaging and Postgres storage enable businesses to automate complex workflows—like building and launching multipage websites via Cloudflare—empowering you to thrive amid the AI surge with rapid, reliable innovation.","services":[{"name":"Automated Website Solutions","description":"Deploy production-ready websites in minutes using AI-driven multi-agent orchestration. Enjoy secure, scalable hosting on Cloudflare with automated builds, testing, and launches that eliminate traditional development bottlenecks."},{"name":"Multi-Agent Systems","description":"Build custom hierarchical agent frameworks for tackling multifaceted business challenges. With support for diverse LLMs and models, our systems enable intelligent task delegation, real-time collaboration, and seamless scalability for advanced automation."},{"name":"Digital Transformation Strategy","description":"Expert guidance to integrate AI and modern tech into your operations. We craft tailored roadmaps for AI adoption, workflow optimization, and digital agility, helping businesses leap ahead in competitive landscapes."},{"name":"Web Consultancy","description":"Specialized advice on cutting-edge web architectures, deployment strategies, and AI integrations. Our consultants empower your team to create robust, future-proof web applications with a focus on speed, security, and innovation."}],"target_audience":"Technology leaders, CTOs, and businesses seeking modern web solutions and AI-powered automation","tone":"professional","key_differentiators":"Leopardess agility in AI orchestration\nUltra-rapid deployment (minutes, not weeks)\nEnterprise-grade security and reliability\nAdvanced Kubernetes, Kafka, and Postgres infrastructure\nExpertise in hierarchical multi-agent systems\nVertical focus on web automation and beyond","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"A visionary technology strategist specializing in AI agent frameworks, web architecture, and automated systems. With a passion for agile innovation, Peter drives digital transformation through sophisticated multi-agent orchestration and rapid deployment solutions."}],"case_studies":[],"contact_email":"sales-information-online@leopardessconsulting.co.uk","contact_phone":"07936 8273756","headquarters":"West Surrey, UK","has_blog":true,"has_careers":false,"primary_cta":"Get Started","primary_cta_url":"/contact"}}
 JSON
 
 
@@ -380,7 +380,9 @@ echo "  kubectl logs -n ai-persona-system -l app=agent-chassis --tail=100 | grep
 echo ""
 
 
-============== not design related - previous
+============== previous 2
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Intelligent Digital Solutions for Modern Business","about_us":"Leopardess Consulting delivers cutting-edge web solutions and digital transformation services powered by advanced AI technology. We specialize in multi-agent systems, automated website deployment, and strategic technology implementation that helps businesses modernize their digital presence rapidly and reliably.","services":[{"name":"Automated Website Solutions","description":"Production-ready websites deployed in minutes, not weeks. Secure, reliable, professionally hosted with automated builds using AI-powered multi-agent orchestration."},{"name":"Multi-Agent Systems","description":"Custom AI agent architectures for complex workflows. Intelligent task delegation, autonomous execution, and sophisticated orchestration for scalable business automation."},{"name":"Digital Transformation Strategy","description":"Strategic guidance for adopting modern technologies. Web architecture consulting, AI integration planning, and technical roadmap development for digital-first businesses."},{"name":"Web Consultancy","description":"Expert advice on web technologies, architecture, and deployment strategies. Technical consulting for teams building modern, scalable web applications and services."}],"target_audience":"Technology leaders, CTOs, and businesses seeking modern web solutions and AI-powered automation","tone":"professional","key_differentiators":"AI-powered multi-agent automation\nRapid deployment (minutes, not weeks)\nSecure, reliable, professionally hosted\nCutting-edge technology stack\nExpertise in complex orchestration systems\nFocus on modern, scalable solutions","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"Technology strategist with deep expertise in web architecture, AI systems, and digital transformation. Specialized in multi-agent orchestration and automated deployment systems."}],"case_studies":[],"contact_email":"sales-information-online@leopardessconsulting.co.uk","contact_phone":"07936 8273756","headquarters":"West Surrey, UK","has_blog":true,"has_careers":false,"primary_cta":"Get Started","primary_cta_url":"/contact"}}
+============== not design related - previous 1
 {"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Transforming Strategy Into Results","about_us":"For over 30 years, Leopardess Consulting has partnered with UK small and medium sized companies to solve their most complex business challenges. Our team of consultants brings deep expertise across strategy, operations, and digital transformation.","services":[{"name":"Strategy Consulting","description":"Corporate strategy, M&A advisory, and growth planning for market leaders"},{"name":"Operations Excellence","description":"Process optimization, supply chain transformation, and operational efficiency programs"},{"name":"Digital Transformation","description":"Technology strategy, digital operating models, and enterprise-wide change management"}],"target_audience":"C-suite executives and senior managers at FTSE 350 and mid-market enterprises","tone":"professional","key_differentiators":"30 years experience\nMultiple agent assisted expert consultants\nProven track record\nIndustry-specific expertise\nEnd-to-end implementation support","leadership_team":[{"name":"Peter Grenfell","title":"Managing Partner","bio":"Former Accenture Consultant, and Principal ATL Strategic Consultancy with 30 years in strategy consulting"},{"name":"J. Lyttelton","title":"Partner, Operations","bio":"Ex-COO of Global Manufacturing, led high profile operational transformations"}],"case_studies":[{"client":"Global Retailer","challenge":"Supply chain inefficiencies","result":"Reduced costs by 23%, improved delivery times by 40%"},{"client":"Financial Services Firm","challenge":"Digital transformation","result":"Launched new platform, increased customer engagement 65%"}],"contact_email":"sales-information-online@leopardessconsulting.co.uk","contact_phone":"07936 8273756","headquarters":"West Surrey, UK","has_blog":true,"has_careers":true,"primary_cta":"Schedule Consultation","primary_cta_url":"/contact"}}
 =============== web related
 {
@@ -637,3 +639,73 @@ Fix: Send manual confirmation with brochure type - HITL allows override
 Issue: Wrong builder spawned
 Cause: HITL confirmation specified wrong recommended_builder
 Fix: Check send_brochure_confirm.sh has "content-site-builder"
+
+
+
+---
+
+
+
+{
+  "headers": {
+    "correlation_id": "${CORRELATION_ID}",
+    "orchestration_id": "${ORCHESTRATION_ID}",
+    "message_id": "${MESSAGE_ID}",
+    "message_type": "response",
+    "client_id": "demo_client",
+    "in_response_to_request_id": "${HITL_REQUEST_ID}",
+    "in_response_to_step_name": "hitl_review_brief",
+    "in_response_to_action": "request_human_input",
+    "status": "complete",
+    "is_complete": true,
+    "is_error": false,
+    "sender": {
+      "agent_id": "cli-user",
+      "agent_type": "human",
+      "pod_name": "cli"
+    },
+    "timestamp": "${TIMESTAMP}"
+  },
+  "body": {
+            "success": true,
+            "company_name": "Leopardess Consulting",
+            "tagline": "Agile AI Agents: Pounce on Digital Transformation with Speed and Precision",
+            "about_us": "Leopardess Consulting harnesses the power of hierarchical AI agent frameworks to deliver swift, adaptive digital solutions. Our Kubernetes-orchestrated systems with Kafka messaging and Postgres storage enable businesses to automate complex workflows—like building and launching multipage websites via Cloudflare—empowering you to thrive amid the AI surge with rapid, reliable innovation.",
+            "services": [
+              {
+                "name": "Automated Website Solutions",
+                "description": "Deploy production-ready websites in minutes using AI-driven multi-agent orchestration. Enjoy secure, scalable hosting on Cloudflare with automated builds, testing, and launches that eliminate traditional development bottlenecks."
+              },
+              {
+                "name": "Multi-Agent Systems",
+                "description": "Build custom hierarchical agent frameworks for tackling multifaceted business challenges. With support for diverse LLMs and models, our systems enable intelligent task delegation, real-time collaboration, and seamless scalability for advanced automation."
+              },
+              {
+                "name": "Digital Transformation Strategy",
+                "description": "Expert guidance to integrate AI and modern tech into your operations. We craft tailored roadmaps for AI adoption, workflow optimization, and digital agility, helping businesses leap ahead in competitive landscapes."
+              },
+              {
+                "name": "Web Consultancy",
+                "description": "Specialized advice on cutting-edge web architectures, deployment strategies, and AI integrations. Our consultants empower your team to create robust, future-proof web applications with a focus on speed, security, and innovation."
+              }
+            ],
+            "target_audience": "Technology leaders, CTOs, and businesses seeking modern web solutions and AI-powered automation",
+            "tone": "professional",
+            "key_differentiators": "Leopardess agility in AI orchestration\nUltra-rapid deployment (minutes, not weeks)\nEnterprise-grade security and reliability\nAdvanced Kubernetes, Kafka, and Postgres infrastructure\nExpertise in hierarchical multi-agent systems\nVertical focus on web automation and beyond",
+            "leadership_team": [
+              {
+                "name": "Peter Grenfell",
+                "title": "Founder & Principal Consultant",
+                "bio": "A visionary technology strategist specializing in AI agent frameworks, web architecture, and automated systems. With a passion for agile innovation, Peter drives digital transformation through sophisticated multi-agent orchestration and rapid deployment solutions."
+              }
+            ],
+            "case_studies": [],
+            "contact_email": "sales-information-online@leopardessconsulting.co.uk",
+            "contact_phone": "07936 8273756",
+            "headquarters": "West Surrey, UK",
+            "has_blog": true,
+            "has_careers": false,
+            "primary_cta": "Get Started",
+            "primary_cta_url": "/contact"
+          }
+}

@@ -640,3 +640,15 @@ SET default_config = '{
 }'::jsonb,
 updated_at = now()
 WHERE type = 'multipage-website-builder';
+
+
+---
+-- change from looking for pages to looking for sections
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_pages_loop,config,iterate_over}',
+        '"page_plan.sections"'
+                     )
+WHERE type = 'multipage-website-builder';
