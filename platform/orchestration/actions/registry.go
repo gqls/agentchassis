@@ -34,6 +34,8 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"validate_input":  ValidateInputAction,
 	"transform_data":  TransformDataAction,
 	"validate_schema": ValidateSchemaAction,
+	"parse_json":      ParseJSONFieldAction,
+	"extract_field":   ExtractFieldAction,
 
 	// maths actions
 	"calculate": CalculateAction,

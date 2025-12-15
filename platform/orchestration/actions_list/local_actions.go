@@ -34,6 +34,8 @@ var LocalActions = map[string]bool{
 	"validate_input":  true,
 	"transform_data":  true,
 	"validate_schema": true,
+	"parse_json":      true,
+	"extract_field":   true,
 
 	"calculate": true,
 
