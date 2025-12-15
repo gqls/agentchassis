@@ -31,11 +31,11 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"split_urls":             SplitURLsAction,
 
 	// Data operations
-	"validate_input":  ValidateInputAction,
-	"transform_data":  TransformDataAction,
-	"validate_schema": ValidateSchemaAction,
-	"parse_json":      ParseJSONFieldAction,
-	"extract_field":   ExtractFieldAction,
+	"validate_input":   ValidateInputAction,
+	"transform_data":   TransformDataAction,
+	"validate_schema":  ValidateSchemaAction,
+	"parse_json_field": ParseJSONFieldAction,
+	"extract_field":    ExtractFieldAction,
 
 	// maths actions
 	"calculate": CalculateAction,

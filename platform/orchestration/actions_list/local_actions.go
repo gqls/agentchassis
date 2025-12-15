@@ -31,11 +31,11 @@ var LocalActions = map[string]bool{
 	"split_urls":             true,
 
 	// Data operations
-	"validate_input":  true,
-	"transform_data":  true,
-	"validate_schema": true,
-	"parse_json":      true,
-	"extract_field":   true,
+	"validate_input":   true,
+	"transform_data":   true,
+	"validate_schema":  true,
+	"parse_json_field": true,
+	"extract_field":    true,
 
 	"calculate": true,
 
