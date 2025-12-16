@@ -59,3 +59,23 @@ SELECT
     default_config->'workflow'->'start_step' as start_step
 FROM agent_definitions
 WHERE type = 'chief-strategist';
+
+
+----
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_build_plan,config}',
+        '{
+            "ai_service": {
+                "provider": "anthropic",
+                "model": "claude-haiku-4-5-20251001",
+                "api_key_env_var": "ANTHROPIC_API_KEY"
+            },
+            "max_tokens": 8192,
+            "input_data": ["domain", "objective", "model"],
+            "prompt_template": "You are a Chief Marketing Strategist. Client: {{.domain}}. Objective: {{.objective}}. Model: {{.model}}.\n\nAvailable Components: [header, hero, features, social_proof, pricing, faq, call_to_action, footer].\n\nBased on the {{.model}} model, select the best sequence of components. Then for each component devise a plan for the copy structure, suggested copy and suggested graphics style that suits the objective {{ .objective }} and the marketing model {{ .model }}.\n\nIMPORTANT: You MUST complete the entire JSON structure. If approaching token limits, prioritize completing all JSON fields with brief descriptions rather than leaving structures incomplete.\n\nOutput ONLY valid JSON (no markdown fences): {\"sections\": [\"component_name\", ...], \"component_details\": {...}}"
+        }'::jsonb
+                     )
+WHERE type = 'chief-strategist';

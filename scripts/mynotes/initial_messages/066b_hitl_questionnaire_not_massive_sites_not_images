@@ -4,7 +4,7 @@ kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
 kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
 
 # 3. Clear database tables
-kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests CASCADE;"
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests, awaited_requests CASCADE;"
 
 # 4. Delete ALL spawned agent jobs
 kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
@@ -14,10 +14,6 @@ kubectl -n ai-persona-system scale deployment/reasoning-agent --replicas=0
 kubectl -n ai-persona-system scale deployment/web-search-adapter --replicas=0
 kubectl -n ai-persona-system scale deployment/content-creator-agent --replicas=0
 kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=0
-
-kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas=2
-kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
-kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
 
 # 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
 # List all job topics
@@ -75,27 +71,39 @@ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
 kubectl -n ai-persona-system delete jobs -l agent-type=calculator
 kubectl -n ai-persona-system delete pods -l agent-type=calculator
 
+
+
 # 6. Scale back up
-# kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+sleep 5
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas=2
+kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
+kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
+
 
 
 # =======
 
-sleep 5
-kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+#sleep 5
+#kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
 
-kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
-/opt/kafka/bin/kafka-consumer-groups.sh \
+#kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+#/opt/kafka/bin/kafka-consumer-groups.sh \
+#  --bootstrap-server localhost:9092 \
+ # --reset-offsets \
+#  --to-earliest \
+ # --all-groups   \
+#  --all-topics    \
+ # --execute
+
+#kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+# Check consumer group details
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
   --bootstrap-server localhost:9092 \
-  --reset-offsets \
-  --to-earliest \
-  --all-groups   \
-  --all-topics    \
-  --execute
-
-kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
-
-
+  --describe \
+  --group generic-requests-group
 
 
 
@@ -161,7 +169,8 @@ echo "  Time:             $TIMESTAMP"
 echo "========================================="
 echo ""
 echo "SAVE THIS FOR HITL RESPONSES:"
-echo "  CORRELATION_ID=$CORRELATION_ID"
+echo "CORRELATION_ID=$CORRELATION_ID"
+echo "ORCHESTRATION_ID=$ORCHESTRATION_ID"
 echo ""
 echo ""
 echo "========================================="
@@ -246,10 +255,10 @@ HITL_REQUEST_ID=
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
-
-CORRELATION_ID=11923c62-d3a5-4840-8d4f-2c426ef18cd4
-ORCHESTRATION_ID=76f4f84c-1c45-4398-ac26-e35bb2e6151f
-HITL_REQUEST_ID=d9a24e94-ad50-4d42-b5c5-1140f2c1a0d7
+--
+CORRELATION_ID=a175c6ce-f316-4ae1-a712-86ef1b591fe7
+ORCHESTRATION_ID=37f71750-7170-494e-a8c4-22622730aaf2
+HITL_REQUEST_ID=3c5e0aed-7281-42ad-ac78-1b195256df13
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -329,10 +338,10 @@ HITL_REQUEST_ID=
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
-
-CORRELATION_ID=11923c62-d3a5-4840-8d4f-2c426ef18cd4
-ORCHESTRATION_ID=76f4f84c-1c45-4398-ac26-e35bb2e6151f
-HITL_REQUEST_ID=2d40a265-8f50-47dd-82f4-b5b729161eba
+---
+CORRELATION_ID=a175c6ce-f316-4ae1-a712-86ef1b591fe7
+ORCHESTRATION_ID=37f71750-7170-494e-a8c4-22622730aaf2
+HITL_REQUEST_ID=46c133d8-b4dc-4753-b726-5d84e2a0a62f
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"

@@ -39,7 +39,7 @@ func FindByPath(data map[string]interface{}, path string, logger *zap.Logger) in
 				current = val
 			} else {
 				// Try recursive unwrapping
-				unwrapped := unwrapDeep(v, logger)
+				unwrapped := UnwrapDeep(v, logger)
 				if unwrappedMap, ok := unwrapped.(map[string]interface{}); ok {
 					if val, ok := unwrappedMap[part]; ok {
 						current = val
@@ -62,7 +62,7 @@ func FindByPath(data map[string]interface{}, path string, logger *zap.Logger) in
 	}
 
 	// Final unwrapping
-	return unwrapDeep(current, logger)
+	return UnwrapDeep(current, logger)
 }
 
 // FindHTMLWithFallback tries path first, then content search
@@ -145,7 +145,7 @@ func findContentRecursive(data interface{}, predicate func(string) bool, depth i
 }
 
 // unwrapDeep recursively unwraps nested structures
-func unwrapDeep(data interface{}, logger *zap.Logger) interface{} {
+func UnwrapDeep(data interface{}, logger *zap.Logger) interface{} {
 	return unwrapRecursive(data, 0, logger)
 }
 
@@ -204,6 +204,7 @@ func tryParseJSON(value interface{}) interface{} {
 	}
 
 	// Remove markdown fences
+	originalLen := len(str)
 	str = strings.TrimSpace(str)
 	str = strings.TrimPrefix(str, "```json\n")
 	str = strings.TrimPrefix(str, "```json")
@@ -215,6 +216,9 @@ func tryParseJSON(value interface{}) interface{} {
 
 	var parsed interface{}
 	if err := json.Unmarshal([]byte(str), &parsed); err != nil {
+		// Log the error with context for debugging
+		fmt.Printf("JSON parsing failed: %v. Original length: %d, Cleaned length: %d, Preview: %s\n",
+			err, originalLen, len(str), str[max(0, len(str)-100):])
 		return nil
 	}
 
