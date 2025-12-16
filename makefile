@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.548
+IMAGE_TAG ?= v1.0.549
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -411,7 +411,7 @@ deploy-090-monitoring: ## Deploy monitoring stack
 deploy-100-bootstrap-agents: ## Deploy bootstrap agents (generic orchestrator) with image updates
 	@echo "$(GREEN)Deploying 100-bootstrap-agents...$(NC)"
 	@echo "$(YELLOW)First updating agent definitions with current image...$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
 		"UPDATE agent_definitions SET image_repository = '$(REGISTRY)/agent-chassis', image_tag = '$(IMAGE_TAG)', updated_at = NOW(); SELECT COUNT(*) as updated_count FROM agent_definitions;" 2>/dev/null || true
 	@cd $(TERRAFORM_DIR)/100-bootstrap-agents && \
 		if [ -f terraform.tfvars.secret ]; then \
@@ -697,7 +697,7 @@ db-migrate: ## Run database migrations
 .PHONY: db-seed
 db-seed: ## Seed database with test data
 	@echo "$(YELLOW)Seeding database...$(NC)"
-	kubectl exec -it deployment/postgres-clients -n $(PROJECT_NAME) -- \
+	kubectl exec --request-timeout=5m -it deployment/postgres-clients -n $(PROJECT_NAME) -- \
 		psql -U postgres -f /scripts/seed-data.sql
 
 #################################
@@ -1105,7 +1105,7 @@ monitor-workflows: ## Run workflow monitor as a one-off command
 .PHONY: monitor-stuck
 monitor-stuck: ## Check for stuck workflows
 	@echo "$(YELLOW)Checking for stuck workflows...$(NC)"
-	kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+	kubectl exec --request-timeout=5m -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
 		"SELECT correlation_id, current_step, status, \
 		 EXTRACT(EPOCH FROM (NOW() - updated_at))/3600 as hours_stuck \
 		 FROM orchestrator_state \
@@ -1116,7 +1116,7 @@ monitor-stuck: ## Check for stuck workflows
 .PHONY: monitor-active
 monitor-active: ## Show active workflows
 	@echo "$(YELLOW)Active workflows:$(NC)"
-	kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+	kubectl exec --request-timeout=5m -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
 		"SELECT correlation_id, current_step, status, \
 		 execution_metadata->>'completed_steps' as completed, \
 		 execution_metadata->>'total_steps' as total, \
@@ -1130,7 +1130,7 @@ monitor-active: ## Show active workflows
 .PHONY: monitor-metrics
 monitor-metrics: ## Show workflow metrics for last 24 hours
 	@echo "$(YELLOW)Workflow metrics (24h):$(NC)"
-	kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+	kubectl exec --request-timeout=5m -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
 		"SELECT \
 		 COUNT(*) as total, \
 		 COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed, \
@@ -1150,20 +1150,20 @@ monitor-metrics: ## Show workflow metrics for last 24 hours
 .PHONY: db-exec-templates
 db-exec-templates: ## Execute SQL in templates DB
 	@echo "$(YELLOW)Executing SQL in templates DB...$(NC)"
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- \
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -it postgres-templates-0 -n $(PROJECT_NAME) -- \
 		psql -U templates_user -d templates_db
 
 .PHONY: db-exec-clients
 db-exec-clients: ## Execute SQL in clients DB
 	@echo "$(YELLOW)Executing SQL in clients DB...$(NC)"
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- \
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -it postgres-clients-0 -n $(PROJECT_NAME) -- \
 		psql -U clients_user -d clients_db
 
 # Create new agent definition on the fly
 .PHONY: agent-create
 agent-create: ## Create a new agent definition (usage: make agent-create TYPE=analyzer NAME="Data Analyzer")
 	@echo "$(YELLOW)Creating agent definition: $(TYPE)$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
 		INSERT INTO agent_definitions (type, display_name, description, category, default_config, capabilities) VALUES \
 		('$(TYPE)', '$(NAME)', '$(DESC)', 'data-driven', \
 		'{\"model\": \"claude-3-5-sonnet-20241022\", \"temperature\": 0.5, \"processing_mode\": \"task\", \
@@ -1180,7 +1180,7 @@ agent-create: ## Create a new agent definition (usage: make agent-create TYPE=an
 .PHONY: agent-update-config
 agent-update-config: ## Update agent config (usage: make agent-update-config TYPE=analyzer CONFIG='{"temperature": 0.7}')
 	@echo "$(YELLOW)Updating agent config for: $(TYPE)$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
 		UPDATE agent_definitions \
 		SET default_config = default_config || '$(CONFIG)'::jsonb, \
 		    updated_at = NOW() \
@@ -1191,7 +1191,7 @@ agent-update-config: ## Update agent config (usage: make agent-update-config TYP
 .PHONY: agent-list
 agent-list: ## List all agent definitions
 	@echo "$(YELLOW)Agent Definitions:$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
 		SELECT type, display_name, category, \
 		       array_length(capabilities::text[], 1) as cap_count, \
 		       is_active, \
@@ -1203,7 +1203,7 @@ agent-list: ## List all agent definitions
 .PHONY: agent-performance
 agent-performance: ## Show agent performance metrics
 	@echo "$(YELLOW)Agent Performance Metrics:$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
 		SELECT agent_type, \
 		       total_tasks, \
 		       ROUND(success_rate * 100, 1) || '%' as success_rate, \
@@ -1217,7 +1217,7 @@ agent-performance: ## Show agent performance metrics
 .PHONY: group-create
 group-create: ## Create agent group (usage: make group-create NAME="Analysis Team" TYPE=analysis)
 	@echo "$(YELLOW)Creating agent group: $(NAME)$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
 		INSERT INTO agent_groups (name, group_type, agent_configs, orchestration_workflow) \
 		VALUES ('$(NAME)', '$(TYPE)', \
 		'[{\"role\": \"lead\", \"agent_type\": \"$(TYPE)-leader\"}, \
@@ -1230,7 +1230,7 @@ group-create: ## Create agent group (usage: make group-create NAME="Analysis Tea
 agent-hot-reload: ## Hot reload agent config (usage: make agent-hot-reload AGENT_ID=xxx CONFIG='{"key": "value"}')
 	@echo "$(YELLOW)Hot reloading config for agent: $(AGENT_ID)$(NC)"
 	@echo '{"type": "config_update", "agent_id": "$(AGENT_ID)", "config": $(CONFIG)}' | \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i kafka-cluster-kafka-0 -n $(PROJECT_NAME) -- \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i kafka-cluster-kafka-0 -n $(PROJECT_NAME) -- \
 		/opt/kafka/bin/kafka-console-producer.sh \
 		--broker-list localhost:9092 \
 		--topic system.agent.$(AGENT_ID).control
@@ -1239,14 +1239,14 @@ agent-hot-reload: ## Hot reload agent config (usage: make agent-hot-reload AGENT
 .PHONY: agent-discover
 agent-discover: ## Test agent discovery (usage: make agent-discover CAPS="analysis,reporting")
 	@echo "$(YELLOW)Discovering agents with capabilities: $(CAPS)$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
 		SELECT * FROM find_agents_by_capability('{$(CAPS)}'::text[], 'demo_client');"
 
 # Recommend agents for task
 .PHONY: agent-recommend
 agent-recommend: ## Get agent recommendations (usage: make agent-recommend TASK=website-builder)
 	@echo "$(YELLOW)Recommending agents for task: $(TASK)$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -it postgres-templates-0 -n $(PROJECT_NAME) -- psql -U templates_user -d templates_db -c "\
 		SELECT agent_type, display_name, \
 		       ROUND(performance_score * 100) || '%' as score, \
 		       recommendation_reason \
@@ -1310,9 +1310,9 @@ bootstrap-status: ## Check status of bootstrap agents
 .PHONY: update-agent-images
 update-agent-images: ## Update all agent definitions with current image tag
 	@echo "$(YELLOW)Updating agent definitions with image: $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
 		"UPDATE agent_definitions SET image_repository = '$(REGISTRY)/agent-chassis', image_tag = '$(IMAGE_TAG)', updated_at = NOW();"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
 		"SELECT type, image_repository, image_tag FROM agent_definitions ORDER BY type LIMIT 5;"
 	@echo "$(GREEN)Agent definitions updated with $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
 
@@ -1320,7 +1320,7 @@ update-agent-images: ## Update all agent definitions with current image tag
 .PHONY: update-agent-images-v2
 update-agent-images-v2: ## Update all agent definitions with current image tag (alternative)
 	@echo "$(YELLOW)Updating agent definitions with image: $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c "\
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c "\
 		UPDATE agent_definitions \
 		SET image_repository = '$(REGISTRY)/agent-chassis', \
 		    image_tag = '$(IMAGE_TAG)', \
@@ -1364,7 +1364,7 @@ sync-all-agents: update-agent-images-v2 update-generic-orchestrator ## Update da
 verify-agent-images: ## Verify all agent images are consistent
 	@echo "$(YELLOW)Checking agent image versions...$(NC)"
 	@echo "$(CYAN)Database agent definitions:$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -t -c \
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -t -c \
 		"SELECT DISTINCT image_repository || ':' || image_tag as image FROM agent_definitions WHERE is_active = true;" 2>/dev/null || echo "Failed to query database"
 	@echo "$(CYAN)Generic orchestrator:$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get statefulset generic-orchestrator -o jsonpath='{.spec.template.spec.containers[0].image}' && echo

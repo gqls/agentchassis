@@ -277,7 +277,7 @@ echo ""
 ==========================
 
 
-BROCHURE FIRST Confirm
+BROCHURE (FIRST) Confirm
 ----------------------
 
 CORRELATION_ID=
@@ -289,7 +289,7 @@ CLIENT_ID="demo_client"
 --
 CORRELATION_ID=9db58a1a-e903-4382-b618-eef6e3c696b9
 ORCHESTRATION_ID=221f9145-287a-41d6-9c10-785dd8e05b49
-HITL_REQUEST_ID=
+HITL_REQUEST_ID=71b61d64-a1e2-41b8-9492-d985417e0f49
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -372,7 +372,7 @@ CLIENT_ID="demo_client"
 ---
 CORRELATION_ID=9db58a1a-e903-4382-b618-eef6e3c696b9
 ORCHESTRATION_ID=221f9145-287a-41d6-9c10-785dd8e05b49
-HITL_REQUEST_ID=
+HITL_REQUEST_ID=9f249cdf-ed4d-4223-b8bb-1613bca2b056
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"

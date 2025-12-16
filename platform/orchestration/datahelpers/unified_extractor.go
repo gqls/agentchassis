@@ -169,7 +169,7 @@ func findFieldRecursive(
 
 		// Try unwrapping first
 		unwrapped := tryUnwrapMapPatterns(m, logger)
-		if unwrapped != nil && unwrapped != data {
+		if unwrapped != nil {
 			if result := findFieldRecursive(unwrapped, fieldName, depth+1, logger); result != nil {
 				return result
 			}
