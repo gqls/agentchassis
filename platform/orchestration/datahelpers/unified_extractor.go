@@ -62,7 +62,7 @@ func ExtractFields(
 
 		logger.Info(">>> Extracting field", zap.String("field", fieldName))
 
-		value := extractSingleField(collectedData, fieldName, logger)
+		value := extractSingleField(collectedData, fieldName, make(map[string]bool), logger)
 
 		if value != nil {
 			// Store with simple name (last part of path)
@@ -97,10 +97,17 @@ func ExtractFields(
 func extractSingleField(
 	data map[string]interface{},
 	fieldName string,
+	seen map[string]bool,
 	logger *zap.Logger,
 ) interface{} {
 
 	logger.Debug("Trying extraction strategies", zap.String("field", fieldName))
+
+	// Prevent infinite loops from circular aliases
+	if seen[fieldName] {
+		return nil // Already tried this field
+	}
+	seen[fieldName] = true
 
 	// Strategy 1: Use FindByPath (handles unwrapping)
 	if value := FindByPath(data, fieldName, logger); value != nil {
@@ -139,7 +146,7 @@ func extractSingleField(
 		logger.Info("Trying field alias",
 			zap.String("field", fieldName),
 			zap.String("alias", alias))
-		return extractSingleField(data, alias, logger)
+		return extractSingleField(data, alias, seen, logger)
 	}
 
 	return nil

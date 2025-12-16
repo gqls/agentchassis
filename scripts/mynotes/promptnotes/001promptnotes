@@ -40,7 +40,7 @@ Always look through existing code and see if we have similar functions or struct
 
 Let's reuse (and alter if necessary) the functions and architecture that we already have before recreating similar structures. Please think hard about this every time.
 
-
+don't use wrapper functions if you can reasonably change the underlying function - if the underlying function is not widely used
 
 
 
