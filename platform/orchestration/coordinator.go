@@ -1765,6 +1765,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		freshState.LastActivity = time.Now()
 		freshState.Status = StatusExecutingStep
 		freshState.AwaitedRequests = make(map[string]*AwaitedRequest)
+		freshState.CurrentStep = state.CurrentStep
 
 		// Use retry logic
 		if err := repo.UpdateStateWithRetry(ctx, freshState, 3); err != nil {
