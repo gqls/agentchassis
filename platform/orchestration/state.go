@@ -799,6 +799,47 @@ func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *Orc
 	return nil
 }
 
+// UpdateStateWithRetry attempts to update state with automatic retry on optimistic lock failures
+func (r *StateRepository) UpdateStateWithRetry(ctx context.Context, state *OrchestrationState, maxRetries int) error {
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		err := r.UpdateState(ctx, state)
+		if err == nil {
+			return nil
+		}
+
+		// Check if it's an optimistic lock failure
+		if strings.Contains(err.Error(), "optimistic lock failure") {
+			r.logger.Warn("Optimistic lock failure, retrying",
+				zap.Int("attempt", attempt+1),
+				zap.Int("max_retries", maxRetries),
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.Int("stale_version", state.Version))
+
+			// Reload state to get latest version
+			reloaded, reloadErr := r.GetState(ctx, state.OrchestrationID)
+			if reloadErr != nil {
+				return fmt.Errorf("failed to reload state on retry attempt %d: %w", attempt+1, reloadErr)
+			}
+
+			r.logger.Info("Reloaded state for retry",
+				zap.Int("attempt", attempt+1),
+				zap.Int("new_version", reloaded.Version),
+				zap.Int("old_version", state.Version))
+
+			// Update our state reference with the reloaded version
+			*state = *reloaded
+
+			// Continue to next attempt
+			continue
+		}
+
+		// Not an optimistic lock failure - return the error
+		return err
+	}
+
+	return fmt.Errorf("failed to update state after %d retries due to optimistic lock failures", maxRetries)
+}
+
 // AddAwaitedRequest adds a request to the awaited list
 func (r *StateRepository) AddAwaitedRequest(ctx context.Context, orchestrationID string, request *AwaitedRequest) error {
 	state, err := r.GetState(ctx, orchestrationID)

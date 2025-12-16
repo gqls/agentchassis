@@ -249,11 +249,6 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	case "awaiting", "processing":
 		return s.handleProgressUpdate(ctx, state, execCtx)
 	case "complete":
-		// Before calling handleCompleteResponse, reload state to get latest version
-		state, err = repo.GetState(ctx, awaitedReq.OrchestrationID)
-		if err != nil {
-			return fmt.Errorf("failed to reload state before processing response: %w", err)
-		}
 		return s.handleCompleteResponse(ctx, state, requestID, execCtx, response, awaitedReq)
 	case "error_recoverable":
 		return s.handleRecoverableError(ctx, state, requestID, execCtx, response)
@@ -1604,9 +1599,39 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 
 	// Update state in database
 	repo := NewStateRepository(s.db, s.logger)
-	if err := repo.UpdateState(ctx, state); err != nil {
+
+	// Reload state to get latest version before saving
+	// This minimises race window with continueExecution
+	freshState, err := repo.GetState(ctx, state.OrchestrationID)
+	if err != nil {
+		return fmt.Errorf("failed to reload state before saving response: %w", err)
+	}
+
+	s.logger.Info("Reloaded state before saving response",
+		zap.Int("old_version", state.Version),
+		zap.Int("new_version", freshState.Version))
+
+	// Re-apply our changes to the fresh state
+	freshState.CollectedData[stepName] = normalisedData
+	if step, exists := freshState.WorkflowPlan.Steps[stepName]; exists && step.OutputField != "" {
+		var dataToStore interface{} = normalisedData
+		if shouldExtractFormFields(step) {
+			formFieldValues := extractHITLFormFields(normalisedData, step.Config, s.logger)
+			if len(formFieldValues) > 0 {
+				dataToStore = formFieldValues
+			}
+		}
+		freshState.CollectedData[step.OutputField] = dataToStore
+	}
+	delete(freshState.AwaitedRequests, requestID)
+
+	// Use retry logic when saving
+	if err := repo.UpdateStateWithRetry(ctx, freshState, 3); err != nil {
 		return fmt.Errorf("failed to save response data: %w", err)
 	}
+
+	// Update our local reference
+	state = freshState
 
 	// Check if all responses received
 	if len(state.AwaitedRequests) == 0 {
@@ -1679,13 +1704,31 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		}
 
 		state.LastActivity = time.Now()
-
 		state.Status = StatusExecutingStep
 		state.AwaitedRequests = make(map[string]*AwaitedRequest)
 
-		if err := repo.UpdateState(ctx, state); err != nil {
-			return fmt.Errorf("failed to update state after clearing awaited requests after responses: %w", err)
+		// Reload state again before second save
+		freshState, err = repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to reload state before clearing awaited requests: %w", err)
 		}
+
+		s.logger.Info("Reloaded state before clearing awaited requests",
+			zap.Int("old_version", state.Version),
+			zap.Int("new_version", freshState.Version))
+
+		// Re-apply changes to fresh state
+		freshState.LastActivity = time.Now()
+		freshState.Status = StatusExecutingStep
+		freshState.AwaitedRequests = make(map[string]*AwaitedRequest)
+
+		// Use retry logic
+		if err := repo.UpdateStateWithRetry(ctx, freshState, 3); err != nil {
+			return fmt.Errorf("failed to update state after clearing awaited requests: %w", err)
+		}
+
+		// Update reference for continueExecution call
+		state = freshState
 
 		s.logger.Info("handleCompleteResponse: all responses received continuing workflow",
 			zap.Any("DEBUGaa: fresh exec ctx:", freshExecCtx),
