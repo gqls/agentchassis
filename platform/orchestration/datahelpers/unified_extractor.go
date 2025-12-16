@@ -123,7 +123,7 @@ func extractSingleField(
 	if inputMap := getInputDataMap(data, logger); inputMap != nil {
 		if value, ok := inputMap[fieldName]; ok {
 			logger.Info("Found in input_data map", zap.String("field", fieldName))
-			return unwrapDeep(value, logger)
+			return UnwrapDeep(value, logger)
 		}
 	}
 
@@ -164,7 +164,7 @@ func findFieldRecursive(
 				zap.String("field", fieldName),
 				zap.Int("depth", depth),
 			)
-			return unwrapDeep(val, logger)
+			return UnwrapDeep(val, logger)
 		}
 
 		// Try unwrapping first
@@ -286,7 +286,7 @@ func getInputDataMap(data map[string]interface{}, logger *zap.Logger) map[string
 	}
 
 	// Try unwrapping data first
-	unwrapped := unwrapDeep(data, logger)
+	unwrapped := UnwrapDeep(data, logger)
 	if unwrappedMap, ok := unwrapped.(map[string]interface{}); ok {
 		if inputData, ok := unwrappedMap["input_data"].(map[string]interface{}); ok {
 			return inputData
