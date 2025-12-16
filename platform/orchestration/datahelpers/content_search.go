@@ -203,26 +203,89 @@ func tryParseJSON(value interface{}) interface{} {
 		return nil
 	}
 
-	// Remove markdown fences
+	// Store original for debugging
+	// originalStr := str
 	originalLen := len(str)
+	// Remove markdown fences
 	str = strings.TrimSpace(str)
-	str = strings.TrimPrefix(str, "```json\n")
-	str = strings.TrimPrefix(str, "```json")
-	str = strings.TrimPrefix(str, "```\n")
-	str = strings.TrimPrefix(str, "```")
-	str = strings.TrimSuffix(str, "\n```")
-	str = strings.TrimSuffix(str, "```")
-	str = strings.TrimSpace(str)
+
+	// Handle all fence variations
+	for strings.HasPrefix(str, "```") {
+		// Find end of first line
+		newlineIdx := strings.Index(str, "\n")
+		if newlineIdx > 0 {
+			str = str[newlineIdx+1:] // Skip past ```json\n or ```\n
+		} else {
+			str = strings.TrimPrefix(str, "```")
+		}
+		str = strings.TrimSpace(str)
+	}
+
+	// Remove trailing fences
+	for strings.HasSuffix(str, "```") {
+		// Find start of last line
+		lastNewline := strings.LastIndex(str, "\n```")
+		if lastNewline > 0 {
+			str = str[:lastNewline]
+		} else {
+			str = strings.TrimSuffix(str, "```")
+		}
+		str = strings.TrimSpace(str)
+	}
+
+	cleanedLen := len(str)
 
 	var parsed interface{}
 	if err := json.Unmarshal([]byte(str), &parsed); err != nil {
 		// Log the error with context for debugging
 		fmt.Printf("JSON parsing failed: %v. Original length: %d, Cleaned length: %d, Preview: %s\n",
 			err, originalLen, len(str), str[max(0, len(str)-100):])
+		// LOG THE ACTUAL FAILURE
+		fmt.Printf("JSON PARSE FAILED\n")
+		fmt.Printf("  Original length: %d\n", originalLen)
+		fmt.Printf("  Cleaned length: %d\n", cleanedLen)
+		fmt.Printf("  Error: %v\n", err)
+		fmt.Printf("  First 200 chars: %s\n", str[:min(200, len(str))])
+		fmt.Printf("  Last 200 chars: %s\n", str[max(0, len(str)-200):])
+
+		// Check WHY it failed
+		if isTruncatedJSON(str) {
+			fmt.Printf("  Cause: TRUNCATED JSON (unmatched brackets/braces)\n")
+			fmt.Printf("  Last 300 chars: ...%s\n", str[max(0, len(str)-300):])
+		} else {
+			fmt.Printf("  Cause: SYNTAX ERROR (not truncation)\n")
+			fmt.Printf("  First 200 chars: %s\n", str[:min(200, len(str))])
+		}
+
 		return nil
 	}
 
+	fmt.Printf("JSON parse success (original: %d bytes, cleaned: %d bytes)\n", originalLen, cleanedLen)
 	return parsed
+}
+
+// isTruncatedJSON detects if a string appears to be truncated JSON
+func isTruncatedJSON(str string) bool {
+	trimmed := strings.TrimSpace(str)
+
+	// Check for unmatched brackets/braces
+	openBraces := strings.Count(trimmed, "{")
+	closeBraces := strings.Count(trimmed, "}")
+	openBrackets := strings.Count(trimmed, "[")
+	closeBrackets := strings.Count(trimmed, "]")
+
+	if openBraces != closeBraces || openBrackets != closeBrackets {
+		return true
+	}
+
+	// Check if ends with incomplete structure
+	if strings.HasSuffix(trimmed, ",") ||
+		strings.HasSuffix(trimmed, ":") ||
+		strings.HasSuffix(trimmed, "\":") {
+		return true
+	}
+
+	return false
 }
 
 // isHTML checks if a string looks like HTML

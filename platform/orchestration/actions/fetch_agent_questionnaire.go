@@ -14,70 +14,32 @@ import (
 )
 
 // resolveFieldPathQuestionnaire extracts value from nested map using dot notation
-// Now with multiple extraction strategies
 func resolveFieldPathQuestionnaire(path string, data map[string]interface{}, logger *zap.Logger) interface{} {
-	parts := strings.Split(path, ".")
-
-	logger.Debug("Resolving field path",
+	logger.Info("Resolving field path using datahelpers.FindByPath",
 		zap.String("path", path),
-		zap.Strings("parts", parts),
 	)
 
-	// Strategy 1: Direct navigation
-	var current interface{} = data
-	for i, part := range parts {
-		logger.Debug("Navigating part",
-			zap.Int("index", i),
-			zap.String("part", part),
-			zap.String("current_type", fmt.Sprintf("%T", current)),
+	// Use the battle-tested FindByPath which handles:
+	// - Path traversal (e.g., "call_classifier.classify_site.recommended_builder")
+	// - Unwrapping {result: "..."} patterns
+	// - Stripping markdown fences (```json)
+	// - Parsing JSON strings
+	// - Recursive unwrapping
+	result := datahelpers.FindByPath(data, path, logger)
+
+	if result == nil {
+		logger.Warn("FindByPath returned nil",
+			zap.String("path", path),
+			zap.Strings("available_top_level_keys", getMapKeys(data)),
 		)
-
-		switch v := current.(type) {
-		case map[string]interface{}:
-			val, exists := v[part]
-			if !exists {
-				logger.Warn("Part not found in map",
-					zap.String("part", part),
-					zap.Strings("available_keys", getMapKeys(v)),
-				)
-				// Try ExtractStepData as fallback
-				if extracted := datahelpers.ExtractStepData(v[part]); extracted != nil {
-					current = extracted
-					continue
-				}
-				return nil
-			}
-			current = val
-
-		case string:
-			// Try to parse as JSON
-			parsed, ok := tryParseJSONStringQuestionnaire(v)
-			if !ok {
-				logger.Warn("Failed to parse string as JSON",
-					zap.String("string_preview", truncate(v, 100)),
-				)
-				return nil
-			}
-			val, exists := parsed[part]
-			if !exists {
-				return nil
-			}
-			current = val
-
-		default:
-			logger.Warn("Unexpected type during navigation",
-				zap.String("type", fmt.Sprintf("%T", current)),
-			)
-			return nil
-		}
+	} else {
+		logger.Info("FindByPath resolved successfully",
+			zap.String("path", path),
+			zap.String("result_type", fmt.Sprintf("%T", result)),
+		)
 	}
 
-	logger.Debug("Resolved to value",
-		zap.String("type", fmt.Sprintf("%T", current)),
-		zap.Any("value", current),
-	)
-
-	return current
+	return result
 }
 
 // Strategy 2: Try ExtractStepData first (handles step result wrappers)
@@ -235,23 +197,8 @@ func FetchAgentQuestionnaireAction(ctx context.Context, params ActionParams) (in
 		}
 
 		if fieldPath != "" {
-			// Try multiple extraction strategies
-			var value interface{}
-
-			// Strategy 1: Direct navigation
-			value = resolveFieldPathQuestionnaire(fieldPath, params.CollectedData, logger)
-			if value == nil {
-				logger.Debug("Strategy 1 (direct navigation) failed, trying strategy 2")
-
-				// Strategy 2: ExtractStepData first
-				value = resolveFieldPathWithStepData(fieldPath, params.CollectedData, logger)
-			}
-			if value == nil {
-				logger.Debug("Strategy 2 (step data) failed, trying strategy 3")
-
-				// Strategy 3: Check step result wrappers
-				value = tryExtractFromStepResult(fieldPath, params.CollectedData, logger)
-			}
+			// Use FindByPath - handles all unwrapping and JSON parsing
+			value := resolveFieldPathQuestionnaire(fieldPath, params.CollectedData, logger)
 
 			if value != nil {
 				logger.Info("Resolved field path",
@@ -269,17 +216,10 @@ func FetchAgentQuestionnaireAction(ctx context.Context, params ActionParams) (in
 					)
 				}
 			} else {
-				logger.Error("All extraction strategies failed",
+				logger.Error("Field path resolution failed",
 					zap.String("field_path", fieldPath),
 					zap.Strings("available_keys", getMapKeys(params.CollectedData)),
 				)
-
-				// Dump collected data for debugging
-				if cdJSON, err := json.MarshalIndent(params.CollectedData, "", "  "); err == nil {
-					logger.Debug("Full collected data",
-						zap.String("data", truncate(string(cdJSON), 1000)),
-					)
-				}
 			}
 		}
 	}

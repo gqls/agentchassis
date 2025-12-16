@@ -79,3 +79,13 @@ SET default_config = jsonb_set(
         }'::jsonb
                      )
 WHERE type = 'chief-strategist';
+
+-=- move max tokens to config.ai_service
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_build_plan,config,prompt_template}',
+        '"You are a Chief Marketing Strategist designing a landing page for {{.domain}}.\n\nObjective: {{.objective}}\nMarketing Model: {{.model}}\n\nAvailable Components: header, hero, features, social_proof, pricing, faq, call_to_action, footer\n\nTask:\n1. Select 6-8 components based on the {{.model}} model\n2. For EACH component provide: aida_stage, purpose, copy_structure, suggested_copy, graphics_style\n\nCRITICAL: Output complete, valid JSON. If approaching token limits, use concise descriptions but ensure ALL components have ALL required fields. Never leave JSON structures incomplete.\n\nOutput format (valid JSON only):\n{\n  \"sections\": [\"header\", \"hero\", \"features\", ...],\n  \"component_details\": {\n    \"header\": {\"aida_stage\": \"...\", \"purpose\": \"...\", \"copy_structure\": {...}, \"suggested_copy\": {...}, \"graphics_style\": {...}},\n    \"hero\": {...},\n    ...\n  }\n}"'::jsonb
+                     )
+WHERE type = 'chief-strategist';

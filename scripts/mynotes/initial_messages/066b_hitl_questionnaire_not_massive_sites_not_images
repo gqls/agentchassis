@@ -82,9 +82,39 @@ kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
 
 
 
-# =======
+# Instead of resetting offsets, DELETE the consumer group
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
 
-#sleep 5
+# Delete the consumer group (forces fresh start)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --group generic-requests-group
+
+sleep 2
+
+# Now start the agent - it will create a fresh group with FirstOffset
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+
+
+^^^^^^^^^^  ^^  ^^  ^^^^^^^^^^
+# =======
+#reset
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+sleep 5
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+
 #kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
 
 #kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
@@ -171,6 +201,7 @@ echo ""
 echo "SAVE THIS FOR HITL RESPONSES:"
 echo "CORRELATION_ID=$CORRELATION_ID"
 echo "ORCHESTRATION_ID=$ORCHESTRATION_ID"
+echo "HITL_REQUEST_ID="
 echo ""
 echo ""
 echo "========================================="
@@ -223,7 +254,7 @@ echo ""
 
 
 
-
+^^
 {"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain":"leopardessconsulting.co.uk","objective":"Create a comprehensive corporate website for Leopardess Consulting, a management consulting firm. The site should showcase our company overview, leadership team bios, detailed service offerings across strategy, operations, and digital transformation, case studies from FTSE 350 clients, insights blog, careers section, and contact information. Target audience: C-suite executives and senior managers at mid-to-large enterprises seeking strategic consulting services.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
 
 === uncompressed
@@ -256,9 +287,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=a175c6ce-f316-4ae1-a712-86ef1b591fe7
-ORCHESTRATION_ID=37f71750-7170-494e-a8c4-22622730aaf2
-HITL_REQUEST_ID=3c5e0aed-7281-42ad-ac78-1b195256df13
+CORRELATION_ID=d5d87a3c-5846-4492-be78-a3bf7422be49
+ORCHESTRATION_ID=36d0d884-01ed-4528-affb-6d13b67bf121
+HITL_REQUEST_ID=168d3a6f-39c2-4b9b-b4ef-f71aa921551d
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -339,15 +370,15 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=a175c6ce-f316-4ae1-a712-86ef1b591fe7
-ORCHESTRATION_ID=37f71750-7170-494e-a8c4-22622730aaf2
-HITL_REQUEST_ID=46c133d8-b4dc-4753-b726-5d84e2a0a62f
+CORRELATION_ID=d5d87a3c-5846-4492-be78-a3bf7422be49
+ORCHESTRATION_ID=36d0d884-01ed-4528-affb-6d13b67bf121
+HITL_REQUEST_ID=f6b88ff6-ff98-4cc1-83b0-3e2ce9cfc418
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
 echo "========================================="
-echo "Sending HITL Response: BROCHURE Questionnaire"
+echo "Sending HITL 2nd Response: BROCHURE Questionnaire"
 echo "========================================="
 echo "  Correlation ID:      $CORRELATION_ID"
 echo "  Orchestration ID:    $ORCHESTRATION_ID"
@@ -392,6 +423,7 @@ echo "  kubectl logs -n ai-persona-system -l app=agent-chassis --tail=100 | grep
 echo ""
 
 
+^^
 ============== previous 2
 {"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Intelligent Digital Solutions for Modern Business","about_us":"Leopardess Consulting delivers cutting-edge web solutions and digital transformation services powered by advanced AI technology. We specialize in multi-agent systems, automated website deployment, and strategic technology implementation that helps businesses modernize their digital presence rapidly and reliably.","services":[{"name":"Automated Website Solutions","description":"Production-ready websites deployed in minutes, not weeks. Secure, reliable, professionally hosted with automated builds using AI-powered multi-agent orchestration."},{"name":"Multi-Agent Systems","description":"Custom AI agent architectures for complex workflows. Intelligent task delegation, autonomous execution, and sophisticated orchestration for scalable business automation."},{"name":"Digital Transformation Strategy","description":"Strategic guidance for adopting modern technologies. Web architecture consulting, AI integration planning, and technical roadmap development for digital-first businesses."},{"name":"Web Consultancy","description":"Expert advice on web technologies, architecture, and deployment strategies. Technical consulting for teams building modern, scalable web applications and services."}],"target_audience":"Technology leaders, CTOs, and businesses seeking modern web solutions and AI-powered automation","tone":"professional","key_differentiators":"AI-powered multi-agent automation\nRapid deployment (minutes, not weeks)\nSecure, reliable, professionally hosted\nCutting-edge technology stack\nExpertise in complex orchestration systems\nFocus on modern, scalable solutions","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"Technology strategist with deep expertise in web architecture, AI systems, and digital transformation. Specialized in multi-agent orchestration and automated deployment systems."}],"case_studies":[],"contact_email":"sales-information-online@leopardessconsulting.co.uk","contact_phone":"07936 8273756","headquarters":"West Surrey, UK","has_blog":true,"has_careers":false,"primary_cta":"Get Started","primary_cta_url":"/contact"}}
 ============== not design related - previous 1

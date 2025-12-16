@@ -203,3 +203,16 @@ SET default_config = jsonb_set(
         '"confirmed_type.recommended_builder"'
                      )
 WHERE type = 'intake-orchestrator';
+
+
+===
+
+classifier paths
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,fetch_questionnaire,config,agent_type_field}',
+        '"call_classifier.classify_site.recommended_builder"'::jsonb
+                     )
+WHERE type = 'intake-orchestrator';
