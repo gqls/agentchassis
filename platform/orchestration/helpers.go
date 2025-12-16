@@ -228,7 +228,7 @@ func (tm *TimeoutMonitor) handleChildTimeout(parentOrchID, childOrchID, requestI
 	if err == nil && childState.Status != StatusCompleted && childState.Status != StatusFailed {
 		childState.Status = StatusFailed
 		childState.Error = "Orchestration timed out"
-		tm.repo.UpdateState(ctx, childState)
+		tm.repo.UpdateStateWithRetry(ctx, childState, 3)
 	}
 }
 
@@ -292,7 +292,7 @@ func (tm *TimeoutMonitor) retryTimedOutRequest(ctx context.Context, state *Orche
 		tm.failOrchestrationDueToTimeout(ctx, state, awaited.RequestID, "Failed to send retry request")
 	} else {
 		state.AwaitedRequests[awaited.RequestID] = awaited
-		tm.repo.UpdateState(ctx, state)
+		tm.repo.UpdateStateWithRetry(ctx, state, 3)
 		tm.MonitorRequest(state.OrchestrationID, awaited.RequestID, 30*time.Second)
 	}
 }
@@ -319,7 +319,7 @@ func (tm *TimeoutMonitor) failOrchestrationDueToTimeout(ctx context.Context, sta
 	delete(state.AwaitedRequests, requestID)
 
 	// Update state
-	if err := tm.repo.UpdateState(ctx, state); err != nil {
+	if err := tm.repo.UpdateStateWithRetry(ctx, state, 3); err != nil {
 		tm.logger.Error("Failed to update state after timeout", zap.Error(err))
 	}
 

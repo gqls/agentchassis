@@ -613,7 +613,7 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 				zap.String("orchestration_id", state.OrchestrationID),
 				zap.String("correlation_id", state.CorrelationID),
 			)
-			return repo.UpdateState(ctx, state)
+			return repo.UpdateStateWithRetry(ctx, state, 3)
 		}
 
 		// --- This is the core step-transition logic ---
@@ -631,7 +631,7 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 			l.Info("Transitioning to next step", zap.String("next_step", nextStep))
 			state.CurrentStep = nextStep
 
-			if err := repo.UpdateState(ctx, state); err != nil {
+			if err := repo.UpdateStateWithRetry(ctx, state, 3); err != nil {
 				return err
 			}
 
@@ -772,7 +772,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 			// Loop expansion sets state.CurrentStep to first iteration step
 			// Save state immediately
 			repo := NewStateRepository(s.db, s.logger)
-			if err := repo.UpdateState(ctx, state); err != nil {
+			if err := repo.UpdateStateWithRetry(ctx, state, 3); err != nil {
 				contextLogger.Error("Failed to save state after loop expansion", zap.Error(err))
 				return fmt.Errorf("failed to save state after loop expansion: %w", err)
 			}
@@ -799,7 +799,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 			zap.Int("awaited_requests", len(state.AwaitedRequests)))
 
 		// Save state with awaited request immediately
-		if err := repo.UpdateState(ctx, state); err != nil {
+		if err := repo.UpdateStateWithRetry(ctx, state, 3); err != nil {
 			contextLogger.Error("Failed to save awaiting state", zap.Error(err))
 			return fmt.Errorf("failed to save awaiting state: %w", err)
 		}
@@ -1274,7 +1274,7 @@ func saveStateIfNeeded(ctx context.Context, state *OrchestrationState, db *sql.D
 
 	// We're waiting for responses, need to save now
 	repo := NewStateRepository(db, logger)
-	if err := repo.UpdateState(ctx, state); err != nil {
+	if err := repo.UpdateStateWithRetry(ctx, state, 3); err != nil {
 		return fmt.Errorf("failed to save state before waiting: %w", err)
 	}
 
@@ -1352,7 +1352,7 @@ func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *Orches
 	state.Status = StatusAwaitingResponses
 	state.CurrentStep = step.NextStep
 
-	if err := repo.UpdateState(ctx, state); err != nil {
+	if err := repo.UpdateStateWithRetry(ctx, state, 3); err != nil {
 		return err
 	}
 
@@ -1438,7 +1438,7 @@ func (s *SagaCoordinator) handleProgressUpdate(ctx context.Context, state *Orche
 	})
 
 	repo := NewStateRepository(s.db, s.logger)
-	return repo.UpdateState(ctx, state)
+	return repo.UpdateStateWithRetry(ctx, state, 3)
 }
 
 // handleCompleteResponse processes a successful response
@@ -1946,7 +1946,7 @@ func (s *SagaCoordinator) skipStep(ctx context.Context, state *OrchestrationStat
 	})
 
 	repo := NewStateRepository(s.db, s.logger)
-	return repo.UpdateState(ctx, state)
+	return repo.UpdateStateWithRetry(ctx, state, 3)
 }
 
 func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *OrchestrationState, errorMsg string) error {
@@ -1961,7 +1961,7 @@ func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *Orchestration
 	})
 
 	repo := NewStateRepository(s.db, s.logger)
-	return repo.UpdateState(ctx, state)
+	return repo.UpdateStateWithRetry(ctx, state, 3)
 }
 
 func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *OrchestrationState) error {
@@ -2002,7 +2002,7 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 		// Continue anyway
 	}
 
-	return repo.UpdateState(ctx, state)
+	return repo.UpdateStateWithRetry(ctx, state, 3)
 }
 
 func isLocalAction(action string) bool {

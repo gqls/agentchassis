@@ -885,7 +885,7 @@ func (r *StateRepository) AddAwaitedRequest(ctx context.Context, orchestrationID
 		zap.Int("retry_version", request.RetryVersion),
 		zap.Int("total_awaited", len(state.AwaitedRequests)))
 
-	return r.UpdateState(ctx, state)
+	return r.UpdateStateWithRetry(ctx, state, 3)
 }
 
 // RemoveAwaitedRequest removes a request from the awaited list
@@ -925,7 +925,7 @@ func (r *StateRepository) RemoveAwaitedRequest(ctx context.Context, orchestratio
 		zap.String("request_id", requestID),
 		zap.Int("remaining_awaited", len(state.AwaitedRequests)))
 
-	return r.UpdateState(ctx, state)
+	return r.UpdateStateWithRetry(ctx, state, 3)
 }
 
 // FindByAwaitedRequestID finds orchestration waiting for a specific request
@@ -1022,7 +1022,7 @@ func (r *StateRepository) AddSubtreeAgent(ctx context.Context, orchestrationID s
 		zap.String("agent_type", agentInfo.AgentType),
 		zap.String("parent_id", agentInfo.ParentAgentID))
 
-	return r.UpdateState(ctx, state)
+	return r.UpdateStateWithRetry(ctx, state, 3)
 }
 
 // UpdateAgentPerformance updates performance metrics for an agent
@@ -1035,7 +1035,7 @@ func (r *StateRepository) UpdateAgentPerformance(ctx context.Context, orchestrat
 	if agent, exists := state.SubtreeAgents[agentID]; exists {
 		agent.Performance = metrics
 		agent.LastActiveAt = time.Now()
-		return r.UpdateState(ctx, state)
+		return r.UpdateStateWithRetry(ctx, state, 3)
 	}
 
 	return fmt.Errorf("agent %s not found in subtree", agentID)
@@ -1062,7 +1062,7 @@ func (r *StateRepository) AddExecutionRecord(ctx context.Context, state *Orchest
 	}
 
 	state.ExecutionPath = append(state.ExecutionPath, record)
-	return r.UpdateState(ctx, state)
+	return r.UpdateStateWithRetry(ctx, state, 3)
 }
 
 // SetExecutingStep atomically sets the currently executing step
@@ -1076,7 +1076,7 @@ func (r *StateRepository) SetExecutingStep(ctx context.Context, orchestrationID 
 	state.Status = StatusExecutingStep
 	state.ProcessingNode = os.Getenv("HOSTNAME")
 
-	return r.UpdateState(ctx, state)
+	return r.UpdateStateWithRetry(ctx, state, 3)
 }
 
 // ClearExecutingStep clears the currently executing step
@@ -1093,7 +1093,7 @@ func (r *StateRepository) ClearExecutingStep(ctx context.Context, orchestrationI
 		state.Status = StatusRunning
 	}
 
-	return r.UpdateState(ctx, state)
+	return r.UpdateStateWithRetry(ctx, state, 3)
 }
 
 // ExecuteWithOptimisticLocking executes a function with retry on version conflicts
