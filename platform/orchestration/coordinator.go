@@ -1133,8 +1133,15 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 		return false
 	}
 
+	// Determine requests topic (where to send the request)
+	requestsTopic := determineRequestsTopic(result, execCtx, logger)
+	if requestsTopic == "" {
+		logger.Warn("No requests topic available for awaited request - retry will fail",
+			zap.String("request_id", requestID))
+	}
+
 	// Create awaited request entry
-	awaitedReq := createAwaitedRequest(requestID, execCtx, state, step, result, responsesTopic)
+	awaitedReq := createAwaitedRequest(requestID, execCtx, state, step, result, responsesTopic, requestsTopic)
 
 	// NEW: Insert into database table
 	ctx := context.Background()
@@ -1209,9 +1216,44 @@ func determineResponsesTopic(result map[string]interface{}, execCtx *types.Execu
 	return ""
 }
 
+func determineRequestsTopic(result map[string]interface{}, execCtx *types.ExecutionContext, logger *zap.Logger) string {
+	// Priority order:
+	// 1. Result from action (spawn returns this)
+	if topic, ok := result["requests_topic"].(string); ok && topic != "" {
+		logger.Info("Using requests_topic from action result",
+			zap.String("topic", topic))
+		return topic
+	}
+
+	// 2. Check if result has topics map (from spawn)
+	if topics, ok := result["topics"].(map[string]interface{}); ok {
+		if topic, ok := topics["requests"].(string); ok && topic != "" {
+			logger.Info("Using requests topic from result.topics",
+				zap.String("topic", topic))
+			return topic
+		}
+	}
+
+	// 3. Environment variable (fallback)
+	if topic := os.Getenv("REQUESTS_TOPIC"); topic != "" {
+		logger.Info("Using REQUESTS_TOPIC from environment",
+			zap.String("topic", topic))
+		return topic
+	}
+
+	// 4. Execution context
+	if execCtx.RequestsTopic != "" {
+		logger.Info("Using RequestsTopic from execution context",
+			zap.String("topic", execCtx.RequestsTopic))
+		return execCtx.RequestsTopic
+	}
+
+	return ""
+}
+
 // Create an awaited request entry
 func createAwaitedRequest(requestID string, execCtx *types.ExecutionContext, state *OrchestrationState,
-	step models.Step, result map[string]interface{}, responsesTopic string) *AwaitedRequest {
+	step models.Step, result map[string]interface{}, responsesTopic string, requestsTopic string) *AwaitedRequest {
 
 	return &AwaitedRequest{
 		RequestID:       requestID,
@@ -1223,6 +1265,7 @@ func createAwaitedRequest(requestID string, execCtx *types.ExecutionContext, sta
 		TargetAgentType: extractTargetAgentType(step, result),
 		TargetAgentID:   extractTargetAgentID(result),
 		ResponsesTopic:  responsesTopic,
+		RequestsTopic:   requestsTopic,
 		SentAt:          time.Now(),
 		TimeoutAt:       time.Now().Add(getTimeout(step)),
 	}
@@ -1339,6 +1382,7 @@ func (s *SagaCoordinator) executeRemoteAction(ctx context.Context, state *Orches
 		RetryVersion:    0,
 		TargetAgentType: step.TargetAgentType,
 		ResponsesTopic:  execCtx.ResponsesTopic,
+		RequestsTopic:   step.Topic, // Where we sent the request
 		SentAt:          time.Now(),
 		TimeoutAt:       time.Now().Add(getTimeout(step)),
 	}
@@ -1638,15 +1682,11 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		// If no more awaited requests, continue workflow
 		s.logger.Info("All responses received, continuing workflow")
 
-		// Advance to next step
+		// ADVANCE TO NEXT STEP
 		currentStep := state.WorkflowPlan.Steps[state.CurrentStep]
 		if currentStep.NextStep != "" {
-			oldStep := state.CurrentStep
 			state.CurrentStep = currentStep.NextStep
-
-			s.logger.Info("Advancing to next step",
-				zap.String("from_step", oldStep),
-				zap.String("to_step", state.CurrentStep))
+			// repo.UpdateState(ctx, state) // Save the step advancement
 		}
 
 		s.logger.Info("All responses received - steps",
@@ -1721,22 +1761,22 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			zap.Int("old_version", state.Version),
 			zap.Int("new_version", freshState.Version))
 
-		// Re-apply changes including the step advancement
-		freshState.CurrentStep = state.CurrentStep // Apply the advancement
+		// Re-apply changes to fresh state
 		freshState.LastActivity = time.Now()
 		freshState.Status = StatusExecutingStep
 		freshState.AwaitedRequests = make(map[string]*AwaitedRequest)
 
-		if err := repo.UpdateState(ctx, freshState); err != nil {
+		// Use retry logic
+		if err := repo.UpdateStateWithRetry(ctx, freshState, 3); err != nil {
 			return fmt.Errorf("failed to update state after clearing awaited requests: %w", err)
 		}
 
 		// Update reference for continueExecution call
 		state = freshState
 
-		s.logger.Info("State saved with step advancement, continuing workflow",
-			zap.String("current_step", state.CurrentStep),
-			zap.Int("version", state.Version))
+		s.logger.Info("handleCompleteResponse: all responses received continuing workflow",
+			zap.Any("DEBUGaa: fresh exec ctx:", freshExecCtx),
+		)
 
 		return s.continueExecution(ctx, state, freshExecCtx)
 	}
