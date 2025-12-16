@@ -1638,11 +1638,15 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		// If no more awaited requests, continue workflow
 		s.logger.Info("All responses received, continuing workflow")
 
-		// ADVANCE TO NEXT STEP
+		// Advance to next step
 		currentStep := state.WorkflowPlan.Steps[state.CurrentStep]
 		if currentStep.NextStep != "" {
+			oldStep := state.CurrentStep
 			state.CurrentStep = currentStep.NextStep
-			// repo.UpdateState(ctx, state) // Save the step advancement
+
+			s.logger.Info("Advancing to next step",
+				zap.String("from_step", oldStep),
+				zap.String("to_step", state.CurrentStep))
 		}
 
 		s.logger.Info("All responses received - steps",
@@ -1717,22 +1721,22 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			zap.Int("old_version", state.Version),
 			zap.Int("new_version", freshState.Version))
 
-		// Re-apply changes to fresh state
+		// Re-apply changes including the step advancement
+		freshState.CurrentStep = state.CurrentStep // Apply the advancement
 		freshState.LastActivity = time.Now()
 		freshState.Status = StatusExecutingStep
 		freshState.AwaitedRequests = make(map[string]*AwaitedRequest)
 
-		// Use retry logic
-		if err := repo.UpdateStateWithRetry(ctx, freshState, 3); err != nil {
+		if err := repo.UpdateState(ctx, freshState); err != nil {
 			return fmt.Errorf("failed to update state after clearing awaited requests: %w", err)
 		}
 
 		// Update reference for continueExecution call
 		state = freshState
 
-		s.logger.Info("handleCompleteResponse: all responses received continuing workflow",
-			zap.Any("DEBUGaa: fresh exec ctx:", freshExecCtx),
-		)
+		s.logger.Info("State saved with step advancement, continuing workflow",
+			zap.String("current_step", state.CurrentStep),
+			zap.Int("version", state.Version))
 
 		return s.continueExecution(ctx, state, freshExecCtx)
 	}
