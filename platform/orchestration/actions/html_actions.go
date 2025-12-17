@@ -360,6 +360,62 @@ func findStringField(data interface{}, fieldName string, depth int, logger *zap.
 // PROMPT BUILDING
 // ============================================================================
 
+// extractContentForPrompt extracts content from nested structures using datahelpers
+// Returns a string suitable for inclusion in an LLM prompt
+func extractContentForPrompt(data interface{}, logger *zap.Logger) string {
+	if data == nil {
+		return ""
+	}
+
+	// If it's already a clean string, return it
+	if str, ok := data.(string); ok {
+		return datahelpers.CleanHTMLString(str) // Uses existing helper to strip markdown
+	}
+
+	// Use existing UnwrapDeep to handle nested patterns like content_result.result
+	unwrapped := datahelpers.UnwrapDeep(data, logger)
+
+	// If unwrapped is a string, clean and return it
+	if str, ok := unwrapped.(string); ok {
+		return datahelpers.CleanHTMLString(str)
+	}
+
+	// If unwrapped is a map, check if it's actual content (has hero/sections/meta)
+	// If so, marshal it to JSON for the prompt
+	if m, ok := unwrapped.(map[string]interface{}); ok {
+		// Check if this looks like actual content structure
+		_, hasHero := m["hero"]
+		_, hasSections := m["sections"]
+		_, hasMeta := m["meta"]
+
+		if hasHero || hasSections || hasMeta {
+			if contentJSON, err := json.Marshal(m); err == nil {
+				return string(contentJSON)
+			}
+		}
+
+		// Otherwise, try to find content deeper using aggressive search
+		// Look for known content fields
+		contentKeys := []string{"content_result", "create_content", "site_content"}
+		for _, key := range contentKeys {
+			if nested, ok := m[key].(map[string]interface{}); ok {
+				if result, ok := nested["result"].(string); ok {
+					return datahelpers.CleanHTMLString(result)
+				}
+			}
+		}
+
+		// Try input_data if present
+		if inputData, ok := m["input_data"].(map[string]interface{}); ok {
+			if found := extractContentForPrompt(inputData, logger); found != "" {
+				return found
+			}
+		}
+	}
+
+	return ""
+}
+
 // checks for both site_content and page_content
 func buildFullHTMLPrompt(context map[string]interface{}) string {
 	var domainInfo, architectureInfo, contentInfo string
@@ -392,8 +448,16 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 	contentFound := false
 
 	// Try site_content first (full site context)
+	// Use extractContentForPrompt to handle nested structures from content-creator
 	if content, ok := context["site_content"]; ok {
-		if contentStr, ok := content.(string); ok {
+		if extracted := extractContentForPrompt(content, nil); extracted != "" {
+			if len(extracted) > 5000 {
+				contentInfo = extracted[:5000] + "... [truncated]"
+			} else {
+				contentInfo = extracted
+			}
+			contentFound = true
+		} else if contentStr, ok := content.(string); ok {
 			contentInfo = contentStr
 			contentFound = true
 		} else if contentJSON, err := json.Marshal(content); err == nil {
@@ -407,12 +471,23 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 	}
 
 	// Try page_content if site_content not found (multipage loop context)
+	// Use extractContentForPrompt to dig into nested content-creator responses
 	if !contentFound {
 		if content, ok := context["page_content"]; ok {
-			if contentStr, ok := content.(string); ok {
+			// First try extractContentForPrompt which handles nested structures
+			if extracted := extractContentForPrompt(content, nil); extracted != "" {
+				if len(extracted) > 5000 {
+					contentInfo = extracted[:5000] + "... [truncated]"
+				} else {
+					contentInfo = extracted
+				}
+				contentFound = true
+			} else if contentStr, ok := content.(string); ok {
+				// Fallback to direct string
 				contentInfo = contentStr
 				contentFound = true
 			} else if contentJSON, err := json.Marshal(content); err == nil {
+				// Last resort: marshal the whole thing
 				if len(contentJSON) > 3000 {
 					contentInfo = string(contentJSON[:3000]) + "... [truncated]"
 				} else {

@@ -1164,9 +1164,11 @@ func resolveFieldPath(data map[string]interface{}, path string) interface{} {
 }
 
 // CleanHTMLString removes markdown code blocks and extra whitespace
+// Handles any language identifier (```json, ```html, ```css, etc.)
 func CleanHTMLString(s string) string {
-	// Remove markdown code blocks
-	codeBlockRe := regexp.MustCompile("```(?:html|css)?\n([\\s\\S]*?)```")
+	// Remove markdown code blocks with any language identifier
+	// Matches: ```json, ```html, ```css, ```, etc.
+	codeBlockRe := regexp.MustCompile("```(?:\\w*)?\\s*\n?([\\s\\S]*?)```")
 	s = codeBlockRe.ReplaceAllString(s, "$1")
 
 	// Trim leading/trailing whitespace

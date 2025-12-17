@@ -215,7 +215,8 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		zap.String("rendered_preview - renderedPrompt", datahelpers.TruncateString(renderedPrompt, 400)))
 
 	// Append output format instructions based on output_type
-	renderedPrompt = appendOutputInstructions(renderedPrompt, aiServiceConfig, params.Logger)
+	// Check both step config and ai_service config for output_type
+	renderedPrompt = appendOutputInstructions(renderedPrompt, aiServiceConfig, params.StepConfig.Config, params.Logger)
 
 	// Prepare AI service options
 	options := make(map[string]interface{})
@@ -256,12 +257,15 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	params.Logger.Info("LLM response received",
 		zap.String("result_preview", datahelpers.TruncateString(result, 200)))
 
+	// Strip markdown code blocks from response before processing
+	cleanedResult := stripMarkdownFromResponse(result)
+
 	// Try to parse as JSON, if it fails return as plain text
 	var parsedResult interface{}
-	if err := json.Unmarshal([]byte(result), &parsedResult); err != nil {
-		// Not valid JSON, return as plain text
+	if err := json.Unmarshal([]byte(cleanedResult), &parsedResult); err != nil {
+		// Not valid JSON, return as plain text (use cleaned result)
 		return map[string]interface{}{
-			"result": result,
+			"result": cleanedResult,
 			"type":   "text",
 		}, nil
 	}
@@ -273,9 +277,48 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	}, nil
 }
 
+// stripMarkdownFromResponse removes markdown code fences from LLM responses
+// Handles ```json, ```html, ``` and similar patterns
+func stripMarkdownFromResponse(s string) string {
+	s = strings.TrimSpace(s)
+
+	// Handle ```json, ```html, ```text, etc. at start
+	if strings.HasPrefix(s, "```") {
+		// Find end of first line (the language identifier line)
+		newlineIdx := strings.Index(s, "\n")
+		if newlineIdx > 0 {
+			s = s[newlineIdx+1:] // Skip past ```json\n
+		} else {
+			s = strings.TrimPrefix(s, "```")
+		}
+		s = strings.TrimSpace(s)
+	}
+
+	// Remove trailing ```
+	if strings.HasSuffix(s, "```") {
+		// Find the last occurrence and remove it
+		lastFence := strings.LastIndex(s, "```")
+		if lastFence > 0 {
+			s = s[:lastFence]
+		} else {
+			s = strings.TrimSuffix(s, "```")
+		}
+		s = strings.TrimSpace(s)
+	}
+
+	return s
+}
+
 // appendOutputInstructions adds format-specific instructions based on output_type
-func appendOutputInstructions(prompt string, config map[string]interface{}, logger *zap.Logger) string {
-	outputType := getOutputType(config)
+// Checks both step config and ai_service config for output_type
+func appendOutputInstructions(prompt string, aiConfig map[string]interface{}, stepConfig map[string]interface{}, logger *zap.Logger) string {
+	// Check step config first (where it's typically defined in workflow)
+	outputType := getOutputType(stepConfig)
+
+	// Fallback to ai_service config
+	if outputType == "" {
+		outputType = getOutputType(aiConfig)
+	}
 
 	if outputType == "" {
 		// No specific output type, use default clean output instructions
