@@ -360,6 +360,7 @@ func findStringField(data interface{}, fieldName string, depth int, logger *zap.
 // PROMPT BUILDING
 // ============================================================================
 
+// checks for both site_content and page_content
 func buildFullHTMLPrompt(context map[string]interface{}) string {
 	var domainInfo, architectureInfo, contentInfo string
 
@@ -386,22 +387,66 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 		}
 	}
 
-	// Extract content
+	// Extract content - NEW: Try multiple field names
+	// Priority: site_content > page_content > content
+	contentFound := false
+
+	// Try site_content first (full site context)
 	if content, ok := context["site_content"]; ok {
 		if contentStr, ok := content.(string); ok {
 			contentInfo = contentStr
+			contentFound = true
 		} else if contentJSON, err := json.Marshal(content); err == nil {
 			if len(contentJSON) > 3000 {
 				contentInfo = string(contentJSON[:3000]) + "... [truncated]"
 			} else {
 				contentInfo = string(contentJSON)
 			}
+			contentFound = true
 		}
+	}
+
+	// Try page_content if site_content not found (multipage loop context)
+	if !contentFound {
+		if content, ok := context["page_content"]; ok {
+			if contentStr, ok := content.(string); ok {
+				contentInfo = contentStr
+				contentFound = true
+			} else if contentJSON, err := json.Marshal(content); err == nil {
+				if len(contentJSON) > 3000 {
+					contentInfo = string(contentJSON[:3000]) + "... [truncated]"
+				} else {
+					contentInfo = string(contentJSON)
+				}
+				contentFound = true
+			}
+		}
+	}
+
+	// Try generic content as last fallback
+	if !contentFound {
+		if content, ok := context["content"]; ok {
+			if contentStr, ok := content.(string); ok {
+				contentInfo = contentStr
+			} else if contentJSON, err := json.Marshal(content); err == nil {
+				if len(contentJSON) > 3000 {
+					contentInfo = string(contentJSON[:3000]) + "... [truncated]"
+				} else {
+					contentInfo = string(contentJSON)
+				}
+			}
+		}
+	}
+
+	// Extract page name/type if available (for multipage context)
+	pageInfo := ""
+	if pageName, ok := context["current_page"].(string); ok && pageName != "" {
+		pageInfo = fmt.Sprintf("\nPage Name/Type: %s", pageName)
 	}
 
 	return fmt.Sprintf(`Generate a complete, modern, responsive HTML5 website.
 
-Business/Domain: %s
+Business/Domain: %s%s
 
 %s
 
@@ -417,6 +462,7 @@ Requirements:
 
 Output ONLY the HTML code, starting with <!DOCTYPE html>.`,
 		ifEmpty(domainInfo, "Professional website"),
+		pageInfo,
 		ifNotEmpty(architectureInfo, "Site Architecture:\n"+architectureInfo),
 		ifNotEmpty(contentInfo, "Content:\n"+contentInfo),
 	)

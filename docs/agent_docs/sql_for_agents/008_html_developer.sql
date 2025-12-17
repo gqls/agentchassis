@@ -464,3 +464,15 @@ SET
             }'::jsonb
                      )
 WHERE type = 'html-developer';
+
+
+--
+
+UPDATE agent_definitions
+SET default_workflow = jsonb_set(
+        default_workflow,
+        '{workflow,steps,generate_html,config,input_fields}',
+        '["input_data", "page_content", "site_content", "current_page",
+           "site_architecture", "domain_analysis"]'::jsonb
+                       )
+WHERE agent_type = 'html-developer';
