@@ -1669,9 +1669,42 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	}
 	delete(freshState.AwaitedRequests, requestID)
 
-	// Use retry logic when saving
-	if err := repo.UpdateStateWithRetry(ctx, freshState, 3); err != nil {
-		return fmt.Errorf("failed to save response data: %w", err)
+	// Manual retry loop - re-apply changes after each reload on conflict
+	maxRetries := 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		err := repo.UpdateState(ctx, freshState)
+		if err == nil {
+			break // Success!
+		}
+
+		if !IsOptimisticLockError(err) || attempt >= maxRetries {
+			return fmt.Errorf("failed to save response data: %w", err)
+		}
+
+		s.logger.Warn("Optimistic lock failure, retrying with re-applied changes",
+			zap.Int("attempt", attempt),
+			zap.String("request_id", requestID))
+
+		// Reload latest state
+		freshState, err = repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to reload state for retry: %w", err)
+		}
+
+		// Re-apply ALL our changes to the newly reloaded state
+		freshState.CollectedData[stepName] = normalisedData
+		if step, exists := freshState.WorkflowPlan.Steps[stepName]; exists && step.OutputField != "" {
+			var dataToStore interface{} = normalisedData
+			if shouldExtractFormFields(step) {
+				formFieldValues := extractHITLFormFields(normalisedData, step.Config, s.logger)
+				if len(formFieldValues) > 0 {
+					dataToStore = formFieldValues
+				}
+			}
+			freshState.CollectedData[step.OutputField] = dataToStore
+		}
+		delete(freshState.AwaitedRequests, requestID)
+		// Loop continues to retry save
 	}
 
 	// Update our local reference
@@ -1767,9 +1800,33 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		freshState.AwaitedRequests = make(map[string]*AwaitedRequest)
 		freshState.CurrentStep = state.CurrentStep
 
-		// Use retry logic
-		if err := repo.UpdateStateWithRetry(ctx, freshState, 3); err != nil {
-			return fmt.Errorf("failed to update state after clearing awaited requests: %w", err)
+		// Manual retry loop - re-apply changes after each reload on conflict
+		maxRetries := 3
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			err = repo.UpdateState(ctx, freshState)
+			if err == nil {
+				break // Success!
+			}
+
+			if !IsOptimisticLockError(err) || attempt >= maxRetries {
+				return fmt.Errorf("failed to update state after clearing awaited requests: %w", err)
+			}
+
+			s.logger.Warn("Optimistic lock failure on final save, retrying with re-applied changes",
+				zap.Int("attempt", attempt))
+
+			// Reload latest state
+			freshState, err = repo.GetState(ctx, state.OrchestrationID)
+			if err != nil {
+				return fmt.Errorf("failed to reload state for retry: %w", err)
+			}
+
+			// Re-apply ALL our changes to the newly reloaded state
+			freshState.CurrentStep = state.CurrentStep
+			freshState.LastActivity = time.Now()
+			freshState.Status = StatusExecutingStep
+			freshState.AwaitedRequests = make(map[string]*AwaitedRequest)
+			// Loop continues to retry save
 		}
 
 		// Update reference for continueExecution call
@@ -2129,4 +2186,14 @@ func (s *SagaCoordinator) cleanupExpiredAwaitedRequests() {
 
 		cancel()
 	}
+}
+
+// IsOptimisticLockError checks if an error is due to optimistic locking failure
+func IsOptimisticLockError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for PostgreSQL unique violation or version mismatch
+	return strings.Contains(err.Error(), "version mismatch") ||
+		strings.Contains(err.Error(), "optimistic lock")
 }
