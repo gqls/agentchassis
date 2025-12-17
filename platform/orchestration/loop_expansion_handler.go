@@ -68,10 +68,11 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			injectedStepName := fmt.Sprintf("%s_iter_%d_%s", loopName, iterIdx, substepName)
 
 			// Clone the step
+			// Clone the step
 			injectedStep := models.Step{
 				Action:      substep.Action,
 				Description: fmt.Sprintf("[Iteration %d] %s", iterIdx, substep.Description),
-				OutputField: substep.OutputField,
+				OutputField: makeIterationOutputField(substep.OutputField, iterIdx), // ← FIX: Make unique
 				Topic:       substep.Topic,
 				Config:      cloneConfig(substep.Config),
 			}
@@ -160,6 +161,15 @@ func cloneConfig(config map[string]interface{}) map[string]interface{} {
 		clone[k] = v
 	}
 	return clone
+}
+
+// makeIterationOutputField makes output fields unique per iteration
+// Example: "page_html" + 0 → "page_html_0"
+func makeIterationOutputField(outputField string, iterIdx int) string {
+	if outputField == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s_%d", outputField, iterIdx)
 }
 
 // setLoopVariable sets the current loop variable in CollectedData before executing a loop substep

@@ -151,38 +151,100 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 		zap.Int("total_iterations", totalIterations),
 	)
 
-	// Collect results from iteration_results in metadata
-	// (populated by substeps that store results)
-	iterationResults, ok := loopMetadata["iteration_results"].([]interface{})
-	if !ok {
-		iterationResults = []interface{}{}
-	}
+	// PRESCRIPTIVE: Collect from known output fields
+	iterationResults := make([]interface{}, 0, totalIterations)
 
-	// If iteration_results is empty, try to collect from output fields
-	if len(iterationResults) == 0 {
-		logger.Info("Collecting results from iteration output fields")
+	for i := 0; i < totalIterations; i++ {
+		// KNOWN PATH: page_html_0, page_html_1, etc.
+		outputKey := fmt.Sprintf("page_html_%d", i)
 
-		// Try to find output fields from each iteration
-		// This is a fallback if substeps didn't populate iteration_results
-		for i := 0; i < totalIterations; i++ {
-			// Look for common output field patterns
-			resultKey := fmt.Sprintf("%s_iter_%d_result", loopName, i)
-			if result, exists := params.CollectedData[resultKey]; exists {
-				iterationResults = append(iterationResults, result)
-			}
+		stepResult, exists := params.CollectedData[outputKey]
+		if !exists {
+			logger.Error("Output field missing for iteration",
+				zap.String("expected_key", outputKey),
+				zap.Int("iteration", i))
+			continue
 		}
+
+		// Extract HTML from the stored result
+		html := extractHTMLFromResult(stepResult, logger)
+		if html == "" {
+			logger.Error("No HTML in result",
+				zap.String("output_key", outputKey),
+				zap.Int("iteration", i))
+			continue
+		}
+
+		// Get page name from loop item
+		itemKey := fmt.Sprintf("%s_item_%d", loopName, i)
+		item := params.CollectedData[itemKey]
+		pageName := extractPageNameFromItem(item)
+
+		if pageName == "" {
+			pageName = fmt.Sprintf("page_%d", i)
+		}
+
+		// Build result
+		result := map[string]interface{}{
+			"name":      pageName,
+			"page_html": html,
+			"iteration": i,
+		}
+		iterationResults = append(iterationResults, result)
+
+		logger.Info("Collected iteration result",
+			zap.String("page_name", pageName),
+			zap.Int("html_length", len(html)),
+			zap.Int("iteration", i))
 	}
 
 	logger.Info("Loop completion finished",
 		zap.Int("results_collected", len(iterationResults)),
 	)
 
-	// Return aggregated results
 	return map[string]interface{}{
 		"iterations": totalIterations,
 		"results":    iterationResults,
-		"loop_name":  loopName,
 	}, nil
+}
+
+// extractHTMLFromResult extracts HTML from a step result
+// Html-developer stores result as map with "final_html" field
+func extractHTMLFromResult(result interface{}, logger *zap.Logger) string {
+	// Result should be a map
+	m, ok := result.(map[string]interface{})
+	if !ok {
+		logger.Error("Result is not a map",
+			zap.String("type", fmt.Sprintf("%T", result)))
+		return ""
+	}
+
+	// PRESCRIPTIVE: Html-developer returns final_html
+	html, ok := m["final_html"].(string)
+	if !ok || html == "" {
+		logger.Error("final_html field missing or empty",
+			zap.Strings("available_keys", getMapKeys(m)))
+		return ""
+	}
+
+	return html
+}
+
+// extractPageNameFromItem extracts page name from loop item
+func extractPageNameFromItem(item interface{}) string {
+	// Loop items are strings (page names)
+	if name, ok := item.(string); ok {
+		return name
+	}
+
+	// Or maps with "name" field
+	if m, ok := item.(map[string]interface{}); ok {
+		if name, ok := m["name"].(string); ok {
+			return name
+		}
+	}
+
+	return ""
 }
 
 // parseSubsteps converts substep config into Step structs
@@ -331,5 +393,45 @@ func getStringValue(m map[string]interface{}, key string) string {
 	if val, ok := m[key].(string); ok {
 		return val
 	}
+	return ""
+}
+
+// extractHTMLFromStepData extracts HTML from a step's stored data
+func extractHTMLFromStepData(stepData interface{}, logger *zap.Logger) string {
+	if m, ok := stepData.(map[string]interface{}); ok {
+		// Try common field names
+		fields := []string{"final_html", "html", "page_html", "result", "output"}
+		for _, field := range fields {
+			if html, ok := m[field].(string); ok && html != "" {
+				return html
+			}
+		}
+	}
+
+	// If it's a string, return directly
+	if html, ok := stepData.(string); ok {
+		return html
+	}
+
+	return ""
+}
+
+// extractPageName extracts page name from loop item
+func extractPageName(item interface{}) string {
+	// If item is a string, use it directly
+	if name, ok := item.(string); ok {
+		return name
+	}
+
+	// If item is a map, look for name fields
+	if m, ok := item.(map[string]interface{}); ok {
+		if name, ok := m["name"].(string); ok {
+			return name
+		}
+		if name, ok := m["page"].(string); ok {
+			return name
+		}
+	}
+
 	return ""
 }
