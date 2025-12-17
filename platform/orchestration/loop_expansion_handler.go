@@ -5,6 +5,7 @@ package orchestration
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gqls/agentchassis/pkg/models"
 	"go.uber.org/zap"
@@ -72,7 +73,7 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			injectedStep := models.Step{
 				Action:      substep.Action,
 				Description: fmt.Sprintf("[Iteration %d] %s", iterIdx, substep.Description),
-				OutputField: makeIterationOutputField(substep.OutputField, iterIdx), // ← FIX: Make unique
+				OutputField: makeIterationOutputField(substep.OutputField, iterIdx), // â† FIX: Make unique
 				Topic:       substep.Topic,
 				Config:      cloneConfig(substep.Config),
 			}
@@ -164,7 +165,7 @@ func cloneConfig(config map[string]interface{}) map[string]interface{} {
 }
 
 // makeIterationOutputField makes output fields unique per iteration
-// Example: "page_html" + 0 → "page_html_0"
+// Example: "page_html" + 0 â†’ "page_html_0"
 func makeIterationOutputField(outputField string, iterIdx int) string {
 	if outputField == "" {
 		return ""
@@ -173,6 +174,7 @@ func makeIterationOutputField(outputField string, iterIdx int) string {
 }
 
 // setLoopVariable sets the current loop variable in CollectedData before executing a loop substep
+// It also propagates outputs from previous substeps in the same iteration to their original field names
 func (s *SagaCoordinator) setLoopVariable(
 	state *OrchestrationState,
 	stepConfig models.Step,
@@ -220,4 +222,60 @@ func (s *SagaCoordinator) setLoopVariable(
 		zap.String("loop_var", loopVarName),
 		zap.Int("iteration", iterIdx),
 	)
+
+	// Propagate previous substep outputs from iteration-suffixed names to original names
+	// This allows substeps like "create_html" to find "page_content" instead of "page_content_0"
+	propagateIterationOutputs(state, iterIdx, logger)
+}
+
+// propagateIterationOutputs copies iteration-suffixed output fields to their original names
+// Example: page_content_0 -> page_content, page_html_0 -> page_html
+// This allows substeps within a loop iteration to find data from previous substeps
+func propagateIterationOutputs(state *OrchestrationState, iterIdx int, logger *zap.Logger) {
+	suffix := fmt.Sprintf("_%d", iterIdx)
+
+	// List of common output field base names that need propagation
+	// These are the output_field names from substep configs before iteration suffix is added
+	commonOutputFields := []string{
+		"page_content",
+		"page_html",
+		"content_result",
+		"html_result",
+		"site_content",
+		"site_architecture",
+	}
+
+	for _, baseName := range commonOutputFields {
+		iterationKey := baseName + suffix // e.g., "page_content_0"
+
+		if data, exists := state.CollectedData[iterationKey]; exists {
+			// Copy to original field name for this iteration's scope
+			state.CollectedData[baseName] = data
+			logger.Info("Propagated iteration output to original field name",
+				zap.String("from", iterationKey),
+				zap.String("to", baseName),
+				zap.Int("iteration", iterIdx),
+			)
+		}
+	}
+
+	// Also scan for any other iteration-suffixed keys and propagate them
+	// This catches output fields not in the hardcoded list
+	for key, value := range state.CollectedData {
+		if strings.HasSuffix(key, suffix) {
+			baseName := strings.TrimSuffix(key, suffix)
+			// Don't overwrite if we already set it (avoid overwriting with wrong iteration data)
+			if _, alreadySet := state.CollectedData[baseName]; !alreadySet {
+				// Only propagate if baseName looks like an output field (not internal keys)
+				if !strings.HasPrefix(baseName, "__") && !strings.Contains(baseName, "_item_") && !strings.Contains(baseName, "_iter_") {
+					state.CollectedData[baseName] = value
+					logger.Debug("Auto-propagated iteration output",
+						zap.String("from", key),
+						zap.String("to", baseName),
+						zap.Int("iteration", iterIdx),
+					)
+				}
+			}
+		}
+	}
 }

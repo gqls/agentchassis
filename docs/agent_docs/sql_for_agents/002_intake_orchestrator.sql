@@ -216,3 +216,20 @@ SET default_config = jsonb_set(
         '"call_classifier.classify_site.recommended_builder"'::jsonb
                      )
 WHERE type = 'intake-orchestrator';
+
+--
+
+that seemed to overwrite something
+     -- The spawn_classifier step is missing output_field, causing the spawned
+-- agent info to not be stored properly. This breaks call_classifier which
+-- looks for the agent by role.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_classifier,output_field}',
+        '"classifier_agent"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'intake-orchestrator'
+  AND is_active = true;

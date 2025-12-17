@@ -49,7 +49,7 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   --delete \
   --topic system.generic.responses
 
-
+sleep 2
 kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   /opt/kafka/bin/kafka-topics.sh
   --create --topic system.generic.responses
@@ -286,9 +286,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=4755650e-faa6-4ea1-baf6-9c8d7b8f286e
-ORCHESTRATION_ID=6563dabf-a151-4380-a973-db242f22cd61
-HITL_REQUEST_ID=2d3a0af7-4a4f-43f3-80c3-b50ab05035ba
+CORRELATION_ID=326943e4-0f5b-4c7f-8e39-0e81beca960c
+ORCHESTRATION_ID=a1178068-ce3d-482f-880f-dab4ca659951
+HITL_REQUEST_ID=8352ca35-acd8-4ec1-8ff2-d3140d33bd14
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -369,9 +369,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=4755650e-faa6-4ea1-baf6-9c8d7b8f286e
-ORCHESTRATION_ID=6563dabf-a151-4380-a973-db242f22cd61
-HITL_REQUEST_ID=
+CORRELATION_ID=326943e4-0f5b-4c7f-8e39-0e81beca960c
+ORCHESTRATION_ID=a1178068-ce3d-482f-880f-dab4ca659951
+HITL_REQUEST_ID=4954a59b-d1f4-4cd1-a9ec-e9edace47e60
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
