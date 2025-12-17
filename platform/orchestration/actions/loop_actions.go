@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/gqls/agentchassis/pkg/models"
@@ -187,8 +188,8 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 // parseSubsteps converts substep config into Step structs
 func parseSubsteps(substepsConfig map[string]interface{}, logger *zap.Logger) (map[string]models.Step, []string, error) {
 	substeps := make(map[string]models.Step)
-	order := []string{}
 
+	// First pass: parse all substeps
 	for substepName, substepData := range substepsConfig {
 		stepMap, ok := substepData.(map[string]interface{})
 		if !ok {
@@ -203,7 +204,6 @@ func parseSubsteps(substepsConfig map[string]interface{}, logger *zap.Logger) (m
 			Topic:       getStringValue(stepMap, "topic"),
 		}
 
-		// Get config if present
 		if config, ok := stepMap["config"].(map[string]interface{}); ok {
 			step.Config = config
 		} else {
@@ -211,8 +211,10 @@ func parseSubsteps(substepsConfig map[string]interface{}, logger *zap.Logger) (m
 		}
 
 		substeps[substepName] = step
-		order = append(order, substepName)
 	}
+
+	// Second pass: build correct order by following next_step links
+	order := buildSubstepOrder(substeps, logger)
 
 	logger.Info("Parsed substeps",
 		zap.Int("count", len(substeps)),
@@ -220,6 +222,76 @@ func parseSubsteps(substepsConfig map[string]interface{}, logger *zap.Logger) (m
 	)
 
 	return substeps, order, nil
+}
+
+// Build order by following next_step links
+func buildSubstepOrder(substeps map[string]models.Step, logger *zap.Logger) []string {
+	// Find the first step (one with no incoming next_step references)
+	hasIncoming := make(map[string]bool)
+	for _, step := range substeps {
+		if step.NextStep != "" {
+			hasIncoming[step.NextStep] = true
+		}
+	}
+
+	var firstStep string
+	for name := range substeps {
+		if !hasIncoming[name] {
+			firstStep = name
+			break
+		}
+	}
+
+	if firstStep == "" {
+		// Fallback: alphabetical order
+		logger.Warn("Could not determine substep order, using alphabetical")
+		order := make([]string, 0, len(substeps))
+		for name := range substeps {
+			order = append(order, name)
+		}
+		sort.Strings(order)
+		return order
+	}
+
+	// Follow next_step chain
+	order := []string{firstStep}
+	visited := make(map[string]bool)
+	visited[firstStep] = true
+
+	current := firstStep
+	for {
+		step := substeps[current]
+		if step.NextStep == "" {
+			break // End of chain
+		}
+
+		// next_step might reference a step outside substeps (like "complete")
+		if _, exists := substeps[step.NextStep]; !exists {
+			break
+		}
+
+		if visited[step.NextStep] {
+			logger.Warn("Circular reference detected in substeps",
+				zap.String("current", current),
+				zap.String("next", step.NextStep))
+			break
+		}
+
+		order = append(order, step.NextStep)
+		visited[step.NextStep] = true
+		current = step.NextStep
+	}
+
+	// Add any unvisited steps (shouldn't happen but be safe)
+	for name := range substeps {
+		if !visited[name] {
+			order = append(order, name)
+			logger.Warn("Substep not in chain, appending",
+				zap.String("substep", name))
+		}
+	}
+
+	return order
 }
 
 // getNestedValueForLoop safely traverses a map to find a value at a path

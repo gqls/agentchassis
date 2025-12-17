@@ -99,6 +99,8 @@ kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 
 
 
+
+
 ^^^^^^^^^^  ^^  ^^  ^^^^^^^^^^
 # =======
 #reset
@@ -134,9 +136,6 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   --bootstrap-server localhost:9092 \
   --describe \
   --group generic-requests-group
-
-
-
 
 ========================================================================
 
@@ -287,9 +286,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=a6d82293-4d4d-46ae-983c-f8f7574282d2
-ORCHESTRATION_ID=b752a0d9-1e1f-4fa7-b04b-33e9d252af24
-HITL_REQUEST_ID=4b9e9760-0608-4fb8-97e6-1d8edaa8e932
+CORRELATION_ID=f63b3465-fac2-4f45-822a-df251d9da32d
+ORCHESTRATION_ID=6d55c736-a804-4aac-9ba9-2d67e822c37a
+HITL_REQUEST_ID=2442a9de-f7a9-4f37-9fd1-f5711f514111
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -370,9 +369,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=a6d82293-4d4d-46ae-983c-f8f7574282d2
-ORCHESTRATION_ID=b752a0d9-1e1f-4fa7-b04b-33e9d252af24
-HITL_REQUEST_ID=3f7035cf-22e4-4d00-a595-693b9730b450
+CORRELATION_ID=f63b3465-fac2-4f45-822a-df251d9da32d
+ORCHESTRATION_ID=6d55c736-a804-4aac-9ba9-2d67e822c37a
+HITL_REQUEST_ID=bf4b70d2-c538-4729-85ab-495d4fdf02e6
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"

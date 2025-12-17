@@ -476,3 +476,72 @@ SET default_workflow = jsonb_set(
            "site_architecture", "domain_analysis"]'::jsonb
                        )
 WHERE agent_type = 'html-developer';
+
+-- Update html-developer workflow to accept both multipage and single-page contexts
+-- Adds page_content and current_page to input_fields so it works in loop contexts
+
+UPDATE agent_definitions
+SET
+    updated_at = now(),
+    default_config = jsonb_set(
+            default_config,
+            '{workflow}',
+            '{
+                "start_step": "generate_html",
+                "steps": {
+                    "generate_html": {
+                        "action": "generate_html",
+                        "config": {
+                            "input_fields": [
+                                "input_data",
+                                "page_content",
+                                "current_page",
+                                "site_architecture",
+                                "site_content",
+                                "domain_analysis"
+                            ],
+                            "generation_type": "full",
+                            "ai_service": {
+                                "model": "claude-haiku-4-5-20251001",
+                                "provider": "anthropic",
+                                "max_tokens": 16000,
+                                "api_key_env_var": "ANTHROPIC_API_KEY"
+                            }
+                        },
+                        "description": "Generate HTML from configurable input fields",
+                        "next_step": "process_html",
+                        "output_field": "html_generation"
+                    },
+                    "process_html": {
+                        "action": "process_html",
+                        "config": {
+                            "input_fields": ["html_generation"]
+                        },
+                        "description": "Process and enhance HTML",
+                        "next_step": "validate_html",
+                        "output_field": "html_processing"
+                    },
+                    "validate_html": {
+                        "action": "validate_html",
+                        "config": {
+                            "input_fields": ["html_processing"]
+                        },
+                        "description": "Validate HTML structure",
+                        "next_step": "complete",
+                        "output_field": "html_validation"
+                    },
+                    "complete": {
+                        "action": "complete_workflow",
+                        "description": "Return complete HTML"
+                    }
+                }
+            }'::jsonb
+                     )
+WHERE type = 'html-developer';
+
+-- Verify the update
+SELECT
+    type,
+    jsonb_pretty(default_config->'workflow'->'steps'->'generate_html'->'config'->'input_fields') as input_fields
+FROM agent_definitions
+WHERE type = 'html-developer';
