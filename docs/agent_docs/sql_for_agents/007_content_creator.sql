@@ -93,3 +93,24 @@ SET
         }
     }'::jsonb
 WHERE type = 'content-creator';
+
+
+--
+
+-- ============================================================================
+-- Add output_type to Agent Configs
+-- This tells ai_actions.go whether to append JSON output instructions
+-- ============================================================================
+
+-- 5. CONTENT CREATOR - Outputs text/HTML (NOT JSON)
+-- Add output_type = "text" for clarity (optional)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_content,config,output_type}',
+        '"text"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-creator'
+  AND is_active = true;
+

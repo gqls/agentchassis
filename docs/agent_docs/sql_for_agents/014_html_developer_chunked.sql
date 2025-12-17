@@ -247,3 +247,43 @@ INSERT INTO agent_definitions (
                                        image_tag = EXCLUDED.image_tag,
                                        updated_at = now();
 
+---
+
+-- ============================================================================
+-- Add output_type to Agent Configs
+-- This tells ai_actions.go whether to append JSON output instructions
+-- ============================================================================
+
+-- 7. HTML DEVELOPER CHUNKED - Multiple steps, add to relevant ones
+-- Structure step doesn't need JSON instructions
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_structure,config,output_type}',
+        '"html"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'html-developer-chunked'
+  AND is_active = true;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_styles,config,output_type}',
+        '"html"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'html-developer-chunked'
+  AND is_active = true;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_content_sections,config,output_type}',
+        '"html"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'html-developer-chunked'
+  AND is_active = true;
+
+

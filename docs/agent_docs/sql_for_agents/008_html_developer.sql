@@ -545,3 +545,23 @@ SELECT
     jsonb_pretty(default_config->'workflow'->'steps'->'generate_html'->'config'->'input_fields') as input_fields
 FROM agent_definitions
 WHERE type = 'html-developer';
+
+
+---
+
+-- ============================================================================
+-- Add output_type to Agent Configs
+-- This tells ai_actions.go whether to append JSON output instructions
+-- ============================================================================
+
+-- 6. HTML DEVELOPER - Outputs HTML (NOT JSON)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_html,config,output_type}',
+        '"html"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'html-developer'
+  AND is_active = true;
+

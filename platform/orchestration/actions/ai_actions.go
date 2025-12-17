@@ -214,6 +214,9 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		zap.String("template_preview", datahelpers.TruncateString(promptTemplate, 300)),
 		zap.String("rendered_preview - renderedPrompt", datahelpers.TruncateString(renderedPrompt, 400)))
 
+	// Append output format instructions based on output_type
+	renderedPrompt = appendOutputInstructions(renderedPrompt, aiServiceConfig, params.Logger)
+
 	// Prepare AI service options
 	options := make(map[string]interface{})
 	if model, ok := aiServiceConfig["model"].(string); ok {
@@ -268,6 +271,139 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		"result": parsedResult,
 		"type":   "json",
 	}, nil
+}
+
+// appendOutputInstructions adds format-specific instructions based on output_type
+func appendOutputInstructions(prompt string, config map[string]interface{}, logger *zap.Logger) string {
+	outputType := getOutputType(config)
+
+	if outputType == "" {
+		// No specific output type, use default clean output instructions
+		return prompt + getDefaultOutputInstructions()
+	}
+
+	instructions := getOutputInstructions(outputType)
+	if instructions == "" {
+		return prompt
+	}
+
+	logger.Info("Appending output format instructions",
+		zap.String("output_type", outputType))
+
+	return prompt + instructions
+}
+
+// getOutputType extracts output_type from config
+func getOutputType(config map[string]interface{}) string {
+	if outputType, ok := config["output_type"].(string); ok {
+		return outputType
+	}
+	return ""
+}
+
+// getOutputInstructions returns format-specific instructions
+func getOutputInstructions(outputType string) string {
+	switch outputType {
+	case "json":
+		return getJSONOutputInstructions()
+	case "html":
+		return getHTMLOutputInstructions()
+	case "text":
+		return getTextOutputInstructions()
+	case "markdown":
+		return getMarkdownOutputInstructions()
+	default:
+		return getDefaultOutputInstructions()
+	}
+}
+
+// getJSONOutputInstructions returns JSON formatting instructions
+func getJSONOutputInstructions() string {
+	return `
+
+CRITICAL OUTPUT FORMAT - JSON:
+- Output ONLY the raw JSON object or array
+- Do NOT wrap in markdown code fences (no ` + "```" + ` or ` + "```json" + `)
+- Do NOT add explanatory text before or after the JSON
+- Start your response with { or [ and end with } or ]
+- Ensure valid JSON syntax (proper quotes, commas, brackets)
+
+Example CORRECT:
+{"site_type": "brochure", "recommended_builder": "multipage-website-builder"}
+
+Example INCORRECT:
+` + "```json\n{\"site_type\": \"brochure\"}\n```\n\nNote: This classification..."
+}
+
+// getHTMLOutputInstructions returns HTML formatting instructions
+func getHTMLOutputInstructions() string {
+	return `
+
+CRITICAL OUTPUT FORMAT - HTML:
+- Output ONLY the raw HTML code
+- Do NOT wrap in markdown code fences (no ` + "```" + ` or ` + "```html" + `)
+- Do NOT add explanatory text before or after the HTML
+- Start with <!DOCTYPE html> or the appropriate opening tag
+- Include complete, valid HTML structure
+
+Example CORRECT:
+<!DOCTYPE html>
+<html lang="en">
+<head>...</head>
+<body>...</body>
+</html>
+
+Example INCORRECT:
+` + "```html\n<!DOCTYPE html>...\n```\n\nHere's the HTML for your site..."
+}
+
+// getTextOutputInstructions returns text formatting instructions
+func getTextOutputInstructions() string {
+	return `
+
+CRITICAL OUTPUT FORMAT - TEXT:
+- Output ONLY the actual text content
+- Do NOT wrap in markdown code fences
+- Do NOT add meta-commentary like "Here's the content..." or "I've created..."
+- Start directly with the content itself
+
+Example CORRECT:
+Welcome to our website. We provide excellent services...
+
+Example INCORRECT:
+Here's the content you requested:
+` + "```\nWelcome to our website...\n```"
+}
+
+// getMarkdownOutputInstructions returns markdown formatting instructions
+func getMarkdownOutputInstructions() string {
+	return `
+
+CRITICAL OUTPUT FORMAT - MARKDOWN:
+- Output ONLY the markdown content
+- Do NOT wrap in code fences
+- Do NOT add explanatory text before or after
+- Use proper markdown syntax for headings, lists, links, etc.
+
+Example CORRECT:
+# Welcome
+
+This is **bold** and this is *italic*.
+
+Example INCORRECT:
+` + "```markdown\n# Welcome\n```\n\nI've created markdown content for you..."
+}
+
+// getDefaultOutputInstructions returns general clean output instructions
+func getDefaultOutputInstructions() string {
+	return `
+
+CRITICAL OUTPUT FORMAT:
+- Output ONLY the requested content
+- Do NOT wrap in code fences or markdown formatting
+- Do NOT add preambles like "Here's what you asked for..."
+- Do NOT add post-ambles like "Hope this helps!"
+- Start directly with the actual content`
 }
 
 // helper function to load agent definition

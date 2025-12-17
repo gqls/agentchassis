@@ -94,3 +94,22 @@ SET
     }'::jsonb
 WHERE type = 'domain-analyst';
 
+---
+
+-- ============================================================================
+-- Add output_type to Agent Configs
+-- This tells ai_actions.go whether to append JSON output instructions
+-- ============================================================================
+
+-- 3. DOMAIN ANALYST - Outputs JSON analysis
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze,config,output_type}',
+        '"json"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-analyst'
+  AND is_active = true;
+
+

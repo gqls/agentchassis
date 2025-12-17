@@ -146,3 +146,21 @@ SELECT
 FROM agent_definitions
 WHERE type = 'site-classifier'
   AND is_active = true;
+
+
+--
+-- ============================================================================
+-- Add output_type to Agent Configs
+-- This tells ai_actions.go whether to append JSON output instructions
+-- ========
+
+-- 1. SITE CLASSIFIER - Outputs JSON classification
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_site,config,output_type}',
+        '"json"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-classifier'
+  AND is_active = true;

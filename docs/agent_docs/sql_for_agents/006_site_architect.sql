@@ -93,3 +93,23 @@ SET
     }'::jsonb
 WHERE type = 'site-architect';
 
+---
+
+-- ============================================================================
+-- Add output_type to Agent Configs
+-- This tells ai_actions.go whether to append JSON output instructions
+-- ============================================================================
+
+-- 4. SITE ARCHITECT - Outputs JSON architecture
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,design,config,output_type}',
+        '"json"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-architect'
+  AND is_active = true;
+
+
+
