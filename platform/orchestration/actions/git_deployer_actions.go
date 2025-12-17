@@ -31,7 +31,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	params.Logger.Info("Executing GitCommitAction",
 		zap.String("step_name", params.ExecutionContext.StepName),
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
-		zap.Any("config_keys", getMapKeysGit(params.StepConfig.Config)),
+		zap.Any("config_keys", datahelpers.GetMapKeys(params.StepConfig.Config)),
 	)
 
 	// 1. Extract configuration
@@ -167,168 +167,78 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	return result, nil
 }
 
-// extractDomainForGit extracts domain from CollectedData using field path
+// extractDomainForGit extracts domain from CollectedData using unified extractor
 func extractDomainForGit(data map[string]interface{}, config map[string]interface{}, logger *zap.Logger) string {
-	// Get configured domain_field
+	// Get configured domain_field, default to "domain"
 	domainField, _ := config["domain_field"].(string)
-
-	logger.Info("Attempting to extract domain",
-		zap.String("configured_field", domainField))
-
-	// Build list of paths to try
-	pathsToTry := []string{}
-
-	// If domain_field is configured, try it and variations
-	if domainField != "" {
-		pathsToTry = append(pathsToTry,
-			domainField,               // Original configured field
-			"input_data."+domainField, // With input_data prefix
-		)
+	if domainField == "" {
+		domainField = "domain"
 	}
 
-	// Add common fallback paths with increasing nesting levels
-	// These handle the case where agent calls wrap data in additional input_data layers
-	pathsToTry = append(pathsToTry,
-		"domain",                                  // Top-level
-		"input_data.domain",                       // 1 level deep
-		"input_data.input_data.domain",            // 2 levels deep
-		"input_data.input_data.input_data.domain", // 3 levels deep
-		"input_data.input_data.input_data.input_data.domain",                                                                                                    // 4 levels deep
-		"input_data.input_data.input_data.input_data.input_data.domain",                                                                                         // 5 levels deep
-		"input_data.input_data.input_data.input_data.input_data.input_data.domain",                                                                              // 6 levels deep
-		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain",                                                                   // 7 levels deep
-		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain",                                                        // 8 levels deep
-		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain",                                             // 9 levels deep
-		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain",                                  // 10 levels deep
-		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain",                       // 11 levels deep
-		"input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.input_data.domain", // 12 levels deep
-	)
+	logger.Info("Extracting domain using unified extractor",
+		zap.String("domain_field", domainField))
 
-	// Remove duplicates
-	seen := make(map[string]bool)
-	uniquePaths := []string{}
-	for _, path := range pathsToTry {
-		if !seen[path] {
-			seen[path] = true
-			uniquePaths = append(uniquePaths, path)
+	// Use the unified extractor for consistent field extraction
+	extracted := datahelpers.ExtractFields(data, []string{domainField}, logger)
+
+	// The extracted key will be the last part of the path
+	pathParts := strings.Split(domainField, ".")
+	extractedKey := pathParts[len(pathParts)-1]
+
+	if domainData, ok := extracted[extractedKey]; ok {
+		if domainStr, ok := domainData.(string); ok && domainStr != "" {
+			logger.Info("Successfully extracted domain",
+				zap.String("domain", domainStr))
+			return domainStr
 		}
 	}
 
-	// Try each path
-	for _, path := range uniquePaths {
-		logger.Debug("Trying domain path", zap.String("path", path))
-
-		domainData := datahelpers.ExtractNestedField(data, path)
-		if domainData != nil {
-			if domainStr, ok := domainData.(string); ok && domainStr != "" {
-				logger.Info("Successfully extracted domain",
-					zap.String("path_used", path),
-					zap.String("domain", domainStr))
-				return domainStr
-			}
-		}
-	}
-
-	// Last resort: recursive search for "domain" key anywhere in the structure
-	logger.Info("Trying recursive search for domain")
-	if foundDomain := recursiveFindDomain(data, logger); foundDomain != "" {
-		logger.Info("Found domain via recursive search", zap.String("domain", foundDomain))
-		return foundDomain
-	}
-
-	logger.Warn("Failed to extract domain from any path",
-		zap.Strings("tried_paths", uniquePaths))
-
+	logger.Warn("Failed to extract domain", zap.String("domain_field", domainField))
 	return "unknown-domain"
 }
 
 // recursiveFindDomain searches recursively for a "domain" key in nested maps
-func recursiveFindDomain(data interface{}, logger *zap.Logger) string {
-	switch v := data.(type) {
-	case map[string]interface{}:
-		// Check if this map has a "domain" key directly
-		if domain, ok := v["domain"].(string); ok && domain != "" {
-			return domain
-		}
-		// Recursively search nested maps
-		for key, value := range v {
-			// Skip special internal keys
-			if strings.HasPrefix(key, "__") {
-				continue
-			}
-			if found := recursiveFindDomain(value, logger); found != "" {
-				return found
-			}
-		}
-	case []interface{}:
-		// Search arrays
-		for _, item := range v {
-			if found := recursiveFindDomain(item, logger); found != "" {
-				return found
-			}
-		}
-	}
-	return ""
-}
-
 // extractFilesForGit extracts files map from CollectedData or config
+// Uses the unified extractor infrastructure for consistent field extraction
 func extractFilesForGit(data map[string]interface{}, config map[string]interface{}, domain string, logger *zap.Logger) map[string]string {
 	filesMap := make(map[string]string)
 
-	// Method 1: Check files_field config (NEW - for multi-page support)
-	if filesField, ok := config["files_field"].(string); ok && filesField != "" {
-		logger.Info("Attempting to extract files from field path",
-			zap.String("files_field", filesField))
+	// Method 1: Use files_field config with unified extractor (NEW - for multi-page support)
+	filesField, hasFilesField := config["files_field"].(string)
 
-		if filesData := datahelpers.ExtractNestedField(data, filesField); filesData != nil {
-			if files, ok := filesData.(map[string]interface{}); ok {
-				for filename, content := range files {
-					if contentStr, ok := content.(string); ok {
-						// Prepend domain to create path: domain/filename
-						fullPath := filename
-						/*if !strings.HasPrefix(filename, domain+"/") && !strings.HasPrefix(filename, domain+"\\") {
-							fullPath = filepath.Join(domain, filename)
-						}*/
-						filesMap[fullPath] = contentStr
-						logger.Info("Added file from files_field",
-							zap.String("path", fullPath),
-							zap.Int("size", len(contentStr)))
-					}
-				}
-				if len(filesMap) > 0 {
-					return filesMap
+	// If files_field not configured, use default multipage path
+	if !hasFilesField || filesField == "" {
+		filesField = "site_files.files"
+		logger.Info("files_field not configured, using default multipage path",
+			zap.String("default_path", filesField))
+	}
+
+	logger.Info("Extracting files using unified extractor",
+		zap.String("files_field", filesField))
+
+	// Use the existing unified extractor for consistent field extraction
+	extracted := datahelpers.ExtractFields(data, []string{filesField}, logger)
+
+	// The extracted key will be the last part of the path (e.g., "files")
+	pathParts := strings.Split(filesField, ".")
+	extractedKey := pathParts[len(pathParts)-1]
+
+	if filesData, ok := extracted[extractedKey]; ok {
+		logger.Info("Successfully extracted files data",
+			zap.String("key", extractedKey),
+			zap.String("type", fmt.Sprintf("%T", filesData)))
+
+		if files, ok := filesData.(map[string]interface{}); ok {
+			for filename, content := range files {
+				if contentStr, ok := content.(string); ok {
+					filesMap[filename] = contentStr
+					logger.Info("Added file from unified extractor",
+						zap.String("filename", filename),
+						zap.Int("size", len(contentStr)))
 				}
 			}
-		}
-
-		// Try further multiple possible paths for files_field
-		pathsToTry := []string{
-			filesField,                 // Original path: "site_files.files"
-			"input_data." + filesField, // input_data.site_files.files
-			"input_data.site_files.wrap_multipage.files", // Known multipage path
-		}
-
-		for _, path := range pathsToTry {
-			if filesData := datahelpers.ExtractNestedField(data, path); filesData != nil {
-				logger.Info("Found files from further search at path",
-					zap.String("path", path),
-				)
-
-				if files, ok := filesData.(map[string]interface{}); ok {
-					for filename, content := range files {
-						if contentStr, ok := content.(string); ok {
-							// Prepend domain to create path: domain/filename
-							// fullPath := filepath.Join(domain, filename)
-							filesMap[filename] = contentStr
-							logger.Info("Successfully added file from files_field",
-								zap.String("path", filename),
-								zap.Int("size", len(contentStr)))
-						}
-					}
-					if len(filesMap) > 0 {
-						return filesMap
-					}
-				}
+			if len(filesMap) > 0 {
+				return filesMap
 			}
 		}
 	}
@@ -337,37 +247,36 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 	if filesRaw, ok := config["files"].(map[string]interface{}); ok {
 		for filename, content := range filesRaw {
 			if contentStr, ok := content.(string); ok {
-				fullPath := filename
-				/*if !strings.HasPrefix(filename, domain+"/") && !strings.HasPrefix(filename, domain+"\\") {
-					fullPath = filepath.Join(domain, filename)
-				}*/
-				filesMap[fullPath] = contentStr
+				filesMap[filename] = contentStr
 			}
 		}
 		if len(filesMap) > 0 {
+			logger.Info("Using direct files from config", zap.Int("count", len(filesMap)))
 			return filesMap
 		}
 	}
 
 	// Method 3: Check content_field for single file (backward compatibility)
 	if contentField, ok := config["content_field"].(string); ok && contentField != "" {
-		if content := datahelpers.ExtractNestedField(data, contentField); content != nil {
+		// Use unified extractor for content_field too
+		extracted := datahelpers.ExtractFields(data, []string{contentField}, logger)
+
+		// Get the last part of the content field path
+		contentPathParts := strings.Split(contentField, ".")
+		contentKey := contentPathParts[len(contentPathParts)-1]
+
+		if content, ok := extracted[contentKey]; ok {
 			if contentStr, ok := content.(string); ok && contentStr != "" {
-				//fullPath := filepath.Join(domain, "index.html")
-				fullPath := "index.html"
-				filesMap[fullPath] = contentStr
-				logger.Info("Using content_field for single file",
-					zap.String("path", fullPath))
+				filesMap["index.html"] = contentStr
+				logger.Info("Using content_field for single file via unified extractor")
 				return filesMap
 			}
 		}
 	}
 
-	// Returns first one that works
-
 	logger.Warn("No files found via any method",
-		zap.Any("config_keys", getMapKeysGit(config)),
-		zap.Any("data_keys", getMapKeysGit(data)))
+		zap.Any("config_keys", datahelpers.GetMapKeys(config)),
+		zap.String("files_field", filesField))
 
 	return filesMap
 }
@@ -404,13 +313,4 @@ func getFileNames(files map[string]string) []string {
 		names = append(names, name)
 	}
 	return names
-}
-
-// getMapKeysGit returns keys of a map (helper)
-func getMapKeysGit(m map[string]interface{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }
