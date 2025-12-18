@@ -114,3 +114,14 @@ SET default_config = jsonb_set(
 WHERE type = 'content-creator'
   AND is_active = true;
 
+========
+
+-- 4. Ensure content-creator receives current_page and page_plan
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_content,config,input_fields}',
+        '["input_data", "current_page", "page_plan"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-creator';
