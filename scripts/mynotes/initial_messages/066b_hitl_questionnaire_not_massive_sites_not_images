@@ -225,7 +225,7 @@ kcat -P \
 -H from_agent_type=user \
 -H from_agent_id=cli \
 -H responses_topic=system.generic.responses <<JSON
-{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain":"leopardessconsulting.co.uk","objective":"Create a comprehensive corporate website for Leopardess Consulting, a web and digital transformation consulting firm. The site should showcase our company overview, leadership values, detailed service offerings across strategy, operations, and digital transformation, potential for ai agent integration in product, finance, marketing, management and human resources, insights blog, careers section, and contact information. Target audience: C-suite executives, HR and senior managers at mid-to-large enterprises seeking strategic consulting services.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain":"leopardessconsulting.co.uk","objective":"Create a fun but professional corporate website for Leopardess Consulting, a web and digital transformation consulting firm. The site should showcase our company overview, leadership values, detailed service offerings across strategy, operations, and digital transformation, potential for ai agent integration in product, finance, marketing, management and human resources, insights blog, careers section, and contact information. Target audience: C-suite executives, HR and senior managers at mid-to-large enterprises seeking strategic consulting services.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
 JSON
 
 echo ""
@@ -254,7 +254,12 @@ echo ""
 
 
 ^^
+{
+  "domain": "leopardessconsulting.co.uk",
+  "objective": "Build a welcoming, straightforward corporate website for Leopardess Consulting; a hands-on web and digital transformation consultancy with a knack for turning ideas into real results. The site should give a clear picture of who we are, our guiding values (like sharp insight and quiet strength), and our services in strategy, operations, and digital transformation. We'd love to highlight exciting possibilities for AI agents in areas like product development, finance, marketing, management, and HR. Include an insights blog for sharing practical thoughts, a careers section to attract great people, and simple ways to get in touch. Target audience: C-suite leaders, HR directors, and senior managers at mid-to-large businesses looking for thoughtful, effective consulting partners."
+}
 {"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain":"leopardessconsulting.co.uk","objective":"Create a comprehensive corporate website for Leopardess Consulting, a management consulting firm. The site should showcase our company overview, leadership team bios, detailed service offerings across strategy, operations, and digital transformation, case studies from FTSE 350 clients, insights blog, careers section, and contact information. Target audience: C-suite executives and senior managers at mid-to-large enterprises seeking strategic consulting services.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain":"leopardessconsulting.co.uk","objective":"Create a comprehensive corporate website for Leopardess Consulting, a web and digital transformation consulting firm. The site should showcase our company overview, leadership values, detailed service offerings across strategy, operations, and digital transformation, potential for ai agent integration in product, finance, marketing, management and human resources, insights blog, careers section, and contact information. Target audience: C-suite executives, HR and senior managers at mid-to-large enterprises seeking strategic consulting services.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
 
 === uncompressed
 {
@@ -286,9 +291,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=46598d26-fa77-4697-83a3-ef1182f1177c
-ORCHESTRATION_ID=0e15984b-6f90-41e7-93ba-3dbbfa83a38b
-HITL_REQUEST_ID=dd94ccd9-9f19-4a27-87f2-0361a7e26254
+CORRELATION_ID=92e52125-88d4-479f-b6bf-301b82045b92
+ORCHESTRATION_ID=f230704a-b09b-4ce8-821a-47f58effaeb9
+HITL_REQUEST_ID=64a0959a-ea5e-4728-a643-445f14141d76
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -369,9 +374,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=46598d26-fa77-4697-83a3-ef1182f1177c
-ORCHESTRATION_ID=0e15984b-6f90-41e7-93ba-3dbbfa83a38b
-HITL_REQUEST_ID=2a643331-2434-408b-8ae8-b871c7ce9943
+CORRELATION_ID=92e52125-88d4-479f-b6bf-301b82045b92
+ORCHESTRATION_ID=f230704a-b09b-4ce8-821a-47f58effaeb9
+HITL_REQUEST_ID=4da4bcc2-ef0e-4787-8fbe-874f3dfc93eb
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"

@@ -70,13 +70,13 @@ func ExtractFields(
 			simpleKey := parts[len(parts)-1]
 			result[simpleKey] = value
 
-			logger.Info("✓ Field extracted",
+			logger.Info("âœ“ Field extracted",
 				zap.String("requested", fieldName),
 				zap.String("stored_as", simpleKey),
 				zap.String("type", fmt.Sprintf("%T", value)),
 			)
 		} else {
-			logger.Warn("✗ Field not found",
+			logger.Warn("âœ— Field not found",
 				zap.String("field", fieldName),
 			)
 		}
@@ -251,9 +251,9 @@ func ensureCoreFields(
 		logger.Warn("Domain missing from result, searching aggressively")
 		if domain := FindDomainAggressive(source, logger); domain != "" {
 			result["domain"] = domain
-			logger.Info("✓ Recovered domain via aggressive search", zap.String("domain", domain))
+			logger.Info("âœ“ Recovered domain via aggressive search", zap.String("domain", domain))
 		} else {
-			logger.Error("✗ Could not find domain anywhere")
+			logger.Error("âœ— Could not find domain anywhere")
 		}
 	}
 
@@ -262,10 +262,10 @@ func ensureCoreFields(
 		logger.Warn("Objective missing from result, searching aggressively")
 		if objective := FindObjectiveAggressive(source, logger); objective != "" {
 			result["objective"] = objective
-			logger.Info("✓ Recovered objective via aggressive search",
+			logger.Info("âœ“ Recovered objective via aggressive search",
 				zap.Int("length", len(objective)))
 		} else {
-			logger.Error("✗ Could not find objective anywhere")
+			logger.Error("âœ— Could not find objective anywhere")
 		}
 	}
 
@@ -274,7 +274,7 @@ func ensureCoreFields(
 		if model := findFieldRecursive(source, "model", 0, logger); model != nil {
 			if modelStr, ok := model.(string); ok {
 				result["model"] = modelStr
-				logger.Info("✓ Recovered model via aggressive search", zap.String("model", modelStr))
+				logger.Info("âœ“ Recovered model via aggressive search", zap.String("model", modelStr))
 			}
 		}
 	}
@@ -304,15 +304,17 @@ func getInputDataMap(data map[string]interface{}, logger *zap.Logger) map[string
 }
 
 // getFieldAlias returns alternative names for common fields
+// NOTE: Do NOT alias site_content<->content because "content" is too common
+// (appears in sections[0].content, etc.) and causes wrong field extraction
 func getFieldAlias(fieldName string) string {
 	aliases := map[string]string{
 		"site_architecture":  "architecture",
 		"architecture":       "site_architecture",
-		"site_content":       "content",
-		"content":            "site_content",
 		"domain_analysis":    "analysis",
 		"analysis":           "domain_analysis",
 		"available_builders": "builders",
+		// Removed: "site_content": "content" - too dangerous, matches sections[0].content
+		// Removed: "content": "site_content"
 	}
 	return aliases[fieldName]
 }

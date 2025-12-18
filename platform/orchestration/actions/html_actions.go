@@ -360,6 +360,94 @@ func findStringField(data interface{}, fieldName string, depth int, logger *zap.
 // PROMPT BUILDING
 // ============================================================================
 
+// extractStructuredContent extracts content that has proper website structure (hero/sections/meta/footer)
+// Returns empty string if the content is just prose text (like sections[0].content)
+// This prevents the alias system from returning the wrong data
+func extractStructuredContent(data interface{}, logger *zap.Logger) string {
+	if data == nil {
+		return ""
+	}
+
+	// If it's a string, check if it looks like JSON with structure
+	if str, ok := data.(string); ok {
+		cleaned := datahelpers.CleanHTMLString(str)
+		// Try to parse as JSON
+		var parsed map[string]interface{}
+		if err := json.Unmarshal([]byte(cleaned), &parsed); err == nil {
+			// Check if parsed JSON has expected structure
+			if isStructuredWebContent(parsed) {
+				return cleaned
+			}
+		}
+		// It's just a string - probably prose text, not structured content
+		return ""
+	}
+
+	// If it's a map, check for nested content patterns
+	if m, ok := data.(map[string]interface{}); ok {
+		// Check if THIS map is the structured content
+		if isStructuredWebContent(m) {
+			if contentJSON, err := json.Marshal(m); err == nil {
+				return string(contentJSON)
+			}
+		}
+
+		// Pattern 1: content_result.result (from content-creator)
+		if contentResult, ok := m["content_result"].(map[string]interface{}); ok {
+			if result, ok := contentResult["result"]; ok {
+				return extractStructuredContent(result, logger)
+			}
+		}
+
+		// Pattern 2: create_content.result
+		if createContent, ok := m["create_content"].(map[string]interface{}); ok {
+			if result, ok := createContent["result"]; ok {
+				return extractStructuredContent(result, logger)
+			}
+		}
+
+		// Pattern 3: Nested in input_data (call_agent response pattern)
+		if inputData, ok := m["input_data"].(map[string]interface{}); ok {
+			if found := extractStructuredContent(inputData, logger); found != "" {
+				return found
+			}
+		}
+
+		// Pattern 4: Direct result field
+		if result, ok := m["result"]; ok {
+			return extractStructuredContent(result, logger)
+		}
+	}
+
+	return ""
+}
+
+// isStructuredWebContent checks if a map looks like website content structure
+// Must have at least one of: hero, sections, meta, footer
+func isStructuredWebContent(m map[string]interface{}) bool {
+	_, hasHero := m["hero"]
+	_, hasSections := m["sections"]
+	_, hasMeta := m["meta"]
+	_, hasFooter := m["footer"]
+
+	// Must have at least 2 of these to be considered structured content
+	count := 0
+	if hasHero {
+		count++
+	}
+	if hasSections {
+		count++
+	}
+	if hasMeta {
+		count++
+	}
+	if hasFooter {
+		count++
+	}
+
+	return count >= 2
+}
+
 // extractContentForPrompt extracts content from nested structures using datahelpers
 // Returns a string suitable for inclusion in an LLM prompt
 func extractContentForPrompt(data interface{}, logger *zap.Logger) string {
@@ -443,72 +531,50 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 		}
 	}
 
-	// Extract content - NEW: Try multiple field names
-	// Priority: site_content > page_content > content
+	// Extract content - Priority: page_content > site_content > content
+	// page_content is used in multipage loop context (most common case)
+	// site_content may be aliased incorrectly, so check page_content FIRST
 	contentFound := false
 
-	// Try site_content first (full site context)
-	// Use extractContentForPrompt to handle nested structures from content-creator
-	if content, ok := context["site_content"]; ok {
-		if extracted := extractContentForPrompt(content, nil); extracted != "" {
-			if len(extracted) > 5000 {
-				contentInfo = extracted[:5000] + "... [truncated]"
+	// Try page_content FIRST (multipage loop context - most common)
+	// This contains the content-creator output with hero/sections/meta/footer structure
+	if content, ok := context["page_content"]; ok {
+		if extracted := extractStructuredContent(content, nil); extracted != "" {
+			if len(extracted) > 8000 {
+				contentInfo = extracted[:8000] + "... [truncated]"
 			} else {
 				contentInfo = extracted
 			}
 			contentFound = true
-		} else if contentStr, ok := content.(string); ok {
-			contentInfo = contentStr
-			contentFound = true
-		} else if contentJSON, err := json.Marshal(content); err == nil {
-			if len(contentJSON) > 3000 {
-				contentInfo = string(contentJSON[:3000]) + "... [truncated]"
-			} else {
-				contentInfo = string(contentJSON)
-			}
-			contentFound = true
 		}
 	}
 
-	// Try page_content if site_content not found (multipage loop context)
-	// Use extractContentForPrompt to dig into nested content-creator responses
+	// Try site_content only if page_content didn't work
+	// Be careful: site_content might be incorrectly aliased to sections[0].content
 	if !contentFound {
-		if content, ok := context["page_content"]; ok {
-			// First try extractContentForPrompt which handles nested structures
-			if extracted := extractContentForPrompt(content, nil); extracted != "" {
-				if len(extracted) > 5000 {
-					contentInfo = extracted[:5000] + "... [truncated]"
+		if content, ok := context["site_content"]; ok {
+			// Only use if it's actually structured content (not just prose text)
+			if extracted := extractStructuredContent(content, nil); extracted != "" {
+				if len(extracted) > 8000 {
+					contentInfo = extracted[:8000] + "... [truncated]"
 				} else {
 					contentInfo = extracted
 				}
 				contentFound = true
-			} else if contentStr, ok := content.(string); ok {
-				// Fallback to direct string
-				contentInfo = contentStr
-				contentFound = true
-			} else if contentJSON, err := json.Marshal(content); err == nil {
-				// Last resort: marshal the whole thing
-				if len(contentJSON) > 3000 {
-					contentInfo = string(contentJSON[:3000]) + "... [truncated]"
-				} else {
-					contentInfo = string(contentJSON)
-				}
-				contentFound = true
 			}
 		}
 	}
 
-	// Try generic content as last fallback
+	// Try generic content as last fallback - but validate it's structured
 	if !contentFound {
 		if content, ok := context["content"]; ok {
-			if contentStr, ok := content.(string); ok {
-				contentInfo = contentStr
-			} else if contentJSON, err := json.Marshal(content); err == nil {
-				if len(contentJSON) > 3000 {
-					contentInfo = string(contentJSON[:3000]) + "... [truncated]"
+			if extracted := extractStructuredContent(content, nil); extracted != "" {
+				if len(extracted) > 8000 {
+					contentInfo = extracted[:8000] + "... [truncated]"
 				} else {
-					contentInfo = string(contentJSON)
+					contentInfo = extracted
 				}
+				contentFound = true
 			}
 		}
 	}
