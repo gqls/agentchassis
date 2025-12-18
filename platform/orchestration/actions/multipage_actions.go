@@ -148,8 +148,45 @@ func extractPagesFromLoop(data map[string]interface{}, fieldPath string, logger 
 		zap.String("value_type", fmt.Sprintf("%T", value)),
 	)
 
-	// Format 1: Map of pages {"index": "...", "about": "...", ...}
+	// Format 1: Map - could be direct pages OR loop_complete output
 	if pagesMap, ok := value.(map[string]interface{}); ok {
+		// Check for loop_complete output format: {iterations: N, results: [...]}
+		if results, hasResults := pagesMap["results"].([]interface{}); hasResults {
+			logger.Info("Detected loop_complete format, extracting from results array",
+				zap.Int("results_count", len(results)))
+
+			// Process the results array (same as Format 2)
+			for i, item := range results {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					name := fmt.Sprintf("page_%d", i)
+
+					// Try to get name from item
+					if itemName, ok := itemMap["name"].(string); ok && itemName != "" {
+						name = itemName
+					} else if itemName, ok := itemMap["page_name"].(string); ok && itemName != "" {
+						name = itemName
+					}
+
+					// Extract HTML
+					html := extractHTMLFromValue(itemMap, logger)
+					if html != "" {
+						filename := name
+						if !strings.HasSuffix(filename, ".html") {
+							filename = filename + ".html"
+						}
+						pages[filename] = html
+						logger.Debug("Extracted page from loop_complete results",
+							zap.String("name", filename),
+							zap.Int("index", i),
+							zap.Int("length", len(html)),
+						)
+					}
+				}
+			}
+			return pages
+		}
+
+		// Otherwise, treat as direct map of pages {"index": "...", "about": "...", ...}
 		for name, content := range pagesMap {
 			html := extractHTMLFromValue(content, logger)
 			if html != "" {
