@@ -288,9 +288,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=8b084c32-d675-44ce-8ae6-76bf8c639bef
-ORCHESTRATION_ID=1d9094f5-5f1d-4963-b46b-61862542cea7
-HITL_REQUEST_ID=13667751-52de-4aa1-a0b2-fca859e27ea1
+CORRELATION_ID=f8c38da0-56d1-411d-98a3-cadcaa15fbc1
+ORCHESTRATION_ID=b3a941dc-9b20-4671-bd87-0fb1e45ee235
+HITL_REQUEST_ID=cd750cae-60eb-4976-a8cc-9945ceca9435
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -340,6 +340,7 @@ echo "  kubectl logs -n ai-persona-system -l app=agent-chassis --tail=200 | grep
 echo ""
 
 
+**^^**
 finding request id:
 Execution paused - waiting for responses
 Action requires waiting - pausing execution
@@ -371,9 +372,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=8b084c32-d675-44ce-8ae6-76bf8c639bef
-ORCHESTRATION_ID=1d9094f5-5f1d-4963-b46b-61862542cea7
-HITL_REQUEST_ID=0ac05d68-ba0f-483d-9ec0-de7a794cee03
+CORRELATION_ID=f8c38da0-56d1-411d-98a3-cadcaa15fbc1
+ORCHESTRATION_ID=b3a941dc-9b20-4671-bd87-0fb1e45ee235
+HITL_REQUEST_ID=2913f6a5-d1bd-40da-9e2d-c56f694d7fc6
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
