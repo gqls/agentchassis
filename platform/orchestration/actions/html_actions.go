@@ -71,7 +71,7 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	// Call LLM
 	llmParams := params
-	// Set prompt at CollectedData["prompt"] where getPromptWithPriority looks for it
+	// IMPORTANT: Set prompt at CollectedData["prompt"] where getPromptWithPriority looks for it
 	llmParams.CollectedData["prompt"] = prompt
 	// Also set input_data for template rendering
 	llmParams.CollectedData["input_data"] = map[string]interface{}{
@@ -584,9 +584,60 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 	}
 
 	// Extract page name/type if available (for multipage context)
+	// Handle both string format (legacy) and object format (new multipage)
 	pageInfo := ""
-	if pageName, ok := context["current_page"].(string); ok && pageName != "" {
-		pageInfo = fmt.Sprintf("\nPage Name/Type: %s", pageName)
+	if currentPage := context["current_page"]; currentPage != nil {
+		switch cp := currentPage.(type) {
+		case string:
+			// Legacy format: current_page is just a string like "about"
+			if cp != "" {
+				pageInfo = fmt.Sprintf("\nPage Name/Type: %s", cp)
+			}
+		case map[string]interface{}:
+			// New multipage format: current_page is an object with name, title, purpose, sections/components
+			var parts []string
+			if name, ok := cp["name"].(string); ok && name != "" {
+				parts = append(parts, fmt.Sprintf("Page Name: %s", name))
+			}
+			if title, ok := cp["title"].(string); ok && title != "" {
+				parts = append(parts, fmt.Sprintf("Page Title: %s", title))
+			}
+			if purpose, ok := cp["purpose"].(string); ok && purpose != "" {
+				parts = append(parts, fmt.Sprintf("Page Purpose: %s", purpose))
+			}
+			// Handle "sections" format (array of strings)
+			if sections, ok := cp["sections"].([]interface{}); ok && len(sections) > 0 {
+				var sectionNames []string
+				for _, s := range sections {
+					if sName, ok := s.(string); ok {
+						sectionNames = append(sectionNames, sName)
+					}
+				}
+				if len(sectionNames) > 0 {
+					parts = append(parts, fmt.Sprintf("Sections to Include: %s", strings.Join(sectionNames, ", ")))
+				}
+			}
+			// Handle "components" format (array of objects with type/priority)
+			if components, ok := cp["components"].([]interface{}); ok && len(components) > 0 {
+				var componentTypes []string
+				for _, c := range components {
+					if cMap, ok := c.(map[string]interface{}); ok {
+						if cType, ok := cMap["type"].(string); ok {
+							componentTypes = append(componentTypes, cType)
+						}
+					}
+				}
+				if len(componentTypes) > 0 {
+					parts = append(parts, fmt.Sprintf("Components to Include: %s", strings.Join(componentTypes, ", ")))
+				}
+			}
+			if metaDesc, ok := cp["meta_description"].(string); ok && metaDesc != "" {
+				parts = append(parts, fmt.Sprintf("Meta Description: %s", metaDesc))
+			}
+			if len(parts) > 0 {
+				pageInfo = "\n" + strings.Join(parts, "\n")
+			}
+		}
 	}
 
 	return fmt.Sprintf(`Generate a complete, modern, responsive HTML5 website.

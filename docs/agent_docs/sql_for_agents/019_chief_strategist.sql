@@ -1,110 +1,144 @@
-
-
-
--- Fix chief-strategist to add parse_json step after LLM generation
--- Key insight: Point source_field to the MAP, not to .result
--- Your unwrapDeep will detect "result" key and parse it (Pattern 2)
-
-UPDATE agent_definitions
-SET default_config = jsonb_build_object(
-        'workflow', jsonb_build_object(
-                'steps', jsonb_build_object(
-                        'generate_build_plan', jsonb_build_object(
-                                'action', 'execute_llm_prompt',
-                                'config', jsonb_build_object(
-                                        'ai_service', jsonb_build_object(
-                                                'model', 'claude-haiku-4-5-20251001',
-                                                'provider', 'anthropic',
-                                                'api_key_env_var', 'ANTHROPIC_API_KEY'
-                                                      ),
-                                        'input_data', jsonb_build_array('domain', 'objective', 'model'),
-                                        'prompt_template', 'You are a Chief Marketing Strategist. Client: {{.domain}}. Objective: {{.objective}}. Model: {{.model}}.
-
-Available Components: [header, hero, features, social_proof, pricing, faq, call_to_action, footer].
-
-Based on the {{.model}} model, select the best sequence of components. Then for each component devise a plan for the copy structure, suggested copy and suggested graphics style that suits the objective {{ .objective }} and the marketing model {{ .model }}.
-
-Output JSON: {"sections": ["component_name", ...], "component_details": {...}}'
-                                          ),
-                                'next_step', 'parse_plan',
-                                'description', 'Create the Build Plan using LLM',
-                                'output_field', 'build_plan_raw'
-                                               ),
-                        'parse_plan', jsonb_build_object(
-                                'action', 'parse_json_field',
-                                'config', jsonb_build_object(
-                                        'source_field', 'build_plan_raw'  -- ← Point to map, not build_plan_raw.result
-                                          ),                                     -- Your unwrapDeep handles the rest!
-                                'next_step', 'complete',
-                                'description', 'Parse JSON from LLM response using existing datahelpers',
-                                'output_field', 'plan_data'  -- ← Clear name, avoids "sections.sections" confusion
-                                      ),
-                        'complete', jsonb_build_object(
-                                'action', 'complete_workflow',
-                                'description', 'Return parsed plan'
-                                    )
-                         ),
-                'start_step', 'generate_build_plan'
-                    ),
-        'processing_mode', 'task',
-        'timeout_seconds', 120
-                     )
-WHERE type = 'chief-strategist';
-
--- Verify the update
-SELECT
-    type,
-    default_config->'workflow'->'steps'->'parse_plan'->'config'->>'source_field' as parse_source,
-    default_config->'workflow'->'steps'->'parse_plan'->>'output_field' as parse_output,
-    default_config->'workflow'->'start_step' as start_step
-FROM agent_definitions
-WHERE type = 'chief-strategist';
-
-
-----
-
-UPDATE agent_definitions
-SET default_config = jsonb_set(
-        default_config,
-        '{workflow,steps,generate_build_plan,config}',
-        '{
-            "ai_service": {
-                "provider": "anthropic",
-                "model": "claude-haiku-4-5-20251001",
-                "api_key_env_var": "ANTHROPIC_API_KEY"
-            },
-            "max_tokens": 8192,
-            "input_data": ["domain", "objective", "model"],
-            "prompt_template": "You are a Chief Marketing Strategist. Client: {{.domain}}. Objective: {{.objective}}. Model: {{.model}}.\n\nAvailable Components: [header, hero, features, social_proof, pricing, faq, call_to_action, footer].\n\nBased on the {{.model}} model, select the best sequence of components. Then for each component devise a plan for the copy structure, suggested copy and suggested graphics style that suits the objective {{ .objective }} and the marketing model {{ .model }}.\n\nIMPORTANT: You MUST complete the entire JSON structure. If approaching token limits, prioritize completing all JSON fields with brief descriptions rather than leaving structures incomplete.\n\nOutput ONLY valid JSON (no markdown fences): {\"sections\": [\"component_name\", ...], \"component_details\": {...}}"
-        }'::jsonb
-                     )
-WHERE type = 'chief-strategist';
-
--=- move max tokens to config.ai_service
-
-UPDATE agent_definitions
-SET default_config = jsonb_set(
-        default_config,
-        '{workflow,steps,generate_build_plan,config,prompt_template}',
-        '"You are a Chief Marketing Strategist designing a landing page for {{.domain}}.\n\nObjective: {{.objective}}\nMarketing Model: {{.model}}\n\nAvailable Components: header, hero, features, social_proof, pricing, faq, call_to_action, footer\n\nTask:\n1. Select 6-8 components based on the {{.model}} model\n2. For EACH component provide: aida_stage, purpose, copy_structure, suggested_copy, graphics_style\n\nCRITICAL: Output complete, valid JSON. If approaching token limits, use concise descriptions but ensure ALL components have ALL required fields. Never leave JSON structures incomplete.\n\nOutput format (valid JSON only):\n{\n  \"sections\": [\"header\", \"hero\", \"features\", ...],\n  \"component_details\": {\n    \"header\": {\"aida_stage\": \"...\", \"purpose\": \"...\", \"copy_structure\": {...}, \"suggested_copy\": {...}, \"graphics_style\": {...}},\n    \"hero\": {...},\n    ...\n  }\n}"'::jsonb
-                     )
-WHERE type = 'chief-strategist';
-
+-- ============================================================================
+-- VERSION 2 AGENTS - Unified Site Builder Architecture
+-- ============================================================================
+-- These are v2 agents that work alongside existing v1 agents.
+-- v1 agents continue to work as before.
+-- v2 agents use the new pages/components structure.
 --
--- ============================================================================
--- Add output_type to Agent Configs
--- This tells ai_actions.go whether to append JSON output instructions
+-- To use v2: reference agent_type with version, or update workflows to use v2
 -- ============================================================================
 
 
+-- ============================================================================
+-- 1. CHIEF-STRATEGIST-V2 - Outputs pages with components
+-- ============================================================================
+INSERT INTO agent_definitions (
+    id,
+    type,
+    display_name,
+    description,
+    category,
+    default_config,
+    is_active,
+    capabilities,
+    image_repository,
+    image_tag,
+    resources,
+    topics,
+    health_config,
+    version,
+    input_contract,
+    output_contract
+)
+SELECT
+    gen_random_uuid(),
+    'chief-strategist',  -- Same type, different version
+    'Chief Strategist V2',
+    'Site planner that outputs pages with component types (v2 - unified architecture)',
+    category,
+    jsonb_build_object(
+            'workflow', jsonb_build_object(
+            'start_step', 'generate_build_plan',
+            'steps', jsonb_build_object(
+                    'generate_build_plan', jsonb_build_object(
+                            'action', 'execute_llm_prompt',
+                            'config', jsonb_build_object(
+                                    'ai_service', jsonb_build_object(
+                                            'model', 'claude-haiku-4-5-20251001',
+                                            'provider', 'anthropic',
+                                            'api_key_env_var', 'ANTHROPIC_API_KEY'
+                                                  ),
+                                    'output_type', 'json',
+                                    'input_fields', jsonb_build_array('input_data'),
+                                    'prompt_template', 'You are a Site Planner designing the structure for {{.input_data.domain}}.
 
--- 2. CHIEF STRATEGIST - Outputs JSON build plan
-UPDATE agent_definitions
-SET default_config = jsonb_set(
-        default_config,
-        '{workflow,steps,generate_build_plan,config,output_type}',
-        '"json"'::jsonb
-                     ),
-    updated_at = NOW()
-WHERE type = 'chief-strategist'
-  AND is_active = true;
+OBJECTIVE: {{.input_data.objective}}
+MARKETING MODEL: {{.input_data.model}}
+
+STEP 1: Determine the best site structure for this objective.
+
+Site Type Guidelines:
+- LANDING (1 page, 5-8 components): Product launches, lead gen, focused campaigns
+- CORPORATE (4-6 pages): Professional services, consulting, established businesses
+- PORTFOLIO (3-5 pages): Creatives, agencies, case study focused
+- ECOMMERCE (2-4 pages): Product sales, shopping focused
+
+STEP 2: Plan each page with specific components.
+
+Available component types:
+- hero-centered, hero-split, hero-video
+- services-grid, services-list
+- features-cards, features-comparison
+- testimonials-carousel, testimonials-grid
+- team-grid, pricing-tiers, faq-accordion
+- cta-banner, cta-split
+- contact-form, contact-simple
+- about-story, about-values
+- footer-standard
+
+OUTPUT FORMAT (valid JSON only):
+{
+  "site_type": "landing|corporate|portfolio|ecommerce",
+  "reasoning": "Why this structure fits the objective",
+  "theme_suggestion": "professional|bold|minimal|creative",
+  "pages": [
+    {
+      "name": "index",
+      "title": "Page Title | Brand",
+      "purpose": "What this page achieves",
+      "components": [
+        {"type": "hero-centered", "priority": "high"},
+        {"type": "services-grid", "priority": "high"}
+      ],
+      "meta_description": "SEO description"
+    }
+  ],
+  "global": {
+    "navigation": ["Home", "About", "Services", "Contact"],
+    "brand_tone": "professional|friendly|bold|technical"
+  }
+}'
+                                      ),
+                            'output_field', 'build_plan_raw',
+                            'next_step', 'parse_plan',
+                            'description', 'Generate site plan with pages and components'
+                                           ),
+                    'parse_plan', jsonb_build_object(
+                            'action', 'parse_json_field',
+                            'config', jsonb_build_object(
+                                    'source_field', 'build_plan_raw'
+                                      ),
+                            'output_field', 'plan_data',
+                            'next_step', 'complete',
+                            'description', 'Parse JSON plan'
+                                  ),
+                    'complete', jsonb_build_object(
+                            'action', 'complete_workflow',
+                            'description', 'Return parsed plan'
+                                )
+                     )
+                        ),
+            'processing_mode', 'task',
+            'timeout_seconds', 120
+    ),
+    true,
+    capabilities,
+    image_repository,
+    image_tag,
+    resources,
+    topics,
+    health_config,
+    2,  -- VERSION 2
+    '{"required": ["input_data"], "expects": {"input_data.domain": "string", "input_data.objective": "string"}}'::jsonb,
+    '{"produces": "plan_data", "format": {"type": "object", "properties": {"site_type": "string", "pages": "array"}}}'::jsonb
+FROM agent_definitions
+WHERE type = 'chief-strategist' AND version = 1
+    ON CONFLICT (type, version) DO UPDATE SET
+    default_config = EXCLUDED.default_config,
+                                       description = EXCLUDED.description,
+                                       display_name = EXCLUDED.display_name,
+                                       input_contract = EXCLUDED.input_contract,
+                                       output_contract = EXCLUDED.output_contract,
+                                       updated_at = NOW();
+
+
