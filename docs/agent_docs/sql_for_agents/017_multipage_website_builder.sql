@@ -207,3 +207,147 @@ SET default_config = jsonb_set(
 WHERE type = 'multipage-website-builder'
   AND is_active = true;
 
+
+-- ============================================================================
+-- SITEMAP-ENABLED NAVIGATION: Complete Update
+-- ============================================================================
+-- 1. chief-strategist: Output pages + sitemap structure
+-- 2. multipage-website-builder: Pass page_plan to html-developer
+-- ============================================================================
+
+-- ============================================================================
+-- 2. UPDATE MULTIPAGE-WEBSITE-BUILDER
+--    - iterate_over: pages (not sections)
+--    - Pass page_plan to html-developer for sitemap access
+-- ============================================================================
+
+UPDATE agent_definitions
+SET
+    updated_at = NOW(),
+    default_config = jsonb_set(
+            default_config,
+            '{workflow}',
+            '{
+                "start_step": "spawn_strategist",
+                "steps": {
+                    "spawn_strategist": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "agent_type": "chief-strategist",
+                            "role": "strategist"
+                        },
+                        "next_step": "spawn_content_creator",
+                        "output_field": "strategist_info",
+                        "description": "Spawn strategist for page planning"
+                    },
+                    "spawn_content_creator": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "agent_type": "content-creator",
+                            "role": "writer"
+                        },
+                        "next_step": "spawn_html_developer",
+                        "output_field": "writer_info",
+                        "description": "Spawn content creator"
+                    },
+                    "spawn_html_developer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "agent_type": "html-developer",
+                            "role": "developer"
+                        },
+                        "next_step": "spawn_deployer",
+                        "output_field": "developer_info",
+                        "description": "Spawn HTML developer"
+                    },
+                    "spawn_deployer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "agent_type": "deployer-agent",
+                            "role": "deployer"
+                        },
+                        "next_step": "call_strategist",
+                        "output_field": "deployer_info",
+                        "description": "Spawn deployer agent"
+                    },
+                    "call_strategist": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "chief-strategist",
+                            "target_role": "strategist",
+                            "input_fields": ["input_data"],
+                            "timeout_seconds": 120
+                        },
+                        "next_step": "generate_pages_loop",
+                        "output_field": "page_plan",
+                        "description": "Get page plan with sitemap from strategist"
+                    },
+                    "generate_pages_loop": {
+                        "action": "loop",
+                        "config": {
+                            "iterate_over": "page_plan.plan_data.pages",
+                            "loop_var": "current_page",
+                            "max_iterations": 10,
+                            "substeps": {
+                                "generate_content": {
+                                    "action": "call_agent",
+                                    "config": {
+                                        "agent_type": "content-creator",
+                                        "target_role": "writer",
+                                        "input_fields": ["current_page", "input_data", "page_plan"],
+                                        "timeout_seconds": 180
+                                    },
+                                    "next_step": "create_html",
+                                    "output_field": "page_content",
+                                    "description": "Generate content for page"
+                                },
+                                "create_html": {
+                                    "action": "call_agent",
+                                    "config": {
+                                        "agent_type": "html-developer",
+                                        "target_role": "developer",
+                                        "input_fields": ["page_content", "current_page", "input_data", "page_plan"],
+                                        "timeout_seconds": 180
+                                    },
+                                    "output_field": "page_html",
+                                    "description": "Convert content to HTML with navigation from sitemap"
+                                }
+                            }
+                        },
+                        "next_step": "assemble_site",
+                        "output_field": "all_pages",
+                        "description": "Generate all pages with content and HTML"
+                    },
+                    "assemble_site": {
+                        "action": "assemble_multipage_site",
+                        "config": {
+                            "pages_field": "all_pages",
+                            "sitemap_field": "page_plan.plan_data.sitemap",
+                            "add_navigation": true,
+                            "generate_standard_pages": false
+                        },
+                        "next_step": "deploy",
+                        "output_field": "site_files",
+                        "description": "Assemble pages with sitemap navigation"
+                    },
+                    "deploy": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "deployer-agent",
+                            "target_role": "deployer",
+                            "input_fields": ["site_files", "input_data"],
+                            "timeout_seconds": 180
+                        },
+                        "next_step": "complete",
+                        "output_field": "deployment_result",
+                        "description": "Deploy site to repository"
+                    },
+                    "complete": {
+                        "action": "complete_workflow",
+                        "description": "Multipage site build complete"
+                    }
+                }
+            }'::jsonb
+                     )
+WHERE type = 'multipage-website-builder'
+  AND is_active = true;
