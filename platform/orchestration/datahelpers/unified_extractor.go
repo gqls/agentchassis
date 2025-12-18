@@ -12,6 +12,11 @@ import (
 
 // ExtractFields is THE ONLY function you should use to extract fields
 // It uses ALL our existing helpers in the right order
+// When "input_data" is in fieldNames, this function:
+//  1. Extracts core fields (domain, objective, model) to ROOT level -> {{.domain}} works
+//  2. ALSO creates result["input_data"] map with same data -> {{.input_data.domain}} works
+//
+// This ensures backwards compatibility while supporting both template patterns.
 func ExtractFields(
 	collectedData map[string]interface{},
 	fieldNames []string,
@@ -27,31 +32,42 @@ func ExtractFields(
 
 	// Special handling for "input_data" field
 	if contains(fieldNames, "input_data") {
-		logger.Info("Special case: flattening input_data")
+		logger.Info("Special case: extracting input_data (dual access pattern)")
 
 		// Use aggressive search to get core data
 		coreData := ExtractCoreInputData(collectedData, logger)
 
-		// Flatten it into result
+		// Create the input_data map for {{.input_data.domain}} access
+		inputDataMap := make(map[string]interface{})
+
+		// Populate both root level AND input_data map
 		for k, v := range coreData {
-			result[k] = v
-			logger.Info("Flattened from core data",
+			result[k] = v       // Root level: {{.domain}}
+			inputDataMap[k] = v // Nested: {{.input_data.domain}}
+			logger.Info("Added to both root and input_data",
 				zap.String("key", k),
 				zap.String("type", fmt.Sprintf("%T", v)),
 			)
 		}
 
-		// Also try to get input_data map directly
-		if inputMap := getInputDataMap(collectedData, logger); inputMap != nil {
-			for k, v := range inputMap {
+		// Also try to get input_data map directly for any additional fields
+		if existingInputMap := getInputDataMap(collectedData, logger); existingInputMap != nil {
+			for k, v := range existingInputMap {
 				if _, exists := result[k]; !exists {
-					result[k] = v
-					logger.Info("Added from input_data map",
+					result[k] = v       // Root level
+					inputDataMap[k] = v // Nested
+					logger.Info("Added additional field from input_data map",
 						zap.String("key", k),
 					)
 				}
 			}
 		}
+
+		// Store the input_data map so {{.input_data.domain}} works
+		result["input_data"] = inputDataMap
+		logger.Info("Created input_data map for nested access",
+			zap.Strings("input_data_keys", getMapKeys(inputDataMap)),
+		)
 	}
 
 	// Extract each specific field
@@ -70,20 +86,25 @@ func ExtractFields(
 			simpleKey := parts[len(parts)-1]
 			result[simpleKey] = value
 
-			logger.Info("âœ“ Field extracted",
+			logger.Info("✓ Field extracted",
 				zap.String("requested", fieldName),
 				zap.String("stored_as", simpleKey),
 				zap.String("type", fmt.Sprintf("%T", value)),
 			)
 		} else {
-			logger.Warn("âœ— Field not found",
+			logger.Warn("✗ Field not found",
 				zap.String("field", fieldName),
 			)
 		}
 	}
 
-	// CRITICAL: Always ensure domain and objective exist
+	// CRITICAL: Always ensure domain and objective exist at root level
 	ensureCoreFields(result, collectedData, logger)
+
+	// Also ensure they exist inside input_data if that map exists
+	if inputDataMap, ok := result["input_data"].(map[string]interface{}); ok {
+		syncCoreFieldsToInputData(result, inputDataMap, logger)
+	}
 
 	logger.Info("=== MASTER EXTRACTOR COMPLETE ===",
 		zap.Int("fields_extracted", len(result)),
@@ -91,6 +112,23 @@ func ExtractFields(
 	)
 
 	return result
+}
+
+// syncCoreFieldsToInputData ensures domain/objective/model exist in input_data map
+// if they were recovered at root level by ensureCoreFields
+func syncCoreFieldsToInputData(root map[string]interface{}, inputData map[string]interface{}, logger *zap.Logger) {
+	coreFields := []string{"domain", "objective", "model"}
+
+	for _, field := range coreFields {
+		if _, existsInInputData := inputData[field]; !existsInInputData {
+			if value, existsAtRoot := root[field]; existsAtRoot {
+				inputData[field] = value
+				logger.Info("Synced core field to input_data",
+					zap.String("field", field),
+				)
+			}
+		}
+	}
 }
 
 // extractSingleField tries multiple strategies to find ONE field

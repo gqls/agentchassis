@@ -114,44 +114,110 @@ func ExtractFieldAction(ctx context.Context, params ActionParams) (interface{}, 
 	return result, nil
 }
 
-// validateParsedResult checks if the parsed JSON has the expected structure
+// validateParsedResult checks if the parsed JSON has a valid structure
+// Supports multiple formats:
+//   - v1 (landing page): requires "sections" (array) + "component_details" (map)
+//   - v2 (multipage): requires "pages" (array of page objects with components)
 func validateParsedResult(result interface{}, logger *zap.Logger) error {
 	resultMap, ok := result.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("expected map[string]interface{}, got %T", result)
 	}
 
-	// Check for required top-level keys
-	requiredKeys := []string{"sections", "component_details"}
-	for _, key := range requiredKeys {
-		if _, exists := resultMap[key]; !exists {
-			logger.Error("Missing required key in parsed result",
-				zap.String("missing_key", key),
-				zap.Strings("available_keys", getMapKeys(resultMap)),
-			)
-			return fmt.Errorf("missing required key '%s' - JSON may be truncated", key)
-		}
+	availableKeys := getMapKeys(resultMap)
+	logger.Info("Validating parsed result", zap.Strings("available_keys", availableKeys))
+
+	// Check for v2 format first (pages-based multipage structure)
+	if pages, hasPages := resultMap["pages"]; hasPages {
+		return validateV2Format(pages, logger)
 	}
 
-	// Validate sections is an array
-	if sections, ok := resultMap["sections"].([]interface{}); ok {
-		if len(sections) == 0 {
-			return fmt.Errorf("'sections' array is empty")
-		}
-		logger.Info("Validated sections array", zap.Int("count", len(sections)))
-	} else {
+	// Check for v1 format (sections + component_details for landing pages)
+	_, hasSections := resultMap["sections"]
+	_, hasComponentDetails := resultMap["component_details"]
+
+	if hasSections && hasComponentDetails {
+		return validateV1Format(resultMap, logger)
+	}
+
+	// Neither format matched
+	logger.Error("Parsed result doesn't match v1 or v2 format",
+		zap.Strings("available_keys", availableKeys),
+		zap.Bool("has_pages", false),
+		zap.Bool("has_sections", hasSections),
+		zap.Bool("has_component_details", hasComponentDetails),
+	)
+
+	return fmt.Errorf("invalid structure: need either 'pages' (v2) or 'sections'+'component_details' (v1) - got keys: %v", availableKeys)
+}
+
+// validateV1Format validates the landing page format (sections + component_details)
+func validateV1Format(resultMap map[string]interface{}, logger *zap.Logger) error {
+	logger.Info("Validating v1 format (sections + component_details)")
+
+	// Validate sections is a non-empty array
+	sections, ok := resultMap["sections"].([]interface{})
+	if !ok {
 		return fmt.Errorf("'sections' is not an array")
 	}
+	if len(sections) == 0 {
+		return fmt.Errorf("'sections' array is empty")
+	}
+	logger.Info("Validated sections array", zap.Int("count", len(sections)))
 
-	// Validate component_details is a map
-	if details, ok := resultMap["component_details"].(map[string]interface{}); ok {
-		if len(details) == 0 {
-			return fmt.Errorf("'component_details' map is empty")
-		}
-		logger.Info("Validated component_details map", zap.Int("count", len(details)))
-	} else {
+	// Validate component_details is a non-empty map
+	details, ok := resultMap["component_details"].(map[string]interface{})
+	if !ok {
 		return fmt.Errorf("'component_details' is not a map")
 	}
+	if len(details) == 0 {
+		return fmt.Errorf("'component_details' map is empty")
+	}
+	logger.Info("Validated component_details map", zap.Int("count", len(details)))
+
+	return nil
+}
+
+// validateV2Format validates the multipage format (pages array)
+func validateV2Format(pages interface{}, logger *zap.Logger) error {
+	logger.Info("Validating v2 format (pages array)")
+
+	pagesArray, ok := pages.([]interface{})
+	if !ok {
+		return fmt.Errorf("'pages' is not an array")
+	}
+
+	if len(pagesArray) == 0 {
+		return fmt.Errorf("'pages' array is empty")
+	}
+
+	// Validate each page has required fields
+	for i, page := range pagesArray {
+		pageMap, ok := page.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("page[%d] is not a map", i)
+		}
+
+		// Each page must have a name
+		name, hasName := pageMap["name"].(string)
+		if !hasName || name == "" {
+			return fmt.Errorf("page[%d] missing 'name' field", i)
+		}
+
+		// Each page should have components (but we'll be lenient here)
+		if components, hasComponents := pageMap["components"]; hasComponents {
+			if compArray, ok := components.([]interface{}); ok {
+				logger.Debug("Page has components",
+					zap.String("page", name),
+					zap.Int("component_count", len(compArray)),
+				)
+			}
+		}
+	}
+
+	logger.Info("Validated pages array",
+		zap.Int("page_count", len(pagesArray)),
+	)
 
 	return nil
 }

@@ -192,3 +192,18 @@ SELECT
 FROM agent_definitions
 WHERE type IN ('chief-strategist', 'content-creator', 'multipage-website-builder')
 ORDER BY type, version;
+
+
+-- ============================================================================
+-- Update multipage-website-builder to iterate over PAGES not SECTIONS
+-- ============================================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_pages_loop,config,iterate_over}',
+        '"page_plan.plan_data.pages"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'multipage-website-builder'
+  AND is_active = true;
+
