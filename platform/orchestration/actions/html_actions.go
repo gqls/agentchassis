@@ -71,6 +71,9 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	// Call LLM
 	llmParams := params
+	// Set prompt at CollectedData["prompt"] where getPromptWithPriority looks for it
+	llmParams.CollectedData["prompt"] = prompt
+	// Also set input_data for template rendering
 	llmParams.CollectedData["input_data"] = map[string]interface{}{
 		"prompt": prompt,
 	}
@@ -81,6 +84,7 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 			"api_key_env_var": "ANTHROPIC_API_KEY",
 			"max_tokens":      maxTokens,
 		},
+		"prompt": prompt, // Also set in StepConfig.Config for Priority 1
 	}
 
 	result, err := ExecuteLLMPromptAction(ctx, llmParams)
