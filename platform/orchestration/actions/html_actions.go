@@ -61,7 +61,7 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 	case "content":
 		prompt = buildContentPrompt(context)
 	default:
-		prompt = buildFullHTMLPrompt(context, params.Logger)
+		prompt = buildFullHTMLPrompt(context)
 	}
 
 	params.Logger.Info("Generated prompt",
@@ -509,7 +509,7 @@ func extractContentForPrompt(data interface{}, logger *zap.Logger) string {
 }
 
 // checks for both site_content and page_content
-func buildFullHTMLPrompt(context map[string]interface{}, logger *zap.Logger) string {
+func buildFullHTMLPrompt(context map[string]interface{}) string {
 	var domainInfo, architectureInfo, contentInfo, sitemapInfo string
 
 	// Extract domain/business info - check root level first (after flattening)
@@ -535,8 +535,8 @@ func buildFullHTMLPrompt(context map[string]interface{}, logger *zap.Logger) str
 		}
 	}
 
-	// Extract sitemap for navigation
-	sitemapInfo = extractSitemapInfo(context, logger)
+	// Extract sitemap for navigation links
+	sitemapInfo = extractSitemapInfo(context)
 
 	// Extract content - Priority: page_content > site_content > content
 	// page_content is used in multipage loop context (most common case)
@@ -546,7 +546,7 @@ func buildFullHTMLPrompt(context map[string]interface{}, logger *zap.Logger) str
 	// Try page_content FIRST (multipage loop context - most common)
 	// This contains the content-creator output with hero/sections/meta/footer structure
 	if content, ok := context["page_content"]; ok {
-		if extracted := extractStructuredContent(content, logger); extracted != "" {
+		if extracted := extractStructuredContent(content, nil); extracted != "" {
 			if len(extracted) > 8000 {
 				contentInfo = extracted[:8000] + "... [truncated]"
 			} else {
@@ -561,7 +561,7 @@ func buildFullHTMLPrompt(context map[string]interface{}, logger *zap.Logger) str
 	if !contentFound {
 		if content, ok := context["site_content"]; ok {
 			// Only use if it's actually structured content (not just prose text)
-			if extracted := extractStructuredContent(content, logger); extracted != "" {
+			if extracted := extractStructuredContent(content, nil); extracted != "" {
 				if len(extracted) > 8000 {
 					contentInfo = extracted[:8000] + "... [truncated]"
 				} else {
@@ -575,7 +575,7 @@ func buildFullHTMLPrompt(context map[string]interface{}, logger *zap.Logger) str
 	// Try generic content as last fallback - but validate it's structured
 	if !contentFound {
 		if content, ok := context["content"]; ok {
-			if extracted := extractStructuredContent(content, logger); extracted != "" {
+			if extracted := extractStructuredContent(content, nil); extracted != "" {
 				if len(extracted) > 8000 {
 					contentInfo = extracted[:8000] + "... [truncated]"
 				} else {
@@ -660,9 +660,9 @@ Requirements:
 4. Proper meta tags (charset, viewport, description)
 5. Semantic HTML5 elements (header, nav, main, footer)
 6. Professional, production-ready
-7. Use the EXACT navigation URLs provided above
-8. Header should contain main navigation links
-9. Footer should contain footer navigation links
+7. Use RELATIVE URLs for navigation (e.g., /about.html, /services.html)
+8. All internal links MUST use the exact URLs provided in Navigation section above
+9. Do NOT use absolute URLs with domain name for internal links
 
 Output ONLY the HTML code, starting with <!DOCTYPE html>.`,
 		ifEmpty(domainInfo, "Professional website"),
@@ -671,93 +671,6 @@ Output ONLY the HTML code, starting with <!DOCTYPE html>.`,
 		ifNotEmpty(architectureInfo, "Site Architecture:\n"+architectureInfo),
 		ifNotEmpty(contentInfo, "Content:\n"+contentInfo),
 	)
-}
-
-// extractSitemapInfo extracts the sitemap and formats it for the prompt
-// The sitemap tells the HTML developer exactly what links to include in navigation
-func extractSitemapInfo(context map[string]interface{}, logger *zap.Logger) string {
-	var sitemap []interface{}
-
-	// Try direct sitemap field first
-	if sm, ok := context["sitemap"].([]interface{}); ok {
-		sitemap = sm
-	}
-
-	// Try nested in page_plan.plan_data.sitemap
-	if sitemap == nil {
-		if pagePlan, ok := context["page_plan"].(map[string]interface{}); ok {
-			if planData, ok := pagePlan["plan_data"].(map[string]interface{}); ok {
-				if sm, ok := planData["sitemap"].([]interface{}); ok {
-					sitemap = sm
-				}
-			}
-		}
-	}
-
-	// Try nested in plan_data.sitemap (if page_plan was flattened)
-	if sitemap == nil {
-		if planData, ok := context["plan_data"].(map[string]interface{}); ok {
-			if sm, ok := planData["sitemap"].([]interface{}); ok {
-				sitemap = sm
-			}
-		}
-	}
-
-	if sitemap == nil || len(sitemap) == 0 {
-		if logger != nil {
-			logger.Debug("No sitemap found in context")
-		}
-		return ""
-	}
-
-	// Format sitemap for prompt
-	var headerNav []string
-	var footerNav []string
-
-	for _, entry := range sitemap {
-		if e, ok := entry.(map[string]interface{}); ok {
-			label, _ := e["label"].(string)
-			url, _ := e["url"].(string)
-			inHeader, _ := e["in_header"].(bool)
-			inFooter, _ := e["in_footer"].(bool)
-
-			if label == "" || url == "" {
-				continue
-			}
-
-			linkStr := fmt.Sprintf("%s -> %s", label, url)
-			if inHeader {
-				headerNav = append(headerNav, linkStr)
-			}
-			if inFooter {
-				footerNav = append(footerNav, linkStr)
-			}
-		}
-	}
-
-	var result strings.Builder
-	result.WriteString("NAVIGATION (use these EXACT URLs):\n")
-
-	if len(headerNav) > 0 {
-		result.WriteString("Header navigation: ")
-		result.WriteString(strings.Join(headerNav, " | "))
-		result.WriteString("\n")
-	}
-
-	if len(footerNav) > 0 {
-		result.WriteString("Footer navigation: ")
-		result.WriteString(strings.Join(footerNav, " | "))
-		result.WriteString("\n")
-	}
-
-	if logger != nil {
-		logger.Info("Extracted sitemap for HTML prompt",
-			zap.Int("header_links", len(headerNav)),
-			zap.Int("footer_links", len(footerNav)),
-		)
-	}
-
-	return result.String()
 }
 
 func buildStructurePrompt(context map[string]interface{}) string {
@@ -884,6 +797,93 @@ func ifNotEmpty(s, prefix string) string {
 		return ""
 	}
 	return prefix
+}
+
+// extractSitemapInfo extracts navigation links from the sitemap structure
+// The sitemap tells the HTML developer exactly what links to include
+func extractSitemapInfo(context map[string]interface{}) string {
+	var sitemap []interface{}
+
+	// Try direct sitemap field first
+	if sm, ok := context["sitemap"].([]interface{}); ok {
+		sitemap = sm
+	}
+
+	// Try nested in page_plan.plan_data.sitemap
+	if sitemap == nil {
+		if pagePlan, ok := context["page_plan"].(map[string]interface{}); ok {
+			if planData, ok := pagePlan["plan_data"].(map[string]interface{}); ok {
+				if sm, ok := planData["sitemap"].([]interface{}); ok {
+					sitemap = sm
+				}
+			}
+			// Also try direct result under page_plan
+			if sitemap == nil {
+				if sm, ok := pagePlan["sitemap"].([]interface{}); ok {
+					sitemap = sm
+				}
+			}
+		}
+	}
+
+	// Try nested in plan_data.sitemap (if page_plan was flattened)
+	if sitemap == nil {
+		if planData, ok := context["plan_data"].(map[string]interface{}); ok {
+			if sm, ok := planData["sitemap"].([]interface{}); ok {
+				sitemap = sm
+			}
+		}
+	}
+
+	if sitemap == nil || len(sitemap) == 0 {
+		return ""
+	}
+
+	// Format sitemap for prompt
+	var headerNav []string
+	var footerNav []string
+
+	for _, entry := range sitemap {
+		if e, ok := entry.(map[string]interface{}); ok {
+			label, _ := e["label"].(string)
+			url, _ := e["url"].(string)
+			inHeader, _ := e["in_header"].(bool)
+			inFooter, _ := e["in_footer"].(bool)
+
+			if label == "" || url == "" {
+				continue
+			}
+
+			linkStr := fmt.Sprintf("%s -> %s", label, url)
+			if inHeader {
+				headerNav = append(headerNav, linkStr)
+			}
+			if inFooter {
+				footerNav = append(footerNav, linkStr)
+			}
+		}
+	}
+
+	if len(headerNav) == 0 && len(footerNav) == 0 {
+		return ""
+	}
+
+	var result strings.Builder
+	result.WriteString("NAVIGATION (use these EXACT relative URLs):\n")
+
+	if len(headerNav) > 0 {
+		result.WriteString("Header navigation: ")
+		result.WriteString(strings.Join(headerNav, " | "))
+		result.WriteString("\n")
+	}
+
+	if len(footerNav) > 0 {
+		result.WriteString("Footer navigation: ")
+		result.WriteString(strings.Join(footerNav, " | "))
+		result.WriteString("\n")
+	}
+
+	return result.String()
 }
 
 func shouldMinify(params ActionParams) bool {

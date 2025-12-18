@@ -97,6 +97,15 @@ sleep 2
 # Now start the agent - it will create a fresh group with FirstOffset
 kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 
+# try creating it again
+kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh
+  --create --topic system.generic.responses
+  --bootstrap-server localhost:9092
+  --partitions 1
+  --replication-factor 1
+
+
 
 
 
@@ -271,9 +280,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=3402e3dd-5163-4ac5-aaa0-b38a48d8ebf4
-ORCHESTRATION_ID=83dd3572-28b1-4651-bb9a-647c9477768b
-HITL_REQUEST_ID=c0a1b358-4cea-4548-9422-402586116154
+CORRELATION_ID=9f86e43d-b25e-4ada-aa48-198f35280028
+ORCHESTRATION_ID=6a162eee-1fd2-4a34-a6aa-a5804596d146
+HITL_REQUEST_ID=9aa95cb7-b265-4a43-9538-27c4d700d002
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -355,9 +364,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=3402e3dd-5163-4ac5-aaa0-b38a48d8ebf4
-ORCHESTRATION_ID=83dd3572-28b1-4651-bb9a-647c9477768b
-HITL_REQUEST_ID=02fbfe5a-cd63-4aa6-b015-d71f4af0bd81
+CORRELATION_ID=9f86e43d-b25e-4ada-aa48-198f35280028
+ORCHESTRATION_ID=6a162eee-1fd2-4a34-a6aa-a5804596d146
+HITL_REQUEST_ID=94069dee-7e06-46f5-b9c6-7e7c707635b6
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
