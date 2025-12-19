@@ -30,7 +30,7 @@ func resolveFieldPathQuestionnaire(path string, data map[string]interface{}, log
 	if result == nil {
 		logger.Warn("FindByPath returned nil",
 			zap.String("path", path),
-			zap.Strings("available_top_level_keys", getMapKeys(data)),
+			zap.Strings("available_top_level_keys", datahelpers.GetMapKeys(data)),
 		)
 	} else {
 		logger.Info("FindByPath resolved successfully",
@@ -170,7 +170,7 @@ func FetchAgentQuestionnaireAction(ctx context.Context, params ActionParams) (in
 
 	// Log collected data structure for debugging
 	logger.Info("Collected data structure",
-		zap.Strings("top_level_keys", getMapKeys(params.CollectedData)),
+		zap.Strings("top_level_keys", datahelpers.GetMapKeys(params.CollectedData)),
 	)
 
 	// Resolve agent type - check both new and old naming
@@ -218,7 +218,7 @@ func FetchAgentQuestionnaireAction(ctx context.Context, params ActionParams) (in
 			} else {
 				logger.Error("Field path resolution failed",
 					zap.String("field_path", fieldPath),
-					zap.Strings("available_keys", getMapKeys(params.CollectedData)),
+					zap.Strings("available_keys", datahelpers.GetMapKeys(params.CollectedData)),
 				)
 			}
 		}
@@ -226,8 +226,8 @@ func FetchAgentQuestionnaireAction(ctx context.Context, params ActionParams) (in
 
 	if agentType == "" {
 		return nil, fmt.Errorf("could not resolve agent_type - provide 'agent_type', 'agent_type_field', 'group_type', or 'group_type_field' in config. Config keys: %v. Tried to extract from: %v",
-			getMapKeys(config),
-			getMapKeys(params.CollectedData),
+			datahelpers.GetMapKeys(config),
+			datahelpers.GetMapKeys(params.CollectedData),
 		)
 	}
 

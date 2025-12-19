@@ -18,7 +18,7 @@ import (
 // GenerateHTMLAction generates HTML using LLM based on input_fields configuration
 func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Generating HTML content with smart extraction",
-		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
+		zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)),
 	)
 
 	// Get configuration
@@ -48,7 +48,7 @@ func GenerateHTMLAction(ctx context.Context, params ActionParams) (interface{}, 
 	context := buildContextSmart(params.CollectedData, inputFields, params.Logger)
 
 	params.Logger.Info("Context built",
-		zap.Any("context_keys", GetMapKeys(context)),
+		zap.Any("context_keys", datahelpers.GetMapKeys(context)),
 	)
 
 	// Build prompt
@@ -274,7 +274,7 @@ func buildContextSmart(collectedData map[string]interface{}, inputFields []strin
 
 	logger.Info("Context built successfully",
 		zap.Int("field_count", len(context)),
-		zap.Strings("context_keys", getMapKeys(context)),
+		zap.Strings("context_keys", datahelpers.GetMapKeys(context)),
 	)
 
 	return context
@@ -298,7 +298,7 @@ func ensureCoreDomainInfo(context map[string]interface{}, collectedData map[stri
 
 	if len(coreData) > 0 {
 		logger.Info("Found core data via aggressive search",
-			zap.Any("found_fields", getMapKeys(coreData)),
+			zap.Any("found_fields", datahelpers.GetMapKeys(coreData)),
 		)
 
 		// Ensure input_data exists in context
@@ -800,8 +800,96 @@ func ifNotEmpty(s, prefix string) string {
 }
 
 // extractSitemapInfo extracts navigation links from the sitemap structure
-// The sitemap tells the HTML developer exactly what links to include
+// Now checks for database navigation first (from sync_pages_to_db action)
+//
+// Priority order:
+// 1. db_sync.navigation (from sync_pages_to_db - database source)
+// 2. navigation (direct field if passed)
+// 3. link_data.navigation (from link-manager if used)
+// 4. sitemap in page_plan (original LLM-generated sitemap)
 func extractSitemapInfo(context map[string]interface{}) string {
+	// PRIORITY 1: Check for database navigation from sync_pages_to_db
+	if dbSync, ok := context["db_sync"].(map[string]interface{}); ok {
+		if nav := extractNavigationFromStructure(dbSync, "navigation"); nav != "" {
+			return nav
+		}
+	}
+
+	// PRIORITY 2: Check for direct navigation field
+	if nav := extractNavigationFromStructure(context, "navigation"); nav != "" {
+		return nav
+	}
+
+	// PRIORITY 3: Check for link_data.navigation (from link-manager agent if used)
+	if linkData, ok := context["link_data"].(map[string]interface{}); ok {
+		if nav := extractNavigationFromStructure(linkData, "navigation"); nav != "" {
+			return nav
+		}
+	}
+
+	// PRIORITY 4: Fall back to sitemap in page_plan (original behavior)
+	return extractSitemapFromPlan(context)
+}
+
+// extractNavigationFromStructure extracts navigation from a NavigationStructure format
+// Expected format: {"items": [{"label": "Home", "url": "/index.html", ...}, ...]}
+func extractNavigationFromStructure(data map[string]interface{}, key string) string {
+	navData, ok := data[key]
+	if !ok {
+		return ""
+	}
+
+	// Handle both map[string]interface{} and *NavigationStructure
+	var items []interface{}
+
+	switch nav := navData.(type) {
+	case map[string]interface{}:
+		if itemsRaw, ok := nav["items"].([]interface{}); ok {
+			items = itemsRaw
+		}
+	case *NavigationStructure:
+		// Convert NavigationStructure items to interface slice
+		for _, item := range nav.Items {
+			items = append(items, map[string]interface{}{
+				"label": item.Label,
+				"url":   item.URL,
+			})
+		}
+	default:
+		return ""
+	}
+
+	if len(items) == 0 {
+		return ""
+	}
+
+	// Format as navigation string
+	var headerNav []string
+	for _, item := range items {
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			label, _ := itemMap["label"].(string)
+			url, _ := itemMap["url"].(string)
+			if label != "" && url != "" {
+				headerNav = append(headerNav, fmt.Sprintf("%s -> %s", label, url))
+			}
+		}
+	}
+
+	if len(headerNav) == 0 {
+		return ""
+	}
+
+	var result strings.Builder
+	result.WriteString("NAVIGATION (use these EXACT relative URLs from database):\n")
+	result.WriteString("Header navigation: ")
+	result.WriteString(strings.Join(headerNav, " | "))
+	result.WriteString("\n")
+
+	return result.String()
+}
+
+// extractSitemapFromPlan extracts navigation from page_plan sitemap (original behavior)
+func extractSitemapFromPlan(context map[string]interface{}) string {
 	var sitemap []interface{}
 
 	// Try direct sitemap field first

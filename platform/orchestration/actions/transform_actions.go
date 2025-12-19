@@ -124,7 +124,7 @@ func validateParsedResult(result interface{}, logger *zap.Logger) error {
 		return fmt.Errorf("expected map[string]interface{}, got %T", result)
 	}
 
-	availableKeys := getMapKeys(resultMap)
+	availableKeys := datahelpers.GetMapKeys(resultMap)
 	logger.Info("Validating parsed result", zap.Strings("available_keys", availableKeys))
 
 	// Check for v2 format first (pages-based multipage structure)

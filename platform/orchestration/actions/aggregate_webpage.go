@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -131,7 +132,7 @@ func collectResponses(collectedData map[string]interface{}, responseFields []str
 		if stepData, ok := collectedData[fieldName].(map[string]interface{}); ok {
 			logger.Debug("collectResponses: found step data",
 				zap.String("field", fieldName),
-				zap.Strings("step_data_keys", getMapKeys(stepData)))
+				zap.Strings("step_data_keys", datahelpers.GetMapKeys(stepData)))
 
 			// Pattern 1: Look for explicit "response" field (from handleCompleteResponse)
 			if response, ok := stepData["response"].(map[string]interface{}); ok {
@@ -169,7 +170,7 @@ func collectResponses(collectedData map[string]interface{}, responseFields []str
 	logger.Info("collectResponses: collection complete",
 		zap.Int("requested", len(responseFields)),
 		zap.Int("found", len(responses)),
-		zap.Strings("found_fields", getMapKeys(responses)))
+		zap.Strings("found_fields", datahelpers.GetMapKeys(responses)))
 
 	return responses
 }

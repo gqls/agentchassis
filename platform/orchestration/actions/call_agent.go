@@ -970,14 +970,6 @@ func extractDefaultInputData(params ActionParams) interface{} {
 	return make(map[string]interface{})
 }
 
-func getMapKeys(m map[string]interface{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
 // helper function to platform/orchestration/actions/call_agent.go
 
 // getNestedValue safely traverses a map[string]interface{} to find a value.

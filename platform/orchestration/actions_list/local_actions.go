@@ -53,6 +53,13 @@ var LocalActions = map[string]bool{
 	"loop":          true,
 	"loop_complete": true,
 
+	// Site and Link Management (Database Integration)
+	"ensure_site_record":     true,
+	"sync_pages_to_db":       true,
+	"extract_and_sync_links": true,
+	"update_site_timestamps": true,
+	"get_navigation_from_db": true,
+
 	// Data aggregation
 	"aggregate_data":    true,
 	"aggregate_webpage": true,

@@ -62,6 +62,13 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"loop":          LoopAction,
 	"loop_complete": LoopCompleteAction,
 
+	// Site and Link Management (Database Integration)
+	"ensure_site_record":     EnsureSiteRecordAction,
+	"sync_pages_to_db":       SyncPagesToDBAction,
+	"extract_and_sync_links": ExtractAndSyncLinksAction,
+	"update_site_timestamps": UpdateSiteTimestampsAction,
+	"get_navigation_from_db": GetNavigationFromDBAction,
+
 	// Memory operations
 	"retrieve_memory": RetrieveMemoryAction,
 	"store_memory":    StoreMemoryAction,

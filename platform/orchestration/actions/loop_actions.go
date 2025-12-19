@@ -223,7 +223,7 @@ func extractHTMLFromResult(result interface{}, logger *zap.Logger) string {
 	html, ok := m["final_html"].(string)
 	if !ok || html == "" {
 		logger.Error("final_html field missing or empty",
-			zap.Strings("available_keys", getMapKeys(m)))
+			zap.Strings("available_keys", datahelpers.GetMapKeys(m)))
 		return ""
 	}
 

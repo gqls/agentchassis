@@ -33,7 +33,7 @@ type ImageGenerationResult struct {
 func GenerateImageAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing GenerateImageAction action",
 		zap.String("agent_type", params.AgentType),
-		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
+		zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)),
 		zap.String("action", params.ExecutionContext.Action),
 		zap.Bool("has_db", params.DB != nil),
 		zap.String("step_name", params.ExecutionContext.StepName),

@@ -1413,3 +1413,27 @@ func ExtractStepData(stepData interface{}) interface{} {
 	// Not a map, return as-is
 	return stepData
 }
+
+func GetStringField(m map[string]interface{}, key, defaultVal string) string {
+	if val, ok := m[key].(string); ok && val != "" {
+		return val
+	}
+	return defaultVal
+}
+
+func GetIntField(m map[string]interface{}, key string, defaultVal int) int {
+	if val, ok := m[key].(float64); ok {
+		return int(val)
+	}
+	if val, ok := m[key].(int); ok {
+		return val
+	}
+	return defaultVal
+}
+
+func GetBoolField(m map[string]interface{}, key string, defaultVal bool) bool {
+	if val, ok := m[key].(bool); ok {
+		return val
+	}
+	return defaultVal
+}

@@ -362,7 +362,7 @@ func extractJSONFromValue(val interface{}, logger *zap.Logger) string {
 			jsonStr := string(jsonBytes)
 			logger.Warn("Marshaling entire map as JSON (no known patterns found)",
 				zap.Int("json_length", len(jsonStr)),
-				zap.Strings("top_level_keys", getMapKeys(v)),
+				zap.Strings("top_level_keys", datahelpers.GetMapKeys(v)),
 			)
 			return jsonStr
 		}

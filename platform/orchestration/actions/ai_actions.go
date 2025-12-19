@@ -39,7 +39,7 @@ func ExecuteLLMPromptActionFAKE(ctx context.Context, params ActionParams) (inter
 func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing LLM prompt action",
 		zap.String("agent_type", params.AgentType),
-		zap.Any("collected_data_keys", GetMapKeys(params.CollectedData)),
+		zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)),
 		zap.String("action", params.ExecutionContext.Action),
 		zap.Bool("has_db", params.DB != nil),
 		zap.Any("DEBUGaa: full params in ExecuteLLMPromptAction", params),
@@ -649,7 +649,7 @@ func EvaluateTaskAction(ctx context.Context, params ActionParams) (interface{}, 
 // extractDataForAiAgent merges data from multiple sources specified in the step's 'input_fields' config.
 func extractDataForAiAgent(params ActionParams) interface{} {
 	params.Logger.Info("Extracting data for AI agent using UNIFIED EXTRACTOR",
-		zap.Any("available_keys", GetMapKeys(params.CollectedData)),
+		zap.Any("available_keys", datahelpers.GetMapKeys(params.CollectedData)),
 	)
 
 	// Determine which fields to extract
@@ -672,7 +672,7 @@ func extractDataForAiAgent(params ActionParams) interface{} {
 
 	params.Logger.Info("Template data extracted",
 		zap.Int("field_count", len(templateData)),
-		zap.Strings("keys", GetMapKeys(templateData)),
+		zap.Strings("keys", datahelpers.GetMapKeys(templateData)),
 	)
 
 	return templateData
