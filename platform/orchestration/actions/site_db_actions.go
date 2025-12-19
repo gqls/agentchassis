@@ -424,6 +424,24 @@ func GetNavigationFromDBAction(ctx context.Context, params ActionParams) (interf
 // ============================================================================
 
 func extractDomainFromInput(data map[string]interface{}, logger *zap.Logger) string {
+	// Use the unified extractor which handles deeply nested input_data structures
+	logger.Info("Using unified extractor to find domain")
+
+	// Method 1: Use datahelpers.ExtractFields with input_data
+	extracted := datahelpers.ExtractFields(data, []string{"input_data"}, logger)
+	if domain, ok := extracted["domain"].(string); ok && domain != "" {
+		logger.Info("Found domain via ExtractFields", zap.String("domain", domain))
+		return domain
+	}
+
+	// Method 2: Use aggressive domain search directly
+	domain := datahelpers.FindDomainAggressive(data, logger)
+	if domain != "" {
+		logger.Info("Found domain via FindDomainAggressive", zap.String("domain", domain))
+		return domain
+	}
+
+	// Method 3: Fallback - Try direct paths (for simpler cases)
 	// Try input_data.domain
 	if inputData, ok := data["input_data"].(map[string]interface{}); ok {
 		if domain, ok := inputData["domain"].(string); ok && domain != "" {
@@ -436,14 +454,7 @@ func extractDomainFromInput(data map[string]interface{}, logger *zap.Logger) str
 		return domain
 	}
 
-	// Try site_record.domain
-	if siteRecord, ok := data["site_record"].(map[string]interface{}); ok {
-		if domain, ok := siteRecord["domain"].(string); ok && domain != "" {
-			return domain
-		}
-	}
-
-	logger.Warn("Domain not found in any expected location")
+	logger.Warn("Domain not found via any method")
 	return ""
 }
 
@@ -459,9 +470,10 @@ func cleanDomain(domain string) string {
 }
 
 func extractSiteID(data map[string]interface{}, logger *zap.Logger) string {
-	// Try site_record.site_id
+	// Try site_record.site_id first (most common after ensure_site_record)
 	if siteRecord, ok := data["site_record"].(map[string]interface{}); ok {
 		if siteID, ok := siteRecord["site_id"].(string); ok && siteID != "" {
+			logger.Info("Found site_id in site_record", zap.String("site_id", siteID))
 			return siteID
 		}
 	}
@@ -478,6 +490,15 @@ func extractSiteID(data map[string]interface{}, logger *zap.Logger) string {
 		}
 	}
 
+	// Use unified extractor as fallback
+	extracted := datahelpers.ExtractFields(data, []string{"site_record"}, logger)
+	if siteRecord, ok := extracted["site_record"].(map[string]interface{}); ok {
+		if siteID, ok := siteRecord["site_id"].(string); ok && siteID != "" {
+			logger.Info("Found site_id via unified extractor", zap.String("site_id", siteID))
+			return siteID
+		}
+	}
+
 	logger.Debug("site_id not found in collected data")
 	return ""
 }
@@ -485,20 +506,71 @@ func extractSiteID(data map[string]interface{}, logger *zap.Logger) string {
 func extractPagesFromPlan(data map[string]interface{}, logger *zap.Logger) []map[string]interface{} {
 	var pages []map[string]interface{}
 
-	// Try page_plan.plan_data.pages
+	// Use unified extractor to get page_plan
+	extracted := datahelpers.ExtractFields(data, []string{"page_plan"}, logger)
+
+	// Try extracted page_plan first
+	if pagePlan, ok := extracted["page_plan"].(map[string]interface{}); ok {
+		pages = extractPagesFromPagePlanMap(pagePlan, logger)
+		if len(pages) > 0 {
+			logger.Info("Extracted pages via unified extractor", zap.Int("count", len(pages)))
+			return pages
+		}
+	}
+
+	// Fallback: Try direct page_plan in collected data
 	if pagePlan, ok := data["page_plan"].(map[string]interface{}); ok {
-		if planData, ok := pagePlan["plan_data"].(map[string]interface{}); ok {
-			if pagesArr, ok := planData["pages"].([]interface{}); ok {
-				for _, p := range pagesArr {
-					if pageMap, ok := p.(map[string]interface{}); ok {
-						pages = append(pages, pageMap)
+		pages = extractPagesFromPagePlanMap(pagePlan, logger)
+		if len(pages) > 0 {
+			logger.Info("Extracted pages from direct page_plan", zap.Int("count", len(pages)))
+			return pages
+		}
+	}
+
+	logger.Warn("No pages found in page_plan")
+	return pages
+}
+
+// extractPagesFromPagePlanMap extracts pages array from a page_plan map
+func extractPagesFromPagePlanMap(pagePlan map[string]interface{}, logger *zap.Logger) []map[string]interface{} {
+	var pages []map[string]interface{}
+
+	// Try page_plan.plan_data.pages
+	if planData, ok := pagePlan["plan_data"].(map[string]interface{}); ok {
+		if pagesArr, ok := planData["pages"].([]interface{}); ok {
+			for _, p := range pagesArr {
+				if pageMap, ok := p.(map[string]interface{}); ok {
+					pages = append(pages, pageMap)
+				}
+			}
+		}
+		// Also try sections (older format)
+		if len(pages) == 0 {
+			if sectionsArr, ok := planData["sections"].([]interface{}); ok {
+				for _, s := range sectionsArr {
+					if sectionMap, ok := s.(map[string]interface{}); ok {
+						pages = append(pages, sectionMap)
 					}
 				}
 			}
 		}
-		// Also try direct pages under page_plan
-		if len(pages) == 0 {
-			if pagesArr, ok := pagePlan["pages"].([]interface{}); ok {
+	}
+
+	// Try direct pages under page_plan
+	if len(pages) == 0 {
+		if pagesArr, ok := pagePlan["pages"].([]interface{}); ok {
+			for _, p := range pagesArr {
+				if pageMap, ok := p.(map[string]interface{}); ok {
+					pages = append(pages, pageMap)
+				}
+			}
+		}
+	}
+
+	// Try result.pages (if LLM response wrapped in result)
+	if len(pages) == 0 {
+		if result, ok := pagePlan["result"].(map[string]interface{}); ok {
+			if pagesArr, ok := result["pages"].([]interface{}); ok {
 				for _, p := range pagesArr {
 					if pageMap, ok := p.(map[string]interface{}); ok {
 						pages = append(pages, pageMap)
@@ -508,29 +580,48 @@ func extractPagesFromPlan(data map[string]interface{}, logger *zap.Logger) []map
 		}
 	}
 
-	logger.Info("Extracted pages from plan", zap.Int("count", len(pages)))
 	return pages
 }
 
 func extractHTMLContentLocal(data map[string]interface{}, logger *zap.Logger) string {
-	// Try page_html directly
+	// Try page_html directly as string
 	if html, ok := data["page_html"].(string); ok && html != "" {
 		return html
 	}
 
-	// Try page_html as map with content field
+	// Try page_html as map with various content field names
 	if pageHTML, ok := data["page_html"].(map[string]interface{}); ok {
-		if html, ok := pageHTML["html"].(string); ok && html != "" {
-			return html
-		}
-		if html, ok := pageHTML["content"].(string); ok && html != "" {
-			return html
+		// Try common field names
+		for _, fieldName := range []string{"html", "content", "result", "html_content"} {
+			if html, ok := pageHTML[fieldName].(string); ok && html != "" {
+				logger.Info("Found HTML in page_html map", zap.String("field", fieldName))
+				return html
+			}
 		}
 	}
 
-	// Try html_content
+	// Try html_content directly
 	if html, ok := data["html_content"].(string); ok && html != "" {
 		return html
+	}
+
+	// Use unified extractor as fallback
+	extracted := datahelpers.ExtractFields(data, []string{"page_html"}, logger)
+	if pageHTML, ok := extracted["page_html"]; ok {
+		// Handle string result
+		if html, ok := pageHTML.(string); ok && html != "" {
+			logger.Info("Found HTML via unified extractor (string)")
+			return html
+		}
+		// Handle map result
+		if htmlMap, ok := pageHTML.(map[string]interface{}); ok {
+			for _, fieldName := range []string{"html", "content", "result"} {
+				if html, ok := htmlMap[fieldName].(string); ok && html != "" {
+					logger.Info("Found HTML via unified extractor (map)", zap.String("field", fieldName))
+					return html
+				}
+			}
+		}
 	}
 
 	logger.Debug("No HTML content found in collected data")

@@ -524,7 +524,9 @@ SET default_config = jsonb_set(
             "steps": {
                 "ensure_site_record": {
                     "action": "ensure_site_record",
-                    "config": {},
+                    "config": {
+                        "input_fields": ["input_data"]
+                    },
                     "next_step": "spawn_strategist",
                     "output_field": "site_record",
                     "description": "Create or retrieve site record from database"
@@ -583,7 +585,9 @@ SET default_config = jsonb_set(
                 },
                 "sync_pages_to_db": {
                     "action": "sync_pages_to_db",
-                    "config": {},
+                    "config": {
+                        "input_fields": ["site_record", "page_plan"]
+                    },
                     "next_step": "generate_pages_loop",
                     "output_field": "db_sync",
                     "description": "Sync pages to database and build navigation structure"
@@ -621,7 +625,9 @@ SET default_config = jsonb_set(
                             },
                             "extract_links": {
                                 "action": "extract_and_sync_links",
-                                "config": {},
+                                "config": {
+                                    "input_fields": ["page_html", "current_page", "site_record"]
+                                },
                                 "output_field": "link_sync",
                                 "description": "Extract links from HTML and sync to link registry"
                             }
@@ -658,7 +664,9 @@ SET default_config = jsonb_set(
                 },
                 "update_timestamps": {
                     "action": "update_site_timestamps",
-                    "config": {},
+                    "config": {
+                        "input_fields": ["site_record"]
+                    },
                     "next_step": "complete",
                     "output_field": "timestamp_update",
                     "description": "Update site last_built_at and last_deployed_at"

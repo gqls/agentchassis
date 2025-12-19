@@ -71,16 +71,12 @@ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
 kubectl -n ai-persona-system delete jobs -l agent-type=calculator
 kubectl -n ai-persona-system delete pods -l agent-type=calculator
 
-
-
 # 6. Scale back up
 sleep 5
 kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas=2
 kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
 kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
-
-
 
 # Instead of resetting offsets, DELETE the consumer group
 kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
@@ -280,9 +276,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=9f86e43d-b25e-4ada-aa48-198f35280028
-ORCHESTRATION_ID=6a162eee-1fd2-4a34-a6aa-a5804596d146
-HITL_REQUEST_ID=9aa95cb7-b265-4a43-9538-27c4d700d002
+CORRELATION_ID=7c4997e2-6f6b-4ab5-b6c5-9603652b53c9
+ORCHESTRATION_ID=0f57f9c1-13e7-422c-9aee-2a12da3fc5eb
+HITL_REQUEST_ID=64602373-0e5e-4f3f-9e32-31f2c433c0a1
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -364,9 +360,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=9f86e43d-b25e-4ada-aa48-198f35280028
-ORCHESTRATION_ID=6a162eee-1fd2-4a34-a6aa-a5804596d146
-HITL_REQUEST_ID=94069dee-7e06-46f5-b9c6-7e7c707635b6
+CORRELATION_ID=7c4997e2-6f6b-4ab5-b6c5-9603652b53c9
+ORCHESTRATION_ID=0f57f9c1-13e7-422c-9aee-2a12da3fc5eb
+HITL_REQUEST_ID=a7614abb-be44-40c0-84f1-32d8b36a2f38
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
