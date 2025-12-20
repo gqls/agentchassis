@@ -801,6 +801,26 @@ the database, ensuring consistent and correct relative URLs across all pages.
 -- First, ensure the required tables exist (run link_management_migration.sql first)
 
 -- Update the multipage-website-builder workflow
+-- ============================================================================
+-- MULTIPAGE WEBSITE BUILDER - Updated Workflow with Database Integration
+-- ============================================================================
+-- This update adds database persistence for sites, pages, and links.
+--
+-- New steps added:
+--   1. ensure_site_record - First step, creates/gets site in database
+--   2. sync_pages_to_db - After strategist, syncs pages and builds navigation
+--   3. extract_and_sync_links - After html creation in loop, extracts links
+--   4. update_site_timestamps - After deployment, updates timestamps
+--
+-- Key changes:
+--   - html-developer now receives db_sync.navigation for accurate URLs
+--   - Links are extracted and stored in link_registry
+--   - Site/page records enable incremental updates in future
+-- ============================================================================
+
+-- First, ensure the required tables exist (run link_management_migration.sql first)
+
+-- Update the multipage-website-builder workflow
 UPDATE agent_definitions
 SET default_config = jsonb_set(
         default_config,
@@ -930,7 +950,8 @@ SET default_config = jsonb_set(
                         "add_navigation": true,
                         "generate_standard_pages": true,
                         "include_sitemap_xml": true,
-                        "include_robots_txt": true
+                        "include_robots_txt": true,
+                        "input_fields": ["all_pages", "db_sync", "page_plan", "input_data"]
                     },
                     "next_step": "deploy",
                     "output_field": "site_files",
@@ -964,7 +985,107 @@ SET default_config = jsonb_set(
             }
         }'::jsonb
                      )
-WHERE type = 'multipage-website-builder' AND version = 2;
+WHERE type = 'multipage-website-builder' AND version = '2';
+
+-- ============================================================================
+-- VERIFICATION QUERIES
+-- ============================================================================
+
+-- Check the new workflow structure
+SELECT
+    type,
+    version,
+    jsonb_pretty(default_config->'workflow'->'start_step') as start_step
+FROM agent_definitions
+WHERE type = 'multipage-website-builder' AND version = '2.0';
+
+-- List all steps in order (approximately)
+SELECT
+    type,
+    step_name,
+    step_config->>'action' as action,
+    step_config->>'next_step' as next_step,
+    step_config->>'description' as description
+FROM agent_definitions,
+    jsonb_each(default_config->'workflow'->'steps') as steps(step_name, step_config)
+WHERE type = 'multipage-website-builder' AND version = '2.0'
+ORDER BY
+    CASE step_name
+    WHEN 'ensure_site_record' THEN 1
+    WHEN 'spawn_strategist' THEN 2
+    WHEN 'spawn_content_creator' THEN 3
+    WHEN 'spawn_html_developer' THEN 4
+    WHEN 'spawn_deployer' THEN 5
+    WHEN 'call_strategist' THEN 6
+    WHEN 'sync_pages_to_db' THEN 7
+    WHEN 'generate_pages_loop' THEN 8
+    WHEN 'assemble_site' THEN 9
+    WHEN 'deploy' THEN 10
+    WHEN 'update_timestamps' THEN 11
+    WHEN 'complete' THEN 12
+    ELSE 99
+END;
+
+-- ============================================================================
+-- DATA FLOW DOCUMENTATION
+-- ============================================================================
+/*
+Data flow through the updated workflow:
+
+1. ensure_site_record
+   Input:  input_data.domain
+   Output: site_record {site_id, domain, network_id, status}
+   DB:     INSERT/UPDATE sites table
+
+2. spawn_* steps
+   Input:  (none)
+   Output: *_info with agent reference
+   DB:     (none)
+
+3. call_strategist
+   Input:  input_data, site_record
+   Output: page_plan {plan_data: {pages: [...], sitemap: [...]}}
+   DB:     (none, LLM only)
+
+4. sync_pages_to_db
+   Input:  site_record.site_id, page_plan
+   Output: db_sync {pages_synced, navigation: {items: [...]}}
+   DB:     INSERT/UPDATE pages table, navigation_structures cache
+
+5. generate_pages_loop (per page)
+   5a. generate_content
+       Input:  current_page, input_data, page_plan
+       Output: page_content
+       DB:     (none, LLM only)
+
+   5b. create_html
+       Input:  page_content, current_page, input_data, db_sync, page_plan
+       Output: page_html (uses db_sync.navigation for URLs)
+       DB:     (none, LLM only)
+
+   5c. extract_links
+       Input:  page_html, site_record.site_id, current_page
+       Output: link_sync {links_extracted, links_persisted}
+       DB:     DELETE old links, INSERT new links to link_registry
+
+6. assemble_site
+   Input:  all_pages (array of page results)
+   Output: site_files {files: {filename: html_content}}
+   DB:     Can read navigation_structures for sitemap.xml
+
+7. deploy
+   Input:  site_files, input_data, site_record
+   Output: deployment_result
+   DB:     (none, GitHub only)
+
+8. update_timestamps
+   Input:  site_record.site_id
+   Output: timestamp_update {updated: true, last_built_at, last_deployed_at}
+   DB:     UPDATE sites SET last_built_at, last_deployed_at
+
+Key change: html-developer receives db_sync containing navigation built from
+the database, ensuring consistent and correct relative URLs across all pages.
+*/
 
 -- ============================================================================
 -- VERIFICATION QUERIES

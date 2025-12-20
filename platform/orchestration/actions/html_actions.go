@@ -411,7 +411,7 @@ func isStructuredWebContent(m map[string]interface{}) bool {
 
 // checks for both site_content and page_content
 func buildFullHTMLPrompt(context map[string]interface{}) string {
-	var domainInfo, architectureInfo, contentInfo, sitemapInfo string
+	var domainInfo, architectureInfo, contentInfo, sitemapInfo, designInfo string
 
 	// Extract domain/business info - check root level first (after flattening)
 	if domain, ok := context["domain"].(string); ok && domain != "" {
@@ -419,7 +419,6 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 	} else if bizName, ok := context["business_name"].(string); ok && bizName != "" {
 		domainInfo = bizName
 	} else if inputData, ok := context["input_data"].(map[string]interface{}); ok {
-		// Fallback: check inside input_data if not flattened
 		if domain, ok := inputData["domain"].(string); ok && domain != "" {
 			domainInfo = domain
 		} else if bizName, ok := inputData["business_name"].(string); ok && bizName != "" {
@@ -436,16 +435,15 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 		}
 	}
 
-	// Extract sitemap for navigation links
+	// Extract sitemap for navigation links (CANONICAL from database)
 	sitemapInfo = extractSitemapInfo(context)
 
+	// Extract design context for consistency
+	designInfo = extractDesignContext(context)
+
 	// Extract content - Priority: page_content > site_content > content
-	// page_content is used in multipage loop context (most common case)
-	// site_content may be aliased incorrectly, so check page_content FIRST
 	contentFound := false
 
-	// Try page_content FIRST (multipage loop context - most common)
-	// This contains the content-creator output with hero/sections/meta/footer structure
 	if content, ok := context["page_content"]; ok {
 		if extracted := extractStructuredContent(content, nil); extracted != "" {
 			if len(extracted) > 8000 {
@@ -457,11 +455,8 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 		}
 	}
 
-	// Try site_content only if page_content didn't work
-	// Be careful: site_content might be incorrectly aliased to sections[0].content
 	if !contentFound {
 		if content, ok := context["site_content"]; ok {
-			// Only use if it's actually structured content (not just prose text)
 			if extracted := extractStructuredContent(content, nil); extracted != "" {
 				if len(extracted) > 8000 {
 					contentInfo = extracted[:8000] + "... [truncated]"
@@ -473,7 +468,6 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 		}
 	}
 
-	// Try generic content as last fallback - but validate it's structured
 	if !contentFound {
 		if content, ok := context["content"]; ok {
 			if extracted := extractStructuredContent(content, nil); extracted != "" {
@@ -487,18 +481,147 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 		}
 	}
 
-	// Extract page name/type if available (for multipage context)
-	// Handle both string format (legacy) and object format (new multipage)
-	pageInfo := ""
+	// Extract page info
+	pageInfo := extractPageInfo(context)
+
+	return fmt.Sprintf(`Generate a complete, production-ready HTML5 page.
+
+Business/Domain: %s
+%s
+
+%s
+%s
+%s
+
+%s
+
+STRICT REQUIREMENTS:
+
+1. DOCUMENT STRUCTURE:
+   - Complete HTML5 document starting with <!DOCTYPE html>
+   - Single <html>, <head>, and <body> element
+   - All CSS must be inline in <style> tags (no external files)
+   - All JS must be inline in <script> tags (no external files)
+
+2. NAVIGATION (MANDATORY):
+   - Copy the EXACT navigation items listed above into the header <nav>
+   - Use the EXACT URLs shown (e.g., /about.html NOT #about)
+   - Do NOT use anchor links (#about) for page navigation
+   - Do NOT add or remove navigation items
+   - EVERY page must have IDENTICAL header navigation
+
+3. DESIGN CONSISTENCY:
+   - Use the color scheme specified above consistently
+   - Maintain the same header/footer design as other pages
+   - Keep typography and spacing consistent
+   - Use CSS variables for colors: :root { --primary: #xxx; --secondary: #xxx; }
+
+4. RESPONSIVE & ACCESSIBLE:
+   - Mobile-first responsive design
+   - Proper viewport meta tag
+   - Semantic HTML5 elements (header, nav, main, section, footer)
+   - Alt text on images, ARIA labels where appropriate
+
+5. INTERACTIVE ELEMENTS:
+   - PREFER CSS-only effects (transitions, animations, scroll-snap)
+   - For carousels/sliders: Use CSS animation, NOT complex JavaScript
+   - AVOID: filtering, sorting, pagination, AJAX loading
+   - If using JS: Keep under 30 lines, vanilla only
+
+Output ONLY the HTML code, starting with <!DOCTYPE html>.`,
+		ifEmpty(domainInfo, "Professional website"),
+		pageInfo,
+		ifNotEmpty(sitemapInfo, sitemapInfo),
+		ifNotEmpty(designInfo, designInfo),
+		ifNotEmpty(architectureInfo, "Site Architecture:\n"+architectureInfo),
+		ifNotEmpty(contentInfo, "Content:\n"+contentInfo),
+	)
+}
+
+// extractDesignContext pulls design info from brief_data or input_data
+func extractDesignContext(context map[string]interface{}) string {
+	var designParts []string
+
+	// Try to get from input_data paths
+	var briefData map[string]interface{}
+
+	if inputData, ok := context["input_data"].(map[string]interface{}); ok {
+		// Try reviewed_brief first
+		if rb, ok := inputData["reviewed_brief"].(map[string]interface{}); ok {
+			briefData = rb
+		} else if bd, ok := inputData["brief_data"].(map[string]interface{}); ok {
+			// Try brief_data.infer_via_llm.result
+			if llmResult, ok := bd["infer_via_llm"].(map[string]interface{}); ok {
+				if result, ok := llmResult["result"].(map[string]interface{}); ok {
+					briefData = result
+				}
+			}
+		}
+	}
+
+	// Also check page_plan for design info
+	if pagePlan, ok := context["page_plan"].(map[string]interface{}); ok {
+		if planData, ok := pagePlan["plan_data"].(map[string]interface{}); ok {
+			if design, ok := planData["design"].(map[string]interface{}); ok {
+				if colors, ok := design["color_scheme"].(string); ok && colors != "" {
+					designParts = append(designParts, fmt.Sprintf("Color Palette: %s", colors))
+				}
+				if fonts, ok := design["typography"].(string); ok && fonts != "" {
+					designParts = append(designParts, fmt.Sprintf("Typography: %s", fonts))
+				}
+			}
+		}
+	}
+
+	if briefData != nil {
+		if colorScheme, ok := briefData["color_scheme"].(string); ok && colorScheme != "" {
+			// Only add if not already present
+			hasColor := false
+			for _, part := range designParts {
+				if strings.HasPrefix(part, "Color") {
+					hasColor = true
+					break
+				}
+			}
+			if !hasColor {
+				designParts = append(designParts, fmt.Sprintf("Color Palette: %s", colorScheme))
+			}
+		}
+		if tone, ok := briefData["tone"].(string); ok && tone != "" {
+			designParts = append(designParts, fmt.Sprintf("Brand Tone: %s", tone))
+		}
+		if tagline, ok := briefData["tagline"].(string); ok && tagline != "" {
+			designParts = append(designParts, fmt.Sprintf("Tagline: %s", tagline))
+		}
+	}
+
+	if len(designParts) == 0 {
+		return ""
+	}
+
+	var result strings.Builder
+	result.WriteString("=== DESIGN GUIDELINES (use consistently across ALL pages) ===\n")
+	for _, part := range designParts {
+		result.WriteString(part + "\n")
+	}
+	result.WriteString("\nMaintain visual consistency:\n")
+	result.WriteString("- Same color scheme on every page\n")
+	result.WriteString("- Same header/footer layout\n")
+	result.WriteString("- Same typography and spacing\n")
+	result.WriteString("================================================================\n")
+
+	return result.String()
+}
+
+// extractPageInfo extracts current page context
+func extractPageInfo(context map[string]interface{}) string {
 	if currentPage := context["current_page"]; currentPage != nil {
 		switch cp := currentPage.(type) {
 		case string:
-			// Legacy format: current_page is just a string like "about"
 			if cp != "" {
-				pageInfo = fmt.Sprintf("\nPage Name/Type: %s", cp)
+				return fmt.Sprintf("\nPage: %s", cp)
 			}
 		case map[string]interface{}:
-			// New multipage format: current_page is an object with name, title, purpose, sections/components
 			var parts []string
 			if name, ok := cp["name"].(string); ok && name != "" {
 				parts = append(parts, fmt.Sprintf("Page Name: %s", name))
@@ -509,7 +632,6 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 			if purpose, ok := cp["purpose"].(string); ok && purpose != "" {
 				parts = append(parts, fmt.Sprintf("Page Purpose: %s", purpose))
 			}
-			// Handle "sections" format (array of strings)
 			if sections, ok := cp["sections"].([]interface{}); ok && len(sections) > 0 {
 				var sectionNames []string
 				for _, s := range sections {
@@ -518,60 +640,18 @@ func buildFullHTMLPrompt(context map[string]interface{}) string {
 					}
 				}
 				if len(sectionNames) > 0 {
-					parts = append(parts, fmt.Sprintf("Sections to Include: %s", strings.Join(sectionNames, ", ")))
-				}
-			}
-			// Handle "components" format (array of objects with type/priority)
-			if components, ok := cp["components"].([]interface{}); ok && len(components) > 0 {
-				var componentTypes []string
-				for _, c := range components {
-					if cMap, ok := c.(map[string]interface{}); ok {
-						if cType, ok := cMap["type"].(string); ok {
-							componentTypes = append(componentTypes, cType)
-						}
-					}
-				}
-				if len(componentTypes) > 0 {
-					parts = append(parts, fmt.Sprintf("Components to Include: %s", strings.Join(componentTypes, ", ")))
+					parts = append(parts, fmt.Sprintf("Sections: %s", strings.Join(sectionNames, ", ")))
 				}
 			}
 			if metaDesc, ok := cp["meta_description"].(string); ok && metaDesc != "" {
 				parts = append(parts, fmt.Sprintf("Meta Description: %s", metaDesc))
 			}
 			if len(parts) > 0 {
-				pageInfo = "\n" + strings.Join(parts, "\n")
+				return "\n" + strings.Join(parts, "\n")
 			}
 		}
 	}
-
-	return fmt.Sprintf(`Generate a complete, modern, responsive HTML5 website page.
-
-Business/Domain: %s%s
-
-%s
-
-%s
-
-%s
-
-Requirements:
-1. Complete HTML5 document (<!DOCTYPE html> to </html>)
-2. Modern, clean design with inline CSS
-3. Fully responsive (mobile-first)
-4. Proper meta tags (charset, viewport, description)
-5. Semantic HTML5 elements (header, nav, main, footer)
-6. Professional, production-ready
-7. Use RELATIVE URLs for navigation (e.g., /about.html, /services.html)
-8. All internal links MUST use the exact URLs provided in Navigation section above
-9. Do NOT use absolute URLs with domain name for internal links
-
-Output ONLY the HTML code, starting with <!DOCTYPE html>.`,
-		ifEmpty(domainInfo, "Professional website"),
-		pageInfo,
-		ifNotEmpty(sitemapInfo, sitemapInfo),
-		ifNotEmpty(architectureInfo, "Site Architecture:\n"+architectureInfo),
-		ifNotEmpty(contentInfo, "Content:\n"+contentInfo),
-	)
+	return ""
 }
 
 func buildStructurePrompt(context map[string]interface{}) string {

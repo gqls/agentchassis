@@ -4,6 +4,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -42,7 +43,7 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 	html := datahelpers.CleanHTMLString(content)
 
 	// Ensure valid HTML structure
-	html = ensureValidHTML(html)
+	html = cleanHTMLStructure(html)
 
 	// Add navigation if requested
 	if addNav {
@@ -105,15 +106,38 @@ func AssembleMultipageSiteAction(ctx context.Context, params ActionParams) (inte
 		}
 	}
 
-	// Add navigation to all pages if requested
-	if addNav {
-		pages = addNavigationToAllPages(pages, params.Logger)
-		params.Logger.Info("Added navigation to all pages")
+	// Build list of all page names for link fixing
+	pageNamesList := make([]string, 0, len(pages))
+	for name := range pages {
+		pageNamesList = append(pageNamesList, name)
 	}
 
-	// Ensure all pages are valid HTML
+	// Get canonical navigation from db_sync if available
+	canonicalNav := extractCanonicalNavigation(params.CollectedData, params.Logger)
+
+	// POST-PROCESS ALL PAGES
 	for name, html := range pages {
-		pages[name] = ensureValidHTML(html)
+		// Step 1: Clean HTML structure (fix double DOCTYPE)
+		html = cleanHTMLStructure(html)
+
+		// Step 2: Fix anchor links to page links
+		html = fixAnchorLinks(html, pageNamesList)
+
+		// Step 3: Inject canonical navigation if available
+		if canonicalNav != nil && len(canonicalNav) > 0 {
+			html = injectCanonicalNavigation(html, canonicalNav, name, params.Logger)
+		} else if addNav {
+			// Fallback to simple navigation
+			currentPage := strings.TrimSuffix(name, ".html")
+			html = addSimpleNavigation(html, currentPage)
+		}
+
+		pages[name] = html
+
+		params.Logger.Debug("Post-processed page",
+			zap.String("page", name),
+			zap.Int("final_length", len(html)),
+		)
 	}
 
 	params.Logger.Info("Multi-page site assembled successfully",
@@ -133,6 +157,313 @@ func AssembleMultipageSiteAction(ctx context.Context, params ActionParams) (inte
 // ============================================================================
 // Helper Functions
 // ============================================================================
+func cleanHTMLStructure(html string) string {
+	html = strings.TrimSpace(html)
+
+	// Remove duplicate DOCTYPEs (case-insensitive)
+	// Pattern: <!DOCTYPE html>...<!doctype html> or variations
+	doctypeRe := regexp.MustCompile(`(?i)<!doctype\s+html\s*>`)
+	matches := doctypeRe.FindAllStringIndex(html, -1)
+
+	if len(matches) > 1 {
+		// Keep only the first DOCTYPE, remove others
+		// Work backwards to preserve indices
+		for i := len(matches) - 1; i > 0; i-- {
+			start := matches[i][0]
+			end := matches[i][1]
+			html = html[:start] + html[end:]
+		}
+	}
+
+	// Remove duplicate <html> tags
+	htmlTagRe := regexp.MustCompile(`(?i)<html[^>]*>`)
+	htmlMatches := htmlTagRe.FindAllStringIndex(html, -1)
+	if len(htmlMatches) > 1 {
+		for i := len(htmlMatches) - 1; i > 0; i-- {
+			start := htmlMatches[i][0]
+			end := htmlMatches[i][1]
+			html = html[:start] + html[end:]
+		}
+	}
+
+	// Remove duplicate <head> sections (keep the more complete one)
+	headCount := strings.Count(strings.ToLower(html), "<head")
+	if headCount > 1 {
+		// Find both head sections
+		lowerHTML := strings.ToLower(html)
+		firstHeadStart := strings.Index(lowerHTML, "<head")
+		firstHeadEnd := strings.Index(lowerHTML, "</head>")
+
+		if firstHeadEnd > firstHeadStart {
+			// Check if there's a second head after the first
+			secondHeadStart := strings.Index(lowerHTML[firstHeadEnd:], "<head")
+			if secondHeadStart >= 0 {
+				// Find the second head's end
+				secondHeadStart += firstHeadEnd
+				secondHeadEnd := strings.Index(lowerHTML[secondHeadStart:], "</head>")
+				if secondHeadEnd >= 0 {
+					secondHeadEnd += secondHeadStart + 7 // include </head>
+
+					// Compare sizes - keep the larger one
+					firstHeadLen := firstHeadEnd - firstHeadStart
+					secondHeadLen := secondHeadEnd - secondHeadStart
+
+					if secondHeadLen > firstHeadLen {
+						// Remove first head, keep second
+						html = html[:firstHeadStart] + html[firstHeadEnd+7:]
+					} else {
+						// Remove second head, keep first
+						html = html[:secondHeadStart] + html[secondHeadEnd:]
+					}
+				}
+			}
+		}
+	}
+
+	// Remove duplicate <body> tags
+	bodyTagRe := regexp.MustCompile(`(?i)<body[^>]*>`)
+	bodyMatches := bodyTagRe.FindAllStringIndex(html, -1)
+	if len(bodyMatches) > 1 {
+		for i := len(bodyMatches) - 1; i > 0; i-- {
+			start := bodyMatches[i][0]
+			end := bodyMatches[i][1]
+			html = html[:start] + html[end:]
+		}
+	}
+
+	// Ensure we have a DOCTYPE at the start
+	if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(html)), "<!DOCTYPE") {
+		html = "<!DOCTYPE html>\n" + html
+	}
+
+	return html
+}
+
+func fixAnchorLinks(html string, pageNames []string) string {
+	// Build set of known pages
+	knownPages := make(map[string]bool)
+	for _, name := range pageNames {
+		cleanName := strings.TrimSuffix(strings.ToLower(name), ".html")
+		knownPages[cleanName] = true
+	}
+
+	// Add common page names
+	commonPages := []string{
+		"home", "index", "about", "services", "contact", "insights", "blog",
+		"careers", "team", "portfolio", "case-studies", "privacy", "terms",
+		"pricing", "faq", "support", "features", "solutions", "resources",
+		"testimonials", "clients", "work", "projects",
+	}
+	for _, name := range commonPages {
+		knownPages[name] = true
+	}
+
+	result := html
+
+	for pageName := range knownPages {
+		targetURL := "/" + pageName + ".html"
+		if pageName == "home" || pageName == "index" {
+			targetURL = "/index.html"
+		}
+
+		// Replace various patterns
+		patterns := []struct {
+			old string
+			new string
+		}{
+			// Double quotes
+			{fmt.Sprintf(`href="#%s"`, pageName), fmt.Sprintf(`href="%s"`, targetURL)},
+			{fmt.Sprintf(`href="#%s"`, strings.Title(pageName)), fmt.Sprintf(`href="%s"`, targetURL)},
+			// Single quotes
+			{fmt.Sprintf(`href='#%s'`, pageName), fmt.Sprintf(`href='%s'`, targetURL)},
+			{fmt.Sprintf(`href='#%s'`, strings.Title(pageName)), fmt.Sprintf(`href='%s'`, targetURL)},
+			// No quotes (minified)
+			{fmt.Sprintf(`href=#%s>`, pageName), fmt.Sprintf(`href=%s>`, targetURL)},
+			{fmt.Sprintf(`href=#%s `, pageName), fmt.Sprintf(`href=%s `, targetURL)},
+		}
+
+		for _, p := range patterns {
+			result = strings.ReplaceAll(result, p.old, p.new)
+		}
+	}
+
+	return result
+}
+
+func extractCanonicalNavigation(collectedData map[string]interface{}, logger *zap.Logger) []map[string]string {
+	var navItems []map[string]string
+
+	// Priority 1: db_sync.navigation (from sync_pages_to_db)
+	if dbSync, ok := collectedData["db_sync"].(map[string]interface{}); ok {
+		if nav, ok := dbSync["navigation"].(map[string]interface{}); ok {
+			if items, ok := nav["items"].([]interface{}); ok {
+				for _, item := range items {
+					if itemMap, ok := item.(map[string]interface{}); ok {
+						label, _ := itemMap["label"].(string)
+						url, _ := itemMap["url"].(string)
+						if label != "" && url != "" {
+							navItems = append(navItems, map[string]string{
+								"label": label,
+								"url":   url,
+							})
+						}
+					}
+				}
+				if len(navItems) > 0 {
+					logger.Info("Using navigation from db_sync",
+						zap.Int("nav_items", len(navItems)),
+					)
+					return navItems
+				}
+			}
+		}
+	}
+
+	// Priority 2: page_plan.plan_data.sitemap
+	if pagePlan, ok := collectedData["page_plan"].(map[string]interface{}); ok {
+		var sitemap []interface{}
+
+		if planData, ok := pagePlan["plan_data"].(map[string]interface{}); ok {
+			if sm, ok := planData["sitemap"].([]interface{}); ok {
+				sitemap = sm
+			}
+		}
+		if sitemap == nil {
+			if sm, ok := pagePlan["sitemap"].([]interface{}); ok {
+				sitemap = sm
+			}
+		}
+
+		for _, entry := range sitemap {
+			if e, ok := entry.(map[string]interface{}); ok {
+				label, _ := e["label"].(string)
+				if label == "" {
+					label, _ = e["title"].(string)
+				}
+				if label == "" {
+					label, _ = e["name"].(string)
+				}
+
+				url, _ := e["url"].(string)
+				if url == "" {
+					if name, ok := e["name"].(string); ok {
+						if name == "index" || name == "home" {
+							url = "/index.html"
+						} else {
+							url = "/" + name + ".html"
+						}
+					}
+				}
+
+				inHeader := true
+				if ih, ok := e["in_header"].(bool); ok {
+					inHeader = ih
+				}
+
+				// Skip footer-only pages
+				nameLower := strings.ToLower(label)
+				if nameLower == "privacy" || nameLower == "terms" ||
+					strings.Contains(nameLower, "privacy") || strings.Contains(nameLower, "terms") {
+					inHeader = false
+				}
+
+				if inHeader && label != "" && url != "" {
+					navItems = append(navItems, map[string]string{
+						"label": label,
+						"url":   url,
+					})
+				}
+			}
+		}
+
+		if len(navItems) > 0 {
+			logger.Info("Using navigation from page_plan sitemap",
+				zap.Int("nav_items", len(navItems)),
+			)
+			return navItems
+		}
+	}
+
+	logger.Warn("No canonical navigation found")
+	return nil
+}
+
+// ===========================================================================
+// NEW FUNCTION: injectCanonicalNavigation
+// ===========================================================================
+// Replaces header navigation with canonical navigation
+
+func injectCanonicalNavigation(html string, navItems []map[string]string, currentPageName string, logger *zap.Logger) string {
+	// Build the navigation HTML
+	var navLinks []string
+	currentPage := strings.TrimSuffix(currentPageName, ".html")
+
+	for _, item := range navItems {
+		label := item["label"]
+		url := item["url"]
+
+		// Add active class for current page
+		activeClass := ""
+		itemPage := strings.TrimSuffix(strings.TrimPrefix(url, "/"), ".html")
+		if itemPage == currentPage || (currentPage == "index" && (itemPage == "home" || itemPage == "index")) {
+			activeClass = ` class="active"`
+		}
+
+		navLinks = append(navLinks, fmt.Sprintf(`<a href="%s"%s>%s</a>`, url, activeClass, label))
+	}
+
+	navHTML := strings.Join(navLinks, "\n            ")
+
+	// Try to find and replace existing nav content
+	// Pattern: <nav...>...</nav>
+	navRe := regexp.MustCompile(`(?is)<nav[^>]*>.*?</nav>`)
+
+	if navRe.MatchString(html) {
+		// Replace the nav content but keep any nav attributes
+		html = navRe.ReplaceAllStringFunc(html, func(match string) string {
+			// Extract opening nav tag
+			openTagEnd := strings.Index(match, ">")
+			if openTagEnd < 0 {
+				return match
+			}
+			openTag := match[:openTagEnd+1]
+
+			return fmt.Sprintf(`%s
+        <ul>
+            %s
+        </ul>
+    </nav>`, strings.TrimSuffix(openTag, ">")+" id=\"main-nav\">",
+				strings.ReplaceAll(navHTML, "<a ", "<li><a "))
+		})
+
+		logger.Debug("Replaced nav content",
+			zap.String("page", currentPageName),
+		)
+	} else {
+		// No nav found, try to insert after header tag
+		headerEnd := strings.Index(strings.ToLower(html), "<header")
+		if headerEnd >= 0 {
+			// Find the end of header opening tag
+			closeIdx := strings.Index(html[headerEnd:], ">")
+			if closeIdx >= 0 {
+				insertPoint := headerEnd + closeIdx + 1
+				newNav := fmt.Sprintf(`
+    <nav id="main-nav">
+        <ul>
+            %s
+        </ul>
+    </nav>`, strings.ReplaceAll(navHTML, "<a ", "<li><a "))
+				html = html[:insertPoint] + newNav + html[insertPoint:]
+			}
+		}
+
+		logger.Debug("Inserted new nav",
+			zap.String("page", currentPageName),
+		)
+	}
+
+	return html
+}
 
 // extractPagesFromLoop handles different loop output formats
 func extractPagesFromLoop(data map[string]interface{}, fieldPath string, logger *zap.Logger) map[string]string {
@@ -264,47 +595,8 @@ func extractHTMLFromValue(value interface{}, logger *zap.Logger) string {
 
 // ensureValidHTML ensures HTML has proper structure
 func ensureValidHTML(html string) string {
-	html = strings.TrimSpace(html)
-
-	// Add DOCTYPE if missing
-	if !strings.HasPrefix(html, "<!DOCTYPE") {
-		html = "<!DOCTYPE html>\n" + html
-	}
-
-	// Ensure has <html> tags
-	if !strings.Contains(html, "<html") {
-		html = strings.Replace(html, "<!DOCTYPE html>", "<!DOCTYPE html>\n<html lang=\"en\">", 1)
-		if !strings.Contains(html, "</html>") {
-			html = html + "\n</html>"
-		}
-	}
-
-	// Ensure has <head>
-	if !strings.Contains(html, "<head>") {
-		headContent := `<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Page</title>
-</head>`
-
-		// Insert after <html> tag
-		htmlTagEnd := strings.Index(html, "<html")
-		if htmlTagEnd >= 0 {
-			htmlTagEnd = strings.Index(html[htmlTagEnd:], ">")
-			if htmlTagEnd >= 0 {
-				insertPoint := strings.Index(html, "<html") + htmlTagEnd + 1
-				html = html[:insertPoint] + "\n" + headContent + "\n" + html[insertPoint:]
-			}
-		}
-	}
-
-	// Ensure has <body>
-	if !strings.Contains(html, "<body>") {
-		html = strings.Replace(html, "</head>", "</head>\n<body>\n", 1)
-		html = strings.Replace(html, "</html>", "</body>\n</html>", 1)
-	}
-
-	return html
+	// Just use cleanHTMLStructure - it handles everything
+	return cleanHTMLStructure(html)
 }
 
 // addSimpleNavigation adds a simple navigation bar

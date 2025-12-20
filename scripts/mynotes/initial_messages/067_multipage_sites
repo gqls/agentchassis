@@ -276,9 +276,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=e4e4c116-9ed6-4337-86a8-4613d74c34c1
-ORCHESTRATION_ID=9d371c30-b320-42d7-9807-5a7ebc8b7ab6
-HITL_REQUEST_ID=01951470-a804-4707-b0a5-1060dd4e307c
+CORRELATION_ID=8993b922-8f98-4519-a74f-cba70a74ea43
+ORCHESTRATION_ID=431cec6f-fc88-4d61-9190-2222bd61b654
+HITL_REQUEST_ID=9f1962c8-76a9-4697-8e50-7d90aa1651c6
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -360,9 +360,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=e4e4c116-9ed6-4337-86a8-4613d74c34c1
-ORCHESTRATION_ID=9d371c30-b320-42d7-9807-5a7ebc8b7ab6
-HITL_REQUEST_ID=67f674e1-6f8e-459a-b9f4-64b15fba45ea
+CORRELATION_ID=8993b922-8f98-4519-a74f-cba70a74ea43
+ORCHESTRATION_ID=431cec6f-fc88-4d61-9190-2222bd61b654
+HITL_REQUEST_ID=a461a6f0-f4d7-4942-962a-a204f40ed25a
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -480,8 +480,8 @@ now:
         "summary": "Picture a busy technology team that could benefit from less time on repetitive deployment and monitoring tasks. A custom hierarchical multi-agent system might handle provisioning, testing, and alerts across Kubernetes clusters – freeing them up for higher-value work and helping the whole operation stay nimble and precise."
       },
       {
-        "title": "Potential Use Case: Modernising a Corporate Intranet",
-        "summary": "A mid-sized company might want to refresh an outdated intranet to improve internal communication and knowledge sharing. Using our multi-agent orchestration, we could rapidly prototype and deploy a secure, searchable platform on Cloudflare Pages – delivering a clean, modern experience that adapts smoothly as needs evolve."
+        "title": "Potential Use Case: Modernising a Corporate Intranet or Documentation Library",
+        "summary": "A mid-sized company might want to refresh an outdated intranet to improve internal communication and knowledge sharing. Using our multi-agent orchestration, we could rapidly prototype and deploy a secure, searchable web-based platform on Cloudflare Pages – delivering a clean, modern experience that adapts smoothly as needs evolve."
       }
     ],
     "contact_email": "sales-information-online@leopardessconsulting.co.uk"
