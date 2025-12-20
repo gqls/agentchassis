@@ -924,6 +924,206 @@ func extractNavigationFromDBSync(dbSync map[string]interface{}) string {
 	return result.String()
 }
 
+// formatNavigationFromLinkManager formats nav from link-manager's navigation structure
+// Expected format: {"header": {"items": [...]}, "footer": {"columns": [...]}}
+func formatNavigationFromLinkManager(nav map[string]interface{}) string {
+	var headerNav []string
+	var footerNav []string
+
+	// Extract header items
+	if header, ok := nav["header"].(map[string]interface{}); ok {
+		if items, ok := header["items"].([]interface{}); ok {
+			for _, item := range items {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					label, _ := itemMap["label"].(string)
+					url, _ := itemMap["url"].(string)
+					if label != "" && url != "" {
+						headerNav = append(headerNav, fmt.Sprintf("%s -> %s", label, url))
+					}
+				}
+			}
+		}
+	}
+
+	// Extract footer items from columns
+	if footer, ok := nav["footer"].(map[string]interface{}); ok {
+		if columns, ok := footer["columns"].([]interface{}); ok {
+			for _, col := range columns {
+				if colMap, ok := col.(map[string]interface{}); ok {
+					if links, ok := colMap["links"].([]interface{}); ok {
+						for _, link := range links {
+							if linkMap, ok := link.(map[string]interface{}); ok {
+								label, _ := linkMap["label"].(string)
+								url, _ := linkMap["url"].(string)
+								if label != "" && url != "" {
+									footerNav = append(footerNav, fmt.Sprintf("%s -> %s", label, url))
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if len(headerNav) == 0 && len(footerNav) == 0 {
+		return ""
+	}
+
+	var result strings.Builder
+	result.WriteString("=== SITE NAVIGATION (FROM LINK MANAGER) ===\n")
+
+	if len(headerNav) > 0 {
+		result.WriteString("Header navigation (use in this exact order):\n")
+		for _, nav := range headerNav {
+			result.WriteString("  • " + nav + "\n")
+		}
+	}
+
+	if len(footerNav) > 0 {
+		result.WriteString("Footer navigation:\n")
+		for _, nav := range footerNav {
+			result.WriteString("  • " + nav + "\n")
+		}
+	}
+
+	result.WriteString("============================================\n")
+	return result.String()
+}
+
+// formatNavigationFromRegistry formats nav from link registry
+// This is a fallback when navigation structure isn't available
+func formatNavigationFromRegistry(registry map[string]interface{}) string {
+	var navLinks []string
+
+	// Registry format: {"links": [...]} or direct array of link objects
+	var links []interface{}
+
+	if linkArr, ok := registry["links"].([]interface{}); ok {
+		links = linkArr
+	} else if linkArr, ok := registry["internal_links"].([]interface{}); ok {
+		links = linkArr
+	}
+
+	for _, link := range links {
+		if linkMap, ok := link.(map[string]interface{}); ok {
+			// Check if it's a navigation link
+			linkType, _ := linkMap["link_type"].(string)
+			if linkType != "navigation" && linkType != "" {
+				continue
+			}
+
+			anchorText, _ := linkMap["anchor_text"].(string)
+			targetURL, _ := linkMap["target_url"].(string)
+
+			if anchorText == "" {
+				anchorText, _ = linkMap["label"].(string)
+			}
+			if targetURL == "" {
+				targetURL, _ = linkMap["url"].(string)
+			}
+
+			if anchorText != "" && targetURL != "" {
+				navLinks = append(navLinks, fmt.Sprintf("%s -> %s", anchorText, targetURL))
+			}
+		}
+	}
+
+	if len(navLinks) == 0 {
+		return ""
+	}
+
+	var result strings.Builder
+	result.WriteString("NAVIGATION (from link registry):\n")
+	result.WriteString("Navigation links: ")
+	result.WriteString(strings.Join(navLinks, " | "))
+	result.WriteString("\n")
+
+	return result.String()
+}
+
+// formatNavigationFromSitemap formats navigation from strategist's sitemap
+// Expected format: [{"label": "Home", "url": "/index.html", "in_header": true}, ...]
+func formatNavigationFromSitemap(sitemap []interface{}) string {
+	var headerNav []string
+	var footerNav []string
+
+	for _, entry := range sitemap {
+		if e, ok := entry.(map[string]interface{}); ok {
+			label, _ := e["label"].(string)
+			url, _ := e["url"].(string)
+
+			// Default to header if not specified
+			inHeader := true
+			if ih, ok := e["in_header"].(bool); ok {
+				inHeader = ih
+			}
+			inFooter, _ := e["in_footer"].(bool)
+
+			if label == "" {
+				// Try alternative field names
+				label, _ = e["name"].(string)
+			}
+			if label == "" {
+				label, _ = e["title"].(string)
+			}
+
+			if url == "" {
+				// Try to construct URL from name
+				if name, ok := e["name"].(string); ok && name != "" {
+					if name == "index" || name == "home" {
+						url = "/index.html"
+					} else {
+						url = "/" + name + ".html"
+					}
+				}
+			}
+
+			if label == "" || url == "" {
+				continue
+			}
+
+			linkStr := fmt.Sprintf("%s -> %s", label, url)
+			if inHeader {
+				headerNav = append(headerNav, linkStr)
+			}
+			if inFooter {
+				footerNav = append(footerNav, linkStr)
+			}
+		}
+	}
+
+	if len(headerNav) == 0 && len(footerNav) == 0 {
+		return ""
+	}
+
+	var result strings.Builder
+	result.WriteString("=== SITE NAVIGATION (USE EXACTLY AS PROVIDED) ===\n")
+
+	if len(headerNav) > 0 {
+		result.WriteString("Header navigation (use in this exact order):\n")
+		for _, nav := range headerNav {
+			result.WriteString("  • " + nav + "\n")
+		}
+	}
+
+	if len(footerNav) > 0 {
+		result.WriteString("Footer navigation:\n")
+		for _, nav := range footerNav {
+			result.WriteString("  • " + nav + "\n")
+		}
+	}
+
+	result.WriteString("\n")
+	result.WriteString("STRICT REQUIREMENTS:\n")
+	result.WriteString("• Include ALL navigation items in the header\n")
+	result.WriteString("• Use EXACTLY this order (left to right)\n")
+	result.WriteString("• Do NOT add or remove items\n")
+	result.WriteString("================================================\n")
+
+	return result.String()
+}
+
 // extractNavigationFromStructure extracts navigation from a NavigationStructure format
 // Expected format: {"items": [{"label": "Home", "url": "/index.html", ...}, ...]}
 func extractNavigationFromStructure(data map[string]interface{}, key string) string {
