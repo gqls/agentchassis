@@ -799,36 +799,129 @@ func ifNotEmpty(s, prefix string) string {
 	return prefix
 }
 
-// extractSitemapInfo extracts navigation links from the sitemap structure
-// Now checks for database navigation first (from sync_pages_to_db action)
-//
-// Priority order:
-// 1. db_sync.navigation (from sync_pages_to_db - database source)
-// 2. navigation (direct field if passed)
-// 3. link_data.navigation (from link-manager if used)
-// 4. sitemap in page_plan (original LLM-generated sitemap)
+// extractSitemapInfo extracts navigation links from database sync or sitemap
+// Sources checked (in order of priority):
+// 1. db_sync.navigation (from sync_pages_to_db - CANONICAL DATABASE SOURCE)
+// 2. link_data.navigation (from link-manager agent)
+// 3. page_plan.plan_data.sitemap (from strategist)
+// 4. sitemap (direct field)
 func extractSitemapInfo(context map[string]interface{}) string {
-	// PRIORITY 1: Check for database navigation from sync_pages_to_db
+	// PRIORITY 1: Check for db_sync.navigation (from sync_pages_to_db)
+	// This is the CANONICAL source - generated from database, all pages should use this
 	if dbSync, ok := context["db_sync"].(map[string]interface{}); ok {
-		if nav := extractNavigationFromStructure(dbSync, "navigation"); nav != "" {
+		if nav := extractNavigationFromDBSync(dbSync); nav != "" {
 			return nav
 		}
 	}
 
-	// PRIORITY 2: Check for direct navigation field
-	if nav := extractNavigationFromStructure(context, "navigation"); nav != "" {
-		return nav
-	}
-
-	// PRIORITY 3: Check for link_data.navigation (from link-manager agent if used)
+	// PRIORITY 2: Check for link_data.navigation (from link-manager)
 	if linkData, ok := context["link_data"].(map[string]interface{}); ok {
-		if nav := extractNavigationFromStructure(linkData, "navigation"); nav != "" {
-			return nav
+		// Try navigation structure first
+		if nav, ok := linkData["navigation"].(map[string]interface{}); ok {
+			return formatNavigationFromLinkManager(nav)
+		}
+		// Try link_registry as fallback
+		if registry, ok := linkData["link_registry"].(map[string]interface{}); ok {
+			return formatNavigationFromRegistry(registry)
 		}
 	}
 
-	// PRIORITY 4: Fall back to sitemap in page_plan (original behavior)
-	return extractSitemapFromPlan(context)
+	// PRIORITY 3: Check for sitemap from various sources
+	var sitemap []interface{}
+
+	// Try direct sitemap field first
+	if sm, ok := context["sitemap"].([]interface{}); ok {
+		sitemap = sm
+	}
+
+	// Try nested in page_plan.plan_data.sitemap
+	if sitemap == nil {
+		if pagePlan, ok := context["page_plan"].(map[string]interface{}); ok {
+			if planData, ok := pagePlan["plan_data"].(map[string]interface{}); ok {
+				if sm, ok := planData["sitemap"].([]interface{}); ok {
+					sitemap = sm
+				}
+			}
+			// Also try direct result under page_plan
+			if sitemap == nil {
+				if sm, ok := pagePlan["sitemap"].([]interface{}); ok {
+					sitemap = sm
+				}
+			}
+		}
+	}
+
+	// Try nested in plan_data.sitemap (if page_plan was flattened)
+	if sitemap == nil {
+		if planData, ok := context["plan_data"].(map[string]interface{}); ok {
+			if sm, ok := planData["sitemap"].([]interface{}); ok {
+				sitemap = sm
+			}
+		}
+	}
+
+	if sitemap == nil || len(sitemap) == 0 {
+		return ""
+	}
+
+	return formatNavigationFromSitemap(sitemap)
+}
+
+// extractNavigationFromDBSync extracts navigation from the db_sync output
+// The db_sync.navigation structure is: {"items": [{"label": "Home", "url": "/index.html"}, ...]}
+func extractNavigationFromDBSync(dbSync map[string]interface{}) string {
+	navData, ok := dbSync["navigation"]
+	if !ok {
+		return ""
+	}
+
+	var items []interface{}
+
+	// Handle map with items array (NavigationStructure format after JSON serialization)
+	if nav, ok := navData.(map[string]interface{}); ok {
+		if itemsRaw, ok := nav["items"].([]interface{}); ok {
+			items = itemsRaw
+		}
+	}
+
+	if len(items) == 0 {
+		return ""
+	}
+
+	// Format as navigation string for the prompt
+	var headerNav []string
+	for _, item := range items {
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			label, _ := itemMap["label"].(string)
+			url, _ := itemMap["url"].(string)
+			if label != "" && url != "" {
+				headerNav = append(headerNav, fmt.Sprintf("%s -> %s", label, url))
+			}
+		}
+	}
+
+	if len(headerNav) == 0 {
+		return ""
+	}
+
+	// Build navigation string with STRONG enforcement language
+	var result strings.Builder
+	result.WriteString("=== SITE NAVIGATION (MANDATORY - USE EXACTLY AS PROVIDED) ===\n")
+	result.WriteString("Header navigation items (use in this exact order):\n")
+	for _, nav := range headerNav {
+		result.WriteString("  • " + nav + "\n")
+	}
+	result.WriteString("\n")
+	result.WriteString("STRICT NAVIGATION REQUIREMENTS:\n")
+	result.WriteString("• Include ALL of these navigation items in the header\n")
+	result.WriteString("• Use them in EXACTLY this order (left to right)\n")
+	result.WriteString("• Do NOT add any additional navigation items\n")
+	result.WriteString("• Do NOT remove any navigation items\n")
+	result.WriteString("• Use the EXACT URLs shown (do not modify)\n")
+	result.WriteString("• This ensures all pages have consistent navigation\n")
+	result.WriteString("=============================================================\n")
+
+	return result.String()
 }
 
 // extractNavigationFromStructure extracts navigation from a NavigationStructure format
