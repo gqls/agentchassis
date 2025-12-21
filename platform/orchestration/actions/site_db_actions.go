@@ -906,7 +906,7 @@ func buildNavigationFromPages(pages []map[string]interface{}) *NavigationStructu
 		title := datahelpers.GetStringField(page, "title", name)
 		url := datahelpers.GetStringField(page, "url", "")
 		if url == "" {
-			if name == "index" {
+			if name == "index" || name == "home" {
 				url = "/index.html"
 			} else {
 				url = "/" + name + ".html"
@@ -921,17 +921,84 @@ func buildNavigationFromPages(pages []map[string]interface{}) *NavigationStructu
 		}
 
 		// Skip privacy/terms from header
-		if strings.Contains(name, "privacy") || strings.Contains(name, "terms") {
+		nameLower := strings.ToLower(name)
+		if strings.Contains(nameLower, "privacy") || strings.Contains(nameLower, "terms") {
 			continue
 		}
 
+		// Simplify the nav label - remove verbose descriptions
+		simpleLabel := simplifyNavLabel(navLabel, name)
+
 		nav.Items = append(nav.Items, NavigationItem{
-			Label: navLabel,
+			Label: simpleLabel,
 			URL:   url,
 		})
 	}
 
 	return nav
+}
+
+// simplifyNavLabel creates a clean, simple navigation label
+func simplifyNavLabel(label, pageName string) string {
+	// If label contains "|", take first part
+	if idx := strings.Index(label, "|"); idx > 0 {
+		label = strings.TrimSpace(label[:idx])
+	}
+
+	// If label contains " - ", take first part
+	if idx := strings.Index(label, " - "); idx > 0 {
+		label = strings.TrimSpace(label[:idx])
+	}
+
+	// Common simple labels based on page name
+	pageNameLower := strings.ToLower(pageName)
+	simpleLabels := map[string]string{
+		"index":     "Home",
+		"home":      "Home",
+		"about":     "About",
+		"services":  "Services",
+		"contact":   "Contact",
+		"insights":  "Insights",
+		"blog":      "Blog",
+		"careers":   "Careers",
+		"team":      "Team",
+		"pricing":   "Pricing",
+		"faq":       "FAQ",
+		"support":   "Support",
+		"features":  "Features",
+		"products":  "Products",
+		"portfolio": "Portfolio",
+		"work":      "Work",
+		"clients":   "Clients",
+		"resources": "Resources",
+	}
+
+	if simple, ok := simpleLabels[pageNameLower]; ok {
+		return simple
+	}
+
+	// Remove company name prefixes/suffixes if present
+	// e.g., "About Leopardess Consulting" -> "About"
+	words := strings.Fields(label)
+	if len(words) >= 2 {
+		firstWord := strings.ToLower(words[0])
+		if simple, ok := simpleLabels[firstWord]; ok {
+			return simple
+		}
+		lastWord := strings.ToLower(words[len(words)-1])
+		if simple, ok := simpleLabels[lastWord]; ok {
+			return simple
+		}
+	}
+
+	// Capitalize the label properly
+	if len(label) > 0 {
+		// Title case, but handle edge cases
+		return strings.Title(strings.ToLower(label))
+	}
+
+	// Fallback: capitalize page name
+	return strings.Title(pageName)
 }
 
 func getPageID(ctx context.Context, db interface{}, siteID uuid.UUID, pageName string, logger *zap.Logger) (uuid.UUID, error) {

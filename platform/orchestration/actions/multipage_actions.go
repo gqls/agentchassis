@@ -64,7 +64,7 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 // AssembleMultipageSiteAction creates a complete multi-page site
 // Takes pages from loop output, adds navigation, generates standard pages
 func AssembleMultipageSiteAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Assembling multi-page site")
+	params.Logger.Info("Assembling multi-page site with consistent headers")
 
 	config := params.StepConfig.Config
 	if config == nil {
@@ -76,7 +76,6 @@ func AssembleMultipageSiteAction(ctx context.Context, params ActionParams) (inte
 		return nil, fmt.Errorf("pages_field is required in config")
 	}
 
-	addNav, _ := config["add_navigation"].(bool)
 	generateStandard, _ := config["generate_standard_pages"].(bool)
 
 	// Extract pages from loop output
@@ -112,8 +111,8 @@ func AssembleMultipageSiteAction(ctx context.Context, params ActionParams) (inte
 		pageNamesList = append(pageNamesList, name)
 	}
 
-	// Get canonical navigation from db_sync if available
-	canonicalNav := extractCanonicalNavigation(params.CollectedData, params.Logger)
+	// Build header config once (shared across all pages except current page indicator)
+	baseHeaderConfig := buildHeaderConfig(params.CollectedData, "", params.Logger)
 
 	// POST-PROCESS ALL PAGES
 	for name, html := range pages {
@@ -123,24 +122,31 @@ func AssembleMultipageSiteAction(ctx context.Context, params ActionParams) (inte
 		// Step 2: Fix anchor links to page links
 		html = fixAnchorLinks(html, pageNamesList)
 
-		// Step 3: Inject canonical navigation if available
-		if canonicalNav != nil && len(canonicalNav) > 0 {
-			html = injectCanonicalNavigation(html, canonicalNav, name, params.Logger)
-		} else if addNav {
-			// Fallback to simple navigation
-			currentPage := strings.TrimSuffix(name, ".html")
-			html = addSimpleNavigation(html, currentPage)
+		// Step 3: Build page-specific header config (with active state)
+		headerConfig := *baseHeaderConfig // Copy
+		headerConfig.CurrentPage = strings.TrimSuffix(name, ".html")
+		headerConfig.IsHomePage = name == "index.html" || name == "home.html"
+
+		// Update active states in nav items
+		for i := range headerConfig.NavItems {
+			urlPage := strings.TrimSuffix(strings.TrimPrefix(headerConfig.NavItems[i].URL, "/"), ".html")
+			headerConfig.NavItems[i].IsActive = urlPage == headerConfig.CurrentPage ||
+				(headerConfig.CurrentPage == "index" && (urlPage == "home" || urlPage == "index"))
 		}
+
+		// Step 4: Inject consistent header
+		html = injectConsistentHeader(html, &headerConfig, params.Logger)
 
 		pages[name] = html
 
 		params.Logger.Debug("Post-processed page",
 			zap.String("page", name),
+			zap.Int("nav_items", len(headerConfig.NavItems)),
 			zap.Int("final_length", len(html)),
 		)
 	}
 
-	params.Logger.Info("Multi-page site assembled successfully",
+	params.Logger.Info("Multi-page site assembled with consistent headers",
 		zap.Int("total_pages", len(pages)),
 		zap.Int("total_bytes", calculateTotalSize(pages)),
 	)
@@ -990,4 +996,317 @@ func getCollectedDataKeys(data map[string]interface{}) []string {
 		}
 	}
 	return keys
+}
+
+// NavItem represents a single nav link
+type NavItem struct {
+	Label    string
+	URL      string
+	IsActive bool
+}
+
+// HeaderConfig holds configuration for header generation
+type HeaderConfig struct {
+	LogoText     string
+	LogoAccent   string
+	NavItems     []NavItem
+	PrimaryColor string
+	AccentColor  string
+	CurrentPage  string
+	IsHomePage   bool
+}
+
+// buildHeaderConfig extracts header configuration from collected data
+func buildHeaderConfig(collectedData map[string]interface{}, currentPageName string, logger *zap.Logger) *HeaderConfig {
+	config := &HeaderConfig{
+		LogoText:     "Company",
+		LogoAccent:   "",
+		PrimaryColor: "#1a1a2e",
+		AccentColor:  "#16a085",
+		CurrentPage:  strings.TrimSuffix(currentPageName, ".html"),
+		IsHomePage:   currentPageName == "index.html" || currentPageName == "home.html",
+	}
+
+	// Try to get domain/business name for logo
+	if inputData, ok := collectedData["input_data"].(map[string]interface{}); ok {
+		if domain, ok := inputData["domain"].(string); ok && domain != "" {
+			// Extract business name from domain
+			parts := strings.Split(domain, ".")
+			if len(parts) > 0 {
+				name := parts[0]
+				// Capitalize first letter, handle common suffixes
+				if len(name) > 0 {
+					config.LogoText = strings.ToUpper(name[:1]) + name[1:]
+				}
+			}
+		}
+
+		// Try to get colors from reviewed_brief
+		if brief, ok := inputData["reviewed_brief"].(map[string]interface{}); ok {
+			if colors, ok := brief["color_scheme"].(string); ok && colors != "" {
+				config.PrimaryColor, config.AccentColor = parseColorScheme(colors)
+			}
+		}
+	}
+
+	// Get navigation items
+	config.NavItems = extractNavItemsForHeader(collectedData, config.CurrentPage, logger)
+
+	return config
+}
+
+// parseColorScheme extracts primary and accent colors from a description
+func parseColorScheme(scheme string) (primary, accent string) {
+	primary = "#1a1a2e"
+	accent = "#16a085"
+
+	schemeLower := strings.ToLower(scheme)
+
+	if strings.Contains(schemeLower, "dark") {
+		primary = "#1a1a2e"
+	}
+	if strings.Contains(schemeLower, "navy") {
+		primary = "#1e3a5f"
+	}
+	if strings.Contains(schemeLower, "teal") {
+		accent = "#16a085"
+	}
+	if strings.Contains(schemeLower, "gold") {
+		accent = "#d4af37"
+	}
+	if strings.Contains(schemeLower, "blue") {
+		accent = "#2563eb"
+	}
+	if strings.Contains(schemeLower, "green") {
+		accent = "#059669"
+	}
+	if strings.Contains(schemeLower, "purple") {
+		accent = "#7c3aed"
+	}
+
+	return primary, accent
+}
+
+// extractNavItemsForHeader gets navigation items with simple labels
+func extractNavItemsForHeader(collectedData map[string]interface{}, currentPage string, logger *zap.Logger) []NavItem {
+	var items []NavItem
+
+	// Priority 1: db_sync.navigation
+	if dbSync, ok := collectedData["db_sync"].(map[string]interface{}); ok {
+		if nav, ok := dbSync["navigation"].(map[string]interface{}); ok {
+			if navItems, ok := nav["items"].([]interface{}); ok {
+				for _, item := range navItems {
+					if itemMap, ok := item.(map[string]interface{}); ok {
+						label, _ := itemMap["label"].(string)
+						url, _ := itemMap["url"].(string)
+
+						if label != "" && url != "" {
+							urlPage := strings.TrimSuffix(strings.TrimPrefix(url, "/"), ".html")
+							isActive := urlPage == currentPage ||
+								(currentPage == "index" && (urlPage == "home" || urlPage == "index"))
+
+							items = append(items, NavItem{
+								Label:    label, // Already simplified by buildNavigationFromPages
+								URL:      url,
+								IsActive: isActive,
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback: default navigation
+	if len(items) == 0 {
+		logger.Warn("No navigation found, using defaults")
+		items = []NavItem{
+			{Label: "Home", URL: "/index.html", IsActive: currentPage == "index"},
+			{Label: "About", URL: "/about.html", IsActive: currentPage == "about"},
+			{Label: "Services", URL: "/services.html", IsActive: currentPage == "services"},
+			{Label: "Contact", URL: "/contact.html", IsActive: currentPage == "contact"},
+		}
+	}
+
+	return items
+}
+
+// generateConsistentHeader creates the header HTML
+func generateConsistentHeader(config *HeaderConfig) string {
+	var navLinks []string
+	for _, item := range config.NavItems {
+		activeClass := ""
+		if item.IsActive {
+			activeClass = ` class="active"`
+		}
+		navLinks = append(navLinks, fmt.Sprintf(
+			`<li><a href="%s"%s>%s</a></li>`,
+			item.URL, activeClass, item.Label,
+		))
+	}
+
+	navHTML := strings.Join(navLinks, "\n                ")
+
+	logoHTML := fmt.Sprintf(`<span class="logo-text">%s</span>`, config.LogoText)
+	if config.LogoAccent != "" {
+		logoHTML = fmt.Sprintf(`<span class="logo-text">%s</span><span class="logo-accent">%s</span>`,
+			config.LogoText, config.LogoAccent)
+	}
+
+	return fmt.Sprintf(`<header class="site-header">
+    <div class="header-container">
+        <a href="/index.html" class="logo">
+            %s
+        </a>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+        </button>
+        <nav class="main-nav">
+            <ul>
+                %s
+            </ul>
+        </nav>
+    </div>
+</header>`, logoHTML, navHTML)
+}
+
+// generateHeaderStyles creates CSS for the header
+func generateHeaderStyles(config *HeaderConfig) string {
+	return fmt.Sprintf(`
+/* ========== CONSISTENT HEADER STYLES ========== */
+.site-header {
+    background: %s;
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.logo {
+    text-decoration: none;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+}
+.logo-accent { color: %s; }
+.main-nav ul {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2rem;
+}
+.main-nav a {
+    color: rgba(255,255,255,0.9);
+    text-decoration: none;
+    font-weight: 500;
+    padding: 0.5rem 0;
+    transition: color 0.2s;
+}
+.main-nav a:hover,
+.main-nav a.active { color: %s; }
+.mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+.mobile-menu-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: white;
+    margin: 5px 0;
+}
+@media (max-width: 768px) {
+    .mobile-menu-toggle { display: block; }
+    .main-nav {
+        position: absolute;
+        top: 100%%;
+        left: 0;
+        right: 0;
+        background: %s;
+        padding: 1rem;
+        display: none;
+    }
+    .main-nav.active { display: block; }
+    .main-nav ul { flex-direction: column; gap: 0; }
+    .main-nav a { display: block; padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+}
+/* ========== END HEADER STYLES ========== */
+`, config.PrimaryColor, config.AccentColor, config.AccentColor, config.PrimaryColor)
+}
+
+// injectConsistentHeader replaces the existing header with a consistent one
+func injectConsistentHeader(html string, config *HeaderConfig, logger *zap.Logger) string {
+	headerHTML := generateConsistentHeader(config)
+	headerCSS := generateHeaderStyles(config)
+
+	// Step 1: Remove existing header element
+	headerRe := regexp.MustCompile(`(?is)<header[^>]*>.*?</header>`)
+	html = headerRe.ReplaceAllString(html, "<!-- HEADER_PLACEHOLDER -->")
+
+	// Step 2: Insert new header after <body> tag
+	bodyRe := regexp.MustCompile(`(?i)(<body[^>]*>)`)
+	if bodyRe.MatchString(html) {
+		html = bodyRe.ReplaceAllString(html, "$1\n"+headerHTML)
+		html = strings.Replace(html, "<!-- HEADER_PLACEHOLDER -->", "", 1)
+	} else {
+		html = strings.Replace(html, "<!-- HEADER_PLACEHOLDER -->", headerHTML, 1)
+	}
+
+	// Step 3: Inject CSS into <style> or <head>
+	styleRe := regexp.MustCompile(`(?i)(</style>)`)
+	if styleRe.MatchString(html) {
+		// Insert before first </style>
+		replaced := false
+		html = styleRe.ReplaceAllStringFunc(html, func(match string) string {
+			if !replaced {
+				replaced = true
+				return headerCSS + "\n" + match
+			}
+			return match
+		})
+	} else {
+		// No style tag, add one in head
+		headCloseRe := regexp.MustCompile(`(?i)(</head>)`)
+		if headCloseRe.MatchString(html) {
+			html = headCloseRe.ReplaceAllString(html, "<style>"+headerCSS+"</style>\n$1")
+		}
+	}
+
+	// Step 4: Add mobile menu JS
+	if !strings.Contains(html, "mobile-menu-toggle") || !strings.Contains(strings.ToLower(html), "addeventlistener") {
+		mobileJS := `<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.querySelector('.mobile-menu-toggle');
+    var nav = document.querySelector('.main-nav');
+    if (toggle && nav) {
+        toggle.addEventListener('click', function() {
+            nav.classList.toggle('active');
+        });
+    }
+});
+</script>`
+		bodyCloseRe := regexp.MustCompile(`(?i)(</body>)`)
+		if bodyCloseRe.MatchString(html) {
+			html = bodyCloseRe.ReplaceAllString(html, mobileJS+"\n$1")
+		}
+	}
+
+	logger.Debug("Injected consistent header",
+		zap.Int("nav_items", len(config.NavItems)),
+		zap.String("primary_color", config.PrimaryColor),
+	)
+
+	return html
 }
