@@ -26,14 +26,6 @@ type BuildPlan struct {
 	Strategy map[string]interface{} `json:"strategy,omitempty"` // Optional detailed strategy
 }
 
-// ComponentTemplate is a helper struct for our DB query.
-type ComponentTemplate struct {
-	ID           string          `db:"id"`
-	HTMLTemplate string          `db:"html_template"`
-	InputSchema  json.RawMessage `db:"input_schema"`
-	Function     string          `db:"function"`
-}
-
 // AssembleFromLibraryAction uses standard input_fields to find the build plan.
 func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing AssembleFromLibraryAction",
