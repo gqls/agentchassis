@@ -49,10 +49,10 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"execute_llm_prompt": ExecuteLLMPromptAction,
 
 	// Web build
-	"git_commit":         GitCommitAction,
-	"git_commit_action":  GitCommitAction,
-	"new_site_architect": AssembleFromLibraryAction,
-	// "assemble_from_library":     AssembleFromLibraryAction,
+	"git_commit":            GitCommitAction,
+	"git_commit_action":     GitCommitAction,
+	"new_site_architect":    AssembleFromLibraryAction,
+	"assemble_from_library": AssembleFromLibraryAction,
 	// "assemble_full_page":        AssembleFullPageAction,
 	"assemble_page":           AssemblePageAction,
 	"assemble_multipage_site": AssembleMultipageSiteAction,
@@ -61,6 +61,17 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	// "wrap_multipage":            AssembleMultipageSiteAction,
 	"loop":          LoopAction,
 	"loop_complete": LoopCompleteAction,
+
+	// styles and containers
+	"insert_research_result":  InsertResearchResultAction,
+	"select_style_collection": SelectStyleCollectionAction,
+	"update_site_content":     UpdateSiteContentAction,
+	"update_site_status":      UpdateSiteStatusAction,
+	"update_page_status":      UpdatePageStatusAction,
+	"build_render_context":    BuildRenderContextAction,
+	"render_component":        RenderComponentAction,
+	"compile_page_sections":   CompilePageSectionsAction,
+	"db_sync_action":          DBSyncAction,
 
 	// Site and Link Management (Database Integration)
 	"ensure_site_record":     EnsureSiteRecordAction,

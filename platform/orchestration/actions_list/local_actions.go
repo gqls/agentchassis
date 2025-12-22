@@ -40,10 +40,10 @@ var LocalActions = map[string]bool{
 	"calculate": true,
 
 	// Web build
-	"git_commit":         true,
-	"git_commit_action":  true,
-	"new_site_architect": true,
-	// "assemble_from_library":     true,
+	"git_commit":            true,
+	"git_commit_action":     true,
+	"new_site_architect":    true,
+	"assemble_from_library": true,
 	// "assemble_full_page":        true,
 	"assemble_page":           true,
 	"assemble_multipage_site": true,
@@ -52,6 +52,16 @@ var LocalActions = map[string]bool{
 	// "wrap_multipage":            true,
 	"loop":          true,
 	"loop_complete": true,
+
+	"insert_research_result":  true,
+	"select_style_collection": true,
+	"update_site_content":     true,
+	"update_site_status":      true,
+	"update_page_status":      true,
+	"build_render_context":    true,
+	"render_component":        true,
+	"compile_page_sections":   true,
+	"db_sync_action":          true,
 
 	// Site and Link Management (Database Integration)
 	"ensure_site_record":     true,
