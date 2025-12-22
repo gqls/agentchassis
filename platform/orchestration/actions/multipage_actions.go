@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -64,7 +65,7 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 // AssembleMultipageSiteAction creates a complete multi-page site
 // Takes pages from loop output, adds navigation, generates standard pages
 func AssembleMultipageSiteAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("Assembling multi-page site with consistent headers")
+	params.Logger.Info("Assembling multi-page site with component-based headers")
 
 	config := params.StepConfig.Config
 	if config == nil {
@@ -111,8 +112,12 @@ func AssembleMultipageSiteAction(ctx context.Context, params ActionParams) (inte
 		pageNamesList = append(pageNamesList, name)
 	}
 
-	// Build header config once (shared across all pages except current page indicator)
-	baseHeaderConfig := buildHeaderConfig(params.CollectedData, "", params.Logger)
+	// Get site ID for component lookup
+	siteID := extractSiteIDFromCollectedData(params.CollectedData)
+
+	// Build shared RenderContext from collected data
+	// This is used by component_library.go functions
+	baseRenderCtx := buildRenderContextFromCollectedData(params.CollectedData, params.Logger)
 
 	// POST-PROCESS ALL PAGES
 	for name, html := range pages {
@@ -122,31 +127,35 @@ func AssembleMultipageSiteAction(ctx context.Context, params ActionParams) (inte
 		// Step 2: Fix anchor links to page links
 		html = fixAnchorLinks(html, pageNamesList)
 
-		// Step 3: Build page-specific header config (with active state)
-		headerConfig := *baseHeaderConfig // Copy
-		headerConfig.CurrentPage = strings.TrimSuffix(name, ".html")
-		headerConfig.IsHomePage = name == "index.html" || name == "home.html"
+		// Step 3: Build page-specific render context
+		currentPage := strings.TrimSuffix(name, ".html")
+		renderCtx := copyRenderContext(baseRenderCtx)
+		renderCtx.CurrentPage = currentPage
+		renderCtx.NavItems = setActiveNavItems(baseRenderCtx.NavItems, currentPage)
 
-		// Update active states in nav items
-		for i := range headerConfig.NavItems {
-			urlPage := strings.TrimSuffix(strings.TrimPrefix(headerConfig.NavItems[i].URL, "/"), ".html")
-			headerConfig.NavItems[i].IsActive = urlPage == headerConfig.CurrentPage ||
-				(headerConfig.CurrentPage == "index" && (urlPage == "home" || urlPage == "index"))
+		// Step 4: Inject header and footer
+		// Use component_library.go functions if DB available, otherwise fallback
+		if params.DB != nil {
+			// Use component-based injection from component_library.go
+			html = InjectHeader(ctx, params.DB, html, siteID, renderCtx, params.Logger)
+			html = InjectFooter(ctx, params.DB, html, siteID, renderCtx, params.Logger)
+		} else {
+			// Fallback to hardcoded templates (existing behavior)
+			headerConfig := convertRenderContextToHeaderConfig(renderCtx)
+			html = injectConsistentHeader(html, headerConfig, params.Logger)
+			// Note: existing code doesn't inject footer, add if needed
 		}
-
-		// Step 4: Inject consistent header
-		html = injectConsistentHeader(html, &headerConfig, params.Logger)
 
 		pages[name] = html
 
 		params.Logger.Debug("Post-processed page",
 			zap.String("page", name),
-			zap.Int("nav_items", len(headerConfig.NavItems)),
+			zap.Int("nav_items", len(renderCtx.NavItems)),
 			zap.Int("final_length", len(html)),
 		)
 	}
 
-	params.Logger.Info("Multi-page site assembled with consistent headers",
+	params.Logger.Info("Multi-page site assembled with component-based headers",
 		zap.Int("total_pages", len(pages)),
 		zap.Int("total_bytes", calculateTotalSize(pages)),
 	)
@@ -158,6 +167,162 @@ func AssembleMultipageSiteAction(ctx context.Context, params ActionParams) (inte
 		"page_names":   getPageNames(pages),
 		"assembled_at": params.ExecutionContext.Timestamp,
 	}, nil
+}
+
+// These functions bridge between existing code and component_library.go
+// extractSiteIDFromCollectedData gets the site UUID from collected data
+func extractSiteIDFromCollectedData(collectedData map[string]interface{}) uuid.UUID {
+	if siteRecord, ok := collectedData["site_record"].(map[string]interface{}); ok {
+		if idStr, ok := siteRecord["site_id"].(string); ok {
+			if id, err := uuid.Parse(idStr); err == nil {
+				return id
+			}
+		}
+	}
+	return uuid.Nil
+}
+
+// buildRenderContextFromCollectedData creates a RenderContext for component_library.go
+// This bridges the existing data extraction to the new RenderContext type
+func buildRenderContextFromCollectedData(collectedData map[string]interface{}, logger *zap.Logger) *RenderContext {
+	ctx := &RenderContext{}
+
+	// Extract from input_data
+	if inputData, ok := collectedData["input_data"].(map[string]interface{}); ok {
+		// Domain
+		if domain, ok := inputData["domain"].(string); ok {
+			ctx.Domain = domain
+			// Default logo from domain
+			if parts := strings.Split(domain, "."); len(parts) > 0 && len(parts[0]) > 0 {
+				ctx.LogoText = strings.ToUpper(parts[0][:1]) + parts[0][1:]
+			}
+		}
+
+		// From reviewed_brief
+		if brief, ok := inputData["reviewed_brief"].(map[string]interface{}); ok {
+			if name, ok := brief["business_name"].(string); ok && name != "" {
+				ctx.LogoText = name
+				ctx.CompanyName = name
+			}
+			if tagline, ok := brief["tagline"].(string); ok {
+				ctx.Tagline = tagline
+			}
+			if email, ok := brief["contact_email"].(string); ok {
+				ctx.Email = email
+			}
+			if phone, ok := brief["contact_phone"].(string); ok {
+				ctx.Phone = phone
+			}
+			// Colors from color_scheme
+			if colorScheme, ok := brief["color_scheme"].(string); ok {
+				ctx.PrimaryColor, ctx.AccentColor = parseColorScheme(colorScheme)
+			}
+		}
+
+		// Direct fields fallback
+		if name, ok := inputData["business_name"].(string); ok && name != "" && ctx.LogoText == "" {
+			ctx.LogoText = name
+			ctx.CompanyName = name
+		}
+	}
+
+	// Extract navigation from db_sync
+	if dbSync, ok := collectedData["db_sync"].(map[string]interface{}); ok {
+		if nav, ok := dbSync["navigation"].(map[string]interface{}); ok {
+			if items, ok := nav["items"].([]interface{}); ok {
+				for _, item := range items {
+					if itemMap, ok := item.(map[string]interface{}); ok {
+						label, _ := itemMap["label"].(string)
+						url, _ := itemMap["url"].(string)
+						if label != "" && url != "" {
+							ctx.NavItems = append(ctx.NavItems, NavItem{
+								Label: label,
+								URL:   url,
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback navigation if none found
+	if len(ctx.NavItems) == 0 {
+		logger.Warn("No navigation found in db_sync, using defaults")
+		ctx.NavItems = []NavItem{
+			{Label: "Home", URL: "/index.html"},
+			{Label: "About", URL: "/about.html"},
+			{Label: "Services", URL: "/services.html"},
+			{Label: "Contact", URL: "/contact.html"},
+		}
+	}
+
+	// Fallback email from domain
+	if ctx.Email == "" && ctx.Domain != "" {
+		ctx.Email = "info@" + ctx.Domain
+	}
+
+	// Fallback company name
+	if ctx.CompanyName == "" {
+		ctx.CompanyName = ctx.LogoText
+	}
+
+	return ctx
+}
+
+// copyRenderContext creates a shallow copy of RenderContext
+func copyRenderContext(src *RenderContext) *RenderContext {
+	if src == nil {
+		return &RenderContext{}
+	}
+	cpy := *src
+	// Deep copy NavItems slice
+	cpy.NavItems = make([]NavItem, len(src.NavItems))
+	copy(cpy.NavItems, src.NavItems)
+	return &cpy
+}
+
+// setActiveNavItems returns nav items with correct active state for current page
+func setActiveNavItems(items []NavItem, currentPage string) []NavItem {
+	result := make([]NavItem, len(items))
+	for i, item := range items {
+		result[i] = item
+		urlPage := strings.TrimSuffix(strings.TrimPrefix(item.URL, "/"), ".html")
+		result[i].IsActive = urlPage == currentPage ||
+			(currentPage == "index" && (urlPage == "home" || urlPage == "index"))
+	}
+	return result
+}
+
+// convertRenderContextToHeaderConfig converts RenderContext to HeaderConfig for fallback
+// This allows using the existing injectConsistentHeader when DB is not available
+func convertRenderContextToHeaderConfig(ctx *RenderContext) *HeaderConfig {
+	config := &HeaderConfig{
+		LogoText:     ctx.LogoText,
+		PrimaryColor: ctx.PrimaryColor,
+		AccentColor:  ctx.AccentColor,
+		CurrentPage:  ctx.CurrentPage,
+		IsHomePage:   ctx.CurrentPage == "index" || ctx.CurrentPage == "home",
+	}
+
+	// Convert NavItems
+	for _, item := range ctx.NavItems {
+		config.NavItems = append(config.NavItems, NavItem{
+			Label:    item.Label,
+			URL:      item.URL,
+			IsActive: item.IsActive,
+		})
+	}
+
+	// Set defaults if missing
+	if config.PrimaryColor == "" {
+		config.PrimaryColor = "#1a1a2e"
+	}
+	if config.AccentColor == "" {
+		config.AccentColor = "#16a085"
+	}
+
+	return config
 }
 
 // ============================================================================
@@ -996,13 +1161,6 @@ func getCollectedDataKeys(data map[string]interface{}) []string {
 		}
 	}
 	return keys
-}
-
-// NavItem represents a single nav link
-type NavItem struct {
-	Label    string
-	URL      string
-	IsActive bool
 }
 
 // HeaderConfig holds configuration for header generation
