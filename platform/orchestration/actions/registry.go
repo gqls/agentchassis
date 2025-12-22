@@ -106,6 +106,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 
 	// Workflow control
 	"conditional_branch": ConditionalBranchAction,
+	"conditional":        ConditionalBranchAction,
 	"conditional_route":  ConditionalRouteAction,
 
 	// Planning and review and agent discovery

@@ -102,6 +102,7 @@ var LocalActions = map[string]bool{
 
 	// Workflow control
 	"conditional_branch": true,
+	"conditional":        true,
 	"conditional_route":  true,
 
 	// Planning and review
