@@ -1,4 +1,7 @@
 // FILE: platform/orchestration/actions/v3_site_actions.go
+// Additional actions needed for the v3 multipage website builder component-based architecture.
+// These complement existing actions in site_db_actions.go and component_library.go.
+
 package actions
 
 import (
@@ -18,8 +21,6 @@ import (
 // ============================================================================
 // ACTION: select_style_collection
 // ============================================================================
-// Additional actions needed for the v3 multipage website builder component-based architecture.
-// These complement existing actions in site_db_actions.go and component_library.go.
 
 // SelectStyleCollectionAction selects a style collection for a site
 // Either by explicit ID, by site_id lookup, or by domain/industry matching
@@ -824,6 +825,177 @@ func InsertResearchResultAction(ctx context.Context, params ActionParams) (inter
 }
 
 // ============================================================================
+// ACTION: store_asset
+// ============================================================================
+
+// StoreAssetAction stores an asset (image, font, file) in the assets table
+// This is a LOCAL action - it does NOT require a topic
+// Config:
+//   - asset_type: type of asset (image, font, css, js, etc.)
+//   - site_id_field: path to site_id in collected_data
+//   - data_field: path to asset data (URL, base64, or content)
+//   - name_field: path to asset name
+//   - metadata_field: optional path to additional metadata
+func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("StoreAssetAction: Starting",
+		zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)),
+	)
+
+	if params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	config := params.StepConfig.Config
+
+	// Get asset type
+	assetType := "image"
+	if at, ok := config["asset_type"].(string); ok && at != "" {
+		assetType = at
+	}
+
+	// Get site_id (optional - assets can be global)
+	var siteID *uuid.UUID
+	if siteIDField, ok := config["site_id_field"].(string); ok && siteIDField != "" {
+		siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, siteIDField)
+		if siteIDStr != "" {
+			if parsed, err := uuid.Parse(siteIDStr); err == nil {
+				siteID = &parsed
+			}
+		}
+	}
+
+	// Get asset data
+	dataField := "asset_data"
+	if df, ok := config["data_field"].(string); ok && df != "" {
+		dataField = df
+	}
+	assetData := datahelpers.ExtractNestedField(params.CollectedData, dataField)
+
+	// Get asset name
+	nameField := "asset_name"
+	if nf, ok := config["name_field"].(string); ok && nf != "" {
+		nameField = nf
+	}
+	assetName := datahelpers.ExtractNestedFieldString(params.CollectedData, nameField)
+	if assetName == "" {
+		assetName = fmt.Sprintf("%s_%s", assetType, uuid.New().String()[:8])
+	}
+
+	// Extract URL or content from asset data
+	var assetURL, assetContent string
+	switch v := assetData.(type) {
+	case string:
+		if strings.HasPrefix(v, "http://") || strings.HasPrefix(v, "https://") || strings.HasPrefix(v, "s3://") {
+			assetURL = v
+		} else {
+			assetContent = v
+		}
+	case map[string]interface{}:
+		if url, ok := v["url"].(string); ok {
+			assetURL = url
+		}
+		if url, ok := v["image_url"].(string); ok {
+			assetURL = url
+		}
+		if content, ok := v["content"].(string); ok {
+			assetContent = content
+		}
+		if content, ok := v["base64"].(string); ok {
+			assetContent = content
+		}
+	}
+
+	if assetURL == "" && assetContent == "" {
+		params.Logger.Warn("StoreAssetAction: No asset URL or content found")
+		return map[string]interface{}{
+			"stored":     false,
+			"asset_name": assetName,
+			"asset_type": assetType,
+			"reason":     "no asset data found",
+		}, nil
+	}
+
+	// Get optional metadata
+	var metadata map[string]interface{}
+	if metaField, ok := config["metadata_field"].(string); ok && metaField != "" {
+		if m := datahelpers.ExtractNestedField(params.CollectedData, metaField); m != nil {
+			metadata, _ = m.(map[string]interface{})
+		}
+	}
+
+	// If no DB, return success without persisting
+	if params.DB == nil {
+		params.Logger.Warn("StoreAssetAction: No database, returning without persistence")
+		return map[string]interface{}{
+			"stored":     true,
+			"persisted":  false,
+			"asset_id":   uuid.New().String(),
+			"asset_name": assetName,
+			"asset_type": assetType,
+			"asset_url":  assetURL,
+		}, nil
+	}
+
+	// Insert into assets table
+	assetID := uuid.New()
+	metadataJSON, _ := json.Marshal(metadata)
+
+	query := `
+		INSERT INTO assets (id, site_id, name, asset_type, url, content, metadata, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, NOW())
+		ON CONFLICT (site_id, name, asset_type) DO UPDATE SET
+			url = EXCLUDED.url,
+			content = EXCLUDED.content,
+			metadata = EXCLUDED.metadata,
+			updated_at = NOW()
+		RETURNING id
+	`
+
+	var returnedID uuid.UUID
+	err := queryRowScanUUID(ctx, params.DB, query, &returnedID,
+		assetID, siteID, assetName, assetType,
+		nullString(assetURL), nullString(assetContent), string(metadataJSON))
+
+	if err != nil {
+		// Table might not exist - log and continue
+		params.Logger.Warn("StoreAssetAction: Insert failed (table may not exist)",
+			zap.Error(err))
+		return map[string]interface{}{
+			"stored":     true,
+			"persisted":  false,
+			"asset_id":   assetID.String(),
+			"asset_name": assetName,
+			"asset_type": assetType,
+			"asset_url":  assetURL,
+			"error":      err.Error(),
+		}, nil
+	}
+
+	params.Logger.Info("StoreAssetAction: Asset stored",
+		zap.String("asset_id", returnedID.String()),
+		zap.String("asset_name", assetName),
+		zap.String("asset_type", assetType),
+	)
+
+	return map[string]interface{}{
+		"stored":     true,
+		"persisted":  true,
+		"asset_id":   returnedID.String(),
+		"asset_name": assetName,
+		"asset_type": assetType,
+		"asset_url":  assetURL,
+	}, nil
+}
+
+// nullString returns nil for empty strings, otherwise the string pointer
+func nullString(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+// ============================================================================
 // ACTION: db_sync
 // ============================================================================
 
@@ -924,6 +1096,18 @@ func lookupPageID(ctx context.Context, db interface{}, siteID uuid.UUID, pageNam
 		return pageID, err
 	default:
 		return uuid.Nil, fmt.Errorf("unsupported database type: %T", db)
+	}
+}
+
+// queryRowScanUUID executes a query and scans the result into a UUID
+func queryRowScanUUID(ctx context.Context, db interface{}, query string, dest *uuid.UUID, args ...interface{}) error {
+	switch d := db.(type) {
+	case *sql.DB:
+		return d.QueryRowContext(ctx, query, args...).Scan(dest)
+	case *pgxpool.Pool:
+		return d.QueryRow(ctx, query, args...).Scan(dest)
+	default:
+		return fmt.Errorf("unsupported database type: %T", db)
 	}
 }
 

@@ -71,7 +71,8 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"build_render_context":    BuildRenderContextAction,
 	"render_component":        RenderComponentAction,
 	"compile_page_sections":   CompilePageSectionsAction,
-	"db_sync_action":          DBSyncAction,
+	"db_sync":                 DBSyncAction,
+	"store_asset":             StoreAssetAction,
 
 	// Site and Link Management (Database Integration)
 	"ensure_site_record":     EnsureSiteRecordAction,

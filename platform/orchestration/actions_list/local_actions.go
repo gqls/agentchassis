@@ -61,7 +61,8 @@ var LocalActions = map[string]bool{
 	"build_render_context":    true,
 	"render_component":        true,
 	"compile_page_sections":   true,
-	"db_sync_action":          true,
+	"db_sync":                 true,
+	"store_asset":             true,
 
 	// Site and Link Management (Database Integration)
 	"ensure_site_record":     true,
