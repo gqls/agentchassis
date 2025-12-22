@@ -62,11 +62,12 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"loop":          LoopAction,
 	"loop_complete": LoopCompleteAction,
 
-	// styles and containers
+	// Styles and Containers
 	"insert_research_result":  InsertResearchResultAction,
 	"select_style_collection": SelectStyleCollectionAction,
 	"update_site_content":     UpdateSiteContentAction,
 	"update_site_status":      UpdateSiteStatusAction,
+	"update_site_defaults":    UpdateSiteDefaultsAction,
 	"update_page_status":      UpdatePageStatusAction,
 	"build_render_context":    BuildRenderContextAction,
 	"render_component":        RenderComponentAction,

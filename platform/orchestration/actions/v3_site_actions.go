@@ -296,6 +296,133 @@ func UpdateSiteStatusAction(ctx context.Context, params ActionParams) (interface
 }
 
 // ============================================================================
+// ACTION: update_site_defaults
+// ============================================================================
+
+// UpdateSiteDefaultsAction updates the sites.default_components JSONB column
+// Used to store default header/footer component IDs
+// Config:
+//   - site_id_field: path to site_id in collected_data
+//   - header_component_id: UUID of header component (optional)
+//   - footer_component_id: UUID of footer component (optional)
+//   - css_theme_id: UUID of CSS theme (optional)
+//   - defaults_field: path to a map containing all defaults (alternative to individual fields)
+func UpdateSiteDefaultsAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("UpdateSiteDefaultsAction: Starting")
+
+	if params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	config := params.StepConfig.Config
+
+	// Get site_id
+	siteIDField := "site_record.site_id"
+	if f, ok := config["site_id_field"].(string); ok && f != "" {
+		siteIDField = f
+	}
+	siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, siteIDField)
+	if siteIDStr == "" {
+		return nil, fmt.Errorf("site_id not found at %s", siteIDField)
+	}
+
+	siteID, err := uuid.Parse(siteIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid site_id: %w", err)
+	}
+
+	// Build defaults map
+	defaults := make(map[string]interface{})
+
+	// Try getting from defaults_field first
+	if defaultsField, ok := config["defaults_field"].(string); ok && defaultsField != "" {
+		if defaultsData := datahelpers.ExtractNestedField(params.CollectedData, defaultsField); defaultsData != nil {
+			if m, ok := defaultsData.(map[string]interface{}); ok {
+				defaults = m
+			}
+		}
+	}
+
+	// Override/add from explicit config fields
+	if headerID, ok := config["header_component_id"].(string); ok && headerID != "" {
+		defaults["header_component_id"] = headerID
+	}
+	if footerID, ok := config["footer_component_id"].(string); ok && footerID != "" {
+		defaults["footer_component_id"] = footerID
+	}
+	if cssThemeID, ok := config["css_theme_id"].(string); ok && cssThemeID != "" {
+		defaults["css_theme_id"] = cssThemeID
+	}
+
+	// Also check collected data for style_collection results
+	if sc := datahelpers.ExtractNestedField(params.CollectedData, "style_collection"); sc != nil {
+		if scMap, ok := sc.(map[string]interface{}); ok {
+			if hID, ok := scMap["header_component_id"].(string); ok && hID != "" {
+				if defaults["header_component_id"] == nil {
+					defaults["header_component_id"] = hID
+				}
+			}
+			if fID, ok := scMap["footer_component_id"].(string); ok && fID != "" {
+				if defaults["footer_component_id"] == nil {
+					defaults["footer_component_id"] = fID
+				}
+			}
+			if cID, ok := scMap["css_theme_id"].(string); ok && cID != "" {
+				if defaults["css_theme_id"] == nil {
+					defaults["css_theme_id"] = cID
+				}
+			}
+		}
+	}
+
+	if len(defaults) == 0 {
+		params.Logger.Warn("UpdateSiteDefaultsAction: No defaults to set")
+		return map[string]interface{}{
+			"updated": false,
+			"site_id": siteIDStr,
+			"reason":  "no defaults provided",
+		}, nil
+	}
+
+	if params.DB == nil {
+		params.Logger.Warn("UpdateSiteDefaultsAction: No database")
+		return map[string]interface{}{
+			"updated":  false,
+			"site_id":  siteIDStr,
+			"defaults": defaults,
+			"reason":   "no database connection",
+		}, nil
+	}
+
+	defaultsJSON, err := json.Marshal(defaults)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal defaults: %w", err)
+	}
+
+	query := `
+		UPDATE sites 
+		SET default_components = COALESCE(default_components, '{}'::jsonb) || $2::jsonb,
+		    updated_at = NOW()
+		WHERE id = $1
+	`
+
+	if err := execDB(ctx, params.DB, query, siteID, string(defaultsJSON)); err != nil {
+		return nil, fmt.Errorf("failed to update site defaults: %w", err)
+	}
+
+	params.Logger.Info("UpdateSiteDefaultsAction: Defaults updated",
+		zap.String("site_id", siteIDStr),
+		zap.Any("defaults", defaults),
+	)
+
+	return map[string]interface{}{
+		"updated":  true,
+		"site_id":  siteIDStr,
+		"defaults": defaults,
+	}, nil
+}
+
+// ============================================================================
 // ACTION: update_page_status
 // ============================================================================
 
