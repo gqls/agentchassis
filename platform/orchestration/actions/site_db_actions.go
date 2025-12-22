@@ -112,25 +112,34 @@ func EnsureSiteRecordAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	// Extract domain from input_data
+	params.Logger.Info("EnsureSiteRecordAction: Extracting domain")
 	domain := extractDomainFromInput(params.CollectedData, params.Logger)
 	if domain == "" {
+		params.Logger.Error("EnsureSiteRecordAction: Domain not found")
 		return nil, fmt.Errorf("domain not found in input_data")
 	}
 
 	// Clean domain (remove protocol, trailing slashes)
 	domain = cleanDomain(domain)
+	params.Logger.Info("EnsureSiteRecordAction: Domain cleaned",
+		zap.String("domain", domain))
 
 	// Get or create default network ID
+	params.Logger.Info("EnsureSiteRecordAction: Getting default network ID")
 	networkID, err := getDefaultNetworkID(ctx, params.DB, params.Logger)
 	if err != nil {
-		params.Logger.Warn("Failed to get default network, using placeholder",
+		params.Logger.Warn("EnsureSiteRecordAction: Failed to get default network, using placeholder",
 			zap.Error(err))
 		networkID = uuid.MustParse("00000000-0000-0000-0000-000000000002")
 	}
+	params.Logger.Info("EnsureSiteRecordAction: Got network ID",
+		zap.String("network_id", networkID.String()))
 
 	// Upsert site record
+	params.Logger.Info("EnsureSiteRecordAction: Upserting site record")
 	siteRecord, err := upsertSite(ctx, params.DB, domain, networkID, params.Logger)
 	if err != nil {
+		params.Logger.Error("EnsureSiteRecordAction: Failed to upsert site", zap.Error(err))
 		return nil, fmt.Errorf("failed to upsert site: %w", err)
 	}
 
@@ -657,7 +666,62 @@ func createPlaceholderSiteRecord(params ActionParams) (interface{}, error) {
 }
 
 func getDefaultNetworkID(ctx context.Context, db interface{}, logger *zap.Logger) (uuid.UUID, error) {
+	logger.Info("getDefaultNetworkID: Querying for default network")
+
+	// Add a 5-second timeout to prevent indefinite hanging
+	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	query := `SELECT id FROM networks WHERE slug = 'default' LIMIT 1`
+
+	var networkID uuid.UUID
+
+	switch d := db.(type) {
+	case *sql.DB:
+		logger.Debug("getDefaultNetworkID: Using *sql.DB")
+		err := d.QueryRowContext(queryCtx, query).Scan(&networkID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				logger.Warn("getDefaultNetworkID: No default network found, will create one")
+				return createDefaultNetwork(ctx, db, logger)
+			}
+			if queryCtx.Err() == context.DeadlineExceeded {
+				logger.Error("getDefaultNetworkID: Query timed out after 5 seconds")
+			}
+			return uuid.Nil, fmt.Errorf("query failed: %w", err)
+		}
+	case *pgxpool.Pool:
+		logger.Debug("getDefaultNetworkID: Using *pgxpool.Pool")
+		err := d.QueryRow(queryCtx, query).Scan(&networkID)
+		if err != nil {
+			if err.Error() == "no rows in result set" {
+				logger.Warn("getDefaultNetworkID: No default network found, will create one")
+				return createDefaultNetwork(ctx, db, logger)
+			}
+			if queryCtx.Err() == context.DeadlineExceeded {
+				logger.Error("getDefaultNetworkID: Query timed out after 5 seconds")
+			}
+			return uuid.Nil, fmt.Errorf("query failed: %w", err)
+		}
+	default:
+		return uuid.Nil, fmt.Errorf("unsupported database type: %T", db)
+	}
+
+	logger.Info("getDefaultNetworkID: Found default network",
+		zap.String("network_id", networkID.String()))
+	return networkID, nil
+}
+
+// createDefaultNetwork creates the default network if it doesn't exist
+func createDefaultNetwork(ctx context.Context, db interface{}, logger *zap.Logger) (uuid.UUID, error) {
+	logger.Info("createDefaultNetwork: Creating default network")
+
+	query := `
+		INSERT INTO networks (slug, name, status)
+		VALUES ('default', 'Default Network', 'active')
+		ON CONFLICT (slug) DO UPDATE SET updated_at = NOW()
+		RETURNING id
+	`
 
 	var networkID uuid.UUID
 
@@ -665,17 +729,22 @@ func getDefaultNetworkID(ctx context.Context, db interface{}, logger *zap.Logger
 	case *sql.DB:
 		err := d.QueryRowContext(ctx, query).Scan(&networkID)
 		if err != nil {
-			return uuid.Nil, err
+			logger.Error("createDefaultNetwork: Failed to create network", zap.Error(err))
+			// Return a hardcoded fallback UUID
+			return uuid.MustParse("00000000-0000-0000-0000-000000000002"), nil
 		}
 	case *pgxpool.Pool:
 		err := d.QueryRow(ctx, query).Scan(&networkID)
 		if err != nil {
-			return uuid.Nil, err
+			logger.Error("createDefaultNetwork: Failed to create network", zap.Error(err))
+			return uuid.MustParse("00000000-0000-0000-0000-000000000002"), nil
 		}
 	default:
-		return uuid.Nil, fmt.Errorf("unsupported database type: %T", db)
+		return uuid.MustParse("00000000-0000-0000-0000-000000000002"), nil
 	}
 
+	logger.Info("createDefaultNetwork: Created default network",
+		zap.String("network_id", networkID.String()))
 	return networkID, nil
 }
 

@@ -67,3 +67,21 @@ Check logs for "=== MASTER EXTRACTOR START ===" message
 
 
 No state found for awaited request_id
+
+--
+
+database lock
+PID 3868274: "idle in transaction" - INSERT INTO style_collections (bold-gradient...)
+Wait Event: ClientRead (waiting for client to send COMMIT/ROLLBACK)
+
+PID 3874381: Trying to INSERT INTO sites
+Wait Event: Lock → relation (blocked by the above transaction)
+
+
+# check if there are any active locks:
+SELECT pid, state, query, wait_event_type, wait_event
+FROM pg_stat_activity
+WHERE state != 'idle' AND query NOT LIKE '%pg_stat_activity%';
+
+# Kill the blocking transaction:
+SELECT pg_terminate_backend(3868274);

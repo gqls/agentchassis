@@ -558,16 +558,28 @@ func renderGoStyleSubstitutions(template string, data map[string]string) string 
 
 // renderHandlebarsSubstitutions handles {{field}} placeholders
 func renderHandlebarsSubstitutions(template string, data map[string]string) string {
-	// Match {{field}} but not {{#if}}, {{/if}}, {{#each}}, {{/each}}, {{this.field}}
-	hbRe := regexp.MustCompile(`\{\{(?!#|/|this\.)(\w+)\}\}`)
+	// Match all {{...}} patterns, then filter in the replacement function
+	// Go's regexp doesn't support negative lookahead, so we check manually
+	hbRe := regexp.MustCompile(`\{\{([^}]+)\}\}`)
 
 	return hbRe.ReplaceAllStringFunc(template, func(match string) string {
-		matches := hbRe.FindStringSubmatch(match)
-		if len(matches) < 2 {
+		// Extract content between {{ and }}
+		inner := match[2 : len(match)-2]
+
+		// Skip special patterns: #if, /if, #each, /each, this.field
+		if strings.HasPrefix(inner, "#") ||
+			strings.HasPrefix(inner, "/") ||
+			strings.HasPrefix(inner, "this.") {
 			return match
 		}
 
-		fieldName := matches[1]
+		// Skip if contains spaces (likely a block expression we missed)
+		if strings.Contains(inner, " ") {
+			return match
+		}
+
+		// Look up simple field name
+		fieldName := strings.TrimSpace(inner)
 		if value, ok := data[fieldName]; ok {
 			return value
 		}
