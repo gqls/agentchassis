@@ -456,10 +456,27 @@ func contextToMap(ctx *RenderContext) map[string]string {
 		ctx.Year = fmt.Sprintf("%d", time.Now().Year())
 	}
 
+	// Fallback for logo text - extract from domain if empty
+	logoText := ctx.LogoText
+	if logoText == "" && ctx.CompanyName != "" {
+		logoText = ctx.CompanyName
+	}
+	if logoText == "" && ctx.Domain != "" {
+		// Extract from domain: "leopardessconsulting.co.uk" -> "Leopardessconsulting"
+		parts := strings.Split(ctx.Domain, ".")
+		if len(parts) > 0 && len(parts[0]) > 0 {
+			name := parts[0]
+			logoText = strings.ToUpper(name[:1]) + name[1:]
+		}
+	}
+	if logoText == "" {
+		logoText = "Company"
+	}
+
 	return map[string]string{
 		"domain":           ctx.Domain,
-		"logo_text":        ctx.LogoText,
-		"company_name":     ctx.CompanyName,
+		"logo_text":        logoText,
+		"company_name":     defaultString(ctx.CompanyName, logoText),
 		"tagline":          ctx.Tagline,
 		"current_page":     ctx.CurrentPage,
 		"primary_color":    defaultString(ctx.PrimaryColor, "#1a1a2e"),
@@ -595,12 +612,79 @@ func buildNavItemsHTML(items []NavItem) string {
 		if item.IsActive {
 			activeClass = ` class="active"`
 		}
+		// Simplify the label at render time (defense in depth)
+		label := simplifyNavLabelForRender(item.Label, item.URL)
 		parts = append(parts, fmt.Sprintf(
 			`<li><a href="%s"%s>%s</a></li>`,
-			item.URL, activeClass, item.Label,
+			item.URL, activeClass, label,
 		))
 	}
 	return strings.Join(parts, "\n                ")
+}
+
+// simplifyNavLabelForRender creates a clean nav label
+// Handles cases like "About Us | Leopardess Consulting" -> "About"
+func simplifyNavLabelForRender(label, url string) string {
+	// Strip "|" and everything after
+	if idx := strings.Index(label, "|"); idx > 0 {
+		label = strings.TrimSpace(label[:idx])
+	}
+
+	// Strip " - " and everything after
+	if idx := strings.Index(label, " - "); idx > 0 {
+		label = strings.TrimSpace(label[:idx])
+	}
+
+	// Extract page name from URL for mapping
+	pageName := strings.TrimSuffix(strings.TrimPrefix(url, "/"), ".html")
+	pageNameLower := strings.ToLower(pageName)
+
+	// Simple labels by page name
+	simpleLabels := map[string]string{
+		"index":     "Home",
+		"home":      "Home",
+		"about":     "About",
+		"services":  "Services",
+		"contact":   "Contact",
+		"insights":  "Insights",
+		"blog":      "Blog",
+		"careers":   "Careers",
+		"team":      "Team",
+		"pricing":   "Pricing",
+		"faq":       "FAQ",
+		"support":   "Support",
+		"features":  "Features",
+		"products":  "Products",
+		"portfolio": "Portfolio",
+		"work":      "Work",
+		"clients":   "Clients",
+		"resources": "Resources",
+	}
+
+	// First check if page name matches a known simple label
+	if simple, ok := simpleLabels[pageNameLower]; ok {
+		return simple
+	}
+
+	// Check if the label starts with a known nav word
+	labelLower := strings.ToLower(label)
+	for pagePart, simple := range simpleLabels {
+		if strings.HasPrefix(labelLower, pagePart) {
+			return simple
+		}
+	}
+
+	// Return cleaned label (first meaningful part)
+	words := strings.Fields(label)
+	if len(words) >= 1 && len(words) <= 3 {
+		return label // Already simple enough
+	}
+	if len(words) > 3 {
+		// Take first 2 words if they make sense
+		return strings.Join(words[:2], " ")
+	}
+
+	return label
 }
 
 // defaultString returns the default if s is empty
@@ -620,6 +704,7 @@ func RenderHeader(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 	// Try to get site's style collection
 	var coll *StyleCollection
 	var err error
+	var source string = "fallback"
 
 	if siteID != uuid.Nil {
 		coll, err = GetStyleCollectionForSite(ctx, db, siteID, logger)
@@ -655,6 +740,8 @@ func RenderHeader(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 		comp, err = GetComponentByID(ctx, db, *coll.HeaderComponentID, logger)
 		if err != nil {
 			logger.Warn("Failed to get header component", zap.Error(err))
+		} else {
+			source = fmt.Sprintf("component-db:%s", coll.Name)
 		}
 	}
 
@@ -663,18 +750,22 @@ func RenderHeader(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 		comp, err = GetComponentByFunction(ctx, db, "site-header", logger)
 		if err != nil {
 			logger.Warn("No header component found, using fallback")
-			return RenderFallbackHeader(renderCtx), nil
+			header := RenderFallbackHeader(renderCtx)
+			return fmt.Sprintf("<!-- HEADER SOURCE: fallback -->\n%s", header), nil
 		}
+		source = "component-db:site-header"
 	}
 
 	// Render template
-	return RenderTemplate(comp.HTMLTemplate, renderCtx, logger), nil
+	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	return fmt.Sprintf("<!-- HEADER SOURCE: %s -->\n%s", source, rendered), nil
 }
 
 // RenderFooter renders the footer component for a site
 func RenderFooter(ctx context.Context, db interface{}, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) (string, error) {
 	var coll *StyleCollection
 	var err error
+	var source string = "fallback"
 
 	if siteID != uuid.Nil {
 		coll, err = GetStyleCollectionForSite(ctx, db, siteID, logger)
@@ -701,17 +792,22 @@ func RenderFooter(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 		comp, err = GetComponentByID(ctx, db, *coll.FooterComponentID, logger)
 		if err != nil {
 			logger.Warn("Failed to get footer component", zap.Error(err))
+		} else {
+			source = fmt.Sprintf("component-db:%s", coll.Name)
 		}
 	}
 
 	if comp == nil {
 		comp, err = GetComponentByFunction(ctx, db, "site-footer", logger)
 		if err != nil {
-			return RenderFallbackFooter(renderCtx), nil
+			footer := RenderFallbackFooter(renderCtx)
+			return fmt.Sprintf("<!-- FOOTER SOURCE: fallback -->\n%s", footer), nil
 		}
+		source = "component-db:site-footer"
 	}
 
-	return RenderTemplate(comp.HTMLTemplate, renderCtx, logger), nil
+	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	return fmt.Sprintf("<!-- FOOTER SOURCE: %s -->\n%s", source, rendered), nil
 }
 
 // RenderFallbackHeader creates a basic header when no component is available

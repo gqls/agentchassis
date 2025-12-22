@@ -200,7 +200,11 @@ func buildRenderContextFromCollectedData(collectedData map[string]interface{}, l
 
 		// From reviewed_brief
 		if brief, ok := inputData["reviewed_brief"].(map[string]interface{}); ok {
-			if name, ok := brief["business_name"].(string); ok && name != "" {
+			// Try company_name first (most common), then business_name
+			if name, ok := brief["company_name"].(string); ok && name != "" {
+				ctx.LogoText = name
+				ctx.CompanyName = name
+			} else if name, ok := brief["business_name"].(string); ok && name != "" {
 				ctx.LogoText = name
 				ctx.CompanyName = name
 			}
@@ -950,38 +954,6 @@ func extractNestedField(data map[string]interface{}, fieldPath string) interface
 
 	return current
 }
-
-// extractFieldValue extracts a string value from nested field path
-/*func extractFieldValue(data map[string]interface{}, fieldPath string, logger *zap.Logger) string {
-	value := extractNestedField(data, fieldPath)
-	if value == nil {
-		logger.Warn("Field not found",
-			zap.String("path", fieldPath),
-		)
-		return ""
-	}
-
-	// Direct string
-	if str, ok := value.(string); ok {
-		return str
-	}
-
-	// Map with common field names
-	if m, ok := value.(map[string]interface{}); ok {
-		fieldNames := []string{"html", "result", "content", "output", "page_html"}
-		for _, fieldName := range fieldNames {
-			if str, ok := m[fieldName].(string); ok && str != "" {
-				return str
-			}
-		}
-	}
-
-	logger.Warn("Could not extract string from value",
-		zap.String("path", fieldPath),
-		zap.String("type", fmt.Sprintf("%T", value)),
-	)
-	return ""
-}*/
 
 // extractFieldValue navigates nested field paths like "base_structure.result"
 func extractFieldValue(data map[string]interface{}, fieldPath string, logger *zap.Logger) string {
