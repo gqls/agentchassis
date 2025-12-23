@@ -106,6 +106,7 @@ kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-
 
 
 
+
 ^^^^^^^^^^  ^^  ^^  ^^^^^^^^^^
 # =======
 #reset
@@ -150,7 +151,6 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
 
 
 
-
 ========================================================================
 
 ====--------------
@@ -174,10 +174,7 @@ Use Case	Production flow			Testing builder pipeline
 
 kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/kafka/bin/kafka-console-consumer.sh   --bootstrap-server localhost:9092   --topic job.c897233a-61536014-multipage-website-builder-spawn_builder.requests   --from-beginning   --property print.headers=true
 
-
-
 ========================================================================
-
 
 
 
@@ -230,7 +227,7 @@ kcat -P \
 -H from_agent_type=user \
 -H from_agent_id=cli \
 -H responses_topic=system.generic.responses <<JSON
-{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain": "leopardessconsulting.co.uk","objective":"Build a welcoming, straightforward corporate website for Leopardess Consulting; a hands-on web and digital transformation consultancy with a knack for turning ideas into real results. The site should give a clear picture of who we are, our guiding values (like sharp insight and quiet strength), and our services in strategy, operations, and digital transformation. We'd love to highlight exciting possibilities for AI agents in areas like product development, finance, marketing, management, and HR. Include an insights blog for sharing practical thoughts, a careers section to attract great people, and simple ways to get in touch. Target audience: C-suite leaders, HR directors, and senior managers at mid-to-large businesses looking for thoughtful, effective consulting partners.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain": "ai-agent-orchestration.com","objective":"Build a welcoming, straightforward corporate website for Leopardess Consulting; a hands-on web and digital transformation consultancy with a knack for turning ideas into real results. The site should give a clear picture of who we are, our guiding values (like sharp insight and quiet strength), and our services in strategy, operations, and digital transformation. We'd love to highlight exciting possibilities for AI agents in areas like product development, finance, marketing, management, and HR. Include an insights blog for sharing practical thoughts, a careers section to attract great people, and simple ways to get in touch. Target audience: C-suite leaders, HR directors, and senior managers at mid-to-large businesses looking for thoughtful, effective consulting partners.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
 JSON
 
 echo ""
@@ -276,9 +273,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=b149e943-0e2b-4d6c-a9f9-b7f807af84db
-ORCHESTRATION_ID=c8ca03ac-d943-4e54-8588-171b6aeb1201
-HITL_REQUEST_ID=0ffe15ae-c6a6-4839-9e76-796076a66eba
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -360,9 +357,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=b149e943-0e2b-4d6c-a9f9-b7f807af84db
-ORCHESTRATION_ID=c8ca03ac-d943-4e54-8588-171b6aeb1201
-HITL_REQUEST_ID=619c8330-1f30-42d1-b7db-b26b86ed1e00
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"

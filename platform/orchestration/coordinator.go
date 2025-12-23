@@ -1553,12 +1553,46 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	normalisedData := datahelpers.CleanDataMap(responseBodyData)
 
 	// Store under the step name in CollectedData
+	// Store under the step name in CollectedData
 	stepName := awaitedReq.StepName
-	state.CollectedData[stepName] = normalisedData
 
-	// Get the step definition to check for output_field
-	if step, exists := state.WorkflowPlan.Steps[stepName]; exists {
-		if step.OutputField != "" {
+	// Get the step definition
+	step, stepExists := state.WorkflowPlan.Steps[stepName]
+
+	// Check if this is a spawn_agent action - if so, preserve spawn result
+	if stepExists && step.Action == "spawn_agent" {
+		// Preserve existing spawn data (agent_id, role, topics) and add response
+		if existingData, exists := state.CollectedData[stepName].(map[string]interface{}); exists {
+			// Keep spawn info, add response data as nested field
+			existingData["response"] = normalisedData
+			existingData["response_received_at"] = time.Now().Format(time.RFC3339)
+			existingData["initialized"] = true
+			s.logger.Info("Preserved spawn result, added response",
+				zap.String("step_name", stepName),
+				zap.String("role", existingData["role"].(string)))
+
+			// Also update output_field if specified - preserve spawn data there too
+			if step.OutputField != "" {
+				if outputData, exists := state.CollectedData[step.OutputField].(map[string]interface{}); exists {
+					outputData["response"] = normalisedData
+					outputData["response_received_at"] = time.Now().Format(time.RFC3339)
+					outputData["initialized"] = true
+					s.logger.Info("Preserved spawn result in output_field",
+						zap.String("output_field", step.OutputField))
+				}
+			}
+		} else {
+			// No existing spawn data (shouldn't normally happen)
+			s.logger.Warn("No existing spawn data to preserve",
+				zap.String("step_name", stepName))
+			state.CollectedData[stepName] = normalisedData
+		}
+	} else {
+		// Original behavior for non-spawn actions (call_agent, execute_llm_prompt, etc.)
+		state.CollectedData[stepName] = normalisedData
+
+		// Get the step definition to check for output_field
+		if stepExists && step.OutputField != "" {
 			// Determine what data to store based on action type
 			var dataToStore interface{} = normalisedData
 
@@ -1593,9 +1627,6 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			s.logger.Debug("No output_field specified, response stored only under step name",
 				zap.String("step_name", stepName))
 		}
-	} else {
-		s.logger.Warn("Step not found in workflow plan",
-			zap.String("step_name", stepName))
 	}
 
 	s.logger.Info("handleCompleteResponse: stored normalized response", // so far so good, at least in hero it is good
@@ -1656,17 +1687,33 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		zap.Int("old_version", state.Version),
 		zap.Int("new_version", freshState.Version))
 
-	// Re-apply our changes to the fresh state
-	freshState.CollectedData[stepName] = normalisedData
-	if step, exists := freshState.WorkflowPlan.Steps[stepName]; exists && step.OutputField != "" {
-		var dataToStore interface{} = normalisedData
-		if shouldExtractFormFields(step) {
-			formFieldValues := extractHITLFormFields(normalisedData, step.Config, s.logger)
-			if len(formFieldValues) > 0 {
-				dataToStore = formFieldValues
+	// Re-apply our changes to the fresh state (with spawn-preserving logic)
+	if stepExists && step.Action == "spawn_agent" {
+		// Preserve spawn data in fresh state too
+		if existingData, exists := freshState.CollectedData[stepName].(map[string]interface{}); exists {
+			existingData["response"] = normalisedData
+			existingData["response_received_at"] = time.Now().Format(time.RFC3339)
+			existingData["initialized"] = true
+			if step.OutputField != "" {
+				if outputData, exists := freshState.CollectedData[step.OutputField].(map[string]interface{}); exists {
+					outputData["response"] = normalisedData
+					outputData["response_received_at"] = time.Now().Format(time.RFC3339)
+					outputData["initialized"] = true
+				}
 			}
 		}
-		freshState.CollectedData[step.OutputField] = dataToStore
+	} else {
+		freshState.CollectedData[stepName] = normalisedData
+		if stepExists && step.OutputField != "" {
+			var dataToStore interface{} = normalisedData
+			if shouldExtractFormFields(step) {
+				formFieldValues := extractHITLFormFields(normalisedData, step.Config, s.logger)
+				if len(formFieldValues) > 0 {
+					dataToStore = formFieldValues
+				}
+			}
+			freshState.CollectedData[step.OutputField] = dataToStore
+		}
 	}
 	delete(freshState.AwaitedRequests, requestID)
 
@@ -1692,17 +1739,33 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			return fmt.Errorf("failed to reload state for retry: %w", err)
 		}
 
-		// Re-apply ALL our changes to the newly reloaded state
-		freshState.CollectedData[stepName] = normalisedData
-		if step, exists := freshState.WorkflowPlan.Steps[stepName]; exists && step.OutputField != "" {
-			var dataToStore interface{} = normalisedData
-			if shouldExtractFormFields(step) {
-				formFieldValues := extractHITLFormFields(normalisedData, step.Config, s.logger)
-				if len(formFieldValues) > 0 {
-					dataToStore = formFieldValues
+		// Re-apply our changes to the fresh state (with spawn-preserving logic)
+		if stepExists && step.Action == "spawn_agent" {
+			// Preserve spawn data in fresh state too
+			if existingData, exists := freshState.CollectedData[stepName].(map[string]interface{}); exists {
+				existingData["response"] = normalisedData
+				existingData["response_received_at"] = time.Now().Format(time.RFC3339)
+				existingData["initialized"] = true
+				if step.OutputField != "" {
+					if outputData, exists := freshState.CollectedData[step.OutputField].(map[string]interface{}); exists {
+						outputData["response"] = normalisedData
+						outputData["response_received_at"] = time.Now().Format(time.RFC3339)
+						outputData["initialized"] = true
+					}
 				}
 			}
-			freshState.CollectedData[step.OutputField] = dataToStore
+		} else {
+			freshState.CollectedData[stepName] = normalisedData
+			if stepExists && step.OutputField != "" {
+				var dataToStore interface{} = normalisedData
+				if shouldExtractFormFields(step) {
+					formFieldValues := extractHITLFormFields(normalisedData, step.Config, s.logger)
+					if len(formFieldValues) > 0 {
+						dataToStore = formFieldValues
+					}
+				}
+				freshState.CollectedData[step.OutputField] = dataToStore
+			}
 		}
 		delete(freshState.AwaitedRequests, requestID)
 		// Loop continues to retry save

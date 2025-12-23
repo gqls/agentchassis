@@ -11,7 +11,7 @@ labels:
 
 images:
   - name: docker.io/aqls/auth-service
-    newTag: v1.0.581
+    newTag: v1.0.584
 
 patches:
   - path: patch-deployment.yaml

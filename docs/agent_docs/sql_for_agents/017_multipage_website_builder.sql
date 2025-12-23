@@ -3135,3 +3135,16 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'multipage-website-builder'
   AND version = 3;
+
+
+===
+This is a workflow definition bug - the path to recommended_builder was incorrect.
+Or use call_classifier.classify_site.result.recommended_builder - both should work since the data exists in both locations.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_builder,config,agent_type_field}',
+        '"classification.classify_site.result.recommended_builder"'
+                     )
+WHERE type = 'intake-orchestrator';
