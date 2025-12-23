@@ -273,8 +273,8 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=
-ORCHESTRATION_ID=
+CORRELATION_ID=edb66c2e-d237-462d-a77b-e805ac269af9
+ORCHESTRATION_ID=61381795-0967-4046-864c-e2f0a5062cba
 HITL_REQUEST_ID=
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -357,8 +357,8 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=
-ORCHESTRATION_ID=
+CORRELATION_ID=edb66c2e-d237-462d-a77b-e805ac269af9
+ORCHESTRATION_ID=61381795-0967-4046-864c-e2f0a5062cba
 HITL_REQUEST_ID=
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

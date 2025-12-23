@@ -928,24 +928,46 @@ func BuildCollectedData(
 		collectedData["__raw_message__"] = messageBody
 	}
 
-	workRequestMetadata := map[string]interface{}{
-		"request_id":             execCtx.RequestID,
-		"parent_responses_topic": parentResponsesTopic,
-		"requester_agent_id":     execCtx.Sender.AgentID,
-		"requester_agent_type":   execCtx.Sender.AgentType,
-		"step_id":                execCtx.StepID,
-		"step_name":              execCtx.StepName,
-		"action":                 execCtx.Action,
-		"correlation_id":         execCtx.CorrelationID,
-		"timestamp":              time.Now().Format(time.RFC3339),
+	// ============================================================================
+	// CRITICAL FIX: Check if __work_request__ already exists in the message body
+	// If it does, preserve it instead of creating a new one
+	// ============================================================================
+	var existingWorkRequest map[string]interface{}
+	if unnestedBody != nil {
+		if wr, ok := unnestedBody["__work_request__"].(map[string]interface{}); ok {
+			logger.Info("BuildCollectedData: found existing __work_request__ in message, preserving it",
+				zap.String("existing_request_id", fmt.Sprintf("%v", wr["request_id"])),
+				zap.Any("existing_work_request", wr))
+			existingWorkRequest = wr
+		}
 	}
-	collectedData["__work_request__"] = workRequestMetadata
 
-	logger.Info("BuildCollectedData: stored work request metadata for initialize",
-		zap.String("request_id", workRequestMetadata["request_id"].(string)),
-		zap.String("parent_topic", workRequestMetadata["parent_responses_topic"].(string)),
-		zap.Any("work_request_metadata", workRequestMetadata),
-	)
+	// Only create new work request metadata if one doesn't already exist
+	if existingWorkRequest != nil {
+		collectedData["__work_request__"] = existingWorkRequest
+		logger.Info("BuildCollectedData: preserved existing work request metadata",
+			zap.String("request_id", fmt.Sprintf("%v", existingWorkRequest["request_id"])),
+			zap.String("parent_topic", fmt.Sprintf("%v", existingWorkRequest["parent_responses_topic"])))
+	} else {
+		// Create new work request metadata from current execution context
+		workRequestMetadata := map[string]interface{}{
+			"request_id":             execCtx.RequestID,
+			"parent_responses_topic": parentResponsesTopic,
+			"requester_agent_id":     execCtx.Sender.AgentID,
+			"requester_agent_type":   execCtx.Sender.AgentType,
+			"step_id":                execCtx.StepID,
+			"step_name":              execCtx.StepName,
+			"action":                 execCtx.Action,
+			"correlation_id":         execCtx.CorrelationID,
+			"timestamp":              time.Now().Format(time.RFC3339),
+		}
+		collectedData["__work_request__"] = workRequestMetadata
+
+		logger.Info("BuildCollectedData: created new work request metadata",
+			zap.String("request_id", workRequestMetadata["request_id"].(string)),
+			zap.String("parent_topic", workRequestMetadata["parent_responses_topic"].(string)),
+			zap.Any("work_request_metadata", workRequestMetadata))
+	}
 
 	logger.Info("DEBUGaa: Data helpers: built CollectedData requestIDs",
 		zap.String("what agent am I on", os.Getenv("AGENT_TYPE")),
