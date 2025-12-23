@@ -2472,3 +2472,666 @@ COMMIT;
 -- SELECT type, display_name, version, status
 -- FROM agent_definitions
 -- WHERE type LIKE 'multipage-website-builder%';
+
+==
+
+separate out spawns
+
+-- UPDATE for multipage-website-builder workflow (v3)
+-- Fixes:
+-- 1. spawn_agent with array → individual spawn_agent steps
+-- 2. Ensures all actions are registered local actions
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow}',
+        '{
+          "start_step": "spawn_planner",
+          "steps": {
+            "spawn_planner": {
+              "action": "spawn_agent",
+              "config": {
+                "agent_type": "site-planner",
+                "role": "planner"
+              },
+              "description": "Spawn site planner agent",
+              "next_step": "spawn_content_writer",
+              "output_field": "planner_agent"
+            },
+            "spawn_content_writer": {
+              "action": "spawn_agent",
+              "config": {
+                "agent_type": "page-content-writer",
+                "role": "content_writer"
+              },
+              "description": "Spawn content writer agent",
+              "next_step": "spawn_reviewer",
+              "output_field": "content_writer_agent"
+            },
+            "spawn_reviewer": {
+              "action": "spawn_agent",
+              "config": {
+                "agent_type": "content-reviewer",
+                "role": "reviewer"
+              },
+              "description": "Spawn content reviewer agent",
+              "next_step": "spawn_deployer",
+              "output_field": "reviewer_agent"
+            },
+            "spawn_deployer": {
+              "action": "spawn_agent",
+              "config": {
+                "agent_type": "deployer-agent",
+                "role": "deployer"
+              },
+              "description": "Spawn deployer agent",
+              "next_step": "ensure_site_record",
+              "output_field": "deployer_agent"
+            },
+            "ensure_site_record": {
+              "action": "ensure_site_record",
+              "config": {
+                "store_brief_in_content_data": true
+              },
+              "description": "Create or update site record in database",
+              "next_step": "call_site_planner",
+              "output_field": "site_record"
+            },
+            "call_site_planner": {
+              "action": "call_agent",
+              "config": {
+                "input_fields": ["input_data", "site_record", "reviewed_brief"],
+                "target_role": "planner",
+                "timeout_seconds": 120
+              },
+              "description": "Plan pages, select components, identify asset needs",
+              "next_step": "store_site_plan",
+              "output_field": "site_plan"
+            },
+            "store_site_plan": {
+              "action": "update_site_content",
+              "config": {
+                "content_fields": {
+                  "reviewed_brief": "reviewed_brief",
+                  "site_plan": "site_plan"
+                },
+                "site_id_field": "site_record.site_id"
+              },
+              "description": "Store the site plan in sites.content_data",
+              "next_step": "sync_pages_to_db",
+              "output_field": "content_stored"
+            },
+            "sync_pages_to_db": {
+              "action": "sync_pages_to_db",
+              "config": {
+                "pages_from": "site_plan.pages",
+                "site_id_from": "site_record.site_id"
+              },
+              "description": "Create page records from site plan",
+              "next_step": "check_assets_needed",
+              "output_field": "pages_synced"
+            },
+            "check_assets_needed": {
+              "action": "conditional",
+              "config": {
+                "condition": "site_plan.needs_logo == true OR site_plan.needs_images == true",
+                "else_step": "select_style_collection",
+                "then_step": "spawn_image_generator"
+              },
+              "description": "Check if logo or images need to be generated"
+            },
+            "spawn_image_generator": {
+              "action": "spawn_agent",
+              "config": {
+                "agent_type": "image-generator",
+                "role": "image_generator"
+              },
+              "description": "Spawn image generator agent for asset creation",
+              "next_step": "generate_logo",
+              "output_field": "image_generator_info"
+            },
+            "generate_logo": {
+              "action": "conditional",
+              "config": {
+                "condition": "site_plan.needs_logo == true",
+                "else_step": "check_hero_images",
+                "then_step": "call_logo_generation"
+              },
+              "description": "Check if logo needs to be generated"
+            },
+            "call_logo_generation": {
+              "action": "call_agent",
+              "config": {
+                "agent_type": "image-generator",
+                "input_fields": ["site_plan", "reviewed_brief"],
+                "prompt": "{{site_plan.image_prompts.logo}}",
+                "target_role": "image_generator",
+                "timeout_seconds": 120
+              },
+              "description": "Generate logo using image-generator agent",
+              "next_step": "store_logo_asset",
+              "output_field": "logo_result"
+            },
+            "store_logo_asset": {
+              "action": "store_asset",
+              "config": {
+                "asset_type": "logo",
+                "brand_asset_key": "logo.primary",
+                "origin_prompt_field": "site_plan.image_prompts.logo",
+                "origin_type": "generated",
+                "purpose": "brand_logo",
+                "site_id_field": "site_record.site_id",
+                "update_site_brand_assets": true,
+                "url_field": "logo_result.image_url"
+              },
+              "description": "Store generated logo in assets table and site brand_assets",
+              "next_step": "check_hero_images",
+              "output_field": "logo_stored"
+            },
+            "check_hero_images": {
+              "action": "conditional",
+              "config": {
+                "condition": "site_plan.needs_images == true AND site_plan.image_prompts.hero_home != null",
+                "else_step": "select_style_collection",
+                "then_step": "generate_hero_image"
+              },
+              "description": "Check if hero images need to be generated"
+            },
+            "generate_hero_image": {
+              "action": "call_agent",
+              "config": {
+                "agent_type": "image-generator",
+                "input_fields": ["site_plan", "reviewed_brief"],
+                "prompt": "{{site_plan.image_prompts.hero_home}}",
+                "target_role": "image_generator",
+                "timeout_seconds": 120
+              },
+              "description": "Generate hero image for home page",
+              "next_step": "store_hero_asset",
+              "output_field": "hero_result"
+            },
+            "store_hero_asset": {
+              "action": "store_asset",
+              "config": {
+                "asset_type": "image",
+                "brand_asset_key": "hero_images.home",
+                "origin_prompt_field": "site_plan.image_prompts.hero_home",
+                "origin_type": "generated",
+                "purpose": "hero",
+                "site_id_field": "site_record.site_id",
+                "update_site_brand_assets": true,
+                "url_field": "hero_result.image_url"
+              },
+              "description": "Store generated hero image",
+              "next_step": "select_style_collection",
+              "output_field": "hero_stored"
+            },
+            "select_style_collection": {
+              "action": "select_style_collection",
+              "config": {
+                "fallback_by_domain": true,
+                "site_id_field": "site_record.site_id",
+                "style_from": "site_plan.style_collection"
+              },
+              "description": "Choose style collection based on site plan",
+              "next_step": "set_default_components",
+              "output_field": "style_collection"
+            },
+            "set_default_components": {
+              "action": "update_site_defaults",
+              "config": {
+                "defaults": {
+                  "footer_from": "style_collection.footer_component_name",
+                  "head": "head-seo-standard",
+                  "header_from": "style_collection.header_component_name"
+                },
+                "site_id_field": "site_record.site_id"
+              },
+              "description": "Set default head/header/footer components",
+              "next_step": "build_pages_loop",
+              "output_field": "defaults_set"
+            },
+            "build_pages_loop": {
+              "action": "loop",
+              "config": {
+                "item_variable": "current_page",
+                "items_field": "pages_synced.pages",
+                "max_iterations": 20,
+                "mode": "sequential",
+                "sub_workflow": {
+                  "start_step": "write_page_content",
+                  "steps": {
+                    "write_page_content": {
+                      "action": "call_agent",
+                      "config": {
+                        "input_fields": ["current_page", "site_record", "reviewed_brief", "style_collection"],
+                        "target_role": "content_writer",
+                        "timeout_seconds": 120
+                      },
+                      "description": "Write content for this page",
+                      "next_step": "review_page_content",
+                      "output_field": "page_content"
+                    },
+                    "review_page_content": {
+                      "action": "call_agent",
+                      "config": {
+                        "input_fields": ["current_page", "page_content", "reviewed_brief"],
+                        "target_role": "reviewer",
+                        "timeout_seconds": 300
+                      },
+                      "description": "Review page content (HITL or auto-eval)",
+                      "next_step": "assemble_page",
+                      "output_field": "reviewed_content"
+                    },
+                    "assemble_page": {
+                      "action": "assemble_page",
+                      "config": {
+                        "content_from": "reviewed_content",
+                        "page_from": "current_page",
+                        "site_id_from": "site_record.site_id"
+                      },
+                      "description": "Assemble full page HTML from components",
+                      "next_step": "deploy_page",
+                      "output_field": "assembled_page"
+                    },
+                    "deploy_page": {
+                      "action": "git_commit",
+                      "config": {
+                        "html_from": "assembled_page.html",
+                        "page_from": "current_page",
+                        "site_id_from": "site_record.site_id"
+                      },
+                      "description": "Commit page to git",
+                      "next_step": "update_page_status",
+                      "output_field": "page_deployed"
+                    },
+                    "update_page_status": {
+                      "action": "update_page_status",
+                      "config": {
+                        "commit_from": "page_deployed.commit_sha",
+                        "page_id_from": "current_page.id",
+                        "status": "deployed"
+                      },
+                      "description": "Mark page as deployed in database",
+                      "next_step": "complete_page"
+                    },
+                    "complete_page": {
+                      "action": "loop_complete",
+                      "description": "Page build complete"
+                    }
+                  }
+                }
+              },
+              "description": "Build each page: write → review → deploy",
+              "next_step": "trigger_site_deploy",
+              "output_field": "pages_built"
+            },
+            "trigger_site_deploy": {
+              "action": "call_agent",
+              "config": {
+                "agent_type": "deployer-agent",
+                "input_fields": ["site_record", "pages_built"],
+                "target_role": "deployer",
+                "timeout_seconds": 180
+              },
+              "description": "Trigger Cloudflare deployment",
+              "next_step": "update_site_status",
+              "output_field": "deployment_result"
+            },
+            "update_site_status": {
+              "action": "update_site_status",
+              "config": {
+                "deployed_at": "now",
+                "site_id_field": "site_record.site_id",
+                "status": "deployed"
+              },
+              "description": "Mark site as deployed",
+              "next_step": "complete",
+              "output_field": "site_updated"
+            },
+            "complete": {
+              "action": "complete_workflow",
+              "config": {
+                "output_fields": ["site_record", "pages_built", "deployment_result"]
+              },
+              "description": "Site build complete"
+            }
+          }
+        }'::jsonb
+                     )
+WHERE type = 'multipage-website-builder'
+  AND version = 3;
+
+--------------
+
+added agent_type where missing
+
+-- UPDATE for multipage-website-builder workflow (v3)
+-- Fixes:
+-- 1. spawn_agent with array → individual spawn_agent steps
+-- 2. Ensures all actions are registered local actions
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow}',
+        '{
+          "start_step": "spawn_planner",
+          "steps": {
+            "spawn_planner": {
+              "action": "spawn_agent",
+              "config": {
+                "agent_type": "site-planner",
+                "role": "planner"
+              },
+              "description": "Spawn site planner agent",
+              "next_step": "spawn_content_writer",
+              "output_field": "planner_agent"
+            },
+            "spawn_content_writer": {
+              "action": "spawn_agent",
+              "config": {
+                "agent_type": "page-content-writer",
+                "role": "content_writer"
+              },
+              "description": "Spawn content writer agent",
+              "next_step": "spawn_reviewer",
+              "output_field": "content_writer_agent"
+            },
+            "spawn_reviewer": {
+              "action": "spawn_agent",
+              "config": {
+                "agent_type": "content-reviewer",
+                "role": "reviewer"
+              },
+              "description": "Spawn content reviewer agent",
+              "next_step": "spawn_deployer",
+              "output_field": "reviewer_agent"
+            },
+            "spawn_deployer": {
+              "action": "spawn_agent",
+              "config": {
+                "agent_type": "deployer-agent",
+                "role": "deployer"
+              },
+              "description": "Spawn deployer agent",
+              "next_step": "ensure_site_record",
+              "output_field": "deployer_agent"
+            },
+            "ensure_site_record": {
+              "action": "ensure_site_record",
+              "config": {
+                "store_brief_in_content_data": true
+              },
+              "description": "Create or update site record in database",
+              "next_step": "call_site_planner",
+              "output_field": "site_record"
+            },
+            "call_site_planner": {
+              "action": "call_agent",
+              "config": {
+                "agent_type": "site-planner",
+                "input_fields": ["input_data", "site_record", "reviewed_brief"],
+                "target_role": "planner",
+                "timeout_seconds": 120
+              },
+              "description": "Plan pages, select components, identify asset needs",
+              "next_step": "store_site_plan",
+              "output_field": "site_plan"
+            },
+            "store_site_plan": {
+              "action": "update_site_content",
+              "config": {
+                "content_fields": {
+                  "reviewed_brief": "reviewed_brief",
+                  "site_plan": "site_plan"
+                },
+                "site_id_field": "site_record.site_id"
+              },
+              "description": "Store the site plan in sites.content_data",
+              "next_step": "sync_pages_to_db",
+              "output_field": "content_stored"
+            },
+            "sync_pages_to_db": {
+              "action": "sync_pages_to_db",
+              "config": {
+                "pages_from": "site_plan.pages",
+                "site_id_from": "site_record.site_id"
+              },
+              "description": "Create page records from site plan",
+              "next_step": "check_assets_needed",
+              "output_field": "pages_synced"
+            },
+            "check_assets_needed": {
+              "action": "conditional",
+              "config": {
+                "condition": "site_plan.needs_logo == true OR site_plan.needs_images == true",
+                "else_step": "select_style_collection",
+                "then_step": "spawn_image_generator"
+              },
+              "description": "Check if logo or images need to be generated"
+            },
+            "spawn_image_generator": {
+              "action": "spawn_agent",
+              "config": {
+                "agent_type": "image-generator",
+                "role": "image_generator"
+              },
+              "description": "Spawn image generator agent for asset creation",
+              "next_step": "generate_logo",
+              "output_field": "image_generator_info"
+            },
+            "generate_logo": {
+              "action": "conditional",
+              "config": {
+                "condition": "site_plan.needs_logo == true",
+                "else_step": "check_hero_images",
+                "then_step": "call_logo_generation"
+              },
+              "description": "Check if logo needs to be generated"
+            },
+            "call_logo_generation": {
+              "action": "call_agent",
+              "config": {
+                "agent_type": "image-generator",
+                "input_fields": ["site_plan", "reviewed_brief"],
+                "prompt": "{{site_plan.image_prompts.logo}}",
+                "target_role": "image_generator",
+                "timeout_seconds": 120
+              },
+              "description": "Generate logo using image-generator agent",
+              "next_step": "store_logo_asset",
+              "output_field": "logo_result"
+            },
+            "store_logo_asset": {
+              "action": "store_asset",
+              "config": {
+                "asset_type": "logo",
+                "brand_asset_key": "logo.primary",
+                "origin_prompt_field": "site_plan.image_prompts.logo",
+                "origin_type": "generated",
+                "purpose": "brand_logo",
+                "site_id_field": "site_record.site_id",
+                "update_site_brand_assets": true,
+                "url_field": "logo_result.image_url"
+              },
+              "description": "Store generated logo in assets table and site brand_assets",
+              "next_step": "check_hero_images",
+              "output_field": "logo_stored"
+            },
+            "check_hero_images": {
+              "action": "conditional",
+              "config": {
+                "condition": "site_plan.needs_images == true AND site_plan.image_prompts.hero_home != null",
+                "else_step": "select_style_collection",
+                "then_step": "generate_hero_image"
+              },
+              "description": "Check if hero images need to be generated"
+            },
+            "generate_hero_image": {
+              "action": "call_agent",
+              "config": {
+                "agent_type": "image-generator",
+                "input_fields": ["site_plan", "reviewed_brief"],
+                "prompt": "{{site_plan.image_prompts.hero_home}}",
+                "target_role": "image_generator",
+                "timeout_seconds": 120
+              },
+              "description": "Generate hero image for home page",
+              "next_step": "store_hero_asset",
+              "output_field": "hero_result"
+            },
+            "store_hero_asset": {
+              "action": "store_asset",
+              "config": {
+                "asset_type": "image",
+                "brand_asset_key": "hero_images.home",
+                "origin_prompt_field": "site_plan.image_prompts.hero_home",
+                "origin_type": "generated",
+                "purpose": "hero",
+                "site_id_field": "site_record.site_id",
+                "update_site_brand_assets": true,
+                "url_field": "hero_result.image_url"
+              },
+              "description": "Store generated hero image",
+              "next_step": "select_style_collection",
+              "output_field": "hero_stored"
+            },
+            "select_style_collection": {
+              "action": "select_style_collection",
+              "config": {
+                "fallback_by_domain": true,
+                "site_id_field": "site_record.site_id",
+                "style_from": "site_plan.style_collection"
+              },
+              "description": "Choose style collection based on site plan",
+              "next_step": "set_default_components",
+              "output_field": "style_collection"
+            },
+            "set_default_components": {
+              "action": "update_site_defaults",
+              "config": {
+                "defaults": {
+                  "footer_from": "style_collection.footer_component_name",
+                  "head": "head-seo-standard",
+                  "header_from": "style_collection.header_component_name"
+                },
+                "site_id_field": "site_record.site_id"
+              },
+              "description": "Set default head/header/footer components",
+              "next_step": "build_pages_loop",
+              "output_field": "defaults_set"
+            },
+            "build_pages_loop": {
+              "action": "loop",
+              "config": {
+                "item_variable": "current_page",
+                "items_field": "pages_synced.pages",
+                "max_iterations": 20,
+                "mode": "sequential",
+                "sub_workflow": {
+                  "start_step": "write_page_content",
+                  "steps": {
+                    "write_page_content": {
+                      "action": "call_agent",
+                      "config": {
+                        "agent_type": "page-content-writer",
+                        "input_fields": ["current_page", "site_record", "reviewed_brief", "style_collection"],
+                        "target_role": "content_writer",
+                        "timeout_seconds": 120
+                      },
+                      "description": "Write content for this page",
+                      "next_step": "review_page_content",
+                      "output_field": "page_content"
+                    },
+                    "review_page_content": {
+                      "action": "call_agent",
+                      "config": {
+                        "agent_type": "content-reviewer",
+                        "input_fields": ["current_page", "page_content", "reviewed_brief"],
+                        "target_role": "reviewer",
+                        "timeout_seconds": 300
+                      },
+                      "description": "Review page content (HITL or auto-eval)",
+                      "next_step": "assemble_page",
+                      "output_field": "reviewed_content"
+                    },
+                    "assemble_page": {
+                      "action": "assemble_page",
+                      "config": {
+                        "content_from": "reviewed_content",
+                        "page_from": "current_page",
+                        "site_id_from": "site_record.site_id"
+                      },
+                      "description": "Assemble full page HTML from components",
+                      "next_step": "deploy_page",
+                      "output_field": "assembled_page"
+                    },
+                    "deploy_page": {
+                      "action": "git_commit",
+                      "config": {
+                        "html_from": "assembled_page.html",
+                        "page_from": "current_page",
+                        "site_id_from": "site_record.site_id"
+                      },
+                      "description": "Commit page to git",
+                      "next_step": "update_page_status",
+                      "output_field": "page_deployed"
+                    },
+                    "update_page_status": {
+                      "action": "update_page_status",
+                      "config": {
+                        "commit_from": "page_deployed.commit_sha",
+                        "page_id_from": "current_page.id",
+                        "status": "deployed"
+                      },
+                      "description": "Mark page as deployed in database",
+                      "next_step": "complete_page"
+                    },
+                    "complete_page": {
+                      "action": "loop_complete",
+                      "description": "Page build complete"
+                    }
+                  }
+                }
+              },
+              "description": "Build each page: write → review → deploy",
+              "next_step": "trigger_site_deploy",
+              "output_field": "pages_built"
+            },
+            "trigger_site_deploy": {
+              "action": "call_agent",
+              "config": {
+                "agent_type": "deployer-agent",
+                "input_fields": ["site_record", "pages_built"],
+                "target_role": "deployer",
+                "timeout_seconds": 180
+              },
+              "description": "Trigger Cloudflare deployment",
+              "next_step": "update_site_status",
+              "output_field": "deployment_result"
+            },
+            "update_site_status": {
+              "action": "update_site_status",
+              "config": {
+                "deployed_at": "now",
+                "site_id_field": "site_record.site_id",
+                "status": "deployed"
+              },
+              "description": "Mark site as deployed",
+              "next_step": "complete",
+              "output_field": "site_updated"
+            },
+            "complete": {
+              "action": "complete_workflow",
+              "config": {
+                "output_fields": ["site_record", "pages_built", "deployment_result"]
+              },
+              "description": "Site build complete"
+            }
+          }
+        }'::jsonb
+                     )
+WHERE type = 'multipage-website-builder'
+  AND version = 3;

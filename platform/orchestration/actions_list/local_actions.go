@@ -57,6 +57,7 @@ var LocalActions = map[string]bool{
 	"select_style_collection": true,
 	"update_site_content":     true,
 	"update_site_status":      true,
+	"update_site_defaults":    true,
 	"update_page_status":      true,
 	"build_render_context":    true,
 	"render_component":        true,
