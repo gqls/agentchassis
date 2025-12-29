@@ -67,11 +67,28 @@ var LocalActions = map[string]bool{
 
 	// Site and Link Management (Database Integration)
 	"ensure_site_record":     true,
-	"validate_site_plan":     true,
 	"sync_pages_to_db":       true,
 	"extract_and_sync_links": true,
 	"update_site_timestamps": true,
 	"get_navigation_from_db": true,
+
+	// Database operations
+	"query_database": true,
+
+	// Site planning
+	"validate_site_plan": true,
+
+	// Content review operations
+	"build_review_result":           true,
+	"prepare_review_data":           true,
+	"update_page_components_status": true,
+
+	// Page content operations
+	"load_page_section_components": true,
+
+	// Search and data operations
+	"filter_search_results": true,
+	"extract_fields":        true,
 
 	// Data aggregation
 	"aggregate_data":    true,
@@ -96,7 +113,6 @@ var LocalActions = map[string]bool{
 	"s3_upload":         true,
 	"store_result":      true,
 	"route_storage":     true,
-	"query_database":    true,
 
 	// HTML operations
 	"generate_html": true,

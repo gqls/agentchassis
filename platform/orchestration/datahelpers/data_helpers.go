@@ -1459,3 +1459,40 @@ func GetBoolField(m map[string]interface{}, key string, defaultVal bool) bool {
 	}
 	return defaultVal
 }
+
+func ExtractSectionNamesHelper(sectionsRaw interface{}) []string {
+	var names []string
+	switch sections := sectionsRaw.(type) {
+	case []interface{}:
+		for _, s := range sections {
+			switch v := s.(type) {
+			case string:
+				names = append(names, v)
+			case map[string]interface{}:
+				for _, key := range []string{"name", "type", "component", "component_name"} {
+					if name, ok := v[key].(string); ok && name != "" {
+						names = append(names, name)
+						break
+					}
+				}
+			}
+		}
+	case []string:
+		names = sections
+	}
+	return names
+}
+
+func ExtractStringListHelper(val interface{}) []string {
+	var result []string
+	if arr, ok := val.([]interface{}); ok {
+		for _, item := range arr {
+			if str, ok := item.(string); ok {
+				result = append(result, str)
+			}
+		}
+	} else if arr, ok := val.([]string); ok {
+		result = arr
+	}
+	return result
+}

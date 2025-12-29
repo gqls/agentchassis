@@ -77,11 +77,28 @@ var GlobalActionRegistry = map[string]ActionFunc{
 
 	// Site and Link Management (Database Integration)
 	"ensure_site_record":     EnsureSiteRecordAction,
-	"validate_site_plan":     ValidateSitePlanAction,
 	"sync_pages_to_db":       SyncPagesToDBAction,
 	"extract_and_sync_links": ExtractAndSyncLinksAction,
 	"update_site_timestamps": UpdateSiteTimestampsAction,
 	"get_navigation_from_db": GetNavigationFromDBAction,
+
+	// Database operations
+	"query_database": QueryDatabaseAction,
+
+	// Site planning
+	"validate_site_plan": ValidateSitePlanAction,
+
+	// Content review operations
+	"build_review_result":           BuildReviewResultAction,
+	"prepare_review_data":           PrepareReviewDataAction,
+	"update_page_components_status": UpdatePageComponentsStatusAction,
+
+	// Page content operations
+	"load_page_section_components": LoadPageSectionComponentsAction,
+
+	// Search and data operations
+	"filter_search_results": FilterSearchResultsAction,
+	"extract_fields":        ExtractFieldsAction,
 
 	// Memory operations
 	"retrieve_memory": RetrieveMemoryAction,
@@ -99,7 +116,6 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"s3_upload":         UploadToS3Action, // Alias
 	"store_result":      StoreResultAction,
 	"route_storage":     RouteStorageAction,
-	"query_database":    QueryDatabaseAction,
 
 	// HTML operations
 	"generate_html": GenerateHTMLAction,

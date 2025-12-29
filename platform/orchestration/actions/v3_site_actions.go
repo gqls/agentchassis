@@ -1115,63 +1115,98 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 }
 
 func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("ValidateSitePlanAction: starting")
+	params.Logger.Info("ValidateSitePlanAction: Starting")
+
+	if params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
 
 	config := params.StepConfig.Config
 
-	// Get the plan field name
 	planField := "llm_plan"
 	if pf, ok := config["plan_field"].(string); ok && pf != "" {
 		planField = pf
 	}
 
-	// Get the plan from collected data
-	plan, ok := params.CollectedData[planField].(map[string]interface{})
+	planData := datahelpers.ExtractNestedField(params.CollectedData, planField)
+	if planData == nil {
+		return nil, fmt.Errorf("plan not found at '%s'", planField)
+	}
+
+	var plan map[string]interface{}
+	switch v := planData.(type) {
+	case map[string]interface{}:
+		plan = v
+	case string:
+		cleaned := strings.TrimSpace(v)
+		cleaned = strings.TrimPrefix(cleaned, "```json")
+		cleaned = strings.TrimPrefix(cleaned, "```")
+		cleaned = strings.TrimSuffix(cleaned, "```")
+		cleaned = strings.TrimSpace(cleaned)
+		if err := json.Unmarshal([]byte(cleaned), &plan); err != nil {
+			return nil, fmt.Errorf("failed to parse plan JSON: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("plan must be object or JSON string, got %T", planData)
+	}
+
+	pagesRaw, ok := plan["pages"]
 	if !ok {
-		return nil, fmt.Errorf("plan not found at %s", planField)
+		return nil, fmt.Errorf("plan must have 'pages' array")
 	}
-
-	// Validate pages array exists
-	pages, ok := plan["pages"].([]interface{})
+	pages, ok := pagesRaw.([]interface{})
 	if !ok || len(pages) == 0 {
-		return nil, fmt.Errorf("plan must have pages array")
+		return nil, fmt.Errorf("pages must be non-empty array")
 	}
 
-	// Validate max pages
 	maxPages := 20
 	if mp, ok := config["max_pages"].(float64); ok {
 		maxPages = int(mp)
 	}
 	if len(pages) > maxPages {
-		return nil, fmt.Errorf("too many pages: %d (max %d)", len(pages), maxPages)
+		pages = pages[:maxPages]
+		plan["pages"] = pages
 	}
 
-	// Validate required pages exist
+	pageNames := make(map[string]bool)
+	for _, p := range pages {
+		if pm, ok := p.(map[string]interface{}); ok {
+			if name, ok := pm["name"].(string); ok {
+				pageNames[name] = true
+			}
+		}
+	}
+
 	if ensurePages, ok := config["ensure_pages"].([]interface{}); ok {
-		pageNames := make(map[string]bool)
-		for _, p := range pages {
-			if pm, ok := p.(map[string]interface{}); ok {
-				if name, ok := pm["name"].(string); ok {
-					pageNames[name] = true
-				}
+		for _, req := range ensurePages {
+			if reqName, ok := req.(string); ok && !pageNames[reqName] {
+				pages = append(pages, map[string]interface{}{
+					"name": reqName, "title": strings.Title(reqName),
+					"nav_label": strings.Title(reqName), "nav_order": len(pages) + 1,
+					"in_header": true, "in_footer": true, "sections": []interface{}{},
+				})
 			}
 		}
-		for _, required := range ensurePages {
-			if reqName, ok := required.(string); ok {
-				if !pageNames[reqName] {
-					return nil, fmt.Errorf("required page missing: %s", reqName)
-				}
-			}
-		}
+		plan["pages"] = pages
 	}
 
-	// Apply default style if not set
 	if _, ok := plan["style_collection"].(string); !ok {
-		if defaultStyle, ok := config["default_style"].(string); ok {
-			plan["style_collection"] = defaultStyle
+		if ds, ok := config["default_style"].(string); ok {
+			plan["style_collection"] = ds
 		}
 	}
 
+	if plan["needs_logo"] == nil {
+		plan["needs_logo"] = false
+	}
+	if plan["needs_images"] == nil {
+		plan["needs_images"] = false
+	}
+	if plan["image_prompts"] == nil {
+		plan["image_prompts"] = map[string]interface{}{}
+	}
+
+	params.Logger.Info("ValidateSitePlanAction: Complete", zap.Int("pages", len(pages)))
 	return plan, nil
 }
 
@@ -1347,4 +1382,428 @@ func getStyleCollectionByID(ctx context.Context, db interface{}, id uuid.UUID, l
 	coll.CSSThemeID = cssThemeID
 
 	return &coll, nil
+}
+
+func BuildReviewResultAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("BuildReviewResultAction: Starting")
+
+	if params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	config := params.StepConfig.Config
+	result := map[string]interface{}{
+		"reviewed_at": time.Now().UTC().Format(time.RFC3339),
+		"review_mode": "unknown",
+		"approved":    false,
+		"issues":      []interface{}{},
+		"edits":       map[string]interface{}{},
+	}
+
+	if approved, ok := config["approved"].(bool); ok {
+		result["approved"] = approved
+	} else if field, ok := config["approved_field"].(string); ok && field != "" {
+		if val := datahelpers.ExtractNestedField(params.CollectedData, field); val != nil {
+			if b, ok := val.(bool); ok {
+				result["approved"] = b
+			}
+		}
+	}
+
+	if reviewer, ok := config["reviewer"].(string); ok && reviewer != "" {
+		result["reviewed_by"] = reviewer
+	} else if field, ok := config["reviewer_field"].(string); ok && field != "" {
+		if val := datahelpers.ExtractNestedFieldString(params.CollectedData, field); val != "" {
+			result["reviewed_by"] = val
+		}
+	}
+	if result["reviewed_by"] == nil {
+		result["reviewed_by"] = "system"
+	}
+
+	if mode, ok := config["review_mode"].(string); ok {
+		result["review_mode"] = mode
+	}
+
+	if field, ok := config["eval_score"].(string); ok && field != "" {
+		if val := datahelpers.ExtractNestedField(params.CollectedData, field); val != nil {
+			result["eval_score"] = val
+		}
+	}
+
+	if field, ok := config["edits_field"].(string); ok && field != "" {
+		if val := datahelpers.ExtractNestedField(params.CollectedData, field); val != nil {
+			result["edits"] = val
+		}
+	}
+
+	if field, ok := config["auto_eval_issues"].(string); ok && field != "" {
+		if val := datahelpers.ExtractNestedField(params.CollectedData, field); val != nil {
+			result["auto_eval_issues"] = val
+			if issues, ok := val.([]interface{}); ok {
+				result["issues"] = issues
+			}
+		}
+	}
+
+	if content := datahelpers.ExtractNestedField(params.CollectedData, "page_content"); content != nil {
+		result["content"] = content
+	}
+
+	params.Logger.Info("BuildReviewResultAction: Complete",
+		zap.Bool("approved", result["approved"].(bool)),
+		zap.String("mode", result["review_mode"].(string)))
+	return result, nil
+}
+
+// ============================================================================
+// ACTION: prepare_review_data
+// ============================================================================
+
+func PrepareReviewDataAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("PrepareReviewDataAction: Starting")
+
+	if params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	config := params.StepConfig.Config
+	reviewData := map[string]interface{}{
+		"prepared_at": time.Now().UTC().Format(time.RFC3339),
+		"fields":      map[string]interface{}{},
+	}
+
+	if includeFields, ok := config["include_fields"].([]interface{}); ok {
+		fieldsMap := reviewData["fields"].(map[string]interface{})
+		for _, field := range includeFields {
+			if fieldName, ok := field.(string); ok {
+				if value := datahelpers.ExtractNestedField(params.CollectedData, fieldName); value != nil {
+					fieldsMap[fieldName] = value
+				}
+			}
+		}
+	}
+
+	if formatForDisplay, ok := config["format_for_display"].(bool); ok && formatForDisplay {
+		if page := datahelpers.ExtractNestedField(params.CollectedData, "current_page"); page != nil {
+			if pm, ok := page.(map[string]interface{}); ok {
+				reviewData["page_name"] = pm["name"]
+				reviewData["page_title"] = pm["title"]
+			}
+		}
+		if content := datahelpers.ExtractNestedField(params.CollectedData, "page_content"); content != nil {
+			reviewData["content"] = content
+		}
+		if brief := datahelpers.ExtractNestedField(params.CollectedData, "reviewed_brief"); brief != nil {
+			if bm, ok := brief.(map[string]interface{}); ok {
+				reviewData["company_name"] = bm["company_name"]
+				reviewData["tone"] = bm["tone"]
+			}
+		}
+	}
+
+	params.Logger.Info("PrepareReviewDataAction: Complete")
+	return reviewData, nil
+}
+
+// ============================================================================
+// ACTION: update_page_components_status
+// ============================================================================
+
+func UpdatePageComponentsStatusAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("UpdatePageComponentsStatusAction: Starting")
+
+	if params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	config := params.StepConfig.Config
+
+	newStatus := "approved"
+	if status, ok := config["status"].(string); ok && status != "" {
+		newStatus = status
+	}
+
+	pageField := "current_page"
+	if pf, ok := config["page_from"].(string); ok && pf != "" {
+		pageField = pf
+	}
+
+	pageData := datahelpers.ExtractNestedField(params.CollectedData, pageField)
+	if pageData == nil {
+		return map[string]interface{}{"updated": false, "reason": "no page data", "status_set": newStatus}, nil
+	}
+
+	page, ok := pageData.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("page must be object")
+	}
+
+	var pageID uuid.UUID
+	if idStr, ok := page["id"].(string); ok && idStr != "" {
+		pageID, _ = uuid.Parse(idStr)
+	}
+
+	reviewedAt := time.Now().UTC()
+	if field, ok := config["reviewed_at_field"].(string); ok && field != "" {
+		if val := datahelpers.ExtractNestedFieldString(params.CollectedData, field); val != "" {
+			if t, err := time.Parse(time.RFC3339, val); err == nil {
+				reviewedAt = t
+			}
+		}
+	}
+
+	reviewedBy := "system"
+	if field, ok := config["reviewed_by_field"].(string); ok && field != "" {
+		if val := datahelpers.ExtractNestedFieldString(params.CollectedData, field); val != "" {
+			reviewedBy = val
+		}
+	}
+
+	if params.DB != nil && pageID != uuid.Nil {
+		query := `UPDATE page_components SET build_status = $1, reviewed_at = $2, reviewed_by = $3, updated_at = NOW() WHERE page_id = $4`
+		result, err := params.DB.ExecContext(ctx, query, newStatus, reviewedAt, reviewedBy, pageID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update: %w", err)
+		}
+		rows, _ := result.RowsAffected()
+		return map[string]interface{}{
+			"updated": true, "rows_affected": rows, "page_id": pageID.String(),
+			"status_set": newStatus, "reviewed_at": reviewedAt.Format(time.RFC3339), "reviewed_by": reviewedBy,
+		}, nil
+	}
+
+	return map[string]interface{}{
+		"updated": false, "reason": "no db or page_id", "status_set": newStatus,
+		"reviewed_at": reviewedAt.Format(time.RFC3339), "reviewed_by": reviewedBy,
+	}, nil
+}
+
+// ============================================================================
+// ACTION: load_page_section_components
+// ============================================================================
+
+func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("LoadPageSectionComponentsAction: Starting")
+
+	if params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	config := params.StepConfig.Config
+
+	pageField := "current_page"
+	if pf, ok := config["page_from"].(string); ok && pf != "" {
+		pageField = pf
+	}
+
+	pageData := datahelpers.ExtractNestedField(params.CollectedData, pageField)
+	if pageData == nil {
+		return nil, fmt.Errorf("page not found at '%s'", pageField)
+	}
+
+	page, ok := pageData.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("page must be object")
+	}
+
+	sectionsRaw := page["sections"]
+	if sectionsRaw == nil {
+		sectionsRaw = datahelpers.ExtractNestedField(params.CollectedData, "sections")
+	}
+
+	sectionNames := datahelpers.ExtractSectionNamesHelper(sectionsRaw)
+	if len(sectionNames) == 0 {
+		return map[string]interface{}{"components": []interface{}{}, "count": 0, "from_database": false}, nil
+	}
+
+	if params.DB != nil {
+		placeholders := make([]string, len(sectionNames))
+		args := make([]interface{}, len(sectionNames))
+		for i, name := range sectionNames {
+			placeholders[i] = fmt.Sprintf("$%d", i+1)
+			args[i] = name
+		}
+
+		query := fmt.Sprintf(`SELECT name, display_name, function, category, semantic_tags, description, html_template, css_template FROM content_components WHERE name IN (%s) AND is_active = true`, strings.Join(placeholders, ", "))
+		rows, err := params.DB.QueryContext(ctx, query, args...)
+		if err != nil {
+			return map[string]interface{}{"components": sectionNames, "count": len(sectionNames), "from_database": false, "db_error": err.Error()}, nil
+		}
+		defer rows.Close()
+
+		var components []map[string]interface{}
+		for rows.Next() {
+			var name, displayName, function, category string
+			var semanticTags, description, htmlTemplate, cssTemplate sql.NullString
+			if err := rows.Scan(&name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate, &cssTemplate); err != nil {
+				continue
+			}
+			comp := map[string]interface{}{"name": name, "display_name": displayName, "function": function, "category": category}
+			if semanticTags.Valid {
+				comp["semantic_tags"] = semanticTags.String
+			}
+			if description.Valid {
+				comp["description"] = description.String
+			}
+			if htmlTemplate.Valid {
+				comp["html_template"] = htmlTemplate.String
+			}
+			if cssTemplate.Valid {
+				comp["css_template"] = cssTemplate.String
+			}
+			components = append(components, comp)
+		}
+		return map[string]interface{}{"components": components, "count": len(components), "from_database": true, "requested": sectionNames}, nil
+	}
+
+	return map[string]interface{}{"components": sectionNames, "count": len(sectionNames), "from_database": false}, nil
+}
+
+// ============================================================================
+// ACTION: filter_search_results
+// ============================================================================
+
+func FilterSearchResultsAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("FilterSearchResultsAction: Starting")
+
+	if params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	config := params.StepConfig.Config
+
+	resultsField := "search_results"
+	if rf, ok := config["results_field"].(string); ok && rf != "" {
+		resultsField = rf
+	}
+
+	resultsData := datahelpers.ExtractNestedField(params.CollectedData, resultsField)
+	if resultsData == nil {
+		return map[string]interface{}{"filtered_results": []interface{}{}, "count": 0, "original_count": 0}, nil
+	}
+
+	results, ok := resultsData.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("results must be array")
+	}
+
+	maxResults := 10
+	if mr, ok := config["max_results"].(float64); ok {
+		maxResults = int(mr)
+	}
+
+	excludePatterns := datahelpers.ExtractStringListHelper(config["exclude_patterns"])
+	requiredKeywords := datahelpers.ExtractStringListHelper(config["required_keywords"])
+
+	var filtered []interface{}
+	for _, r := range results {
+		result, ok := r.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		title, _ := result["title"].(string)
+		content, _ := result["content"].(string)
+		snippet, _ := result["snippet"].(string)
+		url, _ := result["url"].(string)
+		searchText := strings.ToLower(title + " " + content + " " + snippet + " " + url)
+
+		excluded := false
+		for _, pattern := range excludePatterns {
+			if strings.Contains(searchText, strings.ToLower(pattern)) {
+				excluded = true
+				break
+			}
+		}
+		if excluded {
+			continue
+		}
+
+		if len(requiredKeywords) > 0 {
+			hasKeyword := false
+			for _, kw := range requiredKeywords {
+				if strings.Contains(searchText, strings.ToLower(kw)) {
+					hasKeyword = true
+					break
+				}
+			}
+			if !hasKeyword {
+				continue
+			}
+		}
+
+		filtered = append(filtered, result)
+		if len(filtered) >= maxResults {
+			break
+		}
+	}
+
+	params.Logger.Info("FilterSearchResultsAction: Complete",
+		zap.Int("original", len(results)), zap.Int("filtered", len(filtered)))
+	return map[string]interface{}{"filtered_results": filtered, "count": len(filtered), "original_count": len(results)}, nil
+}
+
+// ============================================================================
+// ACTION: extract_fields
+// ============================================================================
+
+func ExtractFieldsAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("ExtractFieldsAction: Starting")
+
+	if params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	config := params.StepConfig.Config
+	result := make(map[string]interface{})
+
+	// Handle fields array format
+	if fields, ok := config["fields"].([]interface{}); ok {
+		for _, f := range fields {
+			switch field := f.(type) {
+			case string:
+				if value := datahelpers.ExtractNestedField(params.CollectedData, field); value != nil {
+					parts := strings.Split(field, ".")
+					result[parts[len(parts)-1]] = value
+				}
+			case map[string]interface{}:
+				source, _ := field["source"].(string)
+				target, _ := field["target"].(string)
+				if source == "" {
+					continue
+				}
+				if target == "" {
+					parts := strings.Split(source, ".")
+					target = parts[len(parts)-1]
+				}
+				if value := datahelpers.ExtractNestedField(params.CollectedData, source); value != nil {
+					result[target] = value
+				}
+			}
+		}
+	}
+
+	// Handle field_map format
+	if fieldMap, ok := config["field_map"].(map[string]interface{}); ok {
+		for target, source := range fieldMap {
+			if sourceStr, ok := source.(string); ok {
+				if value := datahelpers.ExtractNestedField(params.CollectedData, sourceStr); value != nil {
+					result[target] = value
+				}
+			}
+		}
+	}
+
+	// Apply defaults
+	if defaults, ok := config["defaults"].(map[string]interface{}); ok {
+		for key, val := range defaults {
+			if result[key] == nil {
+				result[key] = val
+			}
+		}
+	}
+
+	params.Logger.Info("ExtractFieldsAction: Complete", zap.Int("fields", len(result)))
+	return result, nil
 }
