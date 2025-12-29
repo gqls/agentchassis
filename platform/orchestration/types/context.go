@@ -905,6 +905,8 @@ func (rh *RequestHeaders) ToMap() map[string]string {
 	// Routing
 	headers["requests_topic"] = rh.RequestsTopic
 	headers["responses_topic"] = rh.ResponsesTopic
+	headers["parent_responses_topic"] = rh.ParentResponsesTopic
+	headers["reply_to_topic"] = rh.ReplyToTopic
 
 	return headers
 }
