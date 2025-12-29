@@ -1114,6 +1114,67 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 	}, nil
 }
 
+func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("ValidateSitePlanAction: starting")
+
+	config := params.StepConfig.Config
+
+	// Get the plan field name
+	planField := "llm_plan"
+	if pf, ok := config["plan_field"].(string); ok && pf != "" {
+		planField = pf
+	}
+
+	// Get the plan from collected data
+	plan, ok := params.CollectedData[planField].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("plan not found at %s", planField)
+	}
+
+	// Validate pages array exists
+	pages, ok := plan["pages"].([]interface{})
+	if !ok || len(pages) == 0 {
+		return nil, fmt.Errorf("plan must have pages array")
+	}
+
+	// Validate max pages
+	maxPages := 20
+	if mp, ok := config["max_pages"].(float64); ok {
+		maxPages = int(mp)
+	}
+	if len(pages) > maxPages {
+		return nil, fmt.Errorf("too many pages: %d (max %d)", len(pages), maxPages)
+	}
+
+	// Validate required pages exist
+	if ensurePages, ok := config["ensure_pages"].([]interface{}); ok {
+		pageNames := make(map[string]bool)
+		for _, p := range pages {
+			if pm, ok := p.(map[string]interface{}); ok {
+				if name, ok := pm["name"].(string); ok {
+					pageNames[name] = true
+				}
+			}
+		}
+		for _, required := range ensurePages {
+			if reqName, ok := required.(string); ok {
+				if !pageNames[reqName] {
+					return nil, fmt.Errorf("required page missing: %s", reqName)
+				}
+			}
+		}
+	}
+
+	// Apply default style if not set
+	if _, ok := plan["style_collection"].(string); !ok {
+		if defaultStyle, ok := config["default_style"].(string); ok {
+			plan["style_collection"] = defaultStyle
+		}
+	}
+
+	return plan, nil
+}
+
 // nullString returns nil for empty strings, otherwise the string pointer
 func nullString(s string) interface{} {
 	if s == "" {

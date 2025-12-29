@@ -77,6 +77,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 
 	// Site and Link Management (Database Integration)
 	"ensure_site_record":     EnsureSiteRecordAction,
+	"validate_site_plan":     ValidateSitePlanAction,
 	"sync_pages_to_db":       SyncPagesToDBAction,
 	"extract_and_sync_links": ExtractAndSyncLinksAction,
 	"update_site_timestamps": UpdateSiteTimestampsAction,
@@ -98,6 +99,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"s3_upload":         UploadToS3Action, // Alias
 	"store_result":      StoreResultAction,
 	"route_storage":     RouteStorageAction,
+	"query_database":    QueryDatabaseAction,
 
 	// HTML operations
 	"generate_html": GenerateHTMLAction,

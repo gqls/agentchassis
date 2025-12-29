@@ -67,6 +67,7 @@ var LocalActions = map[string]bool{
 
 	// Site and Link Management (Database Integration)
 	"ensure_site_record":     true,
+	"validate_site_plan":     true,
 	"sync_pages_to_db":       true,
 	"extract_and_sync_links": true,
 	"update_site_timestamps": true,
@@ -95,6 +96,7 @@ var LocalActions = map[string]bool{
 	"s3_upload":         true,
 	"store_result":      true,
 	"route_storage":     true,
+	"query_database":    true,
 
 	// HTML operations
 	"generate_html": true,
