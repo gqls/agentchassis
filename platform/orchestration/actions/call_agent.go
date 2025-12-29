@@ -429,7 +429,7 @@ func buildCallRequestMessage(
 	// Set parent orchestration info so child knows where to respond
 	message.Headers.ParentOrchestrationID = params.ExecutionContext.OrchestrationID
 	message.Headers.ParentOrchestrationName = params.ExecutionContext.OrchestrationName
-	
+
 	message.Headers.ToAgent = targetAgent.AgentID
 	message.Headers.RequestID = uuid.New().String()
 
@@ -439,6 +439,7 @@ func buildCallRequestMessage(
 		parentResponsesTopic = os.Getenv("RESPONSES_TOPIC")
 	}
 	message.Headers.ParentResponsesTopic = parentResponsesTopic
+	message.Headers.ReplyToTopic = parentResponsesTopic
 	requestBody["parent_responses_topic"] = parentResponsesTopic
 
 	// Update the body with the complete request body (includes prompt, config, etc.)
