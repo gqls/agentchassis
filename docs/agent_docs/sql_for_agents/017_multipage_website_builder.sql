@@ -3148,3 +3148,52 @@ SET default_config = jsonb_set(
         '"classification.classify_site.result.recommended_builder"'
                      )
 WHERE type = 'intake-orchestrator';
+
+---
+
+This makes three changes:
+
+Updates call_site_planner.next_step from "store_site_plan" to "store_reviewed_brief"
+Adds new step store_reviewed_brief with content_field: "reviewed_brief" and merge: true
+Replaces store_site_plan to use content_field: "site_plan" (singular) with merge: true
+
+The flow becomes: call_site_planner → store_reviewed_brief → store_site_plan → sync_pages_to_db
+
+                                                                             
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                jsonb_set(
+                        default_config,
+                        '{workflow,steps,call_site_planner,next_step}',
+                        '"store_reviewed_brief"'
+                ),
+                '{workflow,steps,store_reviewed_brief}',
+                '{
+                    "action": "update_site_content",
+                    "config": {
+                        "content_field": "reviewed_brief",
+                        "site_id_field": "site_record.site_id",
+                        "merge": true
+                    },
+                    "next_step": "store_site_plan",
+                    "description": "Store the reviewed brief in sites.content_data",
+                    "output_field": "brief_stored"
+                }'::jsonb
+        ),
+        '{workflow,steps,store_site_plan}',
+        '{
+            "action": "update_site_content",
+            "config": {
+                "content_field": "site_plan",
+                "site_id_field": "site_record.site_id",
+                "merge": true
+            },
+            "next_step": "sync_pages_to_db",
+            "description": "Store the site plan in sites.content_data",
+            "output_field": "content_stored"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'multipage-website-builder'
+  AND version = 3;
