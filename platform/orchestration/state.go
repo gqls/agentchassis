@@ -1392,8 +1392,41 @@ func (r *StateRepository) GetAwaitedRequestWithRetry(ctx context.Context, reques
 	return nil, nil
 }
 
+// CompleteAwaitedRequest marks a claimed request as fully processed
+func (r *StateRepository) CompleteAwaitedRequest(ctx context.Context, requestID string) error {
+	query := `
+		UPDATE awaited_requests
+		SET status = 'processed',
+		    processed_at = NOW()
+		WHERE request_id = $1
+		  AND status = 'processing'
+	`
+
+	result, err := r.db.ExecContext(ctx, query, requestID)
+	if err != nil {
+		return fmt.Errorf("failed to complete awaited request: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check complete result: %w", err)
+	}
+
+	if rows == 0 {
+		r.logger.Warn("CompleteAwaitedRequest: no request was marked complete (unexpected state)",
+			zap.String("request_id", requestID),
+		)
+	} else {
+		r.logger.Info("CompleteAwaitedRequest: request marked as processed",
+			zap.String("request_id", requestID),
+		)
+	}
+
+	return nil
+}
+
 // MarkAwaitedRequestProcessed marks a request as processed
-func (r *StateRepository) MarkAwaitedRequestProcessed(ctx context.Context, requestID string) error {
+func (r *StateRepository) oldMarkAwaitedRequestProcessed(ctx context.Context, requestID string) error {
 	query := `
 		UPDATE awaited_requests
 		SET status = 'processed',

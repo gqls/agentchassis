@@ -226,7 +226,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	msgCtx.Logger.Info("in processor process Agent definition loaded",
 		zap.String("display_name", agentDef.DisplayName),
 		zap.String("category", agentDef.Category),
-		zap.Any("DEBUGaa: about to select Workflow", agentDef),
+		//zap.Any("DEBUGaa: about to select Workflow", agentDef),
 		//zap.Any("DEBUGaa: agentType from which database workflow is loaded", p.agentType),
 	)
 
@@ -878,9 +878,8 @@ func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions
 	// Parse message body
 	var msgBody map[string]interface{}
 	if err := json.Unmarshal(msgCtx.Message.Value, &msgBody); err == nil {
-		p.logger.Info("DEBUGaa: trying to find inline workflow override from message",
-			zap.Any("workflow_override from unmarshalled msgCtx.message.value", msgBody),
-		)
+		p.logger.Info("DEBUGaa: trying to find inline workflow override from message") //zap.Any("workflow_override from unmarshalled msgCtx.message.value", msgBody),
+
 		// Priority 1: Inline workflow override (for testing)
 		if config, ok := msgBody["config"].(map[string]interface{}); ok {
 			if workflow, ok := config["workflow"].(map[string]interface{}); ok {
@@ -1372,14 +1371,12 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 		    }
 		  },
 		*/
-		zap.Any("DEBUGaa: execCtx from headersToMap", execCtx),
+		//zap.Any("DEBUGaa: execCtx from headersToMap", execCtx),
 	)
 
 	msgCtx.CollectedData = datahelpers.BuildCollectedData(requestData, msgCtx.ExecutionContext, msgCtx.Logger)
 
-	p.logger.Info("processor.go 1327 ProcessMessage after BuildCollectedData",
-		zap.Any("DEBUGaa: msgCtx.CollectedData", msgCtx.CollectedData),
-	)
+	p.logger.Info("processor.go 1327 ProcessMessage after BuildCollectedData") //zap.Any("DEBUGaa: msgCtx.CollectedData", msgCtx.CollectedData),
 
 	// new stuff - __work_request__ key
 	// If this is a WORK request (not initialization), store reply-to metadata

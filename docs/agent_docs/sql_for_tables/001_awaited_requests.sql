@@ -120,3 +120,21 @@ COMMENT ON COLUMN awaited_requests.sent_at IS
 
 COMMENT ON COLUMN awaited_requests.processed_at IS 
     'When the request was processed/completed';
+        -- Add 'processing' status support
+ALTER TABLE awaited_requests
+DROP CONSTRAINT IF EXISTS awaited_requests_status_check;
+
+ALTER TABLE awaited_requests
+    ADD CONSTRAINT awaited_requests_status_check
+        CHECK (status IN ('waiting', 'processing', 'processed', 'expired', 'cancelled', 'error'));
+
+-- Add tracking columns
+ALTER TABLE awaited_requests
+    ADD COLUMN IF NOT EXISTS processing_started_at TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS processing_pod TEXT;
+
+-- Index for faster claims
+CREATE INDEX IF NOT EXISTS idx_awaited_requests_status_waiting
+    ON awaited_requests(status) WHERE status = 'waiting';
+
+---

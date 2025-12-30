@@ -14,7 +14,7 @@ func CalculateAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	params.Logger.Info("Entering CalculateAction",
 		zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)),
-		zap.String("DEBUGaa: in CalculateAction action", params.ExecutionContext.Action),
+		//zap.String("DEBUGaa: in CalculateAction action", params.ExecutionContext.Action),
 		//zap.Any("DEBUGaa: in CalculateAction CollectedData", params.CollectedData),
 	)
 

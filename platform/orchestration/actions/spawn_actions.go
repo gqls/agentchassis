@@ -348,7 +348,7 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 
 	params.Logger.Info("Sending initialization message resetting the reply to request id, do I really need to?",
 		zap.String("DEBUGaa: do I really need to set replytorequest id here. Headers.ReplyToRequestID before are:", message.Headers.ReplyToRequestID),
-		zap.Any("DEBUGaa: in exec ctx look at what requestID (this is now replyto) and also what replyto request id was", params.ExecutionContext),
+		//zap.Any("DEBUGaa: in exec ctx look at what requestID (this is now replyto) and also what replyto request id was", params.ExecutionContext),
 	)
 
 	// maybe we try and get it from execution context

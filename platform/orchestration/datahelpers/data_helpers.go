@@ -972,7 +972,7 @@ func BuildCollectedData(
 	logger.Info("DEBUGaa: Data helpers: built CollectedData requestIDs",
 		zap.String("what agent am I on", os.Getenv("AGENT_TYPE")),
 		zap.String("what should the request id be - where am I in the process and what was the request id should I move it to parent", "nothing to see here"),
-		zap.Any("DEBUGaa: _execution_context__ look for requestid and parent request id", execCtx),
+		//zap.Any("DEBUGaa: _execution_context__ look for requestid and parent request id", execCtx),
 	)
 
 	logger.Info("Data helpers: built CollectedData",

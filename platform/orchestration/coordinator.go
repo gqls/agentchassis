@@ -134,7 +134,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
 	s.logger.Info("ProcessResponse in coordinator.go",
 		zap.Any("response", response),
-		zap.Any("DEBUGaa: incoming execCtx", execCtx),
+		//zap.Any("DEBUGaa: incoming execCtx", execCtx),
 	)
 
 	// Prepare values for tracing
@@ -191,25 +191,31 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 
 	repo := NewStateRepository(s.db, s.logger)
 
-	// Query awaited_requests table with retry (handles race condition)
-	contextLogger.Info("Querying awaited_requests table for request",
-		zap.String("request_id", requestID))
+	// =========================================================================
+	// ATOMIC CLAIM - This single operation prevents duplicate processing
+	// =========================================================================
+	contextLogger.Info("Attempting atomic claim for request",
+		zap.String("request_id", requestID),
+		zap.String("claiming_pod", s.podName))
 
-	awaitedReq, err := repo.GetAwaitedRequestWithRetry(ctx, requestID, 3)
+	awaitedReq, err := repo.ClaimAwaitedRequest(ctx, requestID, s.podName)
 	if err != nil {
-		contextLogger.Error("Failed to query awaited request",
+		contextLogger.Error("Failed to claim awaited request",
 			zap.String("request_id", requestID),
 			zap.Error(err))
-		return fmt.Errorf("failed to query awaited request: %w", err)
+		return fmt.Errorf("failed to claim awaited request: %w", err)
 	}
 
+	// If nil, another worker already claimed this request - exit cleanly
 	if awaitedReq == nil {
-		contextLogger.Info("No orchestration waiting for this response",
-			zap.String("request_id", requestID))
-		return nil
+		contextLogger.Info("DUPLICATE_SKIPPED: request already claimed by another worker",
+			zap.String("request_id", requestID),
+			zap.String("my_pod", s.podName))
+		return nil // Not an error - just a duplicate we're correctly ignoring
 	}
 
-	contextLogger.Info("Found awaited request in database",
+	contextLogger.Info("CLAIM_SUCCESS: exclusively claimed request",
+		zap.String("request_id", requestID),
 		zap.String("orchestration_id", awaitedReq.OrchestrationID),
 		zap.String("step_name", awaitedReq.StepName))
 
@@ -223,12 +229,44 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		return fmt.Errorf("no state found for orchestration_id=%s", awaitedReq.OrchestrationID)
 	}
 
-	// Mark request as processed IMMEDIATELY (prevent duplicate processing)
-	err = repo.MarkAwaitedRequestProcessed(ctx, requestID)
-	if err != nil {
-		contextLogger.Error("Failed to mark awaited request as processed", zap.Error(err))
-		// Continue anyway
-	}
+	/*	// Query awaited_requests table with retry (handles race condition)
+		contextLogger.Info("Querying awaited_requests table for request",
+			zap.String("request_id", requestID))
+
+		awaitedReq, err := repo.GetAwaitedRequestWithRetry(ctx, requestID, 3)
+		if err != nil {
+			contextLogger.Error("Failed to query awaited request",
+				zap.String("request_id", requestID),
+				zap.Error(err))
+			return fmt.Errorf("failed to query awaited request: %w", err)
+		}
+
+		if awaitedReq == nil {
+			contextLogger.Info("No orchestration waiting for this response",
+				zap.String("request_id", requestID))
+			return nil
+		}
+
+		contextLogger.Info("Found awaited request in database",
+			zap.String("orchestration_id", awaitedReq.OrchestrationID),
+			zap.String("step_name", awaitedReq.StepName))
+
+		// Load the orchestration state
+		state, err := repo.GetState(ctx, awaitedReq.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to load orchestration state: %w", err)
+		}
+
+		if state == nil {
+			return fmt.Errorf("no state found for orchestration_id=%s", awaitedReq.OrchestrationID)
+		}
+
+		// Mark request as processed IMMEDIATELY (prevent duplicate processing)
+		err = repo.MarkAwaitedRequestProcessed(ctx, requestID)
+		if err != nil {
+			contextLogger.Error("Failed to mark awaited request as processed", zap.Error(err))
+			// Continue anyway
+		}*/
 
 	// Additional check: verify this orchestrator owns this orchestration
 	if state.ProcessingNode != "" && state.ProcessingNode != s.podName {
@@ -258,6 +296,67 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		contextLogger.Warn("Unknown response status", zap.String("status", execCtx.Status))
 		return nil
 	}
+}
+
+// ClaimAwaitedRequest atomically claims a request for processing.
+// Returns the AwaitedRequest if successfully claimed, nil if already claimed/processed.
+// This prevents the race condition in the original two-step check-then-mark pattern.
+func (r *StateRepository) ClaimAwaitedRequest(ctx context.Context, requestID string, claimerPodName string) (*AwaitedRequest, error) {
+	query := `
+		UPDATE awaited_requests
+		SET status = 'processing',
+		    processed_at = NOW()
+		WHERE request_id = $1
+		  AND status = 'waiting'
+		RETURNING 
+			request_id, orchestration_id, correlation_id, step_id, step_name,
+			retry_version, target_agent_id, target_agent_type,
+			responses_topic, requests_topic, sent_at, timeout_at,
+			reply_to_request_id, status, processed_at
+	`
+
+	record := &AwaitedRequest{}
+	var processedAt sql.NullTime
+
+	err := r.db.QueryRowContext(ctx, query, requestID, claimerPodName).Scan(
+		&record.RequestID,
+		&record.OrchestrationID,
+		&record.CorrelationID,
+		&record.StepID,
+		&record.StepName,
+		&record.RetryVersion,
+		&record.TargetAgentID,
+		&record.TargetAgentType,
+		&record.ResponsesTopic,
+		&record.RequestsTopic,
+		&record.SentAt,
+		&record.TimeoutAt,
+		&record.ReplyToRequestID,
+		&record.Status,
+		&processedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		// Not found OR already claimed by another worker - both cases return nil
+		r.logger.Debug("ClaimAwaitedRequest: not claimed (already processed or not found)",
+			zap.String("request_id", requestID),
+		)
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to claim awaited request: %w", err)
+	}
+
+	if processedAt.Valid {
+		record.ProcessedAt = &processedAt.Time
+	}
+
+	r.logger.Info("ClaimAwaitedRequest: successfully claimed",
+		zap.String("request_id", requestID),
+		zap.String("orchestration_id", record.OrchestrationID),
+	)
+
+	return record, nil
 }
 
 // HandleResponse processes responses using headers (compatibility method)
@@ -701,7 +800,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	s.logger.Info("just into executeLocalAction look for execCtx before it gets changed",
 		zap.String("step", state.CurrentStep),
 		zap.String("action", step.Action),
-		zap.Any("DEBUGaa: executeLocalAction execCtx before", execCtx),
+		//zap.Any("DEBUGaa: executeLocalAction execCtx before", execCtx),
 		zap.Any("before state", state),
 	)
 
@@ -715,7 +814,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		zap.Any("config", step.Config),
 		zap.Any("DEBUGaa: executeLocalAction step", step),
 		zap.Any("DEBUGaa: executeLocalAction state after", state),
-		zap.Any("DEBUGaa: executeLocalAction execCtx after", execCtx),
+		//zap.Any("DEBUGaa: executeLocalAction execCtx after", execCtx),
 	)
 
 	// 3. Handle retry logic for spawn actions
