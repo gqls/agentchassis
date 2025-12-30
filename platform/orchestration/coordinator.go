@@ -134,7 +134,7 @@ func (s *SagaCoordinator) ExecuteWorkflow(ctx context.Context, plan models.Workf
 func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
 	s.logger.Info("ProcessResponse in coordinator.go",
 		zap.Any("response", response),
-		//zap.Any("DEBUGaa: incoming execCtx", execCtx),
+		zap.Any("DEBUGaa: incoming execCtx", execCtx),
 	)
 
 	// Prepare values for tracing
@@ -197,6 +197,20 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	contextLogger.Info("Attempting atomic claim for request",
 		zap.String("request_id", requestID),
 		zap.String("claiming_pod", s.podName))
+
+	// For progress updates, DON'T claim - just update state
+	if execCtx.Status == "awaiting" || execCtx.Status == "processing" {
+		// Get the awaited request without claiming
+		awaitedReq, err := repo.GetAwaitedRequest(ctx, requestID)
+		if err != nil || awaitedReq == nil {
+			return nil
+		}
+		state, err := repo.GetState(ctx, awaitedReq.OrchestrationID)
+		if err != nil || state == nil {
+			return nil
+		}
+		return s.handleProgressUpdate(ctx, state, execCtx)
+	}
 
 	awaitedReq, err := repo.ClaimAwaitedRequest(ctx, requestID, s.podName)
 	if err != nil {
