@@ -979,6 +979,7 @@ func processActionResult(state *OrchestrationState, result interface{}, step mod
 
 	// Process result by converting it to a map[string]interface{}
 	// This robustly handles both map[string]interface{} and struct types
+	// Array results (from database queries) don't need spawn/await checking
 	var resultMap map[string]interface{}
 	jsonBytes, err := json.Marshal(result)
 	if err != nil {
@@ -986,8 +987,13 @@ func processActionResult(state *OrchestrationState, result interface{}, step mod
 		return err // Can't proceed
 	}
 	if err := json.Unmarshal(jsonBytes, &resultMap); err != nil {
-		logger.Error("Failed to unmarshal action result into map", zap.Error(err))
-		return err // Can't proceed
+		// Result is not a map (likely an array from database query)
+		// Data was already stored by storeActionResult above, so this is OK
+		// Arrays don't have await_response or subtree_info, so no further processing needed
+		logger.Info("Action result is not a map type - spawn/await checks skipped (data already stored)",
+			zap.String("step_name", step.Name),
+			zap.String("result_type", fmt.Sprintf("%T", result)))
+		return nil // Success - workflow continues
 	}
 
 	// Process result based on type
