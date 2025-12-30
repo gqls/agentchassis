@@ -196,6 +196,8 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	extractedData := extractDataForAiAgent(params)
 	templateData := extractedData.(map[string]interface{})
 
+	validateTemplateData(templateData, params.StepConfig.Config, params.Logger)
+
 	params.Logger.Info("in ExecuteLLMPromptAction Template Data",
 		// zap.Any("template_data DEBUGaa", templateData),
 		zap.Any("DEBUGaa template_data ai_actions this is what I want to pass - should be good ", templateData), // is good
@@ -307,6 +309,65 @@ func stripMarkdownFromResponse(s string) string {
 	}
 
 	return s
+}
+
+// validateTemplateData checks if template data has fields referenced in the template
+// Logs warnings for missing fields to help debug <no value> issues
+func validateTemplateData(templateData map[string]interface{}, stepConfig map[string]interface{}, logger *zap.Logger) {
+	// Get input_fields from config to know what we expected to find
+	inputFields := []string{}
+	if fields, ok := stepConfig["input_fields"].([]interface{}); ok {
+		for _, f := range fields {
+			if field, ok := f.(string); ok {
+				inputFields = append(inputFields, field)
+			}
+		}
+	}
+
+	logger.Info("Template data validation",
+		zap.Strings("expected_fields", inputFields),
+		zap.Strings("available_fields", getTemplateDataKeys(templateData)),
+	)
+
+	// Check each expected field
+	missingFields := []string{}
+	for _, field := range inputFields {
+		// Handle dot notation (e.g., "reviewed_brief.company_name")
+		parts := strings.Split(field, ".")
+		rootField := parts[0]
+
+		if _, ok := templateData[rootField]; !ok {
+			missingFields = append(missingFields, field)
+		}
+	}
+
+	if len(missingFields) > 0 {
+		logger.Error("TEMPLATE DATA VALIDATION FAILED - Missing fields will render as <no value>",
+			zap.Strings("missing_fields", missingFields),
+			zap.Strings("available_fields", getTemplateDataKeys(templateData)),
+		)
+	}
+
+	// Also check specific commonly-needed fields
+	commonFields := []string{"reviewed_brief", "site_record", "input_data"}
+	for _, field := range commonFields {
+		if val, ok := templateData[field]; ok {
+			if valMap, isMap := val.(map[string]interface{}); isMap {
+				logger.Info("Template field contents",
+					zap.String("field", field),
+					zap.Strings("keys", getTemplateDataKeys(valMap)),
+				)
+			}
+		}
+	}
+}
+
+func getTemplateDataKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // appendOutputInstructions adds format-specific instructions based on output_type

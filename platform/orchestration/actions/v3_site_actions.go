@@ -1128,23 +1128,40 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		planField = pf
 	}
 
+	// Extract the plan data
 	planData := datahelpers.ExtractNestedField(params.CollectedData, planField)
 	if planData == nil {
 		return nil, fmt.Errorf("plan not found at '%s'", planField)
 	}
+
+	planData = datahelpers.UnwrapDeep(planData, params.Logger)
+
+	params.Logger.Info("ValidateSitePlanAction: After UnwrapDeep",
+		zap.String("planData_type", fmt.Sprintf("%T", planData)))
 
 	var plan map[string]interface{}
 	switch v := planData.(type) {
 	case map[string]interface{}:
 		plan = v
 	case string:
+		if v == "" {
+			return nil, fmt.Errorf("plan is empty string - LLM may have returned no content. Check template rendering logs for <no value> placeholders")
+		}
 		cleaned := strings.TrimSpace(v)
 		cleaned = strings.TrimPrefix(cleaned, "```json")
 		cleaned = strings.TrimPrefix(cleaned, "```")
 		cleaned = strings.TrimSuffix(cleaned, "```")
 		cleaned = strings.TrimSpace(cleaned)
+		if cleaned == "" {
+			return nil, fmt.Errorf("plan is empty after cleaning markdown")
+		}
 		if err := json.Unmarshal([]byte(cleaned), &plan); err != nil {
-			return nil, fmt.Errorf("failed to parse plan JSON: %w", err)
+			// Include content preview in error for debugging
+			preview := cleaned
+			if len(preview) > 200 {
+				preview = preview[:200] + "..."
+			}
+			return nil, fmt.Errorf("failed to parse plan JSON: %w (preview: %s)", err, preview)
 		}
 	default:
 		return nil, fmt.Errorf("plan must be object or JSON string, got %T", planData)
@@ -1152,8 +1169,16 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 
 	pagesRaw, ok := plan["pages"]
 	if !ok {
-		return nil, fmt.Errorf("plan must have 'pages' array")
+		// Log available keys for debugging
+		keys := make([]string, 0, len(plan))
+		for k := range plan {
+			keys = append(keys, k)
+		}
+		params.Logger.Error("ValidateSitePlanAction: plan missing 'pages'",
+			zap.Strings("available_keys", keys))
+		return nil, fmt.Errorf("plan must have 'pages' array (available keys: %v)", keys)
 	}
+
 	pages, ok := pagesRaw.([]interface{})
 	if !ok || len(pages) == 0 {
 		return nil, fmt.Errorf("pages must be non-empty array")

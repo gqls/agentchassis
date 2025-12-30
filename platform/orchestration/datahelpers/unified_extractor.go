@@ -70,9 +70,40 @@ func ExtractFields(
 		)
 	}
 
-	// Extract each specific field
+	// Special handling for "reviewed_brief" - often deeply nested
+	if contains(fieldNames, "reviewed_brief") {
+		logger.Info("Special case: extracting reviewed_brief")
+
+		if reviewedBrief := findFieldRecursive(collectedData, "reviewed_brief", 0, logger); reviewedBrief != nil {
+			result["reviewed_brief"] = reviewedBrief
+			logger.Info("✓ Found reviewed_brief",
+				zap.String("type", fmt.Sprintf("%T", reviewedBrief)))
+		} else {
+			logger.Error("✗ Could not find reviewed_brief anywhere in collected data")
+		}
+	}
+
+	// Special handling for "site_record" - also commonly needed
+	if contains(fieldNames, "site_record") {
+		logger.Info("Special case: extracting site_record")
+
+		if siteRecord := findFieldRecursive(collectedData, "site_record", 0, logger); siteRecord != nil {
+			result["site_record"] = siteRecord
+			logger.Info("✓ Found site_record")
+		} else {
+			logger.Warn("✗ Could not find site_record")
+		}
+	}
+
+	// Extract each specific field (skip already handled)
+	speciallyHandled := map[string]bool{
+		"input_data":     true,
+		"reviewed_brief": true,
+		"site_record":    true,
+	}
+
 	for _, fieldName := range fieldNames {
-		if fieldName == "input_data" {
+		if speciallyHandled[fieldName] {
 			continue // Already handled above
 		}
 
@@ -98,7 +129,7 @@ func ExtractFields(
 		}
 	}
 
-	// CRITICAL: Always ensure domain and objective exist at root level
+	// Always ensure domain and objective exist at root level
 	ensureCoreFields(result, collectedData, logger)
 
 	// Also ensure they exist inside input_data if that map exists

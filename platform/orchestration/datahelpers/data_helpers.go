@@ -1106,7 +1106,36 @@ func RenderPromptTemplate(templateStr string, data map[string]interface{}, logge
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	return buf.String(), nil
+	rendered := buf.String()
+
+	// ========================================================================
+	// NEW: Check for <no value> placeholders which indicate missing data
+	// ========================================================================
+	if strings.Contains(rendered, "<no value>") {
+		// Count occurrences
+		count := strings.Count(rendered, "<no value>")
+		logger.Warn("TEMPLATE RENDERED WITH MISSING DATA - Found <no value> placeholders",
+			zap.Int("count", count),
+			zap.String("preview", rendered[:min(500, len(rendered))]),
+		)
+
+		// Find which fields are missing by checking context around <no value>
+		// This helps identify which template variables weren't populated
+		parts := strings.Split(rendered, "<no value>")
+		for i := 0; i < len(parts)-1 && i < 5; i++ {
+			// Show context before each <no value>
+			contextStart := len(parts[i]) - 50
+			if contextStart < 0 {
+				contextStart = 0
+			}
+			logger.Warn("Missing value context",
+				zap.Int("occurrence", i+1),
+				zap.String("before", parts[i][contextStart:]),
+			)
+		}
+	}
+
+	return rendered, nil
 }
 
 // ExtractNestedField extracts a value from nested map using dot notation path.
@@ -1495,4 +1524,55 @@ func ExtractStringListHelper(val interface{}) []string {
 		result = arr
 	}
 	return result
+}
+
+// validateTemplateData checks if template data has fields referenced in the template
+// Logs warnings for missing fields to help debug <no value> issues
+func validateTemplateData(templateData map[string]interface{}, stepConfig map[string]interface{}, logger *zap.Logger) {
+	// Get input_fields from config to know what we expected to find
+	inputFields := []string{}
+	if fields, ok := stepConfig["input_fields"].([]interface{}); ok {
+		for _, f := range fields {
+			if field, ok := f.(string); ok {
+				inputFields = append(inputFields, field)
+			}
+		}
+	}
+
+	logger.Info("Template data validation",
+		zap.Strings("expected_fields", inputFields),
+		zap.Strings("available_fields", getTemplateDataKeys(templateData)),
+	)
+
+	// Check each expected field
+	missingFields := []string{}
+	for _, field := range inputFields {
+		// Handle dot notation (e.g., "reviewed_brief.company_name")
+		parts := strings.Split(field, ".")
+		rootField := parts[0]
+
+		if _, ok := templateData[rootField]; !ok {
+			missingFields = append(missingFields, field)
+		}
+	}
+
+	if len(missingFields) > 0 {
+		logger.Error("TEMPLATE DATA VALIDATION FAILED - Missing fields will render as <no value>",
+			zap.Strings("missing_fields", missingFields),
+			zap.Strings("available_fields", getTemplateDataKeys(templateData)),
+		)
+	}
+
+	// Also check specific commonly-needed fields
+	commonFields := []string{"reviewed_brief", "site_record", "input_data"}
+	for _, field := range commonFields {
+		if val, ok := templateData[field]; ok {
+			if valMap, isMap := val.(map[string]interface{}); isMap {
+				logger.Info("Template field contents",
+					zap.String("field", field),
+					zap.Strings("keys", getTemplateDataKeys(valMap)),
+				)
+			}
+		}
+	}
 }
