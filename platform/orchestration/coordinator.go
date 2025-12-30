@@ -1567,9 +1567,14 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			existingData["response"] = normalisedData
 			existingData["response_received_at"] = time.Now().Format(time.RFC3339)
 			existingData["initialized"] = true
-			s.logger.Info("Preserved spawn result, added response",
-				zap.String("step_name", stepName),
-				zap.String("role", existingData["role"].(string)))
+			if roleStr, ok := existingData["role"].(string); ok {
+				s.logger.Info("Preserved spawn result, added response",
+					zap.String("step_name", stepName),
+					zap.String("role", roleStr))
+			} else {
+				s.logger.Info("Preserved spawn result, added response (no role)",
+					zap.String("step_name", stepName))
+			}
 
 			// Also update output_field if specified - preserve spawn data there too
 			if step.OutputField != "" {
@@ -1579,53 +1584,70 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 					outputData["initialized"] = true
 					s.logger.Info("Preserved spawn result in output_field",
 						zap.String("output_field", step.OutputField))
-				}
-			}
-		} else {
-			// No existing spawn data (shouldn't normally happen)
-			s.logger.Warn("No existing spawn data to preserve",
-				zap.String("step_name", stepName))
-			state.CollectedData[stepName] = normalisedData
-		}
-	} else {
-		// Original behavior for non-spawn actions (call_agent, execute_llm_prompt, etc.)
-		state.CollectedData[stepName] = normalisedData
-
-		// Get the step definition to check for output_field
-		if stepExists && step.OutputField != "" {
-			// Determine what data to store based on action type
-			var dataToStore interface{} = normalisedData
-
-			// Special handling for request_human_input and similar actions
-			// Extract only form field values, not metadata or review data
-			if shouldExtractFormFields(step) {
-				formFieldValues := extractHITLFormFields(normalisedData, step.Config, s.logger)
-				if len(formFieldValues) > 0 {
-					dataToStore = formFieldValues
-					s.logger.Info("Extracted form fields from HITL response",
-						zap.String("step_name", stepName),
-						zap.String("output_field", step.OutputField),
-						zap.Strings("field_names", getMapKeys(formFieldValues)),
-						zap.Int("field_count", len(formFieldValues)),
-					)
 				} else {
-					s.logger.Warn("No form fields extracted from HITL response, using full response",
-						zap.String("step_name", stepName),
-						zap.Strings("response_keys", getMapKeys(normalisedData)),
-					)
+					// Output field doesn't exist yet - create it with spawn data
+					spawnDataCopy := make(map[string]interface{})
+					for k, v := range existingData {
+						spawnDataCopy[k] = v
+					}
+					state.CollectedData[step.OutputField] = spawnDataCopy
+					s.logger.Info("Created output_field with spawn data",
+						zap.String("output_field", step.OutputField))
+				}
+			}
+		} else {
+			// No existing spawn data - this happens due to race condition when child responds
+			// before parent's state is saved. Extract spawn data from the response body.
+			s.logger.Warn("No existing spawn data to preserve - extracting from response body",
+				zap.String("step_name", stepName),
+				zap.Strings("response_keys", getMapKeys(normalisedData)))
+
+			// The response body structure is: { "success": true, "body": { agent_id, role, topics, ... } }
+			// Extract the nested body which contains the spawn information
+			spawnData := make(map[string]interface{})
+
+			// Try to extract from nested "body" field (standard spawn response format)
+			if nestedBody, ok := normalisedData["body"].(map[string]interface{}); ok {
+				// Copy all spawn fields from nested body
+				for k, v := range nestedBody {
+					spawnData[k] = v
+				}
+				s.logger.Info("Extracted spawn data from response body.body",
+					zap.Strings("extracted_keys", getMapKeys(spawnData)))
+			} else {
+				// Fallback: check if spawn fields are at top level
+				for _, key := range []string{"agent_id", "agent_type", "role", "topics", "initialized"} {
+					if val, exists := normalisedData[key]; exists {
+						spawnData[key] = val
+					}
+				}
+				s.logger.Info("Extracted spawn data from response top level",
+					zap.Strings("extracted_keys", getMapKeys(spawnData)))
+			}
+
+			// Add response metadata
+			spawnData["response"] = normalisedData
+			spawnData["response_received_at"] = time.Now().Format(time.RFC3339)
+			spawnData["initialized"] = true
+
+			// If we still don't have role, try to get from step config
+			if _, hasRole := spawnData["role"]; !hasRole {
+				if configRole, ok := step.Config["role"].(string); ok {
+					spawnData["role"] = configRole
+					s.logger.Info("Got role from step config",
+						zap.String("role", configRole))
 				}
 			}
 
-			// Store the appropriate data in output_field
-			state.CollectedData[step.OutputField] = dataToStore
-			s.logger.Info("Stored response in output_field",
-				zap.String("step_name", stepName),
-				zap.String("output_field", step.OutputField),
-				zap.Bool("is_hitl_filtered", shouldExtractFormFields(step)),
-			)
-		} else {
-			s.logger.Debug("No output_field specified, response stored only under step name",
-				zap.String("step_name", stepName))
+			state.CollectedData[stepName] = spawnData
+
+			// Also store in output_field if specified
+			if step.OutputField != "" {
+				state.CollectedData[step.OutputField] = spawnData
+				s.logger.Info("Stored extracted spawn data in output_field",
+					zap.String("output_field", step.OutputField),
+					zap.String("role", fmt.Sprintf("%v", spawnData["role"])))
+			}
 		}
 	}
 
