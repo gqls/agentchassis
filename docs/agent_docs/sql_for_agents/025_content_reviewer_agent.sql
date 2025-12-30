@@ -299,3 +299,16 @@ SELECT 'content-reviewer' as agent,
 END as status
 FROM agent_definitions
 WHERE type = 'content-reviewer';
+
+
+    -- ============================================
+-- 3. content-reviewer: auto_eval_content step
+-- ============================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,auto_eval_content,config,ai_service,model}',
+        '"claude-sonnet-4-5-20250929"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-reviewer';

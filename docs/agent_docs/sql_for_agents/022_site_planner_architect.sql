@@ -198,3 +198,94 @@ SELECT type,
        default_config->'workflow'->'steps'->'validate_plan'->'config'->>'plan_field' as plan_field
 FROM agent_definitions
 WHERE type = 'site-planner';
+
+--
+
+fix model and more data paths
+
+    -- Complete fix for site-planner
+-- 1. Fix model name (404 error)
+-- 2. Make template generic/questionnaire-driven
+-- 3. Update input_contract to reflect generic approach
+
+UPDATE agent_definitions
+SET
+    default_config = jsonb_set(
+            jsonb_set(
+                    default_config,
+                    '{workflow,steps,plan_site,config,ai_service,model}',
+                    '"claude-sonnet-4-5-20250929"'
+            ),
+            '{workflow,steps,plan_site,config,prompt_template}',
+            to_jsonb('You are a website architect. Plan a website for {{.input_data.domain}}.
+
+## Site Brief
+{{.reviewed_brief}}
+
+## Available Section Components
+{{.available_components}}
+
+## Available Style Collections
+{{.available_styles}}
+
+## Task
+Based on the brief above, create a comprehensive site plan. Analyze the brief to determine:
+- What pages are needed based on the content provided
+- Which style collection best matches the industry/tone
+- What sections each page should have
+
+Return JSON in this format:
+
+```json
+{
+  "pages": [
+    {
+      "name": "index",
+      "title": "Page Title | Site Name",
+      "nav_label": "Home",
+      "nav_order": 1,
+      "in_header": true,
+      "in_footer": true,
+      "sections": ["section-name-1", "section-name-2"]
+    }
+  ],
+  "style_collection": "style-name",
+  "needs_logo": true,
+  "needs_images": true,
+  "image_prompts": {
+    "logo": "Description for logo generation",
+    "hero_home": "Description for home hero image"
+  }
+}
+```
+
+Guidelines:
+- Use exact component names from the available list where possible
+- If no matching component exists, use descriptive names like "content-block" or "custom-section"
+- Choose style_collection based on industry and tone from the brief
+- Keep header navigation to 5-8 items maximum
+- Always include: index (home) and contact pages
+- Add additional pages based on what content is provided in the brief
+- For image prompts, be specific to the industry and content described'::text)
+                     ),
+    input_contract = '{
+        "required": ["input_data.domain", "reviewed_brief"],
+        "expects": {
+            "input_data": {
+                "domain": "string - the domain name",
+                "objective": "string - what the site should achieve"
+            },
+            "reviewed_brief": "object - questionnaire responses (structure varies by site type)"
+        }
+    }'::jsonb,
+    updated_at = NOW()
+WHERE type = 'site-planner';
+
+
+
+-- Verify
+SELECT type,
+       default_config->'workflow'->'steps'->'plan_site'->'config'->'ai_service'->>'model' as model,
+    input_contract
+FROM agent_definitions
+WHERE type = 'site-planner';

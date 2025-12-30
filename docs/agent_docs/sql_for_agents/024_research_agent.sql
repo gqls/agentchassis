@@ -273,3 +273,18 @@ SET default_config = jsonb_set(
         '"Extract 2-4 relevant quotes from this page about: {{.extracted.topic}}\n\nPage content (truncated):\n{{.page_content.text}}\n\nReturn JSON:\n{\n  \"quotes\": [\"exact quote 1\", \"exact quote 2\"],\n  \"relevance\": 0.0-1.0,\n  \"key_facts\": [\"fact 1\", \"fact 2\"]\n}\n\nOnly include quotes directly relevant to the topic. Rate relevance 0-1."'
                      )
 WHERE type = 'research-agent';
+
+
+-- ============================================
+-- 4. research-agent: synthesize step
+-- (build_search_query and extract_quotes use haiku which is fine)
+-- ============================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,synthesize,config,ai_service,model}',
+        '"claude-sonnet-4-5-20250929"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'research-agent';
+

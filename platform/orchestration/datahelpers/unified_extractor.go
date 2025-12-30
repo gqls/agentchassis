@@ -70,20 +70,38 @@ func ExtractFields(
 		)
 	}
 
-	// Special handling for "reviewed_brief" - often deeply nested
+	// ========================================================================
+	// Special handling for "reviewed_brief" - often deeply nested in input_data
+	// This field is commonly needed for site planning and content generation
+	// ========================================================================
 	if contains(fieldNames, "reviewed_brief") {
-		logger.Info("Special case: extracting reviewed_brief")
+		logger.Info("Special case: extracting reviewed_brief (aggressive recursive search)")
 
+		// Use findFieldRecursive which searches through all nested structures
 		if reviewedBrief := findFieldRecursive(collectedData, "reviewed_brief", 0, logger); reviewedBrief != nil {
 			result["reviewed_brief"] = reviewedBrief
-			logger.Info("✓ Found reviewed_brief",
-				zap.String("type", fmt.Sprintf("%T", reviewedBrief)))
+
+			// Log what we found for debugging
+			if rbMap, ok := reviewedBrief.(map[string]interface{}); ok {
+				logger.Info("✓ Found reviewed_brief",
+					zap.Strings("keys", getMapKeys(rbMap)),
+					zap.Bool("has_company_name", rbMap["company_name"] != nil),
+					zap.Bool("has_about_us", rbMap["about_us"] != nil),
+					zap.Bool("has_services", rbMap["services"] != nil),
+				)
+			} else {
+				logger.Info("✓ Found reviewed_brief (non-map type)",
+					zap.String("type", fmt.Sprintf("%T", reviewedBrief)))
+			}
 		} else {
-			logger.Error("✗ Could not find reviewed_brief anywhere in collected data")
+			logger.Error("✗ Could not find reviewed_brief anywhere in collected data",
+				zap.Strings("top_level_keys", getMapKeys(collectedData)))
 		}
 	}
 
+	// ========================================================================
 	// Special handling for "site_record" - also commonly needed
+	// ========================================================================
 	if contains(fieldNames, "site_record") {
 		logger.Info("Special case: extracting site_record")
 
@@ -95,13 +113,16 @@ func ExtractFields(
 		}
 	}
 
-	// Extract each specific field (skip already handled)
+	// ========================================================================
+	// Track which fields we've already handled specially
+	// ========================================================================
 	speciallyHandled := map[string]bool{
 		"input_data":     true,
 		"reviewed_brief": true,
 		"site_record":    true,
 	}
 
+	// Extract each specific field (skip already handled)
 	for _, fieldName := range fieldNames {
 		if speciallyHandled[fieldName] {
 			continue // Already handled above
@@ -129,7 +150,7 @@ func ExtractFields(
 		}
 	}
 
-	// Always ensure domain and objective exist at root level
+	// CRITICAL: Always ensure domain and objective exist at root level
 	ensureCoreFields(result, collectedData, logger)
 
 	// Also ensure they exist inside input_data if that map exists
@@ -320,9 +341,9 @@ func ensureCoreFields(
 		logger.Warn("Domain missing from result, searching aggressively")
 		if domain := FindDomainAggressive(source, logger); domain != "" {
 			result["domain"] = domain
-			logger.Info("âœ“ Recovered domain via aggressive search", zap.String("domain", domain))
+			logger.Info("✓ Recovered domain via aggressive search", zap.String("domain", domain))
 		} else {
-			logger.Error("âœ— Could not find domain anywhere")
+			logger.Error("✗ Could not find domain anywhere")
 		}
 	}
 
@@ -331,10 +352,10 @@ func ensureCoreFields(
 		logger.Warn("Objective missing from result, searching aggressively")
 		if objective := FindObjectiveAggressive(source, logger); objective != "" {
 			result["objective"] = objective
-			logger.Info("âœ“ Recovered objective via aggressive search",
+			logger.Info("✓ Recovered objective via aggressive search",
 				zap.Int("length", len(objective)))
 		} else {
-			logger.Error("âœ— Could not find objective anywhere")
+			logger.Error("✗ Could not find objective anywhere")
 		}
 	}
 
@@ -343,7 +364,7 @@ func ensureCoreFields(
 		if model := findFieldRecursive(source, "model", 0, logger); model != nil {
 			if modelStr, ok := model.(string); ok {
 				result["model"] = modelStr
-				logger.Info("âœ“ Recovered model via aggressive search", zap.String("model", modelStr))
+				logger.Info("✓ Recovered model via aggressive search", zap.String("model", modelStr))
 			}
 		}
 	}

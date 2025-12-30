@@ -124,3 +124,16 @@ WHERE type = 'content-creator' AND version = 1
                                        updated_at = NOW();
 
 
+-- ============================================
+-- 2. content-creator V2: create_content step
+-- (V1 uses haiku which is fine)
+-- ============================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_content,config,ai_service,model}',
+        '"claude-sonnet-4-5-20250929"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-creator'
+  AND display_name = 'Content Creator V2';
