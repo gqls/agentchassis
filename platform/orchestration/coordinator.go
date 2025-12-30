@@ -2048,6 +2048,12 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	s.logger.Info("handleCompleteResponse: still awaiting responses",
 		zap.Int("remaining", len(state.AwaitedRequests)))
 
+	// Mark the awaited request as complete
+	if err := repo.MarkAwaitedRequestComplete(ctx, requestID); err != nil {
+		s.logger.Warn("Failed to mark awaited request complete", zap.Error(err))
+		// Don't fail - the processing succeeded
+	}
+
 	return nil
 }
 
@@ -2402,4 +2408,15 @@ func IsOptimisticLockError(err error) bool {
 	// Check for PostgreSQL unique violation or version mismatch
 	return strings.Contains(err.Error(), "version mismatch") ||
 		strings.Contains(err.Error(), "optimistic lock")
+}
+
+func (r *StateRepository) MarkAwaitedRequestComplete(ctx context.Context, requestID string) error {
+	query := `
+        UPDATE awaited_requests
+        SET status = 'complete',
+            processed_at = NOW()
+        WHERE request_id = $1
+    `
+	_, err := r.db.ExecContext(ctx, query, requestID)
+	return err
 }

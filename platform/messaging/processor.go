@@ -304,7 +304,7 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 			state, _ := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
 			if state != nil && state.Status == orchestration.StatusCompleted {
 				msgCtx.Logger.Info("Child workflow completed, sending response to parent")
-				return p.sendWorkflowSuccessResponse(ctx, msgCtx)
+				return nil
 			}
 		}
 	}

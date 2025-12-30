@@ -148,7 +148,13 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
 
 
 ========================================================================
-
+unstick awaited requests
+UPDATE awaited_requests
+SET status = 'waiting',
+    processing_started_at = NULL,
+    processing_pod = NULL
+WHERE status = 'processing'
+  AND processing_started_at < NOW() - INTERVAL '5 minutes';
 
 ========================================================================
 
@@ -272,9 +278,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=19c3da96-1a83-40f1-8424-9df13b8c96b4
-ORCHESTRATION_ID=21ad3810-d1f3-4e4f-8a4a-12d4feeb16e6
-HITL_REQUEST_ID=f2c25092-14fe-4709-ba6e-38920e2de33d
+CORRELATION_ID=12649363-695b-41f0-928f-a371aaf82314
+ORCHESTRATION_ID=64ea5053-ea0f-49cd-b3fa-ea9deff07542
+HITL_REQUEST_ID=6f96e685-b925-4392-ad89-02a8a13f246c
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -356,9 +362,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=19c3da96-1a83-40f1-8424-9df13b8c96b4
-ORCHESTRATION_ID=21ad3810-d1f3-4e4f-8a4a-12d4feeb16e6
-HITL_REQUEST_ID=60087f9b-a337-48b0-8f3c-e3adf1814454
+CORRELATION_ID=12649363-695b-41f0-928f-a371aaf82314
+ORCHESTRATION_ID=64ea5053-ea0f-49cd-b3fa-ea9deff07542
+HITL_REQUEST_ID=1fa43b00-7e77-464f-aa65-0b97f9219876
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
