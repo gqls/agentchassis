@@ -303,17 +303,18 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 // This prevents the race condition in the original two-step check-then-mark pattern.
 func (r *StateRepository) ClaimAwaitedRequest(ctx context.Context, requestID string, claimerPodName string) (*AwaitedRequest, error) {
 	query := `
-		UPDATE awaited_requests
-		SET status = 'processing',
-		    processed_at = NOW()
-		WHERE request_id = $1
-		  AND status = 'waiting'
-		RETURNING 
-			request_id, orchestration_id, correlation_id, step_id, step_name,
-			retry_version, target_agent_id, target_agent_type,
-			responses_topic, requests_topic, sent_at, timeout_at,
-			reply_to_request_id, status, processed_at
-	`
+    UPDATE awaited_requests
+    SET status = 'processing',
+        processing_started_at = NOW(),
+        processing_pod = $2
+    WHERE request_id = $1
+      AND status = 'waiting'
+    RETURNING 
+        request_id, orchestration_id, correlation_id, step_id, step_name,
+        retry_version, target_agent_id, target_agent_type,
+        responses_topic, requests_topic, sent_at, timeout_at,
+        reply_to_request_id, status, processed_at
+`
 
 	record := &AwaitedRequest{}
 	var processedAt sql.NullTime
