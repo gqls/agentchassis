@@ -80,7 +80,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		return nil, fmt.Errorf("failed to setup topics: %w", err)
 	}
 
-	// 7. Spawn Kubernetes job - use existing function
+	// 7. Spawn Kubernetes job
 	jobName, err := spawnAgentKubernetesJobFromDefinition(
 		ctx,
 		agentID,

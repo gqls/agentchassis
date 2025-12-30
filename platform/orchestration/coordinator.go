@@ -212,20 +212,12 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		return s.handleProgressUpdate(ctx, state, execCtx)
 	}
 
-	awaitedReq, err := repo.ClaimAwaitedRequest(ctx, requestID, s.podName)
+	awaitedReq, err := processResponseClaimWithRetry(ctx, repo, requestID, s.podName, contextLogger)
 	if err != nil {
-		contextLogger.Error("Failed to claim awaited request",
-			zap.String("request_id", requestID),
-			zap.Error(err))
-		return fmt.Errorf("failed to claim awaited request: %w", err)
+		return err
 	}
-
-	// If nil, another worker already claimed this request - exit cleanly
 	if awaitedReq == nil {
-		contextLogger.Info("DUPLICATE_SKIPPED: request already claimed by another worker",
-			zap.String("request_id", requestID),
-			zap.String("my_pod", s.podName))
-		return nil // Not an error - just a duplicate we're correctly ignoring
+		return nil // Duplicate or orphaned - already logged
 	}
 
 	contextLogger.Info("CLAIM_SUCCESS: exclusively claimed request",
@@ -310,6 +302,67 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		contextLogger.Warn("Unknown response status", zap.String("status", execCtx.Status))
 		return nil
 	}
+}
+
+func processResponseClaimWithRetry(ctx context.Context, repo *StateRepository, requestID string, podName string, contextLogger *zap.Logger) (*AwaitedRequest, error) {
+	// Attempt to claim with retry for race condition
+	// (response may arrive before awaited_request is inserted)
+	var awaitedReq *AwaitedRequest
+	var err error
+	maxRetries := 5
+	retryDelay := 50 * time.Millisecond
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		awaitedReq, err = repo.ClaimAwaitedRequest(ctx, requestID, podName)
+		if err != nil {
+			contextLogger.Error("Failed to claim awaited request",
+				zap.String("request_id", requestID),
+				zap.Error(err))
+			return nil, fmt.Errorf("failed to claim awaited request: %w", err)
+		}
+
+		if awaitedReq != nil {
+			// Successfully claimed
+			contextLogger.Info("CLAIM_SUCCESS: exclusively claimed request",
+				zap.String("request_id", requestID),
+				zap.String("orchestration_id", awaitedReq.OrchestrationID),
+				zap.String("step_name", awaitedReq.StepName),
+				zap.Int("attempt", attempt+1))
+			return awaitedReq, nil
+		}
+
+		// awaitedReq is nil - could be:
+		// 1. Already claimed by another worker (actual duplicate)
+		// 2. Not inserted yet (race condition - response arrived before insert)
+
+		if attempt < maxRetries {
+			// Check if request exists at all (to distinguish race from duplicate)
+			exists, _ := repo.AwaitedRequestExists(ctx, requestID)
+			if exists {
+				// Request exists but was already claimed - this is a true duplicate
+				contextLogger.Info("DUPLICATE_SKIPPED: request exists but already claimed",
+					zap.String("request_id", requestID),
+					zap.String("my_pod", podName))
+				return nil, nil // Not an error, just skip
+			}
+
+			// Request doesn't exist yet - wait for it to be inserted (race condition)
+			contextLogger.Debug("Awaited request not found yet, retrying",
+				zap.String("request_id", requestID),
+				zap.Int("attempt", attempt+1),
+				zap.Int("max_retries", maxRetries),
+				zap.Duration("retry_delay", retryDelay))
+			time.Sleep(retryDelay)
+			retryDelay *= 2 // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
+		}
+	}
+
+	// If still nil after all retries
+	contextLogger.Info("RESPONSE_ORPHANED: awaited_request never found after retries",
+		zap.String("request_id", requestID),
+		zap.String("my_pod", podName),
+		zap.Int("total_wait_ms", 50+100+200+400+800)) // ~1.5 seconds total
+	return nil, nil
 }
 
 // ClaimAwaitedRequest atomically claims a request for processing.
@@ -2419,4 +2472,17 @@ func (r *StateRepository) MarkAwaitedRequestComplete(ctx context.Context, reques
     `
 	_, err := r.db.ExecContext(ctx, query, requestID)
 	return err
+}
+
+// AwaitedRequestExists checks if an awaited request exists (regardless of status)
+// Used to distinguish "not inserted yet" from "already claimed"
+func (r *StateRepository) AwaitedRequestExists(ctx context.Context, requestID string) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM awaited_requests WHERE request_id = $1)`
+
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, requestID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
