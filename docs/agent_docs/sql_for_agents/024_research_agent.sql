@@ -238,3 +238,38 @@ INSERT INTO agent_definitions (
                               updated_at = now();
 
 COMMIT;
+
+-------------
+
+-- FIX: research-agent template syntax
+-- ====================================
+-- Issues:
+-- 1. Missing dot prefixes on variable references
+-- 2. Handlebars syntax ({{#each}}, {{this.}}, {{@index}}) needs Go template syntax
+
+-- Fix build_search_query step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_search_query,config,prompt_template}',
+        '"Create a focused web search query to research:\n\nTopic: {{.extracted.topic}}\nIndustry: {{.extracted.industry}}\nCompany: {{.extracted.company}}\n\nReturn ONLY the search query string, 3-8 words, no quotes or operators.\nFocus on finding authoritative, recent information about this topic in this industry."'
+                     )
+WHERE type = 'research-agent';
+
+-- Fix synthesize step (convert Handlebars to Go template)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,synthesize,config,prompt_template}',
+        '"Synthesize research findings about: {{.extracted.topic}}\n\n## Sources\n{{range $index, $source := .fetched_sources}}\n[{{$index}}] {{$source.source.title}} ({{$source.source.domain}})\nQuotes: {{$source.extracted_data.quotes}}\nKey facts: {{$source.extracted_data.key_facts}}\nRelevance: {{$source.extracted_data.relevance}}\n{{end}}\n\n## Task\nWrite a synthesis of the key findings. Cite sources by number [0], [1], etc.\n\nReturn JSON:\n{\n  \"summary\": \"2-3 paragraph synthesis with [citations]\",\n  \"key_points\": [\"point 1 [0]\", \"point 2 [1,2]\"],\n  \"confidence\": 0.0-1.0\n}\n\nRules:\n- Every claim must have a citation\n- Be factual and objective\n- Note any conflicting information between sources"'
+                     )
+WHERE type = 'research-agent';
+
+-- Fix extract_quotes step (inside fetch_and_extract loop substeps)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,fetch_and_extract,config,substeps,extract_quotes,config,prompt_template}',
+        '"Extract 2-4 relevant quotes from this page about: {{.extracted.topic}}\n\nPage content (truncated):\n{{.page_content.text}}\n\nReturn JSON:\n{\n  \"quotes\": [\"exact quote 1\", \"exact quote 2\"],\n  \"relevance\": 0.0-1.0,\n  \"key_facts\": [\"fact 1\", \"fact 2\"]\n}\n\nOnly include quotes directly relevant to the topic. Rate relevance 0-1."'
+                     )
+WHERE type = 'research-agent';

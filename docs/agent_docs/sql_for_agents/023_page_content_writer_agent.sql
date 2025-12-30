@@ -236,3 +236,33 @@ INSERT INTO agent_definitions (
                               updated_at = now();
 
 COMMIT;
+
+----------------------
+
+-- FIX: page-content-writer template syntax
+-- =========================================
+-- Issues:
+-- 1. Missing dot prefixes on variable references
+-- 2. Handlebars syntax ({{#each}}, {{#if}}, {{this.}}, {{@index}}) needs Go template syntax
+
+-- Fix generate_content step (inside process_sections_loop substeps)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,substeps,generate_content,config,prompt_template}',
+        '"Write content for the {{.current_section.function}} section of {{.current_page.title}}.\n\n## Company Context\nCompany: {{.render_context.company_name}}\nIndustry: {{.render_context.industry}}\nTone: {{.render_context.tone}}\nTarget Audience: {{.render_context.target_audience}}\nServices: {{.reviewed_brief.services}}\n\n## Section Requirements\nComponent: {{.current_section.name}}\nPurpose: {{.current_section.description}}\n\n## Data Schema Required\n{{.current_section.input_schema}}\n\n{{if .research_result}}\n## Research Findings\n{{.research_result.summary}}\n\nSources:\n{{range $index, $src := .research_result.sources}}\n- [{{$index}}] {{$src.title}} ({{$src.domain}})\n{{end}}\n{{end}}\n\n## Task\nWrite compelling, specific content for this section.\n\nReturn JSON matching the input_schema. Example:\n```json\n{\n  \"headline\": \"Your Compelling Headline\",\n  \"body\": \"Engaging body content...\",\n  \"cta_text\": \"Call to Action\"\n}\n```\n\nRules:\n- No placeholder text like [Your Company] or Lorem ipsum\n- Be specific to this company and industry\n- Professional but engaging tone matching the brief\n- Include source citations [0], [1] if research was provided"'
+                     )
+WHERE type = 'page-content-writer';
+
+-- Verify page-content-writer fix
+SELECT 'page-content-writer' as agent,
+       'generate_content' as step,
+       CASE
+           WHEN default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'substeps'->'generate_content'->'config'->>'prompt_template' LIKE '%{{.current_section.%'
+           AND default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'substeps'->'generate_content'->'config'->>'prompt_template' LIKE '%{{if .research_result}}%'
+    AND default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'substeps'->'generate_content'->'config'->>'prompt_template' LIKE '%{{range%'
+    THEN 'FIXED'
+    ELSE 'NEEDS FIX'
+END as status
+FROM agent_definitions
+WHERE type = 'page-content-writer';

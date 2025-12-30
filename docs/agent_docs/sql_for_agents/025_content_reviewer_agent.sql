@@ -269,3 +269,33 @@ INSERT INTO agent_definitions (
                               updated_at = now();
 
 COMMIT;
+
+---
+
+-- FIX: content-reviewer template syntax
+-- ======================================
+-- Issues:
+-- 1. Missing dot prefixes on variable references
+-- 2. Handlebars syntax ({{#each}}, {{this.}}) needs Go template syntax
+
+-- Fix auto_eval_content step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,auto_eval_content,config,prompt_template}',
+        '"Review this page content for quality and accuracy.\n\n## Page\nName: {{.current_page.name}}\nTitle: {{.current_page.title}}\n\n## Company Brief\nCompany: {{.reviewed_brief.company_name}}\nIndustry: {{.reviewed_brief.industry}}\nTone: {{.reviewed_brief.tone}}\nServices: {{.reviewed_brief.services}}\n\n## Content to Review\n{{range .page_content.sections}}\n### Section: {{.component_name}}\n{{.rendered_html}}\n{{end}}\n\n## Evaluation Criteria\n1. Accuracy: Does content match the brief? No invented claims?\n2. Completeness: Are all sections filled in properly?\n3. Quality: Professional tone? No placeholder text?\n4. Brand Alignment: Matches company voice and values?\n5. Technical: Valid HTML? Proper structure?\n\n## Return JSON:\n```json\n{\n  \"approved\": true/false,\n  \"overall_score\": 0.0-1.0,\n  \"issues\": [\n    {\n      \"section\": \"hero\",\n      \"severity\": \"error|warning|info\",\n      \"issue\": \"Description of the issue\",\n      \"suggestion\": \"How to fix it\"\n    }\n  ],\n  \"strengths\": [\"Good point 1\", \"Good point 2\"],\n  \"summary\": \"Brief overall assessment\"\n}\n```\n\nApprove if:\n- No errors (warnings are OK)\n- Score >= 0.7\n- No placeholder text detected\n- Content matches brief"'
+                     )
+WHERE type = 'content-reviewer';
+
+-- Verify content-reviewer fix
+SELECT 'content-reviewer' as agent,
+       'auto_eval_content' as step,
+       CASE
+           WHEN default_config->'workflow'->'steps'->'auto_eval_content'->'config'->>'prompt_template' LIKE '%{{.current_page.%'
+           AND default_config->'workflow'->'steps'->'auto_eval_content'->'config'->>'prompt_template' LIKE '%{{range .page_content.sections}}%'
+    AND default_config->'workflow'->'steps'->'auto_eval_content'->'config'->>'prompt_template' LIKE '%{{.component_name}}%'
+    THEN 'FIXED'
+    ELSE 'NEEDS FIX'
+END as status
+FROM agent_definitions
+WHERE type = 'content-reviewer';
