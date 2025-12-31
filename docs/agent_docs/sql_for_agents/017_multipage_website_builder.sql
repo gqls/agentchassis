@@ -3159,7 +3159,7 @@ Replaces store_site_plan to use content_field: "site_plan" (singular) with merge
 
 The flow becomes: call_site_planner → store_reviewed_brief → store_site_plan → sync_pages_to_db
 
-                                                                             
+
 UPDATE agent_definitions
 SET default_config = jsonb_set(
         jsonb_set(
@@ -3197,3 +3197,16 @@ SET default_config = jsonb_set(
     updated_at = NOW()
 WHERE type = 'multipage-website-builder'
   AND version = 3;
+
+---
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_reviewed_brief,config,content_field}',
+        '"input_data.reviewed_brief"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'multipage-website-builder'
+  AND version = 3;
+
