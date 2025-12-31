@@ -1604,10 +1604,8 @@ func UpdatePageComponentsStatusAction(ctx context.Context, params ActionParams) 
 	}, nil
 }
 
-// ============================================================================
-// ACTION: load_page_section_components
-// ============================================================================
-
+// When call_agent passes input_fields, they arrive under input_data.*
+// This updated function checks both root and input_data locations
 func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("LoadPageSectionComponentsAction: Starting")
 
@@ -1622,8 +1620,18 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		pageField = pf
 	}
 
-	pageData := datahelpers.ExtractNestedField(params.CollectedData, pageField)
+	// Try to find page data with fallback to input_data
+	pageData := extractWithInputDataFallback(params.CollectedData, pageField, params.Logger)
+
 	if pageData == nil {
+		// Log available keys for debugging
+		keys := make([]string, 0, len(params.CollectedData))
+		for k := range params.CollectedData {
+			keys = append(keys, k)
+		}
+		params.Logger.Error("Page not found",
+			zap.String("page_field", pageField),
+			zap.Strings("available_keys", keys))
 		return nil, fmt.Errorf("page not found at '%s'", pageField)
 	}
 
@@ -1632,15 +1640,24 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		return nil, fmt.Errorf("page must be object")
 	}
 
+	params.Logger.Info("Found page data",
+		zap.String("page_field", pageField),
+		zap.Any("page_name", page["name"]),
+		zap.Any("page_title", page["title"]))
+
 	sectionsRaw := page["sections"]
 	if sectionsRaw == nil {
-		sectionsRaw = datahelpers.ExtractNestedField(params.CollectedData, "sections")
+		sectionsRaw = extractWithInputDataFallback(params.CollectedData, "sections", params.Logger)
 	}
 
 	sectionNames := datahelpers.ExtractSectionNamesHelper(sectionsRaw)
 	if len(sectionNames) == 0 {
+		params.Logger.Warn("No sections found for page")
 		return map[string]interface{}{"components": []interface{}{}, "count": 0, "from_database": false}, nil
 	}
+
+	params.Logger.Info("Loading components for sections",
+		zap.Strings("sections", sectionNames))
 
 	if params.DB != nil {
 		placeholders := make([]string, len(sectionNames))
@@ -1679,10 +1696,61 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			}
 			components = append(components, comp)
 		}
+
+		params.Logger.Info("Loaded components from database",
+			zap.Int("count", len(components)),
+			zap.Strings("requested", sectionNames))
+
 		return map[string]interface{}{"components": components, "count": len(components), "from_database": true, "requested": sectionNames}, nil
 	}
 
 	return map[string]interface{}{"components": sectionNames, "count": len(sectionNames), "from_database": false}, nil
+}
+
+// extractWithInputDataFallback tries multiple locations to find a field
+// Order: direct path -> input_data.{path} -> FindByPath helper
+func extractWithInputDataFallback(data map[string]interface{}, fieldPath string, logger *zap.Logger) interface{} {
+	// 1. Try direct path first
+	if result := datahelpers.ExtractNestedField(data, fieldPath); result != nil {
+		logger.Debug("Found field at direct path", zap.String("path", fieldPath))
+		return result
+	}
+
+	// 2. Try input_data.{fieldPath}
+	inputDataPath := "input_data." + fieldPath
+	if result := datahelpers.ExtractNestedField(data, inputDataPath); result != nil {
+		logger.Debug("Found field via input_data fallback", zap.String("path", inputDataPath))
+		return result
+	}
+
+	// 3. Try looking in input_data map directly (handles nested input_data)
+	if inputData, ok := data["input_data"].(map[string]interface{}); ok {
+		if result := datahelpers.ExtractNestedField(inputData, fieldPath); result != nil {
+			logger.Debug("Found field inside input_data map", zap.String("path", fieldPath))
+			return result
+		}
+	}
+
+	// 4. Try __raw_message__.body.input_data.{fieldPath} (deep nesting case)
+	if rawMsg, ok := data["__raw_message__"].(map[string]interface{}); ok {
+		if body, ok := rawMsg["body"].(map[string]interface{}); ok {
+			if inputData, ok := body["input_data"].(map[string]interface{}); ok {
+				if result := datahelpers.ExtractNestedField(inputData, fieldPath); result != nil {
+					logger.Debug("Found field in __raw_message__.body.input_data", zap.String("path", fieldPath))
+					return result
+				}
+			}
+		}
+	}
+
+	// 5. Last resort: use FindByPath which does recursive search
+	if result := datahelpers.FindByPath(data, fieldPath, logger); result != nil {
+		logger.Debug("Found field via FindByPath", zap.String("path", fieldPath))
+		return result
+	}
+
+	logger.Debug("Field not found anywhere", zap.String("path", fieldPath))
+	return nil
 }
 
 // ============================================================================

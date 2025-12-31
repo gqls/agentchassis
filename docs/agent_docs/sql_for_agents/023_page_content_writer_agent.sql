@@ -266,3 +266,86 @@ SELECT 'page-content-writer' as agent,
 END as status
 FROM agent_definitions
 WHERE type = 'page-content-writer';
+
+    ---
+
+amend paths to include input-data
+
+-- Update page-content-writer workflow to use correct paths
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_page_components,config,page_from}',
+        '"input_data.current_page"'
+                     )
+WHERE type = 'page-content-writer';
+
+-- Also update sections_from if it exists
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_page_components,config,sections_from}',
+        '"input_data.current_page.sections"'
+                     )
+WHERE type = 'page-content-writer';
+
+-- again
+-- ============================================================================
+-- Fix page-content-writer workflow to use input_data paths
+-- Database: clients_db
+-- ============================================================================
+--
+-- The issue: call_agent passes fields under input_data.{field}
+-- But actions expect them at root level
+-- This updates the workflow config to use correct paths
+-- ============================================================================
+
+BEGIN;
+
+-- 1. Fix load_page_components to look in input_data
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_page_components,config,page_from}',
+        '"input_data.current_page"'
+                     )
+WHERE type = 'page-content-writer';
+
+-- 2. Fix build_render_context sources to use input_data paths
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_render_context,config,sources}',
+        '{
+            "page": "input_data.current_page",
+            "site": "input_data.site_record",
+            "brief": "input_data.reviewed_brief",
+            "style": "input_data.style_collection",
+            "assets": "brand_assets"
+        }'::jsonb
+                     )
+WHERE type = 'page-content-writer';
+
+-- 3. Fix compile_page to use input_data path for page
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,compile_page,config,page_from}',
+        '"input_data.current_page"'
+                     )
+WHERE type = 'page-content-writer';
+
+-- 4. Fix the LLM prompt template references (inside process_sections_loop substeps)
+-- The prompt_template uses {{.current_page.title}} which needs to work
+-- This is harder to fix via SQL - the action-level fix handles this better
+
+COMMIT;
+
+-- Verify the changes
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'load_page_components'->'config'->>'page_from' as load_page_from,
+    default_config->'workflow'->'steps'->'build_render_context'->'config'->'sources'->>'page' as render_page_from,
+    default_config->'workflow'->'steps'->'compile_page'->'config'->>'page_from' as compile_page_from
+FROM agent_definitions
+WHERE type = 'page-content-writer';
