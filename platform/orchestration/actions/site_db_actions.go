@@ -547,11 +547,11 @@ func extractPagesFromPlan(data map[string]interface{}, logger *zap.Logger) []map
 	return pages
 }
 
-// extractPagesFromPagePlanMap extracts pages array from a page_plan map
+// extractPagesFromPagePlanMap extracts pages array from a page_plan or site_plan map
 func extractPagesFromPagePlanMap(pagePlan map[string]interface{}, logger *zap.Logger) []map[string]interface{} {
 	var pages []map[string]interface{}
 
-	// Try page_plan.plan_data.pages
+	// Try page_plan.plan_data.pages (v2 workflow format)
 	if planData, ok := pagePlan["plan_data"].(map[string]interface{}); ok {
 		if pagesArr, ok := planData["pages"].([]interface{}); ok {
 			for _, p := range pagesArr {
@@ -566,6 +566,40 @@ func extractPagesFromPagePlanMap(pagePlan map[string]interface{}, logger *zap.Lo
 				for _, s := range sectionsArr {
 					if sectionMap, ok := s.(map[string]interface{}); ok {
 						pages = append(pages, sectionMap)
+					}
+				}
+			}
+		}
+	}
+
+	// Try validated_plan.pages (v3 site-planner format)
+	if len(pages) == 0 {
+		if validatedPlan, ok := pagePlan["validated_plan"].(map[string]interface{}); ok {
+			if pagesArr, ok := validatedPlan["pages"].([]interface{}); ok {
+				for _, p := range pagesArr {
+					if pageMap, ok := p.(map[string]interface{}); ok {
+						pages = append(pages, pageMap)
+					}
+				}
+				if len(pages) > 0 {
+					logger.Info("Found pages in validated_plan.pages", zap.Int("count", len(pages)))
+				}
+			}
+		}
+	}
+
+	// Try llm_plan.result.pages (v3 site-planner raw LLM output)
+	if len(pages) == 0 {
+		if llmPlan, ok := pagePlan["llm_plan"].(map[string]interface{}); ok {
+			if result, ok := llmPlan["result"].(map[string]interface{}); ok {
+				if pagesArr, ok := result["pages"].([]interface{}); ok {
+					for _, p := range pagesArr {
+						if pageMap, ok := p.(map[string]interface{}); ok {
+							pages = append(pages, pageMap)
+						}
+					}
+					if len(pages) > 0 {
+						logger.Info("Found pages in llm_plan.result.pages", zap.Int("count", len(pages)))
 					}
 				}
 			}
