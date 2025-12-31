@@ -68,14 +68,16 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			// Generate unique step name: loopname_iter_N_substepname
 			injectedStepName := fmt.Sprintf("%s_iter_%d_%s", loopName, iterIdx, substepName)
 
-			// Clone the step
-			// Clone the step
+			// Clone and prefix step references in config
+			clonedConfig := cloneConfig(substep.Config)
+			prefixStepReferencesInConfig(clonedConfig, loopName, iterIdx, substepOrder)
+
 			injectedStep := models.Step{
 				Action:      substep.Action,
 				Description: fmt.Sprintf("[Iteration %d] %s", iterIdx, substep.Description),
-				OutputField: makeIterationOutputField(substep.OutputField, iterIdx), // â† FIX: Make unique
+				OutputField: makeIterationOutputField(substep.OutputField, iterIdx),
 				Topic:       substep.Topic,
-				Config:      cloneConfig(substep.Config),
+				Config:      clonedConfig,
 			}
 
 			// Determine next step
@@ -149,19 +151,6 @@ func (s *SagaCoordinator) handleLoopExpansion(
 	state.CurrentStep = firstStepName
 
 	return nil
-}
-
-// cloneConfig deep copies a config map
-func cloneConfig(config map[string]interface{}) map[string]interface{} {
-	if config == nil {
-		return make(map[string]interface{})
-	}
-
-	clone := make(map[string]interface{})
-	for k, v := range config {
-		clone[k] = v
-	}
-	return clone
 }
 
 // makeIterationOutputField makes output fields unique per iteration
@@ -278,4 +267,77 @@ func propagateIterationOutputs(state *OrchestrationState, iterIdx int, logger *z
 			}
 		}
 	}
+}
+
+// prefixStepReferencesInConfig updates step references in config to use iteration prefix
+// This handles then_step, else_step in conditionals, and any other step references
+func prefixStepReferencesInConfig(config map[string]interface{}, loopName string, iterIdx int, validSubsteps []string) {
+	if config == nil {
+		return
+	}
+
+	// Build a set of valid substep names for quick lookup
+	validSubstepSet := make(map[string]bool)
+	for _, name := range validSubsteps {
+		validSubstepSet[name] = true
+	}
+
+	// Fields that contain step references
+	stepRefFields := []string{"then_step", "else_step", "error_step", "fallback_step", "retry_step"}
+
+	for _, field := range stepRefFields {
+		if stepName, ok := config[field].(string); ok && stepName != "" {
+			// Only prefix if it's a reference to a substep in our loop
+			if validSubstepSet[stepName] {
+				prefixedName := fmt.Sprintf("%s_iter_%d_%s", loopName, iterIdx, stepName)
+				config[field] = prefixedName
+			}
+			// If it's not a valid substep, leave it alone (might be external step)
+		}
+	}
+
+	// Also check for nested configs (like in some complex actions)
+	for _, value := range config {
+		if nestedConfig, ok := value.(map[string]interface{}); ok {
+			prefixStepReferencesInConfig(nestedConfig, loopName, iterIdx, validSubsteps)
+		}
+	}
+}
+
+// cloneConfig deep copies a config map
+func cloneConfig(src map[string]interface{}) map[string]interface{} {
+	if src == nil {
+		return nil
+	}
+
+	dst := make(map[string]interface{})
+	for k, v := range src {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			dst[k] = cloneConfig(val) // Deep clone nested maps
+		case []interface{}:
+			dst[k] = cloneSlice(val) // Deep clone slices
+		default:
+			dst[k] = v // Primitives are copied by value
+		}
+	}
+	return dst
+}
+
+func cloneSlice(src []interface{}) []interface{} {
+	if src == nil {
+		return nil
+	}
+	dst := make([]interface{}, len(src))
+	for i, v := range src {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			dst[i] = cloneConfig(val)
+		case []interface{}:
+			dst[i] = cloneSlice(val)
+		default:
+			dst[i] = v
+		}
+	}
+	return dst
 }
