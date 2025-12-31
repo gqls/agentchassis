@@ -12,9 +12,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Loop Action Implementation
-// This action dynamically expands substeps into the workflow for each iteration
-
 // LoopAction executes substeps for each item in a collection
 // It dynamically injects steps into the workflow plan for async execution
 func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {

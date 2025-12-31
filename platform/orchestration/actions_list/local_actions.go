@@ -68,6 +68,7 @@ var LocalActions = map[string]bool{
 	// Site and Link Management (Database Integration)
 	"ensure_site_record":     true,
 	"sync_pages_to_db":       true,
+	"get_pages_to_build":     true,
 	"extract_and_sync_links": true,
 	"update_site_timestamps": true,
 	"get_navigation_from_db": true,

@@ -42,3 +42,60 @@ SELECT
 FROM agent_definitions
 WHERE type LIKE '%multipage%' OR type LIKE '%pageflow%'
 ORDER BY type, version;
+
+---
+
+-- ============================================================================
+-- WORKFLOW UPDATE: Add get_pages_to_build step to pageflow-builder
+-- Database: clients_db (agent_definitions table)
+-- NOTE: Uses 'type' column (not 'agent_type')
+-- ============================================================================
+
+BEGIN;
+
+-- 1. Update set_default_components to point to new step instead of build_pages_loop
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,set_default_components,next_step}',
+        '"get_pages_to_build"'
+                     )
+WHERE type = 'pageflow-builder';
+
+-- 2. Add the new get_pages_to_build step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,get_pages_to_build}',
+        '{
+            "action": "get_pages_to_build",
+            "description": "Query pages from database that need content generation",
+            "config": {
+                "build_statuses": ["planned", "needs_rebuild"],
+                "include_all": false
+            },
+            "output_field": "pages_to_build",
+            "next_step": "build_pages_loop"
+        }'::jsonb
+                     )
+WHERE type = 'pageflow-builder';
+
+-- 3. Update build_pages_loop to use pages from the new step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,items_field}',
+        '"pages_to_build.pages"'
+                     )
+WHERE type = 'pageflow-builder';
+
+COMMIT;
+
+-- Verify the changes
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'set_default_components'->>'next_step' as set_defaults_next,
+    default_config->'workflow'->'steps'->'get_pages_to_build'->>'action' as new_step_action,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->>'items_field' as loop_items_field
+FROM agent_definitions
+WHERE type = 'pageflow-builder';

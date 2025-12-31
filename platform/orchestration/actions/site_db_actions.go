@@ -841,15 +841,25 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 	inFooter := datahelpers.GetBoolField(page, "in_footer", true)
 	metaDescription := datahelpers.GetStringField(page, "meta_description", "")
 
-	// Special handling for privacy/terms pages
+	// Extract and serialize sections array from site plan
+	var sectionsJSON []byte
+	if sections, ok := page["sections"].([]interface{}); ok && len(sections) > 0 {
+		sectionsJSON, _ = json.Marshal(sections)
+	} else if sections, ok := page["sections"].([]string); ok && len(sections) > 0 {
+		sectionsJSON, _ = json.Marshal(sections)
+	} else {
+		sectionsJSON = []byte("[]")
+	}
+
+	// Special handling for privacy/terms pages (EXISTING CODE - UNCHANGED)
 	if strings.Contains(name, "privacy") || strings.Contains(name, "terms") {
 		inHeader = false
 		inFooter = true
 	}
 
 	query := `
-		INSERT INTO pages (site_id, name, url, title, page_type, nav_label, nav_order, in_header, in_footer, meta_description, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active')
+		INSERT INTO pages (site_id, name, url, title, page_type, nav_label, nav_order, in_header, in_footer, meta_description, sections, build_status, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'planned', 'active')
 		ON CONFLICT (site_id, name) DO UPDATE SET
 			url = EXCLUDED.url,
 			title = EXCLUDED.title,
@@ -859,6 +869,12 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 			in_header = EXCLUDED.in_header,
 			in_footer = EXCLUDED.in_footer,
 			meta_description = EXCLUDED.meta_description,
+			sections = EXCLUDED.sections,
+			build_status = CASE 
+				WHEN pages.build_status = 'deployed' THEN 'needs_rebuild'
+				WHEN pages.build_status IS NULL THEN 'planned'
+				ELSE pages.build_status
+			END,
 			updated_at = NOW()
 		RETURNING id, site_id, name, url, title, page_type, nav_label, nav_order, in_header, in_footer, status
 	`
@@ -868,7 +884,7 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 	switch d := db.(type) {
 	case *sql.DB:
 		err := d.QueryRowContext(ctx, query,
-			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription,
+			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription, sectionsJSON, // Added sectionsJSON
 		).Scan(
 			&pageRecord.ID, &pageRecord.SiteID, &pageRecord.Name, &pageRecord.URL,
 			&pageRecord.Title, &pageRecord.PageType, &pageRecord.NavLabel, &pageRecord.NavOrder,
@@ -879,7 +895,7 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 		}
 	case *pgxpool.Pool:
 		err := d.QueryRow(ctx, query,
-			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription,
+			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription, sectionsJSON, // Added sectionsJSON
 		).Scan(
 			&pageRecord.ID, &pageRecord.SiteID, &pageRecord.Name, &pageRecord.URL,
 			&pageRecord.Title, &pageRecord.PageType, &pageRecord.NavLabel, &pageRecord.NavOrder,
@@ -891,6 +907,12 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 	default:
 		return nil, fmt.Errorf("unsupported database type: %T", db)
 	}
+
+	logger.Debug("Page upserted",
+		zap.String("page_id", pageRecord.ID.String()),
+		zap.String("name", pageRecord.Name),
+		zap.Int("sections_bytes", len(sectionsJSON)),
+	)
 
 	return &pageRecord, nil
 }

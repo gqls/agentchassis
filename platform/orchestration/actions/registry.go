@@ -78,6 +78,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	// Site and Link Management (Database Integration)
 	"ensure_site_record":     EnsureSiteRecordAction,
 	"sync_pages_to_db":       SyncPagesToDBAction,
+	"get_pages_to_build":     GetPagesToBuildAction,
 	"extract_and_sync_links": ExtractAndSyncLinksAction,
 	"update_site_timestamps": UpdateSiteTimestampsAction,
 	"get_navigation_from_db": GetNavigationFromDBAction,
