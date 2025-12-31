@@ -515,28 +515,35 @@ func extractSiteID(data map[string]interface{}, logger *zap.Logger) string {
 func extractPagesFromPlan(data map[string]interface{}, logger *zap.Logger) []map[string]interface{} {
 	var pages []map[string]interface{}
 
-	// Use unified extractor to get page_plan
-	extracted := datahelpers.ExtractFields(data, []string{"page_plan"}, logger)
+	// Try multiple field names: page_plan (old) and site_plan (new v3 workflow)
+	fieldNames := []string{"page_plan", "site_plan"}
 
-	// Try extracted page_plan first
-	if pagePlan, ok := extracted["page_plan"].(map[string]interface{}); ok {
-		pages = extractPagesFromPagePlanMap(pagePlan, logger)
-		if len(pages) > 0 {
-			logger.Info("Extracted pages via unified extractor", zap.Int("count", len(pages)))
-			return pages
+	for _, fieldName := range fieldNames {
+		extracted := datahelpers.ExtractFields(data, []string{fieldName}, logger)
+
+		if planMap, ok := extracted[fieldName].(map[string]interface{}); ok {
+			pages = extractPagesFromPagePlanMap(planMap, logger)
+			if len(pages) > 0 {
+				logger.Info("Extracted pages via unified extractor",
+					zap.String("field", fieldName),
+					zap.Int("count", len(pages)))
+				return pages
+			}
+		}
+
+		// Fallback: Try direct lookup in collected data
+		if planMap, ok := data[fieldName].(map[string]interface{}); ok {
+			pages = extractPagesFromPagePlanMap(planMap, logger)
+			if len(pages) > 0 {
+				logger.Info("Extracted pages from direct field",
+					zap.String("field", fieldName),
+					zap.Int("count", len(pages)))
+				return pages
+			}
 		}
 	}
 
-	// Fallback: Try direct page_plan in collected data
-	if pagePlan, ok := data["page_plan"].(map[string]interface{}); ok {
-		pages = extractPagesFromPagePlanMap(pagePlan, logger)
-		if len(pages) > 0 {
-			logger.Info("Extracted pages from direct page_plan", zap.Int("count", len(pages)))
-			return pages
-		}
-	}
-
-	logger.Warn("No pages found in page_plan")
+	logger.Warn("No pages found in page_plan or site_plan")
 	return pages
 }
 

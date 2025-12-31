@@ -3210,3 +3210,17 @@ SET default_config = jsonb_set(
 WHERE type = 'multipage-website-builder'
   AND version = 3;
 
+---
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,sync_pages_to_db,config}',
+        '{
+            "input_fields": ["site_record", "site_plan"]
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'multipage-website-builder'
+  AND version = 3;
+
