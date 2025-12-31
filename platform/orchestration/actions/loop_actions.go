@@ -1,6 +1,3 @@
-// Loop Action Implementation
-// This action dynamically expands substeps into the workflow for each iteration
-
 package actions
 
 import (
@@ -15,6 +12,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// Loop Action Implementation
+// This action dynamically expands substeps into the workflow for each iteration
+
 // LoopAction executes substeps for each item in a collection
 // It dynamically injects steps into the workflow plan for async execution
 func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -25,17 +25,29 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 
 	logger.Info("Starting loop action")
 
-	// 1. Extract configuration
+	// 1. Extract configuration - supports both naming conventions
+	// Workflow definitions use: items_field, item_variable, sub_workflow
+	// Original loop action used: iterate_over, loop_var, substeps
 	config := params.StepConfig.Config
 
+	// Get iterate_over path (supports both 'iterate_over' and 'items_field')
 	iterateOverPath, ok := config["iterate_over"].(string)
 	if !ok || iterateOverPath == "" {
-		return nil, fmt.Errorf("loop action requires 'iterate_over' field")
+		// Fallback to items_field (used by workflow definitions)
+		iterateOverPath, ok = config["items_field"].(string)
+		if !ok || iterateOverPath == "" {
+			return nil, fmt.Errorf("loop action requires 'iterate_over' or 'items_field' field")
+		}
 	}
 
+	// Get loop variable name (supports both 'loop_var' and 'item_variable')
 	loopVar, ok := config["loop_var"].(string)
 	if !ok || loopVar == "" {
-		loopVar = "loop_item" // default
+		// Fallback to item_variable (used by workflow definitions)
+		loopVar, ok = config["item_variable"].(string)
+		if !ok || loopVar == "" {
+			loopVar = "loop_item" // default
+		}
 	}
 
 	maxIterations := 20 // default safety limit
@@ -43,9 +55,25 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 		maxIterations = int(max)
 	}
 
-	substepsConfig, ok := config["substeps"].(map[string]interface{})
+	// Get substeps (supports both 'substeps' and 'sub_workflow.steps')
+	var substepsConfig map[string]interface{}
+	var startStep string
+
+	substepsConfig, ok = config["substeps"].(map[string]interface{})
 	if !ok || len(substepsConfig) == 0 {
-		return nil, fmt.Errorf("loop action requires 'substeps' field")
+		// Fallback to sub_workflow structure (used by workflow definitions)
+		if subWorkflow, swOk := config["sub_workflow"].(map[string]interface{}); swOk {
+			if steps, stepsOk := subWorkflow["steps"].(map[string]interface{}); stepsOk {
+				substepsConfig = steps
+			}
+			if ss, ssOk := subWorkflow["start_step"].(string); ssOk {
+				startStep = ss
+			}
+		}
+
+		if len(substepsConfig) == 0 {
+			return nil, fmt.Errorf("loop action requires 'substeps' or 'sub_workflow.steps' field")
+		}
 	}
 
 	logger.Info("Loop configuration",
@@ -53,6 +81,7 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 		zap.String("loop_var", loopVar),
 		zap.Int("max_iterations", maxIterations),
 		zap.Int("substep_count", len(substepsConfig)),
+		zap.String("start_step", startStep),
 	)
 
 	// 2. Get the collection to iterate over
@@ -87,7 +116,7 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	)
 
 	// 3. Parse substeps into Step structs
-	substeps, substepOrder, err := parseSubsteps(substepsConfig, logger)
+	substeps, substepOrder, err := parseSubsteps(substepsConfig, startStep, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse substeps: %w", err)
 	}
@@ -249,7 +278,7 @@ func extractPageNameFromItem(item interface{}) string {
 }
 
 // parseSubsteps converts substep config into Step structs
-func parseSubsteps(substepsConfig map[string]interface{}, logger *zap.Logger) (map[string]models.Step, []string, error) {
+func parseSubsteps(substepsConfig map[string]interface{}, startStep string, logger *zap.Logger) (map[string]models.Step, []string, error) {
 	substeps := make(map[string]models.Step)
 
 	// First pass: parse all substeps
@@ -277,7 +306,7 @@ func parseSubsteps(substepsConfig map[string]interface{}, logger *zap.Logger) (m
 	}
 
 	// Second pass: build correct order by following next_step links
-	order := buildSubstepOrder(substeps, logger)
+	order := buildSubstepOrder(substeps, startStep, logger)
 
 	logger.Info("Parsed substeps",
 		zap.Int("count", len(substeps)),
@@ -287,21 +316,34 @@ func parseSubsteps(substepsConfig map[string]interface{}, logger *zap.Logger) (m
 	return substeps, order, nil
 }
 
-// Build order by following next_step links
-func buildSubstepOrder(substeps map[string]models.Step, logger *zap.Logger) []string {
-	// Find the first step (one with no incoming next_step references)
-	hasIncoming := make(map[string]bool)
-	for _, step := range substeps {
-		if step.NextStep != "" {
-			hasIncoming[step.NextStep] = true
+// Build order by following next_step links, using explicit start_step if provided
+func buildSubstepOrder(substeps map[string]models.Step, startStep string, logger *zap.Logger) []string {
+	var firstStep string
+
+	// Use explicit start_step if provided (from sub_workflow.start_step)
+	if startStep != "" {
+		if _, exists := substeps[startStep]; exists {
+			firstStep = startStep
+		} else {
+			logger.Warn("Specified start_step not found in substeps, will auto-detect",
+				zap.String("start_step", startStep))
 		}
 	}
 
-	var firstStep string
-	for name := range substeps {
-		if !hasIncoming[name] {
-			firstStep = name
-			break
+	// If no explicit start or it wasn't found, find first step by looking for one with no incoming references
+	if firstStep == "" {
+		hasIncoming := make(map[string]bool)
+		for _, step := range substeps {
+			if step.NextStep != "" {
+				hasIncoming[step.NextStep] = true
+			}
+		}
+
+		for name := range substeps {
+			if !hasIncoming[name] {
+				firstStep = name
+				break
+			}
 		}
 	}
 
