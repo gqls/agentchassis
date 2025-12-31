@@ -128,3 +128,64 @@ SELECT column_name, data_type, column_default
 FROM information_schema.columns
 WHERE table_name = 'pages'
   AND column_name IN ('build_status', 'sections', 'version');
+
+
+----
+
+
+-- ============================================================================
+-- Migration: Revert pages table to minimal pageflow structure
+-- Database: clients_db
+-- ============================================================================
+--
+-- Removes extra columns that were added but aren't needed
+-- (content lives in page_components table, not directly on pages)
+--
+-- Target structure keeps only:
+--   - Original columns from 002_links_clients_networks_etc_tables.sql
+--   - build_status (workflow tracking)
+--   - sections (planning reference)
+--   - version (rebuild detection)
+-- ============================================================================
+
+BEGIN;
+
+-- 1. Drop columns that belong in page_components or aren't needed
+ALTER TABLE pages DROP COLUMN IF EXISTS deploy_commit;
+ALTER TABLE pages DROP COLUMN IF EXISTS deployed_at;
+ALTER TABLE pages DROP COLUMN IF EXISTS content_data;
+ALTER TABLE pages DROP COLUMN IF EXISTS html;
+ALTER TABLE pages DROP COLUMN IF EXISTS last_modified_by;
+ALTER TABLE pages DROP COLUMN IF EXISTS content_generated_at;
+ALTER TABLE pages DROP COLUMN IF EXISTS reviewed_at;
+
+-- 2. Fix build_status type and default
+-- First drop the index that depends on it
+DROP INDEX IF EXISTS idx_pages_needs_build;
+DROP INDEX IF EXISTS idx_pages_build_status;
+
+-- Change type from TEXT to VARCHAR(50) and fix default
+ALTER TABLE pages
+ALTER COLUMN build_status TYPE VARCHAR(50),
+ALTER COLUMN build_status SET DEFAULT 'planned';
+
+-- Update existing values if needed
+UPDATE pages SET build_status = 'planned' WHERE build_status = 'pending';
+UPDATE pages SET build_status = 'deployed' WHERE build_status IS NULL AND last_built_at IS NOT NULL;
+UPDATE pages SET build_status = 'planned' WHERE build_status IS NULL;
+
+-- 3. Recreate indexes with correct types
+CREATE INDEX idx_pages_build_status ON pages(site_id, build_status);
+
+CREATE INDEX idx_pages_needs_build ON pages(site_id)
+    WHERE build_status IN ('planned', 'needs_rebuild');
+
+-- 4. Add comments
+COMMENT ON COLUMN pages.build_status IS 'Workflow state: planned, writing_content, content_ready, building_html, deployed, needs_rebuild';
+COMMENT ON COLUMN pages.sections IS 'Array of section names from site plan - actual content in page_components table';
+COMMENT ON COLUMN pages.version IS 'Page version for rebuild detection';
+
+COMMIT;
+
+-- Verify final structure
+\d pages
