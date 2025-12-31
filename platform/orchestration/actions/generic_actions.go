@@ -156,7 +156,7 @@ func HTTPRequestAction(ctx context.Context, params ActionParams) (interface{}, e
 }
 
 // ConditionalBranchAction provides if/then/else logic in workflows
-func ConditionalBranchAction(ctx context.Context, params ActionParams) (interface{}, error) {
+func ConditionalBranchActionOld(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 
 	condition, _ := config["condition"].(map[string]interface{})

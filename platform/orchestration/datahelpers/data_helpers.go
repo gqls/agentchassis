@@ -1525,3 +1525,38 @@ func ExtractStringListHelper(val interface{}) []string {
 	}
 	return result
 }
+
+// Helper function to convert interface{} to float64
+func ToFloat64(v interface{}) (float64, bool) {
+	switch val := v.(type) {
+	case float64:
+		return val, true
+	case int:
+		return float64(val), true
+	case int64:
+		return float64(val), true
+	case int32:
+		return float64(val), true
+	case float32:
+		return float64(val), true
+	default:
+		return 0, false
+	}
+}
+
+func ToInt64(v interface{}) (int64, bool) {
+	switch val := v.(type) {
+	case float64:
+		return int64(val), true
+	case int:
+		return int64(val), true
+	case int64:
+		return val, true
+	case int32:
+		return int64(val), true
+	case float32:
+		return int64(val), true
+	default:
+		return 0, false
+	}
+}

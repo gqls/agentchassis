@@ -278,9 +278,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=fc6ddf3e-c274-42c2-95e0-6cf25438897c
-ORCHESTRATION_ID=8bbadbfe-7575-4a98-878a-b2ba3d08f156
-HITL_REQUEST_ID=076ab74a-5c7b-4329-8942-9f61acf561ec
+CORRELATION_ID=0e2f6b7e-a4d5-4367-a75e-5c13a216abe1
+ORCHESTRATION_ID=4de82761-a615-43f9-bae8-fbb9ca3f3ba5
+HITL_REQUEST_ID=8dbb9c5d-627d-4b6c-9d96-c6a055c0c013
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -314,7 +314,7 @@ kcat -P \
 -H sender_agent_type=human \
 -H sender_agent_id=cli-user \
 -H timestamp=$TIMESTAMP <<JSON
-{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"site_type":"brochure","recommended_builder":"multipage-website-builder","status":"confirmed","message":"Site type confirmed by user"}}
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"site_type":"brochure","recommended_builder":"pageflow-builder","status":"confirmed","message":"Site type confirmed by user"}}
 JSON
 
 echo ""
@@ -345,6 +345,8 @@ kubectl logs -n default -l app=agent-chassis --tail=200 | \
 
 this one made it into a content-site-builder
 {"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"site_type":"brochure","recommended_builder":"content-site-builder","status":"confirmed","message":"Site type confirmed by user"}}
+this one was multipage-website-builder
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"site_type":"brochure","recommended_builder":"multipage-website-builder","status":"confirmed","message":"Site type confirmed by user"}}
 
 ====================
 ====================
@@ -362,9 +364,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=fc6ddf3e-c274-42c2-95e0-6cf25438897c
-ORCHESTRATION_ID=8bbadbfe-7575-4a98-878a-b2ba3d08f156
-HITL_REQUEST_ID=6cc2cc52-7c91-4924-b76d-300d98eec8b8
+CORRELATION_ID=0e2f6b7e-a4d5-4367-a75e-5c13a216abe1
+ORCHESTRATION_ID=4de82761-a615-43f9-bae8-fbb9ca3f3ba5
+HITL_REQUEST_ID=8d154639-b446-4226-9bc9-982d82c9b159
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"

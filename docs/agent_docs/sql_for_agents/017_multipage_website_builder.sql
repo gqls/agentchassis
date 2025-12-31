@@ -3224,3 +3224,103 @@ SET default_config = jsonb_set(
 WHERE type = 'multipage-website-builder'
   AND version = 3;
 
+--
+
+fix conditionals - now accept strings as well as objects
+
+    -- Fix conditional steps in multipage-website-builder v3
+-- The conditions now use string expressions with correct dotted paths
+
+-- Fix check_assets_needed: check needs_logo OR needs_images
+-- Path is site_plan.validated_plan.needs_logo (the action also does recursive search as fallback)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_assets_needed,config}',
+        '{
+            "condition": "site_plan.validated_plan.needs_logo == true OR site_plan.validated_plan.needs_images == true",
+            "then_step": "spawn_image_generator",
+            "else_step": "select_style_collection"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'multipage-website-builder'
+  AND version = 3;
+
+-- Fix check_hero_images: check needs_images AND hero_home prompt exists
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_hero_images,config}',
+        '{
+            "condition": "site_plan.validated_plan.needs_images == true",
+            "then_step": "generate_hero_image",
+            "else_step": "select_style_collection"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'multipage-website-builder'
+  AND version = 3;
+
+-- Verify the changes
+SELECT
+    type,
+    version,
+    default_config->'workflow'->'steps'->'check_assets_needed'->'config' as check_assets_config,
+    default_config->'workflow'->'steps'->'check_hero_images'->'config' as check_hero_config
+FROM agent_definitions
+WHERE type = 'multipage-website-builder'
+  AND version = 3;
+
+
+
+
+
+== change to pageflow-builder
+CHANGED ....................................
+
+-- Rename multipage-website-builder v3 to pageflow-builder
+-- This is a distinct architecture: component-based, spawns specialists, builds pages one at a time
+
+-- Step 1: Update the agent definition
+UPDATE agent_definitions
+SET
+    type = 'pageflow-builder',
+    display_name = 'PageFlow Builder',
+    description = 'Component-based website builder. Spawns specialist agents (planner, content writer, reviewer, deployer), uses DB components for structure, LLM only for content. Builds and deploys pages one at a time.',
+    version = 1,  -- Reset to v1 since it's a new type
+    updated_at = NOW()
+WHERE type = 'multipage-website-builder'
+  AND version = 3;
+
+-- Step 2: Verify the rename worked
+SELECT
+    id,
+    type,
+    version,
+    display_name,
+    description,
+    is_active,
+    status
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Step 3: Check that intake-orchestrator will find it (matches %-builder pattern)
+SELECT
+    type,
+    display_name,
+    description
+FROM agent_definitions
+WHERE type LIKE '%-builder'
+  AND is_active = true
+ORDER BY type;
+
+-- Step 4: Verify there's no conflict with old multipage-website-builder entries
+SELECT
+    type,
+    version,
+    display_name,
+    is_active
+FROM agent_definitions
+WHERE type LIKE '%multipage%' OR type LIKE '%pageflow%'
+ORDER BY type, version;
