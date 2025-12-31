@@ -349,3 +349,38 @@ SELECT
     default_config->'workflow'->'steps'->'compile_page'->'config'->>'page_from' as compile_page_from
 FROM agent_definitions
 WHERE type = 'page-content-writer';
+
+
+---
+
+fix path
+
+-- ============================================================================
+-- Fix page-content-writer process_sections_loop iterate_over path
+-- Database: clients_db
+-- ============================================================================
+--
+-- The issue: load_page_components returns {components: [...], count: N}
+-- But iterate_over points to "section_components" (the whole object)
+-- Should point to "section_components.components" (the array)
+-- ============================================================================
+
+BEGIN;
+
+-- Fix the iterate_over path in process_sections_loop
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,iterate_over}',
+        '"section_components.components"'
+                     )
+WHERE type = 'page-content-writer';
+
+COMMIT;
+
+-- Verify the change
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'process_sections_loop'->'config'->>'iterate_over' as iterate_over
+FROM agent_definitions
+WHERE type = 'page-content-writer';
