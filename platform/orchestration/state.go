@@ -131,6 +131,9 @@ type OrchestrationState struct {
 
 	FuelBudget int `db:"fuel_budget"`
 
+	StepExecutionCount int      `json:"step_execution_count"`
+	RecentSteps        []string `json:"recent_steps,omitempty"`
+
 	// Error handling
 	Error string `db:"error"`
 

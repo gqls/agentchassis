@@ -44,6 +44,12 @@ func (s *SagaCoordinator) handleLoopExpansion(
 		zap.Int("substeps_per_iteration", len(substepOrder)),
 	)
 
+	// Build a set of valid substep names for quick lookup
+	validSubstepSet := make(map[string]bool)
+	for name := range substepsMap {
+		validSubstepSet[name] = true
+	}
+
 	// Initialize loop metadata in CollectedData
 	loopMetadata := map[string]interface{}{
 		"loop_name":         loopName,
@@ -56,22 +62,28 @@ func (s *SagaCoordinator) handleLoopExpansion(
 	// Inject steps for each iteration
 	firstStepName := ""
 
+	// Identify the first substep (from substepOrder[0])
+	firstSubstepInOrder := ""
+	if len(substepOrder) > 0 {
+		firstSubstepInOrder = substepOrder[0]
+	}
+
 	for iterIdx, item := range items {
 		logger.Debug("Creating iteration steps",
 			zap.Int("iteration", iterIdx),
 		)
 
 		// Create steps for this iteration
-		for substepIdx, substepName := range substepOrder {
+		for _, substepName := range substepOrder {
 			substep := substepsMap[substepName]
 
 			// Generate unique step name: loopname_iter_N_substepname
 			injectedStepName := fmt.Sprintf("%s_iter_%d_%s", loopName, iterIdx, substepName)
 
-			// Clone and prefix step references in config
-			clonedConfig := cloneConfig(substep.Config)
-			prefixStepReferencesInConfig(clonedConfig, loopName, iterIdx, substepOrder)
+			// Deep clone the config to avoid mutating the original
+			clonedConfig := deepCloneConfig(substep.Config)
 
+			// Clone the step
 			injectedStep := models.Step{
 				Action:      substep.Action,
 				Description: fmt.Sprintf("[Iteration %d] %s", iterIdx, substep.Description),
@@ -80,19 +92,24 @@ func (s *SagaCoordinator) handleLoopExpansion(
 				Config:      clonedConfig,
 			}
 
-			// Determine next step
-			if substepIdx < len(substepOrder)-1 {
-				// Next substep in same iteration
-				nextSubstepName := substepOrder[substepIdx+1]
-				injectedStep.NextStep = fmt.Sprintf("%s_iter_%d_%s", loopName, iterIdx, nextSubstepName)
-			} else if iterIdx < len(items)-1 {
-				// First substep of next iteration
-				nextIterFirstSubstep := substepOrder[0]
-				injectedStep.NextStep = fmt.Sprintf("%s_iter_%d_%s", loopName, iterIdx+1, nextIterFirstSubstep)
-			} else {
-				// Last substep of last iteration -> complete step
-				injectedStep.NextStep = fmt.Sprintf("%s_complete", loopName)
-			}
+			// =====================================================
+			// Properly resolve NextStep based on workflow definition
+			// =====================================================
+			injectedStep.NextStep = resolveIterationNextStep(
+				substep.NextStep,
+				loopName,
+				iterIdx,
+				len(items),
+				firstSubstepInOrder,
+				validSubstepSet,
+				logger,
+			)
+
+			// =====================================================
+			// Also prefix config fields that reference other steps
+			// This handles conditionals (then_step, else_step) and other step refs
+			// =====================================================
+			prefixConfigStepReferences(injectedStep.Config, loopName, iterIdx, validSubstepSet)
 
 			// Add iteration context to config
 			if injectedStep.Config == nil {
@@ -100,16 +117,12 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			}
 			injectedStep.Config["loop_iteration"] = iterIdx
 			injectedStep.Config["loop_item_index"] = iterIdx
-
-			// Store the current item in a field accessible by substeps
-			// We'll set this in CollectedData before executing
 			injectedStep.Config["loop_var_name"] = loopVar
 
-			// Track first and last step names
-			if iterIdx == 0 && substepIdx == 0 {
+			// Track first step name
+			if iterIdx == 0 && substepName == substepOrder[0] {
 				firstStepName = injectedStepName
 			}
-			//lastStepName = injectedStep.NextStep
 
 			// Inject into workflow plan
 			state.WorkflowPlan.Steps[injectedStepName] = injectedStep
@@ -117,12 +130,12 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			logger.Debug("Injected step",
 				zap.String("step_name", injectedStepName),
 				zap.String("action", injectedStep.Action),
-				zap.String("next_step", injectedStep.NextStep),
+				zap.String("original_next_step", substep.NextStep),
+				zap.String("resolved_next_step", injectedStep.NextStep),
 			)
 		}
 
 		// Store item in a predictable location for this iteration
-		// We'll set it in CollectedData when we reach each iteration
 		itemKey := fmt.Sprintf("%s_item_%d", loopName, iterIdx)
 		state.CollectedData[itemKey] = item
 	}

@@ -32,6 +32,10 @@ const (
 	StuckOrchestrationTimeout = 5 * time.Minute
 	// Default request timeout
 	//DefaultRequestTimeout = 180 * time.Second
+	// MaxStepExecutions is the circuit breaker limit - if exceeded, abort
+	MaxStepExecutions = 200
+	// RecentStepsWindow is how many steps to track for cycle detection
+	RecentStepsWindow = 15
 )
 
 var (
@@ -715,6 +719,16 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 	)
 
 	repo := NewStateRepository(s.db, s.logger)
+
+	// check for loop
+	if err := s.checkCircuitBreaker(state, s.logger); err != nil {
+		state.Status = "FAILED"
+		state.Error = err.Error()
+		if saveErr := repo.UpdateState(ctx, state); saveErr != nil {
+			s.logger.Error("Failed to save circuit breaker state", zap.Error(saveErr))
+		}
+		return err
+	}
 
 	// This initial check remains outside the loop. If the function is called
 	// on a state that's already waiting, we should exit immediately.
@@ -2485,4 +2499,186 @@ func (r *StateRepository) AwaitedRequestExists(ctx context.Context, requestID st
 		return false, err
 	}
 	return exists, nil
+}
+
+// resolveIterationNextStep determines the correct next_step for a loop substep
+// Priority:
+// 1. If substep.NextStep defined AND is a valid substep name → prefix with iteration
+// 2. If substep.NextStep defined but NOT a substep → leave as-is (external step)
+// 3. If substep.NextStep is empty → terminal step, go to next iteration start or loop_complete
+func resolveIterationNextStep(
+	originalNextStep string,
+	loopName string,
+	iterIdx int,
+	totalIterations int,
+	firstSubstepInOrder string,
+	validSubstepSet map[string]bool,
+	logger *zap.Logger,
+) string {
+
+	if originalNextStep != "" {
+		// Check if it references another substep in this loop
+		if validSubstepSet[originalNextStep] {
+			// It's a reference to another substep - prefix with iteration
+			return fmt.Sprintf("%s_iter_%d_%s", loopName, iterIdx, originalNextStep)
+		}
+
+		// It references something outside the loop - leave as-is
+		// This could be an external step or a special value
+		logger.Debug("NextStep references external step",
+			zap.String("next_step", originalNextStep),
+		)
+		return originalNextStep
+	}
+
+	// NextStep is empty - this is a terminal step for the iteration
+	// Go to next iteration's first step, or loop_complete if last iteration
+	if iterIdx < totalIterations-1 {
+		// Go to first substep of next iteration
+		return fmt.Sprintf("%s_iter_%d_%s", loopName, iterIdx+1, firstSubstepInOrder)
+	}
+
+	// Last iteration - go to loop complete
+	return fmt.Sprintf("%s_complete", loopName)
+}
+
+// prefixConfigStepReferences updates step references in config with iteration prefix
+// Handles: then_step, else_step, fallback_step, error_step, etc.
+func prefixConfigStepReferences(config map[string]interface{}, loopName string, iterIdx int, validSubstepSet map[string]bool) {
+	if config == nil {
+		return
+	}
+
+	// List of config keys that might contain step references
+	stepRefKeys := []string{"then_step", "else_step", "fallback_step", "error_step", "on_success", "on_failure"}
+
+	for _, key := range stepRefKeys {
+		if val, ok := config[key].(string); ok && val != "" {
+			// Only prefix if it references a valid substep
+			if validSubstepSet[val] {
+				config[key] = fmt.Sprintf("%s_iter_%d_%s", loopName, iterIdx, val)
+			}
+			// Otherwise leave as-is (external reference)
+		}
+	}
+}
+
+// deepCloneConfig creates a deep copy of a config map
+func deepCloneConfig(config map[string]interface{}) map[string]interface{} {
+	if config == nil {
+		return make(map[string]interface{})
+	}
+
+	clone := make(map[string]interface{})
+	for k, v := range config {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			clone[k] = deepCloneConfig(val)
+		case []interface{}:
+			clone[k] = deepCloneSlice(val)
+		default:
+			clone[k] = v
+		}
+	}
+	return clone
+}
+
+// deepCloneSlice creates a deep copy of a slice
+func deepCloneSlice(slice []interface{}) []interface{} {
+	if slice == nil {
+		return nil
+	}
+	clone := make([]interface{}, len(slice))
+	for i, v := range slice {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			clone[i] = deepCloneConfig(val)
+		case []interface{}:
+			clone[i] = deepCloneSlice(val)
+		default:
+			clone[i] = v
+		}
+	}
+	return clone
+}
+
+// checkCircuitBreaker checks for runaway execution and returns an error if detected
+func (s *SagaCoordinator) checkCircuitBreaker(state *OrchestrationState, logger *zap.Logger) error {
+	// Increment counter
+	state.StepExecutionCount++
+
+	// Check absolute limit
+	if state.StepExecutionCount > MaxStepExecutions {
+		logger.Error("CIRCUIT BREAKER: Step execution limit exceeded",
+			zap.Int("step_count", state.StepExecutionCount),
+			zap.Int("limit", MaxStepExecutions),
+			zap.String("current_step", state.CurrentStep),
+		)
+		return fmt.Errorf("CIRCUIT_BREAKER: exceeded %d step executions at step '%s' - possible infinite loop",
+			MaxStepExecutions, state.CurrentStep)
+	}
+
+	// Track recent steps for cycle detection
+	if state.RecentSteps == nil {
+		state.RecentSteps = make([]string, 0, RecentStepsWindow)
+	}
+
+	state.RecentSteps = append(state.RecentSteps, state.CurrentStep)
+	if len(state.RecentSteps) > RecentStepsWindow {
+		state.RecentSteps = state.RecentSteps[1:]
+	}
+
+	// Check for cycles once we have enough history
+	if len(state.RecentSteps) >= RecentStepsWindow {
+		if cycleLen := detectStepCycle(state.RecentSteps); cycleLen > 0 {
+			logger.Error("CIRCUIT BREAKER: Infinite loop detected",
+				zap.Int("cycle_length", cycleLen),
+				zap.Strings("recent_steps", state.RecentSteps),
+				zap.String("current_step", state.CurrentStep),
+				zap.Int("total_steps", state.StepExecutionCount),
+			)
+			return fmt.Errorf("CIRCUIT_BREAKER: infinite loop detected (cycle of %d steps) at step '%s'",
+				cycleLen, state.CurrentStep)
+		}
+	}
+
+	// Log warning at 50% of limit
+	if state.StepExecutionCount == MaxStepExecutions/2 {
+		logger.Warn("Circuit breaker warning: 50% of step limit reached",
+			zap.Int("step_count", state.StepExecutionCount),
+			zap.Int("limit", MaxStepExecutions),
+		)
+	}
+
+	return nil
+}
+
+// detectStepCycle checks if the recent steps form a repeating cycle
+func detectStepCycle(steps []string) int {
+	n := len(steps)
+	if n < 6 {
+		return 0
+	}
+
+	// Check for cycles of length 2, 3, 4, 5 (repeated at least twice)
+	for cycleLen := 2; cycleLen <= 5; cycleLen++ {
+		if n < cycleLen*2 {
+			continue
+		}
+
+		// Check if the last cycleLen*2 steps form a repeating pattern
+		isCycle := true
+		for i := 0; i < cycleLen; i++ {
+			if steps[n-1-i] != steps[n-1-i-cycleLen] {
+				isCycle = false
+				break
+			}
+		}
+
+		if isCycle {
+			return cycleLen
+		}
+	}
+
+	return 0
 }
