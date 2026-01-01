@@ -2031,10 +2031,23 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 	}
 
 	// No DB - return section names as stub components
+	// Create stub component entries for each section name
+	stubComponents := make([]map[string]interface{}, len(sectionNames))
+	for i, name := range sectionNames {
+		stubComponents[i] = map[string]interface{}{
+			"name":         name,
+			"function":     name, // Use name as function for fallback component lookup
+			"display_name": name,
+			"description":  "",
+			"needs_llm":    true, // Mark as needing LLM since no template
+		}
+	}
 	return map[string]interface{}{
-		"components":    sectionNames,
-		"count":         len(sectionNames),
+		"components":    stubComponents,
+		"count":         len(stubComponents),
 		"from_database": false,
+		"db_note":       "no matching components in database",
+		"requested":     sectionNames,
 	}, nil
 }
 
