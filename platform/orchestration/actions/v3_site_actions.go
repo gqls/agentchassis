@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -1911,36 +1910,34 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		zap.Strings("sections", sectionNames))
 
 	if params.DB != nil {
-		// Use PostgreSQL ANY() with array for cleaner query
-		// Search by name, display_name, OR function to handle different naming conventions
-		// Handle is_active being NULL (treat as active) or explicitly true
-		query := `
-			SELECT name, display_name, function, category, semantic_tags, 
-			       description, html_template, input_schema
+		placeholders := make([]string, len(sectionNames))
+		args := make([]interface{}, len(sectionNames))
+		for i, name := range sectionNames {
+			placeholders[i] = fmt.Sprintf("$%d", i+1)
+			args[i] = name
+		}
+
+		// Option A: Use COALESCE to handle NULLs in the query
+		query := fmt.Sprintf(`
+			SELECT 
+				name, 
+				COALESCE(display_name, name) as display_name,  -- Default to name if NULL
+				function, 
+				COALESCE(category, '') as category,           -- Default to empty string
+				semantic_tags, 
+				description, 
+				html_template, 
+				css_template 
 			FROM content_components 
-			WHERE (name = ANY($1) OR display_name = ANY($1) OR function = ANY($1))
-			  AND (is_active = true OR is_active IS NULL)
-		`
+			WHERE name IN (%s) AND is_active = true`, strings.Join(placeholders, ", "))
 
-		params.Logger.Debug("Searching for components",
-			zap.Strings("section_names", sectionNames))
-
-		// Pass section names as a PostgreSQL array
-		rows, err := params.DB.QueryContext(ctx, query, pq.Array(sectionNames))
+		rows, err := params.DB.QueryContext(ctx, query, args...)
 		if err != nil {
-			params.Logger.Error("Database query failed", zap.Error(err))
-			// Convert to []interface{} with minimal component objects
-			fallbackComponents := make([]interface{}, len(sectionNames))
-			for i, name := range sectionNames {
-				fallbackComponents[i] = map[string]interface{}{
-					"name":        name,
-					"function":    name,
-					"description": "",
-					"needs_llm":   true,
-				}
-			}
+			params.Logger.Error("LoadPageSectionComponentsAction: Query failed",
+				zap.Error(err),
+				zap.Strings("sections", sectionNames))
 			return map[string]interface{}{
-				"components":    fallbackComponents,
+				"components":    sectionNames,
 				"count":         len(sectionNames),
 				"from_database": false,
 				"db_error":      err.Error(),
@@ -1950,21 +1947,35 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 
 		var components []map[string]interface{}
 		for rows.Next() {
-			var name, displayName, function, category string
-			var semanticTags, description, htmlTemplate, inputSchema sql.NullString
+			// FIX: Use sql.NullString for nullable columns
+			var name, function string
+			var displayName, category sql.NullString
+			var semanticTags, description, htmlTemplate, cssTemplate sql.NullString
 
-			if err := rows.Scan(&name, &displayName, &function, &category,
-				&semanticTags, &description, &htmlTemplate, &inputSchema); err != nil {
-				params.Logger.Error("Row scan failed", zap.Error(err))
+			if err := rows.Scan(&name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate, &cssTemplate); err != nil {
+				params.Logger.Error("LoadPageSectionComponentsAction: Row scan failed",
+					zap.Error(err))
 				continue
 			}
 
 			comp := map[string]interface{}{
-				"name":         name,
-				"display_name": displayName,
-				"function":     function,
-				"category":     category,
+				"name":     name,
+				"function": function,
 			}
+
+			// Handle nullable fields
+			if displayName.Valid {
+				comp["display_name"] = displayName.String
+			} else {
+				comp["display_name"] = name // Default to name
+			}
+
+			if category.Valid {
+				comp["category"] = category.String
+			} else {
+				comp["category"] = ""
+			}
+
 			if semanticTags.Valid {
 				comp["semantic_tags"] = semanticTags.String
 			}
@@ -1974,104 +1985,54 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			if htmlTemplate.Valid {
 				comp["html_template"] = htmlTemplate.String
 			}
-			if inputSchema.Valid {
-				// Parse input_schema as JSON if present
-				var schema interface{}
-				if err := json.Unmarshal([]byte(inputSchema.String), &schema); err == nil {
-					comp["input_schema"] = schema
-				} else {
-					comp["input_schema"] = inputSchema.String
-				}
+			if cssTemplate.Valid {
+				comp["css_template"] = cssTemplate.String
 			}
-
-			// Add flag indicating this component needs LLM generation
-			// Components with input_schema typically need LLM to generate content
-			comp["needs_llm"] = inputSchema.Valid && inputSchema.String != "" && inputSchema.String != "null"
-
 			components = append(components, comp)
 		}
 
-		if err := rows.Err(); err != nil {
-			params.Logger.Error("Rows iteration error", zap.Error(err))
-		}
-
-		// If we got fewer components than requested, log which ones are missing
 		if len(components) < len(sectionNames) {
+			// Some components not found - create stub entries for missing ones
 			foundNames := make(map[string]bool)
-			for _, c := range components {
-				if n, ok := c["name"].(string); ok {
-					foundNames[n] = true
+			for _, comp := range components {
+				if name, ok := comp["name"].(string); ok {
+					foundNames[name] = true
 				}
 			}
+
 			var missing []string
 			for _, name := range sectionNames {
 				if !foundNames[name] {
 					missing = append(missing, name)
+					// Create stub component for missing section
+					components = append(components, map[string]interface{}{
+						"name":         name,
+						"display_name": name,
+						"function":     name,
+						"category":     "",
+						"needs_llm":    true, // Mark as needing LLM since no template
+						"description":  "",
+					})
 				}
 			}
+
 			if len(missing) > 0 {
-				params.Logger.Warn("Some components not found in database",
-					zap.Strings("missing", missing),
-					zap.Int("found", len(components)))
+				params.Logger.Warn("LoadPageSectionComponentsAction: Some components not found in database",
+					zap.Strings("missing", missing))
 			}
 		}
-
-		// If DB returned no components, create fallback components from section names
-		if len(components) == 0 {
-			params.Logger.Warn("No components found in database, creating fallback components",
-				zap.Strings("requested", sectionNames))
-
-			fallbackComponents := make([]interface{}, len(sectionNames))
-			for i, name := range sectionNames {
-				fallbackComponents[i] = map[string]interface{}{
-					"name":        name,
-					"function":    name,
-					"description": "",
-					"needs_llm":   true,
-				}
-			}
-			return map[string]interface{}{
-				"components":    fallbackComponents,
-				"count":         len(sectionNames),
-				"from_database": false,
-				"requested":     sectionNames,
-				"db_note":       "no matching components in database",
-			}, nil
-		}
-
-		// Convert []map[string]interface{} to []interface{} for consistent typing
-		componentsInterface := make([]interface{}, len(components))
-		for i, c := range components {
-			componentsInterface[i] = c
-		}
-
-		params.Logger.Info("Loaded components from database",
-			zap.Int("count", len(components)),
-			zap.Strings("requested", sectionNames))
 
 		return map[string]interface{}{
-			"components":    componentsInterface,
+			"components":    components,
 			"count":         len(components),
-			"from_database": true,
+			"from_database": len(components) > 0,
 			"requested":     sectionNames,
 		}, nil
 	}
 
-	// Fallback: return section names as simple components
-	// Convert []string to []interface{} for consistent typing
-	params.Logger.Warn("No database connection, returning section names only")
-	componentsInterface := make([]interface{}, len(sectionNames))
-	for i, name := range sectionNames {
-		// Return as minimal component objects so template can access .name, .function etc
-		componentsInterface[i] = map[string]interface{}{
-			"name":        name,
-			"function":    name, // Use name as function fallback
-			"description": "",
-			"needs_llm":   true, // Assume LLM needed when no DB info
-		}
-	}
+	// No DB - return section names as stub components
 	return map[string]interface{}{
-		"components":    componentsInterface,
+		"components":    sectionNames,
 		"count":         len(sectionNames),
 		"from_database": false,
 	}, nil

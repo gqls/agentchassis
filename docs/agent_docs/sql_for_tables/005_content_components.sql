@@ -41,3 +41,15 @@ Referenced by:
 
 -- set active for older records
 clients_db=# UPDATE content_components SET is_active = true WHERE is_active IS NULL;
+
+
+UPDATE content_components
+    SET display_name = COALESCE(display_name, name),
+        category = COALESCE(category, '')
+    WHERE display_name IS NULL OR category IS NULL;
+
+-- And optionally add NOT NULL constraints with defaults:
+
+ALTER TABLE content_components
+    ALTER COLUMN display_name SET DEFAULT '',
+ALTER COLUMN category SET DEFAULT '';

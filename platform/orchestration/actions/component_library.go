@@ -140,9 +140,15 @@ func queryRow(ctx context.Context, db interface{}, query string, args ...interfa
 // GetComponentByFunction retrieves a component by its function name
 func GetComponentByFunction(ctx context.Context, db interface{}, function string, logger *zap.Logger) (*Component, error) {
 	query := `
-		SELECT id, name, "function", category, html_template, input_schema
+		SELECT 
+			id, 
+			name, 
+			function, 
+			COALESCE(category, '') as category,  -- Handle NULL category
+			html_template, 
+			input_schema
 		FROM content_components
-		WHERE "function" = $1
+		WHERE function = $1 AND is_active = true
 		LIMIT 1
 	`
 	return queryComponent(ctx, db, query, function, logger)
@@ -162,7 +168,13 @@ func GetComponentByName(ctx context.Context, db interface{}, name string, logger
 // GetComponentByID retrieves a component by its UUID
 func GetComponentByID(ctx context.Context, db interface{}, id uuid.UUID, logger *zap.Logger) (*Component, error) {
 	query := `
-		SELECT id, name, "function", category, html_template, input_schema
+		SELECT 
+			id, 
+			name, 
+			function, 
+			COALESCE(category, '') as category,  -- Handle NULL category
+			html_template, 
+			input_schema
 		FROM content_components
 		WHERE id = $1
 		LIMIT 1
@@ -174,17 +186,18 @@ func GetComponentByID(ctx context.Context, db interface{}, id uuid.UUID, logger 
 func queryComponent(ctx context.Context, db interface{}, query string, arg interface{}, logger *zap.Logger) (*Component, error) {
 	var comp Component
 	var schemaJSON []byte
+	var category sql.NullString // Use NullString for nullable field
 
 	var err error
 	switch d := db.(type) {
 	case *sql.DB:
 		err = d.QueryRowContext(ctx, query, arg).Scan(
-			&comp.ID, &comp.Name, &comp.Function, &comp.Category,
+			&comp.ID, &comp.Name, &comp.Function, &category,
 			&comp.HTMLTemplate, &schemaJSON,
 		)
 	case *pgxpool.Pool:
 		err = d.QueryRow(ctx, query, arg).Scan(
-			&comp.ID, &comp.Name, &comp.Function, &comp.Category,
+			&comp.ID, &comp.Name, &comp.Function, &category,
 			&comp.HTMLTemplate, &schemaJSON,
 		)
 	default:
@@ -196,6 +209,13 @@ func queryComponent(ctx context.Context, db interface{}, query string, arg inter
 			return nil, fmt.Errorf("component not found: %v", arg)
 		}
 		return nil, fmt.Errorf("failed to query component: %w", err)
+	}
+
+	// Handle nullable category
+	if category.Valid {
+		comp.Category = category.String
+	} else {
+		comp.Category = "" // Default to empty string
 	}
 
 	if len(schemaJSON) > 0 {
