@@ -1838,14 +1838,14 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 
 	if params.DB != nil {
 		// Use PostgreSQL ANY() with array for cleaner query
-		// This searches by name, display_name, OR function to handle different naming conventions
+		// Search by name, display_name, OR function to handle different naming conventions
+		// Handle is_active being NULL (treat as active) or explicitly true
 		query := `
 			SELECT name, display_name, function, category, semantic_tags, 
 			       description, html_template, input_schema
 			FROM content_components 
-			WHERE name = ANY($1)
-			   OR display_name = ANY($1)
-			   OR function = ANY($1)
+			WHERE (name = ANY($1) OR display_name = ANY($1) OR function = ANY($1))
+			  AND (is_active = true OR is_active IS NULL)
 		`
 
 		params.Logger.Debug("Searching for components",
