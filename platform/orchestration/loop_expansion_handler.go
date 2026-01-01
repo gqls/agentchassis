@@ -304,7 +304,7 @@ func prefixStepReferencesInConfig(config map[string]interface{}, loopName string
 	}
 }
 
-// cloneConfig deep copies a config map
+// ensure deep copy (if not already doing so)
 func cloneConfig(src map[string]interface{}) map[string]interface{} {
 	if src == nil {
 		return nil

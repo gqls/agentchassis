@@ -97,6 +97,12 @@ type RenderContext struct {
 
 	// Metadata
 	Year string `json:"year"`
+
+	// Content generation
+	Industry       string
+	Tone           string
+	TargetAudience string
+	Services       []string
 }
 
 // NavItem represents a navigation link

@@ -99,3 +99,33 @@ SELECT
     default_config->'workflow'->'steps'->'build_pages_loop'->'config'->>'items_field' as loop_items_field
 FROM agent_definitions
 WHERE type = 'pageflow-builder';
+
+-- ============================================================================
+-- Fix pageflow-builder to pass reviewed_brief to page-content-writer
+-- Database: clients_db
+-- ============================================================================
+--
+-- The issue: build_pages_loop substep write_page_content calls page-content-writer
+-- with input_fields: ["current_page", "site_record", "style_collection"]
+-- but it's missing "reviewed_brief" which is needed for content generation
+-- ============================================================================
+
+BEGIN;
+
+-- Update the write_page_content substep to include reviewed_brief
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,write_page_content,config,input_fields}',
+        '["current_page", "site_record", "reviewed_brief", "style_collection"]'::jsonb
+                     )
+WHERE type = 'pageflow-builder';
+
+COMMIT;
+
+-- Verify the change
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'write_page_content'->'config'->'input_fields' as input_fields
+FROM agent_definitions
+WHERE type = 'pageflow-builder';

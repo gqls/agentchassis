@@ -499,15 +499,8 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 	}, nil
 }
 
-// ============================================================================
-// ACTION: build_render_context
-// ============================================================================
-
 // BuildRenderContextAction assembles a RenderContext from multiple sources
 // Used before rendering components with templates
-// Config:
-//   - sources: array of field paths to merge into context
-//   - site_id_field: optional, to load site-specific data
 func BuildRenderContextAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("BuildRenderContextAction: Starting")
 
@@ -522,26 +515,69 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 		Year: fmt.Sprintf("%d", time.Now().Year()),
 	}
 
-	// Get sources to merge
-	sources := []string{"input_data", "site_record", "style_collection", "page_plan"}
-	if s, ok := config["sources"].([]interface{}); ok {
-		sources = make([]string, 0, len(s))
-		for _, src := range s {
-			if srcStr, ok := src.(string); ok {
-				sources = append(sources, srcStr)
+	sourcesMerged := 0
+
+	// Handle sources config - can be array or map format
+	// Array format: ["input_data", "site_record", ...]
+	// Map format: {"page": "input_data.current_page", "site": "input_data.site_record", ...}
+
+	if sourcesMap, ok := config["sources"].(map[string]interface{}); ok {
+		// Map format: keys are logical names, values are paths to data
+		params.Logger.Info("Using map-format sources config",
+			zap.Int("source_count", len(sourcesMap)))
+
+		for logicalName, pathVal := range sourcesMap {
+			path, ok := pathVal.(string)
+			if !ok {
+				continue
+			}
+
+			sourceData := datahelpers.ExtractNestedField(params.CollectedData, path)
+			if sourceData == nil {
+				params.Logger.Debug("Source not found",
+					zap.String("name", logicalName),
+					zap.String("path", path))
+				continue
+			}
+
+			if m, ok := sourceData.(map[string]interface{}); ok {
+				params.Logger.Debug("Merging source",
+					zap.String("name", logicalName),
+					zap.String("path", path))
+				mergeIntoRenderContextEnhanced(renderCtx, m, logicalName, params.Logger)
+				sourcesMerged++
 			}
 		}
-	}
-
-	// Extract and merge data from each source
-	for _, source := range sources {
-		sourceData := datahelpers.ExtractNestedField(params.CollectedData, source)
-		if sourceData == nil {
-			continue
+	} else if sourcesArray, ok := config["sources"].([]interface{}); ok {
+		// Array format: direct paths
+		for _, src := range sourcesArray {
+			if srcStr, ok := src.(string); ok {
+				sourceData := datahelpers.ExtractNestedField(params.CollectedData, srcStr)
+				if sourceData == nil {
+					continue
+				}
+				if m, ok := sourceData.(map[string]interface{}); ok {
+					mergeIntoRenderContextEnhanced(renderCtx, m, srcStr, params.Logger)
+					sourcesMerged++
+				}
+			}
 		}
-
-		if m, ok := sourceData.(map[string]interface{}); ok {
-			mergeIntoRenderContext(renderCtx, m)
+	} else {
+		// Default sources
+		defaultSources := []string{"input_data", "site_record", "style_collection", "reviewed_brief", "page_plan"}
+		for _, source := range defaultSources {
+			sourceData := datahelpers.ExtractNestedField(params.CollectedData, source)
+			if sourceData == nil {
+				// Try with input_data prefix
+				sourceData = datahelpers.ExtractNestedField(params.CollectedData, "input_data."+source)
+			}
+			if sourceData == nil {
+				continue
+			}
+			if m, ok := sourceData.(map[string]interface{}); ok {
+				mergeIntoRenderContextEnhanced(renderCtx, m, source, params.Logger)
+				sourcesMerged++
+			}
 		}
 	}
 
@@ -561,14 +597,189 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 
 	params.Logger.Info("BuildRenderContextAction: Context built",
 		zap.String("domain", renderCtx.Domain),
+		zap.String("company_name", renderCtx.CompanyName),
 		zap.String("logo_text", renderCtx.LogoText),
 		zap.Int("nav_items", len(renderCtx.NavItems)),
+		zap.Int("sources_merged", sourcesMerged),
 	)
 
-	return map[string]interface{}{
-		"render_context": renderCtxToMap(renderCtx),
-		"sources_merged": len(sources),
-	}, nil
+	// FIX: Return the context directly, not wrapped in "render_context" key
+	// The workflow output_field already specifies where to store it
+	// Adding metadata fields at same level
+	result := renderCtxToMap(renderCtx)
+	result["_sources_merged"] = sourcesMerged
+	result["_built_at"] = time.Now().Format(time.RFC3339)
+
+	return result, nil
+}
+
+// mergeIntoRenderContextEnhanced extracts data from various source formats
+func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interface{}, sourceName string, logger *zap.Logger) {
+	// Direct field extraction
+	if v, ok := data["domain"].(string); ok && v != "" {
+		ctx.Domain = v
+	}
+	if v, ok := data["company_name"].(string); ok && v != "" {
+		ctx.CompanyName = v
+		if ctx.LogoText == "" {
+			ctx.LogoText = v
+		}
+	}
+	if v, ok := data["logo_text"].(string); ok && v != "" {
+		ctx.LogoText = v
+	}
+	if v, ok := data["tagline"].(string); ok && v != "" {
+		ctx.Tagline = v
+	}
+	if v, ok := data["email"].(string); ok && v != "" {
+		ctx.Email = v
+	}
+	if v, ok := data["phone"].(string); ok && v != "" {
+		ctx.Phone = v
+	}
+	if v, ok := data["primary_color"].(string); ok && v != "" {
+		ctx.PrimaryColor = v
+	}
+	if v, ok := data["secondary_color"].(string); ok && v != "" {
+		ctx.SecondaryColor = v
+	}
+	if v, ok := data["accent_color"].(string); ok && v != "" {
+		ctx.AccentColor = v
+	}
+	if v, ok := data["text_color"].(string); ok && v != "" {
+		ctx.TextColor = v
+	}
+	if v, ok := data["background_color"].(string); ok && v != "" {
+		ctx.BackgroundColor = v
+	}
+
+	// Check nested color_palette (from style_collection)
+	if palette, ok := data["color_palette"].(map[string]interface{}); ok {
+		if v, ok := palette["primary"].(string); ok && v != "" {
+			ctx.PrimaryColor = v
+		}
+		if v, ok := palette["secondary"].(string); ok && v != "" {
+			ctx.SecondaryColor = v
+		}
+		if v, ok := palette["accent"].(string); ok && v != "" {
+			ctx.AccentColor = v
+		}
+		if v, ok := palette["background"].(string); ok && v != "" {
+			ctx.BackgroundColor = v
+		}
+		if v, ok := palette["text"].(string); ok && v != "" {
+			ctx.TextColor = v
+		}
+	}
+
+	// Extract from reviewed_brief structure (nested under various keys)
+	if brief, ok := data["business_context"].(map[string]interface{}); ok {
+		if v, ok := brief["company_name"].(string); ok && v != "" {
+			ctx.CompanyName = v
+			if ctx.LogoText == "" {
+				ctx.LogoText = v
+			}
+		}
+		if v, ok := brief["tagline"].(string); ok && v != "" {
+			ctx.Tagline = v
+		}
+		if v, ok := brief["industry"].(string); ok && v != "" {
+			ctx.Industry = v
+		}
+	}
+
+	// Check for contact_info in brief
+	if contact, ok := data["contact_info"].(map[string]interface{}); ok {
+		if v, ok := contact["email"].(string); ok && v != "" {
+			ctx.Email = v
+		}
+		if v, ok := contact["phone"].(string); ok && v != "" {
+			ctx.Phone = v
+		}
+	}
+
+	// Check for brand/visual settings in brief
+	if brand, ok := data["brand"].(map[string]interface{}); ok {
+		if v, ok := brand["primary_color"].(string); ok && v != "" {
+			ctx.PrimaryColor = v
+		}
+		if v, ok := brand["secondary_color"].(string); ok && v != "" {
+			ctx.SecondaryColor = v
+		}
+		if v, ok := brand["tagline"].(string); ok && v != "" {
+			ctx.Tagline = v
+		}
+	}
+
+	// Extract tone and target_audience for content generation
+	if v, ok := data["tone"].(string); ok && v != "" {
+		ctx.Tone = v
+	}
+	if v, ok := data["target_audience"].(string); ok && v != "" {
+		ctx.TargetAudience = v
+	}
+
+	// From site_record
+	if v, ok := data["site_id"].(string); ok && v != "" {
+		if siteUUID, err := uuid.Parse(v); err == nil {
+			ctx.SiteID = siteUUID
+		}
+	}
+
+	// CTA settings
+	if v, ok := data["cta_text"].(string); ok && v != "" {
+		ctx.CTAText = v
+	}
+	if v, ok := data["cta_url"].(string); ok && v != "" {
+		ctx.CTAUrl = v
+	}
+
+	logger.Debug("Merged source into render context",
+		zap.String("source", sourceName),
+		zap.String("company_name", ctx.CompanyName),
+		zap.String("domain", ctx.Domain))
+}
+
+// Updated renderCtxToMap to include new fields
+func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
+	result := map[string]interface{}{
+		"domain":           ctx.Domain,
+		"logo_text":        ctx.LogoText,
+		"company_name":     ctx.CompanyName,
+		"tagline":          ctx.Tagline,
+		"email":            ctx.Email,
+		"phone":            ctx.Phone,
+		"primary_color":    ctx.PrimaryColor,
+		"secondary_color":  ctx.SecondaryColor,
+		"accent_color":     ctx.AccentColor,
+		"text_color":       ctx.TextColor,
+		"background_color": ctx.BackgroundColor,
+		"year":             ctx.Year,
+		"cta_text":         ctx.CTAText,
+		"cta_url":          ctx.CTAUrl,
+		"industry":         ctx.Industry,
+		"tone":             ctx.Tone,
+		"target_audience":  ctx.TargetAudience,
+		"services":         ctx.Services,
+	}
+	if ctx.SiteID != uuid.Nil {
+		result["site_id"] = ctx.SiteID.String()
+	}
+	if len(ctx.NavItems) > 0 {
+		navItems := make([]map[string]interface{}, len(ctx.NavItems))
+		for i, item := range ctx.NavItems {
+			navItems[i] = map[string]interface{}{
+				"label":     item.Label,
+				"url":       item.URL,
+				"is_active": item.IsActive,
+			}
+		}
+		result["nav_items"] = navItems
+	}
+	if len(ctx.Services) > 0 {
+		result["services"] = ctx.Services
+	}
+	return result
 }
 
 func mergeIntoRenderContext(ctx *RenderContext, data map[string]interface{}) {
@@ -624,40 +835,6 @@ func convertNavigationItems(items []NavigationItem) []NavItem {
 			Label: item.Label,
 			URL:   item.URL,
 		}
-	}
-	return result
-}
-
-func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
-	result := map[string]interface{}{
-		"domain":           ctx.Domain,
-		"logo_text":        ctx.LogoText,
-		"company_name":     ctx.CompanyName,
-		"tagline":          ctx.Tagline,
-		"email":            ctx.Email,
-		"phone":            ctx.Phone,
-		"primary_color":    ctx.PrimaryColor,
-		"secondary_color":  ctx.SecondaryColor,
-		"accent_color":     ctx.AccentColor,
-		"text_color":       ctx.TextColor,
-		"background_color": ctx.BackgroundColor,
-		"year":             ctx.Year,
-		"cta_text":         ctx.CTAText,
-		"cta_url":          ctx.CTAUrl,
-	}
-	if ctx.SiteID != uuid.Nil {
-		result["site_id"] = ctx.SiteID.String()
-	}
-	if len(ctx.NavItems) > 0 {
-		navItems := make([]map[string]interface{}, len(ctx.NavItems))
-		for i, item := range ctx.NavItems {
-			navItems[i] = map[string]interface{}{
-				"label":     item.Label,
-				"url":       item.URL,
-				"is_active": item.IsActive,
-			}
-		}
-		result["nav_items"] = navItems
 	}
 	return result
 }
@@ -1605,7 +1782,7 @@ func UpdatePageComponentsStatusAction(ctx context.Context, params ActionParams) 
 }
 
 // When call_agent passes input_fields, they arrive under input_data.*
-// This updated function checks both root and input_data locations
+// This checks both root and input_data locations
 func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("LoadPageSectionComponentsAction: Starting")
 
@@ -1624,7 +1801,6 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 	pageData := extractWithInputDataFallback(params.CollectedData, pageField, params.Logger)
 
 	if pageData == nil {
-		// Log available keys for debugging
 		keys := make([]string, 0, len(params.CollectedData))
 		for k := range params.CollectedData {
 			keys = append(keys, k)
@@ -1667,21 +1843,45 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			args[i] = name
 		}
 
-		query := fmt.Sprintf(`SELECT name, display_name, function, category, semantic_tags, description, html_template, css_template FROM content_components WHERE name IN (%s) AND is_active = true`, strings.Join(placeholders, ", "))
+		// FIX: Use correct columns that actually exist in content_components table
+		// Removed: css_template (doesn't exist), is_active (doesn't exist)
+		// Added: input_schema (needed for LLM prompts)
+		query := fmt.Sprintf(`
+			SELECT name, display_name, function, category, semantic_tags, 
+			       description, html_template, input_schema
+			FROM content_components 
+			WHERE name IN (%s)
+		`, strings.Join(placeholders, ", "))
+
 		rows, err := params.DB.QueryContext(ctx, query, args...)
 		if err != nil {
-			return map[string]interface{}{"components": sectionNames, "count": len(sectionNames), "from_database": false, "db_error": err.Error()}, nil
+			params.Logger.Error("Database query failed", zap.Error(err))
+			return map[string]interface{}{
+				"components":    sectionNames,
+				"count":         len(sectionNames),
+				"from_database": false,
+				"db_error":      err.Error(),
+			}, nil
 		}
 		defer rows.Close()
 
 		var components []map[string]interface{}
 		for rows.Next() {
 			var name, displayName, function, category string
-			var semanticTags, description, htmlTemplate, cssTemplate sql.NullString
-			if err := rows.Scan(&name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate, &cssTemplate); err != nil {
+			var semanticTags, description, htmlTemplate, inputSchema sql.NullString
+
+			if err := rows.Scan(&name, &displayName, &function, &category,
+				&semanticTags, &description, &htmlTemplate, &inputSchema); err != nil {
+				params.Logger.Error("Row scan failed", zap.Error(err))
 				continue
 			}
-			comp := map[string]interface{}{"name": name, "display_name": displayName, "function": function, "category": category}
+
+			comp := map[string]interface{}{
+				"name":         name,
+				"display_name": displayName,
+				"function":     function,
+				"category":     category,
+			}
 			if semanticTags.Valid {
 				comp["semantic_tags"] = semanticTags.String
 			}
@@ -1691,20 +1891,67 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			if htmlTemplate.Valid {
 				comp["html_template"] = htmlTemplate.String
 			}
-			if cssTemplate.Valid {
-				comp["css_template"] = cssTemplate.String
+			if inputSchema.Valid {
+				// Parse input_schema as JSON if present
+				var schema interface{}
+				if err := json.Unmarshal([]byte(inputSchema.String), &schema); err == nil {
+					comp["input_schema"] = schema
+				} else {
+					comp["input_schema"] = inputSchema.String
+				}
 			}
+
+			// Add flag indicating this component needs LLM generation
+			// Components with input_schema typically need LLM to generate content
+			comp["needs_llm"] = inputSchema.Valid && inputSchema.String != "" && inputSchema.String != "null"
+
 			components = append(components, comp)
+		}
+
+		if err := rows.Err(); err != nil {
+			params.Logger.Error("Rows iteration error", zap.Error(err))
+		}
+
+		// If we got fewer components than requested, log which ones are missing
+		if len(components) < len(sectionNames) {
+			foundNames := make(map[string]bool)
+			for _, c := range components {
+				if n, ok := c["name"].(string); ok {
+					foundNames[n] = true
+				}
+			}
+			var missing []string
+			for _, name := range sectionNames {
+				if !foundNames[name] {
+					missing = append(missing, name)
+				}
+			}
+			if len(missing) > 0 {
+				params.Logger.Warn("Some components not found in database",
+					zap.Strings("missing", missing),
+					zap.Int("found", len(components)))
+			}
 		}
 
 		params.Logger.Info("Loaded components from database",
 			zap.Int("count", len(components)),
 			zap.Strings("requested", sectionNames))
 
-		return map[string]interface{}{"components": components, "count": len(components), "from_database": true, "requested": sectionNames}, nil
+		return map[string]interface{}{
+			"components":    components,
+			"count":         len(components),
+			"from_database": true,
+			"requested":     sectionNames,
+		}, nil
 	}
 
-	return map[string]interface{}{"components": sectionNames, "count": len(sectionNames), "from_database": false}, nil
+	// Fallback: return section names as simple components
+	params.Logger.Warn("No database connection, returning section names only")
+	return map[string]interface{}{
+		"components":    sectionNames,
+		"count":         len(sectionNames),
+		"from_database": false,
+	}, nil
 }
 
 // extractWithInputDataFallback tries multiple locations to find a field
