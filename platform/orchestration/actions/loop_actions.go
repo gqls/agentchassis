@@ -1,3 +1,6 @@
+// Loop Action Implementation
+// This action dynamically expands substeps into the workflow for each iteration
+
 package actions
 
 import (
@@ -87,9 +90,27 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 		return nil, fmt.Errorf("failed to get collection at '%s': %w", iterateOverPath, err)
 	}
 
-	items, ok := collection.([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("iterate_over field '%s' is not an array", iterateOverPath)
+	// Handle different array types - Go's type system requires explicit handling
+	var items []interface{}
+	switch v := collection.(type) {
+	case []interface{}:
+		items = v
+	case []string:
+		// Convert []string to []interface{}
+		items = make([]interface{}, len(v))
+		for i, s := range v {
+			items[i] = s
+		}
+		logger.Info("Converted []string to []interface{}", zap.Int("count", len(items)))
+	case []map[string]interface{}:
+		// Convert []map[string]interface{} to []interface{}
+		items = make([]interface{}, len(v))
+		for i, m := range v {
+			items[i] = m
+		}
+		logger.Info("Converted []map to []interface{}", zap.Int("count", len(items)))
+	default:
+		return nil, fmt.Errorf("iterate_over field '%s' is not an array (got %T)", iterateOverPath, collection)
 	}
 
 	if len(items) == 0 {

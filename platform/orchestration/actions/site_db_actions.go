@@ -851,7 +851,7 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 		sectionsJSON = []byte("[]")
 	}
 
-	// Special handling for privacy/terms pages (EXISTING CODE - UNCHANGED)
+	// Special handling for privacy/terms pages
 	if strings.Contains(name, "privacy") || strings.Contains(name, "terms") {
 		inHeader = false
 		inFooter = true

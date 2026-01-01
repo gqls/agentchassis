@@ -1856,8 +1856,18 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		rows, err := params.DB.QueryContext(ctx, query, args...)
 		if err != nil {
 			params.Logger.Error("Database query failed", zap.Error(err))
+			// Convert to []interface{} with minimal component objects
+			fallbackComponents := make([]interface{}, len(sectionNames))
+			for i, name := range sectionNames {
+				fallbackComponents[i] = map[string]interface{}{
+					"name":        name,
+					"function":    name,
+					"description": "",
+					"needs_llm":   true,
+				}
+			}
 			return map[string]interface{}{
-				"components":    sectionNames,
+				"components":    fallbackComponents,
 				"count":         len(sectionNames),
 				"from_database": false,
 				"db_error":      err.Error(),
@@ -1946,9 +1956,20 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 	}
 
 	// Fallback: return section names as simple components
+	// Convert []string to []interface{} for consistent typing
 	params.Logger.Warn("No database connection, returning section names only")
+	componentsInterface := make([]interface{}, len(sectionNames))
+	for i, name := range sectionNames {
+		// Return as minimal component objects so template can access .name, .function etc
+		componentsInterface[i] = map[string]interface{}{
+			"name":        name,
+			"function":    name, // Use name as function fallback
+			"description": "",
+			"needs_llm":   true, // Assume LLM needed when no DB info
+		}
+	}
 	return map[string]interface{}{
-		"components":    sectionNames,
+		"components":    componentsInterface,
 		"count":         len(sectionNames),
 		"from_database": false,
 	}, nil
