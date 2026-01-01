@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -1836,24 +1837,22 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		zap.Strings("sections", sectionNames))
 
 	if params.DB != nil {
-		placeholders := make([]string, len(sectionNames))
-		args := make([]interface{}, len(sectionNames))
-		for i, name := range sectionNames {
-			placeholders[i] = fmt.Sprintf("$%d", i+1)
-			args[i] = name
-		}
-
-		// FIX: Use correct columns that actually exist in content_components table
-		// Removed: css_template (doesn't exist), is_active (doesn't exist)
-		// Added: input_schema (needed for LLM prompts)
-		query := fmt.Sprintf(`
+		// Use PostgreSQL ANY() with array for cleaner query
+		// This searches by name, display_name, OR function to handle different naming conventions
+		query := `
 			SELECT name, display_name, function, category, semantic_tags, 
 			       description, html_template, input_schema
 			FROM content_components 
-			WHERE name IN (%s)
-		`, strings.Join(placeholders, ", "))
+			WHERE name = ANY($1)
+			   OR display_name = ANY($1)
+			   OR function = ANY($1)
+		`
 
-		rows, err := params.DB.QueryContext(ctx, query, args...)
+		params.Logger.Debug("Searching for components",
+			zap.Strings("section_names", sectionNames))
+
+		// Pass section names as a PostgreSQL array
+		rows, err := params.DB.QueryContext(ctx, query, pq.Array(sectionNames))
 		if err != nil {
 			params.Logger.Error("Database query failed", zap.Error(err))
 			// Convert to []interface{} with minimal component objects
@@ -1943,12 +1942,41 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			}
 		}
 
+		// If DB returned no components, create fallback components from section names
+		if len(components) == 0 {
+			params.Logger.Warn("No components found in database, creating fallback components",
+				zap.Strings("requested", sectionNames))
+
+			fallbackComponents := make([]interface{}, len(sectionNames))
+			for i, name := range sectionNames {
+				fallbackComponents[i] = map[string]interface{}{
+					"name":        name,
+					"function":    name,
+					"description": "",
+					"needs_llm":   true,
+				}
+			}
+			return map[string]interface{}{
+				"components":    fallbackComponents,
+				"count":         len(sectionNames),
+				"from_database": false,
+				"requested":     sectionNames,
+				"db_note":       "no matching components in database",
+			}, nil
+		}
+
+		// Convert []map[string]interface{} to []interface{} for consistent typing
+		componentsInterface := make([]interface{}, len(components))
+		for i, c := range components {
+			componentsInterface[i] = c
+		}
+
 		params.Logger.Info("Loaded components from database",
 			zap.Int("count", len(components)),
 			zap.Strings("requested", sectionNames))
 
 		return map[string]interface{}{
-			"components":    components,
+			"components":    componentsInterface,
 			"count":         len(components),
 			"from_database": true,
 			"requested":     sectionNames,
