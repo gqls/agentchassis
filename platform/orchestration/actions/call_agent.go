@@ -785,7 +785,6 @@ func extractDataForAgent(params ActionParams) interface{} {
 		zap.Any("step_config", params.StepConfig.Config))
 
 	// PRIORITY 1: Check for plural "input_fields" (Array of keys)
-	// This is what the group definition uses: ["generate_build_plan", "input_data"]
 	if fields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
 		result := make(map[string]interface{})
 		params.Logger.Info("Using input_fields list", zap.Any("fields", fields))
@@ -796,22 +795,59 @@ func extractDataForAgent(params ActionParams) interface{} {
 				continue
 			}
 
-			// Special handling for "input_data" - flatten it or keep it?
-			// Usually, we pass it as a key to keep context clear for the child
+			// Determine the key to store in result (use base name for nested paths)
+			resultKey := fieldName
+			if strings.Contains(fieldName, ".") {
+				// For "input_data.reviewed_brief", store as "reviewed_brief"
+				parts := strings.Split(fieldName, ".")
+				resultKey = parts[len(parts)-1]
+			}
 
-			// Look in CollectedData
+			// Try 1: Direct lookup in CollectedData (for top-level keys)
 			if val, exists := params.CollectedData[fieldName]; exists {
-				// If the value is a step result with a "response" wrapper, extract it?
-				// For now, pass raw to let child handle it, or use ExtractStepData logic if needed.
-				// Actions often wrap results in map[string]interface{}
-				result[fieldName] = val
-			} else {
-				// Check raw message
+				result[resultKey] = val
+				continue
+			}
+
+			// Try 2: ExtractNestedField (for dotted paths like "input_data.reviewed_brief")
+			if val := datahelpers.ExtractNestedField(params.CollectedData, fieldName); val != nil {
+				result[resultKey] = val
+				continue
+			}
+
+			// Try 3: Search common nested locations
+			searchPaths := []string{
+				"input_data." + fieldName,
+				"site_record.content_data." + fieldName,
+				"__raw_message__." + fieldName,
+			}
+
+			found := false
+			for _, searchPath := range searchPaths {
+				if val := datahelpers.ExtractNestedField(params.CollectedData, searchPath); val != nil {
+					result[resultKey] = val
+					params.Logger.Info("extractDataForAgent: Found field via fallback search",
+						zap.String("field", fieldName),
+						zap.String("found_at", searchPath),
+					)
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				// Check raw message as last resort
 				if raw, ok := params.CollectedData["__raw_message__"].(map[string]interface{}); ok {
 					if val, exists := raw[fieldName]; exists {
-						result[fieldName] = val
+						result[resultKey] = val
+						continue
 					}
 				}
+
+				params.Logger.Warn("extractDataForAgent: Field not found",
+					zap.String("field", fieldName),
+					zap.Strings("tried_paths", append([]string{fieldName}, searchPaths...)),
+				)
 			}
 		}
 		return result

@@ -840,16 +840,14 @@ func convertNavigationItems(items []NavigationItem) []NavItem {
 	return result
 }
 
-// ============================================================================
-// ACTION: render_component
-// ============================================================================
-
 // RenderComponentAction renders a single component template with context
 // Config:
 //   - component_function: function name to look up (e.g., "hero-banner")
 //   - component_id: explicit component UUID (alternative to function)
+//   - component_from: path to object containing function/id (e.g., "current_section")
 //   - context_field: path to render context in collected_data
 //   - content_field: path to additional content data
+//   - content_from: alias for content_field (for consistency)
 func RenderComponentAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("RenderComponentAction: Starting")
 
@@ -863,26 +861,94 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		return nil, fmt.Errorf("database connection required for component rendering")
 	}
 
-	// Get component
+	// Get component - now with support for component_from indirection
 	var comp *Component
 	var err error
+	var componentFunction string
+	var componentID string
 
+	// Priority 1: Direct component_id in config
 	if compID, ok := config["component_id"].(string); ok && compID != "" {
-		compUUID, _ := uuid.Parse(compID)
+		componentID = compID
+	}
+
+	// Priority 2: Direct component_function in config
+	if compFunc, ok := config["component_function"].(string); ok && compFunc != "" {
+		componentFunction = compFunc
+	}
+
+	// Priority 3: Extract from component_from field (indirection)
+	if componentID == "" && componentFunction == "" {
+		if componentFrom, ok := config["component_from"].(string); ok && componentFrom != "" {
+			componentData := datahelpers.ExtractNestedField(params.CollectedData, componentFrom)
+			if componentData != nil {
+				if compMap, ok := componentData.(map[string]interface{}); ok {
+					// Try to get function first (most common)
+					if fn, ok := compMap["function"].(string); ok && fn != "" {
+						componentFunction = fn
+						params.Logger.Debug("RenderComponentAction: Extracted function from component_from",
+							zap.String("component_from", componentFrom),
+							zap.String("function", componentFunction),
+						)
+					}
+					// Also check for component_function key
+					if fn, ok := compMap["component_function"].(string); ok && fn != "" {
+						componentFunction = fn
+					}
+					// Check for id/component_id
+					if id, ok := compMap["id"].(string); ok && id != "" {
+						componentID = id
+					}
+					if id, ok := compMap["component_id"].(string); ok && id != "" {
+						componentID = id
+					}
+					// Check for name as fallback (some components use name as function)
+					if componentFunction == "" {
+						if name, ok := compMap["name"].(string); ok && name != "" {
+							componentFunction = name
+							params.Logger.Debug("RenderComponentAction: Using name as function fallback",
+								zap.String("name", name),
+							)
+						}
+					}
+				}
+			} else {
+				params.Logger.Warn("RenderComponentAction: component_from field not found",
+					zap.String("component_from", componentFrom),
+				)
+			}
+		}
+	}
+
+	// Now resolve the component
+	if componentID != "" {
+		compUUID, parseErr := uuid.Parse(componentID)
+		if parseErr != nil {
+			return nil, fmt.Errorf("invalid component_id: %w", parseErr)
+		}
 		comp, err = GetComponentByID(ctx, params.DB, compUUID, params.Logger)
-	} else if compFunc, ok := config["component_function"].(string); ok && compFunc != "" {
-		comp, err = GetComponentWithFallback(ctx, params.DB, compFunc, params.Logger)
+	} else if componentFunction != "" {
+		comp, err = GetComponentWithFallback(ctx, params.DB, componentFunction, params.Logger)
 	} else {
-		return nil, fmt.Errorf("component_function or component_id required")
+		// Log available info for debugging
+		params.Logger.Error("RenderComponentAction: No component identifier found",
+			zap.Any("config_keys", datahelpers.GetMapKeys(config)),
+			zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)),
+		)
+		return nil, fmt.Errorf("component_function, component_id, or component_from required")
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get component: %w", err)
+		return nil, fmt.Errorf("failed to get component '%s': %w", componentFunction, err)
 	}
 
 	// Get render context
 	contextField := "render_context"
 	if cf, ok := config["context_field"].(string); ok && cf != "" {
+		contextField = cf
+	}
+	// Also support context_from as an alias
+	if cf, ok := config["context_from"].(string); ok && cf != "" {
 		contextField = cf
 	}
 
@@ -892,8 +958,16 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		mergeIntoRenderContext(renderCtx, m)
 	}
 
-	// Merge additional content if specified
-	if contentField, ok := config["content_field"].(string); ok && contentField != "" {
+	// Merge additional content if specified (support both content_field and content_from)
+	contentField := ""
+	if cf, ok := config["content_field"].(string); ok && cf != "" {
+		contentField = cf
+	}
+	if cf, ok := config["content_from"].(string); ok && cf != "" {
+		contentField = cf
+	}
+
+	if contentField != "" {
 		contentData := datahelpers.ExtractNestedField(params.CollectedData, contentField)
 		if m, ok := contentData.(map[string]interface{}); ok {
 			mergeIntoRenderContext(renderCtx, m)

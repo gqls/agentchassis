@@ -1,0 +1,22 @@
+alexis.ns.cloudflare.com
+leah.ns.cloudflare.com
+betty.ns.cloudflare.com
+ivan.ns.cloudflare.com
+https://dash.cloudflare.com/13044f178ae0b156961065f55c8fada8/ai-agent-orchestration.com/dns/records
+aaa@designconsultancy.co.uk
+
+
+
+onboard a domain under domains domain management
+https://dash.cloudflare.com/13044f178ae0b156961065f55c8fada8/domains/overview
+select plan
+wants other nameservers
+betty.ns.cloudflare.com
+ivan.ns.cloudflare.com
+
+
+workers routes
+new route
+ai-agent-orchestration.com/*
+and separately for www
+ *.tilingcalculators.com/*

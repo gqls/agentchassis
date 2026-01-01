@@ -46,7 +46,7 @@ func RequestHumanInputAction(ctx context.Context, params ActionParams) (interfac
 			"message":     "HITL skipped - using defaults from classification",
 		}
 
-		// Populate field defaults as the "response"
+		// Populate field defaults as the "response" (for form-based inputs)
 		if fields, ok := config["fields"].([]interface{}); ok {
 			defaults := extractFieldDefaults(fields, params.CollectedData, params.Logger)
 
@@ -68,6 +68,34 @@ func RequestHumanInputAction(ctx context.Context, params ActionParams) (interfac
 			if len(defaults) == 0 {
 				params.Logger.Warn("RequestHumanInputAction: No defaults could be populated - downstream steps may fail",
 					zap.Int("field_count", len(fields)),
+				)
+			}
+		}
+
+		// FIX 18: Handle "data_field" config for data review inputs (e.g., hitl_review_brief)
+		// When config has data_field instead of fields, copy that data to result
+		if dataField, ok := config["data_field"].(string); ok && dataField != "" {
+			dataValue := datahelpers.ExtractNestedField(params.CollectedData, dataField)
+			if dataValue != nil {
+				// If it's a map, merge its contents into result
+				if dataMap, ok := dataValue.(map[string]interface{}); ok {
+					for k, v := range dataMap {
+						result[k] = v
+					}
+					params.Logger.Info("RequestHumanInputAction: Copied data_field for skipped HITL",
+						zap.String("data_field", dataField),
+						zap.Int("fields_copied", len(dataMap)),
+					)
+				} else {
+					// Otherwise store it under a "data" key
+					result["data"] = dataValue
+					params.Logger.Info("RequestHumanInputAction: Stored data_field value for skipped HITL",
+						zap.String("data_field", dataField),
+					)
+				}
+			} else {
+				params.Logger.Warn("RequestHumanInputAction: data_field not found for skipped HITL",
+					zap.String("data_field", dataField),
 				)
 			}
 		}
