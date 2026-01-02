@@ -881,6 +881,7 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		if componentFrom, ok := config["component_from"].(string); ok && componentFrom != "" {
 			componentData := datahelpers.ExtractNestedField(params.CollectedData, componentFrom)
 			if componentData != nil {
+				// Case 1: component_from points to a map (e.g., "current_section")
 				if compMap, ok := componentData.(map[string]interface{}); ok {
 					// Try to get function first (most common)
 					if fn, ok := compMap["function"].(string); ok && fn != "" {
@@ -910,6 +911,14 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 							)
 						}
 					}
+				} else if compStr, ok := componentData.(string); ok && compStr != "" {
+					// Case 2: component_from points directly to a string value
+					// e.g., "current_section.function" resolves to "hero"
+					componentFunction = compStr
+					params.Logger.Debug("RenderComponentAction: Extracted function string directly from component_from",
+						zap.String("component_from", componentFrom),
+						zap.String("function", componentFunction),
+					)
 				}
 			} else {
 				params.Logger.Warn("RenderComponentAction: component_from field not found",
@@ -1926,8 +1935,7 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 				COALESCE(category, '') as category,           -- Default to empty string
 				semantic_tags, 
 				description, 
-				html_template, 
-				css_template 
+				html_template
 			FROM content_components 
 			WHERE name IN (%s) AND is_active = true`, strings.Join(placeholders, ", "))
 
