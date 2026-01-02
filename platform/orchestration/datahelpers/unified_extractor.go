@@ -150,7 +150,7 @@ func ExtractFields(
 		}
 	}
 
-	// CRITICAL: Always ensure domain and objective exist at root level
+	// Always ensure domain and objective exist at root level
 	ensureCoreFields(result, collectedData, logger)
 
 	// Also ensure they exist inside input_data if that map exists
@@ -339,9 +339,38 @@ func ensureCoreFields(
 	// Check domain
 	if _, hasDomain := result["domain"]; !hasDomain {
 		logger.Warn("Domain missing from result, searching aggressively")
-		if domain := FindDomainAggressive(source, logger); domain != "" {
+
+		// NEW: First check known nested locations before aggressive search
+		domain := ""
+
+		// Check site_record.domain first (most common case)
+		if siteRecord, ok := source["site_record"].(map[string]interface{}); ok {
+			if d, ok := siteRecord["domain"].(string); ok && d != "" {
+				domain = d
+				logger.Info("✓ Found domain in site_record.domain", zap.String("domain", domain))
+			}
+		}
+
+		// Check input_data.site_record.domain
+		if domain == "" {
+			if inputData, ok := source["input_data"].(map[string]interface{}); ok {
+				if siteRecord, ok := inputData["site_record"].(map[string]interface{}); ok {
+					if d, ok := siteRecord["domain"].(string); ok && d != "" {
+						domain = d
+						logger.Info("✓ Found domain in input_data.site_record.domain", zap.String("domain", domain))
+					}
+				}
+			}
+		}
+
+		// Fall back to aggressive search
+		if domain == "" {
+			domain = FindDomainAggressive(source, logger)
+		}
+
+		if domain != "" {
 			result["domain"] = domain
-			logger.Info("✓ Recovered domain via aggressive search", zap.String("domain", domain))
+			logger.Info("✓ Recovered domain", zap.String("domain", domain))
 		} else {
 			logger.Error("✗ Could not find domain anywhere")
 		}
@@ -350,12 +379,21 @@ func ensureCoreFields(
 	// Check objective
 	if _, hasObjective := result["objective"]; !hasObjective {
 		logger.Warn("Objective missing from result, searching aggressively")
-		if objective := FindObjectiveAggressive(source, logger); objective != "" {
+
+		objective := FindObjectiveAggressive(source, logger)
+
+		// NEW: If no explicit objective, build one from context
+		if objective == "" {
+			objective = buildObjectiveFromContext(source, logger)
+		}
+
+		if objective != "" {
 			result["objective"] = objective
 			logger.Info("✓ Recovered objective via aggressive search",
 				zap.Int("length", len(objective)))
 		} else {
-			logger.Error("✗ Could not find objective anywhere")
+			// Don't log error - for research-agent, objective can be built from topic
+			logger.Warn("✗ Could not find or build objective")
 		}
 	}
 
@@ -368,6 +406,81 @@ func ensureCoreFields(
 			}
 		}
 	}
+}
+
+// buildObjectiveFromContext constructs an objective string from available context
+// This is useful when calling research-agent which doesn't receive an explicit objective
+func buildObjectiveFromContext(source map[string]interface{}, logger *zap.Logger) string {
+	var sectionName, companyName, domain string
+
+	// Try to get section name from current_section
+	if currentSection, ok := source["current_section"].(map[string]interface{}); ok {
+		if fn, ok := currentSection["function"].(string); ok && fn != "" {
+			sectionName = fn
+		} else if name, ok := currentSection["name"].(string); ok && name != "" {
+			sectionName = name
+		} else if topic, ok := currentSection["topic"].(string); ok && topic != "" {
+			sectionName = topic
+		}
+	}
+
+	// Also check in input_data.current_section
+	if sectionName == "" {
+		if inputData, ok := source["input_data"].(map[string]interface{}); ok {
+			if currentSection, ok := inputData["current_section"].(map[string]interface{}); ok {
+				if fn, ok := currentSection["function"].(string); ok && fn != "" {
+					sectionName = fn
+				} else if name, ok := currentSection["name"].(string); ok && name != "" {
+					sectionName = name
+				}
+			}
+		}
+	}
+
+	// Get company name from reviewed_brief
+	if brief, ok := source["reviewed_brief"].(map[string]interface{}); ok {
+		if cn, ok := brief["company_name"].(string); ok && cn != "" {
+			companyName = cn
+		}
+	}
+	if companyName == "" {
+		if inputData, ok := source["input_data"].(map[string]interface{}); ok {
+			if brief, ok := inputData["reviewed_brief"].(map[string]interface{}); ok {
+				if cn, ok := brief["company_name"].(string); ok && cn != "" {
+					companyName = cn
+				}
+			}
+		}
+	}
+
+	// Get domain
+	if d, ok := source["domain"].(string); ok && d != "" {
+		domain = d
+	} else if siteRecord, ok := source["site_record"].(map[string]interface{}); ok {
+		if d, ok := siteRecord["domain"].(string); ok && d != "" {
+			domain = d
+		}
+	}
+
+	// Build objective string
+	if sectionName != "" {
+		parts := []string{"Research content for", sectionName, "section"}
+		if companyName != "" {
+			parts = append(parts, "for", companyName)
+		}
+		if domain != "" {
+			parts = append(parts, "("+domain+")")
+		}
+		objective := strings.Join(parts, " ")
+		logger.Info("✓ Built objective from context",
+			zap.String("section", sectionName),
+			zap.String("company", companyName),
+			zap.String("objective", objective),
+		)
+		return objective
+	}
+
+	return ""
 }
 
 // getInputDataMap extracts the input_data map if it exists

@@ -1955,12 +1955,12 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 
 		var components []map[string]interface{}
 		for rows.Next() {
-			// FIX: Use sql.NullString for nullable columns
+			// Use sql.NullString for nullable columns
 			var name, function string
 			var displayName, category sql.NullString
-			var semanticTags, description, htmlTemplate, cssTemplate sql.NullString
+			var semanticTags, description, htmlTemplate sql.NullString
 
-			if err := rows.Scan(&name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate, &cssTemplate); err != nil {
+			if err := rows.Scan(&name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate); err != nil {
 				params.Logger.Error("LoadPageSectionComponentsAction: Row scan failed",
 					zap.Error(err))
 				continue
@@ -1992,9 +1992,6 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			}
 			if htmlTemplate.Valid {
 				comp["html_template"] = htmlTemplate.String
-			}
-			if cssTemplate.Valid {
-				comp["css_template"] = cssTemplate.String
 			}
 			components = append(components, comp)
 		}
