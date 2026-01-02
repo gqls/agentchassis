@@ -62,6 +62,9 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"loop":          LoopAction,
 	"loop_complete": LoopCompleteAction,
 
+	// Web search
+	"web_search": WebSearchAction,
+
 	// Styles and Containers
 	"insert_research_result":  InsertResearchResultAction,
 	"select_style_collection": SelectStyleCollectionAction,

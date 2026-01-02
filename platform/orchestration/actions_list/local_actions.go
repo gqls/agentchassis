@@ -53,6 +53,9 @@ var LocalActions = map[string]bool{
 	"loop":          true,
 	"loop_complete": true,
 
+	// Web search
+	"web_search": true,
+
 	"insert_research_result":  true,
 	"select_style_collection": true,
 	"update_site_content":     true,

@@ -271,40 +271,95 @@ func (a *Adapter) performSearchWithFallback(query string, numResults int, prefer
 	return nil, "", fallbacks, fmt.Errorf("all %d providers failed", len(a.providers))
 }
 
-// sendResponse sends a successful response
+// sendResponse sends a successful response to the caller's topic
 func (a *Adapter) sendResponse(headers map[string]string, payload ResponsePayload) {
 	responseBytes, _ := json.Marshal(map[string]interface{}{
 		"success": true,
 		"data":    payload,
 	})
 
-	responseHeaders := map[string]string{
-		"correlation_id": headers["correlation_id"],
-		"causation_id":   headers["request_id"],
-		"request_id":     uuid.NewString(),
+	// Determine where to send the response
+	// Priority: reply_to_topic > responses_topic > parent_responses_topic > default
+	responseTopic := responsesTopic // fallback to default
+	if rt := headers["reply_to_topic"]; rt != "" {
+		responseTopic = rt
+	} else if rt := headers["responses_topic"]; rt != "" {
+		responseTopic = rt
+	} else if rt := headers["parent_responses_topic"]; rt != "" {
+		responseTopic = rt
 	}
 
-	if err := a.producer.Produce(a.ctx, responsesTopic, responseHeaders,
+	a.logger.Info("Sending search response",
+		zap.String("to_topic", responseTopic),
+		zap.String("correlation_id", headers["correlation_id"]),
+		zap.Int("results_count", payload.Total),
+	)
+
+	responseHeaders := map[string]string{
+		"correlation_id":            headers["correlation_id"],
+		"causation_id":              headers["request_id"],
+		"request_id":                uuid.NewString(),
+		"message_type":              "response",
+		"in_response_to_request_id": headers["request_id"],
+		"in_response_to_step_name":  headers["step_name"],
+		"in_response_to_step_id":    headers["step_id"],
+		"orchestration_id":          headers["orchestration_id"],
+		"parent_orchestration_id":   headers["parent_orchestration_id"],
+		"status":                    "complete",
+		"is_complete":               "true",
+	}
+
+	if err := a.producer.Produce(a.ctx, responseTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), responseBytes); err != nil {
-		a.logger.Error("Failed to produce response", zap.Error(err))
+		a.logger.Error("Failed to produce response",
+			zap.Error(err),
+			zap.String("topic", responseTopic))
 	}
 }
 
-// sendErrorResponse sends an error response
+// sendErrorResponse sends an error response to the caller's topic
 func (a *Adapter) sendErrorResponse(headers map[string]string, errorMsg string) {
 	payload := map[string]interface{}{
 		"success": false,
 		"error":   errorMsg,
 	}
 	responseBytes, _ := json.Marshal(payload)
-	responseHeaders := map[string]string{
-		"correlation_id": headers["correlation_id"],
-		"causation_id":   headers["request_id"],
-		"request_id":     uuid.NewString(),
+
+	// Determine where to send the response (same logic as sendResponse)
+	responseTopic := responsesTopic // fallback to default
+	if rt := headers["reply_to_topic"]; rt != "" {
+		responseTopic = rt
+	} else if rt := headers["responses_topic"]; rt != "" {
+		responseTopic = rt
+	} else if rt := headers["parent_responses_topic"]; rt != "" {
+		responseTopic = rt
 	}
 
-	if err := a.producer.Produce(a.ctx, responsesTopic, responseHeaders,
+	a.logger.Info("Sending search error response",
+		zap.String("to_topic", responseTopic),
+		zap.String("correlation_id", headers["correlation_id"]),
+		zap.String("error", errorMsg),
+	)
+
+	responseHeaders := map[string]string{
+		"correlation_id":            headers["correlation_id"],
+		"causation_id":              headers["request_id"],
+		"request_id":                uuid.NewString(),
+		"message_type":              "response",
+		"in_response_to_request_id": headers["request_id"],
+		"in_response_to_step_name":  headers["step_name"],
+		"in_response_to_step_id":    headers["step_id"],
+		"orchestration_id":          headers["orchestration_id"],
+		"parent_orchestration_id":   headers["parent_orchestration_id"],
+		"status":                    "error",
+		"is_complete":               "true",
+		"is_error":                  "true",
+	}
+
+	if err := a.producer.Produce(a.ctx, responseTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), responseBytes); err != nil {
-		a.logger.Error("Failed to produce error response", zap.Error(err))
+		a.logger.Error("Failed to produce error response",
+			zap.Error(err),
+			zap.String("topic", responseTopic))
 	}
 }
