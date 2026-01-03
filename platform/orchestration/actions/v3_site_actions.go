@@ -1926,18 +1926,21 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			args[i] = name
 		}
 
-		// Option A: Use COALESCE to handle NULLs in the query
+		// Query for components by name
+		// Note: content_components table doesn't have is_active or css_template columns
 		query := fmt.Sprintf(`
 			SELECT 
+				id,
 				name, 
-				COALESCE(display_name, name) as display_name,  -- Default to name if NULL
+				COALESCE(display_name, name) as display_name,
 				function, 
-				COALESCE(category, '') as category,           -- Default to empty string
+				COALESCE(category, '') as category,
 				semantic_tags, 
 				description, 
-				html_template
+				html_template,
+				input_schema
 			FROM content_components 
-			WHERE name IN (%s) AND is_active = true`, strings.Join(placeholders, ", "))
+			WHERE name IN (%s)`, strings.Join(placeholders, ", "))
 
 		rows, err := params.DB.QueryContext(ctx, query, args...)
 		if err != nil {
@@ -1956,19 +1959,20 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		var components []map[string]interface{}
 		for rows.Next() {
 			// Use sql.NullString for nullable columns
-			var name, function string
+			var id, name, function string
 			var displayName, category sql.NullString
-			var semanticTags, description, htmlTemplate sql.NullString
+			var semanticTags, description, htmlTemplate, inputSchema sql.NullString
 
-			if err := rows.Scan(&name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate); err != nil {
+			if err := rows.Scan(&id, &name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate, &inputSchema); err != nil {
 				params.Logger.Error("LoadPageSectionComponentsAction: Row scan failed",
 					zap.Error(err))
 				continue
 			}
 
 			comp := map[string]interface{}{
-				"name":     name,
-				"function": function,
+				"component_id": id,
+				"name":         name,
+				"function":     function,
 			}
 
 			// Handle nullable fields
@@ -1987,43 +1991,141 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			if semanticTags.Valid {
 				comp["semantic_tags"] = semanticTags.String
 			}
-			if description.Valid {
+			if description.Valid && description.String != "" {
 				comp["description"] = description.String
 			}
-			if htmlTemplate.Valid {
+			if htmlTemplate.Valid && htmlTemplate.String != "" {
 				comp["html_template"] = htmlTemplate.String
+			}
+			if inputSchema.Valid && inputSchema.String != "" {
+				comp["input_schema"] = inputSchema.String
 			}
 			components = append(components, comp)
 		}
 
-		if len(components) < len(sectionNames) {
-			// Some components not found - create stub entries for missing ones
-			foundNames := make(map[string]bool)
-			for _, comp := range components {
-				if name, ok := comp["name"].(string); ok {
-					foundNames[name] = true
-				}
+		// Track which components were found by name
+		foundNames := make(map[string]bool)
+		for _, comp := range components {
+			if name, ok := comp["name"].(string); ok {
+				foundNames[name] = true
+			}
+			// Also mark function as found (for later matching)
+			if fn, ok := comp["function"].(string); ok {
+				foundNames[fn] = true
+			}
+		}
+
+		// Find missing components
+		var missing []string
+		for _, name := range sectionNames {
+			if !foundNames[name] {
+				missing = append(missing, name)
+			}
+		}
+
+		// Try fallback: lookup missing components by function
+		if len(missing) > 0 {
+			params.Logger.Info("LoadPageSectionComponentsAction: Trying function lookup for missing components",
+				zap.Strings("missing", missing))
+
+			funcPlaceholders := make([]string, len(missing))
+			funcArgs := make([]interface{}, len(missing))
+			for i, name := range missing {
+				funcPlaceholders[i] = fmt.Sprintf("$%d", i+1)
+				funcArgs[i] = name
 			}
 
-			var missing []string
-			for _, name := range sectionNames {
-				if !foundNames[name] {
-					missing = append(missing, name)
-					// Create stub component for missing section
-					components = append(components, map[string]interface{}{
-						"name":         name,
-						"display_name": name,
-						"function":     name,
-						"category":     "",
-						"needs_llm":    true, // Mark as needing LLM since no template
-						"description":  "",
-					})
+			funcQuery := fmt.Sprintf(`
+				SELECT DISTINCT ON (function)
+					id,
+					name, 
+					COALESCE(display_name, name) as display_name,
+					function, 
+					COALESCE(category, '') as category,
+					semantic_tags, 
+					description, 
+					html_template,
+					input_schema
+				FROM content_components 
+				WHERE function IN (%s)
+				ORDER BY function, created_at DESC
+			`, strings.Join(funcPlaceholders, ", "))
+
+			funcRows, err := params.DB.QueryContext(ctx, funcQuery, funcArgs...)
+			if err != nil {
+				params.Logger.Warn("LoadPageSectionComponentsAction: Function lookup query failed",
+					zap.Error(err))
+			} else {
+				defer funcRows.Close()
+				for funcRows.Next() {
+					var id, name, function string
+					var displayName, category sql.NullString
+					var semanticTags, description, htmlTemplate, inputSchema sql.NullString
+
+					if err := funcRows.Scan(&id, &name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate, &inputSchema); err != nil {
+						continue
+					}
+
+					// Only add if this function was in our missing list
+					if containsString(missing, function) {
+						comp := map[string]interface{}{
+							"component_id": id,
+							"name":         name,
+							"function":     function,
+						}
+						if displayName.Valid {
+							comp["display_name"] = displayName.String
+						} else {
+							comp["display_name"] = name
+						}
+						if category.Valid {
+							comp["category"] = category.String
+						}
+						if semanticTags.Valid {
+							comp["semantic_tags"] = semanticTags.String
+						}
+						if description.Valid && description.String != "" {
+							comp["description"] = description.String
+						}
+						if htmlTemplate.Valid && htmlTemplate.String != "" {
+							comp["html_template"] = htmlTemplate.String
+						}
+						if inputSchema.Valid && inputSchema.String != "" {
+							comp["input_schema"] = inputSchema.String
+						}
+						components = append(components, comp)
+						foundNames[function] = true
+						params.Logger.Info("LoadPageSectionComponentsAction: Found component by function",
+							zap.String("function", function),
+							zap.String("name", name))
+					}
 				}
 			}
+		}
 
-			if len(missing) > 0 {
-				params.Logger.Warn("LoadPageSectionComponentsAction: Some components not found in database",
-					zap.Strings("missing", missing))
+		// Rebuild missing list after function lookup
+		var stillMissing []string
+		for _, name := range sectionNames {
+			if !foundNames[name] {
+				stillMissing = append(stillMissing, name)
+			}
+		}
+
+		// Create stubs only for components still not found
+		if len(stillMissing) > 0 {
+			params.Logger.Warn("LoadPageSectionComponentsAction: Creating stubs for components not found in database",
+				zap.Strings("missing", stillMissing))
+
+			for _, name := range stillMissing {
+				// Create stub component for missing section
+				components = append(components, map[string]interface{}{
+					"name":         name,
+					"display_name": name,
+					"function":     name,
+					"category":     "",
+					"needs_llm":    true, // Mark as needing LLM since no template
+					"description":  "",
+				})
 			}
 		}
 
@@ -2354,4 +2456,14 @@ func getSearchQueryFromSectionContext(params ActionParams) string {
 	}
 
 	return query
+}
+
+// containsString checks if a string slice contains a specific string
+func containsString(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
