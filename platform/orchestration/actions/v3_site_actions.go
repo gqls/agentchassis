@@ -2056,49 +2056,56 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 	}, nil
 }
 
-// extractWithInputDataFallback tries multiple locations to find a field
 // Order: direct path -> input_data.{path} -> FindByPath helper
-func extractWithInputDataFallback(data map[string]interface{}, fieldPath string, logger *zap.Logger) interface{} {
-	// 1. Try direct path first
-	if result := datahelpers.ExtractNestedField(data, fieldPath); result != nil {
-		logger.Debug("Found field at direct path", zap.String("path", fieldPath))
-		return result
+// extractWithInputDataFallback tries to extract a field, falling back to input_data prefix
+// This handles the common case where workflows specify paths like "current_section.name"
+// but the data is actually at "input_data.current_section.name"
+func extractWithInputDataFallback(data map[string]interface{}, path string, logger *zap.Logger) interface{} {
+	// Try direct path first
+	if value := datahelpers.ExtractNestedField(data, path); value != nil {
+		logger.Debug("extractWithInputDataFallback: Found at direct path",
+			zap.String("path", path),
+		)
+		return value
 	}
 
-	// 2. Try input_data.{fieldPath}
-	inputDataPath := "input_data." + fieldPath
-	if result := datahelpers.ExtractNestedField(data, inputDataPath); result != nil {
-		logger.Debug("Found field via input_data fallback", zap.String("path", inputDataPath))
-		return result
-	}
-
-	// 3. Try looking in input_data map directly (handles nested input_data)
-	if inputData, ok := data["input_data"].(map[string]interface{}); ok {
-		if result := datahelpers.ExtractNestedField(inputData, fieldPath); result != nil {
-			logger.Debug("Found field inside input_data map", zap.String("path", fieldPath))
-			return result
+	// If path doesn't already start with input_data, try with prefix
+	if !strings.HasPrefix(path, "input_data.") {
+		prefixedPath := "input_data." + path
+		if value := datahelpers.ExtractNestedField(data, prefixedPath); value != nil {
+			logger.Debug("extractWithInputDataFallback: Found via input_data prefix",
+				zap.String("original_path", path),
+				zap.String("actual_path", prefixedPath),
+			)
+			return value
 		}
 	}
 
-	// 4. Try __raw_message__.body.input_data.{fieldPath} (deep nesting case)
-	if rawMsg, ok := data["__raw_message__"].(map[string]interface{}); ok {
-		if body, ok := rawMsg["body"].(map[string]interface{}); ok {
-			if inputData, ok := body["input_data"].(map[string]interface{}); ok {
-				if result := datahelpers.ExtractNestedField(inputData, fieldPath); result != nil {
-					logger.Debug("Found field in __raw_message__.body.input_data", zap.String("path", fieldPath))
-					return result
-				}
-			}
+	// Try in __raw_message__.body.input_data (deeply nested case from child agents)
+	if !strings.HasPrefix(path, "__raw_message__") {
+		rawMsgPath := "__raw_message__.body.input_data." + path
+		if value := datahelpers.ExtractNestedField(data, rawMsgPath); value != nil {
+			logger.Debug("extractWithInputDataFallback: Found via __raw_message__.body.input_data",
+				zap.String("original_path", path),
+			)
+			return value
 		}
 	}
 
-	// 5. Last resort: use FindByPath which does recursive search
-	if result := datahelpers.FindByPath(data, fieldPath, logger); result != nil {
-		logger.Debug("Found field via FindByPath", zap.String("path", fieldPath))
-		return result
+	// Also try agent_config location (for workflow config data)
+	if !strings.HasPrefix(path, "agent_config") {
+		agentConfigPath := "agent_config." + path
+		if value := datahelpers.ExtractNestedField(data, agentConfigPath); value != nil {
+			logger.Debug("extractWithInputDataFallback: Found via agent_config",
+				zap.String("original_path", path),
+			)
+			return value
+		}
 	}
 
-	logger.Debug("Field not found anywhere", zap.String("path", fieldPath))
+	logger.Debug("extractWithInputDataFallback: Not found anywhere",
+		zap.String("path", path),
+	)
 	return nil
 }
 
@@ -2200,12 +2207,48 @@ func ExtractFieldsAction(ctx context.Context, params ActionParams) (interface{},
 	config := params.StepConfig.Config
 	result := make(map[string]interface{})
 
-	// Handle fields array format
+	// Handle fields as map-of-arrays format (research-agent style)
+	// Example: {"topic": ["current_section.topic", "current_section.name"], ...}
+	if fieldsMap, ok := config["fields"].(map[string]interface{}); ok {
+		for targetField, sourcePathsRaw := range fieldsMap {
+			// Handle array of paths
+			if sourcePaths, ok := sourcePathsRaw.([]interface{}); ok {
+				for _, pathRaw := range sourcePaths {
+					if path, ok := pathRaw.(string); ok {
+						value := extractWithInputDataFallback(params.CollectedData, path, params.Logger)
+						if value != nil {
+							result[targetField] = value
+							params.Logger.Debug("ExtractFieldsAction: Found value",
+								zap.String("target", targetField),
+								zap.String("path", path),
+							)
+							break // Found value, stop trying other paths
+						}
+					}
+				}
+				// Log if we couldn't find any value
+				if result[targetField] == nil {
+					params.Logger.Warn("ExtractFieldsAction: No value found for field",
+						zap.String("target", targetField),
+						zap.Any("tried_paths", sourcePathsRaw),
+					)
+				}
+			} else if singlePath, ok := sourcePathsRaw.(string); ok {
+				// Handle single path (not array)
+				value := extractWithInputDataFallback(params.CollectedData, singlePath, params.Logger)
+				if value != nil {
+					result[targetField] = value
+				}
+			}
+		}
+	}
+
+	// Handle fields array format (original behavior)
 	if fields, ok := config["fields"].([]interface{}); ok {
 		for _, f := range fields {
 			switch field := f.(type) {
 			case string:
-				if value := datahelpers.ExtractNestedField(params.CollectedData, field); value != nil {
+				if value := extractWithInputDataFallback(params.CollectedData, field, params.Logger); value != nil {
 					parts := strings.Split(field, ".")
 					result[parts[len(parts)-1]] = value
 				}
@@ -2219,18 +2262,18 @@ func ExtractFieldsAction(ctx context.Context, params ActionParams) (interface{},
 					parts := strings.Split(source, ".")
 					target = parts[len(parts)-1]
 				}
-				if value := datahelpers.ExtractNestedField(params.CollectedData, source); value != nil {
+				if value := extractWithInputDataFallback(params.CollectedData, source, params.Logger); value != nil {
 					result[target] = value
 				}
 			}
 		}
 	}
 
-	// Handle field_map format
+	// Handle field_map format (original behavior)
 	if fieldMap, ok := config["field_map"].(map[string]interface{}); ok {
 		for target, source := range fieldMap {
 			if sourceStr, ok := source.(string); ok {
-				if value := datahelpers.ExtractNestedField(params.CollectedData, sourceStr); value != nil {
+				if value := extractWithInputDataFallback(params.CollectedData, sourceStr, params.Logger); value != nil {
 					result[target] = value
 				}
 			}
@@ -2246,6 +2289,69 @@ func ExtractFieldsAction(ctx context.Context, params ActionParams) (interface{},
 		}
 	}
 
-	params.Logger.Info("ExtractFieldsAction: Complete", zap.Int("fields", len(result)))
+	params.Logger.Info("ExtractFieldsAction: Complete",
+		zap.Int("fields_extracted", len(result)),
+		zap.Strings("keys", datahelpers.GetMapKeys(result)),
+	)
+
 	return result, nil
+}
+
+// Priority 5: Try to build query from section context (for research-agent)
+// Check both root level and inside input_data
+func getSearchQueryFromSectionContext(params ActionParams) string {
+	var currentSection map[string]interface{}
+
+	// Try root level first
+	if cs, ok := params.CollectedData["current_section"].(map[string]interface{}); ok {
+		currentSection = cs
+	}
+	// Try input_data.current_section
+	if currentSection == nil {
+		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+			if cs, ok := inputData["current_section"].(map[string]interface{}); ok {
+				currentSection = cs
+			}
+		}
+	}
+
+	if currentSection == nil {
+		return ""
+	}
+
+	// Get section name/function
+	sectionName := ""
+	if fn, ok := currentSection["function"].(string); ok && fn != "" {
+		sectionName = fn
+	} else if name, ok := currentSection["name"].(string); ok && name != "" {
+		sectionName = name
+	}
+
+	if sectionName == "" {
+		return ""
+	}
+
+	// Get domain
+	domain := ""
+	if d, ok := params.CollectedData["domain"].(string); ok {
+		domain = d
+	} else if siteRecord, ok := params.CollectedData["site_record"].(map[string]interface{}); ok {
+		if d, ok := siteRecord["domain"].(string); ok {
+			domain = d
+		}
+	} else if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		if siteRecord, ok := inputData["site_record"].(map[string]interface{}); ok {
+			if d, ok := siteRecord["domain"].(string); ok {
+				domain = d
+			}
+		}
+	}
+
+	// Build query
+	query := sectionName
+	if domain != "" {
+		query = fmt.Sprintf("%s %s", sectionName, domain)
+	}
+
+	return query
 }

@@ -26,9 +26,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -214,6 +216,26 @@ func extractSearchQuery(params ActionParams, config map[string]interface{}) stri
 		return t
 	}
 
+	// Priority 2.5: Extract from collected data using query_from path
+	if queryFrom, ok := config["query_from"].(string); ok && queryFrom != "" {
+		if value := datahelpers.ExtractNestedField(params.CollectedData, queryFrom); value != nil {
+			if queryStr, ok := value.(string); ok && queryStr != "" {
+				// Sanity check - don't use LLM error messages as queries
+				if !strings.Contains(strings.ToLower(queryStr), "cannot") &&
+					!strings.Contains(strings.ToLower(queryStr), "no topic") &&
+					len(queryStr) < 200 {
+					params.Logger.Debug("Using query from query_from path",
+						zap.String("path", queryFrom),
+						zap.String("query", queryStr))
+					return queryStr
+				}
+				params.Logger.Warn("query_from resolved to invalid query (likely LLM error)",
+					zap.String("path", queryFrom),
+					zap.String("value_preview", queryStr[:min(100, len(queryStr))]))
+			}
+		}
+	}
+	
 	// Priority 3: Extract from collected data using query_field path
 	queryField := "query"
 	if qf, ok := config["query_field"].(string); ok {
