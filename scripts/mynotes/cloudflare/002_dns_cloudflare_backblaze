@@ -30,3 +30,10 @@ fwd1.porkbun.com
 fwd2.porkbun.com
 DNS only
 
+tracking script
+search web analytics
+find url like:
+https://dash.cloudflare.com/13044f178ae0b156961065f55c8fada8/web-analytics/sites
+add site
+find js snippet
+add to page
