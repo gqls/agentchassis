@@ -384,3 +384,20 @@ SELECT
     default_config->'workflow'->'steps'->'process_sections_loop'->'config'->>'iterate_over' as iterate_over
 FROM agent_definitions
 WHERE type = 'page-content-writer';
+
+--
+-- Update the generate_content substep to include current_page
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,substeps,generate_content,config,input_fields}',
+        '["current_section", "render_context", "research_result", "reviewed_brief", "current_page"]'::jsonb
+                     )
+WHERE type = 'page-content-writer';
+
+-- Verify the update
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'substeps'->'generate_content'->'config'->'input_fields' as input_fields
+FROM agent_definitions
+WHERE type = 'page-content-writer';

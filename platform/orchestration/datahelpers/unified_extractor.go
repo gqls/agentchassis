@@ -114,12 +114,34 @@ func ExtractFields(
 	}
 
 	// ========================================================================
+	// Special handling for "current_page" - needed for content generation
+	// ========================================================================
+	if contains(fieldNames, "current_page") {
+		logger.Info("Special case: extracting current_page")
+
+		if currentPage := findFieldRecursive(collectedData, "current_page", 0, logger); currentPage != nil {
+			result["current_page"] = currentPage
+			if cpMap, ok := currentPage.(map[string]interface{}); ok {
+				logger.Info("✓ Found current_page",
+					zap.String("name", fmt.Sprintf("%v", cpMap["name"])),
+					zap.String("title", fmt.Sprintf("%v", cpMap["title"])),
+				)
+			} else {
+				logger.Info("✓ Found current_page (non-map type)")
+			}
+		} else {
+			logger.Warn("✗ Could not find current_page")
+		}
+	}
+
+	// ========================================================================
 	// Track which fields we've already handled specially
 	// ========================================================================
 	speciallyHandled := map[string]bool{
 		"input_data":     true,
 		"reviewed_brief": true,
 		"site_record":    true,
+		"current_page":   true,
 	}
 
 	// Extract each specific field (skip already handled)
@@ -328,7 +350,8 @@ func tryUnwrapMapPatterns(m map[string]interface{}, logger *zap.Logger) interfac
 	return nil
 }
 
-// ensureCoreFields makes absolutely sure domain and objective exist
+// ensureCoreFields makes absolutely sure critical fields exist eg domain, objective
+// These are fields that templates commonly reference but might not be explicitly requested
 func ensureCoreFields(
 	result map[string]interface{},
 	source map[string]interface{},
@@ -339,61 +362,38 @@ func ensureCoreFields(
 	// Check domain
 	if _, hasDomain := result["domain"]; !hasDomain {
 		logger.Warn("Domain missing from result, searching aggressively")
-
-		// NEW: First check known nested locations before aggressive search
-		domain := ""
-
-		// Check site_record.domain first (most common case)
-		if siteRecord, ok := source["site_record"].(map[string]interface{}); ok {
-			if d, ok := siteRecord["domain"].(string); ok && d != "" {
-				domain = d
-				logger.Info("✓ Found domain in site_record.domain", zap.String("domain", domain))
-			}
-		}
-
-		// Check input_data.site_record.domain
-		if domain == "" {
-			if inputData, ok := source["input_data"].(map[string]interface{}); ok {
-				if siteRecord, ok := inputData["site_record"].(map[string]interface{}); ok {
-					if d, ok := siteRecord["domain"].(string); ok && d != "" {
-						domain = d
-						logger.Info("✓ Found domain in input_data.site_record.domain", zap.String("domain", domain))
+		if domain := FindDomainAggressive(source, logger); domain != "" {
+			result["domain"] = domain
+			logger.Info("✓ Recovered domain via aggressive search", zap.String("domain", domain))
+		} else {
+			// Try site_record.domain explicitly
+			if siteRecord := findFieldRecursive(source, "site_record", 0, logger); siteRecord != nil {
+				if srMap, ok := siteRecord.(map[string]interface{}); ok {
+					if d, ok := srMap["domain"].(string); ok && d != "" {
+						result["domain"] = d
+						logger.Info("✓ Found domain in site_record.domain", zap.String("domain", d))
 					}
 				}
 			}
-		}
-
-		// Fall back to aggressive search
-		if domain == "" {
-			domain = FindDomainAggressive(source, logger)
-		}
-
-		if domain != "" {
-			result["domain"] = domain
-			logger.Info("✓ Recovered domain", zap.String("domain", domain))
-		} else {
-			logger.Error("✗ Could not find domain anywhere")
 		}
 	}
 
 	// Check objective
 	if _, hasObjective := result["objective"]; !hasObjective {
 		logger.Warn("Objective missing from result, searching aggressively")
-
-		objective := FindObjectiveAggressive(source, logger)
-
-		// NEW: If no explicit objective, build one from context
-		if objective == "" {
-			objective = buildObjectiveFromContext(source, logger)
-		}
-
-		if objective != "" {
+		if objective := FindObjectiveAggressive(source, logger); objective != "" {
 			result["objective"] = objective
 			logger.Info("✓ Recovered objective via aggressive search",
 				zap.Int("length", len(objective)))
 		} else {
-			// Don't log error - for research-agent, objective can be built from topic
-			logger.Warn("✗ Could not find or build objective")
+			// Build objective from context if we can't find one
+			objective := buildObjectiveFromContext(result, source, logger)
+			if objective != "" {
+				result["objective"] = objective
+				logger.Info("✓ Built objective from context", zap.String("objective", objective))
+			} else {
+				logger.Warn("✗ Could not find or build objective")
+			}
 		}
 	}
 
@@ -406,78 +406,81 @@ func ensureCoreFields(
 			}
 		}
 	}
+
+	// ADDED: Check current_page - commonly referenced in content generation templates
+	if _, hasCurrentPage := result["current_page"]; !hasCurrentPage {
+		if currentPage := findFieldRecursive(source, "current_page", 0, logger); currentPage != nil {
+			result["current_page"] = currentPage
+			if cpMap, ok := currentPage.(map[string]interface{}); ok {
+				logger.Info("✓ Auto-recovered current_page",
+					zap.String("name", fmt.Sprintf("%v", cpMap["name"])),
+					zap.String("title", fmt.Sprintf("%v", cpMap["title"])),
+				)
+			} else {
+				logger.Info("✓ Auto-recovered current_page (non-map)")
+			}
+		}
+	}
+
+	// ADDED: Check current_section - critical for loop iterations
+	if _, hasCurrentSection := result["current_section"]; !hasCurrentSection {
+		if currentSection := findFieldRecursive(source, "current_section", 0, logger); currentSection != nil {
+			result["current_section"] = currentSection
+			logger.Info("✓ Auto-recovered current_section")
+		}
+	}
+
+	// ADDED: Check render_context - commonly needed for template rendering
+	if _, hasRenderContext := result["render_context"]; !hasRenderContext {
+		if renderContext := findFieldRecursive(source, "render_context", 0, logger); renderContext != nil {
+			result["render_context"] = renderContext
+			logger.Info("✓ Auto-recovered render_context")
+		}
+	}
 }
 
 // buildObjectiveFromContext constructs an objective string from available context
-// This is useful when calling research-agent which doesn't receive an explicit objective
-func buildObjectiveFromContext(source map[string]interface{}, logger *zap.Logger) string {
-	var sectionName, companyName, domain string
+// Used when no explicit objective is found but we have enough context to build one
+func buildObjectiveFromContext(result, source map[string]interface{}, logger *zap.Logger) string {
+	var parts []string
 
-	// Try to get section name from current_section
-	if currentSection, ok := source["current_section"].(map[string]interface{}); ok {
-		if fn, ok := currentSection["function"].(string); ok && fn != "" {
+	// Get section info
+	sectionName := ""
+	if cs, ok := result["current_section"].(map[string]interface{}); ok {
+		if fn, ok := cs["function"].(string); ok && fn != "" {
 			sectionName = fn
-		} else if name, ok := currentSection["name"].(string); ok && name != "" {
-			sectionName = name
-		} else if topic, ok := currentSection["topic"].(string); ok && topic != "" {
-			sectionName = topic
+		} else if n, ok := cs["name"].(string); ok && n != "" {
+			sectionName = n
 		}
 	}
 
-	// Also check in input_data.current_section
-	if sectionName == "" {
-		if inputData, ok := source["input_data"].(map[string]interface{}); ok {
-			if currentSection, ok := inputData["current_section"].(map[string]interface{}); ok {
-				if fn, ok := currentSection["function"].(string); ok && fn != "" {
-					sectionName = fn
-				} else if name, ok := currentSection["name"].(string); ok && name != "" {
-					sectionName = name
-				}
-			}
-		}
-	}
-
-	// Get company name from reviewed_brief
-	if brief, ok := source["reviewed_brief"].(map[string]interface{}); ok {
-		if cn, ok := brief["company_name"].(string); ok && cn != "" {
+	// Get company name
+	companyName := ""
+	if rb, ok := result["reviewed_brief"].(map[string]interface{}); ok {
+		if cn, ok := rb["company_name"].(string); ok {
 			companyName = cn
-		}
-	}
-	if companyName == "" {
-		if inputData, ok := source["input_data"].(map[string]interface{}); ok {
-			if brief, ok := inputData["reviewed_brief"].(map[string]interface{}); ok {
-				if cn, ok := brief["company_name"].(string); ok && cn != "" {
-					companyName = cn
-				}
-			}
 		}
 	}
 
 	// Get domain
-	if d, ok := source["domain"].(string); ok && d != "" {
+	domain := ""
+	if d, ok := result["domain"].(string); ok {
 		domain = d
-	} else if siteRecord, ok := source["site_record"].(map[string]interface{}); ok {
-		if d, ok := siteRecord["domain"].(string); ok && d != "" {
-			domain = d
-		}
 	}
 
-	// Build objective string
+	// Build objective based on what we have
 	if sectionName != "" {
-		parts := []string{"Research content for", sectionName, "section"}
-		if companyName != "" {
-			parts = append(parts, "for", companyName)
-		}
-		if domain != "" {
-			parts = append(parts, "("+domain+")")
-		}
-		objective := strings.Join(parts, " ")
-		logger.Info("✓ Built objective from context",
-			zap.String("section", sectionName),
-			zap.String("company", companyName),
-			zap.String("objective", objective),
-		)
-		return objective
+		parts = append(parts, fmt.Sprintf("Generate content for %s section", sectionName))
+	}
+	if companyName != "" {
+		parts = append(parts, fmt.Sprintf("for %s", companyName))
+	}
+	if domain != "" && companyName == "" {
+		parts = append(parts, fmt.Sprintf("for %s", domain))
+	}
+
+	if len(parts) > 0 {
+		return strings.Join(parts, " ")
 	}
 
 	return ""
