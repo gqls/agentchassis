@@ -210,95 +210,186 @@ func extractSearchQuery(params ActionParams, config map[string]interface{}) stri
 		return q
 	}
 
-	// Priority 2: "topic" field (for compatibility with research-agent workflow)
+	// Priority 2: "topic" field (for compatibility)
 	if t, ok := config["topic"].(string); ok && t != "" {
 		params.Logger.Debug("Using topic as query from config", zap.String("query", t))
 		return t
 	}
 
-	// Priority 2.5: Extract from collected data using query_from path
+	// Priority 3: Extract from collected data using query_from path (ADDED)
+	// This handles "query_from": "search_query.result" from research-agent workflow
 	if queryFrom, ok := config["query_from"].(string); ok && queryFrom != "" {
-		if value := datahelpers.ExtractNestedField(params.CollectedData, queryFrom); value != nil {
+		if value := extractWithFallbacks(params.CollectedData, queryFrom, params.Logger); value != nil {
 			if queryStr, ok := value.(string); ok && queryStr != "" {
 				// Sanity check - don't use LLM error messages as queries
-				if !strings.Contains(strings.ToLower(queryStr), "cannot") &&
-					!strings.Contains(strings.ToLower(queryStr), "no topic") &&
+				lowerQuery := strings.ToLower(queryStr)
+				if !strings.Contains(lowerQuery, "cannot generate") &&
+					!strings.Contains(lowerQuery, "no topic") &&
+					!strings.Contains(lowerQuery, "please supply") &&
+					!strings.Contains(lowerQuery, "please provide") &&
 					len(queryStr) < 200 {
 					params.Logger.Debug("Using query from query_from path",
 						zap.String("path", queryFrom),
 						zap.String("query", queryStr))
 					return queryStr
 				}
-				params.Logger.Warn("query_from resolved to invalid query (likely LLM error)",
+				params.Logger.Warn("query_from resolved to invalid query (likely LLM error message)",
 					zap.String("path", queryFrom),
 					zap.String("value_preview", queryStr[:min(100, len(queryStr))]))
 			}
 		}
 	}
-	
-	// Priority 3: Extract from collected data using query_field path
+
+	// Priority 4: Extract from collected data using query_field path
 	queryField := "query"
 	if qf, ok := config["query_field"].(string); ok {
 		queryField = qf
 	}
 
-	// Try to find in collected data
-	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-		if q, ok := inputData[queryField].(string); ok && q != "" {
-			params.Logger.Debug("Using query from input_data", zap.String("field", queryField), zap.String("query", q))
+	// Try various locations
+	if value := extractWithFallbacks(params.CollectedData, queryField, params.Logger); value != nil {
+		if q, ok := value.(string); ok && q != "" {
 			return q
 		}
-		// Also try "topic" in input_data
-		if t, ok := inputData["topic"].(string); ok && t != "" {
-			params.Logger.Debug("Using topic from input_data as query", zap.String("query", t))
-			return t
-		}
-		// Try "search_topic"
-		if st, ok := inputData["search_topic"].(string); ok && st != "" {
-			params.Logger.Debug("Using search_topic from input_data as query", zap.String("query", st))
-			return st
-		}
 	}
 
-	// Priority 4: Try direct collected data keys
-	if q, ok := params.CollectedData[queryField].(string); ok && q != "" {
-		return q
-	}
-	if t, ok := params.CollectedData["topic"].(string); ok && t != "" {
-		return t
-	}
-	if st, ok := params.CollectedData["search_topic"].(string); ok && st != "" {
-		return st
-	}
-
-	// Priority 5: Try to build query from section context (for research-agent)
-	if currentSection, ok := params.CollectedData["current_section"].(map[string]interface{}); ok {
-		// Build research query from section function/name and domain
-		sectionName := ""
-		if fn, ok := currentSection["function"].(string); ok {
-			sectionName = fn
-		} else if name, ok := currentSection["name"].(string); ok {
-			sectionName = name
-		}
-
-		domain := ""
-		if d, ok := params.CollectedData["domain"].(string); ok {
-			domain = d
-		} else if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-			if d, ok := inputData["domain"].(string); ok {
-				domain = d
+	// Priority 5: Try standard field names
+	standardFields := []string{"topic", "search_topic", "search_query"}
+	for _, field := range standardFields {
+		if value := extractWithFallbacks(params.CollectedData, field, params.Logger); value != nil {
+			if q, ok := value.(string); ok && q != "" {
+				params.Logger.Debug("Using query from standard field", zap.String("field", field))
+				return q
 			}
 		}
+	}
 
-		if sectionName != "" {
-			query := sectionName
-			if domain != "" {
-				query = fmt.Sprintf("%s %s", sectionName, domain)
-			}
-			params.Logger.Debug("Built query from section context", zap.String("query", query))
-			return query
-		}
+	// Priority 6: Build query from section context (fallback for research-agent)
+	query := buildQueryFromSectionContext(params, params.Logger)
+	if query != "" {
+		return query
 	}
 
 	return ""
+}
+
+// extractWithFallbacks tries multiple path variations to find data
+func extractWithFallbacks(data map[string]interface{}, path string, logger *zap.Logger) interface{} {
+	// Try direct path first
+	if value := datahelpers.ExtractNestedField(data, path); value != nil {
+		return value
+	}
+
+	// If path doesn't start with input_data, try with prefix
+	if !strings.HasPrefix(path, "input_data.") {
+		prefixedPath := "input_data." + path
+		if value := datahelpers.ExtractNestedField(data, prefixedPath); value != nil {
+			logger.Debug("Found via input_data prefix",
+				zap.String("original", path),
+				zap.String("actual", prefixedPath))
+			return value
+		}
+	}
+
+	// Try __raw_message__.body.input_data path
+	if !strings.HasPrefix(path, "__raw_message__") {
+		rawPath := "__raw_message__.body.input_data." + path
+		if value := datahelpers.ExtractNestedField(data, rawPath); value != nil {
+			logger.Debug("Found via __raw_message__ prefix", zap.String("original", path))
+			return value
+		}
+	}
+
+	return nil
+}
+
+// buildQueryFromSectionContext builds a search query from current_section data
+// This is a fallback when no explicit query is provided
+func buildQueryFromSectionContext(params ActionParams, logger *zap.Logger) string {
+	var currentSection map[string]interface{}
+
+	// Try root level first
+	if cs, ok := params.CollectedData["current_section"].(map[string]interface{}); ok {
+		currentSection = cs
+	}
+	// Try input_data.current_section
+	if currentSection == nil {
+		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+			if cs, ok := inputData["current_section"].(map[string]interface{}); ok {
+				currentSection = cs
+			}
+		}
+	}
+	// Try __raw_message__.body.input_data.current_section
+	if currentSection == nil {
+		if rawMsg, ok := params.CollectedData["__raw_message__"].(map[string]interface{}); ok {
+			if body, ok := rawMsg["body"].(map[string]interface{}); ok {
+				if inputData, ok := body["input_data"].(map[string]interface{}); ok {
+					if cs, ok := inputData["current_section"].(map[string]interface{}); ok {
+						currentSection = cs
+					}
+				}
+			}
+		}
+	}
+
+	if currentSection == nil {
+		return ""
+	}
+
+	// Get section name/function
+	sectionName := ""
+	for _, key := range []string{"function", "name", "topic", "research_query"} {
+		if val, ok := currentSection[key].(string); ok && val != "" {
+			sectionName = val
+			break
+		}
+	}
+
+	if sectionName == "" {
+		return ""
+	}
+
+	// Get company name from reviewed_brief
+	companyName := ""
+	if brief := extractWithFallbacks(params.CollectedData, "reviewed_brief", logger); brief != nil {
+		if briefMap, ok := brief.(map[string]interface{}); ok {
+			if cn, ok := briefMap["company_name"].(string); ok {
+				companyName = cn
+			}
+		}
+	}
+
+	// Get domain
+	domain := ""
+	if siteRecord := extractWithFallbacks(params.CollectedData, "site_record", logger); siteRecord != nil {
+		if srMap, ok := siteRecord.(map[string]interface{}); ok {
+			if d, ok := srMap["domain"].(string); ok {
+				domain = d
+			}
+		}
+	}
+
+	// Build query - combine section name with company/domain context
+	query := sectionName
+	if companyName != "" {
+		query = fmt.Sprintf("%s %s", sectionName, companyName)
+	} else if domain != "" {
+		query = fmt.Sprintf("%s %s", sectionName, domain)
+	}
+
+	logger.Info("Built query from section context",
+		zap.String("section", sectionName),
+		zap.String("company", companyName),
+		zap.String("domain", domain),
+		zap.String("query", query))
+
+	return query
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
