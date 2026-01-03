@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/gqls/agentchassis/pkg/models"
-	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -169,6 +168,22 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 }
 
 // LoopCompleteAction aggregates results from loop iterations
+// ==============================================================================
+// ISSUE 27: LoopCompleteAction hardcoded to look for page_html_N keys
+// ==============================================================================
+//
+// PROBLEM: LoopCompleteAction looks for "page_html_0", "page_html_1", etc.
+// But the workflow uses output_field: "section_output", storing as
+// "section_output_0", "section_output_1", etc.
+//
+// FIX: Try multiple patterns or read output_field from config
+//
+// File: platform/orchestration/actions/loop_actions.go
+// Replace the key lookup section in LoopCompleteAction:
+// ==============================================================================
+
+// In LoopCompleteAction, replace the hardcoded key lookup with this:
+
 func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(
 		zap.String("action", "loop_complete"),
@@ -199,96 +214,185 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 		zap.Int("total_iterations", totalIterations),
 	)
 
-	// PRESCRIPTIVE: Collect from known output fields
+	// Get the output field pattern from config, or use defaults
+	outputFieldBase := "page_html"
+	if base, ok := params.StepConfig.Config["output_field_base"].(string); ok && base != "" {
+		outputFieldBase = base
+	}
+
+	// IMPROVED: Try multiple patterns to find iteration results
+	keyPatterns := []string{
+		outputFieldBase,  // From config (e.g., "page_html")
+		"section_output", // page-content-writer pattern
+		"page_html",      // Original pattern
+		"rendered_html",  // Alternative pattern
+		"result",         // Generic pattern
+		loopName + "_iter_%d_render_from_template", // Full step name pattern
+		loopName + "_iter_%d_render_section",       // Full step name pattern for LLM path
+	}
+
+	// Collect results from known output fields
 	iterationResults := make([]interface{}, 0, totalIterations)
 
 	for i := 0; i < totalIterations; i++ {
-		// KNOWN PATH: page_html_0, page_html_1, etc.
-		outputKey := fmt.Sprintf("page_html_%d", i)
+		var stepResult interface{}
+		var foundKey string
 
-		stepResult, exists := params.CollectedData[outputKey]
-		if !exists {
+		// Try each pattern
+		for _, pattern := range keyPatterns {
+			var outputKey string
+			if strings.Contains(pattern, "%d") {
+				outputKey = fmt.Sprintf(pattern, i)
+			} else {
+				outputKey = fmt.Sprintf("%s_%d", pattern, i)
+			}
+
+			if result, exists := params.CollectedData[outputKey]; exists {
+				stepResult = result
+				foundKey = outputKey
+				break
+			}
+		}
+
+		// Also try the full step name patterns for rendered output
+		if stepResult == nil {
+			// Try render_from_template result
+			templateKey := fmt.Sprintf("%s_iter_%d_render_from_template", loopName, i)
+			if result, exists := params.CollectedData[templateKey]; exists {
+				stepResult = result
+				foundKey = templateKey
+			}
+		}
+
+		if stepResult == nil {
+			// Try render_section result (LLM path)
+			sectionKey := fmt.Sprintf("%s_iter_%d_render_section", loopName, i)
+			if result, exists := params.CollectedData[sectionKey]; exists {
+				stepResult = result
+				foundKey = sectionKey
+			}
+		}
+
+		if stepResult == nil {
 			logger.Error("Output field missing for iteration",
-				zap.String("expected_key", outputKey),
-				zap.Int("iteration", i))
+				zap.Int("iteration", i),
+				zap.Strings("tried_patterns", keyPatterns))
 			continue
 		}
+
+		logger.Debug("Found iteration result",
+			zap.Int("iteration", i),
+			zap.String("key", foundKey))
 
 		// Extract HTML from the stored result
 		html := extractHTMLFromResult(stepResult, logger)
 		if html == "" {
-			logger.Error("No HTML in result",
-				zap.String("output_key", outputKey),
+			logger.Warn("No HTML in result",
+				zap.String("output_key", foundKey),
 				zap.Int("iteration", i))
-			continue
+			// Don't skip - collect even empty results to maintain order
 		}
 
-		// Get page name from loop item
+		// Get page/section name from loop item
 		itemKey := fmt.Sprintf("%s_item_%d", loopName, i)
 		item := params.CollectedData[itemKey]
 		pageName := extractPageNameFromItem(item)
 
 		if pageName == "" {
-			pageName = fmt.Sprintf("page_%d", i)
+			pageName = fmt.Sprintf("section_%d", i)
 		}
 
 		// Build result
 		result := map[string]interface{}{
-			"name":      pageName,
-			"page_html": html,
-			"iteration": i,
+			"name":          pageName,
+			"page_html":     html,
+			"rendered_html": html,
+			"iteration":     i,
+			"source_key":    foundKey,
 		}
+
+		// Also include component info if available
+		if resultMap, ok := stepResult.(map[string]interface{}); ok {
+			if compID, ok := resultMap["component_id"]; ok {
+				result["component_id"] = compID
+			}
+			if compName, ok := resultMap["component_name"]; ok {
+				result["component_name"] = compName
+			}
+			if compFunc, ok := resultMap["component_function"]; ok {
+				result["component_function"] = compFunc
+			}
+		}
+
 		iterationResults = append(iterationResults, result)
 
 		logger.Info("Collected iteration result",
-			zap.String("page_name", pageName),
+			zap.String("name", pageName),
 			zap.Int("html_length", len(html)),
-			zap.Int("iteration", i))
+			zap.Int("iteration", i),
+			zap.String("source", foundKey))
 	}
 
 	logger.Info("Loop completion finished",
 		zap.Int("results_collected", len(iterationResults)),
+		zap.Int("total_iterations", totalIterations),
 	)
 
 	return map[string]interface{}{
 		"iterations": totalIterations,
 		"results":    iterationResults,
+		"count":      len(iterationResults),
 	}, nil
 }
 
-// extractHTMLFromResult extracts HTML from a step result
-// Html-developer stores result as map with "final_html" field
-func extractHTMLFromResult(result interface{}, logger *zap.Logger) string {
-	// Result should be a map
-	m, ok := result.(map[string]interface{})
-	if !ok {
-		logger.Error("Result is not a map",
-			zap.String("type", fmt.Sprintf("%T", result)))
+// extractHTMLFromResult extracts HTML from various result formats
+func extractHTMLFromResult(stepResult interface{}, logger *zap.Logger) string {
+	if stepResult == nil {
 		return ""
 	}
 
-	// PRESCRIPTIVE: Html-developer returns final_html
-	html, ok := m["final_html"].(string)
-	if !ok || html == "" {
-		logger.Error("final_html field missing or empty",
-			zap.Strings("available_keys", datahelpers.GetMapKeys(m)))
-		return ""
+	// Direct string
+	if html, ok := stepResult.(string); ok {
+		return html
 	}
 
-	return html
+	// Map with various HTML field names
+	if resultMap, ok := stepResult.(map[string]interface{}); ok {
+		// Try common field names in order of preference
+		htmlFields := []string{
+			"rendered_html",
+			"html",
+			"final_html",
+			"page_html",
+			"content",
+			"result",
+			"output",
+		}
+
+		for _, field := range htmlFields {
+			if html, ok := resultMap[field].(string); ok && html != "" {
+				logger.Debug("Extracted HTML from field", zap.String("field", field))
+				return html
+			}
+		}
+	}
+
+	return ""
 }
 
-// extractPageNameFromItem extracts page name from loop item
+// extractPageNameFromItem extracts the page/section name from a loop item
 func extractPageNameFromItem(item interface{}) string {
-	// Loop items are strings (page names)
-	if name, ok := item.(string); ok {
-		return name
+	if item == nil {
+		return ""
 	}
 
-	// Or maps with "name" field
-	if m, ok := item.(map[string]interface{}); ok {
-		if name, ok := m["name"].(string); ok {
-			return name
+	if itemMap, ok := item.(map[string]interface{}); ok {
+		// Try various name fields
+		nameFields := []string{"name", "page_name", "function", "display_name", "title"}
+		for _, field := range nameFields {
+			if name, ok := itemMap[field].(string); ok && name != "" {
+				return name
+			}
 		}
 	}
 
