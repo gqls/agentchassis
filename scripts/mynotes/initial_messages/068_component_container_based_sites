@@ -11,9 +11,10 @@ kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
 
 # scale other agents down
 kubectl -n ai-persona-system scale deployment/reasoning-agent --replicas=0
-kubectl -n ai-persona-system scale deployment/web-search-adapter --replicas=0
 kubectl -n ai-persona-system scale deployment/content-creator-agent --replicas=0
 kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=0
+
+kubectl -n ai-persona-system scale deployment/web-search-adapter --replicas=1
 
 # 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
 # List all job topics
@@ -278,9 +279,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=11cfb53f-9c03-47f7-b8ce-2b3f13d90187
-ORCHESTRATION_ID=bbf9a68b-61cf-41cb-a60b-016433093a87
-HITL_REQUEST_ID=17ee42b6-085a-4563-85fd-88009293d396
+CORRELATION_ID=263d906f-1faf-4bb7-8678-b11b5f74c006
+ORCHESTRATION_ID=4ca6668d-094c-4786-a521-52c828a3806b
+HITL_REQUEST_ID=5adf42a3-743a-4aa4-bb28-c1dd6becdddc
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -364,9 +365,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=11cfb53f-9c03-47f7-b8ce-2b3f13d90187
-ORCHESTRATION_ID=bbf9a68b-61cf-41cb-a60b-016433093a87
-HITL_REQUEST_ID=6d891b05-9af3-4328-9ac1-5046a29c63c5
+CORRELATION_ID=263d906f-1faf-4bb7-8678-b11b5f74c006
+ORCHESTRATION_ID=4ca6668d-094c-4786-a521-52c828a3806b
+HITL_REQUEST_ID=8eb49acb-31f9-4d37-992d-433d7c753422
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"

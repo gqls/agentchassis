@@ -288,3 +288,29 @@ SET default_config = jsonb_set(
     updated_at = NOW()
 WHERE type = 'research-agent';
 
+--
+-- Issue 37: Fix research-agent extract_topic paths to use input_data prefix
+--
+-- Problem: extract_topic step uses paths like "current_section.name" but the data
+-- arrives from call_agent at "input_data.current_section.name"
+--
+-- This causes extracted topic to be empty, leading to empty search queries
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,extract_topic,config,fields}',
+        '{
+            "topic": ["input_data.current_section.topic", "input_data.current_section.research_query", "input_data.current_section.name", "input_data.current_section.function"],
+            "company": ["input_data.reviewed_brief.company_name", "reviewed_brief.company_name"],
+            "industry": ["input_data.reviewed_brief.industry", "input_data.reviewed_brief.category", "reviewed_brief.industry"]
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'research-agent';
+
+-- Verify the update
+SELECT type,
+       default_config->'workflow'->'steps'->'extract_topic'->'config'->'fields' as extract_fields
+FROM agent_definitions
+WHERE type = 'research-agent';

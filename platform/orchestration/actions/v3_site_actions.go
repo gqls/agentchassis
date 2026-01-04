@@ -2384,7 +2384,8 @@ func FilterSearchResultsAction(ctx context.Context, params ActionParams) (interf
 // ============================================================================
 
 func ExtractFieldsAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("ExtractFieldsAction: Starting")
+	params.Logger.Info("ExtractFieldsAction: Starting",
+		zap.Any("config_keys", getConfigKeys(params.StepConfig.Config)))
 
 	if params.ExecutionContext.Action == "initialize" {
 		return map[string]interface{}{"status": "initialized"}, nil
@@ -2393,48 +2394,13 @@ func ExtractFieldsAction(ctx context.Context, params ActionParams) (interface{},
 	config := params.StepConfig.Config
 	result := make(map[string]interface{})
 
-	// Handle fields as map-of-arrays format (research-agent style)
-	// Example: {"topic": ["current_section.topic", "current_section.name"], ...}
-	if fieldsMap, ok := config["fields"].(map[string]interface{}); ok {
-		for targetField, sourcePathsRaw := range fieldsMap {
-			// Handle array of paths
-			if sourcePaths, ok := sourcePathsRaw.([]interface{}); ok {
-				for _, pathRaw := range sourcePaths {
-					if path, ok := pathRaw.(string); ok {
-						value := extractWithInputDataFallback(params.CollectedData, path, params.Logger)
-						if value != nil {
-							result[targetField] = value
-							params.Logger.Debug("ExtractFieldsAction: Found value",
-								zap.String("target", targetField),
-								zap.String("path", path),
-							)
-							break // Found value, stop trying other paths
-						}
-					}
-				}
-				// Log if we couldn't find any value
-				if result[targetField] == nil {
-					params.Logger.Warn("ExtractFieldsAction: No value found for field",
-						zap.String("target", targetField),
-						zap.Any("tried_paths", sourcePathsRaw),
-					)
-				}
-			} else if singlePath, ok := sourcePathsRaw.(string); ok {
-				// Handle single path (not array)
-				value := extractWithInputDataFallback(params.CollectedData, singlePath, params.Logger)
-				if value != nil {
-					result[targetField] = value
-				}
-			}
-		}
-	}
-
-	// Handle fields array format (original behavior)
+	// Handle fields array format: ["field1", "field2"]
 	if fields, ok := config["fields"].([]interface{}); ok {
+		params.Logger.Info("ExtractFieldsAction: Processing fields as array")
 		for _, f := range fields {
 			switch field := f.(type) {
 			case string:
-				if value := extractWithInputDataFallback(params.CollectedData, field, params.Logger); value != nil {
+				if value := datahelpers.ExtractNestedField(params.CollectedData, field); value != nil {
 					parts := strings.Split(field, ".")
 					result[parts[len(parts)-1]] = value
 				}
@@ -2448,18 +2414,80 @@ func ExtractFieldsAction(ctx context.Context, params ActionParams) (interface{},
 					parts := strings.Split(source, ".")
 					target = parts[len(parts)-1]
 				}
-				if value := extractWithInputDataFallback(params.CollectedData, source, params.Logger); value != nil {
+				if value := datahelpers.ExtractNestedField(params.CollectedData, source); value != nil {
 					result[target] = value
 				}
 			}
 		}
 	}
 
-	// Handle field_map format (original behavior)
+	// NEW: Handle fields as map-of-arrays format (fallback paths)
+	// Example: {"topic": ["path1", "path2"], "company": ["path3"]}
+	if fieldsMap, ok := config["fields"].(map[string]interface{}); ok {
+		params.Logger.Info("ExtractFieldsAction: Processing fields as map-of-arrays",
+			zap.Int("field_count", len(fieldsMap)))
+
+		for targetField, pathsRaw := range fieldsMap {
+			var found bool
+
+			// Handle array of paths
+			if paths, ok := pathsRaw.([]interface{}); ok {
+				for _, pathRaw := range paths {
+					if path, ok := pathRaw.(string); ok {
+						// Try direct path first
+						if value := datahelpers.ExtractNestedField(params.CollectedData, path); value != nil {
+							result[targetField] = value
+							found = true
+							params.Logger.Info("ExtractFieldsAction: Found via direct path",
+								zap.String("target", targetField),
+								zap.String("path", path))
+							break
+						}
+
+						// Try with input_data prefix
+						if !strings.HasPrefix(path, "input_data.") {
+							prefixedPath := "input_data." + path
+							if value := datahelpers.ExtractNestedField(params.CollectedData, prefixedPath); value != nil {
+								result[targetField] = value
+								found = true
+								params.Logger.Info("ExtractFieldsAction: Found via input_data prefix",
+									zap.String("target", targetField),
+									zap.String("original_path", path),
+									zap.String("prefixed_path", prefixedPath))
+								break
+							}
+						}
+					}
+				}
+			}
+
+			// Handle single string path (not array)
+			if singlePath, ok := pathsRaw.(string); ok && !found {
+				if value := datahelpers.ExtractNestedField(params.CollectedData, singlePath); value != nil {
+					result[targetField] = value
+					found = true
+				} else if !strings.HasPrefix(singlePath, "input_data.") {
+					prefixedPath := "input_data." + singlePath
+					if value := datahelpers.ExtractNestedField(params.CollectedData, prefixedPath); value != nil {
+						result[targetField] = value
+						found = true
+					}
+				}
+			}
+
+			if !found {
+				params.Logger.Warn("ExtractFieldsAction: Field not found in any path",
+					zap.String("target", targetField),
+					zap.Any("tried_paths", pathsRaw))
+			}
+		}
+	}
+
+	// Handle field_map format: {"target": "source"}
 	if fieldMap, ok := config["field_map"].(map[string]interface{}); ok {
 		for target, source := range fieldMap {
 			if sourceStr, ok := source.(string); ok {
-				if value := extractWithInputDataFallback(params.CollectedData, sourceStr, params.Logger); value != nil {
+				if value := datahelpers.ExtractNestedField(params.CollectedData, sourceStr); value != nil {
 					result[target] = value
 				}
 			}
@@ -2477,9 +2505,7 @@ func ExtractFieldsAction(ctx context.Context, params ActionParams) (interface{},
 
 	params.Logger.Info("ExtractFieldsAction: Complete",
 		zap.Int("fields_extracted", len(result)),
-		zap.Strings("keys", datahelpers.GetMapKeys(result)),
-	)
-
+		zap.Strings("result_keys", datahelpers.GetMapKeys(result)))
 	return result, nil
 }
 
