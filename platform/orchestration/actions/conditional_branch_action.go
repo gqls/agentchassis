@@ -9,7 +9,6 @@ package actions
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -31,10 +30,6 @@ import (
 //	{"field": "path.to.field", "operator": "equals", "value": true}
 func ConditionalBranchAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
-	logger := params.Logger.With(
-		zap.String("action", "conditional_branch"),
-		zap.String("step_name", params.ExecutionContext.StepName),
-	)
 
 	// Get then/else steps
 	thenStep, _ := config["then_step"].(string)
@@ -44,10 +39,20 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 	var err error
 	var conditionDebug string
 
-	// Log available top-level keys for debugging
-	logger.Info("ConditionalBranch: evaluating condition",
+	// ISSUE 33 FIX: Log entry with available keys
+	topLevelKeys := make([]string, 0)
+	for k := range params.CollectedData {
+		if len(k) > 25 {
+			topLevelKeys = append(topLevelKeys, k[:25]+"...")
+		} else {
+			topLevelKeys = append(topLevelKeys, k)
+		}
+	}
+	params.Logger.Info("ConditionalBranchAction: ENTRY",
+		zap.String("step_name", params.ExecutionContext.StepName),
 		zap.Any("condition", config["condition"]),
-		zap.Strings("available_keys", getTopLevelKeys(params.CollectedData)),
+		zap.Strings("top_level_keys_sample", topLevelKeys[:min(10, len(topLevelKeys))]),
+		zap.Int("total_keys", len(topLevelKeys)),
 	)
 
 	// Check if condition is a string (expression) or map (object)
@@ -55,7 +60,7 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 	case string:
 		conditionDebug = cond
 		// Parse string expression like "site_plan.needs_logo == true OR site_plan.needs_images == true"
-		conditionMet, err = evaluateStringCondition(cond, params.CollectedData, logger)
+		conditionMet, err = evaluateStringCondition(cond, params.CollectedData, params.Logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate condition '%s': %w", cond, err)
 		}
@@ -63,7 +68,7 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 	case map[string]interface{}:
 		conditionDebug = fmt.Sprintf("%v", cond)
 		// Legacy object-style condition
-		conditionMet, err = evaluateObjectCondition(cond, params.CollectedData, logger)
+		conditionMet, err = evaluateObjectCondition(cond, params.CollectedData, params.Logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate condition: %w", err)
 		}
@@ -80,7 +85,7 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 		nextStep = elseStep
 	}
 
-	logger.Info("ConditionalBranch: evaluation complete",
+	params.Logger.Info("Conditional branch evaluated",
 		zap.String("condition", conditionDebug),
 		zap.Bool("condition_met", conditionMet),
 		zap.String("next_step", nextStep),
@@ -101,13 +106,13 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 func evaluateStringCondition(expr string, data map[string]interface{}, logger *zap.Logger) (bool, error) {
 	expr = strings.TrimSpace(expr)
 
-	logger.Info("Evaluating string condition", zap.String("expression", expr))
+	logger.Debug("Evaluating string condition", zap.String("expression", expr))
 
 	// Handle OR (lower precedence - split and evaluate first)
 	// We need to be careful to only split on " OR " (with spaces) to avoid matching inside field names
 	if idx := strings.Index(expr, " OR "); idx >= 0 {
 		parts := splitOnOperator(expr, " OR ")
-		logger.Info("Evaluating OR expression", zap.Int("parts", len(parts)))
+		logger.Debug("Evaluating OR expression", zap.Int("parts", len(parts)))
 
 		for i, part := range parts {
 			result, err := evaluateStringCondition(strings.TrimSpace(part), data, logger)
@@ -115,7 +120,7 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 				return false, fmt.Errorf("OR clause %d: %w", i, err)
 			}
 			if result {
-				logger.Info("OR short-circuit: true", zap.Int("at_part", i))
+				logger.Debug("OR short-circuit: true", zap.Int("at_part", i))
 				return true, nil // Short-circuit OR
 			}
 		}
@@ -125,7 +130,7 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 	// Handle AND (higher precedence)
 	if idx := strings.Index(expr, " AND "); idx >= 0 {
 		parts := splitOnOperator(expr, " AND ")
-		logger.Info("Evaluating AND expression", zap.Int("parts", len(parts)))
+		logger.Debug("Evaluating AND expression", zap.Int("parts", len(parts)))
 
 		for i, part := range parts {
 			result, err := evaluateStringCondition(strings.TrimSpace(part), data, logger)
@@ -133,7 +138,7 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 				return false, fmt.Errorf("AND clause %d: %w", i, err)
 			}
 			if !result {
-				logger.Info("AND short-circuit: false", zap.Int("at_part", i))
+				logger.Debug("AND short-circuit: false", zap.Int("at_part", i))
 				return false, nil // Short-circuit AND
 			}
 		}
@@ -193,9 +198,19 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 		expected := strings.TrimSpace(expr[idx+4:])
 
 		actual := resolveFieldValue(field, data, logger)
+
+		// ISSUE 33 FIX: Log at INFO level like != branch
+		logger.Info("evaluateSingleComparison: resolved field for == comparison",
+			zap.String("field", field),
+			zap.String("expected", expected),
+			zap.Any("actual", actual),
+			zap.Bool("actual_is_nil", actual == nil),
+			zap.String("actual_type", fmt.Sprintf("%T", actual)),
+		)
+
 		matches := compareValues(actual, expected, logger)
 
-		logger.Info("Evaluated == comparison",
+		logger.Info("evaluateSingleComparison: == comparison result",
 			zap.String("field", field),
 			zap.String("expected", expected),
 			zap.Any("actual", actual),
@@ -210,7 +225,7 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 	actual := resolveFieldValue(expr, data, logger)
 	isTruthy := valueIsTruthy(actual)
 
-	logger.Info("Evaluated truthy check",
+	logger.Debug("Evaluated truthy check",
 		zap.String("field", expr),
 		zap.Any("value", actual),
 		zap.Bool("is_truthy", isTruthy),
@@ -222,107 +237,61 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 // resolveFieldValue gets a value from collected data using a dotted path
 // Uses datahelpers.FindByPath for traversal with fallbacks
 func resolveFieldValue(fieldPath string, data map[string]interface{}, logger *zap.Logger) interface{} {
-	logger.Debug("resolveFieldValue: starting", zap.String("path", fieldPath))
-
-	// Strategy 1: Direct lookup at top level
-	parts := strings.Split(fieldPath, ".")
-	if len(parts) >= 1 {
-		firstPart := parts[0]
-		if value, exists := data[firstPart]; exists {
-			logger.Debug("resolveFieldValue: found first part at top level",
-				zap.String("first_part", firstPart),
-			)
-			// If there's only one part, return the value
-			if len(parts) == 1 {
-				return value
-			}
-			// Otherwise traverse the rest
-			current := value
-			for i := 1; i < len(parts); i++ {
-				if m, ok := current.(map[string]interface{}); ok {
-					if v, exists := m[parts[i]]; exists {
-						current = v
-					} else {
-						logger.Debug("resolveFieldValue: part not found in map",
-							zap.String("part", parts[i]),
-							zap.Int("depth", i),
-						)
-						break
-					}
-				} else {
-					logger.Debug("resolveFieldValue: cannot traverse non-map",
-						zap.String("part", parts[i]),
-						zap.Int("depth", i),
-					)
-					break
-				}
-			}
-			// Check if we got a real value (not the original map)
-			if current != value {
-				return current
-			}
+	// ISSUE 33 FIX: Log available top-level keys to diagnose missing loop variable
+	topLevelKeys := make([]string, 0, len(data))
+	for k := range data {
+		if len(k) > 30 {
+			topLevelKeys = append(topLevelKeys, k[:30]+"...")
+		} else {
+			topLevelKeys = append(topLevelKeys, k)
 		}
 	}
 
-	// Strategy 2: Use FindByPath from datahelpers (handles unwrapping)
+	parts := strings.Split(fieldPath, ".")
+	firstPart := ""
+	if len(parts) > 0 {
+		firstPart = parts[0]
+	}
+
+	_, firstPartExists := data[firstPart]
+
+	logger.Info("resolveFieldValue: ENTRY",
+		zap.String("path", fieldPath),
+		zap.String("first_part", firstPart),
+		zap.Bool("first_part_exists", firstPartExists),
+		zap.Int("top_level_key_count", len(topLevelKeys)),
+	)
+
+	// Strategy 1: Use FindByPath from datahelpers (handles unwrapping)
 	if value := datahelpers.FindByPath(data, fieldPath, logger); value != nil {
-		logger.Debug("resolveFieldValue: found via FindByPath", zap.String("path", fieldPath))
+		logger.Info("resolveFieldValue: FOUND via FindByPath",
+			zap.String("path", fieldPath),
+			zap.String("value_type", fmt.Sprintf("%T", value)),
+		)
 		return value
 	}
 
-	// Strategy 3: Manual traversal for simple cases
+	// Strategy 2: Manual traversal for simple cases
 	value := traverseDottedPath(fieldPath, data, logger)
 	if value != nil {
-		logger.Debug("resolveFieldValue: found via manual traversal", zap.String("path", fieldPath))
+		logger.Info("resolveFieldValue: FOUND via manual traversal",
+			zap.String("path", fieldPath),
+		)
 		return value
 	}
 
-	// ISSUE 33 FIX: Strategy 4 - Loop variable fallback
-	// If the first part looks like a loop variable (e.g., "current_section"),
-	// try to find it via the loop item key stored by setLoopVariable
+	// Strategy 3: Try searching recursively for the last segment
+	// e.g., if "site_plan.needs_logo" fails, try finding "needs_logo" within "site_plan"
 	if len(parts) >= 2 {
-		loopVarName := parts[0]
-		// Check if this might be a loop variable by looking for the corresponding item key
-		if loopMetadata, ok := data["loop_metadata"].(map[string]interface{}); ok {
-			if loopName, ok := loopMetadata["loop_name"].(string); ok {
-				if currentIter, ok := loopMetadata["current_iteration"].(int); ok {
-					itemKey := fmt.Sprintf("%s_item_%d", loopName, currentIter)
-					if item, exists := data[itemKey]; exists {
-						logger.Info("resolveFieldValue: using loop item fallback",
-							zap.String("loop_var", loopVarName),
-							zap.String("item_key", itemKey),
-							zap.Int("iteration", currentIter),
-						)
-						// Set the loop variable if not already set
-						if _, exists := data[loopVarName]; !exists {
-							data[loopVarName] = item
-						}
-						// Now try to resolve the rest of the path
-						restPath := strings.Join(parts[1:], ".")
-						if itemMap, ok := item.(map[string]interface{}); ok {
-							if val, exists := itemMap[parts[1]]; exists {
-								if len(parts) == 2 {
-									return val
-								}
-								// Continue traversing
-								return traverseDottedPath(restPath, itemMap, logger)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Strategy 5: Try searching recursively for the last segment
-	if len(parts) >= 2 {
+		// Get the base object
 		basePath := strings.Join(parts[:len(parts)-1], ".")
 		baseObj := traverseDottedPath(basePath, data, logger)
 
 		if baseMap, ok := baseObj.(map[string]interface{}); ok {
 			lastKey := parts[len(parts)-1]
+			// Search recursively within the base object
 			if found := findKeyRecursive(baseMap, lastKey, 0, logger); found != nil {
-				logger.Debug("resolveFieldValue: found via recursive search within base",
+				logger.Info("resolveFieldValue: FOUND via recursive search within base",
 					zap.String("base", basePath),
 					zap.String("key", lastKey),
 				)
@@ -331,7 +300,70 @@ func resolveFieldValue(fieldPath string, data map[string]interface{}, logger *za
 		}
 	}
 
-	logger.Debug("resolveFieldValue: field not found", zap.String("path", fieldPath))
+	// Log failure with more detail
+	logger.Warn("resolveFieldValue: NOT FOUND - this may indicate loop variable not set",
+		zap.String("path", fieldPath),
+		zap.String("first_part", firstPart),
+		zap.Bool("first_part_exists", firstPartExists),
+	)
+
+	// Strategy 4 - Loop variable fallback
+	// If the first part doesn't exist but looks like a loop variable,
+	// try to find it via the loop item key stored during loop expansion
+	if !firstPartExists && len(parts) >= 1 {
+		loopVarName := parts[0]
+
+		// Check if we have loop_metadata that can help us find the item
+		if loopMetadata, ok := data["loop_metadata"].(map[string]interface{}); ok {
+			loopName, _ := loopMetadata["loop_name"].(string)
+			currentIter := -1
+
+			// Try to get current iteration as int or float64
+			if iter, ok := loopMetadata["current_iteration"].(int); ok {
+				currentIter = iter
+			} else if iter, ok := loopMetadata["current_iteration"].(float64); ok {
+				currentIter = int(iter)
+			}
+
+			if loopName != "" && currentIter >= 0 {
+				itemKey := fmt.Sprintf("%s_item_%d", loopName, currentIter)
+				if item, exists := data[itemKey]; exists {
+					logger.Info("resolveFieldValue: using loop item fallback",
+						zap.String("loop_var", loopVarName),
+						zap.String("item_key", itemKey),
+						zap.Int("iteration", currentIter),
+					)
+
+					// Set the loop variable in data for future lookups
+					data[loopVarName] = item
+
+					// Now try to resolve the field path again
+					if itemMap, ok := item.(map[string]interface{}); ok {
+						if len(parts) == 1 {
+							// Just the loop variable name - return the whole item
+							return item
+						}
+						// Traverse the rest of the path
+						restPath := strings.Join(parts[1:], ".")
+						if result := traverseDottedPath(restPath, itemMap, logger); result != nil {
+							logger.Info("resolveFieldValue: FOUND via loop item fallback",
+								zap.String("path", fieldPath),
+								zap.String("item_key", itemKey),
+							)
+							return result
+						}
+					}
+				} else {
+					logger.Warn("resolveFieldValue: loop item key not found",
+						zap.String("item_key", itemKey),
+						zap.String("loop_name", loopName),
+						zap.Int("iteration", currentIter),
+					)
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -554,19 +586,4 @@ func compareNumeric(actual, expected interface{}, op string) bool {
 	default:
 		return false
 	}
-}
-
-func getTopLevelKeys(data map[string]interface{}) []string {
-	keys := make([]string, 0, len(data))
-	for k := range data {
-		// Truncate long keys
-		if len(k) > 40 {
-			keys = append(keys, k[:40]+"...")
-		} else {
-			keys = append(keys, k)
-		}
-	}
-	// Sort for consistent output
-	sort.Strings(keys)
-	return keys
 }
