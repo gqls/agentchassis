@@ -1005,8 +1005,9 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 
 // CompilePageSectionsAction combines multiple rendered sections into a page
 // Config:
-//   - sections_field: path to array of section results
-//   - page_name: name for the page
+//   - sections_from OR sections_field: path to array of section results
+//   - page_from: path to page data for name/title
+//   - page_name: explicit name for the page (fallback)
 //   - inject_header: boolean
 //   - inject_footer: boolean
 func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -1018,13 +1019,31 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 
 	config := params.StepConfig.Config
 
+	// Accept both "sections_from" and "sections_field" for compatibility
 	sectionsField := "rendered_sections"
-	if sf, ok := config["sections_field"].(string); ok && sf != "" {
+	if sf, ok := config["sections_from"].(string); ok && sf != "" {
+		sectionsField = sf
+	} else if sf, ok := config["sections_field"].(string); ok && sf != "" {
 		sectionsField = sf
 	}
 
+	params.Logger.Info("CompilePageSectionsAction: Looking for sections",
+		zap.String("sections_field", sectionsField))
+
 	sectionsData := datahelpers.ExtractNestedField(params.CollectedData, sectionsField)
 	if sectionsData == nil {
+		// Try with .results suffix (loop action output format)
+		sectionsData = datahelpers.ExtractNestedField(params.CollectedData, sectionsField+".results")
+		if sectionsData != nil {
+			params.Logger.Info("CompilePageSectionsAction: Found sections at .results path")
+		}
+	}
+
+	if sectionsData == nil {
+		params.Logger.Error("CompilePageSectionsAction: Sections not found",
+			zap.String("tried_path", sectionsField),
+			zap.String("also_tried", sectionsField+".results"),
+			zap.Strings("available_keys", datahelpers.GetMapKeys(params.CollectedData)))
 		return nil, fmt.Errorf("sections not found at %s", sectionsField)
 	}
 
@@ -1036,26 +1055,47 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 			if s, ok := item.(string); ok {
 				sections = append(sections, s)
 			} else if m, ok := item.(map[string]interface{}); ok {
-				if html, ok := m["rendered_html"].(string); ok {
+				// Try multiple keys for the HTML content
+				if html, ok := m["rendered_html"].(string); ok && html != "" {
+					sections = append(sections, html)
+				} else if html, ok := m["page_html"].(string); ok && html != "" {
+					sections = append(sections, html)
+				} else if html, ok := m["html"].(string); ok && html != "" {
 					sections = append(sections, html)
 				}
 			}
 		}
 	case map[string]interface{}:
-		// Ordered by keys (section_0, section_1, etc.)
-		for i := 0; i < len(v); i++ {
-			key := fmt.Sprintf("section_%d", i)
-			if section, ok := v[key]; ok {
-				if s, ok := section.(string); ok {
-					sections = append(sections, s)
-				} else if m, ok := section.(map[string]interface{}); ok {
-					if html, ok := m["rendered_html"].(string); ok {
+		// Check if this is a loop output with "results" array
+		if results, ok := v["results"].([]interface{}); ok {
+			for _, item := range results {
+				if m, ok := item.(map[string]interface{}); ok {
+					if html, ok := m["rendered_html"].(string); ok && html != "" {
 						sections = append(sections, html)
+					} else if html, ok := m["page_html"].(string); ok && html != "" {
+						sections = append(sections, html)
+					}
+				}
+			}
+		} else {
+			// Ordered by keys (section_0, section_1, etc.)
+			for i := 0; i < len(v); i++ {
+				key := fmt.Sprintf("section_%d", i)
+				if section, ok := v[key]; ok {
+					if s, ok := section.(string); ok {
+						sections = append(sections, s)
+					} else if m, ok := section.(map[string]interface{}); ok {
+						if html, ok := m["rendered_html"].(string); ok {
+							sections = append(sections, html)
+						}
 					}
 				}
 			}
 		}
 	}
+
+	params.Logger.Info("CompilePageSectionsAction: Extracted sections",
+		zap.Int("count", len(sections)))
 
 	if len(sections) == 0 {
 		return nil, fmt.Errorf("no sections found to compile")
@@ -1064,8 +1104,17 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 	// Build page body
 	pageBody := strings.Join(sections, "\n\n")
 
-	// Get page name
+	// Get page name - try page_from first, then page_name config
 	pageName := "index"
+	if pageFrom, ok := config["page_from"].(string); ok && pageFrom != "" {
+		if pageData := datahelpers.ExtractNestedField(params.CollectedData, pageFrom); pageData != nil {
+			if pm, ok := pageData.(map[string]interface{}); ok {
+				if name, ok := pm["name"].(string); ok && name != "" {
+					pageName = name
+				}
+			}
+		}
+	}
 	if pn, ok := config["page_name"].(string); ok && pn != "" {
 		pageName = pn
 	}
@@ -2000,6 +2049,26 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			if inputSchema.Valid && inputSchema.String != "" {
 				comp["input_schema"] = inputSchema.String
 			}
+
+			// Auto-detect if component needs LLM content generation
+			// Components need LLM if they have:
+			// 1. Go-style template placeholders ({{.something}}) AND input_schema, OR
+			// 2. Template with content placeholders but no static render_context fields
+			needsLLM := false
+			if htmlTemplate.Valid && htmlTemplate.String != "" {
+				template := htmlTemplate.String
+				// Check for Go-style placeholders like {{.headline}}, {{.features}}
+				// These need LLM-generated content, unlike Mustache-style {{logo_text}}
+				hasGoPlaceholders := strings.Contains(template, "{{.") ||
+					strings.Contains(template, "{{ .") ||
+					strings.Contains(template, "{{range")
+				// If template has Go placeholders AND input_schema, it needs LLM
+				if hasGoPlaceholders && inputSchema.Valid && inputSchema.String != "" {
+					needsLLM = true
+				}
+			}
+			comp["needs_llm"] = needsLLM
+
 			components = append(components, comp)
 		}
 
@@ -2093,11 +2162,26 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 						if inputSchema.Valid && inputSchema.String != "" {
 							comp["input_schema"] = inputSchema.String
 						}
+
+						// Auto-detect if component needs LLM content generation
+						needsLLM := false
+						if htmlTemplate.Valid && htmlTemplate.String != "" {
+							template := htmlTemplate.String
+							hasGoPlaceholders := strings.Contains(template, "{{.") ||
+								strings.Contains(template, "{{ .") ||
+								strings.Contains(template, "{{range")
+							if hasGoPlaceholders && inputSchema.Valid && inputSchema.String != "" {
+								needsLLM = true
+							}
+						}
+						comp["needs_llm"] = needsLLM
+
 						components = append(components, comp)
 						foundNames[function] = true
 						params.Logger.Info("LoadPageSectionComponentsAction: Found component by function",
 							zap.String("function", function),
-							zap.String("name", name))
+							zap.String("name", name),
+							zap.Bool("needs_llm", needsLLM))
 					}
 				}
 			}
