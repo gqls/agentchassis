@@ -182,11 +182,27 @@ func (s *SagaCoordinator) setLoopVariable(
 	stepConfig models.Step,
 	logger *zap.Logger,
 ) {
+	logger.Info("setLoopVariable: ENTRY",
+		zap.String("step", state.CurrentStep),
+		zap.Any("config_keys", getKeys(stepConfig.Config)),
+	)
+
 	// Check if this is a loop iteration step
 	loopIteration, hasIteration := stepConfig.Config["loop_iteration"]
 	loopVarName, hasVarName := stepConfig.Config["loop_var_name"].(string)
 
+	logger.Info("setLoopVariable: config check",
+		zap.Bool("hasIteration", hasIteration),
+		zap.Bool("hasVarName", hasVarName),
+		zap.Any("loop_iteration", loopIteration),
+		zap.String("loop_var_name", loopVarName),
+	)
+
 	if !hasIteration || !hasVarName {
+		logger.Warn("setLoopVariable: EARLY RETURN - not a loop step",
+			zap.Bool("hasIteration", hasIteration),
+			zap.Bool("hasVarName", hasVarName),
+		)
 		return // Not a loop step
 	}
 
@@ -216,6 +232,13 @@ func (s *SagaCoordinator) setLoopVariable(
 
 	// Set the loop variable
 	state.CollectedData[loopVarName] = item
+
+	logger.Info("setLoopVariable: SET COMPLETE",
+		zap.String("loop_var", loopVarName),
+		zap.Int("iteration", iterIdx),
+		zap.Bool("item_is_map", isMap(item)),
+		zap.Bool("var_now_exists", state.CollectedData[loopVarName] != nil),
+	)
 
 	// Update current iteration in metadata
 	loopMetadata["current_iteration"] = iterIdx
@@ -353,4 +376,17 @@ func cloneSlice(src []interface{}) []interface{} {
 		}
 	}
 	return dst
+}
+
+func getKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func isMap(v interface{}) bool {
+	_, ok := v.(map[string]interface{})
+	return ok
 }

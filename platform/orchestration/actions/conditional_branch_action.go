@@ -9,6 +9,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -90,13 +91,13 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 func evaluateStringCondition(expr string, data map[string]interface{}, logger *zap.Logger) (bool, error) {
 	expr = strings.TrimSpace(expr)
 
-	logger.Debug("Evaluating string condition", zap.String("expression", expr))
+	logger.Info("Evaluating string condition", zap.String("expression", expr))
 
 	// Handle OR (lower precedence - split and evaluate first)
 	// We need to be careful to only split on " OR " (with spaces) to avoid matching inside field names
 	if idx := strings.Index(expr, " OR "); idx >= 0 {
 		parts := splitOnOperator(expr, " OR ")
-		logger.Debug("Evaluating OR expression", zap.Int("parts", len(parts)))
+		logger.Info("Evaluating OR expression", zap.Int("parts", len(parts)))
 
 		for i, part := range parts {
 			result, err := evaluateStringCondition(strings.TrimSpace(part), data, logger)
@@ -104,7 +105,7 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 				return false, fmt.Errorf("OR clause %d: %w", i, err)
 			}
 			if result {
-				logger.Debug("OR short-circuit: true", zap.Int("at_part", i))
+				logger.Info("OR short-circuit: true", zap.Int("at_part", i))
 				return true, nil // Short-circuit OR
 			}
 		}
@@ -114,7 +115,7 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 	// Handle AND (higher precedence)
 	if idx := strings.Index(expr, " AND "); idx >= 0 {
 		parts := splitOnOperator(expr, " AND ")
-		logger.Debug("Evaluating AND expression", zap.Int("parts", len(parts)))
+		logger.Info("Evaluating AND expression", zap.Int("parts", len(parts)))
 
 		for i, part := range parts {
 			result, err := evaluateStringCondition(strings.TrimSpace(part), data, logger)
@@ -122,7 +123,7 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 				return false, fmt.Errorf("AND clause %d: %w", i, err)
 			}
 			if !result {
-				logger.Debug("AND short-circuit: false", zap.Int("at_part", i))
+				logger.Info("AND short-circuit: false", zap.Int("at_part", i))
 				return false, nil // Short-circuit AND
 			}
 		}
@@ -145,19 +146,32 @@ func splitOnOperator(expr string, operator string) []string {
 func evaluateSingleComparison(expr string, data map[string]interface{}, logger *zap.Logger) (bool, error) {
 	expr = strings.TrimSpace(expr)
 
+	logger.Info("evaluateSingleComparison: ENTRY",
+		zap.String("expr", expr),
+	)
 	// Try != first (must check before == since == is a substring)
 	if idx := strings.Index(expr, " != "); idx >= 0 {
 		field := strings.TrimSpace(expr[:idx])
 		expected := strings.TrimSpace(expr[idx+4:])
 
 		actual := resolveFieldValue(field, data, logger)
-		matches := compareValues(actual, expected, logger)
 
-		logger.Debug("Evaluated != comparison",
+		logger.Info("evaluateSingleComparison: resolved field",
 			zap.String("field", field),
 			zap.String("expected", expected),
 			zap.Any("actual", actual),
-			zap.Bool("matches", !matches),
+			zap.Bool("actual_is_nil", actual == nil),
+			zap.String("actual_type", fmt.Sprintf("%T", actual)),
+		)
+
+		matches := compareValues(actual, expected, logger)
+
+		logger.Info("evaluateSingleComparison: comparison result - Evaluated != comparison",
+			zap.String("field", field),
+			zap.String("expected", expected),
+			zap.Any("actual", actual),
+			zap.Bool("matches", matches),
+			zap.Bool("!matches", !matches),
 		)
 
 		return !matches, nil
@@ -171,7 +185,7 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 		actual := resolveFieldValue(field, data, logger)
 		matches := compareValues(actual, expected, logger)
 
-		logger.Debug("Evaluated == comparison",
+		logger.Info("Evaluated == comparison",
 			zap.String("field", field),
 			zap.String("expected", expected),
 			zap.Any("actual", actual),
@@ -186,7 +200,7 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 	actual := resolveFieldValue(expr, data, logger)
 	isTruthy := valueIsTruthy(actual)
 
-	logger.Debug("Evaluated truthy check",
+	logger.Info("Evaluated truthy check",
 		zap.String("field", expr),
 		zap.Any("value", actual),
 		zap.Bool("is_truthy", isTruthy),
@@ -198,18 +212,26 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 // resolveFieldValue gets a value from collected data using a dotted path
 // Uses datahelpers.FindByPath for traversal with fallbacks
 func resolveFieldValue(fieldPath string, data map[string]interface{}, logger *zap.Logger) interface{} {
-	logger.Debug("Resolving field value", zap.String("path", fieldPath))
+	logger.Info("Resolving field value - resolveFieldValue: ENTRY",
+		zap.String("path", fieldPath),
+		zap.Strings("top_level_keys", getTopLevelKeys(data)),
+	)
 
 	// Strategy 1: Use FindByPath from datahelpers (handles unwrapping)
 	if value := datahelpers.FindByPath(data, fieldPath, logger); value != nil {
-		logger.Debug("Found via FindByPath", zap.String("path", fieldPath))
+		logger.Info("resolveFieldValue: FOUND via FindByPath",
+			zap.String("path", fieldPath),
+			zap.Any("value_type", fmt.Sprintf("%T", value)),
+		)
 		return value
 	}
 
 	// Strategy 2: Manual traversal for simple cases
 	value := traverseDottedPath(fieldPath, data, logger)
 	if value != nil {
-		logger.Debug("Found via manual traversal", zap.String("path", fieldPath))
+		logger.Info("resolveFieldValue: FOUND via manual traversal",
+			zap.String("path", fieldPath),
+		)
 		return value
 	}
 
@@ -225,7 +247,7 @@ func resolveFieldValue(fieldPath string, data map[string]interface{}, logger *za
 			lastKey := parts[len(parts)-1]
 			// Search recursively within the base object
 			if found := findKeyRecursive(baseMap, lastKey, 0, logger); found != nil {
-				logger.Debug("Found via recursive search within base",
+				logger.Info("Found via recursive search within base",
 					zap.String("base", basePath),
 					zap.String("key", lastKey),
 				)
@@ -234,7 +256,9 @@ func resolveFieldValue(fieldPath string, data map[string]interface{}, logger *za
 		}
 	}
 
-	logger.Debug("Field not found", zap.String("path", fieldPath))
+	logger.Warn("resolveFieldValue: NOT FOUND",
+		zap.String("path", fieldPath),
+	)
 	return nil
 }
 
@@ -457,4 +481,19 @@ func compareNumeric(actual, expected interface{}, op string) bool {
 	default:
 		return false
 	}
+}
+
+func getTopLevelKeys(data map[string]interface{}) []string {
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		// Truncate long keys
+		if len(k) > 40 {
+			keys = append(keys, k[:40]+"...")
+		} else {
+			keys = append(keys, k)
+		}
+	}
+	// Sort for consistent output
+	sort.Strings(keys)
+	return keys
 }
