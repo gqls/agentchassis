@@ -182,39 +182,43 @@ func (s *SagaCoordinator) setLoopVariable(
 	stepConfig models.Step,
 	logger *zap.Logger,
 ) {
-	logger.Info("setLoopVariable: ENTRY",
-		zap.String("step", state.CurrentStep),
-		zap.Any("config_keys", getKeys(stepConfig.Config)),
-	)
-
 	// Check if this is a loop iteration step
 	loopIteration, hasIteration := stepConfig.Config["loop_iteration"]
 	loopVarName, hasVarName := stepConfig.Config["loop_var_name"].(string)
 
-	logger.Info("setLoopVariable: config check",
-		zap.Bool("hasIteration", hasIteration),
-		zap.Bool("hasVarName", hasVarName),
-		zap.Any("loop_iteration", loopIteration),
-		zap.String("loop_var_name", loopVarName),
-	)
-
-	if !hasIteration || !hasVarName {
-		logger.Warn("setLoopVariable: EARLY RETURN - not a loop step",
-			zap.Bool("hasIteration", hasIteration),
-			zap.Bool("hasVarName", hasVarName),
+	// ISSUE 33 FIX: Add logging for early return cases
+	if !hasIteration {
+		logger.Debug("setLoopVariable: not a loop step (no loop_iteration in config)",
+			zap.String("step", state.CurrentStep),
+			zap.Any("config_keys", getConfigKeys(stepConfig.Config)),
 		)
-		return // Not a loop step
+		return
+	}
+	if !hasVarName {
+		logger.Warn("setLoopVariable: loop_var_name missing or not a string",
+			zap.String("step", state.CurrentStep),
+			zap.Any("loop_var_name_raw", stepConfig.Config["loop_var_name"]),
+		)
+		return
 	}
 
 	iterIdx, ok := loopIteration.(int)
 	if !ok {
-		iterIdx = int(loopIteration.(float64))
+		if f, ok := loopIteration.(float64); ok {
+			iterIdx = int(f)
+		} else {
+			logger.Error("setLoopVariable: loop_iteration is not int or float64",
+				zap.String("step", state.CurrentStep),
+				zap.Any("loop_iteration", loopIteration),
+			)
+			return
+		}
 	}
 
 	// Get loop metadata
 	loopMetadata, ok := state.CollectedData["loop_metadata"].(map[string]interface{})
 	if !ok {
-		logger.Warn("Loop metadata not found in CollectedData")
+		logger.Warn("setLoopVariable: loop_metadata not found in CollectedData")
 		return
 	}
 
@@ -224,8 +228,10 @@ func (s *SagaCoordinator) setLoopVariable(
 	itemKey := fmt.Sprintf("%s_item_%d", loopName, iterIdx)
 	item, exists := state.CollectedData[itemKey]
 	if !exists {
-		logger.Warn("Loop item not found",
+		logger.Error("setLoopVariable: loop item not found",
 			zap.String("item_key", itemKey),
+			zap.Int("iteration", iterIdx),
+			zap.Strings("available_keys", getTopLevelKeys(state.CollectedData)),
 		)
 		return
 	}
@@ -233,24 +239,39 @@ func (s *SagaCoordinator) setLoopVariable(
 	// Set the loop variable
 	state.CollectedData[loopVarName] = item
 
-	logger.Info("setLoopVariable: SET COMPLETE",
-		zap.String("loop_var", loopVarName),
-		zap.Int("iteration", iterIdx),
-		zap.Bool("item_is_map", isMap(item)),
-		zap.Bool("var_now_exists", state.CollectedData[loopVarName] != nil),
-	)
-
 	// Update current iteration in metadata
 	loopMetadata["current_iteration"] = iterIdx
 
-	logger.Debug("Set loop variable",
+	// ISSUE 33 FIX: Log at INFO level so we can confirm this is working
+	logger.Info("setLoopVariable: set loop variable successfully",
 		zap.String("loop_var", loopVarName),
 		zap.Int("iteration", iterIdx),
+		zap.String("item_key", itemKey),
 	)
 
+	// Also store the item key so conditional can use it as fallback
+	state.CollectedData["__current_loop_item_key__"] = itemKey
+
 	// Propagate previous substep outputs from iteration-suffixed names to original names
-	// This allows substeps like "create_html" to find "page_content" instead of "page_content_0"
 	propagateIterationOutputs(state, iterIdx, logger)
+}
+
+// Helper to get config keys for logging
+func getConfigKeys(config map[string]interface{}) []string {
+	keys := make([]string, 0, len(config))
+	for k := range config {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// Helper to get top-level keys for logging
+func getTopLevelKeys(data map[string]interface{}) []string {
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // propagateIterationOutputs copies iteration-suffixed output fields to their original names

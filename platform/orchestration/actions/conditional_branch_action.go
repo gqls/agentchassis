@@ -31,6 +31,10 @@ import (
 //	{"field": "path.to.field", "operator": "equals", "value": true}
 func ConditionalBranchAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
+	logger := params.Logger.With(
+		zap.String("action", "conditional_branch"),
+		zap.String("step_name", params.ExecutionContext.StepName),
+	)
 
 	// Get then/else steps
 	thenStep, _ := config["then_step"].(string)
@@ -40,12 +44,18 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 	var err error
 	var conditionDebug string
 
+	// Log available top-level keys for debugging
+	logger.Info("ConditionalBranch: evaluating condition",
+		zap.Any("condition", config["condition"]),
+		zap.Strings("available_keys", getTopLevelKeys(params.CollectedData)),
+	)
+
 	// Check if condition is a string (expression) or map (object)
 	switch cond := config["condition"].(type) {
 	case string:
 		conditionDebug = cond
 		// Parse string expression like "site_plan.needs_logo == true OR site_plan.needs_images == true"
-		conditionMet, err = evaluateStringCondition(cond, params.CollectedData, params.Logger)
+		conditionMet, err = evaluateStringCondition(cond, params.CollectedData, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate condition '%s': %w", cond, err)
 		}
@@ -53,7 +63,7 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 	case map[string]interface{}:
 		conditionDebug = fmt.Sprintf("%v", cond)
 		// Legacy object-style condition
-		conditionMet, err = evaluateObjectCondition(cond, params.CollectedData, params.Logger)
+		conditionMet, err = evaluateObjectCondition(cond, params.CollectedData, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate condition: %w", err)
 		}
@@ -70,7 +80,7 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 		nextStep = elseStep
 	}
 
-	params.Logger.Info("Conditional branch evaluated",
+	logger.Info("ConditionalBranch: evaluation complete",
 		zap.String("condition", conditionDebug),
 		zap.Bool("condition_met", conditionMet),
 		zap.String("next_step", nextStep),
@@ -212,42 +222,107 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 // resolveFieldValue gets a value from collected data using a dotted path
 // Uses datahelpers.FindByPath for traversal with fallbacks
 func resolveFieldValue(fieldPath string, data map[string]interface{}, logger *zap.Logger) interface{} {
-	logger.Info("Resolving field value - resolveFieldValue: ENTRY",
-		zap.String("path", fieldPath),
-		zap.Strings("top_level_keys", getTopLevelKeys(data)),
-	)
+	logger.Debug("resolveFieldValue: starting", zap.String("path", fieldPath))
 
-	// Strategy 1: Use FindByPath from datahelpers (handles unwrapping)
+	// Strategy 1: Direct lookup at top level
+	parts := strings.Split(fieldPath, ".")
+	if len(parts) >= 1 {
+		firstPart := parts[0]
+		if value, exists := data[firstPart]; exists {
+			logger.Debug("resolveFieldValue: found first part at top level",
+				zap.String("first_part", firstPart),
+			)
+			// If there's only one part, return the value
+			if len(parts) == 1 {
+				return value
+			}
+			// Otherwise traverse the rest
+			current := value
+			for i := 1; i < len(parts); i++ {
+				if m, ok := current.(map[string]interface{}); ok {
+					if v, exists := m[parts[i]]; exists {
+						current = v
+					} else {
+						logger.Debug("resolveFieldValue: part not found in map",
+							zap.String("part", parts[i]),
+							zap.Int("depth", i),
+						)
+						break
+					}
+				} else {
+					logger.Debug("resolveFieldValue: cannot traverse non-map",
+						zap.String("part", parts[i]),
+						zap.Int("depth", i),
+					)
+					break
+				}
+			}
+			// Check if we got a real value (not the original map)
+			if current != value {
+				return current
+			}
+		}
+	}
+
+	// Strategy 2: Use FindByPath from datahelpers (handles unwrapping)
 	if value := datahelpers.FindByPath(data, fieldPath, logger); value != nil {
-		logger.Info("resolveFieldValue: FOUND via FindByPath",
-			zap.String("path", fieldPath),
-			zap.Any("value_type", fmt.Sprintf("%T", value)),
-		)
+		logger.Debug("resolveFieldValue: found via FindByPath", zap.String("path", fieldPath))
 		return value
 	}
 
-	// Strategy 2: Manual traversal for simple cases
+	// Strategy 3: Manual traversal for simple cases
 	value := traverseDottedPath(fieldPath, data, logger)
 	if value != nil {
-		logger.Info("resolveFieldValue: FOUND via manual traversal",
-			zap.String("path", fieldPath),
-		)
+		logger.Debug("resolveFieldValue: found via manual traversal", zap.String("path", fieldPath))
 		return value
 	}
 
-	// Strategy 3: Try searching recursively for the last segment
-	// e.g., if "site_plan.needs_logo" fails, try finding "needs_logo" within "site_plan"
-	parts := strings.Split(fieldPath, ".")
+	// ISSUE 33 FIX: Strategy 4 - Loop variable fallback
+	// If the first part looks like a loop variable (e.g., "current_section"),
+	// try to find it via the loop item key stored by setLoopVariable
 	if len(parts) >= 2 {
-		// Get the base object
+		loopVarName := parts[0]
+		// Check if this might be a loop variable by looking for the corresponding item key
+		if loopMetadata, ok := data["loop_metadata"].(map[string]interface{}); ok {
+			if loopName, ok := loopMetadata["loop_name"].(string); ok {
+				if currentIter, ok := loopMetadata["current_iteration"].(int); ok {
+					itemKey := fmt.Sprintf("%s_item_%d", loopName, currentIter)
+					if item, exists := data[itemKey]; exists {
+						logger.Info("resolveFieldValue: using loop item fallback",
+							zap.String("loop_var", loopVarName),
+							zap.String("item_key", itemKey),
+							zap.Int("iteration", currentIter),
+						)
+						// Set the loop variable if not already set
+						if _, exists := data[loopVarName]; !exists {
+							data[loopVarName] = item
+						}
+						// Now try to resolve the rest of the path
+						restPath := strings.Join(parts[1:], ".")
+						if itemMap, ok := item.(map[string]interface{}); ok {
+							if val, exists := itemMap[parts[1]]; exists {
+								if len(parts) == 2 {
+									return val
+								}
+								// Continue traversing
+								return traverseDottedPath(restPath, itemMap, logger)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Strategy 5: Try searching recursively for the last segment
+	if len(parts) >= 2 {
 		basePath := strings.Join(parts[:len(parts)-1], ".")
 		baseObj := traverseDottedPath(basePath, data, logger)
 
 		if baseMap, ok := baseObj.(map[string]interface{}); ok {
 			lastKey := parts[len(parts)-1]
-			// Search recursively within the base object
 			if found := findKeyRecursive(baseMap, lastKey, 0, logger); found != nil {
-				logger.Info("Found via recursive search within base",
+				logger.Debug("resolveFieldValue: found via recursive search within base",
 					zap.String("base", basePath),
 					zap.String("key", lastKey),
 				)
@@ -256,9 +331,7 @@ func resolveFieldValue(fieldPath string, data map[string]interface{}, logger *za
 		}
 	}
 
-	logger.Warn("resolveFieldValue: NOT FOUND",
-		zap.String("path", fieldPath),
-	)
+	logger.Debug("resolveFieldValue: field not found", zap.String("path", fieldPath))
 	return nil
 }
 
