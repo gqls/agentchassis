@@ -115,7 +115,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 
 	config, ok := params.CollectedData["config"].(map[string]interface{})
 	if !ok {
-		params.Logger.Error("Failed to load normal config (overridden config)",
+		params.Logger.Warn("Failed to load normal config (overridden config)",
 			zap.String("agent_type", params.AgentType),
 		)
 	}
