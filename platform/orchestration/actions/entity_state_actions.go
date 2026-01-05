@@ -74,7 +74,7 @@ func AppendEntityStateAction(ctx context.Context, params ActionParams) (interfac
     `,
 		entityID,
 		entityType,
-		nullableString(namespace),
+		datahelpers.NullableString(namespace),
 		path,
 		dataJSON,
 		os.Getenv("AGENT_TYPE"),
@@ -140,7 +140,7 @@ func ReadLatestEntityStateAction(ctx context.Context, params ActionParams) (inte
               AND path LIKE $3
               AND superseded_by IS NULL
             ORDER BY path, created_at DESC
-        `, entityID, nullableString(namespace), pattern)
+        `, entityID, datahelpers.NullableString(namespace), pattern)
 
 		if err != nil {
 			logger.Error("Failed to query entity state", zap.Error(err))
@@ -228,7 +228,7 @@ func ReadEntityHistoryAction(ctx context.Context, params ActionParams) (interfac
           AND path = $3
         ORDER BY created_at DESC
         LIMIT $4
-    `, entityID, nullableString(namespace), path, limit)
+    `, entityID, datahelpers.NullableString(namespace), path, limit)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query entity history: %w", err)
