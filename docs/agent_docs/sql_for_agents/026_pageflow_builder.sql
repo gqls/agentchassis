@@ -129,3 +129,43 @@ SELECT
     default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'write_page_content'->'config'->'input_fields' as input_fields
 FROM agent_definitions
 WHERE type = 'pageflow-builder';
+
+-- Fix for pageflow-builder timeout when calling content-reviewer
+--
+-- Problem: The review_page_content step has timeout_seconds: 300 (5 minutes)
+--          but content-reviewer's HITL step needs up to 3600 seconds (1 hour)
+--          The parent times out before the child can complete HITL
+--
+-- Solution: Increase the call_agent timeout to be longer than the child's HITL timeout
+
+-- First, let's see the current configuration
+-- SELECT agent_type, config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'review_page_content'
+-- FROM agent_definitions WHERE agent_type = 'pageflow-builder';
+
+-- Update the timeout for review_page_content step from 300 to 3900 seconds (65 minutes)
+-- This gives 5 extra minutes buffer over the HITL's 1-hour timeout
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,review_page_content,config,timeout_seconds}',
+        '3900'::jsonb
+             )
+WHERE type = 'pageflow-builder';
+
+-- Verify the update
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'review_page_content'->'config'->'timeout_seconds' as review_timeout
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Also update the write_page_content step if needed (currently 120 seconds)
+-- This may need to be longer if research-agent is involved
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,build_pages_loop,config,sub_workflow,steps,write_page_content,config,timeout_seconds}',
+    '300'::jsonb
+)
+WHERE type = 'pageflow-builder';

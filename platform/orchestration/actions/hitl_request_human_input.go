@@ -620,24 +620,3 @@ func getNestedFieldValue(data map[string]interface{}, path string) (interface{},
 
 	return current, nil
 }
-
-// Database helper functions (stubs - same pattern as hitl_actions.go)
-
-func storeInputRequest(ctx context.Context, db interface{}, requestID string, requestType string, execCtx *types.ExecutionContext, data map[string]interface{}, logger *zap.Logger) error {
-	// Implementation depends on your database structure
-	// This is a stub that should be implemented based on your schema
-	logger.Info("Storing input request (stub)",
-		zap.String("request_id", requestID),
-		zap.String("request_type", requestType),
-	)
-	return nil
-}
-
-func updateInputRequest(ctx context.Context, db interface{}, requestID string, status string, response map[string]interface{}, logger *zap.Logger) error {
-	// Implementation depends on your database structure
-	logger.Info("Updating input request (stub)",
-		zap.String("request_id", requestID),
-		zap.String("status", status),
-	)
-	return nil
-}

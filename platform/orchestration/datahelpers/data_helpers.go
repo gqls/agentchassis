@@ -1560,3 +1560,10 @@ func ToInt64(v interface{}) (int64, bool) {
 		return 0, false
 	}
 }
+
+func NullableString(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}

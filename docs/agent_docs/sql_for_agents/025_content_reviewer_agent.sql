@@ -341,3 +341,36 @@ SELECT type,
     LEFT(default_config->'workflow'->'steps'->'auto_eval_content'->'config'->>'prompt_template', 300) as prompt_preview
 FROM agent_definitions
 WHERE type = 'content-reviewer';
+
+
+-- Lower the auto-approval threshold for content-reviewer
+-- This will cause more content to be auto-approved without human review
+--
+-- Current: approved == true AND overall_score >= 0.7
+-- New:     approved == true AND overall_score >= 0.5
+--
+-- DO NOT RUN until HITL flow is tested
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_auto_approval,config,condition}',
+        '"eval_result.approved == true AND eval_result.overall_score >= 0.5"'::jsonb
+             )
+WHERE type = 'content-reviewer';
+
+-- Verify the update
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'check_auto_approval'->'config'->'condition' as approval_condition
+FROM agent_definitions
+WHERE type = 'content-reviewer';
+
+-- Alternative: Even more aggressive - approve if no errors regardless of score
+-- UPDATE agent_definitions
+-- SET config = jsonb_set(
+--     config,
+--     '{workflow,steps,check_auto_approval,config,condition}',
+--     '"eval_result.approved == true"'::jsonb
+-- )
+-- WHERE agent_type = 'content-reviewer';

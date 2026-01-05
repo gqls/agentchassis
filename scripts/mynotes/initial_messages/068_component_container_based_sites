@@ -279,9 +279,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=4f26b138-7f53-4583-b38b-76c42053f67e
-ORCHESTRATION_ID=9aa06a6a-8e3f-4a9a-ab46-d752290b58f0
-HITL_REQUEST_ID=3e981695-6e95-4ab1-99d9-2b85cda32588
+CORRELATION_ID=d6bc7920-6fad-47d4-a4ac-2777d193432a
+ORCHESTRATION_ID=1e147b18-e1a5-4e90-b1ae-ab4fb25cdc7c
+HITL_REQUEST_ID=ed151a55-2a52-4e0d-8c6b-40b7b2524783
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -365,9 +365,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=4f26b138-7f53-4583-b38b-76c42053f67e
-ORCHESTRATION_ID=9aa06a6a-8e3f-4a9a-ab46-d752290b58f0
-HITL_REQUEST_ID=29344909-5aab-40e8-9daf-321523c78484
+CORRELATION_ID=d6bc7920-6fad-47d4-a4ac-2777d193432a
+ORCHESTRATION_ID=1e147b18-e1a5-4e90-b1ae-ab4fb25cdc7c
+HITL_REQUEST_ID=1a41babe-8c6e-44a1-89af-8cc19d7902fd
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -517,3 +517,128 @@ Fix: Send manual confirmation with brochure type - HITL allows override
 Issue: Wrong builder spawned
 Cause: HITL confirmation specified wrong recommended_builder
 Fix: Check send_brochure_confirm.sh has "content-site-builder"
+
+
+
+========================================
+
+response to review hitl
+#!/bin/bash
+# SEND CONTENT REVIEW HITL RESPONSE (escalate_to_human step)
+# ------------------------------------
+# TEMPLATE - Fill in the values from your awaited_requests query:
+#
+# SELECT request_id, orchestration_id, correlation_id, responses_topic
+# FROM awaited_requests
+# WHERE step_name = 'escalate_to_human' AND status = 'waiting'
+# ORDER BY sent_at DESC LIMIT 1;
+#
+# ------------------------------------
+
+# ===== FILL IN THESE VALUES =====
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+RESPONSES_TOPIC=
+# ================================
+
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+RESPONSES_TOPIC=
+
+# Auto-generated values
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+# Validate required fields
+if [ -z "$CORRELATION_ID" ] || [ -z "$ORCHESTRATION_ID" ] || [ -z "$HITL_REQUEST_ID" ] || [ -z "$RESPONSES_TOPIC" ]; then
+    echo "ERROR: Please fill in all required values at the top of the script"
+    echo ""
+    echo "Run this query to find them:"
+    echo "  SELECT request_id, orchestration_id, correlation_id, responses_topic"
+    echo "  FROM awaited_requests"
+    echo "  WHERE step_name = 'escalate_to_human' AND status = 'waiting'"
+    echo "  ORDER BY sent_at DESC LIMIT 1;"
+    exit 1
+fi
+
+echo "========================================="
+echo "Sending HITL Response: Content Review Approval"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  HITL Request ID:     $HITL_REQUEST_ID"
+echo "  Message ID:          $MESSAGE_ID"
+echo "  Step:                escalate_to_human"
+echo "  Topic:               $RESPONSES_TOPIC"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+echo ""
+
+kubectl -n kafka run -i --rm kcat-producer-content-review-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t $RESPONSES_TOPIC \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=response \
+-H client_id=demo_client \
+-H in_response_to_request_id=$HITL_REQUEST_ID \
+-H in_response_to_step_name=escalate_to_human \
+-H status=complete \
+-H is_complete=true \
+-H sender_agent_type=human \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{
+  "headers": {
+    "correlation_id": "${CORRELATION_ID}",
+    "orchestration_id": "${ORCHESTRATION_ID}",
+    "message_id": "${MESSAGE_ID}",
+    "message_type": "response",
+    "client_id": "demo_client",
+    "in_response_to_request_id": "${HITL_REQUEST_ID}",
+    "in_response_to_step_name": "escalate_to_human",
+    "in_response_to_action": "request_human_input",
+    "status": "complete",
+    "is_complete": true,
+    "is_error": false,
+    "sender": {
+      "agent_id": "cli-user",
+      "agent_type": "human",
+      "pod_name": "cli"
+    },
+    "timestamp": "${TIMESTAMP}"
+  },
+  "body": {
+    "success": true,
+    "approved": true,
+    "status": "approved",
+    "responded_by": "cli-user@example.com",
+    "responded_at": "${TIMESTAMP}",
+    "review_mode": "escalated",
+    "edits": {},
+    "comments": "Content reviewed and approved via CLI. Auto-eval issues have been addressed."
+  }
+}
+JSON
+
+echo ""
+echo "========================================="
+echo "HITL Response sent!"
+echo "========================================="
+echo ""
+echo "Check if workflow continued:"
+echo "  kubectl logs -n ai-persona-system -l app=content-reviewer --tail=50 | grep \"$CORRELATION_ID\" | grep -E 'process_escalation|finalize|complete'"
+echo ""
+echo "Monitor content-reviewer progress:"
+echo "  kubectl logs -n ai-persona-system -l app=content-reviewer --tail=100 | grep \"$CORRELATION_ID\""
+echo ""
+echo "Check pageflow-builder (parent) progress:"
+echo "  kubectl logs -n ai-persona-system -l app=pageflow-builder --tail=100 | grep \"$CORRELATION_ID\""
+echo ""

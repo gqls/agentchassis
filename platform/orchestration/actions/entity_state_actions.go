@@ -394,13 +394,6 @@ func getPathPatterns(config map[string]interface{}) []string {
 	return []string{"%"}
 }
 
-func nullableString(s string) interface{} {
-	if s == "" {
-		return nil
-	}
-	return s
-}
-
 /*// resolveFieldPath navigates a dot-notation path through nested maps
 func resolveFieldPath(data map[string]interface{}, path string) interface{} {
 	parts := strings.Split(path, ".")
