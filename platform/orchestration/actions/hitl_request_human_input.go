@@ -409,9 +409,9 @@ func buildInputNotification(
 }
 
 func extractInputResponse(collectedData map[string]interface{}, logger *zap.Logger) map[string]interface{} {
-	logger.Info("In extractInputResponse")
+	logger.Info("In extractInputResponse", zap.Any("available_keys", datahelpers.GetMapKeys(collectedData)))
 
-	// Check for input response in various locations (same pattern as extractApprovalResponse)
+	// Priority 1: Check for explicit input response keys
 	if response, ok := collectedData["input_response"].(map[string]interface{}); ok {
 		logger.Info("Found input data in 'input_response' key")
 		return response
@@ -424,7 +424,6 @@ func extractInputResponse(collectedData map[string]interface{}, logger *zap.Logg
 
 	if response, ok := collectedData["request_human_input"].(map[string]interface{}); ok {
 		logger.Info("Found 'request_human_input' key", zap.Any("data", response))
-		// Check for a nested 'body'
 		if body, ok := response["body"].(map[string]interface{}); ok {
 			logger.Info("Found nested 'body' key")
 			return body
@@ -432,10 +431,45 @@ func extractInputResponse(collectedData map[string]interface{}, logger *zap.Logg
 		return response
 	}
 
-	// Check in input_data (same pattern as extractApprovalResponse)
+	// Priority 2: Check for HITL-specific output field names
+	// These are common output_field values for HITL steps
+	hitlOutputFields := []string{
+		"escalation_response", // from escalate_to_human
+		"human_response",      // from request_human_review
+		"hitl_response",       // generic
+		"approval_response",   // approval workflows
+		"review_response",     // review workflows
+	}
+
+	for _, field := range hitlOutputFields {
+		if response, ok := collectedData[field].(map[string]interface{}); ok {
+			logger.Info("Found input response in HITL output field",
+				zap.String("field", field))
+			return extractResponseBody(response, logger)
+		}
+	}
+
+	// Priority 3: Check for HITL step names (handleCompleteResponse stores under step name)
+	hitlStepNames := []string{
+		"escalate_to_human",
+		"request_human_input",
+		"request_human_review",
+		"await_human_approval",
+		"hitl_review",
+		"hitl_review_brief",
+	}
+
+	for _, stepName := range hitlStepNames {
+		if stepData, ok := collectedData[stepName].(map[string]interface{}); ok {
+			logger.Info("Found input response in HITL step data",
+				zap.String("step_name", stepName))
+			return extractResponseBody(stepData, logger)
+		}
+	}
+
+	// Priority 4: Check input_data (legacy pattern)
 	inputData := datahelpers.GetInputData(collectedData, logger)
 	if len(inputData) > 0 {
-		// Check if it looks like a response
 		if _, hasData := inputData["data"]; hasData {
 			logger.Info("Found input response in 'input_data' key")
 			return inputData
@@ -444,10 +478,70 @@ func extractInputResponse(collectedData map[string]interface{}, logger *zap.Logg
 			logger.Info("Found input response in 'input_data' key")
 			return inputData
 		}
+		// Check if input_data contains HITL response markers
+		if _, hasApproved := inputData["approved"]; hasApproved {
+			logger.Info("Found input response in 'input_data' (has approved field)")
+			return inputData
+		}
 	}
 
-	logger.Warn("Could not find input response in expected locations")
+	// Priority 5: Scan all keys for anything that looks like a HITL response
+	for key, value := range collectedData {
+		if stepData, ok := value.(map[string]interface{}); ok {
+			// Check if this looks like a HITL response (has typical HITL fields)
+			if hasHITLResponseFields(stepData) {
+				logger.Info("Found input response by scanning (has HITL fields)",
+					zap.String("key", key))
+				return extractResponseBody(stepData, logger)
+			}
+		}
+	}
+
+	logger.Warn("Could not find input response in expected locations",
+		zap.Strings("checked_hitl_fields", hitlOutputFields),
+		zap.Strings("checked_step_names", hitlStepNames),
+		zap.Strings("available_keys", datahelpers.GetMapKeys(collectedData)))
 	return nil
+}
+
+// extractResponseBody extracts the actual response body from step data
+// The response might be nested under "response", "body", or at the top level
+func extractResponseBody(stepData map[string]interface{}, logger *zap.Logger) map[string]interface{} {
+	// Check for nested "response" field (from handleCompleteResponse)
+	if response, ok := stepData["response"].(map[string]interface{}); ok {
+		logger.Info("Extracted from nested 'response' field")
+		// Check if response has a nested body
+		if body, ok := response["body"].(map[string]interface{}); ok {
+			return body
+		}
+		return response
+	}
+
+	// Check for nested "body" field
+	if body, ok := stepData["body"].(map[string]interface{}); ok {
+		logger.Info("Extracted from nested 'body' field")
+		return body
+	}
+
+	// Check if this looks like a direct response (has approved/status/success)
+	if hasHITLResponseFields(stepData) {
+		logger.Info("Step data itself looks like HITL response")
+		return stepData
+	}
+
+	// Return as-is
+	return stepData
+}
+
+// hasHITLResponseFields checks if a map looks like a HITL response
+func hasHITLResponseFields(data map[string]interface{}) bool {
+	hitlIndicators := []string{"approved", "status", "success", "responded_by", "responded_at", "edits", "comments"}
+	for _, indicator := range hitlIndicators {
+		if _, exists := data[indicator]; exists {
+			return true
+		}
+	}
+	return false
 }
 
 func populateInputFieldDefaults(fields []interface{}, collectedData map[string]interface{}, logger *zap.Logger) []interface{} {

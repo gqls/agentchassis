@@ -279,9 +279,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=d6bc7920-6fad-47d4-a4ac-2777d193432a
-ORCHESTRATION_ID=1e147b18-e1a5-4e90-b1ae-ab4fb25cdc7c
-HITL_REQUEST_ID=ed151a55-2a52-4e0d-8c6b-40b7b2524783
+CORRELATION_ID=9819e3a9-ddeb-423c-a561-039247caff1b
+ORCHESTRATION_ID=6b7a6a0c-a256-4a07-a9de-913907fac53f
+HITL_REQUEST_ID=6fc30941-5c2e-42a9-b06f-3afd9601cb2d
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -365,9 +365,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=d6bc7920-6fad-47d4-a4ac-2777d193432a
-ORCHESTRATION_ID=1e147b18-e1a5-4e90-b1ae-ab4fb25cdc7c
-HITL_REQUEST_ID=1a41babe-8c6e-44a1-89af-8cc19d7902fd
+CORRELATION_ID=9819e3a9-ddeb-423c-a561-039247caff1b
+ORCHESTRATION_ID=6b7a6a0c-a256-4a07-a9de-913907fac53f
+HITL_REQUEST_ID=a6404b3b-fda1-483a-b7dc-91e41f28c899
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -494,7 +494,6 @@ now:
 }
 
 
-
 HITL Pauses Worked
 "Found awaited request for response"
 "All responses received, continuing workflow"
@@ -523,8 +522,9 @@ Fix: Check send_brochure_confirm.sh has "content-site-builder"
 ========================================
 
 response to review hitl
+--- - REVIEW STEP -- (THIRD RESPONSE)
 #!/bin/bash
-# SEND CONTENT REVIEW HITL RESPONSE (escalate_to_human step)
+# SEND CONTENT REVIEW HITL RESPONSE (escalate_to_human step) -- THIRD RESPONSE
 # ------------------------------------
 # TEMPLATE - Fill in the values from your awaited_requests query:
 #
@@ -542,10 +542,10 @@ HITL_REQUEST_ID=
 RESPONSES_TOPIC=
 # ================================
 
-CORRELATION_ID=
-ORCHESTRATION_ID=
-HITL_REQUEST_ID=
-RESPONSES_TOPIC=
+CORRELATION_ID=9819e3a9-ddeb-423c-a561-039247caff1b
+ORCHESTRATION_ID=0619c94b-e83b-45d6-b9b4-a8dfd403b5ea
+HITL_REQUEST_ID=f99681b4-e09b-4c53-a839-7c95b8ced806
+RESPONSES_TOPIC=job.9819e3a9-606a0132-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -595,6 +595,31 @@ kcat -P \
 -H sender_agent_type=human \
 -H sender_agent_id=cli-user \
 -H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"escalate_to_human","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"approved":true,"status":"approved","responded_by":"cli-user@example.com","responded_at":"${TIMESTAMP}","review_mode":"escalated","edits":{},"comments":"Content reviewed and approved via CLI. Auto-eval issues have been addressed."}}
+JSON
+
+
+echo ""
+echo "========================================="
+echo "HITL Response sent!"
+echo "========================================="
+echo ""
+echo "Check if workflow continued:"
+echo "  kubectl logs -n ai-persona-system -l app=content-reviewer --tail=50 | grep \"$CORRELATION_ID\" | grep -E 'process_escalation|finalize|complete'"
+echo ""
+echo "Monitor content-reviewer progress:"
+echo "  kubectl logs -n ai-persona-system -l app=content-reviewer --tail=100 | grep \"$CORRELATION_ID\""
+echo ""
+echo "Check pageflow-builder (parent) progress:"
+echo "  kubectl logs -n ai-persona-system -l app=pageflow-builder --tail=100 | grep \"$CORRELATION_ID\""
+echo ""
+
+
+
+
+
+
+expanded:
 {
   "headers": {
     "correlation_id": "${CORRELATION_ID}",
@@ -627,18 +652,3 @@ kcat -P \
   }
 }
 JSON
-
-echo ""
-echo "========================================="
-echo "HITL Response sent!"
-echo "========================================="
-echo ""
-echo "Check if workflow continued:"
-echo "  kubectl logs -n ai-persona-system -l app=content-reviewer --tail=50 | grep \"$CORRELATION_ID\" | grep -E 'process_escalation|finalize|complete'"
-echo ""
-echo "Monitor content-reviewer progress:"
-echo "  kubectl logs -n ai-persona-system -l app=content-reviewer --tail=100 | grep \"$CORRELATION_ID\""
-echo ""
-echo "Check pageflow-builder (parent) progress:"
-echo "  kubectl logs -n ai-persona-system -l app=pageflow-builder --tail=100 | grep \"$CORRELATION_ID\""
-echo ""
