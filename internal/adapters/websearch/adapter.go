@@ -23,6 +23,12 @@ const (
 	consumerGroup  = "web-search-adapter-group"
 )
 
+// MessageEnvelope wraps the body/headers structure sent by agents
+type MessageEnvelope struct {
+	Body    *RequestPayload        `json:"body,omitempty"`
+	Headers map[string]interface{} `json:"headers,omitempty"`
+}
+
 // RequestPayload for web search
 type RequestPayload struct {
 	Action string `json:"action"`
@@ -32,6 +38,7 @@ type RequestPayload struct {
 		SearchType string `json:"search_type,omitempty"` // web, news, images
 		Provider   string `json:"provider,omitempty"`    // specific provider to use
 	} `json:"data"`
+	ReplyToTopic string `json:"reply_to_topic,omitempty"` // Sometimes included in body
 }
 
 // ResponsePayload with search results
@@ -154,21 +161,44 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 
 	l.Info("Processing search request")
 
-	var req RequestPayload
-	if err := json.Unmarshal(msg.Value, &req); err != nil {
-		l.Error("Failed to unmarshal request", zap.Error(err))
+	// Debug: log the raw message to help diagnose issues
+	l.Debug("Raw message received",
+		zap.String("raw_value", string(msg.Value)),
+		zap.Int("value_length", len(msg.Value)),
+	)
+
+	// Extract the request payload - handle both envelope and direct formats
+	req, err := a.extractRequestPayload(msg.Value, l)
+	if err != nil {
+		l.Error("Failed to extract request payload", zap.Error(err))
 		a.sendErrorResponse(headers, "Invalid request format: "+err.Error())
 		a.consumer.CommitMessages(context.Background(), msg)
 		return
 	}
 
+	// Debug: log the extracted query
+	l.Debug("Extracted request payload",
+		zap.String("query", req.Data.Query),
+		zap.Int("num_results", req.Data.NumResults),
+		zap.String("search_type", req.Data.SearchType),
+		zap.String("provider", req.Data.Provider),
+	)
+
 	// Validate request
 	if strings.TrimSpace(req.Data.Query) == "" {
-		l.Error("Empty search query")
+		l.Error("Empty search query",
+			zap.String("raw_query", req.Data.Query),
+			zap.String("action", req.Action),
+		)
 		a.sendErrorResponse(headers, "Search query cannot be empty")
 		a.consumer.CommitMessages(context.Background(), msg)
 		return
 	}
+
+	l.Info("Executing search",
+		zap.String("query", req.Data.Query),
+		zap.Int("num_results", req.Data.NumResults),
+	)
 
 	// Perform search with fallback
 	results, provider, fallbacks, err := a.performSearchWithFallback(
@@ -201,6 +231,117 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	l.Info("Search request processed successfully",
 		zap.String("provider_used", provider),
 		zap.Int("results_count", len(results)))
+}
+
+// extractRequestPayload handles both envelope format (with body wrapper) and direct format
+func (a *Adapter) extractRequestPayload(data []byte, l *zap.Logger) (*RequestPayload, error) {
+	// First, try to parse as a generic map to inspect structure
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("failed to parse message as JSON: %w", err)
+	}
+
+	l.Debug("Parsed message structure",
+		zap.Strings("top_level_keys", getMapKeys(raw)),
+	)
+
+	// Check if message has a "body" wrapper (envelope format from agents)
+	if body, hasBody := raw["body"]; hasBody {
+		l.Debug("Message has body wrapper, extracting payload from body")
+
+		bodyMap, ok := body.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("body field is not a map, got %T", body)
+		}
+
+		// Re-marshal the body and unmarshal into RequestPayload
+		bodyBytes, err := json.Marshal(bodyMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to re-marshal body: %w", err)
+		}
+
+		var req RequestPayload
+		if err := json.Unmarshal(bodyBytes, &req); err != nil {
+			return nil, fmt.Errorf("failed to parse body as RequestPayload: %w", err)
+		}
+
+		l.Debug("Successfully extracted from body wrapper",
+			zap.String("query", req.Data.Query),
+		)
+
+		return &req, nil
+	}
+
+	// No body wrapper - try direct format
+	l.Debug("No body wrapper, trying direct format")
+
+	var req RequestPayload
+	if err := json.Unmarshal(data, &req); err != nil {
+		return nil, fmt.Errorf("failed to parse as direct RequestPayload: %w", err)
+	}
+
+	// If still no query, try to extract from nested data paths
+	if req.Data.Query == "" {
+		l.Debug("Direct parse yielded empty query, trying fallback extraction")
+		req.Data.Query = a.extractQueryFallback(raw, l)
+	}
+
+	return &req, nil
+}
+
+// extractQueryFallback attempts to find the query in various nested locations
+func (a *Adapter) extractQueryFallback(data map[string]interface{}, l *zap.Logger) string {
+	// Try common paths where query might be located
+	paths := [][]string{
+		{"data", "query"},
+		{"body", "data", "query"},
+		{"input", "query"},
+		{"query"},
+		{"search_query"},
+		{"topic"},
+	}
+
+	for _, path := range paths {
+		if val := getNestedValue(data, path); val != "" {
+			l.Debug("Found query via fallback path",
+				zap.Strings("path", path),
+				zap.String("query", val),
+			)
+			return val
+		}
+	}
+
+	return ""
+}
+
+// getNestedValue extracts a string value from a nested map path
+func getNestedValue(data map[string]interface{}, path []string) string {
+	current := interface{}(data)
+
+	for _, key := range path {
+		m, ok := current.(map[string]interface{})
+		if !ok {
+			return ""
+		}
+		current, ok = m[key]
+		if !ok {
+			return ""
+		}
+	}
+
+	if str, ok := current.(string); ok {
+		return str
+	}
+	return ""
+}
+
+// getMapKeys returns the keys of a map for logging
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // performSearchWithFallback tries providers with fallback logic

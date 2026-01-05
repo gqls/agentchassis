@@ -216,9 +216,14 @@ func extractSearchQuery(params ActionParams, config map[string]interface{}) stri
 		return t
 	}
 
-	// Priority 3: Extract from collected data using query_from path (ADDED)
+	// Priority 3: Extract from collected data using query_from path
 	// This handles "query_from": "search_query.result" from research-agent workflow
 	if queryFrom, ok := config["query_from"].(string); ok && queryFrom != "" {
+		params.Logger.Info("DEBUGaa: extractSearchQuery query_from path",
+			zap.String("query_from", queryFrom),
+			zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)),
+			zap.Any("search_query_value", params.CollectedData["search_query"]),
+		)
 		if value := extractWithFallbacks(params.CollectedData, queryFrom, params.Logger); value != nil {
 			if queryStr, ok := value.(string); ok && queryStr != "" {
 				// Sanity check - don't use LLM error messages as queries
@@ -275,16 +280,28 @@ func extractSearchQuery(params ActionParams, config map[string]interface{}) stri
 
 // extractWithFallbacks tries multiple path variations to find data
 func extractWithFallbacks(data map[string]interface{}, path string, logger *zap.Logger) interface{} {
+	logger.Info("DEBUGaa: extractWithFallbacks starting",
+		zap.String("path", path),
+		zap.Any("data_keys", datahelpers.GetMapKeys(data)),
+	)
+
 	// Try direct path first
 	if value := datahelpers.ExtractNestedField(data, path); value != nil {
+		logger.Info("DEBUGaa: extractWithFallbacks found via direct path",
+			zap.String("path", path),
+			zap.Any("value", value),
+		)
 		return value
 	}
+	logger.Debug("DEBUGaa: extractWithFallbacks direct path returned nil",
+		zap.String("path", path),
+	)
 
 	// If path doesn't start with input_data, try with prefix
 	if !strings.HasPrefix(path, "input_data.") {
 		prefixedPath := "input_data." + path
 		if value := datahelpers.ExtractNestedField(data, prefixedPath); value != nil {
-			logger.Debug("Found via input_data prefix",
+			logger.Info("Found via input_data prefix",
 				zap.String("original", path),
 				zap.String("actual", prefixedPath))
 			return value
@@ -295,7 +312,7 @@ func extractWithFallbacks(data map[string]interface{}, path string, logger *zap.
 	if !strings.HasPrefix(path, "__raw_message__") {
 		rawPath := "__raw_message__.body.input_data." + path
 		if value := datahelpers.ExtractNestedField(data, rawPath); value != nil {
-			logger.Debug("Found via __raw_message__ prefix", zap.String("original", path))
+			logger.Info("Found via __raw_message__ prefix", zap.String("original", path))
 			return value
 		}
 	}
