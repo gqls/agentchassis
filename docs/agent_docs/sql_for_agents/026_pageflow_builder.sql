@@ -169,3 +169,22 @@ SET default_config = jsonb_set(
     '300'::jsonb
 )
 WHERE type = 'pageflow-builder';
+
+--
+
+Note: I also changed the content source from reviewed_content to page_content because:
+
+reviewed_content is the review result (approved/issues/etc.)
+page_content is the actual page HTML/sections from page-content-writer
+
+-- Fix assemble_page config: use "content_field" instead of "content_from"
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page,config}',
+        '{
+          "content_field": "page_content",
+          "add_navigation": false
+        }'::jsonb
+             )
+WHERE type = 'pageflow-builder';

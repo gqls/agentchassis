@@ -279,9 +279,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=9819e3a9-ddeb-423c-a561-039247caff1b
-ORCHESTRATION_ID=6b7a6a0c-a256-4a07-a9de-913907fac53f
-HITL_REQUEST_ID=6fc30941-5c2e-42a9-b06f-3afd9601cb2d
+CORRELATION_ID=af013a65-69c1-4426-aef3-5d89e5c0c9d5
+ORCHESTRATION_ID=d347e7ee-b232-4485-80c5-d41559e28a28
+HITL_REQUEST_ID=58a8824e-aaa8-4834-abbc-d8408f9a2247
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -331,6 +331,8 @@ echo "  kubectl logs -n ai-persona-system -l app=agent-chassis --tail=200 | grep
 echo ""
 
 
+
+
 ** ^^ **
 finding request id:
 Execution paused - waiting for responses
@@ -365,9 +367,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=9819e3a9-ddeb-423c-a561-039247caff1b
-ORCHESTRATION_ID=6b7a6a0c-a256-4a07-a9de-913907fac53f
-HITL_REQUEST_ID=a6404b3b-fda1-483a-b7dc-91e41f28c899
+CORRELATION_ID=af013a65-69c1-4426-aef3-5d89e5c0c9d5
+ORCHESTRATION_ID=d347e7ee-b232-4485-80c5-d41559e28a28
+HITL_REQUEST_ID=c5e8f384-f89f-4088-9467-ce15aae12d7a
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -542,10 +544,10 @@ HITL_REQUEST_ID=
 RESPONSES_TOPIC=
 # ================================
 
-CORRELATION_ID=9819e3a9-ddeb-423c-a561-039247caff1b
-ORCHESTRATION_ID=0619c94b-e83b-45d6-b9b4-a8dfd403b5ea
-HITL_REQUEST_ID=f99681b4-e09b-4c53-a839-7c95b8ced806
-RESPONSES_TOPIC=job.9819e3a9-606a0132-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=af013a65-69c1-4426-aef3-5d89e5c0c9d5
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+RESPONSES_TOPIC=
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
