@@ -414,9 +414,14 @@ func (a *Adapter) performSearchWithFallback(query string, numResults int, prefer
 
 // sendResponse sends a successful response to the caller's topic
 func (a *Adapter) sendResponse(headers map[string]string, payload ResponsePayload) {
+	// Flatten the response - put results at top level for easier access
 	responseBytes, _ := json.Marshal(map[string]interface{}{
-		"success": true,
-		"data":    payload,
+		"success":   true,
+		"results":   payload.Results, // results array at top level
+		"query":     payload.Query,
+		"total":     payload.Total,
+		"provider":  payload.Provider,
+		"fallbacks": payload.Fallbacks,
 	})
 
 	// Determine where to send the response

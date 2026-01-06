@@ -314,3 +314,18 @@ SELECT type,
        default_config->'workflow'->'steps'->'extract_topic'->'config'->'fields' as extract_fields
 FROM agent_definitions
 WHERE type = 'research-agent';
+
+--
+
+-- shorten results_field path
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,filter_results,config}',
+        '{
+          "results_field": "search_results.results",
+          "max_sources": 5,
+          "prefer_domains": [".gov", ".edu", ".org", "reuters.com", "bbc.com", "bloomberg.com", "forbes.com", "hbr.org", "mckinsey.com", "arxiv.org", "www.afp.com/en"]
+        }'::jsonb
+                     )
+WHERE type = 'research-agent';

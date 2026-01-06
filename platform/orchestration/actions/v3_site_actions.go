@@ -2299,6 +2299,8 @@ func extractWithInputDataFallback(data map[string]interface{}, path string, logg
 // ACTION: filter_search_results
 // ============================================================================
 
+// FilterSearchResultsAction filters search results based on criteria
+// Handles various response formats: direct array, {results: []}, {data: {results: []}}, etc.
 func FilterSearchResultsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("FilterSearchResultsAction: Starting")
 
@@ -2313,25 +2315,33 @@ func FilterSearchResultsAction(ctx context.Context, params ActionParams) (interf
 		resultsField = rf
 	}
 
-	resultsData := datahelpers.ExtractNestedField(params.CollectedData, resultsField)
-	if resultsData == nil {
+	// Try to find results array - handles various response formats
+	results := findResultsArray(params.CollectedData, resultsField, params.Logger)
+	if results == nil {
+		params.Logger.Warn("FilterSearchResultsAction: No results found",
+			zap.String("results_field", resultsField),
+			zap.Strings("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)))
 		return map[string]interface{}{"filtered_results": []interface{}{}, "count": 0, "original_count": 0}, nil
 	}
 
-	results, ok := resultsData.([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("results must be array")
-	}
+	params.Logger.Info("FilterSearchResultsAction: Found results",
+		zap.Int("count", len(results)))
 
+	// Support both max_results and max_sources config keys
 	maxResults := 10
 	if mr, ok := config["max_results"].(float64); ok {
 		maxResults = int(mr)
+	} else if ms, ok := config["max_sources"].(float64); ok {
+		maxResults = int(ms)
 	}
 
 	excludePatterns := datahelpers.ExtractStringListHelper(config["exclude_patterns"])
 	requiredKeywords := datahelpers.ExtractStringListHelper(config["required_keywords"])
+	preferDomains := datahelpers.ExtractStringListHelper(config["prefer_domains"])
 
 	var filtered []interface{}
+	var preferred []interface{}
+
 	for _, r := range results {
 		result, ok := r.(map[string]interface{})
 		if !ok {
@@ -2344,6 +2354,7 @@ func FilterSearchResultsAction(ctx context.Context, params ActionParams) (interf
 		url, _ := result["url"].(string)
 		searchText := strings.ToLower(title + " " + content + " " + snippet + " " + url)
 
+		// Check exclusions
 		excluded := false
 		for _, pattern := range excludePatterns {
 			if strings.Contains(searchText, strings.ToLower(pattern)) {
@@ -2355,6 +2366,7 @@ func FilterSearchResultsAction(ctx context.Context, params ActionParams) (interf
 			continue
 		}
 
+		// Check required keywords
 		if len(requiredKeywords) > 0 {
 			hasKeyword := false
 			for _, kw := range requiredKeywords {
@@ -2368,15 +2380,88 @@ func FilterSearchResultsAction(ctx context.Context, params ActionParams) (interf
 			}
 		}
 
-		filtered = append(filtered, result)
-		if len(filtered) >= maxResults {
-			break
+		// Check if from preferred domain
+		isPreferred := false
+		for _, domain := range preferDomains {
+			if strings.Contains(strings.ToLower(url), strings.ToLower(domain)) {
+				isPreferred = true
+				break
+			}
+		}
+
+		if isPreferred {
+			preferred = append(preferred, result)
+		} else {
+			filtered = append(filtered, result)
 		}
 	}
 
+	// Combine: preferred first, then others, up to maxResults
+	combined := append(preferred, filtered...)
+	if len(combined) > maxResults {
+		combined = combined[:maxResults]
+	}
+
 	params.Logger.Info("FilterSearchResultsAction: Complete",
-		zap.Int("original", len(results)), zap.Int("filtered", len(filtered)))
-	return map[string]interface{}{"filtered_results": filtered, "count": len(filtered), "original_count": len(results)}, nil
+		zap.Int("original", len(results)),
+		zap.Int("preferred", len(preferred)),
+		zap.Int("filtered", len(combined)))
+
+	return map[string]interface{}{
+		"filtered_results": combined,
+		"count":            len(combined),
+		"original_count":   len(results),
+		"preferred_count":  len(preferred),
+	}, nil
+}
+
+// findResultsArray searches for a results array in various common locations
+func findResultsArray(collectedData map[string]interface{}, basePath string, logger *zap.Logger) []interface{} {
+	// Common paths to try, in order of preference
+	pathsToTry := []string{
+		basePath + ".results",      // search_results.results (flattened format)
+		basePath + ".data.results", // search_results.data.results (wrapped format)
+		basePath,                   // search_results (if it's directly an array)
+		basePath + ".data",         // search_results.data (if data is the array)
+		basePath + ".items",        // search_results.items (alternative naming)
+	}
+
+	for _, path := range pathsToTry {
+		extracted := datahelpers.ExtractNestedField(collectedData, path)
+		if extracted == nil {
+			continue
+		}
+
+		// Direct array
+		if arr, ok := extracted.([]interface{}); ok {
+			logger.Debug("findResultsArray: Found array at path",
+				zap.String("path", path),
+				zap.Int("count", len(arr)))
+			return arr
+		}
+
+		// Map that might contain results
+		if m, ok := extracted.(map[string]interface{}); ok {
+			// Try common keys within the map
+			for _, key := range []string{"results", "items", "data"} {
+				if inner, exists := m[key]; exists {
+					if arr, ok := inner.([]interface{}); ok {
+						logger.Debug("findResultsArray: Found array in map",
+							zap.String("path", path),
+							zap.String("key", key),
+							zap.Int("count", len(arr)))
+						return arr
+					}
+				}
+			}
+		}
+	}
+
+	logger.Warn("findResultsArray: No array found",
+		zap.String("basePath", basePath),
+		zap.Strings("tried_paths", pathsToTry))
+
+	return nil
 }
 
 // ============================================================================
