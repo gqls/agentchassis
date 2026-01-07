@@ -30,6 +30,11 @@ var LocalActions = map[string]bool{
 	"aggregate_scraped_data": true,
 	"split_urls":             true,
 
+	// Research
+	"prepare_urls":            true,
+	"format_research_content": true,
+	"batch_webscrape":         true,
+
 	// Data operations
 	"validate_input":   true,
 	"transform_data":   true,

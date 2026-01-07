@@ -30,6 +30,11 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"aggregate_scraped_data": AggregateScrapedDataAction,
 	"split_urls":             SplitURLsAction,
 
+	// Research
+	"prepare_urls":            PrepareUrlsAction,
+	"format_research_content": FormatResearchContentAction,
+	"batch_webscrape":         BatchWebscrapeAction,
+
 	// Data operations
 	"validate_input":   ValidateInputAction,
 	"transform_data":   TransformDataAction,

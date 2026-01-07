@@ -1567,3 +1567,51 @@ func NullableString(s string) interface{} {
 	}
 	return s
 }
+
+// FindResultsArray searches for a results array in various common locations
+func FindResultsArray(collectedData map[string]interface{}, basePath string, logger *zap.Logger) []interface{} {
+	// Common paths to try, in order of preference
+	pathsToTry := []string{
+		basePath + ".results",      // search_results.results (flattened format)
+		basePath + ".data.results", // search_results.data.results (wrapped format)
+		basePath,                   // search_results (if it's directly an array)
+		basePath + ".data",         // search_results.data (if data is the array)
+		basePath + ".items",        // search_results.items (alternative naming)
+	}
+
+	for _, path := range pathsToTry {
+		extracted := ExtractNestedField(collectedData, path)
+		if extracted == nil {
+			continue
+		}
+
+		// Direct array
+		if arr, ok := extracted.([]interface{}); ok {
+			logger.Debug("findResultsArray: Found array at path",
+				zap.String("path", path),
+				zap.Int("count", len(arr)))
+			return arr
+		}
+
+		// Map that might contain results
+		if m, ok := extracted.(map[string]interface{}); ok {
+			for _, key := range []string{"results", "items", "data"} {
+				if inner, exists := m[key]; exists {
+					if arr, ok := inner.([]interface{}); ok {
+						logger.Debug("findResultsArray: Found array in map",
+							zap.String("path", path),
+							zap.String("key", key),
+							zap.Int("count", len(arr)))
+						return arr
+					}
+				}
+			}
+		}
+	}
+
+	logger.Warn("findResultsArray: No array found",
+		zap.String("basePath", basePath),
+		zap.Strings("tried_paths", pathsToTry))
+
+	return nil
+}

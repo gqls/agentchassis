@@ -274,6 +274,11 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		} else {
 			result, err = provider.ExtractStructured(a.ctx, url, schema, scrapeConfig)
 		}
+	case "batch_scrape":
+		// Handle batch scrape separately - processes multiple URLs
+		a.handleBatchScrape(a.ctx, headers, body, replyToTopic, l)
+		a.consumer.CommitMessages(context.Background(), msg)
+		return
 	default:
 		err = fmt.Errorf("unknown action: %s", action)
 	}

@@ -2316,7 +2316,7 @@ func FilterSearchResultsAction(ctx context.Context, params ActionParams) (interf
 	}
 
 	// Try to find results array - handles various response formats
-	results := findResultsArray(params.CollectedData, resultsField, params.Logger)
+	results := datahelpers.FindResultsArray(params.CollectedData, resultsField, params.Logger)
 	if results == nil {
 		params.Logger.Warn("FilterSearchResultsAction: No results found",
 			zap.String("results_field", resultsField),
@@ -2413,55 +2413,6 @@ func FilterSearchResultsAction(ctx context.Context, params ActionParams) (interf
 		"original_count":   len(results),
 		"preferred_count":  len(preferred),
 	}, nil
-}
-
-// findResultsArray searches for a results array in various common locations
-func findResultsArray(collectedData map[string]interface{}, basePath string, logger *zap.Logger) []interface{} {
-	// Common paths to try, in order of preference
-	pathsToTry := []string{
-		basePath + ".results",      // search_results.results (flattened format)
-		basePath + ".data.results", // search_results.data.results (wrapped format)
-		basePath,                   // search_results (if it's directly an array)
-		basePath + ".data",         // search_results.data (if data is the array)
-		basePath + ".items",        // search_results.items (alternative naming)
-	}
-
-	for _, path := range pathsToTry {
-		extracted := datahelpers.ExtractNestedField(collectedData, path)
-		if extracted == nil {
-			continue
-		}
-
-		// Direct array
-		if arr, ok := extracted.([]interface{}); ok {
-			logger.Debug("findResultsArray: Found array at path",
-				zap.String("path", path),
-				zap.Int("count", len(arr)))
-			return arr
-		}
-
-		// Map that might contain results
-		if m, ok := extracted.(map[string]interface{}); ok {
-			// Try common keys within the map
-			for _, key := range []string{"results", "items", "data"} {
-				if inner, exists := m[key]; exists {
-					if arr, ok := inner.([]interface{}); ok {
-						logger.Debug("findResultsArray: Found array in map",
-							zap.String("path", path),
-							zap.String("key", key),
-							zap.Int("count", len(arr)))
-						return arr
-					}
-				}
-			}
-		}
-	}
-
-	logger.Warn("findResultsArray: No array found",
-		zap.String("basePath", basePath),
-		zap.Strings("tried_paths", pathsToTry))
-
-	return nil
 }
 
 // ============================================================================
