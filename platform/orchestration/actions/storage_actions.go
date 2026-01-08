@@ -378,6 +378,14 @@ func extractGenericContent(params ActionParams, config map[string]interface{}) (
 }
 
 func extractFilesToUpload(params ActionParams) map[string][]byte {
+	cfg := datahelpers.FileExtractionConfig{
+		SearchForHTMLKeys: true, // Enable the HTML search behavior
+	}
+
+	return datahelpers.ExtractFilesAsBytes(params.CollectedData, cfg, params.Logger)
+}
+
+/*func extractFilesToUpload(params ActionParams) map[string][]byte {
 	files := make(map[string][]byte)
 
 	// Look for website files in collected data (checking for response fields)
@@ -402,7 +410,7 @@ func extractFilesToUpload(params ActionParams) map[string][]byte {
 	}
 
 	return files
-}
+}*/
 
 func extractWebsiteFiles(data interface{}) map[string]interface{} {
 	files := make(map[string]interface{})

@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -202,146 +201,26 @@ func extractDomainForGit(data map[string]interface{}, config map[string]interfac
 // extractFilesForGit extracts files map from CollectedData or config
 // Uses the unified extractor infrastructure for consistent field extraction
 func extractFilesForGit(data map[string]interface{}, config map[string]interface{}, domain string, logger *zap.Logger) map[string]string {
-	filesMap := make(map[string]string)
+	// Build config from action config
+	cfg := datahelpers.ExtractFilesFromConfig(config)
 
-	// Method 1: Use files_field config with unified extractor (for multi-page batch)
-	filesField, hasFilesField := config["files_field"].(string)
+	// Set git-specific defaults
+	cfg.DefaultFilesField = "site_files.files" // multipage default
 
-	if hasFilesField && filesField != "" {
-		logger.Info("Extracting files using files_field",
-			zap.String("files_field", filesField))
+	// Extract files using unified helper
+	result := datahelpers.ExtractFiles(data, cfg, logger)
 
-		extracted := datahelpers.ExtractFields(data, []string{filesField}, logger)
-		pathParts := strings.Split(filesField, ".")
-		extractedKey := pathParts[len(pathParts)-1]
-
-		if filesData, ok := extracted[extractedKey]; ok {
-			if files, ok := filesData.(map[string]interface{}); ok {
-				for filename, content := range files {
-					if contentStr, ok := content.(string); ok {
-						filesMap[filename] = contentStr
-						logger.Info("Added file from files_field",
-							zap.String("filename", filename),
-							zap.Int("size", len(contentStr)))
-					}
-				}
-				if len(filesMap) > 0 {
-					return filesMap
-				}
-			}
-		}
+	if len(result.Files) == 0 {
+		// Log debug info on failure
+		datahelpers.LogCollectedDataStructure(data, logger, "git_no_files")
+	} else {
+		logger.Info("extractFilesForGit: extracted files",
+			zap.String("method", result.Method),
+			zap.String("source_field", result.SourceField),
+			zap.Int("file_count", len(result.Files)))
 	}
 
-	// Method 2: Check direct files in config (legacy support)
-	if filesRaw, ok := config["files"].(map[string]interface{}); ok {
-		for filename, content := range filesRaw {
-			if contentStr, ok := content.(string); ok {
-				filesMap[filename] = contentStr
-			}
-		}
-		if len(filesMap) > 0 {
-			logger.Info("Using direct files from config", zap.Int("count", len(filesMap)))
-			return filesMap
-		}
-	}
-
-	// Method 3: Check content_field for single file (backward compatibility)
-	if contentField, ok := config["content_field"].(string); ok && contentField != "" {
-		extracted := datahelpers.ExtractFields(data, []string{contentField}, logger)
-		contentPathParts := strings.Split(contentField, ".")
-		contentKey := contentPathParts[len(contentPathParts)-1]
-
-		if content, ok := extracted[contentKey]; ok {
-			if contentStr, ok := content.(string); ok && contentStr != "" {
-				filesMap["index.html"] = contentStr
-				logger.Info("Using content_field for single file")
-				return filesMap
-			}
-		}
-	}
-
-	// Method 4: NEW - html_from + page_from pattern (for loop-based single page commits)
-	// This is used by pageflow-builder's build_pages_loop
-	htmlFrom, hasHtmlFrom := config["html_from"].(string)
-	pageFrom, hasPageFrom := config["page_from"].(string)
-
-	if hasHtmlFrom && htmlFrom != "" {
-		logger.Info("Trying html_from + page_from pattern",
-			zap.String("html_from", htmlFrom),
-			zap.String("page_from", pageFrom))
-
-		// Extract HTML content using the helper that handles nested paths
-		htmlContent := datahelpers.ExtractNestedFieldString(data, htmlFrom)
-
-		if htmlContent == "" {
-			logger.Warn("html_from path did not yield content",
-				zap.String("html_from", htmlFrom))
-		} else {
-			// Determine filename from page_from
-			filename := "index.html" // default
-
-			if hasPageFrom && pageFrom != "" {
-				pageData := datahelpers.ExtractNestedField(data, pageFrom)
-				if pageMap, ok := pageData.(map[string]interface{}); ok {
-					// Try url field first (e.g., "/index.html")
-					if url, ok := pageMap["url"].(string); ok && url != "" {
-						filename = strings.TrimPrefix(url, "/")
-						// Ensure it has .html extension
-						if !strings.HasSuffix(filename, ".html") {
-							filename = filename + ".html"
-						}
-					} else if name, ok := pageMap["name"].(string); ok && name != "" {
-						// Fallback to name field
-						filename = name + ".html"
-					}
-				}
-			}
-
-			// Clean the filename
-			filename = filepath.Clean(filename)
-			if strings.HasPrefix(filename, "/") {
-				filename = strings.TrimPrefix(filename, "/")
-			}
-
-			filesMap[filename] = htmlContent
-			logger.Info("Using html_from + page_from for single file",
-				zap.String("filename", filename),
-				zap.Int("content_size", len(htmlContent)))
-			return filesMap
-		}
-	}
-
-	// No files_field configured, try default path as last resort
-	if !hasFilesField {
-		defaultPath := "site_files.files"
-		logger.Info("No files_field configured, trying default multipage path",
-			zap.String("default_path", defaultPath))
-
-		extracted := datahelpers.ExtractFields(data, []string{defaultPath}, logger)
-		if filesData, ok := extracted["files"]; ok {
-			if files, ok := filesData.(map[string]interface{}); ok {
-				for filename, content := range files {
-					if contentStr, ok := content.(string); ok {
-						filesMap[filename] = contentStr
-					}
-				}
-				if len(filesMap) > 0 {
-					return filesMap
-				}
-			}
-		}
-	}
-
-	// Log available keys for debugging
-	datahelpers.LogCollectedDataStructure(data, logger, "error_")
-
-	logger.Warn("No files found via any method",
-		zap.Any("config_keys", datahelpers.GetMapKeys(config)),
-		zap.String("files_field", filesField),
-		zap.String("html_from", htmlFrom),
-		zap.String("page_from", pageFrom))
-
-	return filesMap
+	return result.Files
 }
 
 // buildCommitMessage creates commit message with template support

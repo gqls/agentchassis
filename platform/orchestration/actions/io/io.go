@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/aqls/agentchassis/platform/orchestration/actions/registry"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 func init() {
@@ -155,47 +156,15 @@ func extractDomainFromParams(params registry.ActionParams) string {
 }
 
 func extractFilesFromParams(params registry.ActionParams) (map[string]string, error) {
-	files := make(map[string]string)
+	cfg := datahelpers.ExtractFilesFromConfig(params.Config)
 
-	// Try files_field first (multi-file mode)
-	if filesField, ok := params.Config["files_field"].(string); ok {
-		if val := extractNestedField(params.CollectedData, filesField); val != nil {
-			if filesMap, ok := val.(map[string]interface{}); ok {
-				for name, content := range filesMap {
-					if s, ok := content.(string); ok {
-						files[name] = s
-					}
-				}
-				return files, nil
-			}
-		}
-	}
+	result := datahelpers.ExtractFiles(params.CollectedData, cfg, params.Logger)
 
-	// Try content_field (single file mode)
-	if contentField, ok := params.Config["content_field"].(string); ok {
-		if val := extractNestedField(params.CollectedData, contentField); val != nil {
-			if s, ok := val.(string); ok {
-				files["index.html"] = s
-				return files, nil
-			}
-		}
-	}
-
-	// Try direct files in config
-	if configFiles, ok := params.Config["files"].(map[string]interface{}); ok {
-		for name, content := range configFiles {
-			if s, ok := content.(string); ok {
-				files[name] = s
-			}
-		}
-		return files, nil
-	}
-
-	if len(files) == 0 {
+	if len(result.Files) == 0 {
 		return nil, fmt.Errorf("no files found to commit")
 	}
 
-	return files, nil
+	return result.Files, nil
 }
 
 func extractNestedField(data map[string]interface{}, fieldPath string) interface{} {
