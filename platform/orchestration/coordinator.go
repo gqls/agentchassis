@@ -867,6 +867,8 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 		zap.Any("step aftertimeout change", step),
 	)
 
+	datahelpers.LogCollectedDataStructure(state.CollectedData, s.logger, "before_"+state.CurrentStep)
+
 	// Route to appropriate handler
 	if isLocalAction(step.Action) {
 		return s.executeLocalAction(ctx, state, step, execCtx)
@@ -892,7 +894,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// 2. Create contextual logger
 	contextLogger := createActionLogger(s.logger, execCtx, state.CurrentStep, step.Action)
 
-	contextLogger.Info("Executing local action",
+	contextLogger.Info("Executing local action in executelocalaction",
 		zap.Any("config", step.Config),
 		zap.Any("DEBUGaa: executeLocalAction step", step),
 		zap.Any("DEBUGaa: executeLocalAction state after", state),
@@ -922,14 +924,10 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		zap.Any("action in handler", step.Action),
 	)
 
-	s.logger.Info("Executing local action",
-		zap.Any("DEBUGaa: params sent to action handler", params),
-		zap.Any("action in handler", step.Action),
-	)
-
 	// 6. Execute the action
 	result, err := executeAction(ctx, handler, params, contextLogger)
 	if err != nil {
+		datahelpers.LogCollectedDataStructure(state.CollectedData, s.logger, "error_"+step.Name)
 		return handleActionError(err, step, contextLogger)
 	}
 
@@ -1979,6 +1977,8 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		delete(freshState.AwaitedRequests, requestID)
 		// Loop continues to retry save
 	}
+
+	datahelpers.LogCollectedDataStructure(state.CollectedData, s.logger, "before_"+state.CurrentStep)
 
 	// Update our local reference
 	state = freshState

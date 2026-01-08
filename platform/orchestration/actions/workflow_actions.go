@@ -32,7 +32,7 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 	)
 
 	// Step 1: Extract the final result from CollectedData
-	finalResult := extractFinalResult(params.CollectedData, params.Logger)
+	finalResult := extractFinalResult(params.CollectedData, params.StepConfig.Config, params.Logger)
 	params.Logger.Info("CompleteWorkflowAction",
 		zap.Any("finalResult", finalResult),
 	)
@@ -78,7 +78,37 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 }
 
 // extractFinalResult gets the workflow result from CollectedData
-func extractFinalResult(collectedData map[string]interface{}, logger *zap.Logger) interface{} {
+// If stepConfig has output_field, return just that field's value to avoid double-nesting
+func extractFinalResult(collectedData map[string]interface{}, config map[string]interface{}, logger *zap.Logger) interface{} {
+	// Check if a specific output_field is configured
+	// This prevents double-nesting when parent stores at the same output_field name
+	if outputField, ok := config["output_field"].(string); ok && outputField != "" {
+		if result := datahelpers.ExtractNestedField(collectedData, outputField); result != nil {
+			logger.Info("extractFinalResult: using configured output_field",
+				zap.String("output_field", outputField))
+			return result
+		}
+		logger.Warn("extractFinalResult: configured output_field not found, falling back",
+			zap.String("output_field", outputField))
+	}
+
+	// Check if specific output fields are configured (array of field names)
+	if outputFields, ok := config["output_fields"].([]interface{}); ok && len(outputFields) > 0 {
+		result := make(map[string]interface{})
+		for _, fieldName := range outputFields {
+			if fn, ok := fieldName.(string); ok {
+				if value := datahelpers.ExtractNestedField(collectedData, fn); value != nil {
+					result[fn] = value
+				}
+			}
+		}
+		if len(result) > 0 {
+			logger.Info("extractFinalResult: using configured output_fields",
+				zap.Int("fields_found", len(result)))
+			return result
+		}
+	}
+
 	// Try common result locations
 	if processResult, ok := collectedData["process"]; ok {
 		return processResult

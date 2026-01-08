@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -186,7 +187,7 @@ func (s *SagaCoordinator) setLoopVariable(
 	loopIteration, hasIteration := stepConfig.Config["loop_iteration"]
 	loopVarName, hasVarName := stepConfig.Config["loop_var_name"].(string)
 
-	// ISSUE 33 FIX: Add logging for early return cases
+	// Add logging for early return cases
 	if !hasIteration {
 		logger.Debug("setLoopVariable: not a loop step (no loop_iteration in config)",
 			zap.String("step", state.CurrentStep),
@@ -254,6 +255,12 @@ func (s *SagaCoordinator) setLoopVariable(
 
 	// Propagate previous substep outputs from iteration-suffixed names to original names
 	propagateIterationOutputs(state, iterIdx, logger)
+
+	datahelpers.LogCollectedDataStructure(
+		state.CollectedData,
+		s.logger,
+		fmt.Sprintf("loop_iter_%d_setup", iterIdx),
+	)
 }
 
 // Helper to get config keys for logging

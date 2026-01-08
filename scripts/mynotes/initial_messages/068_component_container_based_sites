@@ -279,15 +279,15 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=8c858716-f6e6-4d44-ba2a-6a4ee5b7e81f
-ORCHESTRATION_ID=98699925-5502-46e9-8b8e-07ca749e4af1
-HITL_REQUEST_ID=73d92b4a-69b4-4f39-9b00-fe639c062af9
+CORRELATION_ID=8b808ede-3c29-47e6-a0f2-8dce1d27ef3b
+ORCHESTRATION_ID=2a3d264a-3bf6-4d94-9b56-1e1c58cf4219
+HITL_REQUEST_ID=8445ba10-a445-45ce-ad96-5dc61e721c4a
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 
 echo "========================================="
-echo "Sending HITL Response: Confirm BROCHURE Type"
+echo "Sending HITL First Response: Confirm BROCHURE Type"
 echo "========================================="
 echo "  Correlation ID:      $CORRELATION_ID"
 echo "  Orchestration ID:    $ORCHESTRATION_ID"
@@ -367,9 +367,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---
-CORRELATION_ID=8c858716-f6e6-4d44-ba2a-6a4ee5b7e81f
-ORCHESTRATION_ID=98699925-5502-46e9-8b8e-07ca749e4af1
-HITL_REQUEST_ID=03858f9a-5ca7-4a09-bbdc-5ef872737eee
+CORRELATION_ID=8b808ede-3c29-47e6-a0f2-8dce1d27ef3b
+ORCHESTRATION_ID=2a3d264a-3bf6-4d94-9b56-1e1c58cf4219
+HITL_REQUEST_ID=764a3dbf-4bda-4548-ae19-4b75da5966b5
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -544,10 +544,10 @@ HITL_REQUEST_ID=
 RESPONSES_TOPIC=
 # ================================
 
-CORRELATION_ID=8c858716-f6e6-4d44-ba2a-6a4ee5b7e81f
-ORCHESTRATION_ID=2dde2950-90d9-4250-964e-cb1e49e24823
-HITL_REQUEST_ID=d56b2c1e-69cd-4e3a-ac75-ed79b543dc1d
-RESPONSES_TOPIC=job.8c858716-065e09a6-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=8b808ede-3c29-47e6-a0f2-8dce1d27ef3b
+ORCHESTRATION_ID=291d1099-3287-40ae-9656-6148abf6c0f1
+HITL_REQUEST_ID=a9008d83-775e-4ee5-8fd0-46429b26431f
+RESPONSES_TOPIC=job.8b808ede-e3132fd1-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
