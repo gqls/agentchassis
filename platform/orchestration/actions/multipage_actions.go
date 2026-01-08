@@ -956,6 +956,7 @@ func extractNestedField(data map[string]interface{}, fieldPath string) interface
 }
 
 // extractFieldValue navigates nested field paths like "base_structure.result"
+// and extracts a string value, with fallbacks for common content keys
 func extractFieldValue(data map[string]interface{}, fieldPath string, logger *zap.Logger) string {
 	parts := strings.Split(fieldPath, ".")
 
@@ -995,18 +996,36 @@ func extractFieldValue(data map[string]interface{}, fieldPath string, logger *za
 	case string:
 		return v
 	case map[string]interface{}:
-		// If it's still a map, try to get "result" or "html" or "content"
-		if result, ok := v["result"].(string); ok {
-			return result
+		// If it's still a map, try common content field names
+		// Order: most specific first, then generic
+		contentKeys := []string{
+			"result",    // LLM action output
+			"page_html", // page-content-writer output
+			"html",      // generic HTML
+			"content",   // generic content
+			"text",      // text content
+			"markdown",  // markdown content
+			"body",      // response body
 		}
-		if html, ok := v["html"].(string); ok {
-			return html
+
+		for _, key := range contentKeys {
+			if val, ok := v[key].(string); ok && val != "" {
+				logger.Debug("extractFieldValue: found content in map",
+					zap.String("full_path", fieldPath),
+					zap.String("key_used", key),
+				)
+				return val
+			}
 		}
-		if content, ok := v["content"].(string); ok {
-			return content
+
+		// Log available keys to help debug
+		availableKeys := make([]string, 0, len(v))
+		for k := range v {
+			availableKeys = append(availableKeys, k)
 		}
 		logger.Warn("Final value is a map but couldn't extract string",
 			zap.String("full_path", fieldPath),
+			zap.Strings("available_keys", availableKeys),
 		)
 		return ""
 	default:

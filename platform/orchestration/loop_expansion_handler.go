@@ -282,22 +282,40 @@ func propagateIterationOutputs(state *OrchestrationState, iterIdx int, logger *z
 
 	// List of common output field base names that need propagation
 	// These are the output_field names from substep configs before iteration suffix is added
+	// Note: The auto-propagation scan below catches others, but explicitly listing
+	// ensures these are propagated first (before the check for "alreadySet")
 	commonOutputFields := []string{
+		// Page building outputs
 		"page_content",
 		"page_html",
+		"reviewed_content",
+		"assembled_page",
+		"page_deployed",
+
+		// Content outputs
 		"content_result",
 		"html_result",
+
+		// Site-level outputs
 		"site_content",
 		"site_architecture",
+
+		// Research outputs
+		"search_results",
+		"scrape_results",
+		"research_content",
+		"synthesis",
 	}
 
+	propagatedCount := 0
 	for _, baseName := range commonOutputFields {
 		iterationKey := baseName + suffix // e.g., "page_content_0"
 
 		if data, exists := state.CollectedData[iterationKey]; exists {
 			// Copy to original field name for this iteration's scope
 			state.CollectedData[baseName] = data
-			logger.Info("Propagated iteration output to original field name",
+			propagatedCount++
+			logger.Debug("Propagated iteration output to original field name",
 				zap.String("from", iterationKey),
 				zap.String("to", baseName),
 				zap.Int("iteration", iterIdx),
@@ -315,6 +333,7 @@ func propagateIterationOutputs(state *OrchestrationState, iterIdx int, logger *z
 				// Only propagate if baseName looks like an output field (not internal keys)
 				if !strings.HasPrefix(baseName, "__") && !strings.Contains(baseName, "_item_") && !strings.Contains(baseName, "_iter_") {
 					state.CollectedData[baseName] = value
+					propagatedCount++
 					logger.Debug("Auto-propagated iteration output",
 						zap.String("from", key),
 						zap.String("to", baseName),
@@ -323,6 +342,13 @@ func propagateIterationOutputs(state *OrchestrationState, iterIdx int, logger *z
 				}
 			}
 		}
+	}
+
+	if propagatedCount > 0 {
+		logger.Info("propagateIterationOutputs completed",
+			zap.Int("iteration", iterIdx),
+			zap.Int("fields_propagated", propagatedCount),
+		)
 	}
 }
 

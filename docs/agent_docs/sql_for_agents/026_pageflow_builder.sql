@@ -188,3 +188,54 @@ SET default_config = jsonb_set(
         }'::jsonb
              )
 WHERE type = 'pageflow-builder';
+
+--
+
+-- FILE: fix_pageflow_assemble_page.sql
+-- Fix assemble_page to use correct content path
+--
+-- Issue: Config had content_field: "page_content"
+--        But actual HTML is at page_content.page_html
+--
+-- The page-content-writer returns:
+--   { "page_html": "<!DOCTYPE html>..." }
+--
+-- This is stored at collected_data["page_content"]
+-- So the full path to HTML is: page_content.page_html
+--
+-- Note: The loop's propagateIterationOutputs should copy page_content_0 → page_content
+-- before assemble_page runs, so we don't need the _0 suffix in the path.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page,config,content_field}',
+        '"page_content.page_html"'::jsonb
+                     )
+WHERE type = 'pageflow-builder';
+
+-- Verify the update
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'assemble_page'->'config' as assemble_config
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- ==============================================================================
+-- ADDITIONAL: Add reviewed_content to propagateIterationOutputs list
+-- ==============================================================================
+-- In platform/orchestration/loop_actions.go, around line 38551, add to commonOutputFields:
+--
+-- commonOutputFields := []string{
+--     "page_content",
+--     "page_html",
+--     "content_result",
+--     "html_result",
+--     "site_content",
+--     "site_architecture",
+--     "reviewed_content",    // ADD THIS
+--     "assembled_page",      // ADD THIS
+--     "page_deployed",       // ADD THIS
+-- }
+--
+-- This ensures all substep outputs in the build_pages_loop are propagated.
