@@ -3,6 +3,10 @@ kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
 # Wait for pods to terminate
 kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
 
+# Clean up any leftover kcat pods
+kubectl -n kafka delete pod kcat-producer-hitl-test --ignore-not-found=true 2>/dev/null || true
+kubectl -n kafka delete pod kcat-test --ignore-not-found=true 2>/dev/null || true
+
 # 3. Clear database tables
 kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests, awaited_requests CASCADE;"
 
@@ -219,7 +223,7 @@ kubectl -n kafka run -i --rm kcat-producer-hitl-test \
 --image=edenhill/kcat:1.7.1 \
 --restart=Never -- \
 kcat -P \
--b personae-kafka-cluster-kafka-bootstrap:9092 \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
 -t system.agent.generic.requests \
 -H correlation_id=$CORRELATION_ID \
 -H request_id=$REQUEST_ID \
@@ -279,9 +283,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=b55226a1-3841-47bc-bed7-8bd1e9fee6ec
-ORCHESTRATION_ID=d9394889-a252-4522-a523-62c8a4ffb718
-HITL_REQUEST_ID=c58ff787-db48-4894-955a-b55c6afe84d2
+CORRELATION_ID=1c6a4f2f-cc03-48aa-9486-0aa8e5eb77c1
+ORCHESTRATION_ID=af2e38db-6ad0-43f4-af3a-4f1b6b7a3b46
+HITL_REQUEST_ID=8cc3f6e7-dfa0-45f9-b6eb-ac96ffd02fe7
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -302,7 +306,7 @@ kubectl -n kafka run -i --rm kcat-producer-brochure-confirm \
 --image=edenhill/kcat:1.7.1 \
 --restart=Never -- \
 kcat -P \
--b personae-kafka-cluster-kafka-bootstrap:9092 \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
 -t system.agent.generic.responses \
 -H correlation_id=$CORRELATION_ID \
 -H orchestration_id=$ORCHESTRATION_ID \
@@ -367,9 +371,11 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 ---2---
-CORRELATION_ID=b55226a1-3841-47bc-bed7-8bd1e9fee6ec
-ORCHESTRATION_ID=d9394889-a252-4522-a523-62c8a4ffb718
-HITL_REQUEST_ID=6fffb406-3270-4ddc-b549-aa56ab9417e9
+
+CORRELATION_ID=1c6a4f2f-cc03-48aa-9486-0aa8e5eb77c1
+ORCHESTRATION_ID=af2e38db-6ad0-43f4-af3a-4f1b6b7a3b46
+HITL_REQUEST_ID=2d23a3b1-2cb8-4020-a497-6fd1416f3ebd
+
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -390,7 +396,7 @@ kubectl -n kafka run -i --rm kcat-producer-brochure-brief \
 --image=edenhill/kcat:1.7.1 \
 --restart=Never -- \
 kcat -P \
--b personae-kafka-cluster-kafka-bootstrap:9092 \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
 -t system.agent.generic.responses \
 -H correlation_id=$CORRELATION_ID \
 -H orchestration_id=$ORCHESTRATION_ID \
@@ -544,10 +550,10 @@ HITL_REQUEST_ID=
 RESPONSES_TOPIC=
 # ================================  3
 
-CORRELATION_ID=b55226a1-3841-47bc-bed7-8bd1e9fee6ec
-ORCHESTRATION_ID=923e665b-cf6b-47d0-abae-8fa7aa3598b4
-HITL_REQUEST_ID=4bf36331-38ca-41a6-ae4a-14e6503451b5
-RESPONSES_TOPIC=job.b55226a1-686e825e-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=1c6a4f2f-cc03-48aa-9486-0aa8e5eb77c1
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+RESPONSES_TOPIC=
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)

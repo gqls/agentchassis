@@ -2136,59 +2136,132 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 		return fmt.Errorf("no awaited request found for %s", requestID)
 	}
 
-	// Check retry count
+	// Check retry count - max 3 retries to prevent infinite loops
 	if awaited.RetryVersion >= 3 {
 		s.logger.Error("Max retries exceeded",
-			zap.String("request_id", requestID))
+			zap.String("request_id", requestID),
+			zap.Int("retry_version", awaited.RetryVersion))
 		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
 	}
 
-	// Retry the request
-	awaited.RetryVersion++
-	awaited.SentAt = time.Now()
-	awaited.TimeoutAt = time.Now().Add(30 * time.Second)
-	state.AwaitedRequests[requestID] = awaited
-
-	topic := os.Getenv("PARENT_RESPONSES_TOPIC")
-	if topic == "" {
-		topic = execCtx.ReplyToTopic
-		if execCtx.ReplyToTopic == "" {
-			topic = execCtx.ResponsesTopic
-		}
+	// CRITICAL: Use the stored RequestsTopic to send retry to target agent
+	// NOT the parent responses topic!
+	if awaited.RequestsTopic == "" {
+		s.logger.Error("Cannot retry - no requests_topic stored in awaited request",
+			zap.String("request_id", requestID),
+			zap.String("step_name", awaited.StepName),
+			zap.String("target_agent_type", awaited.TargetAgentType))
+		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
 	}
+
+	// Increment retry version
+	awaited.RetryVersion++
+	newTimeout := 60 * time.Second // Give more time on retry
+	awaited.SentAt = time.Now()
+	awaited.TimeoutAt = time.Now().Add(newTimeout)
+	state.AwaitedRequests[requestID] = awaited
 
 	s.logger.Info("Retrying request",
 		zap.String("request_id", requestID),
 		zap.Int("retry_version", awaited.RetryVersion),
-		zap.String("DEBUGaa: where to send this? execCtx.ReplyToTopic:", execCtx.ReplyToTopic),
-		zap.String("DEBUGaa: where to send this? execCtx.ResponseTopic:", execCtx.ResponsesTopic),
-		zap.String("DEBUGaa: os.Getenv(PARENT_RESPONSES_TOPIC)", os.Getenv("PARENT_RESPONSES_TOPIC")),
+		zap.String("target_requests_topic", awaited.RequestsTopic),
+		zap.String("responses_topic", awaited.ResponsesTopic),
+		zap.String("target_agent_type", awaited.TargetAgentType),
+		zap.String("target_agent_id", awaited.TargetAgentID),
 	)
 
-	// Create retry request with same request ID
+	// Determine fuel budget
+	fuelBudget := state.FuelBudget
+	if fuelBudget <= 0 {
+		fuelBudget = 100 // Default retry fuel
+	}
+
+	// Build sender info - use execCtx if available, otherwise from environment
+	sender := execCtx.Sender
+	if sender.AgentID == "" {
+		sender = types.AgentIdentity{
+			AgentID:   os.Getenv("AGENT_ID"),
+			AgentType: os.Getenv("AGENT_TYPE"),
+			PodName:   os.Getenv("HOSTNAME"),
+		}
+	}
+
+	// Create retry request with CORRECT routing and all required fields
 	retryRequest := &types.RequestMessage{
 		Headers: types.RequestHeaders{
-			Sender:            execCtx.Sender,
-			RequestID:         requestID,            // Same request ID
-			RetryVersion:      awaited.RetryVersion, // Incremented retry version
-			StepID:            awaited.StepID,
-			StepName:          awaited.StepName,
+			// Identity
+			CorrelationID: state.CorrelationID,
+			ClientID:      state.ClientID,
+			Sender:        sender,
+
+			// Orchestration context
 			OrchestrationID:   state.OrchestrationID,
 			OrchestrationName: state.OrchestrationName,
-			CorrelationID:     state.CorrelationID,
-			ToAgentType:       awaited.TargetAgentType,
-			ClientID:          state.ClientID,
-			MessageID:         uuid.New().String(),
-			MessageType:       "request",
-			Timestamp:         time.Now(),
-			Action:            "retry",
+
+			// Request tracking - SAME request ID for retry
+			RequestID:    requestID,
+			RetryVersion: awaited.RetryVersion,
+			StepID:       awaited.StepID,
+			StepName:     awaited.StepName,
+
+			// Routing - USE THE STORED TOPICS from awaited request
+			ToAgentType:    awaited.TargetAgentType,
+			ToAgent:        awaited.TargetAgentID,
+			RequestsTopic:  awaited.RequestsTopic,
+			ResponsesTopic: awaited.ResponsesTopic,
+
+			// Message metadata
+			MessageID:   uuid.New().String(),
+			MessageType: "request",
+			Timestamp:   time.Now(),
+			Action:      "execute", // Use "execute" not "retry" - agents understand "execute"
+
+			// Resource management
+			FuelBudget:     fuelBudget,
+			TimeoutSeconds: int(newTimeout.Seconds()),
+		},
+		Body: map[string]interface{}{
+			"is_retry":      true,
+			"retry_version": awaited.RetryVersion,
 		},
 	}
 
-	// Send retry
-	retryBytes, _ := json.Marshal(retryRequest)
+	// Send to the TARGET AGENT'S REQUESTS TOPIC (not responses topic!)
+	retryBytes, err := json.Marshal(retryRequest)
+	if err != nil {
+		s.logger.Error("Failed to marshal retry request",
+			zap.String("request_id", requestID),
+			zap.Error(err))
+		return err
+	}
 
-	return s.producer.Produce(ctx, topic, retryRequest.Headers.ToMap(), []byte(requestID), retryBytes)
+	// Update awaited request in database with new retry version and timeout
+	repo := NewStateRepository(s.db, s.logger)
+	if err := repo.UpdateAwaitedRequestForRetry(ctx, requestID, awaited.RetryVersion, awaited.TimeoutAt); err != nil {
+		s.logger.Warn("Failed to update awaited request for retry in database (will continue)",
+			zap.String("request_id", requestID),
+			zap.Error(err))
+		// Don't fail - still try to send the retry
+	}
+
+	s.logger.Info("Sending retry to target agent requests topic",
+		zap.String("request_id", requestID),
+		zap.String("topic", awaited.RequestsTopic),
+		zap.String("target_agent_id", awaited.TargetAgentID))
+
+	// Send the retry
+	err = s.producer.Produce(ctx, awaited.RequestsTopic, retryRequest.Headers.ToMap(), []byte(requestID), retryBytes)
+	if err != nil {
+		s.logger.Error("Failed to send retry request",
+			zap.String("request_id", requestID),
+			zap.Error(err))
+		return err
+	}
+
+	// Start a new timeout goroutine for the retry
+	go s.handleRequestTimeout(context.Background(), state.OrchestrationID, requestID, awaited.TimeoutAt)
+
+	return nil
 }
 
 // handleUnrecoverableError handles fatal errors

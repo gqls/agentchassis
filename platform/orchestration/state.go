@@ -581,7 +581,7 @@ func (r *StateRepository) CreateInitialState(
 		now,               // $24 - updated_at
 		nil,               // $25 - currently_executing
 		now,               // $26 - last_activity
-		processingNode)    // $27 - processing_node
+		processingNode) // $27 - processing_node
 
 	if err != nil {
 		r.logger.Error("Failed to create initial state",
@@ -1424,6 +1424,30 @@ func (r *StateRepository) CompleteAwaitedRequest(ctx context.Context, requestID 
 			zap.String("request_id", requestID),
 		)
 	}
+
+	return nil
+}
+
+// UpdateAwaitedRequestForRetry updates the retry version and timeout for a retry attempt
+func (r *StateRepository) UpdateAwaitedRequestForRetry(ctx context.Context, requestID string, retryVersion int, timeoutAt time.Time) error {
+	query := `
+		UPDATE awaited_requests 
+		SET retry_version = $2, 
+		    timeout_at = $3, 
+		    sent_at = NOW(),
+		    status = 'waiting'
+		WHERE request_id = $1
+	`
+	result, err := r.db.ExecContext(ctx, query, requestID, retryVersion, timeoutAt)
+	if err != nil {
+		return fmt.Errorf("failed to update awaited request for retry: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	r.logger.Debug("Updated awaited request for retry",
+		zap.String("request_id", requestID),
+		zap.Int("retry_version", retryVersion),
+		zap.Int64("rows_affected", rows))
 
 	return nil
 }
