@@ -239,3 +239,49 @@ WHERE type = 'pageflow-builder';
 -- }
 --
 -- This ensures all substep outputs in the build_pages_loop are propagated.
+
+==
+
+fix for deployer agent too:
+
+-- FILE: fix_git_commit_config.sql
+-- Alternative fix: Change workflow config to use supported fields
+--
+-- Current config uses:
+--   "html_from": "assembled_page.html",
+--   "page_from": "current_page"
+--
+-- But extractFilesForGit supports:
+--   - files_field: path to map of filename -> content
+--   - content_field: path to single HTML string (saves as index.html)
+--
+-- For single page commits in a loop, we need a different approach.
+-- The actual structure is:
+--   assembled_page: { html: "...", assembled_at: "..." }
+--   current_page: { name: "index", url: "/index.html", ... }
+--
+-- OPTION A: Use content_field (but always saves as index.html - not ideal for multi-page)
+-- OPTION B: Apply the code fix to support html_from + page_from pattern (recommended)
+
+-- If you want a quick workaround using content_field (works but always uses index.html):
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,deploy_page,config}',
+        '{
+          "content_field": "assembled_page.html",
+          "site_id_from": "site_record.site_id"
+        }'::jsonb
+                     )
+WHERE type = 'pageflow-builder';
+
+-- NOTE: The content_field approach saves as "index.html" which works for index page
+-- but won't work correctly for other pages (services.html, about.html, etc.)
+-- The recommended fix is to apply fix_extract_files_for_git.go instead.
+
+-- Verify
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'deploy_page'->'config' as deploy_config
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
