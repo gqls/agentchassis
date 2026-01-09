@@ -15,10 +15,15 @@ import (
 
 // LogCollectedDataStructure logs the keys and structure of collected_data
 // with truncated string values for debugging path issues
-func LogCollectedDataStructure(data map[string]interface{}, logger *zap.Logger, prefix string) {
+// prefix is optional - call with or without it
+func LogCollectedDataStructure(data map[string]interface{}, logger *zap.Logger, prefix ...string) {
+	p := ""
+	if len(prefix) > 0 {
+		p = prefix[0]
+	}
 	summary := summarizeMap(data, "", 0, 3) // max depth 3
 	logger.Info("CollectedData structure",
-		zap.String("prefix", prefix),
+		zap.String("prefix", p),
 		zap.String("structure", summary),
 	)
 }

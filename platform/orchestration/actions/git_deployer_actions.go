@@ -199,30 +199,151 @@ func extractDomainForGit(data map[string]interface{}, config map[string]interfac
 	return "unknown-domain"
 }
 
-// recursiveFindDomain searches recursively for a "domain" key in nested maps
 // extractFilesForGit extracts files map from CollectedData or config
-// Uses the unified extractor infrastructure for consistent field extraction
 func extractFilesForGit(data map[string]interface{}, config map[string]interface{}, domain string, logger *zap.Logger) map[string]string {
-	// Build config from action config
-	cfg := datahelpers.ExtractFilesFromConfig(config)
+	filesMap := make(map[string]string)
 
-	// Set git-specific defaults
-	cfg.DefaultFilesField = "site_files.files" // multipage default
+	// Method 1: Use files_field config with unified extractor (for multi-page support)
+	filesField, hasFilesField := config["files_field"].(string)
 
-	// Extract files using unified helper
-	result := datahelpers.ExtractFiles(data, cfg, logger)
-
-	if len(result.Files) == 0 {
-		// Log debug info on failure
-		datahelpers.LogCollectedDataStructure(data, logger, "git_no_files")
-	} else {
-		logger.Info("extractFilesForGit: extracted files",
-			zap.String("method", result.Method),
-			zap.String("source_field", result.SourceField),
-			zap.Int("file_count", len(result.Files)))
+	if !hasFilesField || filesField == "" {
+		filesField = "site_files.files"
+		logger.Debug("files_field not configured, using default multipage path",
+			zap.String("default_path", filesField))
 	}
 
-	return result.Files
+	logger.Debug("Extracting files",
+		zap.String("files_field", filesField))
+
+	extracted := datahelpers.ExtractFields(data, []string{filesField}, logger)
+
+	pathParts := strings.Split(filesField, ".")
+	extractedKey := pathParts[len(pathParts)-1]
+
+	if filesData, ok := extracted[extractedKey]; ok {
+		if files, ok := filesData.(map[string]interface{}); ok {
+			for filename, content := range files {
+				if contentStr, ok := content.(string); ok {
+					filesMap[filename] = contentStr
+				}
+			}
+			if len(filesMap) > 0 {
+				logger.Info("Extracted files from files_field",
+					zap.Int("count", len(filesMap)))
+				return filesMap
+			}
+		}
+	}
+
+	// Method 2: Check direct files in config (legacy support)
+	if filesRaw, ok := config["files"].(map[string]interface{}); ok {
+		for filename, content := range filesRaw {
+			if contentStr, ok := content.(string); ok {
+				filesMap[filename] = contentStr
+			}
+		}
+		if len(filesMap) > 0 {
+			logger.Info("Using direct files from config", zap.Int("count", len(filesMap)))
+			return filesMap
+		}
+	}
+
+	// Method 3: Check content_field for single file
+	if contentField, ok := config["content_field"].(string); ok && contentField != "" {
+		extracted := datahelpers.ExtractFields(data, []string{contentField}, logger)
+
+		contentPathParts := strings.Split(contentField, ".")
+		contentKey := contentPathParts[len(contentPathParts)-1]
+
+		if content, ok := extracted[contentKey]; ok {
+			if contentStr, ok := content.(string); ok && contentStr != "" {
+				// NEW: Determine filename from page_field
+				filename := determinePageFilename(data, config, logger)
+				filesMap[filename] = contentStr
+				logger.Info("Using content_field for single file",
+					zap.String("filename", filename))
+				return filesMap
+			}
+		}
+	}
+
+	logger.Warn("No files found via any method",
+		zap.Any("config_keys", datahelpers.GetMapKeys(config)),
+		zap.String("files_field", filesField))
+
+	return filesMap
+}
+
+// determinePageFilename determines the HTML filename for a single page commit
+// Uses page_field config to get the page name, defaults to "index.html"
+func determinePageFilename(data map[string]interface{}, config map[string]interface{}, logger *zap.Logger) string {
+	pageField, ok := config["page_field"].(string)
+	if !ok || pageField == "" {
+		logger.Debug("No page_field configured, using default filename")
+		return "index.html"
+	}
+
+	// Extract page data using unified extractor
+	extracted := datahelpers.ExtractFields(data, []string{pageField}, logger)
+
+	// Get the last part of the page field path (e.g., "current_page" -> "current_page")
+	pathParts := strings.Split(pageField, ".")
+	extractedKey := pathParts[len(pathParts)-1]
+
+	pageData, ok := extracted[extractedKey]
+	if !ok {
+		logger.Warn("page_field not found in data",
+			zap.String("page_field", pageField))
+		return "index.html"
+	}
+
+	// Handle different page data formats
+	switch p := pageData.(type) {
+	case map[string]interface{}:
+		// Try common field names for page identifier
+		// Priority: slug > name > id
+		if slug, ok := p["slug"].(string); ok && slug != "" {
+			return ensureHTMLExtension(slug)
+		}
+		if name, ok := p["name"].(string); ok && name != "" {
+			return ensureHTMLExtension(name)
+		}
+		if id, ok := p["id"].(string); ok && id != "" {
+			// ID might be a UUID, not ideal but usable
+			return ensureHTMLExtension(id)
+		}
+		logger.Warn("page data found but no name/slug/id field",
+			zap.Any("page_keys", datahelpers.GetMapKeys(p)))
+	case string:
+		// Direct string value (unlikely but handle it)
+		return ensureHTMLExtension(p)
+	default:
+		logger.Warn("Unexpected page data type",
+			zap.String("type", fmt.Sprintf("%T", pageData)))
+	}
+
+	return "index.html"
+}
+
+// ensureHTMLExtension ensures filename ends with .html
+func ensureHTMLExtension(name string) string {
+	if name == "" {
+		return "index.html"
+	}
+	// Handle "index" specially
+	if name == "index" || name == "home" {
+		return "index.html"
+	}
+	// Already has .html
+	if strings.HasSuffix(name, ".html") {
+		return name
+	}
+	// Already has other extension - replace
+	if idx := strings.LastIndex(name, "."); idx > 0 {
+		return name[:idx] + ".html"
+	}
+	// No extension - add .html
+	return name + ".html"
 }
 
 // buildCommitMessage creates commit message with template support

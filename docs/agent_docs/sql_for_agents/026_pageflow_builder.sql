@@ -285,3 +285,114 @@ SELECT
     default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'deploy_page'->'config' as deploy_config
 FROM agent_definitions
 WHERE type = 'pageflow-builder';
+
+==
+
+-- FILE: fix_pageflow_assemble_page.sql
+-- Fix pageflow-builder config field mismatches
+--
+-- ISSUES IDENTIFIED:
+--
+-- 1. assemble_page step:
+--    - Config uses "content_from" but AssemblePageAction expects "content_field"
+--    - Config uses "page_from", "site_id_from" - not used by action
+--
+-- 2. deploy_page (git_commit) step:
+--    - Config uses "html_from" but GitCommitAction expects "content_field"
+--    - Config uses "page_from", "site_id_from" - not used by action
+--    - GitCommitAction extracts domain via "domain_field" (defaults to "domain")
+--
+-- Data flow for page content:
+--   page-content-writer outputs: {page_html, page_name, sections, research_ids}
+--   complete_workflow wraps in collectedData
+--   pageflow-builder stores at output_field "page_content"
+--   Path to HTML: page_content.page_content.page_html
+--
+-- After assemble_page runs:
+--   assembled_page = {html: "<full page>", assembled_at: "timestamp"}
+--   Path to HTML: assembled_page.html
+
+-- ==============================================================================
+-- FIX 1: assemble_page config
+-- ==============================================================================
+-- AssemblePageAction expects:
+--   content_field: string - path to HTML content
+--   add_navigation: bool - whether to add nav (optional)
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page,config}',
+        '{
+            "content_field": "page_content.page_content.page_html",
+            "add_navigation": false
+        }'::jsonb
+                     )
+WHERE type = 'pageflow-builder';
+
+-- ==============================================================================
+-- FIX 2: deploy_page (git_commit) config
+-- ==============================================================================
+-- GitCommitAction expects:
+--   content_field: string - path to HTML (creates single file as index.html or {page}.html)
+--   domain_field: string - path to domain (defaults to "domain")
+--   page_field: string - path to current page (to get filename)
+--   files_field: string - path to files map (for multipage)
+--
+-- For per-page deployment, we need content_field and page context
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,deploy_page,config}',
+        '{
+            "content_field": "assembled_page.html",
+            "page_field": "current_page",
+            "domain_field": "site_record.domain"
+        }'::jsonb
+                     )
+WHERE type = 'pageflow-builder';
+
+-- ==============================================================================
+-- FIX 3: Verify all sub_workflow steps have expected fields
+-- ==============================================================================
+
+-- Check write_page_content (call_agent)
+-- Expects: agent_type, target_role, input_fields, timeout_seconds
+-- Current config looks correct - no changes needed
+
+-- Check review_page_content (call_agent)
+-- Current config looks correct - no changes needed
+
+-- Check update_page_status
+-- Needs to check what UpdatePageStatusAction expects
+
+-- ==============================================================================
+-- VERIFY FIXES
+-- ==============================================================================
+
+SELECT
+    type,
+    jsonb_pretty(
+            default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'
+    ) as sub_workflow_steps
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- ==============================================================================
+-- ADDITIONAL Go Code Changes (if needed)
+-- ==============================================================================
+--
+-- If GitCommitAction doesn't handle per-page filenames, update extractFilesForGit:
+--
+-- Add handling for page_field to determine filename:
+--   pageField, _ := config["page_field"].(string)
+--   if pageField != "" {
+--     pageData := extractFieldValue(data, pageField, logger)
+--     if pageName, ok := pageData["name"].(string); ok {
+--       filename = pageName + ".html"
+--     }
+--   }
+--
+-- This would create about.html, contact.html, etc. instead of always index.html
+-- ==============================================================================
