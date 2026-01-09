@@ -38,3 +38,34 @@ FROM agent_definitions
 WHERE type LIKE '%-builder'
   AND is_active = true
 ORDER BY type;
+
+---
+
+update paths again
+
+-- Fix hitl_confirm_type default_from paths for site_type field
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,hitl_confirm_type,config,fields,0,default_from}',
+        '"classification.response.result.site_type"'::jsonb
+                     )
+WHERE type = 'intake-orchestrator';
+
+-- Fix hitl_confirm_type default_from paths for recommended_builder field
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,hitl_confirm_type,config,fields,1,default_from}',
+        '"classification.response.result.recommended_builder"'::jsonb
+                     )
+WHERE type = 'intake-orchestrator';
+
+-- Verify the changes
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'hitl_confirm_type'->'config'->'fields'->0->'default_from' as field_0_default,
+    default_config->'workflow'->'steps'->'hitl_confirm_type'->'config'->'fields'->1->'default_from' as field_1_default,
+    default_config->'workflow'->'steps'->'fetch_questionnaire'->'config'->'agent_type_field' as fetch_q_agent_type
+FROM agent_definitions
+WHERE type = 'intake-orchestrator';

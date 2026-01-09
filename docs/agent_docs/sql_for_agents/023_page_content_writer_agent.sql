@@ -401,3 +401,71 @@ SELECT
     default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'substeps'->'generate_content'->'config'->'input_fields' as input_fields
 FROM agent_definitions
 WHERE type = 'page-content-writer';
+
+--
+
+-- change paths
+
+-- ============================================
+-- Fix page-content-writer prompt template
+-- The prompt references research_result.summary and research_result.sources
+-- Need to change to research_result.response.summary and research_result.response.sources
+-- ============================================
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,substeps,generate_content,config,prompt_template}',
+        to_jsonb('Write content for the {{.current_section.function}} section of {{.current_page.title}}.
+
+## Company Context
+Company: {{.render_context.company_name}}
+Industry: {{.render_context.industry}}
+Tone: {{.render_context.tone}}
+Target Audience: {{.render_context.target_audience}}
+Services: {{.reviewed_brief.services}}
+
+## Section Requirements
+Component: {{.current_section.name}}
+Purpose: {{.current_section.description}}
+
+## Data Schema Required
+{{.current_section.input_schema}}
+
+{{if .research_result}}
+## Research Findings
+{{.research_result.response.summary}}
+
+Sources:
+{{range $index, $src := .research_result.response.sources}}
+- [{{$index}}] {{$src.title}} ({{$src.domain}})
+{{end}}
+{{end}}
+
+## Task
+Write compelling, specific content for this section.
+
+Return JSON matching the input_schema. Example:
+```json
+{
+  "headline": "Your Compelling Headline",
+  "body": "Engaging body content...",
+  "cta_text": "Call to Action"
+}
+```
+
+Rules:
+- No placeholder text like [Your Company] or Lorem ipsum
+- Be specific to this company and industry
+- Professional but engaging tone matching the brief
+- Include source citations [0], [1] if research was provided'::text)
+                     )
+WHERE type = 'page-content-writer';
+
+-- Verify page-content-writer
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'substeps'->'generate_content'->'config'->'prompt_template' as prompt
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+

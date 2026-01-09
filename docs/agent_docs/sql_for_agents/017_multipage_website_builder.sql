@@ -3324,3 +3324,25 @@ SELECT
 FROM agent_definitions
 WHERE type LIKE '%multipage%' OR type LIKE '%pageflow%'
 ORDER BY type, version;
+
+---
+
+change path
+
+-- ============================================
+-- Fix multipage-website-builder iterate_over path
+-- ============================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_pages_loop,config,iterate_over}',
+        '"page_plan.response.plan_data.pages"'::jsonb
+                     )
+WHERE type = 'multipage-website-builder';
+
+-- Verify multipage-website-builder
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'generate_pages_loop'->'config'->'iterate_over' as iterate_over
+FROM agent_definitions
+WHERE type = 'multipage-website-builder';
