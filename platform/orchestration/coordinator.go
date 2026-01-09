@@ -715,7 +715,7 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 func (s *SagaCoordinator) continueExecution(ctx context.Context, state *OrchestrationState, execCtx *types.ExecutionContext) error {
 	s.logger.Info("in continueExecution",
 		zap.Any("DEBUGaa: orchestration state", state),
-		zap.Any("Exec context", execCtx),
+		//zap.Any("Exec context", execCtx),
 	)
 
 	repo := NewStateRepository(s.db, s.logger)

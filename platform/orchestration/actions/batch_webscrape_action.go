@@ -78,7 +78,7 @@ func BatchWebscrapeAction(ctx context.Context, params ActionParams) (interface{}
 	if urlsData == nil {
 		params.Logger.Warn("BatchWebscrapeAction: No URLs to scrape",
 			zap.String("urls_field", urlsField),
-			zap.Strings("collected_data_keys", getMapKeys(params.CollectedData)))
+			zap.Strings("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)))
 
 		// Return empty result - not an error, just nothing to scrape
 		return map[string]interface{}{

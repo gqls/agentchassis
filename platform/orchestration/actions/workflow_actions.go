@@ -16,15 +16,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// ReplyToMetadata contains everything needed to send a response back to the requester
-type ReplyToMetadata struct {
-	RequestID string // The request_id we're responding to
-	Topic     string // Where to send the response
-	Requester string // Who asked us (for logging)
-	StepID    string // Which step in the requester's workflow
-	StepName  string // Name of that step
-}
-
 func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("CompleteWorkflowAction: starting",
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
@@ -138,18 +129,51 @@ func extractFinalResult(collectedData map[string]interface{}, config map[string]
 //  1. __work_request__ (stored when work request received) - PREFERRED
 //  2. __execution_context__ (from the work request)
 //  3. Current ExecutionContext (for inline workflows)
-func extractReplyToMetadata(collectedData map[string]interface{}, execCtx *types.ExecutionContext, logger *zap.Logger) (*ReplyToMetadata, error) {
+func extractReplyToMetadata(collectedData map[string]interface{}, execCtx *types.ExecutionContext, logger *zap.Logger) (*datahelpers.ReplyToMetadata, error) {
 
 	// Priority 1: Check for explicitly stored work request metadata
 	if workReqData, ok := collectedData["__work_request__"].(map[string]interface{}); ok {
 		logger.Info("CompleteWorkflowAction: using __work_request__ metadata")
-		return &ReplyToMetadata{
-			RequestID: getStringField(workReqData, "request_id"),
-			Topic:     getStringField(workReqData, "parent_responses_topic"),
-			Requester: getStringField(workReqData, "requester_agent_id"),
-			StepID:    getStringField(workReqData, "step_id"),
-			StepName:  getStringField(workReqData, "step_name"),
-		}, nil
+
+		// Get topic - try multiple sources
+		topic := getStringField(workReqData, "parent_responses_topic")
+		if topic == "" {
+			// Fallback 1: Check top-level __parent_responses_topic__
+			topic = getStringField(collectedData, "__parent_responses_topic__")
+		}
+		if topic == "" {
+			// Fallback 2: Check __execution_context__ for reply_to_topic
+			if execCtxData, ok := collectedData["__execution_context__"].(map[string]interface{}); ok {
+				topic = getStringField(execCtxData, "reply_to_topic")
+				if topic == "" {
+					topic = getStringField(execCtxData, "responses_topic")
+				}
+			}
+		}
+		if topic == "" {
+			// Fallback 3: Check __raw_message__.__execution_context__
+			if rawMsg, ok := collectedData["__raw_message__"].(map[string]interface{}); ok {
+				if rawExecCtx, ok := rawMsg["__execution_context__"].(map[string]interface{}); ok {
+					topic = getStringField(rawExecCtx, "reply_to_topic")
+					if topic == "" {
+						topic = getStringField(rawExecCtx, "responses_topic")
+					}
+				}
+			}
+		}
+
+		// Only return if we found a valid topic
+		if topic != "" {
+			return &datahelpers.ReplyToMetadata{
+				RequestID: getStringField(workReqData, "request_id"),
+				Topic:     topic,
+				Requester: getStringField(workReqData, "requester_agent_id"),
+				StepID:    getStringField(workReqData, "step_id"),
+				StepName:  getStringField(workReqData, "step_name"),
+			}, nil
+		}
+
+		logger.Warn("CompleteWorkflowAction: __work_request__ found but no topic available, trying other sources")
 	}
 
 	// Priority 2: Extract from stored execution context
@@ -176,7 +200,7 @@ func extractReplyToMetadata(collectedData map[string]interface{}, execCtx *types
 				parentTopic = storedExecCtx.ReplyToTopic
 			}
 
-			return &ReplyToMetadata{
+			return &datahelpers.ReplyToMetadata{
 				RequestID: storedExecCtx.RequestID, // The work request we received
 				Topic:     parentTopic,             // Where parent is listening
 				Requester: storedExecCtx.Sender.AgentID,
@@ -189,7 +213,7 @@ func extractReplyToMetadata(collectedData map[string]interface{}, execCtx *types
 	// Priority 3: Use current execution context (for simple/inline cases)
 	if execCtx.RequestID != "" && execCtx.ReplyToTopic != "" {
 		logger.Debug("CompleteWorkflowAction: using current ExecutionContext")
-		return &ReplyToMetadata{
+		return &datahelpers.ReplyToMetadata{
 			RequestID: execCtx.RequestID,
 			Topic:     execCtx.ReplyToTopic,
 			Requester: execCtx.Sender.AgentID,
@@ -324,7 +348,7 @@ func extractReplyToMetadata(collectedData map[string]interface{}, execCtx *types
 }
 */
 // Helper to build response message
-func buildResponseMessage(execCtx *types.ExecutionContext, replyTo *ReplyToMetadata, result interface{}) types.ResponseMessage {
+func buildResponseMessage(execCtx *types.ExecutionContext, replyTo *datahelpers.ReplyToMetadata, result interface{}) types.ResponseMessage {
 	return types.ResponseMessage{
 		Headers: types.ResponseHeaders{
 			Sender:                     execCtx.Sender,

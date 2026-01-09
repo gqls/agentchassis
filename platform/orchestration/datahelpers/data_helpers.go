@@ -20,9 +20,14 @@ import (
 	"go.uber.org/zap"
 )
 
-// ============================================================================
-// DATA HELPERS - Working with existing types.RequestMessage and types.ResponseMessage
-// ============================================================================
+// ReplyToMetadata contains everything needed to send a response back to the requester
+type ReplyToMetadata struct {
+	RequestID string // The request_id we're responding to
+	Topic     string // Where to send the response
+	Requester string // Who asked us (for logging)
+	StepID    string // Which step in the requester's workflow
+	StepName  string // Name of that step
+}
 
 // ============================================================================
 // EXTRACTION FUNCTIONS - Get clean data from any message format
@@ -880,16 +885,25 @@ func BuildCollectedData(
 			}
 		}
 
-		// get responses topic from message value if it isn't in execCtx
+		// Get parent responses topic from message body if not in execCtx
 		if execCtx.ReplyToTopic == "" {
-			if val, ok := unnestedBody["parent_responses_topic"].(string); ok {
+			// Try parent_responses_topic in message body
+			if val, ok := unnestedBody["parent_responses_topic"].(string); ok && val != "" {
 				parentResponsesTopic = val
-				logger.Info("Processor: buildCollecteData helper: found parent_responses_topic in message body",
-					zap.Any("parent responses topic", parentResponsesTopic))
+				logger.Info("BuildCollectedData: found parent_responses_topic in message body",
+					zap.String("parent_responses_topic", parentResponsesTopic))
+			}
+			// Try __execution_context__.reply_to_topic in message body
+			if parentResponsesTopic == "" {
+				if embeddedExecCtx, ok := unnestedBody["__execution_context__"].(map[string]interface{}); ok {
+					if val, ok := embeddedExecCtx["reply_to_topic"].(string); ok && val != "" {
+						parentResponsesTopic = val
+						logger.Info("BuildCollectedData: found reply_to_topic in embedded __execution_context__",
+							zap.String("parent_responses_topic", parentResponsesTopic))
+					}
+				}
 			}
 		} else {
-			logger.Info("Processor buildCollecteData helper: used parentResponsesTopic from execCtx",
-				zap.Any("parent responses topic", parentResponsesTopic))
 			parentResponsesTopic = execCtx.ReplyToTopic
 		}
 		if parentResponsesTopic == "" {
@@ -929,7 +943,7 @@ func BuildCollectedData(
 	}
 
 	// ============================================================================
-	// CRITICAL FIX: Check if __work_request__ already exists in the message body
+	// Check if __work_request__ already exists in the message body
 	// If it does, preserve it instead of creating a new one
 	// ============================================================================
 	var existingWorkRequest map[string]interface{}

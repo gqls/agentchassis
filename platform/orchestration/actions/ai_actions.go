@@ -86,7 +86,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		zap.Any("agentConfig in first try", agentConfig),
 		zap.Any("Config in first try", agentConfig),
 		zap.String("step name is", params.ExecutionContext.StepName),
-		zap.Any("DEBUGaa: collected Data at this stage is:", params.CollectedData),
+		//zap.Any("DEBUGaa: collected Data at this stage is:", params.CollectedData),
 	)
 
 	currentStep := params.ExecutionContext.StepName

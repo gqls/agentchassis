@@ -237,7 +237,7 @@ kcat -P \
 -H from_agent_type=user \
 -H from_agent_id=cli \
 -H responses_topic=system.generic.responses <<JSON
-{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain": "ai-agent-orchestration.com","objective":"Build a welcoming, straightforward corporate website for Leopardess Consulting; a hands-on web and digital transformation consultancy with a knack for turning ideas into real results. The site should give a clear picture of who we are, our guiding values (like sharp insight and quiet strength), and our services in strategy, operations, and digital transformation. We'd love to highlight exciting possibilities for AI agents in areas like product development, finance, marketing, management, and HR. Include an insights blog for sharing practical thoughts, a careers section to attract great people, and simple ways to get in touch. Target audience: C-suite leaders, HR directors, and senior managers at mid-to-large businesses looking for thoughtful, effective consulting partners.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain": "leopardessconsulting.co.uk","objective":"Build a welcoming, straightforward corporate website for Leopardess Consulting; a hands-on web and digital transformation consultancy with a knack for turning ideas into real results. The site should give a clear picture of who we are, our guiding values (like sharp insight and quiet strength), and our services in strategy, operations, and digital transformation. We'd love to highlight exciting possibilities for AI agents in areas like product development, finance, marketing, management, and HR. Include an insights blog for sharing practical thoughts, a careers section to attract great people, and simple ways to get in touch. Target audience: C-suite leaders, HR directors, and senior managers at mid-to-large businesses looking for thoughtful, effective consulting partners.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
 JSON
 
 echo ""
@@ -283,9 +283,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=3ff112d1-7b28-44d4-9ca0-2d6faa8af85c
-ORCHESTRATION_ID=45f0910b-5bcb-4c97-b519-b683578f3d28
-HITL_REQUEST_ID=effe04e0-1db8-43c0-9e8d-fe8eaf90edad
+CORRELATION_ID=705861ec-5c1b-46a9-bbc7-bbd58b2ec5fe
+ORCHESTRATION_ID=28604699-48b6-4927-9f46-2dc075bc5581
+HITL_REQUEST_ID=e05f1d90-105b-4366-896e-f4aa8100060e
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -370,11 +370,12 @@ HITL_REQUEST_ID=
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
----2---
 
-CORRELATION_ID=3ff112d1-7b28-44d4-9ca0-2d6faa8af85c
-ORCHESTRATION_ID=45f0910b-5bcb-4c97-b519-b683578f3d28
-HITL_REQUEST_ID=1e53f686-6bc7-4c4d-ae4c-e998d77ed914
+--- 2 ---
+
+CORRELATION_ID=705861ec-5c1b-46a9-bbc7-bbd58b2ec5fe
+ORCHESTRATION_ID=28604699-48b6-4927-9f46-2dc075bc5581
+HITL_REQUEST_ID=af9689b3-361c-4137-8670-2f68d8433f69
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -412,7 +413,6 @@ kcat -P \
 {"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Agile AI Agents: Move Swiftly into Digital Transformation with Grace and Precision","about_us":"At Leopardess Consulting, we like building smart, hierarchical AI agent systems that help businesses adapt quickly and effectively. Using tools like Kubernetes for orchestration, Kafka for smooth messaging, and Postgres for reliable storage, we create solutions that automate complex workflows – think spinning up and launching full multipage websites on Cloudflare in no time. We're here to help you make the most of AI with practical, dependable approaches that suit your team.","services":[{"name":"Automated Website Solutions","description":"Get production-ready websites up and running in minutes with our AI-powered multi-agent systems. We handle secure, scalable hosting on Cloudflare, including automated builds, testing, and launches – removing the usual hurdles so you can focus on what matters."},{"name":"Multi-Agent Systems","description":"We design custom hierarchical agent setups to address your business challenges. Supporting a range of LLMs and models, these systems delegate tasks sensibly, collaborate in real time, and scale smoothly for effective automation."},{"name":"Digital Transformation Strategy","description":"Clear guidance to integrate AI and modern technology into your everyday operations. We work with you to build straightforward roadmaps for AI adoption, streamlining workflows, and staying agile in a fast-changing world."},{"name":"Web Consultancy","description":"Practical advice on modern web architectures, smart deployment, and useful AI integrations. We help your team build solid, forward-thinking web applications that focus on speed, security, and real innovation."}],"target_audience":"Technology leaders, CTOs, and forward-thinking businesses looking for practical web solutions and AI-driven automation","tone":"professional yet approachable","key_differentiators":"Our agile approach to AI orchestration\nFast deployments (minutes instead of weeks)\nSolid enterprise-level security and reliability\nProven stack with Kubernetes, Kafka, and Postgres\nStrong expertise in hierarchical multi-agent systems\nSpecial focus on web automation – with room to grow into other areas","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"Peter is a technology strategist with strong enthusiasm for AI agent frameworks, modern web architecture, and automated systems. He leads our efforts in digital transformation, delivering agile innovation through effective multi-agent orchestration and quick deployments."}],"case_studies":[{"title":"Potential Use Case: Fresh Marketing Site for a Scaling Startup","summary":"Imagine a growing startup that might need a fresh, compliant marketing website ahead of a funding round. With our automated website solution, we could take their design assets and content, then deliver a fully tested, SEO-optimized site on Cloudflare in under an hour – giving the team space to focus on product and growth while moving with quiet confidence."},{"title":"Potential Use Case: Streamlining Deployment Workflows for a Tech Team","summary":"Picture a busy technology team that could benefit from less time on repetitive deployment and monitoring tasks. A custom hierarchical multi-agent system might handle provisioning, testing, and alerts across Kubernetes clusters – freeing them up for higher-value work and helping the whole operation stay nimble and precise."},{"title":"Potential Use Case: Modernising a Corporate Intranet","summary":"A mid-sized company might want to refresh an outdated intranet to improve internal communication and knowledge sharing. Using our multi-agent orchestration, we could rapidly prototype and deploy a secure, searchable platform on Cloudflare Pages – delivering a clean, modern experience that adapts smoothly as needs evolve."}],"contact_email":"leopardess.consulting@contactforsales.com"}}
 JSON
 
-
 echo ""
 echo "========================================="
 echo "HITL Response sent!"
@@ -424,6 +424,7 @@ echo ""
 echo "Monitor builder progress:"
 echo "  kubectl logs -n ai-persona-system -l app=agent-chassis --tail=100 | grep \"$CORRELATION_ID\""
 echo ""
+
 
 
 
@@ -550,10 +551,10 @@ HITL_REQUEST_ID=
 RESPONSES_TOPIC=
 # ================================  3
 
-CORRELATION_ID=3ff112d1-7b28-44d4-9ca0-2d6faa8af85c
-ORCHESTRATION_ID=f0b094f8-df8c-47d4-bfa6-c48c47feb12a
-HITL_REQUEST_ID=2b4aa988-b6ee-40b4-8fd8-4aca71d1ba6d
-RESPONSES_TOPIC=job.3ff112d1-63bc5731-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=705861ec-5c1b-46a9-bbc7-bbd58b2ec5fe
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+RESPONSES_TOPIC=
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
