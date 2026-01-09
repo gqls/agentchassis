@@ -2022,6 +2022,24 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		s.logger.Info("Execution Context from Collected Data",
 			zap.Any("DEBUGaa: Execution context from collected data", stateExecCtx))
 
+		// Determine responses topic - prefer state, fall back to extracted execCtx
+		responsesTopic := state.ResponsesTopic
+		if responsesTopic == "" {
+			responsesTopic = stateExecCtx.ResponsesTopic
+		}
+		if responsesTopic == "" {
+			// Last resort: use environment variable
+			responsesTopic = os.Getenv("MY_RESPONSES_TOPIC")
+		}
+
+		requestsTopic := state.RequestsTopic
+		if requestsTopic == "" {
+			requestsTopic = stateExecCtx.RequestsTopic
+		}
+		if requestsTopic == "" {
+			requestsTopic = os.Getenv("MY_REQUESTS_TOPIC")
+		}
+
 		// Create fresh execution context for continuing
 		freshExecCtx := &types.ExecutionContext{
 			CorrelationID:   state.CorrelationID,
@@ -2042,7 +2060,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			},
 
 			// Clear any response fields
-			InResponseTo: nil, //?
+			InResponseTo: nil,
 			Status:       "",
 			IsComplete:   false,
 
@@ -2051,7 +2069,15 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			TimeoutSeconds: 30,
 			Timestamp:      time.Now(),
 			Version:        "2.0",
+
+			// These are needed for actions that send messages to adapters
+			ResponsesTopic: responsesTopic,
+			RequestsTopic:  requestsTopic,
 		}
+
+		s.logger.Debug("Created freshExecCtx with topics",
+			zap.String("responses_topic", responsesTopic),
+			zap.String("requests_topic", requestsTopic))
 
 		state.LastActivity = time.Now()
 		state.Status = StatusExecutingStep
@@ -2144,8 +2170,58 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
 	}
 
-	// CRITICAL: Use the stored RequestsTopic to send retry to target agent
-	// NOT the parent responses topic!
+	// Adapter actions (git_commit, etc.) need to re-execute the step, not send
+	// a retry message, because adapters need the full payload (files, etc.)
+	isAdapterAction := awaited.TargetAgentID == "" &&
+		strings.HasPrefix(awaited.RequestsTopic, "system.adapter")
+
+	if isAdapterAction {
+		s.logger.Info("Re-executing adapter action for retry",
+			zap.String("step_name", awaited.StepName),
+			zap.String("request_topic", awaited.RequestsTopic),
+			zap.Int("retry_attempt", awaited.RetryVersion+1))
+
+		// Remove the failed awaited request
+		delete(state.AwaitedRequests, requestID)
+
+		// Mark it processed in DB so it doesn't linger
+		repo := NewStateRepository(s.db, s.logger)
+		if err := repo.MarkAwaitedRequestComplete(ctx, requestID); err != nil {
+			s.logger.Warn("Failed to mark awaited request complete for re-execution",
+				zap.String("request_id", requestID),
+				zap.Error(err))
+		}
+
+		// Track retry count in execution metadata
+		if state.ExecutionMetadata.RetryCount == nil {
+			state.ExecutionMetadata.RetryCount = make(map[string]int)
+		}
+		state.ExecutionMetadata.RetryCount[awaited.StepName] = awaited.RetryVersion + 1
+
+		// Reset state to re-execute the step
+		state.CurrentStep = awaited.StepName
+		state.Status = StatusExecutingStep
+		state.CurrentlyExecuting = &awaited.StepName
+		state.LastActivity = time.Now()
+
+		// Save state
+		if err := repo.UpdateState(ctx, state); err != nil {
+			s.logger.Error("Failed to update state for adapter retry",
+				zap.String("request_id", requestID),
+				zap.Error(err))
+			return fmt.Errorf("failed to update state for adapter retry: %w", err)
+		}
+
+		s.logger.Info("Re-executing step after adapter timeout",
+			zap.String("step_name", awaited.StepName),
+			zap.Int("retry_attempt", awaited.RetryVersion+1))
+
+		// Continue execution - this will re-run the step action with full context
+		return s.continueExecution(ctx, state, execCtx)
+	}
+
+	// Use the stored RequestsTopic to send retry to target agent
+	// Not the parent responses topic
 	if awaited.RequestsTopic == "" {
 		s.logger.Error("Cannot retry - no requests_topic stored in awaited request",
 			zap.String("request_id", requestID),
@@ -2186,7 +2262,7 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 		}
 	}
 
-	// Create retry request with CORRECT routing and all required fields
+	// Create retry request with correct routing and all required fields
 	retryRequest := &types.RequestMessage{
 		Headers: types.RequestHeaders{
 			// Identity

@@ -21,6 +21,7 @@ type GitCommitResult struct {
 	Success       bool                   `json:"success"`
 	RequestID     string                 `json:"request_id"`
 	TopicSentTo   string                 `json:"topic_sent_to"`
+	RequestsTopic string                 `json:"requests_topic"`
 	AwaitResponse bool                   `json:"await_response"`
 	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
@@ -155,6 +156,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 		Success:       true,
 		RequestID:     newRequestID,
 		TopicSentTo:   adapterTopic,
+		RequestsTopic: adapterTopic,
 		AwaitResponse: true,
 		Metadata: map[string]interface{}{
 			"repo_name":  repoName,
