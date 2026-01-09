@@ -1615,3 +1615,13 @@ func FindResultsArray(collectedData map[string]interface{}, basePath string, log
 
 	return nil
 }
+
+func ToStringSlice(items []interface{}) []string {
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		if s, ok := item.(string); ok {
+			result = append(result, s)
+		}
+	}
+	return result
+}

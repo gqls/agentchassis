@@ -60,7 +60,7 @@ func PrepareUrlsAction(ctx context.Context, params ActionParams) (interface{}, e
 		"linkedin.com",
 	}
 	if ed, ok := config["exclude_domains"].([]interface{}); ok {
-		excludeDomains = toStringSlice(ed)
+		excludeDomains = datahelpers.ToStringSlice(ed)
 	}
 
 	preferDomains := []string{
@@ -69,7 +69,7 @@ func PrepareUrlsAction(ctx context.Context, params ActionParams) (interface{}, e
 		"mckinsey.com", "harvard.edu", "mit.edu",
 	}
 	if pd, ok := config["prefer_domains"].([]interface{}); ok {
-		preferDomains = toStringSlice(pd)
+		preferDomains = datahelpers.ToStringSlice(pd)
 	}
 
 	// Find results array - try multiple paths
@@ -80,7 +80,7 @@ func PrepareUrlsAction(ctx context.Context, params ActionParams) (interface{}, e
 
 	if results == nil || len(results) == 0 {
 		params.Logger.Warn("PrepareUrlsAction: No search results found",
-			zap.Strings("collected_data_keys", getMapKeys(params.CollectedData)))
+			zap.Strings("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)))
 		return map[string]interface{}{
 			"urls_to_scrape":  []interface{}{},
 			"scrape_count":    0,
@@ -112,7 +112,7 @@ func PrepareUrlsAction(ctx context.Context, params ActionParams) (interface{}, e
 			if title == "" {
 				title = "Untitled"
 			}
-			snippetText := truncateString(snippet, 250)
+			snippetText := datahelpers.TruncateString(snippet, 250)
 			if url != "" {
 				snippets = append(snippets, fmt.Sprintf("- **%s** (%s): %s", title, url, snippetText))
 			} else {
@@ -361,31 +361,4 @@ func FormatResearchContentAction(ctx context.Context, params ActionParams) (inte
 		"source_count":    len(sources),
 		"content_quality": contentQuality,
 	}, nil
-}
-
-// Helper functions
-
-func toStringSlice(items []interface{}) []string {
-	result := make([]string, 0, len(items))
-	for _, item := range items {
-		if s, ok := item.(string); ok {
-			result = append(result, s)
-		}
-	}
-	return result
-}
-
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
-}
-
-func getMapKeys(m map[string]interface{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }

@@ -39,11 +39,39 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	config := params.StepConfig.Config
 
 	// Get client_id and response topic
-	clientID := params.ExecutionContext.ClientID
-	myResponsesTopic := params.ExecutionContext.ResponsesTopic
+	// Get execution context values - fall back to CollectedData if params.ExecutionContext is empty
+	// This handles loop iterations where ExecutionContext may not be fully propagated
+	correlationID := getExecutionContextValue(params, "correlation_id", params.ExecutionContext.CorrelationID)
+	orchestrationID := getExecutionContextValue(params, "orchestration_id", params.ExecutionContext.OrchestrationID)
+	orchestrationName := getExecutionContextValue(params, "orchestration_name", params.ExecutionContext.OrchestrationName)
+	parentOrchestrationID := getExecutionContextValue(params, "parent_orchestration_id", params.ExecutionContext.ParentOrchestrationID)
+	clientID := getExecutionContextValue(params, "client_id", params.ExecutionContext.ClientID)
+	myResponsesTopic := getExecutionContextValue(params, "responses_topic", params.ExecutionContext.ResponsesTopic)
+
+	// Also check __my_responses_topic__ as alternative
 	if myResponsesTopic == "" {
-		params.Logger.Warn("ResponsesTopic not set in ExecutionContext")
+		if alt, ok := params.CollectedData["__my_responses_topic__"].(string); ok && alt != "" {
+			myResponsesTopic = alt
+		}
 	}
+
+	// Final fallback to parent responses topic
+	if myResponsesTopic == "" {
+		if parent, ok := params.CollectedData["__parent_responses_topic__"].(string); ok && parent != "" {
+			myResponsesTopic = parent
+			params.Logger.Info("Using __parent_responses_topic__ as responses_topic fallback")
+		}
+	}
+
+	if myResponsesTopic == "" {
+		params.Logger.Warn("ResponsesTopic not set - message may fail validation")
+	}
+
+	params.Logger.Info("Resolved execution context for git commit",
+		zap.String("correlation_id", correlationID),
+		zap.String("orchestration_id", orchestrationID),
+		zap.String("client_id", clientID),
+		zap.String("responses_topic_preview", datahelpers.TruncateString(myResponsesTopic, 60)))
 
 	// Adapter topic
 	adapterTopic := "system.adapter.git.requests"
@@ -89,17 +117,17 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	// Build full adapter request
 	adapterRequest := map[string]interface{}{
 		"headers": map[string]interface{}{
-			"correlation_id":          params.ExecutionContext.CorrelationID,
-			"orchestration_id":        params.ExecutionContext.OrchestrationID,
-			"orchestration_name":      params.ExecutionContext.OrchestrationName,
-			"parent_orchestration_id": params.ExecutionContext.ParentOrchestrationID,
+			"correlation_id":          correlationID,
+			"orchestration_id":        orchestrationID,
+			"orchestration_name":      orchestrationName,
+			"parent_orchestration_id": parentOrchestrationID,
 			"client_id":               clientID,
 			"step_name":               params.ExecutionContext.StepName,
 			"step_id":                 params.ExecutionContext.StepID,
 			"request_id":              newRequestID,
 			"message_type":            "request",
 			"sender_agent_type":       params.ExecutionContext.Sender.AgentType,
-			"sender_agent_id":         params.ExecutionContext.OrchestrationID,
+			"sender_agent_id":         orchestrationID,
 			"sender_pod_name":         params.ExecutionContext.Sender.PodName,
 			"sender_agent_version":    params.ExecutionContext.Sender.AgentVersion,
 			"sender_role":             params.ExecutionContext.Sender.Role,
@@ -167,6 +195,33 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	return result, nil
+}
+
+// getExecutionContextValue extracts a value from ExecutionContext,
+// falling back to CollectedData["__execution_context__"] if empty.
+// This handles loop iterations where params.ExecutionContext may not be fully populated.
+func getExecutionContextValue(params ActionParams, field string, directValue string) string {
+	// If direct value from params.ExecutionContext is present, use it
+	if directValue != "" {
+		return directValue
+	}
+
+	// Fall back to __execution_context__ in CollectedData
+	execCtx, ok := params.CollectedData["__execution_context__"].(map[string]interface{})
+	if !ok {
+		params.Logger.Debug("__execution_context__ not found in CollectedData",
+			zap.String("field", field))
+		return ""
+	}
+
+	if val, ok := execCtx[field].(string); ok {
+		params.Logger.Debug("Using execution context from CollectedData",
+			zap.String("field", field),
+			zap.String("value_preview", datahelpers.TruncateString(val, 50)))
+		return val
+	}
+
+	return ""
 }
 
 // extractDomainForGit extracts domain from CollectedData using unified extractor
@@ -257,7 +312,7 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 
 		if content, ok := extracted[contentKey]; ok {
 			if contentStr, ok := content.(string); ok && contentStr != "" {
-				// NEW: Determine filename from page_field
+				// Determine filename from page_field
 				filename := determinePageFilename(data, config, logger)
 				filesMap[filename] = contentStr
 				logger.Info("Using content_field for single file",
