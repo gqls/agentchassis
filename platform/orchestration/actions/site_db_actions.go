@@ -551,6 +551,18 @@ func extractPagesFromPlan(data map[string]interface{}, logger *zap.Logger) []map
 func extractPagesFromPagePlanMap(pagePlan map[string]interface{}, logger *zap.Logger) []map[string]interface{} {
 	var pages []map[string]interface{}
 
+	// Check if actual data is nested under "response" (call_agent response format)
+	// This happens when call_agent preserves metadata and puts response data under "response" key
+	if response, ok := pagePlan["response"].(map[string]interface{}); ok {
+		logger.Info("Found response wrapper in plan data, extracting from response",
+			zap.Strings("response_keys", datahelpers.GetMapKeys(response)))
+		// Recursively extract from the response
+		pages = extractPagesFromPagePlanMap(response, logger)
+		if len(pages) > 0 {
+			return pages
+		}
+	}
+
 	// Try page_plan.plan_data.pages (v2 workflow format)
 	if planData, ok := pagePlan["plan_data"].(map[string]interface{}); ok {
 		if pagesArr, ok := planData["pages"].([]interface{}); ok {

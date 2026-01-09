@@ -2000,6 +2000,29 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 				}
 			}
 		}
+	} else if stepExists && step.Action == "call_agent" {
+		// For call_agent, preserve call metadata and add response (like spawn_agent)
+		if existingData, exists := freshState.CollectedData[stepName].(map[string]interface{}); exists {
+			existingData["response"] = normalisedData
+			existingData["response_received_at"] = time.Now().Format(time.RFC3339)
+			existingData["response_status"] = "complete"
+			s.logger.Info("Merged response into existing call_agent data",
+				zap.String("step_name", stepName))
+		} else {
+			freshState.CollectedData[stepName] = normalisedData
+		}
+
+		if step.OutputField != "" {
+			if existingOutput, exists := freshState.CollectedData[step.OutputField].(map[string]interface{}); exists {
+				existingOutput["response"] = normalisedData
+				existingOutput["response_received_at"] = time.Now().Format(time.RFC3339)
+				existingOutput["response_status"] = "complete"
+				s.logger.Info("Merged response into output_field for call_agent",
+					zap.String("output_field", step.OutputField))
+			} else {
+				freshState.CollectedData[step.OutputField] = normalisedData
+			}
+		}
 	} else {
 		freshState.CollectedData[stepName] = normalisedData
 		if stepExists && step.OutputField != "" {
@@ -2050,6 +2073,29 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 						outputData["response_received_at"] = time.Now().Format(time.RFC3339)
 						outputData["initialized"] = true
 					}
+				}
+			}
+		} else if stepExists && step.Action == "call_agent" {
+			// For call_agent, preserve call metadata and add response (like spawn_agent)
+			if existingData, exists := freshState.CollectedData[stepName].(map[string]interface{}); exists {
+				existingData["response"] = normalisedData
+				existingData["response_received_at"] = time.Now().Format(time.RFC3339)
+				existingData["response_status"] = "complete"
+				s.logger.Info("Merged response into existing call_agent data",
+					zap.String("step_name", stepName))
+			} else {
+				freshState.CollectedData[stepName] = normalisedData
+			}
+
+			if step.OutputField != "" {
+				if existingOutput, exists := freshState.CollectedData[step.OutputField].(map[string]interface{}); exists {
+					existingOutput["response"] = normalisedData
+					existingOutput["response_received_at"] = time.Now().Format(time.RFC3339)
+					existingOutput["response_status"] = "complete"
+					s.logger.Info("Merged response into output_field for call_agent",
+						zap.String("output_field", step.OutputField))
+				} else {
+					freshState.CollectedData[step.OutputField] = normalisedData
 				}
 			}
 		} else {

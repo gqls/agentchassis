@@ -69,3 +69,12 @@ SELECT
     default_config->'workflow'->'steps'->'fetch_questionnaire'->'config'->'agent_type_field' as fetch_q_agent_type
 FROM agent_definitions
 WHERE type = 'intake-orchestrator';
+
+-- path change
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,fetch_questionnaire,config,agent_type_field}',
+        '"confirmed_type.recommended_builder"'::jsonb
+                     )
+WHERE type = 'intake-orchestrator';

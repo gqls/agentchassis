@@ -12,7 +12,7 @@ labels:
 
 images:
   - name: docker.io/aqls/git-adapter
-    newTag: v1.0.641
+    newTag: v1.0.642
 
 patches:
   - path: patch-deployment.yaml
