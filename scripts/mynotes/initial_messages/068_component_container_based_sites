@@ -283,9 +283,9 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
 --
-CORRELATION_ID=705861ec-5c1b-46a9-bbc7-bbd58b2ec5fe
-ORCHESTRATION_ID=28604699-48b6-4927-9f46-2dc075bc5581
-HITL_REQUEST_ID=e05f1d90-105b-4366-896e-f4aa8100060e
+CORRELATION_ID=3b8d52b4-2eef-41a8-9d5d-f6a3febf1fa7
+ORCHESTRATION_ID=4cead07c-c420-4678-b466-9e48e06f7a55
+HITL_REQUEST_ID=9133be97-184d-46a8-916e-1874eb4132a4
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CLIENT_ID="demo_client"
@@ -373,9 +373,9 @@ CLIENT_ID="demo_client"
 
 --- 2 ---
 
-CORRELATION_ID=705861ec-5c1b-46a9-bbc7-bbd58b2ec5fe
-ORCHESTRATION_ID=28604699-48b6-4927-9f46-2dc075bc5581
-HITL_REQUEST_ID=af9689b3-361c-4137-8670-2f68d8433f69
+CORRELATION_ID=3b8d52b4-2eef-41a8-9d5d-f6a3febf1fa7
+ORCHESTRATION_ID=4cead07c-c420-4678-b466-9e48e06f7a55
+HITL_REQUEST_ID=1c69d2dc-2eb0-44ec-adc6-77a516d182d4
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -542,7 +542,7 @@ response to review hitl
 # WHERE step_name = 'escalate_to_human' AND status = 'waiting'
 # ORDER BY sent_at DESC LIMIT 1;
 #
-# ------------------------------------
+# --------------- 3 ---------------------
 
 # ===== FILL IN THESE VALUES =====
 CORRELATION_ID=
@@ -551,10 +551,10 @@ HITL_REQUEST_ID=
 RESPONSES_TOPIC=
 # ================================  3
 
-CORRELATION_ID=705861ec-5c1b-46a9-bbc7-bbd58b2ec5fe
-ORCHESTRATION_ID=
-HITL_REQUEST_ID=
-RESPONSES_TOPIC=
+CORRELATION_ID=3b8d52b4-2eef-41a8-9d5d-f6a3febf1fa7
+ORCHESTRATION_ID=fde20038-7ebe-4c5b-aeae-3c55826687e9
+HITL_REQUEST_ID=d6e0b9d5-09df-4ab4-9bfd-e0d59a571efd
+RESPONSES_TOPIC=job.3b8d52b4-978cc1f8-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)

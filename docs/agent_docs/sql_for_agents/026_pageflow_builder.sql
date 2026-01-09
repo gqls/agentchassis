@@ -396,3 +396,24 @@ WHERE type = 'pageflow-builder';
 --
 -- This would create about.html, contact.html, etc. instead of always index.html
 -- ==============================================================================
+
+
+-- change path for page_content.html
+
+-- Update the assemble_page content_field path in pageflow-builder workflow
+-- Changes: page_content.page_content.page_html -> page_content.page_html
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page,config,content_field}',
+        '"page_content.page_html"'::jsonb
+             )
+WHERE type = 'pageflow-builder';
+
+-- Verify the change
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'assemble_page'->'config'->'content_field' as content_field
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
