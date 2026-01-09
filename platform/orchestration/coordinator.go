@@ -889,6 +889,10 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	)
 
 	// 1. Prepare execution context for this step
+	// 1a. Ensure execution context is fully populated from state
+	ensureFullExecutionContext(execCtx, state, s.podName, s.logger)
+
+	// 1b. Then continue with prepareExecutionContext which handles step-specific fields
 	prepareExecutionContext(execCtx, state, step, s.podName)
 
 	// 2. Create contextual logger
@@ -1033,6 +1037,93 @@ func prepareExecutionContext(execCtx *types.ExecutionContext, state *Orchestrati
 	execCtx.InResponseTo = nil
 	execCtx.Status = ""
 	execCtx.IsComplete = false
+}
+
+// ensureFullExecutionContext populates missing fields in ExecutionContext from state
+// This should be called before executing any action to ensure all required fields are present
+func ensureFullExecutionContext(execCtx *types.ExecutionContext, state *OrchestrationState, podName string, logger *zap.Logger) {
+	updated := false
+
+	// CorrelationID
+	if execCtx.CorrelationID == "" && state.CorrelationID != "" {
+		execCtx.CorrelationID = state.CorrelationID
+		updated = true
+	}
+
+	// OrchestrationID
+	if execCtx.OrchestrationID == "" && state.OrchestrationID != "" {
+		execCtx.OrchestrationID = state.OrchestrationID
+		updated = true
+	}
+
+	// OrchestrationName
+	if execCtx.OrchestrationName == "" && state.OrchestrationName != "" {
+		execCtx.OrchestrationName = state.OrchestrationName
+		updated = true
+	}
+
+	// ParentOrchestrationID
+	if execCtx.ParentOrchestrationID == "" && state.ParentOrchestrationID != "" {
+		execCtx.ParentOrchestrationID = state.ParentOrchestrationID
+		updated = true
+	}
+
+	// ClientID
+	if execCtx.ClientID == "" && state.ClientID != "" {
+		execCtx.ClientID = state.ClientID
+		updated = true
+	}
+
+	// ResponsesTopic - try multiple sources
+	if execCtx.ResponsesTopic == "" {
+		if myResponses, ok := state.CollectedData["__my_responses_topic__"].(string); ok && myResponses != "" {
+			execCtx.ResponsesTopic = myResponses
+			updated = true
+		} else if parentResponses, ok := state.CollectedData["__parent_responses_topic__"].(string); ok && parentResponses != "" {
+			execCtx.ResponsesTopic = parentResponses
+			updated = true
+		} else if os.Getenv("RESPONSES_TOPIC") != "" {
+			execCtx.ResponsesTopic = os.Getenv("RESPONSES_TOPIC")
+			updated = true
+		} else if os.Getenv("PARENT_RESPONSES_TOPIC") != "" {
+			execCtx.ResponsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+			updated = true
+		}
+	}
+
+	// Sender
+	if execCtx.Sender.AgentType == "" {
+		execCtx.Sender = types.AgentIdentity{
+			AgentType:    state.OwnerAgentType,
+			AgentID:      state.OwnerAgentID,
+			PodName:      podName,
+			AgentVersion: os.Getenv("AGENT_VERSION"),
+			Role:         state.OwnerAgentRole,
+		}
+		updated = true
+	}
+
+	// Basics
+	if execCtx.MessageType == "" {
+		execCtx.MessageType = "request"
+	}
+	if execCtx.Version == "" {
+		execCtx.Version = "2.0"
+	}
+	if execCtx.Timestamp.IsZero() {
+		execCtx.Timestamp = time.Now()
+	}
+	if execCtx.FuelBudget == 0 && state.FuelBudget > 0 {
+		execCtx.FuelBudget = state.FuelBudget
+	}
+
+	if updated {
+		logger.Info("ensureFullExecutionContext: populated missing fields",
+			zap.String("correlation_id", execCtx.CorrelationID),
+			zap.String("orchestration_id", execCtx.OrchestrationID),
+			zap.String("client_id", execCtx.ClientID),
+			zap.String("responses_topic", execCtx.ResponsesTopic))
+	}
 }
 
 // Create a contextual logger for the action
@@ -2390,11 +2481,57 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 
 		// Retry or fail
 		if awaited.RetryVersion < 3 {
-			// Create minimal ExecutionContext for retry
-			execCtx := &types.ExecutionContext{
-				RequestID: requestID,
-				Status:    "error_recoverable",
+			// Create full ExecutionContext for retry - pull values from state and CollectedData
+			// Try to get responses topic from various sources
+			responsesTopic := ""
+			if myResponses, ok := state.CollectedData["__my_responses_topic__"].(string); ok && myResponses != "" {
+				responsesTopic = myResponses
+			} else if parentResponses, ok := state.CollectedData["__parent_responses_topic__"].(string); ok && parentResponses != "" {
+				responsesTopic = parentResponses
+			} else if os.Getenv("RESPONSES_TOPIC") != "" {
+				responsesTopic = os.Getenv("RESPONSES_TOPIC")
+			} else if os.Getenv("PARENT_RESPONSES_TOPIC") != "" {
+				responsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
 			}
+
+			execCtx := &types.ExecutionContext{
+				// Identity
+				CorrelationID:         state.CorrelationID,
+				OrchestrationID:       orchestrationID,
+				OrchestrationName:     state.OrchestrationName,
+				ParentOrchestrationID: state.ParentOrchestrationID,
+				ClientID:              state.ClientID,
+
+				// Request info
+				RequestID:   requestID,
+				MessageType: "request",
+				Status:      "error_recoverable",
+
+				// Topics
+				ResponsesTopic: responsesTopic,
+				ReplyToTopic:   responsesTopic,
+
+				// Sender
+				Sender: types.AgentIdentity{
+					AgentType:    state.OwnerAgentType,
+					AgentID:      state.OwnerAgentID,
+					PodName:      s.podName,
+					AgentVersion: os.Getenv("AGENT_VERSION"),
+					Role:         state.OwnerAgentRole,
+				},
+
+				// Resources
+				FuelBudget:     state.FuelBudget,
+				TimeoutSeconds: 30,
+				Timestamp:      time.Now(),
+				Version:        "2.0",
+			}
+
+			s.logger.Info("Created ExecutionContext for timeout retry",
+				zap.String("correlation_id", execCtx.CorrelationID),
+				zap.String("orchestration_id", execCtx.OrchestrationID),
+				zap.String("client_id", execCtx.ClientID),
+				zap.String("responses_topic", execCtx.ResponsesTopic))
 
 			// Create a timeout response message instead of raw bytes
 			timeoutResponse := types.ResponseMessage{
