@@ -1798,527 +1798,219 @@ func (s *SagaCoordinator) handleProgressUpdate(ctx context.Context, state *Orche
 
 // handleCompleteResponse processes a successful response
 func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage, awaitedReq *AwaitedRequest) error {
-	s.logger.Info("in handleCompleteResponse orchestrator ",
-		zap.String("orchestration_id is", execCtx.OrchestrationID),
-		zap.String("step_name", execCtx.StepName),
-		zap.String("step_id", execCtx.StepID),
-		zap.String("functional role", execCtx.FunctionalRole),
-		zap.String("requestId from arguments", requestID),
-		zap.Any("state.CollectedData in handleCompleteResponse is:", state.CollectedData),
-		zap.Any("execCts.InResponseTo in handleCompleteResponse is:", execCtx.InResponseTo),
-		zap.Any("DEBUGaa: the actual response - response", response),
-	)
-	contextLogger := s.logger
-
-	current, caller := getFuncInfo(1)
-
-	contextLogger.Info("In file coordinator.go handleCompleteResponse",
-		zap.String("function", current),
-		zap.String("called_by", caller),
-		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
-	)
-
 	s.logger.Info("Processing complete response",
 		zap.String("step_name", awaitedReq.StepName),
-		zap.String("step_id", awaitedReq.StepID),
 		zap.String("request_id", requestID))
 
-	// Parse response body - handle flexible structure
-	var responseBodyData map[string]interface{}
-
-	// Response.Body might be already a map or might be raw JSON
-	switch bodyData := response.Body.Body.(type) {
-	case map[string]interface{}:
-		responseBodyData = bodyData
-		s.logger.Info("Response body is already a map")
-
-	case []byte:
-		if err := json.Unmarshal(bodyData, &responseBodyData); err != nil {
-			s.logger.Error("Failed to unmarshal response body bytes", zap.Error(err))
-			return fmt.Errorf("failed to unmarshal response body: %w", err)
-		}
-		s.logger.Info("Unmarshaled response body from bytes")
-
-	case string:
-		if err := json.Unmarshal([]byte(bodyData), &responseBodyData); err != nil {
-			s.logger.Error("Failed to unmarshal response body string", zap.Error(err))
-			return fmt.Errorf("failed to unmarshal response body: %w", err)
-		}
-		s.logger.Info("Unmarshaled response body from string")
-
-	default:
-		// Try to marshal and unmarshal to get it into map form
-		jsonBytes, err := json.Marshal(bodyData)
-		if err != nil {
-			s.logger.Error("Failed to marshal response body", zap.Error(err))
-			return fmt.Errorf("failed to marshal response body: %w", err)
-		}
-		if err := json.Unmarshal(jsonBytes, &responseBodyData); err != nil {
-			s.logger.Error("Failed to unmarshal marshaled response body", zap.Error(err))
-			return fmt.Errorf("failed to unmarshal response body: %w", err)
-		}
-		s.logger.Info("Converted response body to map via marshal/unmarshal")
+	// 1. Parse response body
+	normalisedData, err := s.parseResponseBody(response)
+	if err != nil {
+		return err
 	}
 
-	normalisedData := datahelpers.CleanDataMap(responseBodyData)
-
-	// Store under the step name in CollectedData
-	// Store under the step name in CollectedData
 	stepName := awaitedReq.StepName
-
-	// Get the step definition
 	step, stepExists := state.WorkflowPlan.Steps[stepName]
 
-	// Check if this is a spawn_agent action - if so, preserve spawn result
-	if stepExists && step.Action == "spawn_agent" {
-		// Preserve existing spawn data (agent_id, role, topics) and add response
-		if existingData, exists := state.CollectedData[stepName].(map[string]interface{}); exists {
-			// Keep spawn info, add response data as nested field
-			existingData["response"] = normalisedData
-			existingData["response_received_at"] = time.Now().Format(time.RFC3339)
-			existingData["initialized"] = true
-			if roleStr, ok := existingData["role"].(string); ok {
-				s.logger.Info("Preserved spawn result, added response",
-					zap.String("step_name", stepName),
-					zap.String("role", roleStr))
-			} else {
-				s.logger.Info("Preserved spawn result, added response (no role)",
-					zap.String("step_name", stepName))
-			}
-
-			// Also update output_field if specified - preserve spawn data there too
-			if step.OutputField != "" {
-				if outputData, exists := state.CollectedData[step.OutputField].(map[string]interface{}); exists {
-					outputData["response"] = normalisedData
-					outputData["response_received_at"] = time.Now().Format(time.RFC3339)
-					outputData["initialized"] = true
-					s.logger.Info("Preserved spawn result in output_field",
-						zap.String("output_field", step.OutputField))
-				} else {
-					// Output field doesn't exist yet - create it with spawn data
-					spawnDataCopy := make(map[string]interface{})
-					for k, v := range existingData {
-						spawnDataCopy[k] = v
-					}
-					state.CollectedData[step.OutputField] = spawnDataCopy
-					s.logger.Info("Created output_field with spawn data",
-						zap.String("output_field", step.OutputField))
-				}
-			}
-		} else {
-			// No existing spawn data - this happens due to race condition when child responds
-			// before parent's state is saved. Extract spawn data from the response body.
-			s.logger.Warn("No existing spawn data to preserve - extracting from response body",
-				zap.String("step_name", stepName),
-				zap.Strings("response_keys", getMapKeys(normalisedData)))
-
-			// The response body structure is: { "success": true, "body": { agent_id, role, topics, ... } }
-			// Extract the nested body which contains the spawn information
-			spawnData := make(map[string]interface{})
-
-			// Try to extract from nested "body" field (standard spawn response format)
-			if nestedBody, ok := normalisedData["body"].(map[string]interface{}); ok {
-				// Copy all spawn fields from nested body
-				for k, v := range nestedBody {
-					spawnData[k] = v
-				}
-				s.logger.Info("Extracted spawn data from response body.body",
-					zap.Strings("extracted_keys", getMapKeys(spawnData)))
-			} else {
-				// Fallback: check if spawn fields are at top level
-				for _, key := range []string{"agent_id", "agent_type", "role", "topics", "initialized"} {
-					if val, exists := normalisedData[key]; exists {
-						spawnData[key] = val
-					}
-				}
-				s.logger.Info("Extracted spawn data from response top level",
-					zap.Strings("extracted_keys", getMapKeys(spawnData)))
-			}
-
-			// Add response metadata
-			spawnData["response"] = normalisedData
-			spawnData["response_received_at"] = time.Now().Format(time.RFC3339)
-			spawnData["initialized"] = true
-
-			// If we still don't have role, try to get from step config
-			if _, hasRole := spawnData["role"]; !hasRole {
-				if configRole, ok := step.Config["role"].(string); ok {
-					spawnData["role"] = configRole
-					s.logger.Info("Got role from step config",
-						zap.String("role", configRole))
-				}
-			}
-
-			state.CollectedData[stepName] = spawnData
-
-			// Also store in output_field if specified
-			if step.OutputField != "" {
-				state.CollectedData[step.OutputField] = spawnData
-				s.logger.Info("Stored extracted spawn data in output_field",
-					zap.String("output_field", step.OutputField),
-					zap.String("role", fmt.Sprintf("%v", spawnData["role"])))
-			}
-		}
-	}
-
-	s.logger.Info("handleCompleteResponse: stored normalized response", // so far so good, at least in hero it is good
-		zap.String("step_name", stepName),
-		zap.String("step_name", stepName),
-		zap.Int("original_fields", len(responseBodyData)),
-		zap.Int("normalized_fields", len(normalisedData)),
-		zap.Strings("normalised data_keys", getMapKeys(normalisedData)),
-		zap.Any("DEBUGaa: normalised data", normalisedData),
-		zap.Any("state.CollectedData[stepName] should have the result data", state.CollectedData[stepName]),
-	)
-
-	// Remove from awaited requests
-	delete(state.AwaitedRequests, requestID)
-
-	contextLogger.Info("Removed awaited request from memory (response processed)",
-		zap.String("request_id", requestID))
-
-	// ALSO find the step in CollectedData and update its metadata
-	// This preserves any existing step data while adding response info
-	for existingStepName, stepData := range state.CollectedData {
-		if existingStepName == "" {
-			s.logger.Warn("Skipping empty step name in CollectedData")
-			continue
-		}
-
-		if stepMap, ok := stepData.(map[string]interface{}); ok {
-			// Check if this step data contains our request_id
-			if storedReqID, exists := stepMap["request_id"]; exists && storedReqID == requestID {
-				// Update the existing step data with response info
-				stepMap["response"] = normalisedData
-				stepMap["response_received_at"] = time.Now().Format(time.RFC3339)
-				stepMap["response_status"] = "complete"
-
-				s.logger.Info("Updated step metadata with response",
-					zap.String("step_name", existingStepName),
-					zap.String("request_id", requestID))
-				break
-			}
-		}
-	}
-
-	s.logger.Info("handleCompleteResponse: removed from awaited requests",
-		zap.String("request_id", requestID),
-		zap.Int("remaining_awaited", len(state.AwaitedRequests)))
-
-	// Update state in database
+	// 2. Mark awaited request complete in DB (do this early, before any state saves)
 	repo := NewStateRepository(s.db, s.logger)
-
-	// Reload state to get latest version before saving
-	// This minimises race window with continueExecution
-	freshState, err := repo.GetState(ctx, state.OrchestrationID)
-	if err != nil {
-		return fmt.Errorf("failed to reload state before saving response: %w", err)
+	if err := repo.MarkAwaitedRequestComplete(ctx, requestID); err != nil {
+		s.logger.Warn("Failed to mark awaited request complete", zap.Error(err))
 	}
 
-	s.logger.Info("Reloaded state before saving response",
-		zap.Int("old_version", state.Version),
-		zap.Int("new_version", freshState.Version))
-
-	// Re-apply our changes to the fresh state (with spawn-preserving logic)
-	if stepExists && step.Action == "spawn_agent" {
-		// Preserve spawn data in fresh state too
-		if existingData, exists := freshState.CollectedData[stepName].(map[string]interface{}); exists {
-			existingData["response"] = normalisedData
-			existingData["response_received_at"] = time.Now().Format(time.RFC3339)
-			existingData["initialized"] = true
-			if step.OutputField != "" {
-				if outputData, exists := freshState.CollectedData[step.OutputField].(map[string]interface{}); exists {
-					outputData["response"] = normalisedData
-					outputData["response_received_at"] = time.Now().Format(time.RFC3339)
-					outputData["initialized"] = true
-				}
-			}
-		}
-	} else if stepExists && step.Action == "call_agent" {
-		// For call_agent, preserve call metadata and add response (like spawn_agent)
-		if existingData, exists := freshState.CollectedData[stepName].(map[string]interface{}); exists {
-			existingData["response"] = normalisedData
-			existingData["response_received_at"] = time.Now().Format(time.RFC3339)
-			existingData["response_status"] = "complete"
-			s.logger.Info("Merged response into existing call_agent data",
-				zap.String("step_name", stepName))
-		} else {
-			freshState.CollectedData[stepName] = normalisedData
-		}
-
-		if step.OutputField != "" {
-			if existingOutput, exists := freshState.CollectedData[step.OutputField].(map[string]interface{}); exists {
-				existingOutput["response"] = normalisedData
-				existingOutput["response_received_at"] = time.Now().Format(time.RFC3339)
-				existingOutput["response_status"] = "complete"
-				s.logger.Info("Merged response into output_field for call_agent",
-					zap.String("output_field", step.OutputField))
-			} else {
-				freshState.CollectedData[step.OutputField] = normalisedData
-			}
-		}
-	} else {
-		freshState.CollectedData[stepName] = normalisedData
-		if stepExists && step.OutputField != "" {
-			var dataToStore interface{} = normalisedData
-			if shouldExtractFormFields(step) {
-				formFieldValues := extractHITLFormFields(normalisedData, step.Config, s.logger)
-				if len(formFieldValues) > 0 {
-					dataToStore = formFieldValues
-				}
-			}
-			freshState.CollectedData[step.OutputField] = dataToStore
-		}
-	}
-	delete(freshState.AwaitedRequests, requestID)
-
-	// Manual retry loop - re-apply changes after each reload on conflict
+	// 3. Save response data with retry loop
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		err := repo.UpdateState(ctx, freshState)
+		freshState, err := repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to load state: %w", err)
+		}
+
+		// Apply response to collected data
+		s.applyResponseToState(freshState, stepName, step, stepExists, normalisedData)
+
+		// Remove from awaited requests
+		delete(freshState.AwaitedRequests, requestID)
+
+		// Check if this was the last awaited response
+		allDone := len(freshState.AwaitedRequests) == 0
+		if allDone {
+			// Advance to next step
+			if currentStep, exists := freshState.WorkflowPlan.Steps[freshState.CurrentStep]; exists && currentStep.NextStep != "" {
+				freshState.CurrentStep = currentStep.NextStep
+			}
+			freshState.Status = StatusExecutingStep
+			freshState.LastActivity = time.Now()
+		}
+
+		// Save state
+		err = repo.UpdateState(ctx, freshState)
 		if err == nil {
-			break // Success!
+			// Success - continue workflow if all done
+			if allDone {
+				s.logger.Info("All responses received, continuing workflow")
+				freshExecCtx := s.createContinuationContext(freshState)
+				return s.continueExecution(ctx, freshState, freshExecCtx)
+			}
+			s.logger.Info("Response saved, still awaiting more responses",
+				zap.Int("remaining", len(freshState.AwaitedRequests)))
+			return nil
 		}
 
 		if !IsOptimisticLockError(err) || attempt >= maxRetries {
 			return fmt.Errorf("failed to save response data: %w", err)
 		}
 
-		s.logger.Warn("Optimistic lock failure, retrying with re-applied changes",
-			zap.Int("attempt", attempt),
-			zap.String("request_id", requestID))
+		s.logger.Warn("Optimistic lock failure, retrying",
+			zap.Int("attempt", attempt))
+	}
 
-		// Reload latest state
-		freshState, err = repo.GetState(ctx, state.OrchestrationID)
-		if err != nil {
-			return fmt.Errorf("failed to reload state for retry: %w", err)
-		}
+	return nil
+}
 
-		// Re-apply our changes to the fresh state (with spawn-preserving logic)
-		if stepExists && step.Action == "spawn_agent" {
-			// Preserve spawn data in fresh state too
-			if existingData, exists := freshState.CollectedData[stepName].(map[string]interface{}); exists {
-				existingData["response"] = normalisedData
-				existingData["response_received_at"] = time.Now().Format(time.RFC3339)
+// applyResponseToState merges response data into state's CollectedData
+func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepName string, step models.Step, stepExists bool, normalisedData map[string]interface{}) {
+	if !stepExists {
+		state.CollectedData[stepName] = normalisedData
+		return
+	}
+
+	// For spawn_agent and call_agent, preserve existing metadata and nest response
+	if step.Action == "spawn_agent" || step.Action == "call_agent" {
+		if existingData, exists := state.CollectedData[stepName].(map[string]interface{}); exists {
+			existingData["response"] = normalisedData
+			existingData["response_received_at"] = time.Now().Format(time.RFC3339)
+			existingData["response_status"] = "complete"
+			if step.Action == "spawn_agent" {
 				existingData["initialized"] = true
-				if step.OutputField != "" {
-					if outputData, exists := freshState.CollectedData[step.OutputField].(map[string]interface{}); exists {
-						outputData["response"] = normalisedData
-						outputData["response_received_at"] = time.Now().Format(time.RFC3339)
+			}
+
+			// Also update output_field if specified
+			if step.OutputField != "" {
+				if outputData, exists := state.CollectedData[step.OutputField].(map[string]interface{}); exists {
+					outputData["response"] = normalisedData
+					outputData["response_received_at"] = time.Now().Format(time.RFC3339)
+					outputData["response_status"] = "complete"
+					if step.Action == "spawn_agent" {
 						outputData["initialized"] = true
 					}
 				}
 			}
-		} else if stepExists && step.Action == "call_agent" {
-			// For call_agent, preserve call metadata and add response (like spawn_agent)
-			if existingData, exists := freshState.CollectedData[stepName].(map[string]interface{}); exists {
-				existingData["response"] = normalisedData
-				existingData["response_received_at"] = time.Now().Format(time.RFC3339)
-				existingData["response_status"] = "complete"
-				s.logger.Info("Merged response into existing call_agent data",
-					zap.String("step_name", stepName))
-			} else {
-				freshState.CollectedData[stepName] = normalisedData
-			}
-
+			return
+		}
+		// No existing data - extract spawn info from response if spawn_agent
+		if step.Action == "spawn_agent" {
+			spawnData := s.extractSpawnData(normalisedData, step)
+			state.CollectedData[stepName] = spawnData
 			if step.OutputField != "" {
-				if existingOutput, exists := freshState.CollectedData[step.OutputField].(map[string]interface{}); exists {
-					existingOutput["response"] = normalisedData
-					existingOutput["response_received_at"] = time.Now().Format(time.RFC3339)
-					existingOutput["response_status"] = "complete"
-					s.logger.Info("Merged response into output_field for call_agent",
-						zap.String("output_field", step.OutputField))
-				} else {
-					freshState.CollectedData[step.OutputField] = normalisedData
-				}
+				state.CollectedData[step.OutputField] = spawnData
 			}
-		} else {
-			freshState.CollectedData[stepName] = normalisedData
-			if stepExists && step.OutputField != "" {
-				var dataToStore interface{} = normalisedData
-				if shouldExtractFormFields(step) {
-					formFieldValues := extractHITLFormFields(normalisedData, step.Config, s.logger)
-					if len(formFieldValues) > 0 {
-						dataToStore = formFieldValues
-					}
-				}
-				freshState.CollectedData[step.OutputField] = dataToStore
-			}
+			return
 		}
-		delete(freshState.AwaitedRequests, requestID)
-		// Loop continues to retry save
 	}
 
-	datahelpers.LogCollectedDataStructure(state.CollectedData, s.logger, "before_"+state.CurrentStep)
-
-	// Update our local reference
-	state = freshState
-
-	// Check if all responses received
-	if len(state.AwaitedRequests) == 0 {
-		// If no more awaited requests, continue workflow
-		s.logger.Info("All responses received, continuing workflow")
-
-		// ADVANCE TO NEXT STEP
-		currentStep := state.WorkflowPlan.Steps[state.CurrentStep]
-		if currentStep.NextStep != "" {
-			state.CurrentStep = currentStep.NextStep
-			// repo.UpdateState(ctx, state) // Save the step advancement
-		}
-
-		s.logger.Info("All responses received - steps",
-			zap.Any("current step_object", currentStep),
-			zap.String("next, (now current) step_name", state.CurrentStep),
-		)
-
-		var stateExecCtx types.ExecutionContext
-		if execCtxData, ok := state.CollectedData["__execution_context__"].(map[string]interface{}); ok {
-			// Marshal the map to JSON, then unmarshal to ExecutionContext
-			execCtxBytes, err := json.Marshal(execCtxData)
-			if err != nil {
-				s.logger.Error("Failed to marshal execution context map", zap.Error(err))
-			} else {
-				if err := json.Unmarshal(execCtxBytes, &stateExecCtx); err != nil {
-					s.logger.Error("Failed to unmarshal execution context", zap.Error(err))
-				} else {
-					s.logger.Info("Successfully extracted execution context from CollectedData",
-						zap.String("request_id", stateExecCtx.RequestID),
-						zap.String("reply_to_request_id", stateExecCtx.ReplyToRequestID))
-				}
+	// Default: store response directly
+	state.CollectedData[stepName] = normalisedData
+	if step.OutputField != "" {
+		dataToStore := normalisedData
+		if shouldExtractFormFields(step) {
+			if formFields := extractHITLFormFields(normalisedData, step.Config, s.logger); len(formFields) > 0 {
+				dataToStore = formFields
 			}
-		} else {
-			s.logger.Warn("__execution_context__ not found or wrong type in CollectedData",
-				zap.String("type", fmt.Sprintf("%T", state.CollectedData["__execution_context__"])))
 		}
-		s.logger.Info("Execution Context from Collected Data",
-			zap.Any("DEBUGaa: Execution context from collected data", stateExecCtx))
+		state.CollectedData[step.OutputField] = dataToStore
+	}
+}
 
-		// Determine responses topic - prefer state, fall back to extracted execCtx
-		responsesTopic := state.ResponsesTopic
-		if responsesTopic == "" {
-			responsesTopic = stateExecCtx.ResponsesTopic
+// parseResponseBody extracts and normalizes response body data
+func (s *SagaCoordinator) parseResponseBody(response types.ResponseMessage) (map[string]interface{}, error) {
+	var responseBodyData map[string]interface{}
+
+	switch bodyData := response.Body.Body.(type) {
+	case map[string]interface{}:
+		responseBodyData = bodyData
+	case []byte:
+		if err := json.Unmarshal(bodyData, &responseBodyData); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response body bytes: %w", err)
 		}
-		if responsesTopic == "" {
-			// Last resort: use environment variable
-			responsesTopic = os.Getenv("MY_RESPONSES_TOPIC")
+	case string:
+		if err := json.Unmarshal([]byte(bodyData), &responseBodyData); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response body string: %w", err)
 		}
-
-		requestsTopic := state.RequestsTopic
-		if requestsTopic == "" {
-			requestsTopic = stateExecCtx.RequestsTopic
-		}
-		if requestsTopic == "" {
-			requestsTopic = os.Getenv("MY_REQUESTS_TOPIC")
-		}
-
-		// Create fresh execution context for continuing
-		freshExecCtx := &types.ExecutionContext{
-			CorrelationID:   state.CorrelationID,
-			OrchestrationID: state.OrchestrationID,
-			ClientID:        state.ClientID,
-
-			// Reset to request mode
-			MessageType:      "request",
-			MessageID:        uuid.New().String(),
-			ReplyToRequestID: stateExecCtx.RequestID,
-
-			// Set sender to the current orchestrator
-			Sender: types.AgentIdentity{
-				AgentType:    state.OwnerAgentType,
-				AgentID:      state.OwnerAgentID,
-				PodName:      s.podName,
-				AgentVersion: os.Getenv("AGENT_VERSION"),
-			},
-
-			// Clear any response fields
-			InResponseTo: nil,
-			Status:       "",
-			IsComplete:   false,
-
-			// Resources
-			FuelBudget:     state.FuelBudget,
-			TimeoutSeconds: 30,
-			Timestamp:      time.Now(),
-			Version:        "2.0",
-
-			// These are needed for actions that send messages to adapters
-			ResponsesTopic: responsesTopic,
-			RequestsTopic:  requestsTopic,
-		}
-
-		s.logger.Debug("Created freshExecCtx with topics",
-			zap.String("responses_topic", responsesTopic),
-			zap.String("requests_topic", requestsTopic))
-
-		state.LastActivity = time.Now()
-		state.Status = StatusExecutingStep
-		state.AwaitedRequests = make(map[string]*AwaitedRequest)
-
-		// Reload state again before second save
-		freshState, err = repo.GetState(ctx, state.OrchestrationID)
+	default:
+		jsonBytes, err := json.Marshal(bodyData)
 		if err != nil {
-			return fmt.Errorf("failed to reload state before clearing awaited requests: %w", err)
+			return nil, fmt.Errorf("failed to marshal response body: %w", err)
 		}
-
-		s.logger.Info("Reloaded state before clearing awaited requests",
-			zap.Int("old_version", state.Version),
-			zap.Int("new_version", freshState.Version))
-
-		// Re-apply changes to fresh state
-		freshState.LastActivity = time.Now()
-		freshState.Status = StatusExecutingStep
-		freshState.AwaitedRequests = make(map[string]*AwaitedRequest)
-		freshState.CurrentStep = state.CurrentStep
-
-		// Manual retry loop - re-apply changes after each reload on conflict
-		maxRetries := 3
-		for attempt := 1; attempt <= maxRetries; attempt++ {
-			err = repo.UpdateState(ctx, freshState)
-			if err == nil {
-				break // Success!
-			}
-
-			if !IsOptimisticLockError(err) || attempt >= maxRetries {
-				return fmt.Errorf("failed to update state after clearing awaited requests: %w", err)
-			}
-
-			s.logger.Warn("Optimistic lock failure on final save, retrying with re-applied changes",
-				zap.Int("attempt", attempt))
-
-			// Reload latest state
-			freshState, err = repo.GetState(ctx, state.OrchestrationID)
-			if err != nil {
-				return fmt.Errorf("failed to reload state for retry: %w", err)
-			}
-
-			// Re-apply ALL our changes to the newly reloaded state
-			freshState.CurrentStep = state.CurrentStep
-			freshState.LastActivity = time.Now()
-			freshState.Status = StatusExecutingStep
-			freshState.AwaitedRequests = make(map[string]*AwaitedRequest)
-			// Loop continues to retry save
+		if err := json.Unmarshal(jsonBytes, &responseBodyData); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
-
-		// Update reference for continueExecution call
-		state = freshState
-
-		s.logger.Info("handleCompleteResponse: all responses received continuing workflow",
-			zap.Any("DEBUGaa: fresh exec ctx:", freshExecCtx),
-		)
-
-		return s.continueExecution(ctx, state, freshExecCtx)
 	}
 
-	s.logger.Info("handleCompleteResponse: still awaiting responses",
-		zap.Int("remaining", len(state.AwaitedRequests)))
+	return datahelpers.CleanDataMap(responseBodyData), nil
+}
 
-	// Mark the awaited request as complete
-	if err := repo.MarkAwaitedRequestComplete(ctx, requestID); err != nil {
-		s.logger.Warn("Failed to mark awaited request complete", zap.Error(err))
-		// Don't fail - the processing succeeded
+// extractSpawnData pulls spawn info from response when existing data is missing
+func (s *SagaCoordinator) extractSpawnData(normalisedData map[string]interface{}, step models.Step) map[string]interface{} {
+	spawnData := make(map[string]interface{})
+
+	// Try nested body first
+	if nestedBody, ok := normalisedData["body"].(map[string]interface{}); ok {
+		for k, v := range nestedBody {
+			spawnData[k] = v
+		}
+	} else {
+		// Fallback to top level
+		for _, key := range []string{"agent_id", "agent_type", "role", "topics", "initialized"} {
+			if val, exists := normalisedData[key]; exists {
+				spawnData[key] = val
+			}
+		}
 	}
 
-	return nil
+	spawnData["response"] = normalisedData
+	spawnData["response_received_at"] = time.Now().Format(time.RFC3339)
+	spawnData["initialized"] = true
+
+	if _, hasRole := spawnData["role"]; !hasRole {
+		if configRole, ok := step.Config["role"].(string); ok {
+			spawnData["role"] = configRole
+		}
+	}
+
+	return spawnData
+}
+
+// createContinuationContext builds an ExecutionContext for continuing the workflow
+func (s *SagaCoordinator) createContinuationContext(state *OrchestrationState) *types.ExecutionContext {
+	responsesTopic := state.ResponsesTopic
+	if responsesTopic == "" {
+		responsesTopic = os.Getenv("MY_RESPONSES_TOPIC")
+	}
+
+	requestsTopic := state.RequestsTopic
+	if requestsTopic == "" {
+		requestsTopic = os.Getenv("MY_REQUESTS_TOPIC")
+	}
+
+	return &types.ExecutionContext{
+		CorrelationID:   state.CorrelationID,
+		OrchestrationID: state.OrchestrationID,
+		ClientID:        state.ClientID,
+		MessageType:     "request",
+		MessageID:       uuid.New().String(),
+		Sender: types.AgentIdentity{
+			AgentType:    state.OwnerAgentType,
+			AgentID:      state.OwnerAgentID,
+			PodName:      s.podName,
+			AgentVersion: os.Getenv("AGENT_VERSION"),
+		},
+		FuelBudget:     state.FuelBudget,
+		TimeoutSeconds: 30,
+		Timestamp:      time.Now(),
+		Version:        "2.0",
+		ResponsesTopic: responsesTopic,
+		RequestsTopic:  requestsTopic,
+	}
 }
 
 // handleRecoverableError handles errors that can be retried
@@ -2479,7 +2171,7 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 		},
 	}
 
-	// Send to the TARGET AGENT'S REQUESTS TOPIC (not responses topic!)
+	// Send to the target agent's requests topic (not responses topic)
 	retryBytes, err := json.Marshal(retryRequest)
 	if err != nil {
 		s.logger.Error("Failed to marshal retry request",
