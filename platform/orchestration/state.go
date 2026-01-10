@@ -157,21 +157,23 @@ func NewStateRepository(db *sql.DB, logger *zap.Logger) *StateRepository {
 }
 
 // HasProcessedMessage checks if a request has been processed
-func (r *StateRepository) HasProcessedMessage(ctx context.Context, correlationID, requestID, agentID string) (bool, error) {
+func (r *StateRepository) HasProcessedMessage(ctx context.Context, correlationID, requestID, agentID string, retryVersion int) (bool, error) {
 	if requestID == "" {
 		return false, nil // Can't deduplicate without request_id
 	}
 
+	// Check if THIS specific retry_version has been processed
 	query := `
         SELECT EXISTS(
             SELECT 1 FROM processed_messages 
             WHERE correlation_id = $1 
             AND request_id = $2
             AND agent_id = $3
+            AND retry_version = $4
         )`
 
 	var exists bool
-	err := r.db.QueryRowContext(ctx, query, correlationID, requestID, agentID).Scan(&exists)
+	err := r.db.QueryRowContext(ctx, query, correlationID, requestID, agentID, retryVersion).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check processed request: %w", err)
 	}
@@ -201,9 +203,9 @@ func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *
 
 	query := `
         INSERT INTO processed_messages 
-        (message_id, correlation_id, orchestration_id, request_id, agent_id, message_type, processed_at, processed_by)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
-        ON CONFLICT (correlation_id, request_id, agent_id) DO NOTHING
+        (message_id, correlation_id, orchestration_id, request_id, agent_id, message_type, processed_at, processed_by, retry_version)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8)
+        ON CONFLICT (correlation_id, request_id, agent_id, retry_version) DO NOTHING
     `
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -213,7 +215,9 @@ func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *
 		execCtx.RequestID,
 		agentID,
 		execCtx.MessageType,
-		processingNode)
+		processingNode,
+		execCtx.RetryVersion, // NEW
+	)
 
 	if err != nil {
 		return fmt.Errorf("failed to record request processing in state go: %w", err)

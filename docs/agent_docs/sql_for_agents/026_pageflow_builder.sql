@@ -417,3 +417,24 @@ SELECT
     default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'assemble_page'->'config'->'content_field' as content_field
 FROM agent_definitions
 WHERE type = 'pageflow-builder';
+
+==
+
+-- path fix
+
+-- Check current path
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'assemble_page'->'config'->'content_field' as content_field
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Update to include .response
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page,config,content_field}',
+        '"page_content.response.page_html"'::jsonb
+                     )
+WHERE type = 'pageflow-builder';
+```

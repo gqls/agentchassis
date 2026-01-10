@@ -762,7 +762,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 	// Check for duplicates if stateless
 	if a.isStateless && a.stateRepo != nil {
-		isDuplicate, err := a.stateRepo.HasProcessedMessage(a.ctx, execCtx.CorrelationID, execCtx.RequestID, a.AgentID)
+		isDuplicate, err := a.stateRepo.HasProcessedMessage(a.ctx, execCtx.CorrelationID, execCtx.RequestID, a.AgentID, execCtx.RetryVersion)
 		if err != nil {
 			contextLogger.Error("Failed to check for duplicate", zap.Error(err))
 		} else if isDuplicate {

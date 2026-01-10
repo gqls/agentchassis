@@ -1286,7 +1286,9 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 			isDuplicate, checkErr := repo.HasProcessedMessage(ctx,
 				execCtx.CorrelationID,
 				execCtx.RequestID,
-				execCtx.ToAgentID)
+				execCtx.ToAgentID,
+				execCtx.RetryVersion,
+			)
 
 			if checkErr != nil {
 				contextLogger.Error("Failed to check for duplicate request",

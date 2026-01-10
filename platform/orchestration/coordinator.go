@@ -2674,7 +2674,58 @@ func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *Orchestration
 	})
 
 	repo := NewStateRepository(s.db, s.logger)
-	return repo.UpdateState(ctx, state)
+	if err := repo.UpdateState(ctx, state); err != nil {
+		s.logger.Error("Failed to save failed state", zap.Error(err))
+	}
+
+	// Notify parent of failure
+	s.notifyParentOfFailure(ctx, state, errorMsg)
+
+	return fmt.Errorf("workflow failed: %s", errorMsg)
+}
+
+func (s *SagaCoordinator) notifyParentOfFailure(ctx context.Context, state *OrchestrationState, errorMsg string) {
+	// Get parent response topic
+	parentTopic, _ := state.CollectedData["__parent_responses_topic__"].(string)
+	replyToRequestID, _ := state.CollectedData["__reply_to_request_id__"].(string)
+
+	if parentTopic == "" || replyToRequestID == "" {
+		s.logger.Debug("No parent to notify of failure",
+			zap.String("parent_topic", parentTopic),
+			zap.String("reply_to_request_id", replyToRequestID))
+		return
+	}
+
+	s.logger.Info("Notifying parent of child orchestration failure",
+		zap.String("parent_topic", parentTopic),
+		zap.String("reply_to_request_id", replyToRequestID),
+		zap.String("error", errorMsg))
+
+	failureResponse := types.ResponseMessage{
+		Headers: types.ResponseHeaders{
+			InResponseToRequestID: replyToRequestID,
+			Status:                "failed",
+			IsError:               true,
+			MessageType:           "response",
+			//MessageID:             uuid.New().String(),
+			TimeSent:        time.Now(),
+			OrchestrationID: state.OrchestrationID,
+			CorrelationID:   state.CorrelationID,
+		},
+		Body: types.ResponseBody{
+			Success: false,
+			Error: &types.ErrorInfo{
+				Code:        "CHILD_ORCHESTRATION_FAILED",
+				Message:     errorMsg,
+				Recoverable: false,
+			},
+		},
+	}
+
+	responseBytes, _ := json.Marshal(failureResponse)
+	if err := s.producer.Produce(ctx, parentTopic, failureResponse.Headers.ToMap(), []byte(replyToRequestID), responseBytes); err != nil {
+		s.logger.Error("Failed to notify parent of failure", zap.Error(err))
+	}
 }
 
 func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *OrchestrationState) error {
