@@ -977,19 +977,53 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// 7a. check if we need to wait for a response
 	repo := NewStateRepository(s.db, s.logger)
 	if state.Status == StatusAwaitingResponses {
-		contextLogger.Info("Action requires waiting - pausing execution",
-			zap.String("orchestration_id", state.OrchestrationID),
-			zap.String("step", state.CurrentStep),
-			zap.Int("awaited_requests", len(state.AwaitedRequests)))
-
-		// Save state with awaited request immediately - NO RETRY (already spawned/sent message)
+		// Save state with awaited request
 		if err := repo.UpdateState(ctx, state); err != nil {
+			// Check if this is an optimistic lock failure
+			if strings.Contains(err.Error(), "optimistic lock") {
+				// Reload fresh state and check if response already arrived
+				freshState, loadErr := repo.GetState(ctx, state.OrchestrationID)
+				if loadErr == nil {
+					// Check if response already arrived by checking if awaited request is gone
+					for reqID := range state.AwaitedRequests {
+						stepName := state.AwaitedRequests[reqID].StepName
+
+						// Method 1: Request no longer awaited = response was processed
+						if _, stillAwaited := freshState.AwaitedRequests[reqID]; !stillAwaited {
+							contextLogger.Info("Response already processed (request no longer awaited) - continuing",
+								zap.String("request_id", reqID),
+								zap.String("step_name", stepName))
+							return s.continueExecution(ctx, freshState, execCtx)
+						}
+
+						// Method 2: Check if step data has response content
+						if existingData, exists := freshState.CollectedData[stepName].(map[string]interface{}); exists {
+							// Check for wrapped response
+							if _, hasResponse := existingData["response"]; hasResponse {
+								contextLogger.Info("Response already arrived (found response key) - continuing",
+									zap.String("request_id", reqID),
+									zap.String("step_name", stepName))
+								return s.continueExecution(ctx, freshState, execCtx)
+							}
+							// Check for direct response (race case - has "success" or "body" but not "await_response")
+							_, hasAwait := existingData["await_response"]
+							_, hasSuccess := existingData["success"]
+							_, hasBody := existingData["body"]
+							if !hasAwait && (hasSuccess || hasBody) {
+								contextLogger.Info("Response already arrived (direct storage) - continuing",
+									zap.String("request_id", reqID),
+									zap.String("step_name", stepName))
+								return s.continueExecution(ctx, freshState, execCtx)
+							}
+						}
+					}
+				}
+			}
+			// If we get here, it's a real error
 			contextLogger.Error("Failed to save awaiting state", zap.Error(err))
 			return fmt.Errorf("failed to save awaiting state: %w", err)
 		}
-
 		// Return early - don't continue to next step
-		// The workflow will resume when the awaited response arrives
 		return nil
 	}
 
@@ -2383,6 +2417,12 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 		zap.String("target_agent_id", awaited.TargetAgentID),
 	)
 
+	// persist the increment to database
+	repo := NewStateRepository(s.db, s.logger)
+	if err := repo.UpdateAwaitedRequestRetry(ctx, requestID, awaited.RetryVersion, awaited.TimeoutAt); err != nil {
+		s.logger.Error("Failed to update retry version in DB", zap.Error(err))
+	}
+
 	// Determine fuel budget
 	fuelBudget := state.FuelBudget
 	if fuelBudget <= 0 {
@@ -2449,7 +2489,7 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 	}
 
 	// Update awaited request in database with new retry version and timeout
-	repo := NewStateRepository(s.db, s.logger)
+	//repo = NewStateRepository(s.db, s.logger)
 	if err := repo.UpdateAwaitedRequestForRetry(ctx, requestID, awaited.RetryVersion, awaited.TimeoutAt); err != nil {
 		s.logger.Warn("Failed to update awaited request for retry in database (will continue)",
 			zap.String("request_id", requestID),
@@ -2475,6 +2515,18 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 	go s.handleRequestTimeout(context.Background(), state.OrchestrationID, requestID, awaited.TimeoutAt)
 
 	return nil
+}
+
+func (r *StateRepository) UpdateAwaitedRequestRetry(ctx context.Context, requestID string, retryVersion int, timeoutAt time.Time) error {
+	query := `
+        UPDATE awaited_requests 
+        SET retry_version = $1, 
+            timeout_at = $2,
+            sent_at = NOW()
+        WHERE request_id = $3`
+
+	_, err := r.db.ExecContext(ctx, query, retryVersion, timeoutAt, requestID)
+	return err
 }
 
 // handleUnrecoverableError handles fatal errors
@@ -2511,6 +2563,26 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 	time.Sleep(time.Until(timeoutAt))
 
 	repo := NewStateRepository(s.db, s.logger)
+
+	// Get fresh awaited request from DB (not from state which may be stale)
+	awaited, err := repo.GetAwaitedRequest(ctx, requestID)
+	if err != nil || awaited == nil {
+		return // Already completed or doesn't exist
+	}
+
+	// Check retry count from DB
+	if awaited.RetryVersion >= 3 {
+		s.logger.Error("Max retries exceeded",
+			zap.String("request_id", requestID),
+			zap.Int("retry_version", awaited.RetryVersion))
+		// Load state and fail workflow
+		state, _ := repo.GetState(ctx, orchestrationID)
+		if state != nil {
+			s.failWorkflow(ctx, state, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
+		}
+		return
+	}
+
 	state, err := repo.GetState(ctx, orchestrationID)
 	if err != nil {
 		return
