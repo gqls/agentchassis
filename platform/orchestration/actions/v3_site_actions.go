@@ -465,8 +465,8 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 
 	// Alternative: look up by site_id + page_name
 	if pageID == uuid.Nil {
-		siteIDField := config["site_id_field"].(string)
-		pageNameField := config["page_name_field"].(string)
+		siteIDField, _ := config["site_id_field"].(string)
+		pageNameField, _ := config["page_name_field"].(string)
 
 		if siteIDField != "" && pageNameField != "" {
 			siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, siteIDField)

@@ -1,5 +1,5 @@
 architecture is a recursive orchestrator model
-
+try not to use unsafe type assertions in the golang code
 
 Agent Orchestration Architecture
 Problem Statement
