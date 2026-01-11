@@ -437,4 +437,13 @@ SET default_config = jsonb_set(
         '"page_content.response.page_html"'::jsonb
                      )
 WHERE type = 'pageflow-builder';
-```
+
+---
+-- change to page_id_field
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,update_page_status,config}',
+        '{"status": "deployed", "commit_from": "page_deployed.commit_sha", "page_id_field": "current_page.id"}'
+                     )
+WHERE type = 'pageflow-builder';
