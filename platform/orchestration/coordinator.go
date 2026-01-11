@@ -36,6 +36,9 @@ const (
 	MaxStepExecutions = 200
 	// RecentStepsWindow is how many steps to track for cycle detection
 	RecentStepsWindow = 15
+	// Optimistic lock retry settings for response processing
+	maxOptimisticLockRetries     = 5
+	optimisticLockBaseRetryDelay = 50 * time.Millisecond
 )
 
 var (
@@ -1071,6 +1074,17 @@ func prepareExecutionContext(execCtx *types.ExecutionContext, state *Orchestrati
 	execCtx.InResponseTo = nil
 	execCtx.Status = ""
 	execCtx.IsComplete = false
+
+	// Propagate step timeout to execution context
+	// This ensures call_agent and other actions use the configured timeout
+	if step.Timeout > 0 {
+		execCtx.TimeoutSeconds = int(step.Timeout.Seconds())
+	} else if timeout, ok := step.Config["timeout_seconds"].(float64); ok && timeout > 0 {
+		execCtx.TimeoutSeconds = int(timeout)
+	} else if timeout, ok := step.Config["timeout_seconds"].(int); ok && timeout > 0 {
+		execCtx.TimeoutSeconds = timeout
+	}
+	// If still 0 or negative, leave it for the action to set a default
 }
 
 // ensureFullExecutionContext populates missing fields in ExecutionContext from state
@@ -1817,8 +1831,10 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		s.logger.Warn("Failed to mark awaited request complete", zap.Error(err))
 	}
 
-	// 3. Save response data with retry loop
-	maxRetries := 3
+	// 3. Save response data with retry loop (with exponential backoff)
+	maxRetries := 7
+	baseDelay := 25 * time.Millisecond
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		freshState, err := repo.GetState(ctx, state.OrchestrationID)
 		if err != nil {
@@ -1845,7 +1861,11 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		// Save state
 		err = repo.UpdateState(ctx, freshState)
 		if err == nil {
-			// Success - continue workflow if all done
+			// Success
+			if attempt > 1 {
+				s.logger.Info("Response saved after retry",
+					zap.Int("attempts", attempt))
+			}
 			if allDone {
 				s.logger.Info("All responses received, continuing workflow")
 				freshExecCtx := s.createContinuationContext(freshState)
@@ -1856,15 +1876,78 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			return nil
 		}
 
-		if !IsOptimisticLockError(err) || attempt >= maxRetries {
+		// Check if it's an optimistic lock error
+		if !IsOptimisticLockError(err) {
 			return fmt.Errorf("failed to save response data: %w", err)
 		}
 
-		s.logger.Warn("Optimistic lock failure, retrying",
-			zap.Int("attempt", attempt))
+		// Max retries exceeded
+		if attempt >= maxRetries {
+			return fmt.Errorf("failed to save response after %d attempts (optimistic lock): %w", attempt, err)
+		}
+
+		// Exponential backoff: 25ms, 50ms, 100ms, 200ms, 400ms, 800ms, 1600ms
+		delay := baseDelay * time.Duration(1<<(attempt-1))
+		s.logger.Warn("Optimistic lock failure in response processing, retrying",
+			zap.Int("attempt", attempt),
+			zap.Int("max_attempts", maxRetries),
+			zap.Duration("backoff", delay))
+		time.Sleep(delay)
 	}
 
 	return nil
+}
+
+// retryStateUpdate retries a state update operation when optimistic lock failures occur.
+// This is used during response processing which can race with loop execution.
+func (s *SagaCoordinator) retryStateUpdate(
+	ctx context.Context,
+	orchestrationID string,
+	operationName string,
+	applyChanges func(state *OrchestrationState) error,
+	logger *zap.Logger,
+) error {
+	repo := NewStateRepository(s.db, s.logger)
+
+	for attempt := 1; attempt <= maxOptimisticLockRetries; attempt++ {
+		// Load fresh state from DB
+		state, err := repo.GetState(ctx, orchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to load state for retry: %w", err)
+		}
+
+		// Apply the changes
+		if err := applyChanges(state); err != nil {
+			return fmt.Errorf("failed to apply changes: %w", err)
+		}
+
+		// Try to save
+		if err := repo.UpdateState(ctx, state); err != nil {
+			if IsOptimisticLockError(err) && attempt < maxOptimisticLockRetries {
+				logger.Warn("Optimistic lock failure, retrying state update",
+					zap.String("operation", operationName),
+					zap.String("orchestration_id", orchestrationID),
+					zap.Int("attempt", attempt),
+					zap.Int("max_attempts", maxOptimisticLockRetries))
+
+				// Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
+				delay := optimisticLockBaseRetryDelay * time.Duration(1<<(attempt-1))
+				time.Sleep(delay)
+				continue
+			}
+			return fmt.Errorf("state update failed after %d attempts: %w", attempt, err)
+		}
+
+		if attempt > 1 {
+			logger.Info("State update succeeded after retry",
+				zap.String("operation", operationName),
+				zap.String("orchestration_id", orchestrationID),
+				zap.Int("attempts", attempt))
+		}
+		return nil
+	}
+
+	return fmt.Errorf("max retries (%d) exceeded for optimistic lock", maxOptimisticLockRetries)
 }
 
 // applyResponseToState merges response data into state's CollectedData
@@ -2108,7 +2191,20 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 
 	// Increment retry version
 	awaited.RetryVersion++
-	newTimeout := 60 * time.Second
+
+	// Use original timeout duration, not hardcoded 60s
+	// Calculate from the original TimeoutAt - SentAt if available
+	originalDuration := awaited.TimeoutAt.Sub(awaited.SentAt)
+	newTimeout := originalDuration
+	if newTimeout <= 0 || newTimeout > 30*time.Minute {
+		// Fallback to reasonable default if calculation fails
+		newTimeout = 3 * time.Minute
+	}
+	// For retries, cap at 5 minutes to avoid very long waits
+	if newTimeout > 5*time.Minute {
+		newTimeout = 5 * time.Minute
+	}
+
 	awaited.SentAt = time.Now()
 	awaited.TimeoutAt = time.Now().Add(newTimeout)
 
