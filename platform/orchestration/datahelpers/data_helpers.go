@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -1638,4 +1639,42 @@ func ToStringSlice(items []interface{}) []string {
 		}
 	}
 	return result
+}
+
+// InterfaceToString converts various types to string for template substitution
+func InterfaceToString(value interface{}) string {
+	if value == nil {
+		return ""
+	}
+
+	switch v := value.(type) {
+	case string:
+		return v
+	case float64:
+		if v == float64(int64(v)) {
+			return strconv.FormatInt(int64(v), 10)
+		}
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(v)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case bool:
+		return strconv.FormatBool(v)
+	case []interface{}:
+		parts := make([]string, 0, len(v))
+		for _, item := range v {
+			parts = append(parts, InterfaceToString(item))
+		}
+		return strings.Join(parts, ", ")
+	case []string:
+		return strings.Join(v, ", ")
+	case map[string]interface{}:
+		if b, err := json.Marshal(v); err == nil {
+			return string(b)
+		}
+		return fmt.Sprintf("%v", v)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }

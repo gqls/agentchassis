@@ -826,6 +826,14 @@ func mergeIntoRenderContext(ctx *RenderContext, data map[string]interface{}) {
 			ctx.AccentColor = v
 		}
 	}
+
+	// Capture ALL fields into ContentData for template access
+	if ctx.ContentData == nil {
+		ctx.ContentData = make(map[string]interface{})
+	}
+	for key, value := range data {
+		ctx.ContentData[key] = value
+	}
 }
 
 func convertNavigationItems(items []NavigationItem) []NavItem {
@@ -978,7 +986,15 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 	if contentField != "" {
 		contentData := datahelpers.ExtractNestedField(params.CollectedData, contentField)
 		if m, ok := contentData.(map[string]interface{}); ok {
+			params.Logger.Debug("RenderComponentAction: Merging content data",
+				zap.String("content_field", contentField),
+				zap.Int("field_count", len(m)),
+				zap.Any("keys", datahelpers.GetMapKeys(m)))
 			mergeIntoRenderContext(renderCtx, m)
+		} else {
+			params.Logger.Warn("RenderComponentAction: content_from data not a map",
+				zap.String("content_field", contentField),
+				zap.Any("actual_type", fmt.Sprintf("%T", contentData)))
 		}
 	}
 

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -103,6 +104,26 @@ type RenderContext struct {
 	Tone           string
 	TargetAudience string
 	Services       []string
+
+	// ContentData holds arbitrary content fields from LLM generation
+	// Examples: headline, subheadline, features[], testimonials[], body, etc.
+	// These flow through to template substitution
+	ContentData map[string]interface{} `json:"content_data"`
+
+	// SchemaMode controls validation strictness
+	// "flexible" (default): best-effort rendering, warn on missing fields
+	// "strict": fail if content doesn't match component's input_schema
+	SchemaMode string `json:"schema_mode"`
+
+	// SchemaSnapshot is the locked input_schema (only used in strict mode)
+	SchemaSnapshot map[string]interface{} `json:"schema_snapshot,omitempty"`
+}
+
+// RenderOptions controls rendering behavior
+type RenderOptions struct {
+	SchemaMode     string                 // "flexible" or "strict"
+	SchemaSnapshot map[string]interface{} // Locked schema (for strict mode)
+	Logger         *zap.Logger
 }
 
 // NavItem represents a navigation link
@@ -499,7 +520,7 @@ func contextToMap(ctx *RenderContext) map[string]string {
 		logoText = "Company"
 	}
 
-	return map[string]string{
+	result := map[string]string{
 		"domain":           ctx.Domain,
 		"logo_text":        logoText,
 		"company_name":     defaultString(ctx.CompanyName, logoText),
@@ -519,7 +540,124 @@ func contextToMap(ctx *RenderContext) map[string]string {
 		"cta_text":         defaultString(ctx.CTAText, "Get Started"),
 		"cta_url":          defaultString(ctx.CTAUrl, "/contact.html"),
 		"year":             ctx.Year,
+		"industry":         ctx.Industry,
+		"tone":             ctx.Tone,
+		"target_audience":  ctx.TargetAudience,
 	}
+
+	// Add all content data fields
+	for key, value := range ctx.ContentData {
+		// Don't override known fields - they have priority
+		if _, exists := result[key]; exists {
+			continue
+		}
+		result[key] = datahelpers.InterfaceToString(value)
+	}
+
+	return result
+}
+
+// RenderTemplateWithValidation renders a template with optional schema validation
+func RenderTemplateWithValidation(
+	template string,
+	ctx *RenderContext,
+	opts RenderOptions,
+) (string, error) {
+
+	logger := opts.Logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	// Default to flexible mode
+	schemaMode := opts.SchemaMode
+	if schemaMode == "" {
+		schemaMode = "flexible"
+	}
+
+	// Convert context to template data
+	data := contextToMap(ctx)
+
+	// In strict mode, validate against schema
+	if schemaMode == "strict" && opts.SchemaSnapshot != nil {
+		if err := validateContentAgainstSchema(data, opts.SchemaSnapshot, logger); err != nil {
+			return "", fmt.Errorf("schema validation failed: %w", err)
+		}
+	}
+
+	// Perform template substitution
+	result := template
+	result = renderEachBlocks(result, ctx.NavItems)
+	result = renderIfBlocks(result, data)
+	result = renderGoStyleSubstitutions(result, data)
+	result = renderHandlebarsSubstitutions(result, data)
+
+	// Build nav items HTML
+	navItemsHTML := buildNavItemsHTML(ctx.NavItems)
+	result = strings.ReplaceAll(result, "{{nav_items_html}}", navItemsHTML)
+	result = strings.ReplaceAll(result, "{{.nav_items_html}}", navItemsHTML)
+
+	// Check for unsubstituted placeholders
+	unsubstituted := findUnsubstitutedPlaceholders(result)
+	if len(unsubstituted) > 0 {
+		if schemaMode == "strict" {
+			return "", fmt.Errorf("unsubstituted placeholders in strict mode: %v", unsubstituted)
+		}
+		// In flexible mode, just warn
+		logger.Warn("Template has unsubstituted placeholders (flexible mode)",
+			zap.Strings("placeholders", unsubstituted),
+			zap.Int("count", len(unsubstituted)))
+	}
+
+	return result, nil
+}
+
+// validateContentAgainstSchema checks if data has all required fields from schema
+func validateContentAgainstSchema(data map[string]string, schema map[string]interface{}, logger *zap.Logger) error {
+	// Check required fields
+	if required, ok := schema["required"].([]interface{}); ok {
+		var missing []string
+		for _, field := range required {
+			fieldName, ok := field.(string)
+			if !ok {
+				continue
+			}
+			if val, exists := data[fieldName]; !exists || val == "" {
+				missing = append(missing, fieldName)
+			}
+		}
+		if len(missing) > 0 {
+			return fmt.Errorf("missing required fields: %v", missing)
+		}
+	}
+
+	return nil
+}
+
+// findUnsubstitutedPlaceholders finds any remaining {{...}} or {{.xxx}} in template
+func findUnsubstitutedPlaceholders(template string) []string {
+	var placeholders []string
+
+	// Simple pattern matching for remaining placeholders
+	// This catches both {{field}} and {{.field}} patterns
+	inPlaceholder := false
+	start := 0
+
+	for i := 0; i < len(template)-1; i++ {
+		if template[i] == '{' && template[i+1] == '{' {
+			inPlaceholder = true
+			start = i
+		} else if inPlaceholder && template[i] == '}' && template[i+1] == '}' {
+			placeholder := template[start : i+2]
+			// Skip block helpers ({{#if}}, {{/if}}, {{#each}}, etc.)
+			if !strings.Contains(placeholder, "#") && !strings.Contains(placeholder, "/") {
+				placeholders = append(placeholders, placeholder)
+			}
+			inPlaceholder = false
+		}
+	}
+
+	return placeholders
 }
 
 // renderEachBlocks handles {{#each nav_items}}...{{/each}}
