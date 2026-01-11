@@ -1,0 +1,1 @@
+ALTER TABLE research_results ADD COLUMN result_type VARCHAR(50);

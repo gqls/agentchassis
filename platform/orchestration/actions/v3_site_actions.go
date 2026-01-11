@@ -998,6 +998,9 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		}
 	}
 
+	// Before calling RenderTemplate, set ComponentID in context
+	renderCtx.ContentData["ComponentID"] = comp.ID
+
 	// Render template
 	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, params.Logger)
 

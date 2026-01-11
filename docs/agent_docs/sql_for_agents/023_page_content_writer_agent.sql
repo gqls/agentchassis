@@ -469,3 +469,24 @@ SELECT
 FROM agent_definitions
 WHERE type = 'page-content-writer';
 
+--
+add await_response
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_research_agent,config,await_response}',
+        'true'
+                     )
+WHERE type = 'page-content-writer';
+
+--
+
+content_from change generated_content.result
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,substeps,render_section,config,content_from}',
+        '"generated_content.result"'
+                     )
+WHERE type = 'page-content-writer';
