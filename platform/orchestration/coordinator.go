@@ -299,7 +299,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	switch execCtx.Status {
 	case "awaiting", "processing":
 		return s.handleProgressUpdate(ctx, state, execCtx)
-	case "complete":
+	case "complete", "success":
 		return s.handleCompleteResponse(ctx, state, requestID, execCtx, response, awaitedReq)
 	case "error_recoverable":
 		return s.handleRecoverableError(ctx, state, requestID, execCtx, response)
