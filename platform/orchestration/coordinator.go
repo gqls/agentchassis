@@ -2442,6 +2442,84 @@ func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *Orchestration
 	return fmt.Errorf("workflow failed: %s", errorMsg)
 }
 
+func (s *SagaCoordinator) notifyParentOfSuccess(ctx context.Context, state *OrchestrationState) {
+	// Get parent response topic
+	parentTopic, _ := state.CollectedData["__parent_responses_topic__"].(string)
+	replyToRequestID, _ := state.CollectedData["__reply_to_request_id__"].(string)
+
+	if parentTopic == "" || replyToRequestID == "" {
+		s.logger.Debug("No parent to notify of success",
+			zap.String("parent_topic", parentTopic),
+			zap.String("reply_to_request_id", replyToRequestID))
+		return
+	}
+
+	s.logger.Info("Notifying parent of child orchestration success",
+		zap.String("parent_topic", parentTopic),
+		zap.String("reply_to_request_id", replyToRequestID),
+		zap.String("orchestration_id", state.OrchestrationID))
+
+	// Build result from CollectedData - extract workflow outputs
+	resultData := s.extractWorkflowResult(state)
+
+	successResponse := types.ResponseMessage{
+		Headers: types.ResponseHeaders{
+			InResponseToRequestID: replyToRequestID,
+			Status:                "complete",
+			IsComplete:            true,
+			MessageType:           "response",
+			//MessageID:             uuid.New().String(),
+			TimeSent:        time.Now(),
+			OrchestrationID: state.OrchestrationID,
+			CorrelationID:   state.CorrelationID,
+			ClientID:        state.ClientID,
+		},
+		Body: types.ResponseBody{
+			Success: true,
+			Body:    resultData,
+		},
+	}
+
+	responseBytes, err := json.Marshal(successResponse)
+	if err != nil {
+		s.logger.Error("Failed to marshal success response", zap.Error(err))
+		return
+	}
+
+	if err := s.producer.Produce(ctx, parentTopic, successResponse.Headers.ToMap(), []byte(replyToRequestID), responseBytes); err != nil {
+		s.logger.Error("Failed to notify parent of success", zap.Error(err))
+	} else {
+		s.logger.Info("Successfully notified parent of workflow completion",
+			zap.String("parent_topic", parentTopic),
+			zap.String("reply_to_request_id", replyToRequestID))
+	}
+}
+
+// extractWorkflowResult builds the result payload to send back to parent
+func (s *SagaCoordinator) extractWorkflowResult(state *OrchestrationState) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	// Include non-internal fields from CollectedData
+	for key, value := range state.CollectedData {
+		// Skip internal fields (those starting with __)
+		if strings.HasPrefix(key, "__") {
+			continue
+		}
+		// Skip large or transient data
+		if key == "loop_metadata" {
+			continue
+		}
+		result[key] = value
+	}
+
+	// Add completion metadata
+	result["orchestration_id"] = state.OrchestrationID
+	result["completed_steps"] = state.ExecutionMetadata.CompletedSteps
+	result["completed_at"] = time.Now().Format(time.RFC3339)
+
+	return result
+}
+
 func (s *SagaCoordinator) notifyParentOfFailure(ctx context.Context, state *OrchestrationState, errorMsg string) {
 	// Get parent response topic
 	parentTopic, _ := state.CollectedData["__parent_responses_topic__"].(string)
@@ -2523,6 +2601,10 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 			zap.Error(err))
 		// Continue anyway
 	}
+
+	// Notify parent of successful completion before updating state
+	// This ensures parent receives notification even if state update fails
+	s.notifyParentOfSuccess(ctx, state)
 
 	return repo.UpdateState(ctx, state)
 }
