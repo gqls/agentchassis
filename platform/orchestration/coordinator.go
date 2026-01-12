@@ -2762,7 +2762,7 @@ func (s *SagaCoordinator) cleanupExpiredAwaitedRequests() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 
 		repo := NewStateRepository(s.db, s.logger)
 		count, err := repo.CleanupExpiredAwaitedRequests(ctx)

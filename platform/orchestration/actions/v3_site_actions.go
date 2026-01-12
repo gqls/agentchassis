@@ -426,13 +426,15 @@ func UpdateSiteDefaultsAction(ctx context.Context, params ActionParams) (interfa
 // ACTION: update_page_status
 // ============================================================================
 
-// UpdatePageStatusAction updates a single page's status
+// UpdatePageStatusAction updates a single page's build_status
 // Config:
 //   - page_id_field: path to page_id OR
 //   - site_id_field + page_name_field: to look up page
-//   - status: new status value
+//   - status: new build_status value (e.g., "deployed", "failed", "building")
 func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("UpdatePageStatusAction: Starting")
+	params.Logger.Info("UpdatePageStatusAction: Starting",
+		zap.String("step_name", params.ExecutionContext.StepName),
+	)
 
 	if params.ExecutionContext.Action == "initialize" {
 		return map[string]interface{}{"status": "initialized"}, nil
@@ -441,6 +443,7 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 	config := params.StepConfig.Config
 
 	if params.DB == nil {
+		params.Logger.Warn("UpdatePageStatusAction: No database connection available")
 		return map[string]interface{}{"updated": false, "reason": "no database"}, nil
 	}
 
@@ -451,14 +454,27 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 
 	var pageID uuid.UUID
 
-	// Try direct page_id
+	// Try direct page_id from config field
 	if pageIDField, ok := config["page_id_field"].(string); ok && pageIDField != "" {
 		pageIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, pageIDField)
 		if pageIDStr != "" {
 			var err error
 			pageID, err = uuid.Parse(pageIDStr)
 			if err != nil {
+				params.Logger.Warn("UpdatePageStatusAction: Invalid page_id format",
+					zap.String("page_id_field", pageIDField),
+					zap.String("value", pageIDStr),
+					zap.Error(err))
 				return nil, fmt.Errorf("invalid page_id: %w", err)
+			}
+		}
+	}
+
+	// Alternative: try current_page.id (common in loop iterations)
+	if pageID == uuid.Nil {
+		if pageIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "current_page.id"); pageIDStr != "" {
+			if parsed, err := uuid.Parse(pageIDStr); err == nil {
+				pageID = parsed
 			}
 		}
 	}
@@ -483,19 +499,60 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// Last resort: try current_page.name with site_record.site_id
 	if pageID == uuid.Nil {
+		siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+		pageName := datahelpers.ExtractNestedFieldString(params.CollectedData, "current_page.name")
+
+		if siteIDStr != "" && pageName != "" {
+			siteUUID, _ := uuid.Parse(siteIDStr)
+			var err error
+			pageID, err = lookupPageID(ctx, params.DB, siteUUID, pageName, params.Logger)
+			if err != nil {
+				params.Logger.Warn("UpdatePageStatusAction: Page lookup by name failed",
+					zap.String("site_id", siteIDStr),
+					zap.String("page_name", pageName),
+					zap.Error(err))
+			}
+		}
+	}
+
+	if pageID == uuid.Nil {
+		params.Logger.Error("UpdatePageStatusAction: Could not determine page_id",
+			zap.Any("config", config))
 		return nil, fmt.Errorf("could not determine page_id")
 	}
 
-	query := `UPDATE pages SET build_status = $2, updated_at = NOW() WHERE id = $1`
-	if err := execDB(ctx, params.DB, query, pageID, newStatus); err != nil {
-		return nil, fmt.Errorf("failed to update page status: %w", err)
+	// Build the query - use build_status column (not status)
+	var query string
+	if newStatus == "deployed" {
+		// Also set deployed_at when marking as deployed
+		query = `UPDATE pages SET build_status = $2, deployed_at = NOW(), updated_at = NOW() WHERE id = $1`
+	} else {
+		query = `UPDATE pages SET build_status = $2, updated_at = NOW() WHERE id = $1`
 	}
 
+	result, err := params.DB.ExecContext(ctx, query, pageID, newStatus)
+	if err != nil {
+		params.Logger.Error("UpdatePageStatusAction: Failed to update page",
+			zap.String("page_id", pageID.String()),
+			zap.String("build_status", newStatus),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to update page build_status: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+
+	params.Logger.Info("UpdatePageStatusAction: Updated page",
+		zap.String("page_id", pageID.String()),
+		zap.String("build_status", newStatus),
+		zap.Int64("rows_affected", rowsAffected))
+
 	return map[string]interface{}{
-		"updated": true,
-		"page_id": pageID.String(),
-		"status":  newStatus,
+		"updated":       true,
+		"page_id":       pageID.String(),
+		"build_status":  newStatus,
+		"rows_affected": rowsAffected,
 	}, nil
 }
 
@@ -1116,40 +1173,24 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 	params.Logger.Info("CompilePageSectionsAction: Extracted sections",
 		zap.Int("count", len(sections)))
 
-	// Handle empty sections gracefully ===
 	if len(sections) == 0 {
 		params.Logger.Warn("CompilePageSectionsAction: No sections to compile, returning placeholder")
 
 		// Get page info for context
 		pageName := "page"
-		pageTitle := ""
 		if pageFrom, ok := config["page_from"].(string); ok && pageFrom != "" {
 			if pageData := datahelpers.ExtractNestedField(params.CollectedData, pageFrom); pageData != nil {
 				if pm, ok := pageData.(map[string]interface{}); ok {
 					if name, ok := pm["name"].(string); ok && name != "" {
 						pageName = name
 					}
-					if title, ok := pm["title"].(string); ok && title != "" {
-						pageTitle = title
-					}
 				}
 			}
 		}
 
-		// Build a minimal placeholder page
-		placeholderHTML := fmt.Sprintf(`<main class="page-content page-%s">
-  <section class="placeholder-section">
-    <div class="container">
-      <h1>%s</h1>
-      <p>Content coming soon.</p>
-    </div>
-  </section>
-</main>`, pageName, pageTitle)
-
 		return map[string]interface{}{
-			"page_body":     placeholderHTML,
+			"page_body":     "",
 			"page_name":     pageName,
-			"page_title":    pageTitle,
 			"section_count": 0,
 			"skipped":       true,
 			"reason":        "no sections defined for page",
@@ -1169,26 +1210,49 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 				}
 			}
 		}
-	} else if pn, ok := config["page_name"].(string); ok && pn != "" {
+	}
+	if pn, ok := config["page_name"].(string); ok && pn != "" {
 		pageName = pn
 	}
 
-	// Build full HTML if requested
-	outputFormat := "body_only"
-	if of, ok := config["output_format"].(string); ok {
-		outputFormat = of
+	// Build full HTML page
+	pageHTML := buildPageHTML(pageName, pageBody)
+
+	// Optionally inject header/footer from component library
+	injectHeader, _ := config["inject_header"].(bool)
+	injectFooter, _ := config["inject_footer"].(bool)
+
+	if params.DB != nil && (injectHeader || injectFooter) {
+		// Get site_id for component lookup
+		siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+		siteUUID := uuid.Nil
+		if siteIDStr != "" {
+			siteUUID, _ = uuid.Parse(siteIDStr)
+		}
+
+		renderCtx := &RenderContext{}
+		if rc := datahelpers.ExtractNestedField(params.CollectedData, "render_context"); rc != nil {
+			if m, ok := rc.(map[string]interface{}); ok {
+				mergeIntoRenderContext(renderCtx, m)
+			}
+		}
+
+		if injectHeader {
+			pageHTML = InjectHeader(ctx, params.DB, pageHTML, siteUUID, renderCtx, params.Logger)
+		}
+		if injectFooter {
+			pageHTML = InjectFooter(ctx, params.DB, pageHTML, siteUUID, renderCtx, params.Logger)
+		}
 	}
 
-	var outputHTML string
-	if outputFormat == "full_page" {
-		outputHTML = buildPageHTML(pageName, pageBody)
-	} else {
-		outputHTML = pageBody
-	}
+	params.Logger.Info("CompilePageSectionsAction: Page compiled",
+		zap.String("page_name", pageName),
+		zap.Int("section_count", len(sections)),
+		zap.Int("html_length", len(pageHTML)),
+	)
 
 	return map[string]interface{}{
-		"page_html":     outputHTML,
-		"page_body":     pageBody,
+		"page_html":     pageHTML,
 		"page_name":     pageName,
 		"section_count": len(sections),
 	}, nil

@@ -138,7 +138,7 @@ func (a *GitAdapter) Run() error {
 
 		// Try to consume a message
 		// Use a child context with timeout to avoid blocking forever
-		consumeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		consumeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		msg, err := a.consumer.Consume(consumeCtx)
 		cancel() // Always clean up the context
 

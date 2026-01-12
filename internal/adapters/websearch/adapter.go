@@ -18,9 +18,12 @@ import (
 )
 
 const (
-	requestTopic   = "system.adapter.web.search"
-	responsesTopic = "system.agent.websearch.responses"
-	consumerGroup  = "web-search-adapter-group"
+	requestTopic     = "system.adapter.web.search"
+	responsesTopic   = "system.agent.websearch.responses"
+	consumerGroup    = "web-search-adapter-group"
+	requestTimeout   = 90 * time.Second
+	idleTimeout      = 90 * time.Second
+	handshakeTimeout = 10 * time.Second
 )
 
 // MessageEnvelope wraps the body/headers structure sent by agents
@@ -75,11 +78,12 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	}
 
 	httpClient := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: requestTimeout,
 		Transport: &http.Transport{
 			MaxIdleConns:        100,
 			MaxIdleConnsPerHost: 10,
-			IdleConnTimeout:     90 * time.Second,
+			IdleConnTimeout:     idleTimeout,
+			TLSHandshakeTimeout: handshakeTimeout,
 		},
 	}
 
