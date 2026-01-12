@@ -78,3 +78,42 @@ SET default_config = jsonb_set(
         '"confirmed_type.recommended_builder"'::jsonb
                      )
 WHERE type = 'intake-orchestrator';
+
+
+---
+
+
+increase timeout
+
+-- ===========================================================================
+-- FIX: Increase timeout for call_builder in intake-orchestrator
+-- ===========================================================================
+
+-- Step 1: Check current config
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'call_builder'->'config' as call_builder_config
+FROM agent_definitions
+WHERE type = 'intake-orchestrator';
+
+-- Step 2: Update timeout to 2 hours (7200 seconds) for HITL workflows
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_builder,config}',
+        COALESCE(default_config->'workflow'->'steps'->'call_builder'->'config', '{}'::jsonb) ||
+        '{
+          "timeout_seconds": 7200,
+          "max_retries": 10
+        }'::jsonb
+                     )
+WHERE type = 'intake-orchestrator'
+  AND default_config->'workflow'->'steps'->'call_builder' IS NOT NULL;
+
+-- Step 3: Verify the change
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'call_builder'->'config'->'timeout_seconds' as timeout_seconds,
+    default_config->'workflow'->'steps'->'call_builder'->'config'->'max_retries' as max_retries
+FROM agent_definitions
+WHERE type = 'intake-orchestrator';
