@@ -487,7 +487,7 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("could not determine page_id")
 	}
 
-	query := `UPDATE pages SET status = $2, updated_at = NOW() WHERE id = $1`
+	query := `UPDATE pages SET build_status = $2, updated_at = NOW() WHERE id = $1`
 	if err := execDB(ctx, params.DB, query, pageID, newStatus); err != nil {
 		return nil, fmt.Errorf("failed to update page status: %w", err)
 	}
