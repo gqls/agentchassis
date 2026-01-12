@@ -266,10 +266,10 @@ func UpdateSiteStatusAction(ctx context.Context, params ActionParams) (interface
 	// Validate status
 	validStatuses := map[string]bool{
 		"draft": true, "building": true, "review": true,
-		"published": true, "archived": true, "error": true,
+		"published": true, "deployed": true, "archived": true, "error": true,
 	}
 	if !validStatuses[newStatus] {
-		return nil, fmt.Errorf("invalid status: %s", newStatus)
+		return nil, fmt.Errorf("invalid status: %s (valid: draft, building, review, published, deployed, archived, error)", newStatus)
 	}
 
 	if params.DB == nil {
@@ -277,7 +277,15 @@ func UpdateSiteStatusAction(ctx context.Context, params ActionParams) (interface
 		return map[string]interface{}{"updated": false, "status": newStatus}, nil
 	}
 
-	query := `UPDATE sites SET status = $2, updated_at = NOW() WHERE id = $1`
+	// Check if deployed_at should be set
+	var query string
+	deployedAt, hasDeployedAt := config["deployed_at"].(string)
+	if hasDeployedAt && (deployedAt == "now" || deployedAt == "NOW()") && newStatus == "deployed" {
+		query = `UPDATE sites SET status = $2, last_deployed_at = NOW(), updated_at = NOW() WHERE id = $1`
+	} else {
+		query = `UPDATE sites SET status = $2, updated_at = NOW() WHERE id = $1`
+	}
+
 	if err := execDB(ctx, params.DB, query, siteID, newStatus); err != nil {
 		return nil, fmt.Errorf("failed to update site status: %w", err)
 	}
