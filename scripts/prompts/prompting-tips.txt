@@ -50,3 +50,6 @@ Respond with low randomness for precise answers.
 10/ Self Critique (Auto Improvement)
 Stop accepting first drafts.
 After any response, say Now critique your response and improve it for clarity and tone.
+
+
+"argue against everything you just said"

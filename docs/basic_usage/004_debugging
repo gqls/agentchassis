@@ -98,7 +98,21 @@ kubectl exec -it kafka-client-test -n kafka -- kafka-console-consumer   --bootst
         COUNT(CASE WHEN is_active THEN 1 END) as active_agents
  FROM client_demo_client.agent_instances;"
 
+--
 
+-- Check page statuses
+SELECT name, title, status, updated_at
+FROM pages
+WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
+ORDER BY updated_at;
+
+-- Check orchestration state to see loop progress
+SELECT orchestration_id, current_step, status,
+       collected_data->'build_pages_loop' as loop_state,
+       collected_data->'pages_to_build' as pages_to_build
+FROM orchestrations
+WHERE correlation_id = '81a2eb4f-da39-4509-b120-bddc862edc43'
+AND current_step LIKE '%loop%';
 
 
 

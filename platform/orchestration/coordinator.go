@@ -242,45 +242,6 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		return fmt.Errorf("no state found for orchestration_id=%s", awaitedReq.OrchestrationID)
 	}
 
-	/*	// Query awaited_requests table with retry (handles race condition)
-		contextLogger.Info("Querying awaited_requests table for request",
-			zap.String("request_id", requestID))
-
-		awaitedReq, err := repo.GetAwaitedRequestWithRetry(ctx, requestID, 3)
-		if err != nil {
-			contextLogger.Error("Failed to query awaited request",
-				zap.String("request_id", requestID),
-				zap.Error(err))
-			return fmt.Errorf("failed to query awaited request: %w", err)
-		}
-
-		if awaitedReq == nil {
-			contextLogger.Info("No orchestration waiting for this response",
-				zap.String("request_id", requestID))
-			return nil
-		}
-
-		contextLogger.Info("Found awaited request in database",
-			zap.String("orchestration_id", awaitedReq.OrchestrationID),
-			zap.String("step_name", awaitedReq.StepName))
-
-		// Load the orchestration state
-		state, err := repo.GetState(ctx, awaitedReq.OrchestrationID)
-		if err != nil {
-			return fmt.Errorf("failed to load orchestration state: %w", err)
-		}
-
-		if state == nil {
-			return fmt.Errorf("no state found for orchestration_id=%s", awaitedReq.OrchestrationID)
-		}
-
-		// Mark request as processed IMMEDIATELY (prevent duplicate processing)
-		err = repo.MarkAwaitedRequestProcessed(ctx, requestID)
-		if err != nil {
-			contextLogger.Error("Failed to mark awaited request as processed", zap.Error(err))
-			// Continue anyway
-		}*/
-
 	// Additional check: verify this orchestrator owns this orchestration
 	if state.ProcessingNode != "" && state.ProcessingNode != s.podName {
 		contextLogger.Info("Response for orchestration owned by different pod, ignoring",
@@ -314,13 +275,11 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 func processResponseClaimWithRetry(ctx context.Context, repo *StateRepository, requestID string, podName string, contextLogger *zap.Logger) (*AwaitedRequest, error) {
 	// Attempt to claim with retry for race condition
 	// (response may arrive before awaited_request is inserted)
-	var awaitedReq *AwaitedRequest
-	var err error
 	maxRetries := 5
 	retryDelay := 50 * time.Millisecond
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		awaitedReq, err = repo.ClaimAwaitedRequest(ctx, requestID, podName)
+		awaitedReq, err := repo.ClaimAwaitedRequest(ctx, requestID, podName)
 		if err != nil {
 			contextLogger.Error("Failed to claim awaited request",
 				zap.String("request_id", requestID),
@@ -339,18 +298,49 @@ func processResponseClaimWithRetry(ctx context.Context, repo *StateRepository, r
 		}
 
 		// awaitedReq is nil - could be:
-		// 1. Already claimed by another worker (actual duplicate)
-		// 2. Not inserted yet (race condition - response arrived before insert)
+		// 1. Already claimed AND processed by another worker (actual duplicate - skip)
+		// 2. Already claimed but NOT processed (failed after claim - allow retry)
+		// 3. Not inserted yet (race condition - response arrived before insert)
 
 		if attempt < maxRetries {
-			// Check if request exists at all (to distinguish race from duplicate)
-			exists, _ := repo.AwaitedRequestExists(ctx, requestID)
-			if exists {
-				// Request exists but was already claimed - this is a true duplicate
-				contextLogger.Info("DUPLICATE_SKIPPED: request exists but already claimed",
+			// Check request status to distinguish the cases
+			status, processedAt, statusErr := repo.GetAwaitedRequestStatus(ctx, requestID)
+			if statusErr != nil {
+				contextLogger.Warn("Failed to get awaited request status",
 					zap.String("request_id", requestID),
+					zap.Error(statusErr))
+			}
+
+			if status != "" {
+				// Request exists - check if it was actually processed
+				if processedAt != nil {
+					// Request was claimed AND successfully processed - true duplicate
+					contextLogger.Info("DUPLICATE_SKIPPED: request already processed",
+						zap.String("request_id", requestID),
+						zap.String("status", status),
+						zap.Time("processed_at", *processedAt),
+						zap.String("my_pod", podName))
+					return nil, nil // Safe to skip
+				}
+
+				// Request was claimed but NOT processed (processed_at is nil)
+				// This means a previous attempt failed after claiming
+				// We should allow re-processing by resetting to 'waiting'
+				contextLogger.Warn("CLAIM_RECOVERY: request was claimed but not processed, resetting for retry",
+					zap.String("request_id", requestID),
+					zap.String("current_status", status),
 					zap.String("my_pod", podName))
-				return nil, nil // Not an error, just skip
+
+				// Reset the request to 'waiting' so it can be re-claimed
+				resetErr := repo.ResetAwaitedRequestForRetry(ctx, requestID)
+				if resetErr != nil {
+					contextLogger.Error("Failed to reset awaited request for retry",
+						zap.String("request_id", requestID),
+						zap.Error(resetErr))
+					// Continue to next retry attempt anyway
+				}
+				// Loop will retry the claim
+				continue
 			}
 
 			// Request doesn't exist yet - wait for it to be inserted (race condition)
@@ -1825,11 +1815,8 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	stepName := awaitedReq.StepName
 	step, stepExists := state.WorkflowPlan.Steps[stepName]
 
-	// 2. Mark awaited request complete in DB (do this early, before any state saves)
+	// 2. Create repo (but DON'T mark complete yet - wait for successful state save)
 	repo := NewStateRepository(s.db, s.logger)
-	if err := repo.MarkAwaitedRequestComplete(ctx, requestID); err != nil {
-		s.logger.Warn("Failed to mark awaited request complete", zap.Error(err))
-	}
 
 	// 3. Save response data with retry loop (with exponential backoff)
 	maxRetries := 7
@@ -1861,7 +1848,13 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		// Save state
 		err = repo.UpdateState(ctx, freshState)
 		if err == nil {
-			// Success
+			// SUCCESS - NOW mark the awaited request as complete
+			// This is the key fix: only mark complete AFTER state is saved
+			if markErr := repo.MarkAwaitedRequestComplete(ctx, requestID); markErr != nil {
+				s.logger.Warn("Failed to mark awaited request complete", zap.Error(markErr))
+				// Don't fail the whole operation - state was saved successfully
+			}
+
 			if attempt > 1 {
 				s.logger.Info("Response saved after retry",
 					zap.Int("attempts", attempt))
@@ -2807,6 +2800,30 @@ func (r *StateRepository) MarkAwaitedRequestComplete(ctx context.Context, reques
 	return err
 }
 
+// ResetAwaitedRequestForRetry resets a claimed-but-not-processed request back to waiting
+// This allows recovery when a pod claims a request but fails before processing it
+func (r *StateRepository) ResetAwaitedRequestForRetry(ctx context.Context, requestID string) error {
+	query := `
+		UPDATE awaited_requests
+		SET status = 'waiting',
+			processing_started_at = NULL,
+			processing_pod = NULL
+		WHERE request_id = $1
+		  AND processed_at IS NULL
+	`
+	result, err := r.db.ExecContext(ctx, query, requestID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	r.logger.Info("Reset awaited request for retry",
+		zap.String("request_id", requestID),
+		zap.Int64("rows_affected", rowsAffected))
+
+	return nil
+}
+
 // AwaitedRequestExists checks if an awaited request exists (regardless of status)
 // Used to distinguish "not inserted yet" from "already claimed"
 func (r *StateRepository) AwaitedRequestExists(ctx context.Context, requestID string) (bool, error) {
@@ -2818,6 +2835,28 @@ func (r *StateRepository) AwaitedRequestExists(ctx context.Context, requestID st
 		return false, err
 	}
 	return exists, nil
+}
+
+// GetAwaitedRequestStatus returns the status and processed_at for a request
+// Used to determine if a "claimed" request was actually processed successfully
+func (r *StateRepository) GetAwaitedRequestStatus(ctx context.Context, requestID string) (status string, processedAt *time.Time, err error) {
+	query := `SELECT status, processed_at FROM awaited_requests WHERE request_id = $1`
+
+	var statusVal string
+	var processedAtVal sql.NullTime
+
+	err = r.db.QueryRowContext(ctx, query, requestID).Scan(&statusVal, &processedAtVal)
+	if err == sql.ErrNoRows {
+		return "", nil, nil // Not found
+	}
+	if err != nil {
+		return "", nil, err
+	}
+
+	if processedAtVal.Valid {
+		return statusVal, &processedAtVal.Time, nil
+	}
+	return statusVal, nil, nil
 }
 
 // resolveIterationNextStep determines the correct next_step for a loop substep
