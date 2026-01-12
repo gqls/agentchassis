@@ -2792,7 +2792,7 @@ func IsOptimisticLockError(err error) bool {
 func (r *StateRepository) MarkAwaitedRequestComplete(ctx context.Context, requestID string) error {
 	query := `
         UPDATE awaited_requests
-        SET status = 'complete',
+        SET status = 'processed',
             processed_at = NOW()
         WHERE request_id = $1
     `
