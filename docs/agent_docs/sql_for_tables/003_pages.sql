@@ -189,3 +189,11 @@ COMMIT;
 
 -- Verify final structure
 \d pages
+
+---
+
+   -- Assign default sections to pages with empty sections
+UPDATE pages
+SET sections = '["hero", "generic-text-block", "call_to_action"]'::jsonb
+WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
+  AND (sections = '[]'::jsonb OR sections IS NULL);

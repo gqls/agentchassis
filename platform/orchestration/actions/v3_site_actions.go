@@ -1116,8 +1116,44 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 	params.Logger.Info("CompilePageSectionsAction: Extracted sections",
 		zap.Int("count", len(sections)))
 
+	// Handle empty sections gracefully ===
 	if len(sections) == 0 {
-		return nil, fmt.Errorf("no sections found to compile")
+		params.Logger.Warn("CompilePageSectionsAction: No sections to compile, returning placeholder")
+
+		// Get page info for context
+		pageName := "page"
+		pageTitle := ""
+		if pageFrom, ok := config["page_from"].(string); ok && pageFrom != "" {
+			if pageData := datahelpers.ExtractNestedField(params.CollectedData, pageFrom); pageData != nil {
+				if pm, ok := pageData.(map[string]interface{}); ok {
+					if name, ok := pm["name"].(string); ok && name != "" {
+						pageName = name
+					}
+					if title, ok := pm["title"].(string); ok && title != "" {
+						pageTitle = title
+					}
+				}
+			}
+		}
+
+		// Build a minimal placeholder page
+		placeholderHTML := fmt.Sprintf(`<main class="page-content page-%s">
+  <section class="placeholder-section">
+    <div class="container">
+      <h1>%s</h1>
+      <p>Content coming soon.</p>
+    </div>
+  </section>
+</main>`, pageName, pageTitle)
+
+		return map[string]interface{}{
+			"page_body":     placeholderHTML,
+			"page_name":     pageName,
+			"page_title":    pageTitle,
+			"section_count": 0,
+			"skipped":       true,
+			"reason":        "no sections defined for page",
+		}, nil
 	}
 
 	// Build page body
@@ -1133,49 +1169,26 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 				}
 			}
 		}
-	}
-	if pn, ok := config["page_name"].(string); ok && pn != "" {
+	} else if pn, ok := config["page_name"].(string); ok && pn != "" {
 		pageName = pn
 	}
 
-	// Build full HTML page
-	pageHTML := buildPageHTML(pageName, pageBody)
-
-	// Optionally inject header/footer from component library
-	injectHeader, _ := config["inject_header"].(bool)
-	injectFooter, _ := config["inject_footer"].(bool)
-
-	if params.DB != nil && (injectHeader || injectFooter) {
-		// Get site_id for component lookup
-		siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
-		siteUUID := uuid.Nil
-		if siteIDStr != "" {
-			siteUUID, _ = uuid.Parse(siteIDStr)
-		}
-
-		renderCtx := &RenderContext{}
-		if rc := datahelpers.ExtractNestedField(params.CollectedData, "render_context"); rc != nil {
-			if m, ok := rc.(map[string]interface{}); ok {
-				mergeIntoRenderContext(renderCtx, m)
-			}
-		}
-
-		if injectHeader {
-			pageHTML = InjectHeader(ctx, params.DB, pageHTML, siteUUID, renderCtx, params.Logger)
-		}
-		if injectFooter {
-			pageHTML = InjectFooter(ctx, params.DB, pageHTML, siteUUID, renderCtx, params.Logger)
-		}
+	// Build full HTML if requested
+	outputFormat := "body_only"
+	if of, ok := config["output_format"].(string); ok {
+		outputFormat = of
 	}
 
-	params.Logger.Info("CompilePageSectionsAction: Page compiled",
-		zap.String("page_name", pageName),
-		zap.Int("section_count", len(sections)),
-		zap.Int("html_length", len(pageHTML)),
-	)
+	var outputHTML string
+	if outputFormat == "full_page" {
+		outputHTML = buildPageHTML(pageName, pageBody)
+	} else {
+		outputHTML = pageBody
+	}
 
 	return map[string]interface{}{
-		"page_html":     pageHTML,
+		"page_html":     outputHTML,
+		"page_body":     pageBody,
 		"page_name":     pageName,
 		"section_count": len(sections),
 	}, nil

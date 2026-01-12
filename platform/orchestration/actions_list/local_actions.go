@@ -52,6 +52,7 @@ var LocalActions = map[string]bool{
 	// "assemble_full_page":        true,
 	"assemble_page":           true,
 	"assemble_multipage_site": true,
+	"load_component_library":  true,
 	// "assemble_html_parts":       true,
 	"fetch_agent_questionnaire": true,
 	// "wrap_multipage":            true,
