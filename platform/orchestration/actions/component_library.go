@@ -498,6 +498,7 @@ func RenderTemplate(template string, ctx *RenderContext, logger *zap.Logger) str
 }
 
 // contextToMap converts RenderContext to a map for template substitution
+// Includes field aliasing to handle common naming variations
 func contextToMap(ctx *RenderContext) map[string]string {
 	if ctx.Year == "" {
 		ctx.Year = fmt.Sprintf("%d", time.Now().Year())
@@ -552,6 +553,54 @@ func contextToMap(ctx *RenderContext) map[string]string {
 			continue
 		}
 		result[key] = datahelpers.InterfaceToString(value)
+	}
+
+	// =========================================================================
+	// FIELD ALIASING - Map common variations to expected template names
+	// =========================================================================
+	aliases := map[string][]string{
+		// CTA variations
+		"primary_cta":       {"cta_text", "cta", "button_text", "action_text"},
+		"primary_cta_url":   {"cta_url", "cta_link", "button_url", "action_url"},
+		"secondary_cta":     {"secondary_button", "alt_cta", "secondary_text"},
+		"secondary_cta_url": {"secondary_url", "alt_cta_url", "secondary_link"},
+
+		// Content variations
+		"subheadline": {"subtitle", "sub_headline", "lead"},
+		"headline":    {"main_title", "header"},
+		"body":        {"content", "text", "paragraph"},
+		"heading":     {"section_title", "section_heading"},
+	}
+
+	// Apply aliases - if target field is empty, try source fields
+	for targetField, sourceFields := range aliases {
+		// Skip if target already has a value
+		if result[targetField] != "" {
+			continue
+		}
+		// Try each source field
+		for _, sourceField := range sourceFields {
+			if val, exists := result[sourceField]; exists && val != "" {
+				result[targetField] = val
+				break
+			}
+		}
+	}
+
+	// =========================================================================
+	// DEFAULT VALUES for common template fields to prevent raw {{.field}}
+	// =========================================================================
+	defaults := map[string]string{
+		"primary_cta":       "Get Started",
+		"primary_cta_url":   "/contact.html",
+		"secondary_cta":     "Learn More",
+		"secondary_cta_url": "/about.html",
+	}
+
+	for field, defaultVal := range defaults {
+		if result[field] == "" {
+			result[field] = defaultVal
+		}
 	}
 
 	return result

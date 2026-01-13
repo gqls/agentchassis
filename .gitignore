@@ -199,3 +199,16 @@ deployments/terraform/**/terraform.tfstate.d/
 /build/bin/
 /build/dist/
 /build/output/
+/logs-agent-chassis.json
+/logs-briefing-agent.json
+/logs-content-reviewer.json
+/logs-deployer-agent.json
+/logs-git-adapter.json
+/logs-image-generator.json
+/logs-image-generator-adapter.json
+/logs-page-content-writer.json
+/logs-pageflow-builder.json
+/logs-research-agent.json
+/logs-site-classifier.json
+/logs-site-planner.json
+/logs-web-search-adapter.json

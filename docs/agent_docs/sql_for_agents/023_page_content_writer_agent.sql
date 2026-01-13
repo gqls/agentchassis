@@ -490,3 +490,58 @@ SET default_config = jsonb_set(
         '"generated_content.result"'
                      )
 WHERE type = 'page-content-writer';
+
+---
+
+-- path changes render_from_template
+
+-- ============================================================================
+-- WORKFLOW FIX 1: Add content_from to render_from_template
+-- ============================================================================
+-- This ensures non-LLM templates get brand/site data from render_context
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,substeps,render_from_template,config}',
+        '{
+            "output_html": true,
+            "context_from": "render_context",
+            "content_from": "render_context",
+            "component_from": "current_section"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-content-writer';
+
+-- ============================================================================
+-- WORKFLOW FIX 2: Update LLM prompt to use correct field names
+-- ============================================================================
+-- Templates expect: headline, subheadline, primary_cta, primary_cta_url
+-- Old prompt example used: headline, body, cta_text
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,substeps,generate_content,config,prompt_template}',
+        '"Write content for the {{.current_section.function}} section of {{.current_page.title}}.\n\n## Company Context\nCompany: {{.render_context.company_name}}\nIndustry: {{.render_context.industry}}\nTone: {{.render_context.tone}}\nTarget Audience: {{.render_context.target_audience}}\nServices: {{.reviewed_brief.services}}\nTagline: {{.render_context.tagline}}\n\n## Section Requirements\nComponent: {{.current_section.name}}\nFunction: {{.current_section.function}}\nPurpose: {{.current_section.description}}\n\n## Data Schema Required\n{{.current_section.input_schema}}\n\n{{if .research_result}}\n## Research Findings\n{{.research_result.response.summary}}\n\nSources:\n{{range $index, $src := .research_result.response.sources}}\n- [{{$index}}] {{$src.title}} ({{$src.domain}})\n{{end}}\n{{end}}\n\n## Task\nWrite compelling, specific content for this section.\n\nReturn JSON with these EXACT field names (use the ones that apply to this component type):\n\n### For Hero/Banner sections:\n```json\n{\n  \"headline\": \"Your Compelling Main Headline\",\n  \"subheadline\": \"Supporting text that expands on the headline\",\n  \"primary_cta\": \"Get Started\",\n  \"primary_cta_url\": \"/contact.html\",\n  \"secondary_cta\": \"Learn More\",\n  \"secondary_cta_url\": \"/about.html\"\n}\n```\n\n### For Feature/Services sections:\n```json\n{\n  \"headline\": \"Section Headline\",\n  \"subheadline\": \"Brief introduction\",\n  \"features\": [\n    {\"name\": \"Feature Name\", \"description\": \"Feature description\", \"icon\": \"icon-name\"},\n    {\"name\": \"Feature 2\", \"description\": \"Description 2\", \"icon\": \"icon-name\"}\n  ]\n}\n```\n\n### For CTA/Call-to-Action sections:\n```json\n{\n  \"headline\": \"Ready to Get Started?\",\n  \"subheadline\": \"Contact us today\",\n  \"primary_cta\": \"Contact Us\",\n  \"primary_cta_url\": \"/contact.html\"\n}\n```\n\n### For Text/Content sections:\n```json\n{\n  \"heading\": \"Section Heading\",\n  \"content\": \"Paragraph content here...\"\n}\n```\n\nRules:\n- Use the EXACT field names shown above (headline, subheadline, primary_cta, primary_cta_url, etc.)\n- No placeholder text like [Your Company] or Lorem ipsum\n- Be specific to this company and industry\n- Professional but engaging tone matching the brief\n- Include source citations [0], [1] if research was provided"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-content-writer';
+
+-- ============================================================================
+-- VERIFY ALL CHANGES
+-- ============================================================================
+
+-- Check render_from_template has content_from
+SELECT type,
+       default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'substeps'->'render_from_template'->'config' as render_config
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+
+-- Check prompt has correct field examples
+SELECT type,
+       substring(default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'substeps'->'generate_content'->'config'->>'prompt_template' from 1 for 300) as prompt_preview
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+

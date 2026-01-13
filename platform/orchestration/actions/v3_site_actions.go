@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -2155,22 +2156,7 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			}
 
 			// Auto-detect if component needs LLM content generation
-			// Components need LLM if they have:
-			// 1. Go-style template placeholders ({{.something}}) AND input_schema, OR
-			// 2. Template with content placeholders but no static render_context fields
-			needsLLM := false
-			if htmlTemplate.Valid && htmlTemplate.String != "" {
-				template := htmlTemplate.String
-				// Check for Go-style placeholders like {{.headline}}, {{.features}}
-				// These need LLM-generated content, unlike Mustache-style {{logo_text}}
-				hasGoPlaceholders := strings.Contains(template, "{{.") ||
-					strings.Contains(template, "{{ .") ||
-					strings.Contains(template, "{{range")
-				// If template has Go placeholders AND input_schema, it needs LLM
-				if hasGoPlaceholders && inputSchema.Valid && inputSchema.String != "" {
-					needsLLM = true
-				}
-			}
+			needsLLM := detectNeedsLLMContent(htmlTemplate.String, inputSchema.String)
 			comp["needs_llm"] = needsLLM
 
 			components = append(components, comp)
@@ -2268,16 +2254,7 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 						}
 
 						// Auto-detect if component needs LLM content generation
-						needsLLM := false
-						if htmlTemplate.Valid && htmlTemplate.String != "" {
-							template := htmlTemplate.String
-							hasGoPlaceholders := strings.Contains(template, "{{.") ||
-								strings.Contains(template, "{{ .") ||
-								strings.Contains(template, "{{range")
-							if hasGoPlaceholders && inputSchema.Valid && inputSchema.String != "" {
-								needsLLM = true
-							}
-						}
+						needsLLM := detectNeedsLLMContent(htmlTemplate.String, inputSchema.String)
 						comp["needs_llm"] = needsLLM
 
 						components = append(components, comp)
@@ -2709,6 +2686,67 @@ func getSearchQueryFromSectionContext(params ActionParams) string {
 }
 
 // containsString checks if a string slice contains a specific string
+// detectNeedsLLMContent determines if a component template needs LLM-generated content
+// Returns true if template has content placeholders that need dynamic content
+// Returns false if template only has structural placeholders (domain, logo_text, etc.)
+func detectNeedsLLMContent(htmlTemplate, inputSchema string) bool {
+	// No template = needs LLM to generate something
+	if htmlTemplate == "" {
+		return true
+	}
+
+	// If has input_schema, it defines what content is needed
+	if inputSchema != "" && inputSchema != "{}" && inputSchema != "null" {
+		return true
+	}
+
+	// Content placeholders that indicate LLM content is needed
+	contentPlaceholders := []string{
+		"{{.headline}}", "{{.subheadline}}", "{{.body}}", "{{.content}}",
+		"{{.description}}", "{{.text}}", "{{.paragraph}}",
+		"{{.primary_cta}}", "{{.secondary_cta}}", "{{.cta_text}}",
+		"{{.features}}", "{{.services}}", "{{.benefits}}", "{{.items}}",
+		"{{.testimonial}}", "{{.quote}}", "{{.author}}",
+		"{{.heading}}", "{{.subtitle}}",
+		"{{ .headline}}", "{{ .body}}", "{{ .content}}",
+		"{{range .features}}", "{{range .services}}", "{{range .items}}",
+		"{{range .benefits}}", "{{range .testimonials}}",
+	}
+
+	// Check for content placeholders
+	for _, placeholder := range contentPlaceholders {
+		if strings.Contains(htmlTemplate, placeholder) {
+			return true
+		}
+	}
+
+	// Structural fields that DON'T require LLM (filled from render_context)
+	structuralFields := map[string]bool{
+		"domain": true, "logo_text": true, "company_name": true,
+		"tagline": true, "current_page": true, "year": true,
+		"primary_color": true, "secondary_color": true, "accent_color": true,
+		"background_color": true, "text_color": true,
+		"email": true, "phone": true, "address": true,
+		"nav_items_html": true, "theme_css": true, "title": true,
+		"cta_url": true, "industry": true, "tone": true,
+	}
+
+	// Check for any {{.X}} where X is not a known structural field
+	re := regexp.MustCompile(`\{\{\s*\.(\w+)\s*\}\}`)
+	matches := re.FindAllStringSubmatch(htmlTemplate, -1)
+	for _, match := range matches {
+		if len(match) > 1 {
+			fieldName := match[1]
+			if !structuralFields[fieldName] {
+				return true
+			}
+		}
+	}
+
+	// Only structural placeholders - doesn't need LLM
+	return false
+}
+
 func containsString(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
