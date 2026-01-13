@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"runtime"
 	"strings"
@@ -45,6 +46,24 @@ var (
 	ErrWaitingForResponse = errors.New("orchestration is waiting for responses")
 	ErrVersionMismatch    = errors.New("optimistic lock failure: version mismatch")
 )
+
+// backoffWithJitter calculates exponential backoff with random jitter.
+// Jitter prevents thundering herd problems when multiple processes retry simultaneously.
+// Returns a duration between 50% and 100% of the calculated exponential delay.
+func backoffWithJitter(baseDelay time.Duration, attempt int) time.Duration {
+	// Calculate exponential delay: baseDelay * 2^(attempt-1)
+	expDelay := baseDelay * time.Duration(1<<(attempt-1))
+
+	// Add jitter: random value between 50% and 100% of expDelay
+	// This spreads out retries so they don't all happen at the same instant
+	jitterRange := int64(expDelay / 2)
+	if jitterRange <= 0 {
+		return expDelay
+	}
+
+	jitter := time.Duration(rand.Int63n(jitterRange))
+	return expDelay/2 + jitter
+}
 
 // SagaCoordinator manages the execution of complex workflows
 type SagaCoordinator struct {
@@ -276,7 +295,6 @@ func processResponseClaimWithRetry(ctx context.Context, repo *StateRepository, r
 	// Attempt to claim with retry for race condition
 	// (response may arrive before awaited_request is inserted)
 	maxRetries := 5
-	retryDelay := 50 * time.Millisecond
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		awaitedReq, err := repo.ClaimAwaitedRequest(ctx, requestID, podName)
@@ -344,13 +362,13 @@ func processResponseClaimWithRetry(ctx context.Context, repo *StateRepository, r
 			}
 
 			// Request doesn't exist yet - wait for it to be inserted (race condition)
+			delay := backoffWithJitter(50*time.Millisecond, attempt+1)
 			contextLogger.Debug("Awaited request not found yet, retrying",
 				zap.String("request_id", requestID),
 				zap.Int("attempt", attempt+1),
 				zap.Int("max_retries", maxRetries),
-				zap.Duration("retry_delay", retryDelay))
-			time.Sleep(retryDelay)
-			retryDelay *= 2 // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
+				zap.Duration("retry_delay_with_jitter", delay))
+			time.Sleep(delay)
 		}
 	}
 
@@ -1879,12 +1897,12 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			return fmt.Errorf("failed to save response after %d attempts (optimistic lock): %w", attempt, err)
 		}
 
-		// Exponential backoff: 25ms, 50ms, 100ms, 200ms, 400ms, 800ms, 1600ms
-		delay := baseDelay * time.Duration(1<<(attempt-1))
+		// Exponential backoff with jitter to prevent thundering herd
+		delay := backoffWithJitter(baseDelay, attempt)
 		s.logger.Warn("Optimistic lock failure in response processing, retrying",
 			zap.Int("attempt", attempt),
 			zap.Int("max_attempts", maxRetries),
-			zap.Duration("backoff", delay))
+			zap.Duration("backoff_with_jitter", delay))
 		time.Sleep(delay)
 	}
 
@@ -1917,14 +1935,14 @@ func (s *SagaCoordinator) retryStateUpdate(
 		// Try to save
 		if err := repo.UpdateState(ctx, state); err != nil {
 			if IsOptimisticLockError(err) && attempt < maxOptimisticLockRetries {
+				delay := backoffWithJitter(optimisticLockBaseRetryDelay, attempt)
 				logger.Warn("Optimistic lock failure, retrying state update",
 					zap.String("operation", operationName),
 					zap.String("orchestration_id", orchestrationID),
 					zap.Int("attempt", attempt),
-					zap.Int("max_attempts", maxOptimisticLockRetries))
+					zap.Int("max_attempts", maxOptimisticLockRetries),
+					zap.Duration("backoff_with_jitter", delay))
 
-				// Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
-				delay := optimisticLockBaseRetryDelay * time.Duration(1<<(attempt-1))
 				time.Sleep(delay)
 				continue
 			}

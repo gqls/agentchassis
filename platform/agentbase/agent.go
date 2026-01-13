@@ -18,7 +18,6 @@ import (
 	"github.com/gqls/agentchassis/platform/messaging"
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
-	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/platform/validation"
 	_ "github.com/jackc/pgx/v5/pgxpool"
@@ -72,6 +71,7 @@ type Agent struct {
 	ParentAgentID         string
 	ParentAgentType       string
 	ParentOrchestrationID string
+	replyToRequestID      string // The request ID parent is waiting for (for error propagation)
 
 	// Configuration
 	config        *AgentConfig
@@ -530,7 +530,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 	// FIRST THING: Check for empty message
 	if msg.Value == nil || len(msg.Value) == 0 {
-		a.logger.Info("Ignoring empty message in processMessage",
+		a.logger.Debug("Ignoring empty message in processMessage",
 			zap.String("messageType", messageType),
 			zap.String("topic", msg.Topic))
 		return
@@ -549,57 +549,23 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 	// Check if this is an error message
 	if headers["is_error"] == "true" {
-		// Extract error details from message body for better logging
-		errorDetails := datahelpers.ExtractErrorDetails(msg.Value)
-
-		a.logger.Error("Received error from child orchestration",
-			// Error identification
-			zap.String("error_message", errorDetails.Message),
-			zap.String("error_code", errorDetails.Code),
-			// Source identification
-			zap.String("from_orchestration_id", headers["my_orchestration_id"]),
-			zap.String("from_orchestration_name", headers["my_orchestration_name"]),
-			zap.String("from_agent_type", headers["sender_agent_type"]),
-			zap.String("from_pod", headers["sender_pod_name"]),
-			// Step identification
-			zap.String("failed_step_id", headers["in_response_to_step_id"]),
-			zap.String("failed_step_name", headers["in_response_to_step_name"]),
-			zap.String("failed_action", headers["in_response_to_action"]),
-			// Request context
-			zap.String("in_response_to_request_id", headers["in_response_to_request_id"]),
+		a.logger.Info("Received error message, passing up the chain",
 			zap.String("correlation_id", headers["correlation_id"]),
-			// Current context
-			zap.String("my_orchestration_id", headers["orchestration_id"]),
-			zap.String("my_agent_type", a.AgentType),
-			// Error chain for tracing
-			zap.String("error_chain", headers["error_chain"]),
-		)
+			zap.String("error_from", headers["from_agent_type"]),
+			zap.String("the responses topic for the error should be parents:", headers["responses_topic"]))
 
 		// Pass error up to parent if this is a spawned agent
 		if a.spawned && a.ParentAgentID != "" {
-			// Build error chain for tracing
-			existingChain := headers["error_chain"]
-			if existingChain != "" {
-				headers["error_chain"] = existingChain + " -> " + a.AgentType
-			} else {
-				headers["error_chain"] = a.AgentType
-			}
+			// Add our agent to the error chain
+			headers["error_chain"] = headers["error_chain"] + "," + a.AgentType
 			headers["from_agent_type"] = a.AgentType
 
 			parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
-
-			a.logger.Info("Propagating error to parent",
-				zap.String("parent_topic", parentResponsesTopic),
-				zap.String("error_chain", headers["error_chain"]),
-			)
-
+			// Send to parent's response topic (this is an error)
 			a.producer.Produce(context.Background(), parentResponsesTopic, headers, msg.Key, msg.Value)
-		} else {
-			a.logger.Warn("Error received but no parent to propagate to",
-				zap.Bool("spawned", a.spawned),
-				zap.String("parent_agent_id", a.ParentAgentID),
-			)
+
 		}
+		// Agent can decide to handle error or just log it
 		return
 	}
 
@@ -913,6 +879,61 @@ func (a *Agent) handleProcessingError(execCtx *types.ExecutionContext, err error
 		// Send error response
 		a.sendErrorResponse(execCtx, errorResponse)
 	}
+
+	// IMPORTANT: If this agent has a parent, also notify the parent orchestrator
+	// This ensures the parent knows this child workflow has failed
+	// We check PARENT_RESPONSES_TOPIC env var to determine if we have a parent
+	parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+	if parentResponsesTopic != "" && a.replyToRequestID != "" {
+		a.logger.Info("Propagating error to parent orchestrator",
+			zap.String("parent_topic", parentResponsesTopic),
+			zap.String("parent_orchestration_id", a.ParentOrchestrationID),
+			zap.String("reply_to_request_id", a.replyToRequestID),
+			zap.Error(err))
+
+		// Build error headers to notify parent
+		errorHeaders := map[string]string{
+			"correlation_id":                         execCtx.CorrelationID,
+			"orchestration_id":                       a.ParentOrchestrationID,
+			"message_type":                           "response",
+			"is_complete":                            "false",
+			"is_error":                               "true",
+			"status":                                 "failed",
+			"sender_agent_type":                      a.AgentType,
+			"sender_agent_id":                        a.AgentID,
+			"sender_pod_name":                        a.PodName,
+			"from_agent_type":                        a.AgentType,
+			"error_chain":                            a.AgentType,
+			"in_response_to_request_id":              a.replyToRequestID, // The original request from parent
+			"in_response_to_parent_orchestration_id": a.ParentOrchestrationID,
+		}
+
+		errorBody := map[string]interface{}{
+			"success": false,
+			"error": map[string]interface{}{
+				"code":        "CHILD_PROCESSING_ERROR",
+				"message":     fmt.Sprintf("Child orchestration %s failed: %s", a.AgentType, err.Error()),
+				"recoverable": recoverable,
+				"agent_type":  a.AgentType,
+				"agent_id":    a.AgentID,
+			},
+		}
+		bodyBytes, _ := json.Marshal(errorBody)
+
+		if err := a.producer.Produce(context.Background(), parentResponsesTopic, errorHeaders, []byte(execCtx.CorrelationID), bodyBytes); err != nil {
+			a.logger.Error("Failed to propagate error to parent",
+				zap.Error(err),
+				zap.String("parent_topic", parentResponsesTopic))
+		} else {
+			a.logger.Info("Successfully propagated error to parent orchestrator",
+				zap.String("parent_topic", parentResponsesTopic),
+				zap.String("reply_to_request_id", a.replyToRequestID))
+		}
+	} else if parentResponsesTopic != "" {
+		a.logger.Warn("Cannot propagate error to parent - missing replyToRequestID",
+			zap.String("parent_topic", parentResponsesTopic),
+			zap.String("reply_to_request_id", a.replyToRequestID))
+	}
 }
 
 // sendErrorResponse sends an error response
@@ -1102,6 +1123,18 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 			}
 		}
 	}
+
+	// Store the request ID that parent is waiting for - needed for error propagation
+	if spawnRequest.Headers.RequestID != "" {
+		a.replyToRequestID = spawnRequest.Headers.RequestID
+	}
+	// Store parent orchestration ID if not already set
+	if a.ParentOrchestrationID == "" && spawnRequest.Headers.ParentOrchestrationID != "" {
+		a.ParentOrchestrationID = spawnRequest.Headers.ParentOrchestrationID
+	}
+	a.logger.Info("Stored spawn context for error propagation",
+		zap.String("reply_to_request_id", a.replyToRequestID),
+		zap.String("parent_orchestration_id", a.ParentOrchestrationID))
 
 	response := &types.ResponseMessage{
 		Headers: types.ResponseHeaders{
