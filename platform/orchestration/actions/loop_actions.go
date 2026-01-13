@@ -192,6 +192,14 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	logger.Info("Starting loop completion")
 
+	// DIAGNOSTIC: Log ALL available keys to help debug missing results
+	allKeys := make([]string, 0, len(params.CollectedData))
+	for k := range params.CollectedData {
+		allKeys = append(allKeys, k)
+	}
+	logger.Info("LoopComplete: Available CollectedData keys",
+		zap.Strings("all_keys", allKeys))
+
 	// Get loop metadata
 	loopMetadata, ok := params.CollectedData["loop_metadata"].(map[string]interface{})
 	if !ok {
@@ -222,14 +230,23 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	// IMPROVED: Try multiple patterns to find iteration results
 	keyPatterns := []string{
-		outputFieldBase,  // From config (e.g., "page_html")
-		"section_output", // page-content-writer pattern
-		"page_html",      // Original pattern
-		"rendered_html",  // Alternative pattern
-		"result",         // Generic pattern
+		outputFieldBase,     // From config (e.g., "page_html")
+		"section_output",    // page-content-writer pattern
+		"page_html",         // Original pattern
+		"rendered_html",     // Alternative pattern
+		"result",            // Generic pattern
+		"generated_content", // LLM output pattern
 		loopName + "_iter_%d_render_from_template", // Full step name pattern
 		loopName + "_iter_%d_render_section",       // Full step name pattern for LLM path
+		loopName + "_iter_%d_section_output",       // Alternate naming
+		loopName + "_iter_%d_generated_content",    // LLM content output
 	}
+
+	// DIAGNOSTIC: Log which patterns we're trying
+	logger.Info("LoopComplete: Searching for iteration results",
+		zap.Strings("patterns", keyPatterns),
+		zap.String("loop_name", loopName),
+		zap.Int("iterations", totalIterations))
 
 	// Collect results from known output fields
 	iterationResults := make([]interface{}, 0, totalIterations)
@@ -237,6 +254,20 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 	for i := 0; i < totalIterations; i++ {
 		var stepResult interface{}
 		var foundKey string
+
+		// DIAGNOSTIC: Log all keys that match this iteration
+		matchingKeys := []string{}
+		iterPattern := fmt.Sprintf("%s_iter_%d_", loopName, i)
+		for k := range params.CollectedData {
+			if strings.Contains(k, iterPattern) || strings.HasSuffix(k, fmt.Sprintf("_%d", i)) {
+				matchingKeys = append(matchingKeys, k)
+			}
+		}
+		if len(matchingKeys) > 0 {
+			logger.Info("LoopComplete: Keys matching iteration",
+				zap.Int("iteration", i),
+				zap.Strings("matching_keys", matchingKeys))
+		}
 
 		// Try each pattern
 		for _, pattern := range keyPatterns {
@@ -273,10 +304,29 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 			}
 		}
 
+		// FALLBACK: Try ANY key that matches this iteration and contains HTML
+		if stepResult == nil && len(matchingKeys) > 0 {
+			for _, mk := range matchingKeys {
+				if result, exists := params.CollectedData[mk]; exists {
+					// Check if this result contains HTML
+					html := extractHTMLFromResult(result, logger)
+					if html != "" {
+						stepResult = result
+						foundKey = mk
+						logger.Info("LoopComplete: Found result via fallback key matching",
+							zap.Int("iteration", i),
+							zap.String("key", mk))
+						break
+					}
+				}
+			}
+		}
+
 		if stepResult == nil {
 			logger.Error("Output field missing for iteration",
 				zap.Int("iteration", i),
-				zap.Strings("tried_patterns", keyPatterns))
+				zap.Strings("tried_patterns", keyPatterns),
+				zap.Strings("matching_keys_found", matchingKeys))
 			continue
 		}
 
