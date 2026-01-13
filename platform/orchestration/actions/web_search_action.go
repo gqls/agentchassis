@@ -1,23 +1,5 @@
 // FILE: platform/orchestration/actions/web_search_action.go
 // WebSearchAction sends search queries to the web search adapter
-//
-// ==============================================================================
-// REGISTRATION REQUIRED - Add to TWO places:
-// ==============================================================================
-//
-// 1. LocalActions map (platform/orchestration/actions_list/local_actions.go):
-//    Add after the web scraping entries:
-//
-//        // Web search
-//        "web_search": true,
-//
-// 2. GlobalActionRegistry (registry.go):
-//    Add after the web scraping entries:
-//
-//        // Web search
-//        "web_search": WebSearchAction,
-//
-// ==============================================================================
 
 package actions
 
@@ -93,17 +75,53 @@ func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, err
 	// Generate new request ID
 	newRequestID := uuid.NewString()
 
-	// Get response topic
-	myResponsesTopic := params.ExecutionContext.ResponsesTopic
-	if myResponsesTopic == "" {
-		myResponsesTopic = os.Getenv("RESPONSES_TOPIC")
-	}
-	if myResponsesTopic == "" {
-		myResponsesTopic = fmt.Sprintf("system.agent.%s.responses", params.ExecutionContext.Sender.AgentType)
+	// Get response topic - critical for async response routing
+	// Priority order: ExecutionContext > Environment > Constructed from agent type
+	myResponsesTopic := ""
+
+	// 1. Try execution context
+	if params.ExecutionContext.ResponsesTopic != "" {
+		myResponsesTopic = params.ExecutionContext.ResponsesTopic
+		params.Logger.Debug("Using ResponsesTopic from ExecutionContext",
+			zap.String("topic", myResponsesTopic))
 	}
 
-	params.Logger.Info("Using responses topic for web search",
-		zap.String("responses_topic", myResponsesTopic))
+	// 2. Try environment variable
+	if myResponsesTopic == "" {
+		myResponsesTopic = os.Getenv("RESPONSES_TOPIC")
+		if myResponsesTopic != "" {
+			params.Logger.Debug("Using RESPONSES_TOPIC from environment",
+				zap.String("topic", myResponsesTopic))
+		}
+	}
+
+	// 3. Construct from agent type
+	if myResponsesTopic == "" {
+		agentType := params.ExecutionContext.Sender.AgentType
+		if agentType == "" {
+			// Fallback: try to get from orchestration owner
+			agentType = os.Getenv("AGENT_TYPE")
+		}
+		if agentType != "" {
+			myResponsesTopic = fmt.Sprintf("system.agent.%s.responses", agentType)
+			params.Logger.Debug("Constructed responses topic from agent type",
+				zap.String("agent_type", agentType),
+				zap.String("topic", myResponsesTopic))
+		}
+	}
+
+	// 4. Last resort: use orchestration-specific topic
+	if myResponsesTopic == "" {
+		myResponsesTopic = fmt.Sprintf("system.orchestration.%s.responses", params.ExecutionContext.OrchestrationID)
+		params.Logger.Warn("Could not determine standard responses topic, using orchestration-specific topic",
+			zap.String("topic", myResponsesTopic),
+			zap.String("orchestration_id", params.ExecutionContext.OrchestrationID))
+	}
+
+	params.Logger.Info("WebSearchAction: Using responses topic",
+		zap.String("responses_topic", myResponsesTopic),
+		zap.String("agent_type", params.ExecutionContext.Sender.AgentType),
+		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID))
 
 	// Build adapter request payload
 	// The adapter expects: { "action": "search", "data": { "query": "...", ... } }
@@ -119,10 +137,10 @@ func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, err
 			"request_id":              newRequestID,
 			"message_type":            "request",
 
-			// Sender information
-			"sender_agent_type":    params.ExecutionContext.Sender.AgentType,
+			// Sender information - ensure agent type is populated
+			"sender_agent_type":    defaultIfEmpty(params.ExecutionContext.Sender.AgentType, os.Getenv("AGENT_TYPE")),
 			"sender_agent_id":      params.ExecutionContext.OrchestrationID,
-			"sender_pod_name":      params.ExecutionContext.Sender.PodName,
+			"sender_pod_name":      defaultIfEmpty(params.ExecutionContext.Sender.PodName, os.Getenv("POD_NAME")),
 			"sender_agent_version": params.ExecutionContext.Sender.AgentVersion,
 			"sender_role":          params.ExecutionContext.Sender.Role,
 
@@ -409,4 +427,12 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// defaultIfEmpty returns the fallback value if the primary is empty
+func defaultIfEmpty(primary, fallback string) string {
+	if primary != "" {
+		return primary
+	}
+	return fallback
 }

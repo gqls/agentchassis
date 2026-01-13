@@ -1290,9 +1290,10 @@ func buildPageHTML(pageName, body string) string {
 
 // InsertResearchResultAction stores research findings in the database
 // Config:
-//   - site_id_field: path to site_id
-//   - result_type: type of research (competitor, industry, trend, etc.)
-//   - data_field: path to research data
+//   - table: target table name (default: "research_results")
+//   - fields: map of column_name -> data_path for dynamic field mapping
+//   - site_id_field: path to site_id (fallback if not in fields)
+//   - result_type: type of research (fallback if not in fields)
 func InsertResearchResultAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("InsertResearchResultAction: Starting")
 
@@ -1307,6 +1308,111 @@ func InsertResearchResultAction(ctx context.Context, params ActionParams) (inter
 		return map[string]interface{}{"inserted": false, "reason": "no database"}, nil
 	}
 
+	// Get table name (default to research_results)
+	tableName := "research_results"
+	if tn, ok := config["table"].(string); ok && tn != "" {
+		tableName = tn
+	}
+
+	// Get field mappings from config
+	fieldMappings, hasFields := config["fields"].(map[string]interface{})
+
+	// Generate new ID
+	resultID := uuid.New()
+
+	// Build dynamic INSERT based on field mappings
+	if hasFields && len(fieldMappings) > 0 {
+		// Dynamic field-based insert
+		columns := []string{"id"}
+		placeholders := []string{"$1"}
+		values := []interface{}{resultID}
+		paramIdx := 2
+
+		for column, dataPath := range fieldMappings {
+			dataPathStr, ok := dataPath.(string)
+			if !ok {
+				continue
+			}
+
+			// Extract the value from collected data
+			value := datahelpers.ExtractNestedField(params.CollectedData, dataPathStr)
+
+			// Special handling for site_id (needs UUID conversion)
+			if column == "site_id" {
+				if siteIDStr, ok := value.(string); ok && siteIDStr != "" {
+					if siteUUID, err := uuid.Parse(siteIDStr); err == nil {
+						value = siteUUID
+					} else {
+						value = nil
+					}
+				} else {
+					value = nil
+				}
+			}
+
+			// Skip nil values for optional fields, but include empty strings
+			if value == nil {
+				continue
+			}
+
+			// For complex types, marshal to JSON
+			switch v := value.(type) {
+			case map[string]interface{}, []interface{}:
+				jsonBytes, err := json.Marshal(v)
+				if err != nil {
+					params.Logger.Warn("InsertResearchResultAction: Failed to marshal field",
+						zap.String("column", column),
+						zap.Error(err))
+					continue
+				}
+				columns = append(columns, column)
+				placeholders = append(placeholders, fmt.Sprintf("$%d::jsonb", paramIdx))
+				values = append(values, string(jsonBytes))
+			default:
+				columns = append(columns, column)
+				placeholders = append(placeholders, fmt.Sprintf("$%d", paramIdx))
+				values = append(values, value)
+			}
+			paramIdx++
+		}
+
+		// Add created_at
+		columns = append(columns, "created_at")
+		placeholders = append(placeholders, "NOW()")
+
+		query := fmt.Sprintf(
+			"INSERT INTO %s (%s) VALUES (%s)",
+			tableName,
+			strings.Join(columns, ", "),
+			strings.Join(placeholders, ", "),
+		)
+
+		params.Logger.Info("InsertResearchResultAction: Executing dynamic insert",
+			zap.String("table", tableName),
+			zap.Strings("columns", columns),
+			zap.Int("value_count", len(values)))
+
+		if err := execDB(ctx, params.DB, query, values...); err != nil {
+			params.Logger.Warn("InsertResearchResultAction: Insert failed",
+				zap.String("query", query),
+				zap.Error(err))
+			return map[string]interface{}{
+				"inserted":    false,
+				"result_type": "general",
+				"error":       err.Error(),
+			}, nil
+		}
+
+		return map[string]interface{}{
+			"inserted":  true,
+			"id":        resultID.String(),
+			"result_id": resultID.String(),
+			"table":     tableName,
+			"columns":   columns,
+		}, nil
+	}
+
+	// Fallback: Legacy mode with hardcoded columns
 	// Get site_id
 	siteIDField := "site_record.site_id"
 	if f, ok := config["site_id_field"].(string); ok && f != "" {
@@ -1324,39 +1430,56 @@ func InsertResearchResultAction(ctx context.Context, params ActionParams) (inter
 		resultType = rt
 	}
 
-	// Get research data
+	// Get research data - try multiple field paths
 	dataField := "research_result"
 	if df, ok := config["data_field"].(string); ok && df != "" {
 		dataField = df
 	}
 	researchData := datahelpers.ExtractNestedField(params.CollectedData, dataField)
 
+	// If no data found, try to build from synthesis
+	if researchData == nil {
+		researchData = map[string]interface{}{
+			"summary":  datahelpers.ExtractNestedField(params.CollectedData, "synthesis.summary"),
+			"findings": datahelpers.ExtractNestedField(params.CollectedData, "synthesis"),
+			"query":    datahelpers.ExtractNestedField(params.CollectedData, "search_query.result"),
+			"topic":    datahelpers.ExtractNestedField(params.CollectedData, "extracted.topic"),
+		}
+	}
+
 	dataJSON, err := json.Marshal(researchData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal research data: %w", err)
 	}
 
-	// Insert into research_results table
-	resultID := uuid.New()
-	query := `
-		INSERT INTO research_results (id, site_id, result_type, data, created_at)
-		VALUES ($1, $2, $3, $4::jsonb, NOW())
-	`
-
+	// Try insert with 'findings' column first (new schema), fall back to 'data' (old schema)
 	var siteIDArg interface{} = nil
 	if siteID != uuid.Nil {
 		siteIDArg = siteID
 	}
 
+	// Try new schema first
+	query := `
+		INSERT INTO research_results (id, site_id, result_type, findings, created_at)
+		VALUES ($1, $2, $3, $4::jsonb, NOW())
+	`
+
 	if err := execDB(ctx, params.DB, query, resultID, siteIDArg, resultType, string(dataJSON)); err != nil {
-		// Table might not exist - log and continue
-		params.Logger.Warn("InsertResearchResultAction: Insert failed (table may not exist)",
-			zap.Error(err))
-		return map[string]interface{}{
-			"inserted":    false,
-			"result_type": resultType,
-			"error":       err.Error(),
-		}, nil
+		// Try with 'data' column (old schema)
+		query = `
+			INSERT INTO research_results (id, site_id, result_type, data, created_at)
+			VALUES ($1, $2, $3, $4::jsonb, NOW())
+		`
+		if err2 := execDB(ctx, params.DB, query, resultID, siteIDArg, resultType, string(dataJSON)); err2 != nil {
+			params.Logger.Warn("InsertResearchResultAction: Insert failed with both schemas",
+				zap.Error(err),
+				zap.Error(err2))
+			return map[string]interface{}{
+				"inserted":    false,
+				"result_type": resultType,
+				"error":       err2.Error(),
+			}, nil
+		}
 	}
 
 	return map[string]interface{}{
