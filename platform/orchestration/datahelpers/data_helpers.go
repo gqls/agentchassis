@@ -1678,3 +1678,69 @@ func InterfaceToString(value interface{}) string {
 		return fmt.Sprintf("%v", v)
 	}
 }
+
+type ErrorDetails struct {
+	Message string
+	Code    string
+	Step    string
+	Action  string
+}
+
+// extractErrorDetails parses error information from message body
+func ExtractErrorDetails(body []byte) ErrorDetails {
+	details := ErrorDetails{
+		Message: "(unable to parse error)",
+		Code:    "",
+	}
+
+	if len(body) == 0 {
+		details.Message = "(empty error body)"
+		return details
+	}
+
+	// Try to parse as standard response format
+	var response struct {
+		Body struct {
+			Error  string `json:"error"`
+			Status string `json:"status"`
+		} `json:"body"`
+		Error struct {
+			Message string `json:"message"`
+			Code    string `json:"code"`
+		} `json:"error"`
+	}
+
+	if err := json.Unmarshal(body, &response); err == nil {
+		// Check nested body.error first (common format)
+		if response.Body.Error != "" {
+			details.Message = response.Body.Error
+		}
+		// Check top-level error object
+		if response.Error.Message != "" {
+			details.Message = response.Error.Message
+			details.Code = response.Error.Code
+		}
+	}
+
+	// If still no message, try simpler format
+	if details.Message == "(unable to parse error)" {
+		var simple map[string]interface{}
+		if err := json.Unmarshal(body, &simple); err == nil {
+			if errMsg, ok := simple["error"].(string); ok {
+				details.Message = errMsg
+			}
+			if errMap, ok := simple["error"].(map[string]interface{}); ok {
+				if msg, ok := errMap["message"].(string); ok {
+					details.Message = msg
+				}
+			}
+		}
+	}
+
+	// Truncate very long error messages
+	if len(details.Message) > 500 {
+		details.Message = details.Message[:500] + "..."
+	}
+
+	return details
+}

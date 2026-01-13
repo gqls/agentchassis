@@ -18,6 +18,7 @@ import (
 	"github.com/gqls/agentchassis/platform/messaging"
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/platform/validation"
 	_ "github.com/jackc/pgx/v5/pgxpool"
@@ -546,40 +547,59 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		zap.Any("headers", headers),
 	)
 
-	// Check for approval responses *before* sending to the generic processor
-	/*	if messageType == "response" && (headers["action"] == "approved" || headers["action"] == "rejected") {
-		a.logger.Info("Received approval response, routing to approval handler",
-			zap.String("action", headers["action"]),
-			zap.String("orchestration_id", headers["orchestration_id"]),
-			zap.String("correlation_id", headers["correlation_id"]),
-			zap.String("approval_token", headers["approval_token"]),
-		)
-
-		// You will need to implement this function, likely by copying/adapting
-		// handleApprovalResponse from internal/agents/orchestration/agent.go
-		// It needs access to the stateManager and orchestrator logic.
-		return a.handleApprovalResponse(ctx, msg)
-	}*/
-
 	// Check if this is an error message
 	if headers["is_error"] == "true" {
-		a.logger.Info("Received error message, passing up the chain",
+		// Extract error details from message body for better logging
+		errorDetails := datahelpers.ExtractErrorDetails(msg.Value)
+
+		a.logger.Error("Received error from child orchestration",
+			// Error identification
+			zap.String("error_message", errorDetails.Message),
+			zap.String("error_code", errorDetails.Code),
+			// Source identification
+			zap.String("from_orchestration_id", headers["my_orchestration_id"]),
+			zap.String("from_orchestration_name", headers["my_orchestration_name"]),
+			zap.String("from_agent_type", headers["sender_agent_type"]),
+			zap.String("from_pod", headers["sender_pod_name"]),
+			// Step identification
+			zap.String("failed_step_id", headers["in_response_to_step_id"]),
+			zap.String("failed_step_name", headers["in_response_to_step_name"]),
+			zap.String("failed_action", headers["in_response_to_action"]),
+			// Request context
+			zap.String("in_response_to_request_id", headers["in_response_to_request_id"]),
 			zap.String("correlation_id", headers["correlation_id"]),
-			zap.String("error_from", headers["from_agent_type"]),
-			zap.String("the responses topic for the error should be parents:", headers["responses_topic"]))
+			// Current context
+			zap.String("my_orchestration_id", headers["orchestration_id"]),
+			zap.String("my_agent_type", a.AgentType),
+			// Error chain for tracing
+			zap.String("error_chain", headers["error_chain"]),
+		)
 
 		// Pass error up to parent if this is a spawned agent
 		if a.spawned && a.ParentAgentID != "" {
-			// Add our agent to the error chain
-			headers["error_chain"] = headers["error_chain"] + "," + a.AgentType
+			// Build error chain for tracing
+			existingChain := headers["error_chain"]
+			if existingChain != "" {
+				headers["error_chain"] = existingChain + " -> " + a.AgentType
+			} else {
+				headers["error_chain"] = a.AgentType
+			}
 			headers["from_agent_type"] = a.AgentType
 
 			parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
-			// Send to parent's response topic (this is an error)
-			a.producer.Produce(context.Background(), parentResponsesTopic, headers, msg.Key, msg.Value)
 
+			a.logger.Info("Propagating error to parent",
+				zap.String("parent_topic", parentResponsesTopic),
+				zap.String("error_chain", headers["error_chain"]),
+			)
+
+			a.producer.Produce(context.Background(), parentResponsesTopic, headers, msg.Key, msg.Value)
+		} else {
+			a.logger.Warn("Error received but no parent to propagate to",
+				zap.Bool("spawned", a.spawned),
+				zap.String("parent_agent_id", a.ParentAgentID),
+			)
 		}
-		// Agent can decide to handle error or just log it
 		return
 	}
 

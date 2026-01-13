@@ -1,0 +1,50 @@
+clients_db=# \d orchestration_states;
+                                 Table "public.orchestration_states"
+         Column          |            Type             | Collation | Nullable |        Default
+-------------------------+-----------------------------+-----------+----------+-----------------------
+ orchestration_id        | uuid                        |           | not null |
+ correlation_id          | uuid                        |           | not null |
+ client_id               | character varying(100)      |           | not null |
+ status                  | character varying(50)       |           | not null |
+ current_step            | character varying(255)      |           | not null |
+ awaited_steps           | jsonb                       |           |          | '[]'::jsonb
+ collected_data          | jsonb                       |           |          | '{}'::jsonb
+ initial_request_data    | jsonb                       |           |          |
+ final_result            | jsonb                       |           |          |
+ error                   | text                        |           |          |
+ workflow_plan           | jsonb                       |           | not null |
+ execution_metadata      | jsonb                       |           |          | '{}'::jsonb
+ execution_path          | jsonb                       |           |          | '[]'::jsonb
+ version                 | integer                     |           |          | 1
+ created_at              | timestamp with time zone    |           | not null | now()
+ updated_at              | timestamp with time zone    |           | not null | now()
+ parent_orchestration_id | uuid                        |           |          |
+ fuel_budget             | integer                     |           |          | 1000
+ currently_executing     | character varying(100)      |           |          |
+ last_activity           | timestamp without time zone |           |          | now()
+ processing_node         | character varying(100)      |           |          |
+ execution_started_at    | timestamp without time zone |           |          |
+ awaited_requests        | jsonb                       |           |          | '{}'::jsonb
+ processing_history      | jsonb                       |           |          | '[]'::jsonb
+ subtree_agents          | jsonb                       |           |          | '{}'::jsonb
+ owner_agent_id          | uuid                        |           |          |
+ owner_agent_type        | character varying(50)       |           |          |
+ orchestration_name      | character varying(255)      |           |          |
+ owner_agent_role        | character varying(255)      |           |          | ''::character varying
+ requests_topic          | character varying(255)      |           |          |
+ responses_topic         | character varying(255)      |           |          |
+Indexes:
+    "orchestration_states_pkey" PRIMARY KEY, btree (orchestration_id)
+    "idx_awaited_requests" gin (awaited_requests)
+    "idx_client" btree (client_id)
+    "idx_correlation" btree (correlation_id)
+    "idx_orchestration_status" btree (status) WHERE status::text = 'AWAITING_RESPONSES'::text
+    "idx_orchestration_version" btree (orchestration_id, version)
+    "idx_parent_orchestration" btree (parent_orchestration_id) WHERE parent_orchestration_id IS NOT NULL
+    "idx_status" btree (status)
+    "idx_updated" btree (updated_at)
+Referenced by:
+    TABLE "agent_groups" CONSTRAINT "fk_agent_groups_parent" FOREIGN KEY (parent_orch_id) REFERENCES orchestration_states(orchestration_id) ON DELETE CASCADE
+    TABLE "orchestration_requests" CONSTRAINT "fk_orch" FOREIGN KEY (orchestration_id) REFERENCES orchestration_states(orchestration_id)
+    TABLE "input_requests" CONSTRAINT "fk_orchestration" FOREIGN KEY (orchestration_id) REFERENCES orchestration_states(orchestration_id) ON DELETE CASCADE
+    TABLE "pending_requests" CONSTRAINT "fk_pending_orch" FOREIGN KEY (orchestration_id) REFERENCES orchestration_states(orchestration_id) ON DELETE CASCADE
