@@ -137,3 +137,4 @@ We use the image adapter to create presigned urls of images
 
 I'd like to break it down into several sections, with separate agents concentrating on each section. We can do detailed prompts for each section and we can, if we want to, spawn sub agents for e.g. research before writing the content.
 
+make sure we use the correct db fields e.g. there was confusion between status and build_status presumably because AI thought that status was the more "reasonable" or probably choice, when it wasn't.
