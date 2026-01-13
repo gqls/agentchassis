@@ -166,7 +166,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	l.Info("Processing search request")
 
 	// Debug: log the raw message to help diagnose issues
-	l.Debug("Raw message received",
+	l.Info("Raw message received",
 		zap.String("raw_value", string(msg.Value)),
 		zap.Int("value_length", len(msg.Value)),
 	)
@@ -181,7 +181,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	}
 
 	// Debug: log the extracted query
-	l.Debug("Extracted request payload",
+	l.Info("Extracted request payload",
 		zap.String("query", req.Data.Query),
 		zap.Int("num_results", req.Data.NumResults),
 		zap.String("search_type", req.Data.SearchType),
@@ -245,13 +245,13 @@ func (a *Adapter) extractRequestPayload(data []byte, l *zap.Logger) (*RequestPay
 		return nil, fmt.Errorf("failed to parse message as JSON: %w", err)
 	}
 
-	l.Debug("Parsed message structure",
+	l.Info("Parsed message structure",
 		zap.Strings("top_level_keys", getMapKeys(raw)),
 	)
 
 	// Check if message has a "body" wrapper (envelope format from agents)
 	if body, hasBody := raw["body"]; hasBody {
-		l.Debug("Message has body wrapper, extracting payload from body")
+		l.Info("Message has body wrapper, extracting payload from body")
 
 		bodyMap, ok := body.(map[string]interface{})
 		if !ok {
@@ -269,7 +269,7 @@ func (a *Adapter) extractRequestPayload(data []byte, l *zap.Logger) (*RequestPay
 			return nil, fmt.Errorf("failed to parse body as RequestPayload: %w", err)
 		}
 
-		l.Debug("Successfully extracted from body wrapper",
+		l.Info("Successfully extracted from body wrapper",
 			zap.String("query", req.Data.Query),
 		)
 
@@ -277,7 +277,7 @@ func (a *Adapter) extractRequestPayload(data []byte, l *zap.Logger) (*RequestPay
 	}
 
 	// No body wrapper - try direct format
-	l.Debug("No body wrapper, trying direct format")
+	l.Info("No body wrapper, trying direct format")
 
 	var req RequestPayload
 	if err := json.Unmarshal(data, &req); err != nil {
@@ -286,7 +286,7 @@ func (a *Adapter) extractRequestPayload(data []byte, l *zap.Logger) (*RequestPay
 
 	// If still no query, try to extract from nested data paths
 	if req.Data.Query == "" {
-		l.Debug("Direct parse yielded empty query, trying fallback extraction")
+		l.Info("Direct parse yielded empty query, trying fallback extraction")
 		req.Data.Query = a.extractQueryFallback(raw, l)
 	}
 
@@ -307,7 +307,7 @@ func (a *Adapter) extractQueryFallback(data map[string]interface{}, l *zap.Logge
 
 	for _, path := range paths {
 		if val := getNestedValue(data, path); val != "" {
-			l.Debug("Found query via fallback path",
+			l.Info("Found query via fallback path",
 				zap.Strings("path", path),
 				zap.String("query", val),
 			)

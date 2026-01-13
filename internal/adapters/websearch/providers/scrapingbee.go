@@ -49,7 +49,7 @@ func (s *ScrapingBeeProvider) Search(ctx context.Context, query string, numResul
 
 	searchURL := fmt.Sprintf("%s?%s", s.apiURL, params.Encode())
 
-	s.logger.Debug("Executing search",
+	s.logger.Info("Executing search",
 		zap.String("query", query),
 		zap.Int("num_results", numResults))
 

@@ -1050,17 +1050,19 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 	}
 
 	if contentField != "" {
-		contentData := datahelpers.ExtractNestedField(params.CollectedData, contentField)
-		if m, ok := contentData.(map[string]interface{}); ok {
-			params.Logger.Debug("RenderComponentAction: Merging content data",
+		// Try to extract content with fallback paths
+		// LLM responses sometimes have .result wrapper, sometimes not
+		contentData := extractContentWithFallbacks(params.CollectedData, contentField, params.Logger)
+		if contentData != nil {
+			params.Logger.Info("RenderComponentAction: Merging content data",
 				zap.String("content_field", contentField),
-				zap.Int("field_count", len(m)),
-				zap.Any("keys", datahelpers.GetMapKeys(m)))
-			mergeIntoRenderContext(renderCtx, m)
+				zap.Int("field_count", len(contentData)),
+				zap.Any("keys", datahelpers.GetMapKeys(contentData)))
+			mergeIntoRenderContext(renderCtx, contentData)
 		} else {
-			params.Logger.Warn("RenderComponentAction: content_from data not a map",
+			params.Logger.Warn("RenderComponentAction: No content data found at any path",
 				zap.String("content_field", contentField),
-				zap.Any("actual_type", fmt.Sprintf("%T", contentData)))
+				zap.Any("available_top_keys", datahelpers.GetMapKeys(params.CollectedData)))
 		}
 	}
 
@@ -2686,6 +2688,77 @@ func getSearchQueryFromSectionContext(params ActionParams) string {
 }
 
 // containsString checks if a string slice contains a specific string
+// extractContentWithFallbacks tries multiple paths to find content data
+// This handles different output formats from execute_llm_prompt (with/without .result wrapper)
+func extractContentWithFallbacks(data map[string]interface{}, contentField string, logger *zap.Logger) map[string]interface{} {
+	// Build list of paths to try
+	pathsToTry := []string{contentField}
+
+	// If path ends with ".result", also try without it
+	if strings.HasSuffix(contentField, ".result") {
+		base := strings.TrimSuffix(contentField, ".result")
+		pathsToTry = append(pathsToTry, base)
+		pathsToTry = append(pathsToTry, base+".response")
+		pathsToTry = append(pathsToTry, base+".content")
+	} else {
+		// If path doesn't end with .result, also try with it
+		pathsToTry = append(pathsToTry, contentField+".result")
+		pathsToTry = append(pathsToTry, contentField+".response")
+		pathsToTry = append(pathsToTry, contentField+".content")
+	}
+
+	// Try each path
+	for _, path := range pathsToTry {
+		if extracted := datahelpers.ExtractNestedField(data, path); extracted != nil {
+			if m, ok := extracted.(map[string]interface{}); ok && len(m) > 0 {
+				logger.Debug("extractContentWithFallbacks: Found content",
+					zap.String("path", path),
+					zap.Int("field_count", len(m)))
+				return m
+			}
+		}
+	}
+
+	// Last resort: check if the base field exists and contains the content directly
+	// Sometimes LLM output is stored as the field value itself
+	parts := strings.Split(contentField, ".")
+	if len(parts) > 0 {
+		baseField := parts[0]
+		if baseData := datahelpers.ExtractNestedField(data, baseField); baseData != nil {
+			if m, ok := baseData.(map[string]interface{}); ok && len(m) > 0 {
+				// Check if this map contains content-like fields
+				if hasContentFields(m) {
+					logger.Debug("extractContentWithFallbacks: Found content at base field",
+						zap.String("base_field", baseField),
+						zap.Int("field_count", len(m)))
+					return m
+				}
+			}
+		}
+	}
+
+	logger.Debug("extractContentWithFallbacks: No content found",
+		zap.String("original_path", contentField),
+		zap.Strings("tried_paths", pathsToTry))
+
+	return nil
+}
+
+// hasContentFields checks if a map contains typical content field names
+func hasContentFields(m map[string]interface{}) bool {
+	contentFieldNames := []string{
+		"headline", "subheadline", "body", "content", "heading",
+		"title", "description", "text", "features", "items",
+		"primary_cta", "cta_text", "button_text",
+	}
+	for _, fieldName := range contentFieldNames {
+		if _, exists := m[fieldName]; exists {
+			return true
+		}
+	}
+	return false
+}
+
 // detectNeedsLLMContent determines if a component template needs LLM-generated content
 // Returns true if template has content placeholders that need dynamic content
 // Returns false if template only has structural placeholders (domain, logo_text, etc.)

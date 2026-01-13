@@ -22,7 +22,7 @@ func NewWorkflowValidator(logger *zap.Logger) *WorkflowValidator {
 
 // ValidateWorkflow validates a workflow configuration
 func (v *WorkflowValidator) ValidateWorkflow(workflow models.WorkflowPlan) error {
-	v.logger.Debug(" in ValidateWorkflow workflow.go",
+	v.logger.Info(" in ValidateWorkflow workflow.go",
 		zap.Any("workflow", workflow),
 	)
 
@@ -68,7 +68,7 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 	// Use the global registry to check if it's a local action
 	isLocal := actions_list.IsLocalAction(step.Action)
 
-	v.logger.Debug("Validating step, workflow.go",
+	v.logger.Info("Validating step, workflow.go",
 		zap.String("step", name),
 		zap.String("action", step.Action),
 		zap.Bool("is_local", isLocal),

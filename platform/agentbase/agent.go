@@ -530,7 +530,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 	// FIRST THING: Check for empty message
 	if msg.Value == nil || len(msg.Value) == 0 {
-		a.logger.Debug("Ignoring empty message in processMessage",
+		a.logger.Info("Ignoring empty message in processMessage",
 			zap.String("messageType", messageType),
 			zap.String("topic", msg.Topic))
 		return
