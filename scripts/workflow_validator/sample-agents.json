@@ -1,179 +1,124 @@
 [
   {
-    "id": "427aa3e5-5ea2-4917-8d24-d751ebd283b2",
-    "type": "pageflow-builder",
-    "display_name": "PageFlow Builder",
+    "id": "test-pageflow",
+    "type": "pageflow-builder-broken",
+    "display_name": "PageFlow Builder (with bug)",
     "default_config": {
       "workflow": {
-        "start_step": "spawn_planner",
+        "start_step": "call_site_planner",
         "steps": {
-          "spawn_planner": {
-            "action": "spawn_agent",
-            "config": {"role": "planner", "agent_type": "site-planner"},
-            "next_step": "spawn_content_writer",
-            "output_field": "planner_agent"
-          },
-          "spawn_content_writer": {
-            "action": "spawn_agent",
-            "config": {"role": "content_writer", "agent_type": "page-content-writer"},
-            "next_step": "spawn_reviewer",
-            "output_field": "content_writer_agent"
-          },
-          "spawn_reviewer": {
-            "action": "spawn_agent",
-            "config": {"role": "reviewer", "agent_type": "content-reviewer"},
-            "next_step": "spawn_deployer",
-            "output_field": "reviewer_agent"
-          },
-          "spawn_deployer": {
-            "action": "spawn_agent",
-            "config": {"role": "deployer", "agent_type": "deployer-agent"},
-            "next_step": "ensure_site_record",
-            "output_field": "deployer_agent"
-          },
-          "ensure_site_record": {
-            "action": "ensure_site_record",
-            "config": {"store_brief_in_content_data": true},
-            "next_step": "call_site_planner",
-            "output_field": "site_record"
-          },
           "call_site_planner": {
             "action": "call_agent",
             "config": {
               "agent_type": "site-planner",
               "target_role": "planner",
-              "input_fields": ["input_data", "site_record", "reviewed_brief"],
+              "input_fields": ["input_data", "reviewed_brief"],
               "timeout_seconds": 120
             },
-            "next_step": "store_site_plan",
+            "next_step": "check_assets_needed",
+            "description": "Call site planner to create plan",
             "output_field": "site_plan"
           },
-          "store_site_plan": {
-            "action": "update_site_content",
-            "config": {"merge": true, "content_field": "site_plan", "site_id_field": "site_record.site_id"},
-            "next_step": "build_pages_loop",
-            "output_field": "content_stored"
-          },
-          "build_pages_loop": {
-            "action": "loop",
+          "check_assets_needed": {
+            "action": "conditional",
             "config": {
-              "mode": "sequential",
-              "items_field": "pages_synced.pages",
-              "item_variable": "current_page",
-              "max_iterations": 20,
-              "sub_workflow": {
-                "start_step": "write_page_content",
-                "steps": {
-                  "write_page_content": {
-                    "action": "call_agent",
-                    "config": {
-                      "agent_type": "page-content-writer",
-                      "target_role": "content_writer",
-                      "input_fields": ["current_page", "site_record", "reviewed_brief"],
-                      "timeout_seconds": 300
-                    },
-                    "next_step": "assemble_page",
-                    "output_field": "page_content"
-                  },
-                  "assemble_page": {
-                    "action": "assemble_page",
-                    "config": {
-                      "page_from": "current_page",
-                      "content_from": "reviewed_content"
-                    },
-                    "next_step": "deploy_page",
-                    "output_field": "assembled_page"
-                  },
-                  "deploy_page": {
-                    "action": "git_commit",
-                    "config": {
-                      "html_from": "assembled_page.html",
-                      "page_from": "current_page",
-                      "site_id_from": "site_record.site_id"
-                    },
-                    "next_step": "complete_page",
-                    "output_field": "page_deployed"
-                  },
-                  "complete_page": {
-                    "action": "loop_complete",
-                    "config": {}
-                  }
-                }
-              }
+              "condition": "site_plan.validated_plan.needs_logo == true OR site_plan.validated_plan.needs_images == true",
+              "then_step": "generate_assets",
+              "else_step": "select_style"
             },
-            "next_step": "trigger_site_deploy",
-            "output_field": "pages_built"
+            "description": "Check if assets needed - THIS PATH IS WRONG (missing .response)"
           },
-          "trigger_site_deploy": {
+          "generate_assets": {
             "action": "call_agent",
             "config": {
-              "agent_type": "deployer-agent",
-              "target_role": "deployer",
-              "input_fields": ["site_record", "pages_built"],
-              "timeout_seconds": 180
+              "agent_type": "image-generator",
+              "target_role": "image_generator",
+              "prompt": "{{site_plan.image_prompts.logo}}",
+              "input_fields": ["site_plan"],
+              "timeout_seconds": 120
             },
-            "next_step": "update_site_status",
-            "output_field": "deployment_result"
+            "next_step": "select_style",
+            "description": "Generate assets - prompt path is wrong",
+            "output_field": "asset_result"
           },
-          "update_site_status": {
-            "action": "update_site_status",
-            "config": {"status": "deployed", "deployed_at": "now", "site_id_field": "site_record.site_id"},
+          "select_style": {
+            "action": "select_style_collection",
+            "config": {
+              "style_from": "site_plan.style_collection",
+              "site_id_field": "site_record.site_id"
+            },
             "next_step": "complete",
-            "output_field": "site_updated"
+            "description": "Select style - path is wrong",
+            "output_field": "style_collection"
           },
           "complete": {
             "action": "complete_workflow",
-            "config": {"output_fields": ["site_record", "pages_built", "deployment_result"]}
+            "config": {},
+            "description": "Done"
           }
         }
-      }
-    },
-    "input_contract": {
-      "expects": {
-        "reviewed_brief": "object - completed questionnaire answers",
-        "input_data.domain": "string - the domain name",
-        "input_data.objective": "string - what the site should achieve"
-      },
-      "required": ["input_data.domain", "reviewed_brief"]
-    },
-    "output_contract": {
-      "produces": {
-        "site_id": "uuid - the site record ID",
-        "deploy_url": "string - the live site URL",
-        "pages_built": "number - count of pages deployed"
       }
     }
   },
   {
-    "id": "test-bad-flow",
-    "type": "test-broken-agent",
-    "display_name": "Test Broken Agent",
+    "id": "test-pageflow-fixed",
+    "type": "pageflow-builder-fixed",
+    "display_name": "PageFlow Builder (fixed)",
     "default_config": {
       "workflow": {
-        "start_step": "missing_start",
+        "start_step": "call_site_planner",
         "steps": {
-          "step1": {
+          "call_site_planner": {
             "action": "call_agent",
-            "config": {"target_role": "worker"},
-            "next_step": "nonexistent_step",
-            "output_field": "result"
+            "config": {
+              "agent_type": "site-planner",
+              "target_role": "planner",
+              "input_fields": ["input_data", "reviewed_brief"],
+              "timeout_seconds": 120
+            },
+            "next_step": "check_assets_needed",
+            "description": "Call site planner to create plan",
+            "output_field": "site_plan"
           },
-          "step2": {
-            "action": "loop",
-            "config": {},
-            "next_step": "complete"
+          "check_assets_needed": {
+            "action": "conditional",
+            "config": {
+              "condition": "site_plan.response.validated_plan.needs_logo == true OR site_plan.response.validated_plan.needs_images == true",
+              "then_step": "generate_assets",
+              "else_step": "select_style"
+            },
+            "description": "Check if assets needed - FIXED with .response"
+          },
+          "generate_assets": {
+            "action": "call_agent",
+            "config": {
+              "agent_type": "image-generator",
+              "target_role": "image_generator",
+              "prompt": "{{site_plan.response.image_prompts.logo}}",
+              "input_fields": ["site_plan"],
+              "timeout_seconds": 120
+            },
+            "next_step": "select_style",
+            "description": "Generate assets - FIXED",
+            "output_field": "asset_result"
+          },
+          "select_style": {
+            "action": "select_style_collection",
+            "config": {
+              "style_from": "site_plan.response.style_collection",
+              "site_id_field": "site_record.site_id"
+            },
+            "next_step": "complete",
+            "description": "Select style - FIXED",
+            "output_field": "style_collection"
           },
           "complete": {
             "action": "complete_workflow",
-            "config": {"output_fields": ["missing_field"]}
+            "config": {},
+            "description": "Done"
           }
         }
       }
-    },
-    "input_contract": {
-      "expects": {"unused_field": "never referenced in workflow"},
-      "required": []
-    },
-    "output_contract": null
+    }
   }
 ]

@@ -22,6 +22,10 @@ func FindHTML(data interface{}, logger *zap.Logger) string {
 
 // FindByPath extracts data at a specific path, with recursive unwrapping
 // Path can be like "final_html.final_html" or just "final_html"
+// FindByPath extracts data at a specific path, with recursive unwrapping
+// Supports auto-unwrapping of call_agent/spawn_agent .response wrappers
+//
+// Path can be like "site_plan.validated_plan" or "final_html.final_html"
 func FindByPath(data map[string]interface{}, path string, logger *zap.Logger) interface{} {
 	parts := strings.Split(path, ".")
 	current := interface{}(data)
@@ -35,23 +39,38 @@ func FindByPath(data map[string]interface{}, path string, logger *zap.Logger) in
 
 		switch v := current.(type) {
 		case map[string]interface{}:
+			// Try direct access first
 			if val, ok := v[part]; ok {
 				current = val
-			} else {
-				// Try recursive unwrapping
-				unwrapped := UnwrapDeep(v, logger)
-				if unwrappedMap, ok := unwrapped.(map[string]interface{}); ok {
-					if val, ok := unwrappedMap[part]; ok {
-						current = val
-						continue
-					}
-				}
-				logger.Warn("Path part not found",
-					zap.String("part", part),
-					zap.Strings("available_keys", getKeys(v)),
-				)
-				return nil
+				continue
 			}
+
+			// Auto-unwrap: try through .response (call_agent/spawn_agent wrapper)
+			if response, hasResponse := v["response"].(map[string]interface{}); hasResponse {
+				if val, ok := response[part]; ok {
+					logger.Debug("Found part via .response auto-unwrap",
+						zap.String("part", part),
+					)
+					current = val
+					continue
+				}
+			}
+
+			// Try recursive unwrapping (existing behavior)
+			unwrapped := UnwrapDeep(v, logger)
+			if unwrappedMap, ok := unwrapped.(map[string]interface{}); ok {
+				if val, ok := unwrappedMap[part]; ok {
+					current = val
+					continue
+				}
+			}
+
+			logger.Warn("Path part not found",
+				zap.String("part", part),
+				zap.Strings("available_keys", getKeys(v)),
+			)
+			return nil
+
 		default:
 			logger.Warn("Cannot traverse non-map",
 				zap.String("part", part),
@@ -190,6 +209,19 @@ func unwrapRecursive(data interface{}, depth int, logger *zap.Logger) interface{
 				strings.HasSuffix(key, "_output") || strings.HasSuffix(key, "_response") {
 				return unwrapRecursive(val, depth+1, logger)
 			}
+		}
+	}
+
+	// Pattern 4: call_agent/spawn_agent response wrapper
+	// These have "response" alongside metadata keys like "request_id", "action_sent"
+	if response, hasResponse := m["response"].(map[string]interface{}); hasResponse {
+		// Check for call_agent metadata markers to confirm this is a wrapped response
+		_, hasRequestID := m["request_id"]
+		_, hasActionSent := m["action_sent"]
+		_, hasAwaitResponse := m["await_response"]
+		if hasRequestID || hasActionSent || hasAwaitResponse {
+			logger.Debug("UnwrapDeep: unwrapping call_agent response wrapper")
+			return unwrapRecursive(response, depth+1, logger)
 		}
 	}
 

@@ -1163,21 +1163,41 @@ func RenderPromptTemplate(templateStr string, data map[string]interface{}, logge
 //	    domain := value.(string)
 //	}
 //
-// Paths like "input_data.content_json.sections.component_header_0.brand_name"
-// will traverse: data["input_data"]["content_json"]["sections"]["component_header_0"]["brand_name"]
+// Paths like "site_plan.validated_plan.needs_logo" will:
+// 1. First try: data["site_plan"]["validated_plan"]["needs_logo"]
+// 2. If not found, try: data["site_plan"]["response"]["validated_plan"]["needs_logo"]
 func ExtractNestedField(data map[string]interface{}, fieldPath string) interface{} {
+	if fieldPath == "" {
+		return nil
+	}
+
 	parts := strings.Split(fieldPath, ".")
 	var current interface{} = data
 
 	for _, part := range parts {
-		if currentMap, ok := current.(map[string]interface{}); ok {
-			current = currentMap[part]
-			if current == nil {
-				return nil
-			}
-		} else {
+		currentMap, ok := current.(map[string]interface{})
+		if !ok {
 			return nil
 		}
+
+		// Try direct access first
+		if val, exists := currentMap[part]; exists {
+			current = val
+			continue
+		}
+
+		// Auto-unwrap: try through .response (call_agent/spawn_agent wrapper)
+		// This handles the case where the map has metadata at top level
+		// and actual response data under "response"
+		if response, hasResponse := currentMap["response"].(map[string]interface{}); hasResponse {
+			if val, exists := response[part]; exists {
+				current = val
+				continue
+			}
+		}
+
+		// Part not found
+		return nil
 	}
 
 	return current

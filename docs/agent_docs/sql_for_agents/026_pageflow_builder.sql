@@ -492,3 +492,184 @@ COMMIT;
 -- UPDATE agent_definitions
 -- SET default_config = jsonb_set(default_config, '{workflow,steps,build_pages_loop,next_step}', '"trigger_site_deploy"')
 -- WHERE type = 'pageflow-builder';
+
+---
+
+-- not sure about this one:
+-- 008_fix_pageflow_builder_data_paths.sql
+--
+-- PROBLEM: call_agent wraps responses in metadata structure
+--
+-- When pageflow-builder calls site-planner via call_agent, the result looks like:
+--   site_plan: {
+--     response: { validated_plan: { needs_logo: true, ... } },  <-- actual data
+--     request_id: "...",
+--     action_sent: "...",
+--     ...call_agent metadata...
+--   }
+--
+-- But workflows expect direct access:
+--   site_plan.validated_plan.needs_logo  (FAILS - validated_plan not at top level)
+--
+-- FIX: Update all paths to include .response where call_agent results are used
+--
+-- Log evidence:
+--   "path":"site_plan.validated_plan.needs_logo"
+--   "available_keys":["response","request_id","action_sent","await_response",...]
+--   "part":"validated_plan" <- NOT FOUND because it's under "response"
+--
+-- NOTE: content-reviewer's review_mode issue is NOT a bug - it correctly
+-- defaults to auto_eval when review_mode is not specified
+
+BEGIN;
+
+-- First, verify current paths
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'check_assets_needed'->'config'->>'condition' as check_assets_condition,
+    default_config->'workflow'->'steps'->'check_hero_images'->'config'->>'condition' as check_hero_condition,
+    default_config->'workflow'->'steps'->'generate_logo'->'config'->>'condition' as generate_logo_condition
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Fix check_assets_needed conditional
+-- BEFORE: site_plan.validated_plan.needs_logo == true OR site_plan.validated_plan.needs_images == true
+-- AFTER:  site_plan.response.validated_plan.needs_logo == true OR site_plan.response.validated_plan.needs_images == true
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_assets_needed,config,condition}',
+        '"site_plan.response.validated_plan.needs_logo == true OR site_plan.response.validated_plan.needs_images == true"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Fix check_hero_images conditional
+-- BEFORE: site_plan.validated_plan.needs_images == true
+-- AFTER:  site_plan.response.validated_plan.needs_images == true
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_hero_images,config,condition}',
+        '"site_plan.response.validated_plan.needs_images == true"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Fix generate_logo conditional (if it exists with similar path)
+-- BEFORE: site_plan.needs_logo == true
+-- AFTER:  site_plan.response.needs_logo == true
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_logo,config,condition}',
+        '"site_plan.response.needs_logo == true"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Fix store_hero_asset and store_logo_asset paths for image_prompts
+-- These reference site_plan.image_prompts.hero_home and site_plan.image_prompts.logo
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_hero_asset,config,origin_prompt_field}',
+        '"site_plan.response.image_prompts.hero_home"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_logo_asset,config,origin_prompt_field}',
+        '"site_plan.response.image_prompts.logo"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Fix select_style_collection path
+-- BEFORE: site_plan.style_collection
+-- AFTER:  site_plan.response.style_collection
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,select_style_collection,config,style_from}',
+        '"site_plan.response.style_collection"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Fix generate_hero_image and call_logo_generation prompt paths
+-- These use template syntax {{site_plan.image_prompts.hero_home}}
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_hero_image,config,prompt}',
+        '"{{site_plan.response.image_prompts.hero_home}}"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_logo_generation,config,prompt}',
+        '"{{site_plan.response.image_prompts.logo}}"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Verify changes
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'check_assets_needed'->'config'->>'condition' as check_assets_fixed,
+    default_config->'workflow'->'steps'->'check_hero_images'->'config'->>'condition' as check_hero_fixed,
+    default_config->'workflow'->'steps'->'select_style_collection'->'config'->>'style_from' as style_from_fixed
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+COMMIT;
+
+-- ROLLBACK (restore original paths):
+/*
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config, '{workflow,steps,check_assets_needed,config,condition}',
+    '"site_plan.validated_plan.needs_logo == true OR site_plan.validated_plan.needs_images == true"')
+WHERE type = 'pageflow-builder';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config, '{workflow,steps,check_hero_images,config,condition}',
+    '"site_plan.validated_plan.needs_images == true"')
+WHERE type = 'pageflow-builder';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config, '{workflow,steps,generate_logo,config,condition}',
+    '"site_plan.needs_logo == true"')
+WHERE type = 'pageflow-builder';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config, '{workflow,steps,store_hero_asset,config,origin_prompt_field}',
+    '"site_plan.image_prompts.hero_home"')
+WHERE type = 'pageflow-builder';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config, '{workflow,steps,store_logo_asset,config,origin_prompt_field}',
+    '"site_plan.image_prompts.logo"')
+WHERE type = 'pageflow-builder';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config, '{workflow,steps,select_style_collection,config,style_from}',
+    '"site_plan.style_collection"')
+WHERE type = 'pageflow-builder';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config, '{workflow,steps,generate_hero_image,config,prompt}',
+    '"{{site_plan.image_prompts.hero_home}}"')
+WHERE type = 'pageflow-builder';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config, '{workflow,steps,call_logo_generation,config,prompt}',
+    '"{{site_plan.image_prompts.logo}}"')
+WHERE type = 'pageflow-builder';
+*/
