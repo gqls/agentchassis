@@ -1356,7 +1356,7 @@ func InsertResearchResultAction(ctx context.Context, params ActionParams) (inter
 			}
 
 			// For complex types, marshal to JSON
-			switch v := value.(type) {
+			/*switch v := value.(type) {
 			case map[string]interface{}, []interface{}:
 				jsonBytes, err := json.Marshal(v)
 				if err != nil {
@@ -1372,7 +1372,20 @@ func InsertResearchResultAction(ctx context.Context, params ActionParams) (inter
 				columns = append(columns, column)
 				placeholders = append(placeholders, fmt.Sprintf("$%d", paramIdx))
 				values = append(values, value)
+			}*/
+
+			// make it all json
+			jsonBytes, err := json.Marshal(value)
+			if err != nil {
+				params.Logger.Warn("InsertResearchResultAction: Failed to marshal field",
+					zap.String("column", column),
+					zap.String("value_type", fmt.Sprintf("%T", value)),
+					zap.Error(err))
+				continue
 			}
+			columns = append(columns, column)
+			placeholders = append(placeholders, fmt.Sprintf("$%d::jsonb", paramIdx))
+			values = append(values, string(jsonBytes))
 			paramIdx++
 		}
 

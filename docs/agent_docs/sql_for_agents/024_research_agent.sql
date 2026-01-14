@@ -547,3 +547,16 @@ SELECT type,
        jsonb_object_keys(default_config->'workflow'->'steps') as step_names
 FROM agent_definitions
 WHERE type = 'research-agent';
+
+--
+
+-- Fix research-agent store_research field paths
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_research,config,fields,summary}',
+        '"synthesis.result"'
+                     )
+WHERE type = 'research-agent';
+
+--
