@@ -1,0 +1,179 @@
+[
+  {
+    "id": "427aa3e5-5ea2-4917-8d24-d751ebd283b2",
+    "type": "pageflow-builder",
+    "display_name": "PageFlow Builder",
+    "default_config": {
+      "workflow": {
+        "start_step": "spawn_planner",
+        "steps": {
+          "spawn_planner": {
+            "action": "spawn_agent",
+            "config": {"role": "planner", "agent_type": "site-planner"},
+            "next_step": "spawn_content_writer",
+            "output_field": "planner_agent"
+          },
+          "spawn_content_writer": {
+            "action": "spawn_agent",
+            "config": {"role": "content_writer", "agent_type": "page-content-writer"},
+            "next_step": "spawn_reviewer",
+            "output_field": "content_writer_agent"
+          },
+          "spawn_reviewer": {
+            "action": "spawn_agent",
+            "config": {"role": "reviewer", "agent_type": "content-reviewer"},
+            "next_step": "spawn_deployer",
+            "output_field": "reviewer_agent"
+          },
+          "spawn_deployer": {
+            "action": "spawn_agent",
+            "config": {"role": "deployer", "agent_type": "deployer-agent"},
+            "next_step": "ensure_site_record",
+            "output_field": "deployer_agent"
+          },
+          "ensure_site_record": {
+            "action": "ensure_site_record",
+            "config": {"store_brief_in_content_data": true},
+            "next_step": "call_site_planner",
+            "output_field": "site_record"
+          },
+          "call_site_planner": {
+            "action": "call_agent",
+            "config": {
+              "agent_type": "site-planner",
+              "target_role": "planner",
+              "input_fields": ["input_data", "site_record", "reviewed_brief"],
+              "timeout_seconds": 120
+            },
+            "next_step": "store_site_plan",
+            "output_field": "site_plan"
+          },
+          "store_site_plan": {
+            "action": "update_site_content",
+            "config": {"merge": true, "content_field": "site_plan", "site_id_field": "site_record.site_id"},
+            "next_step": "build_pages_loop",
+            "output_field": "content_stored"
+          },
+          "build_pages_loop": {
+            "action": "loop",
+            "config": {
+              "mode": "sequential",
+              "items_field": "pages_synced.pages",
+              "item_variable": "current_page",
+              "max_iterations": 20,
+              "sub_workflow": {
+                "start_step": "write_page_content",
+                "steps": {
+                  "write_page_content": {
+                    "action": "call_agent",
+                    "config": {
+                      "agent_type": "page-content-writer",
+                      "target_role": "content_writer",
+                      "input_fields": ["current_page", "site_record", "reviewed_brief"],
+                      "timeout_seconds": 300
+                    },
+                    "next_step": "assemble_page",
+                    "output_field": "page_content"
+                  },
+                  "assemble_page": {
+                    "action": "assemble_page",
+                    "config": {
+                      "page_from": "current_page",
+                      "content_from": "reviewed_content"
+                    },
+                    "next_step": "deploy_page",
+                    "output_field": "assembled_page"
+                  },
+                  "deploy_page": {
+                    "action": "git_commit",
+                    "config": {
+                      "html_from": "assembled_page.html",
+                      "page_from": "current_page",
+                      "site_id_from": "site_record.site_id"
+                    },
+                    "next_step": "complete_page",
+                    "output_field": "page_deployed"
+                  },
+                  "complete_page": {
+                    "action": "loop_complete",
+                    "config": {}
+                  }
+                }
+              }
+            },
+            "next_step": "trigger_site_deploy",
+            "output_field": "pages_built"
+          },
+          "trigger_site_deploy": {
+            "action": "call_agent",
+            "config": {
+              "agent_type": "deployer-agent",
+              "target_role": "deployer",
+              "input_fields": ["site_record", "pages_built"],
+              "timeout_seconds": 180
+            },
+            "next_step": "update_site_status",
+            "output_field": "deployment_result"
+          },
+          "update_site_status": {
+            "action": "update_site_status",
+            "config": {"status": "deployed", "deployed_at": "now", "site_id_field": "site_record.site_id"},
+            "next_step": "complete",
+            "output_field": "site_updated"
+          },
+          "complete": {
+            "action": "complete_workflow",
+            "config": {"output_fields": ["site_record", "pages_built", "deployment_result"]}
+          }
+        }
+      }
+    },
+    "input_contract": {
+      "expects": {
+        "reviewed_brief": "object - completed questionnaire answers",
+        "input_data.domain": "string - the domain name",
+        "input_data.objective": "string - what the site should achieve"
+      },
+      "required": ["input_data.domain", "reviewed_brief"]
+    },
+    "output_contract": {
+      "produces": {
+        "site_id": "uuid - the site record ID",
+        "deploy_url": "string - the live site URL",
+        "pages_built": "number - count of pages deployed"
+      }
+    }
+  },
+  {
+    "id": "test-bad-flow",
+    "type": "test-broken-agent",
+    "display_name": "Test Broken Agent",
+    "default_config": {
+      "workflow": {
+        "start_step": "missing_start",
+        "steps": {
+          "step1": {
+            "action": "call_agent",
+            "config": {"target_role": "worker"},
+            "next_step": "nonexistent_step",
+            "output_field": "result"
+          },
+          "step2": {
+            "action": "loop",
+            "config": {},
+            "next_step": "complete"
+          },
+          "complete": {
+            "action": "complete_workflow",
+            "config": {"output_fields": ["missing_field"]}
+          }
+        }
+      }
+    },
+    "input_contract": {
+      "expects": {"unused_field": "never referenced in workflow"},
+      "required": []
+    },
+    "output_contract": null
+  }
+]
