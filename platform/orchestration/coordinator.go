@@ -38,7 +38,7 @@ const (
 	// RecentStepsWindow is how many steps to track for cycle detection
 	RecentStepsWindow = 15
 	// Optimistic lock retry settings for response processing
-	maxOptimisticLockRetries     = 5
+	maxOptimisticLockRetries     = 15
 	optimisticLockBaseRetryDelay = 50 * time.Millisecond
 )
 
@@ -1837,8 +1837,8 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	repo := NewStateRepository(s.db, s.logger)
 
 	// 3. Save response data with retry loop (with exponential backoff)
-	maxRetries := 7
-	baseDelay := 25 * time.Millisecond
+	maxRetries := 15
+	baseDelay := 50 * time.Millisecond
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		freshState, err := repo.GetState(ctx, state.OrchestrationID)

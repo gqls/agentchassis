@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -1105,7 +1106,7 @@ func (r *StateRepository) ClearExecutingStep(ctx context.Context, orchestrationI
 
 // ExecuteWithOptimisticLocking executes a function with retry on version conflicts
 func (r *StateRepository) ExecuteWithOptimisticLocking(ctx context.Context, orchestrationID string, fn func(*OrchestrationState) error) error {
-	maxRetries := 3
+	maxRetries := 12
 	for i := 0; i < maxRetries; i++ {
 		// Load current state with version
 		state, err := r.GetState(ctx, orchestrationID)
@@ -1127,17 +1128,28 @@ func (r *StateRepository) ExecuteWithOptimisticLocking(ctx context.Context, orch
 		}
 
 		if strings.Contains(err.Error(), "optimistic lock failure") {
+			// Exponential backoff: 50ms, 100ms, 200ms, 400ms... capped at 2s
+			backoff := time.Duration(50*(1<<uint(i))) * time.Millisecond
+			if backoff > 2*time.Second {
+				backoff = 2 * time.Second
+			}
+			// Add jitter (0-100ms)
+			jitter := time.Duration(rand.Intn(100)) * time.Millisecond
+
 			r.logger.Info("Version conflict, retrying",
 				zap.String("orchestration_id", orchestrationID),
-				zap.Int("attempt", i+1))
-			time.Sleep(time.Millisecond * time.Duration(100*(i+1)))
+				zap.Int("attempt", i+1),
+				zap.Int("max_retries", maxRetries),
+				zap.Duration("backoff", backoff+jitter))
+
+			time.Sleep(backoff + jitter)
 			continue
 		}
 
 		return err
 	}
 
-	return fmt.Errorf("max retries exceeded for orchestration %s", orchestrationID)
+	return fmt.Errorf("max retries (%d) exceeded for orchestration %s", maxRetries, orchestrationID)
 }
 
 func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlationID string) (*OrchestrationState, error) {
