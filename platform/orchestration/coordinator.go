@@ -384,6 +384,15 @@ func processResponseClaimWithRetry(ctx context.Context, repo *StateRepository, r
 // Returns the AwaitedRequest if successfully claimed, nil if already claimed/processed.
 // This prevents the race condition in the original two-step check-then-mark pattern.
 func (r *StateRepository) ClaimAwaitedRequest(ctx context.Context, requestID string, claimerPodName string) (*AwaitedRequest, error) {
+	// DEBUG BEFORE claim: check current status
+	var beforeStatus string
+	checkQuery := `SELECT status FROM awaited_requests WHERE request_id = $1`
+	r.db.QueryRowContext(ctx, checkQuery, requestID).Scan(&beforeStatus)
+	r.logger.Info("ClaimAwaitedRequest: status before claim attempt",
+		zap.String("request_id", requestID),
+		zap.String("status_before", beforeStatus),
+		zap.String("claimer", claimerPodName))
+
 	query := `
     UPDATE awaited_requests
     SET status = 'processing',
@@ -434,6 +443,14 @@ func (r *StateRepository) ClaimAwaitedRequest(ctx context.Context, requestID str
 		record.ProcessedAt = &processedAt.Time
 	}
 
+	// DEBUG AFTER claim: log result
+	r.logger.Info("ClaimAwaitedRequest: claim result",
+		zap.String("request_id", requestID),
+		zap.String("status_before", beforeStatus),
+		zap.Bool("claimed", record != nil),
+		zap.String("claimer", claimerPodName))
+
+	// back to normal logs
 	r.logger.Info("ClaimAwaitedRequest: successfully claimed",
 		zap.String("request_id", requestID),
 		zap.String("orchestration_id", record.OrchestrationID),
