@@ -21,9 +21,13 @@ const (
 	requestTopic     = "system.adapter.web.search"
 	responsesTopic   = "system.agent.websearch.responses"
 	consumerGroup    = "web-search-adapter-group"
-	requestTimeout   = 90 * time.Second
+	requestTimeout   = 120 * time.Second
 	idleTimeout      = 90 * time.Second
 	handshakeTimeout = 10 * time.Second
+
+	// Retry configuration
+	maxRetriesPerProvider = 4
+	initialRetryBackoff   = 5 * time.Second
 )
 
 // MessageEnvelope wraps the body/headers structure sent by agents
@@ -348,7 +352,76 @@ func getMapKeys(m map[string]interface{}) []string {
 	return keys
 }
 
-// performSearchWithFallback tries providers with fallback logic
+// searchProviderWithRetry wraps a provider search with retry logic
+func (a *Adapter) searchProviderWithRetry(ctx context.Context, provider providers.SearchProvider, query string, numResults int) ([]providers.SearchResult, error) {
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetriesPerProvider; attempt++ {
+		// Create per-attempt timeout context
+		attemptCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+
+		results, err := provider.Search(attemptCtx, query, numResults)
+		cancel()
+
+		if err == nil {
+			if attempt > 1 {
+				a.logger.Info("Search succeeded after retry",
+					zap.String("provider", provider.Name()),
+					zap.Int("attempt", attempt))
+			}
+			return results, nil
+		}
+
+		lastErr = err
+
+		// Check if error is retryable
+		if !isRetryableError(err) {
+			a.logger.Info("Non-retryable error, not retrying",
+				zap.String("provider", provider.Name()),
+				zap.Error(err))
+			return nil, err
+		}
+
+		if attempt < maxRetriesPerProvider {
+			// Exponential backoff: 5s, 10s, 20s
+			backoff := initialRetryBackoff * time.Duration(1<<uint(attempt-1))
+
+			a.logger.Warn("Provider failed with retryable error, will retry",
+				zap.String("provider", provider.Name()),
+				zap.Int("attempt", attempt),
+				zap.Int("max_attempts", maxRetriesPerProvider),
+				zap.Duration("backoff", backoff),
+				zap.Error(err))
+
+			time.Sleep(backoff)
+		}
+	}
+
+	return nil, lastErr
+}
+
+// isRetryableError determines if an error should trigger a retry
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+
+	// Retryable conditions
+	return strings.Contains(errStr, "500") ||
+		strings.Contains(errStr, "502") ||
+		strings.Contains(errStr, "503") ||
+		strings.Contains(errStr, "504") ||
+		strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "try again") ||
+		strings.Contains(errStr, "context deadline") ||
+		strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "temporarily unavailable") ||
+		strings.Contains(errStr, "too many requests")
+}
+
+// performSearchWithFallback tries providers with fallback and retry logic
 func (a *Adapter) performSearchWithFallback(query string, numResults int, preferredProvider string) ([]providers.SearchResult, string, []string, error) {
 	var fallbacks []string
 
@@ -356,11 +429,11 @@ func (a *Adapter) performSearchWithFallback(query string, numResults int, prefer
 	if preferredProvider != "" {
 		for _, p := range a.providers {
 			if p.Name() == preferredProvider {
-				results, err := p.Search(a.ctx, query, numResults)
+				results, err := a.searchProviderWithRetry(a.ctx, p, query, numResults)
 				if err == nil {
 					return results, p.Name(), fallbacks, nil
 				}
-				a.logger.Warn("Preferred provider failed",
+				a.logger.Warn("Preferred provider failed after retries",
 					zap.String("provider", p.Name()),
 					zap.Error(err))
 				fallbacks = append(fallbacks, p.Name())
@@ -373,11 +446,11 @@ func (a *Adapter) performSearchWithFallback(query string, numResults int, prefer
 	if preferredProvider != a.primaryProvider {
 		for _, p := range a.providers {
 			if p.Name() == a.primaryProvider {
-				results, err := p.Search(a.ctx, query, numResults)
+				results, err := a.searchProviderWithRetry(a.ctx, p, query, numResults)
 				if err == nil {
 					return results, p.Name(), fallbacks, nil
 				}
-				a.logger.Warn("Primary provider failed",
+				a.logger.Warn("Primary provider failed after retries",
 					zap.String("provider", p.Name()),
 					zap.Error(err))
 				fallbacks = append(fallbacks, p.Name())
@@ -400,20 +473,20 @@ func (a *Adapter) performSearchWithFallback(query string, numResults int, prefer
 			continue
 		}
 
-		results, err := p.Search(a.ctx, query, numResults)
+		results, err := a.searchProviderWithRetry(a.ctx, p, query, numResults)
 		if err == nil {
 			a.logger.Info("Search successful with fallback provider",
 				zap.String("provider", p.Name()))
 			return results, p.Name(), fallbacks, nil
 		}
 
-		a.logger.Error("Provider failed",
+		a.logger.Error("Provider failed after retries",
 			zap.String("provider", p.Name()),
 			zap.Error(err))
 		fallbacks = append(fallbacks, p.Name())
 	}
 
-	return nil, "", fallbacks, fmt.Errorf("all %d providers failed", len(a.providers))
+	return nil, "", fallbacks, fmt.Errorf("all %d providers failed after retries", len(a.providers))
 }
 
 // sendResponse sends a successful response to the caller's topic
