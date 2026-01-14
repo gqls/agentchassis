@@ -2567,7 +2567,7 @@ func (s *SagaCoordinator) notifyParentOfSuccess(ctx context.Context, state *Orch
 		zap.String("orchestration_id", state.OrchestrationID))
 
 	// Build result from CollectedData - extract workflow outputs
-	resultData := s.extractWorkflowResult(state)
+	resultData := s.extractWorkflowResultWithSizeLimit(state)
 
 	successResponse := types.ResponseMessage{
 		Headers: types.ResponseHeaders{
@@ -2603,28 +2603,139 @@ func (s *SagaCoordinator) notifyParentOfSuccess(ctx context.Context, state *Orch
 }
 
 // extractWorkflowResult builds the result payload to send back to parent
+// respects output_fields config from complete_workflow step
 func (s *SagaCoordinator) extractWorkflowResult(state *OrchestrationState) map[string]interface{} {
 	result := make(map[string]interface{})
 
-	// Include non-internal fields from CollectedData
-	for key, value := range state.CollectedData {
-		// Skip internal fields (those starting with __)
-		if strings.HasPrefix(key, "__") {
-			continue
+	// Try to get output_fields from the complete step's config
+	// state.WorkflowPlan is models.WorkflowPlan with Steps map[string]Step
+	var outputFields []string
+	if state.WorkflowPlan.Steps != nil {
+		if completeStep, ok := state.WorkflowPlan.Steps["complete"]; ok {
+			if config, ok := completeStep.Config["output_fields"].([]interface{}); ok {
+				for _, f := range config {
+					if fieldName, ok := f.(string); ok {
+						outputFields = append(outputFields, fieldName)
+					}
+				}
+			}
 		}
-		// Skip large or transient data
-		if key == "loop_metadata" {
-			continue
-		}
-		result[key] = value
 	}
 
-	// Add completion metadata
+	// If output_fields is configured, only include those fields
+	if len(outputFields) > 0 {
+		s.logger.Info("extractWorkflowResult: using configured output_fields",
+			zap.Strings("output_fields", outputFields))
+
+		for _, fieldName := range outputFields {
+			if value := datahelpers.ExtractNestedField(state.CollectedData, fieldName); value != nil {
+				// Extract step data to remove .response wrapper if present
+				result[fieldName] = datahelpers.ExtractStepData(value)
+			}
+		}
+	} else {
+		// Fallback: include non-internal, non-large fields
+		// Skip fields that are typically large and not needed by parent
+		skipPatterns := []string{
+			"page_content_",     // Individual page content (can be large)
+			"reviewed_content_", // Reviewed versions
+			"build_pages_loop_", // Loop iteration data
+			"assembled_page",    // Full HTML
+			"page_deployed_",    // Deployment results per page
+		}
+
+		for key, value := range state.CollectedData {
+			// Skip internal fields
+			if strings.HasPrefix(key, "__") {
+				continue
+			}
+			// Skip loop metadata
+			if key == "loop_metadata" {
+				continue
+			}
+			// Skip large pattern matches
+			skip := false
+			for _, pattern := range skipPatterns {
+				if strings.HasPrefix(key, pattern) {
+					skip = true
+					break
+				}
+			}
+			if skip {
+				continue
+			}
+
+			// Extract step data to remove .response wrapper
+			result[key] = datahelpers.ExtractStepData(value)
+		}
+	}
+
+	// Add completion metadata (small, always useful)
 	result["orchestration_id"] = state.OrchestrationID
 	result["completed_steps"] = state.ExecutionMetadata.CompletedSteps
 	result["completed_at"] = time.Now().Format(time.RFC3339)
 
+	// Log the final size for monitoring
+	if resultBytes, err := json.Marshal(result); err == nil {
+		s.logger.Info("extractWorkflowResult: result size",
+			zap.Int("size_bytes", len(resultBytes)),
+			zap.Int("field_count", len(result)))
+	}
+
 	return result
+}
+
+const MaxResultSizeBytes = 900000 // Leave headroom below 1MB Kafka limit
+
+// extractWorkflowResultWithSizeLimit builds result respecting size limits
+func (s *SagaCoordinator) extractWorkflowResultWithSizeLimit(state *OrchestrationState) map[string]interface{} {
+	// First try with configured output_fields
+	result := s.extractWorkflowResult(state)
+
+	// Check size
+	resultBytes, err := json.Marshal(result)
+	if err != nil {
+		s.logger.Error("Failed to marshal result for size check", zap.Error(err))
+		return s.extractMinimalResult(state)
+	}
+
+	if len(resultBytes) <= MaxResultSizeBytes {
+		return result
+	}
+
+	// Result too large - try removing large string fields
+	s.logger.Warn("extractWorkflowResult: result too large, trimming",
+		zap.Int("original_size", len(resultBytes)))
+
+	for key, value := range result {
+		if str, ok := value.(string); ok && len(str) > 10000 {
+			// Truncate large strings
+			result[key] = str[:1000] + "...[truncated]"
+		}
+		// Could also recurse into maps/arrays if needed
+	}
+
+	// Re-check size
+	resultBytes, _ = json.Marshal(result)
+	if len(resultBytes) <= MaxResultSizeBytes {
+		return result
+	}
+
+	// Still too large - return minimal result
+	s.logger.Warn("extractWorkflowResult: still too large after trimming, using minimal result",
+		zap.Int("size_after_trim", len(resultBytes)))
+	return s.extractMinimalResult(state)
+}
+
+// extractMinimalResult returns just the essential completion info
+func (s *SagaCoordinator) extractMinimalResult(state *OrchestrationState) map[string]interface{} {
+	return map[string]interface{}{
+		"orchestration_id": state.OrchestrationID,
+		"completed_steps":  state.ExecutionMetadata.CompletedSteps,
+		"completed_at":     time.Now().Format(time.RFC3339),
+		"status":           "completed",
+		"message":          "Workflow completed successfully. Full result exceeded size limit.",
+	}
 }
 
 func (s *SagaCoordinator) notifyParentOfFailure(ctx context.Context, state *OrchestrationState, errorMsg string) {
