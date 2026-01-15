@@ -65,6 +65,34 @@ func FindByPath(data map[string]interface{}, path string, logger *zap.Logger) in
 				}
 			}
 
+			// If path starts with "input_data." and we couldn't find it,
+			// try the path without the prefix (data might be flattened)
+			if i == 0 && part == "input_data" && len(parts) > 1 {
+				// Skip input_data prefix and try remaining path directly
+				remainingPath := strings.Join(parts[1:], ".")
+				logger.Debug("Trying path without input_data prefix",
+					zap.String("original_path", path),
+					zap.String("trying", remainingPath),
+				)
+				if result := FindByPath(data, remainingPath, logger); result != nil {
+					return result
+				}
+			}
+
+			// Also try adding input_data prefix if not present
+			// (data might be wrapped when we expect it flat)
+			if i == 0 && part != "input_data" {
+				if inputData, hasInputData := v["input_data"].(map[string]interface{}); hasInputData {
+					// Try to find the entire path inside input_data
+					if result := FindByPath(inputData, path, logger); result != nil {
+						logger.Debug("Found via input_data wrapper",
+							zap.String("path", path),
+						)
+						return result
+					}
+				}
+			}
+
 			logger.Warn("Path part not found",
 				zap.String("part", part),
 				zap.Strings("available_keys", getKeys(v)),

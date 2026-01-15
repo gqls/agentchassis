@@ -289,3 +289,119 @@ SELECT type,
     input_contract
 FROM agent_definitions
 WHERE type = 'site-planner';
+
+---
+
+-- ============================================================================
+-- Update site-planner agent to use stricter component selection
+--
+-- The current prompt says "If no matching component exists, use descriptive
+-- names like 'content-block' or 'custom-section'" which causes the LLM to
+-- invent component names that don't exist in the database.
+--
+-- This update makes the prompt strictly require using existing component names.
+-- ============================================================================
+
+-- First, let's see the current configuration
+-- SELECT type, default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template'
+-- FROM agent_definitions
+-- WHERE type = 'site-planner';
+
+-- Update the site-planner prompt to be stricter
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        to_jsonb(
+                'Plan a website for {{.input_data.domain}}.
+
+                ## Site Brief
+                {{.reviewed_brief}}
+
+                ## Available Section Components
+                The following components are available in our component library. You MUST use ONLY these exact component names in the "sections" arrays:
+
+                {{range .available_components}}
+                - {{.name}} ({{.display_name}}): {{.function}} - {{.description}}
+                {{end}}
+
+                ## Available Style Collections
+                {{.available_styles}}
+
+                ## Task
+                Create a comprehensive site plan using ONLY the components listed above.
+
+                Return JSON in this format:
+                ```json
+                {
+                  "pages": [
+                    {
+                      "name": "index",
+                      "title": "Page Title | Site Name",
+                      "nav_label": "Home",
+                      "nav_order": 1,
+                      "in_header": true,
+                      "in_footer": true,
+                      "sections": ["hero", "features", "testimonials", "call_to_action"]
+                    }
+                  ],
+                  "style_collection": "style-name",
+                  "needs_logo": true,
+                  "needs_images": true,
+                  "image_prompts": {
+                    "logo": "Description for logo generation",
+                    "hero_home": "Description for home hero image"
+                  }
+                }
+                ```
+
+                STRICT RULES:
+                1. ONLY use component names from the "Available Section Components" list above
+                2. DO NOT invent new component names - if unsure, use "hero" for hero sections, "features" for feature lists, "call_to_action" for CTAs
+                3. Use these standard mappings:
+                   - For any hero/banner at page top: use "hero" or page-specific variants like "contact-hero", "services-hero", "about-hero"
+                   - For feature lists: use "features"
+                   - For service listings: use "services-grid"
+                   - For testimonials/quotes: use "testimonials" or "social_proof"
+                   - For calls to action: use "call_to_action"
+                   - For contact forms: use "contact-form"
+                   - For contact details: use "contact-info"
+                   - For team sections: use "leadership-team"
+                   - For case studies: use "case-studies-list"
+                   - For about content: use "about-content"
+                   - For differentiators/why-us: use "differentiators-section"
+
+                4. Choose style_collection based on industry and tone from the brief
+                5. Keep header navigation to 5-8 items maximum
+                6. Always include: index (home) and contact pages
+                7. For image prompts, be specific to the industry and content described'::text
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-planner';
+
+-- Verify the update
+SELECT type,
+       substring(default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template', 1, 500) as prompt_preview
+FROM agent_definitions
+WHERE type = 'site-planner';
+
+-- ============================================================================
+-- Also update the component query to include more useful info for the LLM
+-- ============================================================================
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_available_components,config,query}',
+        '"SELECT name, display_name, \"function\", category, description FROM content_components WHERE component_level IN (''section'', ''element'') AND is_active = true ORDER BY category, name"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-planner';
+
+-- Confirm changes
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'load_available_components'->'config'->>'query' as component_query
+FROM agent_definitions
+WHERE type = 'site-planner';

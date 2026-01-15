@@ -237,7 +237,7 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 // resolveFieldValue gets a value from collected data using a dotted path
 // Uses datahelpers.FindByPath for traversal with fallbacks
 func resolveFieldValue(fieldPath string, data map[string]interface{}, logger *zap.Logger) interface{} {
-	// ISSUE 33 FIX: Log available top-level keys to diagnose missing loop variable
+	// Log available top-level keys for debugging
 	topLevelKeys := make([]string, 0, len(data))
 	for k := range data {
 		if len(k) > 30 {
@@ -255,7 +255,7 @@ func resolveFieldValue(fieldPath string, data map[string]interface{}, logger *za
 
 	_, firstPartExists := data[firstPart]
 
-	logger.Info("resolveFieldValue: ENTRY",
+	logger.Debug("resolveFieldValue: ENTRY",
 		zap.String("path", fieldPath),
 		zap.String("first_part", firstPart),
 		zap.Bool("first_part_exists", firstPartExists),
@@ -264,34 +264,64 @@ func resolveFieldValue(fieldPath string, data map[string]interface{}, logger *za
 
 	// Strategy 1: Use FindByPath from datahelpers (handles unwrapping)
 	if value := datahelpers.FindByPath(data, fieldPath, logger); value != nil {
-		logger.Info("resolveFieldValue: FOUND via FindByPath",
-			zap.String("path", fieldPath),
-			zap.String("value_type", fmt.Sprintf("%T", value)),
-		)
-		return value
-	}
-
-	// Strategy 2: Manual traversal for simple cases
-	value := traverseDottedPath(fieldPath, data, logger)
-	if value != nil {
-		logger.Info("resolveFieldValue: FOUND via manual traversal",
+		logger.Debug("resolveFieldValue: FOUND via FindByPath",
 			zap.String("path", fieldPath),
 		)
 		return value
 	}
 
-	// Strategy 3: Try searching recursively for the last segment
-	// e.g., if "site_plan.needs_logo" fails, try finding "needs_logo" within "site_plan"
+	// Strategy 2: Manual traversal
+	if value := traverseDottedPath(fieldPath, data, logger); value != nil {
+		logger.Debug("resolveFieldValue: FOUND via manual traversal",
+			zap.String("path", fieldPath),
+		)
+		return value
+	}
+
+	// Strategy 3: input_data prefix removal
+	// If path is "input_data.review_mode" but data has "review_mode" at top level
+	if len(parts) > 1 && parts[0] == "input_data" {
+		remainingPath := strings.Join(parts[1:], ".")
+
+		if value := datahelpers.FindByPath(data, remainingPath, logger); value != nil {
+			logger.Debug("resolveFieldValue: FOUND via input_data prefix removal",
+				zap.String("original_path", fieldPath),
+				zap.String("actual_path", remainingPath),
+			)
+			return value
+		}
+
+		if value := traverseDottedPath(remainingPath, data, logger); value != nil {
+			logger.Debug("resolveFieldValue: FOUND via input_data prefix removal (manual)",
+				zap.String("original_path", fieldPath),
+				zap.String("actual_path", remainingPath),
+			)
+			return value
+		}
+	}
+
+	// Strategy 4: input_data prefix addition
+	// If path is "review_mode" but data has {"input_data": {"review_mode": ...}}
+	if len(parts) >= 1 && parts[0] != "input_data" {
+		if inputData, hasInputData := data["input_data"].(map[string]interface{}); hasInputData {
+			if value := traverseDottedPath(fieldPath, inputData, logger); value != nil {
+				logger.Debug("resolveFieldValue: FOUND inside input_data wrapper",
+					zap.String("path", fieldPath),
+				)
+				return value
+			}
+		}
+	}
+
+	// Strategy 5: Recursive search within nested structures
 	if len(parts) >= 2 {
-		// Get the base object
 		basePath := strings.Join(parts[:len(parts)-1], ".")
 		baseObj := traverseDottedPath(basePath, data, logger)
 
 		if baseMap, ok := baseObj.(map[string]interface{}); ok {
 			lastKey := parts[len(parts)-1]
-			// Search recursively within the base object
 			if found := findKeyRecursive(baseMap, lastKey, 0, logger); found != nil {
-				logger.Info("resolveFieldValue: FOUND via recursive search within base",
+				logger.Debug("resolveFieldValue: FOUND via recursive search",
 					zap.String("base", basePath),
 					zap.String("key", lastKey),
 				)
@@ -300,68 +330,19 @@ func resolveFieldValue(fieldPath string, data map[string]interface{}, logger *za
 		}
 	}
 
-	// Log failure with more detail
-	logger.Warn("resolveFieldValue: NOT FOUND - this may indicate loop variable not set",
-		zap.String("path", fieldPath),
-		zap.String("first_part", firstPart),
-		zap.Bool("first_part_exists", firstPartExists),
-	)
-
-	// Strategy 4 - Loop variable fallback
-	// If the first part doesn't exist but looks like a loop variable,
-	// try to find it via the loop item key stored during loop expansion
-	if !firstPartExists && len(parts) >= 1 {
-		loopVarName := parts[0]
-
-		// Check if we have loop_metadata that can help us find the item
-		if loopMetadata, ok := data["loop_metadata"].(map[string]interface{}); ok {
-			loopName, _ := loopMetadata["loop_name"].(string)
-			currentIter := -1
-
-			// Try to get current iteration as int or float64
-			if iter, ok := loopMetadata["current_iteration"].(int); ok {
-				currentIter = iter
-			} else if iter, ok := loopMetadata["current_iteration"].(float64); ok {
-				currentIter = int(iter)
-			}
-
-			if loopName != "" && currentIter >= 0 {
-				itemKey := fmt.Sprintf("%s_item_%d", loopName, currentIter)
-				if item, exists := data[itemKey]; exists {
-					logger.Info("resolveFieldValue: using loop item fallback",
-						zap.String("loop_var", loopVarName),
-						zap.String("item_key", itemKey),
-						zap.Int("iteration", currentIter),
-					)
-
-					// Set the loop variable in data for future lookups
-					data[loopVarName] = item
-
-					// Now try to resolve the field path again
-					if itemMap, ok := item.(map[string]interface{}); ok {
-						if len(parts) == 1 {
-							// Just the loop variable name - return the whole item
-							return item
-						}
-						// Traverse the rest of the path
-						restPath := strings.Join(parts[1:], ".")
-						if result := traverseDottedPath(restPath, itemMap, logger); result != nil {
-							logger.Info("resolveFieldValue: FOUND via loop item fallback",
-								zap.String("path", fieldPath),
-								zap.String("item_key", itemKey),
-							)
-							return result
-						}
-					}
-				} else {
-					logger.Warn("resolveFieldValue: loop item key not found",
-						zap.String("item_key", itemKey),
-						zap.String("loop_name", loopName),
-						zap.Int("iteration", currentIter),
-					)
-				}
-			}
-		}
+	// Not found - log at Debug level instead of Warn to reduce noise
+	// Only warn if this looks like an unexpected missing field
+	if firstPartExists {
+		// First part exists but nested path failed - this is more concerning
+		logger.Warn("resolveFieldValue: nested path not found",
+			zap.String("path", fieldPath),
+			zap.String("first_part", firstPart),
+		)
+	} else {
+		// First part doesn't exist - might be expected for optional fields
+		logger.Debug("resolveFieldValue: path not found (may be optional)",
+			zap.String("path", fieldPath),
+		)
 	}
 
 	return nil

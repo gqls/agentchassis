@@ -374,3 +374,102 @@ WHERE type = 'content-reviewer';
 --     '"eval_result.approved == true"'::jsonb
 -- )
 -- WHERE agent_type = 'content-reviewer';
+
+---
+
+-- ============================================================================
+-- Update content-reviewer conditional to handle missing review_mode gracefully
+--
+-- The current conditional checks for input_data.review_mode but this field
+-- is not always passed by callers. The behavior (defaulting to auto-eval)
+-- is correct, but the warning logs are noisy.
+--
+-- This update changes the conditional to check for the fields at multiple
+-- paths and explicitly handle the "not specified" case.
+-- ============================================================================
+
+-- Option 1: Update the conditional to check both paths
+-- The conditional currently is:
+--   "condition": "input_data.review_mode == 'hitl' OR input_data.require_human_review == true"
+--
+-- Change to also check without input_data prefix:
+--   "condition": "(input_data.review_mode == 'hitl' OR review_mode == 'hitl') OR (input_data.require_human_review == true OR require_human_review == true)"
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,determine_review_mode,config,condition}',
+        '"(input_data.review_mode == ''hitl'' OR review_mode == ''hitl'') OR (input_data.require_human_review == true OR require_human_review == true)"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-reviewer';
+
+-- Also update the input_contract to document that review_mode is optional
+UPDATE agent_definitions
+SET input_contract = '{
+    "expects": {
+        "current_page": "object with name, title - the page being reviewed",
+        "page_content": "object with sections[] containing rendered content",
+        "reviewed_brief": "object with company info for context",
+        "review_mode": "string (optional) - ''hitl'' for human review, ''auto'' for LLM review. Defaults to auto.",
+        "require_human_review": "boolean (optional) - if true, forces HITL mode. Defaults to false."
+    },
+    "required": ["current_page", "page_content"],
+    "optional": ["reviewed_brief", "review_mode", "require_human_review"],
+    "defaults": {
+        "review_mode": "auto",
+        "require_human_review": false
+    }
+}'::jsonb,
+updated_at = NOW()
+WHERE type = 'content-reviewer';
+
+-- Verify the changes
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'determine_review_mode'->'config'->>'condition' as condition,
+    input_contract
+FROM agent_definitions
+WHERE type = 'content-reviewer';
+
+
+-- ============================================================================
+-- Alternative: Add a "set_defaults" step before the conditional
+-- This is a more robust approach that explicitly sets default values
+-- ============================================================================
+
+-- This would require adding a new step:
+/*
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,set_review_defaults}',
+    '{
+        "action": "set_defaults",
+        "config": {
+            "defaults": {
+                "review_mode": "auto",
+                "require_human_review": false
+            },
+            "paths": [
+                {"field": "review_mode", "try_paths": ["input_data.review_mode", "review_mode"]},
+                {"field": "require_human_review", "try_paths": ["input_data.require_human_review", "require_human_review"]}
+            ]
+        },
+        "next_step": "determine_review_mode",
+        "description": "Set default values for optional review configuration"
+    }'::jsonb
+),
+updated_at = NOW()
+WHERE type = 'content-reviewer';
+
+-- Then update the start_step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,start_step}',
+    '"set_review_defaults"'::jsonb
+),
+updated_at = NOW()
+WHERE type = 'content-reviewer';
+*/
