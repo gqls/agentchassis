@@ -325,7 +325,7 @@ func tryUnwrapMapPatterns(m map[string]interface{}, logger *zap.Logger) interfac
 		if strings.HasSuffix(key, "_result") {
 			if resultMap, ok := val.(map[string]interface{}); ok {
 				if result, ok := resultMap["result"]; ok {
-					if parsed := tryParseJSON(result); parsed != nil {
+					if parsed := tryParseJSON(result, logger); parsed != nil {
 						return parsed
 					}
 					return result
@@ -336,7 +336,7 @@ func tryUnwrapMapPatterns(m map[string]interface{}, logger *zap.Logger) interfac
 
 	// Pattern 2: Direct result field
 	if result, ok := m["result"]; ok {
-		if parsed := tryParseJSON(result); parsed != nil {
+		if parsed := tryParseJSON(result, logger); parsed != nil {
 			return parsed
 		}
 		return result

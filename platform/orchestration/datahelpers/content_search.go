@@ -213,7 +213,7 @@ func unwrapRecursive(data interface{}, depth int, logger *zap.Logger) interface{
 			if resultMap, ok := val.(map[string]interface{}); ok {
 				if result, hasResult := resultMap["result"]; hasResult {
 					// Try to parse JSON string
-					if parsed := tryParseJSON(result); parsed != nil {
+					if parsed := tryParseJSON(result, logger); parsed != nil {
 						return unwrapRecursive(parsed, depth+1, logger)
 					}
 					return unwrapRecursive(result, depth+1, logger)
@@ -224,7 +224,7 @@ func unwrapRecursive(data interface{}, depth int, logger *zap.Logger) interface{
 
 	// Pattern 2: Direct result field
 	if result, hasResult := m["result"]; hasResult {
-		if parsed := tryParseJSON(result); parsed != nil {
+		if parsed := tryParseJSON(result, logger); parsed != nil {
 			return unwrapRecursive(parsed, depth+1, logger)
 		}
 		return unwrapRecursive(result, depth+1, logger)
@@ -257,24 +257,21 @@ func unwrapRecursive(data interface{}, depth int, logger *zap.Logger) interface{
 }
 
 // tryParseJSON attempts to parse a JSON string
-func tryParseJSON(value interface{}) interface{} {
+// Returns nil for non-JSON strings (this is expected, not an error)
+func tryParseJSON(value interface{}, logger *zap.Logger) interface{} {
 	str, ok := value.(string)
 	if !ok {
 		return nil
 	}
 
-	// Store original for debugging
-	// originalStr := str
 	originalLen := len(str)
-	// Remove markdown fences
 	str = strings.TrimSpace(str)
 
-	// Handle all fence variations
+	// Handle all fence variations (```json ... ```)
 	for strings.HasPrefix(str, "```") {
-		// Find end of first line
 		newlineIdx := strings.Index(str, "\n")
 		if newlineIdx > 0 {
-			str = str[newlineIdx+1:] // Skip past ```json\n or ```\n
+			str = str[newlineIdx+1:]
 		} else {
 			str = strings.TrimPrefix(str, "```")
 		}
@@ -283,7 +280,6 @@ func tryParseJSON(value interface{}) interface{} {
 
 	// Remove trailing fences
 	for strings.HasSuffix(str, "```") {
-		// Find start of last line
 		lastNewline := strings.LastIndex(str, "\n```")
 		if lastNewline > 0 {
 			str = str[:lastNewline]
@@ -293,34 +289,40 @@ func tryParseJSON(value interface{}) interface{} {
 		str = strings.TrimSpace(str)
 	}
 
-	cleanedLen := len(str)
-
-	var parsed interface{}
-	if err := json.Unmarshal([]byte(str), &parsed); err != nil {
-		// Log the error with context for debugging
-		fmt.Printf("JSON parsing failed: %v. Original length: %d, Cleaned length: %d, Preview: %s\n",
-			err, originalLen, len(str), str[max(0, len(str)-100):])
-		// LOG THE ACTUAL FAILURE
-		fmt.Printf("JSON PARSE FAILED\n")
-		fmt.Printf("  Original length: %d\n", originalLen)
-		fmt.Printf("  Cleaned length: %d\n", cleanedLen)
-		fmt.Printf("  Error: %v\n", err)
-		fmt.Printf("  First 200 chars: %s\n", str[:min(200, len(str))])
-		fmt.Printf("  Last 200 chars: %s\n", str[max(0, len(str)-200):])
-
-		// Check WHY it failed
-		if isTruncatedJSON(str) {
-			fmt.Printf("  Cause: TRUNCATED JSON (unmatched brackets/braces)\n")
-			fmt.Printf("  Last 300 chars: ...%s\n", str[max(0, len(str)-300):])
-		} else {
-			fmt.Printf("  Cause: SYNTAX ERROR (not truncation)\n")
-			fmt.Printf("  First 200 chars: %s\n", str[:min(200, len(str))])
-		}
-
+	// Quick check: if it doesn't look like JSON, don't try to parse
+	// This avoids noisy logs for plain text LLM responses
+	if len(str) == 0 {
+		return nil
+	}
+	looksLikeJSON := strings.HasPrefix(str, "{") || strings.HasPrefix(str, "[")
+	if !looksLikeJSON {
 		return nil
 	}
 
-	fmt.Printf("JSON parse success (original: %d bytes, cleaned: %d bytes)\n", originalLen, cleanedLen)
+	// Attempt to parse
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(str), &parsed); err != nil {
+		// Only log for content that looked like JSON but failed
+		if isTruncatedJSON(str) {
+			logger.Warn("Truncated JSON detected",
+				zap.Int("original_len", originalLen),
+				zap.Int("cleaned_len", len(str)),
+				zap.String("last_100_chars", str[max(0, len(str)-100):]),
+			)
+		} else {
+			logger.Debug("JSON syntax error",
+				zap.Error(err),
+				zap.Int("length", len(str)),
+				zap.String("preview", str[:min(100, len(str))]),
+			)
+		}
+		return nil
+	}
+
+	logger.Debug("JSON parsed successfully",
+		zap.Int("original_len", originalLen),
+		zap.Int("cleaned_len", len(str)),
+	)
 	return parsed
 }
 
