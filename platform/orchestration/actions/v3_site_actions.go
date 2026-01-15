@@ -2221,18 +2221,21 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		// Query for components by name
 		// Note: content_components table doesn't have is_active or css_template columns
 		query := fmt.Sprintf(`
-			SELECT 
-				id,
-				name, 
-				COALESCE(display_name, name) as display_name,
-				function, 
-				COALESCE(category, '') as category,
-				semantic_tags, 
-				description, 
-				html_template,
-				input_schema
-			FROM content_components 
-			WHERE name IN (%s)`, strings.Join(placeholders, ", "))
+				SELECT 
+					id,
+					name, 
+					COALESCE(display_name, name) as display_name,
+					function, 
+					COALESCE(category, '') as category,
+					semantic_tags, 
+					description, 
+					html_template,
+					input_schema,
+					COALESCE(render_mode, 'template') as render_mode,
+					agent_type,
+					COALESCE(component_level, 'section') as component_level
+				FROM content_components 
+				WHERE name IN (%s)`, strings.Join(placeholders, ", "))
 
 		rows, err := params.DB.QueryContext(ctx, query, args...)
 		if err != nil {
@@ -2254,8 +2257,9 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			var id, name, function string
 			var displayName, category sql.NullString
 			var semanticTags, description, htmlTemplate, inputSchema sql.NullString
+			var renderMode, agentType, componentLevel sql.NullString
 
-			if err := rows.Scan(&id, &name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate, &inputSchema); err != nil {
+			if err := rows.Scan(&id, &name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate, &inputSchema, &renderMode, &agentType, &componentLevel); err != nil {
 				params.Logger.Error("LoadPageSectionComponentsAction: Row scan failed",
 					zap.Error(err))
 				continue
@@ -2292,7 +2296,22 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			if inputSchema.Valid && inputSchema.String != "" {
 				comp["input_schema"] = inputSchema.String
 			}
+			// Add render_mode and related fields
+			if renderMode.Valid && renderMode.String != "" {
+				comp["render_mode"] = renderMode.String
+			} else {
+				comp["render_mode"] = "template" // Default
+			}
 
+			if agentType.Valid && agentType.String != "" {
+				comp["agent_type"] = agentType.String
+			}
+
+			if componentLevel.Valid && componentLevel.String != "" {
+				comp["component_level"] = componentLevel.String
+			} else {
+				comp["component_level"] = "section"
+			}
 			// Auto-detect if component needs LLM content generation
 			needsLLM := detectNeedsLLMContent(htmlTemplate.String, inputSchema.String)
 			comp["needs_llm"] = needsLLM
