@@ -152,6 +152,7 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 }
 
 // cleanExpressionPart removes unbalanced parentheses from expression parts
+// after splitting on AND/OR operators
 func cleanExpressionPart(expr string) string {
 	expr = strings.TrimSpace(expr)
 
@@ -187,6 +188,9 @@ func splitOnOperator(expr string, operator string) []string {
 // Supports: ==, !=
 func evaluateSingleComparison(expr string, data map[string]interface{}, logger *zap.Logger) (bool, error) {
 	expr = strings.TrimSpace(expr)
+
+	// Clean unbalanced parentheses from grouping
+	expr = cleanExpressionPart(expr)
 
 	logger.Info("evaluateSingleComparison: ENTRY",
 		zap.String("expr", expr),
@@ -226,7 +230,6 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 
 		actual := resolveFieldValue(field, data, logger)
 
-		// ISSUE 33 FIX: Log at INFO level like != branch
 		logger.Info("evaluateSingleComparison: resolved field for == comparison",
 			zap.String("field", field),
 			zap.String("expected", expected),
@@ -248,7 +251,6 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 	}
 
 	// No comparison operator found - treat as truthy check
-	// e.g., "site_plan.needs_logo" is true if the field exists and is truthy
 	actual := resolveFieldValue(expr, data, logger)
 	isTruthy := valueIsTruthy(actual)
 

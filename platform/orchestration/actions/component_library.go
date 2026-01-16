@@ -470,29 +470,42 @@ func containsAny(s string, substrings ...string) bool {
 // ===========================================================================
 
 // RenderTemplate renders a component template with the given context
-// Supports both {{.field}} (Go-style) and {{field}} (Handlebars-style)
-func RenderTemplate(template string, ctx *RenderContext, logger *zap.Logger) string {
-	result := template
+// Uses Go's text/template for full support of {{if}}, {{range}}, {{with}}, etc.
+func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) string {
+	if templateStr == "" {
+		return ""
+	}
 
-	// Convert context to map for flexible access
-	data := contextToMap(ctx)
+	// Convert context to map[string]interface{} - preserves nested structures
+	data := contextToInterfaceMap(ctx)
 
-	// Step 1: Handle {{#each nav_items}}...{{/each}} blocks
-	result = renderEachBlocks(result, ctx.NavItems)
+	// Log what we're about to render (debug)
+	logger.Debug("RenderTemplate: executing",
+		zap.Int("data_fields", len(data)),
+		zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
+	)
 
-	// Step 2: Handle {{#if field}}...{{/if}} blocks
-	result = renderIfBlocks(result, data)
+	// Try Go template execution first
+	result, err := executeGoTemplate(templateStr, data, logger)
+	if err != nil {
+		logger.Warn("Go template execution failed, using regex fallback",
+			zap.Error(err),
+			zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
+		)
 
-	// Step 3: Handle Go-style {{.field}} substitutions
-	result = renderGoStyleSubstitutions(result, data)
+		// Fallback to old regex-based method
+		result = templateStr
+		stringData := contextToMap(ctx) // Use existing function for fallback
 
-	// Step 4: Handle Handlebars-style {{field}} substitutions
-	result = renderHandlebarsSubstitutions(result, data)
+		result = renderEachBlocks(result, ctx.NavItems)
+		result = renderIfBlocks(result, stringData)
+		result = renderGoStyleSubstitutions(result, stringData)
+		result = renderHandlebarsSubstitutions(result, stringData)
 
-	// Step 5: Build nav items HTML for {{nav_items_html}} placeholder
-	navItemsHTML := buildNavItemsHTML(ctx.NavItems)
-	result = strings.ReplaceAll(result, "{{nav_items_html}}", navItemsHTML)
-	result = strings.ReplaceAll(result, "{{.nav_items_html}}", navItemsHTML)
+		navItemsHTML := buildNavItemsHTML(ctx.NavItems)
+		result = strings.ReplaceAll(result, "{{nav_items_html}}", navItemsHTML)
+		result = strings.ReplaceAll(result, "{{.nav_items_html}}", navItemsHTML)
+	}
 
 	return result
 }
@@ -604,6 +617,112 @@ func contextToMap(ctx *RenderContext) map[string]string {
 	}
 
 	return result
+}
+
+// contextToInterfaceMap converts RenderContext to map[string]interface{}
+// This preserves nested structures (slices, maps) required for {{range}}
+func contextToInterfaceMap(ctx *RenderContext) map[string]interface{} {
+	if ctx.Year == "" {
+		ctx.Year = fmt.Sprintf("%d", time.Now().Year())
+	}
+
+	logoText := ctx.LogoText
+	if logoText == "" && ctx.CompanyName != "" {
+		logoText = ctx.CompanyName
+	}
+	if logoText == "" && ctx.Domain != "" {
+		parts := strings.Split(ctx.Domain, ".")
+		if len(parts) > 0 && len(parts[0]) > 0 {
+			logoText = strings.ToUpper(parts[0][:1]) + parts[0][1:]
+		}
+	}
+	if logoText == "" {
+		logoText = "Company"
+	}
+
+	result := map[string]interface{}{
+		// Site info
+		"domain":       ctx.Domain,
+		"site_id":      ctx.SiteID,
+		"logo_text":    logoText,
+		"company_name": defaultString(ctx.CompanyName, logoText),
+		"tagline":      ctx.Tagline,
+
+		// Navigation - keep as slice for {{range}}
+		"nav_items":    ctx.NavItems,
+		"current_page": ctx.CurrentPage,
+
+		// Colors
+		"primary_color":    defaultString(ctx.PrimaryColor, "#1a1a2e"),
+		"secondary_color":  defaultString(ctx.SecondaryColor, "#2d2d44"),
+		"accent_color":     defaultString(ctx.AccentColor, "#16a085"),
+		"text_color":       defaultString(ctx.TextColor, "#333333"),
+		"background_color": defaultString(ctx.BackgroundColor, "#ffffff"),
+		"theme_css":        ctx.ThemeCSS,
+
+		// Page
+		"title":       ctx.Title,
+		"description": ctx.Description,
+
+		// Contact
+		"email":         ctx.Email,
+		"contact_email": ctx.Email,
+		"phone":         ctx.Phone,
+
+		// CTA
+		"cta_text": defaultString(ctx.CTAText, "Get Started"),
+		"cta_url":  defaultString(ctx.CTAUrl, "/contact.html"),
+
+		// Metadata
+		"year":            ctx.Year,
+		"industry":        ctx.Industry,
+		"tone":            ctx.Tone,
+		"target_audience": ctx.TargetAudience,
+		"services":        ctx.Services,
+	}
+
+	// Merge ContentData - this contains LLM-generated nested structures
+	// like features[], highlights[], testimonials[], etc.
+	for key, value := range ctx.ContentData {
+		result[key] = value
+	}
+
+	// Add bidirectional aliases for common field names
+	applyBidirectionalAliases(result)
+
+	return result
+}
+
+// applyBidirectionalAliases ensures templates work regardless of field naming
+func applyBidirectionalAliases(data map[string]interface{}) {
+	// Map of field -> aliases (bidirectional)
+	aliasGroups := [][]string{
+		{"headline", "heading", "title", "section_title"},
+		{"subheadline", "subtitle", "sub_headline", "lead", "description"},
+		{"cta_text", "primary_cta", "button_text"},
+		{"cta_url", "primary_cta_url", "button_url"},
+		{"content", "body", "text", "paragraph"},
+	}
+
+	for _, group := range aliasGroups {
+		// Find first non-empty value in group
+		var foundValue interface{}
+		for _, field := range group {
+			if val, exists := data[field]; exists && val != nil && val != "" {
+				foundValue = val
+				break
+			}
+		}
+
+		// If found, ensure all aliases have this value
+		if foundValue != nil {
+			for _, field := range group {
+				if _, exists := data[field]; !exists {
+					data[field] = foundValue
+				}
+			}
+		}
+	}
 }
 
 // RenderTemplateWithValidation renders a template with optional schema validation

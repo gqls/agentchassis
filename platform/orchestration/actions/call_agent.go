@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/google/uuid"
@@ -639,11 +641,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -696,11 +698,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -752,11 +754,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
 
@@ -917,6 +919,47 @@ func renderTemplatesInData(data map[string]interface{}, collectedData map[string
 	}
 
 	return result
+}
+
+// executeGoTemplate executes a template using Go's text/template package
+// This properly handles {{if}}, {{range}}, {{with}}, {{end}} directives
+func executeGoTemplate(templateStr string, data map[string]interface{}, logger *zap.Logger) (string, error) {
+	tmpl, err := template.New("component").Funcs(template.FuncMap{
+		"default": func(defaultVal, val interface{}) interface{} {
+			if val == nil || val == "" {
+				return defaultVal
+			}
+			return val
+		},
+		"eq": func(a, b interface{}) bool {
+			return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
+		},
+		"ne": func(a, b interface{}) bool {
+			return fmt.Sprintf("%v", a) != fmt.Sprintf("%v", b)
+		},
+		"lower": strings.ToLower,
+		"upper": strings.ToUpper,
+		"isset": func(val interface{}) bool {
+			if val == nil {
+				return false
+			}
+			if s, ok := val.(string); ok {
+				return s != ""
+			}
+			return true
+		},
+	}).Parse(templateStr)
+
+	if err != nil {
+		return "", fmt.Errorf("template parse: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("template execute: %w", err)
+	}
+
+	return buf.String(), nil
 }
 
 // Render a single template string
