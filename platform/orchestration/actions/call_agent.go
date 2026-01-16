@@ -924,31 +924,33 @@ func renderTemplatesInData(data map[string]interface{}, collectedData map[string
 // executeGoTemplate executes a template using Go's text/template package
 // This properly handles {{if}}, {{range}}, {{with}}, {{end}} directives
 func executeGoTemplate(templateStr string, data map[string]interface{}, logger *zap.Logger) (string, error) {
-	tmpl, err := template.New("component").Funcs(template.FuncMap{
-		"default": func(defaultVal, val interface{}) interface{} {
-			if val == nil || val == "" {
-				return defaultVal
-			}
-			return val
-		},
-		"eq": func(a, b interface{}) bool {
-			return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
-		},
-		"ne": func(a, b interface{}) bool {
-			return fmt.Sprintf("%v", a) != fmt.Sprintf("%v", b)
-		},
-		"lower": strings.ToLower,
-		"upper": strings.ToUpper,
-		"isset": func(val interface{}) bool {
-			if val == nil {
-				return false
-			}
-			if s, ok := val.(string); ok {
-				return s != ""
-			}
-			return true
-		},
-	}).Parse(templateStr)
+	tmpl, err := template.New("component").
+		Option("missingkey=zero").
+		Funcs(template.FuncMap{
+			"default": func(defaultVal, val interface{}) interface{} {
+				if val == nil || val == "" {
+					return defaultVal
+				}
+				return val
+			},
+			"eq": func(a, b interface{}) bool {
+				return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
+			},
+			"ne": func(a, b interface{}) bool {
+				return fmt.Sprintf("%v", a) != fmt.Sprintf("%v", b)
+			},
+			"lower": strings.ToLower,
+			"upper": strings.ToUpper,
+			"isset": func(val interface{}) bool {
+				if val == nil {
+					return false
+				}
+				if s, ok := val.(string); ok {
+					return s != ""
+				}
+				return true
+			},
+		}).Parse(templateStr)
 
 	if err != nil {
 		return "", fmt.Errorf("template parse: %w", err)
