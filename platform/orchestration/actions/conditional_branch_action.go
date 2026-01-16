@@ -109,19 +109,19 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 	logger.Debug("Evaluating string condition", zap.String("expression", expr))
 
 	// Handle OR (lower precedence - split and evaluate first)
-	// We need to be careful to only split on " OR " (with spaces) to avoid matching inside field names
 	if idx := strings.Index(expr, " OR "); idx >= 0 {
 		parts := splitOnOperator(expr, " OR ")
 		logger.Debug("Evaluating OR expression", zap.Int("parts", len(parts)))
 
 		for i, part := range parts {
-			result, err := evaluateStringCondition(strings.TrimSpace(part), data, logger)
+			cleanPart := cleanExpressionPart(strings.TrimSpace(part))
+			result, err := evaluateStringCondition(cleanPart, data, logger)
 			if err != nil {
 				return false, fmt.Errorf("OR clause %d: %w", i, err)
 			}
 			if result {
 				logger.Debug("OR short-circuit: true", zap.Int("at_part", i))
-				return true, nil // Short-circuit OR
+				return true, nil
 			}
 		}
 		return false, nil
@@ -133,20 +133,47 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 		logger.Debug("Evaluating AND expression", zap.Int("parts", len(parts)))
 
 		for i, part := range parts {
-			result, err := evaluateStringCondition(strings.TrimSpace(part), data, logger)
+			cleanPart := cleanExpressionPart(strings.TrimSpace(part))
+			result, err := evaluateStringCondition(cleanPart, data, logger)
 			if err != nil {
 				return false, fmt.Errorf("AND clause %d: %w", i, err)
 			}
 			if !result {
 				logger.Debug("AND short-circuit: false", zap.Int("at_part", i))
-				return false, nil // Short-circuit AND
+				return false, nil
 			}
 		}
 		return true, nil
 	}
 
-	// No AND/OR - evaluate single comparison
-	return evaluateSingleComparison(expr, data, logger)
+	// No AND/OR - evaluate single comparison (also clean parens here)
+	cleanExpr := cleanExpressionPart(expr)
+	return evaluateSingleComparison(cleanExpr, data, logger)
+}
+
+// cleanExpressionPart removes unbalanced parentheses from expression parts
+func cleanExpressionPart(expr string) string {
+	expr = strings.TrimSpace(expr)
+
+	// Count parens to check balance
+	openCount := strings.Count(expr, "(")
+	closeCount := strings.Count(expr, ")")
+
+	// Strip unbalanced leading parens
+	for strings.HasPrefix(expr, "(") && openCount > closeCount {
+		expr = strings.TrimPrefix(expr, "(")
+		expr = strings.TrimSpace(expr)
+		openCount--
+	}
+
+	// Strip unbalanced trailing parens
+	for strings.HasSuffix(expr, ")") && closeCount > openCount {
+		expr = strings.TrimSuffix(expr, ")")
+		expr = strings.TrimSpace(expr)
+		closeCount--
+	}
+
+	return expr
 }
 
 // splitOnOperator splits a string on an operator, but only at the top level
