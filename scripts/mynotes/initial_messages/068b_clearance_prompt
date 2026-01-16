@@ -1,0 +1,109 @@
+# 1. FIRST - Stop all consumers by scaling down deployments
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+# Wait for pods to terminate
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+# Clean up any leftover kcat pods
+kubectl -n kafka delete pod kcat-producer-hitl-test --ignore-not-found=true 2>/dev/null || true
+kubectl -n kafka delete pod kcat-test --ignore-not-found=true 2>/dev/null || true
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests, awaited_requests CASCADE;"
+
+# 4. Delete ALL spawned agent jobs
+kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
+
+# scale other agents down
+kubectl -n ai-persona-system scale deployment/reasoning-agent --replicas=0
+kubectl -n ai-persona-system scale deployment/content-creator-agent --replicas=0
+kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=0
+
+kubectl -n ai-persona-system scale deployment/web-search-adapter --replicas=1
+
+# 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
+# List all job topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --list | grep "^job\."
+
+# Delete all job topics (be careful!)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash -c '
+for topic in $(/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep "^job\."); do
+  echo "Deleting topic: $topic"
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic "$topic"
+done
+'
+
+# delete initial topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.requests
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.responses
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.generic.responses
+
+sleep 2
+kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh
+  --create --topic system.generic.responses
+  --bootstrap-server localhost:9092
+  --partitions 1
+  --replication-factor 1
+
+# reset all offsets
+echo 'resetting all offsets'
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+
+kubectl -n ai-persona-system delete jobs -l agent-type=calculator
+kubectl -n ai-persona-system delete pods -l agent-type=calculator
+
+# 6. Scale back up
+sleep 5
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas=2
+kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
+kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
+
+# Instead of resetting offsets, DELETE the consumer group
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+
+# Delete the consumer group (forces fresh start)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --group generic-requests-group
+
+sleep 2
+
+# Now start the agent - it will create a fresh group with FirstOffset
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+# try creating it again
+kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh
+  --create --topic system.generic.responses
+  --bootstrap-server localhost:9092
+  --partitions 1
+  --replication-factor 1
+
+

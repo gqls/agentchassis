@@ -50,6 +50,9 @@ func NewAnthropicClient(ctx context.Context, config map[string]interface{}) (*An
 		}
 	}
 
+	// Resolve alias to actual model name
+	model = ResolveModelAlias(model, nil) // or pass a logger if available
+
 	/*if model == "" {
 		return nil, fmt.Errorf("no AI model selected")
 	}*/

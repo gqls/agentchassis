@@ -236,6 +236,12 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		options["max_tokens"] = int(maxTokens)
 	}
 
+	// Resolve model alias to actual API model name
+	if model, ok := options["model"].(string); ok {
+		resolvedModel := aiservice.ResolveModelAlias(model, params.Logger)
+		options["model"] = resolvedModel
+	}
+
 	// Call the AI service
 	result, err := aiClient.GenerateText(ctx, renderedPrompt, options)
 	if err != nil {
@@ -243,6 +249,21 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			zap.Error(err),
 		)
 		errStr := err.Error()
+
+		// Check for model-related errors
+		if strings.Contains(errStr, "model") || strings.Contains(errStr, "404") || strings.Contains(errStr, "not found") {
+			modelUsed := fmt.Sprintf("%v", options["model"])
+
+			params.Logger.Error("Model error - possibly invalid model name",
+				zap.String("model_used", modelUsed),
+				zap.Strings("available_aliases", aiservice.GetAvailableAliases()),
+				zap.Error(err),
+			)
+
+			return nil, fmt.Errorf("model '%s' not found. Use aliases like: claude-sonnet-4-5, claude-haiku-4-5, claude-opus-4-5. Error: %w",
+				modelUsed, err)
+		}
+		
 		if strings.Contains(errStr, "529") || // overloaded
 			strings.Contains(errStr, "503") || // service unavailable
 			strings.Contains(errStr, "502") || // bad gateway
