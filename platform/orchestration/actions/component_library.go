@@ -669,7 +669,7 @@ func contextToInterfaceMap(ctx *RenderContext) map[string]interface{} {
 		"contact_email": ctx.Email,
 		"phone":         ctx.Phone,
 
-		// CTA
+		// CTA - use defaults if not set
 		"cta_text": defaultString(ctx.CTAText, "Get Started"),
 		"cta_url":  defaultString(ctx.CTAUrl, "/contact.html"),
 
@@ -681,16 +681,49 @@ func contextToInterfaceMap(ctx *RenderContext) map[string]interface{} {
 		"services":        ctx.Services,
 	}
 
-	// Merge ContentData - this contains LLM-generated nested structures
-	// like features[], highlights[], testimonials[], etc.
+	// Merge ContentData - this contains LLM-generated content
+	// IMPORTANT: ContentData fields take priority and should NOT be aliased
+	// because each section has its own specific content
 	for key, value := range ctx.ContentData {
 		result[key] = value
 	}
 
-	// Add bidirectional aliases for common field names
-	applyBidirectionalAliases(result)
+	// REMOVED: applyBidirectionalAliases(result)
+	// This was causing headlines to bleed across sections!
+
+	// Only apply SAFE aliases that don't affect content fields
+	applySafeAliases(result)
 
 	return result
+}
+
+// applySafeAliases only adds aliases for non-content fields
+// It does NOT touch headline, subheadline, section_title, etc.
+func applySafeAliases(data map[string]interface{}) {
+	// CTA aliases - these are safe because they're typically set once per page
+	if v, ok := data["primary_cta"]; ok && v != nil && v != "" {
+		if _, exists := data["cta_text"]; !exists {
+			data["cta_text"] = v
+		}
+	}
+	if v, ok := data["primary_cta_url"]; ok && v != nil && v != "" {
+		if _, exists := data["cta_url"]; !exists {
+			data["cta_url"] = v
+		}
+	}
+
+	// Contact email alias
+	if v, ok := data["email"]; ok && v != nil && v != "" {
+		if _, exists := data["contact_email"]; !exists {
+			data["contact_email"] = v
+		}
+	}
+
+	// DO NOT alias:
+	// - headline <-> heading <-> title <-> section_title
+	// - subheadline <-> subtitle <-> description
+	// - content <-> body <-> text
+	// These should be set explicitly by each section's LLM content
 }
 
 // applyBidirectionalAliases ensures templates work regardless of field naming

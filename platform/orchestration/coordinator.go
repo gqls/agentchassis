@@ -2545,6 +2545,39 @@ func (s *SagaCoordinator) skipStep(ctx context.Context, state *OrchestrationStat
 }
 
 func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *OrchestrationState, errorMsg string) error {
+	// Check if this is an optimistic lock failure - these are recoverable
+	if strings.Contains(errorMsg, "optimistic lock failure") {
+		s.logger.Info("Optimistic lock failure detected - checking if workflow recovered",
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("error", errorMsg))
+
+		// Reload fresh state to see if another process already recovered
+		repo := NewStateRepository(s.db, s.logger)
+		freshState, err := repo.GetState(ctx, state.OrchestrationID)
+		if err == nil && freshState != nil {
+			// If workflow is still running or completed, don't fail it
+			if freshState.Status == StatusRunning ||
+				freshState.Status == StatusAwaitingResponses ||
+				freshState.Status == StatusCompleted {
+				s.logger.Info("Workflow recovered by another process - not sending error",
+					zap.String("orchestration_id", state.OrchestrationID),
+					zap.String("fresh_status", string(freshState.Status)),
+					zap.String("fresh_step", freshState.CurrentStep))
+				// Return error locally but don't notify parent
+				return fmt.Errorf("workflow recovered: %s", errorMsg)
+			}
+
+			// If workflow already failed, check if error was already sent
+			if freshState.Status == StatusFailed && freshState.Error != "" {
+				s.logger.Info("Workflow already failed - not sending duplicate error",
+					zap.String("orchestration_id", state.OrchestrationID),
+					zap.String("existing_error", freshState.Error))
+				return fmt.Errorf("workflow already failed: %s", freshState.Error)
+			}
+		}
+	}
+
+	// Proceed with normal failure handling
 	state.Status = StatusFailed
 	state.Error = errorMsg
 
@@ -2557,6 +2590,15 @@ func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *Orchestration
 
 	repo := NewStateRepository(s.db, s.logger)
 	if err := repo.UpdateState(ctx, state); err != nil {
+		// If we can't save the failed state, check if it's because workflow already completed
+		if strings.Contains(err.Error(), "optimistic lock") {
+			freshState, loadErr := repo.GetState(ctx, state.OrchestrationID)
+			if loadErr == nil && freshState.Status == StatusCompleted {
+				s.logger.Info("Workflow completed while we tried to fail it - not sending error",
+					zap.String("orchestration_id", state.OrchestrationID))
+				return fmt.Errorf("workflow completed concurrently: %s", errorMsg)
+			}
+		}
 		s.logger.Error("Failed to save failed state", zap.Error(err))
 	}
 
