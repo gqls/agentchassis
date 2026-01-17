@@ -11,7 +11,7 @@ labels:
 
 images:
   - name: docker.io/aqls/core-manager
-    newTag: v1.0.679
+    newTag: v1.0.680
 
 patches:
   - path: patch-deployment.yaml
