@@ -738,6 +738,8 @@ case "$COMPONENT_NAME" in
       "platform/discovery/"
       "platform/evolution/"
       "platform/storage/"
+      "platform/aiservice/"
+      "platform/governance/"
     )
     MODULE_FILES=( "makefile" "build/docker/backend/agent-chassis.dockerfile" )
     ;;

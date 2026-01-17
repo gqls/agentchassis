@@ -285,9 +285,9 @@ CLIENT_ID="demo_client"
 
 -- 1 ----
 
-CORRELATION_ID=8326b96d-9a97-4165-9b1c-bd95c36f0d0a
-ORCHESTRATION_ID=a033dbed-efd1-4159-b5c0-e69c49e86bc6
-HITL_REQUEST_ID=f4c4d0f7-c493-4741-94f4-04d3d78a73d4
+CORRELATION_ID=af758c21-8d5e-4630-85d1-185c06e5c271
+ORCHESTRATION_ID=7a8445aa-9372-4fd2-b700-ff8f6cfbbf49
+HITL_REQUEST_ID=dac3dc21-02f4-4546-9b32-f16aa531a898
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -376,9 +376,9 @@ CLIENT_ID="demo_client"
 
 --- 2 2 ---
 
-CORRELATION_ID=8326b96d-9a97-4165-9b1c-bd95c36f0d0a
-ORCHESTRATION_ID=a033dbed-efd1-4159-b5c0-e69c49e86bc6
-HITL_REQUEST_ID=d8f892dc-9169-436b-a83b-d1182bb69817
+CORRELATION_ID=af758c21-8d5e-4630-85d1-185c06e5c271
+ORCHESTRATION_ID=7a8445aa-9372-4fd2-b700-ff8f6cfbbf49
+HITL_REQUEST_ID=67d92eec-3cf6-40e7-b4db-01ca4b6b0f0b
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -556,10 +556,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=8326b96d-9a97-4165-9b1c-bd95c36f0d0a
-ORCHESTRATION_ID=17c678b3-181e-4019-873b-8791085a14a3
-HITL_REQUEST_ID=1783edb3-3d7d-443a-b070-1eb579584d9e
-RESPONSES_TOPIC=job.8326b96d-6147ecbe-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=af758c21-8d5e-4630-85d1-185c06e5c271
+ORCHESTRATION_ID=acabba59-812c-4d37-a870-26b528795540
+HITL_REQUEST_ID=b86a1a17-163e-44a4-8707-fcc7286bd6ce
+RESPONSES_TOPIC=job.af758c21-e9b298ae-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
