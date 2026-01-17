@@ -1821,18 +1821,59 @@ func (s *SagaCoordinator) handleProgressUpdate(ctx context.Context, state *Orche
 		zap.String("status", execCtx.Status),
 		zap.String("from_agent", execCtx.Sender.AgentID))
 
-	// Add processing record
-	state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{
-		PodName:   s.podName,
-		StepID:    execCtx.StepID,
-		StepName:  execCtx.StepName,
-		Action:    fmt.Sprintf("progress_%s", execCtx.Status),
-		Timestamp: time.Now(),
-		Details:   fmt.Sprintf("Progress from %s", execCtx.Sender.AgentID),
-	})
-
 	repo := NewStateRepository(s.db, s.logger)
-	return repo.UpdateState(ctx, state)
+
+	maxRetries := 5
+	baseDelay := 25 * time.Millisecond
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Load fresh state each attempt
+		freshState, err := repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to load state for progress update: %w", err)
+		}
+
+		// Add processing record to fresh state
+		freshState.ProcessingHistory = append(freshState.ProcessingHistory, ProcessingRecord{
+			PodName:   s.podName,
+			StepID:    execCtx.StepID,
+			StepName:  execCtx.StepName,
+			Action:    fmt.Sprintf("progress_%s", execCtx.Status),
+			Timestamp: time.Now(),
+			Details:   fmt.Sprintf("Progress from %s", execCtx.Sender.AgentID),
+		})
+
+		err = repo.UpdateState(ctx, freshState)
+		if err == nil {
+			if attempt > 1 {
+				s.logger.Info("Progress update saved after retry",
+					zap.Int("attempts", attempt),
+					zap.String("orchestration_id", state.OrchestrationID))
+			}
+			return nil
+		}
+
+		if !IsOptimisticLockError(err) {
+			return fmt.Errorf("failed to save progress update: %w", err)
+		}
+
+		if attempt >= maxRetries {
+			s.logger.Warn("Progress update failed after max retries, dropping update",
+				zap.Int("attempts", attempt),
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.Error(err))
+			// Progress updates are non-critical, so we can drop them rather than fail
+			return nil
+		}
+
+		delay := backoffWithJitter(baseDelay, attempt)
+		s.logger.Debug("Optimistic lock failure in progress update, retrying",
+			zap.Int("attempt", attempt),
+			zap.Duration("backoff", delay))
+		time.Sleep(delay)
+	}
+
+	return nil
 }
 
 // handleCompleteResponse processes a successful response
