@@ -51,6 +51,14 @@ func (s *SagaCoordinator) handleLoopExpansion(
 		validSubstepSet[name] = true
 	}
 
+	// Build a set of substep output fields for data reference prefixing
+	substepOutputFields := make(map[string]bool)
+	for _, substep := range substepsMap {
+		if substep.OutputField != "" {
+			substepOutputFields[substep.OutputField] = true
+		}
+	}
+
 	// Initialize loop metadata in CollectedData
 	loopMetadata := map[string]interface{}{
 		"loop_name":         loopName,
@@ -110,7 +118,7 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			// Also prefix config fields that reference other steps
 			// This handles conditionals (then_step, else_step) and other step refs
 			// =====================================================
-			prefixConfigStepReferences(injectedStep.Config, loopName, iterIdx, validSubstepSet)
+			prefixConfigStepReferences(injectedStep.Config, loopName, iterIdx, validSubstepSet, substepOutputFields)
 
 			// Add iteration context to config
 			if injectedStep.Config == nil {

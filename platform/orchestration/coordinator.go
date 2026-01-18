@@ -3129,14 +3129,16 @@ func resolveIterationNextStep(
 	return fmt.Sprintf("%s_complete", loopName)
 }
 
-// prefixConfigStepReferences updates step references in config with iteration prefix
-// Handles: then_step, else_step, fallback_step, error_step, etc.
-func prefixConfigStepReferences(config map[string]interface{}, loopName string, iterIdx int, validSubstepSet map[string]bool) {
+// prefixConfigStepReferences updates step references AND data field references in config with iteration prefix
+// Handles:
+// - Step refs: then_step, else_step, fallback_step, error_step, on_success, on_failure
+// - Data refs: content_from, context_from, data_from, source_field, etc.
+func prefixConfigStepReferences(config map[string]interface{}, loopName string, iterIdx int, validSubstepSet map[string]bool, substepOutputFields map[string]bool) {
 	if config == nil {
 		return
 	}
 
-	// List of config keys that might contain step references
+	// List of config keys that contain step references
 	stepRefKeys := []string{"then_step", "else_step", "fallback_step", "error_step", "on_success", "on_failure"}
 
 	for _, key := range stepRefKeys {
@@ -3145,9 +3147,48 @@ func prefixConfigStepReferences(config map[string]interface{}, loopName string, 
 			if validSubstepSet[val] {
 				config[key] = fmt.Sprintf("%s_iter_%d_%s", loopName, iterIdx, val)
 			}
-			// Otherwise leave as-is (external reference)
 		}
 	}
+
+	// List of config keys that contain data field references
+	// These might reference substep output fields like "generated_content.result"
+	dataRefKeys := []string{"content_from", "context_from", "data_from", "source_field", "input_from", "result_from"}
+
+	for _, key := range dataRefKeys {
+		if val, ok := config[key].(string); ok && val != "" {
+			prefixedVal := prefixDataReference(val, loopName, iterIdx, substepOutputFields)
+			if prefixedVal != val {
+				config[key] = prefixedVal
+			}
+		}
+	}
+}
+
+// CHANGE 4: Add new helper function prefixDataReference
+
+// prefixDataReference prefixes a data reference if it starts with a substep output field
+// e.g., "generated_content.result" → "generated_content_0.result" (if generated_content is a substep output)
+func prefixDataReference(ref string, loopName string, iterIdx int, substepOutputFields map[string]bool) string {
+	if ref == "" {
+		return ref
+	}
+
+	// Split on "." to get the first part (the field name)
+	parts := strings.SplitN(ref, ".", 2)
+	fieldName := parts[0]
+
+	// Check if this field name is a substep output field
+	if substepOutputFields[fieldName] {
+		// Prefix the field name with iteration index
+		prefixedField := fmt.Sprintf("%s_%d", fieldName, iterIdx)
+		if len(parts) > 1 {
+			return prefixedField + "." + parts[1]
+		}
+		return prefixedField
+	}
+
+	// Not a substep output, return as-is
+	return ref
 }
 
 // deepCloneConfig creates a deep copy of a config map
