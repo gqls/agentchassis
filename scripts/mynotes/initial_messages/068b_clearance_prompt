@@ -8,7 +8,7 @@ kubectl -n kafka delete pod kcat-producer-hitl-test --ignore-not-found=true 2>/d
 kubectl -n kafka delete pod kcat-test --ignore-not-found=true 2>/dev/null || true
 
 # 3. Clear database tables
-kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests, awaited_requests CASCADE;"
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests, orchestration_state_audit, awaited_requests CASCADE;"
 
 # 4. Delete ALL spawned agent jobs
 kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator

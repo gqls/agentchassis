@@ -8,7 +8,7 @@ kubectl -n kafka delete pod kcat-producer-hitl-test --ignore-not-found=true 2>/d
 kubectl -n kafka delete pod kcat-test --ignore-not-found=true 2>/dev/null || true
 
 # 3. Clear database tables
-kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests, awaited_requests CASCADE;"
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests, orchestration_state_audit, awaited_requests CASCADE;"
 
 # 4. Delete ALL spawned agent jobs
 kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
@@ -285,9 +285,9 @@ CLIENT_ID="demo_client"
 
 -- 1 ----
 
-CORRELATION_ID=920b34a1-b83d-4e24-98cf-d0b43831d79e
-ORCHESTRATION_ID=d3cd7ebf-87d8-4cee-a8e7-8836f482cdca
-HITL_REQUEST_ID=6d96aa87-653a-40ea-bd49-dadd2de3137e
+CORRELATION_ID=7cd3c1e7-1d80-4c36-849e-de38ec846ed4
+ORCHESTRATION_ID=b5e89b13-0528-43b5-b9e0-6486b66a258e
+HITL_REQUEST_ID=ee5fcf2c-50d4-4ad6-9575-813012c482e0
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -376,9 +376,9 @@ CLIENT_ID="demo_client"
 
 --- 2 2 ---
 
-CORRELATION_ID=920b34a1-b83d-4e24-98cf-d0b43831d79e
-ORCHESTRATION_ID=d3cd7ebf-87d8-4cee-a8e7-8836f482cdca
-HITL_REQUEST_ID=a48cddac-8d8f-42a6-b311-0143a64441ed
+CORRELATION_ID=7cd3c1e7-1d80-4c36-849e-de38ec846ed4
+ORCHESTRATION_ID=b5e89b13-0528-43b5-b9e0-6486b66a258e
+HITL_REQUEST_ID=ffdd3095-5783-4833-bf65-e77a3551b8f2
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -556,10 +556,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=920b34a1-b83d-4e24-98cf-d0b43831d79e
-ORCHESTRATION_ID=b2e03ccf-4b0d-46f6-824f-30e41da09580
-HITL_REQUEST_ID=c77346f7-155b-4912-a28d-a013fa968d79
-RESPONSES_TOPIC=job.920b34a1-1bee9a39-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=7cd3c1e7-1d80-4c36-849e-de38ec846ed4
+ORCHESTRATION_ID=d179d373-4427-458b-b8df-e4466ac62962
+HITL_REQUEST_ID=52d4a623-4a87-4388-afb4-c0566ebd46c5
+RESPONSES_TOPIC=job.7cd3c1e7-46528108-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
