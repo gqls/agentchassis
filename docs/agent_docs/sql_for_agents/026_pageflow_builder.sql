@@ -688,3 +688,30 @@ SET default_config = jsonb_set(
 WHERE type = 'pageflow-builder';
 
 
+--
+
+change path for urls and images to data_path from url_path
+
+       -- Fix store_logo_asset: url_field -> data_field
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_logo_asset,config}',
+        (default_config->'workflow'->'steps'->'store_logo_asset'->'config')
+            - 'url_field'
+            || '{"data_field": "logo_result.image_url"}'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Fix store_hero_asset: url_field -> data_field
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_hero_asset,config}',
+        (default_config->'workflow'->'steps'->'store_hero_asset'->'config')
+            - 'url_field'
+            || '{"data_field": "hero_result.image_url"}'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';

@@ -2210,6 +2210,8 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 	params.Logger.Info("Loading components for sections",
 		zap.Strings("sections", sectionNames))
 
+	var components []map[string]interface{}
+
 	if params.DB != nil {
 		placeholders := make([]string, len(sectionNames))
 		args := make([]interface{}, len(sectionNames))
@@ -2251,7 +2253,7 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		}
 		defer rows.Close()
 
-		var components []map[string]interface{}
+		//var components []map[string]interface{}
 		for rows.Next() {
 			// Use sql.NullString for nullable columns
 			var id, name, function string
@@ -2471,6 +2473,27 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			"needs_llm":    true, // Mark as needing LLM since no template
 		}
 	}
+
+	// Reorder components to match original sectionNames order
+	// Database query returns in arbitrary order, but we need to preserve
+	// the section order defined in the page plan
+	orderedComponents := make([]map[string]interface{}, 0, len(components))
+	for _, sectionName := range sectionNames {
+		for _, comp := range components {
+			name, _ := comp["name"].(string)
+			function, _ := comp["function"].(string)
+			if name == sectionName || function == sectionName {
+				orderedComponents = append(orderedComponents, comp)
+				break
+			}
+		}
+	}
+
+	params.Logger.Info("LoadPageSectionComponentsAction: Reordered components to match section order",
+		zap.Int("original_count", len(components)),
+		zap.Int("ordered_count", len(orderedComponents)),
+		zap.Strings("requested_order", sectionNames))
+
 	return map[string]interface{}{
 		"components":    stubComponents,
 		"count":         len(stubComponents),

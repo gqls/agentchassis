@@ -405,3 +405,116 @@ SELECT
     default_config->'workflow'->'steps'->'load_available_components'->'config'->>'query' as component_query
 FROM agent_definitions
 WHERE type = 'site-planner';
+
+---------------
+
+-- always generate image prompts
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        '"Plan a website for {{.input_data.domain}}.\n\n## Site Brief\n{{.reviewed_brief}}\n\n## Available Section Components\nThe following components are available in our component library. You MUST use ONLY these exact component names in the \"sections\" arrays:\n\n{{range .available_components}}\n- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}\n{{end}}\n\n## Available Style Collections\n{{.available_styles}}\n\n## Task\nCreate a comprehensive site plan using ONLY the components listed above.\n\nReturn JSON in this format:\n```json\n{\n  \"pages\": [\n    {\n      \"name\": \"index\",\n      \"title\": \"Page Title | Site Name\",\n      \"nav_label\": \"Home\",\n      \"nav_order\": 1,\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"sections\": [\"hero\", \"features\", \"testimonials\", \"call_to_action\"]\n    }\n  ],\n  \"style_collection\": \"style-name\",\n  \"needs_logo\": true,\n  \"needs_images\": true,\n  \"image_prompts\": {\n    \"logo\": \"Description for logo generation\",\n    \"hero_home\": \"Description for home hero image\"\n  }\n}\n```\n\nSTRICT RULES:\n1. ONLY use component names from the \"Available Section Components\" list above\n2. DO NOT invent new component names - if unsure, use \"hero\" for hero sections, \"features\" for feature lists, \"call_to_action\" for CTAs\n3. Use these standard mappings:\n   - For any hero/banner at page top: use \"hero\" or page-specific variants like \"contact-hero\", \"services-hero\", \"about-hero\"\n   - For feature lists: use \"features\"\n   - For service listings: use \"services-grid\"\n   - For testimonials/quotes: use \"testimonials\" or \"social_proof\"\n   - For calls to action: use \"call_to_action\"\n   - For contact forms: use \"contact-form\"\n   - For contact details: use \"contact-info\"\n   - For team sections: use \"leadership-team\"\n   - For case studies: use \"case-studies-list\"\n   - For about content: use \"about-content\"\n   - For differentiators/why-us: use \"differentiators-section\"\n\n4. Choose style_collection based on industry and tone from the brief\n5. Keep header navigation to 5-8 items maximum\n6. Always include: index (home) and contact pages\n\nIMAGE GENERATION (REQUIRED):\n- ALWAYS set needs_logo: true and needs_images: true\n- ALWAYS provide image_prompts with at minimum:\n  - \"logo\": A detailed prompt describing a professional logo for this business (include industry, style, colors)\n  - \"hero_home\": A detailed prompt for the homepage hero background image (include mood, imagery, style)\n- Image prompts should be 2-3 sentences describing the desired image in detail\n- Be specific about colors, mood, style, and any relevant imagery for the industry"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-planner';
+
+--
+-- a bit more to image prompts
+-- Update site-planner to always generate image prompts
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        $prompt$"Plan a website for {{.input_data.domain}}.
+
+## Site Brief
+{{.reviewed_brief}}
+
+## Available Section Components
+The following components are available in our component library. You MUST use ONLY these exact component names in the \"sections\" arrays:
+
+{{range .available_components}}
+- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}
+{{end}}
+
+## Available Style Collections
+{{.available_styles}}
+
+## Task
+Create a comprehensive site plan using ONLY the components listed above.
+
+Return JSON in this format:
+```json
+{
+  \"pages\": [
+    {
+      \"name\": \"index\",
+      \"title\": \"Page Title | Site Name\",
+      \"nav_label\": \"Home\",
+      \"nav_order\": 1,
+      \"in_header\": true,
+      \"in_footer\": true,
+      \"sections\": [\"hero\", \"features\", \"testimonials\", \"call_to_action\"]
+    }
+  ],
+  \"style_collection\": \"style-name\",
+  \"needs_logo\": true,
+  \"needs_images\": true,
+  \"image_prompts\": {
+    \"logo\": \"Description for logo generation\",
+    \"hero_home\": \"Description for home hero image\"
+  }
+}
+```
+
+STRICT RULES:
+1. ONLY use component names from the \"Available Section Components\" list above
+2. DO NOT invent new component names - if unsure, use \"hero\" for hero sections, \"features\" for feature lists, \"call_to_action\" for CTAs
+3. Use these standard mappings:
+   - For any hero/banner at page top: use \"hero\" or page-specific variants like \"contact-hero\", \"services-hero\", \"about-hero\"
+   - For feature lists: use \"features\"
+   - For service listings: use \"services-grid\"
+   - For testimonials/quotes: use \"testimonials\" or \"social_proof\"
+   - For calls to action: use \"call_to_action\"
+   - For contact forms: use \"contact-form\"
+   - For contact details: use \"contact-info\"
+   - For team sections: use \"leadership-team\"
+   - For case studies: use \"case-studies-list\"
+   - For about content: use \"about-content\"
+   - For differentiators/why-us: use \"differentiators-section\"
+
+4. Choose style_collection based on industry and tone from the brief
+5. Keep header navigation to 5-8 items maximum
+6. Always include: index (home) and contact pages
+
+IMAGE GENERATION (REQUIRED - DO NOT SKIP):
+You MUST include needs_logo, needs_images, and image_prompts in your response.
+
+- Set needs_logo: true (always)
+- Set needs_images: true (always)
+- Provide image_prompts object with BOTH of these keys:
+  - \"logo\": A detailed 2-3 sentence prompt for logo generation. Describe the style (modern, classic, minimal), colors that match the brand, and any relevant imagery for the industry.
+  - \"hero_home\": A detailed 2-3 sentence prompt for the homepage hero background. Describe the mood (professional, energetic, calm), imagery type (abstract, photographic, geometric), and colors/atmosphere that fit the brand.
+
+Example image_prompts:
+{
+  \"logo\": \"A modern, minimal logo for a tech consulting company. Use clean geometric shapes with a navy blue and teal color palette. The design should convey innovation and trustworthiness.\",
+  \"hero_home\": \"A professional, abstract background with flowing gradients in deep navy and teal. Include subtle geometric patterns that suggest technology and connectivity. The mood should be confident and forward-thinking.\"
+}"$prompt$
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-planner';
+
+-- same as above but fixed json
+
+-- Update site-planner to always generate image prompts (with escaped newlines)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        '"Plan a website for {{.input_data.domain}}.\n\n## Site Brief\n{{.reviewed_brief}}\n\n## Available Section Components\nThe following components are available in our component library. You MUST use ONLY these exact component names in the \"sections\" arrays:\n\n{{range .available_components}}\n- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}\n{{end}}\n\n## Available Style Collections\n{{.available_styles}}\n\n## Task\nCreate a comprehensive site plan using ONLY the components listed above.\n\nReturn JSON in this format:\n```json\n{\n  \"pages\": [\n    {\n      \"name\": \"index\",\n      \"title\": \"Page Title | Site Name\",\n      \"nav_label\": \"Home\",\n      \"nav_order\": 1,\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"sections\": [\"hero\", \"features\", \"testimonials\", \"call_to_action\"]\n    }\n  ],\n  \"style_collection\": \"style-name\",\n  \"needs_logo\": true,\n  \"needs_images\": true,\n  \"image_prompts\": {\n    \"logo\": \"Description for logo generation\",\n    \"hero_home\": \"Description for home hero image\"\n  }\n}\n```\n\nSTRICT RULES:\n1. ONLY use component names from the \"Available Section Components\" list above\n2. DO NOT invent new component names - if unsure, use \"hero\" for hero sections, \"features\" for feature lists, \"call_to_action\" for CTAs\n3. Use these standard mappings:\n   - For any hero/banner at page top: use \"hero\" or page-specific variants like \"contact-hero\", \"services-hero\", \"about-hero\"\n   - For feature lists: use \"features\"\n   - For service listings: use \"services-grid\"\n   - For testimonials/quotes: use \"testimonials\" or \"social_proof\"\n   - For calls to action: use \"call_to_action\"\n   - For contact forms: use \"contact-form\"\n   - For contact details: use \"contact-info\"\n   - For team sections: use \"leadership-team\"\n   - For case studies: use \"case-studies-list\"\n   - For about content: use \"about-content\"\n   - For differentiators/why-us: use \"differentiators-section\"\n\n4. Choose style_collection based on industry and tone from the brief\n5. Keep header navigation to 5-8 items maximum\n6. Always include: index (home) and contact pages\n\nIMAGE GENERATION (REQUIRED - DO NOT SKIP):\nYou MUST include needs_logo, needs_images, and image_prompts in your response.\n\n- Set needs_logo: true (always)\n- Set needs_images: true (always)\n- Provide image_prompts object with BOTH of these keys:\n  - \"logo\": A detailed 2-3 sentence prompt for logo generation. Describe the style (modern, classic, minimal), colors that match the brand, and any relevant imagery for the industry.\n  - \"hero_home\": A detailed 2-3 sentence prompt for the homepage hero background. Describe the mood (professional, energetic, calm), imagery type (abstract, photographic, geometric), and colors/atmosphere that fit the brand.\n\nExample image_prompts:\n{\n  \"logo\": \"A modern, minimal logo for a tech consulting company. Use clean geometric shapes with a navy blue and teal color palette. The design should convey innovation and trustworthiness.\",\n  \"hero_home\": \"A professional, abstract background with flowing gradients in deep navy and teal. Include subtle geometric patterns that suggest technology and connectivity. The mood should be confident and forward-thinking.\"\n}"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-planner';
+
