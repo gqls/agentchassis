@@ -673,3 +673,18 @@ SET default_config = jsonb_set(default_config, '{workflow,steps,call_logo_genera
     '"{{site_plan.image_prompts.logo}}"')
 WHERE type = 'pageflow-builder';
 */
+
+
+------
+
+-- add db_sync to input fields for header footer injection
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,write_page_content,config,input_fields}',
+        '["current_page", "site_record", "reviewed_brief", "style_collection", "db_sync"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+

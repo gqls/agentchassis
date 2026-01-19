@@ -875,3 +875,23 @@ config.substeps + config.start_step
 To:
 ```
 config.sub_workflow.steps + config.sub_workflow.start_step
+
+
+----
+
+-- enable header footer injection
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,compile_page,config}',
+        '{
+            "page_from": "input_data.current_page",
+            "sections_from": "processed_sections",
+            "include_research_ids": true,
+            "inject_header": true,
+            "inject_footer": true
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-content-writer';
