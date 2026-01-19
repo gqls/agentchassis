@@ -523,5 +523,17 @@ SET
     updated_at = NOW()
 WHERE name = 'hero';
 
-
+-- template format add .
+-- Find and fix footer templates that use {{logo_text}} instead of {{.logo_text}}
+UPDATE content_components
+SET html_template = REPLACE(
+        REPLACE(
+                REPLACE(html_template, '{{logo_text}}', '{{.logo_text}}'),
+                '{{company_name}}', '{{.company_name}}'
+        ),
+        '{{tagline}}', '{{.tagline}}'
+                    )
+WHERE html_template LIKE '%{{logo_text}}%'
+   OR html_template LIKE '%{{company_name}}%'
+   OR html_template LIKE '%{{tagline}}%';
 

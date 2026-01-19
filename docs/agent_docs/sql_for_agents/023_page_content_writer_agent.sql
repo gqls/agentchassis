@@ -895,3 +895,16 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'page-content-writer';
+
+==
+-- handle missing research input field, delete it
+
+-- Fix page-content-writer: remove research_result from required input_fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,input_fields}',
+        '["current_section", "render_context", "reviewed_brief", "current_page"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-content-writer';

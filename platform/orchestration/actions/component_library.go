@@ -327,7 +327,7 @@ func GetStyleCollectionForSite(ctx context.Context, db interface{}, siteID uuid.
 
 	var coll StyleCollection
 	var colorPaletteJSON, typographyJSON []byte
-	var industryTags []string
+	var industryTagsJSON []byte
 
 	var err error
 	switch d := db.(type) {
@@ -335,13 +335,13 @@ func GetStyleCollectionForSite(ctx context.Context, db interface{}, siteID uuid.
 		err = d.QueryRowContext(ctx, query, siteID).Scan(
 			&coll.ID, &coll.Name, &coll.DisplayName,
 			&coll.HeaderComponentID, &coll.FooterComponentID, &coll.CSSThemeID,
-			&colorPaletteJSON, &typographyJSON, &coll.Category, &industryTags,
+			&colorPaletteJSON, &typographyJSON, &coll.Category, &industryTagsJSON,
 		)
 	case *pgxpool.Pool:
 		err = d.QueryRow(ctx, query, siteID).Scan(
 			&coll.ID, &coll.Name, &coll.DisplayName,
 			&coll.HeaderComponentID, &coll.FooterComponentID, &coll.CSSThemeID,
-			&colorPaletteJSON, &typographyJSON, &coll.Category, &industryTags,
+			&colorPaletteJSON, &typographyJSON, &coll.Category, &industryTagsJSON,
 		)
 	default:
 		return nil, fmt.Errorf("unsupported database type: %T", db)
@@ -360,7 +360,9 @@ func GetStyleCollectionForSite(ctx context.Context, db interface{}, siteID uuid.
 	if len(typographyJSON) > 0 {
 		json.Unmarshal(typographyJSON, &coll.Typography)
 	}
-	coll.IndustryTags = industryTags
+	if len(industryTagsJSON) > 0 {
+		json.Unmarshal(industryTagsJSON, &coll.IndustryTags)
+	}
 
 	return &coll, nil
 }
@@ -379,7 +381,7 @@ func GetStyleCollectionByName(ctx context.Context, db interface{}, name string, 
 
 	var coll StyleCollection
 	var colorPaletteJSON, typographyJSON []byte
-	var industryTags []string
+	var industryTagsJSON []byte
 
 	var err error
 	switch d := db.(type) {
@@ -387,13 +389,13 @@ func GetStyleCollectionByName(ctx context.Context, db interface{}, name string, 
 		err = d.QueryRowContext(ctx, query, name).Scan(
 			&coll.ID, &coll.Name, &coll.DisplayName,
 			&coll.HeaderComponentID, &coll.FooterComponentID, &coll.CSSThemeID,
-			&colorPaletteJSON, &typographyJSON, &coll.Category, &industryTags,
+			&colorPaletteJSON, &typographyJSON, &coll.Category, &industryTagsJSON,
 		)
 	case *pgxpool.Pool:
 		err = d.QueryRow(ctx, query, name).Scan(
 			&coll.ID, &coll.Name, &coll.DisplayName,
 			&coll.HeaderComponentID, &coll.FooterComponentID, &coll.CSSThemeID,
-			&colorPaletteJSON, &typographyJSON, &coll.Category, &industryTags,
+			&colorPaletteJSON, &typographyJSON, &coll.Category, &industryTagsJSON,
 		)
 	default:
 		return nil, fmt.Errorf("unsupported database type: %T", db)
@@ -412,7 +414,9 @@ func GetStyleCollectionByName(ctx context.Context, db interface{}, name string, 
 	if len(typographyJSON) > 0 {
 		json.Unmarshal(typographyJSON, &coll.Typography)
 	}
-	coll.IndustryTags = industryTags
+	if len(industryTagsJSON) > 0 {
+		json.Unmarshal(industryTagsJSON, &coll.IndustryTags)
+	}
 
 	return &coll, nil
 }
