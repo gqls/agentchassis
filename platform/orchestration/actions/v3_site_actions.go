@@ -2221,7 +2221,6 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		}
 
 		// Query for components by name
-		// Note: content_components table doesn't have is_active or css_template columns
 		query := fmt.Sprintf(`
 				SELECT 
 					id,
@@ -2253,9 +2252,7 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		}
 		defer rows.Close()
 
-		//var components []map[string]interface{}
 		for rows.Next() {
-			// Use sql.NullString for nullable columns
 			var id, name, function string
 			var displayName, category sql.NullString
 			var semanticTags, description, htmlTemplate, inputSchema sql.NullString
@@ -2273,11 +2270,10 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 				"function":     function,
 			}
 
-			// Handle nullable fields
 			if displayName.Valid {
 				comp["display_name"] = displayName.String
 			} else {
-				comp["display_name"] = name // Default to name
+				comp["display_name"] = name
 			}
 
 			if category.Valid {
@@ -2298,11 +2294,10 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			if inputSchema.Valid && inputSchema.String != "" {
 				comp["input_schema"] = inputSchema.String
 			}
-			// Add render_mode and related fields
 			if renderMode.Valid && renderMode.String != "" {
 				comp["render_mode"] = renderMode.String
 			} else {
-				comp["render_mode"] = "template" // Default
+				comp["render_mode"] = "template"
 			}
 
 			if agentType.Valid && agentType.String != "" {
@@ -2314,7 +2309,7 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			} else {
 				comp["component_level"] = "section"
 			}
-			// Auto-detect if component needs LLM content generation
+
 			needsLLM := detectNeedsLLMContent(htmlTemplate.String, inputSchema.String)
 			comp["needs_llm"] = needsLLM
 
@@ -2327,7 +2322,6 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			if name, ok := comp["name"].(string); ok {
 				foundNames[name] = true
 			}
-			// Also mark function as found (for later matching)
 			if fn, ok := comp["function"].(string); ok {
 				foundNames[fn] = true
 			}
@@ -2384,7 +2378,6 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 						continue
 					}
 
-					// Only add if this function was in our missing list
 					if containsString(missing, function) {
 						comp := map[string]interface{}{
 							"component_id": id,
@@ -2412,7 +2405,6 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 							comp["input_schema"] = inputSchema.String
 						}
 
-						// Auto-detect if component needs LLM content generation
 						needsLLM := detectNeedsLLMContent(htmlTemplate.String, inputSchema.String)
 						comp["needs_llm"] = needsLLM
 
@@ -2441,58 +2433,58 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 				zap.Strings("missing", stillMissing))
 
 			for _, name := range stillMissing {
-				// Create stub component for missing section
 				components = append(components, map[string]interface{}{
 					"name":         name,
 					"display_name": name,
 					"function":     name,
 					"category":     "",
-					"needs_llm":    true, // Mark as needing LLM since no template
+					"needs_llm":    true,
 					"description":  "",
 				})
 			}
 		}
 
+		// =====================================================================
+		// REORDER COMPONENTS TO MATCH ORIGINAL sectionNames ORDER
+		// Database query returns in arbitrary order, but we need to preserve
+		// the section order defined in the page plan
+		// =====================================================================
+		orderedComponents := make([]map[string]interface{}, 0, len(components))
+		for _, sectionName := range sectionNames {
+			for _, comp := range components {
+				name, _ := comp["name"].(string)
+				function, _ := comp["function"].(string)
+				if name == sectionName || function == sectionName {
+					orderedComponents = append(orderedComponents, comp)
+					break
+				}
+			}
+		}
+
+		params.Logger.Info("LoadPageSectionComponentsAction: Reordered components to match section order",
+			zap.Int("original_count", len(components)),
+			zap.Int("ordered_count", len(orderedComponents)),
+			zap.Strings("requested_order", sectionNames))
+
 		return map[string]interface{}{
-			"components":    components,
-			"count":         len(components),
-			"from_database": len(components) > 0,
+			"components":    orderedComponents,
+			"count":         len(orderedComponents),
+			"from_database": len(orderedComponents) > 0,
 			"requested":     sectionNames,
 		}, nil
 	}
 
 	// No DB - return section names as stub components
-	// Create stub component entries for each section name
 	stubComponents := make([]map[string]interface{}, len(sectionNames))
 	for i, name := range sectionNames {
 		stubComponents[i] = map[string]interface{}{
 			"name":         name,
-			"function":     name, // Use name as function for fallback component lookup
+			"function":     name,
 			"display_name": name,
 			"description":  "",
-			"needs_llm":    true, // Mark as needing LLM since no template
+			"needs_llm":    true,
 		}
 	}
-
-	// Reorder components to match original sectionNames order
-	// Database query returns in arbitrary order, but we need to preserve
-	// the section order defined in the page plan
-	orderedComponents := make([]map[string]interface{}, 0, len(components))
-	for _, sectionName := range sectionNames {
-		for _, comp := range components {
-			name, _ := comp["name"].(string)
-			function, _ := comp["function"].(string)
-			if name == sectionName || function == sectionName {
-				orderedComponents = append(orderedComponents, comp)
-				break
-			}
-		}
-	}
-
-	params.Logger.Info("LoadPageSectionComponentsAction: Reordered components to match section order",
-		zap.Int("original_count", len(components)),
-		zap.Int("ordered_count", len(orderedComponents)),
-		zap.Strings("requested_order", sectionNames))
 
 	return map[string]interface{}{
 		"components":    stubComponents,

@@ -537,3 +537,22 @@ WHERE html_template LIKE '%{{logo_text}}%'
    OR html_template LIKE '%{{company_name}}%'
    OR html_template LIKE '%{{tagline}}%';
 
+---------------
+
+-- templating fixes
+
+-- Convert Handlebars {{#each services}} to Go template {{range .services}}
+UPDATE content_components
+SET html_template = REPLACE(
+        REPLACE(
+                REPLACE(
+                        REPLACE(
+                                REPLACE(html_template,
+                                        '{{#each services}}', '{{range .services}}'),
+                                '{{/each}}', '{{end}}'),
+                        '{{this.slug}}', '{{.slug}}'),
+                '{{this.name}}', '{{.name}}'),
+        '{{#each nav_items}}', '{{range .nav_items}}'
+                    )
+WHERE html_template LIKE '%{{#each%}'
+   OR html_template LIKE '%{{/each%}}';
