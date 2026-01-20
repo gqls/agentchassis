@@ -817,22 +817,23 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 			return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
 		}
 
-		// always save step result with retry - don't skip for awaiting steps!
+		// If awaiting responses, state was already persisted in processAwaitResponse
+		// Just return - don't save again
+		if state.Status == StatusAwaitingResponses {
+			l.Info("Execution paused - waiting for responses (state already persisted)",
+				zap.String("current_step", state.CurrentStep),
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.Int("awaited_count", len(state.AwaitedRequests)),
+			)
+			return nil
+		}
+
+		// For non-awaiting steps, save step result with retry
 		if err := s.saveStepResultWithRetry(ctx, state, currentStepName, l); err != nil {
 			l.Error("Failed to save step result after retries",
 				zap.String("step", currentStepName),
 				zap.Error(err))
 			return fmt.Errorf("failed to persist step result for '%s': %w", currentStepName, err)
-		}
-
-		// If the step requires a pause, return now (result already saved above)
-		if state.Status == StatusAwaitingResponses {
-			l.Info("Execution paused - waiting for responses",
-				zap.String("current_step", state.CurrentStep),
-				zap.String("orchestration_id", state.OrchestrationID),
-				zap.String("correlation_id", state.CorrelationID),
-			)
-			return nil // Result already persisted by saveStepResultWithRetry
 		}
 
 		// --- This is the core step-transition logic ---
@@ -1163,56 +1164,11 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		return err
 	}
 
-	// 7a. check if we need to wait for a response
-	repo := NewStateRepository(s.db, s.logger)
+	// 7a. If awaiting responses, state was already persisted in processAwaitResponse
+	// Just return early
 	if state.Status == StatusAwaitingResponses {
-		// Save state with awaited request
-		if err := repo.UpdateState(ctx, state); err != nil {
-			// Check if this is an optimistic lock failure
-			if strings.Contains(err.Error(), "optimistic lock") {
-				// Reload fresh state and check if response already arrived
-				freshState, loadErr := repo.GetState(ctx, state.OrchestrationID)
-				if loadErr == nil {
-					// Check if response already arrived by checking if awaited request is gone
-					for reqID := range state.AwaitedRequests {
-						stepName := state.AwaitedRequests[reqID].StepName
-
-						// Method 1: Request no longer awaited = response was processed
-						if _, stillAwaited := freshState.AwaitedRequests[reqID]; !stillAwaited {
-							contextLogger.Info("Response already processed (request no longer awaited) - continuing",
-								zap.String("request_id", reqID),
-								zap.String("step_name", stepName))
-							return s.continueExecution(ctx, freshState, execCtx)
-						}
-
-						// Method 2: Check if step data has response content
-						if existingData, exists := freshState.CollectedData[stepName].(map[string]interface{}); exists {
-							// Check for wrapped response
-							if _, hasResponse := existingData["response"]; hasResponse {
-								contextLogger.Info("Response already arrived (found response key) - continuing",
-									zap.String("request_id", reqID),
-									zap.String("step_name", stepName))
-								return s.continueExecution(ctx, freshState, execCtx)
-							}
-							// Check for direct response (race case - has "success" or "body" but not "await_response")
-							_, hasAwait := existingData["await_response"]
-							_, hasSuccess := existingData["success"]
-							_, hasBody := existingData["body"]
-							if !hasAwait && (hasSuccess || hasBody) {
-								contextLogger.Info("Response already arrived (direct storage) - continuing",
-									zap.String("request_id", reqID),
-									zap.String("step_name", stepName))
-								return s.continueExecution(ctx, freshState, execCtx)
-							}
-						}
-					}
-				}
-			}
-			// If we get here, it's a real error
-			contextLogger.Error("Failed to save awaiting state", zap.Error(err))
-			return fmt.Errorf("failed to save awaiting state: %w", err)
-		}
-		// Return early - don't continue to next step
+		contextLogger.Info("Step set up awaited request, state already persisted",
+			zap.Int("awaited_count", len(state.AwaitedRequests)))
 		return nil
 	}
 
@@ -1512,14 +1468,16 @@ func processActionResult(state *OrchestrationState, result interface{}, step mod
 		)
 
 		// Check if action requires waiting for response
+		// Note: processAwaitResponse now sets StatusAwaitingResponses and persists state
 		if needsWaiting := processAwaitResponse(state, resultMap, execCtx, step, coordinator, logger); needsWaiting {
-			logger.Info("in processActionResult checking action",
+			logger.Info("in processActionResult - action requires waiting (state already persisted)",
 				zap.String("step_name", step.Name),
-				zap.Any("needs waiting", needsWaiting),
+				zap.String("status", string(state.Status)),
 			)
 
 			// State needs to wait for response
-			state.Status = StatusAwaitingResponses
+			// state.Status = StatusAwaitingResponses
+			// Status already set by processAwaitResponse, no need to set again
 		} else {
 			logger.Info("in processActionResult was ok creating resultMap but didnt consider it needsWaiting",
 				zap.String("step_name", step.Name),
@@ -1656,31 +1614,55 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 	// Create awaited request entry
 	awaitedReq := createAwaitedRequest(requestID, execCtx, state, step, result, responsesTopic, requestsTopic)
 
-	// NEW: Insert into database table
-	ctx := context.Background()
-	repo := NewStateRepository(coordinator.db, logger)
-	err := repo.InsertAwaitedRequest(ctx, awaitedReq)
-	if err != nil {
-		logger.Error("Failed to insert awaited request into database",
-			zap.String("request_id", requestID),
-			zap.Error(err))
-		return false
-	}
-
-	logger.Info("Added awaited request to awaited requests table",
-		zap.String("request_id", requestID),
-		zap.String("orchestration_id", state.OrchestrationID),
-		zap.String("target_agent_type", awaitedReq.TargetAgentType),
-		zap.String("responses_topic", responsesTopic))
-
-	// Add to state
+	// Add to state FIRST (in memory)
 	if state.AwaitedRequests == nil {
 		state.AwaitedRequests = make(map[string]*AwaitedRequest)
 	}
 	state.AwaitedRequests[requestID] = awaitedReq
 
-	logger.Info("Action requires waiting for response",
+	// Set status to awaiting (must happen before persist)
+	state.Status = StatusAwaitingResponses
+
+	// PERSIST STATE BEFORE TABLE INSERT to prevent race condition
+	// The JSONB must be persisted before the table insert, otherwise:
+	// 1. Response arrives after table insert but before JSONB persist
+	// 2. Response handler loads state with empty AwaitedRequests
+	// 3. Workflow incorrectly thinks all responses are in
+	ctx := context.Background()
+	repo := NewStateRepository(coordinator.db, logger)
+	if err := persistAwaitingStateWithRetry(ctx, state, repo, logger); err != nil {
+		logger.Error("Failed to persist state before table insert",
+			zap.String("request_id", requestID),
+			zap.Error(err))
+		// Remove from in-memory state since we failed
+		delete(state.AwaitedRequests, requestID)
+		state.Status = "" // Reset status
+		return false
+	}
+
+	// NOW insert into database table (JSONB is already persisted)
+	err := repo.InsertAwaitedRequest(ctx, awaitedReq)
+	if err != nil {
+		logger.Error("Failed to insert awaited request into database",
+			zap.String("request_id", requestID),
+			zap.Error(err))
+		// State is already persisted with the awaited request, which is fine
+		// The request will eventually timeout if table insert keeps failing
+		// But we should try a few times
+		for retry := 0; retry < 3; retry++ {
+			time.Sleep(50 * time.Millisecond)
+			if err = repo.InsertAwaitedRequest(ctx, awaitedReq); err == nil {
+				break
+			}
+		}
+		if err != nil {
+			return false
+		}
+	}
+
+	logger.Info("Action requires waiting for response - Added awaited request (state persisted first)",
 		zap.String("request_id", requestID),
+		zap.String("orchestration_id", state.OrchestrationID),
 		zap.String("target_agent_type", awaitedReq.TargetAgentType),
 		zap.String("target_agent_id", awaitedReq.TargetAgentID),
 		zap.String("responses_topic", responsesTopic),
@@ -1690,6 +1672,75 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 	go coordinator.handleRequestTimeout(context.Background(), state.OrchestrationID, requestID, awaitedReq.TimeoutAt)
 
 	return true
+}
+
+// persistAwaitingStateWithRetry saves state with awaited request before table insert
+// This prevents the race condition where responses arrive before JSONB is persisted
+func persistAwaitingStateWithRetry(ctx context.Context, state *OrchestrationState, repo *StateRepository, logger *zap.Logger) error {
+	maxRetries := 10
+	baseDelay := 50 * time.Millisecond
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Load fresh state
+		freshState, err := repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to load state: %w", err)
+		}
+
+		// Check if response already arrived (in case of retry loops)
+		for reqID := range state.AwaitedRequests {
+			if existingData, exists := freshState.CollectedData[state.AwaitedRequests[reqID].StepName].(map[string]interface{}); exists {
+				if _, hasResponse := existingData["response"]; hasResponse {
+					logger.Info("Response already arrived during state persist - continuing",
+						zap.String("request_id", reqID))
+					return nil
+				}
+			}
+		}
+
+		// Apply awaited requests to fresh state
+		if freshState.AwaitedRequests == nil {
+			freshState.AwaitedRequests = make(map[string]*AwaitedRequest)
+		}
+		for k, v := range state.AwaitedRequests {
+			freshState.AwaitedRequests[k] = v
+		}
+
+		// Apply status
+		freshState.Status = StatusAwaitingResponses
+		freshState.LastActivity = time.Now()
+
+		// Try to save
+		err = repo.UpdateState(ctx, freshState)
+		if err == nil {
+			if attempt > 1 {
+				logger.Info("Awaiting state persisted after retry",
+					zap.Int("attempts", attempt),
+					zap.Int("awaited_count", len(freshState.AwaitedRequests)))
+			}
+			// Update in-memory version
+			state.Version = freshState.Version
+			return nil
+		}
+
+		// Check if optimistic lock error
+		if !IsOptimisticLockError(err) {
+			return fmt.Errorf("failed to persist awaiting state: %w", err)
+		}
+
+		if attempt >= maxRetries {
+			return fmt.Errorf("failed to persist awaiting state after %d attempts: %w", attempt, err)
+		}
+
+		// Backoff
+		delay := backoffWithJitter(baseDelay, attempt)
+		logger.Warn("Optimistic lock failure persisting awaiting state, retrying",
+			zap.Int("attempt", attempt),
+			zap.Duration("backoff", delay))
+		time.Sleep(delay)
+	}
+
+	return nil
 }
 
 // Extract request ID from result or context
