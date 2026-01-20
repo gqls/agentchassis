@@ -817,29 +817,22 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 			return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
 		}
 
-		// ================================================================
-		// Save step result immediately with retry logic
-		// This prevents loss of step results due to optimistic lock races
-		// ================================================================
-		if state.Status != StatusAwaitingResponses {
-			// For non-awaiting steps, save the collected data immediately
-			// with optimistic lock retry
-			if err := s.saveStepResultWithRetry(ctx, state, currentStepName, l); err != nil {
-				l.Error("Failed to save step result after retries",
-					zap.String("step", currentStepName),
-					zap.Error(err))
-				return fmt.Errorf("failed to persist step result for '%s': %w", currentStepName, err)
-			}
+		// always save step result with retry - don't skip for awaiting steps!
+		if err := s.saveStepResultWithRetry(ctx, state, currentStepName, l); err != nil {
+			l.Error("Failed to save step result after retries",
+				zap.String("step", currentStepName),
+				zap.Error(err))
+			return fmt.Errorf("failed to persist step result for '%s': %w", currentStepName, err)
 		}
 
-		// If the step requires a pause, save the state and exit the loop.
+		// If the step requires a pause, return now (result already saved above)
 		if state.Status == StatusAwaitingResponses {
 			l.Info("Execution paused - waiting for responses",
 				zap.String("current_step", state.CurrentStep),
 				zap.String("orchestration_id", state.OrchestrationID),
 				zap.String("correlation_id", state.CorrelationID),
 			)
-			return repo.UpdateState(ctx, state)
+			return nil // Result already persisted by saveStepResultWithRetry
 		}
 
 		// --- This is the core step-transition logic ---
@@ -969,6 +962,21 @@ func (s *SagaCoordinator) saveStepResultWithRetry(ctx context.Context, state *Or
 		}
 		if outputField != "" && outputResult != nil {
 			freshState.CollectedData[outputField] = outputResult
+		}
+
+		// Also preserve the awaited requests if the step set them
+		if len(state.AwaitedRequests) > 0 {
+			if freshState.AwaitedRequests == nil {
+				freshState.AwaitedRequests = make(map[string]*AwaitedRequest)
+			}
+			for k, v := range state.AwaitedRequests {
+				freshState.AwaitedRequests[k] = v
+			}
+		}
+
+		// Preserve status if it changed (e.g., to StatusAwaitingResponses)
+		if state.Status == StatusAwaitingResponses {
+			freshState.Status = StatusAwaitingResponses
 		}
 
 		// Try to save
