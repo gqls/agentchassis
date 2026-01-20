@@ -35,6 +35,21 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.Any("config_keys", datahelpers.GetMapKeys(params.StepConfig.Config)),
 	)
 
+	// 0. Check if upstream content generation/assembly was skipped
+	// This prevents trying to deploy when there's no content
+	if skipped, reason := checkUpstreamSkipped(params.CollectedData, params.StepConfig.Config, params.Logger); skipped {
+		params.Logger.Warn("Upstream step was skipped, not deploying",
+			zap.String("reason", reason))
+		return GitCommitResult{
+			Success:       true, // Not an error, just skipped
+			AwaitResponse: false,
+			Metadata: map[string]interface{}{
+				"status":      "skipped",
+				"skip_reason": reason,
+			},
+		}, nil
+	}
+
 	// 1. Extract configuration
 	config := params.StepConfig.Config
 
@@ -89,7 +104,18 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	filesMap := extractFilesForGit(params.CollectedData, config, domain, params.Logger)
 
 	if len(filesMap) == 0 {
-		return nil, fmt.Errorf("no files to commit")
+		// No files - this could be due to upstream failure, treat as skip not error
+		params.Logger.Warn("No files to commit - treating as skipped page")
+		return GitCommitResult{
+			Success:       true,
+			AwaitResponse: false,
+			Metadata: map[string]interface{}{
+				"status":      "skipped",
+				"skip_reason": "no files to commit",
+				"repo_name":   repoName,
+				"domain":      domain,
+			},
+		}, nil
 	}
 
 	// Build commit message with template support
@@ -433,4 +459,72 @@ func getFileNames(files map[string]string) []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// checkUpstreamSkipped checks if upstream content generation or assembly was skipped
+// This allows the deploy step to skip gracefully instead of failing
+func checkUpstreamSkipped(collectedData map[string]interface{}, config map[string]interface{}, logger *zap.Logger) (bool, string) {
+	// Check assembled_page.skipped (from AssemblePageAction)
+	if assembled, ok := collectedData["assembled_page"].(map[string]interface{}); ok {
+		if skipped, ok := assembled["skipped"].(bool); ok && skipped {
+			reason := "page assembly was skipped"
+			if r, ok := assembled["skip_reason"].(string); ok && r != "" {
+				reason = r
+			}
+			logger.Info("Detected skipped flag in assembled_page",
+				zap.String("reason", reason))
+			return true, reason
+		}
+	}
+
+	// Check page_content.response for failed status
+	if pageContent, ok := collectedData["page_content"].(map[string]interface{}); ok {
+		if response, ok := pageContent["response"].(map[string]interface{}); ok {
+			// Check for failed status
+			if status, ok := response["status"].(string); ok && status == "failed" {
+				reason := "content generation failed"
+				if errMsg, ok := response["error"].(string); ok && errMsg != "" {
+					reason = errMsg
+				}
+				logger.Info("Detected failed status in page_content.response",
+					zap.String("reason", reason))
+				return true, reason
+			}
+		}
+	}
+
+	// Check reviewed_content for failure (content reviewer path)
+	if reviewed, ok := collectedData["reviewed_content"].(map[string]interface{}); ok {
+		if response, ok := reviewed["response"].(map[string]interface{}); ok {
+			if status, ok := response["status"].(string); ok && status == "failed" {
+				reason := "content review failed"
+				if errMsg, ok := response["error"].(string); ok && errMsg != "" {
+					reason = errMsg
+				}
+				logger.Info("Detected failed status in reviewed_content.response",
+					zap.String("reason", reason))
+				return true, reason
+			}
+		}
+	}
+
+	// Check content_field path from config if specified
+	if contentField, ok := config["content_field"].(string); ok && contentField != "" {
+		parts := strings.Split(contentField, ".")
+		if len(parts) >= 2 {
+			topKey := parts[0]
+			if topData, ok := collectedData[topKey].(map[string]interface{}); ok {
+				// Check for skipped flag
+				if skipped, ok := topData["skipped"].(bool); ok && skipped {
+					reason := "upstream step was skipped"
+					if r, ok := topData["skip_reason"].(string); ok && r != "" {
+						reason = r
+					}
+					return true, reason
+				}
+			}
+		}
+	}
+
+	return false, ""
 }

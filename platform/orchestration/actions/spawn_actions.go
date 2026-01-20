@@ -311,42 +311,6 @@ func createTopics(ctx context.Context, logger *zap.Logger, requestsTopic, respon
 	return nil
 }
 
-// Decision functions
-func shouldSendInitializationMessage(sendInitData bool) bool {
-	// By default, don't send init data during spawn
-	// Let CallAgentAction handle sending the actual task
-	return sendInitData
-}
-
-// Data preparation
-func prepareInitializationData(params ActionParams, sendInitData bool) map[string]interface{} {
-	// Start with empty data
-	initData := make(map[string]interface{})
-
-	// Only include data if explicitly configured to do so
-	if sendInitData {
-		// Look for input_data in collected data
-		if inputData, ok := params.CollectedData["input_data"]; ok {
-			initData["input_data"] = inputData
-		}
-
-		// Add any agent-specific configuration
-		if agentConfig, ok := params.CollectedData["agent_config"]; ok {
-			initData["config"] = agentConfig
-		}
-	} else {
-		// Send empty structures to avoid nil issues
-		initData["input_data"] = make(map[string]interface{})
-		initData["config"] = make(map[string]interface{})
-	}
-
-	params.Logger.Info("Prepared initialization data",
-		zap.Bool("send_init_data", sendInitData),
-		zap.Int("data_fields", len(initData)))
-
-	return initData
-}
-
 // Message building and sending
 func sendInitializationMessage(ctx context.Context, params ActionParams, agentID, agentName, agentType, role, requestID, childRequestsTopic, parentResponsesTopic string) error {
 
