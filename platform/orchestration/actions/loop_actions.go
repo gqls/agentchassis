@@ -54,6 +54,12 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 		maxIterations = int(max)
 	}
 
+	// Check for allow_missing config - if true, missing collection returns empty result
+	allowMissing := false
+	if am, ok := config["allow_missing"].(bool); ok {
+		allowMissing = am
+	}
+
 	// Get substeps (supports both 'substeps' and 'sub_workflow.steps')
 	var substepsConfig map[string]interface{}
 	var startStep string
@@ -86,6 +92,48 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	// 2. Get the collection to iterate over
 	collection, err := getNestedValueForLoop(params.CollectedData, iterateOverPath)
 	if err != nil {
+		// Check if this is a "not found" error vs other errors
+		errStr := err.Error()
+		isMissingData := strings.Contains(errStr, "not found") ||
+			strings.Contains(errStr, "key") ||
+			strings.Contains(errStr, "does not exist")
+
+		if isMissingData {
+			// Log detailed diagnostic info
+			logger.Warn("Collection data not found for loop - possible state persistence issue",
+				zap.String("iterate_over", iterateOverPath),
+				zap.Error(err),
+				zap.Strings("available_keys", getCollectedDataKeys(params.CollectedData)),
+			)
+
+			// Check if upstream step failed
+			upstreamFailed, failReason := checkUpstreamFailure(params.CollectedData, iterateOverPath, logger)
+
+			if upstreamFailed || allowMissing {
+				// Return graceful skip result
+				skipReason := "collection data not found"
+				if upstreamFailed {
+					skipReason = fmt.Sprintf("upstream failure: %s", failReason)
+				}
+
+				logger.Warn("Skipping loop due to missing collection",
+					zap.String("reason", skipReason),
+					zap.Bool("upstream_failed", upstreamFailed),
+					zap.Bool("allow_missing", allowMissing),
+				)
+
+				return map[string]interface{}{
+					"loop_action":  true,
+					"iterations":   0,
+					"results":      []interface{}{},
+					"skipped":      true,
+					"skip_reason":  skipReason,
+					"missing_path": iterateOverPath,
+				}, nil
+			}
+		}
+
+		// Return original error for non-missing-data errors
 		return nil, fmt.Errorf("failed to get collection at '%s': %w", iterateOverPath, err)
 	}
 
@@ -165,6 +213,63 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	)
 
 	return expansion, nil
+}
+
+// checkUpstreamFailure checks if an upstream step that should have produced the data failed
+func checkUpstreamFailure(collectedData map[string]interface{}, path string, logger *zap.Logger) (bool, string) {
+	// path is like "section_components.components"
+	// Check if section_components itself exists but has error/failure indicators
+
+	parts := strings.Split(path, ".")
+	if len(parts) == 0 {
+		return false, ""
+	}
+
+	topKey := parts[0]
+
+	// Check if the top-level key exists
+	if _, exists := collectedData[topKey]; !exists {
+		// The step that should have produced this data either:
+		// 1. Was never executed
+		// 2. Failed and its result wasn't stored
+		// 3. Succeeded but state wasn't persisted (race condition)
+
+		// Look for any error indicators in the state
+		for key, val := range collectedData {
+			if valMap, ok := val.(map[string]interface{}); ok {
+				if status, ok := valMap["status"].(string); ok && status == "failed" {
+					logger.Info("Found failed step that may have prevented data creation",
+						zap.String("failed_step", key),
+						zap.String("missing_key", topKey))
+					return true, fmt.Sprintf("step '%s' failed", key)
+				}
+				if _, hasError := valMap["error"]; hasError {
+					logger.Info("Found step with error that may have prevented data creation",
+						zap.String("error_step", key),
+						zap.String("missing_key", topKey))
+					return true, fmt.Sprintf("step '%s' had error", key)
+				}
+			}
+		}
+
+		// No explicit failure found, but data is still missing
+		// This is likely a race condition / state persistence issue
+		logger.Warn("Data missing without explicit upstream failure - possible race condition",
+			zap.String("missing_key", topKey))
+		return true, fmt.Sprintf("data '%s' missing (possible state persistence race)", topKey)
+	}
+
+	// Top-level key exists, check if it has failure indicators
+	if topData, ok := collectedData[topKey].(map[string]interface{}); ok {
+		if status, ok := topData["status"].(string); ok && status == "failed" {
+			return true, fmt.Sprintf("step '%s' has failed status", topKey)
+		}
+		if errMsg, ok := topData["error"].(string); ok && errMsg != "" {
+			return true, fmt.Sprintf("step '%s' has error: %s", topKey, errMsg)
+		}
+	}
+
+	return false, ""
 }
 
 // LoopCompleteAction aggregates results from loop iterations
