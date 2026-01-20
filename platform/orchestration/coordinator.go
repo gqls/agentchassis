@@ -765,7 +765,7 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		return nil
 	}
 
-	// This loop replaces the recursion. It will run for each step in the workflow
+	// Main execution loop. It will run for each step in the workflow
 	// until a 'return' statement is hit.
 	for {
 		l := s.logger.With(
@@ -791,6 +791,7 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 			return fmt.Errorf("failed to reload state: %w", err)
 		}
 		state = reloadedState
+		currentStepName := state.CurrentStep
 
 		l = s.logger.With(
 			zap.Any("state loaded from repo - in continueExecution", state),
@@ -810,9 +811,25 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		}
 
 		// Execute the single step for this iteration
+		// NOTE: This stores result in state.CollectedData IN MEMORY
 		err = s.executeStep(ctx, state, currentStepConfig, execCtx)
 		if err != nil {
 			return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
+		}
+
+		// ================================================================
+		// Save step result immediately with retry logic
+		// This prevents loss of step results due to optimistic lock races
+		// ================================================================
+		if state.Status != StatusAwaitingResponses {
+			// For non-awaiting steps, save the collected data immediately
+			// with optimistic lock retry
+			if err := s.saveStepResultWithRetry(ctx, state, currentStepName, l); err != nil {
+				l.Error("Failed to save step result after retries",
+					zap.String("step", currentStepName),
+					zap.Error(err))
+				return fmt.Errorf("failed to persist step result for '%s': %w", currentStepName, err)
+			}
 		}
 
 		// If the step requires a pause, save the state and exit the loop.
@@ -840,8 +857,15 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 			l.Info("Transitioning to next step", zap.String("next_step", nextStep))
 			state.CurrentStep = nextStep
 
-			if err := repo.UpdateState(ctx, state); err != nil {
+			// Advance to next step with retry
+			if err := s.advanceToNextStepWithRetry(ctx, state.OrchestrationID, nextStep, l); err != nil {
 				return err
+			}
+
+			// Reload state for next iteration
+			state, err = repo.GetState(ctx, state.OrchestrationID)
+			if err != nil {
+				return fmt.Errorf("failed to reload state after advancing: %w", err)
 			}
 
 			// Go to the top of the for loop to run the next step
@@ -852,6 +876,135 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 			return s.completeWorkflow(ctx, state)
 		}
 	}
+}
+
+// advanceToNextStepWithRetry updates CurrentStep with optimistic lock retry
+func (s *SagaCoordinator) advanceToNextStepWithRetry(ctx context.Context, orchestrationID string, nextStep string, logger *zap.Logger) error {
+	repo := NewStateRepository(s.db, s.logger)
+
+	maxRetries := 10
+	baseDelay := 50 * time.Millisecond
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Load fresh state
+		freshState, err := repo.GetState(ctx, orchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to load state for step advance: %w", err)
+		}
+
+		// Update current step
+		freshState.CurrentStep = nextStep
+		freshState.LastActivity = time.Now()
+
+		// Try to save
+		err = repo.UpdateState(ctx, freshState)
+		if err == nil {
+			if attempt > 1 {
+				logger.Info("Step advanced after retry",
+					zap.String("next_step", nextStep),
+					zap.Int("attempts", attempt))
+			}
+			return nil
+		}
+
+		// Check if optimistic lock error
+		if !IsOptimisticLockError(err) {
+			return fmt.Errorf("failed to advance step: %w", err)
+		}
+
+		// Max retries exceeded
+		if attempt >= maxRetries {
+			return fmt.Errorf("failed to advance step after %d attempts: %w", attempt, err)
+		}
+
+		// Backoff with jitter
+		delay := backoffWithJitter(baseDelay, attempt)
+		logger.Warn("Optimistic lock failure advancing step, retrying",
+			zap.String("next_step", nextStep),
+			zap.Int("attempt", attempt),
+			zap.Duration("backoff", delay))
+		time.Sleep(delay)
+	}
+
+	return nil
+}
+
+// saveStepResultWithRetry saves the step result to CollectedData with optimistic lock retry
+// This ensures step results are persisted even when concurrent modifications occur
+func (s *SagaCoordinator) saveStepResultWithRetry(ctx context.Context, state *OrchestrationState, stepName string, logger *zap.Logger) error {
+	repo := NewStateRepository(s.db, s.logger)
+
+	// Extract the step result from in-memory state
+	stepResult := state.CollectedData[stepName]
+
+	// Also check for output_field
+	var outputField string
+	var outputResult interface{}
+	if stepConfig, exists := state.WorkflowPlan.Steps[stepName]; exists {
+		if stepConfig.OutputField != "" {
+			outputField = stepConfig.OutputField
+			outputResult = state.CollectedData[outputField]
+		}
+	}
+
+	if stepResult == nil && outputResult == nil {
+		// No result to save
+		logger.Debug("No step result to save", zap.String("step", stepName))
+		return nil
+	}
+
+	maxRetries := 10
+	baseDelay := 50 * time.Millisecond
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Load fresh state
+		freshState, err := repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to load state for step result save: %w", err)
+		}
+
+		// Apply step result to fresh state
+		if stepResult != nil {
+			freshState.CollectedData[stepName] = stepResult
+		}
+		if outputField != "" && outputResult != nil {
+			freshState.CollectedData[outputField] = outputResult
+		}
+
+		// Try to save
+		err = repo.UpdateState(ctx, freshState)
+		if err == nil {
+			if attempt > 1 {
+				logger.Info("Step result saved after retry",
+					zap.String("step", stepName),
+					zap.Int("attempts", attempt))
+			}
+
+			// Update our in-memory state to match
+			state.Version = freshState.Version
+			return nil
+		}
+
+		// Check if optimistic lock error
+		if !IsOptimisticLockError(err) {
+			return fmt.Errorf("failed to save step result: %w", err)
+		}
+
+		// Max retries exceeded
+		if attempt >= maxRetries {
+			return fmt.Errorf("failed to save step result after %d attempts: %w", attempt, err)
+		}
+
+		// Backoff with jitter
+		delay := backoffWithJitter(baseDelay, attempt)
+		logger.Warn("Optimistic lock failure saving step result, retrying",
+			zap.String("step", stepName),
+			zap.Int("attempt", attempt),
+			zap.Duration("backoff", delay))
+		time.Sleep(delay)
+	}
+
+	return nil
 }
 
 // getNextStepFromResult extracts a next_step override from an action result if present.
@@ -1058,8 +1211,10 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// 8. Record processing history
 	recordActionExecution(state, execCtx, step, s.podName)
 
-	// 9. Save state if needed - pass the logger
-	return saveStateIfNeeded(ctx, state, s.db, s.logger)
+	/*// 9. Save state if needed - pass the logger
+	return saveStateIfNeeded(ctx, state, s.db, s.logger)*/
+	// 9. State saving is now handled by continueExecution with retry logic
+	return nil
 }
 
 // Prepare the execution context for this step
