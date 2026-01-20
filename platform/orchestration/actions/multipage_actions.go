@@ -29,10 +29,37 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	addNav, _ := config["add_navigation"].(bool)
 
+	// Check if upstream content generation failed before trying to extract HTML
+	// contentField is typically "page_content.response.page_html"
+	// We need to check "page_content.response" for status/error fields
+	if upstreamFailed, failureReason := checkUpstreamContentFailure(params.CollectedData, contentField, params.Logger); upstreamFailed {
+		params.Logger.Warn("Upstream content generation failed, skipping page assembly",
+			zap.String("content_field", contentField),
+			zap.String("reason", failureReason))
+
+		// Return success with skipped flag - allows loop to continue to next page
+		return map[string]interface{}{
+			"html":         "",
+			"skipped":      true,
+			"skip_reason":  failureReason,
+			"assembled_at": params.ExecutionContext.Timestamp,
+		}, nil
+	}
+
 	// Extract content
 	content := extractFieldValue(params.CollectedData, contentField, params.Logger)
 	if content == "" {
-		return nil, fmt.Errorf("no content found at %s", contentField)
+		// No content found - treat as skipped rather than error
+		// This allows the loop to continue with other pages
+		params.Logger.Warn("No content found at specified field, skipping page",
+			zap.String("content_field", contentField))
+
+		return map[string]interface{}{
+			"html":         "",
+			"skipped":      true,
+			"skip_reason":  fmt.Sprintf("no content found at %s", contentField),
+			"assembled_at": params.ExecutionContext.Timestamp,
+		}, nil
 	}
 
 	params.Logger.Info("Extracted content",
@@ -58,6 +85,7 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	return map[string]interface{}{
 		"html":         html,
+		"skipped":      false,
 		"assembled_at": params.ExecutionContext.Timestamp,
 	}, nil
 }
@@ -1458,4 +1486,59 @@ document.addEventListener('DOMContentLoaded', function() {
 	)
 
 	return html
+}
+
+// checkUpstreamContentFailure checks if the content generation step failed
+// by examining the response status/error fields in collected data
+func checkUpstreamContentFailure(collectedData map[string]interface{}, contentField string, logger *zap.Logger) (bool, string) {
+	// contentField is like "page_content.response.page_html"
+	// We need to check "page_content.response.status" and "page_content.response.error"
+
+	// Parse the field path to get the parent (e.g., "page_content.response")
+	parts := strings.Split(contentField, ".")
+	if len(parts) < 2 {
+		return false, ""
+	}
+
+	// Get top-level key (e.g., "page_content")
+	topKey := parts[0]
+
+	// Check top-level object
+	topData, ok := collectedData[topKey].(map[string]interface{})
+	if !ok {
+		logger.Debug("Top-level key not found or not a map",
+			zap.String("key", topKey))
+		return false, ""
+	}
+
+	// Check for response object
+	response, ok := topData["response"].(map[string]interface{})
+	if !ok {
+		logger.Debug("No response object in top-level data",
+			zap.String("key", topKey))
+		return false, ""
+	}
+
+	// Check status field
+	if status, ok := response["status"].(string); ok && status == "failed" {
+		errorMsg := "content generation failed"
+		if errStr, ok := response["error"].(string); ok && errStr != "" {
+			errorMsg = errStr
+		}
+		logger.Info("Detected failed status in upstream response",
+			zap.String("top_key", topKey),
+			zap.String("status", status),
+			zap.String("error", errorMsg))
+		return true, errorMsg
+	}
+
+	// Check for error field directly
+	if errStr, ok := response["error"].(string); ok && errStr != "" {
+		logger.Info("Detected error in upstream response",
+			zap.String("top_key", topKey),
+			zap.String("error", errStr))
+		return true, errStr
+	}
+
+	return false, ""
 }

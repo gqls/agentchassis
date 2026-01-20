@@ -102,18 +102,35 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		zap.String("job_name", jobName),
 		zap.String("agent_id", agentID))
 
-	// 8. Always send an initialization message to let the agent know it's been spawned
-	// This is separate from the actual task data which CallAgentAction will send later
+	// 8. Generate the initialization request ID BEFORE any message sending
+	// This allows us to pre-register the awaited request
+	initRequestID := uuid.New().String()
 
-	// First delay: Allow pod to start and initialize
+	// 9. PRE-REGISTER the awaited request BEFORE sending the initialization message
+	// This prevents a race condition where the spawned agent responds before
+	// we've registered that we're waiting for a response
+	if params.DB != nil {
+		if err := preRegisterAwaitedRequest(ctx, params, initRequestID, agentID, agentType,
+			childRequestsTopic, parentResponsesTopic); err != nil {
+			params.Logger.Warn("Failed to pre-register awaited request - response matching may fail",
+				zap.String("request_id", initRequestID),
+				zap.Error(err))
+			// Continue anyway - this is a race condition mitigation, not a hard requirement
+		} else {
+			params.Logger.Info("Pre-registered awaited request before sending init message",
+				zap.String("request_id", initRequestID),
+				zap.String("orchestration_id", params.ExecutionContext.OrchestrationID))
+		}
+	}
+
+	// 10. Wait for pod startup
 	params.Logger.Info("Waiting for pod startup and agent initialization...",
 		zap.String("agent_id", agentID),
 		zap.String("agent_type", agentType))
 
 	time.Sleep(5 * time.Second)
 
-	// Generate a NEW request ID for the initialization message
-	initRequestID := uuid.New().String()
+	// 11. Send initialization message - agent may respond immediately after this
 	if err := sendInitializationMessage(ctx, params, agentID, agentName, agentType, role,
 		initRequestID, childRequestsTopic, parentResponsesTopic); err != nil {
 		params.Logger.Error("Failed to send initialization message",
@@ -122,7 +139,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 		// Don't fail the spawn if message send fails - agent is already created
 	}
 
-	// Second delay: Allow agent to process initialization message and start Kafka consumers
+	// 12. Second delay: Allow agent to process initialization message and start Kafka consumers
 	// The agent sends initialization response BEFORE Run() starts consumer goroutines,
 	// so we need extra time for consumers to subscribe and be ready to receive work messages
 	params.Logger.Info("Initialization message sent, waiting for Kafka consumers to start...",
@@ -131,10 +148,57 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	time.Sleep(5 * time.Second)
 
-	// 11. Build and return comprehensive result
+	// 13. Build and return comprehensive result
 	return buildSpawnResult(agentID, agentName, agentType, role, initRequestID,
 		childRequestsTopic, childResponsesTopic, parentResponsesTopic,
 		stableIdentity, subtreeInfo), nil
+}
+
+// preRegisterAwaitedRequest inserts an awaited_request record BEFORE sending the message
+// This prevents a race condition where the response arrives before we've registered that we're waiting
+func preRegisterAwaitedRequest(ctx context.Context, params ActionParams, requestID, targetAgentID, targetAgentType,
+	requestsTopic, responsesTopic string) error {
+
+	query := `
+		INSERT INTO awaited_requests (
+			request_id, orchestration_id, correlation_id, step_id, step_name,
+			retry_version, target_agent_id, target_agent_type,
+			responses_topic, requests_topic, sent_at, timeout_at,
+			reply_to_request_id, status
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'waiting')
+		ON CONFLICT (request_id) DO NOTHING
+	`
+
+	now := time.Now()
+	timeoutAt := now.Add(120 * time.Second) // 2 minute timeout for spawn initialization
+
+	_, err := params.DB.ExecContext(ctx, query,
+		requestID,                               // $1 request_id
+		params.ExecutionContext.OrchestrationID, // $2 orchestration_id
+		params.ExecutionContext.CorrelationID,   // $3 correlation_id
+		params.ExecutionContext.StepID,          // $4 step_id
+		params.CurrentStep,                      // $5 step_name
+		0,                                       // $6 retry_version
+		targetAgentID,                           // $7 target_agent_id
+		targetAgentType,                         // $8 target_agent_type
+		responsesTopic,                          // $9 responses_topic
+		requestsTopic,                           // $10 requests_topic
+		now,                                     // $11 sent_at
+		timeoutAt,                               // $12 timeout_at
+		requestID,                               // $13 reply_to_request_id (same as request_id for init)
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert awaited request: %w", err)
+	}
+
+	params.Logger.Info("Pre-registered awaited request in database",
+		zap.String("request_id", requestID),
+		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.String("target_agent_type", targetAgentType),
+		zap.String("responses_topic", responsesTopic))
+
+	return nil
 }
 
 // Configuration extraction - using existing structs, no new types
