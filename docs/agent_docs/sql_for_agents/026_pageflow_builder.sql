@@ -715,3 +715,5 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'pageflow-builder';
+
+--
