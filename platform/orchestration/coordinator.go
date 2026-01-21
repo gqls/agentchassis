@@ -817,15 +817,23 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 			return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
 		}
 
-		// RELOAD state after executeStep to pick up changes from recursive calls
-		// This is necessary because loop expansion calls continueExecution recursively,
-		// which reloads state into a NEW local variable. The recursive call may set
-		// Status=AWAITING_RESPONSES on that new object, but our local 'state' variable
-		// still points to the old object. Without this reload, we'd check the old
-		// object's Status (EXECUTING_STEP) and incorrectly proceed to the next step.
-		state, err = repo.GetState(ctx, state.OrchestrationID)
+		// Check if a recursive call (from loop expansion) set the status to AWAITING_RESPONSES
+		// We need to check the DATABASE status, not our in-memory state, because recursive
+		// continueExecution calls operate on their own loaded state objects.
+		// However, we must NOT reload the entire state because that would lose the step result
+		// that was stored in memory by executeStep.
+		dbState, err := repo.GetState(ctx, state.OrchestrationID)
 		if err != nil {
-			return fmt.Errorf("failed to reload state after step execution: %w", err)
+			return fmt.Errorf("failed to check state status after step execution: %w", err)
+		}
+		if dbState.Status == StatusAwaitingResponses {
+			// A recursive call set the status - workflow is now waiting
+			l.Info("Execution paused - waiting for responses (set by recursive call)",
+				zap.String("current_step", dbState.CurrentStep),
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.Int("awaited_count", len(dbState.AwaitedRequests)),
+			)
+			return nil
 		}
 
 		// If awaiting responses, state was already persisted in processAwaitResponse
@@ -1653,21 +1661,40 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 
 	// NOW insert into database table (JSONB is already persisted)
 	err := repo.InsertAwaitedRequest(ctx, awaitedReq)
+	alreadyExisted := false
 	if err != nil {
-		logger.Error("Failed to insert awaited request into database",
-			zap.String("request_id", requestID),
-			zap.Error(err))
-		// State is already persisted with the awaited request, which is fine
-		// The request will eventually timeout if table insert keeps failing
-		// But we should try a few times
-		for retry := 0; retry < 3; retry++ {
-			time.Sleep(50 * time.Millisecond)
-			if err = repo.InsertAwaitedRequest(ctx, awaitedReq); err == nil {
-				break
+		// Check if this is an "already exists" error - this is actually OK
+		// It means a previous attempt (optimistic lock retry) already inserted the row
+		if strings.Contains(err.Error(), "already exists") {
+			logger.Info("Awaited request already exists in table (previous attempt succeeded)",
+				zap.String("request_id", requestID),
+				zap.String("orchestration_id", state.OrchestrationID))
+			alreadyExisted = true
+			// Continue as success - state is persisted, timeout handler was started by previous attempt
+		} else {
+			logger.Error("Failed to insert awaited request into database",
+				zap.String("request_id", requestID),
+				zap.Error(err))
+			// State is already persisted with the awaited request, which is fine
+			// The request will eventually timeout if table insert keeps failing
+			// But we should try a few times
+			for retry := 0; retry < 3; retry++ {
+				time.Sleep(50 * time.Millisecond)
+				if err = repo.InsertAwaitedRequest(ctx, awaitedReq); err == nil {
+					break
+				}
+				if strings.Contains(err.Error(), "already exists") {
+					// Another goroutine succeeded
+					logger.Info("Awaited request already exists (concurrent insert succeeded)",
+						zap.String("request_id", requestID))
+					alreadyExisted = true
+					err = nil
+					break
+				}
 			}
-		}
-		if err != nil {
-			return false
+			if err != nil {
+				return false
+			}
 		}
 	}
 
@@ -1679,8 +1706,10 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 		zap.String("responses_topic", responsesTopic),
 		zap.Int("total_awaited", len(state.AwaitedRequests)))
 
-	// Setup timeout handler
-	go coordinator.handleRequestTimeout(context.Background(), state.OrchestrationID, requestID, awaitedReq.TimeoutAt)
+	// Setup timeout handler only if we actually created the row (not if it already existed)
+	if !alreadyExisted {
+		go coordinator.handleRequestTimeout(context.Background(), state.OrchestrationID, requestID, awaitedReq.TimeoutAt)
+	}
 
 	return true
 }
