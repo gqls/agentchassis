@@ -213,7 +213,7 @@ func extractSingleField(
 	logger *zap.Logger,
 ) interface{} {
 
-	logger.Debug("Trying extraction strategies", zap.String("field", fieldName))
+	logger.Info("Trying extraction strategies", zap.String("field", fieldName))
 
 	// Prevent infinite loops from circular aliases
 	if seen[fieldName] {
@@ -260,6 +260,10 @@ func extractSingleField(
 			zap.String("alias", alias))
 		return extractSingleField(data, alias, seen, logger)
 	}
+
+	logger.Info("Field name not found using aggressive search in extractSingleField.",
+		zap.String("field", fieldName),
+	)
 
 	return nil
 }

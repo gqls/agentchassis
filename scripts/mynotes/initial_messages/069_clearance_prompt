@@ -55,7 +55,7 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   --topic system.generic.responses
 
 sleep 2
-kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   /opt/kafka/bin/kafka-topics.sh
   --create --topic system.generic.responses
   --bootstrap-server localhost:9092
@@ -99,11 +99,11 @@ sleep 2
 kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 
 # try creating it again
-kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
-  /opt/kafka/bin/kafka-topics.sh
-  --create --topic system.generic.responses
-  --bootstrap-server localhost:9092
-  --partitions 1
-  --replication-factor 1
+# kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+#   /opt/kafka/bin/kafka-topics.sh
+#   --create --topic system.generic.responses
+#   --bootstrap-server localhost:9092
+#   --partitions 1
+#   --replication-factor 1
 
 

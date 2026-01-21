@@ -1132,7 +1132,7 @@ func (a *Agent) SendInitializationResponse(spawnRequest *types.RequestMessage) e
 	if a.ParentOrchestrationID == "" && spawnRequest.Headers.ParentOrchestrationID != "" {
 		a.ParentOrchestrationID = spawnRequest.Headers.ParentOrchestrationID
 	}
-	a.logger.Info("Stored spawn context for error propagation",
+	a.logger.Info("Stored spawn context for erro r propagation",
 		zap.String("reply_to_request_id", a.replyToRequestID),
 		zap.String("parent_orchestration_id", a.ParentOrchestrationID))
 

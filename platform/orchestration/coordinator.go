@@ -817,6 +817,17 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 			return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
 		}
 
+		// RELOAD state after executeStep to pick up changes from recursive calls
+		// This is necessary because loop expansion calls continueExecution recursively,
+		// which reloads state into a NEW local variable. The recursive call may set
+		// Status=AWAITING_RESPONSES on that new object, but our local 'state' variable
+		// still points to the old object. Without this reload, we'd check the old
+		// object's Status (EXECUTING_STEP) and incorrectly proceed to the next step.
+		state, err = repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to reload state after step execution: %w", err)
+		}
+
 		// If awaiting responses, state was already persisted in processAwaitResponse
 		// Just return - don't save again
 		if state.Status == StatusAwaitingResponses {
@@ -3377,8 +3388,6 @@ func prefixConfigStepReferences(config map[string]interface{}, loopName string, 
 		}
 	}
 }
-
-// CHANGE 4: Add new helper function prefixDataReference
 
 // prefixDataReference prefixes a data reference if it starts with a substep output field
 // e.g., "generated_content.result" → "generated_content_0.result" (if generated_content is a substep output)

@@ -163,8 +163,10 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	if len(items) == 0 {
 		logger.Warn("Collection is empty, skipping loop")
 		return map[string]interface{}{
-			"iterations": 0,
-			"results":    []interface{}{},
+			"loop_action": false, // Explicitly mark as processed loop
+			"iterations":  0,
+			"results":     []interface{}{},
+			"skipped":     true,
 		}, nil
 	}
 
