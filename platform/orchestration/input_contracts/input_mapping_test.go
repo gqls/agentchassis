@@ -1,6 +1,7 @@
 package orchestration
 
 import (
+	"reflect"
 	"testing"
 
 	"go.uber.org/zap"
@@ -92,7 +93,7 @@ func TestGetValueAtExactPath(t *testing.T) {
 			}
 			if tt.wantOk {
 				// Compare values (simple comparison for basic types)
-				if gotVal != tt.wantVal {
+				if !reflect.DeepEqual(gotVal, tt.wantVal) {
 					// For maps, do a deeper comparison
 					gotMap, gotIsMap := gotVal.(map[string]interface{})
 					wantMap, wantIsMap := tt.wantVal.(map[string]interface{})

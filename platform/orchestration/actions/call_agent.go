@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/input_contracts"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
@@ -780,24 +781,27 @@ func findJobTopicForRole(params ActionParams, targetRole string) string {
 	return ""
 }
 
-// Data extraction - with explicit template-based specification
-func extractDataForAgent(params ActionParams) interface{} {
-
+// Data extraction - with explicit input_mapping support and contract validation
+func extractDataForAgent(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 	stepName := params.StepConfig.Name
 
+	// Extract targetAgentType early so it's available in all branches
+	targetAgentType, _ := config["agent_type"].(string)
+
 	params.Logger.Info("extractDataForAgent Extracting data for agent",
 		zap.String("step", stepName),
+		zap.String("agent_type", targetAgentType),
 		zap.Any("step_config", config))
 
 	// PRIORITY 1: Check for new explicit input_mapping (PREFERRED)
-	if inputMapping, ok := orchestration.ParseInputMapping(config); ok {
+	if inputMapping, ok := input_contracts.ParseInputMapping(config); ok {
 		params.Logger.Info("Using explicit input_mapping",
 			zap.String("step", stepName),
 			zap.Int("mapping_count", len(inputMapping)))
 
 		// Resolve the mapping to actual data
-		inputData, err := orchestration.ResolveInputMapping(
+		inputData, err := input_contracts.ResolveInputMapping(
 			params.CollectedData,
 			inputMapping,
 			params.Logger,
@@ -807,15 +811,14 @@ func extractDataForAgent(params ActionParams) interface{} {
 		}
 
 		// Validate against child agent's input contract
-		targetAgentType, _ := config["agent_type"].(string)
 		if targetAgentType != "" {
-			contract, err := orchestration.GetAgentInputContract(ctx, params.DB, targetAgentType, params.Logger)
+			contract, err := input_contracts.GetAgentInputContract(ctx, params.DB, targetAgentType, params.Logger)
 			if err != nil {
 				params.Logger.Warn("Failed to load input contract, skipping validation",
 					zap.String("agent_type", targetAgentType),
 					zap.Error(err))
 			} else if contract != nil {
-				if err := orchestration.ValidateInputContract(targetAgentType, inputData, contract, params.Logger); err != nil {
+				if err := input_contracts.ValidateInputContract(targetAgentType, inputData, contract, params.Logger); err != nil {
 					return nil, fmt.Errorf("step %s: %w", stepName, err)
 				}
 			}
@@ -824,8 +827,8 @@ func extractDataForAgent(params ActionParams) interface{} {
 		return inputData, nil
 	}
 
-	// PRIORITY 1a: Check for plural "input_fields" (Array of keys)
-	if fields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
+	// PRIORITY 1a: Check for plural "input_fields" (Array of keys) - DEPRECATED
+	if fields, ok := config["input_fields"].([]interface{}); ok {
 		result := make(map[string]interface{})
 		params.Logger.Info("Using input_fields list", zap.Any("fields", fields))
 
@@ -895,38 +898,38 @@ func extractDataForAgent(params ActionParams) interface{} {
 				)
 			}
 		}
-		return result
+		return result, nil
 	}
 
 	// PRIORITY 1b: Check for explicit input_data specification in config (map)
-	if inputDataSpec, ok := params.StepConfig.Config["input_data"].(map[string]interface{}); ok {
+	if inputDataSpec, ok := config["input_data"].(map[string]interface{}); ok {
 		cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
 
-		params.Logger.Warn("DEPRECATED: Using input_fields instead of input_mapping",
+		params.Logger.Warn("DEPRECATED: Using input_data map instead of input_mapping",
 			zap.String("step", stepName),
 			zap.String("agent_type", targetAgentType),
 			zap.String("hint", "Update workflow config to use input_mapping"))
 
-		return renderTemplatesInData(inputDataSpec, map[string]interface{}{"input_data": cleanInputData}, params.Logger)
+		return renderTemplatesInData(inputDataSpec, map[string]interface{}{"input_data": cleanInputData}, params.Logger), nil
 	}
 
 	// PRIORITY 2: Check for input_field reference (single string)
-	if inputField, ok := params.StepConfig.Config["input_field"].(string); ok {
+	if inputField, ok := config["input_field"].(string); ok {
 		cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
 
-		params.Logger.Warn("DEPRECATED: Using input_fields instead of input_mapping",
+		params.Logger.Warn("DEPRECATED: Using input_field instead of input_mapping",
 			zap.String("step", stepName),
 			zap.String("agent_type", targetAgentType),
 			zap.String("hint", "Update workflow config to use input_mapping"))
 
 		if fieldData, err := datahelpers.GetFieldFromPath(cleanInputData, inputField, params.Logger); err == nil {
-			return fieldData
+			return fieldData, nil
 		}
 	}
 
 	// PRIORITY 3: Return the clean extracted data (default)
 	params.Logger.Info("Using cleaned input_data default")
-	return datahelpers.GetInputData(params.CollectedData, params.Logger)
+	return datahelpers.GetInputData(params.CollectedData, params.Logger), nil
 }
 
 // Render templates in data structure
