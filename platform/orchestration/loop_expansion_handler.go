@@ -4,6 +4,7 @@
 package orchestration
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -246,12 +247,32 @@ func (s *SagaCoordinator) setLoopVariable(
 	}
 
 	// Set the loop variable
-	state.CollectedData[loopVarName] = item
+	// Handle case where item was serialized as JSON string during state persistence
+	if itemStr, ok := item.(string); ok {
+		// Try to parse as JSON - this happens when state is saved/loaded from DB
+		var parsed map[string]interface{}
+		if err := json.Unmarshal([]byte(itemStr), &parsed); err == nil {
+			state.CollectedData[loopVarName] = parsed
+			logger.Info("setLoopVariable: parsed loop item from JSON string",
+				zap.String("loop_var", loopVarName),
+				zap.Int("iteration", iterIdx),
+				zap.Strings("parsed_keys", getTopLevelKeys(parsed)),
+			)
+		} else {
+			// Not valid JSON, store as-is
+			state.CollectedData[loopVarName] = item
+			logger.Debug("setLoopVariable: item is string but not JSON, storing as-is",
+				zap.String("loop_var", loopVarName),
+				zap.Int("string_length", len(itemStr)),
+			)
+		}
+	} else {
+		state.CollectedData[loopVarName] = item
+	}
 
 	// Update current iteration in metadata
 	loopMetadata["current_iteration"] = iterIdx
 
-	// ISSUE 33 FIX: Log at INFO level so we can confirm this is working
 	logger.Info("setLoopVariable: set loop variable successfully",
 		zap.String("loop_var", loopVarName),
 		zap.Int("iteration", iterIdx),
