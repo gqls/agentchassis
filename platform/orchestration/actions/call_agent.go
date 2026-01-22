@@ -46,17 +46,14 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.Any("targetAgent", targetAgent),
 	)
 
-	// 3. Extract the data to send to the agent
-	dataToSend := extractDataForAgent(params)
+	// 3. Extract the data to send to the agent (with contract validation)
+	dataToSend, err := extractDataForAgent(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract data for agent: %w", err)
+	}
 	params.Logger.Info("",
 		zap.Any("dataToSend", dataToSend),
 	)
-	/**
-	dataToSend": {
-	    "business_name": "Golden Crust Bakery",
-	    "business_type": "artisanal bakery"
-	  }
-	*/
 
 	// 4. Determine the action the agent should perform
 	targetAction := determineTargetAction(params.StepConfig)
@@ -641,11 +638,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -698,11 +695,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -754,11 +751,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
 
@@ -785,13 +782,57 @@ func findJobTopicForRole(params ActionParams, targetRole string) string {
 
 // Data extraction - with explicit template-based specification
 func extractDataForAgent(params ActionParams) interface{} {
-	params.Logger.Info("extractDataForAgent Extracting data for agent",
-		zap.Any("step_config", params.StepConfig.Config))
 
-	// PRIORITY 1: Check for plural "input_fields" (Array of keys)
+	config := params.StepConfig.Config
+	stepName := params.StepConfig.Name
+
+	params.Logger.Info("extractDataForAgent Extracting data for agent",
+		zap.String("step", stepName),
+		zap.Any("step_config", config))
+
+	// PRIORITY 1: Check for new explicit input_mapping (PREFERRED)
+	if inputMapping, ok := orchestration.ParseInputMapping(config); ok {
+		params.Logger.Info("Using explicit input_mapping",
+			zap.String("step", stepName),
+			zap.Int("mapping_count", len(inputMapping)))
+
+		// Resolve the mapping to actual data
+		inputData, err := orchestration.ResolveInputMapping(
+			params.CollectedData,
+			inputMapping,
+			params.Logger,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("step %s: %w", stepName, err)
+		}
+
+		// Validate against child agent's input contract
+		targetAgentType, _ := config["agent_type"].(string)
+		if targetAgentType != "" {
+			contract, err := orchestration.GetAgentInputContract(ctx, params.DB, targetAgentType, params.Logger)
+			if err != nil {
+				params.Logger.Warn("Failed to load input contract, skipping validation",
+					zap.String("agent_type", targetAgentType),
+					zap.Error(err))
+			} else if contract != nil {
+				if err := orchestration.ValidateInputContract(targetAgentType, inputData, contract, params.Logger); err != nil {
+					return nil, fmt.Errorf("step %s: %w", stepName, err)
+				}
+			}
+		}
+
+		return inputData, nil
+	}
+
+	// PRIORITY 1a: Check for plural "input_fields" (Array of keys)
 	if fields, ok := params.StepConfig.Config["input_fields"].([]interface{}); ok {
 		result := make(map[string]interface{})
 		params.Logger.Info("Using input_fields list", zap.Any("fields", fields))
+
+		params.Logger.Warn("DEPRECATED: Using input_fields instead of input_mapping",
+			zap.String("step", stepName),
+			zap.String("agent_type", targetAgentType),
+			zap.String("hint", "Update workflow config to use input_mapping"))
 
 		for _, f := range fields {
 			fieldName, ok := f.(string)
@@ -859,15 +900,25 @@ func extractDataForAgent(params ActionParams) interface{} {
 
 	// PRIORITY 1b: Check for explicit input_data specification in config (map)
 	if inputDataSpec, ok := params.StepConfig.Config["input_data"].(map[string]interface{}); ok {
-		// ... (Keep existing template rendering logic)
 		cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
+
+		params.Logger.Warn("DEPRECATED: Using input_fields instead of input_mapping",
+			zap.String("step", stepName),
+			zap.String("agent_type", targetAgentType),
+			zap.String("hint", "Update workflow config to use input_mapping"))
+
 		return renderTemplatesInData(inputDataSpec, map[string]interface{}{"input_data": cleanInputData}, params.Logger)
 	}
 
 	// PRIORITY 2: Check for input_field reference (single string)
 	if inputField, ok := params.StepConfig.Config["input_field"].(string); ok {
-		// ... (Keep existing logic)
 		cleanInputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
+
+		params.Logger.Warn("DEPRECATED: Using input_fields instead of input_mapping",
+			zap.String("step", stepName),
+			zap.String("agent_type", targetAgentType),
+			zap.String("hint", "Update workflow config to use input_mapping"))
+
 		if fieldData, err := datahelpers.GetFieldFromPath(cleanInputData, inputField, params.Logger); err == nil {
 			return fieldData
 		}
