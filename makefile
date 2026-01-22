@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.697
+IMAGE_TAG ?= v1.0.698
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -1389,3 +1389,50 @@ quick-agent-update: ## Build, push and deploy agent-chassis with current IMAGE_T
 	@echo "$(YELLOW)Restarting pods...$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/agent-chassis -n ai-persona-system
 	@echo "$(GREEN)Deployment complete with $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
+
+
+
+# Add these targets to your Makefile
+
+#################################
+# PostgreSQL Connection Management
+#################################
+
+.PHONY: db-check-connections
+db-check-connections: ## Check PostgreSQL connection status and limits
+	@echo "$(YELLOW)Checking PostgreSQL connection status...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"SELECT 'max_connections' as setting, setting as value FROM pg_settings WHERE name = 'max_connections' \
+		 UNION ALL \
+		 SELECT 'current_connections', count(*)::text FROM pg_stat_activity WHERE datname = 'clients_db' \
+		 UNION ALL \
+		 SELECT 'idle_connections', count(*)::text FROM pg_stat_activity WHERE datname = 'clients_db' AND state = 'idle';"
+
+.PHONY: db-connections-by-state
+db-connections-by-state: ## Show connections grouped by state
+	@echo "$(YELLOW)Connection breakdown by state:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"SELECT state, count(*) as count \
+		 FROM pg_stat_activity \
+		 WHERE datname = 'clients_db' \
+		 GROUP BY state \
+		 ORDER BY count DESC;"
+
+.PHONY: db-kill-idle-connections
+db-kill-idle-connections: ## Terminate idle connections older than 10 minutes
+	@echo "$(YELLOW)Terminating idle connections older than 10 minutes...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
+		"SELECT pg_terminate_backend(pid) \
+		 FROM pg_stat_activity \
+		 WHERE datname = 'clients_db' \
+		   AND state = 'idle' \
+		   AND state_change < now() - interval '10 minutes' \
+		   AND pid <> pg_backend_pid();"
+
+.PHONY: db-set-max-connections
+db-set-max-connections: ## Increase max_connections (requires restart). Usage: make db-set-max-connections MAX=300
+	@echo "$(YELLOW)Setting max_connections to $(MAX)...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- psql -U postgres -d clients_db -c \
+		"ALTER SYSTEM SET max_connections = $(MAX);"
+	@echo "$(RED)WARNING: PostgreSQL restart required for this to take effect$(NC)"
+	@echo "Run: kubectl rollout restart statefulset/postgres-clients -n $(PROJECT_NAME)"

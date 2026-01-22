@@ -2710,7 +2710,7 @@ func ExtractFieldsAction(ctx context.Context, params ActionParams) (interface{},
 		}
 	}
 
-	// NEW: Handle fields as map-of-arrays format (fallback paths)
+	// Handle fields as map-of-arrays format (fallback paths)
 	// Example: {"topic": ["path1", "path2"], "company": ["path3"]}
 	if fieldsMap, ok := config["fields"].(map[string]interface{}); ok {
 		params.Logger.Info("ExtractFieldsAction: Processing fields as map-of-arrays",

@@ -71,6 +71,37 @@ func ExtractFields(
 	}
 
 	// ========================================================================
+	// Special handling for "current_section" - needed for loop iterations in content generation
+	// ========================================================================
+	if contains(fieldNames, "current_section") {
+		logger.Info("Special case: extracting current_section")
+
+		if currentSection := findFieldRecursive(collectedData, "current_section", 0, logger); currentSection != nil {
+			// Ensure it's a properly typed map
+			if csMap, ok := currentSection.(map[string]interface{}); ok {
+				result["current_section"] = csMap
+				logger.Info("✓ Found current_section",
+					zap.Strings("keys", getMapKeys(csMap)),
+					zap.Bool("has_category", csMap["category"] != nil),
+					zap.Bool("has_name", csMap["name"] != nil),
+				)
+			} else {
+				// Try to convert from interface{} if it's actually a map underneath
+				if converted := convertToMapIfPossible(currentSection, logger); converted != nil {
+					result["current_section"] = converted
+					logger.Info("✓ Converted current_section to map")
+				} else {
+					result["current_section"] = currentSection
+					logger.Warn("current_section found but not a map type",
+						zap.String("type", fmt.Sprintf("%T", currentSection)))
+				}
+			}
+		} else {
+			logger.Warn("✗ Could not find current_section")
+		}
+	}
+
+	// ========================================================================
 	// Special handling for "reviewed_brief" - often deeply nested in input_data
 	// This field is commonly needed for site planning and content generation
 	// ========================================================================
@@ -138,10 +169,11 @@ func ExtractFields(
 	// Track which fields we've already handled specially
 	// ========================================================================
 	speciallyHandled := map[string]bool{
-		"input_data":     true,
-		"reviewed_brief": true,
-		"site_record":    true,
-		"current_page":   true,
+		"input_data":      true,
+		"reviewed_brief":  true,
+		"site_record":     true,
+		"current_page":    true,
+		"current_section": true,
 	}
 
 	// Extract each specific field (skip already handled)
@@ -186,6 +218,29 @@ func ExtractFields(
 	)
 
 	return result
+}
+
+// convertToMapIfPossible tries to convert interface{} to map[string]interface{}
+func convertToMapIfPossible(data interface{}, logger *zap.Logger) map[string]interface{} {
+	// Already a map
+	if m, ok := data.(map[string]interface{}); ok {
+		return m
+	}
+
+	// Try unwrapping
+	unwrapped := UnwrapDeep(data, logger)
+	if m, ok := unwrapped.(map[string]interface{}); ok {
+		return m
+	}
+
+	// Try JSON parsing
+	if parsed := tryParseJSON(data, logger); parsed != nil {
+		if m, ok := parsed.(map[string]interface{}); ok {
+			return m
+		}
+	}
+
+	return nil
 }
 
 // syncCoreFieldsToInputData ensures domain/objective/model exist in input_data map
