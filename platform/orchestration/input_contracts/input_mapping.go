@@ -1,4 +1,4 @@
-package orchestration
+package input_contracts
 
 import (
 	"context"

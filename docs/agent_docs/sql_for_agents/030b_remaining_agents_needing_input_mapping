@@ -1,0 +1,59 @@
+-- ============================================================================
+-- REMAINING AGENTS WITH call_agent USING input_fields (lower priority)
+-- ============================================================================
+-- These agents also use input_fields in call_agent steps but are not in the
+-- primary pageflow-builder workflow path. They can be updated later.
+-- ============================================================================
+
+-- ============================================================================
+-- 5. LANDING-PAGE-BUILDER (6 steps)
+-- ============================================================================
+-- call_strategist: input_fields: ["input_data", "brief_data"]
+-- call_architect: input_fields: ["build_plan", "brief_data", "input_data"]
+-- call_writer: input_fields: ["template_data", "build_plan", "brief_data", "input_data"]
+-- call_assembler: input_fields: ["content_data", "template_data", "brief_data", "input_data"]
+-- call_wrapper: input_fields: ["final_html", "input_data"]
+-- call_deployer: input_fields: ["site_files", "input_data"]
+
+-- ============================================================================
+-- 6. WEBSITE-BUILDER (6 steps)
+-- ============================================================================
+-- analyze_domain: input_fields: ["input_data"]
+-- design_architecture: input_fields: ["input_data", "domain_analysis"]
+-- create_content: input_fields: ["input_data", "domain_analysis", "site_architecture"]
+-- develop_site: input_fields: ["input_data", "site_architecture", "site_content", "domain_analysis"]
+-- wrap_multipage: input_fields: ["final_html", "input_data"]
+-- deploy_site: input_fields: ["site_files", "input_data"]
+
+-- ============================================================================
+-- 7. CONTENT-SITE-BUILDER (6 steps)
+-- ============================================================================
+-- call_strategist: input_fields: ["input_data", "brief_data"]
+-- call_architect: input_fields: ["build_plan", "brief_data", "input_data"]
+-- call_writer: input_fields: ["template_data", "build_plan", "brief_data", "input_data"]
+-- call_assembler: input_fields: ["content_data", "template_data", "brief_data", "input_data"]
+-- call_wrapper: input_fields: ["final_html", "input_data"]
+-- call_deployer: input_fields: ["site_files", "input_data"]
+
+-- ============================================================================
+-- NOTE: input_fields in execute_llm_prompt actions
+-- ============================================================================
+-- Many agents also use input_fields for execute_llm_prompt actions.
+-- These are a DIFFERENT usage - they control which variables are available
+-- in the LLM prompt template (for Go template rendering), not for agent calls.
+-- These do NOT need to be converted to input_mapping.
+--
+-- Examples (NOT requiring conversion):
+-- - site-planner: plan_site step uses input_fields for LLM template vars
+-- - briefing-agent: infer_via_llm step uses input_fields for LLM template vars
+-- - content-reviewer: auto_eval_content step uses input_fields for LLM template vars
+-- - research-agent: synthesize step uses input_fields for LLM template vars
+-- ============================================================================
+
+-- ============================================================================
+-- NOTE: input_fields in other action types
+-- ============================================================================
+-- Some actions like sync_pages_to_db, ensure_site_record, etc. also use
+-- input_fields. These may have their own handling and should be reviewed
+-- separately. The deprecation warning specifically applies to call_agent.
+-- ============================================================================

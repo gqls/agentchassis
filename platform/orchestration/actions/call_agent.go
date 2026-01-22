@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
-	"github.com/gqls/agentchassis/platform/orchestration/input_contracts"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/orchestration/input_contracts"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
@@ -639,11 +639,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",    // event_type
-		"orchestration", // entity_type
-		orchestrationID, // entity_id
-		metadataJSON,    // metadata
-		"info",          // severity
+		"AGENT_CALL",        // event_type
+		"orchestration",     // entity_type
+		orchestrationID,     // entity_id
+		metadataJSON,        // metadata
+		"info",              // severity
 		"call_agent_action") // source
 }
 
@@ -696,11 +696,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED", // event_type
-		"request",        // entity_type
-		requestID,        // entity_id
-		metadataJSON,     // metadata
-		"error",          // severity
+		"REQUEST_FAILED",    // event_type
+		"request",           // entity_type
+		requestID,           // entity_id
+		metadataJSON,        // metadata
+		"error",             // severity
 		"call_agent_action") // source
 }
 
@@ -752,11 +752,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,    // event_type
-		"agent",      // entity_type
-		agentID,      // entity_id
-		metadataJSON, // metadata
-		"info",       // severity
+		eventType,        // event_type
+		"agent",          // entity_type
+		agentID,          // entity_id
+		metadataJSON,     // metadata
+		"info",           // severity
 		"agent_activity") // source
 }
 

@@ -189,6 +189,7 @@ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/k
 
 
 BROCHURE Site Start - START
+- 0 -
 
 # Generate unique IDs
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -285,9 +286,9 @@ CLIENT_ID="demo_client"
 
 -- 1 ----
 
-CORRELATION_ID=b958d9cf-a7a6-4090-bac8-1fcd41203b50
-ORCHESTRATION_ID=b30d3afc-7a1e-4fc7-b0f8-daa5c416ca96
-HITL_REQUEST_ID=b764b194-9707-497d-9f4c-d27a54ece41b
+CORRELATION_ID=f6188c60-e168-4804-b426-66bc43b02b79
+ORCHESTRATION_ID=e106e2f0-b383-4940-9233-5ae040936a3f
+HITL_REQUEST_ID=54252860-4113-4259-b22b-33a55307f652
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -376,9 +377,9 @@ CLIENT_ID="demo_client"
 
 --- 2 2 ---
 
-CORRELATION_ID=04f36fac-1b91-421a-a545-e18f20c1a284
-ORCHESTRATION_ID=2f260b0b-5a34-497c-9b68-c0aba2e7cfb6
-HITL_REQUEST_ID=9adab645-003b-4115-935a-4bbfdce5c885
+CORRELATION_ID=f6188c60-e168-4804-b426-66bc43b02b79
+ORCHESTRATION_ID=e106e2f0-b383-4940-9233-5ae040936a3f
+HITL_REQUEST_ID=aa13e603-3031-47d8-b680-66898f239e9a
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -556,10 +557,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=04f36fac-1b91-421a-a545-e18f20c1a284
-ORCHESTRATION_ID=76f8cea5-c095-4b2a-9ecc-70c475d46232
-HITL_REQUEST_ID=62056364-2077-4b53-9b3e-61e8ee234d87
-RESPONSES_TOPIC=job.04f36fac-7cdaf27e-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=f6188c60-e168-4804-b426-66bc43b02b79
+ORCHESTRATION_ID=a49c4ff2-db05-496b-8d29-c0136fc7007d
+HITL_REQUEST_ID=837dd84f-e350-4703-9fd4-88fa18c57936
+RESPONSES_TOPIC=job.f6188c60-57912bce-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -666,3 +667,20 @@ expanded:
   }
 }
 JSON
+
+
+--
+
+kubectl -n ai-persona-system logs --tail=3000 -l app=agent-chassis  -f | tee logs-agent-chassis.json
+kubectl -n ai-persona-system logs --tail=300 -l app=image-generator-adapter -f | tee logs-image-generator-adapter.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=research-agent -f | tee logs-research-agent.json
+kubectl -n ai-persona-system logs -l app=image-generator-adapter -f --tail=300 |  tee logs-image-generator.json
+kubectl -n ai-persona-system logs --tail=600 -l agent-type=deployer-agent -f | tee logs-deployer-agent.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=content-reviewer -f | tee logs-content-reviewer.json
+kubectl -n ai-persona-system logs --tail=3000 -l agent-type=page-content-writer -f | tee logs-page-content-writer.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=site-planner -f | tee logs-site-planner.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=pageflow-builder -f | tee logs-pageflow-builder.json
+kubectl -n ai-persona-system logs --tail=500 -l app=web-search-adapter -f | tee logs-web-search-adapter.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=site-classifier -f | tee logs-site-classifier.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=briefing-agent  -f | tee logs-briefing-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l app=git-adapter -f | tee logs-git-adapter.json
