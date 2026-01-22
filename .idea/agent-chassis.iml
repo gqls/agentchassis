@@ -15,5 +15,6 @@
     <orderEntry type="module" module-name="domains" />
     <orderEntry type="library" name="Python 3.13 (agentchassis) interpreter library" level="application" />
     <orderEntry type="module" module-name="sites" />
+    <orderEntry type="module" module-name="simpleagent" />
   </component>
 </module>
