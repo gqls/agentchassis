@@ -72,32 +72,117 @@ func ExtractFields(
 
 	// ========================================================================
 	// Special handling for "current_section" - needed for loop iterations in content generation
+	// IMPORTANT: Check top-level FIRST before recursive search to avoid finding
+	// input_mapping.current_section (which contains the literal string "current_section")
 	// ========================================================================
 	if contains(fieldNames, "current_section") {
 		logger.Info("Special case: extracting current_section")
 
-		if currentSection := findFieldRecursive(collectedData, "current_section", 0, logger); currentSection != nil {
-			// Ensure it's a properly typed map
-			if csMap, ok := currentSection.(map[string]interface{}); ok {
-				result["current_section"] = csMap
-				logger.Info("✓ Found current_section",
+		var currentSection interface{}
+		var source string
+
+		// PRIORITY 1: Direct top-level lookup (set by setLoopVariable)
+		if val, exists := collectedData["current_section"]; exists {
+			// Check if it's a valid section map (not a literal variable name)
+			if csMap, ok := val.(map[string]interface{}); ok {
+				// Valid map - use it
+				currentSection = csMap
+				source = "direct_top_level"
+				logger.Info("✓ Found current_section at top level as map",
 					zap.Strings("keys", getMapKeys(csMap)),
-					zap.Bool("has_category", csMap["category"] != nil),
-					zap.Bool("has_name", csMap["name"] != nil),
 				)
-			} else {
-				// Try to convert from interface{} if it's actually a map underneath
-				if converted := convertToMapIfPossible(currentSection, logger); converted != nil {
-					result["current_section"] = converted
-					logger.Info("✓ Converted current_section to map")
-				} else {
-					result["current_section"] = currentSection
-					logger.Warn("current_section found but not a map type",
-						zap.String("type", fmt.Sprintf("%T", currentSection)))
+			} else if str, ok := val.(string); ok {
+				// It's a string - check if it's the literal variable name (bug case)
+				if str == "current_section" {
+					logger.Warn("current_section contains literal variable name, will try fallback",
+						zap.String("value", str),
+					)
+					// Don't use this value - fall through to fallback
+				} else if len(str) > 0 {
+					// Try to parse as JSON
+					if parsed := tryParseJSON(val, logger); parsed != nil {
+						if csMap, ok := parsed.(map[string]interface{}); ok {
+							currentSection = csMap
+							source = "direct_top_level_json_parsed"
+							logger.Info("✓ Parsed current_section from JSON string at top level",
+								zap.Strings("keys", getMapKeys(csMap)),
+							)
+						}
+					}
 				}
 			}
+		}
+
+		// PRIORITY 2: Use __current_loop_item_key__ to get the actual loop item
+		if currentSection == nil {
+			if itemKey, ok := collectedData["__current_loop_item_key__"].(string); ok && itemKey != "" {
+				if item, exists := collectedData[itemKey]; exists {
+					if csMap, ok := item.(map[string]interface{}); ok {
+						currentSection = csMap
+						source = "loop_item_key_fallback"
+						logger.Info("✓ Retrieved current_section via __current_loop_item_key__ fallback",
+							zap.String("item_key", itemKey),
+							zap.Strings("keys", getMapKeys(csMap)),
+						)
+					} else if str, ok := item.(string); ok && len(str) > 20 {
+						// Loop item might be JSON serialized
+						if parsed := tryParseJSON(item, logger); parsed != nil {
+							if csMap, ok := parsed.(map[string]interface{}); ok {
+								currentSection = csMap
+								source = "loop_item_key_json_parsed"
+								logger.Info("✓ Parsed current_section from loop item JSON",
+									zap.String("item_key", itemKey),
+									zap.Strings("keys", getMapKeys(csMap)),
+								)
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// PRIORITY 3: Check process_sections_loop_item (generic loop item key)
+		if currentSection == nil {
+			if item, exists := collectedData["process_sections_loop_item"]; exists {
+				if csMap, ok := item.(map[string]interface{}); ok {
+					currentSection = csMap
+					source = "generic_loop_item"
+					logger.Info("✓ Found current_section via process_sections_loop_item",
+						zap.Strings("keys", getMapKeys(csMap)),
+					)
+				}
+			}
+		}
+
+		// PRIORITY 4: Recursive search (last resort, but avoid config areas)
+		if currentSection == nil {
+			// Only search in specific safe areas, not in __raw_message__ or agent_config
+			safeKeys := []string{"input_data", "section_components", "render_context"}
+			for _, safeKey := range safeKeys {
+				if safeData, exists := collectedData[safeKey].(map[string]interface{}); exists {
+					if found := findFieldRecursive(safeData, "current_section", 0, logger); found != nil {
+						if csMap, ok := found.(map[string]interface{}); ok {
+							currentSection = csMap
+							source = "recursive_in_" + safeKey
+							logger.Info("✓ Found current_section via recursive search",
+								zap.String("searched_in", safeKey),
+								zap.Strings("keys", getMapKeys(csMap)),
+							)
+							break
+						}
+					}
+				}
+			}
+		}
+
+		// Store result
+		if currentSection != nil {
+			result["current_section"] = currentSection
+			logger.Info("current_section extraction complete",
+				zap.String("source", source),
+			)
 		} else {
-			logger.Warn("✗ Could not find current_section")
+			logger.Warn("✗ Could not find current_section via any method")
 		}
 	}
 
