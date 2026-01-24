@@ -1049,3 +1049,85 @@ SELECT name,
        LENGTH(html_template) as template_length
 FROM content_components
 WHERE name LIKE '%footer%';
+
+
+
+--------- header fix
+
+-- ============================================================================
+-- FIX: Header templates - Convert Handlebars {{#if}} to Go template {{if}}
+-- ============================================================================
+--
+-- PROBLEM:
+--   header-professional-dark and header-minimal-light use:
+--   {{#if logo_url}}...{{/if}} - Handlebars syntax
+--
+-- SOLUTION:
+--   Convert to Go template syntax: {{if .logo_url}}...{{end}}
+--
+-- ============================================================================
+
+-- First, let's see the full templates
+SELECT name, html_template
+FROM content_components
+WHERE name IN ('header-professional-dark', 'header-minimal-light');
+
+-- Fix header-professional-dark
+UPDATE content_components
+SET html_template = REPLACE(
+        REPLACE(
+                REPLACE(
+                        REPLACE(
+                                REPLACE(html_template,
+                                        '{{#if logo_url}}', '{{if .logo_url}}'
+                                ),
+                                '{{/if}}', '{{end}}'
+                        ),
+                        '{{logo_url}}', '{{.logo_url}}'
+                ),
+                '{{nav_items_html}}', '{{.nav_items_html}}'
+        ),
+        '{{cta_url}}', '{{.cta_url}}'
+                    )
+WHERE name = 'header-professional-dark';
+
+-- Fix header-minimal-light
+UPDATE content_components
+SET html_template = REPLACE(
+        REPLACE(
+                REPLACE(
+                        REPLACE(
+                                REPLACE(html_template,
+                                        '{{#if logo_url}}', '{{if .logo_url}}'
+                                ),
+                                '{{/if}}', '{{end}}'
+                        ),
+                        '{{logo_url}}', '{{.logo_url}}'
+                ),
+                '{{nav_items_html}}', '{{.nav_items_html}}'
+        ),
+        '{{cta_url}}', '{{.cta_url}}'
+                    )
+WHERE name = 'header-minimal-light';
+
+-- Fix header-bold-gradient (missing dots on placeholders)
+UPDATE content_components
+SET html_template = REPLACE(
+        REPLACE(
+                REPLACE(html_template,
+                        '{{nav_items_html}}', '{{.nav_items_html}}'
+                ),
+                '{{cta_url}}', '{{.cta_url}}'
+        ),
+        '{{cta_text}}', '{{.cta_text}}'
+                    )
+WHERE name = 'header-bold-gradient';
+
+-- Verify the updates
+SELECT name,
+       CASE WHEN html_template LIKE '%{{#if%' THEN 'HAS_HANDLEBARS_IF' ELSE 'OK' END as if_status,
+       CASE WHEN html_template LIKE '%{{nav_items_html}}%' THEN 'MISSING_DOT'
+            WHEN html_template LIKE '%{{.nav_items_html}}%' THEN 'OK'
+            ELSE 'NO_NAV' END as nav_placeholder_status
+FROM content_components
+WHERE name LIKE '%header%';

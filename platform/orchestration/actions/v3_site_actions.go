@@ -819,6 +819,10 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 						}
 					}
 				}
+				if len(ctx.NavItems) > 0 {
+					logger.Info("Extracted navigation items from db_sync",
+						zap.Int("count", len(ctx.NavItems)))
+				}
 			}
 		}
 	}
