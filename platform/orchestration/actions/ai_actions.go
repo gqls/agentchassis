@@ -63,16 +63,35 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 
-	// Normalize the collected data using the helper
-	normalizedData := datahelpers.NormalizeCollectedData(
-		params.CollectedData,
-		params.ExecutionContext,
-		params.ExecutionContext.RequestsTopic,
-		params.Logger,
-	)
+	/*	// Normalize the collected data using the helper
+		normalizedData := datahelpers.NormalizeCollectedData(
+			params.CollectedData,
+			params.ExecutionContext,
+			params.ExecutionContext.RequestsTopic,
+			params.Logger,
+		)
 
-	// Update params.CollectedData with normalized version
-	params.CollectedData = normalizedData
+		// Update params.CollectedData with normalized version
+		params.CollectedData = normalizedData*/
+
+	// removed NormalizeCollectedData was destroying accumulated state (loop vars, render_context, etc.)
+	// The params.CollectedData already has the correct state from the coordinator.
+	// Only ensure essential topic fields are present if missing:
+	if params.ExecutionContext.RequestsTopic != "" {
+		if _, exists := params.CollectedData["__my_requests_topic__"]; !exists {
+			params.CollectedData["__my_requests_topic__"] = params.ExecutionContext.RequestsTopic
+		}
+	}
+	if params.ExecutionContext.ReplyToTopic != "" {
+		if _, exists := params.CollectedData["__parent_responses_topic__"]; !exists {
+			params.CollectedData["__parent_responses_topic__"] = params.ExecutionContext.ReplyToTopic
+		}
+	}
+
+	params.Logger.Debug("ExecuteLLMPromptAction: preserving accumulated CollectedData",
+		zap.Strings("keys", datahelpers.GetMapKeys(params.CollectedData)),
+		zap.Bool("has_current_section", params.CollectedData["current_section"] != nil),
+	)
 
 	// Get the agent's configuration
 	var agentConfig map[string]interface{}
@@ -263,7 +282,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			return nil, fmt.Errorf("model '%s' not found. Use aliases like: claude-sonnet-4-5, claude-haiku-4-5, claude-opus-4-5. Error: %w",
 				modelUsed, err)
 		}
-		
+
 		if strings.Contains(errStr, "529") || // overloaded
 			strings.Contains(errStr, "503") || // service unavailable
 			strings.Contains(errStr, "502") || // bad gateway

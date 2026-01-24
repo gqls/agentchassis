@@ -67,16 +67,29 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	}*/
 
 	// Normalize the collected data using the helper
-	normalizedData := datahelpers.NormalizeCollectedData(
+	/*normalizedData := datahelpers.NormalizeCollectedData(
 		params.CollectedData,
 		params.ExecutionContext,
 		params.ExecutionContext.RequestsTopic,
 		params.Logger,
-	)
+	)*/
 
 	// Update params.CollectedData with normalized version
-	params.CollectedData = normalizedData
+	//params.CollectedData = normalizedData
 
+	// removed NormalizeCollectedData was destroying accumulated state
+	// Only ensure essential topic fields if missing:
+	if params.ExecutionContext.RequestsTopic != "" {
+		if _, exists := params.CollectedData["__my_requests_topic__"]; !exists {
+			params.CollectedData["__my_requests_topic__"] = params.ExecutionContext.RequestsTopic
+		}
+	}
+	if params.ExecutionContext.ReplyToTopic != "" {
+		if _, exists := params.CollectedData["__parent_responses_topic__"]; !exists {
+			params.CollectedData["__parent_responses_topic__"] = params.ExecutionContext.ReplyToTopic
+		}
+	}
+	
 	// Get the agent's configuration
 	var agentConfig map[string]interface{}
 	var ok bool
