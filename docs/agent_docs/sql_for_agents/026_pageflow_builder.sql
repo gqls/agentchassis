@@ -118,3 +118,43 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'pageflow-builder';
 
+
+
+===
+
+clients_db=# SELECT
+                 type,
+                 default_config->'workflow'->'steps'->'build_pages_loop'->>'next_step' as current_next_step,
+                 default_config->'workflow'->'steps'->'trigger_site_deploy'->>'action' as trigger_step_exists
+             FROM agent_definitions
+             WHERE type = 'pageflow-builder';
+type       | current_next_step  | trigger_step_exists
+------------------+--------------------+---------------------
+ pageflow-builder | update_site_status | call_agent
+
+
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,next_step}',
+        '"trigger_site_deploy"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Verify the fix
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'build_pages_loop'->>'next_step' as build_pages_loop_next,
+    default_config->'workflow'->'steps'->'trigger_site_deploy'->>'next_step' as trigger_site_deploy_next,
+    default_config->'workflow'->'steps'->'update_site_status'->>'next_step' as update_site_status_next
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+
+    type       | build_pages_loop_next | trigger_site_deploy_next | update_site_status_next
+------------------+-----------------------+--------------------------+-------------------------
+    pageflow-builder | trigger_site_deploy   | update_site_status       | complete
+
+

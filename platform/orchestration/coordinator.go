@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -2159,7 +2160,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 		}
 
 		// Apply response to collected data
-		s.applyResponseToState(freshState, stepName, step, stepExists, normalisedData)
+		s.applyResponseToState(freshState, stepName, step, stepExists, normalisedData, awaitedReq)
 
 		// Remove from awaited requests
 		delete(freshState.AwaitedRequests, requestID)
@@ -2274,60 +2275,131 @@ func (s *SagaCoordinator) retryStateUpdate(
 }
 
 // applyResponseToState merges response data into state's CollectedData
-func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepName string, step models.Step, stepExists bool, normalisedData map[string]interface{}) {
-	if !stepExists {
-		state.CollectedData[stepName] = normalisedData
+func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepName string, step models.Step, stepExists bool, normalisedData map[string]interface{}, awaitedReq *AwaitedRequest) {
+
+	// Determine if this is a call_agent response that needs .response wrapper.
+	// Key fix: use awaitedReq.TargetAgentType when step doesn't exist in WorkflowPlan
+	isAgentResponse := false
+	if stepExists && (step.Action == "spawn_agent" || step.Action == "call_agent") {
+		isAgentResponse = true
+	} else if awaitedReq != nil && awaitedReq.TargetAgentType != "" {
+		// Step doesn't exist (dynamically expanded), but we have TargetAgentType
+		// from the awaited request - this was a call_agent
+		isAgentResponse = true
+		s.logger.Info("Detected call_agent response for dynamic step (stepExists=false)",
+			zap.String("step_name", stepName),
+			zap.String("target_agent_type", awaitedReq.TargetAgentType))
+	}
+
+	// Get output_field - from step if exists, otherwise derive from stepName
+	outputField := ""
+	if stepExists {
+		outputField = step.OutputField
+	} else {
+		// For loop steps like "build_pages_loop_iter_2_write_page_content"
+		// derive the indexed output field like "page_content_2"
+		outputField = deriveOutputFieldFromLoopStepName(stepName)
+		if outputField != "" {
+			s.logger.Debug("Derived output_field from step name",
+				zap.String("step_name", stepName),
+				zap.String("output_field", outputField))
+		}
+	}
+
+	// Handle agent responses - wrap in .response
+	if isAgentResponse {
+		// Get or create existing data map
+		existingData, exists := state.CollectedData[stepName].(map[string]interface{})
+		if !exists {
+			existingData = make(map[string]interface{})
+		}
+
+		existingData["response"] = normalisedData
+		existingData["response_received_at"] = time.Now().Format(time.RFC3339)
+		existingData["response_status"] = "complete"
+
+		if stepExists && step.Action == "spawn_agent" {
+			existingData["initialized"] = true
+		}
+
+		state.CollectedData[stepName] = existingData
+
+		// Also store at output_field if specified
+		if outputField != "" {
+			outputData, exists := state.CollectedData[outputField].(map[string]interface{})
+			if !exists {
+				outputData = make(map[string]interface{})
+			}
+			outputData["response"] = normalisedData
+			outputData["response_received_at"] = time.Now().Format(time.RFC3339)
+			outputData["response_status"] = "complete"
+			if stepExists && step.Action == "spawn_agent" {
+				outputData["initialized"] = true
+			}
+			state.CollectedData[outputField] = outputData
+		}
+
+		s.logger.Info("Stored agent response with .response wrapper",
+			zap.String("step_name", stepName),
+			zap.String("output_field", outputField),
+			zap.Bool("step_exists", stepExists))
 		return
 	}
 
-	// For spawn_agent and call_agent, preserve existing metadata and nest response
-	if step.Action == "spawn_agent" || step.Action == "call_agent" {
-		if existingData, exists := state.CollectedData[stepName].(map[string]interface{}); exists {
-			existingData["response"] = normalisedData
-			existingData["response_received_at"] = time.Now().Format(time.RFC3339)
-			existingData["response_status"] = "complete"
-			if step.Action == "spawn_agent" {
-				existingData["initialized"] = true
-			}
-
-			// Also update output_field if specified
-			if step.OutputField != "" {
-				outputData, exists := state.CollectedData[step.OutputField].(map[string]interface{})
-				if !exists {
-					outputData = make(map[string]interface{})
-					state.CollectedData[step.OutputField] = outputData
-				}
-				outputData["response"] = normalisedData
-				outputData["response_received_at"] = time.Now().Format(time.RFC3339)
-				outputData["response_status"] = "complete"
-				if step.Action == "spawn_agent" {
-					outputData["initialized"] = true
-				}
-			}
-			return
+	// Handle spawn_agent without existing data
+	if stepExists && step.Action == "spawn_agent" {
+		spawnData := s.extractSpawnData(normalisedData, step)
+		state.CollectedData[stepName] = spawnData
+		if step.OutputField != "" {
+			state.CollectedData[step.OutputField] = spawnData
 		}
-		// No existing data - extract spawn info from response if spawn_agent
-		if step.Action == "spawn_agent" {
-			spawnData := s.extractSpawnData(normalisedData, step)
-			state.CollectedData[stepName] = spawnData
-			if step.OutputField != "" {
-				state.CollectedData[step.OutputField] = spawnData
-			}
-			return
-		}
+		return
 	}
 
-	// Default: store response directly
+	// Default: store response directly (for non-agent actions)
 	state.CollectedData[stepName] = normalisedData
-	if step.OutputField != "" {
+	if outputField != "" {
 		dataToStore := normalisedData
-		if shouldExtractFormFields(step) {
+		if stepExists && shouldExtractFormFields(step) {
 			if formFields := extractHITLFormFields(normalisedData, step.Config, s.logger); len(formFields) > 0 {
 				dataToStore = formFields
 			}
 		}
-		state.CollectedData[step.OutputField] = dataToStore
+		state.CollectedData[outputField] = dataToStore
 	}
+}
+
+// deriveOutputFieldFromLoopStepName extracts indexed output_field from loop step names.
+// Example: "build_pages_loop_iter_2_write_page_content" -> "page_content_2"
+// Pattern: {loop_name}_iter_{N}_{substep} where substep has output_field {base}
+// Result: {base}_{N}
+func deriveOutputFieldFromLoopStepName(stepName string) string {
+	// Match pattern: *_iter_{N}_{substep}
+	re := regexp.MustCompile(`_iter_(\d+)_(\w+)$`)
+	matches := re.FindStringSubmatch(stepName)
+	if len(matches) != 3 {
+		return ""
+	}
+
+	iterNum := matches[1]
+	substep := matches[2]
+
+	// Map known substeps to their base output_field names
+	// These should match the output_field values in the sub_workflow steps
+	substepToBase := map[string]string{
+		"write_page_content":  "page_content",
+		"review_page_content": "reviewed_content",
+		"assemble_page":       "assembled_page",
+		"deploy_page":         "page_deployed",
+		"generate_content":    "page_content",
+		"create_html":         "page_html",
+	}
+
+	if base, ok := substepToBase[substep]; ok {
+		return fmt.Sprintf("%s_%s", base, iterNum)
+	}
+
+	return ""
 }
 
 // parseResponseBody extracts and normalizes response body data
