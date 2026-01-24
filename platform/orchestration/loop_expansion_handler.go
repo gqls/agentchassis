@@ -4,6 +4,7 @@
 package orchestration
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -187,7 +188,10 @@ func makeIterationOutputField(outputField string, iterIdx int) string {
 
 // setLoopVariable sets the current loop variable in CollectedData before executing a loop substep
 // It also propagates outputs from previous substeps in the same iteration to their original field names
+// This function now persists the loop variables to the database to prevent data loss
+// during optimistic locking retries in saveStepResultWithRetry
 func (s *SagaCoordinator) setLoopVariable(
+	ctx context.Context,
 	state *OrchestrationState,
 	stepConfig models.Step,
 	logger *zap.Logger,
@@ -284,6 +288,28 @@ func (s *SagaCoordinator) setLoopVariable(
 
 	// Propagate previous substep outputs from iteration-suffixed names to original names
 	propagateIterationOutputs(state, iterIdx, logger)
+
+	// =========================================================================
+	// persist loop variables to database
+	// Without this save, the optimistic locking in saveStepResultWithRetry will
+	// load fresh state from DB (without loop vars) and only copy step results,
+	// causing loop variables like current_section to be lost
+	// =========================================================================
+	repo := NewStateRepository(s.db, s.logger)
+	if err := repo.UpdateState(ctx, state); err != nil {
+		logger.Error("setLoopVariable: failed to persist loop variables to database",
+			zap.String("loop_var", loopVarName),
+			zap.Int("iteration", iterIdx),
+			zap.Error(err),
+		)
+		// Don't return error - execution can still proceed with in-memory state
+		// The action might still work, but subsequent steps may have issues
+	} else {
+		logger.Info("setLoopVariable: persisted loop variables to database",
+			zap.String("loop_var", loopVarName),
+			zap.Int("iteration", iterIdx),
+		)
+	}
 
 	datahelpers.LogCollectedDataStructure(
 		state.CollectedData,

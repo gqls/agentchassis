@@ -1126,8 +1126,8 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	}
 
 	// 5a. Set loop variable if this is a loop iteration step
-	// IMPORTANT: Must happen BEFORE buildActionParams so propagated outputs are included
-	s.setLoopVariable(state, step, contextLogger)
+	// Must happen before buildActionParams so propagated outputs are included
+	s.setLoopVariable(ctx, state, step, contextLogger)
 
 	// 5. Build action parameters - get input data
 	params := buildActionParams(ctx, execCtx, state, step, s, contextLogger)
