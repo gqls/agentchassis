@@ -800,7 +800,30 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 		ctx.CTAUrl = v
 	}
 
-	logger.Debug("Merged source into render context",
+	// =========================================================================
+	// Extract navigation from db_sync source
+	// db_sync contains: {"navigation": {"items": [{"label": "Home", "url": "/index.html"}, ...]}}
+	// =========================================================================
+	if sourceName == "db_sync" {
+		if navigation, ok := data["navigation"].(map[string]interface{}); ok {
+			if items, ok := navigation["items"].([]interface{}); ok {
+				for _, item := range items {
+					if itemMap, ok := item.(map[string]interface{}); ok {
+						label, _ := itemMap["label"].(string)
+						url, _ := itemMap["url"].(string)
+						if label != "" && url != "" {
+							ctx.NavItems = append(ctx.NavItems, NavItem{
+								Label: label,
+								URL:   url,
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
+	logger.Info("Merged source into render context",
 		zap.String("source", sourceName),
 		zap.String("company_name", ctx.CompanyName),
 		zap.String("domain", ctx.Domain))

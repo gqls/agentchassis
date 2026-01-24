@@ -850,7 +850,7 @@ func extractSitemapInfo(context map[string]interface{}) string {
 
 // extractNavigationFromDBSync extracts navigation from the db_sync output
 // The db_sync.navigation structure is: {"items": [{"label": "Home", "url": "/index.html"}, ...]}
-func extractNavigationFromDBSync(dbSync map[string]interface{}) string {
+/*func extractNavigationFromDBSync(dbSync map[string]interface{}) string {
 	navData, ok := dbSync["navigation"]
 	if !ok {
 		return ""
@@ -903,6 +903,31 @@ func extractNavigationFromDBSync(dbSync map[string]interface{}) string {
 	result.WriteString("=============================================================\n")
 
 	return result.String()
+}*/
+
+// Extract navigation from db_sync structure
+func extractNavigationFromDBSync(ctx *RenderContext, data map[string]interface{}, logger *zap.Logger) {
+	// Try db_sync.navigation.items path
+	if navigation, ok := data["navigation"].(map[string]interface{}); ok {
+		if items, ok := navigation["items"].([]interface{}); ok {
+			for _, item := range items {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					label, _ := itemMap["label"].(string)
+					url, _ := itemMap["url"].(string)
+					if label != "" && url != "" {
+						ctx.NavItems = append(ctx.NavItems, NavItem{
+							Label: label,
+							URL:   url,
+						})
+					}
+				}
+			}
+			if len(ctx.NavItems) > 0 {
+				logger.Info("Extracted navigation items from db_sync",
+					zap.Int("count", len(ctx.NavItems)))
+			}
+		}
+	}
 }
 
 // formatNavigationFromLinkManager formats nav from link-manager's navigation structure

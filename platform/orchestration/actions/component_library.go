@@ -501,7 +501,7 @@ func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) 
 		result = templateStr
 		stringData := contextToMap(ctx) // Use existing function for fallback
 
-		result = renderEachBlocks(result, ctx.NavItems)
+		result = renderEachBlocks(result, ctx)
 		result = renderIfBlocks(result, stringData)
 		result = renderGoStyleSubstitutions(result, stringData)
 		result = renderHandlebarsSubstitutions(result, stringData)
@@ -792,7 +792,7 @@ func RenderTemplateWithValidation(
 
 	// Perform template substitution
 	result := template
-	result = renderEachBlocks(result, ctx.NavItems)
+	result = renderEachBlocks(result, ctx)
 	result = renderIfBlocks(result, data)
 	result = renderGoStyleSubstitutions(result, data)
 	result = renderHandlebarsSubstitutions(result, data)
@@ -865,42 +865,206 @@ func findUnsubstitutedPlaceholders(template string) []string {
 	return placeholders
 }
 
-// renderEachBlocks handles {{#each nav_items}}...{{/each}}
-func renderEachBlocks(template string, navItems []NavItem) string {
-	eachRe := regexp.MustCompile(`(?s)\{\{#each\s+nav_items\}\}(.*?)\{\{/each\}\}`)
+// renderEachBlocks handles {{#each <collection>}}...{{/each}} for known collections
+// Supported collections: nav_items, services, quick_links
+func renderEachBlocks(template string, ctx *RenderContext) string {
+	// Pattern to match any {{#each <name>}}...{{/each}}
+	eachRe := regexp.MustCompile(`(?s)\{\{#each\s+(\w+)\}\}(.*?)\{\{/each\}\}`)
 
 	return eachRe.ReplaceAllStringFunc(template, func(match string) string {
 		matches := eachRe.FindStringSubmatch(match)
-		if len(matches) < 2 {
+		if len(matches) < 3 {
 			return match
 		}
 
-		itemTemplate := matches[1]
+		collectionName := matches[1]
+		itemTemplate := matches[2]
+
 		var result strings.Builder
 
-		for _, item := range navItems {
-			itemStr := itemTemplate
-			itemStr = strings.ReplaceAll(itemStr, "{{this.url}}", item.URL)
-			itemStr = strings.ReplaceAll(itemStr, "{{this.label}}", item.Label)
+		switch collectionName {
+		case "nav_items":
+			for _, item := range ctx.NavItems {
+				itemStr := itemTemplate
+				itemStr = strings.ReplaceAll(itemStr, "{{this.url}}", item.URL)
+				itemStr = strings.ReplaceAll(itemStr, "{{this.label}}", item.Label)
 
-			// Handle {{#if this.is_active}}...{{/if}}
-			activeRe := regexp.MustCompile(`(?s)\{\{#if\s+this\.is_active\}\}(.*?)\{\{/if\}\}`)
-			itemStr = activeRe.ReplaceAllStringFunc(itemStr, func(m string) string {
-				matches := activeRe.FindStringSubmatch(m)
-				if len(matches) < 2 {
-					return m
-				}
-				if item.IsActive {
-					return matches[1]
-				}
-				return ""
-			})
+				// Handle {{#if this.is_active}}...{{/if}}
+				activeRe := regexp.MustCompile(`(?s)\{\{#if\s+this\.is_active\}\}(.*?)\{\{/if\}\}`)
+				itemStr = activeRe.ReplaceAllStringFunc(itemStr, func(m string) string {
+					innerMatches := activeRe.FindStringSubmatch(m)
+					if len(innerMatches) < 2 {
+						return m
+					}
+					if item.IsActive {
+						return innerMatches[1]
+					}
+					return ""
+				})
 
-			result.WriteString(itemStr)
+				result.WriteString(itemStr)
+			}
+
+		case "services":
+			// Get services from ContentData
+			services := extractServicesFromContext(ctx)
+			for _, svc := range services {
+				itemStr := itemTemplate
+				itemStr = strings.ReplaceAll(itemStr, "{{this.name}}", svc.Name)
+				itemStr = strings.ReplaceAll(itemStr, "{{this.slug}}", svc.Slug)
+				itemStr = strings.ReplaceAll(itemStr, "{{this.description}}", svc.Description)
+				result.WriteString(itemStr)
+			}
+
+		case "quick_links":
+			// Quick links are same as nav_items for footer
+			for _, item := range ctx.NavItems {
+				itemStr := itemTemplate
+				itemStr = strings.ReplaceAll(itemStr, "{{this.url}}", item.URL)
+				itemStr = strings.ReplaceAll(itemStr, "{{this.label}}", item.Label)
+				result.WriteString(itemStr)
+			}
+
+		default:
+			// Unknown collection - try to get from ContentData as generic array
+			if items := extractGenericArray(ctx.ContentData, collectionName); len(items) > 0 {
+				for _, item := range items {
+					itemStr := renderGenericItem(itemTemplate, item)
+					result.WriteString(itemStr)
+				}
+			} else {
+				// Return original if we can't process it
+				return match
+			}
 		}
 
 		return result.String()
 	})
+}
+
+// ServiceItem represents a service for template rendering
+type ServiceItem struct {
+	Name        string
+	Slug        string
+	Description string
+}
+
+// extractServicesFromContext gets services from RenderContext.ContentData
+func extractServicesFromContext(ctx *RenderContext) []ServiceItem {
+	var services []ServiceItem
+
+	// Try direct services array
+	if svcData, ok := ctx.ContentData["services"]; ok {
+		services = parseServicesArray(svcData)
+		if len(services) > 0 {
+			return services
+		}
+	}
+
+	// Try brief.services
+	if brief, ok := ctx.ContentData["brief"].(map[string]interface{}); ok {
+		if svcData, ok := brief["services"]; ok {
+			services = parseServicesArray(svcData)
+			if len(services) > 0 {
+				return services
+			}
+		}
+	}
+
+	// Try reviewed_brief.services
+	if brief, ok := ctx.ContentData["reviewed_brief"].(map[string]interface{}); ok {
+		if svcData, ok := brief["services"]; ok {
+			services = parseServicesArray(svcData)
+		}
+	}
+
+	return services
+}
+
+// parseServicesArray converts various service formats to ServiceItem slice
+func parseServicesArray(data interface{}) []ServiceItem {
+	var services []ServiceItem
+
+	switch v := data.(type) {
+	case []interface{}:
+		for _, item := range v {
+			if svcMap, ok := item.(map[string]interface{}); ok {
+				name, _ := svcMap["name"].(string)
+				if name == "" {
+					name, _ = svcMap["title"].(string)
+				}
+
+				slug, _ := svcMap["slug"].(string)
+				if slug == "" {
+					// Generate slug from name
+					slug = strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+					slug = regexp.MustCompile(`[^a-z0-9-]`).ReplaceAllString(slug, "")
+				}
+
+				desc, _ := svcMap["description"].(string)
+
+				if name != "" {
+					services = append(services, ServiceItem{
+						Name:        name,
+						Slug:        slug,
+						Description: desc,
+					})
+				}
+			}
+		}
+
+	case string:
+		// Might be a JSON string - try to parse it
+		var items []map[string]interface{}
+		if err := json.Unmarshal([]byte(v), &items); err == nil {
+			for _, item := range items {
+				name, _ := item["name"].(string)
+				slug, _ := item["slug"].(string)
+				if slug == "" {
+					slug = strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+				}
+				desc, _ := item["description"].(string)
+
+				if name != "" {
+					services = append(services, ServiceItem{
+						Name:        name,
+						Slug:        slug,
+						Description: desc,
+					})
+				}
+			}
+		}
+	}
+
+	return services
+}
+
+// extractGenericArray gets a generic array from ContentData
+func extractGenericArray(data map[string]interface{}, key string) []map[string]interface{} {
+	if arr, ok := data[key].([]interface{}); ok {
+		var result []map[string]interface{}
+		for _, item := range arr {
+			if m, ok := item.(map[string]interface{}); ok {
+				result = append(result, m)
+			}
+		}
+		return result
+	}
+	return nil
+}
+
+// renderGenericItem renders a template with a generic map item
+func renderGenericItem(template string, item map[string]interface{}) string {
+	result := template
+	for key, value := range item {
+		placeholder := "{{this." + key + "}}"
+		if strVal, ok := value.(string); ok {
+			result = strings.ReplaceAll(result, placeholder, strVal)
+		} else {
+			result = strings.ReplaceAll(result, placeholder, fmt.Sprintf("%v", value))
+		}
+	}
+	return result
 }
 
 // renderIfBlocks handles {{#if field}}...{{/if}}

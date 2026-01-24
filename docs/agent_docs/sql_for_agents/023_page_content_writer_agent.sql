@@ -34,3 +34,20 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'page-content-writer';
+
+
+====
+-- navigation fixes
+
+-- Update page-content-writer build_render_context to include db_sync and site_id_field
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,build_render_context,config,sources,db_sync}',
+                '"input_data.db_sync"'
+        ),
+        '{workflow,steps,build_render_context,config,site_id_field}',
+        '"input_data.site_record.site_id"'
+                     )
+WHERE type = 'page-content-writer';

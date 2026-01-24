@@ -556,3 +556,496 @@ SET html_template = REPLACE(
                     )
 WHERE html_template LIKE '%{{#each%}'
    OR html_template LIKE '%{{/each%}}';
+
+
+=======================
+-------------------------
+
+-- ============================================================================
+-- FIX: Footer template using Handlebars syntax that isn't processed
+-- ============================================================================
+--
+-- PROBLEM:
+--   Footer template uses {{#each services}}...{{/each}} Handlebars syntax
+--   Go's template engine uses {{range .services}}...{{end}} syntax
+--   The renderEachBlocks function only handles nav_items, not services
+--
+-- SOLUTION OPTIONS:
+--   A) Update template to use Go syntax {{range .services}}
+--   B) Update template to use pre-rendered {{.services_html}}
+--   C) Remove dynamic services list (use static or nav_items for footer)
+--
+-- ============================================================================
+
+-- First, let's see what the current footer template looks like
+SELECT id, name, html_template
+FROM content_components
+WHERE name LIKE '%footer%' OR function = 'site-footer'
+    LIMIT 5;
+
+-- ============================================================================
+-- OPTION A: Convert to Go template syntax (if using executeGoTemplate)
+-- ============================================================================
+-- This requires the services data to be in the context as a slice of maps
+-- with "name" and "slug" fields
+
+UPDATE content_components
+SET html_template = REPLACE(
+        REPLACE(
+                REPLACE(html_template,
+                        '{{#each services}}',
+                        '{{range .services}}'
+                ),
+                '{{/each}}',
+                '{{end}}'
+        ),
+        '{{this.',
+        '{{.'
+                    )
+WHERE name LIKE '%footer%'
+  AND html_template LIKE '%{{#each services}}%';
+
+-- ============================================================================
+-- OPTION B: Use pre-rendered nav_items_html for quick links AND services
+-- ============================================================================
+-- This is simpler - just use navigation for both sections
+
+UPDATE content_components
+SET html_template = REPLACE(
+        html_template,
+        '<ul>
+                    {{#each services}}
+                    <li><a href="/services.html#{{this.slug}}">{{this.name}}</a></li>
+                    {{/each}}
+                </ul>',
+        '<ul>{{.nav_items_html}}</ul>'
+                    )
+WHERE name LIKE '%footer%'
+  AND html_template LIKE '%{{#each services}}%';
+
+-- ============================================================================
+-- OPTION C: Replace Handlebars with static placeholder message
+-- ============================================================================
+-- Useful for debugging or if services aren't critical
+-- didn't do this
+/*UPDATE content_components
+SET html_template = REPLACE(
+        html_template,
+        '{{#each services}}
+                    <li><a href="/services.html#{{this.slug}}">{{this.name}}</a></li>
+                    {{/each}}',
+        '<!-- Services will be populated dynamically -->'
+                    )
+WHERE name LIKE '%footer%'
+  AND html_template LIKE '%{{#each services}}%';
+
+-- ============================================================================
+-- OPTION D: Update to use nav_items for Quick Links section too
+-- ============================================================================
+
+-- Check if quick links section is also empty
+SELECT id, name,
+       CASE WHEN html_template LIKE '%Quick Links%' THEN 'Has Quick Links' ELSE 'No Quick Links' END as has_quick_links,
+       CASE WHEN html_template LIKE '%{{#each%' THEN 'Has Handlebars' ELSE 'No Handlebars' END as has_handlebars
+FROM content_components
+WHERE name LIKE '%footer%';
+
+-- ============================================================================
+-- RECOMMENDED: Full footer template replacement
+-- ============================================================================
+-- This replaces the entire footer template with one that uses Go template
+-- syntax and includes proper fallbacks
+
+-- First backup the old template
+-- INSERT INTO component_versions (component_id, html_template, version_note, created_at)
+-- SELECT id, html_template, 'Backup before Handlebars fix', NOW()
+-- FROM content_components WHERE name = 'footer-4-column';
+
+-- Then update with fixed template
+UPDATE content_components
+SET html_template = E'<footer class="site-footer">
+    <div class="footer-container">
+        <div class="footer-brand">
+            <h3>{{.logo_text}}</h3>
+            <p>{{.tagline}}</p>
+        </div>
+        <div class="footer-links">
+            <h4>Quick Links</h4>
+            <ul>{{.nav_items_html}}</ul>
+        </div>
+        <div class="footer-services">
+            <h4>Services</h4>
+            <ul>{{.nav_items_html}}</ul>
+        </div>
+        <div class="footer-contact">
+            <h4>Contact</h4>
+            {{if .email}}<p><a href="mailto:{{.email}}">{{.email}}</a></p>{{end}}
+            {{if .phone}}<p>{{.phone}}</p>{{end}}
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <div class="footer-bottom-container">
+            <p>&copy; {{.year}} {{.company_name}}. All rights reserved.</p>
+            <div class="footer-legal">
+                <a href="/privacy.html">Privacy Policy</a>
+                <a href="/terms.html">Terms of Service</a>
+            </div>
+        </div>
+    </div>
+</footer>
+<style>
+.site-footer {
+    background: {{if .primary_color}}{{.primary_color}}{{else}}#1a1a2e{{end}};
+    color: rgba(255,255,255,0.9);
+    padding: 4rem 0 0;
+    margin-top: auto;
+}
+.footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 3rem;
+}
+.footer-brand h3 {
+    color: #fff;
+    margin: 0 0 0.75rem;
+    font-size: 1.25rem;
+}
+.footer-brand p {
+    color: rgba(255,255,255,0.7);
+    margin: 0 0 1.5rem;
+    line-height: 1.6;
+}
+.footer-links h4,
+.footer-services h4,
+.footer-contact h4 {
+    color: #fff;
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+.footer-links ul,
+.footer-services ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.footer-links li,
+.footer-services li {
+    margin-bottom: 0.5rem;
+}
+.footer-links a,
+.footer-services a,
+.footer-contact a {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.footer-links a:hover,
+.footer-services a:hover,
+.footer-contact a:hover {
+    color: #fff;
+}
+.footer-contact p {
+    margin: 0 0 0.5rem;
+    color: rgba(255,255,255,0.7);
+}
+.footer-bottom {
+    margin-top: 3rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+.footer-bottom-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.footer-bottom p {
+    margin: 0;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+}
+.footer-legal {
+    display: flex;
+    gap: 2rem;
+}
+.footer-legal a {
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+.footer-legal a:hover {
+    color: rgba(255,255,255,0.8);
+}
+@media (max-width: 768px) {
+    .footer-container {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    .footer-bottom-container {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+}
+</style>'
+WHERE name = 'footer-4-column';
+
+-- Verify the update
+SELECT name, LENGTH(html_template) as template_length,
+       CASE WHEN html_template LIKE '%{{#each%' THEN 'STILL HAS HANDLEBARS' ELSE 'OK' END as status
+FROM content_components
+WHERE name LIKE '%footer%';*/
+
+=======
+-------
+
+-- ============================================================================
+-- FIX: footer-4-column template - Convert Handlebars to Go template syntax
+-- ============================================================================
+--
+-- PROBLEMS:
+--   1. {{#each services}}...{{/each}} - Handlebars, not supported
+--   2. {{#if social_links}}...{{/if}} - Handlebars, not supported
+--   3. {{#if contact_email}}...{{/if}} - Handlebars, not supported
+--   4. Mixed placeholder styles (some with dot, some without)
+--
+-- SOLUTION:
+--   Convert to Go template syntax or use pre-rendered HTML placeholders
+--
+-- ============================================================================
+
+-- Update footer-4-column to use consistent Go template syntax
+UPDATE content_components
+SET html_template = E'<!-- FOOTER SOURCE: component-db:footer-4-column -->
+<footer class="site-footer">
+    <div class="footer-container">
+        <div class="footer-brand">
+            <h3>{{.logo_text}}</h3>
+            <p>{{.tagline}}</p>
+        </div>
+        <div class="footer-links">
+            <h4>Quick Links</h4>
+            <ul>
+                {{.nav_items_html}}
+            </ul>
+        </div>
+        <div class="footer-services">
+            <h4>Services</h4>
+            <ul>
+                {{.nav_items_html}}
+            </ul>
+        </div>
+        <div class="footer-contact">
+            <h4>Contact</h4>
+            {{if .email}}<p><a href="mailto:{{.email}}">{{.email}}</a></p>{{end}}
+            {{if .phone}}<p><a href="tel:{{.phone}}">{{.phone}}</a></p>{{end}}
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <div class="footer-bottom-container">
+            <p>&copy; {{.year}} {{.company_name}}. All rights reserved.</p>
+            <div class="footer-legal">
+                <a href="/privacy.html">Privacy Policy</a>
+                <a href="/terms.html">Terms of Service</a>
+            </div>
+        </div>
+    </div>
+</footer>
+<style>
+.site-footer {
+    background: {{.primary_color}};
+    color: rgba(255,255,255,0.9);
+    padding: 4rem 0 0;
+    margin-top: auto;
+}
+.footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 3rem;
+}
+.footer-brand h3 {
+    color: #fff;
+    margin: 0 0 0.75rem;
+    font-size: 1.25rem;
+}
+.footer-brand p {
+    color: rgba(255,255,255,0.7);
+    margin: 0 0 1.5rem;
+    line-height: 1.6;
+}
+.social-links {
+    display: flex;
+    gap: 1rem;
+}
+.social-links a {
+    color: rgba(255,255,255,0.7);
+    transition: color 0.2s;
+}
+.social-links a:hover {
+    color: {{.accent_color}};
+}
+.footer-links h4,
+.footer-services h4,
+.footer-contact h4 {
+    color: #fff;
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+.footer-links ul,
+.footer-services ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.footer-links li,
+.footer-services li {
+    margin-bottom: 0.5rem;
+}
+.footer-links a,
+.footer-services a,
+.footer-contact a {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.footer-links a:hover,
+.footer-services a:hover,
+.footer-contact a:hover {
+    color: #fff;
+}
+.footer-contact p {
+    margin: 0 0 0.5rem;
+    color: rgba(255,255,255,0.7);
+}
+.footer-bottom {
+    margin-top: 3rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+.footer-bottom-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.footer-bottom p {
+    margin: 0;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+}
+.footer-legal {
+    display: flex;
+    gap: 2rem;
+}
+.footer-legal a {
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+.footer-legal a:hover {
+    color: rgba(255,255,255,0.8);
+}
+@media (max-width: 768px) {
+    .footer-container {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    .footer-bottom-container {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+}
+</style>'
+WHERE name = 'footer-4-column';
+
+-- Also fix footer-simple which has Handlebars {{#if}}
+UPDATE content_components
+SET html_template = E'<!-- FOOTER SOURCE: component-db:footer-simple -->
+<footer class="site-footer site-footer--simple">
+    <div class="footer-container">
+        <p>&copy; {{.year}} {{.company_name}}. All rights reserved.</p>
+        <nav class="footer-nav">
+            <a href="/privacy.html">Privacy</a>
+            <a href="/terms.html">Terms</a>
+            {{if .email}}<a href="mailto:{{.email}}">Contact</a>{{end}}
+        </nav>
+    </div>
+</footer>
+<style>
+.site-footer--simple {
+    background: #f8f9fa;
+    padding: 2rem 0;
+    margin-top: auto;
+    border-top: 1px solid #e9ecef;
+}
+.site-footer--simple .footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.site-footer--simple p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+.footer-nav {
+    display: flex;
+    gap: 2rem;
+}
+.footer-nav a {
+    color: #6c757d;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+.footer-nav a:hover {
+    color: {{.primary_color}};
+}
+@media (max-width: 768px) {
+    .site-footer--simple .footer-container {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+}
+</style>'
+WHERE name = 'footer-simple';
+
+-- Fix footer-standard placeholder inconsistencies (missing dots)
+UPDATE content_components
+SET html_template = REPLACE(
+        REPLACE(
+                REPLACE(
+                        REPLACE(html_template,
+                                '{{nav_items_html}}', '{{.nav_items_html}}'
+                        ),
+                        '{{contact_email}}', '{{.email}}'
+                ),
+                '{{primary_color}}', '{{.primary_color}}'
+        ),
+        '{{accent_color}}', '{{.accent_color}}'
+                    )
+WHERE name = 'footer-standard';
+
+-- Verify the updates
+SELECT name,
+       CASE WHEN html_template LIKE '%{{#each%' THEN 'HAS_HANDLEBARS_EACH' ELSE 'OK' END as each_status,
+       CASE WHEN html_template LIKE '%{{#if%' THEN 'HAS_HANDLEBARS_IF' ELSE 'OK' END as if_status,
+       LENGTH(html_template) as template_length
+FROM content_components
+WHERE name LIKE '%footer%';
