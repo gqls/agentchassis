@@ -2292,8 +2292,12 @@ func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepNa
 
 			// Also update output_field if specified
 			if step.OutputField != "" {
-				if outputData, exists := state.CollectedData[step.OutputField].(map[string]interface{}); exists {
-					outputData["response"] = normalisedData
+				outputData, exists := state.CollectedData[step.OutputField].(map[string]interface{})
+				if !exists {
+					outputData = make(map[string]interface{})
+					state.CollectedData[step.OutputField] = outputData
+				}
+				outputData["response"] = normalisedData
 					outputData["response_received_at"] = time.Now().Format(time.RFC3339)
 					outputData["response_status"] = "complete"
 					if step.Action == "spawn_agent" {
@@ -3406,7 +3410,38 @@ func prefixConfigStepReferences(config map[string]interface{}, loopName string, 
 
 	// List of config keys that contain data field references
 	// These might reference substep output fields like "generated_content.result"
-	dataRefKeys := []string{"content_from", "context_from", "data_from", "source_field", "input_from", "result_from"}
+	// IMPORTANT: Any config key that references step outputs must be listed here
+	dataRefKeys := []string{
+		"content_from",
+		"context_from",
+		"data_from",
+		"source_field",
+		"input_from",
+		"result_from",
+		"content_field", // Used by assemble_page, git_commit
+		"commit_from",   // Used by update_page_status
+	}
+
+	for _, key := range dataRefKeys {
+		if val, ok := config[key].(string); ok && val != "" {
+			prefixedVal := prefixDataReference(val, loopName, iterIdx, substepOutputFields)
+			if prefixedVal != val {
+				config[key] = prefixedVal
+			}
+		}
+	}
+
+	// Also handle input_mapping which contains nested data references
+	if inputMapping, ok := config["input_mapping"].(map[string]interface{}); ok {
+		for key, val := range inputMapping {
+			if valStr, ok := val.(string); ok && valStr != "" {
+				prefixedVal := prefixDataReference(valStr, loopName, iterIdx, substepOutputFields)
+				if prefixedVal != valStr {
+					inputMapping[key] = prefixedVal
+				}
+			}
+		}
+	}
 
 	for _, key := range dataRefKeys {
 		if val, ok := config[key].(string); ok && val != "" {

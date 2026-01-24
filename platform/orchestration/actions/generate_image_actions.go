@@ -89,7 +89,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 			params.CollectedData["__parent_responses_topic__"] = params.ExecutionContext.ReplyToTopic
 		}
 	}
-	
+
 	// Get the agent's configuration
 	var agentConfig map[string]interface{}
 	var ok bool
