@@ -2298,11 +2298,10 @@ func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepNa
 					state.CollectedData[step.OutputField] = outputData
 				}
 				outputData["response"] = normalisedData
-					outputData["response_received_at"] = time.Now().Format(time.RFC3339)
-					outputData["response_status"] = "complete"
-					if step.Action == "spawn_agent" {
-						outputData["initialized"] = true
-					}
+				outputData["response_received_at"] = time.Now().Format(time.RFC3339)
+				outputData["response_status"] = "complete"
+				if step.Action == "spawn_agent" {
+					outputData["initialized"] = true
 				}
 			}
 			return
