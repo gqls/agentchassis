@@ -683,6 +683,32 @@ func tryParseJSONString(s string) (map[string]interface{}, bool) {
 }
 
 func getNestedFieldValue(data map[string]interface{}, path string) (interface{}, error) {
+	// First try direct path
+	if value, err := traverseNestedPath(data, path); err == nil {
+		return value, nil
+	}
+
+	// If direct path failed, try with .response wrapper
+	parts := strings.Split(path, ".")
+	if len(parts) >= 2 {
+		responsePath := parts[0] + ".response." + strings.Join(parts[1:], ".")
+		if value, err := traverseNestedPath(data, responsePath); err == nil {
+			return value, nil
+		}
+	}
+
+	// If path has .response, try without it
+	if strings.Contains(path, ".response.") {
+		fallbackPath := strings.Replace(path, ".response.", ".", 1)
+		if value, err := traverseNestedPath(data, fallbackPath); err == nil {
+			return value, nil
+		}
+	}
+
+	return nil, fmt.Errorf("path '%s' not found (tried with and without .response wrapper)", path)
+}
+
+func traverseNestedPath(data map[string]interface{}, path string) (interface{}, error) {
 	parts := strings.Split(path, ".")
 	current := interface{}(data)
 

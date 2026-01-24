@@ -1006,6 +1006,26 @@ func extractFieldValue(data map[string]interface{}, fieldPath string, logger *za
 				zap.String("field", part),
 				zap.String("full_path", fieldPath),
 			)
+
+			// Fallback: if path contains ".response.", try without it
+			if strings.Contains(fieldPath, ".response.") {
+				fallbackPath := strings.Replace(fieldPath, ".response.", ".", 1)
+				logger.Debug("Trying fallback path without .response",
+					zap.String("original_path", fieldPath),
+					zap.String("fallback_path", fallbackPath))
+				return extractFieldValue(data, fallbackPath, logger)
+			}
+
+			// Fallback: if path doesn't contain .response, try with it
+			parts := strings.Split(fieldPath, ".")
+			if len(parts) >= 2 && !strings.Contains(fieldPath, ".response.") {
+				responsePath := parts[0] + ".response." + strings.Join(parts[1:], ".")
+				logger.Debug("Trying fallback path with .response",
+					zap.String("original_path", fieldPath),
+					zap.String("response_path", responsePath))
+				return extractFieldValue(data, responsePath, logger)
+			}
+
 			return ""
 		default:
 			// If we're at a terminal value and still have more parts, something's wrong

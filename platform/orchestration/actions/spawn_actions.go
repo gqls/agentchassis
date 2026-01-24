@@ -3054,7 +3054,29 @@ func resolveAgentTypeForSpawn(config map[string]interface{}, collectedData map[s
 }
 
 // resolveFieldPathForSpawn extracts a nested string value using dot notation
+// It also handles the .response wrapper pattern automatically
 func resolveFieldPathForSpawn(path string, data map[string]interface{}) string {
+	// First, try the direct path
+	if value := traverseFieldPath(path, data); value != "" {
+		return value
+	}
+
+	// If direct path failed and path has at least 2 parts, try with .response wrapper
+	// Example: "confirmed_type.recommended_builder" -> "confirmed_type.response.recommended_builder"
+	parts := strings.Split(path, ".")
+	if len(parts) >= 2 {
+		// Insert "response" after the first segment
+		responsePath := parts[0] + ".response." + strings.Join(parts[1:], ".")
+		if value := traverseFieldPath(responsePath, data); value != "" {
+			return value
+		}
+	}
+
+	return ""
+}
+
+// traverseFieldPath is the original implementation - direct path traversal
+func traverseFieldPath(path string, data map[string]interface{}) string {
 	parts := strings.Split(path, ".")
 	current := data
 

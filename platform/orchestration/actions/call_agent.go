@@ -142,7 +142,27 @@ func extractCallConfiguration(params ActionParams) (targetAgentType string, targ
 
 // resolveFieldPathCallAgent extracts a nested string value from a map using dot notation
 // e.g., "spawn_builder.agent_type" or "confirmed_type.recommended_builder"
+// It also handles the .response wrapper pattern automatically
 func resolveFieldPathCallAgent(path string, data map[string]interface{}) string {
+	// First, try the direct path
+	if value := traverseFieldPathGeneric(path, data); value != "" {
+		return value
+	}
+
+	// If direct path failed and path has at least 2 parts, try with .response wrapper
+	parts := strings.Split(path, ".")
+	if len(parts) >= 2 {
+		responsePath := parts[0] + ".response." + strings.Join(parts[1:], ".")
+		if value := traverseFieldPathGeneric(responsePath, data); value != "" {
+			return value
+		}
+	}
+
+	return ""
+}
+
+// traverseFieldPathGeneric traverses a dot-notation path and returns string value
+func traverseFieldPathGeneric(path string, data map[string]interface{}) string {
 	parts := strings.Split(path, ".")
 	var current interface{} = data
 
@@ -219,7 +239,6 @@ func findAgentByRole(params ActionParams, targetRole string, agent *TargetAgentI
 			if role, ok := spawnResult["role"].(string); ok && role == targetRole {
 				agent.AgentID, _ = spawnResult["agent_id"].(string)
 
-				// also extract agent_type from spawn result
 				if agentType, ok := spawnResult["agent_type"].(string); ok {
 					agent.AgentType = agentType
 				}
@@ -612,9 +631,11 @@ func findOrSpawnAgent(ctx context.Context, params ActionParams, targetAgentType 
 	}
 
 	// Check if we have a spawned agent from a previous step
-	if spawnResult, ok := params.CollectedData["spawn_agent"].(map[string]interface{}); ok {
+	if stepResult, ok := params.CollectedData["spawn_agent"].(map[string]interface{}); ok {
+		spawnResult := unwrapSpawnResult(stepResult)
 		if spawnedType, _ := spawnResult["agent_type"].(string); spawnedType == targetAgentType {
 			if agentID, ok := spawnResult["agent_id"].(string); ok && agentID != "" {
+
 				params.Logger.Info("Using previously spawned agent",
 					zap.String("agent_type", targetAgentType),
 					zap.String("agent_id", agentID))
@@ -703,11 +724,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",    // event_type
-		"orchestration", // entity_type
-		orchestrationID, // entity_id
-		metadataJSON,    // metadata
-		"info",          // severity
+		"AGENT_CALL",        // event_type
+		"orchestration",     // entity_type
+		orchestrationID,     // entity_id
+		metadataJSON,        // metadata
+		"info",              // severity
 		"call_agent_action") // source
 }
 
@@ -760,11 +781,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED", // event_type
-		"request",        // entity_type
-		requestID,        // entity_id
-		metadataJSON,     // metadata
-		"error",          // severity
+		"REQUEST_FAILED",    // event_type
+		"request",           // entity_type
+		requestID,           // entity_id
+		metadataJSON,        // metadata
+		"error",             // severity
 		"call_agent_action") // source
 }
 
@@ -816,11 +837,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,    // event_type
-		"agent",      // entity_type
-		agentID,      // entity_id
-		metadataJSON, // metadata
-		"info",       // severity
+		eventType,        // event_type
+		"agent",          // entity_type
+		agentID,          // entity_id
+		metadataJSON,     // metadata
+		"info",           // severity
 		"agent_activity") // source
 }
 
