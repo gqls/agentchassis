@@ -212,11 +212,14 @@ func findTargetAgent(params ActionParams, targetAgentType, targetRole string) (*
 func findAgentByRole(params ActionParams, targetRole string, agent *TargetAgentInfo) bool {
 	// Search through spawn results
 	for stepName, stepData := range params.CollectedData {
-		if spawnResult, ok := stepData.(map[string]interface{}); ok {
+		if stepResult, ok := stepData.(map[string]interface{}); ok {
+			// Unwrap .response if present
+			spawnResult := unwrapSpawnResult(stepResult)
+
 			if role, ok := spawnResult["role"].(string); ok && role == targetRole {
 				agent.AgentID, _ = spawnResult["agent_id"].(string)
 
-				// NEW: Also extract agent_type from spawn result
+				// also extract agent_type from spawn result
 				if agentType, ok := spawnResult["agent_type"].(string); ok {
 					agent.AgentType = agentType
 				}
@@ -246,13 +249,34 @@ func findAgentByRole(params ActionParams, targetRole string, agent *TargetAgentI
 	return false
 }
 
+// findAgentDataWithRole checks for agent data with matching role at top level
+// or inside .response wrapper. Returns the map containing agent fields, or nil.
+func findAgentDataWithRole(data map[string]interface{}, targetRole string) map[string]interface{} {
+	// First, check top level
+	if role, ok := data["role"].(string); ok && role == targetRole {
+		return data
+	}
+
+	// Then check inside .response wrapper
+	if response, ok := data["response"].(map[string]interface{}); ok {
+		if role, ok := response["role"].(string); ok && role == targetRole {
+			return response
+		}
+	}
+
+	return nil
+}
+
 func findAgentByType(params ActionParams, targetAgentType string, agent *TargetAgentInfo) bool {
 	// Look for spawn_<type> key
 	spawnKey := fmt.Sprintf("spawn_%s", targetAgentType)
-	if spawnResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
+	if stepResult, ok := params.CollectedData[spawnKey].(map[string]interface{}); ok {
+		// Unwrap .response if present
+		spawnResult := unwrapSpawnResult(stepResult)
+
 		agent.AgentID, _ = spawnResult["agent_id"].(string)
 
-		// NEW: Extract from nested topics structure
+		// Extract from nested topics structure
 		if topics, ok := spawnResult["topics"].(map[string]interface{}); ok {
 			agent.RequestsTopic, _ = topics["requests"].(string)
 			agent.ResponsesTopic, _ = topics["responses"].(string)
@@ -270,11 +294,14 @@ func findAgentByType(params ActionParams, targetAgentType string, agent *TargetA
 	// Search all spawn results
 	for stepName, stepData := range params.CollectedData {
 		if strings.HasPrefix(stepName, "spawn_") {
-			if spawnResult, ok := stepData.(map[string]interface{}); ok {
+			if stepResult, ok := stepData.(map[string]interface{}); ok {
+				// Unwrap .response if present
+				spawnResult := unwrapSpawnResult(stepResult)
+
 				if agentType, ok := spawnResult["agent_type"].(string); ok && agentType == targetAgentType {
 					agent.AgentID, _ = spawnResult["agent_id"].(string)
 
-					// NEW: Extract from nested topics structure
+					// Extract from nested topics structure
 					if topics, ok := spawnResult["topics"].(map[string]interface{}); ok {
 						agent.RequestsTopic, _ = topics["requests"].(string)
 						agent.ResponsesTopic, _ = topics["responses"].(string)
@@ -293,6 +320,25 @@ func findAgentByType(params ActionParams, targetAgentType string, agent *TargetA
 	}
 
 	return false
+}
+
+// unwrapSpawnResult extracts the actual spawn data from a step result.
+// Spawn results may be stored directly OR wrapped in a .response field.
+// Returns the map containing agent fields (role, agent_id, topics, etc.)
+func unwrapSpawnResult(stepData map[string]interface{}) map[string]interface{} {
+	// Check if there's a .response wrapper with agent data inside
+	if response, ok := stepData["response"].(map[string]interface{}); ok {
+		// Verify this looks like spawn data (has agent_id or role)
+		if _, hasAgentID := response["agent_id"]; hasAgentID {
+			return response
+		}
+		if _, hasRole := response["role"]; hasRole {
+			return response
+		}
+	}
+
+	// No wrapper or wrapper doesn't contain agent data - use top level
+	return stepData
 }
 
 func isStandardAgent(agentType string) bool {
@@ -516,8 +562,26 @@ func logCallStart(params ActionParams) {
 func findTopicsForRole(params ActionParams, targetRole string) (string, string) {
 	for stepName, stepData := range params.CollectedData {
 		if strings.HasPrefix(stepName, "spawn_") {
-			if spawnResult, ok := stepData.(map[string]interface{}); ok {
+			if stepResult, ok := stepData.(map[string]interface{}); ok {
+				// Unwrap .response if present
+				spawnResult := unwrapSpawnResult(stepResult)
+
 				if role, ok := spawnResult["role"].(string); ok && role == targetRole {
+					// Try nested topics first
+					if topics, ok := spawnResult["topics"].(map[string]interface{}); ok {
+						requestsTopic, _ := topics["requests"].(string)
+						responsesTopic, _ := topics["responses"].(string)
+						if requestsTopic != "" {
+							params.Logger.Info("Found topics for role",
+								zap.String("role", targetRole),
+								zap.String("requests_topic", requestsTopic),
+								zap.String("responses_topic", responsesTopic),
+								zap.String("from_step", stepName))
+							return requestsTopic, responsesTopic
+						}
+					}
+
+					// Fallback to flat structure
 					requestsTopic, _ := spawnResult["requests_topic"].(string)
 					responsesTopic, _ := spawnResult["responses_topic"].(string)
 					params.Logger.Info("Found topics for role",
@@ -639,11 +703,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -696,11 +760,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -752,11 +816,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
 
@@ -764,7 +828,10 @@ func findJobTopicForRole(params ActionParams, targetRole string) string {
 	// Search through all spawn results for matching role
 	for stepName, stepData := range params.CollectedData {
 		if strings.HasPrefix(stepName, "spawn_") {
-			if spawnResult, ok := stepData.(map[string]interface{}); ok {
+			if stepResult, ok := stepData.(map[string]interface{}); ok {
+				// Unwrap .response if present
+				spawnResult := unwrapSpawnResult(stepResult)
+
 				// Check if this spawn result matches our target role
 				if role, ok := spawnResult["role"].(string); ok && role == targetRole {
 					if jobTopic, ok := spawnResult["job_topic"].(string); ok && jobTopic != "" {
