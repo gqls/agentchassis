@@ -681,28 +681,82 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 
 // mergeIntoRenderContextEnhanced extracts data from various source formats
 func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interface{}, sourceName string, logger *zap.Logger) {
-	// Direct field extraction
+	// Unwrap .response wrapper if present
+	if response, ok := data["response"].(map[string]interface{}); ok {
+		if _, hasStatus := data["response_status"]; hasStatus {
+			logger.Debug("Unwrapping .response wrapper", zap.String("source", sourceName))
+			mergeIntoRenderContextEnhanced(ctx, response, sourceName+".response", logger)
+		}
+	}
+
+	// =========================================================================
+	// STEP 1: Unwrap .response wrapper if present (common in agent responses)
+	// reviewed_brief has: {"response": {...actual data...}, "response_status": "complete"}
+	// This recursively processes the unwrapped data first
+	// =========================================================================
+	if response, ok := data["response"].(map[string]interface{}); ok {
+		// Check if this looks like a wrapped response (has response_status sibling)
+		if _, hasStatus := data["response_status"]; hasStatus {
+			logger.Debug("Unwrapping .response wrapper for source",
+				zap.String("source", sourceName))
+			// Recursively merge the unwrapped response data FIRST
+			mergeIntoRenderContextEnhanced(ctx, response, sourceName+".response", logger)
+			// Then continue to process the outer data for any additional fields
+		}
+	}
+
+	// =========================================================================
+	// STEP 2: Direct field extraction from current data level
+	// =========================================================================
+
+	// Domain
 	if v, ok := data["domain"].(string); ok && v != "" {
 		ctx.Domain = v
 	}
+
+	// Company name (sets logo_text as fallback)
 	if v, ok := data["company_name"].(string); ok && v != "" {
 		ctx.CompanyName = v
 		if ctx.LogoText == "" {
 			ctx.LogoText = v
 		}
 	}
+
+	// Logo text (explicit override)
 	if v, ok := data["logo_text"].(string); ok && v != "" {
 		ctx.LogoText = v
 	}
+
+	// Tagline
 	if v, ok := data["tagline"].(string); ok && v != "" {
 		ctx.Tagline = v
 	}
+
+	// Email - check both "email" and "contact_email" (reviewed_brief uses contact_email)
 	if v, ok := data["email"].(string); ok && v != "" {
 		ctx.Email = v
 	}
+	if v, ok := data["contact_email"].(string); ok && v != "" {
+		ctx.Email = v
+	}
+
+	// Phone - check both "phone" and "contact_phone"
 	if v, ok := data["phone"].(string); ok && v != "" {
 		ctx.Phone = v
 	}
+	if v, ok := data["contact_phone"].(string); ok && v != "" {
+		ctx.Phone = v
+	}
+
+	// Also check contact_email and contact_phone (reviewed_brief uses these names)
+	if v, ok := data["contact_email"].(string); ok && v != "" {
+		ctx.Email = v
+	}
+	if v, ok := data["contact_phone"].(string); ok && v != "" {
+		ctx.Phone = v
+	}
+
+	// Colors - direct fields
 	if v, ok := data["primary_color"].(string); ok && v != "" {
 		ctx.PrimaryColor = v
 	}
@@ -719,7 +773,9 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 		ctx.BackgroundColor = v
 	}
 
-	// Check nested color_palette (from style_collection)
+	// =========================================================================
+	// STEP 3: Check nested color_palette (from style_collection)
+	// =========================================================================
 	if palette, ok := data["color_palette"].(map[string]interface{}); ok {
 		if v, ok := palette["primary"].(string); ok && v != "" {
 			ctx.PrimaryColor = v
@@ -738,7 +794,11 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 		}
 	}
 
-	// Extract from reviewed_brief structure (nested under various keys)
+	// =========================================================================
+	// STEP 4: Extract from nested structures (business_context, contact_info, brand)
+	// =========================================================================
+
+	// business_context (alternative structure)
 	if brief, ok := data["business_context"].(map[string]interface{}); ok {
 		if v, ok := brief["company_name"].(string); ok && v != "" {
 			ctx.CompanyName = v
@@ -754,7 +814,7 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 		}
 	}
 
-	// Check for contact_info in brief
+	// contact_info (nested contact structure)
 	if contact, ok := data["contact_info"].(map[string]interface{}); ok {
 		if v, ok := contact["email"].(string); ok && v != "" {
 			ctx.Email = v
@@ -764,7 +824,7 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 		}
 	}
 
-	// Check for brand/visual settings in brief
+	// brand (nested brand/visual settings)
 	if brand, ok := data["brand"].(map[string]interface{}); ok {
 		if v, ok := brand["primary_color"].(string); ok && v != "" {
 			ctx.PrimaryColor = v
@@ -777,22 +837,31 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 		}
 	}
 
-	// Extract tone and target_audience for content generation
+	// =========================================================================
+	// STEP 5: Content generation context (tone, target_audience, industry)
+	// =========================================================================
 	if v, ok := data["tone"].(string); ok && v != "" {
 		ctx.Tone = v
 	}
 	if v, ok := data["target_audience"].(string); ok && v != "" {
 		ctx.TargetAudience = v
 	}
+	if v, ok := data["industry"].(string); ok && v != "" {
+		ctx.Industry = v
+	}
 
-	// From site_record
+	// =========================================================================
+	// STEP 6: Site/page identifiers
+	// =========================================================================
 	if v, ok := data["site_id"].(string); ok && v != "" {
 		if siteUUID, err := uuid.Parse(v); err == nil {
 			ctx.SiteID = siteUUID
 		}
 	}
 
-	// CTA settings
+	// =========================================================================
+	// STEP 7: CTA settings
+	// =========================================================================
 	if v, ok := data["cta_text"].(string); ok && v != "" {
 		ctx.CTAText = v
 	}
@@ -801,10 +870,30 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 	}
 
 	// =========================================================================
-	// Extract navigation from db_sync source
+	// STEP 8: Extract services array (for footer and services sections)
+	// Services appear in reviewed_brief.response.services as []interface{}
+	// =========================================================================
+	if services, ok := data["services"].([]interface{}); ok && len(services) > 0 {
+		if ctx.ContentData == nil {
+			ctx.ContentData = make(map[string]interface{})
+		}
+		ctx.ContentData["services"] = services
+
+		// Extract names to ctx.Services ([]string)
+		for _, svc := range services {
+			if svcMap, ok := svc.(map[string]interface{}); ok {
+				if name, ok := svcMap["name"].(string); ok && name != "" {
+					ctx.Services = append(ctx.Services, name)
+				}
+			}
+		}
+	}
+
+	// =========================================================================
+	// STEP 9: Extract navigation from db_sync source
 	// db_sync contains: {"navigation": {"items": [{"label": "Home", "url": "/index.html"}, ...]}}
 	// =========================================================================
-	if sourceName == "db_sync" {
+	if sourceName == "db_sync" || sourceName == "db_sync.response" {
 		if navigation, ok := data["navigation"].(map[string]interface{}); ok {
 			if items, ok := navigation["items"].([]interface{}); ok {
 				for _, item := range items {
@@ -827,10 +916,17 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 		}
 	}
 
+	// =========================================================================
+	// STEP 10: Log final state for debugging
+	// =========================================================================
 	logger.Info("Merged source into render context",
 		zap.String("source", sourceName),
 		zap.String("company_name", ctx.CompanyName),
-		zap.String("domain", ctx.Domain))
+		zap.String("domain", ctx.Domain),
+		zap.String("tagline", ctx.Tagline),
+		zap.String("email", ctx.Email),
+		zap.Int("nav_items", len(ctx.NavItems)),
+		zap.Int("services", len(ctx.Services)))
 }
 
 // Updated renderCtxToMap to include new fields
@@ -871,6 +967,15 @@ func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 	}
 	if len(ctx.Services) > 0 {
 		result["services"] = ctx.Services
+	}
+
+	// Merge ContentData fields for template access
+	if ctx.ContentData != nil {
+		for key, value := range ctx.ContentData {
+			if _, exists := result[key]; !exists {
+				result[key] = value
+			}
+		}
 	}
 	return result
 }

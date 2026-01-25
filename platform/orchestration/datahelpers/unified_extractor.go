@@ -195,23 +195,69 @@ func ExtractFields(
 
 		// Use findFieldRecursive which searches through all nested structures
 		if reviewedBrief := findFieldRecursive(collectedData, "reviewed_brief", 0, logger); reviewedBrief != nil {
-			result["reviewed_brief"] = reviewedBrief
 
-			// Log what we found for debugging
+			// NEW: Unwrap .response wrapper if present
+			// reviewed_brief often comes as {"response": {...actual data...}, "response_status": "complete"}
 			if rbMap, ok := reviewedBrief.(map[string]interface{}); ok {
+				if response, ok := rbMap["response"].(map[string]interface{}); ok {
+					// Check if this looks like a wrapped response (has response_status sibling)
+					if _, hasStatus := rbMap["response_status"]; hasStatus {
+						logger.Info("✓ Unwrapping reviewed_brief.response wrapper",
+							zap.Strings("response_keys", getMapKeys(response)))
+						// Use the unwrapped response as the reviewed_brief
+						reviewedBrief = response
+						rbMap = response
+					}
+				}
+
+				// Log what we found for debugging
 				logger.Info("✓ Found reviewed_brief",
 					zap.Strings("keys", getMapKeys(rbMap)),
 					zap.Bool("has_company_name", rbMap["company_name"] != nil),
 					zap.Bool("has_about_us", rbMap["about_us"] != nil),
 					zap.Bool("has_services", rbMap["services"] != nil),
+					zap.Bool("has_tagline", rbMap["tagline"] != nil),
+					zap.Bool("has_contact_email", rbMap["contact_email"] != nil),
 				)
 			} else {
 				logger.Info("✓ Found reviewed_brief (non-map type)",
 					zap.String("type", fmt.Sprintf("%T", reviewedBrief)))
 			}
+
+			result["reviewed_brief"] = reviewedBrief
 		} else {
 			logger.Error("✗ Could not find reviewed_brief anywhere in collected data",
 				zap.Strings("top_level_keys", getMapKeys(collectedData)))
+		}
+	}
+
+	// ========================================================================
+	// Special handling for "db_sync" - contains navigation from sync_pages_to_db
+	// ========================================================================
+	if contains(fieldNames, "db_sync") {
+		logger.Info("Special case: extracting db_sync")
+
+		if dbSync := findFieldRecursive(collectedData, "db_sync", 0, logger); dbSync != nil {
+			result["db_sync"] = dbSync
+
+			// Log navigation info for debugging
+			if dsMap, ok := dbSync.(map[string]interface{}); ok {
+				hasNav := false
+				navCount := 0
+				if nav, ok := dsMap["navigation"].(map[string]interface{}); ok {
+					hasNav = true
+					if items, ok := nav["items"].([]interface{}); ok {
+						navCount = len(items)
+					}
+				}
+				logger.Info("✓ Found db_sync",
+					zap.Bool("has_navigation", hasNav),
+					zap.Int("nav_item_count", navCount),
+					zap.Bool("db_available", dsMap["db_available"] == true),
+				)
+			}
+		} else {
+			logger.Warn("✗ Could not find db_sync")
 		}
 	}
 

@@ -1131,3 +1131,887 @@ SELECT name,
             ELSE 'NO_NAV' END as nav_placeholder_status
 FROM content_components
 WHERE name LIKE '%header%';
+
+--
+
+-- template fixes
+
+-- ============================================================================
+-- COMPREHENSIVE TEMPLATE FIX: Headers and Footers
+-- ============================================================================
+--
+-- PROBLEMS FOUND:
+-- 1. Headers have mixed Handlebars/Go syntax: {{#if cta_text}} vs {{if .logo_url}}
+-- 2. Footers showing <no value> - variables not in context
+-- 3. Some placeholders missing dots: {{nav_items_html}} vs {{.nav_items_html}}
+--
+-- ============================================================================
+
+-- First, let's see current state of templates
+SELECT name,
+       CASE WHEN html_template LIKE '%{{#if%' THEN 'HAS_HANDLEBARS_IF' ELSE 'OK' END as handlebars_if,
+       CASE WHEN html_template LIKE '%{{#each%' THEN 'HAS_HANDLEBARS_EACH' ELSE 'OK' END as handlebars_each,
+       CASE WHEN html_template LIKE '%{{nav_items_html}}%' THEN 'MISSING_DOT' ELSE 'OK' END as missing_dot
+FROM content_components
+WHERE name LIKE '%header%' OR name LIKE '%footer%';
+
+-- ============================================================================
+-- FIX header-professional-dark - Full replacement
+-- ============================================================================
+UPDATE content_components
+SET html_template = E'<!-- HEADER SOURCE: component-db:header-professional-dark -->
+<header class="site-header site-header--dark">
+    <div class="header-container">
+        <a href="/index.html" class="logo">
+            <span class="logo-text">{{.logo_text}}</span>
+        </a>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+        <nav class="main-nav" id="main-nav" role="navigation">
+            <ul>
+                {{.nav_items_html}}
+            </ul>
+        </nav>
+        <a href="/contact.html" class="header-cta">{{.cta_text}}</a>
+    </div>
+</header>
+<style>
+.site-header--dark {
+    background: {{.primary_color}};
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+}
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+}
+.logo-text {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #fff;
+}
+.main-nav ul {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2rem;
+}
+.main-nav a {
+    color: rgba(255,255,255,0.9);
+    text-decoration: none;
+    font-weight: 500;
+    padding: 0.5rem 0;
+    transition: color 0.2s;
+}
+.main-nav a:hover,
+.main-nav a.active {
+    color: {{.accent_color}};
+}
+.header-cta {
+    background: {{.accent_color}};
+    color: #fff;
+    padding: 0.6rem 1.25rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity 0.2s;
+}
+.header-cta:hover {
+    opacity: 0.9;
+}
+.mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    flex-direction: column;
+    gap: 5px;
+}
+.mobile-menu-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: #fff;
+    transition: transform 0.3s;
+}
+@media (max-width: 768px) {
+    .mobile-menu-toggle { display: flex; }
+    .main-nav {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: {{.primary_color}};
+        padding: 1rem 2rem;
+        display: none;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .main-nav.active { display: block; }
+    .main-nav ul {
+        flex-direction: column;
+        gap: 0;
+    }
+    .main-nav a {
+        display: block;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .header-cta { display: none; }
+}
+</style>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var toggle = document.querySelector(".mobile-menu-toggle");
+    var nav = document.querySelector(".main-nav");
+    if (toggle && nav) {
+        toggle.addEventListener("click", function() {
+            var expanded = toggle.getAttribute("aria-expanded") === "true";
+            toggle.setAttribute("aria-expanded", !expanded);
+            nav.classList.toggle("active");
+        });
+    }
+});
+</script>'
+WHERE name = 'header-professional-dark';
+
+-- ============================================================================
+-- FIX header-minimal-light - Full replacement
+-- ============================================================================
+UPDATE content_components
+SET html_template = E'<!-- HEADER SOURCE: component-db:header-minimal-light -->
+<header class="site-header site-header--light">
+    <div class="header-container">
+        <a href="/index.html" class="logo">
+            <span class="logo-text">{{.logo_text}}</span>
+        </a>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+        </button>
+        <nav class="main-nav" id="main-nav" role="navigation">
+            <ul>
+                {{.nav_items_html}}
+            </ul>
+        </nav>
+    </div>
+</header>
+<style>
+.site-header--light {
+    background: #ffffff;
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.logo {
+    text-decoration: none;
+}
+.logo-text {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: {{.primary_color}};
+}
+.main-nav ul {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2rem;
+}
+.main-nav a {
+    color: #333;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+.main-nav a:hover,
+.main-nav a.active {
+    color: {{.primary_color}};
+}
+.mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    flex-direction: column;
+    gap: 5px;
+}
+.mobile-menu-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: #333;
+}
+@media (max-width: 768px) {
+    .mobile-menu-toggle { display: flex; }
+    .main-nav {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #fff;
+        padding: 1rem 2rem;
+        display: none;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .main-nav.active { display: block; }
+    .main-nav ul {
+        flex-direction: column;
+        gap: 0;
+    }
+    .main-nav a {
+        display: block;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #eee;
+    }
+}
+</style>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var toggle = document.querySelector(".mobile-menu-toggle");
+    var nav = document.querySelector(".main-nav");
+    if (toggle && nav) {
+        toggle.addEventListener("click", function() {
+            nav.classList.toggle("active");
+        });
+    }
+});
+</script>'
+WHERE name = 'header-minimal-light';
+
+-- ============================================================================
+-- FIX header-bold-gradient - Ensure dots on placeholders
+-- ============================================================================
+UPDATE content_components
+SET html_template = REPLACE(
+        REPLACE(
+                REPLACE(
+                        REPLACE(html_template,
+                                '{{nav_items_html}}', '{{.nav_items_html}}'
+                        ),
+                        '{{cta_url}}', '{{.cta_url}}'
+                ),
+                '{{cta_text}}', '{{.cta_text}}'
+        ),
+        '{{primary_color}}', '{{.primary_color}}'
+                    )
+WHERE name = 'header-bold-gradient';
+
+-- ============================================================================
+-- FIX footer-4-column - Full replacement with working template
+-- ============================================================================
+UPDATE content_components
+SET html_template = E'<!-- FOOTER SOURCE: component-db:footer-4-column -->
+<footer class="site-footer">
+    <div class="footer-container">
+        <div class="footer-brand">
+            <h3>{{.logo_text}}</h3>
+            <p>{{.tagline}}</p>
+        </div>
+        <div class="footer-links">
+            <h4>Quick Links</h4>
+            <ul>
+                {{.nav_items_html}}
+            </ul>
+        </div>
+        <div class="footer-services">
+            <h4>Our Services</h4>
+            <ul>
+                {{.nav_items_html}}
+            </ul>
+        </div>
+        <div class="footer-contact">
+            <h4>Contact</h4>
+            <p><a href="mailto:{{.email}}">{{.email}}</a></p>
+            <p>{{.phone}}</p>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <div class="footer-bottom-container">
+            <p>&copy; {{.year}} {{.company_name}}. All rights reserved.</p>
+            <div class="footer-legal">
+                <a href="/privacy.html">Privacy Policy</a>
+                <a href="/terms.html">Terms of Service</a>
+            </div>
+        </div>
+    </div>
+</footer>
+<style>
+.site-footer {
+    background: {{.primary_color}};
+    color: rgba(255,255,255,0.9);
+    padding: 4rem 0 0;
+    margin-top: auto;
+}
+.footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 3rem;
+}
+.footer-brand h3 {
+    color: #fff;
+    margin: 0 0 0.75rem;
+    font-size: 1.25rem;
+}
+.footer-brand p {
+    color: rgba(255,255,255,0.7);
+    margin: 0 0 1.5rem;
+    line-height: 1.6;
+}
+.footer-links h4,
+.footer-services h4,
+.footer-contact h4 {
+    color: #fff;
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+.footer-links ul,
+.footer-services ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.footer-links li,
+.footer-services li {
+    margin-bottom: 0.5rem;
+}
+.footer-links a,
+.footer-services a,
+.footer-contact a {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.footer-links a:hover,
+.footer-services a:hover,
+.footer-contact a:hover {
+    color: #fff;
+}
+.footer-contact p {
+    margin: 0 0 0.5rem;
+    color: rgba(255,255,255,0.7);
+}
+.footer-bottom {
+    margin-top: 3rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+.footer-bottom-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.footer-bottom p {
+    margin: 0;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+}
+.footer-legal {
+    display: flex;
+    gap: 2rem;
+}
+.footer-legal a {
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+.footer-legal a:hover {
+    color: rgba(255,255,255,0.8);
+}
+@media (max-width: 768px) {
+    .footer-container {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    .footer-bottom-container {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+}
+</style>'
+WHERE name = 'footer-4-column';
+
+-- ============================================================================
+-- VERIFY: Check all templates are clean
+-- ============================================================================
+SELECT name,
+       CASE WHEN html_template LIKE '%{{#%' THEN 'STILL_HAS_HANDLEBARS' ELSE 'OK' END as handlebars_check,
+       CASE WHEN html_template LIKE '%{{nav_items_html}}%' AND html_template NOT LIKE '%{{.nav_items_html}}%'
+                THEN 'MISSING_DOT' ELSE 'OK' END as dot_check,
+       LENGTH(html_template) as length
+FROM content_components
+WHERE name LIKE '%header%' OR name LIKE '%footer%';
+
+-- ============================================================================
+-- COMPREHENSIVE TEMPLATE FIX: Headers and Footers
+-- ============================================================================
+--
+-- PROBLEMS FOUND:
+-- 1. Headers have mixed Handlebars/Go syntax: {{#if cta_text}} vs {{if .logo_url}}
+-- 2. Footers showing <no value> - variables not in context
+-- 3. Some placeholders missing dots: {{nav_items_html}} vs {{.nav_items_html}}
+--
+-- ============================================================================
+
+-- First, let's see current state of templates
+SELECT name,
+       CASE WHEN html_template LIKE '%{{#if%' THEN 'HAS_HANDLEBARS_IF' ELSE 'OK' END as handlebars_if,
+       CASE WHEN html_template LIKE '%{{#each%' THEN 'HAS_HANDLEBARS_EACH' ELSE 'OK' END as handlebars_each,
+       CASE WHEN html_template LIKE '%{{nav_items_html}}%' THEN 'MISSING_DOT' ELSE 'OK' END as missing_dot
+FROM content_components
+WHERE name LIKE '%header%' OR name LIKE '%footer%';
+
+-- ============================================================================
+-- FIX header-professional-dark - Full replacement
+-- ============================================================================
+UPDATE content_components
+SET html_template = E'<!-- HEADER SOURCE: component-db:header-professional-dark -->
+<header class="site-header site-header--dark">
+    <div class="header-container">
+        <a href="/index.html" class="logo">
+            <span class="logo-text">{{.logo_text}}</span>
+        </a>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+        <nav class="main-nav" id="main-nav" role="navigation">
+            <ul>
+                {{.nav_items_html}}
+            </ul>
+        </nav>
+        <a href="/contact.html" class="header-cta">{{.cta_text}}</a>
+    </div>
+</header>
+<style>
+.site-header--dark {
+    background: {{.primary_color}};
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+}
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+}
+.logo-text {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #fff;
+}
+.main-nav ul {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2rem;
+}
+.main-nav a {
+    color: rgba(255,255,255,0.9);
+    text-decoration: none;
+    font-weight: 500;
+    padding: 0.5rem 0;
+    transition: color 0.2s;
+}
+.main-nav a:hover,
+.main-nav a.active {
+    color: {{.accent_color}};
+}
+.header-cta {
+    background: {{.accent_color}};
+    color: #fff;
+    padding: 0.6rem 1.25rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity 0.2s;
+}
+.header-cta:hover {
+    opacity: 0.9;
+}
+.mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    flex-direction: column;
+    gap: 5px;
+}
+.mobile-menu-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: #fff;
+    transition: transform 0.3s;
+}
+@media (max-width: 768px) {
+    .mobile-menu-toggle { display: flex; }
+    .main-nav {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: {{.primary_color}};
+        padding: 1rem 2rem;
+        display: none;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .main-nav.active { display: block; }
+    .main-nav ul {
+        flex-direction: column;
+        gap: 0;
+    }
+    .main-nav a {
+        display: block;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .header-cta { display: none; }
+}
+</style>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var toggle = document.querySelector(".mobile-menu-toggle");
+    var nav = document.querySelector(".main-nav");
+    if (toggle && nav) {
+        toggle.addEventListener("click", function() {
+            var expanded = toggle.getAttribute("aria-expanded") === "true";
+            toggle.setAttribute("aria-expanded", !expanded);
+            nav.classList.toggle("active");
+        });
+    }
+});
+</script>'
+WHERE name = 'header-professional-dark';
+
+-- ============================================================================
+-- FIX header-minimal-light - Full replacement
+-- ============================================================================
+UPDATE content_components
+SET html_template = E'<!-- HEADER SOURCE: component-db:header-minimal-light -->
+<header class="site-header site-header--light">
+    <div class="header-container">
+        <a href="/index.html" class="logo">
+            <span class="logo-text">{{.logo_text}}</span>
+        </a>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+        </button>
+        <nav class="main-nav" id="main-nav" role="navigation">
+            <ul>
+                {{.nav_items_html}}
+            </ul>
+        </nav>
+    </div>
+</header>
+<style>
+.site-header--light {
+    background: #ffffff;
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.logo {
+    text-decoration: none;
+}
+.logo-text {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: {{.primary_color}};
+}
+.main-nav ul {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2rem;
+}
+.main-nav a {
+    color: #333;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+.main-nav a:hover,
+.main-nav a.active {
+    color: {{.primary_color}};
+}
+.mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    flex-direction: column;
+    gap: 5px;
+}
+.mobile-menu-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: #333;
+}
+@media (max-width: 768px) {
+    .mobile-menu-toggle { display: flex; }
+    .main-nav {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #fff;
+        padding: 1rem 2rem;
+        display: none;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .main-nav.active { display: block; }
+    .main-nav ul {
+        flex-direction: column;
+        gap: 0;
+    }
+    .main-nav a {
+        display: block;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #eee;
+    }
+}
+</style>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var toggle = document.querySelector(".mobile-menu-toggle");
+    var nav = document.querySelector(".main-nav");
+    if (toggle && nav) {
+        toggle.addEventListener("click", function() {
+            nav.classList.toggle("active");
+        });
+    }
+});
+</script>'
+WHERE name = 'header-minimal-light';
+
+-- ============================================================================
+-- FIX header-bold-gradient - Ensure dots on placeholders
+-- ============================================================================
+UPDATE content_components
+SET html_template = REPLACE(
+        REPLACE(
+                REPLACE(
+                        REPLACE(html_template,
+                                '{{nav_items_html}}', '{{.nav_items_html}}'
+                        ),
+                        '{{cta_url}}', '{{.cta_url}}'
+                ),
+                '{{cta_text}}', '{{.cta_text}}'
+        ),
+        '{{primary_color}}', '{{.primary_color}}'
+                    )
+WHERE name = 'header-bold-gradient';
+
+-- ============================================================================
+-- FIX footer-4-column - Full replacement with working template
+-- ============================================================================
+UPDATE content_components
+SET html_template = E'<!-- FOOTER SOURCE: component-db:footer-4-column -->
+<footer class="site-footer">
+    <div class="footer-container">
+        <div class="footer-brand">
+            <h3>{{.logo_text}}</h3>
+            <p>{{.tagline}}</p>
+        </div>
+        <div class="footer-links">
+            <h4>Quick Links</h4>
+            <ul>
+                {{.nav_items_html}}
+            </ul>
+        </div>
+        <div class="footer-services">
+            <h4>Our Services</h4>
+            <ul>
+                {{.nav_items_html}}
+            </ul>
+        </div>
+        <div class="footer-contact">
+            <h4>Contact</h4>
+            <p><a href="mailto:{{.email}}">{{.email}}</a></p>
+            <p>{{.phone}}</p>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <div class="footer-bottom-container">
+            <p>&copy; {{.year}} {{.company_name}}. All rights reserved.</p>
+            <div class="footer-legal">
+                <a href="/privacy.html">Privacy Policy</a>
+                <a href="/terms.html">Terms of Service</a>
+            </div>
+        </div>
+    </div>
+</footer>
+<style>
+.site-footer {
+    background: {{.primary_color}};
+    color: rgba(255,255,255,0.9);
+    padding: 4rem 0 0;
+    margin-top: auto;
+}
+.footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 3rem;
+}
+.footer-brand h3 {
+    color: #fff;
+    margin: 0 0 0.75rem;
+    font-size: 1.25rem;
+}
+.footer-brand p {
+    color: rgba(255,255,255,0.7);
+    margin: 0 0 1.5rem;
+    line-height: 1.6;
+}
+.footer-links h4,
+.footer-services h4,
+.footer-contact h4 {
+    color: #fff;
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+.footer-links ul,
+.footer-services ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.footer-links li,
+.footer-services li {
+    margin-bottom: 0.5rem;
+}
+.footer-links a,
+.footer-services a,
+.footer-contact a {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.footer-links a:hover,
+.footer-services a:hover,
+.footer-contact a:hover {
+    color: #fff;
+}
+.footer-contact p {
+    margin: 0 0 0.5rem;
+    color: rgba(255,255,255,0.7);
+}
+.footer-bottom {
+    margin-top: 3rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+.footer-bottom-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.footer-bottom p {
+    margin: 0;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+}
+.footer-legal {
+    display: flex;
+    gap: 2rem;
+}
+.footer-legal a {
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+.footer-legal a:hover {
+    color: rgba(255,255,255,0.8);
+}
+@media (max-width: 768px) {
+    .footer-container {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    .footer-bottom-container {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+}
+</style>'
+WHERE name = 'footer-4-column';
+
+-- ============================================================================
+-- VERIFY: Check all templates are clean
+-- ============================================================================
+SELECT name,
+       CASE WHEN html_template LIKE '%{{#%' THEN 'STILL_HAS_HANDLEBARS' ELSE 'OK' END as handlebars_check,
+       CASE WHEN html_template LIKE '%{{nav_items_html}}%' AND html_template NOT LIKE '%{{.nav_items_html}}%'
+                THEN 'MISSING_DOT' ELSE 'OK' END as dot_check,
+       LENGTH(html_template) as length
+FROM content_components
+WHERE name LIKE '%header%' OR name LIKE '%footer%';
