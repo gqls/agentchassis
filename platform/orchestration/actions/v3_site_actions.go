@@ -681,14 +681,6 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 
 // mergeIntoRenderContextEnhanced extracts data from various source formats
 func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interface{}, sourceName string, logger *zap.Logger) {
-	// Unwrap .response wrapper if present
-	if response, ok := data["response"].(map[string]interface{}); ok {
-		if _, hasStatus := data["response_status"]; hasStatus {
-			logger.Debug("Unwrapping .response wrapper", zap.String("source", sourceName))
-			mergeIntoRenderContextEnhanced(ctx, response, sourceName+".response", logger)
-		}
-	}
-
 	// =========================================================================
 	// STEP 1: Unwrap .response wrapper if present (common in agent responses)
 	// reviewed_brief has: {"response": {...actual data...}, "response_status": "complete"}
@@ -743,14 +735,6 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 	// Phone - check both "phone" and "contact_phone"
 	if v, ok := data["phone"].(string); ok && v != "" {
 		ctx.Phone = v
-	}
-	if v, ok := data["contact_phone"].(string); ok && v != "" {
-		ctx.Phone = v
-	}
-
-	// Also check contact_email and contact_phone (reviewed_brief uses these names)
-	if v, ok := data["contact_email"].(string); ok && v != "" {
-		ctx.Email = v
 	}
 	if v, ok := data["contact_phone"].(string); ok && v != "" {
 		ctx.Phone = v
@@ -872,14 +856,19 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 	// =========================================================================
 	// STEP 8: Extract services array (for footer and services sections)
 	// Services appear in reviewed_brief.response.services as []interface{}
+	// Each service is {"name": "...", "description": "..."}
+	//
+	// ctx.Services is []string (just names)
+	// ctx.ContentData["services"] is []interface{} (full objects for {{range .services}})
 	// =========================================================================
 	if services, ok := data["services"].([]interface{}); ok && len(services) > 0 {
+		// Store full services in ContentData for template access via {{range .services}}
 		if ctx.ContentData == nil {
 			ctx.ContentData = make(map[string]interface{})
 		}
 		ctx.ContentData["services"] = services
 
-		// Extract names to ctx.Services ([]string)
+		// Also extract just the names to ctx.Services ([]string)
 		for _, svc := range services {
 			if svcMap, ok := svc.(map[string]interface{}); ok {
 				if name, ok := svcMap["name"].(string); ok && name != "" {
@@ -887,6 +876,11 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 				}
 			}
 		}
+
+		logger.Debug("Extracted services array",
+			zap.String("source", sourceName),
+			zap.Int("full_count", len(services)),
+			zap.Int("names_count", len(ctx.Services)))
 	}
 
 	// =========================================================================
@@ -929,7 +923,7 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 		zap.Int("services", len(ctx.Services)))
 }
 
-// Updated renderCtxToMap to include new fields
+// renderCtxToMap converts RenderContext to map for template substitution
 func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 	result := map[string]interface{}{
 		"domain":           ctx.Domain,
@@ -949,12 +943,20 @@ func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 		"industry":         ctx.Industry,
 		"tone":             ctx.Tone,
 		"target_audience":  ctx.TargetAudience,
-		"services":         ctx.Services,
 	}
+
 	if ctx.SiteID != uuid.Nil {
 		result["site_id"] = ctx.SiteID.String()
 	}
+
+	// =========================================================================
+	// Generate nav_items and nav_items_html from NavItems
+	// Templates may use either:
+	//   {{range .nav_items}} for iteration
+	//   {{.nav_items_html}} for pre-rendered HTML
+	// =========================================================================
 	if len(ctx.NavItems) > 0 {
+		// nav_items as array (for {{range .nav_items}})
 		navItems := make([]map[string]interface{}, len(ctx.NavItems))
 		for i, item := range ctx.NavItems {
 			navItems[i] = map[string]interface{}{
@@ -964,19 +966,72 @@ func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 			}
 		}
 		result["nav_items"] = navItems
-	}
-	if len(ctx.Services) > 0 {
-		result["services"] = ctx.Services
+
+		// nav_items_html as pre-rendered string (for {{.nav_items_html}})
+		// Format: <li><a href="/page.html">Label</a></li>
+		var htmlParts []string
+		for _, item := range ctx.NavItems {
+			activeClass := ""
+			if item.IsActive {
+				activeClass = ` class="active"`
+			}
+			htmlParts = append(htmlParts, fmt.Sprintf(
+				`<li><a href="%s"%s>%s</a></li>`,
+				item.URL, activeClass, item.Label,
+			))
+		}
+		result["nav_items_html"] = strings.Join(htmlParts, "\n                ")
+	} else {
+		// Ensure empty values don't render as "<no value>"
+		result["nav_items"] = []map[string]interface{}{}
+		result["nav_items_html"] = ""
 	}
 
-	// Merge ContentData fields for template access
+	// =========================================================================
+	// Generate services list HTML for footer
+	// Templates use {{.services_html}} for footer services list
+	// =========================================================================
+	if len(ctx.Services) > 0 {
+		result["services"] = ctx.Services
+
+		// services_html as pre-rendered string
+		var servicesParts []string
+		for _, svc := range ctx.Services {
+			// Services can be strings or maps with name/description
+			serviceName := ""
+			if name, ok := svc.(string); ok {
+				serviceName = name
+			} else if svcMap, ok := svc.(map[string]interface{}); ok {
+				if name, ok := svcMap["name"].(string); ok {
+					serviceName = name
+				}
+			}
+			if serviceName != "" {
+				servicesParts = append(servicesParts, fmt.Sprintf(
+					`<li><a href="/services.html">%s</a></li>`,
+					serviceName,
+				))
+			}
+		}
+		result["services_html"] = strings.Join(servicesParts, "\n                ")
+	} else {
+		result["services"] = []interface{}{}
+		result["services_html"] = ""
+	}
+
+	// =========================================================================
+	// Merge ContentData fields for additional template access
+	// This includes full service objects for {{range .services}} iteration
+	// =========================================================================
 	if ctx.ContentData != nil {
 		for key, value := range ctx.ContentData {
+			// Don't overwrite explicit fields
 			if _, exists := result[key]; !exists {
 				result[key] = value
 			}
 		}
 	}
+
 	return result
 }
 

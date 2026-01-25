@@ -2015,3 +2015,85 @@ SELECT name,
        LENGTH(html_template) as length
 FROM content_components
 WHERE name LIKE '%header%' OR name LIKE '%footer%';
+
+
+-- template paths
+-- ============================================================================
+-- Fix footer and header templates to use correct variable names
+-- ============================================================================
+-- The Go code will generate:
+--   nav_items_html  - For navigation links
+--   services_html   - For services list
+--
+-- Both are pre-rendered HTML strings like:
+--   <li><a href="/page.html">Label</a></li>
+-- ============================================================================
+
+-- First, check current state
+SELECT name,
+       CASE WHEN html_template LIKE '%{{.nav_items_html}}%' THEN 'has_nav_items_html'
+            WHEN html_template LIKE '%{{nav_items_html}}%' THEN 'missing_dot'
+            ELSE 'not_found' END as nav_check,
+       CASE WHEN html_template LIKE '%{{.services_html}}%' THEN 'has_services_html'
+            WHEN html_template LIKE '%{{services_html}}%' THEN 'missing_dot'
+            ELSE 'not_found' END as services_check
+FROM content_components
+WHERE name LIKE '%header%' OR name LIKE '%footer%';
+
+-- Fix header-professional-dark: wrap nav_items_html in if block
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '{{.nav_items_html}}',
+        '{{if .nav_items_html}}{{.nav_items_html}}{{end}}'
+                    )
+WHERE name = 'header-professional-dark'
+  AND html_template LIKE '%{{.nav_items_html}}%'
+  AND html_template NOT LIKE '%{{if .nav_items_html}}%';
+
+-- Fix header-minimal-light
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '{{.nav_items_html}}',
+        '{{if .nav_items_html}}{{.nav_items_html}}{{end}}'
+                    )
+WHERE name = 'header-minimal-light'
+  AND html_template LIKE '%{{.nav_items_html}}%'
+  AND html_template NOT LIKE '%{{if .nav_items_html}}%';
+
+-- Fix header-bold-gradient
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '{{.nav_items_html}}',
+        '{{if .nav_items_html}}{{.nav_items_html}}{{end}}'
+                    )
+WHERE name = 'header-bold-gradient'
+  AND html_template LIKE '%{{.nav_items_html}}%'
+  AND html_template NOT LIKE '%{{if .nav_items_html}}%';
+
+-- Fix footer-4-column nav_items_html
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '{{.nav_items_html}}',
+        '{{if .nav_items_html}}{{.nav_items_html}}{{end}}'
+                    )
+WHERE name = 'footer-4-column'
+  AND html_template LIKE '%{{.nav_items_html}}%'
+  AND html_template NOT LIKE '%{{if .nav_items_html}}%';
+
+-- Fix footer-4-column services - need to add services_html variable
+-- First check what's in the services section
+SELECT name,
+       substring(html_template from 'footer-services.{0,300}') as services_section_preview
+FROM content_components
+WHERE name = 'footer-4-column';
+
+-- The footer services section might be using nav_items_html incorrectly
+-- or might have some other placeholder. Let's see the actual content first.
+
+-- After the Go fix is applied, the templates will work with:
+-- {{if .nav_items_html}}{{.nav_items_html}}{{end}} - renders nav links or nothing
+-- {{if .services_html}}{{.services_html}}{{end}} - renders services or nothing
