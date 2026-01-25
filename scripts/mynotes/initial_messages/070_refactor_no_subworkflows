@@ -107,7 +107,7 @@ kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 #   --replication-factor 1
 
 
-
+kubectl -n kafka delete pod kcat-producer-brochure-confirm
 
 
 
@@ -286,9 +286,9 @@ CLIENT_ID="demo_client"
 
 -- 1 ----
 
-CORRELATION_ID=83f79cfc-3e5d-4bf6-9335-7d22800e35d8
-ORCHESTRATION_ID=dea7e895-d4e1-4cdc-bfb0-c675b7d76cbd
-HITL_REQUEST_ID=a0fb5f5e-96b7-4b1f-bf61-f5fb82057248
+CORRELATION_ID=5e681dc0-26cc-4834-be63-dbf371662907
+ORCHESTRATION_ID=e1acbfb1-df19-43f1-929d-acf76b94fba3
+HITL_REQUEST_ID=25e19dd2-37c2-4bb5-849d-a773fde47133
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -377,9 +377,9 @@ CLIENT_ID="demo_client"
 
 --- 2 2 ---
 
-CORRELATION_ID=83f79cfc-3e5d-4bf6-9335-7d22800e35d8
-ORCHESTRATION_ID=dea7e895-d4e1-4cdc-bfb0-c675b7d76cbd
-HITL_REQUEST_ID=e3ba9e17-85d8-40c4-ad39-9ffac3254fa8
+CORRELATION_ID=5e681dc0-26cc-4834-be63-dbf371662907
+ORCHESTRATION_ID=e1acbfb1-df19-43f1-929d-acf76b94fba3
+HITL_REQUEST_ID=e256d7dd-e49c-4db4-a5b8-f942a39d9f53
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -557,10 +557,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=83f79cfc-3e5d-4bf6-9335-7d22800e35d8
-ORCHESTRATION_ID=0b1856d1-0b2f-4227-89fb-bbdb0ced5e20
-HITL_REQUEST_ID=2f07bc86-375f-4416-9f59-f1274ba9cdb0
-RESPONSES_TOPIC=job.83f79cfc-358c96a2-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=5e681dc0-26cc-4834-be63-dbf371662907
+ORCHESTRATION_ID=83d9efb4-3941-4041-9e0b-dc905b09930b
+HITL_REQUEST_ID=5906bdc2-abb4-45c0-926f-be7089ac2b50
+RESPONSES_TOPIC=job.5e681dc0-985a4823-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
