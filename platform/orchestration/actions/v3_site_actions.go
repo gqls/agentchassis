@@ -864,8 +864,9 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 	// ctx.Services is []string (just names)
 	// ctx.ContentData["services"] is []interface{} (full objects for {{range .services}})
 	// =========================================================================
-	if services, ok := data["services"].([]interface{}); ok && len(services) > 0 {
+	if services, ok := data["services"].([]interface{}); ok && len(services) > 0 && len(ctx.Services) == 0 {
 		// Store full services in ContentData for template access via {{range .services}}
+		// Only if not already populated (avoid duplicates from brief + brief.response)
 		if ctx.ContentData == nil {
 			ctx.ContentData = make(map[string]interface{})
 		}

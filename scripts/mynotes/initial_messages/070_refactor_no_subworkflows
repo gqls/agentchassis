@@ -286,9 +286,9 @@ CLIENT_ID="demo_client"
 
 -- 1 ----
 
-CORRELATION_ID=06fa547c-d67e-4634-8bf9-15d21cf73de1
-ORCHESTRATION_ID=8aef3495-831c-46cb-baf4-742516f6f03b
-HITL_REQUEST_ID=05e4218e-bdbc-4e64-a071-1f56a52131e4
+CORRELATION_ID=54262263-3084-414d-8bbb-45663de4773d
+ORCHESTRATION_ID=b87be02e-9cc1-4cd7-bcb7-dc42e2a0bb1b
+HITL_REQUEST_ID=cb074763-85aa-4a93-a0ed-357a8e2319d7
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -365,7 +365,7 @@ this one was multipage-website-builder
 
 
 
-SEND BROCHURE BRIEF (SECOND fill - actual filled review brief)
+SEND BROCHURE REVIEW BRIEF (SECOND fill - actual filled review brief)
 ------------------------------------
 
 CORRELATION_ID=
@@ -377,9 +377,9 @@ CLIENT_ID="demo_client"
 
 --- 2 2 ---
 
-CORRELATION_ID=06fa547c-d67e-4634-8bf9-15d21cf73de1
-ORCHESTRATION_ID=8aef3495-831c-46cb-baf4-742516f6f03b
-HITL_REQUEST_ID=de9fae88-f58c-4fb5-9a01-bfdf3f0474f9
+CORRELATION_ID=54262263-3084-414d-8bbb-45663de4773d
+ORCHESTRATION_ID=b87be02e-9cc1-4cd7-bcb7-dc42e2a0bb1b
+HITL_REQUEST_ID=f0f3ffaf-10be-4954-bf70-645fdd7a04a6
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -557,10 +557,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=06fa547c-d67e-4634-8bf9-15d21cf73de1
-ORCHESTRATION_ID=154243f1-2046-47fd-a793-23148211bed7
-HITL_REQUEST_ID=0cd82133-f74f-43e0-8b95-b4c51b310e27
-RESPONSES_TOPIC=job.06fa547c-fc2c69d4-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=54262263-3084-414d-8bbb-45663de4773d
+ORCHESTRATION_ID=550a17db-a676-467a-bdf6-c624c5ed5f00
+HITL_REQUEST_ID=0867f819-b805-47ed-b41e-dd1a7e2907b5
+RESPONSES_TOPIC=job.54262263-10592b75-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
