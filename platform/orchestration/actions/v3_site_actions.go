@@ -990,22 +990,14 @@ func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 	// =========================================================================
 	// Generate services list HTML for footer
 	// Templates use {{.services_html}} for footer services list
+	// ctx.Services is []string (service names extracted from reviewed_brief)
 	// =========================================================================
 	if len(ctx.Services) > 0 {
 		result["services"] = ctx.Services
 
 		// services_html as pre-rendered string
 		var servicesParts []string
-		for _, svc := range ctx.Services {
-			// Services can be strings or maps with name/description
-			serviceName := ""
-			if name, ok := svc.(string); ok {
-				serviceName = name
-			} else if svcMap, ok := svc.(map[string]interface{}); ok {
-				if name, ok := svcMap["name"].(string); ok {
-					serviceName = name
-				}
-			}
+		for _, serviceName := range ctx.Services {
 			if serviceName != "" {
 				servicesParts = append(servicesParts, fmt.Sprintf(
 					`<li><a href="/services.html">%s</a></li>`,
@@ -1015,7 +1007,7 @@ func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 		}
 		result["services_html"] = strings.Join(servicesParts, "\n                ")
 	} else {
-		result["services"] = []interface{}{}
+		result["services"] = []string{}
 		result["services_html"] = ""
 	}
 
