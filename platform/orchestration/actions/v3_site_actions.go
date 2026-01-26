@@ -739,6 +739,9 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 	if v, ok := data["contact_phone"].(string); ok && v != "" {
 		ctx.Phone = v
 	}
+	if v, ok := data["contact_email"].(string); ok && v != "" {
+		ctx.Email = v
+	}
 
 	// Colors - direct fields
 	if v, ok := data["primary_color"].(string); ok && v != "" {
@@ -877,7 +880,7 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 			}
 		}
 
-		logger.Debug("Extracted services array",
+		logger.Info("Extracted services array",
 			zap.String("source", sourceName),
 			zap.Int("full_count", len(services)),
 			zap.Int("names_count", len(ctx.Services)))
@@ -905,6 +908,30 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 				if len(ctx.NavItems) > 0 {
 					logger.Info("Extracted navigation items from db_sync",
 						zap.Int("count", len(ctx.NavItems)))
+				}
+			}
+		}
+	}
+
+	// Handle site_record.content_data - recursively merge nested content_data
+	if sourceName == "site_record" {
+		if contentData, ok := data["content_data"].(map[string]interface{}); ok {
+			logger.Debug("Processing site_record.content_data",
+				zap.Int("fields", len(contentData)))
+			mergeIntoRenderContextEnhanced(ctx, contentData, "site_record.content_data", logger)
+		}
+	}
+
+	// Handle services array (for services_html generation)
+	if len(ctx.Services) == 0 {
+		if services, ok := data["services"].([]interface{}); ok && len(services) > 0 {
+			for _, svc := range services {
+				if name, ok := svc.(string); ok && name != "" {
+					ctx.Services = append(ctx.Services, name)
+				} else if svcMap, ok := svc.(map[string]interface{}); ok {
+					if name, ok := svcMap["name"].(string); ok && name != "" {
+						ctx.Services = append(ctx.Services, name)
+					}
 				}
 			}
 		}

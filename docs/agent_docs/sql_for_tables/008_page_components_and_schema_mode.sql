@@ -261,3 +261,10 @@ COMMIT;
 
 -- Check section schema status view
 -- SELECT * FROM v_section_schema_status LIMIT 10;
+
+
+
+UPDATE pages
+SET nav_label = 'Case Studies'
+WHERE name = 'case-studies'
+  AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');

@@ -33,6 +33,7 @@ type SiteRecord struct {
 	Domain       string                 `json:"domain"`
 	Name         string                 `json:"name"`
 	BrandDNA     map[string]interface{} `json:"brand_dna,omitempty"`
+	ContentData  map[string]interface{} `json:"content_data,omitempty"`
 	GithubRepo   string                 `json:"github_repo,omitempty"`
 	GithubBranch string                 `json:"github_branch,omitempty"`
 	Status       string                 `json:"status"`
@@ -149,11 +150,12 @@ func EnsureSiteRecordAction(ctx context.Context, params ActionParams) (interface
 	)
 
 	return map[string]interface{}{
-		"site_id":    siteRecord.ID.String(),
-		"domain":     siteRecord.Domain,
-		"network_id": siteRecord.NetworkID.String(),
-		"status":     siteRecord.Status,
-		"created":    siteRecord.CreatedAt.Format(time.RFC3339),
+		"site_id":      siteRecord.ID.String(),
+		"domain":       siteRecord.Domain,
+		"content_data": siteRecord.ContentData,
+		"network_id":   siteRecord.NetworkID.String(),
+		"status":       siteRecord.Status,
+		"created":      siteRecord.CreatedAt.Format(time.RFC3339),
 	}, nil
 }
 
@@ -807,15 +809,17 @@ func upsertSite(ctx context.Context, db interface{}, domain string, networkID uu
 		VALUES ($1, $1, $2, 'active')
 		ON CONFLICT (domain) DO UPDATE SET
 			updated_at = NOW()
-		RETURNING id, network_id, domain, name, status, created_at
+		RETURNING id, network_id, domain, name, status, created_at, COALESCE(content_data, '{}'::jsonb)
 	`
 
 	var site SiteRecord
+	var contentDataJSON []byte // NEW: to scan JSONB
 
 	switch d := db.(type) {
 	case *sql.DB:
 		err := d.QueryRowContext(ctx, query, domain, networkID).Scan(
 			&site.ID, &site.NetworkID, &site.Domain, &site.Name, &site.Status, &site.CreatedAt,
+			&contentDataJSON, // NEW
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upsert site: %w", err)
@@ -823,12 +827,21 @@ func upsertSite(ctx context.Context, db interface{}, domain string, networkID uu
 	case *pgxpool.Pool:
 		err := d.QueryRow(ctx, query, domain, networkID).Scan(
 			&site.ID, &site.NetworkID, &site.Domain, &site.Name, &site.Status, &site.CreatedAt,
+			&contentDataJSON, // NEW
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upsert site: %w", err)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported database type: %T", db)
+	}
+
+	// Parse content_data JSON
+	if len(contentDataJSON) > 0 && string(contentDataJSON) != "null" {
+		site.ContentData = make(map[string]interface{})
+		if err := json.Unmarshal(contentDataJSON, &site.ContentData); err != nil {
+			logger.Warn("Failed to parse content_data", zap.Error(err))
+		}
 	}
 
 	return &site, nil
