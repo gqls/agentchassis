@@ -286,9 +286,9 @@ CLIENT_ID="demo_client"
 
 -- 1 ----
 
-CORRELATION_ID=54262263-3084-414d-8bbb-45663de4773d
-ORCHESTRATION_ID=b87be02e-9cc1-4cd7-bcb7-dc42e2a0bb1b
-HITL_REQUEST_ID=cb074763-85aa-4a93-a0ed-357a8e2319d7
+CORRELATION_ID=b10eff7d-3a09-45d0-8eff-586925781e52
+ORCHESTRATION_ID=4755a53c-7cc8-4fd8-8f2e-6442ef40f6d8
+HITL_REQUEST_ID=0f2d0418-11c7-48b2-8d0f-14edbeb4138d
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -377,9 +377,9 @@ CLIENT_ID="demo_client"
 
 --- 2 2 ---
 
-CORRELATION_ID=54262263-3084-414d-8bbb-45663de4773d
-ORCHESTRATION_ID=b87be02e-9cc1-4cd7-bcb7-dc42e2a0bb1b
-HITL_REQUEST_ID=f0f3ffaf-10be-4954-bf70-645fdd7a04a6
+CORRELATION_ID=b10eff7d-3a09-45d0-8eff-586925781e52
+ORCHESTRATION_ID=4755a53c-7cc8-4fd8-8f2e-6442ef40f6d8
+HITL_REQUEST_ID=cca6044f-70db-4c79-a0c2-bfa30eaee518
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -507,30 +507,6 @@ now:
 }
 
 
-HITL Pauses Worked
-"Found awaited request for response"
-"All responses received, continuing workflow"
-
-Correct Builder Spawned
-"agent_type": "content-site-builder"
-"Spawning agent with role: builder"
-
-
-Troubleshooting
-Issue: "No state found for awaited request_id"
-Cause: Used wrong request_id (probably orchestration's original request_id)
-Fix: Extract HITL's generated request_id from "Action requires waiting" log
-Issue: Workflow didn't continue after HITL response
-Cause: JSON format error or wrong headers
-Fix: Check logs for "Failed to unmarshal" errors
-Issue: Classifier chose "landing" instead of "brochure"
-Cause: Objective not clearly brochure-focused
-Fix: Send manual confirmation with brochure type - HITL allows override
-Issue: Wrong builder spawned
-Cause: HITL confirmation specified wrong recommended_builder
-Fix: Check send_brochure_confirm.sh has "content-site-builder"
-
-
 
 ========================================
 
@@ -557,10 +533,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=54262263-3084-414d-8bbb-45663de4773d
-ORCHESTRATION_ID=550a17db-a676-467a-bdf6-c624c5ed5f00
-HITL_REQUEST_ID=0867f819-b805-47ed-b41e-dd1a7e2907b5
-RESPONSES_TOPIC=job.54262263-10592b75-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=b10eff7d-3a09-45d0-8eff-586925781e52
+ORCHESTRATION_ID=0e7c924d-1974-4193-b4e0-3323a51fab7d
+HITL_REQUEST_ID=269a9db2-8629-4e82-84a1-ef7694c17fcb
+RESPONSES_TOPIC=job.b10eff7d-b2286607-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
