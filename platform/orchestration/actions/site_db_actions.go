@@ -889,7 +889,7 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 			url = EXCLUDED.url,
 			title = EXCLUDED.title,
 			page_type = EXCLUDED.page_type,
-			nav_label = EXCLUDED.nav_label,
+			nav_label = COALESCE(NULLIF(pages.nav_label, ''), EXCLUDED.nav_label),
 			nav_order = EXCLUDED.nav_order,
 			in_header = EXCLUDED.in_header,
 			in_footer = EXCLUDED.in_footer,

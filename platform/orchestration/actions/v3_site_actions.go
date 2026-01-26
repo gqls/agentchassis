@@ -914,7 +914,7 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 	}
 
 	// Handle site_record.content_data - recursively merge nested content_data
-	if sourceName == "site_record" {
+	if sourceName == "site_record" || sourceName == "site" {
 		if contentData, ok := data["content_data"].(map[string]interface{}); ok {
 			logger.Debug("Processing site_record.content_data",
 				zap.Int("fields", len(contentData)))
