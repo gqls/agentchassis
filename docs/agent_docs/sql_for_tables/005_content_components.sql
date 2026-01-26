@@ -2097,3 +2097,302 @@ WHERE name = 'footer-4-column';
 -- After the Go fix is applied, the templates will work with:
 -- {{if .nav_items_html}}{{.nav_items_html}}{{end}} - renders nav links or nothing
 -- {{if .services_html}}{{.services_html}}{{end}} - renders services or nothing
+
+---
+
+small fixes
+
+-- ============================================================================
+-- FIX 1: Footer template - use services_html for "Our Services" section
+-- ============================================================================
+-- Currently both Quick Links AND Our Services use nav_items_html
+-- We need the services section to use services_html instead
+
+-- First, check current footer template structure
+SELECT name,
+       substring(html_template from 'footer-links.{0,150}') as links_section,
+       substring(html_template from 'footer-services.{0,150}') as services_section
+FROM content_components
+WHERE name = 'footer-4-column';
+
+-- The footer-4-column template likely has both sections using {{.nav_items_html}}
+-- We need to change the services section to use {{.services_html}}
+
+-- Update footer-4-column: Change services section to use services_html
+-- This is tricky because we need to target only the second occurrence
+-- Let's do it by matching the specific div class
+
+UPDATE content_components
+SET html_template = regexp_replace(
+        html_template,
+        '(<div class="footer-services">[\s\S]*?<ul>)\s*\{\{\.nav_items_html\}\}\s*(</ul>)',
+        E'\\1\n                {{if .services_html}}{{.services_html}}{{else}}{{.nav_items_html}}{{end}}\n            \\2',
+        'g'
+                    )
+WHERE name = 'footer-4-column';
+
+-- Verify the change
+SELECT name,
+       CASE WHEN html_template LIKE '%footer-services%services_html%' THEN 'FIXED' ELSE 'NOT_FIXED' END as services_section_status
+FROM content_components
+WHERE name = 'footer-4-column';
+
+
+-- ============================================================================
+-- FIX 2: Fix nav_labels in pages table
+-- ============================================================================
+-- Current labels are too long: "Insights & Blog | Leopardess Consulting"
+-- Should be short: "Insights", "Careers", etc.
+
+-- First, see current state
+SELECT name, nav_label, title, url
+FROM pages
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+ORDER BY nav_order;
+
+-- Fix the nav_labels to be short and clean
+UPDATE pages SET nav_label = 'Home' WHERE name = 'index'
+                                      AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');
+
+UPDATE pages SET nav_label = 'About' WHERE name = 'about'
+                                       AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');
+
+UPDATE pages SET nav_label = 'Services' WHERE name = 'services'
+                                          AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');
+
+UPDATE pages SET nav_label = 'Use Cases' WHERE name = 'use-cases'
+                                           AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');
+
+UPDATE pages SET nav_label = 'Case Studies' WHERE name = 'case-studies'
+                                              AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');
+
+UPDATE pages SET nav_label = 'Contact' WHERE name = 'contact'
+                                         AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');
+
+UPDATE pages SET nav_label = 'Insights' WHERE name = 'insights'
+                                          AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');
+
+UPDATE pages SET nav_label = 'Careers' WHERE name = 'careers'
+                                         AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');
+
+-- Verify the changes
+SELECT name, nav_label, nav_order
+FROM pages
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+ORDER BY nav_order;
+
+-- Also fix duplicate "Use Cases" - case-studies should have different label
+-- Already done above with 'Case Studies'
+
+
+-- ============================================================================
+-- FIX 3: Diagnose why services aren't being extracted from reviewed_brief
+-- ============================================================================
+
+-- Check if services exist in the reviewed_brief
+SELECT
+    orchestration_id,
+    -- Check if services exist at different paths
+    collected_data->'reviewed_brief'->'services' IS NOT NULL as services_at_top,
+    collected_data->'reviewed_brief'->'response'->'services' IS NOT NULL as services_in_response,
+    -- Get the actual services if present
+    jsonb_array_length(COALESCE(
+            collected_data->'reviewed_brief'->'services',
+            collected_data->'reviewed_brief'->'response'->'services',
+            '[]'::jsonb
+                       )) as services_count,
+    -- Preview the services
+    jsonb_pretty(COALESCE(
+            collected_data->'reviewed_brief'->'services',
+            collected_data->'reviewed_brief'->'response'->'services'
+                 )) as services_preview
+FROM orchestration_states
+WHERE correlation_id = '0663d7af-4aa8-499b-95b7-d2c212bdf99f'
+  AND orchestration_name LIKE '%pageflow%'
+ORDER BY created_at DESC
+    LIMIT 1;
+
+-- Check the sites table content_data for services
+SELECT
+    domain,
+    content_data->'services' IS NOT NULL as has_services,
+    jsonb_array_length(COALESCE(content_data->'services', '[]'::jsonb)) as services_count,
+    jsonb_pretty(content_data->'services') as services
+FROM sites
+WHERE domain = 'leopardessconsulting.co.uk';
+
+-- Check reviewed_brief structure in intake-orchestrator
+SELECT
+    orchestration_id,
+    orchestration_name,
+    jsonb_typeof(collected_data->'reviewed_brief') as reviewed_brief_type,
+    collected_data->'reviewed_brief' ? 'response' as has_response_wrapper,
+    collected_data->'reviewed_brief' ? 'services' as has_services_direct,
+    collected_data->'reviewed_brief'->'response' ? 'services' as has_services_in_response
+FROM orchestration_states
+WHERE correlation_id = '0663d7af-4aa8-499b-95b7-d2c212bdf99f'
+  AND collected_data ? 'reviewed_brief'
+ORDER BY created_at
+    LIMIT 3;
+
+
+-- ============================================================================
+-- FIX 4: Add cta_text to render context (for header CTA button)
+-- ============================================================================
+-- The header CTA is empty: <a href="/contact.html" class="header-cta"></a>
+-- Need to check if cta_text is in reviewed_brief
+
+SELECT
+    collected_data->'reviewed_brief'->'response'->>'cta_text' as cta_text_in_response,
+    collected_data->'reviewed_brief'->>'cta_text' as cta_text_direct
+FROM orchestration_states
+WHERE correlation_id = '0663d7af-4aa8-499b-95b7-d2c212bdf99f'
+  AND collected_data ? 'reviewed_brief'
+    LIMIT 1;
+
+-- Check sites.content_data for cta_text
+SELECT
+    content_data->>'cta_text' as cta_text,
+    content_data->>'cta_url' as cta_url
+FROM sites
+WHERE domain = 'leopardessconsulting.co.uk';
+
+
+-- ============================================================================
+-- FIX 5: Ensure header template uses cta_text properly
+-- ============================================================================
+-- Check what the header template expects for CTA
+
+SELECT name,
+       substring(html_template from 'header-cta.{0,100}') as cta_section
+FROM content_components
+WHERE name = 'header-professional-dark';
+
+-- The CTA button should show text like "Get Started" or "Contact Us"
+-- Update header to use cta_text with fallback
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<a href="/contact.html" class="header-cta"></a>',
+        '<a href="{{if .cta_url}}{{.cta_url}}{{else}}/contact.html{{end}}" class="header-cta">{{if .cta_text}}{{.cta_text}}{{else}}Get Started{{end}}</a>'
+                    )
+WHERE name = 'header-professional-dark'
+  AND html_template LIKE '%<a href="/contact.html" class="header-cta"></a>%';
+
+-- Also fix other header variants
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<a href="/contact.html" class="header-cta"></a>',
+        '<a href="{{if .cta_url}}{{.cta_url}}{{else}}/contact.html{{end}}" class="header-cta">{{if .cta_text}}{{.cta_text}}{{else}}Get Started{{end}}</a>'
+                    )
+WHERE name IN ('header-minimal-light', 'header-bold-gradient')
+  AND html_template LIKE '%<a href="/contact.html" class="header-cta"></a>%';
+
+
+-- ============================================================================
+-- VERIFICATION: Check all fixes applied
+-- ============================================================================
+SELECT name,
+       CASE WHEN html_template LIKE '%services_html%' THEN 'YES' ELSE 'NO' END as has_services_html,
+       CASE WHEN html_template LIKE '%cta_text%' THEN 'YES' ELSE 'NO' END as has_cta_text,
+       CASE WHEN html_template LIKE '%Get Started%' THEN 'YES' ELSE 'NO' END as has_cta_fallback
+FROM content_components
+WHERE name LIKE '%header%' OR name LIKE '%footer%';
+
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        'footer-services">
+                <h4>Our Services</h4>
+                <ul>
+                    {{if .nav_items_html}}{{.nav_items_html}}{{end}}',
+        'footer-services">
+                <h4>Our Services</h4>
+                <ul>
+                    {{if .services_html}}{{.services_html}}{{end}}'
+                    )
+WHERE name = 'footer-4-column';
+
+--
+
+-- services.html and footer and header updates
+-- ============================================================================
+-- Clean fixes for leopardessconsulting.co.uk
+-- Run each statement separately to avoid parsing issues
+-- ============================================================================
+
+-- 1. Add cta_text and cta_url to sites.content_data
+UPDATE sites
+SET content_data = COALESCE(content_data, '{}'::jsonb) ||
+                   '{"cta_text": "Get Started", "cta_url": "/contact.html"}'::jsonb
+WHERE domain = 'leopardessconsulting.co.uk';
+
+-- 2. Add services to sites.content_data
+UPDATE sites
+SET content_data = content_data ||
+                   '{"services": ["Automated Website Solutions", "Multi-Agent Systems", "Digital Transformation Strategy", "Web Consultancy"]}'::jsonb
+WHERE domain = 'leopardessconsulting.co.uk';
+
+-- 3. Verify the content_data update
+SELECT
+    content_data->>'cta_text' as cta_text,
+    content_data->>'cta_url' as cta_url,
+    jsonb_array_length(content_data->'services') as services_count
+FROM sites
+WHERE domain = 'leopardessconsulting.co.uk';
+
+-- 4. Fix remaining nav_labels (privacy and terms)
+UPDATE pages SET nav_label = 'Privacy'
+WHERE name = 'privacy'
+  AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');
+
+UPDATE pages SET nav_label = 'Terms'
+WHERE name = 'terms'
+  AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');
+
+-- 5. Verify nav_labels
+SELECT name, nav_label, nav_order
+FROM pages
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+ORDER BY nav_order;
+
+-- 6. Add CTA fallback to header templates
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '>{{.cta_text}}</a>',
+        '>{{if .cta_text}}{{.cta_text}}{{else}}Get Started{{end}}</a>'
+                    )
+WHERE name = 'header-professional-dark'
+  AND html_template LIKE '%>{{.cta_text}}</a>%';
+
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '>{{.cta_text}}</a>',
+        '>{{if .cta_text}}{{.cta_text}}{{else}}Get Started{{end}}</a>'
+                    )
+WHERE name = 'header-minimal-light'
+  AND html_template LIKE '%>{{.cta_text}}</a>%';
+
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '>{{.cta_text}}</a>',
+        '>{{if .cta_text}}{{.cta_text}}{{else}}Get Started{{end}}</a>'
+                    )
+WHERE name = 'header-bold-gradient'
+  AND html_template LIKE '%>{{.cta_text}}</a>%';
+
+-- 7. Verify header CTA fallbacks
+SELECT name,
+       CASE WHEN html_template LIKE '%Get Started%' THEN 'HAS_FALLBACK' ELSE 'NO_FALLBACK' END as cta_status
+FROM content_components
+WHERE name LIKE 'header-%';
+
+-- 8. Verify footer services_html is in place (from previous update)
+SELECT name,
+       CASE WHEN html_template LIKE '%services_html%' THEN 'YES' ELSE 'NO' END as has_services_html
+FROM content_components
+WHERE name = 'footer-4-column';
