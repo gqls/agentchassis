@@ -110,30 +110,70 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 }
 
 // findStorageURI looks for the storage URI in multiple locations
+// findStorageURI looks for the storage URI in multiple locations
 func findStorageURI(collectedData map[string]interface{}, config map[string]interface{}, purpose string, logger *zap.Logger) string {
 	// Priority 1: Config-specified field
 	if uriField, ok := config["uri_field"].(string); ok && uriField != "" {
 		if uri := datahelpers.ExtractNestedFieldString(collectedData, uriField); uri != "" {
+			logger.Debug("Found URI via config uri_field", zap.String("path", uriField))
 			return uri
 		}
 	}
 
 	// Priority 2: {purpose}_uri (set by StoreAssetAction)
 	if uri := datahelpers.ExtractNestedFieldString(collectedData, purpose+"_uri"); uri != "" {
+		logger.Debug("Found URI at purpose_uri", zap.String("path", purpose+"_uri"))
 		return uri
 	}
 
 	// Priority 3: {purpose}_result.image_uri pattern
 	resultField := purpose + "_result.image_uri"
 	if uri := datahelpers.ExtractNestedFieldString(collectedData, resultField); uri != "" {
+		logger.Debug("Found URI at result.image_uri", zap.String("path", resultField))
 		return uri
 	}
 
-	// Priority 4: {purpose}_stored.asset_url if it's a storage URI
+	// Priority 4: Deep nested from image-generator agent response
+	// Pattern: {purpose}_result.response.generate.response.image_uri
+	deepField := purpose + "_result.response.generate.response.image_uri"
+	if uri := datahelpers.ExtractNestedFieldString(collectedData, deepField); uri != "" {
+		logger.Debug("Found URI at deep nested path", zap.String("path", deepField))
+		return uri
+	}
+
+	// Priority 5: Slightly less nested pattern
+	// Pattern: {purpose}_result.response.image_uri
+	lessDeepField := purpose + "_result.response.image_uri"
+	if uri := datahelpers.ExtractNestedFieldString(collectedData, lessDeepField); uri != "" {
+		logger.Debug("Found URI at response.image_uri", zap.String("path", lessDeepField))
+		return uri
+	}
+
+	// Priority 6: Check generate_hero_image step directly (step name pattern)
+	generateStepField := "generate_" + purpose + "_image.response.generate.response.image_uri"
+	if uri := datahelpers.ExtractNestedFieldString(collectedData, generateStepField); uri != "" {
+		logger.Debug("Found URI at generate step", zap.String("path", generateStepField))
+		return uri
+	}
+
+	// Priority 7: {purpose}_stored.asset_url if it's a storage URI
 	storedField := purpose + "_stored.asset_url"
 	if url := datahelpers.ExtractNestedFieldString(collectedData, storedField); storage.IsS3URI(url) {
+		logger.Debug("Found URI at stored.asset_url", zap.String("path", storedField))
 		return url
 	}
+
+	// Log what we searched for debugging
+	logger.Debug("Storage URI not found, searched paths",
+		zap.String("purpose", purpose),
+		zap.Strings("searched", []string{
+			purpose + "_uri",
+			purpose + "_result.image_uri",
+			purpose + "_result.response.generate.response.image_uri",
+			purpose + "_result.response.image_uri",
+			"generate_" + purpose + "_image.response.generate.response.image_uri",
+			purpose + "_stored.asset_url",
+		}))
 
 	return ""
 }
