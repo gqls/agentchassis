@@ -2494,3 +2494,25 @@ WHERE name = 'hero' AND category = 'hero';
 
 -- Verify
 SELECT substring(html_template, 1, 600) FROM content_components WHERE name = 'hero' AND category = 'hero';
+
+-- Update hero template to check hero_url as well as background_image
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '{{if .background_image}}',
+        '{{if or .hero_url .background_image}}'
+                    )
+WHERE name = 'hero' AND category = 'hero';
+
+-- Then update the url reference
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        E'url(\'{{.background_image}}\')',
+    E'url(\'{{or .hero_url .background_image}}\')'
+)
+WHERE name = 'hero' AND category = 'hero';
+
+-- Verify
+SELECT substring(html_template, 1, 400) FROM content_components WHERE name = 'hero';
+

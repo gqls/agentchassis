@@ -17,8 +17,10 @@ import (
 )
 
 func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("CompleteWorkflowAction: starting",
+	params.Logger.Info("CompleteWorkflowAction: COMPLETE_WORKFLOW_DEBUG: starting",
 		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.String("agent_type", params.AgentType),
+		zap.String("step_name", params.ExecutionContext.StepName),
 		zap.Any("DEBUGaa: input params for CompleteWorkflowAction", params),
 	)
 
@@ -30,20 +32,26 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 
 	// Step 2: Get reply-to metadata (WHO asked us to do work? WHERE do they expect the response?)
 	replyTo, err := extractReplyToMetadata(params.CollectedData, params.ExecutionContext, params.Logger)
-	params.Logger.Info("CompleteWorkflowAction ReplytoMetadata",
+	params.Logger.Info("CompleteWorkflowAction COMPLETE_WORKFLOW_DEBUG: extracted reply metadata",
 		zap.Any("replyTo", replyTo),
+		zap.Bool("has_error", err != nil),
+		zap.String("error_msg", fmt.Sprintf("%v", err)),
 	)
+
 	if err != nil {
-		params.Logger.Error("CompleteWorkflowAction: cannot determine where to send response",
+		params.Logger.Error("COMPLETE_WORKFLOW_DEBUG: cannot determine where to send response",
 			zap.Error(err),
 			zap.String("orchestration_id", params.ExecutionContext.OrchestrationID))
 		return map[string]interface{}{"result": finalResult}, err
 	}
 
-	params.Logger.Info("CompleteWorkflowAction: sending response",
+	params.Logger.Info("COMPLETE_WORKFLOW_DEBUG: about to send response",
+		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.String("SENDING_TO_TOPIC", replyTo.Topic), // <-- Key field to search
 		zap.String("reply_to_request_id", replyTo.RequestID),
 		zap.String("reply_to_topic", replyTo.Topic), // blank
-		zap.String("requester", replyTo.Requester))
+		zap.String("requester", replyTo.Requester),
+	)
 
 	// Step 3: Build and send the response
 	responseMsg := buildResponseMessage(params.ExecutionContext, replyTo, finalResult)
@@ -131,15 +139,31 @@ func extractFinalResult(collectedData map[string]interface{}, config map[string]
 //  3. Current ExecutionContext (for inline workflows)
 func extractReplyToMetadata(collectedData map[string]interface{}, execCtx *types.ExecutionContext, logger *zap.Logger) (*datahelpers.ReplyToMetadata, error) {
 
+	logger.Info("extractReplyToMetadata REPLY_METADATA_DEBUG: starting extraction",
+		zap.Bool("has_work_request", collectedData["__work_request__"] != nil),
+		zap.Bool("has_exec_context", collectedData["__execution_context__"] != nil),
+		zap.Bool("has_parent_topic", collectedData["__parent_responses_topic__"] != nil),
+	)
+
 	// Priority 1: Check for explicitly stored work request metadata
 	if workReqData, ok := collectedData["__work_request__"].(map[string]interface{}); ok {
-		logger.Info("CompleteWorkflowAction: using __work_request__ metadata")
+		logger.Info("REPLY_METADATA_DEBUG: found __work_request__",
+			zap.String("parent_responses_topic", getStringField(workReqData, "parent_responses_topic")),
+			zap.String("request_id", getStringField(workReqData, "request_id")),
+		)
 
 		// Get topic - try multiple sources
 		topic := getStringField(workReqData, "parent_responses_topic")
+		logger.Info("REPLY_METADATA_DEBUG: topic from work_request.parent_responses_topic",
+			zap.String("topic", topic),
+		)
+
 		if topic == "" {
 			// Fallback 1: Check top-level __parent_responses_topic__
 			topic = getStringField(collectedData, "__parent_responses_topic__")
+			logger.Info("REPLY_METADATA_DEBUG: fallback to __parent_responses_topic__",
+				zap.String("topic", topic),
+			)
 		}
 		if topic == "" {
 			// Fallback 2: Check __execution_context__ for reply_to_topic
