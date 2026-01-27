@@ -470,7 +470,7 @@ func (a *GitAdapter) handleCreateRepoAction(data json.RawMessage) interface{} {
 	// Use commit function to create repo with initial content
 	commitData := GitCommitData{
 		RepoName: repoData.RepoName,
-		Files: map[string]string{
+		Files: map[string]interface{}{
 			"README.md": readmeContent,
 		},
 		CommitMessage: "Initial commit",
