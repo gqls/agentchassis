@@ -384,3 +384,99 @@ SELECT type, version,
        default_config->'workflow'->'steps'->'call_logo_generation'->'config'->'input_mapping' as logo_input_mapping
 FROM agent_definitions
 WHERE type = 'pageflow-builder';
+
+
+--url paths
+
+-- Add output_mapping to deploy_hero_image step
+-- This flattens the git adapter response so hero_deployed.image_url is accessible
+--
+-- The git adapter now returns:
+-- {
+--   "success": true,
+--   "file_path": "/assets/images/hero.jpg",
+--   "files": ["/assets/images/hero.jpg"],
+--   ...
+-- }
+--
+-- Without output_mapping, this is stored as:
+--   hero_deployed.response.data.file_path
+--
+-- With output_mapping, we flatten it to:
+--   hero_deployed.image_url (mapped from response.data.file_path)
+
+-- First check current state
+SELECT type, version,
+       jsonb_pretty(default_config->'workflow'->'steps'->'deploy_hero_image') as deploy_hero,
+       jsonb_pretty(default_config->'workflow'->'steps'->'deploy_logo_image') as deploy_logo
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Update deploy_hero_image to add output_mapping
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,deploy_hero_image,config,output_mapping}',
+        '{
+            "image_url": "response.data.file_path",
+            "deployed": "response.data.success",
+            "files": "response.data.files",
+            "repo_url": "response.data.repo_url",
+            "domain": "response.data.domain"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Check if deploy_logo_image step exists and update it too
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,deploy_logo_image,config,output_mapping}',
+        '{
+            "image_url": "response.data.file_path",
+            "deployed": "response.data.success",
+            "files": "response.data.files",
+            "repo_url": "response.data.repo_url",
+            "domain": "response.data.domain"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder'
+  AND default_config->'workflow'->'steps'->'deploy_logo_image' IS NOT NULL;
+
+-- Verify the changes
+SELECT type, version,
+       jsonb_pretty(default_config->'workflow'->'steps'->'deploy_hero_image'->'config') as hero_config,
+       jsonb_pretty(default_config->'workflow'->'steps'->'deploy_logo_image'->'config') as logo_config
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Expected hero_config after update:
+-- {
+--     "purpose": "hero",
+--     "uri_field": "hero_result.image_uri",
+--     "domain_field": "site_record.domain",
+--     "output_mapping": {
+--         "image_url": "response.data.file_path",
+--         "deployed": "response.data.success",
+--         "files": "response.data.files",
+--         "repo_url": "response.data.repo_url",
+--         "domain": "response.data.domain"
+--     }
+-- }
+--
+-- After this, hero_deployed will contain:
+-- {
+--     "image_url": "/assets/images/hero.jpg",
+--     "deployed": true,
+--     "files": ["/assets/images/hero.jpg"],
+--     "repo_url": "https://github.com/gqls/sites",
+--     "domain": "leopardessconsulting.co.uk",
+--     "response_received_at": "...",
+--     "response_status": "complete"
+-- }
+--
+-- Then BuildRenderContextAction can find hero_deployed.image_url

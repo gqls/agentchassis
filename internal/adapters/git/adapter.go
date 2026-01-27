@@ -430,11 +430,12 @@ func (a *GitAdapter) handleCommitAction(data json.RawMessage) interface{} {
 		"success":        true,
 		"repo_url":       repoURL,
 		"repo_name":      commitData.RepoName,
+		"domain":         commitData.Domain,
 		"files_count":    len(commitData.Files),
+		"files":          getFilePaths(commitData.Files, commitData.Domain),
+		"file_path":      getFirstFilePath(commitData.Files, commitData.Domain), // Convenient for single-file commits
 		"commit_message": commitData.CommitMessage,
 		"timestamp":      time.Now().UTC().Format(time.RFC3339),
-		"domain":         commitData.Domain,
-		"files":          getFilePaths(commitData.Files, commitData.Domain),
 	}
 }
 
@@ -446,9 +447,22 @@ func getFilePaths(files map[string]interface{}, domain string) []string {
 	for path := range files {
 		// Remove domain prefix to get relative path
 		relativePath := strings.TrimPrefix(path, prefix)
-		paths = append(paths, "/"+relativePath) // Add leading slash for HTML
+		// Add leading slash for HTML if not present
+		if !strings.HasPrefix(relativePath, "/") {
+			relativePath = "/" + relativePath
+		}
+		paths = append(paths, relativePath)
 	}
 	return paths
+}
+
+// getFirstFilePath returns the first file path, useful for single-file commits like images
+func getFirstFilePath(files map[string]interface{}, domain string) string {
+	paths := getFilePaths(files, domain)
+	if len(paths) > 0 {
+		return paths[0]
+	}
+	return ""
 }
 
 // handleCreateRepoAction handles repository creation requests - returns payload
