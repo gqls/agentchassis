@@ -2451,3 +2451,46 @@ WHERE type = 'pageflow-builder';
 SELECT name, function,
        CASE WHEN html_template LIKE '%hero_url%' THEN 'YES' ELSE 'NO' END as has_image_support
 FROM content_components WHERE function = 'hero';
+
+--
+
+UPDATE content_components
+SET html_template = regexp_replace(
+        html_template,
+        'style="background: linear-gradient\([^"]+\)"',
+        'style="background: {{if .hero_url}}linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(''{{.hero_url}}'') center/cover no-repeat{{else}}linear-gradient(135deg, var(--primary-color, #1a1a2e) 0%, var(--secondary-color, #16213e) 50%, var(--accent-color, #0f3460) 100%){{end}}"'
+                    )
+WHERE name = 'hero' AND category = 'hero';
+
+-- Verify
+SELECT name,
+       CASE WHEN html_template LIKE '%hero_url%' THEN 'YES' ELSE 'NO' END as has_hero_url,
+       substring(html_template, 1, 500) as template_start
+FROM content_components
+WHERE name = 'hero' AND category = 'hero';
+
+-- verification
+name | has_hero_url |                                                                                                                                                                                          template_start
+------+--------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ hero | NO           | <section class="hero" data-component="hero" style="{{if .background_image}}background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url('{{.background_image}}'); background-size: cover; background-position: center;{{else}}background: linear-gradient(135deg, var(--primary-color, #1a1a2e) 0%, var(--secondary-color, #16213e) 50%, var(--accent-color, #0f3460) 100%);{{end}}">+
+      |              |         <div class="hero-content">                                                                                                                                                                                                                                                                                                                                                               +
+      |              |             <h1>{{.headline}}</h1>                                                                                                                                                                                                                                                                                                                                                               +
+      |              |             <p class="hero-subheadline">{{.s
+(1 row)
+
+-- fixing images hero
+     -- Fix the template to support hero_url
+UPDATE content_components
+SET html_template = replace(
+        replace(
+                html_template,
+                '{{if .background_image}}',
+                '{{if or .hero_url .background_image}}'
+        ),
+        E'url(\'{{.background_image}}\')',
+    E'url(\'{{or .hero_url .background_image}}\')'
+)
+WHERE name = 'hero' AND category = 'hero';
+
+-- Verify
+SELECT substring(html_template, 1, 600) FROM content_components WHERE name = 'hero' AND category = 'hero';

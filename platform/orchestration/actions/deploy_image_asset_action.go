@@ -43,7 +43,7 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 	if storageURI == "" {
 		logger.Warn("No storage URI found for image asset",
 			zap.String("purpose", purpose),
-			zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)))
+			zap.Int("collected_data_key_count", len(params.CollectedData)))
 		return map[string]interface{}{
 			"deployed": false,
 			"skipped":  true,

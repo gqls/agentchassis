@@ -915,18 +915,17 @@ func StoreGeneratedImageAction(ctx context.Context, params ActionParams) (interf
 	}
 
 	// Extract site_record to get site_id
-	siteRecord, _ := datahelpers.ExtractNestedMap(params.CollectedData, "site_record")
+	siteRecord := datahelpers.ExtractNestedFieldMap(params.CollectedData, "site_record")
+	if siteRecord == nil {
+		logger.Error("No site_record found")
+		return map[string]interface{}{
+			"success": false,
+			"error":   "site_record not found",
+		}, nil
+	}
 	siteID, _ := siteRecord["site_id"].(string)
 	if siteID == "" {
 		siteID, _ = siteRecord["id"].(string)
-	}
-
-	if siteID == "" {
-		logger.Error("No site_id found")
-		return map[string]interface{}{
-			"success": false,
-			"error":   "site_id not found",
-		}, nil
 	}
 
 	// Extract image URI from the call_agent response

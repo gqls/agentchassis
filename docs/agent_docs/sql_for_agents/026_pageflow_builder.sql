@@ -195,3 +195,31 @@ SET default_config = jsonb_set(
 WHERE type = 'pageflow-builder';
 
 
+---
+
+-- Update the conditional to check the correct path
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_hero_images,config,condition}',
+        '"site_plan.needs_images == true OR site_plan.response.needs_images == true"'
+                     )
+WHERE type = 'pageflow-builder';
+
+-- Also fix check_assets_needed which has the same issue
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_assets_needed,config,condition}',
+        '"site_plan.needs_logo == true OR site_plan.needs_images == true OR site_plan.response.needs_logo == true OR site_plan.response.needs_images == true"'
+                     )
+WHERE type = 'pageflow-builder';
+
+-- Verify
+SELECT
+    default_config->'workflow'->'steps'->'check_hero_images'->'config'->>'condition' as hero_condition,
+    default_config->'workflow'->'steps'->'check_assets_needed'->'config'->>'condition' as assets_condition
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+
