@@ -433,7 +433,22 @@ func (a *GitAdapter) handleCommitAction(data json.RawMessage) interface{} {
 		"files_count":    len(commitData.Files),
 		"commit_message": commitData.CommitMessage,
 		"timestamp":      time.Now().UTC().Format(time.RFC3339),
+		"domain":         commitData.Domain,
+		"files":          getFilePaths(commitData.Files, commitData.Domain),
 	}
+}
+
+// getFilePaths extracts the relative paths from the files map
+// Returns paths without the domain prefix (for use in HTML)
+func getFilePaths(files map[string]interface{}, domain string) []string {
+	paths := make([]string, 0, len(files))
+	prefix := domain + "/"
+	for path := range files {
+		// Remove domain prefix to get relative path
+		relativePath := strings.TrimPrefix(path, prefix)
+		paths = append(paths, "/"+relativePath) // Add leading slash for HTML
+	}
+	return paths
 }
 
 // handleCreateRepoAction handles repository creation requests - returns payload

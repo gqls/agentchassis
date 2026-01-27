@@ -345,3 +345,42 @@ WHERE type = 'pageflow-builder';
 --     "timeout_seconds": 120
 -- }
 -- Note: no "prompt": "{{...}}" in config anymore
+
+--
+-- fixing recursive image path error
+-- Fix the input_mapping paths to include .response
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_hero_image,config,input_mapping}',
+        '{
+            "prompt": "site_plan.response.image_prompts.hero_home",
+            "site_plan": "site_plan",
+            "reviewed_brief": "input_data.reviewed_brief"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_logo_generation,config,input_mapping}',
+        '{
+            "prompt": "site_plan.response.image_prompts.logo",
+            "site_plan": "site_plan",
+            "reviewed_brief": "input_data.reviewed_brief"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Verify
+SELECT type, version,
+       default_config->'workflow'->'steps'->'generate_hero_image'->'config'->'input_mapping' as hero_input_mapping,
+       default_config->'workflow'->'steps'->'call_logo_generation'->'config'->'input_mapping' as logo_input_mapping
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
