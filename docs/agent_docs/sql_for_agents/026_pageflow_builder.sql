@@ -222,4 +222,52 @@ SELECT
 FROM agent_definitions
 WHERE type = 'pageflow-builder';
 
+-- images - content_mapping
+-- Fix pageflow-builder workflow to add output_mapping for image generation steps
+-- This flattens the nested response data so store_hero_asset and store_logo_asset can find image_url
 
+-- First, let's see the current state
+SELECT type, version,
+       jsonb_pretty(default_config->'workflow'->'steps'->'generate_hero_image') as generate_hero_image,
+       jsonb_pretty(default_config->'workflow'->'steps'->'call_logo_generation') as call_logo_generation
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Update generate_hero_image step to add output_mapping
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_hero_image,config,output_mapping}',
+        '{
+            "image_uri": "generate.response.image_uri",
+            "image_url": "generate.response.image_url",
+            "prompt": "generate.response.prompt",
+            "generated_at": "generate.response.generated_at"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Update call_logo_generation step to add output_mapping
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_logo_generation,config,output_mapping}',
+        '{
+            "image_uri": "generate.response.image_uri",
+            "image_url": "generate.response.image_url",
+            "prompt": "generate.response.prompt",
+            "generated_at": "generate.response.generated_at"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Verify the changes
+SELECT type, version,
+       jsonb_pretty(default_config->'workflow'->'steps'->'generate_hero_image'->'config') as hero_config,
+       jsonb_pretty(default_config->'workflow'->'steps'->'call_logo_generation'->'config') as logo_config
+FROM agent_definitions
+WHERE type = 'pageflow-builder';

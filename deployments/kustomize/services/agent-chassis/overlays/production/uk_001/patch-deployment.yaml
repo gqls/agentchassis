@@ -78,6 +78,18 @@ spec:
                   name: personae-storage-secrets
                   key: AWS_SECRET_ACCESS_KEY
 
+            # B2 storage credentials (for spawning agents that need S3-compatible storage)
+            - name: B2_APPLICATION_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY_ID
+            - name: B2_APPLICATION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY
+
             # default request and responses topics
             - name: RESPONSES_TOPIC
               value: "system.agent.generic.responses"
