@@ -22,6 +22,7 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
+	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
 
@@ -68,11 +69,12 @@ func backoffWithJitter(baseDelay time.Duration, attempt int) time.Duration {
 
 // SagaCoordinator manages the execution of complex workflows
 type SagaCoordinator struct {
-	db          *sql.DB
-	producer    kafka.Producer
-	logger      *zap.Logger
-	fuelManager *governance.FuelManager
-	tracer      *types.TraceLogger
+	db            *sql.DB
+	producer      kafka.Producer
+	storageClient storage.Client
+	logger        *zap.Logger
+	fuelManager   *governance.FuelManager
+	tracer        *types.TraceLogger
 
 	// For stateless operation
 	isStateless bool
@@ -84,20 +86,21 @@ type SagaCoordinator struct {
 }
 
 // NewSagaCoordinator creates a new coordinator instance
-func NewSagaCoordinator(db *sql.DB, producer kafka.Producer, logger *zap.Logger) *SagaCoordinator {
+func NewSagaCoordinator(db *sql.DB, producer kafka.Producer, storageClient storage.Client, logger *zap.Logger) *SagaCoordinator {
 	podName := os.Getenv("HOSTNAME")
 	if podName == "" {
 		podName = fmt.Sprintf("coordinator-local-%d", os.Getpid())
 	}
 
 	coordinator := &SagaCoordinator{
-		db:          db,
-		producer:    producer,
-		logger:      logger,
-		fuelManager: governance.NewFuelManager(),
-		tracer:      types.NewTraceLogger(logger),
-		isStateless: os.Getenv("ENABLE_STATELESS_MODE") == "true",
-		podName:     podName,
+		db:            db,
+		producer:      producer,
+		storageClient: storageClient,
+		logger:        logger,
+		fuelManager:   governance.NewFuelManager(),
+		tracer:        types.NewTraceLogger(logger),
+		isStateless:   os.Getenv("ENABLE_STATELESS_MODE") == "true",
+		podName:       podName,
 	}
 
 	// Start cleanup goroutine
@@ -1396,6 +1399,7 @@ func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, sta
 		Logger:          logger,
 		Producer:        coordinator.producer,
 		DB:              coordinator.db,
+		StorageClient:   coordinator.storageClient,
 		Tracer:          coordinator.tracer,
 		CurrentStep:     state.CurrentStep,
 	}

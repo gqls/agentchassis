@@ -158,3 +158,40 @@ WHERE type = 'pageflow-builder';
     pageflow-builder | trigger_site_deploy   | update_site_status       | complete
 
 
+-- adding images
+
+               -- ============================================================
+-- PART 1: Add deploy_hero_image step to pageflow-builder workflow
+-- ============================================================
+
+-- Add the new step after store_hero_asset
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,deploy_hero_image}',
+        '{
+            "action": "deploy_image_asset",
+            "config": {
+                "purpose": "hero",
+                "uri_field": "hero_result.image_uri",
+                "domain_field": "site_record.domain"
+            },
+            "next_step": "select_style_collection",
+            "description": "Download, optimize and deploy hero image to git",
+            "output_field": "hero_deployed"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Update store_hero_asset to flow into deploy_hero_image
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_hero_asset,next_step}',
+        '"deploy_hero_image"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+

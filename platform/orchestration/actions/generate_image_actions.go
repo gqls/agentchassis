@@ -893,3 +893,149 @@ func getImagePromptWithPriority(params ActionParams, agentConfig map[string]inte
 	logger.Warn("No prompt found in any tier, using generic fallback")
 	return "Generate content based on the provided context.", "generic_fallback"
 }
+
+// Add to platform/orchestration/actions/generate_image_actions.go
+// This action stores the image URI/URL after call_agent returns from image-generator
+
+// StoreGeneratedImageAction stores the S3 URI from image generation response
+// and sets the relative URL for templates
+func StoreGeneratedImageAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	logger := params.Logger.With(
+		zap.String("action", "store_generated_image"),
+		zap.String("step_name", params.ExecutionContext.StepName),
+	)
+
+	logger.Info("Storing generated image reference",
+		zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)))
+
+	// Get configuration
+	purpose := "hero_home"
+	if cfg, ok := params.StepConfig.Config["purpose"].(string); ok && cfg != "" {
+		purpose = cfg
+	}
+
+	// Extract site_record to get site_id
+	siteRecord, _ := datahelpers.ExtractNestedMap(params.CollectedData, "site_record")
+	siteID, _ := siteRecord["site_id"].(string)
+	if siteID == "" {
+		siteID, _ = siteRecord["id"].(string)
+	}
+
+	if siteID == "" {
+		logger.Error("No site_id found")
+		return map[string]interface{}{
+			"success": false,
+			"error":   "site_id not found",
+		}, nil
+	}
+
+	// Extract image URI from the call_agent response
+	var imageURI string
+
+	// Check possible locations for the image result
+	possiblePaths := []string{"hero_image_result", "image_result", "generate_hero_image"}
+
+	for _, path := range possiblePaths {
+		if result, ok := params.CollectedData[path].(map[string]interface{}); ok {
+			if uri, ok := result["image_uri"].(string); ok && uri != "" {
+				imageURI = uri
+				break
+			}
+			if response, ok := result["response"].(map[string]interface{}); ok {
+				if uri, ok := response["image_uri"].(string); ok && uri != "" {
+					imageURI = uri
+					break
+				}
+			}
+		}
+	}
+
+	if imageURI == "" {
+		logger.Warn("No image URI found in result")
+		return map[string]interface{}{
+			"success": false,
+			"error":   "No image URI in response",
+			"skipped": true,
+		}, nil
+	}
+
+	// Relative URL for templates - assemble_site will create this file
+	relativeURL := fmt.Sprintf("/assets/images/%s.jpg", purpose)
+
+	logger.Info("Storing image",
+		zap.String("site_id", siteID),
+		zap.String("purpose", purpose),
+		zap.String("image_uri", imageURI),
+		zap.String("relative_url", relativeURL))
+
+	// Store in database
+	if params.DB != nil {
+		// Store S3 URI for assemble_site to fetch
+		uriField := purpose + "_uri"
+		if err := updateSiteContentField(ctx, params.DB, siteID, uriField, imageURI); err != nil {
+			logger.Error("Failed to store URI", zap.Error(err))
+		}
+
+		// Store relative URL for templates
+		urlField := purpose + "_url"
+		if err := updateSiteContentField(ctx, params.DB, siteID, urlField, relativeURL); err != nil {
+			logger.Error("Failed to store URL", zap.Error(err))
+			return map[string]interface{}{
+				"success": false,
+				"error":   fmt.Sprintf("Failed to update content_data: %v", err),
+			}, nil
+		}
+	}
+
+	// Update collected_data for downstream steps
+	if params.CollectedData != nil {
+		params.CollectedData[purpose+"_uri"] = imageURI
+		params.CollectedData[purpose+"_url"] = relativeURL
+
+		if siteRecord != nil {
+			if contentData, ok := siteRecord["content_data"].(map[string]interface{}); ok {
+				contentData[purpose+"_uri"] = imageURI
+				contentData[purpose+"_url"] = relativeURL
+			}
+		}
+	}
+
+	logger.Info("Image reference stored",
+		zap.String("purpose", purpose),
+		zap.String("s3_uri", imageURI),
+		zap.String("relative_url", relativeURL))
+
+	return map[string]interface{}{
+		"success":   true,
+		"site_id":   siteID,
+		"purpose":   purpose,
+		"image_uri": imageURI,
+		"image_url": relativeURL,
+	}, nil
+}
+
+// Helper: Update a field in sites.content_data
+func updateSiteContentField(ctx context.Context, db interface{}, siteID, field, value string) error {
+	query := `
+		UPDATE sites 
+		SET content_data = jsonb_set(
+			COALESCE(content_data, '{}'::jsonb),
+			$2::text[],
+			to_jsonb($3::text),
+			true
+		),
+		updated_at = NOW()
+		WHERE id = $1
+	`
+	jsonPath := fmt.Sprintf("{%s}", field)
+
+	switch d := db.(type) {
+	case *sql.DB:
+		_, err := d.ExecContext(ctx, query, siteID, jsonPath, value)
+		return err
+	case *pgxpool.Pool:
+		_, err := d.Exec(ctx, query, siteID, jsonPath, value)
+		return err
+	}
+	return fmt.Errorf("unsupported database type")
+}

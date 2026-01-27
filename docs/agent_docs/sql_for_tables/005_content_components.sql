@@ -2396,3 +2396,58 @@ SELECT name,
        CASE WHEN html_template LIKE '%services_html%' THEN 'YES' ELSE 'NO' END as has_services_html
 FROM content_components
 WHERE name = 'footer-4-column';
+
+-- add image to hero
+
+UPDATE content_components
+SET html_template = '<section class="hero" data-component="hero"{{if .hero_home_url}} style="background: linear-gradient(135deg, rgba(26,26,46,0.8) 0%, rgba(22,33,62,0.75) 50%, rgba(15,52,96,0.7) 100%), url(''{{.hero_home_url}}'') center/cover no-repeat;"{{end}}>
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+            {{if .primary_cta_text}}<a href="{{.primary_cta_url | default "/contact.html"}}" class="btn btn-primary">{{.primary_cta_text}}</a>{{end}}
+            {{if .secondary_cta_text}}<a href="{{.secondary_cta_url | default "/services.html"}}" class="btn btn-secondary">{{.secondary_cta_text}}</a>{{end}}
+        </div>
+    </section>',
+    updated_at = NOW()
+WHERE function = 'hero' AND (category IS NULL OR category = '');
+
+-- Verify
+SELECT name, function,
+       CASE WHEN html_template LIKE '%hero_home_url%' THEN 'YES' ELSE 'NO' END as has_image_support
+FROM content_components WHERE function = 'hero';
+
+-- adding images to hero
+
+-- ============================================================
+-- PART 2: Update hero template to use background image URL
+-- ============================================================
+
+-- Update the main hero component (home page)
+UPDATE content_components
+SET html_template = '<section class="hero" data-component="hero"{{if .hero_url}} style="background: linear-gradient(135deg, rgba(26,26,46,0.8) 0%, rgba(22,33,62,0.75) 50%, rgba(15,52,96,0.7) 100%), url(''{{.hero_url}}'') center/cover no-repeat;"{{end}}>
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+            {{if .primary_cta_text}}<a href="{{.primary_cta_url | default "/contact.html"}}" class="btn btn-primary">{{.primary_cta_text}}</a>{{end}}
+            {{if .secondary_cta_text}}<a href="{{.secondary_cta_url | default "/services.html"}}" class="btn btn-secondary">{{.secondary_cta_text}}</a>{{end}}
+        </div>
+    </section>',
+    updated_at = NOW()
+WHERE function = 'hero' AND (category IS NULL OR category = '');
+
+-- Verify the workflow flow
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'store_hero_asset'->'next_step' as "1_store_next",
+    default_config->'workflow'->'steps'->'deploy_hero_image'->'next_step' as "2_deploy_next"
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Expected output:
+-- 1_store_next: "deploy_hero_image"
+-- 2_deploy_next: "select_style_collection"
+
+-- Verify hero template
+SELECT name, function,
+       CASE WHEN html_template LIKE '%hero_url%' THEN 'YES' ELSE 'NO' END as has_image_support
+FROM content_components WHERE function = 'hero';

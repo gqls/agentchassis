@@ -19,7 +19,9 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"start_orchestration": StartOrchestrationAction,
 
 	// Image generation
-	"generate_image": GenerateImageAction,
+	"generate_image":        GenerateImageAction,
+	"store_generated_image": StoreGeneratedImageAction,
+	"deploy_image_asset":    DeployImageAssetAction,
 
 	// Web scraping
 	"scrape_web":             WebscrapeAction,        // Main action

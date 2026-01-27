@@ -19,7 +19,9 @@ var LocalActions = map[string]bool{
 	"start_orchestration": true,
 
 	// Image handling
-	"generate_image": true,
+	"generate_image":        true,
+	"store_generated_image": true,
+	"deploy_image_asset":    true,
 
 	// Web scraping
 	"scrape_web":             true,

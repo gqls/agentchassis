@@ -9,6 +9,7 @@ import (
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
+	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
 
@@ -39,6 +40,7 @@ type ActionParams struct {
 	SagaCoordinator  interface{}
 	Producer         kafka.Producer
 	DB               *sql.DB
+	StorageClient    storage.Client
 	Logger           *zap.Logger
 	Tracer           types.MessageTracer // interface
 	AgentType        string

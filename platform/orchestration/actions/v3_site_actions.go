@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -661,6 +662,29 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 		}
 	}
 
+	// Extract image URLs from deploy_image_asset output
+	// =========================================================================
+	if heroDeployed, ok := params.CollectedData["hero_deployed"].(map[string]interface{}); ok {
+		if imageURL, ok := heroDeployed["image_url"].(string); ok && imageURL != "" {
+			if renderCtx.ContentData == nil {
+				renderCtx.ContentData = make(map[string]interface{})
+			}
+			renderCtx.ContentData["hero_url"] = imageURL
+			params.Logger.Info("Set hero_url from hero_deployed.image_url",
+				zap.String("url", imageURL))
+		}
+	}
+
+	// Also check for direct hero_url in collected_data (fallback)
+	for _, field := range []string{"hero_url", "hero_home_url", "logo_url"} {
+		if url := datahelpers.ExtractNestedFieldString(params.CollectedData, field); url != "" {
+			if renderCtx.ContentData == nil {
+				renderCtx.ContentData = make(map[string]interface{})
+			}
+			renderCtx.ContentData[field] = url
+		}
+	}
+
 	params.Logger.Info("BuildRenderContextAction: Context built",
 		zap.String("domain", renderCtx.Domain),
 		zap.String("company_name", renderCtx.CompanyName),
@@ -669,7 +693,7 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("sources_merged", sourcesMerged),
 	)
 
-	// FIX: Return the context directly, not wrapped in "render_context" key
+	// Return the context directly, not wrapped in "render_context" key
 	// The workflow output_field already specifies where to store it
 	// Adding metadata fields at same level
 	result := renderCtxToMap(renderCtx)
@@ -741,6 +765,27 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 	}
 	if v, ok := data["contact_email"].(string); ok && v != "" {
 		ctx.Email = v
+	}
+
+	// Extract image URLs from content_data or collected_data
+	imageURLFields := []string{
+		"hero_url",      // pageflow-builder uses this
+		"hero_home_url", // multipage-website-builder uses this
+		"hero_about_url",
+		"hero_services_url",
+		"logo_url",
+	}
+
+	for _, field := range imageURLFields {
+		if v, ok := data[field].(string); ok && v != "" {
+			if ctx.ContentData == nil {
+				ctx.ContentData = make(map[string]interface{})
+			}
+			ctx.ContentData[field] = v
+			logger.Debug("Extracted image URL",
+				zap.String("field", field),
+				zap.String("url", v))
+		}
 	}
 
 	// Colors - direct fields
@@ -1037,6 +1082,15 @@ func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 	} else {
 		result["services"] = []string{}
 		result["services_html"] = ""
+	}
+
+	// Add image URLs if present in ContentData
+	if ctx.ContentData != nil {
+		for _, field := range []string{"hero_url", "hero_home_url", "hero_about_url", "logo_url"} {
+			if url, ok := ctx.ContentData[field].(string); ok && url != "" {
+				result[field] = url
+			}
+		}
 	}
 
 	// =========================================================================
@@ -1857,20 +1911,103 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		}, nil
 	}
 
+	// Get purpose from config (e.g., "hero", "logo")
+	purpose := ""
+	if p, ok := config["purpose"].(string); ok && p != "" {
+		purpose = p
+	}
+
+	// If purpose is set and we have a site_id, update sites.content_data
+	// This stores the storage URI (for download) and relative URL (for templates)
+	if purpose != "" && siteID != nil && params.DB != nil {
+		// Find storage URI from asset data
+		storageURI := ""
+		if assetDataMap, ok := assetData.(map[string]interface{}); ok {
+			if uri, ok := assetDataMap["image_uri"].(string); ok {
+				storageURI = uri
+			}
+		}
+		// Also check collected_data for {purpose}_result.image_uri pattern
+		if storageURI == "" {
+			uriField := strings.TrimSuffix(dataField, ".image_url") + ".image_uri"
+			if uri := datahelpers.ExtractNestedFieldString(params.CollectedData, uriField); uri != "" {
+				storageURI = uri
+			}
+		}
+		// Use assetURL if it's a storage URI
+		if storageURI == "" && storage.IsS3URI(assetURL) {
+			storageURI = assetURL
+		}
+
+		// Generate paths using storage package helper
+		paths := storage.BuildAssetPaths(purpose, "jpg")
+
+		// Update sites.content_data
+		if storageURI != "" {
+			// Store URI for deploy_image_asset to download from
+			updateContentDataField(ctx, params.DB, *siteID, purpose+"_uri", storageURI, params.Logger)
+			params.CollectedData[purpose+"_uri"] = storageURI
+		}
+
+		// Store relative URL for templates
+		updateContentDataField(ctx, params.DB, *siteID, purpose+"_url", paths.RelativeURL, params.Logger)
+		params.CollectedData[purpose+"_url"] = paths.RelativeURL
+
+		params.Logger.Info("StoreAssetAction: Updated content_data for purpose",
+			zap.String("purpose", purpose),
+			zap.String("storage_uri", storageURI),
+			zap.String("relative_url", paths.RelativeURL))
+	}
+
 	params.Logger.Info("StoreAssetAction: Asset stored",
 		zap.String("asset_id", returnedID.String()),
 		zap.String("asset_name", assetName),
 		zap.String("asset_type", assetType),
 	)
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"stored":     true,
 		"persisted":  true,
 		"asset_id":   returnedID.String(),
 		"asset_name": assetName,
 		"asset_type": assetType,
 		"asset_url":  assetURL,
-	}, nil
+	}
+
+	// Add purpose-specific fields if set
+	if purpose != "" {
+		result["purpose"] = purpose
+		paths := storage.BuildAssetPaths(purpose, "jpg")
+		result[purpose+"_url"] = paths.RelativeURL
+	}
+
+	return result, nil
+}
+
+// updateContentDataField updates a single field in sites.content_data
+func updateContentDataField(ctx context.Context, db interface{}, siteID uuid.UUID, field, value string, logger *zap.Logger) {
+	query := `
+        UPDATE sites 
+        SET content_data = jsonb_set(
+            COALESCE(content_data, '{}'::jsonb),
+            $2::text[],
+            to_jsonb($3::text),
+            true
+        ),
+        updated_at = NOW()
+        WHERE id = $1
+    `
+	jsonPath := fmt.Sprintf("{%s}", field)
+
+	if err := execDB(ctx, db, query, siteID, jsonPath, value); err != nil {
+		logger.Warn("Failed to update content_data field",
+			zap.String("field", field),
+			zap.Error(err))
+	} else {
+		logger.Debug("Updated content_data field",
+			zap.String("field", field),
+			zap.String("value", value))
+	}
 }
 
 func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface{}, error) {

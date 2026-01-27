@@ -19,6 +19,7 @@ import (
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
+	"github.com/gqls/agentchassis/platform/storage"
 	"github.com/gqls/agentchassis/platform/validation"
 	_ "github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -82,12 +83,13 @@ type Agent struct {
 	initialized   bool      // Whether agent is initialized
 
 	// Core components
-	db           *sql.DB
-	producer     kafka.Producer
-	orchestrator *orchestration.SagaCoordinator
-	processor    *messaging.MessageProcessor
-	validator    *validation.Validator
-	logger       *zap.Logger
+	db            *sql.DB
+	storageClient storage.Client
+	producer      kafka.Producer
+	orchestrator  *orchestration.SagaCoordinator
+	processor     *messaging.MessageProcessor
+	validator     *validation.Validator
+	logger        *zap.Logger
 
 	// Kafka consumers - ALL agents have both
 	requestConsumer  *kafka.Consumer
@@ -263,12 +265,39 @@ func (a *Agent) initializeComponents() error {
 	// Create validator
 	a.validator = validation.NewValidator(a.logger)
 
+	// Initialize storage client for image operations (optional - may not be configured)
+	// This follows the same pattern as the image adapter
+	var storageClient storage.Client
+	storageConfig := config.ObjectStorageConfig{
+		Endpoint:        os.Getenv("S3_ENDPOINT"),
+		Bucket:          os.Getenv("IMAGE_BUCKET"),
+		AccessKeyEnvVar: "B2_APPLICATION_KEY_ID",
+		SecretKeyEnvVar: "B2_APPLICATION_KEY",
+	}
+
+	// Only create if bucket is configured
+	if storageConfig.Bucket != "" {
+		var err error
+		storageClient, err = storage.NewS3Client(a.ctx, storageConfig, *a.logger)
+		if err != nil {
+			a.logger.Warn("Failed to initialize storage client - image deployment will be unavailable",
+				zap.Error(err))
+			// Don't fail startup - storage is optional for most workflows
+		} else {
+			a.logger.Info("Storage client initialized",
+				zap.String("bucket", storageConfig.Bucket),
+				zap.String("endpoint", storageConfig.Endpoint))
+		}
+	} else {
+		a.logger.Info("Storage client not configured (IMAGE_BUCKET not set)")
+	}
+	a.storageClient = storageClient
+
 	// EVERY agent gets an orchestrator - they all orchestrate something
 	if a.db != nil {
-		a.orchestrator = orchestration.NewSagaCoordinator(a.db, producer, a.logger)
+		a.orchestrator = orchestration.NewSagaCoordinator(a.db, producer, a.storageClient, a.logger)
 	} else {
 		a.logger.Warn("No database configured, orchestration capabilities will be limited")
-		// Could create an in-memory orchestrator here if needed
 	}
 
 	// Create message processor
