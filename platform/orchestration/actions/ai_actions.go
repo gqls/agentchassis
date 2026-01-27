@@ -788,6 +788,24 @@ func getPromptWithPriority(params ActionParams, agentConfig map[string]interface
 	// PRIORITY 1: Check incoming message for prompt (from parent's call_agent)
 	// Check in StepConfig.Config first (this is where call_agent passes it)
 	if configPrompt, ok := params.StepConfig.Config["prompt"].(string); ok && configPrompt != "" {
+		// Check if prompt contains template syntax and needs interpolation
+		if strings.Contains(configPrompt, "{{") && strings.Contains(configPrompt, "}}") {
+			logger.Info("Prompt contains template syntax, interpolating against CollectedData",
+				zap.String("raw_prompt", configPrompt))
+
+			interpolated, err := datahelpers.RenderPromptTemplate(configPrompt, params.CollectedData, *logger)
+			if err != nil {
+				logger.Warn("Failed to interpolate prompt template, using raw prompt",
+					zap.Error(err),
+					zap.String("raw_prompt", configPrompt))
+				// Fall through to use raw prompt
+			} else if interpolated != "" && interpolated != configPrompt {
+				logger.Info("Prompt interpolated successfully",
+					zap.String("interpolated_preview", datahelpers.TruncateString(interpolated, 200)))
+				configPrompt = interpolated
+			}
+		}
+
 		logger.Info("Using prompt from step config (Priority 1 - from parent)",
 			zap.String("prompt_preview", datahelpers.TruncateString(configPrompt, 100)))
 		return configPrompt, "parent_message"

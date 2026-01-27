@@ -271,3 +271,77 @@ SELECT type, version,
        jsonb_pretty(default_config->'workflow'->'steps'->'call_logo_generation'->'config') as logo_config
 FROM agent_definitions
 WHERE type = 'pageflow-builder';
+
+-- image paths
+
+-- Fix pageflow-builder workflow to use input_mapping for prompt instead of template syntax
+-- This is the proper way to pass dynamic data to child agents
+
+-- First, check current state of the image generation steps
+SELECT type, version,
+       jsonb_pretty(default_config->'workflow'->'steps'->'generate_hero_image'->'config') as hero_config,
+       jsonb_pretty(default_config->'workflow'->'steps'->'call_logo_generation'->'config') as logo_config
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Update generate_hero_image: remove prompt from config, add it to input_mapping
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    -- First remove the prompt key from config
+        jsonb_set(
+                default_config,
+                '{workflow,steps,generate_hero_image,config}',
+                (default_config->'workflow'->'steps'->'generate_hero_image'->'config') - 'prompt'
+        ),
+    -- Then update input_mapping to include prompt
+        '{workflow,steps,generate_hero_image,config,input_mapping}',
+        '{
+            "prompt": "site_plan.image_prompts.hero_home",
+            "site_plan": "site_plan",
+            "reviewed_brief": "input_data.reviewed_brief"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Update call_logo_generation: remove prompt from config, add it to input_mapping
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    -- First remove the prompt key from config
+        jsonb_set(
+                default_config,
+                '{workflow,steps,call_logo_generation,config}',
+                (default_config->'workflow'->'steps'->'call_logo_generation'->'config') - 'prompt'
+        ),
+    -- Then update input_mapping to include prompt
+        '{workflow,steps,call_logo_generation,config,input_mapping}',
+        '{
+            "prompt": "site_plan.image_prompts.logo",
+            "site_plan": "site_plan",
+            "reviewed_brief": "input_data.reviewed_brief"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Verify the changes
+SELECT type, version,
+       jsonb_pretty(default_config->'workflow'->'steps'->'generate_hero_image'->'config') as hero_config,
+       jsonb_pretty(default_config->'workflow'->'steps'->'call_logo_generation'->'config') as logo_config
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Expected result for hero_config:
+-- {
+--     "agent_type": "image-generator",
+--     "target_role": "image_generator",
+--     "input_mapping": {
+--         "prompt": "site_plan.image_prompts.hero_home",
+--         "site_plan": "site_plan",
+--         "reviewed_brief": "input_data.reviewed_brief"
+--     },
+--     "timeout_seconds": 120
+-- }
+-- Note: no "prompt": "{{...}}" in config anymore
