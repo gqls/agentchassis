@@ -2281,6 +2281,43 @@ func (s *SagaCoordinator) retryStateUpdate(
 // applyResponseToState merges response data into state's CollectedData
 func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepName string, step models.Step, stepExists bool, normalisedData map[string]interface{}, awaitedReq *AwaitedRequest) {
 
+	// =========================================================================
+	// NEW: Check for output_mapping in step config
+	// If defined, extract only the mapped fields and store WITHOUT .response wrapper
+	// This makes downstream access much simpler (e.g., hero_result.image_uri)
+	// =========================================================================
+	var outputMapping map[string]interface{}
+	if stepExists {
+		outputMapping, _ = step.Config["output_mapping"].(map[string]interface{})
+	}
+
+	if len(outputMapping) > 0 {
+		mappedResult := applyOutputMapping(normalisedData, outputMapping, s.logger)
+
+		// Add metadata
+		mappedResult["response_received_at"] = time.Now().Format(time.RFC3339)
+		mappedResult["response_status"] = "complete"
+
+		// Store mapped result DIRECTLY (no .response wrapper)
+		state.CollectedData[stepName] = mappedResult
+
+		// Also store at output_field if specified
+		outputField := ""
+		if stepExists {
+			outputField = step.OutputField
+		}
+		if outputField != "" {
+			state.CollectedData[outputField] = mappedResult
+		}
+
+		s.logger.Info("Applied output_mapping to response",
+			zap.String("step_name", stepName),
+			zap.String("output_field", outputField),
+			zap.Int("mapped_fields", len(mappedResult)-2), // -2 for metadata fields
+			zap.Any("mapped_keys", getMapKeys(mappedResult)))
+		return
+	}
+
 	// Determine if this is a call_agent response that needs .response wrapper.
 	// Key fix: use awaitedReq.TargetAgentType when step doesn't exist in WorkflowPlan
 	isAgentResponse := false
@@ -2371,6 +2408,36 @@ func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepNa
 		}
 		state.CollectedData[outputField] = dataToStore
 	}
+}
+
+// applyOutputMapping extracts fields from response using dot-notation paths
+// mapping format: {"target_key": "source.path.to.field", ...}
+func applyOutputMapping(data map[string]interface{}, mapping map[string]interface{}, logger *zap.Logger) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for targetKey, sourcePath := range mapping {
+		pathStr, ok := sourcePath.(string)
+		if !ok {
+			logger.Warn("output_mapping: invalid path type",
+				zap.String("target", targetKey),
+				zap.String("type", fmt.Sprintf("%T", sourcePath)))
+			continue
+		}
+
+		value := datahelpers.ExtractNestedField(data, pathStr)
+		if value != nil {
+			result[targetKey] = value
+			logger.Debug("output_mapping: extracted field",
+				zap.String("target", targetKey),
+				zap.String("source", pathStr))
+		} else {
+			logger.Debug("output_mapping: field not found",
+				zap.String("target", targetKey),
+				zap.String("source", pathStr))
+		}
+	}
+
+	return result
 }
 
 // deriveOutputFieldFromLoopStepName extracts indexed output_field from loop step names.
