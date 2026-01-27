@@ -61,9 +61,9 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 	}
 
 	// Files now go to {domain}/{filename}
-	prefixedFiles := make(map[string]string)
+	prefixedFiles := make(map[string]interface{})
 	for path, content := range data.Files {
-		prefixedPath := data.Domain + "/" + path // e.g., "boxing-tickets.com/index.html"
+		prefixedPath := data.Domain + "/" + path
 		prefixedFiles[prefixedPath] = content
 	}
 	data.Files = prefixedFiles
@@ -92,8 +92,30 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 
 	// 3. Create a "Blob" for each file
 	var treeEntries []TreeEntry
-	for path, content := range data.Files {
-		blobSHA, err := c.createBlob(ctx, repo.Owner.Login, repo.Name, content)
+	for path, fileData := range data.Files {
+		var content, encoding string
+
+		switch v := fileData.(type) {
+		case string:
+			// Legacy format: just a content string
+			content = v
+			encoding = "utf-8"
+		case map[string]interface{}:
+			// New format: {content, encoding}
+			if c, ok := v["content"].(string); ok {
+				content = c
+			}
+			if e, ok := v["encoding"].(string); ok {
+				encoding = e
+			}
+			if encoding == "" {
+				encoding = "utf-8"
+			}
+		default:
+			return "", fmt.Errorf("invalid file data type for %s: %T", path, fileData)
+		}
+
+		blobSHA, err := c.createBlob(ctx, repo.Owner.Login, repo.Name, content, encoding)
 		if err != nil {
 			return "", fmt.Errorf("failed to create blob for %s: %w", path, err)
 		}
@@ -204,11 +226,17 @@ func (c *GitHubClient) getBaseTreeSHA(ctx context.Context, owner, repo, branch s
 	return branchInfo.Commit.Commit.Tree.SHA, nil
 }
 
-func (c *GitHubClient) createBlob(ctx context.Context, owner, repo, content string) (string, error) {
+func (c *GitHubClient) createBlob(ctx context.Context, owner, repo, content, encoding string) (string, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/git/blobs", c.apiBase, owner, repo)
+
+	// Default to utf-8 if not specified
+	if encoding == "" {
+		encoding = "utf-8"
+	}
+
 	body := map[string]string{
 		"content":  content,
-		"encoding": "utf-8",
+		"encoding": encoding,
 	}
 	jsonBody, _ := json.Marshal(body)
 	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))

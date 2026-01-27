@@ -139,10 +139,16 @@ type ErrorInfo struct {
 
 // GitCommitData is the expected structure of the 'data' field for a 'commit' action
 type GitCommitData struct {
-	RepoName      string            `json:"repo_name"`
-	Domain        string            `json:"domain"`
-	Files         map[string]string `json:"files"`
-	CommitMessage string            `json:"commit_message"`
+	RepoName      string                 `json:"repo_name"`
+	Domain        string                 `json:"domain"`
+	Files         map[string]interface{} `json:"files"`
+	CommitMessage string                 `json:"commit_message"`
+}
+
+// FileContent represents a file with explicit encoding
+type FileContent struct {
+	Content  string `json:"content"`
+	Encoding string `json:"encoding"` // "utf-8" or "base64"
 }
 
 // GitHubRepo is a partial struct for GitHub's API response
