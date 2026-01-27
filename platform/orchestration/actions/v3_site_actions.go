@@ -1793,6 +1793,12 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		assetType = at
 	}
 
+	// Get purpose from config (e.g., "hero", "logo")
+	purpose := ""
+	if p, ok := config["purpose"].(string); ok && p != "" {
+		purpose = p
+	}
+
 	// Get site_id (optional - assets can be global)
 	var siteID *uuid.UUID
 	if siteIDField, ok := config["site_id_field"].(string); ok && siteIDField != "" {
@@ -1822,13 +1828,11 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 	}
 
 	// Extract URL or content from asset data
-	var assetURL, assetContent string
+	var assetURL string
 	switch v := assetData.(type) {
 	case string:
 		if strings.HasPrefix(v, "http://") || strings.HasPrefix(v, "https://") || strings.HasPrefix(v, "s3://") {
 			assetURL = v
-		} else {
-			assetContent = v
 		}
 	case map[string]interface{}:
 		if url, ok := v["url"].(string); ok {
@@ -1837,30 +1841,16 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		if url, ok := v["image_url"].(string); ok {
 			assetURL = url
 		}
-		if content, ok := v["content"].(string); ok {
-			assetContent = content
-		}
-		if content, ok := v["base64"].(string); ok {
-			assetContent = content
-		}
 	}
 
-	if assetURL == "" && assetContent == "" {
-		params.Logger.Warn("StoreAssetAction: No asset URL or content found")
+	if assetURL == "" {
+		params.Logger.Warn("StoreAssetAction: No asset URL found")
 		return map[string]interface{}{
 			"stored":     false,
 			"asset_name": assetName,
 			"asset_type": assetType,
-			"reason":     "no asset data found",
+			"reason":     "no asset URL found",
 		}, nil
-	}
-
-	// Get optional metadata
-	var metadata map[string]interface{}
-	if metaField, ok := config["metadata_field"].(string); ok && metaField != "" {
-		if m := datahelpers.ExtractNestedField(params.CollectedData, metaField); m != nil {
-			metadata, _ = m.(map[string]interface{})
-		}
 	}
 
 	// If no DB, return success without persisting
@@ -1876,50 +1866,63 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		}, nil
 	}
 
-	// Insert into assets table
+	// Determine origin_type based on URL
+	originType := "uploaded"
+	if strings.HasPrefix(assetURL, "s3://") || strings.Contains(assetURL, "backblazeb2.com") {
+		originType = "generated"
+	}
+
+	// Insert into assets table - matches actual schema
 	assetID := uuid.New()
-	metadataJSON, _ := json.Marshal(metadata)
 
 	query := `
-		INSERT INTO assets (id, site_id, name, asset_type, url, content, metadata, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, NOW())
-		ON CONFLICT (site_id, name, asset_type) DO UPDATE SET
+		INSERT INTO assets (id, site_id, name, asset_type, purpose, url, origin_type, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+		ON CONFLICT ON CONSTRAINT assets_site_purpose_unique DO UPDATE SET
 			url = EXCLUDED.url,
-			content = EXCLUDED.content,
-			metadata = EXCLUDED.metadata,
+			name = EXCLUDED.name,
+			origin_type = EXCLUDED.origin_type,
 			updated_at = NOW()
 		RETURNING id
 	`
 
 	var returnedID uuid.UUID
 	err := queryRowScanUUID(ctx, params.DB, query, &returnedID,
-		assetID, siteID, assetName, assetType,
-		nullString(assetURL), nullString(assetContent), string(metadataJSON))
+		assetID, siteID, assetName, assetType, nullString(purpose),
+		assetURL, originType)
 
 	if err != nil {
-		// Table might not exist - log and continue
-		params.Logger.Warn("StoreAssetAction: Insert failed (table may not exist)",
+		// Try simpler insert without upsert if constraint doesn't exist
+		params.Logger.Warn("StoreAssetAction: Upsert failed, trying simple insert",
 			zap.Error(err))
-		return map[string]interface{}{
-			"stored":     true,
-			"persisted":  false,
-			"asset_id":   assetID.String(),
-			"asset_name": assetName,
-			"asset_type": assetType,
-			"asset_url":  assetURL,
-			"error":      err.Error(),
-		}, nil
-	}
 
-	// Get purpose from config (e.g., "hero", "logo")
-	purpose := ""
-	if p, ok := config["purpose"].(string); ok && p != "" {
-		purpose = p
+		simpleQuery := `
+			INSERT INTO assets (id, site_id, name, asset_type, purpose, url, origin_type, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+			RETURNING id
+		`
+		err = queryRowScanUUID(ctx, params.DB, simpleQuery, &returnedID,
+			assetID, siteID, assetName, assetType, nullString(purpose),
+			assetURL, originType)
+
+		if err != nil {
+			params.Logger.Warn("StoreAssetAction: Insert failed",
+				zap.Error(err))
+			return map[string]interface{}{
+				"stored":     true,
+				"persisted":  false,
+				"asset_id":   assetID.String(),
+				"asset_name": assetName,
+				"asset_type": assetType,
+				"asset_url":  assetURL,
+				"error":      err.Error(),
+			}, nil
+		}
 	}
 
 	// If purpose is set and we have a site_id, update sites.content_data
 	// This stores the storage URI (for download) and relative URL (for templates)
-	if purpose != "" && siteID != nil && params.DB != nil {
+	if purpose != "" && siteID != nil {
 		// Find storage URI from asset data
 		storageURI := ""
 		if assetDataMap, ok := assetData.(map[string]interface{}); ok {
