@@ -509,3 +509,32 @@ WHERE type = 'pageflow-builder';
 SELECT default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'write_page_content'->'config'->'input_mapping'
 FROM agent_definitions
 WHERE type = 'pageflow-builder';
+
+--
+
+-- Update write_page_content input_mapping with optional fields (? suffix)
+-- Run this AFTER deploying the code change to support optional fields
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,write_page_content,config,input_mapping}',
+        '{
+            "db_sync": "db_sync",
+            "site_record": "site_record",
+            "current_page": "current_page",
+            "reviewed_brief": "input_data.reviewed_brief",
+            "style_collection": "style_collection",
+            "hero_url?": "hero_url",
+            "logo_url?": "logo_url",
+            "brand_logo_url?": "brand_logo_url"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Verify
+SELECT default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'write_page_content'->'config'->'input_mapping' as input_mapping
+FROM agent_definitions
+WHERE type = 'pageflow-builder';

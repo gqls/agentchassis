@@ -39,6 +39,10 @@ func ResolveInputMapping(
 	result := make(map[string]interface{})
 
 	for destField, sourcePath := range mapping {
+		// Check if field is optional (ends with ?)
+		isOptional := strings.HasSuffix(destField, "?")
+		actualDestField := strings.TrimSuffix(destField, "?")
+
 		// Handle special $item token (for fan_out - caller must replace this)
 		if sourcePath == "$item" {
 			// This will be handled by the fan_out action which replaces $item
@@ -49,25 +53,33 @@ func ResolveInputMapping(
 		// Handle empty source path
 		if sourcePath == "" {
 			logger.Warn("Empty source path in input_mapping",
-				zap.String("dest_field", destField))
+				zap.String("dest_field", actualDestField))
 			continue
 		}
 
 		value, found := GetValueAtExactPath(collectedData, sourcePath)
 		if !found {
-			// Build helpful error message
+			if isOptional {
+				// Optional field not found - just skip it
+				logger.Debug("Optional field not found in input_mapping, skipping",
+					zap.String("dest_field", actualDestField),
+					zap.String("source_path", sourcePath))
+				continue
+			}
+			// Required field not found - error
 			availablePaths := ListAvailablePaths(collectedData, 2)
 			return nil, fmt.Errorf(
 				"input_mapping failed: source path '%s' not found for field '%s'\n"+
 					"Available top-level paths: %v",
-				sourcePath, destField, availablePaths,
+				sourcePath, actualDestField, availablePaths,
 			)
 		}
 
-		result[destField] = value
+		result[actualDestField] = value
 		logger.Debug("Resolved input mapping",
-			zap.String("dest", destField),
-			zap.String("source", sourcePath))
+			zap.String("dest", actualDestField),
+			zap.String("source", sourcePath),
+			zap.Bool("optional", isOptional))
 	}
 
 	return result, nil
@@ -84,36 +96,48 @@ func ResolveInputMappingWithItem(
 	result := make(map[string]interface{})
 
 	for destField, sourcePath := range mapping {
+		// Check if field is optional (ends with ?)
+		isOptional := strings.HasSuffix(destField, "?")
+		actualDestField := strings.TrimSuffix(destField, "?")
+
 		// Handle special $item token
 		if sourcePath == "$item" {
-			result[destField] = currentItem
+			result[actualDestField] = currentItem
 			logger.Debug("Resolved $item in input mapping",
-				zap.String("dest", destField))
+				zap.String("dest", actualDestField))
 			continue
 		}
 
 		// Handle empty source path
 		if sourcePath == "" {
 			logger.Warn("Empty source path in input_mapping",
-				zap.String("dest_field", destField))
+				zap.String("dest_field", actualDestField))
 			continue
 		}
 
 		value, found := GetValueAtExactPath(collectedData, sourcePath)
 		if !found {
-			// For optional fields that might not exist, check if it's truly required
-			// by looking at whether the field has a default or is optional
-			logger.Debug("Source path not found in input_mapping",
-				zap.String("dest_field", destField),
-				zap.String("source_path", sourcePath))
-			// Don't fail here - let contract validation catch required fields
-			continue
+			if isOptional {
+				// Optional field not found - just skip it
+				logger.Debug("Optional field not found in input_mapping, skipping",
+					zap.String("dest_field", actualDestField),
+					zap.String("source_path", sourcePath))
+				continue
+			}
+			// Required field not found - error
+			availablePaths := ListAvailablePaths(collectedData, 2)
+			return nil, fmt.Errorf(
+				"input_mapping failed: source path '%s' not found for field '%s'\n"+
+					"Available top-level paths: %v",
+				sourcePath, actualDestField, availablePaths,
+			)
 		}
 
-		result[destField] = value
+		result[actualDestField] = value
 		logger.Debug("Resolved input mapping",
-			zap.String("dest", destField),
-			zap.String("source", sourcePath))
+			zap.String("dest", actualDestField),
+			zap.String("source", sourcePath),
+			zap.Bool("optional", isOptional))
 	}
 
 	return result, nil
