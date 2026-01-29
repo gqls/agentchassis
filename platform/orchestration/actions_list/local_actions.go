@@ -61,6 +61,9 @@ var LocalActions = map[string]bool{
 	"loop":          true,
 	"loop_complete": true,
 
+	// Web design
+	"load_site_for_design": true,
+
 	// Web search
 	"web_search": true,
 

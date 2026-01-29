@@ -73,6 +73,9 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	// Web search
 	"web_search": WebSearchAction,
 
+	// Web design
+	"load_site_for_design": LoadSiteForDesignAction,
+
 	// Styles and Containers
 	"insert_research_result":  InsertResearchResultAction,
 	"select_style_collection": SelectStyleCollectionAction,

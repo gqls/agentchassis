@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -52,16 +53,64 @@ func WebscrapeAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	// Extract URL from input data
+	// Support url_field config for flexible URL location
 	url := ""
-	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-		if targetURL, ok := inputData["target_url"].(string); ok {
-			url = targetURL
+
+	// First check if url_field is specified in config
+	if urlField, ok := config["url_field"].(string); ok && urlField != "" {
+		// Use datahelpers to extract from any path
+		url = datahelpers.ExtractNestedFieldString(params.CollectedData, urlField)
+	}
+
+	// Fallback to direct url in config
+	if url == "" {
+		if directURL, ok := config["url"].(string); ok {
+			url = directURL
+		}
+	}
+
+	// Fallback to original behavior: input_data.target_url
+	if url == "" {
+		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+			if targetURL, ok := inputData["target_url"].(string); ok {
+				url = targetURL
+			}
+			// Also check input_data.url (common alternative)
+			if url == "" {
+				if u, ok := inputData["url"].(string); ok {
+					url = u
+				}
+			}
 		}
 	}
 
 	if url == "" {
-		return nil, fmt.Errorf("target_url not found in input_data")
+		return nil, fmt.Errorf("URL not found - check 'url_field', 'url' config, or input_data.target_url/url")
 	}
+
+	// The above allows workflows to use:
+	//
+	// Option 1: Default behavior (input_data.target_url)
+	// {
+	//     "action": "firecrawl_scrape",
+	//     "config": {}
+	// }
+	//
+	// Option 2: Custom field path
+	// {
+	//     "action": "firecrawl_scrape",
+	//     "config": {
+	//         "url_field": "input_data.url"
+	//     }
+	// }
+	//
+	// Option 3: Direct URL
+	// {
+	//     "action": "firecrawl_scrape",
+	//     "config": {
+	//         "url": "https://example.com"
+	//     }
+	// }
 
 	// Generate new request ID for this operation
 	newRequestID := uuid.NewString()

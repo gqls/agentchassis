@@ -538,3 +538,96 @@ WHERE type = 'pageflow-builder';
 SELECT default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'write_page_content'->'config'->'input_mapping' as input_mapping
 FROM agent_definitions
 WHERE type = 'pageflow-builder';
+
+
+------
+
+-- Integration: Add webdesign-agent to pageflow-builder
+--
+-- Requires:
+-- 1. Spawn the agent (before it can be called)
+-- 2. Call it after build_pages_loop, before trigger_site_deploy
+
+-- Step 1: Add spawn step
+-- Insert: ... → spawn_image_generator → spawn_webdesign_agent → generate_logo → ...
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_webdesign_agent}',
+        '{
+            "action": "spawn_agent",
+            "config": {
+                "role": "webdesigner",
+                "agent_type": "webdesign-agent"
+            },
+            "description": "Spawn webdesign agent",
+            "next_step": "generate_logo",
+            "output_field": "webdesign_agent"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Update spawn_image_generator to point to spawn_webdesign_agent
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_image_generator,next_step}',
+        '"spawn_webdesign_agent"'
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Step 2: Add apply_site_design step
+-- Insert: ... → build_pages_loop → apply_site_design → trigger_site_deploy → ...
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,apply_site_design}',
+        '{
+            "action": "call_agent",
+            "config": {
+                "agent_type": "webdesign-agent",
+                "target_role": "webdesigner",
+                "input_mapping": {
+                    "site_id": "site_record.site_id",
+                    "domain": "site_record.domain"
+                },
+                "timeout_seconds": 300
+            },
+            "description": "Generate and deploy site stylesheet",
+            "next_step": "trigger_site_deploy",
+            "output_field": "design_result"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Update build_pages_loop to point to apply_site_design
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,next_step}',
+        '"apply_site_design"'
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Verify
+SELECT
+    default_config->'workflow'->'steps'->'spawn_image_generator'->>'next_step' as after_spawn_img,
+    default_config->'workflow'->'steps'->'spawn_webdesign_agent'->>'next_step' as after_spawn_design,
+    default_config->'workflow'->'steps'->'build_pages_loop'->>'next_step' as after_build,
+    default_config->'workflow'->'steps'->'apply_site_design'->>'next_step' as after_design
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Expected:
+-- after_spawn_img     | spawn_webdesign_agent
+-- after_spawn_design  | generate_logo
+-- after_build         | apply_site_design
+-- after_design        | trigger_site_deploy

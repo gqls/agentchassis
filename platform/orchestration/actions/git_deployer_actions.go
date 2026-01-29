@@ -355,9 +355,49 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 	return filesMap
 }
 
+// USAGE EXAMPLE:
+// For CSS files:
+//
+//	{
+//	    "action": "git_commit",
+//	    "config": {
+//	        "domain_field": "site_context.domain",
+//	        "content_field": "generated_css.result",
+//	        "file_path": "assets/css/styles.css"
+//	    }
+//	}
+//
+// For JS files:
+//
+//	{
+//	    "action": "git_commit",
+//	    "config": {
+//	        "domain_field": "site_context.domain",
+//	        "content_field": "generated_js.result",
+//	        "file_path": "assets/js/main.js"
+//	    }
+//	}
+//
+// For HTML (existing behavior unchanged):
+//
+//	{
+//	    "action": "git_commit",
+//	    "config": {
+//	        "domain_field": "site_record.domain",
+//	        "content_field": "assembled_page.html",
+//	        "page_field": "current_page"
+//	    }
+//	}
+//
 // determinePageFilename determines the HTML filename for a single page commit
 // Uses page_field config to get the page name, defaults to "index.html"
 func determinePageFilename(data map[string]interface{}, config map[string]interface{}, logger *zap.Logger) string {
+	// Direct file path override - for non-HTML files (CSS, JS, images, etc.) when path is supplied
+	if filePath, ok := config["file_path"].(string); ok && filePath != "" {
+		logger.Debug("Using direct file_path from config", zap.String("file_path", filePath))
+		return filePath
+	}
+
 	pageField, ok := config["page_field"].(string)
 	if !ok || pageField == "" {
 		logger.Debug("No page_field configured, using default filename")
