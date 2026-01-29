@@ -19,6 +19,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -184,7 +185,7 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 }
 
 // loadPagesWithComponents loads pages and extracts component functions from HTML
-func loadPagesWithComponents(ctx context.Context, db DB, siteID uuid.UUID) ([]map[string]interface{}, error) {
+func loadPagesWithComponents(ctx context.Context, db *sql.DB, siteID uuid.UUID) ([]map[string]interface{}, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT id, title, slug, html_content, status
 		FROM pages 
