@@ -115,12 +115,12 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 		zap.Any("execution context in process", msgCtx.ExecutionContext),
 	)
 
-	// Initialize CollectedData if nil - KEEP
+	// Initialize CollectedData if nil
 	if msgCtx.CollectedData == nil {
 		msgCtx.CollectedData = make(map[string]interface{})
 	}
 
-	// Ensure ExecutionContext has required fields - KEEP
+	// Ensure ExecutionContext has required fields
 	if msgCtx.ExecutionContext.OrchestrationID == "" {
 		msgCtx.ExecutionContext.OrchestrationID = uuid.New().String()
 		msgCtx.Logger.Info("Generated new orchestration_id",
