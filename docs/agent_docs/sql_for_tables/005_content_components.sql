@@ -2516,3 +2516,347 @@ WHERE name = 'hero' AND category = 'hero';
 -- Verify
 SELECT substring(html_template, 1, 400) FROM content_components WHERE name = 'hero';
 
+
+--
+
+-- css to hero
+
+-- Add CSS to hero components
+-- This adds inline <style> blocks to match the header/footer pattern
+
+-- Update the main "hero" component (id: 23f95f00-f293-466e-b43a-81791ea0fc6c)
+UPDATE content_components
+SET html_template = '<section class="hero" data-component="hero" style="{{if or .hero_url .background_image}}background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url(''{{or .hero_url .background_image}}''); background-size: cover; background-position: center;{{else}}background: linear-gradient(135deg, var(--primary-color, #1a1a2e) 0%, var(--secondary-color, #16213e) 50%, var(--accent-color, #0f3460) 100%);{{end}}">
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+            {{if .cta_text}}<a href="{{if .cta_url}}{{.cta_url}}{{else}}/contact.html{{end}}" class="btn btn-primary">{{.cta_text}}</a>{{end}}
+            {{if .secondary_cta}}<a href="{{if .secondary_cta_url}}{{.secondary_cta_url}}{{else}}#features{{end}}" class="btn btn-secondary">{{.secondary_cta}}</a>{{end}}
+        </div>
+    </section>
+<style>
+.hero {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    position: relative;
+}
+.hero-content {
+    max-width: 900px;
+    margin: 0 auto;
+    color: #fff;
+    z-index: 1;
+}
+.hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.35rem);
+    margin-bottom: 2rem;
+    opacity: 0.95;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.95);
+}
+.hero .btn {
+    display: inline-block;
+    padding: 0.875rem 2rem;
+    margin: 0.5rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+.hero .btn-primary {
+    background: var(--accent-color, #0f3460);
+    color: #fff;
+    border: 2px solid var(--accent-color, #0f3460);
+}
+.hero .btn-primary:hover {
+    background: transparent;
+    color: #fff;
+}
+.hero .btn-secondary {
+    background: transparent;
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.8);
+}
+.hero .btn-secondary:hover {
+    background: rgba(255,255,255,0.1);
+}
+@media (max-width: 768px) {
+    .hero {
+        min-height: 60vh;
+        padding: 3rem 1.5rem;
+    }
+    .hero .btn {
+        display: block;
+        width: 100%;
+        max-width: 280px;
+        margin: 0.5rem auto;
+    }
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'hero';
+
+-- Update "Hero Section" (id: ad64fada-3e73-493d-b906-bf32517031f0)
+UPDATE content_components
+SET html_template = '<section class="hero" data-component="hero"{{if .hero_url}} style="background: linear-gradient(135deg, rgba(26,26,46,0.8) 0%, rgba(22,33,62,0.75) 50%, rgba(15,52,96,0.7) 100%), url(''{{.hero_url}}'') center/cover no-repeat;"{{end}}>
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+            {{if .primary_cta_text}}<a href="{{.primary_cta_url | default "/contact.html"}}" class="btn btn-primary">{{.primary_cta_text}}</a>{{end}}
+            {{if .secondary_cta_text}}<a href="{{.secondary_cta_url | default "/services.html"}}" class="btn btn-secondary">{{.secondary_cta_text}}</a>{{end}}
+        </div>
+    </section>
+<style>
+.hero {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    position: relative;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+.hero-content {
+    max-width: 900px;
+    margin: 0 auto;
+    color: #fff;
+    z-index: 1;
+}
+.hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.35rem);
+    margin-bottom: 2rem;
+    opacity: 0.95;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.95);
+}
+.hero .btn {
+    display: inline-block;
+    padding: 0.875rem 2rem;
+    margin: 0.5rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+.hero .btn-primary {
+    background: var(--accent-color, #0f3460);
+    color: #fff;
+    border: 2px solid var(--accent-color, #0f3460);
+}
+.hero .btn-primary:hover {
+    background: transparent;
+    color: #fff;
+}
+.hero .btn-secondary {
+    background: transparent;
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.8);
+}
+.hero .btn-secondary:hover {
+    background: rgba(255,255,255,0.1);
+}
+@media (max-width: 768px) {
+    .hero {
+        min-height: 60vh;
+        padding: 3rem 1.5rem;
+    }
+    .hero .btn {
+        display: block;
+        width: 100%;
+        max-width: 280px;
+        margin: 0.5rem auto;
+    }
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'Hero Section';
+
+-- Update page-specific hero variants (about, services, contact, case-studies)
+-- These don't have background images, just gradient backgrounds
+
+UPDATE content_components
+SET html_template = '<section class="hero hero-about" data-component="about-hero">
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+        </div>
+    </section>
+<style>
+.hero-about {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+.hero-about .hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    color: #fff;
+}
+.hero-about h1 {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+    color: #fff;
+}
+.hero-about .hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    opacity: 0.9;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.9);
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'about-hero';
+
+UPDATE content_components
+SET html_template = '<section class="hero hero-services" data-component="services-hero">
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+        </div>
+    </section>
+<style>
+.hero-services {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+.hero-services .hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    color: #fff;
+}
+.hero-services h1 {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+    color: #fff;
+}
+.hero-services .hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    opacity: 0.9;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.9);
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'services-hero';
+
+UPDATE content_components
+SET html_template = '<section class="hero hero-contact" data-component="contact-hero">
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+        </div>
+    </section>
+<style>
+.hero-contact {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+.hero-contact .hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    color: #fff;
+}
+.hero-contact h1 {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+    color: #fff;
+}
+.hero-contact .hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    opacity: 0.9;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.9);
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'contact-hero';
+
+UPDATE content_components
+SET html_template = '<section class="hero hero-case-studies" data-component="case-studies-hero">
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+        </div>
+    </section>
+<style>
+.hero-case-studies {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+.hero-case-studies .hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    color: #fff;
+}
+.hero-case-studies h1 {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+    color: #fff;
+}
+.hero-case-studies .hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    opacity: 0.9;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.9);
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'case-studies-hero';
+
+-- Verify updates
+SELECT name,
+       CASE WHEN html_template LIKE '%<style>%' THEN 'Has CSS' ELSE 'No CSS' END as has_css,
+       updated_at
+FROM content_components
+WHERE function = 'hero';
+
+
