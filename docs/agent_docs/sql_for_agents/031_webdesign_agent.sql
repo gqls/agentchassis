@@ -439,3 +439,25 @@ INSERT INTO agent_definitions (
                                        input_contract = EXCLUDED.input_contract,
                                        output_contract = EXCLUDED.output_contract,
                                        updated_at = NOW();
+
+
+---
+
+
+-- Fix webdesign-agent conditional check
+-- The '' (empty string) becomes ' (single quote) due to PostgreSQL escaping
+-- Solution: just check != null since UUIDs are never empty strings
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_update_db,config,condition}',
+        '"site_context.site_id != null"'
+                     )
+WHERE type = 'webdesign-agent';
+
+-- Verify
+SELECT type,
+       default_config->'workflow'->'steps'->'check_update_db'->'config'->>'condition' as condition
+FROM agent_definitions
+WHERE type = 'webdesign-agent';

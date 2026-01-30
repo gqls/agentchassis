@@ -63,6 +63,7 @@ var LocalActions = map[string]bool{
 
 	// Web design
 	"load_site_for_design": true,
+	"rerender_site_pages":  true,
 
 	// Web search
 	"web_search": true,

@@ -140,3 +140,5 @@ I'd like to break it down into several sections, with separate agents concentrat
 make sure we use the correct db fields e.g. there was confusion between status and build_status presumably because AI thought that status was the more "reasonable" or probably choice, when it wasn't.
 
 I want to use the git adapter for all git commits, in case one day I change the git destination.
+
+agents are dynamically spawned usually
