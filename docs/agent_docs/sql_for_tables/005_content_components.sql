@@ -4701,3 +4701,56 @@ FROM content_components
 WHERE function IN ('differentiators', 'services-grid', 'social-proof', 'call-to-action',
                    'contact-form', 'contact-info', 'features', 'case-studies-list')
 ORDER BY function;
+
+
+-- Update footer templates to use FooterNavItems with fallback to NavItems
+--
+-- PREREQUISITE: Add to RenderContext in types.go:
+--   FooterNavItems []NavItem `json:"footer_nav_items"`
+--
+-- Pattern change in templates:
+--   BEFORE: {{range .NavItems}}<a href="{{.URL}}">{{.Label}}</a>{{end}}
+--   AFTER:  {{if .FooterNavItems}}{{range .FooterNavItems}}<a href="{{.URL}}">{{.Label}}</a>{{end}}{{else if .NavItems}}{{range .NavItems}}<a href="{{.URL}}">{{.Label}}</a>{{end}}{{end}}
+
+-- ============================================================
+-- Step 1: Check which footers need updating
+-- ============================================================
+SELECT name, function,
+       CASE
+           WHEN html_template LIKE '%FooterNavItems%' THEN 'DONE'
+           WHEN html_template LIKE '%NavItems%' THEN 'NEEDS UPDATE'
+           ELSE 'NO NAV'
+           END as status
+FROM content_components
+WHERE function LIKE '%footer%' OR name LIKE '%footer%'
+ORDER BY name;
+
+-- ============================================================
+-- Step 2: Update templates using text replacement
+-- ============================================================
+-- This handles the common pattern where nav items are inside a <nav> tag
+
+UPDATE content_components
+SET html_template = regexp_replace(
+        html_template,
+        '\{\{range \.NavItems\}\}(.*?)\{\{end\}\}',
+        '{{if .FooterNavItems}}{{range .FooterNavItems}}\1{{end}}{{else if .NavItems}}{{range .NavItems}}\1{{end}}{{end}}',
+        'gs'
+                    ),
+    updated_at = NOW()
+WHERE (function LIKE '%footer%' OR name LIKE '%footer%')
+  AND html_template LIKE '%{{range .NavItems}}%'
+  AND html_template NOT LIKE '%FooterNavItems%';
+
+-- ============================================================
+-- Step 3: Verify changes
+-- ============================================================
+SELECT name, function,
+       CASE
+           WHEN html_template LIKE '%FooterNavItems%' THEN 'UPDATED'
+           WHEN html_template LIKE '%NavItems%' THEN 'STILL NEEDS WORK'
+           ELSE 'NO NAV'
+           END as status
+FROM content_components
+WHERE function LIKE '%footer%' OR name LIKE '%footer%'
+ORDER BY name;

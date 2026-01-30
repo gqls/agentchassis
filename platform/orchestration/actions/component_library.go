@@ -71,8 +71,9 @@ type RenderContext struct {
 	Tagline     string `json:"tagline"`
 
 	// Navigation
-	NavItems    []NavItem `json:"nav_items"`
-	CurrentPage string    `json:"current_page"`
+	NavItems       []NavItem `json:"nav_items"`
+	FooterNavItems []NavItem `json:"footer_nav_items"`
+	CurrentPage    string    `json:"current_page"`
 
 	// Colors (from style collection or extracted from brief)
 	PrimaryColor    string `json:"primary_color"`
@@ -917,8 +918,12 @@ func renderEachBlocks(template string, ctx *RenderContext) string {
 			}
 
 		case "quick_links":
-			// Quick links are same as nav_items for footer
-			for _, item := range ctx.NavItems {
+			// Quick links for footer - prefer FooterNavItems if available
+			navItems := ctx.NavItems
+			if len(ctx.FooterNavItems) > 0 {
+				navItems = ctx.FooterNavItems
+			}
+			for _, item := range navItems {
 				itemStr := itemTemplate
 				itemStr = strings.ReplaceAll(itemStr, "{{this.url}}", item.URL)
 				itemStr = strings.ReplaceAll(itemStr, "{{this.label}}", item.Label)
@@ -1410,9 +1415,15 @@ func RenderFallbackFooter(ctx *RenderContext) string {
 
 // InjectHeader replaces an existing header in HTML with a rendered component
 func InjectHeader(ctx context.Context, db interface{}, html string, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
-	// Update nav from deployed pages
+	// Update nav items from deployed pages (not cached db_sync)
 	if sqlDB, ok := db.(*sql.DB); ok && siteID != uuid.Nil {
-		UpdateRenderContextNavFromPages(ctx, sqlDB, siteID, renderCtx, logger)
+		headerNav := GetHeaderNavFromPages(ctx, sqlDB, siteID, 6, logger)
+		if len(headerNav) > 0 {
+			renderCtx.NavItems = headerNav
+			logger.Debug("InjectHeader: Updated nav from deployed pages",
+				zap.Int("items", len(headerNav)),
+			)
+		}
 	}
 
 	headerHTML, err := RenderHeader(ctx, db, siteID, renderCtx, logger)
@@ -1439,6 +1450,18 @@ func InjectHeader(ctx context.Context, db interface{}, html string, siteID uuid.
 
 // InjectFooter replaces an existing footer in HTML with a rendered component
 func InjectFooter(ctx context.Context, db interface{}, html string, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
+	// Update nav items from deployed pages for footer
+	// Footer includes legal pages (privacy, terms) that may not be in header
+	if sqlDB, ok := db.(*sql.DB); ok && siteID != uuid.Nil {
+		footerNav := GetFooterNavFromPages(ctx, sqlDB, siteID, logger)
+		if len(footerNav) > 0 {
+			renderCtx.FooterNavItems = footerNav
+			logger.Debug("InjectFooter: Updated nav from deployed pages",
+				zap.Int("items", len(footerNav)),
+			)
+		}
+	}
+
 	footerHTML, err := RenderFooter(ctx, db, siteID, renderCtx, logger)
 	if err != nil {
 		logger.Warn("Failed to render footer", zap.Error(err))
@@ -1482,4 +1505,116 @@ func BuildThemeMetadata(themeName string, componentFunctions []string, domain st
  * ============================================
  */
 `, themeName, domain, components, timestamp)
+}
+
+// NavItemFromDB represents a navigation item from pages table
+type NavItemFromDB struct {
+	Label    string
+	URL      string
+	NavOrder int
+	InHeader bool
+	InFooter bool
+}
+
+// GetHeaderNavFromPages queries pages table for header navigation
+// Only includes pages with in_header=true AND status in deployed/active
+func GetHeaderNavFromPages(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxItems int, logger *zap.Logger) []NavItem {
+	if db == nil || siteID == uuid.Nil {
+		logger.Debug("GetHeaderNavFromPages: No DB or site_id, returning empty nav")
+		return []NavItem{}
+	}
+
+	if maxItems <= 0 {
+		maxItems = 6 // Default max header items
+	}
+
+	query := `
+		SELECT 
+			COALESCE(nav_label, title, name) as label,
+			COALESCE(url, '/' || name || '.html') as url,
+			COALESCE(nav_order, position, 0) as nav_order
+		FROM pages 
+		WHERE site_id = $1 
+		  AND in_header = true
+		  AND status IN ('deployed', 'active')
+		  AND deleted_at IS NULL
+		ORDER BY nav_order ASC, created_at ASC
+		LIMIT $2
+	`
+
+	rows, err := db.QueryContext(ctx, query, siteID, maxItems)
+	if err != nil {
+		logger.Warn("GetHeaderNavFromPages: Query failed", zap.Error(err))
+		return []NavItem{}
+	}
+	defer rows.Close()
+
+	var items []NavItem
+	for rows.Next() {
+		var label, url string
+		var navOrder int
+		if err := rows.Scan(&label, &url, &navOrder); err != nil {
+			logger.Warn("GetHeaderNavFromPages: Scan failed", zap.Error(err))
+			continue
+		}
+
+		// Clean up verbose labels
+		label = datahelpers.SimplifyNavLabel(label, datahelpers.ExtractNameFromURL(url))
+
+		items = append(items, NavItem{
+			Label: label,
+			URL:   url,
+		})
+	}
+
+	logger.Debug("GetHeaderNavFromPages: Built nav",
+		zap.Int("items", len(items)),
+		zap.String("site_id", siteID.String()),
+	)
+
+	return items
+}
+
+// GetFooterNavFromPages queries pages table for footer navigation
+// Includes pages with in_footer=true OR legal pages (privacy, terms)
+func GetFooterNavFromPages(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) []NavItem {
+	if db == nil || siteID == uuid.Nil {
+		return []NavItem{}
+	}
+
+	query := `
+		SELECT 
+			COALESCE(nav_label, title, name) as label,
+			COALESCE(url, '/' || name || '.html') as url,
+			COALESCE(nav_order, position, 0) as nav_order
+		FROM pages 
+		WHERE site_id = $1 
+		  AND (in_footer = true OR LOWER(name) LIKE '%privacy%' OR LOWER(name) LIKE '%terms%')
+		  AND status IN ('deployed', 'active')
+		  AND deleted_at IS NULL
+		ORDER BY 
+			CASE WHEN LOWER(name) LIKE '%privacy%' OR LOWER(name) LIKE '%terms%' THEN 1 ELSE 0 END,
+			nav_order ASC
+	`
+
+	rows, err := db.QueryContext(ctx, query, siteID)
+	if err != nil {
+		logger.Warn("GetFooterNavFromPages: Query failed", zap.Error(err))
+		return []NavItem{}
+	}
+	defer rows.Close()
+
+	var items []NavItem
+	for rows.Next() {
+		var label, url string
+		var navOrder int
+		if err := rows.Scan(&label, &url, &navOrder); err != nil {
+			continue
+		}
+
+		label = datahelpers.SimplifyNavLabel(label, datahelpers.ExtractNameFromURL(url))
+		items = append(items, NavItem{Label: label, URL: url})
+	}
+
+	return items
 }
