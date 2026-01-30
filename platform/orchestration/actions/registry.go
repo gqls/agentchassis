@@ -74,9 +74,10 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"web_search": WebSearchAction,
 
 	// Web design
-	"load_site_for_design": LoadSiteForDesignAction,
-	"rerender_site_pages":  RerenderSitePagesAction,
-	"prepare_link_context": PrepareLinkContextAction,
+	"load_site_for_design":  LoadSiteForDesignAction,
+	"rerender_site_pages":   RerenderSitePagesAction,
+	"prepare_link_context":  PrepareLinkContextAction,
+	"validate_page_content": ValidatePageContentAction,
 
 	// Styles and Containers
 	"insert_research_result":  InsertResearchResultAction,
