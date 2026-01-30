@@ -22,6 +22,8 @@ import (
 //   - site_id_field: path to site_id in collected_data (default: "input_data.site_id")
 //   - domain_field: path to domain (fallback if no site_id)
 //   - include_statuses: array of page statuses to include (default: ["deployed", "active"])
+//   - page_id_field: optional - path to specific page_id to rerender (single page mode)
+//   - page_name_field: optional - path to specific page name to rerender (single page mode)
 //
 // Returns: array of pages ready for deployment with fresh HTML
 func RerenderSitePagesAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -84,14 +86,30 @@ func RerenderSitePagesAction(ctx context.Context, params ActionParams) (interfac
 		}
 	}
 
+	// Check for single page filter
+	var pageFilter *PageFilter
+	if pageIDField, ok := config["page_id_field"].(string); ok && pageIDField != "" {
+		if pageIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, pageIDField); pageIDStr != "" {
+			pageFilter = &PageFilter{ByID: pageIDStr}
+		}
+	}
+	if pageFilter == nil {
+		if pageNameField, ok := config["page_name_field"].(string); ok && pageNameField != "" {
+			if pageName := datahelpers.ExtractNestedFieldString(params.CollectedData, pageNameField); pageName != "" {
+				pageFilter = &PageFilter{ByName: pageName}
+			}
+		}
+	}
+
 	params.Logger.Info("RerenderSitePagesAction: Loading pages",
 		zap.String("site_id", siteID.String()),
 		zap.String("domain", domain),
 		zap.Strings("include_statuses", includeStatuses),
+		zap.Any("page_filter", pageFilter),
 	)
 
 	// Load pages
-	pages, err := rerenderLoadPages(ctx, params.DB, siteID, includeStatuses)
+	pages, err := rerenderLoadPages(ctx, params.DB, siteID, includeStatuses, pageFilter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load pages: %w", err)
 	}
@@ -196,6 +214,12 @@ type RerenderPageInfo struct {
 	InHeader bool
 }
 
+// PageFilter for single page mode
+type PageFilter struct {
+	ByID   string
+	ByName string
+}
+
 func rerenderLookupSiteByDomain(ctx context.Context, db *sql.DB, domain string) (uuid.UUID, string, error) {
 	var siteID uuid.UUID
 	var foundDomain string
@@ -212,28 +236,49 @@ func rerenderGetDomainForSite(ctx context.Context, db *sql.DB, siteID uuid.UUID)
 	return domain, err
 }
 
-func rerenderLoadPages(ctx context.Context, db *sql.DB, siteID uuid.UUID, statuses []string) ([]RerenderPageInfo, error) {
-	// Build status filter
-	statusPlaceholders := make([]string, len(statuses))
-	statusArgs := make([]interface{}, len(statuses)+1)
-	statusArgs[0] = siteID
-	for i, s := range statuses {
-		statusPlaceholders[i] = fmt.Sprintf("$%d", i+2)
-		statusArgs[i+1] = s
-	}
-
-	query := fmt.Sprintf(`
+func rerenderLoadPages(ctx context.Context, db *sql.DB, siteID uuid.UUID, statuses []string, filter *PageFilter) ([]RerenderPageInfo, error) {
+	// Build base query
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(`
 		SELECT p.id, p.name, COALESCE(p.title, p.name) as title, p.url,
 		       COALESCE(p.meta_description, '') as meta_desc,
 		       COALESCE(p.nav_label, p.name) as nav_label,
 		       COALESCE(p.nav_order, 100) as nav_order,
 		       COALESCE(p.in_header, true) as in_header
 		FROM pages p
-		WHERE p.site_id = $1 AND p.status IN (%s)
-		ORDER BY p.nav_order, p.created_at
-	`, strings.Join(statusPlaceholders, ","))
+		WHERE p.site_id = $1
+	`)
 
-	rows, err := db.QueryContext(ctx, query, statusArgs...)
+	args := []interface{}{siteID}
+	argIndex := 2
+
+	// Add status filter
+	if len(statuses) > 0 {
+		statusPlaceholders := make([]string, len(statuses))
+		for i, s := range statuses {
+			statusPlaceholders[i] = fmt.Sprintf("$%d", argIndex)
+			args = append(args, s)
+			argIndex++
+		}
+		queryBuilder.WriteString(fmt.Sprintf(" AND p.status IN (%s)", strings.Join(statusPlaceholders, ",")))
+	}
+
+	// Add page filter if specified
+	if filter != nil {
+		if filter.ByID != "" {
+			queryBuilder.WriteString(fmt.Sprintf(" AND p.id = $%d", argIndex))
+			args = append(args, filter.ByID)
+			argIndex++
+		} else if filter.ByName != "" {
+			queryBuilder.WriteString(fmt.Sprintf(" AND p.name = $%d", argIndex))
+			args = append(args, filter.ByName)
+			argIndex++
+		}
+	}
+
+	queryBuilder.WriteString(" ORDER BY p.nav_order, p.created_at")
+
+	rows, err := db.QueryContext(ctx, queryBuilder.String(), args...)
 	if err != nil {
 		return nil, err
 	}
