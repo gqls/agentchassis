@@ -39,12 +39,15 @@ type ValidationResult struct {
 
 // ValidatePageContentAction checks page content for common issues
 // Config:
-//   - html_field: path to HTML content (default: "page_content.response.page_html")
-//   - site_id_field: path to site_id (default: "site_record.site_id")
+//   - input_fields: array of field names to extract (default: ["page_content", "site_record"])
 //   - check_internal_links: bool (default: true)
 //   - check_emails: bool (default: true)
 //   - check_external_links: bool (default: false, just warns)
 //   - allowed_external_domains: array of allowed external domains
+//
+// Expects in extracted fields:
+//   - page_content.response.page_html: the HTML to validate
+//   - site_record.site_id: the site UUID
 func ValidatePageContentAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("ValidatePageContentAction: Starting",
 		zap.String("step_name", params.ExecutionContext.StepName),
@@ -52,25 +55,40 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 
 	config := params.StepConfig.Config
 
-	// Get HTML content
-	htmlField := "page_content.response.page_html"
-	if f, ok := config["html_field"].(string); ok && f != "" {
-		htmlField = f
-	}
-	html := datahelpers.ExtractNestedFieldString(params.CollectedData, htmlField)
-	if html == "" {
-		return nil, fmt.Errorf("no HTML content found at %s", htmlField)
+	// Get input_fields (default to what we need)
+	inputFields := []string{"page_content", "site_record"}
+	if fields, ok := config["input_fields"].([]interface{}); ok {
+		inputFields = make([]string, len(fields))
+		for i, f := range fields {
+			inputFields[i], _ = f.(string)
+		}
 	}
 
-	// Get site_id
-	siteIDField := "site_record.site_id"
-	if f, ok := config["site_id_field"].(string); ok && f != "" {
-		siteIDField = f
+	// Extract the fields using standard helper (handles input_data prefix)
+	extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
+
+	// Get HTML from page_content.response.page_html
+	html := ""
+	if pageContent, ok := extracted["page_content"].(map[string]interface{}); ok {
+		if response, ok := pageContent["response"].(map[string]interface{}); ok {
+			html, _ = response["page_html"].(string)
+		}
 	}
-	siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, siteIDField)
+	if html == "" {
+		params.Logger.Error("ValidatePageContentAction: No HTML found",
+			zap.Any("extracted_keys", datahelpers.GetMapKeys(extracted)),
+		)
+		return nil, fmt.Errorf("no HTML content found in page_content.response.page_html")
+	}
+
+	// Get site_id from site_record.site_id
+	siteIDStr := ""
+	if siteRecord, ok := extracted["site_record"].(map[string]interface{}); ok {
+		siteIDStr, _ = siteRecord["site_id"].(string)
+	}
 	siteID, err := uuid.Parse(siteIDStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid site_id: %w", err)
+		return nil, fmt.Errorf("invalid or missing site_id in site_record.site_id: %w", err)
 	}
 
 	// Config options

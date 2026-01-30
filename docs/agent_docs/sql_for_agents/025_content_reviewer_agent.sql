@@ -144,3 +144,325 @@ id                  |       type       |   display_name   |                     
 (1 row)
 
 
+
+-- Update Content-Reviewer to validate links and emails
+--
+-- Adds a validation step that runs BEFORE review mode determination.
+-- Validation issues are passed to both auto-eval and HITL review.
+-- Human can edit HTML to fix issues. Rejection marks page for maintenance.
+--
+-- Flow:
+--   validate_content → determine_review_mode → (auto-eval OR hitl) → check_approval → complete/reject
+--
+-- Validation checks:
+--   1. Internal links - must point to existing pages in the site
+--   2. Email addresses - must match site's contact_email (warns on mismatch)
+
+-- ============================================================
+-- 1. Add validate_content step (runs first)
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,validate_content}',
+        '{
+            "action": "validate_page_content",
+            "config": {
+                "input_fields": ["page_content", "site_record"],
+                "check_internal_links": true,
+                "check_emails": true
+            },
+            "description": "Check for broken links and incorrect contact info",
+            "next_step": "determine_review_mode",
+            "output_field": "validation_result"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 2. Update start_step to validate_content
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,start_step}',
+        '"validate_content"'
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 3. Update prepare_hitl_review to format issues for display
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,prepare_hitl_review}',
+        '{
+            "action": "prepare_review_data",
+            "config": {
+                "include_fields": ["current_page", "page_content", "reviewed_brief", "validation_result"],
+                "format_for_display": true,
+                "highlight_issues": true,
+                "html_field": "page_content.response.page_html",
+                "issues_field": "validation_result.issues"
+            },
+            "description": "Prepare content for human review with issues highlighted",
+            "next_step": "request_human_review",
+            "output_field": "review_data"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 4. Update request_human_review to allow HTML editing
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,request_human_review}',
+        '{
+            "action": "request_human_input",
+            "config": {
+                "message": "Review page content for {{current_page.name}}",
+                "editable": true,
+                "editable_field": "review_data.html",
+                "request_type": "review",
+                "timeout_seconds": 3600,
+                "stop_on_cancel": false,
+                "notification_topic": "system.notifications.ui",
+                "ui_config": {
+                    "title": "Content Review",
+                    "description": "Review and edit page content before publishing",
+                    "show_diff": true,
+                    "allow_comments": true,
+                    "allow_html_edit": true,
+                    "show_validation_issues": true,
+                    "issues_field": "validation_result.issues",
+                    "actions": ["approve", "approve_with_edits", "reject"]
+                }
+            },
+            "description": "Send to HITL for human review - can edit HTML to fix issues",
+            "next_step": "process_human_response",
+            "output_field": "human_response"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 5. Update process_human_response to extract edits
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_human_response}',
+        '{
+            "action": "process_human_input_response",
+            "config": {
+                "extract_edits": true,
+                "edited_html_field": "edited_content",
+                "approval_field": "approved",
+                "rejection_reason_field": "rejection_reason"
+            },
+            "description": "Process human response - extract any HTML edits",
+            "next_step": "check_hitl_approved",
+            "output_field": "processed_response"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 6. Add check_hitl_approved conditional
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_hitl_approved}',
+        '{
+            "action": "conditional",
+            "config": {
+                "condition": "processed_response.approved == true",
+                "then_step": "finalize_hitl_result",
+                "else_step": "handle_rejection"
+            },
+            "description": "Check if human approved or rejected"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 7. Update finalize_hitl_result to use edited content
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,finalize_hitl_result}',
+        '{
+            "action": "build_review_result",
+            "config": {
+                "approved": true,
+                "review_mode": "hitl",
+                "approved_field": "processed_response.approved",
+                "reviewer_field": "processed_response.responded_by",
+                "edits_field": "processed_response.edits",
+                "edited_html_field": "processed_response.edited_content",
+                "original_html_field": "page_content.response.page_html",
+                "use_edited_if_present": true
+            },
+            "description": "Build result using edited content if provided",
+            "next_step": "update_component_status",
+            "output_field": "review_result"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 8. Add handle_rejection step
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,handle_rejection}',
+        '{
+            "action": "build_review_result",
+            "config": {
+                "approved": false,
+                "review_mode": "hitl",
+                "reviewer_field": "processed_response.responded_by",
+                "rejection_reason_field": "processed_response.rejection_reason",
+                "page_status": "review_rejected"
+            },
+            "description": "Handle rejection - page will be picked up by maintenance",
+            "next_step": "mark_page_needs_attention",
+            "output_field": "review_result"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 9. Add mark_page_needs_attention step
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,mark_page_needs_attention}',
+        '{
+            "action": "update_page_status",
+            "config": {
+                "status": "needs_attention",
+                "page_id_field": "input_data.current_page.id",
+                "notes_field": "processed_response.rejection_reason",
+                "validation_issues_field": "validation_result.issues"
+            },
+            "description": "Mark page for maintenance workflow to handle",
+            "next_step": "complete_rejected",
+            "output_field": "page_status_updated"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 10. Add complete_rejected step (returns non-failure result)
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,complete_rejected}',
+        '{
+            "action": "complete_workflow",
+            "config": {
+                "output_fields": ["review_result", "validation_result"],
+                "status": "rejected",
+                "continue_parent": true
+            },
+            "description": "Complete with rejection - parent workflow continues with next page"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 11. Update auto-eval to include validation in prompt
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,auto_eval_content,config,input_fields}',
+        '["current_page", "page_content", "reviewed_brief", "validation_result"]'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 12. Update check_auto_approval - validation errors force HITL
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_auto_approval,config,condition}',
+        '"eval_result.approved == true AND eval_result.overall_score >= 0.7 AND (validation_result.error_count == 0 OR validation_result.error_count == null)"'
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 13. Update escalate_to_human to show validation issues
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,escalate_to_human,config}',
+        '{
+            "message": "Content needs review for {{current_page.name}}",
+            "editable": true,
+            "editable_field": "page_content.response.page_html",
+            "show_issues": true,
+            "eval_issues_field": "eval_result.issues",
+            "validation_issues_field": "validation_result.issues",
+            "request_type": "review",
+            "timeout_seconds": 3600,
+            "notification_topic": "system.notifications.ui",
+            "ui_config": {
+                "title": "Content Review Required",
+                "description": "Auto-evaluation flagged issues. Please review.",
+                "show_validation_issues": true,
+                "allow_html_edit": true,
+                "actions": ["approve", "approve_with_edits", "reject"]
+            }
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- Update escalate_to_human next_step to use check_hitl_approved
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,escalate_to_human,next_step}',
+        '"process_human_response"'
+                     )
+WHERE type = 'content-reviewer';
+
+-- Also update output_field
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,escalate_to_human,output_field}',
+        '"human_response"'
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- VERIFY
+-- ============================================================
+SELECT type, version,
+       default_config->'workflow'->'start_step' as start_step
+FROM agent_definitions
+WHERE type = 'content-reviewer';
+
+-- Show key steps
+SELECT
+    step_name,
+    step_config->>'action' as action,
+    step_config->>'next_step' as next_step
+FROM agent_definitions,
+    jsonb_each(default_config->'workflow'->'steps') as steps(step_name, step_config)
+WHERE type = 'content-reviewer'
+ORDER BY step_name;
