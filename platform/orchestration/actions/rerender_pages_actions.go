@@ -162,8 +162,15 @@ func RerenderSitePagesAction(ctx context.Context, params ActionParams) (interfac
 	baseRenderCtx := buildRenderContextFromCollectedData(collectedData, params.Logger)
 	baseRenderCtx.SiteID = siteID
 
-	// Build navigation items from pages
-	baseRenderCtx.NavItems = rerenderBuildNavItems(pages)
+	// Build navigation items from DB (deployed pages only)
+	// This ensures nav matches actual deployed pages, not planned pages
+	dbNav := rerenderGetHeaderNavFromDB(ctx, params.DB, siteID, 6, params.Logger)
+	if len(dbNav) > 0 {
+		baseRenderCtx.NavItems = dbNav
+	} else {
+		// Fallback to building from provided pages array
+		baseRenderCtx.NavItems = rerenderBuildNavItems(pages)
+	}
 
 	// Load head component template
 	headTemplate := rerenderLoadHeadTemplate(ctx, params.DB, siteID, params.Logger)
@@ -325,6 +332,135 @@ func rerenderBuildNavItems(pages []RerenderPageInfo) []NavItem {
 		}
 	}
 	return items
+}
+
+// rerenderGetHeaderNavFromDB queries pages table for header nav (deployed pages only)
+func rerenderGetHeaderNavFromDB(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxItems int, logger *zap.Logger) []NavItem {
+	if db == nil || siteID == uuid.Nil {
+		return nil
+	}
+
+	if maxItems <= 0 {
+		maxItems = 6
+	}
+
+	query := `
+		SELECT 
+			COALESCE(nav_label, title, name) as label,
+			COALESCE(url, '/' || name || '.html') as url,
+			COALESCE(nav_order, position, 0) as nav_order
+		FROM pages 
+		WHERE site_id = $1 
+		  AND in_header = true
+		  AND status IN ('deployed', 'active')
+		  AND deleted_at IS NULL
+		ORDER BY nav_order ASC, created_at ASC
+		LIMIT $2
+	`
+
+	rows, err := db.QueryContext(ctx, query, siteID, maxItems)
+	if err != nil {
+		logger.Warn("rerenderGetHeaderNavFromDB: Query failed", zap.Error(err))
+		return nil
+	}
+	defer rows.Close()
+
+	var items []NavItem
+	for rows.Next() {
+		var label, url string
+		var navOrder int
+		if err := rows.Scan(&label, &url, &navOrder); err != nil {
+			continue
+		}
+		// Simplify verbose labels
+		label = rerenderSimplifyNavLabel(label, url)
+		items = append(items, NavItem{Label: label, URL: url})
+	}
+
+	logger.Debug("rerenderGetHeaderNavFromDB: Built nav from DB",
+		zap.Int("items", len(items)),
+	)
+
+	return items
+}
+
+// rerenderGetFooterNavFromDB queries pages table for footer nav
+func rerenderGetFooterNavFromDB(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) []NavItem {
+	if db == nil || siteID == uuid.Nil {
+		return nil
+	}
+
+	query := `
+		SELECT 
+			COALESCE(nav_label, title, name) as label,
+			COALESCE(url, '/' || name || '.html') as url
+		FROM pages 
+		WHERE site_id = $1 
+		  AND (in_footer = true OR LOWER(name) LIKE '%privacy%' OR LOWER(name) LIKE '%terms%')
+		  AND status IN ('deployed', 'active')
+		  AND deleted_at IS NULL
+		ORDER BY nav_order ASC
+	`
+
+	rows, err := db.QueryContext(ctx, query, siteID)
+	if err != nil {
+		logger.Warn("rerenderGetFooterNavFromDB: Query failed", zap.Error(err))
+		return nil
+	}
+	defer rows.Close()
+
+	var items []NavItem
+	for rows.Next() {
+		var label, url string
+		if err := rows.Scan(&label, &url); err != nil {
+			continue
+		}
+		label = rerenderSimplifyNavLabel(label, url)
+		items = append(items, NavItem{Label: label, URL: url})
+	}
+
+	return items
+}
+
+// rerenderSimplifyNavLabel cleans up verbose labels
+func rerenderSimplifyNavLabel(label, url string) string {
+	if len(label) <= 15 {
+		return label
+	}
+
+	// Extract name from URL for mapping
+	name := strings.TrimPrefix(url, "/")
+	name = strings.TrimSuffix(name, ".html")
+	nameLower := strings.ToLower(name)
+
+	switch {
+	case nameLower == "index" || nameLower == "home":
+		return "Home"
+	case strings.HasPrefix(nameLower, "about"):
+		return "About"
+	case strings.HasPrefix(nameLower, "service"):
+		return "Services"
+	case strings.HasPrefix(nameLower, "contact"):
+		return "Contact"
+	case strings.HasPrefix(nameLower, "work") || strings.HasPrefix(nameLower, "portfolio") || strings.HasPrefix(nameLower, "case"):
+		return "Work"
+	case strings.HasPrefix(nameLower, "team"):
+		return "Team"
+	case strings.HasPrefix(nameLower, "privacy"):
+		return "Privacy"
+	case strings.HasPrefix(nameLower, "terms"):
+		return "Terms"
+	}
+
+	// Take first word if still long
+	if len(label) > 20 {
+		words := strings.Fields(label)
+		if len(words) > 0 {
+			return words[0]
+		}
+	}
+
+	return label
 }
 
 func rerenderLoadHeadTemplate(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) string {

@@ -1,4 +1,4 @@
-# Re-render Site Pages Agent
+# Re-render Site Pages Action
 
 ## Purpose
 Re-assembles all deployed pages with current components without regenerating content. Use when:
@@ -7,20 +7,22 @@ Re-assembles all deployed pages with current components without regenerating con
 - Navigation structure changes
 - Branding updates across all pages
 
-## Agent: `rerender-pages`
+## Action: `rerender_site_pages`
 
 **Input:**
 - `site_id` or `domain` (looks up site if only domain provided)
+- `include_statuses`: page statuses to include (default: `["deployed", "active"]`)
 
 **Output:**
 ```json
 {
-  "rerender_result": {
-    "success": true,
-    "pages_rendered": 5,
-    "pages": [...]
-  },
-  "deploy_result": { "iterations": [...] }
+  "success": true,
+  "site_id": "uuid",
+  "domain": "example.com",
+  "pages_rendered": 5,
+  "pages": [
+    {"page_id": "...", "title": "...", "name": "...", "slug": "index", "filename": "index.html", "html": "..."}
+  ]
 }
 ```
 
@@ -30,37 +32,23 @@ Re-assembles all deployed pages with current components without regenerating con
 3. Strips any existing page wrapper (DOCTYPE, head, body)
 4. Applies current `head` component (includes CSS link)
 5. Injects header/footer via `InjectHeader`/`InjectFooter`
-6. Commits each page via git adapter
+6. Returns assembled pages ready for git commit
 
-## Deployment
+## Trigger Script
+```bash
+./trigger_rerender_pages.sh
+```
 
-1. Register action in Go:
+Sends inline workflow to `system.agent.generic.requests`:
+1. `rerender_site_pages` → load and reassemble
+2. `loop` → for each page, `git_commit` → git adapter
+
+## Registration
 ```go
 // action_registry.go
 "rerender_site_pages": RerenderSitePagesAction,
 ```
 
-2. Apply SQL:
-```bash
-psql -f 11_rerender_pages_agent.sql
-```
-
-## Trigger
-
-**Via agent definition:**
-```bash
-./trigger_rerender_agent.sh
-```
-
-**Via inline workflow (no DB entry needed):**
-```bash
-./trigger_rerender_pages.sh
-```
-
 ## Files
-| File | Purpose |
-|------|---------|
-| `10_rerender_pages_action.go` | Action implementation |
-| `11_rerender_pages_agent.sql` | Agent definition |
-| `trigger_rerender_agent.sh` | Trigger via agent type |
-| `trigger_rerender_pages.sh` | Trigger via inline workflow |
+- `10_rerender_pages_action.go` - Action implementation
+- `trigger_rerender_pages.sh` - CLI trigger script

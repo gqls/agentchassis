@@ -1410,6 +1410,11 @@ func RenderFallbackFooter(ctx *RenderContext) string {
 
 // InjectHeader replaces an existing header in HTML with a rendered component
 func InjectHeader(ctx context.Context, db interface{}, html string, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
+	// Update nav from deployed pages
+	if sqlDB, ok := db.(*sql.DB); ok && siteID != uuid.Nil {
+		UpdateRenderContextNavFromPages(ctx, sqlDB, siteID, renderCtx, logger)
+	}
+
 	headerHTML, err := RenderHeader(ctx, db, siteID, renderCtx, logger)
 	if err != nil {
 		logger.Warn("Failed to render header", zap.Error(err))
