@@ -6,11 +6,13 @@
 package actions
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
 	"regexp"
 	"strings"
+	"text/template"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -413,6 +415,9 @@ func rerenderSinglePage(ctx context.Context, db *sql.DB, page RerenderPageInfo, 
 	finalHTML = InjectHeader(ctx, db, finalHTML, siteID, renderCtx, logger)
 	finalHTML = InjectFooter(ctx, db, finalHTML, siteID, renderCtx, logger)
 
+	// Also inject contact-info from template to ensure correct email/phone
+	finalHTML = rerenderInjectContactInfo(ctx, db, finalHTML, siteID, renderCtx, logger)
+
 	// Clean up any double DOCTYPE that might have been in sections
 	finalHTML = rerenderCleanDoubleDoctype(finalHTML)
 
@@ -492,4 +497,110 @@ func rerenderCleanDoubleDoctype(html string) string {
 		}
 		return ""
 	})
+}
+
+// rerenderInjectContactInfo replaces content-writer generated contact-info with template version
+// This ensures correct email/phone from site data rather than hallucinated values
+func rerenderInjectContactInfo(ctx context.Context, db *sql.DB, html string, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
+	// Check if page has contact-info section
+	// Match section AND any immediately following style block (the component outputs both)
+	contactInfoRe := regexp.MustCompile(`(?is)<section[^>]*data-component="contact-info"[^>]*>.*?</section>\s*(?:<style>.*?</style>)?`)
+	if !contactInfoRe.MatchString(html) {
+		return html // No contact-info section
+	}
+
+	// Load contact-info component template
+	var htmlTemplate string
+	err := db.QueryRowContext(ctx, `
+		SELECT html_template FROM content_components 
+		WHERE function = 'contact-info' AND is_active = true
+		LIMIT 1
+	`).Scan(&htmlTemplate)
+
+	if err != nil {
+		logger.Warn("Could not load contact-info template", zap.Error(err))
+		return html
+	}
+
+	// Ensure RenderContext has email/phone from site data
+	if renderCtx.Email == "" || renderCtx.Phone == "" {
+		rerenderLoadContactFromSite(ctx, db, siteID, renderCtx, logger)
+	}
+
+	// Render the template with lowercase keys for Go template compatibility
+	// The template uses {{.email}} not {{.Email}}
+	templateData := map[string]interface{}{
+		"email":         renderCtx.Email,
+		"phone":         renderCtx.Phone,
+		"phone_display": renderCtx.Phone, // Same value, template may use either
+		"title":         "Contact Information",
+		"hours":         "Monday – Friday, 9am – 6pm GMT",
+	}
+	renderedContactInfo := RenderTemplateWithMap(htmlTemplate, templateData, logger)
+
+	// Replace the existing contact-info section (and its style block)
+	html = contactInfoRe.ReplaceAllString(html, renderedContactInfo)
+
+	logger.Debug("Injected contact-info from template",
+		zap.String("email", renderCtx.Email),
+		zap.String("phone", renderCtx.Phone),
+	)
+
+	return html
+}
+
+// rerenderLoadContactFromSite loads email/phone from site content_data
+func rerenderLoadContactFromSite(ctx context.Context, db *sql.DB, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) {
+	var email, phone sql.NullString
+	err := db.QueryRowContext(ctx, `
+		SELECT 
+			COALESCE(
+				content_data->>'contact_email',
+				content_data->'reviewed_brief'->>'contact_email',
+				content_data->'brief'->>'contact_email',
+				''
+			) as email,
+			COALESCE(
+				content_data->>'contact_phone',
+				content_data->'reviewed_brief'->>'contact_phone',
+				content_data->'brief'->>'contact_phone',
+				''
+			) as phone
+		FROM sites WHERE id = $1
+	`, siteID).Scan(&email, &phone)
+
+	if err != nil {
+		logger.Warn("Could not load contact info from site", zap.Error(err))
+		return
+	}
+
+	if email.Valid && email.String != "" {
+		renderCtx.Email = email.String
+	}
+	if phone.Valid && phone.String != "" {
+		renderCtx.Phone = phone.String
+	}
+
+	logger.Debug("Loaded contact info from site",
+		zap.String("email", renderCtx.Email),
+		zap.String("phone", renderCtx.Phone),
+	)
+}
+
+// RenderTemplateWithMap renders a Go template with a map of data
+// Used for component templates where we need explicit control over field names
+func RenderTemplateWithMap(templateStr string, data map[string]interface{}, logger *zap.Logger) string {
+	tmpl, err := template.New("component").Parse(templateStr)
+	if err != nil {
+		logger.Warn("Template parse error in RenderTemplateWithMap", zap.Error(err))
+		return ""
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		logger.Warn("Template execute error in RenderTemplateWithMap", zap.Error(err))
+		return ""
+	}
+
+	return buf.String()
 }

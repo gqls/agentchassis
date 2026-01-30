@@ -4000,3 +4000,704 @@ SELECT function, name,
            END as icons_status
 FROM content_components
 WHERE function IN ('differentiators', 'services-grid', 'social-proof', 'call-to-action', 'contact-form', 'contact-info', 'features');
+
+
+---------------
+
+-- Component CSS Variables Migration
+--
+-- Updates component templates to use CSS custom properties instead of hardcoded colors
+-- This allows styles.css (from webdesign-agent) to control the color scheme
+--
+-- Pattern: var(--variable-name, fallback-value)
+-- Fallback ensures components work even without styles.css loaded
+
+-- ============================================================
+-- Expected CSS Variables (defined by webdesign-agent in styles.css)
+-- ============================================================
+-- :root {
+--   --color-primary: #1a1a2e;
+--   --color-secondary: #16213e;
+--   --color-accent: #0f3460;
+--   --color-background: #ffffff;
+--   --color-surface: #f8f9fa;
+--   --color-text: #333333;
+--   --color-text-muted: #555555;
+--   --color-border: #e2e8f0;
+--   --color-white: #ffffff;
+--   --font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+--   --spacing-section: 5rem 2rem;
+--   --container-max-width: 1200px;
+-- }
+
+-- ============================================================
+-- 1. DIFFERENTIATORS COMPONENT
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="differentiators-section" data-component="differentiators">
+        <div class="differentiators-container">
+            <h2>{{.title}}</h2>
+            <div class="differentiators-grid">
+                {{range .differentiators}}
+                <div class="differentiator-item">
+                    <h3>{{.title}}</h3>
+                    <p>{{.description}}</p>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </section>
+<style>
+.differentiators-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-background, #fff);
+}
+.differentiators-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.differentiators-section h2 {
+    text-align: center;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    margin-bottom: 3rem;
+    color: var(--color-primary, #1a1a2e);
+}
+.differentiators-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+}
+.differentiator-item {
+    padding: 2rem;
+    background: var(--color-surface, #f8f9fa);
+    border-radius: 8px;
+    border-left: 4px solid var(--color-accent, #0f3460);
+}
+.differentiator-item h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-primary, #1a1a2e);
+}
+.differentiator-item p {
+    color: var(--color-text-muted, #555);
+    line-height: 1.7;
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .differentiators-section { padding: 3rem 1.5rem; }
+    .differentiators-grid { grid-template-columns: 1fr; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'differentiators';
+
+-- ============================================================
+-- 2. SERVICES-GRID COMPONENT
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="services-grid-section" data-component="services-grid">
+        <div class="services-container">
+            <h2>{{.title}}</h2>
+            <div class="services-grid">
+                {{range .services}}
+                <div class="service-item">
+                    <h3>{{.name}}</h3>
+                    <p>{{.description}}</p>
+                    {{if .link}}<a href="{{.link}}" class="service-link">Learn more →</a>{{end}}
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </section>
+<style>
+.services-grid-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-surface, #f8f9fa);
+}
+.services-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.services-grid-section h2 {
+    text-align: center;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    margin-bottom: 3rem;
+    color: var(--color-primary, #1a1a2e);
+}
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+}
+.service-item {
+    background: var(--color-background, #fff);
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.service-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+.service-item h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-primary, #1a1a2e);
+}
+.service-item p {
+    color: var(--color-text-muted, #555);
+    line-height: 1.7;
+    margin-bottom: 1rem;
+}
+.service-link {
+    color: var(--color-accent, #0f3460);
+    text-decoration: none;
+    font-weight: 500;
+}
+.service-link:hover {
+    text-decoration: underline;
+}
+@media (max-width: 768px) {
+    .services-grid-section { padding: 3rem 1.5rem; }
+    .services-grid { grid-template-columns: 1fr; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'services-grid';
+
+-- ============================================================
+-- 3. SOCIAL-PROOF COMPONENT (dark background)
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="social-proof-section" data-component="social-proof">
+        <div class="social-proof-container">
+            <h2>{{.title}}</h2>
+            {{if .stats}}
+            <div class="stats-grid">
+                {{range .stats}}
+                <div class="stat-item">
+                    <span class="stat-number">{{.value}}</span>
+                    <span class="stat-label">{{.label}}</span>
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+            {{if .client_logos}}
+            <div class="logo-strip">
+                {{range .client_logos}}
+                <img src="{{.src}}" alt="{{.alt}}" class="client-logo">
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+    </section>
+<style>
+.social-proof-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-primary, #1a1a2e);
+    color: var(--color-white, #fff);
+}
+.social-proof-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+    text-align: center;
+}
+.social-proof-section h2 {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    margin-bottom: 3rem;
+    color: var(--color-white, #fff);
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+.stat-item {
+    padding: 1.5rem;
+}
+.stat-number {
+    display: block;
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 700;
+    color: var(--color-accent, #0f3460);
+    margin-bottom: 0.5rem;
+}
+.stat-label {
+    font-size: 0.95rem;
+    color: rgba(255,255,255,0.8);
+    line-height: 1.4;
+}
+.logo-strip {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    opacity: 0.7;
+}
+.client-logo {
+    height: 40px;
+    width: auto;
+    filter: brightness(0) invert(1);
+}
+@media (max-width: 768px) {
+    .social-proof-section { padding: 3rem 1.5rem; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'social-proof';
+
+-- ============================================================
+-- 4. CALL-TO-ACTION COMPONENT
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="cta-section" data-component="call-to-action">
+        <div class="cta-container">
+            <h2>{{.title}}</h2>
+            <p>{{.description}}</p>
+            <a href="{{if .button_url}}{{.button_url}}{{else}}/contact.html{{end}}" class="btn btn-primary btn-large">{{if .button_text}}{{.button_text}}{{else}}Get Started{{end}}</a>
+        </div>
+    </section>
+<style>
+.cta-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: linear-gradient(135deg, var(--color-accent, #0f3460) 0%, var(--color-primary, #1a1a2e) 100%);
+    text-align: center;
+}
+.cta-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+.cta-section h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    color: var(--color-white, #fff);
+    margin-bottom: 1rem;
+}
+.cta-section p {
+    font-size: 1.1rem;
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+.cta-section .btn {
+    display: inline-block;
+    padding: 1rem 2.5rem;
+    background: var(--color-white, #fff);
+    color: var(--color-primary, #1a1a2e);
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.cta-section .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+@media (max-width: 768px) {
+    .cta-section { padding: 3rem 1.5rem; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'call-to-action';
+
+-- ============================================================
+-- 5. CONTACT-FORM COMPONENT
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="contact-form-section" data-component="contact-form">
+        <div class="form-container">
+            <h2>{{if .title}}{{.title}}{{else}}Get In Touch{{end}}</h2>
+            {{if .intro}}<p class="form-intro">{{.intro}}</p>{{end}}
+            <form class="contact-form" action="/api/contact" method="POST">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input type="text" id="name" name="name" required placeholder="Your name">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required placeholder="your@email.com">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="company">Company (Optional)</label>
+                    <input type="text" id="company" name="company" placeholder="Your company">
+                </div>
+                <div class="form-group">
+                    <label for="message">Message</label>
+                    <textarea id="message" name="message" rows="5" required placeholder="Tell us about your project or challenge..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Send Message</button>
+            </form>
+        </div>
+    </section>
+<style>
+.contact-form-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-background, #fff);
+}
+.form-container {
+    max-width: 700px;
+    margin: 0 auto;
+}
+.contact-form-section h2 {
+    text-align: center;
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    margin-bottom: 1rem;
+    color: var(--color-primary, #1a1a2e);
+}
+.form-intro {
+    text-align: center;
+    color: var(--color-text-muted, #555);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+.contact-form {
+    background: var(--color-surface, #f8f9fa);
+    padding: 2.5rem;
+    border-radius: 8px;
+}
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+.form-group {
+    margin-bottom: 1.5rem;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--color-text, #333);
+}
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 4px;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-accent, #0f3460);
+    box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.1);
+}
+.form-group textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+.contact-form .btn {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    background: var(--color-accent, #0f3460);
+    color: var(--color-white, #fff);
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.contact-form .btn:hover {
+    background: var(--color-primary, #1a1a2e);
+}
+@media (max-width: 768px) {
+    .contact-form-section { padding: 3rem 1.5rem; }
+    .contact-form { padding: 1.5rem; }
+    .form-row { grid-template-columns: 1fr; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'contact-form';
+
+-- ============================================================
+-- 6. CONTACT-INFO COMPONENT
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="contact-info-section" data-component="contact-info">
+        <div class="contact-info-container">
+            <h2>{{if .title}}{{.title}}{{else}}Contact Information{{end}}</h2>
+            {{if .intro}}<p class="contact-intro">{{.intro}}</p>{{end}}
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <div class="contact-icon">✉</div>
+                    <h3>Email</h3>
+                    <a href="mailto:{{if .email}}{{.email}}{{else}}info@example.com{{end}}">{{if .email}}{{.email}}{{else}}info@example.com{{end}}</a>
+                </div>
+                <div class="contact-card">
+                    <div class="contact-icon">☎</div>
+                    <h3>Phone</h3>
+                    <a href="tel:{{if .phone}}{{.phone}}{{else}}+1234567890{{end}}">{{if .phone_display}}{{.phone_display}}{{else if .phone}}{{.phone}}{{else}}+1 (234) 567-890{{end}}</a>
+                </div>
+                <div class="contact-card">
+                    <div class="contact-icon">⏰</div>
+                    <h3>Hours</h3>
+                    <p>{{if .hours}}{{.hours}}{{else}}Monday – Friday, 9am – 6pm{{end}}</p>
+                </div>
+            </div>
+        </div>
+    </section>
+<style>
+.contact-info-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-surface, #f8f9fa);
+}
+.contact-info-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    text-align: center;
+}
+.contact-info-section h2 {
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    margin-bottom: 1rem;
+    color: var(--color-primary, #1a1a2e);
+}
+.contact-intro {
+    color: var(--color-text-muted, #555);
+    margin-bottom: 2.5rem;
+    line-height: 1.6;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+}
+.contact-card {
+    background: var(--color-background, #fff);
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.contact-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+.contact-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: var(--color-primary, #1a1a2e);
+}
+.contact-card a,
+.contact-card p {
+    color: var(--color-text-muted, #555);
+    text-decoration: none;
+    line-height: 1.5;
+}
+.contact-card a:hover {
+    color: var(--color-accent, #0f3460);
+}
+@media (max-width: 768px) {
+    .contact-info-section { padding: 3rem 1.5rem; }
+    .contact-grid { grid-template-columns: 1fr; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'contact-info';
+
+-- ============================================================
+-- 7. FEATURES COMPONENT
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="features-section" data-component="features">
+        <div class="features-container">
+            <h2>{{.title}}</h2>
+            {{if .intro}}<p class="section-intro">{{.intro}}</p>{{end}}
+            <div class="features-grid">
+                {{range .features}}
+                <div class="feature-item">
+                    {{if .icon}}<i data-lucide="{{.icon}}" class="feature-icon"></i>{{end}}
+                    <h3>{{.title}}</h3>
+                    <p>{{.description}}</p>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </section>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    if (typeof lucide !== "undefined") { lucide.createIcons(); }
+});
+</script>
+<style>
+.features-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-surface, #f8f9fa);
+}
+.features-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.features-section h2 {
+    text-align: center;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    margin-bottom: 1rem;
+    color: var(--color-primary, #1a1a2e);
+}
+.section-intro {
+    text-align: center;
+    max-width: 700px;
+    margin: 0 auto 3rem;
+    color: var(--color-text-muted, #555);
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+.feature-item {
+    background: var(--color-background, #fff);
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.feature-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+.feature-icon {
+    width: 48px;
+    height: 48px;
+    color: var(--color-accent, #0f3460);
+    margin-bottom: 1rem;
+}
+.feature-item h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-primary, #1a1a2e);
+}
+.feature-item p {
+    color: var(--color-text-muted, #555);
+    line-height: 1.7;
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .features-section { padding: 3rem 1.5rem; }
+    .features-grid { grid-template-columns: 1fr; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'features';
+
+-- ============================================================
+-- 8. CASE-STUDIES-LIST COMPONENT
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="case-studies-section" data-component="case-studies-list">
+        <div class="case-studies-container">
+            <h2>{{if .title}}{{.title}}{{else}}Case Studies{{end}}</h2>
+            <div class="case-studies-grid">
+                {{range .case_studies}}
+                <div class="case-study-item">
+                    {{if .image}}<img src="{{.image}}" alt="{{.title}}" class="case-study-image">{{end}}
+                    <h3>{{.title}}</h3>
+                    {{if .client}}<p class="case-study-client">{{.client}}</p>{{end}}
+                    <p>{{.description}}</p>
+                    {{if .link}}<a href="{{.link}}" class="case-study-link">Read more</a>{{end}}
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </section>
+<style>
+.case-studies-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-background, #fff);
+}
+.case-studies-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.case-studies-section h2 {
+    text-align: center;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    margin-bottom: 3rem;
+    color: var(--color-primary, #1a1a2e);
+}
+.case-studies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+}
+.case-study-item {
+    background: var(--color-surface, #f8f9fa);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.case-study-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+.case-study-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+.case-study-item h3 {
+    padding: 1.5rem 1.5rem 0.5rem;
+    font-size: 1.25rem;
+    color: var(--color-primary, #1a1a2e);
+}
+.case-study-client {
+    padding: 0 1.5rem;
+    font-size: 0.9rem;
+    color: var(--color-accent, #0f3460);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+.case-study-item p {
+    padding: 0 1.5rem 1rem;
+    color: var(--color-text-muted, #555);
+    line-height: 1.6;
+}
+.case-study-link {
+    display: block;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--color-border, #e2e8f0);
+    color: var(--color-accent, #0f3460);
+    text-decoration: none;
+    font-weight: 500;
+}
+.case-study-link:hover {
+    background: var(--color-background, #fff);
+}
+@media (max-width: 768px) {
+    .case-studies-section { padding: 3rem 1.5rem; }
+    .case-studies-grid { grid-template-columns: 1fr; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'case-studies-list';
+
+-- ============================================================
+-- VERIFY UPDATES
+-- ============================================================
+SELECT function, name,
+       CASE
+           WHEN html_template LIKE '%var(--color%'
+               THEN 'Uses CSS variables'
+           ELSE 'Hardcoded colors'
+           END as css_status
+FROM content_components
+WHERE function IN ('differentiators', 'services-grid', 'social-proof', 'call-to-action',
+                   'contact-form', 'contact-info', 'features', 'case-studies-list')
+ORDER BY function;
