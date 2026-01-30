@@ -4754,3 +4754,547 @@ SELECT name, function,
 FROM content_components
 WHERE function LIKE '%footer%' OR name LIKE '%footer%'
 ORDER BY name;
+
+
+-- global vs local css
+
+-- CSS Responsibility Barrier Implementation
+--
+-- PRINCIPLE: Global CSS handles all appearance (colors, fonts).
+--            Component CSS handles only layout/structure.
+--
+-- Components should NOT re-declare colors on elements that global CSS styles.
+-- Components should ONLY use color variables for:
+--   - Section backgrounds (when different from page background)
+--   - Borders (accent colors)
+--   - Dark/inverted sections
+
+-- ============================================================
+-- COMPONENT CSS RULES:
+-- ============================================================
+-- DO:
+--   - Use var(--color-surface) for section backgrounds
+--   - Use var(--color-accent) for accent borders
+--   - Use var(--color-primary) for dark section backgrounds
+--   - Define grid, flexbox, positioning
+--   - Define component-specific spacing (gaps, margins)
+--
+-- DO NOT:
+--   - Re-declare color on h1, h2, h3, p, a (global handles this)
+--   - Re-declare font-family (global handles this)
+--   - Re-declare base font-size (global handles this)
+--
+-- EXCEPTION - Dark/inverted sections:
+--   If a component has dark background, it MUST override text color
+--   using var(--color-white) or explicit light color
+
+-- ============================================================
+-- 1. DIFFERENTIATORS - Layout only, no color overrides on text
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="differentiators-section" data-component="differentiators">
+    <div class="differentiators-container">
+        <h2>{{.title}}</h2>
+        <div class="differentiators-grid">
+            {{range .differentiators}}
+            <div class="differentiator-item">
+                <h3>{{.title}}</h3>
+                <p>{{.description}}</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</section>
+<style>
+/* Layout only - colors inherited from global CSS */
+.differentiators-section {
+    padding: var(--spacing-section, 5rem 2rem);
+}
+.differentiators-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.differentiators-section h2 {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+.differentiators-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+.differentiator-item {
+    padding: 2rem;
+    background: var(--color-surface, #f8f9fa);
+    border-radius: 8px;
+    border-left: 4px solid var(--color-accent, #0f3460);
+}
+.differentiator-item h3 {
+    margin-bottom: 0.75rem;
+}
+.differentiator-item p {
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .differentiators-section { padding: 3rem 1.5rem; }
+    .differentiators-grid { grid-template-columns: 1fr; }
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'differentiators' OR function = 'differentiators-section';
+
+-- ============================================================
+-- 2. SERVICES-GRID - Layout only
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="services-section" data-component="services-grid">
+    <div class="services-container">
+        <h2>{{.title}}</h2>
+        {{if .subtitle}}<p class="services-subtitle">{{.subtitle}}</p>{{end}}
+        <div class="services-grid">
+            {{range .services}}
+            <div class="service-item">
+                <h3>{{.name}}</h3>
+                <p>{{.description}}</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</section>
+<style>
+/* Layout only - colors inherited from global CSS */
+.services-section {
+    padding: var(--spacing-section, 5rem 2rem);
+}
+.services-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.services-section h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.services-subtitle {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 3rem;
+}
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+}
+.service-item {
+    padding: 2rem;
+    background: var(--color-surface, #f8f9fa);
+    border-radius: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.service-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+.service-item h3 {
+    margin-bottom: 1rem;
+}
+.service-item p {
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .services-section { padding: 3rem 1.5rem; }
+    .services-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'services-grid' OR function = 'services-grid';
+
+-- ============================================================
+-- 3. SOCIAL-PROOF (Dark section - MUST override text colors)
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="social-proof-section" data-component="social-proof">
+    <div class="social-proof-container">
+        <h2>{{.title}}</h2>
+        <div class="testimonials-grid">
+            {{range .testimonials}}
+            <div class="testimonial-item">
+                <blockquote>{{.quote}}</blockquote>
+                <cite>
+                    <strong>{{.author}}</strong>
+                    {{if .role}}<span>{{.role}}</span>{{end}}
+                </cite>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</section>
+<style>
+/* Dark section - MUST override text colors */
+.social-proof-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-primary, #1a1a2e);
+    color: var(--color-white, #fff);
+}
+.social-proof-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.social-proof-section h2 {
+    text-align: center;
+    margin-bottom: 3rem;
+    color: var(--color-white, #fff);
+}
+.testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+.testimonial-item {
+    padding: 2rem;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    border-left: 3px solid var(--color-accent, #0f3460);
+}
+.testimonial-item blockquote {
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin: 0 0 1.5rem;
+    font-style: italic;
+    color: rgba(255,255,255,0.9);
+}
+.testimonial-item cite {
+    display: block;
+    font-style: normal;
+}
+.testimonial-item cite strong {
+    display: block;
+    color: var(--color-white, #fff);
+}
+.testimonial-item cite span {
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.7);
+}
+@media (max-width: 768px) {
+    .social-proof-section { padding: 3rem 1.5rem; }
+    .testimonials-grid { grid-template-columns: 1fr; }
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'social-proof' OR function = 'social_proof' OR function = 'testimonials';
+
+-- ============================================================
+-- 4. CALL-TO-ACTION (Dark section)
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="cta-section" data-component="call-to-action">
+    <div class="cta-container">
+        <h2>{{.title}}</h2>
+        {{if .subtitle}}<p class="cta-subtitle">{{.subtitle}}</p>{{end}}
+        <div class="cta-buttons">
+            {{if .primary_button}}
+            <a href="{{.primary_button.url}}" class="cta-btn cta-btn-primary">{{.primary_button.text}}</a>
+            {{end}}
+            {{if .secondary_button}}
+            <a href="{{.secondary_button.url}}" class="cta-btn cta-btn-secondary">{{.secondary_button.text}}</a>
+            {{end}}
+        </div>
+    </div>
+</section>
+<style>
+/* Dark section - MUST override text colors */
+.cta-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-primary, #1a1a2e);
+    color: var(--color-white, #fff);
+    text-align: center;
+}
+.cta-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+.cta-section h2 {
+    margin-bottom: 1rem;
+    color: var(--color-white, #fff);
+}
+.cta-subtitle {
+    margin-bottom: 2rem;
+    color: rgba(255,255,255,0.85);
+}
+.cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.cta-btn {
+    display: inline-block;
+    padding: 1rem 2rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.cta-btn:hover {
+    transform: translateY(-2px);
+}
+.cta-btn-primary {
+    background: var(--color-white, #fff);
+    color: var(--color-primary, #1a1a2e);
+}
+.cta-btn-secondary {
+    background: transparent;
+    border: 2px solid var(--color-white, #fff);
+    color: var(--color-white, #fff);
+}
+@media (max-width: 768px) {
+    .cta-section { padding: 3rem 1.5rem; }
+    .cta-buttons { flex-direction: column; align-items: center; }
+    .cta-btn { width: 100%; max-width: 280px; text-align: center; }
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'call-to-action' OR function = 'call_to_action' OR function = 'cta';
+
+-- ============================================================
+-- 5. FEATURES (Light section - layout only)
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="features-section" data-component="features">
+    <div class="features-container">
+        <h2>{{.title}}</h2>
+        {{if .subtitle}}<p class="features-subtitle">{{.subtitle}}</p>{{end}}
+        <div class="features-grid">
+            {{range .features}}
+            <div class="feature-item">
+                {{if .icon}}<div class="feature-icon">{{.icon}}</div>{{end}}
+                <h3>{{.title}}</h3>
+                <p>{{.description}}</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</section>
+<style>
+/* Layout only - colors inherited from global CSS */
+.features-section {
+    padding: var(--spacing-section, 5rem 2rem);
+}
+.features-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.features-section h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.features-subtitle {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 3rem;
+}
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+}
+.feature-item {
+    text-align: center;
+    padding: 2rem;
+}
+.feature-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--color-accent, #0f3460);
+}
+.feature-item h3 {
+    margin-bottom: 1rem;
+}
+.feature-item p {
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .features-section { padding: 3rem 1.5rem; }
+    .features-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'features' OR function = 'features';
+
+-- ============================================================
+-- 6. CONTACT-FORM (Light section - layout only)
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="contact-form-section" data-component="contact-form">
+    <div class="contact-form-container">
+        <h2>{{.title}}</h2>
+        {{if .subtitle}}<p class="contact-subtitle">{{.subtitle}}</p>{{end}}
+        <form class="contact-form" action="{{.form_action}}" method="POST">
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="message">Message</label>
+                <textarea id="message" name="message" rows="5" required></textarea>
+            </div>
+            <button type="submit" class="form-submit">{{if .button_text}}{{.button_text}}{{else}}Send Message{{end}}</button>
+        </form>
+    </div>
+</section>
+<style>
+/* Layout only - colors inherited from global CSS */
+.contact-form-section {
+    padding: var(--spacing-section, 5rem 2rem);
+}
+.contact-form-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+.contact-form-section h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.contact-subtitle {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.form-group label {
+    font-weight: 500;
+}
+.form-group input,
+.form-group textarea {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-border, #e2e8f0);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-accent, #0f3460);
+    box-shadow: 0 0 0 3px rgba(15,52,96,0.1);
+}
+.form-submit {
+    padding: 1rem 2rem;
+    background: var(--color-accent, #0f3460);
+    color: var(--color-white, #fff);
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+.form-submit:hover {
+    transform: translateY(-2px);
+}
+@media (max-width: 768px) {
+    .contact-form-section { padding: 3rem 1.5rem; }
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'contact-form' OR function = 'contact-form';
+
+-- ============================================================
+-- 7. CASE-STUDIES (Light section - layout only)
+-- ============================================================
+UPDATE content_components
+SET html_template = '<section class="case-studies-section" data-component="case-studies-list">
+    <div class="case-studies-container">
+        <h2>{{.title}}</h2>
+        {{if .subtitle}}<p class="case-studies-subtitle">{{.subtitle}}</p>{{end}}
+        <div class="case-studies-grid">
+            {{range .case_studies}}
+            <article class="case-study-item">
+                <h3>{{.title}}</h3>
+                <p class="case-study-client">{{.client}}</p>
+                <p>{{.description}}</p>
+                {{if .results}}<p class="case-study-results"><strong>Results:</strong> {{.results}}</p>{{end}}
+            </article>
+            {{end}}
+        </div>
+    </div>
+</section>
+<style>
+/* Layout only - colors inherited from global CSS */
+.case-studies-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-surface, #f8f9fa);
+}
+.case-studies-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.case-studies-section h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.case-studies-subtitle {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 3rem;
+}
+.case-studies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+}
+.case-study-item {
+    padding: 2rem;
+    background: var(--color-background, #fff);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.case-study-item h3 {
+    margin-bottom: 0.5rem;
+}
+.case-study-client {
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    color: var(--color-text-muted, #666);
+}
+.case-study-results {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border, #e2e8f0);
+}
+@media (max-width: 768px) {
+    .case-studies-section { padding: 3rem 1.5rem; }
+    .case-studies-grid { grid-template-columns: 1fr; }
+}
+</style>',
+    updated_at = NOW()
+WHERE name = 'case-studies-list' OR function = 'case-studies-list';
+
+-- ============================================================
+-- VERIFY
+-- ============================================================
+SELECT name, function,
+       CASE
+           WHEN html_template LIKE '%color: var(--color-primary%'
+               AND html_template NOT LIKE '%background:%var(--color-primary%' THEN 'NEEDS REVIEW - sets text color'
+           WHEN html_template LIKE '%Dark section%' THEN 'OK - Dark section'
+           ELSE 'OK - Layout only'
+           END as css_responsibility
+FROM content_components
+WHERE function IN ('differentiators-section', 'services-grid', 'social_proof',
+                   'testimonials', 'call_to_action', 'cta', 'features',
+                   'contact-form', 'case-studies-list')
+ORDER BY name;
+

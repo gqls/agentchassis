@@ -610,3 +610,152 @@ INSERT INTO agent_definitions (
                                        input_contract = EXCLUDED.input_contract,
                                        output_contract = EXCLUDED.output_contract,
                                        updated_at = NOW();
+
+
+-- global vs local css
+-- Webdesign Agent Definition (Final)
+--
+-- Generates CSS stylesheets for sites.
+-- Uses file_path config in git_commit (requires patch_01_git_commit_file_path.go)
+-- No container config (handled by spawn_actions.go)
+
+INSERT INTO agent_definitions (
+    type,
+    display_name,
+    description,
+    category,
+    default_config,
+    is_active,
+    capabilities,
+    input_contract,
+    output_contract
+) VALUES (
+             'webdesign-agent',
+             'Web Design Agent',
+             'Generates CSS stylesheets for sites. Accepts site_context or loads from DB. Analyzes design requirements and generates production CSS.',
+             'specialist',
+             '{
+                 "processing_mode": "task",
+                 "timeout_seconds": 300,
+                 "workflow": {
+                     "start_step": "check_site_context",
+                     "steps": {
+                         "check_site_context": {
+                             "action": "conditional",
+                             "config": {
+                                 "condition": "input_data.site_context.domain != null AND input_data.site_context.domain != ''",
+                                 "then_step": "use_provided_context",
+                                 "else_step": "load_site_context"
+                             },
+                             "description": "Check if site_context was provided"
+                         },
+                         "use_provided_context": {
+                             "action": "transform_data",
+                             "config": {
+                                 "source_field": "input_data.site_context",
+                                 "output_key": "site_context"
+                             },
+                             "description": "Use provided site_context",
+                             "next_step": "analyze_design",
+                             "output_field": "site_context"
+                         },
+                         "load_site_context": {
+                             "action": "load_site_for_design",
+                             "config": {
+                                 "site_id_field": "input_data.site_id",
+                                 "domain_field": "input_data.domain",
+                                 "include_pages": true,
+                                 "include_style_collection": true
+                             },
+                             "description": "Load site from database",
+                             "next_step": "analyze_design",
+                             "output_field": "site_context"
+                         },
+                         "analyze_design": {
+                             "action": "execute_llm_prompt",
+                             "config": {
+                                 "ai_service": {
+                                     "provider": "anthropic",
+                                     "model": "claude-sonnet-4-5",
+                                     "max_tokens": 2000,
+                                     "api_key_env_var": "ANTHROPIC_API_KEY"
+                                 },
+                                 "input_fields": ["site_context"],
+                                 "output_format": "json",
+                                 "prompt_template": "You are a web design expert. Analyze the site and output a design specification.\n\n## Site\nDomain: {{.site_context.domain}}\nCompany: {{.site_context.company_name}}\nIndustry: {{if .site_context.industry}}{{.site_context.industry}}{{else}}professional services{{end}}\nTagline: {{.site_context.tagline}}\n\n## Components Used\n{{range .site_context.all_component_functions}}- {{.}}\n{{end}}\n\nReturn ONLY valid JSON:\n{\n  \"color_scheme\": {\n    \"primary\": \"#1a1a2e\",\n    \"secondary\": \"#16213e\",\n    \"accent\": \"#0f3460\",\n    \"background\": \"#ffffff\",\n    \"surface\": \"#f8f9fa\",\n    \"text\": \"#333333\",\n    \"text_muted\": \"#666666\",\n    \"border\": \"#e2e8f0\"\n  },\n  \"typography\": {\n    \"font_family\": \"-apple-system, BlinkMacSystemFont, sans-serif\",\n    \"heading_font\": \"inherit\",\n    \"base_size\": \"16px\",\n    \"line_height\": \"1.6\"\n  },\n  \"spacing\": {\n    \"section_padding\": \"5rem 2rem\",\n    \"container_max_width\": \"1200px\"\n  },\n  \"design_notes\": \"brief notes about design choices\"\n}"
+                             },
+                             "description": "Generate design spec",
+                             "next_step": "generate_css",
+                             "output_field": "design_spec"
+                         },
+                         "generate_css": {
+                             "action": "execute_llm_prompt",
+                             "config": {
+                                 "ai_service": {
+                                     "provider": "anthropic",
+                                     "model": "claude-sonnet-4-5",
+                                     "max_tokens": 8000,
+                                     "api_key_env_var": "ANTHROPIC_API_KEY"
+                                 },
+                                 "input_fields": ["site_context", "design_spec"],
+                                 "output_format": "text",
+                                 "prompt_template": "Generate a complete production CSS stylesheet.\n\n## Design Spec\n{{.design_spec.result}}\n\n## Components\n{{range .site_context.all_component_functions}}- {{.}}\n{{end}}\n\n## CSS RESPONSIBILITY RULES\nGlobal CSS handles ALL appearance. Component CSS handles only layout.\n\nYou MUST provide:\n1. :root with EXACT variable names (use design_spec colors)\n2. Base element styling that components inherit\n\nComponents will NOT re-declare colors on h1-h6, p, a - they inherit from you.\n\n## Required :root Variables\n:root {\n  --color-primary: (from color_scheme.primary);\n  --color-secondary: (from color_scheme.secondary);\n  --color-accent: (from color_scheme.accent);\n  --color-background: (from color_scheme.background);\n  --color-surface: (from color_scheme.surface);\n  --color-text: (from color_scheme.text);\n  --color-text-muted: (from color_scheme.text_muted);\n  --color-border: (from color_scheme.border);\n  --color-white: #ffffff;\n  --font-family: (from typography.font_family);\n  --spacing-section: (from spacing.section_padding);\n  --container-max-width: (from spacing.container_max_width);\n}\n\n## Required Base Styles\n- *, *::before, *::after { box-sizing: border-box; }\n- html, body { margin: 0; padding: 0; }\n- body { font-family: var(--font-family); color: var(--color-text); line-height: 1.6; }\n- h1, h2, h3, h4, h5, h6 { color: var(--color-primary); line-height: 1.2; margin: 0 0 1rem; }\n- h1 { font-size: clamp(2rem, 5vw, 3rem); }\n- h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }\n- h3 { font-size: clamp(1.25rem, 3vw, 1.5rem); }\n- p { margin: 0 0 1rem; color: var(--color-text); }\n- a { color: var(--color-accent); }\n- .container { max-width: var(--container-max-width); margin: 0 auto; padding: 0 2rem; }\n\n## Also Include\n- Button base styles (.btn, .btn-primary, .btn-secondary)\n- Focus states for accessibility\n- Smooth transitions\n- Responsive adjustments at 768px and 1024px\n\n## DO NOT Include\n- Component-specific selectors (.services-grid, .testimonial-item, etc.)\n- Components have their own CSS that inherits from your base styles\n\nOutput ONLY CSS. No markdown. No explanations. Start with :root {"
+                             },
+                             "description": "Generate CSS",
+                             "next_step": "deploy_css",
+                             "output_field": "generated_css"
+                         },
+                         "deploy_css": {
+                             "action": "git_commit",
+                             "config": {
+                                 "domain_field": "site_context.domain",
+                                 "content_field": "generated_css.result",
+                                 "file_path": "assets/css/styles.css",
+                                 "commit_message": "Update stylesheet via webdesign-agent"
+                             },
+                             "description": "Deploy CSS to git",
+                             "next_step": "check_update_db",
+                             "output_field": "css_deployed"
+                         },
+                         "check_update_db": {
+                             "action": "conditional",
+                             "config": {
+                                 "condition": "site_context.site_id != null",
+                                 "then_step": "update_site",
+                                 "else_step": "complete"
+                             },
+                             "description": "Check if we should update DB"
+                         },
+                         "update_site": {
+                             "action": "update_site_content",
+                             "config": {
+                                 "site_id_field": "site_context.site_id",
+                                 "merge": true,
+                                 "content_field": "design_spec.result"
+                             },
+                             "description": "Store design spec",
+                             "next_step": "complete",
+                             "output_field": "site_updated"
+                         },
+                         "complete": {
+                             "action": "complete_workflow",
+                             "config": {
+                                 "output_fields": ["design_spec", "css_deployed", "site_context"]
+                             }
+                         }
+                     }
+                 }
+             }',
+             true,
+             '["design", "css", "styling", "specialist"]',
+             '{"required": [], "optional": ["site_id", "domain", "site_context"]}',
+             '{"produces": {"css_deployed": "git result", "design_spec": "design spec"}}'
+         )
+    ON CONFLICT (type, version) DO UPDATE SET
+    display_name = EXCLUDED.display_name,
+                                       description = EXCLUDED.description,
+                                       default_config = EXCLUDED.default_config,
+                                       input_contract = EXCLUDED.input_contract,
+                                       output_contract = EXCLUDED.output_contract,
+                                       updated_at = NOW();
+
