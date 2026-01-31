@@ -179,7 +179,7 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 }
 
 // PageInfo holds page details for rendering
-type PageInfo struct {
+type SinglePageInfo struct {
 	ID       uuid.UUID
 	Name     string
 	Title    string
@@ -194,8 +194,8 @@ type SiteContactInfo struct {
 	Phone string
 }
 
-func loadPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo, error) {
-	var p PageInfo
+func loadPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*SinglePageInfo, error) {
+	var p SinglePageInfo
 	p.ID = pageID
 
 	err := db.QueryRowContext(ctx, `
