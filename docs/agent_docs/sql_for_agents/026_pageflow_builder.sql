@@ -693,3 +693,58 @@ SELECT
     default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'save_sections'->>'next_step' as save_next
 FROM agent_definitions
 WHERE type = 'pageflow-builder';
+
+
+---
+
+-- adding rerender step one page at a time
+
+-- Add save_sections step to pageflow-builder workflow
+-- This saves rendered HTML to page_components.rendered_html for future rerender operations
+--
+-- The step runs AFTER deploy_page and BEFORE update_page_status
+
+-- ============================================================
+-- 1. Add save_sections step to the sub_workflow within build_pages_loop
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,save_sections}',
+        '{
+            "action": "save_page_sections",
+            "config": {
+                "html_field": "assembled_page.html",
+                "page_name_field": "current_page.name",
+                "site_id_field": "site_record.site_id"
+            },
+            "description": "Save rendered sections to page_components for rerender",
+            "next_step": "update_page_status",
+            "output_field": "save_result"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- ============================================================
+-- 2. Update deploy_page to go to save_sections instead of update_page_status
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,deploy_page,next_step}',
+        '"save_sections"'
+                     )
+WHERE type = 'pageflow-builder';
+
+-- ============================================================
+-- 3. Verify the update
+-- ============================================================
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'deploy_page'->>'next_step' as deploy_next,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'save_sections'->>'action' as save_action,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'save_sections'->>'next_step' as save_next
+FROM agent_definitions
+WHERE type = 'pageflow-builder';

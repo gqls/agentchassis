@@ -2,7 +2,7 @@
 // RerenderSitePagesAction re-assembles all deployed pages with current components
 // Uses existing InjectHeader/InjectFooter from component_library.go
 // Adds proper head component (for stylesheet links, meta tags)
-
+// DEPRECATED
 package actions
 
 import (

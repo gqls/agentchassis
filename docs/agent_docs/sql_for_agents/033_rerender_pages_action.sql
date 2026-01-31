@@ -138,6 +138,204 @@ ON CONFLICT (type, version) DO UPDATE SET
                                                                                                                                                                                                                                                                                                                                                                                                       description = EXCLUDED.description,
                                                                                                                                                                                                                                                                                                                                                                                                       default_config = EXCLUDED.default_config,
                                                                                                                                                                                                                                                                                                                                                                                                       capabilities = EXCLUDED.capabilities,
-                                                                                                                                                                                                                                                                                                                                                                                                      input_contract = EXCLUDED.input_contract,
-                                                                                                                                                                                                                                                                                                                                                                                                      output_contract = EXCLUDED.output_contract,
+-- one page at a time
+-- Update rerender-pages agent to use loop-based workflow
+-- This processes one page at a time, avoiding large message payloads
+--
+-- Flow: get_pages → loop → (render_page → deploy_page → update_status) → complete
+
+-- ============================================================
+-- 1. Update rerender-pages agent workflow
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = '{
+    "workflow": {
+        "start_step": "get_pages",
+        "steps": {
+            "get_pages": {
+                "action": "get_pages_for_rerender",
+                "config": {
+                    "site_id_field": "input_data.site_id",
+                    "domain_field": "input_data.domain",
+                    "include_statuses": ["deployed", "active"]
+                },
+                "description": "Get page metadata for rerender loop",
+                "output_field": "rerender_pages",
+                "next_step": "deploy_loop"
+            },
+            "deploy_loop": {
+                "action": "loop",
+                "config": {
+                    "items_field": "rerender_pages.pages",
+                    "item_variable": "current_page",
+                    "mode": "sequential",
+                    "max_iterations": 50,
+                    "sub_workflow": {
+                        "start_step": "render_page",
+                        "steps": {
+                            "render_page": {
+                                "action": "rerender_single_page",
+                                "config": {
+                                    "page_id_field": "current_page.page_id",
+                                    "site_id_field": "rerender_pages.site_id",
+                                    "domain_field": "rerender_pages.domain",
+                                    "max_nav_items": 6
+                                },
+                                "description": "Render single page from stored sections",
+                                "output_field": "rendered_page",
+                                "next_step": "deploy_page"
+                            },
+                            "deploy_page": {
+                                "action": "git_commit",
+                                "config": {
+                                    "repo_name": "sites",
+                                    "domain_field": "rendered_page.domain",
+                                    "content_field": "rendered_page.html",
+                                    "filename_field": "rendered_page.filename",
+                                    "commit_message": "Rerender: {{.filename}}"
+                                },
+                                "description": "Deploy rendered page to git",
+                                "output_field": "deploy_result",
+                                "next_step": "update_status"
+                            },
+                            "update_status": {
+                                "action": "update_page_status",
+                                "config": {
+                                    "status": "deployed",
+                                    "page_id_field": "current_page.page_id",
+                                    "commit_from": "deploy_result.commit_sha"
+                                },
+                                "description": "Update page status in database",
+                                "output_field": "status_updated",
+                                "next_step": "loop_done"
+                            },
+                            "loop_done": {
+                                "action": "loop_complete",
+                                "description": "Page rerender complete"
+                            }
+                        }
+                    }
+                },
+                "description": "Loop through pages, render and deploy each one",
+                "output_field": "pages_processed",
+                "next_step": "complete"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["rerender_pages", "pages_processed"]
+                },
+                "description": "Rerender complete"
+            }
+        }
+    },
+    "processing_mode": "orchestrator",
+    "timeout_seconds": 1800
+}'::jsonb,
+version = version + 1,
+updated_at = NOW()
+WHERE type = 'rerender-pages';
+
+-- ============================================================
+-- 2. If agent doesn't exist, create it
+-- ============================================================
+INSERT INTO agent_definitions (type, name, description, default_config, version)
+SELECT
+    'rerender-pages',
+    'Rerender Pages Agent',
+    'Re-renders all deployed pages with current components (header, footer, nav, contact info)',
+    '{
+        "workflow": {
+            "start_step": "get_pages",
+            "steps": {
+                "get_pages": {
+                    "action": "get_pages_for_rerender",
+                    "config": {
+                        "site_id_field": "input_data.site_id",
+                        "domain_field": "input_data.domain",
+                        "include_statuses": ["deployed", "active"]
+                    },
+                    "description": "Get page metadata for rerender loop",
+                    "output_field": "rerender_pages",
+                    "next_step": "deploy_loop"
+                },
+                "deploy_loop": {
+                    "action": "loop",
+                    "config": {
+                        "items_field": "rerender_pages.pages",
+                        "item_variable": "current_page",
+                        "mode": "sequential",
+                        "max_iterations": 50,
+                        "sub_workflow": {
+                            "start_step": "render_page",
+                            "steps": {
+                                "render_page": {
+                                    "action": "rerender_single_page",
+                                    "config": {
+                                        "page_id_field": "current_page.page_id",
+                                        "site_id_field": "rerender_pages.site_id",
+                                        "domain_field": "rerender_pages.domain",
+                                        "max_nav_items": 6
+                                    },
+                                    "description": "Render single page from stored sections",
+                                    "output_field": "rendered_page",
+                                    "next_step": "deploy_page"
+                                },
+                                "deploy_page": {
+                                    "action": "git_commit",
+                                    "config": {
+                                        "repo_name": "sites",
+                                        "domain_field": "rendered_page.domain",
+                                        "content_field": "rendered_page.html",
+                                        "filename_field": "rendered_page.filename",
+                                        "commit_message": "Rerender: {{.filename}}"
+                                    },
+                                    "description": "Deploy rendered page to git",
+                                    "output_field": "deploy_result",
+                                    "next_step": "update_status"
+                                },
+                                "update_status": {
+                                    "action": "update_page_status",
+                                    "config": {
+                                        "status": "deployed",
+                                        "page_id_field": "current_page.page_id",
+                                        "commit_from": "deploy_result.commit_sha"
+                                    },
+                                    "description": "Update page status in database",
+                                    "output_field": "status_updated",
+                                    "next_step": "loop_done"
+                                },
+                                "loop_done": {
+                                    "action": "loop_complete",
+                                    "description": "Page rerender complete"
+                                }
+                            }
+                        }
+                    },
+                    "description": "Loop through pages, render and deploy each one",
+                    "output_field": "pages_processed",
+                    "next_step": "complete"
+                },
+                "complete": {
+                    "action": "complete_workflow",
+                    "config": {
+                        "output_fields": ["rerender_pages", "pages_processed"]
+                    },
+                    "description": "Rerender complete"
+                }
+            }
+        },
+        "processing_mode": "orchestrator",
+        "timeout_seconds": 1800
+    }'::jsonb,
+    1
+    WHERE NOT EXISTS (SELECT 1 FROM agent_definitions WHERE type = 'rerender-pages');
+
+-- ============================================================
+-- 3. Verify the update
+-- ============================================================
+SELECT type, display_name,
+       default_config->'workflow'->>'start_step' as start_step,
+    version
+FROM agent_definitions WHERE type = 'rerender-pages';                                                                                                                                                                                                                                                                                                                                                                  output_contract = EXCLUDED.output_contract,
                                                                                                                                                                                                                                                                                                                                                                                                       updated_at = NOW();

@@ -74,11 +74,17 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"web_search": WebSearchAction,
 
 	// Web design
-	"load_site_for_design":  LoadSiteForDesignAction,
-	"rerender_site_pages":   RerenderSitePagesAction,
-	"save_page_sections":    SavePageSectionsAction,
+	"load_site_for_design": LoadSiteForDesignAction,
+	//"rerender_site_pages":   RerenderSitePagesAction,
 	"prepare_link_context":  PrepareLinkContextAction,
 	"validate_page_content": ValidatePageContentAction,
+
+	// Page rerender - loop-based approach
+	"get_pages_for_rerender": GetPagesForRerenderAction,
+	"rerender_single_page":   RerenderSinglePageAction,
+
+	// Page sections - saves sections for rerender
+	"save_page_sections": SavePageSectionsAction,
 
 	// Styles and Containers
 	"insert_research_result":  InsertResearchResultAction,

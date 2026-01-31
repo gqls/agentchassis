@@ -62,11 +62,17 @@ var LocalActions = map[string]bool{
 	"loop_complete": true,
 
 	// Web design
-	"load_site_for_design":  true,
-	"rerender_site_pages":   true,
-	"save_page_sections":    true,
+	"load_site_for_design": true,
+	//"rerender_site_pages":   true,
 	"prepare_link_context":  true,
 	"validate_page_content": true,
+
+	// Page rerender - loop-based approach (NEW)
+	"get_pages_for_rerender": true,
+	"rerender_single_page":   true,
+
+	// Page sections - saves sections for rerender (NEW)
+	"save_page_sections": true,
 
 	// Web search
 	"web_search": true,
