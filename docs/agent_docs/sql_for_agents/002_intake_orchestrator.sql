@@ -89,3 +89,85 @@ SELECT
     version
 FROM agent_definitions
 WHERE type = 'intake-orchestrator';
+
+
+-- input fields
+
+-- Add rerender step to intake-orchestrator workflow
+-- After call_builder completes, rerender all pages to ensure consistent nav/contact info
+--
+-- Flow change:
+--   Before: call_builder → complete
+--   After:  call_builder → spawn_rerender → call_rerender → complete
+
+-- ============================================================
+-- 1. Add spawn_rerender step
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_rerender}',
+        '{
+            "action": "spawn_agent",
+            "config": {
+                "role": "rerenderer",
+                "agent_type": "rerender-pages"
+            },
+            "description": "Spawn rerender agent to fix navigation consistency",
+            "output_field": "rerender_agent",
+            "next_step": "call_rerender"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'intake-orchestrator';
+
+-- ============================================================
+-- 2. Add call_rerender step
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_rerender}',
+        '{
+            "action": "call_agent",
+            "config": {
+                "agent_type": "rerender-pages",
+                "target_role": "rerenderer",
+                "input_mapping": {
+                    "site_id": "build_result.response.site_record.site_id",
+                    "domain": "build_result.response.site_record.domain",
+                    "input_data": "input_data"
+                },
+                "timeout_seconds": 900
+            },
+            "description": "Rerender all pages with consistent nav and contact info",
+            "output_field": "rerender_result",
+            "next_step": "complete"
+        }'::jsonb
+                     )
+WHERE type = 'intake-orchestrator';
+
+-- ============================================================
+-- 3. Update call_builder to go to spawn_rerender instead of complete
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_builder,next_step}',
+        '"spawn_rerender"'
+                     )
+WHERE type = 'intake-orchestrator';
+
+-- ============================================================
+-- 4. Verify the update
+-- ============================================================
+SELECT
+    type,
+    display_name,
+    default_config->'workflow'->'steps'->'call_builder'->>'next_step' as call_builder_next,
+    default_config->'workflow'->'steps'->'spawn_rerender'->>'action' as spawn_rerender_action,
+    default_config->'workflow'->'steps'->'call_rerender'->>'next_step' as call_rerender_next,
+    version
+FROM agent_definitions
+WHERE type = 'intake-orchestrator';

@@ -1,6 +1,9 @@
 // FILE: platform/orchestration/actions/get_pages_for_rerender_action.go
 // GetPagesForRerenderAction returns page metadata for rerender loop
 // Returns small payload (no HTML) suitable for loop iteration
+//
+// Uses input_fields pattern - caller passes site_id/domain via input_mapping,
+// action uses ExtractFields to get them regardless of structure
 
 package actions
 
@@ -16,10 +19,13 @@ import (
 )
 
 // GetPagesForRerenderAction queries pages table and returns metadata for loop
+//
 // Config:
-//   - site_id_field: path to site_id (default: "input_data.site_id")
-//   - domain_field: path to domain (default: "input_data.domain")
+//   - input_fields: array of field names to extract (default: ["site_id", "domain"])
 //   - include_statuses: array of page statuses (default: ["deployed", "active"])
+//
+// The caller provides site_id and/or domain via input_mapping.
+// ExtractFields handles finding them regardless of input_data prefix.
 //
 // Returns:
 //   - pages: array of {page_id, name, url, filename, title}
@@ -37,46 +43,53 @@ func GetPagesForRerenderAction(ctx context.Context, params ActionParams) (interf
 
 	config := params.StepConfig.Config
 
-	// Get site_id
-	siteIDField := "input_data.site_id"
-	if f, ok := config["site_id_field"].(string); ok && f != "" {
-		siteIDField = f
+	// Use input_fields pattern with sensible defaults
+	inputFields := []string{"site_id", "domain"}
+	if fields, ok := config["input_fields"].([]interface{}); ok {
+		inputFields = make([]string, len(fields))
+		for i, f := range fields {
+			inputFields[i], _ = f.(string)
+		}
 	}
-	siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, siteIDField)
 
+	// ExtractFields handles checking both CollectedData and CollectedData["input_data"]
+	extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
+
+	params.Logger.Debug("GetPagesForRerenderAction: Extracted fields",
+		zap.Any("extracted", extracted),
+	)
+
+	// Get site_id
 	var siteID uuid.UUID
 	var err error
-	var domain string
-
-	if siteIDStr != "" {
+	if siteIDStr, ok := extracted["site_id"].(string); ok && siteIDStr != "" {
 		siteID, err = uuid.Parse(siteIDStr)
 		if err != nil {
-			return nil, fmt.Errorf("invalid site_id: %w", err)
+			params.Logger.Warn("GetPagesForRerenderAction: Invalid site_id format",
+				zap.String("site_id", siteIDStr),
+				zap.Error(err),
+			)
 		}
 	}
 
-	// Fallback to domain lookup
-	if siteID == uuid.Nil {
-		domainField := "input_data.domain"
-		if f, ok := config["domain_field"].(string); ok && f != "" {
-			domainField = f
-		}
-		domain = datahelpers.ExtractNestedFieldString(params.CollectedData, domainField)
-		if domain != "" {
-			siteID, err = lookupSiteByDomain(ctx, params.DB, domain)
-			if err != nil {
-				return nil, fmt.Errorf("failed to lookup site by domain %s: %w", domain, err)
-			}
-		}
-	}
+	// Get domain
+	domain, _ := extracted["domain"].(string)
 
-	if siteID == uuid.Nil {
-		return nil, fmt.Errorf("no valid site_id or domain provided")
-	}
-
-	// Get domain if we don't have it
-	if domain == "" {
+	// Fallback: if we have site_id but no domain, look it up
+	if siteID != uuid.Nil && domain == "" {
 		domain, _ = getDomainForSite(ctx, params.DB, siteID)
+	}
+
+	// Fallback: if we have domain but no site_id, look it up
+	if siteID == uuid.Nil && domain != "" {
+		siteID, err = lookupSiteByDomain(ctx, params.DB, domain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to lookup site by domain %s: %w", domain, err)
+		}
+	}
+
+	if siteID == uuid.Nil {
+		return nil, fmt.Errorf("no valid site_id or domain provided - check input_mapping in caller")
 	}
 
 	// Get statuses to include
