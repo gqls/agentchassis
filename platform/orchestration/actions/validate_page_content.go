@@ -214,7 +214,7 @@ func validateEmails(ctx context.Context, db *sql.DB, html string, siteID uuid.UU
 		// Flag as potentially hallucinated
 		issues = append(issues, ValidationIssue{
 			Type:        "invalid_email",
-			Severity:    "warning", // Warning because it might be intentional
+			Severity:    "error", // should be Warning because it might be intentional
 			Location:    "email address",
 			Value:       email,
 			Expected:    officialEmail,
