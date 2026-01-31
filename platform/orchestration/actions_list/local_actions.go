@@ -64,6 +64,7 @@ var LocalActions = map[string]bool{
 	// Web design
 	"load_site_for_design":  true,
 	"rerender_site_pages":   true,
+	"save_page_sections":    true,
 	"prepare_link_context":  true,
 	"validate_page_content": true,
 

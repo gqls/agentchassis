@@ -348,7 +348,7 @@ func rerenderGetHeaderNavFromDB(ctx context.Context, db *sql.DB, siteID uuid.UUI
 		SELECT 
 			COALESCE(nav_label, title, name) as label,
 			COALESCE(url, '/' || name || '.html') as url,
-			COALESCE(nav_order, position, 0) as nav_order
+			COALESCE(nav_order, 0) as nav_order
 		FROM pages 
 		WHERE site_id = $1 
 		  AND in_header = true

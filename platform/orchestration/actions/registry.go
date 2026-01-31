@@ -76,6 +76,7 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	// Web design
 	"load_site_for_design":  LoadSiteForDesignAction,
 	"rerender_site_pages":   RerenderSitePagesAction,
+	"save_page_sections":    SavePageSectionsAction,
 	"prepare_link_context":  PrepareLinkContextAction,
 	"validate_page_content": ValidatePageContentAction,
 
