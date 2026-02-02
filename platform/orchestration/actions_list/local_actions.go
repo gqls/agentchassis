@@ -67,11 +67,14 @@ var LocalActions = map[string]bool{
 	"prepare_link_context":  true,
 	"validate_page_content": true,
 
-	// Page rerender - loop-based approach (NEW)
+	// Site component rendering
+	"render_site_components": true,
+
+	// Page rerender - loop-based approach
 	"get_pages_for_rerender": true,
 	"rerender_single_page":   true,
 
-	// Page sections - saves sections for rerender (NEW)
+	// Page sections - saves sections for rerender
 	"save_page_sections": true,
 
 	// Web search

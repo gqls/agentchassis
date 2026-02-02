@@ -1,45 +1,35 @@
 // FILE: platform/orchestration/actions/rerender_single_page_action.go
-// RerenderSinglePageAction renders ONE page from page_components.rendered_html
-// Used by page-rerender agent - returns HTML for git_commit
+// RerenderSinglePageAction assembles a page from stored components
+// Uses site_components for header/footer, page_components for sections
+// Simple concatenation - no template re-rendering
 
 package actions
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
-	"regexp"
 	"strings"
-	"text/template"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
-// RerenderSinglePageAction renders a single page from stored sections
+// RerenderSinglePageAction assembles a page from pre-rendered components
 //
 // Config:
 //   - input_fields: fields to extract (default: ["page_id", "site_id", "domain"])
-//   - max_nav_items: int (default: 6)
-//
-// Expects (via input_mapping from caller):
-//   - page_id: the page to render
-//   - site_id: site identifier
-//   - domain: site domain
 //
 // Returns:
-//   - html: rendered page HTML
+//   - html: assembled page HTML
 //   - domain: site domain
 //   - filename: page filename (e.g., "about.html")
 //   - page_id: the page ID
 //   - page_name: the page name
-//   - skipped: true if page had no sections (caller should skip deploy)
+//   - skipped: true if page had no sections
 func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	params.Logger.Info("RerenderSinglePageAction: Starting",
-		zap.String("step_name", params.ExecutionContext.StepName),
-	)
+	params.Logger.Info("RerenderSinglePageAction: Starting")
 
 	if params.DB == nil {
 		return nil, fmt.Errorf("database connection required")
@@ -47,7 +37,7 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 
 	config := params.StepConfig.Config
 
-	// Use input_fields pattern - simple flat fields
+	// Extract input fields
 	inputFields := []string{"page_id", "site_id", "domain"}
 	if fields, ok := config["input_fields"].([]interface{}); ok {
 		inputFields = make([]string, len(fields))
@@ -56,311 +46,94 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 		}
 	}
 
-	// ExtractFields handles finding fields regardless of input_data prefix
 	extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
 
-	params.Logger.Debug("RerenderSinglePageAction: Extracted fields",
-		zap.Any("fields", inputFields),
-		zap.Any("extracted_keys", getMapKeys(extracted)),
-	)
-
-	// Get page_id - try direct string first, then nested object (backward compat)
-	var pageIDStr string
-	if s, ok := extracted["page_id"].(string); ok && s != "" {
-		pageIDStr = s
-	} else if currentPage, ok := extracted["current_page"].(map[string]interface{}); ok {
-		// Backward compatibility with old workflow structure
-		pageIDStr, _ = currentPage["page_id"].(string)
-	}
+	// Get page_id
+	pageIDStr, _ := extracted["page_id"].(string)
 	if pageIDStr == "" {
 		return nil, fmt.Errorf("page_id not found in input")
 	}
-
 	pageID, err := uuid.Parse(pageIDStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid page_id: %w", err)
 	}
 
-	// Get site_id - try direct string first, then nested object
-	var siteIDStr string
-	if s, ok := extracted["site_id"].(string); ok && s != "" {
-		siteIDStr = s
-	} else if rerenderPages, ok := extracted["rerender_pages"].(map[string]interface{}); ok {
-		// Backward compatibility
-		siteIDStr, _ = rerenderPages["site_id"].(string)
-	}
-	if siteIDStr == "" {
-		return nil, fmt.Errorf("site_id not found in input")
-	}
-
-	siteID, err := uuid.Parse(siteIDStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid site_id: %w", err)
-	}
-
-	// Get domain - try direct string first, then nested object
-	var domain string
-	if s, ok := extracted["domain"].(string); ok && s != "" {
-		domain = s
-	} else if rerenderPages, ok := extracted["rerender_pages"].(map[string]interface{}); ok {
-		// Backward compatibility
-		domain, _ = rerenderPages["domain"].(string)
-	}
-
-	// Fallback domain lookup from DB
-	if domain == "" {
-		domain, _ = getDomainForSite(ctx, params.DB, siteID)
-	}
-
-	// Get max nav items
-	maxNavItems := 6
-	if m, ok := config["max_nav_items"].(float64); ok {
-		maxNavItems = int(m)
-	}
-
-	// Load page info
-	pageInfo, err := loadPageInfo(ctx, params.DB, pageID)
+	// Get page info (includes site_id, area_id)
+	pageInfo, err := getPageInfo(ctx, params.DB, pageID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load page info: %w", err)
 	}
 
-	params.Logger.Info("RerenderSinglePageAction: Rendering page",
+	params.Logger.Info("RerenderSinglePageAction: Assembling page",
 		zap.String("page_id", pageIDStr),
 		zap.String("page_name", pageInfo.Name),
-		zap.String("domain", domain),
+		zap.String("domain", pageInfo.Domain),
 	)
 
-	// Load sections from page_components
-	sectionsHTML := loadPageSections(ctx, params.DB, pageID, params.Logger)
-	if sectionsHTML == "" {
-		// No sections stored - skip this page gracefully
-		params.Logger.Warn("RerenderSinglePageAction: No sections found, skipping page",
-			zap.String("page_name", pageInfo.Name),
-			zap.String("page_id", pageIDStr),
-		)
+	// Assemble the page from stored components
+	html, err := assemblePage(ctx, params.DB, pageInfo, params.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to assemble page: %w", err)
+	}
+
+	if html == "" {
+		params.Logger.Warn("RerenderSinglePageAction: No content, skipping",
+			zap.String("page_name", pageInfo.Name))
 		return map[string]interface{}{
 			"success":   false,
 			"skipped":   true,
-			"reason":    "no sections stored for this page",
+			"reason":    "no components found for page",
 			"html":      "",
-			"domain":    domain,
+			"domain":    pageInfo.Domain,
 			"filename":  pageInfo.Filename,
 			"page_id":   pageIDStr,
 			"page_name": pageInfo.Name,
 		}, nil
 	}
 
-	// Load site data for template rendering
-	siteData := loadSiteData(ctx, params.DB, siteID, params.Logger)
-
-	// Build render context with full site data
-	// IMPORTANT: Set BOTH struct fields (for RenderTemplate/contextToMap)
-	// AND ContentData (for any direct map access)
-	renderCtx := &RenderContext{
-		// Struct fields - these are what contextToMap reads
-		Domain:      domain,
-		Title:       pageInfo.Title,
-		Description: pageInfo.MetaDesc,
-		CompanyName: siteData.CompanyName,
-		Tagline:     siteData.Tagline,
-		Email:       siteData.Email,
-		Phone:       siteData.Phone,
-		CurrentPage: pageInfo.Name,
-		LogoText:    siteData.CompanyName,
-
-		// Also set ContentData for any actions that read from it directly
-		ContentData: map[string]interface{}{
-			"Title":           pageInfo.Title,
-			"MetaDescription": pageInfo.MetaDesc,
-			"PageName":        pageInfo.Name,
-			"CompanyName":     siteData.CompanyName,
-			"Tagline":         siteData.Tagline,
-			"Email":           siteData.Email,
-			"Phone":           siteData.Phone,
-			"Domain":          domain,
-		},
-		NavItems:       []NavItem{},
-		FooterNavItems: []NavItem{},
-	}
-
-	// Get nav from deployed pages
-	headerNav := getHeaderNavFromDB(ctx, params.DB, siteID, maxNavItems, params.Logger)
-	footerNav := getFooterNavFromDB(ctx, params.DB, siteID, 10, params.Logger)
-	if len(headerNav) > 0 {
-		renderCtx.NavItems = headerNav
-	}
-	if len(footerNav) > 0 {
-		renderCtx.FooterNavItems = footerNav
-	}
-
-	// Get site contact info for injection
-	siteInfo := SiteContactInfo{Email: siteData.Email, Phone: siteData.Phone}
-
-	// Load templates
-	headHTML := loadHeadTemplate(ctx, params.DB, siteID, renderCtx, params.Logger)
-	headerHTML := loadHeaderTemplate(ctx, params.DB, siteID, renderCtx, params.Logger)
-	footerHTML := loadFooterTemplate(ctx, params.DB, siteID, renderCtx, params.Logger)
-
-	// Render head with page-specific data
-	renderedHead := executeSimpleTemplate(headHTML, renderCtx.ContentData, params.Logger)
-
-	// Strip any DOCTYPE/html tags from head template (avoid duplicates)
-	renderedHead = stripDoctype(renderedHead)
-
-	// Assemble full page
-	var html strings.Builder
-	html.WriteString("<!DOCTYPE html>\n<html lang=\"en\">\n")
-	html.WriteString(renderedHead)
-	html.WriteString("\n<body>\n")
-
-	if headerHTML != "" {
-		html.WriteString(headerHTML)
-		html.WriteString("\n")
-	}
-
-	html.WriteString("<main>\n")
-	html.WriteString(sectionsHTML)
-	html.WriteString("\n</main>\n")
-
-	if footerHTML != "" {
-		html.WriteString(footerHTML)
-		html.WriteString("\n")
-	}
-
-	html.WriteString("</body>\n</html>")
-
-	// Inject correct contact info
-	finalHTML := injectContactInfo(html.String(), siteInfo, params.Logger)
-
 	params.Logger.Info("RerenderSinglePageAction: Complete",
 		zap.String("page_name", pageInfo.Name),
-		zap.Int("html_length", len(finalHTML)),
+		zap.Int("html_length", len(html)),
 	)
 
 	return map[string]interface{}{
 		"success":   true,
-		"html":      finalHTML,
-		"domain":    domain,
+		"html":      html,
+		"domain":    pageInfo.Domain,
 		"filename":  pageInfo.Filename,
 		"page_id":   pageIDStr,
 		"page_name": pageInfo.Name,
 	}, nil
 }
 
-// Helper to get map keys for logging
-func getMapKeys(m map[string]interface{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
+// getPageInfo loads page metadata including site and area
+func getPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo, error) {
+	var p PageInfo
+	var areaID sql.NullString
 
-// SiteContactInfo holds site contact details
-type SiteContactInfo struct {
-	Email string
-	Phone string
-}
-
-// SiteData holds full site data for template rendering
-type SiteData struct {
-	CompanyName string
-	Tagline     string
-	Email       string
-	Phone       string
-	Domain      string
-}
-
-func loadSiteData(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) SiteData {
-	if db == nil {
-		return SiteData{}
-	}
-
-	var data SiteData
-	var contentDataStr sql.NullString
-
-	// Query site table fields and content_data
 	err := db.QueryRowContext(ctx, `
 		SELECT 
-			COALESCE(name, ''), 
-			COALESCE(email, ''), 
-			COALESCE(phone, ''),
-			COALESCE(domain, ''),
-			COALESCE(content_data::text, '{}')
-		FROM sites WHERE id = $1
-	`, siteID).Scan(&data.CompanyName, &data.Email, &data.Phone, &data.Domain, &contentDataStr)
-
-	if err != nil {
-		logger.Warn("loadSiteData: Query failed", zap.Error(err))
-		return SiteData{}
-	}
-
-	// Extract from content_data JSON if main fields are empty
-	if contentDataStr.Valid && contentDataStr.String != "" {
-		contentData := contentDataStr.String
-
-		// Company name fallback
-		if data.CompanyName == "" {
-			data.CompanyName = extractJSONString(contentData, "company_name")
-		}
-
-		// Tagline
-		if data.Tagline == "" {
-			data.Tagline = extractJSONString(contentData, "tagline")
-		}
-
-		// Email fallback
-		if data.Email == "" {
-			data.Email = extractJSONString(contentData, "contact_email")
-		}
-
-		// Phone fallback
-		if data.Phone == "" {
-			data.Phone = extractJSONString(contentData, "contact_phone")
-		}
-	}
-
-	logger.Debug("loadSiteData: Loaded",
-		zap.String("company_name", data.CompanyName),
-		zap.String("email", data.Email),
-		zap.String("phone", data.Phone),
+			p.id, p.site_id, p.site_area_id, 
+			p.name, COALESCE(p.title, p.name), p.url,
+			s.domain
+		FROM pages p
+		JOIN sites s ON p.site_id = s.id
+		WHERE p.id = $1
+	`, pageID).Scan(
+		&p.ID, &p.SiteID, &areaID,
+		&p.Name, &p.Title, &p.URL,
+		&p.Domain,
 	)
-
-	return data
-}
-
-// extractJSONString extracts a string value from JSON using simple pattern matching
-// This avoids unmarshaling the entire JSON for just a few fields
-func extractJSONString(jsonStr, key string) string {
-	// Look for "key": "value" or "key":"value"
-	patterns := []string{
-		fmt.Sprintf(`"%s"\s*:\s*"([^"]*)"`, key),
-		fmt.Sprintf(`"%s":"([^"]*)"`, key),
-	}
-
-	for _, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
-		if matches := re.FindStringSubmatch(jsonStr); len(matches) > 1 {
-			return matches[1]
-		}
-	}
-	return ""
-}
-
-func loadPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo, error) {
-	var p PageInfo
-	p.ID = pageID
-
-	err := db.QueryRowContext(ctx, `
-		SELECT name, COALESCE(title, name), url, COALESCE(meta_description, '')
-		FROM pages WHERE id = $1
-	`, pageID).Scan(&p.Name, &p.Title, &p.URL, &p.MetaDesc)
-
 	if err != nil {
 		return nil, err
 	}
 
-	// Derive filename
+	if areaID.Valid {
+		id, _ := uuid.Parse(areaID.String)
+		p.AreaID = &id
+	}
+
+	// Derive filename from URL
 	if p.URL == "/" || p.URL == "" || p.Name == "index" {
 		p.Filename = "index.html"
 	} else {
@@ -373,297 +146,169 @@ func loadPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo,
 	return &p, nil
 }
 
-func loadPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) string {
-	rows, err := db.QueryContext(ctx, `
-		SELECT COALESCE(rendered_html, '') as html
-		FROM page_components
-		WHERE page_id = $1
-		ORDER BY position
-	`, pageID)
+// assemblePage combines site/area/page components into full HTML
+func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.Logger) (string, error) {
+	// 1. Get site-level components
+	siteComponents, err := getSiteComponents(ctx, db, page.SiteID)
 	if err != nil {
-		logger.Warn("loadPageSections: Query failed", zap.Error(err))
-		return ""
+		logger.Warn("Failed to load site components", zap.Error(err))
+	}
+
+	// 2. Get area-level overrides (if page is in an area)
+	areaComponents := map[string]string{}
+	if page.AreaID != nil {
+		areaComponents, err = getAreaComponents(ctx, db, *page.AreaID)
+		if err != nil {
+			logger.Warn("Failed to load area components", zap.Error(err))
+		}
+	}
+
+	// 3. Get page sections
+	sections, err := getPageSections(ctx, db, page.ID)
+	if err != nil {
+		logger.Warn("Failed to load page sections", zap.Error(err))
+	}
+
+	// No content at all?
+	if len(siteComponents) == 0 && len(sections) == 0 {
+		return "", nil
+	}
+
+	// 4. Resolve components (area overrides site)
+	head := resolveComponent(areaComponents, siteComponents, "head")
+	header := resolveComponent(areaComponents, siteComponents, "header")
+	footer := resolveComponent(areaComponents, siteComponents, "footer")
+
+	// 5. Build page-specific head if we don't have one stored
+	if head == "" {
+		head = buildDefaultHead(page)
+	}
+
+	// 6. Assemble
+	var html strings.Builder
+	html.WriteString("<!DOCTYPE html>\n<html lang=\"en\">\n")
+	html.WriteString(head)
+	html.WriteString("\n<body>\n")
+
+	if header != "" {
+		html.WriteString(header)
+		html.WriteString("\n")
+	}
+
+	html.WriteString("<main>\n")
+	html.WriteString(sections)
+	html.WriteString("\n</main>\n")
+
+	if footer != "" {
+		html.WriteString(footer)
+		html.WriteString("\n")
+	}
+
+	html.WriteString("</body>\n</html>")
+
+	logger.Debug("assemblePage: Complete",
+		zap.String("page", page.Name),
+		zap.Bool("has_header", header != ""),
+		zap.Bool("has_footer", footer != ""),
+		zap.Int("sections_length", len(sections)),
+	)
+
+	return html.String(), nil
+}
+
+// getSiteComponents loads site-level components (header, footer, head)
+func getSiteComponents(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]string, error) {
+	components := make(map[string]string)
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT slot_name, rendered_html 
+		FROM site_components 
+		WHERE site_id = $1 AND rendered_html IS NOT NULL AND rendered_html != ''
+	`, siteID)
+	if err != nil {
+		return components, err
 	}
 	defer rows.Close()
 
-	var sections []string
+	for rows.Next() {
+		var slot, html string
+		if err := rows.Scan(&slot, &html); err != nil {
+			continue
+		}
+		components[slot] = html
+	}
+
+	return components, nil
+}
+
+// getAreaComponents loads area-level component overrides
+func getAreaComponents(ctx context.Context, db *sql.DB, areaID uuid.UUID) (map[string]string, error) {
+	components := make(map[string]string)
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT slot_name, rendered_html 
+		FROM area_components 
+		WHERE area_id = $1 AND rendered_html IS NOT NULL AND rendered_html != ''
+	`, areaID)
+	if err != nil {
+		return components, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var slot, html string
+		if err := rows.Scan(&slot, &html); err != nil {
+			continue
+		}
+		components[slot] = html
+	}
+
+	return components, nil
+}
+
+// getPageSections loads and concatenates page sections in order
+func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID) (string, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT COALESCE(rendered_html, '') 
+		FROM page_components 
+		WHERE page_id = $1 
+		  AND rendered_html IS NOT NULL 
+		  AND rendered_html != ''
+		ORDER BY position ASC
+	`, pageID)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var sections strings.Builder
 	for rows.Next() {
 		var html string
 		if err := rows.Scan(&html); err != nil {
 			continue
 		}
-		if html != "" {
-			html = stripPageWrapper(html)
-			if html != "" {
-				sections = append(sections, html)
-			}
-		}
+		sections.WriteString(html)
+		sections.WriteString("\n")
 	}
 
-	logger.Debug("loadPageSections: Loaded",
-		zap.String("page_id", pageID.String()),
-		zap.Int("section_count", len(sections)),
-	)
-
-	return strings.Join(sections, "\n")
+	return sections.String(), nil
 }
 
-func getHeaderNavFromDB(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxItems int, logger *zap.Logger) []NavItem {
-	if db == nil || siteID == uuid.Nil {
-		return nil
-	}
-
-	query := `
-		SELECT 
-			COALESCE(nav_label, title, name) as label,
-			COALESCE(url, '/' || name || '.html') as url,
-			COALESCE(nav_order, 0) as nav_order
-		FROM pages 
-		WHERE site_id = $1 
-		  AND in_header = true
-		  AND status IN ('deployed', 'active')
-		  AND deleted_at IS NULL
-		ORDER BY nav_order ASC, created_at ASC
-		LIMIT $2
-	`
-
-	rows, err := db.QueryContext(ctx, query, siteID, maxItems)
-	if err != nil {
-		logger.Warn("getHeaderNavFromDB: Query failed", zap.Error(err))
-		return nil
-	}
-	defer rows.Close()
-
-	var items []NavItem
-	for rows.Next() {
-		var label, url string
-		var navOrder int
-		if err := rows.Scan(&label, &url, &navOrder); err != nil {
-			continue
-		}
-		label = simplifyNavLabel(label, url)
-		items = append(items, NavItem{Label: label, URL: url})
-	}
-
-	return items
-}
-
-func getFooterNavFromDB(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxItems int, logger *zap.Logger) []NavItem {
-	if db == nil || siteID == uuid.Nil {
-		return nil
-	}
-
-	query := `
-		SELECT 
-			COALESCE(nav_label, title, name) as label,
-			COALESCE(url, '/' || name || '.html') as url
-		FROM pages 
-		WHERE site_id = $1 
-		  AND in_footer = true
-		  AND status IN ('deployed', 'active')
-		  AND deleted_at IS NULL
-		ORDER BY nav_order ASC, created_at ASC
-		LIMIT $2
-	`
-
-	rows, err := db.QueryContext(ctx, query, siteID, maxItems)
-	if err != nil {
-		logger.Warn("getFooterNavFromDB: Query failed", zap.Error(err))
-		return nil
-	}
-	defer rows.Close()
-
-	var items []NavItem
-	for rows.Next() {
-		var label, url string
-		if err := rows.Scan(&label, &url); err != nil {
-			continue
-		}
-		label = simplifyNavLabel(label, url)
-		items = append(items, NavItem{Label: label, URL: url})
-	}
-
-	return items
-}
-
-func simplifyNavLabel(label, url string) string {
-	// Remove " | Company Name" suffix
-	if idx := strings.Index(label, " | "); idx > 0 {
-		label = strings.TrimSpace(label[:idx])
-	}
-	// Remove " - Company Name" suffix
-	if idx := strings.Index(label, " - "); idx > 0 {
-		label = strings.TrimSpace(label[:idx])
-	}
-
-	// If still too long, derive from URL
-	if len(label) > 20 {
-		urlParts := strings.Split(strings.Trim(url, "/"), "/")
-		if len(urlParts) > 0 {
-			pageName := strings.TrimSuffix(urlParts[len(urlParts)-1], ".html")
-			if pageName != "" && pageName != "index" {
-				label = strings.Title(strings.ReplaceAll(pageName, "-", " "))
-			}
-		}
-	}
-	return label
-}
-
-func loadHeadTemplate(ctx context.Context, db *sql.DB, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
-	if db == nil {
-		return fallbackHead()
-	}
-
-	var headComponent string
-	err := db.QueryRowContext(ctx, `
-		SELECT COALESCE(content_data->>'head', 'head-seo-standard')
-		FROM sites WHERE id = $1
-	`, siteID).Scan(&headComponent)
-	if err != nil {
-		return fallbackHead()
-	}
-
-	var htmlTemplate string
-	err = db.QueryRowContext(ctx, `
-		SELECT html_template FROM content_components 
-		WHERE name = $1 OR function = $1
-		LIMIT 1
-	`, headComponent).Scan(&htmlTemplate)
-	if err != nil {
-		return fallbackHead()
-	}
-
-	return RenderTemplate(htmlTemplate, renderCtx, logger)
-}
-
-func fallbackHead() string {
-	return `<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Title}}</title>
-    <link rel="stylesheet" href="/assets/css/styles.css">
-</head>`
-}
-
-func loadHeaderTemplate(ctx context.Context, db *sql.DB, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
-	if db == nil {
-		return ""
-	}
-
-	var headerComponent string
-	err := db.QueryRowContext(ctx, `
-		SELECT COALESCE(content_data->>'header', 'header-standard')
-		FROM sites WHERE id = $1
-	`, siteID).Scan(&headerComponent)
-	if err != nil {
-		return ""
-	}
-
-	var htmlTemplate string
-	err = db.QueryRowContext(ctx, `
-		SELECT html_template FROM content_components 
-		WHERE name = $1 OR function = $1
-		LIMIT 1
-	`, headerComponent).Scan(&htmlTemplate)
-	if err != nil {
-		return ""
-	}
-
-	return RenderTemplate(htmlTemplate, renderCtx, logger)
-}
-
-func loadFooterTemplate(ctx context.Context, db *sql.DB, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
-	if db == nil {
-		return ""
-	}
-
-	var footerComponent string
-	err := db.QueryRowContext(ctx, `
-		SELECT COALESCE(content_data->>'footer', 'footer-standard')
-		FROM sites WHERE id = $1
-	`, siteID).Scan(&footerComponent)
-	if err != nil {
-		return ""
-	}
-
-	var htmlTemplate string
-	err = db.QueryRowContext(ctx, `
-		SELECT html_template FROM content_components 
-		WHERE name = $1 OR function = $1
-		LIMIT 1
-	`, footerComponent).Scan(&htmlTemplate)
-	if err != nil {
-		return ""
-	}
-
-	return RenderTemplate(htmlTemplate, renderCtx, logger)
-}
-
-func stripPageWrapper(html string) string {
-	html = regexp.MustCompile(`(?i)<!DOCTYPE[^>]*>`).ReplaceAllString(html, "")
-	html = regexp.MustCompile(`(?i)</?html[^>]*>`).ReplaceAllString(html, "")
-	html = regexp.MustCompile(`(?is)<head>.*?</head>`).ReplaceAllString(html, "")
-	html = regexp.MustCompile(`(?i)<body[^>]*>`).ReplaceAllString(html, "")
-	html = regexp.MustCompile(`(?i)</body>`).ReplaceAllString(html, "")
-	return strings.TrimSpace(html)
-}
-
-// stripDoctype removes DOCTYPE, html, body tags from template output
-func stripDoctype(html string) string {
-	html = regexp.MustCompile(`(?i)<!DOCTYPE[^>]*>`).ReplaceAllString(html, "")
-	html = regexp.MustCompile(`(?i)<html[^>]*>`).ReplaceAllString(html, "")
-	html = regexp.MustCompile(`(?i)</html>`).ReplaceAllString(html, "")
-	html = regexp.MustCompile(`(?i)<body[^>]*>`).ReplaceAllString(html, "")
-	html = regexp.MustCompile(`(?i)</body>`).ReplaceAllString(html, "")
-	return strings.TrimSpace(html)
-}
-
-func injectContactInfo(html string, siteInfo SiteContactInfo, logger *zap.Logger) string {
-	if siteInfo.Email == "" && siteInfo.Phone == "" {
+// resolveComponent returns area component if exists, otherwise site component
+func resolveComponent(area, site map[string]string, slot string) string {
+	if html, ok := area[slot]; ok && html != "" {
 		return html
 	}
-
-	if siteInfo.Email != "" {
-		// Replace mailto: links
-		emailPattern := regexp.MustCompile(`mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})`)
-		html = emailPattern.ReplaceAllString(html, "mailto:"+siteInfo.Email)
-
-		// Replace emails in contact/footer sections
-		contactSectionPattern := regexp.MustCompile(`(?is)(<section[^>]*(?:contact|footer)[^>]*>.*?)([\w.+-]+@[\w.-]+\.[a-z]{2,})(.*?</section>)`)
-		html = contactSectionPattern.ReplaceAllStringFunc(html, func(match string) string {
-			parts := contactSectionPattern.FindStringSubmatch(match)
-			if len(parts) == 4 {
-				return parts[1] + siteInfo.Email + parts[3]
-			}
-			return match
-		})
-	}
-
-	if siteInfo.Phone != "" {
-		phonePattern := regexp.MustCompile(`tel:([+\d\s()-]+)`)
-		cleanPhone := regexp.MustCompile(`[^\d+]`).ReplaceAllString(siteInfo.Phone, "")
-		html = phonePattern.ReplaceAllString(html, "tel:"+cleanPhone)
-	}
-
-	return html
+	return site[slot]
 }
 
-func executeSimpleTemplate(tmpl string, data map[string]interface{}, logger *zap.Logger) string {
-	if tmpl == "" {
-		return ""
-	}
-
-	t, err := template.New("page").Parse(tmpl)
-	if err != nil {
-		logger.Warn("executeSimpleTemplate: Parse error", zap.Error(err))
-		return tmpl
-	}
-
-	var buf bytes.Buffer
-	if err := t.Execute(&buf, data); err != nil {
-		logger.Warn("executeSimpleTemplate: Execute error", zap.Error(err))
-		return tmpl
-	}
-
-	return buf.String()
+// buildDefaultHead creates a basic head section for a page
+// Used as fallback if no head stored in site_components
+func buildDefaultHead(page *PageInfo) string {
+	return fmt.Sprintf(`<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>%s</title>
+    <link rel="stylesheet" href="/assets/css/styles.css">
+</head>`, page.Title)
 }

@@ -197,3 +197,64 @@ UPDATE pages
 SET sections = '["hero", "generic-text-block", "call_to_action"]'::jsonb
 WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
   AND (sections = '[]'::jsonb OR sections IS NULL);
+
+
+-- Option A: Add to pages table
+ALTER TABLE pages ADD COLUMN rendered_header TEXT;
+ALTER TABLE pages ADD COLUMN rendered_footer TEXT;
+ALTER TABLE pages ADD COLUMN rendered_head TEXT;
+
+-- Then rerender just does:
+SELECT rendered_head, rendered_header, rendered_footer FROM pages WHERE id = $1;
+-- + load sections from page_components
+-- = minimal assembly
+
+
+- ============================================================
+-- 4. Add site_area_id to pages table
+-- ============================================================
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS site_area_id UUID REFERENCES site_areas(id);
+
+CREATE INDEX IF NOT EXISTS idx_pages_area ON pages(site_area_id) WHERE site_area_id IS NOT NULL;
+
+COMMENT ON COLUMN pages.site_area_id IS 'Optional area this page belongs to (for area-specific styling)';
+
+--
+
+        -- ============================================================
+-- 6. Helper function to get effective component for a page
+-- ============================================================
+CREATE OR REPLACE FUNCTION get_page_component(
+    p_page_id UUID,
+    p_slot_name VARCHAR(100)
+) RETURNS TEXT AS $$
+DECLARE
+v_site_id UUID;
+    v_area_id UUID;
+    v_html TEXT;
+BEGIN
+    -- Get page's site and area
+SELECT site_id, site_area_id INTO v_site_id, v_area_id
+FROM pages WHERE id = p_page_id;
+
+-- Try area-level first (if page is in an area)
+IF v_area_id IS NOT NULL THEN
+SELECT rendered_html INTO v_html
+FROM area_components
+WHERE area_id = v_area_id AND slot_name = p_slot_name;
+
+IF v_html IS NOT NULL THEN
+            RETURN v_html;
+END IF;
+END IF;
+
+    -- Fall back to site-level
+SELECT rendered_html INTO v_html
+FROM site_components
+WHERE site_id = v_site_id AND slot_name = p_slot_name;
+
+RETURN v_html;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION get_page_component IS 'Gets the effective component HTML for a page slot, with area override';

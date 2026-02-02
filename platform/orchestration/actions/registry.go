@@ -79,6 +79,9 @@ var GlobalActionRegistry = map[string]ActionFunc{
 	"prepare_link_context":  PrepareLinkContextAction,
 	"validate_page_content": ValidatePageContentAction,
 
+	// Site component rendering
+	"render_site_components": RenderSiteComponentsAction,
+
 	// Page rerender - loop-based approach
 	"get_pages_for_rerender": GetPagesForRerenderAction,
 	"rerender_single_page":   RerenderSinglePageAction,
