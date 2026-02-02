@@ -286,9 +286,9 @@ CLIENT_ID="demo_client"
 
 -- 1 ----
 
-CORRELATION_ID=c21a57eb-0932-4496-b1c8-a916c05734c3
-ORCHESTRATION_ID=81993747-abc8-4d05-a1f2-05954b291ac7
-HITL_REQUEST_ID=a1cea59e-08d7-4686-b1e8-0f9aea90c489
+CORRELATION_ID=26f7f778-ce48-4b78-82e6-cf99b57a3cd8
+ORCHESTRATION_ID=7c32a3fe-7f19-4b2b-aa01-e890d8e4afa0
+HITL_REQUEST_ID=90af4b09-0de9-41ee-b11f-39cf6479f378
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -377,9 +377,9 @@ CLIENT_ID="demo_client"
 
 --- 2 2 ---
 
-CORRELATION_ID=c21a57eb-0932-4496-b1c8-a916c05734c3
-ORCHESTRATION_ID=81993747-abc8-4d05-a1f2-05954b291ac7
-HITL_REQUEST_ID=9c7427d8-8b6e-41e0-b88b-f58e642c76cc
+CORRELATION_ID=26f7f778-ce48-4b78-82e6-cf99b57a3cd8
+ORCHESTRATION_ID=7c32a3fe-7f19-4b2b-aa01-e890d8e4afa0
+HITL_REQUEST_ID=d0a58a13-a5db-4644-9a48-9a6436c7c732
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -533,10 +533,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=c21a57eb-0932-4496-b1c8-a916c05734c3
-ORCHESTRATION_ID=f2c8d9e0-e8eb-4614-9548-b17ca0a9e9e4
-HITL_REQUEST_ID=feca66d9-7a4f-4517-b279-0dcb904628f2
-RESPONSES_TOPIC=job.2a8e70f1-d48df8d3-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=26f7f778-ce48-4b78-82e6-cf99b57a3cd8
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+RESPONSES_TOPIC=
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -905,4 +905,47 @@ kcat -P \
 -H sender_agent_id=cli-user \
 -H timestamp=$TIMESTAMP <<JSON
 {"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rerender","steps":{"spawn_rerender":{"action":"spawn_agent","config":{"role":"rerenderer","agent_type":"rerender-pages"},"output_field":"rerender_agent","next_step":"call_rerender"},"call_rerender":{"action":"call_agent","config":{"agent_type":"rerender-pages","target_role":"rerenderer","input_mapping":{"site_id":"input_data.site_id","domain":"input_data.domain"},"timeout_seconds":1800},"output_field":"rerender_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["rerender_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+----
+
+refreshed rerenderer
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+echo "========================================="
+echo "Triggering rerender-pages agent"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  Site ID:             $SITE_ID"
+echo "  Domain:              $DOMAIN"
+echo "  Refresh components:  true"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-rerender \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=process \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rerender","steps":{"spawn_rerender":{"action":"spawn_agent","config":{"role":"rerenderer","agent_type":"rerender-pages"},"output_field":"rerender_agent","next_step":"call_rerender"},"call_rerender":{"action":"call_agent","config":{"agent_type":"rerender-pages","target_role":"rerenderer","input_mapping":{"site_id":"input_data.site_id","domain":"input_data.domain","refresh_site_components":"input_data.refresh_site_components"},"timeout_seconds":1800},"output_field":"rerender_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["rerender_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}","refresh_site_components":true}}
 JSON

@@ -1,0 +1,28 @@
+Role & Objective:
+You are a Data Verification Specialist. I have a JSON dataset of veterinary practices (practices_ab_bt.json) that contains potential inaccuracies. Specifically, the addresses and postcodes may have been generated via internal training data ("hallucinations") rather than live real-world data. Your goal is to sanitize this dataset using Search Grounding.
+
+The Problem:
+Previous iterations of this data relied on predictive text generation, resulting in plausible-sounding but incorrect street addresses or postcodes for specific clinics. We need to replace these predictive guesses with factual, retrieved data.
+
+The Task:
+Please process the uploaded file practices_ab_bt.json using the following strict protocol:
+
+    Iterative Search: For every single entry in the list, you must perform a Live Google Search. Do not skip this step.
+
+    Composite Query: Search using the format: "[Practice Name]" + "[Location]" + "veterinary address".
+
+    Verification: Compare the address/postcode found in the search result snippet or Knowledge Graph card against the data currently in my JSON file.
+
+    Correction:
+
+        If the address is different, overwrite the postcode and notes fields in the JSON with the correct, search-verified address.
+
+        If the practice appears permanently closed or does not exist in search results, flag it for removal.
+
+    Output: Re-generate the full, corrected JSON file code block.
+
+Constraints:
+
+    Do not guess. If you cannot find a practice via search, leave the entry as-is but add a field "verification_status": "unverified".
+
+    Prioritize the practice's own website or official directory listings (like RCVS) over third-party aggregators if visible.

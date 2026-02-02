@@ -87,6 +87,49 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	year := fmt.Sprintf("%d", time.Now().Year())
 	copyright := fmt.Sprintf("© %s %s", year, siteData.CompanyName)
 
+	// Convert NavItems to categories format for templates that use {{range .categories}}
+	categories := make([]map[string]interface{}, len(navItems))
+	for i, item := range navItems {
+		categories[i] = map[string]interface{}{
+			"name":  item.Label,
+			"slug":  strings.TrimSuffix(strings.TrimPrefix(item.URL, "/"), ".html"),
+			"url":   item.URL,
+			"label": item.Label, // alias
+		}
+	}
+
+	// Convert footer nav items similarly
+	footerLinks := make([]map[string]interface{}, len(footerNavItems))
+	for i, item := range footerNavItems {
+		footerLinks[i] = map[string]interface{}{
+			"name":  item.Label,
+			"slug":  strings.TrimSuffix(strings.TrimPrefix(item.URL, "/"), ".html"),
+			"url":   item.URL,
+			"label": item.Label,
+		}
+	}
+
+	// Build company links (about, contact, careers)
+	companyLinks := []map[string]interface{}{}
+	for _, item := range footerNavItems {
+		lowerLabel := strings.ToLower(item.Label)
+		if lowerLabel == "about" || lowerLabel == "contact" || lowerLabel == "careers" {
+			companyLinks = append(companyLinks, map[string]interface{}{
+				"name": item.Label,
+				"url":  item.URL,
+			})
+		}
+	}
+
+	// Build legal links (privacy, terms)
+	legalLinks := []map[string]interface{}{
+		{"name": "Privacy Policy", "url": "/privacy.html"},
+		{"name": "Terms of Service", "url": "/terms.html"},
+	}
+
+	// Social links (empty for now - could be populated from site data)
+	socialLinks := []map[string]interface{}{}
+
 	renderCtx := &RenderContext{
 		Domain:      siteData.Domain,
 		CompanyName: siteData.CompanyName,
@@ -110,13 +153,20 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 			"year":          year,
 			"copyright":     copyright,
 
-			// Navigation for footer (header uses NavItems field directly)
-			"footer_nav_items": footerNavItems,
+			// Navigation - multiple formats for different templates
+			"categories":       categories,   // for {{range .categories}}
+			"nav_items":        categories,   // alias
+			"footer_nav_items": footerLinks,  // for footer
+			"quick_links":      footerLinks,  // alias for footer
+			"company_links":    companyLinks, // about, contact, careers
+			"legal_links":      legalLinks,   // privacy, terms
+			"social_links":     socialLinks,  // social media (empty for now)
 
 			// CTA defaults
 			"cta_text":       "Get Started",
 			"cta_url":        "/contact.html",
 			"subscribe_text": "Subscribe",
+			"show_subscribe": false,
 
 			// Newsletter defaults (can be overridden)
 			"newsletter_title":       "Stay Updated",
