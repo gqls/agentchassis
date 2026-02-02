@@ -286,9 +286,9 @@ CLIENT_ID="demo_client"
 
 -- 1 ----
 
-CORRELATION_ID=69370c1c-f55b-4f12-8d7a-df4f32ba1d7e
-ORCHESTRATION_ID=14a8db71-486d-44d4-a83d-8f9551a39173
-HITL_REQUEST_ID=fc2687c2-b232-45dd-8375-c56fa46a238e
+CORRELATION_ID=c21a57eb-0932-4496-b1c8-a916c05734c3
+ORCHESTRATION_ID=81993747-abc8-4d05-a1f2-05954b291ac7
+HITL_REQUEST_ID=a1cea59e-08d7-4686-b1e8-0f9aea90c489
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -377,9 +377,9 @@ CLIENT_ID="demo_client"
 
 --- 2 2 ---
 
-CORRELATION_ID=69370c1c-f55b-4f12-8d7a-df4f32ba1d7e
-ORCHESTRATION_ID=14a8db71-486d-44d4-a83d-8f9551a39173
-HITL_REQUEST_ID=cd6208f0-feec-4983-aba9-f7cde73c53fe
+CORRELATION_ID=c21a57eb-0932-4496-b1c8-a916c05734c3
+ORCHESTRATION_ID=81993747-abc8-4d05-a1f2-05954b291ac7
+HITL_REQUEST_ID=9c7427d8-8b6e-41e0-b88b-f58e642c76cc
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -533,10 +533,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=69370c1c-f55b-4f12-8d7a-df4f32ba1d7e
-ORCHESTRATION_ID=597e3a68-443e-4f21-b48b-eb843d7e9dc4
-HITL_REQUEST_ID=db9194f6-4776-4552-85bd-3c42f35cea2e
-RESPONSES_TOPIC=job.69370c1c-31ee5619-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=c21a57eb-0932-4496-b1c8-a916c05734c3
+ORCHESTRATION_ID=f2c8d9e0-e8eb-4614-9548-b17ca0a9e9e4
+HITL_REQUEST_ID=feca66d9-7a4f-4517-b279-0dcb904628f2
+RESPONSES_TOPIC=job.2a8e70f1-d48df8d3-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -822,3 +822,87 @@ JSON
 echo ""
 echo "Message sent. Monitor with:"
 echo "  kubectl -n ai-persona-system logs -f -l app=agent-chassis --tail=100"
+
+
+
+=====
+
+trigger just pageflow-builder for pages that need rebuild only
+
+
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+--
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+kubectl -n kafka run -i --rm kcat-pageflow-rebuild \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=process \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"load_site","steps":{"load_site":{"action":"ensure_site_record","config":{},"description":"Load site record with content_data from database","output_field":"site_record","next_step":"spawn_builder"},"spawn_builder":{"action":"spawn_agent","config":{"role":"builder","agent_type":"pageflow-builder"},"output_field":"builder_agent","next_step":"call_builder"},"call_builder":{"action":"call_agent","config":{"agent_type":"pageflow-builder","target_role":"builder","input_mapping":{"site_id":"site_record.site_id","domain":"site_record.domain","repo_name":"input_data.repo_name","reviewed_brief":"site_record.content_data","input_data":"input_data"},"timeout_seconds":1800},"output_field":"build_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["build_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}","repo_name":"sites"}}
+JSON
+
+
+=============================================================
+
+--------
+independend rerender call without sub workflow - uses page rerender agent - doesn't use pageflow builder
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+echo "========================================="
+echo "Triggering rerender-pages agent"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  Site ID:             $SITE_ID"
+echo "  Domain:              $DOMAIN"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-rerender \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=process \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rerender","steps":{"spawn_rerender":{"action":"spawn_agent","config":{"role":"rerenderer","agent_type":"rerender-pages"},"output_field":"rerender_agent","next_step":"call_rerender"},"call_rerender":{"action":"call_agent","config":{"agent_type":"rerender-pages","target_role":"rerenderer","input_mapping":{"site_id":"input_data.site_id","domain":"input_data.domain"},"timeout_seconds":1800},"output_field":"rerender_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["rerender_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON

@@ -751,3 +751,329 @@ SELECT
     version
 FROM agent_definitions
 WHERE type = 'rerender-pages';
+
+
+---
+
+-- Update rerender-pages agent to use loop-based workflow
+-- This processes one page at a time, avoiding large message payloads
+--
+-- Flow: get_pages → loop → (render_page → deploy_page → update_status) → complete
+
+-- ============================================================
+-- 1. Update rerender-pages agent workflow
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = '{
+    "workflow": {
+        "start_step": "get_pages",
+        "steps": {
+            "get_pages": {
+                "action": "get_pages_for_rerender",
+                "config": {
+                    "input_fields": ["site_id", "domain"],
+                    "include_statuses": ["deployed", "active"]
+                },
+                "description": "Get page metadata for rerender loop",
+                "output_field": "rerender_pages",
+                "next_step": "deploy_loop"
+            },
+            "deploy_loop": {
+                "action": "loop",
+                "config": {
+                    "items_field": "rerender_pages.pages",
+                    "item_variable": "current_page",
+                    "mode": "sequential",
+                    "max_iterations": 50,
+                    "sub_workflow": {
+                        "start_step": "render_page",
+                        "steps": {
+                            "render_page": {
+                                "action": "rerender_single_page",
+                                "config": {
+                                    "input_fields": ["current_page", "rerender_pages"],
+                                    "max_nav_items": 6
+                                },
+                                "description": "Render single page from stored sections",
+                                "output_field": "rendered_page",
+                                "next_step": "check_skipped"
+                            },
+                            "check_skipped": {
+                                "action": "conditional",
+                                "config": {
+                                    "condition": "rendered_page.skipped == true",
+                                    "then_step": "loop_done",
+                                    "else_step": "deploy_page"
+                                },
+                                "description": "Skip deploy if page has no stored sections"
+                            },
+                            "deploy_page": {
+                                "action": "git_commit",
+                                "config": {
+                                    "repo_name": "sites",
+                                    "domain_field": "rendered_page.domain",
+                                    "content_field": "rendered_page.html",
+                                    "filename_field": "rendered_page.filename",
+                                    "commit_message": "Rerender: {{.filename}}"
+                                },
+                                "description": "Deploy rendered page to git",
+                                "output_field": "deploy_result",
+                                "next_step": "update_status"
+                            },
+                            "update_status": {
+                                "action": "update_page_status",
+                                "config": {
+                                    "status": "deployed",
+                                    "page_id_field": "current_page.page_id",
+                                    "commit_from": "deploy_result.commit_sha"
+                                },
+                                "description": "Update page status in database",
+                                "output_field": "status_updated",
+                                "next_step": "loop_done"
+                            },
+                            "loop_done": {
+                                "action": "loop_complete",
+                                "description": "Page rerender complete"
+                            }
+                        }
+                    }
+                },
+                "description": "Loop through pages, render and deploy each one",
+                "output_field": "pages_processed",
+                "next_step": "complete"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["rerender_pages", "pages_processed"]
+                },
+                "description": "Rerender complete"
+            }
+        }
+    },
+    "processing_mode": "orchestrator",
+    "timeout_seconds": 1800
+}'::jsonb,
+version = version + 1,
+updated_at = NOW()
+WHERE type = 'rerender-pages';
+
+-- ============================================================
+-- 2. If agent doesn't exist, create it
+-- ============================================================
+INSERT INTO agent_definitions (type, display_name, description, category, default_config, version)
+SELECT
+    'rerender-pages',
+    'Rerender Pages Agent',
+    'Re-renders all deployed pages with current components (header, footer, nav, contact info)',
+    'specialist',
+    '{
+        "workflow": {
+            "start_step": "get_pages",
+            "steps": {
+                "get_pages": {
+                    "action": "get_pages_for_rerender",
+                    "config": {
+                        "input_fields": ["site_id", "domain"],
+                        "include_statuses": ["deployed", "active"]
+                    },
+                    "description": "Get page metadata for rerender loop",
+                    "output_field": "rerender_pages",
+                    "next_step": "deploy_loop"
+                },
+                "deploy_loop": {
+                    "action": "loop",
+                    "config": {
+                        "items_field": "rerender_pages.pages",
+                        "item_variable": "current_page",
+                        "mode": "sequential",
+                        "max_iterations": 50,
+                        "sub_workflow": {
+                            "start_step": "render_page",
+                            "steps": {
+                                "render_page": {
+                                    "action": "rerender_single_page",
+                                    "config": {
+                                        "input_fields": ["current_page", "rerender_pages"],
+                                        "max_nav_items": 6
+                                    },
+                                    "description": "Render single page from stored sections",
+                                    "output_field": "rendered_page",
+                                    "next_step": "check_skipped"
+                                },
+                                "check_skipped": {
+                                    "action": "conditional",
+                                    "config": {
+                                        "condition": "rendered_page.skipped == true",
+                                        "then_step": "loop_done",
+                                        "else_step": "deploy_page"
+                                    },
+                                    "description": "Skip deploy if page has no stored sections"
+                                },
+                                "deploy_page": {
+                                    "action": "git_commit",
+                                    "config": {
+                                        "repo_name": "sites",
+                                        "domain_field": "rendered_page.domain",
+                                        "content_field": "rendered_page.html",
+                                        "filename_field": "rendered_page.filename",
+                                        "commit_message": "Rerender: {{.filename}}"
+                                    },
+                                    "description": "Deploy rendered page to git",
+                                    "output_field": "deploy_result",
+                                    "next_step": "update_status"
+                                },
+                                "update_status": {
+                                    "action": "update_page_status",
+                                    "config": {
+                                        "status": "deployed",
+                                        "page_id_field": "current_page.page_id",
+                                        "commit_from": "deploy_result.commit_sha"
+                                    },
+                                    "description": "Update page status in database",
+                                    "output_field": "status_updated",
+                                    "next_step": "loop_done"
+                                },
+                                "loop_done": {
+                                    "action": "loop_complete",
+                                    "description": "Page rerender complete"
+                                }
+                            }
+                        }
+                    },
+                    "description": "Loop through pages, render and deploy each one",
+                    "output_field": "pages_processed",
+                    "next_step": "complete"
+                },
+                "complete": {
+                    "action": "complete_workflow",
+                    "config": {
+                        "output_fields": ["rerender_pages", "pages_processed"]
+                    },
+                    "description": "Rerender complete"
+                }
+            }
+        },
+        "processing_mode": "orchestrator",
+        "timeout_seconds": 1800
+    }'::jsonb,
+    1
+    WHERE NOT EXISTS (SELECT 1 FROM agent_definitions WHERE type = 'rerender-pages');
+
+-- ============================================================
+-- 3. Verify the update
+-- ============================================================
+SELECT
+    type,
+    display_name,
+    default_config->'workflow'->>'start_step' as start_step,
+    default_config->'workflow'->'steps'->'deploy_loop'->'config'->'sub_workflow'->'steps'->'render_page'->>'action' as render_action,
+    version
+FROM agent_definitions
+WHERE type = 'rerender-pages';
+
+-- add page rerender agent to remove sub-workflow
+
+
+-- ============================================================
+-- 2. Update rerender-pages to spawn and call page-rerender agent
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = '{
+    "workflow": {
+        "start_step": "get_pages",
+        "steps": {
+            "get_pages": {
+                "action": "get_pages_for_rerender",
+                "config": {
+                    "input_fields": ["site_id", "domain"],
+                    "include_statuses": ["deployed", "active"]
+                },
+                "description": "Get page metadata for rerender",
+                "output_field": "rerender_pages",
+                "next_step": "check_pages_exist"
+            },
+            "check_pages_exist": {
+                "action": "conditional",
+                "config": {
+                    "condition": "rerender_pages.page_count > 0",
+                    "then_step": "spawn_page_agent",
+                    "else_step": "complete"
+                },
+                "description": "Skip if no pages to process"
+            },
+            "spawn_page_agent": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "page_renderer",
+                    "agent_type": "page-rerender"
+                },
+                "description": "Spawn page rerender agent",
+                "output_field": "page_agent",
+                "next_step": "deploy_loop"
+            },
+            "deploy_loop": {
+                "action": "loop",
+                "config": {
+                    "mode": "sequential",
+                    "items_field": "rerender_pages.pages",
+                    "item_variable": "current_page",
+                    "max_iterations": 50,
+                    "sub_workflow": {
+                        "start_step": "call_page_agent",
+                        "steps": {
+                            "call_page_agent": {
+                                "action": "call_agent",
+                                "config": {
+                                    "agent_type": "page-rerender",
+                                    "target_role": "page_renderer",
+                                    "input_mapping": {
+                                        "page_id": "current_page.page_id",
+                                        "site_id": "rerender_pages.site_id",
+                                        "domain": "rerender_pages.domain"
+                                    },
+                                    "timeout_seconds": 120
+                                },
+                                "description": "Call page-rerender agent for this page",
+                                "output_field": "page_result",
+                                "next_step": "loop_done"
+                            },
+                            "loop_done": {
+                                "action": "loop_complete",
+                                "description": "Page iteration complete"
+                            }
+                        }
+                    }
+                },
+                "description": "Loop through pages, call agent for each",
+                "output_field": "pages_processed",
+                "next_step": "complete"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["rerender_pages", "pages_processed"]
+                },
+                "description": "Rerender complete"
+            }
+        }
+    },
+    "processing_mode": "orchestrator",
+    "timeout_seconds": 1800
+}'::jsonb,
+version = version + 1,
+updated_at = NOW()
+WHERE type = 'rerender-pages';
+
+-- ============================================================
+-- 3. Verify both agents
+-- ============================================================
+SELECT
+    type,
+    display_name,
+    default_config->'workflow'->>'start_step' as start_step,
+    jsonb_object_keys(default_config->'workflow'->'steps') as steps,
+    version,
+    status
+FROM agent_definitions
+WHERE type IN ('rerender-pages', 'page-rerender')

@@ -71,14 +71,6 @@ func PrepareLinkContextAction(ctx context.Context, params ActionParams) (interfa
 	}, nil
 }
 
-// PageInfo represents a page available for linking
-type PageInfo struct {
-	URL         string `json:"url"`
-	Title       string `json:"title"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
-
 // extractPagesForLinking gets pages from collected data
 func extractPagesForLinking(collectedData map[string]interface{}, config map[string]interface{}, logger *zap.Logger) []PageInfo {
 	var pages []PageInfo

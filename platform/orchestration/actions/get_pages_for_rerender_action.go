@@ -192,9 +192,3 @@ func lookupSiteByDomain(ctx context.Context, db *sql.DB, domain string) (uuid.UU
 	err := db.QueryRowContext(ctx, `SELECT id FROM sites WHERE domain = $1`, domain).Scan(&siteID)
 	return siteID, err
 }
-
-func getDomainForSite(ctx context.Context, db *sql.DB, siteID uuid.UUID) (string, error) {
-	var domain string
-	err := db.QueryRowContext(ctx, `SELECT domain FROM sites WHERE id = $1`, siteID).Scan(&domain)
-	return domain, err
-}

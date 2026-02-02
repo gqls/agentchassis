@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/actions/rerender_single_page_action.go
 // RerenderSinglePageAction renders ONE page from page_components.rendered_html
-// Used in rerender loop - returns HTML for git_commit
+// Used by page-rerender agent - returns HTML for git_commit
 
 package actions
 
@@ -19,11 +19,15 @@ import (
 )
 
 // RerenderSinglePageAction renders a single page from stored sections
+//
 // Config:
-//   - page_id_field: path to page_id (default: "current_page.page_id")
-//   - site_id_field: path to site_id (default: "rerender_pages.site_id")
-//   - domain_field: path to domain (default: "rerender_pages.domain")
+//   - input_fields: fields to extract (default: ["page_id", "site_id", "domain"])
 //   - max_nav_items: int (default: 6)
+//
+// Expects (via input_mapping from caller):
+//   - page_id: the page to render
+//   - site_id: site identifier
+//   - domain: site domain
 //
 // Returns:
 //   - html: rendered page HTML
@@ -31,6 +35,7 @@ import (
 //   - filename: page filename (e.g., "about.html")
 //   - page_id: the page ID
 //   - page_name: the page name
+//   - skipped: true if page had no sections (caller should skip deploy)
 func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("RerenderSinglePageAction: Starting",
 		zap.String("step_name", params.ExecutionContext.StepName),
@@ -42,14 +47,33 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 
 	config := params.StepConfig.Config
 
-	// Extract page_id
-	pageIDField := "current_page.page_id"
-	if f, ok := config["page_id_field"].(string); ok && f != "" {
-		pageIDField = f
+	// Use input_fields pattern - simple flat fields
+	inputFields := []string{"page_id", "site_id", "domain"}
+	if fields, ok := config["input_fields"].([]interface{}); ok {
+		inputFields = make([]string, len(fields))
+		for i, f := range fields {
+			inputFields[i], _ = f.(string)
+		}
 	}
-	pageIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, pageIDField)
+
+	// ExtractFields handles finding fields regardless of input_data prefix
+	extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
+
+	params.Logger.Debug("RerenderSinglePageAction: Extracted fields",
+		zap.Any("fields", inputFields),
+		zap.Any("extracted_keys", getMapKeys(extracted)),
+	)
+
+	// Get page_id - try direct string first, then nested object (backward compat)
+	var pageIDStr string
+	if s, ok := extracted["page_id"].(string); ok && s != "" {
+		pageIDStr = s
+	} else if currentPage, ok := extracted["current_page"].(map[string]interface{}); ok {
+		// Backward compatibility with old workflow structure
+		pageIDStr, _ = currentPage["page_id"].(string)
+	}
 	if pageIDStr == "" {
-		return nil, fmt.Errorf("page_id not found at %s", pageIDField)
+		return nil, fmt.Errorf("page_id not found in input")
 	}
 
 	pageID, err := uuid.Parse(pageIDStr)
@@ -57,14 +81,16 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("invalid page_id: %w", err)
 	}
 
-	// Extract site_id
-	siteIDField := "rerender_pages.site_id"
-	if f, ok := config["site_id_field"].(string); ok && f != "" {
-		siteIDField = f
+	// Get site_id - try direct string first, then nested object
+	var siteIDStr string
+	if s, ok := extracted["site_id"].(string); ok && s != "" {
+		siteIDStr = s
+	} else if rerenderPages, ok := extracted["rerender_pages"].(map[string]interface{}); ok {
+		// Backward compatibility
+		siteIDStr, _ = rerenderPages["site_id"].(string)
 	}
-	siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, siteIDField)
 	if siteIDStr == "" {
-		return nil, fmt.Errorf("site_id not found at %s", siteIDField)
+		return nil, fmt.Errorf("site_id not found in input")
 	}
 
 	siteID, err := uuid.Parse(siteIDStr)
@@ -72,12 +98,16 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("invalid site_id: %w", err)
 	}
 
-	// Extract domain
-	domainField := "rerender_pages.domain"
-	if f, ok := config["domain_field"].(string); ok && f != "" {
-		domainField = f
+	// Get domain - try direct string first, then nested object
+	var domain string
+	if s, ok := extracted["domain"].(string); ok && s != "" {
+		domain = s
+	} else if rerenderPages, ok := extracted["rerender_pages"].(map[string]interface{}); ok {
+		// Backward compatibility
+		domain, _ = rerenderPages["domain"].(string)
 	}
-	domain := datahelpers.ExtractNestedFieldString(params.CollectedData, domainField)
+
+	// Fallback domain lookup from DB
 	if domain == "" {
 		domain, _ = getDomainForSite(ctx, params.DB, siteID)
 	}
@@ -103,19 +133,47 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 	// Load sections from page_components
 	sectionsHTML := loadPageSections(ctx, params.DB, pageID, params.Logger)
 	if sectionsHTML == "" {
-		return nil, fmt.Errorf("no sections found for page %s", pageInfo.Name)
+		// No sections stored - skip this page gracefully
+		params.Logger.Warn("RerenderSinglePageAction: No sections found, skipping page",
+			zap.String("page_name", pageInfo.Name),
+			zap.String("page_id", pageIDStr),
+		)
+		return map[string]interface{}{
+			"success":   false,
+			"skipped":   true,
+			"reason":    "no sections stored for this page",
+			"html":      "",
+			"domain":    domain,
+			"filename":  pageInfo.Filename,
+			"page_id":   pageIDStr,
+			"page_name": pageInfo.Name,
+		}, nil
 	}
 
-	// Build render context
+	// Load site data for template rendering
+	siteData := loadSiteData(ctx, params.DB, siteID, params.Logger)
+
+	// Build render context with full site data
 	renderCtx := &RenderContext{
 		ContentData: map[string]interface{}{
 			"Title":           pageInfo.Title,
 			"MetaDescription": pageInfo.MetaDesc,
 			"PageName":        pageInfo.Name,
+			"CompanyName":     siteData.CompanyName,
+			"Tagline":         siteData.Tagline,
+			"Email":           siteData.Email,
+			"Phone":           siteData.Phone,
+			"Domain":          domain,
 		},
 		NavItems:       []NavItem{},
 		FooterNavItems: []NavItem{},
 	}
+
+	// Also set top-level fields for templates that use {{.Email}} directly
+	renderCtx.Email = siteData.Email
+	renderCtx.Phone = siteData.Phone
+	renderCtx.CompanyName = siteData.CompanyName
+	renderCtx.Tagline = siteData.Tagline
 
 	// Get nav from deployed pages
 	headerNav := getHeaderNavFromDB(ctx, params.DB, siteID, maxNavItems, params.Logger)
@@ -127,8 +185,8 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 		renderCtx.FooterNavItems = footerNav
 	}
 
-	// Get site contact info
-	siteInfo := getSiteContactInfo(ctx, params.DB, siteID, params.Logger)
+	// Get site contact info for injection
+	siteInfo := SiteContactInfo{Email: siteData.Email, Phone: siteData.Phone}
 
 	// Load templates
 	headHTML := loadHeadTemplate(ctx, params.DB, siteID, renderCtx, params.Logger)
@@ -137,6 +195,9 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 
 	// Render head with page-specific data
 	renderedHead := executeSimpleTemplate(headHTML, renderCtx.ContentData, params.Logger)
+
+	// Strip any DOCTYPE/html tags from head template (avoid duplicates)
+	renderedHead = stripDoctype(renderedHead)
 
 	// Assemble full page
 	var html strings.Builder
@@ -178,14 +239,13 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 	}, nil
 }
 
-// PageInfo holds page details for rendering
-type SinglePageInfo struct {
-	ID       uuid.UUID
-	Name     string
-	Title    string
-	URL      string
-	Filename string
-	MetaDesc string
+// Helper to get map keys for logging
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // SiteContactInfo holds site contact details
@@ -194,8 +254,93 @@ type SiteContactInfo struct {
 	Phone string
 }
 
-func loadPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*SinglePageInfo, error) {
-	var p SinglePageInfo
+// SiteData holds full site data for template rendering
+type SiteData struct {
+	CompanyName string
+	Tagline     string
+	Email       string
+	Phone       string
+	Domain      string
+}
+
+func loadSiteData(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) SiteData {
+	if db == nil {
+		return SiteData{}
+	}
+
+	var data SiteData
+	var contentDataStr sql.NullString
+
+	// Query site table fields and content_data
+	err := db.QueryRowContext(ctx, `
+		SELECT 
+			COALESCE(name, ''), 
+			COALESCE(email, ''), 
+			COALESCE(phone, ''),
+			COALESCE(domain, ''),
+			COALESCE(content_data::text, '{}')
+		FROM sites WHERE id = $1
+	`, siteID).Scan(&data.CompanyName, &data.Email, &data.Phone, &data.Domain, &contentDataStr)
+
+	if err != nil {
+		logger.Warn("loadSiteData: Query failed", zap.Error(err))
+		return SiteData{}
+	}
+
+	// Extract from content_data JSON if main fields are empty
+	if contentDataStr.Valid && contentDataStr.String != "" {
+		contentData := contentDataStr.String
+
+		// Company name fallback
+		if data.CompanyName == "" {
+			data.CompanyName = extractJSONString(contentData, "company_name")
+		}
+
+		// Tagline
+		if data.Tagline == "" {
+			data.Tagline = extractJSONString(contentData, "tagline")
+		}
+
+		// Email fallback
+		if data.Email == "" {
+			data.Email = extractJSONString(contentData, "contact_email")
+		}
+
+		// Phone fallback
+		if data.Phone == "" {
+			data.Phone = extractJSONString(contentData, "contact_phone")
+		}
+	}
+
+	logger.Debug("loadSiteData: Loaded",
+		zap.String("company_name", data.CompanyName),
+		zap.String("email", data.Email),
+		zap.String("phone", data.Phone),
+	)
+
+	return data
+}
+
+// extractJSONString extracts a string value from JSON using simple pattern matching
+// This avoids unmarshaling the entire JSON for just a few fields
+func extractJSONString(jsonStr, key string) string {
+	// Look for "key": "value" or "key":"value"
+	patterns := []string{
+		fmt.Sprintf(`"%s"\s*:\s*"([^"]*)"`, key),
+		fmt.Sprintf(`"%s":"([^"]*)"`, key),
+	}
+
+	for _, pattern := range patterns {
+		re := regexp.MustCompile(pattern)
+		if matches := re.FindStringSubmatch(jsonStr); len(matches) > 1 {
+			return matches[1]
+		}
+	}
+	return ""
+}
+
+func loadPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo, error) {
+	var p PageInfo
 	p.ID = pageID
 
 	err := db.QueryRowContext(ctx, `
@@ -334,13 +479,16 @@ func getFooterNavFromDB(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxIt
 }
 
 func simplifyNavLabel(label, url string) string {
+	// Remove " | Company Name" suffix
 	if idx := strings.Index(label, " | "); idx > 0 {
 		label = strings.TrimSpace(label[:idx])
 	}
+	// Remove " - Company Name" suffix
 	if idx := strings.Index(label, " - "); idx > 0 {
 		label = strings.TrimSpace(label[:idx])
 	}
 
+	// If still too long, derive from URL
 	if len(label) > 20 {
 		urlParts := strings.Split(strings.Trim(url, "/"), "/")
 		if len(urlParts) > 0 {
@@ -351,23 +499,6 @@ func simplifyNavLabel(label, url string) string {
 		}
 	}
 	return label
-}
-
-func getSiteContactInfo(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) SiteContactInfo {
-	if db == nil {
-		return SiteContactInfo{}
-	}
-
-	var info SiteContactInfo
-	err := db.QueryRowContext(ctx, `
-		SELECT COALESCE(email, ''), COALESCE(phone, '')
-		FROM sites WHERE id = $1
-	`, siteID).Scan(&info.Email, &info.Phone)
-
-	if err != nil {
-		logger.Warn("getSiteContactInfo: Query failed", zap.Error(err))
-	}
-	return info
 }
 
 func loadHeadTemplate(ctx context.Context, db *sql.DB, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
@@ -469,6 +600,16 @@ func stripPageWrapper(html string) string {
 	return strings.TrimSpace(html)
 }
 
+// stripDoctype removes DOCTYPE, html, body tags from template output
+func stripDoctype(html string) string {
+	html = regexp.MustCompile(`(?i)<!DOCTYPE[^>]*>`).ReplaceAllString(html, "")
+	html = regexp.MustCompile(`(?i)<html[^>]*>`).ReplaceAllString(html, "")
+	html = regexp.MustCompile(`(?i)</html>`).ReplaceAllString(html, "")
+	html = regexp.MustCompile(`(?i)<body[^>]*>`).ReplaceAllString(html, "")
+	html = regexp.MustCompile(`(?i)</body>`).ReplaceAllString(html, "")
+	return strings.TrimSpace(html)
+}
+
 func injectContactInfo(html string, siteInfo SiteContactInfo, logger *zap.Logger) string {
 	if siteInfo.Email == "" && siteInfo.Phone == "" {
 		return html
@@ -479,7 +620,7 @@ func injectContactInfo(html string, siteInfo SiteContactInfo, logger *zap.Logger
 		emailPattern := regexp.MustCompile(`mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})`)
 		html = emailPattern.ReplaceAllString(html, "mailto:"+siteInfo.Email)
 
-		// Replace emails in contact sections
+		// Replace emails in contact/footer sections
 		contactSectionPattern := regexp.MustCompile(`(?is)(<section[^>]*(?:contact|footer)[^>]*>.*?)([\w.+-]+@[\w.-]+\.[a-z]{2,})(.*?</section>)`)
 		html = contactSectionPattern.ReplaceAllStringFunc(html, func(match string) string {
 			parts := contactSectionPattern.FindStringSubmatch(match)
