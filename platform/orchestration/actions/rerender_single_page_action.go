@@ -154,7 +154,21 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 	siteData := loadSiteData(ctx, params.DB, siteID, params.Logger)
 
 	// Build render context with full site data
+	// IMPORTANT: Set BOTH struct fields (for RenderTemplate/contextToMap)
+	// AND ContentData (for any direct map access)
 	renderCtx := &RenderContext{
+		// Struct fields - these are what contextToMap reads
+		Domain:      domain,
+		Title:       pageInfo.Title,
+		Description: pageInfo.MetaDesc,
+		CompanyName: siteData.CompanyName,
+		Tagline:     siteData.Tagline,
+		Email:       siteData.Email,
+		Phone:       siteData.Phone,
+		CurrentPage: pageInfo.Name,
+		LogoText:    siteData.CompanyName,
+
+		// Also set ContentData for any actions that read from it directly
 		ContentData: map[string]interface{}{
 			"Title":           pageInfo.Title,
 			"MetaDescription": pageInfo.MetaDesc,
@@ -168,12 +182,6 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 		NavItems:       []NavItem{},
 		FooterNavItems: []NavItem{},
 	}
-
-	// Also set top-level fields for templates that use {{.Email}} directly
-	renderCtx.Email = siteData.Email
-	renderCtx.Phone = siteData.Phone
-	renderCtx.CompanyName = siteData.CompanyName
-	renderCtx.Tagline = siteData.Tagline
 
 	// Get nav from deployed pages
 	headerNav := getHeaderNavFromDB(ctx, params.DB, siteID, maxNavItems, params.Logger)

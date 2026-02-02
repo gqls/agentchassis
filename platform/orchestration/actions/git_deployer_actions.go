@@ -100,7 +100,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	// Extract domain - supports field path extraction
 	domain := extractDomainForGit(params.CollectedData, config, params.Logger)
 
-	// Extract files - NEW: supports files_field path
+	// Extract files - supports files_field path
 	filesMap := extractFilesForGit(params.CollectedData, config, domain, params.Logger)
 
 	if len(filesMap) == 0 {
@@ -118,8 +118,17 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 		}, nil
 	}
 
-	// Build commit message with template support
-	commitMessage := buildCommitMessage(config, domain, len(filesMap))
+	// Get the resolved filename for commit message (meaningful for single-file commits)
+	resolvedFilename := ""
+	if len(filesMap) == 1 {
+		for fn := range filesMap {
+			resolvedFilename = fn
+			break
+		}
+	}
+
+	// Build commit message with template support - now includes filename
+	commitMessage := buildCommitMessage(config, domain, len(filesMap), resolvedFilename)
 
 	params.Logger.Info("Git commit prepared",
 		zap.String("repo_name", repoName),
@@ -355,49 +364,35 @@ func extractFilesForGit(data map[string]interface{}, config map[string]interface
 	return filesMap
 }
 
-// USAGE EXAMPLE:
-// For CSS files:
-//
-//	{
-//	    "action": "git_commit",
-//	    "config": {
-//	        "domain_field": "site_context.domain",
-//	        "content_field": "generated_css.result",
-//	        "file_path": "assets/css/styles.css"
-//	    }
-//	}
-//
-// For JS files:
-//
-//	{
-//	    "action": "git_commit",
-//	    "config": {
-//	        "domain_field": "site_context.domain",
-//	        "content_field": "generated_js.result",
-//	        "file_path": "assets/js/main.js"
-//	    }
-//	}
-//
-// For HTML (existing behavior unchanged):
-//
-//	{
-//	    "action": "git_commit",
-//	    "config": {
-//	        "domain_field": "site_record.domain",
-//	        "content_field": "assembled_page.html",
-//	        "page_field": "current_page"
-//	    }
-//	}
-//
-// determinePageFilename determines the HTML filename for a single page commit
-// Uses page_field config to get the page name, defaults to "index.html"
+// determinePageFilename determines the filename for a single file commit
+// Priority:
+//  1. filename_field - extract filename from CollectedData path (e.g., "rendered_page.filename")
+//  2. file_path - static path from config (for CSS, JS, images)
+//  3. page_field - extract from page object's name/slug field
+//  4. Default to "index.html"
 func determinePageFilename(data map[string]interface{}, config map[string]interface{}, logger *zap.Logger) string {
-	// Direct file path override - for non-HTML files (CSS, JS, images, etc.) when path is supplied
+	// Priority 1: Check filename_field - extract filename from a path in CollectedData
+	// Uses ExtractNestedFieldString which handles dot-notation paths like "rendered_page.filename"
+	// and auto-unwraps .response wrappers
+	if filenameField, ok := config["filename_field"].(string); ok && filenameField != "" {
+		filename := datahelpers.ExtractNestedFieldString(data, filenameField)
+		if filename != "" {
+			logger.Debug("Using filename_field",
+				zap.String("filename_field", filenameField),
+				zap.String("filename", filename))
+			return filename
+		}
+		logger.Warn("filename_field specified but could not extract value",
+			zap.String("filename_field", filenameField))
+	}
+
+	// Priority 2: Direct file path override - for non-HTML files (CSS, JS, images)
 	if filePath, ok := config["file_path"].(string); ok && filePath != "" {
 		logger.Debug("Using direct file_path from config", zap.String("file_path", filePath))
 		return filePath
 	}
 
+	// Priority 3: Page field extraction - get filename from page object
 	pageField, ok := config["page_field"].(string)
 	if !ok || pageField == "" {
 		logger.Debug("No page_field configured, using default filename")
@@ -407,7 +402,7 @@ func determinePageFilename(data map[string]interface{}, config map[string]interf
 	// Extract page data using unified extractor
 	extracted := datahelpers.ExtractFields(data, []string{pageField}, logger)
 
-	// Get the last part of the page field path (e.g., "current_page" -> "current_page")
+	// Get the last part of the page field path
 	pathParts := strings.Split(pageField, ".")
 	extractedKey := pathParts[len(pathParts)-1]
 
@@ -422,7 +417,6 @@ func determinePageFilename(data map[string]interface{}, config map[string]interf
 	switch p := pageData.(type) {
 	case map[string]interface{}:
 		// Try common field names for page identifier
-		// Priority: slug > name > id
 		if slug, ok := p["slug"].(string); ok && slug != "" {
 			return ensureHTMLExtension(slug)
 		}
@@ -430,13 +424,11 @@ func determinePageFilename(data map[string]interface{}, config map[string]interf
 			return ensureHTMLExtension(name)
 		}
 		if id, ok := p["id"].(string); ok && id != "" {
-			// ID might be a UUID, not ideal but usable
 			return ensureHTMLExtension(id)
 		}
 		logger.Warn("page data found but no name/slug/id field",
 			zap.Any("page_keys", datahelpers.GetMapKeys(p)))
 	case string:
-		// Direct string value (unlikely but handle it)
 		return ensureHTMLExtension(p)
 	default:
 		logger.Warn("Unexpected page data type",
@@ -468,7 +460,8 @@ func ensureHTMLExtension(name string) string {
 }
 
 // buildCommitMessage creates commit message with template support
-func buildCommitMessage(config map[string]interface{}, domain string, fileCount int) string {
+// Available template variables: {{.domain}}, {{.file_count}}, {{.filename}}
+func buildCommitMessage(config map[string]interface{}, domain string, fileCount int, filename string) string {
 	messageTemplate, _ := config["commit_message"].(string)
 	if messageTemplate == "" {
 		messageTemplate = "Update site: {{.domain}}"
@@ -484,6 +477,7 @@ func buildCommitMessage(config map[string]interface{}, domain string, fileCount 
 	data := map[string]interface{}{
 		"domain":     domain,
 		"file_count": fileCount,
+		"filename":   filename, // NEW: include filename for commit message template
 	}
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return fmt.Sprintf("Update site: %s", domain)
