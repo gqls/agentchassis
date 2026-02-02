@@ -867,7 +867,7 @@ JSON
 =============================================================
 
 --------
-independend rerender call without sub workflow - uses page rerender agent - doesn't use pageflow builder
+independent rerender call without sub workflow - uses page rerender agent - doesn't use pageflow builder
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)

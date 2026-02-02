@@ -119,6 +119,7 @@ func GetPagesForRerenderAction(ctx context.Context, params ActionParams) (interf
 		"site_id":    siteID.String(),
 		"domain":     domain,
 		"page_count": len(pages),
+		"has_pages":  len(pages) > 0, // For conditional: rerender_pages.has_pages == true
 	}, nil
 }
 

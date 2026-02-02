@@ -1077,3 +1077,23 @@ SELECT
     status
 FROM agent_definitions
 WHERE type IN ('rerender-pages', 'page-rerender')
+
+--
+
+-- Fix rerender-pages condition to use boolean instead of numeric comparison
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_pages_exist,config,condition}',
+        '"rerender_pages.has_pages == true"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'rerender-pages';
+
+-- Verify
+SELECT type,
+       default_config->'workflow'->'steps'->'check_pages_exist'->'config'->'condition' as condition
+FROM agent_definitions
+WHERE type = 'rerender-pages';
+
+
