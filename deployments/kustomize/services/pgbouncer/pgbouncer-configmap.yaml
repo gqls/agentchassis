@@ -1,0 +1,85 @@
+# deployments/kustomize/services/pgbouncer/pgbouncer-configmap.yaml
+#
+# PgBouncer configuration for connection pooling.
+# Sits between agent pods and the two PostgreSQL instances.
+# Pods connect to pgbouncer:6432 instead of postgres-clients:5432.
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgbouncer-config
+  namespace: ai-persona-system
+data:
+  pgbouncer.ini: |
+    [databases]
+    ; Map logical database names to actual PostgreSQL backends
+    clients_db = host=postgres-clients.ai-persona-system.svc.cluster.local port=5432 dbname=clients_db
+    templates_db = host=postgres-templates.ai-persona-system.svc.cluster.local port=5432 dbname=templates_db
+
+    [pgbouncer]
+    ; Connection
+    listen_addr = 0.0.0.0
+    listen_port = 6432
+    auth_type = md5
+    auth_file = /etc/pgbouncer/userlist.txt
+
+    ; Pool mode: transaction gives best connection reuse
+    ; Each transaction gets a server connection, released when transaction completes
+    pool_mode = transaction
+
+    ; Pool sizing
+    ; max_client_conn: how many client connections pgbouncer accepts
+    ;   3 chassis replicas × 4 conns + spawned agents + adapters ≈ 50 typical, 200 headroom
+    max_client_conn = 200
+
+    ; default_pool_size: server connections per user/database pair
+    ;   This is the steady-state number of real PostgreSQL connections
+    default_pool_size = 15
+
+    ; min_pool_size: keep this many connections warm
+    min_pool_size = 2
+
+    ; reserve_pool_size: extra connections if default_pool_size is exhausted
+    reserve_pool_size = 5
+
+    ; reserve_pool_timeout: seconds to wait before using reserve pool
+    reserve_pool_timeout = 3
+
+    ; Timeouts
+    ; server_connect_timeout: how long to wait connecting to PostgreSQL
+    server_connect_timeout = 15
+
+    ; server_idle_timeout: close idle server connections after this many seconds
+    server_idle_timeout = 300
+
+    ; server_lifetime: close server connections after this many seconds regardless
+    server_lifetime = 3600
+
+    ; client_idle_timeout: close idle client connections (0 = disabled)
+    ; Agent pods come and go, so clean up after them
+    client_idle_timeout = 600
+
+    ; query_timeout: cancel queries running longer than this (0 = disabled)
+    query_timeout = 120
+
+    ; Logging
+    log_connections = 1
+    log_disconnections = 1
+    log_pooler_errors = 1
+    log_stats = 1
+    stats_period = 60
+
+    ; Admin
+    admin_users = pgbouncer_admin
+    stats_users = pgbouncer_admin
+
+    ; TCP keepalive to detect dead connections
+    tcp_keepalive = 1
+    tcp_keepidle = 60
+    tcp_keepintvl = 10
+
+    ; Application name so we can identify pooled connections in pg_stat_activity
+    application_name_add_host = 1
+
+    ; userlist.txt is mounted from the secret instead
+    ; (see pgbouncer-secret.yaml)

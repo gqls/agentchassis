@@ -236,6 +236,7 @@ deploy-infrastructure: ## Deploy all infrastructure components
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-047-base-configs
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-050-storage
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-060-databases
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-065-pgbouncer
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-database-schemas
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-kafka-topics
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
@@ -260,6 +261,7 @@ deploy-infrastructure-from-ingress: ## Deploy infrastructure starting from ingre
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-047-base-configs
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-050-storage
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-060-databases
+	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-065-pgbouncer
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-070-database-schemas
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-080-kafka-topics
 	@KUBECONFIG=$(KUBECONFIG_PATH) $(MAKE) deploy-090-monitoring
@@ -369,6 +371,24 @@ deploy-060-databases: ## Deploy database instances
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve; \
 		fi
+
+.PHONY: deploy-065-pgbouncer
+deploy-065-pgbouncer: ## Deploy PgBouncer connection pooler
+	@echo "$(GREEN)Deploying 065-pgbouncer...$(NC)"
+	@# Fetch existing DB passwords and create the userlist secret
+	@CLIENTS_PW=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get secret personae-platform-secrets -o jsonpath='{.data.CLIENTS_DB_PASSWORD}' | base64 -d) && \
+	 TEMPLATES_PW=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get secret personae-platform-secrets -o jsonpath='{.data.TEMPLATES_DB_PASSWORD}' | base64 -d) && \
+	 ADMIN_PW=$$(openssl rand -base64 16 | tr -d '=/+' | head -c 20) && \
+	 KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create secret generic pgbouncer-userlist \
+		--from-literal=userlist.txt="\"clients_user\" \"$${CLIENTS_PW}\"$$(printf '\n')\"templates_user\" \"$${TEMPLATES_PW}\"$$(printf '\n')\"pgbouncer_admin\" \"$${ADMIN_PW}\"" \
+		--dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f -
+	@echo "  PgBouncer userlist secret created"
+	@# Apply ConfigMap and Deployment
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f $(KUSTOMIZE_DIR)/services/pgbouncer/pgbouncer-configmap.yaml
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f $(KUSTOMIZE_DIR)/services/pgbouncer/pgbouncer-deployment.yaml
+	@echo "  Waiting for PgBouncer to be ready..."
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) rollout status deployment/pgbouncer --timeout=60s
+	@echo "$(GREEN)PgBouncer deployed on pgbouncer.$(PROJECT_NAME).svc.cluster.local:6432$(NC)"
 
 .PHONY: deploy-070-database-schemas
 deploy-070-database-schemas: ## Run database migrations
@@ -1393,6 +1413,72 @@ quick-agent-update: ## Build, push and deploy agent-chassis with current IMAGE_T
 
 
 # Add these targets to your Makefile
+
+#################################
+# PgBouncer Management
+#################################
+
+.PHONY: pgbouncer-status
+pgbouncer-status: ## Show PgBouncer pod status
+	@echo "$(YELLOW)PgBouncer Status:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get pods -l app=pgbouncer
+	@echo ""
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get svc pgbouncer
+
+.PHONY: pgbouncer-pools
+pgbouncer-pools: ## Show PgBouncer pool statistics
+	@echo "$(YELLOW)PgBouncer Pool Stats:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) exec deploy/pgbouncer -- \
+		psql -p 6432 -U pgbouncer_admin pgbouncer -c "SHOW POOLS;"
+
+.PHONY: pgbouncer-stats
+pgbouncer-stats: ## Show PgBouncer server statistics
+	@echo "$(YELLOW)PgBouncer Stats:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) exec deploy/pgbouncer -- \
+		psql -p 6432 -U pgbouncer_admin pgbouncer -c "SHOW STATS;"
+
+.PHONY: pgbouncer-clients
+pgbouncer-clients: ## Show PgBouncer client connections
+	@echo "$(YELLOW)PgBouncer Client Connections:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) exec deploy/pgbouncer -- \
+		psql -p 6432 -U pgbouncer_admin pgbouncer -c "SHOW CLIENTS;"
+
+.PHONY: pgbouncer-servers
+pgbouncer-servers: ## Show PgBouncer server connections
+	@echo "$(YELLOW)PgBouncer Server Connections:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) exec deploy/pgbouncer -- \
+		psql -p 6432 -U pgbouncer_admin pgbouncer -c "SHOW SERVERS;"
+
+.PHONY: pgbouncer-logs
+pgbouncer-logs: ## Tail PgBouncer logs
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) logs -l app=pgbouncer -f
+
+.PHONY: pgbouncer-restart
+pgbouncer-restart: ## Restart PgBouncer
+	@echo "$(YELLOW)Restarting PgBouncer...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) rollout restart deployment/pgbouncer
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) rollout status deployment/pgbouncer --timeout=60s
+	@echo "$(GREEN)PgBouncer restarted$(NC)"
+
+.PHONY: pgbouncer-test
+pgbouncer-test: ## Test connectivity through PgBouncer to both databases
+	@echo "$(YELLOW)Testing PgBouncer connectivity...$(NC)"
+	@CLIENTS_PW=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get secret personae-platform-secrets -o jsonpath='{.data.CLIENTS_DB_PASSWORD}' | base64 -d) && \
+	 KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) run pgb-test-$$(date +%s) --rm -i --restart=Never \
+		--image=postgres:15-alpine -- \
+		psql "postgresql://clients_user:$${CLIENTS_PW}@pgbouncer.$(PROJECT_NAME).svc.cluster.local:6432/clients_db?sslmode=disable" \
+		-c "SELECT 'pgbouncer_ok' as status, current_database();"
+	@echo "$(GREEN)PgBouncer connectivity test passed$(NC)"
+
+.PHONY: pgbouncer-destroy
+pgbouncer-destroy: ## Remove PgBouncer deployment
+	@echo "$(RED)Removing PgBouncer...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) delete deployment pgbouncer --ignore-not-found
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) delete svc pgbouncer --ignore-not-found
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) delete configmap pgbouncer-config --ignore-not-found
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) delete secret pgbouncer-userlist --ignore-not-found
+	@echo "$(GREEN)PgBouncer removed$(NC)"
+
 
 #################################
 # PostgreSQL Connection Management

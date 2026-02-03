@@ -1067,7 +1067,7 @@ func renderTemplatesInData(data map[string]interface{}, collectedData map[string
 // This properly handles {{if}}, {{range}}, {{with}}, {{end}} directives
 func executeGoTemplate(templateStr string, data map[string]interface{}, logger *zap.Logger) (string, error) {
 	tmpl, err := template.New("component").
-		Option("missingkey=zero"). // Output "" instead of "<no value>"
+		Option("missingkey=zero"). // Still useful for some types
 		Funcs(template.FuncMap{
 			"default": func(defaultVal, val interface{}) interface{} {
 				if val == nil || val == "" {
@@ -1091,6 +1091,18 @@ func executeGoTemplate(templateStr string, data map[string]interface{}, logger *
 					return s != ""
 				}
 				return true
+			},
+			// safe returns "" for nil values instead of "<no value>"
+			// Usage in templates: {{safe .name}} or {{.name | safe}}
+			"safe": func(val interface{}) string {
+				if val == nil {
+					return ""
+				}
+				s := fmt.Sprintf("%v", val)
+				if s == "<nil>" || s == "<no value>" {
+					return ""
+				}
+				return s
 			},
 		}).Parse(templateStr)
 

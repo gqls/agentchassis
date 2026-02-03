@@ -5298,3 +5298,288 @@ WHERE function IN ('differentiators-section', 'services-grid', 'social_proof',
                    'contact-form', 'case-studies-list')
 ORDER BY name;
 
+-- fix <no value> for eg social proof
+
+-- =============================================================
+-- Fix template field name mismatches causing <no value> and
+-- empty headings
+--
+-- ROOT CAUSE:
+-- LLM prompt tells model to return: headline, features[].name
+-- Templates render: .title, .services[].name (or .title)
+-- Input schemas tell LLM: section_title, services[].title
+--
+-- Three-way mismatch → LLM output doesn't match templates.
+--
+-- FIX: Align templates and schemas to match the standardized
+-- LLM prompt output format:
+--   - Section heading: headline (hero/services/CTA) or heading (contact/text)
+--   - Feature/service arrays: features[].name, features[].description
+--   - CTA: primary_cta, primary_cta_url
+-- =============================================================
+
+
+-- ============================================================
+-- 1. services-grid
+-- ============================================================
+-- Template uses: {{.title}} for h2, {{range .services}} → {{.name}}
+-- LLM prompt example returns: headline, features[].name
+-- Schema says: section_title, services[].title
+--
+-- Fix: template to use headline, features, name
+--       schema to match
+
+-- Verify current state
+SELECT name,
+       html_template LIKE '%{{.title}}%' as has_dot_title,
+       html_template LIKE '%{{range .services}}%' as has_range_services,
+       html_template LIKE '%{{.name}}%' as has_dot_name,
+       input_schema
+FROM content_components WHERE name = 'services-grid';
+
+-- Update template field names
+UPDATE content_components
+SET html_template = replace(
+        replace(
+                html_template,
+                '<h2>{{.title}}</h2>',
+                '<h2>{{.headline}}</h2>'
+        ),
+        '{{range .services}}',
+        '{{range .features}}'
+                    ),
+    input_schema = '{"headline": "string", "subheadline": "string", "features": [{"name": "string", "description": "string"}]}'::jsonb,
+    updated_at = now()
+WHERE name = 'services-grid';
+
+-- Verify
+SELECT name,
+       html_template LIKE '%{{.headline}}%' as has_headline,
+       html_template LIKE '%{{range .features}}%' as has_range_features,
+       html_template LIKE '%{{.name}}%' as has_dot_name,
+       input_schema
+FROM content_components WHERE name = 'services-grid';
+
+
+-- ============================================================
+-- 2. differentiators-section
+-- ============================================================
+-- Template uses: {{.title}} for h2, {{range .differentiators}} → {{.title}}, {{.description}}
+-- LLM sees schema: section_title, differentiators[].title
+--
+-- Fix: h2 to use headline, range to use features, items to use name
+-- Note: {{.title}} appears twice - once in h2 (top-level) and once
+--       in range (item-level). We only change the h2 one and the
+--       range item field.
+
+-- Verify current state
+SELECT name,
+       html_template LIKE '%<h2>{{.title}}</h2>%' as has_h2_title,
+       html_template LIKE '%{{range .differentiators}}%' as has_range_diff,
+       input_schema
+FROM content_components WHERE name = 'differentiators-section';
+
+-- Update template
+-- Step 1: Change h2 heading from .title to .headline
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<h2>{{.title}}</h2>',
+        '<h2>{{.headline}}</h2>'
+                    ),
+    updated_at = now()
+WHERE name = 'differentiators-section';
+
+-- Step 2: Change range from .differentiators to .features
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '{{range .differentiators}}',
+        '{{range .features}}'
+                    ),
+    updated_at = now()
+WHERE name = 'differentiators-section';
+
+-- Step 3: Inside the range, change item .title to .name
+-- The h2 is already changed to .headline, so remaining .title
+-- instances are inside the range block
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<h3>{{.title}}</h3>',
+        '<h3>{{.name}}</h3>'
+                    ),
+    updated_at = now()
+WHERE name = 'differentiators-section';
+
+-- Step 4: Update schema
+UPDATE content_components
+SET input_schema = '{"headline": "string", "features": [{"name": "string", "description": "string"}]}'::jsonb,
+    updated_at = now()
+WHERE name = 'differentiators-section';
+
+-- Verify
+SELECT name,
+       html_template LIKE '%{{.headline}}%' as has_headline,
+       html_template LIKE '%{{range .features}}%' as has_range_features,
+       html_template LIKE '%{{.name}}%' as has_dot_name,
+       input_schema
+FROM content_components WHERE name = 'differentiators-section';
+
+
+-- ============================================================
+-- 3. contact-form
+-- ============================================================
+-- Template uses: {{.title}} for h2
+-- LLM prompt returns: heading (for contact/text sections)
+-- Schema says: form_title
+--
+-- Fix: h2 to use heading
+
+-- Verify current state
+SELECT name,
+       html_template LIKE '%<h2>{{.title}}</h2>%' as has_h2_title,
+       input_schema
+FROM content_components WHERE name = 'contact-form';
+
+-- Update template
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<h2>{{.title}}</h2>',
+        '<h2>{{.heading}}</h2>'
+                    ),
+    input_schema = '{"heading": "string", "form_description": "string", "submit_text": "string", "form_action": "string"}'::jsonb,
+    updated_at = now()
+WHERE name = 'contact-form';
+
+-- Verify
+SELECT name,
+       html_template LIKE '%{{.heading}}%' as has_heading,
+       input_schema
+FROM content_components WHERE name = 'contact-form';
+
+
+-- ============================================================
+-- 4. Check for other templates using {{.title}} for h2
+--    (to catch social-proof, call-to-action, etc.)
+-- ============================================================
+SELECT name, function, category, render_mode,
+       html_template LIKE '%<h2>{{.title}}</h2>%' as has_h2_title
+FROM content_components
+WHERE html_template LIKE '%<h2>{{.title}}</h2>%'
+  AND component_level = 'section'
+ORDER BY name;
+
+
+-- =============================================================
+-- Fix remaining templates using <h2>{{.title}}</h2>
+--
+-- The LLM prompt returns "headline" for section headings.
+-- These templates still use {{.title}} → renders empty.
+--
+-- Affected: call_to_action, social_proof, features,
+--           testimonials, case-studies-list
+-- Plus duplicate entries: "Call to Action", "Social Proof",
+--           "Features Grid"
+-- =============================================================
+
+-- Preview: show all affected templates and their current state
+SELECT name, function, category, render_mode,
+       html_template LIKE '%<h2>{{.title}}</h2>%' as has_plain_title,
+       html_template LIKE '%{{if .title}}%' as has_if_title
+FROM content_components
+WHERE html_template LIKE '%{{.title}}%'
+  AND component_level = 'section'
+ORDER BY name;
+
+-- Fix: Replace <h2>{{.title}}</h2> with <h2>{{.headline}}</h2>
+-- for all section-level components
+--
+-- NOTE: This only replaces the exact pattern <h2>{{.title}}</h2>
+-- It does NOT replace {{.title}} inside {{range}} blocks
+-- (where .title refers to an item title, not section heading)
+
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<h2>{{.title}}</h2>',
+        '<h2>{{.headline}}</h2>'
+                    ),
+    updated_at = now()
+WHERE html_template LIKE '%<h2>{{.title}}</h2>%'
+  AND component_level = 'section';
+
+-- Also handle the pattern with conditional:
+-- {{if .title}}{{.title}}{{else}}Default{{end}}
+-- This appears in contact-info template
+-- We'll handle this separately per-component to preserve defaults
+
+-- Verify what changed
+SELECT name, function,
+       html_template LIKE '%{{.headline}}%' as has_headline,
+       html_template LIKE '%<h2>{{.title}}</h2>%' as still_has_title
+FROM content_components
+WHERE component_level = 'section'
+  AND (html_template LIKE '%{{.headline}}%' OR html_template LIKE '%<h2>{{.title}}</h2>%')
+ORDER BY name;
+
+
+-- =============================================================
+-- Also fix features template: range field name
+-- The features template likely uses {{range .features}} with
+-- items having {{.title}} — check and fix item-level .title
+-- =============================================================
+
+-- Check features templates for item-level field names
+SELECT name, function,
+       html_template LIKE '%{{range .features}}%' as has_range_features,
+       html_template LIKE '%{{range .items}}%' as has_range_items,
+    left(html_template, 600) as preview
+FROM content_components
+WHERE function = 'features' OR name IN ('features', 'Features Grid');
+
+-- For features items, the LLM returns features[].name
+-- If template uses {{.title}} inside range, fix to {{.name}}
+-- (Run after checking the above query results)
+
+-- UPDATE content_components
+-- SET html_template = replace(
+--         html_template,
+--         '<h3>{{.title}}</h3>',
+--         '<h3>{{.name}}</h3>'
+--     ),
+--     updated_at = now()
+-- WHERE function = 'features'
+--   AND html_template LIKE '%{{range %}%'
+--   AND html_template LIKE '%<h3>{{.title}}</h3>%';
+
+
+-- =============================================================
+-- Update input_schema for the fixed components
+-- Align schemas with what the LLM prompt examples return
+-- =============================================================
+
+-- call_to_action / Call to Action
+UPDATE content_components
+SET input_schema = '{"headline": "string", "subheadline": "string", "primary_cta": "string", "primary_cta_url": "string", "secondary_cta": "string", "secondary_cta_url": "string"}'::jsonb,
+    updated_at = now()
+WHERE function = 'call_to_action';
+
+-- social_proof / Social Proof
+UPDATE content_components
+SET input_schema = '{"headline": "string", "testimonials": [{"quote": "string", "author": "string", "role": "string", "company": "string"}]}'::jsonb,
+    updated_at = now()
+WHERE function = 'social_proof';
+
+-- features / Features Grid
+UPDATE content_components
+SET input_schema = '{"headline": "string", "subheadline": "string", "features": [{"name": "string", "description": "string", "icon": "string"}]}'::jsonb,
+    updated_at = now()
+WHERE function = 'features';
+
+-- testimonials
+UPDATE content_components
+SET input_schema = '{"headline": "string", "testimonials": [{"quote": "string", "author": "string", "role": "string", "company": "string"}]}'::jsonb,
+    updated_at = now()
+WHERE function = 'testimonials';

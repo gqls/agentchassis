@@ -407,3 +407,189 @@ SELECT
     version
 FROM agent_definitions
 WHERE type = 'page-content-writer';
+
+--
+
+-- phone details in contact
+
+-- =============================================================
+-- Fix: Contact phone missing from rendered pages
+--
+-- ROOT CAUSE:
+-- 1. reviewed_brief may not have contact_phone (required=false
+--    in briefing questionnaire)
+-- 2. Site planner adds contact_phone to its output
+-- 3. store_site_plan merges phone into DB content_data, BUT
+--    this happens AFTER ensure_site_record already captured
+--    a stale snapshot of site_record
+-- 4. page-content-writer gets stale site_record + incomplete
+--    reviewed_brief → render_context has email but no phone
+--
+-- FIX (3 parts):
+-- A. Pass site_plan to page-content-writer as an additional
+--    input (workflow change in pageflow-builder)
+-- B. Add site_plan as a source in build_render_context
+--    (workflow change in page-content-writer)
+-- C. Update LLM prompt to use render_context.email/phone
+--    instead of reviewed_brief.contact_* (prompt change in
+--    page-content-writer)
+-- =============================================================
+
+
+-- =============================================================
+-- PART A: Add site_plan to pageflow-builder's write_page_content
+--         input_mapping
+-- =============================================================
+
+-- Current input_mapping:
+-- "db_sync": "db_sync",
+-- "site_record": "site_record",
+-- "current_page": "current_page",
+-- "reviewed_brief": "input_data.reviewed_brief",
+-- "style_collection": "style_collection"
+--
+-- Adding: "site_plan": "site_plan"
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,write_page_content,config,input_mapping,site_plan}',
+        '"site_plan"'
+                     ),
+    updated_at = now()
+WHERE type = 'pageflow-builder';
+
+-- Verify
+SELECT
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'write_page_content'->'config'->'input_mapping' as write_page_input_mapping
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+
+-- =============================================================
+-- PART B: Add site_plan as a source in page-content-writer's
+--         build_render_context step
+-- =============================================================
+
+-- Current sources:
+-- "page": "input_data.current_page",
+-- "site": "input_data.site_record",
+-- "brief": "input_data.reviewed_brief",
+-- "style": "input_data.style_collection",
+-- "assets": "brand_assets",
+-- "db_sync": "input_data.db_sync",
+-- "available_pages": "db_sync.pages"
+--
+-- Adding: "plan": "input_data.site_plan"
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_render_context,config,sources,plan}',
+        '"input_data.site_plan"'
+                     ),
+    updated_at = now()
+WHERE type = 'page-content-writer';
+
+-- Verify
+SELECT
+    default_config->'workflow'->'steps'->'build_render_context'->'config'->'sources' as render_context_sources
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+
+
+-- =============================================================
+-- PART C: Update LLM prompt to use render_context for contact
+--         info instead of reviewed_brief
+--
+-- The render_context is built from ALL sources (brief + site +
+-- plan + style), so it has the most complete data. The prompt
+-- should reference render_context.email and render_context.phone
+-- which are guaranteed to be populated from whichever source
+-- has them.
+--
+-- Also add site_plan to the generate_content input_fields so
+-- it's available in the prompt template context.
+-- =============================================================
+
+-- First: add site_plan to generate_content input_fields
+-- Current: ["current_section", "render_context", "reviewed_brief", "current_page", "link_context"]
+-- New:     ["current_section", "render_context", "reviewed_brief", "current_page", "link_context", "site_plan"]
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,input_fields}',
+        '["current_section", "render_context", "reviewed_brief", "current_page", "link_context", "site_plan"]'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'page-content-writer';
+
+-- Now update the prompt template to use render_context for contact info
+-- We change:
+--   Email: {{.reviewed_brief.contact_email}}
+--   Phone: {{.reviewed_brief.contact_phone}}
+--   Location: {{.reviewed_brief.headquarters}}
+-- To:
+--   Email: {{.render_context.email}}
+--   Phone: {{.render_context.phone}}
+--   Location: {{.reviewed_brief.headquarters}}
+--
+-- NOTE: We keep reviewed_brief.headquarters since render_context
+-- doesn't extract that (it's not a field on RenderContext).
+-- We also add a fallback note about the site_plan source.
+
+-- Get current prompt to verify the exact text we're replacing
+SELECT
+    substring(
+            default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template'
+        FROM '## Official Contact.*?(?=\n\n)'
+    ) as current_contact_block
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+
+-- Update the contact info section in the prompt
+-- The exact text to replace (from our previous update in file 48):
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template',
+                        E'## Official Contact Information (USE ONLY THESE - DO NOT INVENT)\nEmail: {{.reviewed_brief.contact_email}}\nPhone: {{.reviewed_brief.contact_phone}}\nLocation: {{.reviewed_brief.headquarters}}',
+                        E'## Official Contact Information (USE ONLY THESE - DO NOT INVENT)\nEmail: {{.render_context.email}}\nPhone: {{.render_context.phone}}\nLocation: {{.reviewed_brief.headquarters}}'
+                )
+        )
+                     ),
+    updated_at = now()
+WHERE type = 'page-content-writer';
+
+-- Verify the prompt now references render_context for contact
+SELECT
+    substring(
+            default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template'
+        FROM '## Official Contact.*?(?=\n\n)'
+    ) as updated_contact_block
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+
+
+-- =============================================================
+-- VERIFICATION: Show all changes made
+-- =============================================================
+
+-- 1. Pageflow-builder: write_page_content now passes site_plan
+SELECT 'pageflow-builder input_mapping' as check,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'write_page_content'->'config'->'input_mapping' as value
+FROM agent_definitions WHERE type = 'pageflow-builder'
+UNION ALL
+-- 2. Page-content-writer: build_render_context includes plan source
+SELECT 'page-content-writer sources' as check,
+    default_config->'workflow'->'steps'->'build_render_context'->'config'->'sources' as value
+FROM agent_definitions WHERE type = 'page-content-writer'
+UNION ALL
+-- 3. Page-content-writer: generate_content input_fields includes site_plan
+SELECT 'generate_content input_fields' as check,
+    default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->'input_fields' as value
+FROM agent_definitions WHERE type = 'page-content-writer';

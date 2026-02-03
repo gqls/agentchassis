@@ -95,6 +95,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	searchProviders := []providers.SearchProvider{
 		providers.NewFirecrawlProvider(httpClient, logger),
 		providers.NewScrapingBeeProvider(httpClient, logger),
+		providers.NewDuckDuckGoProvider(httpClient, logger),
 	}
 
 	// Filter available providers
