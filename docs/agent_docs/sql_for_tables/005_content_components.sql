@@ -5583,3 +5583,261 @@ UPDATE content_components
 SET input_schema = '{"headline": "string", "testimonials": [{"quote": "string", "author": "string", "role": "string", "company": "string"}]}'::jsonb,
     updated_at = now()
 WHERE function = 'testimonials';
+
+
+-- other template changes
+
+-- =============================================================
+-- Fix remaining template field mismatches
+--
+-- call_to_action:
+--   1. .subtitle → .subheadline
+--   2. .primary_button.url/.text → .primary_cta / .primary_cta_url (flat)
+--   3. .secondary_button.url/.text → .secondary_cta / .secondary_cta_url (flat)
+--
+-- features / Features Grid:
+--   1. .subtitle → .subheadline
+--   2. <h3>{{.title}}</h3> → <h3>{{.name}}</h3> (inside range)
+--
+-- case-studies-list:
+--   1. {{.description}} → {{.summary}} (inside range)
+--
+-- social_proof / testimonials: Already aligned, no changes.
+-- =============================================================
+
+
+-- =============================================================
+-- 1. call_to_action — Fix subtitle and CTA button structure
+-- =============================================================
+
+-- The CTA template currently uses nested .primary_button.url / .text
+-- but the LLM returns flat: primary_cta, primary_cta_url
+--
+-- We need to rewrite the button HTML to use flat field access.
+-- Also change .subtitle to .subheadline.
+--
+-- Both "call_to_action" and "Call to Action" have identical
+-- templates, so we fix both with WHERE function = 'call_to_action'
+
+-- First verify current state
+SELECT name,
+       html_template LIKE '%primary_button%' as has_nested_buttons,
+       html_template LIKE '%subtitle%' as has_subtitle
+FROM content_components
+WHERE function = 'call_to_action';
+
+-- Fix 1a: .subtitle → .subheadline
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '{{if .subtitle}}<p class="cta-subtitle">{{.subtitle}}</p>{{end}}',
+        '{{if .subheadline}}<p class="cta-subtitle">{{.subheadline}}</p>{{end}}'
+                    ),
+    updated_at = now()
+WHERE function = 'call_to_action';
+
+-- Fix 1b: Replace nested primary_button with flat primary_cta
+-- Old: {{if .primary_button}}
+--        <a href="{{.primary_button.url}}" class="cta-btn cta-btn-primary">{{.primary_button.text}}</a>
+--      {{end}}
+-- New: {{if .primary_cta}}
+--        <a href="{{.primary_cta_url}}" class="cta-btn cta-btn-primary">{{.primary_cta}}</a>
+--      {{end}}
+
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        E'{{if .primary_button}}\n                <a href="{{.primary_button.url}}" class="cta-btn cta-btn-primary">{{.primary_button.text}}</a>',
+        E'{{if .primary_cta}}\n                <a href="{{.primary_cta_url}}" class="cta-btn cta-btn-primary">{{.primary_cta}}</a>'
+                    ),
+    updated_at = now()
+WHERE function = 'call_to_action';
+
+-- Fix 1c: Replace nested secondary_button with flat secondary_cta
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        E'{{if .secondary_button}}\n                <a href="{{.secondary_button.url}}" class="cta-btn cta-btn-secondary">{{.secondary_button.text}}</a>',
+        E'{{if .secondary_cta}}\n                <a href="{{.secondary_cta_url}}" class="cta-btn cta-btn-secondary">{{.secondary_cta}}</a>'
+                    ),
+    updated_at = now()
+WHERE function = 'call_to_action';
+
+-- Verify CTA fix
+SELECT name,
+       html_template LIKE '%primary_button%' as still_has_nested,
+       html_template LIKE '%primary_cta%' as has_flat_cta,
+       html_template LIKE '%subheadline%' as has_subheadline
+FROM content_components
+WHERE function = 'call_to_action';
+
+
+-- =============================================================
+-- 2. features / Features Grid — Fix subtitle and item .title
+-- =============================================================
+
+-- Fix 2a: .subtitle → .subheadline
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '{{if .subtitle}}<p class="features-subtitle">{{.subtitle}}</p>{{end}}',
+        '{{if .subheadline}}<p class="features-subtitle">{{.subheadline}}</p>{{end}}'
+                    ),
+    updated_at = now()
+WHERE function = 'features';
+
+-- Fix 2b: Inside {{range .features}}, change .title → .name
+-- This is the item-level title (not the h2 which is already .headline)
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<h3>{{.title}}</h3>',
+        '<h3>{{.name}}</h3>'
+                    ),
+    updated_at = now()
+WHERE function = 'features';
+
+-- Verify features fix
+SELECT name,
+       html_template LIKE '%{{.name}}%' as has_dot_name,
+       html_template LIKE '%<h3>{{.title}}</h3>%' as still_has_h3_title,
+       html_template LIKE '%subheadline%' as has_subheadline
+FROM content_components
+WHERE function = 'features';
+
+
+-- =============================================================
+-- 3. case-studies-list — Fix .description → .summary
+-- =============================================================
+
+-- The case study items in the schema have "summary" but the
+-- template renders {{.description}}
+-- Also update the schema to be consistent
+
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<p>{{.description}}</p>',
+        '<p>{{.summary}}</p>'
+                    ),
+    updated_at = now()
+WHERE function = 'case-studies-list';
+
+-- Also fix the subtitle pattern if present
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '{{if .subtitle}}<p class="case-studies-subtitle">{{.subtitle}}</p>{{end}}',
+        '{{if .subheadline}}<p class="case-studies-subtitle">{{.subheadline}}</p>{{end}}'
+                    ),
+    updated_at = now()
+WHERE function = 'case-studies-list';
+
+-- Update case-studies-list schema to match template field names
+-- Old schema item fields: title, client, summary, link, image
+-- Template uses: title ✓, client ✓, summary (now fixed) ✓, results (optional)
+UPDATE content_components
+SET input_schema = '{"headline": "string", "subheadline": "string", "case_studies": [{"title": "string", "client": "string", "summary": "string", "results": "string"}]}'::jsonb,
+    updated_at = now()
+WHERE function = 'case-studies-list';
+
+-- Verify case-studies fix
+SELECT name,
+       html_template LIKE '%{{.summary}}%' as has_summary,
+       html_template LIKE '%{{.description}}%' as still_has_description,
+       input_schema
+FROM content_components
+WHERE function = 'case-studies-list';
+
+
+-- =============================================================
+-- 4. Duplicate cleanup check
+--    Some components have two entries (e.g. "features" and
+--    "Features Grid" both with function='features').
+--    The WHERE function = 'xxx' catches both. Verify both fixed.
+-- =============================================================
+
+SELECT name, function,
+       html_template LIKE '%primary_button%' as has_nested_btn,
+       html_template LIKE '%<h3>{{.title}}</h3>%' as has_h3_title,
+       html_template LIKE '%{{.subtitle}}%' as has_old_subtitle,
+       html_template LIKE '%{{.description}}%' as has_old_description
+FROM content_components
+WHERE function IN ('call_to_action', 'features', 'case-studies-list', 'social_proof', 'testimonials')
+ORDER BY function, name;
+
+
+-- =============================================================
+-- SUMMARY OF ALL CHANGES
+-- =============================================================
+--
+-- call_to_action (2 rows):
+--   ✓ .subtitle → .subheadline
+--   ✓ .primary_button.url/.text → .primary_cta / .primary_cta_url
+--   ✓ .secondary_button.url/.text → .secondary_cta / .secondary_cta_url
+--   (Schema was already correct from file 51)
+--
+-- features (2 rows):
+--   ✓ .subtitle → .subheadline
+--   ✓ <h3>{{.title}}</h3> → <h3>{{.name}}</h3>
+--   (Schema was already correct from file 51)
+--
+-- case-studies-list (1 row):
+--   ✓ .subtitle → .subheadline
+--   ✓ {{.description}} → {{.summary}}
+--   ✓ Schema updated to match
+--
+-- social_proof (2 rows): No changes needed
+-- testimonials (1 row): No changes needed
+
+
+-- =============================================================
+-- Fix CTA buttons - atomic replacements (no whitespace issues)
+-- =============================================================
+
+-- Replace the 6 individual template expressions:
+
+-- 1. {{if .primary_button}} → {{if .primary_cta}}
+UPDATE content_components
+SET html_template = replace(html_template, '{{if .primary_button}}', '{{if .primary_cta}}'),
+    updated_at = now()
+WHERE function = 'call_to_action';
+
+-- 2. {{.primary_button.url}} → {{.primary_cta_url}}
+UPDATE content_components
+SET html_template = replace(html_template, '{{.primary_button.url}}', '{{.primary_cta_url}}'),
+    updated_at = now()
+WHERE function = 'call_to_action';
+
+-- 3. {{.primary_button.text}} → {{.primary_cta}}
+UPDATE content_components
+SET html_template = replace(html_template, '{{.primary_button.text}}', '{{.primary_cta}}'),
+    updated_at = now()
+WHERE function = 'call_to_action';
+
+-- 4. {{if .secondary_button}} → {{if .secondary_cta}}
+UPDATE content_components
+SET html_template = replace(html_template, '{{if .secondary_button}}', '{{if .secondary_cta}}'),
+    updated_at = now()
+WHERE function = 'call_to_action';
+
+-- 5. {{.secondary_button.url}} → {{.secondary_cta_url}}
+UPDATE content_components
+SET html_template = replace(html_template, '{{.secondary_button.url}}', '{{.secondary_cta_url}}'),
+    updated_at = now()
+WHERE function = 'call_to_action';
+
+-- 6. {{.secondary_button.text}} → {{.secondary_cta}}
+UPDATE content_components
+SET html_template = replace(html_template, '{{.secondary_button.text}}', '{{.secondary_cta}}'),
+    updated_at = now()
+WHERE function = 'call_to_action';
+
+-- Verify
+SELECT name,
+       html_template LIKE '%primary_button%' as still_has_nested,
+       html_template LIKE '%primary_cta%' as has_flat_cta,
+       html_template LIKE '%secondary_button%' as still_has_sec_nested,
+       html_template LIKE '%secondary_cta%' as has_flat_sec
+FROM content_components
+WHERE function = 'call_to_action';

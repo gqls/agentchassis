@@ -2596,13 +2596,13 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		dbHost = os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST")
 		if dbHost == "" {
 			// Final fallback to hardcoded values
-			dbHost = "postgres-clients.ai-persona-system.svc.cluster.local"
+			dbHost = "pgbouncer-clients.ai-persona-system.svc.cluster.local"
 		}
 	}
 	if dbPort == "" {
 		dbPort = os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT")
 		if dbPort == "" {
-			dbPort = "5432"
+			dbPort = "6432"
 		}
 	}
 	if dbUser == "" {
