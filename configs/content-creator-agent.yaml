@@ -18,8 +18,8 @@ infrastructure:
     - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
   clients_database: # Agents need access to clients DB for agent config/memory
-    host: "postgres-clients.ai-persona-system.svc.cluster.local" # Adjust if different in your setup
-    port: 5432
+    host: "pgbouncer.ai-persona-system.svc.cluster.local" # Adjust if different in your setup
+    port: 6432
     user: "clients_user"
     password_env_var: "CLIENTS_DB_PASSWORD" # Ensure this env var is set
     db_name: "clients_db"

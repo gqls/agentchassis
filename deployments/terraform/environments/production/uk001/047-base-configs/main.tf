@@ -30,12 +30,12 @@ resource "kubernetes_config_map" "personae_prod_config" {
     kafka_brokers: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
     # Clients Database
-    CLIENTS_DB_HOST: "postgres-clients.ai-persona-system.svc.cluster.local"
-    CLIENTS_DB_PORT: "5432"
+    CLIENTS_DB_HOST: "pgbouncer.ai-persona-system.svc.cluster.local"
+    CLIENTS_DB_PORT: "6432"
     CLIENTS_DB_NAME: "clients_db"
     CLIENTS_DB_USER: "clients_user"
-    clients_db_host: "postgres-clients.ai-persona-system.svc.cluster.local"
-    clients_db_port: "5432"
+    clients_db_host: "pgbouncer.ai-persona-system.svc.cluster.local"
+    clients_db_port: "6432"
     clients_db_name: "clients_db"
     clients_db_user: "clients_user"
 

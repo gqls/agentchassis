@@ -5,7 +5,7 @@ metadata:
 data:
   # Endpoints (for in-cluster services)
   kafka_brokers: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
-  clients_db_host: "postgres-clients.ai-persona-system.svc.cluster.local"
+  clients_db_host: "pgbouncer.ai-persona-system.svc.cluster.local"
   templates_db_host: "postgres-templates.ai-persona-system.svc.cluster.local"
   auth_db_host: "rs17.uk-noc.com"
   minio_endpoint: "http://minio.ai-persona-system.svc.cluster.local:9000"

@@ -19,8 +19,8 @@ infrastructure:
     - personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
 
   clients_database:
-    host: postgres-clients.ai-persona-system.svc.cluster.local
-    port: 5432
+    host: pgbouncer.ai-persona-system.svc.cluster.local
+    port: 6432
     db_name: clients_db
     user: clients_user
     password_env_var: CLIENTS_DB_PASSWORD

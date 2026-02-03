@@ -39,7 +39,7 @@ spec:
 
             # Database URLs (if needed)
             - name: CLIENTS_DATABASE_URL
-              value: "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@postgres-clients.ai-persona-system.svc.cluster.local:5432/clients_db?sslmode=disable"
+              value: "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@pgbouncer.ai-persona-system.svc.cluster.local:6432/clients_db?sslmode=disable"
             - name: TEMPLATES_DATABASE_URL
               value: "postgresql://templates_user:$(TEMPLATES_DB_PASSWORD)@postgres-templates.ai-persona-system.svc.cluster.local:5432/templates_db?sslmode=disable"
 

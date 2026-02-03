@@ -160,12 +160,12 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
           # Clients Database configuration - with underscores matching mapstructure tags
           env {
             name  = "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST"
-            value = "postgres-clients.ai-persona-system.svc.cluster.local"
+            value = "pgbouncer.ai-persona-system.svc.cluster.local"
           }
 
           env {
             name  = "SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT"
-            value = "5432"
+            value = "6432"
           }
 
           env {
@@ -253,7 +253,7 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
           # Database connection strings (these are what the app actually uses)
           env {
             name  = "CLIENTS_DATABASE_URL"
-            value = "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@postgres-clients.ai-persona-system.svc.cluster.local:5432/clients_db?sslmode=disable"
+            value = "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@pgbouncer.ai-persona-system.svc.cluster.local:6432/clients_db?sslmode=disable"
           }
 
           env {
@@ -263,12 +263,12 @@ resource "kubernetes_stateful_set" "generic_orchestrator" {
 
           env {
             name  = "DATABASE_URL"
-            value = "postgresql://clients_user:${data.kubernetes_secret.platform_secrets.data.CLIENTS_DB_PASSWORD}@postgres-clients.ai-persona-system.svc.cluster.local:5432/clients_db?sslmode=disable"
+            value = "postgresql://clients_user:${data.kubernetes_secret.platform_secrets.data.CLIENTS_DB_PASSWORD}@pgbouncer.ai-persona-system.svc.cluster.local:6432/clients_db?sslmode=disable"
           }
 
           env {
             name  = "POSTGRES_URL"
-            value = "postgresql://clients_user:${data.kubernetes_secret.platform_secrets.data.CLIENTS_DB_PASSWORD}@postgres-clients.ai-persona-system.svc.cluster.local:5432/clients_db?sslmode=disable"
+            value = "postgresql://clients_user:${data.kubernetes_secret.platform_secrets.data.CLIENTS_DB_PASSWORD}@pgbouncer.ai-persona-system.svc.cluster.local:6432/clients_db?sslmode=disable"
           }
 
           # API keys from secrets
