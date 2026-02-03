@@ -9,16 +9,17 @@ import (
 // Each entry carries metadata (category, description, deprecation status) alongside the handler.
 //
 // Categories map to future subdirectory structure:
-//   core     — workflow control primitives (complete, loop, conditional, await)
-//   agent    — agent lifecycle (spawn, call, discover)
-//   web      — web search, scraping, research
-//   llm      — LLM prompt execution
-//   site     — site building, assembly, rendering, pages, styles, git, navigation
-//   data     — transform, validate, extract, aggregate, database queries
-//   hitl     — human-in-the-loop approval and input
-//   storage  — S3, assets, entity state, memory
-//   image    — image generation and deployment
-//   external — notifications, HTTP requests
+//
+//	core     — workflow control primitives (complete, loop, conditional, await)
+//	agent    — agent lifecycle (spawn, call, discover)
+//	web      — web search, scraping, research
+//	llm      — LLM prompt execution
+//	site     — site building, assembly, rendering, pages, styles, git, navigation
+//	data     — transform, validate, extract, aggregate, database queries
+//	hitl     — human-in-the-loop approval and input
+//	storage  — S3, assets, entity state, memory
+//	image    — image generation and deployment
+//	external — notifications, HTTP requests
 var GlobalActionRegistry = map[string]ActionDefinition{
 
 	// =========================================================================

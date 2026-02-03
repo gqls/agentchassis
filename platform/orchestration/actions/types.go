@@ -129,3 +129,18 @@ type EnvVar struct {
 type EnhancedDiscovery struct {
 	db interface{} // Can be *sql.DB or *pgxpool.Pool
 }
+
+// AgentInfo represents basic agent information
+type AgentInfo struct {
+	ID string
+}
+
+// ComponentTemplate is a helper struct for our DB query.
+type ComponentTemplate struct {
+	ID           string          `db:"id"`
+	Name         string          `json:"name"`
+	Category     string          `json:"category"`
+	HTMLTemplate string          `db:"html_template"`
+	InputSchema  json.RawMessage `db:"input_schema"`
+	Function     string          `db:"function"`
+}
