@@ -1,206 +1,805 @@
+// platform/orchestration/actions/registry.go
 package actions
 
 import (
-	"github.com/gqls/agentchassis/platform/orchestration/actions_list"
+	"go.uber.org/zap"
 )
 
-// GlobalActionRegistry is the single source of truth for all available local actions
-var GlobalActionRegistry = map[string]ActionFunc{
-	// Core workflow control
-	"complete_workflow":  CompleteWorkflowAction,
-	"await_response":     AwaitResponseAction,
-	"evaluate_condition": EvaluateConditionAction,
+// GlobalActionRegistry is the single source of truth for all available actions.
+// Each entry carries metadata (category, description, deprecation status) alongside the handler.
+//
+// Categories map to future subdirectory structure:
+//   core     — workflow control primitives (complete, loop, conditional, await)
+//   agent    — agent lifecycle (spawn, call, discover)
+//   web      — web search, scraping, research
+//   llm      — LLM prompt execution
+//   site     — site building, assembly, rendering, pages, styles, git, navigation
+//   data     — transform, validate, extract, aggregate, database queries
+//   hitl     — human-in-the-loop approval and input
+//   storage  — S3, assets, entity state, memory
+//   image    — image generation and deployment
+//   external — notifications, HTTP requests
+var GlobalActionRegistry = map[string]ActionDefinition{
 
-	// Agent management
-	"spawn_agent":         SpawnAgentAction,
-	"spawn_group":         SpawnGroupAction,
-	"call_agent":          CallAgentAction,
-	"discover_agents":     DiscoverAgentsAction,
-	"start_orchestration": StartOrchestrationAction,
+	// =========================================================================
+	// CORE — workflow control primitives
+	// =========================================================================
+	"complete_workflow": {
+		Handler:     CompleteWorkflowAction,
+		Category:    "core",
+		Description: "Signal workflow completion and notify parent",
+		IsLocal:     true,
+	},
+	"await_response": {
+		Handler:     AwaitResponseAction,
+		Category:    "core",
+		Description: "Pause workflow execution until an async response arrives",
+		IsLocal:     true,
+	},
+	"evaluate_condition": {
+		Handler:     EvaluateConditionAction,
+		Category:    "core",
+		Description: "Evaluate a condition expression against collected data",
+		IsLocal:     true,
+	},
+	"loop": {
+		Handler:     LoopAction,
+		Category:    "core",
+		Description: "Iterate over a collection, executing sub-steps for each item",
+		IsLocal:     true,
+	},
+	"loop_complete": {
+		Handler:     LoopCompleteAction,
+		Category:    "core",
+		Description: "Signal completion of the current loop iteration",
+		IsLocal:     true,
+	},
+	"conditional_branch": {
+		Handler:     ConditionalBranchAction,
+		Category:    "core",
+		Description: "Branch workflow based on a condition",
+		IsLocal:     true,
+	},
+	"conditional": {
+		Handler:      ConditionalBranchAction,
+		Category:     "core",
+		Description:  "Alias for conditional_branch",
+		IsLocal:      true,
+		Deprecated:   true,
+		DeprecatedBy: "conditional_branch",
+	},
+	"conditional_route": {
+		Handler:     ConditionalRouteAction,
+		Category:    "core",
+		Description: "Route to different next steps based on multiple conditions",
+		IsLocal:     true,
+	},
 
-	// Image generation
-	"generate_image":        GenerateImageAction,
-	"store_generated_image": StoreGeneratedImageAction,
-	"deploy_image_asset":    DeployImageAssetAction,
+	// =========================================================================
+	// AGENT — agent lifecycle and discovery
+	// =========================================================================
+	"spawn_agent": {
+		Handler:     SpawnAgentAction,
+		Category:    "agent",
+		Description: "Spawn a new agent as a Kubernetes job",
+		IsLocal:     true,
+	},
+	"spawn_group": {
+		Handler:     SpawnGroupAction,
+		Category:    "agent",
+		Description: "Spawn a group of agents in parallel",
+		IsLocal:     true,
+	},
+	"call_agent": {
+		Handler:     CallAgentAction,
+		Category:    "agent",
+		Description: "Send a message to a spawned agent and await its response",
+		IsLocal:     true,
+	},
+	"discover_agents": {
+		Handler:     DiscoverAgentsAction,
+		Category:    "agent",
+		Description: "Query available agents by capability",
+		IsLocal:     true,
+	},
+	"start_orchestration": {
+		Handler:     StartOrchestrationAction,
+		Category:    "agent",
+		Description: "Start a new orchestration workflow",
+		IsLocal:     true,
+	},
+	"discover_best_agents": {
+		Handler:     DiscoverBestAgentsAction,
+		Category:    "agent",
+		Description: "Find best-performing agents for a given task type",
+		IsLocal:     true,
+	},
+	"review_performance": {
+		Handler:     ReviewPerformanceAction,
+		Category:    "agent",
+		Description: "Review an agent's performance metrics",
+		IsLocal:     true,
+	},
+	"approve_improvement": {
+		Handler:     ApproveImprovementAction,
+		Category:    "agent",
+		Description: "Approve a proposed agent improvement",
+		IsLocal:     true,
+	},
+	"query_agent_definitions": {
+		Handler:     QueryAgentDefinitionsAction,
+		Category:    "agent",
+		Description: "Query the agent_definitions table for agent configs",
+		IsLocal:     true,
+	},
+	"evaluate_task": {
+		Handler:     EvaluateTaskAction,
+		Category:    "agent",
+		Description: "Evaluate a task and determine required agents or actions",
+		IsLocal:     true,
+	},
+	"spawn_agent_k8s": {
+		Handler:      SpawnAgentAction,
+		Category:     "agent",
+		Description:  "Legacy alias for spawn_agent",
+		IsLocal:      true,
+		Deprecated:   true,
+		DeprecatedBy: "spawn_agent",
+	},
 
-	// Web scraping
-	"scrape_web":             WebscrapeAction,        // Main action
-	"firecrawl_scrape":       FirecrawlScrapeAction,  // Single page
-	"firecrawl_crawl":        FirecrawlCrawlAction,   // Multi-page crawl
-	"firecrawl_extract":      FirecrawlExtractAction, // Structured extraction
-	"validate_url":           ValidateURLAction,      // URL validation
-	"aggregate_scraped_data": AggregateScrapedDataAction,
-	"split_urls":             SplitURLsAction,
+	// =========================================================================
+	// IMAGE — generation and deployment
+	// =========================================================================
+	"generate_image": {
+		Handler:     GenerateImageAction,
+		Category:    "image",
+		Description: "Generate an image via the image generation adapter",
+		IsLocal:     true,
+	},
+	"store_generated_image": {
+		Handler:     StoreGeneratedImageAction,
+		Category:    "image",
+		Description: "Store a generated image to object storage",
+		IsLocal:     true,
+	},
+	"deploy_image_asset": {
+		Handler:     DeployImageAssetAction,
+		Category:    "image",
+		Description: "Download image from storage and commit to git as a site asset",
+		IsLocal:     true,
+	},
 
-	// Research
-	"prepare_urls":            PrepareUrlsAction,
-	"format_research_content": FormatResearchContentAction,
-	"batch_webscrape":         BatchWebscrapeAction,
+	// =========================================================================
+	// WEB — search, scraping, research
+	// =========================================================================
+	"web_search": {
+		Handler:     WebSearchAction,
+		Category:    "web",
+		Description: "Perform a web search via the search adapter",
+		IsLocal:     true,
+	},
+	"scrape_web": {
+		Handler:     WebscrapeAction,
+		Category:    "web",
+		Description: "Scrape a web page for content",
+		IsLocal:     true,
+	},
+	"firecrawl_scrape": {
+		Handler:     FirecrawlScrapeAction,
+		Category:    "web",
+		Description: "Scrape a single page via Firecrawl",
+		IsLocal:     true,
+	},
+	"firecrawl_crawl": {
+		Handler:     FirecrawlCrawlAction,
+		Category:    "web",
+		Description: "Multi-page crawl via Firecrawl",
+		IsLocal:     true,
+	},
+	"firecrawl_extract": {
+		Handler:     FirecrawlExtractAction,
+		Category:    "web",
+		Description: "Structured data extraction via Firecrawl",
+		IsLocal:     true,
+	},
+	"validate_url": {
+		Handler:     ValidateURLAction,
+		Category:    "web",
+		Description: "Validate and normalise a URL",
+		IsLocal:     true,
+	},
+	"aggregate_scraped_data": {
+		Handler:     AggregateScrapedDataAction,
+		Category:    "web",
+		Description: "Combine results from multiple scrape operations",
+		IsLocal:     true,
+	},
+	"split_urls": {
+		Handler:     SplitURLsAction,
+		Category:    "web",
+		Description: "Split a list of URLs for parallel processing",
+		IsLocal:     true,
+	},
+	"batch_webscrape": {
+		Handler:     BatchWebscrapeAction,
+		Category:    "web",
+		Description: "Scrape multiple pages from a site sequentially",
+		IsLocal:     true,
+	},
+	"prepare_urls": {
+		Handler:     PrepareUrlsAction,
+		Category:    "web",
+		Description: "Prepare and normalise URLs for research scraping",
+		IsLocal:     true,
+	},
+	"format_research_content": {
+		Handler:     FormatResearchContentAction,
+		Category:    "web",
+		Description: "Format scraped content for use in research context",
+		IsLocal:     true,
+	},
 
-	// Data operations
-	"validate_input":   ValidateInputAction,
-	"transform_data":   TransformDataAction,
-	"validate_schema":  ValidateSchemaAction,
-	"parse_json_field": ParseJSONFieldAction,
-	"extract_field":    ExtractFieldAction,
+	// =========================================================================
+	// LLM — prompt execution
+	// =========================================================================
+	"execute_llm_prompt": {
+		Handler:     ExecuteLLMPromptAction,
+		Category:    "llm",
+		Description: "Execute an LLM prompt with templated input",
+		IsLocal:     true,
+	},
 
-	// maths actions
-	"calculate": CalculateAction,
+	// =========================================================================
+	// DATA — transform, validate, extract, aggregate, database
+	// =========================================================================
+	"validate_input": {
+		Handler:     ValidateInputAction,
+		Category:    "data",
+		Description: "Validate input data against expected schema",
+		IsLocal:     true,
+	},
+	"transform_data": {
+		Handler:     TransformDataAction,
+		Category:    "data",
+		Description: "Transform data between formats",
+		IsLocal:     true,
+	},
+	"validate_schema": {
+		Handler:     ValidateSchemaAction,
+		Category:    "data",
+		Description: "Validate data against a JSON schema",
+		IsLocal:     true,
+	},
+	"parse_json_field": {
+		Handler:     ParseJSONFieldAction,
+		Category:    "data",
+		Description: "Parse a JSON string field into structured data",
+		IsLocal:     true,
+	},
+	"extract_field": {
+		Handler:     ExtractFieldAction,
+		Category:    "data",
+		Description: "Extract a single field from collected data by path",
+		IsLocal:     true,
+	},
+	"extract_fields": {
+		Handler:     ExtractFieldsAction,
+		Category:    "data",
+		Description: "Extract multiple fields from collected data",
+		IsLocal:     true,
+	},
+	"calculate": {
+		Handler:     CalculateAction,
+		Category:    "data",
+		Description: "Perform mathematical calculations",
+		IsLocal:     true,
+	},
+	"aggregate_data": {
+		Handler:     AggregateDataAction,
+		Category:    "data",
+		Description: "Aggregate data from multiple sources into a single result",
+		IsLocal:     true,
+	},
+	"aggregate_webpage": {
+		Handler:     AggregateWebpageAction,
+		Category:    "data",
+		Description: "Aggregate webpage content from multiple scrape results",
+		IsLocal:     true,
+	},
+	"filter_search_results": {
+		Handler:     FilterSearchResultsAction,
+		Category:    "data",
+		Description: "Filter and rank search results by relevance",
+		IsLocal:     true,
+	},
+	"query_database": {
+		Handler:     QueryDatabaseAction,
+		Category:    "data",
+		Description: "Execute a database query and return results",
+		IsLocal:     true,
+	},
 
-	// Data aggregation
-	"aggregate_data":    AggregateDataAction,
-	"aggregate_webpage": AggregateWebpageAction,
+	// =========================================================================
+	// SITE — building, assembly, rendering, pages, styles, git, navigation
+	// =========================================================================
+	"git_commit": {
+		Handler:     GitCommitAction,
+		Category:    "site",
+		Description: "Commit files to a git repository via GitHub API",
+		IsLocal:     true,
+	},
+	"git_commit_action": {
+		Handler:      GitCommitAction,
+		Category:     "site",
+		Description:  "Alias for git_commit",
+		IsLocal:      true,
+		Deprecated:   true,
+		DeprecatedBy: "git_commit",
+	},
+	"assemble_from_library": {
+		Handler:     AssembleFromLibraryAction,
+		Category:    "site",
+		Description: "Assemble a page from component library templates",
+		IsLocal:     true,
+	},
+	"new_site_architect": {
+		Handler:      AssembleFromLibraryAction,
+		Category:     "site",
+		Description:  "Alias for assemble_from_library",
+		IsLocal:      true,
+		Deprecated:   true,
+		DeprecatedBy: "assemble_from_library",
+	},
+	"assemble_page": {
+		Handler:     AssemblePageAction,
+		Category:    "site",
+		Description: "Assemble a single page from content and components",
+		IsLocal:     true,
+	},
+	"assemble_multipage_site": {
+		Handler:     AssembleMultipageSiteAction,
+		Category:    "site",
+		Description: "Assemble a complete multi-page site structure",
+		IsLocal:     true,
+	},
+	"load_component_library": {
+		Handler:     LoadComponentLibraryAction,
+		Category:    "site",
+		Description: "Load the HTML component library from the database",
+		IsLocal:     true,
+	},
+	"fetch_agent_questionnaire": {
+		Handler:     FetchAgentQuestionnaireAction,
+		Category:    "site",
+		Description: "Fetch the briefing questionnaire for an agent type",
+		IsLocal:     true,
+	},
+	"load_site_for_design": {
+		Handler:     LoadSiteForDesignAction,
+		Category:    "site",
+		Description: "Load site record and associated data for design operations",
+		IsLocal:     true,
+	},
+	"prepare_link_context": {
+		Handler:     PrepareLinkContextAction,
+		Category:    "site",
+		Description: "Prepare internal link context for page rendering",
+		IsLocal:     true,
+	},
+	"validate_page_content": {
+		Handler:     ValidatePageContentAction,
+		Category:    "site",
+		Description: "Validate page content structure and completeness",
+		IsLocal:     true,
+	},
+	"render_site_components": {
+		Handler:     RenderSiteComponentsAction,
+		Category:    "site",
+		Description: "Render all components for a site using templates",
+		IsLocal:     true,
+	},
+	"get_pages_for_rerender": {
+		Handler:     GetPagesForRerenderAction,
+		Category:    "site",
+		Description: "Get list of pages that need re-rendering",
+		IsLocal:     true,
+	},
+	"rerender_single_page": {
+		Handler:     RerenderSinglePageAction,
+		Category:    "site",
+		Description: "Re-render a single page with updated content or styles",
+		IsLocal:     true,
+	},
+	"save_page_sections": {
+		Handler:     SavePageSectionsAction,
+		Category:    "site",
+		Description: "Save page section data for subsequent rendering",
+		IsLocal:     true,
+	},
+	"insert_research_result": {
+		Handler:     InsertResearchResultAction,
+		Category:    "site",
+		Description: "Insert research results into site content data",
+		IsLocal:     true,
+	},
+	"select_style_collection": {
+		Handler:     SelectStyleCollectionAction,
+		Category:    "site",
+		Description: "Select a style collection for the site based on industry and preferences",
+		IsLocal:     true,
+	},
+	"update_site_content": {
+		Handler:     UpdateSiteContentAction,
+		Category:    "site",
+		Description: "Update the content_data field of a site record",
+		IsLocal:     true,
+	},
+	"update_site_status": {
+		Handler:     UpdateSiteStatusAction,
+		Category:    "site",
+		Description: "Update the build status of a site",
+		IsLocal:     true,
+	},
+	"update_site_defaults": {
+		Handler:     UpdateSiteDefaultsAction,
+		Category:    "site",
+		Description: "Update default settings for a site",
+		IsLocal:     true,
+	},
+	"update_page_status": {
+		Handler:     UpdatePageStatusAction,
+		Category:    "site",
+		Description: "Update the build status of a page",
+		IsLocal:     true,
+	},
+	"build_render_context": {
+		Handler:     BuildRenderContextAction,
+		Category:    "site",
+		Description: "Build the template rendering context for a page",
+		IsLocal:     true,
+	},
+	"render_component": {
+		Handler:     RenderComponentAction,
+		Category:    "site",
+		Description: "Render a single component with its template and data",
+		IsLocal:     true,
+	},
+	"compile_page_sections": {
+		Handler:     CompilePageSectionsAction,
+		Category:    "site",
+		Description: "Compile all sections of a page into final HTML",
+		IsLocal:     true,
+	},
+	"db_sync": {
+		Handler:     DBSyncAction,
+		Category:    "site",
+		Description: "Synchronise in-memory state with the database",
+		IsLocal:     true,
+	},
+	"store_asset": {
+		Handler:     StoreAssetAction,
+		Category:    "site",
+		Description: "Store a site asset (image, file) to the assets table",
+		IsLocal:     true,
+	},
+	"ensure_site_record": {
+		Handler:     EnsureSiteRecordAction,
+		Category:    "site",
+		Description: "Create or update the site record in the database",
+		IsLocal:     true,
+	},
+	"sync_pages_to_db": {
+		Handler:     SyncPagesToDBAction,
+		Category:    "site",
+		Description: "Synchronise planned pages to the pages table",
+		IsLocal:     true,
+	},
+	"get_pages_to_build": {
+		Handler:     GetPagesToBuildAction,
+		Category:    "site",
+		Description: "Query pages that still need building",
+		IsLocal:     true,
+	},
+	"extract_and_sync_links": {
+		Handler:     ExtractAndSyncLinksAction,
+		Category:    "site",
+		Description: "Extract internal links from content and sync to navigation",
+		IsLocal:     true,
+	},
+	"update_site_timestamps": {
+		Handler:     UpdateSiteTimestampsAction,
+		Category:    "site",
+		Description: "Update last_built_at and related timestamps on the site record",
+		IsLocal:     true,
+	},
+	"get_navigation_from_db": {
+		Handler:     GetNavigationFromDBAction,
+		Category:    "site",
+		Description: "Load navigation structure from the database",
+		IsLocal:     true,
+	},
+	"validate_site_plan": {
+		Handler:     ValidateSitePlanAction,
+		Category:    "site",
+		Description: "Validate a site plan structure before building",
+		IsLocal:     true,
+	},
+	"generate_html": {
+		Handler:     GenerateHTMLAction,
+		Category:    "site",
+		Description: "Generate HTML from structured content",
+		IsLocal:     true,
+	},
+	"process_html": {
+		Handler:     ProcessHTMLAction,
+		Category:    "site",
+		Description: "Post-process HTML (minify, clean, fix)",
+		IsLocal:     true,
+	},
+	"validate_html": {
+		Handler:     ValidateHTMLAction,
+		Category:    "site",
+		Description: "Validate HTML structure and correctness",
+		IsLocal:     true,
+	},
 
-	// LLM operations
-	//"execute_llm_prompt": ExecuteLLMPromptActionFAKE,
-	"execute_llm_prompt": ExecuteLLMPromptAction,
+	// =========================================================================
+	// HITL — human-in-the-loop approval and input
+	// =========================================================================
+	"await_approval": {
+		Handler:     AwaitApprovalAction,
+		Category:    "hitl",
+		Description: "Pause workflow and wait for human approval",
+		IsLocal:     true,
+	},
+	"process_approval_decision": {
+		Handler:     ProcessApprovalDecisionAction,
+		Category:    "hitl",
+		Description: "Process the result of an approval decision",
+		IsLocal:     true,
+	},
+	"process_data": {
+		Handler:      ProcessApprovalDecisionAction,
+		Category:     "hitl",
+		Description:  "Legacy alias for process_approval_decision",
+		IsLocal:      true,
+		Deprecated:   true,
+		DeprecatedBy: "process_approval_decision",
+	},
+	"create_approval_request": {
+		Handler:     CreateApprovalRequestAction,
+		Category:    "hitl",
+		Description: "Create an approval request for human review",
+		IsLocal:     true,
+	},
+	"wait_for_approval_response": {
+		Handler:     WaitForApprovalResponseAction,
+		Category:    "hitl",
+		Description: "Wait for a previously created approval request to be resolved",
+		IsLocal:     true,
+	},
+	"request_human_input": {
+		Handler:     RequestHumanInputAction,
+		Category:    "hitl",
+		Description: "Request free-form input from a human operator",
+		IsLocal:     true,
+	},
+	"process_human_input_response": {
+		Handler:     ProcessHumanInputResponseAction,
+		Category:    "hitl",
+		Description: "Process the response from a human input request",
+		IsLocal:     true,
+	},
+	"build_review_result": {
+		Handler:     BuildReviewResultAction,
+		Category:    "hitl",
+		Description: "Build a structured review result from review data",
+		IsLocal:     true,
+	},
+	"prepare_review_data": {
+		Handler:     PrepareReviewDataAction,
+		Category:    "hitl",
+		Description: "Prepare content for human or automated review",
+		IsLocal:     true,
+	},
+	"update_page_components_status": {
+		Handler:     UpdatePageComponentsStatusAction,
+		Category:    "hitl",
+		Description: "Update component approval status after review",
+		IsLocal:     true,
+	},
+	"load_page_section_components": {
+		Handler:     LoadPageSectionComponentsAction,
+		Category:    "hitl",
+		Description: "Load page section components for review",
+		IsLocal:     true,
+	},
 
-	// Web build
-	"git_commit":            GitCommitAction,
-	"git_commit_action":     GitCommitAction,
-	"new_site_architect":    AssembleFromLibraryAction,
-	"assemble_from_library": AssembleFromLibraryAction,
-	// "assemble_full_page":        AssembleFullPageAction,
-	"assemble_page":           AssemblePageAction,
-	"assemble_multipage_site": AssembleMultipageSiteAction,
-	"load_component_library":  LoadComponentLibraryAction,
-	// "assemble_html_parts":       AssemblePageAction,
-	"fetch_agent_questionnaire": FetchAgentQuestionnaireAction,
-	// "wrap_multipage":            AssembleMultipageSiteAction,
-	"loop":          LoopAction,
-	"loop_complete": LoopCompleteAction,
+	// =========================================================================
+	// STORAGE — S3, assets, entity state, memory
+	// =========================================================================
+	"upload_to_s3": {
+		Handler:     UploadToS3Action,
+		Category:    "storage",
+		Description: "Upload a file to S3-compatible object storage",
+		IsLocal:     true,
+	},
+	"s3_upload": {
+		Handler:      UploadToS3Action,
+		Category:     "storage",
+		Description:  "Alias for upload_to_s3",
+		IsLocal:      true,
+		Deprecated:   true,
+		DeprecatedBy: "upload_to_s3",
+	},
+	"validate_assets": {
+		Handler:     ValidateAssetsAction,
+		Category:    "storage",
+		Description: "Validate that required assets exist and are accessible",
+		IsLocal:     true,
+	},
+	"deploy_to_hosting": {
+		Handler:     DeployToHostingAction,
+		Category:    "storage",
+		Description: "Deploy files to hosting provider",
+		IsLocal:     true,
+	},
+	"store_result": {
+		Handler:     StoreResultAction,
+		Category:    "storage",
+		Description: "Store an action result to persistent storage",
+		IsLocal:     true,
+	},
+	"route_storage": {
+		Handler:     RouteStorageAction,
+		Category:    "storage",
+		Description: "Route data to the appropriate storage backend",
+		IsLocal:     true,
+	},
+	"append_entity_state": {
+		Handler:     AppendEntityStateAction,
+		Category:    "storage",
+		Description: "Append a new state entry to an entity's history",
+		IsLocal:     true,
+	},
+	"read_latest_entity_state": {
+		Handler:     ReadLatestEntityStateAction,
+		Category:    "storage",
+		Description: "Read the most recent state of an entity",
+		IsLocal:     true,
+	},
+	"read_entity_history": {
+		Handler:     ReadEntityHistoryAction,
+		Category:    "storage",
+		Description: "Read the full state history of an entity",
+		IsLocal:     true,
+	},
+	"read_my_state": {
+		Handler:     ReadMyStateAction,
+		Category:    "storage",
+		Description: "Read the current agent's persisted state",
+		IsLocal:     true,
+	},
+	"write_my_state": {
+		Handler:     WriteMyStateAction,
+		Category:    "storage",
+		Description: "Write the current agent's state to persistent storage",
+		IsLocal:     true,
+	},
+	"retrieve_memory": {
+		Handler:     RetrieveMemoryAction,
+		Category:    "storage",
+		Description: "Retrieve a stored memory by key",
+		IsLocal:     true,
+	},
+	"store_memory": {
+		Handler:     StoreMemoryAction,
+		Category:    "storage",
+		Description: "Store a value to the memory system",
+		IsLocal:     true,
+	},
+	"cache_lookup": {
+		Handler:     CacheLookupAction,
+		Category:    "storage",
+		Description: "Look up a value in the cache",
+		IsLocal:     true,
+	},
 
-	// Web search
-	"web_search": WebSearchAction,
-
-	// Web design
-	"load_site_for_design": LoadSiteForDesignAction,
-	//"rerender_site_pages":   RerenderSitePagesAction,
-	"prepare_link_context":  PrepareLinkContextAction,
-	"validate_page_content": ValidatePageContentAction,
-
-	// Site component rendering
-	"render_site_components": RenderSiteComponentsAction,
-
-	// Page rerender - loop-based approach
-	"get_pages_for_rerender": GetPagesForRerenderAction,
-	"rerender_single_page":   RerenderSinglePageAction,
-
-	// Page sections - saves sections for rerender
-	"save_page_sections": SavePageSectionsAction,
-
-	// Styles and Containers
-	"insert_research_result":  InsertResearchResultAction,
-	"select_style_collection": SelectStyleCollectionAction,
-	"update_site_content":     UpdateSiteContentAction,
-	"update_site_status":      UpdateSiteStatusAction,
-	"update_site_defaults":    UpdateSiteDefaultsAction,
-	"update_page_status":      UpdatePageStatusAction,
-	"build_render_context":    BuildRenderContextAction,
-	"render_component":        RenderComponentAction,
-	"compile_page_sections":   CompilePageSectionsAction,
-	"db_sync":                 DBSyncAction,
-	"store_asset":             StoreAssetAction,
-
-	// Site and Link Management (Database Integration)
-	"ensure_site_record":     EnsureSiteRecordAction,
-	"sync_pages_to_db":       SyncPagesToDBAction,
-	"get_pages_to_build":     GetPagesToBuildAction,
-	"extract_and_sync_links": ExtractAndSyncLinksAction,
-	"update_site_timestamps": UpdateSiteTimestampsAction,
-	"get_navigation_from_db": GetNavigationFromDBAction,
-
-	// Database operations
-	"query_database": QueryDatabaseAction,
-
-	// Site planning
-	"validate_site_plan": ValidateSitePlanAction,
-
-	// Content review operations
-	"build_review_result":           BuildReviewResultAction,
-	"prepare_review_data":           PrepareReviewDataAction,
-	"update_page_components_status": UpdatePageComponentsStatusAction,
-
-	// Page content operations
-	"load_page_section_components": LoadPageSectionComponentsAction,
-
-	// Search and data operations
-	"filter_search_results": FilterSearchResultsAction,
-	"extract_fields":        ExtractFieldsAction,
-
-	// Memory operations
-	"retrieve_memory": RetrieveMemoryAction,
-	"store_memory":    StoreMemoryAction,
-	"cache_lookup":    CacheLookupAction,
-
-	// External operations
-	"send_notification": SendNotificationAction,
-	"http_request":      HTTPRequestAction,
-
-	// Storage operations
-	"validate_assets":   ValidateAssetsAction,
-	"deploy_to_hosting": DeployToHostingAction,
-	"upload_to_s3":      UploadToS3Action,
-	"s3_upload":         UploadToS3Action, // Alias
-	"store_result":      StoreResultAction,
-	"route_storage":     RouteStorageAction,
-
-	// HTML operations
-	"generate_html": GenerateHTMLAction,
-	"process_html":  ProcessHTMLAction,
-	"validate_html": ValidateHTMLAction,
-
-	// Workflow control
-	"conditional_branch": ConditionalBranchAction,
-	"conditional":        ConditionalBranchAction,
-	"conditional_route":  ConditionalRouteAction,
-
-	// Planning and review and agent discovery
-	"evaluate_task": EvaluateTaskAction,
-
-	// HITL / Approval actions
-	"await_approval":               AwaitApprovalAction,
-	"process_approval_decision":    ProcessApprovalDecisionAction,
-	"process_data":                 ProcessApprovalDecisionAction, // for one of the workflows - prob delete this later
-	"create_approval_request":      CreateApprovalRequestAction,
-	"wait_for_approval_response":   WaitForApprovalResponseAction,
-	"request_human_input":          RequestHumanInputAction,
-	"process_human_input_response": ProcessHumanInputResponseAction,
-
-	// Entity and storage actions
-	"append_entity_state":      AppendEntityStateAction,
-	"read_latest_entity_state": ReadLatestEntityStateAction,
-	"read_entity_history":      ReadEntityHistoryAction,
-	"read_my_state":            ReadMyStateAction,
-	"write_my_state":           WriteMyStateAction,
-
-	// Best Agent discovery actions
-	"discover_best_agents":    DiscoverBestAgentsAction,
-	"review_performance":      ReviewPerformanceAction,
-	"approve_improvement":     ApproveImprovementAction,
-	"query_agent_definitions": QueryAgentDefinitionsAction,
-
-	// Legacy/duplicate
-	"spawn_agent_k8s": SpawnAgentAction, // Same as spawn_agent
+	// =========================================================================
+	// EXTERNAL — notifications, HTTP
+	// =========================================================================
+	"send_notification": {
+		Handler:     SendNotificationAction,
+		Category:    "external",
+		Description: "Send a notification via configured channel",
+		IsLocal:     true,
+	},
+	"http_request": {
+		Handler:     HTTPRequestAction,
+		Category:    "external",
+		Description: "Make an HTTP request to an external endpoint",
+		IsLocal:     true,
+	},
 }
 
-// IsLocalAction checks if an action is available for local execution
-// delegates to actions_list
-func IsLocalAction(action string) bool {
-	return actions_list.IsLocalAction(action)
+// deprecationLogger is set once at startup to avoid repeated logger creation.
+// If nil, deprecation warnings are silently skipped.
+var deprecationLogger *zap.Logger
+
+// SetDeprecationLogger allows the application to provide a logger for deprecation warnings.
+// Call this once during startup (e.g. in main.go or agent init).
+func SetDeprecationLogger(logger *zap.Logger) {
+	deprecationLogger = logger
 }
 
-// GetAction returns the action function if it exists
+// GetAction returns the action handler function if it exists.
+// Signature is unchanged from the previous registry — coordinator does not need updating.
 func GetAction(action string) (ActionFunc, bool) {
-	fn, exists := GlobalActionRegistry[action]
-	return fn, exists
+	def, exists := GlobalActionRegistry[action]
+	if !exists {
+		return nil, false
+	}
+	if def.Deprecated && deprecationLogger != nil {
+		deprecationLogger.Warn("Deprecated action used",
+			zap.String("action", action),
+			zap.String("replacement", def.DeprecatedBy),
+		)
+	}
+	return def.Handler, true
 }
 
-// ListActions returns all available action names (useful for debugging/documentation)
+// GetActionDefinition returns the full definition including metadata.
+// Useful for documentation, tooling, and introspection.
+func GetActionDefinition(action string) (ActionDefinition, bool) {
+	def, exists := GlobalActionRegistry[action]
+	return def, exists
+}
+
+// IsLocalAction checks if an action is available for local execution.
+// Replaces the previous delegation to actions_list package.
+func IsLocalAction(action string) bool {
+	def, exists := GlobalActionRegistry[action]
+	return exists && def.IsLocal
+}
+
+// ListActions returns all available non-deprecated action names.
 func ListActions() []string {
+	actions := make([]string, 0, len(GlobalActionRegistry))
+	for name, def := range GlobalActionRegistry {
+		if !def.Deprecated {
+			actions = append(actions, name)
+		}
+	}
+	return actions
+}
+
+// ListAllActions returns all action names including deprecated ones.
+func ListAllActions() []string {
 	actions := make([]string, 0, len(GlobalActionRegistry))
 	for name := range GlobalActionRegistry {
 		actions = append(actions, name)
 	}
 	return actions
+}
+
+// ListActionsByCategory returns action names grouped by category, excluding deprecated.
+func ListActionsByCategory() map[string][]string {
+	result := make(map[string][]string)
+	for name, def := range GlobalActionRegistry {
+		if !def.Deprecated {
+			result[def.Category] = append(result[def.Category], name)
+		}
+	}
+	return result
+}
+
+// ListDeprecatedActions returns all deprecated actions with their replacements.
+func ListDeprecatedActions() map[string]string {
+	result := make(map[string]string)
+	for name, def := range GlobalActionRegistry {
+		if def.Deprecated {
+			result[name] = def.DeprecatedBy
+		}
+	}
+	return result
 }

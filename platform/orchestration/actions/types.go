@@ -29,6 +29,18 @@ type MessageTracer interface {
 // ActionFunc is the signature for action handlers
 type ActionFunc func(context.Context, ActionParams) (interface{}, error)
 
+// ActionDefinition holds metadata about a registered action alongside its handler.
+// This replaces the previous map[string]ActionFunc registry and the separate
+// actions_list package, combining handler + metadata in one place.
+type ActionDefinition struct {
+	Handler      ActionFunc // The function to execute
+	Category     string     // Grouping: "core", "agent", "web", "llm", "site", "data", "hitl", "storage", "image", "external"
+	Description  string     // Human-readable summary
+	IsLocal      bool       // Whether this action runs locally (vs delegated to adapter)
+	Deprecated   bool       // If true, log a warning when used
+	DeprecatedBy string     // Replacement action name, if deprecated
+}
+
 // ActionParams contains all parameters an action might need
 type ActionParams struct {
 	Context          context.Context
@@ -116,19 +128,4 @@ type EnvVar struct {
 // EnhancedDiscovery wraps database connections and provides discovery methods
 type EnhancedDiscovery struct {
 	db interface{} // Can be *sql.DB or *pgxpool.Pool
-}
-
-// AgentInfo represents basic agent information
-type AgentInfo struct {
-	ID string
-}
-
-// ComponentTemplate is a helper struct for our DB query.
-type ComponentTemplate struct {
-	ID           string          `db:"id"`
-	Name         string          `json:"name"`
-	Category     string          `json:"category"`
-	HTMLTemplate string          `db:"html_template"`
-	InputSchema  json.RawMessage `db:"input_schema"`
-	Function     string          `db:"function"`
 }
