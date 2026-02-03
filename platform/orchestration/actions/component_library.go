@@ -512,6 +512,23 @@ func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) 
 		result = strings.ReplaceAll(result, "{{.nav_items_html}}", navItemsHTML)
 	}
 
+	// =====================================================================
+	// Clean up <no value> placeholders from Go template nil access
+	//
+	// Go's missingkey=zero for map[string]interface{} returns nil (the
+	// zero value of interface{}), which still renders as "<no value>".
+	// This is a Go quirk - missingkey=zero only works cleanly for
+	// concrete types like map[string]string where zero is "".
+	// =====================================================================
+	if strings.Contains(result, "<no value>") {
+		count := strings.Count(result, "<no value>")
+		logger.Warn("RenderTemplate: Cleaning up <no value> placeholders",
+			zap.Int("count", count),
+			zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
+		)
+		result = strings.ReplaceAll(result, "<no value>", "")
+	}
+
 	return result
 }
 
