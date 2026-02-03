@@ -171,3 +171,50 @@ SELECT
     version
 FROM agent_definitions
 WHERE type = 'intake-orchestrator';
+
+--------------
+
+-- temporarily disable the rerender stage to fix original build
+-- =============================================================
+-- Fix intake-orchestrator: remove post-build rerender
+--
+-- Problem: intake-orchestrator calls rerender-pages after
+-- pageflow-builder finishes, overwriting correctly-built pages
+-- with broken output from the incomplete site_components path.
+--
+-- The pageflow-builder build_pages_loop uses:
+--   assemble_page → InjectHeader/InjectFooter → correct templates
+--
+-- The rerender-pages agent uses:
+--   rerender_single_page → site_components → wrong templates
+--
+-- Solution: change call_builder.next_step from spawn_rerender
+-- to complete, skipping the rerender entirely.
+-- The spawn_rerender and call_rerender steps remain in the
+-- definition (harmless, just unreachable) - can be cleaned up
+-- later when the rerender workflow is ready.
+-- =============================================================
+
+-- First, verify current flow: call_builder → spawn_rerender → call_rerender → complete
+SELECT
+    default_config->'workflow'->'steps'->'call_builder'->>'next_step' as call_builder_next,
+    default_config->'workflow'->'steps'->'spawn_rerender'->>'next_step' as spawn_rerender_next,
+    default_config->'workflow'->'steps'->'call_rerender'->>'next_step' as call_rerender_next
+FROM agent_definitions
+WHERE type = 'intake-orchestrator';
+
+-- Update: call_builder now goes straight to complete
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_builder,next_step}',
+        '"complete"'
+                     ),
+    updated_at = now()
+WHERE type = 'intake-orchestrator';
+
+-- Verify the change
+SELECT
+    default_config->'workflow'->'steps'->'call_builder'->>'next_step' as call_builder_next_step
+FROM agent_definitions
+WHERE type = 'intake-orchestrator';

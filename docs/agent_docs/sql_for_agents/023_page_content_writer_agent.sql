@@ -257,6 +257,33 @@ WHERE type = 'page-content-writer';
 -- ============================================================
 -- 1. Update the prompt template
 -- ============================================================
+-- =============================================================
+-- Update page-content-writer prompt template
+--
+-- Adds:
+--   - Official Contact Information section with brief variables
+--   - Contact Info JSON example for contact sections
+--   - Strict rules about not inventing contact details
+--   - HTML paragraph wrapping guidance
+--   - Text/Content/About section type
+--
+-- Preserves:
+--   - link_context block (was accidentally dropped in earlier draft)
+--   - Research findings block
+--   - All existing JSON examples
+--
+-- Path: workflow.steps.process_sections_loop.config.sub_workflow
+--        .steps.generate_content.config.prompt_template
+-- =============================================================
+
+-- Verify current prompt exists at expected path
+SELECT
+    length(default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template') as current_prompt_length,
+    left(default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template', 80) as prompt_start
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+
+-- Apply updated prompt
 UPDATE agent_definitions
 SET default_config = jsonb_set(
         default_config,
@@ -276,6 +303,11 @@ Email: {{.reviewed_brief.contact_email}}
 Phone: {{.reviewed_brief.contact_phone}}
 Location: {{.reviewed_brief.headquarters}}
 
+{{if .link_context.link_constraint_text}}
+## Internal Linking
+{{.link_context.link_constraint_text}}
+
+{{end}}
 ## Section Requirements
 Component: {{.current_section.name}}
 Function: {{.current_section.category}}
@@ -360,22 +392,18 @@ Return JSON with these EXACT field names (use the ones that apply to this compon
 6. NEVER invent contact information - use ONLY the email and phone provided in Official Contact Information above
 7. For body text content, ALWAYS wrap paragraphs in <p> tags - never output raw unwrapped text
 8. For "content" fields that contain multiple paragraphs, use proper HTML: <p>Paragraph 1</p><p>Paragraph 2</p>
-9. If contact email or phone is empty in the brief, do NOT make one up - omit it or use a generic "Contact us" link'::text)
+9. If contact email or phone is empty in the brief, do NOT make one up - omit it or use a generic "Contact us" link
+10. Only create internal links to pages listed in the Internal Linking section above'::text)
                      ),
     version = version + 1,
     updated_at = NOW()
 WHERE type = 'page-content-writer';
 
--- ============================================================
--- 2. Verify the update
--- ============================================================
+-- Verify the update
 SELECT
-    type,
-    display_name,
-    LEFT(
-    default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template',
-    500
-    ) as prompt_preview,
+    length(default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template') as new_prompt_length,
+    default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template' LIKE '%Official Contact Information%' as has_contact_section,
+    default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template' LIKE '%link_context%' as has_link_context,
     version
 FROM agent_definitions
 WHERE type = 'page-content-writer';
