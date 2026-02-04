@@ -8,6 +8,8 @@ spec:
       containers:
         - name: web-search-adapter
           env:
+            - name: REQUEST_THROTTLE_MS
+              value: "5000"     # 5 seconds between requests
             - name: SCRAPING_BEE_API_KEY
               valueFrom:
                 secretKeyRef:

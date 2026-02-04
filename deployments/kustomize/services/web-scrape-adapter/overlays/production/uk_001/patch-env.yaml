@@ -19,6 +19,9 @@ spec:
             - name: KAFKA_CONSUMER_GROUP
               value: "webscrape-adapter-group"
 
+            - name: REQUEST_THROTTLE_MS
+              value: "5000"     # 5 seconds between requests
+
             # Firecrawl configuration
             - name: FIRECRAWL_API_KEY
               valueFrom:

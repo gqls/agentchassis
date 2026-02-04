@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/internal/adapters/shared/throttle"
 	"github.com/gqls/agentchassis/internal/adapters/websearch/providers"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/kafka"
@@ -66,6 +67,7 @@ type Adapter struct {
 	providers       []providers.SearchProvider
 	primaryProvider string
 	httpClient      *http.Client
+	throttle        *throttle.Throttle
 }
 
 // NewAdapter creates a new web search adapter
@@ -90,6 +92,8 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 			TLSHandshakeTimeout: handshakeTimeout,
 		},
 	}
+
+	requestThrottle := throttle.New(logger)
 
 	// Initialize providers
 	searchProviders := []providers.SearchProvider{
@@ -129,6 +133,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		providers:       availableProviders,
 		primaryProvider: primaryProvider,
 		httpClient:      httpClient,
+		throttle:        requestThrottle,
 	}, nil
 }
 
@@ -155,7 +160,9 @@ func (a *Adapter) Run() error {
 				time.Sleep(time.Second) // Brief pause on error
 				continue
 			}
-			go a.handleMessage(msg)
+			// go a.handleMessage(msg)
+			a.handleMessage(msg) // Sequential, not concurrent
+			a.throttle.Wait()    // Delay before next request
 		}
 	}
 }

@@ -890,6 +890,16 @@ func getImagePromptWithPriority(params ActionParams, agentConfig map[string]inte
 		return collectedPrompt, "parent_message"
 	}
 
+	// Check input_data.prompt (from parent's input_mapping)
+	// When parent uses input_mapping: {"prompt": "some.path"}, the resolved value
+	// ends up in CollectedData["input_data"]["prompt"], not CollectedData["prompt"]
+	inputData := datahelpers.GetInputData(params.CollectedData, logger)
+	if inputPrompt, ok := inputData["prompt"].(string); ok && inputPrompt != "" {
+		logger.Info("Using prompt from input_data (Priority 1 - from parent input_mapping)",
+			zap.String("prompt_preview", datahelpers.TruncateString(inputPrompt, 100)))
+		return inputPrompt, "input_data"
+	}
+
 	// PRIORITY 2: Check agent's own default_config.prompt_template
 	// This comes from the agent_definitions table for this specific agent type
 	if agentPrompt, ok := agentConfig["prompt_template"].(string); ok && agentPrompt != "" {

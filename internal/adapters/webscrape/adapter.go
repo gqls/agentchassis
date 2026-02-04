@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/internal/adapters/shared/throttle"
 	"github.com/gqls/agentchassis/internal/adapters/webscrape/providers"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/kafka"
@@ -58,6 +59,7 @@ type Adapter struct {
 	httpClient    *http.Client
 	config        *config.ServiceConfig
 	healthServer  *http.Server
+	throttle      *throttle.Throttle
 }
 
 // NewAdapter creates a new web scraping adapter
@@ -113,6 +115,8 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		},
 	}
 
+	requestThrottle := throttle.New(logger)
+
 	// Initialize providers
 	scrapingProviders := make(map[string]providers.ScrapingProvider)
 
@@ -141,6 +145,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		providers:     scrapingProviders,
 		storageClient: storageClient,
 		httpClient:    httpClient,
+		throttle:      requestThrottle,
 		config:        cfg,
 	}, nil
 }
@@ -167,7 +172,9 @@ func (a *Adapter) Run() error {
 				time.Sleep(time.Second)
 				continue
 			}
-			go a.handleMessage(msg)
+			// go a.handleMessage(msg)
+			a.handleMessage(msg) // Sequential, not concurrent
+			a.throttle.Wait()    // Delay before next request
 		}
 	}
 }
