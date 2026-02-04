@@ -5932,3 +5932,228 @@ SET html_template = replace(
                     ),
     updated_at = NOW()
 WHERE name = 'header-bold-gradient';
+
+--
+
+lucide icons
+
+-- ============================================================================
+-- Fix: Update features component templates to use Lucide icons via CDN
+-- ============================================================================
+-- Problem: Template renders icon names as plain text:
+--   <div class="feature-icon">zap</div>
+--
+-- Fix: Use data-lucide attributes + Lucide CDN script
+--   <div class="feature-icon"><i data-lucide="zap"></i></div>
+--   + <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js">
+--
+-- SQL-only fix, no Go rebuild needed.
+-- There are TWO rows with function='features' — updates both.
+--
+-- Field names kept matching what the LLM currently generates:
+--   headline, subheadline, features[].name, features[].description, features[].icon
+-- ============================================================================
+
+BEGIN;
+
+UPDATE content_components
+SET html_template = '<section class="features-section" data-component="features">
+    <div class="features-container">
+        <h2>{{.headline}}</h2>
+        {{if .subheadline}}<p class="features-subtitle">{{.subheadline}}</p>{{end}}
+        <div class="features-grid">
+            {{range .features}}
+            <div class="feature-item">
+                {{if .icon}}<div class="feature-icon"><i data-lucide="{{.icon}}"></i></div>{{end}}
+                <h3>{{.name}}</h3>
+                <p>{{.description}}</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</section>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+    }
+});
+</script>
+<style>
+/* Layout only - colors inherited from global CSS */
+.features-section {
+    padding: var(--spacing-section, 5rem 2rem);
+}
+.features-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.features-section h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.features-subtitle {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 3rem;
+}
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+}
+.feature-item {
+    text-align: center;
+    padding: 2rem;
+}
+.feature-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1rem;
+    color: var(--color-accent, #0f3460);
+}
+.feature-icon svg {
+    width: 100%;
+    height: 100%;
+}
+.feature-item h3 {
+    margin-bottom: 1rem;
+}
+.feature-item p {
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .features-section { padding: 3rem 1.5rem; }
+    .features-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'features';
+
+COMMIT;
+
+-- Verify both rows updated
+SELECT name, function,
+       CASE WHEN html_template LIKE '%data-lucide%' THEN 'YES' ELSE 'NO' END AS has_lucide,
+       CASE WHEN html_template LIKE '%lucide.createIcons%' THEN 'YES' ELSE 'NO' END AS has_script
+FROM content_components
+WHERE function = 'features';
+
+
+-- ============================================================================
+-- Fix: Lucide icons — site-wide CDN in head + data-lucide in features
+-- ============================================================================
+-- Two changes:
+-- 1. head-seo-standard: Add Lucide CDN script + createIcons() before </head>
+-- 2. features templates: Use <i data-lucide="{{.icon}}"> instead of {{.icon}}
+--
+-- This means ANY component can use data-lucide attributes and they'll work,
+-- not just features. SQL-only, no Go rebuild.
+-- ============================================================================
+
+BEGIN;
+
+-- -------------------------------------------------------
+-- PART 1: Add Lucide to head-seo-standard
+-- -------------------------------------------------------
+-- Injects the CDN script before </head> if not already present.
+
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '</head>',
+        '    <!-- Lucide Icons -->
+          <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+          <script>document.addEventListener("DOMContentLoaded", function() { if (typeof lucide !== "undefined") { lucide.createIcons(); } });</script>
+      </head>'
+                    ),
+    updated_at = NOW()
+WHERE name = 'head-seo-standard'
+  AND html_template NOT LIKE '%lucide%';
+
+-- -------------------------------------------------------
+-- PART 2: Update features templates (both rows)
+-- -------------------------------------------------------
+-- Changes:
+--   {{.icon}} text  →  <i data-lucide="{{.icon}}"></i>
+--   .feature-icon CSS: font-size → width/height + svg sizing
+
+UPDATE content_components
+SET html_template = '<section class="features-section" data-component="features">
+    <div class="features-container">
+        <h2>{{.headline}}</h2>
+        {{if .subheadline}}<p class="features-subtitle">{{.subheadline}}</p>{{end}}
+        <div class="features-grid">
+            {{range .features}}
+            <div class="feature-item">
+                {{if .icon}}<div class="feature-icon"><i data-lucide="{{.icon}}"></i></div>{{end}}
+                <h3>{{.name}}</h3>
+                <p>{{.description}}</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</section>
+<style>
+/* Layout only - colors inherited from global CSS */
+.features-section {
+    padding: var(--spacing-section, 5rem 2rem);
+}
+.features-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.features-section h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.features-subtitle {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 3rem;
+}
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+}
+.feature-item {
+    text-align: center;
+    padding: 2rem;
+}
+.feature-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1rem;
+    color: var(--color-accent, #0f3460);
+}
+.feature-icon svg {
+    width: 100%;
+    height: 100%;
+}
+.feature-item h3 {
+    margin-bottom: 1rem;
+}
+.feature-item p {
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .features-section { padding: 3rem 1.5rem; }
+    .features-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'features';
+
+COMMIT;
+
+-- -------------------------------------------------------
+-- Verify
+-- -------------------------------------------------------
+SELECT name, function,
+       CASE WHEN html_template LIKE '%data-lucide%' THEN 'YES' ELSE 'NO' END AS has_lucide_attrs,
+       CASE WHEN html_template LIKE '%lucide.createIcons%' THEN 'YES' ELSE 'NO' END AS has_init_script
+FROM content_components
+WHERE function IN ('features', 'head')
+   OR name = 'head-seo-standard';

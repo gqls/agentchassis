@@ -10,7 +10,7 @@
 //
 // Returns:
 //   - site_id, domain, company_name, industry, tagline
-//   - pages: [{title, slug, component_functions}]
+//   - pages: [{title, name, component_functions}]
 //   - all_component_functions: deduplicated list
 //   - color_palette, typography (from style_collection or content_data)
 //   - source: "database"
@@ -184,13 +184,13 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 	return result, nil
 }
 
-// loadPagesWithComponents loads pages and extracts component functions from HTML
+// loadPagesWithComponents loads pages and extracts component functions from sections jsonb
 func loadPagesWithComponents(ctx context.Context, db *sql.DB, siteID uuid.UUID) ([]map[string]interface{}, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, title, slug, html_content, status
+		SELECT id, title, name, url, sections, status
 		FROM pages 
 		WHERE site_id = $1 AND status IN ('deployed', 'published', 'draft', 'planned')
-		ORDER BY CASE WHEN slug = '/' OR slug = '/index.html' THEN 0 ELSE 1 END, sort_order
+		ORDER BY CASE WHEN name = 'index' OR name = 'home' THEN 0 ELSE 1 END, nav_order
 	`, siteID)
 	if err != nil {
 		return nil, err
@@ -200,26 +200,27 @@ func loadPagesWithComponents(ctx context.Context, db *sql.DB, siteID uuid.UUID) 
 	var pages []map[string]interface{}
 	for rows.Next() {
 		var id uuid.UUID
-		var title, slug, status string
-		var htmlContent *string
+		var title, name, status string
+		var url *string
+		var sectionsJSON []byte
 
-		if err := rows.Scan(&id, &title, &slug, &htmlContent, &status); err != nil {
+		if err := rows.Scan(&id, &title, &name, &url, &sectionsJSON, &status); err != nil {
 			continue
 		}
 
 		page := map[string]interface{}{
 			"id":     id.String(),
 			"title":  title,
-			"slug":   slug,
+			"name":   name,
 			"status": status,
 		}
 
-		// Extract component functions from data-component attributes
-		if htmlContent != nil {
-			page["component_functions"] = extractDataComponents(*htmlContent)
-		} else {
-			page["component_functions"] = []string{}
+		if url != nil {
+			page["url"] = *url
 		}
+
+		// Extract component functions from sections jsonb
+		page["component_functions"] = extractComponentsFromSections(sectionsJSON)
 
 		pages = append(pages, page)
 	}
@@ -227,27 +228,26 @@ func loadPagesWithComponents(ctx context.Context, db *sql.DB, siteID uuid.UUID) 
 	return pages, nil
 }
 
-// extractDataComponents finds data-component="xxx" in HTML
-func extractDataComponents(html string) []string {
-	funcs := make(map[string]bool)
-	search := `data-component="`
-	idx := 0
+// extractComponentsFromSections extracts component function names from the sections jsonb column.
+// Sections is an array like: [{"component_name": "hero-split-image", "function": "hero", ...}, ...]
+func extractComponentsFromSections(sectionsJSON []byte) []string {
+	if len(sectionsJSON) == 0 {
+		return []string{}
+	}
 
-	for {
-		pos := strings.Index(html[idx:], search)
-		if pos == -1 {
-			break
+	var sections []map[string]interface{}
+	if err := json.Unmarshal(sectionsJSON, &sections); err != nil {
+		return []string{}
+	}
+
+	funcs := make(map[string]bool)
+	for _, section := range sections {
+		if f, ok := section["function"].(string); ok && f != "" {
+			funcs[f] = true
 		}
-		start := idx + pos + len(search)
-		end := strings.Index(html[start:], `"`)
-		if end == -1 {
-			break
+		if f, ok := section["category"].(string); ok && f != "" {
+			funcs[f] = true
 		}
-		name := html[start : start+end]
-		if name != "" {
-			funcs[name] = true
-		}
-		idx = start + end
 	}
 
 	result := make([]string, 0, len(funcs))

@@ -593,3 +593,19 @@ UNION ALL
 SELECT 'generate_content input_fields' as check,
     default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->'input_fields' as value
 FROM agent_definitions WHERE type = 'page-content-writer';
+
+-- don't inject header and footer here
+
+-- Corrected: target page-content-writer, not content-creator
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,compile_page,config,inject_header}',
+                'false'::jsonb
+        ),
+        '{workflow,steps,compile_page,config,inject_footer}',
+        'false'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-content-writer';
