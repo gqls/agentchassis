@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.745
+IMAGE_TAG ?= v1.0.746
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -375,13 +375,18 @@ deploy-060-databases: ## Deploy database instances
 .PHONY: deploy-065-pgbouncer
 deploy-065-pgbouncer: ## Deploy PgBouncer connection pooler
 	@echo "$(GREEN)Deploying 065-pgbouncer...$(NC)"
-	@# Fetch existing DB passwords and create the userlist secret
+	@# Fetch existing DB passwords and create the userlist secret via temp file
 	@CLIENTS_PW=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get secret personae-platform-secrets -o jsonpath='{.data.CLIENTS_DB_PASSWORD}' | base64 -d) && \
 	 TEMPLATES_PW=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get secret personae-platform-secrets -o jsonpath='{.data.TEMPLATES_DB_PASSWORD}' | base64 -d) && \
 	 ADMIN_PW=$$(openssl rand -base64 16 | tr -d '=/+' | head -c 20) && \
+	 TMPFILE=$$(mktemp) && \
+	 echo "\"clients_user\" \"$${CLIENTS_PW}\"" > $$TMPFILE && \
+	 echo "\"templates_user\" \"$${TEMPLATES_PW}\"" >> $$TMPFILE && \
+	 echo "\"pgbouncer_admin\" \"$${ADMIN_PW}\"" >> $$TMPFILE && \
 	 KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create secret generic pgbouncer-userlist \
-		--from-literal=userlist.txt="\"clients_user\" \"$${CLIENTS_PW}\"$$(printf '\n')\"templates_user\" \"$${TEMPLATES_PW}\"$$(printf '\n')\"pgbouncer_admin\" \"$${ADMIN_PW}\"" \
-		--dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f -
+		--from-file=userlist.txt=$$TMPFILE \
+		--dry-run=client -o yaml | KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f - && \
+	 rm -f $$TMPFILE
 	@echo "  PgBouncer userlist secret created"
 	@# Apply ConfigMap and Deployment
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f $(KUSTOMIZE_DIR)/services/pgbouncer/pgbouncer-configmap.yaml
