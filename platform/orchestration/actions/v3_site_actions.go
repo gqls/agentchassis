@@ -663,6 +663,7 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	// Extract image URLs from deploy_image_asset output
+	// (adds logo_deployed block between hero_deployed and fallback)
 	// =========================================================================
 	if heroDeployed, ok := params.CollectedData["hero_deployed"].(map[string]interface{}); ok {
 		if imageURL, ok := heroDeployed["image_url"].(string); ok && imageURL != "" {
@@ -671,6 +672,17 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 			}
 			renderCtx.ContentData["hero_url"] = imageURL
 			params.Logger.Info("Set hero_url from hero_deployed.image_url",
+				zap.String("url", imageURL))
+		}
+	}
+
+	if logoDeployed, ok := params.CollectedData["logo_deployed"].(map[string]interface{}); ok {
+		if imageURL, ok := logoDeployed["image_url"].(string); ok && imageURL != "" {
+			if renderCtx.ContentData == nil {
+				renderCtx.ContentData = make(map[string]interface{})
+			}
+			renderCtx.ContentData["logo_url"] = imageURL
+			params.Logger.Info("Set logo_url from logo_deployed.image_url",
 				zap.String("url", imageURL))
 		}
 	}
@@ -1942,8 +1954,9 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 			storageURI = assetURL
 		}
 
-		// Generate paths using storage package helper
-		paths := storage.BuildAssetPaths(purpose, "jpg")
+		// Generate paths using storage package helper (use correct extension for purpose)
+		_, _, _, purposeExt := storage.GetImageConfig(purpose)
+		paths := storage.BuildAssetPaths(purpose, purposeExt)
 
 		// Update sites.content_data
 		if storageURI != "" {
@@ -1980,7 +1993,8 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 	// Add purpose-specific fields if set
 	if purpose != "" {
 		result["purpose"] = purpose
-		paths := storage.BuildAssetPaths(purpose, "jpg")
+		_, _, _, purposeExt := storage.GetImageConfig(purpose)
+		paths := storage.BuildAssetPaths(purpose, purposeExt)
 		result[purpose+"_url"] = paths.RelativeURL
 	}
 

@@ -399,6 +399,13 @@ func convertRenderContextToHeaderConfig(ctx *RenderContext) *HeaderConfig {
 		config.AccentColor = "#16a085"
 	}
 
+	// Extract logo URL from ContentData
+	if ctx.ContentData != nil {
+		if logoURL, ok := ctx.ContentData["logo_url"].(string); ok && logoURL != "" {
+			config.LogoURL = logoURL
+		}
+	}
+
 	return config
 }
 
@@ -1251,6 +1258,7 @@ func getCollectedDataKeys(data map[string]interface{}) []string {
 type HeaderConfig struct {
 	LogoText     string
 	LogoAccent   string
+	LogoURL      string
 	NavItems     []NavItem
 	PrimaryColor string
 	AccentColor  string
@@ -1293,6 +1301,11 @@ func buildHeaderConfig(collectedData map[string]interface{}, currentPageName str
 
 	// Get navigation items
 	config.NavItems = extractNavItemsForHeader(collectedData, config.CurrentPage, logger)
+
+	// Get logo URL if available
+	if logoURL := datahelpers.ExtractNestedFieldString(collectedData, "logo_url"); logoURL != "" {
+		config.LogoURL = logoURL
+	}
 
 	return config
 }
@@ -1389,10 +1402,15 @@ func generateConsistentHeader(config *HeaderConfig) string {
 
 	navHTML := strings.Join(navLinks, "\n                ")
 
-	logoHTML := fmt.Sprintf(`<span class="logo-text">%s</span>`, config.LogoText)
-	if config.LogoAccent != "" {
+	var logoHTML string
+	if config.LogoURL != "" {
+		logoHTML = fmt.Sprintf(`<img src="%s" alt="%s" class="logo-img">`,
+			config.LogoURL, config.LogoText)
+	} else if config.LogoAccent != "" {
 		logoHTML = fmt.Sprintf(`<span class="logo-text">%s</span><span class="logo-accent">%s</span>`,
 			config.LogoText, config.LogoAccent)
+	} else {
+		logoHTML = fmt.Sprintf(`<span class="logo-text">%s</span>`, config.LogoText)
 	}
 
 	return fmt.Sprintf(`<header class="site-header">
@@ -1439,6 +1457,11 @@ func generateHeaderStyles(config *HeaderConfig) string {
     color: white;
 }
 .logo-accent { color: %s; }
+.logo-img {
+    max-height: 40px;
+    width: auto;
+    display: block;
+}
 .main-nav ul {
     display: flex;
     list-style: none;

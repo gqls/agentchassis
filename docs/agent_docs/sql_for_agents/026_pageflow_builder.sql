@@ -883,3 +883,92 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'pageflow-builder';
+
+
+====
+
+-- add logo image changes
+
+-- ============================================================================
+-- Logo Pipeline Fix: Workflow + Template Updates
+-- ============================================================================
+-- Issue 1: Add deploy_logo_image step (logo was stored in S3 but never committed to git)
+-- Issue 2: Fix store_logo_asset.config.purpose from "brand_logo" to "logo"
+--          ("brand_logo" isn't in ImagePurposes, fell to default 1200x800 jpg instead of 400x400 png)
+-- Issue 5: Update header templates to show logo image when available
+-- ============================================================================
+
+
+-- ============================================================================
+-- FIX 1+2: Pageflow-builder workflow — add deploy_logo_image, fix purpose
+-- ============================================================================
+
+-- Step A: Fix store_logo_asset — change purpose to "logo" and next_step to "deploy_logo_image"
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_logo_asset}',
+        '{
+          "action": "store_asset",
+          "config": {
+            "purpose": "logo",
+            "asset_type": "logo",
+            "data_field": "logo_result.image_url",
+            "origin_type": "generated",
+            "site_id_field": "site_record.site_id",
+            "brand_asset_key": "logo.primary",
+            "origin_prompt_field": "site_plan.image_prompts.logo",
+            "update_site_brand_assets": true
+          },
+          "next_step": "deploy_logo_image",
+          "description": "Store generated logo in assets table and site brand_assets",
+          "output_field": "logo_stored"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- Step B: Add deploy_logo_image step (modelled on existing deploy_hero_image)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,deploy_logo_image}',
+        '{
+          "action": "deploy_image_asset",
+          "config": {
+            "purpose": "logo",
+            "uri_field": "logo_result.image_uri",
+            "domain_field": "site_record.domain"
+          },
+          "next_step": "check_hero_images",
+          "description": "Download, optimize and deploy logo image to git",
+          "output_field": "logo_deployed"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+
+
+-- ============================================================================
+-- Verification queries
+-- ============================================================================
+
+-- Check workflow has deploy_logo_image step
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'store_logo_asset'->'config'->>'purpose' AS store_purpose,
+    default_config->'workflow'->'steps'->'store_logo_asset'->>'next_step' AS store_next,
+    default_config->'workflow'->'steps'->'deploy_logo_image'->>'action' AS deploy_action,
+    default_config->'workflow'->'steps'->'deploy_logo_image'->'config'->>'purpose' AS deploy_purpose,
+    default_config->'workflow'->'steps'->'deploy_logo_image'->>'next_step' AS deploy_next,
+    default_config->'workflow'->'steps'->'deploy_logo_image'->>'output_field' AS deploy_output
+FROM agent_definitions
+WHERE type = 'pageflow-builder';
+
+-- Check header templates have logo_url support
+SELECT name,
+       html_template LIKE '%logo_url%' AS has_logo_url,
+       html_template LIKE '%.logo-img%' AS has_logo_img_css
+FROM content_components
+WHERE name IN ('header-professional-dark', 'header-minimal-light', 'header-bold-gradient');

@@ -5841,3 +5841,94 @@ SELECT name,
        html_template LIKE '%secondary_cta%' as has_flat_sec
 FROM content_components
 WHERE function = 'call_to_action';
+
+
+--- fix logo jpg/png
+-- ============================================================================
+-- FIX 5: Header templates — add logo image support
+-- ============================================================================
+-- Uses {{if .logo_url}} so it gracefully falls back to text when no logo image exists.
+-- We update the logo <a> block and inject .logo-img CSS.
+
+-- Fix 5a: header-professional-dark
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<a href="/index.html" class="logo">
+                  <span class="logo-text">{{.logo_text}}</span>
+              </a>',
+        '<a href="/index.html" class="logo">
+                  {{if .logo_url}}<img src="{{.logo_url}}" alt="{{.logo_text}}" class="logo-img">{{else}}<span class="logo-text">{{.logo_text}}</span>{{end}}
+              </a>'
+                    ),
+    updated_at = NOW()
+WHERE name = 'header-professional-dark';
+
+-- Fix 5b: header-minimal-light
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<a href="/index.html" class="logo">
+                  <span class="logo-text">{{.logo_text}}</span>
+              </a>',
+        '<a href="/index.html" class="logo">
+                  {{if .logo_url}}<img src="{{.logo_url}}" alt="{{.logo_text}}" class="logo-img">{{else}}<span class="logo-text">{{.logo_text}}</span>{{end}}
+              </a>'
+                    ),
+    updated_at = NOW()
+WHERE name = 'header-minimal-light';
+
+-- Fix 5c: header-bold-gradient
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<a href="/index.html" class="logo">
+                  <span class="logo-text">{{.logo_text}}</span>
+              </a>',
+        '<a href="/index.html" class="logo">
+                  {{if .logo_url}}<img src="{{.logo_url}}" alt="{{.logo_text}}" class="logo-img">{{else}}<span class="logo-text">{{.logo_text}}</span>{{end}}
+              </a>'
+                    ),
+    updated_at = NOW()
+WHERE name = 'header-bold-gradient';
+
+-- Fix 5d: Add .logo-img CSS rule to all header components
+-- Inject before .mobile-menu-toggle which exists in all header templates
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '.mobile-menu-toggle {',
+        '.logo-img {
+          max-height: 40px;
+          width: auto;
+          display: block;
+      }
+      .mobile-menu-toggle {'
+                    )
+WHERE name IN ('header-professional-dark', 'header-minimal-light', 'header-bold-gradient')
+  AND html_template NOT LIKE '%.logo-img%';
+
+-- fix
+-- Fix 5a: header-professional-dark and header-minimal-light
+-- Both have the same pattern: just <span class="logo-text">
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<span class="logo-text">{{.logo_text}}</span>',
+        '{{if .logo_url}}<img src="{{.logo_url}}" alt="{{.logo_text}}" class="logo-img">{{else}}<span class="logo-text">{{.logo_text}}</span>{{end}}'
+                    ),
+    updated_at = NOW()
+WHERE name IN ('header-professional-dark', 'header-minimal-light');
+
+-- Fix 5b: header-bold-gradient
+-- Has logo-icon + logo-text, wrap both in the else branch
+UPDATE content_components
+SET html_template = replace(
+        html_template,
+        '<span class="logo-icon">◆</span>
+                  <span class="logo-text">{{.logo_text}}</span>',
+        '{{if .logo_url}}<img src="{{.logo_url}}" alt="{{.logo_text}}" class="logo-img">{{else}}<span class="logo-icon">◆</span>
+                  <span class="logo-text">{{.logo_text}}</span>{{end}}'
+                    ),
+    updated_at = NOW()
+WHERE name = 'header-bold-gradient';
