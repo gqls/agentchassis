@@ -1501,6 +1501,131 @@ func InjectFooter(ctx context.Context, db interface{}, html string, siteID uuid.
 	return html
 }
 
+// RenderHead renders the head component for a site
+// Looks up component by function "head", applies style collection colors,
+// and renders with page-specific title/description from RenderContext
+func RenderHead(ctx context.Context, db interface{}, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) (string, error) {
+	var coll *StyleCollection
+	var err error
+	var source string = "fallback"
+
+	// Load style collection for colors
+	if siteID != uuid.Nil {
+		coll, err = GetStyleCollectionForSite(ctx, db, siteID, logger)
+		if err != nil {
+			logger.Warn("RenderHead: Failed to get style collection", zap.Error(err))
+		}
+	}
+
+	if coll == nil && renderCtx.Domain != "" {
+		coll, err = SelectStyleCollectionByDomain(ctx, db, renderCtx.Domain, logger)
+		if err != nil {
+			logger.Warn("RenderHead: Failed to select style collection by domain", zap.Error(err))
+		}
+	}
+
+	// Apply colors from collection if not already set
+	if coll != nil && coll.ColorPalette != nil {
+		if renderCtx.PrimaryColor == "" {
+			renderCtx.PrimaryColor = coll.ColorPalette["primary"]
+		}
+		if renderCtx.AccentColor == "" {
+			renderCtx.AccentColor = coll.ColorPalette["accent"]
+		}
+		if renderCtx.SecondaryColor == "" {
+			renderCtx.SecondaryColor = coll.ColorPalette["secondary"]
+		}
+	}
+
+	// Apply color defaults if still empty (head template uses these in CSS variables)
+	if renderCtx.PrimaryColor == "" {
+		renderCtx.PrimaryColor = "#1a1a2e"
+	}
+	if renderCtx.SecondaryColor == "" {
+		renderCtx.SecondaryColor = "#2d2d44"
+	}
+	if renderCtx.AccentColor == "" {
+		renderCtx.AccentColor = "#16a085"
+	}
+	if renderCtx.TextColor == "" {
+		renderCtx.TextColor = "#333333"
+	}
+	if renderCtx.BackgroundColor == "" {
+		renderCtx.BackgroundColor = "#ffffff"
+	}
+
+	// Get head component — lookup by function name "head"
+	comp, err := GetComponentByFunction(ctx, db, "head", logger)
+	if err != nil {
+		logger.Warn("RenderHead: No head component found, using fallback")
+		head := RenderFallbackHead(renderCtx)
+		return fmt.Sprintf("<!-- HEAD SOURCE: fallback -->\n%s", head), nil
+	}
+	source = "component-db:" + comp.Name
+
+	// Render template with context (title, description, colors etc.)
+	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+
+	logger.Info("RenderHead: Rendered head component",
+		zap.String("source", source),
+		zap.String("title", renderCtx.Title),
+		zap.Int("html_length", len(rendered)),
+	)
+
+	return fmt.Sprintf("<!-- HEAD SOURCE: %s -->\n%s", source, rendered), nil
+}
+
+// RenderFallbackHead creates a basic head section when no component is available
+func RenderFallbackHead(ctx *RenderContext) string {
+	title := ctx.Title
+	if title == "" {
+		title = ctx.CompanyName
+	}
+	description := ctx.Description
+	if description == "" {
+		description = ctx.Tagline
+	}
+	primary := defaultString(ctx.PrimaryColor, "#1a1a2e")
+
+	return fmt.Sprintf(`<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>%s</title>
+    <meta name="description" content="%s">
+    <meta name="theme-color" content="%s">
+    <link rel="stylesheet" href="/assets/css/styles.css">
+</head>`, title, description, primary)
+}
+
+// InjectHead replaces the existing <head> section with a rendered head component
+func InjectHead(ctx context.Context, db interface{}, html string, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
+	headHTML, err := RenderHead(ctx, db, siteID, renderCtx, logger)
+	if err != nil {
+		logger.Warn("InjectHead: Failed to render head, using fallback", zap.Error(err))
+		headHTML = RenderFallbackHead(renderCtx)
+	}
+
+	// Replace existing <head>...</head> block
+	headRe := regexp.MustCompile(`(?is)<head[^>]*>.*?</head>`)
+	if headRe.MatchString(html) {
+		html = headRe.ReplaceAllString(html, headHTML)
+		logger.Debug("InjectHead: Replaced existing <head> section")
+	} else {
+		// No <head> found — insert before <body>
+		bodyRe := regexp.MustCompile(`(?i)(<body[^>]*>)`)
+		if bodyRe.MatchString(html) {
+			html = bodyRe.ReplaceAllString(html, headHTML+"\n$1")
+			logger.Debug("InjectHead: Inserted head before <body>")
+		} else {
+			// No structure at all — prepend
+			html = headHTML + "\n" + html
+			logger.Warn("InjectHead: No <head> or <body> found, prepended head")
+		}
+	}
+
+	return html
+}
+
 // ===========================================================================
 // BUILD METADATA (for assemble_from_library compatibility)
 // ===========================================================================

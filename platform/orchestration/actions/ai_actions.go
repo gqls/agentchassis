@@ -286,13 +286,29 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		if strings.Contains(errStr, "529") || // overloaded
 			strings.Contains(errStr, "503") || // service unavailable
 			strings.Contains(errStr, "502") || // bad gateway
-			strings.Contains(errStr, "500") { // internal Server Error
+			strings.Contains(errStr, "500") { // internal server error
 
-			time.Sleep(3 * time.Second)
-			result, err = aiClient.GenerateText(ctx, renderedPrompt, options)
-			if err != nil {
-				return nil, fmt.Errorf("AI call failed a second time. Aborting: %w", err)
+			retryDelays := []time.Duration{5 * time.Second, 15 * time.Second, 30 * time.Second, 60 * time.Second}
+			var lastErr error
+			for attempt, delay := range retryDelays {
+				params.Logger.Warn("LLM call failed with transient error, retrying",
+					zap.Int("attempt", attempt+1),
+					zap.Int("max_attempts", len(retryDelays)),
+					zap.Duration("backoff", delay),
+					zap.String("error_type", errStr[:min(len(errStr), 80)]),
+				)
+				time.Sleep(delay)
+				result, lastErr = aiClient.GenerateText(ctx, renderedPrompt, options)
+				if lastErr == nil {
+					params.Logger.Info("LLM retry succeeded",
+						zap.Int("attempt", attempt+1))
+					break
+				}
 			}
+			if lastErr != nil {
+				return nil, fmt.Errorf("AI call failed after %d retries. Last error: %w", len(retryDelays), lastErr)
+			}
+			err = nil // Clear the original error since retry succeeded
 		}
 	}
 

@@ -73,6 +73,51 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 	// Ensure valid HTML structure
 	html = cleanHTMLStructure(html)
 
+	// Optionally inject head/header/footer from component library
+	injectHead, _ := config["inject_head"].(bool)
+	injectHeader, _ := config["inject_header"].(bool)
+	injectFooter, _ := config["inject_footer"].(bool)
+
+	if params.DB != nil && (injectHead || injectHeader || injectFooter) {
+		siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+		siteUUID := uuid.Nil
+		if siteIDStr != "" {
+			siteUUID, _ = uuid.Parse(siteIDStr)
+		}
+
+		renderCtx := buildRenderContextFromCollectedData(params.CollectedData, params.Logger)
+
+		// Set page-specific title/description from current_page
+		if cp := datahelpers.ExtractNestedField(params.CollectedData, "current_page"); cp != nil {
+			if cpMap, ok := cp.(map[string]interface{}); ok {
+				if t, ok := cpMap["title"].(string); ok && t != "" {
+					renderCtx.Title = t
+				} else if n, ok := cpMap["name"].(string); ok && n != "" {
+					renderCtx.Title = strings.Title(strings.ReplaceAll(n, "-", " "))
+				}
+				if d, ok := cpMap["meta_description"].(string); ok && d != "" {
+					renderCtx.Description = d
+				}
+			}
+		}
+
+		if injectHead {
+			html = InjectHead(ctx, params.DB, html, siteUUID, renderCtx, params.Logger)
+		}
+		if injectHeader {
+			html = InjectHeader(ctx, params.DB, html, siteUUID, renderCtx, params.Logger)
+		}
+		if injectFooter {
+			html = InjectFooter(ctx, params.DB, html, siteUUID, renderCtx, params.Logger)
+		}
+
+		params.Logger.Info("AssemblePageAction: Injected components",
+			zap.Bool("head", injectHead),
+			zap.Bool("header", injectHeader),
+			zap.Bool("footer", injectFooter),
+		)
+	}
+
 	// Add navigation if requested
 	if addNav {
 		html = addSimpleNavigation(html, "index")

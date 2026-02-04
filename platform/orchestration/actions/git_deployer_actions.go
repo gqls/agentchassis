@@ -423,6 +423,12 @@ func determinePageFilename(data map[string]interface{}, config map[string]interf
 		if name, ok := p["name"].(string); ok && name != "" {
 			return ensureHTMLExtension(name)
 		}
+		if pageName, ok := p["page_name"].(string); ok && pageName != "" {
+			return ensureHTMLExtension(pageName)
+		}
+		if filename, ok := p["filename"].(string); ok && filename != "" {
+			return filename // already has extension
+		}
 		if id, ok := p["id"].(string); ok && id != "" {
 			return ensureHTMLExtension(id)
 		}

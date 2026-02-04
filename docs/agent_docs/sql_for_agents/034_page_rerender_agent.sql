@@ -112,3 +112,21 @@ VALUES (
                                        output_contract = EXCLUDED.output_contract,
                                        updated_at = NOW();
 
+--
+
+-- =============================================================================
+-- PART 1: Minor update to page-rerender specialist
+-- =============================================================================
+-- Keep existing workflow, just ensure processing_mode is set correctly
+-- and input_contract matches what the orchestrator will send via input_mapping.
+-- =============================================================================
+
+UPDATE agent_definitions
+SET
+    default_config = jsonb_set(
+            default_config,
+            '{processing_mode}',
+            '"task"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-rerender';
