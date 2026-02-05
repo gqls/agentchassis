@@ -972,3 +972,22 @@ SELECT name,
        html_template LIKE '%.logo-img%' AS has_logo_img_css
 FROM content_components
 WHERE name IN ('header-professional-dark', 'header-minimal-light', 'header-bold-gradient');
+
+---
+
+
+-- Fix render_site_components step in pageflow-builder to use site_id_field
+-- The action was looking for site_id at root level but it's at site_record.site_id
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,render_site_components,config}',
+        '{
+            "slots": ["header", "footer", "head"],
+            "force_rerender": false,
+            "site_id_field": "site_record.site_id",
+            "domain_field": "site_record.domain"
+        }'::jsonb
+             )
+WHERE type = 'pageflow-builder';

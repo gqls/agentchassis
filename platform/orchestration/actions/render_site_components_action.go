@@ -19,7 +19,8 @@ import (
 // RenderSiteComponentsAction renders site-level components and stores them
 //
 // Config:
-//   - input_fields: fields to extract (default: ["site_id", "domain"])
+//   - site_id_field: path to site_id in collected_data (default: "site_record.site_id")
+//   - domain_field: path to domain in collected_data (default: "site_record.domain")
 //   - slots: which slots to render (default: ["header", "footer", "head"])
 //   - force_rerender: re-render even if already exists (default: false)
 //
@@ -35,25 +36,32 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 
 	config := params.StepConfig.Config
 
-	// Extract inputs
-	inputFields := []string{"site_id", "domain"}
-	if fields, ok := config["input_fields"].([]interface{}); ok {
-		inputFields = make([]string, len(fields))
-		for i, f := range fields {
-			inputFields[i], _ = f.(string)
-		}
+	// Get site_id using configurable field path (matches UpdateSiteDefaultsAction pattern)
+	siteIDField := "site_record.site_id"
+	if f, ok := config["site_id_field"].(string); ok && f != "" {
+		siteIDField = f
 	}
-
-	extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
-
-	// Get site_id
-	siteIDStr, _ := extracted["site_id"].(string)
+	siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, siteIDField)
 	if siteIDStr == "" {
-		return nil, fmt.Errorf("site_id not found in input")
+		// Fallback: try legacy input_fields approach
+		inputFields := []string{"site_id", "domain"}
+		if fields, ok := config["input_fields"].([]interface{}); ok {
+			inputFields = make([]string, len(fields))
+			for i, f := range fields {
+				inputFields[i], _ = f.(string)
+			}
+		}
+		extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
+		siteIDStr, _ = extracted["site_id"].(string)
 	}
+
+	if siteIDStr == "" {
+		return nil, fmt.Errorf("site_id not found at %s", siteIDField)
+	}
+
 	siteID, err := uuid.Parse(siteIDStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid site_id: %w", err)
+		return nil, fmt.Errorf("invalid site_id at %s: %w (got: %q, len: %d)", siteIDField, err, siteIDStr, len(siteIDStr))
 	}
 
 	// Get slots to render
