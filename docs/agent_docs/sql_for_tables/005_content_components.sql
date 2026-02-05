@@ -6157,3 +6157,122 @@ SELECT name, function,
 FROM content_components
 WHERE function IN ('features', 'head')
    OR name = 'head-seo-standard';
+
+
+----
+
+
+-- Fix 1: Update header-professional-dark to show BOTH logo image AND company name text
+-- Current: either image OR text
+-- Fix: show image with text beside it when logo_url is present
+
+UPDATE content_components
+SET html_template = E'<!-- HEADER SOURCE: component-db:header-professional-dark -->\n<header class="site-header site-header--dark">\n    <div class="header-container">\n        <a href="/index.html" class="logo">\n            {{if .logo_url}}<img src="{{.logo_url}}" alt="{{.logo_text}}" class="logo-img">{{end}}\n            <span class="logo-text">{{.logo_text}}</span>\n        </a>\n        <button class="mobile-menu-toggle" aria-label="Toggle menu" aria-expanded="false">\n            <span></span><span></span><span></span>\n        </button>\n        <nav class="main-nav" id="main-nav" role="navigation">\n            <ul>\n                {{if .nav_items_html}}{{.nav_items_html}}{{end}}\n            </ul>\n        </nav>\n        <a href="/contact.html" class="header-cta">{{if .cta_text}}{{.cta_text}}{{else}}Get Started{{end}}</a>\n    </div>\n</header>\n<style>\n.site-header--dark {\n    background: #1a1a2e;\n    padding: 1rem 0;\n    position: sticky;\n    top: 0;\n    z-index: 1000;\n    box-shadow: 0 2px 10px rgba(0,0,0,0.1);\n}\n.header-container {\n    max-width: 1200px;\n    margin: 0 auto;\n    padding: 0 2rem;\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    gap: 2rem;\n}\n.logo {\n    display: flex;\n    align-items: center;\n    gap: 0.75rem;\n    text-decoration: none;\n}\n.logo-text {\n    font-size: 1.25rem;\n    font-weight: 700;\n    color: #fff;\n}\n.logo-img {\n    max-height: 40px;\n    width: auto;\n    display: block;\n}\n.main-nav ul {\n    display: flex;\n    list-style: none;\n    margin: 0;\n    padding: 0;\n    gap: 2rem;\n}\n.main-nav a {\n    color: rgba(255,255,255,0.9);\n    text-decoration: none;\n    font-weight: 500;\n    padding: 0.5rem 0;\n    transition: color 0.2s;\n}\n.main-nav a:hover,\n.main-nav a.active {\n    color: #0f3460;\n}\n.header-cta {\n    background: #0f3460;\n    color: #fff;\n    padding: 0.6rem 1.25rem;\n    border-radius: 4px;\n    text-decoration: none;\n    font-weight: 500;\n    transition: opacity 0.2s;\n}\n.header-cta:hover {\n    opacity: 0.9;\n}\n.mobile-menu-toggle {\n    display: none;\n    background: none;\n    border: none;\n    cursor: pointer;\n    padding: 0.5rem;\n    flex-direction: column;\n    gap: 5px;\n}\n.mobile-menu-toggle span {\n    display: block;\n    width: 24px;\n    height: 2px;\n    background: #fff;\n    transition: transform 0.3s;\n}\n@media (max-width: 768px) {\n    .mobile-menu-toggle { display: flex; }\n    .main-nav {\n        position: absolute;\n        top: 100%;\n        left: 0;\n        right: 0;\n        background: #1a1a2e;\n        padding: 1rem 2rem;\n        display: none;\n        box-shadow: 0 4px 10px rgba(0,0,0,0.1);\n    }\n    .main-nav.active { display: block; }\n    .main-nav ul {\n        flex-direction: column;\n        gap: 0;\n    }\n    .main-nav a {\n        display: block;\n        padding: 0.75rem 0;\n        border-bottom: 1px solid rgba(255,255,255,0.1);\n    }\n    .header-cta { display: none; }\n}\n</style>\n<script>\ndocument.addEventListener("DOMContentLoaded", function() {\n    var toggle = document.querySelector(".mobile-menu-toggle");\n    var nav = document.querySelector(".main-nav");\n    if (toggle && nav) {\n        toggle.addEventListener("click", function() {\n            var expanded = toggle.getAttribute("aria-expanded") === "true";\n            toggle.setAttribute("aria-expanded", !expanded);\n            nav.classList.toggle("active");\n        });\n    }\n});\n</script>',
+updated_at = NOW()
+WHERE name = 'header-professional-dark';
+
+-- Fix 2: Update social_proof to use hardcoded dark colors (not CSS variables)
+-- The issue is CSS variable mismatch between head (--primary) and components (--color-primary)
+-- For reliability, use explicit colors in dark sections
+
+UPDATE content_components
+SET html_template = E'<section class="social-proof-section" data-component="social-proof">\n    <div class="social-proof-container">\n        <h2>{{.headline}}</h2>\n        <div class="testimonials-grid">\n            {{range .testimonials}}\n            <div class="testimonial-item">\n                <blockquote>{{.quote}}</blockquote>\n                <cite>\n                    <strong>{{.author}}</strong>\n                    {{if .role}}<span>{{.role}}</span>{{end}}\n                </cite>\n            </div>\n            {{end}}\n        </div>\n    </div>\n</section>\n<style>\n/* Dark section with explicit colors for reliability */\n.social-proof-section {\n    padding: 5rem 2rem;\n    background: #1a1a2e;\n    color: #fff;\n}\n.social-proof-container {\n    max-width: 1200px;\n    margin: 0 auto;\n}\n.social-proof-section h2 {\n    text-align: center;\n    margin-bottom: 3rem;\n    color: #fff;\n}\n.testimonials-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));\n    gap: 2rem;\n}\n.testimonial-item {\n    padding: 2rem;\n    background: rgba(255,255,255,0.05);\n    border-radius: 8px;\n    border-left: 3px solid #0f3460;\n}\n.testimonial-item blockquote {\n    font-size: 1.1rem;\n    line-height: 1.7;\n    margin: 0 0 1.5rem;\n    font-style: italic;\n    color: rgba(255,255,255,0.9);\n}\n.testimonial-item cite {\n    display: block;\n    font-style: normal;\n}\n.testimonial-item cite strong {\n    display: block;\n    color: #fff;\n}\n.testimonial-item cite span {\n    font-size: 0.9rem;\n    color: rgba(255,255,255,0.7);\n}\n@media (max-width: 768px) {\n    .social-proof-section { padding: 3rem 1.5rem; }\n    .testimonials-grid { grid-template-columns: 1fr; }\n}\n</style>',
+updated_at = NOW()
+WHERE name = 'Social Proof';
+
+-- Also update the testimonials component (duplicate of social_proof)
+UPDATE content_components
+SET html_template = E'<section class="social-proof-section" data-component="social-proof">\n    <div class="social-proof-container">\n        <h2>{{.headline}}</h2>\n        <div class="testimonials-grid">\n            {{range .testimonials}}\n            <div class="testimonial-item">\n                <blockquote>{{.quote}}</blockquote>\n                <cite>\n                    <strong>{{.author}}</strong>\n                    {{if .role}}<span>{{.role}}</span>{{end}}\n                </cite>\n            </div>\n            {{end}}\n        </div>\n    </div>\n</section>\n<style>\n/* Dark section with explicit colors for reliability */\n.social-proof-section {\n    padding: 5rem 2rem;\n    background: #1a1a2e;\n    color: #fff;\n}\n.social-proof-container {\n    max-width: 1200px;\n    margin: 0 auto;\n}\n.social-proof-section h2 {\n    text-align: center;\n    margin-bottom: 3rem;\n    color: #fff;\n}\n.testimonials-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));\n    gap: 2rem;\n}\n.testimonial-item {\n    padding: 2rem;\n    background: rgba(255,255,255,0.05);\n    border-radius: 8px;\n    border-left: 3px solid #0f3460;\n}\n.testimonial-item blockquote {\n    font-size: 1.1rem;\n    line-height: 1.7;\n    margin: 0 0 1.5rem;\n    font-style: italic;\n    color: rgba(255,255,255,0.9);\n}\n.testimonial-item cite {\n    display: block;\n    font-style: normal;\n}\n.testimonial-item cite strong {\n    display: block;\n    color: #fff;\n}\n.testimonial-item cite span {\n    font-size: 0.9rem;\n    color: rgba(255,255,255,0.7);\n}\n@media (max-width: 768px) {\n    .social-proof-section { padding: 3rem 1.5rem; }\n    .testimonials-grid { grid-template-columns: 1fr; }\n}\n</style>',
+updated_at = NOW()
+WHERE name = 'testimonials';
+
+
+-- Fix 3: Add styling to about-content component
+-- Currently missing <style> block for container layout
+
+UPDATE content_components
+SET html_template = E'<section class="about-content-section" data-component="about-content">\n    <div class="about-container">\n        {{if .section_title}}<h2>{{.section_title}}</h2>{{end}}\n        <div class="about-text">\n            {{.content}}\n        </div>\n        {{if .highlights}}\n        <div class="about-highlights">\n            {{range .highlights}}\n            <div class="highlight-item">\n                <h3>{{.title}}</h3>\n                <p>{{.description}}</p>\n            </div>\n            {{end}}\n        </div>\n        {{end}}\n    </div>\n</section>\n<style>\n.about-content-section {\n    padding: 5rem 2rem;\n    background: #fff;\n}\n.about-container {\n    max-width: 1000px;\n    margin: 0 auto;\n}\n.about-content-section h2 {\n    font-size: clamp(1.75rem, 4vw, 2.5rem);\n    margin-bottom: 2rem;\n    color: #1a1a2e;\n    text-align: center;\n}\n.about-text {\n    font-size: 1.1rem;\n    line-height: 1.8;\n    color: #333;\n    margin-bottom: 3rem;\n}\n.about-text p {\n    margin-bottom: 1.5rem;\n}\n.about-highlights {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));\n    gap: 2rem;\n    margin-top: 3rem;\n}\n.highlight-item {\n    padding: 1.5rem;\n    background: #f8f9fa;\n    border-radius: 8px;\n    border-left: 4px solid #0f3460;\n}\n.highlight-item h3 {\n    font-size: 1.25rem;\n    margin-bottom: 0.75rem;\n    color: #1a1a2e;\n}\n.highlight-item p {\n    color: #555;\n    line-height: 1.6;\n    margin: 0;\n}\n@media (max-width: 768px) {\n    .about-content-section { padding: 3rem 1.5rem; }\n    .about-highlights { grid-template-columns: 1fr; }\n}\n</style>',
+updated_at = NOW()
+WHERE name = 'about-content';
+
+
+-- Fix 4: Add styling to leadership-team component
+-- Currently missing <style> block for container layout
+
+UPDATE content_components
+SET html_template = E'<section class="team-section" data-component="leadership-team">\n    <div class="team-container">\n        {{if .section_title}}<h2>{{.section_title}}</h2>{{end}}\n        {{if .section_intro}}<p class="section-intro">{{.section_intro}}</p>{{end}}\n        <div class="team-grid">\n            {{range .members}}\n            <div class="team-member">\n                {{if .photo}}<img src="{{.photo}}" alt="{{.name}}" class="member-photo">{{end}}\n                <h3>{{.name}}</h3>\n                <p class="member-title">{{.title}}</p>\n                {{if .bio}}<p class="member-bio">{{.bio}}</p>{{end}}\n            </div>\n            {{end}}\n        </div>\n    </div>\n</section>\n<style>\n.team-section {\n    padding: 5rem 2rem;\n    background: #f8f9fa;\n}\n.team-container {\n    max-width: 1200px;\n    margin: 0 auto;\n}\n.team-section h2 {\n    font-size: clamp(1.75rem, 4vw, 2.5rem);\n    margin-bottom: 1rem;\n    color: #1a1a2e;\n    text-align: center;\n}\n.section-intro {\n    text-align: center;\n    max-width: 700px;\n    margin: 0 auto 3rem;\n    color: #555;\n    line-height: 1.7;\n}\n.team-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));\n    gap: 2rem;\n}\n.team-member {\n    background: #fff;\n    padding: 2rem;\n    border-radius: 8px;\n    text-align: center;\n    box-shadow: 0 2px 8px rgba(0,0,0,0.06);\n}\n.member-photo {\n    width: 120px;\n    height: 120px;\n    border-radius: 50%;\n    object-fit: cover;\n    margin-bottom: 1.5rem;\n    background: #e0e0e0;\n}\n.team-member h3 {\n    font-size: 1.25rem;\n    margin-bottom: 0.5rem;\n    color: #1a1a2e;\n}\n.member-title {\n    color: #0f3460;\n    font-weight: 500;\n    margin-bottom: 1rem;\n    font-size: 0.95rem;\n}\n.member-bio {\n    color: #555;\n    line-height: 1.6;\n    font-size: 0.95rem;\n    text-align: left;\n}\n@media (max-width: 768px) {\n    .team-section { padding: 3rem 1.5rem; }\n    .team-grid { grid-template-columns: 1fr; }\n}\n</style>',
+updated_at = NOW()
+WHERE name = 'leadership-team';
+
+
+
+
+
+-- =============================================================================
+-- VERIFICATION QUERIES (run after updates)
+-- =============================================================================
+
+-- Verify header now shows both logo and text:
+SELECT name,
+       CASE
+           WHEN html_template LIKE '%{{if .logo_url}}%logo-img%{{end}}%logo-text%' THEN 'FIXED: Shows both logo and text'
+           WHEN html_template LIKE '%{{if .logo_url}}%{{else}}%{{end}}%' THEN 'OLD: Either/or pattern'
+           ELSE 'CHECK MANUALLY'
+           END as header_status
+FROM content_components
+WHERE name = 'header-professional-dark';
+
+-- Verify social proof has explicit dark colors:
+SELECT name,
+       CASE
+           WHEN html_template LIKE '%background: #1a1a2e%' THEN 'FIXED: Explicit dark colors'
+           WHEN html_template LIKE '%var(--color-primary%' THEN 'OLD: Uses CSS variables (may have mismatch)'
+           ELSE 'CHECK MANUALLY'
+           END as social_proof_status
+FROM content_components
+WHERE name IN ('Social Proof', 'testimonials');
+
+-- Verify about-content has styling:
+SELECT name,
+       CASE
+           WHEN html_template LIKE '%<style>%.about-content-section%' THEN 'FIXED: Has styling'
+           ELSE 'MISSING: No style block'
+           END as about_status
+FROM content_components
+WHERE name = 'about-content';
+
+-- Verify leadership-team has styling:
+SELECT name,
+       CASE
+           WHEN html_template LIKE '%<style>%.team-section%' THEN 'FIXED: Has styling'
+           ELSE 'MISSING: No style block'
+           END as team_status
+FROM content_components
+WHERE name = 'leadership-team';
+
+
+-- =============================================================================
+-- NOTE: Logo Text Issue
+-- =============================================================================
+-- The user mentioned that AI-generated logos shouldn't have text in them because
+-- the text gets garbled. This is controlled by the site-planner prompt that
+-- generates the image_prompts.logo field.
+--
+-- To fix this, update the site-planner workflow prompt to explicitly say:
+-- "Create a logo WITHOUT ANY TEXT - use only symbols, icons, or abstract shapes.
+--  The company name will be displayed separately as HTML text next to the logo."
+--
+-- The site-planner is in agent_definitions WHERE agent_type = 'site-planner'.
+-- Look in config->workflow->steps for the prompt_template that generates image_prompts.
+--
+-- =============================================================================
+
+
+-- =============================================================================
+-- SUMMARY OF CHANGES
+-- =============================================================================
+-- 1. header-professional-dark: Now shows logo image AND company name text together
+-- 2. social_proof & testimonials: Use explicit #1a1a2e dark background instead of CSS variables
+-- 3. about-content: Added full <style> block with centered container layout
+-- 4. leadership-team: Added full <style> block with grid layout
+-- 5. pageflow-builder: Changed image prompt handling from template syntax to input_mapping

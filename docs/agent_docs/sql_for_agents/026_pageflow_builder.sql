@@ -991,3 +991,81 @@ SET default_config = jsonb_set(
         }'::jsonb
              )
 WHERE type = 'pageflow-builder';
+
+
+---- - recognise hero image prompt
+-- Fix 5: Update pageflow-builder workflow to use input_mapping instead of template syntax for image prompts
+-- The old "prompt": "{{site_plan.image_prompts.hero_home}}" doesn't resolve
+-- Need to use input_mapping with dot-path: "prompt": "site_plan.response.image_prompts.hero_home"
+--
+-- NOTE: This requires careful update of the workflow JSON. Run this query to find the agent:
+-- SELECT agent_type, config FROM agent_definitions WHERE agent_type = 'pageflow-builder';
+--
+-- Then update the workflow.steps.generate_hero_image and workflow.steps.call_logo_generation
+-- to use input_mapping instead of prompt field.
+--
+-- The fix should change from:
+--   "generate_hero_image": {
+--     "config": {
+--       "prompt": "{{site_plan.image_prompts.hero_home}}",
+--       "input_fields": ["site_plan", "reviewed_brief"]
+--     }
+--   }
+--
+-- To:
+--   "generate_hero_image": {
+--     "config": {
+--       "input_mapping": {
+--         "prompt": "site_plan.response.image_prompts.hero_home",
+--         "site_plan": "site_plan",
+--         "reviewed_brief": "input_data.reviewed_brief"
+--       }
+--     }
+--   }
+--
+-- Similar change needed for call_logo_generation step.
+--
+-- This is a jsonb update, so it needs to be done carefully. Here's the update:
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,generate_hero_image,config}',
+                '{
+                    "agent_type": "image-generator",
+                    "target_role": "image_generator",
+                    "input_mapping": {
+                        "prompt": "site_plan.response.image_prompts.hero_home",
+                        "site_plan": "site_plan",
+                        "reviewed_brief": "input_data.reviewed_brief"
+                    },
+                    "output_mapping": {
+                        "prompt": "generate.response.prompt",
+                        "image_uri": "generate.response.image_uri",
+                        "image_url": "generate.response.image_url",
+                        "generated_at": "generate.response.generated_at"
+                    },
+                    "timeout_seconds": 120
+                }'::jsonb
+        ),
+        '{workflow,steps,call_logo_generation,config}',
+        '{
+            "agent_type": "image-generator",
+            "target_role": "image_generator",
+            "input_mapping": {
+                "prompt": "site_plan.response.image_prompts.logo",
+                "site_plan": "site_plan",
+                "reviewed_brief": "input_data.reviewed_brief"
+            },
+            "output_mapping": {
+                "prompt": "generate.response.prompt",
+                "image_uri": "generate.response.image_uri",
+                "image_url": "generate.response.image_url",
+                "generated_at": "generate.response.generated_at"
+            },
+            "timeout_seconds": 120
+        }'::jsonb
+             ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
