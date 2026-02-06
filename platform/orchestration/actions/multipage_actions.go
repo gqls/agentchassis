@@ -442,19 +442,27 @@ func cleanHTMLStructure(html string) string {
 	}
 
 	// Remove duplicate <head> sections (keep the more complete one)
-	headCount := strings.Count(strings.ToLower(html), "<head")
-	if headCount > 1 {
-		// Find both head sections
+	// Use regex with [\s>] to match <head> or <head ...> but NOT <header>
+	headTagRe := regexp.MustCompile(`(?i)<head[\s>]`)
+	headPositions := headTagRe.FindAllStringIndex(html, -1)
+	if len(headPositions) > 1 {
 		lowerHTML := strings.ToLower(html)
-		firstHeadStart := strings.Index(lowerHTML, "<head")
-		firstHeadEnd := strings.Index(lowerHTML, "</head>")
+		firstHeadStart := headPositions[0][0]
+		firstHeadEnd := strings.Index(lowerHTML[firstHeadStart:], "</head>")
 
-		if firstHeadEnd > firstHeadStart {
-			// Check if there's a second head after the first
-			secondHeadStart := strings.Index(lowerHTML[firstHeadEnd:], "<head")
+		if firstHeadEnd >= 0 {
+			firstHeadEnd += firstHeadStart // make absolute
+
+			// Find the second <head> that's after the first </head>
+			secondHeadStart := -1
+			for _, pos := range headPositions[1:] {
+				if pos[0] > firstHeadEnd {
+					secondHeadStart = pos[0]
+					break
+				}
+			}
+
 			if secondHeadStart >= 0 {
-				// Find the second head's end
-				secondHeadStart += firstHeadEnd
 				secondHeadEnd := strings.Index(lowerHTML[secondHeadStart:], "</head>")
 				if secondHeadEnd >= 0 {
 					secondHeadEnd += secondHeadStart + 7 // include </head>

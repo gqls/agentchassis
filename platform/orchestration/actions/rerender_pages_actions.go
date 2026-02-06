@@ -614,8 +614,8 @@ func rerenderStripWrapper(html string) string {
 	html = regexp.MustCompile(`(?i)<!DOCTYPE[^>]*>`).ReplaceAllString(html, "")
 	// Remove <html> tags
 	html = regexp.MustCompile(`(?i)</?html[^>]*>`).ReplaceAllString(html, "")
-	// Remove entire <head>...</head>
-	html = regexp.MustCompile(`(?is)<head[^>]*>.*?</head>`).ReplaceAllString(html, "")
+	// Remove entire <head>...</head> (not <header>)
+	html = regexp.MustCompile(`(?is)<head(?:\s[^>]*)?>.*?</head>`).ReplaceAllString(html, "")
 	// Remove <body> tags but keep content
 	html = regexp.MustCompile(`(?i)<body[^>]*>`).ReplaceAllString(html, "")
 	html = regexp.MustCompile(`(?i)</body>`).ReplaceAllString(html, "")

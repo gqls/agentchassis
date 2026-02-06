@@ -1636,7 +1636,8 @@ func InjectHead(ctx context.Context, db interface{}, html string, siteID uuid.UU
 	}
 
 	// Replace existing <head>...</head> block
-	headRe := regexp.MustCompile(`(?is)<head[^>]*>.*?</head>`)
+	// Note: use <head(?:\s[^>]*)?> to avoid matching <header> tags
+	headRe := regexp.MustCompile(`(?is)<head(?:\s[^>]*)?>.*?</head>`)
 	if headRe.MatchString(html) {
 		html = headRe.ReplaceAllString(html, headHTML)
 		logger.Debug("InjectHead: Replaced existing <head> section")
