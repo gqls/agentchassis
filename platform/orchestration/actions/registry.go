@@ -321,6 +321,28 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 
 	// =========================================================================
+	// DATA — Business Intelligence (business_intel schema) (vet)
+	// =========================================================================
+	"load_business_record": {
+		Handler:     LoadBusinessRecordAction,
+		Category:    "data",
+		Description: "Load a business record with optional vet details and prices",
+		IsLocal:     true,
+	},
+	"store_business_verification": {
+		Handler:     StoreBusinessVerificationAction,
+		Category:    "data",
+		Description: "Store verification results from agent run to business_intel tables",
+		IsLocal:     true,
+	},
+	"load_business_batch": {
+		Handler:     LoadBusinessBatchAction,
+		Category:    "data",
+		Description: "Claim and load next batch of pending collection tasks",
+		IsLocal:     true,
+	},
+
+	// =========================================================================
 	// SITE — building, assembly, rendering, pages, styles, git, navigation
 	// =========================================================================
 	"git_commit": {

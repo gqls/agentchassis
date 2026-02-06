@@ -11,7 +11,7 @@ labels:
 
 images:
   - name: docker.io/aqls/web-search-adapter
-    newTag: v1.0.751
+    newTag: v1.0.752
 
 patches:
   - path: patch-deployment.yaml

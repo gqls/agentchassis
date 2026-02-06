@@ -1,10 +1,4 @@
 -- =============================================
--- Agent definitions for business intelligence pipeline
--- =============================================
--- Depends on: business_intel schema + actions registered in agent-chassis
-
-
--- =============================================
 -- vet-practice-verifier
 -- =============================================
 -- Single-practice verification workflow:
@@ -80,32 +74,32 @@ INSERT INTO agent_definitions (
                              "config": {
                                  "input_fields": ["business_record", "scraped_data", "search_results"],
                                  "response_format": "json",
-                                 "prompt_template": "You are a data extraction specialist for UK veterinary practices.\n\nCURRENT RECORD:\nName: {{business_record.business.name}}\nPostcode: {{business_record.business.postcode}}\nTown: {{business_record.business.town}}\nWebsite: {{business_record.business.website_url}}\nGroup: {{business_record.business.group_name}}\n\nSCRAPED WEBSITE CONTENT:\n{{scraped_data.content}}\n\nSEARCH RESULTS:\n{{search_results}}\n\nExtract and return a JSON object with these sections:\n\n1. \"business\" - updated/confirmed fields:\n   - name, address_line1, address_line2, town, county, postcode\n   - phone, email, website_url\n   - group_name, business_type\n\n2. \"vet_details\" - practice-specific:\n   - species_treated (array of strings)\n   - emergency_service (boolean)\n   - out_of_hours_provider (string or null)\n   - accepting_new_clients (boolean or null if unknown)\n   - accreditations (array)\n   - num_vets, num_nurses (integers or null)\n   - head_vet_name (string or null)\n   - has_own_lab, has_imaging, has_surgical_suite (booleans or null)\n   - parking_available, wheelchair_accessible (booleans or null)\n\n3. \"prices\" - array of objects, each with:\n   - service_category: one of 'consultation', 'vaccination', 'surgery', 'prescription', 'dental', 'diagnostic', 'other'\n   - service_name: the specific service\n   - price_gbp: numeric price\n   - price_qualifier: 'fixed', 'from', 'approximately'\n\n4. \"confidence_score\" - 0.0 to 1.0, how confident you are in the data quality\n5. \"extraction_notes\" - brief notes on data quality, conflicts, missing data\n\nOnly include fields where you have actual data. Use null for unknown values. Do not invent or estimate prices."
-                    },
-                    "output_field": "verification_result",
-                    "next_step": "store_results"
-                },
+                                 "prompt_template": "You are a data extraction specialist for UK veterinary practices.\n\nCURRENT RECORD:\nName: {{business_record.business.name}}\nPostcode: {{business_record.business.postcode}}\nTown: {{business_record.business.town}}\nWebsite: {{business_record.business.website_url}}\nGroup: {{business_record.business.group_name}}\n\nSCRAPED WEBSITE CONTENT:\n{{scraped_data.content}}\n\nSEARCH RESULTS:\n{{search_results}}\n\nExtract and return a JSON object with these sections:\n\n1. business - updated/confirmed fields:\n   - name, address_line1, address_line2, town, county, postcode\n   - phone, email, website_url\n   - group_name, business_type\n\n2. vet_details - practice-specific:\n   - species_treated (array of strings)\n   - emergency_service (boolean)\n   - out_of_hours_provider (string or null)\n   - accepting_new_clients (boolean or null if unknown)\n   - accreditations (array)\n   - num_vets, num_nurses (integers or null)\n   - head_vet_name (string or null)\n   - has_own_lab, has_imaging, has_surgical_suite (booleans or null)\n   - parking_available, wheelchair_accessible (booleans or null)\n\n3. prices - array of objects, each with:\n   - service_category: one of consultation, vaccination, surgery, prescription, dental, diagnostic, other\n   - service_name: the specific service\n   - price_gbp: numeric price\n   - price_qualifier: fixed, from, or approximately\n\n4. confidence_score - 0.0 to 1.0, how confident you are in the data quality\n5. extraction_notes - brief notes on data quality, conflicts, missing data\n\nOnly include fields where you have actual data. Use null for unknown values. Do not invent or estimate prices."
+                             },
+                             "output_field": "verification_result",
+                             "next_step": "store_results"
+                         },
 
-                "store_results": {
-                    "action": "store_business_verification",
-                    "description": "Write verified data back to the database",
-                    "config": {
-                        "input_fields": ["business_id", "verification_result"]
-                    },
-                    "output_field": "store_result",
-                    "next_step": "complete"
-                },
+                         "store_results": {
+                             "action": "store_business_verification",
+                             "description": "Write verified data back to the database",
+                             "config": {
+                                 "input_fields": ["business_id", "verification_result"]
+                             },
+                             "output_field": "store_result",
+                             "next_step": "complete"
+                         },
 
-                "complete": {
-                    "action": "complete_workflow",
-                    "description": "Verification complete",
-                    "config": {
-                        "output_fields": ["business_record", "verification_result", "store_result"]
-                    }
-                }
-            }
-        }
-    }'::jsonb,
+                         "complete": {
+                             "action": "complete_workflow",
+                             "description": "Verification complete",
+                             "config": {
+                                 "output_fields": ["business_record", "verification_result", "store_result"]
+                             }
+                         }
+                     }
+                 }
+             }'::jsonb,
              '{
                  "required": ["business_id"],
                  "optional": ["task_id"]
@@ -127,4 +121,3 @@ INSERT INTO agent_definitions (
     domain_tags = EXCLUDED.domain_tags,
     status = EXCLUDED.status,
     updated_at = NOW();
-

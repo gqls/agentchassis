@@ -52,15 +52,7 @@ kubectl -n kafka run -i --rm kcat-vet-single-$$ \
     -H from_agent_type=user \
     -H from_agent_id=cli \
     -H responses_topic=system.generic.responses <<JSON
-{
-  "action": "orchestrate",
-  "config": {
-    "agent_type": "vet-practice-verifier"
-  },
-  "input_data": {
-    "business_id": "$BUSINESS_ID"
-  }
-}
+{"action":"orchestrate","config":{"agent_type":"vet-practice-verifier"},"input_data":{"business_id":"$BUSINESS_ID"}}
 JSON
 
 echo ""
@@ -152,17 +144,7 @@ kubectl -n kafka run -i --rm kcat-vet-batch-$$ \
     -H from_agent_type=user \
     -H from_agent_id=cli \
     -H responses_topic=system.generic.responses <<JSON
-{
-  "action": "orchestrate",
-  "config": {
-    "agent_type": "vet-batch-processor"
-  },
-  "input_data": {
-    "batch_size": $BATCH_SIZE,
-    "task_type": "$TASK_TYPE",
-    "vertical_slug": "$VERTICAL_SLUG"
-  }
-}
+{"action":"orchestrate","config":{"agent_type":"vet-batch-processor"},"input_data":{"batch_size":$BATCH_SIZE,"task_type":"$TASK_TYPE","vertical_slug":"$VERTICAL_SLUG"}}
 JSON
 
 echo ""
