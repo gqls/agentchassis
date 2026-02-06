@@ -1449,15 +1449,17 @@ func InjectHeader(ctx context.Context, db interface{}, html string, siteID uuid.
 		headerHTML = RenderFallbackHeader(renderCtx)
 	}
 
-	// Remove existing header
-	headerRe := regexp.MustCompile(`(?is)<header[^>]*>.*?</header>`)
+	// Remove existing header AND its trailing <style> and <script> blocks
+	// Pattern: <header...>...</header> optionally followed by <style>...</style> and/or <script>...</script>
+	// Also capture any SOURCE comments that precede the header
+	headerRe := regexp.MustCompile(`(?is)(?:<!--\s*HEADER\s+SOURCE:[^>]*-->\s*)*<header[^>]*>.*?</header>\s*(?:<style>.*?</style>\s*)?(?:<script>.*?</script>\s*)?`)
 	html = headerRe.ReplaceAllString(html, "<!-- HEADER_REPLACED -->")
 
 	// Insert after <body>
 	bodyRe := regexp.MustCompile(`(?i)(<body[^>]*>)`)
 	if bodyRe.MatchString(html) {
 		html = bodyRe.ReplaceAllString(html, "$1\n"+headerHTML)
-		html = strings.Replace(html, "<!-- HEADER_REPLACED -->", "", 1)
+		html = strings.Replace(html, "<!-- HEADER_REPLACED -->", "", -1) // Remove ALL placeholders
 	} else {
 		html = strings.Replace(html, "<!-- HEADER_REPLACED -->", headerHTML, 1)
 	}
@@ -1485,17 +1487,45 @@ func InjectFooter(ctx context.Context, db interface{}, html string, siteID uuid.
 		footerHTML = RenderFallbackFooter(renderCtx)
 	}
 
-	// Remove existing footer
-	footerRe := regexp.MustCompile(`(?is)<footer[^>]*>.*?</footer>`)
+	// Remove existing footer AND its trailing <style> block
+	// Pattern: <footer...>...</footer> optionally followed by <style>...</style>
+	// Also capture any SOURCE comments that precede the footer
+	footerRe := regexp.MustCompile(`(?is)(?:<!--\s*FOOTER\s+SOURCE:[^>]*-->\s*)*<footer[^>]*>.*?</footer>\s*(?:<style>.*?</style>\s*)?`)
 	html = footerRe.ReplaceAllString(html, "<!-- FOOTER_REPLACED -->")
+
+	// Also remove any orphaned footer styles that appear BEFORE a footer (from partial replacements)
+	// This handles the case where styles were separated from their footer tag
+	orphanedFooterStyleRe := regexp.MustCompile(`(?is)<style>\s*\.site-footer\s*\{.*?</style>\s*(?=<!--\s*FOOTER)`)
+	html = orphanedFooterStyleRe.ReplaceAllString(html, "")
 
 	// Insert before </body>
 	bodyCloseRe := regexp.MustCompile(`(?i)(</body>)`)
 	if bodyCloseRe.MatchString(html) {
 		html = bodyCloseRe.ReplaceAllString(html, footerHTML+"\n$1")
-		html = strings.Replace(html, "<!-- FOOTER_REPLACED -->", "", 1)
+		html = strings.Replace(html, "<!-- FOOTER_REPLACED -->", "", -1) // Remove ALL placeholders
 	} else {
 		html = strings.Replace(html, "<!-- FOOTER_REPLACED -->", footerHTML, 1)
+	}
+
+	// Clean up any content after </html> (malformed pages)
+	html = cleanContentAfterHTML(html)
+
+	return html
+}
+
+// cleanContentAfterHTML removes any content that appears after the closing </html> tag
+// This handles malformed pages where footer or other content was appended incorrectly
+func cleanContentAfterHTML(html string) string {
+	// Find the LAST </html> tag (in case there are duplicates)
+	htmlCloseRe := regexp.MustCompile(`(?i)</html>`)
+	matches := htmlCloseRe.FindAllStringIndex(html, -1)
+
+	if len(matches) > 0 {
+		// Keep only up to and including the FIRST </html>
+		firstClose := matches[0][1] // End of first </html>
+		if firstClose < len(html) {
+			html = html[:firstClose]
+		}
 	}
 
 	return html

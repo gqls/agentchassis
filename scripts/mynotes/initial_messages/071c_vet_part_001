@@ -1,0 +1,189 @@
+#!/bin/bash
+# =============================================
+# Trigger vet-practice-verifier for a single business
+# =============================================
+# For testing/debugging a single verification without the batch processor.
+# Usage: ./start_vet_single.sh <business_id>
+#
+# Get a business_id with:
+#   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+#     "SELECT id, name, postcode FROM business_intel.businesses WHERE verification_status = 'seed_import' LIMIT 5"
+
+BUSINESS_ID=${1:?"Usage: $0 <business_id>"}
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+ORCHESTRATION_NAME="vet-single-$(date +%Y%m%d-%H%M%S)"
+CLIENT_ID="vetcomparison"
+
+echo "========================================="
+echo "Starting Single Practice Verification"
+echo "========================================="
+echo "  Business ID:       $BUSINESS_ID"
+echo "  Correlation ID:    $CORRELATION_ID"
+echo "  Orchestration ID:  $ORCHESTRATION_ID"
+echo "  Time:              $TIMESTAMP"
+echo "========================================="
+echo ""
+echo "SAVE THESE IDs:"
+echo "  CORRELATION_ID=$CORRELATION_ID"
+echo "  ORCHESTRATION_ID=$ORCHESTRATION_ID"
+echo ""
+
+# Send orchestration start message
+kubectl -n kafka run -i --rm kcat-vet-single-$$ \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+    -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+    -t system.agent.generic.requests \
+    -H correlation_id=$CORRELATION_ID \
+    -H request_id=$REQUEST_ID \
+    -H message_id=$MESSAGE_ID \
+    -H orchestration_id=$ORCHESTRATION_ID \
+    -H orchestration_name=$ORCHESTRATION_NAME \
+    -H step_name=start \
+    -H client_id=$CLIENT_ID \
+    -H message_type=request \
+    -H action=orchestrate \
+    -H from_agent_type=user \
+    -H from_agent_id=cli \
+    -H responses_topic=system.generic.responses <<JSON
+{
+  "action": "orchestrate",
+  "config": {
+    "agent_type": "vet-practice-verifier"
+  },
+  "input_data": {
+    "business_id": "$BUSINESS_ID"
+  }
+}
+JSON
+
+echo ""
+echo "========================================="
+echo "Verifier started!"
+echo "========================================="
+echo ""
+echo "MONITORING:"
+echo ""
+echo "1. Watch logs:"
+echo "   kubectl logs -n ai-persona-system -l app=agent-chassis -f | grep '$CORRELATION_ID'"
+echo ""
+echo "2. Check orchestration status:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT status, current_step, error_message FROM orchestration_states WHERE orchestration_id = '$ORCHESTRATION_ID'\""
+echo ""
+echo "3. Check the business record after completion:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT name, postcode, verification_status, confidence_score, last_verified_at FROM business_intel.businesses WHERE id = '$BUSINESS_ID'\""
+echo ""
+echo "4. Check data observations:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT source_type, source_name, extraction_confidence, collected_at FROM business_intel.data_observations WHERE business_id = '$BUSINESS_ID' ORDER BY collected_at DESC LIMIT 5\""
+echo ""
+
+
+---
+multiple -batch
+
+#!/bin/bash
+# =============================================
+# Trigger vet-batch-processor
+# =============================================
+# Processes pending veterinary practice verification tasks from the queue.
+# The batch processor will:
+#   1. Claim up to N pending tasks from business_intel.collection_tasks
+#   2. Spawn a vet-practice-verifier agent
+#   3. Call the verifier for each business_id in sequence
+#   4. Each verifier: search → scrape → LLM extract → store results
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+ORCHESTRATION_NAME="vet-batch-$(date +%Y%m%d-%H%M%S)"
+CLIENT_ID="vetcomparison"
+
+# Batch config - adjust as needed
+BATCH_SIZE=${1:-5}              # First arg or default 5
+TASK_TYPE=${2:-initial_verification}
+VERTICAL_SLUG=${3:-veterinary}
+
+echo "========================================="
+echo "Starting Vet Batch Processor"
+echo "========================================="
+echo "  Correlation ID:    $CORRELATION_ID"
+echo "  Orchestration ID:  $ORCHESTRATION_ID"
+echo "  Message ID:        $MESSAGE_ID"
+echo "  Request ID:        $REQUEST_ID"
+echo "  Time:              $TIMESTAMP"
+echo "-----------------------------------------"
+echo "  Batch Size:        $BATCH_SIZE"
+echo "  Task Type:         $TASK_TYPE"
+echo "  Vertical:          $VERTICAL_SLUG"
+echo "========================================="
+echo ""
+echo "SAVE THESE IDs:"
+echo "  CORRELATION_ID=$CORRELATION_ID"
+echo "  ORCHESTRATION_ID=$ORCHESTRATION_ID"
+echo ""
+
+# Send orchestration start message
+kubectl -n kafka run -i --rm kcat-vet-batch-$$ \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+    -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+    -t system.agent.generic.requests \
+    -H correlation_id=$CORRELATION_ID \
+    -H request_id=$REQUEST_ID \
+    -H message_id=$MESSAGE_ID \
+    -H orchestration_id=$ORCHESTRATION_ID \
+    -H orchestration_name=$ORCHESTRATION_NAME \
+    -H step_name=start \
+    -H client_id=$CLIENT_ID \
+    -H message_type=request \
+    -H action=orchestrate \
+    -H from_agent_type=user \
+    -H from_agent_id=cli \
+    -H responses_topic=system.generic.responses <<JSON
+{
+  "action": "orchestrate",
+  "config": {
+    "agent_type": "vet-batch-processor"
+  },
+  "input_data": {
+    "batch_size": $BATCH_SIZE,
+    "task_type": "$TASK_TYPE",
+    "vertical_slug": "$VERTICAL_SLUG"
+  }
+}
+JSON
+
+echo ""
+echo "========================================="
+echo "Batch processor started!"
+echo "========================================="
+echo ""
+echo "MONITORING:"
+echo ""
+echo "1. Watch logs:"
+echo "   kubectl logs -n ai-persona-system -l app=agent-chassis -f | grep '$CORRELATION_ID'"
+echo ""
+echo "2. Check orchestration status:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT status, current_step, updated_at FROM orchestration_states WHERE orchestration_id = '$ORCHESTRATION_ID'\""
+echo ""
+echo "3. Check collection_tasks progress:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT status, COUNT(*) FROM business_intel.collection_tasks GROUP BY status\""
+echo ""
+echo "4. Check verified businesses:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT name, postcode, verification_status, last_verified_at FROM business_intel.businesses WHERE verification_status = 'verified' ORDER BY last_verified_at DESC LIMIT 10\""
+echo ""
