@@ -1495,8 +1495,8 @@ func InjectFooter(ctx context.Context, db interface{}, html string, siteID uuid.
 
 	// Also remove any orphaned footer styles that appear BEFORE a footer (from partial replacements)
 	// This handles the case where styles were separated from their footer tag
-	orphanedFooterStyleRe := regexp.MustCompile(`(?is)<style>\s*\.site-footer\s*\{.*?</style>\s*(?=<!--\s*FOOTER)`)
-	html = orphanedFooterStyleRe.ReplaceAllString(html, "")
+	orphanedFooterStyleRe := regexp.MustCompile(`(?is)<style>\s*\.site-footer\s*\{.*?</style>\s*(<!--\s*FOOTER)`)
+	html = orphanedFooterStyleRe.ReplaceAllString(html, "$1")
 
 	// Insert before </body>
 	bodyCloseRe := regexp.MustCompile(`(?i)(</body>)`)
