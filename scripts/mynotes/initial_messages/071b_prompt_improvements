@@ -188,7 +188,7 @@ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/k
 
 
 
-BROCHURE Site Start - START
+BROCHURE Site Start - START 0
 - 0 -
 
 # Generate unique IDs
@@ -290,9 +290,9 @@ CLIENT_ID="demo_client"
 
 -- 1 ----
 
-CORRELATION_ID=ab65aa47-3ed5-4ae6-8156-0f2e5118b30a
-ORCHESTRATION_ID=e5514f75-0cb7-4a36-a8b8-c1c62a49eb80
-HITL_REQUEST_ID=b68552c6-afeb-4e09-adb0-9e049d26bdaa
+CORRELATION_ID=212ee0a4-ced1-4c8c-bc98-0c07e5a8b584
+ORCHESTRATION_ID=cfd05372-600b-4eb0-b744-3e95966e0c23
+HITL_REQUEST_ID=f2dd8eb8-a702-4b63-8281-adbf66a4f521
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -381,9 +381,9 @@ CLIENT_ID="demo_client"
 
 --- 2 2 ---
 
-CORRELATION_ID=ab65aa47-3ed5-4ae6-8156-0f2e5118b30a
-ORCHESTRATION_ID=e5514f75-0cb7-4a36-a8b8-c1c62a49eb80
-HITL_REQUEST_ID=8a064107-0686-449c-a561-44e707a9efc4
+CORRELATION_ID=212ee0a4-ced1-4c8c-bc98-0c07e5a8b584
+ORCHESTRATION_ID=cfd05372-600b-4eb0-b744-3e95966e0c23
+HITL_REQUEST_ID=428344b1-2675-4049-ac77-1e1d6e93cc2c
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -540,10 +540,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=ab65aa47-3ed5-4ae6-8156-0f2e5118b30a
-ORCHESTRATION_ID=cda856bb-a4de-4ded-95b9-e0c8a5b53bfc
-HITL_REQUEST_ID=f54397f9-1c59-498a-b1c2-33fe71540ff5
-RESPONSES_TOPIC=job.ab65aa47-9da6e340-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=212ee0a4-ced1-4c8c-bc98-0c07e5a8b584
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+RESPONSES_TOPIC=
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
