@@ -1710,6 +1710,7 @@ func GetHeaderNavFromPages(ctx context.Context, db *sql.DB, siteID uuid.UUID, ma
 		WHERE site_id = $1 
 		  AND in_header = true
 		  AND status IN ('deployed', 'active')
+		  AND build_status = 'deployed'
 		  AND deleted_at IS NULL
 		ORDER BY nav_order ASC, created_at ASC
 		LIMIT $2
@@ -1764,6 +1765,7 @@ func GetFooterNavFromPages(ctx context.Context, db *sql.DB, siteID uuid.UUID, lo
 		WHERE site_id = $1 
 		  AND (in_footer = true OR LOWER(name) LIKE '%privacy%' OR LOWER(name) LIKE '%terms%')
 		  AND status IN ('deployed', 'active')
+		  AND build_status = 'deployed'
 		  AND deleted_at IS NULL
 		ORDER BY 
 			CASE WHEN LOWER(name) LIKE '%privacy%' OR LOWER(name) LIKE '%terms%' THEN 1 ELSE 0 END,

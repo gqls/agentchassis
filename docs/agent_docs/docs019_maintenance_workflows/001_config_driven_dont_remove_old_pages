@@ -1,0 +1,57 @@
+Here's the summary of where we are:
+
+---
+
+## Navigation / Page Sync Investigation - Status Summary
+
+### Problem
+Header and footer navigation display pages that don't exist (from previous builds) while hiding pages that do exist (e.g. faq.html deployed but missing from nav). On a **new build flow**, nav should exactly match the pages planned and built in the current run.
+
+### Root Cause
+Two issues compound:
+
+**1. Stale pages from previous builds persist in the `pages` table.**
+`SyncPagesToDBAction` (line ~25848) uses `ON CONFLICT (site_id, name)` — it only overwrites matching page names. Pages from a prior build (e.g. `use-cases`, `insights`, `careers`) remain with `in_header=true`, `status='active'` and appear in nav even though the current plan doesn't include them.
+
+**2. Nav queries don't filter on `build_status`.**
+Both `GetHeaderNavFromPages` (line ~37312) and `GetFooterNavFromPages` (line ~37370) filter on `status IN ('deployed', 'active')` but **not** on `build_status`. Since `SyncPagesToDBAction` sets `status='active'` at sync time, unbuilt pages (`build_status='planned'`) immediately appear in nav.
+
+### Fixes Identified (3 changes needed)
+
+**Fix 1 — `GetHeaderNavFromPages` query (line ~37323):**
+Add `AND build_status = 'deployed'` to the WHERE clause so only actually-deployed pages show in header nav.
+
+**Fix 2 — `GetFooterNavFromPages` query (line ~37377):**
+Same change — add `AND build_status = 'deployed'` to the WHERE clause. The footer query also includes legal pages via `LOWER(name) LIKE '%privacy%' OR LOWER(name) LIKE '%terms%'` — those should also require `build_status = 'deployed'`.
+
+**Fix 3 — `SyncPagesToDBAction` stale page deactivation (before line ~25900):**
+Before syncing the current plan's pages, deactivate pages from previous plans that aren't in the current plan. This should be scoped to **new build flows only** — when we later create maintenance or adopt-site flows, those should leave existing pages alone. The approach:
+
+```go
+// Collect current plan's page names
+// Then: UPDATE pages SET in_header = false, in_footer = false, updated_at = NOW()
+//       WHERE site_id = $1 AND name != ALL($2) AND deleted_at IS NULL
+```
+
+This uses `pq.Array(pageNames)` for `*sql.DB` or raw slice for `*pgxpool.Pool` (both DB types are handled via type switch throughout the codebase).
+
+### Key Design Decision
+- **New build flow**: deactivate stale pages (Fix 3 applies)
+- **Future maintenance/adopt-site flows**: should NOT deactivate stale pages — they're intentionally preserving existing content
+
+This could be config-driven (e.g. a `deactivate_stale_pages: true` flag in the workflow step config), but for now the new build path is the only active flow, so hardcoding the deactivation there is fine.
+
+### Code Locations (in `production_agent-chassis-full_context.txt`)
+- `GetHeaderNavFromPages`: line ~37312, query at ~37323
+- `GetFooterNavFromPages`: line ~37370, query at ~37377
+- `SyncPagesToDBAction`: line ~25848
+- `upsertPage`: line ~26535 (sets `in_header` default true at ~26551)
+- `GetPagesToBuildAction`: line ~33090
+- `buildNavigationFromPages` (in-memory fallback): line ~26743 — this one is fine, it only uses current plan pages
+
+### Prior Fix (Deployed Successfully)
+Three regex bugs in `InjectHead`, `rerenderStripWrapper`, and `cleanHTMLStructure` were fixed — they were matching `<head` when they should have matched `<header>` (or vice versa). After that fix, the header nav renders correctly on index.html — the remaining issue is just **which pages** appear in nav, which is what the 3 fixes above address.
+
+---
+
+That should give you enough context to pick up directly in a new chat.
