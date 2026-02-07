@@ -2,6 +2,7 @@
 package actions
 
 import (
+	"github.com/gqls/agentchassis/platform/orchestration/actioncheck"
 	"go.uber.org/zap"
 )
 
@@ -783,6 +784,12 @@ func GetActionDefinition(action string) (ActionDefinition, bool) {
 func IsLocalAction(action string) bool {
 	def, exists := GlobalActionRegistry[action]
 	return exists && def.IsLocal
+}
+
+// RegisterLocalActionChecker sets the function used to check if an action is local.
+func init() {
+	// Register the local action checker so other packages can check without importing actions
+	actioncheck.RegisterLocalActionChecker(IsLocalAction)
 }
 
 // ListActions returns all available non-deprecated action names.

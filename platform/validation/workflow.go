@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/actioncheck"
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
-	"github.com/gqls/agentchassis/platform/orchestration/actions_list"
 	"go.uber.org/zap"
 )
 
@@ -67,7 +67,7 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 	}
 
 	// Use the global registry to check if it's a local action
-	isLocal := actions.IsLocalAction(step.Action)
+	isLocal := actioncheck.IsLocalAction(step.Action)
 
 	v.logger.Info("Validating step, workflow.go",
 		zap.String("step", name),
@@ -117,7 +117,7 @@ func (v *WorkflowValidator) IsLocalAction(action string) bool {
 		zap.Any("action", action),
 	)
 
-	return actions.IsLocalAction(action)
+	return actioncheck.IsLocalAction(action)
 }
 
 // RequiresTopic checks if action needs a Kafka topic
@@ -127,7 +127,7 @@ func (v *WorkflowValidator) RequiresTopic(action string) bool {
 		zap.Any("action", action),
 	)
 
-	return actions.IsLocalAction(action)
+	return actioncheck.IsLocalAction(action)
 }
 
 // validateDependencies ensures all dependencies exist

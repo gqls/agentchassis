@@ -1,8 +1,9 @@
 // FILE: platform/orchestration/actions_list/local_actions.go
 // A simple package with no dependencies
-package actions_list
+package actioncheck
 
 // also update registry with new actions
+// DEPRICATED
 
 // LocalActions is just a list of action names that are executed locally
 var LocalActions = map[string]bool{
@@ -181,6 +182,7 @@ var LocalActions = map[string]bool{
 }
 
 // IsLocalAction checks if an action is local (no dependencies)
-func IsLocalAction(action string) bool {
+/*func IsLocalAction(action string) bool {
 	return LocalActions[action]
 }
+*/

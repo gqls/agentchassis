@@ -19,6 +19,7 @@ import (
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/governance"
 	"github.com/gqls/agentchassis/platform/kafka"
+	"github.com/gqls/agentchassis/platform/orchestration/actioncheck"
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
@@ -3328,7 +3329,7 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 }
 
 func isLocalAction(action string) bool {
-	return actions.IsLocalAction(action)
+	return actioncheck.IsLocalAction(action)
 }
 
 func getTargetAgentType(step models.Step, result map[string]interface{}) string {
