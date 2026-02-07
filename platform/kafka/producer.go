@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/gqls/agentchassis/platform/validation"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
@@ -19,14 +18,26 @@ type Producer interface {
 	Close() error
 }
 
-// KafkaProducer wraps the kafka-go writer for standardized message production
-type KafkaProducer struct {
-	writer *kafka.Writer
-	logger *zap.Logger
+// MessageValidator interface for outgoing message validation.
+// Implemented by validation.Validator - injected to avoid cyclic import.
+type MessageValidator interface {
+	ValidateOutgoingMessage(headers map[string]string) bool
 }
 
-// NewProducer creates a new standardized Kafka producer
+// KafkaProducer wraps the kafka-go writer for standardized message production
+type KafkaProducer struct {
+	writer    *kafka.Writer
+	logger    *zap.Logger
+	validator MessageValidator // injected, can be nil
+}
+
+// NewProducer creates a new standardized Kafka producer without validation
 func NewProducer(brokers []string, logger *zap.Logger) (Producer, error) {
+	return NewProducerWithValidator(brokers, logger, nil)
+}
+
+// NewProducerWithValidator creates a new Kafka producer with an injected validator.
+func NewProducerWithValidator(brokers []string, logger *zap.Logger, validator MessageValidator) (Producer, error) {
 	if len(brokers) == 0 {
 		return nil, fmt.Errorf("kafka brokers list cannot be empty")
 	}
@@ -42,9 +53,16 @@ func NewProducer(brokers []string, logger *zap.Logger) (Producer, error) {
 	logger.Info("Kafka producer created", zap.Strings("brokers", brokers))
 
 	return &KafkaProducer{
-		writer: writer,
-		logger: logger,
+		writer:    writer,
+		logger:    logger,
+		validator: validator,
 	}, nil
+}
+
+// SetValidator allows setting the validator after construction.
+// Useful when the validator can't be provided at construction time.
+func (p *KafkaProducer) SetValidator(v MessageValidator) {
+	p.validator = v
 }
 
 // Produce sends a message to a specific topic with standard headers
@@ -84,11 +102,14 @@ func (p *KafkaProducer) Produce(ctx context.Context, send_to_topic string, heade
 	return nil
 }
 
-// ProduceWithValidation validates using the validation package before sending
+// ProduceWithValidation validates using the injected validator before sending
 func (p *KafkaProducer) ProduceWithValidation(ctx context.Context, topic string, headers map[string]string, key, value []byte) error {
-	// Use the existing ValidateOutgoingMessage from validation package
-	validator := validation.NewValidator(p.logger)
-	if !validator.ValidateOutgoingMessage(headers) {
+	// If no validator injected, just produce without validation
+	if p.validator == nil {
+		return p.Produce(ctx, topic, headers, key, value)
+	}
+
+	if !p.validator.ValidateOutgoingMessage(headers) {
 		// Check if it's an error message - those we always send
 		if headers["is_error"] == "true" {
 			p.logger.Warn("Error message failed validation but sending anyway",

@@ -255,15 +255,15 @@ func (a *Agent) initializeComponents() error {
 		a.stateRepo = orchestration.NewStateRepository(db, a.logger)
 	}
 
-	// Create Kafka producer
-	producer, err := kafka.NewProducer(a.config.KafkaBrokers, a.logger)
+	// Create validator
+	a.validator = validation.NewValidator(a.logger)
+
+	// Create Kafka producer with validator injected
+	producer, err := kafka.NewProducerWithValidator(a.config.KafkaBrokers, a.logger, a.validator)
 	if err != nil {
 		return fmt.Errorf("failed to create Kafka producer: %w", err)
 	}
 	a.producer = producer
-
-	// Create validator
-	a.validator = validation.NewValidator(a.logger)
 
 	// Initialize storage client for image operations (optional - may not be configured)
 	// This follows the same pattern as the image adapter
