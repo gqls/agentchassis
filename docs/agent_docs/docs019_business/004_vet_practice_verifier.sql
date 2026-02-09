@@ -121,3 +121,60 @@ INSERT INTO agent_definitions (
     domain_tags = EXCLUDED.domain_tags,
     status = EXCLUDED.status,
     updated_at = NOW();
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,search_practice}',
+        '{
+            "action": "web_search",
+            "input_map": {
+                "query": "{{.business_record.business.name}} {{.business_record.business.postcode}} veterinary practice"
+            },
+            "config": {
+                "num_results": 5
+            },
+            "next_step": "scrape_website",
+            "description": "Search for the practice website and online presence",
+            "output_field": "search_results"
+        }'::jsonb
+                    )
+WHERE type = 'vet-practice-verifier';
+
+-- fix the above which is no longer needed
+-- Fix vet-practice-verifier: search_practice step
+--
+-- Problem: The step used "input_map" at the step level, which is not recognized
+-- by the chassis. The web_search action's extractSearchQuery function looks for
+-- query in config (literal), query_from (path), query_template (Go template), etc.
+--
+-- Fix: Move the template into config as "query_template" so the web_search action
+-- can resolve it against collected data.
+--
+-- NOTE: This requires the corresponding Go code change that adds query_template
+-- support to extractSearchQuery in web_search_action.go
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,search_practice}',
+        '{
+            "action": "web_search",
+            "config": {
+                "num_results": 5,
+                "query_template": "{{.business_record.business.name}} {{.business_record.business.postcode}} veterinary practice"
+            },
+            "next_step": "scrape_website",
+            "description": "Search for the practice website and online presence",
+            "output_field": "search_results"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- Verify the change
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'search_practice' as search_practice_step
+FROM agent_definitions
+WHERE type = 'vet-practice-verifier';

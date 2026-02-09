@@ -668,6 +668,9 @@ kubectl -n ai-persona-system logs --tail=300 -l agent-type=site-classifier -f | 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=briefing-agent  -f | tee logs-briefing-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l app=git-adapter -f | tee logs-git-adapter.json
 
+make build-backend push-backend deploy-core deploy-agents redeploy-agents ENVIRONMENT=production REGION=uk001
+
+
 
 =======================================================================================================
 =======================================================================================================
@@ -956,3 +959,7 @@ kcat -P \
 -H timestamp=$TIMESTAMP <<JSON
 {"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rerender","steps":{"spawn_rerender":{"action":"spawn_agent","config":{"role":"rerenderer","agent_type":"rerender-pages"},"output_field":"rerender_agent","next_step":"call_rerender"},"call_rerender":{"action":"call_agent","config":{"agent_type":"rerender-pages","target_role":"rerenderer","input_mapping":{"site_id":"input_data.site_id","domain":"input_data.domain","refresh_site_components":"input_data.refresh_site_components"},"timeout_seconds":1800},"output_field":"rerender_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["rerender_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}","refresh_site_components":true}}
 JSON
+
+
+
+

@@ -4,11 +4,13 @@
 package actions
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/google/uuid"
@@ -232,6 +234,41 @@ func extractSearchQuery(params ActionParams, config map[string]interface{}) stri
 	if t, ok := config["topic"].(string); ok && t != "" {
 		params.Logger.Debug("Using topic as query from config", zap.String("query", t))
 		return t
+	}
+
+	// Priority 2.5: query_template - resolve Go template against collected data
+	// Handles workflow configs like:
+	//   "query_template": "{{.business_record.business.name}} {{.business_record.business.postcode}} veterinary practice"
+	if qt, ok := config["query_template"].(string); ok && qt != "" {
+		tmpl, err := template.New("query").Parse(qt)
+		if err != nil {
+			params.Logger.Warn("Failed to parse query_template",
+				zap.String("template", qt),
+				zap.Error(err),
+			)
+		} else {
+			var buf bytes.Buffer
+			if err := tmpl.Execute(&buf, params.CollectedData); err != nil {
+				params.Logger.Warn("Failed to execute query_template",
+					zap.String("template", qt),
+					zap.Error(err),
+					zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)),
+				)
+			} else {
+				resolved := strings.TrimSpace(buf.String())
+				if resolved != "" && !strings.Contains(resolved, "<no value>") {
+					params.Logger.Info("Using query from query_template",
+						zap.String("template", qt),
+						zap.String("resolved_query", resolved),
+					)
+					return resolved
+				}
+				params.Logger.Warn("query_template resolved to empty or contained <no value>",
+					zap.String("template", qt),
+					zap.String("resolved", resolved),
+				)
+			}
+		}
 	}
 
 	// Priority 3: Extract from collected data using query_from path

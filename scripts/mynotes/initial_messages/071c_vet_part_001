@@ -9,7 +9,10 @@
 #   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \
 #     "SELECT id, name, postcode FROM business_intel.businesses WHERE verification_status = 'seed_import' LIMIT 5"
 
+# 902e7514-6517-5a23-a2a2-44b5e5716efa
+
 BUSINESS_ID=${1:?"Usage: $0 <business_id>"}
+---- v -----
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -18,6 +21,8 @@ REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 ORCHESTRATION_NAME="vet-single-$(date +%Y%m%d-%H%M%S)"
 CLIENT_ID="vetcomparison"
+
+BUSINESS_ID='902e7514-6517-5a23-a2a2-44b5e5716efa'
 
 echo "========================================="
 echo "Starting Single Practice Verification"
