@@ -14,6 +14,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -198,6 +199,15 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 		updatedFields += n
 	}
 
+	// 1b. Store individual contact details
+	contactsStored := 0
+	if bizData, ok := verResult["business"].(map[string]interface{}); ok {
+		contactsStored = storeContactDetails(ctx, tx, businessID, bizData,
+			params.ExecutionContext.OrchestrationID, params.Logger)
+		params.Logger.Info("StoreBusinessVerificationAction: Stored contacts",
+			zap.Int("contacts_stored", contactsStored))
+	}
+
 	// Update verification status and confidence
 	confidenceScore := 0.0
 	if cs, ok := verResult["confidence_score"].(float64); ok {
@@ -294,12 +304,13 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 	}
 
 	result := map[string]interface{}{
-		"stored":         true,
-		"business_id":    businessID,
-		"updated_fields": updatedFields,
-		"vet_updated":    vetUpdated,
-		"prices_stored":  pricesStored,
-		"stored_at":      time.Now().UTC().Format(time.RFC3339),
+		"stored":          true,
+		"business_id":     businessID,
+		"updated_fields":  updatedFields,
+		"vet_updated":     vetUpdated,
+		"prices_stored":   pricesStored,
+		"contacts_stored": contactsStored,
+		"stored_at":       time.Now().UTC().Format(time.RFC3339),
 	}
 
 	params.Logger.Info("StoreBusinessVerificationAction: Stored",
@@ -677,8 +688,75 @@ func loadCurrentPrices(ctx context.Context, db *sql.DB, businessID string) ([]ma
 	return prices, nil
 }
 
+// Problem: LLM can return arrays for text fields (e.g. phone: ["028 9047 1361", "028 9065 1729"]),
+// numbers as strings, booleans for text fields, etc. The pg driver can't encode []interface{}
+// into a text column.
+//
+// Fix: Add coerceToString helper and use it for all text fields in the allowed list.
+// Numeric fields (latitude, longitude) get coerced to float64.
+
+// coerceToString converts an interface{} value to a string suitable for a TEXT column.
+// Handles: string (passthrough), []interface{} (join with ", "), []string (join),
+// float64/int (fmt), bool (fmt), nil (returns nil to skip).
+func coerceToString(val interface{}) interface{} {
+	if val == nil {
+		return nil
+	}
+	switch v := val.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		return v
+	case []interface{}:
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				return s
+			}
+		}
+		return nil
+	case []string:
+		if len(v) == 0 {
+			return nil
+		}
+		return v[0]
+	case float64:
+		return fmt.Sprintf("%g", v)
+	case int:
+		return fmt.Sprintf("%d", v)
+	case bool:
+		return fmt.Sprintf("%t", v)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// ============================================================================
+// Helper: coerceToFloat64
+// ============================================================================
+func coerceToFloat64(val interface{}) interface{} {
+	if val == nil {
+		return nil
+	}
+	switch v := val.(type) {
+	case float64:
+		return v
+	case int:
+		return float64(v)
+	case string:
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
+		}
+		return nil
+	default:
+		return nil
+	}
+}
+
+// ============================================================================
+// Replace existing updateBusinessFields
+// ============================================================================
 func updateBusinessFields(ctx context.Context, tx *sql.Tx, businessID string, data map[string]interface{}) (int, error) {
-	// Only update known safe columns
 	allowedFields := map[string]string{
 		"name":          "name",
 		"trading_name":  "trading_name",
@@ -696,16 +774,35 @@ func updateBusinessFields(ctx context.Context, tx *sql.Tx, businessID string, da
 		"longitude":     "longitude",
 	}
 
+	numericFields := map[string]bool{
+		"latitude":  true,
+		"longitude": true,
+	}
+
 	setClauses := []string{}
 	args := []interface{}{}
 	argIdx := 1
 
 	for jsonField, dbCol := range allowedFields {
-		if val, ok := data[jsonField]; ok && val != nil {
-			setClauses = append(setClauses, fmt.Sprintf("%s = $%d", dbCol, argIdx))
-			args = append(args, val)
-			argIdx++
+		rawVal, ok := data[jsonField]
+		if !ok || rawVal == nil {
+			continue
 		}
+
+		var coerced interface{}
+		if numericFields[jsonField] {
+			coerced = coerceToFloat64(rawVal)
+		} else {
+			coerced = coerceToString(rawVal)
+		}
+
+		if coerced == nil {
+			continue
+		}
+
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", dbCol, argIdx))
+		args = append(args, coerced)
+		argIdx++
 	}
 
 	if len(setClauses) == 0 {
@@ -723,6 +820,91 @@ func updateBusinessFields(ctx context.Context, tx *sql.Tx, businessID string, da
 	}
 
 	return len(setClauses) - 1, nil // -1 for updated_at
+}
+
+// ============================================================================
+// New: storeContactDetails
+// ============================================================================
+// Extracts phone numbers, emails, and other contact info from the LLM result
+// and stores each individually in business_contact_details.
+// Uses ON CONFLICT to upsert existing entries.
+func storeContactDetails(ctx context.Context, tx *sql.Tx, businessID string,
+	bizData map[string]interface{}, orchestrationID string, logger *zap.Logger) int {
+
+	stored := 0
+	primaryByType := map[string]bool{} // track which types already have a primary
+
+	insertContact := func(contactType, label, value, source string) {
+		if value == "" {
+			return
+		}
+		isPrimary := !primaryByType[contactType]
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO business_intel.business_contact_details 
+				(business_id, contact_type, label, value, source, orchestration_id, is_primary, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+			ON CONFLICT (business_id, contact_type, value) 
+			DO UPDATE SET 
+				label = COALESCE(NULLIF(EXCLUDED.label, ''), business_intel.business_contact_details.label),
+				source = EXCLUDED.source,
+				orchestration_id = EXCLUDED.orchestration_id,
+				updated_at = NOW()`,
+			businessID, contactType, label, value, source, orchestrationID, isPrimary,
+		)
+		if err != nil {
+			logger.Warn("storeContactDetails: failed to insert",
+				zap.String("type", contactType),
+				zap.String("value", value),
+				zap.Error(err))
+			return
+		}
+		primaryByType[contactType] = true
+		stored++
+	}
+
+	// Helper to extract string or string array values
+	extractAndStore := func(field interface{}, contactType string) {
+		if field == nil {
+			return
+		}
+		switch v := field.(type) {
+		case string:
+			if v != "" {
+				insertContact(contactType, "main", v, "llm_extraction")
+			}
+		case []interface{}:
+			for i, item := range v {
+				if s, ok := item.(string); ok && s != "" {
+					label := "main"
+					if i > 0 {
+						label = fmt.Sprintf("additional_%d", i)
+					}
+					insertContact(contactType, label, s, "llm_extraction")
+				}
+			}
+		case []string:
+			for i, s := range v {
+				if s != "" {
+					label := "main"
+					if i > 0 {
+						label = fmt.Sprintf("additional_%d", i)
+					}
+					insertContact(contactType, label, s, "llm_extraction")
+				}
+			}
+		}
+	}
+
+	extractAndStore(bizData["phone"], "phone")
+	extractAndStore(bizData["email"], "email")
+	extractAndStore(bizData["fax"], "fax")
+
+	// Website as a contact entry too
+	if ws, ok := bizData["website_url"].(string); ok && ws != "" {
+		insertContact("website", "main", ws, "llm_extraction")
+	}
+
+	return stored
 }
 
 func upsertVetDetails(ctx context.Context, tx *sql.Tx, businessID string, data map[string]interface{}) error {
