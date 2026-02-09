@@ -208,6 +208,11 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 			zap.Int("contacts_stored", contactsStored))
 	}
 
+	// 1c. Confirm/miss existing contacts based on this extraction
+	if bizData, ok := verResult["business"].(map[string]interface{}); ok {
+		confirmContacts(ctx, tx, businessID, bizData, params.Logger)
+	}
+
 	// Update verification status and confidence
 	confidenceScore := 0.0
 	if cs, ok := verResult["confidence_score"].(float64); ok {
@@ -288,6 +293,15 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 		return nil, fmt.Errorf("failed to insert data observation: %w", err)
 	}
 
+	// 4b. Cache search results for discovery mining
+	cacheSearchResults(ctx, tx, businessID, params.CollectedData,
+		params.ExecutionContext.OrchestrationID, params.Logger)
+
+	// 4c. Bump verification count
+	if err := bumpVerificationCount(ctx, tx, businessID); err != nil {
+		params.Logger.Warn("Failed to bump verification count", zap.Error(err))
+	}
+
 	// 5. Update collection task if orchestration_id is known
 	_, _ = tx.ExecContext(ctx, `
 		UPDATE business_intel.collection_tasks 
@@ -310,6 +324,7 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 		"vet_updated":     vetUpdated,
 		"prices_stored":   pricesStored,
 		"contacts_stored": contactsStored,
+		"search_cached":   true,
 		"stored_at":       time.Now().UTC().Format(time.RFC3339),
 	}
 
@@ -841,13 +856,18 @@ func storeContactDetails(ctx context.Context, tx *sql.Tx, businessID string,
 		isPrimary := !primaryByType[contactType]
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO business_intel.business_contact_details 
-				(business_id, contact_type, label, value, source, orchestration_id, is_primary, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+				(business_id, contact_type, label, value, source, orchestration_id, 
+				 is_primary, first_seen_at, last_confirmed_at, check_count, missed_count, is_stale, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), 1, 0, FALSE, NOW())
 			ON CONFLICT (business_id, contact_type, value) 
 			DO UPDATE SET 
 				label = COALESCE(NULLIF(EXCLUDED.label, ''), business_intel.business_contact_details.label),
 				source = EXCLUDED.source,
 				orchestration_id = EXCLUDED.orchestration_id,
+				last_confirmed_at = NOW(),
+				check_count = business_intel.business_contact_details.check_count + 1,
+				missed_count = 0,
+				is_stale = FALSE,
 				updated_at = NOW()`,
 			businessID, contactType, label, value, source, orchestrationID, isPrimary,
 		)
@@ -986,6 +1006,182 @@ func insertPrice(ctx context.Context, tx *sql.Tx, businessID string, price map[s
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)`,
 		businessID, category, name, priceGBP, qualifier, inclVAT, src, url,
 	)
+	return err
+}
+
+// ============================================================================
+// 1. cacheSearchResults - stores raw search results for later discovery mining
+// ============================================================================
+func cacheSearchResults(ctx context.Context, tx *sql.Tx, businessID string,
+	collectedData map[string]interface{}, orchestrationID string, logger *zap.Logger) {
+
+	// Try multiple paths for search results
+	var results []interface{}
+	var query, provider string
+
+	// Check search_results.response or search_practice.response
+	for _, key := range []string{"search_results", "search_practice"} {
+		stepData, ok := collectedData[key].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		resp, ok := stepData["response"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if r, ok := resp["results"].([]interface{}); ok && len(r) > 0 {
+			results = r
+			query, _ = resp["query"].(string)
+			provider, _ = resp["provider"].(string)
+			break
+		}
+	}
+
+	if len(results) == 0 {
+		logger.Debug("cacheSearchResults: no search results to cache")
+		return
+	}
+
+	resultsJSON, err := json.Marshal(results)
+	if err != nil {
+		logger.Warn("cacheSearchResults: failed to marshal results", zap.Error(err))
+		return
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO business_intel.search_result_cache 
+			(business_id, query, results_json, provider, result_count, orchestration_id)
+		VALUES ($1, $2, $3, $4, $5, $6)`,
+		businessID, query, resultsJSON, provider, len(results), orchestrationID,
+	)
+	if err != nil {
+		logger.Warn("cacheSearchResults: failed to insert", zap.Error(err))
+	} else {
+		logger.Info("cacheSearchResults: cached search results",
+			zap.String("business_id", businessID),
+			zap.String("query", query),
+			zap.Int("result_count", len(results)))
+	}
+}
+
+// ============================================================================
+//  2. confirmContacts - bumps last_confirmed_at for contacts found in this run,
+//     increments missed_count for contacts NOT found, marks stale after 3 misses
+//
+// ============================================================================
+func confirmContacts(ctx context.Context, tx *sql.Tx, businessID string,
+	bizData map[string]interface{}, logger *zap.Logger) {
+
+	// Collect all contact values found in this extraction
+	foundContacts := map[string]map[string]bool{} // contact_type -> set of values
+
+	collectValues := func(field interface{}, contactType string) {
+		if field == nil {
+			return
+		}
+		if foundContacts[contactType] == nil {
+			foundContacts[contactType] = map[string]bool{}
+		}
+		switch v := field.(type) {
+		case string:
+			if v != "" {
+				foundContacts[contactType][v] = true
+			}
+		case []interface{}:
+			for _, item := range v {
+				if s, ok := item.(string); ok && s != "" {
+					foundContacts[contactType][s] = true
+				}
+			}
+		case []string:
+			for _, s := range v {
+				if s != "" {
+					foundContacts[contactType][s] = true
+				}
+			}
+		}
+	}
+
+	collectValues(bizData["phone"], "phone")
+	collectValues(bizData["email"], "email")
+	collectValues(bizData["fax"], "fax")
+
+	// For each contact type we searched for, bump confirmed or increment missed
+	for _, contactType := range []string{"phone", "email", "fax"} {
+		found := foundContacts[contactType]
+		if found == nil {
+			// We didn't extract this type at all this run — don't penalise.
+			// Only penalise if we actively looked and didn't find it.
+			// We know we looked if the extraction had the field (even if empty array).
+			_, fieldPresent := bizData[contactType]
+			if !fieldPresent {
+				continue
+			}
+			found = map[string]bool{} // empty — everything is missed
+		}
+
+		// Load existing contacts for this business + type
+		rows, err := tx.QueryContext(ctx, `
+			SELECT id, value FROM business_intel.business_contact_details 
+			WHERE business_id = $1 AND contact_type = $2`,
+			businessID, contactType,
+		)
+		if err != nil {
+			logger.Warn("confirmContacts: failed to query existing", zap.Error(err))
+			continue
+		}
+
+		type existingContact struct {
+			id, value string
+		}
+		var existing []existingContact
+		for rows.Next() {
+			var c existingContact
+			if err := rows.Scan(&c.id, &c.value); err == nil {
+				existing = append(existing, c)
+			}
+		}
+		rows.Close()
+
+		for _, c := range existing {
+			if found[c.value] {
+				// Confirmed — bump timestamps and reset missed count
+				_, err := tx.ExecContext(ctx, `
+					UPDATE business_intel.business_contact_details 
+					SET last_confirmed_at = NOW(), 
+					    check_count = check_count + 1,
+					    missed_count = 0,
+					    is_stale = FALSE,
+					    updated_at = NOW()
+					WHERE id = $1`, c.id)
+				if err != nil {
+					logger.Warn("confirmContacts: failed to confirm", zap.String("id", c.id), zap.Error(err))
+				}
+			} else {
+				// Not found this run — increment missed_count, mark stale if >= 3
+				_, err := tx.ExecContext(ctx, `
+					UPDATE business_intel.business_contact_details 
+					SET missed_count = missed_count + 1,
+					    is_stale = (missed_count + 1 >= 3),
+					    updated_at = NOW()
+					WHERE id = $1`, c.id)
+				if err != nil {
+					logger.Warn("confirmContacts: failed to increment missed", zap.String("id", c.id), zap.Error(err))
+				}
+			}
+		}
+	}
+}
+
+// ============================================================================
+// 3. bumpVerificationCount - increments the business verification counter
+// ============================================================================
+func bumpVerificationCount(ctx context.Context, tx *sql.Tx, businessID string) error {
+	_, err := tx.ExecContext(ctx, `
+		UPDATE business_intel.businesses 
+		SET verification_count = COALESCE(verification_count, 0) + 1,
+		    first_verified_at = COALESCE(first_verified_at, NOW())
+		WHERE id = $1`, businessID)
 	return err
 }
 
