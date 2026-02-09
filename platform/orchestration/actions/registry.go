@@ -240,6 +240,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Format scraped content for use in research context",
 		IsLocal:     true,
 	},
+	"prepare_extraction_context": {
+		Handler:     PrepareExtractionContextAction,
+		Category:    "web",
+		Description: "Format scraped content for use in vet verifier",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// LLM — prompt execution

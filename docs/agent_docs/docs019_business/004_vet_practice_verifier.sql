@@ -398,3 +398,133 @@ SELECT
     ) as prompt_preview
 FROM agent_definitions
 WHERE type = 'vet-practice-verifier';
+
+--
+
+-- add step to fix content for llm call after search
+
+-- Add prepare_context step to vet-practice-verifier workflow
+-- and update prompt template to reference the formatted output.
+--
+-- New step sits between scrape_website and extract_and_reconcile:
+--   load_business -> search_practice -> scrape_website -> prepare_context -> extract_and_reconcile -> store_results -> complete
+--
+-- Changes:
+--   1. scrape_website.next_step: "extract_and_reconcile" -> "prepare_context"
+--   2. New step: prepare_context (action: prepare_extraction_context)
+--   3. extract_and_reconcile prompt: uses extraction_context.* instead of raw paths
+
+-- Step 1: Change scrape_website.next_step to point to prepare_context
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,scrape_website,next_step}',
+        '"prepare_context"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- Step 2: Add the prepare_context step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,prepare_context}',
+        '{
+            "action": "prepare_extraction_context",
+            "description": "Format search results and scraped content for LLM extraction",
+            "next_step": "extract_and_reconcile",
+            "output_field": "extraction_context",
+            "config": {
+                "search_field": "search_results",
+                "scrape_field": "scraped_data",
+                "max_content_length": 8000,
+                "max_snippets": 10
+            }
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- Step 3: Update extract_and_reconcile input_fields to include extraction_context
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,extract_and_reconcile,config,input_fields}',
+        '["business_record", "extraction_context"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- Step 4: Update prompt template to use extraction_context fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,extract_and_reconcile,config,prompt_template}',
+        to_jsonb(
+                'You are a data extraction specialist for UK veterinary practices.
+
+        CURRENT RECORD:
+        Name: {{.business_record.business.name}}
+        Postcode: {{.business_record.business.postcode}}
+        Town: {{.business_record.business.town}}
+        Website: {{.business_record.business.website_url}}
+        Group: {{.business_record.business.group_name}}
+
+        SCRAPED WEBSITE CONTENT:
+        {{.extraction_context.website_content}}
+
+        SEARCH RESULTS:
+        {{.extraction_context.search_summary}}
+
+        Extract and return a JSON object with these sections:
+
+        1. business - updated/confirmed fields:
+           - name, address_line1, address_line2, town, county, postcode
+           - phone, email, website_url
+           - group_name, business_type
+
+        2. vet_details - practice-specific:
+           - species_treated (array of strings)
+           - emergency_service (boolean)
+           - out_of_hours_provider (string or null)
+           - accepting_new_clients (boolean or null if unknown)
+           - accreditations (array)
+           - num_vets, num_nurses (integers or null)
+           - head_vet_name (string or null)
+           - has_own_lab, has_imaging, has_surgical_suite (booleans or null)
+           - parking_available, wheelchair_accessible (booleans or null)
+
+        3. prices - array of objects, each with:
+           - service_category: one of consultation, vaccination, surgery, prescription, dental, diagnostic, other
+           - service_name: the specific service
+           - price_gbp: numeric price
+           - price_qualifier: fixed, from, or approximately
+
+        4. confidence_score - 0.0 to 1.0, how confident you are in the data quality
+        5. extraction_notes - brief notes on data quality, conflicts, missing data
+
+        Only include fields where you have actual data. Use null for unknown values. Do not invent or estimate prices.'::text
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- Verify the workflow flow
+SELECT
+    step_name,
+    step_data->>'action' as action,
+    step_data->>'next_step' as next_step,
+    step_data->>'output_field' as output_field
+FROM agent_definitions,
+    jsonb_each(default_config->'workflow'->'steps') AS steps(step_name, step_data)
+WHERE type = 'vet-practice-verifier'
+ORDER BY
+    CASE step_name
+    WHEN 'load_business' THEN 1
+    WHEN 'search_practice' THEN 2
+    WHEN 'scrape_website' THEN 3
+    WHEN 'prepare_context' THEN 4
+    WHEN 'extract_and_reconcile' THEN 5
+    WHEN 'store_results' THEN 6
+    WHEN 'complete' THEN 7
+END;
