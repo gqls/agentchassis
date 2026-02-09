@@ -497,17 +497,60 @@ func (a *Adapter) performSearchWithFallback(query string, numResults int, prefer
 	return nil, "", fallbacks, fmt.Errorf("all %d providers failed after retries", len(a.providers))
 }
 
+// Problem: sendResponse sends a flat JSON payload:
+//   {"success": true, "results": [...], "query": "...", "total": 5}
+//
+// But the chassis deserializes into types.ResponseMessage which expects:
+//   {"headers": {...}, "body": {"success": true, "body": <data>, "error": null}}
+//
+// The webscrape adapter already uses this envelope format (sendSuccessResponse at line 3656).
+// The web search adapter needs to match it.
 // sendResponse sends a successful response to the caller's topic
 func (a *Adapter) sendResponse(headers map[string]string, payload ResponsePayload) {
-	// Flatten the response - put results at top level for easier access
-	responseBytes, _ := json.Marshal(map[string]interface{}{
-		"success":   true,
-		"results":   payload.Results, // results array at top level
+	// Build the actual result data
+	resultData := map[string]interface{}{
+		"results":   payload.Results,
 		"query":     payload.Query,
 		"total":     payload.Total,
 		"provider":  payload.Provider,
 		"fallbacks": payload.Fallbacks,
-	})
+	}
+
+	// Wrap in the envelope format that the chassis expects (types.ResponseMessage)
+	response := map[string]interface{}{
+		"headers": map[string]interface{}{
+			"correlation_id":            headers["correlation_id"],
+			"orchestration_id":          headers["orchestration_id"],
+			"in_response_to_request_id": headers["request_id"],
+			"in_response_to_step_name":  headers["step_name"],
+			"in_response_to_step_id":    headers["step_id"],
+			"status":                    "complete",
+			"request_id":                headers["request_id"],
+			"message_type":              "response",
+			"timestamp":                 time.Now().UTC().Format(time.RFC3339),
+			"success":                   true,
+			"is_complete":               true,
+			"client_id":                 headers["client_id"],
+			"sender_agent_type":         "web-search-adapter",
+			"parent_orchestration_id":   headers["parent_orchestration_id"],
+			"sender": map[string]interface{}{
+				"agent_type": "web-search-adapter",
+				"agent_id":   "web-search-adapter-001",
+				"pod_name":   os.Getenv("HOSTNAME"),
+			},
+		},
+		"body": map[string]interface{}{
+			"success": true,
+			"body":    resultData,
+			"error":   nil,
+			"metadata": map[string]interface{}{
+				"processed_at": time.Now().UTC().Format(time.RFC3339),
+				"adapter":      "web-search",
+			},
+		},
+	}
+
+	responseBytes, _ := json.Marshal(response)
 
 	// Determine where to send the response
 	// Priority: reply_to_topic > responses_topic > parent_responses_topic > default
@@ -526,6 +569,7 @@ func (a *Adapter) sendResponse(headers map[string]string, payload ResponsePayloa
 		zap.Int("results_count", payload.Total),
 	)
 
+	// NOTE: Keep Kafka headers the same as before - they are used for routing
 	responseHeaders := map[string]string{
 		"correlation_id":            headers["correlation_id"],
 		"causation_id":              headers["request_id"],
@@ -546,56 +590,6 @@ func (a *Adapter) sendResponse(headers map[string]string, payload ResponsePayloa
 	if err := a.producer.Produce(a.ctx, responseTopic, responseHeaders,
 		[]byte(headers["correlation_id"]), responseBytes); err != nil {
 		a.logger.Error("Failed to produce response",
-			zap.Error(err),
-			zap.String("topic", responseTopic))
-	}
-}
-
-// sendErrorResponse sends an error response to the caller's topic
-func (a *Adapter) sendErrorResponse(headers map[string]string, errorMsg string) {
-	payload := map[string]interface{}{
-		"success": false,
-		"error":   errorMsg,
-	}
-	responseBytes, _ := json.Marshal(payload)
-
-	// Determine where to send the response (same logic as sendResponse)
-	responseTopic := responsesTopic // fallback to default
-	if rt := headers["reply_to_topic"]; rt != "" {
-		responseTopic = rt
-	} else if rt := headers["responses_topic"]; rt != "" {
-		responseTopic = rt
-	} else if rt := headers["parent_responses_topic"]; rt != "" {
-		responseTopic = rt
-	}
-
-	a.logger.Info("Sending search error response",
-		zap.String("to_topic", responseTopic),
-		zap.String("correlation_id", headers["correlation_id"]),
-		zap.String("error", errorMsg),
-	)
-
-	responseHeaders := map[string]string{
-		"correlation_id":            headers["correlation_id"],
-		"causation_id":              headers["request_id"],
-		"request_id":                uuid.NewString(),
-		"client_id":                 headers["client_id"],
-		"message_type":              "response",
-		"in_response_to_request_id": headers["request_id"],
-		"in_response_to_step_name":  headers["step_name"],
-		"in_response_to_step_id":    headers["step_id"],
-		"orchestration_id":          headers["orchestration_id"],
-		"parent_orchestration_id":   headers["parent_orchestration_id"],
-		"from_agent_type":           headers["from_agent_type"],
-		"sender_agent_type":         headers["sender_agent_type"],
-		"status":                    "error",
-		"is_complete":               "true",
-		"is_error":                  "true",
-	}
-
-	if err := a.producer.Produce(a.ctx, responseTopic, responseHeaders,
-		[]byte(headers["correlation_id"]), responseBytes); err != nil {
-		a.logger.Error("Failed to produce error response",
 			zap.Error(err),
 			zap.String("topic", responseTopic))
 	}
