@@ -19,6 +19,7 @@ kubectl -n ai-persona-system scale deployment/content-creator-agent --replicas=0
 kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=0
 
 kubectl -n ai-persona-system scale deployment/web-search-adapter --replicas=1
+kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=1
 
 # 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
 # List all job topics

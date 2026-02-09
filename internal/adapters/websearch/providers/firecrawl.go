@@ -1,4 +1,10 @@
 // FILE: internal/adapters/websearch/providers/firecrawl.go
+//
+//   1. API URL: v0/search -> v2/search
+//   2. Request payload: flat {query, limit} instead of nested pageOptions/searchOptions
+//   3. Response struct: data.web[] array instead of flat data[]
+//
+
 package providers
 
 import (
@@ -24,7 +30,7 @@ func NewFirecrawlProvider(httpClient *http.Client, logger *zap.Logger) *Firecraw
 	return &FirecrawlProvider{
 		apiKey:     os.Getenv("FIRECRAWL_API_KEY"),
 		httpClient: httpClient,
-		apiURL:     "https://api.firecrawl.dev/v0/search",
+		apiURL:     "https://api.firecrawl.dev/v2/search", // CHANGED: was v0/search
 		logger:     logger.With(zap.String("provider", "firecrawl")),
 	}
 }
@@ -42,16 +48,11 @@ func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults
 		numResults = 10
 	}
 
+	// v2 uses flat payload with "limit" at top level
+	// Was: nested "pageOptions" and "searchOptions"
 	payload := map[string]interface{}{
 		"query": query,
-		"pageOptions": map[string]interface{}{
-			"onlyMainContent":  true,
-			"includeHtml":      false,
-			"fetchPageContent": true,
-		},
-		"searchOptions": map[string]interface{}{
-			"limit": numResults,
-		},
+		"limit": numResults,
 	}
 
 	body, err := json.Marshal(payload)
@@ -77,17 +78,19 @@ func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults
 	}
 	defer resp.Body.Close()
 
+	// Response struct matches v2 format
+	// Was: Data []struct{...} (flat array)
+	// Now: Data.Web []struct{...} (nested under "web" key)
 	var apiResponse struct {
 		Success bool   `json:"success"`
 		Message string `json:"message,omitempty"`
-		Data    []struct {
-			Title    string                 `json:"title"`
-			URL      string                 `json:"url"`
-			Content  string                 `json:"content"`
-			Markdown string                 `json:"markdown,omitempty"`
-			Provider string                 `json:"provider"`
-			Metadata map[string]interface{} `json:"metadata,omitempty"`
-			Score    float64                `json:"score,omitempty"`
+		Data    struct {
+			Web []struct {
+				URL         string `json:"url"`
+				Title       string `json:"title"`
+				Description string `json:"description"`
+				Position    int    `json:"position,omitempty"`
+			} `json:"web"`
 		} `json:"data"`
 	}
 
@@ -99,32 +102,19 @@ func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults
 		return nil, fmt.Errorf("search failed: %s", apiResponse.Message)
 	}
 
-	results := make([]SearchResult, 0, len(apiResponse.Data))
-	for _, r := range apiResponse.Data {
-		// Create snippet from content
-		snippet := r.Content
-		if snippet == "" && r.Markdown != "" {
-			snippet = r.Markdown
-		}
-		snippet = strings.TrimSpace(snippet)
+	// iterate Data.Web instead of Data
+	results := make([]SearchResult, 0, len(apiResponse.Data.Web))
+	for _, r := range apiResponse.Data.Web {
+		snippet := strings.TrimSpace(r.Description)
 		if len(snippet) > 200 {
 			snippet = snippet[:197] + "..."
 		}
 
-		// Extract published date if available
-		publishedAt := ""
-		if r.Metadata != nil {
-			if date, ok := r.Metadata["publishedDate"].(string); ok {
-				publishedAt = date
-			}
-		}
-
 		results = append(results, SearchResult{
-			Title:       r.Title,
-			URL:         r.URL,
-			Snippet:     snippet,
-			PublishedAt: publishedAt,
-			Source:      f.Name(),
+			Title:   r.Title,
+			URL:     r.URL,
+			Snippet: snippet,
+			Source:  f.Name(),
 		})
 	}
 
