@@ -175,4 +175,136 @@ echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients
 echo "     \"SELECT name, postcode, verification_status, last_verified_at FROM business_intel.businesses WHERE verification_status = 'verified' ORDER BY last_verified_at DESC LIMIT 10\""
 echo ""
 
+--
+
+start bulk small
+
+#!/bin/bash
+# Bulk Vet Practice Verification
+# Queries unverified businesses from the database and sends a verification message for each.
+#
+# Usage:
+#   bash bulk_vet_verify.sh              # all unverified vet practices
+#   bash bulk_vet_verify.sh 10           # first 10 only
+#   bash bulk_vet_verify.sh 5 2          # 5 businesses, 2 second delay between each
+#
+# Prerequisites: kubectl access to ai-persona-system and kafka namespaces
+
+LIMIT=${1:-0}        # 0 = no limit
+DELAY=${2:-3}        # seconds between messages (be kind to firecrawl rate limits)
+CLIENT_ID="vetcomparison"
+KAFKA_BOOTSTRAP="personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+TOPIC="system.agent.generic.requests"
+
+echo "========================================="
+echo "Bulk Vet Practice Verification"
+echo "========================================="
+echo "  Limit:     ${LIMIT} (0=all)"
+echo "  Delay:     ${DELAY}s between messages"
+echo "  Client:    ${CLIENT_ID}"
+echo "========================================="
+echo ""
+
+# Build the SQL query
+LIMIT_CLAUSE=""
+if [ "$LIMIT" -gt 0 ] 2>/dev/null; then
+    LIMIT_CLAUSE="LIMIT $LIMIT"
+fi
+
+# Get business IDs from the database
+BUSINESS_IDS=$(kubectl exec -n ai-persona-system postgres-clients-0 -- \
+    psql -U clients_user -d clients_db -t -A -c "
+        SELECT b.id
+        FROM business_intel.businesses b
+        JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+        WHERE bv.slug = 'veterinary'
+          AND b.is_active = true
+        ORDER BY b.last_verified_at ASC NULLS FIRST, b.created_at ASC
+        ${LIMIT_CLAUSE}
+    ")
+
+if [ -z "$BUSINESS_IDS" ]; then
+    echo "No businesses found to verify."
+    exit 0
+fi
+
+# Count them
+TOTAL=$(echo "$BUSINESS_IDS" | wc -l)
+echo "Found $TOTAL businesses to verify."
+echo ""
+
+# Track all orchestration IDs for monitoring
+ORCH_IDS=()
+COUNT=0
+
+for BIZ_ID in $BUSINESS_IDS; do
+    COUNT=$((COUNT + 1))
+
+    # Generate unique IDs for this message
+    CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+    ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+    MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+    REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+    TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    ORCHESTRATION_NAME="vet-bulk-$(date +%Y%m%d-%H%M%S)-${COUNT}"
+
+    echo "[$COUNT/$TOTAL] Sending: $BIZ_ID"
+    echo "  Orchestration: $ORCHESTRATION_ID"
+
+    # Send the message via kcat
+    kubectl -n kafka run -i --rm "kcat-vet-bulk-${COUNT}-$$" \
+      --image=edenhill/kcat:1.7.1 \
+      --restart=Never -- \
+      kcat -P \
+        -b "$KAFKA_BOOTSTRAP" \
+        -t "$TOPIC" \
+        -H "correlation_id=$CORRELATION_ID" \
+        -H "request_id=$REQUEST_ID" \
+        -H "message_id=$MESSAGE_ID" \
+        -H "orchestration_id=$ORCHESTRATION_ID" \
+        -H "orchestration_name=$ORCHESTRATION_NAME" \
+        -H "step_name=start" \
+        -H "client_id=$CLIENT_ID" \
+        -H "message_type=request" \
+        -H "action=orchestrate" \
+        -H "from_agent_type=user" \
+        -H "from_agent_id=cli-bulk" \
+        -H "responses_topic=system.generic.responses" <<JSON
+{"action":"orchestrate","config":{"agent_type":"vet-practice-verifier"},"input_data":{"business_id":"${BIZ_ID}"}}
+JSON
+
+    ORCH_IDS+=("$ORCHESTRATION_ID")
+
+    # Delay between messages to avoid rate limiting
+    if [ "$COUNT" -lt "$TOTAL" ]; then
+        echo "  Waiting ${DELAY}s..."
+        sleep "$DELAY"
+    fi
+    echo ""
+done
+
+echo "========================================="
+echo "All $TOTAL messages sent."
+echo "========================================="
+echo ""
+echo "MONITORING:"
+echo ""
+echo "1. Watch progress:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT status, COUNT(*) FROM orchestration_states WHERE client_id = '${CLIENT_ID}' AND orchestration_name LIKE 'vet-bulk-%' GROUP BY status\""
+echo ""
+echo "2. Check completed:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT b.name, b.postcode, b.verification_status, b.confidence_score, b.phone, b.last_verified_at FROM business_intel.businesses b JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id WHERE bv.slug = 'veterinary' ORDER BY b.last_verified_at DESC NULLS LAST\""
+echo ""
+echo "3. Check errors:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT orchestration_id, current_step, error_message FROM orchestration_states WHERE client_id = '${CLIENT_ID}' AND status = 'ERROR' AND orchestration_name LIKE 'vet-bulk-%'\""
+echo ""
+echo "4. Contact details gathered:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT b.name, bcd.contact_type, bcd.label, bcd.value FROM business_intel.business_contact_details bcd JOIN business_intel.businesses b ON b.id = bcd.business_id ORDER BY b.name, bcd.contact_type, bcd.is_primary DESC\""
+echo ""
+
+
 

@@ -528,3 +528,71 @@ ORDER BY
     WHEN 'store_results' THEN 6
     WHEN 'complete' THEN 7
 END;
+
+
+--
+
+-- contact details in separate table
+
+-- Update extract_and_reconcile prompt to request structured contacts
+-- Note: this replaces the prompt_template set in fix_vet_verifier_add_prepare_context.sql
+-- Run this AFTER that migration.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,extract_and_reconcile,config,prompt_template}',
+        to_jsonb(
+                'You are a data extraction specialist for UK veterinary practices.
+
+        CURRENT RECORD:
+        Name: {{.business_record.business.name}}
+        Postcode: {{.business_record.business.postcode}}
+        Town: {{.business_record.business.town}}
+        Website: {{.business_record.business.website_url}}
+        Group: {{.business_record.business.group_name}}
+
+        SCRAPED WEBSITE CONTENT:
+        {{.extraction_context.website_content}}
+
+        SEARCH RESULTS:
+        {{.extraction_context.search_summary}}
+
+        Extract and return a JSON object with these sections:
+
+        1. business - updated/confirmed fields:
+           - name, address_line1, address_line2, town, county, postcode
+           - phone: string OR array of strings if multiple numbers found (e.g. ["028 9047 1361", "028 9065 1729"])
+           - email: string OR array of strings if multiple emails found (e.g. ["info@example.com", "referrals@example.com"])
+           - fax: string if found
+           - website_url, group_name, business_type
+
+        2. vet_details - practice-specific:
+           - species_treated (array of strings)
+           - emergency_service (boolean)
+           - out_of_hours_provider (string or null)
+           - accepting_new_clients (boolean or null if unknown)
+           - accreditations (array)
+           - num_vets, num_nurses (integers or null)
+           - head_vet_name (string or null)
+           - has_own_lab, has_imaging, has_surgical_suite (booleans or null)
+           - parking_available, wheelchair_accessible (booleans or null)
+
+        3. vet_staff - array of notable vets/staff:
+           - name, role, specialty, qualifications (strings)
+
+        4. prices - array of objects, each with:
+           - service_category: one of consultation, vaccination, surgery, prescription, dental, diagnostic, other
+           - service_name: the specific service
+           - price_gbp: numeric price
+           - price_qualifier: fixed, from, or approximately
+
+        5. confidence_score - 0.0 to 1.0, how confident you are in the data quality
+        6. extraction_notes - brief notes on data quality, conflicts, missing data
+
+        Only include fields where you have actual data. Use null for unknown values. Do not invent or estimate prices.
+        Return ALL phone numbers and email addresses you find - do not discard any.'::text
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
