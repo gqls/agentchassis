@@ -30,7 +30,7 @@ func NewFirecrawlProvider(httpClient *http.Client, logger *zap.Logger) *Firecraw
 	return &FirecrawlProvider{
 		apiKey:     os.Getenv("FIRECRAWL_API_KEY"),
 		httpClient: httpClient,
-		apiURL:     "https://api.firecrawl.dev/v2/search", // CHANGED: was v0/search
+		apiURL:     "https://api.firecrawl.dev/v2/search", // was v0/search
 		logger:     logger.With(zap.String("provider", "firecrawl")),
 	}
 }

@@ -174,3 +174,5 @@ echo "4. Check verified businesses:"
 echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
 echo "     \"SELECT name, postcode, verification_status, last_verified_at FROM business_intel.businesses WHERE verification_status = 'verified' ORDER BY last_verified_at DESC LIMIT 10\""
 echo ""
+
+

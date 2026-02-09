@@ -211,3 +211,190 @@ SELECT
     default_config->'workflow'->'steps'->'search_practice' as search_practice_step
 FROM agent_definitions
 WHERE type = 'vet-practice-verifier';
+
+--
+
+-- fixing llm path into config.ai-service
+
+-- Fix vet-practice-verifier: move ai_service into extract_and_reconcile step config
+--
+-- Problem: ai_service is at root level of default_config, but execute_llm_prompt
+-- looks for it inside the step's config block (like the briefing agent does).
+--
+-- Fix: Add ai_service inside extract_and_reconcile.config and remove from root.
+
+-- Step 1: Add ai_service into the step config
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,extract_and_reconcile,config,ai_service}',
+        '{
+            "model": "claude-haiku-4-5",
+            "provider": "anthropic",
+            "api_key_env_var": "ANTHROPIC_API_KEY"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- Step 2: Remove ai_service from root level
+UPDATE agent_definitions
+SET default_config = default_config - 'ai_service',
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- Verify: ai_service should be inside the step config, not at root
+SELECT
+    type,
+    default_config->'ai_service' as root_ai_service,
+    default_config->'workflow'->'steps'->'extract_and_reconcile'->'config'->'ai_service' as step_ai_service
+FROM agent_definitions
+WHERE type = 'vet-practice-verifier';
+
+
+--
+
+-- more GO template formatting fixes
+
+-- Fix vet-practice-verifier: prompt_template needs leading dots for Go template syntax
+--
+-- Problem: Template uses {{business_record.business.name}} but Go's text/template
+-- interprets that as a function call. Needs {{.business_record.business.name}} to
+-- traverse the data map. Same issue as query_template needing the dot.
+--
+-- The briefing agent's working prompt uses {{.input_data.domain}} - with the dot.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,extract_and_reconcile,config,prompt_template}',
+        to_jsonb(
+                'You are a data extraction specialist for UK veterinary practices.
+
+        CURRENT RECORD:
+        Name: {{.business_record.business.name}}
+        Postcode: {{.business_record.business.postcode}}
+        Town: {{.business_record.business.town}}
+        Website: {{.business_record.business.website_url}}
+        Group: {{.business_record.business.group_name}}
+
+        SCRAPED WEBSITE CONTENT:
+        {{.scraped_data.content}}
+
+        SEARCH RESULTS:
+        {{.search_results}}
+
+        Extract and return a JSON object with these sections:
+
+        1. business - updated/confirmed fields:
+           - name, address_line1, address_line2, town, county, postcode
+           - phone, email, website_url
+           - group_name, business_type
+
+        2. vet_details - practice-specific:
+           - species_treated (array of strings)
+           - emergency_service (boolean)
+           - out_of_hours_provider (string or null)
+           - accepting_new_clients (boolean or null if unknown)
+           - accreditations (array)
+           - num_vets, num_nurses (integers or null)
+           - head_vet_name (string or null)
+           - has_own_lab, has_imaging, has_surgical_suite (booleans or null)
+           - parking_available, wheelchair_accessible (booleans or null)
+
+        3. prices - array of objects, each with:
+           - service_category: one of consultation, vaccination, surgery, prescription, dental, diagnostic, other
+           - service_name: the specific service
+           - price_gbp: numeric price
+           - price_qualifier: fixed, from, or approximately
+
+        4. confidence_score - 0.0 to 1.0, how confident you are in the data quality
+        5. extraction_notes - brief notes on data quality, conflicts, missing data
+
+        Only include fields where you have actual data. Use null for unknown values. Do not invent or estimate prices.'::text
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- Verify the dots are in place
+SELECT
+    substring(
+            default_config->'workflow'->'steps'->'extract_and_reconcile'->'config'->>'prompt_template',
+        1, 200
+    ) as prompt_preview
+FROM agent_definitions
+WHERE type = 'vet-practice-verifier';
+
+
+-- content path fix
+
+-- Fix vet-practice-verifier: scraped_data path in prompt template
+--
+-- Problem: Prompt uses {{.scraped_data.content}} but the actual structure is:
+--   scraped_data.response.data.markdown_content
+--
+-- The scrape adapter wraps its response in {response: {data: {...}}}
+-- and the content fields are markdown_content, html_content, raw_html etc.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,extract_and_reconcile,config,prompt_template}',
+        to_jsonb(
+                'You are a data extraction specialist for UK veterinary practices.
+
+        CURRENT RECORD:
+        Name: {{.business_record.business.name}}
+        Postcode: {{.business_record.business.postcode}}
+        Town: {{.business_record.business.town}}
+        Website: {{.business_record.business.website_url}}
+        Group: {{.business_record.business.group_name}}
+
+        SCRAPED WEBSITE CONTENT:
+        {{.scraped_data.response.data.markdown_content}}
+
+        SEARCH RESULTS:
+        {{.search_results}}
+
+        Extract and return a JSON object with these sections:
+
+        1. business - updated/confirmed fields:
+           - name, address_line1, address_line2, town, county, postcode
+           - phone, email, website_url
+           - group_name, business_type
+
+        2. vet_details - practice-specific:
+           - species_treated (array of strings)
+           - emergency_service (boolean)
+           - out_of_hours_provider (string or null)
+           - accepting_new_clients (boolean or null if unknown)
+           - accreditations (array)
+           - num_vets, num_nurses (integers or null)
+           - head_vet_name (string or null)
+           - has_own_lab, has_imaging, has_surgical_suite (booleans or null)
+           - parking_available, wheelchair_accessible (booleans or null)
+
+        3. prices - array of objects, each with:
+           - service_category: one of consultation, vaccination, surgery, prescription, dental, diagnostic, other
+           - service_name: the specific service
+           - price_gbp: numeric price
+           - price_qualifier: fixed, from, or approximately
+
+        4. confidence_score - 0.0 to 1.0, how confident you are in the data quality
+        5. extraction_notes - brief notes on data quality, conflicts, missing data
+
+        Only include fields where you have actual data. Use null for unknown values. Do not invent or estimate prices.'::text
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- Verify
+SELECT
+    substring(
+            default_config->'workflow'->'steps'->'extract_and_reconcile'->'config'->>'prompt_template',
+        1, 300
+    ) as prompt_preview
+FROM agent_definitions
+WHERE type = 'vet-practice-verifier';
