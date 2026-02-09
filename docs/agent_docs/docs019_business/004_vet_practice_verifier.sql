@@ -178,3 +178,36 @@ SELECT
     default_config->'workflow'->'steps'->'search_practice' as search_practice_step
 FROM agent_definitions
 WHERE type = 'vet-practice-verifier';
+
+
+--
+
+-- search for town rather than postcode
+
+-- Fix vet-practice-verifier: search_practice step
+
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,search_practice}',
+        '{
+            "action": "web_search",
+            "config": {
+                "num_results": 5,
+                "query_template": "{{.business_record.business.name}} {{.business_record.business.town}} veterinary practice"
+            },
+            "next_step": "scrape_website",
+            "description": "Search for the practice website and online presence",
+            "output_field": "search_results"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- Verify
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'search_practice' as search_practice_step
+FROM agent_definitions
+WHERE type = 'vet-practice-verifier';
