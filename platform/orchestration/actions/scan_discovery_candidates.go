@@ -85,6 +85,14 @@ var skipDomains = map[string]bool{
 	// Review sites
 	"tripadvisor.com": true,
 	"trustpilot.com":  true,
+	// Vet directories — NOT skipped. These appear in search results and we want
+	// to capture the practice names from snippets. The directory URL itself won't
+	// be stored as the candidate's website_url (handled in processing code).
+	// A separate directory-scraper agent will crawl these sites directly later.
+	//
+	// Directories that ARE skipped are generic ones (yell, yelp, etc.) that don't
+	// add vet-specific value beyond what the search snippet already provides.
+
 	// Reference / government
 	"wikipedia.org":    true,
 	"en.wikipedia.org": true,
@@ -109,6 +117,34 @@ var blockedDomainSuffixes = []string{
 	".rcvs.org.uk",   // all RCVS subdomains
 	".gov.uk",        // all government subdomains
 	".wikipedia.org", // all wikipedia subdomains
+}
+
+// vetDirectoryDomains are vet-specific directory sites. NOT skipped — we still
+// create candidates from their search result snippets, but we store website_url
+// as nil (the directory URL is not the practice's actual website). These
+// candidates need enrichment, either from the directory-scraper agent or
+// from subsequent search/verification passes.
+var vetDirectoryDomains = map[string]bool{
+	"vetclick.com":        true,
+	"goodvet.co.uk":       true,
+	"vetindex.co.uk":      true,
+	"vetsurgeon.org":      true,
+	"vetverified.com":     true,
+	"practicesplus.com":   true,
+	"animalfriends.co.uk": true,
+}
+
+// isVetDirectory checks if a domain is a known vet directory
+func isVetDirectory(domain string) bool {
+	if vetDirectoryDomains[domain] {
+		return true
+	}
+	for dirDomain := range vetDirectoryDomains {
+		if strings.HasSuffix(domain, "."+dirDomain) {
+			return true
+		}
+	}
+	return false
 }
 
 // knownGroups maps domain patterns to group names.
@@ -291,6 +327,16 @@ func ScanDiscoveryCandidatesAction(ctx context.Context, params ActionParams) (in
 		candidateName := extractPracticeName(resultTitle)
 		postcode := extractUKPostcode(resultSnippet)
 
+		// If this is a vet directory (vetclick.com etc.), capture the practice
+		// info from the snippet but don't store the directory URL as the
+		// practice's website. These candidates need enrichment later.
+		var candidateWebsiteURL interface{}
+		if isVetDirectory(domain) {
+			candidateWebsiteURL = nil // needs enrichment
+		} else {
+			candidateWebsiteURL = rootURL
+		}
+
 		_, err = params.DB.ExecContext(ctx, `
 			INSERT INTO business_intel.discovery_candidates
 				(name, website_url, address_snippet, postcode,
@@ -305,7 +351,7 @@ func ScanDiscoveryCandidatesAction(ctx context.Context, params ActionParams) (in
 				detected_group = COALESCE(EXCLUDED.detected_group, business_intel.discovery_candidates.detected_group),
 				is_independent = COALESCE(EXCLUDED.is_independent, business_intel.discovery_candidates.is_independent),
 				updated_at = NOW()`,
-			candidateName, rootURL, resultSnippet, postcode,
+			candidateName, candidateWebsiteURL, resultSnippet, postcode,
 			nullIfEmpty(businessID), query, resultURL,
 			nullIfEmpty(detectedGroup), nullIfFalse(isIndependent),
 		)

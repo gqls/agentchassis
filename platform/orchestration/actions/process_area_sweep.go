@@ -220,6 +220,17 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 			postcode = districtCode
 		}
 
+		// If this is a vet directory (vetclick.com etc.), we still want the
+		// candidate (the practice name/postcode from the snippet is valuable)
+		// but we don't store the directory URL as the practice's website.
+		// These candidates need enrichment later.
+		var candidateWebsiteURL interface{}
+		if isVetDirectory(domain) {
+			candidateWebsiteURL = nil // needs enrichment
+		} else {
+			candidateWebsiteURL = rootURL
+		}
+
 		// Insert as discovery candidate
 		_, err = params.DB.ExecContext(ctx, `
 			INSERT INTO business_intel.discovery_candidates
@@ -235,7 +246,7 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 				detected_group = COALESCE(EXCLUDED.detected_group, business_intel.discovery_candidates.detected_group),
 				is_independent = COALESCE(EXCLUDED.is_independent, business_intel.discovery_candidates.is_independent),
 				updated_at = NOW()`,
-			candidateName, rootURL, resultSnippet, postcode,
+			candidateName, candidateWebsiteURL, resultSnippet, postcode,
 			searchQuery, resultURL,
 			nullIfEmpty(detectedGroup), nullIfFalse(isIndependent),
 		)

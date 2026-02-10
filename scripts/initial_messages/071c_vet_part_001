@@ -192,6 +192,10 @@ start bulk small
 
 LIMIT=${1:-0}        # 0 = no limit
 DELAY=${2:-3}        # seconds between messages (be kind to firecrawl rate limits)
+
+
+LIMIT=0
+DELAY=5
 CLIENT_ID="vetcomparison"
 KAFKA_BOOTSTRAP="personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 TOPIC="system.agent.generic.requests"
@@ -307,4 +311,127 @@ echo "     \"SELECT b.name, bcd.contact_type, bcd.label, bcd.value FROM business
 echo ""
 
 
+-------------------
+===================
 
+verify promoted
+
+-------------------
+
+#!/bin/bash
+# verify_promoted.sh - Verify recently promoted discovery candidates
+#
+# Sends verification messages for businesses that were promoted from
+# discovery_candidates and haven't been verified yet.
+#
+# Usage:
+#   bash verify_promoted.sh           # all promoted, unverified
+#   bash verify_promoted.sh 10        # first 10 only
+#
+# This is a lightweight wrapper that uses the same message format as
+# bulk_vet_verify.sh but queries only promoted candidates.
+
+set -e
+
+LIMIT=${1:-0}
+CLIENT_ID="00000000-0000-0000-0000-000000000001"
+KAFKA_BOOTSTRAP="personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+TOPIC="system.agent.generic.requests"
+BATCH_NAME="promoted-verify-$(date +%Y%m%d-%H%M%S)"
+
+echo "========================================="
+echo "Verify Promoted Candidates"
+echo "========================================="
+echo "  Batch:     ${BATCH_NAME}"
+echo "  Limit:     ${LIMIT} (0=all)"
+echo "========================================="
+echo ""
+
+# Step 1: Get business IDs from promoted candidates
+LIMIT_CLAUSE=""
+if [ "$LIMIT" -gt 0 ] 2>/dev/null; then
+    LIMIT_CLAUSE="LIMIT $LIMIT"
+fi
+
+echo "Querying promoted business IDs..."
+BUSINESS_IDS=$(kubectl exec -n ai-persona-system postgres-clients-0 -- \
+    psql -U clients_user -d clients_db -t -A -c "
+        SELECT b.id
+        FROM business_intel.businesses b
+        JOIN business_intel.discovery_candidates dc ON dc.promoted_business_id = b.id
+        WHERE dc.status = 'promoted'
+          AND b.verification_status = 'pending'
+          AND b.is_active = true
+        ORDER BY b.created_at ASC
+        ${LIMIT_CLAUSE}
+    ")
+
+if [ -z "$BUSINESS_IDS" ]; then
+    echo "No promoted businesses waiting for verification."
+    exit 0
+fi
+
+TOTAL=$(echo "$BUSINESS_IDS" | wc -l | tr -d ' ')
+echo "Found $TOTAL promoted businesses to verify."
+echo ""
+
+# Step 2: Start a persistent kcat pod
+POD_NAME="promoted-verify-sender-$$"
+echo "Starting sender pod..."
+kubectl -n kafka run "$POD_NAME" \
+    --image=edenhill/kcat:1.7.1 \
+    --restart=Never \
+    --command -- sleep 3600 &
+
+# Wait for pod
+echo "Waiting for pod..."
+kubectl -n kafka wait --for=condition=Ready pod/"$POD_NAME" --timeout=30s
+echo ""
+
+# Step 3: Send messages
+COUNT=0
+for BIZ_ID in $BUSINESS_IDS; do
+    COUNT=$((COUNT + 1))
+
+    CORR_ID=$(cat /proc/sys/kernel/random/uuid)
+    REQ_ID=$(cat /proc/sys/kernel/random/uuid)
+    MSG_ID=$(cat /proc/sys/kernel/random/uuid)
+    ORCH_ID=$(cat /proc/sys/kernel/random/uuid)
+    ORCH_NAME="${BATCH_NAME}-${COUNT}"
+
+    echo "{\"action\":\"orchestrate\",\"config\":{\"agent_type\":\"vet-practice-verifier\"},\"input_data\":{\"business_id\":\"${BIZ_ID}\"}}" | \
+    kubectl exec -n kafka -i "$POD_NAME" -- kcat -P \
+        -b "$KAFKA_BOOTSTRAP" \
+        -t "$TOPIC" \
+        -H "correlation_id=$CORR_ID" \
+        -H "request_id=$REQ_ID" \
+        -H "message_id=$MSG_ID" \
+        -H "orchestration_id=$ORCH_ID" \
+        -H "orchestration_name=$ORCH_NAME" \
+        -H "step_name=start" \
+        -H "client_id=$CLIENT_ID" \
+        -H "message_type=request" \
+        -H "action=orchestrate" \
+        -H "from_agent_type=user" \
+        -H "from_agent_id=cli-promote-verify" \
+        -H "responses_topic=system.generic.responses"
+
+    echo "[$COUNT/$TOTAL] $BIZ_ID -> $ORCH_ID"
+
+    sleep 0.2
+done
+
+echo ""
+echo "All $COUNT messages sent."
+echo ""
+
+# Step 4: Cleanup
+echo "Cleaning up sender pod..."
+kubectl -n kafka delete pod "$POD_NAME" --force 2>/dev/null || true
+
+echo ""
+echo "Monitor progress:"
+echo "  kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "    \"SELECT verification_status, COUNT(*) FROM business_intel.businesses b"
+echo "     JOIN business_intel.discovery_candidates dc ON dc.promoted_business_id = b.id"
+echo "     WHERE dc.status = 'promoted' GROUP BY verification_status;\""
