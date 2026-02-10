@@ -372,6 +372,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Claim and load next batch of pending collection tasks",
 		IsLocal:     true,
 	},
+	"promote_candidates": {
+		Handler:     PromoteCandidatesAction,
+		Category:    "data",
+		Description: "Move pending discovery candidates into businesses table with dedup",
+		IsLocal:     true,
+	},
+	"dispatch_verifiers": {
+		Handler:     DispatchVerifiersAction,
+		Category:    "web",
+		Description: "Load pending-verification businesses and dispatch vet-practice-verifier agents via Kafka",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// SITE — building, assembly, rendering, pages, styles, git, navigation
