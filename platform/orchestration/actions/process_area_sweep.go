@@ -4,9 +4,9 @@
 // sweep. Checks each result against known businesses and existing candidates,
 // inserts new ones into discovery_candidates, updates search_areas tracking.
 //
-// Shares helpers with scan_discovery_candidates.go (same package):
-//   extractDomain, extractRootURL, extractPracticeName,
-//   extractUKPostcode, skipDomains, vetKeywords
+// Uses shared helpers from scan_discovery_candidates.go (same package):
+//   isBlockedDomain, detectGroup, extractDomain, extractRootURL,
+//   extractPracticeName, extractUKPostcode, nullIfEmpty, nullIfFalse
 // Do NOT redefine them here.
 //
 // Workflow config:
@@ -112,6 +112,7 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 	candidates := 0
 	skipped := 0
 	alreadyKnown := 0
+	dbErrors := 0
 
 	for _, r := range results {
 		result, ok := r.(map[string]interface{})
@@ -132,28 +133,32 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 			continue
 		}
 
-		// Skip directory/aggregator sites (reuses skipDomains from scan_discovery_candidates.go)
+		// Skip blocked domains (directories, social, RCVS subdomains)
 		domain := extractDomain(resultURL)
-		if skipDomains[domain] {
+		if isBlockedDomain(domain) {
 			skipped++
 			continue
 		}
 
-		// Filter obviously non-vet results. The search query is already vet-specific
-		// so we're lenient — just excluding clear mismatches.
+		// Filter obviously non-vet results. The search query is already
+		// vet-specific so we're lenient — only exclude clear mismatches
+		// that don't also mention vet keywords.
 		combined := strings.ToLower(resultTitle + " " + resultSnippet)
 		nonVetIndicators := []string{
 			"pet shop", "pet store", "dog grooming", "cat cafe",
 			"pet food", "dog walking", "pet sitting",
 			"wikipedia", "news article",
 		}
+		hasVetKeyword := strings.Contains(combined, "veterinary") ||
+			strings.Contains(combined, "vet ") ||
+			strings.Contains(combined, "vets ")
 		isNotVet := false
-		for _, indicator := range nonVetIndicators {
-			if strings.Contains(combined, indicator) &&
-				!strings.Contains(combined, "veterinary") &&
-				!strings.Contains(combined, "vet ") {
-				isNotVet = true
-				break
+		if !hasVetKeyword {
+			for _, indicator := range nonVetIndicators {
+				if strings.Contains(combined, indicator) {
+					isNotVet = true
+					break
+				}
 			}
 		}
 		if isNotVet {
@@ -163,7 +168,7 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 
 		// Check if already in businesses table
 		rootURL := extractRootURL(resultURL)
-		var existingID sql.NullString
+		var existingID string
 		err := params.DB.QueryRowContext(ctx,
 			`SELECT id FROM business_intel.businesses
 			 WHERE website_url ILIKE $1 OR website_url ILIKE $2
@@ -171,23 +176,42 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 			rootURL+"%", "www."+strings.TrimPrefix(rootURL, "https://")+"%",
 		).Scan(&existingID)
 
-		if err == nil && existingID.Valid {
+		if err != nil && err != sql.ErrNoRows {
+			// Real DB error — log and skip
+			params.Logger.Warn("ProcessAreaSweepAction: DB error checking businesses",
+				zap.String("url", resultURL), zap.Error(err))
+			dbErrors++
+			continue
+		}
+		if err == nil {
 			alreadyKnown++
 			continue
 		}
+		// err == sql.ErrNoRows — not in businesses table
 
-		// Check if already a discovery candidate
-		var existingCandID sql.NullString
+		// Check if already a discovery candidate (by source_url)
+		var existingCandID string
 		err = params.DB.QueryRowContext(ctx,
 			`SELECT id FROM business_intel.discovery_candidates
 			 WHERE source_url = $1 LIMIT 1`,
 			resultURL,
 		).Scan(&existingCandID)
 
-		if err == nil && existingCandID.Valid {
+		if err != nil && err != sql.ErrNoRows {
+			params.Logger.Warn("ProcessAreaSweepAction: DB error checking candidates",
+				zap.String("url", resultURL), zap.Error(err))
+			dbErrors++
+			continue
+		}
+		if err == nil {
 			alreadyKnown++
 			continue
 		}
+		// err == sql.ErrNoRows — not yet a candidate
+
+		// Detect group affiliation
+		detectedGroup, isGroup := detectGroup(domain)
+		isIndependent := !isGroup
 
 		// Extract name and postcode from result
 		candidateName := extractPracticeName(resultTitle)
@@ -200,26 +224,34 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 		_, err = params.DB.ExecContext(ctx, `
 			INSERT INTO business_intel.discovery_candidates
 				(name, website_url, address_snippet, postcode,
-				 source_query, source_url, status, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())
+				 source_query, source_url,
+				 detected_group, is_independent,
+				 status, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+				'pending', NOW(), NOW())
 			ON CONFLICT (source_url) DO UPDATE SET
 				name = COALESCE(NULLIF(EXCLUDED.name, ''), business_intel.discovery_candidates.name),
 				postcode = COALESCE(NULLIF(EXCLUDED.postcode, ''), business_intel.discovery_candidates.postcode),
+				detected_group = COALESCE(EXCLUDED.detected_group, business_intel.discovery_candidates.detected_group),
+				is_independent = COALESCE(EXCLUDED.is_independent, business_intel.discovery_candidates.is_independent),
 				updated_at = NOW()`,
 			candidateName, rootURL, resultSnippet, postcode,
 			searchQuery, resultURL,
+			nullIfEmpty(detectedGroup), nullIfFalse(isIndependent),
 		)
 		if err != nil {
-			params.Logger.Warn("Failed to insert candidate",
+			params.Logger.Warn("ProcessAreaSweepAction: failed to insert candidate",
 				zap.String("url", resultURL), zap.Error(err))
+			dbErrors++
 			continue
 		}
 		candidates++
 
-		params.Logger.Info("Found candidate",
+		params.Logger.Info("ProcessAreaSweepAction: found candidate",
 			zap.String("name", candidateName),
 			zap.String("url", rootURL),
-			zap.String("district", districtCode))
+			zap.String("district", districtCode),
+			zap.String("group", detectedGroup))
 	}
 
 	// Update sweep tracking
@@ -230,7 +262,8 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 		zap.Int("scanned", scanned),
 		zap.Int("candidates", candidates),
 		zap.Int("skipped", skipped),
-		zap.Int("already_known", alreadyKnown))
+		zap.Int("already_known", alreadyKnown),
+		zap.Int("db_errors", dbErrors))
 
 	return map[string]interface{}{
 		"district_code": districtCode,
@@ -239,6 +272,7 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 		"candidates":    candidates,
 		"already_known": alreadyKnown,
 		"skipped":       skipped,
+		"db_errors":     dbErrors,
 	}, nil
 }
 

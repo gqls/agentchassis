@@ -8,17 +8,22 @@
 // Runs as a local action at the end of the vet-practice-verifier workflow,
 // after store_results and before complete.
 //
+// ALSO defines shared data structures and helpers used by process_area_sweep.go:
+//   skipDomains, blockedDomainSuffixes, knownGroups, vetKeywords
+//   extractDomain, extractRootURL, extractPracticeName,
+//   extractUKPostcode, isBlockedDomain, detectGroup
+//
 // Workflow config:
 //
-//   "scan_discoveries": {
-//       "action": "scan_discovery_candidates",
-//       "config": {
-//           "input_fields": ["business_id", "search_results", "search_practice"]
-//       },
-//       "next_step": "complete",
-//       "description": "Scan search results for unknown vet practices",
-//       "output_field": "discovery_scan"
-//   }
+//	"scan_discoveries": {
+//	    "action": "scan_discovery_candidates",
+//	    "config": {
+//	        "input_fields": ["business_id", "search_results", "search_practice"]
+//	    },
+//	    "next_step": "complete",
+//	    "description": "Scan search results for unknown vet practices",
+//	    "output_field": "discovery_scan"
+//	}
 
 package actions
 
@@ -31,42 +36,112 @@ import (
 	"go.uber.org/zap"
 )
 
-// Domains that are directories/aggregators, not individual practices
+// ---------------------------------------------------------------------------
+// Shared data structures (used by both scan_discovery_candidates and
+// process_area_sweep)
+// ---------------------------------------------------------------------------
+
+// skipDomains - generic directories, social media, aggregators.
+// NOT national vet chains — those go in knownGroups so we capture their
+// individual practice pages.
 var skipDomains = map[string]bool{
-	"google.com":             true,
-	"google.co.uk":           true,
-	"facebook.com":           true,
-	"twitter.com":            true,
-	"instagram.com":          true,
-	"linkedin.com":           true,
-	"youtube.com":            true,
-	"yell.com":               true,
-	"yelp.com":               true,
-	"yelp.co.uk":             true,
-	"tripadvisor.com":        true,
-	"trustpilot.com":         true,
-	"rcvs.org.uk":            true,
-	"find-a-vet.rcvs.org.uk": true,
-	"wikipedia.org":          true,
-	"en.wikipedia.org":       true,
-	"nhs.uk":                 true,
-	"gov.uk":                 true,
-	"bva.co.uk":              true,
-	"vets-now.com":           true, // national chain, not individual
-	"vets4pets.com":          true, // national chain directory
-	"medivet.co.uk":          true, // national chain directory
-	"cvsvets.com":            true, // group directory
-	"ivcpractices.com":       true, // group directory
-	"amazon.co.uk":           true,
-	"ebay.co.uk":             true,
+	// Search engines / maps
+	"google.com":      true,
+	"google.co.uk":    true,
+	"maps.google.com": true,
+	"mapquest.com":    true,
+	"wheree.com":      true,
+	// Social media
+	"facebook.com":   true,
+	"twitter.com":    true,
+	"x.com":          true,
+	"instagram.com":  true,
+	"linkedin.com":   true,
+	"youtube.com":    true,
+	"tiktok.com":     true,
+	"nextdoor.co.uk": true,
+	"pinterest.com":  true,
+	// Generic directories
+	"yell.com":           true,
+	"yelp.com":           true,
+	"yelp.co.uk":         true,
+	"thomsonlocal.com":   true,
+	"192.com":            true,
+	"scoot.co.uk":        true,
+	"hotfrog.co.uk":      true,
+	"cylex-uk.co.uk":     true,
+	"brownbook.net":      true,
+	"freeindex.co.uk":    true,
+	"localmole.co.uk":    true,
+	"lacartes.com":       true,
+	"misterwhat.co.uk":   true,
+	"opendi.co.uk":       true,
+	"fyple.co.uk":        true,
+	"tuugo.co.uk":        true,
+	"bark.com":           true,
+	"checkatrade.com":    true,
+	"britaine.co.uk":     true,
+	"places-near-me.com": true,
+	// Review sites
+	"tripadvisor.com": true,
+	"trustpilot.com":  true,
+	// Reference / government
+	"wikipedia.org":    true,
+	"en.wikipedia.org": true,
+	"nhs.uk":           true,
+	"gov.uk":           true,
+	// Professional bodies (main domains — subdomains caught by suffix matching)
+	"bva.co.uk": true,
+	// Retail / irrelevant
+	"amazon.co.uk":    true,
+	"ebay.co.uk":      true,
+	"gumtree.com":     true,
+	"jobs.nhs.uk":     true,
+	"indeed.co.uk":    true,
+	"glassdoor.co.uk": true,
+	"reed.co.uk":      true,
+	"totaljobs.com":   true,
 }
 
-// Keywords that suggest a search result is about a vet practice
+// blockedDomainSuffixes catches all subdomains of blocked domains.
+// Checked via suffix matching so "find-a-vet.rcvs.org.uk" is caught.
+var blockedDomainSuffixes = []string{
+	".rcvs.org.uk",   // all RCVS subdomains
+	".gov.uk",        // all government subdomains
+	".wikipedia.org", // all wikipedia subdomains
+}
+
+// knownGroups maps domain patterns to group names.
+// We want to CAPTURE these results (they're real practices) but tag them
+// with their group affiliation.
+var knownGroups = map[string]string{
+	"cvsvets.com":               "CVS Group",
+	"cvsukltd.co.uk":            "CVS Group",
+	"ivcpractices.com":          "IVC Evidensia",
+	"ivcevidensia.com":          "IVC Evidensia",
+	"evidensia.co.uk":           "IVC Evidensia",
+	"medivet.co.uk":             "Medivet",
+	"vets4pets.com":             "Vets4Pets",
+	"vets-now.com":              "Vets Now",
+	"linnaeus.group":            "Linnaeus",
+	"linnaeusgroup.co.uk":       "Linnaeus",
+	"vetpartners.co.uk":         "VetPartners",
+	"myfamilyvets.co.uk":        "My Family Vets",
+	"goddardvetgroup.co.uk":     "Goddard",
+	"eastcottvets.co.uk":        "Eastcott",
+	"whitehorsevetcentre.co.uk": "White Horse",
+}
+
+// vetKeywords suggests a search result is about a vet practice
 var vetKeywords = []string{
 	"veterinary", "vets", "vet practice", "vet surgery",
 	"vet clinic", "vet hospital", "animal hospital",
 	"pet care", "vet centre", "vet center",
 }
+
+// ---------------------------------------------------------------------------
+// ScanDiscoveryCandidatesAction
+// ---------------------------------------------------------------------------
 
 func ScanDiscoveryCandidatesAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("ScanDiscoveryCandidatesAction: Starting")
@@ -158,9 +233,9 @@ func ScanDiscoveryCandidatesAction(ctx context.Context, params ActionParams) (in
 			continue
 		}
 
-		// Skip directory/aggregator sites
+		// Skip blocked domains (directories, social, RCVS subdomains)
 		domain := extractDomain(resultURL)
-		if skipDomains[domain] {
+		if isBlockedDomain(domain) {
 			skipped++
 			continue
 		}
@@ -171,7 +246,7 @@ func ScanDiscoveryCandidatesAction(ctx context.Context, params ActionParams) (in
 			continue
 		}
 
-		// Check if this looks like a vet practice (by title or snippet)
+		// Check if this looks like a vet practice
 		combined := strings.ToLower(resultTitle + " " + resultSnippet)
 		looksLikeVet := false
 		for _, kw := range vetKeywords {
@@ -187,37 +262,52 @@ func ScanDiscoveryCandidatesAction(ctx context.Context, params ActionParams) (in
 
 		// Check if we already have this website in businesses
 		rootURL := extractRootURL(resultURL)
-		var existingID sql.NullString
+		var existingID string
 		err := params.DB.QueryRowContext(ctx,
-			`SELECT id FROM business_intel.businesses 
+			`SELECT id FROM business_intel.businesses
 			 WHERE website_url ILIKE $1 OR website_url ILIKE $2
 			 LIMIT 1`,
-			rootURL+"%", "www."+rootURL+"%",
+			rootURL+"%", "www."+strings.TrimPrefix(rootURL, "https://")+"%",
 		).Scan(&existingID)
 
-		if err == nil && existingID.Valid {
+		if err != nil && err != sql.ErrNoRows {
+			// Real DB error — log and skip this result
+			params.Logger.Warn("ScanDiscoveryCandidatesAction: DB error checking businesses",
+				zap.String("url", resultURL), zap.Error(err))
+			skipped++
+			continue
+		}
+		if err == nil {
+			// Found in businesses table
 			alreadyKnown++
 			continue
 		}
+		// err == sql.ErrNoRows — not in businesses, continue to insert
 
-		// Extract a name from the title (heuristic: take text before " - " or " | ")
+		// Detect group affiliation
+		detectedGroup, isGroup := detectGroup(domain)
+		isIndependent := !isGroup
+
 		candidateName := extractPracticeName(resultTitle)
-
-		// Try to extract postcode from snippet (UK postcode pattern)
 		postcode := extractUKPostcode(resultSnippet)
 
-		// Insert as discovery candidate
 		_, err = params.DB.ExecContext(ctx, `
-			INSERT INTO business_intel.discovery_candidates 
+			INSERT INTO business_intel.discovery_candidates
 				(name, website_url, address_snippet, postcode,
-				 source_business_id, source_query, source_url, status, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NOW())
+				 source_business_id, source_query, source_url,
+				 detected_group, is_independent,
+				 status, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+				'pending', NOW(), NOW())
 			ON CONFLICT (source_url) DO UPDATE SET
 				name = COALESCE(NULLIF(EXCLUDED.name, ''), business_intel.discovery_candidates.name),
 				postcode = COALESCE(NULLIF(EXCLUDED.postcode, ''), business_intel.discovery_candidates.postcode),
+				detected_group = COALESCE(EXCLUDED.detected_group, business_intel.discovery_candidates.detected_group),
+				is_independent = COALESCE(EXCLUDED.is_independent, business_intel.discovery_candidates.is_independent),
 				updated_at = NOW()`,
 			candidateName, rootURL, resultSnippet, postcode,
 			nullIfEmpty(businessID), query, resultURL,
+			nullIfEmpty(detectedGroup), nullIfFalse(isIndependent),
 		)
 		if err != nil {
 			params.Logger.Warn("ScanDiscoveryCandidatesAction: failed to insert candidate",
@@ -230,7 +320,8 @@ func ScanDiscoveryCandidatesAction(ctx context.Context, params ActionParams) (in
 		params.Logger.Info("ScanDiscoveryCandidatesAction: found candidate",
 			zap.String("name", candidateName),
 			zap.String("url", rootURL),
-			zap.String("postcode", postcode))
+			zap.String("postcode", postcode),
+			zap.String("group", detectedGroup))
 	}
 
 	params.Logger.Info("ScanDiscoveryCandidatesAction: complete",

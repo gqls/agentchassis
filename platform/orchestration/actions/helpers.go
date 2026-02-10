@@ -135,3 +135,39 @@ func nullIfEmpty(s string) interface{} {
 	}
 	return s
 }
+
+// isBlockedDomain checks skipDomains map AND suffix-based blocking
+func isBlockedDomain(domain string) bool {
+	if skipDomains[domain] {
+		return true
+	}
+	for _, suffix := range blockedDomainSuffixes {
+		if strings.HasSuffix(domain, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// detectGroup checks if a domain belongs to a known group.
+// Returns (groupName, true) or ("", false).
+func detectGroup(domain string) (string, bool) {
+	// Check exact match first
+	if group, ok := knownGroups[domain]; ok {
+		return group, true
+	}
+	// Check if domain is a subdomain of a known group domain
+	for groupDomain, group := range knownGroups {
+		if strings.HasSuffix(domain, "."+groupDomain) {
+			return group, true
+		}
+	}
+	return "", false
+}
+
+func nullIfFalse(b bool) interface{} {
+	if !b {
+		return nil
+	}
+	return true
+}

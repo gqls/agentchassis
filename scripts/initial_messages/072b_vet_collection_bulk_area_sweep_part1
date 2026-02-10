@@ -8,6 +8,10 @@
 
 LIMIT=${1:-50}
 AREA_CODE=${2:-}
+
+
+LIMIT=2
+AREA_CODE='BT'
 ORCH_ID=$(uuidgen)
 REQ_ID=$(uuidgen)
 CORR_ID=$(uuidgen)

@@ -148,3 +148,58 @@ SELECT
 SELECT table_name FROM information_schema.tables
 WHERE table_schema = 'business_intel'
 ORDER BY table_name;
+
+
+-- fixes
+ALTER TABLE business_intel.discovery_candidates
+    ADD CONSTRAINT uq_discovery_candidates_source_url UNIQUE (source_url);
+
+ALTER TABLE business_intel.discovery_candidates
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
+
+-- fix all
+-- ==========================================================================
+-- Migration: Fix discovery_candidates for area sweep
+-- Run against: clients_db
+--
+-- Fixes:
+--   1. Add proper UNIQUE constraint on source_url (partial index doesn't
+--      satisfy ON CONFLICT). Drop the old partial index first.
+--   2. Add updated_at column (referenced in ON CONFLICT SET clause)
+--   3. Add detected_group and is_independent for chain tagging
+-- ==========================================================================
+
+-- Fix 1: Replace partial unique index with proper UNIQUE constraint
+-- The existing partial index (WHERE source_url IS NOT NULL) doesn't satisfy
+-- ON CONFLICT (source_url). We need a real constraint.
+DROP INDEX IF EXISTS business_intel.idx_dc_unique_source;
+
+ALTER TABLE business_intel.discovery_candidates
+    ADD CONSTRAINT uq_discovery_candidates_source_url UNIQUE (source_url);
+
+-- Fix 2: Add updated_at column
+ALTER TABLE business_intel.discovery_candidates
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Backfill updated_at from created_at for existing rows
+UPDATE business_intel.discovery_candidates
+SET updated_at = created_at
+WHERE updated_at IS NULL;
+
+-- Fix 3: Add group detection columns
+ALTER TABLE business_intel.discovery_candidates
+    ADD COLUMN IF NOT EXISTS detected_group TEXT,
+    ADD COLUMN IF NOT EXISTS is_independent BOOLEAN;
+
+-- Index for group queries
+CREATE INDEX IF NOT EXISTS idx_dc_detected_group
+    ON business_intel.discovery_candidates (detected_group)
+    WHERE detected_group IS NOT NULL;
+
+-- Verify
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_schema = 'business_intel'
+  AND table_name = 'discovery_candidates'
+ORDER BY ordinal_position;
