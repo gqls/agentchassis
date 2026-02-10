@@ -159,3 +159,5 @@ INSERT INTO agent_definitions (
                                        input_contract = EXCLUDED.input_contract,
                                        output_contract = EXCLUDED.output_contract,
                                        updated_at = NOW();
+
+

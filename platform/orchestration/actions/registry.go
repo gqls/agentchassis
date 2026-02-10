@@ -258,6 +258,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Format scraped content for use in vet verifier",
 		IsLocal:     true,
 	},
+	"load_unswept_areas": {
+		Handler:     LoadUnsweptAreasAction,
+		Category:    "web",
+		Description: "Collect areas in UK for collecting vet practice details that havent yet been searched",
+		IsLocal:     true,
+	},
+	"dispatch_area_discoverers": {
+		Handler:     DispatchAreaDiscoverersAction,
+		Category:    "web",
+		Description: "Reads unswept areas from collected_data (output of load_unswept_areas). Produces one Kafka message per district to trigger area-sweep-discoverer agents.",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// LLM — prompt execution

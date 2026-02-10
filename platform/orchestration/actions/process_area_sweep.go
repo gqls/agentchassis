@@ -1,25 +1,24 @@
 // FILE: platform/orchestration/actions/process_area_sweep.go
 //
-// ProcessAreaSweepAction processes web search results from a geographic area
-// sweep, matches them against existing businesses, and inserts unmatched
-// results as discovery candidates. Updates search_areas tracking table.
+// ProcessAreaSweepAction processes web search results from a single district
+// sweep. Checks each result against known businesses and existing candidates,
+// inserts new ones into discovery_candidates, updates search_areas tracking.
 //
-// This action shares helper functions with scan_discovery_candidates.go
-// (same package): extractDomain, extractRootURL, extractPracticeName,
-// extractUKPostcode, skipDomains, vetKeywords, nullIfEmpty.
+// Shares helpers with scan_discovery_candidates.go (same package):
+//   extractDomain, extractRootURL, extractPracticeName,
+//   extractUKPostcode, skipDomains, vetKeywords
 // Do NOT redefine them here.
 //
-// Workflow step config:
+// Workflow config:
 //
-//   "process_results": {
-//       "action": "process_area_sweep",
-//       "config": {
-//           "input_fields": ["district_code", "area_name", "search_area_id", "search_results"]
-//       },
-//       "next_step": "complete",
-//       "description": "Check results against known businesses",
-//       "output_field": "sweep_result"
-//   }
+//	"process_results": {
+//	    "action": "process_area_sweep",
+//	    "config": {
+//	        "input_fields": ["district_code", "area_name", "search_area_id", "search_results"]
+//	    },
+//	    "output_field": "sweep_result",
+//	    "next_step": "complete"
+//	}
 
 package actions
 
@@ -29,8 +28,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
+
+var ProcessAreaSweepInputSpec = datahelpers.ActionInputSpec{
+	Required: []string{"search_results"},
+	Optional: []string{"district_code", "area_name", "search_area_id"},
+}
+
+func init() {
+	datahelpers.RegisterActionInputSpec("process_area_sweep", ProcessAreaSweepInputSpec)
+}
 
 func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("ProcessAreaSweepAction: Starting")
@@ -43,34 +52,43 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("no database connection available")
 	}
 
-	// -- Extract inputs from collected_data --
+	inputs, err := datahelpers.ExtractActionInputs(
+		params.CollectedData,
+		params.StepConfig.Config,
+		ProcessAreaSweepInputSpec,
+		params.Logger,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("input extraction failed: %w", err)
+	}
 
-	districtCode := getStringFromCollected(params.CollectedData, "district_code")
-	areaName := getStringFromCollected(params.CollectedData, "area_name")
-	searchAreaID := getStringFromCollected(params.CollectedData, "search_area_id")
+	districtCode := inputs.Get("district_code")
+	areaName := inputs.Get("area_name")
+	searchAreaID := inputs.Get("search_area_id")
 
 	params.Logger.Info("ProcessAreaSweepAction: processing",
 		zap.String("district_code", districtCode),
 		zap.String("area_name", areaName))
 
-	// -- Find search results --
+	// -- Extract search results from the nested structure --
 	var results []interface{}
 	var searchQuery string
 
-	if sr, ok := params.CollectedData["search_results"].(map[string]interface{}); ok {
+	searchResults := inputs.GetMap("search_results")
+	if searchResults != nil {
 		// search_results may have response.results or just results
-		if resp, ok := sr["response"].(map[string]interface{}); ok {
+		if resp, ok := searchResults["response"].(map[string]interface{}); ok {
 			if r, ok := resp["results"].([]interface{}); ok {
 				results = r
 			}
 			searchQuery, _ = resp["query"].(string)
 		}
 		if results == nil {
-			if r, ok := sr["results"].([]interface{}); ok {
+			if r, ok := searchResults["results"].([]interface{}); ok {
 				results = r
 			}
 			if searchQuery == "" {
-				searchQuery, _ = sr["query"].(string)
+				searchQuery, _ = searchResults["query"].(string)
 			}
 		}
 	}
@@ -111,35 +129,36 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 			continue
 		}
 
-		// Skip directory/aggregator sites
+		// Skip directory/aggregator sites (reuses skipDomains from scan_discovery_candidates.go)
 		domain := extractDomain(resultURL)
 		if skipDomains[domain] {
 			skipped++
 			continue
 		}
 
-		// For area sweeps, we're less strict about vet keyword matching
-		// because the search query itself is vet-specific. But still
-		// filter out obviously non-vet results.
+		// Filter obviously non-vet results (search query is already vet-specific
+		// so we're lenient, just excluding clear mismatches)
 		combined := strings.ToLower(resultTitle + " " + resultSnippet)
-		isDefinitelyNotVet := false
 		nonVetIndicators := []string{
 			"pet shop", "pet store", "dog grooming", "cat cafe",
 			"pet food", "dog walking", "pet sitting",
 			"wikipedia", "news article",
 		}
+		isNotVet := false
 		for _, indicator := range nonVetIndicators {
-			if strings.Contains(combined, indicator) && !strings.Contains(combined, "veterinary") && !strings.Contains(combined, "vet ") {
-				isDefinitelyNotVet = true
+			if strings.Contains(combined, indicator) &&
+				!strings.Contains(combined, "veterinary") &&
+				!strings.Contains(combined, "vet ") {
+				isNotVet = true
 				break
 			}
 		}
-		if isDefinitelyNotVet {
+		if isNotVet {
 			skipped++
 			continue
 		}
 
-		// Check if we already have this website in businesses table
+		// Check if already in businesses table
 		rootURL := extractRootURL(resultURL)
 		var existingID sql.NullString
 		err := params.DB.QueryRowContext(ctx,
@@ -154,26 +173,22 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 			continue
 		}
 
-		// Also check if this URL is already a discovery candidate
-		var existingCandidateID sql.NullString
+		// Check if already a discovery candidate
+		var existingCandID sql.NullString
 		err = params.DB.QueryRowContext(ctx,
 			`SELECT id FROM business_intel.discovery_candidates 
-			 WHERE source_url = $1
-			 LIMIT 1`,
+			 WHERE source_url = $1 LIMIT 1`,
 			resultURL,
-		).Scan(&existingCandidateID)
+		).Scan(&existingCandID)
 
-		if err == nil && existingCandidateID.Valid {
-			// Already tracked as candidate, skip
+		if err == nil && existingCandID.Valid {
 			alreadyKnown++
 			continue
 		}
 
-		// Extract practice name and postcode from result
+		// Extract name and postcode from result
 		candidateName := extractPracticeName(resultTitle)
 		postcode := extractUKPostcode(resultSnippet)
-
-		// If no postcode found in snippet, use the district code as approximation
 		if postcode == "" && districtCode != "" {
 			postcode = districtCode
 		}
@@ -192,14 +207,13 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 			searchQuery, resultURL,
 		)
 		if err != nil {
-			params.Logger.Warn("ProcessAreaSweepAction: failed to insert candidate",
-				zap.String("url", resultURL),
-				zap.Error(err))
+			params.Logger.Warn("Failed to insert candidate",
+				zap.String("url", resultURL), zap.Error(err))
 			continue
 		}
 		candidates++
 
-		params.Logger.Info("ProcessAreaSweepAction: found candidate",
+		params.Logger.Info("Found candidate",
 			zap.String("name", candidateName),
 			zap.String("url", rootURL),
 			zap.String("district", districtCode))
@@ -228,9 +242,7 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 // updateSweepTracking updates the search_areas table after a sweep
 func updateSweepTracking(ctx context.Context, db *sql.DB, searchAreaID, districtCode string, resultCount, candidatesFound int, logger *zap.Logger) {
 	var err error
-
 	if searchAreaID != "" {
-		// Update by ID if provided
 		_, err = db.ExecContext(ctx, `
 			UPDATE business_intel.search_areas 
 			SET last_swept_at = NOW(),
@@ -240,7 +252,6 @@ func updateSweepTracking(ctx context.Context, db *sql.DB, searchAreaID, district
 			WHERE id = $3`,
 			resultCount, candidatesFound, searchAreaID)
 	} else if districtCode != "" {
-		// Fall back to district_code lookup
 		_, err = db.ExecContext(ctx, `
 			UPDATE business_intel.search_areas 
 			SET last_swept_at = NOW(),
@@ -250,34 +261,8 @@ func updateSweepTracking(ctx context.Context, db *sql.DB, searchAreaID, district
 			WHERE district_code = $3 AND country = 'GB'`,
 			resultCount, candidatesFound, districtCode)
 	}
-
 	if err != nil {
-		logger.Warn("ProcessAreaSweepAction: failed to update sweep tracking",
-			zap.String("district_code", districtCode),
-			zap.Error(err))
+		logger.Warn("Failed to update sweep tracking",
+			zap.String("district_code", districtCode), zap.Error(err))
 	}
-}
-
-// getStringFromCollected extracts a string from collected_data, checking
-// top-level, input_data, and __raw_message__.input_data
-func getStringFromCollected(collected map[string]interface{}, key string) string {
-	// Direct top-level
-	if v, ok := collected[key].(string); ok && v != "" {
-		return v
-	}
-	// input_data
-	if inputData, ok := collected["input_data"].(map[string]interface{}); ok {
-		if v, ok := inputData[key].(string); ok && v != "" {
-			return v
-		}
-	}
-	// __raw_message__
-	if raw, ok := collected["__raw_message__"].(map[string]interface{}); ok {
-		if inputData, ok := raw["input_data"].(map[string]interface{}); ok {
-			if v, ok := inputData[key].(string); ok && v != "" {
-				return v
-			}
-		}
-	}
-	return ""
 }
