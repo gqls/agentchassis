@@ -161,3 +161,70 @@ INSERT INTO agent_definitions (
                                        updated_at = NOW();
 
 
+-- revision
+-- 2. area-sweep-discoverer
+-- Searches one postcode district, processes results into discovery candidates.
+-- Called by orchestrator with: {"district_code": "BT4", "area_name": "Belfast", ...}
+-- Also callable standalone with just a district_code.
+
+INSERT INTO agent_definitions (
+    type, display_name, description, category,
+    default_config, is_active,
+    capabilities, domain_tags,
+    agent_category, status,
+    input_contract, output_contract
+) VALUES (
+             'area-sweep-discoverer',
+             'Area Sweep Discoverer',
+             'Searches for veterinary practices within a UK postcode district and creates discovery candidates for unknown businesses.',
+             'data-driven',
+             '{
+                 "workflow": {
+                     "start_step": "search_area",
+                     "steps": {
+                         "search_area": {
+                             "action": "web_search",
+                             "config": {
+                                 "num_results": 10,
+                                 "query_template": "{{.input_data.business_type}} {{.input_data.district_code}} {{.input_data.area_name}} UK"
+                             },
+                             "output_field": "search_results",
+                             "next_step": "process_results",
+                             "description": "Search for vet practices in this postcode district"
+                         },
+                         "process_results": {
+                             "action": "process_area_sweep",
+                             "config": {
+                                 "input_fields": ["district_code", "area_name", "search_area_id", "search_results"]
+                             },
+                             "output_field": "sweep_result",
+                             "next_step": "complete",
+                             "description": "Check results against known businesses, insert candidates"
+                         },
+                         "complete": {
+                             "action": "complete_workflow",
+                             "config": {
+                                 "output_fields": ["search_results", "sweep_result"]
+                             },
+                             "description": "District sweep complete"
+                         }
+                     }
+                 },
+                 "processing_mode": "orchestrator",
+                 "timeout_seconds": 120
+             }'::jsonb,
+             true,
+             '["discovery", "web-search", "veterinary"]'::jsonb,
+             '["veterinary", "business-intelligence", "discovery"]'::jsonb,
+             'specialist',
+             'experimental',
+             '{"required": ["district_code"], "optional": ["area_name", "search_area_id", "business_type"]}'::jsonb,
+             '{"produces": {"search_results": "object - raw search results", "sweep_result": "object - candidates found counts"}}'::jsonb
+         )
+    ON CONFLICT (type, version) DO UPDATE SET
+    default_config = EXCLUDED.default_config,
+                                       description = EXCLUDED.description,
+                                       input_contract = EXCLUDED.input_contract,
+                                       output_contract = EXCLUDED.output_contract,
+                                       updated_at = NOW();
+

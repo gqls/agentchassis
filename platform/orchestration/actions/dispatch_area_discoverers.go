@@ -16,6 +16,9 @@
 //	    "output_field": "dispatch_result",
 //	    "next_step": "complete"
 //	}
+//
+// Registration:
+//   "dispatch_area_discoverers": DispatchAreaDiscoverersAction,
 
 package actions
 
@@ -135,7 +138,7 @@ func DispatchAreaDiscoverersAction(ctx context.Context, params ActionParams) (in
 			continue
 		}
 
-		// Headers — same as bulk_vet_verify.sh uses
+		// Headers — same format as bulk_vet_verify.sh
 		headers := map[string]string{
 			"correlation_id":     uuid.New().String(),
 			"request_id":         reqID,

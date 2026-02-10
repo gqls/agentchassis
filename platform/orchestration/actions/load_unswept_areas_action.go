@@ -3,19 +3,22 @@
 // LoadUnsweptAreasAction loads postcode districts that haven't been swept
 // yet (or least recently swept) from business_intel.search_areas.
 //
-// This is the "load" action for the area-sweep-orchestrator agent,
-// following the pattern: agents own their domain, load their own data.
+// This is the "load" action for the area-sweep-orchestrator agent.
+// Agents own their domain — this agent loads its own data.
 //
 // Workflow config:
 //
 //	"load_areas": {
 //	    "action": "load_unswept_areas",
 //	    "config": {
-//	        "input_fields": ["limit", "country"]
+//	        "input_fields": ["limit", "country", "business_type", "area_code"]
 //	    },
 //	    "output_field": "unswept_areas",
 //	    "next_step": "dispatch_discoverers"
 //	}
+//
+// Registration:
+//   "load_unswept_areas": LoadUnsweptAreasAction,
 
 package actions
 
@@ -80,7 +83,7 @@ func LoadUnsweptAreasAction(ctx context.Context, params ActionParams) (interface
 		zap.String("country", country),
 		zap.String("area_code", areaCode))
 
-	// Build query - optionally filter by area_code
+	// Build query — optionally filter by area_code
 	query := `
 		SELECT id, district_code, area_name
 		FROM business_intel.search_areas
@@ -118,10 +121,10 @@ func LoadUnsweptAreasAction(ctx context.Context, params ActionParams) (interface
 		})
 	}
 
-	// Also get summary stats
+	// Summary stats
 	var totalAreas, neverSwept, totalCandidates int
 	params.DB.QueryRowContext(ctx, `
-		SELECT 
+		SELECT
 			COUNT(*),
 			COUNT(*) FILTER (WHERE sweep_count = 0),
 			COALESCE(SUM(candidates_found), 0)

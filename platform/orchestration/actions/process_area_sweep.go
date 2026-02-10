@@ -19,6 +19,9 @@
 //	    "output_field": "sweep_result",
 //	    "next_step": "complete"
 //	}
+//
+// Registration:
+//   "process_area_sweep": ProcessAreaSweepAction,
 
 package actions
 
@@ -136,8 +139,8 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 			continue
 		}
 
-		// Filter obviously non-vet results (search query is already vet-specific
-		// so we're lenient, just excluding clear mismatches)
+		// Filter obviously non-vet results. The search query is already vet-specific
+		// so we're lenient — just excluding clear mismatches.
 		combined := strings.ToLower(resultTitle + " " + resultSnippet)
 		nonVetIndicators := []string{
 			"pet shop", "pet store", "dog grooming", "cat cafe",
@@ -162,7 +165,7 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 		rootURL := extractRootURL(resultURL)
 		var existingID sql.NullString
 		err := params.DB.QueryRowContext(ctx,
-			`SELECT id FROM business_intel.businesses 
+			`SELECT id FROM business_intel.businesses
 			 WHERE website_url ILIKE $1 OR website_url ILIKE $2
 			 LIMIT 1`,
 			rootURL+"%", "www."+strings.TrimPrefix(rootURL, "https://")+"%",
@@ -176,7 +179,7 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 		// Check if already a discovery candidate
 		var existingCandID sql.NullString
 		err = params.DB.QueryRowContext(ctx,
-			`SELECT id FROM business_intel.discovery_candidates 
+			`SELECT id FROM business_intel.discovery_candidates
 			 WHERE source_url = $1 LIMIT 1`,
 			resultURL,
 		).Scan(&existingCandID)
@@ -195,7 +198,7 @@ func ProcessAreaSweepAction(ctx context.Context, params ActionParams) (interface
 
 		// Insert as discovery candidate
 		_, err = params.DB.ExecContext(ctx, `
-			INSERT INTO business_intel.discovery_candidates 
+			INSERT INTO business_intel.discovery_candidates
 				(name, website_url, address_snippet, postcode,
 				 source_query, source_url, status, created_at)
 			VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())
@@ -244,7 +247,7 @@ func updateSweepTracking(ctx context.Context, db *sql.DB, searchAreaID, district
 	var err error
 	if searchAreaID != "" {
 		_, err = db.ExecContext(ctx, `
-			UPDATE business_intel.search_areas 
+			UPDATE business_intel.search_areas
 			SET last_swept_at = NOW(),
 			    sweep_count = sweep_count + 1,
 			    last_result_count = $1,
@@ -253,7 +256,7 @@ func updateSweepTracking(ctx context.Context, db *sql.DB, searchAreaID, district
 			resultCount, candidatesFound, searchAreaID)
 	} else if districtCode != "" {
 		_, err = db.ExecContext(ctx, `
-			UPDATE business_intel.search_areas 
+			UPDATE business_intel.search_areas
 			SET last_swept_at = NOW(),
 			    sweep_count = sweep_count + 1,
 			    last_result_count = $1,

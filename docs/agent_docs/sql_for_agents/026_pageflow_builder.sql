@@ -1069,3 +1069,47 @@ SET default_config = jsonb_set(
              ),
     updated_at = NOW()
 WHERE type = 'pageflow-builder';
+
+-- nav changes
+-- Workflow change: Insert populate_nav_tables step into pageflow-builder
+-- and multipage-website-builder workflows.
+--
+-- CURRENT step chains:
+--   pageflow-builder:           sync_pages_to_db → check_assets_needed → ...
+--   multipage-website-builder:  sync_pages_to_db → generate_pages_loop → ...
+--
+-- NEW step chains:
+--   pageflow-builder:           sync_pages_to_db → populate_nav → check_assets_needed → ...
+--   multipage-website-builder:  sync_pages_to_db → populate_nav → generate_pages_loop → ...
+
+-- =========================================================================
+-- 1. pageflow-builder: change sync_pages_to_db.next_step and add populate_nav
+-- =========================================================================
+
+-- Change sync_pages_to_db next_step from check_assets_needed to populate_nav
+UPDATE agent_definitions
+SET workflow = jsonb_set(
+        workflow,
+        '{workflow,steps,sync_pages_to_db,next_step}',
+        '"populate_nav"'
+               )
+WHERE type = 'pageflow-builder' AND is_active = true;
+
+-- Add the populate_nav step
+UPDATE agent_definitions
+SET workflow = jsonb_set(
+        workflow,
+        '{workflow,steps,populate_nav}',
+        '{
+            "action": "populate_nav_tables",
+            "config": {
+                "site_id_field": "site_record.site_id",
+                "max_header_items": 6
+            },
+            "next_step": "check_assets_needed",
+            "description": "Populate navigation tables from page plan",
+            "output_field": "nav_data"
+        }'::jsonb
+               )
+WHERE type = 'pageflow-builder' AND is_active = true;
+

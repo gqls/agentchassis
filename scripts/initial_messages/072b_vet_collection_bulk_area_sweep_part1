@@ -1,132 +1,63 @@
 #!/bin/bash
-# ==========================================================================
-# bulk_area_sweep.sh - Launch area sweep discovery agents
-# Queries search_areas, sends Kafka messages to area-sweep-discoverer
-# ==========================================================================
+# start_area_sweep.sh - Kick off the area sweep orchestrator
+#
+# Usage:
+#   ./start_area_sweep.sh            # sweep 50 districts (default)
+#   ./start_area_sweep.sh 10         # sweep 10 districts
+#   ./start_area_sweep.sh 100 BT     # sweep 100 districts, Belfast area only
 
-set -euo pipefail
+LIMIT=${1:-50}
+AREA_CODE=${2:-}
+ORCH_ID=$(uuidgen)
+REQ_ID=$(uuidgen)
+CORR_ID=$(uuidgen)
+MSG_ID=$(uuidgen)
+ORCH_NAME="area-sweep-$(date +%Y%m%d-%H%M%S)"
 
-LIMIT=${1:-10}
-DELAY=${2:-0.5}
-BATCH_NAME="area-sweep-$(date +%Y%m%d-%H%M%S)"
-NAMESPACE="ai-persona-system"
-KAFKA_NS="kafka"
-TOPIC="system.agent.area-sweep-discoverer.process"
-DB_POD=$(kubectl -n $NAMESPACE get pods -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "postgres-0")
+BOOTSTRAP="personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+TOPIC="system.agent.generic.requests"
 
-echo "=== Area Sweep Discovery ==="
-echo "Batch:  $BATCH_NAME"
-echo "Limit:  $LIMIT"
-echo "Delay:  ${DELAY}s between messages"
-echo "Topic:  $TOPIC"
-echo ""
-
-# Get areas to sweep, prioritizing never-swept, then least-swept
-AREAS=$(kubectl -n $NAMESPACE exec -i $DB_POD -- psql -U postgres -d ai_platform -t -A -F'|' <<SQL
-SELECT id, district_code, area_name
-FROM business_intel.search_areas
-WHERE country = 'GB'
-ORDER BY 
-    sweep_count ASC,
-    last_swept_at ASC NULLS FIRST,
-    district_code ASC
-LIMIT $LIMIT;
-SQL
-)
-
-if [ -z "$AREAS" ]; then
-    echo "No areas found to sweep. Run the migration first."
-    exit 1
+# Build input_data
+if [ -n "$AREA_CODE" ]; then
+    INPUT="\"limit\":${LIMIT},\"country\":\"GB\",\"area_code\":\"${AREA_CODE}\""
+else
+    INPUT="\"limit\":${LIMIT},\"country\":\"GB\""
 fi
 
-COUNT=$(echo "$AREAS" | wc -l)
-echo "Found $COUNT areas to sweep"
+BODY="{\"action\":\"orchestrate\",\"config\":{\"agent_type\":\"area-sweep-orchestrator\"},\"input_data\":{${INPUT}}}"
+
+echo "Sending area sweep request:"
+echo "  Limit: $LIMIT"
+echo "  Area:  ${AREA_CODE:-all}"
+echo "  Orch:  $ORCH_NAME"
 echo ""
 
-# Check current stats
-echo "--- Current coverage ---"
-kubectl -n $NAMESPACE exec -i $DB_POD -- psql -U postgres -d ai_platform -t <<SQL
-SELECT 
-    COUNT(*) FILTER (WHERE sweep_count = 0) as never_swept,
-    COUNT(*) FILTER (WHERE sweep_count > 0) as swept_at_least_once,
-    COUNT(*) as total,
-    COALESCE(SUM(candidates_found), 0) as total_candidates_found
-FROM business_intel.search_areas
-WHERE country = 'GB';
-SQL
-echo ""
-
-# Create persistent kcat pod for sending
-KCAT_POD="kcat-area-sweep-$$"
-echo "Creating kcat pod: $KCAT_POD"
-kubectl -n $KAFKA_NS run $KCAT_POD \
+kubectl -n kafka run kcat-sweep-$$ \
     --image=edenhill/kcat:1.7.1 \
     --restart=Never \
-    --command -- sleep 3600 2>/dev/null || true
-
-echo "Waiting for kcat pod..."
-kubectl -n $KAFKA_NS wait --for=condition=Ready pod/$KCAT_POD --timeout=30s
-
-SENT=0
-while IFS='|' read -r search_area_id district_code area_name; do
-    # Trim whitespace
-    search_area_id=$(echo "$search_area_id" | xargs)
-    district_code=$(echo "$district_code" | xargs)
-    area_name=$(echo "$area_name" | xargs)
-    
-    [ -z "$district_code" ] && continue
-    
-    ORCH_NAME="${BATCH_NAME}-${district_code}"
-    
-    MSG=$(cat <<JSONEOF
-{
-    "headers": {
-        "message_type": "agent_request",
-        "agent_type": "area-sweep-discoverer",
-        "orchestration_name": "$ORCH_NAME",
-        "reply_to": "system.responses.area-sweep-discoverer",
-        "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    },
-    "body": {
-        "input_data": {
-            "district_code": "$district_code",
-            "area_name": "$area_name",
-            "search_area_id": "$search_area_id"
-        }
-    }
-}
-JSONEOF
-)
-    
-    # Send via kcat
-    echo "$MSG" | kubectl -n $KAFKA_NS exec -i $KCAT_POD -- \
-        kcat -P -b kafka-bootstrap:9092 -t "$TOPIC" 2>/dev/null
-    
-    SENT=$((SENT + 1))
-    echo "[$SENT/$COUNT] $district_code ($area_name)"
-    
-    sleep "$DELAY"
-    
-done <<< "$AREAS"
+    --rm -i \
+    --command -- kcat -P \
+    -b "$BOOTSTRAP" \
+    -t "$TOPIC" \
+    -H "correlation_id=$CORR_ID" \
+    -H "request_id=$REQ_ID" \
+    -H "message_id=$MSG_ID" \
+    -H "orchestration_id=$ORCH_ID" \
+    -H "orchestration_name=$ORCH_NAME" \
+    -H "step_name=start" \
+    -H "client_id=00000000-0000-0000-0000-000000000001" \
+    -H "message_type=request" \
+    -H "action=orchestrate" \
+    -H "from_agent_type=user" \
+    -H "from_agent_id=cli-sweep" \
+    -H "responses_topic=system.generic.responses" \
+    <<< "$BODY"
 
 echo ""
-echo "=== Sent $SENT area sweep requests ==="
+echo "Sent. The orchestrator will load ${LIMIT} un-swept districts and dispatch discoverers."
 echo ""
-echo "Monitor progress:"
-echo "  # Sweep tracking"
-echo "  kubectl -n $NAMESPACE exec -i $DB_POD -- psql -U postgres -d ai_platform -c \\"
-echo "    \"SELECT sweep_count, COUNT(*) as areas, SUM(candidates_found) as candidates FROM business_intel.search_areas WHERE country='GB' GROUP BY sweep_count ORDER BY sweep_count;\""
-echo ""
-echo "  # Discovery candidates"
-echo "  kubectl -n $NAMESPACE exec -i $DB_POD -- psql -U postgres -d ai_platform -c \\"
-echo "    \"SELECT status, COUNT(*) FROM business_intel.discovery_candidates GROUP BY status;\""
-echo ""
-echo "  # Orchestration status"
-echo "  kubectl -n $NAMESPACE exec -i $DB_POD -- psql -U postgres -d ai_platform -c \\"
-echo "    \"SELECT status, COUNT(*) FROM orchestration_states WHERE orchestration_name LIKE '${BATCH_NAME}%' GROUP BY status;\""
-echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "    \"SELECT status, COUNT(*) FROM orchestration_states WHERE orchestration_name LIKE '${ORCH_NAME}%' GROUP BY status;\""
 
-# Cleanup kcat pod
-echo "Cleaning up kcat pod..."
-kubectl -n $KAFKA_NS delete pod $KCAT_POD --grace-period=0 --force 2>/dev/null || true
-echo "Done."
+

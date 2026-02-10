@@ -28,3 +28,35 @@ WHERE function = 'hero' AND (category IS NULL OR category = '');
 SELECT name, function,
        CASE WHEN html_template LIKE '%hero_home_url%' THEN 'YES' ELSE 'NO' END as has_image_support
 FROM content_components WHERE function = 'hero';
+
+-- nav changes
+-- =========================================================================
+-- 2. multipage-website-builder: change sync_pages_to_db.next_step and add populate_nav
+-- =========================================================================
+
+-- Change sync_pages_to_db next_step from generate_pages_loop to populate_nav
+UPDATE agent_definitions
+SET workflow = jsonb_set(
+        workflow,
+        '{workflow,steps,sync_pages_to_db,next_step}',
+        '"populate_nav"'
+               )
+WHERE type = 'multipage-website-builder' AND is_active = true;
+
+-- Add the populate_nav step
+UPDATE agent_definitions
+SET workflow = jsonb_set(
+        workflow,
+        '{workflow,steps,populate_nav}',
+        '{
+            "action": "populate_nav_tables",
+            "config": {
+                "site_id_field": "site_record.site_id",
+                "max_header_items": 6
+            },
+            "next_step": "generate_pages_loop",
+            "description": "Populate navigation tables from page plan",
+            "output_field": "nav_data"
+        }'::jsonb
+               )
+WHERE type = 'multipage-website-builder' AND is_active = true;
