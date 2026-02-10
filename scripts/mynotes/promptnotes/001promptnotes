@@ -142,3 +142,5 @@ make sure we use the correct db fields e.g. there was confusion between status a
 I want to use the git adapter for all git commits, in case one day I change the git destination.
 
 agents are dynamically spawned usually
+
+the initial messages should be simple kafka messages without sql and bash functions because potentially these might be sent by another agent

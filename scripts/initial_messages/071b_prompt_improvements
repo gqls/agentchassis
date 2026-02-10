@@ -290,9 +290,9 @@ CLIENT_ID="demo_client"
 
 -- 1 ----
 
-CORRELATION_ID=62a9850c-e928-41a3-8924-d6121167232d
-ORCHESTRATION_ID=655f86e9-12a9-4e9b-a0d9-f4aa0c6bcd13
-HITL_REQUEST_ID=57244844-1945-4ebd-89c1-6840c75d9ecc
+CORRELATION_ID=1c7a0ae5-026a-4a0b-9019-e5ab4ed06059
+ORCHESTRATION_ID=b63c1d9b-b300-456b-8d2e-ee19bc0ddfab
+HITL_REQUEST_ID=
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -369,7 +369,7 @@ this one was multipage-website-builder
 
 
 
-SEND BROCHURE REVIEW BRIEF (SECOND fill - actual filled review brief)
+SEND BROCHURE REVIEW BRIEF (SECOND fill - actual filled hitl review brief)
 ------------------------------------
 
 CORRELATION_ID=
@@ -381,9 +381,9 @@ CLIENT_ID="demo_client"
 
 --- 2 2 ---
 
-CORRELATION_ID=62a9850c-e928-41a3-8924-d6121167232d
-ORCHESTRATION_ID=655f86e9-12a9-4e9b-a0d9-f4aa0c6bcd13
-HITL_REQUEST_ID=8568aa54-2102-42a3-b879-22d11070871b
+CORRELATION_ID=1c7a0ae5-026a-4a0b-9019-e5ab4ed06059
+ORCHESTRATION_ID=b63c1d9b-b300-456b-8d2e-ee19bc0ddfab
+HITL_REQUEST_ID=
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -540,7 +540,7 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=62a9850c-e928-41a3-8924-d6121167232d
+CORRELATION_ID=1c7a0ae5-026a-4a0b-9019-e5ab4ed06059
 ORCHESTRATION_ID=
 HITL_REQUEST_ID=
 RESPONSES_TOPIC=
@@ -669,7 +669,7 @@ kubectl -n ai-persona-system logs --tail=300 -l agent-type=briefing-agent  -f | 
 kubectl -n ai-persona-system logs --tail=300 -l app=git-adapter -f | tee logs-git-adapter.json
 
 make build-backend push-backend deploy-core deploy-agents redeploy-agents ENVIRONMENT=production REGION=uk001
-
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > agent_definitions_backup.sql
 
 
 =======================================================================================================
