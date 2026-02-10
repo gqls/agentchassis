@@ -1434,7 +1434,9 @@ func RenderFallbackFooter(ctx *RenderContext) string {
 func InjectHeader(ctx context.Context, db interface{}, html string, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
 	// Update nav items from deployed pages (not cached db_sync)
 	if sqlDB, ok := db.(*sql.DB); ok && siteID != uuid.Nil {
-		headerNav := GetHeaderNavFromPages(ctx, sqlDB, siteID, 6, logger)
+		/*headerNav := GetHeaderNavFromPages(ctx, sqlDB, siteID, 6, logger)*/
+		// deployedOnly=true: only show actually deployed pages.
+		headerNav := GetNavItems(ctx, sqlDB, siteID, []string{NavGroupPrimary}, true, 6, logger)
 		if len(headerNav) > 0 {
 			renderCtx.NavItems = headerNav
 			logger.Debug("InjectHeader: Updated nav from deployed pages",
@@ -1472,7 +1474,8 @@ func InjectFooter(ctx context.Context, db interface{}, html string, siteID uuid.
 	// Update nav items from deployed pages for footer
 	// Footer includes legal pages (privacy, terms) that may not be in header
 	if sqlDB, ok := db.(*sql.DB); ok && siteID != uuid.Nil {
-		footerNav := GetFooterNavFromPages(ctx, sqlDB, siteID, logger)
+		/*footerNav := GetFooterNavFromPages(ctx, sqlDB, siteID, logger)*/
+		footerNav := GetNavItems(ctx, sqlDB, siteID, []string{NavGroupPrimary, NavGroupUtility, NavGroupLegal}, true, 0, logger)
 		if len(footerNav) > 0 {
 			renderCtx.FooterNavItems = footerNav
 			logger.Debug("InjectFooter: Updated nav from deployed pages",
@@ -1691,6 +1694,7 @@ type NavItemFromDB struct {
 
 // GetHeaderNavFromPages queries pages table for header navigation
 // Only includes pages with in_header=true AND status in deployed/active
+// DEPRECATED
 func GetHeaderNavFromPages(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxItems int, logger *zap.Logger) []NavItem {
 	if db == nil || siteID == uuid.Nil {
 		logger.Debug("GetHeaderNavFromPages: No DB or site_id, returning empty nav")
@@ -1751,6 +1755,7 @@ func GetHeaderNavFromPages(ctx context.Context, db *sql.DB, siteID uuid.UUID, ma
 
 // GetFooterNavFromPages queries pages table for footer navigation
 // Includes pages with in_footer=true OR legal pages (privacy, terms)
+// DEPRECATED
 func GetFooterNavFromPages(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) []NavItem {
 	if db == nil || siteID == uuid.Nil {
 		return []NavItem{}

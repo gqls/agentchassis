@@ -654,9 +654,10 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 		if siteIDStr != "" {
 			if siteUUID, err := uuid.Parse(siteIDStr); err == nil && params.DB != nil {
 				renderCtx.SiteID = siteUUID
-				nav, _ := getNavigationFromDB(ctx, params.DB, siteUUID, "header", params.Logger)
-				if nav != nil && len(nav.Items) > 0 {
-					renderCtx.NavItems = convertNavigationItems(nav.Items)
+				/*nav, _ := getNavigationFromDB(ctx, params.DB, siteUUID, "header", params.Logger)*/
+				headerNav := GetNavItems(ctx, params.DB, siteUUID, []string{NavGroupPrimary}, false, 0, params.Logger)
+				if len(headerNav) > 0 {
+					renderCtx.NavItems = headerNav
 				}
 			}
 		}
@@ -1175,6 +1176,7 @@ func mergeIntoRenderContext(ctx *RenderContext, data map[string]interface{}) {
 	}
 }
 
+// DEPRECATED
 func convertNavigationItems(items []NavigationItem) []NavItem {
 	result := make([]NavItem, len(items))
 	for i, item := range items {

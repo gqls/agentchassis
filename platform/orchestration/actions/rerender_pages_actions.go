@@ -164,7 +164,9 @@ func RerenderSitePagesAction(ctx context.Context, params ActionParams) (interfac
 
 	// Build navigation items from DB (deployed pages only)
 	// This ensures nav matches actual deployed pages, not planned pages
-	dbNav := rerenderGetHeaderNavFromDB(ctx, params.DB, siteID, 6, params.Logger)
+	/*dbNav := rerenderGetHeaderNavFromDB(ctx, params.DB, siteID, 6, params.Logger)*/
+	// deployedOnly=true for rerender.
+	dbNav := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary}, true, 6, params.Logger)
 	if len(dbNav) > 0 {
 		baseRenderCtx.NavItems = dbNav
 	} else {
@@ -335,6 +337,7 @@ func rerenderBuildNavItems(pages []RerenderPageInfo) []NavItem {
 }
 
 // rerenderGetHeaderNavFromDB queries pages table for header nav (deployed pages only)
+// DEPRECATED
 func rerenderGetHeaderNavFromDB(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxItems int, logger *zap.Logger) []NavItem {
 	if db == nil || siteID == uuid.Nil {
 		return nil
@@ -385,6 +388,7 @@ func rerenderGetHeaderNavFromDB(ctx context.Context, db *sql.DB, siteID uuid.UUI
 }
 
 // rerenderGetFooterNavFromDB queries pages table for footer nav
+// DEPRECATED
 func rerenderGetFooterNavFromDB(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) []NavItem {
 	if db == nil || siteID == uuid.Nil {
 		return nil

@@ -226,10 +226,15 @@ func SyncPagesToDBAction(ctx context.Context, params ActionParams) (interface{},
 	}
 
 	// Get navigation from database (trigger will have invalidated cache)
-	navigation, err := getNavigationFromDB(ctx, params.DB, siteID, "header", params.Logger)
+	/*navigation, err := getNavigationFromDB(ctx, params.DB, siteID, "header", params.Logger)
 	if err != nil {
 		params.Logger.Warn("Failed to get navigation from DB, building from plan",
 			zap.Error(err))
+		navigation = buildNavigationFromPages(pages)
+	}*/
+	navigation, err := GetNavigationStructure(ctx, params.DB, siteID, "header", params.Logger)
+	if err != nil {
+		params.Logger.Warn("Failed to get navigation, building from plan", zap.Error(err))
 		navigation = buildNavigationFromPages(pages)
 	}
 
@@ -418,7 +423,8 @@ func GetNavigationFromDBAction(ctx context.Context, params ActionParams) (interf
 		return nil, fmt.Errorf("database not available")
 	}
 
-	navigation, err := getNavigationFromDB(ctx, params.DB, siteID, navType, params.Logger)
+	/*navigation, err := getNavigationFromDB(ctx, params.DB, siteID, navType, params.Logger)*/
+	navigation, err := GetNavigationStructure(ctx, params.DB, siteID, navType, params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get navigation: %w", err)
 	}
@@ -942,6 +948,7 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 	return &pageRecord, nil
 }
 
+// DEPRECATED
 func getNavigationFromDB(ctx context.Context, db interface{}, siteID uuid.UUID, navType string, logger *zap.Logger) (*NavigationStructure, error) {
 	// First try to get cached navigation
 	cacheQuery := `
@@ -975,6 +982,7 @@ func getNavigationFromDB(ctx context.Context, db interface{}, siteID uuid.UUID, 
 	return buildNavigationFromDB(ctx, db, siteID, navType, logger)
 }
 
+// DEPRECATED
 func buildNavigationFromDB(ctx context.Context, db interface{}, siteID uuid.UUID, navType string, logger *zap.Logger) (*NavigationStructure, error) {
 	query := `
 		SELECT id, COALESCE(nav_label, title, name) as label, url
@@ -1028,6 +1036,7 @@ func buildNavigationFromDB(ctx context.Context, db interface{}, siteID uuid.UUID
 	return nav, nil
 }
 
+// DEPRECATED
 func cacheNavigation(ctx context.Context, db interface{}, siteID uuid.UUID, navType string, nav *NavigationStructure, logger *zap.Logger) {
 	structureJSON, err := json.Marshal(nav)
 	if err != nil {

@@ -88,8 +88,11 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	)
 
 	// Load navigation for header/footer
-	navItems := loadNavItems(ctx, params.DB, siteID, 6, params.Logger)
-	footerNavItems := loadFooterNavItems(ctx, params.DB, siteID, 10, params.Logger)
+	/*	navItems := loadNavItems(ctx, params.DB, siteID, 6, params.Logger)
+		footerNavItems := loadFooterNavItems(ctx, params.DB, siteID, 10, params.Logger)*/
+	// deployedOnly=false: runs during build when pages may not be deployed yet.
+	navItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary}, false, 6, params.Logger)
+	footerNavItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary, NavGroupUtility, NavGroupLegal}, false, 10, params.Logger)
 
 	// Build render context
 	year := fmt.Sprintf("%d", time.Now().Year())
@@ -332,6 +335,7 @@ func renderAndStoreSiteComponent(
 }
 
 // loadNavItems loads navigation items for header
+// DEPRECATED
 func loadNavItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxItems int, logger *zap.Logger) []NavItem {
 	query := `
 		SELECT 
@@ -377,6 +381,7 @@ func loadNavItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxItems in
 }
 
 // loadFooterNavItems loads navigation items for footer
+// DEPRECATED
 func loadFooterNavItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxItems int, logger *zap.Logger) []NavItem {
 	query := `
 		SELECT 
