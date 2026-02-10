@@ -228,6 +228,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Scrape multiple pages from a site sequentially",
 		IsLocal:     true,
 	},
+	"scan_discovery_candidates": {
+		Handler:     ScanDiscoveryCandidatesAction,
+		Category:    "web",
+		Description: "Extract new potential vet practices from scraped data",
+		IsLocal:     true,
+	},
 	"prepare_urls": {
 		Handler:     PrepareUrlsAction,
 		Category:    "web",
@@ -242,6 +248,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 	"prepare_extraction_context": {
 		Handler:     PrepareExtractionContextAction,
+		Category:    "web",
+		Description: "Format scraped content for use in vet verifier",
+		IsLocal:     true,
+	},
+	"process_area_sweep": {
+		Handler:     ProcessAreaSweepAction,
 		Category:    "web",
 		Description: "Format scraped content for use in vet verifier",
 		IsLocal:     true,

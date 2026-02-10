@@ -596,3 +596,60 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'vet-practice-verifier';
+
+--
+
+-- discoveries part one - from the verifier step
+
+-- Wire scan_discovery_candidates into the vet-practice-verifier workflow
+-- Currently: store_results -> complete
+-- After:     store_results -> scan_discoveries -> complete
+
+-- 1. Change store_results.next_step from "complete" to "scan_discoveries"
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_results,next_step}',
+        '"scan_discoveries"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- 2. Add the scan_discoveries step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,scan_discoveries}',
+        '{
+            "action": "scan_discovery_candidates",
+            "config": {
+                "input_fields": ["business_id", "search_results", "search_practice", "business_record"]
+            },
+            "next_step": "complete",
+            "description": "Scan search results for unknown vet practices",
+            "output_field": "discovery_scan"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
+
+-- Verify the step order
+SELECT
+    step_name,
+    step_def->>'action' AS action,
+    step_def->>'next_step' AS next_step
+FROM agent_definitions,
+    jsonb_each(default_config->'workflow'->'steps') AS s(step_name, step_def)
+WHERE type = 'vet-practice-verifier'
+ORDER BY
+    CASE step_name
+    WHEN 'load_business' THEN 1
+    WHEN 'search_practice' THEN 2
+    WHEN 'scrape_website' THEN 3
+    WHEN 'prepare_context' THEN 4
+    WHEN 'extract_and_reconcile' THEN 5
+    WHEN 'store_results' THEN 6
+    WHEN 'scan_discoveries' THEN 7
+    WHEN 'complete' THEN 8
+END;
+

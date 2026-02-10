@@ -388,3 +388,63 @@ Migrate from `*_field` to `input_fields` pattern.
 
 ### Step 6: Remove deprecated support
 After all workflows migrated, remove deprecated patterns from spec.
+
+
+---
+note that agent_definitions has index on type, version and not just type
+
+clients_db=# \d agent_definitions;
+Table "public.agent_definitions"
+Column         |           Type           | Collation | Nullable |                                                           Default                                                           
+------------------------+--------------------------+-----------+----------+-----------------------------------------------------------------------------------------------------------------------------
+id                     | uuid                     |           | not null | gen_random_uuid()
+type                   | character varying(100)   |           | not null |
+display_name           | character varying(255)   |           | not null |
+description            | text                     |           |          |
+category               | character varying(50)    |           | not null |
+default_config         | jsonb                    |           | not null | '{}'::jsonb
+is_active              | boolean                  |           |          | true
+created_at             | timestamp with time zone |           | not null | now()
+updated_at             | timestamp with time zone |           | not null | now()
+deleted_at             | timestamp with time zone |           |          |
+capabilities           | jsonb                    |           |          | '[]'::jsonb
+image_repository       | character varying(255)   |           |          | 'docker.io/aqls/agent-chassis'::character varying
+image_tag              | character varying(100)   |           |          | 'latest'::character varying
+command                | text[]                   |           |          |
+resources              | jsonb                    |           |          | '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}'::jsonb
+topics                 | jsonb                    |           |          | '{"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"}'::jsonb
+health_config          | jsonb                    |           |          | '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}'::jsonb
+env_vars               | jsonb                    |           |          | '[]'::jsonb
+version                | integer                  |           |          | 1
+previous_version_id    | uuid                     |           |          |
+task_workflow          | jsonb                    |           |          |
+orchestrator_workflow  | jsonb                    |           |          |
+orchestration_workflow | json                     |           |          |
+delegation_preferences | jsonb                    |           |          | '{"fallback_to_self": true, "prefer_delegation": true}'::jsonb
+agent_category         | text                     |           |          |
+status                 | text                     |           |          | 'experimental'::text
+domain_tags            | jsonb                    |           |          | '[]'::jsonb
+briefing_questionnaire | jsonb                    |           |          | '{}'::jsonb
+usage_count            | integer                  |           |          | 0
+is_snapshot            | boolean                  |           |          | false
+input_contract         | jsonb                    |           |          |
+output_contract        | jsonb                    |           |          |
+Indexes:
+"agent_definitions_pkey" PRIMARY KEY, btree (id)
+"agent_definitions_type_version_key" UNIQUE CONSTRAINT, btree (type, version)
+"idx_ad_category" btree (agent_category)
+"idx_ad_domain_tags" gin (domain_tags)
+"idx_ad_status" btree (status)
+"idx_agent_definitions_category" btree (category) WHERE is_active = true
+"idx_agent_definitions_type_active" btree (type, is_active) WHERE deleted_at IS NULL
+"idx_agent_definitions_type_version" btree (type, version DESC)
+"idx_agent_definitions_usage" btree (usage_count DESC) WHERE is_active = true
+"idx_agent_definitions_version" btree (type, version)
+Check constraints:
+"check_ad_category" CHECK (agent_category IS NULL OR (agent_category = ANY (ARRAY['strategist'::text, 'executor'::text, 'analyst'::text, 'integrator'::text, 'coordinator'::text, 'specialist'::text])))
+"check_ad_status" CHECK (status = ANY (ARRAY['active'::text, 'experimental'::text, 'deprecated'::text, 'demo'::text, 'template'::text]))
+Foreign-key constraints:
+"agent_definitions_previous_version_id_fkey" FOREIGN KEY (previous_version_id) REFERENCES agent_definitions(id)
+Referenced by:
+TABLE "agent_definitions" CONSTRAINT "agent_definitions_previous_version_id_fkey" FOREIGN KEY (previous_version_id) REFERENCES agent_definitions(id)
+
