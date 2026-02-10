@@ -572,6 +572,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Load navigation structure from the database",
 		IsLocal:     true,
 	},
+	"populate_nav_tables": {
+		Handler:     PopulateNavTablesAction,
+		Category:    "site",
+		Description: "Populate site_nav_groups and site_nav_items from page records",
+		IsLocal:     true,
+	},
 	"validate_site_plan": {
 		Handler:     ValidateSitePlanAction,
 		Category:    "site",
