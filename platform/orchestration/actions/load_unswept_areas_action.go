@@ -84,20 +84,25 @@ func LoadUnsweptAreasAction(ctx context.Context, params ActionParams) (interface
 		zap.String("area_code", areaCode))
 
 	// Build query — optionally filter by area_code
+	// limit <= 0 means "all matching rows"
 	query := `
 		SELECT id, district_code, area_name
 		FROM business_intel.search_areas
 		WHERE country = $1
 	`
 	args := []interface{}{country}
+	argIdx := 2
 
 	if areaCode != "" {
-		query += ` AND area_code = $2`
+		query += fmt.Sprintf(` AND area_code = $%d`, argIdx)
 		args = append(args, areaCode)
-		query += ` ORDER BY sweep_count ASC, last_swept_at ASC NULLS FIRST, district_code ASC LIMIT $3`
-		args = append(args, limit)
-	} else {
-		query += ` ORDER BY sweep_count ASC, last_swept_at ASC NULLS FIRST, district_code ASC LIMIT $2`
+		argIdx++
+	}
+
+	query += ` ORDER BY sweep_count ASC, last_swept_at ASC NULLS FIRST, district_code ASC`
+
+	if limit > 0 {
+		query += fmt.Sprintf(` LIMIT $%d`, argIdx)
 		args = append(args, limit)
 	}
 
