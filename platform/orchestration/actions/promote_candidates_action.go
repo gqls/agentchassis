@@ -37,11 +37,11 @@ import (
 )
 
 var PromoteCandidatesInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{},
-	Optional: []string{"promote_limit", "vertical_slug"},
+	Required: []string{"vertical_slug", "business_type"},
+	Optional: []string{"promote_limit", "country"},
 	Defaults: map[string]interface{}{
 		"promote_limit": 500,
-		"vertical_slug": "veterinary",
+		"country":       "GB",
 	},
 }
 
@@ -72,8 +72,10 @@ func PromoteCandidatesAction(ctx context.Context, params ActionParams) (interfac
 
 	limit := inputs.GetInt("promote_limit", 500)
 	verticalSlug := inputs.Get("vertical_slug")
-	if verticalSlug == "" {
-		verticalSlug = "veterinary"
+	businessType := inputs.Get("business_type")
+	country := inputs.Get("country")
+	if country == "" {
+		country = "GB"
 	}
 
 	// Look up vertical_id for the given slug
@@ -199,14 +201,14 @@ func PromoteCandidatesAction(ctx context.Context, params ActionParams) (interfac
 				 created_at, updated_at)
 			VALUES ($1, $2, $3, $4,
 				$5, $6,
-				$7, 'veterinary_practice',
-				'pending', TRUE, 'GB',
+				$7, $8,
+				'pending', TRUE, $9,
 				NOW(), NOW())
 			RETURNING id`,
 			c.Name, c.WebsiteURL,
 			nullIfEmpty(c.Postcode.String), nullIfEmpty(c.Phone.String),
 			nullIfEmpty(c.DetectedGroup.String), isIndep,
-			verticalID,
+			verticalID, businessType, country,
 		).Scan(&newBusinessID)
 
 		if err != nil {

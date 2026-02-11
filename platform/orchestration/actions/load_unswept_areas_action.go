@@ -32,12 +32,10 @@ import (
 )
 
 var LoadUnsweptAreasInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{},
-	Optional: []string{"limit", "country", "business_type", "area_code"},
+	Required: []string{"country", "business_type"},
+	Optional: []string{"limit", "area_code"},
 	Defaults: map[string]interface{}{
-		"limit":         50,
-		"country":       "GB",
-		"business_type": "veterinary practice",
+		"limit": 50,
 	},
 }
 
@@ -71,12 +69,12 @@ func LoadUnsweptAreasAction(ctx context.Context, params ActionParams) (interface
 	businessType := inputs.Get("business_type")
 	areaCode := inputs.Get("area_code") // optional filter e.g. "BT" for Belfast only
 
-	if country == "" {
+	/*if country == "" {
 		country = "GB"
 	}
 	if businessType == "" {
 		businessType = "veterinary practice"
-	}
+	}*/
 
 	params.Logger.Info("LoadUnsweptAreasAction: querying",
 		zap.Int("limit", limit),
