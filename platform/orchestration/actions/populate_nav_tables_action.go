@@ -234,7 +234,6 @@ func loadPagesForNav(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *
 		FROM pages
 		WHERE site_id = $1
 		  AND status IN ('active', 'deployed', 'pending')
-		  AND deleted_at IS NULL
 		ORDER BY nav_order ASC, created_at ASC
 	`
 
