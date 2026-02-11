@@ -582,3 +582,252 @@ SET default_config = '{
 }'::jsonb,
 updated_at = NOW()
 WHERE type = 'vet-pipeline-orchestrator';
+
+--
+
+-- data position bugs, input_mappers are compulsory
+
+-- vet_pipeline_updates.sql
+--
+-- Three agent definition updates:
+--
+-- 1. area-sweep-orchestrator: convert from dispatch (fire-and-forget) to
+--    spawn+loop so the pipeline can call it and wait for completion.
+--
+-- 2. vet-batch-processor: add continue_on_error to its existing loop
+--    so one failed verification doesn't kill the batch.
+--
+-- 3. vet-pipeline-orchestrator: thin coordinator that calls the two
+--    child orchestrators in sequence with promote_candidates between.
+--
+-- Also fixes the query_template town→postcode issue if not already done.
+
+
+-- =====================================================================
+-- Fix: query_template town → postcode in vet-practice-verifier
+-- (idempotent — only updates if still using town)
+-- =====================================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,search_practice,config,query_template}',
+        '"{{.business_record.business.name}} {{.business_record.business.postcode}} veterinary practice"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier'
+  AND default_config->'workflow'->'steps'->'search_practice'->'config'->>'query_template'
+    LIKE '%town%';
+
+
+-- =====================================================================
+-- 1. area-sweep-orchestrator: dispatch → spawn+loop
+--
+-- Before: load_areas → dispatch_discoverers (fire-and-forget) → complete
+-- After:  load_areas → spawn_discoverer → sweep_loop → complete
+--
+-- The loop calls the spawned area-sweep-discoverer per district.
+-- continue_on_error: true so one failed district doesn't stop the batch.
+-- =====================================================================
+UPDATE agent_definitions
+SET default_config = '{
+    "processing_mode": "orchestrator",
+    "timeout_seconds": 3600,
+    "workflow": {
+        "start_step": "load_areas",
+        "steps": {
+
+            "load_areas": {
+                "action": "load_unswept_areas",
+                "config": {
+                    "input_fields": ["limit", "country", "business_type", "area_code"]
+                },
+                "output_field": "unswept_areas",
+                "next_step": "check_areas",
+                "description": "Load un-swept postcode districts from DB"
+            },
+
+            "check_areas": {
+                "action": "conditional",
+                "config": {
+                    "condition": "unswept_areas.count > 0",
+                    "then_step": "spawn_discoverer",
+                    "else_step": "complete"
+                },
+                "description": "Skip if no areas to sweep"
+            },
+
+            "spawn_discoverer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "discoverer",
+                    "agent_type": "area-sweep-discoverer"
+                },
+                "output_field": "discoverer_agent",
+                "next_step": "sweep_loop",
+                "description": "Spawn a single area sweep discoverer"
+            },
+
+            "sweep_loop": {
+                "action": "loop",
+                "config": {
+                    "items_field": "unswept_areas.areas",
+                    "item_variable": "current_area",
+                    "max_iterations": 200,
+                    "continue_on_error": true,
+                    "sub_workflow": {
+                        "start_step": "call_discoverer",
+                        "steps": {
+                            "call_discoverer": {
+                                "action": "call_agent",
+                                "config": {
+                                    "agent_type": "area-sweep-discoverer",
+                                    "target_role": "discoverer",
+                                    "input_mapping": {
+                                        "district_code": "current_area.district_code",
+                                        "area_name": "current_area.area_name",
+                                        "search_area_id": "current_area.search_area_id",
+                                        "business_type": "unswept_areas.business_type"
+                                    },
+                                    "timeout_seconds": 120
+                                },
+                                "output_field": "sweep_result",
+                                "description": "Call discoverer for this district"
+                            }
+                        }
+                    }
+                },
+                "output_field": "sweep_results",
+                "next_step": "complete",
+                "description": "Loop through districts, calling discoverer for each"
+            },
+
+            "complete": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["unswept_areas", "sweep_results"]
+                },
+                "description": "Area sweep batch complete"
+            }
+        }
+    }
+}'::jsonb,
+updated_at = NOW()
+WHERE type = 'area-sweep-orchestrator';
+
+
+-- =====================================================================
+-- 2. vet-batch-processor: add continue_on_error to loop
+--
+-- Only change: continue_on_error: true added to the process_batch loop.
+-- Everything else (load_batch, spawn_verifier, etc.) stays the same.
+-- =====================================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_batch,config,continue_on_error}',
+        'true'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-batch-processor';
+
+
+-- =====================================================================
+-- 3. vet-pipeline-orchestrator: thin coordinator
+--
+-- Spawns and calls the two child orchestrators in sequence.
+-- promote_candidates runs between sweeps and verification.
+--
+-- Flow:
+--   spawn sweep-orch → call (waits for all sweeps) →
+--   promote_candidates →
+--   spawn batch-processor → call (waits for all verifications) →
+--   complete
+--
+-- NOTE: promote_candidates action needs the collection_task INSERT added
+--       It should promote high-confidence discovery_candidates to the
+--       businesses table. Until implemented, this step will fail
+--       gracefully or can be commented out.
+-- =====================================================================
+UPDATE agent_definitions
+SET default_config = '{
+    "processing_mode": "orchestrator",
+    "timeout_seconds": 7200,
+    "workflow": {
+        "start_step": "spawn_sweep_orch",
+        "steps": {
+
+            "spawn_sweep_orch": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "sweep-coordinator",
+                    "agent_type": "area-sweep-orchestrator"
+                },
+                "output_field": "sweep_orch",
+                "next_step": "run_sweeps",
+                "description": "Spawn the area sweep orchestrator"
+            },
+
+            "run_sweeps": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "area-sweep-orchestrator",
+                    "target_role": "sweep-coordinator",
+                    "input_mapping": {
+                        "limit": "input_data.limit"
+                    },
+                    "timeout_seconds": 3600
+                },
+                "output_field": "sweep_result",
+                "next_step": "promote_candidates",
+                "description": "Call sweep orchestrator and wait for completion"
+            },
+
+            "promote_candidates": {
+                "action": "promote_candidates",
+                "config": {
+                    "vertical_slug": "veterinary",
+                    "promote_limit": 500
+                },
+                "output_field": "promotion_result",
+                "next_step": "spawn_batch_processor",
+                "description": "Promote high-confidence candidates to businesses"
+            },
+
+            "spawn_batch_processor": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "batch-verifier",
+                    "agent_type": "vet-batch-processor"
+                },
+                "output_field": "batch_orch",
+                "next_step": "run_verification",
+                "description": "Spawn the batch verification orchestrator"
+            },
+
+            "run_verification": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "vet-batch-processor",
+                    "target_role": "batch-verifier",
+                    "input_mapping": {
+                        "batch_size": "input_data.verify_limit"
+                    },
+                    "timeout_seconds": 3600
+                },
+                "output_field": "verification_result",
+                "next_step": "complete",
+                "description": "Call batch processor and wait for completion"
+            },
+
+            "complete": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["sweep_result", "promotion_result", "verification_result"]
+                },
+                "description": "Pipeline run complete"
+            }
+        }
+    }
+}'::jsonb,
+updated_at = NOW()
+WHERE type = 'vet-pipeline-orchestrator';
