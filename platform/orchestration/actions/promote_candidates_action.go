@@ -218,6 +218,22 @@ func PromoteCandidatesAction(ctx context.Context, params ActionParams) (interfac
 			continue
 		}
 
+		// Create collection_task so vet-batch-processor picks this up
+		// The partial unique index on (business_id, task_type) WHERE status='pending'
+		// prevents duplicates if promote is re-run
+		_, taskErr := params.DB.ExecContext(ctx, `
+			INSERT INTO business_intel.collection_tasks
+				(business_id, task_type, vertical_id, priority, status,
+				 created_at, updated_at)
+			VALUES ($1, 'initial_verification', $2, 5, 'pending', NOW(), NOW())
+			ON CONFLICT DO NOTHING`,
+			newBusinessID, verticalID)
+		if taskErr != nil {
+			params.Logger.Warn("PromoteCandidatesAction: failed to create collection_task",
+				zap.String("business_id", newBusinessID),
+				zap.Error(taskErr))
+		}
+
 		// Mark candidate as promoted
 		_, _ = params.DB.ExecContext(ctx, `
 			UPDATE business_intel.discovery_candidates
