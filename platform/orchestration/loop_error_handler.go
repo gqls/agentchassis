@@ -1,4 +1,4 @@
-// FILE: platform/orchestration/loop_error_handler.go
+// FILE: platform/orchestration/loop_error_handling.go
 //
 // Helpers for continue_on_error in loop iterations.
 //
@@ -15,18 +15,12 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/gqls/agentchassis/pkg/models"
 	"go.uber.org/zap"
 )
-
-// The flow is:
-//   workflow config: "continue_on_error": true
-//     → LoopAction reads it from params.StepConfig.Config
-//     → LoopAction passes it in the expansion return map
-//     → handleLoopExpansion reads it from loopResult
-//     → handleLoopExpansion stores it in loop_metadata + per-step config
-//     → shouldContinueLoopOnError reads it from per-step config
 
 // loopStepPattern matches "{loopName}_iter_{N}_{substepName}"
 var loopStepPattern = regexp.MustCompile(`^(.+)_iter_(\d+)_(.+)$`)
@@ -100,6 +94,11 @@ func shouldContinueLoopOnError(state *OrchestrationState, logger *zap.Logger) bo
 // this was the last iteration).
 //
 // It modifies state in place and persists to the database.
+//
+// Instead of relying on the shared "loop_metadata" key (which gets
+// overwritten when a second loop expands in the same orchestration),
+// we derive total_iterations and first_substep from the workflow plan.
+// The injected steps and the {loop}_complete step are always present.
 func (s *SagaCoordinator) skipToNextLoopIteration(
 	ctx context.Context,
 	state *OrchestrationState,
@@ -111,22 +110,30 @@ func (s *SagaCoordinator) skipToNextLoopIteration(
 		return fmt.Errorf("cannot parse loop step name: %s", state.CurrentStep)
 	}
 
-	// Get loop metadata for total_iterations and first_substep
-	loopMeta, _ := state.CollectedData["loop_metadata"].(map[string]interface{})
-	if loopMeta == nil {
-		return fmt.Errorf("loop_metadata not found in collected data")
-	}
-
+	// Derive total_iterations from the {loop}_complete step's config
+	// This is always present and specific to this loop (not shared).
+	completeStepName := fmt.Sprintf("%s_complete", parsed.LoopName)
 	totalIterations := 0
-	if ti, ok := loopMeta["total_iterations"].(float64); ok {
-		totalIterations = int(ti)
-	} else if ti, ok := loopMeta["total_iterations"].(int); ok {
-		totalIterations = ti
+	if completeStep, ok := state.WorkflowPlan.Steps[completeStepName]; ok {
+		if ti, ok := completeStep.Config["total_iterations"].(float64); ok {
+			totalIterations = int(ti)
+		} else if ti, ok := completeStep.Config["total_iterations"].(int); ok {
+			totalIterations = ti
+		}
+	}
+	if totalIterations == 0 {
+		return fmt.Errorf("cannot determine total_iterations for loop %s", parsed.LoopName)
 	}
 
-	firstSubstep, _ := loopMeta["first_substep"].(string)
+	// Derive first_substep by looking for iter_0 steps in the workflow plan.
+	// The first substep is the one in {loop}_iter_0_{substep} that has the
+	// lowest order (i.e. appears as the first step created). We find it by
+	// checking which iter_0 step is NOT referenced as a next_step by another
+	// iter_0 step — or more simply, we check what iter_{N+1} would start with
+	// by looking at iter_0's entry point.
+	firstSubstep := findFirstSubstep(state.WorkflowPlan.Steps, parsed.LoopName)
 	if firstSubstep == "" {
-		return fmt.Errorf("first_substep not found in loop_metadata")
+		return fmt.Errorf("cannot determine first_substep for loop %s", parsed.LoopName)
 	}
 
 	// Record the error as this iteration's result
@@ -140,15 +147,15 @@ func (s *SagaCoordinator) skipToNextLoopIteration(
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 
-	// Track error count in loop metadata
+	// Track error count per-loop (keyed by loop name, not shared)
+	errorCountKey := fmt.Sprintf("%s_error_count", parsed.LoopName)
 	errorCount := 0
-	if ec, ok := loopMeta["error_count"].(float64); ok {
+	if ec, ok := state.CollectedData[errorCountKey].(float64); ok {
 		errorCount = int(ec)
-	} else if ec, ok := loopMeta["error_count"].(int); ok {
+	} else if ec, ok := state.CollectedData[errorCountKey].(int); ok {
 		errorCount = ec
 	}
-	loopMeta["error_count"] = errorCount + 1
-	state.CollectedData["loop_metadata"] = loopMeta
+	state.CollectedData[errorCountKey] = errorCount + 1
 
 	// Determine next step
 	var nextStep string
@@ -157,7 +164,7 @@ func (s *SagaCoordinator) skipToNextLoopIteration(
 		nextStep = fmt.Sprintf("%s_iter_%d_%s", parsed.LoopName, parsed.IterIdx+1, firstSubstep)
 	} else {
 		// Last iteration — go to loop_complete
-		nextStep = fmt.Sprintf("%s_complete", parsed.LoopName)
+		nextStep = completeStepName
 	}
 
 	logger.Warn("Skipping failed loop iteration, advancing to next",
@@ -182,6 +189,52 @@ func (s *SagaCoordinator) skipToNextLoopIteration(
 	// Continue execution from the next step
 	execCtx := s.createContinuationContext(state)
 	return s.continueExecution(ctx, state, execCtx)
+}
+
+// findFirstSubstep scans the workflow plan for {loopName}_iter_0_* steps
+// and determines which substep name comes first. It does this by finding
+// the iter_0 step that no other iter_0 step points to as its next_step
+// (i.e. the entry point of the loop body).
+func findFirstSubstep(steps map[string]models.Step, loopName string) string {
+	prefix := fmt.Sprintf("%s_iter_0_", loopName)
+
+	// Collect all iter_0 substep names
+	var substepNames []string
+	for stepName := range steps {
+		if strings.HasPrefix(stepName, prefix) {
+			substepName := strings.TrimPrefix(stepName, prefix)
+			substepNames = append(substepNames, substepName)
+		}
+	}
+
+	if len(substepNames) == 0 {
+		return ""
+	}
+	if len(substepNames) == 1 {
+		return substepNames[0]
+	}
+
+	// Find which substep is NOT a next_step target of another iter_0 step
+	// That's the entry point.
+	referencedAsNext := make(map[string]bool)
+	for stepName, step := range steps {
+		if strings.HasPrefix(stepName, prefix) && step.NextStep != "" {
+			// step.NextStep is already prefixed like "{loop}_iter_0_{substep}"
+			if strings.HasPrefix(step.NextStep, prefix) {
+				target := strings.TrimPrefix(step.NextStep, prefix)
+				referencedAsNext[target] = true
+			}
+		}
+	}
+
+	for _, name := range substepNames {
+		if !referencedAsNext[name] {
+			return name
+		}
+	}
+
+	// Fallback: just return the first one found
+	return substepNames[0]
 }
 
 // skipToNextLoopIterationForAsync is the same as skipToNextLoopIteration but

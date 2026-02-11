@@ -1,3 +1,11 @@
+/*vet-pipeline-orchestrator:
+  spawn_sweep_orchestrator (area-sweep-orchestrator)
+  call_agent → waits for it to finish
+  promote_candidates (local action)
+  spawn_batch_processor (vet-batch-processor)
+  call_agent → waits for it to finish
+  complete*/
+
 -- ==========================================================================
 -- Agent Definition: vet-pipeline-orchestrator
 -- Database: clients_db
