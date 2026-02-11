@@ -653,3 +653,15 @@ ORDER BY
     WHEN 'complete' THEN 8
 END;
 
+--
+
+-- back to verifying with postcode because many vet searches don't populate town
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,search_practice,config,query_template}',
+        '"{{.business_record.business.name}} {{.business_record.business.postcode}} veterinary practice"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';

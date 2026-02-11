@@ -48,7 +48,7 @@ SWEEP_LIMIT=50
 PROMOTE_LIMIT=500
 VERIFY_LIMIT=100
 AREA_CODE=""
-DELAY_MS=200
+DELAY_MS=5000
 DRY_RUN=false
 CLIENT_ID="vetcomparison"
 
@@ -69,7 +69,6 @@ INPUT_DATA="${INPUT_DATA},\"area_code\":\"${AREA_CODE}\""
 fi
 INPUT_DATA="${INPUT_DATA}}"
 
-BODY="{\"action\":\"orchestrate\",\"config\":{\"agent_type\":\"vet-pipeline-orchestrator\"},\"input_data\":${INPUT_DATA}}"
 
 echo "========================================="
 echo "Vet Pipeline Orchestrator"
@@ -102,24 +101,24 @@ exit 0
 fi
 
 kubectl -n kafka run -i --rm kcat-pipeline-$$ \
---image=edenhill/kcat:1.7.1 \
---restart=Never -- \
-kcat -P \
--b "$KAFKA_BOOTSTRAP" \
--t "$TOPIC" \
--H "correlation_id=$CORRELATION_ID" \
--H "request_id=$REQUEST_ID" \
--H "message_id=$MESSAGE_ID" \
--H "orchestration_id=$ORCHESTRATION_ID" \
--H "orchestration_name=$ORCHESTRATION_NAME" \
--H "step_name=start" \
--H "client_id=$CLIENT_ID" \
--H "message_type=request" \
--H "action=orchestrate" \
--H "from_agent_type=user" \
--H "from_agent_id=cli" \
--H "responses_topic=system.generic.responses" <<JSON
-${BODY}
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+    -b "$KAFKA_BOOTSTRAP" \
+    -t "$TOPIC" \
+    -H "correlation_id=$CORRELATION_ID" \
+    -H "request_id=$REQUEST_ID" \
+    -H "message_id=$MESSAGE_ID" \
+    -H "orchestration_id=$ORCHESTRATION_ID" \
+    -H "orchestration_name=$ORCHESTRATION_NAME" \
+    -H "step_name=start" \
+    -H "client_id=$CLIENT_ID" \
+    -H "message_type=request" \
+    -H "action=orchestrate" \
+    -H "from_agent_type=user" \
+    -H "from_agent_id=cli" \
+    -H "responses_topic=system.generic.responses" <<JSON
+{"action":"orchestrate","config":{"agent_type":"vet-pipeline-orchestrator"},"input_data":{"limit":${SWEEP_LIMIT},"promote_limit":${PROMOTE_LIMIT},"verify_limit":${VERIFY_LIMIT},"delay_ms":${DELAY_MS}}}
 JSON
 
 echo ""

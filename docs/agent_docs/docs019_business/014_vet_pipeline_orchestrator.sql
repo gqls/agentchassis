@@ -23,6 +23,11 @@
 --     delay_ms:        Delay between Kafka dispatches in ms (default 200)
 -- ==========================================================================
 
+-- ==========================================================================
+-- Agent Definition: vet-pipeline-orchestrator
+-- Database: clients_db
+-- ==========================================================================
+
 INSERT INTO agent_definitions (
     id, type, display_name, description, category,
     default_config, is_active, capabilities,
@@ -36,10 +41,8 @@ INSERT INTO agent_definitions (
              gen_random_uuid(),
              'vet-pipeline-orchestrator',
              'Vet Pipeline Orchestrator',
-             'Runs the full vet discovery pipeline: sweep areas → promote candidates → dispatch verifiers. Uses rolling execution — each run advances work from previous runs.',
+             'Runs the full vet discovery pipeline: sweep areas, promote candidates, dispatch verifiers. Uses rolling execution so each run advances work from previous runs.',
              'orchestrator',
-
-             -- default_config with workflow
              '{
                  "workflow": {
                      "start_step": "load_areas",
@@ -92,28 +95,27 @@ INSERT INTO agent_definitions (
                  "processing_mode": "orchestrator",
                  "timeout_seconds": 300
              }'::jsonb,
-
-             true,  -- is_active
+             true,
              '["pipeline", "discovery", "verification", "veterinary"]'::jsonb,
              'docker.io/aqls/agent-chassis',
              'v1.0.770',
              '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}'::jsonb,
              '{"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"}'::jsonb,
              '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}'::jsonb,
-             '[]'::jsonb,  -- env_vars
-             1,            -- version
+             '[]'::jsonb,
+             1,
              '{"fallback_to_self": true, "prefer_delegation": true}'::jsonb,
-             'coordinator',    -- agent_category
-             'experimental',   -- status
+             'coordinator',
+             'experimental',
              '["veterinary", "business-intelligence", "pipeline"]'::jsonb,
-             '{}'::jsonb,      -- briefing_questionnaire
-             0,                -- usage_count
-             false,            -- is_snapshot
+             '{}'::jsonb,
+             0,
+             false,
              '{"optional": ["area_code", "sweep_limit", "verify_limit", "promote_limit", "delay_ms", "vertical_slug", "country", "business_type"], "required": []}'::jsonb,
              '{"produces": {"unswept_areas": "object - areas loaded", "sweep_dispatch_result": "object - sweep dispatches", "promote_result": "object - candidates promoted", "verify_dispatch_result": "object - verifier dispatches"}}'::jsonb
          )
-    ON CONFLICT (type) WHERE deleted_at IS NULL
-    DO UPDATE SET
+    ON CONFLICT (type, version)
+DO UPDATE SET
     display_name = EXCLUDED.display_name,
            description = EXCLUDED.description,
            default_config = EXCLUDED.default_config,

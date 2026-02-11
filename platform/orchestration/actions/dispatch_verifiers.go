@@ -82,7 +82,7 @@ func DispatchVerifiersAction(ctx context.Context, params ActionParams) (interfac
 		FROM business_intel.businesses b
 		JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
 		WHERE bv.slug = $1
-		  AND b.verification_status = 'pending'
+		  AND b.verification_status IN ('pending', 'seed_import')
 		  AND b.is_active = true
 		ORDER BY b.created_at ASC
 		LIMIT $2`, verticalSlug, limit)
