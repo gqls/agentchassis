@@ -60,6 +60,13 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 		allowMissing = am
 	}
 
+	// continue_on_error: failed iterations are skipped rather than
+	// failing the entire workflow
+	continueOnError := false
+	if coe, ok := config["continue_on_error"].(bool); ok {
+		continueOnError = coe
+	}
+
 	// Get substeps (supports both 'substeps' and 'sub_workflow.steps')
 	var substepsConfig map[string]interface{}
 	var startStep string
@@ -197,15 +204,16 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 
 	// Build the expansion data
 	expansion := map[string]interface{}{
-		"loop_action":      true,
-		"loop_name":        loopName,
-		"items":            items,
-		"loop_var":         loopVar,
-		"substeps":         substeps,
-		"substep_order":    substepOrder,
-		"next_step":        params.StepConfig.NextStep,
-		"output_field":     params.StepConfig.OutputField,
-		"total_iterations": len(items),
+		"loop_action":       true,
+		"loop_name":         loopName,
+		"items":             items,
+		"loop_var":          loopVar,
+		"substeps":          substeps,
+		"substep_order":     substepOrder,
+		"next_step":         params.StepConfig.NextStep,
+		"output_field":      params.StepConfig.OutputField,
+		"total_iterations":  len(items),
+		"continue_on_error": continueOnError,
 	}
 
 	logger.Info("Loop expansion prepared",

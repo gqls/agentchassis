@@ -34,6 +34,10 @@ func (s *SagaCoordinator) handleLoopExpansion(
 	substepsMap, _ := loopResult["substeps"].(map[string]models.Step)
 	substepOrder, _ := loopResult["substep_order"].([]string)
 
+	// continue_on_error: skip failed iterations instead of failing workflow
+	// Passed through from LoopAction which reads it from the step config
+	continueOnError, _ := loopResult["continue_on_error"].(bool)
+
 	if len(items) == 0 {
 		logger.Info("No items to iterate, skipping to next step")
 		state.CurrentStep = nextStep
@@ -45,6 +49,7 @@ func (s *SagaCoordinator) handleLoopExpansion(
 		zap.String("loop_name", loopName),
 		zap.Int("iterations", len(items)),
 		zap.Int("substeps_per_iteration", len(substepOrder)),
+		zap.Bool("continue_on_error", continueOnError),
 	)
 
 	// Build a set of valid substep names for quick lookup
@@ -61,15 +66,6 @@ func (s *SagaCoordinator) handleLoopExpansion(
 		}
 	}
 
-	// Initialize loop metadata in CollectedData
-	loopMetadata := map[string]interface{}{
-		"loop_name":         loopName,
-		"total_iterations":  len(items),
-		"current_iteration": 0,
-		"iteration_results": []interface{}{},
-	}
-	state.CollectedData["loop_metadata"] = loopMetadata
-
 	// Inject steps for each iteration
 	firstStepName := ""
 
@@ -78,6 +74,19 @@ func (s *SagaCoordinator) handleLoopExpansion(
 	if len(substepOrder) > 0 {
 		firstSubstepInOrder = substepOrder[0]
 	}
+
+	// Initialize loop metadata in CollectedData
+	// Placed after firstSubstepInOrder so we can record it
+	loopMetadata := map[string]interface{}{
+		"loop_name":         loopName,
+		"total_iterations":  len(items),
+		"current_iteration": 0,
+		"iteration_results": []interface{}{},
+		"continue_on_error": continueOnError,
+		"first_substep":     firstSubstepInOrder,
+		"error_count":       0,
+	}
+	state.CollectedData["loop_metadata"] = loopMetadata
 
 	for iterIdx, item := range items {
 		logger.Debug("Creating iteration steps",
@@ -129,6 +138,8 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			injectedStep.Config["loop_iteration"] = iterIdx
 			injectedStep.Config["loop_item_index"] = iterIdx
 			injectedStep.Config["loop_var_name"] = loopVar
+			injectedStep.Config["loop_name"] = loopName
+			injectedStep.Config["continue_on_error"] = continueOnError
 
 			// Track first step name
 			if iterIdx == 0 && substepName == substepOrder[0] {
@@ -169,6 +180,7 @@ func (s *SagaCoordinator) handleLoopExpansion(
 		zap.String("complete_step", completeStepName),
 		zap.String("final_next_step", nextStep),
 		zap.Int("total_steps_injected", len(items)*len(substepOrder)+1),
+		zap.Bool("continue_on_error", continueOnError),
 	)
 
 	// Set current step to first injected step
@@ -178,7 +190,7 @@ func (s *SagaCoordinator) handleLoopExpansion(
 }
 
 // makeIterationOutputField makes output fields unique per iteration
-// Example: "page_html" + 0 â†’ "page_html_0"
+// Example: "page_html" + 0 → "page_html_0"
 func makeIterationOutputField(outputField string, iterIdx int) string {
 	if outputField == "" {
 		return ""

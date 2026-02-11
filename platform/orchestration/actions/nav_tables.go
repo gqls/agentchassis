@@ -239,9 +239,6 @@ func getNavItemsFromPagesFallback(
 		  AND build_status = 'deployed'`)
 	}
 
-	qb.WriteString(`
-		  AND deleted_at IS NULL`)
-
 	if isHeaderOnly {
 		qb.WriteString(`
 		ORDER BY

@@ -124,3 +124,192 @@ DO UPDATE SET
            input_contract = EXCLUDED.input_contract,
            output_contract = EXCLUDED.output_contract,
            updated_at = NOW();
+
+---
+
+going for separate actions spawned
+          -- vet_pipeline_orchestrator.sql
+--
+-- Updated pipeline workflow: spawn+loop instead of fire-and-forget dispatch.
+--
+-- Flow:
+--   load_unswept_areas
+--   → spawn_sweeper (one agent)
+--   → sweep_areas (loop: call_agent per district, continue_on_error)
+--   → promote_candidates
+--   → load_pending_businesses (new action to get business list for loop)
+--   → spawn_verifier (one agent)
+--   → verify_businesses (loop: call_agent per business, continue_on_error)
+--   → complete
+--
+-- The sweeper and verifier are each ONE spawned agent, called repeatedly
+-- via the loop. Topics are handled by the framework. Failures in individual
+-- iterations are skipped (continue_on_error: true) and logged.
+--
+-- NOTE: the dispatch_area_discoverers and dispatch_verifiers actions are no
+-- longer used by this workflow. They can be kept for manual/CLI use.
+
+-- First update the query_template fix (town → postcode) if not already done
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,search_practice,config,query_template}',
+        '"{{.business_record.business.name}} {{.business_record.business.postcode}} veterinary practice"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier'
+  AND default_config->'workflow'->'steps'->'search_practice'->'config'->>'query_template'
+    LIKE '%town%';
+
+-- Now update the pipeline orchestrator workflow
+UPDATE agent_definitions
+SET default_config = '{
+    "processing_mode": "orchestrator",
+    "timeout_seconds": 7200,
+    "workflow": {
+        "start_step": "load_areas",
+        "steps": {
+
+            "load_areas": {
+                "action": "load_unswept_areas",
+                "config": {
+                    "input_fields": ["limit", "country", "business_type", "area_code"]
+                },
+                "output_field": "unswept_areas",
+                "next_step": "spawn_sweeper",
+                "description": "Load un-swept postcode districts from DB"
+            },
+
+            "spawn_sweeper": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "sweeper",
+                    "agent_type": "area-sweep-discoverer"
+                },
+                "output_field": "sweeper_agent",
+                "next_step": "sweep_areas",
+                "description": "Spawn a single area sweep agent"
+            },
+
+            "sweep_areas": {
+                "action": "loop",
+                "config": {
+                    "items_field": "unswept_areas.areas",
+                    "item_variable": "current_area",
+                    "max_iterations": 200,
+                    "continue_on_error": true,
+                    "sub_workflow": {
+                        "start_step": "call_sweeper",
+                        "steps": {
+                            "call_sweeper": {
+                                "action": "call_agent",
+                                "config": {
+                                    "agent_type": "area-sweep-discoverer",
+                                    "target_role": "sweeper",
+                                    "input_mapping": {
+                                        "district_code": "current_area.district_code",
+                                        "area_name": "current_area.area_name",
+                                        "search_area_id": "current_area.search_area_id",
+                                        "business_type": "unswept_areas.business_type"
+                                    },
+                                    "timeout_seconds": 120
+                                },
+                                "output_field": "sweep_result",
+                                "description": "Call sweeper for this district"
+                            }
+                        }
+                    }
+                },
+                "output_field": "sweep_results",
+                "next_step": "promote_candidates",
+                "description": "Loop through districts, calling sweeper for each"
+            },
+
+            "promote_candidates": {
+                "action": "promote_discovery_candidates",
+                "config": {
+                    "input_fields": ["vertical_slug", "min_confidence"],
+                    "vertical_slug": "veterinary",
+                    "min_confidence": 0.6
+                },
+                "output_field": "promotion_result",
+                "next_step": "load_pending_businesses",
+                "description": "Promote high-confidence candidates to businesses"
+            },
+
+            "load_pending_businesses": {
+                "action": "load_pending_verifications",
+                "config": {
+                    "input_fields": ["verify_limit", "vertical_slug"],
+                    "verify_limit": 100,
+                    "vertical_slug": "veterinary"
+                },
+                "output_field": "pending_businesses",
+                "next_step": "check_pending",
+                "description": "Load businesses needing verification"
+            },
+
+            "check_pending": {
+                "action": "conditional",
+                "config": {
+                    "condition": "pending_businesses.count > 0",
+                    "then_step": "spawn_verifier",
+                    "else_step": "complete"
+                },
+                "description": "Skip verification if nothing pending"
+            },
+
+            "spawn_verifier": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "verifier",
+                    "agent_type": "vet-practice-verifier"
+                },
+                "output_field": "verifier_agent",
+                "next_step": "verify_businesses",
+                "description": "Spawn a single verifier agent"
+            },
+
+            "verify_businesses": {
+                "action": "loop",
+                "config": {
+                    "items_field": "pending_businesses.businesses",
+                    "item_variable": "current_business",
+                    "max_iterations": 100,
+                    "continue_on_error": true,
+                    "sub_workflow": {
+                        "start_step": "call_verifier",
+                        "steps": {
+                            "call_verifier": {
+                                "action": "call_agent",
+                                "config": {
+                                    "agent_type": "vet-practice-verifier",
+                                    "target_role": "verifier",
+                                    "input_mapping": {
+                                        "business_id": "current_business.id"
+                                    },
+                                    "timeout_seconds": 300
+                                },
+                                "output_field": "verify_result",
+                                "description": "Call verifier for this business"
+                            }
+                        }
+                    }
+                },
+                "output_field": "verify_results",
+                "next_step": "complete",
+                "description": "Loop through businesses, calling verifier for each"
+            },
+
+            "complete": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["unswept_areas", "sweep_results", "promotion_result", "pending_businesses", "verify_results"]
+                },
+                "description": "Pipeline run complete"
+            }
+        }
+    }
+}'::jsonb,
+updated_at = NOW()
+WHERE type = 'vet-pipeline-orchestrator';

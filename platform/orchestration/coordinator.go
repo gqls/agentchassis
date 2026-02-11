@@ -819,6 +819,14 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		// NOTE: This stores result in state.CollectedData IN MEMORY
 		err = s.executeStep(ctx, state, currentStepConfig, execCtx)
 		if err != nil {
+			// Check if this is a loop iteration with continue_on_error
+			if shouldContinueLoopOnError(state, l) {
+				if skipErr := s.skipToNextLoopIteration(ctx, state, err.Error(), l); skipErr != nil {
+					l.Error("Failed to skip loop iteration", zap.Error(skipErr))
+					return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v (loop skip also failed: %v)", state.CurrentStep, err, skipErr))
+				}
+				return nil // Loop continues from next iteration
+			}
 			return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
 		}
 
@@ -2807,7 +2815,12 @@ func (s *SagaCoordinator) handleUnrecoverableError(ctx context.Context, state *O
 		}
 	}
 
+	// Check if this is a loop iteration with continue_on_error
+	if shouldContinueLoopOnError(state, s.logger) {
+		return s.skipToNextLoopIterationForAsync(ctx, state, requestID, errorMsg, s.logger)
+	}
 	return s.failWorkflow(ctx, state, fmt.Sprintf("Request %s failed: %s", requestID, errorMsg))
+
 }
 
 // handleRequestTimeout handles request timeouts
@@ -2827,9 +2840,17 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 		s.logger.Error("Max retries exceeded",
 			zap.String("request_id", requestID),
 			zap.Int("retry_version", awaited.RetryVersion))
-		// Load state and fail workflow
 		state, _ := repo.GetState(ctx, orchestrationID)
 		if state != nil {
+			// Check if this is a loop iteration with continue_on_error
+			if shouldContinueLoopOnError(state, s.logger) {
+				timeoutMsg := fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion)
+				if err := s.skipToNextLoopIterationForAsync(ctx, state, requestID, timeoutMsg, s.logger); err != nil {
+					s.logger.Error("Failed to skip loop iteration on timeout", zap.Error(err))
+					s.failWorkflow(ctx, state, timeoutMsg)
+				}
+				return
+			}
 			s.failWorkflow(ctx, state, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
 		}
 		return
