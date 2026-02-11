@@ -1113,3 +1113,16 @@ SET workflow = jsonb_set(
                )
 WHERE type = 'pageflow-builder' AND is_active = true;
 
+--
+-- nav changes
+-- Update max_header_items from 6 to 8 in deployed workflows
+-- Run this on the live DB since the original 002 SQL already ran with 6.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,populate_nav,config,max_header_items}',
+        '8'
+                     )
+WHERE type = 'pageflow-builder' AND is_active = true;
+

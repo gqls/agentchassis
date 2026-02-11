@@ -60,3 +60,14 @@ SET workflow = jsonb_set(
         }'::jsonb
                )
 WHERE type = 'multipage-website-builder' AND is_active = true;
+
+-- Update max_header_items from 6 to 8 in deployed workflows
+-- Run this on the live DB since the original 002 SQL already ran with 6.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,populate_nav,config,max_header_items}',
+        '8'
+                     )
+WHERE type = 'multipage-website-builder' AND is_active = true;

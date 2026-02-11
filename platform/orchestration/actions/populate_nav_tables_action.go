@@ -31,7 +31,7 @@ var PopulateNavTablesInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{"site_id"},
 	Optional: []string{"max_header_items"},
 	Defaults: map[string]interface{}{
-		"max_header_items": 6,
+		"max_header_items": 8,
 	},
 	Deprecated: map[string]string{
 		"site_id_field": "site_id",
@@ -104,7 +104,7 @@ func PopulateNavTablesAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("invalid site_id: %w (got %q)", err, siteIDStr)
 	}
 
-	maxHeaderItems := inputs.GetInt("max_header_items", 6)
+	maxHeaderItems := inputs.GetInt("max_header_items", 8)
 
 	// --- Load pages ---
 	pages, err := loadPagesForNav(ctx, params.DB, siteID, logger)
@@ -256,6 +256,8 @@ func loadPagesForNav(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *
 }
 
 // classifyPagesForNav sorts pages into primary, legal, and utility groups.
+// Utility pages are secondary nav items (FAQ, Blog, Insights, Careers etc.)
+// that appear in header overflow or footer but not in the main nav bar.
 func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, legal, utility []pageNavInfo) {
 	legalNames := map[string]bool{
 		"privacy": true, "terms": true, "cookies": true,
@@ -265,6 +267,18 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 
 	systemNames := map[string]bool{
 		"404": true, "sitemap": true, "robots": true,
+	}
+
+	// Pages that belong in utility nav even if in_header=true.
+	// These are helpful but secondary — not core site navigation.
+	utilityNames := map[string]bool{
+		"faq": true, "faqs": true, "frequently-asked-questions": true,
+		"blog": true, "insights": true, "news": true, "articles": true,
+		"careers": true, "jobs": true, "team": true,
+		"resources": true, "downloads": true, "guides": true,
+		"testimonials": true, "reviews": true,
+		"partners": true, "affiliates": true,
+		"sitemap-page": true,
 	}
 
 	for _, page := range pages {
@@ -279,12 +293,15 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 			continue
 		}
 
-		if page.InHeader {
-			primary = append(primary, page)
+		if utilityNames[nameLower] {
+			utility = append(utility, page)
+			continue
 		}
 
-		// Footer-only (not header, not legal) → utility
-		if page.InFooter && !page.InHeader {
+		if page.InHeader {
+			primary = append(primary, page)
+		} else if page.InFooter {
+			// Footer-only (not header, not legal, not utility-named) → utility
 			utility = append(utility, page)
 		}
 	}
