@@ -219,27 +219,10 @@ func extractCompanyNameFromParams(params ActionParams) string {
 	return extractLogoTextFromParams(params)
 }
 
-// extractNavItemsFromParams gets nav items from db_sync
+// extractNavItemsFromParams gets nav items from collectedData.
+// Uses shared extractNavItemsFromCollectedData (checks nav_data then db_sync).
 func extractNavItemsFromParams(params ActionParams) []NavItem {
-	var items []NavItem
-
-	if dbSync, ok := params.CollectedData["db_sync"].(map[string]interface{}); ok {
-		if nav, ok := dbSync["navigation"].(map[string]interface{}); ok {
-			if navItems, ok := nav["items"].([]interface{}); ok {
-				for _, item := range navItems {
-					if itemMap, ok := item.(map[string]interface{}); ok {
-						label, _ := itemMap["label"].(string)
-						url, _ := itemMap["url"].(string)
-						if label != "" && url != "" {
-							items = append(items, NavItem{Label: label, URL: url})
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return items
+	return extractNavItemsFromCollectedData(params.CollectedData, params.Logger)
 }
 
 // getThemeByID fetches a theme by UUID

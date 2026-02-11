@@ -541,8 +541,8 @@ RESPONSES_TOPIC=
 # ------- 3 3 3 --------------------
 
 CORRELATION_ID=d2f16227-d70b-4348-a3b3-ea7550763e06
-ORCHESTRATION_ID=ef24f6aa-4168-4fdd-a947-7961fb5c3b7b
-HITL_REQUEST_ID=738fecf0-2e12-4641-900a-9fa3143d4219
+ORCHESTRATION_ID=018dfc33-42ff-42dc-a45c-668851691314
+HITL_REQUEST_ID=67a891da-5ad8-4eab-9821-c20c827ce40b
 RESPONSES_TOPIC=job.d2f16227-65ac3a54-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values

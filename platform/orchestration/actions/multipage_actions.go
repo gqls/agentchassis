@@ -303,29 +303,12 @@ func buildRenderContextFromCollectedData(collectedData map[string]interface{}, l
 		}
 	}
 
-	// Extract navigation from db_sync
-	if dbSync, ok := collectedData["db_sync"].(map[string]interface{}); ok {
-		if nav, ok := dbSync["navigation"].(map[string]interface{}); ok {
-			if items, ok := nav["items"].([]interface{}); ok {
-				for _, item := range items {
-					if itemMap, ok := item.(map[string]interface{}); ok {
-						label, _ := itemMap["label"].(string)
-						url, _ := itemMap["url"].(string)
-						if label != "" && url != "" {
-							ctx.NavItems = append(ctx.NavItems, NavItem{
-								Label: label,
-								URL:   url,
-							})
-						}
-					}
-				}
-			}
-		}
-	}
+	// Extract navigation — prefer nav_data (from populate_nav step), then db_sync
+	ctx.NavItems = extractNavItemsFromCollectedData(collectedData, logger)
 
 	// Fallback navigation if none found
 	if len(ctx.NavItems) == 0 {
-		logger.Warn("No navigation found in db_sync, using defaults")
+		logger.Warn("No navigation found in nav_data or db_sync, using defaults")
 		ctx.NavItems = []NavItem{
 			{Label: "Home", URL: "/index.html"},
 			{Label: "About", URL: "/about.html"},
@@ -551,6 +534,56 @@ func fixAnchorLinks(html string, pageNames []string) string {
 	}
 
 	return result
+}
+
+// extractNavItemsFromCollectedData gets nav items from collectedData.
+// Checks nav_data (from populate_nav step) first, then db_sync.
+// Both store navigation in the same shape: {navigation: {items: [{label, url}]}}.
+func extractNavItemsFromCollectedData(collectedData map[string]interface{}, logger *zap.Logger) []NavItem {
+	// Priority 1: nav_data from populate_nav step (authoritative)
+	if items := extractNavFromKey(collectedData, "nav_data", logger); len(items) > 0 {
+		logger.Debug("Using navigation from nav_data (populate_nav)",
+			zap.Int("items", len(items)),
+		)
+		return items
+	}
+
+	// Priority 2: db_sync from sync_pages_to_db step (legacy)
+	if items := extractNavFromKey(collectedData, "db_sync", logger); len(items) > 0 {
+		logger.Debug("Using navigation from db_sync",
+			zap.Int("items", len(items)),
+		)
+		return items
+	}
+
+	return nil
+}
+
+// extractNavFromKey extracts []NavItem from collectedData[key].navigation.items
+func extractNavFromKey(collectedData map[string]interface{}, key string, logger *zap.Logger) []NavItem {
+	container, ok := collectedData[key].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	nav, ok := container["navigation"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	rawItems, ok := nav["items"].([]interface{})
+	if !ok {
+		return nil
+	}
+	var items []NavItem
+	for _, item := range rawItems {
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			label, _ := itemMap["label"].(string)
+			url, _ := itemMap["url"].(string)
+			if label != "" && url != "" {
+				items = append(items, NavItem{Label: label, URL: url})
+			}
+		}
+	}
+	return items
 }
 
 func extractCanonicalNavigation(collectedData map[string]interface{}, logger *zap.Logger) []map[string]string {

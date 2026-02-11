@@ -1436,7 +1436,9 @@ func InjectHeader(ctx context.Context, db interface{}, html string, siteID uuid.
 	if sqlDB, ok := db.(*sql.DB); ok && siteID != uuid.Nil {
 		/*headerNav := GetHeaderNavFromPages(ctx, sqlDB, siteID, 6, logger)*/
 		// deployedOnly=true: only show actually deployed pages.
-		headerNav := GetNavItems(ctx, sqlDB, siteID, []string{NavGroupPrimary}, true, 6, logger)
+		// maxItems=0: no limit here — PopulateNavTablesAction already controls
+		// which pages go into the primary group vs utility.
+		headerNav := GetNavItems(ctx, sqlDB, siteID, []string{NavGroupPrimary}, true, 0, logger)
 		if len(headerNav) > 0 {
 			renderCtx.NavItems = headerNav
 			logger.Debug("InjectHeader: Updated nav from deployed pages",

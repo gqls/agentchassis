@@ -91,8 +91,9 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	/*	navItems := loadNavItems(ctx, params.DB, siteID, 6, params.Logger)
 		footerNavItems := loadFooterNavItems(ctx, params.DB, siteID, 10, params.Logger)*/
 	// deployedOnly=false: runs during build when pages may not be deployed yet.
-	navItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary}, false, 6, params.Logger)
-	footerNavItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary, NavGroupUtility, NavGroupLegal}, false, 10, params.Logger)
+	// maxItems=0: no limit — PopulateNavTablesAction controls primary group membership.
+	navItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary}, false, 0, params.Logger)
+	footerNavItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary, NavGroupUtility, NavGroupLegal}, false, 0, params.Logger)
 
 	// Build render context
 	year := fmt.Sprintf("%d", time.Now().Year())

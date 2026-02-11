@@ -345,8 +345,8 @@ func upsertNavGroup(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, groupKey,
 func insertNavItem(ctx context.Context, tx *sql.Tx, siteID, groupID uuid.UUID, page pageNavInfo, position int) error {
 	label := navLabelForPage(page)
 	_, err := tx.ExecContext(ctx, `
-		INSERT INTO site_nav_items (site_id, group_id, label, url, page_id, item_type, position)
-		VALUES ($1, $2, $3, $4, $5, 'page_link', $6)
+		INSERT INTO site_nav_items (site_id, group_id, label, url, page_id, item_type, position, status)
+		VALUES ($1, $2, $3, $4, $5, 'page_link', $6, 'active')
 	`, siteID, groupID, label, page.URL, page.ID, position)
 	return err
 }
