@@ -228,7 +228,7 @@ func loadPagesForNav(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *
 			COALESCE(title, name) as title,
 			COALESCE(url, '/' || name || '.html') as url,
 			COALESCE(nav_label, '') as nav_label,
-			COALESCE(nav_order, position, 0) as nav_order,
+			COALESCE(nav_order, 0) as nav_order,
 			COALESCE(in_header, false) as in_header,
 			COALESCE(in_footer, false) as in_footer
 		FROM pages
