@@ -50,6 +50,9 @@ PROMOTE_LIMIT=500
 VERIFY_LIMIT=100
 AREA_CODE=""
 DELAY_MS=5000
+COUNTRY="GB"
+BUSINESS_TYPE="veterinary practice"
+VERTICAL_SLUG="veterinary"
 DRY_RUN=false
 CLIENT_ID="vetcomparison"
 
@@ -64,9 +67,9 @@ KAFKA_BOOTSTRAP="personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:
 TOPIC="system.agent.generic.requests"
 
 # Build input_data JSON
-INPUT_DATA="{\"limit\":${SWEEP_LIMIT},\"promote_limit\":${PROMOTE_LIMIT},\"verify_limit\":${VERIFY_LIMIT},\"delay_ms\":${DELAY_MS}"
+INPUT_DATA="{\"limit\":${SWEEP_LIMIT},\"promote_limit\":${PROMOTE_LIMIT},\"verify_limit\":${VERIFY_LIMIT},\"delay_ms\":${DELAY_MS},\"country\":\"${COUNTRY}\",\"business_type\":\"${BUSINESS_TYPE}\",\"vertical_slug\":\"${VERTICAL_SLUG}\""
 if [ -n "$AREA_CODE" ]; then
-INPUT_DATA="${INPUT_DATA},\"area_code\":\"${AREA_CODE}\""
+  INPUT_DATA="${INPUT_DATA},\"area_code\":\"${AREA_CODE}\""
 fi
 INPUT_DATA="${INPUT_DATA}}"
 
@@ -81,6 +84,9 @@ echo "  Area code:       ${AREA_CODE:-all}"
 echo "  Delay (ms):      ${DELAY_MS}"
 echo "  Client:          ${CLIENT_ID}"
 echo "  Orchestration:   ${ORCHESTRATION_NAME}"
+echo "  Country:         ${COUNTRY}"
+echo "  Business type:   ${BUSINESS_TYPE}"
+echo "  Vertical:        ${VERTICAL_SLUG}"
 echo "========================================="
 echo ""
 echo "SAVE THESE IDs:"
@@ -119,7 +125,7 @@ kubectl -n kafka run -i --rm kcat-pipeline-$$ \
     -H "from_agent_type=user" \
     -H "from_agent_id=cli" \
     -H "responses_topic=system.generic.responses" <<JSON
-{"action":"orchestrate","config":{"agent_type":"vet-pipeline-orchestrator"},"input_data":{"limit":${SWEEP_LIMIT},"promote_limit":${PROMOTE_LIMIT},"verify_limit":${VERIFY_LIMIT},"delay_ms":${DELAY_MS}}}
+{"action":"orchestrate","config":{"agent_type":"vet-pipeline-orchestrator"},"input_data":${INPUT_DATA}}
 JSON
 
 echo ""
