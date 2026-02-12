@@ -759,3 +759,110 @@ INSERT INTO agent_definitions (
                                        output_contract = EXCLUDED.output_contract,
                                        updated_at = NOW();
 
+--
+
+-- Fix webdesign-agent CSS generation prompt.
+-- Problem: the prompt instructs the LLM to set explicit color on p, h1-h6,
+-- blockquote, li, strong etc. This prevents colour inheritance in dark sections
+-- where components set color: #fff on a parent container.
+--
+-- Fix: instruct LLM to use color: inherit on elements, let body set the
+-- default, and add explicit guidance about dark section inheritance.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_css,config,prompt_template}',
+        to_jsonb(
+                'Generate a complete production CSS stylesheet.
+
+                ## Design Spec
+                {{.design_spec.result}}
+
+                ## Components
+                {{range .site_context.all_component_functions}}- {{.}}
+                {{end}}
+
+                ## CSS RESPONSIBILITY RULES
+                Global CSS handles base appearance and resets. Component inline CSS handles layout AND section-specific colours (dark sections, CTAs etc.).
+
+                You MUST provide:
+                1. :root with EXACT variable names (use design_spec colors)
+                2. Base element styling using INHERITANCE (not forced colors)
+                3. Button styles, focus states, responsive breakpoints
+
+                ## Required :root Variables
+                :root {
+                  --color-primary: (from color_scheme.primary);
+                  --color-secondary: (from color_scheme.secondary);
+                  --color-accent: (from color_scheme.accent);
+                  --color-background: (from color_scheme.background);
+                  --color-surface: (from color_scheme.surface);
+                  --color-text: (from color_scheme.text);
+                  --color-text-muted: (from color_scheme.text_muted);
+                  --color-border: (from color_scheme.border);
+                  --color-white: #ffffff;
+                  --font-family: (from typography.font_family);
+                  --spacing-section: (from spacing.section_padding);
+                  --container-max-width: (from spacing.container_max_width);
+                  --transition-speed: 0.3s;
+                  --border-radius: 0.5rem;
+                  --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                  --box-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
+                }
+
+                ## COLOUR INHERITANCE RULES (IMPORTANT - READ CAREFULLY)
+                body sets color: var(--color-text) which ALL elements inherit by default.
+                Components have dark sections (testimonials, CTAs, footers) that set color: #fff on a parent container, and all children MUST inherit that light colour.
+
+                Therefore you MUST follow these rules:
+                - body: set color: var(--color-text) - this is the ONLY place default text color is set
+                - h1, h2, h3, h4, h5, h6: use color: inherit (NOT var(--color-primary))
+                - p: do NOT set color at all (it inherits from parent)
+                - li: do NOT set color at all
+                - blockquote: do NOT set background-color or color (components handle this)
+                - strong, b: do NOT set color
+                - em, i: do NOT set color
+                - span: do NOT set color
+                - cite: do NOT set color
+                - a: color: var(--color-accent) is OK (links are an exception)
+
+                If you force color: var(--color-text) on p, blockquote, li, or h1-h6, dark sections will have dark text on dark backgrounds and be unreadable. This is the single most important rule.
+
+                ## Required Base Styles
+                - *, *::before, *::after { box-sizing: border-box; }
+                - html, body { margin: 0; padding: 0; }
+                - body { font-family: var(--font-family); color: var(--color-text); line-height: 1.6; background-color: var(--color-background); -webkit-font-smoothing: antialiased; }
+                - h1, h2, h3, h4, h5, h6 { color: inherit; line-height: 1.2; margin: 0 0 1rem; font-weight: 700; }
+                - h1 { font-size: clamp(2rem, 5vw, 3rem); }
+                - h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
+                - h3 { font-size: clamp(1.25rem, 3vw, 1.5rem); }
+                - h4 { font-size: clamp(1.1rem, 2.5vw, 1.25rem); }
+                - p { margin: 0 0 1rem; }
+                - a { color: var(--color-accent); text-decoration: none; transition: color var(--transition-speed) ease; }
+                - a:hover { color: var(--color-primary); }
+                - a:focus { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+                - img { max-width: 100%; height: auto; display: block; }
+                - ul, ol { margin: 0 0 1rem; padding-left: 1.5rem; }
+                - blockquote { margin: 0 0 1rem; padding: 1rem 1.5rem; border-left: 4px solid var(--color-accent); font-style: italic; }
+                - hr { border: 0; border-top: 1px solid var(--color-border); margin: 2rem 0; }
+                - .container { max-width: var(--container-max-width); margin: 0 auto; padding: 0 2rem; }
+
+                ## Also Include
+                - Button base styles (.btn, .btn-primary, .btn-secondary) with hover/active/focus states
+                - Focus-visible states for accessibility
+                - Smooth transitions using var(--transition-speed)
+                - Responsive adjustments at 480px, 768px, and 1024px
+                - prefers-reduced-motion media query
+
+                ## DO NOT Include
+                - Component-specific selectors (.services-grid, .testimonial-item, .case-study-item, .differentiator-item, .social-proof-section, .cta-section, etc.)
+                - Components have their own inline CSS that handles their layout and dark section colours
+                - Do NOT set background-color on blockquote (components handle this contextually)
+                - Do NOT set color on p, li, h1-h6, blockquote, strong, cite, span (they inherit)
+
+                Output ONLY CSS. No markdown. No explanations. Start with :root {'
+        )
+                     )
+WHERE type = 'webdesign-agent' AND is_active = true;
+
