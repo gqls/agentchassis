@@ -65,7 +65,7 @@ type pageNavInfo struct {
 //
 // Input contract:
 //   - site_id       (required) - UUID of the site
-//   - max_header_items (optional, default 6) - max items in primary nav group
+//   - max_header_items (optional, default 8) - max items in primary nav group
 //
 // Output contract:
 //   - success    bool
