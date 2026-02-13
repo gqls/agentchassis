@@ -292,7 +292,7 @@ CLIENT_ID="demo_client"
 
 CORRELATION_ID=8671379b-67e1-4e76-9cda-1b462f51c54d
 ORCHESTRATION_ID=e5fa42c5-f106-4774-b5e7-3a1a790b6993
-HITL_REQUEST_ID=
+HITL_REQUEST_ID=a4488a6f-7d51-48d1-8189-304b40045529
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -383,7 +383,7 @@ CLIENT_ID="demo_client"
 
 CORRELATION_ID=8671379b-67e1-4e76-9cda-1b462f51c54d
 ORCHESTRATION_ID=e5fa42c5-f106-4774-b5e7-3a1a790b6993
-HITL_REQUEST_ID=
+HITL_REQUEST_ID=2d8369c9-2ec4-4668-ab63-8d46429e9422
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -541,9 +541,9 @@ RESPONSES_TOPIC=
 # ------- 3 3 3 --------------------
 
 CORRELATION_ID=8671379b-67e1-4e76-9cda-1b462f51c54d
-ORCHESTRATION_ID=
-HITL_REQUEST_ID=
-RESPONSES_TOPIC=
+ORCHESTRATION_ID=cbeb3e96-c3a8-4690-9e07-6dc8bd6ec3e6
+HITL_REQUEST_ID=afe4d715-78d2-4949-9efd-3bd876c8f22d
+RESPONSES_TOPIC=job.8671379b-038e4788-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
