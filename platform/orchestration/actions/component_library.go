@@ -1632,7 +1632,10 @@ func RenderFallbackHead(ctx *RenderContext) string {
 </head>`, title, description, primary)
 }
 
-// InjectHead replaces the existing <head> section with a rendered head component
+// InjectHead removes any existing <head> blocks and inserts the rendered head
+// component in the correct position — always before <body>, never in-place.
+// Previous version did in-place replacement which preserved wrong positioning
+// when <head> had migrated inside <body> (e.g. via cleanHTMLStructure dedup).
 func InjectHead(ctx context.Context, db interface{}, html string, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
 	headHTML, err := RenderHead(ctx, db, siteID, renderCtx, logger)
 	if err != nil {
@@ -1640,22 +1643,31 @@ func InjectHead(ctx context.Context, db interface{}, html string, siteID uuid.UU
 		headHTML = RenderFallbackHead(renderCtx)
 	}
 
-	// Replace existing <head>...</head> block
-	// Note: use <head(?:\s[^>]*)?> to avoid matching <header> tags
-	headRe := regexp.MustCompile(`(?is)<head(?:\s[^>]*)?>.*?</head>`)
-	if headRe.MatchString(html) {
-		html = headRe.ReplaceAllString(html, headHTML)
-		logger.Debug("InjectHead: Replaced existing <head> section")
+	// Step 1: Remove ALL existing <head>...</head> blocks regardless of position.
+	// Use [\s>] after <head to avoid matching <header> tags.
+	headRe := regexp.MustCompile(`(?is)<head[\s>].*?</head>`)
+	existedBefore := headRe.MatchString(html)
+	html = headRe.ReplaceAllString(html, "")
+
+	if existedBefore {
+		logger.Debug("InjectHead: Removed existing <head> block(s)")
+	}
+
+	// Step 2: Insert new head in correct position — always before <body>
+	bodyRe := regexp.MustCompile(`(?i)(<body[^>]*>)`)
+	if bodyRe.MatchString(html) {
+		html = bodyRe.ReplaceAllString(html, headHTML+"\n$1")
+		logger.Debug("InjectHead: Inserted head before <body>")
 	} else {
-		// No <head> found — insert before <body>
-		bodyRe := regexp.MustCompile(`(?i)(<body[^>]*>)`)
-		if bodyRe.MatchString(html) {
-			html = bodyRe.ReplaceAllString(html, headHTML+"\n$1")
-			logger.Debug("InjectHead: Inserted head before <body>")
+		// No <body> — try after <html>
+		htmlTagRe := regexp.MustCompile(`(?i)(<html[^>]*>)`)
+		if htmlTagRe.MatchString(html) {
+			html = htmlTagRe.ReplaceAllString(html, "$1\n"+headHTML)
+			logger.Debug("InjectHead: Inserted head after <html>")
 		} else {
 			// No structure at all — prepend
 			html = headHTML + "\n" + html
-			logger.Warn("InjectHead: No <head> or <body> found, prepended head")
+			logger.Warn("InjectHead: No <html> or <body> found, prepended head")
 		}
 	}
 

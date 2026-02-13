@@ -1126,3 +1126,46 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'pageflow-builder' AND is_active = true;
 
+--
+
+-- ============================================================================
+-- FIX: Move inject_head from pageflow-builder's assemble_page step
+--      to page-content-writer's compile_page step
+-- ============================================================================
+-- ROOT CAUSE: CompilePageSectionsAction (page-content-writer) injects header
+-- and footer but defers head injection to AssemblePageAction (pageflow-builder).
+-- The placeholder <head> from buildPageHTML() travels across agent boundaries
+-- and can get corrupted by cleanHTMLStructure's dedup logic, ending up inside
+-- <body>. Fix: inject head at the same point as header/footer.
+-- ============================================================================
+
+
+-- Step x: Remove inject_head from pageflow-builder's assemble_page step
+-- (it's inside build_pages_loop -> config -> sub_workflow -> steps -> assemble_page -> config)
+-- Current config: {"inject_head": true, "content_field": "page_content.response.page_html", "add_navigation": false}
+-- After:          "inject_head": false (head already injected by page-content-writer)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page,config,inject_head}',
+        'false'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder';
+
+-- ============================================================================
+-- VERIFY the changes
+-- ============================================================================
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'compile_page'->'config'->'inject_head' AS compile_inject_head,
+    default_config->'workflow'->'steps'->'compile_page'->'config'->'inject_header' AS compile_inject_header,
+    default_config->'workflow'->'steps'->'compile_page'->'config'->'inject_footer' AS compile_inject_footer
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'build_pages_loop'->'config'->'sub_workflow'->'steps'->'assemble_page'->'config'->'inject_head' AS assemble_inject_head
+FROM agent_definitions
+WHERE type = 'pageflow-builder';

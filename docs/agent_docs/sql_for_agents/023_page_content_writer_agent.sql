@@ -609,3 +609,30 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'page-content-writer';
+
+--
+
+-- <head> fixes
+
+-- ============================================================================
+-- FIX: Move inject_head from pageflow-builder's assemble_page step
+--      to page-content-writer's compile_page step
+-- ============================================================================
+-- ROOT CAUSE: CompilePageSectionsAction (page-content-writer) injects header
+-- and footer but defers head injection to AssemblePageAction (pageflow-builder).
+-- The placeholder <head> from buildPageHTML() travels across agent boundaries
+-- and can get corrupted by cleanHTMLStructure's dedup logic, ending up inside
+-- <body>. Fix: inject head at the same point as header/footer.
+-- ============================================================================
+
+-- Step 1: Add inject_head: true to page-content-writer's compile_page step
+-- Current config: {"page_from": "input_data.current_page", "inject_footer": true, "inject_header": true, "sections_from": "processed_sections", "include_research_ids": true}
+-- After:          + "inject_head": true
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,compile_page,config,inject_head}',
+        'true'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-content-writer';

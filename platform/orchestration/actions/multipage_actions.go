@@ -424,42 +424,48 @@ func cleanHTMLStructure(html string) string {
 		}
 	}
 
-	// Remove duplicate <head> sections (keep the more complete one)
+	// Remove duplicate <head> sections — keep the one before <body>, remove any after.
+	// Previous version kept the LARGER one regardless of position, which could
+	// remove a correct <head> (before <body>) in favour of a misplaced one (inside <body>)
+	// from LLM-generated section content.
 	// Use regex with [\s>] to match <head> or <head ...> but NOT <header>
 	headTagRe := regexp.MustCompile(`(?i)<head[\s>]`)
 	headPositions := headTagRe.FindAllStringIndex(html, -1)
 	if len(headPositions) > 1 {
 		lowerHTML := strings.ToLower(html)
-		firstHeadStart := headPositions[0][0]
-		firstHeadEnd := strings.Index(lowerHTML[firstHeadStart:], "</head>")
 
-		if firstHeadEnd >= 0 {
-			firstHeadEnd += firstHeadStart // make absolute
+		// Find <body> position to determine which <head> is correctly placed
+		bodyPos := strings.Index(lowerHTML, "<body")
 
-			// Find the second <head> that's after the first </head>
-			secondHeadStart := -1
-			for _, pos := range headPositions[1:] {
-				if pos[0] > firstHeadEnd {
-					secondHeadStart = pos[0]
-					break
+		// Remove all <head>...</head> blocks that are AFTER <body> — they're misplaced.
+		// Work backwards to preserve string indices.
+		for i := len(headPositions) - 1; i >= 0; i-- {
+			headStart := headPositions[i][0]
+			if bodyPos >= 0 && headStart > bodyPos {
+				// This <head> is after <body> — it's inside body content, remove it
+				headEndIdx := strings.Index(lowerHTML[headStart:], "</head>")
+				if headEndIdx >= 0 {
+					headEnd := headStart + headEndIdx + 7 // include </head>
+					html = html[:headStart] + html[headEnd:]
+					lowerHTML = strings.ToLower(html) // refresh after modification
 				}
 			}
+		}
 
-			if secondHeadStart >= 0 {
-				secondHeadEnd := strings.Index(lowerHTML[secondHeadStart:], "</head>")
-				if secondHeadEnd >= 0 {
-					secondHeadEnd += secondHeadStart + 7 // include </head>
-
-					// Compare sizes - keep the larger one
-					firstHeadLen := firstHeadEnd - firstHeadStart
-					secondHeadLen := secondHeadEnd - secondHeadStart
-
-					if secondHeadLen > firstHeadLen {
-						// Remove first head, keep second
-						html = html[:firstHeadStart] + html[firstHeadEnd+7:]
-					} else {
-						// Remove second head, keep first
-						html = html[:secondHeadStart] + html[secondHeadEnd:]
+		// If no <body> tag found, fall back to keeping only the first <head>
+		if bodyPos < 0 {
+			// Re-scan after possible modifications
+			headPositions = headTagRe.FindAllStringIndex(html, -1)
+			if len(headPositions) > 1 {
+				lowerHTML = strings.ToLower(html)
+				// Remove all but the first <head>...</head>
+				for i := len(headPositions) - 1; i > 0; i-- {
+					headStart := headPositions[i][0]
+					headEndIdx := strings.Index(lowerHTML[headStart:], "</head>")
+					if headEndIdx >= 0 {
+						headEnd := headStart + headEndIdx + 7
+						html = html[:headStart] + html[headEnd:]
+						lowerHTML = strings.ToLower(html)
 					}
 				}
 			}

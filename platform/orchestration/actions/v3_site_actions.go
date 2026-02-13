@@ -1504,11 +1504,15 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 	// Build full HTML page
 	pageHTML := buildPageHTML(pageName, pageBody)
 
-	// Optionally inject header/footer from component library
+	// Optionally inject head/header/footer from component library.
+	// Head is injected here (same time as header/footer) rather than deferred
+	// to a later assemble_page step — deferring caused <head> to end up inside
+	// <body> when cleanHTMLStructure's dedup logic picked the wrong block.
+	injectHead, _ := config["inject_head"].(bool)
 	injectHeader, _ := config["inject_header"].(bool)
 	injectFooter, _ := config["inject_footer"].(bool)
 
-	if params.DB != nil && (injectHeader || injectFooter) {
+	if params.DB != nil && (injectHead || injectHeader || injectFooter) {
 		// Get site_id for component lookup
 		siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
 		siteUUID := uuid.Nil
@@ -1523,6 +1527,27 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 			}
 		}
 
+		// Ensure page-specific title/description are set for head component.
+		// The head template uses {{.title}} and {{.description}} — these must
+		// reflect the current page, not just the site-level defaults.
+		if pageFrom, ok := config["page_from"].(string); ok && pageFrom != "" {
+			if pageData := datahelpers.ExtractNestedField(params.CollectedData, pageFrom); pageData != nil {
+				if pm, ok := pageData.(map[string]interface{}); ok {
+					if t, ok := pm["title"].(string); ok && t != "" {
+						renderCtx.Title = t
+					} else if n, ok := pm["name"].(string); ok && n != "" && renderCtx.Title == "" {
+						renderCtx.Title = strings.Title(strings.ReplaceAll(n, "-", " "))
+					}
+					if d, ok := pm["meta_description"].(string); ok && d != "" {
+						renderCtx.Description = d
+					}
+				}
+			}
+		}
+
+		if injectHead {
+			pageHTML = InjectHead(ctx, params.DB, pageHTML, siteUUID, renderCtx, params.Logger)
+		}
 		if injectHeader {
 			pageHTML = InjectHeader(ctx, params.DB, pageHTML, siteUUID, renderCtx, params.Logger)
 		}

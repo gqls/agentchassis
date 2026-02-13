@@ -866,3 +866,30 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'webdesign-agent' AND is_active = true;
 
+--
+
+-- styles fixes
+
+-- Fix webdesign-agent generate_css prompt to enforce colour inheritance model
+--
+-- Changes from current prompt:
+--   1. h1-h6: color: var(--color-primary) → color: inherit
+--   2. p: removed "color: var(--color-text)"
+--   3. Added explicit DO NOT rules for blockquote background, strong color, etc.
+--   4. Added COLOUR INHERITANCE MODEL section explaining why
+--
+-- The current prompt contradicts the design system architecture by telling the LLM
+-- to set explicit colors on elements that should inherit. This causes white/light
+-- text on white/light backgrounds in dark sections (testimonials, CTAs, footers)
+-- because component CSS sets color: #fff on the container but global CSS forces
+-- colors back on children.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_css,config,prompt_template}',
+        to_jsonb(
+                E'Generate a complete production CSS stylesheet.\n\n## Design Spec\n{{.design_spec.result}}\n\n## Components\n{{range .site_context.all_component_functions}}- {{.}}\n{{end}}\n\n## CSS RESPONSIBILITY RULES\nGlobal CSS handles ALL appearance. Component CSS handles only layout.\n\nYou MUST provide:\n1. :root with EXACT variable names (use design_spec colors)\n2. Base element styling that components inherit\n\nComponents will NOT re-declare colors on h1-h6, p, a - they inherit from you.\n\n## Required :root Variables\n:root {\n  --color-primary: (from color_scheme.primary);\n  --color-secondary: (from color_scheme.secondary);\n  --color-accent: (from color_scheme.accent);\n  --color-background: (from color_scheme.background);\n  --color-surface: (from color_scheme.surface);\n  --color-text: (from color_scheme.text);\n  --color-text-muted: (from color_scheme.text_muted);\n  --color-border: (from color_scheme.border);\n  --color-white: #ffffff;\n  --font-family: (from typography.font_family);\n  --spacing-section: (from spacing.section_padding);\n  --container-max-width: (from spacing.container_max_width);\n}\n\n## COLOUR INHERITANCE MODEL (this is essential)\nbody sets color ONCE via var(--color-text). ALL other elements inherit.\nDark sections (testimonials, CTAs, footers) override with color: #fff on their container.\nChildren inherit light text automatically — but ONLY if you do not force colors on them.\n\nIf you set color: var(--color-primary) on h2, a dark section cannot override it.\nIf you set color: var(--color-text) on p, a dark section cannot override it.\nIf you set background-color on blockquote, dark sections get light boxes inside dark containers.\n\n## Required Base Styles\n- *, *::before, *::after { box-sizing: border-box; }\n- html, body { margin: 0; padding: 0; }\n- body { font-family: var(--font-family); color: var(--color-text); line-height: 1.6; background-color: var(--color-background); }\n- h1, h2, h3, h4, h5, h6 { color: inherit; line-height: 1.2; margin: 0 0 1rem; font-weight: 700; }\n- h1 { font-size: clamp(2rem, 5vw, 3rem); }\n- h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }\n- h3 { font-size: clamp(1.25rem, 3vw, 1.5rem); }\n- p { margin: 0 0 1rem; }\n- a { color: var(--color-accent); }\n- .container { max-width: var(--container-max-width); margin: 0 auto; padding: 0 2rem; }\n\n## DO NOT set color on these elements (they must inherit):\n- p — NO color property at all\n- h1, h2, h3, h4, h5, h6 — use color: inherit, NOT var(--color-primary)\n- strong, b, em, i — NO color property\n- li — NO color property\n- blockquote — NO color property, NO background-color property\n- cite, span — NO color property\n\n## Also Include\n- Button base styles (.btn, .btn-primary, .btn-secondary)\n- Focus states for accessibility\n- Smooth transitions\n- Responsive adjustments at 768px and 1024px\n- blockquote: margin, padding, border-left only (NO background-color, NO color)\n- strong: font-weight only (NO color)\n\n## DO NOT Include\n- Component-specific selectors (.services-grid, .testimonial-item, etc.)\n- Components have their own CSS that inherits from your base styles\n\nOutput ONLY CSS. No markdown. No explanations. Start with :root {'
+        )
+             )
+WHERE type = 'webdesign-agent';
