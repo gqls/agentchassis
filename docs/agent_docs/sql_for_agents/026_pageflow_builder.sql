@@ -1,3 +1,21 @@
+the pageflow-builder workflow step by step:
+    spawn_planner → spawn_content_writer → spawn_reviewer → spawn_deployer
+→ ensure_site_record
+→ call_site_planner          ← produces a FRESH site plan
+→ store_reviewed_brief
+→ store_site_plan
+→ sync_pages_to_db           ← syncs plan pages to DB — could reset statuses
+→ populate_nav
+→ check_assets_needed → ... asset steps ...
+→ select_style_collection
+→ set_default_components
+→ render_site_components
+→ get_pages_to_build         ← filters by build_status
+→ build_pages_loop           ← builds those pages
+→ apply_site_design          ← regenerates CSS
+→ trigger_site_deploy        ← Cloudflare deploy
+→ complete
+
 -- ============================================================================
 -- Add Input Contracts to Existing Agents
 -- ============================================================================

@@ -124,7 +124,7 @@ kubectl -n kafka run -i --rm kcat-pipeline-$$ \
     -H "action=orchestrate" \
     -H "from_agent_type=user" \
     -H "from_agent_id=cli" \
-    -H "responses_topic=system.generic.responses" <<JSON
+    -H "responses_topic=system.agent.generic.responses" <<JSON
 {"action":"orchestrate","config":{"agent_type":"vet-pipeline-orchestrator"},"input_data":${INPUT_DATA}}
 JSON
 
@@ -153,4 +153,21 @@ echo ""
 echo "5. Monitor business verification:"
 echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
 echo "     \"SELECT verification_status, COUNT(*) FROM business_intel.businesses b JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id WHERE bv.slug = 'veterinary' GROUP BY verification_status\""
+echo ""
+
+echo "  -- Did ensure_tasks actually create them?"
+echo "  SELECT status, COUNT(*) FROM business_intel.collection_tasks GROUP BY status;"
+echo "  "
+echo "  -- What did the batch processor's child orchestration do?"
+echo "  SELECT orchestration_id, status, current_step, error"
+echo "  FROM orchestration_states"
+echo "  WHERE parent_orchestration_id = '$ORCHESTRATION_ID'"
+echo "  ORDER BY created_at;"
+echo "  "
+echo "  -- And check the batch processor's own collected_data"
+echo "  SELECT collected_data->'batch' as batch_data"
+echo "  FROM orchestration_states"
+echo "  WHERE owner_agent_type = 'vet-batch-processor'"
+echo "  ORDER BY created_at DESC"
+echo "  LIMIT 1;"
 echo ""

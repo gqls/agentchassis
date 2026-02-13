@@ -1574,6 +1574,12 @@ func ToFloat64(v interface{}) (float64, bool) {
 		return float64(val), true
 	case float32:
 		return float64(val), true
+	case string:
+		f, err := strconv.ParseFloat(strings.TrimSpace(val), 64)
+		if err != nil {
+			return 0, false
+		}
+		return f, true
 	default:
 		return 0, false
 	}
@@ -1591,6 +1597,12 @@ func ToInt64(v interface{}) (int64, bool) {
 		return int64(val), true
 	case float32:
 		return int64(val), true
+	case string:
+		i, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
+		if err != nil {
+			return 0, false
+		}
+		return i, true
 	default:
 		return 0, false
 	}

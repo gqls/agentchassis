@@ -452,6 +452,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Load site record and associated data for design operations",
 		IsLocal:     true,
 	},
+	"load_site_for_rebuild": {
+		Handler:     LoadSiteForRebuildAction,
+		Category:    "site",
+		Description: "Load site context for page rebuilds: brief, navigation, pages, brand assets from DB",
+		IsLocal:     true,
+	},
 	"prepare_link_context": {
 		Handler:     PrepareLinkContextAction,
 		Category:    "site",
