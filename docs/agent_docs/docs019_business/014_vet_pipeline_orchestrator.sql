@@ -1314,3 +1314,256 @@ SET default_config = '{
 }'::jsonb,
 updated_at = NOW()
 WHERE type = 'vet-pipeline-orchestrator';
+
+
+--
+
+-- vet_pipeline_updates.sql
+--
+-- Vertical-agnostic pipeline definitions.
+--
+-- Vet-specific values (country, business_type, vertical_slug) are defined
+-- in the workflow configs, not hardcoded in Go. A seaweed pipeline would
+-- have different agent definitions with different values, same Go code.
+--
+-- Values flow: pipeline input_data → call_agent input_mapping → child input_data
+-- Local actions (promote_candidates) read from their step config directly.
+--
+-- CLI invocation must include: country, business_type, vertical_slug
+-- e.g. {"limit": 50, "country": "GB", "business_type": "veterinary practice",
+--        "vertical_slug": "veterinary", "verify_limit": 100, "promote_limit": 500}
+
+
+-- =====================================================================
+-- Fix: query_template town → postcode in vet-practice-verifier
+-- (idempotent — only updates if still using town)
+-- =====================================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,search_practice,config,query_template}',
+        '"{{.business_record.business.name}} {{.business_record.business.postcode}} veterinary practice"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier'
+  AND default_config->'workflow'->'steps'->'search_practice'->'config'->>'query_template'
+    LIKE '%town%';
+
+
+-- =====================================================================
+-- 1. area-sweep-orchestrator: dispatch → spawn+loop
+--
+-- load_areas now requires country and business_type from input_data
+-- (passed down by the pipeline's call_agent input_mapping).
+-- =====================================================================
+UPDATE agent_definitions
+SET default_config = '{
+    "processing_mode": "orchestrator",
+    "timeout_seconds": 3600,
+    "workflow": {
+        "start_step": "load_areas",
+        "steps": {
+
+            "load_areas": {
+                "action": "load_unswept_areas",
+                "config": {
+                    "input_fields": ["limit", "country", "business_type", "area_code"]
+                },
+                "output_field": "unswept_areas",
+                "next_step": "check_areas",
+                "description": "Load un-swept postcode districts from DB"
+            },
+
+            "check_areas": {
+                "action": "conditional",
+                "config": {
+                    "condition": "unswept_areas.count > 0",
+                    "then_step": "spawn_discoverer",
+                    "else_step": "complete"
+                },
+                "description": "Skip if no areas to sweep"
+            },
+
+            "spawn_discoverer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "discoverer",
+                    "agent_type": "area-sweep-discoverer"
+                },
+                "output_field": "discoverer_agent",
+                "next_step": "sweep_loop",
+                "description": "Spawn a single area sweep discoverer"
+            },
+
+            "sweep_loop": {
+                "action": "loop",
+                "config": {
+                    "items_field": "unswept_areas.areas",
+                    "item_variable": "current_area",
+                    "max_iterations": 200,
+                    "continue_on_error": true,
+                    "sub_workflow": {
+                        "start_step": "call_discoverer",
+                        "steps": {
+                            "call_discoverer": {
+                                "action": "call_agent",
+                                "config": {
+                                    "agent_type": "area-sweep-discoverer",
+                                    "target_role": "discoverer",
+                                    "input_mapping": {
+                                        "district_code": "current_area.district_code",
+                                        "area_name": "current_area.area_name",
+                                        "search_area_id": "current_area.search_area_id",
+                                        "business_type": "unswept_areas.business_type"
+                                    },
+                                    "timeout_seconds": 120
+                                },
+                                "output_field": "sweep_result",
+                                "description": "Call discoverer for this district"
+                            }
+                        }
+                    }
+                },
+                "output_field": "sweep_results",
+                "next_step": "complete",
+                "description": "Loop through districts, calling discoverer for each"
+            },
+
+            "complete": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["unswept_areas", "sweep_results"]
+                },
+                "description": "Area sweep batch complete"
+            }
+        }
+    }
+}'::jsonb,
+updated_at = NOW()
+WHERE type = 'area-sweep-orchestrator';
+
+
+-- =====================================================================
+-- 2. vet-batch-processor: add continue_on_error to loop
+-- =====================================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_batch,config,continue_on_error}',
+        'true'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-batch-processor';
+
+
+-- =====================================================================
+-- 3. vet-pipeline-orchestrator: thin coordinator
+--
+-- Vet-specific values are:
+--   - Passed to children via input_mapping from input_data
+--   - Set as static config on local actions (promote_candidates)
+--
+-- CLI must provide: country, business_type, vertical_slug
+-- Optional: limit (default 50), verify_limit, promote_limit, area_code
+-- =====================================================================
+UPDATE agent_definitions
+SET default_config = '{
+    "processing_mode": "orchestrator",
+    "timeout_seconds": 7200,
+    "workflow": {
+        "start_step": "spawn_sweep_orch",
+        "steps": {
+
+            "spawn_sweep_orch": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "sweep-coordinator",
+                    "agent_type": "area-sweep-orchestrator"
+                },
+                "output_field": "sweep_orch",
+                "next_step": "run_sweeps",
+                "description": "Spawn the area sweep orchestrator"
+            },
+
+            "run_sweeps": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "area-sweep-orchestrator",
+                    "target_role": "sweep-coordinator",
+                    "input_mapping": {
+                        "limit": "input_data.limit",
+                        "country": "input_data.country",
+                        "business_type": "input_data.business_type",
+                        "area_code?": "input_data.area_code"
+                    },
+                    "timeout_seconds": 3600
+                },
+                "output_field": "sweep_result",
+                "next_step": "promote_candidates",
+                "description": "Call sweep orchestrator and wait for completion"
+            },
+
+            "promote_candidates": {
+                "action": "promote_candidates",
+                "config": {
+                    "vertical_slug": "veterinary",
+                    "business_type": "veterinary_practice",
+                    "country": "GB",
+                    "promote_limit": 500
+                },
+                "output_field": "promotion_result",
+                "next_step": "ensure_tasks",
+                "description": "Promote high-confidence candidates to businesses"
+            },
+
+            "ensure_tasks": {
+                "action": "ensure_collection_tasks",
+                "config": {
+                    "vertical_slug": "veterinary",
+                    "task_type": "initial_verification",
+                    "task_priority": 5
+                },
+                "output_field": "ensure_result",
+                "next_step": "spawn_batch_processor",
+                "description": "Backfill collection_tasks for any pending businesses missing them"
+            },
+
+            "spawn_batch_processor": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "batch-verifier",
+                    "agent_type": "vet-batch-processor"
+                },
+                "output_field": "batch_orch",
+                "next_step": "run_verification",
+                "description": "Spawn the batch verification orchestrator"
+            },
+
+            "run_verification": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "vet-batch-processor",
+                    "target_role": "batch-verifier",
+                    "input_mapping": {
+                        "batch_size": "input_data.verify_limit",
+                        "vertical_slug": "input_data.vertical_slug"
+                    },
+                    "timeout_seconds": 3600
+                },
+                "output_field": "verification_result",
+                "next_step": "complete",
+                "description": "Call batch processor and wait for completion"
+            },
+
+            "complete": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["sweep_result", "promotion_result", "ensure_result", "verification_result"]
+                },
+                "description": "Pipeline run complete"
+            }
+        }
+    }
+}'::jsonb,
+updated_at = NOW()
+WHERE type = 'vet-pipeline-orchestrator';

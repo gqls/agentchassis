@@ -250,6 +250,58 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 		return matches, nil
 	}
 
+	// Try numeric comparisons: >=, <=, >, <
+	// Check >= and <= before > and < to avoid partial matches
+	type numericOp struct {
+		symbol string
+		eval   func(a, b float64) bool
+	}
+	numericOps := []numericOp{
+		{">=", func(a, b float64) bool { return a >= b }},
+		{"<=", func(a, b float64) bool { return a <= b }},
+		{">", func(a, b float64) bool { return a > b }},
+		{"<", func(a, b float64) bool { return a < b }},
+	}
+
+	for _, op := range numericOps {
+		opStr := " " + op.symbol + " "
+		if idx := strings.Index(expr, opStr); idx >= 0 {
+			field := strings.TrimSpace(expr[:idx])
+			expectedStr := strings.TrimSpace(expr[idx+len(opStr):])
+
+			actual := resolveFieldValue(field, data, logger)
+
+			// Convert both sides to float64 for comparison
+			actualNum, actualOk := datahelpers.ToFloat64(actual)
+			expectedNum, expectedOk := datahelpers.ToFloat64(expectedStr)
+
+			if !actualOk {
+				logger.Warn("Numeric comparison: left side is not numeric",
+					zap.String("field", field),
+					zap.Any("actual", actual),
+					zap.String("operator", op.symbol))
+				return false, nil
+			}
+			if !expectedOk {
+				logger.Warn("Numeric comparison: right side is not numeric",
+					zap.String("expected", expectedStr),
+					zap.String("operator", op.symbol))
+				return false, nil
+			}
+
+			result := op.eval(actualNum, expectedNum)
+
+			logger.Info("evaluateSingleComparison: numeric comparison",
+				zap.String("field", field),
+				zap.String("operator", op.symbol),
+				zap.Float64("actual", actualNum),
+				zap.Float64("expected", expectedNum),
+				zap.Bool("result", result))
+
+			return result, nil
+		}
+	}
+
 	// No comparison operator found - treat as truthy check
 	actual := resolveFieldValue(expr, data, logger)
 	isTruthy := valueIsTruthy(actual)

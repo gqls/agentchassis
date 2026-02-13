@@ -378,6 +378,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Move pending discovery candidates into businesses table with dedup",
 		IsLocal:     true,
 	},
+	"ensure_collection_tasks": {
+		Handler:     EnsureCollectionTasksAction,
+		Category:    "data",
+		Description: "Backfill collection_tasks for pending businesses missing them",
+		IsLocal:     true,
+	},
 	"dispatch_verifiers": {
 		Handler:     DispatchVerifiersAction,
 		Category:    "web",
