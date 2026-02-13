@@ -184,15 +184,24 @@ func PromoteCandidatesAction(ctx context.Context, params ActionParams) (interfac
 			continue
 		}
 
-		// Insert new business
-		var newBusinessID string
-		// Use existing nullIfEmpty / nullIfFalse helpers (scan_discovery_candidates.go)
+		// Insert new business + create collection_task + mark candidate
+		// All in one transaction to avoid prepared statement conflicts
 		var isIndep interface{}
 		if c.IsIndependent.Valid {
 			isIndep = c.IsIndependent.Bool
 		}
 
-		err = params.DB.QueryRowContext(ctx, `
+		tx, txErr := params.DB.BeginTx(ctx, nil)
+		if txErr != nil {
+			params.Logger.Warn("PromoteCandidatesAction: tx begin failed",
+				zap.String("candidate_id", c.ID),
+				zap.Error(txErr))
+			dupErrors++
+			continue
+		}
+
+		var newBusinessID string
+		err = tx.QueryRowContext(ctx, `
 			INSERT INTO business_intel.businesses
 				(name, website_url, postcode, phone,
 				 group_name, is_independent,
@@ -212,6 +221,7 @@ func PromoteCandidatesAction(ctx context.Context, params ActionParams) (interfac
 		).Scan(&newBusinessID)
 
 		if err != nil {
+			tx.Rollback()
 			params.Logger.Warn("PromoteCandidatesAction: insert failed",
 				zap.String("candidate_id", c.ID),
 				zap.String("name", c.Name),
@@ -220,31 +230,49 @@ func PromoteCandidatesAction(ctx context.Context, params ActionParams) (interfac
 			continue
 		}
 
-		// Create collection_task so vet-batch-processor picks this up
-		// The partial unique index on (business_id, task_type) WHERE status='pending'
-		// prevents duplicates if promote is re-run
-		_, taskErr := params.DB.ExecContext(ctx, `
+		// Create collection_task so batch-processor picks this up
+		_, err = tx.ExecContext(ctx, `
 			INSERT INTO business_intel.collection_tasks
 				(business_id, task_type, vertical_id, priority, status,
 				 created_at, updated_at)
 			VALUES ($1, 'initial_verification', $2, 5, 'pending', NOW(), NOW())
 			ON CONFLICT DO NOTHING`,
 			newBusinessID, verticalID)
-		if taskErr != nil {
-			params.Logger.Warn("PromoteCandidatesAction: failed to create collection_task",
+		if err != nil {
+			tx.Rollback()
+			params.Logger.Warn("PromoteCandidatesAction: task insert failed",
 				zap.String("business_id", newBusinessID),
-				zap.Error(taskErr))
+				zap.Error(err))
+			dupErrors++
+			continue
 		}
 
 		// Mark candidate as promoted
-		_, _ = params.DB.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 			UPDATE business_intel.discovery_candidates
 			SET status = 'promoted',
 			    promoted_business_id = $2,
 			    reviewed_at = NOW()
 			WHERE id = $1`, c.ID, newBusinessID)
+		if err != nil {
+			tx.Rollback()
+			params.Logger.Warn("PromoteCandidatesAction: candidate update failed",
+				zap.String("candidate_id", c.ID),
+				zap.Error(err))
+			dupErrors++
+			continue
+		}
+
+		if err := tx.Commit(); err != nil {
+			params.Logger.Warn("PromoteCandidatesAction: commit failed",
+				zap.String("candidate_id", c.ID),
+				zap.Error(err))
+			dupErrors++
+			continue
+		}
 
 		promoted++
+
 		params.Logger.Info("PromoteCandidatesAction: promoted",
 			zap.String("business_id", newBusinessID),
 			zap.String("name", c.Name),

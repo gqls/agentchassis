@@ -10,3 +10,7 @@
 CREATE UNIQUE INDEX IF NOT EXISTS idx_collection_tasks_unique_pending
     ON business_intel.collection_tasks (business_id, task_type)
     WHERE status = 'pending';
+
+
+ALTER TABLE business_intel.collection_tasks
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
