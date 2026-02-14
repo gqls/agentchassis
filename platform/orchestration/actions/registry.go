@@ -458,6 +458,24 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Load site context for page rebuilds: brief, navigation, pages, brand assets from DB",
 		IsLocal:     true,
 	},
+	"scan_sites_for_maintenance": {
+		Handler:     ScanSitesForMaintenanceAction,
+		Category:    "site",
+		Description: "Scan deployed sites for maintenance issues and insert tasks into queue",
+		IsLocal:     true,
+	},
+	"prepare_rebuild_dispatches": {
+		Handler:     PrepareRebuildDispatchesAction,
+		Category:    "site",
+		Description: "Claim page_rebuild tasks from queue, flag pages, group dispatches by site",
+		IsLocal:     true,
+	},
+	"mark_maintenance_complete": {
+		Handler:     MarkMaintenanceCompleteAction,
+		Category:    "site",
+		Description: "Mark maintenance queue tasks as complete or failed after specialist finishes",
+		IsLocal:     true,
+	},
 	"prepare_link_context": {
 		Handler:     PrepareLinkContextAction,
 		Category:    "site",
