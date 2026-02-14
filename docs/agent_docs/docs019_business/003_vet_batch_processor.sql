@@ -143,3 +143,52 @@ INSERT INTO agent_definitions (
     status = EXCLUDED.status,
     updated_at = NOW();
 
+--
+
+-- pass orchestration id through to verifier
+
+-- vet_batch_processor_fixes.sql
+--
+-- Three fixes:
+-- 1. Pass task_id through to verifier so tasks get completed by ID
+-- 2. Reorder: spawn verifier FIRST, then loop batches until empty
+-- 3. Add continue_on_error so individual failures don't kill the batch
+--
+-- New flow:
+--   spawn_verifier → load_batch → check_batch
+--     → (has items) process_batch → load_batch → check_batch
+--     → (empty) complete_empty
+--
+-- Verifier is spawned once and reused for all batches.
+
+
+
+-- Fix 2+3: Reorder steps and add continue_on_error
+-- spawn_verifier becomes the start_step, its next_step → load_batch
+-- check_batch then_step → process_batch (not spawn_verifier)
+-- process_batch next_step → load_batch (loop back)
+-- process_batch gets continue_on_error: true
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                jsonb_set(
+                        jsonb_set(
+                                jsonb_set(
+                                        default_config,
+                                        '{workflow,start_step}',
+                                        '"spawn_verifier"'::jsonb
+                                ),
+                                '{workflow,steps,spawn_verifier,next_step}',
+                                '"load_batch"'::jsonb
+                        ),
+                        '{workflow,steps,check_batch,config,then_step}',
+                        '"process_batch"'::jsonb
+                ),
+                '{workflow,steps,process_batch,next_step}',
+                '"load_batch"'::jsonb
+        ),
+        '{workflow,steps,process_batch,config,continue_on_error}',
+        'true'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-batch-processor';

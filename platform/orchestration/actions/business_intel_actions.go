@@ -174,6 +174,8 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 		return nil, fmt.Errorf("business_id is required")
 	}
 
+	taskID, _ := extracted["task_id"].(string)
+
 	verResult, ok := extracted["verification_result"].(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("verification_result must be an object")
@@ -302,16 +304,28 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 		params.Logger.Warn("Failed to bump verification count", zap.Error(err))
 	}
 
-	// 5. Update collection task if orchestration_id is known
-	_, _ = tx.ExecContext(ctx, `
-		UPDATE business_intel.collection_tasks 
-		SET status = 'completed', 
-		    completed_at = NOW(),
-		    result_summary = $2
-		WHERE orchestration_id = $1 AND status = 'in_progress'`,
-		params.ExecutionContext.OrchestrationID,
-		rawDataJSON,
-	)
+	// 5. Update collection task - prefer task_id, fall back to orchestration_id
+	if taskID != "" {
+		_, _ = tx.ExecContext(ctx, `
+			UPDATE business_intel.collection_tasks
+			SET status = 'completed',
+			    completed_at = NOW(),
+			    result_summary = $2
+			WHERE id = $1 AND status = 'in_progress'`,
+			taskID,
+			rawDataJSON,
+		)
+	} else {
+		_, _ = tx.ExecContext(ctx, `
+			UPDATE business_intel.collection_tasks
+			SET status = 'completed',
+			    completed_at = NOW(),
+			    result_summary = $2
+			WHERE orchestration_id = $1 AND status = 'in_progress'`,
+			params.ExecutionContext.OrchestrationID,
+			rawDataJSON,
+		)
+	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to commit: %w", err)

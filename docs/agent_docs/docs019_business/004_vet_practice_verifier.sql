@@ -665,3 +665,16 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'vet-practice-verifier';
+
+--
+
+-- use just one spawned verifier - get orchestration id from batch processor
+-- Fix 1: Add task_id to verifier's store_results input_fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_results,config,input_fields}',
+        '["business_id", "verification_result", "task_id"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-practice-verifier';
