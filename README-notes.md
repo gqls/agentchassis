@@ -1,3 +1,6 @@
+# db backup
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > agent_definitions_backup2.sql
+
 
 # set up .env file with real keys
 

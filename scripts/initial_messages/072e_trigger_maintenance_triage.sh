@@ -33,6 +33,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+-- v --
+threshold is number of days old
+-- v --
+
+DOMAIN="leopardessconsulting.co.uk"
+DRY_RUN="false"
+THRESHOLD="4"
+
+
+
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -67,7 +77,9 @@ fi
 
 # Remove trailing comma and close
 FIELDS="${FIELDS%,}"
-INPUT_DATA="${INPUT_DATA}${FIELDS}}"
+# INPUT_DATA="${INPUT_DATA}${FIELDS}}"
+# Build input_data JSON — always include all fields so input_mapping paths resolve
+INPUT_DATA="{\"domain\":\"${DOMAIN}\",\"dry_run\":${DRY_RUN},\"stale_threshold_days\":${THRESHOLD:-30}}"
 
 echo "  Input data:     $INPUT_DATA"
 echo ""
