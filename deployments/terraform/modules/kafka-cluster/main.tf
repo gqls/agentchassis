@@ -28,5 +28,6 @@ resource "kubernetes_manifest" "kafka_cluster" {
     storage_size        = var.node_pool_storage_size
     storage_class       = var.storage_class
     delete_claim        = var.delete_claim
+    message_max_bytes   = var.message_max_bytes
   }))
 }

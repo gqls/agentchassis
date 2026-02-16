@@ -129,6 +129,7 @@ func CreateJobTopic(brokers []string, topicName string, partitions int) error {
 			ConfigEntries: []kafka.ConfigEntry{
 				{ConfigName: "retention.ms", ConfigValue: "3600000"}, // 1 hour for job topics
 				{ConfigName: "compression.type", ConfigValue: "snappy"},
+				{ConfigName: "max.message.bytes", ConfigValue: "5242880"},
 			},
 		}
 
@@ -190,6 +191,7 @@ func (tm *TopicManager) CreateTopic(ctx context.Context, topic TopicDefinition) 
 				{ConfigName: "retention.ms", ConfigValue: "604800000"}, // 7 days
 				{ConfigName: "compression.type", ConfigValue: "snappy"},
 				{ConfigName: "cleanup.policy", ConfigValue: "delete"},
+				{ConfigName: "max.message.bytes", ConfigValue: "5242880"},
 			},
 		},
 	}

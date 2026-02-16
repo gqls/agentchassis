@@ -30,6 +30,7 @@ spec:
       log.message.format.version: "3.9"
       log.retention.hours: "160"
       log4j.logger.kafka.authorizer.logger: INFO
+      message.max.bytes: "5242880"
     resources:
       requests:
         memory: "1Gi"

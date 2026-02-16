@@ -74,6 +74,12 @@ variable "min_insync_replicas" {
   default     = 2
 }
 
+variable "message_max_bytes" {
+  description = "Max size of messages for Kafka messaging"
+  type        = number
+  default     = 5242880
+}
+
 variable "storage_class" {
   description = "Storage class to use for Kafka volumes"
   type        = string

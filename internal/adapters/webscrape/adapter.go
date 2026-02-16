@@ -319,6 +319,46 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 
 	l.Info("In handleMessage in adapter.go just uploaded results - about to send success response")
 
+	// Truncate large content fields before sending through Kafka.
+	// Full content is already in S3 (via storage URIs).
+	// prepare_extraction_context only uses 8000 chars anyway.
+	const maxKafkaContentLen = 50000 // 50KB per field, well within Kafka limits
+	if resultMap, ok := result.(map[string]interface{}); ok {
+		for _, field := range []string{"markdown_content", "html_content", "raw_html"} {
+			if content, ok := resultMap[field].(string); ok && len(content) > maxKafkaContentLen {
+				l.Info("Truncating large field for Kafka",
+					zap.String("field", field),
+					zap.Int("original_len", len(content)),
+					zap.Int("truncated_to", maxKafkaContentLen))
+				resultMap[field] = content[:maxKafkaContentLen] + "\n\n[Content truncated for Kafka transport - full version in S3]"
+			}
+		}
+		// Strip screenshot base64 entirely - URI is sufficient
+		if _, ok := resultMap["screenshot_base64"]; ok {
+			delete(resultMap, "screenshot_base64")
+		}
+		result = resultMap
+	}
+
+	// Also handle multi-page results where each page has content
+	if resultMap, ok := result.(map[string]interface{}); ok {
+		if pages, ok := resultMap["pages"].([]interface{}); ok {
+			for _, page := range pages {
+				if pageMap, ok := page.(map[string]interface{}); ok {
+					for _, field := range []string{"content", "markdown_content", "html_content"} {
+						if content, ok := pageMap[field].(string); ok && len(content) > maxKafkaContentLen {
+							l.Info("Truncating large page field for Kafka",
+								zap.String("field", field),
+								zap.Int("original_len", len(content)),
+								zap.Int("truncated_to", maxKafkaContentLen))
+							pageMap[field] = content[:maxKafkaContentLen] + "\n\n[Content truncated for Kafka transport - full version in S3]"
+						}
+					}
+				}
+			}
+		}
+	}
+	
 	// Send success response
 	a.sendSuccessResponse(requestID, correlationID, orchestrationID, replyToTopic, clientID, stepName, result)
 	a.consumer.CommitMessages(context.Background(), msg)

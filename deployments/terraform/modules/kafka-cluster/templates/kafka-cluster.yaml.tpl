@@ -27,6 +27,7 @@ spec:
       transaction.state.log.min.isr: ${min_insync_replicas}
       default.replication.factor: ${replication_factor}
       min.insync.replicas: ${min_insync_replicas}
+      message.max.bytes: ${message_max_bytes}
     %{ if !use_node_pools ~}
     storage:
       type: persistent-claim
