@@ -386,6 +386,12 @@ func LoadBusinessBatchAction(ctx context.Context, params ActionParams) (interfac
 	if bs, ok := config["batch_size"].(float64); ok && bs > 0 {
 		batchSize = int(bs)
 	}
+	// Override from input_data if provided (e.g. pipeline passes verify_limit as batch_size)
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		if bs, ok := inputData["batch_size"].(float64); ok && bs > 0 {
+			batchSize = int(bs)
+		}
+	}
 
 	taskType, _ := config["task_type"].(string) // optional filter
 	verticalSlug, _ := config["vertical_slug"].(string)

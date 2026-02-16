@@ -192,3 +192,47 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'vet-batch-processor';
+
+
+---
+
+-- remove loop
+
+-- vet_batch_processor_loop_fix.sql
+--
+-- Fix: remove loop-back pattern (loop steps can't re-expand).
+-- Each batch processor run handles one batch and completes.
+-- Pipeline runs again to drain the queue.
+--
+-- Changes:
+--   process_batch.next_step: "load_batch" → "complete"
+--   process_batch.max_iterations: 50 → 250
+--   start_step stays at spawn_verifier (spawn once, process batch, complete)
+
+-- 1. Fix the batch processor definition
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,process_batch,next_step}',
+                '"complete"'::jsonb
+        ),
+        '{workflow,steps,process_batch,config,max_iterations}',
+        '250'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-batch-processor';
+
+-- 2. Reset orphaned in_progress tasks from previous failed runs
+UPDATE business_intel.collection_tasks
+SET status = 'pending', started_at = NULL, orchestration_id = NULL
+WHERE status = 'in_progress';
+
+-- 3. Fail the stuck verifiers so they don't hold resources
+UPDATE orchestration_states
+SET status = 'FAILED',
+    error = 'stuck at scrape_website - timeout goroutine lost',
+    updated_at = NOW()
+WHERE status = 'AWAITING_RESPONSES'
+  AND owner_agent_type = 'vet-practice-verifier'
+  AND updated_at < NOW() - INTERVAL '30 minutes';
