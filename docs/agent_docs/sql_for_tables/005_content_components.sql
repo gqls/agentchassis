@@ -6276,3 +6276,55 @@ WHERE name = 'leadership-team';
 -- 3. about-content: Added full <style> block with centered container layout
 -- 4. leadership-team: Added full <style> block with grid layout
 -- 5. pageflow-builder: Changed image prompt handling from template syntax to input_mapping
+
+-- granular editing
+-- ============================================================================
+-- 1. NEW COMPONENT: portfolio-showcase
+-- Replaces social-proof/testimonials for sites where you don't have
+-- client testimonials. Shows actual domains/sites built by the platform.
+-- ============================================================================
+
+INSERT INTO content_components (
+    id, name, description, html_template, input_schema, function,
+    display_name, category, semantic_tags, render_mode,
+    component_level, is_active
+) VALUES (
+             gen_random_uuid(),
+             'portfolio-showcase',
+             'Showcase of sites and tools built by the platform. Honest portfolio — no fabricated testimonials, just the actual work. Each project shows domain, description, what it was built with, and build time.',
+             E'<section class="portfolio-showcase-section" data-component="portfolio-showcase">\n    <div class="portfolio-container">\n        <h2>{{.headline}}</h2>\n        {{if .intro}}<p class="portfolio-intro">{{.intro}}</p>{{end}}\n        <div class="portfolio-grid">\n            {{range .projects}}\n            <div class="portfolio-item">\n                <div class="portfolio-item-header">\n                    <h3>{{.title}}</h3>\n                    {{if .live_url}}<a href="{{.live_url}}" class="portfolio-link" target="_blank" rel="noopener">Visit Site \\2192</a>{{end}}\n                </div>\n                {{if .domain}}<p class="portfolio-domain">{{.domain}}</p>{{end}}\n                <p class="portfolio-description">{{.description}}</p>\n                <div class="portfolio-meta">\n                    {{if .built_with}}<span class="portfolio-tag">{{.built_with}}</span>{{end}}\n                    {{if .build_time}}<span class="portfolio-tag portfolio-tag-time">{{.build_time}}</span>{{end}}\n                </div>\n            </div>\n            {{end}}\n        </div>\n    </div>\n</section>\n<style>\n/* Dark section to match the visual weight of the social-proof section it replaces */\n.portfolio-showcase-section {\n    padding: var(--spacing-section, 5rem 2rem);\n    background: var(--color-primary, #1a1a2e);\n    color: var(--color-white, #fff);\n}\n.portfolio-container {\n    max-width: var(--container-max-width, 1200px);\n    margin: 0 auto;\n}\n.portfolio-showcase-section h2 {\n    text-align: center;\n    margin-bottom: 1rem;\n    color: var(--color-white, #fff);\n}\n.portfolio-intro {\n    text-align: center;\n    max-width: 700px;\n    margin: 0 auto 3rem;\n    color: rgba(255,255,255,0.8);\n    line-height: 1.7;\n}\n.portfolio-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));\n    gap: 2rem;\n}\n.portfolio-item {\n    padding: 2rem;\n    background: rgba(255,255,255,0.05);\n    border-radius: 8px;\n    border-left: 3px solid var(--color-accent, #0f3460);\n    transition: transform 0.2s, box-shadow 0.2s;\n}\n.portfolio-item:hover {\n    transform: translateY(-2px);\n    box-shadow: 0 8px 24px rgba(0,0,0,0.2);\n}\n.portfolio-item-header {\n    display: flex;\n    justify-content: space-between;\n    align-items: flex-start;\n    gap: 1rem;\n    margin-bottom: 0.5rem;\n}\n.portfolio-item h3 {\n    margin: 0;\n    font-size: 1.2rem;\n    color: var(--color-white, #fff);\n}\n.portfolio-link {\n    color: var(--color-accent, #4da6ff);\n    text-decoration: none;\n    font-size: 0.85rem;\n    font-weight: 500;\n    white-space: nowrap;\n    transition: color 0.2s;\n}\n.portfolio-link:hover {\n    color: var(--color-white, #fff);\n}\n.portfolio-domain {\n    font-family: monospace;\n    font-size: 0.85rem;\n    color: rgba(255,255,255,0.5);\n    margin-bottom: 1rem;\n}\n.portfolio-description {\n    color: rgba(255,255,255,0.85);\n    line-height: 1.7;\n    margin-bottom: 1.5rem;\n}\n.portfolio-meta {\n    display: flex;\n    gap: 0.75rem;\n    flex-wrap: wrap;\n}\n.portfolio-tag {\n    display: inline-block;\n    padding: 0.25rem 0.75rem;\n    background: rgba(255,255,255,0.1);\n    border-radius: 4px;\n    font-size: 0.8rem;\n    color: rgba(255,255,255,0.7);\n}\n.portfolio-tag-time {\n    background: rgba(79, 166, 255, 0.15);\n    color: var(--color-accent, #4da6ff);\n}\n@media (max-width: 768px) {\n    .portfolio-showcase-section { padding: 3rem 1.5rem; }\n    .portfolio-grid { grid-template-columns: 1fr; }\n    .portfolio-item-header { flex-direction: column; gap: 0.5rem; }\n}\n</style>',
+             '{"headline": "string", "intro": "string", "projects": [{"title": "string", "domain": "string", "description": "string", "built_with": "string", "build_time": "string", "live_url": "string"}]}',
+             'portfolio-showcase',
+             'Portfolio Showcase',
+             'social-proof',
+             '["portfolio", "showcase", "work", "projects", "built-with"]',
+             'template',
+             'section',
+             true
+         );
+
+
+-- ============================================================================
+-- 2. CONTENT DIRECTION COLUMN
+-- Per-page instructions for content generation. Flows through to
+-- content-writer prompt when present.
+-- ============================================================================
+
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS content_direction JSONB;
+
+COMMENT ON COLUMN pages.content_direction IS
+    'Optional per-page content direction for rebuilds. Passed to content-writer prompt. '
+    'Structure: { "instruction": "...", "format": "...", "examples": [...], "avoid": [...] }';
+
+
+-- ============================================================================
+-- 3. VERIFY
+-- ============================================================================
+
+SELECT id, name, display_name, function, category
+FROM content_components
+WHERE name = 'portfolio-showcase';
+
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'pages' AND column_name = 'content_direction';

@@ -45,7 +45,7 @@ done
 ----------------------
 ------- v 1  ------------
 
-SWEEP_LIMIT=50
+SWEEP_LIMIT=0
 PROMOTE_LIMIT=500
 VERIFY_LIMIT=100
 AREA_CODE=""
@@ -171,3 +171,106 @@ echo "  WHERE owner_agent_type = 'vet-batch-processor'"
 echo "  ORDER BY created_at DESC"
 echo "  LIMIT 1;"
 echo ""
+
+echo ""
+echo " -- Quick status check you can re-run"
+echo " SELECT "
+echo "     (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'completed') as tasks_done,"
+echo "     (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'in_progress') as tasks_active,"
+echo "     (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'pending') as tasks_pending,"
+echo "     (SELECT COUNT(*) FROM business_intel.businesses b JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id WHERE bv.slug = 'veterinary' AND b.verification_status = 'verified') as verified;"
+echo "    (SELECT COUNT(*) FROM business_intel.businesses b JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id WHERE bv.slug = 'veterinary' AND b.verification_status = 'verified') as verified,"
+echo "               (SELECT COUNT(*) FROM business_intel.business_prices WHERE is_current = TRUE) as current_prices;"
+echo ""
+
+echo " "
+echo " SELECT orchestration_id, status, current_step, "
+echo "        updated_at, responses_topic, requests_topic"
+echo " FROM orchestration_states"
+echo " WHERE orchestration_id = '$ORCHESTRATION_ID';"
+echo " "
+echo " -- Also check awaited_requests to see what it's waiting for"
+echo " SELECT awaited_requests"
+echo " FROM orchestration_states"
+echo " WHERE orchestration_id = '$ORCHESTRATION_ID';"
+echo ""
+
+
+--
+SELECT
+    (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'completed') as tasks_done,
+    (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'in_progress') as tasks_active,
+    (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'pending') as tasks_pending,
+    (SELECT COUNT(*) FROM business_intel.businesses b JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id WHERE bv.slug = 'veterinary' AND b.verification_status = 'verified') as verified,
+    (SELECT COUNT(*) FROM business_intel.business_prices WHERE is_current = TRUE) as current_prices;
+
+
+-- View recently verified businesses with their details
+SELECT
+    b.name, b.website_url, b.town, b.postcode,
+    b.phone, b.group_name, b.verification_status,
+    b.updated_at
+FROM business_intel.businesses b
+JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+WHERE bv.slug = 'veterinary'
+  AND b.verification_status = 'verified'
+ORDER BY b.updated_at DESC
+LIMIT 10;
+
+-- Check vet-specific details
+SELECT
+    b.name, vd.species_treated, vd.emergency_service,
+    vd.num_vets, vd.head_vet_name, vd.accepting_new_clients
+FROM business_intel.businesses b
+JOIN business_intel.vet_details vd ON vd.business_id = b.id
+ORDER BY vd.updated_at DESC
+LIMIT 10;
+
+-- Check extracted prices
+clients_db=# SELECT
+    b.name as business,
+    pr.name as service,
+    pr.category,
+    pp.price_gbp,
+    pp.price_qualifier,
+    pp.observed_at
+FROM business_intel.product_prices pp
+JOIN business_intel.products pr ON pr.id = pp.product_id
+JOIN business_intel.businesses b ON b.id = pp.business_id
+ORDER BY pp.observed_at DESC
+LIMIT 20;
+ business | service | category | price_gbp | price_qualifier | observed_at
+----------+---------+----------+-----------+-----------------+-------------
+(0 rows)
+
+-- Does business_prices exist?
+SELECT COUNT(*) FROM business_intel.business_prices;
+
+-- If it does, check recent prices
+SELECT b.name, bp.service_category, bp.service_name,
+       bp.price_gbp, bp.price_qualifier
+FROM business_intel.business_prices bp
+JOIN business_intel.businesses b ON b.id = bp.business_id
+WHERE bp.is_current = TRUE
+ORDER BY b.created_at DESC
+LIMIT 20;
+
+-- Check completed task summaries
+SELECT
+    b.name, ct.status, ct.completed_at,
+    ct.result_summary::text
+FROM business_intel.collection_tasks ct
+JOIN business_intel.businesses b ON b.id = ct.business_id
+WHERE ct.status = 'completed'
+ORDER BY ct.completed_at DESC
+LIMIT 5;
+
+-- Species treated
+SELECT
+    b.name, vpd.species_treated
+FROM business_intel.vet_practice_details vpd
+JOIN business_intel.businesses b ON b.id = vpd.business_id
+WHERE vpd.species_treated IS NOT NULL
+  AND array_length(vpd.species_treated, 1) > 0
+ORDER BY b.updated_at DESC
+LIMIT 10;

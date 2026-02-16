@@ -26,6 +26,21 @@ import (
 //   - input_fields: alternative - array of field names to extract
 //
 // This action parses the HTML for <section> elements and stores each one in page_components.rendered_html
+// PATCH: save_page_sections_action.go
+// PURPOSE: Inject component identification attributes into section HTML
+//
+//	so that rendered pages show which page_component each section is.
+//
+// This adds data-pc-id, data-slot, and data-position to each <section> tag
+// when storing in page_components. Makes it possible to:
+//   - Identify which DB row produced a section by inspecting the HTML
+//   - Target specific sections for editing via the section-editor agent
+//   - Debug component rendering issues
+//
+// CHANGES:
+//  1. Pre-generate UUID for each page_component (instead of letting DB gen_random_uuid)
+//  2. Inject data attributes into the section HTML before INSERT
+//  3. New helper function: injectComponentLabels
 func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("SavePageSectionsAction: Starting",
 		zap.String("step_name", params.ExecutionContext.StepName),
@@ -180,15 +195,22 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// Insert each section
 	savedCount := 0
 	for i, section := range sections {
+		// Pre-generate UUID so we can inject it into the HTML
+		pcID := uuid.New()
+
+		// Inject identification attributes into the section HTML
+		labeledHTML := injectComponentLabels(section.HTML, pcID.String(), section.ComponentName, i+1)
+
 		_, err := params.DB.ExecContext(ctx, `
-			INSERT INTO page_components (page_id, position, rendered_html, slot_name, build_status)
-			VALUES ($1, $2, $3, $4, 'deployed')
-		`, pageID, i+1, section.HTML, section.ComponentName)
+			INSERT INTO page_components (id, page_id, position, rendered_html, slot_name, build_status)
+			VALUES ($1, $2, $3, $4, $5, 'deployed')
+		`, pcID, pageID, i+1, labeledHTML, section.ComponentName)
 
 		if err != nil {
 			params.Logger.Warn("SavePageSectionsAction: Failed to insert section",
 				zap.Int("position", i+1),
 				zap.String("component", section.ComponentName),
+				zap.String("pc_id", pcID.String()),
 				zap.Error(err),
 			)
 			continue
@@ -264,4 +286,36 @@ func saveSectionsLookupPageID(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		SELECT id FROM pages WHERE site_id = $1 AND name = $2
 	`, siteID, pageName).Scan(&pageID)
 	return pageID, err
+}
+
+// injectComponentLabels adds identification data attributes to the first
+// <section> tag in a component's HTML. This makes it possible to identify
+// which page_component row produced each section in the rendered page.
+//
+// Injected attributes:
+//   - data-pc-id:    page_components.id (UUID)
+//   - data-slot:     slot_name / component function name
+//   - data-position: position in page (1-based)
+//
+// Example output:
+//
+//	<section class="hero" data-component="services-hero" data-pc-id="abc-123" data-slot="services-hero" data-position="1">
+func injectComponentLabels(html string, pcID string, slot string, position int) string {
+	// Find the FIRST <section tag and inject attributes after it.
+	// We only modify the first occurrence — each component has one wrapper <section>.
+	sectionTagRe := regexp.MustCompile(`(?i)(<section\b)`)
+
+	labels := fmt.Sprintf(`$1 data-pc-id="%s" data-slot="%s" data-position="%d"`, pcID, slot, position)
+
+	// Replace only the first match
+	loc := sectionTagRe.FindStringIndex(html)
+	if loc == nil {
+		// No <section> tag found — return unchanged
+		// (could be a non-section component like a div wrapper)
+		return html
+	}
+
+	return html[:loc[0]] +
+		sectionTagRe.ReplaceAllString(html[loc[0]:loc[1]], labels) +
+		html[loc[1]:]
 }

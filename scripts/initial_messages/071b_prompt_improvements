@@ -540,10 +540,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=709e9f26-a7a6-43bd-82f3-0d119f4c191e
-ORCHESTRATION_ID=e6767828-2cee-4121-9a3b-b5e300b8bb8b
-HITL_REQUEST_ID=37129deb-2e2c-40af-82b8-ccbb728296ef
-RESPONSES_TOPIC=job.709e9f26-2351b7bd-maintenance-triage-spawn_triage.responses
+CORRELATION_ID=044649ae-e994-42c7-9b1f-fb743af3ba82
+ORCHESTRATION_ID=d3e968f0-7f35-47ca-9393-ec445b373052
+HITL_REQUEST_ID=5538c2a4-ad20-43ab-b4de-88207a0e5fd4
+RESPONSES_TOPIC=job.044649ae-d9e3a51d-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
