@@ -269,8 +269,8 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 		"404": true, "sitemap": true, "robots": true,
 	}
 
-	// Pages that belong in utility nav even if in_header=true.
-	// These are helpful but secondary — not core site navigation.
+	// Pages that default to utility nav when no explicit in_header/in_footer flag.
+	// If in_header=true is set explicitly, it overrides this heuristic.
 	utilityNames := map[string]bool{
 		"faq": true, "faqs": true, "frequently-asked-questions": true,
 		"blog": true, "insights": true, "news": true, "articles": true,
@@ -293,14 +293,19 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 			continue
 		}
 
+		// Explicit in_header=true wins over name-based utility heuristic.
+		// This lets site owners promote utility-named pages to primary nav.
+		if page.InHeader {
+			primary = append(primary, page)
+			continue
+		}
+
 		if utilityNames[nameLower] {
 			utility = append(utility, page)
 			continue
 		}
 
-		if page.InHeader {
-			primary = append(primary, page)
-		} else if page.InFooter {
+		if page.InFooter {
 			// Footer-only (not header, not legal, not utility-named) → utility
 			utility = append(utility, page)
 		}
