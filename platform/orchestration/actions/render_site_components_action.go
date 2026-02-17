@@ -7,6 +7,7 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -99,6 +100,16 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	year := fmt.Sprintf("%d", time.Now().Year())
 	copyright := fmt.Sprintf("© %s %s", year, siteData.CompanyName)
 
+	// Build pre-rendered nav HTML for templates that use {{.nav_items_html}}
+	// Uses existing buildNavItemsHTML from component_library.go
+	// Note: both header and footer templates use {{.nav_items_html}} — header gets primary nav,
+	// footer "Quick Links" also uses primary nav items (same variable, rendered once per site)
+	navItemsHTML := buildNavItemsHTML(navItems)
+
+	// Build services HTML for footer "Our Services" column
+	// Query pages that represent services (linked from services page or service-named pages)
+	servicesHTML := buildServicesHTML(ctx, params.DB, siteID, params.Logger)
+
 	// Convert NavItems to categories format for templates that use {{range .categories}}
 	categories := make([]map[string]interface{}, len(navItems))
 	for i, item := range navItems {
@@ -151,6 +162,17 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		LogoText:    siteData.LogoText,
 		NavItems:    navItems,
 		Year:        year,
+
+		// Colors from style collection (RenderContext struct fields feed contextToInterfaceMap defaults)
+		PrimaryColor:    siteData.PrimaryColor,
+		SecondaryColor:  siteData.SecondaryColor,
+		AccentColor:     siteData.AccentColor,
+		TextColor:       siteData.TextColor,
+		BackgroundColor: siteData.BackgroundColor,
+
+		// Theme CSS from css_themes table
+		ThemeCSS: siteData.ThemeCSS,
+
 		ContentData: map[string]interface{}{
 			// Core site info
 			"company_name":  siteData.CompanyName,
@@ -164,6 +186,10 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 			"logo_url":      siteData.LogoURL,
 			"year":          year,
 			"copyright":     copyright,
+
+			// Pre-rendered nav HTML for templates using {{.nav_items_html}}
+			"nav_items_html": navItemsHTML,
+			"services_html":  servicesHTML,
 
 			// Navigation - multiple formats for different templates
 			"categories":       categories,   // for {{range .categories}}
@@ -186,6 +212,13 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 			"email_placeholder":      "Enter your email",
 		},
 	}
+
+	params.Logger.Info("RenderSiteComponentsAction: Render context built",
+		zap.Int("nav_items", len(navItems)),
+		zap.Int("nav_items_html_len", len(navItemsHTML)),
+		zap.Bool("has_theme_css", siteData.ThemeCSS != ""),
+		zap.String("primary_color", siteData.PrimaryColor),
+	)
 
 	// Render each slot
 	rendered := make(map[string]bool)
@@ -217,27 +250,69 @@ type SiteDataFull struct {
 	Phone       string
 	LogoText    string
 	LogoURL     string
+
+	// Style collection data (loaded via sites.style_collection_id)
+	PrimaryColor    string
+	SecondaryColor  string
+	AccentColor     string
+	TextColor       string
+	TextLightColor  string
+	BackgroundColor string
+	BackgroundAlt   string
+	ThemeCSS        string // from css_themes table
+	FontURL         string // Google Fonts URL if set
 }
 
 func loadSiteDataFull(ctx context.Context, db *sql.DB, siteID uuid.UUID) (*SiteDataFull, error) {
 	var s SiteDataFull
 	s.ID = siteID
 
+	var colorPaletteJSON sql.NullString
+	var themeCSSContent sql.NullString
+
 	err := db.QueryRowContext(ctx, `
 		SELECT 
-			domain,
-			COALESCE(name, domain),
-			COALESCE(company_name, name, domain),
-			COALESCE(tagline, ''),
-			COALESCE(email, ''),
-			COALESCE(phone, ''),
-			COALESCE(logo_text, company_name, name, domain),
-			COALESCE(logo_url, '')
-		FROM sites WHERE id = $1
+			si.domain,
+			COALESCE(si.name, si.domain),
+			COALESCE(si.company_name, si.name, si.domain),
+			COALESCE(si.tagline, ''),
+			COALESCE(si.email, ''),
+			COALESCE(si.phone, ''),
+			COALESCE(si.logo_text, si.company_name, si.name, si.domain),
+			COALESCE(si.logo_url, ''),
+			sc.color_palette::text,
+			ct.css_content
+		FROM sites si
+		LEFT JOIN style_collections sc ON si.style_collection_id = sc.id
+		LEFT JOIN css_themes ct ON sc.css_theme_id = ct.id
+		WHERE si.id = $1
 	`, siteID).Scan(
 		&s.Domain, &s.Name, &s.CompanyName, &s.Tagline,
 		&s.Email, &s.Phone, &s.LogoText, &s.LogoURL,
+		&colorPaletteJSON, &themeCSSContent,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse color palette from style collection
+	if colorPaletteJSON.Valid && colorPaletteJSON.String != "" {
+		var palette map[string]string
+		if jsonErr := json.Unmarshal([]byte(colorPaletteJSON.String), &palette); jsonErr == nil {
+			s.PrimaryColor = palette["primary"]
+			s.SecondaryColor = palette["secondary"]
+			s.AccentColor = palette["accent"]
+			s.TextColor = palette["text"]
+			s.TextLightColor = palette["text_light"]
+			s.BackgroundColor = palette["background"]
+			s.BackgroundAlt = palette["background_alt"]
+		}
+	}
+
+	// Load theme CSS
+	if themeCSSContent.Valid {
+		s.ThemeCSS = themeCSSContent.String
+	}
 
 	return &s, err
 }
@@ -424,4 +499,51 @@ func loadFooterNavItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxIt
 	}
 
 	return items
+}
+
+// buildServicesHTML queries service-related pages and builds <li> HTML for the footer services column.
+// Looks for pages that represent individual service offerings (excludes structural pages).
+// Falls back to an empty string if no service pages found.
+func buildServicesHTML(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) string {
+	rows, err := db.QueryContext(ctx, `
+		SELECT 
+			COALESCE(nav_label, title, name) as label,
+			COALESCE(url, '/' || name || '.html') as url
+		FROM pages
+		WHERE site_id = $1
+		  AND status IN ('deployed', 'active')
+		  AND name NOT IN ('index', 'about', 'contact', 'privacy', 'terms', 'cookies', '404', 'sitemap', 'faq', 'careers', 'insights', 'blog', 'news')
+		  AND name != 'services'
+		  AND (in_header = true OR in_footer = true)
+		ORDER BY COALESCE(nav_order, 99), name
+		LIMIT 6
+	`, siteID)
+	if err != nil {
+		logger.Warn("buildServicesHTML: Query failed", zap.Error(err))
+		return ""
+	}
+	defer rows.Close()
+
+	var parts []string
+	for rows.Next() {
+		var label, url string
+		if err := rows.Scan(&label, &url); err != nil {
+			continue
+		}
+		label = strings.ReplaceAll(label, "-", " ")
+		words := strings.Fields(label)
+		for i, w := range words {
+			if len(w) > 0 {
+				words[i] = strings.ToUpper(w[:1]) + w[1:]
+			}
+		}
+		label = strings.Join(words, " ")
+		parts = append(parts, fmt.Sprintf(`<li><a href="%s">%s</a></li>`, url, label))
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return strings.Join(parts, "\n                ")
 }

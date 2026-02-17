@@ -1,0 +1,231 @@
+#!/bin/bash
+# Trigger nav-updater for a specific domain.
+# Refreshes nav tables, re-renders header/footer, reassembles all pages, deploys.
+# No LLM calls — purely algorithmic.
+#
+# Prerequisites:
+#   1. nav-updater agent definition inserted into DB
+#   2. classifyPagesForNav patch applied (in_header wins over utility names)
+#   3. careers/insights pages have in_header=true
+
+DOMAIN="leopardessconsulting.co.uk"
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+INPUT_DATA="{\"domain\":\"${DOMAIN}\"}"
+
+echo "========================================="
+echo "Nav Updater"
+echo "========================================="
+echo "  Domain:         $DOMAIN"
+echo "  Input data:     $INPUT_DATA"
+echo "  Correlation ID: $CORRELATION_ID"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-nav-updater-$(date +%s) \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$CORRELATION_ID \
+  -H orchestration_id=$ORCHESTRATION_ID \
+  -H request_id=$REQUEST_ID \
+  -H message_id=$MESSAGE_ID \
+  -H message_type=request \
+  -H client_id=$CLIENT_ID \
+  -H action=process \
+  -H sender_agent_type=cli \
+  -H sender_agent_id=cli-user \
+  -H responses_topic=system.agent.generic.responses \
+  -H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_nav_updater","processing_mode":"orchestrator","timeout_seconds":900,"steps":{"spawn_nav_updater":{"action":"spawn_agent","config":{"role":"nav_updater","agent_type":"nav-updater"},"output_field":"nav_updater_agent","next_step":"call_nav_updater","description":"Spawn nav-updater agent"},"call_nav_updater":{"action":"call_agent","config":{"agent_type":"nav-updater","target_role":"nav_updater","input_mapping":{"domain":"input_data.domain"},"timeout_seconds":600},"output_field":"nav_result","next_step":"complete","description":"Run nav update"},"complete":{"action":"complete_workflow","config":{"output_fields":["nav_result"]},"description":"Nav update complete"}}}},"input_data":${INPUT_DATA}}
+JSON
+
+echo ""
+echo "========================================="
+echo "Nav updater triggered"
+echo "========================================="
+echo ""
+echo "Monitor with:"
+echo "  kubectl -n ai-persona-system logs -f -l app=agent-chassis --tail=50 | grep '$CORRELATION_ID'"
+echo ""
+echo "CORRELATION_ID=$CORRELATION_ID"
+
+
+
+
+
+-------------------------------------------------------------
+
+-- 1. Check site_components - where rendered header/footer actually live
+\d site_components;
+
+-- 2. What's stored there for this site?
+SELECT * FROM site_components
+WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732';
+
+-- 3. Check what header component was used on index page (from page_components)
+SELECT pc.slot_name, pc.position, cc.name as component_name,
+       length(pc.rendered_html) as html_len, pc.updated_at
+FROM page_components pc
+LEFT JOIN content_components cc ON pc.component_id = cc.id
+WHERE pc.page_id = (
+    SELECT id FROM pages
+    WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND name = 'index'
+)
+ORDER BY pc.position;
+
+-- 4. Check what style_collection exists for this site
+SELECT id, name, header_component, footer_component, css_theme_id
+FROM style_collections
+WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732';
+
+
+-- Check what default_components should look like from a working site
+-- or from the content_data
+SELECT content_data->'default_components',
+       content_data->'header_component',
+       content_data->'footer_component'
+FROM sites
+WHERE id = '4851f6fc-71cf-4160-a270-e03d6d3e0732';
+
+-- Also check page_components for the index page to see what was stored before
+SELECT component_function, component_name, slot_position, length(rendered_html) as html_len
+FROM page_components
+WHERE page_id = (SELECT id FROM pages WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND name = 'index')
+ORDER BY slot_position;
+
+-- 1. What header/footer components are set as site defaults?
+SELECT settings->'default_components' FROM sites
+WHERE id = '4851f6fc-71cf-4160-a270-e03d6d3e0732';
+
+-- 2. What's stored in site_rendered_components?
+SELECT slot, component_name, length(rendered_html) as html_length, updated_at
+FROM site_rendered_components
+WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
+ORDER BY slot;
+
+-- 3. Check the nav item URLs in the table
+SELECT ni.label, ni.url, ng.group_type
+FROM site_nav_items ni
+JOIN site_nav_groups ng ON ni.group_id = ng.id
+WHERE ni.site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
+ORDER BY ng.position, ni.position;
+
+-- 1. Find the correct component IDs
+SELECT id, name, component_type
+FROM content_components
+WHERE name IN ('header-professional-dark', 'footer-4-column');
+
+-- 2. What component was the header BEFORE today's re-render?
+-- Check the style_collection for this site
+SELECT sc.id, sc.name, sc.header_component, sc.footer_component
+FROM style_collections sc
+WHERE sc.site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732';
+
+-- 3. How does render_site_components pick which component to use?
+-- Check if there's a fallback path through sites.settings
+SELECT settings FROM sites
+WHERE id = '4851f6fc-71cf-4160-a270-e03d6d3e0732';
+
+-- 1. Which style collection is this site linked to?
+SELECT s.style_collection_id,
+       sc.name, sc.header_component_id, sc.header_home_component_id, sc.footer_component_id, sc.css_theme_id
+FROM sites s
+LEFT JOIN style_collections sc ON s.style_collection_id = sc.id
+WHERE s.id = '4851f6fc-71cf-4160-a270-e03d6d3e0732';
+
+-- 2. Find the correct component IDs (header-professional-dark, footer-4-column)
+SELECT id, name, function, component_level
+FROM content_components
+WHERE name IN ('header-professional-dark', 'footer-4-column');
+
+-- 3. What component was actually used in site_components before today?
+-- Check the IDs that are now in there
+SELECT cc.name, cc.function, cc.component_level
+FROM content_components cc
+WHERE cc.id IN ('caf53cf0-352d-4e43-a815-3902fbbb510c', 'a3787241-5a6f-41ea-a541-d6d81583f52a');
+
+-- 1. Check if a style collection already exists that uses these components
+SELECT id, name FROM style_collections
+WHERE header_component_id = 'e99b0dfa-a3b3-4a29-ae83-73211cb3975e'
+   OR footer_component_id = '09034086-a581-4bba-a5b4-760d863bb2df';
+
+-- 2. Check what CSS theme was used (look at existing deployed pages for clues)
+SELECT id, name FROM css_themes LIMIT 20;
+
+-- Verify the style collection has everything
+SELECT id, name, header_component_id, header_home_component_id,
+       footer_component_id, css_theme_id
+FROM style_collections
+WHERE id = '3196d966-24ef-4415-9dc8-1afbc02166ca';
+
+-- Link the site to the style collection
+UPDATE sites
+SET style_collection_id = '3196d966-24ef-4415-9dc8-1afbc02166ca',
+    updated_at = NOW()
+WHERE id = '4851f6fc-71cf-4160-a270-e03d6d3e0732';
+Then after that, we can also fix the site_components directly to point to the correct templates:
+sql-- Fix header component reference
+UPDATE site_components
+SET component_id = 'e99b0dfa-a3b3-4a29-ae83-73211cb3975e',
+    build_status = 'pending',
+    updated_at = NOW()
+WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
+  AND slot_name = 'header';
+
+-- Fix footer component reference
+UPDATE site_components
+SET component_id = '09034086-a581-4bba-a5b4-760d863bb2df',
+    build_status = 'pending',
+    updated_at = NOW()
+WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
+  AND slot_name = 'footer';
+
+
+Header and footer are correct. css_theme_id is NULL though — that explains the empty theme CSS. The professional-dark CSS theme exists at fecb962d-3ace-4c19-b08f-088eba46ea53. Let's fix everything:
+sql-- 1. Link CSS theme to the style collection
+UPDATE style_collections
+SET css_theme_id = 'fecb962d-3ace-4c19-b08f-088eba46ea53',
+    updated_at = NOW()
+WHERE id = '3196d966-24ef-4415-9dc8-1afbc02166ca';
+
+-- 2. Link the site to the style collection
+UPDATE sites
+SET style_collection_id = '3196d966-24ef-4415-9dc8-1afbc02166ca',
+    updated_at = NOW()
+WHERE id = '4851f6fc-71cf-4160-a270-e03d6d3e0732';
+
+-- 3. Fix header component reference in site_components
+UPDATE site_components
+SET component_id = 'e99b0dfa-a3b3-4a29-ae83-73211cb3975e',
+    build_status = 'pending',
+    updated_at = NOW()
+WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
+  AND slot_name = 'header';
+
+-- 4. Fix footer component reference in site_components
+UPDATE site_components
+SET component_id = '09034086-a581-4bba-a5b4-760d863bb2df',
+    build_status = 'pending',
+    updated_at = NOW()
+WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
+  AND slot_name = 'footer';
+
+-- Verify
+SELECT 'sites' as source, style_collection_id::text as value FROM sites WHERE id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
+UNION ALL
+SELECT 'css_theme', css_theme_id::text FROM style_collections WHERE id = '3196d966-24ef-4415-9dc8-1afbc02166ca'
+UNION ALL
+SELECT 'header_comp', component_id::text FROM site_components WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND slot_name = 'header'
+UNION ALL
+SELECT 'footer_comp', component_id::text FROM site_components WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND slot_name = 'footer';
+After these updates, re-running the nav-updater (or rerender-site) will pick up header-professional-dark and footer-4-column templates, render them with the correct nav URLs, and inject the CSS theme variables.
+
+
