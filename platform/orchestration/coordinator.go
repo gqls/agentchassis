@@ -2777,12 +2777,28 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 	return nil
 }
 
+/*func (r *StateRepository) UpdateAwaitedRequestRetry(ctx context.Context, requestID string, retryVersion int, timeoutAt time.Time) error {
+	query := `
+        UPDATE awaited_requests
+        SET retry_version = $1,
+            timeout_at = $2,
+            sent_at = NOW()
+        WHERE request_id = $3`
+
+	_, err := r.db.ExecContext(ctx, query, retryVersion, timeoutAt, requestID)
+	return err
+}*/
+
 func (r *StateRepository) UpdateAwaitedRequestRetry(ctx context.Context, requestID string, retryVersion int, timeoutAt time.Time) error {
 	query := `
         UPDATE awaited_requests 
         SET retry_version = $1, 
             timeout_at = $2,
-            sent_at = NOW()
+            sent_at = NOW(),
+            status = 'waiting',
+            processed_at = NULL,
+            processing_started_at = NULL,
+            processing_pod = NULL
         WHERE request_id = $3`
 
 	_, err := r.db.ExecContext(ctx, query, retryVersion, timeoutAt, requestID)
