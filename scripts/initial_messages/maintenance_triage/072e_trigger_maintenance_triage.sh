@@ -133,10 +133,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=5a09ca74-a604-4549-9c48-fb47cd50eedd
-ORCHESTRATION_ID=66a49e34-a16e-4cc2-8a15-4d4c93ca6b77
-HITL_REQUEST_ID=518be7d3-63e1-49f4-a7c5-926dcc39fc14
-RESPONSES_TOPIC=job.5a09ca74-2542e33e-content-reviewer-spawn_reviewer.responses
+CORRELATION_ID=dabc2b74-d4cc-49ff-b0e0-97bed9fa6659
+ORCHESTRATION_ID=76cb5791-871f-42b4-936b-2de913300284
+HITL_REQUEST_ID=42c2ec1a-3ecf-492d-9c8b-bdcd5767dd04
+RESPONSES_TOPIC=job.dabc2b74-e7486856-content-reviewer-spawn_reviewer.responses
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -214,3 +214,25 @@ echo ""
 UPDATE maintenance_queue
 SET status = 'pending', claimed_at = NULL, claimed_by = NULL
 WHERE id = '5a20f87f-b780-457e-bd5f-0ef17bbba3f4';
+
+
+-- Flag use-cases page for rebuild
+UPDATE pages
+SET build_status = 'needs_rebuild'
+WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
+  AND name = 'use-cases';
+
+-- Verify
+SELECT name, build_status FROM pages
+WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732'
+ORDER BY name;
+
+
+If you want to check the save_sections result after it completes:
+SELECT slot_name, component_id IS NOT NULL as has_component,
+       CASE WHEN rendered_html LIKE '%<style>%' THEN 'YES' ELSE 'NO' END as has_css
+FROM page_components pc
+JOIN pages p ON pc.page_id = p.id
+WHERE p.name = 'use-cases'
+ORDER BY pc.position;
+
