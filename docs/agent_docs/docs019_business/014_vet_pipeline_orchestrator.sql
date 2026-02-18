@@ -1567,3 +1567,29 @@ SET default_config = '{
 }'::jsonb,
 updated_at = NOW()
 WHERE type = 'vet-pipeline-orchestrator';
+
+
+---
+
+
+increase timeouts
+
+-- 1. Increase timeout for sweep step (12 hours)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_sweeps,config,timeout_seconds}',
+        '43200'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-pipeline-orchestrator';
+
+-- 2. Also increase for verification step (6 hours)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_verification,config,timeout_seconds}',
+        '21600'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'vet-pipeline-orchestrator';

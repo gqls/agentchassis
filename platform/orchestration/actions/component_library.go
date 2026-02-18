@@ -249,14 +249,30 @@ func queryComponent(ctx context.Context, db interface{}, query string, arg inter
 
 // GetComponentWithFallback tries to get a component, falling back to generic
 func GetComponentWithFallback(ctx context.Context, db interface{}, function string, logger *zap.Logger) (*Component, error) {
+	// Try exact match first
 	comp, err := GetComponentByFunction(ctx, db, function, logger)
 	if err == nil {
 		return comp, nil
 	}
 
-	logger.Warn("Component not found, using fallback",
+	// Try normalized form (underscore → hyphen, lowercase)
+	normalized := NormalizeComponentFunction(function)
+	if normalized != function {
+		logger.Info("GetComponentWithFallback: Trying normalized function name",
+			zap.String("original", function),
+			zap.String("normalized", normalized),
+		)
+		comp, err = GetComponentByFunction(ctx, db, normalized, logger)
+		if err == nil {
+			return comp, nil
+		}
+	}
+
+	logger.Warn("GetComponentWithFallback: Component not found, using fallback",
 		zap.String("requested", function),
-		zap.String("fallback", "generic-text-block"))
+		zap.String("also_tried", normalized),
+		zap.String("fallback", "generic-text-block"),
+	)
 
 	return GetComponentByFunction(ctx, db, "generic-text-block", logger)
 }

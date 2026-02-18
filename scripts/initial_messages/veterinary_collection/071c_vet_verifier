@@ -56,7 +56,7 @@ kubectl -n kafka run -i --rm kcat-vet-single-$$ \
     -H action=orchestrate \
     -H from_agent_type=user \
     -H from_agent_id=cli \
-    -H responses_topic=system.generic.responses <<JSON
+    -H responses_topic=system.agent.generic.responses <<JSON
 {"action":"orchestrate","config":{"agent_type":"vet-practice-verifier"},"input_data":{"business_id":"$BUSINESS_ID"}}
 JSON
 
@@ -148,7 +148,7 @@ kubectl -n kafka run -i --rm kcat-vet-batch-$$ \
     -H action=orchestrate \
     -H from_agent_type=user \
     -H from_agent_id=cli \
-    -H responses_topic=system.generic.responses <<JSON
+    -H responses_topic=system.agent.generic.responses <<JSON
 {"action":"orchestrate","config":{"agent_type":"vet-batch-processor"},"input_data":{"batch_size":$BATCH_SIZE,"task_type":"$TASK_TYPE","vertical_slug":"$VERTICAL_SLUG"}}
 JSON
 
@@ -273,7 +273,7 @@ for BIZ_ID in $BUSINESS_IDS; do
         -H "action=orchestrate" \
         -H "from_agent_type=user" \
         -H "from_agent_id=cli-bulk" \
-        -H "responses_topic=system.generic.responses" <<JSON
+        -H "responses_topic=system.agent.generic.responses" <<JSON
 {"action":"orchestrate","config":{"agent_type":"vet-practice-verifier"},"input_data":{"business_id":"${BIZ_ID}"}}
 JSON
 
@@ -414,7 +414,7 @@ for BIZ_ID in $BUSINESS_IDS; do
         -H "action=orchestrate" \
         -H "from_agent_type=user" \
         -H "from_agent_id=cli-promote-verify" \
-        -H "responses_topic=system.generic.responses"
+        -H "responses_topic=system.agent.generic.responses"
 
     echo "[$COUNT/$TOTAL] $BIZ_ID -> $ORCH_ID"
 

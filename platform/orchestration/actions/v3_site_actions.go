@@ -1277,6 +1277,18 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		}
 	}
 
+	// Enforce naming contract: normalize to kebab-case before lookup
+	if componentFunction != "" {
+		normalized := NormalizeComponentFunction(componentFunction)
+		if normalized != componentFunction {
+			params.Logger.Info("RenderComponentAction: Normalized component function to kebab-case",
+				zap.String("original", componentFunction),
+				zap.String("normalized", normalized),
+			)
+			componentFunction = normalized
+		}
+	}
+
 	// Now resolve the component
 	if componentID != "" {
 		compUUID, parseErr := uuid.Parse(componentID)
@@ -1410,20 +1422,43 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 	}
 
 	var sections []string
+	var sectionsMetadata []map[string]interface{}
 
 	switch v := sectionsData.(type) {
 	case []interface{}:
 		for _, item := range v {
 			if s, ok := item.(string); ok {
 				sections = append(sections, s)
+				// String-only item: no metadata available
+				sectionsMetadata = append(sectionsMetadata, map[string]interface{}{
+					"rendered_html": s,
+				})
 			} else if m, ok := item.(map[string]interface{}); ok {
 				// Try multiple keys for the HTML content
-				if html, ok := m["rendered_html"].(string); ok && html != "" {
+				var html string
+				if h, ok := m["rendered_html"].(string); ok && h != "" {
+					html = h
+				} else if h, ok := m["page_html"].(string); ok && h != "" {
+					html = h
+				} else if h, ok := m["html"].(string); ok && h != "" {
+					html = h
+				}
+				if html != "" {
 					sections = append(sections, html)
-				} else if html, ok := m["page_html"].(string); ok && html != "" {
-					sections = append(sections, html)
-				} else if html, ok := m["html"].(string); ok && html != "" {
-					sections = append(sections, html)
+					// Preserve all metadata from RenderComponentAction
+					meta := map[string]interface{}{
+						"rendered_html": html,
+					}
+					if id, ok := m["component_id"]; ok {
+						meta["component_id"] = fmt.Sprintf("%v", id)
+					}
+					if name, ok := m["component_name"].(string); ok {
+						meta["component_name"] = name
+					}
+					if fn, ok := m["component_function"].(string); ok {
+						meta["component_function"] = fn
+					}
+					sectionsMetadata = append(sectionsMetadata, meta)
 				}
 			}
 		}
@@ -1432,10 +1467,27 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 		if results, ok := v["results"].([]interface{}); ok {
 			for _, item := range results {
 				if m, ok := item.(map[string]interface{}); ok {
-					if html, ok := m["rendered_html"].(string); ok && html != "" {
+					var html string
+					if h, ok := m["rendered_html"].(string); ok && h != "" {
+						html = h
+					} else if h, ok := m["page_html"].(string); ok && h != "" {
+						html = h
+					}
+					if html != "" {
 						sections = append(sections, html)
-					} else if html, ok := m["page_html"].(string); ok && html != "" {
-						sections = append(sections, html)
+						meta := map[string]interface{}{
+							"rendered_html": html,
+						}
+						if id, ok := m["component_id"]; ok {
+							meta["component_id"] = fmt.Sprintf("%v", id)
+						}
+						if name, ok := m["component_name"].(string); ok {
+							meta["component_name"] = name
+						}
+						if fn, ok := m["component_function"].(string); ok {
+							meta["component_function"] = fn
+						}
+						sectionsMetadata = append(sectionsMetadata, meta)
 					}
 				}
 			}
@@ -1446,9 +1498,25 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 				if section, ok := v[key]; ok {
 					if s, ok := section.(string); ok {
 						sections = append(sections, s)
+						sectionsMetadata = append(sectionsMetadata, map[string]interface{}{
+							"rendered_html": s,
+						})
 					} else if m, ok := section.(map[string]interface{}); ok {
 						if html, ok := m["rendered_html"].(string); ok {
 							sections = append(sections, html)
+							meta := map[string]interface{}{
+								"rendered_html": html,
+							}
+							if id, ok := m["component_id"]; ok {
+								meta["component_id"] = fmt.Sprintf("%v", id)
+							}
+							if name, ok := m["component_name"].(string); ok {
+								meta["component_name"] = name
+							}
+							if fn, ok := m["component_function"].(string); ok {
+								meta["component_function"] = fn
+							}
+							sectionsMetadata = append(sectionsMetadata, meta)
 						}
 					}
 				}
@@ -1563,9 +1631,10 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 	)
 
 	return map[string]interface{}{
-		"page_html":     pageHTML,
-		"page_name":     pageName,
-		"section_count": len(sections),
+		"page_html":         pageHTML,
+		"page_name":         pageName,
+		"section_count":     len(sections),
+		"sections_metadata": sectionsMetadata,
 	}, nil
 }
 
@@ -2594,6 +2663,9 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		params.Logger.Warn("No sections found for page")
 		return map[string]interface{}{"components": []interface{}{}, "count": 0, "from_database": false}, nil
 	}
+
+	// Enforce naming contract: LLM site plans may output "social_proof" or "SocialProof"
+	NormalizeSectionNames(sectionNames, params.Logger)
 
 	params.Logger.Info("Loading components for sections",
 		zap.Strings("sections", sectionNames))

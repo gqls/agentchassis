@@ -1,8 +1,17 @@
-// FILE: platform/orchestration/actions/save_page_sections_action.go
 // SavePageSectionsAction saves rendered HTML sections to page_components table
 // This ensures rerender can reassemble pages from stored sections
 //
 // Called after deploy_page in pageflow-builder's build_pages_loop
+//
+// PATCH NOTES (2026-02-17):
+// - Primary path: uses structured sections_metadata from CompilePageSectionsAction.
+//   Each entry has rendered_html (with inline <style>), component_id, component_function.
+//   No HTML parsing needed — data flows through from RenderComponentAction.
+// - Fallback path: regex parsing of assembled HTML (for adopted sites or older pipelines).
+//   Now also captures <style>/<script> blocks that follow </section>.
+// - INSERT now sets component_id when available.
+// - Fallback path looks up component_id from content_components.function matching
+//   the data-component attribute.
 
 package actions
 
@@ -23,24 +32,11 @@ import (
 //   - html_field: path to HTML content (default: "assembled_page.html")
 //   - page_name_field: path to page name (default: "current_page.name")
 //   - site_id_field: path to site_id (default: "site_record.site_id")
+//   - sections_metadata_field: path to structured sections array (e.g. "page_content.response.sections_metadata")
 //   - input_fields: alternative - array of field names to extract
 //
-// This action parses the HTML for <section> elements and stores each one in page_components.rendered_html
-// PATCH: save_page_sections_action.go
-// PURPOSE: Inject component identification attributes into section HTML
-//
-//	so that rendered pages show which page_component each section is.
-//
-// This adds data-pc-id, data-slot, and data-position to each <section> tag
-// when storing in page_components. Makes it possible to:
-//   - Identify which DB row produced a section by inspecting the HTML
-//   - Target specific sections for editing via the section-editor agent
-//   - Debug component rendering issues
-//
-// CHANGES:
-//  1. Pre-generate UUID for each page_component (instead of letting DB gen_random_uuid)
-//  2. Inject data attributes into the section HTML before INSERT
-//  3. New helper function: injectComponentLabels
+// If sections_metadata_field is set and data exists, uses structured path (no parsing).
+// Otherwise falls back to HTML parsing.
 func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("SavePageSectionsAction: Starting",
 		zap.String("step_name", params.ExecutionContext.StepName),
@@ -58,15 +54,9 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 
 	config := params.StepConfig.Config
 
-	// Extract fields - try direct paths first, then input_fields pattern
-	var html, pageName, siteIDStr string
+	// --- Resolve page name and site_id (needed for both paths) ---
 
-	// Try direct field paths (preferred for workflow config clarity)
-	htmlField := "assembled_page.html"
-	if f, ok := config["html_field"].(string); ok && f != "" {
-		htmlField = f
-	}
-	html = datahelpers.ExtractNestedFieldString(params.CollectedData, htmlField)
+	var pageName, siteIDStr string
 
 	pageNameField := "current_page.name"
 	if f, ok := config["page_name_field"].(string); ok && f != "" {
@@ -81,7 +71,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	siteIDStr = datahelpers.ExtractNestedFieldString(params.CollectedData, siteIDField)
 
 	// Fallback to input_fields pattern if direct paths didn't work
-	if html == "" || pageName == "" || siteIDStr == "" {
+	if pageName == "" || siteIDStr == "" {
 		inputFields := []string{"page_content", "site_record", "current_page"}
 		if fields, ok := config["input_fields"].([]interface{}); ok {
 			inputFields = make([]string, len(fields))
@@ -91,14 +81,6 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		}
 
 		extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
-
-		if html == "" {
-			if pageContent, ok := extracted["page_content"].(map[string]interface{}); ok {
-				if response, ok := pageContent["response"].(map[string]interface{}); ok {
-					html, _ = response["page_html"].(string)
-				}
-			}
-		}
 
 		if pageName == "" {
 			if currentPage, ok := extracted["current_page"].(map[string]interface{}); ok {
@@ -111,19 +93,6 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 				siteIDStr, _ = siteRecord["site_id"].(string)
 			}
 		}
-	}
-
-	// Validate we have what we need
-	if html == "" {
-		params.Logger.Warn("SavePageSectionsAction: No HTML found, skipping",
-			zap.String("html_field", htmlField),
-		)
-		return map[string]interface{}{
-			"success":        true,
-			"sections_saved": 0,
-			"skipped":        true,
-			"reason":         "no HTML content",
-		}, nil
 	}
 
 	if pageName == "" {
@@ -165,19 +134,81 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		}, nil
 	}
 
-	// Extract sections from HTML
-	sections := saveSectionsExtractFromHTML(html, params.Logger)
+	// --- Try structured metadata path first ---
+
+	var sections []SectionData
+
+	if metaField, ok := config["sections_metadata_field"].(string); ok && metaField != "" {
+		metaData := datahelpers.ExtractNestedField(params.CollectedData, metaField)
+		if metaData != nil {
+			sections = extractSectionsFromMetadata(metaData, params.Logger)
+			if len(sections) > 0 {
+				params.Logger.Info("SavePageSectionsAction: Using structured metadata path",
+					zap.String("metadata_field", metaField),
+					zap.Int("sections", len(sections)),
+				)
+			}
+		}
+	}
+
+	// --- Fallback to HTML parsing ---
 
 	if len(sections) == 0 {
-		params.Logger.Info("SavePageSectionsAction: No sections found in HTML",
+		htmlField := "assembled_page.html"
+		if f, ok := config["html_field"].(string); ok && f != "" {
+			htmlField = f
+		}
+		html := datahelpers.ExtractNestedFieldString(params.CollectedData, htmlField)
+
+		// Fallback extraction for html
+		if html == "" {
+			inputFields := []string{"page_content", "site_record", "current_page"}
+			if fields, ok := config["input_fields"].([]interface{}); ok {
+				inputFields = make([]string, len(fields))
+				for i, f := range fields {
+					inputFields[i], _ = f.(string)
+				}
+			}
+			extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
+			if pageContent, ok := extracted["page_content"].(map[string]interface{}); ok {
+				if response, ok := pageContent["response"].(map[string]interface{}); ok {
+					html, _ = response["page_html"].(string)
+				}
+			}
+		}
+
+		if html == "" {
+			params.Logger.Warn("SavePageSectionsAction: No HTML and no metadata found, skipping",
+				zap.String("html_field", htmlField),
+			)
+			return map[string]interface{}{
+				"success":        true,
+				"sections_saved": 0,
+				"skipped":        true,
+				"reason":         "no HTML content and no sections metadata",
+			}, nil
+		}
+
+		sections = saveSectionsExtractFromHTML(html, params.Logger)
+		params.Logger.Info("SavePageSectionsAction: Using HTML parsing fallback",
+			zap.Int("sections", len(sections)),
+		)
+
+		// For HTML-parsed sections, try to look up component_id from content_components
+		if params.DB != nil {
+			enrichSectionsWithComponentIDs(ctx, params.DB, sections, params.Logger)
+		}
+	}
+
+	if len(sections) == 0 {
+		params.Logger.Info("SavePageSectionsAction: No sections found",
 			zap.String("page_name", pageName),
-			zap.Int("html_len", len(html)),
 		)
 		return map[string]interface{}{
 			"success":        true,
 			"sections_saved": 0,
 			"page_id":        pageID.String(),
-			"reason":         "no sections found in HTML",
+			"reason":         "no sections found",
 		}, nil
 	}
 
@@ -195,22 +226,22 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// Insert each section
 	savedCount := 0
 	for i, section := range sections {
-		// Pre-generate UUID so we can inject it into the HTML
-		pcID := uuid.New()
-
-		// Inject identification attributes into the section HTML
-		labeledHTML := injectComponentLabels(section.HTML, pcID.String(), section.ComponentName, i+1)
+		var componentIDPtr *uuid.UUID
+		if section.ComponentID != "" {
+			if parsed, err := uuid.Parse(section.ComponentID); err == nil {
+				componentIDPtr = &parsed
+			}
+		}
 
 		_, err := params.DB.ExecContext(ctx, `
-			INSERT INTO page_components (id, page_id, position, rendered_html, slot_name, build_status)
+			INSERT INTO page_components (page_id, position, rendered_html, slot_name, component_id, build_status)
 			VALUES ($1, $2, $3, $4, $5, 'deployed')
-		`, pcID, pageID, i+1, labeledHTML, section.ComponentName)
+		`, pageID, i+1, section.HTML, section.ComponentName, componentIDPtr)
 
 		if err != nil {
 			params.Logger.Warn("SavePageSectionsAction: Failed to insert section",
 				zap.Int("position", i+1),
 				zap.String("component", section.ComponentName),
-				zap.String("pc_id", pcID.String()),
 				zap.Error(err),
 			)
 			continue
@@ -237,37 +268,118 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 // SectionData holds extracted section data
 type SectionData struct {
 	ComponentName string
+	ComponentID   string
 	HTML          string
 	Position      int
 }
 
-// saveSectionsExtractFromHTML finds all <section> blocks
+// extractSectionsFromMetadata builds SectionData from the structured array
+// produced by CompilePageSectionsAction's sections_metadata output.
+func extractSectionsFromMetadata(metaData interface{}, logger *zap.Logger) []SectionData {
+	var sections []SectionData
+
+	items, ok := metaData.([]interface{})
+	if !ok {
+		logger.Warn("SavePageSectionsAction: sections_metadata is not an array",
+			zap.String("type", fmt.Sprintf("%T", metaData)),
+		)
+		return nil
+	}
+
+	for i, item := range items {
+		m, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		html, _ := m["rendered_html"].(string)
+		if html == "" {
+			continue
+		}
+
+		// component_function is the slot_name (e.g. "hero", "call-to-action")
+		componentName := "section"
+		if fn, ok := m["component_function"].(string); ok && fn != "" {
+			componentName = fn
+		} else if name, ok := m["component_name"].(string); ok && name != "" {
+			componentName = name
+		}
+
+		// Enforce naming contract: slot_name must be kebab-case
+		componentName = NormalizeComponentFunction(componentName)
+
+		componentID := ""
+		if id, ok := m["component_id"].(string); ok && id != "" {
+			componentID = id
+		} else if id, ok := m["component_id"]; ok && id != nil {
+			componentID = fmt.Sprintf("%v", id)
+		}
+
+		sections = append(sections, SectionData{
+			ComponentName: componentName,
+			ComponentID:   componentID,
+			HTML:          strings.TrimSpace(html),
+			Position:      i + 1,
+		})
+	}
+
+	return sections
+}
+
+// saveSectionsExtractFromHTML finds all <section> blocks with their trailing <style>/<script>
+// CHANGED: regex now captures <style> and <script> blocks that follow </section>,
+// since component templates place inline CSS after the closing </section> tag.
 func saveSectionsExtractFromHTML(html string, logger *zap.Logger) []SectionData {
 	var sections []SectionData
 
-	// Match <section ...>...</section> blocks
-	sectionRe := regexp.MustCompile(`(?is)<section([^>]*)>(.*?)</section>`)
+	// Match <section ...>...</section> followed by optional <style>...</style> and/or <script>...</script>
+	// The (?:\s*<style>[\s\S]*?</style>)* captures zero or more style blocks after </section>
+	// The (?:\s*<script>[\s\S]*?</script>)* captures zero or more script blocks after </section>
+	sectionRe := regexp.MustCompile(
+		`(?is)(<section[^>]*>.*?</section>)` +
+			`((?:\s*<style[^>]*>[\s\S]*?</style>)*)` +
+			`((?:\s*<script[^>]*>[\s\S]*?</script>)*)`,
+	)
 	dataComponentRe := regexp.MustCompile(`data-component="([^"]+)"`)
 
 	matches := sectionRe.FindAllStringSubmatch(html, -1)
 
 	for i, match := range matches {
-		if len(match) < 3 {
+		if len(match) < 2 {
 			continue
 		}
 
-		attrs := match[1]
-		fullSection := match[0]
+		sectionHTML := match[1]
+		styleBlocks := ""
+		scriptBlocks := ""
+		if len(match) >= 3 {
+			styleBlocks = match[2]
+		}
+		if len(match) >= 4 {
+			scriptBlocks = match[3]
+		}
+
+		// Combine section + style + script into one stored unit
+		fullHTML := sectionHTML
+		if strings.TrimSpace(styleBlocks) != "" {
+			fullHTML += "\n" + strings.TrimSpace(styleBlocks)
+		}
+		if strings.TrimSpace(scriptBlocks) != "" {
+			fullHTML += "\n" + strings.TrimSpace(scriptBlocks)
+		}
 
 		// Extract component name from data-component attribute
 		componentName := "section"
-		if componentMatch := dataComponentRe.FindStringSubmatch(attrs); len(componentMatch) >= 2 {
+		if componentMatch := dataComponentRe.FindStringSubmatch(sectionHTML); len(componentMatch) >= 2 {
 			componentName = componentMatch[1]
 		}
 
+		// Enforce naming contract: slot_name must be kebab-case
+		componentName = NormalizeComponentFunction(componentName)
+
 		sections = append(sections, SectionData{
 			ComponentName: componentName,
-			HTML:          strings.TrimSpace(fullSection),
+			HTML:          strings.TrimSpace(fullHTML),
 			Position:      i + 1,
 		})
 	}
@@ -279,6 +391,70 @@ func saveSectionsExtractFromHTML(html string, logger *zap.Logger) []SectionData 
 	return sections
 }
 
+// enrichSectionsWithComponentIDs looks up component_id from content_components
+// for HTML-parsed sections that have a data-component attribute but no component_id.
+// Handles naming mismatches:
+//
+//	slot_name "social-proof" → function "social_proof" (hyphen vs underscore)
+//	slot_name "case-studies-hero" → function "hero" with name matching
+func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []SectionData, logger *zap.Logger) {
+	for i := range sections {
+		if sections[i].ComponentID != "" {
+			continue // already has an ID
+		}
+		if sections[i].ComponentName == "" || sections[i].ComponentName == "section" {
+			continue // no function name to look up
+		}
+
+		slotName := sections[i].ComponentName
+
+		// Enforce naming contract: normalize before DB lookup
+		slotName = NormalizeComponentFunction(slotName)
+		sections[i].ComponentName = slotName
+
+		var componentID string
+
+		// Try exact match first
+		err := db.QueryRowContext(ctx, `
+			SELECT id::text FROM content_components 
+			WHERE function = $1 AND is_active = true
+			LIMIT 1
+		`, slotName).Scan(&componentID)
+
+		// Try underscore variant (social-proof → social_proof)
+		if err != nil {
+			underscored := strings.ReplaceAll(slotName, "-", "_")
+			if underscored != slotName {
+				err = db.QueryRowContext(ctx, `
+					SELECT id::text FROM content_components 
+					WHERE function = $1 AND is_active = true
+					LIMIT 1
+				`, underscored).Scan(&componentID)
+			}
+		}
+
+		// Try specialized hero variant (case-studies-hero → hero with name match)
+		if err != nil && strings.HasSuffix(slotName, "-hero") {
+			prefix := strings.TrimSuffix(slotName, "-hero")
+			namePattern := "%" + strings.ReplaceAll(prefix, "-", "%") + "%"
+			err = db.QueryRowContext(ctx, `
+				SELECT id::text FROM content_components 
+				WHERE function = 'hero' AND is_active = true
+				  AND lower(name) LIKE lower($1)
+				LIMIT 1
+			`, namePattern).Scan(&componentID)
+		}
+
+		if err == nil && componentID != "" {
+			sections[i].ComponentID = componentID
+			logger.Debug("enrichSectionsWithComponentIDs: Found component",
+				zap.String("slot_name", slotName),
+				zap.String("component_id", componentID),
+			)
+		}
+	}
+}
+
 // saveSectionsLookupPageID finds page UUID by site_id and page name
 func saveSectionsLookupPageID(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string) (uuid.UUID, error) {
 	var pageID uuid.UUID
@@ -286,36 +462,4 @@ func saveSectionsLookupPageID(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		SELECT id FROM pages WHERE site_id = $1 AND name = $2
 	`, siteID, pageName).Scan(&pageID)
 	return pageID, err
-}
-
-// injectComponentLabels adds identification data attributes to the first
-// <section> tag in a component's HTML. This makes it possible to identify
-// which page_component row produced each section in the rendered page.
-//
-// Injected attributes:
-//   - data-pc-id:    page_components.id (UUID)
-//   - data-slot:     slot_name / component function name
-//   - data-position: position in page (1-based)
-//
-// Example output:
-//
-//	<section class="hero" data-component="services-hero" data-pc-id="abc-123" data-slot="services-hero" data-position="1">
-func injectComponentLabels(html string, pcID string, slot string, position int) string {
-	// Find the FIRST <section tag and inject attributes after it.
-	// We only modify the first occurrence — each component has one wrapper <section>.
-	sectionTagRe := regexp.MustCompile(`(?i)(<section\b)`)
-
-	labels := fmt.Sprintf(`$1 data-pc-id="%s" data-slot="%s" data-position="%d"`, pcID, slot, position)
-
-	// Replace only the first match
-	loc := sectionTagRe.FindStringIndex(html)
-	if loc == nil {
-		// No <section> tag found — return unchanged
-		// (could be a non-section component like a div wrapper)
-		return html
-	}
-
-	return html[:loc[0]] +
-		sectionTagRe.ReplaceAllString(html[loc[0]:loc[1]], labels) +
-		html[loc[1]:]
 }

@@ -158,3 +158,49 @@ echo ""
 UPDATE pages SET build_status = 'needs_rebuild', updated_at = NOW() WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND name = 'faq' AND status = 'active';
 
 
+clients_db=# -- Check the component templates for sections used on the index page
+SELECT cc.name, cc.function,
+       CASE WHEN cc.html_template LIKE '%<style>%' THEN 'YES' ELSE 'NO' END as has_inline_css,
+       length(cc.html_template) as template_len
+FROM content_components cc
+WHERE cc.function IN ('hero', 'differentiators', 'services-grid', 'social-proof', 'case-studies-list', 'call-to-action')
+ORDER BY cc.function, cc.name;
+
+-- Also check: are the page_components on index linked to content_components?
+SELECT pc.slot_name, pc.position, pc.component_id,
+       cc.name as component_name,
+       CASE WHEN pc.rendered_html LIKE '%<style>%' THEN 'YES' ELSE 'NO' END as has_inline_css,
+       length(pc.rendered_html) as html_len
+FROM page_components pc
+LEFT JOIN content_components cc ON pc.component_id = cc.id
+WHERE pc.page_id = (
+    SELECT id FROM pages
+    WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND name = 'index'
+)
+ORDER BY pc.position;
+          name           |     function      | has_inline_css | template_len
+-------------------------+-------------------+----------------+--------------
+ case-studies-list       | case-studies-list | YES            |         1848
+ differentiators-section | differentiators   | YES            |         1547
+ about-hero              | hero              | YES            |          866
+ case-studies-hero       | hero              | YES            |          908
+ contact-hero            | hero              | YES            |          878
+ hero                    | hero              | YES            |         2365
+ Hero Section            | hero              | YES            |         2259
+ services-hero           | hero              | YES            |          884
+ services-grid           | services-grid     | YES            |         1471
+(9 rows)
+
+     slot_name     | position | component_id | component_name | has_inline_css | html_len
+-------------------+----------+--------------+----------------+----------------+----------
+ hero              |        1 |              |                | NO             |      806
+ differentiators   |        2 |              |                | NO             |     2599
+ services-grid     |        3 |              |                | NO             |     1769
+ social-proof      |        4 |              |                | NO             |     2194
+ case-studies-list |        5 |              |                | NO             |     4882
+ call-to-action    |        6 |              |                | NO             |      641
+(6 rows)
+
+
+
+

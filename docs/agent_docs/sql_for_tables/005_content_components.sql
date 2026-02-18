@@ -6328,3 +6328,241 @@ WHERE name = 'portfolio-showcase';
 SELECT column_name, data_type
 FROM information_schema.columns
 WHERE table_name = 'pages' AND column_name = 'content_direction';
+
+
+--
+
+-- component naming standardisation
+
+-- Component Naming Standardization
+-- =================================
+--
+-- Contract:
+--   1. content_components.function is the canonical identifier
+--   2. Always kebab-case (hyphens): "social-proof" not "social_proof"
+--   3. Must be unique across active components
+--   4. data-component attribute in html_template MUST equal function
+--   5. page_components.slot_name stores function value
+--
+-- Naming pattern:
+--   General:       {purpose}            → hero, social-proof, call-to-action
+--   Page-specific: {page}-{purpose}     → about-hero, services-hero, case-studies-hero
+--   Site-level:    {slot}-{variant}     → header-professional-dark, footer-4-column
+--
+-- This migration:
+--   Step 1: Fix underscore → hyphen in function column
+--   Step 2: Fix shared function values (hero variants get unique functions)
+--   Step 3: Sync data-component attributes in templates to match function
+--   Step 4: Add DB constraint to enforce kebab-case and uniqueness
+--   Step 5: Update page_components.slot_name to match new function values
+
+-- ============================================================================
+-- Step 1: Fix underscore functions → kebab-case
+-- ============================================================================
+
+-- social_proof → social-proof
+UPDATE content_components
+SET function = 'social-proof'
+WHERE function = 'social_proof' AND is_active = true;
+
+-- call_to_action → call-to-action
+UPDATE content_components
+SET function = 'call-to-action'
+WHERE function = 'call_to_action' AND is_active = true;
+
+-- featured_content → featured-content (if exists)
+UPDATE content_components
+SET function = 'featured-content'
+WHERE function = 'featured_content' AND is_active = true;
+
+-- Any other underscore functions we missed
+UPDATE content_components
+SET function = replace(function, '_', '-')
+WHERE function LIKE '%\_%' AND is_active = true;
+
+-- ============================================================================
+-- Step 2: Fix shared hero functions — each variant gets unique function
+-- ============================================================================
+
+-- These already have the right data-component values in their templates,
+-- they just need function to match.
+
+UPDATE content_components
+SET function = 'about-hero'
+WHERE function = 'hero'
+  AND name = 'About Page Hero'
+  AND is_active = true;
+
+UPDATE content_components
+SET function = 'services-hero'
+WHERE function = 'hero'
+  AND name = 'Services Page Hero'
+  AND is_active = true;
+
+UPDATE content_components
+SET function = 'contact-hero'
+WHERE function = 'hero'
+  AND name = 'Contact Page Hero'
+  AND is_active = true;
+
+UPDATE content_components
+SET function = 'case-studies-hero'
+WHERE function = 'hero'
+  AND name = 'Case Studies Hero'
+  AND is_active = true;
+
+-- The generic hero (homepage hero) keeps function = 'hero'
+-- Verify only one 'hero' remains
+SELECT id, name, function
+FROM content_components
+WHERE function = 'hero' AND is_active = true;
+
+-- ============================================================================
+-- Step 3: Fix testimonials function → match its data-component
+-- ============================================================================
+
+-- The component named "Testimonials Section" has function "testimonials"
+-- but its template has data-component="social-proof".
+-- Two options:
+--   a) Change function to "social-proof" (matches template)
+--   b) Change data-component to "testimonials" (matches function)
+--
+-- Option a) is wrong because we already have social-proof components.
+-- Option b) is right: this is a testimonials component, give it its own identity.
+
+UPDATE content_components
+SET html_template = replace(html_template, 'data-component="social-proof"', 'data-component="testimonials"')
+WHERE function = 'testimonials'
+  AND is_active = true
+  AND html_template LIKE '%data-component="social-proof"%';
+
+-- ============================================================================
+-- Step 3b: Sync data-component attributes to match function for all components
+-- ============================================================================
+
+-- For any component where data-component doesn't match function,
+-- update the template. This is safe because we've already standardized function.
+DO $$
+DECLARE
+rec RECORD;
+    old_attr TEXT;
+    new_attr TEXT;
+BEGIN
+FOR rec IN
+SELECT id, function, name,
+       substring(html_template from 'data-component="([^"]+)"') as current_data_component,
+       html_template
+FROM content_components
+WHERE is_active = true
+  AND html_template LIKE '%data-component="%'
+  AND substring(html_template from 'data-component="([^"]+)"') != function
+    LOOP
+        old_attr := 'data-component="' || rec.current_data_component || '"';
+new_attr := 'data-component="' || rec.function || '"';
+
+UPDATE content_components
+SET html_template = replace(html_template, old_attr, new_attr)
+WHERE id = rec.id;
+
+RAISE NOTICE 'Fixed data-component: % → % (component: %)',
+            rec.current_data_component, rec.function, rec.name;
+END LOOP;
+END $$;
+
+-- ============================================================================
+-- Step 4: Add DB constraints
+-- ============================================================================
+
+-- 4a: Kebab-case format check — only lowercase letters, digits, and hyphens
+-- Allows empty string for legacy components without a function
+ALTER TABLE content_components
+DROP CONSTRAINT IF EXISTS chk_function_kebab_case;
+
+ALTER TABLE content_components
+    ADD CONSTRAINT chk_function_kebab_case
+        CHECK (
+            function = ''
+                OR function ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+    );
+
+-- 4b: Unique function across active components
+-- Uses a partial unique index (only active components must be unique)
+DROP INDEX IF EXISTS idx_content_components_unique_active_function;
+
+CREATE UNIQUE INDEX idx_content_components_unique_active_function
+    ON content_components (function)
+    WHERE is_active = true AND function != '';
+
+-- Note: site-level components (headers, footers, heads) use "site-header",
+-- "site-footer", "head" as function but are differentiated by name/id.
+-- If multiple active headers are needed, their function could be:
+--   header-professional-dark, header-minimal-light, header-bold-gradient
+-- rather than all sharing "site-header".
+--
+-- Check if we need to handle this:
+SELECT function, count(*) as cnt
+FROM content_components
+WHERE is_active = true AND function != ''
+GROUP BY function
+HAVING count(*) > 1
+ORDER BY cnt DESC;
+
+-- If the above shows duplicates in site-header/site-footer/head,
+-- update those to use their specific variant names:
+UPDATE content_components
+SET function = 'header-professional-dark'
+WHERE function = 'site-header' AND name = 'Professional Dark Header' AND is_active = true;
+
+UPDATE content_components
+SET function = 'header-minimal-light'
+WHERE function = 'site-header' AND name = 'Minimal Light Header' AND is_active = true;
+
+UPDATE content_components
+SET function = 'header-bold-gradient'
+WHERE function = 'site-header' AND name = 'Bold Gradient Header' AND is_active = true;
+
+UPDATE content_components
+SET function = 'footer-4-column'
+WHERE function = 'site-footer' AND name = '4-Column Footer' AND is_active = true;
+
+UPDATE content_components
+SET function = 'footer-standard'
+WHERE function = 'site-footer' AND name = 'Standard Footer' AND is_active = true;
+
+UPDATE content_components
+SET function = 'footer-simple'
+WHERE function = 'site-footer' AND name = 'Simple Footer' AND is_active = true;
+
+UPDATE content_components
+SET function = 'head-seo-standard'
+WHERE function = 'head' AND name = 'Standard SEO Head' AND is_active = true;
+
+-- ============================================================================
+-- Step 5: Update page_components.slot_name to match new function values
+-- ============================================================================
+
+-- Fix underscore slot_names
+UPDATE page_components
+SET slot_name = replace(slot_name, '_', '-')
+WHERE slot_name LIKE '%\_%';
+
+-- Fix any slot_names that should match new function values
+-- (This catches cases where slot_name was set from data-component
+-- which was already correct, so most should already be fine)
+
+-- ============================================================================
+-- Step 6: Verification
+-- ============================================================================
+
+-- All active components: function should be kebab-case and unique
+SELECT function, name,
+       CASE WHEN function ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$' THEN 'OK' ELSE 'BAD' END as format_check,
+       substring(html_template from 'data-component="([^"]+)"') as data_component,
+       CASE
+           WHEN html_template NOT LIKE '%data-component%' THEN 'N/A'
+           WHEN substring(html_template from 'data-component="([^"]+)"') = function THEN 'MATCH'
+           ELSE 'MISMATCH'
+           END as attr_check
+FROM content_components
+WHERE is_active = true
+ORDER BY function;

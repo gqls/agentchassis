@@ -274,3 +274,133 @@ WHERE vpd.species_treated IS NOT NULL
   AND array_length(vpd.species_treated, 1) > 0
 ORDER BY b.updated_at DESC
 LIMIT 10;
+
+
+
+clients_db=# -- How many areas did the sweep orchestrator load?
+SELECT collected_data->'unswept_areas'->>'count' as areas_loaded
+FROM orchestration_states
+WHERE orchestration_id = '56bbae1b-a28b-4ea8-b17d-b16252a92b63';
+ areas_loaded
+--------------
+ 3402
+(1 row)
+
+
+-- Sweep progress: areas swept vs remaining
+SELECT
+    CASE WHEN last_swept_at IS NULL THEN 'unswept' ELSE 'swept' END as status,
+    COUNT(*)
+FROM business_intel.search_areas
+GROUP BY (last_swept_at IS NULL);
+
+-- Discovery candidates found this run
+SELECT status, COUNT(*)
+FROM business_intel.discovery_candidates
+GROUP BY status;
+
+-- Most recent sweep activity
+SELECT district_code, area_name, last_swept_at, candidates_found
+FROM business_intel.search_areas
+WHERE last_swept_at IS NOT NULL
+ORDER BY last_swept_at DESC
+LIMIT 10;
+
+-- Current sweep orchestration progress (iter number from the logs)
+SELECT orchestration_id, status, current_step, updated_at
+FROM orchestration_states
+WHERE owner_agent_type = 'area-sweep-orchestrator'
+  AND status NOT IN ('COMPLETED', 'FAILED')
+ORDER BY created_at DESC
+LIMIT 1;
+
+
+-- stuck
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,sweep_loop,config,max_iterations}',
+    '3500'::jsonb
+),
+updated_at = NOW()
+WHERE type = 'area-sweep-orchestrator';
+
+           orchestration_id           |      orchestration_name       |       status       | current_step | error |          updated_at
+--------------------------------------+-------------------------------+--------------------+--------------+-------+-------------------------------
+ c88c9d21-c70e-4d1e-a260-952592c1518f | generic-process-0217-1916     | COMPLETED          | complete     |       | 2026-02-17 19:22:11.817349+00
+ 34c15d37-70c2-45ef-a5e1-dcb291de9732 | generic-orchestrate-0217-1839 | AWAITING_RESPONSES | run_sweeps   |       | 2026-02-17 18:39:44.369539+00
+ c4461620-5166-41cf-b1f8-12146e59e061 | generic-process-0217-1829     | COMPLETED          | complete     |       | 2026-02-17 18:31:45.297514+00
+ 1337ed9c-8a80-4dde-8072-ed47ed6abc72 | generic-process-0217-1757     | COMPLETED          | complete     |       | 2026-02-17 18:00:17.24124+00
+ 9af79661-76e3-4053-bd69-9c5c073588de | generic-process-0217-1746     | COMPLETED          | complete     |       | 2026-02-17 17:52:59.845283+00
+(5 rows)
+
+
+There it is — 34c15d37 is the pipeline, stuck at run_sweeps in AWAITING_RESPONSES. The sweep orchestrator completed at 20:22 but the pipeline never got the completion message.
+
+-- Check what the pipeline is waiting for
+SELECT
+    key as request_id,
+    value->>'step_name' as step_name,
+    value->>'timeout_at' as timeout_at,
+    value->>'responses_topic' as responses_topic
+FROM orchestration_states,
+     jsonb_each(awaited_requests)
+WHERE orchestration_id = '34c15d37-70c2-45ef-a5e1-dcb291de9732';
+
+-- Check if the sweep orchestrator sent its completion to the right topic
+SELECT
+    collected_data->>'__parent_responses_topic__' as parent_topic,
+    collected_data->>'__my_responses_topic__' as my_topic
+FROM orchestration_states
+WHERE orchestration_id = '56bbae1b-a28b-4ea8-b17d-b16252a92b63';
+
+-- 5. Reset orphaned in_progress tasks
+UPDATE business_intel.collection_tasks
+SET status = 'pending', started_at = NULL, orchestration_id = NULL
+WHERE status = 'in_progress';
+
+--
+
+Step 1: Find expired awaited requests
+sqlSELECT ar.request_id, ar.orchestration_id, ar.correlation_id,
+       ar.step_id, ar.step_name, ar.retry_version,
+       ar.responses_topic, ar.requests_topic,
+       ar.timeout_at, ar.target_agent_type
+FROM awaited_requests ar
+WHERE ar.status = 'waiting'
+  AND ar.timeout_at < NOW() - INTERVAL '30 seconds'
+ORDER BY ar.timeout_at ASC
+LIMIT 20
+FOR UPDATE SKIP LOCKED
+The 30-second grace period avoids racing with in-process goroutines that
+might still be about to fire. LIMIT 20 prevents one sweep from taking too
+long.
+Step 2: For each expired request, classify the situation
+sql-- Check if the child orchestration completed
+SELECT os.orchestration_id, os.status, os.final_result
+FROM orchestration_states os
+WHERE os.orchestration_id = (
+    SELECT child_os.orchestration_id
+    FROM orchestration_states child_os
+    WHERE child_os.parent_orchestration_id = $parent_orch_id
+      AND child_os.status IN ('COMPLETED', 'FAILED')
+    ORDER BY child_os.updated_at DESC
+    LIMIT 1
+)
+
+  -----
+
+restart failed pipeline
+-- 1. Fail stuck orchestrations
+UPDATE orchestration_states
+SET status = 'FAILED', error = 'manual reset', updated_at = NOW()
+WHERE status = 'AWAITING_RESPONSES'
+  AND updated_at < NOW() - INTERVAL '1 hour';
+
+-- 2. Reset orphaned tasks
+UPDATE business_intel.collection_tasks
+SET status = 'pending', started_at = NULL, orchestration_id = NULL
+WHERE status = 'in_progress';
+
+-- 3. Re-run pipeline
