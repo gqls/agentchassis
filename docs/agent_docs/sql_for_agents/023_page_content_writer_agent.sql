@@ -636,3 +636,157 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'page-content-writer';
+
+---
+
+-- tone down the case studies and social proofs
+
+-- Update page-content-writer prompt_template to prevent fabricated testimonials,
+-- case studies, statistics, and fake people.
+--
+-- Changes to STRICT RULES section:
+-- - Added rules 11-16 covering testimonials, case studies, statistics
+-- - Modified rule 3 to distinguish "specific to the industry" from "invent specifics"
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,prompt_template}',
+        to_jsonb(
+                E'Write content for the {{.current_section.category}} section of {{.current_page.title}}.\n\n'
+        || E'## Company Context\n'
+        || E'Company: {{.render_context.company_name}}\n'
+        || E'Industry: {{.render_context.industry}}\n'
+        || E'Tone: {{.render_context.tone}}\n'
+        || E'Target Audience: {{.render_context.target_audience}}\n'
+        || E'Services: {{.reviewed_brief.services}}\n'
+        || E'Tagline: {{.render_context.tagline}}\n\n'
+        || E'## Official Contact Information (USE ONLY THESE - DO NOT INVENT)\n'
+        || E'Email: {{.render_context.email}}\n'
+        || E'Phone: {{.render_context.phone}}\n'
+        || E'Location: {{.reviewed_brief.headquarters}}\n\n'
+        || E'{{if .link_context.link_constraint_text}}\n'
+        || E'## Internal Linking\n'
+        || E'{{.link_context.link_constraint_text}}\n\n'
+        || E'{{end}}\n'
+        || E'## Section Requirements\n'
+        || E'Component: {{.current_section.name}}\n'
+        || E'Function: {{.current_section.category}}\n'
+        || E'Purpose: {{.current_section.description}}\n\n'
+        || E'## Data Schema Required\n'
+        || E'{{.current_section.input_schema}}\n\n'
+        || E'{{if .research_result}}\n'
+        || E'## Research Findings\n'
+        || E'{{.research_result.response.summary}}\n\n'
+        || E'Sources:\n'
+        || E'{{range $index, $src := .research_result.response.sources}}\n'
+        || E'- [{{$index}}] {{$src.title}} ({{$src.domain}})\n'
+        || E'{{end}}\n'
+        || E'{{end}}\n\n'
+        || E'## Task\n'
+        || E'Write compelling content for this section that is relevant to the company''s industry and services.\n\n'
+        || E'Return JSON with these EXACT field names (use the ones that apply to this component type):\n\n'
+        || E'### For Hero/Banner sections:\n'
+        || E'```json\n'
+        || E'{\n'
+        || E'  "headline": "Your Compelling Main Headline",\n'
+        || E'  "subheadline": "Supporting text that expands on the headline",\n'
+        || E'  "primary_cta": "Get Started",\n'
+        || E'  "primary_cta_url": "/contact.html",\n'
+        || E'  "secondary_cta": "Learn More",\n'
+        || E'  "secondary_cta_url": "/about.html"\n'
+        || E'}\n'
+        || E'```\n\n'
+        || E'### For Feature/Services sections:\n'
+        || E'```json\n'
+        || E'{\n'
+        || E'  "headline": "Section Headline",\n'
+        || E'  "subheadline": "Brief introduction",\n'
+        || E'  "features": [\n'
+        || E'    {"name": "Feature Name", "description": "Feature description", "icon": "icon-name"},\n'
+        || E'    {"name": "Feature 2", "description": "Description 2", "icon": "icon-name"}\n'
+        || E'  ]\n'
+        || E'}\n'
+        || E'```\n\n'
+        || E'### For CTA/Call-to-Action sections:\n'
+        || E'```json\n'
+        || E'{\n'
+        || E'  "headline": "Ready to Get Started?",\n'
+        || E'  "subheadline": "Contact us today",\n'
+        || E'  "primary_cta": "Contact Us",\n'
+        || E'  "primary_cta_url": "/contact.html"\n'
+        || E'}\n'
+        || E'```\n\n'
+        || E'### For Text/Content/About sections:\n'
+        || E'```json\n'
+        || E'{\n'
+        || E'  "heading": "Section Heading",\n'
+        || E'  "content": "<p>First paragraph of content here.</p><p>Second paragraph here.</p><p>Third paragraph if needed.</p>"\n'
+        || E'}\n'
+        || E'```\n\n'
+        || E'### For Contact Info sections:\n'
+        || E'```json\n'
+        || E'{\n'
+        || E'  "heading": "Contact Us",\n'
+        || E'  "email": "USE_BRIEF_EMAIL",\n'
+        || E'  "phone": "USE_BRIEF_PHONE",\n'
+        || E'  "hours": "Monday-Friday 9am-5pm"\n'
+        || E'}\n'
+        || E'```\n\n'
+        || E'### For Testimonial/Social Proof sections:\n'
+        || E'Use the company''s own voice to describe their approach and values. Do NOT create fake testimonials.\n'
+        || E'```json\n'
+        || E'{\n'
+        || E'  "headline": "What We Stand For",\n'
+        || E'  "subheadline": "Our commitment to our clients",\n'
+        || E'  "testimonials": [\n'
+        || E'    {"quote": "A statement about the company''s approach or philosophy in their own voice - NOT attributed to a fake person", "name": "", "title": ""},\n'
+        || E'    {"quote": "Another statement about values or working approach", "name": "", "title": ""}\n'
+        || E'  ]\n'
+        || E'}\n'
+        || E'```\n'
+        || E'When the site owner adds real testimonials later, these placeholders will be replaced.\n\n'
+        || E'### For Case Study sections:\n'
+        || E'Describe the types of work the company does and the outcomes they aim for. Do NOT invent specific clients, projects, or results.\n'
+        || E'```json\n'
+        || E'{\n'
+        || E'  "headline": "Our Work",\n'
+        || E'  "subheadline": "How we help our clients",\n'
+        || E'  "case_studies": [\n'
+        || E'    {"title": "Type of project or service area", "description": "What this involves and what clients can expect", "result": "The kind of outcomes typically achieved"},\n'
+        || E'    {"title": "Another service area", "description": "Description of approach", "result": "Typical outcomes"}\n'
+        || E'  ]\n'
+        || E'}\n'
+        || E'```\n\n'
+        || E'## STRICT RULES:\n'
+        || E'1. Use the EXACT field names shown above (headline, subheadline, primary_cta, primary_cta_url, etc.)\n'
+        || E'2. No placeholder text like [Your Company] or Lorem ipsum\n'
+        || E'3. Write content that is relevant to this company''s industry and services - but do NOT invent specific achievements, metrics, or outcomes that have not actually happened\n'
+        || E'4. Professional but engaging tone matching the brief\n'
+        || E'5. Include source citations [0], [1] if research was provided\n'
+        || E'6. NEVER invent contact information - use ONLY the email and phone provided in Official Contact Information above\n'
+        || E'7. For body text content, ALWAYS wrap paragraphs in <p> tags - never output raw unwrapped text\n'
+        || E'8. For "content" fields that contain multiple paragraphs, use proper HTML: <p>Paragraph 1</p><p>Paragraph 2</p>\n'
+        || E'9. If contact email or phone is empty in the brief, do NOT make one up - omit it or use a generic "Contact us" link\n'
+        || E'10. Only create internal links to pages listed in the Internal Linking section above\n'
+        || E'11. NEVER invent fake people, client names, or attributed quotes. No "Sarah Mitchell, Founder" or "James Chen, Marketing Director". If the brief does not include real testimonials, write company philosophy statements instead and leave name/title fields empty\n'
+        || E'12. NEVER invent specific statistics, percentages, or metrics. No "300% increase" or "47 minutes" or "42-page report". Describe the type of outcome without fabricating numbers\n'
+        || E'13. NEVER invent fake case studies with named businesses. No "Brighton Physiotherapy Clinic" or "Independent Mortgage Broker" as if they were real clients. Describe service categories and typical outcomes instead\n'
+        || E'14. For testimonial sections: write 2-3 statements in the company''s own voice about their values, approach, or commitment. These serve as placeholder content the site owner will replace with real testimonials\n'
+        || E'15. For case study sections: describe the types of problems the company solves and the approach they take, without inventing specific clients or results\n'
+        || E'16. It is ALWAYS better to be honest and general than specific and fabricated. A real visitor will trust "We help businesses improve their online presence" far more than a fake testimonial from an invented person'
+        )
+                     )
+WHERE type = 'page-content-writer';
+
+-- Verify the update
+SELECT length(
+               default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template'
+       ) as prompt_length,
+       substring(
+               default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template'
+    from 'NEVER invent fake people.*?empty'
+) as rule_11_check
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+

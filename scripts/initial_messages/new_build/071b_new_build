@@ -188,7 +188,7 @@ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/k
 
 
 
-BROCHURE Site Start - START
+BROCHURE Site Start - START 0
 - 0 -
 
 # Generate unique IDs
@@ -238,7 +238,7 @@ kcat -P \
 -H from_agent_type=user \
 -H from_agent_id=cli \
 -H responses_topic=system.generic.responses <<JSON
-{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain": "leopardessconsulting.co.uk","objective":"Build a welcoming, straightforward corporate website for Leopardess Consulting; a hands-on web and digital transformation consultancy with a knack for turning ideas into real results. The site should give a clear picture of who we are, our guiding values (like sharp insight and quiet strength), and our services in strategy, operations, and digital transformation. We'd love to highlight exciting possibilities for AI agents in areas like product development, finance, marketing, management, and HR. Include an insights blog for sharing practical thoughts, a careers section to attract great people, and simple ways to get in touch. Target audience: C-suite leaders, HR directors, and senior managers at mid-to-large businesses looking for thoughtful, effective consulting partners.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain":"leopardessconsulting.co.uk","objective":"Create a clean, welcoming, and professional corporate website for Leopardess Consulting that clearly communicates who we are and the real value we deliver. Position us as experts who build smart, collaborative AI agent teams that rapidly turn ideas into polished results — such as fully functional websites, custom calculators and tools, professional business plans and market research reports, personalised planners, mood boards, mind maps, stunning presentations, price comparisons, puzzle generators, and more — all delivered in minutes instead of weeks.\n\nKey values: sharp insight, quiet strength, agility, precision, reliability, and a friendly, human-centred approach.\n\nCore site sections:\n• Home page with strong hero section showing benefits and speed\n• About Us (who we are, our story, values)\n• Services (cards for Automated Website Solutions, Custom Tools & Calculators, Reports & Business Plans, Creative & Personalised Generators)\n• Case Studies / Examples\n• Insights / Blog\n• Careers\n• Contact\n\nInclude a dedicated Why Multi-Agent AI? or Single LLM vs Our Multi-Agent Framework section (ideally on the home page or in About Us) that compares our approach with prompting a single large language model. Highlight key advantages:\n• Much higher reliability and lower error rate through structured planning, review, and verification agents\n• Handles large, complex projects (full multi-page websites, detailed reports, integrated calculators) that single LLMs often struggle with due to token limits or lack of oversight\n• True end-to-end automation: planning → design → content → images → testing → secure deployment (vs. single LLM just suggesting code/text)\n• Built-in quality control, brand consistency, and self-correction via specialised agents\n• Better specialisation (dedicated agents for UX, finance, visuals, verification, deployment)\n• Production-ready results instead of drafts that need heavy manual fixing\n\nUse the AIDA model (Attention, Interest, Desire, Action) for persuasive, benefit-focused copy throughout. Emphasise differentiators: speed, end-to-end automation, impressive quality, and no-maintenance deployments.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites","target_audience":"Small business owners, startup founders, freelancers, consultants, marketers, solopreneurs, and busy teams who want high-quality websites, tools, reports, planners, and visuals quickly — without hiring expensive design/development teams or waiting weeks for results."}}
 JSON
 
 echo ""
@@ -267,6 +267,10 @@ echo ""
 
 
 ^^
+backup leopardess too formal too high executive
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain": "leopardessconsulting.co.uk","objective":"Build a welcoming, straightforward corporate website for Leopardess Consulting; a hands-on web and digital transformation consultancy with a knack for turning ideas into real results. The site should give a clear picture of who we are, our guiding values (like sharp insight and quiet strength), and our services in strategy, operations, and digital transformation. We'd love to highlight exciting possibilities for AI agents in areas like product development, finance, marketing, management, and HR. Include an insights blog for sharing practical thoughts, a careers section to attract great people, and simple ways to get in touch. Target audience: C-suite leaders, HR directors, and senior managers at mid-to-large businesses looking for thoughtful, effective consulting partners.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
+backup didn't have llm comparison
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain":"leopardessconsulting.co.uk","objective":"Create a clean, welcoming, and professional corporate website for Leopardess Consulting that clearly communicates who we are and the real value we deliver. Position us as experts who build smart, collaborative AI agent teams that rapidly turn ideas into polished results — such as fully functional websites, custom calculators and tools, professional business plans and market research reports, personalised planners (travel, fitness, etc.), mood boards, mind maps, stunning presentations, price comparisons, puzzle generators, and more — all delivered in minutes instead of weeks.\n\nKey values to highlight: sharp insight, quiet strength, agility, precision, reliability, and a friendly, human-centred approach.\n\nCore site sections to include:\n• Home page with a strong hero section showing benefits and speed\n• About Us (who we are, our story, values)\n• Services (clear cards for Automated Website Solutions, Custom Tools & Calculators, Reports & Business Plans, Creative & Personalised Generators)\n• Case Studies / Examples\n• Insights / Blog (practical AI and digital tips)\n• Careers (attracting talent)\n• Contact / Get in Touch (simple form + email)\n\nUse the AIDA model (Attention, Interest, Desire, Action) for persuasive, benefit-focused copy throughout. Emphasise our key differentiators: speed, end-to-end automation, impressive quality, and no-maintenance deployments.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites","target_audience":"Small business owners, startup founders, freelancers, consultants, marketers, solopreneurs, and busy teams who want high-quality websites, tools, reports, planners, and visuals quickly — without hiring expensive design/development teams or waiting weeks for results."}}
 
 ===
 ==========================
@@ -286,9 +290,9 @@ CLIENT_ID="demo_client"
 
 -- 1 ----
 
-CORRELATION_ID=7db9b5d5-30b8-41a6-9f26-02b2890944c9
-ORCHESTRATION_ID=0bca03a9-3f28-4fbe-8eb5-186765dd71ab
-HITL_REQUEST_ID=832667c7-d58b-4397-93fa-ee37b151dd08
+CORRELATION_ID=e0dbb578-de7d-4e03-be17-9d4cb287dcbd
+ORCHESTRATION_ID=df2307d4-c940-4dd7-980c-1c625425623a
+HITL_REQUEST_ID=012dccf9-c092-4e7c-aa5e-af519697a468
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -365,7 +369,7 @@ this one was multipage-website-builder
 
 
 
-SEND BROCHURE REVIEW BRIEF (SECOND fill - actual filled review brief)
+SEND BROCHURE REVIEW BRIEF (SECOND fill - actual filled hitl review brief)
 ------------------------------------
 
 CORRELATION_ID=
@@ -377,9 +381,9 @@ CLIENT_ID="demo_client"
 
 --- 2 2 ---
 
-CORRELATION_ID=7db9b5d5-30b8-41a6-9f26-02b2890944c9
-ORCHESTRATION_ID=0bca03a9-3f28-4fbe-8eb5-186765dd71ab
-HITL_REQUEST_ID=8fb70e73-389b-4817-bea0-b1dadf0404f2
+CORRELATION_ID=e0dbb578-de7d-4e03-be17-9d4cb287dcbd
+ORCHESTRATION_ID=df2307d4-c940-4dd7-980c-1c625425623a
+HITL_REQUEST_ID=
 
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -414,7 +418,7 @@ kcat -P \
 -H sender_agent_type=human \
 -H sender_agent_id=cli-user \
 -H timestamp=$TIMESTAMP <<JSON
-{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Agile AI Agents: Move Swiftly into Digital Transformation with Grace and Precision","about_us":"At Leopardess Consulting, we like building smart, hierarchical AI agent systems that help businesses adapt quickly and effectively. Using tools like Kubernetes for orchestration, Kafka for smooth messaging, and Postgres for reliable storage, we create solutions that automate complex workflows – think spinning up and launching full multipage websites on Cloudflare in no time. We're here to help you make the most of AI with practical, dependable approaches that suit your team.","services":[{"name":"Automated Website Solutions","description":"Get production-ready websites up and running in minutes with our AI-powered multi-agent systems. We handle secure, scalable hosting on Cloudflare, including automated builds, testing, and launches – removing the usual hurdles so you can focus on what matters."},{"name":"Multi-Agent Systems","description":"We design custom hierarchical agent setups to address your business challenges. Supporting a range of LLMs and models, these systems delegate tasks sensibly, collaborate in real time, and scale smoothly for effective automation."},{"name":"Digital Transformation Strategy","description":"Clear guidance to integrate AI and modern technology into your everyday operations. We work with you to build straightforward roadmaps for AI adoption, streamlining workflows, and staying agile in a fast-changing world."},{"name":"Web Consultancy","description":"Practical advice on modern web architectures, smart deployment, and useful AI integrations. We help your team build solid, forward-thinking web applications that focus on speed, security, and real innovation."}],"target_audience":"Technology leaders, CTOs, and forward-thinking businesses looking for practical web solutions and AI-driven automation","tone":"professional yet approachable","key_differentiators":"Our agile approach to AI orchestration\nFast deployments (minutes instead of weeks)\nSolid enterprise-level security and reliability\nProven stack with Kubernetes, Kafka, and Postgres\nStrong expertise in hierarchical multi-agent systems\nSpecial focus on web automation – with room to grow into other areas","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"Peter is a technology strategist with strong enthusiasm for AI agent frameworks, modern web architecture, and automated systems. He leads our efforts in digital transformation, delivering agile innovation through effective multi-agent orchestration and quick deployments."}],"case_studies":[{"title":"Potential Use Case: Fresh Marketing Site for a Scaling Startup","summary":"Imagine a growing startup that might need a fresh, compliant marketing website ahead of a funding round. With our automated website solution, we could take their design assets and content, then deliver a fully tested, SEO-optimized site on Cloudflare in under an hour – giving the team space to focus on product and growth while moving with quiet confidence."},{"title":"Potential Use Case: Streamlining Deployment Workflows for a Tech Team","summary":"Picture a busy technology team that could benefit from less time on repetitive deployment and monitoring tasks. A custom hierarchical multi-agent system might handle provisioning, testing, and alerts across Kubernetes clusters – freeing them up for higher-value work and helping the whole operation stay nimble and precise."},{"title":"Potential Use Case: Modernising a Corporate Intranet","summary":"A mid-sized company might want to refresh an outdated intranet to improve internal communication and knowledge sharing. Using our multi-agent orchestration, we could rapidly prototype and deploy a secure, searchable platform on Cloudflare Pages – delivering a clean, modern experience that adapts smoothly as needs evolve."}],"contact_email":"leopardess.consulting@contactforsales.com"}}
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Smart AI Teams That Build Websites, Tools & Reports in Minutes","about_us":"At Leopardess Consulting, we create friendly AI agent teams that work together like a well-organised group of experts. They handle everything from planning and design to writing content, creating images, and launching finished work. Whether you need a complete website, a professional business plan, a mortgage calculator, market research report, or a personalised travel planner – we turn your idea into a polished, ready-to-use result in just minutes.","services":[{"name":"Automated Website Solutions","description":"Get a beautiful, fully working website launched in minutes. Our AI agents handle planning, design, content, images, SEO, and secure deployment on Cloudflare – perfect for business sites, tool pages, calculators, or portfolio showcases."},{"name":"Custom AI Tools & Calculators","description":"Instantly create practical web tools such as mortgage calculators, tiling calculators, price comparison tools, network speed estimators, or any specialised calculator you need. Fully functional, mobile-friendly, and ready to use or embed on your site."},{"name":"Reports, Plans & Research","description":"Receive professional business plans, market research reports, price comparisons, sustainability assessments, or visually stunning presentations pulled from research papers – all complete with charts, mind maps, and clear recommendations."},{"name":"Creative & Personalised Generators","description":"Quickly generate mood boards, mind maps, personalised travel or fitness planners, puzzle and game creators, fun maps from LinkedIn profiles, custom quizzes, or eye-catching imagery packs."}],"target_audience":"Small business owners, startups, consultants, marketers, and busy teams who want impressive digital results without spending weeks or hiring multiple specialists","tone":"professional yet approachable","key_differentiators":"Results in minutes instead of weeks\nEnd-to-end automation: planning, design, writing, images, testing & launch\nWide range of outputs: websites, calculators, reports, planners, mood boards & more\nReliable, secure delivery with no ongoing maintenance headaches\nClear, human-friendly results that feel hand-crafted","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"Peter is a technology strategist passionate about building practical AI agent teams that deliver real value fast. He specialises in helping businesses create websites, tools, reports and planners that save time and impress clients."}],"case_studies":[{"title":"Rapid Business Plan + Marketing Website for a Startup","summary":"A founder preparing for investor meetings needed a professional business plan and a clean marketing site. Our AI agents produced a full plan with financials and visuals, then built and launched a polished website on Cloudflare in under an hour."},{"title":"Custom Mortgage Calculator Tool for a Property Advisor","summary":"A financial advisor wanted a branded mortgage calculator tool. We created a fully functional web calculator with affordability maps, comparison charts, and professional styling, then deployed it as a ready-to-share page."},{"title":"Market Research Report & Presentation for a Small Company","summary":"A local business needed quick insights on competitors and trends. Our agents delivered a clear report with charts, price comparisons, and a visually stunning slide presentation ready for their team meeting."}],"contact_email":"leopardess@contactforsales.com"}}
 JSON
 
 echo ""
@@ -433,7 +437,10 @@ echo ""
 
 
 old:
-{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Agile AI Agents: Pounce on Digital Transformation with Speed and Precision","about_us":"Leopardess Consulting harnesses the power of hierarchical AI agent frameworks to deliver swift, adaptive digital solutions. Our Kubernetes-orchestrated systems with Kafka messaging and Postgres storage enable businesses to automate complex workflows—like building and launching multipage websites via Cloudflare—empowering you to thrive amid the AI surge with rapid, reliable innovation.","services":[{"name":"Automated Website Solutions","description":"Deploy production-ready websites in minutes using AI-driven multi-agent orchestration. Enjoy secure, scalable hosting on Cloudflare with automated builds, testing, and launches that eliminate traditional development bottlenecks."},{"name":"Multi-Agent Systems","description":"Build custom hierarchical agent frameworks for tackling multifaceted business challenges. With support for diverse LLMs and models, our systems enable intelligent task delegation, real-time collaboration, and seamless scalability for advanced automation."},{"name":"Digital Transformation Strategy","description":"Expert guidance to integrate AI and modern tech into your operations. We craft tailored roadmaps for AI adoption, workflow optimization, and digital agility, helping businesses leap ahead in competitive landscapes."},{"name":"Web Consultancy","description":"Specialized advice on cutting-edge web architectures, deployment strategies, and AI integrations. Our consultants empower your team to create robust, future-proof web applications with a focus on speed, security, and innovation."}],"target_audience":"Technology leaders, CTOs, and businesses seeking modern web solutions and AI-powered automation","tone":"professional","key_differentiators":"Leopardess agility in AI orchestration\nUltra-rapid deployment (minutes, not weeks)\nEnterprise-grade security and reliability\nAdvanced Kubernetes, Kafka, and Postgres infrastructure\nExpertise in hierarchical multi-agent systems\nVertical focus on web automation and beyond","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"A visionary technology strategist specializing in AI agent frameworks, web architecture, and automated systems. With a passion for agile innovation, Peter drives digital transformation through sophisticated multi-agent orchestration and rapid deployment solutions."}],"case_studies":[],"contact_email":"sales-information-online@leopardessconsulting.co.uk","contact_phone":"07936 8273756","headquarters":"West Surrey, UK","has_blog":true,"has_careers":false,"primary_cta":"Get Started","primary_cta_url":"/contact"}}
+leopardess consulting
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Agile AI Agents: Move Swiftly into Digital Transformation with Grace and Precision","about_us":"At Leopardess Consulting, we like building smart, hierarchical AI agent systems that help businesses adapt quickly and effectively. Using tools like Kubernetes for orchestration, Kafka for smooth messaging, and Postgres for reliable storage, we create solutions that automate complex workflows – think spinning up and launching full multipage websites on Cloudflare in no time. We're here to help you make the most of AI with practical, dependable approaches that suit your team.","services":[{"name":"Automated Website Solutions","description":"Get production-ready websites up and running in minutes with our AI-powered multi-agent systems. We handle secure, scalable hosting on Cloudflare, including automated builds, testing, and launches – removing the usual hurdles so you can focus on what matters."},{"name":"Multi-Agent Systems","description":"We design custom hierarchical agent setups to address your business challenges. Supporting a range of LLMs and models, these systems delegate tasks sensibly, collaborate in real time, and scale smoothly for effective automation."},{"name":"Digital Transformation Strategy","description":"Clear guidance to integrate AI and modern technology into your everyday operations. We work with you to build straightforward roadmaps for AI adoption, streamlining workflows, and staying agile in a fast-changing world."},{"name":"Web Consultancy","description":"Practical advice on modern web architectures, smart deployment, and useful AI integrations. We help your team build solid, forward-thinking web applications that focus on speed, security, and real innovation."}],"target_audience":"Technology leaders, CTOs, and forward-thinking businesses looking for practical web solutions and AI-driven automation","tone":"professional yet approachable","key_differentiators":"Our agile approach to AI orchestration\nFast deployments (minutes instead of weeks)\nSolid enterprise-level security and reliability\nProven stack with Kubernetes, Kafka, and Postgres\nStrong expertise in hierarchical multi-agent systems\nSpecial focus on web automation – with room to grow into other areas","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"Peter is a technology strategist with strong enthusiasm for AI agent frameworks, modern web architecture, and automated systems. He leads our efforts in digital transformation, delivering agile innovation through effective multi-agent orchestration and quick deployments."}],"case_studies":[{"title":"Potential Use Case: Fresh Marketing Site for a Scaling Startup","summary":"Imagine a growing startup that might need a fresh, compliant marketing website ahead of a funding round. With our automated website solution, we could take their design assets and content, then deliver a fully tested, SEO-optimized site on Cloudflare in under an hour – giving the team space to focus on product and growth while moving with quiet confidence."},{"title":"Potential Use Case: Streamlining Deployment Workflows for a Tech Team","summary":"Picture a busy technology team that could benefit from less time on repetitive deployment and monitoring tasks. A custom hierarchical multi-agent system might handle provisioning, testing, and alerts across Kubernetes clusters – freeing them up for higher-value work and helping the whole operation stay nimble and precise."},{"title":"Potential Use Case: Modernising a Corporate Intranet","summary":"A mid-sized company might want to refresh an outdated intranet to improve internal communication and knowledge sharing. Using our multi-agent orchestration, we could rapidly prototype and deploy a secure, searchable platform on Cloudflare Pages – delivering a clean, modern experience that adapts smoothly as needs evolve."}],"contact_email":"leopardess@contactforsales.com"}}
+
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Agile AI Agents: Pounce on Digital Transformation with Speed and Precision","about_us":"Leopardess Consulting harnesses the power of hierarchical AI agent frameworks to deliver swift, adaptive digital solutions. Our Kubernetes-orchestrated systems with Kafka messaging and Postgres storage enable businesses to automate complex workflows—like building and launching multipage websites via Cloudflare—empowering you to thrive amid the AI surge with rapid, reliable innovation.","services":[{"name":"Automated Website Solutions","description":"Deploy production-ready websites in minutes using AI-driven multi-agent orchestration. Enjoy secure, scalable hosting on Cloudflare with automated builds, testing, and launches that eliminate traditional development bottlenecks."},{"name":"Multi-Agent Systems","description":"Build custom hierarchical agent frameworks for tackling multifaceted business challenges. With support for diverse LLMs and models, our systems enable intelligent task delegation, real-time collaboration, and seamless scalability for advanced automation."},{"name":"Digital Transformation Strategy","description":"Expert guidance to integrate AI and modern tech into your operations. We craft tailored roadmaps for AI adoption, workflow optimization, and digital agility, helping businesses leap ahead in competitive landscapes."},{"name":"Web Consultancy","description":"Specialized advice on cutting-edge web architectures, deployment strategies, and AI integrations. Our consultants empower your team to create robust, future-proof web applications with a focus on speed, security, and innovation."}],"target_audience":"Technology leaders, CTOs, and businesses seeking modern web solutions and AI-powered automation","tone":"professional","key_differentiators":"Leopardess agility in AI orchestration\nUltra-rapid deployment (minutes, not weeks)\nEnterprise-grade security and reliability\nAdvanced Kubernetes, Kafka, and Postgres infrastructure\nExpertise in hierarchical multi-agent systems\nVertical focus on web automation and beyond","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"A visionary technology strategist specializing in AI agent frameworks, web architecture, and automated systems. With a passion for agile innovation, Peter drives digital transformation through sophisticated multi-agent orchestration and rapid deployment solutions."}],"case_studies":[],"contact_email":"leopardess@contactforsales.com","contact_phone":"07934 524 911","headquarters":"West Surrey, UK","has_blog":true,"has_careers":false,"primary_cta":"Get Started","primary_cta_url":"/contact"}}
 now:
 {
   "headers": {
@@ -502,7 +509,7 @@ now:
         "summary": "A mid-sized company might want to refresh an outdated intranet to improve internal communication and knowledge sharing. Using our multi-agent orchestration, we could rapidly prototype and deploy a secure, searchable web-based platform on Cloudflare Pages – delivering a clean, modern experience that adapts smoothly as needs evolve."
       }
     ],
-    "contact_email": "sales-information-online@leopardessconsulting.co.uk"
+    "contact_email": "leopardess@contactforsales.com"
   }
 }
 
@@ -533,10 +540,10 @@ RESPONSES_TOPIC=
 
 # ------- 3 3 3 --------------------
 
-CORRELATION_ID=7db9b5d5-30b8-41a6-9f26-02b2890944c9
+CORRELATION_ID=e0dbb578-de7d-4e03-be17-9d4cb287dcbd
 ORCHESTRATION_ID=
 HITL_REQUEST_ID=
-RESPONSES_TOPIC=job.7db9b5d5-c4fcb930-content-reviewer-spawn_reviewer.responses
+RESPONSES_TOPIC=
 
 # Auto-generated values
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -660,6 +667,9 @@ kubectl -n ai-persona-system logs --tail=500 -l app=web-search-adapter -f | tee 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=site-classifier -f | tee logs-site-classifier.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=briefing-agent  -f | tee logs-briefing-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l app=git-adapter -f | tee logs-git-adapter.json
+
+make build-backend push-backend deploy-core deploy-agents redeploy-agents ENVIRONMENT=production REGION=uk001
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > agent_definitions_backup.sql
 
 
 =======================================================================================================
@@ -949,3 +959,76 @@ kcat -P \
 -H timestamp=$TIMESTAMP <<JSON
 {"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rerender","steps":{"spawn_rerender":{"action":"spawn_agent","config":{"role":"rerenderer","agent_type":"rerender-pages"},"output_field":"rerender_agent","next_step":"call_rerender"},"call_rerender":{"action":"call_agent","config":{"agent_type":"rerender-pages","target_role":"rerenderer","input_mapping":{"site_id":"input_data.site_id","domain":"input_data.domain","refresh_site_components":"input_data.refresh_site_components"},"timeout_seconds":1800},"output_field":"rerender_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["rerender_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}","refresh_site_components":true}}
 JSON
+
+
+---------------
+PAGE REBUILDER
+-- aa -- needs agent orchestrator, this injected workflow is too big
+
+# trigger_page_rebuild.sh
+# Triggers the page-rebuild agent via the generic orchestrator.
+#
+# Prerequisites:
+#   1. Pages flagged: UPDATE pages SET build_status = 'needs_rebuild' WHERE name IN (...) AND site_id = '...';
+#   2. page-rebuild agent definition inserted into agent_definitions
+#   3. load_site_for_rebuild action registered and deployed
+#
+# Usage:
+#   ./trigger_page_rebuild.sh <DOMAIN>
+#   ./trigger_page_rebuild.sh leopardessconsulting.co.uk
+
+DOMAIN="${1:?Usage: $0 <domain>}"
+
+
+DOMAIN="leopardessconsulting.co.uk"
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "Starting Page Rebuild"
+echo "========================================="
+echo "  Domain:           $DOMAIN"
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Time:             $TIMESTAMP"
+echo "========================================="
+echo ""
+
+kubectl -n kafka run -i --rm kcat-page-rebuild \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=process \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rebuilder","steps":{"spawn_rebuilder":{"action":"spawn_agent","config":{"role":"rebuilder","agent_type":"page-rebuild"},"output_field":"rebuilder_agent","next_step":"call_rebuilder"},"call_rebuilder":{"action":"call_agent","config":{"agent_type":"page-rebuild","target_role":"rebuilder","input_mapping":{"domain":"input_data.domain"},"timeout_seconds":900},"output_field":"rebuild_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["rebuild_result"]}}}}},"input_data":{"domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "========================================="
+echo "Page rebuild triggered!"
+echo "========================================="
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l app=page-rebuild --tail=50"
+echo "  kubectl -n ai-persona-system logs -l app=generic-agent --tail=100 | grep $CORRELATION_ID"
+echo ""
+echo "IDs:"
+echo "  CORRELATION_ID=$CORRELATION_ID"
+echo "  ORCHESTRATION_ID=$ORCHESTRATION_ID"
+echo ""
