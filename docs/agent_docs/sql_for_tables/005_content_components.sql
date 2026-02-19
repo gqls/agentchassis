@@ -6566,3 +6566,149 @@ SELECT function, name,
 FROM content_components
 WHERE is_active = true
 ORDER BY function;
+
+--
+
+-- 1. Create use-cases-hero component (function: hero-use-cases)
+INSERT INTO content_components (name, description, function, category, display_name,
+                                html_template, input_schema, render_mode, component_level)
+VALUES (
+           'use-cases-hero',
+           'Hero section for the use cases page',
+           'hero-use-cases',
+           'use-cases',
+           'Use Cases Hero',
+           '<section class="hero hero-use-cases" data-component="hero">
+                 <div class="hero-content">
+                     <h1>{{.headline}}</h1>
+                     <p class="hero-subheadline">{{.subheadline}}</p>
+                 </div>
+             </section>
+         <style>
+         .hero-use-cases {
+             min-height: 50vh;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             text-align: center;
+             padding: 4rem 2rem;
+             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+         }
+         .hero-use-cases .hero-content {
+             max-width: 800px;
+             margin: 0 auto;
+             color: #fff;
+         }
+         .hero-use-cases h1 {
+             font-size: clamp(1.75rem, 4vw, 2.75rem);
+             font-weight: 700;
+             margin-bottom: 1rem;
+             line-height: 1.2;
+             color: #fff;
+         }
+         .hero-use-cases .hero-subheadline {
+             font-size: clamp(1rem, 2vw, 1.2rem);
+             opacity: 0.9;
+             line-height: 1.6;
+             color: rgba(255,255,255,0.9);
+         }
+         </style>',
+           '{"headline": "string", "subheadline": "string"}'::jsonb,
+           'template',
+           'section'
+       );
+
+-- 2. Create use-cases-list component (function: use-cases-list)
+INSERT INTO content_components (name, description, function, category, display_name,
+                                html_template, input_schema, render_mode, component_level)
+VALUES (
+           'use-cases-list',
+           'Grid of use case items with title, client, summary and results',
+           'use-cases-list',
+           'use-cases',
+           'Use Cases List',
+           '<section class="use-cases-section" data-component="use-cases-list">
+             <div class="use-cases-container">
+                 <h2>{{.headline}}</h2>
+                 {{if .subheadline}}<p class="use-cases-subtitle">{{.subheadline}}</p>{{end}}
+                 <div class="use-cases-grid">
+                     {{range .use_cases}}
+                     <article class="use-case-item">
+                         <h3>{{.title}}</h3>
+                         <p class="use-case-client">{{.client}}</p>
+                         <p>{{.summary}}</p>
+                         {{if .results}}<p class="use-case-results"><strong>Results:</strong> {{.results}}</p>{{end}}
+                     </article>
+                     {{end}}
+                 </div>
+             </div>
+         </section>
+         <style>
+         .use-cases-section {
+             padding: var(--spacing-section, 5rem 2rem);
+             background: var(--color-surface, #f8f9fa);
+         }
+         .use-cases-container {
+             max-width: var(--container-max-width, 1200px);
+             margin: 0 auto;
+         }
+         .use-cases-section h2 {
+             text-align: center;
+             margin-bottom: 1rem;
+         }
+         .use-cases-subtitle {
+             text-align: center;
+             max-width: 600px;
+             margin: 0 auto 3rem;
+         }
+         .use-cases-grid {
+             display: grid;
+             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+             gap: 2rem;
+         }
+         .use-case-item {
+             padding: 2rem;
+             background: var(--color-background, #fff);
+             border-radius: 8px;
+             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+         }
+         .use-case-item h3 {
+             margin-bottom: 0.5rem;
+         }
+         .use-case-client {
+             font-size: 0.9rem;
+             margin-bottom: 1rem;
+             color: var(--color-text-muted, #666);
+         }
+         .use-case-results {
+             margin-top: 1rem;
+             padding-top: 1rem;
+             border-top: 1px solid var(--color-border, #e2e8f0);
+         }
+         @media (max-width: 768px) {
+             .use-cases-section { padding: 3rem 1.5rem; }
+             .use-cases-grid { grid-template-columns: 1fr; }
+         }
+         </style>',
+           '{"headline": "string", "subheadline": "string", "use_cases": [{"title": "string", "client": "string", "results": "string", "summary": "string"}]}'::jsonb,
+           'template',
+           'section'
+       );
+
+-- 3. Update pages.sections to match the new function names
+-- The plan says ["use-cases-hero", "use-cases-list", "call_to_action"]
+-- but the function names are hero-use-cases and use-cases-list
+-- Check what NormalizeComponentFunction does — it may handle this.
+-- For now, update sections to use the function names directly:
+UPDATE pages
+SET sections = '["hero-use-cases", "use-cases-list", "call_to_action"]'::jsonb,
+    build_status = 'needs_rebuild',
+    updated_at = NOW()
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+  AND name = 'use-cases';
+
+-- 4. Verify
+SELECT name, function, category FROM content_components
+WHERE category = 'use-cases' ORDER BY function;
+
+
