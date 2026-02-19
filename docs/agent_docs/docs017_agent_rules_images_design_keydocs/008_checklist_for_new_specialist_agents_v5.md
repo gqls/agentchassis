@@ -10,10 +10,10 @@ Each specialist agent is **self-contained** and **independently callable**. The 
 
 ```
 Builder workflow:
-  call_agent: { "site_id": "uuid" }    ← Simple
+  call_agent: { "site_id": "uuid" }    â† Simple
 
 Agent workflow:
-  load_my_data → analyze → generate → deploy    ← Agent handles complexity
+  load_my_data â†’ analyze â†’ generate â†’ deploy    â† Agent handles complexity
 ```
 
 ## Decision: Dedicated Load Actions
@@ -33,9 +33,9 @@ Each specialist agent gets a dedicated `load_*` action that gathers exactly what
 
 ## Decision: Callers Pass Raw Data, Agents Derive What They Need
 
-Parent orchestrators and dispatchers pass **raw domain identifiers** to child agents. The child agent decides how to use them — callers should not build derived or computed values on behalf of the child.
+Parent orchestrators and dispatchers pass **raw domain identifiers** to child agents. The child agent decides how to use them â€” callers should not build derived or computed values on behalf of the child.
 
-**Good — caller passes raw data:**
+**Good â€” caller passes raw data:**
 ```json
 {
   "input_data": {
@@ -47,7 +47,7 @@ Parent orchestrators and dispatchers pass **raw domain identifiers** to child ag
 ```
 The child agent's workflow then uses `query_template` to compose its own search query from those inputs.
 
-**Bad — caller pre-builds derived data:**
+**Bad â€” caller pre-builds derived data:**
 ```json
 {
   "input_data": {
@@ -58,7 +58,7 @@ The child agent's workflow then uses `query_template` to compose its own search 
 This leaks the child's search strategy into the parent. If the child changes how it searches, the parent must also change.
 
 **Why:**
-- The agent owns its domain — including how it transforms inputs into actions
+- The agent owns its domain â€” including how it transforms inputs into actions
 - Keeps agents independently testable (pass `district_code`, get results)
 - Multiple callers (orchestrator, shell script, another agent) don't duplicate derivation logic
 - The agent can change its internal strategy without touching callers
@@ -70,7 +70,7 @@ This leaks the child's search strategy into the parent. If the child changes how
 Before creating new code, check for existing actions/functions that can be **patched** with small enhancements.
 
 **Example - git_commit:**
-- Existing: Uses `page_field` → forces `.html` extension
+- Existing: Uses `page_field` â†’ forces `.html` extension
 - Needed: Deploy CSS files
 - Solution: 4-line patch adding `file_path` config override
 - Avoided: New `git_commit_file` action with duplicated logic
@@ -116,7 +116,7 @@ If you need conditionals, branching, or data manipulation, put it in a Go action
 
 ### Declarative Config Is Not Complexity
 
-Templates and config declarations in workflow JSON are fine — they express **intent**, not **logic**. The distinction is:
+Templates and config declarations in workflow JSON are fine â€” they express **intent**, not **logic**. The distinction is:
 
 | Belongs in workflow config | Belongs in Go |
 |---------------------------|---------------|
@@ -125,7 +125,7 @@ Templates and config declarations in workflow JSON are fine — they express **i
 | `num_results`: 10 | DB queries and data transformation |
 | `include_pages`: true | Error handling and retry logic |
 
-**Good — declarative template in workflow config:**
+**Good â€” declarative template in workflow config:**
 ```json
 {
   "action": "web_search",
@@ -137,7 +137,7 @@ Templates and config declarations in workflow JSON are fine — they express **i
 ```
 This is the agent declaring "here is how I build my search query from my inputs." It's readable, testable, and changes without recompiling.
 
-**Bad — moving this to Go in the caller** to keep the workflow "simple":
+**Bad â€” moving this to Go in the caller** to keep the workflow "simple":
 ```go
 query := fmt.Sprintf("%s %s %s UK", businessType, districtCode, areaName)
 // ... pass query to child agent's input_data
@@ -311,7 +311,7 @@ When multiple sources can provide input to an agent, define a **standardized sch
 **Consumer:**
 - `webdesign-agent` accepts site_context regardless of source
 
-This enables pipelines like: scrape competitor → feed to design agent → apply to your site.
+This enables pipelines like: scrape competitor â†’ feed to design agent â†’ apply to your site.
 
 ## Decision: Standalone + Integrated
 
@@ -357,13 +357,13 @@ Orchestrators and child agents have distinct responsibilities. Getting this boun
 - Own its search strategy, data transformation, and domain logic
 - Be independently callable and testable
 
-**Example — area sweep:**
+**Example â€” area sweep:**
 ```
 Orchestrator:  "Here are 50 districts that need sweeping"
-               → passes: { district_code, area_name, business_type }
+               â†’ passes: { district_code, area_name, business_type }
 
 Discoverer:    "I know how to search for businesses in a district"
-               → builds its own query, filters results, inserts candidates
+               â†’ builds its own query, filters results, inserts candidates
 ```
 
 The orchestrator doesn't know or care how the discoverer searches. It just hands off raw identifiers and collects results.
@@ -428,6 +428,8 @@ func init() {
 }
 ```
 
+**Warning:** Check optional field names against the "Avoid Field Names That Collide with Common Nested Objects" section below. Names like `content_data`, `status`, `domain` will be found via nested lookup in `site_record.*` even if the caller never sent them.
+
 ### 5. Use ExtractActionInputs in action
 ```go
 inputs, err := datahelpers.ExtractActionInputs(
@@ -442,7 +444,7 @@ if err != nil {
 ```
 
 ### 6. Design the workflow
-Keep it simple: load → analyze → generate → deploy → complete
+Keep it simple: load â†’ analyze â†’ generate â†’ deploy â†’ complete
 
 ### 7. Ensure standalone mode
 Agent works with just an ID/domain
@@ -481,15 +483,73 @@ Migrate from `*_field` to `input_fields` pattern.
 ### Step 6: Remove deprecated support
 After all workflows migrated, remove deprecated patterns from spec.
 
+---
+
+## Decision: Avoid Field Names That Collide with Common Nested Objects
+
+`ExtractActionInputs` has a backward-compat nested lookup that checks these parent objects for any field it hasn't found directly:
+
+```go
+nestedSources := []struct{ parent, child string }{
+    {"current_page", field},
+    {"rerender_pages", field},
+    {"site_record", field},
+    {"input_data", field},
+}
+```
+
+**This means any optional field name in your ActionInputSpec will also match `site_record.<your_field>`, `input_data.<your_field>`, etc.** If those parent objects happen to contain a key with the same name, ExtractActionInputs silently picks it up — even if the caller never sent it.
+
+**Real example — the site plan contamination bug:**
+
+The section-editor's spec had `content_data` as optional. `ensure_site_record` puts the site plan into `collected_data["site_record"]["content_data"]`. ExtractActionInputs found `site_record.content_data` via nested lookup and treated it as the caller's replacement data — overwriting the hero section with the site plan.
+
+**Rules:**
+
+1. **Never name an optional field the same as a common column/key** in `sites`, `pages`, or `site_record`. Watch out for: `content_data`, `status`, `domain`, `name`, `title`, `description`, `config`, `metadata`.
+
+2. **If your field could collide, prefix it** with the operation context:
+    - `replacement_content_data` instead of `content_data`
+    - `target_page_name` instead of `page_name` (if `current_page.page_name` exists)
+
+3. **Check collected_data at runtime** — if `ensure_site_record` runs before your action, `site_record.*` is in scope. If `load_edit_context` runs, `edit_context.*` is in scope. Any field name matching a key inside those objects will be found by the nested lookup.
+
+4. **When in doubt, use explicit `input_fields`** in your step config and verify the extraction path by checking logs.
+
+**Test:** Search for your field name across all action output_fields and common table columns. If it appears anywhere else in the pipeline, rename it.
 
 ---
 
-further notes:
+## Decision: Optional Fields in input_mapping
 
-The call_agent action's input_mapping is strict — it fails if any mapped path doesn't exist, even for fields that are optional for this particular edit type. We sent a content_edit with field_updates, so new_component_function and content_data don't exist in input_data, and the mapping blows up.
-There's already a mechanism for this. The ? suffix on destination field names makes them optional:
-// Check if field is optional (ends with ?)
-isOptional := strings.HasSuffix(destField, "?")
-actualDestField := strings.TrimSuffix(destField, "?")
+When calling a child agent via `call_agent`, the `input_mapping` is strict by default — if a source path doesn't exist in collected_data, the mapping fails with an error. For agents that support multiple modes (where different fields are relevant per mode), use the `?` suffix on destination field names.
 
+**Mechanism:** `ResolveInputMapping` checks `strings.HasSuffix(destField, "?")`. If the source path doesn't exist, the field is silently skipped. The `?` is stripped before storing the result.
 
+```json
+{
+  "action": "call_agent",
+  "config": {
+    "agent_type": "section-editor",
+    "input_mapping": {
+      "domain": "input_data.domain",
+      "edit_type": "input_data.edit_type",
+      "page_name?": "input_data.page_name",
+      "slot_name?": "input_data.slot_name",
+      "field_updates?": "input_data.field_updates",
+      "replacement_content_data?": "input_data.content_data",
+      "new_component_function?": "input_data.new_component_function",
+      "page_component_id?": "input_data.page_component_id"
+    }
+  }
+}
+```
+
+**When to use:**
+- Agent supports multiple edit modes (content_edit sends field_updates, component_swap sends new_component_function)
+- Target identification has alternatives (page_component_id OR page_name+slot_name)
+- Some fields are only relevant for certain callers
+
+**When NOT to use:**
+- Required fields that must always be present — let the mapping fail loudly
+- Fields where a missing value indicates a caller bug

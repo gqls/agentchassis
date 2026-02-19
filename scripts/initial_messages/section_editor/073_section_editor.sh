@@ -123,12 +123,13 @@ WORKFLOW=$(cat <<'ENDWF'
         "target_role": "section_editor",
         "input_mapping": {
           "domain": "input_data.domain",
-          "page_name": "input_data.page_name",
-          "slot_name": "input_data.slot_name",
           "edit_type": "input_data.edit_type",
-          "field_updates": "input_data.field_updates",
-          "content_data": "input_data.content_data",
-          "new_component_function": "input_data.new_component_function"
+          "page_name?": "input_data.page_name",
+          "slot_name?": "input_data.slot_name",
+          "field_updates?": "input_data.field_updates",
+          "replacement_content_data?": "input_data.content_data",
+          "new_component_function?": "input_data.new_component_function",
+          "page_component_id?": "input_data.page_component_id"
         },
         "timeout_seconds": 600
       },
@@ -187,4 +188,68 @@ echo "  kubectl -n ai-persona-system logs -f -l app=agent-chassis --tail=50 | gr
 echo ""
 echo "CORRELATION_ID=$CORRELATION_ID"
 
+
+
+
+---
+
+
+-- 1. Parent orchestration state - what did spawn return?
+SELECT orchestration_id, status, current_step, error,
+       jsonb_pretty(collected_data->'section_editor_agent') as spawn_result,
+       jsonb_pretty(collected_data->'input_data') as input_data
+FROM orchestration_states
+WHERE correlation_id = '0d137594-1376-494b-853b-c0467f2a80df'::uuid;
+
+-- 2. Any child orchestrations?
+SELECT orchestration_id, owner_agent_type, status, current_step, error,
+       requests_topic, responses_topic
+FROM orchestration_states
+WHERE parent_orchestration_id = 'ea89edd1-86ef-4f21-bc00-181266daeeae';
+
+-- 3. All awaited requests for this correlation
+SELECT request_id, step_name, target_agent_type,
+       requests_topic, responses_topic, status,
+       sent_at, timeout_at, processed_at
+FROM awaited_requests
+WHERE correlation_id = '0d137594-1376-494b-853b-c0467f2a80df';
+
+
+-- 1. What component is linked to index/hero? Is it the right one?
+SELECT pc.id, pc.slot_name, pc.component_id,
+       cc.function, cc.name,
+       LEFT(cc.html_template, 300) as template_start
+FROM page_components pc
+JOIN pages p ON pc.page_id = p.id
+LEFT JOIN content_components cc ON pc.component_id = cc.id
+WHERE p.name = 'index'
+  AND p.site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+  AND pc.slot_name = 'hero';
+
+-- 2. What field names does this hero template actually use?
+--    (look for {{.something}} patterns)
+SELECT cc.function,
+       regexp_matches(cc.html_template, '\{\{\.([a-zA-Z_]+)\}\}', 'g') as template_fields
+FROM content_components cc
+JOIN page_components pc ON pc.component_id = cc.id
+JOIN pages p ON pc.page_id = p.id
+WHERE p.name = 'index'
+  AND p.site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+  AND pc.slot_name = 'hero';
+
+-- 3. What content_data does the hero have now (after the edit)?
+SELECT pc.content_data
+FROM page_components pc
+JOIN pages p ON pc.page_id = p.id
+WHERE p.name = 'index'
+  AND p.site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+  AND pc.slot_name = 'hero';
+
+-- 4. What was the ORIGINAL home page hero component?
+--    (check if there's a different hero for index vs other pages)
+SELECT cc.id, cc.function, cc.name, LEFT(cc.html_template, 200) as preview
+FROM content_components cc
+WHERE cc.function LIKE 'hero%'
+  AND cc.is_active = true
+ORDER BY cc.function;
 

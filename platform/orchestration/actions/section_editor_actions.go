@@ -46,8 +46,11 @@ var LoadEditContextInputSpec = datahelpers.ActionInputSpec{
 var ApplySectionEditInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{"edit_type"},
 	Optional: []string{
-		"field_updates",          // content_edit: JSON object of fields to merge
-		"content_data",           // content_edit: full replacement content_data
+		"field_updates",            // content_edit: JSON object of fields to merge
+		"replacement_content_data", // content_edit: full replacement content_data
+		// NOTE: named "replacement_content_data" not "content_data" to avoid
+		// collision with ExtractActionInputs nested lookup which finds
+		// site_record.content_data (the site plan) for any field named "content_data"
 		"new_component_function", // component_swap
 		"page_component_id",      // target (can also come from edit_context)
 	},
@@ -549,23 +552,11 @@ func applyContentEdit(
 		}
 	}
 
-	// Check for full replacement first
-	if fullReplace := inputs.GetRaw("content_data"); fullReplace != nil {
-		switch v := fullReplace.(type) {
-		case map[string]interface{}:
-			existingContentData = v
-			logger.Info("applyContentEdit: Full content_data replacement",
-				zap.Int("field_count", len(v)))
-		case string:
-			var parsed map[string]interface{}
-			if err := json.Unmarshal([]byte(v), &parsed); err != nil {
-				return "", nil, fmt.Errorf("content_data must be valid JSON object: %w", err)
-			}
-			existingContentData = parsed
-			logger.Info("applyContentEdit: Full content_data replacement (from JSON string)",
-				zap.Int("field_count", len(parsed)))
-		}
-	} else if fieldUpdates := inputs.GetRaw("field_updates"); fieldUpdates != nil {
+	// Check field_updates first (merge mode — more common, more specific)
+	// This is checked BEFORE replacement_content_data because ExtractActionInputs
+	// nested lookup can pick up site_record.content_data (the site plan) as a
+	// false match for any field named "content_data".
+	if fieldUpdates := inputs.GetRaw("field_updates"); fieldUpdates != nil {
 		// Merge mode — update specific fields
 		var updates map[string]interface{}
 		switch v := fieldUpdates.(type) {
@@ -585,8 +576,24 @@ func applyContentEdit(
 		logger.Info("applyContentEdit: Merged field_updates into content_data",
 			zap.Int("updated_fields", len(updates)),
 			zap.Int("total_fields", len(existingContentData)))
+	} else if fullReplace := inputs.GetRaw("replacement_content_data"); fullReplace != nil {
+		// Full replacement mode
+		switch v := fullReplace.(type) {
+		case map[string]interface{}:
+			existingContentData = v
+			logger.Info("applyContentEdit: Full content_data replacement",
+				zap.Int("field_count", len(v)))
+		case string:
+			var parsed map[string]interface{}
+			if err := json.Unmarshal([]byte(v), &parsed); err != nil {
+				return "", nil, fmt.Errorf("replacement_content_data must be valid JSON object: %w", err)
+			}
+			existingContentData = parsed
+			logger.Info("applyContentEdit: Full content_data replacement (from JSON string)",
+				zap.Int("field_count", len(parsed)))
+		}
 	} else {
-		return "", nil, fmt.Errorf("content_edit requires either 'field_updates' or 'content_data' parameter")
+		return "", nil, fmt.Errorf("content_edit requires either 'field_updates' or 'replacement_content_data' parameter")
 	}
 
 	// --- Get component template ---

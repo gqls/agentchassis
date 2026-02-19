@@ -203,4 +203,32 @@ ORDER BY pc.position;
 
 
 
+-- where things stopped
+
+-- 1. Parent orchestration - what step is it on NOW?
+SELECT orchestration_id, status, current_step, error,
+       updated_at, version
+FROM orchestration_states
+WHERE orchestration_id = '1321c57c-96ac-410f-bbac-6efa2bab5b38';
+
+-- 2. Did the awaited_request for spawn get processed?
+SELECT request_id, step_name, target_agent_type, status,
+       sent_at, timeout_at, processed_at
+FROM awaited_requests
+WHERE orchestration_id = '1321c57c-96ac-410f-bbac-6efa2bab5b38'
+ORDER BY sent_at;
+
+-- 3. Any child orchestration created for section-editor?
+SELECT orchestration_id, owner_agent_type, status, current_step, error,
+       requests_topic, responses_topic, created_at
+FROM orchestration_states
+WHERE parent_orchestration_id = '1321c57c-96ac-410f-bbac-6efa2bab5b38'
+   OR correlation_id = '944ccee2-b50a-44b4-920b-e4df7c4f06b7'::uuid;
+
+-- 4. Check the section-editor's own orchestration
+SELECT orchestration_id, status, current_step, error,
+       jsonb_pretty(collected_data) as data
+FROM orchestration_states
+WHERE orchestration_id = 'b0d165b3-3bd2-4b19-8d3a-5a78cefdf54b';
+
 

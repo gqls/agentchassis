@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hierarchical Agent Framework — Use Cases & Vision</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ink: #0a0a0f;
+            --paper: #f4f1eb;
+            --paper-warm: #ede8df;
+            --accent: #c45d3e;
+            --accent-glow: #e8714f;
+            --muted: #6b6560;
+            --faint: #d4cfc7;
+            --card-bg: #faf8f4;
+            --tag-bg: #eae5dc;
+            --highlight: #fff8e7;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--paper);
+            color: var(--ink);
+            line-height: 1.7;
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- HERO --- */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 6rem 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            right: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(196,93,62,0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--faint), transparent);
+        }
+
+        .hero-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .hero-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 2rem;
+            font-weight: 500;
+        }
+
+        .hero h1 {
+            font-family: 'DM Serif Display', serif;
+            font-size: clamp(2.8rem, 6vw, 4.5rem);
+            line-height: 1.1;
+            font-weight: 400;
+            margin-bottom: 2rem;
+            color: var(--ink);
+        }
+
+        .hero h1 em {
+            font-style: italic;
+            color: var(--accent);
+        }
+
+        .hero-description {
+            font-size: 1.15rem;
+            line-height: 1.8;
+            color: var(--muted);
+            max-width: 640px;
+            margin-bottom: 3rem;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .hero-stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hero-stat-number {
+            font-family: 'DM Serif Display', serif;
+            font-size: 2.2rem;
+            color: var(--accent);
+            line-height: 1;
+        }
+
+        .hero-stat-label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-top: 0.4rem;
+            letter-spacing: 0.02em;
+        }
+
+        /* --- NAV --- */
+        .section-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(244, 241, 235, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--faint);
+            padding: 0 2rem;
+        }
+
+        .section-nav-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0.25rem;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding: 0.75rem 0;
+        }
+
+        .section-nav-inner::-webkit-scrollbar { display: none; }
+
+        .nav-pill {
+            font-size: 0.78rem;
+            padding: 0.4rem 0.9rem;
+            border-radius: 2rem;
+            white-space: nowrap;
+            text-decoration: none;
+            color: var(--muted);
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .nav-pill:hover {
+            color: var(--ink);
+            background: var(--tag-bg);
+        }
+
+        /* --- SECTION LAYOUT --- */
+        .content-wrap {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .section-block {
+            padding: 5rem 0;
+            border-bottom: 1px solid var(--faint);
+        }
+
+        .section-block:last-child {
+            border-bottom: none;
+        }
+
+        .section-header {
+            margin-bottom: 3rem;
+        }
+
+        .section-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+            display: block;
+        }
+
+        .section-header h2 {
+            font-family: 'DM Serif Display', serif;
+            font-size: clamp(1.8rem, 4vw, 2.6rem);
+            font-weight: 400;
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            font-size: 1.05rem;
+            color: var(--muted);
+            max-width: 600px;
+            line-height: 1.8;
+        }
+
+        /* --- USE CASE CARDS --- */
+        .use-case {
+            background: var(--card-bg);
+            border: 1px solid var(--faint);
+            border-radius: 12px;
+            padding: 2.5rem;
+            margin-bottom: 1.5rem;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .use-case:hover {
+            border-color: var(--accent);
+            box-shadow: 0 4px 24px rgba(196, 93, 62, 0.06);
+        }
+
+        .use-case-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            line-height: 1.3;
+        }
+
+        .use-case-body {
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.8;
+            margin-bottom: 1.25rem;
+        }
+
+        .use-case-body p {
+            margin-bottom: 0.8rem;
+        }
+
+        .use-case-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .use-case-output {
+            background: var(--highlight);
+            border-left: 3px solid var(--accent);
+            padding: 0.9rem 1.2rem;
+            font-size: 0.88rem;
+            color: var(--ink);
+            border-radius: 0 6px 6px 0;
+            margin-top: 1.25rem;
+        }
+
+        .use-case-output strong {
+            font-weight: 600;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 1.25rem;
+        }
+
+        .tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.68rem;
+            padding: 0.25rem 0.65rem;
+            background: var(--tag-bg);
+            border-radius: 1rem;
+            color: var(--muted);
+            letter-spacing: 0.02em;
+        }
+
+        /* --- ARCHITECTURE BLOCK --- */
+        .arch-block {
+            background: var(--ink);
+            color: var(--paper);
+            border-radius: 12px;
+            padding: 3rem;
+            margin: 2rem 0;
+        }
+
+        .arch-block h3 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            font-weight: 400;
+        }
+
+        .arch-block p {
+            font-size: 0.95rem;
+            line-height: 1.8;
+            opacity: 0.8;
+            margin-bottom: 1rem;
+        }
+
+        .arch-block p:last-child {
+            margin-bottom: 0;
+        }
+
+        .arch-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .arch-item {
+            border: 1px solid rgba(244, 241, 235, 0.15);
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+
+        .arch-item-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent-glow);
+            margin-bottom: 0.5rem;
+        }
+
+        .arch-item p {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin-bottom: 0;
+        }
+
+        /* --- SCALE TABLE --- */
+        .scale-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            font-size: 0.9rem;
+        }
+
+        .scale-table th {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--ink);
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .scale-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--faint);
+            color: var(--muted);
+        }
+
+        .scale-table td:first-child {
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        /* --- CTA --- */
+        .cta-section {
+            padding: 6rem 0;
+            text-align: center;
+        }
+
+        .cta-section h2 {
+            font-family: 'DM Serif Display', serif;
+            font-size: clamp(2rem, 4vw, 3rem);
+            margin-bottom: 1.5rem;
+            font-weight: 400;
+        }
+
+        .cta-section p {
+            color: var(--muted);
+            font-size: 1.05rem;
+            max-width: 520px;
+            margin: 0 auto 2.5rem;
+            line-height: 1.8;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            background: var(--accent);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: background 0.2s, transform 0.2s;
+        }
+
+        .cta-button:hover {
+            background: var(--accent-glow);
+            transform: translateY(-1px);
+        }
+
+        /* --- FOOTER --- */
+        footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            font-size: 0.8rem;
+            color: var(--muted);
+            border-top: 1px solid var(--faint);
+        }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 640px) {
+            .hero { padding: 4rem 1.5rem; }
+            .content-wrap { padding: 0 1.5rem; }
+            .use-case { padding: 1.75rem; }
+            .arch-block { padding: 2rem; }
+            .hero-stats { gap: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+    <div class="hero-inner">
+        <div class="hero-label">Hierarchical Multi-Agent Framework</div>
+        <h1>A million <em>reasoning</em> agents,<br>coordinating at scale</h1>
+        <p class="hero-description">
+            An open framework for orchestrating hierarchical swarms of AI agents that decompose problems, delegate to specialist children, aggregate results, and produce emergent insight no single agent could achieve alone.
+        </p>
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <span class="hero-stat-number">1M</span>
+                <span class="hero-stat-label">Target agent concurrency</span>
+            </div>
+            <div class="hero-stat">
+                <span class="hero-stat-number">∞</span>
+                <span class="hero-stat-label">Tree depth</span>
+            </div>
+            <div class="hero-stat">
+                <span class="hero-stat-number">&lt;$0.001</span>
+                <span class="hero-stat-label">Per agent (self-hosted LLM)</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- NAV -->
+<nav class="section-nav">
+    <div class="section-nav-inner">
+        <a href="#how-it-works" class="nav-pill">How It Works</a>
+        <a href="#economics" class="nav-pill">Economics &amp; Markets</a>
+        <a href="#environment" class="nav-pill">Environment</a>
+        <a href="#society" class="nav-pill">Society &amp; Policy</a>
+        <a href="#science" class="nav-pill">Science &amp; Research</a>
+        <a href="#engineering" class="nav-pill">Engineering</a>
+        <a href="#creative" class="nav-pill">Creative</a>
+        <a href="#practical" class="nav-pill">Practical Tools</a>
+        <a href="#scale" class="nav-pill">Scale</a>
+        <a href="#contact" class="nav-pill">Get Involved</a>
+    </div>
+</nav>
+
+<div class="content-wrap">
+
+    <!-- HOW IT WORKS -->
+    <section id="how-it-works" class="section-block">
+        <div class="section-header">
+            <span class="section-number">00 — Architecture</span>
+            <h2>Why hierarchy matters</h2>
+            <p>Every agent is an orchestrator. It receives a task, reasons about how to decompose it, spawns specialist child agents, collects their results, synthesises an answer, and reports to its own parent. The tree grows and prunes itself.</p>
+        </div>
+
+        <div class="arch-block">
+            <h3>The fractal pattern</h3>
+            <p>A root agent decomposes a problem into sub-problems. Each child agent does the same for its piece. Children report back to parents, who synthesise and report upward. Every node stores its own state, reasoning, and results independently — creating a navigable tree of insight at every level of granularity.</p>
+            <p>Agents communicate through message passing, not direct calls. A parent doesn't need to know where its children run — only that they'll respond. This decoupling is what enables scaling across clusters, data centres, and regions without changing a line of agent logic.</p>
+
+            <div class="arch-grid">
+                <div class="arch-item">
+                    <div class="arch-item-label">Orchestration</div>
+                    <p>Kubernetes clusters with Kafka message passing between agents</p>
+                </div>
+                <div class="arch-item">
+                    <div class="arch-item-label">State</div>
+                    <p>PostgreSQL with hierarchical tree paths for fast navigation at any depth</p>
+                </div>
+                <div class="arch-item">
+                    <div class="arch-item-label">Reasoning</div>
+                    <p>Self-hosted open-source LLMs on CPU and GPU — no per-token API costs</p>
+                </div>
+                <div class="arch-item">
+                    <div class="arch-item-label">Scale</div>
+                    <p>Multi-cluster dispatch across data centres with regional Kafka federation</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ECONOMICS -->
+    <section id="economics" class="section-block">
+        <div class="section-header">
+            <span class="section-number">01 — Economics &amp; Markets</span>
+            <h2>Simulating economies with reasoning agents</h2>
+            <p>Traditional economic simulations use rule-based actors. These use agents that actually reason in natural language about their self-interest, producing emergent behaviour no designer scripted.</p>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Million-Agent Market Economy</div>
+            <div class="use-case-body">
+                <p>Each agent gets a persona — a business, a consumer, a regulator — with starting capital, preferences, and constraints. Businesses set prices, consumers shop around, suppliers negotiate with middlemen. Nobody scripts the outcomes. A million LLM-powered actors make self-interested decisions and the system watches what emerges.</p>
+                <p>Does price equilibrium form? Do monopolies emerge? Do agents discover arbitrage opportunities the designers didn't anticipate? Run the same scenario with different starting conditions and compare the distributions.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Trading network visualisations, price movement timeseries, wealth distribution curves, emergent market structure maps — a dataset that economists would find genuinely novel.</div>
+            <div class="tags">
+                <span class="tag">emergent behaviour</span>
+                <span class="tag">market dynamics</span>
+                <span class="tag">agent-based economics</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Job Market &amp; Business Landscape Forecasting</div>
+            <div class="use-case-body">
+                <p>Model a city-sized economy — 300,000 business-agents across every sector, each with an industry, headcount, revenue model, and technology adoption level. Introduce shocks: "AI coding tools got 10x better," "energy costs doubled," "remote work became the legal default."</p>
+                <p>Each business-agent reasons about whether to hire, fire, restructure, or pivot. They interact as customers and suppliers — when marketing agencies shrink, freelance copywriters feel it, which affects the coffee shops near their coworking spaces. Second and third order effects emerge from the agent interactions, not from equations.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Month-by-month employment timelines, sector growth/contraction maps, job title evolution predictions, workforce retraining need forecasts. Run the same shock 100 times to get probability distributions.</div>
+            <div class="tags">
+                <span class="tag">labour markets</span>
+                <span class="tag">policy simulation</span>
+                <span class="tag">scenario planning</span>
+                <span class="tag">cascading effects</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Supply Chain Stress Testing</div>
+            <div class="use-case-body">
+                <p>Model a global supply chain as a tree. The top agent is a manufacturer. It spawns tier-1 supplier agents, each of which spawns tier-2 suppliers, down to raw materials. Each agent knows its lead times, inventory, alternative sources, and financial health.</p>
+                <p>Introduce a disruption — a factory floods, a shipping lane closes, a trade embargo hits. Watch the effects propagate up the tree as each agent reasons about its response: find alternatives, burn inventory, warn the parent, or halt production. Run the same disruption 100 times with varied agent reasoning and get a probability distribution of supply chain resilience.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Disruption propagation timelines, node-by-node decision audit trails, resilience scores per supply chain branch, identification of single points of failure.</div>
+            <div class="tags">
+                <span class="tag">supply chain</span>
+                <span class="tag">risk modelling</span>
+                <span class="tag">hierarchical propagation</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Corporate M&amp;A Due Diligence</div>
+            <div class="use-case-body">
+                <p>A root agent receives "should Company A acquire Company B?" and spawns children for each due diligence workstream: financial, legal, technical, cultural, market position, regulatory risk. Each workstream spawns specialists — the financial agent creates sub-agents for revenue quality, cost synergies, debt structure, and hidden liabilities.</p>
+                <p>Each leaf agent investigates its focused question and stores a finding with confidence and risk ratings. Findings flow up through parents who synthesise workstream-level assessments. The root produces a recommendation with explicit trade-off reasoning.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> A complete due diligence tree — navigable from high-level recommendation down to individual findings. Run for 100 hypothetical acquisitions to build a training dataset for M&amp;A decision-making.</div>
+            <div class="tags">
+                <span class="tag">due diligence</span>
+                <span class="tag">financial analysis</span>
+                <span class="tag">decision trees</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ENVIRONMENT -->
+    <section id="environment" class="section-block">
+        <div class="section-header">
+            <span class="section-number">02 — Environment &amp; Ecology</span>
+            <h2>Modelling ecological systems at continental scale</h2>
+            <p>Each agent represents a unit of land, water, or atmosphere. They reason about local conditions, communicate with neighbours about cascading effects, and produce emergent ecosystem-level behaviour from individual interactions.</p>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Data Centre Wildlife Impact Assessment</div>
+            <div class="use-case-body">
+                <p>Each agent represents a square kilometre of land, holding its current ecology (woodland, grassland, wetland, urban), biodiversity indicators, water table depth, and proximity to infrastructure. Place a data centre and the surrounding agents begin reasoning about cascading effects — heat output altering microclimate, water extraction lowering the water table, construction disrupting migration corridors, light pollution affecting nocturnal species.</p>
+                <p>Agents communicate with neighbours: "My water table dropped 2 metres, what's happening to your marsh?" The reasoning goes beyond formulas — a riverside meadow agent considers which specific effects matter most for its ground-nesting bird population. Run it for 50 proposed data centre sites and produce comparative impact assessments.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Ecological damage heatmaps propagating outward from each site over simulated years, biodiversity impact rankings, water table modelling, mitigation strategy comparisons.</div>
+            <div class="tags">
+                <span class="tag">ecology</span>
+                <span class="tag">environmental impact</span>
+                <span class="tag">spatial modelling</span>
+                <span class="tag">infrastructure planning</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Desert Regreening Simulation</div>
+            <div class="use-case-body">
+                <p>Each agent is a hectare of desert or semi-arid land, holding soil composition, rainfall, elevation, wind patterns, and distance from existing vegetation. Simulate interventions — tree planting, water harvesting structures, managed grazing — and let agents reason about local effects and communicate cascading changes to neighbours.</p>
+                <p>"My trees are 3 metres tall and providing windbreak — what's your evaporation rate doing?" Agents capture non-obvious interactions: "my goat-herding neighbour's overgrazing is undoing my reforestation because their runoff erodes my terraces." Model the entire Sahel at 5 hectares per agent. Compare intervention strategies at continental scale.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Time-lapse greening maps under different intervention strategies, feedback loop identification, cost-per-hectare efficiency rankings, tipping point predictions for self-sustaining vegetation.</div>
+            <div class="tags">
+                <span class="tag">climate</span>
+                <span class="tag">reforestation</span>
+                <span class="tag">feedback loops</span>
+                <span class="tag">Sahel</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Ecosystem Succession Modelling</div>
+            <div class="use-case-body">
+                <p>A forest burns. The root agent represents the burned area and spawns agents for ecological succession stages: pioneer species, early succession, mid succession, climax community. These are sequential — each stage's output becomes the next stage's input.</p>
+                <p>The pioneer agent spawns children for specific species (fireweed, mosses, fungi), each reasoning about whether conditions suit them, competing with siblings for resources. When the pioneer stage completes, its aggregated result feeds into the early succession parent, which spawns its own species agents. Introduce disturbances at any point and watch how the current generation adapts.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Complete succession pathways with every species' trajectory preserved, disturbance response analysis, comparative timelines under different management strategies.</div>
+            <div class="tags">
+                <span class="tag">ecology</span>
+                <span class="tag">succession</span>
+                <span class="tag">temporal hierarchy</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- SOCIETY & POLICY -->
+    <section id="society" class="section-block">
+        <div class="section-header">
+            <span class="section-number">03 — Society &amp; Policy</span>
+            <h2>Simulating human decision-making at population scale</h2>
+            <p>Rule-based models capture mechanics. LLM agents capture the messiness of human reasoning — the single parent who can't afford to isolate, the swing voter reconsidering after a conversation with a neighbour.</p>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Pandemic Response Simulation</div>
+            <div class="use-case-body">
+                <p>Each agent is a person with a location, social connections, health profile, and behavioural tendencies — compliance level, information sources, trust in institutions. Release a pathogen and let agents decide how to respond. Do they mask, isolate, seek treatment, spread misinformation, panic-buy?</p>
+                <p>Agents reason about individual circumstances: "I'm a single parent with no sick pay, I can't afford to isolate even though I know I should." Policy interventions (lockdowns, vaccine rollouts, communication campaigns) affect different agents differently based on their reasoning. The epidemic curve emerges from a million individual decisions, not from an equation.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Epidemic curves emerging from individual behaviour, policy intervention comparisons, compliance heat maps by demographic, identification of superspreader reasoning patterns.</div>
+            <div class="tags">
+                <span class="tag">epidemiology</span>
+                <span class="tag">behavioural modelling</span>
+                <span class="tag">policy testing</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Legislation Impact Analysis</div>
+            <div class="use-case-body">
+                <p>Start with a proposed law — "ban on single-use plastics." A top-level agent spawns industry-sector children: food packaging, retail, hospitality, medical, logistics. Each sector agent spawns children for sub-impacts: cost of alternatives, supply chain disruption, consumer behaviour change, small vs large business effects.</p>
+                <p>Children spawn further as needed — a supply chain agent might create sub-agents for specific replacement materials (paper, bioplastic, glass, aluminium) to research availability and pricing. Cross-branch communication catches interactions: "inflationary effects partially offset poverty reduction." Every node stores independently, creating a navigable impact assessment tree.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Multi-level impact assessments for any proposed legislation, cross-sector dependency maps, unintended consequence identification, comparative analysis across 50+ policy proposals.</div>
+            <div class="tags">
+                <span class="tag">policy analysis</span>
+                <span class="tag">cross-sector</span>
+                <span class="tag">legislation</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Election Simulation</div>
+            <div class="use-case-body">
+                <p>One million voter-agents, each with a demographic profile, political leanings, media consumption habits, and social connections. Campaign events, debates, scandals, and economic data flow through the network. Each agent reasons about how news affects their vote intention and influences neighbours through simulated conversation.</p>
+                <p>Run 100 times with slightly different random seeds and produce probability distributions of outcomes. The hierarchical structure groups voters by constituency, region, and demographic — each level stores aggregated voting patterns that emerge from the individual reasoning below.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Probability distributions of election outcomes, swing voter identification, message effectiveness analysis, social influence propagation maps.</div>
+            <div class="tags">
+                <span class="tag">political science</span>
+                <span class="tag">social networks</span>
+                <span class="tag">Monte Carlo</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Climate Migration Modelling</div>
+            <div class="use-case-body">
+                <p>Root agent represents a continent, spawning country agents, then regional, city, and neighbourhood agents. Each level knows its climate projections, economic conditions, and social factors. As climate changes progress, leaf agents reason about liveability and "decide" whether their population stays or moves.</p>
+                <p>Effects cascade both ways — when a city agent reports significant inward migration, it pushes updated conditions back down to its children: housing pressure, job competition, infrastructure strain. Neighbourhood agents then reason about those second-order effects. The output is a century-long migration map with explanations at every level of the hierarchy.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Multi-decade migration flow maps, tipping point identification per region, infrastructure strain predictions, policy intervention comparisons.</div>
+            <div class="tags">
+                <span class="tag">climate</span>
+                <span class="tag">migration</span>
+                <span class="tag">urban planning</span>
+                <span class="tag">cascading effects</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Food &amp; Diet Futures</div>
+            <div class="use-case-body">
+                <p>Each agent has a demographic profile: age, location, income, current diet, health conditions. Fed real trend data — plant-based adoption rates, ultra-processed food consumption, food price indices — they make food choices month by month, influenced by neighbours (social effects), prices, and health events ("my agent just developed type 2 diabetes").</p>
+                <p>At a million agents, model an entire city's adult population. Compare interventions: "subsidise fruit and veg by 20%" versus "ban advertising of ultra-processed food to under-16s." The hierarchical structure groups agents by neighbourhood, borough, and city — each level aggregates the dietary patterns emerging below.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Predicted dietary shift maps over 10 years, health outcome forecasts, food desert analysis, intervention effectiveness rankings.</div>
+            <div class="tags">
+                <span class="tag">public health</span>
+                <span class="tag">nutrition</span>
+                <span class="tag">social influence</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">City Evolution Simulation</div>
+            <div class="use-case-body">
+                <p>Each agent is a city block, knowing its current land use, property values, transport links, and neighbours. Introduce a change — a new train station, a factory closing, a flood — and let agents reason about how their block evolves over 20 simulated years.</p>
+                <p>"The new station increased my property values, pushing out small businesses in favour of chains, making the area less distinctive, which..." Agents negotiate shared resources with neighbours. The hierarchical grouping into streets, neighbourhoods, boroughs, and city gives planners insight at every administrative level.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Predicted urban evolution maps, gentrification trajectory analysis, transport impact modelling, community impact assessments at every administrative level.</div>
+            <div class="tags">
+                <span class="tag">urban planning</span>
+                <span class="tag">property</span>
+                <span class="tag">transport</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- SCIENCE & RESEARCH -->
+    <section id="science" class="section-block">
+        <div class="section-header">
+            <span class="section-number">04 — Science &amp; Research</span>
+            <h2>Distributed reasoning over knowledge</h2>
+            <p>The hierarchical structure mirrors how knowledge itself is organised — fields decompose into sub-fields, which decompose into specific questions. Agents at every level synthesise the work below them.</p>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Scientific Literature Mapping</div>
+            <div class="use-case-body">
+                <p>Give the root agent a research question: "what are the current approaches to treating antibiotic resistance?" It spawns children for major approaches — phage therapy, new antibiotic development, combination therapies, prevention strategies. Each child researches its area and spawns further children for specific sub-topics.</p>
+                <p>The depth of investigation is adaptive — rich areas spawn more children, thin areas stay as leaves. Results flow up with each parent synthesising the landscape below. Scale to a million agents and map an entire scientific field into a queryable knowledge hierarchy.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Navigable literature review trees, research gap identification, cross-disciplinary connection mapping, trend analysis across sub-fields.</div>
+            <div class="tags">
+                <span class="tag">literature review</span>
+                <span class="tag">knowledge mapping</span>
+                <span class="tag">adaptive depth</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Collaborative Knowledge Graph Construction</div>
+            <div class="use-case-body">
+                <p>Give each agent a single encyclopaedia article (there are over 6 million in English alone). Each agent extracts key claims and then messages neighbouring agents — articles that link to each other — to cross-reference and fact-check. "You say the population is 15 million, but my article says 21 million — which of us is outdated?"</p>
+                <p>Agents negotiate disagreements and produce a cleaned, cross-referenced knowledge graph. The hierarchical structure groups articles by topic, domain, and discipline, with parent agents identifying systemic inconsistencies.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> A million-node knowledge graph with annotated edges showing contradictions, a publishable dataset of factual inconsistencies across a major reference work.</div>
+            <div class="tags">
+                <span class="tag">knowledge graphs</span>
+                <span class="tag">fact checking</span>
+                <span class="tag">cross-referencing</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Emergent Language Research</div>
+            <div class="use-case-body">
+                <p>Start a million agents with no shared language. Each can message a small number of neighbours. Give them a coordination task — agree on labels for 100 objects — but with no starting vocabulary. They communicate by sending short strings and observing responses.</p>
+                <p>Over thousands of rounds, do they converge on a shared vocabulary? How many distinct languages form? Do dialects emerge at network boundaries? This is a genuine research question in computational linguistics, done with small neural agents in labs but never at this scale with LLM-powered reasoning.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Language convergence timelines, dialect boundary maps, vocabulary evolution traces, comparison with real-world language family branching patterns.</div>
+            <div class="tags">
+                <span class="tag">linguistics</span>
+                <span class="tag">emergent communication</span>
+                <span class="tag">network effects</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Historical Counterfactual Simulation</div>
+            <div class="use-case-body">
+                <p>Pick a pivotal moment — June 1914. Spawn agents for each major power, and within each, spawn faction agents: military establishment, industrial lobby, diplomatic corps, head of state. Each faction reasons about its interests given the current situation and reports recommendations to the nation-parent, which synthesises a national response.</p>
+                <p>Then change one variable: the assassination doesn't happen. The same factions with the same interests reason about a different situation. Run 1,000 variations with different faction personalities and get a probability distribution: "war was X% likely even without the trigger." The stored state at every node lets historians examine each faction's reasoning at each moment.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Counterfactual probability distributions, faction-level decision audit trails, causal pathway analysis, comparative historiographic datasets.</div>
+            <div class="tags">
+                <span class="tag">historiography</span>
+                <span class="tag">counterfactual</span>
+                <span class="tag">Monte Carlo</span>
+                <span class="tag">decision analysis</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Swarm Problem Solving</div>
+            <div class="use-case-body">
+                <p>Pick an optimisation problem. Give each agent a slightly different starting approach. They try their method, share partial results with neighbours, and adapt. A hierarchical structure groups agents into "research teams" with team-lead agents that synthesise the most promising directions and redirect their children.</p>
+                <p>Essentially ant colony optimisation with reasoning instead of pheromone trails. Even if individual agents aren't strong mathematicians, a million agents exploring a million paths and communicating promising leads may converge on heuristics no individual would find. The evolutionary structure means winning strategies reproduce and losing ones are pruned.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Solution quality over time, emergent search strategy visualisations, comparison of hierarchical vs flat swarm approaches, heuristic discovery traces.</div>
+            <div class="tags">
+                <span class="tag">optimisation</span>
+                <span class="tag">swarm intelligence</span>
+                <span class="tag">evolutionary search</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Argument Decomposition &amp; Analysis</div>
+            <div class="use-case-body">
+                <p>Give the root agent a controversial claim: "universal basic income would reduce crime." It spawns children for each major line of reasoning — economic, psychological, sociological, empirical evidence, counterarguments. Each child decomposes further. Leaf agents research specific sub-arguments.</p>
+                <p>Agents in different branches communicate when they find cross-cutting dependencies: "if UBI causes inflation, the poverty reduction is partially offset." The stored result at each node is a self-contained argument with explicit dependencies on other nodes — producing an argument map, not just a pro/con list.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Directed argument graphs with hierarchical decomposition and cross-branch dependency links. Usable in policy analysis, education, and critical thinking curricula.</div>
+            <div class="tags">
+                <span class="tag">argumentation</span>
+                <span class="tag">critical thinking</span>
+                <span class="tag">cross-branch reasoning</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ENGINEERING -->
+    <section id="engineering" class="section-block">
+        <div class="section-header">
+            <span class="section-number">05 — Engineering &amp; Infrastructure</span>
+            <h2>Agents that understand systems</h2>
+            <p>The hierarchical model mirrors how real systems are built — components within subsystems within systems. Agents at each level reason about their scope and report patterns upward.</p>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Distributed Codebase Audit</div>
+            <div class="use-case-body">
+                <p>Point the swarm at a large open-source codebase — the Linux kernel has about 30 million lines. Each agent gets a file or function and analyses it for bugs, security issues, style problems, and dead code. Then it messages agents responsible for related files to check cross-file dependencies.</p>
+                <p>"Your function calls mine with a null pointer that I never validate — one of us has a bug." A coordinator agent assigns subsystems and aggregates findings. Even if individual findings are modest, the coverage and cross-referencing is something no human team could replicate at this scale.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Structured codebase audit with findings at every level — individual function, file, module, subsystem — with cross-reference links between related issues.</div>
+            <div class="tags">
+                <span class="tag">code review</span>
+                <span class="tag">security audit</span>
+                <span class="tag">cross-reference</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Hierarchical Infrastructure Monitoring</div>
+            <div class="use-case-body">
+                <p>A root agent monitors overall system health. It spawns children for each subsystem: message broker health, database health, scheduler performance, inference latency, deployment pipeline. Each spawns children for specific components — individual broker nodes, connection pool metrics, slow queries, replication lag.</p>
+                <p>The hierarchy adds causal reasoning. A leaf agent reports "this pod restarted 3 times, OOMKilled." Its parent checks node memory pressure. A sibling notices growing message queue lag. A coordinator synthesises: "the connection pool is leaking, causing pods to buffer messages in memory, triggering OOM kills, causing consumer lag — a feedback loop." That causal chain reasoning across signals is what dashboards can't do.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Causal diagnostic trees, not just alerts. Navigable from high-level system health down to individual metric anomalies with full reasoning chains explaining how they connect.</div>
+            <div class="tags">
+                <span class="tag">monitoring</span>
+                <span class="tag">causal reasoning</span>
+                <span class="tag">DevOps</span>
+                <span class="tag">observability</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Adversarial Red Team / Blue Team</div>
+            <div class="use-case-body">
+                <p>Half the agents defend a system — a simulated network, a set of policies, a logical argument. The other half attack. Attackers spawn sub-agents to probe different angles. Defenders spawn sub-agents to patch vulnerabilities. Both sides reason, adapt, and escalate.</p>
+                <p>The interesting output isn't who wins — it's the strategies that emerge. What attack patterns do the agents invent? What defensive formations do they converge on? The tree structure lets you trace the evolution of strategy through the parent-child reasoning chain.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Emergent attack/defence strategy catalogues, vulnerability discovery timelines, escalation pattern analysis, security posture recommendations.</div>
+            <div class="tags">
+                <span class="tag">security</span>
+                <span class="tag">adversarial</span>
+                <span class="tag">strategy emergence</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Simulating the Internet Ecosystem</div>
+            <div class="use-case-body">
+                <p>Each agent is a website or online business. They compete for traffic, produce content, react to algorithm changes, copy successful competitors, form partnerships, and try to monetise. Introduce events: "the search engine changes its ranking algorithm to favour AI-generated content" or "strict new privacy laws take effect."</p>
+                <p>Watch how the ecosystem reshapes. Some agents thrive, some die, some pivot. The hierarchical structure groups sites by sector, business model, and region. Deeply meta: using an AI agent swarm to simulate how AI affects the web.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Web ecosystem evolution maps, platform dependency analysis, content strategy emergence patterns, regulatory impact modelling.</div>
+            <div class="tags">
+                <span class="tag">internet economics</span>
+                <span class="tag">platform dynamics</span>
+                <span class="tag">meta-simulation</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- CREATIVE -->
+    <section id="creative" class="section-block">
+        <div class="section-header">
+            <span class="section-number">06 — Creative &amp; Generative</span>
+            <h2>Hierarchical creativity</h2>
+            <p>The fractal decomposition pattern maps naturally onto creative structures — symphonies decompose into movements, cities into neighbourhoods, novels into interlocking stories.</p>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Fractal Musical Composition</div>
+            <div class="use-case-body">
+                <p>Root agent: "compose a symphony." It decides on overall structure and spawns a child per movement. Movement agents decide internal structure and spawn section agents. Sections spawn phrase agents that write actual note sequences. Results flow back up — sections check that phrases cohere, movements check that sections flow, the root checks that movements form a satisfying whole.</p>
+                <p>Parents can reject and request revision: "your phrase is in the wrong key" or "this movement is too similar in mood to the previous." Every node stores its output — listen at any level of granularity. The revision history shows how the composition evolved through hierarchical negotiation.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Complete compositions with full revision history, navigable at every structural level from individual phrases to complete works.</div>
+            <div class="tags">
+                <span class="tag">music</span>
+                <span class="tag">generative</span>
+                <span class="tag">hierarchical revision</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Distributed Interconnected Fiction</div>
+            <div class="use-case-body">
+                <p>A million agents, each writing a 200-word vignette about a character in a fictional city. Each agent knows about its three closest neighbours, and their stories must be consistent. If agent A writes that there was a fire on Main Street, agents B and C incorporate that into their narratives.</p>
+                <p>The agents negotiate plot points through messages. The output is a million interlocking stories forming a coherent tapestry of a fictional world, renderable as a navigable map — click any block and read that character's story, with links to neighbours.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> A navigable fictional world of a million interconnected micro-stories, explorable as a map with linked narratives.</div>
+            <div class="tags">
+                <span class="tag">fiction</span>
+                <span class="tag">collaborative narrative</span>
+                <span class="tag">emergent worldbuilding</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Evolutionary Idea Generation</div>
+            <div class="use-case-body">
+                <p>A root agent poses a problem. It spawns 10 children, each proposing a different solution. The root evaluates, picks the 3 best, and tells each winner to reproduce — spawning 3-4 children that are reasoned variations on the parent's approach. Mutations aren't random; they're considered: "what if I kept the core idea but applied it to a different market?"</p>
+                <p>After 20 generations, trace the lineage of the best solution back through its ancestors. The tree is literally an evolutionary tree, and every node stores its proposal independently. At scale, a massive solution space explored with reasoning, not randomness.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Evolutionary trees of ideas with full lineage, fitness tracking per generation, strategy emergence analysis.</div>
+            <div class="tags">
+                <span class="tag">evolutionary</span>
+                <span class="tag">ideation</span>
+                <span class="tag">genetic algorithms</span>
+                <span class="tag">innovation</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRACTICAL -->
+    <section id="practical" class="section-block">
+        <div class="section-header">
+            <span class="section-number">07 — Practical Applications</span>
+            <h2>Tools that deliver value today</h2>
+            <p>Not every use case needs a million agents. The same hierarchical framework powers focused tools that decompose real business problems into specialist sub-agents.</p>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Autonomous Website Generation</div>
+            <div class="use-case-body">
+                <p>The framework's original application. Given a domain name and business brief, a hierarchy of agents researches the industry, plans site architecture, generates content for each section, selects design components, and deploys to production — all through hierarchical coordination.</p>
+                <p>Each page spawns its own content agents, which may spawn research sub-agents to investigate the industry before writing. The parent page agent synthesises content for consistency. The root site agent ensures cross-page coherence. Every agent stores its work independently — the research, the drafts, the revisions, the final output.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Production-ready multi-page websites deployed to CDN, with a complete audit trail of every research finding, content decision, and design choice.</div>
+            <div class="tags">
+                <span class="tag">web development</span>
+                <span class="tag">content generation</span>
+                <span class="tag">deployment automation</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Recursive Market Research</div>
+            <div class="use-case-body">
+                <p>A top-level agent receives "analyse the UK restaurant industry." It decomposes: fast food, fine dining, casual, delivery-only. Each sub-sector agent decomposes further: burger chains, chicken, pizza, coffee. Leaf agents do actual research — web scraping, data gathering — and write focused micro-reports.</p>
+                <p>Results flow back up. The key advantage: every intermediate node stores its own synthesis. You don't just get a final report — you get a navigable tree of reports at every level. Read the executive summary or drill into "UK pizza delivery in the Midlands."</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Multi-level market research reports navigable from executive summary to granular sub-sector analysis, with the decomposition itself driven by agent reasoning, not pre-scripted.</div>
+            <div class="tags">
+                <span class="tag">market research</span>
+                <span class="tag">adaptive decomposition</span>
+                <span class="tag">drill-down reporting</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Organisational Simulation</div>
+            <div class="use-case-body">
+                <p>Model a company hierarchy — CEO spawns VP agents, VPs spawn directors, directors spawn team leads, team leads spawn individual contributors. The CEO sets "reduce costs by 15%." Each layer interprets, adapts, and passes targets down. Leaf agents reason about real impact: "my team lead wants fewer resources but my service needs to handle peak traffic."</p>
+                <p>Watch how information distorts flowing down (the telephone game of corporate communication) and how problems get filtered flowing back up (middle management hiding bad news). Run with different organisational structures and compare directive propagation effectiveness.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Communication fidelity analysis, bottleneck identification, organisational structure effectiveness comparisons, information distortion heatmaps.</div>
+            <div class="tags">
+                <span class="tag">management</span>
+                <span class="tag">communication</span>
+                <span class="tag">org design</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Disaster Response Coordination</div>
+            <div class="use-case-body">
+                <p>An earthquake hits. The root agent is the national emergency coordinator, spawning regional commanders, local response teams, and individual units (search and rescue, medical, logistics, shelter). Information flows up from leaves — "building collapsed, estimated 30 trapped, need heavy equipment."</p>
+                <p>Each level makes autonomous decisions with its own stored state — a local commander doesn't wait for national approval to deploy available units. The hierarchy mirrors actual Incident Command System structures. Run with centralised vs decentralised decision-making and compare response effectiveness.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Response effectiveness comparisons across command structures, complete after-action review trees, resource allocation optimisation analysis.</div>
+            <div class="tags">
+                <span class="tag">emergency response</span>
+                <span class="tag">command structure</span>
+                <span class="tag">ICS</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Legal Case Analysis</div>
+            <div class="use-case-body">
+                <p>A root agent receives a complex case with multiple legal questions. It spawns children for each issue: jurisdiction, evidence admissibility, statute interpretation, precedent application. Each issue agent spawns competing interpretation agents — prosecution's reading, defence's reading, plain meaning. Each builds its argument by spawning children that research specific precedents.</p>
+                <p>Results flow up: interpretations are weighed, legal issues are synthesised, and a reasoned analysis is produced. The stored tree shows exactly which precedents and arguments influenced each conclusion. Run for 1,000 cases and build a dataset for studying reasoning patterns.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Structured legal analysis trees with full reasoning provenance, precedent mapping, competing interpretation comparison.</div>
+            <div class="tags">
+                <span class="tag">legal analysis</span>
+                <span class="tag">competing interpretations</span>
+                <span class="tag">precedent research</span>
+            </div>
+        </div>
+
+        <div class="use-case">
+            <div class="use-case-title">Peer Review Simulation</div>
+            <div class="use-case-body">
+                <p>Give 1,000 root agents each a research paper. Each is a journal editor that spawns 3-5 reviewer agents with different expertise profiles and biases. Reviewers write independent reviews. The editor synthesises a decision. An author-agent responds, challenging criticisms and offering revisions. The editor mediates over multiple rounds.</p>
+                <p>Analyse outcomes: which reviewer types lead to better decisions? How often do hostile reviewers kill good papers? How often do generous reviewers let bad ones through? The hierarchy mirrors actual peer review structure, with every review and decision stored independently for audit.</p>
+            </div>
+            <div class="use-case-output"><strong>Output:</strong> Peer review process analysis, reviewer bias impact studies, editorial decision quality metrics, science-of-science research datasets.</div>
+            <div class="tags">
+                <span class="tag">peer review</span>
+                <span class="tag">science of science</span>
+                <span class="tag">bias analysis</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- SCALE -->
+    <section id="scale" class="section-block">
+        <div class="section-header">
+            <span class="section-number">08 — Scaling</span>
+            <h2>From 10 agents to 1,000,000</h2>
+            <p>The architecture scales through progressive infrastructure changes, not application rewrites. Agent logic stays the same at every scale.</p>
+        </div>
+
+        <table class="scale-table">
+            <thead>
+            <tr>
+                <th>Scale</th>
+                <th>Primary Constraint</th>
+                <th>Architecture</th>
+                <th>Infrastructure</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>10K agents</td>
+                <td>Topic creation churn</td>
+                <td>Current single-cluster architecture works</td>
+                <td>3–5 nodes, single Kafka cluster</td>
+            </tr>
+            <tr>
+                <td>100K agents</td>
+                <td>K8s Job scheduling, Kafka topics</td>
+                <td>Shared topic pools, multi-cluster dispatch</td>
+                <td>5–10 clusters, 8–10 Kafka brokers</td>
+            </tr>
+            <tr>
+                <td>1M agents</td>
+                <td>Per-agent overhead, LLM throughput</td>
+                <td>Worker pools, regional Kafka, distributed DB</td>
+                <td>50–100 clusters, GPU inference nodes, federated Kafka</td>
+            </tr>
+            </tbody>
+        </table>
+
+        <div class="arch-block" style="margin-top: 2rem;">
+            <h3>Self-hosted inference</h3>
+            <p>At scale, per-token API costs dominate. The framework is designed to run against self-hosted open-source LLMs (Mistral 7B, Llama 3 8B, Qwen 2.5) served via vLLM or llama.cpp on commodity hardware. A single GPU serving a 7B model with continuous batching handles 1,000–2,000 requests per minute — enough to sustain tens of thousands of concurrent agents.</p>
+            <p>For a million-agent run over 48 hours, the estimated infrastructure cost is $1,000–3,000 using a hybrid GPU inference cluster with CPU worker nodes — a fraction of what the same run would cost through API pricing.</p>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section id="contact" class="cta-section section-block">
+        <h2>What would you simulate?</h2>
+        <p>The framework is built. The architecture scales. The use cases above are starting points — the real value comes from applying hierarchical agent reasoning to problems that matter to you.</p>
+        <p style="color: var(--muted); font-size: 0.95rem; max-width: 520px; margin: 0 auto 2.5rem;">Whether you're modelling markets, ecosystems, organisations, or something we haven't imagined yet — if your problem decomposes hierarchically and benefits from emergent reasoning, this framework can run it.</p>
+        <a href="mailto:contact@example.com" class="cta-button">Start a conversation</a>
+    </section>
+
+</div>
+
+<footer>
+    <p>Hierarchical Multi-Agent Framework — Built with Kubernetes, Kafka, PostgreSQL, and open-source LLMs</p>
+</footer>
+
+</body>
+</html>

@@ -18,6 +18,7 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -233,10 +234,23 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			}
 		}
 
+		// Marshal content_data to JSON if present
+		var contentDataJSON interface{} // nil = SQL NULL
+		if section.ContentData != nil && len(section.ContentData) > 0 {
+			if jsonBytes, err := json.Marshal(section.ContentData); err == nil {
+				contentDataJSON = string(jsonBytes)
+			} else {
+				params.Logger.Warn("SavePageSectionsAction: Failed to marshal content_data",
+					zap.Int("position", i+1),
+					zap.Error(err),
+				)
+			}
+		}
+
 		_, err := params.DB.ExecContext(ctx, `
-			INSERT INTO page_components (page_id, position, rendered_html, slot_name, component_id, build_status)
-			VALUES ($1, $2, $3, $4, $5, 'deployed')
-		`, pageID, i+1, section.HTML, section.ComponentName, componentIDPtr)
+			INSERT INTO page_components (page_id, position, rendered_html, slot_name, component_id, content_data, build_status)
+			VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'deployed')
+		`, pageID, i+1, section.HTML, section.ComponentName, componentIDPtr, contentDataJSON)
 
 		if err != nil {
 			params.Logger.Warn("SavePageSectionsAction: Failed to insert section",
@@ -271,6 +285,7 @@ type SectionData struct {
 	ComponentID   string
 	HTML          string
 	Position      int
+	ContentData   map[string]interface{} // structured content for re-rendering (source of truth)
 }
 
 // extractSectionsFromMetadata builds SectionData from the structured array
@@ -315,11 +330,18 @@ func extractSectionsFromMetadata(metaData interface{}, logger *zap.Logger) []Sec
 			componentID = fmt.Sprintf("%v", id)
 		}
 
+		// Extract content_data if present (from RenderComponentAction via CompilePageSectionsAction)
+		var contentData map[string]interface{}
+		if cd, ok := m["content_data"].(map[string]interface{}); ok {
+			contentData = cd
+		}
+
 		sections = append(sections, SectionData{
 			ComponentName: componentName,
 			ComponentID:   componentID,
 			HTML:          strings.TrimSpace(html),
 			Position:      i + 1,
+			ContentData:   contentData,
 		})
 	}
 
@@ -374,9 +396,6 @@ func saveSectionsExtractFromHTML(html string, logger *zap.Logger) []SectionData 
 			componentName = componentMatch[1]
 		}
 
-		// Enforce naming contract: slot_name must be kebab-case
-		componentName = NormalizeComponentFunction(componentName)
-
 		sections = append(sections, SectionData{
 			ComponentName: componentName,
 			HTML:          strings.TrimSpace(fullHTML),
@@ -407,11 +426,6 @@ func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []
 		}
 
 		slotName := sections[i].ComponentName
-
-		// Enforce naming contract: normalize before DB lookup
-		slotName = NormalizeComponentFunction(slotName)
-		sections[i].ComponentName = slotName
-
 		var componentID string
 
 		// Try exact match first

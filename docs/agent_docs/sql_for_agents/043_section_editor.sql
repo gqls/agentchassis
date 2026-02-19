@@ -53,6 +53,7 @@
 -- }
 -- =============================================================================
 
+
 INSERT INTO agent_definitions (
     type,
     display_name,
@@ -190,7 +191,7 @@ INSERT INTO agent_definitions (
              1,      -- version
              'specialist',
              'experimental',
-             ARRAY['maintenance', 'editing', 'granular'],
+             '["maintenance", "editing", "granular"]'::jsonb,
              '{}',   -- briefing_questionnaire
              0,
              false,
@@ -210,6 +211,19 @@ INSERT INTO agent_definitions (
                                  )
              )
          );
+
+-- the mapping is now (note ? is optional):
+{
+  "domain": "input_data.domain",           // required — always present
+  "edit_type": "input_data.edit_type",     // required — always present
+  "page_name?": "input_data.page_name",    // optional — may target by ID instead
+  "slot_name?": "input_data.slot_name",    // optional
+  "field_updates?": "input_data.field_updates",           // only for content_edit merge
+  "content_data?": "input_data.content_data",             // only for content_edit replace
+  "new_component_function?": "input_data.new_component_function",  // only for component_swap
+  "page_component_id?": "input_data.page_component_id"   // alternative targeting
+}
+
 
 -- =============================================================================
 -- TRIGGER SCRIPTS (for manual testing)
@@ -271,3 +285,49 @@ INSERT INTO agent_definitions (
 --   }
 -- }
 -- EOF
+
+
+                                                       ---
+
+
+-- Fix section-editor agent definition: rename content_data → replacement_content_data
+--
+-- Root cause: ExtractActionInputs has a backward-compat nested lookup that checks
+-- site_record.<field_name> for every optional field. The field name "content_data"
+-- collides with site_record.content_data (the site plan from ensure_site_record).
+-- When the apply_edit step listed "content_data" in input_fields, the nested lookup
+-- found the site plan and used it as a full content replacement — overwriting the
+-- hero's content_data with the site plan instead of merging field_updates.
+--
+-- Fix: rename to "replacement_content_data" — no site_record.replacement_content_data exists.
+-- The trigger script's input_mapping already translates:
+--   "replacement_content_data?": "input_data.content_data"
+-- so external callers still use the intuitive "content_data" field name.
+
+-- Update the workflow: apply_edit step input_fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,apply_edit,config,input_fields}',
+        '["edit_type", "field_updates", "replacement_content_data", "new_component_function", "page_component_id"]'::jsonb
+                     ),
+-- Update the input_contract: rename content_data to replacement_content_data in optional list
+    input_contract = jsonb_set(
+            input_contract,
+            '{optional}',
+            '["site_id", "page_component_id", "page_name", "slot_name", "field_updates", "replacement_content_data", "new_component_function"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'section-editor' AND is_active = true;
+
+-- Verify
+SELECT
+    default_config->'workflow'->'steps'->'apply_edit'->'config'->'input_fields' as apply_edit_input_fields,
+    input_contract->'optional' as optional_contract
+FROM agent_definitions
+WHERE type = 'section-editor' AND is_active = true;
+
+-- Also clear the contaminated hero content_data
+UPDATE page_components
+SET content_data = NULL
+WHERE id = 'a41df8a0-7607-48a8-8462-722fb2d1c1b2';

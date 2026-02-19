@@ -1336,11 +1336,14 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		contentField = cf
 	}
 
+	var sectionContentData map[string]interface{}
+
 	if contentField != "" {
 		// Try to extract content with fallback paths
 		// LLM responses sometimes have .result wrapper, sometimes not
 		contentData := extractContentWithFallbacks(params.CollectedData, contentField, params.Logger)
 		if contentData != nil {
+			sectionContentData = contentData // ← capture before merge
 			params.Logger.Info("RenderComponentAction: Merging content data",
 				zap.String("content_field", contentField),
 				zap.Int("field_count", len(contentData)),
@@ -1365,12 +1368,16 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		zap.Int("output_length", len(rendered)),
 	)
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"rendered_html":      rendered,
 		"component_id":       comp.ID,
 		"component_name":     comp.Name,
 		"component_function": comp.Function,
-	}, nil
+	}
+	if sectionContentData != nil {
+		result["content_data"] = sectionContentData
+	}
+	return result, nil
 }
 
 // ============================================================================
@@ -1458,6 +1465,9 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 					if fn, ok := m["component_function"].(string); ok {
 						meta["component_function"] = fn
 					}
+					if cd, ok := m["content_data"]; ok && cd != nil {
+						meta["content_data"] = cd
+					}
 					sectionsMetadata = append(sectionsMetadata, meta)
 				}
 			}
@@ -1487,6 +1497,9 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 						if fn, ok := m["component_function"].(string); ok {
 							meta["component_function"] = fn
 						}
+						if cd, ok := m["content_data"]; ok && cd != nil {
+							meta["content_data"] = cd
+						}
 						sectionsMetadata = append(sectionsMetadata, meta)
 					}
 				}
@@ -1515,6 +1528,9 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 							}
 							if fn, ok := m["component_function"].(string); ok {
 								meta["component_function"] = fn
+							}
+							if cd, ok := m["content_data"]; ok && cd != nil {
+								meta["content_data"] = cd
 							}
 							sectionsMetadata = append(sectionsMetadata, meta)
 						}
