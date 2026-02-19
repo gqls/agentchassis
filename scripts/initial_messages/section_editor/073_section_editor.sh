@@ -11,9 +11,14 @@
 #   ./trigger_section_editor.sh replace        # full content_data replace
 #   ./trigger_section_editor.sh swap           # component swap
 # =============================================================================
+EDIT_MODE="${1:-content_edit}"
+
+
+
 
 DOMAIN="leopardessconsulting.co.uk"
-EDIT_MODE="${1:-content_edit}"
+#EDIT_MODE="content_edit"
+EDIT_MODE="replace"
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
