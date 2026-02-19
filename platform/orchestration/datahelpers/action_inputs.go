@@ -82,6 +82,11 @@ func (ai *ActionInputs) Has(key string) bool {
 	return ok && v != nil
 }
 
+// GetRaw retrieves the raw interface{} value, returns nil if not found
+func (ai *ActionInputs) GetRaw(key string) interface{} {
+	return ai.Values[key]
+}
+
 // ExtractActionInputs extracts inputs according to spec
 // Priority order:
 //  1. input_fields from config (preferred pattern)

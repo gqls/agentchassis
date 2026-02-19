@@ -644,6 +644,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Validate HTML structure and correctness",
 		IsLocal:     true,
 	},
+	"load_edit_context": {
+		Handler:     LoadEditContextAction,
+		Category:    "site",
+		Description: "Load context for editing a page section",
+		IsLocal:     true,
+	},
+	"apply_section_edit": {
+		Handler:     ApplySectionEditAction,
+		Category:    "site",
+		Description: "Apply an edit to a page section and reassemble page",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// HITL — human-in-the-loop approval and input
