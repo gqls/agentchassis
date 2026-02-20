@@ -6712,3 +6712,647 @@ SELECT name, function, category FROM content_components
 WHERE category = 'use-cases' ORDER BY function;
 
 
+-- light and dark css components - styles.css has base default styles, inline can override
+    -- also updated contract with hyphens not underscores
+
+-- ============================================================================
+-- 014 SECTION CONTEXT VARIABLE MIGRATION
+--
+-- Follows 042_component_naming_contract.md — all function references are
+-- kebab-case as stored in content_components.function.
+--
+-- 1. Adds is_dark_section column to content_components
+-- 2. Flags all dark-background section components
+-- 3. Updates dark component templates with --section-* CSS variables
+-- 4. Verification queries
+--
+-- Safe to re-run (IF NOT EXISTS, idempotent updates).
+-- ============================================================================
+
+-- ============================================================================
+-- STEP 1: Add enforcement column
+-- ============================================================================
+
+ALTER TABLE content_components ADD COLUMN IF NOT EXISTS is_dark_section boolean DEFAULT false;
+
+COMMENT ON COLUMN content_components.is_dark_section IS
+  'True if component has dark background. MUST set --section-text, --section-text-muted, --section-heading, --section-surface, --section-border on container.';
+
+
+-- ============================================================================
+-- STEP 2: Flag ALL genuinely dark-background section components
+-- NOTE: about-content, differentiators, leadership-team, contact-info are
+-- NOT dark — they matched the #1a1a2e query because they use it as text color.
+-- ============================================================================
+
+UPDATE content_components
+SET is_dark_section = true, updated_at = NOW()
+WHERE function IN (
+                   'social-proof',
+                   'testimonials',
+                   'call-to-action',
+                   'hero',
+                   'hero-about',
+                   'hero-services',
+                   'hero-contact',
+                   'hero-case-studies',
+                   'hero-use-cases',
+                   'portfolio-showcase'
+    )
+  AND component_level = 'section';
+
+
+-- ============================================================================
+-- STEP 3: Update social-proof (function = 'social-proof')
+-- ============================================================================
+
+UPDATE content_components
+SET html_template = '<section class="social-proof-section" data-component="social-proof">
+    <div class="social-proof-container">
+        <h2>{{.headline}}</h2>
+        <div class="testimonials-grid">
+            {{range .testimonials}}
+            <div class="testimonial-item">
+                <blockquote>{{.quote}}</blockquote>
+                <cite>
+                    <strong>{{.author}}</strong>
+                    {{if .role}}<span>{{.role}}</span>{{end}}
+                </cite>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</section>
+<style>
+.social-proof-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-primary, #1a1a2e);
+    color: var(--color-white, #fff);
+
+    /* Dark section context — children adapt via --section-* variables */
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.2);
+}
+.social-proof-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.social-proof-section h2 {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+.testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+.testimonial-item {
+    padding: 2rem;
+    background: var(--section-surface);
+    border-radius: 8px;
+    border-left: 3px solid var(--section-border);
+}
+.testimonial-item blockquote {
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin: 0 0 1.5rem;
+}
+.testimonial-item cite {
+    display: block;
+}
+.testimonial-item cite strong {
+    display: block;
+}
+.testimonial-item cite span {
+    font-size: 0.9rem;
+}
+@media (max-width: 768px) {
+    .social-proof-section { padding: 3rem 1.5rem; }
+    .testimonials-grid { grid-template-columns: 1fr; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'social-proof';
+
+
+-- ============================================================================
+-- STEP 4: Update testimonials (function = 'testimonials')
+-- data-component="testimonials" per naming contract
+-- ============================================================================
+
+UPDATE content_components
+SET html_template = '<section class="social-proof-section" data-component="testimonials">
+    <div class="social-proof-container">
+        <h2>{{.headline}}</h2>
+        <div class="testimonials-grid">
+            {{range .testimonials}}
+            <div class="testimonial-item">
+                <blockquote>{{.quote}}</blockquote>
+                <cite>
+                    <strong>{{.author}}</strong>
+                    {{if .role}}<span>{{.role}}</span>{{end}}
+                </cite>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</section>
+<style>
+.social-proof-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-primary, #1a1a2e);
+    color: var(--color-white, #fff);
+
+    /* Dark section context */
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.2);
+}
+.social-proof-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.social-proof-section h2 {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+.testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+.testimonial-item {
+    padding: 2rem;
+    background: var(--section-surface);
+    border-radius: 8px;
+    border-left: 3px solid var(--section-border);
+}
+.testimonial-item blockquote {
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin: 0 0 1.5rem;
+}
+.testimonial-item cite {
+    display: block;
+}
+.testimonial-item cite strong {
+    display: block;
+}
+.testimonial-item cite span {
+    font-size: 0.9rem;
+}
+@media (max-width: 768px) {
+    .social-proof-section { padding: 3rem 1.5rem; }
+    .testimonials-grid { grid-template-columns: 1fr; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'testimonials';
+
+
+-- ============================================================================
+-- STEP 5: Update call-to-action (function = 'call-to-action')
+-- ============================================================================
+
+UPDATE content_components
+SET html_template = '<section class="cta-section" data-component="call-to-action">
+    <div class="cta-container">
+        <h2>{{.headline}}</h2>
+        {{if .subheadline}}<p class="cta-subtitle">{{.subheadline}}</p>{{end}}
+        <div class="cta-buttons">
+            {{if .primary_cta}}
+            <a href="{{.primary_cta_url}}" class="cta-btn cta-btn-primary">{{.primary_cta}}</a>
+            {{end}}
+            {{if .secondary_cta}}
+            <a href="{{.secondary_cta_url}}" class="cta-btn cta-btn-secondary">{{.secondary_cta}}</a>
+            {{end}}
+        </div>
+    </div>
+</section>
+<style>
+.cta-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-primary, #1a1a2e);
+    color: var(--color-white, #fff);
+    text-align: center;
+
+    /* Dark section context */
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.85);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.2);
+}
+.cta-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+.cta-section h2 {
+    margin-bottom: 1rem;
+}
+.cta-subtitle {
+    margin-bottom: 2rem;
+}
+.cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.cta-btn {
+    display: inline-block;
+    padding: 1rem 2rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.cta-btn:hover {
+    transform: translateY(-2px);
+}
+.cta-btn-primary {
+    background: var(--color-white, #fff);
+    color: var(--color-primary, #1a1a2e);
+}
+.cta-btn-secondary {
+    background: transparent;
+    border: 2px solid var(--color-white, #fff);
+    color: var(--color-white, #fff);
+}
+@media (max-width: 768px) {
+    .cta-section { padding: 3rem 1.5rem; }
+    .cta-buttons { flex-direction: column; align-items: center; }
+    .cta-btn { width: 100%; max-width: 280px; text-align: center; }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'call-to-action';
+
+
+-- ============================================================================
+-- STEP 6: Update hero variants
+-- All data-component attributes match their function name exactly
+-- ============================================================================
+
+-- 6a. hero (function = 'hero', data-component="hero")
+UPDATE content_components
+SET html_template = '<section class="hero" data-component="hero" style="{{if or .hero_url .background_image}}background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url(''{{or .hero_url .background_image}}''); background-size: cover; background-position: center;{{else}}background: linear-gradient(135deg, var(--primary-color, #1a1a2e) 0%, var(--secondary-color, #16213e) 50%, var(--accent-color, #0f3460) 100%);{{end}}">
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+            {{if .cta_text}}<a href="{{if .cta_url}}{{.cta_url}}{{else}}/contact.html{{end}}" class="btn btn-primary">{{.cta_text}}</a>{{end}}
+            {{if .secondary_cta}}<a href="{{if .secondary_cta_url}}{{.secondary_cta_url}}{{else}}#features{{end}}" class="btn btn-secondary">{{.secondary_cta}}</a>{{end}}
+        </div>
+    </section>
+<style>
+.hero {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    position: relative;
+
+    /* Dark section context */
+    --section-text: rgba(255,255,255,0.95);
+    --section-text-muted: rgba(255,255,255,0.8);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.1);
+    --section-border: rgba(255,255,255,0.3);
+}
+.hero-content {
+    max-width: 900px;
+    margin: 0 auto;
+    color: #fff;
+    z-index: 1;
+}
+.hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.35rem);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+.hero .btn {
+    display: inline-block;
+    padding: 0.875rem 2rem;
+    margin: 0.5rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+.hero .btn-primary {
+    background: var(--accent-color, #0f3460);
+    color: #fff;
+    border: 2px solid var(--accent-color, #0f3460);
+}
+.hero .btn-primary:hover {
+    background: transparent;
+    color: #fff;
+}
+.hero .btn-secondary {
+    background: transparent;
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.8);
+}
+.hero .btn-secondary:hover {
+    background: rgba(255,255,255,0.1);
+}
+@media (max-width: 768px) {
+    .hero {
+        min-height: 60vh;
+        padding: 3rem 1.5rem;
+    }
+    .hero .btn {
+        display: block;
+        width: 100%;
+        max-width: 280px;
+        margin: 0.5rem auto;
+    }
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'hero';
+
+-- 6b. hero-about (data-component="hero-about")
+UPDATE content_components
+SET html_template = '<section class="hero hero-about" data-component="hero-about">
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+        </div>
+    </section>
+<style>
+.hero-about {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+
+    /* Dark section context */
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.2);
+}
+.hero-about .hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    color: #fff;
+}
+.hero-about h1 {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+.hero-about .hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.6;
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'hero-about';
+
+-- 6c. hero-services (data-component="hero-services")
+UPDATE content_components
+SET html_template = '<section class="hero hero-services" data-component="hero-services">
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+        </div>
+    </section>
+<style>
+.hero-services {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+
+    /* Dark section context */
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.2);
+}
+.hero-services .hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    color: #fff;
+}
+.hero-services h1 {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+.hero-services .hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.6;
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'hero-services';
+
+-- 6d. hero-contact (data-component="hero-contact")
+UPDATE content_components
+SET html_template = '<section class="hero hero-contact" data-component="hero-contact">
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+        </div>
+    </section>
+<style>
+.hero-contact {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+
+    /* Dark section context */
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.2);
+}
+.hero-contact .hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    color: #fff;
+}
+.hero-contact h1 {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+.hero-contact .hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.6;
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'hero-contact';
+
+-- 6e. hero-case-studies (data-component="hero-case-studies")
+UPDATE content_components
+SET html_template = '<section class="hero hero-case-studies" data-component="hero-case-studies">
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+        </div>
+    </section>
+<style>
+.hero-case-studies {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+
+    /* Dark section context */
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.2);
+}
+.hero-case-studies .hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    color: #fff;
+}
+.hero-case-studies h1 {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+.hero-case-studies .hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.6;
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'hero-case-studies';
+
+-- 6f. hero-use-cases (data-component="hero-use-cases")
+UPDATE content_components
+SET html_template = '<section class="hero hero-use-cases" data-component="hero-use-cases">
+        <div class="hero-content">
+            <h1>{{.headline}}</h1>
+            <p class="hero-subheadline">{{.subheadline}}</p>
+        </div>
+    </section>
+<style>
+.hero-use-cases {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+
+    /* Dark section context */
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.2);
+}
+.hero-use-cases .hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    color: #fff;
+}
+.hero-use-cases h1 {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+.hero-use-cases .hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.6;
+}
+</style>',
+    updated_at = NOW()
+WHERE function = 'hero-use-cases';
+
+
+-- ============================================================================
+-- STEP 7: portfolio-showcase
+-- Not in project backup — flag only, template needs manual review
+-- ============================================================================
+
+-- NOTE: Check template with:
+--   SELECT function, left(html_template, 500) FROM content_components
+--   WHERE function = 'portfolio-showcase';
+-- Then add --section-* variables to its container CSS.
+
+
+-- ============================================================================
+-- STEP 8: VERIFICATION
+-- ============================================================================
+
+-- 8a. All flagged dark components should have --section-text in template
+SELECT name, function, is_dark_section,
+       html_template LIKE '%--section-text%' as has_section_vars,
+       CASE WHEN html_template LIKE '%--section-text%' THEN 'OK' ELSE 'NEEDS REVIEW' END as status
+FROM content_components
+WHERE is_dark_section = true
+ORDER BY function, name;
+
+-- 8b. Check for unflagged dark components (filtering out false positives)
+SELECT name, function, is_dark_section, 'CHECK IF DARK' as warning
+FROM content_components
+WHERE is_dark_section = false
+  AND component_level = 'section'
+  AND (
+    html_template LIKE '%background:%#1a1a2e%'
+        OR html_template LIKE '%background: #1a1a2e%'
+        OR html_template LIKE '%background: var(--color-primary%'
+    )
+  AND function NOT IN ('head', 'head-seo-standard', 'head-basic',
+                       'site-header', 'header-professional-dark',
+                       'header-minimal-light', 'header-bold-gradient')
+ORDER BY function;
+
+-- 8c. Verify data-component attributes match function names (naming contract)
+SELECT name, function,
+       CASE
+           WHEN html_template LIKE '%data-component="' || function || '"%' THEN 'OK'
+           ELSE 'MISMATCH'
+           END as data_component_check
+FROM content_components
+WHERE is_dark_section = true
+ORDER BY function;
+

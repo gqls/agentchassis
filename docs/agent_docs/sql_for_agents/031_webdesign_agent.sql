@@ -893,3 +893,126 @@ SET default_config = jsonb_set(
         )
              )
 WHERE type = 'webdesign-agent';
+
+--
+
+-- don't put light text on light backgrounds
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+  default_config,
+  '{workflow,steps,generate_css,config,prompt_template}',
+  to_jsonb(
+    'Generate a complete production CSS stylesheet.\n\n## Design Spec\n{{.design_spec.result}}\n\n## Components\n{{range .site_context.all_component_functions}}- {{.}}\n{{end}}\n\n## CSS RESPONSIBILITY RULES\nGlobal CSS handles ALL appearance. Component CSS handles only layout.\n\nYou MUST provide:\n1. :root with EXACT variable names (use design_spec colors)\n2. Base element styling that components inherit\n\nComponents will NOT re-declare colors on h1-h6, p, a - they inherit from you.\n\n## Required :root Variables\n:root {\n  --color-primary: (from color_scheme.primary);\n  --color-secondary: (from color_scheme.secondary);\n  --color-accent: (from color_scheme.accent);\n  --color-background: (from color_scheme.background);\n  --color-surface: (from color_scheme.surface);\n  --color-text: (from color_scheme.text);\n  --color-text-muted: (from color_scheme.text_muted);\n  --color-border: (from color_scheme.border);\n  --color-white: #ffffff;\n  --font-family: (from typography.font_family);\n  --spacing-section: (from spacing.section_padding);\n  --container-max-width: (from spacing.container_max_width);\n}\n\n## Required Base Styles\n- *, *::before, *::after { box-sizing: border-box; }\n- html, body { margin: 0; padding: 0; }\n- body { font-family: var(--font-family); color: var(--color-text); line-height: 1.6; }\n- h1, h2, h3, h4, h5, h6 { color: var(--color-primary); line-height: 1.2; margin: 0 0 1rem; }\n- h1 { font-size: clamp(2rem, 5vw, 3rem); }\n- h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }\n- h3 { font-size: clamp(1.25rem, 3vw, 1.5rem); }\n- p { margin: 0 0 1rem; } /* NO color — inherits from body or dark-section parent */\n- a { color: var(--color-accent); }\n- .container { max-width: var(--container-max-width); margin: 0 auto; padding: 0 2rem; }\n\n## INHERITANCE RULES — READ CAREFULLY\nText elements (p, span, li, blockquote, strong, b, em, cite) must NOT have explicit color set.\nBody sets color: var(--color-text) and children inherit.\nDark-section components set color: #fff on their container — children must inherit, not fight.\nIf you set p { color: var(--color-text); } it BREAKS every dark section.\nblockquote must NOT have background-color set (components handle their own backgrounds).\nstrong, b must NOT have color set (they inherit from parent).\n\n## Also Include\n- Button base styles (.btn, .btn-primary, .btn-secondary)\n- Focus states for accessibility\n- Smooth transitions\n- Responsive adjustments at 768px and 1024px\n\n## DO NOT Include\n- Component-specific selectors (.services-grid, .testimonial-item, etc.)\n- Components have their own CSS that inherits from your base styles\n- Explicit color on p, blockquote, strong, b, span, li, cite elements\n- background-color on blockquote\n\nOutput ONLY CSS. No markdown. No explanations. Start with :root {'::text
+  )
+),
+updated_at = NOW()
+WHERE type = 'webdesign-agent';
+
+--
+
+-- ============================================================================
+-- UPDATE WEBDESIGN-AGENT PROMPT — SECTION CONTEXT VARIABLE CONTRACT
+-- ============================================================================
+-- The generate_css step prompt must teach the LLM the --section-* pattern
+-- so that regenerated stylesheets always follow the contract.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_css,config,prompt_template}',
+        to_jsonb(
+                'Generate a complete production CSS stylesheet.
+
+            ## Design Spec
+            {{.design_spec.result}}
+
+            ## Components
+            {{range .site_context.all_component_functions}}- {{.}}
+            {{end}}
+
+            ## ARCHITECTURE: SECTION CONTEXT VARIABLES
+            This site uses a section-context variable pattern for dark/light section support.
+            Body sets light-theme defaults. Text elements use --section-* variables with fallbacks.
+            Dark-section components override --section-* on their container — children adapt automatically.
+
+            ## Required :root Variables
+            :root {
+              --color-primary: (from color_scheme.primary);
+              --color-secondary: (from color_scheme.secondary);
+              --color-accent: (from color_scheme.accent);
+              --color-background: (from color_scheme.background);
+              --color-surface: (from color_scheme.surface);
+              --color-text: (from color_scheme.text);
+              --color-text-muted: (from color_scheme.text_muted);
+              --color-border: (from color_scheme.border);
+              --color-white: #ffffff;
+              --font-family: (from typography.font_family);
+              --spacing-section: (from spacing.section_padding);
+              --container-max-width: (from spacing.container_max_width);
+              --transition-speed: 0.3s;
+              --border-radius: 8px;
+              --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+              --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+              --shadow-lg: 0 10px 20px rgba(0,0,0,0.15);
+            }
+
+            ## Required Base Styles
+            - *, *::before, *::after { box-sizing: border-box; }
+            - html { scroll-behavior: smooth; }
+            - html, body { margin: 0; padding: 0; }
+            - body { font-family: var(--font-family); color: var(--color-text); line-height: 1.6; background-color: var(--color-background); }
+
+            ## SECTION CONTEXT PATTERN — FOLLOW EXACTLY
+            Headings use --section-heading with fallback:
+              h1-h6 { color: var(--section-heading, var(--color-primary)); }
+
+            Text elements use --section-* with inherit fallback:
+              p { margin: 0 0 1rem; color: var(--section-text, inherit); }
+              strong, b { font-weight: 700; color: var(--section-heading, inherit); }
+
+            Styled elements use --section-* with theme fallback:
+              blockquote { background-color: var(--section-surface, var(--color-surface)); color: var(--section-text-muted, var(--color-text-muted)); border-left: 4px solid var(--section-border, var(--color-border)); }
+              cite { color: var(--section-text-muted, var(--color-text-muted)); }
+              .text-muted { color: var(--section-text-muted, var(--color-text-muted)); }
+
+            DO NOT set explicit color on p, strong, b, blockquote, cite, span, li.
+            Always use var(--section-*, <fallback>) pattern instead.
+            This ensures dark-section components work by overriding --section-* on their container.
+
+            ## Typography
+            - h1 { font-size: clamp(2rem, 5vw, 3rem); }
+            - h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
+            - h3 { font-size: clamp(1.25rem, 3vw, 1.5rem); }
+            - a { color: var(--color-accent); }
+            - .container { max-width: var(--container-max-width); margin: 0 auto; padding: 0 2rem; }
+
+            ## Also Include
+            - Button base styles (.btn, .btn-primary, .btn-secondary, .btn-large, .btn-small)
+            - Focus-visible states for accessibility
+            - Smooth transitions
+            - Responsive adjustments at 768px and 1024px
+            - prefers-reduced-motion media query
+            - Form input styling
+
+            ## DO NOT Include
+            - Component-specific selectors (.services-grid, .testimonial-item, etc.)
+            - Components have their own inline CSS that inherits from these base styles
+
+            ## Include at end as CSS comment: Dark Section Template
+            /* DARK SECTION TEMPLATE — components with dark backgrounds set these:
+               .my-dark-section {
+                 --section-text: rgba(255,255,255,0.9);
+                 --section-text-muted: rgba(255,255,255,0.7);
+                 --section-heading: #ffffff;
+                 --section-surface: rgba(255,255,255,0.05);
+                 --section-border: rgba(255,255,255,0.2);
+               }
+            */
+
+            Output ONLY CSS. No markdown fences. No explanations. Start with :root {'::text
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'webdesign-agent';
+

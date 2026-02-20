@@ -227,6 +227,16 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// Insert each section
 	savedCount := 0
 	for i, section := range sections {
+		// Dark section contract validation (warning only, non-blocking)
+		// Auto-detects dark sections from CSS patterns in the HTML.
+		if missing := ValidateDarkSectionContract(section.HTML, false, params.Logger); len(missing) > 0 {
+			params.Logger.Warn("SavePageSectionsAction: Dark section missing --section-* variables",
+				zap.String("slot_name", section.ComponentName),
+				zap.Int("position", i+1),
+				zap.Strings("missing_vars", missing),
+			)
+		}
+
 		var componentIDPtr *uuid.UUID
 		if section.ComponentID != "" {
 			if parsed, err := uuid.Parse(section.ComponentID); err == nil {

@@ -156,6 +156,7 @@ echo ""
 
 # site id is leopardess consulting
 UPDATE pages SET build_status = 'needs_rebuild', updated_at = NOW() WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND name = 'faq' AND status = 'active';
+UPDATE pages SET build_status = 'needs_rebuild', updated_at = NOW() WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND name = 'index' AND status = 'active';
 
 
 clients_db=# -- Check the component templates for sections used on the index page
