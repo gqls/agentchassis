@@ -214,7 +214,7 @@ SE_INPUT=$(cat <<EOF
 {
   "domain": "${DOMAIN}",
   "page_name": "about",
-  "slot_name": "leadership-team",
+  "slot_name": "departments-grid",
   "edit_type": "component_swap",
   "new_component_function": "departments-grid",
   "content_data": {

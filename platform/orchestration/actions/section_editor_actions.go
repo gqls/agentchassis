@@ -47,16 +47,14 @@ var ApplySectionEditInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{"edit_type"},
 	Optional: []string{
 		"field_updates",            // content_edit: JSON object of fields to merge
-		"replacement_content_data", // content_edit: full replacement content_data
-		// NOTE: named "replacement_content_data" not "content_data" to avoid
-		// collision with ExtractActionInputs nested lookup which finds
-		// site_record.content_data (the site plan) for any field named "content_data"
-		"new_component_function", // component_swap
-		"page_component_id",      // target (can also come from edit_context)
+		"replacement_content_data", // content_edit or component_swap: full replacement content_data
+		"new_component_function",   // component_swap
+		"page_component_id",        // target (can also come from edit_context)
 	},
 	Defaults: map[string]interface{}{},
 	Deprecated: map[string]string{
 		"edit_type_field": "edit_type",
+		"content_data":    "replacement_content_data", // backward compat: old callers sending content_data
 	},
 }
 
@@ -672,12 +670,24 @@ func applyComponentSwap(
 		return "", nil, fmt.Errorf("component %q has no HTML template", newFunction)
 	}
 
-	// Get existing content_data
+	// Determine content_data to render with.
+	// Priority: replacement_content_data from caller > existing content_data from page_component
 	contentData := make(map[string]interface{})
-	if cd, ok := pcData["content_data"].(map[string]interface{}); ok {
+
+	if rcd := inputs.GetMap("replacement_content_data"); rcd != nil {
+		// Caller provided replacement content (component_swap with new data)
+		for k, v := range rcd {
+			contentData[k] = v
+		}
+		logger.Info("applyComponentSwap: Using replacement_content_data from caller",
+			zap.Int("field_count", len(rcd)))
+	} else if cd, ok := pcData["content_data"].(map[string]interface{}); ok {
+		// No replacement — use existing content_data from page_component
 		for k, v := range cd {
 			contentData[k] = v
 		}
+		logger.Info("applyComponentSwap: Using existing content_data from page_component",
+			zap.Int("field_count", len(cd)))
 	}
 
 	// Build render context from DB with existing content_data
