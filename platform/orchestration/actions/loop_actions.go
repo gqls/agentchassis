@@ -348,6 +348,7 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 		outputFieldBase,     // From config (e.g., "page_html")
 		"section_output",    // page-content-writer pattern
 		"page_html",         // Original pattern
+		"page_result",       // Nav-updater / re-render pattern (page_result_0, page_result_1, ...)
 		"rendered_html",     // Alternative pattern
 		"result",            // Generic pattern
 		"generated_content", // LLM output pattern
@@ -355,6 +356,8 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 		loopName + "_iter_%d_render_section",       // Full step name pattern for LLM path
 		loopName + "_iter_%d_section_output",       // Alternate naming
 		loopName + "_iter_%d_generated_content",    // LLM content output
+		loopName + "_iter_%d_complete_page",        // Loop complete_page step result
+		loopName + "_iter_%d_call_rerender",        // Loop call_rerender step result
 	}
 
 	// DIAGNOSTIC: Log which patterns we're trying
