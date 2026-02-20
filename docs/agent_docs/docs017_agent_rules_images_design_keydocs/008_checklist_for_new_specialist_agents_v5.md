@@ -273,7 +273,7 @@ WARN: Using deprecated config pattern
 
 ## Decision: No Container Config in Agent Definitions
 
-Agent definitions should NOT include `container_image` or `image_tag`. The `spawn_actions.go` handles container configuration dynamically.
+Agent definitions can, uselessly, include `container_image` or `image_tag`. The makefile make commands overwrite these with the current build number and tags. The `spawn_actions.go` handles container configuration dynamically.
 
 **Avoid:**
 ```json

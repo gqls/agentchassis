@@ -16,11 +16,36 @@ import (
 	"go.uber.org/zap"
 )
 
+// DeployImageAssetInputSpec defines the standard input contract.
+//
+// New callers (asset-deployer) use input_fields: ["s3_uri", "deploy_path", "purpose", "domain"]
+// Existing callers (pageflow-builder) use config keys: "uri_field", "domain_field", "purpose"
+// The Deprecated map bridges old config keys to new field names.
+var DeployImageAssetInputSpec = datahelpers.ActionInputSpec{
+	Required: []string{"domain"},
+	Optional: []string{"s3_uri", "deploy_path", "purpose"},
+	Defaults: map[string]interface{}{
+		"purpose": "hero",
+	},
+	Deprecated: map[string]string{
+		"uri_field":         "s3_uri",
+		"domain_field":      "domain",
+		"purpose_field":     "purpose",
+		"deploy_path_field": "deploy_path",
+	},
+}
+
+func init() {
+	datahelpers.RegisterActionInputSpec("deploy_image_asset", DeployImageAssetInputSpec)
+}
+
 // DeployImageAssetAction downloads an image from storage, optimizes it, and commits via git
-// Config:
-//   - purpose: image purpose (hero, logo) - determines output path and optimization settings
-//   - uri_field: path to storage URI in collected_data (default: {purpose}_uri or {purpose}_result.image_uri)
-//   - domain_field: path to domain (default: site_record.domain)
+//
+// Inputs (via ActionInputSpec):
+//   - domain (required): site domain for git commit
+//   - s3_uri (optional): storage URI — if not provided, falls back to findStorageURI lookup
+//   - purpose (optional, default "hero"): image purpose — controls resize dimensions via ImagePurposes
+//   - deploy_path (optional): override output path in git (e.g. "assets/images/departments/dept-foo.jpg")
 func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(
 		zap.String("action", "deploy_image_asset"),
@@ -33,14 +58,37 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 
 	config := params.StepConfig.Config
 
-	// Get purpose (hero, logo, etc.)
-	purpose := "hero"
-	if p, ok := config["purpose"].(string); ok && p != "" {
-		purpose = p
+	// Extract inputs using standard pattern (checklist: ActionInputSpec)
+	inputs, err := datahelpers.ExtractActionInputs(
+		params.CollectedData,
+		config,
+		DeployImageAssetInputSpec,
+		logger,
+	)
+	if err != nil {
+		// Don't hard-fail — fall back to legacy extraction for backward compat
+		logger.Warn("ExtractActionInputs returned error, falling back to legacy extraction",
+			zap.Error(err))
+		inputs = &datahelpers.ActionInputs{Values: map[string]interface{}{}}
 	}
 
-	// Find the storage URI
-	storageURI := findStorageURI(params.CollectedData, config, purpose, logger)
+	// Resolve purpose
+	purpose := inputs.Get("purpose")
+	if purpose == "" {
+		if p, ok := config["purpose"].(string); ok && p != "" {
+			// Legacy: static purpose in config (pageflow-builder pattern)
+			purpose = p
+		} else {
+			purpose = "hero"
+		}
+	}
+
+	// Resolve storage URI
+	// Priority: inputs.Get("s3_uri") (from input_fields) → findStorageURI (legacy lookup)
+	storageURI := inputs.Get("s3_uri")
+	if storageURI == "" {
+		storageURI = findStorageURI(params.CollectedData, config, purpose, logger)
+	}
 	if storageURI == "" {
 		logger.Warn("No storage URI found for image asset",
 			zap.String("purpose", purpose),
@@ -52,13 +100,17 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 		}, nil
 	}
 
-	// Get domain
-	domain := findDomain(params.CollectedData, config)
+	// Resolve domain
+	// Priority: inputs.Get("domain") (from input_fields) → findDomain (legacy lookup)
+	domain := inputs.Get("domain")
+	if domain == "" {
+		domain = findDomain(params.CollectedData, config)
+	}
 	if domain == "" {
 		return nil, fmt.Errorf("domain not found")
 	}
 
-	// Get storage client - it's an interface, need to type assert to *S3Client for image methods
+	// Get storage client
 	if params.StorageClient == nil {
 		return nil, fmt.Errorf("storage client not available")
 	}
@@ -83,10 +135,16 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 		}, nil
 	}
 
-	// Allow config to override the output path.
+	// Allow deploy_path to override the output path.
 	// Purpose still controls resize dimensions; deploy_path controls where the file goes.
-	// Example: purpose="icon" (240x240 resize), deploy_path="assets/images/departments/dept-orchestration.jpg"
-	if deployPath, ok := config["deploy_path"].(string); ok && deployPath != "" {
+	// Priority: inputs.Get("deploy_path") (from input_fields) → config["deploy_path"] (static)
+	deployPath := inputs.Get("deploy_path")
+	if deployPath == "" {
+		if dp, ok := config["deploy_path"].(string); ok && dp != "" {
+			deployPath = dp
+		}
+	}
+	if deployPath != "" {
 		processed.Paths = storage.AssetPaths{
 			FilePath:    deployPath,
 			RelativeURL: "/" + deployPath,
@@ -123,7 +181,6 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 	return result, nil
 }
 
-// findStorageURI looks for the storage URI in multiple locations
 // findStorageURI looks for the storage URI in multiple locations
 func findStorageURI(collectedData map[string]interface{}, config map[string]interface{}, purpose string, logger *zap.Logger) string {
 	// Priority 1: Config-specified field
