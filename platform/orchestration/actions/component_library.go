@@ -1,5 +1,3 @@
-// ===========================================================================
-// UNIFIED COMPONENT LIBRARY
 // FILE: platform/orchestration/actions/component_library.go
 // ===========================================================================
 // Shared code for component loading, rendering, and theming.
@@ -31,12 +29,13 @@ import (
 
 // Component represents a content component from the database
 type Component struct {
-	ID           string                 `json:"id"`
-	Name         string                 `json:"name"`
-	Function     string                 `json:"function"`
-	Category     string                 `json:"category"`
-	HTMLTemplate string                 `json:"html_template"`
-	InputSchema  map[string]interface{} `json:"input_schema"`
+	ID            string                 `json:"id"`
+	Name          string                 `json:"name"`
+	Function      string                 `json:"function"`
+	Category      string                 `json:"category"`
+	HTMLTemplate  string                 `json:"html_template"`
+	InputSchema   map[string]interface{} `json:"input_schema"`
+	IsDarkSection bool                   `json:"is_dark_section"`
 }
 
 // StyleCollection bundles components + colors for a site
@@ -166,9 +165,10 @@ func GetComponentByFunction(ctx context.Context, db interface{}, function string
 			id, 
 			name, 
 			function, 
-			COALESCE(category, '') as category,  -- Handle NULL category
+			COALESCE(category, '') as category,
 			html_template, 
-			input_schema
+			input_schema,
+			COALESCE(is_dark_section, false) as is_dark_section
 		FROM content_components
 		WHERE function = $1 AND is_active = true
 		LIMIT 1
@@ -179,7 +179,9 @@ func GetComponentByFunction(ctx context.Context, db interface{}, function string
 // GetComponentByName retrieves a component by its name
 func GetComponentByName(ctx context.Context, db interface{}, name string, logger *zap.Logger) (*Component, error) {
 	query := `
-		SELECT id, name, "function", category, html_template, input_schema
+		SELECT id, name, "function", COALESCE(category, '') as category,
+			html_template, input_schema,
+			COALESCE(is_dark_section, false) as is_dark_section
 		FROM content_components
 		WHERE name = $1
 		LIMIT 1
@@ -194,9 +196,10 @@ func GetComponentByID(ctx context.Context, db interface{}, id uuid.UUID, logger 
 			id, 
 			name, 
 			function, 
-			COALESCE(category, '') as category,  -- Handle NULL category
+			COALESCE(category, '') as category,
 			html_template, 
-			input_schema
+			input_schema,
+			COALESCE(is_dark_section, false) as is_dark_section
 		FROM content_components
 		WHERE id = $1
 		LIMIT 1
@@ -215,12 +218,12 @@ func queryComponent(ctx context.Context, db interface{}, query string, arg inter
 	case *sql.DB:
 		err = d.QueryRowContext(ctx, query, arg).Scan(
 			&comp.ID, &comp.Name, &comp.Function, &category,
-			&comp.HTMLTemplate, &schemaJSON,
+			&comp.HTMLTemplate, &schemaJSON, &comp.IsDarkSection,
 		)
 	case *pgxpool.Pool:
 		err = d.QueryRow(ctx, query, arg).Scan(
 			&comp.ID, &comp.Name, &comp.Function, &category,
-			&comp.HTMLTemplate, &schemaJSON,
+			&comp.HTMLTemplate, &schemaJSON, &comp.IsDarkSection,
 		)
 	default:
 		return nil, fmt.Errorf("unsupported database type: %T", db)
@@ -255,7 +258,7 @@ func GetComponentWithFallback(ctx context.Context, db interface{}, function stri
 		return comp, nil
 	}
 
-	// Try normalized form (underscore → hyphen, lowercase)
+	// Try normalized form (underscore â†’ hyphen, lowercase)
 	normalized := NormalizeComponentFunction(function)
 	if normalized != function {
 		logger.Info("GetComponentWithFallback: Trying normalized function name",
@@ -1452,7 +1455,7 @@ func InjectHeader(ctx context.Context, db interface{}, html string, siteID uuid.
 	if sqlDB, ok := db.(*sql.DB); ok && siteID != uuid.Nil {
 		/*headerNav := GetHeaderNavFromPages(ctx, sqlDB, siteID, 6, logger)*/
 		// deployedOnly=true: only show actually deployed pages.
-		// maxItems=0: no limit here — PopulateNavTablesAction already controls
+		// maxItems=0: no limit here â€” PopulateNavTablesAction already controls
 		// which pages go into the primary group vs utility.
 		headerNav := GetNavItems(ctx, sqlDB, siteID, []string{NavGroupPrimary}, true, 0, logger)
 		if len(headerNav) > 0 {
@@ -1605,7 +1608,7 @@ func RenderHead(ctx context.Context, db interface{}, siteID uuid.UUID, renderCtx
 		renderCtx.BackgroundColor = "#ffffff"
 	}
 
-	// Get head component — lookup by function name "head"
+	// Get head component â€” lookup by function name "head"
 	comp, err := GetComponentByFunction(ctx, db, "head", logger)
 	if err != nil {
 		logger.Warn("RenderHead: No head component found, using fallback")
@@ -1649,7 +1652,7 @@ func RenderFallbackHead(ctx *RenderContext) string {
 }
 
 // InjectHead removes any existing <head> blocks and inserts the rendered head
-// component in the correct position — always before <body>, never in-place.
+// component in the correct position â€” always before <body>, never in-place.
 // Previous version did in-place replacement which preserved wrong positioning
 // when <head> had migrated inside <body> (e.g. via cleanHTMLStructure dedup).
 func InjectHead(ctx context.Context, db interface{}, html string, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
@@ -1669,19 +1672,19 @@ func InjectHead(ctx context.Context, db interface{}, html string, siteID uuid.UU
 		logger.Debug("InjectHead: Removed existing <head> block(s)")
 	}
 
-	// Step 2: Insert new head in correct position — always before <body>
+	// Step 2: Insert new head in correct position â€” always before <body>
 	bodyRe := regexp.MustCompile(`(?i)(<body[^>]*>)`)
 	if bodyRe.MatchString(html) {
 		html = bodyRe.ReplaceAllString(html, headHTML+"\n$1")
 		logger.Debug("InjectHead: Inserted head before <body>")
 	} else {
-		// No <body> — try after <html>
+		// No <body> â€” try after <html>
 		htmlTagRe := regexp.MustCompile(`(?i)(<html[^>]*>)`)
 		if htmlTagRe.MatchString(html) {
 			html = htmlTagRe.ReplaceAllString(html, "$1\n"+headHTML)
 			logger.Debug("InjectHead: Inserted head after <html>")
 		} else {
-			// No structure at all — prepend
+			// No structure at all â€” prepend
 			html = headHTML + "\n" + html
 			logger.Warn("InjectHead: No <html> or <body> found, prepended head")
 		}

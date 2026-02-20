@@ -1363,11 +1363,12 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, params.Logger)
 
 	// Dark section contract validation (warning only, non-blocking)
-	// Uses auto-detection from CSS patterns in the rendered HTML.
+	// Uses is_dark_section from DB when available, falls back to CSS auto-detection.
 	// See validate_dark_section.go and 014_section_context_contract.md.
-	if missing := ValidateDarkSectionContract(rendered, false, params.Logger); len(missing) > 0 {
+	if missing := ValidateDarkSectionContract(rendered, comp.IsDarkSection, params.Logger); len(missing) > 0 {
 		params.Logger.Warn("RenderComponentAction: Dark section missing --section-* variables",
 			zap.String("component_function", comp.Function),
+			zap.Bool("is_dark_section", comp.IsDarkSection),
 			zap.Strings("missing_vars", missing),
 		)
 	}
