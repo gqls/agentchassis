@@ -28,13 +28,13 @@ kafka_send() {
 }
 
 # S3 URIs — update with actual filenames/URIs after upload
-S3_STRATEGY="dept-strategy.jpg"
-S3_ORCHESTRATION="dept-orchestration.jpg"
-S3_DEVELOPMENT="dept-development.jpg"
-S3_DESIGN="dept-design.jpg"
-S3_CONTENT="dept-content.jpg"
-S3_SEO="dept-seo-marketing.jpg"
-S3_ANALYTICS="dept-analytics.jpg"
+S3_STRATEGY="s3://personae-prod-uk001-images/images/demo_client/leopardess/departments/dept-strategy.jpg"
+S3_ORCHESTRATION="s3://personae-prod-uk001-images/images/demo_client/leopardess/departments/dept-orchestration.jpg"
+S3_DEVELOPMENT="s3://personae-prod-uk001-images/images/demo_client/leopardess/departments/dept-development.jpg"
+S3_DESIGN="s3://personae-prod-uk001-images/images/demo_client/leopardess/departments/dept-design.jpg"
+S3_CONTENT="s3://personae-prod-uk001-images/images/demo_client/leopardess/departments/dept-content.jpg"
+S3_SEO="s3://personae-prod-uk001-images/images/demo_client/leopardess/departments/dept-seo-marketing.jpg"
+S3_ANALYTICS="s3://personae-prod-uk001-images/images/demo_client/leopardess/departments/dept-analytics.jpg"
 
 # ============================================================================
 # 3a. DEPLOY IMAGES — 7 calls to asset-deployer via generic

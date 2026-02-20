@@ -664,9 +664,20 @@ kubectl -n ai-persona-system logs --tail=3000 -l agent-type=page-content-writer 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=site-planner -f | tee logs-site-planner.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=pageflow-builder -f | tee logs-pageflow-builder.json
 kubectl -n ai-persona-system logs --tail=500 -l app=web-search-adapter -f | tee logs-web-search-adapter.json
+kubectl -n ai-persona-system logs --tail=500 -l app=web-scrape-adapter -f | tee logs-web-scrape-adapter.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=site-classifier -f | tee logs-site-classifier.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=briefing-agent  -f | tee logs-briefing-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l app=git-adapter -f | tee logs-git-adapter.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=section-editor -f | tee logs-section-editor.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=page-rebuild -f | tee logs-page-rebuild.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=area-sweep-orchestrator -f | tee logs-area-sweep-orchestrator.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=area-sweep-discoverer -f | tee logs-area-sweep-discoverer.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=maintenance-triage -f | tee logs-maintenance-triage.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=nav-updater -f | tee logs-nav-updater.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=page-rerender -f | tee logs-page-rerender.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=vet-practice-verifier -f | tee logs-vet-practice-verifier.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=asset-deployer -f | tee logs-asset-deployer.json
 
 make build-backend push-backend deploy-core deploy-agents redeploy-agents ENVIRONMENT=production REGION=uk001
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > agent_definitions_backup.sql
