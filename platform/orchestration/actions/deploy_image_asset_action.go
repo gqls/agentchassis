@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -80,6 +81,19 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 			"deployed": false,
 			"error":    err.Error(),
 		}, nil
+	}
+
+	// Allow config to override the output path.
+	// Purpose still controls resize dimensions; deploy_path controls where the file goes.
+	// Example: purpose="icon" (240x240 resize), deploy_path="assets/images/departments/dept-orchestration.jpg"
+	if deployPath, ok := config["deploy_path"].(string); ok && deployPath != "" {
+		processed.Paths = storage.AssetPaths{
+			FilePath:    deployPath,
+			RelativeURL: "/" + deployPath,
+			Filename:    filepath.Base(deployPath),
+		}
+		logger.Info("Using custom deploy_path",
+			zap.String("deploy_path", deployPath))
 	}
 
 	logger.Info("Image processed",

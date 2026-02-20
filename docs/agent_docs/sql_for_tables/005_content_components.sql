@@ -7356,3 +7356,140 @@ FROM content_components
 WHERE is_dark_section = true
 ORDER BY function;
 
+--
+-- departments grid
+
+-- ============================================================================
+-- 1. INSERT new departments-grid component into content_components
+-- ============================================================================
+-- This sits alongside the existing leadership-team component.
+-- The planner chooses departments-grid when the site uses AI agent teams
+-- (no real employees), and leadership-team when there are actual people.
+--
+-- Reuses the same CSS class names (.team-section, .team-member, .member-photo,
+-- .member-title, .member-bio) so it gets the same visual treatment as
+-- leadership-team without duplicate styles.
+
+INSERT INTO content_components (
+    name,
+    description,
+    html_template,
+    input_schema,
+    function,
+    display_name,
+    category,
+    semantic_tags,
+    render_mode,
+    component_level,
+    is_active
+) VALUES (
+             'departments-grid',
+             'Grid of AI departments or functional teams with icon images',
+             -- html_template:
+             E'<section class="team-section" data-component="departments-grid">\n'
+    '    <div class="team-container">\n'
+    '        {{if .section_title}}<h2>{{.section_title}}</h2>{{end}}\n'
+    '        {{if .section_intro}}<p class="section-intro">{{.section_intro}}</p>{{end}}\n'
+    '        <div class="team-grid">\n'
+    '            {{range .departments}}\n'
+    '            <div class="team-member">\n'
+    '                {{if .icon}}<img src="{{.icon}}" alt="{{.name}} Department" class="member-photo">{{end}}\n'
+    '                <h3>{{.name}}</h3>\n'
+    '                {{if .subtitle}}<p class="member-title">{{.subtitle}}</p>{{end}}\n'
+    '                {{if .description}}<p class="member-bio">{{.description}}</p>{{end}}\n'
+    '            </div>\n'
+    '            {{end}}\n'
+    '        </div>\n'
+    '    </div>\n'
+    '</section>\n'
+    '<style>\n'
+    '.team-section {\n'
+    '    padding: 5rem 2rem;\n'
+    '    background: #f8f9fa;\n'
+    '}\n'
+    '.team-container {\n'
+    '    max-width: 1200px;\n'
+    '    margin: 0 auto;\n'
+    '}\n'
+    '.team-section h2 {\n'
+    '    font-size: clamp(1.75rem, 4vw, 2.5rem);\n'
+    '    margin-bottom: 1rem;\n'
+    '    color: #1a1a2e;\n'
+    '    text-align: center;\n'
+    '}\n'
+    '.section-intro {\n'
+    '    text-align: center;\n'
+    '    max-width: 700px;\n'
+    '    margin: 0 auto 3rem;\n'
+    '    color: #555;\n'
+    '    line-height: 1.7;\n'
+    '}\n'
+    '.team-grid {\n'
+    '    display: grid;\n'
+    '    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));\n'
+    '    gap: 2rem;\n'
+    '}\n'
+    '.team-member {\n'
+    '    background: #fff;\n'
+    '    padding: 2rem;\n'
+    '    border-radius: 8px;\n'
+    '    text-align: center;\n'
+    '    box-shadow: 0 2px 8px rgba(0,0,0,0.06);\n'
+    '}\n'
+    '.member-photo {\n'
+    '    width: 120px;\n'
+    '    height: 120px;\n'
+    '    border-radius: 50%;\n'
+    '    object-fit: cover;\n'
+    '    margin-bottom: 1.5rem;\n'
+    '    background: #e0e0e0;\n'
+    '}\n'
+    '.team-member h3 {\n'
+    '    font-size: 1.25rem;\n'
+    '    margin-bottom: 0.5rem;\n'
+    '    color: #1a1a2e;\n'
+    '}\n'
+    '.member-title {\n'
+    '    color: #0f3460;\n'
+    '    font-weight: 500;\n'
+    '    margin-bottom: 1rem;\n'
+    '    font-size: 0.95rem;\n'
+    '}\n'
+    '.member-bio {\n'
+    '    color: #555;\n'
+    '    line-height: 1.6;\n'
+    '    font-size: 0.95rem;\n'
+    '    text-align: left;\n'
+    '}\n'
+    '@media (max-width: 768px) {\n'
+    '    .team-section { padding: 3rem 1.5rem; }\n'
+    '    .team-grid { grid-template-columns: 1fr; }\n'
+    '}\n'
+    '</style>',
+             -- input_schema:
+             '{
+                 "section_title": "string",
+                 "section_intro": "string",
+                 "departments": [{
+                     "name": "string",
+                     "subtitle": "string",
+                     "description": "string",
+                     "icon": "string"
+                 }]
+             }'::jsonb,
+             -- function (used as slot_name):
+             'departments-grid',
+             -- display_name:
+             'Departments Grid',
+             -- category:
+             'about',
+             -- semantic_tags:
+             '["departments", "teams", "ai-departments", "functional-teams", "agent-teams"]'::jsonb,
+             -- render_mode:
+             'template',
+             -- component_level:
+             'section',
+             -- is_active:
+             true
+         );
+

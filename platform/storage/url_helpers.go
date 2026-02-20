@@ -108,6 +108,7 @@ var ImagePurposes = map[string]struct {
 	"hero_about":    {1600, 900, 85, "jpg"},
 	"hero_services": {1600, 900, 85, "jpg"},
 	"logo":          {400, 400, 90, "png"},
+	"icon":          {240, 240, 85, "jpg"},
 	"default":       {1200, 800, 85, "jpg"},
 }
 
