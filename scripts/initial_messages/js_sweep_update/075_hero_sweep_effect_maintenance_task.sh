@@ -50,8 +50,7 @@ echo "  Updating rendered_html..."
 kubectl -n ai-persona-system exec -i "$DB_POD" -- psql -U clients_user -d clients_db <<'UPDATESQL'
 UPDATE page_components
 SET rendered_html = '<section class="hero" data-component="hero" style="background: url(''/assets/images/hero.jpg'') center/cover no-repeat;">
-    <div class="hero-overlay"></div>
-    <div class="hero-sweep-beam"></div>
+    <div class="hero-overlay" id="heroOverlay"></div>
     <div class="hero-content">
         <h1>Smart AI Teams That Build Websites, Tools &amp; Reports in Minutes</h1>
         <p class="hero-subheadline">Leopardess Consulting harnesses collaborative AI agent teams to deliver professional websites, custom calculators, business plans, and creative tools — in minutes, not weeks.</p>
@@ -74,54 +73,43 @@ SET rendered_html = '<section class="hero" data-component="hero" style="backgrou
 .hero-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(26,26,46,0.85) 0%, rgba(22,33,62,0.8) 50%, rgba(15,52,96,0.75) 100%);
     z-index: 1;
     pointer-events: none;
+    background: linear-gradient(135deg, rgba(26,26,46,0.85) 0%, rgba(22,33,62,0.8) 50%, rgba(15,52,96,0.75) 100%);
 }
-.hero-sweep-beam {
-    position: absolute;
-    z-index: 2;
-    pointer-events: none;
-    width: 180%;
-    height: 100%;
-    top: 0;
-    left: -40%;
-    opacity: 0;
-    background: linear-gradient(
-        90deg,
-        transparent 0%,
-        transparent 42%,
-        rgba(255,255,255,0.06) 44%,
-        rgba(255,255,255,0.15) 47%,
-        rgba(255,255,255,0.35) 49%,
-        rgba(255,255,255,0.45) 50%,
-        rgba(255,255,255,0.35) 51%,
-        rgba(255,255,255,0.15) 53%,
-        rgba(255,255,255,0.06) 56%,
-        transparent 58%,
-        transparent 100%
+/* Mask-based sweep: a transparent band in the mask reveals the image beneath */
+@keyframes maskSweep {
+    0%   { -webkit-mask-position: 0% 0%; mask-position: 0% 0%; }
+    100% { -webkit-mask-position: 100% 100%; mask-position: 100% 100%; }
+}
+.hero-overlay.sweeping {
+    -webkit-mask-image: linear-gradient(
+        115deg,
+        black 0%, black 30%,
+        rgba(0,0,0,0.5) 36%,
+        rgba(0,0,0,0.1) 42%,
+        transparent 46%,
+        transparent 54%,
+        rgba(0,0,0,0.1) 58%,
+        rgba(0,0,0,0.5) 64%,
+        black 70%, black 100%
     );
-    transform: rotate(-25deg) translateX(-120%);
-    transform-origin: center center;
-    mix-blend-mode: screen;
-}
-@keyframes heroSweep {
-    0%   { opacity: 0; transform: rotate(-25deg) translateX(-120%); }
-    5%   { opacity: 1; }
-    85%  { opacity: 1; }
-    100% { opacity: 0; transform: rotate(-25deg) translateX(120%); }
-}
-.hero-sweep-beam.sweeping {
-    animation: heroSweep 2.6s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
-}
-@keyframes overlayPulse {
-    0%   { opacity: 1; }
-    30%  { opacity: 0.6; }
-    60%  { opacity: 0.6; }
-    100% { opacity: 1; }
-}
-.hero-overlay.reveal {
-    animation: overlayPulse 2.6s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+    mask-image: linear-gradient(
+        115deg,
+        black 0%, black 30%,
+        rgba(0,0,0,0.5) 36%,
+        rgba(0,0,0,0.1) 42%,
+        transparent 46%,
+        transparent 54%,
+        rgba(0,0,0,0.1) 58%,
+        rgba(0,0,0,0.5) 64%,
+        black 70%, black 100%
+    );
+    -webkit-mask-size: 300% 300%;
+    mask-size: 300% 300%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    animation: maskSweep 2.6s cubic-bezier(0.22, 0.1, 0.25, 1) forwards;
 }
 .hero-content {
     max-width: 900px;
@@ -181,17 +169,12 @@ SET rendered_html = '<section class="hero" data-component="hero" style="backgrou
 (function() {
     var hero = document.querySelector(''.hero[data-component="hero"]'');
     if (!hero) return;
-    var beam = hero.querySelector(''.hero-sweep-beam'');
-    var overlay = hero.querySelector(''.hero-overlay'');
+    var overlay = document.getElementById(''heroOverlay'');
     var triggered = false;
     hero.addEventListener(''click'', function() {
         if (triggered) return;
         triggered = true;
-        beam.classList.add(''sweeping'');
-        overlay.classList.add(''reveal'');
-        beam.addEventListener(''animationend'', function() {
-            beam.style.display = ''none'';
-        }, { once: true });
+        overlay.classList.add(''sweeping'');
     });
 })();
 </script>',
