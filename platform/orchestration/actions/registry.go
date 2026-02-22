@@ -476,6 +476,43 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Mark maintenance queue tasks as complete or failed after specialist finishes",
 		IsLocal:     true,
 	},
+	// work items (site_work_items table — unified build/maintenance queue)
+	"write_build_items": {
+		Handler:     WriteBuildItemsAction,
+		Category:    "site",
+		Description: "Convert planned pages into work items in site_work_items table",
+		IsLocal:     true,
+	},
+	"load_work_items": {
+		Handler:     LoadWorkItemsAction,
+		Category:    "site",
+		Description: "Load pending work items for a site, respecting dependencies",
+		IsLocal:     true,
+	},
+	"complete_work_item": {
+		Handler:     CompleteWorkItemAction,
+		Category:    "site",
+		Description: "Mark a work item as complete with result data and commit SHA",
+		IsLocal:     true,
+	},
+	"fail_work_item": {
+		Handler:     FailWorkItemAction,
+		Category:    "site",
+		Description: "Mark a work item as failed, increment attempt count for retry",
+		IsLocal:     true,
+	},
+	"run_discovery_checks": {
+		Handler:     RunDiscoveryChecksAction,
+		Category:    "maintenance",
+		Description: "Run discovery checks, write findings to site_work_items",
+		IsLocal:     true,
+	},
+	"load_undeployed_assets": {
+		Handler:     LoadUndeployedAssetsAction,
+		Category:    "site",
+		Description: "Query undeployed assets for a site",
+		IsLocal:     true,
+	},
 	"prepare_link_context": {
 		Handler:     PrepareLinkContextAction,
 		Category:    "site",
