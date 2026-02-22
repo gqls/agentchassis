@@ -485,7 +485,14 @@ func findFieldRecursive(
 		}
 
 		// Recurse into all values
+		// Skip infrastructure/metadata blobs that contain workflow configs with
+		// literal path strings (e.g. input_mapping: {"site_id": "site_record.site_id"})
+		// which get confused with actual data values. Direct match above still works
+		// if someone explicitly asks for "agent_config" etc.
 		for key, val := range m {
+			if isInfrastructureKey(key) {
+				continue
+			}
 			if result := findFieldRecursive(val, fieldName, depth+1, logger); result != nil {
 				logger.Debug("Recursive: found through key",
 					zap.String("through_key", key),
@@ -506,6 +513,29 @@ func findFieldRecursive(
 	}
 
 	return nil
+}
+
+// isInfrastructureKey returns true for keys that contain framework metadata
+// rather than business data. These should not be recursed into during
+// aggressive search because they contain workflow configs with literal
+// path strings (e.g. input_mapping: {"site_id": "site_record.site_id"})
+// that can be mistaken for actual data values.
+//
+// See also: current_section extraction (line ~159) which already uses a
+// safe-key whitelist for the same reason.
+func isInfrastructureKey(key string) bool {
+	switch key {
+	case "agent_config",
+		"__raw_message__",
+		"__work_request__",
+		"__execution_context__",
+		"__my_requests_topic__",
+		"__my_responses_topic__",
+		"__parent_responses_topic__",
+		"__reply_to_request_id__":
+		return true
+	}
+	return false
 }
 
 // tryUnwrapMapPatterns tries to unwrap common nesting patterns

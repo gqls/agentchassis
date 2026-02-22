@@ -12,7 +12,7 @@ CLIENT_ID="demo_client"
 # ============================================================================
 # STEP 1: Initial intake message
 # ============================================================================
-step1_initial() {
+
   CORRELATION_ID=$(uuidgen)
   ORCHESTRATION_ID=$(uuidgen)
   MESSAGE_ID=$(uuidgen)
@@ -55,16 +55,14 @@ JSON
   echo ""
   echo "NEXT: Wait ~10s, then find HITL request_id:"
   echo "  kubectl -n ai-persona-system logs -l app=agent-chassis --tail=200 | grep '$CORRELATION_ID' | grep hitl_confirm_type | grep 'Action requires waiting'"
-}
+
 
 # ============================================================================
 # STEP 2: Confirm type (brochure / pageflow-builder)
 # ============================================================================
-step2_confirm_type() {
-  if [ -z "$CORRELATION_ID" ] || [ -z "$ORCHESTRATION_ID" ] || [ -z "$HITL_REQUEST_ID" ]; then
-    echo "Set CORRELATION_ID, ORCHESTRATION_ID, and HITL_REQUEST_ID first"
-    return 1
-  fi
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
 
   MESSAGE_ID=$(uuidgen)
   TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -96,16 +94,15 @@ JSON
   echo ""
   echo "NEXT: Find hitl_review_brief request_id:"
   echo "  kubectl -n ai-persona-system logs -l app=agent-chassis --tail=200 | grep '$CORRELATION_ID' | grep hitl_review_brief | grep 'Action requires waiting'"
-}
+
 
 # ============================================================================
 # STEP 3: Review brief — the actual content brief
 # ============================================================================
-step3_review_brief() {
-  if [ -z "$CORRELATION_ID" ] || [ -z "$ORCHESTRATION_ID" ] || [ -z "$HITL_REQUEST_ID" ]; then
-    echo "Set CORRELATION_ID, ORCHESTRATION_ID, and HITL_REQUEST_ID first"
-    return 1
-  fi
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+
 
   MESSAGE_ID=$(uuidgen)
   TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -137,16 +134,15 @@ JSON
   echo ""
   echo "NEXT: Wait for builder, then find escalation request_id:"
   echo "  kubectl -n ai-persona-system logs -l app=agent-chassis --tail=500 | grep '$CORRELATION_ID' | grep escalate_to_human"
-}
+
 
 # ============================================================================
 # STEP 4: Approve auto-eval escalation
 # ============================================================================
-step4_approve_escalation() {
-  if [ -z "$CORRELATION_ID" ] || [ -z "$ORCHESTRATION_ID" ] || [ -z "$HITL_REQUEST_ID" ]; then
-    echo "Set CORRELATION_ID, ORCHESTRATION_ID, and HITL_REQUEST_ID first"
-    return 1
-  fi
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+RESPONSES_TOPIC=
 
   MESSAGE_ID=$(uuidgen)
   TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -160,7 +156,7 @@ step4_approve_escalation() {
     --restart=Never -- \
     kcat -P \
     -b $BOOTSTRAP \
-    -t system.agent.generic.responses \
+    -t $RESPONSES_TOPIC \
     -H correlation_id=$CORRELATION_ID \
     -H orchestration_id=$ORCHESTRATION_ID \
     -H message_id=$MESSAGE_ID \
@@ -176,21 +172,5 @@ step4_approve_escalation() {
 JSON
 
   echo "Escalation approved. Build should continue."
-}
 
-# ============================================================================
-# Run the requested step
-# ============================================================================
-case "${1:-}" in
-  1|init)     step1_initial ;;
-  2|confirm)  step2_confirm_type ;;
-  3|brief)    step3_review_brief ;;
-  4|approve)  step4_approve_escalation ;;
-  *)
-    echo "Usage: $0 {1|2|3|4}"
-    echo "  1/init    - Send initial intake message"
-    echo "  2/confirm - Confirm site type (set CORRELATION_ID, ORCHESTRATION_ID, HITL_REQUEST_ID)"
-    echo "  3/brief   - Send review brief"
-    echo "  4/approve - Approve auto-eval escalation"
-    ;;
-esac
+
