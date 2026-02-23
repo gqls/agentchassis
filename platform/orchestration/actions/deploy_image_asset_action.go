@@ -5,10 +5,13 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -23,7 +26,7 @@ import (
 // The Deprecated map bridges old config keys to new field names.
 var DeployImageAssetInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{"domain"},
-	Optional: []string{"s3_uri", "deploy_path", "purpose"},
+	Optional: []string{"s3_uri", "deploy_path", "purpose", "asset_id"},
 	Defaults: map[string]interface{}{
 		"purpose": "hero",
 	},
@@ -88,6 +91,13 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 	storageURI := inputs.Get("s3_uri")
 	if storageURI == "" {
 		storageURI = findStorageURI(params.CollectedData, config, purpose, logger)
+	}
+	// DB fallback: resolve from asset_id → site content_data → {purpose}_uri
+	if storageURI == "" && params.DB != nil {
+		assetID := inputs.Get("asset_id")
+		if assetID != "" {
+			storageURI = resolveStorageURIFromAsset(ctx, params.DB, assetID, purpose, logger)
+		}
 	}
 	if storageURI == "" {
 		logger.Warn("No storage URI found for image asset",
@@ -192,6 +202,84 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 		zap.String("url", processed.Paths.RelativeURL))
 
 	return result, nil
+}
+
+// resolveStorageURIFromAsset looks up the s3:// URI for an asset.
+//
+// Priority 1: site content_data → {purpose}_uri (written by StoreAssetAction)
+// Priority 2: asset URL → convert presigned HTTPS to s3:// URI
+//
+// This makes the asset-deployer self-contained: callers pass asset_id,
+// the agent resolves the storage URI itself.
+func resolveStorageURIFromAsset(ctx context.Context, db *sql.DB, assetIDStr string, purpose string, logger *zap.Logger) string {
+	assetUUID, err := uuid.Parse(assetIDStr)
+	if err != nil {
+		logger.Warn("resolveStorageURIFromAsset: invalid asset_id",
+			zap.String("asset_id", assetIDStr),
+			zap.Error(err))
+		return ""
+	}
+
+	// Priority 1: site content_data has the s3:// URI keyed by purpose
+	// StoreAssetAction writes: content_data->>'{purpose}_uri' = 's3://bucket/path'
+	uriKey := purpose + "_uri"
+	query1 := `
+		SELECT s.content_data->>$2
+		FROM assets a
+		JOIN sites s ON a.site_id = s.id
+		WHERE a.id = $1
+	`
+	var s3URI sql.NullString
+	if err := db.QueryRowContext(ctx, query1, assetUUID, uriKey).Scan(&s3URI); err == nil {
+		if s3URI.Valid && storage.IsS3URI(s3URI.String) {
+			logger.Info("Resolved s3_uri from site content_data via asset_id",
+				zap.String("asset_id", assetIDStr),
+				zap.String("key", uriKey),
+				zap.String("s3_uri", s3URI.String))
+			return s3URI.String
+		}
+	}
+
+	// Priority 2: convert asset's presigned URL to s3:// URI
+	query2 := `SELECT url FROM assets WHERE id = $1`
+	var assetURL sql.NullString
+	if err := db.QueryRowContext(ctx, query2, assetUUID).Scan(&assetURL); err == nil {
+		if assetURL.Valid && assetURL.String != "" {
+			if converted := storage.PresignedURLToS3URI(assetURL.String); converted != "" {
+				logger.Info("Converted asset presigned URL to s3_uri",
+					zap.String("asset_id", assetIDStr),
+					zap.String("s3_uri", converted))
+				return converted
+			}
+		}
+	}
+
+	logger.Warn("resolveStorageURIFromAsset: could not resolve",
+		zap.String("asset_id", assetIDStr),
+		zap.String("purpose", purpose))
+	return ""
+}
+
+// presignedURLToS3URI converts a presigned S3/B2 URL to an s3:// URI.
+//
+// Input:  https://s3.us-east-005.backblazeb2.com/bucket-name/path/to/file.png?X-Amz-...
+// Output: s3://bucket-name/path/to/file.png
+//
+// Returns "" if the URL doesn't match the expected pattern.
+func presignedURLToS3URI(presignedURL string) string {
+	u, err := url.Parse(presignedURL)
+	if err != nil || u.Path == "" {
+		return ""
+	}
+
+	// Path is /bucket/key — strip leading slash and split
+	path := strings.TrimPrefix(u.Path, "/")
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) != 2 || parts[1] == "" {
+		return ""
+	}
+
+	return fmt.Sprintf("s3://%s/%s", parts[0], parts[1])
 }
 
 // findStorageURI looks for the storage URI in multiple locations

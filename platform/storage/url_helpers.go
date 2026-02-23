@@ -64,6 +64,49 @@ func IsS3URI(uri string) bool {
 	return strings.HasPrefix(uri, S3URIPrefix)
 }
 
+// PresignedURLToS3URI converts a presigned S3/B2 HTTPS URL to an s3:// URI.
+//
+// Input:  https://s3.us-east-005.backblazeb2.com/bucket-name/path/to/file.png?X-Amz-Algorithm=...
+// Output: s3://bucket-name/path/to/file.png
+//
+// Returns "" if the URL doesn't match the expected pattern.
+// The query string (signature, expiry, etc.) is stripped.
+func PresignedURLToS3URI(presignedURL string) string {
+	if presignedURL == "" {
+		return ""
+	}
+
+	// Strip query parameters
+	base := presignedURL
+	if idx := strings.Index(base, "?"); idx >= 0 {
+		base = base[:idx]
+	}
+
+	// Find the path portion after the host
+	// Pattern: https://s3.region.backblazeb2.com/bucket/key
+	//          https://bucket.s3.region.amazonaws.com/key  (virtual-hosted)
+	protocolEnd := strings.Index(base, "://")
+	if protocolEnd < 0 {
+		return ""
+	}
+	afterProtocol := base[protocolEnd+3:]
+
+	// Find first slash after host
+	slashIdx := strings.Index(afterProtocol, "/")
+	if slashIdx < 0 {
+		return ""
+	}
+
+	// Path is /bucket/key — trim leading slash, split into bucket + key
+	path := strings.TrimPrefix(afterProtocol[slashIdx:], "/")
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return ""
+	}
+
+	return BuildS3URI(parts[0], parts[1])
+}
+
 // AssetPaths holds the different path formats for an asset
 type AssetPaths struct {
 	// RelativeURL is the web-accessible path (e.g., /assets/images/hero.jpg)

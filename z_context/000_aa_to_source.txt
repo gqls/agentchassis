@@ -13,3 +13,8 @@
 SELECT count(*), source, status FROM site_work_items GROUP BY source, status;
 SELECT * FROM site_work_items;
 SELECT * FROM maintenance_queue;
+
+
+include some initial messages
+
+and the registry (again)
