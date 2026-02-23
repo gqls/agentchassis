@@ -1,4 +1,3 @@
-https://claude.ai/chat/3ef4aaf4-fb53-433e-a5c4-64835885b145
 #!/bin/bash
 # ============================================================================
 # GETTING THE V2 SYSTEM RUNNING — step by step
@@ -16,11 +15,9 @@ kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clients_user 
 
 # Check agent definitions were inserted
 kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clients_user -d clients_db -c \
-  "SELECT type, agent_category, status FROM agent_definitions WHERE type IN ('site-work-orchestrator', 'design-discovery-agent', 'completeness-discovery-agent', 'asset-deployer', 'webdesign-agent');"
+  "SELECT type, agent_category, status FROM agent_definitions WHERE type IN ('site-work-orchestrator', 'design-discovery-agent', 'completeness-discovery-agent', 'asset-deploy-agent');"
 
-# Should see 5 rows. If any missing, re-run the SQL files.
-# Note: asset-deployer is the existing agent (not "asset-deploy-agent" — that was
-# a duplicate we avoided creating, see 001_development_guide Step 0).
+# Should see 4 rows. If any missing, re-run the SQL files.
 
 # Check finetuning.uk has known issues (good test target)
 kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clients_user -d clients_db -c "
@@ -61,10 +58,7 @@ kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clients_user 
 #   "complete_work_item":     { Handler: CompleteWorkItemAction,     Category: "site", Description: "...", IsLocal: true },
 #   "fail_work_item":         { Handler: FailWorkItemAction,         Category: "site", Description: "...", IsLocal: true },
 #   "run_discovery_checks":   { Handler: RunDiscoveryChecksAction,   Category: "site", Description: "...", IsLocal: true },
-#
-# Note: NO "load_undeployed_assets" entry — we reuse the existing asset-deployer
-# agent with deploy_image_asset (already registered). The asset-deployer now
-# resolves s3_uri from asset_id via resolveStorageURIFromAsset.
+#   "load_undeployed_assets": { Handler: LoadUndeployedAssetsAction, Category: "site", Description: "...", IsLocal: true },
 
 # ============================================================================
 # STEP 3: BUILD AND DEPLOY
@@ -125,64 +119,28 @@ kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clients_user 
    ORDER BY created_at DESC LIMIT 20;"
 
 # Expected for finetuning.uk:
-#   missing_css       | high   | Site has no custom stylesheet    | webdesign-agent | detected | 50
-#   undeployed_asset  | high   | Asset 'logo' not deployed       | asset-deployer  | detected | 60
-#   undeployed_asset  | high   | Asset 'hero' not deployed       | asset-deployer  | detected | 60
-#   duplicate_palette | low    | Colour palette identical to ... | webdesign-agent | detected | 150
+#   missing_css       | high   | Site has no custom stylesheet    | webdesign-agent      | detected | 50
+#   undeployed_asset  | high   | Asset 'logo' not deployed       | asset-deploy-agent   | detected | 60
+#   undeployed_asset  | high   | Asset 'hero' not deployed       | asset-deploy-agent   | detected | 60
+#   duplicate_palette | low    | Colour palette identical to ... | webdesign-agent      | detected | 150
 
 # ============================================================================
-# STEP 5: TRIAGE + TEST INDIVIDUAL HANDLERS
+# STEP 5: TEST ASSET DEPLOY (needs S3 + git adapter running)
 # ============================================================================
-# Only after discovery works.
-# Discovery items start as 'detected'. Dispatch only picks up 'triaged'.
-# Test each handler independently before running the full loop.
+# Only after discovery works. The asset-deploy-agent:
+#   1. ensure_site_record (DB lookup)
+#   2. load_undeployed_assets (DB query — same as discovery check)
+#   3. loop: deploy_image_asset per asset (S3 download → git commit)
 #
-# See 075c_test_handlers_against_site_work_items.sh for handler tests.
-# See 075d_trigger_maintenance.sh for the full dispatch loop.
-#
-# Quick manual triage:
+# Trigger standalone:
 
-kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clients_user -d clients_db -c "
-  UPDATE site_work_items SET status = 'triaged', updated_at = NOW()
-  WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
-    AND status = 'detected'
-  RETURNING item_type, handler_agent, priority, spec->>'purpose' as purpose;
-"
-
-# Test webdesign-agent standalone (just needs domain):
-#   ./075c_test_handlers_against_site_work_items.sh css finetuning.uk
-
-# Test asset-deployer standalone (passes asset_id, agent resolves s3_uri itself):
-#   ./075c_test_handlers_against_site_work_items.sh asset finetuning.uk hero
-#   ./075c_test_handlers_against_site_work_items.sh asset finetuning.uk logo
-
-# ============================================================================
-# STEP 6: TEST FULL MAINTENANCE DISPATCH LOOP
-# ============================================================================
-# After individual handlers work, test the dispatch loop end-to-end.
-# The site-work-orchestrator in maintenance mode:
-#   1. Loads site context, selects style, renders chrome
-#   2. Loads content items (likely empty for maintenance)
-#   3. Loads ALL triaged fix items (no handler filter)
-#   4. fix_items_loop: for each item, spawn→call handler dynamically
-#      - missing_css → spawns webdesign-agent → CSS deployed
-#      - undeployed_asset (hero) → spawns asset-deployer → hero.jpg deployed
-#      - undeployed_asset (logo) → spawns asset-deployer → logo.png deployed
-#   5. Final design pass, complete
-#
-# The orchestrator routes to handlers based on each item's handler_agent field.
-# No pre-spawning, no hardcoded handler list.
-
-#   ./075d_trigger_maintenance.sh maintain finetuning.uk
-
-# Or manually:
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-kubectl -n kafka run -i --rm kcat-maint-$(date +%s) \
+kubectl -n kafka run -i --rm kcat-asset-deploy-$(date +%s) \
   --image=edenhill/kcat:1.7.1 \
   --restart=Never -- \
   kcat -P \
@@ -199,29 +157,16 @@ kubectl -n kafka run -i --rm kcat-maint-$(date +%s) \
   -H sender_agent_id=cli-user \
   -H responses_topic=system.agent.generic.responses \
   -H timestamp=$TIMESTAMP <<JSON
-{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"demo_client","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_orchestrator","processing_mode":"orchestrator","timeout_seconds":900,"steps":{"spawn_orchestrator":{"action":"spawn_agent","config":{"role":"site_orchestrator","agent_type":"site-work-orchestrator"},"output_field":"orchestrator","next_step":"call_orchestrator","description":"Spawn site work orchestrator"},"call_orchestrator":{"action":"call_agent","config":{"target_role":"site_orchestrator","input_mapping":{"domain":"input_data.domain","mode":"input_data.mode"},"timeout_seconds":600},"output_field":"orchestrator_result","next_step":"complete","description":"Run maintenance dispatch loop"},"complete":{"action":"complete_workflow","config":{"output_fields":["orchestrator_result"]},"description":"Maintenance complete"}}}},"input_data":{"domain":"finetuning.uk","mode":"maintenance"}}
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"demo_client","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_deployer","processing_mode":"orchestrator","timeout_seconds":300,"steps":{"spawn_deployer":{"action":"spawn_agent","config":{"role":"asset_deployer","agent_type":"asset-deploy-agent"},"output_field":"deployer","next_step":"call_deployer","description":"Spawn asset deploy agent"},"call_deployer":{"action":"call_agent","config":{"agent_type":"asset-deploy-agent","target_role":"asset_deployer","input_mapping":{"domain":"input_data.domain"},"timeout_seconds":120},"output_field":"deploy_result","next_step":"complete","description":"Deploy undeployed assets"},"complete":{"action":"complete_workflow","config":{"output_fields":["deploy_result"]},"description":"Asset deploy complete"}}}},"input_data":{"domain":"finetuning.uk"}}
 JSON
 
 echo "CORRELATION_ID=$CORRELATION_ID"
 
-# Monitor:
-#   kubectl -n ai-persona-system logs -f -l app=agent-chassis --tail=50 | grep "$CORRELATION_ID"
-
-# Check results:
-#   ./075d_trigger_maintenance.sh status finetuning.uk
-# Or:
-kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clients_user -d clients_db -c "
-  SELECT item_type, handler_agent, status, priority,
-         spec->>'purpose' as purpose,
-         result->>'commit_sha' as commit_sha,
-         updated_at::timestamp(0) as updated
-  FROM site_work_items
-  WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
-  ORDER BY priority, created_at;
-"
-
-# Expected end state:
-#   missing_css      | webdesign-agent | complete | 50  | (null) | abc123...
-#   undeployed_asset | asset-deployer  | complete | 60  | hero   | def456...
-#   undeployed_asset | asset-deployer  | complete | 60  | logo   | ghi789...
-
+# ============================================================================
+# STEP 6: TEST FULL ORCHESTRATOR (later — needs planner, content writer, etc)
+# ============================================================================
+# The site-work-orchestrator is a full build pipeline. Test it with a new domain
+# only after steps 4-5 work. It follows the same pattern as pageflow-builder
+# but routes through site_work_items.
+#
+# Don't test with existing sites yet — it will try to rebuild everything.

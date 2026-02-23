@@ -16,6 +16,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -512,6 +513,15 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	itemIDStr := inputs.Get("work_item_id")
+
+	// Fallback: config value may be a dot-notation path (e.g. "current_fix_item.id")
+	// that ExtractActionInputs returned as a literal. Resolve against collectedData.
+	if itemIDStr == "" || strings.Contains(itemIDStr, ".") {
+		if resolved := resolveConfigPath(params.StepConfig.Config, "work_item_id", params.CollectedData, logger); resolved != "" {
+			itemIDStr = resolved
+		}
+	}
+
 	itemID, err := uuid.Parse(itemIDStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid work_item_id: %w", err)
@@ -580,6 +590,15 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 	}
 
 	itemIDStr := inputs.Get("work_item_id")
+
+	// Fallback: config value may be a dot-notation path (e.g. "current_fix_item.id")
+	// that ExtractActionInputs returned as a literal. Resolve against collectedData.
+	if itemIDStr == "" || strings.Contains(itemIDStr, ".") {
+		if resolved := resolveConfigPath(params.StepConfig.Config, "work_item_id", params.CollectedData, logger); resolved != "" {
+			itemIDStr = resolved
+		}
+	}
+
 	itemID, err := uuid.Parse(itemIDStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid work_item_id: %w", err)
@@ -629,6 +648,34 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 // ============================================================================
 // Internal helpers
 // ============================================================================
+
+// resolveConfigPath checks if a config field contains a dot-notation path
+// (e.g. "current_fix_item.id") and resolves it against collectedData.
+// Used by CompleteWorkItemAction and FailWorkItemAction where config values
+// may be paths into loop variables that ExtractActionInputs doesn't resolve.
+func resolveConfigPath(config map[string]interface{}, field string, collectedData map[string]interface{}, logger *zap.Logger) string {
+	pathStr, ok := config[field].(string)
+	if !ok || !strings.Contains(pathStr, ".") {
+		return ""
+	}
+
+	val := getNestedValue(collectedData, pathStr)
+	if val == nil {
+		logger.Warn("resolveConfigPath: path not found in collectedData",
+			zap.String("field", field),
+			zap.String("path", pathStr))
+		return ""
+	}
+
+	if str, ok := val.(string); ok {
+		logger.Info("resolveConfigPath: resolved",
+			zap.String("field", field),
+			zap.String("path", pathStr),
+			zap.String("value", str))
+		return str
+	}
+	return ""
+}
 
 type workItem struct {
 	siteID       uuid.UUID

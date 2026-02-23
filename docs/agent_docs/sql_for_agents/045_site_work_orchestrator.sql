@@ -543,3 +543,231 @@ INSERT INTO agent_definitions (
                               input_contract = EXCLUDED.input_contract,
                               output_contract = EXCLUDED.output_contract,
                               updated_at = NOW();
+
+
+---
+
+-- workflow change to site flow
+
+-- =============================================================================
+-- DISPATCH LOOP v3: Standard spawn→call pattern, dynamic agent type
+-- =============================================================================
+--
+-- Pattern: Same as page-content-writer's research agent spawning.
+--   spawn_handler: role "fix_handler", agent_type_field resolves dynamically
+--   call_handler:  target_role "fix_handler" — findAgentByRole finds it
+--
+-- No Go changes to agent resolution needed.
+--
+-- Changes to existing steps:
+--   1. ensure_site_record.next_step → check_mode (was → call_site_planner)
+--   2. check_has_items.else_step   → load_fix_items (was → apply_site_design)
+--   3. build_items_loop.next_step  → load_fix_items (was → apply_site_design)
+--
+-- New steps:
+--   4. check_mode          — maintenance skips planning
+--   5. load_fix_items      — all triaged items, no handler filter
+--   6. check_has_fix_items — gate
+--   7. fix_items_loop      — spawn→call→complete per item
+--
+-- =============================================================================
+
+BEGIN;
+
+-- 1. ensure_site_record → check_mode (was → call_site_planner)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,ensure_site_record,next_step}',
+        '"check_mode"'
+                     )
+WHERE type = 'site-work-orchestrator';
+
+-- 2. check_has_items else → load_fix_items (was → apply_site_design)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_has_items,config,else_step}',
+        '"load_fix_items"'
+                     )
+WHERE type = 'site-work-orchestrator';
+
+-- 3. build_items_loop → load_fix_items (was → apply_site_design)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,build_items_loop,next_step}',
+        '"load_fix_items"'
+                     )
+WHERE type = 'site-work-orchestrator';
+
+-- 4. check_mode
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_mode}',
+        '{
+            "action": "conditional",
+            "config": {
+                "condition": "input_data.mode == maintenance",
+                "then_step": "select_style_collection",
+                "else_step": "call_site_planner"
+            },
+            "description": "Route: maintenance skips planning, build goes full pipeline"
+        }'::jsonb
+                     )
+WHERE type = 'site-work-orchestrator';
+
+-- 5. load_fix_items — all triaged items, no handler filter
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_fix_items}',
+        '{
+            "action": "load_work_items",
+            "config": {
+                "site_id": "site_record.site_id",
+                "max_items": 20
+            },
+            "next_step": "check_has_fix_items",
+            "description": "Load all triaged fix/maintenance items for dispatch",
+            "output_field": "fix_items"
+        }'::jsonb
+                     )
+WHERE type = 'site-work-orchestrator';
+
+-- 6. check_has_fix_items
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_has_fix_items}',
+        '{
+            "action": "conditional",
+            "config": {
+                "condition": "fix_items.has_items == true",
+                "then_step": "fix_items_loop",
+                "else_step": "apply_site_design"
+            },
+            "description": "Check if there are fix items to dispatch"
+        }'::jsonb
+                     )
+WHERE type = 'site-work-orchestrator';
+
+-- 7. fix_items_loop — standard spawn→call per iteration
+--
+-- Each iteration:
+--   spawn_handler  → dynamic type from work item, fixed role "fix_handler"
+--   call_handler   → finds by target_role, passes raw identifiers
+--   mark_complete  → orchestrator marks item done
+--
+-- Orchestrator maps spec fields with ? suffix (optional).
+-- Handlers that don't need asset_id/purpose ignore them silently.
+-- Handlers that need more data load it themselves (self-contained).
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,fix_items_loop}',
+        '{
+            "action": "loop",
+            "config": {
+                "mode": "sequential",
+                "items_field": "fix_items.items",
+                "item_variable": "current_fix_item",
+                "sub_workflow": {
+                    "steps": {
+                        "spawn_handler": {
+                            "action": "spawn_agent",
+                            "config": {
+                                "role": "fix_handler",
+                                "agent_type_field": "current_fix_item.handler_agent"
+                            },
+                            "next_step": "call_handler",
+                            "description": "Spawn handler agent — type resolved from work item",
+                            "output_field": "spawn_handler"
+                        },
+                        "call_handler": {
+                            "action": "call_agent",
+                            "config": {
+                                "target_role": "fix_handler",
+                                "input_mapping": {
+                                    "site_id": "site_record.site_id",
+                                    "domain": "site_record.domain",
+                                    "asset_id?": "current_fix_item.spec.asset_id",
+                                    "purpose?": "current_fix_item.spec.purpose",
+                                    "check?": "current_fix_item.spec.check",
+                                    "page_id?": "current_fix_item.page_id",
+                                    "item_type?": "current_fix_item.item_type"
+                                },
+                                "timeout_seconds": 300
+                            },
+                            "next_step": "mark_complete",
+                            "description": "Call handler — passes raw identifiers, agent loads own context",
+                            "output_field": "handler_result"
+                        },
+                        "mark_complete": {
+                            "action": "complete_work_item",
+                            "config": {
+                                "work_item_id": "current_fix_item.id"
+                            },
+                            "next_step": "done",
+                            "description": "Mark work item as complete",
+                            "output_field": "item_completed"
+                        },
+                        "done": {
+                            "action": "loop_complete",
+                            "description": "Fix item dispatch complete"
+                        }
+                    },
+                    "start_step": "spawn_handler"
+                },
+                "max_iterations": 20
+            },
+            "next_step": "apply_site_design",
+            "description": "Dispatch fix items — spawn→call per item, dynamic agent type",
+            "output_field": "fix_items_result"
+        }'::jsonb
+                     )
+WHERE type = 'site-work-orchestrator';
+
+COMMIT;
+
+
+-- =============================================================================
+-- VERIFY
+-- =============================================================================
+SELECT
+    step_name,
+    step_data->>'action' as action,
+    step_data->>'next_step' as next_step,
+    step_data->'config'->>'then_step' as then_step,
+    step_data->'config'->>'else_step' as else_step,
+    step_data->>'output_field' as output_field
+FROM agent_definitions,
+    jsonb_each(default_config->'workflow'->'steps') AS s(step_name, step_data)
+WHERE type = 'site-work-orchestrator'
+ORDER BY step_name;
+
+
+-- =============================================================================
+-- FINETUNING.UK: Triage items
+-- =============================================================================
+-- No spec patching needed — asset-deployer resolves s3_uri from asset_id via DB.
+
+BEGIN;
+
+UPDATE site_work_items
+SET status = 'triaged',
+    triaged_at = NOW()
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
+  AND status = 'detected';
+
+COMMIT;
+
+SELECT item_type, status, handler_agent, priority,
+       spec->>'purpose' as purpose,
+    spec->>'asset_id' as asset_id,
+    spec->>'check' as check_type
+FROM site_work_items
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
+ORDER BY priority;
+

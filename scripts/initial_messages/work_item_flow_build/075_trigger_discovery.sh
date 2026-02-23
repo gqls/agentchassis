@@ -72,3 +72,20 @@ echo "  kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clien
 echo "    \"SELECT id, item_type, severity, summary, handler_agent, status, priority FROM site_work_items WHERE batch_id IS NOT NULL ORDER BY created_at DESC LIMIT 20;\""
 echo ""
 echo "CORRELATION_ID=$CORRELATION_ID"
+
+
+
+# See what was found
+kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clients_user -d clients_db -c "
+  SELECT item_type, handler_agent, status, priority, spec->>'purpose' as purpose
+  FROM site_work_items
+  WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
+  ORDER BY priority;
+"
+
+# Approve them
+kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clients_user -d clients_db -c "
+  UPDATE site_work_items SET status = 'triaged', updated_at = NOW()
+  WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
+    AND status = 'detected';
+"
