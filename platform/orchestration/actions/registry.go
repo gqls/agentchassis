@@ -507,12 +507,6 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Run discovery checks, write findings to site_work_items",
 		IsLocal:     true,
 	},
-	"load_undeployed_assets": {
-		Handler:     LoadUndeployedAssetsAction,
-		Category:    "site",
-		Description: "Query undeployed assets for a site",
-		IsLocal:     true,
-	},
 	"prepare_link_context": {
 		Handler:     PrepareLinkContextAction,
 		Category:    "site",

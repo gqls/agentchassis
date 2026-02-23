@@ -178,6 +178,19 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 	result["output_path"] = processed.Paths.FilePath
 	result["size_bytes"] = len(processed.Data)
 
+	// Write URL directly to collected_data so it survives the git adapter
+	// response overwriting this step's output_field (hero_deployed/logo_deployed).
+	// The build loop's input_mapping reads hero_url/logo_url from collected_data
+	// and passes them to page-content-writer → BuildRenderContextAction.
+	urlKey := purpose + "_url"
+	params.CollectedData[urlKey] = processed.Paths.RelativeURL
+	if purpose == "logo" {
+		params.CollectedData["brand_logo_url"] = processed.Paths.RelativeURL
+	}
+	logger.Info("Wrote image URL to collected_data",
+		zap.String("key", urlKey),
+		zap.String("url", processed.Paths.RelativeURL))
+
 	return result, nil
 }
 

@@ -1,0 +1,15 @@
+\pset pager off
+\d site_work_items
+\d maintenance_queue
+\d sites
+\d pages
+\d assets
+\d agent_definitions
+\d orchestration_states
+\d awaited_requests
+\d page_components
+\d
+
+SELECT count(*), source, status FROM site_work_items GROUP BY source, status;
+SELECT * FROM site_work_items;
+SELECT * FROM maintenance_queue;

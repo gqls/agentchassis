@@ -195,7 +195,7 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 		}
 	}
 
-	// --- undeployed_assets → handler: asset-deploy-agent ---
+	// --- undeployed_assets → handler: asset-deployer ---
 	if containsCheck(checks, "undeployed_assets") {
 		undeployed, err := findUndeployedAssets(ctx, params.DB, siteID, logger)
 		if err != nil {
@@ -226,7 +226,7 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 					summary:      fmt.Sprintf("Asset '%s' generated but not deployed to site", asset.Purpose),
 					spec:         string(specJSON),
 					priority:     60, // visible issue — higher than cosmetic
-					handlerAgent: "asset-deploy-agent",
+					handlerAgent: "asset-deployer",
 					status:       "detected",
 					createdBy:    agentType,
 					itemKey:      fmt.Sprintf("undeployed_asset:%s", asset.AssetID),
@@ -550,29 +550,3 @@ func findDuplicatePalette(ctx context.Context, db *sql.DB, siteID uuid.UUID, log
 	}
 	return findings, nil
 }
-
-// ============================================================================
-// Notes
-// ============================================================================
-//
-// Uses from work_item_actions.go (same package):
-//   - workItem struct
-//   - insertWorkItem(ctx, tx, workItem, logger) (bool, error)
-//
-// Uses from maintenance_actions.go (same package):
-//   - containsCheck(checks, name) bool
-//
-// Action registry entry needed in action_registry.go:
-//   "run_discovery_checks": {
-//       Handler:     RunDiscoveryChecksAction,
-//       Category:    "maintenance",
-//       Description: "Run discovery checks for a site, write findings to site_work_items",
-//       IsLocal:     true,
-//   },
-//
-// Config value patterns (per 008_checklist):
-//   | Config key     | Value                    | Type    | Read via                |
-//   |---------------|--------------------------|---------|-------------------------|
-//   | site_id       | "site_record.site_id"    | path    | ExtractActionInputs     |
-//   | checks        | ["empty_sections", ...]  | literal | direct config read      |
-//   | check_domain  | "design"                 | literal | direct config read      |
