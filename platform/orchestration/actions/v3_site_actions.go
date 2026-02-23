@@ -20,10 +20,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// ============================================================================
-// ACTION: select_style_collection
-// ============================================================================
-
 // SelectStyleCollectionAction selects a style collection for a site
 // Either by explicit ID, by site_id lookup, or by domain/industry matching
 // Config:
@@ -45,32 +41,81 @@ func SelectStyleCollectionAction(ctx context.Context, params ActionParams) (inte
 		return getDefaultStyleCollection(), nil
 	}
 
-	// Priority 1: Explicit style_collection_id
+	// Resolve site_id early — needed for persist step at the end
+	var siteID uuid.UUID
+	if siteIDField, ok := config["site_id_field"].(string); ok && siteIDField != "" {
+		siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, siteIDField)
+		if siteIDStr != "" {
+			if parsed, err := uuid.Parse(siteIDStr); err == nil {
+				siteID = parsed
+			}
+		}
+	}
+
+	// Helper: persist and return
+	persistAndReturn := func(coll *StyleCollection, source string) (interface{}, error) {
+		params.Logger.Info("SelectStyleCollectionAction: Resolved style",
+			zap.String("name", coll.Name),
+			zap.String("source", source),
+			zap.String("id", coll.ID.String()))
+
+		// Persist style_collection_id to sites table so downstream agents
+		// (webdesign-agent, maintenance agents) can find it via DB lookup
+		if siteID != uuid.Nil {
+			query := `UPDATE sites SET style_collection_id = $2, updated_at = NOW() WHERE id = $1`
+			if err := execDB(ctx, params.DB, query, siteID, coll.ID); err != nil {
+				params.Logger.Warn("SelectStyleCollectionAction: Failed to persist style_collection_id",
+					zap.Error(err))
+				// Non-fatal — continue with the result
+			} else {
+				params.Logger.Info("SelectStyleCollectionAction: Persisted style_collection_id to sites table",
+					zap.String("site_id", siteID.String()),
+					zap.String("style_collection_id", coll.ID.String()))
+			}
+		}
+
+		return styleCollectionToResult(coll), nil
+	}
+
+	// Priority 1: Explicit style_collection_id in config
 	if scID, ok := config["style_collection_id"].(string); ok && scID != "" {
 		scUUID, err := uuid.Parse(scID)
 		if err == nil {
 			coll, err := getStyleCollectionByID(ctx, params.DB, scUUID, params.Logger)
 			if err == nil {
-				return styleCollectionToResult(coll), nil
+				return persistAndReturn(coll, "explicit_id")
 			}
 		}
 	}
 
-	// Priority 2: Look up by site_id
-	if siteIDField, ok := config["site_id_field"].(string); ok && siteIDField != "" {
-		siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, siteIDField)
-		if siteIDStr != "" {
-			siteUUID, err := uuid.Parse(siteIDStr)
-			if err == nil {
-				coll, err := GetStyleCollectionForSite(ctx, params.DB, siteUUID, params.Logger)
-				if err == nil && coll != nil {
-					return styleCollectionToResult(coll), nil
-				}
+	// Priority 2 (NEW): Planner's style choice via style_from config
+	// Config example: "style_from": "site_plan.style_collection"
+	// The planner writes a style name (e.g. "professional-dark") to that path
+	if styleFromField, ok := config["style_from"].(string); ok && styleFromField != "" {
+		styleName := datahelpers.ExtractNestedFieldString(params.CollectedData, styleFromField)
+		if styleName != "" {
+			params.Logger.Info("SelectStyleCollectionAction: Trying planner style choice",
+				zap.String("style_from", styleFromField),
+				zap.String("style_name", styleName))
+			coll, err := GetStyleCollectionByName(ctx, params.DB, styleName, params.Logger)
+			if err == nil && coll != nil {
+				return persistAndReturn(coll, "planner_style_from")
 			}
+			params.Logger.Warn("SelectStyleCollectionAction: Planner style not found in DB",
+				zap.String("style_name", styleName))
 		}
 	}
 
-	// Priority 3: Match by domain/industry
+	// Priority 3: Look up by site_id (existing style_collection_id on sites table)
+	if siteID != uuid.Nil {
+		coll, err := GetStyleCollectionForSite(ctx, params.DB, siteID, params.Logger)
+		if err == nil && coll != nil {
+			// Already persisted — just return
+			return styleCollectionToResult(coll), nil
+		}
+	}
+
+	// Priority 4: Match by domain keywords
 	domainField := "input_data.domain"
 	if df, ok := config["domain_field"].(string); ok && df != "" {
 		domainField = df
@@ -79,11 +124,11 @@ func SelectStyleCollectionAction(ctx context.Context, params ActionParams) (inte
 	if domain != "" {
 		coll, err := SelectStyleCollectionByDomain(ctx, params.DB, domain, params.Logger)
 		if err == nil && coll != nil {
-			return styleCollectionToResult(coll), nil
+			return persistAndReturn(coll, "domain_keywords")
 		}
 	}
 
-	// Fallback: Return default
+	// Fallback: Return default (not persisted — it's a synthetic default)
 	params.Logger.Info("SelectStyleCollectionAction: No matching style found, using default")
 	return getDefaultStyleCollection(), nil
 }
