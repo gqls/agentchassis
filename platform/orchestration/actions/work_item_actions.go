@@ -360,11 +360,13 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			wi.id, wi.site_id, wi.source, wi.domain, wi.item_type,
 			wi.severity, wi.summary, wi.spec, wi.page_id, 
 			wi.priority, wi.handler_agent, wi.status, wi.item_key,
-			wi.batch_id, wi.attempt_count
+			wi.batch_id, wi.attempt_count, 
+			COALESCE(wi.approval_mode, 'auto') as approval_mode
 		FROM site_work_items wi
 		WHERE wi.site_id = $1
 		  AND wi.status IN ('triaged', 'approved')
 		  AND wi.attempt_count < wi.max_attempts
+		  AND (COALESCE(wi.approval_mode, 'auto') = 'auto' OR wi.status = 'approved')
 		  AND (
 		    wi.depends_on IS NULL 
 		    OR NOT EXISTS (
@@ -416,13 +418,14 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			itemKey                  *string
 			batchID                  *uuid.UUID
 			attemptCount             int
+			approvalMode             string
 		)
 
 		err := rows.Scan(
 			&id, &wiSiteID, &source, &domain, &itemType,
 			&severity, &summary, &specJSON, &pageID,
 			&priority, &handlerAgent, &status, &itemKey,
-			&batchID, &attemptCount,
+			&batchID, &attemptCount, &approvalMode,
 		)
 		if err != nil {
 			logger.Warn("LoadWorkItemsAction: scan error", zap.Error(err))
@@ -453,6 +456,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			"handler_agent": handlerAgent,
 			"status":        status,
 			"attempt_count": attemptCount,
+			"approval_mode": approvalMode,
 		}
 
 		if pageID != nil {
