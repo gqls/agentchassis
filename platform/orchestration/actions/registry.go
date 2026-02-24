@@ -478,22 +478,37 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 	// site specs (site_specs table — versioned spec storage)
 	"write_site_spec": {
-		Handler: WriteSiteSpecAction,
-		IsLocal: true,
+		Handler:     WriteSiteSpecAction,
+		Category:    "site",
+		Description: "Write or merge a versioned spec aspect to site_specs, superseding previous",
+		IsLocal:     true,
 	},
 	"read_site_spec": {
-		Handler: ReadSiteSpecAction,
-		IsLocal: true,
+		Handler:     ReadSiteSpecAction,
+		Category:    "site",
+		Description: "Read current site_specs for one aspect or all aspects",
+		IsLocal:     true,
 	},
-	// component history
+	// component history (page_component_history table)
 	"save_component_history": {
-		Handler: SaveComponentHistoryAction,
-		IsLocal: true,
+		Handler:     SaveComponentHistoryAction,
+		Category:    "site",
+		Description: "Snapshot current page_component content_data before overwrite",
+		IsLocal:     true,
 	},
 	// build queue seeding
 	"seed_build_queue": {
-		Handler: SeedBuildQueueAction,
-		IsLocal: true,
+		Handler:     SeedBuildQueueAction,
+		Category:    "site",
+		Description: "Process queued build_queue entries into site records and first work items",
+		IsLocal:     true,
+	},
+	// work item chaining
+	"create_work_item": {
+		Handler:     CreateWorkItemAction,
+		Category:    "site",
+		Description: "Insert a single work item for pipeline chaining between handler agents",
+		IsLocal:     true,
 	},
 	// work items (site_work_items table — unified build/maintenance queue)
 	"write_build_items": {
