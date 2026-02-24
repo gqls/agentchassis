@@ -476,15 +476,6 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Mark maintenance queue tasks as complete or failed after specialist finishes",
 		IsLocal:     true,
 	},
-	// site specs (site_specs table — versioned spec storage)
-	"write_site_spec": {
-		Handler: WriteSiteSpecAction,
-		IsLocal: true,
-	},
-	"read_site_spec": {
-		Handler: ReadSiteSpecAction,
-		IsLocal: true,
-	},
 	// work items (site_work_items table — unified build/maintenance queue)
 	"write_build_items": {
 		Handler:     WriteBuildItemsAction,

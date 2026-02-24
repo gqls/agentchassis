@@ -206,6 +206,53 @@ Workflow JSON should be declarative and readable. Complex logic belongs in Go ac
 
 Templates and config declarations are fine in workflow JSON — they express intent, not logic.
 
+### Actions are the unit of work — don't split them into wrapper + core
+
+All action logic lives inside the action function. Private helpers in the same file are fine (`insertWorkItem`, `upsertSite`, `lookupPageID`), but don't create exported "core logic" functions that actions wrap.
+
+**The wrong pattern:**
+
+```go
+// WriteSiteSpec is the "core logic" — exported so other Go code can call it
+func WriteSiteSpec(ctx context.Context, db *sql.DB, p WriteSiteSpecParams, logger *zap.Logger) (map[string]interface{}, error) {
+    // all the real work here
+}
+
+// WriteSiteSpecAction is a "thin wrapper" around the core function
+func WriteSiteSpecAction(ctx context.Context, params ActionParams) (interface{}, error) {
+    // extract inputs, then call WriteSiteSpec()
+}
+```
+
+**Why this happens:** You anticipate that another action (say `seed_build_queue`) will need to call `WriteSiteSpec()` directly from Go, so you pre-extract the logic into a callable function. This feels like good engineering — separation of concerns, testability, DRY.
+
+**Why it's wrong:**
+
+- No other action in the codebase does this. You're inventing a two-tier architecture for a caller that doesn't exist yet.
+- Composition happens through workflows, not Go-calling-Go. If `seed_build_queue` needs to write a spec, its workflow includes a `write_site_spec` step. That's how the system sequences work.
+- The exported function creates a second API surface with its own parameter struct (`WriteSiteSpecParams`) that duplicates what `ActionInputSpec` already defines. Now two contracts describe the same action.
+- When you eventually change the action, you have to update both the exported function signature and the action wrapper.
+
+**The right pattern:**
+
+```go
+func WriteSiteSpecAction(ctx context.Context, params ActionParams) (interface{}, error) {
+    // extract inputs
+    // do the work (queries, transactions, logic)
+    // return result
+}
+```
+
+If a private helper would reduce repetition within the same file, keep it unexported or use helpers.go or datahelpers:
+
+```go
+func siteSpecDeepMerge(dst, src map[string]interface{}) map[string]interface{} { ... }
+```
+
+**If you later genuinely need the logic callable from Go:** Extract a private helper at that point, same as `insertWorkItem` is private to `write_build_items_action.go`. Don't pre-build the abstraction.
+
+**Test:** Does your action file export anything besides the `XxxAction` function and the `XxxInputSpec` variable? If yes, you're probably over-abstracting.
+
 ### Don't create subworkflows in SQL
 
 Spawn sub-agents with their own workflows instead. This keeps logs clear, maintenance easier, and responsibilities separate.
