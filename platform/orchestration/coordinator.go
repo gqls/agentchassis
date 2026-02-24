@@ -827,7 +827,8 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 				}
 				return nil // Loop continues from next iteration
 			}
-			return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
+			// Check if the failed step has an error_step to route to
+			return s.routeToErrorStepOrFail(ctx, state, state.CurrentStep, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
 		}
 
 		// Check if a recursive call (from loop expansion) set the status to AWAITING_RESPONSES
@@ -2835,6 +2836,27 @@ func (s *SagaCoordinator) handleUnrecoverableError(ctx context.Context, state *O
 	if shouldContinueLoopOnError(state, s.logger) {
 		return s.skipToNextLoopIterationForAsync(ctx, state, requestID, errorMsg, s.logger)
 	}
+
+	// Check if the failed step has an error_step to route to
+	failedStepName := ""
+	if ar, exists := state.AwaitedRequests[requestID]; exists {
+		failedStepName = ar.StepName
+	}
+	if failedStepName != "" {
+		if step, exists := state.WorkflowPlan.Steps[failedStepName]; exists {
+			if errorStep, ok := step.Config["error_step"].(string); ok && errorStep != "" {
+				// Clean up the awaited request before routing to error_step
+				delete(state.AwaitedRequests, requestID)
+				repo := NewStateRepository(s.db, s.logger)
+				if markErr := repo.MarkAwaitedRequestComplete(ctx, requestID); markErr != nil {
+					s.logger.Warn("Failed to mark awaited request complete for error_step routing",
+						zap.String("request_id", requestID), zap.Error(markErr))
+				}
+				return s.routeToErrorStep(ctx, state, failedStepName, errorStep, errorMsg)
+			}
+		}
+	}
+
 	return s.failWorkflow(ctx, state, fmt.Sprintf("Request %s failed: %s", requestID, errorMsg))
 
 }
@@ -2867,7 +2889,7 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 				}
 				return
 			}
-			s.failWorkflow(ctx, state, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
+			s.routeToErrorStepOrFail(ctx, state, awaited.StepName, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
 		}
 		return
 	}
@@ -2970,7 +2992,7 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 
 			s.handleRecoverableError(ctx, state, requestID, execCtx, timeoutResponse)
 		} else {
-			s.failWorkflow(ctx, state, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
+			s.routeToErrorStepOrFail(ctx, state, awaited.StepName, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
 		}
 	}
 }
@@ -3021,6 +3043,77 @@ func (s *SagaCoordinator) skipStep(ctx context.Context, state *OrchestrationStat
 
 	repo := NewStateRepository(s.db, s.logger)
 	return repo.UpdateState(ctx, state)
+}
+
+// routeToErrorStepOrFail checks if the failed step has an error_step configured.
+// If so, stores error info in collected_data and routes the workflow to that step.
+// Otherwise, falls through to failWorkflow.
+//
+// Used by: continueExecution (local step failures), handleRequestTimeout (timeout failures).
+// For async child failures (handleUnrecoverableError), the caller must clean up the
+// awaited request first, then call routeToErrorStep directly.
+func (s *SagaCoordinator) routeToErrorStepOrFail(ctx context.Context, state *OrchestrationState, failedStepName string, errorMsg string) error {
+	if failedStepName != "" {
+		if step, exists := state.WorkflowPlan.Steps[failedStepName]; exists {
+			if errorStep, ok := step.Config["error_step"].(string); ok && errorStep != "" {
+				return s.routeToErrorStep(ctx, state, failedStepName, errorStep, errorMsg)
+			}
+		}
+	}
+	return s.failWorkflow(ctx, state, errorMsg)
+}
+
+// routeToErrorStep routes the workflow to the given error step, storing error
+// context in collected_data["__step_error"]. The workflow continues from errorStep
+// instead of failing. This allows workflows to handle errors gracefully — e.g. the
+// dispatch loop can mark a work item as failed and continue to the next item.
+//
+// Workflow config usage:
+//
+//	"call_handler": {
+//	    "action": "call_agent",
+//	    "config": {
+//	        "target_role": "handler",
+//	        "error_step": "mark_failed",
+//	        ...
+//	    },
+//	    "next_step": "mark_complete"
+//	}
+func (s *SagaCoordinator) routeToErrorStep(ctx context.Context, state *OrchestrationState, failedStepName string, errorStep string, errorMsg string) error {
+	s.logger.Info("Routing to error_step instead of failing workflow",
+		zap.String("failed_step", failedStepName),
+		zap.String("error_step", errorStep),
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.String("error_msg", errorMsg))
+
+	// Store error context so downstream steps can read it if needed
+	state.CollectedData["__step_error"] = map[string]interface{}{
+		"failed_step": failedStepName,
+		"message":     errorMsg,
+	}
+
+	state.CurrentStep = errorStep
+	state.Status = StatusExecutingStep
+	state.LastActivity = time.Now()
+
+	state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{
+		PodName:   s.podName,
+		StepName:  failedStepName,
+		Action:    "error_routed",
+		Timestamp: time.Now(),
+		Details:   fmt.Sprintf("routed to %s: %s", errorStep, errorMsg),
+	})
+
+	repo := NewStateRepository(s.db, s.logger)
+	if err := repo.UpdateState(ctx, state); err != nil {
+		s.logger.Error("Failed to save state for error_step routing",
+			zap.String("error_step", errorStep),
+			zap.Error(err))
+		// Fall back to failing the workflow if we can't save
+		return s.failWorkflow(ctx, state, errorMsg)
+	}
+
+	return s.continueExecution(ctx, state, s.createContinuationContext(state))
 }
 
 func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *OrchestrationState, errorMsg string) error {
