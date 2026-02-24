@@ -13,7 +13,7 @@
 --   aspect "classification"  — site_type, confidence, detected_signals
 --
 -- Creates next work item:
---   needs_briefing → briefing-agent (handler mode)
+--   needs_briefing → build-briefing-agent
 
 INSERT INTO agent_definitions (
     type,
@@ -126,7 +126,7 @@ INSERT INTO agent_definitions (
                              "config": {
                                  "site_id": "input_data.site_id",
                                  "item_type": "needs_briefing",
-                                 "handler_agent": "briefing-agent",
+                                 "handler_agent": "build-briefing-agent",
                                  "item_domain": "build",
                                  "severity": "high",
                                  "source": "domain-research-classifier",
@@ -185,4 +185,3 @@ INSERT INTO agent_definitions (
                                        input_contract = EXCLUDED.input_contract,
                                        output_contract = EXCLUDED.output_contract,
                                        updated_at = now();
-

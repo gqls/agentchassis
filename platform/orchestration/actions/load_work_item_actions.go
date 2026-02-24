@@ -483,11 +483,18 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 		zap.Strings("handler_agents", agents),
 	)
 
+	// first_item: convenience field for single-item dispatch (avoids array indexing)
+	var firstItem interface{}
+	if len(workItems) > 0 {
+		firstItem = workItems[0]
+	}
+	
 	return map[string]interface{}{
 		"items":          workItems,
 		"item_count":     len(workItems),
 		"has_items":      len(workItems) > 0,
 		"handler_agents": agents,
+		"first_item":     firstItem,
 	}, nil
 }
 

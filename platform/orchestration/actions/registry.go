@@ -510,6 +510,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Insert a single work item for pipeline chaining between handler agents",
 		IsLocal:     true,
 	},
+	"claim_work_item": {
+		Handler:     ClaimWorkItemAction,
+		Category:    "site",
+		Description: "Atomically claim a work item for processing, preventing double-dispatch",
+		IsLocal:     true,
+	},
 	// work items (site_work_items table — unified build/maintenance queue)
 	"write_build_items": {
 		Handler:     WriteBuildItemsAction,
