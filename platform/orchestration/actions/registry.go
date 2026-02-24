@@ -485,6 +485,16 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Handler: ReadSiteSpecAction,
 		IsLocal: true,
 	},
+	// component history
+	"save_component_history": {
+		Handler: SaveComponentHistoryAction,
+		IsLocal: true,
+	},
+	// build queue seeding
+	"seed_build_queue": {
+		Handler: SeedBuildQueueAction,
+		IsLocal: true,
+	},
 	// work items (site_work_items table — unified build/maintenance queue)
 	"write_build_items": {
 		Handler:     WriteBuildItemsAction,
