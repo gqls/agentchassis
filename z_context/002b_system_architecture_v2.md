@@ -195,6 +195,44 @@ Workflow:
 
 Order is deliberate: process existing work first, verify previous work, then discover new work, then triage.
 
+### Dispatch pattern: spawn→call per work item
+
+The orchestrator processes work items in a loop. Each iteration spawns the handler agent dynamically and calls it with raw identifiers. The handler loads its own context.
+
+```
+fix_items_loop:
+  for each work item:
+    spawn_handler   → role: "fix_handler", agent_type_field: "current_fix_item.handler_agent"
+    call_handler    → target_role: "fix_handler", input_mapping: { site_id, domain, spec fields? }
+    mark_complete   → complete_work_item
+```
+
+The agent type comes from the work item's `handler_agent` field. The spawn resolves it dynamically via `agent_type_field`. The call finds the just-spawned agent via `target_role: "fix_handler"`. Standard spawn→call, same as everywhere else in the system.
+
+**What the orchestrator passes:**
+
+```json
+{
+    "site_id": "site_record.site_id",
+    "domain": "site_record.domain",
+    "asset_id?": "current_fix_item.spec.asset_id",
+    "purpose?": "current_fix_item.spec.purpose",
+    "check?": "current_fix_item.spec.check",
+    "page_id?": "current_fix_item.page_id"
+}
+```
+
+Optional fields (`?` suffix) are silently skipped if absent in the work item spec. This means the same dispatch loop handles `missing_css` items (webdesign-agent needs `site_id`, `domain`), `undeployed_asset` items (asset-deployer needs `asset_id`, `purpose`), and future handler types — without the orchestrator knowing what each handler needs.
+
+**What the orchestrator does NOT do:**
+- Pre-spawn handler agents in a static chain. Agent types aren't known until work items are loaded.
+- Build derived data for handlers (e.g. resolving s3:// URIs from asset IDs). That's the handler's job.
+- Pass work item IDs or work item awareness to handlers. Handlers don't know about the work item system.
+
+**Handlers are self-contained.** The webdesign-agent receives `site_id` and `domain`, does `check_site_context → load_site_for_design → generate_css → deploy`. The asset-deployer receives `asset_id`, `purpose`, `domain`, resolves the storage URI itself from the assets/sites tables. Both can be called directly from CLI with the same inputs — no orchestrator required.
+
+Status tracking (marking items in_progress/complete) is the orchestrator's concern, handled in the loop before and after the handler call.
+
 ### Batch scheduler
 
 ```
@@ -383,6 +421,8 @@ For interactive components — calculators, configurators, simple tools.
 Discovery agents write items. They do not fix anything. They do not call other agents.
 
 **Fix agents (handler agents):**
+
+Called via the dispatch loop (spawn→call per work item). Each receives raw identifiers, loads its own context. No work-item-specific code in handlers.
 
 Existing agents adapted as handlers:
 
@@ -580,3 +620,5 @@ Stored in `sites.settings.maintenance_profile`:
 13. Entity state changes trigger news via feed pipeline: `news_triggers` config controls significance.
 14. Entity sources and content sources: separate tables, separate ownership.
 15. Commit IS deploy: GitHub Actions fires on each commit → S3 → live. No separate deploy step needed in new system.
+16. Dispatch loop uses standard spawn→call: `spawn_agent` supports `agent_type_field` for dynamic type resolution. Combined with a fixed `role` and `target_role` lookup, this gives dynamic dispatch with no special Go code. Do not bypass spawn with direct topic construction — agents must be spawned to get proper orchestration tracking, topic setup, and DB registration.
+17. Handlers don't know about work items: The orchestrator maps spec fields to handler input_data via `input_mapping`. Handlers receive raw identifiers (`site_id`, `domain`, `asset_id`, etc.) and load their own context. The work item system is the orchestrator's concern, not the handler's.

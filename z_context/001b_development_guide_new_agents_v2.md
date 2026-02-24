@@ -157,6 +157,12 @@ Before creating new code, check for existing actions/functions that can be **pat
 - Solution: Point discovery work items at existing `asset-deployer` (handler_agent field)
 - Avoided: New `asset-deploy-agent`, `load_undeployed_assets` action, new registry entry — three files that duplicated what already existed under a slightly different name
 
+**Example — dynamic dispatch loop:**
+- Needed: Dispatch work items to different handler agents at runtime
+- Assumed: `spawn_agent` only supports static `agent_type` — need custom topic resolution
+- Reality: `spawn_agent` already has `agent_type_field` (dynamic resolution from collected_data). Three hours spent designing a "universal topic fallback" that wasn't needed
+- Lesson: `grep -n "agent_type_field" platform/orchestration/actions/*.go` before assuming a capability is missing
+
 **Check existing code for:**
 - Similar actions that could be extended
 - Config options that could be added
@@ -219,8 +225,80 @@ In builder workflows, agents must be spawned before they can be called:
 Then later:
 
 ```json
-{ "action": "call_agent", "config": { "agent_type": "webdesign-agent", "target_role": "webdesigner" } }
+{ "action": "call_agent", "config": { "target_role": "webdesigner" } }
 ```
+
+### How call_agent finds the spawned agent
+
+`call_agent` has two lookup strategies. Understanding which one to use avoids a common trap.
+
+**`target_role` → `findAgentByRole` (preferred)**
+
+Scans ALL keys in collected_data. Matches on the `role` field inside spawn results. This is how every existing workflow does it — page-content-writer's research agent, site-work-orchestrator's planner call, etc.
+
+```json
+"spawn_research_agent": { "config": { "role": "researcher", "agent_type": "research-agent" } }
+"call_researcher":      { "config": { "target_role": "researcher" } }
+```
+
+Works regardless of what the spawn step's `output_field` is named.
+
+**`agent_type` → `findAgentByType` (has a filter trap)**
+
+Scans only collected_data keys that start with `spawn_`. If your spawn step's `output_field` is `"webdesign_agent"` or `"asset_deployer_agent"`, findAgentByType will never find it — it's looking for keys starting with `spawn_`.
+
+**Rule: Always use `target_role` to find spawned agents.** It's more reliable (scans everything) and decouples the call from the spawn step's output_field naming.
+
+### Dynamic dispatch: spawn→call in loops
+
+When you don't know the agent type at workflow-definition time (e.g. a dispatch loop processing work items with different handler types), both `spawn_agent` and `call_agent` support dynamic type resolution:
+
+```json
+"spawn_handler": {
+    "action": "spawn_agent",
+    "config": {
+        "role": "fix_handler",
+        "agent_type_field": "current_fix_item.handler_agent"
+    },
+    "output_field": "spawn_handler"
+},
+"call_handler": {
+    "action": "call_agent",
+    "config": {
+        "target_role": "fix_handler",
+        "input_mapping": {
+            "site_id": "site_record.site_id",
+            "domain": "site_record.domain",
+            "asset_id?": "current_fix_item.spec.asset_id"
+        }
+    }
+}
+```
+
+The pattern: **fixed role, dynamic type.** `agent_type_field` resolves the type from collected_data at runtime. `target_role` finds the agent by role at call time. Each loop iteration spawns whatever type the work item says, and the call finds it by role. Same standard spawn→call pattern, just with dynamic resolution.
+
+This is exactly how page-content-writer spawns research-agent (fixed role `"researcher"`, static type) — the dispatch loop just adds dynamic type resolution on top of the same mechanism.
+
+**Trap we fell into:** When first building the dispatch loop, we tried to bypass spawn entirely by constructing topic names directly (a "universal topic fallback"). The reasoning was "we can't pre-spawn every handler type." But `spawn_agent` already supports `agent_type_field` — it resolves the type dynamically from collected_data. There was no problem to solve. The standard spawn→call pattern works for dynamic dispatch without any Go changes. Always check existing capabilities before inventing new mechanisms.
+
+### What the orchestrator passes to handlers
+
+The orchestrator passes raw identifiers. The handler loads its own context.
+
+```json
+"input_mapping": {
+    "site_id": "site_record.site_id",
+    "domain": "site_record.domain",
+    "asset_id?": "current_fix_item.spec.asset_id",
+    "purpose?": "current_fix_item.spec.purpose"
+}
+```
+
+The `?` suffix makes fields optional — silently skipped if absent. Handlers that don't need `asset_id` ignore it. Handlers that do (asset-deployer) resolve the rest themselves (e.g. looking up the s3:// URI from the asset record).
+
+The handler doesn't know it was dispatched by a work item. It receives `site_id`, `domain`, and whatever spec fields apply — the same inputs it would get from a direct CLI call. This keeps handlers independently callable and testable.
+
+**Test:** Can you call the handler agent directly from the CLI with just `site_id` and `domain`? If not, you've leaked orchestrator concerns into the handler.
 
 ---
 

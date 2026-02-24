@@ -1,20 +1,31 @@
 \pset pager off
 \d site_work_items
-\d maintenance_queue
 \d sites
 \d pages
+\d page_components
+\d site_components
 \d assets
 \d agent_definitions
 \d orchestration_states
 \d awaited_requests
-\d page_components
+\d maintenance_queue
 \d
 
 SELECT count(*), source, status FROM site_work_items GROUP BY source, status;
-SELECT * FROM site_work_items;
-SELECT * FROM maintenance_queue;
+SELECT * FROM site_work_items LIMIT 2;
+SELECT * FROM maintenance_queue LIMIT 2;
 
 
 include some initial messages
 
 and the registry (again)
+
+
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t site_assets > bk_site_assets_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > bk_agent_definitions_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t site_work_items > bk_site_work_items_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t page_components > bk_page_components_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t assets > bk_assets_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t pages > bk_pages_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t page_components > bk_page_components_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t site_components > bk_site_components_backup.sql
