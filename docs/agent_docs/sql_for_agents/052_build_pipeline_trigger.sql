@@ -330,3 +330,32 @@ INSERT INTO agent_definitions (
                                        output_contract = EXCLUDED.output_contract,
                                        updated_at = now();
 
+--
+
+-- data path fix
+
+-- Fix build-pipeline-trigger: update input_mapping paths
+-- After the Go patch (flatten first row), paths change from
+-- dispatchable.rows.0.x to dispatchable.x
+--
+-- The conditional "dispatchable.count > 0" still works unchanged.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_dispatch,config,input_mapping}',
+        '{
+            "site_id": "dispatchable.site_id",
+            "domain":  "dispatchable.domain"
+        }'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'build-pipeline-trigger';
+
+-- Verify
+SELECT
+    default_config->'workflow'->'steps'->'call_dispatch'->'config'->'input_mapping' as input_mapping,
+    default_config->'workflow'->'steps'->'check_has_site'->'config'->'condition' as condition
+FROM agent_definitions
+WHERE type = 'build-pipeline-trigger';
+

@@ -67,5 +67,18 @@ func QueryDatabaseAction(ctx context.Context, params ActionParams) (interface{},
 	if outputFormat == "array" {
 		return results, nil
 	}
-	return map[string]interface{}{"rows": results, "count": len(results), "columns": columns}, nil
+	// "object" format: include metadata + flatten first row for easy path access
+	result := map[string]interface{}{
+		"rows":    results,
+		"count":   len(results),
+		"columns": columns,
+	}
+	// Flatten first row fields to top level so paths like
+	// "dispatchable.domain" work without array indexing
+	if len(results) > 0 {
+		for k, v := range results[0] {
+			result[k] = v
+		}
+	}
+	return result, nil
 }
