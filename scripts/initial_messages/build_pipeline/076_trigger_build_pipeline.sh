@@ -94,3 +94,91 @@ echo ""
 echo "Check work items:"
 echo "  SELECT wi.item_type, wi.status, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.domain = 'build' ORDER BY wi.created_at DESC LIMIT 10;"
 echo ""
+
+
+
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=domain-research-classifier -f | tee logs-domain-research-classifier.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=build-briefing-agent -f | tee logs-build-briefing-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=build-site-planner -f | tee logs-build-site-planner.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-generator -f | tee logs-image-generator.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-content-writer -f | tee logs-page-content-writer.json
+
+
+reset
+-- Reset the claimed (failed) content page back to triaged
+UPDATE site_work_items
+SET status = 'triaged',
+    claimed_by = NULL,
+    claimed_at = NULL,
+    completed_at = NULL,
+    result = '{}'::jsonb,
+    error = NULL,
+    attempt_count = 0
+WHERE status = 'claimed'
+  AND site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND domain = 'build';
+
+
+  then
+    Step 1: Webdesign (CSS generation)
+    Step 2: Rerender (assemble all pages)
+
+
+    clients_db=# -- 1. Check page components have rendered HTML
+    SELECT pc.id, p.name as page_name, pc.position,
+           LENGTH(pc.rendered_html) as html_len,
+           LEFT(pc.rendered_html, 120) as preview,
+           pc.build_status
+    FROM page_components pc
+    JOIN pages p ON pc.page_id = p.id
+    WHERE p.site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+    ORDER BY p.name, pc.position
+    LIMIT 40;
+
+    -- 2. Check pages themselves
+    SELECT name, url, title, build_status,
+           LENGTH(rendered_header) as header_len,
+           LENGTH(rendered_footer) as footer_len,
+           LEFT(rendered_head, 150) as head_preview
+    FROM pages
+    WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+    ORDER BY nav_order;
+
+    -- 3. Check css_themes table
+    SELECT id, site_id, LEFT(css_content, 200) as preview, LENGTH(css_content) as len
+    FROM css_themes
+    WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002';
+
+    -- 4. All site_specs aspects (not just CSS)
+    SELECT aspect, LENGTH(data::text) as len, created_at
+    FROM site_specs
+    WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+    AND is_current = true
+    ORDER BY created_at;
+     id | page_name | position | html_len | preview | build_status
+    ----+-----------+----------+----------+---------+--------------
+    (0 rows)
+
+                name             |                url                |                               title                                | build_status | header_len | footer_len | head_preview
+    -----------------------------+-----------------------------------+--------------------------------------------------------------------+--------------+------------+------------+--------------
+     wholesale-fuel-distribution | /wholesale-fuel-distribution.html | Wholesale Fuel Distribution | Gas Wholesalers                      | deployed     |            |            |
+     fleet-fuel-services         | /fleet-fuel-services.html         | Fleet Fuel Services | Gas Wholesalers                              | deployed     |            |            |
+     natural-gas-distribution    | /natural-gas-distribution.html    | Natural Gas Distribution | Gas Wholesalers                         | deployed     |            |            |
+     rack-pricing-programs       | /rack-pricing-programs.html       | Rack Pricing Programs | Gas Wholesalers                            | deployed     |            |            |
+     index                       | /index.html                       | Gas Wholesalers | Wholesale Fuel Distribution & Natural Gas Supply | deployed     |            |            |
+     about                       | /about.html                       | About Us | Gas Wholesalers                                         | deployed     |            |            |
+     services                    | /services.html                    | Our Services | Gas Wholesalers                                     | deployed     |            |            |
+     contact                     | /contact.html                     | Contact Us | Gas Wholesalers                                       | deployed     |            |            |
+    (8 rows)
+
+    ERROR:  column "site_id" does not exist
+    LINE 1: SELECT id, site_id, LEFT(css_content, 200) as preview, LENGT...
+                       ^
+         aspect     | len  |          created_at
+    ----------------+------+-------------------------------
+     identity       | 1634 | 2026-02-25 10:08:34.477358+00
+     classification |  778 | 2026-02-25 10:08:34.583426+00
+     briefing       | 1460 | 2026-02-25 10:09:45.326584+00
+     site_plan      | 3744 | 2026-02-25 11:02:52.248378+00
+    (4 rows)

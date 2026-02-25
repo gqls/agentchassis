@@ -183,7 +183,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			pageIDPtr = &parsed
 		}
 
-		handlerAgent := "page-content-writer"
+		handlerAgent := "page-build-handler"
 		itemType := "needs_content_page"
 		if pt, _ := page["page_type"].(string); pt != "" {
 			switch pt {
@@ -272,12 +272,28 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 
 	// Design tracking item
 	ok, _ := insertWorkItem(ctx, tx, workItem{
-		siteID: siteID, source: "planner", domain: "design",
+		siteID: siteID, source: "planner", domain: "build",
 		itemType: "needs_design", severity: "high",
 		summary: "Generate site stylesheet", spec: "{}",
 		priority: 8, handlerAgent: "webdesign-agent",
 		status: "triaged", createdBy: "site-planner",
 		itemKey: "needs_design", batchID: batchID,
+	}, logger)
+	if ok {
+		inserted++
+	}
+
+	// Rerender tracking item — assembles pages from components after content + design
+	rerenderSpec, _ := json.Marshal(map[string]interface{}{
+		"refresh_site_components": true,
+	})
+	ok, _ = insertWorkItem(ctx, tx, workItem{
+		siteID: siteID, source: "planner", domain: "build",
+		itemType: "needs_rerender", severity: "medium",
+		summary: "Assemble and deploy all pages", spec: string(rerenderSpec),
+		priority: 20, handlerAgent: "rerender-pages",
+		status: "triaged", createdBy: "site-planner",
+		itemKey: "needs_rerender", batchID: batchID,
 	}, logger)
 	if ok {
 		inserted++
@@ -488,7 +504,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 	if len(workItems) > 0 {
 		firstItem = workItems[0]
 	}
-	
+
 	return map[string]interface{}{
 		"items":          workItems,
 		"item_count":     len(workItems),

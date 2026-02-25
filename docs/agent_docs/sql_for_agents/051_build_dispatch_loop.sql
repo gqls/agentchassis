@@ -761,3 +761,95 @@ INSERT INTO agent_definitions (
                                        updated_at = now();
 
 
+---
+-- page content writer expects current_page data path not spec - add both
+
+-- Add current_page mapping for page-content-writer compatibility
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_handler,config,input_mapping,current_page}',
+        '"pending.first_item.spec"'
+                     ),
+    updated_at = now()
+WHERE type = 'build-dispatch-loop';
+
+-- Verify
+SELECT default_config->'workflow'->'steps'->'call_handler'->'config'->'input_mapping'
+FROM agent_definitions
+WHERE type = 'build-dispatch-loop';
+
+
+-- path fixes
+
+-- 056_build_pipeline_fixes.sql
+--
+-- Fixes for the automated build pipeline post-mortem (gaswholesalers.com):
+--
+-- Problem 1: page-content-writer returns HTML but doesn't save to page_components
+--   Fix: New page-build-handler agent wraps writer with save_sections (055_page_build_handler.sql)
+--   Fix: WriteBuildItemsAction Go patch changes handler_agent to "page-build-handler"
+--
+-- Problem 2: needs_design had domain "design", dispatch loop filters domain "build"
+--   Fix: WriteBuildItemsAction Go patch changes domain to "build"
+--   Fix: Below — retroactively fix any existing needs_design items
+--
+-- Problem 3: No rerender/deploy step in the pipeline
+--   Fix: WriteBuildItemsAction Go patch adds needs_rerender work item
+--   Fix: Below — dispatch loop input_mapping passes refresh_site_components
+--
+-- Problem 4: Empty CSS variables (no :root block)
+--   Fix: webdesign-agent will now be dispatched (needs_design domain fixed)
+--   Fix: rerender-pages refreshes site components including CSS head
+
+-- ============================================================================
+-- Fix 1: Fix dispatch loop input_mapping
+--   - domain: use input_data.domain (site domain like gaswholesalers.com)
+--     NOT pending.first_item.domain (work item namespace like "build")
+--   - refresh_site_components: passthrough for rerender-pages
+--   - current_page: alias for page-content-writer compatibility
+-- ============================================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_handler,config,input_mapping}',
+        '{
+            "site_id":      "pending.first_item.site_id",
+            "domain":       "input_data.domain",
+            "work_item_id": "pending.first_item.id",
+            "item_type":    "pending.first_item.item_type",
+            "spec":         "pending.first_item.spec",
+            "current_page": "pending.first_item.spec",
+            "refresh_site_components": "pending.first_item.spec.refresh_site_components"
+        }'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'build-dispatch-loop';
+
+-- ============================================================================
+-- Fix 2: Retroactively fix any existing needs_design items with wrong domain
+-- (for sites that may have been built before the Go patch is deployed)
+-- ============================================================================
+UPDATE site_work_items
+SET domain = 'build'
+WHERE item_type = 'needs_design'
+  AND domain = 'design'
+  AND status IN ('detected', 'triaged', 'approved');
+
+-- ============================================================================
+-- Fix 3: Retroactively update handler_agent for pending content page items
+-- (for sites that may have been built before the Go patch is deployed)
+-- ============================================================================
+UPDATE site_work_items
+SET handler_agent = 'page-build-handler'
+WHERE item_type = 'needs_content_page'
+  AND handler_agent = 'page-content-writer'
+  AND status IN ('detected', 'triaged', 'approved');
+
+-- ============================================================================
+-- Verify
+-- ============================================================================
+-- SELECT type,
+--        default_config->'workflow'->'steps'->'call_handler'->'config'->'input_mapping' as mapping
+-- FROM agent_definitions
+-- WHERE type = 'build-dispatch-loop';
