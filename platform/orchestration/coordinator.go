@@ -288,11 +288,14 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		return s.handleCompleteResponse(ctx, state, requestID, execCtx, response, awaitedReq)
 	case "error_recoverable":
 		return s.handleRecoverableError(ctx, state, requestID, execCtx, response)
-	case "error_unrecoverable":
+	case "error_unrecoverable", "failed", "error":
 		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
 	default:
-		contextLogger.Warn("Unknown response status", zap.String("status", execCtx.Status))
-		return nil
+		contextLogger.Warn("Unknown response status, treating as unrecoverable error",
+			zap.String("status", execCtx.Status),
+			zap.String("request_id", requestID),
+			zap.String("step_name", awaitedReq.StepName))
+		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
 	}
 }
 
@@ -3389,7 +3392,7 @@ func (s *SagaCoordinator) notifyParentOfFailure(ctx context.Context, state *Orch
 	failureResponse := types.ResponseMessage{
 		Headers: types.ResponseHeaders{
 			InResponseToRequestID: replyToRequestID,
-			Status:                "failed",
+			Status:                "error_unrecoverable",
 			IsError:               true,
 			MessageType:           "response",
 			//MessageID:             uuid.New().String(),
