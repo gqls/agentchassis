@@ -170,23 +170,9 @@ func WriteSiteSpecAction(ctx context.Context, params ActionParams) (interface{},
 
 	var sourceItemID *uuid.UUID
 	if itemIDStr, ok := config["source_item_id"].(string); ok && itemIDStr != "" {
-		// Try as UUID literal first
-		if parsed, err := uuid.Parse(itemIDStr); err == nil {
+		parsed, err := uuid.Parse(itemIDStr)
+		if err == nil {
 			sourceItemID = &parsed
-		} else {
-			// Not a UUID — resolve as a path reference into collected_data
-			// e.g. "input_data.work_item_id" → collectedData["input_data"]["work_item_id"]
-			if resolved := datahelpers.ExtractNestedField(params.CollectedData, itemIDStr); resolved != nil {
-				if resolvedStr, ok := resolved.(string); ok {
-					if parsed, err := uuid.Parse(resolvedStr); err == nil {
-						sourceItemID = &parsed
-					} else {
-						logger.Warn("source_item_id resolved but not a valid UUID",
-							zap.String("path", itemIDStr),
-							zap.String("resolved", resolvedStr))
-					}
-				}
-			}
 		}
 	}
 

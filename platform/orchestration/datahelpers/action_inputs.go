@@ -188,6 +188,49 @@ func ExtractActionInputs(
 		}
 	}
 
+	// Strategy 4: Resolve config values as path references
+	// This handles workflow patterns like:
+	//   "work_item_id": "pending.first_item.id"   (dot-notation path)
+	//   "spec_data": "site_plan"                   (single-segment reference)
+	// where the config value is a reference into collectedData, not a literal.
+	//
+	// Safe because we only check fields in the InputSpec (Required/Optional).
+	// Config literals like "aspect": "site_plan" are NOT in the spec —
+	// they're read directly by the action code, so we won't touch them.
+	for _, field := range allFields {
+		if _, hasValue := result.Values[field]; hasValue {
+			continue
+		}
+
+		pathStr, ok := config[field].(string)
+		if !ok || pathStr == "" {
+			continue
+		}
+
+		// Multi-segment path (has dot): resolve via ExtractNestedField
+		if strings.Contains(pathStr, ".") {
+			value := ExtractNestedField(collectedData, pathStr)
+			if value != nil {
+				result.Values[field] = value
+				logger.Debug("Resolved config value as dot-path",
+					zap.String("field", field),
+					zap.String("path", pathStr),
+				)
+			}
+			continue
+		}
+
+		// Single-segment: check if it matches a top-level key in collectedData
+		// e.g. config has "spec_data": "site_plan" and collectedData has "site_plan": {...}
+		if val, exists := collectedData[pathStr]; exists && val != nil {
+			result.Values[field] = val
+			logger.Debug("Resolved config value as collected_data key",
+				zap.String("field", field),
+				zap.String("key", pathStr),
+			)
+		}
+	}
+
 	// Validate required fields
 	var missing []string
 	for _, req := range spec.Required {
