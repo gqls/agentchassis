@@ -528,3 +528,13 @@ INSERT INTO agent_definitions (
                                        updated_at = now();
 
 --
+
+-- Also fix build-briefing-agent to chain to build-site-planner (not site-planner)
+-- The old site-planner is a specialist that doesn't persist — wrong for dispatch loop.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_next_item,config,handler_agent}',
+        '"build-site-planner"'::jsonb
+                     )
+WHERE type = 'build-briefing-agent';

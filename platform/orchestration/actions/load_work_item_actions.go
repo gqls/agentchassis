@@ -204,6 +204,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			// "tool":             {handler: "tool-build-handler", itemType: "needs_tool_page"},
 			// "blog-index":       {handler: "blog-build-handler", itemType: "needs_blog_index"},
 			// "blog-post":        {handler: "blog-build-handler", itemType: "needs_blog_post"},
+			// and news
 		}
 
 		// Known page types whose builders don't exist yet
