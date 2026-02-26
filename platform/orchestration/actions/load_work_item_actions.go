@@ -244,7 +244,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			siteID: siteID, source: "planner", domain: "build",
 			itemType: "needs_logo", severity: "high",
 			summary: "Generate site logo", spec: string(logoSpec),
-			priority: 5, handlerAgent: "image-generator",
+			priority: 5, handlerAgent: "image-build-handler",
 			status: "triaged", createdBy: "site-planner",
 			itemKey: "needs_logo", batchID: batchID,
 		}, logger)
@@ -261,7 +261,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			siteID: siteID, source: "planner", domain: "build",
 			itemType: "needs_hero_image", severity: "medium",
 			summary: "Generate hero image", spec: string(heroSpec),
-			priority: 5, handlerAgent: "image-generator",
+			priority: 5, handlerAgent: "image-build-handler",
 			status: "triaged", createdBy: "site-planner",
 			itemKey: "needs_hero:home", batchID: batchID,
 		}, logger)
