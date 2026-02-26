@@ -257,6 +257,39 @@ func UpdateSiteContentAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("failed to update site content: %w", err)
 	}
 
+	// --- Sync key columns to sites table ---
+	// When storing brief/identity data, also populate the sites columns
+	// so loadSiteDataFull and RenderSiteComponentsAction can find them.
+	syncColumns, _ := config["sync_columns"].(bool)
+	if syncColumns {
+		if contentMap, ok := contentValue.(map[string]interface{}); ok {
+			companyName := getFirstNonEmpty(contentMap, "company_name")
+			tagline := getFirstNonEmpty(contentMap, "tagline")
+			email := getFirstNonEmpty(contentMap, "contact_email", "email")
+			phone := getFirstNonEmpty(contentMap, "contact_phone", "phone")
+
+			if companyName != "" || tagline != "" || email != "" || phone != "" {
+				syncErr := execDB(ctx, params.DB, `
+					UPDATE sites SET
+						company_name = CASE WHEN COALESCE(company_name, '') IN ('', domain) AND $2 != '' THEN $2 ELSE company_name END,
+						tagline      = CASE WHEN COALESCE(tagline, '')      = '' AND $3 != '' THEN $3 ELSE tagline END,
+						email        = CASE WHEN COALESCE(email, '')        = '' AND $4 != '' THEN $4 ELSE email END,
+						phone        = CASE WHEN COALESCE(phone, '')        = '' AND $5 != '' THEN $5 ELSE phone END,
+						updated_at   = now()
+					WHERE id = $1
+				`, siteID, companyName, tagline, email, phone)
+				if syncErr != nil {
+					params.Logger.Warn("UpdateSiteContentAction: column sync failed", zap.Error(syncErr))
+				} else {
+					params.Logger.Info("UpdateSiteContentAction: synced columns",
+						zap.String("company_name", companyName),
+						zap.String("email", email),
+					)
+				}
+			}
+		}
+	}
+
 	params.Logger.Info("UpdateSiteContentAction: Site content updated",
 		zap.String("site_id", siteIDStr),
 		zap.String("content_field", contentField),
@@ -270,6 +303,17 @@ func UpdateSiteContentAction(ctx context.Context, params ActionParams) (interfac
 		"content_size": len(contentJSON),
 		"merged":       merge,
 	}, nil
+}
+
+// getFirstNonEmpty returns the first non-empty string value found at any of
+// the given keys in the map.
+func getFirstNonEmpty(m map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		if v, ok := m[key].(string); ok && v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // ============================================================================

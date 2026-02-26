@@ -553,6 +553,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Fix broken nav links in header/footer templates (# → /page.html)",
 		IsLocal:     true,
 	},
+	"sync_site_identity": {
+		Handler:     SyncSiteIdentityAction,
+		Category:    "data",
+		Description: "Populate sites table columns from site_specs identity/briefing",
+		IsLocal:     true,
+	},
 	"triage_detected_items": {
 		Handler:     TriageDetectedItemsAction,
 		Category:    "maintenance",

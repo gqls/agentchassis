@@ -771,3 +771,31 @@ FROM site_work_items
 WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
 ORDER BY priority;
 
+--
+
+-- 061b_enable_sync_columns.sql
+--
+-- Adds sync_columns: true to the store_reviewed_brief step in both
+-- builder agents. This makes UpdateSiteContentAction populate sites
+-- columns (company_name, tagline, email, phone) at the same time it
+-- merges the brief into content_data.
+--
+-- This is the root fix for placeholder contact info and empty company
+-- names — the data goes into the right columns at source, rather than
+-- needing downstream patches or self-healing.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_reviewed_brief,config,sync_columns}',
+        'true'::jsonb
+                     ),
+    updated_at = now()
+WHERE type IN ('pageflow-builder', 'site-work-orchestrator')
+  AND default_config->'workflow'->'steps'->'store_reviewed_brief' IS NOT NULL;
+
+-- Verify
+SELECT type,
+       default_config->'workflow'->'steps'->'store_reviewed_brief'->'config' as brief_config
+FROM agent_definitions
+WHERE type IN ('pageflow-builder', 'site-work-orchestrator');

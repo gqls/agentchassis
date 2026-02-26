@@ -14,3 +14,37 @@ group_key |   group_label   |    label     |        url         | position
  primary   | Main Navigation | Case Studies | /case-studies.html |        4
  primary   | Main Navigation | Contact      | /contact.html      |        5
 (8 rows)
+
+
+--
+
+-- 061_fix_nav_templates_global.sql
+--
+-- Fix all header/footer/nav content_component templates that use anchor-style
+-- links (href="#{{.slug}}") instead of proper page URLs (href="{{.url}}").
+--
+-- This is a one-time fix for existing templates. The render context already
+-- provides both .slug and .url for each nav item — the bug is purely in
+-- the template data.
+
+-- Step 1: Fix all header/footer/nav templates
+UPDATE content_components
+SET html_template = REPLACE(
+        REPLACE(html_template, 'href="#{{.slug}}"', 'href="{{.url}}"'),
+        'href="#{{.name}}"', 'href="{{.url}}"'
+                    ),
+    updated_at = now()
+WHERE (function IN ('header', 'footer')
+    OR function LIKE 'header-%'
+    OR function LIKE 'footer-%'
+    OR function LIKE 'nav-%')
+  AND (html_template LIKE '%href="#{{.slug}}"%'
+    OR  html_template LIKE '%href="#{{.name}}"%');
+
+-- Step 2: Verify no anchor-style links remain
+SELECT id, function, name
+FROM content_components
+WHERE (function LIKE 'header%' OR function LIKE 'footer%' OR function LIKE 'nav%')
+  AND (html_template LIKE '%href="#{{.%');
+
+-- Should return 0 rows. If any remain, they use a pattern we didn't catch.

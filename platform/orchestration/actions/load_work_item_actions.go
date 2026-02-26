@@ -290,7 +290,8 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 	ok, _ = insertWorkItem(ctx, tx, workItem{
 		siteID: siteID, source: "planner", domain: "build",
 		itemType: "needs_rerender", severity: "medium",
-		summary: "Assemble and deploy all pages", spec: string(rerenderSpec),
+		summary:  "Re-assemble and deploy all pages after build completes",
+		spec:     string(rerenderSpec),
 		priority: 20, handlerAgent: "rerender-pages",
 		status: "triaged", createdBy: "site-planner",
 		itemKey: "needs_rerender", batchID: batchID,
