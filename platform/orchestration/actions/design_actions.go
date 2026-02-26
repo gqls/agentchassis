@@ -102,6 +102,100 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 		"source":       "database",
 	}
 
+	// --- Enrich from site_specs if content_data was sparse ---
+	// The new build pipeline writes identity/classification to site_specs,
+	// not sites.content_data. Fall back to site_specs for missing fields.
+	needsEnrichment := result["company_name"] == "" || result["industry"] == "" || result["tagline"] == ""
+	if needsEnrichment {
+		params.Logger.Info("LoadSiteForDesignAction: content_data sparse, checking site_specs",
+			zap.String("company_name", fmt.Sprintf("%v", result["company_name"])),
+			zap.String("industry", fmt.Sprintf("%v", result["industry"])),
+		)
+
+		specRows, err := params.DB.QueryContext(ctx, `
+			SELECT aspect, data
+			FROM site_specs
+			WHERE site_id = $1
+			  AND aspect IN ('identity', 'briefing', 'classification')
+			  AND is_current = true
+			ORDER BY CASE aspect
+				WHEN 'identity' THEN 1
+				WHEN 'briefing' THEN 2
+				WHEN 'classification' THEN 3
+			END
+		`, id)
+		if err == nil {
+			defer specRows.Close()
+			for specRows.Next() {
+				var aspect string
+				var specDataJSON []byte
+				if err := specRows.Scan(&aspect, &specDataJSON); err != nil {
+					continue
+				}
+				var specData map[string]interface{}
+				if json.Unmarshal(specDataJSON, &specData) != nil {
+					continue
+				}
+
+				switch aspect {
+				case "identity":
+					// identity.industry, identity.tagline, identity.company_name
+					if result["industry"] == "" || result["industry"] == nil {
+						if v, _ := specData["industry"].(string); v != "" {
+							result["industry"] = v
+						}
+					}
+					if result["tagline"] == "" || result["tagline"] == nil {
+						if v, _ := specData["tagline"].(string); v != "" {
+							result["tagline"] = v
+						}
+					}
+					if result["company_name"] == "" || result["company_name"] == nil {
+						if v, _ := specData["company_name"].(string); v != "" {
+							result["company_name"] = v
+						}
+					}
+					// Also extract services for richer context
+					if svcs, ok := specData["services"]; ok && svcs != nil {
+						result["services"] = svcs
+					}
+
+				case "briefing":
+					// briefing.tone, briefing.about_us, briefing.tagline
+					if result["tagline"] == "" || result["tagline"] == nil {
+						if v, _ := specData["tagline"].(string); v != "" {
+							result["tagline"] = v
+						}
+					}
+					if result["company_name"] == "" || result["company_name"] == nil {
+						if v, _ := specData["company_name"].(string); v != "" {
+							result["company_name"] = v
+						}
+					}
+					// Pass tone and about_us for richer design context
+					if tone, _ := specData["tone"].(string); tone != "" {
+						result["brand_tone"] = tone
+					}
+					if about, _ := specData["about_us"].(string); about != "" {
+						result["about_us"] = about
+					}
+
+				case "classification":
+					// classification.site_type, classification.recommended_builder
+					if siteType, _ := specData["site_type"].(string); siteType != "" {
+						result["site_type"] = siteType
+					}
+				}
+			}
+		}
+
+		params.Logger.Info("LoadSiteForDesignAction: After site_specs enrichment",
+			zap.String("company_name", fmt.Sprintf("%v", result["company_name"])),
+			zap.String("industry", fmt.Sprintf("%v", result["industry"])),
+			zap.String("brand_tone", fmt.Sprintf("%v", result["brand_tone"])),
+		)
+	}
+
 	// Load pages if requested (default true)
 	includePages := true
 	if ip, ok := config["include_pages"].(bool); ok {

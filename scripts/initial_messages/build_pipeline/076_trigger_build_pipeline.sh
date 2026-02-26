@@ -182,3 +182,8 @@ WHERE status = 'claimed'
      briefing       | 1460 | 2026-02-25 10:09:45.326584+00
      site_plan      | 3744 | 2026-02-25 11:02:52.248378+00
     (4 rows)
+
+
+SELECT aspect, LEFT(data::text, 300) as preview
+FROM site_specs
+WHERE site_id='5fe15466-4e2e-4ff2-981e-98c1b7074002';

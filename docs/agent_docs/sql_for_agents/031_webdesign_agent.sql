@@ -1016,3 +1016,79 @@ SET default_config = jsonb_set(
     updated_at = NOW()
 WHERE type = 'webdesign-agent';
 
+--
+
+-- 060_patch_webdesign_agent_prompt.sql
+--
+-- Updates the webdesign-agent's analyze_design prompt to use the new fields
+-- that LoadSiteForDesignAction now populates from site_specs.
+--
+-- New fields available in site_context after the Go patch:
+--   .site_context.services    (from identity.services)
+--   .site_context.brand_tone  (from briefing.tone)
+--   .site_context.about_us    (from briefing.about_us)
+--   .site_context.site_type   (from classification.site_type)
+--
+-- The existing fields remain unchanged:
+--   .site_context.domain, .company_name, .industry, .tagline,
+--   .all_component_functions, .color_palette, .typography
+
+-- Step 1: Update the analyze_design prompt to include richer context
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_design,config,prompt_template}',
+        to_jsonb(
+                'You are a web design expert. Analyze the site and output a design specification.' ||
+                E'\n\n## Site' ||
+        E'\nDomain: {{.site_context.domain}}' ||
+        E'\nCompany: {{.site_context.company_name}}' ||
+        E'\nIndustry: {{if .site_context.industry}}{{.site_context.industry}}{{else}}professional services{{end}}' ||
+        E'\nTagline: {{.site_context.tagline}}' ||
+        E'\nSite Type: {{.site_context.site_type}}' ||
+        E'\nBrand Tone: {{.site_context.brand_tone}}' ||
+        E'\n\n{{if .site_context.about_us}}## About the Business' ||
+        E'\n{{.site_context.about_us}}{{end}}' ||
+        E'\n\n{{if .site_context.services}}## Services Offered' ||
+        E'\n{{range .site_context.services}}- {{.name}}: {{.description}}' ||
+        E'\n{{end}}{{end}}' ||
+        E'\n\n## Components Used' ||
+        E'\n{{range .site_context.all_component_functions}}- {{.}}' ||
+        E'\n{{end}}' ||
+        E'\n\nUsing the industry, business description, brand tone, and services above, ' ||
+        'choose colors and typography that are appropriate and distinctive for this specific industry. ' ||
+        'Do NOT use generic defaults. A fuel distribution company should look different from a consulting firm.' ||
+        E'\n\nReturn ONLY valid JSON:' ||
+        E'\n{' ||
+        E'\n  "color_scheme": {' ||
+        E'\n    "primary": "#hex (industry-appropriate, NOT #2c3e50)",' ||
+        E'\n    "secondary": "#hex",' ||
+        E'\n    "accent": "#hex",' ||
+        E'\n    "background": "#ffffff",' ||
+        E'\n    "surface": "#hex",' ||
+        E'\n    "text": "#333333",' ||
+        E'\n    "text_muted": "#666666",' ||
+        E'\n    "border": "#hex"' ||
+        E'\n  },' ||
+        E'\n  "typography": {' ||
+        E'\n    "font_family": "appropriate font stack",' ||
+        E'\n    "heading_font": "inherit or specific",' ||
+        E'\n    "base_size": "16px",' ||
+        E'\n    "line_height": "1.6"' ||
+        E'\n  },' ||
+        E'\n  "spacing": {' ||
+        E'\n    "section_padding": "5rem 2rem",' ||
+        E'\n    "container_max_width": "1200px"' ||
+        E'\n  },' ||
+        E'\n  "design_notes": "explain why these colors/fonts suit this industry"' ||
+        E'\n}'
+        )
+                     )
+WHERE type = 'webdesign-agent';
+
+-- Verify the update
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'analyze_design'->'config'->>'prompt_template' as prompt_preview
+FROM agent_definitions
+WHERE type = 'webdesign-agent';
