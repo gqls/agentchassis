@@ -553,6 +553,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Fix broken nav links in header/footer templates (# → /page.html)",
 		IsLocal:     true,
 	},
+	"fix_hardcoded_colors": {
+		Handler:     FixHardcodedColorsAction,
+		Category:    "maintenance",
+		Description: "Replace hardcoded hex colors with CSS variables in component styles",
+		IsLocal:     true,
+	},
 	"sync_site_identity": {
 		Handler:     SyncSiteIdentityAction,
 		Category:    "data",

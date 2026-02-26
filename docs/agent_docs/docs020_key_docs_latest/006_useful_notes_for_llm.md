@@ -75,3 +75,23 @@ Estimated build order for a single developer:
 OrderWhatDepends onRough effort1Block A: all migrationsNothingHalf day2write_site_spec + read_site_specMigrationsHalf day3check_approval_mode + depends_on in dispatchRead codebaseHalf day4save_component_historyMigrations, find the write pointHalf day5seed_build_queuewrite_site_spec, ensure_site_recordHalf day6domain-research-classifier agentwrite_site_spec, research-agent exists1-2 days7briefing-agent handler modewrite_site_spec, read_site_spec1 day8site-planner handler mode + write_plan_as_work_itemsread_site_spec, page creation1-2 days9snapshot-agent + commit_spec_snapshotread_site_spec, git actionsHalf day10Side-effects snapshot triggerssnapshot-agent, dispatch loopHalf day11End-to-end testEverything1 day
 Roughly 7-9 days of focused work. The migrations and core Go actions (Block A+B) unblock everything else. The agents (Block D) can be built one at a time and tested independently.
 
+ERROR: could not determine polymorphic type because input has type unknown`
+
+## Writing to agent_definitions prompt_template
+
+The workflow config lives in `default_config` (not `config`). Agents are identified by `type` (not `agent_type`). When using `jsonb_set` with a string literal, PostgreSQL cannot infer the type for `to_jsonb()` — cast explicitly with `::text`.
+
+```sql
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+  default_config,
+  '{workflow,steps,STEP_NAME,config,prompt_template}',
+  to_jsonb(E'Your prompt here with \\n for newlines'::text)
+)
+WHERE type = 'your-agent-type';
+```
+
+Common mistakes:
+- `config` instead of `default_config` → silent no-op (column doesn't exist, or updates wrong field)
+- `agent_type` instead of `type` → zero rows updated
+- Missing `::text` cast → `ERROR: could not determine polymorphic type because input has type unknown`

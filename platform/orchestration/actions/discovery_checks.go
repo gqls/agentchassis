@@ -334,6 +334,47 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 		}
 	}
 
+	// --- hardcoded_section_colors → handler: color-variable-fixer ---
+	if containsCheck(checks, "hardcoded_section_colors") {
+		count, err := countHardcodedColorComponents(ctx, params.DB, siteID, logger)
+		if err != nil {
+			logger.Warn("hardcoded_section_colors check failed", zap.Error(err))
+		} else if count > 0 {
+			allFindings = append(allFindings, map[string]interface{}{
+				"check":            "hardcoded_section_colors",
+				"components_found": count,
+			})
+
+			specJSON, _ := json.Marshal(map[string]interface{}{
+				"check":            "hardcoded_section_colors",
+				"components_found": count,
+			})
+
+			ok, err := insertWorkItem(ctx, tx, workItem{
+				siteID:       siteID,
+				source:       "discovery",
+				domain:       "design",
+				itemType:     "hardcoded_section_colors",
+				severity:     "medium",
+				summary:      fmt.Sprintf("Found %d components with hardcoded hex colors in inline styles instead of CSS variables", count),
+				spec:         string(specJSON),
+				priority:     55, // after missing_css (50) but before cosmetic fixes
+				handlerAgent: "color-variable-fixer",
+				status:       "detected",
+				createdBy:    agentType,
+				itemKey:      "hardcoded_section_colors",
+				batchID:      batchID,
+			}, logger)
+			if err != nil {
+				logger.Warn("Failed to insert hardcoded_section_colors item", zap.Error(err))
+			} else if ok {
+				inserted++
+			} else {
+				skipped++
+			}
+		}
+	}
+
 	if containsCheck(checks, "broken_nav_links") {
 		broken, err := findBrokenNavLinks(ctx, params.DB, siteID, logger)
 		if err != nil {
@@ -898,4 +939,22 @@ func findGenericTheme(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger 
 	}
 
 	return finding, nil
+}
+
+// countHardcodedColorComponents counts page_components that have hardcoded hex
+// background colors inside <style> blocks in their rendered_html.
+func countHardcodedColorComponents(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) (int, error) {
+	var count int
+	err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM page_components pc
+		JOIN pages p ON pc.page_id = p.id
+		WHERE p.site_id = $1
+		  AND pc.rendered_html ~ 'background(-color)?:\s*#[0-9a-fA-F]{3,8}'
+		  AND pc.rendered_html LIKE '%<style%'
+	`, siteID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("hardcoded color count query failed: %w", err)
+	}
+	return count, nil
 }

@@ -187,3 +187,12 @@ WHERE status = 'claimed'
 SELECT aspect, LEFT(data::text, 300) as preview
 FROM site_specs
 WHERE site_id='5fe15466-4e2e-4ff2-981e-98c1b7074002';
+
+
+-- you need to reset the status so the dispatch loop picks it up again. Something like:
+
+UPDATE site_work_items
+SET status = 'triaged', claimed_by = NULL, claimed_at = NULL
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gaswholesalers.com')
+  AND item_type IN ('needs_design', 'generic_theme')
+  AND status IN ('complete', 'claimed', 'failed');

@@ -245,3 +245,25 @@ INSERT INTO agent_definitions (
 -- The existing scan_sites_for_maintenance checks (stale_pages, missing_content,
 -- orphan_nav) still write to maintenance_queue. They can be ported to the
 -- new system later by adding check functions to discovery_checks.go.
+
+
+-----
+
+-- fix hardcoded hero agents
+
+-- 063b: Add hardcoded_section_colors to design-discovery-agent's check list
+--
+-- The design-discovery-agent runs: undeployed_assets, missing_css, duplicate_palette
+-- This adds hardcoded_section_colors so the improvement loop detects hero/section
+-- components with inline hardcoded hex backgrounds.
+--
+-- When detected, the dispatch loop routes to color-variable-fixer agent
+-- which does find/replace in <style> blocks only — no content changes.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        '["undeployed_assets", "missing_css", "duplicate_palette", "hardcoded_section_colors"]'::jsonb
+                     )
+WHERE type = 'design-discovery-agent';

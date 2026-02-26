@@ -30,3 +30,7 @@ kcat -P \
 JSON
 
 echo "Monitor: kubectl -n ai-persona-system logs -f -l agent-type=rerender-pages --tail=50"
+
+
+
+
