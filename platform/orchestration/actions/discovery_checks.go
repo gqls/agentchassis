@@ -28,6 +28,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -333,6 +334,157 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 		}
 	}
 
+	if containsCheck(checks, "broken_nav_links") {
+		broken, err := findBrokenNavLinks(ctx, params.DB, siteID, logger)
+		if err != nil {
+			logger.Warn("broken_nav_links check failed", zap.Error(err))
+		} else if len(broken) > 0 {
+			allFindings = append(allFindings, map[string]interface{}{
+				"check":    "broken_nav_links",
+				"count":    len(broken),
+				"findings": broken,
+			})
+
+			// One item per slot (header, footer)
+			for _, finding := range broken {
+				specJSON, _ := json.Marshal(map[string]interface{}{
+					"check":        "broken_nav_links",
+					"slot_name":    finding.SlotName,
+					"link_count":   finding.LinkCount,
+					"example_href": finding.ExampleHref,
+					"fix": "Template uses #{{.slug}} — should use {{.url}}. " +
+						"Fix template in content_components, then force re-render site_components.",
+				})
+
+				ok, err := insertWorkItem(ctx, tx, workItem{
+					siteID:       siteID,
+					source:       "discovery",
+					domain:       "build",
+					itemType:     "broken_nav_links",
+					severity:     "high",
+					summary:      fmt.Sprintf("Navigation in %s uses anchor links (#slug) instead of page URLs", finding.SlotName),
+					spec:         string(specJSON),
+					priority:     40, // navigation is broken — high priority
+					handlerAgent: "nav-link-fixer",
+					status:       "detected",
+					createdBy:    agentType,
+					itemKey:      fmt.Sprintf("broken_nav_links:%s", finding.SlotName),
+					batchID:      batchID,
+				}, logger)
+				if err != nil {
+					logger.Warn("Failed to insert broken_nav_links item", zap.Error(err))
+				} else if ok {
+					inserted++
+				} else {
+					skipped++
+				}
+			}
+		}
+	}
+
+	if containsCheck(checks, "placeholder_contact") {
+		placeholders, err := findPlaceholderContact(ctx, params.DB, siteID, logger)
+		if err != nil {
+			logger.Warn("placeholder_contact check failed", zap.Error(err))
+		} else if len(placeholders) > 0 {
+			allFindings = append(allFindings, map[string]interface{}{
+				"check":    "placeholder_contact",
+				"count":    len(placeholders),
+				"findings": placeholders,
+			})
+
+			// Group by page — one work item per affected page
+			pageFindings := map[string][]placeholderContactFinding{}
+			for _, f := range placeholders {
+				pageFindings[f.PageID] = append(pageFindings[f.PageID], f)
+			}
+
+			for pageID, findings := range pageFindings {
+				patterns := make([]string, len(findings))
+				for i, f := range findings {
+					patterns[i] = f.Pattern
+				}
+
+				specJSON, _ := json.Marshal(map[string]interface{}{
+					"check":     "placeholder_contact",
+					"page_id":   pageID,
+					"page_name": findings[0].PageName,
+					"patterns":  patterns,
+					"findings":  findings,
+				})
+
+				var pageIDPtr *uuid.UUID
+				if parsed, err := uuid.Parse(pageID); err == nil {
+					pageIDPtr = &parsed
+				}
+
+				ok, err := insertWorkItem(ctx, tx, workItem{
+					siteID:       siteID,
+					source:       "discovery",
+					domain:       "content",
+					itemType:     "placeholder_contact",
+					severity:     "high",
+					summary:      fmt.Sprintf("Fabricated contact info on page %s (%d patterns)", findings[0].PageName, len(findings)),
+					spec:         string(specJSON),
+					pageID:       pageIDPtr,
+					priority:     30, // fake contact info is a trust issue — very high
+					handlerAgent: "page-content-writer",
+					status:       "detected",
+					createdBy:    agentType,
+					itemKey:      fmt.Sprintf("placeholder_contact:%s", pageID),
+					batchID:      batchID,
+				}, logger)
+				if err != nil {
+					logger.Warn("Failed to insert placeholder_contact item", zap.Error(err))
+				} else if ok {
+					inserted++
+				} else {
+					skipped++
+				}
+			}
+		}
+	}
+
+	if containsCheck(checks, "generic_theme") {
+		finding, err := findGenericTheme(ctx, params.DB, siteID, logger)
+		if err != nil {
+			logger.Warn("generic_theme check failed", zap.Error(err))
+		} else if finding != nil {
+			allFindings = append(allFindings, map[string]interface{}{
+				"check":   "generic_theme",
+				"finding": finding,
+			})
+
+			specJSON, _ := json.Marshal(map[string]interface{}{
+				"check":   "generic_theme",
+				"finding": finding,
+			})
+
+			ok, err := insertWorkItem(ctx, tx, workItem{
+				siteID:       siteID,
+				source:       "discovery",
+				domain:       "build",
+				itemType:     "generic_theme",
+				severity:     "medium",
+				summary:      "Site using default theme — no industry-specific styling",
+				spec:         string(specJSON),
+				priority:     60,
+				handlerAgent: "webdesign-agent",
+				status:       "detected",
+				createdBy:    agentType,
+				itemKey:      "generic_theme",
+				batchID:      batchID,
+			}, logger)
+			if err != nil {
+				logger.Warn("Failed to insert generic_theme item", zap.Error(err))
+			} else if ok {
+				inserted++
+			} else {
+				skipped++
+			}
+		}
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to commit discovery items: %w", err)
 	}
@@ -549,4 +701,201 @@ func findDuplicatePalette(ctx context.Context, db *sql.DB, siteID uuid.UUID, log
 		findings = append(findings, f)
 	}
 	return findings, nil
+}
+
+// ============================================================================
+// CHECK: broken_nav_links
+// Detects href="#slug" patterns in rendered site_components (header/footer)
+// that should be href="/slug.html" proper page URLs.
+// Root cause: header/footer template uses #{{.slug}} instead of {{.url}}
+// Handler: site-component-fixer (re-renders after template correction)
+// ============================================================================
+
+type brokenNavLinkFinding struct {
+	SlotName    string `json:"slot_name"`
+	LinkCount   int    `json:"link_count"`
+	ExampleHref string `json:"example_href"`
+}
+
+func findBrokenNavLinks(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) ([]brokenNavLinkFinding, error) {
+	// Look for href="#something" in site_components rendered_html
+	// These are anchor-style links that should be page links
+	rows, err := db.QueryContext(ctx, `
+		SELECT sc.slot_name,
+		       -- Count href="#word" occurrences (not href="#" alone which is valid)
+		       (LENGTH(sc.rendered_html) - LENGTH(REPLACE(sc.rendered_html, 'href="#', ''))) 
+		           / LENGTH('href="#') as link_count,
+		       -- Extract first example
+		       SUBSTRING(sc.rendered_html FROM 'href="(#[a-zA-Z][^"]*)"') as example_href
+		FROM site_components sc
+		WHERE sc.site_id = $1
+		  AND sc.slot_name IN ('header', 'footer')
+		  AND sc.rendered_html IS NOT NULL
+		  AND sc.rendered_html ~ 'href="#[a-zA-Z]'
+		ORDER BY sc.slot_name
+	`, siteID)
+	if err != nil {
+		return nil, fmt.Errorf("broken_nav_links query failed: %w", err)
+	}
+	defer rows.Close()
+
+	var findings []brokenNavLinkFinding
+	for rows.Next() {
+		var f brokenNavLinkFinding
+		var exampleHref sql.NullString
+		if err := rows.Scan(&f.SlotName, &f.LinkCount, &exampleHref); err != nil {
+			logger.Warn("Failed to scan broken nav link", zap.Error(err))
+			continue
+		}
+		if exampleHref.Valid {
+			f.ExampleHref = exampleHref.String
+		}
+		findings = append(findings, f)
+	}
+	return findings, nil
+}
+
+// ============================================================================
+// CHECK: placeholder_contact
+// Detects fabricated/placeholder contact info in page_components.
+// Looks for common hallucination patterns: 555-xxxx phones, example.com emails,
+// 123 Main St addresses, Lorem ipsum, [placeholder] markers.
+// Handler: page-content-writer (re-write the section with strict no-fabrication prompt)
+// ============================================================================
+
+type placeholderContactFinding struct {
+	PageID      string `json:"page_id"`
+	PageName    string `json:"page_name"`
+	Position    int    `json:"position"`
+	Pattern     string `json:"pattern"`
+	MatchedText string `json:"matched_text"`
+}
+
+func findPlaceholderContact(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) ([]placeholderContactFinding, error) {
+	// Check rendered_html for common fabrication patterns
+	rows, err := db.QueryContext(ctx, `
+		SELECT pc.page_id, p.name, pc.position,
+		       CASE
+		           WHEN pc.rendered_html ~* '555[- ]?\d{3}[- ]?\d{4}' THEN 'fake_phone_555'
+		           WHEN pc.rendered_html ~* '\(555\)' THEN 'fake_phone_555'
+		           WHEN pc.rendered_html ~* '@example\.(com|org|net)' THEN 'example_email'
+		           WHEN pc.rendered_html ~* 'info@(company|business|yourdomain|domain)\.' THEN 'generic_email'
+		           WHEN pc.rendered_html ~* '123\s+(Main|First|Business)\s+(St|Street|Ave|Road)' THEN 'fake_address'
+		           WHEN pc.rendered_html ~* '\[(?:your|insert|company|phone|email|address)' THEN 'bracket_placeholder'
+		           WHEN pc.rendered_html ~* 'Lorem ipsum' THEN 'lorem_ipsum'
+		           WHEN pc.rendered_html ~* '\+1[- ]?\(0{3}\)' THEN 'fake_phone_000'
+		           WHEN pc.rendered_html ~* '(?:John|Jane)\s+(?:Doe|Smith)\s' THEN 'placeholder_name'
+		       END as pattern,
+		       SUBSTRING(pc.rendered_html FROM '(?i)((?:555[- ]?\d{3}[- ]?\d{4}|\(555\)[^<]{0,20}|[\w.]+@example\.(?:com|org|net)|info@(?:company|business|yourdomain|domain)\.\w+|123\s+(?:Main|First|Business)\s+(?:St|Street|Ave|Road)[^<]{0,30}|\[(?:your|insert|company|phone|email|address)[^\]]*\]|Lorem ipsum[^<]{0,30}))') as matched
+		FROM page_components pc
+		JOIN pages p ON pc.page_id = p.id
+		WHERE p.site_id = $1
+		  AND pc.rendered_html IS NOT NULL
+		  AND (
+		      pc.rendered_html ~* '555[- ]?\d{3}[- ]?\d{4}'
+		      OR pc.rendered_html ~* '\(555\)'
+		      OR pc.rendered_html ~* '@example\.(com|org|net)'
+		      OR pc.rendered_html ~* 'info@(company|business|yourdomain|domain)\.'
+		      OR pc.rendered_html ~* '123\s+(Main|First|Business)\s+(St|Street|Ave|Road)'
+		      OR pc.rendered_html ~* '\[(?:your|insert|company|phone|email|address)'
+		      OR pc.rendered_html ~* 'Lorem ipsum'
+		      OR pc.rendered_html ~* '\+1[- ]?\(0{3}\)'
+		      OR pc.rendered_html ~* '(?:John|Jane)\s+(?:Doe|Smith)\s'
+		  )
+		ORDER BY p.name, pc.position
+	`, siteID)
+	if err != nil {
+		return nil, fmt.Errorf("placeholder_contact query failed: %w", err)
+	}
+	defer rows.Close()
+
+	var findings []placeholderContactFinding
+	for rows.Next() {
+		var f placeholderContactFinding
+		var pattern, matched sql.NullString
+		if err := rows.Scan(&f.PageID, &f.PageName, &f.Position, &pattern, &matched); err != nil {
+			logger.Warn("Failed to scan placeholder contact", zap.Error(err))
+			continue
+		}
+		if pattern.Valid {
+			f.Pattern = pattern.String
+		}
+		if matched.Valid {
+			f.MatchedText = matched.String
+		}
+		findings = append(findings, f)
+	}
+	return findings, nil
+}
+
+// ============================================================================
+// CHECK: generic_theme
+// Detects sites where the CSS is still using default/fallback values,
+// meaning the webdesign agent either didn't run or had no context.
+// Checks site_specs for missing 'webdesign' aspect AND checks the actual
+// CSS for default color values.
+// Handler: webdesign-agent (re-run with proper identity context)
+// ============================================================================
+
+type genericThemeFinding struct {
+	HasWebdesignSpec bool   `json:"has_webdesign_spec"`
+	HasIdentitySpec  bool   `json:"has_identity_spec"`
+	CSSLength        int    `json:"css_length"`
+	UsesDefaultColor bool   `json:"uses_default_color"`
+	Detail           string `json:"detail"`
+}
+
+func findGenericTheme(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) (*genericThemeFinding, error) {
+	finding := &genericThemeFinding{}
+
+	// Check for webdesign spec
+	var webdesignCount int
+	db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM site_specs 
+		WHERE site_id = $1 AND aspect = 'webdesign' AND is_current = true
+	`, siteID).Scan(&webdesignCount)
+	finding.HasWebdesignSpec = webdesignCount > 0
+
+	// Check for identity spec (needed by webdesign)
+	var identityCount int
+	db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM site_specs 
+		WHERE site_id = $1 AND aspect = 'identity' AND is_current = true
+	`, siteID).Scan(&identityCount)
+	finding.HasIdentitySpec = identityCount > 0
+
+	// Check actual CSS for default values
+	var cssHTML sql.NullString
+	db.QueryRowContext(ctx, `
+		SELECT rendered_html FROM site_components
+		WHERE site_id = $1 AND slot_name = 'head'
+	`, siteID).Scan(&cssHTML)
+
+	if cssHTML.Valid {
+		finding.CSSLength = len(cssHTML.String)
+		// Default fallback primary color from base stylesheet
+		if strings.Contains(cssHTML.String, "--color-primary: #2c3e50") ||
+			strings.Contains(cssHTML.String, "--color-primary: #333") {
+			finding.UsesDefaultColor = true
+		}
+	}
+
+	// Determine if this is a problem
+	isGeneric := false
+	if !finding.HasWebdesignSpec {
+		finding.Detail = "No webdesign spec in site_specs — agent never produced themed CSS"
+		isGeneric = true
+	} else if finding.UsesDefaultColor {
+		finding.Detail = "CSS uses default fallback colours — webdesign may have had no identity context"
+		isGeneric = true
+	} else if finding.CSSLength == 0 {
+		finding.Detail = "Head component has no CSS content"
+		isGeneric = true
+	}
+
+	if !isGeneric {
+		return nil, nil // not a problem
+	}
+
+	return finding, nil
 }

@@ -547,6 +547,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Run discovery checks, write findings to site_work_items",
 		IsLocal:     true,
 	},
+	"fix_nav_link_templates": {
+		Handler:     FixNavLinkTemplatesAction,
+		Category:    "maintenance",
+		Description: "Fix broken nav links in header/footer templates (# → /page.html)",
+		IsLocal:     true,
+	},
 	"prepare_link_context": {
 		Handler:     PrepareLinkContextAction,
 		Category:    "site",

@@ -853,3 +853,26 @@ WHERE item_type = 'needs_content_page'
 --        default_config->'workflow'->'steps'->'call_handler'->'config'->'input_mapping' as mapping
 -- FROM agent_definitions
 -- WHERE type = 'build-dispatch-loop';
+
+---
+
+-- fix path - make refresh_site_components optional
+
+-- Fix: make refresh_site_components optional in dispatch loop input_mapping
+-- Run against the deployed agent definition
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_handler,config,input_mapping}',
+        '{
+            "current_page": "pending.first_item.spec",
+            "domain": "input_data.domain",
+            "item_type": "pending.first_item.item_type",
+            "refresh_site_components?": "pending.first_item.spec.refresh_site_components",
+            "site_id": "pending.first_item.site_id",
+            "spec": "pending.first_item.spec",
+            "work_item_id": "pending.first_item.id"
+        }'::jsonb
+                     )
+WHERE type = 'build-dispatch-loop';

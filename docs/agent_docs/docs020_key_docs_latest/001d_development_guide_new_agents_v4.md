@@ -833,4 +833,9 @@ kubectl -n ai-persona-system logs -l app=git-adapter --tail=50 | grep DOMAIN
 
 If query 2 returns 0 rows, the handler didn't persist. If query 3 is empty, CSS wasn't generated. If query 4 shows "deployed" but query 2 is empty, the status was updated without content.
 
+---
+
+Optional fields in dispatch loop input_mapping must use the ? suffix
+The dispatch loop serves every work item type through a single call_handler step. Different item types have different spec shapes — needs_rerender has spec.refresh_site_components, content pages have spec.name and spec.sections, and needs_design has an empty spec: {}. If the call_handler input_mapping references a path like "refresh_site_components": "pending.first_item.spec.refresh_site_components", the Go input_mapping resolver (resolveInputMapping in coordinator.go) will hard-fail the entire call when that path doesn't exist — even if the handler being called doesn't need that field. The fix is the ? suffix on the destination key: "refresh_site_components?": "pending.first_item.spec.refresh_site_components". This tells the resolver to skip silently when the source path is missing. Rule: any field in the dispatch loop's input_mapping that comes from spec.* or any other item-type-specific path must use the ? suffix. Only site_id, domain, and work_item_id — fields guaranteed to exist on every work item — should be non-optional.
+
 
