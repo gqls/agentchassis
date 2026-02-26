@@ -553,6 +553,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Fix broken nav links in header/footer templates (# → /page.html)",
 		IsLocal:     true,
 	},
+	"triage_detected_items": {
+		Handler:     TriageDetectedItemsAction,
+		Category:    "maintenance",
+		Description: "Promote detected discovery items to triaged with target domain",
+		IsLocal:     true,
+	},
 	"prepare_link_context": {
 		Handler:     PrepareLinkContextAction,
 		Category:    "site",
