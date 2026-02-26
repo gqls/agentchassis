@@ -183,20 +183,86 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			pageIDPtr = &parsed
 		}
 
+		pageType, _ := page["page_type"].(string)
+		if pageType == "" {
+			pageType = "content"
+		}
+		pageType = normalizePageType(pageType) // already exists at line 784
+
+		// Known available builders — update this map when adding new builder agents
+		type builderInfo struct {
+			handler  string
+			itemType string
+		}
+		availableBuilders := map[string]builderInfo{
+			"content": {handler: "page-build-handler", itemType: "needs_content_page"},
+			"index":   {handler: "page-build-handler", itemType: "needs_content_page"},
+			"landing": {handler: "page-build-handler", itemType: "needs_content_page"},
+			// Add here as builders become available:
+			// "entity-directory": {handler: "directory-build-handler", itemType: "needs_directory"},
+			// "entity-page":      {handler: "entity-page-build-handler", itemType: "needs_entity_page"},
+			// "tool":             {handler: "tool-build-handler", itemType: "needs_tool_page"},
+			// "blog-index":       {handler: "blog-build-handler", itemType: "needs_blog_index"},
+			// "blog-post":        {handler: "blog-build-handler", itemType: "needs_blog_post"},
+		}
+
+		// Known page types whose builders don't exist yet
+		unavailableBuilders := map[string]string{
+			"tool":             "tool-builder",
+			"entity-directory": "directory-builder",
+			"entity-page":      "entity-page-builder",
+			"blog-index":       "blog-builder",
+			"blog-post":        "blog-builder",
+		}
+
 		handlerAgent := "page-build-handler"
 		itemType := "needs_content_page"
-		if pt, _ := page["page_type"].(string); pt != "" {
-			switch pt {
-			case "tool":
-				handlerAgent = "tool-builder"
-				itemType = "needs_tool_page"
-			case "entity-directory":
-				handlerAgent = "directory-builder"
-				itemType = "needs_directory"
-			case "entity-page":
-				handlerAgent = "entity-page-builder"
-				itemType = "needs_entity_page"
+
+		if info, available := availableBuilders[pageType]; available {
+			handlerAgent = info.handler
+			itemType = info.itemType
+		} else if neededBuilder, known := unavailableBuilders[pageType]; known {
+			// Known type but builder not available — log deferred capability gap
+			gapSpec, _ := json.Marshal(map[string]interface{}{
+				"page_name":      pageName,
+				"page_type":      pageType,
+				"builder_needed": neededBuilder,
+				"page_spec":      page,
+			})
+
+			ok, err := insertWorkItem(ctx, tx, workItem{
+				siteID:       siteID,
+				source:       "planner",
+				domain:       "build",
+				itemType:     "capability_gap",
+				severity:     "low",
+				summary:      fmt.Sprintf("Page '%s' needs %s (not yet available)", pageName, neededBuilder),
+				spec:         string(gapSpec),
+				pageID:       pageIDPtr,
+				priority:     200,
+				handlerAgent: neededBuilder,
+				status:       "deferred",
+				createdBy:    "site-planner",
+				itemKey:      fmt.Sprintf("capability_gap:%s:%s", pageType, pageName),
+				batchID:      batchID,
+			}, logger)
+			if err != nil {
+				logger.Warn("WriteBuildItemsAction: Failed to insert capability_gap",
+					zap.String("page", pageName), zap.Error(err))
+			} else if ok {
+				logger.Info("WriteBuildItemsAction: Recorded capability gap",
+					zap.String("page", pageName),
+					zap.String("page_type", pageType),
+					zap.String("builder_needed", neededBuilder),
+				)
 			}
+			continue // Skip — don't create a dispatch work item for this page
+		} else {
+			// Completely unknown page_type — fall through to default handler
+			logger.Warn("WriteBuildItemsAction: Unknown page_type, using page-build-handler",
+				zap.String("page_type", pageType),
+				zap.String("page", pageName),
+			)
 		}
 
 		specJSON, err := json.Marshal(page)
@@ -779,4 +845,14 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 		)
 	}
 	return rows > 0, nil
+}
+
+// normalizePageType applies the same kebab-case normalization used for
+// component functions. LLMs sometimes output entity_directory instead of
+// entity-directory, or BlogIndex instead of blog-index.
+func normalizePageType(pt string) string {
+	pt = strings.ToLower(pt)
+	pt = strings.ReplaceAll(pt, "_", "-")
+	pt = strings.ReplaceAll(pt, " ", "-")
+	return pt
 }

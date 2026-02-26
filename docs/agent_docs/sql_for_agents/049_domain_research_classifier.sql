@@ -185,3 +185,52 @@ INSERT INTO agent_definitions (
                                        input_contract = EXCLUDED.input_contract,
                                        output_contract = EXCLUDED.output_contract,
                                        updated_at = now();
+
+
+---
+
+-- reasoning about site strategy
+
+-- 064b_patch_research_classifier_chain.sql
+--
+-- Change domain-research-classifier's create_next_item step to chain to
+-- domain-strategist instead of build-briefing-agent.
+--
+-- Before: needs_domain_research → domain-research-classifier → needs_briefing → build-briefing-agent
+-- After:  needs_domain_research → domain-research-classifier → needs_strategy → domain-strategist → needs_briefing → build-briefing-agent
+--
+-- The domain-research-classifier still does: search → scrape → extract identity + basic classification
+-- The domain-strategist then does deeper reasoning about site strategy before briefing begins.
+--
+-- NOTE: The classifier's classify_and_extract LLM prompt still outputs a "classification" section.
+-- That's fine — the strategist reads it as input and overwrites it with a richer version.
+-- We keep the classifier's basic classification because:
+--   a) It's useful input for the strategist (what did first-pass analysis suggest?)
+--   b) If the strategist fails, at least we have a basic classification to fall back on
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_next_item,config}',
+        '{
+          "site_id": "input_data.site_id",
+          "item_type": "needs_strategy",
+          "handler_agent": "domain-strategist",
+          "item_domain": "build",
+          "severity": "high",
+          "source": "domain-research-classifier",
+          "summary": "Domain strategy analysis needed after research",
+          "item_key_prefix": "strategy",
+          "priority": 8
+        }'::jsonb
+                     )
+WHERE type = 'domain-research-classifier';
+
+-- Also update the step description for clarity
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_next_item,description}',
+        '"Create work item for domain strategy analysis"'::jsonb
+                     )
+WHERE type = 'domain-research-classifier';
