@@ -314,7 +314,8 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 // The full domain is preserved because .co.uk and .uk are different sites
 // and the TLD may be the only differentiator.
 // e.g. "website-design.co.uk" → "website-design-co-uk"
-//      "website-design.uk"    → "website-design-uk"
+//
+//	"website-design.uk"    → "website-design-uk"
 func domainSlug(domain string) string {
 	if domain == "" {
 		return "site"
