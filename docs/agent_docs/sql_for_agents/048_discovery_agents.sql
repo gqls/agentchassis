@@ -267,3 +267,128 @@ SET default_config = jsonb_set(
         '["undeployed_assets", "missing_css", "duplicate_palette", "hardcoded_section_colors"]'::jsonb
                      )
 WHERE type = 'design-discovery-agent';
+
+--
+
+-- 064_forced_text_colors_check_fixer.sql
+--
+-- Wires the forced_text_colors discovery check and fixer into the existing
+-- improvement pipeline:
+--
+-- Flow:
+--   improvement-loop → design-discovery-agent (runs "forced_text_colors" check)
+--     → writes site_work_item with handler_agent='color-variable-fixer'
+--     → triage promotes to 'triaged'
+--     → build-dispatch-loop spawns color-variable-fixer
+--     → color-variable-fixer runs fix_hardcoded_colors THEN fix_forced_text_colors
+--     → improvement-loop inserts needs_rerender → pages redeployed
+--
+-- Prerequisites:
+--   - fix_forced_text_colors_action.go compiled and deployed
+--   - Action registered in registry.go:
+--       "fix_forced_text_colors": {
+--           Handler:     FixForcedTextColorsAction,
+--           Category:    "maintenance",
+--           Description: "Remove forced text colors from child elements, validate WCAG contrast",
+--       },
+--   - Discovery check addition in run_discovery_checks_action.go:
+--       findForcedTextColors function + containsCheck block
+--
+-- Both Go changes are in the companion .go files.
+
+-- ============================================================
+-- 1. Add "forced_text_colors" to design-discovery-agent checks
+-- ============================================================
+-- Current checks: ["undeployed_assets", "missing_css", "duplicate_palette", "hardcoded_section_colors"]
+-- New:            ["undeployed_assets", "missing_css", "duplicate_palette", "hardcoded_section_colors", "forced_text_colors"]
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        '["undeployed_assets", "missing_css", "duplicate_palette", "hardcoded_section_colors", "forced_text_colors"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'design-discovery-agent';
+
+-- ============================================================
+-- 2. Extend color-variable-fixer workflow
+-- ============================================================
+-- Current workflow:
+--   fix_colors → complete
+--
+-- New workflow:
+--   fix_bg_colors → fix_text_colors → complete
+--
+-- Both steps are idempotent. Running the full workflow regardless
+-- of which item type triggered it is safe — each step only
+-- changes components that match its criteria.
+
+-- Rename existing step and re-route
+-- Step 1: Update the existing fix_colors step to point to fix_text_colors
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,fix_colors,next_step}',
+        '"fix_text_colors"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'color-variable-fixer';
+
+-- Step 2: Add the new fix_text_colors step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,fix_text_colors}',
+        '{
+          "action": "fix_forced_text_colors",
+          "config": {
+            "fix_rendered": true,
+            "fix_templates": true,
+            "min_contrast": 4.5
+          },
+          "next_step": "complete",
+          "description": "Remove forced text colors from child elements, validate WCAG AA contrast",
+          "output_field": "text_color_result"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'color-variable-fixer';
+
+-- Step 3: Update complete step to include both result fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,complete,config,output_fields}',
+        '["fix_result", "text_color_result"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'color-variable-fixer';
+
+-- ============================================================
+-- 3. Verify the changes
+-- ============================================================
+-- Run these after applying to confirm:
+
+-- Check design-discovery-agent has the new check
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' as checks
+FROM agent_definitions
+WHERE type = 'design-discovery-agent';
+
+-- Check color-variable-fixer workflow flow
+SELECT
+    type,
+    key as step_name,
+    value->>'action' as action,
+    value->>'next_step' as next_step,
+    value->>'output_field' as output_field
+FROM agent_definitions, jsonb_each(default_config->'workflow'->'steps')
+WHERE type = 'color-variable-fixer'
+ORDER BY
+    CASE key
+    WHEN 'fix_colors' THEN 1
+    WHEN 'fix_text_colors' THEN 2
+    WHEN 'complete' THEN 3
+END;

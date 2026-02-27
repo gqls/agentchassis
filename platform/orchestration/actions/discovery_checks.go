@@ -28,6 +28,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -367,6 +368,49 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 			}, logger)
 			if err != nil {
 				logger.Warn("Failed to insert hardcoded_section_colors item", zap.Error(err))
+			} else if ok {
+				inserted++
+			} else {
+				skipped++
+			}
+		}
+	}
+
+	// --- forced_text_colors → handler: color-variable-fixer ---
+	if containsCheck(checks, "forced_text_colors") {
+		findings, err := findForcedTextColors(ctx, params.DB, siteID, logger)
+		if err != nil {
+			logger.Warn("forced_text_colors check failed", zap.Error(err))
+		} else if len(findings) > 0 {
+			allFindings = append(allFindings, map[string]interface{}{
+				"check":            "forced_text_colors",
+				"components_found": len(findings),
+				"findings":         findings,
+			})
+
+			specJSON, _ := json.Marshal(map[string]interface{}{
+				"check":            "forced_text_colors",
+				"components_found": len(findings),
+				"findings":         findings,
+			})
+
+			ok, err := insertWorkItem(ctx, tx, workItem{
+				siteID:       siteID,
+				source:       "discovery",
+				domain:       "design",
+				itemType:     "forced_text_colors",
+				severity:     "medium",
+				summary:      fmt.Sprintf("Found %d components with forced text colors that fight CSS inheritance model", len(findings)),
+				spec:         string(specJSON),
+				priority:     56, // after hardcoded_section_colors (55), before cosmetic
+				handlerAgent: "color-variable-fixer",
+				status:       "detected",
+				createdBy:    agentType,
+				itemKey:      "forced_text_colors",
+				batchID:      batchID,
+			}, logger)
+			if err != nil {
+				logger.Warn("Failed to insert forced_text_colors item", zap.Error(err))
 			} else if ok {
 				inserted++
 			} else {
@@ -939,6 +983,139 @@ func findGenericTheme(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger 
 	}
 
 	return finding, nil
+}
+
+type forcedTextColorFinding struct {
+	ComponentID        string `json:"component_id"`
+	Function           string `json:"function"`
+	ForcedElements     string `json:"forced_elements"` // e.g. "p h1-h6"
+	IsDarkSection      bool   `json:"is_dark_section"`
+	HasSectionContract bool   `json:"has_section_contract"`
+}
+
+// findForcedTextColors finds content_components used by this site that have
+// explicit color: #hex declarations on child text elements (h1-h6, p, li,
+// blockquote, strong, em). These fight the --section-* CSS inheritance model.
+//
+// Does NOT flag:
+//   - Container-level color (e.g. .hero-section { color: #fff; }) — that's correct
+//   - Link colors (a elements keep explicit color)
+//   - Components with no <style> block
+func findForcedTextColors(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) ([]forcedTextColorFinding, error) {
+	// Query components used by this site that have forced text colors.
+	// The regex looks for color: #hex in rules targeting text elements.
+	// We do the detailed selector parsing in Go, not SQL — SQL just finds
+	// candidates that have any standalone color: #hex in a <style> block.
+	rows, err := db.QueryContext(ctx, `
+		SELECT DISTINCT
+			cc.id::text,
+			cc.function,
+			cc.html_template,
+			cc.is_dark_section,
+			CASE WHEN cc.html_template LIKE '%--section-text%' THEN true ELSE false END as has_contract
+		FROM content_components cc
+		WHERE cc.is_active = true
+		  AND cc.component_level = 'section'
+		  AND cc.html_template LIKE '%<style%'
+		  AND cc.html_template ~ '[\{;\s]color:\s*#[0-9a-fA-F]{3,8}'
+		  AND (
+		    EXISTS (SELECT 1 FROM site_components sc WHERE sc.site_id = $1 AND sc.component_id = cc.id)
+		    OR EXISTS (
+		      SELECT 1 FROM page_components pc
+		      JOIN pages p ON pc.page_id = p.id
+		      WHERE p.site_id = $1 AND pc.component_id = cc.id
+		    )
+		  )
+	`, siteID)
+	if err != nil {
+		return nil, fmt.Errorf("query forced text colors: %w", err)
+	}
+	defer rows.Close()
+
+	// Regexes for parsing CSS in Go
+	textElRe := regexp.MustCompile(`\b(h[1-6]|p|li|blockquote|strong|em|cite|span|dt|dd)\b`)
+	colorDeclRe := regexp.MustCompile(`(?:^|[{;\s])color:\s*#[0-9a-fA-F]{3,8}`)
+	cssRuleRe := regexp.MustCompile(`([^{}]+)\{([^{}]+)\}`)
+	styleRe := regexp.MustCompile(`(?is)<style[^>]*>(.*?)</style>`)
+
+	var findings []forcedTextColorFinding
+
+	for rows.Next() {
+		var compID, function, template string
+		var isDarkSection, hasContract bool
+		if err := rows.Scan(&compID, &function, &template, &isDarkSection, &hasContract); err != nil {
+			logger.Warn("findForcedTextColors: scan error", zap.Error(err))
+			continue
+		}
+
+		// Parse CSS rules and find ones that target text elements with forced color
+		forcedElements := map[string]bool{}
+
+		for _, styleMatch := range styleRe.FindAllStringSubmatch(template, -1) {
+			if len(styleMatch) < 2 {
+				continue
+			}
+			css := styleMatch[1]
+
+			for _, rule := range cssRuleRe.FindAllStringSubmatch(css, -1) {
+				if len(rule) < 3 {
+					continue
+				}
+				selector := rule[1]
+				declarations := rule[2]
+
+				// Skip if selector doesn't target a text element
+				if !textElRe.MatchString(selector) {
+					continue
+				}
+
+				// Skip link selectors
+				trimmed := strings.TrimSpace(selector)
+				if strings.HasSuffix(trimmed, " a") || strings.HasSuffix(trimmed, " a:hover") {
+					continue
+				}
+
+				// Check for color: #hex declaration
+				if colorDeclRe.MatchString(declarations) {
+					// Record which text elements are affected
+					for _, m := range textElRe.FindAllString(selector, -1) {
+						if m == "h1" || m == "h2" || m == "h3" || m == "h4" || m == "h5" || m == "h6" {
+							forcedElements["h1-h6"] = true
+						} else {
+							forcedElements[m] = true
+						}
+					}
+				}
+			}
+		}
+
+		if len(forcedElements) == 0 {
+			continue // SQL matched but Go-level parsing found no child text element rules
+		}
+
+		// Build element list string
+		elems := make([]string, 0, len(forcedElements))
+		for el := range forcedElements {
+			elems = append(elems, el)
+		}
+
+		findings = append(findings, forcedTextColorFinding{
+			ComponentID:        compID,
+			Function:           function,
+			ForcedElements:     strings.Join(elems, " "),
+			IsDarkSection:      isDarkSection,
+			HasSectionContract: hasContract,
+		})
+	}
+
+	if len(findings) > 0 {
+		logger.Info("findForcedTextColors: Found components with forced text colors",
+			zap.String("site_id", siteID.String()),
+			zap.Int("count", len(findings)),
+		)
+	}
+
+	return findings, nil
 }
 
 // countHardcodedColorComponents counts page_components that have hardcoded hex
