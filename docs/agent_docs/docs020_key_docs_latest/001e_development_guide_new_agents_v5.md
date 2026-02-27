@@ -1,4 +1,4 @@
-# 001 — Development Guide
+# 001 — Development Guide (v5)
 
 Practical daily reference for building, debugging, and maintaining agents. Read this before writing any new code.
 
@@ -163,10 +163,61 @@ Before creating new code, check for existing actions/functions that can be **pat
 - Reality: `spawn_agent` already has `agent_type_field` (dynamic resolution from collected_data). Three hours spent designing a "universal topic fallback" that wasn't needed
 - Lesson: `grep -n "agent_type_field" platform/orchestration/actions/*.go` before assuming a capability is missing
 
+**Example — RAG field path resolution:**
+- Needed: Resolve dot-path strings like `"input_data.industry"` in RAG actions
+- Built: `resolveRAGFieldPath` — a new function doing the same thing as 17 existing ones
+- Reality: `datahelpers.ExtractNestedFieldString` already does exactly this, with `.response` auto-unwrapping as a bonus
+- Lesson: grep datahelpers before writing any extraction function (see "Field Path Resolution" section below)
+
 **Check existing code for:**
 - Similar actions that could be extended
 - Config options that could be added
 - Shared helper functions
+
+---
+
+## Field Path Resolution: Use the Canonical Functions
+
+The codebase has accumulated 18+ functions that resolve dot-separated field paths (`"foo.bar.baz"`) from nested maps. This happened because each was written at a different time with slightly different behaviour. **Do not add another one.**
+
+### Canonical functions (all in `datahelpers` package)
+
+| Function | Use case | Returns |
+|---|---|---|
+| `ExtractNestedField(data, path)` | General-purpose path resolution | `interface{}` |
+| `ExtractNestedFieldString(data, path)` | When you need a string | `string` (empty if not found) |
+| `ExtractNestedFieldMap(data, path)` | When you need a map | `map[string]interface{}` (nil if not found) |
+| `GetFieldFromPath(data, path, logger)` | When you want an error on missing | `interface{}, error` |
+| `GetFieldFromPathWithDefault(data, path, default, logger)` | With fallback | `interface{}` |
+
+`ExtractNestedField` is the primary one — it handles `.response` auto-unwrapping which most of the others try to replicate.
+
+### Functions that exist but should NOT be duplicated
+
+These are in the actions package and are essentially duplicates with minor variations. They still work but new code should not use them:
+
+```
+resolveFieldPath            — in entity_state_actions.go and workflow_actions.go
+resolveFieldPathForSpawn    — in spawn_actions.go (args swapped!)
+resolveFieldPathCallAgent   — in call_agent.go (returns string only)
+resolveFieldPathQuestionnaire — in fetch_agent_questionnaire.go
+resolveFieldValue           — in conditional_branch_action.go
+extractFieldValue           — in multipage_actions.go
+```
+
+### Common helpers to reuse (not recreate)
+
+| Need | Use | Package |
+|---|---|---|
+| Nullable string for SQL | `NullableString(s)` | datahelpers |
+| Nullable int for SQL | `NullableInt(n)` | datahelpers |
+| Truncate with "..." | `TruncateString(s, maxLen)` | datahelpers |
+| String from map with default | `GetStringField(m, key, default)` | datahelpers |
+| Int from map with default | `GetIntField(m, key, default)` | datahelpers |
+| Bool from map with default | `GetBoolField(m, key, default)` | datahelpers |
+| Null-if-empty (actions pkg) | `nullIfEmpty(s)` | actions/helpers.go |
+
+**Before adding any utility function**, grep the datahelpers package. If the function exists under a different name, use the existing one.
 
 ---
 
@@ -706,6 +757,145 @@ kubectl -n kafka get pods
 
 ---
 
+## LLM Infrastructure
+
+This section covers cross-cutting LLM concerns: model selection, call logging, the Ollama adapter, and RAG. These are **infrastructure**, not agents — they don't have agent definitions or workflows.
+
+### Model aliases
+
+Agent definitions use aliases like `claude-sonnet-4-5` or `claude-haiku-4-5`. These resolve to dated API strings via `model_aliases.go`. Update that file when Anthropic releases new models.
+
+Current model strategy:
+
+| Agent role | Model | Reasoning |
+|---|---|---|
+| Planning (chief-strategist, site-planner) | claude-sonnet-4-5 | High-leverage structural decisions |
+| Research, reasoning | claude-sonnet-4-5 | Complex analysis |
+| Content generation (section creators, copywriter) | claude-haiku-4-5 | Short, constrained outputs |
+| Orchestration (website-builder) | claude-haiku-4-5 | Minimal LLM use, mostly routing |
+| Classification (site-classifier, future local) | claude-haiku-4-5 → ollama | Short structured output, candidate for fine-tuning |
+
+### LLM call logging
+
+Every `execute_llm_prompt` call is logged to the `llm_call_log` table. This serves two purposes: operational visibility and training data collection for fine-tuning local models.
+
+The logger is fire-and-forget (goroutine with 5s timeout). It captures: agent_type, step_name, model (alias + resolved), full prompt template, rendered prompt, response text, token counts, latency, success/error.
+
+Key queries:
+
+```sql
+-- What's happening right now
+SELECT agent_type, model, COUNT(*) as calls,
+       ROUND(AVG(latency_ms)) as avg_ms, ROUND(AVG(output_tokens)) as avg_tokens
+FROM llm_call_log WHERE created_at > NOW() - INTERVAL '1 hour'
+GROUP BY agent_type, model ORDER BY calls DESC;
+
+-- Training data readiness for a specific agent
+SELECT COUNT(*) as examples FROM llm_call_log
+WHERE agent_type = 'site-classifier' AND success = true;
+
+-- Use the stats view
+SELECT * FROM llm_call_stats;
+```
+
+Cleanup: call `SELECT cleanup_old_llm_logs();` from pg_cron or the maintenance-catch-all. Keeps 90 days for successful calls, 180 days for errors. At ~30KB/call, budget ~1GB/month at 1000 calls/day.
+
+### Ollama adapter
+
+Ollama runs as a permanent CPU adapter container in the `ai-persona-system` namespace, alongside existing adapters (web-search, scraping, git). It serves two model types:
+
+**Embeddings (nomic-embed-text, 137M params):** ~50-100ms per call on CPU. Used by `rag_lookup` and `rag_index` actions.
+
+**Classification (fine-tuned 7B, quantized):** ~10-30s per call on CPU. Candidates: site-classifier, vet-practice-verifier, domain-analyst. These produce short structured outputs where 30s latency is acceptable because they run once per build.
+
+Not suitable for: content generation (long outputs from 7B on CPU = minutes), anything needing <2s response time.
+
+Agent definitions reference Ollama like any other provider:
+
+```json
+"ai_service": {
+    "provider": "ollama",
+    "model": "site-classifier-v1",
+    "api_url": "http://ollama-adapter.ai-persona-system.svc.cluster.local:11434"
+}
+```
+
+The `createAIClient` switch in `ai_actions.go` routes to `aiservice.NewOllamaClient`. The Ollama client implements the same `AIService` interface as the Anthropic client, including writing `__usage_input_tokens` / `__usage_output_tokens` back into the options map for the logger.
+
+Memory budget: ~8GB covers nomic-embed-text (~1GB) + a quantized 7B (~4GB) loaded simultaneously. No GPU needed. Models persist on a PVC so they survive pod restarts.
+
+Concurrency note: CPU inference is sequential within a model. Two simultaneous classification requests queue. At current batch sizes this is fine; if it becomes a bottleneck, add a second replica.
+
+### RAG actions
+
+Two actions for retrieval-augmented generation, registered as `rag_lookup` and `rag_index` in the action registry.
+
+**`rag_lookup`** — embed query → vector search → return top-k chunks. Falls back to trigram text search if Ollama is unavailable, so content agents don't hard-fail when the embedding service is down. Output includes `rag_context` (combined text for prompt injection) and `search_method` (vector/trigram/failed).
+
+**`rag_index`** — chunk content → embed → store in `knowledge_base` table. Embedding failures are non-fatal: chunks get stored without embeddings and are still searchable via trigram. Dedup uses SHA256 content hash with `ON CONFLICT DO NOTHING`.
+
+The `knowledge_base` table is a **shared resource** (unlike `agent_memory` which is per-instance). Any agent can read from it via `rag_lookup` and any agent can write to it via `rag_index`.
+
+Embedding column is `vector(768)` for nomic-embed-text. Changing to a different embedding model requires ALTERing the column and re-embedding all rows. The `embedding_model` column tracks what was used per row.
+
+Workflow integration example — add `rag_lookup` before a content generation step:
+
+```json
+{
+    "lookup_industry_knowledge": {
+        "action": "rag_lookup",
+        "config": {
+            "query_field": "input_data.industry",
+            "collection": "industry_sites",
+            "top_k": 5,
+            "embedding_service": { "provider": "ollama", "model": "nomic-embed-text" }
+        },
+        "next_step": "generate_content",
+        "output_field": "industry_knowledge"
+    }
+}
+```
+
+Then in the content prompt template: `{{.industry_knowledge.rag_context}}`
+
+### Fine-tuning path
+
+The training data pipeline: LLM call logging → export → LoRA fine-tune on GPU → GGUF export → load into Ollama → update agent definition to `provider: ollama`.
+
+1. Accumulate 200+ successful examples for the target agent (1-2 weeks of production traffic)
+2. Export with `training_data_export.sql` queries (Alpaca or ChatML format)
+3. Fine-tune with LoRA on a GPU machine (unsloth framework, 15-60 min on 3090/4090)
+4. Export to GGUF, create Ollama model, pull into the adapter
+5. Update agent_definition: `provider: ollama`, `model: site-classifier-v1`
+6. A/B test against Claude by running both and comparing outputs
+
+Candidates for fine-tuning (short-output classification/extraction tasks):
+
+| Agent | Output type | Why local |
+|---|---|---|
+| site-classifier | JSON classification | Runs every build, output is structured and short |
+| vet-practice-verifier | JSON boolean + evidence | High volume, simple yes/no + extract |
+| domain-analyst | JSON metadata | Structured extraction from domain info |
+| briefing-agent | JSON questionnaire | Query generation from raw inputs |
+| content-researcher | Search queries | Short query strings from context |
+
+### Agent vs infrastructure: where to draw the line
+
+Not everything needs to be an agent. The test: **does it have its own domain of responsibility, need its own workflow, and benefit from being independently spawnable and debuggable?**
+
+| Thing | Is it an agent? | Why |
+|---|---|---|
+| site-classifier | Yes | Owns classification domain, has workflow, independently testable |
+| LLM call logger | No | Cross-cutting instrumentation inside execute_llm_prompt |
+| Ollama provider | No | Transport layer, same as Anthropic client |
+| rag_lookup/rag_index | No (actions) | Building blocks, like web_search or db_query |
+| knowledge-indexer | Yes (future) | When we need scrape→index→refresh orchestration |
+| maintenance scheduler | Yes | Owns batch scheduling domain, has workflow |
+
+The `rag_lookup` and `rag_index` are actions because they're single operations any workflow can use. When we need a full pipeline (discover sites to scrape → scrape → chunk → embed → store → periodically refresh), that orchestration becomes a knowledge-indexer agent. Until then, actions are sufficient — following the "Reuse Before Creating" principle.
+
+---
+
 ## Migration Guide: Converting Existing Actions
 
 ### Step 1: Identify current patterns
@@ -725,3 +915,163 @@ Migrate from `*_field` to `input_fields` pattern.
 
 ### Step 6: Remove deprecated support
 After all workflows migrated, remove deprecated patterns from spec.
+
+
+----
+
+## Lessons Learned — Build Pipeline Post-Mortem
+
+### Specialist vs Handler: the persistence boundary
+
+**Problem we hit:** The dispatch loop called `page-content-writer` directly as a handler. It generated HTML and returned it, but nothing was saved to `page_components`. The work item was marked complete with the HTML trapped in `site_work_items.result`. The rerender then assembled empty pages.
+
+**Root cause:** `page-content-writer` is a **specialist** — it generates content and returns it to its caller. The old monolithic orchestrators (pageflow-builder, site-work-orchestrator) had post-processing steps after calling it: `assemble_page → git_commit → save_page_sections → update_page_status`. When we moved to the dispatch loop, we dropped those steps because the loop just does `call_handler → mark_complete`.
+
+**Rule: If a specialist agent returns data but doesn't persist it, it cannot be used as a dispatch handler directly.** Wrap it in a handler agent that adds the persistence steps.
+
+The test: **Does the agent write its own outputs to the database?**
+- `webdesign-agent`: Yes — writes CSS to `site_components`. Can be a handler directly.
+- `image-generator`: Yes — the dispatch has `store_asset` afterwards... actually no, the current dispatch loop doesn't do that either. This needs the same wrapper treatment.
+- `page-content-writer`: No — returns `page_html` and `sections_metadata` in its response. Needs a wrapper (`page-build-handler`) that calls `save_page_sections` and `update_page_status`.
+
+**Handler checklist for dispatch loop compatibility:**
+1. Does the agent persist its outputs to the database? (page_components, site_components, assets, site_specs)
+2. Does it update status on the records it touches? (pages.build_status, etc.)
+3. Can you call it with just `site_id` + `domain` + `spec` and have everything land in the right tables?
+
+If the answer to any of these is no, you need a wrapper handler agent.
+
+---
+
+### Work item domain is NOT the site domain
+
+**Problem we hit:** `WriteBuildItemsAction` created `needs_design` with `domain: "design"`. The dispatch loop filters `item_domain: "build"`. CSS generation was never dispatched.
+
+**The `domain` column on `site_work_items` is a namespace for categorising work items** (like "build", "maintenance", "marketing"). It is NOT the website domain (like "gaswholesalers.com"). These are two completely different concepts sharing the same column name.
+
+**Rule: All items in the initial build pipeline must use `domain: "build"`.** The dispatch loop filters by this. If you create items with a different domain, they won't be picked up.
+
+The site domain (gaswholesalers.com) comes from `input_data.domain` which is passed to the dispatch loop from the trigger. It's forwarded to handlers via `input_mapping`. The work item's `domain` field is never passed to handlers as the site domain.
+
+**Naming trap:** The dispatch loop's `input_mapping` had `"domain": "pending.first_item.domain"` which would pass "build" to the handler instead of "gaswholesalers.com". The handler needs the site domain. Fixed to `"domain": "input_data.domain"`.
+
+---
+
+### Every pipeline must end with assembly and deployment
+
+**Problem we hit:** The planner created content page items and design items, but no rerender or deploy step. When all items completed, the site had sections in the database but nothing was assembled or committed to git.
+
+**Rule: The planner (or WriteBuildItemsAction) must create terminal work items that assemble and deploy.** The minimum chain for a brochure site:
+
+```
+needs_domain_research (1) → needs_briefing (2) → needs_site_plan (3)
+  → needs_logo (5) → needs_hero_image (5) → needs_design (8)
+  → needs_content_page × N (10-17) → needs_rerender (20)
+```
+
+`needs_rerender` is the terminal item. It:
+- Optionally re-renders site_components (header/footer/head with CSS)
+- Assembles each page from page_components + site_components
+- Git commits each page
+- Triggers deployment via GitHub Actions
+
+Without it, the pipeline produces data but no website.
+
+---
+
+### Pre-flight checklist for new work item types
+
+Before adding a new `item_type` to the pipeline:
+
+1. **Domain:** Is it `"build"`? If not, will the dispatch loop's `item_domain` filter find it?
+2. **Handler agent:** Is the handler self-contained? Does it persist its outputs? (See specialist vs handler above)
+3. **Priority:** Does it run after its dependencies? Lower number = runs first.
+4. **depends_on:** If it must wait for specific items, are the UUIDs populated?
+5. **Spec:** Does the spec contain everything the handler needs, or does the handler load context itself?
+6. **Terminal item:** If this is the last step, does something trigger assembly/deployment?
+7. **Input mapping:** Does the dispatch loop's `input_mapping` pass what the handler expects? Check that `domain` means site domain, not work item namespace.
+
+---
+
+### Testing a new pipeline end-to-end
+
+After any change to the build pipeline, verify with this query sequence:
+
+```sql
+-- 1. All items created with correct domain and handler
+SELECT item_type, domain, handler_agent, priority, status
+FROM site_work_items WHERE site_id = '...' ORDER BY priority;
+
+-- 2. After completion: page_components populated
+SELECT p.name, COUNT(pc.id) as components, SUM(LENGTH(pc.rendered_html)) as html_bytes
+FROM page_components pc JOIN pages p ON pc.page_id = p.id
+WHERE p.site_id = '...' GROUP BY p.name;
+
+-- 3. Site components (CSS/header/footer) exist
+SELECT slot_name, LENGTH(rendered_html) as len FROM site_components WHERE site_id = '...';
+
+-- 4. Pages have correct status
+SELECT name, build_status FROM pages WHERE site_id = '...';
+
+-- 5. Git commits happened (check git-adapter logs)
+kubectl -n ai-persona-system logs -l app=git-adapter --tail=50 | grep DOMAIN
+```
+
+If query 2 returns 0 rows, the handler didn't persist. If query 3 is empty, CSS wasn't generated. If query 4 shows "deployed" but query 2 is empty, the status was updated without content.
+
+---
+
+### Optional fields in dispatch loop input_mapping must use the ? suffix
+
+The dispatch loop serves every work item type through a single call_handler step. Different item types have different spec shapes — needs_rerender has spec.refresh_site_components, content pages have spec.name and spec.sections, and needs_design has an empty spec: {}. If the call_handler input_mapping references a path like "refresh_site_components": "pending.first_item.spec.refresh_site_components", the Go input_mapping resolver (resolveInputMapping in coordinator.go) will hard-fail the entire call when that path doesn't exist — even if the handler being called doesn't need that field.
+
+The fix is the `?` suffix on the destination key: `"refresh_site_components?": "pending.first_item.spec.refresh_site_components"`. This tells the resolver to skip silently when the source path is missing.
+
+**Rule:** any field in the dispatch loop's input_mapping that comes from `spec.*` or any other item-type-specific path must use the `?` suffix. Only `site_id`, `domain`, and `work_item_id` — fields guaranteed to exist on every work item — should be non-optional.
+
+---
+
+## Implementation Status: LLM Optimization
+
+Status as of the end of the planning/architecture conversation. Files are produced but not yet deployed.
+
+### Files ready to deploy
+
+**SQL migrations (run against clients database):**
+- `081_llm_model_upgrades_and_logging.sql` — model alias updates + llm_call_log table + cleanup function + stats view
+- `082_rag_knowledge_base.sql` — knowledge_base table with pgvector + trigram indexes + stats view
+
+**New Go files:**
+- `platform/aiservice/ollama.go` — Ollama provider implementing AIService interface
+- `platform/orchestration/actions/llm_call_logger.go` — fire-and-forget LLM call logging
+- `platform/orchestration/actions/rag_actions.go` — rag_lookup and rag_index actions
+- `platform/orchestration/datahelpers/nullable_helpers.go` — NullableInt, NullableInt64
+
+**Patched Go files (3 small patches):**
+- `platform/aiservice/anthropic.go` — Usage struct in response, write-back to options map
+- `platform/orchestration/actions/ai_actions.go` — 4 insertions for logging + ollama case in createAIClient
+- `platform/orchestration/actions/registry.go` — add rag_lookup, rag_index to GlobalActionRegistry
+
+**Kubernetes:**
+- `ollama-adapter-k8s.yaml` — Deployment, Service, PVC, model-pull Job
+
+**Support:**
+- `training_data_export.sql` — queries for extracting fine-tuning data
+- `deployment_guide.md` — step-by-step implementation order
+
+### Deployment order
+1. SQL migrations (081, 082)
+2. Go code patches + new files → rebuild agent-chassis image
+3. Verify logging works (check llm_call_log after a site build)
+4. Deploy Ollama adapter when ready for RAG / local models
+5. Wire RAG into workflows (add rag_lookup before content steps, rag_index after scraping)
+6. Accumulate training data (200+ examples per agent type, 1-2 weeks)
+7. Fine-tune first local model (site-classifier)
+8. A/B test local model vs Claude
+
+### Not yet built (future work)
+- knowledge-indexer agent (orchestrates scrape→index→refresh cycle) — build when pipeline demands it
+- Maintenance-catch-all integration for llm_call_log cleanup scheduling
+- REINDEX CONCURRENTLY scheduling for knowledge_base ivfflat index
+- A/B testing infrastructure for local vs cloud model comparison
+- Field path resolution cleanup (migrate 9+ duplicates in actions package to datahelpers calls)

@@ -7493,3 +7493,143 @@ INSERT INTO content_components (
              true
          );
 
+----
+
+-- hardcoded colours in heros in db that need fixing
+
+-- 063b_hardcoded_colors_discovery.sql
+--
+-- Audit queries to run against clients_db to find components
+-- with hardcoded colors that should be using CSS variables.
+-- Run these BEFORE deploying 062 to understand the scope of work.
+--
+-- These are SELECT-only queries — no data changes.
+
+-- ============================================================
+-- 1. Find components with hardcoded hex colors in their CSS
+--    (excludes colors inside CSS variable fallbacks like var(--x, #fff))
+-- ============================================================
+SELECT
+    name,
+    function,
+    category,
+    component_level,
+    -- Count occurrences of hardcoded #hex patterns
+    (LENGTH(html_template) - LENGTH(REPLACE(REPLACE(REPLACE(
+                                                            html_template,
+                                                            'var(--', ''), -- strip var() references first (crude but effective)
+                                                    '#ffffff', ''),
+                                            '#fff', ''
+                                    ))) as approx_hardcoded_count,
+    CASE
+        WHEN html_template LIKE '%color: #%' AND html_template NOT LIKE '%var(--%'
+            THEN 'ALL hardcoded (no vars at all)'
+        WHEN html_template LIKE '%color: #%' AND html_template LIKE '%var(--%'
+            THEN 'MIXED (some vars, some hardcoded)'
+        WHEN html_template LIKE '%var(--%' AND html_template NOT LIKE '%color: #%'
+            THEN 'CLEAN (vars only)'
+        ELSE 'NO CSS colors found'
+        END as css_status
+FROM content_components
+WHERE component_level = 'section'
+ORDER BY css_status, category, function;
+
+-- ============================================================
+-- 2. Specific: find sections that hardcode text color
+--    (these will fight with the inheritance model)
+-- ============================================================
+SELECT
+    name,
+    function,
+    'hardcoded text color' as issue,
+    SUBSTRING(html_template FROM 'color:\s*#[0-9a-fA-F]{3,8}') as found_pattern
+FROM content_components
+WHERE component_level = 'section'
+  AND html_template ~ 'color:\s*#[0-9a-fA-F]{3,8}'
+  -- Exclude colors that are inside var() fallbacks
+  AND html_template !~ 'var\(--[^)]+,\s*#[0-9a-fA-F]{3,8}\)'
+ORDER BY function;
+
+-- ============================================================
+-- 3. Find dark-section components (dark backgrounds)
+--    Check if they have the --section-* variable contract
+-- ============================================================
+SELECT
+    name,
+    function,
+    CASE
+        WHEN html_template LIKE '%background:%#1a1a2e%'
+            OR html_template LIKE '%background: #1a1a2e%' THEN 'hardcoded #1a1a2e'
+        WHEN html_template LIKE '%background:%#0f172a%'
+            OR html_template LIKE '%background: #0f172a%' THEN 'hardcoded #0f172a'
+        WHEN html_template LIKE '%background: var(--color-primary%' THEN 'var(--color-primary)'
+        WHEN html_template LIKE '%linear-gradient%1a1a2e%'
+            OR html_template LIKE '%linear-gradient%16213e%' THEN 'gradient-dark'
+        WHEN html_template LIKE '%linear-gradient(rgba(0,0,0%' THEN 'overlay-dark'
+        ELSE 'other'
+        END as dark_bg_type,
+    CASE
+        WHEN html_template LIKE '%--section-text%' THEN 'YES'
+        ELSE 'MISSING'
+        END as has_section_contract,
+    CASE
+        WHEN html_template LIKE '%--section-heading%' THEN 'YES'
+        ELSE 'MISSING'
+        END as has_section_heading,
+    CASE
+        WHEN html_template LIKE '%--section-surface%' THEN 'YES'
+        ELSE 'MISSING'
+        END as has_section_surface
+FROM content_components
+WHERE component_level = 'section'
+  AND (
+    html_template LIKE '%background:%#1a1a2e%'
+        OR html_template LIKE '%background: #1a1a2e%'
+        OR html_template LIKE '%background: var(--color-primary%'
+        OR html_template LIKE '%background-color: var(--color-primary%'
+        OR html_template LIKE '%linear-gradient%1a1a2e%'
+        OR html_template LIKE '%linear-gradient%16213e%'
+        OR html_template LIKE '%background:%#0f172a%'
+        OR html_template LIKE '%background: #0f172a%'
+        OR html_template LIKE '%linear-gradient(rgba(0,0,0%'
+    )
+ORDER BY has_section_contract, function;
+
+-- ============================================================
+-- 4. Find components that set color on text elements explicitly
+--    (these override inheritance in dark sections)
+-- ============================================================
+SELECT
+    name,
+    function,
+    CASE WHEN html_template ~ 'p\s*\{[^}]*color:' THEN 'p' ELSE '' END ||
+    CASE WHEN html_template ~ 'h[1-6]\s*\{[^}]*color:' THEN ' h1-h6' ELSE '' END ||
+    CASE WHEN html_template ~ 'blockquote\s*\{[^}]*color:' THEN ' blockquote' ELSE '' END ||
+    CASE WHEN html_template ~ 'li\s*\{[^}]*color:' THEN ' li' ELSE '' END ||
+    CASE WHEN html_template ~ 'strong\s*\{[^}]*color:' THEN ' strong' ELSE '' END
+        as elements_with_forced_color
+FROM content_components
+WHERE component_level = 'section'
+  AND (
+    html_template ~ 'p\s*\{[^}]*color:'
+    OR html_template ~ 'h[1-6]\s*\{[^}]*color:'
+    OR html_template ~ 'blockquote\s*\{[^}]*color:'
+    OR html_template ~ 'li\s*\{[^}]*color:'
+    OR html_template ~ 'strong\s*\{[^}]*color:'
+    )
+ORDER BY function;
+
+-- ============================================================
+-- 5. Summary: overall CSS variable adoption
+-- ============================================================
+SELECT
+    component_level,
+    COUNT(*) as total,
+    COUNT(*) FILTER (WHERE html_template LIKE '%var(--%') as uses_css_vars,
+    COUNT(*) FILTER (WHERE html_template LIKE '%color: #%') as has_hardcoded_colors,
+    COUNT(*) FILTER (WHERE html_template LIKE '%var(--%' AND html_template NOT LIKE '%color: #%') as fully_migrated,
+    COUNT(*) FILTER (WHERE html_template LIKE '%--section-text%') as has_section_contract
+FROM content_components
+GROUP BY component_level
+ORDER BY component_level;
+

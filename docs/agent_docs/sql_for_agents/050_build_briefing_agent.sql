@@ -538,3 +538,40 @@ SET default_config = jsonb_set(
         '"build-site-planner"'::jsonb
                      )
 WHERE type = 'build-briefing-agent';
+
+---
+
+-- 060b_fix_read_specs_aspect_all.sql
+--
+-- Problem: domain-strategist and build-briefing-agent read_specs steps have
+-- "aspect": "all" in config. ReadSiteSpecAction checks `if aspect != ""` —
+-- setting "all" enters single-aspect mode and queries WHERE aspect='all',
+-- which returns no rows. The LLMs get empty research data.
+--
+-- Fix: Remove the "aspect" key entirely from the read_specs config.
+-- When omitted, the Go code enters all-aspects mode and returns
+-- { "specs": { "identity": {...}, "classification": {...}, ... } }.
+
+-- Fix domain-strategist
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,read_specs,config}',
+        '{
+          "site_id": "input_data.site_id"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-strategist';
+
+-- Fix build-briefing-agent
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,read_specs,config}',
+        '{
+          "site_id": "input_data.site_id"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-briefing-agent';

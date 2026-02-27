@@ -24,7 +24,7 @@ A complete base stylesheet setting `:root` variables (colours, fonts, spacing), 
 
 Deployed as `/assets/css/styles.css` — one per site, committed to git by the webdesign agent.
 
-The colour inheritance model (see 003_contracts_and_standards for full rules): `body` sets `color: var(--color-text)` as the single source of default text colour. All other elements inherit. Headings use `color: inherit`, not `color: var(--color-primary)`.
+The colour inheritance model (see 003_contracts_and_standards for full rules): `body` sets `color: var(--color-text)` as the base default. Text elements reference `--section-*` variables with light-theme fallbacks (e.g. `h1-h6 { color: var(--section-heading, var(--color-primary)); }`). Dark-section components override `--section-*` on their container and all children adapt automatically.
 
 ### Layer 3: Style Collection (the bridge)
 
@@ -610,7 +610,7 @@ Stored in `sites.settings.maintenance_profile`:
 3. Layout definitions: JSONB on `sites.content_data` under `layout_definitions`.
 4. Legal rules: per-site on `sites.content_data.legal_rules`. Templates seed common rules.
 5. Entity data sourcing: API-first. Manual/HITL for initial seeding. Both write to `site_entities`.
-6. CSS colour inheritance: base stylesheet sets `color: var(--color-text)` on `body` only. All elements inherit. Components set `color: #fff` on dark containers.
+6. CSS colour inheritance: base stylesheet sets `color: var(--color-text)` on `body`. Text elements use `--section-*` variables with light-theme fallbacks. Dark-section components override `--section-*` on their container.
 7. Theme reuse vs generation: currently generates per site. Plan: store, search before generating.
 8. Maintenance profile: `sites.settings`.
 9. Fix vs build agents: separate. Build = create from nothing (broad). Fix = change specific thing (narrow, finding-driven). Share underlying actions.

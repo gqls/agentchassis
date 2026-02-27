@@ -101,27 +101,42 @@ This is the single most important rule in the design system. Getting it wrong ca
 
 ### The rule
 
+Text elements reference `--section-*` CSS custom properties with light-theme fallbacks. Dark-section components override these variables on their container. Everything adapts automatically.
+
 ```
 /assets/css/styles.css (from css_themes)
-  body { color: var(--color-text); }          ← sets default dark text
-    ↓ inherits
-    h1, h2, p, li, blockquote, strong         ← all inherit dark text (NO explicit color)
+  body { color: var(--color-text); }
+  h1-h6 { color: var(--section-heading, var(--color-primary)); }
+  p, li, blockquote { color: var(--section-text, inherit); }
+  strong, em, cite, span — do NOT set color (they inherit from parent)
 
-Component inline <style>
-  .social-proof-section { color: #fff; }      ← dark section overrides to light text
-    ↓ inherits
-    h2, blockquote, cite, p, strong           ← all inherit light text automatically
+Light section (no overrides):
+  h2 gets var(--section-heading) → not set → fallback var(--color-primary) → #1a1a2e
+  p gets var(--section-text) → not set → fallback inherit → body's #333333
+
+Dark section component sets --section-* on container:
+  .social-proof-section {
+    --section-heading: #ffffff;
+    --section-text: rgba(255,255,255,0.9);
+  }
+  h2 gets var(--section-heading) → #ffffff
+  p gets var(--section-text) → rgba(255,255,255,0.9)
 ```
 
 ### Rules for styles.css
 
-- `body` sets `color: var(--color-text)` — the ONLY place default text colour is set
-- `h1-h6` use `color: inherit` (NOT `var(--color-primary)`)
-- `p`, `li`, `blockquote`, `strong`, `em`, `cite` — do NOT set `color` at all
-- `a` — `color: var(--color-accent)` is the one exception (links are explicit)
+- `body` sets `color: var(--color-text)` — the base default
+- `h1-h6` use `color: var(--section-heading, var(--color-primary))` — prominent in light, white in dark
+- `p`, `li`, `blockquote` use `color: var(--section-text, inherit)` — adapts to section context
+- `strong`, `em`, `cite`, `span` — do NOT set `color` at all (inherit from parent element)
+- `a` — `color: var(--color-accent)` is the one exception (links are always explicit)
 - `blockquote` — do NOT set `background-color` (components handle this contextually)
 
-If the base CSS forces `color: var(--color-text)` on `p` or `blockquote`, dark sections break because children can't inherit `color: #fff` from their parent container.
+### What breaks this
+
+If the base CSS sets `color: var(--color-text)` directly on `p` or `h1`, the `--section-*` override is bypassed. The element gets `#333333` regardless of what the dark section container sets. This is the bug that caused light-on-light text in testimonial sections.
+
+Similarly, if the base CSS sets `color: var(--color-primary)` on `h1` instead of `var(--section-heading, var(--color-primary))`, dark sections can't override headings to white.
 
 ---
 
@@ -142,9 +157,7 @@ Any component with a dark background MUST set these CSS custom properties on its
 }
 ```
 
-Global `styles.css` uses these variables with light-theme fallbacks:
-- `h1-h6 { color: var(--section-heading, var(--color-primary)); }`
-- `p { color: var(--section-text, inherit); }`
+The global `styles.css` base element rules consume these variables (see CSS Colour Inheritance Model above). In light sections where `--section-*` variables are not set, the fallbacks provide correct light-theme values. In dark sections, the overrides apply automatically to all children.
 
 ### Dark components
 

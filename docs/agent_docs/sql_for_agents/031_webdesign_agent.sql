@@ -1125,3 +1125,392 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'webdesign-agent';
 
+---
+
+-- patch
+
+-- 060_patch_webdesign_read_site_specs.sql
+--
+-- Problem: webdesign-agent's analyze_design prompt uses site_context fields
+-- (industry, brand_tone, services, about_us) but these come from the OLD
+-- load_site_for_design action which reads sites.content_data. In the new flow,
+-- domain-research-classifier and domain-strategist write rich data to site_specs
+-- (aspects: identity, classification, strategy). The webdesign agent never sees this.
+--
+-- Fix: Insert a read_site_specs step before analyze_design. Update the
+-- analyze_design prompt to use site_specs data (identity, classification,
+-- strategy) alongside whatever site_context provides.
+--
+-- NOTES:
+-- - read_site_spec with NO "aspect" key in config returns ALL aspects mode.
+--   The Go code (ReadSiteSpecAction) checks `if aspect != ""` — setting
+--   "aspect": "all" would query WHERE aspect='all' which returns nothing.
+--
+-- - All-aspects mode returns: { "specs": { "identity": {...}, ... }, "aspects": [...] }
+--   So template paths must go through .site_specs.specs.identity.* etc.
+--
+-- - When called with externally-provided site_context (scrape, no DB record),
+--   site_context.site_id may be null. ReadSiteSpecInputSpec requires site_id.
+--   A conditional step skips the read when there's no site_id.
+--
+-- Run order: 060 before 062.
+
+-- Add check_has_site_id conditional
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_has_site_id}',
+        '{
+          "action": "conditional",
+          "config": {
+            "condition": "site_context.site_id != null AND site_context.site_id != ''",
+            "then_step": "read_site_specs",
+            "else_step": "analyze_design"
+          },
+          "description": "Skip site_specs read when no DB record (e.g. scrape-only path)"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'webdesign-agent';
+
+-- Add read_site_specs step (NO "aspect" key — omitting it triggers all-aspects mode)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,read_site_specs}',
+        '{
+          "action": "read_site_spec",
+          "config": {
+            "site_id": "site_context.site_id"
+          },
+          "description": "Load identity, classification, strategy from site_specs",
+          "next_step": "analyze_design",
+          "output_field": "site_specs"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'webdesign-agent';
+
+-- Re-route load_site_context → check_has_site_id (was → analyze_design)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_site_context,next_step}',
+        '"check_has_site_id"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'webdesign-agent';
+
+-- Re-route use_provided_context → check_has_site_id (was → analyze_design)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,use_provided_context,next_step}',
+        '"check_has_site_id"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'webdesign-agent';
+
+-- Update analyze_design input_fields to include site_specs
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_design,config,input_fields}',
+        '["site_context", "site_specs"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'webdesign-agent';
+
+-- Update analyze_design prompt to reference site_specs.specs.* paths
+-- (all-aspects mode returns data under a "specs" key)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_design,config,prompt_template}',
+        to_jsonb(
+                'You are a web design expert. Analyze the site and output a design specification.
+
+                ## Site
+                Domain: {{.site_context.domain}}
+                Company: {{if .site_specs.specs.identity.company_name}}{{.site_specs.specs.identity.company_name}}{{else}}{{.site_context.company_name}}{{end}}
+                Industry: {{if .site_specs.specs.identity.industry}}{{.site_specs.specs.identity.industry}}{{else if .site_context.industry}}{{.site_context.industry}}{{else}}professional services{{end}}
+                Sub-industry: {{if .site_specs.specs.identity.sub_industry}}{{.site_specs.specs.identity.sub_industry}}{{end}}
+                Tagline: {{if .site_specs.specs.identity.tagline}}{{.site_specs.specs.identity.tagline}}{{else}}{{.site_context.tagline}}{{end}}
+                Site Type: {{if .site_specs.specs.strategy.site_type}}{{.site_specs.specs.strategy.site_type}}{{else if .site_specs.specs.classification.site_type}}{{.site_specs.specs.classification.site_type}}{{else}}{{.site_context.site_type}}{{end}}
+                Tone: {{if .site_specs.specs.strategy.tone}}{{.site_specs.specs.strategy.tone}}{{else if .site_specs.specs.classification.tone_suggestion}}{{.site_specs.specs.classification.tone_suggestion}}{{else}}{{.site_context.brand_tone}}{{end}}
+                Target Audience: {{if .site_specs.specs.identity.target_audience}}{{.site_specs.specs.identity.target_audience}}{{end}}
+                Value Proposition: {{if .site_specs.specs.strategy.value_proposition}}{{.site_specs.specs.strategy.value_proposition}}{{end}}
+
+                {{if .site_specs.specs.identity.about_summary}}## About the Business
+                {{.site_specs.specs.identity.about_summary}}{{else if .site_context.about_us}}## About the Business
+                {{.site_context.about_us}}{{end}}
+
+                {{if .site_specs.specs.identity.services}}## Services Offered
+                {{range .site_specs.specs.identity.services}}- {{.name}}: {{.description}}
+                {{end}}{{else if .site_context.services}}## Services Offered
+                {{range .site_context.services}}- {{.name}}: {{.description}}
+                {{end}}{{end}}
+
+                {{if .site_specs.specs.identity.unique_selling_points}}## Unique Selling Points
+                {{range .site_specs.specs.identity.unique_selling_points}}- {{.}}
+                {{end}}{{end}}
+
+                {{if .site_specs.specs.strategy.content_strategy}}## Content Strategy
+                {{.site_specs.specs.strategy.content_strategy}}{{end}}
+
+                ## Components Used
+                {{range .site_context.all_component_functions}}- {{.}}
+                {{end}}
+
+                Using the industry, business description, tone, target audience, and services above,
+                choose colors and typography that are appropriate and distinctive for this specific
+                industry and brand. Do NOT use generic defaults. A fuel distribution company should
+                look different from a consulting firm. A veterinary practice should feel different
+                from a law firm.
+
+                Return ONLY valid JSON:
+                {
+                  "color_scheme": {
+                    "primary": "#hex (industry-appropriate, NOT #2c3e50)",
+                    "secondary": "#hex",
+                    "accent": "#hex",
+                    "background": "#ffffff",
+                    "surface": "#hex",
+                    "text": "#333333",
+                    "text_muted": "#666666",
+                    "border": "#hex"
+                  },
+                  "typography": {
+                    "font_family": "appropriate font stack",
+                    "heading_font": "inherit or specific",
+                    "base_size": "16px",
+                    "line_height": "1.6"
+                  },
+                  "spacing": {
+                    "section_padding": "5rem 2rem",
+                    "container_max_width": "1200px"
+                  },
+                  "design_notes": "explain why these colors/fonts suit this industry and brand tone"
+                }'::text
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'webdesign-agent';
+
+---
+
+-- css inheritance
+
+-- 062_patch_webdesign_css_inheritance.sql
+--
+-- Problem: The generate_css prompt tells the LLM to set explicit color
+-- on p, h1-h6, blockquote, li, strong. This breaks dark sections because
+-- children cannot override when the global CSS bypasses --section-* variables.
+--
+-- Fix: Replace the generate_css prompt_template with one that uses the
+-- --section-* variable pattern from 003_contracts_and_standards:
+--   - body sets color: var(--color-text) — the base default
+--   - h1-h6 use color: var(--section-heading, var(--color-primary))
+--   - p, li, blockquote use color: var(--section-text, inherit)
+--   - strong, em, cite, span — do NOT set color at all
+--   - a uses color: var(--color-accent) — the one exception
+--   - Dark sections override --section-* on their container
+--
+-- NOTE: Run AFTER 060 (which adds the read_site_specs step).
+-- This patch only touches the generate_css step.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_css,config,prompt_template}',
+        to_jsonb(
+                'Generate a complete production CSS stylesheet.
+
+                ## Design Spec
+                {{.design_spec.result}}
+
+                ## Components on this site
+                {{range .site_context.all_component_functions}}- {{.}}
+                {{end}}
+
+                ## CSS ARCHITECTURE
+
+                This stylesheet is the global base. It provides:
+                1. CSS custom properties (:root variables)
+                2. Base typography and body styles
+                3. Section context variables (--section-*) consumed by base element rules
+                4. Site structural layout (header, footer, nav)
+
+                Components have their own inline <style> blocks that handle layout-only concerns
+                (grid, flexbox, spacing). Colors flow through CSS variables — components do NOT
+                re-declare colors on h1-h6, p, a.
+
+                ## Required :root Variables
+                :root {
+                  --color-primary: (from color_scheme.primary);
+                  --color-secondary: (from color_scheme.secondary);
+                  --color-accent: (from color_scheme.accent);
+                  --color-background: (from color_scheme.background);
+                  --color-surface: (from color_scheme.surface);
+                  --color-text: (from color_scheme.text);
+                  --color-text-muted: (from color_scheme.text_muted);
+                  --color-border: (from color_scheme.border);
+                  --color-white: #ffffff;
+                  --font-family: (from typography.font_family);
+                  --spacing-section: (from spacing.section_padding);
+                  --container-max-width: (from spacing.container_max_width);
+                  --transition-speed: 0.3s;
+                  --border-radius: 8px;
+                  --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+                  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+                  --shadow-lg: 0 10px 20px rgba(0,0,0,0.15);
+                }
+
+                ## SECTION CONTEXT VARIABLE MODEL — FOLLOW EXACTLY
+
+                This is the single most important rule. Getting it wrong causes unreadable text.
+
+                Text elements reference --section-* variables with light-theme fallbacks.
+                Dark-section components override --section-* on their container.
+                Everything adapts automatically — no specificity wars.
+
+                body { color: var(--color-text); } — the base default.
+
+                h1, h2, h3, h4, h5, h6 { color: var(--section-heading, var(--color-primary)); }
+                  In light sections: --section-heading is not set, fallback gives --color-primary.
+                  In dark sections: --section-heading is #ffffff.
+                  Do NOT use color: inherit or color: var(--color-primary) directly.
+
+                p, li, blockquote { color: var(--section-text, inherit); }
+                  In light sections: --section-text is not set, fallback is inherit (from body).
+                  In dark sections: --section-text is rgba(255,255,255,0.9).
+                  Do NOT use color: var(--color-text) on these elements.
+
+                strong, em, cite, span — do NOT set color at all. They inherit from their parent.
+
+                a { color: var(--color-accent); } — links are the ONE exception (always explicit).
+
+                blockquote — do NOT set background-color (components handle this contextually).
+
+                WHY: If base CSS sets color: var(--color-text) on p, the --section-text override
+                is bypassed. The element gets #333333 regardless of the dark section context.
+
+                ## Required Base Styles
+                - *, *::before, *::after { box-sizing: border-box; }
+                - html { scroll-behavior: smooth; }
+                - html, body { margin: 0; padding: 0; }
+                - body { font-family: var(--font-family); color: var(--color-text); line-height: 1.6; background-color: var(--color-background); -webkit-font-smoothing: antialiased; }
+                - .container { max-width: var(--container-max-width); margin: 0 auto; padding: 0 2rem; }
+
+                ## Typography (using --section-* pattern)
+                - h1 { font-size: clamp(2rem, 5vw, 3rem); color: var(--section-heading, var(--color-primary)); font-weight: 700; line-height: 1.2; margin: 0 0 1rem; }
+                - h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); color: var(--section-heading, var(--color-primary)); font-weight: 700; line-height: 1.2; margin: 0 0 1rem; }
+                - h3 { font-size: clamp(1.25rem, 3vw, 1.5rem); color: var(--section-heading, var(--color-primary)); font-weight: 600; line-height: 1.3; margin: 0 0 0.75rem; }
+                - h4, h5, h6 { color: var(--section-heading, var(--color-primary)); font-weight: 600; margin: 0 0 0.5rem; }
+                - p { color: var(--section-text, inherit); margin: 0 0 1rem; line-height: 1.6; }
+                - li { color: var(--section-text, inherit); }
+                - blockquote { color: var(--section-text, inherit); font-style: italic; margin: 1rem 0; padding: 1rem 1.5rem; border-left: 3px solid var(--section-border, var(--color-border)); }
+                - a { color: var(--color-accent); text-decoration: none; }
+                - a:hover { text-decoration: underline; }
+
+                ## REQUIRED: Site Structural Layout
+
+                The header and footer templates use these exact class names. Include ALL of these:
+
+                .site-header {
+                  background: var(--color-primary);
+                  padding: 1rem 0;
+                  position: sticky;
+                  top: 0;
+                  z-index: 1000;
+                  box-shadow: var(--shadow-sm);
+                }
+                .header-container {
+                  max-width: var(--container-max-width);
+                  margin: 0 auto;
+                  padding: 0 2rem;
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                }
+                .logo { text-decoration: none; font-size: 1.5rem; font-weight: 700; color: var(--color-white); }
+                .logo-text { color: var(--color-white); }
+                .logo-accent { color: var(--color-accent); }
+                .logo-img { max-height: 40px; width: auto; display: block; }
+                .main-nav ul { display: flex; list-style: none; margin: 0; padding: 0; gap: 2rem; }
+                .main-nav a { color: rgba(255,255,255,0.9); text-decoration: none; font-weight: 500; padding: 0.5rem 0; transition: color var(--transition-speed); }
+                .main-nav a:hover, .main-nav a.active { color: var(--color-accent); }
+                .mobile-menu-toggle { display: none; background: none; border: none; cursor: pointer; padding: 0.5rem; }
+                .mobile-menu-toggle span { display: block; width: 24px; height: 2px; background: white; margin: 5px 0; }
+
+                .site-footer { background: var(--color-primary); color: rgba(255,255,255,0.8); padding: 3rem 0 1.5rem; }
+                .footer-container { max-width: var(--container-max-width); margin: 0 auto; padding: 0 2rem; }
+                .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+                .footer-column h3, .footer-column h4 { color: var(--color-white); margin-bottom: 1rem; }
+                .footer-column ul { list-style: none; padding: 0; margin: 0; }
+                .footer-column li { margin-bottom: 0.5rem; }
+                .footer-column a { color: rgba(255,255,255,0.7); text-decoration: none; transition: color var(--transition-speed); }
+                .footer-column a:hover { color: var(--color-white); }
+                .footer-bottom { border-top: 1px solid rgba(255,255,255,0.2); padding-top: 1.5rem; text-align: center; font-size: 0.875rem; color: rgba(255,255,255,0.5); }
+
+                @media (max-width: 768px) {
+                  .mobile-menu-toggle { display: block; }
+                  .main-nav { position: absolute; top: 100%; left: 0; right: 0; background: var(--color-primary); padding: 1rem; display: none; }
+                  .main-nav.active { display: block; }
+                  .main-nav ul { flex-direction: column; gap: 0; }
+                  .main-nav a { display: block; padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+                  .footer-grid { grid-template-columns: 1fr; }
+                }
+
+                ## REQUIRED: Section Container Styles
+
+                For each component listed above, provide a section container with padding and
+                a container div for max-width. This is NOT component-specific layout — it is
+                the section-level wrapper that the global stylesheet owns.
+
+                Pattern:
+                  .{component}-section { padding: var(--spacing-section); }
+
+                Dark-background sections (hero, social-proof, testimonials, call-to-action) MUST
+                set --section-* overrides on their container:
+
+                  .hero-section {
+                    background: var(--color-primary);
+                    color: var(--color-white);
+                    --section-text: rgba(255,255,255,0.9);
+                    --section-text-muted: rgba(255,255,255,0.7);
+                    --section-heading: #ffffff;
+                    --section-surface: rgba(255,255,255,0.05);
+                    --section-border: rgba(255,255,255,0.2);
+                  }
+
+                Light sections need no overrides — the fallback values in base element rules apply.
+
+                ## Also Include
+                - Button base styles (.btn, .btn-primary, .btn-secondary, .btn-large, .btn-small)
+                - Focus-visible states for accessibility
+                - Smooth transitions on interactive elements
+                - Responsive adjustments at 768px and 1024px
+                - prefers-reduced-motion media query
+                - Form input styling (border, padding, focus state)
+
+                ## DO NOT Include
+                - Component-internal layout (grid columns, card layouts, flexbox arrangements)
+                - Components have their own inline CSS for layout
+
+                ## Include at end as CSS comment: Dark Section Template
+                /* DARK SECTION TEMPLATE — components with dark backgrounds set these:
+                   .my-dark-section {
+                     --section-text: rgba(255,255,255,0.9);
+                     --section-text-muted: rgba(255,255,255,0.7);
+                     --section-heading: #ffffff;
+                     --section-surface: rgba(255,255,255,0.05);
+                     --section-border: rgba(255,255,255,0.2);
+                   }
+                */
+
+                Output ONLY CSS. No markdown fences. No explanations. Start with :root {'::text
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'webdesign-agent';
