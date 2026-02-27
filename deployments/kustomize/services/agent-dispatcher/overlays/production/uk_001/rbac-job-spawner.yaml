@@ -1,0 +1,40 @@
+# deployments/kustomize/services/agent-dispatcher/overlays/production/uk_001/rbac-job-spawner.yaml
+#
+# The dispatcher needs the same Job-creation permissions as agent-chassis.
+# If this is deployed to the SAME cluster where agent-chassis already runs,
+# the ai-persona-app ServiceAccount already has these permissions via the
+# agent-job-spawner RoleBinding. This file is included so the dispatcher
+# is self-contained when deployed to a NEW cluster (cluster-b).
+#
+# On an existing cluster, kubectl apply will no-op since these resources
+# already exist with the same spec.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dispatcher-job-spawner
+  namespace: ai-persona-system
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dispatcher-job-spawner-binding
+  namespace: ai-persona-system
+subjects:
+  - kind: ServiceAccount
+    name: ai-persona-app
+    namespace: ai-persona-system
+roleRef:
+  kind: Role
+  name: dispatcher-job-spawner
+  apiGroup: rbac.authorization.k8s.io

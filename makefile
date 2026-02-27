@@ -137,10 +137,15 @@ build-content-creator-agent: ## Build content-creator-agent image
 	docker build -t $(REGISTRY)/content-creator-agent:$(IMAGE_TAG) \
 		-f build/docker/backend/content-creator-agent.dockerfile . # NEW
 
+.PHONY: build-agent-dispatcher
+build-agent-dispatcher: ## Build agent-dispatcher image
+	@echo "$(YELLOW)Building agent-dispatcher...$(NC)"
+	docker build -t $(REGISTRY)/agent-dispatcher:$(IMAGE_TAG) \
+		-f build/docker/backend/agent-dispatcher.dockerfile .
 
 # Agent targets
 .PHONY: build-agents
-build-agents: build-agent-chassis build-reasoning-agent build-content-creator-agent ## Build all agents
+build-agents: build-agent-chassis build-reasoning-agent build-content-creator-agent build-agent-dispatcher ## Build all agents
 
 .PHONY: build-adapters
 build-adapters: build-web-search-adapter build-web-scrape-adapter build-git-adapter build-image-generator-adapter ## Build all adapters
@@ -185,6 +190,7 @@ push-backend: ## Push all backend images
 	docker push $(REGISTRY)/git-adapter:$(IMAGE_TAG)
 	docker push $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG)
 	docker push $(REGISTRY)/content-creator-agent:$(IMAGE_TAG)
+	docker push $(REGISTRY)/agent-dispatcher:$(IMAGE_TAG)
 
 .PHONY: push-frontends
 push-frontends: ## Push all frontend images
@@ -509,6 +515,18 @@ deploy-core-manager:  ## Deploy core-manager using Terraform
 
 	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/core-platform/1120-core-manager
 
+
+.PHONY: deploy-agent-dispatcher
+deploy-agent-dispatcher: ## Deploy agent-dispatcher using kustomize
+	@echo "$(YELLOW)Updating agent-dispatcher image tag to $(IMAGE_TAG)...$(NC)"
+	@cd $(KUSTOMIZE_DIR)/services/agent-dispatcher/overlays/$(OVERLAY_PATH) && \
+		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-dispatcher/overlays/$(OVERLAY_PATH)
+
+.PHONY: deploy-agent-dispatcher-tf
+deploy-agent-dispatcher-tf: ## Deploy agent-dispatcher using Terraform
+	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/agents/2220-agent-dispatcher
+
 # Corresponding destroy targets
 .PHONY: destroy-core
 destroy-core: destroy-core-manager destroy-auth-service ## Destroy core platform services using Terraform
@@ -526,7 +544,7 @@ destroy-core-manager: ## Destroy core-manager using Terraform
 .PHONY: update-kustomization-images
 update-kustomization-images: ## Update image tags in kustomization.yaml files
 	@echo "$(YELLOW)Updating kustomization.yaml files with image tag $(IMAGE_TAG)...$(NC)"
-	@for agent in agent-chassis reasoning-agent web-search-adapter web-scrape-adapter git-adapter image-generator-adapter content-creator-agent; do \
+	@for agent in agent-chassis reasoning-agent web-search-adapter web-scrape-adapter git-adapter image-generator-adapter content-creator-agent agent-dispatcher; do \
 		kust_file="$(KUSTOMIZE_DIR)/services/$$agent/overlays/$(OVERLAY_PATH)/kustomization.yaml"; \
 		if [ -f "$$kust_file" ]; then \
 			echo "Updating $$agent kustomization.yaml..."; \
@@ -603,6 +621,14 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH); \
 	fi
 
+	# Update agent-dispatcher kustomization.yaml
+	@echo "Updating agent-dispatcher to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/agent-dispatcher/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
+	@if [ -d "$(KUSTOMIZE_DIR)/services/agent-dispatcher/overlays/$(OVERLAY_PATH)" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-dispatcher/overlays/$(OVERLAY_PATH); \
+	fi
+
+
 	# Update database agent definitions
 	@$(MAKE) update-agent-images-v2 IMAGE_TAG=$(IMAGE_TAG)
 
@@ -623,6 +649,7 @@ redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	kubectl rollout restart deployment git-adapter -n ai-persona-system
 	kubectl rollout restart deployment image-generator-adapter -n ai-persona-system
 	kubectl rollout restart deployment content-creator-agent -n ai-persona-system
+	kubectl rollout restart deployment agent-dispatcher -n ai-persona-system
 
 
 .PHONY: deploy-frontends

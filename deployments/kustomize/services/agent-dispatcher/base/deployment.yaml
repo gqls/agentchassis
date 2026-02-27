@@ -1,0 +1,38 @@
+# deployments/kustomize/services/agent-dispatcher/base/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-dispatcher
+  labels:
+    app: agent-dispatcher
+spec:
+  selector:
+    matchLabels:
+      app: agent-dispatcher
+  template:
+    metadata:
+      labels:
+        app: agent-dispatcher
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: agent-dispatcher
+          image: docker.io/aqls/agent-dispatcher:latest # Patched by overlays
+          env:
+            - name: AGENT_BOOTSTRAP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: agent-bootstrap-key
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"

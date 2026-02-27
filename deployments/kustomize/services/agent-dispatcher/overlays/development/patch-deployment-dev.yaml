@@ -1,0 +1,17 @@
+# deployments/kustomize/services/agent-dispatcher/overlays/development/patch-deployment-dev.yaml
+- op: add
+  path: /spec/replicas
+  value: 1
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-dev-config
+- op: replace
+  path: /spec/template/spec/containers/0/resources/requests
+  value:
+    cpu: "25m"
+    memory: "32Mi"
+- op: replace
+  path: /spec/template/spec/containers/0/resources/limits
+  value:
+    cpu: "100m"
+    memory: "64Mi"

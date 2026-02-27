@@ -1,0 +1,72 @@
+# deployments/kustomize/services/agent-dispatcher/overlays/production/uk_001/patch-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-dispatcher
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: agent-dispatcher
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs
+              readOnly: true
+          env:
+            # Dispatcher identity
+            - name: CLUSTER_ID
+              value: "uk_001"
+            - name: NAMESPACE
+              value: "ai-persona-system"
+
+            # Kafka topics
+            - name: DISPATCH_TOPIC
+              value: "system.dispatch.requests"
+            - name: DISPATCH_RESPONSE_TOPIC
+              value: "system.dispatch.responses"
+
+            # Kafka brokers — the dispatcher itself connects here
+            - name: KAFKA_BROKERS
+              value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+            # Infrastructure overrides for SPAWNED AGENTS in this cluster.
+            # When deploying to a remote cluster (cluster-b), change these
+            # to point at the remote cluster's local endpoints or the
+            # external-facing endpoints of cluster-a.
+            #
+            # If left unset, the dispatcher uses whatever the originating
+            # cluster sent in the dispatch message.
+
+            # - name: OVERRIDE_KAFKA_BROKERS
+            #   value: "kafka-external.example.com:9094"
+            # - name: OVERRIDE_DATABASE_HOST
+            #   value: "pgbouncer-clients.ai-persona-system.svc.cluster.local"
+            # - name: OVERRIDE_DATABASE_PORT
+            #   value: "6432"
+            # - name: OVERRIDE_CORE_MANAGER_URL
+            #   value: "http://core-manager.ai-persona-system.svc.cluster.local:8088"
+
+            # Database passwords — needed so the dispatcher can pass secret
+            # references to spawned Jobs (the secrets must exist in this cluster)
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: TEMPLATES_DB_PASSWORD
+
+          envFrom:
+            - configMapRef:
+                name: personae-prod-config
+            - secretRef:
+                name: personae-default-secrets
+
+      volumes:
+        - name: config
+          configMap:
+            name: agent-dispatcher-config

@@ -1,0 +1,20 @@
+# deployments/kustomize/services/agent-dispatcher/overlays/development/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai-persona-system
+resources:
+  - ../../base
+
+labels:
+  - pairs:
+      environment: development
+
+images:
+  - name: docker.io/aqls/agent-dispatcher
+    newTag: v1.0.0  # Dynamically updated
+
+patches:
+  - path: patch-deployment-dev.yaml
+    target:
+      kind: Deployment
+      name: agent-dispatcher

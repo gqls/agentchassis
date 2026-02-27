@@ -638,7 +638,7 @@ func ensureSectionContractInHTML(html string, logger *zap.Logger) string {
 // containerBgRe finds CSS rules with a dark background (container-level).
 // Matches rules like: .hero-section { background: #1a1a2e; ... }
 var containerBgRe = regexp.MustCompile(
-	`(\.[a-z][a-z0-9-]*-section\s*\{[^}]*)(background(?:-color)?:\s*(?:#[0-4][0-9a-fA-F]{5}|var\(--color-primary))([^}]*)(\}))`,
+	`(\.[a-z][a-z0-9-]*-section\s*\{[^}]*)(background(?:-color)?:\s*(?:#[0-4][0-9a-fA-F]{5}|var\(--color-primary\)))([^}]*)(\})`,
 )
 
 func injectSectionContract(css string, logger *zap.Logger) string {

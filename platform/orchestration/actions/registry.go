@@ -92,6 +92,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Spawn a group of agents in parallel",
 		IsLocal:     true,
 	},
+	"dispatch_agent": {
+		Handler:     DispatchAgentAction,
+		Category:    "agent",
+		Description: "Dispatch agent creation to a remote cluster via Kafka",
+		IsLocal:     true,
+	},
 	"call_agent": {
 		Handler:     CallAgentAction,
 		Category:    "agent",
