@@ -95,7 +95,7 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	"dispatch_agent": {
 		Handler:     DispatchAgentAction,
 		Category:    "agent",
-		Description: "Dispatch agent creation to a remote cluster via Kafka",
+		Description: "Dispatch agent creation to a remote cluster via Kafka - remote job spawner",
 		IsLocal:     true,
 	},
 	"call_agent": {

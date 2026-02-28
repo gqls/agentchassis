@@ -1,12 +1,12 @@
-// FILE: cmd/dispatcher/main.go
+// FILE: cmd/remote-job-spawner/main.go
 //
-// Remote Agent Dispatcher
+// Remote Job Spawner
 //
-// A lightweight service that runs in each remote cluster.
+// A lightweight service that runs in each cluster (including the primary).
 // It consumes agent dispatch requests from Kafka (system.dispatch.requests)
 // and creates local Kubernetes Jobs.
 //
-// The dispatcher doesn't need access to PostgreSQL — the parent agent in the
+// The spawner doesn't need access to PostgreSQL — the parent agent in the
 // originating cluster already created all DB records. This service only needs:
 //   - Kafka access (shared cluster or local federated broker)
 //   - Local Kubernetes API access (to create Jobs)
@@ -14,9 +14,9 @@
 //
 // Configuration is via environment variables:
 //   KAFKA_BROKERS          — comma-separated broker list
-//   CLUSTER_ID             — identifier for this cluster (e.g. "cluster-b")
+//   CLUSTER_ID             — identifier for this cluster (e.g. "uk_001")
 //   NAMESPACE              — K8s namespace for Jobs (default: "ai-persona-system")
-//   CONSUMER_GROUP         — Kafka consumer group (default: "dispatcher-{CLUSTER_ID}")
+//   CONSUMER_GROUP         — Kafka consumer group (default: "remote-job-spawner-{CLUSTER_ID}")
 //   DISPATCH_TOPIC         — topic to consume (default: "system.dispatch.requests")
 //   DISPATCH_RESPONSE_TOPIC — topic for confirmations (default: "system.dispatch.responses")
 //
@@ -58,7 +58,7 @@ import (
 )
 
 // DispatchRequest mirrors the struct from dispatch_actions.go.
-// Kept as a separate definition so the dispatcher has no import dependency
+// Kept as a separate definition so the spawner has no import dependency
 // on the chassis — it's a standalone binary.
 type DispatchRequest struct {
 	AgentID              string          `json:"agent_id"`
@@ -128,13 +128,13 @@ func main() {
 	// Configuration from environment
 	kafkaBrokers := getEnvOrDefault("KAFKA_BROKERS",
 		"personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092")
-	clusterID := getEnvOrDefault("CLUSTER_ID", "cluster-b")
+	clusterID := getEnvOrDefault("CLUSTER_ID", "uk_001")
 	namespace := getEnvOrDefault("NAMESPACE", "ai-persona-system")
-	consumerGroup := getEnvOrDefault("CONSUMER_GROUP", fmt.Sprintf("dispatcher-%s", clusterID))
+	consumerGroup := getEnvOrDefault("CONSUMER_GROUP", fmt.Sprintf("remote-job-spawner-%s", clusterID))
 	dispatchTopic := getEnvOrDefault("DISPATCH_TOPIC", "system.dispatch.requests")
 	responseTopic := getEnvOrDefault("DISPATCH_RESPONSE_TOPIC", "system.dispatch.responses")
 
-	logger.Info("Remote Agent Dispatcher starting",
+	logger.Info("Remote Job Spawner starting",
 		zap.String("cluster_id", clusterID),
 		zap.String("namespace", namespace),
 		zap.String("kafka_brokers", kafkaBrokers),
@@ -183,7 +183,7 @@ func main() {
 		cancel()
 	}()
 
-	logger.Info("Dispatcher ready, consuming from dispatch topic")
+	logger.Info("Remote Job Spawner ready, consuming from dispatch topic")
 
 	// Main consume loop
 	for {
@@ -348,7 +348,7 @@ func createAgentJob(ctx context.Context, clientset *kubernetes.Clientset, namesp
 
 		// Dispatch metadata — so the agent knows it was remotely dispatched
 		{Name: "DISPATCHED_BY_CLUSTER", Value: "true"},
-		{Name: "DISPATCHER_CLUSTER_ID", Value: clusterID},
+		{Name: "SPAWNER_CLUSTER_ID", Value: clusterID},
 	}
 
 	// Add custom env vars from the agent definition
@@ -356,8 +356,8 @@ func createAgentJob(ctx context.Context, clientset *kubernetes.Clientset, namesp
 		envList = append(envList, corev1.EnvVar{Name: ev.Name, Value: ev.Value})
 	}
 
-	// Add secrets — these must exist in the remote cluster's namespace.
-	// NOTE: you need to replicate the same secrets to cluster B:
+	// Add secrets — these must exist in the cluster's namespace.
+	// NOTE: replicate these secrets to any remote cluster:
 	//   personae-platform-secrets (DB passwords, bootstrap key)
 	//   personae-default-secrets  (ANTHROPIC_API_KEY)
 	envList = append(envList, []corev1.EnvVar{
@@ -375,14 +375,14 @@ func createAgentJob(ctx context.Context, clientset *kubernetes.Clientset, namesp
 			Name:      jobName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app":                "dynamic-agent",
-				"agent-type":         req.AgentType,
-				"agent-id":           req.AgentID,
-				"client-id":          req.ClientID,
-				"spawned-by":         "dispatcher",
-				"component":          "agent",
-				"category":           req.Category,
-				"dispatcher-cluster": clusterID,
+				"app":             "dynamic-agent",
+				"agent-type":      req.AgentType,
+				"agent-id":        req.AgentID,
+				"client-id":       req.ClientID,
+				"spawned-by":      "remote-job-spawner",
+				"component":       "agent",
+				"category":        req.Category,
+				"spawner-cluster": clusterID,
 			},
 		},
 		Spec: batchv1.JobSpec{
@@ -392,11 +392,11 @@ func createAgentJob(ctx context.Context, clientset *kubernetes.Clientset, namesp
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                "dynamic-agent",
-						"agent-type":         req.AgentType,
-						"agent-id":           req.AgentID,
-						"client-id":          req.ClientID,
-						"dispatcher-cluster": clusterID,
+						"app":             "dynamic-agent",
+						"agent-type":      req.AgentType,
+						"agent-id":        req.AgentID,
+						"client-id":       req.ClientID,
+						"spawner-cluster": clusterID,
 					},
 					Annotations: map[string]string{
 						"prometheus.io/scrape": "true",

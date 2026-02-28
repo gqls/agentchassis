@@ -1,25 +1,25 @@
-# deployments/kustomize/services/agent-dispatcher/base/deployment.yaml
+# deployments/kustomize/services/remote-job-spawner/base/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: agent-dispatcher
+  name: remote-job-spawner
   labels:
-    app: agent-dispatcher
+    app: remote-job-spawner
 spec:
   selector:
     matchLabels:
-      app: agent-dispatcher
+      app: remote-job-spawner
   template:
     metadata:
       labels:
-        app: agent-dispatcher
+        app: remote-job-spawner
     spec:
       serviceAccountName: ai-persona-app
       imagePullSecrets:
         - name: docker-hub-creds
       containers:
-        - name: agent-dispatcher
-          image: docker.io/aqls/agent-dispatcher:latest # Patched by overlays
+        - name: remote-job-spawner
+          image: docker.io/aqls/remote-job-spawner:latest # Patched by overlays
           env:
             - name: AGENT_BOOTSTRAP_KEY
               valueFrom:
