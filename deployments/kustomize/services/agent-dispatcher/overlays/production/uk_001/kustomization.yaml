@@ -14,7 +14,7 @@ labels:
 
 images:
   - name: docker.io/aqls/agent-dispatcher
-    newTag: v1.0.0
+    newTag: v1.0.817
 
 patches:
   - path: patch-deployment.yaml

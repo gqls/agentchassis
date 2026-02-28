@@ -76,3 +76,10 @@ echo "Overall progress:"
 echo "  kubectl -n ai-persona-system logs -f -l app=agent-chassis --tail=50 | grep '${CORRELATION_ID}'"
 echo ""
 echo "CORRELATION_ID=$CORRELATION_ID"
+
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=quality-discovery-agent -f | tee logs-quality-discovery-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=design-discovery-agent -f | tee logs-design-discovery-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=completeness-discovery-agent -f | tee logs-completeness-discovery-agent.json
+
+
+

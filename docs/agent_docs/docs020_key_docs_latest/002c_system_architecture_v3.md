@@ -112,6 +112,15 @@ site (leopardessconsulting.co.uk)
 - **Kubernetes**: ai-persona-system namespace, Docker images, Terraform/Kustomize
 - **Deployment**: Git commit → GitHub Actions → Backblaze S3. Cloudflare is DNS only.
 
+note:
+broker pods are personae-kafka-cluster-combined-pool-prod-0
+kubectl -n kafka get pods
+NAME                                                      READY   STATUS    RESTARTS       AGE
+personae-kafka-cluster-combined-pool-prod-0               1/1     Running   0              23h
+personae-kafka-cluster-combined-pool-prod-1               1/1     Running   0              23h
+personae-kafka-cluster-combined-pool-prod-2               1/1     Running   0              23h
+personae-kafka-cluster-entity-operator-5dfd87f6f4-7kpv4   2/2     Running   12 (23h ago)   23h
+
 ---
 
 ## Unified Build and Maintenance
