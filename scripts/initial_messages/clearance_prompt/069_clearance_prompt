@@ -110,14 +110,23 @@ kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 #   --partitions 1
 #   --replication-factor 1
 
-# -- create dispatch topic
-
-kubectl -n kafka exec -it personae-kafka-cluster-kafka-0 -- bin/kafka-topics.sh \
+# -- create job topic for remote-job-spawner - keep as "dispatch"
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh \
   --bootstrap-server localhost:9092 \
   --create --topic system.dispatch.requests \
   --partitions 2 --replication-factor 1
 
-kubectl -n kafka exec -it personae-kafka-cluster-kafka-0 -- bin/kafka-topics.sh \
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh \
   --bootstrap-server localhost:9092 \
   --create --topic system.dispatch.responses \
   --partitions 2 --replication-factor 1
+
+# -- create job topic for kafka-scheduler
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --create --topic system.scheduler.responses \
+  --partitions 2 --replication-factor 1
+
+# check for topics
+# kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh   --bootstrap-server localhost:9092   --list | grep dispatch
+

@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai-persona-system
+resources:
+  - ../../../base
+
+labels:
+  - pairs:
+      environment: production
+      region: uk
+
+images:
+  - name: docker.io/aqls/kafka-scheduler
+    newTag: v1.0.1
+
+patches:
+  - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: kafka-scheduler

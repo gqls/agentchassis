@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-scheduler
+  labels:
+    app: kafka-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-scheduler
+  template:
+    metadata:
+      labels:
+        app: kafka-scheduler
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: kafka-scheduler
+          image: docker.io/aqls/kafka-scheduler:latest # Patched by overlays
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"

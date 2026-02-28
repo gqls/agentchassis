@@ -196,3 +196,5 @@ SET status = 'triaged', claimed_by = NULL, claimed_at = NULL
 WHERE site_id = (SELECT id FROM sites WHERE domain = 'gaswholesalers.com')
   AND item_type IN ('needs_design', 'generic_theme')
   AND status IN ('complete', 'claimed', 'failed');
+
+
