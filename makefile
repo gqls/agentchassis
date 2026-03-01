@@ -143,9 +143,15 @@ build-remote-job-spawner: ## Build remote-job-spawner image
 	docker build -t $(REGISTRY)/remote-job-spawner:$(IMAGE_TAG) \
 		-f build/docker/backend/remote-job-spawner.dockerfile .
 
+.PHONY: build-kafka-scheduler
+build-kafka-scheduler: ## Build kafka-scheduler image
+	@echo "$(YELLOW)Building kafka-scheduler...$(NC)"
+	docker build -t $(REGISTRY)/kafka-scheduler:$(IMAGE_TAG) \
+		-f build/docker/backend/kafka-scheduler.dockerfile .
+
 # Agent targets
 .PHONY: build-agents
-build-agents: build-agent-chassis build-reasoning-agent build-content-creator-agent build-remote-job-spawner ## Build all agents
+build-agents: build-agent-chassis build-reasoning-agent build-content-creator-agent build-remote-job-spawner build-kafka-scheduler ## Build all agents
 
 .PHONY: build-adapters
 build-adapters: build-web-search-adapter build-web-scrape-adapter build-git-adapter build-image-generator-adapter ## Build all adapters
@@ -191,6 +197,7 @@ push-backend: ## Push all backend images
 	docker push $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG)
 	docker push $(REGISTRY)/content-creator-agent:$(IMAGE_TAG)
 	docker push $(REGISTRY)/remote-job-spawner:$(IMAGE_TAG)
+	docker push $(REGISTRY)/kafka-scheduler:$(IMAGE_TAG)
 
 .PHONY: push-frontends
 push-frontends: ## Push all frontend images
@@ -527,6 +534,37 @@ deploy-remote-job-spawner: ## Deploy remote-job-spawner using kustomize
 deploy-remote-job-spawner-tf: ## Deploy remote-job-spawner using Terraform
 	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/agents/2220-remote-job-spawner
 
+.PHONY: deploy-kafka-scheduler
+deploy-kafka-scheduler: ## Deploy kafka-scheduler using kustomize
+	@echo "$(YELLOW)Updating kafka-scheduler image tag to $(IMAGE_TAG)...$(NC)"
+	@cd $(KUSTOMIZE_DIR)/services/kafka-scheduler/overlays/$(OVERLAY_PATH) && \
+		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/kafka-scheduler/overlays/$(OVERLAY_PATH)
+
+.PHONY: deploy-kafka-scheduler-tf
+deploy-kafka-scheduler-tf: ## Deploy kafka-scheduler using Terraform
+	@$(MAKE) deploy-service path=$(TERRAFORM_DIR)/services/agents/2270-kafka-scheduler
+
+.PHONY: push-kafka-scheduler
+push-kafka-scheduler: ## Push kafka-scheduler image
+	docker push $(REGISTRY)/kafka-scheduler:$(IMAGE_TAG)
+
+.PHONY: quick-scheduler-update
+quick-scheduler-update: ## Build, push and deploy kafka-scheduler with current IMAGE_TAG
+	@echo "$(YELLOW)Building kafka-scheduler:$(IMAGE_TAG)...$(NC)"
+	@$(MAKE) build-kafka-scheduler IMAGE_TAG=$(IMAGE_TAG)
+	@echo "$(YELLOW)Pushing kafka-scheduler:$(IMAGE_TAG)...$(NC)"
+	@docker push $(REGISTRY)/kafka-scheduler:$(IMAGE_TAG)
+	@echo "$(YELLOW)Deploying...$(NC)"
+	@$(MAKE) deploy-kafka-scheduler IMAGE_TAG=$(IMAGE_TAG)
+	@echo "$(YELLOW)Restarting...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/kafka-scheduler -n ai-persona-system
+	@echo "$(GREEN)Scheduler deployed with $(REGISTRY)/kafka-scheduler:$(IMAGE_TAG)$(NC)"
+
+.PHONY: logs-scheduler
+logs-scheduler: ## Tail logs from kafka-scheduler
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl logs -f -n $(PROJECT_NAME) -l app=kafka-scheduler
+
 # Corresponding destroy targets
 .PHONY: destroy-core
 destroy-core: destroy-core-manager destroy-auth-service ## Destroy core platform services using Terraform
@@ -544,7 +582,7 @@ destroy-core-manager: ## Destroy core-manager using Terraform
 .PHONY: update-kustomization-images
 update-kustomization-images: ## Update image tags in kustomization.yaml files
 	@echo "$(YELLOW)Updating kustomization.yaml files with image tag $(IMAGE_TAG)...$(NC)"
-	@for agent in agent-chassis reasoning-agent web-search-adapter web-scrape-adapter git-adapter image-generator-adapter content-creator-agent remote-job-spawner; do \
+	@for agent in agent-chassis reasoning-agent web-search-adapter web-scrape-adapter git-adapter image-generator-adapter content-creator-agent remote-job-spawner kafka-scheduler; do \
 		kust_file="$(KUSTOMIZE_DIR)/services/$$agent/overlays/$(OVERLAY_PATH)/kustomization.yaml"; \
 		if [ -f "$$kust_file" ]; then \
 			echo "Updating $$agent kustomization.yaml..."; \
@@ -628,6 +666,13 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/remote-job-spawner/overlays/$(OVERLAY_PATH); \
 	fi
 
+	# Update kafka-scheduler kustomization.yaml
+	@echo "Updating kafka-scheduler to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/kafka-scheduler/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
+	@if [ -d "$(KUSTOMIZE_DIR)/services/kafka-scheduler/overlays/$(OVERLAY_PATH)" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/kafka-scheduler/overlays/$(OVERLAY_PATH); \
+	fi
+
 
 	# Update database agent definitions
 	@$(MAKE) update-agent-images-v2 IMAGE_TAG=$(IMAGE_TAG)
@@ -650,7 +695,7 @@ redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	kubectl rollout restart deployment image-generator-adapter -n ai-persona-system
 	kubectl rollout restart deployment content-creator-agent -n ai-persona-system
 	kubectl rollout restart deployment remote-job-spawner -n ai-persona-system
-
+	kubectl rollout restart deployment kafka-scheduler -n ai-persona-system
 
 .PHONY: deploy-frontends
 deploy-frontends: ## Deploy all frontend applications
