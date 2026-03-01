@@ -758,6 +758,20 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		IsLocal:     true,
 	},
 
+	// tool lifecycle (deploy, update)
+	"deploy_tool_to_site": {
+		Handler:     DeployToolToSiteAction,
+		Category:    "site",
+		Description: "Fork a library tool into a site-owned copy, create tool page and page_component",
+		IsLocal:     true,
+	},
+	"update_component_html": {
+		Handler:     UpdateComponentHTMLAction,
+		Category:    "site",
+		Description: "Update html_template of a content_component with optional version snapshot",
+		IsLocal:     true,
+	},
+
 	// =========================================================================
 	// HITL — human-in-the-loop approval and input
 	// =========================================================================

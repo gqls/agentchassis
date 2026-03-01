@@ -43,7 +43,7 @@ import (
 
 var CreateWorkItemInputSpec = datahelpers.ActionInputSpec{
 	Required:   []string{"site_id"},
-	Optional:   []string{"spec_data", "parent_item_id", "page_id"},
+	Optional:   []string{"spec_data", "parent_item_id", "page_id", "summary"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
 }
@@ -100,7 +100,10 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 	if source == "" {
 		source = params.AgentType
 	}
-	summary, _ := config["summary"].(string)
+	summary := inputs.Get("summary")
+	if summary == "" {
+		summary, _ = config["summary"].(string)
+	}
 	if summary == "" {
 		summary = itemType
 	}
