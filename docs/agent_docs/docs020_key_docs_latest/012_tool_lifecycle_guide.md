@@ -191,3 +191,30 @@ Tool pages:
 - Tools are a post-build concern. The site planner doesn't think about tools — the first improvement sweep after build handles them. This keeps the initial build fast and tool decisions informed by the actual deployed site.
 - Each site owns its tool forks. No cascading updates from library changes. This is intentional — a tool that's been improved for a specific site shouldn't be overwritten by a library update.
 - The 7-day cooldown on `evaluate_tools` prevents repeated evaluation spam. If a site genuinely has no tools after evaluation, it won't be re-evaluated for a week.
+
+
+kafka-scheduler (every 120s)
+→ build-pipeline-trigger (orchestrate action)
+→ design-discovery-agent (runs checks including missing_tools)
+→ missing_tools check sees: zero tools deployed + no evaluation in 7 days
+→ creates evaluate_tools work item, handler_agent = 'tool-suggester'
+→ triage_detected_items promotes it to 'triaged'
+→ site-work-orchestrator fix_items_loop
+→ loads triaged items
+→ sees handler_agent = 'tool-suggester'
+→ spawn_agent + call_agent with site_id and domain
+→ tool-suggester runs its workflow
+→ creates N × add_tool items → tool-deployer
+
+
+# Manual trigger would look like:
+INSERT INTO site_work_items (
+site_id, source, domain, item_type, severity, summary,
+spec, priority, handler_agent, status, created_by, item_key
+) VALUES (
+'<site_uuid>', 'manual', 'build', 'improve_tool', 'medium',
+'Fix mobile rendering on unit converter',
+'{"component_id": "<component_uuid>", "issue": "Tool overflows on screens narrower than 400px, inputs stack but submit button is clipped"}'::jsonb,
+60, 'tool-improver', 'triaged', 'admin',
+'improve_tool_<component_uuid_prefix>'
+);
