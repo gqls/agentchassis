@@ -1514,3 +1514,17 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'webdesign-agent';
+
+--
+
+-- bugfix missing '
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_has_site_id,config,condition}',
+        '"site_context.site_id != null"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'webdesign-agent';
+

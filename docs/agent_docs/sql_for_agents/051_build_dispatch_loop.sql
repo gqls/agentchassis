@@ -886,3 +886,140 @@ id                  |        type         |    display_name     |               
 (1 row)
 
 
+-- 063_dispatch_loop_remove_self_chaining.sql
+--
+-- Problem: build-dispatch-loop spawns a copy of itself to process the
+-- next work item. The child's response frequently gets lost (Kafka topic
+-- retention expiry, pod restarts), leaving the parent stuck at
+-- spawn_next_dispatch in AWAITING_RESPONSES forever.
+--
+-- Fix: after processing one item, loop back to load_next_item within
+-- the same orchestration. No inter-orchestration messaging, no lost responses.
+--
+-- Changes:
+--   - has_remaining.then_step: spawn_next_dispatch → load_next_item
+--   - mark_failed.next_step: check_remaining → load_next_item
+--     (skip the separate check_remaining load, just reload from the top)
+--   - Remove steps: spawn_next_dispatch, call_next_dispatch
+--   - Remove output_field: next_dispatch_result from complete step
+--
+-- The workflow now processes ALL pending items for a site in one
+-- orchestration run, then completes. Much simpler failure mode.
+
+UPDATE agent_definitions
+SET default_config = $cfg${
+    "workflow": {
+        "start_step": "load_next_item",
+        "steps": {
+            "load_next_item": {
+                "action": "load_work_items",
+                "config": {
+                    "site_id": "input_data.site_id",
+                    "max_items": 1
+                },
+                "next_step": "check_has_item",
+                "description": "Load highest-priority pending build work item",
+                "output_field": "pending"
+            },
+            "check_has_item": {
+                "action": "conditional",
+                "config": {
+                    "condition": "pending.has_items == true",
+                    "then_step": "claim_item",
+                    "else_step": "complete"
+                },
+                "description": "Check if there is a work item to process"
+            },
+            "claim_item": {
+                "action": "claim_work_item",
+                "config": {
+                    "work_item_id": "pending.first_item.id"
+                },
+                "next_step": "check_claimed",
+                "description": "Atomically claim the work item",
+                "output_field": "claim_result"
+            },
+            "check_claimed": {
+                "action": "conditional",
+                "config": {
+                    "condition": "claim_result.claimed == true",
+                    "then_step": "spawn_handler",
+                    "else_step": "complete"
+                },
+                "description": "Verify claim succeeded (item may have been claimed by another instance)"
+            },
+            "spawn_handler": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "handler",
+                    "error_step": "mark_failed",
+                    "agent_type_field": "pending.first_item.handler_agent"
+                },
+                "next_step": "call_handler",
+                "description": "Spawn the handler agent for this work item",
+                "output_field": "handler_spawned"
+            },
+            "call_handler": {
+                "action": "call_agent",
+                "config": {
+                    "target_role": "handler",
+                    "error_step": "mark_failed",
+                    "input_mapping": {
+                        "site_id": "pending.first_item.site_id",
+                        "domain": "input_data.domain",
+                        "item_type": "pending.first_item.item_type",
+                        "work_item_id": "pending.first_item.id",
+                        "spec": "pending.first_item.spec",
+                        "current_page": "pending.first_item.spec",
+                        "refresh_site_components?": "pending.first_item.spec.refresh_site_components"
+                    },
+                    "timeout_seconds": 300,
+                    "agent_type_field": "pending.first_item.handler_agent"
+                },
+                "next_step": "mark_complete",
+                "description": "Call handler — it does its work and returns",
+                "output_field": "handler_result"
+            },
+            "mark_complete": {
+                "action": "complete_work_item",
+                "config": {
+                    "work_item_id": "pending.first_item.id",
+                    "result": "handler_result"
+                },
+                "next_step": "load_next_item",
+                "description": "Mark work item complete, then loop back for next item",
+                "output_field": "item_completed"
+            },
+            "mark_failed": {
+                "action": "fail_work_item",
+                "config": {
+                    "work_item_id": "pending.first_item.id",
+                    "error_message": "Handler agent failed or could not be spawned"
+                },
+                "next_step": "load_next_item",
+                "description": "Mark work item failed, then loop back for next item",
+                "output_field": "item_failed"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["handler_result", "item_completed", "item_failed"],
+                    "success_message": "All pending work items processed"
+                },
+                "description": "Queue empty — all items processed or no items found"
+            }
+        }
+    },
+    "processing_mode": "orchestrator",
+    "timeout_seconds": 1800
+}$cfg$::jsonb,
+    updated_at = NOW()
+WHERE type = 'build-dispatch-loop';
+
+
+-- Verify
+SELECT type,
+       default_config->'workflow'->'start_step' as start_step,
+       jsonb_object_keys(default_config->'workflow'->'steps') as steps
+FROM agent_definitions
+WHERE type = 'build-dispatch-loop';
