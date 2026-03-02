@@ -1629,3 +1629,507 @@ WHERE type = 'webdesign-agent';
 
 COMMIT;
 
+
+---
+
+-- Migration 070: Deterministic CSS generation via Go template
+--
+-- Replaces the LLM-based generate_css step in webdesign-agent with a
+-- deterministic render_css_from_spec action that uses a Go text/template
+-- stored in css_themes.css_template.
+--
+-- Changes:
+--   1. Add css_template column to css_themes table
+--   2. Insert "standard-brochure" template (the default Go template)
+--   3. Update webdesign-agent workflow: generate_css step uses render_css_from_spec action
+--
+-- The analyze_design step (LLM) still picks industry-appropriate colors/fonts.
+-- This migration removes only the second LLM call that was doing mechanical substitution.
+--
+-- Rollback: UPDATE agent_definitions SET default_config = <old config> WHERE type = 'webdesign-agent';
+--           DELETE FROM css_themes WHERE name = 'standard-brochure';
+--           ALTER TABLE css_themes DROP COLUMN css_template;
+
+BEGIN;
+
+-- ============================================================================
+-- 1. Add css_template column to css_themes
+-- ============================================================================
+ALTER TABLE css_themes ADD COLUMN IF NOT EXISTS css_template text;
+
+COMMENT ON COLUMN css_themes.css_template IS
+  'Go text/template for CSS generation. Rendered by render_css_from_spec action. '
+  'If NULL, this theme uses static css_content only (backward compatible).';
+
+-- ============================================================================
+-- 2. Insert standard-brochure Go template
+-- ============================================================================
+INSERT INTO css_themes (name, display_name, description, category, css_content, css_template, semantic_tags)
+VALUES (
+           'standard-brochure',
+           'Standard Brochure',
+           'Default CSS template for multi-page business/brochure sites. Provides :root variables, base typography, section context model, header/footer layout, buttons, forms, responsive breakpoints.',
+           'brochure',
+           '', -- css_content left empty; the template generates CSS at runtime
+           -- ↓↓↓ The Go text/template ↓↓↓
+           $TMPL$:root {
+  --color-primary: {{.Primary}};
+  --color-secondary: {{.Secondary}};
+  --color-accent: {{.Accent}};
+  --color-background: {{.Background}};
+  --color-surface: {{.Surface}};
+  --color-text: {{.Text}};
+  --color-text-muted: {{.TextMuted}};
+  --color-border: {{.Border}};
+  --color-white: #ffffff;
+  --font-family: {{.FontFamily}};
+  --spacing-section: {{.SectionPadding}};
+  --container-max-width: {{.ContainerMaxWidth}};
+  --transition-speed: 0.3s;
+  --border-radius: 8px;
+  --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 20px rgba(0,0,0,0.15);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  color: var(--color-text);
+  line-height: {{.LineHeight}};
+  background-color: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* ── Typography ── */
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  color: var(--section-heading, var(--color-primary));
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 1rem;
+}
+
+h2 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  color: var(--section-heading, var(--color-primary));
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 1rem;
+}
+
+h3 {
+  font-size: clamp(1.25rem, 3vw, 1.5rem);
+  color: var(--section-heading, var(--color-primary));
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 0.75rem;
+}
+
+h4, h5, h6 {
+  color: var(--section-heading, var(--color-primary));
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+p {
+  color: var(--section-text, inherit);
+  margin: 0 0 1rem;
+  line-height: {{.LineHeight}};
+}
+
+li {
+  color: var(--section-text, inherit);
+}
+
+blockquote {
+  color: var(--section-text, inherit);
+  font-style: italic;
+  margin: 1rem 0;
+  padding: 1rem 1.5rem;
+  border-left: 3px solid var(--section-border, var(--color-border));
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color var(--transition-speed);
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ── Site Header ── */
+
+.site-header {
+  background: var(--color-primary);
+  padding: 1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: var(--shadow-sm);
+}
+
+.header-container {
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  text-decoration: none;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+.logo-text {
+  color: var(--color-white);
+}
+
+.logo-accent {
+  color: var(--color-accent);
+}
+
+.logo-img {
+  max-height: 40px;
+  width: auto;
+  display: block;
+}
+
+.main-nav ul {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 2rem;
+}
+
+.main-nav a {
+  color: rgba(255,255,255,0.9);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.5rem 0;
+  transition: color var(--transition-speed);
+}
+
+.main-nav a:hover, .main-nav a.active {
+  color: var(--color-accent);
+}
+
+.mobile-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+.mobile-menu-toggle span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: white;
+  margin: 5px 0;
+}
+
+/* ── Site Footer ── */
+
+.site-footer {
+  background: var(--color-primary);
+  color: rgba(255,255,255,0.8);
+  padding: 3rem 0 1.5rem;
+}
+
+.footer-container {
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.footer-column h3, .footer-column h4 {
+  color: var(--color-white);
+  margin-bottom: 1rem;
+}
+
+.footer-column ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-column li {
+  margin-bottom: 0.5rem;
+}
+
+.footer-column a {
+  color: rgba(255,255,255,0.7);
+  text-decoration: none;
+  transition: color var(--transition-speed);
+}
+
+.footer-column a:hover {
+  color: var(--color-white);
+}
+
+.footer-bottom {
+  border-top: 1px solid rgba(255,255,255,0.2);
+  padding-top: 1.5rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.5);
+}
+
+/* ── Section Containers ── */
+{{range .SectionStyles}}
+.{{.ClassName}} {
+  padding: var(--spacing-section);{{if .IsDark}}
+  background: var(--color-primary);
+  color: var(--color-white);
+  --section-text: rgba(255,255,255,0.9);
+  --section-text-muted: rgba(255,255,255,0.7);
+  --section-heading: #ffffff;
+  --section-surface: rgba(255,255,255,0.05);
+  --section-border: rgba(255,255,255,0.2);{{end}}
+}
+{{end}}
+/* Alternating light sections get surface background for visual rhythm */
+.differentiators-section,
+.features-section,
+.faq-section {
+  background: var(--color-surface);
+}
+
+/* ── Buttons ── */
+
+.btn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  border-radius: var(--border-radius);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+  font-family: var(--font-family);
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-white);
+  border-color: var(--color-accent);
+}
+
+.btn-primary:hover {
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+  text-decoration: none;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.btn-secondary:hover {
+  background: var(--color-accent);
+  color: var(--color-white);
+  text-decoration: none;
+}
+
+.btn-large {
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
+}
+
+.btn-small {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+/* ── Form Elements ── */
+
+input, textarea, select {
+  font-family: var(--font-family);
+  font-size: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  background: var(--color-white);
+  color: var(--color-text);
+  transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+}
+
+/* ── Accessibility ── */
+
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+  .mobile-menu-toggle {
+    display: block;
+  }
+
+  .main-nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--color-primary);
+    padding: 1rem;
+    display: none;
+  }
+
+  .main-nav.active {
+    display: block;
+  }
+
+  .main-nav ul {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .main-nav a {
+    display: block;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  :root {
+    --spacing-section: 3rem 0;
+  }
+}
+
+@media (max-width: 1024px) {
+  .container {
+    padding: 0 1.5rem;
+  }
+
+  .header-container {
+    padding: 0 1.5rem;
+  }
+
+  .footer-container {
+    padding: 0 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* DARK SECTION TEMPLATE — components with dark backgrounds set these:
+   .my-dark-section {
+     --section-text: rgba(255,255,255,0.9);
+     --section-text-muted: rgba(255,255,255,0.7);
+     --section-heading: #ffffff;
+     --section-surface: rgba(255,255,255,0.05);
+     --section-border: rgba(255,255,255,0.2);
+   }
+*/$TMPL$,
+  ARRAY['brochure', 'business', 'default']
+)
+ON CONFLICT (name) DO UPDATE
+SET css_template = EXCLUDED.css_template,
+    description = EXCLUDED.description,
+    updated_at = NOW();
+
+-- ============================================================================
+-- 3. Update webdesign-agent: replace generate_css LLM step with render_css_from_spec
+-- ============================================================================
+-- Change only the generate_css step. The workflow wiring stays the same:
+--   analyze_design → generate_css → deploy_css
+-- The step name stays "generate_css" to avoid changing any step references.
+-- Only the action and config change.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,generate_css}',
+    '{
+      "action": "render_css_from_spec",
+      "config": {
+        "theme_name": "standard-brochure"
+      },
+      "next_step": "deploy_css",
+      "description": "Render CSS from design spec using Go template (deterministic, no LLM)",
+      "output_field": "generated_css"
+    }'::jsonb
+),
+updated_at = NOW()
+WHERE type = 'webdesign-agent';
+
+-- ============================================================================
+-- Verify
+-- ============================================================================
+SELECT
+    type,
+    default_config #>> '{workflow,steps,generate_css,action}' AS generate_css_action,
+    default_config #>> '{workflow,steps,generate_css,config,theme_name}' AS theme_name,
+    updated_at
+FROM agent_definitions
+WHERE type = 'webdesign-agent';
+
+SELECT name, category,
+    CASE WHEN css_template IS NOT NULL AND css_template != '' THEN 'has template (' || length(css_template) || ' chars)'
+         ELSE 'static only'
+    END AS template_status
+FROM css_themes
+WHERE name = 'standard-brochure';
+
+COMMIT;

@@ -565,6 +565,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Replace hardcoded hex colors with CSS variables in component styles",
 		IsLocal:     true,
 	},
+	"render_css_from_spec": {
+		Handler:     RenderCSSFromSpecAction,
+		Category:    "site",
+		Description: "Render CSS from Go template + design spec (deterministic, no LLM)",
+		IsLocal:     true,
+	},
 	"sync_site_identity": {
 		Handler:     SyncSiteIdentityAction,
 		Category:    "data",
