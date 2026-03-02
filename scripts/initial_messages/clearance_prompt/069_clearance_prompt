@@ -58,7 +58,7 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   --delete \
   --topic system.generic.responses
 
-sleep 2
+sleep 1
 kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   /opt/kafka/bin/kafka-topics.sh
   --create --topic system.generic.responses
@@ -81,7 +81,7 @@ kubectl -n ai-persona-system delete jobs -l agent-type=calculator
 kubectl -n ai-persona-system delete pods -l agent-type=calculator
 
 # 6. Scale back up
-sleep 5
+sleep 4
 kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas=2
 kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
@@ -97,7 +97,7 @@ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
   --delete \
   --group generic-requests-group
 
-sleep 2
+sleep 1
 
 # Now start the agent - it will create a fresh group with FirstOffset
 kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1

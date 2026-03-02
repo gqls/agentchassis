@@ -133,18 +133,16 @@ UPDATE site_work_items
 SET status = 'triaged',
     completed_at = NULL,
     result = NULL,
-    error_message = NULL,
+    error = NULL,
     claimed_by = NULL,
-    claimed_at = NULL,
-    started_at = NULL,
-    updated_at = NOW()
+    claimed_at = NULL
 WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
   AND item_type = 'needs_design'
   AND status = 'complete';
 
 
 
-  
+
   then
     Step 1: Webdesign (CSS generation)
     Step 2: Rerender (assemble all pages)
