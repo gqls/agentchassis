@@ -92,7 +92,7 @@ echo "Check build_queue:"
 echo "  SELECT domain, status, priority, created_at FROM build_queue ORDER BY created_at DESC LIMIT 5;"
 echo ""
 echo "Check work items:"
-echo "  SELECT wi.item_type, wi.status, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.domain = 'build' ORDER BY wi.created_at DESC LIMIT 10;"
+echo "  SELECT wi.item_type, wi.status, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.domain = 'build' ORDER BY wi.created_at DESC LIMIT 30;"
 echo ""
 
 
@@ -103,6 +103,14 @@ kubectl -n ai-persona-system logs --tail=300 -l agent-type=build-briefing-agent 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=build-site-planner -f | tee logs-build-site-planner.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-generator -f | tee logs-image-generator.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-content-writer -f | tee logs-page-content-writer.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=improvement-loop -f | tee logs-improvement-loop.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=quality-discovery-agent -f | tee logs-quality-discovery-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=design-discovery-agent -f | tee logs-design-discovery-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=completeness-discovery-agent -f | tee logs-completeness-discovery-agent.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
+
+
 
 
 reset
@@ -119,7 +127,24 @@ WHERE status = 'claimed'
   AND site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
   AND domain = 'build';
 
+--- another reset for comparison (same?)
+-- Reset needs_design to triaged so webdesign-agent runs again with the toJSON fix
+UPDATE site_work_items
+SET status = 'triaged',
+    completed_at = NULL,
+    result = NULL,
+    error_message = NULL,
+    claimed_by = NULL,
+    claimed_at = NULL,
+    started_at = NULL,
+    updated_at = NOW()
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND item_type = 'needs_design'
+  AND status = 'complete';
 
+
+
+  
   then
     Step 1: Webdesign (CSS generation)
     Step 2: Rerender (assemble all pages)
@@ -198,3 +223,47 @@ WHERE site_id = (SELECT id FROM sites WHERE domain = 'gaswholesalers.com')
   AND status IN ('complete', 'claimed', 'failed');
 
 
+---
+
+just one site:
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "Build Pipeline Trigger for gaswholesalers.com"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Time:             $TIMESTAMP"
+echo "========================================="
+echo ""
+echo "SAVE THESE IDs:"
+echo "  CORRELATION_ID=$CORRELATION_ID"
+echo "  ORCHESTRATION_ID=$ORCHESTRATION_ID"
+echo ""
+
+# Direct dispatch for gaswholesalers, bypassing site selection
+kubectl -n kafka run -i --rm kcat-build-trigger-$(date +%s) \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$CORRELATION_ID \
+  -H request_id=$REQUEST_ID \
+  -H message_id=$MESSAGE_ID \
+  -H orchestration_id=$ORCHESTRATION_ID \
+  -H orchestration_name=build-pipeline-$(date +%Y%m%d-%H%M%S) \
+  -H step_name=start \
+  -H client_id=$CLIENT_ID \
+  -H message_type=request \
+  -H action=orchestrate \
+  -H from_agent_type=user \
+  -H from_agent_id=cli \
+  -H responses_topic=system.generic.responses <<JSON
+{"action":"orchestrate","config":{"agent_type":"build-dispatch-loop"},"input_data":{"site_id":"5fe15466-4e2e-4ff2-981e-98c1b7074002","domain":"gaswholesalers.com"}}
+JSON

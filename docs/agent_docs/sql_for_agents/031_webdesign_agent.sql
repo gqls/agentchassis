@@ -1528,3 +1528,104 @@ SET default_config = jsonb_set(
     updated_at = NOW()
 WHERE type = 'webdesign-agent';
 
+-- fix css generation, with easier template for llm to read (in datahelpers)
+
+-- Migration 069: webdesign-agent CSS generation fixes
+--
+-- Problem 1: check_site_context has truncated condition string
+--   "input_data.site_context.domain != null AND input_data.site_context.domain != '"
+--   The trailing quote was eaten by SQL escaping. Same bug as check_has_site_id (fixed in prior session).
+--
+-- Problem 2: generate_css prompt template uses {{.design_spec.result}} which renders
+--   Go maps as "map[key:val ...]" format instead of JSON. The LLM can't reliably parse
+--   the colors from this format and falls back to reproducing the template's default CSS.
+--
+-- Fix 1: Simplify check_site_context condition to just null check.
+-- Fix 2: Change {{.design_spec.result}} to {{.design_spec.result | toJSON}} in the prompt.
+--   Requires the corresponding Go patch (toJSON template function in RenderPromptTemplate).
+--
+-- NOTE: The | toJSON pipe depends on the Go code change being deployed first.
+--   If deployed in wrong order, the template will fail to parse and the step will error.
+--   Deploy Go code first, then apply this migration.
+
+BEGIN;
+
+-- Fix 1: check_site_context truncated condition
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_site_context,config,condition}',
+        '"input_data.site_context.domain != null"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'webdesign-agent';
+
+-- Fix 2: update generate_css prompt to use | toJSON for design_spec rendering
+--
+-- We replace the prompt_template value. The old template has:
+--   "## Design Spec\\n{{.design_spec.result}}\\n"
+-- We change it to:
+--   "## Design Spec\\n{{.design_spec.result | toJSON}}\\n"
+--
+-- Since the prompt_template is a very long string in JSONB, we use a targeted
+-- text replacement via a DO block rather than replacing the entire value.
+
+DO $$
+DECLARE
+current_prompt TEXT;
+    new_prompt TEXT;
+BEGIN
+    -- Extract the current prompt template
+SELECT default_config #>> '{workflow,steps,generate_css,config,prompt_template}'
+INTO current_prompt
+FROM agent_definitions
+WHERE type = 'webdesign-agent';
+
+IF current_prompt IS NULL THEN
+        RAISE NOTICE 'webdesign-agent generate_css prompt_template not found, skipping';
+        RETURN;
+END IF;
+
+    -- Replace the template expression
+    -- The double-backslash in the stored JSON becomes literal \n in the extracted text
+    new_prompt := replace(
+        current_prompt,
+        '{{.design_spec.result}}',
+        '{{.design_spec.result | toJSON}}'
+    );
+
+    -- Only update if something actually changed
+    IF new_prompt = current_prompt THEN
+        RAISE NOTICE 'No change needed — {{.design_spec.result}} not found in prompt (may already be fixed)';
+        RETURN;
+END IF;
+
+    -- Write it back
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_css,config,prompt_template}',
+        to_jsonb(new_prompt)
+                     ),
+    updated_at = NOW()
+WHERE type = 'webdesign-agent';
+
+RAISE NOTICE 'Updated generate_css prompt: {{.design_spec.result}} → {{.design_spec.result | toJSON}}';
+END;
+$$;
+
+-- Verify
+SELECT
+    type,
+    default_config #>> '{workflow,steps,check_site_context,config,condition}' AS check_site_context_cond,
+    CASE
+        WHEN default_config #>> '{workflow,steps,generate_css,config,prompt_template}'
+             LIKE '%toJSON%' THEN 'HAS toJSON'
+        ELSE 'MISSING toJSON'
+END AS prompt_has_tojson,
+    updated_at
+FROM agent_definitions
+WHERE type = 'webdesign-agent';
+
+COMMIT;
+

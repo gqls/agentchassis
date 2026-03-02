@@ -1104,7 +1104,11 @@ func CleanMarkdownJSON(s string) string {
 }
 
 func RenderPromptTemplate(templateStr string, data map[string]interface{}, logger zap.Logger) (string, error) {
-	tmpl := template.New("agent_prompt")
+	// tmpl := template.New("agent_prompt")
+	funcMap := template.FuncMap{
+		"toJSON": templateToJSON,
+	}
+	tmpl := template.New("agent_prompt").Funcs(funcMap)
 	parsedTemplate, err := tmpl.Parse(templateStr)
 	logger.Info("DEBUGaa: parsing template in renderTemplate",
 		zap.String("template", templateStr),
@@ -1775,4 +1779,22 @@ func ExtractErrorDetails(body []byte) ErrorDetails {
 	}
 
 	return details
+}
+
+// templateToJSON serialises any value as indented JSON for use in prompt templates.
+// Usage in templates: {{.some_map | toJSON}}
+// Falls back to Go default formatting if JSON marshalling fails.
+// Strings pass through unchanged to avoid double-encoding.
+func templateToJSON(v interface{}) string {
+	if v == nil {
+		return "null"
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return string(b)
 }
