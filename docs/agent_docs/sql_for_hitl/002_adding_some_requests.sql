@@ -163,3 +163,139 @@ FROM agent_definitions
 WHERE type = 'build-dispatch-loop';
 
 COMMIT;
+
+---
+
+-- Human Change Requests - Work Items
+-- Apply after migration 071 (loop-based dispatch).
+--
+-- Sites:
+--   gaswholesalers.com  5fe15466-4e2e-4ff2-981e-98c1b7074002
+--   finetuning.uk       1368e337-dd1d-4799-bbb3-8221a1b79bcc
+
+BEGIN;
+
+-- Clear any previous human items that haven't started processing
+DELETE FROM site_work_items
+WHERE source = 'human'
+  AND status IN ('detected', 'triaged')
+  AND item_key LIKE 'human_%';
+
+-- ============================================================================
+-- GASWHOLESALERS.COM
+-- ============================================================================
+
+INSERT INTO site_work_items (
+    site_id, source, domain, item_type, severity, summary, spec,
+    priority, handler_agent, status, created_by, item_key
+) VALUES
+-- 1. Redesign CSS
+(   '5fe15466-4e2e-4ff2-981e-98c1b7074002',
+    'human', 'build', 'needs_design', 'high',
+    'Redesign: consistent color scheme, nav on one line, hero image visible',
+    '{}'::jsonb,
+    5, 'webdesign-agent', 'triaged', 'admin',
+    'human_redesign_gaswholesalers'),
+-- 2. Phone
+(   '5fe15466-4e2e-4ff2-981e-98c1b7074002',
+    'human', 'build', 'content_edit', 'medium',
+    'Update phone number to +44 (0) 7934 524 911',
+    '{"edit_type": "content_edit", "page_name": "contact", "slot_name": "contact-info", "field_updates": {"phone": "+44 (0) 7934 524 911"}}'::jsonb,
+    10, 'section-editor', 'triaged', 'admin',
+    'human_phone_gaswholesalers'),
+-- 3. Email
+(   '5fe15466-4e2e-4ff2-981e-98c1b7074002',
+    'human', 'build', 'content_edit', 'medium',
+    'Update email to gaswholesalers@contactforsales.com',
+    '{"edit_type": "content_edit", "page_name": "contact", "slot_name": "contact-info", "field_updates": {"email": "gaswholesalers@contactforsales.com"}}'::jsonb,
+    11, 'section-editor', 'triaged', 'admin',
+    'human_email_gaswholesalers'),
+-- 4. Remove hours
+(   '5fe15466-4e2e-4ff2-981e-98c1b7074002',
+    'human', 'build', 'content_edit', 'medium',
+    'Remove hours panel from contact page',
+    '{"edit_type": "content_edit", "page_name": "contact", "slot_name": "contact-info", "field_updates": {"hours": "", "business_hours": "", "opening_hours": ""}}'::jsonb,
+    12, 'section-editor', 'triaged', 'admin',
+    'human_remove_hours_gaswholesalers'),
+-- 5. Logo
+(   '5fe15466-4e2e-4ff2-981e-98c1b7074002',
+    'human', 'build', 'needs_logo', 'medium',
+    'Generate company logo for Gas Wholesalers',
+    '{"purpose": "logo", "image_prompts": {"logo": "Professional logo for Gas Wholesalers, a wholesale fuel distribution company. Modern industrial design with fuel pipeline or gas flame iconography. Bold corporate typography. Dark blue and orange palette."}}'::jsonb,
+    20, 'image-build-handler', 'triaged', 'admin',
+    'human_logo_gaswholesalers'),
+-- 6. Hero image
+(   '5fe15466-4e2e-4ff2-981e-98c1b7074002',
+    'human', 'build', 'needs_hero_image', 'medium',
+    'Generate hero image for Gas Wholesalers homepage',
+    '{"purpose": "hero", "image_prompts": {"hero_home": "Professional industrial scene of fuel distribution terminal with large storage tanks and tanker trucks. Modern petroleum facility at dawn with dramatic lighting. Clean corporate photography style. Dark blue and orange tones."}}'::jsonb,
+    21, 'image-build-handler', 'triaged', 'admin',
+    'human_hero_gaswholesalers'),
+-- 7. Rerender (runs last)
+(   '5fe15466-4e2e-4ff2-981e-98c1b7074002',
+    'human', 'build', 'needs_rerender', 'high',
+    'Reassemble and deploy all pages after human change requests',
+    '{"refresh_site_components": true}'::jsonb,
+    99, 'rerender-pages', 'triaged', 'admin',
+    'human_rerender_gaswholesalers');
+
+-- Re-triage tool evaluation if it exists
+UPDATE site_work_items
+SET status = 'triaged', claimed_by = NULL, claimed_at = NULL, result = '{}'::jsonb
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND item_key = 'evaluate_tools_gaswholesalers'
+  AND status NOT IN ('complete', 'claimed');
+
+-- ============================================================================
+-- FINETUNING.UK
+-- ============================================================================
+
+INSERT INTO site_work_items (
+    site_id, source, domain, item_type, severity, summary, spec,
+    priority, handler_agent, status, created_by, item_key
+) VALUES
+-- 1. Redesign
+(   '1368e337-dd1d-4799-bbb3-8221a1b79bcc',
+    'human', 'build', 'needs_design', 'high',
+    'Redesign: vibrant colors reflecting multi-agent AI platform managing thousands of domains',
+    '{}'::jsonb,
+    5, 'webdesign-agent', 'triaged', 'admin',
+    'human_redesign_finetuning'),
+-- 2. Email
+(   '1368e337-dd1d-4799-bbb3-8221a1b79bcc',
+    'human', 'build', 'content_edit', 'medium',
+    'Update email to finetuning@contactforsales.com',
+    '{"edit_type": "content_edit", "page_name": "contact", "slot_name": "contact-info", "field_updates": {"email": "finetuning@contactforsales.com"}}'::jsonb,
+    10, 'section-editor', 'triaged', 'admin',
+    'human_email_finetuning'),
+-- 3. Hero image
+(   '1368e337-dd1d-4799-bbb3-8221a1b79bcc',
+    'human', 'build', 'needs_hero_image', 'medium',
+    'Generate hero image - AI agents orchestrating web creation',
+    '{"purpose": "hero", "image_prompts": {"hero_home": "Dynamic abstract visualization of interconnected AI agents working together to build websites. Glowing neural network nodes and data streams. Futuristic dark background with vivid accent colors - electric purple, cyan, and amber. Professional tech company aesthetic."}}'::jsonb,
+    20, 'image-build-handler', 'triaged', 'admin',
+    'human_hero_finetuning'),
+-- 4. Logo
+(   '1368e337-dd1d-4799-bbb3-8221a1b79bcc',
+    'human', 'build', 'needs_logo', 'medium',
+    'Generate logo - leopardess or ant colony theme',
+    '{"purpose": "logo", "image_prompts": {"logo": "Sleek modern logo for Finetuning, an AI agent orchestration platform. Abstract leopardess silhouette composed of interconnected nodes and data pathways. Minimalist geometric style. Electric purple and cyan on transparent background. Professional tech branding."}}'::jsonb,
+    21, 'image-build-handler', 'triaged', 'admin',
+    'human_logo_finetuning'),
+-- 5. Rerender
+(   '1368e337-dd1d-4799-bbb3-8221a1b79bcc',
+    'human', 'build', 'needs_rerender', 'high',
+    'Reassemble and deploy all pages after human change requests',
+    '{"refresh_site_components": true}'::jsonb,
+    99, 'rerender-pages', 'triaged', 'admin',
+    'human_rerender_finetuning');
+
+COMMIT;
+
+-- Verify
+SELECT s.domain, wi.item_type, wi.handler_agent, wi.priority, wi.status
+FROM site_work_items wi
+         JOIN sites s ON s.id = wi.site_id
+WHERE wi.source = 'human'
+  AND wi.status = 'triaged'
+ORDER BY s.domain, wi.priority;
