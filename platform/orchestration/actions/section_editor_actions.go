@@ -785,18 +785,53 @@ func loadPageComponentByID(ctx context.Context, db *sql.DB, id uuid.UUID) (pageC
 	return row, nil
 }
 
+// Problem: page_components rows sometimes have empty slot_name (e.g. placeholder rows,
+// builds where metadata path fell through to HTML parsing with no data-component attribute).
+// The current query only matches pc.slot_name = $3, so these rows are invisible to
+// section-editor.
+//
+// Fix: Add two fallback match paths, preferring direct match:
+//   1. pc.slot_name = $3                     (direct match — best)
+//   2. cc.function = $3                       (component knows its function)
+//   3. pages.sections[position-1] = $3        (plan-based position match)
+//
+// When a fallback match succeeds, the function also backfills the empty slot_name
+// so subsequent queries use the direct path.
+//
+// ALSO: Returns the matched slot_name (COALESCE) so the caller always sees it.
+
 func loadPageComponentBySlot(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName, slotName string) (pageComponentRow, error) {
 	var row pageComponentRow
 	var componentID sql.NullString
 	var contentDataJSON []byte
 
 	err := db.QueryRowContext(ctx, `
-		SELECT pc.id, pc.page_id, pc.component_id, pc.position, pc.slot_name,
-		       COALESCE(pc.rendered_html, ''), COALESCE(pc.content_data, '{}'::jsonb),
+		SELECT pc.id, pc.page_id, pc.component_id, pc.position,
+		       COALESCE(NULLIF(pc.slot_name, ''), $3) as slot_name,
+		       COALESCE(pc.rendered_html, ''),
+		       COALESCE(pc.content_data, '{}'::jsonb),
 		       COALESCE(pc.build_status, 'pending')
 		FROM page_components pc
 		JOIN pages p ON pc.page_id = p.id
-		WHERE p.site_id = $1 AND p.name = $2 AND pc.slot_name = $3
+		LEFT JOIN content_components cc ON cc.id = pc.component_id
+		WHERE p.site_id = $1 AND p.name = $2
+		  AND (
+		    pc.slot_name = $3
+		    OR cc.function = $3
+		    OR (
+		      (pc.slot_name IS NULL OR pc.slot_name = '')
+		      AND p.sections IS NOT NULL
+		      AND pc.position > 0
+		      AND pc.position <= jsonb_array_length(p.sections)
+		      AND trim(both '"' from (p.sections->(pc.position - 1))::text) = $3
+		    )
+		  )
+		ORDER BY
+		  CASE WHEN pc.slot_name = $3 THEN 0
+		       WHEN cc.function = $3 THEN 1
+		       ELSE 2
+		  END
+		LIMIT 1
 	`, siteID, pageName, slotName).Scan(
 		&row.ID, &row.PageID, &componentID, &row.Position, &row.SlotName,
 		&row.RenderedHTML, &contentDataJSON, &row.BuildStatus,
@@ -812,6 +847,17 @@ func loadPageComponentBySlot(ctx context.Context, db *sql.DB, siteID uuid.UUID, 
 
 	if len(contentDataJSON) > 0 {
 		json.Unmarshal(contentDataJSON, &row.ContentData)
+	}
+
+	// Backfill: if we matched via fallback, update the slot_name in DB
+	// so future queries use the direct path. Non-blocking — log and continue.
+	if row.SlotName == slotName {
+		// Check if the DB value was actually empty (we COALESCEd it)
+		var dbSlotName sql.NullString
+		db.QueryRowContext(ctx, `SELECT slot_name FROM page_components WHERE id = $1`, row.ID).Scan(&dbSlotName)
+		if !dbSlotName.Valid || dbSlotName.String == "" || dbSlotName.String != slotName {
+			_, _ = db.ExecContext(ctx, `UPDATE page_components SET slot_name = $2 WHERE id = $1`, row.ID, slotName)
+		}
 	}
 
 	return row, nil

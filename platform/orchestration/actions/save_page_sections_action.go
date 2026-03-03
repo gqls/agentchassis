@@ -201,6 +201,12 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// Enrich generic/empty section names from the page's planned sections array.
+	// Runs for both metadata and HTML paths — either can produce generic names.
+	if params.DB != nil && len(sections) > 0 {
+		enrichSectionsWithPlannedNames(ctx, params.DB, pageID, sections, params.Logger)
+	}
+
 	if len(sections) == 0 {
 		params.Logger.Info("SavePageSectionsAction: No sections found",
 			zap.String("page_name", pageName),
@@ -486,4 +492,81 @@ func saveSectionsLookupPageID(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		SELECT id FROM pages WHERE site_id = $1 AND name = $2
 	`, siteID, pageName).Scan(&pageID)
 	return pageID, err
+}
+
+// Problem: When saveSectionsExtractFromHTML can't find data-component attributes,
+// ComponentName defaults to "section" (generic). This becomes the slot_name in
+// page_components, making individual sections unaddressable by section-editor.
+//
+// Fix: After HTML extraction, enrich section names from pages.sections JSON array.
+// pages.sections stores the planned section names in position order (1-indexed).
+// If a section has a generic/empty ComponentName AND its position maps to the
+// sections array, use the planned name instead.
+//
+// Call site: In SavePageSectionsAction, right after enrichSectionsWithComponentIDs:
+//
+//     enrichSectionsWithComponentIDs(ctx, params.DB, sections, params.Logger)
+// +   enrichSectionsWithPlannedNames(ctx, params.DB, pageID, sections, params.Logger)
+//
+
+// enrichSectionsWithPlannedNames fills in generic/empty ComponentName values from
+// the page's planned sections array (pages.sections column).
+func enrichSectionsWithPlannedNames(ctx context.Context, db *sql.DB, pageID uuid.UUID, sections []SectionData, logger *zap.Logger) {
+	// Count how many sections need enrichment
+	needsEnrichment := 0
+	for _, s := range sections {
+		if s.ComponentName == "" || s.ComponentName == "section" {
+			needsEnrichment++
+		}
+	}
+	if needsEnrichment == 0 {
+		return
+	}
+
+	// Load planned section names from pages.sections
+	var sectionsJSON []byte
+	err := db.QueryRowContext(ctx, `SELECT sections FROM pages WHERE id = $1`, pageID).Scan(&sectionsJSON)
+	if err != nil || len(sectionsJSON) == 0 {
+		logger.Debug("enrichSectionsWithPlannedNames: no sections array on page",
+			zap.String("page_id", pageID.String()),
+			zap.Error(err),
+		)
+		return
+	}
+
+	var planned []string
+	if err := json.Unmarshal(sectionsJSON, &planned); err != nil {
+		logger.Warn("enrichSectionsWithPlannedNames: failed to parse sections JSON",
+			zap.Error(err))
+		return
+	}
+
+	enriched := 0
+	for i := range sections {
+		if sections[i].ComponentName != "" && sections[i].ComponentName != "section" {
+			continue // already has a meaningful name
+		}
+		// Position is 1-indexed, planned array is 0-indexed
+		idx := sections[i].Position - 1
+		if idx < 0 || idx >= len(planned) {
+			continue
+		}
+		plannedName := NormalizeComponentFunction(planned[idx])
+		if plannedName != "" {
+			logger.Info("enrichSectionsWithPlannedNames: using planned section name",
+				zap.Int("position", sections[i].Position),
+				zap.String("old_name", sections[i].ComponentName),
+				zap.String("planned_name", plannedName),
+			)
+			sections[i].ComponentName = plannedName
+			enriched++
+		}
+	}
+
+	if enriched > 0 {
+		logger.Info("enrichSectionsWithPlannedNames: enriched sections",
+			zap.Int("enriched", enriched),
+			zap.Int("total", len(sections)),
+		)
+	}
 }

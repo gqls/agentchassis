@@ -7633,3 +7633,53 @@ FROM content_components
 GROUP BY component_level
 ORDER BY component_level;
 
+
+----
+
+-- backfill slot names
+
+-- Migration 072: Backfill empty slot_names in page_components
+--
+-- Problem: Some page_components rows have NULL or empty slot_name.
+-- This breaks section-editor's loadPageComponentBySlot which matches by slot_name.
+--
+-- Fix: pages.sections stores the planned section names as a JSON array
+-- (e.g. ["contact-hero", "contact-form", "contact-info"]) in position order.
+-- page_components.position maps 1:1 to this array (1-indexed).
+-- Backfill slot_name from pages.sections[position - 1].
+--
+-- Only updates rows where slot_name is NULL or empty AND the position
+-- maps to a valid index in the sections array.
+
+BEGIN;
+
+-- Backfill from pages.sections array
+UPDATE page_components pc
+SET slot_name = trim(both '"' from (p.sections->(pc.position - 1))::text)
+    FROM pages p
+WHERE pc.page_id = p.id
+  AND (pc.slot_name IS NULL OR pc.slot_name = '')
+  AND p.sections IS NOT NULL
+  AND jsonb_array_length(p.sections) > 0
+  AND pc.position > 0
+  AND pc.position <= jsonb_array_length(p.sections);
+
+-- Secondary backfill: use content_components.function for rows with component_id
+-- but still no slot_name (e.g. if pages.sections was also empty)
+UPDATE page_components pc
+SET slot_name = cc.function
+    FROM content_components cc
+WHERE pc.component_id = cc.id
+  AND (pc.slot_name IS NULL OR pc.slot_name = '')
+  AND cc.function IS NOT NULL
+  AND cc.function != '';
+
+COMMIT;
+
+-- Verify: any remaining empty slot_names?
+SELECT COUNT(*) as empty_slots,
+       COUNT(*) FILTER (WHERE pc.slot_name IS NOT NULL AND pc.slot_name != '') as filled_slots
+FROM page_components pc;
+
+
+

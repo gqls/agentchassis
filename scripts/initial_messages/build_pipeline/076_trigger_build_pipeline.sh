@@ -109,6 +109,13 @@ kubectl -n ai-persona-system logs --tail=300 -l agent-type=design-discovery-agen
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=completeness-discovery-agent -f | tee logs-completeness-discovery-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=section-editor -f | tee logs-section-editor.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-build-handler -f | tee logs-image-build-handler.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=deployer-agent -f | tee logs-deployer-agent.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-rerender -f | tee logs-page-rerender.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=rerender-pages -f | tee logs-rerender-pages.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=section-editor -f | tee logs-section-editor.json
+
 
 
 
