@@ -578,24 +578,30 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 	// Check if this is an error message
 	if headers["is_error"] == "true" {
-		a.logger.Info("Received error message, passing up the chain",
+		a.logger.Info("Received error message",
 			zap.String("correlation_id", headers["correlation_id"]),
 			zap.String("error_from", headers["from_agent_type"]),
-			zap.String("the responses topic for the error should be parents:", headers["responses_topic"]))
+			zap.String("message_type", messageType))
 
-		// Pass error up to parent if this is a spawned agent
-		if a.spawned && a.ParentAgentID != "" {
-			// Add our agent to the error chain
-			headers["error_chain"] = headers["error_chain"] + "," + a.AgentType
-			headers["from_agent_type"] = a.AgentType
+		if messageType == "response" {
+			// Error RESPONSES must reach the coordinator so it can:
+			//   - Route to error_step (e.g. mark_failed)
+			//   - Handle continue_on_error in loop actions
+			//   - Call handleUnrecoverableError / handleRecoverableError
+			// Do NOT short-circuit here — fall through to normal processing.
+			a.logger.Info("Error response — routing to coordinator for error_step handling",
+				zap.String("in_response_to_request_id", headers["in_response_to_request_id"]))
+		} else {
+			// Error REQUESTS: pass up to parent (original behavior)
+			if a.spawned && a.ParentAgentID != "" {
+				headers["error_chain"] = headers["error_chain"] + "," + a.AgentType
+				headers["from_agent_type"] = a.AgentType
 
-			parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
-			// Send to parent's response topic (this is an error)
-			a.producer.Produce(context.Background(), parentResponsesTopic, headers, msg.Key, msg.Value)
-
+				parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+				a.producer.Produce(context.Background(), parentResponsesTopic, headers, msg.Key, msg.Value)
+			}
+			return
 		}
-		// Agent can decide to handle error or just log it
-		return
 	}
 
 	// Validate incoming message
