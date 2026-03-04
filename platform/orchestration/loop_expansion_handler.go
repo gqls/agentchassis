@@ -163,6 +163,17 @@ func (s *SagaCoordinator) handleLoopExpansion(
 	}
 
 	// Create completion step that aggregates results
+	// Build ordered list of substep output fields for the _complete step.
+	// LoopCompleteAction uses these to find iteration results generically
+	// instead of relying on hardcoded HTML-specific patterns.
+	substepOutputFieldList := make([]interface{}, 0, len(substepOrder))
+	for _, name := range substepOrder {
+		if step, ok := substepsMap[name]; ok && step.OutputField != "" {
+			substepOutputFieldList = append(substepOutputFieldList, step.OutputField)
+		}
+	}
+
+	// Create completion step that aggregates results
 	completeStepName := fmt.Sprintf("%s_complete", loopName)
 	state.WorkflowPlan.Steps[completeStepName] = models.Step{
 		Action:      "loop_complete",
@@ -170,8 +181,9 @@ func (s *SagaCoordinator) handleLoopExpansion(
 		NextStep:    nextStep,
 		OutputField: outputField,
 		Config: map[string]interface{}{
-			"loop_name":        loopName,
-			"total_iterations": len(items),
+			"loop_name":             loopName,
+			"total_iterations":      len(items),
+			"substep_output_fields": substepOutputFieldList, // NEW: tells LoopCompleteAction what to collect
 		},
 	}
 

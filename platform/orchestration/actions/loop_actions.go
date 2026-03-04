@@ -282,23 +282,10 @@ func checkUpstreamFailure(collectedData map[string]interface{}, path string, log
 	return false, ""
 }
 
-// LoopCompleteAction aggregates results from loop iterations
-// ==============================================================================
-// ISSUE 27: LoopCompleteAction hardcoded to look for page_html_N keys
-// ==============================================================================
-//
-// PROBLEM: LoopCompleteAction looks for "page_html_0", "page_html_1", etc.
-// But the workflow uses output_field: "section_output", storing as
-// "section_output_0", "section_output_1", etc.
-//
-// FIX: Try multiple patterns or read output_field from config
-//
-// File: platform/orchestration/actions/loop_actions.go
-// Replace the key lookup section in LoopCompleteAction:
-// ==============================================================================
-
-// In LoopCompleteAction, replace the hardcoded key lookup with this:
-
+// Use substep_output_fields from the _complete step config (set by Part A of
+// this fix in handleLoopExpansion) as the primary lookup. Fall back to legacy
+// HTML patterns for orchestrations that were expanded before the Part A fix
+// was deployed.
 func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(
 		zap.String("action", "loop_complete"),
@@ -307,7 +294,7 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	logger.Info("Starting loop completion")
 
-	// DIAGNOSTIC: Log ALL available keys to help debug missing results
+	// DIAGNOSTIC: Log ALL available keys
 	allKeys := make([]string, 0, len(params.CollectedData))
 	for k := range params.CollectedData {
 		allKeys = append(allKeys, k)
@@ -315,190 +302,202 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 	logger.Info("LoopComplete: Available CollectedData keys",
 		zap.Strings("all_keys", allKeys))
 
-	// Get loop metadata
-	loopMetadata, ok := params.CollectedData["loop_metadata"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("loop_metadata not found in CollectedData")
+	// Get loop metadata — try step config first (set by handleLoopExpansion),
+	// fall back to shared loop_metadata in CollectedData.
+	var totalIterations int
+	var loopName string
+
+	// The _complete step always has loop_name and total_iterations in its config
+	// (set by handleLoopExpansion). These are per-loop so they're reliable even
+	// when multiple loops exist in the same orchestration.
+	if ln, ok := params.StepConfig.Config["loop_name"].(string); ok {
+		loopName = ln
+	}
+	if ti, ok := params.StepConfig.Config["total_iterations"].(float64); ok {
+		totalIterations = int(ti)
+	} else if ti, ok := params.StepConfig.Config["total_iterations"].(int); ok {
+		totalIterations = ti
 	}
 
-	totalIterations, ok := loopMetadata["total_iterations"].(int)
-	if !ok {
-		if f, ok := loopMetadata["total_iterations"].(float64); ok {
-			totalIterations = int(f)
-		} else {
-			return nil, fmt.Errorf("total_iterations not found in loop_metadata")
+	// Fallback to shared loop_metadata (backward compat, pre-expansion fix)
+	if totalIterations == 0 {
+		if loopMetadata, ok := params.CollectedData["loop_metadata"].(map[string]interface{}); ok {
+			if f, ok := loopMetadata["total_iterations"].(float64); ok {
+				totalIterations = int(f)
+			} else if i, ok := loopMetadata["total_iterations"].(int); ok {
+				totalIterations = i
+			}
+			if loopName == "" {
+				loopName, _ = loopMetadata["loop_name"].(string)
+			}
 		}
 	}
 
-	loopName, _ := loopMetadata["loop_name"].(string)
+	if totalIterations == 0 {
+		return nil, fmt.Errorf("total_iterations not found in step config or loop_metadata")
+	}
 
 	logger.Info("Aggregating loop results",
 		zap.String("loop_name", loopName),
 		zap.Int("total_iterations", totalIterations),
 	)
 
-	// Get the output field pattern from config, or use defaults
-	outputFieldBase := "page_html"
+	// === PRIMARY PATH: Use substep_output_fields from config ===
+	// These are set by the Part A fix in handleLoopExpansion.
+	// Each field becomes {field}_{N} in CollectedData after makeIterationOutputField.
+	var substepFields []string
+	if fields, ok := params.StepConfig.Config["substep_output_fields"].([]interface{}); ok {
+		for _, f := range fields {
+			if s, ok := f.(string); ok && s != "" {
+				substepFields = append(substepFields, s)
+			}
+		}
+	}
+
+	// Also check output_field_base from config (legacy mechanism, still useful)
+	outputFieldBase := ""
 	if base, ok := params.StepConfig.Config["output_field_base"].(string); ok && base != "" {
 		outputFieldBase = base
 	}
 
-	// IMPROVED: Try multiple patterns to find iteration results
-	keyPatterns := []string{
-		outputFieldBase,     // From config (e.g., "page_html")
-		"section_output",    // page-content-writer pattern
-		"page_html",         // Original pattern
-		"page_result",       // Nav-updater / re-render pattern (page_result_0, page_result_1, ...)
-		"rendered_html",     // Alternative pattern
-		"result",            // Generic pattern
-		"generated_content", // LLM output pattern
-		loopName + "_iter_%d_render_from_template", // Full step name pattern
-		loopName + "_iter_%d_render_section",       // Full step name pattern for LLM path
-		loopName + "_iter_%d_section_output",       // Alternate naming
-		loopName + "_iter_%d_generated_content",    // LLM content output
-		loopName + "_iter_%d_complete_page",        // Loop complete_page step result
-		loopName + "_iter_%d_call_rerender",        // Loop call_rerender step result
-	}
-
-	// DIAGNOSTIC: Log which patterns we're trying
-	logger.Info("LoopComplete: Searching for iteration results",
-		zap.Strings("patterns", keyPatterns),
-		zap.String("loop_name", loopName),
-		zap.Int("iterations", totalIterations))
-
-	// Collect results from known output fields
 	iterationResults := make([]interface{}, 0, totalIterations)
 
 	for i := 0; i < totalIterations; i++ {
-		var stepResult interface{}
-		var foundKey string
-
-		// DIAGNOSTIC: Log all keys that match this iteration
-		matchingKeys := []string{}
-		iterPattern := fmt.Sprintf("%s_iter_%d_", loopName, i)
-		for k := range params.CollectedData {
-			if strings.Contains(k, iterPattern) || strings.HasSuffix(k, fmt.Sprintf("_%d", i)) {
-				matchingKeys = append(matchingKeys, k)
-			}
+		result := map[string]interface{}{
+			"iteration": i,
 		}
-		if len(matchingKeys) > 0 {
-			logger.Info("LoopComplete: Keys matching iteration",
-				zap.Int("iteration", i),
-				zap.Strings("matching_keys", matchingKeys))
-		}
+		foundAny := false
 
-		// Try each pattern
-		for _, pattern := range keyPatterns {
-			var outputKey string
-			if strings.Contains(pattern, "%d") {
-				outputKey = fmt.Sprintf(pattern, i)
-			} else {
-				outputKey = fmt.Sprintf("%s_%d", pattern, i)
+		// --- Strategy 1: Collect ALL substep outputs for this iteration ---
+		if len(substepFields) > 0 {
+			for _, field := range substepFields {
+				key := fmt.Sprintf("%s_%d", field, i)
+				if val, exists := params.CollectedData[key]; exists {
+					result[field] = val
+					foundAny = true
+
+					// If this substep output contains HTML, also set page_html
+					// for backward compatibility with deployer-agent and other consumers.
+					if html := extractHTMLFromResult(val, logger); html != "" {
+						result["page_html"] = html
+						result["rendered_html"] = html
+						result["source_key"] = key
+					}
+				}
 			}
 
-			if result, exists := params.CollectedData[outputKey]; exists {
-				stepResult = result
-				foundKey = outputKey
-				break
+			if foundAny {
+				logger.Debug("Collected iteration via substep_output_fields",
+					zap.Int("iteration", i),
+					zap.Int("fields_found", countNonMeta(result)))
 			}
 		}
 
-		// Also try the full step name patterns for rendered output
-		if stepResult == nil {
-			// Try render_from_template result
-			templateKey := fmt.Sprintf("%s_iter_%d_render_from_template", loopName, i)
-			if result, exists := params.CollectedData[templateKey]; exists {
-				stepResult = result
-				foundKey = templateKey
-			}
-		}
+		// --- Strategy 2: Legacy HTML patterns (backward compat) ---
+		// Only used when substep_output_fields didn't find anything.
+		// This covers old orchestrations expanded before Part A was deployed.
+		if !foundAny {
+			legacyPatterns := buildLegacyPatterns(outputFieldBase, loopName)
 
-		if stepResult == nil {
-			// Try render_section result (LLM path)
-			sectionKey := fmt.Sprintf("%s_iter_%d_render_section", loopName, i)
-			if result, exists := params.CollectedData[sectionKey]; exists {
-				stepResult = result
-				foundKey = sectionKey
-			}
-		}
+			for _, pattern := range legacyPatterns {
+				var outputKey string
+				if strings.Contains(pattern, "%d") {
+					outputKey = fmt.Sprintf(pattern, i)
+				} else {
+					outputKey = fmt.Sprintf("%s_%d", pattern, i)
+				}
 
-		// FALLBACK: Try ANY key that matches this iteration and contains HTML
-		if stepResult == nil && len(matchingKeys) > 0 {
-			for _, mk := range matchingKeys {
-				if result, exists := params.CollectedData[mk]; exists {
-					// Check if this result contains HTML
-					html := extractHTMLFromResult(result, logger)
+				if val, exists := params.CollectedData[outputKey]; exists {
+					html := extractHTMLFromResult(val, logger)
 					if html != "" {
-						stepResult = result
-						foundKey = mk
-						logger.Info("LoopComplete: Found result via fallback key matching",
-							zap.Int("iteration", i),
-							zap.String("key", mk))
+						result["page_html"] = html
+						result["rendered_html"] = html
+						result["source_key"] = outputKey
+						foundAny = true
+
+						// Also include component info if available
+						if resultMap, ok := val.(map[string]interface{}); ok {
+							for _, metaKey := range []string{"component_id", "component_name", "component_function"} {
+								if v, ok := resultMap[metaKey]; ok {
+									result[metaKey] = v
+								}
+							}
+						}
 						break
 					}
 				}
 			}
 		}
 
-		if stepResult == nil {
-			logger.Error("Output field missing for iteration",
-				zap.Int("iteration", i),
-				zap.Strings("tried_patterns", keyPatterns),
-				zap.Strings("matching_keys_found", matchingKeys))
-			continue
+		// --- Strategy 3: Generic fallback — scan ALL keys matching this iteration ---
+		// Collects any key with _{i} suffix, regardless of whether it contains HTML.
+		if !foundAny {
+			iterSuffix := fmt.Sprintf("_%d", i)
+			iterPrefix := fmt.Sprintf("%s_iter_%d_", loopName, i)
+
+			for k, v := range params.CollectedData {
+				if strings.HasSuffix(k, iterSuffix) || strings.HasPrefix(k, iterPrefix) {
+					// Derive the base field name by stripping the suffix
+					baseName := k
+					if strings.HasSuffix(k, iterSuffix) {
+						baseName = strings.TrimSuffix(k, iterSuffix)
+					} else if strings.HasPrefix(k, iterPrefix) {
+						baseName = strings.TrimPrefix(k, iterPrefix)
+					}
+					result[baseName] = v
+					foundAny = true
+
+					// Check for HTML in this result too
+					if html := extractHTMLFromResult(v, logger); html != "" && result["page_html"] == nil {
+						result["page_html"] = html
+						result["rendered_html"] = html
+						result["source_key"] = k
+					}
+				}
+			}
+
+			if foundAny {
+				logger.Info("LoopComplete: Found results via generic fallback scan",
+					zap.Int("iteration", i),
+					zap.Int("fields_found", countNonMeta(result)))
+			}
 		}
 
-		logger.Debug("Found iteration result",
-			zap.Int("iteration", i),
-			zap.String("key", foundKey))
+		// Check for error results (from continue_on_error iterations)
+		errorKey := fmt.Sprintf("%s_iter_%d_error", loopName, i)
+		if errResult, exists := params.CollectedData[errorKey]; exists {
+			result["error"] = errResult
+			result["status"] = "error"
+			foundAny = true
+		}
 
-		// Extract HTML from the stored result
-		html := extractHTMLFromResult(stepResult, logger)
-		if html == "" {
-			logger.Warn("No HTML in result",
-				zap.String("output_key", foundKey),
+		if !foundAny {
+			logger.Warn("No results found for iteration",
 				zap.Int("iteration", i))
-			// Don't skip - collect even empty results to maintain order
+			result["status"] = "missing"
 		}
 
 		// Get page/section name from loop item
 		itemKey := fmt.Sprintf("%s_item_%d", loopName, i)
 		item := params.CollectedData[itemKey]
 		pageName := extractPageNameFromItem(item)
-
 		if pageName == "" {
-			pageName = fmt.Sprintf("section_%d", i)
+			pageName = fmt.Sprintf("item_%d", i)
 		}
+		result["name"] = pageName
 
-		// Build result
-		result := map[string]interface{}{
-			"name":          pageName,
-			"page_html":     html,
-			"rendered_html": html,
-			"iteration":     i,
-			"source_key":    foundKey,
-		}
-
-		// Also include component info if available
-		if resultMap, ok := stepResult.(map[string]interface{}); ok {
-			if compID, ok := resultMap["component_id"]; ok {
-				result["component_id"] = compID
-			}
-			if compName, ok := resultMap["component_name"]; ok {
-				result["component_name"] = compName
-			}
-			if compFunc, ok := resultMap["component_function"]; ok {
-				result["component_function"] = compFunc
-			}
+		// Also include the original item for reference
+		if item != nil {
+			result["original_item"] = item
 		}
 
 		iterationResults = append(iterationResults, result)
 
 		logger.Info("Collected iteration result",
 			zap.String("name", pageName),
-			zap.Int("html_length", len(html)),
 			zap.Int("iteration", i),
-			zap.String("source", foundKey))
+			zap.Bool("has_html", result["page_html"] != nil),
+			zap.String("status", fmt.Sprintf("%v", result["status"])))
 	}
 
 	logger.Info("Loop completion finished",
@@ -511,6 +510,50 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 		"results":    iterationResults,
 		"count":      len(iterationResults),
 	}, nil
+}
+
+// buildLegacyPatterns returns the hardcoded HTML-specific key patterns.
+// Used as fallback for orchestrations expanded before the substep_output_fields
+// fix was deployed.
+func buildLegacyPatterns(outputFieldBase string, loopName string) []string {
+	patterns := []string{}
+
+	if outputFieldBase != "" {
+		patterns = append(patterns, outputFieldBase)
+	}
+
+	patterns = append(patterns,
+		"section_output",
+		"page_html",
+		"page_result",
+		"rendered_html",
+		"result",
+		"generated_content",
+	)
+
+	if loopName != "" {
+		patterns = append(patterns,
+			loopName+"_iter_%d_render_from_template",
+			loopName+"_iter_%d_render_section",
+			loopName+"_iter_%d_section_output",
+			loopName+"_iter_%d_generated_content",
+			loopName+"_iter_%d_complete_page",
+			loopName+"_iter_%d_call_rerender",
+		)
+	}
+
+	return patterns
+}
+
+// countNonMeta counts result fields that aren't iteration/name metadata
+func countNonMeta(result map[string]interface{}) int {
+	count := 0
+	for k := range result {
+		if k != "iteration" && k != "name" && k != "status" {
+			count++
+		}
+	}
+	return count
 }
 
 // extractHTMLFromResult extracts HTML from various result formats

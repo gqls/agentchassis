@@ -229,15 +229,11 @@ func findTargetAgent(params ActionParams, targetAgentType, targetRole string) (*
 	return nil, fmt.Errorf("no spawned %s agent found", targetAgentType)
 }
 
-// CHANGE: platform/orchestration/actions/call_agent_action.go
-// FUNCTION: findAgentByRole
 // REASON: In loop iterations, multiple spawned agents share the same role (e.g. "handler").
-//         Go map iteration is non-deterministic, so findAgentByRole randomly returns the wrong
-//         iteration's agent. Fix: when called from a loop step, prefer the key matching the
-//         current iteration index.
 //
-// REPLACES: the existing findAgentByRole function entirely.
-
+//	Go map iteration is non-deterministic, so findAgentByRole randomly returns the wrong
+//	iteration's agent. Fix: when called from a loop step, prefer the key matching the
+//	current iteration index.
 func findAgentByRole(params ActionParams, targetRole string, agent *TargetAgentInfo) bool {
 	// Check if we're inside a loop iteration — if so, prefer the current iteration's spawn result
 	if loopIter := getLoopIteration(params); loopIter >= 0 {
