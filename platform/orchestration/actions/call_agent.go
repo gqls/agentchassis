@@ -229,32 +229,50 @@ func findTargetAgent(params ActionParams, targetAgentType, targetRole string) (*
 	return nil, fmt.Errorf("no spawned %s agent found", targetAgentType)
 }
 
+// CHANGE: platform/orchestration/actions/call_agent_action.go
+// FUNCTION: findAgentByRole
+// REASON: In loop iterations, multiple spawned agents share the same role (e.g. "handler").
+//         Go map iteration is non-deterministic, so findAgentByRole randomly returns the wrong
+//         iteration's agent. Fix: when called from a loop step, prefer the key matching the
+//         current iteration index.
+//
+// REPLACES: the existing findAgentByRole function entirely.
+
 func findAgentByRole(params ActionParams, targetRole string, agent *TargetAgentInfo) bool {
-	// Search through spawn results
+	// Check if we're inside a loop iteration — if so, prefer the current iteration's spawn result
+	if loopIter := getLoopIteration(params); loopIter >= 0 {
+		iterSuffix := fmt.Sprintf("_%d", loopIter)
+		for stepName, stepData := range params.CollectedData {
+			if !strings.HasSuffix(stepName, iterSuffix) {
+				continue
+			}
+			if stepResult, ok := stepData.(map[string]interface{}); ok {
+				spawnResult := unwrapSpawnResult(stepResult)
+				if role, ok := spawnResult["role"].(string); ok && role == targetRole {
+					populateAgentFromSpawnResult(agent, spawnResult)
+					params.Logger.Info("Found agent with matching role (iteration-aware)",
+						zap.String("role", targetRole),
+						zap.String("agent_id", agent.AgentID),
+						zap.String("agent_type", agent.AgentType),
+						zap.String("from_step", stepName),
+						zap.Int("loop_iteration", loopIter))
+					return true
+				}
+			}
+		}
+		// If not found via iteration-specific key, fall through to general scan.
+		// This handles cases where the spawn output_field doesn't follow the _{N} convention.
+		params.Logger.Debug("No iteration-specific agent found, falling back to general scan",
+			zap.String("role", targetRole),
+			zap.Int("loop_iteration", loopIter))
+	}
+
+	// General scan — original behaviour (used outside loops, or as fallback)
 	for stepName, stepData := range params.CollectedData {
 		if stepResult, ok := stepData.(map[string]interface{}); ok {
-			// Unwrap .response if present
 			spawnResult := unwrapSpawnResult(stepResult)
-
 			if role, ok := spawnResult["role"].(string); ok && role == targetRole {
-				agent.AgentID, _ = spawnResult["agent_id"].(string)
-
-				if agentType, ok := spawnResult["agent_type"].(string); ok {
-					agent.AgentType = agentType
-				}
-
-				// Extract topics from nested structure
-				if topics, ok := spawnResult["topics"].(map[string]interface{}); ok {
-					agent.RequestsTopic, _ = topics["requests"].(string)
-					agent.ResponsesTopic, _ = topics["responses"].(string)
-				}
-
-				// FALLBACK: Try flat structure for backward compatibility
-				if agent.RequestsTopic == "" {
-					agent.RequestsTopic, _ = spawnResult["requests_topic"].(string)
-					agent.ResponsesTopic, _ = spawnResult["responses_topic"].(string)
-				}
-
+				populateAgentFromSpawnResult(agent, spawnResult)
 				params.Logger.Info("Found agent with matching role",
 					zap.String("role", targetRole),
 					zap.String("agent_id", agent.AgentID),
@@ -266,6 +284,48 @@ func findAgentByRole(params ActionParams, targetRole string, agent *TargetAgentI
 		}
 	}
 	return false
+}
+
+// getLoopIteration extracts the loop iteration index from the step config.
+// Returns -1 if not in a loop context.
+func getLoopIteration(params ActionParams) int {
+	if params.StepConfig.Config == nil {
+		return -1
+	}
+	iterVal, ok := params.StepConfig.Config["loop_iteration"]
+	if !ok {
+		return -1
+	}
+	switch v := iterVal.(type) {
+	case int:
+		return v
+	case float64:
+		return int(v)
+	}
+	return -1
+}
+
+// populateAgentFromSpawnResult fills a TargetAgentInfo from spawn result data.
+// Extracted from the old inline code in findAgentByRole to avoid duplication
+// between the iteration-aware path and the general scan path.
+func populateAgentFromSpawnResult(agent *TargetAgentInfo, spawnResult map[string]interface{}) {
+	agent.AgentID, _ = spawnResult["agent_id"].(string)
+
+	if agentType, ok := spawnResult["agent_type"].(string); ok {
+		agent.AgentType = agentType
+	}
+
+	// Extract topics from nested structure
+	if topics, ok := spawnResult["topics"].(map[string]interface{}); ok {
+		agent.RequestsTopic, _ = topics["requests"].(string)
+		agent.ResponsesTopic, _ = topics["responses"].(string)
+	}
+
+	// FALLBACK: Try flat structure for backward compatibility
+	if agent.RequestsTopic == "" {
+		agent.RequestsTopic, _ = spawnResult["requests_topic"].(string)
+		agent.ResponsesTopic, _ = spawnResult["responses_topic"].(string)
+	}
 }
 
 // findAgentDataWithRole checks for agent data with matching role at top level

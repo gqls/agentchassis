@@ -1,17 +1,4 @@
 \pset pager off
-\d site_work_items
-\d sites
-\d pages
-\d page_components
-\d site_components
-\d assets
-\d agent_definitions
-\d orchestration_states
-\d awaited_requests
-\d maintenance_queue
-\d page_component_history
-\d site_specs
-\d
 
 SELECT count(*), source, status FROM site_work_items GROUP BY source, status;
 SELECT * FROM site_work_items LIMIT 2;
