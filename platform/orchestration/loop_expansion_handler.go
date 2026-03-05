@@ -394,12 +394,14 @@ func propagateIterationOutputs(state *OrchestrationState, iterIdx int, logger *z
 	}
 
 	propagatedCount := 0
+	alreadyPropagatedByCommon := make(map[string]bool)
 	for _, baseName := range commonOutputFields {
 		iterationKey := baseName + suffix // e.g., "page_content_0"
 
 		if data, exists := state.CollectedData[iterationKey]; exists {
 			// Copy to original field name for this iteration's scope
 			state.CollectedData[baseName] = data
+			alreadyPropagatedByCommon[baseName] = true
 			propagatedCount++
 			logger.Debug("Propagated iteration output to original field name",
 				zap.String("from", iterationKey),
@@ -409,23 +411,31 @@ func propagateIterationOutputs(state *OrchestrationState, iterIdx int, logger *z
 		}
 	}
 
-	// Also scan for any other iteration-suffixed keys and propagate them
-	// This catches output fields not in the hardcoded list
+	// Also scan for any other iteration-suffixed keys and propagate them.
+	// This catches output fields not in the hardcoded list above.
+	// We overwrite unconditionally — the suffix ensures we only find keys
+	// from the CURRENT iteration (e.g. claim_result_2 when iterIdx=2),
+	// so there is no risk of cross-iteration contamination within this scan.
+	// Previous iterations' base-name values MUST be overwritten so that
+	// actions using the base name (e.g. claim_result.work_item_id) see
+	// the current iteration's data, not iteration 0's stale data.
 	for key, value := range state.CollectedData {
 		if strings.HasSuffix(key, suffix) {
 			baseName := strings.TrimSuffix(key, suffix)
-			// Don't overwrite if we already set it (avoid overwriting with wrong iteration data)
-			if _, alreadySet := state.CollectedData[baseName]; !alreadySet {
-				// Only propagate if baseName looks like an output field (not internal keys)
-				if !strings.HasPrefix(baseName, "__") && !strings.Contains(baseName, "_item_") && !strings.Contains(baseName, "_iter_") {
-					state.CollectedData[baseName] = value
-					propagatedCount++
-					logger.Debug("Auto-propagated iteration output",
-						zap.String("from", key),
-						zap.String("to", baseName),
-						zap.Int("iteration", iterIdx),
-					)
-				}
+			// Skip if already propagated by the commonOutputFields block above
+			// (which runs first and is more explicit)
+			if alreadyPropagatedByCommon[baseName] {
+				continue
+			}
+			// Only propagate if baseName looks like an output field (not internal keys)
+			if !strings.HasPrefix(baseName, "__") && !strings.Contains(baseName, "_item_") && !strings.Contains(baseName, "_iter_") {
+				state.CollectedData[baseName] = value
+				propagatedCount++
+				logger.Debug("Auto-propagated iteration output",
+					zap.String("from", key),
+					zap.String("to", baseName),
+					zap.Int("iteration", iterIdx),
+				)
 			}
 		}
 	}
