@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -182,6 +183,19 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 	// 5. Build page-specific head if we don't have one stored
 	if head == "" {
 		head = buildDefaultHead(page)
+	} else {
+		// Inject page-specific title into stored head component
+		// The site-level head has <title></title> — replace with this page's title
+		if page.Title != "" {
+			titleRe := regexp.MustCompile(`<title>[^<]*</title>`)
+			head = titleRe.ReplaceAllString(head, fmt.Sprintf("<title>%s</title>", page.Title))
+		}
+		// Inject meta description if the page has one and the head has an empty content=""
+		if page.MetaDesc != "" {
+			head = strings.Replace(head,
+				`content="">`,
+				fmt.Sprintf(`content="%s">`, page.MetaDesc), 1)
+		}
 	}
 
 	// 6. Assemble
