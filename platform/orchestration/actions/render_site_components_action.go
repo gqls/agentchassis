@@ -367,11 +367,11 @@ func renderAndStoreSiteComponent(
 			funcName = mapped
 		}
 		err = db.QueryRowContext(ctx, `
-		  SELECT id, html_template 
-		  FROM content_components 
-		  WHERE function = $1
-		  ORDER BY name LIMIT 1
-		`, funcName)
+			SELECT id, html_template 
+			FROM content_components 
+			WHERE function = $1
+			ORDER BY name LIMIT 1
+		`, funcName).Scan(&componentID, &htmlTemplate)
 
 		if err != nil {
 			logger.Warn("No component found for slot",
