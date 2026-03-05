@@ -46,8 +46,9 @@ const (
 )
 
 var (
-	ErrWaitingForResponse = errors.New("orchestration is waiting for responses")
-	ErrVersionMismatch    = errors.New("optimistic lock failure: version mismatch")
+	ErrWaitingForResponse   = errors.New("orchestration is waiting for responses")
+	ErrVersionMismatch      = errors.New("optimistic lock failure: version mismatch")
+	ErrLoopExpansionHandled = errors.New("loop expansion handled: outer continueExecution must not continue")
 )
 
 // backoffWithJitter calculates exponential backoff with random jitter.
@@ -822,6 +823,14 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		// NOTE: This stores result in state.CollectedData IN MEMORY
 		err = s.executeStep(ctx, state, currentStepConfig, execCtx)
 		if err != nil {
+			// Loop expansion recursed into continueExecution and took ownership.
+			// The outer for-loop must not continue or transition — return cleanly.
+			if errors.Is(err, ErrLoopExpansionHandled) {
+				l.Info("Loop expansion handled — outer continueExecution exiting",
+					zap.String("loop_step", state.CurrentStep),
+				)
+				return nil
+			}
 			// Check if this is a loop iteration with continue_on_error
 			if shouldContinueLoopOnError(state, l) {
 				if skipErr := s.skipToNextLoopIteration(ctx, state, err.Error(), l); skipErr != nil {
@@ -1187,11 +1196,17 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 				return fmt.Errorf("failed to save state after loop expansion: %w", err)
 			}
 
-			// Continue workflow with first iteration step
+			// Continue workflow with first iteration step.
+			// The recursive continueExecution drives the loop forward from here.
+			// We return ErrLoopExpansionHandled so the outer continueExecution
+			// for-loop exits cleanly and does not fall through to process_items.NextStep.
 			contextLogger.Info("Loop expanded, continuing to first iteration",
 				zap.String("next_step", state.CurrentStep),
 			)
-			return s.continueExecution(ctx, state, execCtx)
+			if err := s.continueExecution(ctx, state, execCtx); err != nil {
+				return err
+			}
+			return ErrLoopExpansionHandled
 		}
 	}
 
