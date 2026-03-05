@@ -15,11 +15,17 @@
 #   ./060_trigger_improvement_loop.sh                              # defaults to gaswholesalers.com
 #   ./060_trigger_improvement_loop.sh <site_id> <domain>           # specific site
 #   SITE_ID=xxx DOMAIN=yyy ./060_trigger_improvement_loop.sh       # env vars
+
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
+
+SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+DOMAIN="gaswholesalers.com"
 # ============================================================================
 set -euo pipefail
 
-SITE_ID="${1:-${SITE_ID:-5fe15466-4e2e-4ff2-981e-98c1b7074002}}"
-DOMAIN="${2:-${DOMAIN:-gaswholesalers.com}}"
+SITE_ID="${1:-${SITE_ID:-1368e337-dd1d-4799-bbb3-8221a1b79bcc}}"
+DOMAIN="${2:-${DOMAIN:-finetuning.uk}}"
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -76,6 +82,10 @@ echo "Overall progress:"
 echo "  kubectl -n ai-persona-system logs -f -l app=agent-chassis --tail=50 | grep '${CORRELATION_ID}'"
 echo ""
 echo "CORRELATION_ID=$CORRELATION_ID"
+
+
+
+
 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=improvement-loop -f | tee logs-improvement-loop.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=quality-discovery-agent -f | tee logs-quality-discovery-agent.json
