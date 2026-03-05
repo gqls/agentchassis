@@ -116,6 +116,30 @@ func ExtractActionInputs(
 	allFields := append([]string{}, spec.Required...)
 	allFields = append(allFields, spec.Optional...)
 
+	// Strategy 0: Resolve config values as EXPLICIT path references FIRST.
+	// This must run before ExtractFields (Strategy 1/2) because ExtractFields
+	// uses aggressive recursive search that can find stale values from
+	// previous loop iterations (e.g. claim_result.work_item_id from iter 0).
+	// When the config explicitly says "work_item_id": "current_item.id",
+	// that explicit path should win over any aggressive search result.
+	for _, field := range allFields {
+		pathStr, ok := config[field].(string)
+		if !ok || pathStr == "" {
+			continue
+		}
+		// Only resolve multi-segment dot-paths (these are unambiguously path references)
+		if strings.Contains(pathStr, ".") {
+			value := ExtractNestedField(collectedData, pathStr)
+			if value != nil {
+				result.Values[field] = value
+				logger.Debug("Strategy 0: Resolved config path before ExtractFields",
+					zap.String("field", field),
+					zap.String("path", pathStr),
+				)
+			}
+		}
+	}
+
 	// Strategy 1: Use input_fields if specified in config (preferred)
 	if inputFields, ok := config["input_fields"].([]interface{}); ok {
 		fieldNames := make([]string, len(inputFields))
@@ -188,15 +212,11 @@ func ExtractActionInputs(
 		}
 	}
 
-	// Strategy 4: Resolve config values as path references
-	// This handles workflow patterns like:
-	//   "work_item_id": "pending.first_item.id"   (dot-notation path)
-	//   "spec_data": "site_plan"                   (single-segment reference)
-	// where the config value is a reference into collectedData, not a literal.
-	//
-	// Safe because we only check fields in the InputSpec (Required/Optional).
-	// Config literals like "aspect": "site_plan" are NOT in the spec —
-	// they're read directly by the action code, so we won't touch them.
+	// Strategy 4: Resolve remaining config value references.
+	// Dot-path references (e.g. "current_item.id") were already handled
+	// by Strategy 0 above. This handles single-segment references
+	// (e.g. "spec_data": "site_plan") and any dot-paths that Strategy 0
+	// couldn't resolve (data may have been populated by Strategies 1-3).
 	for _, field := range allFields {
 		if _, hasValue := result.Values[field]; hasValue {
 			continue

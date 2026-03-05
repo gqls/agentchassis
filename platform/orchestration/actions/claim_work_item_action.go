@@ -67,9 +67,15 @@ func ClaimWorkItemAction(ctx context.Context, params ActionParams) (interface{},
 
 	itemIDStr := inputs.Get("work_item_id")
 
-	// Fallback: resolve dot-notation path if ExtractActionInputs returned literal
+	// Fallback: resolve dot-notation path if ExtractActionInputs returned literal.
+	// With Strategy 0 in ExtractActionInputs, this should no longer be needed.
+	// If it triggers, something upstream has regressed.
 	if itemIDStr == "" || strings.Contains(itemIDStr, ".") {
 		if resolved := resolveConfigPath(params.StepConfig.Config, "work_item_id", params.CollectedData, logger); resolved != "" {
+			logger.Warn("ClaimWorkItemAction: Strategy 0 missed config path, using fallback",
+				zap.String("original", itemIDStr),
+				zap.String("resolved", resolved),
+			)
 			itemIDStr = resolved
 		}
 	}
