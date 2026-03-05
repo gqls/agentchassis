@@ -105,9 +105,9 @@ kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-content-writer -
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=improvement-loop -f | tee logs-improvement-loop.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=quality-discovery-agent -f | tee logs-quality-discovery-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=design-discovery-agent -f | tee logs-design-discovery-agent.json
-kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=completeness-discovery-agent -f | tee logs-completeness-discovery-agent.json
 
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=section-editor -f | tee logs-section-editor.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=deployer-agent -f | tee logs-deployer-agent.json
@@ -272,3 +272,19 @@ kubectl -n kafka run -i --rm kcat-build-trigger-$(date +%s) \
   -H responses_topic=system.generic.responses <<JSON
 {"action":"orchestrate","config":{"agent_type":"build-dispatch-loop"},"input_data":{"site_id":"5fe15466-4e2e-4ff2-981e-98c1b7074002","domain":"gaswholesalers.com"}}
 JSON
+
+
+-- Quick status check - run periodically
+SELECT wi.item_type, wi.status, s.domain, wi.completed_at
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status IN ('claimed', 'triaged') AND wi.domain = 'build'
+ORDER BY s.domain, wi.status, wi.priority;
+
+
+-- Quick status check - run periodically
+SELECT wi.item_type, wi.status, s.domain, wi.completed_at
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status IN ('claimed', 'triaged') AND wi.domain = 'build'
+ORDER BY s.domain, wi.status, wi.priority;

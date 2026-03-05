@@ -58,7 +58,7 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   --delete \
   --topic system.generic.responses
 
-sleep 1
+sleep 2
 kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   /opt/kafka/bin/kafka-topics.sh
   --create --topic system.generic.responses
@@ -126,6 +126,12 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kaf
   --bootstrap-server localhost:9092 \
   --create --topic system.scheduler.responses \
   --partitions 2 --replication-factor 1
+
+  kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+    bin/kafka-topics.sh --create \
+    --topic system.generic.responses \
+    --bootstrap-server localhost:9092 \
+    --partitions 3 --replication-factor 1
 
 # check for topics
 # kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh   --bootstrap-server localhost:9092   --list | grep dispatch
