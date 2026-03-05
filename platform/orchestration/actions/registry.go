@@ -565,6 +565,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Replace hardcoded hex colors with CSS variables in component styles",
 		IsLocal:     true,
 	},
+	"link_site_components": {
+		Handler:     LinkSiteComponentsAction,
+		Category:    "site",
+		Description: "Link site_components to content_components from style collection",
+		IsLocal:     true,
+	},
+	"fix_component_template": {
+		Handler:     FixComponentTemplateAction,
+		Category:    "site",
+		Description: "Apply targeted fixes to component HTML/CSS",
+		IsLocal:     true,
+	},
 	"render_css_from_spec": {
 		Handler:     RenderCSSFromSpecAction,
 		Category:    "site",

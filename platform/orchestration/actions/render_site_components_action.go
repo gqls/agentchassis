@@ -357,13 +357,21 @@ func renderAndStoreSiteComponent(
 
 	if err != nil {
 		// No component assigned, try to find default
+		slotToFunction := map[string]string{
+			"header": "site-header",
+			"footer": "site-footer",
+			"head":   "head",
+		}
+		funcName := slot
+		if mapped, ok := slotToFunction[slot]; ok {
+			funcName = mapped
+		}
 		err = db.QueryRowContext(ctx, `
-			SELECT id, html_template 
-			FROM content_components 
-			WHERE function = $1
-			ORDER BY name
-			LIMIT 1
-		`, slot).Scan(&componentID, &htmlTemplate)
+		  SELECT id, html_template 
+		  FROM content_components 
+		  WHERE function = $1
+		  ORDER BY name LIMIT 1
+		`, funcName)
 
 		if err != nil {
 			logger.Warn("No component found for slot",
