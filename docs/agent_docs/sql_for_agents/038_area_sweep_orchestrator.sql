@@ -155,3 +155,15 @@ SELECT type, display_name, status,
 FROM agent_definitions
 WHERE type IN ('area-sweep-orchestrator', 'area-sweep-discoverer');
 
+--
+
+-- Bump sweep max_iterations for next run
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,sweep_loop,config,max_iterations}',
+        '1500'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'area-sweep-orchestrator';
+

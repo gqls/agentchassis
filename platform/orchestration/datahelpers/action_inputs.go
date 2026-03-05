@@ -132,7 +132,7 @@ func ExtractActionInputs(
 			value := ExtractNestedField(collectedData, pathStr)
 			if value != nil {
 				result.Values[field] = value
-				logger.Debug("Strategy 0: Resolved config path before ExtractFields",
+				logger.Info("Strategy 0: Resolved config path before ExtractFields",
 					zap.String("field", field),
 					zap.String("path", pathStr),
 				)
@@ -148,6 +148,10 @@ func ExtractActionInputs(
 		}
 		extracted := ExtractFields(collectedData, fieldNames, logger)
 		for k, v := range extracted {
+			// Don't overwrite values already resolved by Strategy 0 (explicit config paths)
+			if _, alreadyResolved := result.Values[k]; alreadyResolved {
+				continue
+			}
 			if v != nil {
 				result.Values[k] = v
 			}
@@ -156,6 +160,10 @@ func ExtractActionInputs(
 		// Strategy 2: Try to extract all needed fields directly
 		extracted := ExtractFields(collectedData, allFields, logger)
 		for k, v := range extracted {
+			// Don't overwrite values already resolved by Strategy 0 (explicit config paths)
+			if _, alreadyResolved := result.Values[k]; alreadyResolved {
+				continue
+			}
 			if v != nil {
 				result.Values[k] = v
 			}
