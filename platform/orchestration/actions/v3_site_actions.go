@@ -2102,7 +2102,7 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 	query := `
 		INSERT INTO assets (id, site_id, name, asset_type, purpose, url, origin_type, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-		ON CONFLICT ON CONSTRAINT assets_site_purpose_unique DO UPDATE SET
+		ON CONFLICT (site_id, purpose) WHERE purpose IS NOT NULL DO UPDATE SET
 			url = EXCLUDED.url,
 			name = EXCLUDED.name,
 			origin_type = EXCLUDED.origin_type,
@@ -2146,9 +2146,9 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	// If purpose is set and we have a site_id, update sites.content_data
 	// This stores the storage URI (for download) and relative URL (for templates)
+	storageURI := ""
 	if purpose != "" && siteID != nil {
 		// Find storage URI from asset data
-		storageURI := ""
 		if assetDataMap, ok := assetData.(map[string]interface{}); ok {
 			if uri, ok := assetDataMap["image_uri"].(string); ok {
 				storageURI = uri
@@ -2208,6 +2208,12 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		_, _, _, purposeExt := storage.GetImageConfig(purpose)
 		paths := storage.BuildAssetPaths(purpose, purposeExt)
 		result[purpose+"_url"] = paths.RelativeURL
+	}
+
+	// Add storage URI to result for downstream deploy step
+	if storageURI != "" {
+		result["image_uri"] = storageURI
+		result["s3_uri"] = storageURI
 	}
 
 	return result, nil

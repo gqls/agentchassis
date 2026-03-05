@@ -186,3 +186,110 @@ CREATE INDEX IF NOT EXISTS idx_cfi_relevance
 CREATE INDEX IF NOT EXISTS idx_cfi_dedup
     ON content_feed_items(source_url)
     WHERE status NOT IN ('duplicate', 'expired', 'rejected');
+
+
+--
+
+-- ============================================================================
+-- Site Quality Fixes — Immediate Data Patches
+-- Run in order. Each section is independent.
+-- ============================================================================
+
+-- ============================================================================
+-- ISSUE 1A: Populate site metadata from content_data
+-- These fields feed into loadSiteDataFull → render context → header/footer/head templates
+-- ============================================================================
+
+-- Finetuning.uk
+UPDATE sites SET
+                 company_name = 'FineTuning',
+                 name = 'FineTuning',
+                 tagline = 'AI for the Rest of Us',
+                 logo_url = '/assets/images/logo.png',
+                 logo_text = 'FineTuning'
+WHERE id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+  AND (company_name IS NULL OR company_name = '');
+
+-- Gaswholesalers.com (company_name already set)
+UPDATE sites SET
+                 tagline = 'Wholesale Gas Supply Solutions',
+                 logo_url = '/assets/images/logo.png',
+                 logo_text = 'Gas Wholesalers'
+WHERE id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND (logo_url IS NULL OR logo_url = '');
+
+-- ============================================================================
+-- ISSUE 5: Fix mismatched slot_names on gaswholesalers.com contact page
+-- The page_components have wrong slot_names relative to their actual content.
+-- The work items reference 'contact-info' which matches the HTML data-component
+-- but not the DB slot_name.
+-- Fix: align slot_names with the HTML data-component attribute values.
+-- ============================================================================
+
+-- Component 1: hero-contact (slot_name is NULL, should be 'hero-contact')
+UPDATE page_components SET slot_name = 'hero-contact'
+WHERE id = 'd7c96e1b-a549-4435-8bac-682d8d8dc678'
+  AND slot_name IS NULL;
+
+-- Component 2: slot_name is 'contact-hero' but HTML says 'contact-form'
+UPDATE page_components SET slot_name = 'contact-form'
+WHERE id = '4b3bafce-dbf8-49c9-9b4a-84a0bc00a7aa'
+  AND slot_name = 'contact-hero';
+
+-- Component 3: slot_name is 'contact-form' but HTML says 'contact-info'
+UPDATE page_components SET slot_name = 'contact-info'
+WHERE id = 'fc5c9dac-2058-45ec-8c26-94de257aa31c'
+  AND slot_name = 'contact-form';
+
+-- ============================================================================
+-- ISSUE 5b: Fail/remove the orphaned content_edit work items if they still
+-- reference components that don't exist after the slot_name fix.
+-- After the fix above, 'contact-info' should now exist.
+-- Reset the failed items so they can be retried.
+-- ============================================================================
+
+-- Reset content_edit items that failed due to missing component
+-- (they were marked 'failed' or 'triaged' with attempt_count > 0)
+UPDATE site_work_items
+SET status = 'triaged',
+    attempt_count = 0,
+    error = NULL
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND item_type = 'content_edit'
+  AND status IN ('failed', 'claimed')
+  AND spec->>'slot_name' = 'contact-info';
+
+-- ============================================================================
+-- ISSUE: Clean up stuck claimed items from previous runs
+-- ============================================================================
+
+UPDATE site_work_items
+SET status = 'triaged', claimed_at = NULL, claimed_by = NULL
+WHERE status = 'claimed'
+  AND claimed_at < NOW() - INTERVAL '10 minutes';
+
+-- ============================================================================
+-- Verify
+-- ============================================================================
+
+-- Check site metadata
+SELECT domain, company_name, tagline, logo_url
+FROM sites
+WHERE id IN ('1368e337-dd1d-4799-bbb3-8221a1b79bcc', '5fe15466-4e2e-4ff2-981e-98c1b7074002');
+
+-- Check contact page slot_names
+SELECT pc.slot_name, pc.id,
+       substring(pc.rendered_html from 'data-component="([^"]*)"') as data_component
+FROM page_components pc
+         JOIN pages p ON pc.page_id = p.id
+WHERE p.site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND p.name = 'contact'
+ORDER BY pc.position;
+
+-- Check remaining triaged items
+SELECT wi.item_type, wi.status, s.domain, wi.spec->>'slot_name' as slot
+FROM site_work_items wi
+    JOIN sites s ON s.id = wi.site_id
+WHERE wi.status = 'triaged' AND wi.domain = 'build'
+ORDER BY s.domain, wi.priority;
+
