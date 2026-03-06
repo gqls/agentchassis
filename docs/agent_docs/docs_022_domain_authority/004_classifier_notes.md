@@ -318,3 +318,21 @@ adjust priorities. Everything downstream follows the spec.
 Steps 1-3 can happen incrementally. The current classifier still works — the
 new fields are additive. Steps 4-5 are refactors that reduce duplication
 between classifier and planner.
+
+
+====
+
+the planner/discovery/manual entry puts in the intended handler name even if it doesn't exist yet. The system handles the rest:
+
+Planner creates: handler_agent = 'tool-deployer', status = 'triaged'
+→ Dispatch loop claims it
+→ Claim action checks agent_definitions: 'tool-deployer' not found
+→ Item marked 'blocked', error = 'Handler agent not registered: tool-deployer'
+→ Item sits in 'blocked'
+→ ... weeks later, tool-deployer is deployed ...
+→ Feasibility-recheck task finds it: agent_definitions now has 'tool-deployer'
+→ Item promoted to 'triaged'
+→ Next dispatch loop picks it up and processes it
+
+The classifier's feasibility check (from the unified spec design) serves a different purpose — it sets status: blocked on the spec entry so the planner can decide whether to create the work item at all or create it pre-blocked. But even if the planner creates it as triaged, the claim action catches it.
+

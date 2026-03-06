@@ -385,3 +385,85 @@ WHERE type IN (
     )
   AND deleted_at IS NULL
 ORDER BY type;
+
+--
+
+-- fix paths
+
+-- ============================================================================
+-- Fix audit agent definitions
+-- Two errors found:
+-- 1. content-quality-auditor: ss.spec_type should be ss.aspect
+-- 2. visual-design-auditor: query_database params not supported (patched now)
+--
+-- Also: site_specs uses 'aspect' not 'spec_type', and 'data' not 'spec_data'
+-- ============================================================================
+
+-- Fix content-quality-auditor: load_brief query
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_brief,config,query}',
+        '"SELECT s.domain, COALESCE(s.company_name, s.domain) as company, COALESCE(s.tagline, '''') as tagline, COALESCE(s.content_data->>''industry'', '''') as industry, COALESCE(ss.data->>''target_audience'', '''') as target_audience, COALESCE(ss.data->>''tone'', '''') as tone, COALESCE(ss.data->>''purpose'', '''') as purpose, COALESCE(ss.data->>''key_messages'', '''') as key_messages FROM sites s LEFT JOIN site_specs ss ON ss.site_id = s.id AND ss.aspect = ''site_plan'' AND ss.is_current = true WHERE s.id = $1 ORDER BY ss.created_at DESC LIMIT 1"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-quality-auditor' AND deleted_at IS NULL;
+
+-- Fix content-quality-auditor: load_page_content query
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_page_content,config,query}',
+        '"SELECT p.name, LEFT(string_agg(pc.rendered_html, '' ''), 1000) as content_sample FROM pages p JOIN page_components pc ON pc.page_id = p.id WHERE p.site_id = $1 AND p.name IN (''index'', ''about'', ''services'', ''contact'') AND pc.rendered_html IS NOT NULL GROUP BY p.name ORDER BY p.name"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-quality-auditor' AND deleted_at IS NULL;
+
+-- Fix content-quality-auditor: check_empty_pages query
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_empty_pages,config,query}',
+        '"SELECT p.name FROM pages p LEFT JOIN page_components pc ON pc.page_id = p.id AND pc.rendered_html IS NOT NULL AND pc.rendered_html != '''' WHERE p.site_id = $1 AND p.build_status IN (''deployed'', ''active'') GROUP BY p.name HAVING COUNT(pc.id) = 0"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-quality-auditor' AND deleted_at IS NULL;
+
+-- Fix visual-design-auditor: load_design_context query
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_design_context,config,query}',
+        '"SELECT sc.name as collection_name, sc.color_palette::text as palette, sc.typography::text as typo, LEFT(ct.css_content, 2000) as css_excerpt, (SELECT string_agg(scomp.slot_name || '':'' || LEFT(scomp.rendered_html, 800), ''|||'') FROM site_components scomp WHERE scomp.site_id = s.id) as component_samples, (SELECT string_agg(LEFT(pc.rendered_html, 600), ''|||'') FROM page_components pc JOIN pages p ON pc.page_id = p.id WHERE p.site_id = s.id AND p.name = ''index'' AND pc.rendered_html IS NOT NULL LIMIT 5) as index_samples FROM sites s LEFT JOIN style_collections sc ON s.style_collection_id = sc.id LEFT JOIN css_themes ct ON sc.css_theme_id = ct.id WHERE s.id = $1"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'visual-design-auditor' AND deleted_at IS NULL;
+
+-- Fix visual-design-auditor: run_algorithmic_checks query
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_algorithmic_checks,config,query}',
+        '"SELECT (SELECT COUNT(*) FROM site_components WHERE site_id = $1 AND component_id IS NULL AND slot_name IN (''header'',''footer'',''head'')) as unlinked_components, (SELECT COUNT(*) FROM page_components pc JOIN pages p ON pc.page_id = p.id WHERE p.site_id = $1 AND pc.rendered_html LIKE ''%%data-component=%%'' AND pc.slot_name IS NOT NULL AND pc.slot_name != substring(pc.rendered_html from ''data-component=\"([^\"]*)\"'')) as slot_mismatches, (SELECT CASE WHEN rendered_html NOT LIKE ''%%display: flex%%'' AND rendered_html NOT LIKE ''%%display:flex%%'' AND rendered_html LIKE ''%%<ul%%'' THEN 1 ELSE 0 END FROM site_components WHERE site_id = $1 AND slot_name = ''header'') as nav_stacked"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'visual-design-auditor' AND deleted_at IS NULL;
+
+-- Fix site-review-agent: load_strategic_context query
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_strategic_context,config,query}',
+        '"SELECT s.domain, COALESCE(s.company_name, s.domain) as company, s.content_data->>''dream_spec'' as dream_spec, COALESCE(ss.data::text, ''{}''::text) as site_plan, (SELECT COUNT(*) FROM pages WHERE site_id = s.id AND build_status = ''deployed'') as deployed_pages, (SELECT COUNT(*) FROM site_work_items WHERE site_id = s.id AND status = ''complete'') as completed_items FROM sites s LEFT JOIN site_specs ss ON ss.site_id = s.id AND ss.aspect = ''site_plan'' AND ss.is_current = true WHERE s.id = $1 ORDER BY ss.created_at DESC LIMIT 1"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-review-agent' AND deleted_at IS NULL;
+
+-- Verify the fixes
+SELECT type,
+       default_config->'workflow'->'steps'->'load_brief'->'config'->>'query' IS NOT NULL as has_brief_query,
+    default_config->'workflow'->'steps'->'load_design_context'->'config'->>'query' IS NOT NULL as has_design_query
+FROM agent_definitions
+WHERE type IN ('content-quality-auditor', 'visual-design-auditor')
+  AND deleted_at IS NULL;
+

@@ -98,6 +98,13 @@ multiple -batch
 #   3. Call the verifier for each business_id in sequence
 #   4. Each verifier: search → scrape → LLM extract → store results
 
+BATCH_SIZE=${1:-5}              # First arg or default 5
+TASK_TYPE=${2:-initial_verification}
+VERTICAL_SLUG=${3:-veterinary}
+
+------
+
+
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -107,9 +114,9 @@ ORCHESTRATION_NAME="vet-batch-$(date +%Y%m%d-%H%M%S)"
 CLIENT_ID="vetcomparison"
 
 # Batch config - adjust as needed
-BATCH_SIZE=${1:-5}              # First arg or default 5
-TASK_TYPE=${2:-initial_verification}
-VERTICAL_SLUG=${3:-veterinary}
+BATCH_SIZE=5
+TASK_TYPE="initial_verification"
+VERTICAL_SLUG="veterinary"
 
 echo "========================================="
 echo "Starting Vet Batch Processor"

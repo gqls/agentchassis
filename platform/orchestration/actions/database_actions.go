@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -26,6 +27,42 @@ func QueryDatabaseAction(ctx context.Context, params ActionParams) (interface{},
 		outputFormat = of
 	}
 
+	// Resolve query parameters from collected_data
+	var queryArgs []interface{}
+	if paramPaths, ok := config["params"].([]interface{}); ok {
+		for _, p := range paramPaths {
+			pathStr, ok := p.(string)
+			if !ok {
+				continue
+			}
+			value := datahelpers.ExtractNestedField(params.CollectedData, pathStr)
+			if value == nil {
+				// Try with input_data prefix
+				value = datahelpers.ExtractNestedField(params.CollectedData, "input_data."+pathStr)
+			}
+			if value == nil {
+				return nil, fmt.Errorf("query param path '%s' resolved to nil", pathStr)
+			}
+			// Convert to string for SQL parameters
+			switch v := value.(type) {
+			case string:
+				queryArgs = append(queryArgs, v)
+			default:
+				queryArgs = append(queryArgs, fmt.Sprintf("%v", v))
+			}
+		}
+		params.Logger.Info("QueryDatabaseAction: Resolved params",
+			zap.Int("count", len(queryArgs)),
+			zap.Strings("paths", func() []string {
+				s := make([]string, len(paramPaths))
+				for i, p := range paramPaths {
+					s[i] = fmt.Sprintf("%v", p)
+				}
+				return s
+			}()),
+		)
+	}
+
 	if params.DB == nil {
 		params.Logger.Warn("QueryDatabaseAction: No database connection")
 		return map[string]interface{}{
@@ -33,7 +70,7 @@ func QueryDatabaseAction(ctx context.Context, params ActionParams) (interface{},
 		}, nil
 	}
 
-	rows, err := params.DB.QueryContext(ctx, query)
+	rows, err := params.DB.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}

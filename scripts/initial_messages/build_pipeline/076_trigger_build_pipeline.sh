@@ -5,6 +5,12 @@ INSERT INTO build_queue (domain, priority) VALUES ('example.com', 10);
 gaswholesalers.com
 INSERT INTO build_queue (domain, priority) VALUES ('gaswholesalers.com', 10);
 
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
+
+SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+DOMAIN="gaswholesalers.com"
+
 #!/bin/bash
 # =============================================================================
 # Build Pipeline Trigger (manual heartbeat)
@@ -29,6 +35,7 @@ INSERT INTO build_queue (domain, priority) VALUES ('gaswholesalers.com', 10);
 # Usage:
 #   ./054_trigger_build_pipeline.sh
 # =============================================================================
+
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -93,6 +100,60 @@ echo "  SELECT domain, status, priority, created_at FROM build_queue ORDER BY cr
 echo ""
 echo "Check work items:"
 echo "  SELECT wi.item_type, wi.status, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.domain = 'build' ORDER BY wi.created_at DESC LIMIT 30;"
+
+echo "  -- 1. Current work item status for both sites "
+echo "  SELECT s.domain, wi.item_type, wi.status, wi.handler_agent, "
+echo "         LEFT(wi.error, 60) as error "
+echo "  FROM site_work_items wi "
+echo "  JOIN sites s ON s.id = wi.site_id "
+echo "  WHERE s.domain IN ('finetuning.uk', 'gaswholesalers.com') "
+echo "    AND wi.status NOT IN ('complete', 'wont_fix') "
+echo "  ORDER BY s.domain, wi.priority; "
+echo "   "
+echo "  -- 2. Any blocked items? "
+echo "  SELECT s.domain, wi.item_type, wi.handler_agent, wi.error "
+echo "  FROM site_work_items wi "
+echo "  JOIN sites s ON s.id = wi.site_id "
+echo "  WHERE wi.status = 'blocked'; "
+echo "   "
+echo "  -- 3. Scheduled tasks running? "
+echo "  SELECT name, enabled, last_triggered_at, "
+echo "         EXTRACT(EPOCH FROM (NOW() - last_triggered_at))::int as seconds_ago "
+echo "  FROM scheduled_tasks "
+echo "  WHERE name IN ('claimed-item-timeout', 'feasibility-recheck', 'build-pipeline-trigger'); "
+echo "   "
+echo "  -- 4. Recent orchestrations (last 30 min) "
+echo "  SELECT owner_agent_type, status, current_step, "
+echo "         EXTRACT(EPOCH FROM (NOW() - last_activity))::int as idle_seconds "
+echo "  FROM orchestration_states "
+echo "  WHERE created_at > NOW() - INTERVAL '30 minutes' "
+echo "  ORDER BY created_at DESC LIMIT 10; "
+echo "   "
+echo "  -- 5. Running pods "
+echo "  -- kubectl -n ai-persona-system get pods | grep -v Completed "
+echo "   "
+echo "   "
+echo "   SITE_ID='1368e337-dd1d-4799-bbb3-8221a1b79bcc'  "
+echo "   DOMAIN='finetuning.uk'  "
+echo "    "
+echo "   SITE_ID='5fe15466-4e2e-4ff2-981e-98c1b7074002'  "
+echo "   DOMAIN='gaswholesalers.com'  "
+echo "   "
+echo "  -- 6. Blog page progress (finetuning.uk) "
+echo "  SELECT pc.slot_name, pc.build_status, LENGTH(pc.rendered_html) as html_len "
+echo "  FROM page_components pc "
+echo "  JOIN pages p ON pc.page_id = p.id "
+echo "  WHERE p.site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc' "
+echo "    AND p.name = 'blog' "
+echo "  ORDER BY pc.position; "
+echo "   "
+echo "  -- 7. Audit findings created (if audit has run) "
+echo "  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80) "
+echo "  FROM site_work_items "
+echo "  WHERE source = 'discovery' "
+echo "    AND created_at > NOW() - INTERVAL '1 hour' "
+echo "  ORDER BY created_at DESC LIMIT 20; "
+echo " "
 echo ""
 
 
@@ -110,6 +171,7 @@ kubectl -n ai-persona-system logs --tail=300 -l agent-type=completeness-discover
 kubectl -n ai-persona-system logs --tail=500 -l app=git-adapter -f | tee logs-git-adapter.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=color-variable-fixer -f | tee logs-color-variable-fixer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=visual-design-auditor -f | tee logs-visual-design-auditor.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=content-quality-auditor -f | tee logs-content-quality-auditor.json
 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
@@ -349,3 +411,6 @@ ORDER BY s.domain, wi.priority;
 Two stuck claimed items — needs_rerender for gaswholesalers and add_tool for finetuning. These are from a previous dispatch run that's either still running or timed out. Release them:
 sqlUPDATE site_work_items SET status = 'triaged', claimed_at = NULL, claimed_by = NULL
 WHERE status = 'claimed' AND claimed_at < NOW() - INTERVAL '10 minutes';
+
+
+
