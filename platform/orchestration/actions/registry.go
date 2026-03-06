@@ -577,6 +577,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Apply targeted fixes to component HTML/CSS",
 		IsLocal:     true,
 	},
+	"write_audit_findings": {
+		Handler:     WriteAuditFindingsAction,
+		Category:    "site",
+		Description: "Convert LLM audit findings into site_work_items",
+		IsLocal:     true,
+	},
 	"render_css_from_spec": {
 		Handler:     RenderCSSFromSpecAction,
 		Category:    "site",
