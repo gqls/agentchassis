@@ -122,6 +122,50 @@ func ClaimWorkItemAction(ctx context.Context, params ActionParams) (interface{},
 		zap.String("claimed_by", claimedBy),
 	)
 
+	// Handler existence check: verify the handler_agent is registered
+	// in agent_definitions before returning. If not, release the claim
+	// and mark as 'blocked' — the feasibility-recheck scheduled task
+	// will promote it back to 'triaged' when the handler is deployed.
+	var handlerAgent sql.NullString
+	params.DB.QueryRowContext(ctx, `
+		SELECT handler_agent FROM site_work_items WHERE id = $1
+	`, itemID).Scan(&handlerAgent)
+
+	if handlerAgent.Valid && handlerAgent.String != "" {
+		var handlerExists bool
+		params.DB.QueryRowContext(ctx, `
+			SELECT EXISTS(
+				SELECT 1 FROM agent_definitions
+				WHERE type = $1 AND deleted_at IS NULL
+			)
+		`, handlerAgent.String).Scan(&handlerExists)
+
+		if !handlerExists {
+			// Release claim, mark as blocked
+			params.DB.ExecContext(ctx, `
+				UPDATE site_work_items
+				SET status = 'blocked',
+				    claimed_at = NULL,
+				    claimed_by = NULL,
+				    error = 'Handler agent not registered: ' || $2,
+				    updated_at = NOW()
+				WHERE id = $1
+			`, itemID, handlerAgent.String)
+
+			logger.Info("ClaimWorkItemAction: handler not registered, item blocked",
+				zap.String("item_id", claimedItemID),
+				zap.String("handler_agent", handlerAgent.String))
+
+			return map[string]interface{}{
+				"claimed":       false,
+				"work_item_id":  claimedItemID,
+				"blocked":       true,
+				"handler_agent": handlerAgent.String,
+				"reason":        "handler_not_registered",
+			}, nil
+		}
+	}
+
 	return map[string]interface{}{
 		"claimed":      true,
 		"work_item_id": claimedItemID,
