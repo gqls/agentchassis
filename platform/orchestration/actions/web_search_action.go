@@ -459,13 +459,6 @@ func buildQueryFromSectionContext(params ActionParams, logger *zap.Logger) strin
 	return query
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // defaultIfEmpty returns the fallback value if the primary is empty
 func defaultIfEmpty(primary, fallback string) string {
 	if primary != "" {
