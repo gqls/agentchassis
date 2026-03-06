@@ -96,17 +96,19 @@ echo "  SELECT wi.item_type, wi.status, s.domain FROM site_work_items wi JOIN si
 echo ""
 
 
-
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=asset-deployer -f | tee logs-asset-deployer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=domain-research-classifier -f | tee logs-domain-research-classifier.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=build-briefing-agent -f | tee logs-build-briefing-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=build-site-planner -f | tee logs-build-site-planner.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-content-writer -f | tee logs-page-content-writer.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=research-agent -f | tee logs-research-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=improvement-loop -f | tee logs-improvement-loop.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=quality-discovery-agent -f | tee logs-quality-discovery-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=design-discovery-agent -f | tee logs-design-discovery-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=completeness-discovery-agent -f | tee logs-completeness-discovery-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l app=git-adapter -f | tee logs-git-adapter.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=color-variable-fixer -f | tee logs-color-variable-fixer.json
 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
@@ -280,6 +282,12 @@ SELECT wi.item_type, wi.status, s.domain, wi.completed_at
 FROM site_work_items wi
 JOIN sites s ON s.id = wi.site_id
 WHERE wi.status IN ('claimed', 'triaged') AND wi.domain = 'build'
+ORDER BY s.domain, wi.status, wi.priority;
+
+SELECT wi.item_type, wi.status, s.domain, wi.completed_at, wi.domain
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status IN ('claimed', 'triaged')
 ORDER BY s.domain, wi.status, wi.priority;
 
 ---

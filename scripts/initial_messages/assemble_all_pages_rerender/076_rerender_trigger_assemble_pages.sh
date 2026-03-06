@@ -4,8 +4,8 @@ DOMAIN="finetuning.uk"
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
 DOMAIN="gaswholesalers.com"
 
-SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
-DOMAIN="finetuning.uk"
+#SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+#DOMAIN="finetuning.uk"
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)

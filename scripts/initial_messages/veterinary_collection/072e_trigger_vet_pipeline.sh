@@ -363,7 +363,7 @@ WHERE status = 'in_progress';
 --
 
 Step 1: Find expired awaited requests
-sqlSELECT ar.request_id, ar.orchestration_id, ar.correlation_id,
+SELECT ar.request_id, ar.orchestration_id, ar.correlation_id,
        ar.step_id, ar.step_name, ar.retry_version,
        ar.responses_topic, ar.requests_topic,
        ar.timeout_at, ar.target_agent_type
@@ -377,7 +377,7 @@ The 30-second grace period avoids racing with in-process goroutines that
 might still be about to fire. LIMIT 20 prevents one sweep from taking too
 long.
 Step 2: For each expired request, classify the situation
-sql-- Check if the child orchestration completed
+-- Check if the child orchestration completed
 SELECT os.orchestration_id, os.status, os.final_result
 FROM orchestration_states os
 WHERE os.orchestration_id = (
@@ -404,3 +404,35 @@ SET status = 'pending', started_at = NULL, orchestration_id = NULL
 WHERE status = 'in_progress';
 
 -- 3. Re-run pipeline
+
+
+--
+
+
+-- What's the discoverer doing?
+SELECT orchestration_id, status, current_step, error, updated_at
+FROM orchestration_states
+WHERE parent_orchestration_id = '176bdb75-93ea-4483-b311-15cc3b0165d7'
+  AND status NOT IN ('COMPLETED', 'FAILED')
+ORDER BY updated_at DESC
+LIMIT 3;
+
+-- Check the awaited request for the stuck discoverer call
+SELECT request_id, step_name, status, retry_version, timeout_at
+FROM awaited_requests
+WHERE orchestration_id = '176bdb75-93ea-4483-b311-15cc3b0165d7'
+  AND status = 'waiting';
+
+-- Is a batch processor still running?
+SELECT orchestration_id, status, current_step, updated_at
+FROM orchestration_states
+WHERE owner_agent_type = 'vet-batch-processor'
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- Any active verifiers?
+SELECT status, COUNT(*)
+FROM orchestration_states
+WHERE owner_agent_type = 'vet-practice-verifier'
+  AND created_at > NOW() - INTERVAL '6 hours'
+GROUP BY status;
