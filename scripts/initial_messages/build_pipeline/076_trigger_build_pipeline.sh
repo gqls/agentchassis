@@ -282,3 +282,61 @@ JOIN sites s ON s.id = wi.site_id
 WHERE wi.status IN ('claimed', 'triaged') AND wi.domain = 'build'
 ORDER BY s.domain, wi.status, wi.priority;
 
+---
+check for everything pending:
+-- 1. Finetuning email - should be finetuning@contactforsales.com
+SELECT email FROM sites WHERE id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc';
+
+-- 2. Gaswholesalers style collection - should be professional-dark
+SELECT style_collection_id FROM sites WHERE id = '5fe15466-4e2e-4ff2-981e-98c1b7074002';
+
+-- 3. Both sites hero components - should reference hero.jpg
+SELECT s.domain, COUNT(*) as hero_with_image
+FROM page_components pc
+JOIN pages p ON pc.page_id = p.id
+JOIN sites s ON s.id = p.site_id
+WHERE p.site_id IN ('1368e337-dd1d-4799-bbb3-8221a1b79bcc', '5fe15466-4e2e-4ff2-981e-98c1b7074002')
+  AND pc.rendered_html LIKE '%/assets/images/hero.jpg%'
+GROUP BY s.domain;
+
+-- 4. Site components linked?
+SELECT s.domain, sc.slot_name, sc.component_id IS NOT NULL as linked, cc.name
+FROM site_components sc
+LEFT JOIN content_components cc ON sc.component_id = cc.id
+JOIN sites s ON s.id = sc.site_id
+WHERE sc.site_id IN ('1368e337-dd1d-4799-bbb3-8221a1b79bcc', '5fe15466-4e2e-4ff2-981e-98c1b7074002')
+ORDER BY s.domain, sc.slot_name;
+
+-- 5. Blog work item status
+SELECT item_type, status, error FROM site_work_items
+WHERE site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+  AND item_type = 'needs_content_page'
+ORDER BY created_at DESC LIMIT 1;
+
+-- 6. Agent definitions created?
+SELECT type, status FROM agent_definitions
+WHERE type IN ('site-component-linker', 'component-template-fixer', 'page-build-handler')
+  AND deleted_at IS NULL;
+
+-- 7. Gaswholesalers email/phone
+SELECT email, phone FROM sites WHERE id = '5fe15466-4e2e-4ff2-981e-98c1b7074002';
+
+-- 8. Any stuck claimed items?
+SELECT s.domain, wi.item_type, wi.status
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status = 'claimed'
+  AND wi.claimed_at < NOW() - INTERVAL '10 minutes';
+
+-- 9. Pending triaged items for both sites
+SELECT s.domain, wi.item_type, wi.status, wi.handler_agent
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status = 'triaged'
+  AND s.domain IN ('finetuning.uk', 'gaswholesalers.com')
+ORDER BY s.domain, wi.priority;
+
+
+Two stuck claimed items — needs_rerender for gaswholesalers and add_tool for finetuning. These are from a previous dispatch run that's either still running or timed out. Release them:
+sqlUPDATE site_work_items SET status = 'triaged', claimed_at = NULL, claimed_by = NULL
+WHERE status = 'claimed' AND claimed_at < NOW() - INTERVAL '10 minutes';

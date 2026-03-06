@@ -45,3 +45,24 @@ DOMAIN="finetuning.uk"
 --
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
 DOMAIN="gaswholesalers.com"
+
+
+
+-- 1. Fix gaswholesalers.com email to match contact page
+UPDATE sites SET email = 'info@gaswholesalers.com', phone = '+44 (0) 7934 524 911'
+WHERE id = '5fe15466-4e2e-4ff2-981e-98c1b7074002';
+
+-- 2. Fix gaswholesalers hero images (same pattern as finetuning)
+UPDATE page_components pc
+SET rendered_html = REPLACE(
+    rendered_html,
+    'background: linear-gradient(135deg, var(--primary-color, #1a1a2e) 0%, var(--secondary-color, #16213e) 50%, var(--accent-color, #0f3460) 100%);',
+    'background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url(''/assets/images/hero.jpg''); background-size: cover; background-position: center;'
+),
+updated_at = NOW()
+FROM pages p
+WHERE pc.page_id = p.id
+  AND p.site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND pc.rendered_html LIKE '%data-component="hero%"'
+  AND pc.rendered_html LIKE '%linear-gradient(135deg, var(--primary-color%';
+
