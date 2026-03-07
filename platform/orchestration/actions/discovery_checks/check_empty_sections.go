@@ -1,3 +1,17 @@
+// FILE: platform/orchestration/actions/discovery_checks/check_empty_sections.go
+//
+// Detects page sections with empty or near-empty rendered HTML.
+// Creates empty_section work items routed to page-build-handler.
+//
+// CHANGES from previous version:
+//   - HandlerAgent: "page-build-handler" (was "page-content-writer")
+//     page-content-writer is a specialist that doesn't persist.
+//     page-build-handler wraps it and handles persistence.
+//   - SQL excludes blog/blog-index pages — those are handled by
+//     check_empty_blog.go → blog-content-planner instead.
+//
+// Registration: automatic via init() → Register(&EmptySectionsCheck{})
+
 package discovery_checks
 
 import (
@@ -57,7 +71,7 @@ func (c *EmptySectionsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, erro
 			SpecJSON:     string(specJSON),
 			PageID:       pageIDPtr,
 			Priority:     100,
-			HandlerAgent: "page-content-writer",
+			HandlerAgent: "page-build-handler",
 			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("empty_section:%s:%s", section.PageID, section.SlotName),
@@ -98,6 +112,8 @@ func findEmptySections(dctx DiscoveryCheckContext) ([]emptySectionFinding, error
 		  AND pc.build_status = 'deployed'
 		  AND COALESCE(pc.slot_name, '') NOT IN ('header', 'footer', 'head')
 		  AND COALESCE(cc.function, '') NOT IN ('header', 'footer', 'head-seo')
+		  AND p.name NOT IN ('blog')
+		  AND COALESCE(p.page_type, '') NOT IN ('blog-index')
 		  AND (
 		      pc.rendered_html IS NULL
 		      OR TRIM(pc.rendered_html) = ''
