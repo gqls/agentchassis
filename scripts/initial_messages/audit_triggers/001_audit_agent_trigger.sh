@@ -42,7 +42,7 @@ DOMAIN="${3:?Usage: $0 <agent_type> <site_id> <domain>}"
 # component-template-fixer
 # page-build-handler
 
-
+# main ones
 AGENT_TYPE="design-audit-agent"
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
 DOMAIN="gaswholesalers.com"
@@ -58,6 +58,8 @@ DOMAIN="gaswholesalers.com"
 AGENT_TYPE="site-review-agent"
 SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
 DOMAIN="finetuning.uk"
+
+---
 
 AGENT_TYPE="visual-design-auditor"
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
@@ -83,21 +85,46 @@ AGENT_TYPE="site-component-linker"
 SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
 DOMAIN="finetuning.uk"
 
+=====
+-- working copies
 
+AGENT_TYPE="design-audit-agent"
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
 
-AGENT_TYPE="content-quality-auditor"
-SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
-DOMAIN="gaswholesalers.com"
-#
 #AGENT_TYPE="design-audit-agent"
 #SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
 #DOMAIN="gaswholesalers.com"
-#
+
 #AGENT_TYPE="site-review-agent"
 #SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
 #DOMAIN="gaswholesalers.com"
 
 #AGENT_TYPE="site-review-agent"
+#SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+#DOMAIN="finetuning.uk"
+
+#AGENT_TYPE="visual-design-auditor"
+#SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+#DOMAIN="gaswholesalers.com"
+
+#AGENT_TYPE="visual-design-auditor"
+#SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+#DOMAIN="finetuning.uk"
+
+#AGENT_TYPE="content-quality-auditor"
+#SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+#DOMAIN="gaswholesalers.com"
+
+#AGENT_TYPE="content-quality-auditor"
+#SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+#DOMAIN="finetuning.uk"
+
+#AGENT_TYPE="site-component-linker"
+#SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+#DOMAIN="gaswholesalers.com"
+
+#AGENT_TYPE="site-component-linker"
 #SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
 #DOMAIN="finetuning.uk"
 
@@ -146,6 +173,7 @@ echo "  ORDER BY priority;"
 
 
 
+-----------------
 
 {
   "action": "orchestrate",
