@@ -41,6 +41,7 @@ DOMAIN="${3:?Usage: $0 <agent_type> <site_id> <domain>}"
 # site-component-linker
 # component-template-fixer
 # page-build-handler
+# blog-content-planner
 
 # main ones
 AGENT_TYPE="design-audit-agent"
