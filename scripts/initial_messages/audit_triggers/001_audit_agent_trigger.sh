@@ -51,9 +51,55 @@ AGENT_TYPE="design-audit-agent"
 SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
 DOMAIN="finetuning.uk"
 
+AGENT_TYPE="site-review-agent"
+SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+DOMAIN="gaswholesalers.com"
+
+AGENT_TYPE="site-review-agent"
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
+
+AGENT_TYPE="visual-design-auditor"
+SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+DOMAIN="gaswholesalers.com"
+
+AGENT_TYPE="visual-design-auditor"
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
+
+AGENT_TYPE="content-quality-auditor"
+SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+DOMAIN="gaswholesalers.com"
+
+AGENT_TYPE="content-quality-auditor"
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
+
+AGENT_TYPE="site-component-linker"
+SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+DOMAIN="gaswholesalers.com"
+
+AGENT_TYPE="site-component-linker"
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
+
+
+
+AGENT_TYPE="content-quality-auditor"
+SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+DOMAIN="gaswholesalers.com"
+#
 #AGENT_TYPE="design-audit-agent"
 #SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
 #DOMAIN="gaswholesalers.com"
+#
+#AGENT_TYPE="site-review-agent"
+#SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+#DOMAIN="gaswholesalers.com"
+
+#AGENT_TYPE="site-review-agent"
+#SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+#DOMAIN="finetuning.uk"
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -141,3 +187,34 @@ WHERE site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
   AND status = 'detected'
   AND domain = 'build';
 
+-- Work items created by the audit
+SELECT item_type, severity, handler_agent, status, LEFT(summary, 80) as summary
+FROM site_work_items
+WHERE site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+  AND source = 'discovery'
+  AND created_at > NOW() - INTERVAL '10 minutes'
+ORDER BY priority;
+
+-- Orchestration status
+SELECT owner_agent_type, status, current_step, LEFT(error, 100) as error
+FROM orchestration_states
+WHERE created_at > NOW() - INTERVAL '10 minutes'
+  AND owner_agent_type IN ('content-quality-auditor', 'visual-design-auditor', 'design-audit-agent', 'site-review-agent', 'generic')
+ORDER BY created_at DESC LIMIT 5;
+
+---
+
+get them fixed
+
+-- Review what was found before triaging
+SELECT item_type, severity, LEFT(summary, 120) as summary
+FROM site_work_items
+WHERE site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+  AND status = 'detected'
+ORDER BY priority;
+
+-- When ready, promote to triaged
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = NOW()
+WHERE site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+  AND status = 'detected';

@@ -200,15 +200,6 @@ This means audit findings route to the same handlers used by the build pipeline 
 
 ---
 
-## The Dream Spec Pattern
-
-The classifier produces two outputs:
-
-1. **`build_spec`** — what we can build now given current agent capabilities
-2. **`dream_spec`** — what the ideal site in this vertical would look like
-
-The gap between dream and reality is the improvement backlog.
-
 ### Storage
 
 ```json
@@ -247,13 +238,7 @@ The `feasibility` field prevents creating work items for things we can't build y
 
 ### Updating the Dream Spec
 
-The dream spec is set at classification time and updated when:
-- The site type changes (human decision, triggers reclassification)
-- New agent capabilities become available (periodic feasibility re-check)
-- Human provides new brief/direction (triggers strategic re-assessment)
-
-The `site-review-agent` reads the dream spec but doesn't modify it. Only the classifier (or a human override) changes what the dream is. The review agent only identifies gaps and creates work items for achievable improvements.
-
+see the classifier architecture doc for this - currently: 015_consolidated_site_spec_classifier_architecture.md
 ---
 
 ## Audit vs Fix: Same Checks, Different Modes

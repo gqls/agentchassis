@@ -114,7 +114,7 @@ ORCHESTRATION_NAME="vet-batch-$(date +%Y%m%d-%H%M%S)"
 CLIENT_ID="vetcomparison"
 
 # Batch config - adjust as needed
-BATCH_SIZE=5
+BATCH_SIZE=50
 TASK_TYPE="initial_verification"
 VERTICAL_SLUG="veterinary"
 

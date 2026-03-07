@@ -14,7 +14,11 @@ import (
 // ModelAliases maps user-friendly aliases to actual API model names
 // Update these when Anthropic releases new model versions
 var ModelAliases = map[string]string{
-	// Claude 4.5 family (latest)
+	// Claude 4.6 family
+	"claude-sonnet-4-6": "claude-sonnet-4-6",
+	"claude-opus-4-6":   "claude-opus-4-6",
+
+	// Claude 4.5 family
 	"claude-sonnet-4-5": "claude-sonnet-4-5-20250929",
 	"claude-haiku-4-5":  "claude-haiku-4-5-20251001",
 	"claude-opus-4-5":   "claude-opus-4-5-20251101",

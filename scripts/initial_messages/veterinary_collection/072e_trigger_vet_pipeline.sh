@@ -204,6 +204,14 @@ SELECT
     (SELECT COUNT(*) FROM business_intel.businesses b JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id WHERE bv.slug = 'veterinary' AND b.verification_status = 'verified') as verified,
     (SELECT COUNT(*) FROM business_intel.business_prices WHERE is_current = TRUE) as current_prices;
 
+SELECT
+    (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'completed') as tasks_done,
+    (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'in_progress') as tasks_active,
+    (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'pending') as tasks_pending,
+    (SELECT COUNT(*) FROM business_intel.businesses b
+     JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+     WHERE bv.slug = 'veterinary' AND b.verification_status = 'verified') as verified;
+
 
 -- View recently verified businesses with their details
 SELECT

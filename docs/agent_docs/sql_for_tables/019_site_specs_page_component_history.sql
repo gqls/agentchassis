@@ -216,3 +216,106 @@ COMMIT;
 
 -- SELECT column_name FROM information_schema.columns WHERE table_name = 'page_components' AND column_name IN ('content_snapshot', 'schema_snapshot');
 -- Expected: 0 rows
+
+--
+
+----
+
+-- ============================================================================
+-- Backfill site_specs for finetuning.uk from content_data
+-- ============================================================================
+
+-- Identity aspect
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+SELECT s.id, 'identity', jsonb_build_object(
+        'company_name', COALESCE(s.company_name, 'FineTuning'),
+        'tagline', COALESCE(s.tagline, 'AI for the Rest of Us'),
+        'email', COALESCE(s.email, ''),
+        'phone', COALESCE(s.phone, ''),
+        'tone', COALESCE(s.content_data->'response'->>'tone', 'conversational, direct, anti-corporate'),
+        'target_audience', COALESCE(s.content_data->'response'->>'target_audience', 'UK SMEs looking for practical AI solutions'),
+        'industry', 'AI consulting / technology services'
+                         ), 'backfill', 'migration'
+FROM sites s
+WHERE s.id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+  AND NOT EXISTS (
+    SELECT 1 FROM site_specs ss WHERE ss.site_id = s.id AND ss.aspect = 'identity' AND ss.is_current = true
+);
+
+-- Design intent aspect
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+SELECT s.id, 'design_intent', jsonb_build_object(
+        'style_direction', 'professional-dark',
+        'colour_mood', 'dark navy with blue accents — tech, trust, sophistication',
+        'typography_mood', 'serif headings (Merriweather) with clean body — authoritative but approachable',
+        'layout_preference', 'spacious sections, clear hierarchy, prominent CTAs'
+                              ), 'backfill', 'migration'
+FROM sites s
+WHERE s.id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+  AND NOT EXISTS (
+    SELECT 1 FROM site_specs ss WHERE ss.site_id = s.id AND ss.aspect = 'design_intent' AND ss.is_current = true
+);
+
+-- Content direction aspect
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+VALUES (
+           '1368e337-dd1d-4799-bbb3-8221a1b79bcc', 'content_direction',
+           '{"voice": "Experienced practitioners who cut through AI hype — no buzzwords, no nonsense", "emphasis": "practical results, honest advice, UK SME focus", "avoid_phrases": ["synergy", "cutting-edge", "world-class", "leverage", "disrupt"], "social_proof_style": "company commitments and philosophy, not fabricated testimonials"}'::jsonb,
+           'backfill', 'migration'
+       );
+
+-- ============================================================================
+-- Backfill site_specs for gaswholesalers.com
+-- ============================================================================
+
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+SELECT s.id, 'identity', jsonb_build_object(
+        'company_name', COALESCE(s.company_name, 'Gas Wholesalers'),
+        'tagline', COALESCE(s.tagline, 'Wholesale Gas Supply Solutions'),
+        'email', COALESCE(s.email, ''),
+        'phone', COALESCE(s.phone, ''),
+        'tone', 'professional, direct, trustworthy',
+        'target_audience', 'commercial fuel buyers, fleet managers, facility managers, energy procurement managers',
+        'industry', 'energy / wholesale fuel distribution'
+                         ), 'backfill', 'migration'
+FROM sites s
+WHERE s.id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND NOT EXISTS (
+    SELECT 1 FROM site_specs ss WHERE ss.site_id = s.id AND ss.aspect = 'identity' AND ss.is_current = true
+);
+
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+SELECT s.id, 'design_intent', jsonb_build_object(
+        'style_direction', 'professional-dark',
+        'colour_mood', 'dark blue and orange — energy, petroleum, industrial strength',
+        'typography_mood', 'clean sans-serif — modern corporate, not stuffy',
+        'imagery_direction', 'industrial facilities, fuel infrastructure, fleet vehicles',
+        'layout_preference', 'spacious sections, clear hierarchy, prominent CTAs'
+                              ), 'backfill', 'migration'
+FROM sites s
+WHERE s.id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND NOT EXISTS (
+    SELECT 1 FROM site_specs ss WHERE ss.site_id = s.id AND ss.aspect = 'design_intent' AND ss.is_current = true
+);
+
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+VALUES (
+           '5fe15466-4e2e-4ff2-981e-98c1b7074002', 'content_direction',
+           '{"voice": "Experienced industry insiders, not salespeople", "emphasis": "reliability, transparency, no-nonsense service", "avoid_phrases": ["synergy", "cutting-edge", "world-class", "solutions provider"], "social_proof_style": "company commitments rather than fabricated testimonials"}'::jsonb,
+           'backfill', 'migration'
+       );
+
+-- Strategy aspect for gaswholesalers (from the content strategy framework)
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+VALUES (
+           '5fe15466-4e2e-4ff2-981e-98c1b7074002', 'strategy',
+           '{"visitor_type": "B2B buyers — facility managers, business owners, energy procurement managers", "primary_intent": "find and compare wholesale gas suppliers, understand pricing, negotiate better contracts", "satisfaction_condition": "identified 2-3 suppliers to contact, understand current market pricing, know what to look for in a contract", "monetisation": "lead generation — quote request forms to energy brokers, lead value £10-60 depending on qualification", "recurring_value": "updated pricing page with wholesale market rates, supplier directory", "trust_threshold": "high — commercial energy contracts are high-value B2B decisions"}'::jsonb,
+           'backfill', 'migration'
+       );
+
+-- Verify
+SELECT site_id, aspect, source, LEFT(data::text, 80) as preview
+FROM site_specs
+WHERE site_id IN ('1368e337-dd1d-4799-bbb3-8221a1b79bcc', '5fe15466-4e2e-4ff2-981e-98c1b7074002')
+  AND is_current = true
+ORDER BY site_id, aspect;

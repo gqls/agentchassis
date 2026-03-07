@@ -1,0 +1,54 @@
+clients_db=# SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)
+  FROM site_work_items
+  WHERE created_at > NOW() - INTERVAL '1 hour'
+  ORDER BY priority;
+        item_type         | severity |      handler_agent       | status  |                                       left
+--------------------------+----------+--------------------------+---------+----------------------------------------------------------------------------------
+ hardcoded_section_colors | high     | color-variable-fixer     | triaged | Hero section uses dark overlay (rgba(0,0,0,0.5)) but doesn't define --section-bg
+ hardcoded_section_colors | high     | color-variable-fixer     | triaged | Header uses dark background (--color-header-bg: #0f172a) but component doesn't s
+ content_rewrite          | high     | page-build-handler       | triaged | Missing critical metadata: Industry, Target audience, and Tone are not defined i
+ needs_content_page       | high     | page-build-handler       | triaged | Site metadata is completely missing - no industry, target audience, tone, or pur
+ content_rewrite          | high     | page-build-handler       | triaged | Hero messaging is generic and could apply to any gas wholesaler - no unique valu
+ hardcoded_section_colors | high     | color-variable-fixer     | triaged | Header uses dark background (--color-header-bg: #0f172a) but no --section-bg or
+ needs_design_review      | high     | webdesign-agent          | triaged | CSS theme defines --color-primary as #1e40af (blue) but colour palette specifies
+ needs_content_page       | high     | page-build-handler       | triaged | No pricing information or pricing philosophy is visible. For a company targeting
+ needs_content_page       | high     | page-build-handler       | triaged | No case studies, portfolio, or proof of work visible. Claims about 'implementati
+ needs_content_page       | high     | page-build-handler       | triaged | Critical metadata is missing: Industry, Target audience, and Tone are undefined
+ cta_improvement          | high     | component-template-fixer | triaged | No clear primary CTA on index page visible in sample. The differentiators sectio
+ needs_design_review      | high     | webdesign-agent          | triaged | CSS theme defines primary color as #1e40af but colour palette specifies primary
+ needs_content_page       | high     | page-build-handler       | triaged | Critical business information is missing from the site metadata: Industry, Targe
+ needs_content_page       | high     | page-build-handler       | triaged | No information about data privacy, security, GDPR compliance, or UK-specific reg
+ needs_design_review      | high     | webdesign-agent          | triaged | Hero section uses inline hardcoded gradient 'linear-gradient(rgba(0,0,0,0.5), rg
+ hardcoded_section_colors | high     | color-variable-fixer     | triaged | Hero section has dark overlay background but doesn't define --section-bg, --sect
+ hardcoded_section_colors | high     | color-variable-fixer     | triaged | Header uses class 'site-header--dark' with --color-header-bg: #0f172a but lacks
+ needs_content_page       | high     | component-template-fixer | triaged | Contact page has no visible CTAs, forms, or conversion mechanisms in the provide
+ needs_content_page       | high     | page-build-handler       | triaged | Services page mentions 'diverse needs' and 'multiple sectors' but no actual serv
+ content_rewrite          | high     | page-build-handler       | triaged | Hero sections use generic language like 'Trusted Partner' and 'Reliable' without
+ content_rewrite          | high     | component-template-fixer | triaged | Target audience is undefined in site metadata, and content doesn't speak to spec
+ needs_design_review      | high     | webdesign-agent          | triaged | CSS theme defines --color-primary as #1e40af (blue) but colour palette specifies
+ needs_content_page       | medium   | component-template-fixer | triaged | Without defined target audience, it's unclear if content addresses specific pain
+ hardcoded_section_colors | medium   | color-variable-fixer     | triaged | Hero section has dark overlay (rgba(0,0,0,0.5)) but no --section-* variables to
+ content_rewrite          | medium   | component-template-fixer | triaged | Content uses vague terms like 'businesses' and 'your business' without addressin
+ cta_improvement          | medium   | component-template-fixer | triaged | No urgency or incentive CTAs for new customers or emergency situations
+ responsive_fix           | medium   | component-template-fixer | triaged | Grid system uses auto-fit/auto-fill pattern but the CSS is truncated. Cannot ver
+ spacing_fix              | medium   | component-template-fixer | triaged | Grid system uses hardcoded 'gap: 2rem' which may not scale consistently across d
+ responsive_fix           | medium   | component-template-fixer | triaged | Grid system uses 'repeat(auto' which appears truncated in the CSS excerpt, sugge
+ needs_content_page       | medium   | page-build-handler       | triaged | No content addressing common objections or FAQ. SMEs new to AI likely have conce
+ needs_content_page       | medium   | page-build-handler       | triaged | No visible content for key B2B decision factors: pricing structure, minimum orde
+ needs_content_page       | medium   | page-build-handler       | triaged | No case studies, portfolio, or proof points visible. The site talks about practi
+ tone_shift               | medium   | page-build-handler       | triaged | Tone is undefined in metadata, but current content leans corporate-safe without
+ needs_content_page       | medium   | page-build-handler       | triaged | About page lacks company credentials, safety certifications, experience metrics,
+ needs_design_review      | medium   | webdesign-agent          | triaged | Hero section hero-subtitle color uses --color-hero-subtitle: #475569 which doesn
+ cta_improvement          | medium   | component-template-fixer | triaged | Only one weak CTA on homepage ('Our Services') - no clear conversion path for qu
+ needs_content_page       | medium   | page-build-handler       | triaged | No visible blog, resources, or thought leadership content to establish expertise
+ content_rewrite          | low      | page-build-handler       | triaged | No social proof elements visible (testimonials, client logos, reviews, industry
+ tone_shift               | low      | page-build-handler       | triaged | The tone is consistently conversational and anti-corporate, which aligns well wi
+ tone_shift               | low      | page-build-handler       | triaged | The tone is consistently conversational and anti-corporate, which works well for
+ content_rewrite          | low      | page-build-handler       | triaged | Safety and compliance mentioned generically without specific certifications, sta
+ cta_improvement          | low      | component-template-fixer | triaged | Contact page hero asks to 'talk about needs' but lacks urgency or specific next
+ tone_shift               | low      | page-build-handler       | triaged | Tone is appropriately professional but lacks the technical authority and safety
+ spacing_fix              | low      | component-template-fixer | triaged | Grid gap is hardcoded to 2rem. No CSS variable defined for consistent spacing ac
+ tone_shift               | low      | page-build-handler       | triaged | Tone is consistently conversational and anti-corporate, which is appropriate, bu
+ needs_content_page       | low      | page-build-handler       | triaged | No blog, resources, or thought leadership content visible. Missing opportunity t
+(46 rows)
+

@@ -223,10 +223,31 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("count", len(findings)),
 		zap.String("source", auditSource))
 
+	// Load existing blocked items for this site to skip findings that match
+	blockedKeys := make(map[string]bool)
+	blockedRows, err := params.DB.QueryContext(ctx, `
+		SELECT item_key FROM site_work_items
+		WHERE site_id = $1 AND status = 'blocked' AND item_key IS NOT NULL
+	`, siteID)
+	if err == nil {
+		for blockedRows.Next() {
+			var key string
+			if blockedRows.Scan(&key) == nil {
+				blockedKeys[key] = true
+			}
+		}
+		blockedRows.Close()
+	}
+	if len(blockedKeys) > 0 {
+		logger.Info("WriteAuditFindingsAction: Loaded blocked items for filtering",
+			zap.Int("blocked_count", len(blockedKeys)))
+	}
+
 	// Insert work items
 	batchID := uuid.New()
 	created := 0
 	skipped := 0
+	skippedBlocked := 0
 
 	for _, f := range findings {
 		// Determine handler agent
@@ -278,13 +299,38 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 			priority = 60
 		}
 
-		// Insert with dedup
+		// Skip findings that match existing blocked items
+		if blockedKeys[dedupKey] {
+			skippedBlocked++
+			continue
+		}
+
+		// Also check if a blocked item exists with a broader key pattern
+		// (e.g. blocked by handler_agent, not by specific audit source)
+		var isBlocked bool
+		params.DB.QueryRowContext(ctx, `
+			SELECT EXISTS(
+				SELECT 1 FROM site_work_items
+				WHERE site_id = $1 AND status = 'blocked'
+				  AND item_type = $2
+				  AND (page_id IS NULL OR page_id = (
+				      SELECT id FROM pages WHERE site_id = $1 AND name = $3 LIMIT 1
+				  ))
+			)
+		`, siteID, itemType, f.Page).Scan(&isBlocked)
+
+		if isBlocked {
+			skippedBlocked++
+			continue
+		}
+
+		// Insert with dedup — skip if pending item already exists
 		var exists bool
 		params.DB.QueryRowContext(ctx, `
 			SELECT EXISTS(
 				SELECT 1 FROM site_work_items
 				WHERE site_id = $1 AND item_key = $2
-				  AND status IN ('detected', 'triaged', 'claimed')
+				  AND status IN ('detected', 'triaged', 'claimed', 'blocked')
 			)
 		`, siteID, dedupKey).Scan(&exists)
 
@@ -314,14 +360,16 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 	logger.Info("WriteAuditFindingsAction: Complete",
 		zap.Int("created", created),
 		zap.Int("skipped_duplicates", skipped),
+		zap.Int("skipped_blocked", skippedBlocked),
 		zap.Int("total_findings", len(findings)))
 
 	return map[string]interface{}{
-		"items_created":  created,
-		"items_skipped":  skipped,
-		"total_findings": len(findings),
-		"batch_id":       batchID.String(),
-		"audit_source":   auditSource,
+		"items_created":         created,
+		"items_skipped":         skipped,
+		"items_skipped_blocked": skippedBlocked,
+		"total_findings":        len(findings),
+		"batch_id":              batchID.String(),
+		"audit_source":          auditSource,
 	}, nil
 }
 
