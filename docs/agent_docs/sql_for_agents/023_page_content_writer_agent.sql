@@ -790,3 +790,51 @@ SELECT length(
 FROM agent_definitions
 WHERE type = 'page-content-writer';
 
+--
+
+give access to site_specs to get tone of voice fetch
+     -- Add read_site_spec step to page-content-writer
+-- Insert between spawn_research_agent and prepare_link_context
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_research_agent,next_step}',
+        '"load_site_specs"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-content-writer' AND deleted_at IS NULL;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_site_specs}',
+        '{
+            "action": "read_site_spec",
+            "config": {
+                "site_id": "input_data.site_record.site_id"
+            },
+            "next_step": "prepare_link_context",
+            "description": "Load all site specs for content direction and identity context",
+            "output_field": "site_specs"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-content-writer' AND deleted_at IS NULL;
+```
+
+Then the LLM prompt template needs to reference the specs. The `generate_content` step's prompt already has `input_fields: ["current_section", "render_context", "reviewed_brief", ...]`. Add `"site_specs"` to that list, and add to the prompt:
+```
+{{if .site_specs.specs.content_direction}}
+## Content Direction (from site spec — follow this closely)
+Voice: {{.site_specs.specs.content_direction.voice}}
+Emphasis: {{.site_specs.specs.content_direction.emphasis}}
+Avoid phrases: {{.site_specs.specs.content_direction.avoid_phrases}}
+Social proof style: {{.site_specs.specs.content_direction.social_proof_style}}
+{{end}}
+
+{{if .site_specs.specs.identity.target_audience}}
+## Target Audience
+{{.site_specs.specs.identity.target_audience}}
+{{end}}
+
