@@ -42,8 +42,8 @@ func NewAnthropicClient(ctx context.Context, config map[string]interface{}) (*An
 	}
 
 	// Safely extract model with default fallback
-	//model := "claude-sonnet-4-5-20250514" // sensible default
-	model := "claude-haiku-4-5-20251001"
+	model := "claude-sonnet-4-6" // sensible default
+	// model := "claude-haiku-4-5-20251001"
 	if modelRaw, exists := config["model"]; exists && modelRaw != nil {
 		if modelStr, ok := modelRaw.(string); ok && modelStr != "" {
 			model = modelStr
@@ -67,9 +67,8 @@ func NewAnthropicClient(ctx context.Context, config map[string]interface{}) (*An
 func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, options map[string]interface{}) (string, error) {
 	// Build request
 	requestBody := map[string]interface{}{
-		"model":       c.model,
-		"max_tokens":  2048,
-		"temperature": 0.7,
+		"model":      c.model,
+		"max_tokens": 2048,
 		"messages": []map[string]string{
 			{
 				"role":    "user",
@@ -78,13 +77,46 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 		},
 	}
 
+	// Check if extended thinking is requested
+	var thinkingEnabled bool
+	if options != nil {
+		if budgetTokens, ok := options["budget_tokens"]; ok {
+			switch bt := budgetTokens.(type) {
+			case float64:
+				if bt > 0 {
+					requestBody["thinking"] = map[string]interface{}{
+						"type":          "enabled",
+						"budget_tokens": int(bt),
+					}
+					thinkingEnabled = true
+				}
+			case int:
+				if bt > 0 {
+					requestBody["thinking"] = map[string]interface{}{
+						"type":          "enabled",
+						"budget_tokens": bt,
+					}
+					thinkingEnabled = true
+				}
+			}
+		}
+	}
+
+	// Temperature is not compatible with extended thinking
+	// Only set it when thinking is disabled
+	if !thinkingEnabled {
+		requestBody["temperature"] = 0.7
+	}
+
 	// Override with provided options
 	if options != nil {
 		if maxTokens, ok := options["max_tokens"]; ok {
 			requestBody["max_tokens"] = maxTokens
 		}
-		if temperature, ok := options["temperature"]; ok {
-			requestBody["temperature"] = temperature
+		if !thinkingEnabled {
+			if temperature, ok := options["temperature"]; ok {
+				requestBody["temperature"] = temperature
+			}
 		}
 	}
 
@@ -101,7 +133,7 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", c.apiKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
+	req.Header.Set("anthropic-version", "2025-01-01")
 
 	// Execute request
 	resp, err := c.httpClient.Do(req)
@@ -120,9 +152,12 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	// Parse response
+	// Parse response — handle both standard and extended thinking formats
+	// With thinking enabled, content array has {type:"thinking"} blocks
+	// followed by {type:"text"} blocks. We want the text block.
 	var response struct {
 		Content []struct {
+			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
 	}
@@ -135,7 +170,21 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 		return "", fmt.Errorf("no content in response")
 	}
 
-	return response.Content[0].Text, nil
+	// Find the text block (skip thinking blocks)
+	for _, block := range response.Content {
+		if block.Type == "text" || block.Type == "" {
+			return block.Text, nil
+		}
+	}
+
+	// Fallback: return first block with any text
+	for _, block := range response.Content {
+		if block.Text != "" {
+			return block.Text, nil
+		}
+	}
+
+	return "", fmt.Errorf("no text content in response (had %d blocks)", len(response.Content))
 }
 
 // GenerateEmbedding generates embeddings (not implemented for Anthropic)

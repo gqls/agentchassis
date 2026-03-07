@@ -246,3 +246,9 @@ UPDATE site_work_items
 SET status = 'triaged', triaged_at = NOW()
 WHERE site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
   AND status = 'detected';
+
+
+  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)
+    FROM site_work_items
+    WHERE created_at > NOW() - INTERVAL '1 hour'
+    ORDER BY priority;

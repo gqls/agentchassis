@@ -497,3 +497,251 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'build-site-planner';
 
+---
+
+
+-- ============================================================================
+-- Step 4: Add write_site_spec steps to pageflow-builder and site-work-orchestrator
+--
+-- Both workflows currently write planning data to content_data only.
+-- Add steps to also write to site_specs for versioned storage.
+--
+-- In both workflows, after store_site_plan, add sync_plan_to_specs.
+-- After store_reviewed_brief, add sync_brief_to_specs.
+-- ============================================================================
+
+-- ============================================================================
+-- pageflow-builder: add spec sync steps
+-- ============================================================================
+
+-- Change store_site_plan.next_step from sync_pages_to_db to sync_plan_to_specs
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_site_plan,next_step}',
+        '"sync_plan_to_specs"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder' AND deleted_at IS NULL;
+
+-- Add sync_plan_to_specs step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,sync_plan_to_specs}',
+        '{
+            "action": "write_site_spec",
+            "config": {
+                "site_id": "site_record.site_id",
+                "spec_data": "site_plan",
+                "aspect": "site_plan",
+                "source": "pageflow-builder",
+                "source_agent": "site-planner"
+            },
+            "next_step": "sync_pages_to_db",
+            "description": "Persist site plan to site_specs for versioned storage",
+            "output_field": "plan_spec_written"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder' AND deleted_at IS NULL;
+
+-- Change store_reviewed_brief.next_step from store_site_plan to sync_brief_to_specs
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_reviewed_brief,next_step}',
+        '"sync_brief_to_specs"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder' AND deleted_at IS NULL;
+
+-- Add sync_brief_to_specs step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,sync_brief_to_specs}',
+        '{
+            "action": "write_site_spec",
+            "config": {
+                "site_id": "site_record.site_id",
+                "spec_data": "input_data.reviewed_brief",
+                "aspect": "briefing",
+                "source": "pageflow-builder",
+                "source_agent": "briefing-agent"
+            },
+            "next_step": "store_site_plan",
+            "description": "Persist briefing to site_specs for versioned storage",
+            "output_field": "brief_spec_written"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'pageflow-builder' AND deleted_at IS NULL;
+
+
+-- ============================================================================
+-- site-work-orchestrator: same changes
+-- ============================================================================
+
+-- Change store_site_plan.next_step from sync_pages_to_db to sync_plan_to_specs
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_site_plan,next_step}',
+        '"sync_plan_to_specs"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-work-orchestrator' AND deleted_at IS NULL;
+
+-- Add sync_plan_to_specs step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,sync_plan_to_specs}',
+        '{
+            "action": "write_site_spec",
+            "config": {
+                "site_id": "site_record.site_id",
+                "spec_data": "site_plan",
+                "aspect": "site_plan",
+                "source": "site-work-orchestrator",
+                "source_agent": "site-planner"
+            },
+            "next_step": "sync_pages_to_db",
+            "description": "Persist site plan to site_specs for versioned storage",
+            "output_field": "plan_spec_written"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-work-orchestrator' AND deleted_at IS NULL;
+
+-- Change store_reviewed_brief.next_step from store_site_plan to sync_brief_to_specs
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_reviewed_brief,next_step}',
+        '"sync_brief_to_specs"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-work-orchestrator' AND deleted_at IS NULL;
+
+-- Add sync_brief_to_specs step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,sync_brief_to_specs}',
+        '{
+            "action": "write_site_spec",
+            "config": {
+                "site_id": "site_record.site_id",
+                "spec_data": "input_data.reviewed_brief",
+                "aspect": "briefing",
+                "source": "site-work-orchestrator",
+                "source_agent": "briefing-agent"
+            },
+            "next_step": "store_site_plan",
+            "description": "Persist briefing to site_specs for versioned storage",
+            "output_field": "brief_spec_written"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-work-orchestrator' AND deleted_at IS NULL;
+
+
+-- ============================================================================
+-- Step 6: Add design_intent and content_direction to build-site-planner
+--
+-- After write_plan_spec, add steps to extract design intent and content
+-- direction from the LLM plan and write them as separate spec aspects.
+-- ============================================================================
+
+-- Change write_plan_spec.next_step from store_in_content_data to write_design_intent
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,write_plan_spec,next_step}',
+        '"write_design_intent"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-site-planner' AND deleted_at IS NULL;
+
+-- Add write_design_intent step
+-- The planner's LLM prompt should produce design_intent in its output.
+-- For now, we derive a basic one from the style_collection choice.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,write_design_intent}',
+        '{
+            "action": "write_site_spec",
+            "config": {
+                "site_id": "input_data.site_id",
+                "spec_data": "site_plan.design_intent",
+                "aspect": "design_intent",
+                "source": "build-site-planner",
+                "source_agent": "build-site-planner",
+                "source_item_id": "input_data.work_item_id"
+            },
+            "next_step": "write_content_direction",
+            "error_step": "store_in_content_data",
+            "description": "Persist design intent to site_specs",
+            "output_field": "design_intent_written"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-site-planner' AND deleted_at IS NULL;
+
+-- Add write_content_direction step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,write_content_direction}',
+        '{
+            "action": "write_site_spec",
+            "config": {
+                "site_id": "input_data.site_id",
+                "spec_data": "site_plan.content_direction",
+                "aspect": "content_direction",
+                "source": "build-site-planner",
+                "source_agent": "build-site-planner",
+                "source_item_id": "input_data.work_item_id"
+            },
+            "next_step": "store_in_content_data",
+            "error_step": "store_in_content_data",
+            "description": "Persist content direction to site_specs",
+            "output_field": "content_direction_written"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-site-planner' AND deleted_at IS NULL;
+
+
+-- ============================================================================
+-- Verify the workflow chain changes
+-- ============================================================================
+
+-- pageflow-builder chain: store_reviewed_brief → sync_brief_to_specs → store_site_plan → sync_plan_to_specs → sync_pages_to_db
+SELECT
+    default_config->'workflow'->'steps'->'store_reviewed_brief'->>'next_step' as brief_next,
+    default_config->'workflow'->'steps'->'sync_brief_to_specs'->>'next_step' as brief_sync_next,
+    default_config->'workflow'->'steps'->'store_site_plan'->>'next_step' as plan_next,
+    default_config->'workflow'->'steps'->'sync_plan_to_specs'->>'next_step' as plan_sync_next
+FROM agent_definitions
+WHERE type = 'pageflow-builder' AND deleted_at IS NULL;
+
+-- site-work-orchestrator chain: same
+SELECT
+    default_config->'workflow'->'steps'->'store_reviewed_brief'->>'next_step' as brief_next,
+    default_config->'workflow'->'steps'->'sync_brief_to_specs'->>'next_step' as brief_sync_next,
+    default_config->'workflow'->'steps'->'store_site_plan'->>'next_step' as plan_next,
+    default_config->'workflow'->'steps'->'sync_plan_to_specs'->>'next_step' as plan_sync_next
+FROM agent_definitions
+WHERE type = 'site-work-orchestrator' AND deleted_at IS NULL;
+
+-- build-site-planner chain: write_plan_spec → write_design_intent → write_content_direction → store_in_content_data
+SELECT
+    default_config->'workflow'->'steps'->'write_plan_spec'->>'next_step' as plan_next,
+    default_config->'workflow'->'steps'->'write_design_intent'->>'next_step' as design_next,
+    default_config->'workflow'->'steps'->'write_content_direction'->>'next_step' as content_next
+FROM agent_definitions
+WHERE type = 'build-site-planner' AND deleted_at IS NULL;

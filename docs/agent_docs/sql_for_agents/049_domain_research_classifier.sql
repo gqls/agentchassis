@@ -234,3 +234,279 @@ SET default_config = jsonb_set(
         '"Create work item for domain strategy analysis"'::jsonb
                      )
 WHERE type = 'domain-research-classifier';
+
+
+---
+
+
+-- ============================================================================
+-- 1. Update build-site-planner prompt to produce design_intent and content_direction
+-- 2. Upgrade models: classifier + planner → opus-4-6, everything else → sonnet-4-6
+--
+-- Extended thinking (budget_tokens) requires a Go change to AnthropicClient.
+-- That's a follow-up. For now, opus-4-6 without extended thinking is still
+-- a significant upgrade for architectural decisions.
+-- ============================================================================
+
+
+-- ============================================================================
+-- 1a. Update build-site-planner: add design_intent and content_direction
+--     to the LLM prompt's JSON output format
+-- ============================================================================
+
+-- The prompt is a very long string. We'll use string replacement to add
+-- the new fields to the JSON template section and rules.
+
+-- Add design_intent and content_direction to the JSON output section
+-- Find the closing of image_prompts and add after it
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        replace(
+                                default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template',
+                            -- Add design_intent and content_direction to the JSON example
+                                '  "image_prompts": {' || E'\n' || '    "logo": "Description for logo generation",' || E'\n' || '    "hero_home": "Description for home hero image"' || E'\n' || '  }' || E'\n' || '}',
+                                '  "image_prompts": {' || E'\n' || '    "logo": "Description for logo generation",' || E'\n' || '    "hero_home": "Description for home hero image"' || E'\n' || '  },' || E'\n' ||
+                '  "design_intent": {' || E'\n' ||
+                '    "style_direction": "professional-dark or modern-light or bold-creative",' || E'\n' ||
+                '    "colour_mood": "Description of colour feeling and why it fits the industry",' || E'\n' ||
+                '    "typography_mood": "Description of font personality",' || E'\n' ||
+                '    "imagery_direction": "What images should show",' || E'\n' ||
+                '    "layout_preference": "Layout style description",' || E'\n' ||
+                '    "avoid": ["Things to avoid in design"]' || E'\n' ||
+                '  },' || E'\n' ||
+                '  "content_direction": {' || E'\n' ||
+                '    "voice": "How the site should sound",' || E'\n' ||
+                '    "emphasis": "What to emphasise in content",' || E'\n' ||
+                '    "avoid_phrases": ["Phrases to never use"],' || E'\n' ||
+                '    "social_proof_style": "How to handle testimonials and proof",' || E'\n' ||
+                '    "blog_strategy": "Content strategy for blog if applicable"' || E'\n' ||
+                '  }' || E'\n' ||
+                '}'
+                        ),
+                    -- Add rules 10 and 11 for the new fields
+                        'Return ONLY valid JSON.',
+                        '10. Include design_intent with explicit colour mood, typography direction, and layout preferences based on the industry and identity' || E'\n' ||
+            '11. Include content_direction with voice, emphasis, and avoid_phrases tailored to the target audience and tone' || E'\n' || E'\n' ||
+            'Return ONLY valid JSON.'
+                )
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-site-planner' AND deleted_at IS NULL;
+
+
+-- ============================================================================
+-- 1b. Also update the domain-research-classifier to produce design_intent
+--     and content_direction in its analysis output
+-- ============================================================================
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_and_extract,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template',
+                        'Return ONLY valid JSON with both identity and classification keys.',
+                        'Also include a third key:\n\n3. "content_direction" — how content should be written:\n```json\n{\n  "voice": "How the brand should sound (e.g. ''experienced practitioners who cut through hype'')",\n  "tone": "professional|friendly|bold|technical|editorial|conversational",\n  "emphasis": "What to emphasise across all content",\n  "avoid_phrases": ["corporate jargon to avoid"],\n  "social_proof_style": "How to handle testimonials (e.g. ''company philosophy, not fake quotes'')",\n  "trust_signals": "What authority signals this industry needs"\n}\n```\n\n4. "design_intent" — visual direction:\n```json\n{\n  "style_direction": "professional-dark|modern-light|bold-creative",\n  "colour_mood": "Description of colour feeling and why",\n  "typography_mood": "Font personality description",\n  "imagery_direction": "What images should convey",\n  "layout_preference": "Layout style",\n  "avoid": ["Design elements to avoid"]\n}\n```\n\nReturn ONLY valid JSON with identity, classification, content_direction, and design_intent keys.'
+                )
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND deleted_at IS NULL;
+
+-- Add write steps for the new aspects in domain-research-classifier
+-- After write_classification_spec, add write_content_direction and write_design_intent
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,write_classification_spec,next_step}',
+        '"write_content_direction_spec"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND deleted_at IS NULL;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,write_content_direction_spec}',
+        '{
+            "action": "write_site_spec",
+            "config": {
+                "aspect": "content_direction",
+                "source": "domain-research-classifier",
+                "site_id": "input_data.site_id",
+                "spec_data": "analysis.result.content_direction",
+                "source_agent": "domain-research-classifier",
+                "source_item_id": "input_data.work_item_id"
+            },
+            "next_step": "write_design_intent_spec",
+            "error_step": "create_next_item",
+            "description": "Persist content direction to site_specs",
+            "output_field": "content_direction_written"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND deleted_at IS NULL;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,write_design_intent_spec}',
+        '{
+            "action": "write_site_spec",
+            "config": {
+                "aspect": "design_intent",
+                "source": "domain-research-classifier",
+                "site_id": "input_data.site_id",
+                "spec_data": "analysis.result.design_intent",
+                "source_agent": "domain-research-classifier",
+                "source_item_id": "input_data.work_item_id"
+            },
+            "next_step": "create_next_item",
+            "error_step": "create_next_item",
+            "description": "Persist design intent to site_specs",
+            "output_field": "design_intent_written"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND deleted_at IS NULL;
+
+
+-- ============================================================================
+-- 2. Upgrade LLM models across all agents
+--
+-- Classifier + planner → claude-opus-4-6 (architectural decisions)
+-- Everything else → claude-sonnet-4-6 (content, audit, tools)
+--
+-- Using aliases from model_aliases.go which resolve to full version strings.
+-- ============================================================================
+
+-- Classifier → opus-4-6
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_and_extract,config,ai_service,model}',
+        '"claude-opus-4-6"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND deleted_at IS NULL;
+
+-- Build-site-planner → opus-4-6
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,ai_service,model}',
+        '"claude-opus-4-6"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-site-planner' AND deleted_at IS NULL;
+
+-- Page-content-writer → sonnet-4-6
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,ai_service,model}',
+        '"claude-sonnet-4-6"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-content-writer' AND deleted_at IS NULL;
+
+-- Visual-design-auditor → sonnet-4-6
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_visual_llm_audit,config,ai_service,model}',
+        '"claude-sonnet-4-6"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'visual-design-auditor' AND deleted_at IS NULL;
+
+-- Content-quality-auditor → sonnet-4-6
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_content_llm_audit,config,ai_service,model}',
+        '"claude-sonnet-4-6"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-quality-auditor' AND deleted_at IS NULL;
+
+-- Site-review-agent → sonnet-4-6
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_strategic_review,config,ai_service,model}',
+        '"claude-sonnet-4-6"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-review-agent' AND deleted_at IS NULL;
+
+-- Tool-suggester → sonnet-4-6
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,suggest_tools,config,ai_service,model}',
+        '"claude-sonnet-4-6"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'tool-suggester' AND deleted_at IS NULL;
+
+-- Tool-improver → sonnet-4-6
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,improve_tool,config,ai_service,model}',
+        '"claude-sonnet-4-6"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'tool-improver' AND deleted_at IS NULL;
+
+
+-- ============================================================================
+-- Verify
+-- ============================================================================
+
+-- Check models
+SELECT type,
+       COALESCE(
+               default_config->'workflow'->'steps'->'classify_and_extract'->'config'->'ai_service'->>'model',
+        default_config->'workflow'->'steps'->'plan_site'->'config'->'ai_service'->>'model',
+        default_config->'workflow'->'steps'->'run_visual_llm_audit'->'config'->'ai_service'->>'model',
+        default_config->'workflow'->'steps'->'run_content_llm_audit'->'config'->'ai_service'->>'model',
+        default_config->'workflow'->'steps'->'run_strategic_review'->'config'->'ai_service'->>'model',
+        default_config->'workflow'->'steps'->'suggest_tools'->'config'->'ai_service'->>'model',
+        default_config->'workflow'->'steps'->'improve_tool'->'config'->'ai_service'->>'model',
+        'nested-in-loop'
+    ) as model
+FROM agent_definitions
+WHERE type IN (
+               'domain-research-classifier', 'build-site-planner',
+               'visual-design-auditor', 'content-quality-auditor',
+               'site-review-agent', 'tool-suggester', 'tool-improver'
+    )
+  AND deleted_at IS NULL
+ORDER BY type;
+
+-- Check classifier now writes 4 spec aspects
+SELECT type,
+       default_config->'workflow'->'steps'->'write_classification_spec'->>'next_step' as after_classification,
+    default_config->'workflow'->'steps'->'write_content_direction_spec'->>'next_step' as after_content_dir,
+    default_config->'workflow'->'steps'->'write_design_intent_spec'->>'next_step' as after_design_intent
+FROM agent_definitions
+WHERE type = 'domain-research-classifier' AND deleted_at IS NULL;
+
+-- Check planner prompt contains design_intent
+SELECT
+    default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template' LIKE '%design_intent%' as has_design_intent,
+    default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template' LIKE '%content_direction%' as has_content_direction
+FROM agent_definitions
+WHERE type = 'build-site-planner' AND deleted_at IS NULL;
+
+--
+

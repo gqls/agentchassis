@@ -255,6 +255,12 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		options["max_tokens"] = int(maxTokens)
 	}
 
+	// Pass through budget_tokens for extended thinking
+	// Config: "ai_service": {"budget_tokens": 10000}
+	if budgetTokens, ok := aiServiceConfig["budget_tokens"].(float64); ok && budgetTokens > 0 {
+		options["budget_tokens"] = int(budgetTokens)
+	}
+
 	// Resolve model alias to actual API model name
 	if model, ok := options["model"].(string); ok {
 		resolvedModel := aiservice.ResolveModelAlias(model, params.Logger)
