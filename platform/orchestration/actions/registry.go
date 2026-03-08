@@ -541,6 +541,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Execute content gap plan — create pages, work items, or spec updates",
 		IsLocal:     true,
 	},
+	"update_site_spec_from_item": {
+		Handler:     UpdateSiteSpecFromItemAction,
+		Category:    "site",
+		Description: "Apply a spec update from a work item (needs_spec_update handler)",
+		IsLocal:     true,
+	},
 	"load_work_items": {
 		Handler:     LoadWorkItemsAction,
 		Category:    "site",
