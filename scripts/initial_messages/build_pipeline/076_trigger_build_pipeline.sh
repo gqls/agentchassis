@@ -172,6 +172,8 @@ kubectl -n ai-persona-system logs --tail=500 -l app=git-adapter -f | tee logs-gi
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=color-variable-fixer -f | tee logs-color-variable-fixer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=visual-design-auditor -f | tee logs-visual-design-auditor.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=content-quality-auditor -f | tee logs-content-quality-auditor.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=component-template-fixer -f | tee logs-component-template-fixer.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-build-handler -f | tee logs-page-build-handler.json
 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json

@@ -1525,3 +1525,14 @@ WHERE type = 'build-dispatch-loop';
 
 COMMIT;
 
+--
+
+-- increase memory
+
+-- 1. Increase memory for build-dispatch-loop
+UPDATE agent_definitions
+SET resources = '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "512Mi"}}'::jsonb,
+    updated_at = NOW()
+WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
+
+--
