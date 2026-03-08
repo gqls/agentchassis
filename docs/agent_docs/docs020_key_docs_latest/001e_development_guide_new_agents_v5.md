@@ -1210,6 +1210,9 @@ Add to 001e_development_guide as "Lessons Learned" appendix entries.
 
 **Rule:** When adding agents that read site configuration, use `read_site_spec` (which handles fallback) not direct `query_database` on `site_specs`. And when writing planning data, write to both `content_data` (working state) and `site_specs` (versioned record).
 
+
+11. Invalid Anthropic API version header — 2025-01-01 is not a valid version. Use 2023-06-01. When extended thinking is eventually needed, the correct version to upgrade to would need to be checked against Anthropic's docs, not guessed.
+12. 
 ---
 
 ## Summary of rules for the dev guide

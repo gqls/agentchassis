@@ -248,3 +248,131 @@ INSERT INTO agent_definitions (
                                        output_contract = EXCLUDED.output_contract,
                                        updated_at = now();
 
+---
+
+-- Add design-audit-agent and site-review-agent to the improvement loop
+-- Insert after completeness discovery, before triage_findings
+-- (design-audit-agent does its own triage internally, but the
+-- improvement loop's triage catches anything the audit agents
+-- created with status 'detected' rather than auto-triaging)
+
+-- 1. Change completeness discovery next_step to spawn audit
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_completeness_discovery,next_step}',
+        '"spawn_design_audit"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+-- 2. Add spawn + call design-audit-agent
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_design_audit}',
+        '{
+            "action": "spawn_agent",
+            "config": { "role": "design_auditor", "agent_type": "design-audit-agent" },
+            "next_step": "call_design_audit",
+            "description": "Spawn LLM-based design audit agent",
+            "output_field": "design_auditor_spawned"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_design_audit}',
+        '{
+            "action": "call_agent",
+            "config": {
+                "target_role": "design_auditor",
+                "input_mapping": {
+                    "site_id": "site_record.site_id",
+                    "domain": "site_record.domain"
+                },
+                "timeout_seconds": 600
+            },
+            "next_step": "spawn_site_review",
+            "error_step": "spawn_site_review",
+            "description": "Run visual + content quality audit (LLM-based)",
+            "output_field": "design_audit_result"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+-- 3. Add spawn + call site-review-agent
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_site_review}',
+        '{
+            "action": "spawn_agent",
+            "config": { "role": "site_reviewer", "agent_type": "site-review-agent" },
+            "next_step": "call_site_review",
+            "description": "Spawn strategic site review agent",
+            "output_field": "site_reviewer_spawned"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_site_review}',
+        '{
+            "action": "call_agent",
+            "config": {
+                "target_role": "site_reviewer",
+                "input_mapping": {
+                    "site_id": "site_record.site_id",
+                    "domain": "site_record.domain"
+                },
+                "timeout_seconds": 600
+            },
+            "next_step": "triage_findings",
+            "error_step": "triage_findings",
+            "description": "Run strategic alignment review (LLM-based)",
+            "output_field": "site_review_result"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+-- 4. Update complete step to include new outputs
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,complete,config,output_fields}',
+        '["quality_result", "design_result", "completeness_result", "design_audit_result", "site_review_result", "triage_result", "dispatch_result"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+-- Verify the chain
+SELECT
+    default_config->'workflow'->'steps'->'call_completeness_discovery'->>'next_step' as after_completeness,
+    default_config->'workflow'->'steps'->'call_design_audit'->>'next_step' as after_audit,
+    default_config->'workflow'->'steps'->'call_site_review'->>'next_step' as after_review
+FROM agent_definitions
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+-- Expected: after_completeness=spawn_design_audit, after_audit=spawn_site_review, after_review=triage_findings
+```
+
+The full improvement loop flow is now:
+```
+ensure_site_record
+→ quality-discovery-agent      (structural: broken nav, placeholder contact)
+→ design-discovery-agent       (structural: undeployed assets, missing CSS, hardcoded colours)
+→ completeness-discovery-agent (structural: empty sections, empty blog*)
+→ design-audit-agent           (LLM: visual design + content quality)
+→ site-review-agent            (LLM: strategic alignment)
+→ triage_detected_items
+→ insert needs_rerender
+→ build-dispatch-loop          (processes all fixes)
