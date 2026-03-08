@@ -12,16 +12,18 @@ spec:
         - name: kafka-scheduler
           envFrom: []
           env:
-            # Database
-            - name: CLIENTS_DATABASE_URL
-              value: "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@pgbouncer.ai-persona-system.svc.cluster.local:6432/clients_db?sslmode=disable"
+            # Password MUST come first — CLIENTS_DATABASE_URL references it via $(...)
             - name: CLIENTS_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: personae-platform-secrets
                   key: CLIENTS_DB_PASSWORD
 
-            # Kafka — producer only, no consumer
+            # Database — now $(CLIENTS_DB_PASSWORD) resolves correctly
+            - name: CLIENTS_DATABASE_URL
+              value: "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@pgbouncer.ai-persona-system.svc.cluster.local:6432/clients_db?sslmode=disable"
+
+            # Kafka
             - name: KAFKA_BROKERS
               value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
