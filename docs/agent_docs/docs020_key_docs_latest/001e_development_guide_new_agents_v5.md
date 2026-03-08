@@ -1075,3 +1075,152 @@ Status as of the end of the planning/architecture conversation. Files are produc
 - REINDEX CONCURRENTLY scheduling for knowledge_base ivfflat index
 - A/B testing infrastructure for local vs cloud model comparison
 - Field path resolution cleanup (migrate 9+ duplicates in actions package to datahelpers calls)
+
+--
+
+Appendix A - bugs and fixes lessons learned
+
+# Bugs and Fixes — Session Tally
+
+Add to 001e_development_guide as "Lessons Learned" appendix entries.
+
+---
+
+## 1. QueryDatabaseAction doesn't support parameterised queries
+
+**Symptom:** Audit agents failed at `load_brief` and `load_design_context` steps with `expected 1 arguments, got 0`.
+
+**Root cause:** `QueryDatabaseAction` executes raw SQL strings. The `$1` placeholders in the query had no mechanism to receive parameters. The existing agents used Go template interpolation (`{{.input_data.site_id}}`) embedded in the SQL string instead.
+
+**Fix:** Added `params` config field support to `QueryDatabaseAction` — resolves dot-paths from collected_data and passes as `queryArgs...` to `QueryContext`.
+
+**Rule:** New `query_database` usage MUST use `$1` placeholders with `"params"` array. Never embed values via `{{.field}}` template interpolation — SQL injection risk. (Added to contracts doc 003d.)
+
+**Legacy migration needed:** `tool-suggester` and `tool-improver` still use template interpolation.
+
+---
+
+## 2. Missing api_key_env_var in LLM config
+
+**Symptom:** Audit agents reached LLM steps then failed with `ai_service.api_key_env_var not configured`.
+
+**Root cause:** Agent definitions had `"ai_service": {"model": "...", "provider": "anthropic", "max_tokens": 4000}` but were missing `"api_key_env_var": "ANTHROPIC_API_KEY"`.
+
+**Fix:** Added the missing field to all audit agent definitions.
+
+**Rule:** Every `execute_llm_prompt` step MUST have `api_key_env_var` in its `ai_service` config. Copy from an existing working agent (e.g. `page-content-writer`) rather than writing from scratch.
+
+**Checklist item:** When creating agent definitions with LLM steps, verify the ai_service config has: `model`, `provider`, `max_tokens`, `api_key_env_var`.
+
+---
+
+## 3. Wrong column names in SQL queries (site_specs schema)
+
+**Symptom:** Content-quality-auditor failed with `column ss.spec_type does not exist`.
+
+**Root cause:** The `site_specs` table uses `aspect` (not `spec_type`) and `data` (not `spec_data`). The queries were written from memory without checking the schema.
+
+**Fix:** Updated all audit agent queries to use correct column names.
+
+**Rule:** ALWAYS check `\d table_name` before writing SQL in agent definitions. Column names in agent workflow SQL are not validated at definition time — they fail at runtime.
+
+---
+
+## 4. Model alias mismatch
+
+**Symptom:** Audit agents had `"model": "claude-sonnet-4-5-20250514"` which is a Claude 4.0 version string, not a valid alias or model name.
+
+**Fix:** Changed to `"claude-sonnet-4-5"` (alias) which resolves correctly via `model_aliases.go`.
+
+**Rule:** Use short aliases (`claude-sonnet-4-5`, `claude-opus-4-6`) not full versioned names in agent definitions. The alias map handles version resolution.
+
+---
+
+## 5. Specialist vs handler — page-content-writer persistence gap
+
+**Symptom:** `page-content-writer` generated blog content but it was never saved to `page_components`. The work item was marked complete with HTML trapped in `site_work_items.result`.
+
+**Root cause:** `page-content-writer` is a specialist — returns data to caller. The dispatch loop calls handlers, which must persist their own outputs. Already documented but hit again.
+
+**Fix:** Created `page-build-handler` wrapper agent. Updated `empty_sections` check to route to `page-build-handler` instead of `page-content-writer`.
+
+**Rule:** Before routing a work item to a handler, check: does the agent persist its outputs to the database? If not, use a wrapper handler. (Already in dev guide — reinforce.)
+
+---
+
+## 6. sync_pages_to_db expects specific data shapes
+
+**Symptom:** `blog-content-planner` tried to use `sync_pages_to_db` to create blog post pages. Failed with `no pages found in page_plan` because the LLM output was at `site_plan.result.pages` not where the action looks.
+
+**Root cause:** `sync_pages_to_db` hardcodes looking for pages at specific paths (`site_plan.pages`, `page_plan.pages`). The config field `pages_field` is not supported. The action was built for the planner pipeline and assumes that data shape.
+
+**Fix:** Created `create_blog_posts` Go action that handles the LLM output parsing flexibly (tries multiple paths, handles string/map/array).
+
+**Rule:** When reusing existing actions in new workflows, verify the action actually reads the config fields you're setting. Check the Go source, not just the workflow config. Many actions have hardcoded paths that aren't configurable.
+
+**Broader lesson:** Keep workflows simple, put complexity in Go actions. Trying to wire `sync_pages_to_db` + `write_build_items` into the blog planner created a fragile chain. A single purpose-built action is more reliable.
+
+---
+
+## 7. Go template rendering fails silently on nil values
+
+**Symptom:** `execute_llm_prompt` returned empty string. The blog planner's LLM prompt used `{{range .existing_posts}}` where `existing_posts` was nil (query returned no rows).
+
+**Root cause:** Go's `text/template` engine silently produces empty output when template execution fails. No error is returned — the prompt renders as empty and the LLM gets nothing to respond to.
+
+**Fix:** The `create_blog_posts` action handles nil gracefully. For templates: always guard range with `{{if .field}}{{range .field}}...{{end}}{{end}}` AND ensure the field is `[]` not `nil` when empty.
+
+**Rule:** When `query_database` returns no rows with `output_format: "array"`, the result is `null` not `[]`. Template `{{range}}` on `null` fails silently. Always wrap in `{{if}}` checks. Test templates with empty/nil inputs.
+
+---
+
+## 8. Pages table has `url` not `slug`
+
+**Symptom:** `blog-content-planner` query failed with `column "slug" does not exist`.
+
+**Root cause:** Wrote SQL referencing `slug` column which doesn't exist. The column is `url`.
+
+**Fix:** Changed query to use `url`.
+
+**Rule:** Same as #3 — always check schema before writing SQL. `\d pages`.
+
+---
+
+## 9. Agent definition not created before triggering
+
+**Symptom:** `blog-content-planner` trigger produced no orchestration — went straight to complete with empty output.
+
+**Root cause:** The SQL to create the agent definition hadn't been run yet. The generic chassis received the message, looked up `blog-content-planner` in `agent_definitions`, found nothing, and fell through to an empty workflow.
+
+**Fix:** Run the SQL first, then trigger.
+
+**Rule:** After creating an agent definition SQL file, run it before testing. The chassis doesn't log "agent definition not found" — it silently executes an empty workflow.
+
+**Improvement needed:** The chassis should log a warning when it can't find an agent definition for the requested type.
+
+---
+
+## 10. site_specs data not available to audit agents
+
+**Symptom:** Content-quality-auditor reported "no target audience defined" for sites that had the data in `content_data.response`.
+
+**Root cause:** Older sites (built by `pageflow-builder`) have planning data in `sites.content_data` but no `site_specs` rows. Audit agents query `site_specs` and find nothing.
+
+**Fix:** Backfilled `site_specs` for existing sites. Added `read_site_spec` fallback to read from `content_data`. Added `write_site_spec` steps to both `pageflow-builder` and `site-work-orchestrator` workflows.
+
+**Rule:** When adding agents that read site configuration, use `read_site_spec` (which handles fallback) not direct `query_database` on `site_specs`. And when writing planning data, write to both `content_data` (working state) and `site_specs` (versioned record).
+
+---
+
+## Summary of rules for the dev guide
+
+1. **Check schema before writing SQL** — `\d table_name` every time
+2. **Use parameterised queries** — `$1` + `"params"`, never `{{.field}}` in SQL
+3. **Include api_key_env_var** in every LLM step config
+4. **Use model aliases** — `claude-sonnet-4-6` not full version strings
+5. **Check specialist vs handler** — does the agent persist its outputs?
+6. **Verify action config support** — read the Go source, not just the docs
+7. **Guard templates against nil** — `{{if}}` before `{{range}}`, test with empty data
+8. **Run agent definition SQL before testing** — chassis silently handles missing defs
+9. **Use read_site_spec for site config** — handles fallback from content_data
+10. **Keep workflows simple** — put parsing/creation logic in Go actions

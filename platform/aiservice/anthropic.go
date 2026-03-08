@@ -133,7 +133,7 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", c.apiKey)
-	req.Header.Set("anthropic-version", "2025-01-01")
+	req.Header.Set("anthropic-version", "2023-06-01")
 
 	// Execute request
 	resp, err := c.httpClient.Do(req)
