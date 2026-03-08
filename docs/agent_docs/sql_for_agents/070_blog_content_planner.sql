@@ -242,3 +242,136 @@ INSERT INTO agent_definitions (
 SELECT type, display_name, status
 FROM agent_definitions
 WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+--
+
+-- Fix check_existing_posts query: use url not slug
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_existing_posts,config,query}',
+        '"SELECT name, title, url, build_status FROM pages WHERE site_id = $1 AND page_type = ''blog-post'' ORDER BY nav_order"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+-- Verify
+SELECT default_config->'workflow'->'steps'->'check_existing_posts'->'config'->>'query'
+FROM agent_definitions WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+--
+
+-- Fix 1: Change plan_posts output_field to site_plan
+-- so sync_pages_to_db finds the pages where it expects them
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_posts,output_field}',
+        '"site_plan"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+-- Fix 2: Update the LLM prompt to return "pages" not "posts"
+-- (sync_pages_to_db looks for .pages array)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_posts,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config->'workflow'->'steps'->'plan_posts'->'config'->>'prompt_template',
+                        '"posts": [',
+                        '"pages": ['
+                )
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+-- Fix 3: Remove unsupported pages_field from sync_pages_to_db config
+-- Use simpler config that the action already supports
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_post_pages,config}',
+        '{"input_fields": ["site_record", "site_plan"]}'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+-- Fix 4: Also update write_build_items to use site_plan (already correct path)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_build_items,config}',
+        '{"site_id": "site_record.site_id", "site_plan": "site_plan"}'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+-- Verify the chain
+SELECT
+    default_config->'workflow'->'steps'->'plan_posts'->>'output_field' as plan_output,
+    default_config->'workflow'->'steps'->'plan_posts'->'config'->>'prompt_template' LIKE '%"pages"%' as uses_pages_key,
+    default_config->'workflow'->'steps'->'create_post_pages'->'config' as sync_config
+FROM agent_definitions
+WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+
+----
+
+-- Simplify blog-content-planner: replace sync_pages_to_db + write_build_items
+-- with single create_blog_posts action
+
+-- Replace create_post_pages step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_post_pages}',
+        '{
+            "action": "create_blog_posts",
+            "config": {
+                "site_id": "site_record.site_id",
+                "plan_field": "site_plan.result"
+            },
+            "next_step": "complete",
+            "error_step": "complete",
+            "description": "Create page records and work items for each planned blog post",
+            "output_field": "posts_created"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+-- Remove the steps we no longer need (create_build_items, create_build_items_fallback, create_rerender)
+-- by pointing plan_posts directly to create_post_pages
+-- (already correct — plan_posts.next_step is create_post_pages)
+
+-- Remove unused steps from the workflow
+UPDATE agent_definitions
+SET default_config = default_config
+    #- '{workflow,steps,create_build_items}'
+    #- '{workflow,steps,create_build_items_fallback}'
+    #- '{workflow,steps,create_rerender}',
+updated_at = NOW()
+WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+-- Update complete to include posts_created
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,complete,config,output_fields}',
+        '["site_plan", "existing_posts", "posts_created"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+-- Verify simplified chain: ensure → load_specs → check_existing → plan_posts → create_post_pages → complete
+SELECT
+    default_config->'workflow'->'steps'->'plan_posts'->>'next_step' as after_plan,
+    default_config->'workflow'->'steps'->'create_post_pages'->>'next_step' as after_create,
+    default_config->'workflow'->'steps'->'create_post_pages'->'config' as create_config
+FROM agent_definitions
+WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+

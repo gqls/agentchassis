@@ -105,3 +105,43 @@ echo ""
 echo "  SELECT wi.item_type, wi.handler_agent, LEFT(wi.error, 60)"
 echo "  FROM site_work_items wi JOIN sites s ON s.id = wi.site_id"
 echo "  WHERE s.domain = '${DOMAIN}' AND wi.status = 'blocked';"
+
+
+Review what was found:
+-- All pending items across all sites
+SELECT s.domain, wi.item_type, wi.severity, wi.status, wi.handler_agent,
+       LEFT(wi.summary, 70) as summary
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status IN ('detected', 'triaged')
+ORDER BY s.domain, wi.priority;
+
+
+Triage what you want — selectively:
+-- Triage all CSS/structural fixes (safe, mechanical)
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = NOW()
+WHERE status = 'detected'
+  AND item_type IN ('hardcoded_section_colors', 'needs_design_review');
+
+-- Or triage everything for a specific site
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = NOW()
+WHERE status = 'detected'
+  AND site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc';
+
+-- Or triage by severity
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = NOW()
+WHERE status = 'detected' AND severity = 'high';
+
+
+Trigger existing build pipeline
+
+--
+
+The dartsonline.com pipeline runs independently — domain-submitter creates the site and first work item,
+the build pipeline trigger picks it up and runs it through classifier → planner → content → deploy.
+
+The audit findings for the other sites are processed by the same dispatch loop.
+

@@ -52,6 +52,14 @@ AGENT_TYPE="design-audit-agent"
 SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
 DOMAIN="finetuning.uk"
 
+AGENT_TYPE="design-audit-agent"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+AGENT_TYPE="design-audit-agent"
+SITE_ID="2a8ebf9c-20a2-4c39-b191-840b012371da"
+DOMAIN="ai-agent-orchestration.com"
+
 AGENT_TYPE="site-review-agent"
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
 DOMAIN="gaswholesalers.com"
@@ -59,6 +67,14 @@ DOMAIN="gaswholesalers.com"
 AGENT_TYPE="site-review-agent"
 SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
 DOMAIN="finetuning.uk"
+
+AGENT_TYPE="site-review-agent"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+AGENT_TYPE="site-review-agent"
+SITE_ID="2a8ebf9c-20a2-4c39-b191-840b012371da"
+DOMAIN="ai-agent-orchestration.com"
 
 ---
 
@@ -86,12 +102,39 @@ AGENT_TYPE="site-component-linker"
 SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
 DOMAIN="finetuning.uk"
 
+AGENT_TYPE="blog-content-planner"
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
+
+
+--
+
+./trigger-audit.sh design-audit-agent 4851f6fc-71cf-4160-a270-e03d6d3e0732 leopardessconsulting.co.uk
+./trigger-audit.sh design-audit-agent 2a8ebf9c-20a2-4c39-b191-840b012371da ai-agent-orchestration.com
+./trigger-audit.sh design-audit-agent 1368e337-dd1d-4799-bbb3-8221a1b79bcc finetuning.uk
+./trigger-audit.sh design-audit-agent 5fe15466-4e2e-4ff2-981e-98c1b7074002 gaswholesalers.com
+./trigger-audit.sh blog-content-planner 1368e337-dd1d-4799-bbb3-8221a1b79bcc finetuning.uk
+
 =====
 -- working copies
 
-AGENT_TYPE="design-audit-agent"
-SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
-DOMAIN="finetuning.uk"
+
+
+#AGENT_TYPE="design-audit-agent"
+#SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+#DOMAIN="leopardessconsulting.co.uk"
+
+#AGENT_TYPE="design-audit-agent"
+#SITE_ID="2a8ebf9c-20a2-4c39-b191-840b012371da"
+#DOMAIN="ai-agent-orchestration.com"
+
+#AGENT_TYPE="design-audit-agent"
+#SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+#DOMAIN="finetuning.uk"
+
+#AGENT_TYPE="design-audit-agent"
+#SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+#DOMAIN="finetuning.uk"
 
 #AGENT_TYPE="design-audit-agent"
 #SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
@@ -128,6 +171,10 @@ DOMAIN="finetuning.uk"
 #AGENT_TYPE="site-component-linker"
 #SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
 #DOMAIN="finetuning.uk"
+
+AGENT_TYPE="blog-content-planner"
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -253,3 +300,33 @@ WHERE site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
     FROM site_work_items
     WHERE created_at > NOW() - INTERVAL '1 hour'
     ORDER BY priority;
+
+---
+
+-- All pending items across all sites
+SELECT s.domain, wi.item_type, wi.severity, wi.status, wi.handler_agent,
+       LEFT(wi.summary, 70) as summary
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status IN ('detected', 'triaged')
+ORDER BY s.domain, wi.priority;
+
+
+-- Triage all CSS/structural fixes (safe, mechanical)
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = NOW()
+WHERE status = 'detected'
+  AND item_type IN ('hardcoded_section_colors', 'needs_design_review');
+
+-- Or triage everything for a specific site
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = NOW()
+WHERE status = 'detected'
+  AND site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc';
+
+-- Or triage by severity
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = NOW()
+WHERE status = 'detected' AND severity = 'high';
+
+then trigger pipeline

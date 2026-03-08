@@ -522,6 +522,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Atomically claim a work item for processing, preventing double-dispatch",
 		IsLocal:     true,
 	},
+	"create_blog_posts": {
+		Handler:     CreateBlogPostsAction,
+		Category:    "site",
+		Description: "Create page records and work items for LLM-planned blog posts",
+		IsLocal:     true,
+	},
 	// work items (site_work_items table — unified build/maintenance queue)
 	"write_build_items": {
 		Handler:     WriteBuildItemsAction,
