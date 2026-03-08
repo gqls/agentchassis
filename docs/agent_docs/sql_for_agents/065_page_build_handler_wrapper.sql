@@ -64,3 +64,242 @@ FROM site_work_items
 WHERE site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
   AND item_type = 'needs_content_page'
 ORDER BY created_at DESC LIMIT 2;
+
+--
+
+-- Add a check after call_content_writer
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_content_writer,next_step}',
+        '"check_content_produced"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Add the conditional check
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_content_produced}',
+        '{
+            "action": "conditional",
+            "config": {
+                "condition": "page_content.response.skipped != true AND page_content.response.page_body != ",
+                "then_step": "save_sections",
+                "else_step": "complete_error"
+            },
+            "description": "Check if content writer produced content or skipped"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Update complete_error to be informative
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,complete_error,config}',
+        '{"output_fields": ["page_content", "site_record"], "success_message": "Content writer skipped — page has no sections defined"}'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Verify
+SELECT
+    default_config->'workflow'->'steps'->'call_content_writer'->>'next_step' as after_writer,
+    default_config->'workflow'->'steps'->'check_content_produced' IS NOT NULL as has_guard
+FROM agent_definitions
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- more
+
+-- 1. Add guard after content writer (prevents crash)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_content_writer,next_step}',
+        '"check_content_produced"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_content_produced}',
+        '{
+            "action": "conditional",
+            "config": {
+                "condition": "page_content.response.skipped != true",
+                "then_step": "save_sections",
+                "else_step": "complete_error"
+            },
+            "description": "Check if content writer produced content or skipped"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- 2. Add page record lookup BEFORE calling content writer
+-- Insert between ensure_site_record and spawn_content_writer
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,ensure_site_record,next_step}',
+        '"load_page_record"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_page_record}',
+        '{
+            "action": "query_database",
+            "config": {
+                "query": "SELECT id, name, title, page_type, sections::text, url, purpose FROM pages WHERE site_id = $1 AND name = $2 LIMIT 1",
+                "params": ["site_record.site_id", "input_data.page_name"],
+                "output_format": "single_row"
+            },
+            "next_step": "spawn_content_writer",
+            "error_step": "spawn_content_writer",
+            "description": "Load page record from DB to get sections, title, page_type",
+            "output_field": "page_record"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- 3. Update the content writer call to pass page_record as current_page
+-- so it gets sections from the DB, not from the audit finding spec
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_content_writer,config,input_mapping,current_page}',
+        '"page_record"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- 4. Also update deploy_page to get page_id from page_record
+-- (currently looks at sections_saved.page_id which might not exist)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,deploy_page,config,input_mapping,page_id}',
+        '"page_record.id"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Verify the chain
+SELECT
+    default_config->'workflow'->'steps'->'ensure_site_record'->>'next_step' as s1,
+    default_config->'workflow'->'steps'->'load_page_record'->>'next_step' as s2,
+    default_config->'workflow'->'steps'->'call_content_writer'->>'next_step' as s3,
+    default_config->'workflow'->'steps'->'check_content_produced'->>'next_step' as s4,
+    default_config->'workflow'->'steps'->'call_content_writer'->'config'->'input_mapping'->>'current_page' as writer_page_source
+FROM agent_definitions
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Expected: s1=load_page_record, s2=spawn_content_writer, s3=check_content_produced, s4=save_sections
+-- writer_page_source=page_record
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_page_record,config,query}',
+        '"SELECT id, name, title, page_type, sections::text, url FROM pages WHERE site_id = $1 AND name = $2 LIMIT 1"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+--
+-- remove sql from workflow definition
+
+-- ============================================================================
+-- Update page-build-handler to use load_page_record Go action
+-- instead of inline query_database SQL.
+--
+-- Run AFTER deploying load_page_record_action.go + registry entry.
+-- ============================================================================
+
+-- Replace the load_page_record step (was query_database with inline SQL)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_page_record}',
+        '{
+            "action": "load_page_record",
+            "config": {
+                "site_id": "site_record.site_id",
+                "page_name": "input_data.page_name"
+            },
+            "next_step": "check_page_found",
+            "description": "Load page record from DB — sections, title, page_type",
+            "output_field": "page_record"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Add guard: if page not found, go to complete_error (not crash)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_page_found}',
+        '{
+            "action": "conditional",
+            "config": {
+                "condition": "page_record.found == true",
+                "then_step": "spawn_content_writer",
+                "else_step": "complete_error"
+            },
+            "description": "Check if page exists in DB — audit findings for new pages will skip here"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Update content writer input_mapping to use page_record instead of input_data.spec
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_content_writer,config,input_mapping,current_page}',
+        '"page_record"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Update deploy_page to use page_record.id instead of sections_saved.page_id
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,deploy_page,config,input_mapping,page_id}',
+        '"page_record.id"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Verify the full chain
+SELECT
+    default_config->'workflow'->'steps'->'ensure_site_record'->>'next_step' as s1_next,
+    default_config->'workflow'->'steps'->'load_page_record'->>'action' as s2_action,
+    default_config->'workflow'->'steps'->'load_page_record'->>'next_step' as s2_next,
+    default_config->'workflow'->'steps'->'check_page_found'->'config'->>'then_step' as s3_then,
+    default_config->'workflow'->'steps'->'check_page_found'->'config'->>'else_step' as s3_else,
+    default_config->'workflow'->'steps'->'call_content_writer'->'config'->'input_mapping'->>'current_page' as writer_page_src,
+    default_config->'workflow'->'steps'->'deploy_page'->'config'->'input_mapping'->>'page_id' as deploy_page_id_src
+FROM agent_definitions
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Expected:
+-- s1_next = load_page_record
+-- s2_action = load_page_record (Go action, not query_database)
+-- s2_next = check_page_found
+-- s3_then = spawn_content_writer
+-- s3_else = complete_error
+-- writer_page_src = page_record
+-- deploy_page_id_src = page_record.id

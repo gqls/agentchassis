@@ -216,7 +216,8 @@ WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
   AND status = 'complete';
 
 
-
+UPDATE site_work_items SET status = 'triaged', claimed_at = NULL, claimed_by = NULL
+WHERE status = 'claimed';
 
   then
     Step 1: Webdesign (CSS generation)
@@ -411,7 +412,7 @@ ORDER BY s.domain, wi.priority;
 
 
 Two stuck claimed items — needs_rerender for gaswholesalers and add_tool for finetuning. These are from a previous dispatch run that's either still running or timed out. Release them:
-sqlUPDATE site_work_items SET status = 'triaged', claimed_at = NULL, claimed_by = NULL
+UPDATE site_work_items SET status = 'triaged', claimed_at = NULL, claimed_by = NULL
 WHERE status = 'claimed' AND claimed_at < NOW() - INTERVAL '10 minutes';
 
 

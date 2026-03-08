@@ -1536,3 +1536,61 @@ SET resources = '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu"
 WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
 
 --
+
+-- small batches
+
+-- Batch processing: load 5 at a time, process, reload
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_items,config,max_items}',
+        '5'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
+
+-- Change process_items.next_step from "complete" to "load_items"
+-- This creates the batch loop: load 5 → process → load 5 → process → ... → no items → complete
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_items,next_step}',
+        '"load_items"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
+
+-- Also reduce max_iterations in the loop to match batch size
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_items,config,max_iterations}',
+        '5'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
+
+-- Reset the stuck claimed items
+UPDATE site_work_items
+SET status = 'triaged', claimed_by = NULL, updated_at = NOW()
+WHERE status = 'claimed';
+
+-- Verify
+SELECT
+    default_config->'workflow'->'steps'->'load_items'->'config'->>'max_items' as batch_size,
+    default_config->'workflow'->'steps'->'process_items'->>'next_step' as after_batch,
+    default_config->'workflow'->'steps'->'process_items'->'config'->>'max_iterations' as loop_max
+FROM agent_definitions
+WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
+
+-- Expected: batch_size=5, after_batch=load_items, loop_max=5
+```
+
+The flow becomes:
+```
+load_items (max 5)
+→ check_has_items → no items → complete
+→ check_has_items → has items → process_items (loop over 5)
+→ claim → spawn → call → mark complete (×5)
+→ load_items (next batch of 5)
+→ check_has_items → ...

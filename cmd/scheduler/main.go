@@ -380,7 +380,7 @@ func fireTrigger(ctx context.Context, producer kafka.Producer, task scheduledTas
 	if err != nil {
 		return fmt.Errorf("marshal body: %w", err)
 	}
-
+	
 	headers := map[string]string{
 		"correlation_id":     uuid.New().String(),
 		"request_id":         reqID,
@@ -388,6 +388,7 @@ func fireTrigger(ctx context.Context, producer kafka.Producer, task scheduledTas
 		"orchestration_id":   orchID,
 		"orchestration_name": orchName,
 		"step_name":          "start",
+		"client_id":          "system",
 		"message_type":       "request",
 		"action":             "orchestrate",
 		"from_agent_type":    "kafka-scheduler",
