@@ -535,6 +535,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Convert planned pages into work items in site_work_items table",
 		IsLocal:     true,
 	},
+	"apply_gap_plan": {
+		Handler:     ApplyGapPlanAction,
+		Category:    "site",
+		Description: "Execute content gap plan — create pages, work items, or spec updates",
+		IsLocal:     true,
+	},
 	"load_work_items": {
 		Handler:     LoadWorkItemsAction,
 		Category:    "site",

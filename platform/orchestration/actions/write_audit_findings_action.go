@@ -1,22 +1,25 @@
 // FILE: platform/orchestration/actions/write_audit_findings_action.go
 //
 // WriteAuditFindingsAction takes structured findings from an LLM audit
-// (design-audit-agent or site-review-agent) and creates site_work_items.
+// and creates properly classified site_work_items.
 //
-// Input: findings JSON array from LLM response, either as a string to parse
-// or as a pre-parsed []interface{}.
+// The LLM audit produces raw observations: category, description, severity,
+// affected pages. This action does the classification:
 //
-// Each finding must have: category, severity, description, suggestion.
-// Optional: page, fix_type, affected_component.
-//
-// The action maps finding categories to handler agents via a configurable
-// routing map. Unknown categories default to "component-template-fixer".
+//   1. Loads existing pages for the site (one query, cached for all findings)
+//   2. For each finding, determines:
+//      - Does the referenced page exist? → content fix on existing page
+//      - Is the page name a placeholder ("new page needed", "site-wide")? → classify by category
+//      - Is it a gap that needs a new page? → route to content-gap-planner
+//      - Is it a metadata/config issue? → route to spec updater
+//      - Is it a design issue? → route to design handler
+//   3. Creates work items with correct item_type, handler_agent, and page_id
 //
 // Registration:
 //   "write_audit_findings": {
 //       Handler:     WriteAuditFindingsAction,
 //       Category:    "site",
-//       Description: "Convert LLM audit findings into site_work_items",
+//       Description: "Classify and store LLM audit findings as work items",
 //       IsLocal:     true,
 //   },
 
@@ -24,6 +27,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -44,9 +48,46 @@ func init() {
 	datahelpers.RegisterActionInputSpec("write_audit_findings", WriteAuditFindingsInputSpec)
 }
 
-// Default routing: finding category → handler agent
-var defaultFindingRouting = map[string]string{
-	// Design audit categories
+// ============================================================================
+// Classification rules — deterministic routing based on category + page existence
+// ============================================================================
+
+// Design categories route to design/CSS handlers regardless of page existence
+var designCategories = map[string]struct{}{
+	"colour": {}, "color": {}, "spacing": {}, "typography": {},
+	"header_footer": {}, "dark_section": {}, "responsive": {},
+}
+
+// Categories that indicate site-wide config/metadata issues, not page content
+var metadataCategories = map[string]struct{}{
+	"metadata": {}, "config": {}, "identity": {}, "spec": {},
+	"contact_mismatch": {},
+}
+
+// Categories that indicate CTA/component-level fixes on existing pages
+var componentCategories = map[string]struct{}{
+	"cta": {}, "nav_restructure": {},
+}
+
+// Page names that are not real pages — they're audit shorthand
+var placeholderPageNames = map[string]bool{
+	"new page needed": true,
+	"new page":        true,
+	"site-wide":       true,
+	"general":         true,
+	"all pages":       true,
+	"multiple pages":  true,
+	"":                true,
+}
+
+// Normalise common page name aliases
+var pageNameAliases = map[string]string{
+	"homepage": "index",
+	"home":     "index",
+}
+
+// Design category → handler agent
+var designRouting = map[string]string{
 	"colour":        "webdesign-agent",
 	"color":         "webdesign-agent",
 	"spacing":       "component-template-fixer",
@@ -54,48 +95,300 @@ var defaultFindingRouting = map[string]string{
 	"header_footer": "site-component-linker",
 	"dark_section":  "color-variable-fixer",
 	"responsive":    "component-template-fixer",
-	// Site review categories
-	"content_rewrite":  "page-build-handler",
-	"tone":             "page-build-handler",
-	"content":          "page-build-handler",
-	"gap":              "page-build-handler",
-	"cta":              "component-template-fixer",
-	"differentiation":  "page-build-handler",
-	"structure":        "page-build-handler",
-	"nav_restructure":  "site-component-linker",
-	"contact_mismatch": "site-metadata-fixer",
 }
 
-// Category → work item type mapping
-var defaultItemTypeMapping = map[string]string{
-	"colour":           "needs_design_review",
-	"color":            "needs_design_review",
-	"spacing":          "spacing_fix",
-	"typography":       "needs_design_review",
-	"header_footer":    "header_footer_fix",
-	"dark_section":     "hardcoded_section_colors",
-	"responsive":       "responsive_fix",
-	"content_rewrite":  "content_rewrite",
-	"tone":             "tone_shift",
-	"content":          "content_rewrite",
-	"gap":              "needs_content_page",
-	"cta":              "cta_improvement",
-	"differentiation":  "content_rewrite",
-	"structure":        "nav_restructure",
-	"nav_restructure":  "nav_restructure",
-	"contact_mismatch": "contact_info_mismatch",
+// Design category → item type
+var designItemTypes = map[string]string{
+	"colour":        "needs_design_review",
+	"color":         "needs_design_review",
+	"spacing":       "spacing_fix",
+	"typography":    "needs_design_review",
+	"header_footer": "header_footer_fix",
+	"dark_section":  "hardcoded_section_colors",
+	"responsive":    "responsive_fix",
 }
+
+// ============================================================================
+// Page info cache — loaded once per invocation
+// ============================================================================
+
+type pageInfo struct {
+	ID       uuid.UUID
+	Name     string
+	PageType string
+	Sections string
+}
+
+func loadSitePages(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]pageInfo, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, name, COALESCE(page_type, ''), COALESCE(sections::text, '[]')
+		FROM pages
+		WHERE site_id = $1 AND status = 'active'
+	`, siteID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	pages := make(map[string]pageInfo)
+	for rows.Next() {
+		var p pageInfo
+		if err := rows.Scan(&p.ID, &p.Name, &p.PageType, &p.Sections); err != nil {
+			continue
+		}
+		pages[p.Name] = p
+	}
+	return pages, nil
+}
+
+// ============================================================================
+// Finding struct — what the LLM produces
+// ============================================================================
 
 type auditFinding struct {
-	Category          string `json:"category"`
-	Severity          string `json:"severity"`
-	Description       string `json:"description"`
-	Suggestion        string `json:"suggestion"`
-	Page              string `json:"page"`
-	FixType           string `json:"fix_type"`
-	AffectedComponent string `json:"affected_component"`
-	WorkItemType      string `json:"work_item_type"`
+	Category          string   `json:"category"`
+	Severity          string   `json:"severity"`
+	Description       string   `json:"description"`
+	Suggestion        string   `json:"suggestion"`
+	Page              string   `json:"page"`
+	AffectedPages     []string `json:"affected_pages"`
+	FixType           string   `json:"fix_type"`
+	AffectedComponent string   `json:"affected_component"`
 }
+
+// ============================================================================
+// Classified result — what we insert as a work item
+// ============================================================================
+
+type classifiedFinding struct {
+	ItemType     string
+	HandlerAgent string
+	Severity     string
+	Priority     int
+	PageID       *uuid.UUID
+	PageName     string
+	Spec         map[string]interface{}
+	DedupKey     string
+}
+
+// ============================================================================
+// classify — the core algorithmic routing
+// ============================================================================
+
+func classifyFinding(f auditFinding, pages map[string]pageInfo, siteID uuid.UUID, auditSource string) classifiedFinding {
+	category := strings.ToLower(strings.TrimSpace(f.Category))
+	pageName := strings.TrimSpace(f.Page)
+
+	// Normalise page name aliases
+	if alias, ok := pageNameAliases[strings.ToLower(pageName)]; ok {
+		pageName = alias
+	}
+
+	// Use first affected_page if page is empty
+	if pageName == "" && len(f.AffectedPages) > 0 {
+		pageName = strings.TrimSpace(f.AffectedPages[0])
+		if alias, ok := pageNameAliases[strings.ToLower(pageName)]; ok {
+			pageName = alias
+		}
+	}
+
+	severity := f.Severity
+	if severity == "" {
+		severity = "medium"
+	}
+	priority := severityToPriority(severity)
+
+	// Build base spec (always included)
+	spec := map[string]interface{}{
+		"audit_source":    auditSource,
+		"category":        f.Category,
+		"description":     f.Description,
+		"original_domain": "build",
+	}
+	if f.Suggestion != "" {
+		spec["suggestion"] = f.Suggestion
+	}
+	if f.AffectedComponent != "" {
+		spec["affected_component"] = f.AffectedComponent
+	}
+	if f.FixType != "" {
+		spec["fix_type"] = f.FixType
+	}
+
+	// ── Rule 1: Design categories → design handlers (page existence irrelevant)
+	if _, isDesign := designCategories[category]; isDesign {
+		handler := designRouting[category]
+		itemType := designItemTypes[category]
+		if handler == "" {
+			handler = "component-template-fixer"
+		}
+		if itemType == "" {
+			itemType = "needs_design_review"
+		}
+
+		var pageID *uuid.UUID
+		if pageName != "" {
+			if p, exists := pages[pageName]; exists {
+				pageID = &p.ID
+			}
+		}
+		spec["page_name"] = pageName
+
+		return classifiedFinding{
+			ItemType:     itemType,
+			HandlerAgent: handler,
+			Severity:     severity,
+			Priority:     priority,
+			PageID:       pageID,
+			PageName:     pageName,
+			Spec:         spec,
+			DedupKey:     fmt.Sprintf("%s_%s_%s_%s", auditSource, itemType, pageName, siteID),
+		}
+	}
+
+	// ── Rule 2: Metadata/config categories → spec update (not a page issue)
+	if _, isMeta := metadataCategories[category]; isMeta {
+		spec["page_name"] = ""
+		return classifiedFinding{
+			ItemType:     "needs_spec_update",
+			HandlerAgent: "spec-updater",
+			Severity:     severity,
+			Priority:     priority,
+			PageID:       nil,
+			PageName:     "",
+			Spec:         spec,
+			DedupKey:     fmt.Sprintf("%s_needs_spec_update_%s_%s", auditSource, category, siteID),
+		}
+	}
+
+	// ── Rule 3: Component-level categories on existing pages
+	if _, isComponent := componentCategories[category]; isComponent {
+		var pageID *uuid.UUID
+		if p, exists := pages[pageName]; exists {
+			pageID = &p.ID
+		}
+		itemType := "cta_improvement"
+		if category == "nav_restructure" {
+			itemType = "nav_restructure"
+		}
+		spec["page_name"] = pageName
+
+		return classifiedFinding{
+			ItemType:     itemType,
+			HandlerAgent: "component-template-fixer",
+			Severity:     severity,
+			Priority:     priority,
+			PageID:       pageID,
+			PageName:     pageName,
+			Spec:         spec,
+			DedupKey:     fmt.Sprintf("%s_%s_%s_%s", auditSource, itemType, pageName, siteID),
+		}
+	}
+
+	// ── Rule 4: Content categories — depends on whether the page exists
+	isPlaceholder := placeholderPageNames[strings.ToLower(pageName)]
+
+	if !isPlaceholder {
+		if p, exists := pages[pageName]; exists {
+			// Page exists → content rewrite on existing page
+			pageID := p.ID
+			itemType := "content_rewrite"
+			if category == "tone" {
+				itemType = "tone_shift"
+			}
+			spec["page_name"] = pageName
+
+			return classifiedFinding{
+				ItemType:     itemType,
+				HandlerAgent: "page-build-handler",
+				Severity:     severity,
+				Priority:     priority,
+				PageID:       &pageID,
+				PageName:     pageName,
+				Spec:         spec,
+				DedupKey:     fmt.Sprintf("%s_%s_%s_%s", auditSource, itemType, pageName, siteID),
+			}
+		}
+	}
+
+	// ── Rule 5: Gap — page doesn't exist or is a placeholder
+	// Route to content-gap-planner which decides what to create
+	if category == "gap" || category == "content" || category == "differentiation" || category == "structure" {
+		spec["page_name"] = pageName
+
+		return classifiedFinding{
+			ItemType:     "needs_content_planning",
+			HandlerAgent: "content-gap-planner",
+			Severity:     severity,
+			Priority:     priority + 5,
+			PageID:       nil,
+			PageName:     "",
+			Spec:         spec,
+			DedupKey:     fmt.Sprintf("%s_needs_content_planning_%s_%s", auditSource, sanitiseDedupSegment(f.Description), siteID),
+		}
+	}
+
+	// ── Rule 6: Tone/content on placeholder page → also goes to planner
+	if isPlaceholder && (category == "tone" || category == "content_rewrite") {
+		spec["page_name"] = ""
+
+		return classifiedFinding{
+			ItemType:     "needs_content_planning",
+			HandlerAgent: "content-gap-planner",
+			Severity:     severity,
+			Priority:     priority + 5,
+			PageID:       nil,
+			PageName:     "",
+			Spec:         spec,
+			DedupKey:     fmt.Sprintf("%s_needs_content_planning_%s_%s", auditSource, sanitiseDedupSegment(f.Description), siteID),
+		}
+	}
+
+	// ── Fallback: unknown category → content-gap-planner for triage
+	spec["page_name"] = pageName
+	return classifiedFinding{
+		ItemType:     "audit_finding_" + category,
+		HandlerAgent: "content-gap-planner",
+		Severity:     severity,
+		Priority:     priority + 10,
+		PageID:       nil,
+		PageName:     pageName,
+		Spec:         spec,
+		DedupKey:     fmt.Sprintf("%s_audit_%s_%s_%s", auditSource, category, sanitiseDedupSegment(pageName), siteID),
+	}
+}
+
+func severityToPriority(severity string) int {
+	switch severity {
+	case "high":
+		return 10
+	case "low":
+		return 60
+	default:
+		return 30
+	}
+}
+
+func sanitiseDedupSegment(s string) string {
+	s = strings.ToLower(s)
+	s = strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-' || r == '_' {
+			return r
+		}
+		if r == ' ' {
+			return '_'
+		}
+		return -1
+	}, s)
+	if len(s) > 60 {
+		s = s[:60]
+	}
+	return s
+}
+
+// ============================================================================
+// Main action
+// ============================================================================
 
 func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(zap.String("action", "write_audit_findings"))
@@ -127,21 +420,18 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		auditSource = "design-audit"
 	}
 
-	// Load custom routing from config if provided
-	routing := defaultFindingRouting
-	if customRouting, ok := config["handler_routing"].(map[string]interface{}); ok {
-		routing = make(map[string]string)
-		for k, v := range defaultFindingRouting {
-			routing[k] = v
-		}
-		for k, v := range customRouting {
-			if vs, ok := v.(string); ok {
-				routing[k] = vs
-			}
-		}
+	// ── Load existing pages for classification ──
+	pages, err := loadSitePages(ctx, params.DB, siteID)
+	if err != nil {
+		logger.Warn("Failed to load pages for classification, continuing without",
+			zap.Error(err))
+		pages = make(map[string]pageInfo)
 	}
+	logger.Info("Loaded site pages for classification",
+		zap.Int("page_count", len(pages)),
+		zap.String("site_id", siteIDStr))
 
-	// Extract findings from LLM response
+	// ── Extract findings from LLM response ──
 	findingsField := "audit_result.result"
 	if f, ok := config["findings_field"].(string); ok && f != "" {
 		findingsField = f
@@ -149,7 +439,6 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 
 	findingsRaw := datahelpers.ExtractNestedField(params.CollectedData, findingsField)
 	if findingsRaw == nil {
-		// Try common alternative paths
 		for _, alt := range []string{"audit_result.response.result", "audit_result", "review_result.result"} {
 			findingsRaw = datahelpers.ExtractNestedField(params.CollectedData, alt)
 			if findingsRaw != nil {
@@ -166,12 +455,11 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		}, nil
 	}
 
-	// Parse findings — could be a JSON string or a pre-parsed array
+	// ── Parse findings ──
 	var findings []auditFinding
 
 	switch v := findingsRaw.(type) {
 	case string:
-		// Strip markdown fences if present
 		cleaned := strings.TrimSpace(v)
 		cleaned = strings.TrimPrefix(cleaned, "```json")
 		cleaned = strings.TrimPrefix(cleaned, "```")
@@ -179,7 +467,6 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		cleaned = strings.TrimSpace(cleaned)
 
 		if err := json.Unmarshal([]byte(cleaned), &findings); err != nil {
-			// Try parsing as object with findings array
 			var wrapper map[string]json.RawMessage
 			if err2 := json.Unmarshal([]byte(cleaned), &wrapper); err2 == nil {
 				if findingsJSON, ok := wrapper["findings"]; ok {
@@ -197,7 +484,6 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 			}
 		}
 	case []interface{}:
-		// Pre-parsed array — convert each element
 		for _, item := range v {
 			if m, ok := item.(map[string]interface{}); ok {
 				f := auditFinding{
@@ -208,7 +494,13 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 					Page:              getStringFromMap(m, "page"),
 					FixType:           getStringFromMap(m, "fix_type"),
 					AffectedComponent: getStringFromMap(m, "affected_component"),
-					WorkItemType:      getStringFromMap(m, "work_item_type"),
+				}
+				if ap, ok := m["affected_pages"].([]interface{}); ok {
+					for _, p := range ap {
+						if ps, ok := p.(string); ok {
+							f.AffectedPages = append(f.AffectedPages, ps)
+						}
+					}
 				}
 				findings = append(findings, f)
 			}
@@ -223,7 +515,7 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("count", len(findings)),
 		zap.String("source", auditSource))
 
-	// Load existing blocked items for this site to skip findings that match
+	// ── Load blocked items for filtering ──
 	blockedKeys := make(map[string]bool)
 	blockedRows, err := params.DB.QueryContext(ctx, `
 		SELECT item_key FROM site_work_items
@@ -238,93 +530,49 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		}
 		blockedRows.Close()
 	}
-	if len(blockedKeys) > 0 {
-		logger.Info("WriteAuditFindingsAction: Loaded blocked items for filtering",
-			zap.Int("blocked_count", len(blockedKeys)))
-	}
 
-	// Insert work items
+	// ── Classify and insert ──
 	batchID := uuid.New()
 	created := 0
 	skipped := 0
 	skippedBlocked := 0
+	classificationStats := make(map[string]int)
 
 	for _, f := range findings {
-		// Determine handler agent
-		handler := routing[f.Category]
-		if handler == "" {
-			handler = "component-template-fixer" // default
-		}
+		classified := classifyFinding(f, pages, siteID, auditSource)
+		classificationStats[classified.ItemType]++
 
-		// Determine item type
-		itemType := f.WorkItemType
-		if itemType == "" {
-			itemType = defaultItemTypeMapping[f.Category]
-		}
-		if itemType == "" {
-			itemType = "audit_finding_" + f.Category
-		}
+		logger.Info("Classified finding",
+			zap.String("category", f.Category),
+			zap.String("page", f.Page),
+			zap.String("→item_type", classified.ItemType),
+			zap.String("→handler", classified.HandlerAgent),
+			zap.String("→page_name", classified.PageName),
+			zap.Bool("→has_page_id", classified.PageID != nil))
 
-		// Determine severity
-		severity := f.Severity
-		if severity == "" {
-			severity = "medium"
-		}
-
-		// Build spec
-		spec := map[string]interface{}{
-			"audit_source":       auditSource,
-			"category":           f.Category,
-			"description":        f.Description,
-			"suggestion":         f.Suggestion,
-			"affected_component": f.AffectedComponent,
-		}
-		if f.FixType != "" {
-			spec["fix_type"] = f.FixType
-		}
-		if f.Page != "" {
-			spec["page_name"] = f.Page
-		}
-		specJSON, _ := json.Marshal(spec)
-
-		// Dedup key
-		dedupKey := fmt.Sprintf("%s_%s_%s_%s", auditSource, itemType, f.Page, siteID)
-
-		// Priority: high=10, medium=30, low=60
-		priority := 30
-		switch severity {
-		case "high":
-			priority = 10
-		case "low":
-			priority = 60
-		}
-
-		// Skip findings that match existing blocked items
-		if blockedKeys[dedupKey] {
+		// Skip blocked
+		if blockedKeys[classified.DedupKey] {
 			skippedBlocked++
 			continue
 		}
 
-		// Also check if a blocked item exists with a broader key pattern
-		// (e.g. blocked by handler_agent, not by specific audit source)
+		// Broader blocked check
 		var isBlocked bool
 		params.DB.QueryRowContext(ctx, `
 			SELECT EXISTS(
 				SELECT 1 FROM site_work_items
 				WHERE site_id = $1 AND status = 'blocked'
 				  AND item_type = $2
-				  AND (page_id IS NULL OR page_id = (
-				      SELECT id FROM pages WHERE site_id = $1 AND name = $3 LIMIT 1
-				  ))
+				  AND ($3::uuid IS NULL OR page_id = $3::uuid)
 			)
-		`, siteID, itemType, f.Page).Scan(&isBlocked)
+		`, siteID, classified.ItemType, classified.PageID).Scan(&isBlocked)
 
 		if isBlocked {
 			skippedBlocked++
 			continue
 		}
 
-		// Insert with dedup — skip if pending item already exists
+		// Dedup check
 		var exists bool
 		params.DB.QueryRowContext(ctx, `
 			SELECT EXISTS(
@@ -332,25 +580,29 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 				WHERE site_id = $1 AND item_key = $2
 				  AND status IN ('detected', 'triaged', 'claimed', 'blocked')
 			)
-		`, siteID, dedupKey).Scan(&exists)
+		`, siteID, classified.DedupKey).Scan(&exists)
 
 		if exists {
 			skipped++
 			continue
 		}
 
+		specJSON, _ := json.Marshal(classified.Spec)
+
 		_, err := params.DB.ExecContext(ctx, `
 			INSERT INTO site_work_items (
 				site_id, source, domain, item_type, severity, summary,
-				spec, priority, handler_agent, status, created_by,
+				spec, page_id, priority, handler_agent, status, created_by,
 				item_key, batch_id
-			) VALUES ($1, $2, 'build', $3, $4, $5, $6::jsonb, $7, $8, 'detected', $9, $10, $11)
-		`, siteID, "discovery", itemType, severity, f.Description,
-			string(specJSON), priority, handler, auditSource, dedupKey, batchID)
+			) VALUES ($1, $2, 'build', $3, $4, $5, $6::jsonb, $7, $8, $9, 'detected', $10, $11, $12)
+		`, siteID, "discovery", classified.ItemType, classified.Severity,
+			f.Description, string(specJSON), classified.PageID, classified.Priority,
+			classified.HandlerAgent, auditSource, classified.DedupKey, batchID)
 
 		if err != nil {
 			logger.Warn("Failed to insert finding work item",
 				zap.String("category", f.Category),
+				zap.String("item_type", classified.ItemType),
 				zap.Error(err))
 			continue
 		}
@@ -361,7 +613,8 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("created", created),
 		zap.Int("skipped_duplicates", skipped),
 		zap.Int("skipped_blocked", skippedBlocked),
-		zap.Int("total_findings", len(findings)))
+		zap.Int("total_findings", len(findings)),
+		zap.Any("classification_stats", classificationStats))
 
 	return map[string]interface{}{
 		"items_created":         created,
@@ -370,6 +623,7 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		"total_findings":        len(findings),
 		"batch_id":              batchID.String(),
 		"audit_source":          auditSource,
+		"classification_stats":  classificationStats,
 	}, nil
 }
 

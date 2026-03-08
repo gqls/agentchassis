@@ -257,3 +257,22 @@ WHERE name = 'feasibility-recheck';
 SELECT name, interval_seconds, enabled, LEFT(pre_query, 80) as pre_query_preview
 FROM scheduled_tasks
 WHERE name IN ('claimed-item-timeout', 'feasibility-recheck');
+
+---
+
+-- added system user
+-- Check if the function exists
+SELECT proname FROM pg_proc WHERE proname = 'create_client_schema';
+
+-- If it exists, use it
+SELECT create_client_schema('system');
+
+-- Insert the client record
+INSERT INTO clients (external_id, name, settings)
+VALUES ('system', 'System Scheduler', '{"type": "internal", "description": "Used by kafka-scheduler for automated triggers"}'::jsonb)
+    ON CONFLICT DO NOTHING;
+
+-- Verify both
+SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'client_system';
+SELECT * FROM clients WHERE external_id = 'system';
+
