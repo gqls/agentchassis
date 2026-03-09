@@ -21,8 +21,7 @@ spec:
 
             # Database — now $(CLIENTS_DB_PASSWORD) resolves correctly
             - name: CLIENTS_DATABASE_URL
-              value: "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@postgres-rw.ai-persona-system.svc.cluster.local:5432/clients_db?sslmode=disable"
-            # Kafka
+              value: "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@pgbouncer.ai-persona-system.svc.cluster.local:6432/clients_db?sslmode=disable&default_query_exec_mode=cache_describe"            # Kafka
             - name: KAFKA_BROKERS
               value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
