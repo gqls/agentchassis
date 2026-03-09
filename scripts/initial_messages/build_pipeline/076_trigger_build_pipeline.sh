@@ -183,6 +183,7 @@ kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-rerender -f | te
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=rerender-pages -f | tee logs-rerender-pages.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-generator -f | tee logs-image-generator.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-build-handler -f | tee logs-image-build-handler.json
+kubectl -n ai-persona-system logs --tail=300 -l app=kafka-scheduler -f | tee logs-kafka-scheduler.json
 
 
 
@@ -434,4 +435,28 @@ SELECT owner_agent_type, status, current_step,
 FROM orchestration_states
 WHERE created_at > NOW() - INTERVAL '30 minutes'
 ORDER BY created_at DESC LIMIT 10;
+
+-----------
+DEBUG
+-----------
+
+ cta_improvement          | failed  | finetuning.uk
+
+Check the work item's error and result fields:
+SELECT wi.id, wi.item_type, wi.handler_agent, wi.error, wi.result,
+       wi.attempt_count, wi.claimed_at, wi.completed_at
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE s.domain = 'finetuning.uk'
+  AND wi.item_type = 'cta_improvement'
+  AND wi.status = 'failed';
+
+Then check the orchestration that processed it:
+  SELECT os.owner_agent_type, os.status, os.current_step,
+         LEFT(os.error, 300) as error,
+         os.created_at, os.last_activity
+  FROM orchestration_states os
+  WHERE os.owner_agent_type = 'component-template-fixer'
+    AND os.status = 'FAILED'
+  ORDER BY os.created_at DESC LIMIT 3;
 

@@ -4,6 +4,8 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/segmentio/kafka-go"
@@ -30,11 +32,15 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 
 	logger.Info("consumer.go setting up NewConsumer")
 
+	sessionTimeout := envDurationOrDefault("KAFKA_SESSION_TIMEOUT", 60*time.Second)
+	rebalanceTimeout := envDurationOrDefault("KAFKA_REBALANCE_TIMEOUT", 60*time.Second)
+	heartbeatInterval := sessionTimeout / 3 // Kafka requires heartbeat < session timeout
+
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        brokers,
 		GroupID:        groupID,
 		Topic:          topic,
-		MinBytes:       1,                 // 10KB
+		MinBytes:       1,                 // 1 byte
 		MaxBytes:       10e6,              // 10MB
 		CommitInterval: 0,                 // Manual commit
 		StartOffset:    kafka.FirstOffset, // Start from beginning if no offset stored
@@ -42,16 +48,19 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 			Timeout:   10 * time.Second,
 			DualStack: true,
 		},
-		// Add these for better consumer group behavior
-		SessionTimeout:   10 * time.Second,
-		RebalanceTimeout: 10 * time.Second,
-		MaxWait:          1 * time.Second, // Don't wait too long for messages
+		SessionTimeout:    sessionTimeout,
+		RebalanceTimeout:  rebalanceTimeout,
+		HeartbeatInterval: heartbeatInterval,
+		MaxWait:           1 * time.Second,
 	})
 
 	logger.Info("Kafka consumer created",
 		zap.Strings("brokers", brokers),
 		zap.String("topic", topic),
 		zap.String("groupID", groupID),
+		zap.Duration("session_timeout", sessionTimeout),
+		zap.Duration("rebalance_timeout", rebalanceTimeout),
+		zap.Duration("heartbeat_interval", heartbeatInterval),
 	)
 
 	return &Consumer{
@@ -133,4 +142,16 @@ func (c *Consumer) CommitMessages(ctx context.Context, msgs ...Message) error {
 func (c *Consumer) Close() error {
 	c.logger.Info("Closing Kafka consumer...")
 	return c.reader.Close()
+}
+
+func envDurationOrDefault(key string, defaultVal time.Duration) time.Duration {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal
+	}
+	seconds, err := strconv.Atoi(val)
+	if err != nil {
+		return defaultVal
+	}
+	return time.Duration(seconds) * time.Second
 }
