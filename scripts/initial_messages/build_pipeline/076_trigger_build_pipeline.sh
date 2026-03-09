@@ -415,5 +415,23 @@ Two stuck claimed items — needs_rerender for gaswholesalers and add_tool for f
 UPDATE site_work_items SET status = 'triaged', claimed_at = NULL, claimed_by = NULL
 WHERE status = 'claimed' AND claimed_at < NOW() - INTERVAL '10 minutes';
 
+--
 
+-- How long have claimed items been stuck?
+SELECT s.domain, wi.item_type, wi.handler_agent,
+       EXTRACT(EPOCH FROM (NOW() - wi.claimed_at))::int as claimed_secs_ago
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status = 'claimed'
+ORDER BY wi.claimed_at;
+
+-- Is the dispatch loop pod still running?
+-- kubectl -n ai-persona-system get pods | grep dispatch
+
+-- Check recent orchestrations
+SELECT owner_agent_type, status, current_step,
+       EXTRACT(EPOCH FROM (NOW() - last_activity))::int as idle_secs
+FROM orchestration_states
+WHERE created_at > NOW() - INTERVAL '30 minutes'
+ORDER BY created_at DESC LIMIT 10;
 

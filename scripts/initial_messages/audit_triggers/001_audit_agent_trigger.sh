@@ -330,3 +330,452 @@ SET status = 'triaged', triaged_at = NOW()
 WHERE status = 'detected' AND severity = 'high';
 
 then trigger pipeline
+
+
+==============================
+===============================
+================================
+===============================
+==============================
+
+AGENT_TYPE="blog-content-planner"
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "=== Triggering: ${AGENT_TYPE} ==="
+echo "  Site: ${DOMAIN} (${SITE_ID})"
+echo "  Correlation: ${CORRELATION_ID}"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=orchestrate \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H responses_topic=system.agent.generic.responses \
+-H timestamp=$TIMESTAMP <<JSON
+{"action":"orchestrate","config":{"agent_type":"${AGENT_TYPE}"},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l agent-type=${AGENT_TYPE} --tail=50"
+echo ""
+echo "Check findings:"
+echo "  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)"
+echo "  FROM site_work_items"
+echo "  WHERE site_id = '${SITE_ID}'"
+echo "    AND created_at > NOW() - INTERVAL '1 hour'"
+echo "  ORDER BY priority;"
+
+
+
+AGENT_TYPE="design-audit-agent"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "=== Triggering: ${AGENT_TYPE} ==="
+echo "  Site: ${DOMAIN} (${SITE_ID})"
+echo "  Correlation: ${CORRELATION_ID}"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=orchestrate \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H responses_topic=system.agent.generic.responses \
+-H timestamp=$TIMESTAMP <<JSON
+{"action":"orchestrate","config":{"agent_type":"${AGENT_TYPE}"},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l agent-type=${AGENT_TYPE} --tail=50"
+echo ""
+echo "Check findings:"
+echo "  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)"
+echo "  FROM site_work_items"
+echo "  WHERE site_id = '${SITE_ID}'"
+echo "    AND created_at > NOW() - INTERVAL '1 hour'"
+echo "  ORDER BY priority;"
+
+
+AGENT_TYPE="design-audit-agent"
+SITE_ID="2a8ebf9c-20a2-4c39-b191-840b012371da"
+DOMAIN="ai-agent-orchestration.com"
+
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "=== Triggering: ${AGENT_TYPE} ==="
+echo "  Site: ${DOMAIN} (${SITE_ID})"
+echo "  Correlation: ${CORRELATION_ID}"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=orchestrate \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H responses_topic=system.agent.generic.responses \
+-H timestamp=$TIMESTAMP <<JSON
+{"action":"orchestrate","config":{"agent_type":"${AGENT_TYPE}"},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l agent-type=${AGENT_TYPE} --tail=50"
+echo ""
+echo "Check findings:"
+echo "  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)"
+echo "  FROM site_work_items"
+echo "  WHERE site_id = '${SITE_ID}'"
+echo "    AND created_at > NOW() - INTERVAL '1 hour'"
+echo "  ORDER BY priority;"
+
+
+AGENT_TYPE="design-audit-agent"
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
+
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "=== Triggering: ${AGENT_TYPE} ==="
+echo "  Site: ${DOMAIN} (${SITE_ID})"
+echo "  Correlation: ${CORRELATION_ID}"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=orchestrate \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H responses_topic=system.agent.generic.responses \
+-H timestamp=$TIMESTAMP <<JSON
+{"action":"orchestrate","config":{"agent_type":"${AGENT_TYPE}"},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l agent-type=${AGENT_TYPE} --tail=50"
+echo ""
+echo "Check findings:"
+echo "  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)"
+echo "  FROM site_work_items"
+echo "  WHERE site_id = '${SITE_ID}'"
+echo "    AND created_at > NOW() - INTERVAL '1 hour'"
+echo "  ORDER BY priority;"
+
+
+
+
+AGENT_TYPE="design-audit-agent"
+SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+DOMAIN="gaswholesalers.com"
+
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "=== Triggering: ${AGENT_TYPE} ==="
+echo "  Site: ${DOMAIN} (${SITE_ID})"
+echo "  Correlation: ${CORRELATION_ID}"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=orchestrate \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H responses_topic=system.agent.generic.responses \
+-H timestamp=$TIMESTAMP <<JSON
+{"action":"orchestrate","config":{"agent_type":"${AGENT_TYPE}"},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l agent-type=${AGENT_TYPE} --tail=50"
+echo ""
+echo "Check findings:"
+echo "  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)"
+echo "  FROM site_work_items"
+echo "  WHERE site_id = '${SITE_ID}'"
+echo "    AND created_at > NOW() - INTERVAL '1 hour'"
+echo "  ORDER BY priority;"
+
+
+
+
+AGENT_TYPE="site-review-agent"
+SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+DOMAIN="gaswholesalers.com"
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "=== Triggering: ${AGENT_TYPE} ==="
+echo "  Site: ${DOMAIN} (${SITE_ID})"
+echo "  Correlation: ${CORRELATION_ID}"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=orchestrate \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H responses_topic=system.agent.generic.responses \
+-H timestamp=$TIMESTAMP <<JSON
+{"action":"orchestrate","config":{"agent_type":"${AGENT_TYPE}"},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l agent-type=${AGENT_TYPE} --tail=50"
+echo ""
+echo "Check findings:"
+echo "  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)"
+echo "  FROM site_work_items"
+echo "  WHERE site_id = '${SITE_ID}'"
+echo "    AND created_at > NOW() - INTERVAL '1 hour'"
+echo "  ORDER BY priority;"
+
+
+
+AGENT_TYPE="site-review-agent"
+SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
+DOMAIN="finetuning.uk"
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "=== Triggering: ${AGENT_TYPE} ==="
+echo "  Site: ${DOMAIN} (${SITE_ID})"
+echo "  Correlation: ${CORRELATION_ID}"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=orchestrate \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H responses_topic=system.agent.generic.responses \
+-H timestamp=$TIMESTAMP <<JSON
+{"action":"orchestrate","config":{"agent_type":"${AGENT_TYPE}"},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l agent-type=${AGENT_TYPE} --tail=50"
+echo ""
+echo "Check findings:"
+echo "  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)"
+echo "  FROM site_work_items"
+echo "  WHERE site_id = '${SITE_ID}'"
+echo "    AND created_at > NOW() - INTERVAL '1 hour'"
+echo "  ORDER BY priority;"
+
+
+
+AGENT_TYPE="site-review-agent"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "=== Triggering: ${AGENT_TYPE} ==="
+echo "  Site: ${DOMAIN} (${SITE_ID})"
+echo "  Correlation: ${CORRELATION_ID}"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=orchestrate \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H responses_topic=system.agent.generic.responses \
+-H timestamp=$TIMESTAMP <<JSON
+{"action":"orchestrate","config":{"agent_type":"${AGENT_TYPE}"},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l agent-type=${AGENT_TYPE} --tail=50"
+echo ""
+echo "Check findings:"
+echo "  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)"
+echo "  FROM site_work_items"
+echo "  WHERE site_id = '${SITE_ID}'"
+echo "    AND created_at > NOW() - INTERVAL '1 hour'"
+echo "  ORDER BY priority;"
+
+
+AGENT_TYPE="site-review-agent"
+SITE_ID="2a8ebf9c-20a2-4c39-b191-840b012371da"
+DOMAIN="ai-agent-orchestration.com"
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "=== Triggering: ${AGENT_TYPE} ==="
+echo "  Site: ${DOMAIN} (${SITE_ID})"
+echo "  Correlation: ${CORRELATION_ID}"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=orchestrate \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H responses_topic=system.agent.generic.responses \
+-H timestamp=$TIMESTAMP <<JSON
+{"action":"orchestrate","config":{"agent_type":"${AGENT_TYPE}"},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l agent-type=${AGENT_TYPE} --tail=50"
+echo ""
+echo "Check findings:"
+echo "  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)"
+echo "  FROM site_work_items"
+echo "  WHERE site_id = '${SITE_ID}'"
+echo "    AND created_at > NOW() - INTERVAL '1 hour'"
+echo "  ORDER BY priority;"
+
