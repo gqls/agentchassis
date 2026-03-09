@@ -97,10 +97,36 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	// 9. Build and return the result
 	callResult := buildCallResult(targetAgent, childOrchID, targetAction, requestMessage.Headers.RequestID)
-	params.Logger.Info("in CallAgentAction built call result on agent",
-		zap.Any("callResult", callResult),
-		zap.Any("agent type", os.Getenv("AGENT_TYPE")),
-	)
+
+	// 10. Check if caller configured fire-and-forget (no waiting for child response).
+	//     buildCallResult sets await_response: true by default.
+	//     Only override to false when config explicitly requests it.
+	//     The coordinator's processAwaitResponse reads this from the action result
+	//     to decide whether to enter AWAITING_RESPONSES state.
+	config := params.StepConfig.Config
+	if awaitCfg, ok := config["await_response"].(bool); ok {
+		if !awaitCfg {
+			callResult["await_response"] = false
+			params.Logger.Info("CallAgentAction: fire-and-forget mode — not awaiting child response",
+				zap.String("target_agent", targetAgent.AgentType),
+				zap.String("target_agent_id", targetAgent.AgentID),
+				zap.String("request_id", requestMessage.Headers.RequestID),
+				zap.String("child_orchestration", childOrchID),
+				zap.String("child_requests_topic", targetAgent.RequestsTopic),
+			)
+		} else {
+			params.Logger.Info("CallAgentAction: await_response explicitly true (default behaviour)",
+				zap.String("target_agent", targetAgent.AgentType),
+				zap.String("request_id", requestMessage.Headers.RequestID),
+			)
+		}
+	} else {
+		// No await_response in config — keep buildCallResult default (true)
+		params.Logger.Info("CallAgentAction: awaiting child response (default)",
+			zap.String("target_agent", targetAgent.AgentType),
+			zap.String("request_id", requestMessage.Headers.RequestID),
+		)
+	}
 
 	return callResult, nil
 }
@@ -780,11 +806,11 @@ func trackRequest(ctx context.Context, db *sql.DB, requestID, orchestrationID, t
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"AGENT_CALL",        // event_type
-		"orchestration",     // entity_type
-		orchestrationID,     // entity_id
-		metadataJSON,        // metadata
-		"info",              // severity
+		"AGENT_CALL",    // event_type
+		"orchestration", // entity_type
+		orchestrationID, // entity_id
+		metadataJSON,    // metadata
+		"info",          // severity
 		"call_agent_action") // source
 }
 
@@ -837,11 +863,11 @@ func failRequest(ctx context.Context, db *sql.DB, requestID string) {
     `
 
 	db.ExecContext(ctx, eventQuery,
-		"REQUEST_FAILED",    // event_type
-		"request",           // entity_type
-		requestID,           // entity_id
-		metadataJSON,        // metadata
-		"error",             // severity
+		"REQUEST_FAILED", // event_type
+		"request",        // entity_type
+		requestID,        // entity_id
+		metadataJSON,     // metadata
+		"error",          // severity
 		"call_agent_action") // source
 }
 
@@ -893,11 +919,11 @@ func logAgentActivity(ctx context.Context, db *sql.DB, agentID, eventType, detai
     `
 
 	db.ExecContext(ctx, query,
-		eventType,        // event_type
-		"agent",          // entity_type
-		agentID,          // entity_id
-		metadataJSON,     // metadata
-		"info",           // severity
+		eventType,    // event_type
+		"agent",      // entity_type
+		agentID,      // entity_id
+		metadataJSON, // metadata
+		"info",       // severity
 		"agent_activity") // source
 }
 
