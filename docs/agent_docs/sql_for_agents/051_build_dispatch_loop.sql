@@ -1594,3 +1594,139 @@ load_items (max 5)
 → claim → spawn → call → mark complete (×5)
 → load_items (next batch of 5)
 → check_has_items → ...
+
+-- backup
+ 099b51e0-6dd0-4856-8f82-805a379e8b1d | build-dispatch-loop | Build Dispatch Loop | Processes one work item per invocation, then spawns itself if more remain. No loops or sub_workflows — each dispatch is a separate orchestration with clean logs. | orchestrator | {"workflow": {"steps": {"complete": {"action": "complete_workflow", "config": {"output_fields": ["pending", "items_processed"]}, "description": "Dispatch complete"}, "load_items": {"action": "load_work_items", "config": {"site_id": "input_data.site_id", "max_items": 5}, "next_step": "check_has_items", "description": "Load all dispatchable items (dependency-filtered, priority-ordered)", "output_field": "pending"}, "process_items": {"action": "loop", "config": {"items_field": "pending.items", "sub_workflow": {"steps": {"done": {"action": "loop_complete", "description": "Item done"}, "claim": {"action": "claim_work_item", "config": {"work_item_id": "current_item.id"}, "next_step": "check_claim", "description": "Atomically claim item", "output_field": "claim_result"}, "check_claim": {"action": "conditional", "config": {"condition": "claim_result.claimed == true", "else_step": "done", "then_step": "spawn_handler"}, "description": "Skip if already claimed by another instance"}, "mark_failed": {"action": "fail_work_item", "config": {"work_item_id": "current_item.id", "error_message": "Handler failed"}, "next_step": "done", "description": "Mark item failed, continue to next", "output_field": "item_failed"}, "call_handler": {"action": "call_agent", "config": {"error_step": "mark_failed", "target_role": "handler", "input_mapping": {"spec": "current_item.spec", "domain": "input_data.domain", "site_id": "current_item.site_id", "item_type": "current_item.item_type", "edit_type?": "current_item.spec.edit_type", "page_name?": "current_item.spec.page_name", "slot_name?": "current_item.spec.slot_name", "current_page": "current_item.spec", "work_item_id": "current_item.id", "field_updates?": "current_item.spec.field_updates", "new_component_function?": "current_item.spec.new_component_function", "refresh_site_components?": "current_item.spec.refresh_site_components", "replacement_content_data?": "current_item.spec.replacement_content_data"}, "timeout_seconds": 300}, "next_step": "mark_complete", "description": "Call handler agent", "output_field": "handler_result"}, "mark_complete": {"action": "complete_work_item", "config": {"result": "handler_result", "work_item_id": "current_item.id"}, "next_step": "done", "description": "Mark item complete", "output_field": "item_completed"}, "spawn_handler": {"action": "spawn_agent", "config": {"role": "handler", "error_step": "mark_failed", "agent_type_field": "current_item.handler_agent"}, "next_step": "call_handler", "description": "Spawn handler (dynamic type per item)", "output_field": "handler_spawned"}}, "start_step": "claim"}, "item_variable": "current_item", "max_iterations": 5, "continue_on_error": true}, "next_step": "load_items", "description": "Process each item: claim → spawn → call → mark", "output_field": "items_processed"}, "check_has_items": {"action": "conditional", "config": {"condition": "pending.has_items == true", "else_step": "complete", "then_step": "process_items"}, "description": "Any items to process?"}}, "start_step": "load_items"}, "processing_mode": "orchestrator", "timeout_seconds": 1800} | t         | 2026-02-24 16:56:54.875139+00 | 2026-03-09 19:52:41.034875+00 |            | ["dispatch", "orchestration", "work-items"] | docker.io/aqls/agent-chassis | v1.0.851  |         | {"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "512Mi"}} | {"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"} | {"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 15} | []       |       1 |                     |               |                       |                        | {"fallback_to_self": true, "prefer_delegation": true} | coordinator    | experimental | ["build", "dispatch", "orchestration"] | {}                     |           0 | f           | {"optional": ["domain"], "required": ["site_id"], "description": "Receives site_id from seed_build_queue or external trigger."} | {"produces": {"item_failed": "Work item marked failed (if error_step triggered)", "handler_result": "Result from the handler agent", "item_completed": "Work item marked complete", "next_dispatch_result": "Result from chained dispatch (if any)"}}
+(1 row)
+
+-- Option C: One item per orchestration
+UPDATE agent_definitions
+SET default_config = '{
+    "workflow": {
+        "start_step": "load_items",
+        "processing_mode": "orchestrator",
+        "timeout_seconds": 600,
+        "steps": {
+            "load_items": {
+                "action": "load_work_items",
+                "config": { "site_id": "input_data.site_id", "max_items": 1 },
+                "next_step": "check_has_items",
+                "description": "Load one dispatchable item",
+                "output_field": "pending"
+            },
+            "check_has_items": {
+                "action": "conditional",
+                "config": {
+                    "condition": "pending.has_items == true",
+                    "else_step": "complete",
+                    "then_step": "process_item"
+                },
+                "description": "Any items to process?"
+            },
+            "process_item": {
+                "action": "loop",
+                "config": {
+                    "items_field": "pending.items",
+                    "item_variable": "current_item",
+                    "max_iterations": 1,
+                    "continue_on_error": false,
+                    "sub_workflow": {
+                        "start_step": "claim",
+                        "steps": {
+                            "claim": {
+                                "action": "claim_work_item",
+                                "config": { "work_item_id": "current_item.id" },
+                                "next_step": "check_claim",
+                                "description": "Atomically claim item",
+                                "output_field": "claim_result"
+                            },
+                            "check_claim": {
+                                "action": "conditional",
+                                "config": {
+                                    "condition": "claim_result.claimed == true",
+                                    "else_step": "done",
+                                    "then_step": "spawn_handler"
+                                },
+                                "description": "Skip if already claimed by another instance"
+                            },
+                            "spawn_handler": {
+                                "action": "spawn_agent",
+                                "config": {
+                                    "role": "handler",
+                                    "agent_type_field": "current_item.handler_agent",
+                                    "error_step": "mark_failed"
+                                },
+                                "next_step": "call_handler",
+                                "description": "Spawn handler (dynamic type per item)",
+                                "output_field": "handler_spawned"
+                            },
+                            "call_handler": {
+                                "action": "call_agent",
+                                "config": {
+                                    "target_role": "handler",
+                                    "error_step": "mark_failed",
+                                    "timeout_seconds": 300,
+                                    "input_mapping": {
+                                        "site_id": "current_item.site_id",
+                                        "domain": "input_data.domain",
+                                        "item_type": "current_item.item_type",
+                                        "work_item_id": "current_item.id",
+                                        "spec": "current_item.spec",
+                                        "page_name?": "current_item.spec.page_name",
+                                        "current_page": "current_item.spec"
+                                    }
+                                },
+                                "next_step": "mark_complete",
+                                "description": "Call handler agent",
+                                "output_field": "handler_result"
+                            },
+                            "mark_complete": {
+                                "action": "complete_work_item",
+                                "config": {
+                                    "work_item_id": "current_item.id",
+                                    "result": "handler_result"
+                                },
+                                "next_step": "done",
+                                "description": "Mark item complete",
+                                "output_field": "item_completed"
+                            },
+                            "mark_failed": {
+                                "action": "fail_work_item",
+                                "config": {
+                                    "work_item_id": "current_item.id",
+                                    "error_message": "Handler failed"
+                                },
+                                "next_step": "done",
+                                "description": "Mark item failed, continue",
+                                "output_field": "item_failed"
+                            },
+                            "done": {
+                                "action": "loop_complete",
+                                "description": "Item done"
+                            }
+                        }
+                    }
+                },
+                "next_step": "complete",
+                "description": "Process single item: claim, spawn, call, mark"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "config": { "output_fields": ["pending"] },
+                "description": "Dispatch complete — trigger will invoke again if more items remain"
+            }
+        }
+    }
+}'::jsonb,
+resources = '{"limits": {"cpu": "500m", "memory": "512Mi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}'::jsonb,
+updated_at = NOW()
+WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
+
+
+
+-- Verify
+SELECT
+    default_config->'workflow'->'steps'->'load_items'->'config'->>'max_items' as max_items,
+    default_config->'workflow'->'steps'->'process_item'->'config'->>'max_iterations' as max_iterations,
+    resources->>'limits' as mem_limit
+FROM agent_definitions WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
