@@ -276,3 +276,112 @@ VALUES ('system', 'System Scheduler', '{"type": "internal", "description": "Used
 SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'client_system';
 SELECT * FROM clients WHERE external_id = 'system';
 
+--
+
+
+--The scheduler already skips fireTrigger when the pre_query returns no rows (dynamicData == nil → continue). The problem is: when the pre_query DOES find items to reset/promote, it returns a row (the count), and the scheduler fires a message to generic, which runs the calculator.
+--The pre_query already does all the work in the CTE's UPDATE. We just need to prevent it from returning rows to the scheduler:
+
+-- claimed-item-timeout: do the work, never trigger a message
+UPDATE scheduled_tasks
+SET pre_query = '
+WITH reset AS (
+    UPDATE site_work_items
+    SET status = ''triaged'',
+        claimed_by = NULL,
+        claimed_at = NULL,
+        attempt_count = attempt_count + 1
+    WHERE status = ''claimed''
+      AND claimed_at < NOW() - INTERVAL ''10 minutes''
+      AND attempt_count < max_attempts
+    RETURNING id, item_type, handler_agent
+)
+SELECT COUNT(*)::text as reset_count,
+       string_agg(DISTINCT handler_agent, '', '') as agents
+FROM reset
+WHERE 1 = 0
+'
+WHERE name = 'claimed-item-timeout';
+
+-- feasibility-recheck: same pattern
+UPDATE scheduled_tasks
+SET pre_query = '
+WITH promoted AS (
+    UPDATE site_work_items wi
+    SET status = ''triaged'',
+        error = NULL
+    WHERE wi.status = ''blocked''
+      AND EXISTS (
+        SELECT 1 FROM agent_definitions ad
+        WHERE ad.type = wi.handler_agent
+          AND ad.deleted_at IS NULL
+      )
+    RETURNING wi.id, wi.item_type, wi.handler_agent
+)
+SELECT COUNT(*)::text as promoted,
+       string_agg(DISTINCT handler_agent, '', '') as agents
+FROM promoted
+WHERE 1 = 0
+'
+WHERE name = 'feasibility-recheck';
+
+
+--
+
+-- Fix claimed-item-timeout: use HAVING to suppress zero-result rows
+UPDATE scheduled_tasks
+SET pre_query = '
+WITH reset AS (
+    UPDATE site_work_items
+    SET status = ''triaged'',
+        claimed_by = NULL,
+        claimed_at = NULL,
+        attempt_count = attempt_count + 1
+    WHERE status = ''claimed''
+      AND claimed_at < NOW() - INTERVAL ''10 minutes''
+      AND attempt_count < max_attempts
+    RETURNING id, item_type, handler_agent
+)
+SELECT COUNT(*)::text as reset_count,
+       string_agg(DISTINCT handler_agent, '', '') as agents
+FROM reset
+HAVING COUNT(*) > 0
+'
+WHERE name = 'claimed-item-timeout';
+
+-- Fix feasibility-recheck: same HAVING pattern
+UPDATE scheduled_tasks
+SET pre_query = '
+WITH promoted AS (
+    UPDATE site_work_items wi
+    SET status = ''triaged'',
+        error = NULL
+    WHERE wi.status = ''blocked''
+      AND EXISTS (
+        SELECT 1 FROM agent_definitions ad
+        WHERE ad.type = wi.handler_agent
+          AND ad.deleted_at IS NULL
+      )
+    RETURNING wi.id, wi.item_type, wi.handler_agent
+)
+SELECT COUNT(*)::text as promoted,
+       string_agg(DISTINCT handler_agent, '', '') as agents
+FROM promoted
+HAVING COUNT(*) > 0
+'
+WHERE name = 'feasibility-recheck';
+
+--
+
+
+-- Add a pre_query to improvement-sweep that only fires when queue is small
+UPDATE scheduled_tasks
+SET pre_query = '
+SELECT COUNT(*)::text as pending_items
+FROM site_work_items
+WHERE status IN (''triaged'', ''claimed'', ''detected'')
+  AND domain = ''build''
+HAVING COUNT(*) < 20
+'
+WHERE name = 'improvement-sweep';
+

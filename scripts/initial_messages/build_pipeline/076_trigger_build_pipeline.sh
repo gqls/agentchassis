@@ -190,7 +190,7 @@ kubectl -n ai-persona-system logs --tail=300 -l app=kafka-scheduler -f | tee log
 
 
 
-
+SELECT wi.item_type, wi.status, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.domain = 'build' AND wi.status != 'complete' ORDER BY wi.created_at DESC;
 
 reset
 -- Reset the claimed (failed) content page back to triaged
@@ -463,3 +463,20 @@ Then check the orchestration that processed it:
     AND os.status = 'FAILED'
   ORDER BY os.created_at DESC LIMIT 3;
 
+-------------------------------------------------------------------------
+
+The fix is to stop the audit cycle until the queue is drained:
+
+-- Disable improvement-sweep temporarily
+UPDATE scheduled_tasks SET enabled = false WHERE name = 'improvement-sweep';
+
+-- Check how many items are being processed vs queued
+SELECT s.domain,
+    COUNT(*) FILTER (WHERE wi.status = 'complete') as done,
+    COUNT(*) FILTER (WHERE wi.status IN ('triaged', 'claimed')) as pending,
+    COUNT(*) FILTER (WHERE wi.status = 'failed') as failed
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.domain = 'build'
+GROUP BY s.domain
+ORDER BY pending DESC;

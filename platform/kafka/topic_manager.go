@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -105,7 +107,6 @@ func CreateJobTopic(brokers []string, topicName string, partitions int) error {
 			lastErr = fmt.Errorf("failed to connect to broker %s: %w", broker, err)
 			continue
 		}
-		defer conn.Close()
 
 		// Set a timeout
 		conn.SetDeadline(time.Now().Add(5 * time.Second))
@@ -115,7 +116,7 @@ func CreateJobTopic(brokers []string, topicName string, partitions int) error {
 		if err == nil {
 			for _, p := range partitionList {
 				if p.Topic == topicName {
-					// Topic already exists
+					conn.Close()
 					return nil
 				}
 			}
@@ -134,15 +135,16 @@ func CreateJobTopic(brokers []string, topicName string, partitions int) error {
 		}
 
 		err = conn.CreateTopics(topicConfig)
+		conn.Close() // Close immediately — don't defer in a loop
+
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				return nil // Topic exists, that's fine
+				return nil
 			}
 			lastErr = fmt.Errorf("failed to create topic on broker %s: %w", broker, err)
 			continue
 		}
 
-		// Success!
 		return nil
 	}
 
@@ -581,18 +583,14 @@ func (tm *TopicManager) WaitForTopicOld(ctx context.Context, topic string, logge
 }
 
 func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *zap.Logger) error {
-	const maxAttempts = 10
-	var randomWaits = []int{3, 4, 5, 7, 9, 10, 11, 12, 14, 15}
-	var pollInterval time.Duration
-	waitSeconds := randomWaits[rand.Intn(len(randomWaits))]
-	pollInterval = time.Duration(waitSeconds) * time.Second
+	maxAttempts := envIntOrDefault("KAFKA_TOPIC_WAIT_ATTEMPTS", 15)
+	basePollMs := envIntOrDefault("KAFKA_TOPIC_POLL_BASE_MS", 2000)
 
-	// We'll poll for a total of 100 seconds.
 	for i := 0; i < maxAttempts; i++ {
 		allBrokersReady := true
 		checkedBrokers := 0
 
-		// On each attempt, we now check ALL brokers in the list.
+		// Check ALL brokers — topic must be propagated to all before it's safe to produce.
 		for _, brokerAddr := range tm.brokers {
 			conn, err := kafka.DialContext(ctx, "tcp", brokerAddr)
 			if err != nil {
@@ -600,38 +598,50 @@ func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *
 					zap.String("broker", brokerAddr),
 					zap.Error(err))
 				allBrokersReady = false
-				break // If one broker is down, fail this attempt and retry the poll.
+				break
 			}
-			defer conn.Close()
 
 			partitions, err := conn.ReadPartitions(topic)
+			conn.Close() // Close immediately — defer in a loop leaks connections with stale metadata
+
 			if err != nil || len(partitions) == 0 {
-				logger.Warn("Could not connect to broker cannot ReadPartitions",
+				logger.Warn("Topic not yet on broker",
+					zap.String("topic", topic),
+					zap.String("broker", brokerAddr),
+					zap.Int("attempt", i+1),
 					zap.Any("partitions", partitions),
 					zap.Error(err))
-				// This broker does not know about the topic yet.
 				allBrokersReady = false
-				break // No need to check other brokers; we know it's not ready yet.
+				break
 			}
 			checkedBrokers++
 		}
 
-		// If all brokers were checked and all were ready, success!
 		if allBrokersReady {
 			logger.Info("Topic propagated and is ready on all brokers",
 				zap.String("topic", topic),
-				zap.Int("brokers_checked", checkedBrokers))
+				zap.Int("brokers_checked", checkedBrokers),
+				zap.Int("attempt", i+1))
 			return nil
 		}
 
-		// If not ready, wait for the next polling interval.
-		logger.Info("Waiting for topic to propagate to all brokers...",
-			zap.String("topic", topic),
-			zap.Int("attempt", i+1),
-			zap.Int("max_attempts", maxAttempts))
-		time.Sleep(pollInterval)
+		// Jitter: base interval ± 50% to spread load when many topics created concurrently
+		jitter := basePollMs/2 + rand.Intn(basePollMs)
+		time.Sleep(time.Duration(jitter) * time.Millisecond)
 	}
 
-	// If the loop finishes, it means we timed out.
-	return fmt.Errorf("topic %s not ready on all brokers after %d seconds", topic, maxAttempts)
+	return fmt.Errorf("topic %s not ready on all brokers after %d attempts", topic, maxAttempts)
+}
+
+// envIntOrDefault reads an integer from an environment variable, returning defaultVal if unset or invalid.
+func envIntOrDefault(key string, defaultVal int) int {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal
+	}
+	n, err := strconv.Atoi(val)
+	if err != nil {
+		return defaultVal
+	}
+	return n
 }
