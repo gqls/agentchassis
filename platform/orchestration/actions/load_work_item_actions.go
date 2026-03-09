@@ -707,21 +707,41 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 		agentType = params.ExecutionContext.Sender.AgentType
 	}
 
+	// Check for status_override — used for HITL gates like needs_human_review.
+	// When set, the item gets that status directly without incrementing attempt_count.
+	statusOverride, _ := params.StepConfig.Config["status_override"].(string)
+	
 	var newStatus string
 	var attemptsLeft int
 
-	err = params.DB.QueryRowContext(ctx, `
-		UPDATE site_work_items
-		SET attempt_count = attempt_count + 1,
-		    error = $2,
-		    status = CASE 
-		        WHEN attempt_count + 1 >= max_attempts THEN 'failed'
-		        ELSE 'triaged'
-		    END,
-		    handled_by = $3
-		WHERE id = $1
-		RETURNING status, max_attempts - (attempt_count)
-	`, itemID, errorMsg, agentType).Scan(&newStatus, &attemptsLeft)
+	if statusOverride != "" {
+		err = params.DB.QueryRowContext(ctx, `
+			UPDATE site_work_items
+			SET error = $2,
+			    status = $3,
+			    handled_by = $4
+			WHERE id = $1
+			RETURNING status, max_attempts - attempt_count
+		`, itemID, errorMsg, statusOverride, agentType).Scan(&newStatus, &attemptsLeft)
+
+		logger.Info("FailWorkItemAction: using status_override",
+			zap.String("item_id", itemIDStr),
+			zap.String("status_override", statusOverride))
+	} else {
+		err = params.DB.QueryRowContext(ctx, `
+			UPDATE site_work_items
+			SET attempt_count = attempt_count + 1,
+			    error = $2,
+			    status = CASE
+			        WHEN attempt_count + 1 >= max_attempts THEN 'failed'
+			        ELSE 'triaged'
+			    END,
+			    handled_by = $3
+			WHERE id = $1
+			RETURNING status, max_attempts - (attempt_count)
+		`, itemID, errorMsg, agentType).Scan(&newStatus, &attemptsLeft)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to update work item: %w", err)
 	}

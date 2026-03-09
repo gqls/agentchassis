@@ -446,6 +446,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Load the HTML component library from the database",
 		IsLocal:     true,
 	},
+	"plan_sections": {
+		Handler:     PlanSectionsAction,
+		Category:    "site",
+		Description: "Resolve section data requirements and triage readiness",
+		IsLocal:     true,
+	},
 	"fetch_agent_questionnaire": {
 		Handler:     FetchAgentQuestionnaireAction,
 		Category:    "site",

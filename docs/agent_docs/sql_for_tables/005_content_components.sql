@@ -7682,4 +7682,450 @@ SELECT COUNT(*) as empty_slots,
 FROM page_components pc;
 
 
+----
+-- rewrite to section level and add hitl classification
+-- major rewrite
 
+-- ============================================================================
+-- Migration: content_components input_schema v2
+--
+-- Replaces flat type declarations with structured field definitions that
+-- declare where each field's data comes from and what to do when it's missing.
+--
+-- The plan_sections action reads these schemas to determine which sections
+-- can be generated (data available) vs which need human input.
+--
+-- Also deactivates legacy duplicate components (display-name versions).
+-- ============================================================================
+
+BEGIN;
+
+-- ============================================================================
+-- Part 1: Deactivate legacy duplicates
+-- Keep the kebab-case production versions, deactivate the display-name ones
+-- ============================================================================
+
+UPDATE content_components SET is_active = false, updated_at = NOW()
+WHERE name IN (
+               'Call to Action',    -- duplicate of call_to_action
+               'Features Grid',     -- duplicate of features
+               'Site Footer',       -- duplicate of footer-standard/simple/4-column
+               'Document Head',     -- duplicate of head-seo-standard
+               'Site Header',       -- duplicate of header-professional-dark etc
+               'Hero Section',      -- duplicate of hero
+               'Social Proof'       -- duplicate of social_proof
+    );
+
+-- ============================================================================
+-- Part 2: Heroes — LLM generates copy, images from site assets
+-- ============================================================================
+
+-- Main hero (with CTA and background image)
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "headline":        {"type": "text",  "source": "llm", "required": true},
+        "subheadline":     {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "cta_text":        {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "cta_url":         {"type": "url",   "source": "pages.contact", "required": false, "on_missing": "use_fallback", "fallback": "/contact.html"},
+        "secondary_cta":   {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "secondary_cta_url": {"type": "url", "source": "pages.services", "required": false, "on_missing": "use_fallback", "fallback": "/services.html"},
+        "background_image": {"type": "image", "source": "site_assets.hero", "required": false, "on_missing": "use_fallback", "fallback": "/assets/images/hero.jpg"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'hero' AND is_active = true;
+
+-- Simple heroes (just headline + subheadline)
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "headline":    {"type": "text", "source": "llm", "required": true},
+        "subheadline": {"type": "text", "source": "llm", "required": false, "on_missing": "skip_field"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name IN ('about-hero', 'services-hero', 'contact-hero', 'case-studies-hero', 'use-cases-hero')
+  AND is_active = true;
+
+-- ============================================================================
+-- Part 3: Content blocks — LLM generates everything
+-- ============================================================================
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "section_title": {"type": "text", "source": "llm", "required": false, "on_missing": "skip_field"},
+        "content":       {"type": "text", "source": "llm", "required": true},
+        "highlights":    {"type": "array", "source": "llm", "required": false, "on_missing": "skip_field",
+                          "items": {"title": "string", "description": "string"}}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'about-content' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "heading": {"type": "text", "source": "llm", "required": true},
+        "content": {"type": "text", "source": "llm", "required": true}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'Generic Text Block' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "headline":    {"type": "text",  "source": "llm", "required": true},
+        "subheadline": {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "features":    {"type": "array", "source": "llm", "required": true, "min_items": 2,
+                        "items": {"name": "string", "icon": "string", "description": "string"}}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'features' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "headline": {"type": "text",  "source": "llm", "required": true},
+        "features": {"type": "array", "source": "llm", "required": true, "min_items": 2,
+                     "items": {"name": "string", "description": "string"}}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'differentiators-section' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "headline":    {"type": "text",  "source": "llm", "required": true},
+        "subheadline": {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "features":    {"type": "array", "source": "llm", "required": true, "min_items": 2,
+                        "items": {"name": "string", "description": "string"}}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'services-grid' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "section_title": {"type": "text",  "source": "llm", "required": true},
+        "section_intro": {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "departments":   {"type": "array", "source": "llm", "required": true, "min_items": 2,
+                          "items": {"name": "string", "icon": "string", "subtitle": "string", "description": "string"}}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'departments-grid' AND is_active = true;
+
+-- ============================================================================
+-- Part 4: Real data required — needs factual information, cannot fabricate
+-- ============================================================================
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "section_title": {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "section_intro": {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "members":       {"type": "array", "source": "site_specs.identity.team", "required": true,
+                          "on_missing": "needs_human_review", "min_items": 1,
+                          "items": {"name": "string", "title": "string", "bio": "string", "photo": "string"},
+                          "missing_reason": "Team member names, titles, and bios are needed"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'leadership-team' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "headline":     {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "testimonials": {"type": "array", "source": "site_specs.social_proof.testimonials", "required": true,
+                         "on_missing": "skip_section", "min_items": 1,
+                         "items": {"quote": "string", "author": "string", "role": "string", "company": "string"},
+                         "missing_reason": "Customer testimonials with real names and quotes"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name IN ('social_proof', 'testimonials') AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "headline":    {"type": "text",  "source": "llm", "required": true},
+        "subheadline": {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "case_studies": {"type": "array", "source": "site_specs.portfolio.case_studies", "required": true,
+                         "on_missing": "needs_human_review", "min_items": 1,
+                         "items": {"title": "string", "client": "string", "summary": "string", "results": "string"},
+                         "missing_reason": "Real case study data — client names, project descriptions, outcomes"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'case-studies-list' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "headline":    {"type": "text",  "source": "llm", "required": true},
+        "subheadline": {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "use_cases":   {"type": "array", "source": "site_specs.portfolio.use_cases", "required": true,
+                        "on_missing": "needs_human_review", "min_items": 1,
+                        "items": {"title": "string", "client": "string", "summary": "string", "results": "string"},
+                        "missing_reason": "Real use case data — client names, descriptions, outcomes"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'use-cases-list' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "headline": {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "intro":    {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "projects": {"type": "array", "source": "site_specs.portfolio.projects", "required": true,
+                     "on_missing": "needs_human_review", "min_items": 1,
+                     "items": {"title": "string", "domain": "string", "description": "string",
+                               "live_url": "string", "build_time": "string", "built_with": "string"},
+                     "missing_reason": "Real project data — titles, URLs, descriptions"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'portfolio-showcase' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "section_title":   {"type": "text", "source": "llm", "required": false, "on_missing": "use_fallback", "fallback": "Choose Your Plan"},
+        "tier_1_name":     {"type": "text", "source": "site_specs.pricing.tiers[0].name", "required": true,
+                            "on_missing": "needs_human_review", "missing_reason": "Pricing tier names and prices"},
+        "tier_1_price":    {"type": "text", "source": "site_specs.pricing.tiers[0].price", "required": true, "on_missing": "needs_human_review"},
+        "tier_1_features": {"type": "array", "source": "site_specs.pricing.tiers[0].features", "required": true, "on_missing": "needs_human_review"},
+        "tier_1_cta":      {"type": "text", "source": "llm", "required": false, "on_missing": "use_fallback", "fallback": "Get Started"},
+        "tier_2_name":     {"type": "text", "source": "site_specs.pricing.tiers[1].name", "required": false, "on_missing": "skip_field"},
+        "tier_2_price":    {"type": "text", "source": "site_specs.pricing.tiers[1].price", "required": false, "on_missing": "skip_field"},
+        "tier_2_features": {"type": "array", "source": "site_specs.pricing.tiers[1].features", "required": false, "on_missing": "skip_field"},
+        "tier_2_cta":      {"type": "text", "source": "llm", "required": false, "on_missing": "use_fallback", "fallback": "Start Free Trial"},
+        "tier_3_name":     {"type": "text", "source": "site_specs.pricing.tiers[2].name", "required": false, "on_missing": "skip_field"},
+        "tier_3_price":    {"type": "text", "source": "site_specs.pricing.tiers[2].price", "required": false, "on_missing": "skip_field"},
+        "tier_3_features": {"type": "array", "source": "site_specs.pricing.tiers[2].features", "required": false, "on_missing": "skip_field"},
+        "tier_3_cta":      {"type": "text", "source": "llm", "required": false, "on_missing": "use_fallback", "fallback": "Contact Sales"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'Pricing Tiers' AND is_active = true;
+
+-- FAQ — LLM can generate plausible FAQs from site_specs.content_direction
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "section_title": {"type": "text", "source": "llm", "required": false, "on_missing": "use_fallback", "fallback": "Frequently Asked Questions"},
+        "questions":     {"type": "array", "source": "llm", "required": true, "min_items": 3,
+                          "items": {"question": "string", "answer": "string"},
+                          "llm_guidance": "Generate FAQs based on the industry, services, and common objections for this type of business"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'FAQ Section' AND is_active = true;
+
+-- ============================================================================
+-- Part 5: Contact — needs real business data
+-- ============================================================================
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "heading":          {"type": "text", "source": "llm", "required": false, "on_missing": "use_fallback", "fallback": "Get in Touch"},
+        "form_description": {"type": "text", "source": "llm", "required": false, "on_missing": "skip_field"},
+        "form_action":      {"type": "url",  "source": "config.contact_form_action", "required": false, "on_missing": "use_fallback", "fallback": "#contact"},
+        "submit_text":      {"type": "text", "source": "llm", "required": false, "on_missing": "use_fallback", "fallback": "Send Message"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'contact-form' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "section_title": {"type": "text",  "source": "llm", "required": false, "on_missing": "use_fallback", "fallback": "Contact Us"},
+        "intro_text":    {"type": "text",  "source": "llm", "required": false, "on_missing": "skip_field"},
+        "email":         {"type": "text",  "source": "site_specs.identity.email", "required": false,
+                          "on_missing": "needs_human_review", "missing_reason": "Business contact email address"},
+        "phone":         {"type": "text",  "source": "site_specs.identity.phone", "required": false, "on_missing": "skip_field"},
+        "address":       {"type": "text",  "source": "site_specs.identity.address", "required": false, "on_missing": "skip_field"},
+        "hours":         {"type": "text",  "source": "site_specs.identity.hours", "required": false, "on_missing": "skip_field"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'contact-info' AND is_active = true;
+
+-- ============================================================================
+-- Part 6: CTA — LLM copy, URLs resolved from pages
+-- ============================================================================
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "headline":          {"type": "text", "source": "llm", "required": true},
+        "subheadline":       {"type": "text", "source": "llm", "required": false, "on_missing": "skip_field"},
+        "primary_cta":       {"type": "text", "source": "llm", "required": true},
+        "primary_cta_url":   {"type": "url",  "source": "pages.contact", "required": false, "on_missing": "use_fallback", "fallback": "/contact.html"},
+        "secondary_cta":     {"type": "text", "source": "llm", "required": false, "on_missing": "skip_field"},
+        "secondary_cta_url": {"type": "url",  "source": "pages.services", "required": false, "on_missing": "use_fallback", "fallback": "/services.html"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'call_to_action' AND is_active = true;
+
+-- ============================================================================
+-- Part 7: Structural — rendered by rerender agent, not content writer
+-- ============================================================================
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "title":            {"type": "text",  "source": "renderer", "required": true},
+        "description":      {"type": "text",  "source": "renderer", "required": false, "on_missing": "skip_field"},
+        "theme_css":        {"type": "text",  "source": "renderer", "required": false, "on_missing": "skip_field"},
+        "font_url":         {"type": "text",  "source": "renderer", "required": false, "on_missing": "skip_field"},
+        "canonical_url":    {"type": "text",  "source": "renderer", "required": false, "on_missing": "skip_field"},
+        "primary_color":    {"type": "text",  "source": "config.color_scheme.primary", "required": false, "on_missing": "use_fallback", "fallback": "#1a1a2e"},
+        "secondary_color":  {"type": "text",  "source": "config.color_scheme.secondary", "required": false, "on_missing": "use_fallback", "fallback": "#2d2d44"},
+        "accent_color":     {"type": "text",  "source": "config.color_scheme.accent", "required": false, "on_missing": "use_fallback", "fallback": "#16a085"},
+        "background_color": {"type": "text",  "source": "config.color_scheme.background", "required": false, "on_missing": "use_fallback", "fallback": "#ffffff"},
+        "text_color":       {"type": "text",  "source": "config.color_scheme.text", "required": false, "on_missing": "use_fallback", "fallback": "#333333"},
+        "structured_data":  {"type": "text",  "source": "renderer", "required": false, "on_missing": "skip_field"},
+        "analytics_id":     {"type": "text",  "source": "config.analytics_id", "required": false, "on_missing": "skip_field"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'head-seo-standard' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {}
+}'::jsonb, updated_at = NOW()
+WHERE name = 'body-close' AND is_active = true;
+
+-- Headers — rendered by rerender agent
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "logo_text":      {"type": "text",  "source": "site_specs.identity.company_name", "required": true, "on_missing": "use_fallback", "fallback": "Company"},
+        "logo_url":       {"type": "image", "source": "site_assets.logo", "required": false, "on_missing": "use_fallback", "fallback": "/assets/images/logo.png"},
+        "nav_items":      {"type": "array", "source": "renderer.nav", "required": true},
+        "cta_text":       {"type": "text",  "source": "llm", "required": false, "on_missing": "use_fallback", "fallback": "Get Started"},
+        "cta_url":        {"type": "url",   "source": "pages.contact", "required": false, "on_missing": "use_fallback", "fallback": "/contact.html"},
+        "primary_color":  {"type": "text",  "source": "config.color_scheme.primary", "required": false, "on_missing": "use_fallback", "fallback": "#1a1a2e"},
+        "accent_color":   {"type": "text",  "source": "config.color_scheme.accent", "required": false, "on_missing": "use_fallback", "fallback": "#16a085"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name IN ('header-professional-dark', 'header-minimal-light', 'header-bold-gradient') AND is_active = true;
+
+-- Footers — rendered by rerender agent
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "company_name":   {"type": "text",  "source": "site_specs.identity.company_name", "required": true, "on_missing": "use_fallback", "fallback": "Company"},
+        "tagline":        {"type": "text",  "source": "site_specs.identity.tagline", "required": false, "on_missing": "skip_field"},
+        "contact_email":  {"type": "text",  "source": "site_specs.identity.email", "required": false, "on_missing": "skip_field"},
+        "contact_phone":  {"type": "text",  "source": "site_specs.identity.phone", "required": false, "on_missing": "skip_field"},
+        "nav_items":      {"type": "array", "source": "renderer.nav", "required": false},
+        "copyright":      {"type": "text",  "source": "renderer", "required": false, "on_missing": "use_fallback", "fallback": "© 2026 Company. All rights reserved."}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name IN ('footer-4-column', 'footer-simple', 'footer-standard') AND is_active = true;
+
+-- ============================================================================
+-- Part 8: Content/blog — dynamic data from DB queries
+-- ============================================================================
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "section_title":    {"type": "text",    "source": "llm", "required": false, "on_missing": "skip_field"},
+        "section_subtitle": {"type": "text",    "source": "llm", "required": false, "on_missing": "skip_field"},
+        "articles":         {"type": "array",   "source": "query.blog_posts", "required": true, "on_missing": "skip_section",
+                             "missing_reason": "No blog posts published yet"},
+        "show_load_more":   {"type": "boolean", "source": "static", "required": false, "on_missing": "use_fallback", "fallback": true},
+        "load_more_text":   {"type": "text",    "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Load More"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'article_grid' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "brand_name":      {"type": "text",    "source": "site_specs.identity.company_name", "required": true, "on_missing": "use_fallback", "fallback": "Blog"},
+        "categories":      {"type": "array",   "source": "query.blog_categories", "required": false, "on_missing": "skip_field"},
+        "show_subscribe":  {"type": "boolean", "source": "static", "required": false, "on_missing": "use_fallback", "fallback": false},
+        "subscribe_text":  {"type": "text",    "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Subscribe"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'content_header' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "brand_name":               {"type": "text",    "source": "site_specs.identity.company_name", "required": true, "on_missing": "use_fallback", "fallback": "Blog"},
+        "tagline":                  {"type": "text",    "source": "site_specs.identity.tagline", "required": false, "on_missing": "skip_field"},
+        "categories":               {"type": "array",   "source": "query.blog_categories", "required": false, "on_missing": "skip_field"},
+        "company_links":            {"type": "array",   "source": "renderer.nav", "required": false, "on_missing": "skip_field"},
+        "social_links":             {"type": "array",   "source": "site_specs.identity.social_links", "required": false, "on_missing": "skip_field"},
+        "legal_links":              {"type": "array",   "source": "renderer.legal_nav", "required": false, "on_missing": "skip_field"},
+        "copyright":                {"type": "text",    "source": "renderer", "required": false, "on_missing": "use_fallback", "fallback": "© 2026"},
+        "newsletter_title":         {"type": "text",    "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Stay Updated"},
+        "newsletter_description":   {"type": "text",    "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Get the latest articles delivered to your inbox"},
+        "email_placeholder":        {"type": "text",    "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Enter your email"},
+        "show_newsletter":          {"type": "boolean", "source": "static", "required": false, "on_missing": "use_fallback", "fallback": false}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'content_footer' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "category_name":     {"type": "text",  "source": "query.category", "required": true},
+        "category_slug":     {"type": "text",  "source": "query.category", "required": true},
+        "category_articles": {"type": "array", "source": "query.category_posts", "required": true, "on_missing": "skip_section"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'category_section' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "featured_title":    {"type": "text",  "source": "query.featured_post", "required": true, "on_missing": "skip_section"},
+        "featured_excerpt":  {"type": "text",  "source": "query.featured_post", "required": false, "on_missing": "skip_field"},
+        "featured_image":    {"type": "image", "source": "query.featured_post", "required": false, "on_missing": "skip_field"},
+        "featured_author":   {"type": "text",  "source": "query.featured_post", "required": false, "on_missing": "skip_field"},
+        "featured_date":     {"type": "text",  "source": "query.featured_post", "required": false, "on_missing": "skip_field"},
+        "featured_category": {"type": "text",  "source": "query.featured_post", "required": false, "on_missing": "skip_field"},
+        "featured_read_time": {"type": "text", "source": "query.featured_post", "required": false, "on_missing": "skip_field"},
+        "read_more_text":    {"type": "text",  "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Read More"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'featured_article' AND is_active = true;
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "show_popular":       {"type": "boolean", "source": "static", "required": false, "on_missing": "use_fallback", "fallback": true},
+        "popular_title":      {"type": "text",    "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Popular Articles"},
+        "popular_articles":   {"type": "array",   "source": "query.popular_posts", "required": false, "on_missing": "skip_field"},
+        "show_categories":    {"type": "boolean", "source": "static", "required": false, "on_missing": "use_fallback", "fallback": true},
+        "categories_title":   {"type": "text",    "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Categories"},
+        "category_links":     {"type": "array",   "source": "query.blog_categories", "required": false, "on_missing": "skip_field"},
+        "show_newsletter":    {"type": "boolean", "source": "static", "required": false, "on_missing": "use_fallback", "fallback": false},
+        "newsletter_title":   {"type": "text",    "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Newsletter"},
+        "newsletter_description": {"type": "text", "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Subscribe for updates"},
+        "email_placeholder":  {"type": "text",    "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Enter your email"},
+        "subscribe_button":   {"type": "text",    "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Subscribe"},
+        "show_ad":            {"type": "boolean", "source": "static", "required": false, "on_missing": "use_fallback", "fallback": false},
+        "ad_slot_id":         {"type": "text",    "source": "config.ad_slot_id", "required": false, "on_missing": "skip_field"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'content_sidebar' AND is_active = true;
+
+-- ============================================================================
+-- Part 9: Tools — self-contained, no external data needs
+-- ============================================================================
+
+UPDATE content_components SET input_schema = '{
+    "fields": {}
+}'::jsonb, updated_at = NOW()
+WHERE function LIKE 'tool-%' AND is_active = true;
+
+-- ============================================================================
+-- Part 10: Ads
+-- ============================================================================
+
+UPDATE content_components SET input_schema = '{
+    "fields": {
+        "ad_slot_id": {"type": "text", "source": "config.ad_slot_id", "required": true, "on_missing": "skip_section"}
+    }
+}'::jsonb, updated_at = NOW()
+WHERE name = 'ad_zone_inline' AND is_active = true;
+
+COMMIT;
+
+-- ============================================================================
+-- Verify
+-- ============================================================================
+
+-- Check all active components have the new format
+SELECT name, function,
+       input_schema->'fields' IS NOT NULL as has_v2_fields,
+       jsonb_object_keys(COALESCE(input_schema->'fields', '{}'::jsonb)) as sample_field
+FROM content_components
+WHERE is_active = true
+ORDER BY function, name
+    LIMIT 20;
+
+-- Check deactivated duplicates
+SELECT name, function, is_active FROM content_components WHERE is_active = false ORDER BY function;
+
+-- Count by source type
+SELECT source, COUNT(*) as field_count
+FROM (
+         SELECT value->>'source' as source
+         FROM content_components,
+             jsonb_each(COALESCE(input_schema->'fields', '{}'::jsonb))
+         WHERE is_active = true
+     ) sub
+GROUP BY source ORDER BY field_count DESC;

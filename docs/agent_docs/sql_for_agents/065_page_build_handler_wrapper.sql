@@ -1,3 +1,24 @@
+-- The full page-build-handler workflow after all changes:
+--
+-- ensure_site_record
+-- → load_page_record          (Go action — loads page from DB)
+-- → check_page_found        (conditional — page exists?)
+-- → plan_sections         (Go action — resolves data sources per section)
+-- → check_has_ready_sections (conditional — any sections ready?)
+-- → spawn_content_writer
+-- → call_content_writer  (receives section_plan with ready sections + resolved data)
+-- → check_content_produced (conditional — writer produced HTML?)
+-- → validate_content     (Go action — placeholders, templates, contamination)
+-- → save_sections      (reads validation_result.clean_html)
+-- → update_status
+-- → spawn_rerender_agent → deploy_page → complete
+--
+-- Error paths:
+--   check_page_found (no page)        → complete_error
+--   check_has_ready_sections (none)   → complete_error (deferred items created)
+--   check_content_produced (skipped)  → complete_error
+--   validate_content (blockers)       → mark_needs_review → complete_error
+
 -- ============================================================================
 -- page-build-handler: Wrapper handler for page-content-writer
 --
@@ -303,3 +324,235 @@ WHERE type = 'page-build-handler' AND deleted_at IS NULL;
 -- s3_else = complete_error
 -- writer_page_src = page_record
 -- deploy_page_id_src = page_record.id
+
+
+---
+
+-- ============================================================================
+-- Wire plan_sections into page-build-handler
+--
+-- Flow after this change:
+--
+--   ensure_site_record
+--     → load_page_record
+--       → check_page_found
+--         → plan_sections              ← NEW
+--           → check_has_ready_sections ← NEW
+--             → spawn_content_writer
+--               → call_content_writer (receives section_plan.sections_ready)
+--                 → validate_content
+--                   → save_sections → update_status → deploy
+--
+-- The content writer now receives only sections that have data available.
+-- Deferred sections become needs_human_review work items.
+-- Skipped sections are silently omitted.
+--
+-- Run AFTER deploying plan_sections_action.go + registry entry
+-- and the input_schema v2 migration.
+-- ============================================================================
+
+-- 1. Add plan_sections step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_sections}',
+        '{
+            "action": "plan_sections",
+            "config": {
+                "site_id": "site_record.site_id",
+                "sections": "page_record.sections",
+                "page_name": "page_record.name",
+                "domain": "site_record.domain",
+                "work_item_id": "input_data.work_item_id"
+            },
+            "next_step": "check_has_ready_sections",
+            "error_step": "complete_error",
+            "description": "Check data availability for each section, triage readiness",
+            "output_field": "section_plan"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- 2. Add check_has_ready_sections guard
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_has_ready_sections}',
+        '{
+            "action": "conditional",
+            "config": {
+                "condition": "section_plan.ready_count > 0",
+                "then_step": "spawn_content_writer",
+                "else_step": "complete_error"
+            },
+            "description": "If no sections are ready (all deferred or skipped), skip content generation"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- 3. Route check_page_found → plan_sections (was → spawn_content_writer)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_page_found,config,then_step}',
+        '"plan_sections"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- 4. Update content writer input_mapping to pass section_plan
+--    The content writer receives:
+--      current_page: page_record (for page-level context)
+--      section_plan: the ready sections with resolved data and LLM field lists
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_content_writer,config,input_mapping,section_plan}',
+        '"section_plan"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- 5. Verify the full chain
+SELECT
+    default_config->'workflow'->'steps'->'ensure_site_record'->>'next_step' as s1,
+    default_config->'workflow'->'steps'->'load_page_record'->>'next_step' as s2,
+    default_config->'workflow'->'steps'->'check_page_found'->'config'->>'then_step' as s3_then,
+    default_config->'workflow'->'steps'->'plan_sections'->>'next_step' as s4,
+    default_config->'workflow'->'steps'->'check_has_ready_sections'->'config'->>'then_step' as s5_then,
+    default_config->'workflow'->'steps'->'check_has_ready_sections'->'config'->>'else_step' as s5_else,
+    default_config->'workflow'->'steps'->'call_content_writer'->'config'->'input_mapping'->>'section_plan' as writer_gets_plan,
+    default_config->'workflow'->'steps'->'validate_content'->>'next_step' as after_validate
+FROM agent_definitions
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Expected:
+-- s1 = load_page_record
+-- s2 = check_page_found
+-- s3_then = plan_sections
+-- s4 = check_has_ready_sections
+-- s5_then = spawn_content_writer
+-- s5_else = complete_error
+-- writer_gets_plan = section_plan
+-- after_validate = save_sections
+
+
+
+-- plan_sections          → prevents fabrication (don't ask for what you can't fill)
+-- ↓
+-- content writer         → generates HTML for ready sections only
+-- ↓
+-- validate_page_content  → catches LLM mistakes (placeholders, templates, contamination)
+-- ↓
+-- mark_needs_review      → routes failures to HITL (needs the status_override patch)
+-- ↓
+-- save_sections          → only reached if both checks pass
+
+-- more of the same
+
+-- ============================================================================
+-- Wire validate_content into page-build-handler
+--
+-- This runs AFTER add_plan_sections_step.sql has already been applied.
+-- The chain at that point is:
+--
+--   ... → check_content_produced → save_sections → ...
+--
+-- After this change:
+--
+--   ... → check_content_produced → validate_content → save_sections → ...
+--                                       ↓ (blockers)
+--                                  mark_needs_review → complete_error
+--
+-- validate_content catches LLM output problems:
+--   - Placeholder text ("To be added", "Lorem ipsum")
+--   - Unrendered templates ({{.field}})
+--   - Cross-site contamination (wrong domain)
+--
+-- plan_sections (already wired) handles missing data upstream.
+-- This is the safety net for problems that happen DURING generation.
+--
+-- Run AFTER:
+--   1. add_plan_sections_step.sql
+--   2. Deploying validate_page_content_action.go
+--   3. Deploying fail_work_item status_override patch
+-- ============================================================================
+
+-- 1. Add validate_content step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,validate_content}',
+        '{
+            "action": "validate_page_content",
+            "config": {
+                "html_field": "page_content.response.page_html",
+                "domain": "site_record.domain"
+            },
+            "next_step": "save_sections",
+            "error_step": "mark_needs_review",
+            "description": "Check for placeholders, unrendered templates, cross-site contamination",
+            "output_field": "validation_result"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- 2. Route check_content_produced → validate_content (was → save_sections)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_content_produced,config,then_step}',
+        '"validate_content"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- 3. Update save_sections to read cleaned HTML from validation_result
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,save_sections,config,html_field}',
+        '"validation_result.clean_html"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- 4. Add mark_needs_review step (uses fail_work_item with status_override)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,mark_needs_review}',
+        '{
+            "action": "fail_work_item",
+            "config": {
+                "work_item_id": "input_data.work_item_id",
+                "error_message": "Content validation failed — needs human review",
+                "status_override": "needs_human_review"
+            },
+            "next_step": "complete_error",
+            "description": "Mark work item for human review when content has placeholder or contamination issues",
+            "output_field": "review_result"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- 5. Verify
+SELECT
+    default_config->'workflow'->'steps'->'check_content_produced'->'config'->>'then_step' as after_check_content,
+    default_config->'workflow'->'steps'->'validate_content'->>'next_step' as after_validate,
+    default_config->'workflow'->'steps'->'validate_content'->>'error_step' as validate_error,
+    default_config->'workflow'->'steps'->'save_sections'->'config'->>'html_field' as save_reads_from,
+    default_config->'workflow'->'steps'->'mark_needs_review'->'config'->>'status_override' as review_status
+FROM agent_definitions
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Expected:
+-- after_check_content = validate_content
+-- after_validate = save_sections
+-- validate_error = mark_needs_review
+-- save_reads_from = validation_result.clean_html
+-- review_status = needs_human_review
