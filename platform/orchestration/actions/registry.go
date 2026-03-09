@@ -885,6 +885,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Load page section components for review",
 		IsLocal:     true,
 	},
+	"load_page_record": {
+		Handler:     LoadPageRecordAction,
+		Category:    "site",
+		Description: "Load a page record by site_id and page name",
+		IsLocal:     true,
+	},
+	"load_site_pages": {
+		Handler:     LoadSitePagesAction,
+		Category:    "site",
+		Description: "Load all pages for a site",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// STORAGE — S3, assets, entity state, memory

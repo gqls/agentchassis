@@ -167,13 +167,16 @@ kubectl -n ai-persona-system logs --tail=500 -l agent-type=research-agent -f | t
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=improvement-loop -f | tee logs-improvement-loop.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=quality-discovery-agent -f | tee logs-quality-discovery-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=design-discovery-agent -f | tee logs-design-discovery-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=design-audit-agent -f | tee logs-design-audit-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=completeness-discovery-agent -f | tee logs-completeness-discovery-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l app=git-adapter -f | tee logs-git-adapter.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=color-variable-fixer -f | tee logs-color-variable-fixer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=visual-design-auditor -f | tee logs-visual-design-auditor.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=content-quality-auditor -f | tee logs-content-quality-auditor.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=content-gap-planner -f | tee logs-content-gap-planner.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=component-template-fixer -f | tee logs-component-template-fixer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-build-handler -f | tee logs-page-build-handler.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=site-review-agent -f | tee logs-site-review-agent.json
 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json

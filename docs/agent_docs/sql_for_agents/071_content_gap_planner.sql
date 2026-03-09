@@ -128,3 +128,29 @@ INSERT INTO agent_definitions (
 SELECT type, display_name, status
 FROM agent_definitions
 WHERE type = 'content-gap-planner' AND deleted_at IS NULL;
+
+--
+
+-- one page at a time
+
+-- Fix content-gap-planner: use load_site_pages instead of load_page_record
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_existing_pages}',
+        '{
+            "action": "load_site_pages",
+            "config": { "site_id": "site_record.site_id" },
+            "next_step": "load_available_components",
+            "error_step": "load_available_components",
+            "description": "Load all existing pages for context",
+            "output_field": "existing_pages"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-gap-planner' AND deleted_at IS NULL;
+
+-- Verify
+SELECT default_config->'workflow'->'steps'->'load_existing_pages'->>'action' as action
+FROM agent_definitions WHERE type = 'content-gap-planner' AND deleted_at IS NULL;
+
