@@ -5,6 +5,7 @@ metadata:
   labels:
     app: image-generator-adapter
 spec:
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: image-generator-adapter

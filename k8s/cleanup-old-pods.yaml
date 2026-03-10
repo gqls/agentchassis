@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cleanup-old-pods
+  namespace: ai-persona-system
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: ai-persona-app
+          containers:
+            - name: cleanup
+              image: bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # Delete failed pods
+                  kubectl delete pods -n ai-persona-system --field-selector=status.phase=Failed
+                  # Delete completed jobs older than 1 hour
+                  kubectl delete jobs -n ai-persona-system --field-selector=status.successful=1 --timeout=10s 2>/dev/null || true
+                  # Delete calculator pods
+                  kubectl delete pods -n ai-persona-system -l agent-type=calculator --timeout=10s 2>/dev/null || true
+          restartPolicy: Never

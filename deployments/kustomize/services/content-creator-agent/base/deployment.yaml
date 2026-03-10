@@ -6,6 +6,7 @@ metadata:
   labels:
     app: content-creator-agent
 spec:
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: content-creator-agent

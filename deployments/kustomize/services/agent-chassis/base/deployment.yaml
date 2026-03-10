@@ -5,6 +5,7 @@ metadata:
   labels:
     app: agent-chassis
 spec:
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: agent-chassis

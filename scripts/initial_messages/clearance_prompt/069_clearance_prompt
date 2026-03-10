@@ -58,7 +58,27 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   --delete \
   --topic system.generic.responses
 
-sleep 2
+# delete replica sets
+# Delete all failed/pending pods
+kubectl -n ai-persona-system delete pods --field-selector=status.phase=Failed
+
+# Scale auth-service to 0 (stop the crash loop waste)
+kubectl -n ai-persona-system scale deployment/auth-service --replicas=0
+
+# Clean old ReplicaSets — keep only the active ones
+# Agent chassis
+kubectl -n ai-persona-system get rs -l app=agent-chassis --no-headers | \
+  awk '$2==0 {print $1}' | xargs -I{} kubectl -n ai-persona-system delete rs {}
+
+# Auth service (44 old RS)
+kubectl -n ai-persona-system get rs -l app=auth-service --no-headers | \
+  awk '$2==0 {print $1}' | xargs -I{} kubectl -n ai-persona-system delete rs {}
+
+# Content creator
+kubectl -n ai-persona-system get rs -l app=content-creator-agent --no-headers | \
+  awk '$2==0 {print $1}' | xargs -I{} kubectl -n ai-persona-system delete rs {}
+
+# add topics back
 kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   /opt/kafka/bin/kafka-topics.sh
   --create --topic system.generic.responses

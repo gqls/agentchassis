@@ -5,6 +5,7 @@ metadata:
   labels:
     app: reasoning-agent
 spec:
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: reasoning-agent

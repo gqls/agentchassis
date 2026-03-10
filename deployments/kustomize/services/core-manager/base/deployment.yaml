@@ -5,6 +5,7 @@ metadata:
   labels:
     app: core-manager
 spec:
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: core-manager

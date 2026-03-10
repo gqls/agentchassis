@@ -6,6 +6,7 @@ metadata:
   labels:
     app: remote-job-spawner
 spec:
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: remote-job-spawner

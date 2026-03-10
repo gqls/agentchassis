@@ -5,6 +5,7 @@ metadata:
   labels:
     app: git-adapter
 spec:
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: git-adapter
