@@ -73,3 +73,65 @@ SELECT type, description,
        default_config->'workflow'->'steps'->'run_content_checks'->'config'->'checks' as content_checks
 FROM agent_definitions
 WHERE type = 'completeness-discovery-agent' AND deleted_at IS NULL;
+
+-- several updates
+
+-- ============================================================================
+-- Wire integrity checks into the correct discovery agents
+--
+-- Per 009b improvement loop flow:
+--   Step 3: design-discovery-agent  → structural linkage checks
+--   Step 4: completeness-discovery-agent → content integrity checks
+--
+-- The improvement loop runs these in order:
+--   quality-discovery (step 2) → design-discovery (step 3) → completeness-discovery (step 4)
+-- so structural fixes (missing style, stale components) are found before
+-- content checks (contamination, unrendered templates) run.
+--
+-- All checks produce status: 'detected'. The improvement loop's triage step (7)
+-- promotes them to 'triaged' for dispatch.
+--
+-- Run AFTER deploying integrity_checks.go (registers checks via init()).
+-- ============================================================================
+
+-- ── 1. Update design-discovery-agent ──
+-- Add: missing_style_collection, deactivated_site_components,
+--       stale_site_components, shared_css_theme
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        '["undeployed_assets", "missing_css", "duplicate_palette", "hardcoded_section_colors", "forced_text_colors", "missing_tools", "missing_style_collection", "deactivated_site_components", "stale_site_components", "shared_css_theme"]'::jsonb
+                     ),
+    description = 'Scans sites for design-domain issues: undeployed assets, missing CSS, colour problems, missing style collections, deactivated components, stale header/footer renders, shared style collections. All algorithmic — no LLM budget.',
+    updated_at = NOW()
+WHERE type = 'design-discovery-agent' AND deleted_at IS NULL;
+
+-- ── 2. Update completeness-discovery-agent ──
+-- Add: cross_site_contamination, unrendered_templates
+-- Keep: empty_sections (existing)
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        '["empty_sections", "cross_site_contamination", "unrendered_templates"]'::jsonb
+                     ),
+    description = 'Scans sites for content completeness and integrity: empty sections, cross-site company name contamination, unrendered Go template syntax. All algorithmic — no LLM budget.',
+    updated_at = NOW()
+WHERE type = 'completeness-discovery-agent' AND deleted_at IS NULL;
+
+-- ── 3. Verify both agents ──
+
+SELECT type,
+       default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' as checks,
+       substring(description, 1, 100) as desc
+FROM agent_definitions
+WHERE type IN ('design-discovery-agent', 'completeness-discovery-agent')
+  AND deleted_at IS NULL
+ORDER BY type;
+
+-- Expected:
+-- completeness-discovery-agent | ["empty_sections", "cross_site_contamination", "unrendered_templates"]
+-- design-discovery-agent       | ["undeployed_assets", "missing_css", ..., "shared_css_theme"]
