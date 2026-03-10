@@ -52,6 +52,7 @@ type scheduledTask struct {
 	TimeoutSeconds   int
 	LastTriggeredAt  sql.NullTime
 	LastCompletedAt  sql.NullTime
+	FireMessage      bool
 }
 
 func main() {
@@ -205,6 +206,21 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 		}
 
 		// Fire the task
+		// CTE-only tasks: pre_query did the work, no Kafka message needed
+		if !task.FireMessage {
+			_, err := db.ExecContext(ctx,
+				`UPDATE scheduled_tasks SET last_triggered_at = NOW(), updated_at = NOW() WHERE id = $1`,
+				task.ID)
+			if err != nil {
+				logger.Warn("Failed to update last_triggered_at",
+					zap.String("task", task.Name), zap.Error(err))
+			}
+			logger.Info("Pre-query task completed (no message fired)",
+				zap.String("task", task.Name))
+			continue
+		}
+
+		// Fire the task
 		if err := fireTrigger(ctx, producer, task, inputData, logger); err != nil {
 			logger.Warn("Failed to fire task",
 				zap.String("task", task.Name), zap.Error(err))
@@ -235,7 +251,7 @@ func loadDueTasks(ctx context.Context, db *sql.DB, logger *zap.Logger) ([]schedu
 		SELECT id, name, target_agent_type, target_topic, input_data,
 		       pre_query, interval_seconds, concurrency_group,
 		       max_concurrent, timeout_seconds,
-		       last_triggered_at, last_completed_at
+		       last_triggered_at, last_completed_at, fire_message
 		FROM scheduled_tasks
 		WHERE enabled = true
 		  AND (
@@ -256,7 +272,7 @@ func loadDueTasks(ctx context.Context, db *sql.DB, logger *zap.Logger) ([]schedu
 			&t.ID, &t.Name, &t.TargetAgentType, &t.TargetTopic,
 			&t.InputData, &t.PreQuery, &t.IntervalSeconds,
 			&t.ConcurrencyGroup, &t.MaxConcurrent, &t.TimeoutSeconds,
-			&t.LastTriggeredAt, &t.LastCompletedAt,
+			&t.LastTriggeredAt, &t.LastCompletedAt, &t.FireMessage,
 		); err != nil {
 			logger.Warn("Failed to scan task", zap.Error(err))
 			continue
@@ -380,7 +396,7 @@ func fireTrigger(ctx context.Context, producer kafka.Producer, task scheduledTas
 	if err != nil {
 		return fmt.Errorf("marshal body: %w", err)
 	}
-	
+
 	headers := map[string]string{
 		"correlation_id":     uuid.New().String(),
 		"request_id":         reqID,

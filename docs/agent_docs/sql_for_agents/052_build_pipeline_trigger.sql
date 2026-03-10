@@ -468,3 +468,5 @@ SET default_config = jsonb_set(
     updated_at = NOW()
 WHERE type = 'build-pipeline-trigger' AND deleted_at IS NULL;
 
+---
+

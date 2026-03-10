@@ -512,3 +512,33 @@ ORDER BY name;
 
 -- to disable later:
 UPDATE scheduled_tasks SET enabled = false WHERE name LIKE 'vet-%';
+
+
+
+---
+
+
+-- adding a pre query that checks that there are items to be dispatched
+UPDATE scheduled_tasks
+SET pre_query = '
+SELECT s.id::text as site_id, s.domain
+FROM sites s
+WHERE EXISTS (
+    SELECT 1 FROM site_work_items wi
+    WHERE wi.site_id = s.id
+      AND wi.status = ''triaged''
+      AND wi.domain = ''build''
+)
+ORDER BY s.domain
+LIMIT 1
+HAVING COUNT(*) > 0
+'
+WHERE name = 'build-pipeline-trigger';
+
+
+---
+-- stop the scheduler sending messages to generic agent when it's finished - add a 'whether to send message' column
+
+these three tasks (claimed-item-timeout, feasibility-recheck, vet-task-reset) are cron SQL jobs, not agent triggers. Their pre_query CTEs do all the work. The message sent afterward is meaningless — it exists only because the scheduler assumes every task triggers an agent.
+The proper fix is a fire_message column on scheduled_tasks. When false, the scheduler runs the pre_query and stops. No Kafka message, no agent spawned.
+

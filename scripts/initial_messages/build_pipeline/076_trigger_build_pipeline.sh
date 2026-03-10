@@ -463,6 +463,28 @@ Then check the orchestration that processed it:
     AND os.status = 'FAILED'
   ORDER BY os.created_at DESC LIMIT 3;
 
+
+  -------------------------------------------------------------------------
+
+  what failed and why
+
+-- Failed items with error details
+SELECT s.domain, wi.item_type, wi.handler_agent,
+       LEFT(wi.error, 200) as error,
+       wi.claimed_at, wi.completed_at
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status = 'failed'
+ORDER BY s.domain, wi.item_type;
+
+-- Count by type and site for the full picture
+SELECT s.domain, wi.item_type, wi.status, COUNT(*) as cnt
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.domain = 'build' AND wi.status != 'complete'
+GROUP BY s.domain, wi.item_type, wi.status
+ORDER BY s.domain, wi.status, cnt DESC;
+
 -------------------------------------------------------------------------
 
 The fix is to stop the audit cycle until the queue is drained:
