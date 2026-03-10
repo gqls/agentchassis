@@ -542,3 +542,101 @@ WHERE name = 'build-pipeline-trigger';
 these three tasks (claimed-item-timeout, feasibility-recheck, vet-task-reset) are cron SQL jobs, not agent triggers. Their pre_query CTEs do all the work. The message sent afterward is meaningless — it exists only because the scheduler assumes every task triggers an agent.
 The proper fix is a fire_message column on scheduled_tasks. When false, the scheduler runs the pre_query and stops. No Kafka message, no agent spawned.
 
+-- vet cleanup
+
+                                                                                                                                                                                                     -- vet_self_healing.sql
+--
+-- Replaces vet-task-reset with a broader self-healing task that:
+--   1. Fails orchestrations stuck in AWAITING_RESPONSES for >20 min
+--   2. Resets collection_tasks stuck in in_progress for >20 min
+--   3. Only fires if it actually found something to fix
+--
+-- This breaks the stall chain:
+--   stuck verifier → failed (by this task)
+--   → batch processor's continue_on_error skips it (or batch processor
+--     itself gets failed on next cycle)
+--   → orphaned tasks reset to pending
+--   → scheduler fires a new batch processor
+--
+-- Runs every 3 minutes in its own concurrency group.
+
+-- Remove the old narrow task
+DELETE FROM scheduled_tasks WHERE name = 'vet-task-reset';
+
+-- Create the broader self-healing task
+INSERT INTO scheduled_tasks (
+    id, name, description, interval_seconds,
+    target_agent_type, target_topic, input_data,
+    concurrency_group, max_concurrent, timeout_seconds,
+    pre_query, enabled
+) VALUES (
+             gen_random_uuid(),
+             'stale-orchestration-reaper',
+             'Fails stuck AWAITING_RESPONSES orchestrations and resets orphaned in_progress tasks. Self-healing loop that prevents pipeline stalls.',
+             180,  -- every 3 minutes
+             'generic',
+             'system.agent.generic.requests',
+             '{}',
+             'reaper',
+             1,
+             60,
+             '
+         WITH failed_orchs AS (
+             UPDATE orchestration_states
+             SET status = ''FAILED'',
+                 error = ''reaper: stale AWAITING_RESPONSES for >20 min'',
+                 updated_at = NOW()
+             WHERE status = ''AWAITING_RESPONSES''
+               AND last_activity < NOW() - INTERVAL ''20 minutes''
+             RETURNING orchestration_id, owner_agent_type, current_step
+         ),
+         reset_tasks AS (
+             UPDATE business_intel.collection_tasks
+             SET status = ''pending'',
+                 started_at = NULL,
+                 orchestration_id = NULL
+             WHERE status = ''in_progress''
+               AND started_at < NOW() - INTERVAL ''20 minutes''
+             RETURNING id
+         ),
+         expired_awaited AS (
+             UPDATE awaited_requests
+             SET status = ''expired'',
+                 processed_at = NOW()
+             WHERE status = ''waiting''
+               AND timeout_at < NOW() - INTERVAL ''5 minutes''
+             RETURNING request_id
+         )
+         SELECT
+             (SELECT COUNT(*) FROM failed_orchs)::text as orchs_failed,
+             (SELECT COUNT(*) FROM reset_tasks)::text as tasks_reset,
+             (SELECT COUNT(*) FROM expired_awaited)::text as awaited_expired
+         HAVING
+             (SELECT COUNT(*) FROM failed_orchs) > 0
+             OR (SELECT COUNT(*) FROM reset_tasks) > 0
+             OR (SELECT COUNT(*) FROM expired_awaited) > 0
+         ',
+             true
+         );
+
+-- Also fix the concurrency timeout issue on vet-batch-verify.
+-- The scheduler considers a task "in flight" until last_completed_at > last_triggered_at
+-- or timeout_seconds elapses. But nobody sets last_completed_at for fire-and-forget tasks.
+--
+-- The reaper now handles cleanup, so we can reduce the timeout windows.
+-- This means the scheduler will consider previous runs as timed out sooner,
+-- allowing re-firing.
+UPDATE scheduled_tasks
+SET timeout_seconds = 900  -- 15 min (was 1800)
+WHERE name = 'vet-batch-verify';
+
+UPDATE scheduled_tasks
+SET timeout_seconds = 1800  -- 30 min (was 3600)
+WHERE name = 'vet-sweep-continue';
+
+-- Verify
+SELECT name, interval_seconds, timeout_seconds, concurrency_group, enabled,
+       CASE WHEN pre_query IS NOT NULL AND pre_query != '' THEN 'yes' ELSE 'no' END as has_pre_query
+FROM scheduled_tasks
+WHERE name IN ('stale-orchestration-reaper', 'vet-batch-verify', 'vet-sweep-continue', 'vet-task-reset')
+ORDER BY name;

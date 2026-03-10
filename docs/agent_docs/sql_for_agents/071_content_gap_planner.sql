@@ -154,3 +154,28 @@ WHERE type = 'content-gap-planner' AND deleted_at IS NULL;
 SELECT default_config->'workflow'->'steps'->'load_existing_pages'->>'action' as action
 FROM agent_definitions WHERE type = 'content-gap-planner' AND deleted_at IS NULL;
 
+-- Fix the existing_pages range in content-gap-planner template
+UPDATE agent_definitions
+SET default_config = REPLACE(
+        default_config::text,
+        '{{if .existing_pages}}{{range .existing_pages}}- {{.name}} ({{.page_type}}): {{.title}}\n{{end}}{{else}}No pages loaded.{{end}}',
+        '{{if .existing_pages.pages}}{{range .existing_pages.pages}}- {{.name}} ({{.page_type}}): {{.title}}\n{{end}}{{else}}No pages loaded.{{end}}'
+                     )::jsonb,
+updated_at = NOW()
+WHERE type = 'content-gap-planner' AND deleted_at IS NULL;
+
+-- Verify the fix took
+SELECT default_config::text LIKE '%existing_pages.pages%' as fixed
+FROM agent_definitions
+WHERE type = 'content-gap-planner' AND deleted_at IS NULL;
+
+
+-- Fix existing_pages → existing_pages.pages in the range template
+UPDATE agent_definitions
+SET default_config = REPLACE(
+        default_config::text,
+        '{{if .existing_pages}}{{range .existing_pages}}-',
+        '{{if .existing_pages.pages}}{{range .existing_pages.pages}}-'
+                     )::jsonb,
+updated_at = NOW()
+WHERE type = 'content-gap-planner' AND deleted_at IS NULL;

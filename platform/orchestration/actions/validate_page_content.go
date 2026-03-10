@@ -390,21 +390,61 @@ func validateInternalLinks(ctx context.Context, db *sql.DB, html string, siteID 
 			continue
 		}
 
+		// Skip asset paths — these are files in the git repo, not pages.
+		// Catches: /assets/css/styles.css, /assets/images/hero.jpg, /favicon.ico, etc.
+		if isAssetPath(href) {
+			continue
+		}
+
 		normalizedPath := normalizePagePath(href)
 
 		if !isValidPage(normalizedPath, validPages) {
+			// Missing pages are warnings, not errors — the page may be planned
+			// but not yet built (e.g. /privacy.html, /terms.html in footers).
+			// This avoids blocking deployment of working pages because a
+			// linked page hasn't been created yet.
 			issues = append(issues, ValidationIssue{
-				Type:        "broken_link",
+				Type:        "missing_link_target",
 				Category:    "link",
-				Severity:    "error",
+				Severity:    "warning",
 				Location:    fmt.Sprintf("href=\"%s\"", href),
 				Value:       href,
-				Description: fmt.Sprintf("Link to non-existent page: %s", href),
+				Description: fmt.Sprintf("Link to page not found in pages table: %s", href),
 			})
 		}
 	}
 
 	return issues
+}
+
+// isAssetPath returns true for paths that are static assets, not pages.
+// These come from <link rel="stylesheet">, <img src="">, <script src="">, etc.
+func isAssetPath(path string) bool {
+	lower := strings.ToLower(path)
+
+	// Directory-based: /assets/*, /images/*, /static/*
+	if strings.HasPrefix(lower, "/assets/") ||
+		strings.HasPrefix(lower, "/images/") ||
+		strings.HasPrefix(lower, "/static/") ||
+		strings.HasPrefix(lower, "/fonts/") ||
+		strings.HasPrefix(lower, "/js/") ||
+		strings.HasPrefix(lower, "/css/") {
+		return true
+	}
+
+	// Extension-based: non-HTML file extensions
+	assetExts := []string{
+		".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
+		".ico", ".woff", ".woff2", ".ttf", ".eot", ".pdf", ".xml", ".json",
+		".map", ".txt", ".mp4", ".webm",
+	}
+	for _, ext := range assetExts {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // ============================================================================
@@ -498,11 +538,13 @@ func loadValidPagePaths(ctx context.Context, db *sql.DB, siteID uuid.UUID, logge
 	}
 	defer rows.Close()
 
+	var pageNames []string
 	for rows.Next() {
 		var url, name string
 		if err := rows.Scan(&url, &name); err != nil {
 			continue
 		}
+		pageNames = append(pageNames, name)
 		pages[url] = true
 		pages[normalizePagePath(url)] = true
 		if url == "/" {
@@ -518,6 +560,10 @@ func loadValidPagePaths(ctx context.Context, db *sql.DB, siteID uuid.UUID, logge
 	pages["/"] = true
 	pages["/index.html"] = true
 	pages["index.html"] = true
+
+	logger.Info("ValidatePageContentAction: loaded valid pages",
+		zap.Int("page_count", len(pageNames)),
+		zap.Strings("pages", pageNames))
 
 	return pages
 }
