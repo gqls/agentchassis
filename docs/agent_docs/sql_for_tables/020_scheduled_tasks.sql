@@ -1,3 +1,6 @@
+to disable later
+UPDATE scheduled_tasks SET enabled = false WHERE name LIKE 'vet-%';
+
 -- Migration: 066_kafka_scheduler.sql
 -- Creates the scheduled_tasks table and seeds initial schedules.
 -- The kafka-scheduler service reads this table and publishes trigger
@@ -385,3 +388,127 @@ HAVING COUNT(*) < 20
 '
 WHERE name = 'improvement-sweep';
 
+--
+
+-- added vet to scheduled tasks
+-- vet_scheduled_tasks.sql
+--
+-- Three scheduled tasks for automated vet pipeline operation.
+-- Disable or delete after the initial data collection campaign.
+--
+-- 1. vet-batch-verify:  Triggers batch processor every 15 min if pending tasks exist
+-- 2. vet-task-reset:    Resets stuck in_progress tasks every 5 min (prevents orphans)
+-- 3. vet-sweep-continue: Triggers sweep for unswept areas every 30 min
+--
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 1. VET BATCH VERIFY — claims and verifies pending collection tasks
+-- ═══════════════════════════════════════════════════════════════════
+-- Pre-query: only fires if there are pending tasks and no batch processor
+-- currently running (no in_progress tasks = nothing active)
+INSERT INTO scheduled_tasks (
+    id, name, description, interval_seconds,
+    target_agent_type, target_topic, input_data,
+    concurrency_group, max_concurrent, timeout_seconds,
+    pre_query, enabled
+) VALUES (
+             gen_random_uuid(),
+             'vet-batch-verify',
+             'Triggers vet-batch-processor to verify pending businesses. Runs every 15 minutes if pending tasks exist and no batch is currently active.',
+             900,  -- 15 minutes
+             'vet-batch-processor',
+             'system.agent.generic.requests',
+             '{"batch_size": 100, "task_type": "initial_verification", "vertical_slug": "veterinary"}',
+             'vet-verify',
+             1,     -- only 1 batch processor at a time
+             1800,  -- 30 min timeout (in-flight window)
+             '
+         SELECT COUNT(*)::text as pending_tasks
+         FROM business_intel.collection_tasks
+         WHERE status = ''pending''
+           AND vertical_id = (SELECT id FROM business_intel.business_verticals WHERE slug = ''veterinary'')
+         HAVING COUNT(*) > 0
+         ',
+             true
+         );
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 2. VET TASK RESET — resets orphaned in_progress tasks
+-- ═══════════════════════════════════════════════════════════════════
+-- Pure maintenance SQL via pre_query. The UPDATE runs in the pre_query.
+-- If nothing was reset, returns no rows → task skipped (no message sent).
+-- Uses the generic agent as a no-op target.
+INSERT INTO scheduled_tasks (
+    id, name, description, interval_seconds,
+    target_agent_type, target_topic, input_data,
+    concurrency_group, max_concurrent, timeout_seconds,
+    pre_query, enabled
+) VALUES (
+             gen_random_uuid(),
+             'vet-task-reset',
+             'Resets collection_tasks stuck in in_progress for over 30 minutes. Prevents orphaned tasks from blocking the queue.',
+             300,  -- every 5 minutes
+             'generic',
+             'system.agent.generic.requests',
+             '{}',
+             'maintenance',
+             1,
+             60,
+             '
+         WITH reset AS (
+             UPDATE business_intel.collection_tasks
+             SET status = ''pending'',
+                 started_at = NULL,
+                 orchestration_id = NULL
+             WHERE status = ''in_progress''
+               AND started_at < NOW() - INTERVAL ''30 minutes''
+             RETURNING id
+         )
+         SELECT COUNT(*)::text as reset_count
+         FROM reset
+         HAVING COUNT(*) > 0
+         ',
+             true
+         );
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 3. VET SWEEP CONTINUE — sweeps unswept areas in batches
+-- ═══════════════════════════════════════════════════════════════════
+-- Pre-query: only fires if there are unswept areas remaining.
+-- Sends limit=200 so each run does a manageable batch.
+INSERT INTO scheduled_tasks (
+    id, name, description, interval_seconds,
+    target_agent_type, target_topic, input_data,
+    concurrency_group, max_concurrent, timeout_seconds,
+    pre_query, enabled
+) VALUES (
+             gen_random_uuid(),
+             'vet-sweep-continue',
+             'Triggers area-sweep-orchestrator to sweep the next batch of unswept areas. Runs every 30 minutes if unswept areas remain.',
+             1800,  -- 30 minutes
+             'vet-pipeline-orchestrator',
+             'system.agent.generic.requests',
+             '{"limit": 200, "promote_limit": 500, "verify_limit": 0, "delay_ms": 5000, "country": "GB", "business_type": "veterinary practice", "vertical_slug": "veterinary"}',
+             'vet-sweep',
+             1,     -- only 1 sweep at a time
+             3600,  -- 1 hour timeout window
+             '
+         SELECT COUNT(*)::text as unswept_areas
+         FROM business_intel.search_areas
+         WHERE last_swept_at IS NULL
+         HAVING COUNT(*) > 0
+         ',
+             true
+         );
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Verification: check all three were created
+-- ═══════════════════════════════════════════════════════════════════
+SELECT name, interval_seconds, target_agent_type, enabled,
+       CASE WHEN pre_query IS NOT NULL THEN 'yes' ELSE 'no' END as has_pre_query
+FROM scheduled_tasks
+WHERE name LIKE 'vet-%'
+ORDER BY name;
+
+-- to disable later:
+UPDATE scheduled_tasks SET enabled = false WHERE name LIKE 'vet-%';

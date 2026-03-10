@@ -196,6 +196,9 @@ echo " WHERE orchestration_id = '$ORCHESTRATION_ID';"
 echo ""
 
 
+To disable later:
+UPDATE scheduled_tasks SET enabled = false WHERE name LIKE 'vet-%';
+
 --
 SELECT
     (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'completed') as tasks_done,
