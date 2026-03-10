@@ -376,3 +376,137 @@ ensure_site_record
 → triage_detected_items
 → insert needs_rerender
 → build-dispatch-loop          (processes all fixes)
+
+
+-- ============================================================================
+-- Fix dispatch loop pod accumulation
+--
+-- 1. Reduce timeout_seconds from 900 to 300 (safety net)
+-- 2. Add last_completed_at update to build-dispatch-loop workflow
+--    so the scheduler knows the previous execution finished
+-- ============================================================================
+
+-- 1. Shorter timeout
+UPDATE scheduled_tasks
+SET timeout_seconds = 300
+WHERE name IN ('build-pipeline-trigger', 'improvement-sweep');
+
+-- 2. Add scheduler callback step to build-dispatch-loop workflow
+-- Insert "notify_scheduler" step between the last step and "complete"
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,notify_scheduler}',
+                '{
+                    "action": "query_database",
+                    "config": {
+                        "query": "UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = ''build-pipeline-trigger''",
+                        "output_format": "object"
+                    },
+                    "next_step": "complete",
+                    "description": "Tell scheduler this execution finished so it can fire again",
+                    "output_field": "scheduler_notified"
+                }'::jsonb
+        ),
+    -- Update the step that currently points to "complete" to point to "notify_scheduler"
+        '{workflow,steps,check_has_items,config,else_step}',
+        '"notify_scheduler"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
+
+-- Also update the process_items next_step to go through notify_scheduler
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_items,next_step}',
+        '"notify_scheduler"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
+
+-- Verify the workflow flow: load_items → check_has_items → process_items → notify_scheduler → complete
+--                                                    ↘ (no items) → notify_scheduler → complete
+SELECT
+    default_config->'workflow'->'steps'->'check_has_items'->'config'->>'else_step' as no_items_path,
+    default_config->'workflow'->'steps'->'process_items'->>'next_step' as after_process,
+    default_config->'workflow'->'steps'->'notify_scheduler'->>'next_step' as after_notify
+FROM agent_definitions
+WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
+
+-- Expected:
+-- no_items_path: notify_scheduler
+-- after_process: notify_scheduler
+-- after_notify:  complete
+
+-- 3. Same for improvement-loop — add scheduler callback
+-- The improvement-loop has two completion paths: complete_clean and complete
+-- Both need to go through notify_scheduler
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,notify_scheduler}',
+        '{
+            "action": "query_database",
+            "config": {
+                "query": "UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = ''improvement-sweep''",
+                "output_format": "object"
+            },
+            "next_step": "complete",
+            "description": "Tell scheduler this execution finished",
+            "output_field": "scheduler_notified"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+-- Redirect complete_clean → notify_scheduler_clean → complete_clean
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,notify_scheduler_clean}',
+        '{
+            "action": "query_database",
+            "config": {
+                "query": "UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = ''improvement-sweep''",
+                "output_format": "object"
+            },
+            "next_step": "complete_clean",
+            "description": "Tell scheduler this execution finished (clean path)",
+            "output_field": "scheduler_notified"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+-- Update check_has_findings else_step: complete_clean → notify_scheduler_clean
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_has_findings,config,else_step}',
+        '"notify_scheduler_clean"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+-- Update call_dispatch next_step: complete → notify_scheduler
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_dispatch,next_step}',
+        '"notify_scheduler"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+-- Also update call_dispatch error_step to still notify
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_dispatch,error_step}',
+        '"notify_scheduler"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND deleted_at IS NULL;

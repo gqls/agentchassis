@@ -172,7 +172,7 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 			group := task.ConcurrencyGroup.String
 			current := inFlight[group]
 			if current >= task.MaxConcurrent {
-				logger.Debug("Skipping task — concurrency group at max",
+				logger.Info("Skipping task — concurrency group at max",
 					zap.String("task", task.Name),
 					zap.String("group", group),
 					zap.Int("current", current),
@@ -193,7 +193,7 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 				continue
 			}
 			if dynamicData == nil {
-				logger.Debug("Pre-query returned no rows, skipping task",
+				logger.Info("Pre-query returned no rows, skipping task",
 					zap.String("task", task.Name))
 				continue
 			}
@@ -205,14 +205,13 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 			}
 		}
 
-		// Fire the task
 		// CTE-only tasks: pre_query did the work, no Kafka message needed
 		if !task.FireMessage {
 			_, err := db.ExecContext(ctx,
-				`UPDATE scheduled_tasks SET last_triggered_at = NOW(), updated_at = NOW() WHERE id = $1`,
+				`UPDATE scheduled_tasks SET last_triggered_at = NOW(), last_completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
 				task.ID)
 			if err != nil {
-				logger.Warn("Failed to update last_triggered_at",
+				logger.Warn("Failed to update timestamps",
 					zap.String("task", task.Name), zap.Error(err))
 			}
 			logger.Info("Pre-query task completed (no message fired)",
@@ -243,9 +242,9 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 	}
 }
 
-// loadDueTasks returns enabled tasks whose interval has elapsed.
-// Uses Postgres to atomically check timing — prevents double-firing
-// even if two scheduler instances run briefly during rolling updates.
+// loadDueTasks returns enabled tasks whose interval has elapsed AND whose
+// previous execution has completed (or timed out). This prevents the same
+// task from spawning multiple concurrent pods.
 func loadDueTasks(ctx context.Context, db *sql.DB, logger *zap.Logger) ([]scheduledTask, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT id, name, target_agent_type, target_topic, input_data,
@@ -257,6 +256,14 @@ func loadDueTasks(ctx context.Context, db *sql.DB, logger *zap.Logger) ([]schedu
 		  AND (
 		    last_triggered_at IS NULL
 		    OR last_triggered_at + (interval_seconds || ' seconds')::interval <= NOW()
+		  )
+		  AND (
+		    -- Per-task guard: don't re-fire if previous execution is still in-flight.
+		    -- CTE-only tasks (fire_message=false) complete instantly so always pass.
+		    fire_message = false
+		    OR last_triggered_at IS NULL
+		    OR last_completed_at >= last_triggered_at
+		    OR last_triggered_at + (timeout_seconds || ' seconds')::interval <= NOW()
 		  )
 		ORDER BY last_triggered_at ASC NULLS FIRST
 	`)
