@@ -61,21 +61,22 @@ type ActionParams struct {
 
 // AgentDefinition represents an agent's configuration from the database
 type AgentDefinition struct {
-	ID              string                 `db:"id"`
-	Type            string                 `db:"type"`
-	DisplayName     string                 `db:"display_name"`
-	Description     string                 `db:"description"`
-	Category        string                 `db:"category"`
-	ImageRepository string                 `db:"image_repository"`
-	ImageTag        string                 `db:"image_tag"`
-	Command         []string               `db:"command"`
-	Resources       json.RawMessage        `db:"resources"`
-	DefaultConfig   map[string]interface{} `db:"default_config"`
-	Capabilities    json.RawMessage        `db:"capabilities"`
-	Topics          json.RawMessage        `db:"topics"`
-	HealthConfig    json.RawMessage        `db:"health_config"`
-	EnvVars         json.RawMessage        `db:"env_vars"`
-	IsActive        bool                   `db:"is_active"`
+	ID                 string                 `db:"id"`
+	Type               string                 `db:"type"`
+	DisplayName        string                 `db:"display_name"`
+	Description        string                 `db:"description"`
+	Category           string                 `db:"category"`
+	ImageRepository    string                 `db:"image_repository"`
+	ImageTag           string                 `db:"image_tag"`
+	Command            []string               `db:"command"`
+	Resources          json.RawMessage        `db:"resources"`
+	DefaultConfig      map[string]interface{} `db:"default_config"`
+	Capabilities       json.RawMessage        `db:"capabilities"`
+	Topics             json.RawMessage        `db:"topics"`
+	HealthConfig       json.RawMessage        `db:"health_config"`
+	EnvVars            json.RawMessage        `db:"env_vars"`
+	IsActive           bool                   `db:"is_active"`
+	IdleTimeoutSeconds int                    `db:"idle_timeout_seconds"`
 }
 
 // AgentMatch represents a discovered agent

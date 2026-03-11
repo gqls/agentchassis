@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -108,6 +109,7 @@ type Agent struct {
 	cancel       context.CancelFunc
 	wg           sync.WaitGroup
 	shutdownChan chan struct{}
+	shutdownOnce sync.Once
 
 	// Metrics
 	messagesProcessed uint64
@@ -415,6 +417,14 @@ func (a *Agent) Run() error {
 		go a.sendHeartbeats()
 	}
 
+	// Start idle monitor if configured (for spawned Job agents)
+	if idleStr := os.Getenv("IDLE_TIMEOUT_SECONDS"); idleStr != "" {
+		if idleSecs, err := strconv.Atoi(idleStr); err == nil && idleSecs > 0 {
+			a.wg.Add(1)
+			go a.idleMonitor(time.Duration(idleSecs) * time.Second)
+		}
+	}
+
 	// Wait for shutdown signal
 	<-a.shutdownChan
 
@@ -477,9 +487,11 @@ func (a *Agent) processRequests() {
 			}
 
 			a.logger.Info("Request consumer received message",
-				//zap.Any("message", msg),
 				zap.Int("value_length", len(msg.Value)),
 			)
+
+			// Update activity timestamp for idle timeout
+			a.lastActivity = time.Now()
 
 			// Process the message
 			a.processMessage(msg, "request")
@@ -529,11 +541,14 @@ func (a *Agent) processResponses() {
 				continue
 			}
 
-			// Only log AFTER we've confirmed it's a real message
+			// Only log after we've confirmed it's a real message
 			a.logger.Info("Response consumer received message",
 				//zap.Any("message", msg),
 				zap.Int("value_length", len(msg.Value)),
 				zap.String("topic", msg.Topic))
+
+			// Update activity timestamp for idle timeout
+			a.lastActivity = time.Now()
 
 			// Process the message
 			a.processMessage(msg, "response")
@@ -1073,8 +1088,10 @@ func (a *Agent) checkHealth() bool {
 func (a *Agent) Shutdown() error {
 	a.logger.Info("Agent shutdown initiated")
 
-	// Signal shutdown
-	close(a.shutdownChan)
+	// Signal shutdown — protected by sync.Once (idle monitor may have closed it already)
+	a.shutdownOnce.Do(func() {
+		close(a.shutdownChan)
+	})
 
 	// Wait for goroutines with timeout
 	done := make(chan struct{})
@@ -1381,6 +1398,46 @@ func (a *Agent) sendHeartbeat() {
 	key := []byte(a.AgentID)
 	// heartbeat so no message validation
 	a.producer.Produce(a.ctx, topic, headers, key, heartbeatBytes)
+}
+
+// idleMonitor checks lastActivity and triggers shutdown if the agent
+// has been idle for longer than IDLE_TIMEOUT_SECONDS. This ensures
+// spawned agent Jobs exit cleanly so K8s can reclaim resources.
+//
+// Only runs when IDLE_TIMEOUT_SECONDS > 0 (set by job spawner from
+// agent_definitions.idle_timeout_seconds).
+func (a *Agent) idleMonitor(timeout time.Duration) {
+	defer a.wg.Done()
+
+	checkInterval := 10 * time.Second
+	ticker := time.NewTicker(checkInterval)
+	defer ticker.Stop()
+
+	a.logger.Info("Idle monitor started",
+		zap.Duration("timeout", timeout),
+		zap.Duration("check_interval", checkInterval))
+
+	for {
+		select {
+		case <-a.ctx.Done():
+			return
+		case <-ticker.C:
+			idle := time.Since(a.lastActivity)
+			if idle >= timeout {
+				a.logger.Info("Idle timeout reached — shutting down",
+					zap.Duration("idle_duration", idle),
+					zap.Duration("timeout", timeout),
+					zap.Time("last_activity", a.lastActivity))
+
+				// Signal shutdown — protected by sync.Once to prevent
+				// panic if Shutdown() is also called (e.g. from signal handler)
+				a.shutdownOnce.Do(func() {
+					close(a.shutdownChan)
+				})
+				return
+			}
+		}
+	}
 }
 
 // Helper to get current and caller function names

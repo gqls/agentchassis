@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -2121,7 +2122,7 @@ func getAgentDefinition(ctx context.Context, db interface{}, agentType string, l
         SELECT id, type, display_name, description, category,
                image_repository, image_tag, command,
                resources, default_config, capabilities, topics,
-               health_config, env_vars, is_active
+               health_config, env_vars, is_active, idle_timeout_seconds
         FROM agent_definitions
         WHERE type = $1 AND deleted_at IS NULL
 		ORDER BY version DESC
@@ -2144,6 +2145,7 @@ func getAgentDefinition(ctx context.Context, db interface{}, agentType string, l
 			&healthConfigJSON,  // Scan as bytes first
 			&envVarsJSON,       // Already json.RawMessage
 			&def.IsActive,
+			&def.IdleTimeoutSeconds,
 		)
 		if err != nil {
 			return nil, err
@@ -2179,7 +2181,7 @@ func getAgentDefinition(ctx context.Context, db interface{}, agentType string, l
 			&def.ID, &def.Type, &def.DisplayName, &def.Description, &def.Category,
 			&def.ImageRepository, &def.ImageTag, &def.Command,
 			&def.Resources, &def.DefaultConfig, &def.Capabilities, &def.Topics,
-			&def.HealthConfig, &def.EnvVars, &def.IsActive,
+			&def.HealthConfig, &def.EnvVars, &def.IsActive, &def.IdleTimeoutSeconds,
 		)
 		if err != nil {
 			return nil, err
@@ -2627,6 +2629,14 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		zap.String("agent_type", agentDef.Type))
 
 	envList = append(envList, corev1.EnvVar{Name: "DATABASE_URL", Value: dbURL})
+
+	// Add idle timeout for spawned agents — controls when the pod exits after going idle
+	if agentDef.IdleTimeoutSeconds > 0 {
+		envList = append(envList, corev1.EnvVar{
+			Name:  "IDLE_TIMEOUT_SECONDS",
+			Value: strconv.Itoa(agentDef.IdleTimeoutSeconds),
+		})
+	}
 
 	logger.Info("DEBUGaa: In spawnAgentKubernetesJobFromDefinition in spawn_actions.go",
 		zap.String("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER", os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER")),

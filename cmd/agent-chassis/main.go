@@ -170,11 +170,17 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	// Run agent in goroutine
-	errCh := make(chan error, 1)
+	/*errCh := make(chan error, 1)
 	go func() {
 		if err := agent.Run(); err != nil {
 			errCh <- err
 		}
+	}()*/
+
+	// Run agent in goroutine
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- agent.Run() // sends nil on clean exit, error on failure
 	}()
 
 	// Wait for shutdown signal or error
@@ -185,8 +191,16 @@ func main() {
 		if err := agent.Shutdown(); err != nil {
 			appLogger.Error("Shutdown error", zap.Error(err))
 		}
-	case err := <-errCh:
+		/*case err := <-errCh:
 		appLogger.Error("Agent failed", zap.Error(err))
+		cancel()
+		agent.Shutdown()*/
+	case err := <-errCh:
+		if err != nil {
+			appLogger.Error("Agent failed", zap.Error(err))
+		} else {
+			appLogger.Info("Agent exited cleanly")
+		}
 		cancel()
 		agent.Shutdown()
 	}
