@@ -157,8 +157,9 @@ echo " "
 echo ""
 
 
-UPDATE scheduled_tasks SET enabled = true
-WHERE name = 'build-pipeline-trigger';
+UPDATE scheduled_tasks SET enabled = true WHERE name = 'build-pipeline-trigger';
+kubectl -n ai-persona-system logs deploy/kafka-scheduler --tail=20
+
 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=asset-deployer -f | tee logs-asset-deployer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
@@ -225,6 +226,42 @@ WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
 
 UPDATE site_work_items SET status = 'triaged', claimed_at = NULL, claimed_by = NULL
 WHERE status = 'claimed';
+
+
+----
+
+-- monitoring query
+
+--------------------
+
+-- Dashboard: site summary + failure details
+SELECT s.domain,
+       COUNT(*) FILTER (WHERE wi.status = 'complete') as done,
+       COUNT(*) FILTER (WHERE wi.status = 'claimed') as active,
+       COUNT(*) FILTER (WHERE wi.status = 'triaged' AND wi.attempt_count < wi.max_attempts) as ready,
+       COUNT(*) FILTER (WHERE wi.status = 'triaged' AND wi.attempt_count >= wi.max_attempts) as exhausted,
+       COUNT(*) FILTER (WHERE wi.status = 'failed') as failed,
+       COUNT(*) FILTER (WHERE wi.status = 'blocked') as blocked
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.domain = 'build'
+GROUP BY s.domain
+ORDER BY s.domain;
+
+-- Failure + exhausted detail
+SELECT s.domain, wi.status, wi.item_type, wi.handler_agent,
+       wi.attempt_count || '/' || wi.max_attempts as attempts,
+       LEFT(wi.spec->>'page_name', 20) as page,
+       LEFT(COALESCE(wi.error, wi.spec->>'description'), 80) as detail
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.domain = 'build'
+  AND (wi.status = 'failed'
+       OR (wi.status = 'triaged' AND wi.attempt_count >= wi.max_attempts))
+ORDER BY s.domain, wi.status, wi.item_type;
+
+--------------------
+
 
   then
     Step 1: Webdesign (CSS generation)
@@ -515,3 +552,27 @@ JOIN sites s ON s.id = wi.site_id
 WHERE wi.domain = 'build'
 GROUP BY s.domain
 ORDER BY pending DESC;
+
+------------------------------------------------------------------------
+
+resetting attempt counts
+
+-- Reset the 3 stale claimed items
+UPDATE site_work_items
+SET status = 'triaged', claimed_by = NULL, claimed_at = NULL,
+    attempt_count = attempt_count + 1
+WHERE status = 'claimed'
+  AND domain = 'build'
+RETURNING site_id, item_type, handler_agent;
+
+-- Also reset the 19 exhausted-attempt items (bugs are now fixed)
+UPDATE site_work_items
+SET attempt_count = 0
+WHERE status = 'triaged'
+  AND domain = 'build'
+  AND attempt_count >= max_attempts;
+
+-- Verify claimed-item-timeout is running
+SELECT name, enabled, fire_message, last_triggered_at
+FROM scheduled_tasks
+WHERE name = 'claimed-item-timeout';

@@ -293,3 +293,20 @@ FROM site_work_items wi
 WHERE wi.status = 'triaged' AND wi.domain = 'build'
 ORDER BY s.domain, wi.priority;
 
+----
+
+-- increase throughput
+
+-- Blanket reset for items that failed before today's fixes
+UPDATE site_work_items
+SET attempt_count = 0
+WHERE status = 'triaged'
+  AND domain = 'build'
+  AND attempt_count >= max_attempts;
+
+-- Also increase max_attempts for content items (they had legit bugs, not real failures)
+UPDATE site_work_items
+SET max_attempts = 5
+WHERE domain = 'build'
+  AND item_type IN ('content_rewrite', 'needs_content_planning', 'tone_shift', 'needs_content_page');
+

@@ -470,3 +470,25 @@ WHERE type = 'build-pipeline-trigger' AND deleted_at IS NULL;
 
 ---
 
+-- increase parallelisation
+
+-- Allow more concurrent dispatches
+UPDATE scheduled_tasks
+SET max_concurrent = 4, interval_seconds = 60
+WHERE name = 'build-pipeline-trigger';
+
+-- The pre_query only returns 1 site — change to return more
+UPDATE scheduled_tasks
+SET pre_query = '
+SELECT COUNT(*)::text as pending_sites
+FROM sites s
+WHERE EXISTS (
+    SELECT 1 FROM site_work_items wi
+    WHERE wi.site_id = s.id
+      AND wi.status = ''triaged''
+      AND wi.domain = ''build''
+      AND wi.attempt_count < wi.max_attempts
+)
+HAVING COUNT(*) > 0
+'
+WHERE name = 'build-pipeline-trigger';

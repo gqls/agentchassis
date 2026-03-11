@@ -18,7 +18,7 @@ ALTER TABLE agent_definitions
 -- responses keep arriving.
 
 UPDATE agent_definitions
-SET idle_timeout_seconds = 120
+SET idle_timeout_seconds = 180
 WHERE type IN (
                'build-dispatch-loop',
                'page-build-handler',
@@ -44,7 +44,7 @@ WHERE type IN (
 
 -- The vet pipeline agents also get spawned as Jobs
 UPDATE agent_definitions
-SET idle_timeout_seconds = 120
+SET idle_timeout_seconds = 180
 WHERE type IN (
                'vet-batch-processor',
                'vet-practice-verifier',

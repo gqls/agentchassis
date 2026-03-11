@@ -104,7 +104,7 @@ kubectl -n ai-persona-system delete pods -l agent-type=calculator
 sleep 4
 kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas=2
-kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
+# kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
 kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
 
 # Instead of resetting offsets, DELETE the consumer group
@@ -120,7 +120,7 @@ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
 sleep 1
 
 # Now start the agent - it will create a fresh group with FirstOffset
-kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=5
 
 # try creating it again
 # kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-0 -- \

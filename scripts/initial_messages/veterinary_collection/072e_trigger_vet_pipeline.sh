@@ -498,3 +498,61 @@ UPDATE scheduled_tasks
 SET max_concurrent = 5,
     interval_seconds = 300  -- every 5 min
 WHERE name = 'vet-batch-verify';
+
+----
+
+-- 1. Dismiss non-UK businesses
+UPDATE business_intel.businesses
+SET verification_status = 'dismissed'
+WHERE id IN (
+    SELECT b.id
+    FROM business_intel.businesses b
+    JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+    WHERE bv.slug = 'veterinary'
+      AND b.verification_status = 'pending'
+      AND (b.postcode IS NULL OR b.postcode = '')
+      AND (b.website_url NOT LIKE '%.co.uk%' AND b.website_url NOT LIKE '%.uk%')
+);
+
+-- 2. Dismiss obvious directory/news sites (not actual practices)
+UPDATE business_intel.businesses
+SET verification_status = 'dismissed'
+WHERE id IN (
+    SELECT b.id
+    FROM business_intel.businesses b
+    JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+    WHERE bv.slug = 'veterinary'
+      AND b.verification_status = 'pending'
+      AND (
+        b.website_url LIKE '%directory.%'
+        OR b.website_url LIKE '%leap.%'
+        OR b.website_url LIKE '%poodlehut%'
+        OR b.website_url LIKE '%yell.com%'
+        OR b.website_url LIKE '%yelp.%'
+        OR b.website_url LIKE '%192.com%'
+        OR b.website_url LIKE '%gumtree%'
+        OR b.website_url LIKE '%hotfrog%'
+        OR b.website_url LIKE '%cylex%'
+        OR b.website_url LIKE '%freeindex%'
+        OR b.website_url LIKE '%theargus%'
+        OR b.website_url LIKE '%echo.co.uk%'
+      )
+);
+
+-- 3. Also dismiss collection tasks for dismissed businesses
+UPDATE business_intel.collection_tasks ct
+SET status = 'cancelled'
+FROM business_intel.businesses b
+WHERE ct.business_id = b.id
+  AND b.verification_status = 'dismissed'
+  AND ct.status = 'pending';
+
+-- 4. Check remaining pending with missing postcode
+SELECT COUNT(*) as remaining_no_postcode
+FROM business_intel.businesses b
+JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+WHERE bv.slug = 'veterinary'
+  AND b.verification_status = 'pending'
+  AND (b.postcode IS NULL OR b.postcode = '');
+
+  --
