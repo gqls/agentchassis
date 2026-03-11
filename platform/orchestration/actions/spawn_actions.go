@@ -2636,6 +2636,13 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 			Name:  "IDLE_TIMEOUT_SECONDS",
 			Value: strconv.Itoa(agentDef.IdleTimeoutSeconds),
 		})
+		// Spawned agents with idle timeout use ephemeral topics that should
+		// be cleaned up on shutdown. When we switch to shared topics, stop
+		// setting this and the agent won't clean up.
+		envList = append(envList, corev1.EnvVar{
+			Name:  "EPHEMERAL_TOPICS",
+			Value: "true",
+		})
 	}
 
 	logger.Info("DEBUGaa: In spawnAgentKubernetesJobFromDefinition in spawn_actions.go",

@@ -56,7 +56,7 @@ Two things can trigger shutdown: the idle monitor and a SIGTERM from K8s. Both c
 
 ```go
 a.shutdownOnce.Do(func() {
-    close(a.shutdownChan)
+close(a.shutdownChan)
 })
 ```
 
@@ -69,14 +69,14 @@ The existing `main.go` only sends to `errCh` when `Run()` returns an error. A cl
 ```go
 // Before
 go func() {
-    if err := agent.Run(); err != nil {
-        errCh <- err
-    }
+if err := agent.Run(); err != nil {
+errCh <- err
+}
 }()
 
 // After
 go func() {
-    errCh <- agent.Run()
+errCh <- agent.Run()
 }()
 ```
 
@@ -85,17 +85,20 @@ go func() {
 | File | Changes |
 |------|---------|
 | `agent_definitions` table | New column `idle_timeout_seconds int NOT NULL DEFAULT 0` |
-| `platform/orchestration/actions/spawn_actions.go` | `AgentDefinition` struct gets `IdleTimeoutSeconds` field; `loadAgentDefinitionFromDB` query and scan updated; env var injected into Job container |
-| `platform/agentbase/agent.go` | `shutdownOnce` field on Agent struct; `lastActivity` updated in both consumer loops; new `idleMonitor()` method; `Shutdown()` uses `sync.Once`; monitor started in `Run()` |
+| `platform/orchestration/actions/types.go` | `AgentDefinition` struct gets `IdleTimeoutSeconds` field |
+| `platform/orchestration/actions/spawn_actions.go` | `loadAgentDefinitionFromDB` query and scan updated; `IDLE_TIMEOUT_SECONDS` and `EPHEMERAL_TOPICS` env vars injected into Job container |
+| `platform/agentbase/agent.go` | `shutdownOnce` field on Agent struct; `lastActivity` updated in both consumer loops; new `idleMonitor()` method; new `cleanupEphemeralTopics()` method; `Shutdown()` uses `sync.Once` and calls topic cleanup; monitor started in `Run()` |
 | `cmd/agent-chassis/main.go` | `errCh` always receives from `Run()`; clean exit handled without error log |
+| `cleanup_orphan_topics.sh` | Bulk cleanup script for pre-deploy orphaned `job.*` topics |
 
 ## Deploy order
 
 1. Run SQL migration (`add_idle_timeout_column.sql`) — adds column, sets values
 2. Build and deploy Go changes — new binary reads the column and honours the env var
 3. Kill existing lingering Jobs — they're running the old binary without the monitor
+4. Run `cleanup_orphan_topics.sh --delete` — remove the 700+ orphaned `job.*` topics
 
-Existing pods won't gain the idle timeout (they don't have the env var). They'll age out naturally via the TTL once they're eventually killed or the node recycles. New pods spawned after the deploy will auto-exit.
+Existing pods won't gain the idle timeout (they don't have the env var). They'll age out naturally via the TTL once they're eventually killed or the node recycles. New pods spawned after the deploy will auto-exit and clean up their topics.
 
 ## Tuning
 
@@ -129,6 +132,13 @@ The idle monitor logs at startup and shutdown:
 {"level":"info","msg":"Idle timeout reached — shutting down","idle_duration":"2m10s","timeout":"2m0s","last_activity":"2026-03-11T10:45:00Z"}
 ```
 
+Topic cleanup logs:
+
+```json
+{"level":"info","msg":"Cleaned up ephemeral topic","topic":"job.abc12345-def67890-page-build-handler.requests"}
+{"level":"info","msg":"Cleaned up ephemeral topic","topic":"job.abc12345-def67890-page-build-handler.responses"}
+```
+
 To check for pods that should have exited but didn't (running old binary):
 
 ```bash
@@ -136,3 +146,35 @@ kubectl -n ai-persona-system get pods --sort-by=.metadata.creationTimestamp | gr
 ```
 
 Any agent pod older than a few hours is likely an orphan from before the deploy.
+
+---
+
+## Topic Lifecycle
+
+### Current: Ephemeral topics
+
+Every spawned agent gets unique Kafka topics (`job.{id}.requests`, `job.{id}.responses`). These are created by the spawner and deleted by the agent on shutdown.
+
+The cleanup is gated by `EPHEMERAL_TOPICS=true`, which the job spawner sets alongside `IDLE_TIMEOUT_SECONDS`. The agent's `cleanupEphemeralTopics()` method only runs when this env var is set and only deletes topics with the `job.` prefix — it will never touch system topics.
+
+For existing orphaned topics (accumulated before the idle timeout deploy), use the bulk cleanup script:
+
+```bash
+# Dry run — list orphans without deleting
+./cleanup_orphan_topics.sh
+
+# Actually delete
+./cleanup_orphan_topics.sh --delete
+```
+
+### Future: Shared topics
+
+When we move to shared topics, each agent type gets a long-lived topic (e.g. `system.work.page-build-handler`) instead of per-spawn topics. Message routing uses headers (orchestration_id, reply_to_request_id) rather than topic isolation.
+
+The transition is clean because of the env var gate:
+
+- **Today**: `EPHEMERAL_TOPICS=true` — unique topics, cleaned up on shutdown
+- **Later**: stop setting `EPHEMERAL_TOPICS` — shared topics, no cleanup needed
+- **Agent code**: unchanged — reads topic names from env vars either way
+
+The main changes for shared topics would be in `setupAgentTopics()` (return pre-existing topic names) and the spawner (stop creating topics). The agent, the idle monitor, and the shutdown path don't change.

@@ -1,0 +1,80 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kafka-topic-cleanup
+  namespace: kafka
+spec:
+  schedule: "*/15 * * * *"  # every 15 minutes
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 300
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: cleanup
+              image: docker.io/bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "=== Kafka Topic Cleanup $(date) ==="
+                  
+                  KAFKA_POD=$(kubectl get pods -n kafka \
+                    -l strimzi.io/name=personae-kafka-cluster-combined-pool-prod \
+                    --field-selector=status.phase=Running \
+                    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+                  
+                  if [ -z "$KAFKA_POD" ]; then
+                    echo "No Kafka pod found, exiting"
+                    exit 0
+                  fi
+                  
+                  echo "Using Kafka pod: $KAFKA_POD"
+                  
+                  # Get all job.* topics
+                  ALL_TOPICS=$(kubectl exec -n kafka "$KAFKA_POD" -- \
+                    bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null \
+                    | grep '^job\.')
+                  
+                  TOPIC_COUNT=$(echo "$ALL_TOPICS" | grep -c '^job\.' 2>/dev/null || echo 0)
+                  echo "Found $TOPIC_COUNT job topics"
+                  
+                  [ "$TOPIC_COUNT" -eq 0 ] && echo "Nothing to clean" && exit 0
+                  
+                  # Get running agent IDs from ai-persona-system namespace
+                  RUNNING_IDS=$(kubectl get pods -n ai-persona-system \
+                    -l spawned-by=orchestrator \
+                    --field-selector=status.phase=Running \
+                    -o jsonpath='{range .items[*]}{.metadata.labels.agent-id}{"\n"}{end}' 2>/dev/null \
+                    | grep -v '^$' | cut -c1-8 | sort -u)
+                  
+                  DELETED=0
+                  KEPT=0
+                  
+                  for TOPIC in $ALL_TOPICS; do
+                    [ -z "$TOPIC" ] && continue
+                  
+                    KEEP=false
+                    for RID in $RUNNING_IDS; do
+                      if echo "$TOPIC" | grep -q "$RID"; then
+                        KEEP=true
+                        break
+                      fi
+                    done
+                  
+                    if [ "$KEEP" = "true" ]; then
+                      KEPT=$((KEPT + 1))
+                    else
+                      kubectl exec -n kafka "$KAFKA_POD" -- \
+                        bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+                        --delete --topic "$TOPIC" 2>/dev/null && \
+                      DELETED=$((DELETED + 1))
+                    fi
+                  done
+                  
+                  echo "Deleted=$DELETED Kept=$KEPT"
+                  echo "=== Cleanup complete ==="

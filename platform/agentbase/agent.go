@@ -1117,6 +1117,10 @@ func (a *Agent) Shutdown() error {
 	if a.producer != nil {
 		a.producer.Close()
 	}
+
+	// Clean up ephemeral Kafka topics (only for spawned agents with EPHEMERAL_TOPICS=true)
+	a.cleanupEphemeralTopics()
+
 	if a.db != nil {
 		a.db.Close()
 	}
@@ -1456,4 +1460,42 @@ func getFuncInfo(skip int) (current, caller string) {
 func (a *Agent) IsStaticAgent() bool {
 	// Static agents have well-known request topics FIXME
 	return strings.HasPrefix(a.requestsTopic, "system.agent.")
+}
+
+// cleanupEphemeralTopics deletes the agent's request and response topics.
+// Only runs when EPHEMERAL_TOPICS=true (set by job spawner for per-spawn topics).
+// When we move to shared topics, this env var won't be set and cleanup is skipped.
+func (a *Agent) cleanupEphemeralTopics() {
+	if os.Getenv("EPHEMERAL_TOPICS") != "true" {
+		return
+	}
+
+	brokersEnv := os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS")
+	if brokersEnv == "" {
+		brokersEnv = os.Getenv("KAFKA_BROKERS")
+	}
+	if brokersEnv == "" {
+		a.logger.Warn("Cannot clean up topics — no KAFKA_BROKERS configured")
+		return
+	}
+	brokers := strings.Split(brokersEnv, ",")
+
+	topicManager := kafka.NewTopicManager(brokers, a.logger)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	topics := []string{a.requestsTopic, a.responsesTopic}
+	for _, topic := range topics {
+		if topic == "" || !strings.HasPrefix(topic, "job.") {
+			continue // Only clean up job.* topics, never system topics
+		}
+		if err := topicManager.DeleteTopic(ctx, topic); err != nil {
+			a.logger.Warn("Failed to clean up topic",
+				zap.String("topic", topic),
+				zap.Error(err))
+		} else {
+			a.logger.Info("Cleaned up ephemeral topic",
+				zap.String("topic", topic))
+		}
+	}
 }

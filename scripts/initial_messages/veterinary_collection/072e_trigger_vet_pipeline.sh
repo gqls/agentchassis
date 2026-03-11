@@ -492,3 +492,9 @@ LIMIT 5;
 
 
 --------------------------------------------------------------------------------------
+
+-- Allow 3 concurrent batch processors, fire more often
+UPDATE scheduled_tasks
+SET max_concurrent = 5,
+    interval_seconds = 300  -- every 5 min
+WHERE name = 'vet-batch-verify';
