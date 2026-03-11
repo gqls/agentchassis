@@ -480,6 +480,16 @@ JOIN sites s ON s.id = wi.site_id
 WHERE wi.status = 'failed'
 ORDER BY s.domain, wi.item_type;
 
+-- what they contain
+SELECT s.domain, wi.item_type, wi.handler_agent,
+       wi.spec->>'page_name' as page,
+       LEFT(wi.spec->>'description', 100) as description,
+       wi.id
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status = 'failed'
+ORDER BY s.domain;
+
 -- Count by type and site for the full picture
 SELECT s.domain, wi.item_type, wi.status, COUNT(*) as cnt
 FROM site_work_items wi

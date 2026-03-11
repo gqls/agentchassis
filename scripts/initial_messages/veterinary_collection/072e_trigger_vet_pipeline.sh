@@ -447,3 +447,48 @@ FROM orchestration_states
 WHERE owner_agent_type = 'vet-practice-verifier'
   AND created_at > NOW() - INTERVAL '6 hours'
 GROUP BY status;
+
+
+---------------------------------------------------------------------------------------
+=======================================================================================
+
+current state
+
+=======================================================================================
+---------------------------------------------------------------------------------------
+
+-- Overall vet progress
+SELECT
+    (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'completed') as tasks_done,
+    (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'in_progress') as tasks_active,
+    (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'pending') as tasks_pending,
+    (SELECT COUNT(*) FROM business_intel.businesses b
+     JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+     WHERE bv.slug = 'veterinary' AND b.verification_status = 'verified') as verified,
+    (SELECT COUNT(*) FROM business_intel.business_prices WHERE is_current = TRUE) as current_prices;
+
+-- Sweep progress
+SELECT
+    COUNT(*) FILTER (WHERE last_swept_at IS NOT NULL) as swept,
+    COUNT(*) FILTER (WHERE last_swept_at IS NULL) as unswept
+FROM business_intel.search_areas;
+
+-- Are the scheduled tasks firing?
+SELECT name, last_triggered_at,
+       EXTRACT(EPOCH FROM (NOW() - last_triggered_at))::int as seconds_ago,
+       enabled
+FROM scheduled_tasks
+WHERE name LIKE 'vet-%'
+ORDER BY name;
+
+-- Any active orchestrations?
+SELECT owner_agent_type, status, current_step,
+       EXTRACT(EPOCH FROM (NOW() - last_activity))::int as idle_seconds
+FROM orchestration_states
+WHERE status NOT IN ('COMPLETED', 'FAILED')
+  AND created_at > NOW() - INTERVAL '2 hours'
+ORDER BY created_at DESC
+LIMIT 5;
+
+
+--------------------------------------------------------------------------------------

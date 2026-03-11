@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.857
+IMAGE_TAG ?= v1.0.858
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -564,6 +564,47 @@ quick-scheduler-update: ## Build, push and deploy kafka-scheduler with current I
 .PHONY: logs-scheduler
 logs-scheduler: ## Tail logs from kafka-scheduler
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl logs -f -n $(PROJECT_NAME) -l app=kafka-scheduler
+
+#################################
+# Agent Job Cleanup
+#################################
+.PHONY: deploy-agent-cleanup
+deploy-agent-cleanup: ## Deploy the agent-job-cleanup CronJob
+	@echo "$(YELLOW)Deploying agent-job-cleanup CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f $(KUSTOMIZE_DIR)/services/agent-job-cleanup/cronjob.yaml
+	@echo "$(GREEN)Agent cleanup CronJob deployed (runs every 10 min)$(NC)"
+
+.PHONY: agent-cleanup-now
+agent-cleanup-now: ## Run agent job cleanup immediately (delete stale spawned jobs and failed pods)
+	@echo "$(YELLOW)Cleaning up stale agent jobs...$(NC)"
+	@FAILED=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl get pods -n $(PROJECT_NAME) --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l); \
+	if [ "$$FAILED" -gt 0 ]; then \
+		echo "Deleting $$FAILED failed pods"; \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl delete pods -n $(PROJECT_NAME) --field-selector=status.phase=Failed; \
+	fi
+	@for AGENT_TYPE in vet-practice-verifier vet-batch-processor area-sweep-orchestrator area-sweep-discoverer; do \
+		COUNT=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl get jobs -n $(PROJECT_NAME) -l "spawned-by=orchestrator,agent-type=$$AGENT_TYPE" --no-headers 2>/dev/null | wc -l); \
+		if [ "$$COUNT" -gt 0 ]; then \
+			echo "Deleting $$COUNT $$AGENT_TYPE jobs"; \
+			KUBECONFIG=$(KUBECONFIG_PATH) kubectl delete jobs -n $(PROJECT_NAME) -l "spawned-by=orchestrator,agent-type=$$AGENT_TYPE"; \
+		fi; \
+	done
+	@REMAINING=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl get jobs -n $(PROJECT_NAME) -l spawned-by=orchestrator --no-headers 2>/dev/null | wc -l); \
+	echo "$(GREEN)Cleanup complete. $$REMAINING spawned jobs remaining$(NC)"
+
+.PHONY: agent-status
+agent-status: ## Show spawned agent pod counts and status
+	@echo "$(YELLOW)Spawned agent status:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl get pods -n $(PROJECT_NAME) -l spawned-by=orchestrator \
+		--no-headers 2>/dev/null | awk '{types[$$1]=$$3} END {for (t in types) print t, types[t]}' || true
+	@echo ""
+	@echo "By agent type:"
+	@for AGENT_TYPE in vet-practice-verifier vet-batch-processor area-sweep-orchestrator area-sweep-discoverer; do \
+		RUNNING=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl get pods -n $(PROJECT_NAME) -l "agent-type=$$AGENT_TYPE" --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l); \
+		FAILED=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl get pods -n $(PROJECT_NAME) -l "agent-type=$$AGENT_TYPE" --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l); \
+		PENDING=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl get pods -n $(PROJECT_NAME) -l "agent-type=$$AGENT_TYPE" --field-selector=status.phase=Pending --no-headers 2>/dev/null | wc -l); \
+		echo "  $$AGENT_TYPE: running=$$RUNNING failed=$$FAILED pending=$$PENDING"; \
+	done
 
 # Corresponding destroy targets
 .PHONY: destroy-core

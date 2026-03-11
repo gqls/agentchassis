@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: agent-job-cleanup
+  namespace: ai-persona-system
+spec:
+  schedule: "*/10 * * * *"  # every 10 minutes
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 300
+      template:
+        spec:
+          serviceAccountName: ai-persona-app
+          restartPolicy: Never
+          containers:
+            - name: cleanup
+              image: docker.io/bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "=== Agent Job Cleanup $(date) ==="
+                  
+                  # 1. Delete Failed pods (OutOfcpu, etc.)
+                  FAILED=$(kubectl get pods -n ai-persona-system --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l)
+                  if [ "$FAILED" -gt 0 ]; then
+                    echo "Deleting $FAILED failed pods"
+                    kubectl delete pods -n ai-persona-system --field-selector=status.phase=Failed
+                  fi
+                  
+                  # 2. Delete completed Jobs (status.succeeded > 0)
+                  SUCCEEDED=$(kubectl get jobs -n ai-persona-system -l spawned-by=orchestrator --field-selector=status.successful=1 --no-headers 2>/dev/null | wc -l)
+                  if [ "$SUCCEEDED" -gt 0 ]; then
+                    echo "Deleting $SUCCEEDED completed jobs"
+                    kubectl delete jobs -n ai-persona-system -l spawned-by=orchestrator --field-selector=status.successful=1
+                  fi
+                  
+                  # 3. Delete Jobs whose pods have been running > 2 hours
+                  # These are consumer loops that finished their work but never exited.
+                  # We check the orchestration status in the DB via the agent's label.
+                  # But since we can't query the DB from kubectl, we use age as a proxy.
+                  #
+                  # Agent types that should be short-lived (not the static chassis):
+                  for AGENT_TYPE in vet-practice-verifier vet-batch-processor area-sweep-orchestrator area-sweep-discoverer; do
+                    # Get jobs older than 2 hours that are still active
+                    OLD_JOBS=$(kubectl get jobs -n ai-persona-system \
+                      -l "spawned-by=orchestrator,agent-type=$AGENT_TYPE" \
+                      -o jsonpath='{range .items[?(@.status.active==1)]}{.metadata.name} {.metadata.creationTimestamp}{"\n"}{end}' 2>/dev/null)
+                  
+                    if [ -n "$OLD_JOBS" ]; then
+                      CUTOFF=$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-2H +%Y-%m-%dT%H:%M:%SZ)
+                      echo "$OLD_JOBS" | while read JOB_NAME CREATED; do
+                        if [ -n "$JOB_NAME" ] && [ "$CREATED" \< "$CUTOFF" ]; then
+                          echo "Deleting stale job: $JOB_NAME (created $CREATED)"
+                          kubectl delete job -n ai-persona-system "$JOB_NAME" --grace-period=30
+                        fi
+                      done
+                    fi
+                  done
+                  
+                  # 4. Summary
+                  TOTAL_JOBS=$(kubectl get jobs -n ai-persona-system -l spawned-by=orchestrator --no-headers 2>/dev/null | wc -l)
+                  TOTAL_PODS=$(kubectl get pods -n ai-persona-system -l agent-type --no-headers 2>/dev/null | wc -l)
+                  echo "Remaining: $TOTAL_JOBS spawned jobs, $TOTAL_PODS agent pods"
+                  echo "=== Cleanup complete ==="
