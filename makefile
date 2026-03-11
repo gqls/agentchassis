@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.859
+IMAGE_TAG ?= v1.0.860
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -572,7 +572,7 @@ logs-scheduler: ## Tail logs from kafka-scheduler
 deploy-agent-cleanup: ## Deploy the agent-job-cleanup CronJob
 	@echo "$(YELLOW)Deploying agent-job-cleanup CronJob...$(NC)"
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f $(KUSTOMIZE_DIR)/services/agent-job-cleanup/agent-job-cleanup-cronjob.yaml
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f $(KUSTOMIZE_DIR)/services/agent-job-cleanup/kafka-topic-cleanup-rbac.yaml
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -f $(KUSTOMIZE_DIR)/services/agent-job-cleanup/kafka-cleanup-rbac.yaml
 	@echo "$(GREEN)Agent cleanup CronJob deployed (runs every 10 min)$(NC)"
 
 .PHONY: agent-cleanup-now
