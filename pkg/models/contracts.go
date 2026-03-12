@@ -43,8 +43,9 @@ type MemoryEntry struct {
 
 // WorkflowPlan defines the orchestration steps for an agent
 type WorkflowPlan struct {
-	StartStep string          `json:"start_step"`
-	Steps     map[string]Step `json:"steps"`
+	StartStep      string          `json:"start_step"`
+	Steps          map[string]Step `json:"steps"`
+	TimeoutSeconds int             `json:"timeout_seconds,omitempty"`
 }
 
 // Step represents a single action or sub-workflow within a plan

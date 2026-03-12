@@ -774,6 +774,33 @@ func (s *SagaCoordinator) continueExecution(ctx context.Context, state *Orchestr
 		return nil
 	}
 
+	// Fail orchestrations that have been running far longer than their timeout.
+	// After a pod restart, the CronJob may have cleaned up job.* Kafka topics.
+	// Resuming these orchestrations just wastes cycles on "Unknown Topic" errors.
+	// Uses the workflow's own timeout (3x multiplier for safety) or a 60-minute
+	// fallback for workflows with no timeout configured.
+	if !state.CreatedAt.IsZero() {
+		age := time.Since(state.CreatedAt)
+		var maxAge time.Duration
+		if state.WorkflowPlan.TimeoutSeconds > 0 {
+			maxAge = time.Duration(state.WorkflowPlan.TimeoutSeconds) * time.Second * 3
+		} else {
+			maxAge = 60 * time.Minute // fallback for workflows without timeout_seconds
+		}
+		if age > maxAge {
+			s.logger.Warn("Orchestration exceeded max age — likely stale after pod restart",
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.String("owner_agent_type", state.OwnerAgentType),
+				zap.Duration("age", age),
+				zap.Duration("max_age", maxAge),
+				zap.Int("workflow_timeout_seconds", state.WorkflowPlan.TimeoutSeconds),
+				zap.String("current_step", state.CurrentStep))
+			return s.failWorkflow(ctx, state,
+				fmt.Sprintf("Orchestration stale — running for %s (workflow timeout: %ds, max age: %s)",
+					age.Round(time.Second), state.WorkflowPlan.TimeoutSeconds, maxAge))
+		}
+	}
+
 	// Main execution loop. It will run for each step in the workflow
 	// until a 'return' statement is hit.
 	for {
