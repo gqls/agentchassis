@@ -345,3 +345,98 @@ SET status = 'failed', error = 'webdesign-agent cannot handle needs_design_revie
 WHERE status = 'triaged'
   AND domain = 'build'
   AND attempt_count >= max_attempts;
+
+--
+
+-- ============================================================================
+-- Find all deployed sections containing placeholder text across all sites
+-- ============================================================================
+
+-- 1. Check the scope
+SELECT s.domain, p.name as page, pc.position,
+    LEFT(pc.rendered_html, 200) as preview
+FROM page_components pc
+    JOIN pages p ON pc.page_id = p.id
+    JOIN sites s ON p.site_id = s.id
+WHERE pc.rendered_html IS NOT NULL
+  AND (
+    pc.rendered_html ILIKE '%NEEDS HUMAN REVIEW%'
+   OR pc.rendered_html ILIKE '%NEEDS_HUMAN_REVIEW%'
+   OR pc.rendered_html ILIKE '%Lorem ipsum%'
+   OR pc.rendered_html ILIKE '%[INSERT %'
+   OR pc.rendered_html ILIKE '%[YOUR %'
+   OR pc.rendered_html ILIKE '%<no value>%'
+    )
+ORDER BY s.domain, p.name, pc.position;
+
+-- 2. Suppress affected sections (replace with hidden comment)
+UPDATE page_components pc
+SET rendered_html = '<!-- Section hidden: contains placeholder content (needs human review) -->',
+    build_status = 'pending'
+    FROM pages p, sites s
+WHERE pc.page_id = p.id
+  AND p.site_id = s.id
+  AND pc.rendered_html IS NOT NULL
+  AND (
+    pc.rendered_html ILIKE '%NEEDS HUMAN REVIEW%'
+   OR pc.rendered_html ILIKE '%NEEDS_HUMAN_REVIEW%'
+   OR pc.rendered_html ILIKE '%Lorem ipsum%'
+    );
+
+-- 3. Create needs_human_review work items for each affected page
+-- (one per page, not per section — human reviews the whole page)
+INSERT INTO site_work_items (
+    site_id, source, domain, item_type, severity, summary,
+    spec, priority, handler_agent, status, created_by, item_key
+)
+SELECT DISTINCT ON (s.id, p.name)
+    s.id,
+    'validation',
+    'build',
+    'placeholder_content',
+    'medium',
+    FORMAT('Page %s has placeholder content that needs real data', p.name),
+    jsonb_build_object(
+    'page_name', p.name,
+    'page_id', p.id,
+    'domain', s.domain,
+    'missing_data', 'Team member names, titles, photos, bios or other section-specific data',
+    'fix_guidance', 'Provide real data for this section. It is hidden on the live site until resolved.'
+    ),
+    40,
+    'human-review',
+    'needs_human_review',
+    'validation',
+    FORMAT('placeholder_%s_%s', p.name, s.id)
+FROM page_components pc
+    JOIN pages p ON pc.page_id = p.id
+    JOIN sites s ON p.site_id = s.id
+WHERE pc.rendered_html = '<!-- Section hidden: contains placeholder content (needs human review) -->'
+ON CONFLICT DO NOTHING;
+
+-- 4. Trigger rerender for affected pages
+INSERT INTO site_work_items (
+    site_id, source, domain, item_type, severity, summary,
+    spec, priority, handler_agent, status, created_by, item_key
+)
+SELECT DISTINCT ON (s.id)
+    s.id,
+    'validation',
+    'build',
+    'needs_rerender',
+    'medium',
+    FORMAT('Re-render %s pages after placeholder content removal', s.domain),
+    jsonb_build_object(
+    'refresh_site_components', true,
+    'reason', 'Placeholder content suppressed — pages need reassembly'
+    ),
+    50,
+    'rerender-pages',
+    'triaged',
+    'validation',
+    FORMAT('rerender_placeholder_fix_%s', s.id)
+FROM page_components pc
+    JOIN pages p ON pc.page_id = p.id
+    JOIN sites s ON p.site_id = s.id
+WHERE pc.rendered_html = '<!-- Section hidden: contains placeholder content (needs human review) -->'
+ON CONFLICT DO NOTHING;

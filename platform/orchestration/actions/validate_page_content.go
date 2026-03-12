@@ -62,6 +62,9 @@ var placeholderPatterns = []struct {
 	Pattern string
 	Label   string
 }{
+	{"needs human review", "human review marker"},
+	{"needs_human_review", "human review marker"},
+	{"needs review", "review marker"},
 	{"to be added", "placeholder name/content"},
 	{"to be confirmed", "unconfirmed content"},
 	{"to be updated", "incomplete content"},
@@ -92,6 +95,7 @@ var placeholderPatterns = []struct {
 	{"todo:", "todo marker"},
 	{"fixme:", "fixme marker"},
 	{"coming soon", "coming soon placeholder"},
+	{"<no value>", "unrendered template variable"},
 }
 
 var templateVarRegex = regexp.MustCompile(`\{\{[\s]*[\.\w]+[\s]*\}\}`)
@@ -572,11 +576,23 @@ func loadSiteContactEmail(ctx context.Context, db *sql.DB, siteID uuid.UUID, log
 	var email sql.NullString
 	err := db.QueryRowContext(ctx, `
 		SELECT COALESCE(
-			content_data->>'contact_email',
-			content_data->'reviewed_brief'->>'contact_email',
-			content_data->'brief'->>'contact_email',
+			s.content_data->>'contact_email',
+			s.content_data->'reviewed_brief'->>'contact_email',
+			s.content_data->'brief'->>'contact_email',
+			(SELECT spec_data->>'email'
+			 FROM site_specs
+			 WHERE site_id = $1 AND aspect = 'identity'
+			   AND spec_data->>'email' IS NOT NULL
+			   AND spec_data->>'email' != ''
+			 LIMIT 1),
+			(SELECT spec_data->>'contact_email'
+			 FROM site_specs
+			 WHERE site_id = $1 AND aspect = 'identity'
+			   AND spec_data->>'contact_email' IS NOT NULL
+			   AND spec_data->>'contact_email' != ''
+			 LIMIT 1),
 			''
-		) FROM sites WHERE id = $1
+		) FROM sites s WHERE s.id = $1
 	`, siteID).Scan(&email)
 
 	if err != nil {

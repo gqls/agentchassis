@@ -572,4 +572,8 @@ temp
         tasks_done | tasks_active | tasks_pending | verified
        ------------+--------------+---------------+----------
               1357 |            0 |          1203 |     1693
+               tasks_done | tasks_active | tasks_pending | verified
+              ------------+--------------+---------------+----------
+                     1426 |           93 |          1041 |     1754
+
 
