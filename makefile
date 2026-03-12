@@ -472,7 +472,7 @@ deploy-100-bootstrap-agents: ## Deploy bootstrap agents (generic orchestrator) w
 #################################
 # Generic target for deploying any service via Terraform
 .PHONY: deploy-all
-deploy-all: deploy-infrastructure deploy-core deploy-agents ## deploy-frontends ## Deploy everything
+deploy-all: deploy-infrastructure deploy-core deploy-agents deploy-vet-intel ## deploy-frontends ## Deploy everything
 
 .PHONY: deploy-service
 deploy-service:
@@ -564,6 +564,25 @@ quick-scheduler-update: ## Build, push and deploy kafka-scheduler with current I
 .PHONY: logs-scheduler
 logs-scheduler: ## Tail logs from kafka-scheduler
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl logs -f -n $(PROJECT_NAME) -l app=kafka-scheduler
+
+#################################
+# Vet Intel Agent
+#################################
+.PHONY: deploy-vet-intel
+deploy-vet-intel: ## Deploy vet-intel agent using kustomize
+	@echo "$(YELLOW)Deploying vet-intel agent...$(NC)"
+	@cd $(KUSTOMIZE_DIR)/services/vet-intel/overlays/$(OVERLAY_PATH) && \
+		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/vet-intel/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)Vet-intel agent deployed$(NC)"
+
+.PHONY: logs-vet-intel
+logs-vet-intel: ## Tail logs from vet-intel agent
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl logs -f -n $(PROJECT_NAME) -l app=vet-intel
+
+.PHONY: restart-vet-intel
+restart-vet-intel: ## Restart vet-intel agent
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/vet-intel -n $(PROJECT_NAME)
 
 #################################
 # Agent Job Cleanup

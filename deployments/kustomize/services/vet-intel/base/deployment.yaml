@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vet-intel
+  namespace: ai-persona-system
+  labels:
+    app: vet-intel
+    agent-type: vet-intel
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: vet-intel
+  template:
+    metadata:
+      labels:
+        app: vet-intel
+        agent-type: vet-intel
+        component: agent
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: agent
+          image: docker.io/aqls/agent-chassis:latest  # patched by overlay
+          ports:
+            - containerPort: 8080
+              name: health
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: vet-intel-config

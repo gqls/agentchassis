@@ -55,7 +55,7 @@ func init() {
 // Design categories route to design/CSS handlers regardless of page existence
 var designCategories = map[string]struct{}{
 	"colour": {}, "color": {}, "spacing": {}, "typography": {},
-	"header_footer": {}, "dark_section": {}, "responsive": {}, "layout": {},
+	"header_footer": {}, "dark_section": {}, "responsive": {},
 }
 
 // Categories that indicate site-wide config/metadata issues, not page content
@@ -95,7 +95,6 @@ var designRouting = map[string]string{
 	"header_footer": "site-component-linker",
 	"dark_section":  "color-variable-fixer",
 	"responsive":    "component-template-fixer",
-	"layout":        "css-patch-agent",
 }
 
 // Design category → item type
@@ -107,7 +106,6 @@ var designItemTypes = map[string]string{
 	"header_footer": "header_footer_fix",
 	"dark_section":  "hardcoded_section_colors",
 	"responsive":    "responsive_fix",
-	"layout":        "needs_design_review",
 }
 
 // ============================================================================

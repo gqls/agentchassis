@@ -643,5 +643,28 @@ ORDER BY name;
 
 --
 
--- catch truly stale items
+-- vet permanent pod
+
+-- vet_intel_setup.sql
+--
+-- Point scheduled tasks at the dedicated vet-intel agent instead of generic.
+-- The vet-intel agent listens on system.agent.vet-intel.requests.
+
+-- 1. Update batch verify to target vet-intel
+UPDATE scheduled_tasks
+SET target_topic = 'system.agent.vet-intel.requests',
+    target_agent_type = 'vet-batch-processor'
+WHERE name = 'vet-batch-verify';
+
+-- 2. Update sweep to target vet-intel
+UPDATE scheduled_tasks
+SET target_topic = 'system.agent.vet-intel.requests',
+    target_agent_type = 'vet-pipeline-orchestrator'
+WHERE name = 'vet-sweep-continue';
+
+-- 3. Verify
+SELECT name, target_agent_type, target_topic
+FROM scheduled_tasks
+WHERE name LIKE 'vet-%'
+ORDER BY name;
 
