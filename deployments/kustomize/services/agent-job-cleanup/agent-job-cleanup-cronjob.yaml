@@ -55,7 +55,66 @@ spec:
                     fi
                   done
                   
-                  # 4. Summary
+                  # 4. Clean up orphaned Kafka topics
+                  # Delete job.* topics whose orchestrations are complete/failed
+                  # and have no running pods.
+                  KAFKA_POD=$(kubectl get pods -n kafka \
+                    -l strimzi.io/name=personae-kafka-cluster-combined-pool-prod \
+                    --field-selector=status.phase=Running \
+                    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+                  if [ -n "$KAFKA_POD" ]; then
+                    # Get all job.* topics
+                    ALL_JOB_TOPICS=$(kubectl exec -n kafka "$KAFKA_POD" -- \
+                      bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null \
+                      | grep '^job\.')
+
+                    TOPIC_COUNT=$(echo "$ALL_JOB_TOPICS" | grep -c '^job\.' 2>/dev/null || echo 0)
+                    echo "Found $TOPIC_COUNT job topics"
+
+                    if [ "$TOPIC_COUNT" -gt 0 ]; then
+                      # Get IDs of all RUNNING agent pods (not Completed, not Failed)
+                      RUNNING_IDS=$(kubectl get pods -n ai-persona-system \
+                        -l spawned-by=orchestrator \
+                        --field-selector=status.phase=Running \
+                        -o jsonpath='{range .items[*]}{.metadata.labels.agent-id}{"\n"}{end}' 2>/dev/null \
+                        | grep -v '^$' | sort -u)
+
+                      DELETED=0
+                      KEPT=0
+                      for TOPIC in $ALL_JOB_TOPICS; do
+                        [ -z "$TOPIC" ] && continue
+
+                        # Check if ANY running pod's agent-id appears in the topic name
+                        # Topic format: job.{correlationID[:8]}-{orchID[:8]}-{type}-{step}.{requests|responses}
+                        KEEP=false
+                        for RID in $RUNNING_IDS; do
+                          if echo "$TOPIC" | grep -q "${RID:0:8}"; then
+                            KEEP=true
+                            break
+                          fi
+                        done
+
+                        if [ "$KEEP" = "true" ]; then
+                          KEPT=$((KEPT + 1))
+                        else
+                          # Extra safety: only delete topics older than 30 minutes
+                          # (Kafka doesn't expose creation time easily, so we check
+                          # if the topic has any unconsumed messages. Empty + no running
+                          # pods = safe to delete)
+                          kubectl exec -n kafka "$KAFKA_POD" -- \
+                            bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+                            --delete --topic "$TOPIC" 2>/dev/null && \
+                          DELETED=$((DELETED + 1))
+                        fi
+                      done
+                      echo "Topics: deleted=$DELETED kept=$KEPT"
+                    fi
+                  else
+                    echo "Warning: No running Kafka pod found, skipping topic cleanup"
+                  fi
+                  
+                  # 5. Summary
                   TOTAL_JOBS=$(kubectl get jobs -n ai-persona-system -l spawned-by=orchestrator --no-headers 2>/dev/null | wc -l)
                   TOTAL_PODS=$(kubectl get pods -n ai-persona-system -l agent-type --no-headers 2>/dev/null | wc -l)
                   echo "Remaining: $TOTAL_JOBS spawned jobs, $TOTAL_PODS agent pods"

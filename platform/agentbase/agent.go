@@ -1118,8 +1118,10 @@ func (a *Agent) Shutdown() error {
 		a.producer.Close()
 	}
 
-	// Clean up ephemeral Kafka topics (only for spawned agents with EPHEMERAL_TOPICS=true)
-	a.cleanupEphemeralTopics()
+	// NOTE: Topics are NOT cleaned up on agent shutdown. External cleanup
+	// (CronJob) handles this based on whether any running pods still
+	// reference the topics. This ensures children can always respond
+	// to their parent's topics even if the parent exits first.
 
 	if a.db != nil {
 		a.db.Close()
@@ -1408,6 +1410,10 @@ func (a *Agent) sendHeartbeat() {
 // has been idle for longer than IDLE_TIMEOUT_SECONDS. This ensures
 // spawned agent Jobs exit cleanly so K8s can reclaim resources.
 //
+// Before shutting down, it checks the database for orchestrations owned
+// by this agent that are still awaiting responses (waiting for children).
+// If any exist, the agent stays alive — it's not truly idle.
+//
 // Only runs when IDLE_TIMEOUT_SECONDS > 0 (set by job spawner from
 // agent_definitions.idle_timeout_seconds).
 func (a *Agent) idleMonitor(timeout time.Duration) {
@@ -1428,6 +1434,14 @@ func (a *Agent) idleMonitor(timeout time.Duration) {
 		case <-ticker.C:
 			idle := time.Since(a.lastActivity)
 			if idle >= timeout {
+				// Before killing, check if we have orchestrations awaiting responses.
+				// If so, we're not truly idle — we're waiting for children.
+				if a.hasAwaitingOrchestrations() {
+					a.logger.Info("Idle timeout reached but orchestrations awaiting responses — staying alive",
+						zap.Duration("idle_duration", idle))
+					continue
+				}
+
 				a.logger.Info("Idle timeout reached — shutting down",
 					zap.Duration("idle_duration", idle),
 					zap.Duration("timeout", timeout),
@@ -1442,6 +1456,30 @@ func (a *Agent) idleMonitor(timeout time.Duration) {
 			}
 		}
 	}
+}
+
+// hasAwaitingOrchestrations checks if this agent owns any orchestrations
+// that are still waiting for child responses. If so, the agent is not
+// truly idle — it's waiting for work to complete.
+// Called by the idle monitor before triggering shutdown.
+func (a *Agent) hasAwaitingOrchestrations() bool {
+	if a.db == nil {
+		return false
+	}
+	var count int
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := a.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM orchestration_states
+		WHERE owner_agent_id = $1::uuid
+		  AND status IN ('WAITING_FOR_RESPONSE', 'EXECUTING_STEP')
+		  AND updated_at > NOW() - INTERVAL '30 minutes'
+	`, a.AgentID).Scan(&count)
+	if err != nil {
+		a.logger.Warn("Failed to check awaiting orchestrations", zap.Error(err))
+		return false // fail open — allow idle kill if we can't check
+	}
+	return count > 0
 }
 
 // Helper to get current and caller function names
