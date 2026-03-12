@@ -847,6 +847,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Update html_template of a content_component with optional version snapshot",
 		IsLocal:     true,
 	},
+	"create_tool_component": {
+		Handler:     CreateToolComponentAction,
+		Category:    "site",
+		Description: "Create a new tool component from generated HTML and set up its page",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// HITL — human-in-the-loop approval and input
