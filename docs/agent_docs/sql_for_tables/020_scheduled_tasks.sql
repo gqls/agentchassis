@@ -668,3 +668,131 @@ FROM scheduled_tasks
 WHERE name LIKE 'vet-%'
 ORDER BY name;
 
+---
+
+-- database cleanup
+
+-- ============================================================================
+-- Database cleanup scheduled task
+--
+-- Cleans up accumulated data from:
+--   1. agent_error_log         — resolved errors > 14 days, unresolved > 30 days
+--   2. orchestration_state_audit — keeps last 100k rows
+--   3. orchestration_states    — completed/failed > 7 days, stuck > 24 hours
+--   4. orchestration_requests  — cascades from orchestration_states deletion
+--
+-- Runs as a fire_message=false scheduled task (CTE-only, no Kafka).
+-- ============================================================================
+
+-- First, fix the orchestration_requests FK to add CASCADE
+-- (currently the only FK without it, which blocks orchestration cleanup)
+ALTER TABLE orchestration_requests
+DROP CONSTRAINT IF EXISTS fk_orch,
+    ADD CONSTRAINT fk_orch
+        FOREIGN KEY (orchestration_id)
+        REFERENCES orchestration_states(orchestration_id)
+        ON DELETE CASCADE;
+
+-- ============================================================================
+-- The cleanup task
+-- ============================================================================
+INSERT INTO scheduled_tasks (
+    name, description, interval_seconds, target_agent_type,
+    target_topic, enabled, fire_message, timeout_seconds,
+    concurrency_group, max_concurrent,
+    pre_query
+) VALUES (
+             'database-cleanup',
+             'Purges old errors, completed orchestrations, audit trails, and spawned agent records. Keeps recent data for debugging.',
+             21600,  -- every 6 hours
+             'database-cleanup',
+             'system.agent.generic.requests',
+             true,
+             false,  -- CTE-only, no Kafka message
+             120,
+             'maintenance',
+             1,
+             '
+             -- 1. Clean agent_error_log (resolved errors > 14 days, unresolved > 30 days)
+             WITH deleted_errors AS (
+                 DELETE FROM agent_error_log
+                 WHERE (resolved = true AND occurred_at < NOW() - INTERVAL ''14 days'')
+                    OR (resolved = false AND occurred_at < NOW() - INTERVAL ''30 days'')
+                 RETURNING id
+             ),
+
+             -- 2. Clean orchestration_state_audit (keep last 100k rows)
+             -- The audit tables timestamp column name varies by installation.
+    -- Using sequence-based cleanup which is always safe.
+    deleted_audit AS (
+        DELETE FROM orchestration_state_audit
+        WHERE id < (
+            SELECT COALESCE(MAX(id) - 100000, 0)
+            FROM orchestration_state_audit
+        )
+        RETURNING id
+    ),
+
+             -- 3. Clean completed/failed orchestration_states (> 7 days)
+             -- CASCADE will clean orchestration_requests, input_requests, pending_requests
+             deleted_orchestrations AS (
+        DELETE FROM orchestration_states
+        WHERE status IN (''COMPLETED'', ''FAILED'')
+          AND updated_at < NOW() - INTERVAL ''7 days''
+        RETURNING orchestration_id
+    ),
+
+             -- 4. Clean stale orchestrations stuck in EXECUTING_STEP (> 24 hours)
+             -- These are leftovers from pod restarts that never completed
+             deleted_stale AS (
+        DELETE FROM orchestration_states
+        WHERE status IN (''EXECUTING_STEP'', ''WAITING_FOR_RESPONSE'')
+          AND updated_at < NOW() - INTERVAL ''24 hours''
+        RETURNING orchestration_id
+    )
+
+    SELECT
+        (SELECT COUNT(*) FROM deleted_errors)::text as errors_deleted,
+             (SELECT COUNT(*) FROM deleted_audit)::text as audit_deleted,
+             (SELECT COUNT(*) FROM deleted_orchestrations)::text as orchestrations_deleted,
+             (SELECT COUNT(*) FROM deleted_stale)::text as stale_deleted
+                 HAVING
+                 (SELECT COUNT(*) FROM deleted_errors) > 0
+                 OR (SELECT COUNT(*) FROM deleted_audit) > 0
+                 OR (SELECT COUNT(*) FROM deleted_orchestrations) > 0
+                 OR (SELECT COUNT(*) FROM deleted_stale) > 0
+                 '
+             ) ON CONFLICT (name) DO UPDATE SET
+                 pre_query = EXCLUDED.pre_query,
+                 interval_seconds = EXCLUDED.interval_seconds,
+                 description = EXCLUDED.description,
+                 updated_at = NOW();
+
+             -- ============================================================================
+             -- Retention policy summary
+             --
+             -- | Table                      | Retention    | Condition                    |
+             -- |---------------------------|-------------|------------------------------|
+             -- | agent_error_log           | 14d resolved | Resolved errors              |
+             -- | agent_error_log           | 30d          | Unresolved errors            |
+             -- | orchestration_state_audit | 100k rows    | Keep last 100k by sequence   |
+             -- | orchestration_states      | 7d           | COMPLETED or FAILED          |
+             -- | orchestration_states      | 24h          | Stuck EXECUTING/WAITING      |
+             -- | orchestration_requests    | cascades     | Deleted with parent state    |
+             -- | input_requests            | cascades     | Deleted with parent state    |
+             -- | pending_requests          | cascades     | Deleted with parent state    |
+             -- | site_work_items           | not cleaned  | Kept for analytics/history   |
+             --
+             -- site_work_items are NOT cleaned automatically. Completed items are
+             -- small (no collected_data blob) and useful for tracking what was done.
+             -- If this table grows too large, add a separate archival step that
+             -- moves completed items to a site_work_items_archive table.
+             -- ============================================================================
+
+             -- ============================================================================
+             -- Verify the task was created
+             -- ============================================================================
+             SELECT name, enabled, fire_message, interval_seconds,
+                    timeout_seconds, last_triggered_at
+             FROM scheduled_tasks
+             WHERE name = 'database-cleanup';
