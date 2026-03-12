@@ -492,3 +492,62 @@ WHERE EXISTS (
 HAVING COUNT(*) > 0
 '
 WHERE name = 'build-pipeline-trigger';
+
+
+---
+
+-- 1. Reset stale claimed items
+UPDATE site_work_items
+SET status = 'triaged', claimed_by = NULL, claimed_at = NULL
+WHERE status = 'claimed' AND domain = 'build'
+    RETURNING id, item_type, (SELECT domain FROM sites WHERE id = site_id);
+
+-- 2. Wire notify_scheduler into complete_idle path too
+-- complete_idle currently goes straight to complete_workflow
+-- Change it to: complete_idle → notify_scheduler → then complete_idle does its thing
+--
+-- Actually, the simpler fix: make complete_idle go through notify_scheduler first
+-- by inserting notify_scheduler_idle before complete_idle
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,notify_scheduler_idle}',
+        '{
+            "action": "query_database",
+            "config": {
+                "query": "UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = ''build-pipeline-trigger''",
+                "output_format": "object"
+            },
+            "next_step": "complete_idle",
+            "description": "Tell scheduler this execution finished (idle path)",
+            "output_field": "scheduler_notified_idle"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-pipeline-trigger' AND deleted_at IS NULL;
+
+-- Point check_has_site else_step to notify_scheduler_idle instead of complete_idle
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_has_site,config,else_step}',
+        '"notify_scheduler_idle"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-pipeline-trigger' AND deleted_at IS NULL;
+
+-- Also check: does the success path (complete) go through notify_scheduler?
+SELECT
+    default_config->'workflow'->'steps'->'check_has_site'->'config'->>'else_step' as idle_path,
+    default_config->'workflow'->'steps'->'spawn_dispatch'->>'next_step' as dispatch_path,
+    default_config->'workflow'->'steps'->'call_dispatch'->>'next_step' as after_dispatch,
+    default_config->'workflow'->'steps'->'notify_scheduler'->>'next_step' as notify_goes_to
+FROM agent_definitions
+WHERE type = 'build-pipeline-trigger' AND deleted_at IS NULL;
+
+-- 3. Check claimed-item-timeout
+SELECT name, enabled, fire_message, last_triggered_at,
+       NOW() - last_triggered_at as since_last
+FROM scheduled_tasks
+WHERE name = 'claimed-item-timeout';

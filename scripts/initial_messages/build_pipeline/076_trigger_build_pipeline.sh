@@ -622,3 +622,14 @@ ORDER BY wi.status;
  needs_design_review | webdesign-agent | triaged | 3/3      | site-wide  | Handler failed
 (3 rows)
 
+--
+
+checking for orphans
+clients_db=# SELECT name, enabled, fire_message, last_triggered_at
+FROM scheduled_tasks
+WHERE name = 'claimed-item-timeout';
+         name         | enabled | fire_message |       last_triggered_at
+----------------------+---------+--------------+-------------------------------
+ claimed-item-timeout | t       | f            | 2026-03-09 18:11:30.731595+00
+(1 row)
+
