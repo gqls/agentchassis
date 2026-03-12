@@ -38,6 +38,14 @@ spec:
             - name: AGENT_STORAGE_CONFIGMAP
               value: "storage-config"
 
+
+            # Companies House API
+            - name: COMPANIES_HOUSE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-default-secrets
+                  key: COMPANIES_HOUSE_API_KEY
+
             # === Unique pod ID ===
             - name: AGENT_ID
               valueFrom:

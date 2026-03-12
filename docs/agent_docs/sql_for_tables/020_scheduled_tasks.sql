@@ -823,3 +823,60 @@ FROM scheduled_tasks
 WHERE name LIKE 'vet-%'
 ORDER BY name;
 
+---
+
+-- companies house
+-- =========================================================================
+-- 3. SCHEDULED TASK
+-- =========================================================================
+-- Runs every 20 minutes. Pre-query checks if there are verified businesses
+-- without CH data. Processes 20 per run at ~30s each = ~10 min per batch.
+-- Targets the vet-intel pod.
+
+INSERT INTO scheduled_tasks (
+    id, name, description, interval_seconds,
+    target_agent_type, target_topic, input_data,
+    concurrency_group, max_concurrent, timeout_seconds,
+    pre_query, enabled
+) VALUES (
+             gen_random_uuid(),
+             'ch-enrichment',
+             'Enriches verified businesses with Companies House data (financials, officers, ownership). Very gentle rate limiting.',
+             1200,  -- every 20 minutes
+             'ch-enricher',
+             'system.agent.vet-intel.requests',
+             '{"batch_size": 20, "vertical_slug": "veterinary"}',
+             'ch-enrichment',
+             1,      -- only 1 enricher at a time
+             900,    -- 15 min timeout window
+             '
+         SELECT COUNT(*)::text as unenriched
+         FROM business_intel.businesses b
+         JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+         LEFT JOIN business_intel.companies_house_data ch ON ch.business_id = b.id
+         WHERE bv.slug = ''veterinary''
+           AND b.verification_status = ''verified''
+           AND ch.business_id IS NULL
+         HAVING COUNT(*) > 0
+         ',
+             false  -- disabled until Go actions are built
+         );
+
+
+-- =========================================================================
+-- 4. VERIFY
+-- =========================================================================
+
+SELECT name, target_agent_type, target_topic, enabled,
+       interval_seconds, timeout_seconds
+FROM scheduled_tasks
+WHERE name = 'ch-enrichment';
+
+SELECT COUNT(*) as table_exists
+FROM information_schema.tables
+WHERE table_schema = 'business_intel'
+  AND table_name = 'companies_house_data';
+
+
+--
+

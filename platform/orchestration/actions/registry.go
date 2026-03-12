@@ -398,6 +398,34 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 
 	// =========================================================================
+	// COMPANIES HOUSE — enrichment, financials, ownership
+	// =========================================================================
+	"load_ch_enrichment_batch": {
+		Handler:     LoadCHEnrichmentBatchAction,
+		Category:    "data",
+		Description: "Load verified businesses not yet enriched with Companies House data",
+		IsLocal:     true,
+	},
+	"companies_house_search": {
+		Handler:     CompaniesHouseSearchAction,
+		Category:    "data",
+		Description: "Search Companies House API by business name, match by postcode and SIC code",
+		IsLocal:     true,
+	},
+	"companies_house_fetch": {
+		Handler:     CompaniesHouseFetchAction,
+		Category:    "data",
+		Description: "Fetch company profile, officers, and PSC from Companies House",
+		IsLocal:     true,
+	},
+	"store_ch_enrichment": {
+		Handler:     StoreCHEnrichmentAction,
+		Category:    "data",
+		Description: "Store Companies House enrichment data and derive succession signals",
+		IsLocal:     true,
+	},
+
+	// =========================================================================
 	// SITE — building, assembly, rendering, pages, styles, git, navigation
 	// =========================================================================
 	"git_commit": {

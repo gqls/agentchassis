@@ -67,6 +67,12 @@ variable "default_perplexity_api_key" {
   sensitive   = true
 }
 
+variable "default_companies_house_api_key" {
+  description = "Default COMPANIES HOUSE API key"
+  type        = string
+  sensitive   = true
+}
+
 # Docker
 variable "docker_password" {
   description = "Docker Hub password"
