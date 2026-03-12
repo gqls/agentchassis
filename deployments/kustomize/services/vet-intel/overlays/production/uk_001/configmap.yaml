@@ -25,4 +25,13 @@ data:
         port: 6432
         db_name: clients_db
         user: clients_user
-        ssl_mode: disable
+        password_env_var: CLIENTS_DB_PASSWORD
+        sslmode: disable
+
+      templates_database:
+        host: postgres-templates.ai-persona-system.svc.cluster.local
+        port: 5432
+        db_name: templates_db
+        user: templates_user
+        password_env_var: TEMPLATES_DB_PASSWORD
+        sslmode: disable

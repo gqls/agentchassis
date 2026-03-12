@@ -796,3 +796,30 @@ INSERT INTO scheduled_tasks (
                     timeout_seconds, last_triggered_at
              FROM scheduled_tasks
              WHERE name = 'database-cleanup';
+
+
+---
+
+-- vet-intel setup
+
+-- vet_intel_setup.sql
+--
+-- Point all vet scheduled tasks at the dedicated vet-intel pod.
+-- The vet-intel pod listens on system.agent.vet-intel.requests.
+
+-- 1. Update batch verify
+UPDATE scheduled_tasks
+SET target_topic = 'system.agent.vet-intel.requests'
+WHERE name = 'vet-batch-verify';
+
+-- 2. Update sweep
+UPDATE scheduled_tasks
+SET target_topic = 'system.agent.vet-intel.requests'
+WHERE name = 'vet-sweep-continue';
+
+-- 3. Verify all vet tasks
+SELECT name, target_agent_type, target_topic, enabled
+FROM scheduled_tasks
+WHERE name LIKE 'vet-%'
+ORDER BY name;
+
