@@ -3110,6 +3110,11 @@ func (s *SagaCoordinator) routeToErrorStep(ctx context.Context, state *Orchestra
 		"message":     errorMsg,
 	}
 
+	// Log to agent_error_log for persistent error tracking
+	entry := s.buildErrorEntry(state, failedStepName, errorMsg)
+	entry.Severity = "error" // routed to error_step, not fatal
+	s.logAgentError(ctx, entry)
+
 	state.CurrentStep = errorStep
 	state.Status = StatusExecutingStep
 	state.LastActivity = time.Now()
@@ -3403,6 +3408,11 @@ func (s *SagaCoordinator) notifyParentOfFailure(ctx context.Context, state *Orch
 		zap.String("parent_topic", parentTopic),
 		zap.String("reply_to_request_id", replyToRequestID),
 		zap.String("error", errorMsg))
+
+	// Log to agent_error_log for persistent error tracking
+	entry := s.buildErrorEntry(state, state.CurrentStep, errorMsg)
+	entry.Severity = "fatal" // workflow failed entirely
+	s.logAgentError(ctx, entry)
 
 	failureResponse := types.ResponseMessage{
 		Headers: types.ResponseHeaders{

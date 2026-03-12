@@ -576,3 +576,49 @@ WHERE status = 'triaged'
 SELECT name, enabled, fire_message, last_triggered_at
 FROM scheduled_tasks
 WHERE name = 'claimed-item-timeout';
+
+
+============================================================================
+
+# How's the pipeline doing
+
+clients_db=# SELECT s.domain,
+       COUNT(*) FILTER (WHERE wi.status = 'complete') as done,
+       COUNT(*) FILTER (WHERE wi.status = 'claimed') as active,
+       COUNT(*) FILTER (WHERE wi.status = 'triaged' AND wi.attempt_count < wi.max_attempts) as ready,
+       COUNT(*) FILTER (WHERE wi.status = 'triaged' AND wi.attempt_count >= wi.max_attempts) as exhausted,
+       COUNT(*) FILTER (WHERE wi.status = 'failed') as failed,
+       COUNT(*) FILTER (WHERE wi.status = 'blocked') as blocked,
+       COUNT(*) FILTER (WHERE wi.status = 'needs_human_review') as human_review
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.domain = 'build'
+GROUP BY s.domain
+ORDER BY s.domain;
+           domain           | done | active | ready | exhausted | failed | blocked | human_review
+----------------------------+------+--------+-------+-----------+--------+---------+--------------
+ ai-agent-orchestration.com |   32 |      1 |     5 |         0 |      0 |       1 |            0
+ finetuning.uk              |   71 |      1 |     5 |         0 |      0 |       1 |            0
+ gaswholesalers.com         |   57 |      1 |    23 |         0 |      0 |       0 |            0
+ leopardessconsulting.co.uk |   30 |      1 |    17 |         1 |      2 |       1 |            0
+(4 rows)
+
+clients_db=# -- Check the 2 failures and 1 exhausted
+SELECT wi.item_type, wi.handler_agent, wi.status,
+       wi.attempt_count || '/' || wi.max_attempts as attempts,
+       wi.spec->>'page_name' as page,
+       LEFT(COALESCE(wi.error, wi.spec->>'description'), 100) as detail
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE s.domain = 'leopardessconsulting.co.uk'
+  AND wi.domain = 'build'
+  AND (wi.status = 'failed'
+       OR (wi.status = 'triaged' AND wi.attempt_count >= wi.max_attempts))
+ORDER BY wi.status;
+      item_type      |  handler_agent  | status  | attempts |    page    |     detail
+---------------------+-----------------+---------+----------+------------+----------------
+ needs_design_review | webdesign-agent | failed  | 3/3      | index.html | Handler failed
+ needs_design_review | webdesign-agent | failed  | 3/3      | global     | Handler failed
+ needs_design_review | webdesign-agent | triaged | 3/3      | site-wide  | Handler failed
+(3 rows)
+
