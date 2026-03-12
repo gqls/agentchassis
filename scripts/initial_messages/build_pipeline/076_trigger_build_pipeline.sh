@@ -644,3 +644,30 @@ WHERE name IN ('build-pipeline-trigger', 'claimed-item-timeout');
  build-pipeline-trigger | 2026-03-12 13:32:22.44988+00  | 2026-03-12 13:19:53.941417+00 | 00:04:21.581182        | 00:16:50.089645
  claimed-item-timeout   | 2026-03-09 18:11:30.731595+00 |                               | 2 days 19:25:13.299467 |
 (2 rows)
+
+
+=========================================================================
+
+reset stale
+
+=========================================================================
+
+-- Check stale claims
+SELECT s.domain, wi.item_type, wi.handler_agent,
+       wi.claimed_at, NOW() - wi.claimed_at as stale_for
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status = 'claimed' AND wi.domain = 'build';
+
+-- Reset them
+UPDATE site_work_items
+SET status = 'triaged', claimed_by = NULL, claimed_at = NULL
+WHERE status = 'claimed' AND domain = 'build';
+
+-- Kick the scheduler
+UPDATE scheduled_tasks
+SET last_completed_at = NOW()
+WHERE name = 'build-pipeline-trigger';
+
+
+-----------------------------------------------------------------------------

@@ -880,3 +880,53 @@ WHERE table_schema = 'business_intel'
 
 --
 
+-- timeouts
+
+UPDATE scheduled_tasks
+SET pre_query = '
+WITH reset AS (
+    UPDATE site_work_items
+    SET status = CASE
+            WHEN attempt_count + 1 >= max_attempts THEN ''failed''
+            ELSE ''triaged''
+        END,
+        claimed_by = NULL,
+        claimed_at = NULL,
+        attempt_count = attempt_count + 1,
+        error = CASE
+            WHEN attempt_count + 1 >= max_attempts THEN ''Claim timed out (attempts exhausted)''
+            ELSE ''Claim timed out — handler pod likely died''
+        END
+    WHERE status = ''claimed''
+      AND claimed_at < NOW() - INTERVAL ''10 minutes''
+    RETURNING id, item_type, handler_agent, status
+)
+SELECT COALESCE(COUNT(*)::text, ''0'') as reset_count
+FROM reset
+'
+WHERE name = 'claimed-item-timeout';
+
+-- Also verify the interval is reasonable
+SELECT name, interval_seconds, timeout_seconds
+FROM scheduled_tasks
+WHERE name = 'claimed-item-timeout';
+
+-- same prob
+-- Set last_completed_at so the no-refire guard doesn't block
+UPDATE scheduled_tasks
+SET last_triggered_at = NOW() - INTERVAL '3 minutes',
+    last_completed_at = NOW() - INTERVAL '3 minutes'
+WHERE name = 'claimed-item-timeout';
+
+-- Also fix the database-cleanup task's HAVING clause while we're at it
+UPDATE scheduled_tasks
+SET pre_query = REPLACE(
+        pre_query,
+        '    HAVING
+            (SELECT COUNT(*) FROM deleted_errors) > 0
+            OR (SELECT COUNT(*) FROM deleted_audit) > 0
+            OR (SELECT COUNT(*) FROM deleted_orchestrations) > 0
+            OR (SELECT COUNT(*) FROM deleted_stale) > 0',
+        '    -- Always returns a row so scheduler marks task as executed'
+                )
+WHERE name = 'database-cleanup';
