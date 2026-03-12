@@ -701,11 +701,15 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	// error_message is a config literal (e.g. "Content review not approved"),
 	// not a path — read directly from config to avoid path resolution
+	// Start with the config literal as default
 	errorMsg, _ := params.StepConfig.Config["error_message"].(string)
 
+	// routeToErrorStep stores this at __step_error.message in collected_data.
 	// Prefer the actual error from the failed step (stored by routeToErrorStep)
 	if stepError := datahelpers.ExtractNestedFieldString(params.CollectedData, "__step_error.message"); stepError != "" {
 		errorMsg = stepError
+		logger.Info("FailWorkItemAction: using real error from __step_error",
+			zap.String("error", errorMsg))
 	}
 
 	agentType := "unknown"
