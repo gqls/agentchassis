@@ -702,6 +702,12 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 	// error_message is a config literal (e.g. "Content review not approved"),
 	// not a path — read directly from config to avoid path resolution
 	errorMsg, _ := params.StepConfig.Config["error_message"].(string)
+
+	// Prefer the actual error from the failed step (stored by routeToErrorStep)
+	if stepError := datahelpers.ExtractNestedFieldString(params.CollectedData, "__step_error.message"); stepError != "" {
+		errorMsg = stepError
+	}
+
 	agentType := "unknown"
 	if params.ExecutionContext.Sender.AgentType != "" {
 		agentType = params.ExecutionContext.Sender.AgentType
@@ -710,7 +716,7 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 	// Check for status_override — used for HITL gates like needs_human_review.
 	// When set, the item gets that status directly without incrementing attempt_count.
 	statusOverride, _ := params.StepConfig.Config["status_override"].(string)
-	
+
 	var newStatus string
 	var attemptsLeft int
 
