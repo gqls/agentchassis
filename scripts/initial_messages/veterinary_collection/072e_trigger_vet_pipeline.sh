@@ -561,3 +561,15 @@ temp
  tasks_done | tasks_active | tasks_pending | verified | current_prices
 ------------+--------------+---------------+----------+----------------
        1340 |            0 |          1220 |     1678 |           1465
+
+       SELECT
+           (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'completed') as tasks_done,
+           (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'in_progress') as tasks_active,
+           (SELECT COUNT(*) FROM business_intel.collection_tasks WHERE status = 'pending') as tasks_pending,
+           (SELECT COUNT(*) FROM business_intel.businesses b
+            JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+            WHERE bv.slug = 'veterinary' AND b.verification_status = 'verified') as verified;
+        tasks_done | tasks_active | tasks_pending | verified
+       ------------+--------------+---------------+----------
+              1357 |            0 |          1203 |     1693
+

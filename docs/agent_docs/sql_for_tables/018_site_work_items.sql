@@ -310,3 +310,38 @@ SET max_attempts = 5
 WHERE domain = 'build'
   AND item_type IN ('content_rewrite', 'needs_content_planning', 'tone_shift', 'needs_content_page');
 
+---
+
+-- timeouts
+
+-- 1. Increase dispatch loop idle timeout — it waits for slow handlers
+UPDATE agent_definitions
+SET idle_timeout_seconds = 600
+WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
+
+-- 2. Reset the current stale claims so the pipeline can continue
+UPDATE site_work_items
+SET status = 'triaged', claimed_by = NULL, claimed_at = NULL
+WHERE status = 'claimed' AND domain = 'build';
+
+-- 3. Force the trigger to fire on next tick
+UPDATE scheduled_tasks
+SET last_completed_at = NOW()
+WHERE name = 'build-pipeline-trigger';
+
+-- 4. Fix the claimed-item-timeout not firing
+-- It hasn't run since March 9. Check if it's stuck behind the no-refire guard:
+-- fire_message=false should bypass the guard. But last_triggered_at isn't updating
+-- which means the pre_query is returning no rows every tick.
+-- Force a trigger to verify:
+UPDATE scheduled_tasks
+SET last_triggered_at = NOW() - INTERVAL '5 minutes'
+WHERE name = 'claimed-item-timeout';
+
+-- 5. Mark the 3 exhausted leopardess items as failed — they'll never succeed
+-- (webdesign-agent doesn't handle needs_design_review properly)
+UPDATE site_work_items
+SET status = 'failed', error = 'webdesign-agent cannot handle needs_design_review'
+WHERE status = 'triaged'
+  AND domain = 'build'
+  AND attempt_count >= max_attempts;

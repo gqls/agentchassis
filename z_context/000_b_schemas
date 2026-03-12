@@ -9,13 +9,13 @@
 \d awaited_requests
 \d maintenance_queue
 \d css_snippets
-\d area_components                  | table             | clients_user
-\d assets                           | table             | clients_user
-\d build_queue                      | table             | clients_user
-\d content_components               | table             | clients_user
-\d content_feed_items               | table             | clients_user
-\d content_items                    | table             | clients_user
-\d css_themes                       | table             | clients_user
+\d area_components
+\d assets
+\d build_queue
+\d content_components
+\d content_feed_items
+\d content_items
+\d css_themes
 \d
 
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > bk_agent_definitions_backup.sql

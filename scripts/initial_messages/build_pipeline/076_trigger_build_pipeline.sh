@@ -582,7 +582,7 @@ WHERE name = 'claimed-item-timeout';
 
 # How's the pipeline doing
 
-clients_db=# SELECT s.domain,
+SELECT s.domain,
        COUNT(*) FILTER (WHERE wi.status = 'complete') as done,
        COUNT(*) FILTER (WHERE wi.status = 'claimed') as active,
        COUNT(*) FILTER (WHERE wi.status = 'triaged' AND wi.attempt_count < wi.max_attempts) as ready,
@@ -625,7 +625,7 @@ ORDER BY wi.status;
 --
 
 checking for orphans
-clients_db=# SELECT name, enabled, fire_message, last_triggered_at
+SELECT name, enabled, fire_message, last_triggered_at
 FROM scheduled_tasks
 WHERE name = 'claimed-item-timeout';
          name         | enabled | fire_message |       last_triggered_at
@@ -633,3 +633,14 @@ WHERE name = 'claimed-item-timeout';
  claimed-item-timeout | t       | f            | 2026-03-09 18:11:30.731595+00
 (1 row)
 
+clients_db=# -- Has last_completed_at been updated recently?
+SELECT name, last_triggered_at, last_completed_at,
+       NOW() - last_triggered_at as since_trigger,
+       NOW() - last_completed_at as since_complete
+FROM scheduled_tasks
+WHERE name IN ('build-pipeline-trigger', 'claimed-item-timeout');
+          name          |       last_triggered_at       |       last_completed_at       |     since_trigger      | since_complete
+------------------------+-------------------------------+-------------------------------+------------------------+-----------------
+ build-pipeline-trigger | 2026-03-12 13:32:22.44988+00  | 2026-03-12 13:19:53.941417+00 | 00:04:21.581182        | 00:16:50.089645
+ claimed-item-timeout   | 2026-03-09 18:11:30.731595+00 |                               | 2 days 19:25:13.299467 |
+(2 rows)
