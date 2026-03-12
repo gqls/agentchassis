@@ -472,7 +472,7 @@ deploy-100-bootstrap-agents: ## Deploy bootstrap agents (generic orchestrator) w
 #################################
 # Generic target for deploying any service via Terraform
 .PHONY: deploy-all
-deploy-all: deploy-infrastructure deploy-core deploy-agents deploy-vet-intel ## deploy-frontends ## Deploy everything
+deploy-all: deploy-infrastructure deploy-core deploy-agents ## deploy-frontends ## Deploy everything
 
 .PHONY: deploy-service
 deploy-service:
@@ -734,12 +734,20 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/kafka-scheduler/overlays/$(OVERLAY_PATH); \
 	fi
 
+	# Update vet-intel kustomization.yaml
+	@echo "Updating vet-intel to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/vet-intel/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
+	@if [ -d "$(KUSTOMIZE_DIR)/services/vet-intel/overlays/$(OVERLAY_PATH)" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/vet-intel/overlays/$(OVERLAY_PATH); \
+	fi
+
 
 	# Update database agent definitions
 	@$(MAKE) update-agent-images-v2 IMAGE_TAG=$(IMAGE_TAG)
 
 	# Force rollout restart to pick up new images
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/agent-chassis -n ai-persona-system 2>/dev/null || true
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/vet-intel -n ai-persona-system 2>/dev/null || true
 
 	@echo "$(GREEN)All agents deployed with image tag $(IMAGE_TAG)$(NC)"
 
@@ -757,6 +765,7 @@ redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	kubectl rollout restart deployment content-creator-agent -n ai-persona-system
 	kubectl rollout restart deployment remote-job-spawner -n ai-persona-system
 	kubectl rollout restart deployment kafka-scheduler -n ai-persona-system
+	kubectl rollout restart deployment vet-intel -n ai-persona-system 2>/dev/null || true
 
 .PHONY: deploy-frontends
 deploy-frontends: ## Deploy all frontend applications
