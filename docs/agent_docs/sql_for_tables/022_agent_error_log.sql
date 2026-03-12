@@ -8,6 +8,8 @@
 -- This replaces digging through kubectl logs to find error details.
 -- ============================================================================
 
+-- SELECT * FROM agent_error_log ORDER BY occurred_at DESC LIMIT 30;
+
 CREATE TABLE IF NOT EXISTS agent_error_log (
                                                id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     occurred_at      timestamptz NOT NULL DEFAULT NOW(),
