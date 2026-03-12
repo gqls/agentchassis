@@ -551,3 +551,101 @@ SELECT name, enabled, fire_message, last_triggered_at,
        NOW() - last_triggered_at as since_last
 FROM scheduled_tasks
 WHERE name = 'claimed-item-timeout';
+
+
+----
+
+-- catch truly stale items
+
+-- 1. Fix claimed-item-timeout: reset stale claims regardless of attempt count
+-- Items at max attempts go to 'failed' instead of back to 'triaged'
+UPDATE scheduled_tasks
+SET pre_query = '
+WITH reset AS (
+    UPDATE site_work_items
+    SET status = CASE
+            WHEN attempt_count + 1 >= max_attempts THEN ''failed''
+            ELSE ''triaged''
+        END,
+        claimed_by = NULL,
+        claimed_at = NULL,
+        attempt_count = attempt_count + 1,
+        error = CASE
+            WHEN attempt_count + 1 >= max_attempts THEN ''Claim timed out (attempts exhausted)''
+            ELSE NULL
+        END
+    WHERE status = ''claimed''
+      AND claimed_at < NOW() - INTERVAL ''10 minutes''
+    RETURNING id, item_type, handler_agent, status
+)
+SELECT COUNT(*)::text as reset_count,
+       string_agg(DISTINCT handler_agent, '', '') as agents
+FROM reset
+HAVING COUNT(*) > 0
+'
+WHERE name = 'claimed-item-timeout';
+
+-- 2. Add notify_scheduler to the success path of build-pipeline-trigger
+-- Currently: call_dispatch → complete
+-- Need:      call_dispatch → notify_scheduler → complete
+
+-- First add the notify_scheduler step (it doesn't exist yet)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,notify_scheduler}',
+        '{
+            "action": "query_database",
+            "config": {
+                "query": "UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = ''build-pipeline-trigger''",
+                "output_format": "object"
+            },
+            "next_step": "complete",
+            "description": "Tell scheduler this execution finished (success path)",
+            "output_field": "scheduler_notified"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-pipeline-trigger' AND deleted_at IS NULL;
+
+-- Point call_dispatch to notify_scheduler instead of complete
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_dispatch,next_step}',
+        '"notify_scheduler"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-pipeline-trigger' AND deleted_at IS NULL;
+
+-- Also point call_dispatch error_step through notify too
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_dispatch,config,error_step}',
+        '"notify_scheduler_idle"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-pipeline-trigger' AND deleted_at IS NULL;
+
+-- 3. Force last_completed_at to now so the no-refire guard unblocks immediately
+UPDATE scheduled_tasks
+SET last_completed_at = NOW()
+WHERE name = 'build-pipeline-trigger';
+
+-- Verify all paths
+SELECT
+    default_config->'workflow'->'steps'->'check_has_site'->'config'->>'else_step' as idle_path,
+    default_config->'workflow'->'steps'->'call_dispatch'->>'next_step' as success_path,
+    default_config->'workflow'->'steps'->'call_dispatch'->'config'->>'error_step' as error_path,
+    default_config->'workflow'->'steps'->'notify_scheduler'->>'next_step' as notify_to,
+    default_config->'workflow'->'steps'->'notify_scheduler_idle'->>'next_step' as notify_idle_to
+FROM agent_definitions
+WHERE type = 'build-pipeline-trigger' AND deleted_at IS NULL;
+
+-- Expected:
+-- idle_path:      notify_scheduler_idle
+-- success_path:   notify_scheduler
+-- error_path:     notify_scheduler_idle
+-- notify_to:      complete
+-- notify_idle_to: complete_idle

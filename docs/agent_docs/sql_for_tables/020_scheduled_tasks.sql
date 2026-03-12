@@ -640,3 +640,8 @@ SELECT name, interval_seconds, timeout_seconds, concurrency_group, enabled,
 FROM scheduled_tasks
 WHERE name IN ('stale-orchestration-reaper', 'vet-batch-verify', 'vet-sweep-continue', 'vet-task-reset')
 ORDER BY name;
+
+--
+
+-- catch truly stale items
+

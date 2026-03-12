@@ -556,3 +556,8 @@ WHERE bv.slug = 'veterinary'
   AND (b.postcode IS NULL OR b.postcode = '');
 
   --
+temp
+
+ tasks_done | tasks_active | tasks_pending | verified | current_prices
+------------+--------------+---------------+----------+----------------
+       1340 |            0 |          1220 |     1678 |           1465
