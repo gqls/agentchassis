@@ -152,6 +152,42 @@ func LoadSiteForRebuildAction(ctx context.Context, params ActionParams) (interfa
 	// at the top level. The content writer expects reviewed_brief as a map with these fields.
 	reviewedBrief := contentData
 
+	// --- Ensure contact fields from sites table columns ---
+	// content_data may not have email/phone if they were only stored in the
+	// sites columns. Load them and inject if not already present.
+	var siteEmail, sitePhone, siteCompany, siteTagline sql.NullString
+	_ = params.DB.QueryRowContext(ctx,
+		`SELECT COALESCE(email, ''), COALESCE(phone, ''), COALESCE(company_name, ''), COALESCE(tagline, '')
+		 FROM sites WHERE id = $1`, siteID,
+	).Scan(&siteEmail, &sitePhone, &siteCompany, &siteTagline)
+
+	if siteEmail.String != "" {
+		if existing, _ := reviewedBrief["contact_email"].(string); existing == "" {
+			reviewedBrief["contact_email"] = siteEmail.String
+		}
+		if existing, _ := reviewedBrief["email"].(string); existing == "" {
+			reviewedBrief["email"] = siteEmail.String
+		}
+	}
+	if sitePhone.String != "" {
+		if existing, _ := reviewedBrief["contact_phone"].(string); existing == "" {
+			reviewedBrief["contact_phone"] = sitePhone.String
+		}
+		if existing, _ := reviewedBrief["phone"].(string); existing == "" {
+			reviewedBrief["phone"] = sitePhone.String
+		}
+	}
+	if siteCompany.String != "" {
+		if existing, _ := reviewedBrief["company_name"].(string); existing == "" {
+			reviewedBrief["company_name"] = siteCompany.String
+		}
+	}
+	if siteTagline.String != "" {
+		if existing, _ := reviewedBrief["tagline"].(string); existing == "" {
+			reviewedBrief["tagline"] = siteTagline.String
+		}
+	}
+
 	// --- Build site_plan from content_data ---
 	// store_site_plan also merged plan data into content_data.
 	// The content writer uses site_plan for page structure context.

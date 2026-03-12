@@ -39,6 +39,11 @@ type SiteRecord struct {
 	Status       string                 `json:"status"`
 	LastBuiltAt  *time.Time             `json:"last_built_at,omitempty"`
 	CreatedAt    time.Time              `json:"created_at"`
+	CompanyName  string                 `json:"company_name,omitempty"`
+	Tagline      string                 `json:"tagline,omitempty"`
+	Email        string                 `json:"email,omitempty"`
+	Phone        string                 `json:"phone,omitempty"`
+	LogoText     string                 `json:"logo_text,omitempty"`
 }
 
 // PageRecord represents a page in the database
@@ -156,6 +161,11 @@ func EnsureSiteRecordAction(ctx context.Context, params ActionParams) (interface
 		"network_id":   siteRecord.NetworkID.String(),
 		"status":       siteRecord.Status,
 		"created":      siteRecord.CreatedAt.Format(time.RFC3339),
+		"company_name": siteRecord.CompanyName,
+		"tagline":      siteRecord.Tagline,
+		"email":        siteRecord.Email,
+		"phone":        siteRecord.Phone,
+		"logo_text":    siteRecord.LogoText,
 	}, nil
 }
 
@@ -815,17 +825,22 @@ func upsertSite(ctx context.Context, db interface{}, domain string, networkID uu
 		VALUES ($1, $1, $2, 'active')
 		ON CONFLICT (domain) DO UPDATE SET
 			updated_at = NOW()
-		RETURNING id, network_id, domain, name, status, created_at, COALESCE(content_data, '{}'::jsonb)
+		RETURNING id, network_id, domain, name, status, created_at,
+				  COALESCE(content_data, '{}'::jsonb),
+				  COALESCE(company_name, ''), COALESCE(tagline, ''),
+				  COALESCE(email, ''), COALESCE(phone, ''),
+				  COALESCE(logo_text, '')
 	`
 
 	var site SiteRecord
-	var contentDataJSON []byte // NEW: to scan JSONB
+	var contentDataJSON []byte
 
 	switch d := db.(type) {
 	case *sql.DB:
 		err := d.QueryRowContext(ctx, query, domain, networkID).Scan(
 			&site.ID, &site.NetworkID, &site.Domain, &site.Name, &site.Status, &site.CreatedAt,
-			&contentDataJSON, // NEW
+			&contentDataJSON,
+			&site.CompanyName, &site.Tagline, &site.Email, &site.Phone, &site.LogoText,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upsert site: %w", err)
@@ -833,7 +848,8 @@ func upsertSite(ctx context.Context, db interface{}, domain string, networkID uu
 	case *pgxpool.Pool:
 		err := d.QueryRow(ctx, query, domain, networkID).Scan(
 			&site.ID, &site.NetworkID, &site.Domain, &site.Name, &site.Status, &site.CreatedAt,
-			&contentDataJSON, // NEW
+			&contentDataJSON,
+			&site.CompanyName, &site.Tagline, &site.Email, &site.Phone, &site.LogoText,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upsert site: %w", err)

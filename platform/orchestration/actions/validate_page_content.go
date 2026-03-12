@@ -576,20 +576,16 @@ func loadSiteContactEmail(ctx context.Context, db *sql.DB, siteID uuid.UUID, log
 	var email sql.NullString
 	err := db.QueryRowContext(ctx, `
 		SELECT COALESCE(
-			s.content_data->>'contact_email',
-			s.content_data->'reviewed_brief'->>'contact_email',
-			s.content_data->'brief'->>'contact_email',
-			(SELECT spec_data->>'email'
-			 FROM site_specs
-			 WHERE site_id = $1 AND aspect = 'identity'
-			   AND spec_data->>'email' IS NOT NULL
-			   AND spec_data->>'email' != ''
+			NULLIF(s.email, ''),
+			NULLIF(s.content_data->>'contact_email', ''),
+			NULLIF(s.content_data->'reviewed_brief'->>'contact_email', ''),
+			(SELECT NULLIF(ss.data->>'email', '')
+			 FROM site_specs ss
+			 WHERE ss.site_id = $1 AND ss.aspect = 'identity' AND ss.is_current = true
 			 LIMIT 1),
-			(SELECT spec_data->>'contact_email'
-			 FROM site_specs
-			 WHERE site_id = $1 AND aspect = 'identity'
-			   AND spec_data->>'contact_email' IS NOT NULL
-			   AND spec_data->>'contact_email' != ''
+			(SELECT NULLIF(ss.data->>'contact_email', '')
+			 FROM site_specs ss
+			 WHERE ss.site_id = $1 AND ss.aspect = 'identity' AND ss.is_current = true
 			 LIMIT 1),
 			''
 		) FROM sites s WHERE s.id = $1
