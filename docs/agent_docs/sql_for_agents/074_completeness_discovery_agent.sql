@@ -135,3 +135,28 @@ ORDER BY type;
 -- Expected:
 -- completeness-discovery-agent | ["empty_sections", "cross_site_contamination", "unrendered_templates"]
 -- design-discovery-agent       | ["undeployed_assets", "missing_css", ..., "shared_css_theme"]
+
+
+
+-- ============================================================================
+-- Add missing_structure check to completeness-discovery-agent
+--
+-- This check runs alongside empty_sections. It flags deployed pages
+-- where rendered_header or rendered_footer is NULL.
+-- ============================================================================
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        '["empty_sections", "missing_structure"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'completeness-discovery-agent' AND deleted_at IS NULL;
+
+-- Verify
+SELECT type,
+       default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' as checks
+FROM agent_definitions
+WHERE type = 'completeness-discovery-agent' AND deleted_at IS NULL;
+
