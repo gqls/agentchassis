@@ -1525,6 +1525,59 @@ bootstrap-status: ## Check status of bootstrap agents
 	@echo "\n$(YELLOW)Bootstrap Agent Logs (last 20 lines):$(NC)"
 	@kubectl logs -n $(PROJECT_NAME) -l app=generic-orchestrator --tail=20
 
+#################################
+# Database Backups
+#################################
+
+.PHONY: deploy-database-backup
+deploy-database-backup: ## Deploy database backup CronJob
+	@echo "$(YELLOW)Deploying database backup CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/database-backup/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob database-backup
+
+.PHONY: backup-now
+backup-now: ## Trigger an immediate database backup (creates a Job from the CronJob)
+	@echo "$(YELLOW)Triggering immediate backup...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
+		--from=cronjob/database-backup \
+		database-backup-manual-$$(date +%Y%m%d-%H%M%S)
+	@echo "$(GREEN)Backup job created. Watch with:$(NC)"
+	@echo "  make backup-logs"
+
+.PHONY: backup-logs
+backup-logs: ## Follow logs from the latest backup job
+	@LATEST=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get pods \
+		-l component=backup --sort-by=.metadata.creationTimestamp \
+		-o jsonpath='{.items[-1].metadata.name}' 2>/dev/null); \
+	if [ -n "$$LATEST" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) logs -f "$$LATEST"; \
+	else \
+		echo "No backup pods found"; \
+	fi
+
+.PHONY: backup-status
+backup-status: ## Show backup CronJob status and recent jobs
+	@echo "$(YELLOW)CronJob status:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob database-backup
+	@echo ""
+	@echo "$(YELLOW)Recent jobs:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get jobs -l component=backup \
+		--sort-by=.metadata.creationTimestamp | tail -5
+
+.PHONY: backup-list-s3
+backup-list-s3: ## List recent backups in S3
+	@echo "$(YELLOW)Recent backups in S3:$(NC)"
+	@B2_KEY_ID=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get secret personae-platform-secrets \
+		-o jsonpath='{.data.B2_APPLICATION_KEY_ID}' | base64 -d); \
+	B2_KEY=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get secret personae-platform-secrets \
+		-o jsonpath='{.data.B2_APPLICATION_KEY}' | base64 -d); \
+	AWS_ACCESS_KEY_ID=$$B2_KEY_ID AWS_SECRET_ACCESS_KEY=$$B2_KEY \
+		aws s3 ls s3://personae-prod-uk001-backups/db-backups/ \
+		--endpoint-url https://s3.us-east-005.backblazeb2.com \
+		| tail -10
+
+
 
 #################################
 # Agent Image Management
