@@ -565,6 +565,63 @@ quick-scheduler-update: ## Build, push and deploy kafka-scheduler with current I
 logs-scheduler: ## Tail logs from kafka-scheduler
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl logs -f -n $(PROJECT_NAME) -l app=kafka-scheduler
 
+
+#################################
+# WireGuard VPN
+#################################
+
+.PHONY: wg-genkeys
+wg-genkeys: ## Generate WireGuard keypairs (run once)
+	@echo "$(YELLOW)Generating WireGuard keys...$(NC)"
+	@mkdir -p .secrets/wireguard
+	@wg genkey | tee .secrets/wireguard/server-private.key | wg pubkey > .secrets/wireguard/server-public.key
+	@wg genkey | tee .secrets/wireguard/admin-private.key | wg pubkey > .secrets/wireguard/admin-public.key
+	@echo "$(GREEN)Keys generated in .secrets/wireguard/$(NC)"
+	@echo "Server public key: $$(cat .secrets/wireguard/server-public.key)"
+	@echo "Admin public key:  $$(cat .secrets/wireguard/admin-public.key)"
+	@echo ""
+	@echo "$(YELLOW)Now create terraform.tfvars.secret:$(NC)"
+	@echo "  cd $(TERRAFORM_DIR)/048-wireguard"
+	@echo "  cp terraform.tfvars.secret.example terraform.tfvars.secret"
+	@echo "  # Paste the private/public keys from .secrets/wireguard/"
+
+.PHONY: deploy-048-wireguard
+deploy-048-wireguard: ## Deploy WireGuard secret via Terraform
+	@echo "$(GREEN)Deploying 048-wireguard secret...$(NC)"
+	@cd $(TERRAFORM_DIR)/048-wireguard && \
+		KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
+		KUBECONFIG=$(KUBECONFIG_PATH) terraform apply -auto-approve -var-file=terraform.tfvars.secret
+
+.PHONY: deploy-wireguard
+deploy-wireguard: deploy-048-wireguard ## Deploy WireGuard pod via kustomize
+	@echo "$(YELLOW)Deploying WireGuard VPN...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/wireguard/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)WireGuard deployed. Get the NodePort:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get svc wireguard
+
+.PHONY: wg-client-config
+wg-client-config: ## Generate WireGuard client config for your laptop
+	@echo "$(YELLOW)Generating client config...$(NC)"
+	@NODE_IP=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}'); \
+	if [ -z "$$NODE_IP" ]; then \
+		NODE_IP=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}'); \
+	fi; \
+	echo "[Interface]"; \
+	echo "Address = 10.8.0.2/24"; \
+	echo "PrivateKey = $$(cat .secrets/wireguard/admin-private.key)"; \
+	echo "DNS = 10.96.0.10"; \
+	echo ""; \
+	echo "[Peer]"; \
+	echo "PublicKey = $$(cat .secrets/wireguard/server-public.key)"; \
+	echo "Endpoint = $$NODE_IP:31820"; \
+	echo "AllowedIPs = 10.8.0.0/24, 10.96.0.0/12"; \
+	echo "PersistentKeepalive = 25"
+
+.PHONY: wg-status
+wg-status: ## Check WireGuard pod status
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) exec deploy/wireguard -- wg show
+
+
 #################################
 # Vet Intel Agent
 #################################

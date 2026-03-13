@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wireguard
+  namespace: ai-persona-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wireguard
+  template:
+    metadata:
+      labels:
+        app: wireguard
+    spec:
+      containers:
+        - name: wireguard
+          image: linuxserver/wireguard:latest
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN", "SYS_MODULE"]
+            privileged: true
+          ports:
+            - containerPort: 51820
+              protocol: UDP
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "Europe/London"
+          volumeMounts:
+            - name: wg-config
+              mountPath: /config
+      volumes:
+        - name: wg-config
+          secret:
+            secretName: wireguard-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wireguard
+  namespace: ai-persona-system
+spec:
+  type: LoadBalancer  # or NodePort if no cloud LB
+  ports:
+    - port: 51820
+      protocol: UDP
+      targetPort: 51820
+  selector:
+    app: wireguard

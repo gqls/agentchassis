@@ -212,3 +212,5 @@ deployments/terraform/**/terraform.tfstate.d/
 /leopardessconsulting.co.uk/large57/logs-site-classifier.json
 /leopardessconsulting.co.uk/large57/logs-site-planner.json
 /leopardessconsulting.co.uk/large57/logs-web-search-adapter.json
+.secrets/
+*.tfvars.secret
