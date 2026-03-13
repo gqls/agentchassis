@@ -132,7 +132,7 @@ func main() {
 }
 
 // initializeKafkaTopics creates system and agent topics
-// func initializeKafkaTopics(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, clientsDB *pgxpool.Pool) error {
+// func initializeKafkaTopics(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, clientsDB *sql.DB) error {
 func initializeKafkaTopics(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, clientsDB *sql.DB) error {
 	topicManager := kafka.NewTopicManager(cfg.Infrastructure.KafkaBrokers, logger)
 

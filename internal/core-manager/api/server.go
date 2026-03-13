@@ -30,7 +30,7 @@ type Server struct {
 }
 
 // NewServer creates a new API server instance
-//func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, templatesDB, clientsDB *pgxpool.Pool) (*Server, error) {
+//func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, templatesDB, clientsDB *sql.DB) (*Server, error) {
 
 func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, templatesDB, clientsDB *sql.DB) (*Server, error) {
 	// Initialize repositories

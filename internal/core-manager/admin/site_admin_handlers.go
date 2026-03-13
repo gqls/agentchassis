@@ -1,36 +1,9 @@
 // FILE: internal/core-manager/admin/site_admin_handlers.go
 //
 // Admin endpoints for the site-building domain:
-//   - Work items: list, get, update, retry
-//   - Site specs: get, update
-//   - Sites: list with dashboard stats
-//
-// These are the Block E endpoints from 008_admin_api_plan.md,
-// scoped to what's needed for the human review workflow.
-//
-// Route registration (in server.go setupRoutes):
-//
-//   siteAdmin := adminGroup.Group("/sites")
-//   {
-//       siteAdmin.GET("", siteAdminHandlers.HandleListSites)
-//       siteAdmin.GET("/:site_id", siteAdminHandlers.HandleGetSite)
-//       siteAdmin.PATCH("/:site_id/specs/:aspect", siteAdminHandlers.HandleUpdateSiteSpec)
-//   }
-//   workItemAdmin := adminGroup.Group("/work-items")
-//   {
-//       workItemAdmin.GET("", siteAdminHandlers.HandleListWorkItems)
-//       workItemAdmin.GET("/:item_id", siteAdminHandlers.HandleGetWorkItem)
-//       workItemAdmin.PATCH("/:item_id", siteAdminHandlers.HandleUpdateWorkItem)
-//       workItemAdmin.POST("/:item_id/retry", siteAdminHandlers.HandleRetryWorkItem)
-//       workItemAdmin.POST("/:item_id/resolve", siteAdminHandlers.HandleResolveWorkItem)
-//   }
-//
-// Auth-service gateway proxy lines to add:
-//
-//   adminGroup.Any("/sites", gatewayHandler.HandleAdminRoutes)
-//   adminGroup.Any("/sites/*path", gatewayHandler.HandleAdminRoutes)
-//   adminGroup.Any("/work-items", gatewayHandler.HandleAdminRoutes)
-//   adminGroup.Any("/work-items/*path", gatewayHandler.HandleAdminRoutes)
+//   - Work items: list, get, update, retry, resolve
+//   - Site specs: get, update (versioned)
+//   - Sites: list with dashboard stats, detail with specs
 
 package admin
 
@@ -56,7 +29,7 @@ func NewSiteAdminHandlers(db *sql.DB, logger *zap.Logger) *SiteAdminHandlers {
 }
 
 // ============================================================================
-// GET /admin/sites — list sites with work item counts
+// GET /admin/sites
 // ============================================================================
 
 func (h *SiteAdminHandlers) HandleListSites(c *gin.Context) {
@@ -124,7 +97,7 @@ func (h *SiteAdminHandlers) HandleListSites(c *gin.Context) {
 }
 
 // ============================================================================
-// GET /admin/sites/:site_id — site detail with specs
+// GET /admin/sites/:site_id
 // ============================================================================
 
 func (h *SiteAdminHandlers) HandleGetSite(c *gin.Context) {
@@ -134,7 +107,6 @@ func (h *SiteAdminHandlers) HandleGetSite(c *gin.Context) {
 		return
 	}
 
-	// Load site record
 	var domain, status, buildStatus string
 	var companyName, tagline, email, phone, logoText sql.NullString
 	var contentDataJSON []byte
@@ -152,7 +124,6 @@ func (h *SiteAdminHandlers) HandleGetSite(c *gin.Context) {
 		return
 	}
 
-	// Load specs
 	specRows, err := h.db.QueryContext(c.Request.Context(), `
 		SELECT aspect, data, source, created_at
 		FROM site_specs
@@ -203,13 +174,11 @@ func (h *SiteAdminHandlers) HandleGetSite(c *gin.Context) {
 }
 
 // ============================================================================
-// PATCH /admin/sites/:site_id/specs/:aspect — update a site spec
+// PATCH /admin/sites/:site_id/specs/:aspect
 // ============================================================================
-//
-// Body: { "data": { ... } }
-// Supersedes the current spec for this aspect (creates new row, marks old as not current).
 
 func (h *SiteAdminHandlers) HandleUpdateSiteSpec(c *gin.Context) {
+	ctx := c.Request.Context()
 	siteID, err := uuid.Parse(c.Param("site_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
@@ -229,15 +198,14 @@ func (h *SiteAdminHandlers) HandleUpdateSiteSpec(c *gin.Context) {
 		return
 	}
 
-	tx, err := h.db.BeginTx(c.Request.Context(), nil)
+	tx, err := h.db.BeginTx(ctx, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer tx.Rollback()
 
-	// Supersede old spec
-	_, err = tx.ExecContext(c.Request.Context(), `
+	_, err = tx.ExecContext(ctx, `
 		UPDATE site_specs
 		SET is_current = false, superseded_at = NOW()
 		WHERE site_id = $1 AND aspect = $2 AND is_current = true
@@ -247,9 +215,8 @@ func (h *SiteAdminHandlers) HandleUpdateSiteSpec(c *gin.Context) {
 		return
 	}
 
-	// Insert new spec
 	var newID uuid.UUID
-	err = tx.QueryRowContext(c.Request.Context(), `
+	err = tx.QueryRowContext(ctx, `
 		INSERT INTO site_specs (site_id, aspect, data, source, created_by, is_current)
 		VALUES ($1, $2, $3, 'admin-api', 'admin', true)
 		RETURNING id
@@ -269,25 +236,15 @@ func (h *SiteAdminHandlers) HandleUpdateSiteSpec(c *gin.Context) {
 		zap.String("aspect", aspect),
 		zap.String("new_spec_id", newID.String()))
 
-	c.JSON(http.StatusOK, gin.H{
-		"id":      newID.String(),
-		"aspect":  aspect,
-		"updated": true,
-	})
+	c.JSON(http.StatusOK, gin.H{"id": newID.String(), "aspect": aspect, "updated": true})
 }
 
 // ============================================================================
-// GET /admin/work-items — list work items with filters
+// GET /admin/work-items
 // ============================================================================
-//
-// Query params:
-//   status=needs_human_review (default: all non-complete)
-//   domain=build
-//   site_id=<uuid>
-//   item_type=placeholder_content
-//   limit=50
 
 func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
+	ctx := c.Request.Context()
 	status := c.Query("status")
 	domain := c.DefaultQuery("domain", "build")
 	siteIDStr := c.Query("site_id")
@@ -331,7 +288,7 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 	query += fmt.Sprintf(" ORDER BY wi.created_at DESC LIMIT $%d", argIdx)
 	args = append(args, limit)
 
-	rows, err := h.db.QueryContext(c.Request.Context(), query, args...)
+	rows, err := h.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -346,8 +303,7 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 		var attemptCount, maxAttempts int
 		var specJSON []byte
 		var errorMsg sql.NullString
-		var createdAt sql.NullTime
-		var completedAt sql.NullTime
+		var createdAt, completedAt sql.NullTime
 
 		if err := rows.Scan(&id, &siteID, &siteDomain, &itemTypeVal, &statusVal,
 			&severity, &summary, &specJSON,
@@ -381,14 +337,11 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 		items = append(items, item)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"items": items,
-		"count": len(items),
-	})
+	c.JSON(http.StatusOK, gin.H{"items": items, "count": len(items)})
 }
 
 // ============================================================================
-// GET /admin/work-items/:item_id — single work item detail
+// GET /admin/work-items/:item_id
 // ============================================================================
 
 func (h *SiteAdminHandlers) HandleGetWorkItem(c *gin.Context) {
@@ -425,7 +378,7 @@ func (h *SiteAdminHandlers) HandleGetWorkItem(c *gin.Context) {
 	var spec interface{}
 	json.Unmarshal(specJSON, &spec)
 
-	c.JSON(http.StatusOK, gin.H{
+	result := gin.H{
 		"id":            itemID.String(),
 		"site_id":       siteID.String(),
 		"domain":        siteDomain,
@@ -439,17 +392,19 @@ func (h *SiteAdminHandlers) HandleGetWorkItem(c *gin.Context) {
 		"error":         errorMsg.String,
 		"created_at":    createdAt.Time,
 		"completed_at":  nil,
-	})
+	}
+	if completedAt.Valid {
+		result["completed_at"] = completedAt.Time
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 // ============================================================================
-// PATCH /admin/work-items/:item_id — update work item fields
+// PATCH /admin/work-items/:item_id
 // ============================================================================
-//
-// Body: { "status": "triaged", "spec": { ... }, "handler_agent": "page-build-handler" }
-// Used to: add missing data to spec, change handler, update status.
 
 func (h *SiteAdminHandlers) HandleUpdateWorkItem(c *gin.Context) {
+	ctx := c.Request.Context()
 	itemID, err := uuid.Parse(c.Param("item_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid item_id"})
@@ -468,7 +423,6 @@ func (h *SiteAdminHandlers) HandleUpdateWorkItem(c *gin.Context) {
 		return
 	}
 
-	// Build dynamic UPDATE
 	setClauses := []string{"updated_at = NOW()"}
 	args := []interface{}{}
 	argIdx := 1
@@ -477,8 +431,6 @@ func (h *SiteAdminHandlers) HandleUpdateWorkItem(c *gin.Context) {
 		setClauses = append(setClauses, fmt.Sprintf("status = $%d", argIdx))
 		args = append(args, *body.Status)
 		argIdx++
-
-		// Reset attempt_count when re-triaging
 		if *body.Status == "triaged" {
 			setClauses = append(setClauses, "attempt_count = 0", "claimed_by = NULL", "claimed_at = NULL")
 		}
@@ -513,7 +465,7 @@ func (h *SiteAdminHandlers) HandleUpdateWorkItem(c *gin.Context) {
 		strings.Join(setClauses, ", "), argIdx)
 	args = append(args, itemID)
 
-	result, err := h.db.ExecContext(c.Request.Context(), query, args...)
+	result, err := h.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -526,18 +478,14 @@ func (h *SiteAdminHandlers) HandleUpdateWorkItem(c *gin.Context) {
 	}
 
 	h.logger.Info("Work item updated via admin API",
-		zap.String("item_id", itemID.String()),
-		zap.Any("fields", body))
+		zap.String("item_id", itemID.String()))
 
 	c.JSON(http.StatusOK, gin.H{"updated": true, "id": itemID.String()})
 }
 
 // ============================================================================
-// POST /admin/work-items/:item_id/retry — re-trigger as content_rewrite
+// POST /admin/work-items/:item_id/retry
 // ============================================================================
-//
-// Converts a needs_human_review item back to a content_rewrite with page-build-handler,
-// resets attempts, and sets status to triaged. The dispatch loop picks it up.
 
 func (h *SiteAdminHandlers) HandleRetryWorkItem(c *gin.Context) {
 	itemID, err := uuid.Parse(c.Param("item_id"))
@@ -570,17 +518,13 @@ func (h *SiteAdminHandlers) HandleRetryWorkItem(c *gin.Context) {
 		return
 	}
 
-	h.logger.Info("Work item retried via admin API",
-		zap.String("item_id", itemID.String()))
-
+	h.logger.Info("Work item retried via admin API", zap.String("item_id", itemID.String()))
 	c.JSON(http.StatusOK, gin.H{"retried": true, "id": itemID.String()})
 }
 
 // ============================================================================
-// POST /admin/work-items/:item_id/resolve — mark as resolved
+// POST /admin/work-items/:item_id/resolve
 // ============================================================================
-//
-// Body: { "resolution": "Section hidden, awaiting real data from owner" }
 
 func (h *SiteAdminHandlers) HandleResolveWorkItem(c *gin.Context) {
 	itemID, err := uuid.Parse(c.Param("item_id"))

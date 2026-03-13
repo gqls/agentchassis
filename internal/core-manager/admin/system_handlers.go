@@ -13,20 +13,20 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration"
-	"github.com/jackc/pgx/v5/pgxpool"
+
 	"go.uber.org/zap"
 )
 
 // SystemHandlers handles admin system monitoring operations
 type SystemHandlers struct {
-	clientsDB     *pgxpool.Pool
-	templatesDB   *pgxpool.Pool
+	clientsDB     *sql.DB
+	templatesDB   *sql.DB
 	kafkaProducer kafka.Producer
 	logger        *zap.Logger
 }
 
 // NewSystemHandlers creates new system monitoring handlers
-func NewSystemHandlers(clientsDB, templatesDB *pgxpool.Pool, kafkaProducer kafka.Producer, logger *zap.Logger) *SystemHandlers {
+func NewSystemHandlers(clientsDB, templatesDB *sql.DB, kafkaProducer kafka.Producer, logger *zap.Logger) *SystemHandlers {
 	return &SystemHandlers{
 		clientsDB:     clientsDB,
 		templatesDB:   templatesDB,
@@ -79,34 +79,34 @@ func (h *SystemHandlers) HandleGetSystemStatus(c *gin.Context) {
 
 	// Check database connections
 	// Clients DB
-	if err := h.clientsDB.Ping(c.Request.Context()); err != nil {
+	if err := h.clientsDB.PingContext(c.Request.Context()); err != nil {
 		status.Status = "degraded"
 		status.Databases["clients_db"] = DatabaseStatus{
 			Name:   "clients_db",
 			Status: "unhealthy",
 		}
 	} else {
-		stats := h.clientsDB.Stat()
+		stats := h.clientsDB.Stats()
 		status.Databases["clients_db"] = DatabaseStatus{
 			Name:        "clients_db",
 			Status:      "healthy",
-			Connections: int(stats.AcquiredConns()),
+			Connections: stats.OpenConnections,
 		}
 	}
 
 	// Templates DB
-	if err := h.templatesDB.Ping(c.Request.Context()); err != nil {
+	if err := h.templatesDB.PingContext(c.Request.Context()); err != nil {
 		status.Status = "degraded"
 		status.Databases["templates_db"] = DatabaseStatus{
 			Name:   "templates_db",
 			Status: "unhealthy",
 		}
 	} else {
-		stats := h.templatesDB.Stat()
+		stats := h.templatesDB.Stats()
 		status.Databases["templates_db"] = DatabaseStatus{
 			Name:        "templates_db",
 			Status:      "healthy",
-			Connections: int(stats.AcquiredConns()),
+			Connections: stats.OpenConnections,
 		}
 	}
 
@@ -269,7 +269,7 @@ func (h *SystemHandlers) HandleListAgentDefinitions(c *gin.Context) {
 		ORDER BY category, type
 	`
 
-	rows, err := h.clientsDB.Query(c.Request.Context(), query)
+	rows, err := h.clientsDB.QueryContext(c.Request.Context(), query)
 	if err != nil {
 		h.logger.Error("Failed to list agent definitions", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list agent definitions"})
@@ -371,14 +371,15 @@ func (h *SystemHandlers) HandleUpdateAgentDefinition(c *gin.Context) {
 		argCount,
 	)
 
-	result, err := h.clientsDB.Exec(c.Request.Context(), query, args...)
+	result, err := h.clientsDB.ExecContext(c.Request.Context(), query, args...)
 	if err != nil {
 		h.logger.Error("Failed to update agent definition", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update agent definition"})
 		return
 	}
 
-	if result.RowsAffected() == 0 {
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Agent definition not found"})
 		return
 	}
@@ -394,7 +395,7 @@ func (h *SystemHandlers) HandleUpdateAgentDefinition(c *gin.Context) {
 func (h *SystemHandlers) getDatabaseSizes(ctx context.Context, status *SystemStatus) {
 	// Get clients DB size
 	var clientsSize string
-	err := h.clientsDB.QueryRow(ctx,
+	err := h.clientsDB.QueryRowContext(ctx,
 		"SELECT pg_size_pretty(pg_database_size(current_database()))").Scan(&clientsSize)
 	if err == nil {
 		dbStatus := status.Databases["clients_db"]
@@ -404,7 +405,7 @@ func (h *SystemHandlers) getDatabaseSizes(ctx context.Context, status *SystemSta
 
 	// Get templates DB size
 	var templatesSize string
-	err = h.templatesDB.QueryRow(ctx,
+	err = h.templatesDB.QueryRowContext(ctx,
 		"SELECT pg_size_pretty(pg_database_size(current_database()))").Scan(&templatesSize)
 	if err == nil {
 		dbStatus := status.Databases["templates_db"]
@@ -468,7 +469,7 @@ func (h *SystemHandlers) listWorkflows(ctx context.Context, req WorkflowListRequ
 	query += fmt.Sprintf(" OFFSET $%d", argCount)
 	args = append(args, req.Offset)
 
-	rows, err := h.clientsDB.Query(ctx, query, args...)
+	rows, err := h.clientsDB.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +525,7 @@ func (h *SystemHandlers) getWorkflowState(ctx context.Context, correlationID str
 		WHERE correlation_id = $1
 	`
 
-	err := h.clientsDB.QueryRow(ctx, query, correlationID).Scan(
+	err := h.clientsDB.QueryRowContext(ctx, query, correlationID).Scan(
 		&state.CorrelationID,
 		&state.OrchestrationID,
 		&state.ClientID,
@@ -579,6 +580,6 @@ func (h *SystemHandlers) updateWorkflowStatus(ctx context.Context, correlationID
 		WHERE correlation_id = $1
 	`
 
-	_, err := h.clientsDB.Exec(ctx, query, correlationID, status, errorMsg)
+	_, err := h.clientsDB.ExecContext(ctx, query, correlationID, status, errorMsg)
 	return err
 }
