@@ -12,20 +12,19 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 // DashboardHandlers provides admin dashboard endpoints
 type DashboardHandlers struct {
-	clientsDB   *pgxpool.Pool
-	templatesDB *pgxpool.Pool
-	authDB      *sql.DB // For accessing auth database
+	clientsDB   *sql.DB
+	templatesDB *sql.DB
+	authDB      *sql.DB
 	logger      *zap.Logger
 }
 
 // NewDashboardHandlers creates new dashboard handlers
-func NewDashboardHandlers(clientsDB, templatesDB *pgxpool.Pool, authDB *sql.DB, logger *zap.Logger) *DashboardHandlers {
+func NewDashboardHandlers(clientsDB, templatesDB, authDB *sql.DB, logger *zap.Logger) *DashboardHandlers {
 	return &DashboardHandlers{
 		clientsDB:   clientsDB,
 		templatesDB: templatesDB,
@@ -118,7 +117,7 @@ func (h *DashboardHandlers) getOverviewMetrics(ctx context.Context) OverviewMetr
 
 	// Count total clients
 	var totalClients int
-	err := h.clientsDB.QueryRow(ctx, `
+	err := h.clientsDB.QueryRowContext(ctx, `
 		SELECT COUNT(DISTINCT schema_name) 
 		FROM information_schema.schemata 
 		WHERE schema_name LIKE 'client_%'
@@ -147,7 +146,7 @@ func (h *DashboardHandlers) getOverviewMetrics(ctx context.Context) OverviewMetr
 	}
 
 	// Count total agent instances across all clients
-	rows, err := h.clientsDB.Query(ctx, `
+	rows, err := h.clientsDB.QueryContext(ctx, `
 		SELECT schema_name 
 		FROM information_schema.schemata 
 		WHERE schema_name LIKE 'client_%'
@@ -159,7 +158,7 @@ func (h *DashboardHandlers) getOverviewMetrics(ctx context.Context) OverviewMetr
 			if err := rows.Scan(&schemaName); err == nil {
 				var count int
 				query := fmt.Sprintf("SELECT COUNT(*) FROM %s.agent_instances WHERE is_active = true", schemaName)
-				h.clientsDB.QueryRow(ctx, query).Scan(&count)
+				h.clientsDB.QueryRowContext(ctx, query).Scan(&count)
 				metrics.TotalAgentInstances += count
 			}
 		}
@@ -167,7 +166,7 @@ func (h *DashboardHandlers) getOverviewMetrics(ctx context.Context) OverviewMetr
 
 	// Count total workflows and calculate success rate
 	var successCount int
-	err = h.clientsDB.QueryRow(ctx, `
+	err = h.clientsDB.QueryRowContext(ctx, `
 		SELECT 
 			COUNT(*) as total,
 			COUNT(*) FILTER (WHERE status = 'COMPLETED') as success
@@ -258,7 +257,7 @@ func (h *DashboardHandlers) getAgentMetrics(ctx context.Context) AgentMetrics {
 	}
 
 	// Count agents by type
-	rows, err := h.clientsDB.Query(ctx, `
+	rows, err := h.clientsDB.QueryContext(ctx, `
 		SELECT type, COUNT(*) 
 		FROM agent_definitions 
 		WHERE is_active = true 
@@ -289,7 +288,7 @@ func (h *DashboardHandlers) getAgentMetrics(ctx context.Context) AgentMetrics {
 		LIMIT 5
 	`
 
-	rows, err = h.clientsDB.Query(ctx, mostUsedQuery)
+	rows, err = h.clientsDB.QueryContext(ctx, mostUsedQuery)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -339,7 +338,7 @@ func (h *DashboardHandlers) getSystemHealth(ctx context.Context) SystemHealthMet
 	metrics := SystemHealthMetrics{}
 
 	// Check database status
-	if err := h.clientsDB.Ping(ctx); err != nil {
+	if err := h.clientsDB.PingContext(ctx); err != nil {
 		metrics.DatabaseStatus = "unhealthy"
 	} else {
 		metrics.DatabaseStatus = "healthy"
@@ -349,7 +348,7 @@ func (h *DashboardHandlers) getSystemHealth(ctx context.Context) SystemHealthMet
 	metrics.KafkaStatus = "healthy"
 
 	// Get active workflows count
-	h.clientsDB.QueryRow(ctx, `
+	h.clientsDB.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM orchestration_states 
 		WHERE status IN ('RUNNING', 'AWAITING_RESPONSES', 'PAUSED_FOR_HUMAN_INPUT')
 	`).Scan(&metrics.ActiveWorkflows)
@@ -385,7 +384,7 @@ func (h *DashboardHandlers) getRecentActivity(ctx context.Context) []ActivityEnt
 	}
 
 	// Get recent workflow completions
-	workflowRows, err := h.clientsDB.Query(ctx, `
+	workflowRows, err := h.clientsDB.QueryContext(ctx, `
 		SELECT updated_at, status, correlation_id, client_id
 		FROM orchestration_states
 		WHERE status IN ('COMPLETED', 'FAILED')

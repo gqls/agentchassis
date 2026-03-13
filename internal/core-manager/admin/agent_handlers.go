@@ -15,21 +15,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/kafka"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 // AgentHandlers manages agent-related admin operations
 type AgentHandlers struct {
-	clientsDB     *pgxpool.Pool
-	templatesDB   *pgxpool.Pool
+	clientsDB     *sql.DB
+	templatesDB   *sql.DB
 	kafkaProducer kafka.Producer
 	logger        *zap.Logger
 	personaRepo   models.PersonaRepository
 }
 
 // NewAgentHandlers creates new agent management handlers
-func NewAgentHandlers(clientsDB, templatesDB *pgxpool.Pool, kafkaProducer kafka.Producer, logger *zap.Logger, personaRepo models.PersonaRepository) *AgentHandlers {
+func NewAgentHandlers(clientsDB, templatesDB *sql.DB, kafkaProducer kafka.Producer, logger *zap.Logger, personaRepo models.PersonaRepository) *AgentHandlers {
 	return &AgentHandlers{
 		clientsDB:     clientsDB,
 		templatesDB:   templatesDB,
@@ -99,7 +98,7 @@ func (h *AgentHandlers) HandleCreateAgentDefinition(c *gin.Context) {
 
 	// Check if type already exists
 	var exists bool
-	err := h.clientsDB.QueryRow(c.Request.Context(),
+	err := h.clientsDB.QueryRowContext(c.Request.Context(),
 		"SELECT EXISTS(SELECT 1 FROM agent_definitions WHERE type = $1 AND deleted_at IS NULL)",
 		req.Type,
 	).Scan(&exists)
@@ -116,13 +115,13 @@ func (h *AgentHandlers) HandleCreateAgentDefinition(c *gin.Context) {
 	}
 
 	// Start a transaction
-	tx, err := h.clientsDB.Begin(c.Request.Context())
+	tx, err := h.clientsDB.BeginTx(c.Request.Context(), nil)
 	if err != nil {
 		h.logger.Error("Failed to begin transaction", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create agent definition"})
 		return
 	}
-	defer tx.Rollback(c.Request.Context())
+	defer tx.Rollback()
 
 	// Insert new agent definition
 	id := uuid.New()
@@ -134,7 +133,7 @@ func (h *AgentHandlers) HandleCreateAgentDefinition(c *gin.Context) {
 		VALUES ($1, $2, $3, $4, $5, $6, true)
 	`
 
-	_, err = tx.Exec(c.Request.Context(), query,
+	_, err = tx.ExecContext(c.Request.Context(), query,
 		id, req.Type, req.DisplayName, req.Description, req.Category, configBytes,
 	)
 
@@ -145,7 +144,7 @@ func (h *AgentHandlers) HandleCreateAgentDefinition(c *gin.Context) {
 	}
 
 	// Commit the transaction
-	if err := tx.Commit(c.Request.Context()); err != nil {
+	if err := tx.Commit(); err != nil {
 		h.logger.Error("Failed to commit transaction", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create agent definition"})
 		return
@@ -175,7 +174,7 @@ func (h *AgentHandlers) HandleListAgentInstances(c *gin.Context) {
 	instances := []AgentInstanceDetails{}
 
 	// Get all client schemas
-	schemaRows, err := h.clientsDB.Query(c.Request.Context(), `
+	schemaRows, err := h.clientsDB.QueryContext(c.Request.Context(), `
 		SELECT schema_name 
 		FROM information_schema.schemata 
 		WHERE schema_name LIKE 'client_%'
@@ -224,7 +223,7 @@ func (h *AgentHandlers) HandleListAgentInstances(c *gin.Context) {
 			args = append(args, isActive == "true")
 		}
 
-		rows, err := h.clientsDB.Query(c.Request.Context(), query, args...)
+		rows, err := h.clientsDB.QueryContext(c.Request.Context(), query, args...)
 		if err != nil {
 			h.logger.Error("Failed to query instances", zap.Error(err))
 			continue
@@ -293,7 +292,7 @@ func (h *AgentHandlers) HandleGetAgentInstance(c *gin.Context) {
 	var configJSON []byte
 	var templateName sql.NullString
 
-	err := h.clientsDB.QueryRow(c.Request.Context(), query, agentID).Scan(
+	err := h.clientsDB.QueryRowContext(c.Request.Context(), query, agentID).Scan(
 		&instance.ID, &instance.TemplateID, &instance.OwnerUserID,
 		&instance.Name, &configJSON, &instance.IsActive,
 		&instance.CreatedAt, &instance.UpdatedAt, &templateName,
@@ -352,14 +351,15 @@ func (h *AgentHandlers) HandleToggleAgentStatus(c *gin.Context) {
 		WHERE id = $1
 	`, clientID)
 
-	result, err := h.clientsDB.Exec(c.Request.Context(), query, agentID, req.IsActive)
+	result, err := h.clientsDB.ExecContext(c.Request.Context(), query, agentID, req.IsActive)
 	if err != nil {
 		h.logger.Error("Failed to toggle agent status", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update agent status"})
 		return
 	}
 
-	if result.RowsAffected() == 0 {
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
 		return
 	}
@@ -439,7 +439,7 @@ func (h *AgentHandlers) createAgentTopics(ctx context.Context, agentType string)
 
 func (h *AgentHandlers) findClientForAgent(ctx context.Context, agentID string) string {
 	// Search through all client schemas
-	rows, err := h.clientsDB.Query(ctx, `
+	rows, err := h.clientsDB.QueryContext(ctx, `
 		SELECT schema_name 
 		FROM information_schema.schemata 
 		WHERE schema_name LIKE 'client_%'
@@ -457,7 +457,7 @@ func (h *AgentHandlers) findClientForAgent(ctx context.Context, agentID string) 
 
 		var exists bool
 		query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s.agent_instances WHERE id = $1)", schemaName)
-		if err := h.clientsDB.QueryRow(ctx, query, agentID).Scan(&exists); err == nil && exists {
+		if err := h.clientsDB.QueryRowContext(ctx, query, agentID).Scan(&exists); err == nil && exists {
 			return strings.TrimPrefix(schemaName, "client_")
 		}
 	}
@@ -481,7 +481,7 @@ func (h *AgentHandlers) getAgentUsageStats(ctx context.Context, clientID, agentI
 	`, clientID)
 
 	var lastExecution sql.NullTime
-	h.clientsDB.QueryRow(ctx, query, agentID).Scan(
+	h.clientsDB.QueryRowContext(ctx, query, agentID).Scan(
 		&stats.TotalExecutions,
 		&stats.SuccessfulRuns,
 		&stats.FailedRuns,
@@ -499,7 +499,7 @@ func (h *AgentHandlers) getAgentUsageStats(ctx context.Context, clientID, agentI
 		FROM client_%s.usage_analytics
 		WHERE metadata->>'agent_id' = $1
 	`, clientID)
-	h.clientsDB.QueryRow(ctx, fuelQuery, agentID).Scan(&stats.FuelConsumed)
+	h.clientsDB.QueryRowContext(ctx, fuelQuery, agentID).Scan(&stats.FuelConsumed)
 
 	return stats
 }
@@ -528,7 +528,7 @@ func (h *AgentHandlers) getRecentExecutions(ctx context.Context, clientID, agent
 		LIMIT $2
 	`, clientID)
 
-	rows, err := h.clientsDB.Query(ctx, query, agentID, limit)
+	rows, err := h.clientsDB.QueryContext(ctx, query, agentID, limit)
 	if err != nil {
 		return executions
 	}
@@ -721,7 +721,7 @@ func (h *AgentHandlers) HandleRecreateAgentTopics(c *gin.Context) {
 
 	// Verify agent exists
 	var exists bool
-	err := h.clientsDB.QueryRow(c.Request.Context(),
+	err := h.clientsDB.QueryRowContext(c.Request.Context(),
 		"SELECT EXISTS(SELECT 1 FROM agent_definitions WHERE type = $1 AND deleted_at IS NULL)",
 		agentType,
 	).Scan(&exists)
@@ -779,7 +779,7 @@ func (h *AgentHandlers) getExpectedTopicsForAgent(agentType string) []string {
 
 	// Add category-specific topics
 	var category string
-	h.clientsDB.QueryRow(context.Background(),
+	h.clientsDB.QueryRowContext(context.Background(),
 		"SELECT category FROM agent_definitions WHERE type = $1",
 		agentType,
 	).Scan(&category)

@@ -3,6 +3,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"strconv"
@@ -127,6 +128,56 @@ func NewPostgresConnectionWithPool(ctx context.Context, dbCfg config.DatabaseCon
 			zap.Error(err),
 		)
 		time.Sleep(time.Duration(i+1) * 2 * time.Second) // Exponential backoff
+	}
+
+	return nil, fmt.Errorf("failed to connect to postgres after multiple attempts: %w", err)
+}
+
+// NewStdlibConnection creates a *sql.DB via the pgx stdlib driver.
+// Preferred for services behind pgbouncer in transaction mode.
+func NewStdlibConnection(ctx context.Context, dbCfg config.DatabaseConfig, logger *zap.Logger) (*sql.DB, error) {
+	password := os.Getenv(dbCfg.PasswordEnvVar)
+	if password == "" {
+		return nil, fmt.Errorf("database password environment variable %s is not set", dbCfg.PasswordEnvVar)
+	}
+
+	connStr := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
+		dbCfg.User, password, dbCfg.Host, dbCfg.Port, dbCfg.DBName, dbCfg.SSLMode)
+
+	// Disable prepared statement caching — required for pgbouncer transaction mode.
+	// The pgx stdlib driver supports this via the connection string parameter.
+	connStr += "&default_query_exec_mode=simple_protocol"
+
+	var db *sql.DB
+	var err error
+
+	for i := 0; i < 5; i++ {
+		db, err = sql.Open("pgx", connStr)
+		if err == nil {
+			// Configure pool — keep it modest, pgbouncer handles the real pooling
+			db.SetMaxOpenConns(10)
+			db.SetMaxIdleConns(5)
+			db.SetConnMaxLifetime(30 * time.Minute)
+			db.SetConnMaxIdleTime(5 * time.Minute)
+
+			pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			pingErr := db.PingContext(pingCtx)
+			cancel()
+			if pingErr == nil {
+				logger.Info("Connected to PostgreSQL via stdlib adapter",
+					zap.String("database", dbCfg.DBName),
+					zap.String("host", dbCfg.Host),
+					zap.Int("max_open_conns", 10))
+				return db, nil
+			}
+			err = pingErr
+			db.Close()
+		}
+		logger.Warn("Failed to connect to PostgreSQL, retrying...",
+			zap.Int("attempt", i+1),
+			zap.String("database", dbCfg.DBName),
+			zap.Error(err))
+		time.Sleep(time.Duration(i+1) * 2 * time.Second)
 	}
 
 	return nil, fmt.Errorf("failed to connect to postgres after multiple attempts: %w", err)

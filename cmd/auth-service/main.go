@@ -205,6 +205,28 @@ func main() {
 		adminGroup.Any("/workflows/*path", gatewayHandler.HandleAdminRoutes)
 		adminGroup.Any("/agent-definitions/*path", gatewayHandler.HandleAdminRoutes)
 
+		// Site domain admin endpoints (Block E from 008 plan)
+		adminGroup.Any("/sites", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/sites/*path", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/work-items", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/work-items/*path", gatewayHandler.HandleAdminRoutes)
+
+		// ============================================================================
+		// ENDPOINTS SUMMARY
+		// ============================================================================
+		//
+		// | Method | Path                                    | Purpose                          |
+		// |--------|-----------------------------------------|----------------------------------|
+		// | GET    | /api/v1/admin/sites                     | List sites with work item counts |
+		// | GET    | /api/v1/admin/sites/:site_id            | Site detail with specs            |
+		// | PATCH  | /api/v1/admin/sites/:site_id/specs/:asp | Update a site spec               |
+		// | GET    | /api/v1/admin/work-items                | List work items (filterable)      |
+		// | GET    | /api/v1/admin/work-items/:item_id       | Single work item detail           |
+		// | PATCH  | /api/v1/admin/work-items/:item_id       | Update work item fields           |
+		// | POST   | /api/v1/admin/work-items/:item_id/retry | Re-trigger as content_rewrite     |
+		// | POST   | /api/v1/admin/work-items/:item_id/resolve | Mark as resolved/dismissed     |
+		//
+		// All endpoints require admin JWT auth (via RequireAuth + RequireRole("admin")).
 	}
 
 	// Gateway proxy endpoints (protected)

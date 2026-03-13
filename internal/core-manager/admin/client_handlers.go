@@ -9,18 +9,17 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 // ClientHandlers handles admin operations for client management
 type ClientHandlers struct {
-	clientsDB *pgxpool.Pool
+	clientsDB *sql.DB
 	logger    *zap.Logger
 }
 
 // NewClientHandlers creates new client admin handlers
-func NewClientHandlers(clientsDB *pgxpool.Pool, logger *zap.Logger) *ClientHandlers {
+func NewClientHandlers(clientsDB *sql.DB, logger *zap.Logger) *ClientHandlers {
 	return &ClientHandlers{
 		clientsDB: clientsDB,
 		logger:    logger,
@@ -151,14 +150,14 @@ func (h *ClientHandlers) clientExists(ctx context.Context, clientID string) (boo
 	schemaName := fmt.Sprintf("client_%s", clientID)
 
 	var exists bool
-	err := h.clientsDB.QueryRow(ctx, query, schemaName).Scan(&exists)
+	err := h.clientsDB.QueryRowContext(ctx, query, schemaName).Scan(&exists)
 	return exists, err
 }
 
 func (h *ClientHandlers) createClientSchema(ctx context.Context, clientID string) error {
 	// Call the stored procedure to create client schema
 	query := `SELECT create_client_schema($1)`
-	_, err := h.clientsDB.Exec(ctx, query, clientID)
+	_, err := h.clientsDB.ExecContext(ctx, query, clientID)
 	return err
 }
 
@@ -175,7 +174,7 @@ func (h *ClientHandlers) storeClientInfo(ctx context.Context, req *CreateClientR
 		)
 	`
 
-	if _, err := h.clientsDB.Exec(ctx, createTableQuery); err != nil {
+	if _, err := h.clientsDB.ExecContext(ctx, createTableQuery); err != nil {
 		return fmt.Errorf("failed to create clients_info table: %w", err)
 	}
 
@@ -186,7 +185,7 @@ func (h *ClientHandlers) storeClientInfo(ctx context.Context, req *CreateClientR
 		ON CONFLICT (client_id) DO NOTHING
 	`
 
-	_, err := h.clientsDB.Exec(ctx, insertQuery, req.ClientID, req.DisplayName, req.Settings)
+	_, err := h.clientsDB.ExecContext(ctx, insertQuery, req.ClientID, req.DisplayName, req.Settings)
 	return err
 }
 
@@ -201,7 +200,7 @@ func (h *ClientHandlers) listClients(ctx context.Context) ([]ClientInfo, error) 
 		ORDER BY created_at DESC
 	`
 
-	rows, err := h.clientsDB.Query(ctx, query)
+	rows, err := h.clientsDB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +235,7 @@ func (h *ClientHandlers) listClients(ctx context.Context) ([]ClientInfo, error) 
 		)
 	`
 
-	schemaRows, err := h.clientsDB.Query(ctx, schemaQuery)
+	schemaRows, err := h.clientsDB.QueryContext(ctx, schemaQuery)
 	if err == nil {
 		defer schemaRows.Close()
 		for schemaRows.Next() {
@@ -283,7 +282,7 @@ func (h *ClientHandlers) getClientUsage(ctx context.Context, clientID string) (*
 		FROM client_%s.agent_instances
 	`, clientID)
 
-	err := h.clientsDB.QueryRow(ctx, instanceQuery).Scan(&stats.TotalInstances, &stats.ActiveInstances)
+	err := h.clientsDB.QueryRowContext(ctx, instanceQuery).Scan(&stats.TotalInstances, &stats.ActiveInstances)
 	if err != nil && !strings.Contains(err.Error(), "does not exist") {
 		return nil, err
 	}
@@ -296,7 +295,7 @@ func (h *ClientHandlers) getClientUsage(ctx context.Context, clientID string) (*
 		FROM client_%s.workflow_executions
 	`, clientID)
 
-	err = h.clientsDB.QueryRow(ctx, workflowQuery).Scan(&stats.TotalWorkflows, &stats.WorkflowsLast30Days)
+	err = h.clientsDB.QueryRowContext(ctx, workflowQuery).Scan(&stats.TotalWorkflows, &stats.WorkflowsLast30Days)
 	if err != nil && !strings.Contains(err.Error(), "does not exist") {
 		h.logger.Warn("Failed to get workflow stats", zap.Error(err))
 	}
@@ -306,7 +305,7 @@ func (h *ClientHandlers) getClientUsage(ctx context.Context, clientID string) (*
 		SELECT COUNT(*) FROM client_%s.agent_memory
 	`, clientID)
 
-	err = h.clientsDB.QueryRow(ctx, memoryQuery).Scan(&stats.TotalMemoryEntries)
+	err = h.clientsDB.QueryRowContext(ctx, memoryQuery).Scan(&stats.TotalMemoryEntries)
 	if err != nil && !strings.Contains(err.Error(), "does not exist") {
 		h.logger.Warn("Failed to get memory stats", zap.Error(err))
 	}
@@ -317,7 +316,7 @@ func (h *ClientHandlers) getClientUsage(ctx context.Context, clientID string) (*
 		FROM client_%s.usage_analytics
 	`, clientID)
 
-	err = h.clientsDB.QueryRow(ctx, fuelQuery).Scan(&stats.TotalFuelConsumed)
+	err = h.clientsDB.QueryRowContext(ctx, fuelQuery).Scan(&stats.TotalFuelConsumed)
 	if err != nil && !strings.Contains(err.Error(), "does not exist") {
 		h.logger.Warn("Failed to get fuel stats", zap.Error(err))
 	}

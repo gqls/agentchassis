@@ -4,25 +4,24 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 type PersonaRepository struct {
-	templatesDB *pgxpool.Pool
-	clientsDB   *pgxpool.Pool
+	templatesDB *sql.DB
+	clientsDB   *sql.DB
 	logger      *zap.Logger
 }
 
 // NewPersonaRepository creates a new repository instance
-func NewPersonaRepository(templatesDB, clientsDB *pgxpool.Pool, logger *zap.Logger) *PersonaRepository {
+func NewPersonaRepository(templatesDB, clientsDB *sql.DB, logger *zap.Logger) *PersonaRepository {
 	return &PersonaRepository{
 		templatesDB: templatesDB,
 		clientsDB:   clientsDB,
@@ -31,12 +30,12 @@ func NewPersonaRepository(templatesDB, clientsDB *pgxpool.Pool, logger *zap.Logg
 }
 
 // ClientsDB returns the clients database pool
-func (r *PersonaRepository) ClientsDB() *pgxpool.Pool {
+func (r *PersonaRepository) ClientsDB() *sql.DB {
 	return r.clientsDB
 }
 
 // TemplatesDB returns the templates database pool
-func (r *PersonaRepository) TemplatesDB() *pgxpool.Pool {
+func (r *PersonaRepository) TemplatesDB() *sql.DB {
 	return r.templatesDB
 }
 
@@ -53,7 +52,7 @@ func (r *PersonaRepository) CreateTemplate(ctx context.Context, template *models
         RETURNING id
     `
 
-	err := r.templatesDB.QueryRow(ctx, query,
+	err := r.templatesDB.QueryRowContext(ctx, query,
 		template.ID,
 		template.Name,
 		template.Description,
@@ -84,7 +83,7 @@ func (r *PersonaRepository) GetTemplateByID(ctx context.Context, id string) (*mo
         WHERE id = $1 AND is_active = true
     `
 
-	err := r.templatesDB.QueryRow(ctx, query, id).Scan(
+	err := r.templatesDB.QueryRowContext(ctx, query, id).Scan(
 		&template.ID,
 		&template.Name,
 		&template.Description,
@@ -96,7 +95,7 @@ func (r *PersonaRepository) GetTemplateByID(ctx context.Context, id string) (*mo
 	)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("template not found")
 		}
 		return nil, fmt.Errorf("failed to get template: %w", err)
@@ -118,7 +117,7 @@ func (r *PersonaRepository) ListTemplates(ctx context.Context) ([]models.Persona
         ORDER BY category, name
     `
 
-	rows, err := r.templatesDB.Query(ctx, query)
+	rows, err := r.templatesDB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list templates: %w", err)
 	}
@@ -164,7 +163,7 @@ func (r *PersonaRepository) UpdateTemplate(ctx context.Context, template *models
         RETURNING updated_at
     `
 
-	err := r.templatesDB.QueryRow(ctx, query,
+	err := r.templatesDB.QueryRowContext(ctx, query,
 		template.ID,
 		template.Name,
 		template.Description,
@@ -186,7 +185,7 @@ func (r *PersonaRepository) DeleteTemplate(ctx context.Context, id string) error
 	// Soft delete
 	query := `UPDATE persona_templates SET is_active = false, updated_at = $2 WHERE id = $1`
 
-	_, err := r.templatesDB.Exec(ctx, query, id, time.Now())
+	_, err := r.templatesDB.ExecContext(ctx, query, id, time.Now())
 	if err != nil {
 		return fmt.Errorf("failed to delete template: %w", err)
 	}
@@ -235,7 +234,7 @@ func (r *PersonaRepository) CreateInstanceFromTemplate(ctx context.Context, temp
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `, clientID)
 
-	_, err = r.clientsDB.Exec(ctx, query,
+	_, err = r.clientsDB.ExecContext(ctx, query,
 		instance.ID,
 		templateID,
 		userID,
@@ -265,7 +264,7 @@ func (r *PersonaRepository) GetInstanceByID(ctx context.Context, id string) (*mo
         WHERE id = $1 AND is_active = true
     `, clientID)
 
-	err := r.clientsDB.QueryRow(ctx, query, id).Scan(
+	err := r.clientsDB.QueryRowContext(ctx, query, id).Scan(
 		&instance.ID,
 		&instance.Name,
 		&configJSON,
@@ -292,7 +291,7 @@ func (r *PersonaRepository) ListInstances(ctx context.Context, userID string) ([
         ORDER BY created_at DESC
     `, clientID)
 
-	rows, err := r.clientsDB.Query(ctx, query, userID)
+	rows, err := r.clientsDB.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list instances: %w", err)
 	}
@@ -350,7 +349,7 @@ func (r *PersonaRepository) UpdateInstance(ctx context.Context, id string, name 
         WHERE id = $1
     `, clientID)
 
-	_, err = r.clientsDB.Exec(ctx, query, id, instance.Name, configJSON, time.Now())
+	_, err = r.clientsDB.ExecContext(ctx, query, id, instance.Name, configJSON, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("failed to update instance: %w", err)
 	}
@@ -367,7 +366,7 @@ func (r *PersonaRepository) DeleteInstance(ctx context.Context, id string) error
         WHERE id = $1
     `, clientID)
 
-	_, err := r.clientsDB.Exec(ctx, query, id, time.Now())
+	_, err := r.clientsDB.ExecContext(ctx, query, id, time.Now())
 	if err != nil {
 		return fmt.Errorf("failed to delete instance: %w", err)
 	}
@@ -390,12 +389,13 @@ func (r *PersonaRepository) AdminUpdateInstanceConfig(ctx context.Context, clien
         WHERE id = $1
     `, clientID)
 
-	res, err := r.clientsDB.Exec(ctx, query, instanceID, configJSON)
+	res, err := r.clientsDB.ExecContext(ctx, query, instanceID, configJSON)
 	if err != nil {
 		return fmt.Errorf("failed to execute update: %w", err)
 	}
 
-	if res.RowsAffected() == 0 {
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
 		return fmt.Errorf("instance not found")
 	}
 

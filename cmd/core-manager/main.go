@@ -3,17 +3,18 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/gqls/agentchassis/platform/kafka"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/gqls/agentchassis/platform/kafka"
 
 	"github.com/gqls/agentchassis/internal/core-manager/api"
 
@@ -78,28 +79,28 @@ func main() {
 
 	// --- Step 3: Initialize Database Connections using the Platform Library ---
 	// 3a. Create connection pool for the Templates Database
-	templatesPool, err := database.NewPostgresConnection(ctx, cfg.Infrastructure.TemplatesDatabase, appLogger)
+	templatesDB, err := database.NewStdlibConnection(ctx, cfg.Infrastructure.TemplatesDatabase, appLogger)
 	if err != nil {
-		appLogger.Fatal("Failed to initialize templates database connection", zap.Error(err))
+		appLogger.Fatal("Failed to connect to templates database", zap.Error(err))
 	}
-	defer templatesPool.Close()
+	defer templatesDB.Close()
 
-	// 3b. Create connection pool for the Clients Database
-	clientsPool, err := database.NewPostgresConnection(ctx, cfg.Infrastructure.ClientsDatabase, appLogger)
+	clientsDB, err := database.NewStdlibConnection(ctx, cfg.Infrastructure.ClientsDatabase, appLogger)
 	if err != nil {
-		appLogger.Fatal("Failed to initialize clients database connection", zap.Error(err))
+		appLogger.Fatal("Failed to connect to clients database", zap.Error(err))
 	}
-	defer clientsPool.Close()
+	defer clientsDB.Close()
 
 	// --- Step 4a: Initialize Kafka Topics ---
 	// This ensures all system topics and agent topics exist
-	if err := initializeKafkaTopics(ctx, cfg, appLogger, clientsPool); err != nil {
+	if err := initializeKafkaTopics(ctx, cfg, appLogger, clientsDB); err != nil {
 		appLogger.Warn("Topic initialization encountered errors", zap.Error(err))
 		// Don't fail startup - topics can be created on-demand
 	}
 
 	// --- Step 4b: Initialize and Start the API Server ---
-	apiServer, err := api.NewServer(ctx, cfg, appLogger, templatesPool, clientsPool)
+	//apiServer, err := api.NewServer(ctx, cfg, appLogger, templatesPool, clientsPool)
+	apiServer, err := api.NewServer(ctx, cfg, appLogger, templatesDB, clientsDB)
 	if err != nil {
 		appLogger.Fatal("Failed to initialize API server", zap.Error(err))
 	}
@@ -131,7 +132,8 @@ func main() {
 }
 
 // initializeKafkaTopics creates system and agent topics
-func initializeKafkaTopics(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, clientsDB *pgxpool.Pool) error {
+// func initializeKafkaTopics(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, clientsDB *pgxpool.Pool) error {
+func initializeKafkaTopics(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, clientsDB *sql.DB) error {
 	topicManager := kafka.NewTopicManager(cfg.Infrastructure.KafkaBrokers, logger)
 
 	// Create a context with timeout for topic operations
@@ -156,7 +158,7 @@ func initializeKafkaTopics(ctx context.Context, cfg *config.ServiceConfig, logge
 		ORDER BY type
 	`
 
-	rows, err := clientsDB.Query(topicCtx, query)
+	rows, err := clientsDB.QueryContext(topicCtx, query)
 	if err != nil {
 		logger.Error("Failed to query agent definitions", zap.Error(err))
 		return nil // Don't fail startup

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,13 +10,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 type Handler struct {
 	logger    *zap.Logger
-	clientsDB *pgxpool.Pool
+	clientsDB *sql.DB
 }
 
 type BootstrapRequest struct {
@@ -30,7 +30,7 @@ type BootstrapResponse struct {
 	Config  map[string]interface{} `json:"config,omitempty"`
 }
 
-func NewBootstrapHandler(logger *zap.Logger, clientsDB *pgxpool.Pool) *Handler {
+func NewBootstrapHandler(logger *zap.Logger, clientsDB *sql.DB) *Handler {
 	return &Handler{
 		logger:    logger,
 		clientsDB: clientsDB,
@@ -116,7 +116,7 @@ func (h *Handler) updateAgentStatus(clientID, agentID, status string) error {
         WHERE id = $2
     `, clientID)
 
-	_, err := h.clientsDB.Exec(context.Background(), query, status, agentID)
+	_, err := h.clientsDB.ExecContext(context.Background(), query, status, agentID)
 	return err
 }
 
@@ -149,7 +149,7 @@ func (h *Handler) recordBootstrapEvent(req BootstrapRequest) error {
 		"timestamp":  time.Now().Format(time.RFC3339),
 	})
 
-	_, err := h.clientsDB.Exec(context.Background(),
+	_, err := h.clientsDB.ExecContext(context.Background(),
 		query,
 		req.AgentID,
 		req.ClientID,

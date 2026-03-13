@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/kafka"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
@@ -30,7 +30,9 @@ type Server struct {
 }
 
 // NewServer creates a new API server instance
-func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, templatesDB, clientsDB *pgxpool.Pool) (*Server, error) {
+//func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, templatesDB, clientsDB *pgxpool.Pool) (*Server, error) {
+
+func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger, templatesDB, clientsDB *sql.DB) (*Server, error) {
 	// Initialize repositories
 	personaRepo := database.NewPersonaRepository(templatesDB, clientsDB, logger)
 
@@ -83,12 +85,16 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	clientHandlers := admin.NewClientHandlers(personaRepoImpl.ClientsDB(), s.logger)
 	systemHandlers := admin.NewSystemHandlers(personaRepoImpl.ClientsDB(), personaRepoImpl.TemplatesDB(), s.kafkaProducer, s.logger)
 	agentAdminHandlers := admin.NewAgentHandlers(personaRepoImpl.ClientsDB(), personaRepoImpl.TemplatesDB(), s.kafkaProducer, s.logger, s.personaRepo)
+	siteAdminHandlers := admin.NewSiteAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
 
 	// Initialize the bootstrap handler
 	bootstrapHandler := handlers.NewBootstrapHandler(s.logger, personaRepoImpl.ClientsDB())
 
 	// Health check (no auth)
 	s.router.GET("/health", healthHandler.HandleHealth)
+
+	// Admin dashboard static files (auth handled by the SPA via API calls)
+	s.router.StaticFS("/admin", http.Dir("./admin-dashboard/dist"))
 
 	// Agent Bootstrap Endpoint (Special Authentication, bypasses AuthMiddleware)
 	// This endpoint is for agents to register with a bootstrap key, not a JWT.
@@ -151,6 +157,24 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 			adminGroup.PUT("/agent-instances/:agent_id/status", agentAdminHandlers.HandleToggleAgentStatus) // NEW
 			adminGroup.POST("/agent-instances/:agent_id/restart", agentAdminHandlers.HandleRestartAgent)    // NEW
 			adminGroup.PUT("/clients/:client_id/instances/:instance_id/config", agentAdminHandlers.HandleUpdateInstanceConfig)
+
+			// Site Administration
+			siteGroup := adminGroup.Group("/sites")
+			{
+				siteGroup.GET("", siteAdminHandlers.HandleListSites)
+				siteGroup.GET("/:site_id", siteAdminHandlers.HandleGetSite)
+				siteGroup.PATCH("/:site_id/specs/:aspect", siteAdminHandlers.HandleUpdateSiteSpec)
+			}
+
+			// Work Item Administration + HITL Review
+			workItemGroup := adminGroup.Group("/work-items")
+			{
+				workItemGroup.GET("", siteAdminHandlers.HandleListWorkItems)
+				workItemGroup.GET("/:item_id", siteAdminHandlers.HandleGetWorkItem)
+				workItemGroup.PATCH("/:item_id", siteAdminHandlers.HandleUpdateWorkItem)
+				workItemGroup.POST("/:item_id/retry", siteAdminHandlers.HandleRetryWorkItem)
+				workItemGroup.POST("/:item_id/resolve", siteAdminHandlers.HandleResolveWorkItem)
+			}
 		}
 	}
 }
