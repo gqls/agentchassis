@@ -673,3 +673,48 @@ WHERE name = 'build-pipeline-trigger';
 
 
 -----------------------------------------------------------------------------
+
+unblock routine
+clients_db=# -- 1. Check what's blocking the maintenance group
+SELECT name, concurrency_group, last_triggered_at, last_completed_at,
+       NOW() - last_triggered_at as since_trigger,
+       NOW() - COALESCE(last_completed_at, last_triggered_at) as since_complete
+FROM scheduled_tasks
+WHERE concurrency_group = 'maintenance';
+
+-- 2. Reset stale claims immediately
+UPDATE site_work_items
+SET status = 'triaged', claimed_by = NULL, claimed_at = NULL
+WHERE status = 'claimed' AND domain = 'build';
+
+#-- 3. Fix the concurrency group — claimed-item-timeout should NOT share
+#-- a group with database-cleanup. They're independent operations.
+#UPDATE scheduled_tasks
+#SET concurrency_group = 'claim-management'
+#WHERE name = 'claimed-item-timeout';
+
+-- 4. Unstick database-cleanup if it never completed
+UPDATE scheduled_tasks
+SET last_completed_at = NOW()
+WHERE name = 'database-cleanup'
+  AND last_completed_at IS NULL;
+
+-- 5. Kick the pipeline
+UPDATE scheduled_tasks
+SET last_completed_at = NOW()
+WHERE name = 'build-pipeline-trigger';
+
+-- 6. Verify
+SELECT name, concurrency_group, enabled,
+       last_triggered_at, last_completed_at
+FROM scheduled_tasks
+WHERE name IN ('claimed-item-timeout', 'database-cleanup', 'build-pipeline-trigger');
+
+ -- Check: is database-cleanup re-triggering before the timeout expires?
+SELECT name, interval_seconds, timeout_seconds,
+       last_triggered_at, last_completed_at
+FROM scheduled_tasks
+WHERE name = 'database-cleanup';
+
+
+========================================================================================
