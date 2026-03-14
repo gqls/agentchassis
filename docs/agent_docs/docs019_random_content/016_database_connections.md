@@ -309,3 +309,18 @@ kubectl -n ai-persona-system run mysql-test --rm -it --restart=Never \
 ```
 
 If that connects, the auth-service should work too. The `(using password: NO)` in the error confirms no password was sent — it's not an IP issue.
+
+
+----
+
+
+database backup
+
+# Deploy the CronJob
+make deploy-database-backup ENVIRONMENT=production REGION=uk001
+
+# Run one immediately to test
+make backup-now ENVIRONMENT=production REGION=uk001
+
+# Watch it
+make backup-logs ENVIRONMENT=production REGION=uk001

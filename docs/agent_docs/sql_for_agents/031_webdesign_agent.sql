@@ -2133,3 +2133,33 @@ FROM css_themes
 WHERE name = 'standard-brochure';
 
 COMMIT;
+
+      --
+
+      -- services is an array of strings like ["consulting", "AI strategy"] instead of [{"name": "Consulting", "description": "..."}], that's the mismatch.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,analyze_design,config,prompt_template}',
+    to_jsonb(
+        replace(
+            replace(
+                default_config->'workflow'->'steps'->'analyze_design'->'config'->>'prompt_template',
+                '{{range .site_specs.specs.identity.services}}- {{.name}}: {{.description}}',
+                '{{range .site_specs.specs.identity.services}}- {{if .name}}{{.name}}: {{.description}}{{else}}{{.}}{{end}}'
+            ),
+            '{{range .site_context.services}}- {{.name}}: {{.description}}',
+            '{{range .site_context.services}}- {{if .name}}{{.name}}: {{.description}}{{else}}{{.}}{{end}}'
+        )
+    )
+)
+WHERE type = 'webdesign-agent' AND deleted_at IS NULL;
+
+-- Verify
+SELECT substring(
+    default_config->'workflow'->'steps'->'analyze_design'->'config'->>'prompt_template'
+    FROM 'range .site_context.services.*?\n'
+) FROM agent_definitions
+WHERE type = 'webdesign-agent' AND deleted_at IS NULL;
+
+

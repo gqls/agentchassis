@@ -319,3 +319,86 @@ FROM site_specs
 WHERE site_id IN ('1368e337-dd1d-4799-bbb3-8221a1b79bcc', '5fe15466-4e2e-4ff2-981e-98c1b7074002')
   AND is_current = true
 ORDER BY site_id, aspect;
+
+---
+
+--
+
+-- ============================================================================
+-- fix_normalise_services.sql
+--
+-- Converts plain-string services arrays to {name, description} objects.
+-- Run once to fix existing data. Future writes are handled by the Go code.
+-- ============================================================================
+
+-- Preview: which site_specs have string services?
+SELECT s.domain, ss.aspect,
+       jsonb_array_length(ss.data->'services') as service_count,
+       ss.data->'services'->0 as first_element,
+       jsonb_typeof(ss.data->'services'->0) as element_type
+FROM site_specs ss
+         JOIN sites s ON s.id = ss.site_id
+WHERE ss.aspect = 'identity'
+  AND ss.is_current = true
+  AND ss.data ? 'services'
+  AND jsonb_array_length(ss.data->'services') > 0;
+
+-- Fix site_specs: convert string arrays to object arrays
+UPDATE site_specs
+SET data = jsonb_set(
+        data,
+        '{services}',
+        (
+            SELECT jsonb_agg(
+                           CASE
+                               WHEN jsonb_typeof(elem) = 'string'
+                                   THEN jsonb_build_object('name', elem #>> '{}', 'description', '')
+                               ELSE elem
+                               END
+                   )
+            FROM jsonb_array_elements(data->'services') AS elem
+        )
+           )
+WHERE aspect = 'identity'
+  AND is_current = true
+  AND data ? 'services'
+  AND jsonb_array_length(data->'services') > 0
+  AND EXISTS (
+      SELECT 1 FROM jsonb_array_elements(data->'services') AS e
+      WHERE jsonb_typeof(e) = 'string'
+  );
+
+-- Fix sites.content_data: same conversion
+UPDATE sites
+SET content_data = jsonb_set(
+        content_data,
+        '{services}',
+        (
+            SELECT jsonb_agg(
+                           CASE
+                               WHEN jsonb_typeof(elem) = 'string'
+                                   THEN jsonb_build_object('name', elem #>> '{}', 'description', '')
+                               ELSE elem
+                               END
+                   )
+            FROM jsonb_array_elements(content_data->'services') AS elem
+        )
+                   ),
+    updated_at = NOW()
+WHERE content_data ? 'services'
+  AND jsonb_array_length(content_data->'services') > 0
+  AND EXISTS (
+      SELECT 1 FROM jsonb_array_elements(content_data->'services') AS e
+      WHERE jsonb_typeof(e) = 'string'
+  );
+
+-- Verify: all services should now be objects
+SELECT s.domain,
+       jsonb_typeof(ss.data->'services'->0) as element_type,
+       ss.data->'services'->0 as first_element
+FROM site_specs ss
+         JOIN sites s ON s.id = ss.site_id
+WHERE ss.aspect = 'identity'
+  AND ss.is_current = true
+  AND ss.data ? 'services'
+  AND jsonb_array_length(ss.data->'services') > 0;

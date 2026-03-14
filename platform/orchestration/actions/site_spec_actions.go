@@ -212,6 +212,12 @@ func WriteSiteSpecAction(ctx context.Context, params ActionParams) (interface{},
 
 	// 2. Deep merge update over current
 	merged := siteSpecDeepMerge(currentData, specMap)
+
+	// Normalise services to object format if this is an identity spec
+	if aspect == "identity" {
+		normaliseServicesField(merged)
+	}
+
 	mergedJSON, err := json.Marshal(merged)
 	if err != nil {
 		return nil, fmt.Errorf("marshal merged spec: %w", err)
@@ -269,6 +275,66 @@ func WriteSiteSpecAction(ctx context.Context, params ActionParams) (interface{},
 		"had_previous": oldID != nil,
 		"written":      true,
 	}, nil
+}
+
+// normaliseServicesField ensures services is always []{"name":"...","description":"..."}
+// Handles: []string, []interface{} containing strings, and already-correct objects.
+func normaliseServicesField(data map[string]interface{}) {
+	if services, ok := data["services"]; ok {
+		data["services"] = normaliseToNameDescArray(services)
+	}
+}
+
+// normaliseToNameDescArray converts various service formats to a consistent
+// []map[string]interface{}{"name": "...", "description": "..."} structure.
+func normaliseToNameDescArray(raw interface{}) interface{} {
+	arr, ok := raw.([]interface{})
+	if !ok {
+		return raw // not an array, leave as-is
+	}
+	if len(arr) == 0 {
+		return raw
+	}
+
+	// Check first element to determine format
+	switch arr[0].(type) {
+	case string:
+		// Plain strings -> convert to objects
+		result := make([]interface{}, len(arr))
+		for i, item := range arr {
+			if name, ok := item.(string); ok {
+				result[i] = map[string]interface{}{
+					"name":        name,
+					"description": "",
+				}
+			} else {
+				result[i] = item
+			}
+		}
+		return result
+
+	case map[string]interface{}:
+		// Already objects - ensure they have name and description keys
+		for _, item := range arr {
+			if m, ok := item.(map[string]interface{}); ok {
+				if _, hasName := m["name"]; !hasName {
+					for _, key := range []string{"title", "service_name", "label"} {
+						if val, exists := m[key]; exists {
+							m["name"] = val
+							break
+						}
+					}
+				}
+				if _, hasDesc := m["description"]; !hasDesc {
+					m["description"] = ""
+				}
+			}
+		}
+		return arr
+
+	default:
+		return raw
+	}
 }
 
 // ============================================================================

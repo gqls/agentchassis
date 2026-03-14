@@ -930,3 +930,31 @@ SET pre_query = REPLACE(
         '    -- Always returns a row so scheduler marks task as executed'
                 )
 WHERE name = 'database-cleanup';
+
+--
+-- fix - couldn't find domain
+-- Fixed: finds the next site to run discovery on
+-- Skips sites that already have many open items (> 20)
+-- Round-robins by picking the site least recently checked
+UPDATE scheduled_tasks
+SET pre_query = '
+SELECT s.id::text as site_id, s.domain
+FROM sites s
+WHERE s.status IN (''active'', ''deployed'')
+  AND NOT EXISTS (
+    SELECT 1 FROM site_work_items wi
+    WHERE wi.site_id = s.id
+      AND wi.status = ''claimed''
+      AND wi.domain = ''build''
+  )
+  AND (
+    SELECT COUNT(*) FROM site_work_items wi
+    WHERE wi.site_id = s.id
+      AND wi.status IN (''triaged'', ''detected'')
+      AND wi.domain = ''build''
+  ) < 20
+ORDER BY s.updated_at ASC NULLS FIRST
+LIMIT 1
+'
+WHERE name = 'improvement-sweep';
+

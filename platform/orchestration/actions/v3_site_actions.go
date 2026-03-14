@@ -1017,7 +1017,8 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 		if ctx.ContentData == nil {
 			ctx.ContentData = make(map[string]interface{})
 		}
-		ctx.ContentData["services"] = services
+		// ctx.ContentData["services"] = services
+		ctx.ContentData["services"] = normaliseToNameDescArray(services)
 
 		// Also extract just the names to ctx.Services ([]string)
 		for _, svc := range services {
