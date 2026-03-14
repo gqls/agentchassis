@@ -12,7 +12,7 @@ labels:
 
 images:
   - name: docker.io/aqls/image-generator-adapter
-    newTag: v1.0.867
+    newTag: v1.0.868
 
 patches:
   - path: patch-deployment.yaml

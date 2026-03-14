@@ -60,12 +60,12 @@ spec:
                 - name: B2_APPLICATION_KEY_ID
                   valueFrom:
                     secretKeyRef:
-                      name: personae-platform-secrets
+                      name: personae-storage-secrets
                       key: B2_APPLICATION_KEY_ID
                 - name: B2_APPLICATION_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: personae-platform-secrets
+                      name: personae-storage-secrets
                       key: B2_APPLICATION_KEY
                 - name: S3_ENDPOINT
                   value: "https://s3.us-east-005.backblazeb2.com"
@@ -74,9 +74,9 @@ spec:
 
                 # Connection details (overridable in overlay)
                 - name: PG_CLIENTS_HOST
-                  value: "postgres-clients-0.ai-persona-system.svc.cluster.local"
+                  value: "postgres-clients"
                 - name: PG_TEMPLATES_HOST
-                  value: "postgres-templates-0.ai-persona-system.svc.cluster.local"
+                  value: "postgres-templates"
                 - name: MYSQL_AUTH_HOST
                   value: "rs17.uk-noc.com"
                 - name: MYSQL_AUTH_USER
@@ -121,6 +121,7 @@ spec:
                     mysqldump \
                       -h "${MYSQL_AUTH_HOST}" -P 3306 \
                       -u "${MYSQL_AUTH_USER}" -p"${AUTH_DB_PASSWORD}" \
+                      --skip-ssl \
                       --routines --triggers --single-transaction \
                       "${MYSQL_AUTH_DB}" \
                       | gzip > "${BACKUP_DIR}/auth_db.sql.gz"
