@@ -193,19 +193,22 @@ func CreateBlogPostsAction(ctx context.Context, params ActionParams) (interface{
 
 		// Create page record
 		var pageID uuid.UUID
+		pageSpec, _ := json.Marshal(map[string]interface{}{
+			"purpose": post.Purpose,
+		})
 		err := params.DB.QueryRowContext(ctx, `
-			INSERT INTO pages (site_id, name, url, title, purpose, page_type,
-			                   build_status, nav_order, in_header, in_footer, sections)
-			VALUES ($1, $2, $3, $4, $5, $6, 'planned', $7, false, false, $8::jsonb)
+			INSERT INTO pages (site_id, name, url, title, page_type,
+			                   build_status, nav_order, in_header, in_footer, sections, page_spec)
+			VALUES ($1, $2, $3, $4, $5, 'planned', $6, false, false, $7::jsonb, $8::jsonb)
 			ON CONFLICT (site_id, name) DO UPDATE SET
 				title = EXCLUDED.title,
-				purpose = EXCLUDED.purpose,
 				page_type = EXCLUDED.page_type,
 				sections = EXCLUDED.sections,
+				page_spec = EXCLUDED.page_spec,
 				updated_at = NOW()
 			RETURNING id
-		`, siteID, name, url, post.Title, post.Purpose, pageType,
-			20+i, string(sectionsJSON)).Scan(&pageID)
+		`, siteID, name, url, post.Title, pageType,
+			20+i, string(sectionsJSON), string(pageSpec)).Scan(&pageID)
 
 		if err != nil {
 			logger.Warn("Failed to create page", zap.String("name", name), zap.Error(err))

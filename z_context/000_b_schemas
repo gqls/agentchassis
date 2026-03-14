@@ -16,6 +16,7 @@
 \d content_feed_items
 \d content_items
 \d css_themes
+\d agent_error_log
 \d
 
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > bk_agent_definitions_backup.sql

@@ -375,3 +375,58 @@ SELECT
 FROM agent_definitions
 WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
 
+---
+
+-- orchestrator
+
+-- Fix processing_mode
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{processing_mode}',
+                '"orchestrator"'::jsonb
+        ),
+        '{timeout_seconds}',
+        '300'::jsonb
+                     )
+WHERE type = 'blog-content-planner' AND deleted_at IS NULL;
+
+-- Register empty_blog check in completeness-discovery-agent
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        '["empty_sections", "missing_structure", "empty_blog"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'completeness-discovery-agent' AND deleted_at IS NULL;
+
+-- Create immediate work items for existing empty blogs
+INSERT INTO site_work_items (
+    site_id, source, domain, item_type, severity, summary,
+    spec, priority, handler_agent, status, created_by, item_key
+)
+SELECT
+    p.site_id,
+    'discovery', 'build', 'needs_blog_posts', 'medium',
+    'Blog page exists but no posts — needs content planning for ' || s.domain,
+    jsonb_build_object(
+            'check', 'empty_blog',
+            'blog_page_id', p.id,
+            'blog_page_name', p.name,
+            'post_count', 0
+    ),
+    50, 'blog-content-planner', 'triaged', 'admin',
+    'empty_blog:' || s.id
+FROM pages p
+         JOIN sites s ON s.id = p.site_id
+WHERE (p.name = 'blog' OR p.page_type = 'blog-index')
+  AND p.status = 'active'
+  AND NOT EXISTS (
+    SELECT 1 FROM pages child
+    WHERE child.site_id = p.site_id
+      AND child.page_type = 'blog-post'
+)
+    ON CONFLICT DO NOTHING;
+
