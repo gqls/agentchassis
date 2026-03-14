@@ -48,4 +48,17 @@ WHERE type IN ('site-component-linker', 'component-template-fixer')
   AND deleted_at IS NULL;
 
 
+--
+
+-- Add fix_type_field hint so the action knows to check spec.category
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,apply_fix,config}',
+        '{
+            "site_id": "site_record.site_id",
+            "fix_type_field": "category"
+        }'::jsonb
+                     )
+WHERE type = 'component-template-fixer' AND deleted_at IS NULL;
 

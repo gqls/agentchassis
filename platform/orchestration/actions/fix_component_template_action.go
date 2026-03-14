@@ -45,6 +45,41 @@ func init() {
 	datahelpers.RegisterActionInputSpec("fix_component_template", FixComponentTemplateInputSpec)
 }
 
+// inferFixTypeFromCategory maps audit category names to actionable fix_type values.
+func inferFixTypeFromCategory(category string) string {
+	category = strings.ToLower(strings.TrimSpace(category))
+	switch category {
+	case "spacing":
+		return "inject_nav_flex_css"
+	case "responsive":
+		return "responsive_fix"
+	case "cta":
+		return "cta_improvement"
+	case "nav_restructure":
+		return "nav_restructure"
+	default:
+		return ""
+	}
+}
+
+// inferFixTypeFromItemType maps work item item_type values to fix_type as a last resort.
+func inferFixTypeFromItemType(itemType string) string {
+	switch itemType {
+	case "spacing_fix":
+		return "inject_nav_flex_css"
+	case "responsive_fix":
+		return "responsive_fix"
+	case "cta_improvement":
+		return "cta_improvement"
+	case "nav_restructure":
+		return "nav_restructure"
+	case "header_footer_fix":
+		return "inject_nav_flex_css"
+	default:
+		return ""
+	}
+}
+
 func FixComponentTemplateAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(zap.String("action", "fix_component_template"))
 
@@ -67,8 +102,34 @@ func FixComponentTemplateAction(ctx context.Context, params ActionParams) (inter
 		fixType = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.fix_type")
 	}
 
+	// Fallback: derive from category
 	if fixType == "" {
-		return nil, fmt.Errorf("fix_type is required (config or input_data.spec.fix_type)")
+		category := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.category")
+		if category != "" {
+			fixType = inferFixTypeFromCategory(category)
+			if fixType != "" {
+				logger.Info("Derived fix_type from category",
+					zap.String("category", category),
+					zap.String("fix_type", fixType))
+			}
+		}
+	}
+
+	// Fallback: derive from item_type
+	if fixType == "" {
+		itemType := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.item_type")
+		if itemType != "" {
+			fixType = inferFixTypeFromItemType(itemType)
+			if fixType != "" {
+				logger.Info("Derived fix_type from item_type",
+					zap.String("item_type", itemType),
+					zap.String("fix_type", fixType))
+			}
+		}
+	}
+
+	if fixType == "" {
+		return nil, fmt.Errorf("fix_type is required (config, input_data.spec.fix_type, spec.category, or input_data.item_type)")
 	}
 
 	inputs, err := datahelpers.ExtractActionInputs(
@@ -93,14 +154,37 @@ func FixComponentTemplateAction(ctx context.Context, params ActionParams) (inter
 	)
 
 	switch fixType {
-	case "inject_nav_flex_css":
+	case "inject_nav_flex_css", "spacing_fix", "spacing":
+		// "spacing" is a raw category value from SQL-patched items
 		return fixInjectNavFlexCSS(ctx, params, siteID, logger)
 	case "remove_element":
 		return fixRemoveElement(ctx, params, siteID, logger)
 	case "align_slot_name":
 		return fixAlignSlotName(ctx, params, logger)
+	case "responsive_fix", "responsive":
+		// "responsive" is a raw category value from SQL-patched items
+		return fixInjectResponsiveCSS(ctx, params, siteID, logger)
+	case "cta_improvement", "cta", "nav_restructure":
+		// "cta" is a raw category value from SQL-patched items.
+		// These need LLM-driven content changes, not programmatic HTML edits.
+		// Return skipped so the item doesn't fail repeatedly.
+		logger.Info("Fix type requires LLM involvement, marking for review",
+			zap.String("fix_type", fixType))
+		return map[string]interface{}{
+			"fixed":    false,
+			"fix_type": fixType,
+			"reason":   "fix_type requires LLM-driven changes, not programmatic HTML edits",
+			"action":   "needs_review",
+		}, nil
 	default:
-		return nil, fmt.Errorf("unknown fix_type: %s", fixType)
+		logger.Warn("Unrecognised fix_type, marking for review",
+			zap.String("fix_type", fixType))
+		return map[string]interface{}{
+			"fixed":    false,
+			"fix_type": fixType,
+			"reason":   fmt.Sprintf("unrecognised fix_type: %s", fixType),
+			"action":   "needs_review",
+		}, nil
 	}
 }
 
@@ -176,6 +260,87 @@ func fixInjectNavFlexCSS(ctx context.Context, params ActionParams, siteID uuid.U
 	return map[string]interface{}{
 		"fixed":     true,
 		"fix_type":  "inject_nav_flex_css",
+		"slot_name": slotName,
+	}, nil
+}
+
+// ---------------------------------------------------------------------------
+// responsive_fix: adds responsive CSS media queries for mobile layout
+// ---------------------------------------------------------------------------
+
+func fixInjectResponsiveCSS(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) (interface{}, error) {
+	slotName := "header"
+	if s := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.slot_name"); s != "" {
+		slotName = s
+	}
+
+	var html string
+	err := params.DB.QueryRowContext(ctx, `
+		SELECT COALESCE(rendered_html, '') FROM site_components
+		WHERE site_id = $1 AND slot_name = $2
+	`, siteID, slotName).Scan(&html)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load %s component: %w", slotName, err)
+	}
+
+	if html == "" {
+		return map[string]interface{}{"fixed": false, "reason": "no rendered HTML"}, nil
+	}
+
+	// Check if already has responsive media query for this slot
+	if strings.Contains(html, "responsive fix") {
+		return map[string]interface{}{"fixed": false, "reason": "already has responsive CSS"}, nil
+	}
+
+	responsiveCSS := `
+<style>
+/* Responsive fix — injected by component-template-fixer */
+@media (max-width: 768px) {
+    .site-header__categories,
+    .main-nav ul,
+    .site-header__menu {
+        flex-direction: column;
+        gap: 0.5rem;
+        text-align: center;
+    }
+    .site-header {
+        flex-direction: column;
+        padding: 1rem;
+    }
+    .site-header__actions {
+        justify-content: center;
+        margin-top: 0.5rem;
+    }
+}
+@media (max-width: 480px) {
+    .site-header__brand {
+        font-size: 1.2rem;
+    }
+}
+</style>`
+
+	// Inject before closing tag for the slot
+	closingTag := fmt.Sprintf("</%s>", slotName)
+	if strings.Contains(html, closingTag) {
+		html = strings.Replace(html, closingTag, responsiveCSS+"\n"+closingTag, 1)
+	} else {
+		html = html + responsiveCSS
+	}
+
+	_, err = params.DB.ExecContext(ctx, `
+		UPDATE site_components SET rendered_html = $1, updated_at = NOW()
+		WHERE site_id = $2 AND slot_name = $3
+	`, html, siteID, slotName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update %s: %w", slotName, err)
+	}
+
+	logger.Info("Injected responsive CSS",
+		zap.String("slot", slotName))
+
+	return map[string]interface{}{
+		"fixed":     true,
+		"fix_type":  "responsive_fix",
 		"slot_name": slotName,
 	}, nil
 }

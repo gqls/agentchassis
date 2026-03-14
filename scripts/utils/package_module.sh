@@ -304,6 +304,7 @@ function show_help() {
   echo ""
   echo "  AGENT DEBUGGING:"
   echo "    agent-chassis-full"
+  echo "    agent-chassis-focused"
   echo "    reasoning-agent-full"
   echo "    web-search-adapter-full"
   echo "    image-generator-adapter-full"
@@ -742,6 +743,144 @@ case "$COMPONENT_NAME" in
       "platform/governance/"
     )
     MODULE_FILES=( "makefile" "build/docker/backend/agent-chassis.dockerfile" )
+    ;;
+
+# =====================================================================
+  # FOCUSED AGENT CHASSIS CONTEXT (~40k lines, ~1.4MB)
+  # Down from 90k/3.1MB full version.
+  #
+  # Keeps: orchestration core, key site-building actions, discovery,
+  #        kafka, work item pipeline, key fix actions, configs
+  #
+  # Drops: component_library, multipage, business_intel, companies_house,
+  #        html_actions, section_editor, generate_image, fix_forced_text,
+  #        storage_actions, loop_actions, migration READMEs + SQL,
+  #        manual seeding, tests, makefile, topicflow.png, vet pipeline
+  #        detail, internal agent implementations, HITL detail,
+  #        calculate_actions, aggregate_*, entity_state
+  #
+  # If you need a dropped file, upload it directly to the chat.
+  # =====================================================================
+  agent-chassis-focused)
+    MODULE_DIRS=(
+      # Discovery checks (small files, all needed)
+      "platform/orchestration/actions/discovery_checks/"
+
+      # Kafka (essential)
+      "platform/kafka/"
+    )
+    MODULE_FILES=(
+      # --- Agent core ---
+      "platform/agentbase/agent.go"
+      "platform/agentbase/bootstrap.go"
+      "platform/agentbase/server.go"
+      "platform/messaging/processor.go"
+      "platform/messaging/context.go"
+
+      # --- Orchestration core ---
+      "platform/orchestration/coordinator.go"
+      "platform/orchestration/state.go"
+      "platform/orchestration/helpers.go"
+      "platform/orchestration/agent_error_log.go"
+      "platform/orchestration/loop_expansion_handler.go"
+      "platform/orchestration/loop_error_handler.go"
+      "platform/orchestration/types/context.go"
+      "platform/orchestration/types/trace_logger.go"
+      "platform/orchestration/input_contracts/input_mapping.go"
+
+      # --- Data helpers (essential subset) ---
+      "platform/orchestration/datahelpers/data_helpers.go"
+      "platform/orchestration/datahelpers/action_inputs.go"
+      "platform/orchestration/datahelpers/unified_extractor.go"
+      "platform/orchestration/datahelpers/timeout_helpers.go"
+
+      # --- Action registry + types ---
+      "platform/orchestration/actions/registry.go"
+      "platform/orchestration/actions/types.go"
+      "platform/orchestration/actions/helpers.go"
+
+      # --- Core actions (spawning, calling, workflow) ---
+      "platform/orchestration/actions/spawn_actions.go"
+      "platform/orchestration/actions/call_agent.go"
+      "platform/orchestration/actions/workflow_actions.go"
+      "platform/orchestration/actions/basic_actions.go"
+      "platform/orchestration/actions/conditional_branch_action.go"
+
+      # --- Site building pipeline ---
+      "platform/orchestration/actions/v3_site_actions.go"
+      "platform/orchestration/actions/site_db_actions.go"
+      "platform/orchestration/actions/site_spec_actions.go"
+      "platform/orchestration/actions/maintenance_actions.go"
+      "platform/orchestration/actions/validate_page_content.go"
+      "platform/orchestration/actions/render_site_components_action.go"
+      "platform/orchestration/actions/rerender_pages_actions.go"
+      "platform/orchestration/actions/save_page_sections_action.go"
+      "platform/orchestration/actions/render_css_from_spec_action.go"
+      "platform/orchestration/actions/plan_sections_action.go"
+      "platform/orchestration/actions/git_deployer_actions.go"
+
+      # --- Work item + dispatch ---
+      "platform/orchestration/actions/load_work_item_actions.go"
+      "platform/orchestration/actions/claim_work_item_action.go"
+      "platform/orchestration/actions/create_work_item_action.go"
+      "platform/orchestration/actions/dispatch_actions.go"
+      "platform/orchestration/actions/triage_detect_items_action.go"
+      "platform/orchestration/actions/seed_build_queue_action.go"
+
+      # --- Discovery + audit ---
+      "platform/orchestration/actions/discovery_actions.go"
+      "platform/orchestration/actions/discovery_checks.go"
+      "platform/orchestration/actions/write_audit_findings_action.go"
+
+      # --- Fix actions ---
+      "platform/orchestration/actions/fix_component_template_action.go"
+      "platform/orchestration/actions/fix_harcoded_colours_action.go"
+      "platform/orchestration/actions/update_component_html_action.go"
+
+      # --- Blog + content + tools ---
+      "platform/orchestration/actions/create_blog_posts_action.go"
+      "platform/orchestration/actions/apply_gap_plan_action.go"
+      "platform/orchestration/actions/create_tool_component_action.go"
+      "platform/orchestration/actions/deploy_tool_action.go"
+
+      # --- LLM ---
+      "platform/orchestration/actions/ai_actions.go"
+
+      # --- Navigation ---
+      "platform/orchestration/actions/nav_tables.go"
+      "platform/orchestration/actions/populate_nav_tables_action.go"
+      "platform/orchestration/actions/link_site_components_action.go"
+
+      # --- Page loading ---
+      "platform/orchestration/actions/load_page_record_action.go"
+      "platform/orchestration/actions/load_site_pages_action.go"
+      "platform/orchestration/actions/get_pages_to_build_actions.go"
+      "platform/orchestration/actions/get_pages_for_rerender_action.go"
+
+      # --- Database actions ---
+      "platform/orchestration/actions/database_actions.go"
+
+      # --- Design ---
+      "platform/orchestration/actions/design_actions.go"
+      "platform/orchestration/actions/assemble_from_library.go"
+      "platform/orchestration/actions/deploy_image_asset_action.go"
+
+      # --- Database Go code ---
+      "platform/database/postgres.go"
+
+      # --- AI service ---
+      "platform/aiservice/anthropic.go"
+      "platform/aiservice/model_aliases.go"
+
+      # --- Entry point + configs ---
+      "cmd/agent-chassis/main.go"
+      "configs/agent-chassis.yaml"
+      "configs/core-manager.yaml"
+
+      # --- Deployment ---
+      "deployments/kustomize/services/agent-chassis/overlays/production/uk_001/patch-deployment.yaml"
+      "deployments/kustomize/services/agent-chassis/base/deployment.yaml"
+    )
     ;;
 
   reasoning-agent-full)

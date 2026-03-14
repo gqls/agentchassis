@@ -262,6 +262,17 @@ WHERE wi.domain = 'build'
        OR (wi.status = 'triaged' AND wi.attempt_count >= wi.max_attempts))
 ORDER BY s.domain, wi.status, wi.item_type;
 
+
+-- Categorise failures
+-- Group the failures by error to see patterns
+SELECT wi.item_type, COUNT(*) as cnt,
+       LEFT(wi.error, 120) as error_pattern
+FROM site_work_items wi
+WHERE wi.status = 'failed' AND wi.domain = 'build'
+GROUP BY wi.item_type, LEFT(wi.error, 120)
+ORDER BY cnt DESC;
+
+
 --------------------
 
 

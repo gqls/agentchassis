@@ -97,6 +97,15 @@ var designRouting = map[string]string{
 	"responsive":    "component-template-fixer",
 }
 
+// Category → fix_type mapping for component-template-fixer
+// Ensures fix_type is always set in spec when routing to that handler.
+var categoryToFixType = map[string]string{
+	"spacing":         "inject_nav_flex_css",
+	"responsive":      "responsive_fix",
+	"cta":             "cta_improvement",
+	"nav_restructure": "nav_restructure",
+}
+
 // Design category → item type
 var designItemTypes = map[string]string{
 	"colour":        "needs_design_review",
@@ -213,6 +222,13 @@ func classifyFinding(f auditFinding, pages map[string]pageInfo, siteID uuid.UUID
 	}
 	if f.FixType != "" {
 		spec["fix_type"] = f.FixType
+	}
+
+	// If fix_type still not set, derive from category for component-template-fixer compatibility
+	if _, hasFixType := spec["fix_type"]; !hasFixType {
+		if derived, ok := categoryToFixType[category]; ok {
+			spec["fix_type"] = derived
+		}
 	}
 
 	// ── Rule 1: Design categories → design handlers (page existence irrelevant)
