@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.869
+IMAGE_TAG ?= v1.0.870
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -1800,4 +1800,3 @@ cleanup-topics-all:
 	@echo "Running topic cleanup (large batch)..."
 	@curl -s -X POST "http://localhost:8088/api/v1/admin/system/cleanup-topics?batch_size=500" \
 		-H "Authorization: Bearer $(TOKEN)" | python3 -m json.tool
- 
