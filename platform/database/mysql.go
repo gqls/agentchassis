@@ -37,7 +37,8 @@ func NewMySQLConnection(ctx context.Context, dbCfg config.DatabaseConfig, logger
 				// Set connection pool parameters
 				db.SetMaxOpenConns(10)
 				db.SetMaxIdleConns(5)
-				db.SetConnMaxLifetime(time.Hour)
+				db.SetConnMaxLifetime(5 * time.Minute)
+				db.SetConnMaxIdleTime(2 * time.Minute)
 
 				logger.Info("Successfully connected to MySQL database.", zap.String("database", dbCfg.DBName), zap.Int("port", dbCfg.Port))
 				return db, nil

@@ -729,3 +729,52 @@ WHERE name = 'database-cleanup';
 
 
 ========================================================================================
+
+deleting stale non duplicated items
+----------------------------------------------------------------------------------------
+
+BEGIN;
+
+-- Step 1: Null out parent_item_id references to failed items we're about to delete
+UPDATE site_work_items
+SET parent_item_id = NULL
+WHERE parent_item_id IN (
+    SELECT id FROM site_work_items
+    WHERE status = 'failed' AND domain = 'build'
+);
+
+-- Step 2: Delete failed items where a live (non-terminal) copy already exists
+DELETE FROM site_work_items
+WHERE status = 'failed' AND domain = 'build' AND item_key IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM site_work_items live
+    WHERE live.site_id = site_work_items.site_id
+      AND live.item_key = site_work_items.item_key
+      AND live.id != site_work_items.id
+      AND live.status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+  );
+
+-- Step 3: Among remaining failed items, keep only the newest per (site_id, item_key)
+DELETE FROM site_work_items
+WHERE id IN (
+    SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (
+            PARTITION BY site_id, item_key
+            ORDER BY created_at DESC
+        ) as rn
+        FROM site_work_items
+        WHERE status = 'failed' AND domain = 'build' AND item_key IS NOT NULL
+    ) ranked
+    WHERE rn > 1
+);
+
+-- Step 4: Now safe — each key has at most one failed row and no live duplicate
+UPDATE site_work_items
+SET status = 'triaged', attempt_count = 0, error = NULL,
+    claimed_by = NULL, claimed_at = NULL
+WHERE status = 'failed' AND domain = 'build';
+
+COMMIT;
+
+
+----------------------------------------------------------------------------------------

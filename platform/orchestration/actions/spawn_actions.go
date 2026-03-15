@@ -2630,13 +2630,21 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 
 	envList = append(envList, corev1.EnvVar{Name: "DATABASE_URL", Value: dbURL})
 
-	// Add idle timeout for spawned agents — controls when the pod exits after going idle
-	if agentDef.IdleTimeoutSeconds > 0 {
-		envList = append(envList, corev1.EnvVar{
-			Name:  "IDLE_TIMEOUT_SECONDS",
-			Value: strconv.Itoa(agentDef.IdleTimeoutSeconds),
-		})
+	// Add idle timeout for spawned agents — controls when the pod exits after going idle.
+	// Default to 3600s (1 hour) when the definition has no timeout set.
+	// The idle monitor's hasAwaitingOrchestrations() check keeps genuinely busy
+	// agents alive, so this only fires when the agent is truly idle.
+	idleTimeout := agentDef.IdleTimeoutSeconds
+	if idleTimeout <= 0 {
+		idleTimeout = 3600 // 1 hour default — prevents zombie pods from agents with no timeout configured
+		logger.Info("Agent definition has no idle_timeout_seconds, applying default",
+			zap.String("agent_type", agentDef.Type),
+			zap.Int("default_idle_timeout", idleTimeout))
 	}
+	envList = append(envList, corev1.EnvVar{
+		Name:  "IDLE_TIMEOUT_SECONDS",
+		Value: strconv.Itoa(idleTimeout),
+	})
 	// NOTE: EPHEMERAL_TOPICS is no longer set. Topic cleanup is handled
 	// externally by the CronJob based on running pod state, not by the agent.
 

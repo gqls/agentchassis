@@ -497,8 +497,6 @@ func (h *SiteAdminHandlers) HandleRetryWorkItem(c *gin.Context) {
 	result, err := h.db.ExecContext(c.Request.Context(), `
 		UPDATE site_work_items
 		SET status = 'triaged',
-		    item_type = 'content_rewrite',
-		    handler_agent = 'page-build-handler',
 		    attempt_count = 0,
 		    claimed_by = NULL,
 		    claimed_at = NULL,
@@ -545,10 +543,11 @@ func (h *SiteAdminHandlers) HandleResolveWorkItem(c *gin.Context) {
 		UPDATE site_work_items
 		SET status = 'complete',
 		    completed_at = NOW(),
-		    error = $2,
+		    error = NULL,
+		    result = jsonb_build_object('resolution', $2, 'resolved_by', 'admin'),
 		    updated_at = NOW()
 		WHERE id = $1
-		  AND status IN ('needs_human_review', 'failed', 'blocked')
+		  AND status IN ('needs_human_review', 'failed', 'blocked', 'triaged')
 	`, itemID, body.Resolution)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
