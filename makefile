@@ -1779,3 +1779,25 @@ db-set-max-connections: ## Increase max_connections (requires restart). Usage: m
 		"ALTER SYSTEM SET max_connections = $(MAX);"
 	@echo "$(RED)WARNING: PostgreSQL restart required for this to take effect$(NC)"
 	@echo "Run: kubectl rollout restart statefulset/postgres-clients -n $(PROJECT_NAME)"
+
+
+# ── Topic Cleanup ──────────────────────────────────────────────────────────
+# Requires: port-forward to core-manager and a valid admin JWT token
+# Usage: make cleanup-topics-dry TOKEN=eyJ...
+#        make cleanup-topics TOKEN=eyJ...
+
+cleanup-topics-dry:
+	@echo "Dry-run topic cleanup..."
+	@curl -s -X POST "http://localhost:8088/api/v1/admin/system/cleanup-topics?dry_run=true" \
+		-H "Authorization: Bearer $(TOKEN)" | python3 -m json.tool
+
+cleanup-topics:
+	@echo "Running topic cleanup..."
+	@curl -s -X POST "http://localhost:8088/api/v1/admin/system/cleanup-topics?batch_size=100" \
+		-H "Authorization: Bearer $(TOKEN)" | python3 -m json.tool
+
+cleanup-topics-all:
+	@echo "Running topic cleanup (large batch)..."
+	@curl -s -X POST "http://localhost:8088/api/v1/admin/system/cleanup-topics?batch_size=500" \
+		-H "Authorization: Bearer $(TOKEN)" | python3 -m json.tool
+ 

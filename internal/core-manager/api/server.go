@@ -158,6 +158,9 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 			adminGroup.POST("/agent-instances/:agent_id/restart", agentAdminHandlers.HandleRestartAgent)    // NEW
 			adminGroup.PUT("/clients/:client_id/instances/:instance_id/config", agentAdminHandlers.HandleUpdateInstanceConfig)
 
+			// Topic Management
+			adminGroup.POST("/system/cleanup-topics", systemHandlers.HandleCleanupStaleTopics)
+
 			// Site Administration
 			siteGroup := adminGroup.Group("/sites")
 			{

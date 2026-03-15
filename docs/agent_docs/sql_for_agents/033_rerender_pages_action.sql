@@ -1097,3 +1097,13 @@ FROM agent_definitions
 WHERE type = 'rerender-pages';
 
 
+---
+--  path
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_refresh_components,config,condition}',
+        '"input_data.spec.refresh_site_components == true OR input_data.refresh_site_components == true"'
+                     )
+WHERE type = 'rerender-pages';
