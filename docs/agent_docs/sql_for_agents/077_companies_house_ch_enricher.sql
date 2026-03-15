@@ -149,3 +149,5 @@ INSERT INTO agent_definitions (
     default_config = EXCLUDED.default_config,
                                        description = EXCLUDED.description,
                                        updated_at = NOW();
+
+----

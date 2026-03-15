@@ -80,3 +80,20 @@ ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_ibfk_1 FOREIGN KEY (user_
 ALTER TABLE user_permissions ADD CONSTRAINT user_permissions_ibfk_1 FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE user_profiles ADD CONSTRAINT user_profiles_ibfk_1 FOREIGN KEY (user_id) REFERENCES users(id);
 "
+
+
+get fresh token
+kubectl -n ai-persona-system exec -it $(kubectl -n ai-persona-system get pod -l app=auth-service -o jsonpath='{.items[0].metadata.name}') -- wget -qO- \
+http://localhost:8081/api/v1/auth/login \
+--post-data='{"email":"uk@websy.uk","password":"AdminPass2026xyz"}' \
+--header='Content-Type: application/json' 2>&1
+
+
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOTU1ZDQ5MTMtYjI2OS00ODg5LWI5MWEtNzIxMzY0Njk0YTBlIiwiZW1haWwiOiJ1a0B3ZWJzeS51ayIsImNsaWVudF9pZCI6ImRlbW9fY2xpZW50Iiwicm9sZSI6ImFkbWluIiwidGllciI6ImVudGVycHJpc2UiLCJpc3MiOiJhaS1wZXJzb25hLXN5c3RlbSIsInN1YiI6Ijk1NWQ0OTEzLWIyNjktNDg4OS1iOTFhLTcyMTM2NDY5NGEwZSIsImV4cCI6MTc3MzU5Nzc4MiwibmJmIjoxNzczNTk0MTgyLCJpYXQiOjE3NzM1OTQxODIsImp0aSI6IjE3NzM1OTQxODIifQ.654VlA2lJ5TgbneDOhqAJIoowXU37SHXWaMe4bS1neE"
+
+curl -s http://localhost:8088/api/v1/admin/sites -H "Authorization: Bearer $TOKEN" | python3 -m json.tool | head -40
+Extra data: line 1 column 5 (char 4)
+
+debug
+Raw response first:
+curl -s http://localhost:8088/api/v1/admin/sites -H "Authorization: Bearer $TOKEN"

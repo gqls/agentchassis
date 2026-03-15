@@ -12,6 +12,9 @@ import (
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+
+	// pgx stdlib driver for database/sql
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 // PoolConfig holds connection pool settings
