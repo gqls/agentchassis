@@ -725,3 +725,205 @@ func (h *SiteAdminHandlers) HandleResolveWorkItem(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"resolved": true, "id": itemID.String()})
 }
+
+// ============================================================================
+// POST /admin/work-items/:item_id/approve
+// ============================================================================
+//
+// Handles checkpoint work items created by checkpoint_for_review.
+// The admin submits corrected review_data. This endpoint:
+//   1. Updates the site_spec with the corrected data (if spec_aspect is set)
+//   2. Creates the follow-on work item from on_approve config
+//   3. Marks the review item complete
+
+func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
+	ctx := c.Request.Context()
+	itemID, err := uuid.Parse(c.Param("item_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid item_id"})
+		return
+	}
+
+	// Parse the admin's submission
+	var body struct {
+		ReviewData json.RawMessage `json:"review_data" binding:"required"`
+		Notes      string          `json:"notes"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Load the work item to get its spec (which contains on_approve, spec_aspect, etc.)
+	var siteID uuid.UUID
+	var specJSON []byte
+	var currentStatus string
+
+	err = h.db.QueryRowContext(ctx, `
+		SELECT site_id, spec, status
+		FROM site_work_items
+		WHERE id = $1
+	`, itemID).Scan(&siteID, &specJSON, &currentStatus)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "work item not found"})
+		return
+	}
+
+	if currentStatus != "needs_human_review" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("item status is %s, expected needs_human_review", currentStatus)})
+		return
+	}
+
+	// Parse the spec
+	var spec map[string]interface{}
+	if err := json.Unmarshal(specJSON, &spec); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse work item spec"})
+		return
+	}
+
+	// Verify this is a checkpoint item
+	isCheckpoint, _ := spec["checkpoint"].(bool)
+	if !isCheckpoint {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "this item is not a checkpoint — use retry or resolve instead"})
+		return
+	}
+
+	// ── Step 1: Update site_specs if spec_aspect is set ──────────────────
+	specAspect, _ := spec["spec_aspect"].(string)
+	if specAspect != "" {
+		tx, err := h.db.BeginTx(ctx, nil)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
+		// Supersede current
+		_, err = tx.ExecContext(ctx, `
+			UPDATE site_specs
+			SET is_current = false, superseded_at = NOW()
+			WHERE site_id = $1 AND aspect = $2 AND is_current = true
+		`, siteID, specAspect)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to supersede spec: " + err.Error()})
+			return
+		}
+
+		// Insert approved version
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO site_specs (site_id, aspect, data, source, created_by, is_current)
+			VALUES ($1, $2, $3, 'admin-approved', 'admin', true)
+		`, siteID, specAspect, body.ReviewData)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save approved spec: " + err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		h.logger.Info("Approved spec saved",
+			zap.String("site_id", siteID.String()),
+			zap.String("aspect", specAspect))
+	}
+
+	// ── Step 2: Create follow-on work item if on_approve is set ──────────
+	var followOnID *string
+	if onApprove, ok := spec["on_approve"].(map[string]interface{}); ok {
+		followItemType, _ := onApprove["item_type"].(string)
+		followHandler, _ := onApprove["handler_agent"].(string)
+
+		if followItemType == "" {
+			followItemType = "approved_for_processing"
+		}
+		if followHandler == "" {
+			followHandler = "page-build-handler"
+		}
+
+		// Build follow-on spec with the approved data and any include_fields
+		followSpec := map[string]interface{}{
+			"approved_data":   json.RawMessage(body.ReviewData),
+			"approved_by":     "admin",
+			"source_item_id":  itemID.String(),
+			"original_domain": "build",
+		}
+		if specAspect != "" {
+			followSpec["spec_aspect"] = specAspect
+		}
+
+		// Copy include_fields from on_approve config
+		if includeFields, ok := onApprove["include_fields"].([]interface{}); ok {
+			for _, f := range includeFields {
+				if fieldName, ok := f.(string); ok {
+					followSpec[fieldName] = spec[fieldName]
+				}
+			}
+		}
+
+		followSpecJSON, _ := json.Marshal(followSpec)
+
+		var newID uuid.UUID
+		err = h.db.QueryRowContext(ctx, `
+			INSERT INTO site_work_items (
+				site_id, source, domain, item_type, severity, summary,
+				spec, priority, handler_agent, status, created_by
+			) VALUES ($1, 'admin-approved', 'build', $2, 'high', $3, $4::jsonb, 10, $5, 'triaged', 'admin')
+			RETURNING id
+		`, siteID, followItemType,
+			fmt.Sprintf("Approved: %s", followItemType),
+			string(followSpecJSON), followHandler).Scan(&newID)
+
+		if err != nil {
+			h.logger.Warn("Failed to create follow-on work item",
+				zap.String("item_id", itemID.String()),
+				zap.Error(err))
+			// Non-fatal — the spec is already saved
+		} else {
+			id := newID.String()
+			followOnID = &id
+			h.logger.Info("Follow-on work item created",
+				zap.String("follow_on_id", id),
+				zap.String("item_type", followItemType),
+				zap.String("handler", followHandler))
+		}
+	}
+
+	// ── Step 3: Mark review item complete ────────────────────────────────
+	resolution := "Approved via admin dashboard"
+	if body.Notes != "" {
+		resolution = body.Notes
+	}
+
+	_, err = h.db.ExecContext(ctx, `
+		UPDATE site_work_items
+		SET status = 'complete',
+		    completed_at = NOW(),
+		    result = jsonb_build_object(
+		        'resolution', $2,
+		        'approved_by', 'admin',
+		        'follow_on_item', $3
+		    ),
+		    updated_at = NOW()
+		WHERE id = $1
+	`, itemID, resolution, followOnID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	result := gin.H{
+		"approved": true,
+		"id":       itemID.String(),
+		"site_id":  siteID.String(),
+	}
+	if specAspect != "" {
+		result["spec_updated"] = specAspect
+	}
+	if followOnID != nil {
+		result["follow_on_item_id"] = *followOnID
+	}
+
+	c.JSON(http.StatusOK, result)
+}
