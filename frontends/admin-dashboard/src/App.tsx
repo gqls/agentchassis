@@ -2,446 +2,479 @@ import { useState, useEffect, useCallback } from "react";
 
 const API_BASE = "/api/v1/admin";
 
-// Mock data for preview — remove when connected to real API
-const MOCK = {
-    sites: [
-        { id: "1368e337", domain: "finetuning.uk", company_name: "FineTuning", status: "deployed", email: "finetuning@contactforsales.com", work_items: { done: 75, active: 1, ready: 4, review: 2, failed: 0, blocked: 0 } },
-        { id: "5fe15466", domain: "gaswholesalers.com", company_name: "Gas Wholesalers", status: "deployed", email: "gas@contactforsales.com", work_items: { done: 75, active: 0, ready: 6, review: 1, failed: 0, blocked: 0 } },
-        { id: "2a8ebf9c", domain: "ai-agent-orchestration.com", company_name: "AI Agent Orchestration", status: "deployed", email: "agents@contactforsales.com", work_items: { done: 32, active: 1, ready: 6, review: 0, failed: 0, blocked: 0 } },
-        { id: "4851f6fc", domain: "leopardessconsulting.co.uk", company_name: "Leopardess Consulting", status: "deployed", email: "leopardess@contactforsales.com", work_items: { done: 33, active: 1, ready: 18, review: 0, failed: 0, blocked: 0 } },
-    ],
-    reviewItems: [
-        { id: "aaa-111", site_id: "1368e337", domain: "finetuning.uk", item_type: "placeholder_content", status: "needs_human_review", summary: "Page about has placeholder content that needs real data", spec: { page_name: "about", section: "leadership-team", missing_data: "Team member names, titles, photos, bios" }, created_at: "2026-03-12T20:00:00Z" },
-        { id: "aaa-222", site_id: "1368e337", domain: "finetuning.uk", item_type: "placeholder_content", status: "needs_human_review", summary: "Page contact has placeholder content", spec: { page_name: "contact", missing_data: "Contact form configuration" }, created_at: "2026-03-12T20:01:00Z" },
-        { id: "aaa-333", site_id: "5fe15466", domain: "gaswholesalers.com", item_type: "placeholder_content", status: "needs_human_review", summary: "Page contact has placeholder content", spec: { page_name: "contact", missing_data: "Contact address details" }, created_at: "2026-03-12T20:02:00Z" },
-    ],
-};
-
-const useMock = true; // Toggle to false when API is connected
-
-async function api(path, options = {}) {
-    if (useMock) return null;
+// ── API helpers ──────────────────────────────────────────────────────────────
+async function apiFetch(path, token, opts = {}) {
     const res = await fetch(`${API_BASE}${path}`, {
-        headers: { "Content-Type": "application/json", ...options.headers },
-        ...options,
+        ...opts,
+        headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+            ...(opts.headers || {}),
+        },
     });
-    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+    if (res.status === 401) throw new Error("UNAUTHORIZED");
+    if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || res.statusText);
+    }
     return res.json();
 }
 
-// ============================================================================
-// Components
-// ============================================================================
+// ── Status badge colours ─────────────────────────────────────────────────────
+const STATUS_COLORS = {
+    triaged: { bg: "#dbeafe", text: "#1e40af", label: "Triaged" },
+    claimed: { bg: "#fef3c7", text: "#92400e", label: "Claimed" },
+    needs_human_review: { bg: "#fce7f3", text: "#9d174d", label: "Needs Review" },
+    failed: { bg: "#fee2e2", text: "#991b1b", label: "Failed" },
+    blocked: { bg: "#f3e8ff", text: "#6b21a8", label: "Blocked" },
+    complete: { bg: "#d1fae5", text: "#065f46", label: "Complete" },
+    detected: { bg: "#e0e7ff", text: "#3730a3", label: "Detected" },
+};
 
-function Badge({ children, variant = "default" }) {
-    const colors = {
-        default: "bg-gray-100 text-gray-700",
-        success: "bg-emerald-50 text-emerald-700",
-        warning: "bg-amber-50 text-amber-700",
-        error: "bg-red-50 text-red-700",
-        info: "bg-blue-50 text-blue-700",
-        review: "bg-purple-50 text-purple-700",
-    };
+const SEVERITY_COLORS = {
+    high: { bg: "#fee2e2", text: "#991b1b" },
+    medium: { bg: "#fef3c7", text: "#92400e" },
+    low: { bg: "#e0e7ff", text: "#3730a3" },
+};
+
+function Badge({ status, type = "status" }) {
+    const map = type === "severity" ? SEVERITY_COLORS : STATUS_COLORS;
+    const c = map[status] || { bg: "#f3f4f6", text: "#374151" };
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colors[variant] || colors.default}`}>
-      {children}
+        <span style={{
+            display: "inline-block", padding: "2px 10px", borderRadius: 9999,
+            fontSize: 12, fontWeight: 600, letterSpacing: 0.3,
+            backgroundColor: c.bg, color: c.text, whiteSpace: "nowrap",
+        }}>
+      {c.label || status}
     </span>
     );
 }
 
-function StatusBadge({ status }) {
-    const map = {
-        complete: { label: "Complete", variant: "success" },
-        triaged: { label: "Ready", variant: "info" },
-        claimed: { label: "Active", variant: "warning" },
-        needs_human_review: { label: "Needs Review", variant: "review" },
-        failed: { label: "Failed", variant: "error" },
-        blocked: { label: "Blocked", variant: "error" },
-        deployed: { label: "Deployed", variant: "success" },
-        active: { label: "Active", variant: "info" },
-    };
-    const { label, variant } = map[status] || { label: status, variant: "default" };
-    return <Badge variant={variant}>{label}</Badge>;
-}
+// ── Login ────────────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
-function Card({ children, className = "", onClick }) {
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError("");
+        try {
+            const res = await fetch("/api/v1/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
+            if (!res.ok) throw new Error("Invalid credentials");
+            const data = await res.json();
+            if (data.user?.role !== "admin") throw new Error("Admin access required");
+            onLogin(data.access_token, data.user);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
-        <div
-            onClick={onClick}
-            className={`bg-white rounded-lg border border-gray-200 p-4 ${onClick ? "cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all" : ""} ${className}`}
-        >
-            {children}
+        <div style={{
+            minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+            background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+            fontFamily: "'IBM Plex Sans', -apple-system, sans-serif",
+        }}>
+            <form onSubmit={handleSubmit} style={{
+                background: "#fff", borderRadius: 12, padding: "40px 36px", width: 380,
+                boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+            }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", letterSpacing: 1.5, marginBottom: 4 }}>PERSONAE</div>
+                <h2 style={{ margin: "0 0 24px", fontSize: 22, color: "#0f172a" }}>Admin Dashboard</h2>
+                {error && <div style={{ background: "#fee2e2", color: "#991b1b", padding: "8px 12px", borderRadius: 6, fontSize: 13, marginBottom: 16 }}>{error}</div>}
+                <label style={labelStyle}>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} required />
+                <label style={labelStyle}>Password</label>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} required />
+                <button type="submit" disabled={loading} style={{
+                    ...btnPrimary, width: "100%", marginTop: 8, opacity: loading ? 0.7 : 1,
+                }}>
+                    {loading ? "Signing in…" : "Sign In"}
+                </button>
+            </form>
         </div>
     );
 }
 
-function Button({ children, variant = "primary", size = "md", onClick, disabled }) {
-    const base = "inline-flex items-center justify-center rounded font-medium transition-colors";
-    const variants = {
-        primary: "bg-gray-900 text-white hover:bg-gray-800",
-        secondary: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50",
-        danger: "bg-red-600 text-white hover:bg-red-700",
-        ghost: "text-gray-600 hover:text-gray-900 hover:bg-gray-100",
-    };
-    const sizes = {
-        sm: "px-2.5 py-1.5 text-xs",
-        md: "px-3 py-2 text-sm",
-        lg: "px-4 py-2.5 text-base",
-    };
-    return (
-        <button
-            onClick={onClick}
-            disabled={disabled}
-            className={`${base} ${variants[variant]} ${sizes[size]} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-        >
-            {children}
-        </button>
-    );
-}
-
-// ============================================================================
-// Site Dashboard
-// ============================================================================
-
-function SiteDashboard({ sites, onSelectSite, reviewCount }) {
+// ── Sites Overview ───────────────────────────────────────────────────────────
+function SitesOverview({ sites, onSelectSite }) {
     return (
         <div>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Sites</h2>
-                    <p className="text-sm text-gray-500 mt-0.5">{sites.length} sites managed</p>
-                </div>
-                {reviewCount > 0 && (
-                    <Badge variant="review">{reviewCount} items need review</Badge>
-                )}
-            </div>
-
-            <div className="space-y-3">
-                {sites.map((site) => {
-                    const wi = site.work_items || {};
-                    const total = Object.values(wi).reduce((a, b) => a + b, 0);
-                    const pct = total > 0 ? Math.round((wi.done / total) * 100) : 0;
-
-                    return (
-                        <Card key={site.id} onClick={() => onSelectSite(site)}>
-                            <div className="flex items-start justify-between">
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="font-medium text-gray-900 truncate">{site.domain}</h3>
-                                        <StatusBadge status={site.status} />
-                                    </div>
-                                    <p className="text-sm text-gray-500 mt-0.5">{site.company_name || "—"}</p>
-                                </div>
-                                <div className="text-right flex-shrink-0 ml-4">
-                                    <div className="text-sm font-medium text-gray-900">{pct}%</div>
-                                    <div className="text-xs text-gray-500">{wi.done}/{total} items</div>
-                                </div>
+            <h2 style={sectionTitle}>Sites</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
+                {sites.map(site => (
+                    <div key={site.id} onClick={() => onSelectSite(site)} style={{
+                        background: "#fff", borderRadius: 10, padding: "20px 22px", cursor: "pointer",
+                        border: "1px solid #e2e8f0", transition: "box-shadow 0.15s",
+                    }}
+                         onMouseEnter={e => e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)"}
+                         onMouseLeave={e => e.currentTarget.style.boxShadow = "none"}
+                    >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                            <div>
+                                <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{site.domain}</div>
+                                <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>{site.company_name}</div>
                             </div>
-
-                            <div className="mt-3 flex gap-4 text-xs text-gray-500">
-                                {wi.active > 0 && <span className="text-amber-600">{wi.active} active</span>}
-                                {wi.ready > 0 && <span className="text-blue-600">{wi.ready} ready</span>}
-                                {wi.review > 0 && <span className="text-purple-600 font-medium">{wi.review} review</span>}
-                                {wi.failed > 0 && <span className="text-red-600">{wi.failed} failed</span>}
-                                {wi.blocked > 0 && <span className="text-red-600">{wi.blocked} blocked</span>}
-                            </div>
-
-                            {total > 0 && (
-                                <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-emerald-500 rounded-full transition-all"
-                                        style={{ width: `${pct}%` }}
-                                    />
-                                </div>
-                            )}
-                        </Card>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
-// ============================================================================
-// Review Queue
-// ============================================================================
-
-function ReviewQueue({ items, onSelectItem, onRetry, onResolve }) {
-    if (items.length === 0) {
-        return (
-            <div className="text-center py-12 text-gray-500">
-                <div className="text-3xl mb-2">✓</div>
-                <p className="font-medium">No items need review</p>
-                <p className="text-sm mt-1">All content has passed validation</p>
-            </div>
-        );
-    }
-
-    return (
-        <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Items Needing Review ({items.length})
-            </h2>
-            <div className="space-y-3">
-                {items.map((item) => (
-                    <Card key={item.id}>
-                        <div className="flex items-start justify-between">
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <Badge variant="review">{item.item_type}</Badge>
-                                    <span className="text-xs text-gray-400">{item.domain}</span>
-                                </div>
-                                <p className="text-sm font-medium text-gray-900">{item.summary}</p>
-                                {item.spec?.page_name && (
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Page: {item.spec.page_name}
-                                        {item.spec.section && ` → ${item.spec.section}`}
-                                    </p>
-                                )}
-                                {item.spec?.missing_data && (
-                                    <p className="text-xs text-amber-600 mt-1">
-                                        Missing: {item.spec.missing_data}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="flex gap-2 flex-shrink-0 ml-4">
-                                <Button size="sm" variant="secondary" onClick={() => onSelectItem(item)}>
-                                    Review
-                                </Button>
-                                <Button size="sm" variant="ghost" onClick={() => onRetry(item.id)}>
-                                    Retry
-                                </Button>
-                                <Button size="sm" variant="ghost" onClick={() => onResolve(item.id)}>
-                                    Dismiss
-                                </Button>
-                            </div>
+                            <Badge status={site.status} />
                         </div>
-                    </Card>
+                        <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
+                            {[
+                                { k: "review", label: "Review", color: "#9d174d" },
+                                { k: "failed", label: "Failed", color: "#991b1b" },
+                                { k: "active", label: "Active", color: "#92400e" },
+                                { k: "ready", label: "Ready", color: "#1e40af" },
+                                { k: "done", label: "Done", color: "#065f46" },
+                            ].map(({ k, label, color }) => (
+                                <div key={k} style={{ textAlign: "center" }}>
+                                    <div style={{ fontSize: 18, fontWeight: 700, color }}>{site.work_items?.[k] || 0}</div>
+                                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{label}</div>
+                                </div>
+                            ))}
+                        </div>
+                        {site.last_deployed && (
+                            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 12 }}>
+                                Last deployed: {new Date(site.last_deployed).toLocaleDateString()}
+                            </div>
+                        )}
+                    </div>
                 ))}
             </div>
         </div>
     );
 }
 
-// ============================================================================
-// Review Detail Panel
-// ============================================================================
+// ── Work Items List ──────────────────────────────────────────────────────────
+function WorkItemsList({ token, siteFilter, onBack }) {
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [statusFilter, setStatusFilter] = useState("needs_human_review");
+    const [typeFilter, setTypeFilter] = useState("");
+    const [selectedItem, setSelectedItem] = useState(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [message, setMessage] = useState("");
 
-function ReviewDetail({ item, siteSpecs, onUpdateSpec, onRetry, onResolve, onBack }) {
-    const [editData, setEditData] = useState("");
-    const [saving, setSaving] = useState(false);
-
-    useEffect(() => {
-        if (siteSpecs?.identity?.data) {
-            setEditData(JSON.stringify(siteSpecs.identity.data, null, 2));
-        }
-    }, [siteSpecs]);
-
-    const handleSaveAndRetry = async () => {
-        setSaving(true);
+    const loadItems = useCallback(async () => {
+        setLoading(true);
         try {
-            const parsed = JSON.parse(editData);
-            await onUpdateSpec(item.site_id, "identity", parsed);
-            await onRetry(item.id);
+            let path = `/work-items?domain=build`;
+            if (statusFilter) path += `&status=${statusFilter}`;
+            if (siteFilter?.id) path += `&site_id=${siteFilter.id}`;
+            if (typeFilter) path += `&item_type=${typeFilter}`;
+            const data = await apiFetch(path, token);
+            setItems(data.items || []);
         } catch (err) {
-            alert("Invalid JSON or save failed: " + err.message);
+            if (err.message === "UNAUTHORIZED") return;
+            console.error(err);
+        } finally {
+            setLoading(false);
         }
-        setSaving(false);
+    }, [token, statusFilter, siteFilter, typeFilter]);
+
+    useEffect(() => { loadItems(); }, [loadItems]);
+
+    const handleRetry = async (id) => {
+        setActionLoading(true);
+        try {
+            await apiFetch(`/work-items/${id}/retry`, token, { method: "POST" });
+            setMessage("Item queued for retry");
+            setSelectedItem(null);
+            loadItems();
+        } catch (err) { setMessage("Retry failed: " + err.message); }
+        finally { setActionLoading(false); }
     };
+
+    const handleResolve = async (id, resolution) => {
+        setActionLoading(true);
+        try {
+            await apiFetch(`/work-items/${id}/resolve`, token, {
+                method: "POST",
+                body: JSON.stringify({ resolution: resolution || "Resolved via admin dashboard" }),
+            });
+            setMessage("Item resolved");
+            setSelectedItem(null);
+            loadItems();
+        } catch (err) { setMessage("Resolve failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    const handleUpdateStatus = async (id, newStatus) => {
+        setActionLoading(true);
+        try {
+            await apiFetch(`/work-items/${id}`, token, {
+                method: "PATCH",
+                body: JSON.stringify({ status: newStatus }),
+            });
+            setMessage(`Status updated to ${newStatus}`);
+            setSelectedItem(null);
+            loadItems();
+        } catch (err) { setMessage("Update failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    // Unique item types from loaded items
+    const itemTypes = [...new Set(items.map(i => i.item_type))].sort();
 
     return (
         <div>
-            <button onClick={onBack} className="text-sm text-gray-500 hover:text-gray-900 mb-4 flex items-center gap-1">
-                ← Back to queue
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <button onClick={onBack} style={btnSecondary}>← Sites</button>
+                <h2 style={{ ...sectionTitle, margin: 0 }}>
+                    Work Items {siteFilter && <span style={{ fontWeight: 400, color: "#64748b" }}>— {siteFilter.domain}</span>}
+                </h2>
+            </div>
 
-            <Card className="mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="review">{item.item_type}</Badge>
-                    <span className="text-sm text-gray-500">{item.domain}</span>
+            {message && (
+                <div style={{
+                    background: "#d1fae5", color: "#065f46", padding: "8px 14px", borderRadius: 6,
+                    fontSize: 13, marginBottom: 12, display: "flex", justifyContent: "space-between",
+                }}>
+                    {message}
+                    <span onClick={() => setMessage("")} style={{ cursor: "pointer" }}>✕</span>
                 </div>
-                <h3 className="font-medium text-gray-900 mb-1">{item.summary}</h3>
-                {item.spec?.missing_data && (
-                    <p className="text-sm text-amber-600">Missing: {item.spec.missing_data}</p>
+            )}
+
+            {/* Filters */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selectStyle}>
+                    <option value="">All statuses</option>
+                    <option value="needs_human_review">Needs Review</option>
+                    <option value="triaged">Triaged</option>
+                    <option value="claimed">Claimed</option>
+                    <option value="failed">Failed</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="complete">Complete</option>
+                </select>
+                <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={selectStyle}>
+                    <option value="">All types</option>
+                    {itemTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <span style={{ fontSize: 13, color: "#64748b", alignSelf: "center" }}>
+          {items.length} items
+        </span>
+            </div>
+
+            {loading ? (
+                <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Loading…</div>
+            ) : items.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>No items found</div>
+            ) : (
+                <div style={{ display: "flex", gap: 16 }}>
+                    {/* Items list */}
+                    <div style={{ flex: selectedItem ? "0 0 50%" : "1", minWidth: 0 }}>
+                        {items.map(item => (
+                            <div key={item.id} onClick={() => setSelectedItem(item)}
+                                 style={{
+                                     background: selectedItem?.id === item.id ? "#f0f9ff" : "#fff",
+                                     border: `1px solid ${selectedItem?.id === item.id ? "#93c5fd" : "#e2e8f0"}`,
+                                     borderRadius: 8, padding: "14px 16px", marginBottom: 8, cursor: "pointer",
+                                     transition: "all 0.1s",
+                                 }}
+                            >
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 8 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 500, color: "#0f172a", lineHeight: 1.4, flex: 1 }}>
+                                        {item.summary?.slice(0, 100)}{item.summary?.length > 100 ? "…" : ""}
+                                    </div>
+                                    <Badge status={item.status} />
+                                </div>
+                                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+                                    <span style={{ fontSize: 11, color: "#64748b", background: "#f1f5f9", padding: "2px 8px", borderRadius: 4 }}>{item.item_type}</span>
+                                    <Badge status={item.severity} type="severity" />
+                                    <span style={{ fontSize: 11, color: "#94a3b8" }}>{item.domain}</span>
+                                    <span style={{ fontSize: 11, color: "#94a3b8" }}>{item.attempts}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Detail panel */}
+                    {selectedItem && (
+                        <div style={{
+                            flex: "0 0 48%", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10,
+                            padding: 20, position: "sticky", top: 16, maxHeight: "calc(100vh - 120px)", overflowY: "auto",
+                        }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+                                <h3 style={{ margin: 0, fontSize: 16, color: "#0f172a" }}>Item Detail</h3>
+                                <span onClick={() => setSelectedItem(null)} style={{ cursor: "pointer", color: "#94a3b8", fontSize: 18 }}>✕</span>
+                            </div>
+
+                            <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.6, marginBottom: 16 }}>{selectedItem.summary}</div>
+
+                            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 16px", fontSize: 13, marginBottom: 16 }}>
+                                <span style={detailLabel}>Status</span><Badge status={selectedItem.status} />
+                                <span style={detailLabel}>Type</span><span style={detailValue}>{selectedItem.item_type}</span>
+                                <span style={detailLabel}>Severity</span><Badge status={selectedItem.severity} type="severity" />
+                                <span style={detailLabel}>Domain</span><span style={detailValue}>{selectedItem.domain}</span>
+                                <span style={detailLabel}>Handler</span><span style={detailValue}>{selectedItem.handler_agent}</span>
+                                <span style={detailLabel}>Attempts</span><span style={detailValue}>{selectedItem.attempts}</span>
+                                <span style={detailLabel}>Created</span><span style={detailValue}>{new Date(selectedItem.created_at).toLocaleString()}</span>
+                                {selectedItem.error && <>
+                                    <span style={detailLabel}>Error</span>
+                                    <span style={{ ...detailValue, color: "#991b1b", fontSize: 12 }}>{selectedItem.error}</span>
+                                </>}
+                            </div>
+
+                            {/* Spec */}
+                            {selectedItem.spec && (
+                                <details style={{ marginBottom: 16 }}>
+                                    <summary style={{ fontSize: 13, fontWeight: 600, color: "#475569", cursor: "pointer", marginBottom: 8 }}>Spec</summary>
+                                    <pre style={{
+                                        background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6,
+                                        padding: 12, fontSize: 11, overflow: "auto", maxHeight: 200, lineHeight: 1.5,
+                                    }}>
+                    {JSON.stringify(selectedItem.spec, null, 2)}
+                  </pre>
+                                </details>
+                            )}
+
+                            {/* Actions */}
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                {["needs_human_review", "failed", "blocked"].includes(selectedItem.status) && (
+                                    <>
+                                        <button onClick={() => handleRetry(selectedItem.id)} disabled={actionLoading} style={btnPrimary}>
+                                            Retry
+                                        </button>
+                                        <button onClick={() => {
+                                            const reason = prompt("Resolution note (optional):");
+                                            handleResolve(selectedItem.id, reason);
+                                        }} disabled={actionLoading} style={btnSecondary}>
+                                            Resolve
+                                        </button>
+                                    </>
+                                )}
+                                {selectedItem.status === "triaged" && (
+                                    <button onClick={() => handleResolve(selectedItem.id, "Dismissed by admin")} disabled={actionLoading} style={btnSecondary}>
+                                        Dismiss
+                                    </button>
+                                )}
+                                {selectedItem.status === "blocked" && (
+                                    <button onClick={() => handleUpdateStatus(selectedItem.id, "triaged")} disabled={actionLoading} style={btnSecondary}>
+                                        Unblock → Triaged
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ── Main App ─────────────────────────────────────────────────────────────────
+export default function App() {
+    const [token, setToken] = useState(() => sessionStorage.getItem("admin_token") || "");
+    const [user, setUser] = useState(null);
+    const [sites, setSites] = useState([]);
+    const [view, setView] = useState("sites"); // sites | items
+    const [selectedSite, setSelectedSite] = useState(null);
+    const [error, setError] = useState("");
+
+    const handleLogin = (tok, usr) => {
+        setToken(tok);
+        setUser(usr);
+        sessionStorage.setItem("admin_token", tok);
+    };
+
+    const handleLogout = () => {
+        setToken("");
+        setUser(null);
+        sessionStorage.removeItem("admin_token");
+    };
+
+    // Load sites
+    useEffect(() => {
+        if (!token) return;
+        apiFetch("/sites", token)
+            .then(data => setSites(data.sites || []))
+            .catch(err => {
+                if (err.message === "UNAUTHORIZED") handleLogout();
+                else setError(err.message);
+            });
+    }, [token]);
+
+    if (!token) return <LoginScreen onLogin={handleLogin} />;
+
+    return (
+        <div style={{
+            minHeight: "100vh", background: "#f8fafc",
+            fontFamily: "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+        }}>
+            {/* Top bar */}
+            <div style={{
+                background: "#0f172a", color: "#f1f5f9", padding: "0 24px",
+                display: "flex", alignItems: "center", justifyContent: "space-between", height: 52,
+            }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: 1.5, color: "#94a3b8" }}>PERSONAE</span>
+                    <span style={{ fontSize: 15, fontWeight: 500 }}>Admin</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <span style={{ fontSize: 12, color: "#94a3b8" }}>{user?.email || "admin"}</span>
+                    <button onClick={handleLogout} style={{
+                        background: "none", border: "1px solid #334155", color: "#94a3b8",
+                        padding: "4px 12px", borderRadius: 6, fontSize: 12, cursor: "pointer",
+                    }}>
+                        Logout
+                    </button>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 24px 60px" }}>
+                {error && (
+                    <div style={{ background: "#fee2e2", color: "#991b1b", padding: "10px 14px", borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
+                        {error}
+                        <span onClick={() => setError("")} style={{ float: "right", cursor: "pointer" }}>✕</span>
+                    </div>
                 )}
-                {item.spec?.fix_guidance && (
-                    <p className="text-sm text-gray-500 mt-1">{item.spec.fix_guidance}</p>
+
+                {view === "sites" && (
+                    <SitesOverview
+                        sites={sites}
+                        onSelectSite={(site) => { setSelectedSite(site); setView("items"); }}
+                    />
                 )}
-            </Card>
 
-            <Card className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Work Item Spec</h4>
-                <pre className="text-xs bg-gray-50 p-3 rounded border overflow-auto max-h-40">
-          {JSON.stringify(item.spec, null, 2)}
-        </pre>
-            </Card>
-
-            <Card className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">
-                    Site Identity Spec
-                    <span className="text-xs text-gray-400 ml-2">(edit to provide missing data)</span>
-                </h4>
-                <textarea
-                    value={editData}
-                    onChange={(e) => setEditData(e.target.value)}
-                    className="w-full h-64 text-xs font-mono bg-gray-50 p-3 rounded border resize-y focus:outline-none focus:ring-2 focus:ring-blue-200"
-                    spellCheck="false"
-                />
-            </Card>
-
-            <div className="flex gap-3">
-                <Button onClick={handleSaveAndRetry} disabled={saving}>
-                    {saving ? "Saving..." : "Save Spec & Retry"}
-                </Button>
-                <Button variant="secondary" onClick={() => onResolve(item.id)}>
-                    Dismiss (keep hidden)
-                </Button>
-                <Button variant="danger" onClick={() => onRetry(item.id)}>
-                    Retry Without Changes
-                </Button>
+                {view === "items" && (
+                    <WorkItemsList
+                        token={token}
+                        siteFilter={selectedSite}
+                        onBack={() => { setView("sites"); setSelectedSite(null); }}
+                    />
+                )}
             </div>
         </div>
     );
 }
 
-// ============================================================================
-// Main App
-// ============================================================================
-
-export default function SiteAdmin() {
-    const [view, setView] = useState("dashboard"); // dashboard | review | detail
-    const [sites, setSites] = useState([]);
-    const [reviewItems, setReviewItems] = useState([]);
-    const [selectedItem, setSelectedItem] = useState(null);
-    const [selectedSite, setSelectedSite] = useState(null);
-    const [siteSpecs, setSiteSpecs] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    const loadData = useCallback(async () => {
-        setLoading(true);
-        try {
-            if (useMock) {
-                setSites(MOCK.sites);
-                setReviewItems(MOCK.reviewItems);
-            } else {
-                const [sitesRes, itemsRes] = await Promise.all([
-                    api("/sites"),
-                    api("/work-items?status=needs_human_review"),
-                ]);
-                setSites(sitesRes.sites || []);
-                setReviewItems(itemsRes.items || []);
-            }
-        } catch (err) {
-            console.error("Failed to load data:", err);
-        }
-        setLoading(false);
-    }, []);
-
-    useEffect(() => { loadData(); }, [loadData]);
-
-    const loadSiteDetail = async (siteId) => {
-        if (useMock) {
-            setSiteSpecs({ identity: { data: { company_name: "FineTuning", email: "finetuning@contactforsales.com", phone: "+44 (0) 7934 524 911", leadership_team: [] } } });
-            return;
-        }
-        const data = await api(`/sites/${siteId}`);
-        setSiteSpecs(data.specs);
-    };
-
-    const handleSelectReviewItem = async (item) => {
-        setSelectedItem(item);
-        await loadSiteDetail(item.site_id);
-        setView("detail");
-    };
-
-    const handleUpdateSpec = async (siteId, aspect, data) => {
-        if (useMock) { console.log("Would update spec:", { siteId, aspect, data }); return; }
-        await api(`/sites/${siteId}/specs/${aspect}`, {
-            method: "PATCH",
-            body: JSON.stringify({ data }),
-        });
-    };
-
-    const handleRetry = async (itemId) => {
-        if (useMock) { console.log("Would retry:", itemId); }
-        else { await api(`/work-items/${itemId}/retry`, { method: "POST" }); }
-        setReviewItems((prev) => prev.filter((i) => i.id !== itemId));
-        setView("review");
-    };
-
-    const handleResolve = async (itemId) => {
-        if (useMock) { console.log("Would resolve:", itemId); }
-        else {
-            await api(`/work-items/${itemId}/resolve`, {
-                method: "POST",
-                body: JSON.stringify({ resolution: "Dismissed via admin UI" }),
-            });
-        }
-        setReviewItems((prev) => prev.filter((i) => i.id !== itemId));
-        if (view === "detail") setView("review");
-    };
-
-    const reviewCount = reviewItems.length;
-
-    return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-white border-b border-gray-200 px-6 py-3">
-                <div className="max-w-5xl mx-auto flex items-center justify-between">
-                    <div className="flex items-center gap-6">
-                        <h1 className="text-base font-semibold text-gray-900">Site Admin</h1>
-                        <nav className="flex gap-1">
-                            <button
-                                onClick={() => setView("dashboard")}
-                                className={`px-3 py-1.5 text-sm rounded ${view === "dashboard" ? "bg-gray-100 text-gray-900 font-medium" : "text-gray-500 hover:text-gray-700"}`}
-                            >
-                                Dashboard
-                            </button>
-                            <button
-                                onClick={() => setView("review")}
-                                className={`px-3 py-1.5 text-sm rounded flex items-center gap-1.5 ${view === "review" || view === "detail" ? "bg-gray-100 text-gray-900 font-medium" : "text-gray-500 hover:text-gray-700"}`}
-                            >
-                                Review Queue
-                                {reviewCount > 0 && (
-                                    <span className="bg-purple-100 text-purple-700 text-xs px-1.5 py-0.5 rounded-full font-medium">
-                    {reviewCount}
-                  </span>
-                                )}
-                            </button>
-                        </nav>
-                    </div>
-                    <Button size="sm" variant="ghost" onClick={loadData}>
-                        Refresh
-                    </Button>
-                </div>
-            </header>
-
-            <main className="max-w-5xl mx-auto px-6 py-6">
-                {loading ? (
-                    <div className="text-center py-12 text-gray-400">Loading...</div>
-                ) : view === "dashboard" ? (
-                    <SiteDashboard
-                        sites={sites}
-                        onSelectSite={(site) => { setSelectedSite(site); }}
-                        reviewCount={reviewCount}
-                    />
-                ) : view === "review" ? (
-                    <ReviewQueue
-                        items={reviewItems}
-                        onSelectItem={handleSelectReviewItem}
-                        onRetry={handleRetry}
-                        onResolve={handleResolve}
-                    />
-                ) : view === "detail" && selectedItem ? (
-                    <ReviewDetail
-                        item={selectedItem}
-                        siteSpecs={siteSpecs}
-                        onUpdateSpec={handleUpdateSpec}
-                        onRetry={handleRetry}
-                        onResolve={handleResolve}
-                        onBack={() => setView("review")}
-                    />
-                ) : null}
-            </main>
-        </div>
-    );
-}
+// ── Shared styles ────────────────────────────────────────────────────────────
+const labelStyle = { display: "block", fontSize: 13, fontWeight: 500, color: "#475569", marginBottom: 4, marginTop: 12 };
+const inputStyle = {
+    width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8,
+    fontSize: 14, outline: "none", boxSizing: "border-box",
+};
+const selectStyle = {
+    padding: "7px 12px", border: "1px solid #cbd5e1", borderRadius: 6,
+    fontSize: 13, background: "#fff", color: "#334155", outline: "none", cursor: "pointer",
+};
+const btnPrimary = {
+    padding: "8px 18px", background: "#1e40af", color: "#fff", border: "none",
+    borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: "pointer",
+};
+const btnSecondary = {
+    padding: "8px 18px", background: "#fff", color: "#334155", border: "1px solid #cbd5e1",
+    borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: "pointer",
+};
+const sectionTitle = { fontSize: 20, fontWeight: 600, color: "#0f172a", marginBottom: 16 };
+const detailLabel = { color: "#64748b", fontWeight: 500 };
+const detailValue = { color: "#0f172a" };

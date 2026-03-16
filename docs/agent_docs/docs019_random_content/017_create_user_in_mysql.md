@@ -97,3 +97,33 @@ Extra data: line 1 column 5 (char 4)
 debug
 Raw response first:
 curl -s http://localhost:8088/api/v1/admin/sites -H "Authorization: Bearer $TOKEN"
+
+
+---------------------------------------------------------------------------------------------------------
+
+start process, get token etc
+Kill the old port-forward and test:
+
+pkill -f "port-forward svc/core-manager"
+sleep 1
+kubectl -n ai-persona-system port-forward svc/core-manager 8088:8088 &
+sleep 2
+
+# Get fresh token
+TOKEN=$(kubectl -n ai-persona-system exec -it $(kubectl -n ai-persona-system get pod -l app=auth-service -o jsonpath='{.items[0].metadata.name}') -- wget -qO- \
+http://localhost:8081/api/v1/auth/login \
+--post-data='{"email":"uk@websy.uk","password":"AdminPass2026xyz"}' \
+--header='Content-Type: application/json' 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+echo "TOKEN=$TOKEN"
+
+# Test sites endpoint
+curl -s http://localhost:8088/api/v1/admin/sites -H "Authorization: Bearer $TOKEN" | python3 -m json.tool | head -40
+
+
+The API is live and returning real data. Let's test the work items endpoint too:
+curl -s "http://localhost:8088/api/v1/admin/work-items?status=needs_human_review" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+
+curl -s "http://localhost:8088/api/v1/admin/work-items?status=triaged&site_id=1368e337-dd1d-4799-bbb3-8221a1b79bcc" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool | head -40
+
+----------------------------------------------------------------------------------------------------------

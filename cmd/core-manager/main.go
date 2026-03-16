@@ -90,7 +90,7 @@ func main() {
 		appLogger.Fatal("Failed to connect to clients database", zap.Error(err))
 	}
 	defer clientsDB.Close()
-	
+
 	// --- Step 4b: Initialize and Start the API Server ---
 	//apiServer, err := api.NewServer(ctx, cfg, appLogger, templatesPool, clientsPool)
 	apiServer, err := api.NewServer(ctx, cfg, appLogger, templatesDB, clientsDB)
