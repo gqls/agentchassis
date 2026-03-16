@@ -90,14 +90,7 @@ func main() {
 		appLogger.Fatal("Failed to connect to clients database", zap.Error(err))
 	}
 	defer clientsDB.Close()
-
-	// --- Step 4a: Initialize Kafka Topics ---
-	// This ensures all system topics and agent topics exist
-	if err := initializeKafkaTopics(ctx, cfg, appLogger, clientsDB); err != nil {
-		appLogger.Warn("Topic initialization encountered errors", zap.Error(err))
-		// Don't fail startup - topics can be created on-demand
-	}
-
+	
 	// --- Step 4b: Initialize and Start the API Server ---
 	//apiServer, err := api.NewServer(ctx, cfg, appLogger, templatesPool, clientsPool)
 	apiServer, err := api.NewServer(ctx, cfg, appLogger, templatesDB, clientsDB)
@@ -113,6 +106,13 @@ func main() {
 			cancel() // Trigger shutdown on server error
 		}
 	}()
+
+	// --- Step 4a: Initialize Kafka Topics ---
+	// This ensures all system topics and agent topics exist
+	if err := initializeKafkaTopics(ctx, cfg, appLogger, clientsDB); err != nil {
+		appLogger.Warn("Topic initialization encountered errors", zap.Error(err))
+		// Don't fail startup - topics can be created on-demand
+	}
 
 	// --- Step 5: Handle Graceful Shutdown ---
 	sigCh := make(chan os.Signal, 1)
