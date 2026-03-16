@@ -13,8 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.874
-DASHBOARD_TAG   ?= v1.0.2
+IMAGE_TAG ?= v1.0.875
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -833,9 +832,7 @@ deploy-frontends: ## Deploy all frontend applications
 	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/agent-playground/overlays/$(OVERLAY_PATH)
 
 .PHONY: deploy-admin-dashboard
-deploy-admin-dashboard: ## Deploy admin-dashboard only
-	@echo "$(GREEN)Deploying admin-dashboard...$(NC)"
-	kubectl apply -k $(KUSTOMIZE_DIR)/frontends/admin-dashboard/overlays/$(OVERLAY_PATH)
+deploy-admin-dashboard: deploy-dashboard ## Deploy admin-dashboard (alias)
 
 .PHONY: deploy-user-portal
 deploy-user-portal: ## Deploy user-portal only
@@ -1805,33 +1802,46 @@ cleanup-topics-all:
 
 
 # ── Admin Dashboard (API Gateway + SPA) ────────────────────────────────────
-DASHBOARD_IMAGE := docker.io/aqls/admin-dashboard
-# DASHBOARD_TAG   ?= latest
+# ── Admin Dashboard ────────────────────────────────────────────────────────
+# Follows the same build/push/deploy pattern as other services.
+# Uses IMAGE_TAG (same version as core-manager, agents, etc.)
 
-build-dashboard:
-	@echo "Building admin dashboard..."
-	docker build -t $(DASHBOARD_IMAGE):$(DASHBOARD_TAG) -f frontends/admin-dashboard/Dockerfile frontends/admin-dashboard/
-	@echo "Built $(DASHBOARD_IMAGE):$(DASHBOARD_TAG)"
+.PHONY: build-dashboard
+build-dashboard: ## Build admin-dashboard Docker image
+	@echo "$(YELLOW)Building admin-dashboard...$(NC)"
+	docker build -t $(REGISTRY)/admin-dashboard:$(IMAGE_TAG) \
+		-f frontends/admin-dashboard/Dockerfile frontends/admin-dashboard/
+	@echo "Built $(REGISTRY)/admin-dashboard:$(IMAGE_TAG)"
 
-push-dashboard:
-	@echo "Pushing admin dashboard..."
-	docker push $(DASHBOARD_IMAGE):$(DASHBOARD_TAG)
+.PHONY: push-dashboard
+push-dashboard: ## Push admin-dashboard image
+	@echo "$(YELLOW)Pushing admin-dashboard...$(NC)"
+	docker push $(REGISTRY)/admin-dashboard:$(IMAGE_TAG)
 
-deploy-dashboard:
-	@echo "Deploying admin dashboard..."
+.PHONY: deploy-dashboard
+deploy-dashboard: ## Deploy admin-dashboard (updates image tag in kustomize)
+	@echo "$(GREEN)Deploying admin-dashboard...$(NC)"
+	@cd $(KUSTOMIZE_DIR)/services/admin-dashboard/overlays/$(OVERLAY_PATH) && \
+		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml && \
+		rm -f kustomization.yaml.bak
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k \
-		deployments/kustomize/services/admin-dashboard/overlays/production/uk_001
-	@echo "Dashboard deployed."
+		$(KUSTOMIZE_DIR)/services/admin-dashboard/overlays/$(OVERLAY_PATH)
+	@echo "Dashboard deployed with tag $(IMAGE_TAG)"
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system rollout status deployment/admin-dashboard
 
-dashboard-logs:
+.PHONY: dashboard-logs
+dashboard-logs: ## Tail admin-dashboard logs
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system logs -l app=admin-dashboard --tail=30 -f
 
-dashboard-port-forward:
+.PHONY: dashboard-port-forward
+dashboard-port-forward: ## Port forward admin dashboard to localhost:8080
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system port-forward svc/admin-dashboard 8080:8080
 
-release-dashboard: build-dashboard push-dashboard deploy-dashboard
+.PHONY: release-dashboard
+release-dashboard: build-dashboard push-dashboard deploy-dashboard ## Build, push and deploy admin-dashboard
 
-# Local dev — Vite dev server with proxy to port-forwarded core-manager
-dev-dashboard:
+.PHONY: dev-dashboard
+dev-dashboard: ## Run Vite dev server for local dashboard development
 	cd frontends/admin-dashboard && npm install && npm run dev
+
+

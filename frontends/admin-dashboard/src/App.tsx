@@ -327,12 +327,24 @@ function WorkItemsList({ token, siteFilter, onBack }) {
 
     useEffect(() => { loadItems(); }, [loadItems]);
 
-    // When selecting a checkpoint item, initialise the editable review data
+    // When selecting a review item, initialise the editable data
     const selectItem = (item) => {
         setSelectedItem(item);
         setApproveNotes("");
-        if (item?.spec?.checkpoint && item?.spec?.review_data) {
-            setEditedReviewData(JSON.parse(JSON.stringify(item.spec.review_data)));
+        if (item?.status === "needs_human_review" && item?.spec) {
+            if (item.spec.checkpoint && item.spec.review_data) {
+                // Checkpoint items: edit the review_data
+                setEditedReviewData(JSON.parse(JSON.stringify(item.spec.review_data)));
+            } else if (!item.spec.checkpoint) {
+                // Non-checkpoint review items (placeholder_content, etc): edit the spec directly
+                // Strip internal/routing fields the admin doesn't need to see
+                const editableSpec = { ...item.spec };
+                delete editableSpec.check;
+                delete editableSpec.original_domain;
+                setEditedReviewData(JSON.parse(JSON.stringify(editableSpec)));
+            } else {
+                setEditedReviewData(null);
+            }
         } else {
             setEditedReviewData(null);
         }
@@ -401,9 +413,68 @@ function WorkItemsList({ token, siteFilter, onBack }) {
         finally { setActionLoading(false); }
     };
 
+    // Save edited data and create a rebuild work item for non-checkpoint review items
+    const handleSaveAndRebuild = async (item) => {
+        if (!editedReviewData) {
+            setMessage("No data to save");
+            return;
+        }
+        setActionLoading(true);
+        try {
+            // Step 1: If the edited data has site-level fields, update the site
+            const siteFields = {};
+            const siteFieldNames = ["email", "phone", "contact_address", "company_name", "tagline", "logo_text"];
+            for (const f of siteFieldNames) {
+                if (editedReviewData[f] !== undefined && editedReviewData[f] !== item.spec?.[f]) {
+                    siteFields[f] = editedReviewData[f];
+                }
+            }
+            if (Object.keys(siteFields).length > 0) {
+                await apiFetch(`/sites/${item.site_id}`, token, {
+                    method: "PATCH",
+                    body: JSON.stringify(siteFields),
+                });
+            }
+
+            // Step 2: Update the work item spec with the edited data
+            await apiFetch(`/work-items/${item.id}`, token, {
+                method: "PATCH",
+                body: JSON.stringify({ spec: editedReviewData }),
+            });
+
+            // Step 3: Create a rebuild work item for the affected page
+            const pageId = editedReviewData.page_id || item.spec?.page_id;
+            const pageName = editedReviewData.page_name || item.spec?.page_name || "unknown";
+            await apiFetch(`/work-items`, token, {
+                method: "POST",
+                body: JSON.stringify({
+                    site_id: item.site_id,
+                    item_type: "content_rewrite",
+                    summary: `Rebuild ${pageName} page with corrected data`,
+                    severity: "high",
+                    handler_agent: "page-build-handler",
+                    page_id: pageId || undefined,
+                    priority: 10,
+                }),
+            });
+
+            // Step 4: Resolve the review item
+            await apiFetch(`/work-items/${item.id}/resolve`, token, {
+                method: "POST",
+                body: JSON.stringify({ resolution: "Data corrected, rebuild queued" }),
+            });
+
+            setMessage(`Updated — rebuild queued for ${pageName}`);
+            selectItem(null);
+            loadItems();
+        } catch (err) { setMessage("Save failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
     // Unique item types from loaded items
     const itemTypes = [...new Set(items.map(i => i.item_type))].sort();
     const isCheckpoint = selectedItem?.spec?.checkpoint === true;
+    const isEditable = selectedItem?.status === "needs_human_review" && editedReviewData != null;
 
     return (
         <div>
@@ -473,6 +544,9 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                     {item.spec?.checkpoint && (
                                         <span style={{ fontSize: 11, color: "#7c3aed", background: "#ede9fe", padding: "2px 8px", borderRadius: 4 }}>checkpoint</span>
                                     )}
+                                    {!item.spec?.checkpoint && item.status === "needs_human_review" && (
+                                        <span style={{ fontSize: 11, color: "#9d174d", background: "#fce7f3", padding: "2px 8px", borderRadius: 4 }}>needs input</span>
+                                    )}
                                     <span style={{ fontSize: 11, color: "#94a3b8" }}>{item.domain}</span>
                                     <span style={{ fontSize: 11, color: "#94a3b8" }}>{item.attempts}</span>
                                 </div>
@@ -488,7 +562,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                         }}>
                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
                                 <h3 style={{ margin: 0, fontSize: 16, color: "#0f172a" }}>
-                                    {isCheckpoint ? "Review & Approve" : "Item Detail"}
+                                    {isCheckpoint ? "Review & Approve" : isEditable ? "Review & Correct" : "Item Detail"}
                                 </h3>
                                 <span onClick={() => selectItem(null)} style={{ cursor: "pointer", color: "#94a3b8", fontSize: 18 }}>✕</span>
                             </div>
@@ -513,13 +587,18 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                 </>}
                             </div>
 
-                            {/* Checkpoint: editable review form */}
-                            {isCheckpoint && editedReviewData && (
+                            {/* Editable form for all needs_human_review items */}
+                            {isEditable && editedReviewData && (
                                 <div style={{ marginBottom: 16 }}>
                                     <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 10 }}>
-                                        Review Data
+                                        {isCheckpoint ? "Review Data" : "Item Data"}
                                         {selectedItem.spec?.spec_aspect && (
                                             <span style={{ fontWeight: 400, color: "#94a3b8" }}> — will update spec '{selectedItem.spec.spec_aspect}'</span>
+                                        )}
+                                        {selectedItem.spec?.fix_guidance && (
+                                            <div style={{ fontWeight: 400, fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                                                {selectedItem.spec.fix_guidance}
+                                            </div>
                                         )}
                                     </div>
                                     <div style={{
@@ -532,7 +611,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                         />
                                     </div>
 
-                                    {selectedItem.spec?.on_approve && (
+                                    {isCheckpoint && selectedItem.spec?.on_approve && (
                                         <div style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
                                             On approve: creates <strong>{selectedItem.spec.on_approve.item_type || "follow-on"}</strong> item
                                             {selectedItem.spec.on_approve.handler_agent && (
@@ -541,21 +620,23 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                         </div>
                                     )}
 
-                                    <div style={{ marginTop: 12 }}>
-                                        <label style={formLabelStyle}>Notes (optional)</label>
-                                        <input
-                                            type="text"
-                                            value={approveNotes}
-                                            onChange={e => setApproveNotes(e.target.value)}
-                                            placeholder="Approval notes..."
-                                            style={formInputStyle}
-                                        />
-                                    </div>
+                                    {isCheckpoint && (
+                                        <div style={{ marginTop: 12 }}>
+                                            <label style={formLabelStyle}>Notes (optional)</label>
+                                            <input
+                                                type="text"
+                                                value={approveNotes}
+                                                onChange={e => setApproveNotes(e.target.value)}
+                                                placeholder="Approval notes..."
+                                                style={formInputStyle}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
-                            {/* Non-checkpoint: read-only spec */}
-                            {!isCheckpoint && selectedItem.spec && (
+                            {/* Read-only spec for non-editable items */}
+                            {!isEditable && selectedItem.spec && (
                                 <details style={{ marginBottom: 16 }}>
                                     <summary style={{ fontSize: 13, fontWeight: 600, color: "#475569", cursor: "pointer", marginBottom: 8 }}>Spec</summary>
                                     <pre style={{
@@ -578,10 +659,19 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                     </button>
                                 )}
 
+                                {/* Non-checkpoint editable items: save & rebuild */}
+                                {isEditable && !isCheckpoint && selectedItem.status === "needs_human_review" && (
+                                    <button onClick={() => handleSaveAndRebuild(selectedItem)} disabled={actionLoading} style={{
+                                        ...btnPrimary, background: "#059669",
+                                    }}>
+                                        Save & Rebuild
+                                    </button>
+                                )}
+
                                 {/* Standard actions */}
                                 {["needs_human_review", "failed", "blocked"].includes(selectedItem.status) && (
                                     <>
-                                        {!isCheckpoint && (
+                                        {!isCheckpoint && !isEditable && (
                                             <button onClick={() => handleRetry(selectedItem.id)} disabled={actionLoading} style={btnPrimary}>
                                                 Retry
                                             </button>
@@ -590,7 +680,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                             const reason = prompt("Resolution note (optional):");
                                             handleResolve(selectedItem.id, reason);
                                         }} disabled={actionLoading} style={btnSecondary}>
-                                            {isCheckpoint ? "Reject / Skip" : "Resolve"}
+                                            {isCheckpoint ? "Reject / Skip" : isEditable ? "Skip / Resolve" : "Resolve"}
                                         </button>
                                     </>
                                 )}
