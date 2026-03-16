@@ -69,20 +69,71 @@ function EditableReviewForm({ reviewData, onChange }) {
             {Object.entries(reviewData).map(([key, value]) => {
                 const label = key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
-                // Arrays of objects (e.g. services) → JSON editor
+                // Arrays of objects (e.g. team_members, services) → structured editor
                 if (Array.isArray(value) && value.length > 0 && typeof value[0] === "object") {
                     return (
                         <div key={key}>
                             <label style={formLabelStyle}>{label}</label>
-                            <textarea
-                                value={JSON.stringify(value, null, 2)}
-                                onChange={e => {
-                                    try {
-                                        handleFieldChange(key, JSON.parse(e.target.value));
-                                    } catch { /* let them keep typing */ }
-                                }}
-                                style={{ ...textareaStyle, minHeight: 120 }}
-                            />
+                            {value.map((entry, idx) => (
+                                <div key={idx} style={{
+                                    background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6,
+                                    padding: 12, marginBottom: 8,
+                                }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                                        <span style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8" }}>#{idx + 1}</span>
+                                        {value.length > 1 && (
+                                            <button onClick={() => {
+                                                const updated = [...value];
+                                                updated.splice(idx, 1);
+                                                handleFieldChange(key, updated);
+                                            }} style={{ fontSize: 11, color: "#991b1b", background: "none", border: "none", cursor: "pointer" }}>
+                                                Remove
+                                            </button>
+                                        )}
+                                    </div>
+                                    {Object.keys(entry).map(subKey => (
+                                        <div key={subKey} style={{ marginBottom: 6 }}>
+                                            <label style={{ ...formLabelStyle, fontSize: 11 }}>
+                                                {subKey.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                                            </label>
+                                            {String(entry[subKey] || "").length > 80 ? (
+                                                <textarea
+                                                    value={entry[subKey] || ""}
+                                                    onChange={e => {
+                                                        const updated = [...value];
+                                                        updated[idx] = { ...updated[idx], [subKey]: e.target.value };
+                                                        handleFieldChange(key, updated);
+                                                    }}
+                                                    style={{ ...textareaStyle, minHeight: 50 }}
+                                                />
+                                            ) : (
+                                                <input
+                                                    type="text"
+                                                    value={entry[subKey] || ""}
+                                                    onChange={e => {
+                                                        const updated = [...value];
+                                                        updated[idx] = { ...updated[idx], [subKey]: e.target.value };
+                                                        handleFieldChange(key, updated);
+                                                    }}
+                                                    style={formInputStyle}
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ))}
+                            <button onClick={() => {
+                                // Add a new entry with same shape as existing entries
+                                const template = {};
+                                Object.keys(value[0]).forEach(k => template[k] = "");
+                                handleFieldChange(key, [...value, template]);
+                            }} style={{
+                                fontSize: 12, color: "#1e40af", background: "none",
+                                border: "1px dashed #93c5fd", borderRadius: 6,
+                                padding: "6px 12px", cursor: "pointer", width: "100%",
+                            }}>
+                                + Add {label.replace(/s$/, "")}
+                            </button>
                         </div>
                     );
                 }
@@ -335,9 +386,11 @@ function WorkItemsList({ token, siteFilter, onBack }) {
             if (item.spec.checkpoint && item.spec.review_data) {
                 // Checkpoint items: edit the review_data
                 setEditedReviewData(JSON.parse(JSON.stringify(item.spec.review_data)));
+            } else if (item.item_type === "placeholder_content") {
+                // Placeholder content: build input form based on page type and missing_data
+                setEditedReviewData(buildPlaceholderForm(item));
             } else if (!item.spec.checkpoint) {
-                // Non-checkpoint review items (placeholder_content, etc): edit the spec directly
-                // Strip internal/routing fields the admin doesn't need to see
+                // Other review items: edit the spec directly (strip internal fields)
                 const editableSpec = { ...item.spec };
                 delete editableSpec.check;
                 delete editableSpec.original_domain;
@@ -349,6 +402,61 @@ function WorkItemsList({ token, siteFilter, onBack }) {
             setEditedReviewData(null);
         }
     };
+
+    // Build an appropriate input form for placeholder_content items
+    // based on the page name and missing_data hint
+    function buildPlaceholderForm(item) {
+        const pageName = item.spec?.page_name || "";
+        const missingData = (item.spec?.missing_data || "").toLowerCase();
+
+        // Contact page
+        if (pageName === "contact" || missingData.includes("contact") || missingData.includes("email")) {
+            return {
+                email: "",
+                phone: "",
+                contact_address: "",
+                opening_hours: "",
+                contact_form_note: "",
+            };
+        }
+
+        // About page
+        if (pageName === "about" || missingData.includes("team") || missingData.includes("bio")) {
+            return {
+                company_description: "",
+                team_members: [
+                    { name: "", title: "", bio: "" },
+                ],
+                company_values: "",
+                founded_year: "",
+            };
+        }
+
+        // Services page
+        if (pageName === "services" || missingData.includes("service")) {
+            return {
+                services: [
+                    { name: "", description: "", features: "" },
+                ],
+            };
+        }
+
+        // Pricing page
+        if (pageName === "pricing" || missingData.includes("pricing") || missingData.includes("price")) {
+            return {
+                pricing_intro: "",
+                plans: [
+                    { name: "", price: "", features: "", cta: "" },
+                ],
+            };
+        }
+
+        // Generic fallback
+        return {
+            content: "",
+            notes: "",
+        };
+    }
 
     const handleRetry = async (id) => {
         setActionLoading(true);
@@ -419,13 +527,30 @@ function WorkItemsList({ token, siteFilter, onBack }) {
             setMessage("No data to save");
             return;
         }
+
+        // Check that at least one field has content
+        const hasContent = Object.values(editedReviewData).some(v => {
+            if (Array.isArray(v)) return v.some(entry =>
+                typeof entry === "object" ? Object.values(entry).some(fv => fv !== "") : entry !== ""
+            );
+            return v !== "" && v !== null && v !== undefined;
+        });
+
+        if (!hasContent) {
+            setMessage("Please fill in at least one field before saving");
+            return;
+        }
+
         setActionLoading(true);
         try {
-            // Step 1: If the edited data has site-level fields, update the site
+            const pageName = item.spec?.page_name || "unknown";
+            const pageId = item.spec?.page_id;
+
+            // Step 1: Update site-level fields if present (email, phone, etc.)
             const siteFields = {};
             const siteFieldNames = ["email", "phone", "contact_address", "company_name", "tagline", "logo_text"];
             for (const f of siteFieldNames) {
-                if (editedReviewData[f] !== undefined && editedReviewData[f] !== item.spec?.[f]) {
+                if (editedReviewData[f] !== undefined && editedReviewData[f] !== "") {
                     siteFields[f] = editedReviewData[f];
                 }
             }
@@ -436,35 +561,47 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                 });
             }
 
-            // Step 2: Update the work item spec with the edited data
-            await apiFetch(`/work-items/${item.id}`, token, {
+            // Step 2: Save page-specific data to site_specs
+            // This makes it available to the page-build-handler when it rebuilds
+            const specAspect = `page_content_${pageName}`;
+            await apiFetch(`/sites/${item.site_id}/specs/${specAspect}`, token, {
                 method: "PATCH",
-                body: JSON.stringify({ spec: editedReviewData }),
+                body: JSON.stringify({
+                    data: {
+                        page_name: pageName,
+                        page_id: pageId,
+                        provided_by: "admin",
+                        content: editedReviewData,
+                    },
+                }),
             });
 
             // Step 3: Create a rebuild work item for the affected page
-            const pageId = editedReviewData.page_id || item.spec?.page_id;
-            const pageName = editedReviewData.page_name || item.spec?.page_name || "unknown";
             await apiFetch(`/work-items`, token, {
                 method: "POST",
                 body: JSON.stringify({
                     site_id: item.site_id,
                     item_type: "content_rewrite",
-                    summary: `Rebuild ${pageName} page with corrected data`,
+                    summary: `Rebuild ${pageName} page with provided data`,
                     severity: "high",
                     handler_agent: "page-build-handler",
                     page_id: pageId || undefined,
                     priority: 10,
+                    spec: {
+                        page_name: pageName,
+                        content_source: specAspect,
+                        reason: "placeholder_content_replaced",
+                    },
                 }),
             });
 
             // Step 4: Resolve the review item
             await apiFetch(`/work-items/${item.id}/resolve`, token, {
                 method: "POST",
-                body: JSON.stringify({ resolution: "Data corrected, rebuild queued" }),
+                body: JSON.stringify({ resolution: `Real data provided for ${pageName}, rebuild queued` }),
             });
 
-            setMessage(`Updated — rebuild queued for ${pageName}`);
+            setMessage(`Data saved for ${pageName} — rebuild queued`);
             selectItem(null);
             loadItems();
         } catch (err) { setMessage("Save failed: " + err.message); }
@@ -590,15 +727,34 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                             {/* Editable form for all needs_human_review items */}
                             {isEditable && editedReviewData && (
                                 <div style={{ marginBottom: 16 }}>
+                                    {/* Context hints for placeholder items */}
+                                    {selectedItem.item_type === "placeholder_content" && (
+                                        <div style={{
+                                            background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8,
+                                            padding: "12px 14px", marginBottom: 12, fontSize: 13,
+                                        }}>
+                                            <div style={{ fontWeight: 600, color: "#92400e", marginBottom: 4 }}>
+                                                Page: {selectedItem.spec?.page_name}
+                                            </div>
+                                            {selectedItem.spec?.fix_guidance && (
+                                                <div style={{ color: "#78350f", marginBottom: 4 }}>
+                                                    {selectedItem.spec.fix_guidance}
+                                                </div>
+                                            )}
+                                            {selectedItem.spec?.missing_data && (
+                                                <div style={{ color: "#92400e", fontSize: 12 }}>
+                                                    What's needed: {selectedItem.spec.missing_data}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 10 }}>
-                                        {isCheckpoint ? "Review Data" : "Item Data"}
+                                        {isCheckpoint ? "Review Data" :
+                                            selectedItem.item_type === "placeholder_content" ? "Provide Real Data" :
+                                                "Item Data"}
                                         {selectedItem.spec?.spec_aspect && (
                                             <span style={{ fontWeight: 400, color: "#94a3b8" }}> — will update spec '{selectedItem.spec.spec_aspect}'</span>
-                                        )}
-                                        {selectedItem.spec?.fix_guidance && (
-                                            <div style={{ fontWeight: 400, fontSize: 12, color: "#64748b", marginTop: 4 }}>
-                                                {selectedItem.spec.fix_guidance}
-                                            </div>
                                         )}
                                     </div>
                                     <div style={{

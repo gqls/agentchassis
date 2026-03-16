@@ -683,6 +683,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Re-render a single page with updated content or styles",
 		IsLocal:     true,
 	},
+	"create_rerender_items": {
+		Handler:     CreateRerenderItemsAction,
+		Category:    "site",
+		Description: "Create per-page rerender work items for dispatch loop",
+		IsLocal:     true,
+	},
 	"save_page_sections": {
 		Handler:     SavePageSectionsAction,
 		Category:    "site",
