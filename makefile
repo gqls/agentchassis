@@ -13,7 +13,8 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.872
+IMAGE_TAG ?= v1.0.873
+DASHBOARD_TAG   ?= v1.0.1
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -1800,3 +1801,37 @@ cleanup-topics-all:
 	@echo "Running topic cleanup (large batch)..."
 	@curl -s -X POST "http://localhost:8088/api/v1/admin/system/cleanup-topics?batch_size=500" \
 		-H "Authorization: Bearer $(TOKEN)" | python3 -m json.tool
+
+
+
+# ── Admin Dashboard (API Gateway + SPA) ────────────────────────────────────
+DASHBOARD_IMAGE := docker.io/aqls/admin-dashboard
+# DASHBOARD_TAG   ?= latest
+
+build-dashboard:
+	@echo "Building admin dashboard..."
+	docker build -t $(DASHBOARD_IMAGE):$(DASHBOARD_TAG) -f frontends/admin-dashboard/Dockerfile frontends/admin-dashboard/
+	@echo "Built $(DASHBOARD_IMAGE):$(DASHBOARD_TAG)"
+
+push-dashboard:
+	@echo "Pushing admin dashboard..."
+	docker push $(DASHBOARD_IMAGE):$(DASHBOARD_TAG)
+
+deploy-dashboard:
+	@echo "Deploying admin dashboard..."
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k \
+		deployments/kustomize/services/admin-dashboard/overlays/production/uk_001
+	@echo "Dashboard deployed."
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system rollout status deployment/admin-dashboard
+
+dashboard-logs:
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system logs -l app=admin-dashboard --tail=30 -f
+
+dashboard-port-forward:
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system port-forward svc/admin-dashboard 8080:8080
+
+release-dashboard: build-dashboard push-dashboard deploy-dashboard
+
+# Local dev — Vite dev server with proxy to port-forwarded core-manager
+dev-dashboard:
+	cd frontends/admin-dashboard && npm install && npm run dev

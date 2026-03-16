@@ -93,8 +93,8 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	// Health check (no auth)
 	s.router.GET("/health", healthHandler.HandleHealth)
 
-	// Admin dashboard static files (auth handled by the SPA via API calls)
-	s.router.StaticFS("/admin", http.Dir("./admin-dashboard/dist"))
+	// NOTE: Admin dashboard SPA and auth proxy are served by api-gateway (nginx).
+	// Core-manager only handles authenticated API requests.
 
 	// Agent Bootstrap Endpoint (Special Authentication, bypasses AuthMiddleware)
 	// This endpoint is for agents to register with a bootstrap key, not a JWT.
