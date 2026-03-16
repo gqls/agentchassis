@@ -219,6 +219,71 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		}, nil
 	}
 
+	// --- Content regression guard ---
+	// Refuse to overwrite content-rich pages with empty template shells.
+	// This prevents LLM failures (credit exhaustion, timeouts, empty responses)
+	// from wiping good content that was previously generated and deployed.
+	{
+		var existingTextLen int
+		scanErr := params.DB.QueryRowContext(ctx, `
+			SELECT COALESCE(SUM(
+				LENGTH(REGEXP_REPLACE(rendered_html, '<[^>]*>', '', 'g'))
+			), 0)
+			FROM page_components
+			WHERE page_id = $1 AND build_status = 'deployed'
+		`, pageID).Scan(&existingTextLen)
+
+		if scanErr == nil && existingTextLen > 200 {
+			newTextLen := 0
+			tagStripper := regexp.MustCompile(`<[^>]*>`)
+			for _, s := range sections {
+				stripped := tagStripper.ReplaceAllString(s.HTML, "")
+				stripped = strings.TrimSpace(stripped)
+				newTextLen += len(stripped)
+			}
+
+			if newTextLen < existingTextLen/4 {
+				params.Logger.Warn("SavePageSectionsAction: CONTENT REGRESSION BLOCKED — new content has much less text than existing",
+					zap.String("page_name", pageName),
+					zap.Int("existing_text_chars", existingTextLen),
+					zap.Int("new_text_chars", newTextLen),
+					zap.Int("new_sections", len(sections)),
+				)
+				return nil, fmt.Errorf(
+					"content regression blocked: new content has %d chars of text vs %d existing (page: %s). "+
+						"This usually means the LLM returned empty content. Refusing to overwrite.",
+					newTextLen, existingTextLen, pageName)
+			}
+		}
+	}
+
+	// --- Snapshot existing content to history before overwrite ---
+	_, snapshotErr := params.DB.ExecContext(ctx, `
+		INSERT INTO page_component_history (component_id, page_id, site_id, content_data, source)
+		SELECT pc.id, pc.page_id, p.site_id,
+			   COALESCE(pc.content_data, jsonb_build_object(
+				   'rendered_html', pc.rendered_html,
+				   'slot_name', pc.slot_name,
+				   'build_status', pc.build_status
+			   )),
+			   'save_page_sections_overwrite'
+		FROM page_components pc
+		JOIN pages p ON pc.page_id = p.id
+		WHERE pc.page_id = $1
+		  AND pc.rendered_html IS NOT NULL
+		  AND LENGTH(pc.rendered_html) > 0
+	`, pageID)
+	if snapshotErr != nil {
+		params.Logger.Warn("SavePageSectionsAction: Failed to snapshot existing content to history",
+			zap.Error(snapshotErr),
+		)
+		// Non-blocking — continue with the save even if history write fails
+	} else {
+		params.Logger.Info("SavePageSectionsAction: Snapshotted existing content to history",
+			zap.String("page_name", pageName),
+		)
+	}
+
 	// Clear existing components for this page
 	_, err = params.DB.ExecContext(ctx, `
 		DELETE FROM page_components WHERE page_id = $1

@@ -316,6 +316,18 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			}
 			err = nil // Clear the original error since retry succeeded
 		}
+
+		// Catch-all: any error not handled above (model check or transient retry)
+		// is a hard failure. This catches 401 (auth), 402 (credit exhausted),
+		// 408 (timeout), 429 (rate limited), and any other unexpected status codes.
+		// Without this, the error is silently dropped and the pipeline continues
+		// with an empty result — which can overwrite good page content with empty shells.
+		if err != nil {
+			params.Logger.Error("AI call failed with unhandled error — failing workflow",
+				zap.Error(err),
+			)
+			return nil, fmt.Errorf("AI call failed with unhandled error: %w", err)
+		}
 	}
 
 	params.Logger.Info("LLM response received",

@@ -778,3 +778,19 @@ COMMIT;
 
 
 ----------------------------------------------------------------------------------------
+
+
+-- Check when content was last written vs rerendered
+SELECT p.name, p.build_status, p.updated_at as page_updated,
+       COUNT(pc.id) as component_count,
+       SUM(CASE WHEN LENGTH(COALESCE(pc.rendered_html, '')) > 100 THEN 1 ELSE 0 END) as with_content,
+       SUM(CASE WHEN LENGTH(COALESCE(pc.rendered_html, '')) <= 100 THEN 1 ELSE 0 END) as empty
+FROM pages p
+JOIN sites s ON p.site_id = s.id
+LEFT JOIN page_components pc ON pc.page_id = p.id
+WHERE s.domain = 'leopardessconsulting.co.uk'
+GROUP BY p.name, p.build_status, p.updated_at
+ORDER BY p.name;
+
+
+----------------------------------------------------------------------------------------
