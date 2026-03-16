@@ -151,3 +151,55 @@ INSERT INTO agent_definitions (
                                        updated_at = NOW();
 
 ----
+
+-- adds a notify_scheduler step and reroutes both paths through it:
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                jsonb_set(
+                        jsonb_set(
+                                default_config,
+                            -- 1. Add notify_scheduler step
+                                '{workflow,steps,notify_scheduler}',
+                                '{
+                                  "action": "query_database",
+                                  "config": {
+                                    "query": "UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = ''ch-enrichment''",
+                                    "output_format": "object"
+                                  },
+                                  "next_step": "complete",
+                                  "description": "Tell scheduler this execution finished",
+                                  "output_field": "scheduler_notified"
+                                }'::jsonb
+                        ),
+                    -- 2. Add notify_scheduler_empty step
+                        '{workflow,steps,notify_scheduler_empty}',
+                        '{
+                          "action": "query_database",
+                          "config": {
+                            "query": "UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = ''ch-enrichment''",
+                            "output_format": "object"
+                          },
+                          "next_step": "complete_empty",
+                          "description": "Tell scheduler this execution finished (empty batch path)",
+                          "output_field": "scheduler_notified"
+                        }'::jsonb
+                ),
+            -- 3. Route process_batch → notify_scheduler instead of → complete
+                '{workflow,steps,process_batch,next_step}',
+                '"notify_scheduler"'
+        ),
+    -- 4. Route check_batch else → notify_scheduler_empty instead of → complete_empty
+        '{workflow,steps,check_batch,config,else_step}',
+        '"notify_scheduler_empty"'
+                     )
+WHERE type = 'ch-enricher';
+```
+
+This follows the same pattern as build-dispatch-loop and improvement-loop — separate notify steps for the success and idle paths, both updating `last_completed_at` before reaching `complete_workflow`.
+
+The flow becomes:
+```
+load_batch → check_batch
+├── has items → process_batch → notify_scheduler → complete
+└── empty    → notify_scheduler_empty → complete_empty

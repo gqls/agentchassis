@@ -8,9 +8,3 @@ resources:
 images:
   - name: docker.io/aqls/agent-chassis
     newTag: v1.0.873
-
-patches:
-  - path: patch-deployment.yaml
-    target:
-      kind: Deployment
-      name: vet-intel
