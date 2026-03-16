@@ -166,12 +166,14 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 			{
 				siteGroup.GET("", siteAdminHandlers.HandleListSites)
 				siteGroup.GET("/:site_id", siteAdminHandlers.HandleGetSite)
+				siteGroup.PATCH("/:site_id", siteAdminHandlers.HandleUpdateSite)
 				siteGroup.PATCH("/:site_id/specs/:aspect", siteAdminHandlers.HandleUpdateSiteSpec)
 			}
 
 			// Work Item Administration + HITL Review
 			workItemGroup := adminGroup.Group("/work-items")
 			{
+				workItemGroup.POST("", siteAdminHandlers.HandleCreateWorkItem)
 				workItemGroup.GET("", siteAdminHandlers.HandleListWorkItems)
 				workItemGroup.GET("/:item_id", siteAdminHandlers.HandleGetWorkItem)
 				workItemGroup.PATCH("/:item_id", siteAdminHandlers.HandleUpdateWorkItem)

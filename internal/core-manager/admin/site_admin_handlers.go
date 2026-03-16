@@ -240,6 +240,169 @@ func (h *SiteAdminHandlers) HandleUpdateSiteSpec(c *gin.Context) {
 }
 
 // ============================================================================
+// PATCH /admin/sites/:site_id
+// ============================================================================
+
+func (h *SiteAdminHandlers) HandleUpdateSite(c *gin.Context) {
+	ctx := c.Request.Context()
+	siteID, err := uuid.Parse(c.Param("site_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+
+	var body struct {
+		CompanyName    *string `json:"company_name"`
+		Tagline        *string `json:"tagline"`
+		Email          *string `json:"email"`
+		Phone          *string `json:"phone"`
+		ContactAddress *string `json:"contact_address"`
+		LogoText       *string `json:"logo_text"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	setClauses := []string{"updated_at = NOW()"}
+	args := []interface{}{}
+	argIdx := 1
+
+	if body.CompanyName != nil {
+		setClauses = append(setClauses, fmt.Sprintf("company_name = $%d", argIdx))
+		args = append(args, *body.CompanyName)
+		argIdx++
+	}
+	if body.Tagline != nil {
+		setClauses = append(setClauses, fmt.Sprintf("tagline = $%d", argIdx))
+		args = append(args, *body.Tagline)
+		argIdx++
+	}
+	if body.Email != nil {
+		setClauses = append(setClauses, fmt.Sprintf("email = $%d", argIdx))
+		args = append(args, *body.Email)
+		argIdx++
+	}
+	if body.Phone != nil {
+		setClauses = append(setClauses, fmt.Sprintf("phone = $%d", argIdx))
+		args = append(args, *body.Phone)
+		argIdx++
+	}
+	if body.ContactAddress != nil {
+		setClauses = append(setClauses, fmt.Sprintf("contact_address = $%d", argIdx))
+		args = append(args, *body.ContactAddress)
+		argIdx++
+	}
+	if body.LogoText != nil {
+		setClauses = append(setClauses, fmt.Sprintf("logo_text = $%d", argIdx))
+		args = append(args, *body.LogoText)
+		argIdx++
+	}
+
+	if len(args) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no fields to update"})
+		return
+	}
+
+	query := fmt.Sprintf("UPDATE sites SET %s WHERE id = $%d",
+		strings.Join(setClauses, ", "), argIdx)
+	args = append(args, siteID)
+
+	result, err := h.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "site not found"})
+		return
+	}
+
+	h.logger.Info("Site updated via admin API",
+		zap.String("site_id", siteID.String()))
+
+	c.JSON(http.StatusOK, gin.H{"updated": true, "id": siteID.String()})
+}
+
+// ============================================================================
+// POST /admin/work-items
+// ============================================================================
+
+func (h *SiteAdminHandlers) HandleCreateWorkItem(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var body struct {
+		SiteID       string           `json:"site_id" binding:"required"`
+		ItemType     string           `json:"item_type" binding:"required"`
+		Summary      string           `json:"summary" binding:"required"`
+		Severity     string           `json:"severity"`
+		HandlerAgent string           `json:"handler_agent"`
+		PageID       *string          `json:"page_id"`
+		Priority     *int             `json:"priority"`
+		Spec         *json.RawMessage `json:"spec"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	siteID, err := uuid.Parse(body.SiteID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+
+	severity := "medium"
+	if body.Severity != "" {
+		severity = body.Severity
+	}
+	handlerAgent := "page-build-handler"
+	if body.HandlerAgent != "" {
+		handlerAgent = body.HandlerAgent
+	}
+	priority := 30
+	if body.Priority != nil {
+		priority = *body.Priority
+	}
+	spec := json.RawMessage("{}")
+	if body.Spec != nil {
+		spec = *body.Spec
+	}
+
+	var pageID *uuid.UUID
+	if body.PageID != nil && *body.PageID != "" {
+		parsed, err := uuid.Parse(*body.PageID)
+		if err == nil {
+			pageID = &parsed
+		}
+	}
+
+	var newID uuid.UUID
+	err = h.db.QueryRowContext(ctx, `
+		INSERT INTO site_work_items (
+			site_id, source, domain, item_type, severity, summary,
+			spec, page_id, priority, handler_agent, status, created_by
+		) VALUES ($1, 'admin', 'build', $2, $3, $4, $5::jsonb, $6, $7, $8, 'triaged', 'admin')
+		RETURNING id
+	`, siteID, body.ItemType, severity, body.Summary,
+		string(spec), pageID, priority, handlerAgent).Scan(&newID)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("Work item created via admin API",
+		zap.String("item_id", newID.String()),
+		zap.String("site_id", siteID.String()),
+		zap.String("item_type", body.ItemType))
+
+	c.JSON(http.StatusCreated, gin.H{"id": newID.String(), "status": "triaged"})
+}
+
+// ============================================================================
 // GET /admin/work-items
 // ============================================================================
 
