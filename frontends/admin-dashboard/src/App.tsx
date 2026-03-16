@@ -51,6 +51,147 @@ function Badge({ status, type = "status" }) {
     );
 }
 
+// ── Editable Review Form ─────────────────────────────────────────────────────
+// Renders review_data fields as editable inputs for checkpoint items.
+// Handles nested objects (like services arrays) with a JSON textarea fallback.
+
+function EditableReviewForm({ reviewData, onChange }) {
+    if (!reviewData || typeof reviewData !== "object") {
+        return <JSONEditor value={reviewData} onChange={onChange} />;
+    }
+
+    const handleFieldChange = (key, value) => {
+        onChange({ ...reviewData, [key]: value });
+    };
+
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {Object.entries(reviewData).map(([key, value]) => {
+                const label = key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+                // Arrays of objects (e.g. services) → JSON editor
+                if (Array.isArray(value) && value.length > 0 && typeof value[0] === "object") {
+                    return (
+                        <div key={key}>
+                            <label style={formLabelStyle}>{label}</label>
+                            <textarea
+                                value={JSON.stringify(value, null, 2)}
+                                onChange={e => {
+                                    try {
+                                        handleFieldChange(key, JSON.parse(e.target.value));
+                                    } catch { /* let them keep typing */ }
+                                }}
+                                style={{ ...textareaStyle, minHeight: 120 }}
+                            />
+                        </div>
+                    );
+                }
+
+                // Simple arrays → comma-separated
+                if (Array.isArray(value)) {
+                    return (
+                        <div key={key}>
+                            <label style={formLabelStyle}>{label}</label>
+                            <input
+                                type="text"
+                                value={value.join(", ")}
+                                onChange={e => handleFieldChange(key, e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                                style={formInputStyle}
+                            />
+                            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Comma-separated</div>
+                        </div>
+                    );
+                }
+
+                // Nested objects → JSON editor
+                if (typeof value === "object" && value !== null) {
+                    return (
+                        <div key={key}>
+                            <label style={formLabelStyle}>{label}</label>
+                            <textarea
+                                value={JSON.stringify(value, null, 2)}
+                                onChange={e => {
+                                    try {
+                                        handleFieldChange(key, JSON.parse(e.target.value));
+                                    } catch { /* let them keep typing */ }
+                                }}
+                                style={{ ...textareaStyle, minHeight: 80 }}
+                            />
+                        </div>
+                    );
+                }
+
+                // Long strings → textarea
+                if (typeof value === "string" && value.length > 100) {
+                    return (
+                        <div key={key}>
+                            <label style={formLabelStyle}>{label}</label>
+                            <textarea
+                                value={value}
+                                onChange={e => handleFieldChange(key, e.target.value)}
+                                style={textareaStyle}
+                            />
+                        </div>
+                    );
+                }
+
+                // Booleans → checkbox
+                if (typeof value === "boolean") {
+                    return (
+                        <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <input
+                                type="checkbox"
+                                checked={value}
+                                onChange={e => handleFieldChange(key, e.target.checked)}
+                            />
+                            <label style={{ ...formLabelStyle, margin: 0 }}>{label}</label>
+                        </div>
+                    );
+                }
+
+                // Everything else → text input
+                return (
+                    <div key={key}>
+                        <label style={formLabelStyle}>{label}</label>
+                        <input
+                            type="text"
+                            value={String(value ?? "")}
+                            onChange={e => handleFieldChange(key, e.target.value)}
+                            style={formInputStyle}
+                        />
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+// Fallback JSON editor for unstructured data
+function JSONEditor({ value, onChange }) {
+    const [text, setText] = useState(JSON.stringify(value, null, 2));
+    const [parseError, setParseError] = useState("");
+
+    return (
+        <div>
+            <textarea
+                value={text}
+                onChange={e => {
+                    setText(e.target.value);
+                    try {
+                        const parsed = JSON.parse(e.target.value);
+                        onChange(parsed);
+                        setParseError("");
+                    } catch (err) {
+                        setParseError("Invalid JSON");
+                    }
+                }}
+                style={{ ...textareaStyle, minHeight: 200, fontFamily: "monospace", fontSize: 12 }}
+            />
+            {parseError && <div style={{ fontSize: 11, color: "#991b1b", marginTop: 4 }}>{parseError}</div>}
+        </div>
+    );
+}
+
 // ── Login ────────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
     const [email, setEmail] = useState("");
@@ -163,6 +304,10 @@ function WorkItemsList({ token, siteFilter, onBack }) {
     const [actionLoading, setActionLoading] = useState(false);
     const [message, setMessage] = useState("");
 
+    // Editable review data for checkpoint items
+    const [editedReviewData, setEditedReviewData] = useState(null);
+    const [approveNotes, setApproveNotes] = useState("");
+
     const loadItems = useCallback(async () => {
         setLoading(true);
         try {
@@ -182,12 +327,23 @@ function WorkItemsList({ token, siteFilter, onBack }) {
 
     useEffect(() => { loadItems(); }, [loadItems]);
 
+    // When selecting a checkpoint item, initialise the editable review data
+    const selectItem = (item) => {
+        setSelectedItem(item);
+        setApproveNotes("");
+        if (item?.spec?.checkpoint && item?.spec?.review_data) {
+            setEditedReviewData(JSON.parse(JSON.stringify(item.spec.review_data)));
+        } else {
+            setEditedReviewData(null);
+        }
+    };
+
     const handleRetry = async (id) => {
         setActionLoading(true);
         try {
             await apiFetch(`/work-items/${id}/retry`, token, { method: "POST" });
             setMessage("Item queued for retry");
-            setSelectedItem(null);
+            selectItem(null);
             loadItems();
         } catch (err) { setMessage("Retry failed: " + err.message); }
         finally { setActionLoading(false); }
@@ -201,7 +357,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                 body: JSON.stringify({ resolution: resolution || "Resolved via admin dashboard" }),
             });
             setMessage("Item resolved");
-            setSelectedItem(null);
+            selectItem(null);
             loadItems();
         } catch (err) { setMessage("Resolve failed: " + err.message); }
         finally { setActionLoading(false); }
@@ -215,14 +371,39 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                 body: JSON.stringify({ status: newStatus }),
             });
             setMessage(`Status updated to ${newStatus}`);
-            setSelectedItem(null);
+            selectItem(null);
             loadItems();
         } catch (err) { setMessage("Update failed: " + err.message); }
         finally { setActionLoading(false); }
     };
 
+    const handleApprove = async (id) => {
+        if (!editedReviewData) {
+            setMessage("No review data to approve");
+            return;
+        }
+        setActionLoading(true);
+        try {
+            const result = await apiFetch(`/work-items/${id}/approve`, token, {
+                method: "POST",
+                body: JSON.stringify({
+                    review_data: editedReviewData,
+                    notes: approveNotes || undefined,
+                }),
+            });
+            let msg = "Approved";
+            if (result.spec_updated) msg += ` — spec '${result.spec_updated}' updated`;
+            if (result.follow_on_item_id) msg += ` — follow-on item created`;
+            setMessage(msg);
+            selectItem(null);
+            loadItems();
+        } catch (err) { setMessage("Approve failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
     // Unique item types from loaded items
     const itemTypes = [...new Set(items.map(i => i.item_type))].sort();
+    const isCheckpoint = selectedItem?.spec?.checkpoint === true;
 
     return (
         <div>
@@ -259,8 +440,8 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                     {itemTypes.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <span style={{ fontSize: 13, color: "#64748b", alignSelf: "center" }}>
-          {items.length} items
-        </span>
+                    {items.length} items
+                </span>
             </div>
 
             {loading ? (
@@ -270,9 +451,9 @@ function WorkItemsList({ token, siteFilter, onBack }) {
             ) : (
                 <div style={{ display: "flex", gap: 16 }}>
                     {/* Items list */}
-                    <div style={{ flex: selectedItem ? "0 0 50%" : "1", minWidth: 0 }}>
+                    <div style={{ flex: selectedItem ? "0 0 40%" : "1", minWidth: 0 }}>
                         {items.map(item => (
-                            <div key={item.id} onClick={() => setSelectedItem(item)}
+                            <div key={item.id} onClick={() => selectItem(item)}
                                  style={{
                                      background: selectedItem?.id === item.id ? "#f0f9ff" : "#fff",
                                      border: `1px solid ${selectedItem?.id === item.id ? "#93c5fd" : "#e2e8f0"}`,
@@ -289,6 +470,9 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                 <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
                                     <span style={{ fontSize: 11, color: "#64748b", background: "#f1f5f9", padding: "2px 8px", borderRadius: 4 }}>{item.item_type}</span>
                                     <Badge status={item.severity} type="severity" />
+                                    {item.spec?.checkpoint && (
+                                        <span style={{ fontSize: 11, color: "#7c3aed", background: "#ede9fe", padding: "2px 8px", borderRadius: 4 }}>checkpoint</span>
+                                    )}
                                     <span style={{ fontSize: 11, color: "#94a3b8" }}>{item.domain}</span>
                                     <span style={{ fontSize: 11, color: "#94a3b8" }}>{item.attempts}</span>
                                 </div>
@@ -299,16 +483,19 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                     {/* Detail panel */}
                     {selectedItem && (
                         <div style={{
-                            flex: "0 0 48%", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10,
+                            flex: "0 0 58%", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10,
                             padding: 20, position: "sticky", top: 16, maxHeight: "calc(100vh - 120px)", overflowY: "auto",
                         }}>
                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-                                <h3 style={{ margin: 0, fontSize: 16, color: "#0f172a" }}>Item Detail</h3>
-                                <span onClick={() => setSelectedItem(null)} style={{ cursor: "pointer", color: "#94a3b8", fontSize: 18 }}>✕</span>
+                                <h3 style={{ margin: 0, fontSize: 16, color: "#0f172a" }}>
+                                    {isCheckpoint ? "Review & Approve" : "Item Detail"}
+                                </h3>
+                                <span onClick={() => selectItem(null)} style={{ cursor: "pointer", color: "#94a3b8", fontSize: 18 }}>✕</span>
                             </div>
 
                             <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.6, marginBottom: 16 }}>{selectedItem.summary}</div>
 
+                            {/* Metadata grid */}
                             <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 16px", fontSize: 13, marginBottom: 16 }}>
                                 <span style={detailLabel}>Status</span><Badge status={selectedItem.status} />
                                 <span style={detailLabel}>Type</span><span style={detailValue}>{selectedItem.item_type}</span>
@@ -317,37 +504,93 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                 <span style={detailLabel}>Handler</span><span style={detailValue}>{selectedItem.handler_agent}</span>
                                 <span style={detailLabel}>Attempts</span><span style={detailValue}>{selectedItem.attempts}</span>
                                 <span style={detailLabel}>Created</span><span style={detailValue}>{new Date(selectedItem.created_at).toLocaleString()}</span>
+                                {selectedItem.spec?.source_agent && <>
+                                    <span style={detailLabel}>Source Agent</span><span style={detailValue}>{selectedItem.spec.source_agent}</span>
+                                </>}
                                 {selectedItem.error && <>
                                     <span style={detailLabel}>Error</span>
                                     <span style={{ ...detailValue, color: "#991b1b", fontSize: 12 }}>{selectedItem.error}</span>
                                 </>}
                             </div>
 
-                            {/* Spec */}
-                            {selectedItem.spec && (
+                            {/* Checkpoint: editable review form */}
+                            {isCheckpoint && editedReviewData && (
+                                <div style={{ marginBottom: 16 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 10 }}>
+                                        Review Data
+                                        {selectedItem.spec?.spec_aspect && (
+                                            <span style={{ fontWeight: 400, color: "#94a3b8" }}> — will update spec '{selectedItem.spec.spec_aspect}'</span>
+                                        )}
+                                    </div>
+                                    <div style={{
+                                        background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8,
+                                        padding: 16,
+                                    }}>
+                                        <EditableReviewForm
+                                            reviewData={editedReviewData}
+                                            onChange={setEditedReviewData}
+                                        />
+                                    </div>
+
+                                    {selectedItem.spec?.on_approve && (
+                                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
+                                            On approve: creates <strong>{selectedItem.spec.on_approve.item_type || "follow-on"}</strong> item
+                                            {selectedItem.spec.on_approve.handler_agent && (
+                                                <> → <strong>{selectedItem.spec.on_approve.handler_agent}</strong></>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div style={{ marginTop: 12 }}>
+                                        <label style={formLabelStyle}>Notes (optional)</label>
+                                        <input
+                                            type="text"
+                                            value={approveNotes}
+                                            onChange={e => setApproveNotes(e.target.value)}
+                                            placeholder="Approval notes..."
+                                            style={formInputStyle}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Non-checkpoint: read-only spec */}
+                            {!isCheckpoint && selectedItem.spec && (
                                 <details style={{ marginBottom: 16 }}>
                                     <summary style={{ fontSize: 13, fontWeight: 600, color: "#475569", cursor: "pointer", marginBottom: 8 }}>Spec</summary>
                                     <pre style={{
                                         background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6,
                                         padding: 12, fontSize: 11, overflow: "auto", maxHeight: 200, lineHeight: 1.5,
                                     }}>
-                    {JSON.stringify(selectedItem.spec, null, 2)}
-                  </pre>
+                                        {JSON.stringify(selectedItem.spec, null, 2)}
+                                    </pre>
                                 </details>
                             )}
 
                             {/* Actions */}
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", borderTop: "1px solid #e2e8f0", paddingTop: 16 }}>
+                                {/* Checkpoint items: approve button */}
+                                {isCheckpoint && selectedItem.status === "needs_human_review" && (
+                                    <button onClick={() => handleApprove(selectedItem.id)} disabled={actionLoading} style={{
+                                        ...btnPrimary, background: "#059669",
+                                    }}>
+                                        Approve & Continue
+                                    </button>
+                                )}
+
+                                {/* Standard actions */}
                                 {["needs_human_review", "failed", "blocked"].includes(selectedItem.status) && (
                                     <>
-                                        <button onClick={() => handleRetry(selectedItem.id)} disabled={actionLoading} style={btnPrimary}>
-                                            Retry
-                                        </button>
+                                        {!isCheckpoint && (
+                                            <button onClick={() => handleRetry(selectedItem.id)} disabled={actionLoading} style={btnPrimary}>
+                                                Retry
+                                            </button>
+                                        )}
                                         <button onClick={() => {
                                             const reason = prompt("Resolution note (optional):");
                                             handleResolve(selectedItem.id, reason);
                                         }} disabled={actionLoading} style={btnSecondary}>
-                                            Resolve
+                                            {isCheckpoint ? "Reject / Skip" : "Resolve"}
                                         </button>
                                     </>
                                 )}
@@ -478,3 +721,14 @@ const btnSecondary = {
 const sectionTitle = { fontSize: 20, fontWeight: 600, color: "#0f172a", marginBottom: 16 };
 const detailLabel = { color: "#64748b", fontWeight: 500 };
 const detailValue = { color: "#0f172a" };
+
+// Form-specific styles
+const formLabelStyle = { display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 };
+const formInputStyle = {
+    width: "100%", padding: "8px 10px", border: "1px solid #cbd5e1", borderRadius: 6,
+    fontSize: 13, outline: "none", boxSizing: "border-box",
+};
+const textareaStyle = {
+    width: "100%", padding: "8px 10px", border: "1px solid #cbd5e1", borderRadius: 6,
+    fontSize: 13, outline: "none", boxSizing: "border-box", resize: "vertical", minHeight: 60,
+};
