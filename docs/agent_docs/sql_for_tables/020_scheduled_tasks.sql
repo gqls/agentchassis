@@ -958,3 +958,43 @@ LIMIT 1
 '
 WHERE name = 'improvement-sweep';
 
+
+---
+
+-- prequery to unstick scheduled tasks so the unsticker can work
+
+INSERT INTO scheduled_tasks (
+    name, description, target_topic, target_agent_type,
+    interval_seconds, concurrency_group, max_concurrent,
+    enabled, fire_message, pre_query
+) VALUES (
+             'stuck-task-reaper',
+             'Auto-reset scheduled tasks stuck for over 1 hour',
+             'system.internal.noop',
+             'maintenance',
+             300,
+             'claim-management',
+             1,
+             true,
+             false,
+             $PRE$
+                 WITH stuck AS (
+        UPDATE scheduled_tasks
+        SET last_completed_at = NOW()
+        WHERE enabled = true
+          AND last_triggered_at IS NOT NULL
+          AND (
+              last_completed_at IS NULL
+              OR last_completed_at < last_triggered_at
+          )
+          AND last_triggered_at < NOW() - INTERVAL '3 hours'
+          AND name != 'stuck-task-reaper'
+        RETURNING name, last_triggered_at
+    )
+    SELECT COALESCE(COUNT(*)::text, '0') AS reset_count,
+             COALESCE(string_agg(name, ', '), 'none') AS reset_tasks
+    FROM stuck
+    $PRE$
+         );
+
+

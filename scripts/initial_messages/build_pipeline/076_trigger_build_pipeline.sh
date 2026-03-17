@@ -794,3 +794,25 @@ ORDER BY p.name;
 
 
 ----------------------------------------------------------------------------------------
+
+unstick
+
+-- Unstick the dispatch group
+UPDATE scheduled_tasks
+SET last_completed_at = NOW()
+WHERE name = 'build-pipeline-trigger';
+
+-- Unstick ch-enrichment
+UPDATE scheduled_tasks
+SET last_completed_at = NOW()
+WHERE name = 'ch-enrichment';
+
+-- Also unstick the reaper and vet tasks that never completed
+UPDATE scheduled_tasks
+SET last_completed_at = NOW()
+WHERE name IN ('stale-orchestration-reaper', 'vet-batch-verify', 'vet-sweep-continue')
+  AND last_completed_at IS NULL;
+
+
+  ----------------------------------------------------------------------------------------
+

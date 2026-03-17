@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.875
+IMAGE_TAG ?= v1.0.877
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -642,6 +642,25 @@ restart-vet-intel: ## Restart vet-intel agent
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/vet-intel -n $(PROJECT_NAME)
 
 #################################
+# Business Intel Agent
+#################################
+.PHONY: deploy-business-intel
+deploy-business-intel: ## Deploy business-intel agent using kustomize
+	@echo "$(YELLOW)Deploying business-intel agent...$(NC)"
+	@cd $(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH) && \
+		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)Business-intel agent deployed$(NC)"
+
+.PHONY: logs-business-intel
+logs-business-intel: ## Tail logs from business-intel agent
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl logs -f -n $(PROJECT_NAME) -l app=business-intel
+
+.PHONY: restart-business-intel
+restart-business-intel: ## Restart business-intel agent
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/business-intel -n $(PROJECT_NAME)
+
+#################################
 # Agent Job Cleanup
 #################################
 .PHONY: deploy-agent-cleanup
@@ -700,7 +719,7 @@ destroy-core-manager: ## Destroy core-manager using Terraform
 .PHONY: update-kustomization-images
 update-kustomization-images: ## Update image tags in kustomization.yaml files
 	@echo "$(YELLOW)Updating kustomization.yaml files with image tag $(IMAGE_TAG)...$(NC)"
-	@for agent in agent-chassis reasoning-agent web-search-adapter web-scrape-adapter git-adapter image-generator-adapter content-creator-agent remote-job-spawner kafka-scheduler; do \
+	@for agent in agent-chassis reasoning-agent web-search-adapter web-scrape-adapter git-adapter image-generator-adapter content-creator-agent remote-job-spawner kafka-scheduler vet-intel business-intel; do \
 		kust_file="$(KUSTOMIZE_DIR)/services/$$agent/overlays/$(OVERLAY_PATH)/kustomization.yaml"; \
 		if [ -f "$$kust_file" ]; then \
 			echo "Updating $$agent kustomization.yaml..."; \
@@ -798,6 +817,13 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/vet-intel/overlays/$(OVERLAY_PATH); \
 	fi
 
+	# Update business-intel kustomization.yaml
+	@echo "Updating business-intel to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
+	@if [ -d "$(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH)" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH); \
+	fi
+
 
 	# Update database agent definitions
 	@$(MAKE) update-agent-images-v2 IMAGE_TAG=$(IMAGE_TAG)
@@ -805,6 +831,7 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 	# Force rollout restart to pick up new images
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/agent-chassis -n ai-persona-system 2>/dev/null || true
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/vet-intel -n ai-persona-system 2>/dev/null || true
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/business-intel -n ai-persona-system 2>/dev/null || true
 
 	@echo "$(GREEN)All agents deployed with image tag $(IMAGE_TAG)$(NC)"
 
@@ -823,6 +850,7 @@ redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	kubectl rollout restart deployment remote-job-spawner -n ai-persona-system
 	kubectl rollout restart deployment kafka-scheduler -n ai-persona-system
 	kubectl rollout restart deployment vet-intel -n ai-persona-system 2>/dev/null || true
+	kubectl rollout restart deployment business-intel -n ai-persona-system 2>/dev/null || true
 
 .PHONY: deploy-frontends
 deploy-frontends: ## Deploy all frontend applications
@@ -1843,5 +1871,4 @@ release-dashboard: build-dashboard push-dashboard deploy-dashboard ## Build, pus
 .PHONY: dev-dashboard
 dev-dashboard: ## Run Vite dev server for local dashboard development
 	cd frontends/admin-dashboard && npm install && npm run dev
-
 

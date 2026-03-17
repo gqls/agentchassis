@@ -125,6 +125,19 @@ resource "kubernetes_job" "kafka_system_topics" {
             create_topic "system.agent.researcher.responses" 6 3 # Response for researcher tasks (from Kustomize job)
             create_topic "dlq.researcher" 1 3 # DLQ for researcher
 
+            # --- SPECIALIZED STATIC AGENTS ---
+            # Vet Intel Agent
+            create_topic "system.agent.vet-intel.requests" 3 3 "Vet intel agent requests"
+            create_topic "system.agent.vet-intel.responses" 3 3 "Vet intel agent responses"
+            create_topic "system.agent.vet-intel.process" 3 3 "Vet intel agent process"
+            create_topic "system.errors.vet-intel" 1 3 "Vet intel error DLQ"
+
+            # Business Intel Agent
+            create_topic "system.agent.business-intel.requests" 3 3 "Business intel agent requests"
+            create_topic "system.agent.business-intel.responses" 3 3 "Business intel agent responses"
+            create_topic "system.agent.business-intel.process" 3 3 "Business intel agent process"
+            create_topic "system.errors.business-intel" 1 3 "Business intel error DLQ"
+
             echo "Platform topic initialization complete."
             EOT
           ]

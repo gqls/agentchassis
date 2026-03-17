@@ -157,3 +157,9 @@ kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas
 kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
 kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
 
+
+
+
+
+system.agent.business-intel.requests
+# make build-backend push-backend deploy-core deploy-agents redeploy-agents deploy-agent-cleanup build-dashboard push-dashboard deploy-dashboard ENVIRONMENT=production REGION=uk001
