@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.878
+IMAGE_TAG ?= v1.0.880
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -1868,7 +1868,24 @@ dashboard-port-forward: ## Port forward admin dashboard to localhost:8080
 .PHONY: release-dashboard
 release-dashboard: build-dashboard push-dashboard deploy-dashboard ## Build, push and deploy admin-dashboard
 
+#################################
+# Full Release (single command)
+#################################
+.PHONY: release
+release: build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup release-dashboard ## Full release: build, push, deploy everything
+	@echo "$(GREEN)Full release complete with image tag $(IMAGE_TAG)$(NC)"
+	@echo "$(YELLOW)Usage: make release IMAGE_TAG=v1.0.xxx ENVIRONMENT=production REGION=uk001$(NC)"
+
+.PHONY: release-backend
+release-backend: build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup ## Release backend only (no dashboard)
+	@echo "$(GREEN)Backend release complete with image tag $(IMAGE_TAG)$(NC)"
+
+.PHONY: deploy-services
+deploy-services: deploy-core deploy-agents deploy-agent-cleanup deploy-dashboard ## Deploy all services (no build, images must exist)
+	@echo "$(GREEN)All services deployed$(NC)"
+
 .PHONY: dev-dashboard
 dev-dashboard: ## Run Vite dev server for local dashboard development
 	cd frontends/admin-dashboard && npm install && npm run dev
+
 

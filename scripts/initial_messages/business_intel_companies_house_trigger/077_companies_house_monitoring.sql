@@ -210,3 +210,16 @@ WHERE bv.slug = 'veterinary'
   AND b.verification_status = 'verified'
 ORDER BY ch.succession_risk DESC NULLS LAST, ch.owner_estimated_age DESC NULLS LAST
     LIMIT 30;
+
+
+============================================================================================
+
+-- Compare business names vs search queries
+SELECT b.name as business_name, ch.search_query,
+       LENGTH(b.name) as name_len, LENGTH(ch.search_query) as query_len
+FROM business_intel.companies_house_data ch
+         JOIN business_intel.businesses b ON b.id = ch.business_id
+WHERE ch.search_query != b.name
+ORDER BY LENGTH(ch.search_query)
+    LIMIT 15;
+

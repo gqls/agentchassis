@@ -816,3 +816,62 @@ WHERE name IN ('stale-orchestration-reaper', 'vet-batch-verify', 'vet-sweep-cont
 
   ----------------------------------------------------------------------------------------
 
+  investigate
+
+  clients_db=# SELECT wi.id, wi.spec->>'page_name' as page,
+         wi.error, wi.attempt_count, wi.max_attempts,
+         wi.claimed_at, wi.completed_at,
+         LEFT(wi.summary, 100) as summary
+  FROM site_work_items wi
+  JOIN sites s ON s.id = wi.site_id
+  WHERE s.domain = 'gaswholesalers.com'
+    AND wi.item_type = 'content_rewrite'
+    AND wi.status = 'failed'
+  ORDER BY wi.completed_at DESC
+  LIMIT 5;
+                    id                  |        page         |                error                 | attempt_count | max_attempts | claimed_at | completed_at |                                               summary
+  --------------------------------------+---------------------+--------------------------------------+---------------+--------------+------------+--------------+------------------------------------------------------------------------------------------------------
+   b938e672-74d0-4545-9cb0-f04a0bd40eb0 | why-gas-wholesalers | Claim timed out (attempts exhausted) |             3 |            3 |            |              | Add content to why-gas-wholesalers: The why-gas-wholesalers page is the natural home for differentia
+  (1 row)
+
+
+-- Error log entries for gaswholesalers content_rewrite
+SELECT agent_type, error_code, LEFT(error_message, 200) as error,
+       step_name, action, occurred_at
+FROM agent_error_log
+WHERE domain = 'gaswholesalers.com'
+  AND occurred_at > NOW() - INTERVAL '24 hours'
+ORDER BY occurred_at DESC
+LIMIT 10;
+
+
+-- blockers
+SELECT wi.id, wi.item_type, wi.spec->>'page_name' as page,
+       wi.status, LEFT(wi.error, 200) as error
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE s.domain = 'leopardessconsulting.co.uk'
+  AND wi.status IN ('failed', 'needs_human_review')
+  AND wi.updated_at > NOW() - INTERVAL '6 hours'
+ORDER BY wi.updated_at DESC;
+
+
+-- status sweep
+-- Current state of all non-complete work items
+SELECT s.domain, wi.item_type, wi.status, COUNT(*)
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.domain = 'build'
+  AND wi.status NOT IN ('complete', 'wont_fix', 'rejected', 'verified')
+GROUP BY s.domain, wi.item_type, wi.status
+ORDER BY s.domain, wi.status, COUNT(*) DESC;
+
+
+reset
+UPDATE site_work_items
+     SET status = 'triaged', attempt_count = 0, error = NULL,
+         claimed_by = NULL, claimed_at = NULL
+     WHERE id = 'b938e672-74d0-4545-9cb0-f04a0bd40eb0';
+
+------------------------------------------------------------------------------------------
+

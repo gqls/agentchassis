@@ -216,3 +216,17 @@ SET type = 'business-intel',
     display_name = 'Business Intel Agent',
     description = 'Business intelligence enrichment agent. Currently handles Companies House enrichment for verified businesses. Will expand to cover other data sources and verticals.'
 WHERE type = 'ch-enricher';
+
+
+-----
+
+-- boolean matching problem
+
+UPDATE agent_definitions
+SET default_config = REPLACE(
+        default_config::text,
+        '"condition": "ch_search.matched != 0"',
+        '"condition": "ch_search.matched == true"'
+                     )::jsonb
+WHERE type = 'business-intel';
+
