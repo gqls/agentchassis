@@ -230,3 +230,13 @@ SET default_config = REPLACE(
                      )::jsonb
 WHERE type = 'business-intel';
 
+---
+
+-- Sic codes
+UPDATE agent_definitions
+SET default_config = REPLACE(
+        default_config::text,
+        '"sic_filter": ["75000"]',
+        '"sic_filter": ["75", "749", "869"]'
+                     )::jsonb
+WHERE type = 'business-intel';

@@ -223,3 +223,9 @@ WHERE ch.search_query != b.name
 ORDER BY LENGTH(ch.search_query)
     LIMIT 15;
 
+SELECT b.name, ch.search_query, ch.match_method
+FROM business_intel.companies_house_data ch
+         JOIN business_intel.businesses b ON b.id = ch.business_id
+ORDER BY ch.enriched_at DESC
+    LIMIT 10;
+-------------------------------------------------------------------------------------------

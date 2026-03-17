@@ -18,3 +18,10 @@ kubectl -n kafka run -i --rm kcat-ch-$$ \
     -H "responses_topic=system.agent.vet-intel.responses" <<JSON
 {"action":"orchestrate","config":{"agent_type":"ch-enricher"},"input_data":{"batch_size":5,"vertical_slug":"veterinary"}}
 JSON
+
+
+# manual :
+curl -s -u "bd727e00-7972-4195-a576-d97faad6043f:"   "https://api.company-information.service.gov.uk/search/companies?q=Medivet+Group&items_per_page=3" | python3 -m json.tool | head -30
+
+curl -s -u "bd727e00-7972-4195-a576-d97faad6043f:" \
+  "https://api.company-information.service.gov.uk/search/companies?q=Erne+Veterinary+Group&items_per_page=5" | python3 -m json.tool

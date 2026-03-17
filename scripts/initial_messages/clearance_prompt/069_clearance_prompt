@@ -17,6 +17,7 @@ kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
 kubectl -n ai-persona-system scale deployment/reasoning-agent --replicas=0
 kubectl -n ai-persona-system scale deployment/content-creator-agent --replicas=0
 kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=0
+kubectl -n ai-persona-system scale deployment/business-intel --replicas=0
 
 kubectl -n ai-persona-system scale deployment/web-search-adapter --replicas=1
 kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=1
@@ -58,6 +59,12 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   --delete \
   --topic system.generic.responses
 
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.business-intel.responses
+
 # delete replica sets
 # Delete all failed/pending pods
 kubectl -n ai-persona-system delete pods --field-selector=status.phase=Failed
@@ -85,6 +92,15 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
   --bootstrap-server localhost:9092
   --partitions 1
   --replication-factor 1
+
+kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --create \
+  --topic system.agent.business-intel.responses \
+  --bootstrap-server localhost:9092 \
+  --partitions 3 \
+  --replication-factor 3 \
+  --config retention.ms=3600000
 
 # reset all offsets
 echo 'resetting all offsets'
@@ -156,6 +172,7 @@ kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=5
 kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas=2
 kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
 kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
+kubectl -n ai-persona-system scale deployment/business-intel --replicas=1
 
 
 

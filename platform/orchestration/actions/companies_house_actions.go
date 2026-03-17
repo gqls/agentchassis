@@ -720,11 +720,15 @@ func scoreCHMatches(items []chSearchItem, businessName, postcode string, sicFilt
 		}
 
 		// Score: SIC code match (+0.25)
+		// Uses prefix matching — "75" matches "75000", "75100" etc.
+		// Note: the CH search API does NOT return SIC codes — they only
+		// appear after fetching the company profile. So for search results,
+		// item.SICCodes is almost always empty.
 		hasSICMatch := false
 		if len(sicFilter) > 0 {
 			for _, itemSIC := range item.SICCodes {
 				for _, filterSIC := range sicFilter {
-					if itemSIC == filterSIC {
+					if strings.HasPrefix(itemSIC, filterSIC) || strings.HasPrefix(filterSIC, itemSIC) {
 						hasSICMatch = true
 						score += 0.25
 						break
@@ -762,9 +766,18 @@ func scoreCHMatches(items []chSearchItem, businessName, postcode string, sicFilt
 			}
 		}
 
-		// If SIC filter provided but no match, penalise heavily
+		// If SIC filter provided but no match, apply a mild penalty.
+		// The CH search API doesn't return SIC codes, so most search results
+		// will have empty SIC — don't penalise heavily for missing data.
+		// A strong name + postcode match should still pass without SIC.
 		if len(sicFilter) > 0 && !hasSICMatch {
-			score -= 0.3
+			if len(item.SICCodes) == 0 {
+				// No SIC codes in search result — normal for search API
+				score -= 0.05
+			} else {
+				// Has SIC codes but none match — mild penalty
+				score -= 0.15
+			}
 		}
 
 		logger.Info("CompaniesHouseSearch: scored result",

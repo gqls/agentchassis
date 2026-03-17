@@ -1730,3 +1730,15 @@ SELECT
     default_config->'workflow'->'steps'->'process_item'->'config'->>'max_iterations' as max_iterations,
     resources->>'limits' as mem_limit
 FROM agent_definitions WHERE type = 'build-dispatch-loop' AND deleted_at IS NULL;
+
+
+---
+
+-- fixing what is passes to pageflow builder and to not break existing pageflow builder logic
+UPDATE agent_definitions
+SET default_config = REPLACE(
+        default_config::text,
+        '"page_name?": "current_item.spec.page_name",',
+        '"page_name?": "current_item.spec.page_name", "reviewed_brief?": "current_item.spec.reviewed_brief",'
+                     )::jsonb
+WHERE type = 'build-dispatch-loop';

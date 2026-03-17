@@ -866,6 +866,29 @@ WHERE wi.domain = 'build'
 GROUP BY s.domain, wi.item_type, wi.status
 ORDER BY s.domain, wi.status, COUNT(*) DESC;
 
+-- check what they're actually doing
+-- And check what dispatch loops are actually doing — they might all be blocked waiting on the claimed items:
+SELECT o.orchestration_name, o.status, o.current_step, o.updated_at,
+       AGE(NOW(), o.updated_at) as stale_for
+FROM orchestrations o
+WHERE o.owner_agent_type = 'build-dispatch-loop'
+  AND o.status NOT IN ('COMPLETED', 'FAILED', 'CANCELLED')
+ORDER BY o.updated_at DESC
+LIMIT 10;
+
+-- Check what those stuck dispatches are waiting on:
+SELECT o.orchestration_id, o.current_step, o.updated_at,
+       AGE(NOW(), o.updated_at) as stale_for,
+       o.collected_data->>'work_item_id' as work_item_id,
+       LEFT(o.collected_data->'current_item'->>'item_type', 30) as item_type,
+       LEFT(o.collected_data->'current_item'->>'handler_agent', 30) as handler
+FROM orchestration_states o
+WHERE o.owner_agent_type = 'build-dispatch-loop'
+  AND o.status NOT IN ('COMPLETED', 'FAILED', 'CANCELLED')
+ORDER BY o.updated_at ASC
+LIMIT 10;
+
+
 
 reset
 UPDATE site_work_items
