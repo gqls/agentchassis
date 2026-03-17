@@ -11,6 +11,15 @@ DOMAIN="finetuning.uk"
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
 DOMAIN="gaswholesalers.com"
 
+ SELECT id, name FROM sites;
+                  id                  |            name
+--------------------------------------+----------------------------
+ 4851f6fc-71cf-4160-a270-e03d6d3e0732 | leopardessconsulting.co.uk
+ 5fe15466-4e2e-4ff2-981e-98c1b7074002 | gaswholesalers.com
+ 2a8ebf9c-20a2-4c39-b191-840b012371da | ai-agent-orchestration.com
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | FineTuning
+
+
 #!/bin/bash
 # =============================================================================
 # Build Pipeline Trigger (manual heartbeat)
@@ -191,6 +200,7 @@ kubectl -n ai-persona-system logs --tail=500 -l agent-type=rerender-pages -f | t
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-generator -f | tee logs-image-generator.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-build-handler -f | tee logs-image-build-handler.json
 kubectl -n ai-persona-system logs --tail=300 -l app=kafka-scheduler -f | tee logs-kafka-scheduler.json
+kubectl -n ai-persona-system logs --tail=500 -l app=business-intel -f --max-log-requests 20 | tee logs-business-intel.json
 
 
 
@@ -888,13 +898,31 @@ WHERE o.owner_agent_type = 'build-dispatch-loop'
 ORDER BY o.updated_at ASC
 LIMIT 10;
 
+-- How many items are currently claimed (being worked on)?
+SELECT handler_agent, COUNT(*) as claimed
+FROM site_work_items
+WHERE status = 'claimed' AND domain = 'build'
+GROUP BY handler_agent;
 
+-- How many completed in the last hour?
+SELECT handler_agent, COUNT(*) as completed
+FROM site_work_items
+WHERE status = 'complete' AND domain = 'build'
+  AND completed_at > NOW() - INTERVAL '1 hour'
+GROUP BY handler_agent
+ORDER BY completed DESC;
 
 reset
 UPDATE site_work_items
      SET status = 'triaged', attempt_count = 0, error = NULL,
          claimed_by = NULL, claimed_at = NULL
      WHERE id = 'b938e672-74d0-4545-9cb0-f04a0bd40eb0';
+
+
+UPDATE site_work_items
+     SET status = 'triaged', attempt_count = 0, error = NULL,
+         claimed_by = NULL, claimed_at = NULL
+     WHERE id = '4851f6fc-71cf-4160-a270-e03d6d3e0732';
 
 ------------------------------------------------------------------------------------------
 

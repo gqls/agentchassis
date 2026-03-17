@@ -592,12 +592,19 @@ type chSearchResponse struct {
 }
 
 type chSearchItem struct {
-	CompanyNumber           string   `json:"company_number"`
-	Title                   string   `json:"title"`
-	CompanyStatus           string   `json:"company_status"`
-	CompanyType             string   `json:"company_type"`
-	DateOfCreation          string   `json:"date_of_creation"`
-	SICCodes                []string `json:"sic_codes"`
+	CompanyNumber  string   `json:"company_number"`
+	Title          string   `json:"title"`
+	CompanyStatus  string   `json:"company_status"`
+	CompanyType    string   `json:"company_type"`
+	DateOfCreation string   `json:"date_of_creation"`
+	SICCodes       []string `json:"sic_codes"`
+	// The search API returns "address", the profile API returns "registered_office_address".
+	// We need both to handle search results correctly.
+	Address struct {
+		PostalCode   string `json:"postal_code"`
+		Locality     string `json:"locality"`
+		AddressLine1 string `json:"address_line_1"`
+	} `json:"address"`
 	RegisteredOfficeAddress struct {
 		PostalCode   string `json:"postal_code"`
 		Locality     string `json:"locality"`
@@ -710,8 +717,13 @@ func scoreCHMatches(items []chSearchItem, businessName, postcode string, sicFilt
 		method := "name_search"
 
 		// Score: postcode prefix match (+0.35)
-		if postcodePrefix != "" && item.RegisteredOfficeAddress.PostalCode != "" {
-			regPC := strings.ToUpper(item.RegisteredOfficeAddress.PostalCode)
+		// Search API returns "address", profile API returns "registered_office_address"
+		itemPostcode := item.Address.PostalCode
+		if itemPostcode == "" {
+			itemPostcode = item.RegisteredOfficeAddress.PostalCode
+		}
+		if postcodePrefix != "" && itemPostcode != "" {
+			regPC := strings.ToUpper(itemPostcode)
 			regParts := strings.Fields(regPC)
 			if len(regParts) > 0 && regParts[0] == postcodePrefix {
 				score += 0.35
@@ -785,7 +797,7 @@ func scoreCHMatches(items []chSearchItem, businessName, postcode string, sicFilt
 			zap.String("number", item.CompanyNumber),
 			zap.String("status", item.CompanyStatus),
 			zap.Strings("sic", item.SICCodes),
-			zap.String("reg_postcode", item.RegisteredOfficeAddress.PostalCode),
+			zap.String("reg_postcode", itemPostcode),
 			zap.Float64("score", score))
 
 		if score > 0.4 && (best == nil || score > best.Score) {
