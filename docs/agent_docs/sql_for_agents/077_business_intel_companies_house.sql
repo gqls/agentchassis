@@ -7,6 +7,8 @@
 --
 -- Runs on the vet-intel pod (same topic).
 
+renamed to business-intel
+
 INSERT INTO agent_definitions (
     type, display_name, description, category,
     default_config, is_active,
@@ -203,3 +205,14 @@ The flow becomes:
 load_batch → check_batch
 ├── has items → process_batch → notify_scheduler → complete
 └── empty    → notify_scheduler_empty → complete_empty
+
+
+---
+
+-- rename to ch-enricher
+
+UPDATE agent_definitions
+SET type = 'business-intel',
+    display_name = 'Business Intel Agent',
+    description = 'Business intelligence enrichment agent. Currently handles Companies House enrichment for verified businesses. Will expand to cover other data sources and verticals.'
+WHERE type = 'ch-enricher';

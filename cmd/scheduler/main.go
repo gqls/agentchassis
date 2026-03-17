@@ -226,12 +226,14 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 			continue
 		}
 
-		// Update last_triggered_at
+		// Update timestamps. For fire-and-forget tasks, mark completed immediately
+		// so the concurrency slot opens for the next tick. The message has been
+		// published — we don't wait for the orchestration to finish.
 		_, err := db.ExecContext(ctx,
-			`UPDATE scheduled_tasks SET last_triggered_at = NOW(), updated_at = NOW() WHERE id = $1`,
+			`UPDATE scheduled_tasks SET last_triggered_at = NOW(), last_completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
 			task.ID)
 		if err != nil {
-			logger.Warn("Failed to update last_triggered_at",
+			logger.Warn("Failed to update timestamps",
 				zap.String("task", task.Name), zap.Error(err))
 		}
 
@@ -416,7 +418,6 @@ func fireTrigger(ctx context.Context, producer kafka.Producer, task scheduledTas
 		"action":             "orchestrate",
 		"from_agent_type":    "kafka-scheduler",
 		"from_agent_id":      "kafka-scheduler-singleton",
-		"responses_topic":    "system.scheduler.responses",
 	}
 
 	return producer.Produce(ctx, task.TargetTopic, headers, []byte(reqID), bodyBytes)
