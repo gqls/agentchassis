@@ -138,22 +138,41 @@ func CompaniesHouseSearchAction(ctx context.Context, params ActionParams) (inter
 
 	config := params.StepConfig.Config
 
-	// Extract business name and postcode from collected_data
-	nameField, _ := config["name_field"].(string)
-	pcField, _ := config["postcode_field"].(string)
+	// Extract current_business using ExtractFields (handles loop variables correctly).
+	// ExtractNestedField resolves to stale values during loops because it searches
+	// deeply nested collected_data paths and can find a previous iteration's data.
+	inputFields := []string{"current_business"}
+	if fields, ok := config["input_fields"].([]interface{}); ok {
+		inputFields = make([]string, len(fields))
+		for i, f := range fields {
+			inputFields[i], _ = f.(string)
+		}
+	}
+	extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
 
-	name := ""
-	if nameField != "" {
-		if v := datahelpers.ExtractNestedField(params.CollectedData, nameField); v != nil {
-			name, _ = v.(string)
-		}
+	business, _ := extracted["current_business"].(map[string]interface{})
+
+	// Read name and postcode from the extracted business object
+	nameKey := "name"
+	if nf, ok := config["name_field"].(string); ok && nf != "" {
+		// Support dotted paths like "current_business.name" — take the last part
+		parts := strings.Split(nf, ".")
+		nameKey = parts[len(parts)-1]
 	}
-	postcode := ""
-	if pcField != "" {
-		if v := datahelpers.ExtractNestedField(params.CollectedData, pcField); v != nil {
-			postcode, _ = v.(string)
-		}
+	pcKey := "postcode"
+	if pf, ok := config["postcode_field"].(string); ok && pf != "" {
+		parts := strings.Split(pf, ".")
+		pcKey = parts[len(parts)-1]
 	}
+
+	name, _ := business[nameKey].(string)
+	postcode, _ := business[pcKey].(string)
+
+	params.Logger.Info("CompaniesHouseSearch: extracted business data",
+		zap.String("name", name),
+		zap.String("postcode", postcode),
+		zap.String("business_id", fmt.Sprintf("%v", business["id"])),
+	)
 
 	if name == "" {
 		params.Logger.Warn("CompaniesHouseSearch: no business name")
@@ -266,13 +285,13 @@ func CompaniesHouseFetchAction(ctx context.Context, params ActionParams) (interf
 
 	config := params.StepConfig.Config
 
-	companyNumberField, _ := config["company_number_field"].(string)
-	companyNumber := ""
-	if companyNumberField != "" {
-		if v := datahelpers.ExtractNestedField(params.CollectedData, companyNumberField); v != nil {
-			companyNumber, _ = v.(string)
-		}
-	}
+	// Extract ch_search using ExtractFields (handles loop variables correctly)
+	inputFields := []string{"ch_search"}
+	extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
+
+	chSearch, _ := extracted["ch_search"].(map[string]interface{})
+	companyNumber, _ := chSearch["company_number"].(string)
+
 	if companyNumber == "" {
 		return nil, fmt.Errorf("company_number is required")
 	}
@@ -640,6 +659,7 @@ func chAPIGet(ctx context.Context, apiKey, path string) (map[string]interface{},
 // cleanCompanySearchName strips common suffixes that hurt CH search accuracy
 func cleanCompanySearchName(name string) string {
 	name = strings.TrimSpace(name)
+	original := name
 
 	// Remove common trailing descriptions
 	for _, suffix := range []string{
@@ -658,9 +678,11 @@ func cleanCompanySearchName(name string) string {
 		}
 	}
 
-	// If name is very short after stripping, use original
-	if len(name) < 3 {
-		return strings.TrimSpace(name)
+	// If stripped name is too short to be a useful search query,
+	// fall back to the original. Single-word queries like "Erne" or "Cave"
+	// return too many irrelevant results from Companies House.
+	if len(name) < 6 {
+		return original
 	}
 	return name
 }
