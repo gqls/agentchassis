@@ -1742,3 +1742,27 @@ SET default_config = REPLACE(
         '"page_name?": "current_item.spec.page_name", "reviewed_brief?": "current_item.spec.reviewed_brief",'
                      )::jsonb
 WHERE type = 'build-dispatch-loop';
+
+
+---
+
+-- make it loop with 10 items instead of 5
+
+-- Process 10 items per dispatch run instead of 5
+UPDATE agent_definitions
+SET orchestration_workflow = jsonb_set(
+        orchestration_workflow::jsonb,
+        '{steps,load_items,config,max_items}',
+        '10'
+                             )::json
+WHERE type = 'build-dispatch-loop';
+
+-- Also update the loop's max_iterations to match
+UPDATE agent_definitions
+SET orchestration_workflow = jsonb_set(
+        orchestration_workflow::jsonb,
+        '{steps,process_item,config,max_iterations}',
+        '10'
+                             )::json
+WHERE type = 'build-dispatch-loop';
+
