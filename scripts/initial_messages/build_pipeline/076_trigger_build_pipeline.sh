@@ -818,7 +818,7 @@ WHERE name IN ('stale-orchestration-reaper', 'vet-batch-verify', 'vet-sweep-cont
 
   investigate
 
-  clients_db=# SELECT wi.id, wi.spec->>'page_name' as page,
+SELECT wi.id, wi.spec->>'page_name' as page,
          wi.error, wi.attempt_count, wi.max_attempts,
          wi.claimed_at, wi.completed_at,
          LEFT(wi.summary, 100) as summary

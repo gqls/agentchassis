@@ -163,68 +163,90 @@ func applyAddToPage(ctx context.Context, db *sql.DB, plan map[string]interface{}
 		return nil, fmt.Errorf("add_to_page plan missing or invalid")
 	}
 
-	pageName, _ := addPlan["page_name"].(string)
-	if pageName == "" {
+	pageNameRaw, _ := addPlan["page_name"].(string)
+	if pageNameRaw == "" {
 		return nil, fmt.Errorf("add_to_page.page_name is required")
 	}
 
 	contentGuidance, _ := addPlan["content_guidance"].(string)
-
-	// Look up the page
-	var pageID uuid.UUID
-	err := db.QueryRowContext(ctx, `
-		SELECT id FROM pages WHERE site_id = $1 AND name = $2 LIMIT 1
-	`, siteID, pageName).Scan(&pageID)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("page %q not found — cannot add to non-existent page", pageName)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("query page: %w", err)
-	}
-
-	// Build spec for the content rewrite
-	spec := map[string]interface{}{
-		"page_name":        pageName,
-		"content_guidance": contentGuidance,
-		"source":           "content-gap-planner",
-	}
-	if addSections, ok := addPlan["add_sections"].([]interface{}); ok {
-		spec["add_sections"] = addSections
-	}
-	specJSON, _ := json.Marshal(spec)
-
 	reasoning, _ := plan["reasoning"].(string)
-	summary := fmt.Sprintf("Add content to %s: %s", pageName, truncate(reasoning, 80))
 
-	itemKey := fmt.Sprintf("gap_plan_add_%s_%s", pageName, siteID)
+	// LLM sometimes produces comma-separated page names like "index, services".
+	// Split and process each one individually.
+	pageNames := splitPageNames(pageNameRaw)
 
-	_, err = db.ExecContext(ctx, `
-		INSERT INTO site_work_items (
-			site_id, source, domain, item_type, severity, summary,
-			spec, page_id, priority, handler_agent, status, created_by,
-			item_key, parent_item_id
-		) VALUES ($1, 'content-gap-planner', 'build', 'content_rewrite', 'medium', $2,
-		          $3::jsonb, $4, 35, 'page-build-handler', 'triaged', 'content-gap-planner',
-		          $5, $6)
-		ON CONFLICT DO NOTHING
-	`, siteID, summary, string(specJSON), pageID, itemKey, originalItemID)
+	var created int
+	var skipped []string
 
-	if err != nil {
-		return nil, fmt.Errorf("insert work item: %w", err)
+	for _, pageName := range pageNames {
+		// Look up the page
+		var pageID uuid.UUID
+		err := db.QueryRowContext(ctx, `
+			SELECT id FROM pages WHERE site_id = $1 AND name = $2 LIMIT 1
+		`, siteID, pageName).Scan(&pageID)
+
+		if err == sql.ErrNoRows {
+			logger.Warn("Page not found, skipping",
+				zap.String("page_name", pageName),
+				zap.String("raw_input", pageNameRaw))
+			skipped = append(skipped, pageName)
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("query page %q: %w", pageName, err)
+		}
+
+		// Build spec for the content rewrite
+		spec := map[string]interface{}{
+			"page_name":        pageName,
+			"content_guidance": contentGuidance,
+			"source":           "content-gap-planner",
+		}
+		if addSections, ok := addPlan["add_sections"].([]interface{}); ok {
+			spec["add_sections"] = addSections
+		}
+		specJSON, _ := json.Marshal(spec)
+
+		summary := fmt.Sprintf("Add content to %s: %s", pageName, truncate(reasoning, 80))
+		itemKey := fmt.Sprintf("gap_plan_add_%s_%s", pageName, siteID)
+
+		_, err = db.ExecContext(ctx, `
+			INSERT INTO site_work_items (
+				site_id, source, domain, item_type, severity, summary,
+				spec, page_id, priority, handler_agent, status, created_by,
+				item_key, parent_item_id
+			) VALUES ($1, 'content-gap-planner', 'build', 'content_rewrite', 'medium', $2,
+			          $3::jsonb, $4, 35, 'page-build-handler', 'triaged', 'content-gap-planner',
+			          $5, $6)
+			ON CONFLICT DO NOTHING
+		`, siteID, summary, string(specJSON), pageID, itemKey, originalItemID)
+
+		if err != nil {
+			logger.Warn("Failed to create work item for page",
+				zap.String("page_name", pageName), zap.Error(err))
+			continue
+		}
+		created++
+	}
+
+	if created == 0 && len(skipped) > 0 {
+		return nil, fmt.Errorf("no valid pages found from %q — pages not found: %s", pageNameRaw, strings.Join(skipped, ", "))
 	}
 
 	// Mark original as complete
 	markOriginalComplete(ctx, db, originalItemID)
 
 	logger.Info("ApplyGapPlanAction: add_to_page applied",
-		zap.String("page_name", pageName))
+		zap.String("raw_page_names", pageNameRaw),
+		zap.Int("items_created", created),
+		zap.Strings("skipped", skipped))
 
 	return map[string]interface{}{
-		"applied":      true,
-		"approach":     "add_to_page",
-		"page_name":    pageName,
-		"item_created": true,
+		"applied":       true,
+		"approach":      "add_to_page",
+		"pages":         pageNames,
+		"items_created": created,
+		"skipped":       skipped,
 	}, nil
 }
 
@@ -467,4 +489,28 @@ func markOriginalComplete(ctx context.Context, db *sql.DB, itemID *uuid.UUID) {
 			WHERE id = $1 AND status IN ('triaged', 'claimed')
 		`, *itemID)
 	}
+}
+
+// splitPageNames handles LLM output that sometimes produces comma-separated,
+// "and"-separated, or slash-separated page lists like "index, services",
+// "index and services", or "index/services".
+// Returns cleaned, trimmed individual page names.
+func splitPageNames(raw string) []string {
+	// Normalise separators
+	normalized := strings.ReplaceAll(raw, " and ", ",")
+	normalized = strings.ReplaceAll(normalized, " & ", ",")
+	normalized = strings.ReplaceAll(normalized, "/", ",")
+
+	parts := strings.Split(normalized, ",")
+	var result []string
+	seen := map[string]bool{}
+	for _, p := range parts {
+		name := strings.TrimSpace(p)
+		name = strings.ToLower(name)
+		if name != "" && !seen[name] {
+			seen[name] = true
+			result = append(result, name)
+		}
+	}
+	return result
 }

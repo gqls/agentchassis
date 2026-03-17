@@ -11,4 +11,4 @@ patches:
 
 images:
   - name: docker.io/aqls/agent-chassis
-    newTag: v1.0.880
+    newTag: v1.0.881
