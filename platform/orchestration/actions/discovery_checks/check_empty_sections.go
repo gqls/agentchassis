@@ -112,6 +112,7 @@ func findEmptySections(dctx DiscoveryCheckContext) ([]emptySectionFinding, error
 		  AND pc.locked_at IS NULL
 		  AND COALESCE(pc.slot_name, '') NOT IN ('header', 'footer', 'head')
 		  AND COALESCE(cc.function, '') NOT IN ('header', 'footer', 'head-seo')
+		  AND NOT (COALESCE(p.suppressed_sections, '[]'::jsonb) ? COALESCE(pc.slot_name, ''))
 		  AND p.name NOT IN ('blog')
 		  AND COALESCE(p.page_type, '') NOT IN ('blog-index')
 		  AND (

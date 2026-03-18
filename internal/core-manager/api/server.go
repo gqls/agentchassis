@@ -184,6 +184,7 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 				siteGroup.POST("/:site_id/pages/:page_name/components/:component_id/lock", pageAdminHandlers.HandleLockComponent)
 				siteGroup.POST("/:site_id/pages/:page_name/components/:component_id/unlock", pageAdminHandlers.HandleUnlockComponent)
 				siteGroup.DELETE("/:site_id/pages/:page_name/components/:component_id", pageAdminHandlers.HandleRemoveComponent)
+				siteGroup.POST("/:site_id/pages/:page_name/restore-section", pageAdminHandlers.HandleRestoreSection)
 			}
 
 			// Work Item Administration + HITL Review

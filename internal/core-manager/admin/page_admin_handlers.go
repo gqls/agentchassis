@@ -123,10 +123,12 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 	// Load the page record
 	var pageID uuid.UUID
 	var pageTitle, pageURL, pageType string
+	var suppressedJSON []byte
 	err = h.db.QueryRowContext(ctx, `
-		SELECT id, COALESCE(title, name), COALESCE(url, ''), COALESCE(page_type, '')
+		SELECT id, COALESCE(title, name), COALESCE(url, ''), COALESCE(page_type, ''),
+		       COALESCE(suppressed_sections, '[]'::jsonb)
 		FROM pages WHERE site_id = $1 AND name = $2
-	`, siteID, pageName).Scan(&pageID, &pageTitle, &pageURL, &pageType)
+	`, siteID, pageName).Scan(&pageID, &pageTitle, &pageURL, &pageType, &suppressedJSON)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "page not found"})
 		return
@@ -135,6 +137,9 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	var suppressedSections []string
+	json.Unmarshal(suppressedJSON, &suppressedSections)
 
 	// Load components in position order
 	rows, err := h.db.QueryContext(ctx, `
@@ -207,11 +212,12 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"page": map[string]interface{}{
-			"id":        pageID.String(),
-			"name":      pageName,
-			"title":     pageTitle,
-			"url":       pageURL,
-			"page_type": pageType,
+			"id":                  pageID.String(),
+			"name":                pageName,
+			"title":               pageTitle,
+			"url":                 pageURL,
+			"page_type":           pageType,
+			"suppressed_sections": suppressedSections,
 		},
 		"components": components,
 		"count":      len(components),
@@ -576,4 +582,111 @@ func (h *PageAdminHandlers) HandleRemoveComponent(c *gin.Context) {
 		"slot_name":    slotName,
 		"suppressed":   true,
 	})
+}
+
+// ============================================================================
+// POST /admin/sites/:site_id/pages/:page_name/restore-section
+// ============================================================================
+//
+// Restores a suppressed section: removes it from suppressed_sections and
+// optionally creates a work item to populate the section.
+
+func (h *PageAdminHandlers) HandleRestoreSection(c *gin.Context) {
+	ctx := c.Request.Context()
+	siteID, err := uuid.Parse(c.Param("site_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+	pageName := c.Param("page_name")
+
+	var body struct {
+		SlotName   string `json:"slot_name" binding:"required"`
+		CreateItem *bool  `json:"create_item"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get page ID
+	var pageID uuid.UUID
+	err = h.db.QueryRowContext(ctx, `
+		SELECT id FROM pages WHERE site_id = $1 AND name = $2
+	`, siteID, pageName).Scan(&pageID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "page not found"})
+		return
+	}
+
+	// Remove from suppressed_sections
+	_, err = h.db.ExecContext(ctx, `
+		UPDATE pages
+		SET suppressed_sections = COALESCE(suppressed_sections, '[]'::jsonb) - $2
+		WHERE id = $1
+	`, pageID, body.SlotName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Restore the component if it exists with build_status='removed'
+	_, _ = h.db.ExecContext(ctx, `
+		UPDATE page_components
+		SET build_status = 'pending',
+		    locked_at = NULL,
+		    locked_by = NULL,
+		    updated_at = NOW()
+		WHERE page_id = $1 AND slot_name = $2 AND build_status = 'removed'
+	`, pageID, body.SlotName)
+
+	h.logger.Info("Section restored via admin",
+		zap.String("page", pageName),
+		zap.String("slot_name", body.SlotName))
+
+	// Optionally create a work item to populate the section
+	shouldCreate := true
+	if body.CreateItem != nil {
+		shouldCreate = *body.CreateItem
+	}
+
+	var itemID *string
+	if shouldCreate {
+		specJSON, _ := json.Marshal(map[string]interface{}{
+			"page_name":    pageName,
+			"slot_name":    body.SlotName,
+			"reason":       "section_restored",
+			"check":        "empty_sections",
+			"component_id": "",
+		})
+
+		var newID uuid.UUID
+		err = h.db.QueryRowContext(ctx, `
+			INSERT INTO site_work_items (
+				site_id, source, domain, item_type, severity, summary,
+				spec, page_id, priority, handler_agent, status, created_by
+			) VALUES ($1, 'admin-restore', 'build', 'empty_section', 'medium',
+			          $2, $3::jsonb, $4, 50, 'page-build-handler', 'triaged', 'admin')
+			RETURNING id
+		`, siteID,
+			fmt.Sprintf("Populate restored section '%s' on page %s", body.SlotName, pageName),
+			string(specJSON), pageID).Scan(&newID)
+
+		if err != nil {
+			h.logger.Warn("Failed to create restore work item", zap.Error(err))
+		} else {
+			id := newID.String()
+			itemID = &id
+		}
+	}
+
+	result := gin.H{
+		"restored":  true,
+		"slot_name": body.SlotName,
+		"page":      pageName,
+	}
+	if itemID != nil {
+		result["item_id"] = *itemID
+	}
+	c.JSON(http.StatusOK, result)
 }

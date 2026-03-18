@@ -435,7 +435,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                 setEditedReviewData(buildPlaceholderForm(item));
             } else if (!item.spec.checkpoint) {
                 // Other review items: edit the spec directly (strip internal fields)
-                const editableSpec = { ...(item.spec as Record<string, unknown>) };
+                const editableSpec = { ...item.spec };
                 delete editableSpec.check;
                 delete editableSpec.original_domain;
                 setEditedReviewData(JSON.parse(JSON.stringify(editableSpec)));
@@ -573,7 +573,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
         }
 
         // Check that at least one field has content
-        const hasContent = Object.values(editedReviewData as Record<string, unknown>).some(v => {
+        const hasContent = Object.values(editedReviewData).some(v => {
             if (Array.isArray(v)) return v.some(entry =>
                 typeof entry === "object" ? Object.values(entry).some(fv => fv !== "") : entry !== ""
             );
@@ -1001,6 +1001,7 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
     const [pages, setPages] = useState([]);
     const [selectedPage, setSelectedPage] = useState(null);
     const [components, setComponents] = useState([]);
+    const [suppressedSections, setSuppressedSections] = useState([]);
     const [selectedComponent, setSelectedComponent] = useState(null);
     const [editData, setEditData] = useState(null);
     const [editHtml, setEditHtml] = useState("");
@@ -1029,9 +1030,11 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
         try {
             const data = await apiFetch(`/sites/${siteId}/pages/${pageName}/components`, token);
             setComponents(data.components || []);
+            setSuppressedSections(data.page?.suppressed_sections || []);
         } catch (err) {
             console.error(err);
             setComponents([]);
+            setSuppressedSections([]);
         }
     }, [token, siteId]);
 
@@ -1056,7 +1059,7 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
     const handleSaveComponent = async (comp) => {
         setActionLoading(true);
         try {
-            const body: Record<string, unknown> = { lock: true, rebuild_page: true };
+            const body = { lock: true, rebuild_page: true };
             if (editMode === "structured" && editData) {
                 body.content_data = editData;
             } else if (editMode === "html") {
@@ -1119,6 +1122,23 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
             loadComponents(selectedPage.name);
             loadPages();
         } catch (err) { setMessage("Remove failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    const handleRestore = async (slotName) => {
+        if (!confirm(`Restore section "${slotName}" on ${selectedPage.name}? A work item will be created to populate it.`)) return;
+        setActionLoading(true);
+        try {
+            const result = await apiFetch(
+                `/sites/${siteId}/pages/${selectedPage.name}/restore-section`,
+                token, { method: "POST", body: JSON.stringify({ slot_name: slotName, create_item: true }) }
+            );
+            let msg = `Section "${slotName}" restored`;
+            if (result.item_id) msg += " — populate item created";
+            setMessage(msg);
+            loadComponents(selectedPage.name);
+            loadPages();
+        } catch (err) { setMessage("Restore failed: " + err.message); }
         finally { setActionLoading(false); }
     };
 
@@ -1289,6 +1309,30 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
                                         </div>
                                     </div>
                                 ))}
+
+                                {/* Suppressed sections */}
+                                {suppressedSections.length > 0 && (
+                                    <div style={{ marginTop: 20 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                                            Suppressed ({suppressedSections.length})
+                                        </div>
+                                        {suppressedSections.map(slot => (
+                                            <div key={slot} style={{
+                                                background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: 8,
+                                                padding: "10px 14px", marginBottom: 6,
+                                                display: "flex", justifyContent: "space-between", alignItems: "center",
+                                            }}>
+                                                <div>
+                                                    <span style={{ fontSize: 13, color: "#94a3b8", textDecoration: "line-through" }}>{slot}</span>
+                                                    <span style={{ fontSize: 11, color: "#94a3b8", marginLeft: 8 }}>removed by admin</span>
+                                                </div>
+                                                <button onClick={() => handleRestore(slot)} disabled={actionLoading} style={{
+                                                    ...btnSecondary, fontSize: 11, padding: "4px 10px", color: "#059669",
+                                                }}>Restore</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -1500,7 +1544,7 @@ function renderSpecPreview(data) {
         let preview = "";
         if (typeof value === "string") preview = value.slice(0, 80) + (value.length > 80 ? "…" : "");
         else if (Array.isArray(value)) preview = `[${value.length} items]`;
-        else if (typeof value === "object" && value !== null) preview = `{${Object.keys(value as Record<string, unknown>).join(", ")}}`;
+        else if (typeof value === "object" && value !== null) preview = `{${Object.keys(value).join(", ")}}`;
         else preview = String(value);
         return (
             <div key={key} style={{ marginBottom: 2 }}>
