@@ -418,3 +418,9 @@ Each phase is independently useful. Phase 1 can be deployed in an hour. Phases 2
 **History is preserved.** Every direct edit saves to `page_component_history`. Removed sections are soft-deleted (`build_status = 'removed'`), not hard-deleted. Spec changes are versioned. Everything can be undone.
 
 **Same API, two audiences.** The admin dashboard and the future user portal use the same endpoints. The difference is auth scope: admins see all sites, users see only their own. No separate API needed.
+
+
+---
+phase 2 deployed:
+MethodPathWhat it doesGET/sites/:id/pagesList pages with component_count, locked_count, empty_countGET/sites/:id/pages/:name/componentsComponents in position order with content_data, html_preview (500 chars), lock statusPATCH/sites/:id/pages/:name/components/:idEdit content_data/rendered_html, auto-locks, saves history, optionally triggers rerenderPOST.../components/:id/lockLock a componentPOST.../components/:id/unlockUnlock a componentDELETE.../components/:idSoft-remove: sets build_status='removed', locks as 'admin-removed', adds to suppressed_sections, triggers page rerender
+

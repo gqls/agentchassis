@@ -299,14 +299,14 @@ function LoginScreen({ onLogin }) {
 }
 
 // ── Sites Overview ───────────────────────────────────────────────────────────
-function SitesOverview({ sites, onSelectSite, onSelectPages }) {
+function SitesOverview({ sites, onSelectSite }) {
     return (
         <div>
             <h2 style={sectionTitle}>Sites</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
                 {sites.map(site => (
-                    <div key={site.id} style={{
-                        background: "#fff", borderRadius: 10, padding: "20px 22px",
+                    <div key={site.id} onClick={() => onSelectSite(site)} style={{
+                        background: "#fff", borderRadius: 10, padding: "20px 22px", cursor: "pointer",
                         border: "1px solid #e2e8f0", transition: "box-shadow 0.15s",
                     }}
                          onMouseEnter={e => e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)"}
@@ -333,16 +333,8 @@ function SitesOverview({ sites, onSelectSite, onSelectPages }) {
                                 </div>
                             ))}
                         </div>
-                        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                            <button onClick={() => onSelectSite(site)} style={{
-                                ...btnSecondary, fontSize: 12, padding: "6px 14px", flex: 1,
-                            }}>Work Items</button>
-                            <button onClick={() => onSelectPages(site)} style={{
-                                ...btnSecondary, fontSize: 12, padding: "6px 14px", flex: 1,
-                            }}>Pages</button>
-                        </div>
                         {site.last_deployed && (
-                            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
+                            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 12 }}>
                                 Last deployed: {new Date(site.last_deployed).toLocaleDateString()}
                             </div>
                         )}
@@ -993,322 +985,12 @@ function WorkItemsList({ token, siteFilter, onBack }) {
     );
 }
 
-// ── Page Browser ─────────────────────────────────────────────────────────────
-function PageBrowser({ token, siteId, siteDomain, onBack }) {
-    const [pages, setPages] = useState([]);
-    const [selectedPage, setSelectedPage] = useState(null);
-    const [components, setComponents] = useState([]);
-    const [selectedComponent, setSelectedComponent] = useState(null);
-    const [editData, setEditData] = useState(null);
-    const [editHtml, setEditHtml] = useState("");
-    const [editMode, setEditMode] = useState("structured"); // structured | html
-    const [loading, setLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState(false);
-    const [message, setMessage] = useState("");
-
-    // Load pages
-    const loadPages = useCallback(async () => {
-        setLoading(true);
-        try {
-            const data = await apiFetch(`/sites/${siteId}/pages`, token);
-            setPages(data.pages || []);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    }, [token, siteId]);
-
-    useEffect(() => { loadPages(); }, [loadPages]);
-
-    // Load components for selected page
-    const loadComponents = useCallback(async (pageName) => {
-        try {
-            const data = await apiFetch(`/sites/${siteId}/pages/${pageName}/components`, token);
-            setComponents(data.components || []);
-        } catch (err) {
-            console.error(err);
-            setComponents([]);
-        }
-    }, [token, siteId]);
-
-    const selectPage = (page) => {
-        setSelectedPage(page);
-        setSelectedComponent(null);
-        setEditData(null);
-        loadComponents(page.name);
-    };
-
-    const selectComponent = (comp) => {
-        setSelectedComponent(comp);
-        setEditMode(comp.content_data && Object.keys(comp.content_data).length > 0 ? "structured" : "html");
-        if (comp.content_data && Object.keys(comp.content_data).length > 0) {
-            setEditData(JSON.parse(JSON.stringify(comp.content_data)));
-        } else {
-            setEditData(null);
-        }
-        setEditHtml(comp.html_preview || "");
-    };
-
-    const handleSaveComponent = async (comp) => {
-        setActionLoading(true);
-        try {
-            const body = { lock: true, rebuild_page: true };
-            if (editMode === "structured" && editData) {
-                body.content_data = editData;
-            } else if (editMode === "html") {
-                body.rendered_html = editHtml;
-            }
-
-            const result = await apiFetch(
-                `/sites/${siteId}/pages/${selectedPage.name}/components/${comp.id}`,
-                token, { method: "PATCH", body: JSON.stringify(body) }
-            );
-            let msg = "Component saved & locked";
-            if (result.rebuild_item_id) msg += " — rebuild queued";
-            setMessage(msg);
-            // Refresh
-            loadComponents(selectedPage.name);
-            loadPages();
-            setSelectedComponent(null);
-        } catch (err) { setMessage("Save failed: " + err.message); }
-        finally { setActionLoading(false); }
-    };
-
-    const handleLock = async (comp) => {
-        setActionLoading(true);
-        try {
-            await apiFetch(
-                `/sites/${siteId}/pages/${selectedPage.name}/components/${comp.id}/lock`,
-                token, { method: "POST" }
-            );
-            setMessage("Component locked");
-            loadComponents(selectedPage.name);
-            loadPages();
-        } catch (err) { setMessage("Lock failed: " + err.message); }
-        finally { setActionLoading(false); }
-    };
-
-    const handleUnlock = async (comp) => {
-        setActionLoading(true);
-        try {
-            await apiFetch(
-                `/sites/${siteId}/pages/${selectedPage.name}/components/${comp.id}/unlock`,
-                token, { method: "POST" }
-            );
-            setMessage("Component unlocked — agents can modify it again");
-            loadComponents(selectedPage.name);
-            loadPages();
-        } catch (err) { setMessage("Unlock failed: " + err.message); }
-        finally { setActionLoading(false); }
-    };
-
-    const handleRemove = async (comp) => {
-        if (!confirm(`Remove section "${comp.slot_name}" from ${selectedPage.name}? It will be hidden on the live site and suppressed from future discovery.`)) return;
-        setActionLoading(true);
-        try {
-            await apiFetch(
-                `/sites/${siteId}/pages/${selectedPage.name}/components/${comp.id}`,
-                token, { method: "DELETE" }
-            );
-            setMessage(`Section "${comp.slot_name}" removed — rebuild queued`);
-            setSelectedComponent(null);
-            loadComponents(selectedPage.name);
-            loadPages();
-        } catch (err) { setMessage("Remove failed: " + err.message); }
-        finally { setActionLoading(false); }
-    };
-
-    return (
-        <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                <button onClick={onBack} style={btnSecondary}>← Sites</button>
-                <h2 style={{ ...sectionTitle, margin: 0, flex: 1 }}>
-                    Pages <span style={{ fontWeight: 400, color: "#64748b" }}>— {siteDomain}</span>
-                </h2>
-            </div>
-
-            {message && (
-                <div style={{
-                    background: "#d1fae5", color: "#065f46", padding: "8px 14px", borderRadius: 6,
-                    fontSize: 13, marginBottom: 12, display: "flex", justifyContent: "space-between",
-                }}>
-                    {message}
-                    <span onClick={() => setMessage("")} style={{ cursor: "pointer" }}>✕</span>
-                </div>
-            )}
-
-            {loading ? (
-                <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Loading pages…</div>
-            ) : (
-                <div style={{ display: "flex", gap: 16 }}>
-                    {/* Page list */}
-                    <div style={{ flex: "0 0 220px", minWidth: 0 }}>
-                        {pages.map(page => (
-                            <div key={page.id} onClick={() => selectPage(page)} style={{
-                                background: selectedPage?.id === page.id ? "#f0f9ff" : "#fff",
-                                border: `1px solid ${selectedPage?.id === page.id ? "#93c5fd" : "#e2e8f0"}`,
-                                borderRadius: 8, padding: "10px 14px", marginBottom: 6, cursor: "pointer",
-                            }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{page.name}</div>
-                                <div style={{ display: "flex", gap: 8, marginTop: 4, fontSize: 11, color: "#94a3b8" }}>
-                                    <span>{page.component_count} sections</span>
-                                    {page.locked_count > 0 && (
-                                        <span style={{ color: "#7c3aed" }}>🔒{page.locked_count}</span>
-                                    )}
-                                    {page.empty_count > 0 && (
-                                        <span style={{ color: "#92400e" }}>⚠{page.empty_count} empty</span>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Components panel */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        {!selectedPage ? (
-                            <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Select a page to view its sections</div>
-                        ) : selectedComponent ? (
-                            /* ── Component edit panel ── */
-                            <div style={{
-                                background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20,
-                            }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-                                    <h3 style={{ margin: 0, fontSize: 16, color: "#0f172a" }}>
-                                        Edit: {selectedComponent.slot_name}
-                                        {selectedComponent.locked && <span style={{ fontSize: 12, color: "#7c3aed", marginLeft: 8 }}>🔒 Locked</span>}
-                                    </h3>
-                                    <span onClick={() => setSelectedComponent(null)} style={{ cursor: "pointer", color: "#94a3b8", fontSize: 18 }}>✕</span>
-                                </div>
-
-                                {/* Edit mode tabs */}
-                                <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-                                    {selectedComponent.content_data && Object.keys(selectedComponent.content_data).length > 0 && (
-                                        <button onClick={() => setEditMode("structured")} style={{
-                                            ...btnSecondary, fontSize: 12, padding: "4px 12px",
-                                            background: editMode === "structured" ? "#dbeafe" : "#fff",
-                                            color: editMode === "structured" ? "#1e40af" : "#64748b",
-                                        }}>Fields</button>
-                                    )}
-                                    <button onClick={() => setEditMode("html")} style={{
-                                        ...btnSecondary, fontSize: 12, padding: "4px 12px",
-                                        background: editMode === "html" ? "#dbeafe" : "#fff",
-                                        color: editMode === "html" ? "#1e40af" : "#64748b",
-                                    }}>HTML</button>
-                                </div>
-
-                                {/* Edit form */}
-                                <div style={{
-                                    background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8,
-                                    padding: 16, marginBottom: 16, maxHeight: "50vh", overflowY: "auto",
-                                }}>
-                                    {editMode === "structured" && editData ? (
-                                        <EditableReviewForm reviewData={editData} onChange={setEditData} />
-                                    ) : (
-                                        <textarea
-                                            value={editHtml}
-                                            onChange={e => setEditHtml(e.target.value)}
-                                            style={{
-                                                width: "100%", minHeight: 200, padding: 10,
-                                                fontFamily: "monospace", fontSize: 12, border: "1px solid #cbd5e1",
-                                                borderRadius: 6, resize: "vertical", boxSizing: "border-box",
-                                            }}
-                                        />
-                                    )}
-                                </div>
-
-                                {/* Actions */}
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                    <button onClick={() => handleSaveComponent(selectedComponent)} disabled={actionLoading} style={{
-                                        ...btnPrimary, background: "#059669",
-                                    }}>
-                                        Save & Deploy
-                                    </button>
-                                    <button onClick={() => setSelectedComponent(null)} style={btnSecondary}>Cancel</button>
-                                </div>
-                            </div>
-                        ) : (
-                            /* ── Component list ── */
-                            <div>
-                                <div style={{ fontSize: 14, fontWeight: 600, color: "#475569", marginBottom: 12 }}>
-                                    {selectedPage.name} — {components.length} sections
-                                </div>
-                                {components.length === 0 ? (
-                                    <div style={{ textAlign: "center", padding: 30, color: "#94a3b8" }}>No sections found</div>
-                                ) : components.map(comp => (
-                                    <div key={comp.id} style={{
-                                        background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8,
-                                        padding: "14px 16px", marginBottom: 8,
-                                    }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                                                    <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{comp.slot_name}</span>
-                                                    {comp.locked && (
-                                                        <span style={{ fontSize: 11, color: "#7c3aed", background: "#ede9fe", padding: "1px 6px", borderRadius: 4 }}>
-                                                            🔒 {comp.locked_by}
-                                                        </span>
-                                                    )}
-                                                    {comp.is_empty && (
-                                                        <span style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", padding: "1px 6px", borderRadius: 4 }}>empty</span>
-                                                    )}
-                                                </div>
-                                                {/* Content preview */}
-                                                {comp.html_preview && !comp.is_empty ? (
-                                                    <div style={{
-                                                        fontSize: 12, color: "#64748b", lineHeight: 1.4,
-                                                        maxHeight: 60, overflow: "hidden",
-                                                    }}>
-                                                        {stripHtmlTags(comp.html_preview).slice(0, 200)}
-                                                    </div>
-                                                ) : comp.is_empty ? (
-                                                    <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>No content</div>
-                                                ) : null}
-                                            </div>
-                                        </div>
-                                        {/* Component actions */}
-                                        <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                                            <button onClick={() => selectComponent(comp)} style={{
-                                                ...btnSecondary, fontSize: 11, padding: "4px 10px",
-                                            }}>Edit</button>
-                                            {comp.locked ? (
-                                                <button onClick={() => handleUnlock(comp)} disabled={actionLoading} style={{
-                                                    ...btnSecondary, fontSize: 11, padding: "4px 10px", color: "#7c3aed",
-                                                }}>Unlock</button>
-                                            ) : (
-                                                <button onClick={() => handleLock(comp)} disabled={actionLoading} style={{
-                                                    ...btnSecondary, fontSize: 11, padding: "4px 10px",
-                                                }}>Lock</button>
-                                            )}
-                                            <button onClick={() => handleRemove(comp)} disabled={actionLoading} style={{
-                                                ...btnSecondary, fontSize: 11, padding: "4px 10px", color: "#991b1b", borderColor: "#fca5a5",
-                                            }}>Remove</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// Strip HTML tags for content preview
-function stripHtmlTags(html) {
-    return html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
 // ── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
     const [token, setToken] = useState(() => sessionStorage.getItem("admin_token") || "");
     const [user, setUser] = useState(null);
     const [sites, setSites] = useState([]);
-    const [view, setView] = useState("sites"); // sites | items | all-items | pages
+    const [view, setView] = useState("sites"); // sites | items | all-items
     const [selectedSite, setSelectedSite] = useState(null);
     const [error, setError] = useState("");
 
@@ -1358,8 +1040,8 @@ export default function App() {
                             { key: "all-items", label: "All Items" },
                         ].map(({ key, label }) => (
                             <button key={key} onClick={() => { setView(key); setSelectedSite(null); }} style={{
-                                background: view === key || (["items", "pages"].includes(view) && key === "sites") ? "#1e293b" : "transparent",
-                                color: view === key || (["items", "pages"].includes(view) && key === "sites") ? "#f1f5f9" : "#94a3b8",
+                                background: view === key || (view === "items" && key === "sites") ? "#1e293b" : "transparent",
+                                color: view === key || (view === "items" && key === "sites") ? "#f1f5f9" : "#94a3b8",
                                 border: "none", padding: "6px 12px", borderRadius: 4,
                                 fontSize: 12, fontWeight: 500, cursor: "pointer",
                             }}>
@@ -1392,7 +1074,6 @@ export default function App() {
                     <SitesOverview
                         sites={sites}
                         onSelectSite={(site) => { setSelectedSite(site); setView("items"); }}
-                        onSelectPages={(site) => { setSelectedSite(site); setView("pages"); }}
                     />
                 )}
 
@@ -1409,15 +1090,6 @@ export default function App() {
                         token={token}
                         siteFilter={null}
                         onBack={() => { setView("sites"); loadSites(); }}
-                    />
-                )}
-
-                {view === "pages" && selectedSite && (
-                    <PageBrowser
-                        token={token}
-                        siteId={selectedSite.id}
-                        siteDomain={selectedSite.domain}
-                        onBack={() => { setView("sites"); setSelectedSite(null); loadSites(); }}
                     />
                 )}
             </div>

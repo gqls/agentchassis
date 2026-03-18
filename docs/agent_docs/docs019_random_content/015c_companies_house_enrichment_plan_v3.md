@@ -102,6 +102,8 @@ Each search result is scored on four factors:
 | Name — contains | +0.15 | One name contains the other |
 | Name — word overlap | +0.0 to +0.20 | Proportion of significant words (>3 chars) that appear in both |
 | Company active | +0.15 | company_status == "active" |
+| Vet industry title — "veterinary" | +0.15 | Whole word "veterinary" in company title |
+| Vet industry title — "vet"/"vets" | +0.10 | Whole word "vet" or "vets" in company title |
 | SIC prefix match | +0.25 | Any SIC code starts with a filter prefix |
 | No SIC in result | -0.05 | Search results don't include SIC codes (normal for search API) |
 | Wrong SIC codes | -0.15 | Has SIC codes but none match the filter |
@@ -110,21 +112,41 @@ Each search result is scored on four factors:
 
 The SIC filter uses prefix matching: filter value "75" matches SIC codes "75000", "75100", etc. Current filter prefixes in the workflow: `["75", "749", "869"]`.
 
+The vet industry title bonus acts as a proxy for the missing SIC codes in search results. "Veterinary" or "vets" in the company title is a strong signal that the result is in the right industry. The bonus uses whole-word matching (splitting on whitespace, stripping trailing punctuation) to avoid false positives from words like "veteran" or "vetting".
+
 ### Scoring Examples
 
 **Good match: "Erne Veterinary Group" → "ERNE VETERINARY GROUP LIMITED" (BT74)**
 - Postcode BT74 matches: +0.35
 - Name contains: +0.15
 - Active: +0.15
+- "veterinary" in title: +0.15
 - No SIC in search result: -0.05
-- **Total: 0.60 ✓**
+- **Total: 0.75 ✓**
+
+**Good match without postcode: "Goddard Veterinary Group Eastcote" → "GODDARD VETERINARY GROUP LIMITED" (YO30 — HQ, not branch)**
+- No postcode match: +0.00
+- Word overlap (3/4 words): +0.15
+- Active: +0.15
+- "veterinary" in title: +0.15
+- No SIC: -0.05
+- **Total: 0.40 ✓** (vet title bonus pushes it over threshold)
 
 **Wrong company: "Erne Veterinary Group" → "ERNES GROUP LONDON LTD" (NW11)**
 - No postcode match: +0.00
 - Word overlap (2/3 words): +0.13
 - Active: +0.15
+- No "veterinary"/"vet" in title: +0.00
 - No SIC: -0.05
 - **Total: 0.23 ✗**
+
+**Wrong vet company: "Elms Veterinary Surgery" → "ALMA VETERINARY SURGERY LTD" (YO12)**
+- No postcode match: +0.00
+- Word overlap (1/3 "surgery"): +0.07
+- Active: +0.15
+- "veterinary" in title: +0.15
+- No SIC: -0.05
+- **Total: 0.32 ✗** (correctly rejected — name too different despite vet title)
 
 ### Known Limitations
 
@@ -263,16 +285,30 @@ The pre_query only fires the task when there are unenriched businesses. Once the
 
 Kafka topics are defined in `deployments/terraform/modules/kafka_topics/main.tf`. The business-intel topics were added alongside vet-intel topics.
 
+### Kustomize
+
+Structure: `deployments/kustomize/services/business-intel/`
+- `base/deployment.yaml` — bare deployment (no env vars)
+- `overlays/production/uk_001/kustomization.yaml` — references base, configmap, patch, and image tag
+- `overlays/production/uk_001/patch-deployment.yaml` — all env vars (database passwords, Kafka topics, CH API key)
+- `overlays/production/uk_001/configmap.yaml` — `business-intel-config` with Kafka brokers and database connection details
+
+The kustomize patch target must be `name: business-intel` (matching the base deployment name). See debug history item #8.
+
 ### Makefile
 
 The `business-intel` deployment is included in `deploy-agents`, `redeploy-agents`, `update-kustomization-images`, and has standalone targets: `deploy-business-intel`, `logs-business-intel`, `restart-business-intel`.
 
 ## Backfill Progress
 
-With ~2,339 unenriched businesses (as of March 2026) and batches of 10 at 1200s intervals:
-- ~234 batches needed
-- ~78 hours of wall time to complete full backfill
-- Many will be `no_match` (sole traders, partnerships) — these complete quickly (no fetch step)
+With ~2,725 unenriched businesses remaining (as of March 18, 2026) and batches of 10 at 1200s intervals:
+- ~273 batches needed
+- ~91 hours of wall time to complete full backfill
+- Many will be `no_match` (sole traders, partnerships, corporate branches) — these complete quickly (no fetch step)
+
+**Observed match rate:** ~85% from early batches (35 matched out of 41 processed). This is likely inflated by the initial batches covering more independent practices. Expect the overall rate to settle around 15-30% as the backfill covers more corporate branches and sole traders.
+
+**Corporate branches** are a significant source of `no_match`. Practices owned by CVS, IVC Evidensia, Medivet, VetPartners etc. are typically registered under the parent company name at a central HQ address. The practice name and local postcode won't match the CH record. These are correctly identified as `no_match` — the business is already flagged as corporate-owned in the `businesses` table via the `group_name` field from web scraping.
 
 ## Owner Age & Succession Signals (PE Targeting)
 
@@ -312,15 +348,15 @@ The financial columns in `companies_house_data` (total_assets_gbp, net_worth_gbp
 CH accounts are filed as iXBRL (inline XBRL) — structured XHTML with tagged financial values. The pipeline to extract them:
 
 1. **Get latest accounts filing:** `GET /company/{number}/filing-history?category=accounts&items_per_page=1`
-   - Returns a `document_metadata` URL
+    - Returns a `document_metadata` URL
 
 2. **Get document metadata:** `GET {document_metadata_url}`
-   - Returns available formats: `application/pdf` and `application/xhtml+xml`
-   - Returns a content URL
+    - Returns available formats: `application/pdf` and `application/xhtml+xml`
+    - Returns a content URL
 
 3. **Download iXBRL:** `GET {content_url}` with `Accept: application/xhtml+xml`
-   - **Must follow redirects** (`-L` in curl, `CheckRedirect` in Go HTTP client) — the content endpoint redirects to S3
-   - Returns structured XHTML with `ix:nonFraction` elements containing financial values
+    - **Must follow redirects** (`-L` in curl, `CheckRedirect` in Go HTTP client) — the content endpoint redirects to S3
+    - Returns structured XHTML with `ix:nonFraction` elements containing financial values
 
 ### iXBRL Tags to Extract
 
@@ -433,7 +469,11 @@ Bugs found and fixed during initial deployment (March 2026):
 
 6. **Address field mismatch (root cause of zero matches)** — The CH search API returns address data under `"address"` but the Go struct only had `json:"registered_office_address"` (which is the profile API's key). Postcodes were never parsed from search results, so the +0.35 postcode bonus never applied. Fixed by adding an `Address` struct field with `json:"address"` tag, with scoring checking both fields.
 
-7. **OOM kills** — Batch size of 20 caused orchestration state to grow beyond pod memory limits. Reduced to 10 and increased memory limit to 2Gi.
+7. **OOM kills** — Batch size of 20 caused orchestration state to grow beyond pod memory limits. Reduced to 10 and increased memory limit to 2Gi (later 3Gi).
+
+8. **Kustomize patch target wrong** — `business-intel` overlay had `target.name: vet-intel` instead of `target.name: business-intel`. The patch with all env vars (database passwords, Kafka topics, CH API key) was never applied. Pod crashed with `CLIENTS_DB_PASSWORD is not set`.
+
+9. **Vet industry title bonus** — Many vet practices registered as limited companies include "veterinary" or "vets" in their company title, but the CH search API doesn't return SIC codes. Without postcode match (e.g. branches registered at HQ), scores were too low. Added +0.15 for "veterinary" and +0.10 for "vet"/"vets" as whole words in the company title. Uses word-boundary matching to avoid false positives from "veteran" or "vetting".
 
 ## GDPR & Legal Notes
 
@@ -441,3 +481,4 @@ Bugs found and fixed during initial deployment (March 2026):
 - Processing for legitimate business purposes (market analysis) is lawful under Article 6(1)(f)
 - The `succession_risk` field is derived from public data, not from private profiling
 - If data is sold to third parties: note the data source and legal basis; present age-related fields as "company maturity indicators" and "ownership tenure" rather than personal age profiling
+

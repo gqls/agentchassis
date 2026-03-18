@@ -402,3 +402,11 @@ WHERE ss.aspect = 'identity'
   AND ss.is_current = true
   AND ss.data ? 'services'
   AND jsonb_array_length(ss.data->'services') > 0;
+
+
+---
+
+
+-- Phase 4: Spec pinning — prevents agents from overriding human-set specs.
+ALTER TABLE site_specs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT false;
+
