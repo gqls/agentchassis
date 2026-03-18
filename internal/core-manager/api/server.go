@@ -87,6 +87,7 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	agentAdminHandlers := admin.NewAgentHandlers(personaRepoImpl.ClientsDB(), personaRepoImpl.TemplatesDB(), s.kafkaProducer, s.logger, s.personaRepo)
 	siteAdminHandlers := admin.NewSiteAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
 	pageAdminHandlers := admin.NewPageAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
+	specAdminHandlers := admin.NewSpecAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
 
 	// Initialize the bootstrap handler
 	bootstrapHandler := handlers.NewBootstrapHandler(s.logger, personaRepoImpl.ClientsDB())
@@ -169,6 +170,12 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 				siteGroup.GET("/:site_id", siteAdminHandlers.HandleGetSite)
 				siteGroup.PATCH("/:site_id", siteAdminHandlers.HandleUpdateSite)
 				siteGroup.PATCH("/:site_id/specs/:aspect", siteAdminHandlers.HandleUpdateSiteSpec)
+
+				// Spec Direction Control (Phase 4)
+				siteGroup.GET("/:site_id/specs", specAdminHandlers.HandleListSpecs)
+				siteGroup.POST("/:site_id/specs/:aspect/pin", specAdminHandlers.HandlePinSpec)
+				siteGroup.POST("/:site_id/specs/:aspect/unpin", specAdminHandlers.HandleUnpinSpec)
+				siteGroup.POST("/:site_id/specs/:aspect/propagate", specAdminHandlers.HandlePropagateSpec)
 
 				// Page Structure (Phase 2)
 				siteGroup.GET("/:site_id/pages", pageAdminHandlers.HandleListPages)

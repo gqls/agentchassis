@@ -299,7 +299,7 @@ function LoginScreen({ onLogin }) {
 }
 
 // ── Sites Overview ───────────────────────────────────────────────────────────
-function SitesOverview({ sites, onSelectSite, onSelectPages }) {
+function SitesOverview({ sites, onSelectSite, onSelectPages, onSelectSpecs }) {
     return (
         <div>
             <h2 style={sectionTitle}>Sites</h2>
@@ -340,6 +340,9 @@ function SitesOverview({ sites, onSelectSite, onSelectPages }) {
                             <button onClick={() => onSelectPages(site)} style={{
                                 ...btnSecondary, fontSize: 12, padding: "6px 14px", flex: 1,
                             }}>Pages</button>
+                            <button onClick={() => onSelectSpecs(site)} style={{
+                                ...btnSecondary, fontSize: 12, padding: "6px 14px", flex: 1,
+                            }}>Direction</button>
                         </div>
                         {site.last_deployed && (
                             <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
@@ -432,7 +435,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                 setEditedReviewData(buildPlaceholderForm(item));
             } else if (!item.spec.checkpoint) {
                 // Other review items: edit the spec directly (strip internal fields)
-                const editableSpec = { ...item.spec };
+                const editableSpec = { ...(item.spec as Record<string, unknown>) };
                 delete editableSpec.check;
                 delete editableSpec.original_domain;
                 setEditedReviewData(JSON.parse(JSON.stringify(editableSpec)));
@@ -570,7 +573,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
         }
 
         // Check that at least one field has content
-        const hasContent = Object.values(editedReviewData).some(v => {
+        const hasContent = Object.values(editedReviewData as Record<string, unknown>).some(v => {
             if (Array.isArray(v)) return v.some(entry =>
                 typeof entry === "object" ? Object.values(entry).some(fv => fv !== "") : entry !== ""
             );
@@ -1053,7 +1056,7 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
     const handleSaveComponent = async (comp) => {
         setActionLoading(true);
         try {
-            const body = { lock: true, rebuild_page: true };
+            const body: Record<string, unknown> = { lock: true, rebuild_page: true };
             if (editMode === "structured" && editData) {
                 body.content_data = editData;
             } else if (editMode === "html") {
@@ -1295,6 +1298,219 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
     );
 }
 
+// ── Spec Editor (Direction Control) ──────────────────────────────────────────
+function SpecEditor({ token, siteId, siteDomain, onBack }) {
+    const [specs, setSpecs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedSpec, setSelectedSpec] = useState(null);
+    const [editData, setEditData] = useState(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [message, setMessage] = useState("");
+
+    const loadSpecs = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await apiFetch(`/sites/${siteId}/specs`, token);
+            setSpecs(data.specs || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }, [token, siteId]);
+
+    useEffect(() => { loadSpecs(); }, [loadSpecs]);
+
+    const selectSpec = (spec) => {
+        setSelectedSpec(spec);
+        setEditData(JSON.parse(JSON.stringify(spec.data)));
+    };
+
+    const handleSaveSpec = async () => {
+        if (!selectedSpec || !editData) return;
+        setActionLoading(true);
+        try {
+            await apiFetch(`/sites/${siteId}/specs/${selectedSpec.aspect}`, token, {
+                method: "PATCH",
+                body: JSON.stringify({ data: editData }),
+            });
+            setMessage(`Spec '${selectedSpec.aspect}' updated`);
+            setSelectedSpec(null);
+            setEditData(null);
+            loadSpecs();
+        } catch (err) { setMessage("Save failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    const handlePin = async (spec) => {
+        setActionLoading(true);
+        try {
+            await apiFetch(`/sites/${siteId}/specs/${spec.aspect}/pin`, token, { method: "POST" });
+            setMessage(`Spec '${spec.aspect}' pinned — agents won't override it`);
+            loadSpecs();
+        } catch (err) { setMessage("Pin failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    const handleUnpin = async (spec) => {
+        setActionLoading(true);
+        try {
+            await apiFetch(`/sites/${siteId}/specs/${spec.aspect}/unpin`, token, { method: "POST" });
+            setMessage(`Spec '${spec.aspect}' unpinned — agents can update it`);
+            loadSpecs();
+        } catch (err) { setMessage("Unpin failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    const handlePropagate = async (spec) => {
+        if (!confirm(`Create work items to propagate '${spec.aspect}' changes across all content pages?`)) return;
+        setActionLoading(true);
+        try {
+            const result = await apiFetch(`/sites/${siteId}/specs/${spec.aspect}/propagate`, token, {
+                method: "POST",
+                body: JSON.stringify({}),
+            });
+            let msg = `Propagation: ${result.items_created} work items created`;
+            if (result.items_skipped > 0) msg += `, ${result.items_skipped} fully-locked pages skipped`;
+            setMessage(msg);
+        } catch (err) { setMessage("Propagate failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    return (
+        <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <button onClick={onBack} style={btnSecondary}>← Sites</button>
+                <h2 style={{ ...sectionTitle, margin: 0, flex: 1 }}>
+                    Direction <span style={{ fontWeight: 400, color: "#64748b" }}>— {siteDomain}</span>
+                </h2>
+            </div>
+
+            {message && (
+                <div style={{
+                    background: "#d1fae5", color: "#065f46", padding: "8px 14px", borderRadius: 6,
+                    fontSize: 13, marginBottom: 12, display: "flex", justifyContent: "space-between",
+                }}>
+                    {message}
+                    <span onClick={() => setMessage("")} style={{ cursor: "pointer" }}>✕</span>
+                </div>
+            )}
+
+            {loading ? (
+                <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Loading specs…</div>
+            ) : specs.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>No specs found for this site</div>
+            ) : selectedSpec ? (
+                /* ── Spec edit panel ── */
+                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+                        <h3 style={{ margin: 0, fontSize: 16, color: "#0f172a" }}>
+                            Edit: {selectedSpec.aspect}
+                            {selectedSpec.pinned && <span style={{ fontSize: 12, color: "#7c3aed", marginLeft: 8 }}>🔒 Pinned</span>}
+                        </h3>
+                        <span onClick={() => { setSelectedSpec(null); setEditData(null); }} style={{ cursor: "pointer", color: "#94a3b8", fontSize: 18 }}>✕</span>
+                    </div>
+
+                    <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
+                        Source: {selectedSpec.source_agent || selectedSpec.source || "unknown"}
+                        {selectedSpec.created_at && <> · {new Date(selectedSpec.created_at).toLocaleDateString()}</>}
+                    </div>
+
+                    <div style={{
+                        background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8,
+                        padding: 16, marginBottom: 16, maxHeight: "60vh", overflowY: "auto",
+                    }}>
+                        <EditableReviewForm reviewData={editData} onChange={setEditData} />
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={handleSaveSpec} disabled={actionLoading} style={btnPrimary}>
+                            Save Spec
+                        </button>
+                        <button onClick={() => handlePropagate(selectedSpec)} disabled={actionLoading} style={{
+                            ...btnSecondary, color: "#1e40af",
+                        }}>
+                            Save & Propagate
+                        </button>
+                        <button onClick={() => { setSelectedSpec(null); setEditData(null); }} style={btnSecondary}>Cancel</button>
+                    </div>
+                </div>
+            ) : (
+                /* ── Spec list ── */
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {specs.map(spec => (
+                        <div key={spec.id} style={{
+                            background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8,
+                            padding: "16px 18px",
+                        }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 8 }}>
+                                <div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <span style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>{spec.aspect}</span>
+                                        {spec.pinned && (
+                                            <span style={{ fontSize: 11, color: "#7c3aed", background: "#ede9fe", padding: "1px 8px", borderRadius: 4 }}>
+                                                🔒 Pinned
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+                                        {spec.source_agent || spec.source || "unknown"}
+                                        {spec.created_at && <> · {new Date(spec.created_at).toLocaleDateString()}</>}
+                                    </div>
+                                </div>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                    <button onClick={() => selectSpec(spec)} style={{
+                                        ...btnSecondary, fontSize: 11, padding: "4px 10px",
+                                    }}>Edit</button>
+                                    {spec.pinned ? (
+                                        <button onClick={() => handleUnpin(spec)} disabled={actionLoading} style={{
+                                            ...btnSecondary, fontSize: 11, padding: "4px 10px", color: "#7c3aed",
+                                        }}>Unpin</button>
+                                    ) : (
+                                        <button onClick={() => handlePin(spec)} disabled={actionLoading} style={{
+                                            ...btnSecondary, fontSize: 11, padding: "4px 10px",
+                                        }}>Pin</button>
+                                    )}
+                                    <button onClick={() => handlePropagate(spec)} disabled={actionLoading} style={{
+                                        ...btnSecondary, fontSize: 11, padding: "4px 10px", color: "#1e40af",
+                                    }}>Propagate</button>
+                                </div>
+                            </div>
+
+                            {/* Spec data preview */}
+                            <div style={{
+                                background: "#f8fafc", border: "1px solid #f1f5f9", borderRadius: 6,
+                                padding: 10, fontSize: 12, maxHeight: 120, overflow: "hidden",
+                                color: "#475569", lineHeight: 1.5,
+                            }}>
+                                {renderSpecPreview(spec.data)}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Render a compact preview of spec data — show top-level keys and values
+function renderSpecPreview(data) {
+    if (!data || typeof data !== "object") return String(data || "");
+    return Object.entries(data).slice(0, 6).map(([key, value]) => {
+        let preview = "";
+        if (typeof value === "string") preview = value.slice(0, 80) + (value.length > 80 ? "…" : "");
+        else if (Array.isArray(value)) preview = `[${value.length} items]`;
+        else if (typeof value === "object" && value !== null) preview = `{${Object.keys(value as Record<string, unknown>).join(", ")}}`;
+        else preview = String(value);
+        return (
+            <div key={key} style={{ marginBottom: 2 }}>
+                <span style={{ fontWeight: 600, color: "#334155" }}>{key}:</span>{" "}
+                <span>{preview}</span>
+            </div>
+        );
+    });
+}
+
 // Strip HTML tags for content preview
 function stripHtmlTags(html) {
     return html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -1308,7 +1524,7 @@ export default function App() {
     const [token, setToken] = useState(() => sessionStorage.getItem("admin_token") || "");
     const [user, setUser] = useState(null);
     const [sites, setSites] = useState([]);
-    const [view, setView] = useState("sites"); // sites | items | all-items | pages
+    const [view, setView] = useState("sites"); // sites | items | all-items | pages | specs
     const [selectedSite, setSelectedSite] = useState(null);
     const [error, setError] = useState("");
 
@@ -1358,8 +1574,8 @@ export default function App() {
                             { key: "all-items", label: "All Items" },
                         ].map(({ key, label }) => (
                             <button key={key} onClick={() => { setView(key); setSelectedSite(null); }} style={{
-                                background: view === key || (["items", "pages"].includes(view) && key === "sites") ? "#1e293b" : "transparent",
-                                color: view === key || (["items", "pages"].includes(view) && key === "sites") ? "#f1f5f9" : "#94a3b8",
+                                background: view === key || (["items", "pages", "specs"].includes(view) && key === "sites") ? "#1e293b" : "transparent",
+                                color: view === key || (["items", "pages", "specs"].includes(view) && key === "sites") ? "#f1f5f9" : "#94a3b8",
                                 border: "none", padding: "6px 12px", borderRadius: 4,
                                 fontSize: 12, fontWeight: 500, cursor: "pointer",
                             }}>
@@ -1393,6 +1609,7 @@ export default function App() {
                         sites={sites}
                         onSelectSite={(site) => { setSelectedSite(site); setView("items"); }}
                         onSelectPages={(site) => { setSelectedSite(site); setView("pages"); }}
+                        onSelectSpecs={(site) => { setSelectedSite(site); setView("specs"); }}
                     />
                 )}
 
@@ -1414,6 +1631,15 @@ export default function App() {
 
                 {view === "pages" && selectedSite && (
                     <PageBrowser
+                        token={token}
+                        siteId={selectedSite.id}
+                        siteDomain={selectedSite.domain}
+                        onBack={() => { setView("sites"); setSelectedSite(null); loadSites(); }}
+                    />
+                )}
+
+                {view === "specs" && selectedSite && (
+                    <SpecEditor
                         token={token}
                         siteId={selectedSite.id}
                         siteDomain={selectedSite.domain}
