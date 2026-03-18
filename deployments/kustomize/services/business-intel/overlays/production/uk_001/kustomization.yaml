@@ -5,10 +5,14 @@ namespace: ai-persona-system
 
 resources:
   - ../../../base
-
-patches:
-  - path: patch-deployment.yaml
+  - configmap.yaml
 
 images:
   - name: docker.io/aqls/agent-chassis
     newTag: v1.0.884
+
+patches:
+  - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: business-intel
