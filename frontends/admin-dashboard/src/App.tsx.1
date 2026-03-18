@@ -347,9 +347,9 @@ function SitesOverview({ sites, onSelectSite }) {
 
 // ── Work Items List ──────────────────────────────────────────────────────────
 function WorkItemsList({ token, siteFilter, onBack }) {
-    const [allItems, setAllItems] = useState([]);
+    const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState("");
+    const [statusFilter, setStatusFilter] = useState("needs_human_review");
     const [typeFilter, setTypeFilter] = useState("");
     const [selectedItem, setSelectedItem] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
@@ -359,57 +359,24 @@ function WorkItemsList({ token, siteFilter, onBack }) {
     const [editedReviewData, setEditedReviewData] = useState(null);
     const [approveNotes, setApproveNotes] = useState("");
 
-    // Site edit
-    const [showSiteEdit, setShowSiteEdit] = useState(false);
-    const [siteEditData, setSiteEditData] = useState({});
-
-    const handleSaveSiteDetails = async () => {
-        if (!siteFilter?.id) return;
-        setActionLoading(true);
-        try {
-            // Only send non-empty fields
-            const updates = {};
-            for (const [k, v] of Object.entries(siteEditData)) {
-                if (v !== "" && v !== null && v !== undefined) updates[k] = v;
-            }
-            if (Object.keys(updates).length === 0) {
-                setMessage("No changes to save");
-                return;
-            }
-            await apiFetch(`/sites/${siteFilter.id}`, token, {
-                method: "PATCH",
-                body: JSON.stringify(updates),
-            });
-            setMessage("Site details updated");
-            setShowSiteEdit(false);
-        } catch (err) { setMessage("Save failed: " + err.message); }
-        finally { setActionLoading(false); }
-    };
-
     const loadItems = useCallback(async () => {
         setLoading(true);
         try {
-            // Load all non-complete items, filter client-side for accurate counts
             let path = `/work-items?domain=build`;
+            if (statusFilter) path += `&status=${statusFilter}`;
             if (siteFilter?.id) path += `&site_id=${siteFilter.id}`;
+            if (typeFilter) path += `&item_type=${typeFilter}`;
             const data = await apiFetch(path, token);
-            setAllItems(data.items || []);
+            setItems(data.items || []);
         } catch (err) {
             if (err.message === "UNAUTHORIZED") return;
             console.error(err);
         } finally {
             setLoading(false);
         }
-    }, [token, siteFilter]);
+    }, [token, statusFilter, siteFilter, typeFilter]);
 
     useEffect(() => { loadItems(); }, [loadItems]);
-
-    // Client-side filtering
-    const items = allItems.filter(item => {
-        if (statusFilter && item.status !== statusFilter) return false;
-        if (typeFilter && item.item_type !== typeFilter) return false;
-        return true;
-    });
 
     // When selecting a review item, initialise the editable data
     const selectItem = (item) => {
@@ -642,96 +609,18 @@ function WorkItemsList({ token, siteFilter, onBack }) {
     };
 
     // Unique item types from loaded items
-    const itemTypes = [...new Set(allItems.map(i => i.item_type))].sort();
+    const itemTypes = [...new Set(items.map(i => i.item_type))].sort();
     const isCheckpoint = selectedItem?.spec?.checkpoint === true;
     const isEditable = selectedItem?.status === "needs_human_review" && editedReviewData != null;
-
-    // Status counts for filter badges (from all items, not filtered)
-    const statusCounts = allItems.reduce((acc, item) => {
-        acc[item.status] = (acc[item.status] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-    const allItemsCount = allItems.length;
-    const failedCount = statusCounts["failed"] || 0;
-
-    const handleRetryAllFailed = async () => {
-        if (!confirm(`Retry all ${failedCount} failed items?`)) return;
-        setActionLoading(true);
-        try {
-            const failedItems = allItems.filter(i => i.status === "failed");
-            let retried = 0;
-            for (const item of failedItems) {
-                try {
-                    await apiFetch(`/work-items/${item.id}/retry`, token, { method: "POST" });
-                    retried++;
-                } catch { /* continue with others */ }
-            }
-            setMessage(`Retried ${retried} of ${failedItems.length} failed items`);
-            loadItems();
-        } catch (err) { setMessage("Bulk retry failed: " + err.message); }
-        finally { setActionLoading(false); }
-    };
 
     return (
         <div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
                 <button onClick={onBack} style={btnSecondary}>← Sites</button>
-                <h2 style={{ ...sectionTitle, margin: 0, flex: 1 }}>
+                <h2 style={{ ...sectionTitle, margin: 0 }}>
                     Work Items {siteFilter && <span style={{ fontWeight: 400, color: "#64748b" }}>— {siteFilter.domain}</span>}
                 </h2>
-                {siteFilter && (
-                    <button onClick={() => {
-                        setShowSiteEdit(!showSiteEdit);
-                        if (!showSiteEdit) {
-                            setSiteEditData({
-                                company_name: siteFilter.company_name || "",
-                                email: siteFilter.email || "",
-                                phone: siteFilter.phone || "",
-                                contact_address: siteFilter.contact_address || "",
-                                tagline: siteFilter.tagline || "",
-                            });
-                        }
-                    }} style={{ ...btnSecondary, fontSize: 12 }}>
-                        {showSiteEdit ? "Close" : "Edit Site"}
-                    </button>
-                )}
             </div>
-
-            {/* Site edit panel */}
-            {showSiteEdit && siteFilter && (
-                <div style={{
-                    background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8,
-                    padding: 16, marginBottom: 16,
-                }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 12 }}>Site Details — {siteFilter.domain}</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        {[
-                            { key: "company_name", label: "Company Name" },
-                            { key: "tagline", label: "Tagline" },
-                            { key: "email", label: "Email" },
-                            { key: "phone", label: "Phone" },
-                            { key: "contact_address", label: "Address" },
-                        ].map(({ key, label }) => (
-                            <div key={key}>
-                                <label style={formLabelStyle}>{label}</label>
-                                <input
-                                    type="text"
-                                    value={siteEditData[key] || ""}
-                                    onChange={e => setSiteEditData({ ...siteEditData, [key]: e.target.value })}
-                                    style={formInputStyle}
-                                    placeholder={`Enter ${label.toLowerCase()}…`}
-                                />
-                            </div>
-                        ))}
-                    </div>
-                    <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-                        <button onClick={handleSaveSiteDetails} disabled={actionLoading} style={btnPrimary}>
-                            Save Site Details
-                        </button>
-                        <button onClick={() => setShowSiteEdit(false)} style={btnSecondary}>Cancel</button>
-                    </div>
-                </div>
-            )}
 
             {message && (
                 <div style={{
@@ -744,30 +633,23 @@ function WorkItemsList({ token, siteFilter, onBack }) {
             )}
 
             {/* Filters */}
-            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
                 <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selectStyle}>
-                    <option value="">All ({allItemsCount})</option>
-                    <option value="needs_human_review">Needs Review ({statusCounts["needs_human_review"] || 0})</option>
-                    <option value="triaged">Triaged ({statusCounts["triaged"] || 0})</option>
-                    <option value="claimed">Claimed ({statusCounts["claimed"] || 0})</option>
-                    <option value="failed">Failed ({statusCounts["failed"] || 0})</option>
-                    <option value="blocked">Blocked ({statusCounts["blocked"] || 0})</option>
+                    <option value="">All statuses</option>
+                    <option value="needs_human_review">Needs Review</option>
+                    <option value="triaged">Triaged</option>
+                    <option value="claimed">Claimed</option>
+                    <option value="failed">Failed</option>
+                    <option value="blocked">Blocked</option>
                     <option value="complete">Complete</option>
                 </select>
                 <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={selectStyle}>
                     <option value="">All types</option>
                     {itemTypes.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <span style={{ fontSize: 13, color: "#64748b" }}>
+                <span style={{ fontSize: 13, color: "#64748b", alignSelf: "center" }}>
                     {items.length} items
                 </span>
-                {failedCount > 0 && (
-                    <button onClick={handleRetryAllFailed} disabled={actionLoading} style={{
-                        ...btnSecondary, fontSize: 12, padding: "5px 12px", color: "#991b1b", borderColor: "#fca5a5",
-                    }}>
-                        Retry All Failed ({failedCount})
-                    </button>
-                )}
             </div>
 
             {loading ? (
@@ -802,17 +684,9 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                     {!item.spec?.checkpoint && item.status === "needs_human_review" && (
                                         <span style={{ fontSize: 11, color: "#9d174d", background: "#fce7f3", padding: "2px 8px", borderRadius: 4 }}>needs input</span>
                                     )}
-                                    {!siteFilter && item.domain && (
-                                        <span style={{ fontSize: 11, color: "#1e40af", background: "#dbeafe", padding: "2px 8px", borderRadius: 4 }}>{item.domain}</span>
-                                    )}
-                                    <span style={{ fontSize: 11, color: "#94a3b8" }}>{item.handler_agent}</span>
+                                    <span style={{ fontSize: 11, color: "#94a3b8" }}>{item.domain}</span>
                                     <span style={{ fontSize: 11, color: "#94a3b8" }}>{item.attempts}</span>
                                 </div>
-                                {item.status === "failed" && item.error && (
-                                    <div style={{ fontSize: 11, color: "#991b1b", marginTop: 6, lineHeight: 1.3 }}>
-                                        {item.error.slice(0, 120)}{item.error.length > 120 ? "…" : ""}
-                                    </div>
-                                )}
                             </div>
                         ))}
                     </div>
@@ -990,7 +864,7 @@ export default function App() {
     const [token, setToken] = useState(() => sessionStorage.getItem("admin_token") || "");
     const [user, setUser] = useState(null);
     const [sites, setSites] = useState([]);
-    const [view, setView] = useState("sites"); // sites | items | all-items
+    const [view, setView] = useState("sites"); // sites | items
     const [selectedSite, setSelectedSite] = useState(null);
     const [error, setError] = useState("");
 
@@ -1007,7 +881,7 @@ export default function App() {
     };
 
     // Load sites
-    const loadSites = useCallback(() => {
+    useEffect(() => {
         if (!token) return;
         apiFetch("/sites", token)
             .then(data => setSites(data.sites || []))
@@ -1016,8 +890,6 @@ export default function App() {
                 else setError(err.message);
             });
     }, [token]);
-
-    useEffect(() => { loadSites(); }, [loadSites]);
 
     if (!token) return <LoginScreen onLogin={handleLogin} />;
 
@@ -1034,21 +906,6 @@ export default function App() {
                 <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: 1.5, color: "#94a3b8" }}>PERSONAE</span>
                     <span style={{ fontSize: 15, fontWeight: 500 }}>Admin</span>
-                    <div style={{ display: "flex", gap: 4, marginLeft: 16 }}>
-                        {[
-                            { key: "sites", label: "Sites" },
-                            { key: "all-items", label: "All Items" },
-                        ].map(({ key, label }) => (
-                            <button key={key} onClick={() => { setView(key); setSelectedSite(null); }} style={{
-                                background: view === key || (view === "items" && key === "sites") ? "#1e293b" : "transparent",
-                                color: view === key || (view === "items" && key === "sites") ? "#f1f5f9" : "#94a3b8",
-                                border: "none", padding: "6px 12px", borderRadius: 4,
-                                fontSize: 12, fontWeight: 500, cursor: "pointer",
-                            }}>
-                                {label}
-                            </button>
-                        ))}
-                    </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                     <span style={{ fontSize: 12, color: "#94a3b8" }}>{user?.email || "admin"}</span>
@@ -1081,15 +938,7 @@ export default function App() {
                     <WorkItemsList
                         token={token}
                         siteFilter={selectedSite}
-                        onBack={() => { setView("sites"); setSelectedSite(null); loadSites(); }}
-                    />
-                )}
-
-                {view === "all-items" && (
-                    <WorkItemsList
-                        token={token}
-                        siteFilter={null}
-                        onBack={() => { setView("sites"); loadSites(); }}
+                        onBack={() => { setView("sites"); setSelectedSite(null); }}
                     />
                 )}
             </div>

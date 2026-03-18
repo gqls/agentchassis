@@ -229,3 +229,65 @@ FROM business_intel.companies_house_data ch
 ORDER BY ch.enriched_at DESC
     LIMIT 10;
 -------------------------------------------------------------------------------------------
+
+
+Accounts
+-- Check what we'd get: how many matched companies have filings?
+SELECT ch.company_number, ch.company_name, ch.company_status
+FROM business_intel.companies_house_data ch
+WHERE ch.company_number IS NOT NULL AND ch.company_number != ''
+LIMIT 10;
+
+Test with curl on a known company:
+
+# Try Eglish Builders which has been around since 1989
+curl -s -u "bd727e00-7972-4195-a576-d97faad6043f:" \
+  "https://api.company-information.service.gov.uk/company/NI022532/filing-history?category=accounts&items_per_page=1" | python3 -m json.tool
+
+ # Try Eglish Builders which has been around since 1989
+curl -s -u "bd727e00-7972-4195-a576-d97faad6043f:" \
+  "https://api.company-information.service.gov.uk/company/NI022532/filing-history?category=accounts&items_per_page=1" | python3 -m json.tool
+{
+    "filing_history_status": "filing-history-available",
+    "items": [
+        {
+            "transaction_id": "MzQ3NTc5OTIzMWFkaXF6a2N4",
+            "barcode": "XE7YRA7K",
+            "type": "AA",
+            "date": "2025-07-31",
+            "category": "accounts",
+            "description": "accounts-with-accounts-type-unaudited-abridged",
+            "description_values": {
+                "made_up_date": "2024-10-31"
+            },
+            "pages": 8,
+            "links": {
+                "self": "/company/NI022532/filing-history/MzQ3NTc5OTIzMWFkaXF6a2N4",
+                "document_metadata": "https://document-api.company-information.service.gov.uk/document/1ZQnz8Hhz5d3vP--x104tx3onRnzxBNolcPz0S5w2Nc"
+            }
+        }
+    ],
+    "items_per_page": 1,
+    "start_index": 0,
+    "total_count": 38
+}
+
+The metadata shows both formats available. Fetch the iXBRL (structured, parseable):
+curl -s -u "bd727e00-7972-4195-a576-d97faad6043f:" \
+  -H "Accept: application/xhtml+xml" \
+  "https://document-api.company-information.service.gov.uk/document/1ZQnz8Hhz5d3vP--x104tx3onRnzxBNolcPz0S5w2Nc/content" \
+  -o /tmp/eglish_accounts.xhtml
+
+# Check what financial tags are in there
+grep -i "FixedAssets\|CurrentAssets\|NetAssets\|TurnoverRevenue\|ProfitLoss\|NumberEmployees\|ShareholderFunds\|Equity" /tmp/eglish_accounts.xhtml | head -20
+
+/tmp/eglish_accounts.xhtml is an empty document:
+-rw-rw-r--  1 ant  ant      0 Mar 18 13:09 eglish_accounts.xhtml
+
+The document API redirects. Add -L to follow:
+curl -s -L -u "bd727e00-7972-4195-a576-d97faad6043f:" \
+  -H "Accept: application/xhtml+xml" \
+  "https://document-api.company-information.service.gov.uk/document/1ZQnz8Hhz5d3vP--x104tx3onRnzxBNolcPz0S5w2Nc/content" \
+  -o /tmp/eglish_accounts.xhtml
+
+ls -la /tmp/eglish_accounts.xhtml
