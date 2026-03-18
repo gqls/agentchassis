@@ -169,7 +169,7 @@ echo ""
 UPDATE scheduled_tasks SET enabled = true WHERE name = 'build-pipeline-trigger';
 kubectl -n ai-persona-system logs deploy/kafka-scheduler --tail=20
 
-
+kubectl -n ai-persona-system logs --tail=300 -l app=agent-chassis -f | tee logs-agent-chassis.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=asset-deployer -f | tee logs-asset-deployer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=domain-research-classifier -f | tee logs-domain-research-classifier.json

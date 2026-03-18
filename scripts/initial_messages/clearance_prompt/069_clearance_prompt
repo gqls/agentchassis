@@ -180,5 +180,4 @@ kubectl -n ai-persona-system scale deployment/business-intel --replicas=1
 
 # make build-backend push-backend deploy-core deploy-agents redeploy-agents deploy-agent-cleanup build-dashboard push-dashboard deploy-dashboard ENVIRONMENT=production REGION=uk001
 # make release-backend redeploy-agents ENVIRONMENT=production REGION=uk001
-# make build-admin-dashboard push-admin-dashboard deploy-admin-dashboard release-backend  redeploy-agents ENVIRONMENT=production REGION=uk001
-
+# make release-dashboard release-backend  redeploy-agents ENVIRONMENT=production REGION=uk001

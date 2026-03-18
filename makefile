@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.886
+IMAGE_TAG ?= v1.0.887
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -158,23 +158,19 @@ build-adapters: build-web-search-adapter build-web-scrape-adapter build-git-adap
 
 # Frontend applications
 .PHONY: build-admin-dashboard
-build-admin-dashboard: ## Build admin-dashboard image
-	@echo "$(YELLOW)Building admin-dashboard...$(NC)"
-	cd frontends/admin-dashboard && npm install && npm run build
-	docker build -t $(REGISTRY)/admin-dashboard:$(IMAGE_TAG) \
-		-f frontends/admin-dashboard/Dockerfile frontends/admin-dashboard
+deploy-admin-dashboard: deploy-dashboard ## Deploy admin-dashboard (alias)
 
 .PHONY: build-user-portal
 build-user-portal: ## Build user-portal image
 	@echo "$(YELLOW)Building user-portal...$(NC)"
-	cd frontends/user-portal && npm install && npm run build
+	cd frontends/user-portal
 	docker build -t $(REGISTRY)/user-portal:$(IMAGE_TAG) \
 		-f frontends/user-portal/Dockerfile frontends/user-portal
 
 .PHONY: build-agent-playground
 build-agent-playground: ## Build agent-playground image
 	@echo "$(YELLOW)Building agent-playground...$(NC)"
-	cd frontends/agent-playground && npm install && npm run build
+	cd frontends/agent-playground
 	docker build -t $(REGISTRY)/agent-playground:$(IMAGE_TAG) \
 		-f frontends/agent-playground/Dockerfile frontends/agent-playground
 

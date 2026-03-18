@@ -792,12 +792,35 @@ func scoreCHMatches(items []chSearchItem, businessName, postcode string, sicFilt
 			}
 		}
 
+		// Score: veterinary industry signal (+0.15 / +0.10)
+		// The search API doesn't return SIC codes, so "veterinary" or "vets"
+		// in the company title is a strong proxy for the right industry.
+		// Use whole-word matching to avoid false positives ("veteran", "vetting").
+		titleWords := strings.Fields(titleLower)
+		hasVetWord := false
+		for _, w := range titleWords {
+			// Strip common suffixes for matching: "veterinary," -> "veterinary"
+			cleaned := strings.TrimRight(w, ".,;:()")
+			if cleaned == "veterinary" {
+				score += 0.15
+				hasVetWord = true
+				break
+			}
+			if cleaned == "vet" || cleaned == "vets" {
+				score += 0.10
+				hasVetWord = true
+				break
+			}
+		}
+		// hasVetWord may be used later for post-fetch SIC validation
+
 		logger.Info("CompaniesHouseSearch: scored result",
 			zap.String("company", item.Title),
 			zap.String("number", item.CompanyNumber),
 			zap.String("status", item.CompanyStatus),
 			zap.Strings("sic", item.SICCodes),
 			zap.String("reg_postcode", itemPostcode),
+			zap.Bool("vet_title", hasVetWord),
 			zap.Float64("score", score))
 
 		if score > 0.4 && (best == nil || score > best.Score) {
