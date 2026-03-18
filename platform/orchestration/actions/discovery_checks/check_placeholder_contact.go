@@ -1,3 +1,7 @@
+// FILE: platform/orchestration/actions/discovery_checks/check_placeholder_contact.go
+//
+// CHANGE: Added pc.locked_at IS NULL to skip locked components.
+
 package discovery_checks
 
 import (
@@ -105,6 +109,7 @@ func findPlaceholderContact(dctx DiscoveryCheckContext) ([]placeholderContactFin
 		JOIN pages p ON pc.page_id = p.id
 		WHERE p.site_id = $1
 		  AND pc.rendered_html IS NOT NULL
+		  AND pc.locked_at IS NULL
 		  AND (
 		      pc.rendered_html ~* '555[- ]?\d{3}[- ]?\d{4}'
 		      OR pc.rendered_html ~* '\(555\)'

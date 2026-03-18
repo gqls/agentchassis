@@ -1,3 +1,7 @@
+// FILE: platform/orchestration/actions/discovery_checks/check_forced_text_colors.go
+//
+// CHANGE: Added pc.locked_at IS NULL to skip locked components.
+
 package discovery_checks
 
 import (
@@ -51,6 +55,7 @@ func (c *ForcedTextColorsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 // countForcedTextColorIssues finds page_components that have dark background
 // colors (in <style> blocks) but no corresponding light text color override.
 // These sections render as dark-on-dark text — unreadable.
+// Skips locked components — human-managed content is excluded.
 func countForcedTextColorIssues(dctx DiscoveryCheckContext) (int, error) {
 	var count int
 	err := dctx.DB.QueryRowContext(dctx.Ctx, `
@@ -58,6 +63,7 @@ func countForcedTextColorIssues(dctx DiscoveryCheckContext) (int, error) {
 		FROM page_components pc
 		JOIN pages p ON pc.page_id = p.id
 		WHERE p.site_id = $1
+		  AND pc.locked_at IS NULL
 		  AND pc.rendered_html LIKE '%<style%'
 		  AND pc.rendered_html ~ 'background(-color)?:\s*#[0-4][0-9a-fA-F]{5}'
 		  AND pc.rendered_html NOT SIMILAR TO '%color:\s*(#[f-fF-F][0-9a-fA-F]{5}|#[e-fE-F][0-9a-fA-F]{5}|white|#fff)%'

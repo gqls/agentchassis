@@ -3,12 +3,11 @@
 // Detects page sections with empty or near-empty rendered HTML.
 // Creates empty_section work items routed to page-build-handler.
 //
-// CHANGES from previous version:
+// CHANGES:
 //   - HandlerAgent: "page-build-handler" (was "page-content-writer")
-//     page-content-writer is a specialist that doesn't persist.
-//     page-build-handler wraps it and handles persistence.
-//   - SQL excludes blog/blog-index pages — those are handled by
-//     check_empty_blog.go → blog-content-planner instead.
+//   - SQL excludes blog/blog-index pages (handled by check_empty_blog.go)
+//   - Skips locked components (locked_at IS NULL filter)
+//     Human-locked components are intentionally managed — don't flag them.
 //
 // Registration: automatic via init() → Register(&EmptySectionsCheck{})
 
@@ -110,6 +109,7 @@ func findEmptySections(dctx DiscoveryCheckContext) ([]emptySectionFinding, error
 		LEFT JOIN content_components cc ON pc.component_id = cc.id
 		WHERE p.site_id = $1
 		  AND pc.build_status = 'deployed'
+		  AND pc.locked_at IS NULL
 		  AND COALESCE(pc.slot_name, '') NOT IN ('header', 'footer', 'head')
 		  AND COALESCE(cc.function, '') NOT IN ('header', 'footer', 'head-seo')
 		  AND p.name NOT IN ('blog')

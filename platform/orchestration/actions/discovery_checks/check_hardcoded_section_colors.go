@@ -1,3 +1,7 @@
+// FILE: platform/orchestration/actions/discovery_checks/check_hardcoded_section_colors.go
+//
+// CHANGE: Added pc.locked_at IS NULL to skip locked components.
+
 package discovery_checks
 
 import (
@@ -55,6 +59,7 @@ func countHardcodedColorComponents(dctx DiscoveryCheckContext) (int, error) {
 		FROM page_components pc
 		JOIN pages p ON pc.page_id = p.id
 		WHERE p.site_id = $1
+		  AND pc.locked_at IS NULL
 		  AND pc.rendered_html ~ 'background(-color)?:\s*#[0-9a-fA-F]{3,8}'
 		  AND pc.rendered_html LIKE '%<style%'
 	`, dctx.SiteID).Scan(&count)
