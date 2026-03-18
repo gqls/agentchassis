@@ -258,3 +258,15 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION get_page_component IS 'Gets the effective component HTML for a page slot, with area override';
+
+
+---
+
+-- Phase 2/5: Add suppressed_sections column to pages table.
+-- Used by the component removal flow to prevent discovery checks
+-- from recreating sections that were intentionally removed.
+-- The DELETE component endpoint writes to this column.
+-- Discovery checks will filter on it in Phase 5.
+
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS suppressed_sections JSONB DEFAULT '[]'::jsonb;
+

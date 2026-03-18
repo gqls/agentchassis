@@ -86,6 +86,7 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	systemHandlers := admin.NewSystemHandlers(personaRepoImpl.ClientsDB(), personaRepoImpl.TemplatesDB(), s.kafkaProducer, s.logger)
 	agentAdminHandlers := admin.NewAgentHandlers(personaRepoImpl.ClientsDB(), personaRepoImpl.TemplatesDB(), s.kafkaProducer, s.logger, s.personaRepo)
 	siteAdminHandlers := admin.NewSiteAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
+	pageAdminHandlers := admin.NewPageAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
 
 	// Initialize the bootstrap handler
 	bootstrapHandler := handlers.NewBootstrapHandler(s.logger, personaRepoImpl.ClientsDB())
@@ -168,6 +169,14 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 				siteGroup.GET("/:site_id", siteAdminHandlers.HandleGetSite)
 				siteGroup.PATCH("/:site_id", siteAdminHandlers.HandleUpdateSite)
 				siteGroup.PATCH("/:site_id/specs/:aspect", siteAdminHandlers.HandleUpdateSiteSpec)
+
+				// Page Structure (Phase 2)
+				siteGroup.GET("/:site_id/pages", pageAdminHandlers.HandleListPages)
+				siteGroup.GET("/:site_id/pages/:page_name/components", pageAdminHandlers.HandleListComponents)
+				siteGroup.PATCH("/:site_id/pages/:page_name/components/:component_id", pageAdminHandlers.HandleUpdateComponent)
+				siteGroup.POST("/:site_id/pages/:page_name/components/:component_id/lock", pageAdminHandlers.HandleLockComponent)
+				siteGroup.POST("/:site_id/pages/:page_name/components/:component_id/unlock", pageAdminHandlers.HandleUnlockComponent)
+				siteGroup.DELETE("/:site_id/pages/:page_name/components/:component_id", pageAdminHandlers.HandleRemoveComponent)
 			}
 
 			// Work Item Administration + HITL Review
