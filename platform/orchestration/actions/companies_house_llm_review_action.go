@@ -3,6 +3,10 @@
 // Processes pending_llm_review entries from ch_vet_companies, batches them
 // into LLM calls, and updates match status based on the response.
 //
+// The action is industry-agnostic. Industry-specific context (corporate groups,
+// formation addresses, industry name) comes from step config. The ai_service
+// config comes from the agent definition's default_config, per guidelines.
+//
 // Actions:
 //   - ch_llm_review: Review pending matches using LLM judgment
 
@@ -12,7 +16,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"strings"
 
 	"go.uber.org/zap"
@@ -26,8 +29,10 @@ type reviewCandidate struct {
 	BusinessID    string
 	BusinessName  string
 	BizPostcode   string
+	BizTown       string
+	BizGroupName  string
 	Confidence    float64
-	Index         int // position in the batch for parsing
+	Index         int
 }
 
 // CHLLMReviewAction reviews pending_llm_review matches using an LLM.
@@ -44,9 +49,27 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 
 	config := params.StepConfig.Config
 
-	batchSize := 15 // candidates per LLM call
+	batchSize := 15
 	if bs, ok := config["llm_batch_size"].(float64); ok && bs > 0 {
 		batchSize = int(bs)
+	}
+
+	// Read industry context from step config (keeps the action generic)
+	industryName := "business"
+	if in, ok := config["industry_name"].(string); ok && in != "" {
+		industryName = in
+	}
+
+	industryContext := ""
+	if ic, ok := config["industry_context"].(string); ok && ic != "" {
+		industryContext = ic
+	}
+
+	// Load ai_service config from agent_config (per guidelines)
+	// Priority: agent_config.ai_service → step config.ai_service
+	aiServiceConfig := getAIServiceConfig(params)
+	if aiServiceConfig == nil {
+		return nil, fmt.Errorf("ai_service configuration not found in agent_config or step config")
 	}
 
 	// Load pending review candidates
@@ -69,20 +92,8 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 	params.Logger.Info("CHLLMReview: loaded candidates",
 		zap.Int("count", len(candidates)))
 
-	// Create AI client
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
-	if apiKey == "" {
-		return nil, fmt.Errorf("ANTHROPIC_API_KEY not set")
-	}
-
-	aiConfig := map[string]interface{}{
-		"provider":        "anthropic",
-		"model":           "claude-haiku-4-5",
-		"api_key_env_var": "ANTHROPIC_API_KEY",
-		"max_tokens":      2000,
-		"temperature":     0.0,
-	}
-	aiClient, err := createAIClient(ctx, aiConfig)
+	// Create AI client from config
+	aiClient, err := createAIClient(ctx, aiServiceConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AI client: %w", err)
 	}
@@ -108,14 +119,12 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 		}
 		batch := candidates[i:end]
 
-		// Build prompt
-		prompt := buildReviewPrompt(batch)
+		prompt := buildReviewPrompt(batch, industryName, industryContext)
 
 		params.Logger.Info("CHLLMReview: sending batch to LLM",
 			zap.Int("batch_start", i),
 			zap.Int("batch_size", len(batch)))
 
-		// Call LLM
 		response, err := aiClient.GenerateText(ctx, prompt, nil)
 		if err != nil {
 			params.Logger.Warn("CHLLMReview: LLM call failed",
@@ -124,10 +133,8 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 			continue
 		}
 
-		// Parse response
 		decisions := parseReviewResponse(response, len(batch))
 
-		// Apply decisions
 		for j, decision := range decisions {
 			if j >= len(batch) {
 				break
@@ -147,8 +154,11 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 				err := clearReviewMatch(ctx, params.DB, c.CompanyNumber)
 				if err == nil {
 					totalRejected++
+					params.Logger.Info("CHLLMReview: rejected",
+						zap.String("business", c.BusinessName),
+						zap.String("company", c.CompanyName))
 				}
-			default: // UNCERTAIN
+			default:
 				err := updateReviewResult(ctx, params.DB, c.CompanyNumber, c.BusinessID, c.Confidence, "llm_uncertain")
 				if err == nil {
 					totalUncertain++
@@ -182,11 +192,36 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 	}, nil
 }
 
+// getAIServiceConfig reads ai_service config following the standard pattern:
+// 1. agent_config.ai_service (top-level in agent definition)
+// 2. step config.ai_service (per-step override)
+//
+// NOTE: On multi-type pods (e.g. business-intel pod running ch-llm-reviewer workflow),
+// agent_config comes from the POD's type (business-intel), not the message's type.
+// The ch-llm-reviewer's default_config.ai_service won't be in agent_config.
+// So for actions running on shared pods, ai_service should be in the step config.
+func getAIServiceConfig(params ActionParams) map[string]interface{} {
+	// Try agent_config first (standard location per guidelines)
+	if agentConfig, ok := params.CollectedData["agent_config"].(map[string]interface{}); ok {
+		if aiService, ok := agentConfig["ai_service"].(map[string]interface{}); ok {
+			return aiService
+		}
+	}
+
+	// Fall back to step config
+	if aiService, ok := params.StepConfig.Config["ai_service"].(map[string]interface{}); ok {
+		return aiService
+	}
+
+	return nil
+}
+
 // loadPendingReviewCandidates loads all pending_llm_review matches with business details.
 func loadPendingReviewCandidates(ctx context.Context, db *sql.DB) ([]reviewCandidate, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT ch.company_number, ch.company_name, COALESCE(ch.postcode, ''),
 			   b.id::text, b.name, COALESCE(b.postcode, ''),
+			   COALESCE(b.town, ''), COALESCE(b.group_name, 'Independent'),
 			   COALESCE(ch.match_confidence, 0)
 		FROM business_intel.ch_vet_companies ch
 		JOIN business_intel.businesses b ON b.id = ch.matched_business_id
@@ -202,7 +237,8 @@ func loadPendingReviewCandidates(ctx context.Context, db *sql.DB) ([]reviewCandi
 	for rows.Next() {
 		var c reviewCandidate
 		if err := rows.Scan(&c.CompanyNumber, &c.CompanyName, &c.CHPostcode,
-			&c.BusinessID, &c.BusinessName, &c.BizPostcode, &c.Confidence); err != nil {
+			&c.BusinessID, &c.BusinessName, &c.BizPostcode,
+			&c.BizTown, &c.BizGroupName, &c.Confidence); err != nil {
 			continue
 		}
 		c.Index = idx
@@ -213,32 +249,46 @@ func loadPendingReviewCandidates(ctx context.Context, db *sql.DB) ([]reviewCandi
 }
 
 // buildReviewPrompt creates a prompt for the LLM to review a batch of candidates.
-func buildReviewPrompt(batch []reviewCandidate) string {
+// The generic matching structure is in Go; industry-specific context is injected
+// from step config so the action works across verticals.
+func buildReviewPrompt(batch []reviewCandidate, industryName, industryContext string) string {
 	var sb strings.Builder
 
-	sb.WriteString(`You are matching UK veterinary practice trading names to their Companies House registered company names.
+	sb.WriteString(fmt.Sprintf(`You are an expert at matching UK %s trading names to their Companies House (CH) registered company names. Your task is to determine if each pair refers to the SAME business entity.
 
-For each pair below, determine if they are the SAME business entity. Consider:
-- The practice may trade under a different name than its registered company
-- The registered office may be at an accountant's address, not the practice
-- Corporate groups (Vets4Pets, IVC, CVS) register branches under the parent or a location-specific company
-- "Ltd"/"Limited"/"LLP" suffixes are legal forms, ignore them for matching
-- Geographic proximity matters — a practice in Glasgow is unlikely to be registered in London unless it's a corporate group
+IMPORTANT CONTEXT:
+- Many businesses trade under a different name than their CH registration. E.g. "Riverside Services" may be registered as "RIVERSIDE SERVICES LIMITED". These ARE the same entity.
+- The registered office is often at an accountant, solicitor, or company formation agent — NOT at the trading address. Different postcodes alone do NOT mean different businesses.
+- However, different BRAND names mean different businesses. Two businesses in the same town with different names are competitors, not the same entity.
+`, industryName))
 
-For each numbered pair, respond with ONLY the number followed by YES, NO, or UNCERTAIN.
-Example response format:
-1: YES
-2: NO
-3: UNCERTAIN
+	// Inject industry-specific context from step config
+	if industryContext != "" {
+		sb.WriteString("\nINDUSTRY-SPECIFIC CONTEXT:\n")
+		sb.WriteString(industryContext)
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString(`
+MATCHING RULES:
+- YES: The core distinctive name matches (ignoring Ltd/Group/Surgery/Clinic suffixes and minor variations).
+- YES: Known abbreviation or name variant of the same business, in a plausible geographic area.
+- NO: Different brand names that happen to share a location word. E.g. "Best Services In Liverpool" and "LIVERPOOL ACME LIMITED" — different brands.
+- NO: The practice's group ownership doesn't match the CH company's brand. If listed as "Independent" but matched to a corporate chain, that's NO.
+- UNCERTAIN: Name is plausible but you can't be confident without more information.
+
+For each numbered pair, respond with ONLY the number followed by YES, NO, or UNCERTAIN. No explanations.
 
 Pairs to review:
 `)
 
 	for i, c := range batch {
 		sb.WriteString(fmt.Sprintf("\n%d.\n", i+1))
-		sb.WriteString(fmt.Sprintf("  Practice: \"%s\" (postcode: %s)\n", c.BusinessName, c.BizPostcode))
+		sb.WriteString(fmt.Sprintf("  Business: \"%s\"\n", c.BusinessName))
+		sb.WriteString(fmt.Sprintf("  Location: %s, %s\n", c.BizTown, c.BizPostcode))
+		sb.WriteString(fmt.Sprintf("  Group: %s\n", c.BizGroupName))
 		sb.WriteString(fmt.Sprintf("  CH Company: \"%s\" (registered: %s)\n", c.CompanyName, c.CHPostcode))
-		sb.WriteString(fmt.Sprintf("  Similarity score: %.2f\n", c.Confidence))
+		sb.WriteString(fmt.Sprintf("  Name similarity: %.0f%%\n", c.Confidence*100))
 	}
 
 	return sb.String()
@@ -258,11 +308,9 @@ func parseReviewResponse(response string, expectedCount int) []string {
 			continue
 		}
 
-		// Parse "1: YES" or "1. YES" or "1 YES" patterns
 		var idx int
 		var decision string
 
-		// Try "N: DECISION" format
 		if n, err := fmt.Sscanf(line, "%d: %s", &idx, &decision); n == 2 && err == nil {
 			// ok
 		} else if n, err := fmt.Sscanf(line, "%d. %s", &idx, &decision); n == 2 && err == nil {
