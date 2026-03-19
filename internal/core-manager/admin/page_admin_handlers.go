@@ -145,7 +145,7 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 	rows, err := h.db.QueryContext(ctx, `
 		SELECT pc.id, pc.position, COALESCE(pc.slot_name, ''),
 		       pc.content_data,
-		       LEFT(pc.rendered_html, 500) AS html_preview,
+		       pc.rendered_html AS html_preview,
 		       LENGTH(COALESCE(pc.rendered_html, '')) AS html_length,
 		       COALESCE(pc.build_status, 'pending'),
 		       pc.locked_at, COALESCE(pc.locked_by, ''),
