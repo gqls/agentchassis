@@ -185,6 +185,18 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 		}
 
 		if match != nil {
+			// Post-check: verify at least one distinctive word from the business
+			// name appears in the CH name. This prevents false positives where
+			// common vet words inflate the trigram score.
+			if !hasDistinctiveWordOverlap(biz.Name, match.CompanyName) {
+				params.Logger.Info("CHLocalMatch: pass2 rejected (no distinctive word overlap)",
+					zap.String("business", biz.Name),
+					zap.String("company", match.CompanyName),
+					zap.Float64("score", match.Score))
+				totalNoMatch++
+				continue
+			}
+
 			err := storeLocalMatch(ctx, params.DB, match.CompanyNumber, biz.ID, match.Score, match.Method)
 			if err != nil {
 				params.Logger.Warn("CHLocalMatch: failed to store pass2 match",
@@ -485,6 +497,48 @@ func findByTrigramSimilarity(ctx context.Context, db *sql.DB, businessName strin
 	}
 
 	return best, rows.Err()
+}
+
+// hasDistinctiveWordOverlap checks that at least one non-generic word from
+// the business name appears in the CH company name. This prevents false
+// positives where common vet/business words inflate trigram similarity.
+// E.g. "WW Mobile Veterinary Services" vs "HAYLOFT MOBILE VETERINARY SERVICES"
+// — high trigram score but "WW" doesn't appear in the CH name.
+func hasDistinctiveWordOverlap(businessName, companyName string) bool {
+	// Words that appear in many vet company names — not distinctive
+	genericWords := map[string]bool{
+		"the": true, "and": true, "of": true, "for": true, "in": true, "at": true, "a": true,
+		"veterinary": true, "vet": true, "vets": true, "vets4pets": true,
+		"animal": true, "pet": true, "pets": true, "paws": true,
+		"mobile": true, "services": true, "service": true,
+		"clinic": true, "centre": true, "center": true, "surgery": true,
+		"practice": true, "hospital": true, "group": true,
+		"limited": true, "ltd": true, "llp": true, "plc": true,
+		"equine": true, "farm": true, "emergency": true, "referrals": true,
+	}
+
+	bizWords := strings.Fields(strings.ToLower(businessName))
+	chNameLower := strings.ToLower(companyName)
+
+	for _, word := range bizWords {
+		// Strip punctuation
+		word = strings.TrimRight(word, ".,;:()'-")
+		word = strings.TrimLeft(word, "('")
+
+		if len(word) < 3 {
+			continue
+		}
+		if genericWords[word] {
+			continue
+		}
+
+		// This is a distinctive word — does it appear in the CH name?
+		if strings.Contains(chNameLower, word) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // storeLocalMatch updates ch_vet_companies with the matched business ID.

@@ -9,7 +9,7 @@ resources:
 
 images:
   - name: docker.io/aqls/agent-chassis
-    newTag: v1.0.891
+    newTag: v1.0.892
 
 patches:
   - path: patch-deployment.yaml
