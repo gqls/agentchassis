@@ -233,6 +233,7 @@ func ensureCHVetCompaniesTable(ctx context.Context, db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS business_intel.ch_vet_companies (
 			company_number      VARCHAR(10) PRIMARY KEY,
 			company_name        TEXT NOT NULL,
+			company_name_cleaned TEXT,
 			company_status      TEXT,
 			company_type        TEXT,
 			date_of_creation    DATE,
@@ -253,6 +254,10 @@ func ensureCHVetCompaniesTable(ctx context.Context, db *sql.DB) error {
 			collected_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
+
+		-- Add column if table already exists without it
+		ALTER TABLE business_intel.ch_vet_companies 
+			ADD COLUMN IF NOT EXISTS company_name_cleaned TEXT;
 
 		CREATE INDEX IF NOT EXISTS idx_ch_vet_postcode_prefix 
 			ON business_intel.ch_vet_companies (postcode_prefix) 
@@ -333,13 +338,17 @@ func storeCHVetCompaniesPage(ctx context.Context, db *sql.DB, items []interface{
 			}
 		}
 
+		// Clean company name for trigram matching
+		companyNameCleaned := strings.ToLower(cleanCompanySearchName(companyName))
+
 		// Upsert — safe for re-runs
 		result, err := db.ExecContext(ctx, `
 			INSERT INTO business_intel.ch_vet_companies (
 				company_number, company_name, company_status, company_type,
 				date_of_creation, date_of_cessation, sic_codes,
-				registered_address, postcode, postcode_prefix, locality
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+				registered_address, postcode, postcode_prefix, locality,
+				company_name_cleaned
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 			ON CONFLICT (company_number) DO UPDATE SET
 				company_name = EXCLUDED.company_name,
 				company_status = EXCLUDED.company_status,
@@ -351,6 +360,7 @@ func storeCHVetCompaniesPage(ctx context.Context, db *sql.DB, items []interface{
 				postcode = EXCLUDED.postcode,
 				postcode_prefix = EXCLUDED.postcode_prefix,
 				locality = EXCLUDED.locality,
+				company_name_cleaned = EXCLUDED.company_name_cleaned,
 				updated_at = NOW()`,
 			companyNumber,
 			companyName,
@@ -363,6 +373,7 @@ func storeCHVetCompaniesPage(ctx context.Context, db *sql.DB, items []interface{
 			postcode,
 			postcodePrefix,
 			locality,
+			companyNameCleaned,
 		)
 		if err != nil {
 			logger.Warn("CHBulkCollect: failed to upsert company",

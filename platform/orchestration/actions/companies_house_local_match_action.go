@@ -92,7 +92,7 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 	totalMatchedPass2 := 0
 
 	// Minimum trigram similarity for name-only matching (pass 2)
-	nameOnlyThreshold := 0.55
+	nameOnlyThreshold := 0.70
 	if t, ok := config["name_only_threshold"].(float64); ok && t > 0 {
 		nameOnlyThreshold = t
 	}
@@ -434,25 +434,26 @@ func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostco
 }
 
 // findByTrigramSimilarity finds the best name match across ALL postcodes
-// using the GiST trigram index. Returns nil if no match above threshold.
-// This catches companies registered at accountant/HQ addresses.
+// using the GiST trigram index on company_name_cleaned. Returns nil if no
+// match above threshold. Compares cleaned names (stripped of Ltd/Group/Surgery etc.)
+// for much better similarity scores.
 func findByTrigramSimilarity(ctx context.Context, db *sql.DB, businessName string, minSimilarity float64) (*chLocalMatchResult, error) {
-	// Clean the business name for comparison
-	cleanedName := cleanCompanySearchName(businessName)
-	if cleanedName == "" {
+	// Clean the business name the same way CH names are cleaned in the DB
+	cleanedName := strings.ToLower(cleanCompanySearchName(businessName))
+	if cleanedName == "" || len(cleanedName) < 4 {
 		return nil, nil
 	}
 
-	// Use the GiST index with the % operator and <-> distance ordering
-	// Returns top 3 candidates; we pick the best one
+	// Query against company_name_cleaned using the GiST trigram index.
+	// Both sides are now stripped of Ltd/Group/Surgery etc.
 	rows, err := db.QueryContext(ctx, `
 		SELECT company_number, company_name, COALESCE(postcode, ''),
-			   similarity(lower(company_name), lower($1)) as sim
+			   similarity(company_name_cleaned, $1) as sim
 		FROM business_intel.ch_vet_companies
 		WHERE company_status = 'active'
 		  AND matched_business_id IS NULL
-		  AND lower(company_name) % lower($1)
-		ORDER BY lower(company_name) <-> lower($1)
+		  AND company_name_cleaned % $1
+		ORDER BY company_name_cleaned <-> $1
 		LIMIT 3`,
 		cleanedName)
 	if err != nil {
