@@ -717,13 +717,31 @@ func (h *SiteAdminHandlers) HandleUpdateWorkItem(c *gin.Context) {
 // ============================================================================
 
 func (h *SiteAdminHandlers) HandleRetryWorkItem(c *gin.Context) {
+	ctx := c.Request.Context()
 	itemID, err := uuid.Parse(c.Param("item_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid item_id"})
 		return
 	}
 
-	result, err := h.db.ExecContext(c.Request.Context(), `
+	// Before retrying, resolve any duplicate item_key that would conflict
+	// with the dedup index (which excludes failed/complete/etc but includes triaged)
+	_, _ = h.db.ExecContext(ctx, `
+		UPDATE site_work_items dup
+		SET status = 'complete',
+		    error = 'Superseded by admin retry of ' || $1::text,
+		    completed_at = NOW(),
+		    updated_at = NOW()
+		FROM site_work_items src
+		WHERE src.id = $1
+		  AND src.item_key IS NOT NULL
+		  AND dup.site_id = src.site_id
+		  AND dup.item_key = src.item_key
+		  AND dup.id != src.id
+		  AND dup.status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+	`, itemID)
+
+	result, err := h.db.ExecContext(ctx, `
 		UPDATE site_work_items
 		SET status = 'triaged',
 		    attempt_count = 0,
