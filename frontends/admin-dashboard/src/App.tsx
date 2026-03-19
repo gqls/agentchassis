@@ -299,7 +299,20 @@ function LoginScreen({ onLogin }) {
 }
 
 // ── Sites Overview ───────────────────────────────────────────────────────────
-function SitesOverview({ sites, onSelectSite, onSelectPages, onSelectSpecs }) {
+function SitesOverview({ sites, token, onSelectSite, onSelectPages, onSelectSpecs, onRefresh }) {
+    const [actionLoading, setActionLoading] = useState(false);
+
+    const handleToggleSiteLock = async (site) => {
+        const action = site.locked ? "unlock" : "lock";
+        if (site.locked ? false : !confirm(`Lock ${site.domain}? All automated agent activity will stop for this site.`)) return;
+        setActionLoading(true);
+        try {
+            await apiFetch(`/sites/${site.id}/${action}`, token, { method: "POST" });
+            onRefresh();
+        } catch (err) { console.error(err); }
+        finally { setActionLoading(false); }
+    };
+
     return (
         <div>
             <h2 style={sectionTitle}>Sites</h2>
@@ -307,14 +320,23 @@ function SitesOverview({ sites, onSelectSite, onSelectPages, onSelectSpecs }) {
                 {sites.map(site => (
                     <div key={site.id} style={{
                         background: "#fff", borderRadius: 10, padding: "20px 22px",
-                        border: "1px solid #e2e8f0", transition: "box-shadow 0.15s",
+                        border: `1px solid ${site.locked ? "#c4b5fd" : "#e2e8f0"}`,
+                        transition: "box-shadow 0.15s",
+                        opacity: site.locked ? 0.85 : 1,
                     }}
                          onMouseEnter={e => e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)"}
                          onMouseLeave={e => e.currentTarget.style.boxShadow = "none"}
                     >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
                             <div>
-                                <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{site.domain}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{site.domain}</span>
+                                    {site.locked && (
+                                        <span style={{ fontSize: 11, color: "#7c3aed", background: "#ede9fe", padding: "1px 8px", borderRadius: 4 }}>
+                                            🔒 Locked
+                                        </span>
+                                    )}
+                                </div>
                                 <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>{site.company_name}</div>
                             </div>
                             <Badge status={site.status} />
@@ -343,6 +365,15 @@ function SitesOverview({ sites, onSelectSite, onSelectPages, onSelectSpecs }) {
                             <button onClick={() => onSelectSpecs(site)} style={{
                                 ...btnSecondary, fontSize: 12, padding: "6px 14px", flex: 1,
                             }}>Direction</button>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                            <button onClick={() => handleToggleSiteLock(site)} disabled={actionLoading} style={{
+                                ...btnSecondary, fontSize: 11, padding: "4px 12px",
+                                color: site.locked ? "#7c3aed" : "#64748b",
+                                borderColor: site.locked ? "#c4b5fd" : "#e2e8f0",
+                            }}>
+                                {site.locked ? "🔒 Unlock Site" : "Lock Site"}
+                            </button>
                         </div>
                         {site.last_deployed && (
                             <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
@@ -1002,6 +1033,8 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
     const [selectedPage, setSelectedPage] = useState(null);
     const [components, setComponents] = useState([]);
     const [suppressedSections, setSuppressedSections] = useState([]);
+    const [siteComponents, setSiteComponents] = useState([]);
+    const [viewMode, setViewMode] = useState(""); // "" = no selection, "site-wide" | page name
     const [selectedComponent, setSelectedComponent] = useState(null);
     const [editData, setEditData] = useState(null);
     const [editHtml, setEditHtml] = useState("");
@@ -1025,6 +1058,19 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
 
     useEffect(() => { loadPages(); }, [loadPages]);
 
+    // Load site-wide components
+    const loadSiteComponents = useCallback(async () => {
+        try {
+            const data = await apiFetch(`/sites/${siteId}/site-components`, token);
+            setSiteComponents(data.components || []);
+        } catch (err) {
+            console.error(err);
+            setSiteComponents([]);
+        }
+    }, [token, siteId]);
+
+    useEffect(() => { loadSiteComponents(); }, [loadSiteComponents]);
+
     // Load components for selected page
     const loadComponents = useCallback(async (pageName) => {
         try {
@@ -1040,41 +1086,56 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
 
     const selectPage = (page) => {
         setSelectedPage(page);
+        setViewMode(page.name);
         setSelectedComponent(null);
         setEditData(null);
         loadComponents(page.name);
     };
 
+    const selectSiteWide = () => {
+        setSelectedPage(null);
+        setViewMode("site-wide");
+        setSelectedComponent(null);
+        setEditData(null);
+    };
+
     const selectComponent = (comp) => {
         setSelectedComponent(comp);
-        setEditMode(comp.content_data && Object.keys(comp.content_data).length > 0 ? "structured" : "html");
-        if (comp.content_data && Object.keys(comp.content_data).length > 0) {
+        const hasStructured = comp.content_data && typeof comp.content_data === "object" && Object.keys(comp.content_data).length > 0;
+        setEditMode(hasStructured ? "structured" : "html");
+        if (hasStructured) {
             setEditData(JSON.parse(JSON.stringify(comp.content_data)));
         } else {
             setEditData(null);
         }
-        setEditHtml(comp.html_preview || "");
+        // Site components have rendered_html, page components have html_preview
+        setEditHtml(comp.rendered_html || comp.html_preview || "");
     };
 
     const handleSaveComponent = async (comp) => {
         setActionLoading(true);
         try {
-            const body = { lock: true, rebuild_page: true };
-            if (editMode === "structured" && editData) {
-                body.content_data = editData;
-            } else if (editMode === "html") {
-                body.rendered_html = editHtml;
+            const body: Record<string, unknown> = { lock: true };
+            if (viewMode === "site-wide") {
+                body.rebuild_site = true;
+                if (editMode === "html") body.rendered_html = editHtml;
+                await apiFetch(
+                    `/sites/${siteId}/site-components/${comp.slot_name}`,
+                    token, { method: "PATCH", body: JSON.stringify(body) }
+                );
+                setMessage(`${comp.slot_name} saved & locked — full site rebuild queued`);
+                loadSiteComponents();
+            } else {
+                body.rebuild_page = true;
+                if (editMode === "structured" && editData) body.content_data = editData;
+                else if (editMode === "html") body.rendered_html = editHtml;
+                await apiFetch(
+                    `/sites/${siteId}/pages/${selectedPage.name}/components/${comp.id}`,
+                    token, { method: "PATCH", body: JSON.stringify(body) }
+                );
+                setMessage("Component saved & locked — rebuild queued");
+                loadComponents(selectedPage.name);
             }
-
-            const result = await apiFetch(
-                `/sites/${siteId}/pages/${selectedPage.name}/components/${comp.id}`,
-                token, { method: "PATCH", body: JSON.stringify(body) }
-            );
-            let msg = "Component saved & locked";
-            if (result.rebuild_item_id) msg += " — rebuild queued";
-            setMessage(msg);
-            // Refresh
-            loadComponents(selectedPage.name);
             loadPages();
             setSelectedComponent(null);
         } catch (err) { setMessage("Save failed: " + err.message); }
@@ -1084,12 +1145,15 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
     const handleLock = async (comp) => {
         setActionLoading(true);
         try {
-            await apiFetch(
-                `/sites/${siteId}/pages/${selectedPage.name}/components/${comp.id}/lock`,
-                token, { method: "POST" }
-            );
-            setMessage("Component locked");
-            loadComponents(selectedPage.name);
+            if (viewMode === "site-wide") {
+                await apiFetch(`/sites/${siteId}/site-components/${comp.slot_name}/lock`, token, { method: "POST" });
+                setMessage(`${comp.slot_name} locked`);
+                loadSiteComponents();
+            } else {
+                await apiFetch(`/sites/${siteId}/pages/${selectedPage.name}/components/${comp.id}/lock`, token, { method: "POST" });
+                setMessage("Component locked");
+                loadComponents(selectedPage.name);
+            }
             loadPages();
         } catch (err) { setMessage("Lock failed: " + err.message); }
         finally { setActionLoading(false); }
@@ -1098,12 +1162,15 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
     const handleUnlock = async (comp) => {
         setActionLoading(true);
         try {
-            await apiFetch(
-                `/sites/${siteId}/pages/${selectedPage.name}/components/${comp.id}/unlock`,
-                token, { method: "POST" }
-            );
-            setMessage("Component unlocked — agents can modify it again");
-            loadComponents(selectedPage.name);
+            if (viewMode === "site-wide") {
+                await apiFetch(`/sites/${siteId}/site-components/${comp.slot_name}/unlock`, token, { method: "POST" });
+                setMessage(`${comp.slot_name} unlocked — agents can modify it again`);
+                loadSiteComponents();
+            } else {
+                await apiFetch(`/sites/${siteId}/pages/${selectedPage.name}/components/${comp.id}/unlock`, token, { method: "POST" });
+                setMessage("Component unlocked — agents can modify it again");
+                loadComponents(selectedPage.name);
+            }
             loadPages();
         } catch (err) { setMessage("Unlock failed: " + err.message); }
         finally { setActionLoading(false); }
@@ -1167,10 +1234,25 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
                 <div style={{ display: "flex", gap: 16 }}>
                     {/* Page list */}
                     <div style={{ flex: "0 0 220px", minWidth: 0 }}>
+                        {/* Site-wide components entry */}
+                        <div onClick={selectSiteWide} style={{
+                            background: viewMode === "site-wide" ? "#f0f9ff" : "#fff",
+                            border: `1px solid ${viewMode === "site-wide" ? "#93c5fd" : "#e2e8f0"}`,
+                            borderRadius: 8, padding: "10px 14px", marginBottom: 6, cursor: "pointer",
+                        }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Site-Wide</div>
+                            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                                Header · Footer · CSS
+                                {siteComponents.some(c => c.locked) && (
+                                    <span style={{ color: "#7c3aed", marginLeft: 6 }}>🔒</span>
+                                )}
+                            </div>
+                        </div>
+                        <div style={{ borderBottom: "1px solid #e2e8f0", marginBottom: 6 }} />
                         {pages.map(page => (
                             <div key={page.id} onClick={() => selectPage(page)} style={{
-                                background: selectedPage?.id === page.id ? "#f0f9ff" : "#fff",
-                                border: `1px solid ${selectedPage?.id === page.id ? "#93c5fd" : "#e2e8f0"}`,
+                                background: viewMode === page.name ? "#f0f9ff" : "#fff",
+                                border: `1px solid ${viewMode === page.name ? "#93c5fd" : "#e2e8f0"}`,
                                 borderRadius: 8, padding: "10px 14px", marginBottom: 6, cursor: "pointer",
                             }}>
                                 <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{page.name}</div>
@@ -1189,8 +1271,8 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
 
                     {/* Components panel */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        {!selectedPage ? (
-                            <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Select a page to view its sections</div>
+                        {!viewMode ? (
+                            <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Select a page or Site-Wide to view sections</div>
                         ) : selectedComponent ? (
                             /* ── Component edit panel ── */
                             <div style={{
@@ -1250,8 +1332,59 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
                                     <button onClick={() => setSelectedComponent(null)} style={btnSecondary}>Cancel</button>
                                 </div>
                             </div>
-                        ) : (
-                            /* ── Component list ── */
+                        ) : viewMode === "site-wide" ? (
+                            /* ── Site-wide component list ── */
+                            <div>
+                                <div style={{ fontSize: 14, fontWeight: 600, color: "#475569", marginBottom: 12 }}>
+                                    Site-Wide Components — {siteComponents.length} items
+                                </div>
+                                {siteComponents.map(comp => {
+                                    const label = comp.slot_name === "head" ? "CSS / Styles" : comp.slot_name;
+                                    const previewText = comp.rendered_html ? stripHtmlTags(comp.rendered_html).slice(0, 200) : "";
+                                    return (
+                                        <div key={comp.id} style={{
+                                            background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8,
+                                            padding: "14px 16px", marginBottom: 8,
+                                        }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                                <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{label}</span>
+                                                {comp.locked && (
+                                                    <span style={{ fontSize: 11, color: "#7c3aed", background: "#ede9fe", padding: "1px 6px", borderRadius: 4 }}>
+                                                        🔒 {comp.locked_by}
+                                                    </span>
+                                                )}
+                                                <span style={{ fontSize: 11, color: "#94a3b8" }}>
+                                                    {Math.round(comp.html_length / 1024)}kb
+                                                </span>
+                                            </div>
+                                            {previewText && (
+                                                <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.4, maxHeight: 60, overflow: "hidden" }}>
+                                                    {previewText}
+                                                </div>
+                                            )}
+                                            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                                                <button onClick={() => selectComponent(comp)} style={{
+                                                    ...btnSecondary, fontSize: 11, padding: "4px 10px",
+                                                }}>Edit</button>
+                                                {comp.locked ? (
+                                                    <button onClick={() => handleUnlock(comp)} disabled={actionLoading} style={{
+                                                        ...btnSecondary, fontSize: 11, padding: "4px 10px", color: "#7c3aed",
+                                                    }}>Unlock</button>
+                                                ) : (
+                                                    <button onClick={() => handleLock(comp)} disabled={actionLoading} style={{
+                                                        ...btnSecondary, fontSize: 11, padding: "4px 10px",
+                                                    }}>Lock</button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 12, lineHeight: 1.5 }}>
+                                    Editing a site-wide component triggers a full-site rebuild — all pages will be reassembled with the updated header, footer, or CSS.
+                                </div>
+                            </div>
+                        ) : selectedPage ? (
+                            /* ── Page component list ── */
                             <div>
                                 <div style={{ fontSize: 14, fontWeight: 600, color: "#475569", marginBottom: 12 }}>
                                     {selectedPage.name} — {components.length} sections
@@ -1276,7 +1409,6 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
                                                         <span style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", padding: "1px 6px", borderRadius: 4 }}>empty</span>
                                                     )}
                                                 </div>
-                                                {/* Content preview */}
                                                 {comp.html_preview && !comp.is_empty ? (
                                                     <div style={{
                                                         fontSize: 12, color: "#64748b", lineHeight: 1.4,
@@ -1289,7 +1421,6 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
                                                 ) : null}
                                             </div>
                                         </div>
-                                        {/* Component actions */}
                                         <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
                                             <button onClick={() => selectComponent(comp)} style={{
                                                 ...btnSecondary, fontSize: 11, padding: "4px 10px",
@@ -1310,7 +1441,6 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
                                     </div>
                                 ))}
 
-                                {/* Suppressed sections */}
                                 {suppressedSections.length > 0 && (
                                     <div style={{ marginTop: 20 }}>
                                         <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
@@ -1334,7 +1464,7 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
                                     </div>
                                 )}
                             </div>
-                        )}
+                        ) : null}
                     </div>
                 </div>
             )}
@@ -1651,9 +1781,11 @@ export default function App() {
                 {view === "sites" && (
                     <SitesOverview
                         sites={sites}
+                        token={token}
                         onSelectSite={(site) => { setSelectedSite(site); setView("items"); }}
                         onSelectPages={(site) => { setSelectedSite(site); setView("pages"); }}
                         onSelectSpecs={(site) => { setSelectedSite(site); setView("specs"); }}
+                        onRefresh={loadSites}
                     />
                 )}
 

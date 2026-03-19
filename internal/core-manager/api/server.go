@@ -169,6 +169,8 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 				siteGroup.GET("", siteAdminHandlers.HandleListSites)
 				siteGroup.GET("/:site_id", siteAdminHandlers.HandleGetSite)
 				siteGroup.PATCH("/:site_id", siteAdminHandlers.HandleUpdateSite)
+				siteGroup.POST("/:site_id/lock", siteAdminHandlers.HandleLockSite)
+				siteGroup.POST("/:site_id/unlock", siteAdminHandlers.HandleUnlockSite)
 				siteGroup.PATCH("/:site_id/specs/:aspect", siteAdminHandlers.HandleUpdateSiteSpec)
 
 				// Spec Direction Control (Phase 4)
@@ -185,6 +187,12 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 				siteGroup.POST("/:site_id/pages/:page_name/components/:component_id/unlock", pageAdminHandlers.HandleUnlockComponent)
 				siteGroup.DELETE("/:site_id/pages/:page_name/components/:component_id", pageAdminHandlers.HandleRemoveComponent)
 				siteGroup.POST("/:site_id/pages/:page_name/restore-section", pageAdminHandlers.HandleRestoreSection)
+
+				// Site-Wide Components (Phase 7)
+				siteGroup.GET("/:site_id/site-components", pageAdminHandlers.HandleListSiteComponents)
+				siteGroup.PATCH("/:site_id/site-components/:slot_name", pageAdminHandlers.HandleUpdateSiteComponent)
+				siteGroup.POST("/:site_id/site-components/:slot_name/lock", pageAdminHandlers.HandleLockSiteComponent)
+				siteGroup.POST("/:site_id/site-components/:slot_name/unlock", pageAdminHandlers.HandleUnlockSiteComponent)
 			}
 
 			// Work Item Administration + HITL Review

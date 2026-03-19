@@ -997,4 +997,33 @@ INSERT INTO scheduled_tasks (
     $PRE$
          );
 
+---
+-- site lock
+
+UPDATE scheduled_tasks
+SET pre_query = replace(
+    pre_query,
+    'WHERE s.status IN',
+    'WHERE s.locked_at IS NULL AND s.status IN'
+)
+WHERE name = 'build-pipeline-trigger'
+  AND pre_query NOT LIKE '%s.locked_at IS NULL%';
+
+---
+-- fixed site lock
+UPDATE scheduled_tasks
+SET pre_query = '
+SELECT COUNT(*)::text as pending_sites
+FROM sites s
+WHERE s.locked_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM site_work_items wi
+    WHERE wi.site_id = s.id
+      AND wi.status = ''triaged''
+      AND wi.domain = ''build''
+      AND wi.attempt_count < wi.max_attempts
+)
+HAVING COUNT(*) > 0
+'
+WHERE name = 'build-pipeline-trigger';
 

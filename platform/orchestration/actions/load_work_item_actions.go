@@ -121,6 +121,20 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 		return nil, fmt.Errorf("invalid site_id: %w", err)
 	}
 
+	// Check if site is locked — skip all automated work
+	var siteLocked bool
+	if err := params.DB.QueryRowContext(ctx, `
+		SELECT locked_at IS NOT NULL FROM sites WHERE id = $1
+	`, siteID).Scan(&siteLocked); err == nil && siteLocked {
+		logger.Info("LoadWorkItemsAction: site is locked, skipping",
+			zap.String("site_id", siteIDStr))
+		return map[string]interface{}{
+			"items":          []interface{}{},
+			"count":          0,
+			"skipped_reason": "site_locked",
+		}, nil
+	}
+
 	batchID := uuid.New()
 	if b := inputs.Get("batch_id"); b != "" {
 		if parsed, err := uuid.Parse(b); err == nil {

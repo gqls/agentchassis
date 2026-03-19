@@ -477,3 +477,17 @@ SET rendered_html = replace_template_var(
                     )
     FROM sites s
 WHERE sc.site_id = s.id;
+
+
+------
+
+-- Phase 7a: Add lock columns to site_components for site-wide component governance.
+ALTER TABLE site_components ADD COLUMN IF NOT EXISTS locked_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE site_components ADD COLUMN IF NOT EXISTS locked_by TEXT;
+CREATE INDEX IF NOT EXISTS idx_site_components_locked
+    ON site_components (locked_at) WHERE locked_at IS NOT NULL;
+
+-- Phase 7: Site-level lock — prevents all automated agent activity.
+ALTER TABLE sites ADD COLUMN IF NOT EXISTS locked_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE sites ADD COLUMN IF NOT EXISTS locked_by TEXT;
+

@@ -36,6 +36,7 @@ func (h *SiteAdminHandlers) HandleListSites(c *gin.Context) {
 	rows, err := h.db.QueryContext(c.Request.Context(), `
 		SELECT s.id, s.domain, s.company_name, s.status, s.email, s.phone,
 		       s.build_status, s.last_deployed_at,
+		       s.locked_at, COALESCE(s.locked_by, ''),
 		       COUNT(*) FILTER (WHERE wi.status = 'complete') as items_done,
 		       COUNT(*) FILTER (WHERE wi.status = 'claimed') as items_active,
 		       COUNT(*) FILTER (WHERE wi.status = 'triaged') as items_ready,
@@ -57,13 +58,13 @@ func (h *SiteAdminHandlers) HandleListSites(c *gin.Context) {
 	var sites []map[string]interface{}
 	for rows.Next() {
 		var id uuid.UUID
-		var domain, status, buildStatus string
+		var domain, status, buildStatus, lockedBy string
 		var companyName, email, phone sql.NullString
-		var lastDeployed sql.NullTime
+		var lastDeployed, lockedAt sql.NullTime
 		var done, active, ready, review, failed, blocked int
 
 		if err := rows.Scan(&id, &domain, &companyName, &status, &email, &phone,
-			&buildStatus, &lastDeployed,
+			&buildStatus, &lastDeployed, &lockedAt, &lockedBy,
 			&done, &active, &ready, &review, &failed, &blocked); err != nil {
 			h.logger.Warn("Failed to scan site", zap.Error(err))
 			continue
@@ -78,6 +79,8 @@ func (h *SiteAdminHandlers) HandleListSites(c *gin.Context) {
 			"phone":         phone.String,
 			"build_status":  buildStatus,
 			"last_deployed": nil,
+			"locked":        lockedAt.Valid,
+			"locked_by":     lockedBy,
 			"work_items": map[string]int{
 				"done":    done,
 				"active":  active,
@@ -89,6 +92,9 @@ func (h *SiteAdminHandlers) HandleListSites(c *gin.Context) {
 		}
 		if lastDeployed.Valid {
 			site["last_deployed"] = lastDeployed.Time
+		}
+		if lockedAt.Valid {
+			site["locked_at"] = lockedAt.Time
 		}
 		sites = append(sites, site)
 	}
@@ -324,6 +330,66 @@ func (h *SiteAdminHandlers) HandleUpdateSite(c *gin.Context) {
 		zap.String("site_id", siteID.String()))
 
 	c.JSON(http.StatusOK, gin.H{"updated": true, "id": siteID.String()})
+}
+
+// ============================================================================
+// POST /admin/sites/:site_id/lock
+// ============================================================================
+// Locks a site — discovery checks and dispatch loop skip it entirely.
+// Admin can still manually create and process work items.
+
+func (h *SiteAdminHandlers) HandleLockSite(c *gin.Context) {
+	siteID, err := uuid.Parse(c.Param("site_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+
+	result, err := h.db.ExecContext(c.Request.Context(), `
+		UPDATE sites SET locked_at = NOW(), locked_by = 'admin'
+		WHERE id = $1
+	`, siteID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "site not found"})
+		return
+	}
+
+	h.logger.Info("Site locked via admin", zap.String("site_id", siteID.String()))
+	c.JSON(http.StatusOK, gin.H{"locked": true, "site_id": siteID.String()})
+}
+
+// ============================================================================
+// POST /admin/sites/:site_id/unlock
+// ============================================================================
+
+func (h *SiteAdminHandlers) HandleUnlockSite(c *gin.Context) {
+	siteID, err := uuid.Parse(c.Param("site_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+
+	result, err := h.db.ExecContext(c.Request.Context(), `
+		UPDATE sites SET locked_at = NULL, locked_by = NULL
+		WHERE id = $1
+	`, siteID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "site not found"})
+		return
+	}
+
+	h.logger.Info("Site unlocked via admin", zap.String("site_id", siteID.String()))
+	c.JSON(http.StatusOK, gin.H{"unlocked": true, "site_id": siteID.String()})
 }
 
 // ============================================================================

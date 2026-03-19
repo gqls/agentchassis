@@ -690,3 +690,275 @@ func (h *PageAdminHandlers) HandleRestoreSection(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, result)
 }
+
+// ============================================================================
+// Site-Wide Components (Phase 7)
+// Header, footer, and head (CSS) — shared across all pages.
+// ============================================================================
+
+// GET /admin/sites/:site_id/site-components
+
+func (h *PageAdminHandlers) HandleListSiteComponents(c *gin.Context) {
+	ctx := c.Request.Context()
+	siteID, err := uuid.Parse(c.Param("site_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+
+	rows, err := h.db.QueryContext(ctx, `
+		SELECT sc.id, sc.slot_name, sc.rendered_html, sc.content_data,
+		       LENGTH(COALESCE(sc.rendered_html, '')) AS html_length,
+		       COALESCE(sc.build_status, 'pending'),
+		       sc.locked_at, COALESCE(sc.locked_by, ''),
+		       sc.updated_at
+		FROM site_components sc
+		WHERE sc.site_id = $1
+		ORDER BY CASE sc.slot_name
+		    WHEN 'header' THEN 1
+		    WHEN 'footer' THEN 2
+		    WHEN 'head' THEN 3
+		    ELSE 4
+		END
+	`, siteID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	var components []map[string]interface{}
+	for rows.Next() {
+		var id uuid.UUID
+		var slotName, buildStatus, lockedBy string
+		var renderedHTML sql.NullString
+		var contentDataJSON []byte
+		var htmlLength int
+		var lockedAt, updatedAt sql.NullTime
+
+		if err := rows.Scan(&id, &slotName, &renderedHTML, &contentDataJSON,
+			&htmlLength, &buildStatus, &lockedAt, &lockedBy, &updatedAt); err != nil {
+			h.logger.Warn("Failed to scan site component", zap.Error(err))
+			continue
+		}
+
+		var contentData interface{}
+		if len(contentDataJSON) > 0 {
+			json.Unmarshal(contentDataJSON, &contentData)
+		}
+
+		comp := map[string]interface{}{
+			"id":            id.String(),
+			"slot_name":     slotName,
+			"rendered_html": "",
+			"content_data":  contentData,
+			"html_length":   htmlLength,
+			"build_status":  buildStatus,
+			"locked":        lockedAt.Valid,
+			"locked_by":     lockedBy,
+		}
+		if renderedHTML.Valid {
+			comp["rendered_html"] = renderedHTML.String
+		}
+		if lockedAt.Valid {
+			comp["locked_at"] = lockedAt.Time
+		}
+		if updatedAt.Valid {
+			comp["updated_at"] = updatedAt.Time
+		}
+		components = append(components, comp)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"components": components, "count": len(components)})
+}
+
+// PATCH /admin/sites/:site_id/site-components/:slot_name
+
+func (h *PageAdminHandlers) HandleUpdateSiteComponent(c *gin.Context) {
+	ctx := c.Request.Context()
+	siteID, err := uuid.Parse(c.Param("site_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+	slotName := c.Param("slot_name")
+
+	var body struct {
+		RenderedHTML *string          `json:"rendered_html"`
+		ContentData  *json.RawMessage `json:"content_data"`
+		Lock         *bool            `json:"lock"`
+		RebuildSite  *bool            `json:"rebuild_site"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Verify exists
+	var scID uuid.UUID
+	err = h.db.QueryRowContext(ctx, `
+		SELECT id FROM site_components WHERE site_id = $1 AND slot_name = $2
+	`, siteID, slotName).Scan(&scID)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "site component not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Build UPDATE
+	setClauses := []string{"updated_at = NOW()"}
+	args := []interface{}{}
+	argIdx := 1
+
+	if body.RenderedHTML != nil {
+		setClauses = append(setClauses, fmt.Sprintf("rendered_html = $%d", argIdx))
+		args = append(args, *body.RenderedHTML)
+		argIdx++
+	}
+	if body.ContentData != nil {
+		setClauses = append(setClauses, fmt.Sprintf("content_data = $%d::jsonb", argIdx))
+		args = append(args, string(*body.ContentData))
+		argIdx++
+	}
+
+	shouldLock := true
+	if body.Lock != nil {
+		shouldLock = *body.Lock
+	}
+	if shouldLock {
+		setClauses = append(setClauses, "locked_at = NOW()")
+		setClauses = append(setClauses, "locked_by = 'admin'")
+	}
+
+	query := fmt.Sprintf("UPDATE site_components SET %s WHERE id = $%d",
+		strings.Join(setClauses, ", "), argIdx)
+	args = append(args, scID)
+
+	_, err = h.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("Site component updated via admin",
+		zap.String("slot_name", slotName),
+		zap.Bool("locked", shouldLock))
+
+	// Create full-site rerender work item
+	shouldRebuild := true
+	if body.RebuildSite != nil {
+		shouldRebuild = *body.RebuildSite
+	}
+
+	var rebuildItemID *string
+	if shouldRebuild {
+		pageRows, _ := h.db.QueryContext(ctx, `
+			SELECT name FROM pages
+			WHERE site_id = $1 AND status IN ('active', 'deployed')
+			ORDER BY name
+		`, siteID)
+		var pageNames []string
+		if pageRows != nil {
+			defer pageRows.Close()
+			for pageRows.Next() {
+				var name string
+				if pageRows.Scan(&name) == nil {
+					pageNames = append(pageNames, name)
+				}
+			}
+		}
+
+		specJSON, _ := json.Marshal(map[string]interface{}{
+			"reason":                  "admin_site_component_edit",
+			"slot_name":               slotName,
+			"refresh_site_components": true,
+			"affected_pages":          pageNames,
+			"affected_page_count":     len(pageNames),
+		})
+
+		var newID uuid.UUID
+		err = h.db.QueryRowContext(ctx, `
+			INSERT INTO site_work_items (
+				site_id, source, domain, item_type, severity, summary,
+				spec, priority, handler_agent, status, created_by
+			) VALUES ($1, 'admin-edit', 'build', 'needs_rerender', 'high',
+			          $2, $3::jsonb, 5, 'rerender-pages', 'triaged', 'admin')
+			RETURNING id
+		`, siteID,
+			fmt.Sprintf("Full site rerender: %s edited by admin", slotName),
+			string(specJSON)).Scan(&newID)
+		if err != nil {
+			h.logger.Warn("Failed to create rerender work item", zap.Error(err))
+		} else {
+			id := newID.String()
+			rebuildItemID = &id
+		}
+	}
+
+	scResult := gin.H{
+		"updated":   true,
+		"slot_name": slotName,
+		"locked":    shouldLock,
+	}
+	if rebuildItemID != nil {
+		scResult["rebuild_item_id"] = *rebuildItemID
+	}
+	c.JSON(http.StatusOK, scResult)
+}
+
+// POST /admin/sites/:site_id/site-components/:slot_name/lock
+
+func (h *PageAdminHandlers) HandleLockSiteComponent(c *gin.Context) {
+	ctx := c.Request.Context()
+	siteID, err := uuid.Parse(c.Param("site_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+	slotName := c.Param("slot_name")
+
+	res, err := h.db.ExecContext(ctx, `
+		UPDATE site_components SET locked_at = NOW(), locked_by = 'admin', updated_at = NOW()
+		WHERE site_id = $1 AND slot_name = $2
+	`, siteID, slotName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "site component not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"locked": true, "slot_name": slotName})
+}
+
+// POST /admin/sites/:site_id/site-components/:slot_name/unlock
+
+func (h *PageAdminHandlers) HandleUnlockSiteComponent(c *gin.Context) {
+	ctx := c.Request.Context()
+	siteID, err := uuid.Parse(c.Param("site_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+	slotName := c.Param("slot_name")
+
+	res, err := h.db.ExecContext(ctx, `
+		UPDATE site_components SET locked_at = NULL, locked_by = NULL, updated_at = NOW()
+		WHERE site_id = $1 AND slot_name = $2
+	`, siteID, slotName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "site component not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"unlocked": true, "slot_name": slotName})
+}
