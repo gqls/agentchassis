@@ -191,6 +191,30 @@ func CHBulkCollectAction(ctx context.Context, params ActionParams) (interface{},
 		zap.Int("total_hits", totalHits),
 		zap.Int("pages_processed", pagesProcessed))
 
+	// Query stats from the table
+	stats := map[string]interface{}{}
+	row := params.DB.QueryRowContext(ctx, `
+		SELECT COUNT(*) as total,
+			   COUNT(*) FILTER (WHERE matched_business_id IS NOT NULL) as matched,
+			   COUNT(*) FILTER (WHERE matched_business_id IS NULL) as unmatched
+		FROM business_intel.ch_vet_companies
+		WHERE company_status = 'active'`)
+	var totalCH, matched, unmatched int
+	if err := row.Scan(&totalCH, &matched, &unmatched); err == nil {
+		stats["total_ch_companies"] = totalCH
+		stats["matched"] = matched
+		stats["unmatched"] = unmatched
+	}
+
+	// Notify scheduler
+	taskName := "ch-vet-collect"
+	if tn, ok := config["task_name"].(string); ok && tn != "" {
+		taskName = tn
+	}
+	_, _ = params.DB.ExecContext(ctx,
+		`UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = $1`,
+		taskName)
+
 	return map[string]interface{}{
 		"status":          "complete",
 		"total_collected": totalCollected,
@@ -198,6 +222,7 @@ func CHBulkCollectAction(ctx context.Context, params ActionParams) (interface{},
 		"total_updated":   totalUpdated,
 		"total_hits":      totalHits,
 		"pages_processed": pagesProcessed,
+		"stats":           stats,
 	}, nil
 }
 

@@ -306,4 +306,38 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 COMMENT ON TABLE business_intel.ch_vet_companies IS
     'Local mirror of all CH companies with SIC 75000. Populated by ch_bulk_collect, used for local matching.';
 
-        
+-- Add trigram index for name-only matching
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX IF NOT EXISTS idx_ch_vet_name_trgm
+    ON business_intel.ch_vet_companies
+    USING gin (lower(company_name) gin_trgm_ops);
+
+-- Also add a cleaned name column for faster matching
+ALTER TABLE business_intel.ch_vet_companies
+    ADD COLUMN IF NOT EXISTS company_name_cleaned TEXT;
+
+UPDATE business_intel.ch_vet_companies
+SET company_name_cleaned = lower(
+        REGEXP_REPLACE(
+                REGEXP_REPLACE(company_name, '\s+(LIMITED|LTD|LLP|PLC)\.?$', '', 'gi'),
+                '\s+(GROUP|SURGERY|CENTRE|CENTER|CLINIC|HOSPITAL|PRACTICE)$', '', 'gi'
+        )
+                           );
+
+CREATE INDEX IF NOT EXISTS idx_ch_vet_name_cleaned
+    ON business_intel.ch_vet_companies (company_name_cleaned);
+
+---
+-- redo
+-- Drop the GIN index and create GiST for distance-operator queries
+DROP INDEX IF EXISTS business_intel.idx_ch_vet_name_trgm;
+
+CREATE INDEX IF NOT EXISTS idx_ch_vet_name_trgm_gist
+    ON business_intel.ch_vet_companies
+    USING gist (lower(company_name) gist_trgm_ops);
+
+-- Also index the cleaned name column
+CREATE INDEX IF NOT EXISTS idx_ch_vet_name_cleaned_gist
+    ON business_intel.ch_vet_companies
+    USING gist (company_name_cleaned gist_trgm_ops);

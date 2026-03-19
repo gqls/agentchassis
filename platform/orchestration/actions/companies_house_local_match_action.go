@@ -30,6 +30,7 @@ type chCandidate struct {
 type chLocalMatchResult struct {
 	CompanyNumber string
 	CompanyName   string
+	Postcode      string
 	Score         float64
 	Method        string
 }
@@ -88,6 +89,21 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 	totalProcessed := 0
 	totalMatched := 0
 	totalNoMatch := 0
+	totalMatchedPass2 := 0
+
+	// Minimum trigram similarity for name-only matching (pass 2)
+	nameOnlyThreshold := 0.55
+	if t, ok := config["name_only_threshold"].(float64); ok && t > 0 {
+		nameOnlyThreshold = t
+	}
+
+	// Track unmatched businesses for pass 2
+	var unmatchedForPass2 []businessForMatching
+
+	// =====================================================================
+	// PASS 1: Postcode prefix + name scoring
+	// =====================================================================
+	params.Logger.Info("CHLocalMatch: starting pass 1 (postcode + name)")
 
 	for _, biz := range businesses {
 		select {
@@ -109,8 +125,8 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 			params.Logger.Warn("CHLocalMatch: failed to find candidates",
 				zap.String("business", biz.Name),
 				zap.Error(err))
+			unmatchedForPass2 = append(unmatchedForPass2, biz)
 			totalProcessed++
-			totalNoMatch++
 			continue
 		}
 
@@ -118,7 +134,6 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 		best := scoreLocalCandidates(candidates, biz.Name, biz.Postcode, params.Logger)
 
 		if best != nil && best.Score >= threshold {
-			// Store match
 			err := storeLocalMatch(ctx, params.DB, best.CompanyNumber, biz.ID, best.Score, best.Method)
 			if err != nil {
 				params.Logger.Warn("CHLocalMatch: failed to store match",
@@ -126,7 +141,7 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 					zap.String("company", best.CompanyName),
 					zap.Error(err))
 			} else {
-				params.Logger.Info("CHLocalMatch: matched",
+				params.Logger.Info("CHLocalMatch: pass1 matched",
 					zap.String("business", biz.Name),
 					zap.String("company", best.CompanyName),
 					zap.Float64("score", best.Score),
@@ -134,28 +149,111 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 				totalMatched++
 			}
 		} else {
-			totalNoMatch++
-			if best != nil {
-				params.Logger.Info("CHLocalMatch: below threshold",
-					zap.String("business", biz.Name),
-					zap.String("best_candidate", best.CompanyName),
-					zap.Float64("score", best.Score))
-			}
+			unmatchedForPass2 = append(unmatchedForPass2, biz)
 		}
 
 		totalProcessed++
 	}
 
+	params.Logger.Info("CHLocalMatch: pass 1 complete",
+		zap.Int("matched", totalMatched),
+		zap.Int("unmatched_for_pass2", len(unmatchedForPass2)))
+
+	// =====================================================================
+	// PASS 2: Name-only matching via trigram similarity (no postcode requirement)
+	// Uses GiST trigram index for fast per-business lookups (~4ms each).
+	// Catches companies registered at accountant/HQ addresses.
+	// =====================================================================
+	params.Logger.Info("CHLocalMatch: starting pass 2 (name-only trigram)",
+		zap.Int("businesses", len(unmatchedForPass2)),
+		zap.Float64("name_only_threshold", nameOnlyThreshold))
+
+	for _, biz := range unmatchedForPass2 {
+		select {
+		case <-ctx.Done():
+			break
+		default:
+		}
+
+		match, err := findByTrigramSimilarity(ctx, params.DB, biz.Name, nameOnlyThreshold)
+		if err != nil {
+			params.Logger.Warn("CHLocalMatch: trigram query failed",
+				zap.String("business", biz.Name),
+				zap.Error(err))
+			totalNoMatch++
+			continue
+		}
+
+		if match != nil {
+			err := storeLocalMatch(ctx, params.DB, match.CompanyNumber, biz.ID, match.Score, match.Method)
+			if err != nil {
+				params.Logger.Warn("CHLocalMatch: failed to store pass2 match",
+					zap.String("business", biz.Name),
+					zap.String("company", match.CompanyName),
+					zap.Error(err))
+			} else {
+				params.Logger.Info("CHLocalMatch: pass2 matched",
+					zap.String("business", biz.Name),
+					zap.String("company", match.CompanyName),
+					zap.Float64("score", match.Score),
+					zap.String("method", match.Method))
+				totalMatchedPass2++
+				totalMatched++
+			}
+		} else {
+			totalNoMatch++
+		}
+	}
+
+	params.Logger.Info("CHLocalMatch: pass 2 complete",
+		zap.Int("pass2_matched", totalMatchedPass2))
+
+	// Query overall stats from the table
+	stats := map[string]interface{}{}
+	row := params.DB.QueryRowContext(ctx, `
+		SELECT COUNT(*) as total_ch_companies,
+			   COUNT(*) FILTER (WHERE matched_business_id IS NOT NULL) as matched,
+			   COUNT(*) FILTER (WHERE matched_business_id IS NULL) as unmatched
+		FROM business_intel.ch_vet_companies
+		WHERE company_status = 'active'`)
+	var totalCH, totalCHMatched, totalCHUnmatched int
+	if err := row.Scan(&totalCH, &totalCHMatched, &totalCHUnmatched); err == nil {
+		stats["total_ch_companies"] = totalCH
+		stats["ch_matched"] = totalCHMatched
+		stats["ch_unmatched"] = totalCHUnmatched
+		if totalCH > 0 {
+			stats["match_pct"] = fmt.Sprintf("%.1f", 100.0*float64(totalCHMatched)/float64(totalCH))
+		}
+	}
+
+	// Notify scheduler that this task completed
+	taskName := "ch-local-match"
+	if tn, ok := config["task_name"].(string); ok && tn != "" {
+		taskName = tn
+	}
+	_, err = params.DB.ExecContext(ctx,
+		`UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = $1`,
+		taskName)
+	if err != nil {
+		params.Logger.Warn("CHLocalMatch: failed to notify scheduler", zap.Error(err))
+	}
+
 	params.Logger.Info("CHLocalMatch: complete",
 		zap.Int("total_processed", totalProcessed),
 		zap.Int("total_matched", totalMatched),
-		zap.Int("total_no_match", totalNoMatch))
+		zap.Int("pass1_matched", totalMatched-totalMatchedPass2),
+		zap.Int("pass2_matched", totalMatchedPass2),
+		zap.Int("total_no_match", totalNoMatch),
+		zap.Any("stats", stats))
 
 	return map[string]interface{}{
 		"status":          "complete",
 		"total_processed": totalProcessed,
 		"total_matched":   totalMatched,
+		"pass1_matched":   totalMatched - totalMatchedPass2,
+		"pass2_matched":   totalMatchedPass2,
 		"total_no_match":  totalNoMatch,
+		"stats":           stats,
 	}, nil
 }
 
@@ -325,6 +423,7 @@ func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostco
 			best = &chLocalMatchResult{
 				CompanyNumber: c.CompanyNumber,
 				CompanyName:   c.CompanyName,
+				Postcode:      c.Postcode,
 				Score:         score,
 				Method:        method,
 			}
@@ -332,6 +431,59 @@ func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostco
 	}
 
 	return best
+}
+
+// findByTrigramSimilarity finds the best name match across ALL postcodes
+// using the GiST trigram index. Returns nil if no match above threshold.
+// This catches companies registered at accountant/HQ addresses.
+func findByTrigramSimilarity(ctx context.Context, db *sql.DB, businessName string, minSimilarity float64) (*chLocalMatchResult, error) {
+	// Clean the business name for comparison
+	cleanedName := cleanCompanySearchName(businessName)
+	if cleanedName == "" {
+		return nil, nil
+	}
+
+	// Use the GiST index with the % operator and <-> distance ordering
+	// Returns top 3 candidates; we pick the best one
+	rows, err := db.QueryContext(ctx, `
+		SELECT company_number, company_name, COALESCE(postcode, ''),
+			   similarity(lower(company_name), lower($1)) as sim
+		FROM business_intel.ch_vet_companies
+		WHERE company_status = 'active'
+		  AND matched_business_id IS NULL
+		  AND lower(company_name) % lower($1)
+		ORDER BY lower(company_name) <-> lower($1)
+		LIMIT 3`,
+		cleanedName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var best *chLocalMatchResult
+	for rows.Next() {
+		var companyNumber, companyName, postcode string
+		var sim float64
+		if err := rows.Scan(&companyNumber, &companyName, &postcode, &sim); err != nil {
+			continue
+		}
+
+		if sim < minSimilarity {
+			continue
+		}
+
+		if best == nil || sim > best.Score {
+			best = &chLocalMatchResult{
+				CompanyNumber: companyNumber,
+				CompanyName:   companyName,
+				Postcode:      postcode,
+				Score:         sim,
+				Method:        "name_trigram",
+			}
+		}
+	}
+
+	return best, rows.Err()
 }
 
 // storeLocalMatch updates ch_vet_companies with the matched business ID.
