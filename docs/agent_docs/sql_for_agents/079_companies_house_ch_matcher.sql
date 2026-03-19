@@ -650,3 +650,120 @@ INSERT INTO scheduled_tasks (
 --   ORDER BY company_name
 --   LIMIT 50;
 -- ============================================================================
+
+---
+
+-- use llm to match close companies house matches
+-- ============================================================================
+-- CH Local Matching — Agent Definition & Scheduled Task
+-- ============================================================================
+-- Matches verified businesses against the local ch_vet_companies table.
+-- No API calls — pure SQL + Go scoring. Safe to re-run.
+-- Runs on the business-intel pod, separate from collection and enrichment.
+-- ============================================================================
+
+INSERT INTO agent_definitions (
+    id, type, display_name, description, category,
+    default_config, is_active, capabilities,
+    image_repository, image_tag, resources,
+    topics, health_config,
+    agent_category, status, domain_tags,
+    input_contract, output_contract
+) VALUES (
+             gen_random_uuid(),
+             'ch-matcher',
+             'CH Local Matcher',
+             'Matches verified businesses against the local ch_vet_companies mirror table using postcode + name similarity. No API calls. Updates ch_vet_companies.matched_business_id for confirmed matches.',
+             'data-driven',
+             '{
+                 "workflow": {
+                     "start_step": "match",
+                     "steps": {
+                         "match": {
+                             "action": "ch_local_match",
+                             "config": {
+                                 "batch_size": 3000,
+                                 "threshold": 0.40,
+                                 "auto_accept_threshold": 0.90,
+                                 "review_floor": 0.50,
+                                 "rematch": false,
+                                 "task_name": "ch-local-match"
+                             },
+                             "next_step": "complete",
+                             "description": "Pass 1: postcode+name. Pass 2: trigram >=0.90 auto-accept, 0.50-0.90 stored as pending_llm_review.",
+                             "output_field": "match_result"
+                         },
+                         "complete": {
+                             "action": "complete_workflow",
+                             "config": {
+                                 "output_fields": ["match_result"]
+                             },
+                             "description": "Matching complete"
+                         }
+                     }
+                 },
+                 "processing_mode": "orchestrator",
+                 "timeout_seconds": 600
+             }'::jsonb,
+             true,
+             '["companies-house", "matching", "local"]',
+             'docker.io/aqls/agent-chassis',
+             'v1.0.895',
+             '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}'::jsonb,
+             '{"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"}'::jsonb,
+             '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}'::jsonb,
+             'specialist',
+             'experimental',
+             '["companies-house", "matching", "veterinary"]',
+             '{"required": [], "optional": ["batch_size", "threshold", "rematch"]}'::jsonb,
+             '{"produces": {"match_result": "object - total_processed, total_matched, pass1_matched, pass2_auto_accepted, pending_llm_review, total_no_match, stats"}}'::jsonb
+         )
+    ON CONFLICT (type, version) DO UPDATE SET
+    default_config = EXCLUDED.default_config,
+                                       description = EXCLUDED.description,
+                                       image_tag = EXCLUDED.image_tag,
+                                       input_contract = EXCLUDED.input_contract,
+                                       output_contract = EXCLUDED.output_contract,
+                                       updated_at = NOW();
+
+-- Scheduled task — disabled by default. Enable after first manual run.
+INSERT INTO scheduled_tasks (
+    name, description, interval_seconds,
+    target_agent_type, target_topic,
+    concurrency_group, max_concurrent,
+    enabled, timeout_seconds,
+    pre_query
+) VALUES (
+             'ch-local-match',
+             'Match verified businesses against local CH vet companies mirror. No API calls.',
+             86400,     -- daily
+             'ch-matcher',
+             'system.agent.business-intel.requests',
+             'ch-matching',
+             1,
+             false,
+             600,       -- 10 min timeout
+             'SELECT COUNT(*) as unmatched FROM business_intel.businesses b JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id LEFT JOIN business_intel.ch_vet_companies ch ON ch.matched_business_id = b.id WHERE bv.slug = ''veterinary'' AND b.verification_status = ''verified'' AND ch.company_number IS NULL HAVING COUNT(*) > 0'
+         )
+    ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+                              interval_seconds = EXCLUDED.interval_seconds,
+                              target_agent_type = EXCLUDED.target_agent_type,
+                              timeout_seconds = EXCLUDED.timeout_seconds,
+                              pre_query = EXCLUDED.pre_query,
+                              updated_at = NOW();
+
+-- ============================================================================
+-- Verification queries after matching:
+-- ============================================================================
+--
+-- Overall stats:
+--   SELECT match_method, COUNT(*), ROUND(AVG(match_confidence)::numeric, 2) as avg_conf
+--   FROM business_intel.ch_vet_companies
+--   WHERE matched_business_id IS NOT NULL
+--   GROUP BY match_method;
+--
+-- Pending LLM review count:
+--   SELECT COUNT(*) FROM business_intel.ch_vet_companies
+--   WHERE match_method = 'pending_llm_review';
+-- ============================================================================

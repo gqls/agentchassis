@@ -91,12 +91,6 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 	totalNoMatch := 0
 	totalMatchedPass2 := 0
 
-	// Minimum trigram similarity for name-only matching (pass 2)
-	nameOnlyThreshold := 0.70
-	if t, ok := config["name_only_threshold"].(float64); ok && t > 0 {
-		nameOnlyThreshold = t
-	}
-
 	// Track unmatched businesses for pass 2
 	var unmatchedForPass2 []businessForMatching
 
@@ -163,10 +157,29 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 	// PASS 2: Name-only matching via trigram similarity (no postcode requirement)
 	// Uses GiST trigram index for fast per-business lookups (~4ms each).
 	// Catches companies registered at accountant/HQ addresses.
+	//
+	// Three tiers:
+	//   ≥ 0.90 similarity + distinctive word → auto-accept
+	//   0.50–0.90 similarity + distinctive word → store as pending_llm_review
+	//   < 0.50 or no distinctive word → reject
 	// =====================================================================
+	autoAcceptThreshold := 0.90
+	if t, ok := config["auto_accept_threshold"].(float64); ok && t > 0 {
+		autoAcceptThreshold = t
+	}
+
+	// Lower bound for LLM review candidates
+	reviewFloor := 0.50
+	if t, ok := config["review_floor"].(float64); ok && t > 0 {
+		reviewFloor = t
+	}
+
 	params.Logger.Info("CHLocalMatch: starting pass 2 (name-only trigram)",
 		zap.Int("businesses", len(unmatchedForPass2)),
-		zap.Float64("name_only_threshold", nameOnlyThreshold))
+		zap.Float64("auto_accept_threshold", autoAcceptThreshold),
+		zap.Float64("review_floor", reviewFloor))
+
+	totalPendingReview := 0
 
 	for _, biz := range unmatchedForPass2 {
 		select {
@@ -175,7 +188,8 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 		default:
 		}
 
-		match, err := findByTrigramSimilarity(ctx, params.DB, biz.Name, nameOnlyThreshold)
+		// Search with the review floor as minimum — we want candidates down to 0.50
+		match, err := findByTrigramSimilarity(ctx, params.DB, biz.Name, reviewFloor)
 		if err != nil {
 			params.Logger.Warn("CHLocalMatch: trigram query failed",
 				zap.String("business", biz.Name),
@@ -184,41 +198,50 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 			continue
 		}
 
-		if match != nil {
-			// Post-check: verify at least one distinctive word from the business
-			// name appears in the CH name. This prevents false positives where
-			// common vet words inflate the trigram score.
-			if !hasDistinctiveWordOverlap(biz.Name, match.CompanyName) {
-				params.Logger.Info("CHLocalMatch: pass2 rejected (no distinctive word overlap)",
-					zap.String("business", biz.Name),
-					zap.String("company", match.CompanyName),
-					zap.Float64("score", match.Score))
-				totalNoMatch++
-				continue
-			}
+		if match == nil {
+			totalNoMatch++
+			continue
+		}
 
-			err := storeLocalMatch(ctx, params.DB, match.CompanyNumber, biz.ID, match.Score, match.Method)
+		// Post-check: distinctive word overlap required for all tiers
+		if !hasDistinctiveWordOverlap(biz.Name, match.CompanyName) {
+			totalNoMatch++
+			continue
+		}
+
+		if match.Score >= autoAcceptThreshold {
+			// Auto-accept: high confidence name match
+			err := storeLocalMatch(ctx, params.DB, match.CompanyNumber, biz.ID, match.Score, "name_trigram")
 			if err != nil {
 				params.Logger.Warn("CHLocalMatch: failed to store pass2 match",
 					zap.String("business", biz.Name),
 					zap.String("company", match.CompanyName),
 					zap.Error(err))
 			} else {
-				params.Logger.Info("CHLocalMatch: pass2 matched",
+				params.Logger.Info("CHLocalMatch: pass2 auto-accepted",
 					zap.String("business", biz.Name),
 					zap.String("company", match.CompanyName),
-					zap.Float64("score", match.Score),
-					zap.String("method", match.Method))
+					zap.Float64("score", match.Score))
 				totalMatchedPass2++
 				totalMatched++
 			}
 		} else {
-			totalNoMatch++
+			// Store as pending LLM review
+			err := storeLocalMatch(ctx, params.DB, match.CompanyNumber, biz.ID, match.Score, "pending_llm_review")
+			if err != nil {
+				params.Logger.Warn("CHLocalMatch: failed to store review candidate",
+					zap.String("business", biz.Name),
+					zap.String("company", match.CompanyName),
+					zap.Error(err))
+			} else {
+				totalPendingReview++
+			}
 		}
 	}
 
 	params.Logger.Info("CHLocalMatch: pass 2 complete",
-		zap.Int("pass2_matched", totalMatchedPass2))
+		zap.Int("pass2_auto_accepted", totalMatchedPass2),
+		zap.Int("pass2_pending_review", totalPendingReview))
 
 	// Query overall stats from the table
 	stats := map[string]interface{}{}
@@ -254,18 +277,20 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 		zap.Int("total_processed", totalProcessed),
 		zap.Int("total_matched", totalMatched),
 		zap.Int("pass1_matched", totalMatched-totalMatchedPass2),
-		zap.Int("pass2_matched", totalMatchedPass2),
+		zap.Int("pass2_auto_accepted", totalMatchedPass2),
+		zap.Int("pending_llm_review", totalPendingReview),
 		zap.Int("total_no_match", totalNoMatch),
 		zap.Any("stats", stats))
 
 	return map[string]interface{}{
-		"status":          "complete",
-		"total_processed": totalProcessed,
-		"total_matched":   totalMatched,
-		"pass1_matched":   totalMatched - totalMatchedPass2,
-		"pass2_matched":   totalMatchedPass2,
-		"total_no_match":  totalNoMatch,
-		"stats":           stats,
+		"status":              "complete",
+		"total_processed":     totalProcessed,
+		"total_matched":       totalMatched,
+		"pass1_matched":       totalMatched - totalMatchedPass2,
+		"pass2_auto_accepted": totalMatchedPass2,
+		"pending_llm_review":  totalPendingReview,
+		"total_no_match":      totalNoMatch,
+		"stats":               stats,
 	}, nil
 }
 

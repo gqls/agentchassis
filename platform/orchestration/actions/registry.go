@@ -436,6 +436,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Match verified businesses against local CH vet companies table by postcode + name similarity",
 		IsLocal:     true,
 	},
+	"ch_llm_review": {
+		Handler:     CHLLMReviewAction,
+		Category:    "data",
+		Description: "Review ambiguous CH matches using LLM judgment",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// SITE — building, assembly, rendering, pages, styles, git, navigation
