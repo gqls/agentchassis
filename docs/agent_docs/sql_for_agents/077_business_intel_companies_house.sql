@@ -240,3 +240,70 @@ SET default_config = REPLACE(
         '"sic_filter": ["75", "749", "869"]'
                      )::jsonb
 WHERE type = 'business-intel';
+
+----
+
+-- data from companies house
+
+-- Migration: Create ch_vet_companies table
+-- This is the local mirror of all Companies House companies with SIC 75000 (veterinary activities).
+-- Populated by the ch_bulk_collect action, used for local matching against our businesses table.
+
+CREATE TABLE IF NOT EXISTS business_intel.ch_vet_companies (
+                                                               company_number      VARCHAR(10) PRIMARY KEY,
+    company_name        TEXT NOT NULL,
+    company_status      TEXT,
+    company_type        TEXT,
+    date_of_creation    DATE,
+    date_of_cessation   DATE,
+    sic_codes           TEXT[],
+    registered_address  JSONB,
+    postcode            TEXT,            -- extracted from address for indexing
+    postcode_prefix     TEXT,            -- outward code (e.g. "BT74") for matching
+    locality            TEXT,            -- town/city from address
+
+-- Matching state
+    matched_business_id UUID REFERENCES business_intel.businesses(id),
+    matched_at          TIMESTAMPTZ,
+    match_confidence    NUMERIC(3,2),
+    match_method        TEXT,            -- postcode_name, name_only, manual, etc.
+
+-- Detail fetch state
+    details_fetched     BOOLEAN NOT NULL DEFAULT FALSE,
+    details_fetched_at  TIMESTAMPTZ,
+
+    -- Discovery state (for companies not in our businesses table)
+    is_discovered       BOOLEAN NOT NULL DEFAULT FALSE,  -- true = not matched, potential new lead
+    discovery_status    TEXT DEFAULT 'pending',           -- pending, website_found, verified, ignored
+
+-- Timestamps
+    collected_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+-- Indexes for matching
+CREATE INDEX IF NOT EXISTS idx_ch_vet_postcode_prefix
+    ON business_intel.ch_vet_companies (postcode_prefix)
+    WHERE company_status = 'active';
+
+CREATE INDEX IF NOT EXISTS idx_ch_vet_name_trgm
+    ON business_intel.ch_vet_companies USING gin (lower(company_name) gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_ch_vet_unmatched
+    ON business_intel.ch_vet_companies (matched_business_id)
+    WHERE matched_business_id IS NULL AND company_status = 'active';
+
+CREATE INDEX IF NOT EXISTS idx_ch_vet_status
+    ON business_intel.ch_vet_companies (company_status);
+
+CREATE INDEX IF NOT EXISTS idx_ch_vet_discovery
+    ON business_intel.ch_vet_companies (discovery_status)
+    WHERE is_discovered = TRUE;
+
+-- Enable trigram extension if not already (needed for fuzzy name matching)
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+COMMENT ON TABLE business_intel.ch_vet_companies IS
+    'Local mirror of all CH companies with SIC 75000. Populated by ch_bulk_collect, used for local matching.';
+
+        

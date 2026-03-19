@@ -424,6 +424,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Store Companies House enrichment data and derive succession signals",
 		IsLocal:     true,
 	},
+	"ch_bulk_collect": {
+		Handler:     CHBulkCollectAction,
+		Category:    "data",
+		Description: "Bulk collect all CH companies with a given SIC code into local mirror table",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// SITE — building, assembly, rendering, pages, styles, git, navigation
