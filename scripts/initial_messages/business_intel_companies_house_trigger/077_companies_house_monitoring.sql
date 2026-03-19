@@ -528,7 +528,55 @@ max page size
 curl -s -u "bd727e00-7972-4195-a576-d97faad6043f:" \
   "https://api.company-information.service.gov.uk/advanced-search/companies?sic_codes=75000&company_status=active&size=100&start_index=0" | python3 -m json.tool | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'items: {len(d.get(\"items\",[]))}, hits: {d.get(\"hits\")}')"
 
+=======================================================================================================
+testing ch-collector - (bulk collector)
 
+# 3. Purge the requests topic - reduce retention to a second
+kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-configs.sh --alter \
+  --bootstrap-server localhost:9092 \
+  --entity-type topics \
+  --entity-name system.agent.business-intel.requests \
+  --add-config retention.ms=1000
+
+sleep 10
+# change retention back up
+kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-configs.sh --alter \
+  --bootstrap-server localhost:9092 \
+  --entity-type topics \
+  --entity-name system.agent.business-intel.requests \
+  --add-config retention.ms=604800000
+
+# 4. Scale back to 1 pod and restart
+kubectl -n ai-persona-system scale deployment/business-intel --replicas=1
+kubectl -n ai-persona-system delete pod -l app=business-intel
+
+# 5. Wait for pod to be ready
+sleep 20
+
+# Send a collection trigger message directly
+kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic system.agent.business-intel.requests \
+  --property "parse.headers=false" << 'EOF'
+{"action":"orchestrate","config":{"agent_type":"ch-collector"},"input_data":{"status":"ready"}}
+EOF
+
+------------------------------------------------------------------------------------------------------------
+
+
+# add a topic partition so we can run two pods
+# Add partition (1 → 2)
+kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh --alter \
+  --bootstrap-server localhost:9092 \
+  --topic system.agent.business-intel.requests \
+  --partitions 2
+
+# scale to more replicsa
+kubectl -n ai-persona-system scale deployment/business-intel --replicas=2
 
 
 

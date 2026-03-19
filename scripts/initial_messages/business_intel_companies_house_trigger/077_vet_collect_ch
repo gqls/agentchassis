@@ -1,0 +1,26 @@
+kubectl -n ai-persona-system logs -f deploy/business-intel | grep "CHBulkCollect"
+ant@ant-XPS-15-9500:~/projects/agentchassis$ kubectl -n ai-persona-system logs --tail=500 -l app=business-intel -f --max-log-requests 20 | tee logs-business-intel.json
+
+
+SELECT COUNT(*) FROM business_intel.ch_vet_companies;
+-- Expected: ~5,780
+
+SELECT company_status, COUNT(*)
+FROM business_intel.ch_vet_companies
+GROUP BY company_status;
+
+-- Top postcodes
+SELECT postcode_prefix, COUNT(*)
+FROM business_intel.ch_vet_companies
+WHERE postcode_prefix IS NOT NULL
+GROUP BY postcode_prefix
+ORDER BY COUNT(*) DESC
+LIMIT 10;
+
+-- Quick match preview against our businesses
+SELECT COUNT(*) as potential_matches
+FROM business_intel.ch_vet_companies ch
+JOIN business_intel.businesses b
+  ON ch.postcode_prefix = SPLIT_PART(UPPER(b.postcode), ' ', 1)
+WHERE ch.company_status = 'active'
+  AND b.verification_status = 'verified';

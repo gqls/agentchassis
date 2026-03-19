@@ -430,6 +430,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Bulk collect all CH companies with a given SIC code into local mirror table",
 		IsLocal:     true,
 	},
+	"ch_local_match": {
+		Handler:     CHLocalMatchAction,
+		Category:    "data",
+		Description: "Match verified businesses against local CH vet companies table by postcode + name similarity",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// SITE — building, assembly, rendering, pages, styles, git, navigation
