@@ -838,3 +838,34 @@ Social proof style: {{.site_specs.specs.content_direction.social_proof_style}}
 {{.site_specs.specs.identity.target_audience}}
 {{end}}
 
+---
+
+  -- make aware of content brief from admin
+
+  -- Update page-content-writer prompt template to include content_brief
+--
+-- Inserts a conditional block before "## Data Schema Required" that uses
+-- admin-edited content briefs when present on page_components.
+--
+-- STEP 1: Check what the current prompt looks like around the anchor point
+-- STEP 1: Check the anchor exists and see the escaping pattern
+SELECT position('Data Schema Required' in default_config::text) as anchor_pos,
+       substring(default_config::text from position('Data Schema Required' in default_config::text) - 80 for 160) as around_anchor
+FROM agent_definitions WHERE type = 'page-content-writer';
+
+-- STEP 2: Apply the update (only if not already applied)
+UPDATE agent_definitions
+SET default_config = replace(
+        default_config::text,
+        '## Data Schema Required',
+        '{{if .current_section.content_brief}}## Admin Content Brief (follow these instructions closely)\n{{if .current_section.content_brief.purpose}}Brief Purpose: {{.current_section.content_brief.purpose}}\n{{end}}{{if .current_section.content_brief.tone_direction}}Brief Tone: {{.current_section.content_brief.tone_direction}}\n{{end}}{{if .current_section.content_brief.section_guidance}}Brief Guidance: {{.current_section.content_brief.section_guidance}}\n{{end}}{{end}}\n## Data Schema Required'
+                     )::jsonb
+WHERE type = 'page-content-writer'
+  AND default_config::text NOT LIKE '%content_brief%';
+
+-- STEP 3: Verify
+SELECT
+    type,
+    default_config::text LIKE '%content_brief%' as has_brief_block
+FROM agent_definitions
+WHERE type = 'page-content-writer';

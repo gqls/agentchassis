@@ -3049,6 +3049,52 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 			zap.Int("ordered_count", len(orderedComponents)),
 			zap.Strings("requested_order", sectionNames))
 
+		// =====================================================================
+		// ENRICH WITH CONTENT BRIEFS FROM page_components
+		// If page_id is available, load any content_brief values from existing
+		// page_components and attach them to matching components. This allows
+		// the content writer's LLM prompt to use admin-edited briefs.
+		// =====================================================================
+		if pageID, ok := page["id"].(string); ok && pageID != "" {
+			briefRows, briefErr := params.DB.QueryContext(ctx, `
+			SELECT COALESCE(slot_name, ''), content_brief
+			FROM page_components
+			WHERE page_id = $1
+			  AND content_brief IS NOT NULL
+			  AND build_status != 'removed'
+		`, pageID)
+			if briefErr == nil {
+				defer briefRows.Close()
+				briefMap := make(map[string]interface{})
+				for briefRows.Next() {
+					var slotName string
+					var briefJSON []byte
+					if err := briefRows.Scan(&slotName, &briefJSON); err != nil {
+						continue
+					}
+					if len(briefJSON) > 0 && slotName != "" {
+						var brief interface{}
+						if err := json.Unmarshal(briefJSON, &brief); err == nil {
+							briefMap[slotName] = brief
+						}
+					}
+				}
+				if len(briefMap) > 0 {
+					for _, comp := range orderedComponents {
+						name, _ := comp["name"].(string)
+						function, _ := comp["function"].(string)
+						if brief, ok := briefMap[name]; ok {
+							comp["content_brief"] = brief
+						} else if brief, ok := briefMap[function]; ok {
+							comp["content_brief"] = brief
+						}
+					}
+					params.Logger.Info("LoadPageSectionComponentsAction: Enriched components with content briefs",
+						zap.Int("briefs_found", len(briefMap)))
+				}
+			}
+		}
+
 		return map[string]interface{}{
 			"components":    orderedComponents,
 			"count":         len(orderedComponents),
