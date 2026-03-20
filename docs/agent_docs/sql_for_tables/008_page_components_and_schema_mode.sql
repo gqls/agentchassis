@@ -268,3 +268,9 @@ UPDATE pages
 SET nav_label = 'Case Studies'
 WHERE name = 'case-studies'
   AND site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk');
+
+---
+
+-- Content brief: records the instructions that generated each component's content.
+-- Enables admins to see, edit, and regenerate content with modified instructions.
+ALTER TABLE page_components ADD COLUMN IF NOT EXISTS content_brief JSONB;

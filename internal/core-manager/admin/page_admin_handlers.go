@@ -123,12 +123,13 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 	// Load the page record
 	var pageID uuid.UUID
 	var pageTitle, pageURL, pageType string
-	var suppressedJSON []byte
+	var suppressedJSON, pageSpecJSON []byte
 	err = h.db.QueryRowContext(ctx, `
 		SELECT id, COALESCE(title, name), COALESCE(url, ''), COALESCE(page_type, ''),
-		       COALESCE(suppressed_sections, '[]'::jsonb)
+		       COALESCE(suppressed_sections, '[]'::jsonb),
+		       COALESCE(page_spec, '{}'::jsonb)
 		FROM pages WHERE site_id = $1 AND name = $2
-	`, siteID, pageName).Scan(&pageID, &pageTitle, &pageURL, &pageType, &suppressedJSON)
+	`, siteID, pageName).Scan(&pageID, &pageTitle, &pageURL, &pageType, &suppressedJSON, &pageSpecJSON)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "page not found"})
 		return
@@ -141,6 +142,9 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 	var suppressedSections []string
 	json.Unmarshal(suppressedJSON, &suppressedSections)
 
+	var pageSpec interface{}
+	json.Unmarshal(pageSpecJSON, &pageSpec)
+
 	// Load components in position order
 	rows, err := h.db.QueryContext(ctx, `
 		SELECT pc.id, pc.position, COALESCE(pc.slot_name, ''),
@@ -149,7 +153,8 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 		       LENGTH(COALESCE(pc.rendered_html, '')) AS html_length,
 		       COALESCE(pc.build_status, 'pending'),
 		       pc.locked_at, COALESCE(pc.locked_by, ''),
-		       pc.updated_at
+		       pc.updated_at,
+		       pc.content_brief
 		FROM page_components pc
 		WHERE pc.page_id = $1
 		  AND COALESCE(pc.slot_name, '') NOT IN ('header', 'footer', 'head')
@@ -167,7 +172,7 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 		var id uuid.UUID
 		var position int
 		var slotName, buildStatus, lockedBy string
-		var contentDataJSON []byte
+		var contentDataJSON, contentBriefJSON []byte
 		var htmlPreview sql.NullString
 		var htmlLength int
 		var lockedAt sql.NullTime
@@ -175,7 +180,8 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 
 		if err := rows.Scan(&id, &position, &slotName,
 			&contentDataJSON, &htmlPreview, &htmlLength,
-			&buildStatus, &lockedAt, &lockedBy, &updatedAt); err != nil {
+			&buildStatus, &lockedAt, &lockedBy, &updatedAt,
+			&contentBriefJSON); err != nil {
 			h.logger.Warn("Failed to scan component", zap.Error(err))
 			continue
 		}
@@ -185,17 +191,23 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 			json.Unmarshal(contentDataJSON, &contentData)
 		}
 
+		var contentBrief interface{}
+		if len(contentBriefJSON) > 0 {
+			json.Unmarshal(contentBriefJSON, &contentBrief)
+		}
+
 		comp := map[string]interface{}{
-			"id":           id.String(),
-			"position":     position,
-			"slot_name":    slotName,
-			"content_data": contentData,
-			"html_preview": "",
-			"html_length":  htmlLength,
-			"build_status": buildStatus,
-			"locked":       lockedAt.Valid,
-			"locked_by":    lockedBy,
-			"is_empty":     htmlLength < 50,
+			"id":            id.String(),
+			"position":      position,
+			"slot_name":     slotName,
+			"content_data":  contentData,
+			"content_brief": contentBrief,
+			"html_preview":  "",
+			"html_length":   htmlLength,
+			"build_status":  buildStatus,
+			"locked":        lockedAt.Valid,
+			"locked_by":     lockedBy,
+			"is_empty":      htmlLength < 50,
 		}
 		if htmlPreview.Valid {
 			comp["html_preview"] = htmlPreview.String
@@ -217,6 +229,7 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 			"title":               pageTitle,
 			"url":                 pageURL,
 			"page_type":           pageType,
+			"page_spec":           pageSpec,
 			"suppressed_sections": suppressedSections,
 		},
 		"components": components,
@@ -689,6 +702,247 @@ func (h *PageAdminHandlers) HandleRestoreSection(c *gin.Context) {
 		result["item_id"] = *itemID
 	}
 	c.JSON(http.StatusOK, result)
+}
+
+// ============================================================================
+// POST /admin/sites/:site_id/pages/:page_name/components/:component_id/regenerate
+// ============================================================================
+//
+// Creates a content_rewrite work item with an updated content_brief.
+// The content writer will use the brief as its instructions when rewriting.
+
+func (h *PageAdminHandlers) HandleRegenerateComponent(c *gin.Context) {
+	ctx := c.Request.Context()
+	siteID, err := uuid.Parse(c.Param("site_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+	componentID, err := uuid.Parse(c.Param("component_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid component_id"})
+		return
+	}
+	pageName := c.Param("page_name")
+
+	var body struct {
+		Brief map[string]interface{} `json:"brief"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Verify component exists and get slot_name and page_id
+	var slotName string
+	var pageID uuid.UUID
+	err = h.db.QueryRowContext(ctx, `
+		SELECT pc.slot_name, pc.page_id
+		FROM page_components pc
+		JOIN pages p ON pc.page_id = p.id
+		WHERE pc.id = $1 AND p.site_id = $2 AND p.name = $3
+	`, componentID, siteID, pageName).Scan(&slotName, &pageID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "component not found"})
+		return
+	}
+
+	// Save the updated brief to the component
+	if body.Brief != nil {
+		briefJSON, _ := json.Marshal(body.Brief)
+		h.db.ExecContext(ctx, `
+			UPDATE page_components SET content_brief = $1::jsonb, updated_at = NOW()
+			WHERE id = $2
+		`, string(briefJSON), componentID)
+	}
+
+	// Create content_rewrite work item
+	spec := map[string]interface{}{
+		"page_name":     pageName,
+		"component_id":  componentID.String(),
+		"slot_name":     slotName,
+		"reason":        "admin_regenerate",
+		"content_brief": body.Brief,
+	}
+	specJSON, _ := json.Marshal(spec)
+
+	var newID uuid.UUID
+	err = h.db.QueryRowContext(ctx, `
+		INSERT INTO site_work_items (
+			site_id, source, domain, item_type, severity, summary,
+			spec, page_id, priority, handler_agent, status, created_by
+		) VALUES ($1, 'admin-regenerate', 'build', 'content_rewrite', 'medium',
+		          $2, $3::jsonb, $4, 20, 'page-build-handler', 'triaged', 'admin')
+		RETURNING id
+	`, siteID,
+		fmt.Sprintf("Regenerate section '%s' on %s (brief updated by admin)", slotName, pageName),
+		string(specJSON), pageID).Scan(&newID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("Component regeneration queued",
+		zap.String("component_id", componentID.String()),
+		zap.String("slot_name", slotName),
+		zap.String("page", pageName))
+
+	c.JSON(http.StatusOK, gin.H{
+		"regenerating": true,
+		"component_id": componentID.String(),
+		"item_id":      newID.String(),
+	})
+}
+
+// ============================================================================
+// POST /admin/sites/:site_id/pages/:page_name/regenerate
+// ============================================================================
+//
+// Creates content_rewrite work items for all unlocked sections on a page.
+// Optionally updates the page_spec first.
+
+func (h *PageAdminHandlers) HandleRegeneratePage(c *gin.Context) {
+	ctx := c.Request.Context()
+	siteID, err := uuid.Parse(c.Param("site_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+	pageName := c.Param("page_name")
+
+	var body struct {
+		PageSpec *map[string]interface{} `json:"page_spec"`
+	}
+	c.ShouldBindJSON(&body)
+
+	// Get page
+	var pageID uuid.UUID
+	err = h.db.QueryRowContext(ctx, `
+		SELECT id FROM pages WHERE site_id = $1 AND name = $2
+	`, siteID, pageName).Scan(&pageID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "page not found"})
+		return
+	}
+
+	// Update page_spec if provided
+	if body.PageSpec != nil {
+		specJSON, _ := json.Marshal(*body.PageSpec)
+		h.db.ExecContext(ctx, `
+			UPDATE pages SET page_spec = $1::jsonb, updated_at = NOW()
+			WHERE id = $2
+		`, string(specJSON), pageID)
+	}
+
+	// Find unlocked sections
+	rows, err := h.db.QueryContext(ctx, `
+		SELECT id, slot_name FROM page_components
+		WHERE page_id = $1
+		  AND build_status != 'removed'
+		  AND COALESCE(slot_name, '') NOT IN ('header', 'footer', 'head')
+		  AND (locked_at IS NULL OR locked_by NOT IN ('admin', 'admin-removed', 'checkpoint'))
+		ORDER BY position
+	`, pageID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	var created []map[string]interface{}
+	var skipped int
+	for rows.Next() {
+		var compID uuid.UUID
+		var slotName string
+		if err := rows.Scan(&compID, &slotName); err != nil {
+			continue
+		}
+
+		spec := map[string]interface{}{
+			"page_name":    pageName,
+			"component_id": compID.String(),
+			"slot_name":    slotName,
+			"reason":       "admin_regenerate_page",
+		}
+		specJSON, _ := json.Marshal(spec)
+
+		var newID uuid.UUID
+		err = h.db.QueryRowContext(ctx, `
+			INSERT INTO site_work_items (
+				site_id, source, domain, item_type, severity, summary,
+				spec, page_id, priority, handler_agent, status, created_by
+			) VALUES ($1, 'admin-regenerate', 'build', 'content_rewrite', 'medium',
+			          $2, $3::jsonb, $4, 20, 'page-build-handler', 'triaged', 'admin')
+			RETURNING id
+		`, siteID,
+			fmt.Sprintf("Regenerate '%s' on %s (page regeneration)", slotName, pageName),
+			string(specJSON), pageID).Scan(&newID)
+
+		if err != nil {
+			h.logger.Warn("Failed to create regeneration item",
+				zap.String("slot", slotName), zap.Error(err))
+			continue
+		}
+		created = append(created, map[string]interface{}{
+			"slot_name": slotName,
+			"item_id":   newID.String(),
+		})
+	}
+
+	h.logger.Info("Page regeneration queued",
+		zap.String("page", pageName),
+		zap.Int("sections", len(created)),
+		zap.Int("skipped_locked", skipped))
+
+	c.JSON(http.StatusOK, gin.H{
+		"regenerating":  true,
+		"page":          pageName,
+		"items_created": len(created),
+		"items_skipped": skipped,
+		"items":         created,
+	})
+}
+
+// ============================================================================
+// PATCH /admin/sites/:site_id/pages/:page_name/spec
+// ============================================================================
+//
+// Updates the page_spec for a page (purpose, direction).
+
+func (h *PageAdminHandlers) HandleUpdatePageSpec(c *gin.Context) {
+	ctx := c.Request.Context()
+	siteID, err := uuid.Parse(c.Param("site_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+		return
+	}
+	pageName := c.Param("page_name")
+
+	var body struct {
+		PageSpec map[string]interface{} `json:"page_spec" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	specJSON, _ := json.Marshal(body.PageSpec)
+	result, err := h.db.ExecContext(ctx, `
+		UPDATE pages SET page_spec = $1::jsonb, updated_at = NOW()
+		WHERE site_id = $2 AND name = $3
+	`, string(specJSON), siteID, pageName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "page not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"updated": true, "page": pageName})
 }
 
 // ============================================================================

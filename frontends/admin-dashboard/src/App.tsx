@@ -1041,7 +1041,10 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
     const [selectedComponent, setSelectedComponent] = useState(null);
     const [editData, setEditData] = useState(null);
     const [editHtml, setEditHtml] = useState("");
-    const [editMode, setEditMode] = useState("structured"); // structured | html
+    const [editBrief, setEditBrief] = useState(null);
+    const [pageSpec, setPageSpec] = useState(null);
+    const [editPageSpec, setEditPageSpec] = useState(null);
+    const [editMode, setEditMode] = useState("structured"); // structured | html | brief
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [message, setMessage] = useState("");
@@ -1080,10 +1083,12 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
             const data = await apiFetch(`/sites/${siteId}/pages/${pageName}/components`, token);
             setComponents(data.components || []);
             setSuppressedSections(data.page?.suppressed_sections || []);
+            setPageSpec(data.page?.page_spec || null);
         } catch (err) {
             console.error(err);
             setComponents([]);
             setSuppressedSections([]);
+            setPageSpec(null);
         }
     }, [token, siteId]);
 
@@ -1105,12 +1110,14 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
     const selectComponent = (comp) => {
         setSelectedComponent(comp);
         const hasStructured = comp.content_data && typeof comp.content_data === "object" && Object.keys(comp.content_data).length > 0;
-        setEditMode(hasStructured ? "structured" : "html");
+        const hasBrief = comp.content_brief && typeof comp.content_brief === "object" && Object.keys(comp.content_brief as Record<string, unknown>).length > 0;
+        setEditMode(hasStructured ? "structured" : hasBrief ? "brief" : "html");
         if (hasStructured) {
             setEditData(JSON.parse(JSON.stringify(comp.content_data)));
         } else {
             setEditData(null);
         }
+        setEditBrief(hasBrief ? JSON.parse(JSON.stringify(comp.content_brief)) : { purpose: "", tone_direction: "", section_guidance: "" });
         // Site components have rendered_html, page components have html_preview
         setEditHtml(comp.rendered_html || comp.html_preview || "");
     };
@@ -1212,6 +1219,54 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
         finally { setActionLoading(false); }
     };
 
+    const handleRegenerate = async (comp) => {
+        if (!confirm(`Regenerate "${comp.slot_name}" using the updated brief? Current content will be replaced by the content writer.`)) return;
+        setActionLoading(true);
+        try {
+            await apiFetch(
+                `/sites/${siteId}/pages/${selectedPage.name}/components/${comp.id}/regenerate`,
+                token, { method: "POST", body: JSON.stringify({ brief: editBrief }) }
+            );
+            setMessage(`Regeneration queued for "${comp.slot_name}" — content writer will rewrite it`);
+            setSelectedComponent(null);
+            loadComponents(selectedPage.name);
+        } catch (err) { setMessage("Regenerate failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    const handleRegeneratePage = async () => {
+        if (!confirm(`Regenerate all unlocked sections on ${selectedPage.name}? Locked sections will be skipped.`)) return;
+        setActionLoading(true);
+        try {
+            const body: Record<string, unknown> = {};
+            if (editPageSpec) body.page_spec = editPageSpec;
+            const result = await apiFetch(
+                `/sites/${siteId}/pages/${selectedPage.name}/regenerate`,
+                token, { method: "POST", body: JSON.stringify(body) }
+            );
+            setMessage(`Page regeneration: ${result.items_created} sections queued${result.items_skipped > 0 ? `, ${result.items_skipped} locked sections skipped` : ""}`);
+            setEditPageSpec(null);
+            loadComponents(selectedPage.name);
+        } catch (err) { setMessage("Regenerate page failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    const handleSavePageSpec = async () => {
+        if (!editPageSpec) return;
+        setActionLoading(true);
+        try {
+            await apiFetch(
+                `/sites/${siteId}/pages/${selectedPage.name}/spec`,
+                token, { method: "PATCH", body: JSON.stringify({ page_spec: editPageSpec }) }
+            );
+            setMessage("Page spec updated");
+            setPageSpec(editPageSpec);
+            setEditPageSpec(null);
+            loadComponents(selectedPage.name);
+        } catch (err) { setMessage("Save page spec failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
     return (
         <div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
@@ -1303,6 +1358,13 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
                                         background: editMode === "html" ? "#dbeafe" : "#fff",
                                         color: editMode === "html" ? "#1e40af" : "#64748b",
                                     }}>HTML</button>
+                                    {viewMode !== "site-wide" && (
+                                        <button onClick={() => setEditMode("brief")} style={{
+                                            ...btnSecondary, fontSize: 12, padding: "4px 12px",
+                                            background: editMode === "brief" ? "#dbeafe" : "#fff",
+                                            color: editMode === "brief" ? "#1e40af" : "#64748b",
+                                        }}>Brief</button>
+                                    )}
                                 </div>
 
                                 {/* Edit form */}
@@ -1312,6 +1374,26 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
                                 }}>
                                     {editMode === "structured" && editData ? (
                                         <EditableReviewForm reviewData={editData} onChange={setEditData} />
+                                    ) : editMode === "brief" ? (
+                                        <div>
+                                            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>
+                                                Edit the instructions that guide how this section's content is generated. Click "Regenerate" to rewrite the section using these instructions.
+                                            </div>
+                                            {editBrief && Object.entries(editBrief as Record<string, unknown>).map(([key, value]) => (
+                                                <div key={key} style={{ marginBottom: 10 }}>
+                                                    <label style={formLabelStyle}>{key.replace(/_/g, " ")}</label>
+                                                    <textarea
+                                                        value={String(value ?? "")}
+                                                        onChange={e => setEditBrief({ ...(editBrief as Record<string, unknown>), [key]: e.target.value })}
+                                                        rows={key === "purpose" || key === "section_guidance" ? 3 : 2}
+                                                        style={{
+                                                            ...formInputStyle, minHeight: 50, resize: "vertical",
+                                                            fontFamily: "'IBM Plex Sans', sans-serif",
+                                                        }}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
                                     ) : (
                                         <textarea
                                             value={editHtml}
@@ -1327,11 +1409,19 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
 
                                 {/* Actions */}
                                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                    <button onClick={() => handleSaveComponent(selectedComponent)} disabled={actionLoading} style={{
-                                        ...btnPrimary, background: "#059669",
-                                    }}>
-                                        Save & Deploy
-                                    </button>
+                                    {editMode === "brief" ? (
+                                        <button onClick={() => handleRegenerate(selectedComponent)} disabled={actionLoading} style={{
+                                            ...btnPrimary, background: "#1e40af",
+                                        }}>
+                                            Regenerate
+                                        </button>
+                                    ) : (
+                                        <button onClick={() => handleSaveComponent(selectedComponent)} disabled={actionLoading} style={{
+                                            ...btnPrimary, background: "#059669",
+                                        }}>
+                                            Save & Deploy
+                                        </button>
+                                    )}
                                     <button onClick={() => setSelectedComponent(null)} style={btnSecondary}>Cancel</button>
                                 </div>
                             </div>
@@ -1389,9 +1479,63 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
                         ) : selectedPage ? (
                             /* ── Page component list ── */
                             <div>
-                                <div style={{ fontSize: 14, fontWeight: 600, color: "#475569", marginBottom: 12 }}>
-                                    {selectedPage.name} — {components.length} sections
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: "#475569" }}>
+                                        {selectedPage.name} — {components.length} sections
+                                    </div>
+                                    <button onClick={handleRegeneratePage} disabled={actionLoading} style={{
+                                        ...btnSecondary, fontSize: 11, padding: "4px 12px", color: "#1e40af",
+                                    }}>
+                                        Regenerate Page
+                                    </button>
                                 </div>
+
+                                {/* Page spec / purpose */}
+                                {(pageSpec || editPageSpec) && (
+                                    <div style={{
+                                        background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8,
+                                        padding: 12, marginBottom: 12, fontSize: 12,
+                                    }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 4 }}>
+                                            <span style={{ fontWeight: 600, color: "#92400e" }}>Page Purpose</span>
+                                            {!editPageSpec ? (
+                                                <button onClick={() => setEditPageSpec(JSON.parse(JSON.stringify(pageSpec)))} style={{
+                                                    ...btnSecondary, fontSize: 10, padding: "2px 8px",
+                                                }}>Edit</button>
+                                            ) : (
+                                                <div style={{ display: "flex", gap: 4 }}>
+                                                    <button onClick={handleSavePageSpec} disabled={actionLoading} style={{
+                                                        ...btnSecondary, fontSize: 10, padding: "2px 8px", color: "#059669",
+                                                    }}>Save</button>
+                                                    <button onClick={() => setEditPageSpec(null)} style={{
+                                                        ...btnSecondary, fontSize: 10, padding: "2px 8px",
+                                                    }}>Cancel</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {editPageSpec ? (
+                                            <textarea
+                                                value={typeof editPageSpec === "object" ? (editPageSpec as Record<string, unknown>).purpose as string || JSON.stringify(editPageSpec, null, 2) : String(editPageSpec)}
+                                                onChange={e => {
+                                                    try {
+                                                        setEditPageSpec(JSON.parse(e.target.value));
+                                                    } catch {
+                                                        setEditPageSpec({ ...(editPageSpec as Record<string, unknown>), purpose: e.target.value });
+                                                    }
+                                                }}
+                                                rows={3}
+                                                style={{
+                                                    width: "100%", padding: 8, fontSize: 12, border: "1px solid #fde68a",
+                                                    borderRadius: 4, resize: "vertical", boxSizing: "border-box",
+                                                }}
+                                            />
+                                        ) : (
+                                            <div style={{ color: "#78716c", lineHeight: 1.5 }}>
+                                                {typeof pageSpec === "object" ? (pageSpec as Record<string, unknown>).purpose as string || JSON.stringify(pageSpec) : String(pageSpec || "No purpose set")}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 {components.length === 0 ? (
                                     <div style={{ textAlign: "center", padding: 30, color: "#94a3b8" }}>No sections found</div>
                                 ) : components.map(comp => (

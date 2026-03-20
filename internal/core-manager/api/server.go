@@ -188,6 +188,9 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 				siteGroup.POST("/:site_id/pages/:page_name/components/:component_id/unlock", pageAdminHandlers.HandleUnlockComponent)
 				siteGroup.DELETE("/:site_id/pages/:page_name/components/:component_id", pageAdminHandlers.HandleRemoveComponent)
 				siteGroup.POST("/:site_id/pages/:page_name/restore-section", pageAdminHandlers.HandleRestoreSection)
+				siteGroup.POST("/:site_id/pages/:page_name/components/:component_id/regenerate", pageAdminHandlers.HandleRegenerateComponent)
+				siteGroup.POST("/:site_id/pages/:page_name/regenerate", pageAdminHandlers.HandleRegeneratePage)
+				siteGroup.PATCH("/:site_id/pages/:page_name/spec", pageAdminHandlers.HandleUpdatePageSpec)
 
 				// Site-Wide Components (Phase 7)
 				siteGroup.GET("/:site_id/site-components", pageAdminHandlers.HandleListSiteComponents)
