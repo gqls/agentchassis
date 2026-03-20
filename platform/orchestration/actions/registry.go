@@ -580,6 +580,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Create page records and work items for LLM-planned blog posts",
 		IsLocal:     true,
 	},
+	"ch_detail_fetch": {
+		Handler:     CHDetailFetchAction,
+		Category:    "data",
+		Description: "Fetch profile, officers, PSC from CH API for confirmed matches",
+		IsLocal:     true,
+	},
 	// work items (site_work_items table — unified build/maintenance queue)
 	"write_build_items": {
 		Handler:     WriteBuildItemsAction,
