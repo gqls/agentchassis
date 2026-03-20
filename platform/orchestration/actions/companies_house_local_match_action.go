@@ -1,9 +1,15 @@
 // FILE: platform/orchestration/actions/ch_local_match_action.go
 // Matches businesses against the local ch_vet_companies table.
-// No API calls — pure SQL + Go scoring. Safe to re-run (updates existing matches).
+// No API calls — pure SQL + Go scoring. Safe to re-run.
+//
+// Matching cascade (run in order, each business falls through until matched):
+//   Tier 1: Exact cleaned name (≥0.90 sim) + geographic confirmation (same town or postcode prefix)
+//   Tier 2: Exact cleaned name (≥0.90 sim) + unique in CH (only one company with that name)
+//   Tier 3: Same postcode prefix + name scoring (threshold 0.50)
+//   Residual: Trigram 0.50-0.90 + distinctive word → pending_llm_review
 //
 // Actions:
-//   - ch_local_match: Match verified businesses to CH companies using postcode + name similarity
+//   - ch_local_match: Match verified businesses to CH companies
 
 package actions
 
@@ -35,6 +41,15 @@ type chLocalMatchResult struct {
 	Method        string
 }
 
+// businessForMatching is a minimal struct for matching
+type businessForMatching struct {
+	ID             string
+	Name           string
+	Postcode       string
+	PostcodePrefix string
+	Town           string
+}
+
 // CHLocalMatchAction matches verified businesses against the local ch_vet_companies table.
 // Processes all unmatched businesses in one action call — no workflow loop needed.
 func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -50,37 +65,54 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	config := params.StepConfig.Config
 
-	// Configuration
-	batchSize := 500
+	batchSize := 3000
 	if bs, ok := config["batch_size"].(float64); ok && bs > 0 {
 		batchSize = int(bs)
 	}
 
-	threshold := 0.40
-	if t, ok := config["threshold"].(float64); ok && t > 0 {
-		threshold = t
-	}
-
-	// Allow re-matching previously matched businesses
 	rematch := false
 	if r, ok := config["rematch"].(bool); ok {
 		rematch = r
 	}
 
-	// Load vertical profile for industry-specific matching heuristics
-	verticalSlug := "veterinary" // default for backward compat
+	// Pre-filter: minimum confidence to exclude directories and junk entries
+	minConfidence := 0.40
+	if mc, ok := config["min_confidence"].(float64); ok && mc > 0 {
+		minConfidence = mc
+	}
+
+	// Tier thresholds
+	nameAutoAccept := 0.90 // Tiers 1 & 2: cleaned name similarity for auto-accept
+	if t, ok := config["name_auto_accept"].(float64); ok && t > 0 {
+		nameAutoAccept = t
+	}
+
+	postcodeThreshold := 0.50 // Tier 3: postcode + name scoring threshold
+	if t, ok := config["postcode_threshold"].(float64); ok && t > 0 {
+		postcodeThreshold = t
+	}
+
+	reviewFloor := 0.50 // Residual: minimum trigram for LLM review
+	if t, ok := config["review_floor"].(float64); ok && t > 0 {
+		reviewFloor = t
+	}
+
+	// Load vertical profile
+	verticalSlug := "veterinary"
 	if vs, ok := config["vertical_slug"].(string); ok && vs != "" {
 		verticalSlug = vs
 	}
 	profile := GetCHVerticalProfile(verticalSlug)
 
-	params.Logger.Info("CHLocalMatch: using vertical profile",
-		zap.String("slug", profile.Slug),
-		zap.Int("industry_keywords", len(profile.IndustryKeywords)),
-		zap.Int("generic_words", len(profile.GenericWords)))
+	params.Logger.Info("CHLocalMatch: config",
+		zap.String("vertical", profile.Slug),
+		zap.Float64("min_confidence", minConfidence),
+		zap.Float64("name_auto_accept", nameAutoAccept),
+		zap.Float64("postcode_threshold", postcodeThreshold),
+		zap.Float64("review_floor", reviewFloor))
 
-	// Load unmatched businesses
-	businesses, err := loadUnmatchedBusinesses(ctx, params.DB, batchSize, rematch, profile, params.Logger)
+	// Load unmatched businesses (with pre-filter)
+	businesses, err := loadUnmatchedBusinesses(ctx, params.DB, batchSize, rematch, minConfidence, profile, params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load businesses: %w", err)
 	}
@@ -90,175 +122,142 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 		return map[string]interface{}{
 			"status":          "complete",
 			"total_processed": 0,
-			"total_matched":   0,
-			"total_no_match":  0,
 		}, nil
 	}
 
 	params.Logger.Info("CHLocalMatch: loaded businesses",
 		zap.Int("count", len(businesses)))
 
-	totalProcessed := 0
-	totalMatched := 0
-	totalNoMatch := 0
-	totalMatchedPass2 := 0
+	// Counters
+	tier1Matched := 0
+	tier2Matched := 0
+	tier3Matched := 0
+	pendingReview := 0
+	noMatch := 0
 
-	// Track unmatched businesses for pass 2
-	var unmatchedForPass2 []businessForMatching
+	// Track businesses remaining after each tier
+	var afterTier1 []businessForMatching
+	var afterTier2 []businessForMatching
+	var afterTier3 []businessForMatching
 
 	// =====================================================================
-	// PASS 1: Postcode prefix + name scoring
+	// TIER 1: Exact cleaned name (≥0.90) + geographic confirmation
+	// Strongest signal: the name matches and they're in the same area.
 	// =====================================================================
-	params.Logger.Info("CHLocalMatch: starting pass 1 (postcode + name)")
+	params.Logger.Info("CHLocalMatch: Tier 1 — exact name + geography",
+		zap.Int("businesses", len(businesses)))
 
 	for _, biz := range businesses {
-		select {
-		case <-ctx.Done():
-			params.Logger.Warn("CHLocalMatch: context cancelled",
-				zap.Int("processed", totalProcessed))
-			return map[string]interface{}{
-				"status":          "interrupted",
-				"total_processed": totalProcessed,
-				"total_matched":   totalMatched,
-				"total_no_match":  totalNoMatch,
-			}, nil
-		default:
-		}
-
-		// Find candidates by postcode prefix
-		candidates, err := findCandidatesByPostcode(ctx, params.DB, biz.PostcodePrefix)
+		match, err := findByNameAndGeography(ctx, params.DB, biz, nameAutoAccept)
 		if err != nil {
-			params.Logger.Warn("CHLocalMatch: failed to find candidates",
-				zap.String("business", biz.Name),
-				zap.Error(err))
-			unmatchedForPass2 = append(unmatchedForPass2, biz)
-			totalProcessed++
+			params.Logger.Warn("CHLocalMatch: Tier 1 query failed",
+				zap.String("business", biz.Name), zap.Error(err))
+			afterTier1 = append(afterTier1, biz)
 			continue
 		}
 
-		// Score candidates
+		if match != nil {
+			err := storeLocalMatch(ctx, params.DB, match.CompanyNumber, biz.ID, match.Score, "tier1_name_geo")
+			if err == nil {
+				tier1Matched++
+			}
+		} else {
+			afterTier1 = append(afterTier1, biz)
+		}
+	}
+
+	params.Logger.Info("CHLocalMatch: Tier 1 complete",
+		zap.Int("matched", tier1Matched),
+		zap.Int("remaining", len(afterTier1)))
+
+	// =====================================================================
+	// TIER 2: Exact cleaned name (≥0.90), unique in CH
+	// Name matches strongly and there's only one such company — must be it.
+	// =====================================================================
+	params.Logger.Info("CHLocalMatch: Tier 2 — exact name, unique in CH",
+		zap.Int("businesses", len(afterTier1)))
+
+	for _, biz := range afterTier1 {
+		match, err := findByNameUnique(ctx, params.DB, biz, nameAutoAccept, profile)
+		if err != nil {
+			afterTier2 = append(afterTier2, biz)
+			continue
+		}
+
+		if match != nil {
+			err := storeLocalMatch(ctx, params.DB, match.CompanyNumber, biz.ID, match.Score, "tier2_name_unique")
+			if err == nil {
+				tier2Matched++
+			}
+		} else {
+			afterTier2 = append(afterTier2, biz)
+		}
+	}
+
+	params.Logger.Info("CHLocalMatch: Tier 2 complete",
+		zap.Int("matched", tier2Matched),
+		zap.Int("remaining", len(afterTier2)))
+
+	// =====================================================================
+	// TIER 3: Same postcode prefix + name scoring
+	// Weaker signal — requires real name overlap, not just vet words.
+	// =====================================================================
+	params.Logger.Info("CHLocalMatch: Tier 3 — postcode + name scoring",
+		zap.Int("businesses", len(afterTier2)))
+
+	for _, biz := range afterTier2 {
+		candidates, err := findCandidatesByPostcode(ctx, params.DB, biz.PostcodePrefix)
+		if err != nil || len(candidates) == 0 {
+			afterTier3 = append(afterTier3, biz)
+			continue
+		}
+
 		best := scoreLocalCandidates(candidates, biz.Name, biz.Postcode, profile, params.Logger)
 
-		if best != nil && best.Score >= threshold {
+		if best != nil && best.Score >= postcodeThreshold {
 			err := storeLocalMatch(ctx, params.DB, best.CompanyNumber, biz.ID, best.Score, best.Method)
-			if err != nil {
-				params.Logger.Warn("CHLocalMatch: failed to store match",
-					zap.String("business", biz.Name),
-					zap.String("company", best.CompanyName),
-					zap.Error(err))
-			} else {
-				params.Logger.Info("CHLocalMatch: pass1 matched",
-					zap.String("business", biz.Name),
-					zap.String("company", best.CompanyName),
-					zap.Float64("score", best.Score),
-					zap.String("method", best.Method))
-				totalMatched++
+			if err == nil {
+				tier3Matched++
 			}
 		} else {
-			unmatchedForPass2 = append(unmatchedForPass2, biz)
+			afterTier3 = append(afterTier3, biz)
 		}
-
-		totalProcessed++
 	}
 
-	params.Logger.Info("CHLocalMatch: pass 1 complete",
-		zap.Int("matched", totalMatched),
-		zap.Int("unmatched_for_pass2", len(unmatchedForPass2)))
+	params.Logger.Info("CHLocalMatch: Tier 3 complete",
+		zap.Int("matched", tier3Matched),
+		zap.Int("remaining", len(afterTier3)))
 
 	// =====================================================================
-	// PASS 2: Name-only matching via trigram similarity (no postcode requirement)
-	// Uses GiST trigram index for fast per-business lookups (~4ms each).
-	// Catches companies registered at accountant/HQ addresses.
-	//
-	// Three tiers:
-	//   ≥ 0.90 similarity + distinctive word → auto-accept
-	//   0.50–0.90 similarity + distinctive word → store as pending_llm_review
-	//   < 0.50 or no distinctive word → reject
+	// RESIDUAL: Trigram name search for LLM review candidates
+	// Similarity 0.50–0.90 + distinctive word → pending_llm_review
 	// =====================================================================
-	autoAcceptThreshold := 0.90
-	if t, ok := config["auto_accept_threshold"].(float64); ok && t > 0 {
-		autoAcceptThreshold = t
-	}
+	params.Logger.Info("CHLocalMatch: Residual — LLM review candidates",
+		zap.Int("businesses", len(afterTier3)))
 
-	// Lower bound for LLM review candidates
-	reviewFloor := 0.50
-	if t, ok := config["review_floor"].(float64); ok && t > 0 {
-		reviewFloor = t
-	}
-
-	params.Logger.Info("CHLocalMatch: starting pass 2 (name-only trigram)",
-		zap.Int("businesses", len(unmatchedForPass2)),
-		zap.Float64("auto_accept_threshold", autoAcceptThreshold),
-		zap.Float64("review_floor", reviewFloor))
-
-	totalPendingReview := 0
-
-	for _, biz := range unmatchedForPass2 {
-		select {
-		case <-ctx.Done():
-			break
-		default:
-		}
-
-		// Search with the review floor as minimum — we want candidates down to 0.50
+	for _, biz := range afterTier3 {
 		match, err := findByTrigramSimilarity(ctx, params.DB, biz.Name, reviewFloor)
-		if err != nil {
-			params.Logger.Warn("CHLocalMatch: trigram query failed",
-				zap.String("business", biz.Name),
-				zap.Error(err))
-			totalNoMatch++
+		if err != nil || match == nil {
+			noMatch++
 			continue
 		}
 
-		if match == nil {
-			totalNoMatch++
-			continue
-		}
-
-		// Post-check: distinctive word overlap required for all tiers
 		if !hasDistinctiveWordOverlap(biz.Name, match.CompanyName, profile) {
-			totalNoMatch++
+			noMatch++
 			continue
 		}
 
-		if match.Score >= autoAcceptThreshold {
-			// Auto-accept: high confidence name match
-			err := storeLocalMatch(ctx, params.DB, match.CompanyNumber, biz.ID, match.Score, "name_trigram")
-			if err != nil {
-				params.Logger.Warn("CHLocalMatch: failed to store pass2 match",
-					zap.String("business", biz.Name),
-					zap.String("company", match.CompanyName),
-					zap.Error(err))
-			} else {
-				params.Logger.Info("CHLocalMatch: pass2 auto-accepted",
-					zap.String("business", biz.Name),
-					zap.String("company", match.CompanyName),
-					zap.Float64("score", match.Score))
-				totalMatchedPass2++
-				totalMatched++
-			}
-		} else {
-			// Store as pending LLM review
-			err := storeLocalMatch(ctx, params.DB, match.CompanyNumber, biz.ID, match.Score, "pending_llm_review")
-			if err != nil {
-				params.Logger.Warn("CHLocalMatch: failed to store review candidate",
-					zap.String("business", biz.Name),
-					zap.String("company", match.CompanyName),
-					zap.Error(err))
-			} else {
-				totalPendingReview++
-			}
+		err = storeLocalMatch(ctx, params.DB, match.CompanyNumber, biz.ID, match.Score, "pending_llm_review")
+		if err == nil {
+			pendingReview++
 		}
 	}
 
-	params.Logger.Info("CHLocalMatch: pass 2 complete",
-		zap.Int("pass2_auto_accepted", totalMatchedPass2),
-		zap.Int("pass2_pending_review", totalPendingReview))
-
-	// Query overall stats from the table
+	// Stats
+	totalMatched := tier1Matched + tier2Matched + tier3Matched
 	stats := map[string]interface{}{}
 	row := params.DB.QueryRowContext(ctx, `
-		SELECT COUNT(*) as total_ch_companies,
+		SELECT COUNT(*) as total_ch,
 			   COUNT(*) FILTER (WHERE matched_business_id IS NOT NULL) as matched,
 			   COUNT(*) FILTER (WHERE matched_business_id IS NULL) as unmatched
 		FROM business_intel.ch_vet_companies
@@ -273,80 +272,82 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 		}
 	}
 
-	// Notify scheduler that this task completed
+	// Notify scheduler
 	taskName := "ch-local-match"
 	if tn, ok := config["task_name"].(string); ok && tn != "" {
 		taskName = tn
 	}
 	_, err = params.DB.ExecContext(ctx,
-		`UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = $1`,
-		taskName)
+		`UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = $1`, taskName)
 	if err != nil {
 		params.Logger.Warn("CHLocalMatch: failed to notify scheduler", zap.Error(err))
 	}
 
 	params.Logger.Info("CHLocalMatch: complete",
-		zap.Int("total_processed", totalProcessed),
+		zap.Int("total_processed", len(businesses)),
+		zap.Int("tier1_name_geo", tier1Matched),
+		zap.Int("tier2_name_unique", tier2Matched),
+		zap.Int("tier3_postcode_name", tier3Matched),
 		zap.Int("total_matched", totalMatched),
-		zap.Int("pass1_matched", totalMatched-totalMatchedPass2),
-		zap.Int("pass2_auto_accepted", totalMatchedPass2),
-		zap.Int("pending_llm_review", totalPendingReview),
-		zap.Int("total_no_match", totalNoMatch),
+		zap.Int("pending_llm_review", pendingReview),
+		zap.Int("no_match", noMatch),
 		zap.Any("stats", stats))
 
 	return map[string]interface{}{
 		"status":              "complete",
-		"total_processed":     totalProcessed,
+		"total_processed":     len(businesses),
+		"tier1_name_geo":      tier1Matched,
+		"tier2_name_unique":   tier2Matched,
+		"tier3_postcode_name": tier3Matched,
 		"total_matched":       totalMatched,
-		"pass1_matched":       totalMatched - totalMatchedPass2,
-		"pass2_auto_accepted": totalMatchedPass2,
-		"pending_llm_review":  totalPendingReview,
-		"total_no_match":      totalNoMatch,
+		"pending_llm_review":  pendingReview,
+		"no_match":            noMatch,
 		"stats":               stats,
 	}, nil
 }
 
-// businessForMatching is a minimal struct for matching
-type businessForMatching struct {
-	ID             string
-	Name           string
-	Postcode       string
-	PostcodePrefix string
-}
+// =========================================================================
+// Business loader
+// =========================================================================
 
-// loadUnmatchedBusinesses loads verified businesses that don't yet have a match
-// in ch_vet_companies (or all businesses if rematch=true).
-// Uses profile.BusinessVerticalSlug to filter by vertical.
-func loadUnmatchedBusinesses(ctx context.Context, db *sql.DB, limit int, rematch bool, profile *CHVerticalProfile, logger *zap.Logger) ([]businessForMatching, error) {
+// loadUnmatchedBusinesses loads verified businesses not yet matched,
+// with pre-filter on confidence score and directory exclusion.
+func loadUnmatchedBusinesses(ctx context.Context, db *sql.DB, limit int, rematch bool, minConfidence float64, profile *CHVerticalProfile, logger *zap.Logger) ([]businessForMatching, error) {
 	var query string
 	if rematch {
 		query = `
-			SELECT b.id, b.name, b.postcode,
-				   SPLIT_PART(UPPER(b.postcode), ' ', 1) as postcode_prefix
+			SELECT b.id, b.name, COALESCE(b.postcode, ''),
+				   SPLIT_PART(UPPER(COALESCE(b.postcode, '')), ' ', 1),
+				   COALESCE(b.town, '')
 			FROM business_intel.businesses b
 			JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
 			WHERE bv.slug = $1
 			  AND b.verification_status = 'verified'
-			  AND b.postcode IS NOT NULL AND b.postcode != ''
+			  AND b.confidence_score >= $2
+			  AND b.business_type NOT ILIKE '%directory%'
+			  AND b.business_type NOT ILIKE '%listing%'
 			ORDER BY b.name
-			LIMIT $2`
+			LIMIT $3`
 	} else {
 		query = `
-			SELECT b.id, b.name, b.postcode,
-				   SPLIT_PART(UPPER(b.postcode), ' ', 1) as postcode_prefix
+			SELECT b.id, b.name, COALESCE(b.postcode, ''),
+				   SPLIT_PART(UPPER(COALESCE(b.postcode, '')), ' ', 1),
+				   COALESCE(b.town, '')
 			FROM business_intel.businesses b
 			JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
 			LEFT JOIN business_intel.ch_vet_companies ch 
 				ON ch.matched_business_id = b.id::uuid
 			WHERE bv.slug = $1
 			  AND b.verification_status = 'verified'
-			  AND b.postcode IS NOT NULL AND b.postcode != ''
+			  AND b.confidence_score >= $2
+			  AND b.business_type NOT ILIKE '%directory%'
+			  AND b.business_type NOT ILIKE '%listing%'
 			  AND ch.company_number IS NULL
 			ORDER BY b.name
-			LIMIT $2`
+			LIMIT $3`
 	}
 
-	rows, err := db.QueryContext(ctx, query, profile.BusinessVerticalSlug, limit)
+	rows, err := db.QueryContext(ctx, query, profile.BusinessVerticalSlug, minConfidence, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -355,7 +356,7 @@ func loadUnmatchedBusinesses(ctx context.Context, db *sql.DB, limit int, rematch
 	var businesses []businessForMatching
 	for rows.Next() {
 		var biz businessForMatching
-		if err := rows.Scan(&biz.ID, &biz.Name, &biz.Postcode, &biz.PostcodePrefix); err != nil {
+		if err := rows.Scan(&biz.ID, &biz.Name, &biz.Postcode, &biz.PostcodePrefix, &biz.Town); err != nil {
 			logger.Warn("CHLocalMatch: failed to scan business", zap.Error(err))
 			continue
 		}
@@ -363,6 +364,139 @@ func loadUnmatchedBusinesses(ctx context.Context, db *sql.DB, limit int, rematch
 	}
 	return businesses, rows.Err()
 }
+
+// =========================================================================
+// Tier 1: Exact name + geographic confirmation
+// =========================================================================
+
+// findByNameAndGeography finds a CH company with cleaned name similarity ≥ threshold
+// that also shares the same postcode prefix OR the same town/locality.
+func findByNameAndGeography(ctx context.Context, db *sql.DB, biz businessForMatching, minSim float64) (*chLocalMatchResult, error) {
+	cleanedName := strings.ToLower(cleanCompanySearchName(biz.Name))
+	if cleanedName == "" || len(cleanedName) < 4 {
+		return nil, nil
+	}
+
+	bizTownLower := strings.ToLower(strings.TrimSpace(biz.Town))
+
+	// Query: high name similarity + (same postcode prefix OR same locality)
+	rows, err := db.QueryContext(ctx, `
+		SELECT company_number, company_name, COALESCE(postcode, ''),
+			   COALESCE(postcode_prefix, ''), COALESCE(locality, ''),
+			   similarity(company_name_cleaned, $1) as sim
+		FROM business_intel.ch_vet_companies
+		WHERE company_status = 'active'
+		  AND matched_business_id IS NULL
+		  AND company_name_cleaned % $1
+		  AND similarity(company_name_cleaned, $1) >= $2
+		ORDER BY company_name_cleaned <-> $1
+		LIMIT 5`,
+		cleanedName, minSim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var companyNumber, companyName, postcode, postcodePrefix, locality string
+		var sim float64
+		if err := rows.Scan(&companyNumber, &companyName, &postcode, &postcodePrefix, &locality, &sim); err != nil {
+			continue
+		}
+
+		// Geographic confirmation: same postcode prefix or same town
+		geoMatch := false
+		if biz.PostcodePrefix != "" && postcodePrefix == biz.PostcodePrefix {
+			geoMatch = true
+		}
+		if !geoMatch && bizTownLower != "" && strings.ToLower(locality) == bizTownLower {
+			geoMatch = true
+		}
+
+		if geoMatch {
+			return &chLocalMatchResult{
+				CompanyNumber: companyNumber,
+				CompanyName:   companyName,
+				Postcode:      postcode,
+				Score:         sim,
+				Method:        "tier1_name_geo",
+			}, nil
+		}
+	}
+
+	return nil, rows.Err()
+}
+
+// =========================================================================
+// Tier 2: Exact name, unique in CH
+// =========================================================================
+
+// findByNameUnique finds a CH company with cleaned name similarity ≥ threshold
+// where there's only one such company in the entire CH table. No geography needed.
+// Also requires distinctive word overlap to prevent generic matches.
+func findByNameUnique(ctx context.Context, db *sql.DB, biz businessForMatching, minSim float64, profile *CHVerticalProfile) (*chLocalMatchResult, error) {
+	cleanedName := strings.ToLower(cleanCompanySearchName(biz.Name))
+	if cleanedName == "" || len(cleanedName) < 4 {
+		return nil, nil
+	}
+
+	// Find all CH companies matching at ≥ minSim
+	rows, err := db.QueryContext(ctx, `
+		SELECT company_number, company_name, COALESCE(postcode, ''),
+			   similarity(company_name_cleaned, $1) as sim
+		FROM business_intel.ch_vet_companies
+		WHERE company_status = 'active'
+		  AND matched_business_id IS NULL
+		  AND company_name_cleaned % $1
+		  AND similarity(company_name_cleaned, $1) >= $2
+		ORDER BY sim DESC
+		LIMIT 3`,
+		cleanedName, minSim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type candidate struct {
+		companyNumber, companyName, postcode string
+		sim                                  float64
+	}
+	var candidates []candidate
+	for rows.Next() {
+		var c candidate
+		if err := rows.Scan(&c.companyNumber, &c.companyName, &c.postcode, &c.sim); err != nil {
+			continue
+		}
+		candidates = append(candidates, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Only accept if exactly one candidate with high similarity
+	if len(candidates) != 1 {
+		return nil, nil
+	}
+
+	c := candidates[0]
+
+	// Require distinctive word overlap
+	if !hasDistinctiveWordOverlap(biz.Name, c.companyName, profile) {
+		return nil, nil
+	}
+
+	return &chLocalMatchResult{
+		CompanyNumber: c.companyNumber,
+		CompanyName:   c.companyName,
+		Postcode:      c.postcode,
+		Score:         c.sim,
+		Method:        "tier2_name_unique",
+	}, nil
+}
+
+// =========================================================================
+// Tier 3: Postcode + name scoring (reused from original)
+// =========================================================================
 
 // findCandidatesByPostcode returns all CH vet companies in the same postcode area.
 func findCandidatesByPostcode(ctx context.Context, db *sql.DB, postcodePrefix string) ([]chCandidate, error) {
@@ -375,7 +509,8 @@ func findCandidatesByPostcode(ctx context.Context, db *sql.DB, postcodePrefix st
 			   COALESCE(postcode, ''), COALESCE(postcode_prefix, ''), COALESCE(locality, '')
 		FROM business_intel.ch_vet_companies
 		WHERE postcode_prefix = $1
-		  AND company_status = 'active'`,
+		  AND company_status = 'active'
+		  AND matched_business_id IS NULL`,
 		postcodePrefix)
 	if err != nil {
 		return nil, err
@@ -395,17 +530,14 @@ func findCandidatesByPostcode(ctx context.Context, db *sql.DB, postcodePrefix st
 }
 
 // scoreLocalCandidates scores CH company candidates against a business.
-// Uses profile.IndustryKeywords for industry-specific name bonus.
+// Uses profile for industry keyword bonus.
 func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostcode string, profile *CHVerticalProfile, logger *zap.Logger) *chLocalMatchResult {
 	if len(candidates) == 0 {
 		return nil
 	}
 
-	// Clean both names for comparison using the same cleaner
 	cleanedBizName := cleanCompanySearchName(businessName)
 	bizNameLower := strings.ToLower(cleanedBizName)
-
-	// Also get full postcode for exact match bonus
 	bizPostcodeUpper := strings.ToUpper(strings.TrimSpace(businessPostcode))
 
 	var best *chLocalMatchResult
@@ -414,14 +546,13 @@ func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostco
 		score := 0.0
 		method := "local_postcode"
 
-		// Clean the CH company name too
 		cleanedCHName := cleanCompanySearchName(c.CompanyName)
 		chNameLower := strings.ToLower(cleanedCHName)
 
-		// All candidates matched on postcode prefix already: +0.20
+		// Postcode prefix match (always true from query): +0.20
 		score += 0.20
 
-		// Bonus: exact full postcode match (+0.15)
+		// Exact full postcode: +0.15
 		if bizPostcodeUpper != "" && c.Postcode != "" {
 			chPostcodeUpper := strings.ToUpper(strings.TrimSpace(c.Postcode))
 			if strings.ReplaceAll(bizPostcodeUpper, " ", "") == strings.ReplaceAll(chPostcodeUpper, " ", "") {
@@ -430,7 +561,7 @@ func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostco
 			}
 		}
 
-		// Name similarity scoring
+		// Name similarity
 		if chNameLower == bizNameLower {
 			score += 0.30
 		} else if strings.Contains(chNameLower, bizNameLower) || strings.Contains(bizNameLower, chNameLower) {
@@ -449,8 +580,7 @@ func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostco
 			}
 		}
 
-		// Industry keyword signal in CH company name
-		// Uses profile keywords instead of hardcoded vet terms
+		// Industry keyword bonus
 		if len(profile.IndustryKeywords) > 0 && profile.IndustryKeywordBonus > 0 {
 			if hasIndustryKeyword(c.CompanyName, profile.IndustryKeywords) {
 				score += profile.IndustryKeywordBonus
@@ -471,19 +601,18 @@ func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostco
 	return best
 }
 
+// =========================================================================
+// Residual: Trigram name search for LLM review
+// =========================================================================
+
 // findByTrigramSimilarity finds the best name match across ALL postcodes
-// using the GiST trigram index on company_name_cleaned. Returns nil if no
-// match above threshold. Compares cleaned names (stripped of Ltd/Group/Surgery etc.)
-// for much better similarity scores.
+// using the GiST trigram index on company_name_cleaned.
 func findByTrigramSimilarity(ctx context.Context, db *sql.DB, businessName string, minSimilarity float64) (*chLocalMatchResult, error) {
-	// Clean the business name the same way CH names are cleaned in the DB
 	cleanedName := strings.ToLower(cleanCompanySearchName(businessName))
 	if cleanedName == "" || len(cleanedName) < 4 {
 		return nil, nil
 	}
 
-	// Query against company_name_cleaned using the GiST trigram index.
-	// Both sides are now stripped of Ltd/Group/Surgery etc.
 	rows, err := db.QueryContext(ctx, `
 		SELECT company_number, company_name, COALESCE(postcode, ''),
 			   similarity(company_name_cleaned, $1) as sim
@@ -525,8 +654,11 @@ func findByTrigramSimilarity(ctx context.Context, db *sql.DB, businessName strin
 	return best, rows.Err()
 }
 
-// hasIndustryKeyword checks if any industry keyword appears as a whole word
-// in the company name.
+// =========================================================================
+// Helpers
+// =========================================================================
+
+// hasIndustryKeyword checks if any industry keyword appears as a whole word.
 func hasIndustryKeyword(companyName string, keywords []string) bool {
 	words := strings.Fields(strings.ToLower(companyName))
 	for _, w := range words {
@@ -541,8 +673,7 @@ func hasIndustryKeyword(companyName string, keywords []string) bool {
 }
 
 // hasDistinctiveWordOverlap checks that at least one non-generic word from
-// the business name appears in the CH company name. Uses profile.GenericWords
-// for the industry-specific stop list.
+// the business name appears in the CH company name.
 func hasDistinctiveWordOverlap(businessName, companyName string, profile *CHVerticalProfile) bool {
 	bizWords := strings.Fields(strings.ToLower(businessName))
 	chNameLower := strings.ToLower(companyName)
