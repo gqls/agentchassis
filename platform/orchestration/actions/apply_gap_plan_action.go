@@ -305,6 +305,39 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 
 	url := "/" + pageName + ".html"
 
+	// Check page growth budget
+	budget, budgetErr := CheckPageGrowthBudget(ctx, db, siteID, pageType, logger)
+	if budgetErr != nil {
+		logger.Warn("Page growth budget check failed, allowing by default", zap.Error(budgetErr))
+	} else if !budget.Allowed {
+		logger.Info("ApplyGapPlanAction: page creation throttled by growth budget",
+			zap.String("page_name", pageName),
+			zap.String("reason", budget.Reason),
+			zap.Int("current_total", budget.CurrentTotal),
+			zap.Int("recent_content", budget.RecentContent))
+
+		// Mark original item as blocked (not failed — can be retried next week)
+		if originalItemID != nil {
+			db.ExecContext(ctx, `
+				UPDATE site_work_items
+				SET status = 'blocked',
+				    error = $2,
+				    updated_at = NOW()
+				WHERE id = $1
+			`, *originalItemID,
+				fmt.Sprintf("Page growth budget: %s (total: %d, weekly content: %d/%d)",
+					budget.Reason, budget.CurrentTotal,
+					budget.RecentContent, budget.Config.WeeklyContentPagesMax))
+		}
+
+		return map[string]interface{}{
+			"applied":  false,
+			"approach": "new_page",
+			"reason":   "growth_budget_" + budget.Reason,
+			"budget":   budget,
+		}, nil
+	}
+
 	// Create the page record
 	var pageID uuid.UUID
 	err := db.QueryRowContext(ctx, `

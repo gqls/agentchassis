@@ -299,7 +299,7 @@ function LoginScreen({ onLogin }) {
 }
 
 // ── Sites Overview ───────────────────────────────────────────────────────────
-function SitesOverview({ sites, token, onSelectSite, onSelectPages, onSelectSpecs, onRefresh }) {
+function SitesOverview({ sites, token, onSelectSite, onSelectPages, onSelectSpecs, onSelectMedia, onRefresh }) {
     const [actionLoading, setActionLoading] = useState(false);
 
     const handleToggleSiteLock = async (site) => {
@@ -365,6 +365,9 @@ function SitesOverview({ sites, token, onSelectSite, onSelectPages, onSelectSpec
                             <button onClick={() => onSelectSpecs(site)} style={{
                                 ...btnSecondary, fontSize: 12, padding: "6px 14px", flex: 1,
                             }}>Direction</button>
+                            <button onClick={() => onSelectMedia(site)} style={{
+                                ...btnSecondary, fontSize: 12, padding: "6px 14px", flex: 1,
+                            }}>Media</button>
                         </div>
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                             <button onClick={() => handleToggleSiteLock(site)} disabled={actionLoading} style={{
@@ -1667,6 +1670,237 @@ function SpecEditor({ token, siteId, siteDomain, onBack }) {
     );
 }
 
+// ── Media Browser (Assets) ───────────────────────────────────────────────────
+function MediaBrowser({ token, siteId, siteDomain, onBack }) {
+    const [assets, setAssets] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedAsset, setSelectedAsset] = useState(null);
+    const [references, setReferences] = useState([]);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [message, setMessage] = useState("");
+
+    const loadAssets = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await apiFetch(`/sites/${siteId}/assets`, token);
+            setAssets(data.assets || []);
+        } catch (err) { console.error(err); }
+        finally { setLoading(false); }
+    }, [token, siteId]);
+
+    useEffect(() => { loadAssets(); }, [loadAssets]);
+
+    const loadReferences = async (asset) => {
+        setSelectedAsset(asset);
+        try {
+            const data = await apiFetch(`/sites/${siteId}/assets/${asset.id}/references`, token);
+            setReferences(data.references || []);
+        } catch (err) {
+            console.error(err);
+            setReferences([]);
+        }
+    };
+
+    const handleDelete = async (asset) => {
+        if (!confirm(`Delete asset "${asset.purpose || asset.name || asset.id}"? It will be marked as deleted but not removed from storage.`)) return;
+        setActionLoading(true);
+        try {
+            await apiFetch(`/sites/${siteId}/assets/${asset.id}`, token, { method: "DELETE" });
+            setMessage("Asset deleted");
+            setSelectedAsset(null);
+            loadAssets();
+        } catch (err) { setMessage("Delete failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    const deployedAssets = assets.filter(a => a.is_deployed && a.status === "active");
+    const undeployedAssets = assets.filter(a => !a.is_deployed && a.status === "active");
+    const deletedAssets = assets.filter(a => a.status === "deleted");
+
+    const formatSize = (bytes) => {
+        if (!bytes) return "";
+        if (bytes < 1024) return bytes + "B";
+        if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + "KB";
+        return (bytes / (1024 * 1024)).toFixed(1) + "MB";
+    };
+
+    const renderAssetCard = (asset) => (
+        <div key={asset.id} onClick={() => loadReferences(asset)} style={{
+            background: selectedAsset?.id === asset.id ? "#f0f9ff" : "#fff",
+            border: `1px solid ${selectedAsset?.id === asset.id ? "#93c5fd" : "#e2e8f0"}`,
+            borderRadius: 8, padding: "12px 14px", marginBottom: 6, cursor: "pointer",
+        }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
+                            {asset.purpose || asset.name || "untitled"}
+                        </span>
+                        <span style={{ fontSize: 11, color: "#94a3b8", background: "#f1f5f9", padding: "1px 6px", borderRadius: 4 }}>
+                            {asset.asset_type}
+                        </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {asset.url}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 4, fontSize: 11, color: "#94a3b8" }}>
+                        {asset.file_size && <span>{formatSize(asset.file_size)}</span>}
+                        {asset.dimensions && <span>{(asset.dimensions as Record<string, unknown>).width}x{(asset.dimensions as Record<string, unknown>).height}</span>}
+                        <span>{asset.origin_type}</span>
+                        <span>{asset.reference_count} ref{asset.reference_count !== 1 ? "s" : ""}</span>
+                    </div>
+                </div>
+                {asset.asset_type === "image" && asset.url && (
+                    <img src={asset.url} alt="" style={{
+                        width: 48, height: 48, objectFit: "cover", borderRadius: 6,
+                        border: "1px solid #e2e8f0", flexShrink: 0, marginLeft: 10,
+                    }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                )}
+            </div>
+        </div>
+    );
+
+    return (
+        <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <button onClick={onBack} style={btnSecondary}>← Sites</button>
+                <h2 style={{ ...sectionTitle, margin: 0, flex: 1 }}>
+                    Media <span style={{ fontWeight: 400, color: "#64748b" }}>— {siteDomain}</span>
+                </h2>
+                <span style={{ fontSize: 13, color: "#64748b" }}>
+                    {assets.length} assets ({deployedAssets.length} deployed)
+                </span>
+            </div>
+
+            {message && (
+                <div style={{
+                    background: "#d1fae5", color: "#065f46", padding: "8px 14px", borderRadius: 6,
+                    fontSize: 13, marginBottom: 12, display: "flex", justifyContent: "space-between",
+                }}>
+                    {message}
+                    <span onClick={() => setMessage("")} style={{ cursor: "pointer" }}>✕</span>
+                </div>
+            )}
+
+            {loading ? (
+                <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Loading assets…</div>
+            ) : assets.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>No assets found</div>
+            ) : (
+                <div style={{ display: "flex", gap: 16 }}>
+                    {/* Asset list */}
+                    <div style={{ flex: "0 0 55%", minWidth: 0 }}>
+                        {deployedAssets.length > 0 && (
+                            <div style={{ marginBottom: 16 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "#065f46", marginBottom: 8 }}>
+                                    Deployed ({deployedAssets.length})
+                                </div>
+                                {deployedAssets.map(renderAssetCard)}
+                            </div>
+                        )}
+                        {undeployedAssets.length > 0 && (
+                            <div style={{ marginBottom: 16 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 8 }}>
+                                    Not Deployed ({undeployedAssets.length})
+                                </div>
+                                {undeployedAssets.map(renderAssetCard)}
+                            </div>
+                        )}
+                        {deletedAssets.length > 0 && (
+                            <details>
+                                <summary style={{ fontSize: 12, color: "#94a3b8", cursor: "pointer", marginBottom: 8 }}>
+                                    Deleted ({deletedAssets.length})
+                                </summary>
+                                {deletedAssets.map(renderAssetCard)}
+                            </details>
+                        )}
+                    </div>
+
+                    {/* Detail panel */}
+                    <div style={{ flex: "0 0 43%", minWidth: 0 }}>
+                        {selectedAsset ? (
+                            <div style={{
+                                background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10,
+                                padding: 20, position: "sticky", top: 16,
+                            }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                                    <h3 style={{ margin: 0, fontSize: 16, color: "#0f172a" }}>
+                                        {selectedAsset.purpose || selectedAsset.name || "Asset"}
+                                    </h3>
+                                    <span onClick={() => setSelectedAsset(null)} style={{ cursor: "pointer", color: "#94a3b8", fontSize: 18 }}>✕</span>
+                                </div>
+
+                                {/* Preview */}
+                                {selectedAsset.asset_type === "image" && selectedAsset.url && (
+                                    <div style={{ marginBottom: 12 }}>
+                                        <img src={selectedAsset.url} alt="" style={{
+                                            maxWidth: "100%", maxHeight: 200, borderRadius: 6,
+                                            border: "1px solid #e2e8f0",
+                                        }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                                    </div>
+                                )}
+
+                                {/* Metadata */}
+                                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", fontSize: 13, marginBottom: 12 }}>
+                                    <span style={{ color: "#94a3b8" }}>URL</span>
+                                    <a href={selectedAsset.url} target="_blank" rel="noopener" style={{
+                                        color: "#1e40af", wordBreak: "break-all", fontSize: 12,
+                                    }}>{selectedAsset.url}</a>
+                                    <span style={{ color: "#94a3b8" }}>Type</span><span>{selectedAsset.asset_type}</span>
+                                    <span style={{ color: "#94a3b8" }}>Origin</span><span>{selectedAsset.origin_type}</span>
+                                    {selectedAsset.origin_prompt && <>
+                                        <span style={{ color: "#94a3b8" }}>Prompt</span>
+                                        <span style={{ fontSize: 12, color: "#64748b" }}>{selectedAsset.origin_prompt}</span>
+                                    </>}
+                                    {selectedAsset.file_size && <>
+                                        <span style={{ color: "#94a3b8" }}>Size</span><span>{formatSize(selectedAsset.file_size)}</span>
+                                    </>}
+                                    <span style={{ color: "#94a3b8" }}>Status</span>
+                                    <span style={{ color: selectedAsset.is_deployed ? "#065f46" : "#92400e" }}>
+                                        {selectedAsset.is_deployed ? "Deployed" : "Not deployed"}
+                                    </span>
+                                </div>
+
+                                {/* References */}
+                                <div style={{ marginBottom: 12 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>
+                                        References ({references.length})
+                                    </div>
+                                    {references.length === 0 ? (
+                                        <div style={{ fontSize: 12, color: "#94a3b8" }}>Not referenced by any component</div>
+                                    ) : references.map((ref, i) => (
+                                        <div key={i} style={{
+                                            fontSize: 12, padding: "4px 0",
+                                            borderBottom: i < references.length - 1 ? "1px solid #f1f5f9" : "none",
+                                        }}>
+                                            <span style={{ fontWeight: 500 }}>{ref.page_name}</span>
+                                            <span style={{ color: "#94a3b8" }}> → {ref.slot_name}</span>
+                                            {ref.locked && <span style={{ color: "#7c3aed", marginLeft: 4 }}>🔒</span>}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Actions */}
+                                <div style={{ display: "flex", gap: 8, borderTop: "1px solid #e2e8f0", paddingTop: 12 }}>
+                                    {selectedAsset.status !== "deleted" && (
+                                        <button onClick={() => handleDelete(selectedAsset)} disabled={actionLoading} style={{
+                                            ...btnSecondary, fontSize: 12, color: "#991b1b", borderColor: "#fca5a5",
+                                        }}>Delete</button>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>
+                                Select an asset to view details and references
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // Render a compact preview of spec data — show top-level keys and values
 function renderSpecPreview(data) {
     if (!data || typeof data !== "object") return String(data || "");
@@ -1698,7 +1932,7 @@ export default function App() {
     const [token, setToken] = useState(() => sessionStorage.getItem("admin_token") || "");
     const [user, setUser] = useState(null);
     const [sites, setSites] = useState([]);
-    const [view, setView] = useState("sites"); // sites | items | all-items | pages | specs
+    const [view, setView] = useState("sites"); // sites | items | all-items | pages | specs | media
     const [selectedSite, setSelectedSite] = useState(null);
     const [error, setError] = useState("");
 
@@ -1748,8 +1982,8 @@ export default function App() {
                             { key: "all-items", label: "All Items" },
                         ].map(({ key, label }) => (
                             <button key={key} onClick={() => { setView(key); setSelectedSite(null); }} style={{
-                                background: view === key || (["items", "pages", "specs"].includes(view) && key === "sites") ? "#1e293b" : "transparent",
-                                color: view === key || (["items", "pages", "specs"].includes(view) && key === "sites") ? "#f1f5f9" : "#94a3b8",
+                                background: view === key || (["items", "pages", "specs", "media"].includes(view) && key === "sites") ? "#1e293b" : "transparent",
+                                color: view === key || (["items", "pages", "specs", "media"].includes(view) && key === "sites") ? "#f1f5f9" : "#94a3b8",
                                 border: "none", padding: "6px 12px", borderRadius: 4,
                                 fontSize: 12, fontWeight: 500, cursor: "pointer",
                             }}>
@@ -1785,6 +2019,7 @@ export default function App() {
                         onSelectSite={(site) => { setSelectedSite(site); setView("items"); }}
                         onSelectPages={(site) => { setSelectedSite(site); setView("pages"); }}
                         onSelectSpecs={(site) => { setSelectedSite(site); setView("specs"); }}
+                        onSelectMedia={(site) => { setSelectedSite(site); setView("media"); }}
                         onRefresh={loadSites}
                     />
                 )}
@@ -1816,6 +2051,15 @@ export default function App() {
 
                 {view === "specs" && selectedSite && (
                     <SpecEditor
+                        token={token}
+                        siteId={selectedSite.id}
+                        siteDomain={selectedSite.domain}
+                        onBack={() => { setView("sites"); setSelectedSite(null); loadSites(); }}
+                    />
+                )}
+
+                {view === "media" && selectedSite && (
+                    <MediaBrowser
                         token={token}
                         siteId={selectedSite.id}
                         siteDomain={selectedSite.domain}

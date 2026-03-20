@@ -88,6 +88,7 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	siteAdminHandlers := admin.NewSiteAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
 	pageAdminHandlers := admin.NewPageAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
 	specAdminHandlers := admin.NewSpecAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
+	assetAdminHandlers := admin.NewAssetAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
 
 	// Initialize the bootstrap handler
 	bootstrapHandler := handlers.NewBootstrapHandler(s.logger, personaRepoImpl.ClientsDB())
@@ -193,6 +194,12 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 				siteGroup.PATCH("/:site_id/site-components/:slot_name", pageAdminHandlers.HandleUpdateSiteComponent)
 				siteGroup.POST("/:site_id/site-components/:slot_name/lock", pageAdminHandlers.HandleLockSiteComponent)
 				siteGroup.POST("/:site_id/site-components/:slot_name/unlock", pageAdminHandlers.HandleUnlockSiteComponent)
+
+				// Assets (Media)
+				siteGroup.GET("/:site_id/assets", assetAdminHandlers.HandleListAssets)
+				siteGroup.GET("/:site_id/assets/:asset_id/references", assetAdminHandlers.HandleAssetReferences)
+				siteGroup.PATCH("/:site_id/assets/:asset_id", assetAdminHandlers.HandleUpdateAsset)
+				siteGroup.DELETE("/:site_id/assets/:asset_id", assetAdminHandlers.HandleDeleteAsset)
 			}
 
 			// Work Item Administration + HITL Review

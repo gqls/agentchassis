@@ -410,3 +410,23 @@ WHERE ss.aspect = 'identity'
 -- Phase 4: Spec pinning — prevents agents from overriding human-set specs.
 ALTER TABLE site_specs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT false;
 
+
+---
+
+-- Seed default growth_config spec for existing sites that don't have one.
+-- New sites will get this automatically via the briefing agent or site setup.
+-- Admins can override via the Direction tab in the dashboard.
+
+INSERT INTO site_specs (site_id, aspect, data, source, is_current, created_by)
+SELECT s.id, 'growth_config',
+       '{"initial_target": 12, "weekly_content_pages_max": 3, "weekly_blog_posts_max": 2, "absolute_max": 60}'::jsonb,
+    'system-default', true, 'admin'
+FROM sites s
+WHERE s.status IN ('active', 'deployed')
+  AND NOT EXISTS (
+    SELECT 1 FROM site_specs ss
+    WHERE ss.site_id = s.id AND ss.aspect = 'growth_config' AND ss.is_current = true
+);
+
+
+

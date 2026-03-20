@@ -165,6 +165,7 @@ func CreateBlogPostsAction(ctx context.Context, params ActionParams) (interface{
 
 	pagesCreated := 0
 	itemsCreated := 0
+	skipped := 0
 	batchID := uuid.New()
 
 	for i, post := range posts {
@@ -186,6 +187,20 @@ func CreateBlogPostsAction(ctx context.Context, params ActionParams) (interface{
 		pageType := post.PageType
 		if pageType == "" {
 			pageType = "blog-post"
+		}
+		
+		// Check growth budget for blog posts
+		budget, budgetErr := CheckPageGrowthBudget(ctx, params.DB, siteID, pageType, logger)
+		if budgetErr != nil {
+			logger.Warn("Growth budget check failed, allowing by default", zap.Error(budgetErr))
+		} else if !budget.Allowed {
+			logger.Info("Blog post throttled by growth budget",
+				zap.String("title", post.Title),
+				zap.String("reason", budget.Reason),
+				zap.Int("recent_blog", budget.RecentBlog),
+				zap.Int("max", budget.Config.WeeklyBlogPostsMax))
+			skipped++
+			continue
 		}
 
 		// URL
@@ -275,8 +290,9 @@ func CreateBlogPostsAction(ctx context.Context, params ActionParams) (interface{
 		zap.String("batch_id", batchID.String()))
 
 	return map[string]interface{}{
-		"pages_created": pagesCreated,
-		"items_created": itemsCreated,
-		"batch_id":      batchID.String(),
+		"pages_created":  pagesCreated,
+		"items_created":  itemsCreated,
+		"budget_skipped": skipped,
+		"batch_id":       batchID.String(),
 	}, nil
 }
