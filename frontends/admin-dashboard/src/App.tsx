@@ -607,7 +607,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
         }
 
         // Check that at least one field has content
-        const hasContent = Object.values(editedReviewData).some(v => {
+        const hasContent = Object.values(editedReviewData as Record<string, unknown>).some(v => {
             if (Array.isArray(v)) return v.some(entry =>
                 typeof entry === "object" ? Object.values(entry).some(fv => fv !== "") : entry !== ""
             );
@@ -1117,7 +1117,11 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
         } else {
             setEditData(null);
         }
-        setEditBrief(hasBrief ? JSON.parse(JSON.stringify(comp.content_brief)) : { purpose: "", tone_direction: "", section_guidance: "" });
+        setEditBrief(hasBrief ? JSON.parse(JSON.stringify(comp.content_brief)) : {
+            purpose: (pageSpec && typeof pageSpec === "object" ? (pageSpec as Record<string, unknown>).purpose || "" : "") as string,
+            tone_direction: "",
+            section_guidance: comp.slot_name ? `${comp.slot_name} section` : "",
+        });
         // Site components have rendered_html, page components have html_preview
         setEditHtml(comp.rendered_html || comp.html_preview || "");
     };

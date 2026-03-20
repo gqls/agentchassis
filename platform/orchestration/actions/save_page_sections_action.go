@@ -257,6 +257,12 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// Load page purpose for content_brief population
+	var pagePurpose string
+	_ = params.DB.QueryRowContext(ctx, `
+		SELECT COALESCE(page_spec->>'purpose', '') FROM pages WHERE id = $1
+	`, pageID).Scan(&pagePurpose)
+
 	// --- Snapshot existing content to history before overwrite ---
 	_, snapshotErr := params.DB.ExecContext(ctx, `
 		INSERT INTO page_component_history (component_id, page_id, site_id, content_data, source)
@@ -328,10 +334,23 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			}
 		}
 
+		// Build content_brief from page purpose and section name
+		var contentBriefJSON interface{} // nil = SQL NULL
+		if pagePurpose != "" || section.ComponentName != "" {
+			brief := map[string]string{
+				"purpose":          pagePurpose,
+				"tone_direction":   "",
+				"section_guidance": section.ComponentName + " section",
+			}
+			if briefBytes, err := json.Marshal(brief); err == nil {
+				contentBriefJSON = string(briefBytes)
+			}
+		}
+
 		_, err := params.DB.ExecContext(ctx, `
-			INSERT INTO page_components (page_id, position, rendered_html, slot_name, component_id, content_data, build_status)
-			VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'deployed')
-		`, pageID, i+1, section.HTML, section.ComponentName, componentIDPtr, contentDataJSON)
+			INSERT INTO page_components (page_id, position, rendered_html, slot_name, component_id, content_data, content_brief, build_status)
+			VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, 'deployed')
+		`, pageID, i+1, section.HTML, section.ComponentName, componentIDPtr, contentDataJSON, contentBriefJSON)
 
 		if err != nil {
 			params.Logger.Warn("SavePageSectionsAction: Failed to insert section",

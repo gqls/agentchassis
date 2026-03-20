@@ -25,3 +25,6 @@ curl -s -u "bd727e00-7972-4195-a576-d97faad6043f:"   "https://api.company-inform
 
 curl -s -u "bd727e00-7972-4195-a576-d97faad6043f:" \
   "https://api.company-information.service.gov.uk/search/companies?q=Erne+Veterinary+Group&items_per_page=5" | python3 -m json.tool
+
+port forward, portforward
+kubectl -n ai-persona-system port-forward svc/admin-dashboard 8080:8080

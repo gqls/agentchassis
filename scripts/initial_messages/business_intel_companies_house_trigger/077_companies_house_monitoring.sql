@@ -2,6 +2,7 @@
 -- Companies House Enrichment Monitoring Queries
 -- ==========================================================================
 
+kubectl -n ai-persona-system port-forward svc/admin-dashboard 8080:8080
 
 -- =========================================================================
 -- DASHBOARD
@@ -578,6 +579,36 @@ kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
 # scale to more replicsa
 kubectl -n ai-persona-system scale deployment/business-intel --replicas=2
 
+---------
+
+                   -- Data availability for matching signals
+SELECT
+    COUNT(*) as total,
+    COUNT(*) FILTER (WHERE website_url IS NOT NULL AND website_url != '') as has_website,
+    COUNT(*) FILTER (WHERE trading_name IS NOT NULL AND trading_name != '') as has_trading_name,
+    COUNT(*) FILTER (WHERE town IS NOT NULL AND town != '') as has_town,
+    COUNT(*) FILTER (WHERE address_line1 IS NOT NULL AND address_line1 != '') as has_address,
+    COUNT(*) FILTER (WHERE confidence_score >= 0.5) as confidence_50plus,
+    COUNT(*) FILTER (WHERE confidence_score < 0.5) as confidence_below_50,
+    COUNT(*) FILTER (WHERE business_type LIKE '%directory%' OR business_type LIKE '%Directory%'
+                        OR name LIKE '%directory%' OR name LIKE '%Directory%') as likely_directories
+FROM business_intel.businesses b
+         JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+WHERE bv.slug = 'veterinary' AND b.verification_status = 'verified';
+
+-- How many low-confidence businesses are we trying to match?
+SELECT confidence_score, COUNT(*)
+FROM business_intel.businesses b
+         JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+WHERE bv.slug = 'veterinary' AND b.verification_status = 'verified'
+GROUP BY confidence_score
+ORDER BY confidence_score;
+
+-- Do we have vet_practice_details that might have extra info?
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_schema = 'business_intel' AND table_name = 'vet_practice_details'
+ORDER BY ordinal_position;
 
 
 
