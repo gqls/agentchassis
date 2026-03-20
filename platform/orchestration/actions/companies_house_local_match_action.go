@@ -67,8 +67,20 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 		rematch = r
 	}
 
+	// Load vertical profile for industry-specific matching heuristics
+	verticalSlug := "veterinary" // default for backward compat
+	if vs, ok := config["vertical_slug"].(string); ok && vs != "" {
+		verticalSlug = vs
+	}
+	profile := GetCHVerticalProfile(verticalSlug)
+
+	params.Logger.Info("CHLocalMatch: using vertical profile",
+		zap.String("slug", profile.Slug),
+		zap.Int("industry_keywords", len(profile.IndustryKeywords)),
+		zap.Int("generic_words", len(profile.GenericWords)))
+
 	// Load unmatched businesses
-	businesses, err := loadUnmatchedBusinesses(ctx, params.DB, batchSize, rematch, params.Logger)
+	businesses, err := loadUnmatchedBusinesses(ctx, params.DB, batchSize, rematch, profile, params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load businesses: %w", err)
 	}
@@ -125,7 +137,7 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 		}
 
 		// Score candidates
-		best := scoreLocalCandidates(candidates, biz.Name, biz.Postcode, params.Logger)
+		best := scoreLocalCandidates(candidates, biz.Name, biz.Postcode, profile, params.Logger)
 
 		if best != nil && best.Score >= threshold {
 			err := storeLocalMatch(ctx, params.DB, best.CompanyNumber, biz.ID, best.Score, best.Method)
@@ -204,7 +216,7 @@ func CHLocalMatchAction(ctx context.Context, params ActionParams) (interface{}, 
 		}
 
 		// Post-check: distinctive word overlap required for all tiers
-		if !hasDistinctiveWordOverlap(biz.Name, match.CompanyName) {
+		if !hasDistinctiveWordOverlap(biz.Name, match.CompanyName, profile) {
 			totalNoMatch++
 			continue
 		}
@@ -304,22 +316,21 @@ type businessForMatching struct {
 
 // loadUnmatchedBusinesses loads verified businesses that don't yet have a match
 // in ch_vet_companies (or all businesses if rematch=true).
-func loadUnmatchedBusinesses(ctx context.Context, db *sql.DB, limit int, rematch bool, logger *zap.Logger) ([]businessForMatching, error) {
+// Uses profile.BusinessVerticalSlug to filter by vertical.
+func loadUnmatchedBusinesses(ctx context.Context, db *sql.DB, limit int, rematch bool, profile *CHVerticalProfile, logger *zap.Logger) ([]businessForMatching, error) {
 	var query string
 	if rematch {
-		// Load all verified businesses
 		query = `
 			SELECT b.id, b.name, b.postcode,
 				   SPLIT_PART(UPPER(b.postcode), ' ', 1) as postcode_prefix
 			FROM business_intel.businesses b
 			JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
-			WHERE bv.slug = 'veterinary'
+			WHERE bv.slug = $1
 			  AND b.verification_status = 'verified'
 			  AND b.postcode IS NOT NULL AND b.postcode != ''
 			ORDER BY b.name
-			LIMIT $1`
+			LIMIT $2`
 	} else {
-		// Load only businesses not yet matched in ch_vet_companies
 		query = `
 			SELECT b.id, b.name, b.postcode,
 				   SPLIT_PART(UPPER(b.postcode), ' ', 1) as postcode_prefix
@@ -327,15 +338,15 @@ func loadUnmatchedBusinesses(ctx context.Context, db *sql.DB, limit int, rematch
 			JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
 			LEFT JOIN business_intel.ch_vet_companies ch 
 				ON ch.matched_business_id = b.id::uuid
-			WHERE bv.slug = 'veterinary'
+			WHERE bv.slug = $1
 			  AND b.verification_status = 'verified'
 			  AND b.postcode IS NOT NULL AND b.postcode != ''
 			  AND ch.company_number IS NULL
 			ORDER BY b.name
-			LIMIT $1`
+			LIMIT $2`
 	}
 
-	rows, err := db.QueryContext(ctx, query, limit)
+	rows, err := db.QueryContext(ctx, query, profile.BusinessVerticalSlug, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -384,11 +395,8 @@ func findCandidatesByPostcode(ctx context.Context, db *sql.DB, postcodePrefix st
 }
 
 // scoreLocalCandidates scores CH company candidates against a business.
-// Adapted from scoreCHMatches but simplified for local matching:
-// - All candidates already have SIC 75000 — no SIC penalty
-// - All are active — no active bonus needed (already filtered)
-// - Postcode prefix already matched by query — focus on name similarity
-func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostcode string, logger *zap.Logger) *chLocalMatchResult {
+// Uses profile.IndustryKeywords for industry-specific name bonus.
+func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostcode string, profile *CHVerticalProfile, logger *zap.Logger) *chLocalMatchResult {
 	if len(candidates) == 0 {
 		return nil
 	}
@@ -411,26 +419,23 @@ func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostco
 		chNameLower := strings.ToLower(cleanedCHName)
 
 		// All candidates matched on postcode prefix already: +0.20
-		// (lower than API scoring's +0.35 because prefix match is just the filter here)
 		score += 0.20
 
 		// Bonus: exact full postcode match (+0.15)
 		if bizPostcodeUpper != "" && c.Postcode != "" {
 			chPostcodeUpper := strings.ToUpper(strings.TrimSpace(c.Postcode))
-			// Normalise: remove all spaces for comparison
 			if strings.ReplaceAll(bizPostcodeUpper, " ", "") == strings.ReplaceAll(chPostcodeUpper, " ", "") {
 				score += 0.15
 				method = "local_postcode_exact"
 			}
 		}
 
-		// Name similarity scoring (same logic as scoreCHMatches)
+		// Name similarity scoring
 		if chNameLower == bizNameLower {
-			score += 0.30 // exact match on cleaned names — strong signal
+			score += 0.30
 		} else if strings.Contains(chNameLower, bizNameLower) || strings.Contains(bizNameLower, chNameLower) {
 			score += 0.20
 		} else {
-			// Word overlap
 			bizWords := strings.Fields(bizNameLower)
 			matchedWords := 0
 			for _, word := range bizWords {
@@ -444,15 +449,11 @@ func scoreLocalCandidates(candidates []chCandidate, businessName, businessPostco
 			}
 		}
 
-		// Vet industry signal in CH company name (+0.10)
-		// Lower bonus than API scoring because all candidates are SIC 75000
-		// — "veterinary" in the name is confirmatory, not discriminating.
-		chTitleWords := strings.Fields(strings.ToLower(c.CompanyName))
-		for _, w := range chTitleWords {
-			cleaned := strings.TrimRight(w, ".,;:()")
-			if cleaned == "veterinary" || cleaned == "vet" || cleaned == "vets" {
-				score += 0.10
-				break
+		// Industry keyword signal in CH company name
+		// Uses profile keywords instead of hardcoded vet terms
+		if len(profile.IndustryKeywords) > 0 && profile.IndustryKeywordBonus > 0 {
+			if hasIndustryKeyword(c.CompanyName, profile.IndustryKeywords) {
+				score += profile.IndustryKeywordBonus
 			}
 		}
 
@@ -524,40 +525,39 @@ func findByTrigramSimilarity(ctx context.Context, db *sql.DB, businessName strin
 	return best, rows.Err()
 }
 
-// hasDistinctiveWordOverlap checks that at least one non-generic word from
-// the business name appears in the CH company name. This prevents false
-// positives where common vet/business words inflate trigram similarity.
-// E.g. "WW Mobile Veterinary Services" vs "HAYLOFT MOBILE VETERINARY SERVICES"
-// — high trigram score but "WW" doesn't appear in the CH name.
-func hasDistinctiveWordOverlap(businessName, companyName string) bool {
-	// Words that appear in many vet company names — not distinctive
-	genericWords := map[string]bool{
-		"the": true, "and": true, "of": true, "for": true, "in": true, "at": true, "a": true,
-		"veterinary": true, "vet": true, "vets": true, "vets4pets": true,
-		"animal": true, "pet": true, "pets": true, "paws": true,
-		"mobile": true, "services": true, "service": true,
-		"clinic": true, "centre": true, "center": true, "surgery": true,
-		"practice": true, "hospital": true, "group": true,
-		"limited": true, "ltd": true, "llp": true, "plc": true,
-		"equine": true, "farm": true, "emergency": true, "referrals": true,
+// hasIndustryKeyword checks if any industry keyword appears as a whole word
+// in the company name.
+func hasIndustryKeyword(companyName string, keywords []string) bool {
+	words := strings.Fields(strings.ToLower(companyName))
+	for _, w := range words {
+		cleaned := strings.TrimRight(w, ".,;:()")
+		for _, kw := range keywords {
+			if cleaned == kw {
+				return true
+			}
+		}
 	}
+	return false
+}
 
+// hasDistinctiveWordOverlap checks that at least one non-generic word from
+// the business name appears in the CH company name. Uses profile.GenericWords
+// for the industry-specific stop list.
+func hasDistinctiveWordOverlap(businessName, companyName string, profile *CHVerticalProfile) bool {
 	bizWords := strings.Fields(strings.ToLower(businessName))
 	chNameLower := strings.ToLower(companyName)
 
 	for _, word := range bizWords {
-		// Strip punctuation
 		word = strings.TrimRight(word, ".,;:()'-")
 		word = strings.TrimLeft(word, "('")
 
 		if len(word) < 3 {
 			continue
 		}
-		if genericWords[word] {
+		if profile.GenericWords[word] {
 			continue
 		}
 
-		// This is a distinctive word — does it appear in the CH name?
 		if strings.Contains(chNameLower, word) {
 			return true
 		}
