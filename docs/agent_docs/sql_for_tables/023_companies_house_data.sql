@@ -140,3 +140,114 @@ SELECT COUNT(*) as table_exists
 FROM information_schema.tables
 WHERE table_schema = 'business_intel'
   AND table_name = 'companies_house_data';
+
+---
+
+-- collecting financial data
+-- Migration: Add accounts fetch tracking to ch_vet_companies
+-- and ensure financial columns exist on companies_house_data.
+--
+-- Safe to run multiple times (IF NOT EXISTS / idempotent).
+-- Run against clients_db as clients_user.
+
+BEGIN;
+
+-- ============================================================
+-- 1. ch_vet_companies: track whether accounts have been fetched
+-- ============================================================
+ALTER TABLE business_intel.ch_vet_companies
+    ADD COLUMN IF NOT EXISTS accounts_fetched BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE business_intel.ch_vet_companies
+    ADD COLUMN IF NOT EXISTS accounts_fetched_at TIMESTAMPTZ;
+
+-- Index for the accounts fetch query (finds unfetched companies with details)
+CREATE INDEX IF NOT EXISTS idx_ch_vet_accounts_pending
+    ON business_intel.ch_vet_companies (match_confidence DESC)
+    WHERE details_fetched = true
+    AND accounts_fetched = false
+    AND match_method NOT IN ('pending_llm_review', 'llm_uncertain');
+
+-- ============================================================
+-- 2. companies_house_data: financial columns from filed accounts
+-- ============================================================
+-- These may already exist from the original schema; IF NOT EXISTS
+-- makes this safe either way.
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS accounts_date DATE;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS accounts_type TEXT;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS net_worth_gbp NUMERIC;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS total_assets_gbp NUMERIC;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS employee_count INTEGER;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS turnover_gbp NUMERIC;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS profit_loss_gbp NUMERIC;
+
+COMMIT;
+
+---
+
+-- Migration: Add accounts fetch tracking to ch_vet_companies
+-- and ensure financial columns exist on companies_house_data.
+--
+-- Safe to run multiple times (IF NOT EXISTS / idempotent).
+-- Run against clients_db as clients_user.
+
+BEGIN;
+
+-- ============================================================
+-- 1. ch_vet_companies: track whether accounts have been fetched
+-- ============================================================
+ALTER TABLE business_intel.ch_vet_companies
+    ADD COLUMN IF NOT EXISTS accounts_fetched BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE business_intel.ch_vet_companies
+    ADD COLUMN IF NOT EXISTS accounts_fetched_at TIMESTAMPTZ;
+
+-- Index for the accounts fetch query (finds unfetched companies with details)
+CREATE INDEX IF NOT EXISTS idx_ch_vet_accounts_pending
+    ON business_intel.ch_vet_companies (match_confidence DESC)
+    WHERE details_fetched = true
+    AND accounts_fetched = false
+    AND match_method NOT IN ('pending_llm_review', 'llm_uncertain');
+
+-- ============================================================
+-- 2. companies_house_data: financial columns from filed accounts
+-- ============================================================
+-- These may already exist from the original schema; IF NOT EXISTS
+-- makes this safe either way.
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS accounts_date DATE;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS accounts_type TEXT;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS net_worth_gbp NUMERIC;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS total_assets_gbp NUMERIC;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS employee_count INTEGER;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS turnover_gbp NUMERIC;
+
+ALTER TABLE business_intel.companies_house_data
+    ADD COLUMN IF NOT EXISTS profit_loss_gbp NUMERIC;
+
+COMMIT;

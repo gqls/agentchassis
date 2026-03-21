@@ -33,6 +33,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const chDocumentAPIBase = "https://document-api.company-information.service.gov.uk"
+
 // iXBRL tag names mapped to DB fields.
 // Context: CY_END = current year-end (balance sheet instant), CY = current year period.
 var ixbrlFieldMappings = []struct {
@@ -61,6 +63,19 @@ var ixbrlPatternAlt = regexp.MustCompile(
 type accountsCompany struct {
 	CompanyNumber string
 	BusinessID    string
+}
+
+// chHTTPLogContext carries agent context for HTTP request logging.
+// Passed into helper functions so they can log without knowing about ActionParams.
+type chHTTPLogContext struct {
+	DB              *sql.DB
+	Logger          *zap.Logger
+	AgentType       string
+	AgentID         interface{}
+	StepName        string
+	OrchestrationID string
+	CorrelationID   string
+	ActionName      string
 }
 
 // CHFetchAccountsAction fetches and parses filed accounts for enriched companies.
@@ -119,19 +134,31 @@ func CHFetchAccountsAction(ctx context.Context, params ActionParams) (interface{
 		Timeout: 30 * time.Second,
 	}
 
+	// Build logging context for HTTP request tracking
+	logCtx := chHTTPLogContext{
+		DB:              params.DB,
+		Logger:          params.Logger,
+		AgentType:       params.AgentType,
+		AgentID:         params.Headers["agent_id"],
+		StepName:        params.ExecutionContext.StepName,
+		OrchestrationID: params.ExecutionContext.OrchestrationID,
+		CorrelationID:   params.ExecutionContext.CorrelationID,
+		ActionName:      "ch_fetch_accounts",
+	}
+
 	totalFetched := 0
 	totalParsed := 0
 	totalFailed := 0
 	totalNoAccounts := 0
 
 	for _, co := range companies {
-		select {
-		case <-ctx.Done():
+		// Check context cancellation — break must exit the for loop, not just the select
+		if ctx.Err() != nil {
+			params.Logger.Info("CHFetchAccounts: context cancelled, stopping")
 			break
-		default:
 		}
 
-		result, err := fetchAndParseAccounts(ctx, apiKey, httpClient, co.CompanyNumber, delayMs, params.Logger)
+		result, err := fetchAndParseAccounts(ctx, apiKey, httpClient, co.CompanyNumber, delayMs, logCtx)
 		if err != nil {
 			params.Logger.Warn("CHFetchAccounts: failed",
 				zap.String("company_number", co.CompanyNumber),
@@ -222,19 +249,27 @@ func loadCompaniesForAccountsFetch(ctx context.Context, db *sql.DB, limit int) (
 	return companies, rows.Err()
 }
 
-// accountsResult holds parsed financial data from iXBRL
-type accountsResult struct {
-	AccountsDate string
-	AccountsType string
-	Values       map[string]interface{} // field_name -> value
-}
-
 // fetchAndParseAccounts does the three-step fetch: filing history → metadata → iXBRL.
-func fetchAndParseAccounts(ctx context.Context, apiKey string, httpClient *http.Client, companyNumber string, delayMs int, logger *zap.Logger) (map[string]interface{}, error) {
+func fetchAndParseAccounts(ctx context.Context, apiKey string, httpClient *http.Client, companyNumber string, delayMs int, lc chHTTPLogContext) (map[string]interface{}, error) {
+
+	meta := map[string]interface{}{"company_number": companyNumber}
 
 	// Step 1: Get latest accounts filing
-	filingResp, err := chAPIGet(ctx, apiKey,
-		fmt.Sprintf("/company/%s/filing-history?category=accounts&items_per_page=1", companyNumber))
+	filingURL := fmt.Sprintf("/company/%s/filing-history?category=accounts&items_per_page=1", companyNumber)
+	fullFilingURL := "https://api.company-information.service.gov.uk" + filingURL
+
+	callStart := time.Now()
+	filingResp, err := chAPIGet(ctx, apiKey, filingURL)
+	latencyMs := int(time.Since(callStart).Milliseconds())
+
+	LogHTTPRequest(lc.DB, lc.Logger, HTTPRequestLogParams{
+		AgentType: lc.AgentType, AgentID: lc.AgentID, StepName: lc.StepName,
+		OrchestrationID: lc.OrchestrationID, CorrelationID: lc.CorrelationID,
+		ActionName: lc.ActionName, Method: "GET", URL: fullFilingURL,
+		StatusCode: httpStatusFromErr(err, 200), LatencyMs: latencyMs,
+		Success: err == nil, ErrorMessage: errString(err), Metadata: meta,
+	})
+
 	if err != nil {
 		return nil, fmt.Errorf("filing history: %w", err)
 	}
@@ -263,9 +298,19 @@ func fetchAndParseAccounts(ctx context.Context, apiKey string, httpClient *http.
 	time.Sleep(time.Duration(delayMs) * time.Millisecond)
 
 	// Step 2: Get document metadata to find content URL.
-	// Note: document metadata URL is on document-api.company-information.service.gov.uk
-	// which is a different host than the company API, so we can't use chAPIGet.
-	metaResp, err := chDocumentAPIGet(ctx, httpClient, apiKey, documentMetaURL)
+	resolvedMetaURL := resolveDocumentURL(documentMetaURL)
+	callStart = time.Now()
+	metaResp, err := chDocumentAPIGet(ctx, httpClient, apiKey, resolvedMetaURL)
+	latencyMs = int(time.Since(callStart).Milliseconds())
+
+	LogHTTPRequest(lc.DB, lc.Logger, HTTPRequestLogParams{
+		AgentType: lc.AgentType, AgentID: lc.AgentID, StepName: lc.StepName,
+		OrchestrationID: lc.OrchestrationID, CorrelationID: lc.CorrelationID,
+		ActionName: lc.ActionName, Method: "GET", URL: resolvedMetaURL,
+		StatusCode: httpStatusFromErr(err, 200), LatencyMs: latencyMs,
+		Success: err == nil, ErrorMessage: errString(err), Metadata: meta,
+	})
+
 	if err != nil {
 		return nil, fmt.Errorf("document metadata: %w", err)
 	}
@@ -284,7 +329,7 @@ func fetchAndParseAccounts(ctx context.Context, apiKey string, httpClient *http.
 
 	if contentURL == "" {
 		// Try PDF as fallback — can't parse, but note it exists
-		logger.Info("CHFetchAccounts: no iXBRL available, only PDF",
+		lc.Logger.Info("CHFetchAccounts: no iXBRL available, only PDF",
 			zap.String("company_number", companyNumber))
 		result := map[string]interface{}{
 			"accounts_date": accountsDate,
@@ -297,7 +342,20 @@ func fetchAndParseAccounts(ctx context.Context, apiKey string, httpClient *http.
 	time.Sleep(time.Duration(delayMs) * time.Millisecond)
 
 	// Step 3: Download iXBRL content (follows redirects to S3)
+	resolvedContentURL := resolveDocumentURL(contentURL)
+	callStart = time.Now()
 	ixbrlContent, err := downloadDocument(ctx, httpClient, apiKey, contentURL)
+	latencyMs = int(time.Since(callStart).Milliseconds())
+
+	LogHTTPRequest(lc.DB, lc.Logger, HTTPRequestLogParams{
+		AgentType: lc.AgentType, AgentID: lc.AgentID, StepName: lc.StepName,
+		OrchestrationID: lc.OrchestrationID, CorrelationID: lc.CorrelationID,
+		ActionName: lc.ActionName, Method: "GET", URL: resolvedContentURL,
+		StatusCode: httpStatusFromErr(err, 200), LatencyMs: latencyMs,
+		ResponseBytes: len(ixbrlContent),
+		Success:       err == nil, ErrorMessage: errString(err), Metadata: meta,
+	})
+
 	if err != nil {
 		return nil, fmt.Errorf("download iXBRL: %w", err)
 	}
@@ -317,9 +375,34 @@ func fetchAndParseAccounts(ctx context.Context, apiKey string, httpClient *http.
 	return result, nil
 }
 
+// httpStatusFromErr returns defaultStatus if err is nil, or 0 if there was an error.
+// For more precise status codes, the caller should extract from the HTTP response.
+func httpStatusFromErr(err error, defaultStatus int) int {
+	if err != nil {
+		return 0
+	}
+	return defaultStatus
+}
+
+// errString returns the error message or empty string.
+func errString(err error) string {
+	if err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+// resolveDocumentURL ensures a CH document URL is absolute.
+// The filing history API returns document_metadata as a relative path
+// (e.g. "/document/abc123") that needs the document API host prepended.
+func resolveDocumentURL(rawURL string) string {
+	if strings.HasPrefix(rawURL, "http") {
+		return rawURL
+	}
+	return chDocumentAPIBase + rawURL
+}
+
 // chDocumentAPIGet fetches from the CH document API (different host than company API).
-// The document metadata URL is a full URL like:
-// https://document-api.company-information.service.gov.uk/document/abc123
 func chDocumentAPIGet(ctx context.Context, client *http.Client, apiKey, fullURL string) (map[string]interface{}, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
 	if err != nil {
@@ -348,9 +431,7 @@ func chDocumentAPIGet(ctx context.Context, client *http.Client, apiKey, fullURL 
 // downloadDocument fetches a CH document, following redirects.
 // The document API returns a redirect to S3 where the actual content lives.
 func downloadDocument(ctx context.Context, client *http.Client, apiKey, url string) (string, error) {
-	if !strings.HasPrefix(url, "http") {
-		url = "https://document-api.company-information.service.gov.uk" + url
-	}
+	url = resolveDocumentURL(url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -485,9 +566,18 @@ func parseIXBRLValue(raw, fieldType string) interface{} {
 
 // storeAccountsData updates the companies_house_data row with financial fields.
 func storeAccountsData(ctx context.Context, db *sql.DB, businessID string, data map[string]interface{}) error {
+	// Parse accounts_date to sql.NullTime for safe handling
+	var accountsDate sql.NullTime
+	if dateStr, ok := data["accounts_date"].(string); ok && dateStr != "" {
+		t, err := time.Parse("2006-01-02", dateStr)
+		if err == nil {
+			accountsDate = sql.NullTime{Time: t, Valid: true}
+		}
+	}
+
 	_, err := db.ExecContext(ctx, `
 		UPDATE business_intel.companies_house_data
-		SET accounts_date = CASE WHEN $2 != '' THEN $2::date ELSE accounts_date END,
+		SET accounts_date = COALESCE($2, accounts_date),
 			accounts_type = COALESCE(NULLIF($3, ''), accounts_type),
 			net_worth_gbp = COALESCE($4, net_worth_gbp),
 			total_assets_gbp = COALESCE($5, total_assets_gbp),
@@ -497,13 +587,13 @@ func storeAccountsData(ctx context.Context, db *sql.DB, businessID string, data 
 			updated_at = NOW()
 		WHERE business_id = $1`,
 		businessID,
-		stringVal(data["accounts_date"]),
+		accountsDate,
 		stringVal(data["accounts_type"]),
-		nullFloatFromInterface(data["net_worth_gbp"]),
-		nullFloatFromInterface(data["total_assets_gbp"]),
-		nullIntFromInterface(data["employee_count"]),
-		nullFloatFromInterface(data["turnover_gbp"]),
-		nullFloatFromInterface(data["profit_loss_gbp"]),
+		nullFloat64(data["net_worth_gbp"]),
+		nullFloat64(data["total_assets_gbp"]),
+		nullIntAccounts(data["employee_count"]),
+		nullFloat64(data["turnover_gbp"]),
+		nullFloat64(data["profit_loss_gbp"]),
 	)
 	return err
 }
@@ -526,4 +616,41 @@ func stringVal(v interface{}) string {
 		return s
 	}
 	return ""
+}
+
+// nullFloat64 converts an interface{} to sql.NullFloat64 for DB writes.
+// Handles float64 and int values. Returns null for nil or unparseable values.
+func nullFloat64(v interface{}) sql.NullFloat64 {
+	if v == nil {
+		return sql.NullFloat64{}
+	}
+	switch val := v.(type) {
+	case float64:
+		return sql.NullFloat64{Float64: val, Valid: true}
+	case int:
+		return sql.NullFloat64{Float64: float64(val), Valid: true}
+	case int64:
+		return sql.NullFloat64{Float64: float64(val), Valid: true}
+	}
+	return sql.NullFloat64{}
+}
+
+// nullInt converts an interface{} to sql.NullInt64 for DB writes.
+// Note: this shadows the existing nullInt in companies_house_actions.go
+// which takes (int, bool). This version takes interface{} for convenience
+// in the accounts context where values come from a map.
+// If there's a naming collision, rename to nullIntFromMap.
+func nullIntAccounts(v interface{}) sql.NullInt64 {
+	if v == nil {
+		return sql.NullInt64{}
+	}
+	switch val := v.(type) {
+	case int:
+		return sql.NullInt64{Int64: int64(val), Valid: true}
+	case int64:
+		return sql.NullInt64{Int64: val, Valid: true}
+	case float64:
+		return sql.NullInt64{Int64: int64(val), Valid: true}
+	}
+	return sql.NullInt64{}
 }

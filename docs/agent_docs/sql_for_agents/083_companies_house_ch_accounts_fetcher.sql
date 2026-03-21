@@ -140,3 +140,167 @@ INSERT INTO scheduled_tasks (
 --   ORDER BY chd.net_worth_gbp DESC
 --   LIMIT 20;
 -- ============================================================================
+
+-- Scheduled task and agent definition for ch-accounts-fetcher
+-- Run against clients_db as clients_user.
+--
+-- The agent definition may already exist from a previous session.
+-- ON CONFLICT handles idempotent upsert.
+
+-- ============================================================
+-- 1. Agent definition (ch-accounts-fetcher)
+-- ============================================================
+INSERT INTO agent_definitions (
+    type, version, name, description, category,
+    default_config, enabled, tags, container_image, image_tag,
+    resource_limits, topics, health_check,
+    dependencies, priority,
+    orchestration_config, role, status, capabilities
+) VALUES (
+             'ch-accounts-fetcher', 1,
+             'CH Accounts Fetcher',
+             'Fetches and parses Companies House filed accounts (iXBRL). Extracts net assets, total assets, employee count, turnover, profit/loss where available.',
+             'data-driven',
+             jsonb_build_object(
+                     'workflow', jsonb_build_object(
+                     'start_step', 'fetch_accounts',
+                     'steps', jsonb_build_object(
+                             'fetch_accounts', jsonb_build_object(
+                                     'action', 'ch_fetch_accounts',
+                                     'description', 'Fetch filing history, download iXBRL, parse financial values. 30 per batch, 15s delay.',
+                                     'config', jsonb_build_object(
+                                             'batch_size', 30,
+                                             'delay_ms', 15000,
+                                             'task_name', 'ch-fetch-accounts'
+                                               ),
+                                     'output_field', 'accounts_result',
+                                     'next_step', 'complete'
+                                               ),
+                             'complete', jsonb_build_object(
+                                     'action', 'complete_workflow',
+                                     'config', jsonb_build_object(
+                                             'output_fields', jsonb_build_array('accounts_result')
+                                               ),
+                                     'description', 'Accounts fetch complete'
+                                         )
+                              )
+                                 ),
+                     'processing_mode', 'orchestrator',
+                     'timeout_seconds', 3600
+             ),
+             true,
+             ARRAY['companies-house', 'enrichment', 'accounts'],
+             'docker.io/aqls/agent-chassis',
+             'v1.0.902',
+             '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}'::jsonb,
+             '{"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"}'::jsonb,
+             '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}'::jsonb,
+             ARRAY[]::text[],
+             1,  -- priority (same as other CH agents, below business-intel at 3)
+             '{"fallback_to_self": true, "prefer_delegation": true}'::jsonb,
+             'specialist',
+             'experimental',
+             ARRAY['companies-house', 'enrichment', 'accounts', 'financial']
+         )
+    ON CONFLICT (type, version)
+DO UPDATE SET
+    name = EXCLUDED.name,
+           description = EXCLUDED.description,
+           default_config = EXCLUDED.default_config,
+           enabled = EXCLUDED.enabled,
+           tags = EXCLUDED.tags,
+           image_tag = EXCLUDED.image_tag,
+           updated_at = NOW();
+
+-- ============================================================
+-- 2. Scheduled task (ch-fetch-accounts)
+-- ============================================================
+-- Runs every 20 minutes (same cadence as ch-detail-fetch).
+-- pre_query prevents triggering when there's nothing to fetch.
+-- Uses ch-enrichment concurrency group (same as ch-detail-fetch).
+INSERT INTO scheduled_tasks (
+    name, agent_type, schedule, enabled,
+    concurrency_group, pre_query,
+    config
+) VALUES (
+             'ch-fetch-accounts',
+             'ch-accounts-fetcher',
+             '*/20 * * * *',
+             false,  -- start disabled, enable after migration verified
+             'ch-enrichment',
+             'SELECT EXISTS(
+                 SELECT 1 FROM business_intel.ch_vet_companies ch
+                 JOIN business_intel.companies_house_data chd ON chd.business_id = ch.matched_business_id
+                 WHERE ch.details_fetched = true
+                   AND ch.accounts_fetched = false
+                   AND ch.match_method NOT IN (''pending_llm_review'', ''llm_uncertain'')
+                 LIMIT 1
+             ) AS has_work',
+             jsonb_build_object(
+                     'agent_type', 'ch-accounts-fetcher'
+             )
+         )
+    ON CONFLICT (name)
+DO UPDATE SET
+    agent_type = EXCLUDED.agent_type,
+           schedule = EXCLUDED.schedule,
+           concurrency_group = EXCLUDED.concurrency_group,
+           pre_query = EXCLUDED.pre_query,
+           config = EXCLUDED.config,
+           updated_at = NOW();
+
+---
+
+-- Scheduled task for ch-fetch-accounts
+-- Run against clients_db as clients_user.
+--
+-- The ch-accounts-fetcher agent definition already exists (ea99a5f5-...).
+-- This just creates the scheduled task to trigger it.
+--
+-- The scheduler fires to the business-intel pod's requests topic.
+-- input_data.config.agent_type tells selectWorkflow which agent definition to load.
+
+INSERT INTO scheduled_tasks (
+    name,
+    target_agent_type,
+    target_topic,
+    input_data,
+    pre_query,
+    interval_seconds,
+    concurrency_group,
+    max_concurrent,
+    timeout_seconds,
+    enabled,
+    fire_message
+) VALUES (
+             'ch-fetch-accounts',
+             'ch-accounts-fetcher',
+             'system.agent.business-intel.requests',
+             '{"config": {"agent_type": "ch-accounts-fetcher"}}'::jsonb,
+             'SELECT 1 AS has_work
+              FROM business_intel.ch_vet_companies ch
+              JOIN business_intel.companies_house_data chd ON chd.business_id = ch.matched_business_id
+              WHERE ch.details_fetched = true
+                AND ch.accounts_fetched = false
+                AND ch.match_method NOT IN (''pending_llm_review'', ''llm_uncertain'')
+              LIMIT 1',
+             1200,           -- every 20 min, same as ch-detail-fetch
+             'ch-enrichment', -- same concurrency group as ch-detail-fetch
+             1,
+             3600,           -- 1 hour timeout
+             false,          -- start disabled, enable after migration verified
+             true
+         )
+    ON CONFLICT (name)
+DO UPDATE SET
+    target_agent_type = EXCLUDED.target_agent_type,
+           target_topic = EXCLUDED.target_topic,
+           input_data = EXCLUDED.input_data,
+           pre_query = EXCLUDED.pre_query,
+           interval_seconds = EXCLUDED.interval_seconds,
+           concurrency_group = EXCLUDED.concurrency_group,
+           max_concurrent = EXCLUDED.max_concurrent,
+           timeout_seconds = EXCLUDED.timeout_seconds,
+           fire_message = EXCLUDED.fire_message,
+           updated_at = NOW();
+
