@@ -556,3 +556,39 @@ WHERE type = 'page-build-handler' AND deleted_at IS NULL;
 -- validate_error = mark_needs_review
 -- save_reads_from = validation_result.clean_html
 -- review_status = needs_human_review
+
+---
+
+-- timeout issues
+-- Check current timeout
+SELECT default_config->'workflow'->'steps'->'call_content_writer'->'config'->>'timeout_seconds' as current_timeout
+FROM agent_definitions WHERE type = 'page-build-handler';
+
+-- Increase call_content_writer timeout from 300 to 900
+UPDATE agent_definitions
+SET default_config = replace(
+        default_config::text,
+        '"timeout_seconds": 300}, "next_step": "check_content_produced"',
+        '"timeout_seconds": 900}, "next_step": "check_content_produced"'
+                     )::jsonb
+WHERE type = 'page-build-handler';
+
+-- Verify
+SELECT default_config->'workflow'->'steps'->'call_content_writer'->'config'->>'timeout_seconds' as new_timeout
+FROM agent_definitions WHERE type = 'page-build-handler';
+
+--
+
+-- Increase page-build-handler workflow timeout to match
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,timeout_seconds}',
+        '1800'
+                     )
+WHERE type = 'page-build-handler';
+
+-- Verify
+SELECT default_config->'workflow'->'steps'->'call_content_writer'->'config'->>'timeout_seconds' as step_timeout,
+    default_config->'workflow'->>'timeout_seconds' as workflow_timeout
+FROM agent_definitions WHERE type = 'page-build-handler';

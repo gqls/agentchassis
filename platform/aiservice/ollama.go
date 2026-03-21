@@ -117,9 +117,9 @@ func (c *OllamaClient) GenerateText(ctx context.Context, prompt string, options 
 		Message struct {
 			Content string `json:"content"`
 		} `json:"message"`
-		Model        string `json:"model"`
-		PromptEvalCount   int `json:"prompt_eval_count"`
-		EvalCount         int `json:"eval_count"`
+		Model           string `json:"model"`
+		PromptEvalCount int    `json:"prompt_eval_count"`
+		EvalCount       int    `json:"eval_count"`
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {

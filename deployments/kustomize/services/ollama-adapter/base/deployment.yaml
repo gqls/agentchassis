@@ -22,7 +22,9 @@ spec:
             - |
               ollama serve &
               SERVER_PID=$!
-              until curl -s http://localhost:11434/api/tags > /dev/null 2>&1; do
+              # Wait for server using ollama CLI (no curl/wget dependency)
+              for i in $(seq 1 30); do
+                ollama list > /dev/null 2>&1 && break
                 sleep 1
               done
               echo "Ollama server ready, pulling models..."

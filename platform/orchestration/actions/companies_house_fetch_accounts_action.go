@@ -315,20 +315,21 @@ func fetchAndParseAccounts(ctx context.Context, apiKey string, httpClient *http.
 		return nil, fmt.Errorf("document metadata: %w", err)
 	}
 
-	// Find the iXBRL content URL
+	// Check if iXBRL format is available.
+	// CH document API: resources map lists available formats by MIME type.
+	// To download, request the SAME document URL with the desired Accept header.
+	// There is no nested "content_url" — the document URL serves all formats.
 	resources, _ := metaResp["resources"].(map[string]interface{})
-	var contentURL string
-	for mimeType, resource := range resources {
+	hasIXBRL := false
+	for mimeType := range resources {
 		if strings.Contains(mimeType, "xhtml") || strings.Contains(mimeType, "xml") {
-			if resMap, ok := resource.(map[string]interface{}); ok {
-				contentURL, _ = resMap["content_url"].(string)
-				break
-			}
+			hasIXBRL = true
+			break
 		}
 	}
 
-	if contentURL == "" {
-		// Try PDF as fallback — can't parse, but note it exists
+	if !hasIXBRL {
+		// Only PDF available — can't parse, but note it exists
 		lc.Logger.Info("CHFetchAccounts: no iXBRL available, only PDF",
 			zap.String("company_number", companyNumber))
 		result := map[string]interface{}{
@@ -341,16 +342,17 @@ func fetchAndParseAccounts(ctx context.Context, apiKey string, httpClient *http.
 
 	time.Sleep(time.Duration(delayMs) * time.Millisecond)
 
-	// Step 3: Download iXBRL content (follows redirects to S3)
-	resolvedContentURL := resolveDocumentURL(contentURL)
+	// Step 3: Download iXBRL content.
+	// Request the same document URL with Accept: application/xhtml+xml.
+	// CH redirects to S3 where the actual content lives.
 	callStart = time.Now()
-	ixbrlContent, err := downloadDocument(ctx, httpClient, apiKey, contentURL)
+	ixbrlContent, err := downloadDocument(ctx, httpClient, apiKey, resolvedMetaURL)
 	latencyMs = int(time.Since(callStart).Milliseconds())
 
 	LogHTTPRequest(lc.DB, lc.Logger, HTTPRequestLogParams{
 		AgentType: lc.AgentType, AgentID: lc.AgentID, StepName: lc.StepName,
 		OrchestrationID: lc.OrchestrationID, CorrelationID: lc.CorrelationID,
-		ActionName: lc.ActionName, Method: "GET", URL: resolvedContentURL,
+		ActionName: lc.ActionName, Method: "GET", URL: resolvedMetaURL,
 		StatusCode: httpStatusFromErr(err, 200), LatencyMs: latencyMs,
 		ResponseBytes: len(ixbrlContent),
 		Success:       err == nil, ErrorMessage: errString(err), Metadata: meta,
