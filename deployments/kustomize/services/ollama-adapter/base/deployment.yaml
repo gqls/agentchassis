@@ -5,7 +5,7 @@ metadata:
   labels:
     app: ollama-adapter
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: ollama-adapter
@@ -71,5 +71,5 @@ spec:
             periodSeconds: 30
       volumes:
         - name: ollama-models
-          persistentVolumeClaim:
-            claimName: ollama-models-pvc
+          emptyDir:
+            sizeLimit: 12Gi

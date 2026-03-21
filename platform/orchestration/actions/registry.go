@@ -442,6 +442,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Review ambiguous CH matches using LLM judgment",
 		IsLocal:     true,
 	},
+	"ch_scrape_company_number": {
+		Handler:     CHScrapeCompanyNumberAction,
+		Category:    "data",
+		Description: "Scrape business websites for company registration numbers",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// SITE — building, assembly, rendering, pages, styles, git, navigation

@@ -15,7 +15,7 @@ labels:
 
 images:
   - name: docker.io/aqls/web-scrape-adapter
-    newTag: v1.0.896
+    newTag: v1.0.897
 
 replicas:
   - name: web-scrape-adapter

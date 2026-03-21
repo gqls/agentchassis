@@ -14,6 +14,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -304,6 +305,32 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 		params.Logger.Warn("Failed to bump verification count", zap.Error(err))
 	}
 
+	// 4d. Company number extraction — regex fallback if LLM didn't find it.
+	// The LLM may extract registration_number via the prompt, stored by
+	// updateBusinessFields. If not, try regex on the scraped content.
+	companyNumberFound := ""
+	if bizData, ok := verResult["business"].(map[string]interface{}); ok {
+		if regNum, ok := bizData["registration_number"].(string); ok && regNum != "" {
+			companyNumberFound = regNum
+		}
+	}
+
+	if companyNumberFound == "" {
+		// Try regex on scraped content from collected data
+		companyNumberFound = extractCompanyNumberFromCollectedData(params.CollectedData, params.Logger)
+		if companyNumberFound != "" {
+			// Store the regex-extracted number
+			_, _ = tx.ExecContext(ctx, `
+				UPDATE business_intel.businesses
+				SET company_number_scraped = $1, updated_at = NOW()
+				WHERE id = $2 AND (company_number_scraped IS NULL OR company_number_scraped = '')`,
+				companyNumberFound, businessID)
+			params.Logger.Info("StoreBusinessVerification: extracted company number via regex",
+				zap.String("business_id", businessID),
+				zap.String("company_number", companyNumberFound))
+		}
+	}
+
 	// 5. Update collection task - prefer task_id, fall back to orchestration_id
 	if taskID != "" {
 		_, _ = tx.ExecContext(ctx, `
@@ -331,15 +358,42 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
+	// Post-commit: attempt CH match if we have a company number.
+	// Best-effort — doesn't affect the verification result.
+	chMatched := false
+	if companyNumberFound != "" {
+		matchResult, err := params.DB.ExecContext(ctx, `
+			UPDATE business_intel.ch_vet_companies
+			SET matched_business_id = $1,
+				matched_at = NOW(),
+				match_confidence = 1.0,
+				match_method = 'company_number_scraped',
+				updated_at = NOW()
+			WHERE company_number = $2
+			  AND company_status = 'active'
+			  AND matched_business_id IS NULL`,
+			businessID, companyNumberFound)
+		if err == nil {
+			if rows, _ := matchResult.RowsAffected(); rows > 0 {
+				chMatched = true
+				params.Logger.Info("StoreBusinessVerification: CH matched by company number",
+					zap.String("business_id", businessID),
+					zap.String("company_number", companyNumberFound))
+			}
+		}
+	}
+
 	result := map[string]interface{}{
-		"stored":          true,
-		"business_id":     businessID,
-		"updated_fields":  updatedFields,
-		"vet_updated":     vetUpdated,
-		"prices_stored":   pricesStored,
-		"contacts_stored": contactsStored,
-		"search_cached":   true,
-		"stored_at":       time.Now().UTC().Format(time.RFC3339),
+		"stored":               true,
+		"business_id":          businessID,
+		"updated_fields":       updatedFields,
+		"vet_updated":          vetUpdated,
+		"prices_stored":        pricesStored,
+		"contacts_stored":      contactsStored,
+		"search_cached":        true,
+		"company_number_found": companyNumberFound,
+		"ch_matched":           chMatched,
+		"stored_at":            time.Now().UTC().Format(time.RFC3339),
 	}
 
 	params.Logger.Info("StoreBusinessVerificationAction: Stored",
@@ -793,20 +847,21 @@ func coerceToFloat64(val interface{}) interface{} {
 // ============================================================================
 func updateBusinessFields(ctx context.Context, tx *sql.Tx, businessID string, data map[string]interface{}) (int, error) {
 	allowedFields := map[string]string{
-		"name":          "name",
-		"trading_name":  "trading_name",
-		"address_line1": "address_line1",
-		"address_line2": "address_line2",
-		"town":          "town",
-		"county":        "county",
-		"postcode":      "postcode",
-		"phone":         "phone",
-		"email":         "email",
-		"website_url":   "website_url",
-		"business_type": "business_type",
-		"group_name":    "group_name",
-		"latitude":      "latitude",
-		"longitude":     "longitude",
+		"name":                "name",
+		"trading_name":        "trading_name",
+		"address_line1":       "address_line1",
+		"address_line2":       "address_line2",
+		"town":                "town",
+		"county":              "county",
+		"postcode":            "postcode",
+		"phone":               "phone",
+		"email":               "email",
+		"website_url":         "website_url",
+		"business_type":       "business_type",
+		"group_name":          "group_name",
+		"latitude":            "latitude",
+		"longitude":           "longitude",
+		"registration_number": "company_number_scraped",
 	}
 
 	numericFields := map[string]bool{
@@ -1326,4 +1381,72 @@ func pgArrayToSlice(s string) []string {
 		return []string{}
 	}
 	return strings.Split(s, ",")
+}
+
+// ============================================================================
+// Company number regex extraction
+// ============================================================================
+
+// Patterns for extracting UK company registration numbers from website HTML.
+// Used as a fallback when the LLM doesn't extract registration_number.
+var companyRegNumberPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)company\s*(?:number|no\.?|reg(?:istration)?\.?)\s*[:.]?\s*(\d{7,8})`),
+	regexp.MustCompile(`(?i)registered\s+(?:in\s+)?(?:england|wales|scotland|england\s*(?:&|and)\s*wales)[\s,]*(?:number|no\.?|reg\.?)?\s*[:.]?\s*(\d{7,8})`),
+	regexp.MustCompile(`(?i)registered\s+company\s*[:.]?\s*(\d{7,8})`),
+	regexp.MustCompile(`(?i)registration\s+(?:number|no\.?)\s*[:.]?\s*(\d{7,8})`),
+	regexp.MustCompile(`(?i)reg\.?\s*no\.?\s*[:.]?\s*(\d{7,8})`),
+	regexp.MustCompile(`\b(SC\d{6})\b`),
+	regexp.MustCompile(`\b(NI\d{6})\b`),
+}
+
+// extractCompanyNumberFromCollectedData tries to find a company registration number
+// in the scraped content from the verification workflow's collected data.
+// Looks in scraped_data.content (the text content from scrape_web action).
+func extractCompanyNumberFromCollectedData(collectedData map[string]interface{}, logger *zap.Logger) string {
+	// Try scraped_data.content (from scrape_web action)
+	var content string
+	if scrapedData, ok := collectedData["scraped_data"].(map[string]interface{}); ok {
+		if c, ok := scrapedData["content"].(string); ok {
+			content = c
+		}
+	}
+
+	if content == "" {
+		return ""
+	}
+
+	// Focus on the bottom 40% of content (footer region) first
+	footerStart := len(content) * 60 / 100
+	if footerStart < len(content) {
+		if num := extractRegNumber(content[footerStart:]); num != "" {
+			return num
+		}
+	}
+
+	// Fall back to full content
+	return extractRegNumber(content)
+}
+
+// extractRegNumber applies regex patterns to find a company registration number.
+func extractRegNumber(text string) string {
+	for _, pattern := range companyRegNumberPatterns {
+		matches := pattern.FindStringSubmatch(text)
+		if len(matches) >= 2 {
+			num := strings.TrimSpace(matches[1])
+
+			// SC/NI prefixed — return as-is
+			if strings.HasPrefix(num, "SC") || strings.HasPrefix(num, "NI") {
+				return num
+			}
+
+			// Validate: 7 or 8 digits
+			if len(num) >= 7 && len(num) <= 8 {
+				if len(num) == 7 {
+					num = "0" + num
+				}
+				return num
+			}
+		}
+	}
+	return ""
 }
