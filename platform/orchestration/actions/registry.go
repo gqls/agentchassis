@@ -442,6 +442,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Review ambiguous CH matches using LLM judgment",
 		IsLocal:     true,
 	},
+	"ch_fetch_accounts": {
+		Handler:     CHFetchAccountsAction,
+		Category:    "data",
+		Description: "Fetch and parse filed accounts (iXBRL) for financial data",
+		IsLocal:     true,
+	},
 	"ch_scrape_company_number": {
 		Handler:     CHScrapeCompanyNumberAction,
 		Category:    "data",
