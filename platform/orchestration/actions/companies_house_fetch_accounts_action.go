@@ -317,8 +317,7 @@ func fetchAndParseAccounts(ctx context.Context, apiKey string, httpClient *http.
 
 	// Check if iXBRL format is available.
 	// CH document API: resources map lists available formats by MIME type.
-	// To download, request the SAME document URL with the desired Accept header.
-	// There is no nested "content_url" — the document URL serves all formats.
+	// The actual content is at /document/{id}/content with the appropriate Accept header.
 	resources, _ := metaResp["resources"].(map[string]interface{})
 	hasIXBRL := false
 	for mimeType := range resources {
@@ -343,16 +342,24 @@ func fetchAndParseAccounts(ctx context.Context, apiKey string, httpClient *http.
 	time.Sleep(time.Duration(delayMs) * time.Millisecond)
 
 	// Step 3: Download iXBRL content.
-	// Request the same document URL with Accept: application/xhtml+xml.
-	// CH redirects to S3 where the actual content lives.
+	// The content URL is at links.document in the metadata response,
+	// or the metadata URL + "/content". Both point to the same place.
+	// Request with Accept: application/xhtml+xml → CH 302s to S3.
+	contentURL := resolvedMetaURL + "/content"
+	if links, ok := metaResp["links"].(map[string]interface{}); ok {
+		if docURL, ok := links["document"].(string); ok && docURL != "" {
+			contentURL = docURL
+		}
+	}
+
 	callStart = time.Now()
-	ixbrlContent, err := downloadDocument(ctx, httpClient, apiKey, resolvedMetaURL)
+	ixbrlContent, err := downloadDocument(ctx, httpClient, apiKey, contentURL)
 	latencyMs = int(time.Since(callStart).Milliseconds())
 
 	LogHTTPRequest(lc.DB, lc.Logger, HTTPRequestLogParams{
 		AgentType: lc.AgentType, AgentID: lc.AgentID, StepName: lc.StepName,
 		OrchestrationID: lc.OrchestrationID, CorrelationID: lc.CorrelationID,
-		ActionName: lc.ActionName, Method: "GET", URL: resolvedMetaURL,
+		ActionName: lc.ActionName, Method: "GET", URL: contentURL,
 		StatusCode: httpStatusFromErr(err, 200), LatencyMs: latencyMs,
 		ResponseBytes: len(ixbrlContent),
 		Success:       err == nil, ErrorMessage: errString(err), Metadata: meta,
