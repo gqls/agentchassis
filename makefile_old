@@ -561,19 +561,6 @@ quick-scheduler-update: ## Build, push and deploy kafka-scheduler with current I
 logs-scheduler: ## Tail logs from kafka-scheduler
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl logs -f -n $(PROJECT_NAME) -l app=kafka-scheduler
 
-.PHONY: deploy-ollama-adapter
-deploy-ollama-adapter: ## Deploy ollama-adapter using kustomize (uses ollama/ollama image, not aqls)
-	@echo "$(YELLOW)Deploying ollama-adapter...$(NC)"
-	@if [ -d "$(KUSTOMIZE_DIR)/services/ollama-adapter/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/ollama-adapter/overlays/$(OVERLAY_PATH); \
-	else \
-		echo "$(RED)Ollama adapter kustomize directory not found at $(KUSTOMIZE_DIR)/services/ollama-adapter/overlays/$(OVERLAY_PATH)$(NC)"; \
-	fi
-
-.PHONY: logs-ollama
-logs-ollama: ## Tail logs from ollama-adapter
-	KUBECONFIG=$(KUBECONFIG_PATH) kubectl logs -f -n $(PROJECT_NAME) -l app=ollama-adapter
-
 
 #################################
 # WireGuard VPN
@@ -833,12 +820,6 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/business-intel/overlays/$(OVERLAY_PATH); \
 	fi
 
-	# Deploy ollama-adapter (uses ollama/ollama image — NOT updated by IMAGE_TAG)
-	@echo "Deploying ollama-adapter..."
-	@if [ -d "$(KUSTOMIZE_DIR)/services/ollama-adapter/overlays/$(OVERLAY_PATH)" ]; then \
-		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/ollama-adapter/overlays/$(OVERLAY_PATH); \
-	fi
-
 
 	# Update database agent definitions
 	@$(MAKE) update-agent-images-v2 IMAGE_TAG=$(IMAGE_TAG)
@@ -866,7 +847,6 @@ redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	kubectl rollout restart deployment kafka-scheduler -n ai-persona-system
 	kubectl rollout restart deployment vet-intel -n ai-persona-system 2>/dev/null || true
 	kubectl rollout restart deployment business-intel -n ai-persona-system 2>/dev/null || true
-	kubectl rollout restart deployment ollama-adapter -n ai-persona-system 2>/dev/null || true
 
 .PHONY: deploy-frontends
 deploy-frontends: ## Deploy all frontend applications

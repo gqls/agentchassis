@@ -17,6 +17,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -125,13 +126,71 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 			zap.Int("batch_start", i),
 			zap.Int("batch_size", len(batch)))
 
-		response, err := aiClient.GenerateText(ctx, prompt, nil)
+		// Build options map so token usage can be written back by the AI client
+		llmOptions := map[string]interface{}{}
+		llmCallStart := time.Now()
+
+		response, err := aiClient.GenerateText(ctx, prompt, llmOptions)
+
+		llmLatencyMs := int(time.Since(llmCallStart).Milliseconds())
+
+		// Extract model name for logging
+		llmModel := ""
+		if m, ok := aiServiceConfig["model"].(string); ok {
+			llmModel = m
+		}
+		llmProvider := ""
+		if p, ok := aiServiceConfig["provider"].(string); ok {
+			llmProvider = p
+		}
+
 		if err != nil {
 			params.Logger.Warn("CHLLMReview: LLM call failed",
 				zap.Int("batch_start", i),
 				zap.Error(err))
+
+			// Log the failed call
+			LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
+				AgentType:       params.AgentType,
+				AgentID:         params.Headers["agent_id"],
+				StepName:        params.ExecutionContext.StepName,
+				OrchestrationID: params.ExecutionContext.OrchestrationID,
+				CorrelationID:   params.ExecutionContext.CorrelationID,
+				Model:           llmModel,
+				Provider:        llmProvider,
+				PromptRendered:  prompt,
+				LatencyMs:       llmLatencyMs,
+				Success:         false,
+				ErrorMessage:    err.Error(),
+			})
+
 			continue
 		}
+
+		// Log the successful call
+		inputTokens := 0
+		outputTokens := 0
+		if it, ok := llmOptions["__usage_input_tokens"].(int); ok {
+			inputTokens = it
+		}
+		if ot, ok := llmOptions["__usage_output_tokens"].(int); ok {
+			outputTokens = ot
+		}
+		LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
+			AgentType:       params.AgentType,
+			AgentID:         params.Headers["agent_id"],
+			StepName:        params.ExecutionContext.StepName,
+			OrchestrationID: params.ExecutionContext.OrchestrationID,
+			CorrelationID:   params.ExecutionContext.CorrelationID,
+			Model:           llmModel,
+			Provider:        llmProvider,
+			PromptRendered:  prompt,
+			ResponseText:    response,
+			InputTokens:     inputTokens,
+			OutputTokens:    outputTokens,
+			LatencyMs:       llmLatencyMs,
+			Success:         true,
+		})
 
 		decisions := parseReviewResponse(response, len(batch))
 
