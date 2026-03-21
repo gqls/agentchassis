@@ -864,6 +864,20 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		IsLocal:     true,
 	},
 
+	// RAG — retrieval-augmented generation
+	"rag_lookup": {
+		Handler:     RAGLookupAction,
+		Category:    "storage",
+		Description: "Search the knowledge base for relevant content using vector similarity",
+		IsLocal:     true,
+	},
+	"rag_index": {
+		Handler:     RAGIndexAction,
+		Category:    "storage",
+		Description: "Chunk, embed, and store content in the knowledge base",
+		IsLocal:     true,
+	},
+
 	// tool lifecycle (deploy, update)
 	"deploy_tool_to_site": {
 		Handler:     DeployToolToSiteAction,

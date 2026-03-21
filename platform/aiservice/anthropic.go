@@ -160,10 +160,20 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
+		Usage struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		} `json:"usage"`
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Write usage tokens back to options so the caller can log them
+	if options != nil {
+		options["__usage_input_tokens"] = response.Usage.InputTokens
+		options["__usage_output_tokens"] = response.Usage.OutputTokens
 	}
 
 	if len(response.Content) == 0 {

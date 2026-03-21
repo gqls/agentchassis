@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama-adapter
+  labels:
+    app: ollama-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama-adapter
+  template:
+    metadata:
+      labels:
+        app: ollama-adapter
+    spec:
+      initContainers:
+        - name: model-pull
+          image: ollama/ollama:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              ollama serve &
+              SERVER_PID=$!
+              until curl -s http://localhost:11434/api/tags > /dev/null 2>&1; do
+                sleep 1
+              done
+              echo "Ollama server ready, pulling models..."
+              ollama pull nomic-embed-text
+              echo "Models pulled successfully"
+              kill $SERVER_PID
+              wait $SERVER_PID 2>/dev/null
+              echo "Init complete"
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports:
+            - containerPort: 11434
+              name: http
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: ollama-models
+          persistentVolumeClaim:
+            claimName: ollama-models-pvc

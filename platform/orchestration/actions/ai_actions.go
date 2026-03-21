@@ -262,17 +262,45 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	// Resolve model alias to actual API model name
+	var modelAlias string // preserve original alias for logging
+	var resolvedModel string
 	if model, ok := options["model"].(string); ok {
-		resolvedModel := aiservice.ResolveModelAlias(model, params.Logger)
+		modelAlias = model
+		resolvedModel = aiservice.ResolveModelAlias(model, params.Logger)
 		options["model"] = resolvedModel
 	}
+
+	// Track provider for logging
+	provider, _ := aiServiceConfig["provider"].(string)
+
+	// Start timing the LLM call
+	llmCallStart := time.Now()
 
 	// Call the AI service
 	result, err := aiClient.GenerateText(ctx, renderedPrompt, options)
 	if err != nil {
+		llmLatencyMs := int(time.Since(llmCallStart).Milliseconds())
 		params.Logger.Info("AI call failed once",
 			zap.Error(err),
 		)
+
+		// Log the failed call
+		LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
+			AgentType:       params.AgentType,
+			AgentID:         params.Headers["agent_id"],
+			StepName:        params.ExecutionContext.StepName,
+			OrchestrationID: params.ExecutionContext.OrchestrationID,
+			CorrelationID:   params.ExecutionContext.CorrelationID,
+			Model:           modelAlias,
+			ModelResolved:   resolvedModel,
+			Provider:        provider,
+			PromptTemplate:  promptTemplate,
+			PromptRendered:  renderedPrompt,
+			LatencyMs:       llmLatencyMs,
+			Success:         false,
+			ErrorMessage:    err.Error(),
+		})
+
 		errStr := err.Error()
 
 		// Check for model-related errors
@@ -285,7 +313,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 				zap.Error(err),
 			)
 
-			return nil, fmt.Errorf("model '%s' not found. Use aliases like: claude-sonnet-4-5, claude-haiku-4-5, claude-opus-4-5. Error: %w",
+			return nil, fmt.Errorf("model '%s' not found. Use aliases like: claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5. Error: %w",
 				modelUsed, err)
 		}
 
@@ -332,6 +360,34 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 
 	params.Logger.Info("LLM response received",
 		zap.String("result_preview", datahelpers.TruncateString(result, 200)))
+
+	// Log the successful LLM call
+	llmLatencyMs := int(time.Since(llmCallStart).Milliseconds())
+	inputTokens := 0
+	outputTokens := 0
+	if it, ok := options["__usage_input_tokens"].(int); ok {
+		inputTokens = it
+	}
+	if ot, ok := options["__usage_output_tokens"].(int); ok {
+		outputTokens = ot
+	}
+	LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
+		AgentType:       params.AgentType,
+		AgentID:         params.Headers["agent_id"],
+		StepName:        params.ExecutionContext.StepName,
+		OrchestrationID: params.ExecutionContext.OrchestrationID,
+		CorrelationID:   params.ExecutionContext.CorrelationID,
+		Model:           modelAlias,
+		ModelResolved:   resolvedModel,
+		Provider:        provider,
+		PromptTemplate:  promptTemplate,
+		PromptRendered:  renderedPrompt,
+		ResponseText:    result,
+		InputTokens:     inputTokens,
+		OutputTokens:    outputTokens,
+		LatencyMs:       llmLatencyMs,
+		Success:         true,
+	})
 
 	// Strip markdown code blocks from response before processing
 	cleanedResult := stripMarkdownFromResponse(result)
@@ -686,10 +742,12 @@ func createAIClient(ctx context.Context, aiServiceConfig map[string]interface{})
 	switch provider {
 	case "anthropic":
 		return aiservice.NewAnthropicClient(ctx, aiServiceConfig)
+	case "ollama":
+		return aiservice.NewOllamaClient(ctx, aiServiceConfig)
 	case "openai":
 		return nil, fmt.Errorf("OpenAI provider not yet implemented")
 	default:
-		return nil, fmt.Errorf("unsupported AI provider: %s", provider)
+		return nil, fmt.Errorf("unsupported AI provider: %s. Supported: anthropic, ollama", provider)
 	}
 }
 

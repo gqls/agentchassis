@@ -178,3 +178,10 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+func truncateForLog(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}

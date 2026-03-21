@@ -91,10 +91,3 @@ func FormatDarkSectionWarning(componentName string, missing []string) string {
 		strings.Join(missing, ", "),
 	)
 }
-
-func truncateForLog(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
-}
