@@ -1765,4 +1765,15 @@ SET orchestration_workflow = jsonb_set(
         '10'
                              )::json
 WHERE type = 'build-dispatch-loop';
+--
+-- The load_items step config has no item_domain or item_pipeline filter:
+-- "load_items": {"action": "load_work_items", "config": {"site_id": "input_data.site_id", "max_items": 5}}
+-- This means LoadWorkItemsAction runs with no pipeline filter — it loads items from all pipelines. That worked before because everything was domain = 'build', but with the rename you should add the filter explicitly:
 
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_items,config,item_pipeline}',
+        '"build"'
+                     )
+WHERE type = 'build-dispatch-loop';

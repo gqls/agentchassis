@@ -44,7 +44,7 @@ import (
 
 var PlanSectionsInputSpec = datahelpers.ActionInputSpec{
 	Required:   []string{"site_id"},
-	Optional:   []string{"sections", "page_name", "domain", "work_item_id"},
+	Optional:   []string{"sections", "page_name", "pipeline", "work_item_id"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
 }
@@ -337,7 +337,6 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	}
 
 	pageName := inputs.Get("page_name")
-	domain := inputs.Get("domain")
 	workItemID := inputs.Get("work_item_id")
 
 	// Parse sections list
@@ -409,7 +408,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	// Create work items for deferred sections
 	if params.DB != nil && len(deferred) > 0 {
-		createDeferredItems(ctx, params.DB, siteID, domain, pageName, workItemID, deferred, logger)
+		createDeferredItems(ctx, params.DB, siteID, pageName, workItemID, deferred, logger)
 	}
 
 	// Build section names lists for the content writer
@@ -663,7 +662,7 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 // Create work items for deferred sections
 // ============================================================================
 
-func createDeferredItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, domain, pageName, parentWorkItemID string, deferred []sectionPlanItem, logger *zap.Logger) {
+func createDeferredItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName, parentWorkItemID string, deferred []sectionPlanItem, logger *zap.Logger) {
 	var parentID *uuid.UUID
 	if parentWorkItemID != "" {
 		if parsed, err := uuid.Parse(parentWorkItemID); err == nil {
@@ -703,7 +702,7 @@ func createDeferredItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, doma
 
 		_, err := db.ExecContext(ctx, `
 			INSERT INTO site_work_items (
-				site_id, source, domain, item_type, severity, summary,
+				site_id, source, pipeline, item_type, severity, summary,
 				spec, priority, status, created_by,
 				item_key, parent_item_id
 			) VALUES ($1, 'section-planner', 'build', 'needs_section_data', 'medium', $2,

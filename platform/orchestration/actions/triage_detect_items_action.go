@@ -1,16 +1,16 @@
 // FILE: platform/orchestration/actions/triage_detected_items_action.go
 //
 // TriageDetectedItemsAction promotes discovery findings from status='detected'
-// to status='triaged' with domain='build' so the dispatch loop picks them up.
+// to status='triaged' with pipeline='build' so the dispatch loop picks them up.
 //
-// Discovery agents write items with different domains (content, design) and
-// status='detected'. The dispatch loop filters item_domain='build' and
+// Discovery agents write items with different pipelines (content, design) and
+// status='detected'. The dispatch loop filters item_pipeline='build' and
 // status IN ('triaged', 'approved'). This action bridges the gap.
 //
 // Used by: improvement-loop agent (after all discovery agents complete)
 //
 // Config (literals):
-//   - target_domain: string — domain to set on promoted items (default: "build")
+//   - target_pipeline: string — pipeline to set on promoted items (default: "build")
 //   - batch_id:      string (path) — optional, only promote items from this batch
 //
 // Data inputs (via ActionInputSpec):
@@ -80,27 +80,27 @@ func TriageDetectedItemsAction(ctx context.Context, params ActionParams) (interf
 
 	// --- Config ---
 	config := params.StepConfig.Config
-	targetDomain := "build"
-	if td, ok := config["target_domain"].(string); ok && td != "" {
-		targetDomain = td
+	targetPipeline := "build"
+	if td, ok := config["target_pipeline"].(string); ok && td != "" {
+		targetPipeline = td
 	}
 
 	// --- Promote detected → triaged ---
-	// Sets domain to targetDomain so the dispatch loop (which filters item_domain='build')
-	// will pick them up. Preserves the original domain in spec.original_domain for auditing.
+	// Sets pipeline to targetPipeline so the dispatch loop (which filters item_pipeline='build')
+	// will pick them up. Preserves the original pipeline in spec.original_pipeline for auditing.
 	result, err := params.DB.ExecContext(ctx, `
 		UPDATE site_work_items
 		SET status = 'triaged',
 		    triaged_at = now(),
 		    spec = jsonb_set(
 		        COALESCE(spec, '{}'::jsonb),
-		        '{original_domain}',
-		        to_jsonb(domain)
+		        '{original_pipeline}',
+		        to_jsonb(pipeline)
 		    ),
-		    domain = $2
+		    pipeline = $2
 		WHERE site_id = $1
 		  AND status = 'detected'
-	`, siteID, targetDomain)
+	`, siteID, targetPipeline)
 	if err != nil {
 		return nil, fmt.Errorf("failed to promote detected items: %w", err)
 	}
@@ -110,13 +110,13 @@ func TriageDetectedItemsAction(ctx context.Context, params ActionParams) (interf
 	logger.Info("TriageDetectedItemsAction: Complete",
 		zap.String("site_id", siteIDStr),
 		zap.Int64("promoted", promoted),
-		zap.String("target_domain", targetDomain),
+		zap.String("target_pipeline", targetPipeline),
 	)
 
 	return map[string]interface{}{
-		"site_id":       siteIDStr,
-		"promoted":      promoted,
-		"target_domain": targetDomain,
-		"has_items":     promoted > 0,
+		"site_id":         siteIDStr,
+		"promoted":        promoted,
+		"target_pipeline": targetPipeline,
+		"has_items":       promoted > 0,
 	}, nil
 }

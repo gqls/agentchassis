@@ -62,3 +62,13 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'component-template-fixer' AND deleted_at IS NULL;
 
+
+UPDATE agent_definitions
+SET default_config = replace(
+        default_config::text,
+        'source, domain, item_type',
+        'source, pipeline, item_type'
+                     )::jsonb
+WHERE type = 'component-template-fixer';
+
+

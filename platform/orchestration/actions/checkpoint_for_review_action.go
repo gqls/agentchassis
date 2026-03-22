@@ -197,7 +197,7 @@ func CheckpointForReviewAction(ctx context.Context, params ActionParams) (interf
 	var newItemID uuid.UUID
 	err = params.DB.QueryRowContext(ctx, `
 		INSERT INTO site_work_items (
-			site_id, source, domain, item_type, severity, summary,
+			site_id, source, pipeline, item_type, severity, summary,
 			spec, page_id, priority, handler_agent, status, created_by
 		) VALUES ($1, 'checkpoint', 'build', $2, $3, $4, $5::jsonb, $6, $7, 'human-review', 'needs_human_review', $8)
 		RETURNING id

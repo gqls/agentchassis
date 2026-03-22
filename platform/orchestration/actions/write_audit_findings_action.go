@@ -607,7 +607,7 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 
 		_, err := params.DB.ExecContext(ctx, `
 			INSERT INTO site_work_items (
-				site_id, source, domain, item_type, severity, summary,
+				site_id, source, pipeline, item_type, severity, summary,
 				spec, page_id, priority, handler_agent, status, created_by,
 				item_key, batch_id
 			) VALUES ($1, $2, 'build', $3, $4, $5, $6::jsonb, $7, $8, $9, 'detected', $10, $11, $12)

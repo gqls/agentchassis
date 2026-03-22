@@ -44,7 +44,7 @@ func (h *SiteAdminHandlers) HandleListSites(c *gin.Context) {
 		       COUNT(*) FILTER (WHERE wi.status = 'failed') as items_failed,
 		       COUNT(*) FILTER (WHERE wi.status = 'blocked') as items_blocked
 		FROM sites s
-		LEFT JOIN site_work_items wi ON wi.site_id = s.id AND wi.domain = 'build'
+		LEFT JOIN site_work_items wi ON wi.site_id = s.id AND wi.pipeline = 'build'
 		WHERE s.status IN ('active', 'deployed')
 		GROUP BY s.id
 		ORDER BY s.domain
@@ -448,7 +448,7 @@ func (h *SiteAdminHandlers) HandleCreateWorkItem(c *gin.Context) {
 	var newID uuid.UUID
 	err = h.db.QueryRowContext(ctx, `
 		INSERT INTO site_work_items (
-			site_id, source, domain, item_type, severity, summary,
+			site_id, source, pipeline, item_type, severity, summary,
 			spec, page_id, priority, handler_agent, status, created_by
 		) VALUES ($1, 'admin', 'build', $2, $3, $4, $5::jsonb, $6, $7, $8, 'triaged', 'admin')
 		RETURNING id
@@ -475,7 +475,7 @@ func (h *SiteAdminHandlers) HandleCreateWorkItem(c *gin.Context) {
 func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 	ctx := c.Request.Context()
 	status := c.Query("status")
-	domain := c.DefaultQuery("domain", "build")
+	pipeline := c.DefaultQuery("pipeline", "build")
 	siteIDStr := c.Query("site_id")
 	itemType := c.Query("item_type")
 	limit := 50
@@ -487,9 +487,9 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 		       wi.error, wi.created_at, wi.completed_at
 		FROM site_work_items wi
 		JOIN sites s ON s.id = wi.site_id
-		WHERE wi.domain = $1
+		WHERE wi.pipeline = $1
 	`
-	args := []interface{}{domain}
+	args := []interface{}{pipeline}
 	argIdx := 2
 
 	if status != "" {
@@ -928,10 +928,10 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 
 		// Build follow-on spec with the approved data and any include_fields
 		followSpec := map[string]interface{}{
-			"approved_data":   json.RawMessage(body.ReviewData),
-			"approved_by":     "admin",
-			"source_item_id":  itemID.String(),
-			"original_domain": "build",
+			"approved_data":     json.RawMessage(body.ReviewData),
+			"approved_by":       "admin",
+			"source_item_id":    itemID.String(),
+			"original_pipeline": "build",
 		}
 		if specAspect != "" {
 			followSpec["spec_aspect"] = specAspect
@@ -951,7 +951,7 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 		var newID uuid.UUID
 		err = h.db.QueryRowContext(ctx, `
 			INSERT INTO site_work_items (
-				site_id, source, domain, item_type, severity, summary,
+				site_id, source, pipeline, item_type, severity, summary,
 				spec, priority, handler_agent, status, created_by
 			) VALUES ($1, 'admin-approved', 'build', $2, 'high', $3, $4::jsonb, 10, $5, 'triaged', 'admin')
 			RETURNING id

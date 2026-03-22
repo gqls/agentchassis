@@ -138,7 +138,7 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 
 		_, err = params.DB.ExecContext(ctx, `
 			INSERT INTO site_work_items (
-				site_id, source, domain, item_type, severity, summary,
+				site_id, source, pipeline, item_type, severity, summary,
 				page_id, priority, handler_agent, status, created_by,
 				spec, item_key, batch_id
 			) VALUES ($1, 'rerender-pages', 'build', 'page_rerender',

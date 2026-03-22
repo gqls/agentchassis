@@ -212,7 +212,7 @@ func applyAddToPage(ctx context.Context, db *sql.DB, plan map[string]interface{}
 
 		_, err = db.ExecContext(ctx, `
 			INSERT INTO site_work_items (
-				site_id, source, domain, item_type, severity, summary,
+				site_id, source, pipeline, item_type, severity, summary,
 				spec, page_id, priority, handler_agent, status, created_by,
 				item_key, parent_item_id
 			) VALUES ($1, 'content-gap-planner', 'build', 'content_rewrite', 'medium', $2,
@@ -375,7 +375,7 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO site_work_items (
-			site_id, source, domain, item_type, severity, summary,
+			site_id, source, pipeline, item_type, severity, summary,
 			spec, page_id, priority, handler_agent, status, created_by,
 			item_key, parent_item_id
 		) VALUES ($1, 'content-gap-planner', 'build', 'needs_content_page', 'medium', $2,

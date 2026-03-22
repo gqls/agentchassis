@@ -376,7 +376,7 @@ func (h *PageAdminHandlers) HandleUpdateComponent(c *gin.Context) {
 		var newID uuid.UUID
 		err = h.db.QueryRowContext(ctx, `
 			INSERT INTO site_work_items (
-				site_id, source, domain, item_type, severity, summary,
+				site_id, source, pipeline, item_type, severity, summary,
 				spec, page_id, priority, handler_agent, status, created_by
 			) VALUES ($1, 'admin-edit', 'build', 'page_rerender', 'high',
 			          $2, $3::jsonb, $4, 5, 'rerender-pages', 'triaged', 'admin')
@@ -575,7 +575,7 @@ func (h *PageAdminHandlers) HandleRemoveComponent(c *gin.Context) {
 	// Create rerender work item
 	h.db.ExecContext(ctx, `
 		INSERT INTO site_work_items (
-			site_id, source, domain, item_type, severity, summary,
+			site_id, source, pipeline, item_type, severity, summary,
 			spec, page_id, priority, handler_agent, status, created_by
 		) VALUES ($1, 'admin-edit', 'build', 'page_rerender', 'high',
 		          $2, $3::jsonb, $4, 5, 'rerender-pages', 'triaged', 'admin')
@@ -676,7 +676,7 @@ func (h *PageAdminHandlers) HandleRestoreSection(c *gin.Context) {
 		var newID uuid.UUID
 		err = h.db.QueryRowContext(ctx, `
 			INSERT INTO site_work_items (
-				site_id, source, domain, item_type, severity, summary,
+				site_id, source, pipeline, item_type, severity, summary,
 				spec, page_id, priority, handler_agent, status, created_by
 			) VALUES ($1, 'admin-restore', 'build', 'empty_section', 'medium',
 			          $2, $3::jsonb, $4, 50, 'page-build-handler', 'triaged', 'admin')
@@ -769,7 +769,7 @@ func (h *PageAdminHandlers) HandleRegenerateComponent(c *gin.Context) {
 	var newID uuid.UUID
 	err = h.db.QueryRowContext(ctx, `
 		INSERT INTO site_work_items (
-			site_id, source, domain, item_type, severity, summary,
+			site_id, source, pipeline, item_type, severity, summary,
 			spec, page_id, priority, handler_agent, status, created_by
 		) VALUES ($1, 'admin-regenerate', 'build', 'content_rewrite', 'medium',
 		          $2, $3::jsonb, $4, 20, 'page-build-handler', 'triaged', 'admin')
@@ -869,7 +869,7 @@ func (h *PageAdminHandlers) HandleRegeneratePage(c *gin.Context) {
 		var newID uuid.UUID
 		err = h.db.QueryRowContext(ctx, `
 			INSERT INTO site_work_items (
-				site_id, source, domain, item_type, severity, summary,
+				site_id, source, pipeline, item_type, severity, summary,
 				spec, page_id, priority, handler_agent, status, created_by
 			) VALUES ($1, 'admin-regenerate', 'build', 'content_rewrite', 'medium',
 			          $2, $3::jsonb, $4, 20, 'page-build-handler', 'triaged', 'admin')
@@ -1136,7 +1136,7 @@ func (h *PageAdminHandlers) HandleUpdateSiteComponent(c *gin.Context) {
 		var newID uuid.UUID
 		err = h.db.QueryRowContext(ctx, `
 			INSERT INTO site_work_items (
-				site_id, source, domain, item_type, severity, summary,
+				site_id, source, pipeline, item_type, severity, summary,
 				spec, priority, handler_agent, status, created_by
 			) VALUES ($1, 'admin-edit', 'build', 'needs_rerender', 'high',
 			          $2, $3::jsonb, 5, 'rerender-pages', 'triaged', 'admin')

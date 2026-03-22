@@ -811,3 +811,13 @@ clients_db=# -- Migration: 067_dispatch_remove_domain_filter.sql
 (1 row)
 
 
+--
+
+UPDATE agent_definitions
+SET default_config = replace(
+        default_config::text,
+        '"item_domain"',
+        '"item_pipeline"'
+                     )::jsonb
+WHERE type = 'site-work-orchestrator';
+

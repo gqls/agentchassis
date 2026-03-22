@@ -276,7 +276,7 @@ func (h *SpecAdminHandlers) HandlePropagateSpec(c *gin.Context) {
 		var newID uuid.UUID
 		err = h.db.QueryRowContext(ctx, `
 			INSERT INTO site_work_items (
-				site_id, source, domain, item_type, severity, summary,
+				site_id, source, pipeline, item_type, severity, summary,
 				spec, page_id, priority, handler_agent, status, created_by,
 				item_key
 			) VALUES ($1, 'admin-propagate', 'build', $2, $3, $4,

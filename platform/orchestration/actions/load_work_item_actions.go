@@ -35,9 +35,9 @@ var WriteBuildItemsInputSpec = datahelpers.ActionInputSpec{
 }
 
 // LoadWorkItemsInputSpec — only site_id needs resolution from collectedData.
-// Filter fields (item_domain, handler_agent, max_items) are pure config literals
+// Filter fields (item_pipeline, handler_agent, max_items) are pure config literals
 // and are read directly from params.StepConfig.Config in the action body.
-// NOTE: "domain" is NOT listed here because site_record.domain would be picked
+// NOTE: "pipeline" is NOT listed here because site_record.pipeline would be picked
 // up by nested lookup (field name collision — see checklist section on this).
 var LoadWorkItemsInputSpec = datahelpers.ActionInputSpec{
 	Required:   []string{"site_id"},
@@ -248,7 +248,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			ok, err := insertWorkItem(ctx, tx, workItem{
 				siteID:       siteID,
 				source:       "planner",
-				domain:       "build",
+				pipeline:     "build",
 				itemType:     "capability_gap",
 				severity:     "low",
 				summary:      fmt.Sprintf("Page '%s' needs %s (not yet available)", pageName, neededBuilder),
@@ -290,7 +290,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 		ok, err := insertWorkItem(ctx, tx, workItem{
 			siteID:       siteID,
 			source:       "planner",
-			domain:       "build",
+			pipeline:     "build",
 			itemType:     itemType,
 			severity:     "high",
 			summary:      fmt.Sprintf("Build page: %s", pageName),
@@ -322,7 +322,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			"image_prompts": planData["image_prompts"],
 		})
 		ok, _ := insertWorkItem(ctx, tx, workItem{
-			siteID: siteID, source: "planner", domain: "build",
+			siteID: siteID, source: "planner", pipeline: "build",
 			itemType: "needs_logo", severity: "high",
 			summary: "Generate site logo", spec: string(logoSpec),
 			priority: 5, handlerAgent: "image-build-handler",
@@ -339,7 +339,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			"image_prompts": planData["image_prompts"],
 		})
 		ok, _ := insertWorkItem(ctx, tx, workItem{
-			siteID: siteID, source: "planner", domain: "build",
+			siteID: siteID, source: "planner", pipeline: "build",
 			itemType: "needs_hero_image", severity: "medium",
 			summary: "Generate hero image", spec: string(heroSpec),
 			priority: 5, handlerAgent: "image-build-handler",
@@ -353,7 +353,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 
 	// Design tracking item
 	ok, _ := insertWorkItem(ctx, tx, workItem{
-		siteID: siteID, source: "planner", domain: "build",
+		siteID: siteID, source: "planner", pipeline: "build",
 		itemType: "needs_design", severity: "high",
 		summary: "Generate site stylesheet", spec: "{}",
 		priority: 8, handlerAgent: "webdesign-agent",
@@ -369,7 +369,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 		"refresh_site_components": true,
 	})
 	ok, _ = insertWorkItem(ctx, tx, workItem{
-		siteID: siteID, source: "planner", domain: "build",
+		siteID: siteID, source: "planner", pipeline: "build",
 		itemType: "needs_rerender", severity: "medium",
 		summary:  "Re-assemble and deploy all pages after build completes",
 		spec:     string(rerenderSpec),
@@ -414,8 +414,8 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 //   - site_id (required) — resolved from collectedData via path
 //
 // Config literals (read directly, NOT through ExtractActionInputs):
-//   - item_domain (optional) — filter by work item domain (e.g. "build")
-//     Named item_domain to avoid collision with site_record.domain
+//   - item_pipeline (optional) — filter by work item pipeline (e.g. "build")
+//     Named item_pipeline to avoid collision with site_record.pipeline
 //   - handler_agent (optional) — filter by handler agent type
 //   - max_items (optional, default 50)
 func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -447,15 +447,19 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 	}
 
 	// Filter params are config literals — read directly to avoid
-	// nested lookup collisions (e.g. "domain" → site_record.domain)
+	// nested lookup collisions (e.g. "pipeline" → site_record.pipeline)
 	config := params.StepConfig.Config
-	domainFilter, _ := config["item_domain"].(string)
+	pipelineFilter, _ := config["item_pipeline"].(string)
+	// Also accept old key for backwards compat during transition:
+	if pipelineFilter == "" {
+		pipelineFilter, _ = config["item_domain"].(string)
+	}
 	handlerFilter, _ := config["handler_agent"].(string)
 	maxItems := datahelpers.GetIntField(config, "max_items", 50)
 
 	query := `
 		SELECT 
-			wi.id, wi.site_id, wi.source, wi.domain, wi.item_type,
+			wi.id, wi.site_id, wi.source, wi.pipeline, wi.item_type,
 			wi.severity, wi.summary, wi.spec, wi.page_id, 
 			wi.priority, wi.handler_agent, wi.status, wi.item_key,
 			wi.batch_id, wi.attempt_count, 
@@ -480,9 +484,9 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 	args := []interface{}{siteID}
 	argIdx := 2
 
-	if domainFilter != "" {
-		query += fmt.Sprintf(" AND wi.domain = $%d", argIdx)
-		args = append(args, domainFilter)
+	if pipelineFilter != "" {
+		query += fmt.Sprintf(" AND wi.pipeline = $%d", argIdx)
+		args = append(args, pipelineFilter)
 		argIdx++
 	}
 
@@ -506,21 +510,21 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 
 	for rows.Next() {
 		var (
-			id, wiSiteID             uuid.UUID
-			source, domain, itemType string
-			severity, summary        string
-			specJSON                 []byte
-			pageID                   *uuid.UUID
-			priority                 int
-			handlerAgent, status     string
-			itemKey                  *string
-			batchID                  *uuid.UUID
-			attemptCount             int
-			approvalMode             string
+			id, wiSiteID               uuid.UUID
+			source, pipeline, itemType string
+			severity, summary          string
+			specJSON                   []byte
+			pageID                     *uuid.UUID
+			priority                   int
+			handlerAgent, status       string
+			itemKey                    *string
+			batchID                    *uuid.UUID
+			attemptCount               int
+			approvalMode               string
 		)
 
 		err := rows.Scan(
-			&id, &wiSiteID, &source, &domain, &itemType,
+			&id, &wiSiteID, &source, &pipeline, &itemType,
 			&severity, &summary, &specJSON, &pageID,
 			&priority, &handlerAgent, &status, &itemKey,
 			&batchID, &attemptCount, &approvalMode,
@@ -545,7 +549,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			"id":            id.String(),
 			"site_id":       wiSiteID.String(),
 			"source":        source,
-			"domain":        domain,
+			"pipeline":      pipeline,
 			"item_type":     itemType,
 			"severity":      severity,
 			"summary":       summary,
@@ -819,7 +823,7 @@ func resolveConfigPath(config map[string]interface{}, field string, collectedDat
 type workItem struct {
 	siteID       uuid.UUID
 	source       string
-	domain       string
+	pipeline     string
 	itemType     string
 	severity     string
 	summary      string
@@ -860,7 +864,7 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 
 	result, err := tx.ExecContext(ctx, `
 		INSERT INTO site_work_items (
-			site_id, source, domain, item_type, severity, summary, spec,
+			site_id, source, pipeline, item_type, severity, summary, spec,
 			page_id, priority, handler_agent, status, created_by,
 			item_key, batch_id, depends_on
 		) VALUES (
@@ -872,7 +876,7 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 			WHERE item_key IS NOT NULL 
 			  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
 		DO NOTHING
-	`, item.siteID, item.source, item.domain, item.itemType, item.severity,
+	`, item.siteID, item.source, item.pipeline, item.itemType, item.severity,
 		item.summary, item.spec,
 		item.pageID, item.priority, item.handlerAgent, item.status, item.createdBy,
 		itemKeyPtr, batchIDPtr, dependsOnStr,

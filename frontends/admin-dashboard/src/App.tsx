@@ -435,7 +435,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
         setLoading(true);
         try {
             // Load all non-complete items, filter client-side for accurate counts
-            let path = `/work-items?domain=build`;
+            let path = `/work-items?pipeline=build`;
             if (siteFilter?.id) path += `&site_id=${siteFilter.id}`;
             const data = await apiFetch(path, token);
             setAllItems(data.items || []);
