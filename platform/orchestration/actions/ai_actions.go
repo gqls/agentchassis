@@ -88,7 +88,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
-	params.Logger.Debug("ExecuteLLMPromptAction: preserving accumulated CollectedData",
+	params.Logger.Info("ExecuteLLMPromptAction: preserving accumulated CollectedData",
 		zap.Strings("keys", datahelpers.GetMapKeys(params.CollectedData)),
 		zap.Bool("has_current_section", params.CollectedData["current_section"] != nil),
 	)

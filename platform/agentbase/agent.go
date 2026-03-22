@@ -1434,6 +1434,10 @@ func (a *Agent) idleMonitor(timeout time.Duration) {
 		case <-ticker.C:
 			idle := time.Since(a.lastActivity)
 			if idle >= timeout {
+				a.logger.Info("Idle timeout reached, checking for awaiting orchestrations",
+					zap.Duration("idle_duration", idle),
+					zap.String("agent_id", a.AgentID),
+					zap.Bool("has_db", a.db != nil))
 				// Before killing, check if we have orchestrations awaiting responses.
 				// If so, we're not truly idle — we're waiting for children.
 				if a.hasAwaitingOrchestrations() {
@@ -1464,6 +1468,9 @@ func (a *Agent) idleMonitor(timeout time.Duration) {
 // Called by the idle monitor before triggering shutdown.
 func (a *Agent) hasAwaitingOrchestrations() bool {
 	if a.db == nil {
+		a.logger.Warn("hasAwaitingOrchestrations: db is nil",
+			zap.String("agent_id", a.AgentID),
+			zap.String("agent_type", a.AgentType))
 		return false
 	}
 	var count int
@@ -1476,9 +1483,14 @@ func (a *Agent) hasAwaitingOrchestrations() bool {
 		  AND updated_at > NOW() - INTERVAL '30 minutes'
 	`, a.AgentID).Scan(&count)
 	if err != nil {
-		a.logger.Warn("Failed to check awaiting orchestrations", zap.Error(err))
-		return false // fail open — allow idle kill if we can't check
+		a.logger.Warn("hasAwaitingOrchestrations: query failed",
+			zap.Error(err),
+			zap.String("agent_id", a.AgentID))
+		return false
 	}
+	a.logger.Info("hasAwaitingOrchestrations: checked",
+		zap.Int("awaiting_count", count),
+		zap.String("agent_id", a.AgentID))
 	return count > 0
 }
 
