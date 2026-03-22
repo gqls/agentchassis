@@ -63,9 +63,9 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	config := params.StepConfig.Config
-	checkDomain, _ := config["check_domain"].(string)
-	if checkDomain == "" {
-		checkDomain = "design"
+	checkPipeline, _ := config["check_pipeline"].(string)
+	if checkPipeline == "" {
+		checkPipeline = "design"
 	}
 
 	// --- Parse enabled checks from config ---
@@ -107,7 +107,7 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 		DB:        params.DB,
 		TX:        tx,
 		SiteID:    siteID,
-		Domain:    checkDomain,
+		Pipeline:  checkPipeline,
 		AgentType: agentType,
 		BatchID:   batchID,
 		Logger:    logger,

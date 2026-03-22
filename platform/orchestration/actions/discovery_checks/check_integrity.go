@@ -11,9 +11,9 @@
 // All are Layer 1 (algorithmic, no LLM). They run before LLM audits in the
 // improvement loop so the auditors see corrected state.
 //
-// Work item Domain is "build" for all items — the dispatch loop filters on
-// domain = 'build'. The check_domain in the discovery agent config is a
-// grouping label for the checks themselves, not the work item domain.
+// Work item Pipeline is "build" for all items — the dispatch loop filters on
+// pipeline = 'build'. The check_pipeline in the discovery agent config is a
+// grouping label for the checks themselves, not the work item pipeline.
 
 package discovery_checks
 
