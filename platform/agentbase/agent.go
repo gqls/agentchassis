@@ -1472,7 +1472,7 @@ func (a *Agent) hasAwaitingOrchestrations() bool {
 	err := a.db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM orchestration_states
 		WHERE owner_agent_id = $1::uuid
-		  AND status IN ('WAITING_FOR_RESPONSE', 'EXECUTING_STEP')
+		  AND status IN ('AWAITING_RESPONSES', 'EXECUTING_STEP')
 		  AND updated_at > NOW() - INTERVAL '30 minutes'
 	`, a.AgentID).Scan(&count)
 	if err != nil {

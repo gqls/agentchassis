@@ -1027,3 +1027,9 @@ HAVING COUNT(*) > 0
 '
 WHERE name = 'build-pipeline-trigger';
 
+--
+
+UPDATE scheduled_tasks
+SET pre_query = REPLACE(pre_query, 'WAITING_FOR_RESPONSE', 'AWAITING_RESPONSES')
+WHERE name = 'database-cleanup';
+
