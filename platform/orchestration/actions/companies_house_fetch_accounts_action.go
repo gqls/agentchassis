@@ -70,7 +70,6 @@ var ixbrlFieldMappings = []struct {
 		"ProfitLossOnOrdinaryActivitiesBeforeTax",
 		"ProfitLossForFinancialYear",
 		"ProfitLossForYear",
-		"ProfitLoss",
 	}, "CY", "profit_loss_gbp", "money"},
 }
 
@@ -539,10 +538,17 @@ func parseIXBRL(content string) map[string]interface{} {
 	// Map to DB fields
 	for _, mapping := range ixbrlFieldMappings {
 		for _, m := range matches {
-			// Tag name match: check if the name ends with any of the mapping tags
+			// Extract local name: "ns5:TurnoverRevenue" → "TurnoverRevenue"
+			// This prevents "GrossProfitLoss" matching a "ProfitLoss" entry
+			localName := m.Name
+			if idx := strings.LastIndex(m.Name, ":"); idx >= 0 {
+				localName = m.Name[idx+1:]
+			}
+
+			// Match local name exactly against any of the mapping tags
 			tagMatched := false
 			for _, tagName := range mapping.TagNames {
-				if strings.HasSuffix(m.Name, tagName) {
+				if localName == tagName {
 					tagMatched = true
 					break
 				}
