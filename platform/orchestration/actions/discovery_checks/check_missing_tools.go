@@ -44,7 +44,7 @@ func (c *MissingToolsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "add_tool",
 			Severity:     "low",
 			Summary:      fmt.Sprintf("Suggested tool: %s", tool.DisplayName),

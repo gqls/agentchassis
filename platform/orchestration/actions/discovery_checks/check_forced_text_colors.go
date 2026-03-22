@@ -37,7 +37,7 @@ func (c *ForcedTextColorsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 		WorkItems: []WorkItemSpec{{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "design",
+			Pipeline:     "design",
 			ItemType:     "forced_text_colors",
 			Severity:     "medium",
 			Summary:      fmt.Sprintf("Found %d sections with dark backgrounds missing light text color overrides", count),

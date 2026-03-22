@@ -13,7 +13,7 @@
 //           "site_id":       "input_data.site_id",
 //           "item_type":     "needs_briefing",
 //           "handler_agent": "briefing-agent",
-//           "item_domain":   "build",
+//           "item_pipeline":   "build",
 //           "severity":      "high",
 //           "source":        "domain-research-classifier",
 //           "summary":       "Briefing needed",
@@ -88,9 +88,12 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 	if handlerAgent == "" {
 		return nil, fmt.Errorf("handler_agent config is required")
 	}
-	itemDomain, _ := config["item_domain"].(string)
-	if itemDomain == "" {
-		itemDomain = "build"
+	itemPipeline, _ := config["item_pipeline"].(string)
+	if itemPipeline == "" {
+		itemPipeline, _ = config["item_domain"].(string) // backwards compat
+	}
+	if itemPipeline == "" {
+		itemPipeline = "build"
 	}
 	severity, _ := config["severity"].(string)
 	if severity == "" {
@@ -159,7 +162,7 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 	inserted, err := insertWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
 		source:       source,
-		domain:       itemDomain,
+		pipeline:     itemPipeline,
 		itemType:     itemType,
 		severity:     severity,
 		summary:      summary,

@@ -34,7 +34,7 @@ func (c *GenericThemeCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error
 		WorkItems: []WorkItemSpec{{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "generic_theme",
 			Severity:     "medium",
 			Summary:      "Site using default theme — no industry-specific styling",

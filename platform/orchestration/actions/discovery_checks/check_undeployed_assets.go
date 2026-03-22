@@ -42,7 +42,7 @@ func (c *UndeployedAssetsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "design",
+			Pipeline:     "design",
 			ItemType:     "undeployed_asset",
 			Severity:     "high",
 			Summary:      fmt.Sprintf("Asset '%s' generated but not deployed to site", asset.Purpose),

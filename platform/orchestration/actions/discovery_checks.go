@@ -145,7 +145,7 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 				siteID:       wi.SiteID,
 				pageID:       wi.PageID,
 				source:       wi.Source,
-				domain:       wi.Domain,
+				pipeline:     wi.Pipeline,
 				itemType:     wi.ItemType,
 				severity:     wi.Severity,
 				summary:      wi.Summary,

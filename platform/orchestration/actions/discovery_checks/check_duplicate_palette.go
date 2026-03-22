@@ -42,7 +42,7 @@ func (c *DuplicatePaletteCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 		WorkItems: []WorkItemSpec{{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "design",
+			Pipeline:     "design",
 			ItemType:     "duplicate_palette",
 			Severity:     "low",
 			Summary:      fmt.Sprintf("Colour palette identical to %d other site(s)", len(dupes)),

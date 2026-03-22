@@ -85,7 +85,7 @@ func (c *MissingStyleCollectionCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "missing_style_collection",
 			Severity:     "high",
 			Summary:      summary,
@@ -147,7 +147,7 @@ func (c *DeactivatedSiteComponentsCheck) Run(dctx DiscoveryCheckContext) (*Check
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "deactivated_component",
 			Severity:     "medium",
 			Summary:      fmt.Sprintf("Site component %s points to deactivated component '%s'", slotName, componentName),
@@ -220,7 +220,7 @@ func (c *StaleSiteComponentsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "needs_rerender",
 			Severity:     "medium",
 			Summary:      fmt.Sprintf("Site component %s is stale — last rendered before page content was updated", slotName),
@@ -285,7 +285,7 @@ func (c *SharedCSSThemeCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "needs_design_review",
 			Severity:     "medium",
 			Summary:      fmt.Sprintf("Site %s shares its style collection with %d other site(s) — needs its own collection", domain, themeCount),
@@ -359,7 +359,7 @@ func (c *CrossSiteContaminationCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "cross_site_contamination",
 			Severity:     "high",
 			Summary:      fmt.Sprintf("Site component %s contains '%s' from %s", slotName, foreignCompany, foreignDomain),
@@ -408,7 +408,7 @@ func (c *CrossSiteContaminationCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "content_rewrite",
 			Severity:     "high",
 			Summary:      fmt.Sprintf("Page %s section %s contains '%s' from %s", pageName, slotName, foreignCompany, foreignDomain),
@@ -474,7 +474,7 @@ func (c *UnrenderedTemplatesCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "unrendered_template",
 			Severity:     "high",
 			Summary:      fmt.Sprintf("Site component %s has unrendered Go template syntax", slotName),
@@ -516,7 +516,7 @@ func (c *UnrenderedTemplatesCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "content_rewrite",
 			Severity:     "high",
 			Summary:      fmt.Sprintf("Page %s section %s has unrendered template syntax", pageName, slotName),

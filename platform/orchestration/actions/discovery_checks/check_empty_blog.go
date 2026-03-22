@@ -77,7 +77,7 @@ func (c *BlogEmptyCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
 		WorkItems: []WorkItemSpec{{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "content",
+			Pipeline:     "content",
 			ItemType:     "needs_blog_posts",
 			Severity:     "medium",
 			Summary:      "Blog page exists but no blog posts — needs initial content planned by blog-content-planner",

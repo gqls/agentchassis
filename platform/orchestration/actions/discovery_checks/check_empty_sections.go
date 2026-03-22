@@ -63,7 +63,7 @@ func (c *EmptySectionsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, erro
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "content",
+			Pipeline:     "content",
 			ItemType:     "empty_section",
 			Severity:     "medium",
 			Summary:      fmt.Sprintf("Empty section '%s' on page %s", section.SlotName, section.PageName),

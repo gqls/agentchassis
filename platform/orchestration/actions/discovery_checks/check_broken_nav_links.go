@@ -44,7 +44,7 @@ func (c *BrokenNavLinksCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "broken_nav_links",
 			Severity:     "high",
 			Summary:      fmt.Sprintf("Navigation in %s uses anchor links (#slug) instead of page URLs", finding.SlotName),

@@ -165,7 +165,7 @@ func SeedBuildQueueAction(ctx context.Context, params ActionParams) (interface{}
 		inserted, err := insertWorkItem(ctx, tx, workItem{
 			siteID:       site.ID,
 			source:       "seed",
-			domain:       "build",
+			pipeline:     "build",
 			itemType:     itemType,
 			severity:     "high",
 			summary:      fmt.Sprintf("Seed: %s for %s", itemType, domain),

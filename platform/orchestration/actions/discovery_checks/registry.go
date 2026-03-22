@@ -43,7 +43,7 @@ type DiscoveryCheckContext struct {
 	DB        *sql.DB
 	TX        *sql.Tx // for work item inserts (shared transaction)
 	SiteID    uuid.UUID
-	Domain    string    // check_domain from config, e.g. "design"
+	Pipeline  string    // check_domain from config, e.g. "design"
 	AgentType string    // sender agent type for created_by
 	BatchID   uuid.UUID // groups work items from one run
 	Logger    *zap.Logger
@@ -57,7 +57,7 @@ type WorkItemSpec struct {
 	SiteID       uuid.UUID
 	PageID       *uuid.UUID // optional
 	Source       string     // "discovery"
-	Domain       string     // "design", "build", "content"
+	Pipeline     string     // "design", "build", "content"
 	ItemType     string     // e.g. "undeployed_asset", "add_tool"
 	Severity     string     // "high", "medium", "low"
 	Summary      string

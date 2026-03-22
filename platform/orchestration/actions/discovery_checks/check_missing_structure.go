@@ -63,7 +63,7 @@ func (c *MissingStructureCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 	result.WorkItems = append(result.WorkItems, WorkItemSpec{
 		SiteID:       dctx.SiteID,
 		Source:       "discovery",
-		Domain:       "build",
+		Pipeline:     "build",
 		ItemType:     "needs_rerender",
 		Severity:     "high",
 		Summary:      fmt.Sprintf("%d pages missing header/footer — need reassembly", len(pages)),

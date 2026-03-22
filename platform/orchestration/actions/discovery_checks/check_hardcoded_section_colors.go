@@ -37,7 +37,7 @@ func (c *HardcodedSectionColorsCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 		WorkItems: []WorkItemSpec{{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "design",
+			Pipeline:     "design",
 			ItemType:     "hardcoded_section_colors",
 			Severity:     "medium",
 			Summary:      fmt.Sprintf("Found %d components with hardcoded hex colors in inline styles instead of CSS variables", count),

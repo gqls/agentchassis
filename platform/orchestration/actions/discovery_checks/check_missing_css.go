@@ -34,7 +34,7 @@ func (c *MissingCSSCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) 
 		WorkItems: []WorkItemSpec{{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "design",
+			Pipeline:     "design",
 			ItemType:     "missing_css",
 			Severity:     "high",
 			Summary:      "Site has no custom stylesheet — using raw defaults",

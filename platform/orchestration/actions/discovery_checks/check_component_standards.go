@@ -87,7 +87,7 @@ func checkUnlinkedSiteComponents(dctx DiscoveryCheckContext, result *CheckResult
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "unlinked_site_component",
 			Severity:     "high",
 			Summary:      fmt.Sprintf("%s component not linked to template — using fallback rendering", slotName),
@@ -148,7 +148,7 @@ func checkSlotNameMismatch(dctx DiscoveryCheckContext, result *CheckResult) {
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "slot_name_mismatch",
 			Severity:     "medium",
 			Summary:      fmt.Sprintf("page %s: slot_name '%s' != data-component '%s'", pageName, slotName, dataComponent.String),
@@ -223,7 +223,7 @@ func checkMissingSiteMetadata(dctx DiscoveryCheckContext, result *CheckResult) {
 	result.WorkItems = append(result.WorkItems, WorkItemSpec{
 		SiteID:       dctx.SiteID,
 		Source:       "discovery",
-		Domain:       "build",
+		Pipeline:     "build",
 		ItemType:     "missing_site_metadata",
 		Severity:     "high",
 		Summary:      fmt.Sprintf("Missing site metadata: %s", strings.Join(missing, ", ")),
@@ -280,7 +280,7 @@ func checkMissingAssetRefs(dctx DiscoveryCheckContext, result *CheckResult) {
 	result.WorkItems = append(result.WorkItems, WorkItemSpec{
 		SiteID:       dctx.SiteID,
 		Source:       "discovery",
-		Domain:       "build",
+		Pipeline:     "build",
 		ItemType:     "missing_logo_in_header",
 		Severity:     "high",
 		Summary:      "Logo URL set but header doesn't render <img> tag — likely unlinked component",
@@ -332,7 +332,7 @@ func checkNavLayout(dctx DiscoveryCheckContext, result *CheckResult) {
 	result.WorkItems = append(result.WorkItems, WorkItemSpec{
 		SiteID:       dctx.SiteID,
 		Source:       "discovery",
-		Domain:       "build",
+		Pipeline:     "build",
 		ItemType:     "stacked_nav",
 		Severity:     "high",
 		Summary:      "Header nav links stack vertically — missing flex CSS",
@@ -382,7 +382,7 @@ func checkUnwantedElements(dctx DiscoveryCheckContext, result *CheckResult) {
 	result.WorkItems = append(result.WorkItems, WorkItemSpec{
 		SiteID:       dctx.SiteID,
 		Source:       "discovery",
-		Domain:       "build",
+		Pipeline:     "build",
 		ItemType:     "unwanted_nav_element",
 		Severity:     "low",
 		Summary:      "Header contains search icon — no search functionality on site",
@@ -441,7 +441,7 @@ func checkEmptyPageSections(dctx DiscoveryCheckContext, result *CheckResult) {
 			SiteID:       dctx.SiteID,
 			PageID:       &pageID,
 			Source:       "discovery",
-			Domain:       "build",
+			Pipeline:     "build",
 			ItemType:     "needs_content_page",
 			Severity:     "high",
 			Summary:      fmt.Sprintf("Page '%s' has no rendered sections", pageName),
