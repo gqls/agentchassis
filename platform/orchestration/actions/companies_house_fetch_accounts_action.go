@@ -35,29 +35,56 @@ import (
 
 const chDocumentAPIBase = "https://document-api.company-information.service.gov.uk"
 
-// iXBRL tag names mapped to DB fields.
+// iXBRL tag suffixes mapped to DB fields.
+// Multiple tag names can map to the same field — first match wins.
 // Context: CY_END = current year-end (balance sheet instant), CY = current year period.
+// Tag names vary between FRS-102, FRS-105, and older UK GAAP taxonomies.
 var ixbrlFieldMappings = []struct {
-	TagName   string // e.g. "core:NetAssetsLiabilities"
-	Context   string // "CY_END" or "CY" (matched as prefix)
-	DBField   string // column in companies_house_data
-	FieldType string // "money" or "integer"
+	TagNames  []string // suffixes to match, e.g. "NetAssetsLiabilities"
+	Context   string   // "CY_END" or "CY"
+	DBField   string   // column in companies_house_data
+	FieldType string   // "money" or "integer"
 }{
-	{"NetAssetsLiabilities", "CY_END", "net_worth_gbp", "money"},
-	{"TotalAssetsLessCurrentLiabilities", "CY_END", "total_assets_gbp", "money"},
-	{"AverageNumberEmployeesDuringPeriod", "CY", "employee_count", "integer"},
-	{"TurnoverRevenue", "CY", "turnover_gbp", "money"},
-	{"ProfitLossForPeriod", "CY", "profit_loss_gbp", "money"},
+	{[]string{
+		"NetAssetsLiabilities",
+		"NetCurrentAssetsLiabilities",
+	}, "CY_END", "net_worth_gbp", "money"},
+
+	{[]string{
+		"TotalAssetsLessCurrentLiabilities",
+	}, "CY_END", "total_assets_gbp", "money"},
+
+	{[]string{
+		"AverageNumberEmployeesDuringPeriod",
+		"EmployeesTotal",
+	}, "CY", "employee_count", "integer"},
+
+	{[]string{
+		"TurnoverRevenue",
+		"TurnoverGrossIncome",
+		"Turnover",
+	}, "CY", "turnover_gbp", "money"},
+
+	{[]string{
+		"ProfitLossForPeriod",
+		"ProfitLossOnOrdinaryActivitiesBeforeTax",
+		"ProfitLossForFinancialYear",
+		"ProfitLossForYear",
+		"ProfitLoss",
+	}, "CY", "profit_loss_gbp", "money"},
 }
 
 // Regex to extract ix:nonFraction elements from iXBRL.
-// Captures: name attribute, contextRef attribute, text content (the value).
-var ixbrlPattern = regexp.MustCompile(
-	`<ix:nonFraction[^>]*name="([^"]*)"[^>]*contextRef="([^"]*)"[^>]*>([^<]+)</ix:nonFraction>`)
+// Captures the full opening tag (group 1) and text content (group 2).
+// We parse name, contextRef, and sign from the tag attributes separately
+// because attribute order varies between filing software.
+var ixbrlTagPattern = regexp.MustCompile(
+	`<ix:nonFraction([^>]*)>([^<]*)</ix:nonFraction>`)
 
-// Also match ix:nonFraction with attributes in different order
-var ixbrlPatternAlt = regexp.MustCompile(
-	`<ix:nonFraction[^>]*contextRef="([^"]*)"[^>]*name="([^"]*)"[^>]*>([^<]+)</ix:nonFraction>`)
+// Attribute extractors
+var attrName = regexp.MustCompile(`name="([^"]*)"`)
+var attrContextRef = regexp.MustCompile(`contextRef="([^"]*)"`)
+var attrSign = regexp.MustCompile(`sign="([^"]*)"`)
 
 // accountsCompany holds a company ready for accounts fetch
 type accountsCompany struct {
@@ -478,28 +505,49 @@ func parseIXBRL(content string) map[string]interface{} {
 		Name       string
 		ContextRef string
 		Value      string
+		Sign       string // "-" if negative, "" otherwise
 	}
 	var matches []ixbrlMatch
 
-	// Try primary pattern: name before contextRef
-	for _, m := range ixbrlPattern.FindAllStringSubmatch(content, -1) {
-		if len(m) >= 4 {
-			matches = append(matches, ixbrlMatch{Name: m[1], ContextRef: m[2], Value: m[3]})
+	for _, m := range ixbrlTagPattern.FindAllStringSubmatch(content, -1) {
+		if len(m) < 3 {
+			continue
 		}
-	}
-	// Try alternate pattern: contextRef before name
-	for _, m := range ixbrlPatternAlt.FindAllStringSubmatch(content, -1) {
-		if len(m) >= 4 {
-			matches = append(matches, ixbrlMatch{Name: m[2], ContextRef: m[1], Value: m[3]})
+		attrs := m[1] // all attributes
+		value := m[2] // text content
+
+		// Extract individual attributes from the tag
+		nameMatch := attrName.FindStringSubmatch(attrs)
+		ctxMatch := attrContextRef.FindStringSubmatch(attrs)
+		if nameMatch == nil || ctxMatch == nil {
+			continue
 		}
+
+		sign := ""
+		if signMatch := attrSign.FindStringSubmatch(attrs); signMatch != nil {
+			sign = signMatch[1]
+		}
+
+		matches = append(matches, ixbrlMatch{
+			Name:       nameMatch[1],
+			ContextRef: ctxMatch[1],
+			Value:      value,
+			Sign:       sign,
+		})
 	}
 
 	// Map to DB fields
 	for _, mapping := range ixbrlFieldMappings {
 		for _, m := range matches {
-			// Tag name match: check if the name ends with the mapping tag
-			// e.g. "core:NetAssetsLiabilities" ends with "NetAssetsLiabilities"
-			if !strings.HasSuffix(m.Name, mapping.TagName) {
+			// Tag name match: check if the name ends with any of the mapping tags
+			tagMatched := false
+			for _, tagName := range mapping.TagNames {
+				if strings.HasSuffix(m.Name, tagName) {
+					tagMatched = true
+					break
+				}
+			}
+			if !tagMatched {
 				continue
 			}
 
@@ -522,8 +570,8 @@ func parseIXBRL(content string) map[string]interface{} {
 				continue
 			}
 
-			// Parse the value
-			parsed := parseIXBRLValue(m.Value, mapping.FieldType)
+			// Parse the value, applying sign attribute if present
+			parsed := parseIXBRLValue(m.Value, mapping.FieldType, m.Sign)
 			if parsed != nil {
 				result[mapping.DBField] = parsed
 				break // Take first match for each field
@@ -536,18 +584,25 @@ func parseIXBRL(content string) map[string]interface{} {
 
 // parseIXBRLValue cleans and parses an iXBRL text value.
 // Values may contain commas, spaces, negative signs, or be wrapped in parentheses.
-func parseIXBRLValue(raw, fieldType string) interface{} {
+// The sign parameter comes from the sign="" attribute on the ix:nonFraction tag.
+// When sign="-", the displayed value is positive but the actual value is negative.
+func parseIXBRLValue(raw, fieldType, sign string) interface{} {
 	// Clean: remove commas, spaces, trim
 	cleaned := strings.ReplaceAll(raw, ",", "")
 	cleaned = strings.ReplaceAll(cleaned, " ", "")
 	cleaned = strings.TrimSpace(cleaned)
+
+	// Handle ixt2:zerodash format — a lone "-" means zero
+	if cleaned == "-" {
+		return nil
+	}
 
 	// Handle negative: (123) → -123
 	if strings.HasPrefix(cleaned, "(") && strings.HasSuffix(cleaned, ")") {
 		cleaned = "-" + cleaned[1:len(cleaned)-1]
 	}
 
-	if cleaned == "" || cleaned == "-" {
+	if cleaned == "" {
 		return nil
 	}
 
@@ -556,6 +611,10 @@ func parseIXBRLValue(raw, fieldType string) interface{} {
 		f, err := strconv.ParseFloat(cleaned, 64)
 		if err != nil {
 			return nil
+		}
+		// Apply sign attribute: sign="-" means negate
+		if sign == "-" && f > 0 {
+			f = -f
 		}
 		return f
 	case "integer":
@@ -566,7 +625,13 @@ func parseIXBRLValue(raw, fieldType string) interface{} {
 			if err != nil {
 				return nil
 			}
+			if sign == "-" && f > 0 {
+				f = -f
+			}
 			return int(f)
+		}
+		if sign == "-" && i > 0 {
+			i = -i
 		}
 		return i
 	}
