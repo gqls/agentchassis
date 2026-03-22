@@ -706,11 +706,11 @@ func createDeferredItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, doma
 				site_id, source, domain, item_type, severity, summary,
 				spec, priority, status, created_by,
 				item_key, parent_item_id
-			) VALUES ($1, 'section-planner', $2, 'needs_section_data', 'medium', $3,
-			          $4::jsonb, 50, 'needs_human_review',
-			          'plan_sections', $5, $6)
+			) VALUES ($1, 'section-planner', 'build', 'needs_section_data', 'medium', $2,
+					  $3::jsonb, 50, 'needs_human_review',
+					  'plan_sections', $4, $5)
 			ON CONFLICT DO NOTHING
-		`, siteID, domain, summary, string(specJSON), itemKey, parentID)
+		`, siteID, summary, string(specJSON), itemKey, parentID)
 
 		if err != nil {
 			logger.Warn("createDeferredItems: failed to insert",

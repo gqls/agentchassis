@@ -169,6 +169,8 @@ echo ""
 UPDATE scheduled_tasks SET enabled = true WHERE name = 'build-pipeline-trigger';
 kubectl -n ai-persona-system logs deploy/kafka-scheduler --tail=20
 
+kubectl -n ai-persona-system port-forward svc/admin-dashboard 8080:8080
+
 kubectl -n ai-persona-system logs --tail=300 -l app=agent-chassis -f | tee logs-agent-chassis.json
 kubectl -n ai-persona-system logs --tail=300 -l app=core-manager -f | tee logs-core-manager.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=asset-deployer -f | tee logs-asset-deployer.json
@@ -928,4 +930,51 @@ UPDATE site_work_items
      WHERE id = '4851f6fc-71cf-4160-a270-e03d6d3e0732';
 
 ------------------------------------------------------------------------------------------
-
+-- Search the generated HTML for known blocker patterns
+-- Search the generated HTML for known blocker patterns
+SELECT orchestration_id,
+       collected_data->'site_record'->>'domain' as domain,
+       collected_data->'input_data'->'spec'->>'page_name' as page_name,
+       -- Check for each blocker category
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'coming soon' THEN 'FOUND: coming soon' END as coming_soon,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'placeholder' THEN 'FOUND: placeholder' END as placeholder,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'lorem ipsum' THEN 'FOUND: lorem ipsum' END as lorem,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* '\[insert' THEN 'FOUND: [insert' END as insert_bracket,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'to be added' THEN 'FOUND: to be added' END as to_be_added,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'sample text' THEN 'FOUND: sample text' END as sample_text,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* '\{\{[\s]*[\.\w]+' THEN 'FOUND: template var' END as template_var,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'finetuning' AND collected_data->'site_record'->>'domain' = 'leopardessconsulting.co.uk' THEN 'FOUND: cross-site finetuning' END as cross_site_ft,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'gaswholesalers' AND collected_data->'site_record'->>'domain' != 'gaswholesalers.com' THEN 'FOUND: cross-site gas' END as cross_site_gas,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'john doe|jane doe|acme corp' THEN 'FOUND: placeholder name' END as placeholder_name,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'test@|user@example|name@example' THEN 'FOUND: placeholder email' END as placeholder_email
+FROM orchestration_states
+WHERE owner_agent_type = 'page-build-handler'
+  AND status = 'FAILED'
+  AND current_step = 'validate_content'
+  AND created_at > NOW() - INTERVAL '3 hours'
+ORDER BY last_activity DESC
+LIMIT 5;
+SELECT orchestration_id,
+       collected_data->'site_record'->>'domain' as domain,
+       collected_data->'input_data'->'spec'->>'page_name' as page_name,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* '<no value>' THEN 'FOUND: <no value>' END as no_value,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'needs human review' THEN 'FOUND: needs human review' END as needs_review,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'needs_human_review' THEN 'FOUND: needs_human_review' END as needs_review_underscore,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'to be confirmed' THEN 'FOUND: to be confirmed' END as to_be_confirmed,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'to be updated' THEN 'FOUND: to be updated' END as to_be_updated,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'example text' THEN 'FOUND: example text' END as example_text,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'your company' THEN 'FOUND: your company' END as your_company,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'your name here' THEN 'FOUND: your name here' END as your_name,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'todo:' THEN 'FOUND: todo' END as todo,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'fixme:' THEN 'FOUND: fixme' END as fixme,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* '\[your ' THEN 'FOUND: [your' END as bracket_your,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* '\[company' THEN 'FOUND: [company' END as bracket_company,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* '\[add ' THEN 'FOUND: [add' END as bracket_add,
+       CASE WHEN collected_data->'page_content'->'response'->>'page_html' ~* 'needs review' THEN 'FOUND: needs review' END as needs_review_plain
+FROM orchestration_states
+WHERE orchestration_id IN (
+  'a4f80fdf-6b1f-4ca0-a4a1-9a63fa114929',
+  '09b244a1-3a6c-42eb-9f41-324a75c28603',
+  'd81e2869-cdd0-4476-833e-aab90e9fb160'
+)
+ORDER BY last_activity DESC;

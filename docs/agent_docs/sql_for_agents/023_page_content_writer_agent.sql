@@ -869,3 +869,22 @@ SELECT
     default_config::text LIKE '%content_brief%' as has_brief_block
 FROM agent_definitions
 WHERE type = 'page-content-writer';
+
+
+--
+
+-- Change load_page_components to use the section plan's ready list
+-- instead of the raw page sections
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_page_components,config,sections_from}',
+        '"input_data.section_plan.ready_names"'
+                     )
+WHERE type = 'page-content-writer';
+
+-- Verify
+SELECT default_config->'workflow'->'steps'->'load_page_components'->'config'->>'sections_from'
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+
