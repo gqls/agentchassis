@@ -18,8 +18,19 @@ import (
 // Runs in a goroutine with a 5-second timeout. Never blocks the caller.
 func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 	if db == nil {
+		if logger != nil {
+			logger.Warn("LogLLMCall: DB is nil, skipping LLM call log",
+				zap.String("agent_type", params.AgentType),
+				zap.String("model", params.Model),
+				zap.Bool("success", params.Success))
+		}
 		return
 	}
+
+	logger.Info("LogLLMCall: writing to llm_call_log",
+		zap.String("agent_type", params.AgentType),
+		zap.String("model", params.Model),
+		zap.Bool("success", params.Success))
 
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -54,6 +65,10 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 			logger.Warn("Failed to log LLM call (non-fatal)",
 				zap.String("agent_type", params.AgentType),
 				zap.Error(err))
+		} else {
+			logger.Info("LogLLMCall: row written successfully",
+				zap.String("agent_type", params.AgentType),
+				zap.String("step", params.StepName))
 		}
 	}()
 }

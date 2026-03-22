@@ -42,7 +42,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)),
 		zap.String("action", params.ExecutionContext.Action),
 		zap.Bool("has_db", params.DB != nil),
-		zap.Any("DEBUGaa: full params in ExecuteLLMPromptAction", params),
+		zap.Any("DEBUGaa: the full params in ExecuteLLMPromptAction", params),
 	)
 
 	// initialise

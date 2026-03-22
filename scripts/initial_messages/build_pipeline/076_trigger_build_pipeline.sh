@@ -174,6 +174,7 @@ kubectl -n ai-persona-system logs --tail=300 -l app=core-manager -f | tee logs-c
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=asset-deployer -f | tee logs-asset-deployer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=domain-research-classifier -f | tee logs-domain-research-classifier.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=domain-strategist -f | tee logs-domain-strategist.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=build-briefing-agent -f | tee logs-build-briefing-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=build-site-planner -f | tee logs-build-site-planner.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-content-writer -f | tee logs-page-content-writer.json

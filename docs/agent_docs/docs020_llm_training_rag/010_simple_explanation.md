@@ -199,3 +199,35 @@ Next steps in order:
 2. Add the `lookup_knowledge` step to the page-content-writer workflow (one workflow SQL change)
 3. Update the planner to include `rag_collection` and `rag_query` in page specs for domains in known verticals
 4. Build a page and compare the output with and without RAG context
+
+
+============================================================================================================================
+
+-- Check if logging is working
+SELECT COUNT(*) FROM llm_call_log;
+
+-- See recent calls
+SELECT agent_type, step_name, model,
+input_tokens, output_tokens, latency_ms,
+success, LEFT(response_text, 80) as preview,
+created_at
+FROM llm_call_log
+ORDER BY created_at DESC
+LIMIT 20;
+
+-- Summary by agent
+SELECT agent_type, model, COUNT(*) as calls,
+ROUND(AVG(latency_ms)) as avg_ms,
+ROUND(AVG(input_tokens)) as avg_in,
+ROUND(AVG(output_tokens)) as avg_out,
+SUM(CASE WHEN success THEN 1 ELSE 0 END) as ok,
+SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failed
+FROM llm_call_log
+GROUP BY agent_type, model
+ORDER BY calls DESC;
+
+-- Use the stats view
+SELECT * FROM llm_call_stats;
+
+SELECT COUNT(*) FROM knowledge_base;
+-- Expected: 0
