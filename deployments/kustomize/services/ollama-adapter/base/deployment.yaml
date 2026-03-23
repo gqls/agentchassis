@@ -62,6 +62,9 @@ spec:
               ephemeral-storage: "25Gi"
       containers:
         - name: ollama
+          env:
+            - name: OLLAMA_MAX_LOADED_MODELS
+              value: "1"
           image: ollama/ollama:latest
           ports:
             - containerPort: 11434
@@ -72,11 +75,11 @@ spec:
           resources:
             requests:
               cpu: "2"
-              memory: "18Gi"
+              memory: "20Gi"
               ephemeral-storage: "20Gi"
             limits:
               cpu: "8"
-              memory: "24Gi"
+              memory: "30Gi"
               ephemeral-storage: "25Gi"
           readinessProbe:
             httpGet:
