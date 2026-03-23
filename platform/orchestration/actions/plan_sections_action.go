@@ -188,6 +188,10 @@ func (r *sourceResolver) resolve(ctx context.Context, source string) (interface{
 	path := parts[1]
 
 	switch prefix {
+	case "renderer", "static":
+		// These are injected at render time — always considered available
+		return nil, true
+
 	case "site_specs":
 		r.ensureSpecs(ctx)
 		return r.resolveSpecPath(path)
@@ -536,7 +540,10 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 		}
 
 		// Renderer/static/query fields — resolved at render time, not now
-		if source == "renderer" || source == "static" || strings.HasPrefix(source, "query.") {
+		if source == "renderer" || source == "static" ||
+			strings.HasPrefix(source, "renderer.") ||
+			strings.HasPrefix(source, "static.") ||
+			strings.HasPrefix(source, "query.") {
 			if fallback != nil {
 				resolvedData[fieldName] = fallback
 			}

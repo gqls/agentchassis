@@ -8129,3 +8129,15 @@ FROM (
          WHERE is_active = true
      ) sub
 GROUP BY source ORDER BY field_count DESC;
+
+---
+-- skip if missing
+UPDATE content_components
+SET input_schema = jsonb_set(
+        input_schema,
+        '{fields,nav_items,on_missing}',
+        '"skip_section"'
+                   )
+WHERE function IN ('site-header')
+  AND input_schema->'fields'->'nav_items' IS NOT NULL;
+

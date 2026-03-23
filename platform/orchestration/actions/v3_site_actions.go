@@ -2363,6 +2363,43 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		plan["image_prompts"] = map[string]interface{}{}
 	}
 
+	// ── Strip site-chrome components from page sections ──────────────────
+	// The LLM sometimes includes header/footer components in page sections
+	// arrays (e.g. "header-bold-gradient", "footer-standard"). These are
+	// site-level components injected during assembly — not page content.
+	// If left in, plan_sections creates bogus HITL items for them.
+	if params.DB != nil {
+		siteChrome := loadSiteChromeNames(ctx, params.DB, params.Logger)
+		if len(siteChrome) > 0 {
+			for _, p := range pages {
+				pm, ok := p.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				sectionsRaw, ok := pm["sections"].([]interface{})
+				if !ok {
+					continue
+				}
+				var filtered []interface{}
+				for _, s := range sectionsRaw {
+					name, ok := s.(string)
+					if !ok {
+						filtered = append(filtered, s)
+						continue
+					}
+					if siteChrome[name] {
+						params.Logger.Info("ValidateSitePlanAction: stripped site-chrome component from page sections",
+							zap.Any("page", pm["name"]),
+							zap.String("component", name))
+					} else {
+						filtered = append(filtered, s)
+					}
+				}
+				pm["sections"] = filtered
+			}
+		}
+	}
+
 	params.Logger.Info("ValidateSitePlanAction: Complete", zap.Int("pages", len(pages)))
 	return plan, nil
 }
@@ -2373,6 +2410,26 @@ func nullString(s string) interface{} {
 		return nil
 	}
 	return s
+}
+
+// loadSiteChromeNames returns a set of component names that are site-level
+// chrome (headers, footers, head) — not page content sections.
+func loadSiteChromeNames(ctx context.Context, db *sql.DB, logger *zap.Logger) map[string]bool {
+	result := make(map[string]bool)
+	rows, err := db.QueryContext(ctx,
+		`SELECT name FROM content_components WHERE component_level = 'site' AND is_active = true`)
+	if err != nil {
+		logger.Warn("loadSiteChromeNames: query failed", zap.Error(err))
+		return result
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if rows.Scan(&name) == nil {
+			result[name] = true
+		}
+	}
+	return result
 }
 
 // ============================================================================
