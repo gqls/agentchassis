@@ -14,6 +14,19 @@ spec:
       labels:
         app: ollama-adapter
     spec:
+      # Spread pods across different nodes so each gets full memory
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - ollama-adapter
+                topologyKey: kubernetes.io/hostname
       initContainers:
         - name: model-pull
           image: ollama/ollama:latest
@@ -22,14 +35,16 @@ spec:
             - |
               ollama serve &
               SERVER_PID=$!
-              # Wait for server using ollama CLI (no curl/wget dependency)
               for i in $(seq 1 30); do
                 ollama list > /dev/null 2>&1 && break
                 sleep 1
               done
               echo "Ollama server ready, pulling models..."
               ollama pull nomic-embed-text
-              echo "Models pulled successfully"
+              echo "nomic-embed-text pulled"
+              ollama pull mistral-small3.1
+              echo "mistral-small3.1 pulled"
+              echo "All models pulled successfully"
               kill $SERVER_PID
               wait $SERVER_PID 2>/dev/null
               echo "Init complete"
@@ -38,11 +53,11 @@ spec:
               mountPath: /root/.ollama
           resources:
             requests:
-              cpu: "500m"
-              memory: "2Gi"
-            limits:
-              cpu: "2"
+              cpu: "1"
               memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "20Gi"
       containers:
         - name: ollama
           image: ollama/ollama:latest
@@ -54,11 +69,11 @@ spec:
               mountPath: /root/.ollama
           resources:
             requests:
-              cpu: "500m"
-              memory: "2Gi"
+              cpu: "2"
+              memory: "18Gi"
             limits:
-              cpu: "4"
-              memory: "8Gi"
+              cpu: "8"
+              memory: "24Gi"
           readinessProbe:
             httpGet:
               path: /api/tags
@@ -74,4 +89,4 @@ spec:
       volumes:
         - name: ollama-models
           emptyDir:
-            sizeLimit: 12Gi
+            sizeLimit: 30Gi
