@@ -554,7 +554,7 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 			"severity":      severity,
 			"summary":       summary,
 			"spec":          spec,
-			"handler_agent": handlerAgentNullable,
+			"handler_agent": handlerAgentNullable.String,
 			"attempts":      fmt.Sprintf("%d/%d", attemptCount, maxAttempts),
 			"error":         errorMsg.String,
 			"created_at":    createdAt.Time,
@@ -582,7 +582,7 @@ func (h *SiteAdminHandlers) HandleGetWorkItem(c *gin.Context) {
 
 	var siteID uuid.UUID
 	var siteDomain, itemType, status, severity, summary string
-	var handlerAgent sql.NullString
+	var handlerAgentNullable sql.NullString
 	var attemptCount, maxAttempts int
 	var specJSON []byte
 	var errorMsg sql.NullString
@@ -598,7 +598,7 @@ func (h *SiteAdminHandlers) HandleGetWorkItem(c *gin.Context) {
 		WHERE wi.id = $1
 	`, itemID).Scan(&siteID, &siteDomain, &itemType, &status,
 		&severity, &summary, &specJSON,
-		&handlerAgent, &attemptCount, &maxAttempts,
+		&handlerAgentNullable, &attemptCount, &maxAttempts,
 		&errorMsg, &createdAt, &completedAt)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "work item not found"})
@@ -617,7 +617,7 @@ func (h *SiteAdminHandlers) HandleGetWorkItem(c *gin.Context) {
 		"severity":      severity,
 		"summary":       summary,
 		"spec":          spec,
-		"handler_agent": handlerAgent,
+		"handler_agent": handlerAgentNullable.String,
 		"attempts":      fmt.Sprintf("%d/%d", attemptCount, maxAttempts),
 		"error":         errorMsg.String,
 		"created_at":    createdAt.Time,
