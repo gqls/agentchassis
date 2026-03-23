@@ -483,8 +483,8 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 	query := `
 		SELECT wi.id, wi.site_id, s.domain, wi.item_type, wi.status,
 		       wi.severity, wi.summary, wi.spec,
-		       wi.handler_agent, wi.attempt_count, wi.max_attempts,
-		       wi.error, wi.created_at, wi.completed_at
+				wi.handler_agent, wi.attempt_count, wi.max_attempts,
+				wi.error, wi.created_at, wi.completed_at
 		FROM site_work_items wi
 		JOIN sites s ON s.id = wi.site_id
 		WHERE wi.pipeline = $1
@@ -528,7 +528,7 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 	for rows.Next() {
 		var id, siteID uuid.UUID
 		var siteDomain, itemTypeVal, statusVal, severity, summary string
-		var handlerAgent string
+		var handlerAgentNullable sql.NullString
 		var attemptCount, maxAttempts int
 		var specJSON []byte
 		var errorMsg sql.NullString
@@ -536,7 +536,7 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 
 		if err := rows.Scan(&id, &siteID, &siteDomain, &itemTypeVal, &statusVal,
 			&severity, &summary, &specJSON,
-			&handlerAgent, &attemptCount, &maxAttempts,
+			&handlerAgentNullable, &attemptCount, &maxAttempts,
 			&errorMsg, &createdAt, &completedAt); err != nil {
 			h.logger.Warn("Failed to scan work item", zap.Error(err))
 			continue
@@ -554,7 +554,7 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 			"severity":      severity,
 			"summary":       summary,
 			"spec":          spec,
-			"handler_agent": handlerAgent,
+			"handler_agent": handlerAgentNullable,
 			"attempts":      fmt.Sprintf("%d/%d", attemptCount, maxAttempts),
 			"error":         errorMsg.String,
 			"created_at":    createdAt.Time,
@@ -581,7 +581,8 @@ func (h *SiteAdminHandlers) HandleGetWorkItem(c *gin.Context) {
 	}
 
 	var siteID uuid.UUID
-	var siteDomain, itemType, status, severity, summary, handlerAgent string
+	var siteDomain, itemType, status, severity, summary string
+	var handlerAgent sql.NullString
 	var attemptCount, maxAttempts int
 	var specJSON []byte
 	var errorMsg sql.NullString

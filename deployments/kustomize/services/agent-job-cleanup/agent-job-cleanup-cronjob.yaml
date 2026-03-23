@@ -65,7 +65,7 @@ spec:
                   # If no running pods, delete all job.* topics.
 
                   KAFKA_POD=$(kubectl get pods -n kafka \
-                    -l strimzi.io/name=personae-kafka-cluster-combined-pool-prod \
+                    -l strimzi.io/name=personae-kafka-cluster-kafka \
                     --field-selector=status.phase=Running \
                     -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
 
