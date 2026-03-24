@@ -440,3 +440,13 @@ FROM page_components pc
     JOIN sites s ON p.site_id = s.id
 WHERE pc.rendered_html = '<!-- Section hidden: contains placeholder content (needs human review) -->'
 ON CONFLICT DO NOTHING;
+
+---
+
+ALTER TABLE site_work_items
+    ADD COLUMN processing_tier TEXT NOT NULL DEFAULT 'standard';
+
+-- Values:
+-- 'standard'  — process immediately using whatever ai_service is configured (Claude or CPU Ollama)
+-- 'batch_gpu' — hold until GPU batch starts, then process via GPU Ollama
+

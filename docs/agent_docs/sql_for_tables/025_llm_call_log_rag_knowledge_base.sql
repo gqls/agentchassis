@@ -269,3 +269,14 @@ ORDER BY chunk_count DESC;
 
 COMMIT;
 
+---
+-- fix schema
+
+-- Add the agent_id column the Go code expects
+ALTER TABLE llm_call_log ADD COLUMN IF NOT EXISTS agent_id VARCHAR(255);
+
+-- Relax step_name to nullable since Go sends nullIfEmpty
+ALTER TABLE llm_call_log ALTER COLUMN step_name DROP NOT NULL;
+
+-- Relax prompt_rendered to nullable since Go sends nullIfEmpty
+ALTER TABLE llm_call_log ALTER COLUMN prompt_rendered DROP NOT NULL;
