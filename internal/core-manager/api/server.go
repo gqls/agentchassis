@@ -89,6 +89,7 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	pageAdminHandlers := admin.NewPageAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
 	specAdminHandlers := admin.NewSpecAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
 	assetAdminHandlers := admin.NewAssetAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
+	pipelineAdminHandlers := admin.NewPipelineAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
 
 	// Initialize the bootstrap handler
 	bootstrapHandler := handlers.NewBootstrapHandler(s.logger, personaRepoImpl.ClientsDB())
@@ -215,6 +216,15 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 				workItemGroup.POST("/:item_id/retry", siteAdminHandlers.HandleRetryWorkItem)
 				workItemGroup.POST("/:item_id/resolve", siteAdminHandlers.HandleResolveWorkItem)
 				workItemGroup.POST("/:item_id/approve", siteAdminHandlers.HandleApproveWorkItem)
+			}
+
+			// Pipeline Administration (scheduled tasks control)
+			pipelineGroup := adminGroup.Group("/pipelines")
+			{
+				pipelineGroup.GET("", pipelineAdminHandlers.HandleListPipelines)
+				pipelineGroup.GET("/stats", pipelineAdminHandlers.HandlePipelineStats)
+				pipelineGroup.PATCH("/:name", pipelineAdminHandlers.HandleUpdatePipeline)
+				pipelineGroup.POST("/:name/trigger", pipelineAdminHandlers.HandleTriggerPipeline)
 			}
 		}
 	}

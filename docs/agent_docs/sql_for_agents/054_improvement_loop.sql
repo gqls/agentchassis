@@ -510,3 +510,150 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'improvement-loop' AND deleted_at IS NULL;
+
+--
+
+-- ============================================================================
+-- Migration 087: Improvement Loop Audit Pass Guard
+-- ============================================================================
+-- Inserts two steps into the improvement-loop workflow:
+--
+-- 1. check_audit_pass_limit — after ensure_site_record, before discovery.
+--    Queries get_audit_pass_count(). If >= 3, skips to notify_scheduler_clean.
+--
+-- 2. increment_audit_pass — after triage, before check_has_findings.
+--    Increments the pass count so the next run knows.
+--
+-- Current flow:
+--   ensure_site_record → spawn_quality_discovery → ... → triage_findings → check_has_findings → ...
+--
+-- New flow:
+--   ensure_site_record → check_audit_pass_limit → spawn_quality_discovery → ... → triage_findings → increment_audit_pass → check_has_findings → ...
+--
+-- After 3 passes: ensure_site_record → check_audit_pass_limit → notify_scheduler_clean → complete_clean
+-- ============================================================================
+
+
+-- Step 1: Change ensure_site_record to point to the new guard step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,ensure_site_record,next_step}',
+        '"check_audit_pass_limit"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND is_active = true
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+
+-- Step 2: Add the guard step (query pass count + conditional)
+-- Uses query_database to read the count, then conditional to branch.
+-- Two steps: load_pass_count and check_audit_pass_limit.
+
+-- 2a: Add load_pass_count step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_pass_count}',
+        '{
+            "action": "query_database",
+            "config": {
+                "query": "SELECT get_audit_pass_count($1) as pass_count, CASE WHEN get_audit_pass_count($1) >= 3 THEN true ELSE false END as limit_reached",
+                "params": ["site_record.site_id"],
+                "output_format": "object"
+            },
+            "next_step": "check_audit_pass_limit",
+            "description": "Load audit pass count for this site",
+            "output_field": "pass_count_data"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND is_active = true
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- 2b: Fix ensure_site_record to point to load_pass_count (not check_audit_pass_limit)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,ensure_site_record,next_step}',
+        '"load_pass_count"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND is_active = true
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- 2c: Add check_audit_pass_limit conditional step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_audit_pass_limit}',
+        '{
+            "action": "conditional",
+            "config": {
+                "condition": "pass_count_data.limit_reached == true",
+                "then_step": "notify_scheduler_clean",
+                "else_step": "spawn_quality_discovery"
+            },
+            "description": "Skip audits if site has reached 3 audit passes"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND is_active = true
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+
+-- Step 3: Add increment_audit_pass step between triage_findings and check_has_findings
+-- 3a: Insert the new step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,increment_audit_pass}',
+        '{
+            "action": "query_database",
+            "config": {
+                "query": "SELECT increment_audit_pass($1) as new_pass_count",
+                "params": ["site_record.site_id"],
+                "output_format": "object"
+            },
+            "next_step": "check_has_findings",
+            "description": "Increment audit pass count for this site",
+            "output_field": "pass_incremented"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND is_active = true
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- 3b: Point triage_findings to increment_audit_pass instead of check_has_findings
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,triage_findings,next_step}',
+        '"increment_audit_pass"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop' AND is_active = true
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+
+-- ============================================================================
+-- Verification
+-- ============================================================================
+
+-- Check the new flow: ensure_site_record → load_pass_count → check_audit_pass_limit → spawn_quality_discovery
+SELECT
+    default_config->'workflow'->'steps'->'ensure_site_record'->>'next_step' as "1_ensure→",
+    default_config->'workflow'->'steps'->'load_pass_count'->>'next_step' as "2_load→",
+    default_config->'workflow'->'steps'->'check_audit_pass_limit'->'config'->>'else_step' as "3_check_else→",
+    default_config->'workflow'->'steps'->'check_audit_pass_limit'->'config'->>'then_step' as "3_check_then→",
+    default_config->'workflow'->'steps'->'triage_findings'->>'next_step' as "triage→",
+    default_config->'workflow'->'steps'->'increment_audit_pass'->>'next_step' as "increment→"
+FROM agent_definitions
+WHERE type = 'improvement-loop' AND is_active = true
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- Expected:
+-- 1_ensure→      | 2_load→                  | 3_check_else→            | 3_check_then→          | triage→               | increment→
+-- load_pass_count | check_audit_pass_limit   | spawn_quality_discovery  | notify_scheduler_clean | increment_audit_pass  | check_has_findings
+
+To reset a site (e.g. after a major redesign): SELECT reset_audit_passes('site-uuid-here').
