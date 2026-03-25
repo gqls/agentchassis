@@ -303,6 +303,41 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 
 		errStr := err.Error()
 
+		// ── Back-to-triage: fast-fail on infrastructure unavailability ──
+		// Connection refused, DNS failure, timeout, credit exhaustion (401/402).
+		// These won't be fixed by retrying. Return AIUnavailableError so the
+		// coordinator releases the item back to triaged without counting attempts.
+		if isAIUnavailable(err) {
+			params.Logger.Warn("AI endpoint unavailable — item will be released back to queue",
+				zap.String("provider", provider),
+				zap.String("model", resolvedModel),
+				zap.Error(err))
+
+			// Reactively update health table (especially for Claude credit failures)
+			if params.DB != nil {
+				apiURL, _ := aiServiceConfig["api_url"].(string)
+				if apiURL == "" && provider == "anthropic" {
+					apiURL = "https://api.anthropic.com/v1/messages"
+				}
+				if apiURL != "" {
+					go func() {
+						rctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+						defer cancel()
+						params.DB.ExecContext(rctx,
+							`SELECT update_endpoint_health($1, false, $2)`,
+							apiURL, err.Error())
+					}()
+				}
+			}
+
+			return nil, &AIUnavailableError{
+				Provider: provider,
+				Model:    resolvedModel,
+				Endpoint: fmt.Sprintf("%v", aiServiceConfig["api_url"]),
+				Cause:    err,
+			}
+		}
+
 		// Check for model-related errors
 		if strings.Contains(errStr, "model") || strings.Contains(errStr, "404") || strings.Contains(errStr, "not found") {
 			modelUsed := fmt.Sprintf("%v", options["model"])

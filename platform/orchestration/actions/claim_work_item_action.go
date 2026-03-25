@@ -26,6 +26,7 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -166,9 +167,109 @@ func ClaimWorkItemAction(ctx context.Context, params ActionParams) (interface{},
 		}
 	}
 
+	// ── AI endpoint health check ──
+	// After confirming the handler agent exists, check whether its AI
+	// endpoint is healthy. If not, release the claim — the item stays
+	// triaged and will be picked up when the endpoint recovers.
+	if handlerAgent.Valid && handlerAgent.String != "" {
+		aiEndpoint := extractAIEndpointFromHandler(ctx, params.DB, handlerAgent.String, logger)
+		if aiEndpoint != "" {
+			var healthy bool
+			err := params.DB.QueryRowContext(ctx, `
+				SELECT healthy FROM ai_endpoint_health WHERE endpoint_url = $1
+			`, aiEndpoint).Scan(&healthy)
+
+			if err == nil && !healthy {
+				// Release the claim — item goes back to triaged
+				params.DB.ExecContext(ctx, `
+					UPDATE site_work_items
+					SET status = 'triaged',
+					    claimed_at = NULL,
+					    claimed_by = NULL,
+					    updated_at = NOW()
+					WHERE id = $1
+				`, itemID)
+
+				logger.Info("ClaimWorkItemAction: AI endpoint unhealthy, releasing item",
+					zap.String("item_id", claimedItemID),
+					zap.String("handler", handlerAgent.String),
+					zap.String("endpoint", aiEndpoint))
+
+				return map[string]interface{}{
+					"claimed":      false,
+					"work_item_id": claimedItemID,
+					"reason":       "ai_endpoint_unavailable",
+					"endpoint":     aiEndpoint,
+				}, nil
+			}
+			// If err != nil (no row in health table), assume healthy — don't block
+			// items just because the health table hasn't been populated for this endpoint.
+		}
+	}
+
 	return map[string]interface{}{
 		"claimed":      true,
 		"work_item_id": claimedItemID,
 		"claimed_by":   claimedBy,
 	}, nil
+}
+
+// extractAIEndpointFromHandler looks up the handler agent's definition,
+// finds the first step with an ai_service config, and returns the endpoint URL.
+// Returns "" if no AI endpoint is configured (e.g. algorithmic-only agents).
+func extractAIEndpointFromHandler(ctx context.Context, db *sql.DB, handlerType string, logger *zap.Logger) string {
+	var configJSON []byte
+	err := db.QueryRowContext(ctx, `
+		SELECT default_config FROM agent_definitions
+		WHERE type = $1 AND is_active = true AND deleted_at IS NULL
+		  AND (is_snapshot IS NULL OR is_snapshot = false)
+		ORDER BY version DESC LIMIT 1
+	`, handlerType).Scan(&configJSON)
+	if err != nil {
+		return ""
+	}
+
+	// Parse to find ai_service in any step
+	var config map[string]interface{}
+	if err := json.Unmarshal(configJSON, &config); err != nil {
+		return ""
+	}
+
+	// Navigate: config.workflow.steps.*.config.ai_service
+	workflow, _ := config["workflow"].(map[string]interface{})
+	if workflow == nil {
+		return ""
+	}
+	steps, _ := workflow["steps"].(map[string]interface{})
+	if steps == nil {
+		return ""
+	}
+
+	for _, stepVal := range steps {
+		step, _ := stepVal.(map[string]interface{})
+		if step == nil {
+			continue
+		}
+		stepConfig, _ := step["config"].(map[string]interface{})
+		if stepConfig == nil {
+			continue
+		}
+		aiService, _ := stepConfig["ai_service"].(map[string]interface{})
+		if aiService == nil {
+			continue
+		}
+
+		// Found an ai_service block — extract the endpoint URL
+		provider, _ := aiService["provider"].(string)
+		apiURL, _ := aiService["api_url"].(string)
+
+		if apiURL != "" {
+			return apiURL
+		}
+		// Anthropic uses a known base URL
+		if provider == "anthropic" {
+			return "https://api.anthropic.com/v1/messages"
+		}
+	}
+	return ""
 }

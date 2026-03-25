@@ -755,6 +755,25 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 		logger.Info("FailWorkItemAction: using status_override",
 			zap.String("item_id", itemIDStr),
 			zap.String("status_override", statusOverride))
+	} else if isAIUnavailable(fmt.Errorf("%s", errorMsg)) {
+		// AI endpoint unavailable (connection refused, credit exhaustion, etc.)
+		// Release back to triaged WITHOUT incrementing attempt_count.
+		// The item will be retried when the endpoint recovers.
+		err = params.DB.QueryRowContext(ctx, `
+			UPDATE site_work_items
+			SET error = $2,
+			    status = 'triaged',
+			    claimed_by = NULL,
+			    claimed_at = NULL,
+			    handled_by = NULL,
+			    updated_at = NOW()
+			WHERE id = $1
+			RETURNING status, max_attempts - attempt_count
+		`, itemID, "AI unavailable: "+errorMsg).Scan(&newStatus, &attemptsLeft)
+
+		logger.Info("FailWorkItemAction: AI unavailable — released to triaged without counting attempt",
+			zap.String("item_id", itemIDStr),
+			zap.String("error", errorMsg))
 	} else {
 		err = params.DB.QueryRowContext(ctx, `
 			UPDATE site_work_items
