@@ -163,6 +163,10 @@ type auditFinding struct {
 	AffectedPages     []string `json:"affected_pages"`
 	FixType           string   `json:"fix_type"`
 	AffectedComponent string   `json:"affected_component"`
+	// Structured findings fields (migration 084)
+	CurrentValue   string `json:"current_value"`
+	AcceptanceTest string `json:"acceptance_test"`
+	MaxFixAttempts int    `json:"max_fix_attempts"`
 }
 
 // ============================================================================
@@ -222,6 +226,17 @@ func classifyFinding(f auditFinding, pages map[string]pageInfo, siteID uuid.UUID
 	}
 	if f.FixType != "" {
 		spec["fix_type"] = f.FixType
+	}
+
+	// Structured findings fields (migration 084)
+	if f.CurrentValue != "" {
+		spec["current_value"] = f.CurrentValue
+	}
+	if f.AcceptanceTest != "" {
+		spec["acceptance_test"] = f.AcceptanceTest
+	}
+	if f.MaxFixAttempts > 0 {
+		spec["max_fix_attempts"] = f.MaxFixAttempts
 	}
 
 	// If fix_type still not set, derive from category for component-template-fixer compatibility
@@ -510,6 +525,9 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 					Page:              getStringFromMap(m, "page"),
 					FixType:           getStringFromMap(m, "fix_type"),
 					AffectedComponent: getStringFromMap(m, "affected_component"),
+					CurrentValue:      getStringFromMap(m, "current_value"),
+					AcceptanceTest:    getStringFromMap(m, "acceptance_test"),
+					MaxFixAttempts:    getIntFromMap(m, "max_fix_attempts"),
 				}
 				if ap, ok := m["affected_pages"].([]interface{}); ok {
 					for _, p := range ap {
@@ -648,4 +666,16 @@ func getStringFromMap(m map[string]interface{}, key string) string {
 		return v
 	}
 	return ""
+}
+
+func getIntFromMap(m map[string]interface{}, key string) int {
+	switch v := m[key].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case int64:
+		return int(v)
+	}
+	return 0
 }
