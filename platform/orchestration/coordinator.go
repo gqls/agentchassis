@@ -1456,6 +1456,7 @@ func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, sta
 		DB:              coordinator.db,
 		StorageClient:   coordinator.storageClient,
 		Tracer:          coordinator.tracer,
+		AgentType:       state.OwnerAgentType,
 		CurrentStep:     state.CurrentStep,
 	}
 }
