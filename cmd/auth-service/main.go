@@ -211,6 +211,9 @@ func main() {
 		adminGroup.Any("/work-items", gatewayHandler.HandleAdminRoutes)
 		adminGroup.Any("/work-items/*path", gatewayHandler.HandleAdminRoutes)
 
+		adminGroup.Any("/pipelines", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/pipelines/*path", gatewayHandler.HandleAdminRoutes)
+
 		// ============================================================================
 		// ENDPOINTS SUMMARY
 		// ============================================================================
