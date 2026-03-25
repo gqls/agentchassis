@@ -177,7 +177,8 @@ kubectl -n ai-persona-system scale deployment/business-intel --replicas=1
 
 
 
-
+# force delete stuck containers with containerstatusunknown
+# kubectl -n ai-persona-system get pods | grep ContainerStatusUnknown | awk '{print $1}' | xargs kubectl -n ai-persona-system delete pod --force --grace-period=0
 # make build-backend push-backend deploy-core deploy-agents redeploy-agents deploy-agent-cleanup build-dashboard push-dashboard deploy-dashboard ENVIRONMENT=production REGION=uk001
 # make release-backend redeploy-agents ENVIRONMENT=production REGION=uk001
 # make release-dashboard release-backend  redeploy-agents ENVIRONMENT=production REGION=uk001

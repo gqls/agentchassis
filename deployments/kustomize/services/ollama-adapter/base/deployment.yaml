@@ -14,19 +14,17 @@ spec:
       labels:
         app: ollama-adapter
     spec:
-      # Spread pods across different nodes so each gets full memory
+      # Ensure pods land on different nodes - required, not preferred
       affinity:
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app
-                      operator: In
-                      values:
-                        - ollama-adapter
-                topologyKey: kubernetes.io/hostname
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - ollama-adapter
+              topologyKey: kubernetes.io/hostname
       initContainers:
         - name: model-pull
           image: ollama/ollama:latest
@@ -55,7 +53,7 @@ spec:
             requests:
               cpu: "1"
               memory: "4Gi"
-              ephemeral-storage: "20Gi"    # tell scheduler we need disk
+              ephemeral-storage: "20Gi"
             limits:
               cpu: "4"
               memory: "20Gi"
