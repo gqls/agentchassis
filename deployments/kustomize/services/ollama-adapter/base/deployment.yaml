@@ -14,17 +14,6 @@ spec:
       labels:
         app: ollama-adapter
     spec:
-      # Ensure pods land on different nodes - required, not preferred
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
-                    operator: In
-                    values:
-                      - ollama-adapter
-              topologyKey: kubernetes.io/hostname
       initContainers:
         - name: model-pull
           image: ollama/ollama:latest
@@ -37,12 +26,20 @@ spec:
                 ollama list > /dev/null 2>&1 && break
                 sleep 1
               done
-              echo "Ollama server ready, pulling models..."
-              ollama pull nomic-embed-text
-              echo "nomic-embed-text pulled"
-              ollama pull mistral-small3.1
-              echo "mistral-small3.1 pulled"
-              echo "All models pulled successfully"
+              echo "Ollama server ready, checking models..."
+
+              # Only pull models not already present
+              for model in nomic-embed-text mistral-small3.1; do
+                if ollama list | grep -q "$model"; then
+                  echo "$model already present, skipping"
+                else
+                  echo "Pulling $model..."
+                  ollama pull $model
+                  echo "$model pulled"
+                fi
+              done
+
+              echo "All models ready"
               kill $SERVER_PID
               wait $SERVER_PID 2>/dev/null
               echo "Init complete"
@@ -53,17 +50,15 @@ spec:
             requests:
               cpu: "1"
               memory: "4Gi"
-              ephemeral-storage: "20Gi"
             limits:
               cpu: "4"
               memory: "20Gi"
-              ephemeral-storage: "25Gi"
       containers:
         - name: ollama
+          image: ollama/ollama:latest
           env:
             - name: OLLAMA_MAX_LOADED_MODELS
               value: "1"
-          image: ollama/ollama:latest
           ports:
             - containerPort: 11434
               name: http
@@ -74,11 +69,9 @@ spec:
             requests:
               cpu: "2"
               memory: "20Gi"
-              ephemeral-storage: "20Gi"
             limits:
               cpu: "8"
               memory: "30Gi"
-              ephemeral-storage: "25Gi"
           readinessProbe:
             httpGet:
               path: /api/tags
@@ -93,5 +86,5 @@ spec:
             periodSeconds: 30
       volumes:
         - name: ollama-models
-          emptyDir:
-            sizeLimit: 30Gi
+          persistentVolumeClaim:
+            claimName: ollama-models-pvc
