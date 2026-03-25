@@ -215,6 +215,7 @@ func scanPageRowsForBuild(rows *sql.Rows, logger *zap.Logger) ([]map[string]inte
 			"page_id":          id.String(), // Alias used by some actions
 			"site_id":          siteID.String(),
 			"name":             name,        // Page slug: "index", "about", etc.
+			"page_name":        name,        // Alias: dispatch loop maps this to handler
 			"url":              url,         // Full path: "/index.html"
 			"title":            title,       // Page title for content
 			"page_type":        pageType,    // "index", "content", "landing"
@@ -290,6 +291,7 @@ func scanPageRowsForBuildPgx(rows pgx.Rows, logger *zap.Logger) ([]map[string]in
 			"page_id":          id.String(),
 			"site_id":          siteID.String(),
 			"name":             name,
+			"page_name":        name,
 			"url":              url,
 			"title":            title,
 			"page_type":        pageType,
