@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import PipelinesPage from "./pages/PipelinesPage";
 
 const API_BASE = "/api/v1/admin";
 
@@ -2302,6 +2303,7 @@ export default function App() {
                         {[
                             { key: "sites", label: "Sites" },
                             { key: "all-items", label: "All Items" },
+                            { key: "pipelines", label: "Pipelines" },
                         ].map(({ key, label }) => (
                             <button key={key} onClick={() => { setView(key); setSelectedSite(null); }} style={{
                                 background: view === key || (["items", "pages", "specs", "media"].includes(view) && key === "sites") ? "#1e293b" : "transparent",
@@ -2386,6 +2388,13 @@ export default function App() {
                         siteId={selectedSite.id}
                         siteDomain={selectedSite.domain}
                         onBack={() => { setView("sites"); setSelectedSite(null); loadSites(); }}
+                    />
+                )}
+
+                {view === "pipelines" && (
+                    <PipelinesPage
+                        token={token}
+                        onLogout={handleLogout}
                     />
                 )}
             </div>
