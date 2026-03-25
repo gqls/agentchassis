@@ -306,10 +306,13 @@ type sectionPlanItem struct {
 }
 
 type missingField struct {
-	Field     string `json:"field"`
-	Source    string `json:"source"`
-	OnMissing string `json:"on_missing"`
-	Reason    string `json:"reason"`
+	Field     string                 `json:"field"`
+	Source    string                 `json:"source"`
+	OnMissing string                 `json:"on_missing"`
+	Reason    string                 `json:"reason"`
+	Type      string                 `json:"type,omitempty"`      // from input_schema field type
+	Items     map[string]interface{} `json:"items,omitempty"`     // from input_schema items (array element schema)
+	MinItems  int                    `json:"min_items,omitempty"` // from input_schema min_items
 }
 
 // ============================================================================
@@ -533,6 +536,14 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 		fallback := fieldDef["fallback"]
 		missingReason, _ := fieldDef["missing_reason"].(string)
 
+		// Extract type info for enriched HITL work items
+		fieldType, _ := fieldDef["type"].(string)
+		fieldItems, _ := fieldDef["items"].(map[string]interface{})
+		fieldMinItems := 0
+		if mi, ok := fieldDef["min_items"].(float64); ok {
+			fieldMinItems = int(mi)
+		}
+
 		// LLM-generated fields — always available
 		if source == "llm" {
 			llmFields = append(llmFields, fieldName)
@@ -578,6 +589,9 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 						Source:    source,
 						OnMissing: onMissing,
 						Reason:    missingReason,
+						Type:      fieldType,
+						Items:     fieldItems,
+						MinItems:  fieldMinItems,
 					})
 				}
 				continue
@@ -596,6 +610,9 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 						Source:    source,
 						OnMissing: onMissing,
 						Reason:    missingReason,
+						Type:      fieldType,
+						Items:     fieldItems,
+						MinItems:  fieldMinItems,
 					})
 				}
 			case "skip_section":
@@ -607,6 +624,9 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 					Source:    source,
 					OnMissing: onMissing,
 					Reason:    missingReason,
+					Type:      fieldType,
+					Items:     fieldItems,
+					MinItems:  fieldMinItems,
 				})
 			case "block":
 				// Block entire page build — this is handled upstream
@@ -616,6 +636,9 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 					Source:    source,
 					OnMissing: "block",
 					Reason:    missingReason,
+					Type:      fieldType,
+					Items:     fieldItems,
+					MinItems:  fieldMinItems,
 				})
 			default:
 				// Unknown on_missing — default to defer for safety
@@ -625,6 +648,9 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 					Source:    source,
 					OnMissing: onMissing,
 					Reason:    missingReason,
+					Type:      fieldType,
+					Items:     fieldItems,
+					MinItems:  fieldMinItems,
 				})
 			}
 		}

@@ -467,6 +467,9 @@ function WorkItemsList({ token, siteFilter, onBack }) {
             } else if (item.item_type === "placeholder_content") {
                 // Placeholder content: build input form based on page type and missing_data
                 setEditedReviewData(buildPlaceholderForm(item));
+            } else if (item.item_type === "needs_section_data") {
+                // Section data items: build form from missing[] array
+                setEditedReviewData(buildSectionDataForm(item));
             } else if (!item.spec.checkpoint) {
                 // Other review items: edit the spec directly (strip internal fields)
                 const editableSpec = { ...item.spec };
@@ -534,6 +537,109 @@ function WorkItemsList({ token, siteFilter, onBack }) {
             content: "",
             notes: "",
         };
+    }
+
+    // Build input form for needs_section_data items.
+    // Uses enriched type/items from plan_sections when available,
+    // falls back to heuristics based on field name and reason.
+    function buildSectionDataForm(item) {
+        const missing = item.spec?.missing || [];
+        if (missing.length === 0) {
+            return { content: "", notes: "" };
+        }
+
+        const form = {};
+        for (const entry of missing) {
+            const field = entry.field || "data";
+            const type = entry.type || "";
+            const items = entry.items || null;
+            const reason = (entry.reason || "").toLowerCase();
+
+            if (type === "array" && items && typeof items === "object") {
+                // Schema-driven: build template from items definition
+                const template = {};
+                for (const [key] of Object.entries(items)) {
+                    template[key] = "";
+                }
+                form[field] = [template];
+            } else if (type === "array") {
+                form[field] = [inferArrayTemplate(field, reason)];
+            } else if (type === "text" || type === "url" || type === "image") {
+                form[field] = "";
+            } else if (type === "boolean") {
+                form[field] = false;
+            } else {
+                // No type info — heuristic fallback
+                if (looksLikeArray(field, reason)) {
+                    form[field] = [inferArrayTemplate(field, reason)];
+                } else {
+                    form[field] = "";
+                }
+            }
+        }
+
+        return form;
+    }
+
+    function looksLikeArray(field, reason) {
+        const arrayHints = [
+            "use_case", "case_stud", "testimonial", "team_member",
+            "member", "plan", "tier", "pricing", "service",
+            "portfolio", "project", "client", "partner", "faq",
+            "feature", "benefit", "step", "review",
+        ];
+        const combined = (field + " " + reason).toLowerCase();
+        return arrayHints.some(h => combined.includes(h));
+    }
+
+    function inferArrayTemplate(field, reason) {
+        const combined = (field + " " + reason).toLowerCase();
+
+        if (combined.includes("use_case") || combined.includes("case_stud") || combined.includes("case study")) {
+            return { client_name: "", description: "", outcome: "" };
+        }
+        if (combined.includes("team") || combined.includes("member") || combined.includes("bio")) {
+            return { name: "", title: "", bio: "" };
+        }
+        if (combined.includes("testimonial") || combined.includes("review") || combined.includes("quote")) {
+            return { name: "", company: "", quote: "" };
+        }
+        if (combined.includes("pricing") || combined.includes("plan") || combined.includes("tier")) {
+            return { name: "", price: "", features: "", cta: "" };
+        }
+        if (combined.includes("service")) {
+            return { name: "", description: "", features: "" };
+        }
+        if (combined.includes("faq") || combined.includes("question")) {
+            return { question: "", answer: "" };
+        }
+        if (combined.includes("portfolio") || combined.includes("project")) {
+            return { name: "", description: "", url: "" };
+        }
+        if (combined.includes("partner") || combined.includes("client")) {
+            return { name: "", description: "" };
+        }
+        if (combined.includes("feature") || combined.includes("benefit")) {
+            return { title: "", description: "" };
+        }
+        if (combined.includes("step")) {
+            return { title: "", description: "" };
+        }
+        return { name: "", description: "" };
+    }
+
+    // Read-merge-write helper for site_specs.
+    // The PATCH endpoint does a full replace, so we read existing data,
+    // merge in the new fields, and write back.
+    async function mergeIntoSpec(siteId, aspect, newFields) {
+        const specsResult = await apiFetch(`/sites/${siteId}/specs`, token);
+        const existing = (specsResult.specs || []).find(s => s.aspect === aspect);
+        const existingData = (existing && typeof existing.data === "object") ? existing.data : {};
+        const merged = { ...existingData, ...newFields };
+        await apiFetch(`/sites/${siteId}/specs/${aspect}`, token, {
+            method: "PATCH",
+            body: JSON.stringify({ data: merged }),
+        });
     }
 
     const handleRetry = async (id) => {
@@ -624,62 +730,116 @@ function WorkItemsList({ token, siteFilter, onBack }) {
             const pageName = item.spec?.page_name || "unknown";
             const pageId = item.spec?.page_id;
 
-            // Step 1: Update site-level fields if present (email, phone, etc.)
-            const siteFields = {};
-            const siteFieldNames = ["email", "phone", "contact_address", "company_name", "tagline", "logo_text"];
-            for (const f of siteFieldNames) {
-                if (editedReviewData[f] !== undefined && editedReviewData[f] !== "") {
-                    siteFields[f] = editedReviewData[f];
+            if (item.item_type === "needs_section_data") {
+                // ── needs_section_data: write each field to its source spec ──
+                const missing = item.spec?.missing || [];
+
+                for (const entry of missing) {
+                    const fieldName = entry.field;
+                    const source = entry.source || "";
+                    const value = editedReviewData[fieldName];
+
+                    if (value === undefined || value === "" ||
+                        (Array.isArray(value) && value.length === 0)) {
+                        continue;
+                    }
+
+                    // Parse source: "site_specs.{aspect}.{field_path}"
+                    const sourceMatch = source.match(/^site_specs\.([^.]+)(?:\.(.+))?$/);
+                    if (sourceMatch) {
+                        const aspect = sourceMatch[1];
+                        const specField = sourceMatch[2] || fieldName;
+                        await mergeIntoSpec(item.site_id, aspect, { [specField]: value });
+                    } else {
+                        // Unknown source pattern — save to generic aspect
+                        await mergeIntoSpec(item.site_id, "section_data", { [fieldName]: value });
+                    }
                 }
-            }
-            if (Object.keys(siteFields).length > 0) {
-                await apiFetch(`/sites/${item.site_id}`, token, {
-                    method: "PATCH",
-                    body: JSON.stringify(siteFields),
+
+                // Create rebuild work item for the page
+                await apiFetch(`/work-items`, token, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        site_id: item.site_id,
+                        item_type: "content_rewrite",
+                        summary: `Rebuild ${pageName} — section data provided for ${item.spec?.section_name || "section"}`,
+                        severity: "high",
+                        handler_agent: "page-build-handler",
+                        page_id: pageId || undefined,
+                        priority: 10,
+                        spec: {
+                            page_name: pageName,
+                            reason: "section_data_provided",
+                            section_name: item.spec?.section_name,
+                        },
+                    }),
                 });
+
+                // Resolve the HITL item
+                await apiFetch(`/work-items/${item.id}/resolve`, token, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        resolution: `Section data provided for ${item.spec?.section_name} on ${pageName}`,
+                    }),
+                });
+
+                setMessage(`Data saved for ${item.spec?.section_name} — rebuild queued for ${pageName}`);
+
+            } else {
+                // ── Existing flow for placeholder_content and other types ────
+                const siteFields = {};
+                const siteFieldNames = ["email", "phone", "contact_address", "company_name", "tagline", "logo_text"];
+                for (const f of siteFieldNames) {
+                    if (editedReviewData[f] !== undefined && editedReviewData[f] !== "") {
+                        siteFields[f] = editedReviewData[f];
+                    }
+                }
+                if (Object.keys(siteFields).length > 0) {
+                    await apiFetch(`/sites/${item.site_id}`, token, {
+                        method: "PATCH",
+                        body: JSON.stringify(siteFields),
+                    });
+                }
+
+                const specAspect = `page_content_${pageName}`;
+                await apiFetch(`/sites/${item.site_id}/specs/${specAspect}`, token, {
+                    method: "PATCH",
+                    body: JSON.stringify({
+                        data: {
+                            page_name: pageName,
+                            page_id: pageId,
+                            provided_by: "admin",
+                            content: editedReviewData,
+                        },
+                    }),
+                });
+
+                await apiFetch(`/work-items`, token, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        site_id: item.site_id,
+                        item_type: "content_rewrite",
+                        summary: `Rebuild ${pageName} page with provided data`,
+                        severity: "high",
+                        handler_agent: "page-build-handler",
+                        page_id: pageId || undefined,
+                        priority: 10,
+                        spec: {
+                            page_name: pageName,
+                            content_source: specAspect,
+                            reason: "placeholder_content_replaced",
+                        },
+                    }),
+                });
+
+                await apiFetch(`/work-items/${item.id}/resolve`, token, {
+                    method: "POST",
+                    body: JSON.stringify({ resolution: `Real data provided for ${pageName}, rebuild queued` }),
+                });
+
+                setMessage(`Data saved for ${pageName} — rebuild queued`);
             }
 
-            // Step 2: Save page-specific data to site_specs
-            // This makes it available to the page-build-handler when it rebuilds
-            const specAspect = `page_content_${pageName}`;
-            await apiFetch(`/sites/${item.site_id}/specs/${specAspect}`, token, {
-                method: "PATCH",
-                body: JSON.stringify({
-                    data: {
-                        page_name: pageName,
-                        page_id: pageId,
-                        provided_by: "admin",
-                        content: editedReviewData,
-                    },
-                }),
-            });
-
-            // Step 3: Create a rebuild work item for the affected page
-            await apiFetch(`/work-items`, token, {
-                method: "POST",
-                body: JSON.stringify({
-                    site_id: item.site_id,
-                    item_type: "content_rewrite",
-                    summary: `Rebuild ${pageName} page with provided data`,
-                    severity: "high",
-                    handler_agent: "page-build-handler",
-                    page_id: pageId || undefined,
-                    priority: 10,
-                    spec: {
-                        page_name: pageName,
-                        content_source: specAspect,
-                        reason: "placeholder_content_replaced",
-                    },
-                }),
-            });
-
-            // Step 4: Resolve the review item
-            await apiFetch(`/work-items/${item.id}/resolve`, token, {
-                method: "POST",
-                body: JSON.stringify({ resolution: `Real data provided for ${pageName}, rebuild queued` }),
-            });
-
-            setMessage(`Data saved for ${pageName} — rebuild queued`);
             selectItem(null);
             loadItems();
         } catch (err) { setMessage("Save failed: " + err.message); }
@@ -923,11 +1083,25 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                     <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 10 }}>
                                         {isCheckpoint ? "Review Data" :
                                             selectedItem.item_type === "placeholder_content" ? "Provide Real Data" :
-                                                "Item Data"}
+                                                selectedItem.item_type === "needs_section_data" ?
+                                                    `Provide Data for "${(selectedItem.spec?.section_name || "section").replace(/-/g, " ")}"` :
+                                                    "Item Data"}
                                         {selectedItem.spec?.spec_aspect && (
                                             <span style={{ fontWeight: 400, color: "#94a3b8" }}> — will update spec '{selectedItem.spec.spec_aspect}'</span>
                                         )}
                                     </div>
+                                    {selectedItem.item_type === "needs_section_data" && selectedItem.spec?.missing && (
+                                        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, lineHeight: 1.5 }}>
+                                            {selectedItem.spec.missing.map((m, i) => (
+                                                <div key={i} style={{ marginBottom: 4 }}>
+                                                    <strong style={{ color: "#475569" }}>
+                                                        {(m.field || "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                                                    </strong>
+                                                    {m.reason && <span> — {m.reason}</span>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                     <div style={{
                                         background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8,
                                         padding: 16,
