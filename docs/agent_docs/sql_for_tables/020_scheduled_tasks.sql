@@ -1033,3 +1033,20 @@ UPDATE scheduled_tasks
 SET pre_query = REPLACE(pre_query, 'WAITING_FOR_RESPONSE', 'AWAITING_RESPONSES')
 WHERE name = 'database-cleanup';
 
+-- Register the health check scheduled task
+INSERT INTO scheduled_tasks (
+    name, target_agent_type, target_topic, input_data,
+    interval_seconds, timeout_seconds, enabled, fire_message,
+    concurrency_group, max_concurrent
+) VALUES (
+             'ai-endpoint-health-check',
+             'build-dispatch-loop',          -- runs on the dispatch loop agent (always running)
+             'system.agent.build-dispatch-loop.process',
+             '{"action": "check_endpoint_health"}'::jsonb,
+             30,                              -- check every 30 seconds
+             15,                              -- timeout after 15 seconds
+             true,
+             true,
+             'health-checks',
+             1
+         ) ON CONFLICT (name) DO NOTHING;

@@ -286,6 +286,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Execute an LLM prompt with templated input",
 		IsLocal:     true,
 	},
+	"check_endpoint_health": {
+		Handler:     CheckEndpointHealthAction,
+		Category:    "system",
+		Description: "Ping AI endpoints and update health table",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// DATA — transform, validate, extract, aggregate, database
