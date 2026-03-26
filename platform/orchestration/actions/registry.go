@@ -896,6 +896,52 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		IsLocal:     true,
 	},
 
+	// =========================================================================
+	// FEED — content feed ingestion pipeline
+	// =========================================================================
+	"fetch_rss": {
+		Handler:     FetchRSSAction,
+		Category:    "feed",
+		Description: "Fetch and parse RSS/Atom feed, return normalised items",
+		IsLocal:     true,
+	},
+	"fetch_llm_news": {
+		Handler:     FetchLLMNewsAction,
+		Category:    "feed",
+		Description: "Fetch news via LLM API (xAI/Grok, OpenAI, Perplexity)",
+		IsLocal:     true,
+	},
+	"write_feed_items": {
+		Handler:     WriteFeedItemsAction,
+		Category:    "feed",
+		Description: "Normalise and write feed items to content_feed_items with dedup",
+		IsLocal:     true,
+	},
+	"load_due_sources": {
+		Handler:     LoadDueSourcesAction,
+		Category:    "feed",
+		Description: "Query content_sources for sources due to be fetched",
+		IsLocal:     true,
+	},
+	"update_source_timestamps": {
+		Handler:     UpdateSourceTimestampsAction,
+		Category:    "feed",
+		Description: "Update last_fetched_at/next_fetch_at after ingestion",
+		IsLocal:     true,
+	},
+	"normalize_to_feed_items": {
+		Handler:     NormalizeToFeedItemsAction,
+		Category:    "feed",
+		Description: "Transform web_search or firecrawl results into normalised feed items",
+		IsLocal:     true,
+	},
+	"dispatch_feed_sources": {
+		Handler:     DispatchFeedSourcesAction,
+		Category:    "feed",
+		Description: "Query due content_sources and dispatch feed-ingester per source",
+		IsLocal:     true,
+	},
+
 	// tool lifecycle (deploy, update)
 	"deploy_tool_to_site": {
 		Handler:     DeployToolToSiteAction,
