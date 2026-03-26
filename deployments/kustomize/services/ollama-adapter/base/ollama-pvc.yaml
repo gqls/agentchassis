@@ -7,6 +7,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  storageClassName: sata
   resources:
     requests:
-      storage: 30Gi
+      storage: 20Gi

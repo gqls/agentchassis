@@ -18,8 +18,8 @@ kubectl -n ai-persona-system scale deployment/reasoning-agent --replicas=0
 kubectl -n ai-persona-system scale deployment/content-creator-agent --replicas=0
 kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=0
 kubectl -n ai-persona-system scale deployment/business-intel --replicas=0
+# kubectl -n ai-persona-system scale deployment/ollama-adapter --replicas=0
 
-kubectl -n ai-persona-system scale deployment/web-search-adapter --replicas=1
 kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=1
 
 # adapters
@@ -158,6 +158,9 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kaf
     --bootstrap-server localhost:9092 \
     --partitions 3 --replication-factor 1
 
+# remove cointaner status unknown and evicted
+kubectl -n ai-persona-system get pods | grep ContainerStatusUnknown | awk '{print $1}' | xargs kubectl -n ai-persona-system delete pod --force --grace-period=0
+
 # check for topics
 # kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh   --bootstrap-server localhost:9092   --list | grep dispatch
 
@@ -173,6 +176,7 @@ kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas
 kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
 kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
 kubectl -n ai-persona-system scale deployment/business-intel --replicas=1
+# kubectl -n ai-persona-system scale deployment/ollama-adapter --replicas=1
 
 
 
