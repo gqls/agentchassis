@@ -124,6 +124,8 @@ resource "kubernetes_secret" "personae_default_api_keys" {
     FIRECRAWL_API_KEY =  var.default_firecrawl_api_key
     PERPLEXITY_API_KEY =  var.default_perplexity_api_key
     COMPANIES_HOUSE_API_KEY = var.default_companies_house_api_key
+    THUNDER_COMPUTE_API_KEY=var.default_thunder_compute_api_key
+    GROK_API_KEY=var.default_grok_api_key
   }
 }
 

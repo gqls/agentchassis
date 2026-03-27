@@ -1,0 +1,19 @@
+# show skipped
+
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c "
+    SELECT
+      orchestration_id,
+      collected_data->'write_result'->>'written' as written,
+      collected_data->'write_result'->>'skipped' as skipped,
+      collected_data->'write_result'->>'total' as total,
+      created_at
+    FROM orchestration_states
+    WHERE collected_data->'input_data'->>'source_type' = 'rss'
+    ORDER BY created_at DESC
+    LIMIT 5;"
+           orchestration_id           | written | skipped | total |          created_at
+--------------------------------------+---------+---------+-------+-------------------------------
+ a118b71d-d980-4149-a106-8247f62a4aab | 5       | 0       | 5     | 2026-03-27 14:09:31.892113+00
+ 38cb7510-f0d7-4101-8efe-0cc3bf9e7d32 |         |         |       | 2026-03-27 14:09:13.533489+00
+(2 rows)

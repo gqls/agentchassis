@@ -73,6 +73,18 @@ variable "default_companies_house_api_key" {
   sensitive   = true
 }
 
+variable "default_thunder_compute_api_key" {
+  description = "Default THUNDER_COMPUTE_API_KEY key"
+  type        = string
+  sensitive   = true
+}
+
+variable "default_grok_api_key" {
+  description = "Default GROK_API_KEY key"
+  type        = string
+  sensitive   = true
+}
+
 # Docker
 variable "docker_password" {
   description = "Docker Hub password"
