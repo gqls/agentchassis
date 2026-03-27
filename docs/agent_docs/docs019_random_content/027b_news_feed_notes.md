@@ -12,3 +12,6 @@ find related videos on youtube to link to - make sure they're good
 create own video?
 create own graphics?
 create own graphs of timelines
+
+get timeline and label timeline
+

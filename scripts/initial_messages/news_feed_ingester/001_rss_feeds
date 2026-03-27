@@ -25,3 +25,6 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
           '6 hours'::interval,
           now()
         ) RETURNING id, name;"
+
+
+

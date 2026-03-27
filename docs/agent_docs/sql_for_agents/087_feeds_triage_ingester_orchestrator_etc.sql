@@ -320,3 +320,26 @@ INSERT INTO agent_definitions (
     input_contract = EXCLUDED.input_contract,
     output_contract = EXCLUDED.output_contract,
     updated_at = NOW();
+
+
+--
+
+-- single url at a time
+-- more than one url means more than one content_sources row
+
+UPDATE content_sources
+SET config = '{"url": "https://oilprice.com/Latest-Energy-News/World-News", "scrape_config": {"only_main_content": true}, "max_items": 5}'::jsonb,
+    next_fetch_at = now()
+WHERE name = 'OilPrice Latest News Scrape'
+  AND site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+    RETURNING id, name, config;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,scrape_source,config}',
+        '{"url_field": "input_data.source_config.url", "scrape_config": {"only_main_content": true}}'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'feed-ingester' AND deleted_at IS NULL
+    RETURNING type, default_config->'workflow'->'steps'->'scrape_source' as scrape_step;

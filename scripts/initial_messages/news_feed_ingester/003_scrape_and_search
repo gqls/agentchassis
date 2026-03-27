@@ -1,0 +1,19 @@
+
+        # scrape and search
+        kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+          psql -U clients_user -d clients_db -c "
+            INSERT INTO content_sources (site_id, source_type, name, config, fetch_interval, next_fetch_at)
+            VALUES
+            ('5fe15466-4e2e-4ff2-981e-98c1b7074002',
+             'scrape',
+             'OilPrice Latest News Scrape',
+             '{\"urls\": [\"https://oilprice.com/Latest-Energy-News/World-News\"], \"scrape_config\": {\"only_main_content\": true}, \"max_items\": 5}'::jsonb,
+             '6 hours'::interval,
+             now()),
+            ('5fe15466-4e2e-4ff2-981e-98c1b7074002',
+             'news_search',
+             'Gas wholesale energy news search',
+             '{\"queries\": [\"UK wholesale gas prices news\", \"natural gas market UK\"], \"num_results\": 5}'::jsonb,
+             '6 hours'::interval,
+             now())
+            RETURNING id, source_type, name;"
