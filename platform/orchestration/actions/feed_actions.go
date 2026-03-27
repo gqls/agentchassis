@@ -40,8 +40,8 @@ var FetchLLMNewsInputSpec = datahelpers.ActionInputSpec{
 }
 
 var WriteFeedItemsInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id", "source_id", "items"},
-	Optional: []string{"source_type"},
+	Required: []string{"site_id", "source_id"},
+	Optional: []string{"items", "source_type"},
 }
 
 var LoadDueSourcesInputSpec = datahelpers.ActionInputSpec{
