@@ -126,6 +126,7 @@ resource "kubernetes_secret" "personae_default_api_keys" {
     COMPANIES_HOUSE_API_KEY = var.default_companies_house_api_key
     THUNDER_COMPUTE_API_KEY=var.default_thunder_compute_api_key
     GROK_API_KEY=var.default_grok_api_key
+    XAI_API_KEY=var.default_grok_api_key
   }
 }
 

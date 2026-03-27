@@ -85,48 +85,48 @@ FK added: `content_feed_items.source_id → content_sources.id` (was dangling).
 **rss:**
 ```json
 {
-    "feed_url": "https://www.boxingscene.com/feed",
-    "max_items": 15
+  "feed_url": "https://www.boxingscene.com/feed",
+  "max_items": 15
 }
 ```
 
 **news_search** (uses existing web search adapter):
 ```json
 {
-    "queries": ["boxing news today", "boxing fight results"],
-    "num_results": 10,
-    "provider": "firecrawl"
+  "queries": ["boxing news today", "boxing fight results"],
+  "num_results": 10,
+  "provider": "firecrawl"
 }
 ```
 
 **api_news** (xAI/Grok, OpenAI, Perplexity — OpenAI-compatible chat completions):
 ```json
 {
-    "provider": "xai",
-    "model": "grok-3",
-    "prompt_template": "What are the latest boxing news stories from the last {{.hours}} hours? ...",
-    "hours_lookback": 12,
-    "max_items": 10
+  "provider": "xai",
+  "model": "grok-3",
+  "prompt_template": "What are the latest boxing news stories from the last {{.hours}} hours? ...",
+  "hours_lookback": 12,
+  "max_items": 10
 }
 ```
 
 **scrape** (uses existing firecrawl adapter):
 ```json
 {
-    "url": "https://www.boxrec.com/en/news",
-    "scrape_config": {"only_main_content": true},
-    "max_items": 10
+  "url": "https://www.boxrec.com/en/news",
+  "scrape_config": {"only_main_content": true},
+  "max_items": 10
 }
 ```
 
 **api_data** (future — structured APIs like BoE rates, ticket prices):
 ```json
 {
-    "endpoint": "https://api.bankofengland.co.uk/...",
-    "method": "GET",
-    "headers": {},
-    "response_path": "result.data",
-    "data_type": "mortgage_rate"
+  "endpoint": "https://api.bankofengland.co.uk/...",
+  "method": "GET",
+  "headers": {},
+  "response_path": "result.data",
+  "data_type": "mortgage_rate"
 }
 ```
 
@@ -189,7 +189,22 @@ All in `platform/orchestration/actions/`. Each follows the standard pattern: `Ac
 
 Two modes via `source_format` config:
 - `"search"`: reads from `search_results.results` array, maps `snippet` → `summary`
-- `"scrape"`: reads from `scrape_results`, extracts content (markdown preferred, then clean, then HTML-stripped), truncates to 500 chars for summary
+- `"scrape"`: reads from `scrape_results`, navigates firecrawl `response.data` wrapper, extracts `links` array from listing pages, filters navigation/social links. Falls back to single-item mode if no usable links found.
+
+### feed_fetch_async_actions.go — 2 actions
+
+| Action | Category | Sync/Async | Purpose |
+|--------|----------|------------|---------|
+| `fetch_scrape` | feed | Async (delegates to WebscrapeAction) | Reads URL from source_config in Go, delegates to existing firecrawl adapter |
+| `fetch_news_search` | feed | Async (delegates to WebSearchAction) | Reads query from source_config in Go, delegates to existing web search adapter with search_type=news |
+
+These follow the same wrapper pattern as `FirecrawlScrapeAction` (which sets config then calls `WebscrapeAction`). The difference is they read `source_config` from collected_data in Go rather than relying on workflow config path threading.
+
+Both handle flexible config shapes:
+- `fetch_scrape`: accepts `"url": "..."` (string) or `"urls": [...]` (array, takes first)
+- `fetch_news_search`: accepts `"query": "..."` (string) or `"queries": [...]` (array, takes first)
+
+This means source configs can use either the flat string or array format — the Go code handles both. The flat format is recommended (one source = one URL/query = one set of error tracking), but the array format won't break.
 
 ### dispatch_feed_sources_action.go — 1 action
 

@@ -567,7 +567,10 @@ func resolveLLMNewsProvider(provider string) (string, string, error) {
 	case "xai", "grok":
 		apiKey := os.Getenv("XAI_API_KEY")
 		if apiKey == "" {
-			return "", "", fmt.Errorf("XAI_API_KEY environment variable not set")
+			apiKey = os.Getenv("GROK_API_KEY")
+		}
+		if apiKey == "" {
+			return "", "", fmt.Errorf("XAI_API_KEY or GROK_API_KEY environment variable not set")
 		}
 		return "https://api.x.ai/v1/chat/completions", apiKey, nil
 	case "openai":

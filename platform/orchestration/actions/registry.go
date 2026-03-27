@@ -941,6 +941,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Query due content_sources and dispatch feed-ingester per source",
 		IsLocal:     true,
 	},
+	"fetch_scrape": {
+		Handler:     FetchScrapeAction,
+		Category:    "feed",
+		Description: "Read URL from source_config, delegate to WebscrapeAction (async via adapter)",
+		IsLocal:     true,
+	},
+	"fetch_news_search": {
+		Handler:     FetchNewsSearchAction,
+		Category:    "feed",
+		Description: "Read query from source_config, delegate to WebSearchAction with search_type=news (async via adapter)",
+		IsLocal:     true,
+	},
 
 	// tool lifecycle (deploy, update)
 	"deploy_tool_to_site": {

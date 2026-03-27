@@ -1,5 +1,7 @@
+
+# SELECT id FROM content_sources WHERE name = 'OilPrice Latest News Scrape';
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
-SOURCE_ID="<paste-actual-id>"
+SOURCE_ID="7f6927a2-17b1-42e1-9fe0-017b72598a53"
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -35,6 +37,16 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
   psql -U clients_user -d clients_db -c "
     SELECT id FROM content_sources
     WHERE name = 'OilPrice Latest News Scrape';"
+
+SELECT id FROM content_sources
+    WHERE name = 'OilPrice Latest News Scrape';
+                  id
+--------------------------------------
+ 7f6927a2-17b1-42e1-9fe0-017b72598a53
+
+SELECT id, name, source_type FROM content_sources
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND source_type = 'news_search';
 
 
     monitor

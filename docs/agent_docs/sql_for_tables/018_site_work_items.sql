@@ -450,3 +450,5 @@ ALTER TABLE site_work_items
 -- 'standard'  — process immediately using whatever ai_service is configured (Claude or CPU Ollama)
 -- 'batch_gpu' — hold until GPU batch starts, then process via GPU Ollama
 
+ALTER TABLE site_work_items DROP COLUMN domain;
+
