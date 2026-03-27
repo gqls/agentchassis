@@ -180,10 +180,10 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 
 	_, err = params.DB.ExecContext(ctx, `
 		INSERT INTO pages (
-			id, site_id, name, slug, url, title,
-			page_type, status, build_status, sort_order, purpose
-		) VALUES ($1, $2, $3, $4, $5, $6, 'tool', 'active', 'planned', 200, $7)
-	`, pageID, siteID, pageName, pageSlug, pageURL, pageTitle, description)
+			id, site_id, name, url, title,
+			page_type, status, build_status, nav_order, meta_description
+		) VALUES ($1, $2, $3, $4, $5, 'tool', 'active', 'planned', 200, $6)
+	`, pageID, siteID, pageName, pageURL, pageTitle, description)
 	if err != nil {
 		// If page creation fails, clean up the component
 		params.DB.ExecContext(ctx, `DELETE FROM content_components WHERE id = $1`, componentID)

@@ -8141,3 +8141,778 @@ SET input_schema = jsonb_set(
 WHERE function IN ('site-header')
   AND input_schema->'fields'->'nav_items' IS NOT NULL;
 
+---
+-- tools
+-- ============================================================
+-- Populate empty library tools with HTML templates
+-- 5 of 6 empty tools (clip-path-builder source not provided)
+-- ============================================================
+
+-- 1. FAVICON GENERATOR
+UPDATE content_components
+SET html_template = $fav$<style>
+    .tool-layout { display: grid; gap: var(--space-lg); }
+    @media (min-width: 900px) { .tool-layout { grid-template-columns: 350px 1fr; } }
+    .emoji-grid {
+        display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem;
+        max-height: 200px; overflow-y: auto;
+        border: 1px solid var(--color-border, #eee); padding: 0.5rem; border-radius: 8px; margin-top: 1rem;
+    }
+    .emoji-btn {
+        background: var(--color-surface, #f4f4f5); border: none; font-size: 1.5rem; cursor: pointer;
+        border-radius: 4px; padding: 0.25rem; transition: background 0.2s;
+    }
+    .emoji-btn:hover { background: var(--color-border, #e4e4e7); transform: scale(1.1); }
+    .preview-grid {
+        display: flex; gap: 2rem; align-items: flex-end;
+        background: var(--color-surface, #f4f4f5); padding: 2rem; border-radius: 8px; margin-top: 1rem;
+    }
+    .icon-preview { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+    .icon-box { background: #fff; border: 1px dashed var(--color-border, #ccc); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .browser-tab { background: var(--color-border, #e4e4e7); padding: 8px 16px; border-radius: 8px 8px 0 0; display: inline-flex; align-items: center; gap: 8px; font-size: 0.8rem; font-family: sans-serif; color: var(--color-text-muted, #555); width: 200px; }
+    .guide-box { background: var(--color-surface, #fff); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: var(--shadow-card); }
+    .code-output {
+        background: #1e1e1e; color: #a9ff68; padding: 1rem;
+        border-radius: 8px; font-family: var(--font-mono); font-size: 0.8rem;
+        margin-top: 1rem; width: 100%; box-sizing: border-box;
+    }
+</style>
+
+<main class="container" style="padding-top: var(--space-lg);">
+    <h1 style="font-size: var(--text-h2);">Smart Favicon Generator</h1>
+
+    <div class="guide-box">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <div>
+                <h3 style="font-size: 1rem; color: var(--color-accent); margin-bottom: 0.5rem;">The Caching Problem</h3>
+                <p style="font-size: 0.9rem; color: var(--color-text-muted, #555);">
+                    Browsers stubbornly cache favicons. If you update your file but don't see the change, try pressing <code>Ctrl + F5</code> (Windows) or <code>Cmd + Shift + R</code> (Mac) to force a refresh.
+                </p>
+            </div>
+            <div>
+                <h3 style="font-size: 1rem; color: var(--color-accent); margin-bottom: 0.5rem;">Implementation</h3>
+                <p style="font-size: 0.9rem; color: var(--color-text-muted, #555);">
+                    Place the generated <code>favicon.ico</code> in your site's root folder (where your index.html is). For best results, add the link tag below to your code.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tool-layout">
+        <aside>
+            <div style="background: var(--color-surface, #fff); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px;">
+                <h3 style="font-size: 1rem; margin-bottom: 1rem;">1. Choose Icon</h3>
+                <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                    <button class="btn" id="btnEmoji" onclick="setMode('emoji')" style="flex:1; padding:0.5rem;">Emoji</button>
+                    <button class="btn-outline" id="btnUpload" onclick="setMode('upload')" style="flex:1; padding:0.5rem;">Upload</button>
+                </div>
+                <div id="controlsEmoji">
+                    <label style="display:block; margin-bottom:0.5rem; font-weight:600;">Selected Emoji</label>
+                    <input type="text" id="emojiInput" value="🚀" style="font-size: 2rem; width: 100%; text-align: center; border: 1px solid var(--color-border, #ccc); border-radius: 4px; margin-bottom: 1rem;">
+                    <label style="font-weight: 600; font-size: 0.85rem;">Quick Pick</label>
+                    <div class="emoji-grid" id="emojiGrid"></div>
+                    <label style="display:block; margin-top:1rem; margin-bottom:0.5rem; font-weight:600;">Size</label>
+                    <input type="range" id="emojiSize" min="50" max="150" value="100" style="width:100%">
+                </div>
+                <div id="controlsUpload" style="display:none;">
+                    <label style="display:block; margin-bottom:0.5rem; font-weight:600;">Upload Logo</label>
+                    <input type="file" id="fileInput" accept="image/*">
+                </div>
+            </div>
+            <button class="btn" onclick="downloadAll()" style="width:100%; margin-top: 1rem; background: var(--color-accent);">Download Icons</button>
+        </aside>
+
+        <section>
+            <h3 style="font-size: 1rem;">Live Preview</h3>
+            <div style="margin-top: 1rem;">
+                <div class="browser-tab">
+                    <img id="tabIcon" src="" style="width:16px; height:16px;">
+                    <span>My Website</span>
+                    <span style="margin-left: auto;">×</span>
+                </div>
+            </div>
+            <div class="preview-grid">
+                <div class="icon-preview">
+                    <div class="icon-box" style="width: 32px; height: 32px;"><img id="prev32"></div>
+                    <span style="font-size: 0.75rem;">32x32<br>(favicon.ico)</span>
+                </div>
+                <div class="icon-preview">
+                    <div class="icon-box" style="width: 90px; height: 90px;"><img id="prev180" style="width: 90px; height: 90px;"></div>
+                    <span style="font-size: 0.75rem;">180x180<br>(Touch Icon)</span>
+                </div>
+            </div>
+            <h3 style="font-size: 1rem; margin-top: 2rem;">Installation Code</h3>
+            <p style="font-size: 0.85rem; color: var(--color-text-muted, #666); margin-top: 0.5rem;">Paste this into your <code>&lt;head&gt;</code> tag:</p>
+            <textarea class="code-output" readonly><link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"></textarea>
+            <canvas id="renderCanvas" width="512" height="512" style="display:none;"></canvas>
+        </section>
+    </div>
+</main>
+
+<script>
+    const canvas = document.getElementById('renderCanvas');
+    const ctx = canvas.getContext('2d');
+    const inputs = { emoji: document.getElementById('emojiInput'), size: document.getElementById('emojiSize'), file: document.getElementById('fileInput') };
+    const previews = { tab: document.getElementById('tabIcon'), p32: document.getElementById('prev32'), p180: document.getElementById('prev180') };
+    const emojiGrid = document.getElementById('emojiGrid');
+    let mode = 'emoji';
+    let uploadedImg = new Image();
+    const emojis = ["🚀","⚡","🔥","✨","💎","❤️","✅","⭐","💡","🎉","🛠️","💻","🎨","📈","🔒","🌍","🌙","☀️","🌊","🌵","🍀","🍁","🍄","🍔","🍕","☕","🍺","🐱","🐶","🦊","🦁","🐸","🦄","💀","👻","🤖","👾","🎃","🏆","⚽","🏀","🎮","🎵","📷","💰","🛒","📦","✉️","📞","📅","📍","🚩","🏁","👁️","🧠","👋","👍"];
+    emojis.forEach(e => {
+        const btn = document.createElement('button');
+        btn.className = 'emoji-btn'; btn.innerText = e;
+        btn.onclick = () => { inputs.emoji.value = e; render(); };
+        emojiGrid.appendChild(btn);
+    });
+    function setMode(newMode) {
+        mode = newMode;
+        document.getElementById('controlsEmoji').style.display = mode === 'emoji' ? 'block' : 'none';
+        document.getElementById('controlsUpload').style.display = mode === 'upload' ? 'block' : 'none';
+        if(mode === 'emoji') { document.getElementById('btnEmoji').className = 'btn'; document.getElementById('btnUpload').className = 'btn-outline'; }
+        else { document.getElementById('btnEmoji').className = 'btn-outline'; document.getElementById('btnUpload').className = 'btn'; }
+        render();
+    }
+    function render() {
+        ctx.clearRect(0, 0, 512, 512);
+        if (mode === 'emoji') {
+            const fontSize = inputs.size.value * 3;
+            ctx.font = fontSize + 'px sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(inputs.emoji.value, 256, 256 + (fontSize * 0.1));
+            updatePreviews();
+        } else if (mode === 'upload' && uploadedImg.src) {
+            const aspect = uploadedImg.width / uploadedImg.height;
+            let drawW = 512; let drawH = 512;
+            if (aspect > 1) { drawH = 512 / aspect; } else { drawW = 512 * aspect; }
+            ctx.drawImage(uploadedImg, (512-drawW)/2, (512-drawH)/2, drawW, drawH);
+            updatePreviews();
+        }
+    }
+    function updatePreviews() {
+        const dataUrl = canvas.toDataURL('image/png');
+        previews.tab.src = dataUrl; previews.p32.src = dataUrl; previews.p180.src = dataUrl;
+    }
+    async function pngToIco(pngBlob) {
+        const pngData = new Uint8Array(await pngBlob.arrayBuffer());
+        const fileSize = pngData.length;
+        const header = new Uint8Array([0, 0, 1, 0, 1, 0]);
+        const entry = new Uint8Array(16);
+        const view = new DataView(entry.buffer);
+        entry[0] = 32; entry[1] = 32; entry[2] = 0; entry[3] = 0;
+        view.setUint16(4, 1, true); view.setUint16(6, 32, true);
+        view.setUint32(8, fileSize, true); view.setUint32(12, 22, true);
+        const icoData = new Uint8Array(header.length + entry.length + fileSize);
+        icoData.set(header, 0); icoData.set(entry, header.length); icoData.set(pngData, header.length + entry.length);
+        return new Blob([icoData], { type: 'image/x-icon' });
+    }
+    async function downloadAll() {
+        const c180 = document.createElement('canvas'); c180.width=180; c180.height=180;
+        c180.getContext('2d').drawImage(canvas, 0,0,180,180);
+        const linkPNG = document.createElement('a'); linkPNG.download = 'apple-touch-icon.png';
+        linkPNG.href = c180.toDataURL('image/png'); linkPNG.click();
+        const c32 = document.createElement('canvas'); c32.width=32; c32.height=32;
+        c32.getContext('2d').drawImage(canvas, 0,0,32,32);
+        c32.toBlob(async (blob) => {
+            const icoBlob = await pngToIco(blob);
+            const linkICO = document.createElement('a'); linkICO.download = 'favicon.ico';
+            linkICO.href = URL.createObjectURL(icoBlob); linkICO.click();
+        }, 'image/png');
+    }
+    inputs.emoji.addEventListener('input', render);
+    inputs.size.addEventListener('input', render);
+    inputs.file.addEventListener('change', (e) => { const file = e.target.files[0]; if(file) { const reader = new FileReader(); reader.onload = (evt) => { uploadedImg.onload = render; uploadedImg.src = evt.target.result; }; reader.readAsDataURL(file); } });
+    render();
+</script>$fav$,
+    updated_at = NOW()
+WHERE id = '0004ef64-88c4-47b5-8b25-a636bf352100'
+  AND html_template = '';
+
+
+-- 2. MEME GENERATOR
+UPDATE content_components
+SET html_template = $meme$<style>
+    .tool-layout { display: grid; grid-template-columns: 1fr; gap: var(--space-lg); align-items: start; }
+    @media (min-width: 900px) { .tool-layout { grid-template-columns: 350px 1fr; } }
+    .canvas-container {
+        background: var(--color-border, #eee); border: 2px dashed var(--color-border, #ccc);
+        display: flex; align-items: center; justify-content: center;
+        min-height: 400px; overflow: hidden; border-radius: var(--radius-md);
+    }
+    canvas { max-width: 100%; height: auto; box-shadow: var(--shadow-card); }
+    .guide-box { background: var(--color-surface, #fff); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: var(--shadow-card); }
+    .color-toggle { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .color-btn { width: 24px; height: 24px; border: 1px solid var(--color-border, #ccc); border-radius: 4px; cursor: pointer; }
+    .color-btn.active { border: 2px solid var(--color-accent); transform: scale(1.1); }
+</style>
+
+<main class="container" style="padding-top: var(--space-lg);">
+    <div style="margin-bottom: var(--space-lg);"><h1 style="font-size: var(--text-h2);">Meme Studio</h1></div>
+    <div class="guide-box">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <div>
+                <h3 style="font-size: 1rem; color: var(--color-accent); margin-bottom: 0.5rem;">Why the "Impact" Font?</h3>
+                <p style="font-size: 0.9rem; color: var(--color-text-muted, #555);">Memes traditionally use the <strong>Impact</strong> typeface because its thick, condensed letters are easy to read. Combined with a white fill and black outline (stroke), the text is visible on any background color.</p>
+            </div>
+            <div>
+                <h3 style="font-size: 1rem; color: var(--color-accent); margin-bottom: 0.5rem;">Privacy First</h3>
+                <p style="font-size: 0.9rem; color: var(--color-text-muted, #555);">Just like our other tools, this runs entirely in your browser. Your photos are never uploaded to our servers.</p>
+            </div>
+        </div>
+    </div>
+    <div class="tool-layout">
+        <aside>
+            <div style="background: var(--color-surface); padding: var(--space-md); border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">1. Upload Image</h3>
+                <input type="file" id="imageInput" accept="image/*" style="width: 100%; margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">2. Add Text</h3>
+                <div style="margin-bottom: 1rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label style="font-size: 0.85rem; font-weight: 600;">Top Text</label>
+                        <div class="color-toggle">
+                            <button class="color-btn active" style="background:#fff;" onclick="setColor('top', 'white', this)" title="White Text"></button>
+                            <button class="color-btn" style="background:#000;" onclick="setColor('top', 'black', this)" title="Black Text"></button>
+                        </div>
+                    </div>
+                    <input type="text" id="topText" placeholder="WHEN THE CODE" style="width: 100%; padding: 0.5rem; margin-top: 0.25rem;">
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label style="font-size: 0.85rem; font-weight: 600;">Bottom Text</label>
+                        <div class="color-toggle">
+                            <button class="color-btn active" style="background:#fff;" onclick="setColor('bottom', 'white', this)" title="White Text"></button>
+                            <button class="color-btn" style="background:#000;" onclick="setColor('bottom', 'black', this)" title="Black Text"></button>
+                        </div>
+                    </div>
+                    <input type="text" id="bottomText" placeholder="WORKS ON FIRST TRY" style="width: 100%; padding: 0.5rem; margin-top: 0.25rem;">
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Text Size (px)</label>
+                    <input type="range" id="textSize" min="20" max="100" value="40" style="width: 100%;">
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn" onclick="resetAll()" style="flex:1; background: #666;">Reset</button>
+                    <button class="btn" id="downloadBtn" style="flex:2; background: var(--color-accent);" disabled>Download Meme</button>
+                </div>
+            </div>
+        </aside>
+        <section>
+            <div class="canvas-container"><canvas id="memeCanvas" width="600" height="400"></canvas></div>
+            <p style="text-align: center; color: var(--color-text-muted, #666); font-size: 0.85rem; margin-top: 1rem;">Tip: Use uppercase for the classic meme look.</p>
+        </section>
+    </div>
+</main>
+
+<script>
+    const canvas = document.getElementById('memeCanvas');
+    const ctx = canvas.getContext('2d');
+    const imageInput = document.getElementById('imageInput');
+    const topText = document.getElementById('topText');
+    const bottomText = document.getElementById('bottomText');
+    const textSize = document.getElementById('textSize');
+    const downloadBtn = document.getElementById('downloadBtn');
+    let currentImage = null;
+    let colors = { top: 'white', bottom: 'white' };
+    function initCanvas() {
+        ctx.fillStyle = "#ccc"; ctx.fillRect(0,0, canvas.width, canvas.height);
+        ctx.fillStyle = "#666"; ctx.font = "20px sans-serif"; ctx.textAlign = "center";
+        ctx.fillText("Upload an image to start", 300, 200);
+    }
+    initCanvas();
+    imageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if(file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                currentImage = new Image();
+                currentImage.onload = () => {
+                    const maxW = 800;
+                    const scale = Math.min(1, maxW / currentImage.width);
+                    canvas.width = currentImage.width * scale;
+                    canvas.height = currentImage.height * scale;
+                    draw(); downloadBtn.disabled = false;
+                };
+                currentImage.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+    window.setColor = (pos, color, btn) => {
+        colors[pos] = color;
+        const parent = btn.parentElement;
+        Array.from(parent.children).forEach(c => c.classList.remove('active'));
+        btn.classList.add('active'); draw();
+    };
+    function draw() {
+        if(!currentImage) return;
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+        const size = textSize.value;
+        ctx.font = '900 ' + size + 'px Impact, sans-serif';
+        ctx.lineWidth = size / 25; ctx.textAlign = 'center';
+        if(topText.value) {
+            ctx.textBaseline = 'top'; ctx.fillStyle = colors.top;
+            ctx.strokeStyle = colors.top === 'white' ? 'black' : 'white';
+            ctx.fillText(topText.value.toUpperCase(), canvas.width/2, canvas.height*0.05);
+            ctx.strokeText(topText.value.toUpperCase(), canvas.width/2, canvas.height*0.05);
+        }
+        if(bottomText.value) {
+            ctx.textBaseline = 'bottom'; ctx.fillStyle = colors.bottom;
+            ctx.strokeStyle = colors.bottom === 'white' ? 'black' : 'white';
+            ctx.fillText(bottomText.value.toUpperCase(), canvas.width/2, canvas.height*0.95);
+            ctx.strokeText(bottomText.value.toUpperCase(), canvas.width/2, canvas.height*0.95);
+        }
+    }
+    window.resetAll = () => {
+        currentImage = null; imageInput.value = ""; topText.value = ""; bottomText.value = "";
+        textSize.value = 40; downloadBtn.disabled = true; colors = { top: 'white', bottom: 'white' };
+        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.color-toggle button:first-child').forEach(b => b.classList.add('active'));
+        canvas.width = 600; canvas.height = 400; initCanvas();
+    };
+    downloadBtn.addEventListener('click', () => {
+        const link = document.createElement('a'); link.download = 'meme.jpg';
+        link.href = canvas.toDataURL('image/jpeg', 0.9); link.click();
+    });
+    topText.addEventListener('input', draw);
+    bottomText.addEventListener('input', draw);
+    textSize.addEventListener('input', draw);
+</script>$meme$,
+    updated_at = NOW()
+WHERE id = '6ae53f32-be86-4c29-bc52-983c35d23b18'
+  AND html_template = '';
+
+
+-- 3. PROMPT ARCHITECT
+UPDATE content_components
+SET html_template = $prompt$<style>
+    .tool-layout { display: grid; gap: var(--space-lg); }
+    @media (min-width: 900px) { .tool-layout { grid-template-columns: 1fr 1fr; } }
+    .param-group { background: var(--color-surface, #fff); padding: 1rem; border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 1rem; }
+    .param-title { font-weight: 700; margin-bottom: 0.5rem; display: flex; justify-content: space-between; }
+    .param-desc { font-size: 0.8rem; color: var(--color-text-muted, #666); margin-bottom: 0.8rem; }
+    select, textarea { width: 100%; padding: 0.5rem; border: 1px solid var(--color-border, #ccc); border-radius: 4px; font-size: 0.9rem; }
+    textarea { height: 100px; }
+    .tag-cloud { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .tag { padding: 4px 10px; border: 1px solid var(--color-border, #ddd); border-radius: 20px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+    .tag.active { background: var(--color-accent); color: white; border-color: var(--color-accent); }
+    .final-box { background: #1e1e1e; color: #a9ff68; padding: 1.5rem; border-radius: 8px; position: sticky; top: 20px; }
+</style>
+
+<main class="container" style="padding-top: var(--space-lg);">
+    <h1 style="font-size: var(--text-h2);">AI Prompt Architect</h1>
+    <div class="guide-box" style="background: var(--color-surface, #fff); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: var(--shadow-card);">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <div>
+                <h3 style="font-size: 1rem; color: var(--color-accent); margin-bottom: 0.5rem;">Speak the Language of Physics</h3>
+                <p style="font-size: 0.9rem; color: var(--color-text-muted, #555);">AI models mimic photography. To get good results, act like a Director of Photography. Don't just say "cool lighting." Ask for <strong>"Volumetric Lighting"</strong> (dusty beams of light) or <strong>"Rim Lighting"</strong> (glowing edges).</p>
+            </div>
+            <div>
+                <h3 style="font-size: 1rem; color: var(--color-accent); margin-bottom: 0.5rem;">Camera Lenses Matter</h3>
+                <p style="font-size: 0.9rem; color: var(--color-text-muted, #555);"><strong>Wide Angle (16mm)</strong> creates epic scale but distorts faces.<br><strong>Telephoto (85mm+)</strong> flattens faces and blurs backgrounds (Bokeh).</p>
+            </div>
+        </div>
+    </div>
+    <div class="tool-layout">
+        <div>
+            <div class="param-group">
+                <div class="param-title">1. The Subject</div>
+                <textarea id="coreSubject" placeholder="e.g. A futuristic cyberpunk detective standing in the rain..."></textarea>
+            </div>
+            <div class="param-group">
+                <div class="param-title">2. Lighting</div>
+                <p class="param-desc">How does the light interact with the scene?</p>
+                <div class="tag-cloud" id="lightingTags">
+                    <span class="tag" data-val="Volumetric lighting">Volumetric (God Rays)</span>
+                    <span class="tag" data-val="Cinematic lighting">Cinematic</span>
+                    <span class="tag" data-val="Bioluminescent">Bioluminescent</span>
+                    <span class="tag" data-val="Rim lighting">Rim Lighting</span>
+                    <span class="tag" data-val="Golden hour">Golden Hour</span>
+                    <span class="tag" data-val="Softbox lighting">Softbox (Studio)</span>
+                </div>
+            </div>
+            <div class="param-group">
+                <div class="param-title">3. Camera & Lens</div>
+                <p class="param-desc">Define the perspective and depth of field.</p>
+                <div class="tag-cloud" id="cameraTags">
+                    <span class="tag" data-val="Wide angle lens">Wide Angle (Epic)</span>
+                    <span class="tag" data-val="85mm lens">85mm (Portrait)</span>
+                    <span class="tag" data-val="Macro lens">Macro (Tiny Details)</span>
+                    <span class="tag" data-val="Drone view">Drone View</span>
+                    <span class="tag" data-val="Bokeh">Bokeh (Blurred BG)</span>
+                    <span class="tag" data-val="GoPro footage">GoPro Fisheye</span>
+                </div>
+            </div>
+            <div class="param-group">
+                <div class="param-title">4. Engine & Style</div>
+                <div class="tag-cloud" id="styleTags">
+                    <span class="tag" data-val="Unreal Engine 5">Unreal Engine 5</span>
+                    <span class="tag" data-val="Octane Render">Octane Render</span>
+                    <span class="tag" data-val="Oil painting">Oil Painting</span>
+                    <span class="tag" data-val="Synthwave">Synthwave</span>
+                    <span class="tag" data-val="Ukiyo-e">Ukiyo-e (Japanese)</span>
+                    <span class="tag" data-val="Pixar style">Pixar 3D</span>
+                </div>
+            </div>
+            <div class="param-group">
+                <div class="param-title">5. Midjourney Params</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <label>Aspect Ratio
+                        <select id="arParam"><option value="">Square (1:1)</option><option value="--ar 16:9">Cinema (16:9)</option><option value="--ar 9:16">Phone (9:16)</option><option value="--ar 2:1">Ultra Wide (2:1)</option></select>
+                    </label>
+                    <label>Stylize (0-1000) <input type="number" id="sParam" value="250" step="50"></label>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="final-box">
+                <h3 style="color: #fff; margin-bottom: 1rem; font-size: 1rem;">Final Prompt</h3>
+                <div id="finalOutput" style="font-family: var(--font-mono); line-height: 1.6;">...</div>
+                <button class="btn" onclick="copyPrompt()" style="width: 100%; margin-top: 1rem; background: #fff; color: #111;">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const state = { subject: "", lighting: [], camera: [], style: [], ar: "", stylize: "250" };
+    const output = document.getElementById('finalOutput');
+    function updateOutput() {
+        let parts = [];
+        if (state.subject) parts.push(state.subject);
+        const mods = [...state.style, ...state.lighting, ...state.camera];
+        if (mods.length > 0) parts.push(mods.join(", "));
+        let params = "";
+        if (state.ar) params += " " + state.ar;
+        if (state.stylize) params += " --s " + state.stylize;
+        output.innerText = parts.join(", ") + params;
+    }
+    function toggleTag(el, category) {
+        const val = el.dataset.val;
+        if (state[category].includes(val)) {
+            state[category] = state[category].filter(item => item !== val);
+            el.classList.remove('active');
+        } else { state[category].push(val); el.classList.add('active'); }
+        updateOutput();
+    }
+    document.getElementById('coreSubject').addEventListener('input', (e) => { state.subject = e.target.value; updateOutput(); });
+    document.getElementById('lightingTags').addEventListener('click', (e) => { if(e.target.classList.contains('tag')) toggleTag(e.target, 'lighting'); });
+    document.getElementById('cameraTags').addEventListener('click', (e) => { if(e.target.classList.contains('tag')) toggleTag(e.target, 'camera'); });
+    document.getElementById('styleTags').addEventListener('click', (e) => { if(e.target.classList.contains('tag')) toggleTag(e.target, 'style'); });
+    document.getElementById('arParam').addEventListener('change', (e) => { state.ar = e.target.value; updateOutput(); });
+    document.getElementById('sParam').addEventListener('input', (e) => { state.stylize = e.target.value; updateOutput(); });
+    function copyPrompt() { navigator.clipboard.writeText(output.innerText); alert("Copied!"); }
+</script>$prompt$,
+    updated_at = NOW()
+WHERE id = '2c941ec2-b59e-4e0f-925d-0b4d05ce8959'
+  AND html_template = '';
+
+
+-- Verify
+SELECT function, display_name, LENGTH(html_template) as template_len
+FROM content_components
+WHERE component_level = 'tool' AND forked_from IS NULL AND is_active = true
+ORDER BY function;
+-- ============================================================
+-- Part 2: Bayesian Ranking + Background Remover
+-- ============================================================
+
+-- 4. BAYESIAN RANKING (bayes.js inlined)
+UPDATE content_components
+SET html_template = $bayes$<style>
+    .tool-layout { display: grid; grid-template-columns: 1fr; gap: var(--space-lg); align-items: start; }
+    @media (min-width: 900px) { .tool-layout { grid-template-columns: 350px 1fr; } }
+    .product-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); margin-bottom: var(--space-lg); }
+    .prod-card {
+        background: var(--color-surface, #fff); border: 1px solid var(--color-border);
+        padding: var(--space-md); border-radius: var(--radius-md); text-align: center;
+        position: relative; transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .prod-card.winner { border-color: #10b981; background: #ecfdf5; transform: scale(1.02); box-shadow: 0 10px 25px rgba(16, 185, 129, 0.15); z-index: 1; }
+    .star-display { font-size: 1.5rem; color: #f59e0b; margin: 0.5rem 0; }
+    .score-badge { background: #1e1e1e; color: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: var(--font-mono); font-size: 0.8rem; }
+    .formula-box {
+        background: var(--color-surface); padding: 1rem; border-radius: var(--radius-sm);
+        font-family: var(--font-mono); font-size: 0.85rem; margin-top: 1rem; color: var(--color-text-muted, #555); overflow-x: auto;
+    }
+</style>
+
+<main class="container" style="padding-top: var(--space-lg);">
+    <div style="margin-bottom: var(--space-lg);"><h1 style="font-size: var(--text-h2);">Bayesian Ranking Calculator</h1></div>
+    <div style="background: var(--color-surface, white); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-md); margin-bottom: var(--space-lg); box-shadow: var(--shadow-card);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-lg);">
+            <div>
+                <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">The "5-Star" Illusion</h3>
+                <p style="font-size: 0.95rem; color: var(--color-text-muted, #555); line-height: 1.6;">Product A has one 5-star review. Product B has one hundred 4.8-star reviews. A simple average says A > B. This is statistically wrong.</p>
+            </div>
+            <div>
+                <h3 style="font-size: 1rem; color: var(--color-accent); margin-bottom: 0.5rem;">The Bayesian Solution</h3>
+                <p style="font-size: 0.95rem; color: var(--color-text-muted, #555); line-height: 1.6;">We add "Confidence" to the score. We inject a small amount of dummy data (the global average) to pull outliers back to reality until they prove themselves with volume.</p>
+            </div>
+        </div>
+    </div>
+    <div class="tool-layout">
+        <aside>
+            <div style="background: var(--color-surface); padding: var(--space-md); border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">1. Product A (The Outlier)</h3>
+                <div style="margin-bottom: 1rem;"><label>Average Rating (0-5)</label><input type="number" id="ratingA" value="5.0" step="0.1" max="5"></div>
+                <div style="margin-bottom: 1rem;"><label>Review Count</label><input type="number" id="countA" value="1"></div>
+                <hr style="border: 0; border-top: 1px solid var(--color-border, #ccc); margin: 1.5rem 0;">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">2. Product B (The Veteran)</h3>
+                <div style="margin-bottom: 1rem;"><label>Average Rating (0-5)</label><input type="number" id="ratingB" value="4.8" step="0.1" max="5"></div>
+                <div style="margin-bottom: 1rem;"><label>Review Count</label><input type="number" id="countB" value="100"></div>
+                <hr style="border: 0; border-top: 1px solid var(--color-border, #ccc); margin: 1.5rem 0;">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">3. The Constant (C)</h3>
+                <p style="font-size: 0.8rem; margin-bottom: 0.5rem;">Confidence Level (Dummy Reviews)</p>
+                <input type="range" id="confidence" min="1" max="50" value="10">
+                <div style="text-align: right; font-size: 0.8rem; font-weight: 700;" id="confDisplay">C = 10</div>
+            </div>
+        </aside>
+        <section>
+            <h3 style="margin-bottom: 1rem;">Who Ranks Higher?</h3>
+            <div class="product-comparison">
+                <div class="prod-card" id="cardA">
+                    <strong style="display:block; font-size: 1.1rem;">Product A</strong>
+                    <div class="star-display">★★★★★</div>
+                    <p style="font-size: 0.9rem; color: var(--color-text-muted, #666);"><span id="txtRatingA">5.0</span> stars<br>(<span id="txtCountA">1</span> reviews)</p>
+                    <div style="margin-top: 1rem;"><span style="display:block; font-size:0.75rem; text-transform:uppercase; color:var(--color-text-muted, #888);">Bayesian Score</span><span class="score-badge" id="bayesA">--</span></div>
+                </div>
+                <div class="prod-card" id="cardB">
+                    <strong style="display:block; font-size: 1.1rem;">Product B</strong>
+                    <div class="star-display">★★★★☆</div>
+                    <p style="font-size: 0.9rem; color: var(--color-text-muted, #666);"><span id="txtRatingB">4.8</span> stars<br>(<span id="txtCountB">100</span> reviews)</p>
+                    <div style="margin-top: 1rem;"><span style="display:block; font-size:0.75rem; text-transform:uppercase; color:var(--color-text-muted, #888);">Bayesian Score</span><span class="score-badge" id="bayesB">--</span></div>
+                </div>
+            </div>
+            <div class="formula-box">
+                <strong>The Math:</strong><br>
+                Score = ( (R × v) + (C × m) ) / (v + C)<br><br>
+                R = Average Rating of Item<br>v = Vote Count of Item<br>m = Global Average (Assumed 3.5)<br>C = Confidence Constant (<span id="mathC">10</span>)
+            </div>
+        </section>
+    </div>
+</main>
+
+<script>
+    // Bayesian Average Engine (inlined from bayes.js)
+    const inputs = {
+        rA: document.getElementById('ratingA'), cA: document.getElementById('countA'),
+        rB: document.getElementById('ratingB'), cB: document.getElementById('countB'),
+        conf: document.getElementById('confidence')
+    };
+    const display = {
+        cardA: document.getElementById('cardA'), cardB: document.getElementById('cardB'),
+        bayesA: document.getElementById('bayesA'), bayesB: document.getElementById('bayesB'),
+        txtRatingA: document.getElementById('txtRatingA'), txtCountA: document.getElementById('txtCountA'),
+        txtRatingB: document.getElementById('txtRatingB'), txtCountB: document.getElementById('txtCountB'),
+        confDisplay: document.getElementById('confDisplay'), mathC: document.getElementById('mathC')
+    };
+    const M = 3.5;
+    function calculate() {
+        const rA = parseFloat(inputs.rA.value); const vA = parseInt(inputs.cA.value);
+        const rB = parseFloat(inputs.rB.value); const vB = parseInt(inputs.cB.value);
+        const C = parseInt(inputs.conf.value);
+        display.txtRatingA.innerText = rA; display.txtCountA.innerText = vA;
+        display.txtRatingB.innerText = rB; display.txtCountB.innerText = vB;
+        display.confDisplay.innerText = "C = " + C; display.mathC.innerText = C;
+        const scoreA = ((rA * vA) + (M * C)) / (vA + C);
+        const scoreB = ((rB * vB) + (M * C)) / (vB + C);
+        display.bayesA.innerText = scoreA.toFixed(3);
+        display.bayesB.innerText = scoreB.toFixed(3);
+        display.cardA.classList.remove('winner'); display.cardB.classList.remove('winner');
+        if (scoreA > scoreB) { display.cardA.classList.add('winner'); }
+        else if (scoreB > scoreA) { display.cardB.classList.add('winner'); }
+    }
+    Object.values(inputs).forEach(input => input.addEventListener('input', calculate));
+    calculate();
+</script>$bayes$,
+    updated_at = NOW()
+WHERE id = 'c345a76a-2c46-42b7-be16-1e34b4b19594'
+  AND html_template = '';
+
+
+-- 5. BACKGROUND REMOVER
+UPDATE content_components
+SET html_template = $bgrem$<style>
+    .tool-layout { display: grid; gap: var(--space-lg); }
+    @media (min-width: 900px) { .tool-layout { grid-template-columns: 300px 1fr; } }
+    .canvas-container {
+        position: relative;
+        background-image: linear-gradient(45deg, #ccc 25%, transparent 25%),
+        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ccc 75%),
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+        background-size: 20px 20px;
+        background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        background-color: #fff; border-radius: 8px; overflow: hidden;
+        box-shadow: inset 0 0 20px rgba(0,0,0,0.1); min-height: 400px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    canvas { display: block; max-width: 100%; height: auto; }
+    .tool-btn {
+        display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+        width: 100%; padding: 0.75rem; border: 1px solid var(--color-border);
+        background: var(--color-surface, #fff); border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem;
+        margin-bottom: 0.5rem; transition: all 0.2s;
+    }
+    .tool-btn.active { background: var(--color-accent); color: white; border-color: var(--color-accent); }
+    .tool-btn:hover:not(.active) { background: var(--color-surface, #f4f4f5); }
+    .guide-box { background: var(--color-surface, #fff); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: var(--shadow-card); }
+</style>
+
+<main class="container" style="padding-top: var(--space-lg);">
+    <h1 style="font-size: var(--text-h2);">Magic Background Eraser</h1>
+    <div class="guide-box">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <div>
+                <h3 style="font-size: 1rem; color: var(--color-accent); margin-bottom: 0.5rem;">Magic Wand (Auto)</h3>
+                <p style="font-size: 0.9rem; color: var(--color-text-muted, #555);">Click any color (like a white wall) to instantly remove it. Use the <strong>Tolerance</strong> slider to grab shadows and similar shades.</p>
+            </div>
+            <div>
+                <h3 style="font-size: 1rem; color: var(--color-accent); margin-bottom: 0.5rem;">Manual Brush (Precision)</h3>
+                <p style="font-size: 0.9rem; color: var(--color-text-muted, #555);">For tricky edges where colors are too similar, switch to the <strong>Eraser Brush</strong> to manually wipe away pixels.</p>
+            </div>
+        </div>
+    </div>
+    <div class="tool-layout">
+        <aside>
+            <div style="background: var(--color-surface, #fff); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px;">
+                <h3 style="font-size: 1rem; margin-bottom: 1rem;">1. Upload Image</h3>
+                <input type="file" id="fileInput" accept="image/*" style="width: 100%; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">2. Select Tool</h3>
+                <button class="tool-btn active" id="btnWand" onclick="setTool('wand')"><span>🪄</span> Magic Wand (Auto)</button>
+                <button class="tool-btn" id="btnBrush" onclick="setTool('brush')"><span>🧹</span> Manual Eraser</button>
+                <div id="wandSettings" style="margin-top: 1rem;">
+                    <label style="font-size: 0.8rem; font-weight: 600;">Wand Tolerance</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="range" id="tolerance" min="0" max="100" value="30" style="flex:1;">
+                        <span id="tolVal" style="font-size: 0.8rem; width: 30px;">30</span>
+                    </div>
+                </div>
+                <div id="brushSettings" style="margin-top: 1rem; display: none;">
+                    <label style="font-size: 0.8rem; font-weight: 600;">Brush Size</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="range" id="brushSize" min="5" max="100" value="30" style="flex:1;">
+                        <span id="brushVal" style="font-size: 0.8rem; width: 30px;">30px</span>
+                    </div>
+                </div>
+                <hr style="border: 0; border-top: 1px solid var(--color-border, #eee); margin: 1.5rem 0;">
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <button class="btn" onclick="undo()" id="btnUndo" disabled style="flex:1; background: #666;">⎌ Undo</button>
+                    <button class="btn" onclick="restoreOriginal()" style="flex:1; background: #333;">Reset All</button>
+                </div>
+                <button class="btn" onclick="downloadPNG()" style="width: 100%; background: var(--color-accent);">Download PNG</button>
+            </div>
+        </aside>
+        <section>
+            <div class="canvas-container" id="canvasContainer"><canvas id="editorCanvas"></canvas></div>
+            <p id="helperText" style="text-align: center; color: var(--color-text-muted, #666); font-size: 0.85rem; margin-top: 1rem;">Click a color to erase it.</p>
+        </section>
+    </div>
+</main>
+
+<script>
+    const canvas = document.getElementById('editorCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const fileInput = document.getElementById('fileInput');
+    const container = document.getElementById('canvasContainer');
+    const toleranceInput = document.getElementById('tolerance');
+    const brushSizeInput = document.getElementById('brushSize');
+    const btnUndo = document.getElementById('btnUndo');
+    const helperText = document.getElementById('helperText');
+    let originalImg = new Image(); let history = []; let currentTool = 'wand'; let isDrawing = false;
+
+    function setTool(tool) {
+        currentTool = tool;
+        document.getElementById('btnWand').classList.toggle('active', tool === 'wand');
+        document.getElementById('btnBrush').classList.toggle('active', tool === 'brush');
+        document.getElementById('wandSettings').style.display = tool === 'wand' ? 'block' : 'none';
+        document.getElementById('brushSettings').style.display = tool === 'brush' ? 'block' : 'none';
+        container.style.cursor = tool === 'wand' ? 'crosshair' : 'cell';
+        helperText.innerText = tool === 'wand' ? "Click a color to auto-remove it." : "Click and drag to wipe away parts of the image.";
+    }
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0]; if(!file) return;
+        const url = URL.createObjectURL(file);
+        originalImg.onload = () => {
+            let w = originalImg.width; let h = originalImg.height;
+            if(w > 1000) { const scale = 1000/w; w = 1000; h = h * scale; }
+            canvas.width = w; canvas.height = h;
+            ctx.drawImage(originalImg, 0, 0, w, h); saveState();
+        };
+        originalImg.src = url; history = []; btnUndo.disabled = true;
+    });
+    function saveState() {
+        if (history.length > 10) history.shift();
+        history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        btnUndo.disabled = false;
+    }
+    function undo() {
+        if (history.length <= 1) return; history.pop();
+        ctx.putImageData(history[history.length - 1], 0, 0);
+        if(history.length === 1) btnUndo.disabled = true;
+    }
+    function restoreOriginal() {
+        if(!originalImg.src) return; history = [];
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(originalImg, 0, 0, canvas.width, canvas.height); saveState();
+    }
+    canvas.addEventListener('mousedown', (e) => {
+        if (!originalImg.src) return; isDrawing = true;
+        const pos = getPos(e);
+        if (currentTool === 'wand') { removeBackgroundWand(pos.x, pos.y); saveState(); }
+        else { eraseBrush(pos.x, pos.y); }
+    });
+    canvas.addEventListener('mousemove', (e) => { if (!isDrawing || currentTool !== 'brush') return; eraseBrush(getPos(e).x, getPos(e).y); });
+    canvas.addEventListener('mouseup', () => { if (isDrawing && currentTool === 'brush') saveState(); isDrawing = false; });
+    canvas.addEventListener('mouseleave', () => { if (isDrawing && currentTool === 'brush') saveState(); isDrawing = false; });
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: Math.floor((e.clientX - rect.left) * (canvas.width / rect.width)), y: Math.floor((e.clientY - rect.top) * (canvas.height / rect.height)) };
+    }
+    function eraseBrush(x, y) {
+        const size = parseInt(brushSizeInput.value);
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.beginPath(); ctx.arc(x, y, size / 2, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+    }
+    function removeBackgroundWand(startX, startY) {
+        const w = canvas.width; const h = canvas.height;
+        const imageData = ctx.getImageData(0, 0, w, h); const data = imageData.data;
+        const startIdx = (startY * w + startX) * 4;
+        const r0 = data[startIdx], g0 = data[startIdx+1], b0 = data[startIdx+2], a0 = data[startIdx+3];
+        if (a0 === 0) return;
+        const tol = parseInt(toleranceInput.value);
+        const visited = new Uint8Array(w * h); const stack = [startIdx];
+        const matches = (idx) => {
+            if (data[idx+3] === 0) return false;
+            return (Math.abs(data[idx]-r0) + Math.abs(data[idx+1]-g0) + Math.abs(data[idx+2]-b0)) <= (tol * 3);
+        };
+        while(stack.length > 0) {
+            const idx = stack.pop(); const pi = idx / 4;
+            if (visited[pi]) continue; visited[pi] = 1; data[idx+3] = 0;
+            const x = pi % w; const y = Math.floor(pi / w);
+            if (x > 0 && matches(idx-4)) stack.push(idx-4);
+            if (x < w-1 && matches(idx+4)) stack.push(idx+4);
+            if (y > 0 && matches(idx-w*4)) stack.push(idx-w*4);
+            if (y < h-1 && matches(idx+w*4)) stack.push(idx+w*4);
+        }
+        ctx.putImageData(imageData, 0, 0);
+    }
+    function downloadPNG() {
+        const link = document.createElement('a'); link.download = 'erased-image.png';
+        link.href = canvas.toDataURL('image/png'); link.click();
+    }
+    toleranceInput.addEventListener('input', () => document.getElementById('tolVal').innerText = toleranceInput.value);
+    brushSizeInput.addEventListener('input', () => document.getElementById('brushVal').innerText = brushSizeInput.value + 'px');
+</script>$bgrem$,
+    updated_at = NOW()
+WHERE id = 'bdd2990a-1cc3-47d4-8140-4560204e898c'
+  AND html_template = '';
+
+
+-- Verify all 5 updates
+SELECT function, display_name, LENGTH(html_template) as template_len
+FROM content_components
+WHERE component_level = 'tool' AND forked_from IS NULL AND is_active = true
+ORDER BY function;

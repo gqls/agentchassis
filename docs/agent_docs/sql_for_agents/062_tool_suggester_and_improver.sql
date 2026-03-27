@@ -302,3 +302,263 @@ INSERT INTO agent_definitions (
                                        description = EXCLUDED.description,
                                        updated_at = NOW();
 
+---
+--
+
+-- ============================================================
+-- Fix tool-suggester: correct columns, parameterised queries,
+-- .specs. paths, model upgrade
+-- ============================================================
+
+UPDATE agent_definitions
+SET default_config = $cfg${
+    "workflow": {
+        "start_step": "read_specs",
+        "processing_mode": "orchestrator",
+        "timeout_seconds": 300,
+        "steps": {
+            "read_specs": {
+                "action": "read_site_spec",
+                "config": {
+                    "site_id": "input_data.site_id"
+                },
+                "output_field": "site_specs",
+                "next_step": "load_pages",
+                "description": "Load all site specs (identity, classification, brand_dna)"
+            },
+            "load_pages": {
+                "action": "query_database",
+                "config": {
+                    "query": "SELECT p.name, p.url, p.title, p.page_type, p.build_status FROM pages p WHERE p.site_id = $1 AND p.status = 'active' ORDER BY p.nav_order",
+                    "params": ["input_data.site_id"],
+                    "output_format": "array"
+                },
+                "output_field": "pages",
+                "next_step": "load_existing_tools",
+                "description": "Load active pages for context"
+            },
+            "load_existing_tools": {
+                "action": "query_database",
+                "config": {
+                    "query": "SELECT cc.function, cc.display_name, cc.category FROM content_components cc JOIN page_components pc ON pc.component_id = cc.id JOIN pages p ON pc.page_id = p.id WHERE p.site_id = $1 AND cc.component_level = 'tool' AND cc.is_active = true",
+                    "params": ["input_data.site_id"],
+                    "output_format": "array"
+                },
+                "output_field": "existing_tools",
+                "next_step": "load_library_tools",
+                "description": "Check what tools are already deployed"
+            },
+            "load_library_tools": {
+                "action": "query_database",
+                "config": {
+                    "query": "SELECT id::text, function, display_name, category, description FROM content_components WHERE component_level = 'tool' AND forked_from IS NULL AND is_active = true AND html_template != '' ORDER BY display_name LIMIT 30",
+                    "output_format": "array"
+                },
+                "output_field": "library_tools",
+                "next_step": "suggest_tools",
+                "description": "Load available library tools for reference"
+            },
+            "suggest_tools": {
+                "action": "execute_llm_prompt",
+                "config": {
+                    "ai_service": {
+                        "provider": "anthropic",
+                        "model": "claude-sonnet-4-6",
+                        "max_tokens": 3000,
+                        "api_key_env_var": "ANTHROPIC_API_KEY"
+                    },
+                    "input_fields": ["input_data", "site_specs", "pages", "existing_tools", "library_tools"],
+                    "output_format": "json",
+                    "prompt_template": "You are evaluating what interactive tools would genuinely help visitors to this website.\n\n## Site Context\nDomain: {{.input_data.domain}}\n{{if .site_specs.specs.identity}}Industry: {{.site_specs.specs.identity.industry}} — {{.site_specs.specs.identity.sub_industry}}\nCompany: {{.site_specs.specs.identity.company_name}}\nAbout: {{.site_specs.specs.identity.about_summary}}\nServices: {{if .site_specs.specs.identity.services}}{{range .site_specs.specs.identity.services}}\n  - {{.name}}: {{.description}}{{end}}{{end}}\nTarget Audience: {{.site_specs.specs.identity.target_audience}}{{end}}\n{{if .site_specs.specs.classification}}Site Type: {{.site_specs.specs.classification.site_type}}{{end}}\n\n## Existing Pages\n{{if .pages}}{{range .pages}}- {{.name}} ({{.url}}): {{.title}}\n{{end}}{{else}}No pages loaded.{{end}}\n\n## Already Deployed Tools\n{{if .existing_tools}}{{range .existing_tools}}- {{.display_name}} ({{.function}})\n{{end}}{{else}}None deployed yet.{{end}}\n\n## Available in Library (can be forked and customised)\n{{if .library_tools}}{{range .library_tools}}- {{.display_name}} ({{.function}}): {{.description}}\n{{end}}{{else}}No library tools available.{{end}}\n\n## Your Task\n\nSuggest 2-5 interactive tools that would genuinely add value for this website. Think about what someone in this industry would actually use.\n\nExamples of good tool suggestions:\n- Gas wholesaler: unit converter (therms to kWh to MJ), quote estimator, service area checker\n- Photographer: booking calculator, print size guide, gallery filter\n- Accountant: tax deadline calendar, VAT calculator, expense categoriser\n- Restaurant: reservation widget, menu filter (allergies), tip calculator\n\nDO NOT suggest tools that are irrelevant to this industry (e.g. password strength checker for a gas wholesaler).\n\nFor each tool, decide whether it can be forked from the library (reference the library function name) or needs to be built from scratch.\n\nReturn ONLY valid JSON:\n{\n  \"reasoning\": \"Brief explanation of why these tools suit this industry and audience\",\n  \"suggestions\": [\n    {\n      \"name\": \"Human-readable tool name\",\n      \"function\": \"kebab-case-function-name\",\n      \"description\": \"What the tool does and why it helps visitors\",\n      \"priority\": 1,\n      \"target_page\": \"name of best page for this tool, or new for a dedicated tools page\",\n      \"library_source\": \"function name from library if forkable, or null if new\",\n      \"complexity\": \"simple\"\n    }\n  ]\n}"
+                },
+                "output_field": "evaluation",
+                "next_step": "check_has_suggestions",
+                "description": "LLM evaluates what tools would benefit this site"
+            },
+            "check_has_suggestions": {
+                "action": "conditional",
+                "config": {
+                    "condition": "evaluation.result.suggestions != null",
+                    "then_step": "create_items_loop",
+                    "else_step": "complete"
+                },
+                "description": "Check if LLM produced any suggestions"
+            },
+            "create_items_loop": {
+                "action": "loop",
+                "config": {
+                    "items_field": "evaluation.result.suggestions",
+                    "item_variable": "current_suggestion",
+                    "mode": "sequential",
+                    "max_iterations": 10,
+                    "sub_workflow": {
+                        "start_step": "create_tool_item",
+                        "steps": {
+                            "create_tool_item": {
+                                "action": "create_work_item",
+                                "config": {
+                                    "site_id": "input_data.site_id",
+                                    "item_type": "add_tool",
+                                    "handler_agent": "tool-deployer",
+                                    "item_domain": "build",
+                                    "severity": "low",
+                                    "source": "tool-suggester",
+                                    "summary": "current_suggestion.name",
+                                    "priority": 130,
+                                    "item_key_prefix": "add_tool",
+                                    "spec_data": "current_suggestion"
+                                },
+                                "output_field": "item_created",
+                                "next_step": "done",
+                                "description": "Create add_tool work item for this suggestion"
+                            },
+                            "done": {
+                                "action": "loop_complete",
+                                "description": "Item created"
+                            }
+                        }
+                    }
+                },
+                "output_field": "items_created",
+                "next_step": "complete",
+                "description": "Create work items for each suggestion"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["evaluation", "items_created"]
+                },
+                "description": "Tool evaluation complete"
+            }
+        }
+    }
+}$cfg$::jsonb,
+    updated_at = NOW()
+WHERE type = 'tool-suggester';
+
+
+-- ============================================================
+-- Fix tool-improver: parameterised query, correct columns,
+-- .specs. paths, model upgrade
+-- ============================================================
+
+UPDATE agent_definitions
+SET default_config = $cfg2${
+    "workflow": {
+        "start_step": "load_tool",
+        "processing_mode": "orchestrator",
+        "timeout_seconds": 300,
+        "steps": {
+            "load_tool": {
+                "action": "query_database",
+                "config": {
+                    "query": "SELECT cc.id::text as component_id, cc.function, cc.display_name, cc.html_template, cc.description, cc.semantic_tags::text as tags, cc.is_dark_section, p.url as page_url, p.id::text as page_id, p.name as page_name FROM content_components cc JOIN page_components pc ON pc.component_id = cc.id JOIN pages p ON pc.page_id = p.id WHERE cc.id = $1::uuid AND cc.is_active = true LIMIT 1",
+                    "params": ["input_data.component_id"],
+                    "output_format": "object"
+                },
+                "output_field": "tool_data",
+                "next_step": "check_tool_found",
+                "description": "Load the tool component and its page context"
+            },
+            "check_tool_found": {
+                "action": "conditional",
+                "config": {
+                    "condition": "tool_data.component_id != null",
+                    "then_step": "load_brand_context",
+                    "else_step": "complete_not_found"
+                },
+                "description": "Verify the tool component exists"
+            },
+            "complete_not_found": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["tool_data"],
+                    "status": "skipped",
+                    "reason": "Tool component not found"
+                },
+                "description": "Tool not found — skip"
+            },
+            "load_brand_context": {
+                "action": "read_site_spec",
+                "config": {
+                    "site_id": "input_data.site_id"
+                },
+                "output_field": "site_specs",
+                "next_step": "improve_tool",
+                "description": "Load brand context so improvements match site style"
+            },
+            "improve_tool": {
+                "action": "execute_llm_prompt",
+                "config": {
+                    "ai_service": {
+                        "provider": "anthropic",
+                        "model": "claude-sonnet-4-6",
+                        "max_tokens": 8000,
+                        "api_key_env_var": "ANTHROPIC_API_KEY"
+                    },
+                    "input_fields": ["input_data", "tool_data", "site_specs"],
+                    "output_format": "text",
+                    "prompt_template": "You are improving an interactive tool component on a website.\n\n## Issue to Fix\n{{.input_data.issue}}\n\n## Tool Info\nName: {{.tool_data.display_name}}\nFunction: {{.tool_data.function}}\nPage: {{.tool_data.page_name}} ({{.tool_data.page_url}})\nDark section: {{.tool_data.is_dark_section}}\n\n## Current HTML\n{{.tool_data.html_template}}\n\n{{if .tool_data.description}}## Component Description\n{{.tool_data.description}}{{end}}\n\n## Site Brand Context\n{{if .site_specs.specs.webdesign}}Colors: {{.site_specs.specs.webdesign}}{{end}}\n{{if .site_specs.specs.identity}}Industry: {{.site_specs.specs.identity.industry}}{{end}}\n\n## Rules\n1. Fix the specific issue described above\n2. Keep the core functionality intact\n3. Use CSS custom properties (var(--color-primary) etc) for colours — never hardcode hex values\n4. Ensure the tool works on mobile (min-width considerations, touch targets)\n5. Keep all interactive JavaScript working\n6. The output replaces html_template — it must be a complete, self-contained HTML fragment\n7. Include inline <style> for layout-only CSS (colours come from the site stylesheet)\n8. Include inline <script> for any JavaScript\n9. Do not add external dependencies\n\nOutput ONLY the improved HTML fragment. No markdown fences. No explanation. Start directly with the HTML."
+                },
+                "output_field": "improved_html",
+                "next_step": "update_component",
+                "description": "LLM fixes the tool based on the reported issue"
+            },
+            "update_component": {
+                "action": "update_component_html",
+                "config": {
+                    "component_id": "tool_data.component_id",
+                    "html_field": "improved_html.result",
+                    "create_version": true
+                },
+                "output_field": "update_result",
+                "next_step": "create_rerender_item",
+                "description": "Save improved HTML back to content_components"
+            },
+            "create_rerender_item": {
+                "action": "create_work_item",
+                "config": {
+                    "site_id": "input_data.site_id",
+                    "page_id": "tool_data.page_id",
+                    "item_type": "needs_rerender",
+                    "handler_agent": "rerender-pages",
+                    "item_domain": "build",
+                    "severity": "medium",
+                    "source": "tool-improver",
+                    "summary": "Re-render page after tool improvement",
+                    "priority": 50,
+                    "item_key_prefix": "rerender_tool_fix"
+                },
+                "output_field": "rerender_item",
+                "next_step": "complete",
+                "description": "Trigger page re-render to deploy the improved tool"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "config": {
+                    "output_fields": ["tool_data", "improved_html", "update_result", "rerender_item"]
+                },
+                "description": "Tool improvement complete"
+            }
+        }
+    }
+}$cfg2$::jsonb,
+    updated_at = NOW()
+WHERE type = 'tool-improver';
+
+
+-- ============================================================
+-- Verify
+-- ============================================================
+SELECT type, status,
+       default_config->'workflow'->'steps'->'load_pages'->'config'->>'query' as pages_query,
+    default_config->'workflow'->'steps'->'load_pages'->'config'->'params' as pages_params
+FROM agent_definitions
+WHERE type = 'tool-suggester';
+
+SELECT type, status,
+       default_config->'workflow'->'steps'->'load_tool'->'config'->>'query' as tool_query,
+    default_config->'workflow'->'steps'->'load_tool'->'config'->'params' as tool_params
+FROM agent_definitions
+WHERE type = 'tool-improver';
+
