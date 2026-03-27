@@ -270,3 +270,10 @@ COMMENT ON FUNCTION get_page_component IS 'Gets the effective component HTML for
 
 ALTER TABLE pages ADD COLUMN IF NOT EXISTS suppressed_sections JSONB DEFAULT '[]'::jsonb;
 
+---
+-- Fix blog page to be a proper blog-index
+UPDATE pages
+SET page_type = 'blog-index',
+    sections = '["hero", "blog-listing", "call-to-action"]'::jsonb,
+    build_status = 'planned'
+WHERE id = 'ff56bcaf-cf3c-40bd-a6ee-18703bd3d656';

@@ -274,3 +274,183 @@ WHERE name = 'case-studies'
 -- Content brief: records the instructions that generated each component's content.
 -- Enables admins to see, edit, and regenerate content with modified instructions.
 ALTER TABLE page_components ADD COLUMN IF NOT EXISTS content_brief JSONB;
+
+---
+
+-- blog pages
+-- 1. Delete empty shell page_components (featured_article, category_section, article_grid, ad_zone_inline)
+DELETE FROM page_components
+WHERE page_id = 'ff56bcaf-cf3c-40bd-a6ee-18703bd3d656'
+  AND slot_name IN ('featured-article', 'category-section', 'article-grid', 'ad-zone-inline');
+
+-- 2. Update hero to be blog-specific
+UPDATE page_components
+SET rendered_html = '<section class="hero" data-component="hero" style="background: linear-gradient(135deg, var(--primary-color, #1a1a2e) 0%, var(--secondary-color, #16213e) 50%, var(--accent-color, #0f3460) 100%);">
+    <div class="hero-content">
+        <h1>Engineering Blog</h1>
+        <p class="hero-subheadline">Deep dives into building, deploying, and operating multi-agent systems in production — from architecture decisions to the things that actually break.</p>
+    </div>
+</section>
+<style>
+.hero {
+    min-height: 40vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3rem 2rem;
+    position: relative;
+    --section-text: rgba(255,255,255,0.95);
+    --section-text-muted: rgba(255,255,255,0.8);
+    --section-heading: #ffffff;
+}
+.hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    color: #fff;
+    z-index: 1;
+}
+.hero h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    line-height: 1.6;
+    opacity: 0.9;
+}
+@media (max-width: 768px) {
+    .hero { min-height: 30vh; padding: 2rem 1.5rem; }
+}
+</style>'
+WHERE id = '4a3e0db6-b06c-422a-8d5d-8699b1778194';
+
+-- 3. Insert blog-listing component at position 3
+INSERT INTO page_components (page_id, slot_name, position, rendered_html, build_status)
+VALUES ('ff56bcaf-cf3c-40bd-a6ee-18703bd3d656', 'blog-listing', 3,
+        '<section class="blog-listing" data-component="blog-listing">
+            <div class="blog-container">
+                <div class="blog-grid">
+
+                    <a href="/blog/the-enterprise-ai-agent-adoption-gap-2025.html" class="blog-card">
+                        <span class="blog-card__tag">Strategy</span>
+                        <h3>The Enterprise AI Agent Adoption Gap</h3>
+                        <p>Why pilots succeed and production deployments stall — and what engineering teams can do about it.</p>
+                    </a>
+
+                    <a href="/blog/orchestrating-ai-agents-in-production-what-actually-breaks.html" class="blog-card">
+                        <span class="blog-card__tag">Architecture</span>
+                        <h3>Orchestrating AI Agents in Production: What Actually Breaks</h3>
+                        <p>Timeout handling, state recovery, cascading failures — the problems you hit after the demo works.</p>
+                    </a>
+
+                    <a href="/blog/building-a-hierarchical-agent-system-with-kafka-and-postgres.html" class="blog-card">
+                        <span class="blog-card__tag">Tutorial</span>
+                        <h3>Building a Hierarchical Agent System with Kafka and Postgres</h3>
+                        <p>A practical walkthrough of the message-driven architecture behind multi-agent coordination.</p>
+                    </a>
+
+                    <a href="/blog/deploying-ai-agents-kubernetes-practical-guide.html" class="blog-card">
+                        <span class="blog-card__tag">DevOps</span>
+                        <h3>Deploying AI Agents on Kubernetes</h3>
+                        <p>Configuration patterns, resource management, and health checks for agent workloads on K8s.</p>
+                    </a>
+
+                    <a href="/blog/multi-agent-state-management-distributed-systems.html" class="blog-card">
+                        <span class="blog-card__tag">Architecture</span>
+                        <h3>State Management for Multi-Agent Systems</h3>
+                        <p>Patterns that hold up in production — orchestration state, checkpoints, and recovery strategies.</p>
+                    </a>
+
+                    <a href="/blog/why-most-ai-agent-frameworks-fail-at-the-orchestration-layer.html" class="blog-card">
+                        <span class="blog-card__tag">Analysis</span>
+                        <h3>Why Most AI Agent Frameworks Fail at the Orchestration Layer</h3>
+                        <p>The gap between single-agent toolkits and production multi-agent systems.</p>
+                    </a>
+
+                    <a href="/blog/llm-provider-abstraction-production-agent-systems.html" class="blog-card">
+                        <span class="blog-card__tag">Engineering</span>
+                        <h3>Why You Should Abstract Your LLM Provider from Day One</h3>
+                        <p>Provider lock-in, fallback strategies, and the abstraction layer that saves you later.</p>
+                    </a>
+
+                    <a href="/blog/ai-agent-observability-2025-what-teams-are-actually-monitoring.html" class="blog-card">
+                        <span class="blog-card__tag">Observability</span>
+                        <h3>AI Agent Observability in 2025</h3>
+                        <p>What engineering teams are actually monitoring — token spend, latency chains, and failure attribution.</p>
+                    </a>
+
+                </div>
+            </div>
+        </section>
+        <style>
+        .blog-listing {
+            padding: 4rem 2rem;
+            background: var(--background-color, #0a0a1a);
+        }
+        .blog-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .blog-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 2rem;
+        }
+        .blog-card {
+            display: block;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 2rem;
+            text-decoration: none;
+            color: rgba(255,255,255,0.9);
+            transition: all 0.2s ease;
+        }
+        .blog-card:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.15);
+            transform: translateY(-2px);
+        }
+        .blog-card__tag {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent-color, #4fc3f7);
+            margin-bottom: 0.75rem;
+        }
+        .blog-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            line-height: 1.3;
+            margin-bottom: 0.75rem;
+            color: #fff;
+        }
+        .blog-card p {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: rgba(255,255,255,0.65);
+            margin: 0;
+        }
+        @media (max-width: 768px) {
+            .blog-listing { padding: 2rem 1rem; }
+            .blog-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+        }
+        </style>', 'deployed');
+
+-- 4. Fix call-to-action position (was 7, now should be 4)
+UPDATE page_components
+SET position = 4
+WHERE id = 'd5f73b45-f068-4292-bb68-d3906fa9705c';
+
+-- 5. Update page record
+UPDATE pages
+SET page_type = 'blog-index',
+    sections = '["hero", "blog-listing", "call-to-action"]'::jsonb
+WHERE id = 'ff56bcaf-cf3c-40bd-a6ee-18703bd3d656';
+

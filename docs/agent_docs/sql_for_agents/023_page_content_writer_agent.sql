@@ -888,3 +888,22 @@ SELECT default_config->'workflow'->'steps'->'load_page_components'->'config'->>'
 FROM agent_definitions
 WHERE type = 'page-content-writer';
 
+---
+-- double header problem
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                jsonb_set(
+                        default_config,
+                        '{workflow,steps,compile_page,config,inject_header}',
+                        'false'
+                ),
+                '{workflow,steps,compile_page,config,inject_footer}',
+                'false'
+        ),
+        '{workflow,steps,compile_page,config,inject_head}',
+        'false'
+                     )
+WHERE type = 'page-content-writer';
+
