@@ -392,3 +392,45 @@ ORDER BY
     WHEN 'fix_text_colors' THEN 2
     WHEN 'complete' THEN 3
 END;
+
+---
+
+
+-- check tools work - basic algorithmic tier 1
+
+-- ============================================================
+-- Add tool_health check to design-discovery-agent
+-- ============================================================
+
+-- Get current checks list first
+SELECT type,
+       default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' as current_checks
+FROM agent_definitions
+WHERE type = 'design-discovery-agent';
+
+-- Add tool_health to the checks array
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        (
+            SELECT jsonb_agg(elem)
+            FROM (
+                     SELECT elem FROM jsonb_array_elements(
+                                              default_config->'workflow'->'steps'->'run_checks'->'config'->'checks'
+                                      ) AS elem
+                     UNION
+                     SELECT '"tool_health"'::jsonb
+                 ) sub
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'design-discovery-agent'
+  AND NOT (default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' @> '"tool_health"'::jsonb);
+
+-- Verify
+SELECT type,
+       default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' as checks
+FROM agent_definitions
+WHERE type = 'design-discovery-agent';
+
