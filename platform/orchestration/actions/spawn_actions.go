@@ -2468,6 +2468,17 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 			},
 		},
 		{
+			Name: "GROK_API_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-default-secrets",
+					},
+					Key: "GROK_API_KEY",
+				},
+			},
+		},
+		{
 			Name: "AGENT_BOOTSTRAP_KEY",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
