@@ -1107,3 +1107,42 @@ SET default_config = jsonb_set(
         '"input_data.spec.refresh_site_components == true OR input_data.refresh_site_components == true"'
                      )
 WHERE type = 'rerender-pages';
+
+---
+-- deal with blogs
+
+-- Add rebuild_blog_listing step to rerender-pages workflow
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,rebuild_blog_listing}',
+        '{
+            "action": "rebuild_blog_listing",
+            "config": {
+                "site_id": "input_data.site_id"
+            },
+            "next_step": "get_pages",
+            "description": "Rebuild blog listing from published posts (if blog-index page exists)",
+            "output_field": "blog_listing_result"
+        }'::jsonb
+                     )
+WHERE type = 'rerender-pages';
+
+-- Update render_site_components to chain to rebuild_blog_listing instead of get_pages
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,render_site_components,next_step}',
+        '"rebuild_blog_listing"'
+                     )
+WHERE type = 'rerender-pages';
+
+-- Update check_refresh_components else_step to go to rebuild_blog_listing
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_refresh_components,config,else_step}',
+        '"rebuild_blog_listing"'
+                     )
+WHERE type = 'rerender-pages';
+

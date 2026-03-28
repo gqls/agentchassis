@@ -1,11 +1,14 @@
 // FILE: platform/orchestration/actions/rebuild_blog_listing_action.go
 //
 // RebuildBlogListingAction queries deployed blog-post pages for a site and
-// writes a blog-listing page_component to the blog-index page. This replaces
-// the query.* template-based approach with a simple rebuild-on-change pattern.
+// renders a blog-listing page_component using the template from content_components.
 //
-// No LLM needed — purely algorithmic. Runs before rerender, or after blog
-// post publishing.
+// Data layer only — presentation comes from the component library template.
+// Uses the existing article_grid or blog-listing content_component's html_template.
+// Falls back to a minimal template if no component is found.
+//
+// No LLM needed — purely algorithmic. Runs as a step in the rerender-pages
+// workflow (before get_pages), or triggered after blog post publishing.
 //
 // Registration:
 //   "rebuild_blog_listing": {
@@ -21,11 +24,12 @@
 package actions
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
-	"html"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,16 +46,6 @@ var RebuildBlogListingInputSpec = datahelpers.ActionInputSpec{
 
 func init() {
 	datahelpers.RegisterActionInputSpec("rebuild_blog_listing", RebuildBlogListingInputSpec)
-}
-
-type blogPost struct {
-	ID        uuid.UUID
-	Name      string
-	URL       string
-	Title     string
-	PageType  string
-	CreatedAt time.Time
-	MetaDesc  string
 }
 
 func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -100,29 +94,54 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 
 	// ── Load deployed blog posts ────────────────────────────────────────
 	rows, err := params.DB.QueryContext(ctx, `
-		SELECT id, name, url, title, COALESCE(meta_description, ''), created_at
-		FROM pages
-		WHERE site_id = $1
-		  AND page_type = 'blog-post'
-		  AND build_status = 'deployed'
-		ORDER BY created_at DESC
+		SELECT p.id, p.name, p.url, p.title,
+		       COALESCE(p.meta_description, ''),
+		       p.created_at
+		FROM pages p
+		WHERE p.site_id = $1
+		  AND p.page_type = 'blog-post'
+		  AND p.build_status = 'deployed'
+		ORDER BY p.created_at DESC
 	`, siteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query blog posts: %w", err)
 	}
 	defer rows.Close()
 
-	var posts []blogPost
+	var articles []map[string]interface{}
 	for rows.Next() {
-		var p blogPost
-		if err := rows.Scan(&p.ID, &p.Name, &p.URL, &p.Title, &p.MetaDesc, &p.CreatedAt); err != nil {
+		var id uuid.UUID
+		var name, url, title, metaDesc string
+		var createdAt time.Time
+		if err := rows.Scan(&id, &name, &url, &title, &metaDesc, &createdAt); err != nil {
 			logger.Warn("Failed to scan blog post", zap.Error(err))
 			continue
 		}
-		posts = append(posts, p)
+
+		// Strip " | Company Name" suffix from titles
+		cleanTitle := title
+		if idx := strings.LastIndex(cleanTitle, " | "); idx > 0 {
+			cleanTitle = cleanTitle[:idx]
+		}
+
+		// Truncate excerpt
+		excerpt := metaDesc
+		if len(excerpt) > 200 {
+			excerpt = excerpt[:197] + "..."
+		}
+
+		articles = append(articles, map[string]interface{}{
+			"title":     cleanTitle,
+			"url":       url,
+			"excerpt":   excerpt,
+			"date":      createdAt.Format("Jan 2, 2006"),
+			"category":  "", // Enrichable from page metadata later
+			"image":     "", // Enrichable from assets later
+			"read_time": "", // Computable from content length later
+		})
 	}
 
-	if len(posts) == 0 {
+	if len(articles) == 0 {
 		logger.Info("RebuildBlogListingAction: No deployed blog posts found")
 		return map[string]interface{}{
 			"rebuilt": false,
@@ -130,8 +149,22 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		}, nil
 	}
 
-	// ── Build listing HTML ──────────────────────────────────────────────
-	listingHTML := buildBlogListingHTML(posts)
+	// ── Load component template ─────────────────────────────────────────
+	htmlTemplate := loadBlogListingTemplate(ctx, params.DB, logger)
+
+	// ── Render template with post data ──────────────────────────────────
+	templateData := map[string]interface{}{
+		"section_title":    "Latest Articles",
+		"section_subtitle": "",
+		"articles":         articles,
+		"show_load_more":   false,
+		"load_more_text":   "Load More",
+	}
+
+	rendered := renderBlogTemplate(htmlTemplate, templateData, logger)
+	if rendered == "" {
+		return nil, fmt.Errorf("template rendering produced empty output")
+	}
 
 	// ── Upsert page_component ───────────────────────────────────────────
 	var componentID uuid.UUID
@@ -142,12 +175,11 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 	`, blogPageID).Scan(&componentID)
 
 	if err == sql.ErrNoRows {
-		// Insert new
 		err = params.DB.QueryRowContext(ctx, `
 			INSERT INTO page_components (page_id, slot_name, position, rendered_html, build_status)
 			VALUES ($1, 'blog-listing', 3, $2, 'deployed')
 			RETURNING id
-		`, blogPageID, listingHTML).Scan(&componentID)
+		`, blogPageID, rendered).Scan(&componentID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert blog-listing component: %w", err)
 		}
@@ -156,12 +188,11 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to check existing blog-listing: %w", err)
 	} else {
-		// Update existing
 		_, err = params.DB.ExecContext(ctx, `
 			UPDATE page_components
 			SET rendered_html = $1, updated_at = NOW()
 			WHERE id = $2
-		`, listingHTML, componentID)
+		`, rendered, componentID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update blog-listing component: %w", err)
 		}
@@ -171,114 +202,88 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 
 	logger.Info("RebuildBlogListingAction: Complete",
 		zap.String("blog_page", blogPageName),
-		zap.Int("post_count", len(posts)),
+		zap.Int("post_count", len(articles)),
 	)
 
 	return map[string]interface{}{
 		"rebuilt":      true,
 		"blog_page_id": blogPageID.String(),
-		"post_count":   len(posts),
+		"post_count":   len(articles),
 		"component_id": componentID.String(),
 	}, nil
 }
 
-// buildBlogListingHTML produces the article grid HTML from blog post records.
-// Uses CSS variables for consistent theming with the rest of the site.
-func buildBlogListingHTML(posts []blogPost) string {
-	var b strings.Builder
-
-	b.WriteString(`<section class="blog-listing" data-component="blog-listing">
-    <div class="blog-container">
-        <div class="blog-grid">
-`)
-
-	for _, p := range posts {
-		// Clean the title — strip " | Company Name" suffix that some titles have
-		title := p.Title
-		if idx := strings.LastIndex(title, " | "); idx > 0 {
-			title = title[:idx]
-		}
-
-		// Use meta_description as excerpt, fall back to empty
-		excerpt := p.MetaDesc
-		if len(excerpt) > 200 {
-			excerpt = excerpt[:197] + "..."
-		}
-
-		date := p.CreatedAt.Format("Jan 2, 2006")
-
-		b.WriteString(fmt.Sprintf(`
-            <a href="%s" class="blog-card">
-                <div class="blog-card__meta">
-                    <time>%s</time>
-                </div>
-                <h3>%s</h3>
-                <p>%s</p>
-            </a>
-`,
-			html.EscapeString(p.URL),
-			html.EscapeString(date),
-			html.EscapeString(title),
-			html.EscapeString(excerpt),
-		))
+// loadBlogListingTemplate finds the best template for the blog listing.
+// Priority: blog-listing component → article_grid component → fallback
+func loadBlogListingTemplate(ctx context.Context, db *sql.DB, logger *zap.Logger) string {
+	// Try specific blog-listing component first
+	var tmpl string
+	err := db.QueryRowContext(ctx, `
+		SELECT html_template FROM content_components
+		WHERE (name = 'blog-listing' OR function = 'blog-listing')
+		  AND is_active = true
+		LIMIT 1
+	`).Scan(&tmpl)
+	if err == nil && tmpl != "" {
+		logger.Info("Using blog-listing component template")
+		return tmpl
 	}
 
-	b.WriteString(`
-        </div>
-    </div>
-</section>
-<style>
-.blog-listing {
-    padding: 4rem 2rem;
-    background: var(--background-color, #0a0a1a);
-}
-.blog-container {
-    max-width: 1200px;
-    margin: 0 auto;
-}
-.blog-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 2rem;
-}
-.blog-card {
-    display: block;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 8px;
-    padding: 2rem;
-    text-decoration: none;
-    color: rgba(255,255,255,0.9);
-    transition: all 0.2s ease;
-}
-.blog-card:hover {
-    background: rgba(255,255,255,0.08);
-    border-color: rgba(255,255,255,0.15);
-    transform: translateY(-2px);
-}
-.blog-card__meta {
-    font-size: 0.8rem;
-    color: rgba(255,255,255,0.5);
-    margin-bottom: 0.75rem;
-}
-.blog-card h3 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    line-height: 1.3;
-    margin-bottom: 0.75rem;
-    color: #fff;
-}
-.blog-card p {
-    font-size: 0.95rem;
-    line-height: 1.6;
-    color: rgba(255,255,255,0.6);
-    margin: 0;
-}
-@media (max-width: 768px) {
-    .blog-listing { padding: 2rem 1rem; }
-    .blog-grid { grid-template-columns: 1fr; gap: 1.5rem; }
-}
-</style>`)
+	// Fall back to article_grid (existing component with content-listing function)
+	err = db.QueryRowContext(ctx, `
+		SELECT html_template FROM content_components
+		WHERE (name = 'article_grid' OR function = 'content-listing')
+		  AND is_active = true
+		LIMIT 1
+	`).Scan(&tmpl)
+	if err == nil && tmpl != "" {
+		logger.Info("Using article_grid component template as fallback")
+		return tmpl
+	}
 
-	return b.String()
+	// Last resort — minimal template using generic CSS class names
+	logger.Warn("No blog listing template found in content_components, using default")
+	return defaultBlogListingTemplate
 }
+
+// renderBlogTemplate renders a Go template with blog data.
+func renderBlogTemplate(templateStr string, data map[string]interface{}, logger *zap.Logger) string {
+	tmpl, err := template.New("blog-listing").Parse(templateStr)
+	if err != nil {
+		logger.Warn("Blog listing template parse error", zap.Error(err))
+		return ""
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		logger.Warn("Blog listing template execute error", zap.Error(err))
+		return ""
+	}
+
+	return buf.String()
+}
+
+// defaultBlogListingTemplate is used only when no content_component template
+// exists. Uses generic CSS class names — the site's stylesheet provides styling.
+const defaultBlogListingTemplate = `<section class="section section--articles" data-component="blog-listing">
+  <div class="container">
+    <div class="section__header">
+      <h2 class="section__title">{{.section_title}}</h2>
+      {{if .section_subtitle}}<p class="section__subtitle">{{.section_subtitle}}</p>{{end}}
+    </div>
+    <div class="article-grid grid grid--3">
+      {{range .articles}}
+      <article class="article-card hover-lift">
+        <div class="article-card__content">
+          <div class="article-card__meta">
+            <span class="article-card__date">{{.date}}</span>
+            {{if .read_time}}<span class="article-card__read-time">{{.read_time}}</span>{{end}}
+          </div>
+          <h3 class="article-card__title"><a href="{{.url}}">{{.title}}</a></h3>
+          {{if .excerpt}}<p class="article-card__excerpt">{{.excerpt}}</p>{{end}}
+        </div>
+      </article>
+      {{end}}
+    </div>
+  </div>
+</section>`
