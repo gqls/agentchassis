@@ -11,6 +11,8 @@
 \d css_snippets
 \d area_components
 \d assets
+\d site_specs
+\d research_results
 \d build_queue
 \d content_components
 \d content_feed_items

@@ -57,3 +57,56 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 
 # If either fails, check feed-ingester logs
 kubectl -n ai-persona-system logs -l agent-type=feed-ingester --tail=100
+
+
+grok correlation id <   >
+# Is there a grok ingester job/pod?
+kubectl -n ai-persona-system get jobs | grep feed-ingester
+# Check the feed-ingester logs for the grok correlation ID
+kubectl -n ai-persona-system logs -l agent-type=feed-ingester --tail=100 | grep -i "grok\|api_news\|fetch_llm\|xai\|GROK_API"
+
+SELECT status, current_step, error,
+       collected_data->'route_by_type' as route,
+       collected_data->'write_result'->>'written' as written
+FROM orchestration_states
+WHERE correlation_id = '<grok-correlation-id>'
+ORDER BY created_at DESC;
+
+
+
+---
+
+
+SELECT status, current_step, error,
+       collected_data->'route_by_type' as route,
+       collected_data->'write_result'->>'written' as written
+FROM orchestration_states
+WHERE correlation_id = 'acd20cac-7282-48e4-b41d-5ecf968b5241'
+ORDER BY created_at DESC;
+  status   | current_step | error |                          route                           | written
+-----------+--------------+-------+----------------------------------------------------------+---------
+ COMPLETED | complete     |       | {"condition": "api_news", "next_step": "fetch_llm_news"} | 4
+ COMPLETED | complete     |       |                                                          |
+(2 rows)
+
+clients_db=# SELECT status, current_step, error,
+       collected_data->'route_by_type' as route,
+       collected_data->'write_result'->>'written' as written,
+       collected_data->'fetched_items'->>'item_count' as item_count,
+       collected_data->'fetched_items'->>'error' as fetch_error
+FROM orchestration_states
+WHERE collected_data->'input_data'->>'source_type' = 'api_news'
+ORDER BY created_at DESC LIMIT 3;
+  status   | current_step | error |                          route                           | written | item_count | fetch_error
+-----------+--------------+-------+----------------------------------------------------------+---------+------------+-------------
+ COMPLETED | complete     |       | {"condition": "api_news", "next_step": "fetch_llm_news"} | 4       | 4          |
+ COMPLETED | complete     |       |                                                          |         |            |
+(2 rows)
+
+
+check to see grok items
+SELECT source_title, status, created_at,
+      (SELECT name FROM content_sources WHERE id = cfi.source_id) as source_name
+FROM content_feed_items cfi
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+ORDER BY created_at DESC LIMIT 10;

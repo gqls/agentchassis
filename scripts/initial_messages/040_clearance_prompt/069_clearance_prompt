@@ -158,7 +158,7 @@ kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kaf
     --bootstrap-server localhost:9092 \
     --partitions 3 --replication-factor 1
 
-# remove cointaner status unknown and evicted
+# remove container status unknown and evicted
 kubectl -n ai-persona-system get pods | grep ContainerStatusUnknown | awk '{print $1}' | xargs kubectl -n ai-persona-system delete pod --force --grace-period=0
 
 # check for topics
