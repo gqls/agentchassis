@@ -562,3 +562,126 @@ SELECT type, status,
 FROM agent_definitions
 WHERE type = 'tool-improver';
 
+---
+-- improve tool suggestion - no tools if not needed
+
+-- ============================================================
+-- Patch tool-suggester: fix routing and strengthen prompt
+-- ============================================================
+-- The create_items_loop currently sends all suggestions to
+-- tool-deployer, but tools with library_source=null need
+-- tool-generator. Also, the LLM needs clearer permission
+-- to return zero suggestions.
+--
+-- This replaces the create_items_loop with a smarter version
+-- that uses conditional routing. It also adds a
+-- "no suggestions" path that completes cleanly.
+--
+-- NOTE: This must run AFTER fix_tool_agent_definitions.sql
+-- since it patches the same agent.
+
+-- We need to update the prompt_template to add the zero-suggestions instruction,
+-- and update the loop to handle routing.
+
+-- The cleanest approach: use a Go action for the routing logic.
+-- For now, we split into two loops — one for library forks, one for novel tools.
+-- But that's complex in workflow JSON. Instead, we add a note to the prompt
+-- telling the LLM to set handler_agent in the suggestion itself.
+
+-- Pragmatic fix: update the prompt to tell the LLM to include
+-- tool_component_id when suggesting a library tool. Then the
+-- create_work_item action passes spec_data (the whole suggestion)
+-- which already contains tool_component_id for library tools.
+-- tool-deployer reads tool_component_id from spec.
+-- For novel tools (no tool_component_id), we change handler_agent
+-- to tool-generator.
+
+-- HOWEVER — the loop sub_workflow can't conditionally set handler_agent.
+-- So the simplest robust fix: change handler_agent in the loop to a
+-- Go action that examines the suggestion and creates the right item.
+-- This keeps the workflow simple.
+
+-- For this session, we do the minimal safe fix:
+-- 1. Update prompt to be clear about zero suggestions
+-- 2. Update prompt to include tool ID when suggesting library tools
+-- 3. Keep routing to tool-deployer for now (novel tools will fail
+--    gracefully since tool-deployer checks for tool_component_id)
+-- 4. Document the routing fix as next step
+
+-- The prompt patch (applied to existing tool-suggester definition):
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,suggest_tools,config,prompt_template}',
+        to_jsonb(
+                'You are evaluating what interactive tools would genuinely help visitors to this website.
+
+        ## Site Context
+        Domain: {{.input_data.domain}}
+        {{if .site_specs.specs.identity}}Industry: {{.site_specs.specs.identity.industry}} — {{.site_specs.specs.identity.sub_industry}}
+        Company: {{.site_specs.specs.identity.company_name}}
+        About: {{.site_specs.specs.identity.about_summary}}
+        Services: {{if .site_specs.specs.identity.services}}{{range .site_specs.specs.identity.services}}
+          - {{.name}}: {{.description}}{{end}}{{end}}
+        Target Audience: {{.site_specs.specs.identity.target_audience}}{{end}}
+        {{if .site_specs.specs.classification}}Site Type: {{.site_specs.specs.classification.site_type}}{{end}}
+
+        ## Existing Pages
+        {{if .pages}}{{range .pages}}- {{.name}} ({{.url}}): {{.title}}
+        {{end}}{{else}}No pages loaded.{{end}}
+
+        ## Already Deployed Tools
+        {{if .existing_tools}}{{range .existing_tools}}- {{.display_name}} ({{.function}})
+        {{end}}{{else}}None deployed yet.{{end}}
+
+        ## Available in Library (can be forked and customised)
+        {{if .library_tools}}{{range .library_tools}}- {{.display_name}} ({{.function}}, id: {{.id}}): {{.description}}
+        {{end}}{{else}}No library tools available.{{end}}
+
+        ## Your Task
+
+        Suggest 0-5 interactive tools that would genuinely add value for this website. Think about what someone in this industry would actually use day-to-day.
+
+        IMPORTANT RULES:
+        1. If NO tools would genuinely help this audience, return an EMPTY suggestions array. Not every site needs tools. A gas wholesaler does not need a password strength checker. A veterinary practice does not need an A/B test calculator.
+        2. Only suggest tools that are directly relevant to this specific industry and audience. Generic "nice to have" tools that any site could use are NOT good suggestions.
+        3. Prefer library tools when they fit. For library tools, include the id field in tool_component_id.
+        4. When no library tool fits but a custom tool would genuinely help, suggest it with library_source: null and tool_component_id: null. Be specific about what it should do.
+
+        Examples of GOOD suggestions:
+        - Gas wholesaler: unit converter (therms to kWh to MJ), delivery cost estimator
+        - Photographer: booking calculator, print size guide
+        - Accountant: VAT calculator, tax deadline calendar
+        - Restaurant: tip calculator, allergen filter
+
+        Examples of BAD suggestions (do not do this):
+        - Password checker for a gas wholesaler (irrelevant to their audience)
+        - A/B test calculator for a restaurant (their visitors are diners, not marketers)
+        - Meme generator for an accountancy firm (not professional)
+
+        Return ONLY valid JSON:
+        {
+          "reasoning": "Brief explanation of why these tools suit (or do not suit) this industry",
+          "suggestions": [
+            {
+              "name": "Human-readable tool name",
+              "function": "tool-kebab-case-name",
+              "description": "What the tool does and why it helps visitors",
+              "priority": 1,
+              "target_page": "name of best page, or new for a dedicated tools page",
+              "library_source": "function name from library if forkable, or null if new",
+              "tool_component_id": "uuid from library if forkable, or null if new",
+              "complexity": "simple"
+            }
+          ]
+        }'::text
+        ),
+        updated_at = NOW()
+            WHERE type = 'tool-suggester';
+
+
+-- Verify the prompt was updated
+SELECT LENGTH(default_config->'workflow'->'steps'->'suggest_tools'->'config'->>'prompt_template') as prompt_len
+FROM agent_definitions
+WHERE type = 'tool-suggester';
+

@@ -598,6 +598,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Create page records and work items for LLM-planned blog posts",
 		IsLocal:     true,
 	},
+	"rebuild_blog_listing": {
+		Handler:     RebuildBlogListingAction,
+		Category:    "site",
+		Description: "Rebuild blog listing page_component from published posts",
+		IsLocal:     true,
+	},
 	"ch_detail_fetch": {
 		Handler:     CHDetailFetchAction,
 		Category:    "data",

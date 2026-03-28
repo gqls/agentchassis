@@ -53,3 +53,25 @@ JOIN page_components pc ON pc.page_id = p.id
 JOIN content_components cc ON pc.component_id = cc.id
 WHERE p.site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
   AND cc.component_level = 'tool';
+
+
+clients_db=# -- Check if there were evaluate_tools items for the other 3 sites
+SELECT s.domain, swi.item_type, swi.handler_agent, swi.status, swi.created_by
+FROM site_work_items swi
+JOIN sites s ON s.id = swi.site_id
+WHERE swi.item_type IN ('evaluate_tools', 'add_tool')
+  AND swi.site_id IN (
+    SELECT p.site_id FROM pages p
+    JOIN page_components pc ON pc.page_id = p.id
+    JOIN content_components cc ON pc.component_id = cc.id
+    WHERE cc.function = 'tool-password-entropy' AND cc.is_active = true
+  )
+ORDER BY s.domain, swi.created_at;
+           domain           |   item_type    | handler_agent  |  status  |       created_by
+----------------------------+----------------+----------------+----------+------------------------
+ ai-agent-orchestration.com | add_tool       | tool-deployer  | complete | design-discovery-agent
+ finetuning.uk              | add_tool       | tool-deployer  | complete | design-discovery-agent
+ gaswholesalers.com         | evaluate_tools | tool-suggester | complete | admin
+ gaswholesalers.com         | add_tool       | tool-deployer  | complete | design-discovery-agent
+ leopardessconsulting.co.uk | add_tool       | tool-deployer  | complete | design-discovery-agent
+(5 rows)
