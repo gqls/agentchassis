@@ -145,3 +145,31 @@ the build pipeline trigger picks it up and runs it through classifier → planne
 
 The audit findings for the other sites are processed by the same dispatch loop.
 
+
+--------------------------------------
+deleting a domain
+--------------------------------------
+SELECT 'pages' as tbl, count(*) FROM pages WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911'
+UNION ALL SELECT 'content_items', count(*) FROM content_items WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911'
+UNION ALL SELECT 'assets', count(*) FROM assets WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911'
+UNION ALL SELECT 'site_specs', count(*) FROM site_specs WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911'
+UNION ALL SELECT 'research_results', count(*) FROM research_results WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911'
+UNION ALL SELECT 'page_components', count(*) FROM page_components WHERE page_id IN (SELECT id FROM pages WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911')
+UNION ALL SELECT 'site_areas', count(*) FROM site_areas WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911'
+UNION ALL SELECT 'site_components', count(*) FROM site_components WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911'
+UNION ALL SELECT 'site_flows', count(*) FROM site_flows WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911'
+UNION ALL SELECT 'site_nav_groups', count(*) FROM site_nav_groups WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911'
+UNION ALL SELECT 'site_nav_items', count(*) FROM site_nav_items WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911'
+UNION ALL SELECT 'redirects', count(*) FROM redirects WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911'
+UNION ALL SELECT 'link_registry', count(*) FROM link_registry WHERE source_site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911';
+
+SELECT count(*) FROM maintenance_queue WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911';
+SELECT count(*) FROM agent_error_log WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911';
+SELECT count(*) FROM content_feed_items WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911';
+SELECT count(*) FROM products WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911';
+SELECT count(*) FROM affiliate_products WHERE site_id = '961fdd76-4daf-435b-bdef-0ebc0252e911';
+
+DELETE FROM sites WHERE domain = 'testllmlog.example.com';
+
+--------------------------------------
+

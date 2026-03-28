@@ -217,27 +217,6 @@ Two modes via `source_format` config:
 
 Fire-and-forget dispatch pattern. For each due source: builds a spawn+call inline workflow message targeting `feed-ingester`, produces to `system.agent.generic.requests`. Optimistically updates `next_fetch_at` to prevent re-dispatch.
 
-### feed_triage_actions.go — 2 actions
-
-| Action | Category | Purpose |
-|--------|----------|---------|
-| `load_feed_items_for_triage` | feed | Loads unscored items (`status = 'ingested'`) joined with source metadata. Returns `{items, count, site_id}` |
-| `apply_feed_scores` | feed | Reads LLM-produced scores, updates `content_feed_items` with `relevance_score`, `status`, `topics`, `processed_at` |
-
-**apply_feed_scores details:**
-- Input: scores array from LLM (id, score, reason, topics, flagged)
-- Status thresholds (configurable per site, default 50):
-    - `score >= threshold` → status = `relevant` (displays on site)
-    - `score 20..threshold` → status = `review` (held)
-    - `score < 20` → status = `rejected` (never displays)
-    - `flagged: true` → always `rejected` (values/legal conflict)
-- Only updates items with `status = 'ingested'` (won't re-score already triaged items)
-- Threshold override from `sites.settings.maintenance_profile.content_feed.relevance_threshold`
-
-**Two-layer conformance checking:**
-1. **Pre-display gate (feed-triage):** LLM scores items against full site spec (identity, classification, content_direction, legal_rules). Only items with `status = 'relevant'` appear on pages.
-2. **Post-display audit (improvement loop):** content-quality-auditor checks displayed news items are appropriate during regular audit cycle. Creates findings → reject bad items → rerender.
-
 ---
 
 ## New Agent Definitions
@@ -274,24 +253,21 @@ The `conditional_route` on `source_type` branches to the appropriate fetch path.
 
 Workflow: `dispatch_sources → complete`. All complexity is in the Go action.
 
-### feed-triage
+### feed-triage (stub)
 
 | Field | Value |
 |-------|-------|
 | type | `feed-triage` |
 | agent_category | `analyst` |
 | status | `experimental` |
-| input_contract | `{"required": ["site_id"], "optional": ["relevance_threshold"]}` |
-| output_contract | `{"produces": ["triage_result"]}` |
+| input_contract | `{"required": ["site_id"], "optional": ["vertical"]}` |
 | ai_service | `claude-sonnet-4-6`, `api_key_env_var: "ANTHROPIC_API_KEY"` |
 | processing_mode | `task` |
 | timeout | 300s |
 
-Workflow: `load_items → check_has_items → read_site_spec → score_relevance → apply_scores → complete`
+Workflow: `load_items → check_has_items → score_relevance → apply_scores → complete`
 
-Loads all site spec aspects before scoring so the LLM has identity, classification, content_direction, and legal_rules context. The `check_has_items` step uses `evaluate_condition` with `condition_field: "pending_items.count"` — routes to `complete` if count is 0, otherwise proceeds to read spec and score.
-
-The LLM prompt instructs the model to score 0-100 and flag items that conflict with site values or legal constraints. `apply_feed_scores` then updates rows: relevant (shows), review (held), rejected (never shows).
+Not yet runnable — the `apply_feed_scores` action needs to be built. The definition is here so the workflow structure is documented and ready.
 
 ---
 
@@ -299,24 +275,22 @@ The LLM prompt instructs the model to score 0-100 and flag items that conflict w
 
 **File:** `feed_registry_entries.go` — add to `GlobalActionRegistry` and `LocalActions` in `registry.go`.
 
-11 actions total:
+9 actions total:
 
 ```go
 // FEED section in GlobalActionRegistry
-"fetch_rss":                   { Handler: FetchRSSAction,                Category: "feed", IsLocal: true }
-"fetch_llm_news":              { Handler: FetchLLMNewsAction,            Category: "feed", IsLocal: true }
-"write_feed_items":            { Handler: WriteFeedItemsAction,          Category: "feed", IsLocal: true }
-"load_due_sources":            { Handler: LoadDueSourcesAction,          Category: "feed", IsLocal: true }
-"update_source_timestamps":    { Handler: UpdateSourceTimestampsAction,  Category: "feed", IsLocal: true }
-"normalize_to_feed_items":     { Handler: NormalizeToFeedItemsAction,    Category: "feed", IsLocal: true }
-"dispatch_feed_sources":       { Handler: DispatchFeedSourcesAction,     Category: "feed", IsLocal: true }
-"fetch_scrape":                { Handler: FetchScrapeAction,             Category: "feed", IsLocal: true }
-"fetch_news_search":           { Handler: FetchNewsSearchAction,         Category: "feed", IsLocal: true }
-"apply_feed_scores":           { Handler: ApplyFeedScoresAction,         Category: "feed", IsLocal: true }
-"load_feed_items_for_triage":  { Handler: LoadFeedItemsForTriageAction,  Category: "feed", IsLocal: true }
+"fetch_rss":                 { Handler: FetchRSSAction,              Category: "feed", IsLocal: true }
+"fetch_llm_news":            { Handler: FetchLLMNewsAction,          Category: "feed", IsLocal: true }
+"write_feed_items":          { Handler: WriteFeedItemsAction,        Category: "feed", IsLocal: true }
+"load_due_sources":          { Handler: LoadDueSourcesAction,        Category: "feed", IsLocal: true }
+"update_source_timestamps":  { Handler: UpdateSourceTimestampsAction, Category: "feed", IsLocal: true }
+"normalize_to_feed_items":   { Handler: NormalizeToFeedItemsAction,  Category: "feed", IsLocal: true }
+"dispatch_feed_sources":     { Handler: DispatchFeedSourcesAction,   Category: "feed", IsLocal: true }
+"fetch_scrape":              { Handler: FetchScrapeAction,           Category: "feed", IsLocal: true }
+"fetch_news_search":         { Handler: FetchNewsSearchAction,       Category: "feed", IsLocal: true }
 ```
 
-All 11 also go in `LocalActions` map.
+All 9 also go in `LocalActions` map.
 
 ---
 
@@ -341,17 +315,9 @@ K8s CronJob (or manual trigger)
                             → scrape:      fetch_scrape → normalize_scrape → write_items → update_timestamps → complete
 
 Results land in content_feed_items with status = 'ingested'
-
-Then (after each ingestion cycle or on schedule):
-  feed-triage (per site)
-    → load unscored items
-    → load site spec (identity, classification, content_direction, legal_rules)
-    → LLM scores each item against spec
-    → apply_feed_scores: relevant / review / rejected
-    → Only status = 'relevant' items appear on pages
 ```
 
-Downstream (not yet built): `latest-news` component → scheduled rerender → improvement loop audit
+Downstream (not yet built): `feed-triage` → `article-rewriter` → `feed-publisher` → `feed-lifecycle`
 
 ---
 
@@ -396,9 +362,8 @@ Key columns and who sets them:
 | `feed_normalize_action.go` | `normalize_to_feed_items` |
 | `feed_fetch_async_actions.go` | `fetch_scrape`, `fetch_news_search` |
 | `dispatch_feed_sources_action.go` | `dispatch_feed_sources` |
-| `feed_triage_actions.go` | `apply_feed_scores`, `load_feed_items_for_triage` |
 
-**Registry → merge into `registry.go`:** 11 entries in `GlobalActionRegistry` under `FEED` section + 11 entries in `LocalActions` map.
+**Registry → merge into `registry.go`:** 9 entries in `GlobalActionRegistry` under `FEED` section + 9 entries in `LocalActions` map.
 
 **SQL:**
 
@@ -559,37 +524,24 @@ In pipeline order, with the 006/007 step references:
 
 | Component | 006 ref | Type | Blocked on |
 |-----------|---------|------|------------|
-| `latest-news` component template + input_schema | — | Component + SQL | Nothing — next to build |
-| `configure_feed_sources` action | — | Go action | Classifier prompt addition |
-| News section render support (`query.*` source resolution) | — | Go code in plan_sections | latest-news component |
-| Classifier prompt: `news_feed` in classification spec | — | Prompt change | Nothing |
-| Planner prompt: include `latest-news` when spec says to | — | Prompt change | Classifier addition |
-| `missing_news_sources` discovery check | — | Go check in completeness-discovery | Classifier prompt |
-| `stale_news_section` discovery check | — | Go check | latest-news component on pages |
-| `missing_news_section` discovery check | — | Go check | latest-news component existing |
-| Scheduled rerender of news sections | — | CronJob or maintenance task | News section on pages |
+| `apply_feed_scores` action | Step 3.4 | Go action | Nothing — next to build |
+| `feed-triage` agent (runnable) | Step 3.4 | Agent def already exists | `apply_feed_scores` action |
 | `article-rewriter` agent | Step 3.5 | SQL + workflow | feed-triage working |
 | `feed-publisher` agent | Step 3.6 | SQL + workflow (uses existing actions) | article-rewriter working |
 | `feed-orchestrator` scheduled task | Step 3.7 | K8s CronJob manifest | Full pipeline working |
 | `feed-lifecycle` agent | Step 3.8 | Go action + SQL | Not blocking anything |
 | Scrape link quality filtering | — | Improve `isNavigationLink` | Category-level links currently pass through |
 | `GROK_API_KEY` in `spawn_actions.go` | — | Go code change | Currently using agent_definition env_vars workaround |
-| Triage evolves to rewriter | — | Richer prompt + write rewritten summary | Triage working first |
 
 ### Dependency chain for full pipeline
 
 ```
-latest-news component template
-  → news section render support (query.* source resolution)
-    → classifier prompt (news_feed in classification spec)
-      → planner prompt (places latest-news on homepage)
-        → discovery checks (missing_news_sources, stale_news_section)
-          → scheduled rerender of news sections
-            → Full automated news cycle
-
-Feed triage (already built, parallel to above):
-  → test with existing ingested items
-    → triage evolves to filter + rewriter
+apply_feed_scores action
+  → feed-triage agent runnable
+    → article-rewriter agent
+      → feed-publisher agent
+        → K8s CronJob for content-feed-orchestrator
+          → Full automated news cycle
 ```
 
 Each step produces a testable deliverable. Don't build the next until the previous works.
@@ -628,13 +580,3 @@ Each step produces a testable deliverable. Don't build the next until the previo
 34. **Spawned job env vars are not inherited from the chassis deployment.** `spawn_actions.go` has a hardcoded list of env vars for K8s jobs. New API keys (like `GROK_API_KEY`) must be added to either the agent definition's `env_vars` column (quick, key in DB) or to `spawn_actions.go` + `personae-default-secrets` (proper, key in K8s secret). This caught us during Grok testing — the key was set on the chassis but the spawned ingester job didn't have it.
 
 35. **`items` is optional in `WriteFeedItemsInputSpec`.** A scrape of a page with no extractable links produces `normalize_scrape: {items: null, item_count: 0}`. If `items` were required, the whole workflow would fail. Making it optional lets the action return `{written: 0, skipped: 0}` gracefully.
-
-36. **Two-layer conformance checking.** Pre-display: feed-triage scores items against the full site spec (identity, classification, content_direction, legal_rules) before they can appear on pages. Post-display: the content-quality-auditor in the improvement loop periodically checks that displayed news items are appropriate. The pre-display gate catches most issues; the post-display audit catches drift and edge cases.
-
-37. **Triage reads all site spec aspects, not just vertical keywords.** The original stub used `input_data.vertical` (a single string). The runnable version loads all spec aspects via `read_site_spec`. This means the LLM can check against tone, legal constraints, forbidden phrases, and audience targeting — not just topic relevance. This is what makes the values/legal flag meaningful.
-
-38. **Triage threshold is configurable per site.** Default 50, stored in `sites.settings.maintenance_profile.content_feed.relevance_threshold`. Energy news sites with many relevant items can set 70 (strict). General business sites might set 40 (permissive). The `apply_feed_scores` action reads this from collected_data if available.
-
-39. **Triage evolves to rewriter (future).** Currently triage is a filter — items pass or fail. Future evolution: for items that pass, triage also rewrites the summary to frame the news for the site's specific audience. The rewritten summary would be stored in a new `display_summary` column while preserving the original `source_summary`. No architecture change needed — just a richer prompt and one more column.
-
-

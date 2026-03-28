@@ -979,6 +979,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Create a new tool component from generated HTML and set up its page",
 		IsLocal:     true,
 	},
+	"apply_feed_scores": {
+		Handler:     ApplyFeedScoresAction,
+		Category:    "feed",
+		Description: "Update content_feed_items with LLM relevance scores and status",
+		IsLocal:     true,
+	},
+	"load_feed_items_for_triage": {
+		Handler:     LoadFeedItemsForTriageAction,
+		Category:    "feed",
+		Description: "Load unscored ingested items with source metadata for triage",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// HITL — human-in-the-loop approval and input

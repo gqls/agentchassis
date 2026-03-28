@@ -685,3 +685,327 @@ SELECT LENGTH(default_config->'workflow'->'steps'->'suggest_tools'->'config'->>'
 FROM agent_definitions
 WHERE type = 'tool-suggester';
 
+---
+
+-- ============================================================
+-- Patch tool-suggester: write evaluation to site_specs
+-- ============================================================
+-- Adds a save_tool_spec step between suggest_tools and
+-- check_has_suggestions. The LLM evaluation (reasoning,
+-- suggestions, rejected tools) is persisted as site_specs
+-- aspect = 'tools'. This gives auditors a contract to check
+-- against and makes tool decisions visible in the admin panel.
+--
+-- Also updates the LLM prompt to include rejected_tools in
+-- the JSON output so the spec records what was considered
+-- and why it was rejected.
+--
+-- Run AFTER fix_tool_agent_definitions.sql (which fixes
+-- columns, params, paths) and patch_tool_suggester_prompt.sql
+-- (which strengthens the prompt).
+
+-- Step 1: Add save_tool_spec step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,save_tool_spec}',
+        '{
+            "action": "write_site_spec",
+            "config": {
+                "site_id": "site_record.site_id",
+                "spec_data": "evaluation.result",
+                "aspect": "tools",
+                "source": "tool-suggester",
+                "source_agent": "tool-suggester",
+                "notes": "LLM tool evaluation — reasoning, recommendations, and rejections"
+            },
+            "output_field": "tool_spec_written",
+            "next_step": "check_has_suggestions",
+            "error_step": "check_has_suggestions",
+            "description": "Persist tool evaluation to site_specs for auditor visibility"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'tool-suggester';
+
+-- Step 2: Point suggest_tools → save_tool_spec (instead of → check_has_suggestions)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,suggest_tools,next_step}',
+        '"save_tool_spec"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'tool-suggester';
+
+-- Step 3: Update the prompt to include rejected_tools in the output
+-- The prompt already allows 0 suggestions. We add rejected_tools so
+-- the spec records what was considered and explicitly rejected.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,suggest_tools,config,prompt_template}',
+        to_jsonb(
+                'You are evaluating what interactive tools would genuinely help visitors to this website.
+
+        ## Site Context
+        Domain: {{.input_data.domain}}
+        {{if .site_specs.specs.identity}}Industry: {{.site_specs.specs.identity.industry}} — {{.site_specs.specs.identity.sub_industry}}
+        Company: {{.site_specs.specs.identity.company_name}}
+        About: {{.site_specs.specs.identity.about_summary}}
+        Services: {{if .site_specs.specs.identity.services}}{{range .site_specs.specs.identity.services}}
+          - {{.name}}: {{.description}}{{end}}{{end}}
+        Target Audience: {{.site_specs.specs.identity.target_audience}}{{end}}
+        {{if .site_specs.specs.classification}}Site Type: {{.site_specs.specs.classification.site_type}}{{end}}
+
+        ## Existing Pages
+        {{if .pages}}{{range .pages}}- {{.name}} ({{.url}}): {{.title}}
+        {{end}}{{else}}No pages loaded.{{end}}
+
+        ## Already Deployed Tools
+        {{if .existing_tools}}{{range .existing_tools}}- {{.display_name}} ({{.function}})
+        {{end}}{{else}}None deployed yet.{{end}}
+
+        ## Available in Library (can be forked and customised)
+        {{if .library_tools}}{{range .library_tools}}- {{.display_name}} ({{.function}}, id: {{.id}}): {{.description}}
+        {{end}}{{else}}No library tools available.{{end}}
+
+        ## Your Task
+
+        Evaluate what interactive tools would genuinely add value for this website. Think about what someone in this industry would actually use day-to-day.
+
+        IMPORTANT RULES:
+        1. If NO tools would genuinely help this audience, return an EMPTY suggestions array. Not every site needs tools. A gas wholesaler does not need a password strength checker. A veterinary practice does not need an A/B test calculator.
+        2. Only suggest tools that are directly relevant to this specific industry and audience. Generic "nice to have" tools that any site could use are NOT good suggestions.
+        3. Prefer library tools when they fit. For library tools, include the id field in tool_component_id.
+        4. When no library tool fits but a custom tool would genuinely help, suggest it with library_source: null and tool_component_id: null. Be specific about what it should do.
+        5. Also list tools from the library that you considered but rejected, with a reason. This helps auditors understand the decision.
+
+        Examples of GOOD suggestions:
+        - Gas wholesaler: unit converter (therms to kWh to MJ), delivery cost estimator
+        - Photographer: booking calculator, print size guide
+        - Accountant: VAT calculator, tax deadline calendar
+        - Restaurant: tip calculator, allergen filter
+        - Mortgage broker: stamp duty calculator, affordability calculator, repayment calculator
+
+        Examples of BAD suggestions (do not do this):
+        - Password checker for a gas wholesaler (irrelevant to their audience)
+        - A/B test calculator for a restaurant (their visitors are diners, not marketers)
+        - Meme generator for an accountancy firm (not professional)
+
+        Return ONLY valid JSON:
+        {
+          "reasoning": "Brief explanation of why these tools suit (or do not suit) this industry",
+          "suggestions": [
+            {
+              "name": "Human-readable tool name",
+              "function": "tool-kebab-case-name",
+              "description": "What the tool does and why it helps visitors",
+              "priority": 1,
+              "target_page": "name of best page, or new for a dedicated tools page",
+              "library_source": "function name from library if forkable, or null if new",
+              "tool_component_id": "uuid from library if forkable, or null if new",
+              "complexity": "simple"
+            }
+          ],
+          "rejected_tools": [
+            {
+              "function": "tool-function-name",
+              "reason": "Why this tool is not appropriate for this site"
+            }
+          ]
+        }'::text
+        ),
+        updated_at = NOW()
+            WHERE type = 'tool-suggester';
+
+
+-- Step 4: Also add ensure_site_record before read_specs so save_tool_spec
+-- has site_record.site_id available. Check if it already exists.
+-- (fix_tool_agent_definitions.sql starts at read_specs, not ensure_site_record)
+
+-- First check current start_step
+SELECT default_config->'workflow'->>'start_step' as current_start
+FROM agent_definitions WHERE type = 'tool-suggester';
+
+-- Add ensure_site_record step and update start_step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,ensure_site_record}',
+                '{
+                    "action": "ensure_site_record",
+                    "config": {},
+                    "next_step": "read_specs",
+                    "output_field": "site_record"
+                }'::jsonb
+        ),
+        '{workflow,start_step}',
+        '"ensure_site_record"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'tool-suggester'
+  AND NOT (default_config->'workflow'->'steps' ? 'ensure_site_record');
+
+
+-- ============================================================
+-- Verify
+-- ============================================================
+
+-- Check the workflow step order
+SELECT
+    key as step,
+    value->>'next_step' as next_step,
+    value->>'action' as action
+FROM agent_definitions,
+    jsonb_each(default_config->'workflow'->'steps')
+WHERE type = 'tool-suggester'
+ORDER BY
+    CASE key
+    WHEN 'ensure_site_record' THEN 1
+    WHEN 'read_specs' THEN 2
+    WHEN 'load_pages' THEN 3
+    WHEN 'load_existing_tools' THEN 4
+    WHEN 'load_library_tools' THEN 5
+    WHEN 'suggest_tools' THEN 6
+    WHEN 'save_tool_spec' THEN 7
+    WHEN 'check_has_suggestions' THEN 8
+    WHEN 'create_items_loop' THEN 9
+    WHEN 'complete' THEN 10
+END;
+
+-- above didn't work
+
+---
+
+-- ============================================================
+-- Fix: tool-suggester prompt + ensure_site_record
+-- Single DO block to avoid client parsing issues
+-- ============================================================
+
+DO $$
+DECLARE
+prompt_text TEXT;
+    current_config JSONB;
+BEGIN
+    -- Build the prompt in a variable (no quoting issues)
+    prompt_text := E'You are evaluating what interactive tools would genuinely help visitors to this website.\n\n'
+        || E'## Site Context\n'
+        || E'Domain: {{.input_data.domain}}\n'
+        || E'{{if .site_specs.specs.identity}}Industry: {{.site_specs.specs.identity.industry}} \u2014 {{.site_specs.specs.identity.sub_industry}}\n'
+        || E'Company: {{.site_specs.specs.identity.company_name}}\n'
+        || E'About: {{.site_specs.specs.identity.about_summary}}\n'
+        || E'Services: {{if .site_specs.specs.identity.services}}{{range .site_specs.specs.identity.services}}\n'
+        || E'  - {{.name}}: {{.description}}{{end}}{{end}}\n'
+        || E'Target Audience: {{.site_specs.specs.identity.target_audience}}{{end}}\n'
+        || E'{{if .site_specs.specs.classification}}Site Type: {{.site_specs.specs.classification.site_type}}{{end}}\n\n'
+        || E'## Existing Pages\n'
+        || E'{{if .pages}}{{range .pages}}- {{.name}} ({{.url}}): {{.title}}\n'
+        || E'{{end}}{{else}}No pages loaded.{{end}}\n\n'
+        || E'## Already Deployed Tools\n'
+        || E'{{if .existing_tools}}{{range .existing_tools}}- {{.display_name}} ({{.function}})\n'
+        || E'{{end}}{{else}}None deployed yet.{{end}}\n\n'
+        || E'## Available in Library (can be forked and customised)\n'
+        || E'{{if .library_tools}}{{range .library_tools}}- {{.display_name}} ({{.function}}, id: {{.id}}): {{.description}}\n'
+        || E'{{end}}{{else}}No library tools available.{{end}}\n\n'
+        || E'## Your Task\n\n'
+        || E'Evaluate what interactive tools would genuinely add value for this website. Think about what someone in this industry would actually use day-to-day.\n\n'
+        || E'IMPORTANT RULES:\n'
+        || E'1. If NO tools would genuinely help this audience, return an EMPTY suggestions array. Not every site needs tools.\n'
+        || E'2. Only suggest tools that are directly relevant to this specific industry and audience.\n'
+        || E'3. Prefer library tools when they fit. For library tools, include the id field in tool_component_id.\n'
+        || E'4. When no library tool fits but a custom tool would genuinely help, suggest it with library_source: null and tool_component_id: null.\n'
+        || E'5. Also list tools from the library that you considered but rejected, with a reason.\n\n'
+        || E'Examples of GOOD suggestions:\n'
+        || E'- Gas wholesaler: unit converter (therms to kWh to MJ), delivery cost estimator\n'
+        || E'- Photographer: booking calculator, print size guide\n'
+        || E'- Accountant: VAT calculator, tax deadline calendar\n'
+        || E'- Mortgage broker: stamp duty calculator, affordability calculator, repayment calculator\n\n'
+        || E'Examples of BAD suggestions (do not do this):\n'
+        || E'- Password checker for a gas wholesaler (irrelevant to their audience)\n'
+        || E'- A/B test calculator for a restaurant (their visitors are diners, not marketers)\n'
+        || E'- Meme generator for an accountancy firm (not professional)\n\n'
+        || E'Return ONLY valid JSON:\n'
+        || E'{\n'
+        || E'  "reasoning": "Brief explanation of why these tools suit (or do not suit) this industry",\n'
+        || E'  "suggestions": [\n'
+        || E'    {\n'
+        || E'      "name": "Human-readable tool name",\n'
+        || E'      "function": "tool-kebab-case-name",\n'
+        || E'      "description": "What the tool does and why it helps visitors",\n'
+        || E'      "priority": 1,\n'
+        || E'      "target_page": "name of best page, or new for a dedicated tools page",\n'
+        || E'      "library_source": "function name from library if forkable, or null if new",\n'
+        || E'      "tool_component_id": "uuid from library if forkable, or null if new",\n'
+        || E'      "complexity": "simple"\n'
+        || E'    }\n'
+        || E'  ],\n'
+        || E'  "rejected_tools": [\n'
+        || E'    {\n'
+        || E'      "function": "tool-function-name",\n'
+        || E'      "reason": "Why this tool is not appropriate for this site"\n'
+        || E'    }\n'
+        || E'  ]\n'
+        || E'}';
+
+    -- Load current config
+SELECT default_config INTO current_config
+FROM agent_definitions WHERE type = 'tool-suggester';
+
+-- Update prompt
+current_config := jsonb_set(
+        current_config,
+        '{workflow,steps,suggest_tools,config,prompt_template}',
+        to_jsonb(prompt_text)
+    );
+
+    -- Add ensure_site_record if missing
+    IF NOT (current_config->'workflow'->'steps' ? 'ensure_site_record') THEN
+        current_config := jsonb_set(
+            current_config,
+            '{workflow,steps,ensure_site_record}',
+            '{"action": "ensure_site_record", "config": {}, "next_step": "read_specs", "output_field": "site_record"}'::jsonb
+        );
+        current_config := jsonb_set(
+            current_config,
+            '{workflow,start_step}',
+            '"ensure_site_record"'
+        );
+        RAISE NOTICE 'Added ensure_site_record step';
+ELSE
+        RAISE NOTICE 'ensure_site_record already exists';
+END IF;
+
+    -- Write back
+UPDATE agent_definitions
+SET default_config = current_config, updated_at = NOW()
+WHERE type = 'tool-suggester';
+
+RAISE NOTICE 'tool-suggester updated: prompt + ensure_site_record';
+END;
+$$;
+
+-- Verify step chain
+SELECT
+    key as step,
+    value->>'next_step' as next_step,
+    value->>'action' as action
+FROM agent_definitions,
+    jsonb_each(default_config->'workflow'->'steps')
+WHERE type = 'tool-suggester'
+ORDER BY
+    CASE key
+    WHEN 'ensure_site_record' THEN 1
+    WHEN 'read_specs' THEN 2
+    WHEN 'load_pages' THEN 3
+    WHEN 'load_existing_tools' THEN 4
+    WHEN 'load_library_tools' THEN 5
+    WHEN 'suggest_tools' THEN 6
+    WHEN 'save_tool_spec' THEN 7
+    WHEN 'check_has_suggestions' THEN 8
+    WHEN 'create_items_loop' THEN 9
+    WHEN 'complete' THEN 10
+    WHEN 'complete_empty' THEN 11
+END;
+
