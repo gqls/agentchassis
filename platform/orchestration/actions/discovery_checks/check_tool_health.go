@@ -186,6 +186,66 @@ func (c *ToolHealthCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) 
 			zap.String("issues", issueText))
 	}
 
+	// ── Tier 2: Queue LLM audit for tools that pass structural checks ──
+	// Tools with blockers need fixing first; tools without blockers
+	// get queued for deeper code review by tool-auditor.
+	for _, tool := range tools {
+		if recentItems[tool.ComponentID] {
+			continue
+		}
+		// Skip if this tool had structural blockers
+		issues := auditTool(tool.TemplateHTML, tool.RenderedHTML, tool.BuildStatus)
+		hasBlocker := false
+		for _, issue := range issues {
+			if issue.severity == "blocker" {
+				hasBlocker = true
+				break
+			}
+		}
+		if hasBlocker {
+			continue // Tier 1 improve_tool item already created above
+		}
+
+		// Check if recently audited by tool-auditor (30-day cooldown)
+		var recentAudit bool
+		_ = dctx.DB.QueryRowContext(dctx.Ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM site_work_items
+				WHERE site_id = $1
+				  AND item_type = 'audit_tool'
+				  AND spec->>'component_id' = $2
+				  AND created_at > NOW() - INTERVAL '30 days'
+			)
+		`, dctx.SiteID, tool.ComponentID).Scan(&recentAudit)
+
+		if recentAudit {
+			continue
+		}
+
+		result.WorkItems = append(result.WorkItems, WorkItemSpec{
+			SiteID:   dctx.SiteID,
+			Source:   "discovery",
+			Pipeline: "build",
+			ItemType: "audit_tool",
+			Severity: "low",
+			Summary:  fmt.Sprintf("LLM code review: %s", tool.DisplayName),
+			SpecJSON: fmt.Sprintf(
+				`{"component_id": "%s", "check": "tool_health", "page_id": "%s", "page_name": "%s"}`,
+				tool.ComponentID, tool.PageID, tool.PageName,
+			),
+			Priority:     140,
+			HandlerAgent: "tool-auditor",
+			Status:       "detected",
+			CreatedBy:    dctx.AgentType,
+			ItemKey:      fmt.Sprintf("audit_tool:%s:%s", tool.Function, dctx.SiteID),
+			BatchID:      dctx.BatchID,
+		})
+
+		dctx.Logger.Info("tool_health: queued LLM audit",
+			zap.String("tool", tool.Function),
+			zap.String("component_id", tool.ComponentID))
+	}
+
 	return result, nil
 }
 
