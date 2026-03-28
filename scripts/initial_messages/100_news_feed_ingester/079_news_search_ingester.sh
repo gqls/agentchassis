@@ -1,11 +1,10 @@
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
-SOURCE_ID="<paste-news-search-source-id>"
+SOURCE_ID="cadaff1e-2c34-4f8c-a4d9-2003f5da21f7"
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
 echo "NEWS_SEARCH CORRELATION_ID=$CORRELATION_ID"
 
 kubectl -n kafka run -i --rm kcat-search-test-$$ \
@@ -25,7 +24,7 @@ kubectl -n kafka run -i --rm kcat-search-test-$$ \
     -H from_agent_type=cli \
     -H from_agent_id=cli-user \
     -H responses_topic=system.agent.generic.responses <<JSON
-{"headers":{"correlation_id":"$CORRELATION_ID","orchestration_id":"$ORCHESTRATION_ID","message_type":"request","action":"orchestrate","client_id":"demo_client","message_id":"$MESSAGE_ID","request_id":"$REQUEST_ID","timestamp":"$TIMESTAMP","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"}},"config":{"workflow":{"start_step":"spawn_ingester","steps":{"spawn_ingester":{"action":"spawn_agent","config":{"agent_type":"feed-ingester","role":"search-test"},"next_step":"call_ingester","description":"Spawn feed-ingester"},"call_ingester":{"action":"call_agent","config":{"target_role":"search-test","input_mapping":{"site_id":"input_data.site_id","source_id":"input_data.source_id","source_type":"input_data.source_type","source_config":"input_data.source_config"}},"next_step":"complete","description":"Call feed-ingester"},"complete":{"action":"complete_workflow"}}},"processing_mode":"orchestrator","timeout_seconds":300},"input_data":{"site_id":"$SITE_ID","source_id":"$SOURCE_ID","source_type":"news_search","source_name":"Gas wholesale energy news search","source_config":{"query":"UK wholesale gas prices news","num_results":5}}}
+{"headers":{"correlation_id":"$CORRELATION_ID","orchestration_id":"$ORCHESTRATION_ID","message_type":"request","action":"orchestrate","client_id":"demo_client","message_id":"$MESSAGE_ID","request_id":"$REQUEST_ID","timestamp":"$TIMESTAMP","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"}},"config":{"workflow":{"start_step":"spawn_ingester","steps":{"spawn_ingester":{"action":"spawn_agent","config":{"agent_type":"feed-ingester","role":"search-test"},"next_step":"call_ingester"},"call_ingester":{"action":"call_agent","config":{"target_role":"search-test","input_mapping":{"site_id":"input_data.site_id","source_id":"input_data.source_id","source_type":"input_data.source_type","source_config":"input_data.source_config"}},"next_step":"complete"},"complete":{"action":"complete_workflow"}}},"processing_mode":"orchestrator","timeout_seconds":300},"input_data":{"site_id":"5fe15466-4e2e-4ff2-981e-98c1b7074002","source_id":"cadaff1e-2c34-4f8c-a4d9-2003f5da21f7","source_type":"news_search","source_name":"Gas wholesale energy news search","source_config":{"query":"UK wholesale gas prices news","num_results":5}}}
 JSON
 
 
