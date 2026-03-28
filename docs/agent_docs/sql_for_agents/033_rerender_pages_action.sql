@@ -1146,3 +1146,49 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'rerender-pages';
 
+
+
+---
+-- orphan pages
+-- Add orphan_pages to completeness-discovery-agent
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        '["empty_sections", "missing_structure", "empty_blog", "orphan_pages"]'
+                     )
+WHERE type = 'completeness-discovery-agent';
+
+-- Add rebuild_blog_listing step to rerender-pages workflow
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,rebuild_blog_listing}',
+        '{
+            "action": "rebuild_blog_listing",
+            "config": {
+                "site_id": "input_data.site_id"
+            },
+            "next_step": "get_pages",
+            "description": "Rebuild blog listing from published posts (if blog-index page exists)",
+            "output_field": "blog_listing_result"
+        }'::jsonb
+                     )
+WHERE type = 'rerender-pages';
+
+-- Wire it into the flow
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,render_site_components,next_step}',
+        '"rebuild_blog_listing"'
+                     )
+WHERE type = 'rerender-pages';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_refresh_components,config,else_step}',
+        '"rebuild_blog_listing"'
+                     )
+WHERE type = 'rerender-pages';
