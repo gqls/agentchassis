@@ -8916,3 +8916,63 @@ SELECT function, display_name, LENGTH(html_template) as template_len
 FROM content_components
 WHERE component_level = 'tool' AND forked_from IS NULL AND is_active = true
 ORDER BY function;
+
+
+---
+-- tool routes and affinity fix
+
+-- ============================================================
+-- Route registration snippet (add to core-manager server setup)
+-- ============================================================
+-- Add after the assetAdminHandlers lines (~line 18879):
+--
+-- // Tool management
+-- toolAdminHandlers := admin.NewToolAdminHandlers(clientsDB, appLogger)
+-- siteGroup.GET("/:site_id/tools", toolAdminHandlers.HandleListTools)
+-- siteGroup.DELETE("/:site_id/tools/:function", toolAdminHandlers.HandleRemoveTool)
+-- siteGroup.POST("/:site_id/tools", toolAdminHandlers.HandleDeployTool)
+--
+-- // Library tools (not site-specific)
+-- adminRoutes.GET("/tools/library", toolAdminHandlers.HandleListLibraryTools)
+--
+-- Where adminRoutes is the parent group that siteGroup belongs to.
+
+
+-- ============================================================
+-- Narrow password-entropy tool affinity
+-- ============================================================
+-- The password checker was deployed to 4 sites (including gaswholesalers)
+-- because the library only had 2 tools with templates, giving the LLM
+-- no real choice. Now that we have 7 tools, the LLM has better options.
+-- But we should also narrow the semantic_tags so the matching logic
+-- (and LLM context) makes it clear this is a niche tool.
+
+UPDATE content_components
+SET semantic_tags = '["calculator", "security", "password", "entropy", "privacy", "tech", "cybersecurity", "developer"]'::jsonb,
+    description = 'Shannon entropy calculation, GPU crack time estimation, dictionary attack heuristic warning. Best suited for tech, cybersecurity, and developer-focused sites.',
+    updated_at = NOW()
+WHERE function = 'tool-password-entropy'
+  AND forked_from IS NULL;
+
+-- Also narrow the A/B test calculator — it's marketing/ecommerce specific
+UPDATE content_components
+SET semantic_tags = '["calculator", "statistics", "marketing", "ab-testing", "conversion", "ecommerce", "analytics"]'::jsonb,
+    description = 'Z-score test for conversion rate differences with 95% confidence interval. Best suited for marketing, ecommerce, and analytics-focused sites.',
+    updated_at = NOW()
+WHERE function = 'tool-ab-test-calculator'
+  AND forked_from IS NULL;
+
+
+-- ============================================================
+-- Verify: check which sites have password-entropy deployed
+-- ============================================================
+SELECT s.domain, cc.function, cc.display_name, p.url
+FROM content_components cc
+JOIN page_components pc ON pc.component_id = cc.id
+JOIN pages p ON pc.page_id = p.id
+JOIN sites s ON s.id = p.site_id
+WHERE cc.function = 'tool-password-entropy'
+  AND cc.is_active = true
+ORDER BY s.domain;
+
+                                                     

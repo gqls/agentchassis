@@ -45,3 +45,11 @@ INSERT INTO site_work_items (
     'evaluate_tools_gaswholesalers'
 );
 
+# check what tools a site has
+clients_db=# -- Check what's deployed for gaswholesalers
+SELECT p.name, p.url, p.page_type, pc.id as pc_id, cc.function, cc.display_name
+FROM pages p
+JOIN page_components pc ON pc.page_id = p.id
+JOIN content_components cc ON pc.component_id = cc.id
+WHERE p.site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND cc.component_level = 'tool';
