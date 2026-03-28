@@ -141,7 +141,16 @@ func convertToPageList(pagesData []interface{}, logger *zap.Logger) []PageForLin
 			if page.Name == "index" || page.Name == "home" {
 				page.URL = "/index.html"
 			} else {
-				page.URL = "/" + page.Name + ".html"
+				// Check page_type for subdirectory patterns
+				pageType := datahelpers.GetStringField(pageMap, "page_type", "")
+				switch pageType {
+				case "blog-post":
+					page.URL = "/blog/" + page.Name + ".html"
+				case "tool":
+					page.URL = "/tools/" + page.Name + ".html"
+				default:
+					page.URL = "/" + page.Name + ".html"
+				}
 			}
 		}
 

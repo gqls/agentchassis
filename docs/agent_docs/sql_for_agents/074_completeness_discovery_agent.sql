@@ -209,4 +209,15 @@ SELECT s.domain, wi.item_type, wi.handler_agent, wi.status
 FROM site_work_items wi
          JOIN sites s ON s.id = wi.site_id
 WHERE wi.handler_agent = 'blog-content-planner';
+---
+-- add orphan pages to workflow
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        '["empty_sections", "missing_structure", "empty_blog", "orphan_pages"]'
+                     )
+WHERE type = 'completeness-discovery-agent';
+
 
