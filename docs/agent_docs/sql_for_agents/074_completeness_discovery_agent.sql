@@ -220,4 +220,45 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'completeness-discovery-agent';
 
+---
+
+-- 026d — Enable news feed discovery checks
+--
+-- Adds the four news feed checks to the completeness-discovery-agent's
+-- checks config. Run after deploying the chassis with check_news_feed.go.
+
+-- First, check current checks list
+SELECT type,
+       default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' as current_checks
+FROM agent_definitions
+WHERE type = 'completeness-discovery-agent' AND deleted_at IS NULL;
+
+-- Add news feed checks to the existing list
+-- This preserves existing checks and appends the new ones
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        (
+            SELECT jsonb_agg(DISTINCT val)
+            FROM (
+                     -- Existing checks
+                     SELECT val
+                     FROM jsonb_array_elements(
+                                  default_config->'workflow'->'steps'->'run_checks'->'config'->'checks'
+                          ) val
+                     UNION
+                     -- New news feed checks
+                     SELECT val FROM jsonb_array_elements(
+                                             '["missing_news_sources", "missing_news_section", "stale_news_section", "all_sources_erroring"]'::jsonb
+                                     ) val
+                 ) combined
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'completeness-discovery-agent' AND deleted_at IS NULL
+    RETURNING type,
+    default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' as updated_checks;
+
+
 

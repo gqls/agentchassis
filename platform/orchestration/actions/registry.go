@@ -991,6 +991,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Load unscored ingested items with source metadata for triage",
 		IsLocal:     true,
 	},
+	"render_news_section": {
+		Handler:     RenderNewsSectionAction,
+		Category:    "feed",
+		Description: "Render latest-news component from content_feed_items",
+		IsLocal:     true,
+	},
+	"evaluate_news_feed": {
+		Handler:     EvaluateNewsFeedAction,
+		Category:    "feed",
+		Description: "Post-classification enrichment: determine if site should have news feed",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// HITL — human-in-the-loop approval and input
