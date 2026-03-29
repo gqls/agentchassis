@@ -1005,6 +1005,16 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 
 	// =========================================================================
+	// Adoption
+	// =========================================================================
+	"apply_adoption_plan": {
+		Handler:     ApplyAdoptionPlanAction,
+		Category:    "site",
+		Description: "Create specs, pages, and work items from site adoption analysis",
+		IsLocal:     true,
+	},
+
+	// =========================================================================
 	// HITL — human-in-the-loop approval and input
 	// =========================================================================
 	"await_approval": {
