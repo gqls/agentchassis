@@ -255,11 +255,3 @@ func FetchAgentQuestionnaireAction(ctx context.Context, params ActionParams) (in
 		"agent_type":    agentType,
 	}, nil
 }
-
-// Helper functions
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
-}

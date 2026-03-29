@@ -419,14 +419,6 @@ func httpStatusFromErr(err error, defaultStatus int) int {
 	return defaultStatus
 }
 
-// errString returns the error message or empty string.
-func errString(err error) string {
-	if err != nil {
-		return err.Error()
-	}
-	return ""
-}
-
 // resolveDocumentURL ensures a CH document URL is absolute.
 // The filing history API returns document_metadata as a relative path
 // (e.g. "/document/abc123") that needs the document API host prepended.

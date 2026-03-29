@@ -1015,6 +1015,16 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 
 	// =========================================================================
+	// VET MED PRICING — veterinary medicine price collection
+	// =========================================================================
+	"med_scrape_prices": {
+		Handler:     MedScrapePricesAction,
+		Category:    "med_pricing",
+		Description: "Scrape veterinary medicine prices from retailer product pages via Firecrawl",
+		IsLocal:     true,
+	},
+
+	// =========================================================================
 	// HITL — human-in-the-loop approval and input
 	// =========================================================================
 	"await_approval": {

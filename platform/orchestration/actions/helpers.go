@@ -185,3 +185,19 @@ func truncateForLog(s string, maxLen int) string {
 	}
 	return s[:maxLen] + "..."
 }
+
+// Helper functions
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
+// errString returns the error message or empty string.
+func errString(err error) string {
+	if err != nil {
+		return err.Error()
+	}
+	return ""
+}
