@@ -1005,6 +1005,28 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 
 	// =========================================================================
+	// Site Snapshots
+	// =========================================================================
+	"take_site_snapshot": {
+		Handler:     TakeSiteSnapshotAction,
+		Category:    "site",
+		Description: "Capture full site state (specs, pages, components, nav) into a snapshot",
+		IsLocal:     true,
+	},
+	"revert_site_snapshot": {
+		Handler:     RevertSiteSnapshotAction,
+		Category:    "site",
+		Description: "Restore a site to a previous snapshot state",
+		IsLocal:     true,
+	},
+	"list_site_snapshots": {
+		Handler:     ListSiteSnapshotsAction,
+		Category:    "site",
+		Description: "List available snapshots for a site",
+		IsLocal:     true,
+	},
+
+	// =========================================================================
 	// Adoption
 	// =========================================================================
 	"apply_adoption_plan": {
