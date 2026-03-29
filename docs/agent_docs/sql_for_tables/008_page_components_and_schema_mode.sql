@@ -454,3 +454,67 @@ SET page_type = 'blog-index',
     sections = '["hero", "blog-listing", "call-to-action"]'::jsonb
 WHERE id = 'ff56bcaf-cf3c-40bd-a6ee-18703bd3d656';
 
+---
+-- news feed and titles js
+UPDATE page_components
+SET rendered_html = '<!-- latest-news component -->
+<section data-component="latest-news" class="latest-news-section section-padding">
+  <div class="container">
+    <h2 class="section-heading" id="news-headline">Energy Market News</h2>
+    <p class="section-subheadline" id="news-subheadline">Latest developments in wholesale gas and energy markets</p>
+    <div class="news-grid" id="news-container">
+      <noscript>
+        <p class="news-empty">Enable JavaScript to see the latest news.</p>
+      </noscript>
+    </div>
+    <div id="news-footer"></div>
+  </div>
+</section>
+<script>
+(function() {
+  fetch("/data/latest-news.json")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.headline)
+        document.getElementById("news-headline").textContent = data.headline;
+      var sub = document.getElementById("news-subheadline");
+      if (sub && data.subheadline)
+        sub.textContent = data.subheadline;
+      var container = document.getElementById("news-container");
+      if (data.items && data.items.length > 0) {
+        container.innerHTML = data.items.map(function(item) {
+          var html = "<article class=\"news-card\"><div class=\"news-card-content\">";
+          html += "<h3 class=\"news-card-title\"><a href=\"" + item.url + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + item.title + "</a></h3>";
+          if (item.summary) {
+            html += "<p class=\"news-card-summary\">" + item.summary + "</p>";
+          }
+          html += "<div class=\"news-card-meta\">";
+          if (item.source) {
+            html += "<span class=\"news-source\">" + item.source + "</span>";
+          }
+          if (item.date) {
+            html += "<time class=\"news-date\">" + item.date + "</time>";
+          }
+          html += "</div></div></article>";
+          return html;
+        }).join("");
+      }
+      if (data.insights_url) {
+        document.getElementById("news-footer").innerHTML =
+          "<div class=\"news-section-footer\"><a href=\"" + data.insights_url +
+          "\" class=\"news-more-link\">" + (data.insights_label || "More insights &rarr;") +
+          "</a></div>";
+      }
+    })
+    .catch(function() {});
+})();
+</script>',
+    updated_at = NOW()
+WHERE id = (
+    SELECT pc.id FROM page_components pc
+                          JOIN pages p ON p.id = pc.page_id
+    WHERE p.site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+      AND p.name = 'index'
+      AND pc.slot_name = 'latest-news'
+    LIMIT 1
+    );
