@@ -31,6 +31,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -154,8 +155,15 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 
 	renderedCSS := buf.String()
 
+	// 7.5 Append component-specific CSS snippets
+	snippetCSS := loadComponentCSSSnippets(ctx, params.DB, components, logger)
+	if snippetCSS != "" {
+		renderedCSS = renderedCSS + snippetCSS
+	}
+
 	logger.Info("RenderCSSFromSpecAction: CSS rendered",
 		zap.Int("css_length", len(renderedCSS)),
+		zap.Int("snippet_css_length", len(snippetCSS)),
 		zap.String("theme", themeName),
 	)
 
@@ -365,4 +373,50 @@ func loadCSSGoTemplate(ctx context.Context, db *sql.DB, config map[string]interf
 	}
 
 	return "", fmt.Errorf("no CSS template found for theme '%s'", themeName)
+}
+
+// loadComponentCSSSnippets queries css_snippets for entries whose applies_to
+// array overlaps with the site's component list. Returns concatenated CSS.
+func loadComponentCSSSnippets(ctx context.Context, db *sql.DB, components []string, logger *zap.Logger) string {
+	if len(components) == 0 || db == nil {
+		return ""
+	}
+
+	// Build a JSONB array from the component list for the overlap operator (&&)
+	componentsJSON, err := json.Marshal(components)
+	if err != nil {
+		logger.Warn("loadComponentCSSSnippets: marshal failed", zap.Error(err))
+		return ""
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT name, css_content 
+		FROM css_snippets 
+		WHERE applies_to && $1::jsonb
+		ORDER BY name
+	`, string(componentsJSON))
+	if err != nil {
+		logger.Warn("loadComponentCSSSnippets: query failed", zap.Error(err))
+		return ""
+	}
+	defer rows.Close()
+
+	var parts []string
+	for rows.Next() {
+		var name, cssContent string
+		if err := rows.Scan(&name, &cssContent); err != nil {
+			logger.Warn("loadComponentCSSSnippets: scan error", zap.Error(err))
+			continue
+		}
+		parts = append(parts, cssContent)
+		logger.Info("loadComponentCSSSnippets: included snippet",
+			zap.String("name", name),
+			zap.Int("css_bytes", len(cssContent)))
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return "\n\n/* === Component-specific styles === */\n" + strings.Join(parts, "\n\n")
 }

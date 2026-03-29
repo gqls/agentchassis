@@ -1,31 +1,39 @@
 // FILE: platform/orchestration/actions/render_news_section_action.go
 //
-// RenderNewsSectionAction queries recent relevant feed items for a site,
-// loads the latest-news component template, renders it, and upserts the
-// page_component. Follows the same pattern as rebuild_blog_listing.
+// RenderNewsSectionAction queries recent relevant feed items for a site
+// and produces a JSON file ready for git commit. The homepage loads this
+// JSON client-side via fetch() — no page rerender needed for news updates.
 //
-// This is a data-driven render — no LLM call. The template is populated
-// from content_feed_items rows. The action is idempotent: re-running it
-// with the same data produces the same HTML.
+// Output: {files: {"data/latest-news.json": "<json>"}, domain: "...", item_count: N}
+// The git_commit step in the workflow reads files_field and commits to the repo.
 //
 // Registration:
 //   "render_news_section": {
 //       Handler:     RenderNewsSectionAction,
 //       Category:    "feed",
-//       Description: "Render latest-news component from content_feed_items",
+//       Description: "Produce latest-news JSON for git commit",
 //       IsLocal:     true,
 //   },
 //
 // Workflow config:
-//   "render_news": {
+//   "render_news_json": {
 //       "action": "render_news_section",
 //       "config": {
 //           "site_id": "input_data.site_id",
-//           "page_name": "index",
 //           "max_items": 6,
 //           "max_age_hours": 72
 //       },
 //       "output_field": "news_render_result",
+//       "next_step": "commit_news"
+//   },
+//   "commit_news": {
+//       "action": "git_commit",
+//       "config": {
+//           "files_field": "news_render_result.files",
+//           "domain_field": "news_render_result.domain",
+//           "commit_message": "Update latest news feed"
+//       },
+//       "output_field": "news_commit_result",
 //       "next_step": "complete"
 //   }
 
@@ -33,7 +41,6 @@ package actions
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -47,11 +54,30 @@ import (
 
 var RenderNewsSectionInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{"site_id"},
-	Optional: []string{"page_name", "max_items", "max_age_hours", "headline"},
+	Optional: []string{"page_name", "max_items", "max_age_hours"},
 }
 
 func init() {
 	datahelpers.RegisterActionInputSpec("render_news_section", RenderNewsSectionInputSpec)
+}
+
+// newsJSONOutput is the shape of /data/latest-news.json
+type newsJSONOutput struct {
+	Headline      string         `json:"headline"`
+	Subheadline   string         `json:"subheadline,omitempty"`
+	Items         []newsJSONItem `json:"items"`
+	InsightsURL   string         `json:"insights_url,omitempty"`
+	InsightsLabel string         `json:"insights_label,omitempty"`
+	UpdatedAt     string         `json:"updated_at"`
+	ItemCount     int            `json:"item_count"`
+}
+
+type newsJSONItem struct {
+	Title   string `json:"title"`
+	Summary string `json:"summary,omitempty"`
+	URL     string `json:"url"`
+	Source  string `json:"source,omitempty"`
+	Date    string `json:"date,omitempty"`
 }
 
 func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -79,42 +105,55 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("invalid site_id: %w", err)
 	}
 
+	maxItems := inputs.GetInt("max_items", 6)
+	maxAgeHours := inputs.GetInt("max_age_hours", 72)
+
+	// -----------------------------------------------------------------------
+	// 1. Load site domain (needed for git commit path)
+	// -----------------------------------------------------------------------
+	var domain string
+	err = params.DB.QueryRowContext(ctx, `
+		SELECT domain FROM sites WHERE id = $1
+	`, siteID).Scan(&domain)
+	if err != nil {
+		return nil, fmt.Errorf("query site domain: %w", err)
+	}
+
+	// -----------------------------------------------------------------------
+	// 2. Load headline from page_component content_data (set by content writer)
+	// -----------------------------------------------------------------------
+	headline := "Latest News"
+	subheadline := ""
+
 	pageName := inputs.Get("page_name")
 	if pageName == "" {
 		pageName = "index"
 	}
 
-	maxItems := inputs.GetInt("max_items", 6)
-	maxAgeHours := inputs.GetInt("max_age_hours", 72)
+	var existingContentData sql.NullString
+	_ = params.DB.QueryRowContext(ctx, `
+		SELECT pc.content_data::text 
+		FROM page_components pc
+		JOIN content_components cc ON cc.id = pc.component_id
+		JOIN pages p ON p.id = pc.page_id
+		WHERE p.site_id = $1 AND p.name = $2 AND cc.function = 'latest-news'
+		LIMIT 1
+	`, siteID, pageName).Scan(&existingContentData)
 
-	headline := "Latest News"
-	if h, ok := params.StepConfig.Config["headline"].(string); ok && h != "" {
-		headline = h
+	if existingContentData.Valid {
+		var cd map[string]interface{}
+		if json.Unmarshal([]byte(existingContentData.String), &cd) == nil {
+			if h, ok := cd["headline"].(string); ok && h != "" {
+				headline = h
+			}
+			if sh, ok := cd["subheadline"].(string); ok {
+				subheadline = sh
+			}
+		}
 	}
 
 	// -----------------------------------------------------------------------
-	// 1. Find the target page
-	// -----------------------------------------------------------------------
-	var pageID uuid.UUID
-	err = params.DB.QueryRowContext(ctx, `
-		SELECT id FROM pages
-		WHERE site_id = $1 AND name = $2 AND status = 'active'
-	`, siteID, pageName).Scan(&pageID)
-	if err == sql.ErrNoRows {
-		logger.Info("RenderNewsSectionAction: target page not found, skipping",
-			zap.String("page_name", pageName))
-		return map[string]interface{}{
-			"rendered": false,
-			"reason":   "page not found",
-			"page":     pageName,
-		}, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("query page: %w", err)
-	}
-
-	// -----------------------------------------------------------------------
-	// 2. Load relevant feed items
+	// 3. Load relevant feed items
 	// -----------------------------------------------------------------------
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT 
@@ -136,7 +175,7 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 	}
 	defer rows.Close()
 
-	var newsItems []map[string]interface{}
+	var items []newsJSONItem
 	for rows.Next() {
 		var title, summary, url, sourceName sql.NullString
 		var publishedAt sql.NullTime
@@ -146,136 +185,90 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 			continue
 		}
 
-		item := map[string]interface{}{
-			"source_title":   title.String,
-			"source_summary": truncateSummary(summary.String, 200),
-			"source_url":     url.String,
-			"source_name":    sourceName.String,
+		item := newsJSONItem{
+			Title:   title.String,
+			Summary: truncateNewsSummary(summary.String, 200),
+			URL:     url.String,
+			Source:  sourceName.String,
 		}
 
 		if publishedAt.Valid {
-			item["published_display"] = formatNewsDate(publishedAt.Time)
+			item.Date = formatNewsDate(publishedAt.Time)
 		}
 
-		newsItems = append(newsItems, item)
+		items = append(items, item)
 	}
 
 	logger.Info("RenderNewsSectionAction: loaded items",
-		zap.Int("count", len(newsItems)),
-		zap.String("page", pageName))
+		zap.Int("count", len(items)),
+		zap.String("domain", domain))
 
-	// -----------------------------------------------------------------------
-	// 3. Load the latest-news component template
-	// -----------------------------------------------------------------------
-	var componentID uuid.UUID
-	var htmlTemplate string
-
-	err = params.DB.QueryRowContext(ctx, `
-		SELECT id, html_template FROM content_components
-		WHERE function = 'latest-news' AND is_active = true
-		LIMIT 1
-	`).Scan(&componentID, &htmlTemplate)
-	if err == sql.ErrNoRows {
-		logger.Warn("RenderNewsSectionAction: latest-news component not found in content_components")
-		return map[string]interface{}{
-			"rendered": false,
-			"reason":   "latest-news component template not found",
-		}, nil
+	// If no items at all, still produce a valid JSON (empty array)
+	// so the homepage shows gracefully
+	if items == nil {
+		items = []newsJSONItem{}
 	}
+
+	// -----------------------------------------------------------------------
+	// 4. Check if an insights listing page exists (for the "More" link)
+	// -----------------------------------------------------------------------
+	var insightsURL string
+	_ = params.DB.QueryRowContext(ctx, `
+		SELECT url FROM pages
+		WHERE site_id = $1 AND page_type = 'news-index' AND status = 'active'
+		LIMIT 1
+	`, siteID).Scan(&insightsURL)
+
+	insightsLabel := ""
+	if insightsURL != "" {
+		insightsLabel = "More insights →"
+	}
+
+	// -----------------------------------------------------------------------
+	// 5. Build JSON output
+	// -----------------------------------------------------------------------
+	output := newsJSONOutput{
+		Headline:      headline,
+		Subheadline:   subheadline,
+		Items:         items,
+		InsightsURL:   insightsURL,
+		InsightsLabel: insightsLabel,
+		UpdatedAt:     time.Now().UTC().Format(time.RFC3339),
+		ItemCount:     len(items),
+	}
+
+	jsonBytes, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("query component: %w", err)
+		return nil, fmt.Errorf("marshal news JSON: %w", err)
 	}
 
 	// -----------------------------------------------------------------------
-	// 4. Render the template
+	// 6. Return files map for git_commit step
 	// -----------------------------------------------------------------------
-	templateData := map[string]interface{}{
-		"headline":   headline,
-		"news_items": newsItems,
+	filesMap := map[string]interface{}{
+		"data/latest-news.json": string(jsonBytes),
 	}
 
-	renderedHTML := RenderTemplateWithMap(htmlTemplate, templateData, logger)
-	if renderedHTML == "" && len(newsItems) > 0 {
-		logger.Warn("RenderNewsSectionAction: template rendered empty despite having items")
-	}
-
-	// Content hash for change detection
-	contentHash := fmt.Sprintf("%x", sha256.Sum256([]byte(renderedHTML)))[:16]
-
-	// Content data for the page_component
-	contentDataJSON, _ := json.Marshal(templateData)
-
-	// -----------------------------------------------------------------------
-	// 5. Upsert page_component
-	// -----------------------------------------------------------------------
-	// Find existing latest-news component on this page
-	var existingID uuid.UUID
-	err = params.DB.QueryRowContext(ctx, `
-		SELECT pc.id FROM page_components pc
-		JOIN content_components cc ON cc.id = pc.component_id
-		WHERE pc.page_id = $1 AND cc.function = 'latest-news'
-		LIMIT 1
-	`, pageID).Scan(&existingID)
-
-	if err == sql.ErrNoRows {
-		// Insert new — find the highest position and add after it
-		var maxPosition int
-		params.DB.QueryRowContext(ctx, `
-			SELECT COALESCE(MAX(position), 0) FROM page_components WHERE page_id = $1
-		`, pageID).Scan(&maxPosition)
-
-		_, err = params.DB.ExecContext(ctx, `
-			INSERT INTO page_components (
-				page_id, component_id, position, slot_name,
-				rendered_html, content_data, content_hash, build_status
-			) VALUES ($1, $2, $3, 'latest-news', $4, $5::jsonb, $6, 'deployed')
-		`, pageID, componentID, maxPosition+1, renderedHTML, string(contentDataJSON), contentHash)
-		if err != nil {
-			return nil, fmt.Errorf("insert page_component: %w", err)
-		}
-
-		logger.Info("RenderNewsSectionAction: inserted new latest-news component",
-			zap.String("page_id", pageID.String()),
-			zap.Int("position", maxPosition+1),
-			zap.Int("item_count", len(newsItems)))
-	} else if err == nil {
-		// Update existing
-		_, err = params.DB.ExecContext(ctx, `
-			UPDATE page_components
-			SET rendered_html = $1,
-			    content_data = $2::jsonb,
-			    content_hash = $3,
-			    build_status = 'deployed',
-			    updated_at = NOW()
-			WHERE id = $4
-		`, renderedHTML, string(contentDataJSON), contentHash, existingID)
-		if err != nil {
-			return nil, fmt.Errorf("update page_component: %w", err)
-		}
-
-		logger.Info("RenderNewsSectionAction: updated existing latest-news component",
-			zap.String("component_id", existingID.String()),
-			zap.Int("item_count", len(newsItems)))
-	} else {
-		return nil, fmt.Errorf("query existing component: %w", err)
-	}
+	logger.Info("RenderNewsSectionAction: JSON produced",
+		zap.Int("item_count", len(items)),
+		zap.Int("json_bytes", len(jsonBytes)),
+		zap.String("domain", domain))
 
 	return map[string]interface{}{
-		"rendered":     true,
-		"page_id":      pageID.String(),
-		"page_name":    pageName,
-		"component_id": componentID.String(),
-		"item_count":   len(newsItems),
-		"content_hash": contentHash,
+		"files":      filesMap,
+		"domain":     domain,
+		"item_count": len(items),
+		"headline":   headline,
+		"file_path":  "data/latest-news.json",
+		"rendered":   true,
 	}, nil
 }
 
-// truncateSummary truncates a summary to maxLen characters at a word boundary.
-func truncateSummary(s string, maxLen int) string {
+// truncateNewsSummary truncates at a word boundary.
+func truncateNewsSummary(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
-	// Find last space before maxLen
 	idx := strings.LastIndex(s[:maxLen], " ")
 	if idx < maxLen/2 {
 		idx = maxLen
@@ -283,8 +276,7 @@ func truncateSummary(s string, maxLen int) string {
 	return s[:idx] + "..."
 }
 
-// formatNewsDate formats a time for display in the news card.
-// Shows relative time for recent items, date for older ones.
+// formatNewsDate formats a time for display. Relative for recent items.
 func formatNewsDate(t time.Time) string {
 	hours := time.Since(t).Hours()
 	if hours < 1 {
@@ -296,7 +288,7 @@ func formatNewsDate(t time.Time) string {
 	if hours < 48 {
 		return "Yesterday"
 	}
-	if hours < 168 { // 7 days
+	if hours < 168 {
 		return fmt.Sprintf("%dd ago", int(hours/24))
 	}
 	return t.Format("2 Jan 2006")
