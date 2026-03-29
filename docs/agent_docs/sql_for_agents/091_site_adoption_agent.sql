@@ -161,3 +161,133 @@ INSERT INTO agent_definitions (
 --
 -- The agent will: crawl → analyse → write specs → write pages → write items
 -- Then the dispatch loop picks up the items and builds the site.
+
+---
+-- path correction
+
+-- ============================================================================
+-- Site Adoption Agent — Definition and Workflow (v2)
+-- ============================================================================
+--
+-- Workflow:
+--   ensure_site_record → crawl_site → format_crawl → analyze_site (LLM) → apply_plan → complete
+--
+-- Trigger input_data must include:
+--   { "domain": "mortgagecalculator.co.uk", "url": "https://mortgagecalculator.co.uk" }
+--
+-- ============================================================================
+
+INSERT INTO agent_definitions (
+    type, display_name, description, category,
+    is_active, image_repository, image_tag,
+    default_config
+) VALUES (
+             'site-adoption-agent',
+             'Site Adoption Agent',
+             'Crawls an existing site, analyses structure and content, creates specs and work items to recreate it',
+             'code-driven',
+             true,
+             'docker.io/aqls/agent-chassis',
+             'latest',
+             '{
+                 "processing_mode": "orchestrator",
+                 "timeout_seconds": 600,
+                 "workflow": {
+                     "start_step": "ensure_site_record",
+                     "steps": {
+                         "ensure_site_record": {
+                             "action": "ensure_site_record",
+                             "config": {
+                                 "input_fields": ["site_id", "domain"]
+                             },
+                             "output_field": "site_record",
+                             "next_step": "crawl_site",
+                             "description": "Create or load site record for the domain"
+                         },
+
+                         "crawl_site": {
+                             "action": "firecrawl_crawl",
+                             "config": {
+                                 "url_field": "input_data.url",
+                                 "scrape_config": {
+                                     "only_main_content": true,
+                                     "capture_screenshot": false
+                                 }
+                             },
+                             "output_field": "crawl_result",
+                             "next_step": "format_crawl",
+                             "description": "Crawl the existing site via webscrape adapter"
+                         },
+
+                         "format_crawl": {
+                             "action": "format_research_content",
+                             "config": {
+                                 "scrape_field": "crawl_result",
+                                 "max_content_per_source": 8000
+                             },
+                             "output_field": "formatted_crawl",
+                             "next_step": "check_crawl_content",
+                             "description": "Format crawl results into readable text for LLM analysis"
+                         },
+
+                         "check_crawl_content": {
+                             "action": "conditional",
+                             "config": {
+                                 "condition": "formatted_crawl.content_quality != none",
+                                 "then_step": "analyze_site",
+                                 "else_step": "crawl_failed"
+                             },
+                             "description": "Check if the crawl returned usable content"
+                         },
+
+                         "crawl_failed": {
+                             "action": "complete_workflow",
+                             "config": {
+                                 "status": "failed",
+                                 "error": "Site crawl failed or returned no usable content"
+                             },
+                             "description": "Fail if crawl produced nothing"
+                         },
+
+                         "analyze_site": {
+                             "action": "execute_llm_prompt",
+                             "config": {
+                                 "prompt_template": "You are analysing a crawled website to plan its adoption into our website building system.\n\nDomain: {{.site_record.domain}}\n\nCrawled content from the site:\n{{.formatted_crawl.research_text}}\n\nAnalyse this site and produce a JSON object with the following structure. Respond ONLY with valid JSON, no markdown backticks or preamble.\n\n{\n  \"identity\": {\n    \"company_name\": \"extracted company/brand name\",\n    \"tagline\": \"extracted tagline or slogan if found\",\n    \"industry\": \"detected industry vertical\",\n    \"target_audience\": \"who the site serves\",\n    \"tone\": \"describe the writing tone (e.g. professional, friendly, technical)\",\n    \"services\": [{\"name\": \"...\", \"description\": \"...\"}]\n  },\n  \"design\": {\n    \"palette\": {\n      \"primary\": \"#hex or description\",\n      \"secondary\": \"#hex or description\",\n      \"accent\": \"#hex or description\",\n      \"background\": \"#hex or description\",\n      \"text\": \"#hex or description\"\n    },\n    \"typography\": {\n      \"heading_font\": \"font name or generic family\",\n      \"body_font\": \"font name or generic family\"\n    },\n    \"visual_tone\": \"describe the visual style\"\n  },\n  \"pages\": [\n    {\n      \"name\": \"index\",\n      \"title\": \"Page Title\",\n      \"url\": \"/index.html\",\n      \"page_type\": \"content\",\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"nav_label\": \"Home\",\n      \"meta_description\": \"extracted or inferred meta description\",\n      \"sections\": [\"hero\", \"features\", \"call-to-action\"],\n      \"existing_content\": {\n        \"hero\": {\n          \"heading\": \"The actual heading text\",\n          \"subheading\": \"The actual subheading text\",\n          \"cta_text\": \"Button text if any\"\n        },\n        \"features\": {\n          \"heading\": \"Section heading\",\n          \"content\": \"The actual paragraph text from this section\"\n        }\n      }\n    }\n  ],\n  \"interactive_features\": [\n    {\n      \"name\": \"feature name\",\n      \"type\": \"calculator|search|form|filter|tool\",\n      \"description\": \"what it does\",\n      \"self_contained\": true,\n      \"page\": \"which page it appears on\"\n    }\n  ]\n}\n\nRules:\n- Extract ACTUAL content text from the crawled pages, not placeholder descriptions\n- Page names must be kebab-case (index for homepage)\n- Use standard section names where possible: hero, features, call-to-action, generic-text-block, testimonials, pricing, faq, contact-form\n- For existing_content, extract real headings and paragraph text per section\n- Identify interactive features (calculators, search, forms) separately\n- If you cannot determine colours from the content, use descriptive terms\n- Only include pages you have actual content for\n- Omit the interactive_features array if there are none",
+                                 "model": "claude-sonnet-4-20250514",
+                                 "temperature": 0.2,
+                                 "max_tokens": 8000
+                             },
+                             "output_field": "adoption_analysis",
+                             "next_step": "apply_plan",
+                             "description": "LLM analyses crawled content — extracts identity, design, pages, sections"
+                         },
+
+                         "apply_plan": {
+                             "action": "apply_adoption_plan",
+                             "config": {
+                                 "site_id": "site_record.site_id",
+                                 "domain": "site_record.domain",
+                                 "adoption_plan": "adoption_analysis"
+                             },
+                             "output_field": "adoption_result",
+                             "next_step": "complete",
+                             "description": "Write specs, create pages, create work items from analysis"
+                         },
+
+                         "complete": {
+                             "action": "complete_workflow",
+                             "config": {
+                                 "output_fields": ["site_record", "formatted_crawl", "adoption_analysis", "adoption_result"]
+                             },
+                             "description": "Adoption plan applied — dispatch loop will process work items"
+                         }
+                     }
+                 }
+             }'::jsonb
+         )
+    ON CONFLICT (type) DO UPDATE SET
+    default_config = EXCLUDED.default_config,
+                              display_name = EXCLUDED.display_name,
+                              description = EXCLUDED.description,
+                              updated_at = NOW();
+
