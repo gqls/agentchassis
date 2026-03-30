@@ -2,11 +2,11 @@
 //
 // ApplyAdoptionPlanAction takes the LLM's structured analysis of a crawled site
 // and creates everything needed to rebuild it: site_specs, page records, and
-// work items. This is the core "adoption" action.
+// work items.
 //
-// The LLM analysis step (execute_llm_prompt) runs before this action and
-// produces structured JSON describing the site's identity, design, pages,
-// and sections. This action turns that analysis into database records.
+// The full crawl analysis is stored in research_results for reference/revert.
+// Specs contain only clean, forward-looking data — not raw crawl dumps.
+// The identity spec includes an adopted_from field for provenance.
 //
 // Registration:
 //   "apply_adoption_plan": {
@@ -20,23 +20,6 @@
 //   - site_id (required)
 //   - domain (required)
 //   - adoption_plan (required) — structured LLM output
-//
-// The adoption_plan is expected to be a JSON object with:
-//   {
-//     "identity": { "company_name": "...", "tagline": "...", "industry": "...", ... },
-//     "design": { "palette": {...}, "typography": {...}, "tone": "..." },
-//     "pages": [
-//       {
-//         "name": "index",
-//         "title": "Page Title",
-//         "page_type": "content",
-//         "url": "/index.html",
-//         "sections": ["hero", "features", "call-to-action"],
-//         "existing_content": { "hero": "...", "features": "...", ... },
-//         "meta_description": "..."
-//       }
-//     ]
-//   }
 
 package actions
 
@@ -45,6 +28,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -96,7 +80,6 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 
 	planRaw := datahelpers.ExtractNestedField(params.CollectedData, planField)
 	if planRaw == nil {
-		// Try fallbacks
 		for _, alt := range []string{"adoption_analysis", "adoption_plan", "analyze_site"} {
 			planRaw = datahelpers.ExtractNestedField(params.CollectedData, alt)
 			if planRaw != nil {
@@ -141,12 +124,49 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	pagesCreated := 0
 	itemsCreated := 0
 
-	// ── 1. Write site_specs ─────────────────────────────────────────────
+	// ── 1. Store full analysis in research_results ──────────────────────
+	// This preserves the raw crawl analysis for future reference/revert.
+	// Not in site_specs — specs stay clean and forward-looking.
+
+	planJSON, _ := json.Marshal(plan)
+	var researchID uuid.UUID
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO research_results (
+			site_id, query, topic, result_type,
+			findings, data, summary,
+			researched_by, research_agent_type
+		) VALUES (
+			$1, $2, 'adoption', 'adoption_crawl',
+			$3::jsonb, $3::jsonb, $4,
+			'site-adoption-agent', 'site-adoption-agent'
+		) RETURNING id
+	`, siteID,
+		fmt.Sprintf("Adoption crawl of %s", domain),
+		string(planJSON),
+		fmt.Sprintf("Site adoption analysis: %s", domain),
+	).Scan(&researchID)
+	if err != nil {
+		logger.Warn("Failed to store adoption research", zap.Error(err))
+		// Non-fatal — continue with the adoption even if research storage fails
+	} else {
+		logger.Info("Adoption research stored",
+			zap.String("research_id", researchID.String()))
+	}
+
+	// ── 2. Write site_specs ─────────────────────────────────────────────
+	// Identity includes adopted_from for provenance.
+	// No adoption_source spec — the raw data is in research_results.
+
+	identityData, _ := plan["identity"].(map[string]interface{})
+	if identityData == nil {
+		identityData = make(map[string]interface{})
+	}
+	identityData["adopted_from"] = domain
+	identityData["adopted_at"] = time.Now().UTC().Format(time.RFC3339)
 
 	specAspects := map[string]interface{}{
-		"identity":        plan["identity"],
-		"design":          plan["design"],
-		"adoption_source": plan, // store the full crawl analysis for reference
+		"identity": identityData,
+		"design":   plan["design"],
 	}
 
 	// Build structure spec from pages
@@ -191,8 +211,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 				is_current, created_by, notes
 			) VALUES (
 				$1, $2, $3::jsonb, 'adoption', 'site-adoption-agent',
-				true, 'site-adoption-agent',
-				$4
+				true, 'site-adoption-agent', $4
 			)
 		`, siteID, aspect, string(dataJSON),
 			fmt.Sprintf("Adopted from %s", domain))
@@ -207,7 +226,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		logger.Info("Spec written", zap.String("aspect", aspect))
 	}
 
-	// ── 2. Create page records ──────────────────────────────────────────
+	// ── 3. Create page records ──────────────────────────────────────────
 
 	pagesRaw, _ := plan["pages"].([]interface{})
 
@@ -265,7 +284,6 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		}
 		sectionsJSON, _ := json.Marshal(sections)
 
-		// Navigation hints
 		navLabel, _ := pm["nav_label"].(string)
 		inHeader := true
 		if ih, ok := pm["in_header"].(bool); ok {
@@ -301,29 +319,32 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			continue
 		}
 
-		// Store existing_content in site_specs as page-level spec
+		// Store existing_content per page in research_results
+		// This is reference data for the content writer, not a spec
 		if existingContent, ok := pm["existing_content"]; ok && existingContent != nil {
-			pageSpecData := map[string]interface{}{
+			pageContentJSON, _ := json.Marshal(map[string]interface{}{
+				"page_name":        pageName,
+				"page_id":          pageID.String(),
 				"existing_content": existingContent,
 				"adopted_from":     domain,
 				"mode":             "recreate",
-			}
-			pageSpecJSON, _ := json.Marshal(pageSpecData)
-
-			specAspect := fmt.Sprintf("page_content_%s", pageName)
-			_, _ = tx.ExecContext(ctx, `
-				UPDATE site_specs SET is_current = false, superseded_at = now()
-				WHERE site_id = $1 AND aspect = $2 AND is_current = true
-			`, siteID, specAspect)
+			})
 
 			_, _ = tx.ExecContext(ctx, `
-				INSERT INTO site_specs (
-					site_id, aspect, data, source, source_agent,
-					is_current, created_by, notes
-				) VALUES ($1, $2, $3::jsonb, 'adoption', 'site-adoption-agent',
-				          true, 'site-adoption-agent', $4)
-			`, siteID, specAspect, string(pageSpecJSON),
-				fmt.Sprintf("Existing content from %s/%s", domain, pageName))
+				INSERT INTO research_results (
+					site_id, page_id, query, topic, result_type,
+					data, summary,
+					researched_by, research_agent_type
+				) VALUES (
+					$1, $2, $3, 'adoption_page_content', 'adoption_page',
+					$4::jsonb, $5,
+					'site-adoption-agent', 'site-adoption-agent'
+				)
+			`, siteID, pageID,
+				fmt.Sprintf("Existing content for %s on %s", pageName, domain),
+				string(pageContentJSON),
+				fmt.Sprintf("Adopted page content: %s", pageName),
+			)
 		}
 
 		adoptedPages = append(adoptedPages, adoptedPage{
@@ -334,7 +355,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		pagesCreated++
 	}
 
-	// ── 3. Create work items ────────────────────────────────────────────
+	// ── 4. Create work items ────────────────────────────────────────────
 
 	// Design item — generates CSS from extracted palette/typography
 	designSpec := map[string]interface{}{
@@ -365,7 +386,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	// Content page items — one per page
-	for _, page := range adoptedPages {
+	for i, page := range adoptedPages {
 		pageSpec := map[string]interface{}{
 			"page_name": page.Name,
 			"page_type": page.PageType,
@@ -387,7 +408,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			fmt.Sprintf("Recreate %s page from %s", page.Name, domain),
 			string(pageSpecJSON),
 			page.ID,
-			10+pagesCreated, // priority: pages build in order
+			10+i, // priority: pages build in order
 			fmt.Sprintf("adoption_page_%s_%s", page.Name, siteID),
 			batchID)
 		if err == nil {
@@ -428,6 +449,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		zap.Int("pages_created", pagesCreated),
 		zap.Int("items_created", itemsCreated),
 		zap.String("batch_id", batchID.String()),
+		zap.String("research_id", researchID.String()),
 	)
 
 	return map[string]interface{}{
@@ -437,6 +459,6 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		"pages_created": pagesCreated,
 		"items_created": itemsCreated,
 		"batch_id":      batchID.String(),
-		"adopted_pages": adoptedPages,
+		"research_id":   researchID.String(),
 	}, nil
 }
