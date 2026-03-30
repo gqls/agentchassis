@@ -11,6 +11,7 @@ package actions
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -690,7 +691,7 @@ func WriteFeedItemsAction(ctx context.Context, params ActionParams) (interface{}
 		externalID, _ := item["external_id"].(string)
 		publishedAtStr, _ := item["published_at"].(string)
 
-		if title == "" && url == "" {
+		if title == "" {
 			skipped++
 			continue
 		}
