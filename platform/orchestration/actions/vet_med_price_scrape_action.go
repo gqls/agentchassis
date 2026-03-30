@@ -81,6 +81,19 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 		retailerFilter = rf
 	}
 
+	// Override from input_data if provided (e.g. trigger message passes overrides)
+	if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
+		if bs, ok := inputData["batch_size"].(float64); ok && bs > 0 {
+			batchSize = int(bs)
+		}
+		if d, ok := inputData["delay_ms"].(float64); ok && d > 0 {
+			delayMs = int(d)
+		}
+		if rf, ok := inputData["retailer_id"].(string); ok && rf != "" {
+			retailerFilter = rf
+		}
+	}
+
 	firecrawlAPIKey := os.Getenv("FIRECRAWL_API_KEY")
 	if firecrawlAPIKey == "" {
 		return nil, fmt.Errorf("FIRECRAWL_API_KEY not set")

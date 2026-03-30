@@ -39,3 +39,4 @@ check after 60 timeout_seconds-- Should show items moved from ingested to releva
                                 AND relevance_score IS NOT NULL
                               ORDER BY relevance_score DESC;
 
+

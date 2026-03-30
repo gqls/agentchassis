@@ -103,15 +103,15 @@ kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
   --config retention.ms=3600000
 
 # reset all offsets
-echo 'resetting all offsets'
-kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
-/opt/kafka/bin/kafka-consumer-groups.sh \
-  --bootstrap-server localhost:9092 \
-  --reset-offsets \
-  --to-earliest \
-  --all-groups   \
-  --all-topics    \
-  --execute
+# echo 'resetting all offsets'
+# kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+# /opt/kafka/bin/kafka-consumer-groups.sh \
+#   --bootstrap-server localhost:9092 \
+#   --reset-offsets \
+#   --to-earliest \
+#   --all-groups   \
+#   --all-topics    \
+#   --execute
 
 kubectl -n ai-persona-system delete jobs -l agent-type=calculator
 kubectl -n ai-persona-system delete pods -l agent-type=calculator
@@ -178,6 +178,21 @@ kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
 kubectl -n ai-persona-system scale deployment/business-intel --replicas=1
 # kubectl -n ai-persona-system scale deployment/ollama-adapter --replicas=1
 
+# Check consumer group
+# kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+#   /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+#   --describe --group generic-requests-group
+#
+# # If LAG shows 0 but message wasn't processed, reset offsets:
+# kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+# sleep 10
+# kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+#   /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+#   --group generic-requests-group \
+#   --topic system.agent.generic.requests \
+#   --reset-offsets --to-latest --execute
+# kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=3
+# kubectl -n ai-persona-system rollout status deployment/agent-chassis
 
 
 
