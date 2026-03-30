@@ -368,12 +368,10 @@ func scrapeMedProductPage(
 
 // Price parsing regex patterns.
 // These handle the observed Pet Drugs Online format:
-//   - 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
-//
+//   + 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
 // And simpler formats like:
-//
-//	Price: £17.48
-//	£17.48
+//   Price: £17.48
+//   £17.48
 var (
 	// Pattern for variant lines: "SIZE Price: £X.XX ... (TVP) ..."
 	medVariantPattern = regexp.MustCompile(
@@ -459,6 +457,12 @@ func parsePoundValue(s string) float64 {
 
 // cleanSizeLabel normalises the size variant label.
 func cleanSizeLabel(s string) string {
+	s = strings.TrimSpace(s)
+
+	// Remove markdown checkbox markup: [ ] or [x]
+	s = strings.Replace(s, "[ ]", "", 1)
+	s = strings.Replace(s, "[x]", "", 1)
+	s = strings.Replace(s, "[X]", "", 1)
 	s = strings.TrimSpace(s)
 
 	// Remove leading bullet characters and list markers

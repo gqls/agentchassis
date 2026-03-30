@@ -11,7 +11,6 @@ package actions
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
