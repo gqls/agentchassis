@@ -1,0 +1,26 @@
+-- med_scrape_evidence_migration.sql
+-- Stores the raw scraped content as evidence of where prices came from.
+-- One row per page fetch (not per size variant).
+-- Run against clients_db.
+
+CREATE TABLE IF NOT EXISTS business_intel.med_scrape_evidence (
+    id              BIGSERIAL PRIMARY KEY,
+    listing_id      UUID NOT NULL REFERENCES business_intel.med_retailer_listings(id),
+    retailer_id     TEXT NOT NULL REFERENCES business_intel.med_retailers(id),
+    url             TEXT NOT NULL,
+    markdown_content TEXT,                    -- the actual page content Firecrawl returned
+    content_hash    TEXT,                     -- SHA256 of markdown, detect unchanged pages
+    scraped_at      TIMESTAMPTZ DEFAULT NOW(),
+    variants_found  INTEGER DEFAULT 0,       -- how many price variants we extracted
+    prices_stored   INTEGER DEFAULT 0,       -- how many actually stored (after dedup)
+    metadata        JSONB DEFAULT '{}',      -- firecrawl response metadata, latency, etc.
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_med_evidence_listing
+    ON business_intel.med_scrape_evidence (listing_id, scraped_at DESC);
+CREATE INDEX IF NOT EXISTS idx_med_evidence_retailer
+    ON business_intel.med_scrape_evidence (retailer_id, scraped_at DESC);
+
+COMMENT ON TABLE business_intel.med_scrape_evidence IS
+    'Raw scraped page content as evidence of prices. One row per page fetch. Retention: keep at least 90 days.';
