@@ -368,12 +368,10 @@ func scrapeMedProductPage(
 
 // Price parsing regex patterns.
 // These handle the observed Pet Drugs Online format:
-//   - 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
-//
+//   + 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
 // And simpler formats like:
-//
-//	Price: £17.48
-//	£17.48
+//   Price: £17.48
+//   £17.48
 var (
 	// Pattern for variant lines: "SIZE Price: £X.XX ... (TVP) ..."
 	medVariantPattern = regexp.MustCompile(
@@ -383,9 +381,14 @@ var (
 	medSinglePricePattern = regexp.MustCompile(
 		`(?i)Price:\s*£([\d,]+\.?\d*)`)
 
-	// Pattern for TVP in any context
-	medTVPPattern = regexp.MustCompile(
-		`(?i)(?:TVP|Typical Vet Price|RRP|SRP).*?£([\d,]+\.?\d*)`)
+	// Pattern for TVP where amount comes BEFORE label: "£50.54 (TVP)"
+	medTVPBeforeLabelPattern = regexp.MustCompile(
+		`£([\d,]+\.?\d*)\s*\((?:TVP|Typical Vet Price|RRP|SRP)\)`)
+
+	// Pattern for TVP where label comes BEFORE amount: "TVP: £50.54" or "SRP £3.10"
+	// Note: no .*? wildcard — label must be directly followed by optional colon then £
+	medTVPAfterLabelPattern = regexp.MustCompile(
+		`(?i)(?:TVP|Typical Vet Price|RRP|SRP)\s*:?\s*£([\d,]+\.?\d*)`)
 )
 
 // parseMedPriceVariants extracts size/price variants from markdown.
@@ -426,11 +429,18 @@ func parseMedPriceVariants(markdown string, inStock bool) []medExtractedVariant 
 		if singleMatch != nil {
 			price := parsePoundValue(singleMatch[1])
 			if price > 0 {
-				// Try to find TVP
+				// Try to find TVP — two formats exist:
+				// "£50.54 (TVP)" — amount before label (NexGard style)
+				// "SRP £3.10" — label before amount (category page style)
 				var tvp float64
-				tvpMatch := medTVPPattern.FindStringSubmatch(markdown)
+				tvpMatch := medTVPBeforeLabelPattern.FindStringSubmatch(markdown)
 				if tvpMatch != nil {
 					tvp = parsePoundValue(tvpMatch[1])
+				} else {
+					tvpMatch = medTVPAfterLabelPattern.FindStringSubmatch(markdown)
+					if tvpMatch != nil {
+						tvp = parsePoundValue(tvpMatch[1])
+					}
 				}
 
 				variants = append(variants, medExtractedVariant{
