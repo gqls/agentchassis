@@ -107,8 +107,6 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 	if firecrawlAPIURL == "" {
 		firecrawlAPIURL = "https://api.firecrawl.dev/v1"
 	}
-	// Note: Firecrawl v1 /scrape returns {data: {markdown: "..."}}
-	// The webscrape adapter uses v2 but v1 is simpler for direct calls.
 
 	httpClient := &http.Client{
 		Timeout: 60 * time.Second,
@@ -303,16 +301,25 @@ func scrapeMedProductPage(
 	logCtx chHTTPLogContext,
 ) ([]medExtractedVariant, string, []byte, error) {
 
-	// Build Firecrawl scrape request — include full-page screenshot
-	payload := map[string]interface{}{
-		"url": listing.RetailerURL,
-		"formats": []interface{}{
+	// Build Firecrawl scrape request
+	// Screenshot format object only works on v2 — check API URL
+	var formats interface{}
+	isV2 := strings.Contains(apiURL, "/v2")
+	if isV2 {
+		formats = []interface{}{
 			"markdown",
 			map[string]interface{}{
 				"type":     "screenshot",
 				"fullPage": true,
 			},
-		},
+		}
+	} else {
+		formats = []string{"markdown"}
+	}
+
+	payload := map[string]interface{}{
+		"url":             listing.RetailerURL,
+		"formats":         formats,
 		"onlyMainContent": true,
 		"waitFor":         2000,
 	}
@@ -428,11 +435,18 @@ var (
 )
 
 // parseMedPriceVariants extracts size/price variants from markdown.
+// Only parses the product info section — truncates before Description/Related Products
+// to avoid matching prices from other products on the same page.
 func parseMedPriceVariants(markdown string, inStock bool) []medExtractedVariant {
+	// Truncate to just the product section — everything before the description
+	// or related products sections. This prevents matching prices from
+	// "You May Also Like", "Related Products", etc.
+	productSection := extractProductSection(markdown)
+
 	var variants []medExtractedVariant
 
 	// Try variant pattern first (multi-size products like Metacam)
-	matches := medVariantPattern.FindAllStringSubmatch(markdown, -1)
+	matches := medVariantPattern.FindAllStringSubmatch(productSection, -1)
 	for _, m := range matches {
 		sizeLabel := strings.TrimSpace(m[1])
 		price := parsePoundValue(m[2])
@@ -461,7 +475,7 @@ func parseMedPriceVariants(markdown string, inStock bool) []medExtractedVariant 
 
 	// If no variants found, try single-price pattern
 	if len(variants) == 0 {
-		singleMatch := medSinglePricePattern.FindStringSubmatch(markdown)
+		singleMatch := medSinglePricePattern.FindStringSubmatch(productSection)
 		if singleMatch != nil {
 			price := parsePoundValue(singleMatch[1])
 			if price > 0 {
@@ -469,11 +483,11 @@ func parseMedPriceVariants(markdown string, inStock bool) []medExtractedVariant 
 				// "£50.54 (TVP)" — amount before label (NexGard style)
 				// "SRP £3.10" — label before amount (category page style)
 				var tvp float64
-				tvpMatch := medTVPBeforeLabelPattern.FindStringSubmatch(markdown)
+				tvpMatch := medTVPBeforeLabelPattern.FindStringSubmatch(productSection)
 				if tvpMatch != nil {
 					tvp = parsePoundValue(tvpMatch[1])
 				} else {
-					tvpMatch = medTVPAfterLabelPattern.FindStringSubmatch(markdown)
+					tvpMatch = medTVPAfterLabelPattern.FindStringSubmatch(productSection)
 					if tvpMatch != nil {
 						tvp = parsePoundValue(tvpMatch[1])
 					}
@@ -490,6 +504,39 @@ func parseMedPriceVariants(markdown string, inStock bool) []medExtractedVariant 
 	}
 
 	return variants
+}
+
+// extractProductSection returns only the product info portion of the markdown,
+// truncating before Description, Related Products, and similar sections.
+// This prevents the price regex from matching prices in "You May Also Like" etc.
+func extractProductSection(markdown string) string {
+	// Section markers that indicate the end of product info.
+	// Check lowercase for case-insensitive matching.
+	markers := []string{
+		"##### description",
+		"## description",
+		"**description**",
+		"\ndescription\n",
+		"related products",
+		"you may also like",
+		"similar products",
+		"customers also bought",
+		"also available in",
+		"recommended products",
+		"recently viewed",
+	}
+
+	lower := strings.ToLower(markdown)
+	cutoff := len(markdown) // default: use everything
+
+	for _, marker := range markers {
+		idx := strings.Index(lower, marker)
+		if idx > 0 && idx < cutoff {
+			cutoff = idx
+		}
+	}
+
+	return markdown[:cutoff]
 }
 
 // parsePoundValue parses "17.48" or "1,234.56" to float64.
