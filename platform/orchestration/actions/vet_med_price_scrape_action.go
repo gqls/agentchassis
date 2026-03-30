@@ -22,6 +22,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -34,6 +35,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/storage"
 )
 
 // medPriceListing holds a listing row to scrape
@@ -149,7 +152,7 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 			break
 		}
 
-		variants, rawMarkdown, err := scrapeMedProductPage(ctx, httpClient, firecrawlAPIKey, firecrawlAPIURL, listing, logCtx)
+		variants, rawMarkdown, screenshotBytes, err := scrapeMedProductPage(ctx, httpClient, firecrawlAPIKey, firecrawlAPIURL, listing, logCtx)
 		if err != nil {
 			params.Logger.Warn("MedScrapePrices: scrape failed",
 				zap.String("url", listing.RetailerURL),
@@ -163,9 +166,21 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 				SET last_scraped_at = NOW(), updated_at = NOW()
 				WHERE id = $1::uuid`, listing.ListingID)
 
-			// Delay before next request
 			time.Sleep(time.Duration(delayMs) * time.Millisecond)
 			continue
+		}
+
+		// Upload screenshot from the same page load — uses chassis storage client
+		screenshotURL := ""
+		if len(screenshotBytes) > 0 && params.StorageClient != nil {
+			ssURL, ssErr := uploadMedScreenshot(ctx, params.StorageClient, listing, screenshotBytes, params.Logger)
+			if ssErr != nil {
+				params.Logger.Warn("MedScrapePrices: screenshot upload failed (non-blocking)",
+					zap.String("listing_id", listing.ListingID),
+					zap.Error(ssErr))
+			} else {
+				screenshotURL = ssURL
+			}
 		}
 
 		if len(variants) == 0 {
@@ -174,8 +189,7 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 				zap.String("retailer_id", listing.RetailerID))
 			totalFailed++
 
-			// Store evidence even for 0-variant pages — useful for debugging
-			storeMedScrapeEvidence(ctx, params.DB, listing, rawMarkdown, 0, 0, params.Logger)
+			storeMedScrapeEvidence(ctx, params.DB, listing, rawMarkdown, screenshotURL, 0, 0, params.Logger)
 
 			_, _ = params.DB.ExecContext(ctx, `
 				UPDATE business_intel.med_retailer_listings
@@ -197,13 +211,13 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 			totalScraped++
 			totalVariants += storedCount
 
-			// Store evidence with actual counts
-			storeMedScrapeEvidence(ctx, params.DB, listing, rawMarkdown, len(variants), storedCount, params.Logger)
+			storeMedScrapeEvidence(ctx, params.DB, listing, rawMarkdown, screenshotURL, len(variants), storedCount, params.Logger)
 
 			params.Logger.Info("MedScrapePrices: stored",
 				zap.String("url", listing.RetailerURL),
 				zap.Int("variants", storedCount),
-				zap.Float64("first_price", variants[0].Price))
+				zap.Float64("first_price", variants[0].Price),
+				zap.Bool("has_screenshot", screenshotURL != ""))
 		}
 
 		// Delay between requests
@@ -280,31 +294,38 @@ func loadMedListingsForScrape(ctx context.Context, db *sql.DB, limit int, retail
 }
 
 // scrapeMedProductPage calls Firecrawl scrape API and parses the markdown for prices.
+// Returns: variants, markdown, screenshot PNG bytes (nil if unavailable), error.
 func scrapeMedProductPage(
 	ctx context.Context,
 	httpClient *http.Client,
 	apiKey, apiURL string,
 	listing medPriceListing,
 	logCtx chHTTPLogContext,
-) ([]medExtractedVariant, string, error) {
+) ([]medExtractedVariant, string, []byte, error) {
 
-	// Build Firecrawl scrape request
+	// Build Firecrawl scrape request — include full-page screenshot
 	payload := map[string]interface{}{
-		"url":             listing.RetailerURL,
-		"formats":         []string{"markdown"},
+		"url": listing.RetailerURL,
+		"formats": []interface{}{
+			"markdown",
+			map[string]interface{}{
+				"type":     "screenshot",
+				"fullPage": true,
+			},
+		},
 		"onlyMainContent": true,
-		"waitFor":         2000, // wait 2s for JS rendering
+		"waitFor":         2000,
 	}
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, "", fmt.Errorf("marshal payload: %w", err)
+		return nil, "", nil, fmt.Errorf("marshal payload: %w", err)
 	}
 
 	scrapeURL := apiURL + "/scrape"
 	req, err := http.NewRequestWithContext(ctx, "POST", scrapeURL, bytes.NewReader(payloadBytes))
 	if err != nil {
-		return nil, "", fmt.Errorf("create request: %w", err)
+		return nil, "", nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -318,7 +339,6 @@ func scrapeMedProductPage(
 		statusCode = resp.StatusCode
 	}
 
-	// Log the HTTP request
 	LogHTTPRequest(logCtx.DB, logCtx.Logger, HTTPRequestLogParams{
 		AgentType: logCtx.AgentType, AgentID: logCtx.AgentID,
 		StepName: logCtx.StepName, OrchestrationID: logCtx.OrchestrationID,
@@ -334,44 +354,50 @@ func scrapeMedProductPage(
 	})
 
 	if err != nil {
-		return nil, "", fmt.Errorf("firecrawl request: %w", err)
+		return nil, "", nil, fmt.Errorf("firecrawl request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", fmt.Errorf("read response: %w", err)
+		return nil, "", nil, fmt.Errorf("read response: %w", err)
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, "", fmt.Errorf("firecrawl status %d: %s", resp.StatusCode, truncate(string(body), 200))
+		return nil, "", nil, fmt.Errorf("firecrawl status %d: %s", resp.StatusCode, truncate(string(body), 200))
 	}
 
-	// Parse Firecrawl response
 	var fcResp map[string]interface{}
 	if err := json.Unmarshal(body, &fcResp); err != nil {
-		return nil, "", fmt.Errorf("parse firecrawl response: %w", err)
+		return nil, "", nil, fmt.Errorf("parse firecrawl response: %w", err)
 	}
 
-	// Extract markdown from response — v1 format: data.markdown
+	// Extract markdown and screenshot from same page load
 	markdown := ""
+	var screenshotBytes []byte
 	if data, ok := fcResp["data"].(map[string]interface{}); ok {
 		if md, ok := data["markdown"].(string); ok {
 			markdown = md
 		}
+		if ss, ok := data["screenshot"].(string); ok && ss != "" {
+			b64Data := ss
+			if idx := strings.Index(b64Data, ","); idx >= 0 {
+				b64Data = b64Data[idx+1:]
+			}
+			if decoded, err := base64.StdEncoding.DecodeString(b64Data); err == nil {
+				screenshotBytes = decoded
+			}
+		}
 	}
 
 	if markdown == "" {
-		return nil, "", fmt.Errorf("no markdown in firecrawl response")
+		return nil, "", nil, fmt.Errorf("no markdown in firecrawl response")
 	}
 
-	// Check for "In Stock" / "Out of Stock" signal
 	inStock := !strings.Contains(strings.ToLower(markdown), "out of stock")
-
-	// Parse variants from markdown
 	variants := parseMedPriceVariants(markdown, inStock)
 
-	return variants, markdown, nil
+	return variants, markdown, screenshotBytes, nil
 }
 
 // Price parsing regex patterns.
@@ -583,17 +609,40 @@ func storeMedPriceSnapshots(ctx context.Context, db *sql.DB, listing medPriceLis
 	return stored, nil
 }
 
-// storeMedScrapeEvidence stores the raw markdown as evidence of what was on the page.
+// uploadMedScreenshot uploads a screenshot PNG via the chassis storage client.
+// Path: med-evidence/{retailer_id}/{date}/{listing_id}.png
+func uploadMedScreenshot(ctx context.Context, client storage.Client, listing medPriceListing, pngBytes []byte, logger *zap.Logger) (string, error) {
+	dateStr := time.Now().UTC().Format("2006-01-02")
+	key := fmt.Sprintf("med-evidence/%s/%s/%s.png", listing.RetailerID, dateStr, listing.ListingID)
+
+	uri, err := client.Upload(ctx, key, "image/png", bytes.NewReader(pngBytes))
+	if err != nil {
+		return "", fmt.Errorf("upload screenshot: %w", err)
+	}
+
+	logger.Info("MedScrapePrices: screenshot uploaded",
+		zap.String("key", key),
+		zap.Int("bytes", len(pngBytes)))
+
+	return uri, nil
+}
+
+// storeMedScrapeEvidence stores the raw markdown and optional screenshot URI as evidence.
 // Fire-and-forget — errors are logged but don't affect the scrape result.
-// The metadata JSONB column is reserved for future screenshot_url etc.
-func storeMedScrapeEvidence(ctx context.Context, db *sql.DB, listing medPriceListing, markdown string, variantsFound, pricesStored int, logger *zap.Logger) {
+func storeMedScrapeEvidence(ctx context.Context, db *sql.DB, listing medPriceListing, markdown, screenshotURL string, variantsFound, pricesStored int, logger *zap.Logger) {
 	hash := sha256.Sum256([]byte(markdown))
 	contentHash := hex.EncodeToString(hash[:])
 
+	metadata := map[string]interface{}{}
+	if screenshotURL != "" {
+		metadata["screenshot_url"] = screenshotURL
+	}
+	metadataJSON, _ := json.Marshal(metadata)
+
 	_, err := db.ExecContext(ctx, `
 		INSERT INTO business_intel.med_scrape_evidence
-			(listing_id, retailer_id, url, markdown_content, content_hash, variants_found, prices_stored)
-		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7)`,
+			(listing_id, retailer_id, url, markdown_content, content_hash, variants_found, prices_stored, metadata)
+		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
 		listing.ListingID,
 		listing.RetailerID,
 		listing.RetailerURL,
@@ -601,6 +650,7 @@ func storeMedScrapeEvidence(ctx context.Context, db *sql.DB, listing medPriceLis
 		contentHash,
 		variantsFound,
 		pricesStored,
+		string(metadataJSON),
 	)
 	if err != nil {
 		logger.Warn("MedScrapePrices: failed to store evidence",
@@ -611,6 +661,7 @@ func storeMedScrapeEvidence(ctx context.Context, db *sql.DB, listing medPriceLis
 		logger.Info("MedScrapePrices: evidence stored",
 			zap.String("listing_id", listing.ListingID),
 			zap.Int("markdown_bytes", len(markdown)),
+			zap.Bool("has_screenshot", screenshotURL != ""),
 			zap.Int("variants_found", variantsFound))
 	}
 }
