@@ -20,7 +20,9 @@ package actions
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -172,6 +174,9 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 				zap.String("retailer_id", listing.RetailerID))
 			totalFailed++
 
+			// Store evidence even for 0-variant pages — useful for debugging
+			storeMedScrapeEvidence(ctx, params.DB, listing, rawMarkdown, 0, 0, params.Logger)
+
 			_, _ = params.DB.ExecContext(ctx, `
 				UPDATE business_intel.med_retailer_listings
 				SET last_scraped_at = NOW(), updated_at = NOW()
@@ -191,6 +196,9 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 		} else {
 			totalScraped++
 			totalVariants += storedCount
+
+			// Store evidence with actual counts
+			storeMedScrapeEvidence(ctx, params.DB, listing, rawMarkdown, len(variants), storedCount, params.Logger)
 
 			params.Logger.Info("MedScrapePrices: stored",
 				zap.String("url", listing.RetailerURL),
@@ -368,12 +376,10 @@ func scrapeMedProductPage(
 
 // Price parsing regex patterns.
 // These handle the observed Pet Drugs Online format:
-//   - 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
-//
+//   + 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
 // And simpler formats like:
-//
-//	Price: £17.48
-//	£17.48
+//   Price: £17.48
+//   £17.48
 var (
 	// Pattern for variant lines: "SIZE Price: £X.XX ... (TVP) ..."
 	medVariantPattern = regexp.MustCompile(
@@ -575,6 +581,38 @@ func storeMedPriceSnapshots(ctx context.Context, db *sql.DB, listing medPriceLis
 	}
 
 	return stored, nil
+}
+
+// storeMedScrapeEvidence stores the raw markdown as evidence of what was on the page.
+// Fire-and-forget — errors are logged but don't affect the scrape result.
+// The metadata JSONB column is reserved for future screenshot_url etc.
+func storeMedScrapeEvidence(ctx context.Context, db *sql.DB, listing medPriceListing, markdown string, variantsFound, pricesStored int, logger *zap.Logger) {
+	hash := sha256.Sum256([]byte(markdown))
+	contentHash := hex.EncodeToString(hash[:])
+
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO business_intel.med_scrape_evidence
+			(listing_id, retailer_id, url, markdown_content, content_hash, variants_found, prices_stored)
+		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7)`,
+		listing.ListingID,
+		listing.RetailerID,
+		listing.RetailerURL,
+		markdown,
+		contentHash,
+		variantsFound,
+		pricesStored,
+	)
+	if err != nil {
+		logger.Warn("MedScrapePrices: failed to store evidence",
+			zap.String("listing_id", listing.ListingID),
+			zap.String("url", listing.RetailerURL),
+			zap.String("error", err.Error()))
+	} else {
+		logger.Info("MedScrapePrices: evidence stored",
+			zap.String("listing_id", listing.ListingID),
+			zap.Int("markdown_bytes", len(markdown)),
+			zap.Int("variants_found", variantsFound))
+	}
 }
 
 // truncate and errString are defined in existing action files
