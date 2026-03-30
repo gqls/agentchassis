@@ -58,7 +58,7 @@ func (f *FirecrawlScrapingProvider) IsAvailable() bool {
 func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, config map[string]interface{}) (map[string]interface{}, error) {
 	f.logger.Info("Starting scrape", zap.String("url", url))
 
-	// Build formats array (v2 format)
+	// Build formats array (v2 format — at top level for /scrape endpoint)
 	formats := []interface{}{"markdown", "html", "rawHtml", "links"}
 
 	captureScreenshot := true
@@ -91,7 +91,7 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		formats = append(formats, screenshotObj)
 	}
 
-	// Build request payload (v2 format)
+	// Build request payload (v2 format — /scrape uses top-level formats)
 	payload := map[string]interface{}{
 		"url":     url,
 		"formats": formats,
@@ -106,7 +106,9 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		payload["waitFor"] = waitFor
 	}
 
-	f.logger.Info("In Firecrawl go Scrape")// zap.Any("DEBUGaa: payload", payload),
+	f.logger.Info("Firecrawl Scrape request",
+		zap.String("url", url),
+	)
 
 	// Make API request
 	body, err := json.Marshal(payload)
@@ -133,7 +135,7 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	f.logger.Info("In Firecrawl go Scrape - response")// zap.Any("DEBUGaa: firecrawl apiResponse", apiResponse),
+	//f.logger.Info("In Firecrawl go Scrape - response")// zap.Any("DEBUGaa: firecrawl apiResponse", apiResponse),
 
 	if resp.StatusCode != http.StatusOK {
 		if errorMsg, ok := apiResponse["error"].(string); ok {
@@ -304,20 +306,31 @@ func (f *FirecrawlScrapingProvider) Crawl(ctx context.Context, url string, confi
 		payload["prompt"] = prompt
 	}
 
-	formats := []string{"markdown", "html"}
+	// v2: for /crawl, formats go inside scrapeOptions, NOT at the top level.
+	// The /scrape endpoint uses top-level formats, but /crawl wraps them.
+	scrapeOptions := map[string]interface{}{
+		"formats": []string{"markdown"},
+	}
 	if formatList, ok := config["formats"].([]interface{}); ok {
-		stringFormats := make([]string, len(formatList))
-		for i, f := range formatList {
+		stringFormats := make([]string, 0, len(formatList))
+		for _, f := range formatList {
 			if str, ok := f.(string); ok {
-				stringFormats[i] = str
+				stringFormats = append(stringFormats, str)
 			}
 		}
-		formats = stringFormats
+		if len(stringFormats) > 0 {
+			scrapeOptions["formats"] = stringFormats
+		}
 	}
-	payload["formats"] = formats
+	if onlyMain, ok := config["only_main_content"].(bool); ok {
+		scrapeOptions["onlyMainContent"] = onlyMain
+	}
+	payload["scrapeOptions"] = scrapeOptions
 
-	f.logger.Info("In Firecrawl go Crawl",
-		zap.Any("DEBUGaa: payload", payload),
+	f.logger.Info("Firecrawl Crawl request",
+		zap.String("url", url),
+		zap.Int("limit", limit),
+		zap.Int("maxDiscoveryDepth", maxDiscoveryDepth),
 	)
 
 	// Start crawl job
@@ -345,9 +358,9 @@ func (f *FirecrawlScrapingProvider) Crawl(ctx context.Context, url string, confi
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	f.logger.Info("In Firecrawl go Crawl - response",
+	/*f.logger.Info("In Firecrawl go Crawl - response",
 		zap.Any("DEBUGaa: firecrawl crawlResponse", crawlResponse),
-	)
+	)*/
 
 	if resp.StatusCode != http.StatusOK {
 		if errorMsg, ok := crawlResponse["error"].(string); ok {
@@ -405,9 +418,10 @@ func (f *FirecrawlScrapingProvider) pollCrawlJob(ctx context.Context, jobID stri
 			resp.Body.Close()
 
 			status, _ := statusResponse["status"].(string)
-			f.logger.Debug("Crawl job status",
+			f.logger.Info("Crawl job status",
 				zap.String("job_id", jobID),
-				zap.String("status", status))
+				zap.String("status", status),
+				zap.Int("attempt", attempt+1))
 
 			switch status {
 			case "completed":
@@ -453,7 +467,9 @@ func (f *FirecrawlScrapingProvider) ExtractStructured(ctx context.Context, url s
 		"formats": []interface{}{jsonFormat},
 	}
 
-	f.logger.Info("In Firecrawl go ExtractStructured")// zap.Any("DEBUGaa: payload for extract structured", payload),
+	f.logger.Info("Firecrawl ExtractStructured request",
+		zap.String("url", url),
+	)
 
 	body, err := json.Marshal(payload)
 	if err != nil {
