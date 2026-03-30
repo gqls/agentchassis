@@ -703,6 +703,26 @@ func WriteFeedItemsAction(ctx context.Context, params ActionParams) (interface{}
 			}
 		}
 
+		// Validate published date — skip items with obviously wrong dates
+		if publishedAt != nil {
+			age := time.Since(*publishedAt)
+			if age > 30*24*time.Hour {
+				logger.Info("WriteFeedItemsAction: skipping item with old published date",
+					zap.String("title", title),
+					zap.Time("published_at", *publishedAt),
+					zap.Duration("age", age))
+				skipped++
+				continue
+			}
+			if age < -24*time.Hour { // more than 1 day in the future
+				logger.Info("WriteFeedItemsAction: skipping item with future published date",
+					zap.String("title", title),
+					zap.Time("published_at", *publishedAt))
+				skipped++
+				continue
+			}
+		}
+
 		// Insert with dedup — ON CONFLICT on source_url (via partial unique index)
 		// The idx_cfi_dedup index covers source_url WHERE status NOT IN (duplicate, expired, rejected)
 		// We use a simple existence check instead of relying on UNIQUE constraint

@@ -28,15 +28,48 @@ JSON
 
 
 check after 60 timeout_seconds-- Should show items moved from ingested to relevant/rejected
-                              SELECT status, COUNT(*) FROM content_feed_items
-                              WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
-                              GROUP BY status;
+SELECT status, COUNT(*) FROM content_feed_items
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+GROUP BY status;
 
-                              -- See the scores
-                              SELECT source_title, relevance_score, status, topics
-                              FROM content_feed_items
-                              WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
-                                AND relevance_score IS NOT NULL
-                              ORDER BY relevance_score DESC;
+-- See the scores
+SELECT source_title, relevance_score, status, topics
+FROM content_feed_items
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+AND relevance_score IS NOT NULL
+ORDER BY relevance_score DESC;
+
+-- Check if the triage orchestration ran at all
+SELECT status, current_step, error,
+       collected_data->'pending_items'->>'count' as item_count,
+       collected_data->'triage_result' as triage_result
+FROM orchestration_states
+WHERE collected_data->'input_data'->>'site_id' = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND (correlation_id = '<paste-triage-correlation-id>'
+       OR collected_data->'agent_config'->'workflow'->'steps'->'load_items' IS NOT NULL)
+ORDER BY created_at DESC
+LIMIT 5;
 
 
+
+-- What did score_relevance (the LLM step) produce?
+SELECT
+    collected_data->'score_relevance' as score_relevance_output,
+    substring(collected_data->'pending_items'->>'items', 1, 500) as items_preview,
+    collected_data->'pending_items'->>'count' as item_count
+FROM orchestration_states
+WHERE correlation_id = '1dd83396-88c9-42bf-aa63-513be9740061'
+  AND status = 'COMPLETED'
+  AND collected_data->'pending_items'->>'count' = '34';
+
+  -- See what the LLM step actually produced
+  SELECT
+      collected_data->'scores' as scores_field,
+      collected_data->'triage_scores' as triage_scores,
+      substring(collected_data->'scores'->>'result', 1, 500) as llm_result_preview,
+      jsonb_object_keys(collected_data) as top_keys
+  FROM orchestration_states
+  WHERE correlation_id = '1dd83396-88c9-42bf-aa63-513be9740061'
+    AND status = 'COMPLETED'
+    AND collected_data->'pending_items'->>'count' = '34'
+  LIMIT 1;

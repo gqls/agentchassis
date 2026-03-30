@@ -26,3 +26,12 @@ kubectl -n kafka run -i --rm kcat-orch-test-$$ \
 {"headers":{"correlation_id":"$CORRELATION_ID","orchestration_id":"$ORCHESTRATION_ID","message_type":"request","action":"orchestrate","client_id":"demo_client","message_id":"$MESSAGE_ID","request_id":"$REQUEST_ID","timestamp":"$TIMESTAMP","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"}},"config":{"workflow":{"start_step":"spawn_orchestrator","steps":{"spawn_orchestrator":{"action":"spawn_agent","config":{"agent_type":"content-feed-orchestrator","role":"orch-test"},"next_step":"call_orchestrator"},"call_orchestrator":{"action":"call_agent","config":{"target_role":"orch-test","input_mapping":{"site_id":"input_data.site_id"}},"next_step":"complete"},"complete":{"action":"complete_workflow"}}},"processing_mode":"orchestrator","timeout_seconds":600},"input_data":{"site_id":"$SITE_ID"}}
 JSON
 
+# see if it worked, should be in git under data/latest-news.json in gaswholesalers.com git repo
+SELECT
+    default_config->'workflow'->'steps'->'render_news_json' IS NOT NULL as has_render,
+    default_config->'workflow'->'steps'->'commit_news'->'action' as commit_action
+FROM agent_definitions WHERE type = 'content-feed-orchestrator' AND deleted_at IS NULL;
+ has_render | commit_action
+------------+---------------
+ t          | "git_commit"
+(1 row)

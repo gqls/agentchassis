@@ -153,7 +153,29 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	// -----------------------------------------------------------------------
-	// 3. Load relevant feed items
+	// 3. Expire stale items — runs every cycle as part of normal maintenance
+	// -----------------------------------------------------------------------
+	// Items with source_published_at > 30 days old, or ingested > 7 days ago
+	// without being triaged, get marked expired so they don't accumulate.
+	expireResult, err := params.DB.ExecContext(ctx, `
+		UPDATE content_feed_items
+		SET status = 'expired', updated_at = NOW()
+		WHERE site_id = $1
+		  AND status IN ('ingested', 'relevant', 'review')
+		  AND (
+		      (source_published_at IS NOT NULL AND source_published_at < NOW() - INTERVAL '30 days')
+		      OR (source_published_at IS NULL AND created_at < NOW() - INTERVAL '7 days' AND status = 'ingested')
+		  )
+	`, siteID)
+	if err != nil {
+		logger.Warn("RenderNewsSectionAction: expire query failed", zap.Error(err))
+	} else if rows, _ := expireResult.RowsAffected(); rows > 0 {
+		logger.Info("RenderNewsSectionAction: expired stale items",
+			zap.Int64("count", rows))
+	}
+
+	// -----------------------------------------------------------------------
+	// 4. Load relevant feed items
 	// -----------------------------------------------------------------------
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT 
@@ -167,6 +189,9 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 		WHERE cfi.site_id = $1 
 		  AND cfi.status IN ('relevant', 'ingested')
 		  AND cfi.created_at > NOW() - make_interval(hours => $2)
+		  AND (cfi.source_published_at IS NULL 
+		       OR (cfi.source_published_at > NOW() - make_interval(hours => $2)
+		           AND cfi.source_published_at <= NOW() + INTERVAL '1 day'))
 		ORDER BY cfi.source_published_at DESC NULLS LAST, cfi.created_at DESC
 		LIMIT $3
 	`, siteID, maxAgeHours, maxItems)
@@ -210,7 +235,7 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	// -----------------------------------------------------------------------
-	// 4. Check if an insights listing page exists (for the "More" link)
+	// 5. Check if an insights listing page exists (for the "More" link)
 	// -----------------------------------------------------------------------
 	var insightsURL string
 	_ = params.DB.QueryRowContext(ctx, `
@@ -225,7 +250,7 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	// -----------------------------------------------------------------------
-	// 5. Build JSON output
+	// 6. Build JSON output
 	// -----------------------------------------------------------------------
 	output := newsJSONOutput{
 		Headline:      headline,
@@ -243,7 +268,7 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	// -----------------------------------------------------------------------
-	// 6. Return files map for git_commit step
+	// 7. Return files map for git_commit step
 	// -----------------------------------------------------------------------
 	filesMap := map[string]interface{}{
 		"data/latest-news.json": string(jsonBytes),
