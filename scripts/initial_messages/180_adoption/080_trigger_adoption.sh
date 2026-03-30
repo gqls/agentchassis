@@ -121,3 +121,16 @@ echo "  SELECT item_type, status, handler_agent, summary FROM site_work_items WH
     "url": "https://mortgagecalculator.co.uk"
   }
 }
+
+
+clients_db=# -- Check what formatted_crawl contained
+SELECT
+    substring(collected_data::text,
+        position('formatted_crawl' in collected_data::text),
+        300)
+FROM orchestration_states
+WHERE correlation_id = '2f9fa0f3-b110-4b7e-aaf0-8481db870360';
+                                                                                                                                                  substring
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ formatted_crawl": {"sources": [{"url": "https://robot-hands.com/", "index": 1, "title": "ROBOT-HANDS.COM | Mission Control"}, {"url": "https://robot-hands.com/products/index.html?id=onr-rg6", "index": 2, "title": "Product Analysis | ROBOT-HANDS.COM"}, {"url": "https://robot-hands.com/products/index.
+(1 row)

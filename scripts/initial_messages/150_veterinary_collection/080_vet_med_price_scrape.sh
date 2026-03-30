@@ -82,3 +82,43 @@ SELECT method, url, status_code, latency_ms, success, error_message
 FROM http_request_log
 WHERE action_name = 'med_scrape_prices'
 ORDER BY created_at DESC LIMIT 10;
+
+-- For screenshots and the other 2 products, check evidence:
+SELECT url, variants_found, prices_stored,
+       length(markdown_content) AS markdown_bytes,
+       metadata->>'screenshot_url' AS screenshot,
+       scraped_at
+FROM business_intel.med_scrape_evidence
+ORDER BY scraped_at DESC LIMIT 10;
+
+
+
+SELECT ps.retailer_id, l.retailer_product_name, ps.size_variant, ps.price, ps.typical_vet_price, ps.collected_at
+  FROM business_intel.med_price_snapshots ps
+  JOIN business_intel.med_retailer_listings l ON l.id = ps.listing_id
+  ORDER BY ps.collected_at DESC LIMIT 20;
+   retailer_id    |           retailer_product_name           | size_variant | price | typical_vet_price |         collected_at
+------------------+-------------------------------------------+--------------+-------+-------------------+-------------------------------
+ pet_drugs_online | Metacam Oral Suspension for Dogs 1.5mg/ml | 10ml bottle  |  3.89 |             14.09 | 2026-03-30 18:34:50.788495+00
+ pet_drugs_online | Metacam Oral Suspension for Dogs 1.5mg/ml | 32ml Bottle  |  6.29 |             24.34 | 2026-03-30 18:34:50.788495+00
+ pet_drugs_online | Metacam Oral Suspension for Dogs 1.5mg/ml | 100ml Bottle | 17.48 |             67.45 | 2026-03-30 18:34:50.788495+00
+ pet_drugs_online | Metacam Oral Suspension for Dogs 1.5mg/ml | 180ml bottle | 23.99 |             90.54 | 2026-03-30 18:34:50.788495+00
+(4 rows)
+
+clients_db=# SELECT method, url, status_code, latency_ms, success, error_message
+  FROM http_request_log
+  WHERE action_name = 'med_scrape_prices'
+  ORDER BY created_at DESC LIMIT 10;
+ method |                                        url                                        | status_code | latency_ms | success | error_message
+--------+-----------------------------------------------------------------------------------+-------------+------------+---------+---------------
+ POST   | https://www.petdrugsonline.co.uk/metacam-oral-suspension-for-cats                 |         200 |      12992 | t       |
+ POST   | https://www.petdrugsonline.co.uk/apoquel-16mg                                     |         200 |      13395 | t       |
+ POST   | https://www.petdrugsonline.co.uk/metacam-oral-suspension-for-dogs                 |         200 |      14825 | t       |
+ POST   | https://www.petdrugsonline.co.uk/synulox-palatable-tablets-250mg                  |         400 |        205 | f       |
+ POST   | https://www.petdrugsonline.co.uk/nexgard-spectra-flea-and-worm-treatment-for-dogs |         400 |        271 | f       |
+ POST   | https://www.petdrugsonline.co.uk/metacam-oral-suspension-for-cats                 |         400 |        200 | f       |
+ POST   | https://www.petdrugsonline.co.uk/apoquel-16mg                                     |         400 |        228 | f       |
+ POST   | https://www.petdrugsonline.co.uk/metacam-oral-suspension-for-dogs                 |         400 |        623 | f       |
+ POST   | https://www.petdrugsonline.co.uk/metacam-oral-suspension-for-cats                 |         400 |        321 | f       |
+ POST   | https://www.petdrugsonline.co.uk/apoquel-16mg                                     |         400 |        219 | f       |
+(10 rows)

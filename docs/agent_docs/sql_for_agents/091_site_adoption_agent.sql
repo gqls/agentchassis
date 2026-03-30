@@ -907,3 +907,17 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'site-adoption-agent';
 
+--
+
+-- This is the correct pattern per the architecture
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_site,config,ai_service}',
+        '{
+            "provider": "anthropic",
+            "model": "claude-sonnet-4-5",
+            "api_key_env_var": "ANTHROPIC_API_KEY"
+        }'
+                     )
+WHERE type = 'site-adoption-agent';

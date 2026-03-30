@@ -108,9 +108,23 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("unexpected adoption plan type: %T", planRaw)
 	}
 
+	// execute_llm_prompt wraps output in {"type": "json", "result": {...}}
+	// Unwrap if present
+	if result, ok := plan["result"].(map[string]interface{}); ok {
+		logger.Info("ApplyAdoptionPlanAction: unwrapping result envelope")
+		plan = result
+	}
+
 	logger.Info("ApplyAdoptionPlanAction: parsed plan",
 		zap.String("site_id", siteIDStr),
 		zap.String("domain", domain),
+		zap.Strings("plan_keys", func() []string {
+			keys := make([]string, 0, len(plan))
+			for k := range plan {
+				keys = append(keys, k)
+			}
+			return keys
+		}()),
 	)
 
 	tx, err := params.DB.BeginTx(ctx, nil)
