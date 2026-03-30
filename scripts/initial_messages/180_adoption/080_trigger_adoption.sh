@@ -8,6 +8,9 @@
 DOMAIN="${1:?Usage: ./trigger-adopt-site.sh <domain> [url]}"
 URL="${2:-https://$DOMAIN}"
 
+DOMAIN='robot-hands.com'
+URL='https://robot-hands.com'
+
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)

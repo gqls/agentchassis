@@ -420,3 +420,23 @@ INSERT INTO agent_definitions (
                               description = EXCLUDED.description,
                               updated_at = NOW();
 
+---
+-- fix firescrape api call
+
+-- 1. Fix the adoption agent workflow — remove scrape_config
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,crawl_site,config}',
+        '{
+            "url_field": "input_data.url"
+        }'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- 2. Fail the stuck orchestration so we can retry cleanly
+UPDATE orchestration_states
+SET status = 'FAILED',
+    error = 'Crawl failed: Firecrawl v2 API rejected scrape_config parameters',
+    updated_at = NOW()
+WHERE correlation_id = 'ecdef20d-fc92-4e75-aa5d-c4808506d057';
