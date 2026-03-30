@@ -1035,6 +1035,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Create specs, pages, and work items from site adoption analysis",
 		IsLocal:     true,
 	},
+	"format_crawl_for_analysis": {
+		Handler:     FormatCrawlForAnalysisAction,
+		Category:    "web",
+		Description: "Format Firecrawl crawl output into readable text for LLM analysis",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// VET MED PRICING — veterinary medicine price collection

@@ -838,3 +838,49 @@ RETURN jsonb_build_object(
        );
 END;
 $$ LANGUAGE plpgsql;
+
+   --
+
+   -- fix firecrawl - added action to parse it
+
+   -- Update the format_crawl step to use the new action
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,format_crawl}',
+        '{
+            "action": "format_crawl_for_analysis",
+            "config": {
+                "crawl_field": "crawl_result",
+                "max_content_per_page": 8000
+            },
+            "output_field": "formatted_crawl",
+            "next_step": "check_crawl_content",
+            "description": "Format crawl pages into readable text for LLM analysis"
+        }'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- Update format step to use the new action
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,format_crawl}',
+        '{
+            "action": "format_crawl_for_analysis",
+            "config": {
+                "crawl_field": "crawl_result",
+                "max_content_per_page": 8000
+            },
+            "output_field": "formatted_crawl",
+            "next_step": "check_crawl_content",
+            "description": "Format crawl pages into readable text for LLM analysis"
+        }'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- Fail stuck orchestration
+UPDATE orchestration_states
+SET status = 'FAILED', error = 'format_research_content cannot parse crawl output — replaced with format_crawl_for_analysis'
+WHERE correlation_id = '0d3a3da5-eb2a-47e2-9f78-ffbf6698ff22';
+
