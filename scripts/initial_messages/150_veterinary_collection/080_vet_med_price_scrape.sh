@@ -65,3 +65,20 @@ echo "  SELECT method, url, status_code, latency_ms, success, error_message"
 echo "  FROM http_request_log"
 echo "  WHERE action_name = 'med_scrape_prices'"
 echo "  ORDER BY created_at DESC LIMIT 10;"
+
+
+
+
+---------------
+
+SELECT ps.retailer_id, l.retailer_product_name, ps.size_variant, ps.price, ps.typical_vet_price, ps.collected_at
+FROM business_intel.med_price_snapshots ps
+JOIN business_intel.med_retailer_listings l ON l.id = ps.listing_id
+ORDER BY ps.collected_at DESC LIMIT 20;
+
+
+# And if still empty, the HTTP log will tell us whether Firecrawl was called at all:
+SELECT method, url, status_code, latency_ms, success, error_message
+FROM http_request_log
+WHERE action_name = 'med_scrape_prices'
+ORDER BY created_at DESC LIMIT 10;
