@@ -302,7 +302,8 @@ func scrapeMedProductPage(
 ) ([]medExtractedVariant, string, []byte, error) {
 
 	// Build Firecrawl scrape request
-	// Screenshot format object only works on v2 — check API URL
+	// v1: screenshot as string "screenshot@fullPage"
+	// v2: screenshot as object {"type": "screenshot", "fullPage": true}
 	var formats interface{}
 	isV2 := strings.Contains(apiURL, "/v2")
 	if isV2 {
@@ -314,7 +315,7 @@ func scrapeMedProductPage(
 			},
 		}
 	} else {
-		formats = []string{"markdown"}
+		formats = []string{"markdown", "screenshot@fullPage"}
 	}
 
 	payload := map[string]interface{}{
@@ -409,12 +410,10 @@ func scrapeMedProductPage(
 
 // Price parsing regex patterns.
 // These handle the observed Pet Drugs Online format:
-//   - 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
-//
+//   + 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
 // And simpler formats like:
-//
-//	Price: £17.48
-//	£17.48
+//   Price: £17.48
+//   £17.48
 var (
 	// Pattern for variant lines: "SIZE Price: £X.XX ... (TVP) ..."
 	medVariantPattern = regexp.MustCompile(

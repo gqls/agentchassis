@@ -884,3 +884,26 @@ UPDATE orchestration_states
 SET status = 'FAILED', error = 'format_research_content cannot parse crawl output — replaced with format_crawl_for_analysis'
 WHERE correlation_id = '0d3a3da5-eb2a-47e2-9f78-ffbf6698ff22';
 
+--
+-- Fix the model name in ai_service
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{ai_service}',
+        '{
+            "provider": "anthropic",
+            "model": "claude-sonnet-4-5",
+            "api_key_env_var": "ANTHROPIC_API_KEY"
+        }'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- Also fix it in the prompt step config
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_site,config,model}',
+        '"claude-sonnet-4-5"'
+                     )
+WHERE type = 'site-adoption-agent';
+
