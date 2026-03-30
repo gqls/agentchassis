@@ -992,3 +992,173 @@ DO $$
 BEGIN
     RAISE NOTICE 'Migration 085: site_snapshots table, take/revert functions created';
 END $$;
+
+---
+-- fix sql in view
+
+CREATE OR REPLACE FUNCTION take_site_snapshot(
+    p_site_id       UUID,
+    p_trigger       TEXT,
+    p_git_sha       TEXT DEFAULT NULL,
+    p_label         TEXT DEFAULT NULL,
+    p_created_by    TEXT DEFAULT 'system'
+) RETURNS UUID AS $$
+DECLARE
+v_snapshot_id   UUID;
+    v_site_record   JSONB;
+    v_spec_snapshot JSONB;
+    v_spec_ids      UUID[];
+    v_pages         JSONB;
+    v_nav           JSONB;
+    v_components    JSONB;
+BEGIN
+SELECT jsonb_build_object(
+               'id', s.id,
+               'domain', s.domain,
+               'status', s.status,
+               'company_name', s.company_name,
+               'tagline', s.tagline,
+               'schema_mode', s.schema_mode,
+               'style_collection_id', s.style_collection_id,
+               'default_components', s.default_components,
+               'content_data', s.content_data,
+               'brand_assets', s.brand_assets,
+               'deploy_config', s.deploy_config,
+               'last_built_at', s.last_built_at,
+               'last_deployed_at', s.last_deployed_at
+       ) INTO v_site_record
+FROM sites s
+WHERE s.id = p_site_id;
+
+IF v_site_record IS NULL THEN
+        RAISE EXCEPTION 'Site % not found', p_site_id;
+END IF;
+
+SELECT
+    COALESCE(jsonb_agg(
+                     jsonb_build_object(
+                             'id', ss.id,
+                             'aspect', ss.aspect,
+                             'data', ss.data,
+                             'source', ss.source,
+                             'source_agent', ss.source_agent,
+                             'created_by', ss.created_by,
+                             'pinned', ss.pinned,
+                             'created_at', ss.created_at
+                     ) ORDER BY ss.aspect
+             ), '[]'::jsonb),
+    COALESCE(array_agg(ss.id), ARRAY[]::uuid[])
+INTO v_spec_snapshot, v_spec_ids
+FROM site_specs ss
+WHERE ss.site_id = p_site_id AND ss.is_current = true;
+
+SELECT COALESCE(jsonb_agg(page_row ORDER BY page_row->>'nav_order'), '[]'::jsonb)
+INTO v_pages
+FROM (
+         SELECT jsonb_build_object(
+                        'id', p.id,
+                        'name', p.name,
+                        'url', p.url,
+                        'title', p.title,
+                        'page_type', p.page_type,
+                        'status', p.status,
+                        'meta_description', p.meta_description,
+                        'topics', to_jsonb(p.topics),
+                        'nav_label', p.nav_label,
+                        'nav_order', p.nav_order,
+                        'in_header', p.in_header,
+                        'in_footer', p.in_footer,
+                        'build_status', p.build_status,
+                        'version', p.version,
+                        'sections', p.sections,
+                        'rendered_header', p.rendered_header,
+                        'rendered_footer', p.rendered_footer,
+                        'rendered_head', p.rendered_head,
+                        'page_spec', p.page_spec,
+                        'content_direction', p.content_direction,
+                        'site_area_id', p.site_area_id,
+                        'components', COALESCE(
+                                (SELECT jsonb_agg(
+                                                jsonb_build_object(
+                                                        'id', pc.id,
+                                                        'component_id', pc.component_id,
+                                                        'position', pc.position,
+                                                        'slot_name', pc.slot_name,
+                                                        'rendered_html', pc.rendered_html,
+                                                        'content_data', pc.content_data,
+                                                        'build_status', pc.build_status
+                                                ) ORDER BY pc.position
+                                        )
+                                 FROM page_components pc
+                                 WHERE pc.page_id = p.id
+                                ), '[]'::jsonb
+                                      )
+                ) AS page_row
+         FROM pages p
+         WHERE p.site_id = p_site_id
+     ) sub;
+
+SELECT jsonb_build_object(
+               'groups', COALESCE(
+                (SELECT jsonb_agg(
+                                jsonb_build_object(
+                                        'id', g.id,
+                                        'name', g.name,
+                                        'location', g.location,
+                                        'sort_order', g.sort_order
+                                ) ORDER BY g.sort_order
+                        )
+                 FROM site_nav_groups g
+                 WHERE g.site_id = p_site_id
+                ), '[]'::jsonb
+                         ),
+               'items', COALESCE(
+                       (SELECT jsonb_agg(
+                                       jsonb_build_object(
+                                               'id', ni.id,
+                                               'group_id', ni.group_id,
+                                               'page_id', ni.page_id,
+                                               'label', ni.label,
+                                               'url', ni.url,
+                                               'sort_order', ni.sort_order,
+                                               'is_active', ni.is_active
+                                       ) ORDER BY ni.sort_order
+                               )
+                        FROM site_nav_items ni
+                        WHERE ni.site_id = p_site_id
+                       ), '[]'::jsonb
+                        )
+       ) INTO v_nav;
+
+SELECT COALESCE(jsonb_agg(
+                        jsonb_build_object(
+                                'id', sc.id,
+                                'component_id', sc.component_id,
+                                'role', sc.role,
+                                'config', sc.config,
+                                'is_active', sc.is_active
+                        )
+                ), '[]'::jsonb)
+INTO v_components
+FROM site_components sc
+WHERE sc.site_id = p_site_id;
+
+INSERT INTO site_snapshots (
+    site_id, trigger, git_commit_sha, label,
+    site_record, spec_snapshot, pages_snapshot, nav_snapshot,
+    components_snapshot, spec_ids, created_by
+) VALUES (
+             p_site_id, p_trigger, p_git_sha, p_label,
+             v_site_record, v_spec_snapshot, v_pages, v_nav,
+             v_components, v_spec_ids, p_created_by
+         ) RETURNING id INTO v_snapshot_id;
+
+RAISE NOTICE 'Snapshot % created for site % (trigger: %, specs: %, pages: %)',
+        v_snapshot_id, p_site_id, p_trigger,
+        jsonb_array_length(v_spec_snapshot),
+        jsonb_array_length(v_pages);
+
+RETURN v_snapshot_id;
+END;
+$$ LANGUAGE plpgsql;
+
