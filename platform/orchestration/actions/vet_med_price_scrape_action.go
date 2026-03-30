@@ -410,12 +410,10 @@ func scrapeMedProductPage(
 
 // Price parsing regex patterns.
 // These handle the observed Pet Drugs Online format:
-//   - 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
-//
+//   + 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
 // And simpler formats like:
-//
-//	Price: £17.48
-//	£17.48
+//   Price: £17.48
+//   £17.48
 var (
 	// Pattern for variant lines: "SIZE Price: £X.XX ... (TVP) ..."
 	medVariantPattern = regexp.MustCompile(
@@ -433,6 +431,14 @@ var (
 	// Note: no .*? wildcard — label must be directly followed by optional colon then £
 	medTVPAfterLabelPattern = regexp.MustCompile(
 		`(?i)(?:TVP|Typical Vet Price|RRP|SRP)\s*:?\s*£([\d,]+\.?\d*)`)
+
+	// Fallback: price+TVP jammed together: "£28.99£50.54 TVP" or "£28.99£50.54TVP"
+	medPriceTVPJoinedPattern = regexp.MustCompile(
+		`£([\d,]+\.?\d*)£([\d,]+\.?\d*)\s*(?:TVP|SRP)`)
+
+	// Fallback: standalone £XX.XX on its own line (not preceded by Save/delivery/over/under)
+	medStandalonePricePattern = regexp.MustCompile(
+		`(?m)^£([\d,]+\.?\d*)\s*$`)
 )
 
 // parseMedPriceVariants extracts size/price variants from markdown.
@@ -474,15 +480,12 @@ func parseMedPriceVariants(markdown string, inStock bool) []medExtractedVariant 
 		})
 	}
 
-	// If no variants found, try single-price pattern
+	// If no variants found, try single-price pattern (has "Price:" prefix)
 	if len(variants) == 0 {
 		singleMatch := medSinglePricePattern.FindStringSubmatch(productSection)
 		if singleMatch != nil {
 			price := parsePoundValue(singleMatch[1])
 			if price > 0 {
-				// Try to find TVP — two formats exist:
-				// "£50.54 (TVP)" — amount before label (NexGard style)
-				// "SRP £3.10" — label before amount (category page style)
 				var tvp float64
 				tvpMatch := medTVPBeforeLabelPattern.FindStringSubmatch(productSection)
 				if tvpMatch != nil {
@@ -504,33 +507,89 @@ func parseMedPriceVariants(markdown string, inStock bool) []medExtractedVariant 
 		}
 	}
 
+	// Fallback: no "Price:" on page — try joined format "£28.99£50.54 TVP"
+	// This handles Pet Drugs Online pages that show price+TVP jammed together
+	if len(variants) == 0 {
+		joinedMatch := medPriceTVPJoinedPattern.FindStringSubmatch(productSection)
+		if joinedMatch != nil {
+			price := parsePoundValue(joinedMatch[1])
+			tvp := parsePoundValue(joinedMatch[2])
+			if price > 0 {
+				variants = append(variants, medExtractedVariant{
+					SizeVariant:     "standard",
+					Price:           price,
+					TypicalVetPrice: tvp,
+					InStock:         inStock,
+				})
+			}
+		}
+	}
+
+	// Last resort: standalone £XX.XX on its own line
+	if len(variants) == 0 {
+		standaloneMatch := medStandalonePricePattern.FindStringSubmatch(productSection)
+		if standaloneMatch != nil {
+			price := parsePoundValue(standaloneMatch[1])
+			if price > 0 {
+				// Try to find TVP nearby
+				var tvp float64
+				tvpMatch := medTVPBeforeLabelPattern.FindStringSubmatch(productSection)
+				if tvpMatch != nil {
+					tvp = parsePoundValue(tvpMatch[1])
+				}
+
+				variants = append(variants, medExtractedVariant{
+					SizeVariant:     "standard",
+					Price:           price,
+					TypicalVetPrice: tvp,
+					InStock:         inStock,
+				})
+			}
+		}
+	}
+
 	return variants
 }
 
 // extractProductSection returns only the product info portion of the markdown,
-// truncating before Description, Related Products, and similar sections.
+// truncating before Description headings, Related Products, and similar sections.
 // This prevents the price regex from matching prices in "You May Also Like" etc.
 func extractProductSection(markdown string) string {
 	// Section markers that indicate the end of product info.
-	// Check lowercase for case-insensitive matching.
-	markers := []string{
+	// These must be line-start patterns to avoid matching inside URLs
+	// (e.g. "#product-long-description" should NOT trigger a cutoff).
+	lineMarkers := []string{
 		"##### description",
+		"#### description",
+		"### description",
 		"## description",
+		"# description",
 		"**description**",
-		"\ndescription\n",
+	}
+
+	// These can match anywhere — they're distinctive enough not to appear in URLs
+	anywhereMarkers := []string{
 		"related products",
 		"you may also like",
 		"similar products",
 		"customers also bought",
-		"also available in",
 		"recommended products",
 		"recently viewed",
 	}
 
 	lower := strings.ToLower(markdown)
-	cutoff := len(markdown) // default: use everything
+	cutoff := len(markdown)
 
-	for _, marker := range markers {
+	// Line-start markers: find "\n" + marker
+	for _, marker := range lineMarkers {
+		idx := strings.Index(lower, "\n"+marker)
+		if idx >= 0 && idx < cutoff {
+			cutoff = idx
+		}
+	}
+
+	// Anywhere markers
+	for _, marker := range anywhereMarkers {
 		idx := strings.Index(lower, marker)
 		if idx > 0 && idx < cutoff {
 			cutoff = idx
