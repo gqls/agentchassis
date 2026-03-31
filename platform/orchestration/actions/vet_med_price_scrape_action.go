@@ -105,7 +105,7 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 	}
 	firecrawlAPIURL := os.Getenv("FIRECRAWL_API_URL")
 	if firecrawlAPIURL == "" {
-		firecrawlAPIURL = "https://api.firecrawl.dev/v1"
+		firecrawlAPIURL = "https://api.firecrawl.dev/v2"
 	}
 
 	httpClient := &http.Client{
@@ -410,12 +410,10 @@ func scrapeMedProductPage(
 
 // Price parsing regex patterns.
 // These handle the observed Pet Drugs Online format:
-//   - 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
-//
+//   + 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
 // And simpler formats like:
-//
-//	Price: £17.48
-//	£17.48
+//   Price: £17.48
+//   £17.48
 var (
 	// Pattern for variant lines: "SIZE Price: £X.XX ... (TVP) ..."
 	medVariantPattern = regexp.MustCompile(
