@@ -438,12 +438,10 @@ func scrapeMedProductPage(
 
 // Price parsing regex patterns.
 // These handle the observed Pet Drugs Online format:
-//   - 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
-//
+//   + 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
 // And simpler formats like:
-//
-//	Price: £17.48
-//	£17.48
+//   Price: £17.48
+//   £17.48
 var (
 	// Pattern for variant lines: "SIZE Price: £X.XX ... (TVP) ..."
 	medVariantPattern = regexp.MustCompile(
@@ -659,9 +657,9 @@ func isSizeLine(line string) bool {
 // parseMultiLineVariants handles retailer formats where size and price
 // are on separate lines. Covers:
 //
-//	VioVet:    "- Dog » 100ml Bottle\n\n£16.73"
-//	Hyperdrug: "- 10ml\n...\n£3.99"
-//	Animed:    "100ml\nwas £16.95\nOut of stock"
+//   VioVet:    "- Dog » 100ml Bottle\n\n£16.73"
+//   Hyperdrug: "- 10ml\n...\n£3.99"
+//   Animed:    "100ml\nwas £16.95\nOut of stock"
 func parseMultiLineVariants(productSection string) []medExtractedVariant {
 	lines := strings.Split(productSection, "\n")
 	var variants []medExtractedVariant
@@ -708,7 +706,8 @@ func parseMultiLineVariants(productSection string) []medExtractedVariant {
 	}
 
 	// === Strategy 2: Hyperdrug format ===
-	// "- SIZE" followed by "£Price" within next 8 lines (lots of blank lines between)
+	// "- SIZE" then price appears within next ~20 lines (many blank lines between)
+	// £PRICE comes AFTER each "- SIZE", before the next "- SIZE"
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if !strings.HasPrefix(trimmed, "- ") {
@@ -720,17 +719,24 @@ func parseMultiLineVariants(productSection string) []medExtractedVariant {
 			continue
 		}
 
-		// Look forward for the next £ amount
-		for j := i + 1; j < len(lines) && j <= i+12; j++ {
+		// Look forward for the next £ amount — skip blanks and status text
+		for j := i + 1; j < len(lines) && j <= i+25; j++ {
 			nextLine := strings.TrimSpace(lines[j])
-			// Skip blank lines and status text
-			if nextLine == "" || strings.Contains(strings.ToLower(nextLine), "in stock") ||
-				strings.Contains(strings.ToLower(nextLine), "despatched") {
+			if nextLine == "" {
+				continue // skip blank lines without counting
+			}
+			// Skip known status/noise text
+			lowerNext := strings.ToLower(nextLine)
+			if strings.Contains(lowerNext, "in stock") ||
+				strings.Contains(lowerNext, "out of stock") ||
+				strings.Contains(lowerNext, "despatched") ||
+				strings.Contains(lowerNext, "dispatched") ||
+				strings.Contains(lowerNext, "usually ship") {
 				continue
 			}
 			price := linePrice(nextLine)
 			if price > 0 {
-				stock := !strings.Contains(strings.ToLower(productSection), "out of stock")
+				stock := !strings.Contains(lowerNext, "out of stock")
 				key := fmt.Sprintf("%s_%.2f", label, price)
 				if !seen[key] {
 					seen[key] = true
@@ -742,8 +748,8 @@ func parseMultiLineVariants(productSection string) []medExtractedVariant {
 				}
 				break
 			}
-			// If we hit another "- " line, stop looking
-			if strings.HasPrefix(nextLine, "- ") {
+			// If we hit another "- " size line, stop looking
+			if strings.HasPrefix(nextLine, "- ") && isSizeLine(strings.TrimSpace(nextLine[2:])) {
 				break
 			}
 		}
@@ -753,15 +759,18 @@ func parseMultiLineVariants(productSection string) []medExtractedVariant {
 	}
 
 	// === Strategy 3: Animed format ===
-	// "SIZE\nwas £Price\nOut of stock" — products all out of stock
+	// "SIZE\n[blanks]\nwas £Price\n[blanks]\nOut of stock"
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if !isSizeLine(trimmed) {
 			continue
 		}
-		// Next line should contain "was £X.XX"
-		if i+1 < len(lines) {
-			nextLine := strings.TrimSpace(lines[i+1])
+		// Skip blank lines to find "was £X.XX"
+		for j := i + 1; j < len(lines) && j <= i+5; j++ {
+			nextLine := strings.TrimSpace(lines[j])
+			if nextLine == "" {
+				continue
+			}
 			lower := strings.ToLower(nextLine)
 			if strings.HasPrefix(lower, "was ") || strings.HasPrefix(lower, "was£") {
 				price := linePrice(nextLine)
@@ -769,11 +778,12 @@ func parseMultiLineVariants(productSection string) []medExtractedVariant {
 					key := fmt.Sprintf("%s_%.2f", trimmed, price)
 					if !seen[key] {
 						seen[key] = true
-						// Check if "out of stock" follows
+						// Check if "out of stock" appears nearby
 						outOfStock := false
-						if i+2 < len(lines) {
-							if strings.Contains(strings.ToLower(lines[i+2]), "out of stock") {
+						for k := j + 1; k < len(lines) && k <= j+3; k++ {
+							if strings.Contains(strings.ToLower(lines[k]), "out of stock") {
 								outOfStock = true
+								break
 							}
 						}
 						variants = append(variants, medExtractedVariant{
@@ -784,6 +794,7 @@ func parseMultiLineVariants(productSection string) []medExtractedVariant {
 					}
 				}
 			}
+			break // found the first non-blank line after size, done
 		}
 	}
 
