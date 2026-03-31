@@ -40,7 +40,7 @@ kubectl -n kafka run -i --rm kcat-med-price-$(date +%s) \
   -H from_agent_type=user \
   -H from_agent_id=cli \
   -H responses_topic=system.agent.business-intel.responses <<JSON
-{"action":"orchestrate","config":{"agent_type":"med-price-collector"},"input_data":{"batch_size":5,"retailer_id":"pet_drugs_online"}}
+{"action":"orchestrate","config":{"agent_type":"med-price-collector"},"input_data":{"batch_size":10}}
 JSON
 
 echo ""
@@ -67,6 +67,11 @@ echo "  WHERE action_name = 'med_scrape_prices'"
 echo "  ORDER BY created_at DESC LIMIT 10;"
 
 
+
+--------------
+-- just one retailer
+{"action":"orchestrate","config":{"agent_type":"med-price-collector"},"input_data":{"batch_size":5,"retailer_id":"pet_drugs_online"}}
+JSON
 
 
 ---------------

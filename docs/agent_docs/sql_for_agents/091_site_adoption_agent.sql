@@ -921,3 +921,16 @@ SET default_config = jsonb_set(
         }'
                      )
 WHERE type = 'site-adoption-agent';
+
+
+---
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_site,config,input_fields}',
+        '["site_record", "formatted_crawl", "input_data"]'
+                     )
+WHERE type = 'site-adoption-agent';
+
+--
