@@ -44,7 +44,7 @@ import (
 
 var PlanSectionsInputSpec = datahelpers.ActionInputSpec{
 	Required:   []string{"site_id"},
-	Optional:   []string{"sections", "page_name", "pipeline", "work_item_id"},
+	Optional:   []string{"sections", "page_name", "pipeline", "work_item_id", "site_type", "page_type"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
 }
@@ -346,6 +346,15 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	pageName := inputs.Get("page_name")
 	workItemID := inputs.Get("work_item_id")
 
+	// site_type and page_type for the component selector fallback path.
+	// If not provided (existing workflows), the selector still works —
+	// it just scores without site/page type relevance bonuses.
+	siteType := inputs.Get("site_type")
+	pageType := inputs.Get("page_type")
+	if pageType == "" {
+		pageType = pageName // fall back to page name as page type
+	}
+
 	// Parse sections list
 	sectionsRaw := inputs.GetRaw("sections")
 	var sectionNames []string
@@ -387,29 +396,91 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	var deferred []sectionPlanItem
 	var skipped []sectionPlanItem
 
+	// Build selector context for the fallback path.
+	// This is only used when a section name doesn't match a component function directly.
+	selCtx := SelectorContext{
+		SiteType: siteType,
+		PageType: pageType,
+		PageName: pageName,
+	}
+
 	for _, sectionName := range sectionNames {
+		// Path 1: Direct function/name lookup (existing behaviour).
+		// All current sites hit this path — their planners output function names.
 		comp, ok := components[sectionName]
-		if !ok {
-			logger.Warn("plan_sections: component not found for section",
-				zap.String("section", sectionName))
-			// Unknown section — let content writer handle it (backward compat)
-			ready = append(ready, sectionPlanItem{
-				Name:   sectionName,
-				Status: "ready",
-				Reason: "no component found — passing to content writer as-is",
-			})
+		if ok {
+			item := planSection(ctx, sectionName, comp, resolver, logger)
+
+			switch item.Status {
+			case "ready":
+				ready = append(ready, item)
+			case "deferred":
+				deferred = append(deferred, item)
+			case "skipped":
+				skipped = append(skipped, item)
+			}
 			continue
 		}
 
-		item := planSection(ctx, sectionName, comp, resolver, logger)
+		// Path 2: Section type selector.
+		// The planner output a section_type (e.g. "provocation-card") rather than
+		// a specific function name. The selector queries content_components by
+		// section_type, scores candidates, and returns the best match.
+		resolved, resolution := resolveSectionComponent(ctx, params.DB, sectionName, selCtx, logger)
+		if resolved != nil {
+			// Selector found a matching component. Its function flows through the
+			// rest of the pipeline exactly as if the planner had specified it directly.
+			item := planSection(ctx, resolved.Function, *resolved, resolver, logger)
+			// Preserve the original section_type name — downstream logging and
+			// the content writer use item.Name as the section identifier.
+			item.Name = sectionName
+			switch item.Status {
+			case "ready":
+				ready = append(ready, item)
+			case "deferred":
+				deferred = append(deferred, item)
+			case "skipped":
+				skipped = append(skipped, item)
+			}
+			continue
+		}
 
-		switch item.Status {
-		case "ready":
-			ready = append(ready, item)
-		case "deferred":
-			deferred = append(deferred, item)
-		case "skipped":
-			skipped = append(skipped, item)
+		// Path 3: No component found anywhere.
+		if resolution == "not_found" {
+			// Create a needs_new_component work item for the component-creator handler.
+			logger.Info("plan_sections: no component for section_type, creating work item",
+				zap.String("section_type", sectionName),
+				zap.String("page", pageName))
+
+			description := fmt.Sprintf("Component needed for section type %q on page %q", sectionName, pageName)
+			err := CreateNeedsNewComponentItem(
+				ctx, params.DB, siteIDStr,
+				sectionName, pageName, description,
+				"", // designDirection — could be extracted from collected_data in future
+				siteType, logger,
+			)
+			if err != nil {
+				logger.Warn("plan_sections: failed to create needs_new_component work item",
+					zap.String("section_type", sectionName),
+					zap.Error(err))
+			}
+
+			deferred = append(deferred, sectionPlanItem{
+				Name:   sectionName,
+				Status: "deferred",
+				Reason: fmt.Sprintf("no component for section_type %q — needs_new_component work item created", sectionName),
+			})
+		} else {
+			// Selector error or unavailable — fall through to content writer (backward compat).
+			// This keeps the same behaviour as before for edge cases where the DB query fails.
+			logger.Warn("plan_sections: selector unavailable, passing section to content writer as-is",
+				zap.String("section", sectionName),
+				zap.String("resolution", resolution))
+			ready = append(ready, sectionPlanItem{
+				Name:   sectionName,
+				Status: "ready",
+				Reason: "selector unavailable — passing to content writer as-is",
+			})
 		}
 	}
 
@@ -493,6 +564,84 @@ func loadComponentSchemas(ctx context.Context, db *sql.DB, sectionNames []string
 	}
 
 	return result
+}
+
+// ============================================================================
+// Section type resolution via component selector
+// ============================================================================
+
+// resolveSectionComponent attempts to find a component for a section name
+// that didn't match any function directly. It queries the component selector
+// by section_type, which scores candidates against the site/page context.
+//
+// Returns the resolved componentInfo and a resolution status string:
+//   - "selected": selector found a match
+//   - "not_found": no components with this section_type exist
+//   - "selector_error": DB query failed
+func resolveSectionComponent(
+	ctx context.Context,
+	db *sql.DB,
+	sectionName string,
+	selCtx SelectorContext,
+	logger *zap.Logger,
+) (*componentInfo, string) {
+
+	candidate, err := SelectComponentByType(ctx, db, sectionName, selCtx, logger)
+	if err != nil {
+		logger.Warn("plan_sections: selector query failed",
+			zap.String("section", sectionName),
+			zap.Error(err))
+		return nil, "selector_error"
+	}
+
+	if candidate == nil {
+		return nil, "not_found"
+	}
+
+	// Selector found a match — load the full component info including input_schema.
+	// The selector only returns metadata; we need the schema for field resolution.
+	comp := loadSingleComponentSchema(ctx, db, candidate.Function, logger)
+	if comp == nil {
+		logger.Warn("plan_sections: selector matched but component load failed",
+			zap.String("section_type", sectionName),
+			zap.String("function", candidate.Function))
+		return nil, "selector_error"
+	}
+
+	// Increment usage count for the selected component
+	IncrementUsageCount(ctx, db, candidate.ID, logger)
+
+	logger.Info("plan_sections: resolved via section_type selector",
+		zap.String("section_type", sectionName),
+		zap.String("resolved_function", candidate.Function),
+		zap.Float64("score", candidate.Score))
+
+	return comp, "selected"
+}
+
+// loadSingleComponentSchema loads one component's schema by function name.
+// Same query pattern as loadComponentSchemas but for a single component.
+func loadSingleComponentSchema(ctx context.Context, db *sql.DB, function string, logger *zap.Logger) *componentInfo {
+	var comp componentInfo
+	var schemaJSON string
+
+	err := db.QueryRowContext(ctx, `
+		SELECT id::text, name, function, COALESCE(input_schema::text, '{}')
+		FROM content_components
+		WHERE function = $1
+		  AND is_active = true
+		LIMIT 1
+	`, function).Scan(&comp.ID, &comp.Name, &comp.Function, &schemaJSON)
+
+	if err != nil {
+		logger.Warn("loadSingleComponentSchema: failed",
+			zap.String("function", function),
+			zap.Error(err))
+		return nil
+	}
+
+	json.Unmarshal([]byte(schemaJSON), &comp.InputSchema)
+	return &comp
 }
 
 // ============================================================================

@@ -964,3 +964,41 @@ SET default_config = jsonb_set(
         '["site_record", "crawl_result", "adoption_analysis"]'
                      )
 WHERE type = 'site-adoption-agent';
+
+---
+
+-- 1. Format step: summary mode (500 chars per page for LLM)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,format_crawl,config}',
+        '{
+            "crawl_field": "crawl_result",
+            "summary_chars_per_page": 500
+        }'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- 2. Lighter prompt (structure only, no existing_content)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_site,config,prompt_template}',
+        '"You are analysing a crawled website to plan its adoption into our website building system.\n\nDomain: {{.site_record.domain}}\n\nCrawled page summaries:\n{{.formatted_crawl.research_text}}\n\nAnalyse this site and produce a JSON object. Respond ONLY with valid JSON, no markdown backticks.\n\n{\n  \"identity\": {\n    \"company_name\": \"extracted company/brand name\",\n    \"tagline\": \"extracted tagline or slogan\",\n    \"industry\": \"detected industry vertical\",\n    \"target_audience\": \"who the site serves\",\n    \"tone\": \"writing tone description\",\n    \"services\": [{\"name\": \"...\", \"description\": \"...\"}]\n  },\n  \"design\": {\n    \"palette\": {\"primary\": \"#hex or description\", \"secondary\": \"#hex or description\", \"accent\": \"#hex or description\", \"background\": \"#hex or description\", \"text\": \"#hex or description\"},\n    \"typography\": {\"heading_font\": \"font name\", \"body_font\": \"font name\"},\n    \"visual_tone\": \"visual style description\"\n  },\n  \"pages\": [\n    {\n      \"name\": \"kebab-case-name\",\n      \"title\": \"Page Title\",\n      \"url\": \"/path/to/page.html\",\n      \"page_type\": \"content|tool|blog-index|blog-post|landing\",\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"nav_label\": \"Nav Label\",\n      \"meta_description\": \"page description\",\n      \"sections\": [\"hero\", \"features\", \"call-to-action\"]\n    }\n  ],\n  \"interactive_features\": [\n    {\"name\": \"feature\", \"type\": \"calculator|search|form|tool\", \"description\": \"what it does\", \"self_contained\": true, \"page\": \"page-name\"}\n  ]\n}\n\nRules:\n- Page names must be kebab-case (index for homepage)\n- Use standard section names: hero, features, call-to-action, generic-text-block, testimonials, pricing, faq, contact-form, guide-list, tool-list, game-list\n- Do NOT include existing_content — content extraction is handled separately\n- Identify interactive features (calculators, search, games, simulations) separately\n- Only include pages that have actual content (skip 404s)\n- Omit interactive_features if none exist"'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- 3. apply_plan needs crawl_result for Go-side content extraction
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,apply_plan,config,input_fields}',
+        '["site_record", "crawl_result", "adoption_analysis"]'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- 4. Clean up gamedesign.uk test data
+DELETE FROM site_work_items WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk');
+DELETE FROM site_specs WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk');
+DELETE FROM research_results WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk');
+DELETE FROM pages WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk');
