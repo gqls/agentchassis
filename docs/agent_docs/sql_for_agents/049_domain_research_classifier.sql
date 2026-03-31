@@ -510,3 +510,184 @@ WHERE type = 'build-site-planner' AND deleted_at IS NULL;
 
 --
 
+-- ============================================================================
+-- Mission-Driven Site Support (Brief-Based)
+-- ============================================================================
+--
+-- Two data formats travel through the pipeline:
+--   mission/roadmap     — structured JSON for machine consumption
+--                         (content writers, plan_sections, component selector)
+--   mission_brief/roadmap_brief — plain text for LLM prompts
+--                         (classifier, planner, any model can read these)
+--
+-- The trigger script writes both. The domain-submitter stores all four
+-- as separate site_spec aspects. Prompts reference the briefs.
+--
+-- Changes:
+--   1. domain-submitter: 4 new persist steps (mission, roadmap, mission_brief, roadmap_brief)
+--   2. classifier prompt: add {{.input_data.mission_brief}} section
+--   3. planner prompt: add {{.site_specs.specs.mission_brief}} and {{.site_specs.specs.roadmap_brief}} sections
+-- ============================================================================
+
+
+-- ============================================================================
+-- 1. DOMAIN-SUBMITTER: Add persist steps for mission data
+-- ============================================================================
+-- Current flow: ensure_site_record → store_contact_info → store_submission_spec → create_research_item → complete
+-- New flow:     ensure_site_record → store_contact_info → store_submission_spec → persist_mission → persist_mission_brief → persist_roadmap → persist_roadmap_brief → create_research_item → complete
+--
+-- Each persist step uses error_step to skip when the field isn't in input_data.
+-- Normal domain submissions (no mission) pass through unchanged.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps}',
+        default_config->'workflow'->'steps'
+            || jsonb_build_object(
+                                            'persist_mission', jsonb_build_object(
+                            'action', 'write_site_spec',
+                            'description', 'Persist structured mission data (skipped if absent)',
+                            'config', jsonb_build_object(
+                                    'aspect', 'mission',
+                                    'source', 'domain-submitter',
+                                    'site_id', 'site_record.site_id',
+                                    'spec_data', 'input_data.mission',
+                                    'source_agent', 'domain-submitter'
+                                      ),
+                            'next_step', 'persist_mission_brief',
+                            'error_step', 'persist_mission_brief',
+                            'output_field', 'mission_stored'
+                                                               ),
+                                            'persist_mission_brief', jsonb_build_object(
+                                                    'action', 'write_site_spec',
+                                                    'description', 'Persist mission brief text for LLM prompts (skipped if absent)',
+                                                    'config', jsonb_build_object(
+                                                            'aspect', 'mission_brief',
+                                                            'source', 'domain-submitter',
+                                                            'site_id', 'site_record.site_id',
+                                                            'spec_data', 'input_data.mission_brief',
+                                                            'source_agent', 'domain-submitter'
+                                                              ),
+                                                    'next_step', 'persist_roadmap',
+                                                    'error_step', 'persist_roadmap',
+                                                    'output_field', 'mission_brief_stored'
+                                                                     ),
+                                            'persist_roadmap', jsonb_build_object(
+                                                    'action', 'write_site_spec',
+                                                    'description', 'Persist structured roadmap data (skipped if absent)',
+                                                    'config', jsonb_build_object(
+                                                            'aspect', 'roadmap',
+                                                            'source', 'domain-submitter',
+                                                            'site_id', 'site_record.site_id',
+                                                            'spec_data', 'input_data.roadmap',
+                                                            'source_agent', 'domain-submitter'
+                                                              ),
+                                                    'next_step', 'persist_roadmap_brief',
+                                                    'error_step', 'persist_roadmap_brief',
+                                                    'output_field', 'roadmap_stored'
+                                                               ),
+                                            'persist_roadmap_brief', jsonb_build_object(
+                                                    'action', 'write_site_spec',
+                                                    'description', 'Persist roadmap brief text for LLM prompts (skipped if absent)',
+                                                    'config', jsonb_build_object(
+                                                            'aspect', 'roadmap_brief',
+                                                            'source', 'domain-submitter',
+                                                            'site_id', 'site_record.site_id',
+                                                            'spec_data', 'input_data.roadmap_brief',
+                                                            'source_agent', 'domain-submitter'
+                                                              ),
+                                                    'next_step', 'create_research_item',
+                                                    'error_step', 'create_research_item',
+                                                    'output_field', 'roadmap_brief_stored'
+                                                                     )
+               )
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-submitter' AND is_active = true;
+
+-- Wire store_submission_spec → persist_mission (instead of → create_research_item)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_submission_spec,next_step}',
+        '"persist_mission"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-submitter' AND is_active = true;
+
+
+-- ============================================================================
+-- 2. CLASSIFIER: Add mission_brief to prompt
+-- ============================================================================
+-- The classifier receives input_data directly from the trigger.
+-- mission_brief is a flat text string — no nested access needed.
+-- When absent, the {{if}} block renders empty. Existing sites unaffected.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_and_extract,config,prompt_template}',
+        to_jsonb(
+                E'You are analyzing a domain for website creation.\n\nDomain: {{.input_data.domain}}\nObjective: {{if .input_data.objective}}{{.input_data.objective}}{{else}}Not specified — infer from domain name and research{{end}}\n\n{{if .input_data.mission_brief}}## Pre-Defined Mission\nThis site has a strategic mission provided by the owner. Use this as STRONG guidance for identity, tone, positioning, and design direction. The research below validates and supplements — the mission is the primary source.\n\n{{.input_data.mission_brief}}\n{{end}}\n{{if .input_data.roadmap_brief}}## Roadmap\n{{.input_data.roadmap_brief}}\n{{end}}\nSearch Results:\n{{.search_results}}\n\nScraped Website Content:\n{{.scraped_data}}\n\nAnalyze everything and return a JSON object with FOUR sections:\n\n1. \"identity\" — what we know about this entity:\n```json\n{\n  \"company_name\": \"Best guess at company/brand name\",\n  \"tagline\": \"Tagline if found, null otherwise\",\n  \"industry\": \"Primary industry/sector\",\n  \"sub_industry\": \"More specific classification\",\n  \"about_summary\": \"2-3 sentence summary of what this company does\",\n  \"services\": [{\"name\": \"Service 1\", \"description\": \"Brief desc\"}],\n  \"contact\": {\n    \"email\": \"if found\",\n    \"phone\": \"if found\",\n    \"address\": \"if found\",\n    \"location\": \"city/region if found\"\n  },\n  \"has_existing_site\": true/false,\n  \"existing_site_quality\": \"good/adequate/poor/none\",\n  \"social_profiles\": {\"linkedin\": \"url\", \"twitter\": \"url\"},\n  \"key_people\": [{\"name\": \"Name\", \"role\": \"Role\"}],\n  \"unique_selling_points\": [\"USP 1\", \"USP 2\"],\n  \"target_audience\": \"Description of likely target audience\",\n  \"competitors_found\": [\"competitor1.com\", \"competitor2.com\"]\n}\n```\n\n2. \"classification\" — what kind of site to build:\n```json\n{\n  \"site_type\": \"brochure|landing|portfolio|content|ecommerce|tools|interactive-platform\",\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"Why this site type fits\",\n  \"recommended_builder\": \"pageflow-builder\",\n  \"page_count_estimate\": 4-8,\n  \"detected_signals\": [\"signal1\", \"signal2\"],\n  \"tone_suggestion\": \"professional|friendly|bold|technical|editorial|game-like|energetic\",\n  \"suggested_style\": \"professional-dark|modern-light|bold-creative|etc\"\n}\n```\n\n3. \"content_direction\" — how content should be written:\n```json\n{\n  \"voice\": \"How the brand should sound\",\n  \"tone\": \"professional|friendly|bold|technical|editorial|conversational|game-like\",\n  \"emphasis\": \"What to emphasise across all content\",\n  \"avoid_phrases\": [\"corporate jargon to avoid\"],\n  \"social_proof_style\": \"How to handle testimonials\",\n  \"trust_signals\": \"What authority signals this industry needs\"\n}\n```\n\n4. \"design_intent\" — visual direction:\n```json\n{\n  \"style_direction\": \"professional-dark|modern-light|bold-creative\",\n  \"colour_mood\": \"Description of colour feeling and why\",\n  \"typography_mood\": \"Font personality description\",\n  \"imagery_direction\": \"What images should convey\",\n  \"layout_preference\": \"Layout style\",\n  \"avoid\": [\"Design elements to avoid\"]\n}\n```\n\nIMPORTANT:\n- If a mission is provided above, derive identity/tone/design from it. Research validates.\n- If no mission, infer everything from domain name, research, and objective.\n- If no existing site found, infer from the domain name.\n- Be specific about industry — \"veterinary practice\" not just \"healthcare\".\n- For interactive-platform or novel site types, use those in site_type rather than forcing brochure.\n- recommended_builder should always be \"pageflow-builder\" for now.\n\nReturn ONLY valid JSON with identity, classification, content_direction, and design_intent keys.'
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND is_active = true;
+
+
+-- ============================================================================
+-- 3. PLANNER: Add mission_brief and roadmap_brief to prompt
+-- ============================================================================
+-- The planner reads from site_specs. mission_brief and roadmap_brief are
+-- flat text strings stored as their own aspects.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        to_jsonb(
+                E'Plan a website for {{.input_data.domain}}.\n\n## Research Data\nIdentity: {{.site_specs.specs.identity}}\nClassification: {{.site_specs.specs.classification}}\n\n## Domain Strategy\n{{if .site_specs.specs.strategy}}{{.site_specs.specs.strategy}}{{else}}No strategy data available — use the briefing and classification to determine site structure.{{end}}\n\n## Briefing Answers\n{{.site_specs.specs.briefing}}\n\n{{if .site_specs.specs.mission_brief}}## Mission\n{{.site_specs.specs.mission_brief}}\n{{end}}\n{{if .site_specs.specs.roadmap_brief}}## Roadmap\nBuild ONLY what is in the current phase described below. When pages list section_types, use those in the sections arrays. Section types that do not match existing component names will be resolved by the component selector — output them as-is. Do NOT invent pages beyond what the current phase specifies.\n\n{{.site_specs.specs.roadmap_brief}}\n{{end}}\n## Available Section Components\nYou MUST use ONLY these exact component names in the \"sections\" arrays (unless the roadmap specifies section_types — those override):\n\n{{range .available_components}}\n- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}\n{{end}}\n\n## Available Style Collections\n{{.available_styles}}\n\n## Canonical Page Types\n\nEvery page MUST have a page_type from this list:\n\n| page_type | Description | Use for |\n|-----------|-------------|----------|\n| `index` | Home page | Always exactly one |\n| `content` | Standard content page | About, services, contact, FAQ, etc |\n| `landing` | Conversion-focused page | Lead capture, specific offers |\n| `entity-directory` | Searchable directory of entities | Business listings, provider directories |\n| `entity-page` | Individual entity profile | Single business/provider detail page |\n| `tool` | Interactive tool or calculator | Cost calculators, comparison tools |\n| `blog-index` | Blog/news listing page | Article index, news feed |\n| `blog-post` | Individual blog article | Editorial content, guides |\n\nNot all page types have builders available yet. Plan the IDEAL site regardless — the build system handles which pages can be built now vs later.\n\n## Strategy Guidance\n\nIf a domain strategy is available above, use it as strong input:\n- The recommended site_type should guide the overall structure\n- The recommended page_types should inform which pages you plan\n- The revenue model should shape what conversion/lead-capture mechanisms you include\n- The tone should influence your style_collection choice\n\nYou have FINAL SAY on architecture. If you disagree with the strategy, go with your judgment but note why in strategy_notes.\n\nReturn JSON:\n```json\n{\n  \"site_type\": \"from the strategy, roadmap, or your own assessment\",\n  \"strategy_notes\": \"any notes on how you used or diverged from the strategy/roadmap\",\n  \"pages\": [\n    {\n      \"name\": \"index\",\n      \"title\": \"Page Title | Site Name\",\n      \"page_type\": \"index\",\n      \"nav_label\": \"Home\",\n      \"nav_order\": 1,\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"sections\": [\"hero\", \"features\", \"testimonials\", \"call-to-action\"]\n    }\n  ],\n  \"style_collection\": \"style-name\",\n  \"needs_logo\": true,\n  \"needs_images\": true,\n  \"image_prompts\": {\n    \"logo\": \"Description for logo generation\",\n    \"hero_home\": \"Description for home hero image\"\n  },\n  \"design_intent\": {\n    \"style_direction\": \"professional-dark or modern-light or bold-creative\",\n    \"colour_mood\": \"Description of colour feeling and why it fits the industry\",\n    \"typography_mood\": \"Description of font personality\",\n    \"imagery_direction\": \"What images should show\",\n    \"layout_preference\": \"Layout style description\",\n    \"avoid\": [\"Things to avoid in design\"]\n  },\n  \"content_direction\": {\n    \"voice\": \"How the site should sound\",\n    \"emphasis\": \"What to emphasise in content\",\n    \"avoid_phrases\": [\"Phrases to never use\"],\n    \"social_proof_style\": \"How to handle testimonials and proof\",\n    \"blog_strategy\": \"Content strategy for blog if applicable\"\n  }\n}\n```\n\nRULES:\n1. Use component names from the Available Section Components list for sections arrays — UNLESS the roadmap specifies section_types, in which case use those\n2. Every page MUST have a page_type from the canonical list\n3. Pages with page_type entity-directory, entity-page, tool, blog-index, blog-post may have empty sections arrays\n4. Content and index pages need sections arrays populated\n5. Always include: index (home) and contact pages (unless the roadmap says otherwise)\n6. Keep header navigation to 5-8 items maximum\n7. Set needs_logo: true and needs_images: true (always)\n8. Provide detailed image_prompts for logo and hero_home\n9. Include design_intent with explicit colour mood, typography direction, and layout preferences\n10. Include content_direction with voice, emphasis, and avoid_phrases tailored to the target audience\n11. If the classification data includes content_features.news_feed.recommended = true, add \"latest-news\" to the homepage sections\n12. When a roadmap is present, the pages and section_types from the current phase take precedence over your own page planning\n\nReturn ONLY valid JSON.'
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-site-planner' AND is_active = true;
+
+
+-- ============================================================================
+-- Verification
+-- ============================================================================
+
+-- Verify domain-submitter flow
+SELECT key as step_name, value->>'next_step' as next_step, value->>'error_step' as error_step
+FROM agent_definitions, jsonb_each(default_config->'workflow'->'steps')
+WHERE type = 'domain-submitter' AND is_active = true
+ORDER BY
+    CASE key
+    WHEN 'ensure_site_record' THEN 1
+    WHEN 'store_contact_info' THEN 2
+    WHEN 'store_submission_spec' THEN 3
+    WHEN 'persist_mission' THEN 4
+    WHEN 'persist_mission_brief' THEN 5
+    WHEN 'persist_roadmap' THEN 6
+    WHEN 'persist_roadmap_brief' THEN 7
+    WHEN 'create_research_item' THEN 8
+    WHEN 'complete' THEN 9
+END;
+
+-- Verify classifier prompt uses mission_brief (flat string, no nesting)
+SELECT
+    default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template' LIKE '%mission_brief%' as uses_brief_not_structured,
+    default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template' NOT LIKE '%mission.mission%' as no_nested_access,
+    default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template' LIKE '%interactive-platform%' as has_interactive_type
+FROM agent_definitions
+WHERE type = 'domain-research-classifier' AND is_active = true;
+
+-- Verify planner prompt uses roadmap_brief (flat string, no nesting)
+SELECT
+    default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template' LIKE '%roadmap_brief%' as uses_brief_not_structured,
+    default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template' LIKE '%mission_brief%' as has_mission_brief,
+    default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template' NOT LIKE '%roadmap.current_phase%' as no_nested_access
+FROM agent_definitions
+WHERE type = 'build-site-planner' AND is_active = true;
+

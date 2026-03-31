@@ -1285,6 +1285,37 @@ ALTER TABLE llm_call_log ALTER COLUMN prompt_rendered DROP NOT NULL;
 
 **Broader lesson:** Fire-and-forget patterns need explicit verification. The goroutine swallows errors gracefully (by design — logging should never block the workflow), but this means you must actively check that rows are appearing, not assume silence means success.
 
+
+## 15. PostgreSQL to_jsonb() fails with "could not determine polymorphic type"
+
+**Symptom:** `UPDATE agent_definitions SET default_config = jsonb_set(..., to_jsonb(E'long string'))`
+fails with `could not determine polymorphic type because input has type unknown`.
+
+**Root cause:** `to_jsonb()` is a polymorphic function — it accepts `anyelement`. When PostgreSQL
+sees an untyped string literal (even with E'' prefix), it can't infer which overload to use.
+
+**Fix:** Cast the string explicitly:
+```sql
+-- WRONG: untyped literal
+to_jsonb(E'some text with \n newlines')
+
+-- WRONG: E-string without cast  
+to_jsonb(E'...'::text)  -- sometimes works, sometimes doesn't
+
+-- RIGHT: plain string with explicit cast
+to_jsonb('multi-line
+string content
+goes here'::text)
+```
+
+**Rule:** Always use `to_jsonb('...'::text)` when converting string literals to JSONB.
+Use plain single-quoted strings with real newlines rather than E-strings with `\n` —
+they're easier to read and avoid the escaping layer. PostgreSQL handles multi-line
+single-quoted strings natively.
+
+**When you hit this:** Any `jsonb_set()` call that stores a prompt template or large
+text value in an agent definition. Happens frequently when updating LLM prompts.
+
 ---
 
 ## Summary of rules for the dev guide
@@ -1303,3 +1334,4 @@ ALTER TABLE llm_call_log ALTER COLUMN prompt_rendered DROP NOT NULL;
 12. **Match spec keys to input_mapping** — if dispatch maps `page_name?`, spec must contain `page_name`
 13. **Verify fire-and-forget logging** — goroutine errors are invisible, always check `SELECT COUNT(*)` after deploy
 14. **Test INSERT against actual schema** — column name drift between SQL migrations and Go code is common
+15. PostgreSQL to_jsonb() fails with "could not determine polymorphic type"

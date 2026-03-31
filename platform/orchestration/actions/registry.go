@@ -1041,6 +1041,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Format Firecrawl crawl output into readable text for LLM analysis",
 		IsLocal:     true,
 	},
+	"load_existing_content": {
+		Handler:     LoadExistingContentAction,
+		Category:    "site",
+		Description: "Load existing page content from research_results for recreate mode",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// New Components

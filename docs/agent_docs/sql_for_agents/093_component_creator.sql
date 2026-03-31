@@ -195,3 +195,22 @@ Respond with ONLY a JSON object (no markdown fences, no preamble) containing:
 --     Description: "Store a generated component template in the component library",
 --     IsLocal:     true,
 -- },
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_template,config}',
+        '{
+            "ai_service": {
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-5",
+                "api_key_env_var": "ANTHROPIC_API_KEY",
+                "max_tokens": 4000
+            },
+            "input_fields": ["input_data"]
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'component-creator';
+
+--
+

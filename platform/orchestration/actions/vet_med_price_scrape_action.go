@@ -555,13 +555,21 @@ func parseMedPriceVariants(markdown string, inStock bool) []medExtractedVariant 
 		}
 	}
 
+	// Multi-line fallback: handles VioVet, Hyperdrug, Animed formats
+	// that can't be captured by single-line regex.
+	// Must run BEFORE standalone price — otherwise Hyperdrug's default
+	// price (£21.95 for 100ml) matches as a single "standard" variant
+	// and the multi-line parser never gets to find the other 3 sizes.
+	if len(variants) == 0 {
+		variants = parseMultiLineVariants(productSection)
+	}
+
 	// Last resort: standalone £XX.XX on its own line
 	if len(variants) == 0 {
 		standaloneMatch := medStandalonePricePattern.FindStringSubmatch(productSection)
 		if standaloneMatch != nil {
 			price := parsePoundValue(standaloneMatch[1])
 			if price > 0 {
-				// Try to find TVP nearby
 				var tvp float64
 				tvpMatch := medTVPBeforeLabelPattern.FindStringSubmatch(productSection)
 				if tvpMatch != nil {
@@ -627,6 +635,159 @@ func extractProductSection(markdown string) string {
 	}
 
 	return markdown[:cutoff]
+}
+
+// linePrice extracts a price from a line like "£16.73" or "£16.73 / 10ml" or "was £16.73".
+// Returns 0 if no price found.
+var linePricePattern = regexp.MustCompile(`£([\d,]+\.?\d*)`)
+
+func linePrice(line string) float64 {
+	m := linePricePattern.FindStringSubmatch(line)
+	if m == nil {
+		return 0
+	}
+	return parsePoundValue(m[1])
+}
+
+// isSizeLine checks if a line looks like a product size/variant label.
+var sizePattern = regexp.MustCompile(`(?i)\d+\s*(ml|mg|g|kg|tabs?|tablets?|capsules?|pipettes?|chewable|bottle)`)
+
+func isSizeLine(line string) bool {
+	return sizePattern.MatchString(line)
+}
+
+// parseMultiLineVariants handles retailer formats where size and price
+// are on separate lines. Covers:
+//
+//	VioVet:    "- Dog » 100ml Bottle\n\n£16.73"
+//	Hyperdrug: "- 10ml\n...\n£3.99"
+//	Animed:    "100ml\nwas £16.95\nOut of stock"
+func parseMultiLineVariants(productSection string) []medExtractedVariant {
+	lines := strings.Split(productSection, "\n")
+	var variants []medExtractedVariant
+	seen := map[string]bool{} // deduplicate by size+price
+
+	// === Strategy 1: VioVet format ===
+	// "- Species » Size" followed by "£Price" within next 3 lines
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "- ") || !strings.Contains(trimmed, "»") {
+			continue
+		}
+
+		// Parse "- Dog » 100ml Bottle" or "- Cats & Guinea Pigs » 3ml Bottle"
+		parts := strings.SplitN(trimmed[2:], "»", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		// species := strings.TrimSpace(parts[0]) // available for filtering later
+		sizeLabel := strings.TrimSpace(parts[1])
+		if sizeLabel == "" || !isSizeLine(sizeLabel) {
+			continue
+		}
+
+		// Look for price in next 3 non-empty lines
+		for j := i + 1; j < len(lines) && j <= i+3; j++ {
+			price := linePrice(strings.TrimSpace(lines[j]))
+			if price > 0 {
+				key := fmt.Sprintf("%s_%.2f", sizeLabel, price)
+				if !seen[key] {
+					seen[key] = true
+					variants = append(variants, medExtractedVariant{
+						SizeVariant: sizeLabel,
+						Price:       price,
+						InStock:     true,
+					})
+				}
+				break
+			}
+		}
+	}
+	if len(variants) > 0 {
+		return variants
+	}
+
+	// === Strategy 2: Hyperdrug format ===
+	// "- SIZE" followed by "£Price" within next 8 lines (lots of blank lines between)
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "- ") {
+			continue
+		}
+
+		label := strings.TrimSpace(trimmed[2:])
+		if !isSizeLine(label) {
+			continue
+		}
+
+		// Look forward for the next £ amount
+		for j := i + 1; j < len(lines) && j <= i+12; j++ {
+			nextLine := strings.TrimSpace(lines[j])
+			// Skip blank lines and status text
+			if nextLine == "" || strings.Contains(strings.ToLower(nextLine), "in stock") ||
+				strings.Contains(strings.ToLower(nextLine), "despatched") {
+				continue
+			}
+			price := linePrice(nextLine)
+			if price > 0 {
+				stock := !strings.Contains(strings.ToLower(productSection), "out of stock")
+				key := fmt.Sprintf("%s_%.2f", label, price)
+				if !seen[key] {
+					seen[key] = true
+					variants = append(variants, medExtractedVariant{
+						SizeVariant: label,
+						Price:       price,
+						InStock:     stock,
+					})
+				}
+				break
+			}
+			// If we hit another "- " line, stop looking
+			if strings.HasPrefix(nextLine, "- ") {
+				break
+			}
+		}
+	}
+	if len(variants) > 0 {
+		return variants
+	}
+
+	// === Strategy 3: Animed format ===
+	// "SIZE\nwas £Price\nOut of stock" — products all out of stock
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !isSizeLine(trimmed) {
+			continue
+		}
+		// Next line should contain "was £X.XX"
+		if i+1 < len(lines) {
+			nextLine := strings.TrimSpace(lines[i+1])
+			lower := strings.ToLower(nextLine)
+			if strings.HasPrefix(lower, "was ") || strings.HasPrefix(lower, "was£") {
+				price := linePrice(nextLine)
+				if price > 0 {
+					key := fmt.Sprintf("%s_%.2f", trimmed, price)
+					if !seen[key] {
+						seen[key] = true
+						// Check if "out of stock" follows
+						outOfStock := false
+						if i+2 < len(lines) {
+							if strings.Contains(strings.ToLower(lines[i+2]), "out of stock") {
+								outOfStock = true
+							}
+						}
+						variants = append(variants, medExtractedVariant{
+							SizeVariant: trimmed,
+							Price:       price,
+							InStock:     !outOfStock,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return variants
 }
 
 // parsePoundValue parses "17.48" or "1,234.56" to float64.
