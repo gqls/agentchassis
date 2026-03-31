@@ -11,6 +11,9 @@ URL="${2:-https://$DOMAIN}"
 DOMAIN='robot-hands.com'
 URL='https://robot-hands.com'
 
+DOMAIN='gamedesign.uk'
+URL='https://gamedesign.uk'
+
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)

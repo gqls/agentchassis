@@ -1,12 +1,12 @@
 // FILE: platform/orchestration/actions/apply_adoption_plan_action.go
 //
-// ApplyAdoptionPlanAction takes the LLM's structured analysis of a crawled site
+// ApplyAdoptionPlanAction takes the LLM's structural analysis of a crawled site
 // and creates everything needed to rebuild it: site_specs, page records, and
 // work items.
 //
-// The full crawl analysis is stored in research_results for reference/revert.
-// Specs contain only clean, forward-looking data — not raw crawl dumps.
-// The identity spec includes an adopted_from field for provenance.
+// The LLM provides structure (pages, identity, design) — lightweight classification.
+// Content extraction is done here in Go from the raw crawl markdown — no LLM needed,
+// no token limits, deterministic.
 //
 // Registration:
 //   "apply_adoption_plan": {
@@ -15,11 +15,6 @@
 //       Description: "Create specs, pages, and work items from site adoption analysis",
 //       IsLocal:     true,
 //   },
-//
-// Data inputs (via ActionInputSpec):
-//   - site_id (required)
-//   - domain (required)
-//   - adoption_plan (required) — structured LLM output
 
 package actions
 
@@ -72,7 +67,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 
 	domain := inputs.Get("domain")
 
-	// ── Parse adoption plan ─────────────────────────────────────────────
+	// ── Parse adoption plan (LLM output) ────────────────────────────────
 	planField := "adoption_analysis"
 	if pf, ok := params.StepConfig.Config["adoption_plan"].(string); ok && pf != "" {
 		planField = pf
@@ -91,8 +86,12 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("adoption plan not found — check adoption_plan config path")
 	}
 
+	// Use existing UnwrapDeep to handle {"type":"text","result":"...json..."}
+	// This handles both map results and JSON string results
+	unwrapped := datahelpers.UnwrapDeep(planRaw, logger)
+
 	var plan map[string]interface{}
-	switch v := planRaw.(type) {
+	switch v := unwrapped.(type) {
 	case map[string]interface{}:
 		plan = v
 	case string:
@@ -102,17 +101,16 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		cleaned = strings.TrimSuffix(cleaned, "```")
 		cleaned = strings.TrimSpace(cleaned)
 		if err := json.Unmarshal([]byte(cleaned), &plan); err != nil {
-			return nil, fmt.Errorf("failed to parse adoption plan JSON: %w", err)
+			return nil, fmt.Errorf("failed to parse adoption plan JSON: %w (tail: %s)",
+				err, func() string {
+					if len(cleaned) > 100 {
+						return cleaned[len(cleaned)-100:]
+					}
+					return cleaned
+				}())
 		}
 	default:
-		return nil, fmt.Errorf("unexpected adoption plan type: %T", planRaw)
-	}
-
-	// execute_llm_prompt wraps output in {"type": "json", "result": {...}}
-	// Unwrap if present
-	if result, ok := plan["result"].(map[string]interface{}); ok {
-		logger.Info("ApplyAdoptionPlanAction: unwrapping result envelope")
-		plan = result
+		return nil, fmt.Errorf("unexpected adoption plan type after unwrap: %T", unwrapped)
 	}
 
 	logger.Info("ApplyAdoptionPlanAction: parsed plan",
@@ -139,8 +137,6 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	itemsCreated := 0
 
 	// ── 1. Store full analysis in research_results ──────────────────────
-	// This preserves the raw crawl analysis for future reference/revert.
-	// Not in site_specs — specs stay clean and forward-looking.
 
 	planJSON, _ := json.Marshal(plan)
 	var researchID uuid.UUID
@@ -161,15 +157,12 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	).Scan(&researchID)
 	if err != nil {
 		logger.Warn("Failed to store adoption research", zap.Error(err))
-		// Non-fatal — continue with the adoption even if research storage fails
 	} else {
 		logger.Info("Adoption research stored",
 			zap.String("research_id", researchID.String()))
 	}
 
 	// ── 2. Write site_specs ─────────────────────────────────────────────
-	// Identity includes adopted_from for provenance.
-	// No adoption_source spec — the raw data is in research_results.
 
 	identityData, _ := plan["identity"].(map[string]interface{})
 	if identityData == nil {
@@ -212,13 +205,11 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			continue
 		}
 
-		// Supersede existing
 		_, _ = tx.ExecContext(ctx, `
 			UPDATE site_specs SET is_current = false, superseded_at = now()
 			WHERE site_id = $1 AND aspect = $2 AND is_current = true
 		`, siteID, aspect)
 
-		// Insert new
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO site_specs (
 				site_id, aspect, data, source, source_agent,
@@ -240,7 +231,12 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		logger.Info("Spec written", zap.String("aspect", aspect))
 	}
 
-	// ── 3. Create page records ──────────────────────────────────────────
+	// ── 3. Build crawl page index for content extraction ────────────────
+	// Extract existing_content directly from crawl markdown (Go, no LLM)
+
+	crawlPages := buildCrawlPageIndex(params.CollectedData, logger)
+
+	// ── 4. Create page records ──────────────────────────────────────────
 
 	pagesRaw, _ := plan["pages"].([]interface{})
 
@@ -287,7 +283,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 
 		metaDesc, _ := pm["meta_description"].(string)
 
-		// Parse sections
+		// Parse sections from LLM plan
 		sections := []string{}
 		if sectionsRaw, ok := pm["sections"].([]interface{}); ok {
 			for _, s := range sectionsRaw {
@@ -333,9 +329,23 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			continue
 		}
 
-		// Store existing_content per page in research_results
-		// This is reference data for the content writer, not a spec
-		if existingContent, ok := pm["existing_content"]; ok && existingContent != nil {
+		// Extract existing_content from crawl markdown (Go, not LLM)
+		// Match by URL — the LLM told us the URL, the crawl has markdown per URL
+		existingContent := pm["existing_content"] // LLM may have included some
+		if existingContent == nil {
+			// Try to extract from crawl data by matching URL
+			if crawlMarkdown, found := crawlPages[pageURL]; found {
+				existingContent = map[string]interface{}{
+					"raw_markdown": crawlMarkdown,
+				}
+			} else if crawlMarkdown, found := crawlPages[domain+pageURL]; found {
+				existingContent = map[string]interface{}{
+					"raw_markdown": crawlMarkdown,
+				}
+			}
+		}
+
+		if existingContent != nil {
 			pageContentJSON, _ := json.Marshal(map[string]interface{}{
 				"page_name":        pageName,
 				"page_id":          pageID.String(),
@@ -369,9 +379,8 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		pagesCreated++
 	}
 
-	// ── 4. Create work items ────────────────────────────────────────────
+	// ── 5. Create work items ────────────────────────────────────────────
 
-	// Design item — generates CSS from extracted palette/typography
 	designSpec := map[string]interface{}{
 		"mode":         "recreate",
 		"adopted_from": domain,
@@ -399,7 +408,6 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		itemsCreated++
 	}
 
-	// Content page items — one per page
 	for i, page := range adoptedPages {
 		pageSpec := map[string]interface{}{
 			"page_name": page.Name,
@@ -422,7 +430,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			fmt.Sprintf("Recreate %s page from %s", page.Name, domain),
 			string(pageSpecJSON),
 			page.ID,
-			10+i, // priority: pages build in order
+			10+i,
 			fmt.Sprintf("adoption_page_%s_%s", page.Name, siteID),
 			batchID)
 		if err == nil {
@@ -430,7 +438,6 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		}
 	}
 
-	// Rerender item — runs after all pages are built
 	rerenderSpec, _ := json.Marshal(map[string]interface{}{
 		"refresh_site_components": true,
 		"reason":                  "post_adoption_assembly",
@@ -475,4 +482,79 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		"batch_id":      batchID.String(),
 		"research_id":   researchID.String(),
 	}, nil
+}
+
+// buildCrawlPageIndex extracts markdown content from the raw crawl response
+// keyed by URL path. This avoids needing the LLM to echo back content.
+func buildCrawlPageIndex(collectedData map[string]interface{}, logger *zap.Logger) map[string]string {
+	index := make(map[string]string)
+
+	// Try multiple paths to find crawl pages
+	paths := []string{
+		"crawl_result.pages",
+		"crawl_result.response.data.pages",
+		"crawl_result.body.data.pages",
+		"crawl_result.data.pages",
+	}
+
+	var pages []interface{}
+	for _, path := range paths {
+		raw := datahelpers.ExtractNestedField(collectedData, path)
+		if raw != nil {
+			if arr, ok := raw.([]interface{}); ok && len(arr) > 0 {
+				pages = arr
+				break
+			}
+		}
+	}
+
+	for _, pageRaw := range pages {
+		page, ok := pageRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		markdown, _ := page["markdown"].(string)
+		if markdown == "" {
+			continue
+		}
+
+		// Skip error pages
+		if strings.Contains(markdown, "NoSuchKey") {
+			continue
+		}
+
+		metadata, _ := page["metadata"].(map[string]interface{})
+		pageURL, _ := metadata["url"].(string)
+		sourceURL, _ := metadata["sourceURL"].(string)
+		statusCode, _ := metadata["statusCode"].(float64)
+
+		if statusCode != 0 && statusCode != 200 {
+			continue
+		}
+
+		// Index by multiple URL forms for matching
+		if pageURL != "" {
+			index[pageURL] = markdown
+			// Also index by path only (strip domain)
+			for _, prefix := range []string{"https://", "http://"} {
+				if strings.HasPrefix(pageURL, prefix) {
+					afterScheme := pageURL[len(prefix):]
+					slashIdx := strings.Index(afterScheme, "/")
+					if slashIdx >= 0 {
+						index[afterScheme[slashIdx:]] = markdown
+					}
+				}
+			}
+		}
+		if sourceURL != "" && sourceURL != pageURL {
+			index[sourceURL] = markdown
+		}
+	}
+
+	logger.Info("Built crawl page index",
+		zap.Int("indexed_urls", len(index)),
+		zap.Int("raw_pages", len(pages)))
+
+	return index
 }
