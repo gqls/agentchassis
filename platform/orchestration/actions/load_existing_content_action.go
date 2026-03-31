@@ -61,14 +61,6 @@ func LoadExistingContentAction(ctx context.Context, params ActionParams) (interf
 
 	// Check if this is a recreate mode page
 	mode := inputs.Get("mode")
-	if mode == "" {
-		// Check work item spec
-		if spec, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-			if specInner, ok := spec["spec"].(map[string]interface{}); ok {
-				mode, _ = specInner["mode"].(string)
-			}
-		}
-	}
 
 	if mode != "recreate" {
 		logger.Info("LoadExistingContent: not recreate mode, skipping",

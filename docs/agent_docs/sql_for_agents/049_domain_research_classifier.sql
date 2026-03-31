@@ -691,3 +691,136 @@ SELECT
 FROM agent_definitions
 WHERE type = 'build-site-planner' AND is_active = true;
 
+-- ============================================================================
+-- Wire existing content into page-build-handler and content writer
+-- ============================================================================
+--
+-- 1. page-build-handler: add load_existing_content step
+-- 2. page-build-handler: pass existing_content to content writer
+-- 3. page-content-writer: add existing_content to section loop prompt
+--
+-- ============================================================================
+
+-- ── 1. Add load_existing_content step to page-build-handler ─────────────
+-- Inserts between check_page_found and plan_sections
+
+-- First: redirect check_page_found → load_existing_content (was → plan_sections)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_page_found,config,then_step}',
+        '"load_existing_content"'
+                     )
+WHERE type = 'page-build-handler';
+
+-- Then: add the new step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_existing_content}',
+        '{
+            "action": "load_existing_content",
+            "config": {
+                "site_id": "site_record.site_id",
+                "page_name": "page_record.name",
+                "page_id": "page_record.id",
+                "mode": "input_data.spec.mode"
+            },
+            "output_field": "existing_content",
+            "next_step": "plan_sections",
+            "error_step": "plan_sections",
+            "description": "Load existing page content from adoption crawl if mode is recreate"
+        }'
+                     )
+WHERE type = 'page-build-handler';
+
+-- ── 2. Pass existing_content to content writer via input_mapping ────────
+-- Add existing_content to the call_content_writer input_mapping
+-- Uses ? suffix because non-adoption pages won't have this in collected_data
+-- (per guidelines: item-type-specific fields in input_mapping must use ?)
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_content_writer,config,input_mapping,"existing_content?"}',
+        '"existing_content"'
+                     )
+WHERE type = 'page-build-handler';
+
+-- Also pass the mode from the work item spec
+-- Uses ? suffix because non-adoption work items have no spec.mode
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_content_writer,config,input_mapping,"build_mode?"}',
+        '"input_data.spec.mode"'
+                     )
+WHERE type = 'page-build-handler';
+
+-- ── 3. Add existing_content to content writer prompt ────────────────────
+-- The generate_content step needs existing_content in input_fields
+-- and a conditional block in the prompt template
+
+-- Add to input_fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,input_fields}',
+        '["current_section", "render_context", "reviewed_brief", "current_page", "link_context", "site_plan", "site_specs", "existing_content", "build_mode"]'
+                     )
+WHERE type = 'page-content-writer';
+
+-- ============================================================================
+-- NOTE: The prompt_template update below prepends a recreate-mode block.
+-- It uses {{if .existing_content.has_existing}} to conditionally include
+-- the adoption content. For non-adopted pages this block is skipped entirely.
+--
+-- Because the prompt is very long and we don't want to replace the whole thing,
+-- we prepend the recreate block to the existing prompt by reading current value
+-- and concatenating. But jsonb_set with string concat is awkward in SQL.
+--
+-- Simpler approach: update just the prompt_template with the full new value.
+-- The existing prompt is preserved below with the recreate block added at the
+-- end before the STRICT RULES section.
+-- ============================================================================
+
+-- We add the existing content block just before "## STRICT RULES"
+-- by appending to the prompt template. This is the cleanest SQL approach.
+
+-- First, let's verify the current prompt contains "## STRICT RULES"
+-- then inject the recreate block before it.
+
+DO $$
+DECLARE
+current_prompt text;
+    new_prompt text;
+    recreate_block text;
+BEGIN
+    -- Get current prompt
+SELECT default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template'
+INTO current_prompt
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+
+-- The recreate block to inject
+recreate_block := E'\n\n{{if .existing_content}}{{if .existing_content.has_existing}}\n## EXISTING CONTENT — Recreate Mode\nThis page is being adopted from an existing site. Below is the original content from the page.\nYour task for this section: find the content relevant to the "{{.current_section.category}}" section and adapt it to fit the JSON schema above.\n\nPrioritise preserving the original meaning and information. Adapt the structure to match the required JSON field names.\nIf the existing content does not have material relevant to this section, generate fresh content as you normally would.\n\nOriginal page content:\n{{.existing_content.raw_markdown}}\n{{end}}{{end}}';
+
+    -- Inject before ## STRICT RULES
+    IF position('## STRICT RULES' in current_prompt) > 0 THEN
+        new_prompt := replace(current_prompt, '## STRICT RULES', recreate_block || E'\n## STRICT RULES');
+ELSE
+        -- Fallback: append at end
+        new_prompt := current_prompt || recreate_block;
+END IF;
+
+    -- Update the prompt
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,prompt_template}',
+        to_jsonb(new_prompt)
+                     )
+WHERE type = 'page-content-writer';
+
+RAISE NOTICE 'Prompt updated. Recreate block injected before STRICT RULES.';
+END $$;
