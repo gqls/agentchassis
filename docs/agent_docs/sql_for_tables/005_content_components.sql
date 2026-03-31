@@ -9441,3 +9441,236 @@ WHERE component_level = 'tool'
 -- SELECT function, component_level FROM content_components
 -- WHERE section_type IS NULL AND is_active = true AND forked_from IS NULL;
 
+---
+-- create our own components backfill
+-- Migration: Backfill section_type and suitable_site_types for existing components
+-- Run AFTER migration_component_selection_metadata.sql
+--
+-- Strategy:
+-- 1. For most existing components, section_type = function (hero → hero, social-proof → social-proof)
+--    because we currently have one template per purpose
+-- 2. For page-specific variants (about-hero, services-hero), section_type = the base purpose (hero)
+--    so the selector can find all hero variants when a page needs a "hero"
+-- 3. suitable_site_types set broadly for existing components since they were all built
+--    for brochure/professional sites
+-- 4. created_from = 'manual' for all existing components (they were hand-crafted)
+--
+-- This is idempotent — uses WHERE section_type IS NULL so re-running is safe.
+
+-- ============================================================================
+-- Section-level components: set section_type from function patterns
+-- ============================================================================
+
+-- Hero variants: all map to section_type 'hero'
+UPDATE content_components SET
+    section_type = 'hero',
+    suitable_site_types = '["brochure", "saas", "landing-page", "portfolio"]'::jsonb,
+    suitable_page_types = '["landing", "index"]'::jsonb,
+    content_shape = 'prose',
+    visual_density = 'low',
+    created_from = 'manual'
+WHERE function IN ('hero', 'hero-split', 'hero-fullwidth', 'hero-minimal', 'hero-gradient')
+  AND component_level = 'section'
+  AND section_type IS NULL;
+
+-- Page-specific heroes: section_type matches the page purpose
+UPDATE content_components SET
+    section_type = 'hero',
+    suitable_site_types = '["brochure", "saas"]'::jsonb,
+    suitable_page_types = CASE
+        WHEN function LIKE 'about-%' THEN '["about"]'::jsonb
+        WHEN function LIKE 'services-%' THEN '["services"]'::jsonb
+        WHEN function LIKE 'contact-%' THEN '["contact"]'::jsonb
+        WHEN function LIKE 'case-studies-%' THEN '["case-studies", "use-cases"]'::jsonb
+        ELSE '[]'::jsonb
+    END,
+    content_shape = 'prose',
+    visual_density = 'low',
+    created_from = 'manual'
+WHERE function LIKE '%-hero'
+  AND component_level = 'section'
+  AND section_type IS NULL;
+
+-- Social proof / testimonials
+UPDATE content_components SET
+    section_type = 'social-proof',
+    suitable_site_types = '["brochure", "saas", "landing-page"]'::jsonb,
+    suitable_page_types = '["landing", "index", "about"]'::jsonb,
+    content_shape = 'structured_list',
+    visual_density = 'medium',
+    created_from = 'manual'
+WHERE function IN ('social-proof', 'testimonials')
+  AND component_level = 'section'
+  AND section_type IS NULL;
+
+-- Call to action
+UPDATE content_components SET
+    section_type = 'call-to-action',
+    suitable_site_types = '["brochure", "saas", "landing-page", "interactive-platform"]'::jsonb,
+    suitable_page_types = '["landing", "index", "about", "services"]'::jsonb,
+    content_shape = 'prose',
+    visual_density = 'low',
+    created_from = 'manual'
+WHERE function IN ('call-to-action', 'cta')
+  AND component_level = 'section'
+  AND section_type IS NULL;
+
+-- Features / differentiators
+UPDATE content_components SET
+    section_type = 'features',
+    suitable_site_types = '["brochure", "saas", "landing-page"]'::jsonb,
+    suitable_page_types = '["landing", "index"]'::jsonb,
+    content_shape = 'structured_list',
+    visual_density = 'medium',
+    created_from = 'manual'
+WHERE function IN ('features', 'differentiators', 'differentiators-section')
+  AND component_level = 'section'
+  AND section_type IS NULL;
+
+-- Services grid
+UPDATE content_components SET
+    section_type = 'services-grid',
+    suitable_site_types = '["brochure", "saas"]'::jsonb,
+    suitable_page_types = '["services", "index"]'::jsonb,
+    content_shape = 'structured_list',
+    visual_density = 'medium',
+    created_from = 'manual'
+WHERE function IN ('services-grid')
+  AND component_level = 'section'
+  AND section_type IS NULL;
+
+-- About content
+UPDATE content_components SET
+    section_type = 'about-content',
+    suitable_site_types = '["brochure", "saas", "portfolio"]'::jsonb,
+    suitable_page_types = '["about"]'::jsonb,
+    content_shape = 'prose',
+    visual_density = 'medium',
+    created_from = 'manual'
+WHERE function IN ('about-content')
+  AND component_level = 'section'
+  AND section_type IS NULL;
+
+-- Leadership / team
+UPDATE content_components SET
+    section_type = 'team',
+    suitable_site_types = '["brochure"]'::jsonb,
+    suitable_page_types = '["about"]'::jsonb,
+    content_shape = 'structured_list',
+    visual_density = 'medium',
+    created_from = 'manual'
+WHERE function IN ('leadership-team', 'team')
+  AND component_level = 'section'
+  AND section_type IS NULL;
+
+-- Case studies / use cases
+UPDATE content_components SET
+    section_type = 'case-studies',
+    suitable_site_types = '["brochure", "saas"]'::jsonb,
+    suitable_page_types = '["case-studies", "use-cases"]'::jsonb,
+    content_shape = 'structured_list',
+    visual_density = 'medium',
+    created_from = 'manual'
+WHERE function IN ('case-studies-list', 'case-studies')
+  AND component_level = 'section'
+  AND section_type IS NULL;
+
+-- Contact sections
+UPDATE content_components SET
+    section_type = CASE
+        WHEN function = 'contact-form' THEN 'contact-form'
+        WHEN function = 'contact-info' THEN 'contact-info'
+        ELSE 'contact'
+    END,
+    suitable_site_types = '["brochure", "saas"]'::jsonb,
+    suitable_page_types = '["contact"]'::jsonb,
+    content_shape = 'structured_card',
+    visual_density = 'low',
+    created_from = 'manual'
+WHERE function LIKE 'contact%'
+  AND component_level = 'section'
+  AND section_type IS NULL;
+
+-- Content site components
+UPDATE content_components SET
+    section_type = CASE
+        WHEN function = 'content_listing' THEN 'content-listing'
+        WHEN function = 'category_listing' THEN 'category-listing'
+        WHEN function = 'featured_content' THEN 'featured-content'
+        WHEN function = 'sidebar' THEN 'sidebar'
+        WHEN function = 'advertising' THEN 'advertising'
+        ELSE function
+    END,
+    suitable_site_types = '["content-site", "blog"]'::jsonb,
+    content_shape = 'structured_list',
+    visual_density = 'high',
+    created_from = 'manual'
+WHERE category = 'content-site'
+  AND component_level = 'section'
+  AND section_type IS NULL;
+
+-- ============================================================================
+-- Catch-all: any remaining section components get section_type = function
+-- This handles components not explicitly mapped above
+-- ============================================================================
+
+UPDATE content_components SET
+    section_type = function,
+    suitable_site_types = '["brochure"]'::jsonb,
+    created_from = 'manual'
+WHERE component_level = 'section'
+  AND section_type IS NULL
+  AND function != ''
+  AND is_active = true
+  AND forked_from IS NULL;
+
+-- ============================================================================
+-- Header/footer/head components: section_type matches their role
+-- These aren't selected by the section selector but tagging them
+-- keeps the data consistent
+-- ============================================================================
+
+UPDATE content_components SET
+    section_type = 'header',
+    suitable_site_types = '["brochure", "saas", "landing-page", "portfolio", "content-site"]'::jsonb,
+    created_from = 'manual'
+WHERE component_level = 'header'
+  AND section_type IS NULL;
+
+UPDATE content_components SET
+    section_type = 'footer',
+    suitable_site_types = '["brochure", "saas", "landing-page", "portfolio", "content-site"]'::jsonb,
+    created_from = 'manual'
+WHERE component_level = 'footer'
+  AND section_type IS NULL;
+
+UPDATE content_components SET
+    section_type = 'head',
+    suitable_site_types = '["brochure", "saas", "landing-page", "portfolio", "content-site"]'::jsonb,
+    created_from = 'manual'
+WHERE component_level = 'head'
+  AND section_type IS NULL;
+
+-- ============================================================================
+-- Tool components: section_type = 'tool', keep their existing category
+-- ============================================================================
+
+UPDATE content_components SET
+    section_type = 'tool',
+    created_from = 'manual'
+WHERE component_level = 'tool'
+  AND section_type IS NULL;
+
+-- ============================================================================
+-- Verification query — run manually to check results
+-- ============================================================================
+
+-- SELECT section_type, function, suitable_site_types, created_from, component_level
+-- FROM content_components
+-- WHERE is_active = true AND forked_from IS NULL
+-- ORDER BY component_level, section_type, function;
+
+-- Check for any that were missed
+-- SELECT function, component_level FROM content_components
+-- WHERE section_type IS NULL AND is_active = true AND forked_from IS NULL;
+

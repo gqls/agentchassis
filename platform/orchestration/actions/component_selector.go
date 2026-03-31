@@ -157,28 +157,39 @@ func queryCandidates(
 	logger *zap.Logger,
 ) ([]ComponentCandidate, error) {
 
-	query := buildSelectorQuery(1)
-	args := []interface{}{sectionType}
-	argIdx := 2
+	// Always pass all three parameters — empty string scores low, which is correct.
+	siteType := selCtx.SiteType
+	pageType := selCtx.PageType
 
-	// Add site_type for scoring (passed as parameter, used in CASE expression)
-	if selCtx.SiteType != "" {
-		query = strings.Replace(query, "$SITE_TYPE", fmt.Sprintf("$%d", argIdx), 1)
-		args = append(args, selCtx.SiteType)
-		argIdx++
-	} else {
-		query = strings.Replace(query, "$SITE_TYPE", "''", 1)
-	}
+	query := `
+		SELECT
+			id::text,
+			name,
+			function,
+			COALESCE(display_name, name) as display_name,
+			section_type,
+			COALESCE(category, '') as category,
+			COALESCE(is_dark_section, false) as is_dark_section,
+			COALESCE(usage_count, 0) as usage_count,
+			avg_quality_score,
+			(
+				CASE WHEN suitable_site_types @> to_jsonb($2::text) THEN 0.35 ELSE 0.05 END
+				+ CASE WHEN suitable_page_types @> to_jsonb($3::text) THEN 0.15 ELSE 0.0 END
+				+ COALESCE(avg_quality_score, 0.3) * 0.3
+				+ CASE WHEN COALESCE(jsonb_array_length(suitable_site_types), 0) BETWEEN 1 AND 3
+				       THEN 0.1 ELSE 0.02 END
+				+ LEAST(COALESCE(usage_count, 0)::float / 50.0, 1.0) * 0.1
+			) as score
+		FROM content_components
+		WHERE section_type = $1
+		  AND component_level = 'section'
+		  AND is_active = true
+		  AND forked_from IS NULL
+		ORDER BY score DESC
+		LIMIT 5
+	`
 
-	if selCtx.PageType != "" {
-		query = strings.Replace(query, "$PAGE_TYPE", fmt.Sprintf("$%d", argIdx), 1)
-		args = append(args, selCtx.PageType)
-		argIdx++
-	} else {
-		query = strings.Replace(query, "$PAGE_TYPE", "''", 1)
-	}
-
-	return executeAndScan(ctx, db, query, args, logger)
+	return executeAndScan(ctx, db, query, []interface{}{sectionType, siteType, pageType}, logger)
 }
 
 // queryCandidatesBatch finds candidates for multiple section_types at once.
@@ -255,43 +266,6 @@ func queryCandidatesBatch(
 	}
 
 	return grouped, nil
-}
-
-// buildSelectorQuery builds the scored query for a single section_type.
-// numSectionTypePlaceholders is always 1 (the section_type parameter is $1).
-func buildSelectorQuery(numSectionTypePlaceholders int) string {
-	return `
-		SELECT
-			id::text,
-			name,
-			function,
-			COALESCE(display_name, name) as display_name,
-			section_type,
-			COALESCE(category, '') as category,
-			COALESCE(is_dark_section, false) as is_dark_section,
-			COALESCE(usage_count, 0) as usage_count,
-			avg_quality_score,
-			(
-				-- Site type relevance (35% weight): does the component suit this site type?
-				CASE WHEN suitable_site_types @> to_jsonb($SITE_TYPE::text) THEN 0.35 ELSE 0.05 END
-				-- Page type relevance (15% weight): does it suit this page type?
-				+ CASE WHEN suitable_page_types @> to_jsonb($PAGE_TYPE::text) THEN 0.15 ELSE 0.0 END
-				-- Quality (30% weight): auditor feedback, 0.3 default for unproven
-				+ COALESCE(avg_quality_score, 0.3) * 0.3
-				-- Specificity bonus (10% weight): components targeting fewer types are more specialised
-				+ CASE WHEN COALESCE(jsonb_array_length(suitable_site_types), 0) BETWEEN 1 AND 3
-				       THEN 0.1 ELSE 0.02 END
-				-- Battle-tested (10% weight): usage gives confidence, diminishing returns
-				+ LEAST(COALESCE(usage_count, 0)::float / 50.0, 1.0) * 0.1
-			) as score
-		FROM content_components
-		WHERE section_type = $1
-		  AND component_level = 'section'
-		  AND is_active = true
-		  AND forked_from IS NULL
-		ORDER BY score DESC
-		LIMIT 5
-	`
 }
 
 // executeAndScan runs the query and scans into ComponentCandidate structs.
