@@ -1043,6 +1043,16 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 
 	// =========================================================================
+	// New Components
+	// =========================================================================
+	"store_generated_component": {
+		Handler:     StoreGeneratedComponentAction,
+		Category:    "site",
+		Description: "Store a generated component template in the component library",
+		IsLocal:     true,
+	},
+
+	// =========================================================================
 	// VET MED PRICING — veterinary medicine price collection
 	// =========================================================================
 	"med_scrape_prices": {
