@@ -39,11 +39,6 @@ func FormatCrawlForAnalysisAction(ctx context.Context, params ActionParams) (int
 		crawlField = cf
 	}
 
-	maxPerPage := 8000
-	if mp, ok := config["max_content_per_page"].(float64); ok {
-		maxPerPage = int(mp)
-	}
-
 	// Try multiple paths to find the pages array — the adapter response
 	// nesting can vary depending on how BuildCollectedData unwraps it
 	var pages []interface{}
@@ -78,6 +73,14 @@ func FormatCrawlForAnalysisAction(ctx context.Context, params ActionParams) (int
 			"content_quality": "none",
 			"sources":         []interface{}{},
 		}, nil
+	}
+
+	// Config: summary mode for LLM (light) vs full content
+	// Default to summary — the LLM only needs structure, not full content.
+	// Full content stays in crawl_result for Go-side extraction.
+	summaryChars := 500
+	if sc, ok := config["summary_chars_per_page"].(float64); ok {
+		summaryChars = int(sc)
 	}
 
 	var textParts []string
@@ -120,15 +123,16 @@ func FormatCrawlForAnalysisAction(ctx context.Context, params ActionParams) (int
 			pageURL, _ = metadata["sourceURL"].(string)
 		}
 
-		// Truncate if needed
-		content := markdown
-		if len(content) > maxPerPage {
-			content = content[:maxPerPage] + "\n... [truncated]"
+		// For LLM: just enough to classify the page structure.
+		// Full content is available in crawl_result for Go-side extraction.
+		summary := markdown
+		if len(summary) > summaryChars {
+			summary = summary[:summaryChars] + "\n... [truncated for classification]"
 		}
 
 		textParts = append(textParts, fmt.Sprintf(
 			"=== PAGE %d: %s ===\nURL: %s\n\n%s",
-			i+1, pageTitle, pageURL, content,
+			i+1, pageTitle, pageURL, summary,
 		))
 
 		sources = append(sources, map[string]interface{}{

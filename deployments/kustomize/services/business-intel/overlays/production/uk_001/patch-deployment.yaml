@@ -52,6 +52,10 @@ spec:
                   name: personae-default-secrets
                   key: FIRECRAWL_API_KEY
 
+            # Firecrawl api version v2
+            - name: FIRECRAWL_API_URL
+              value: "https://api.firecrawl.dev/v2"
+
             # === Storage — needed by chassis to create StorageClient ===
             # The agent init code reads IMAGE_BUCKET from env to decide
             # whether to create a StorageClient. Without it, params.StorageClient is nil.
