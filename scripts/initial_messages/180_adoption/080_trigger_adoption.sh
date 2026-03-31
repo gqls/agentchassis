@@ -164,3 +164,16 @@ ORDER BY created_at DESC LIMIT 5;
 SELECT substring(collected_data::text from 'adoption_analysis.{0,500}')
 FROM orchestration_states
 WHERE correlation_id = '013bca99-e8f4-408d-aabf-eb5c6638bcc8';
+
+---
+
+-- Watch pages getting built
+SELECT name, build_status FROM pages
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk')
+ORDER BY name;
+
+-- Watch work items getting processed
+SELECT item_type, status, summary
+FROM site_work_items
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk')
+ORDER BY priority;

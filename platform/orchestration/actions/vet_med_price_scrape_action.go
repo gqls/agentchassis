@@ -402,23 +402,21 @@ func scrapeMedProductPage(
 		if ss, ok := data["screenshot"].(string); ok && ss != "" {
 			logCtx.Logger.Info("MedScrapePrices: screenshot data received",
 				zap.Int("length", len(ss)),
-				zap.String("prefix", truncate(ss, 50)))
+				zap.String("prefix", truncate(ss, 80)))
 
-			b64Data := ss
-			// Strip data URI prefix if present: "data:image/png;base64,..."
-			if idx := strings.Index(b64Data, ","); idx >= 0 && idx < 100 {
-				b64Data = b64Data[idx+1:]
-			}
-			// Try standard base64
-			if decoded, err := base64.StdEncoding.DecodeString(b64Data); err == nil {
-				screenshotBytes = decoded
+			if strings.HasPrefix(ss, "http") {
+				// v2 returns a temporary hosted URL — download the image
+				screenshotBytes = downloadScreenshot(ctx, httpClient, ss, logCtx.Logger)
 			} else {
-				// Try URL-safe base64
-				if decoded, err := base64.RawStdEncoding.DecodeString(b64Data); err == nil {
+				// base64 encoded (with possible data URI prefix)
+				b64Data := ss
+				if idx := strings.Index(b64Data, ","); idx >= 0 && idx < 100 {
+					b64Data = b64Data[idx+1:]
+				}
+				if decoded, err := base64.StdEncoding.DecodeString(b64Data); err == nil {
 					screenshotBytes = decoded
 				} else {
 					logCtx.Logger.Warn("MedScrapePrices: screenshot base64 decode failed",
-						zap.String("url", listing.RetailerURL),
 						zap.Error(err))
 				}
 			}
@@ -440,12 +438,10 @@ func scrapeMedProductPage(
 
 // Price parsing regex patterns.
 // These handle the observed Pet Drugs Online format:
-//   - 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
-//
+//   + 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
 // And simpler formats like:
-//
-//	Price: £17.48
-//	£17.48
+//   Price: £17.48
+//   £17.48
 var (
 	// Pattern for variant lines: "SIZE Price: £X.XX ... (TVP) ..."
 	medVariantPattern = regexp.MustCompile(
@@ -748,6 +744,41 @@ func storeMedPriceSnapshots(ctx context.Context, db *sql.DB, listing medPriceLis
 	}
 
 	return stored, nil
+}
+
+// downloadScreenshot fetches a screenshot image from a URL (Firecrawl v2 hosts them temporarily).
+// Returns the PNG bytes, or nil on failure.
+func downloadScreenshot(ctx context.Context, httpClient *http.Client, screenshotURL string, logger *zap.Logger) []byte {
+	req, err := http.NewRequestWithContext(ctx, "GET", screenshotURL, nil)
+	if err != nil {
+		logger.Warn("MedScrapePrices: screenshot download request failed", zap.Error(err))
+		return nil
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		logger.Warn("MedScrapePrices: screenshot download failed", zap.Error(err))
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		logger.Warn("MedScrapePrices: screenshot download non-200",
+			zap.Int("status", resp.StatusCode))
+		return nil
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logger.Warn("MedScrapePrices: screenshot read failed", zap.Error(err))
+		return nil
+	}
+
+	logger.Info("MedScrapePrices: screenshot downloaded",
+		zap.Int("bytes", len(data)),
+		zap.String("content_type", resp.Header.Get("Content-Type")))
+
+	return data
 }
 
 // uploadMedScreenshot uploads a screenshot PNG via the chassis storage client.

@@ -9674,3 +9674,68 @@ WHERE component_level = 'tool'
 -- SELECT function, component_level FROM content_components
 -- WHERE section_type IS NULL AND is_active = true AND forked_from IS NULL;
 
+---
+                                                     --
+                                                     clients_db=# -- Consolidate page-specific heroes under section_type = 'hero'
+-- with suitable_page_types indicating which pages they're designed for.
+--
+-- Before: hero-about has section_type = 'hero-about', selector treats it as a separate type
+-- After:  hero-about has section_type = 'hero', suitable_page_types = '["about"]'
+--         The selector finds ALL hero variants when a page needs a 'hero' section,
+--         and scores higher for variants that match the page type.
+--
+-- The function column stays unchanged — hero-about is still hero-about.
+-- Only section_type and suitable_page_types change.
+
+UPDATE content_components SET
+    section_type = 'hero',
+    suitable_page_types = '["about"]'::jsonb
+WHERE function = 'hero-about'
+  AND is_active = true
+  AND forked_from IS NULL;
+
+UPDATE content_components SET
+    section_type = 'hero',
+    suitable_page_types = '["services"]'::jsonb
+WHERE function = 'hero-services'
+  AND is_active = true
+  AND forked_from IS NULL;
+
+UPDATE content_components SET
+    section_type = 'hero',
+    suitable_page_types = '["contact"]'::jsonb
+WHERE function = 'hero-contact'
+  AND is_active = true
+  AND forked_from IS NULL;
+
+UPDATE content_components SET
+    section_type = 'hero',
+    suitable_page_types = '["case-studies", "use-cases"]'::jsonb
+WHERE function = 'hero-case-studies'
+  AND is_active = true
+-- other page-specific heroes should score lower (wrong page_type)ariant)EEN 1 AND 3DND
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+     function      | section_type |      suitable_page_types      |                suitable_site_types
+-------------------+--------------+-------------------------------+---------------------------------------------------
+ hero              | hero         | ["landing", "index"]          | ["brochure", "saas", "landing-page", "portfolio"]
+ hero-about        | hero         | ["about"]                     | ["brochure"]
+ hero-case-studies | hero         | ["case-studies", "use-cases"] | ["brochure"]
+ hero-contact      | hero         | ["contact"]                   | ["brochure"]
+ hero-services     | hero         | ["services"]                  | ["brochure"]
+ hero-use-cases    | hero         | ["use-cases", "case-studies"] | ["brochure"]
+(6 rows)
+
+     function      |        score
+-------------------+---------------------
+ hero-about        |                0.69
+ hero-contact      |  0.5399999999999999
+ hero-services     |  0.5399999999999999
+ hero-use-cases    |  0.5399999999999999
+ hero-case-studies |  0.5399999999999999
+ hero              | 0.45999999999999996
+(6 rows)
+
