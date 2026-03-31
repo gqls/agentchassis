@@ -101,13 +101,32 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		cleaned = strings.TrimSuffix(cleaned, "```")
 		cleaned = strings.TrimSpace(cleaned)
 		if err := json.Unmarshal([]byte(cleaned), &plan); err != nil {
-			return nil, fmt.Errorf("failed to parse adoption plan JSON: %w (tail: %s)",
-				err, func() string {
-					if len(cleaned) > 100 {
-						return cleaned[len(cleaned)-100:]
-					}
-					return cleaned
-				}())
+			// JSON is truncated (max_tokens hit). Try to repair by closing brackets.
+			logger.Warn("ApplyAdoptionPlanAction: JSON parse failed, attempting repair",
+				zap.Error(err),
+				zap.Int("length", len(cleaned)))
+			repaired := repairTruncatedJSON(cleaned)
+			if repaired != "" {
+				if err2 := json.Unmarshal([]byte(repaired), &plan); err2 == nil {
+					logger.Info("ApplyAdoptionPlanAction: repaired truncated JSON successfully")
+				} else {
+					return nil, fmt.Errorf("failed to parse adoption plan JSON (repair also failed): %w (tail: %s)",
+						err, func() string {
+							if len(cleaned) > 100 {
+								return cleaned[len(cleaned)-100:]
+							}
+							return cleaned
+						}())
+				}
+			} else {
+				return nil, fmt.Errorf("failed to parse adoption plan JSON: %w (tail: %s)",
+					err, func() string {
+						if len(cleaned) > 100 {
+							return cleaned[len(cleaned)-100:]
+						}
+						return cleaned
+					}())
+			}
 		}
 	default:
 		return nil, fmt.Errorf("unexpected adoption plan type after unwrap: %T", unwrapped)
@@ -557,4 +576,50 @@ func buildCrawlPageIndex(collectedData map[string]interface{}, logger *zap.Logge
 		zap.Int("raw_pages", len(pages)))
 
 	return index
+}
+
+// repairTruncatedJSON attempts to fix JSON that was cut off by max_tokens.
+// Strategy: find the last complete JSON element (ending with }, ], or a quoted string
+// that's a value not a key), strip the incomplete tail, close open brackets/braces.
+// This salvages identity, design, and pages even if interactive_features was truncated.
+func repairTruncatedJSON(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+
+	// Find the last position where a complete JSON object or array element ends.
+	// We look for } or ] which definitively close a complete structure.
+	lastGood := -1
+	for i := len(s) - 1; i >= 0; i-- {
+		ch := s[i]
+		if ch == '}' || ch == ']' {
+			lastGood = i + 1
+			break
+		}
+	}
+
+	if lastGood <= 0 {
+		return ""
+	}
+
+	truncated := s[:lastGood]
+
+	// Strip trailing commas after the last complete element
+	truncated = strings.TrimRight(truncated, " \t\n\r,")
+
+	// Count open vs close brackets and braces
+	openBraces := strings.Count(truncated, "{") - strings.Count(truncated, "}")
+	openBrackets := strings.Count(truncated, "[") - strings.Count(truncated, "]")
+
+	// Close them (brackets first, then braces — innermost first)
+	for openBrackets > 0 {
+		truncated += "]"
+		openBrackets--
+	}
+	for openBraces > 0 {
+		truncated += "}"
+		openBraces--
+	}
+
+	return truncated
 }
