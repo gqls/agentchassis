@@ -387,14 +387,44 @@ func scrapeMedProductPage(
 		if md, ok := data["markdown"].(string); ok {
 			markdown = md
 		}
+
+		// Log what keys Firecrawl returned so we can see if screenshot is present
+		dataKeys := make([]string, 0, len(data))
+		for k := range data {
+			dataKeys = append(dataKeys, k)
+		}
+		logCtx.Logger.Info("MedScrapePrices: firecrawl response keys",
+			zap.String("url", listing.RetailerURL),
+			zap.Bool("is_v2", strings.Contains(apiURL, "/v2")),
+			zap.String("api_url", apiURL),
+			zap.Strings("data_keys", dataKeys))
+
 		if ss, ok := data["screenshot"].(string); ok && ss != "" {
+			logCtx.Logger.Info("MedScrapePrices: screenshot data received",
+				zap.Int("length", len(ss)),
+				zap.String("prefix", truncate(ss, 50)))
+
 			b64Data := ss
-			if idx := strings.Index(b64Data, ","); idx >= 0 {
+			// Strip data URI prefix if present: "data:image/png;base64,..."
+			if idx := strings.Index(b64Data, ","); idx >= 0 && idx < 100 {
 				b64Data = b64Data[idx+1:]
 			}
+			// Try standard base64
 			if decoded, err := base64.StdEncoding.DecodeString(b64Data); err == nil {
 				screenshotBytes = decoded
+			} else {
+				// Try URL-safe base64
+				if decoded, err := base64.RawStdEncoding.DecodeString(b64Data); err == nil {
+					screenshotBytes = decoded
+				} else {
+					logCtx.Logger.Warn("MedScrapePrices: screenshot base64 decode failed",
+						zap.String("url", listing.RetailerURL),
+						zap.Error(err))
+				}
 			}
+		} else {
+			logCtx.Logger.Info("MedScrapePrices: no screenshot in response",
+				zap.String("url", listing.RetailerURL))
 		}
 	}
 
@@ -410,12 +440,10 @@ func scrapeMedProductPage(
 
 // Price parsing regex patterns.
 // These handle the observed Pet Drugs Online format:
-//   - 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
-//
+//   + 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
 // And simpler formats like:
-//
-//	Price: £17.48
-//	£17.48
+//   Price: £17.48
+//   £17.48
 var (
 	// Pattern for variant lines: "SIZE Price: £X.XX ... (TVP) ..."
 	medVariantPattern = regexp.MustCompile(

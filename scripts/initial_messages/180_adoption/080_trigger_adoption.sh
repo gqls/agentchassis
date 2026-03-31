@@ -132,7 +132,7 @@ SELECT
         position('formatted_crawl' in collected_data::text),
         300)
 FROM orchestration_states
-WHERE correlation_id = '2f9fa0f3-b110-4b7e-aaf0-8481db870360';
+WHERE correlation_id = '013bca99-e8f4-408d-aabf-eb5c6638bcc8';
                                                                                                                                                   substring
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  formatted_crawl": {"sources": [{"url": "https://robot-hands.com/", "index": 1, "title": "ROBOT-HANDS.COM | Mission Control"}, {"url": "https://robot-hands.com/products/index.html?id=onr-rg6", "index": 2, "title": "Product Analysis | ROBOT-HANDS.COM"}, {"url": "https://robot-hands.com/products/index.
@@ -144,23 +144,23 @@ WHERE id = '551897ad-6f1a-4181-9f4b-033dbac14edf';
 
 -- Check if pages were created
 SELECT name, page_type, build_status FROM pages
-WHERE site_id = (SELECT id FROM sites WHERE domain = 'robot-hands.com')
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk')
 ORDER BY name;
 
 -- Check work items
 SELECT item_type, status, handler_agent, summary
 FROM site_work_items
-WHERE site_id = (SELECT id FROM sites WHERE domain = 'robot-hands.com')
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk')
 AND pipeline = 'build' ORDER BY priority;
 
 -- Check research_results for the stored crawl analysis
 SELECT id, result_type, substring(summary, 1, 80) as summary,
        substring(data::text, 1, 200) as data_preview
 FROM research_results
-WHERE site_id = (SELECT id FROM sites WHERE domain = 'robot-hands.com')
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk')
 ORDER BY created_at DESC LIMIT 5;
 
 -- Check orchestration for the LLM output
 SELECT substring(collected_data::text from 'adoption_analysis.{0,500}')
 FROM orchestration_states
-WHERE correlation_id = '<latest_correlation_id>';
+WHERE correlation_id = '013bca99-e8f4-408d-aabf-eb5c6638bcc8';
