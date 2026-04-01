@@ -1042,3 +1042,17 @@ DELETE FROM site_specs WHERE site_id = (SELECT id FROM sites WHERE domain = 'gam
 DELETE FROM research_results WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk');
 DELETE FROM pages WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk');
 
+---
+-- save raw html as well as markdown
+-- Add rawHtml to crawl scrapeOptions
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,crawl_site,config,scrape_config}',
+        '{
+            "only_main_content": false,
+            "formats": ["markdown", "rawHtml"]
+        }'
+                     )
+WHERE type = 'site-adoption-agent';
+
