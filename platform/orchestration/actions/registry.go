@@ -1067,6 +1067,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Scrape veterinary medicine prices from retailer product pages via Firecrawl",
 		IsLocal:     true,
 	},
+	"med_discover_urls": {
+		Handler:     MedDiscoverURLsAction,
+		Category:    "med_pricing",
+		Description: "Discover product URLs from retailer category pages",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// HITL — human-in-the-loop approval and input
