@@ -173,4 +173,10 @@ INSERT INTO agent_definitions (
 
 ---
 
---
+-- add latest news
+UPDATE pages
+SET sections = '["hero", "features", "services-grid", "differentiators-section", "social_proof", "latest-news", "call_to_action"]'::jsonb,
+    updated_at = NOW()
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND name = 'index';
+

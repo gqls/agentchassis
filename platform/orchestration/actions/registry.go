@@ -887,6 +887,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Apply an edit to a page section and reassemble page",
 		IsLocal:     true,
 	},
+	"load_page_sections_from_spec": {
+		Handler:     LoadPageSectionsFromSpecAction,
+		Category:    "site",
+		Description: "Load page sections from site_specs with fallback to pages table",
+		IsLocal:     true,
+	},
 
 	// RAG — retrieval-augmented generation
 	"rag_lookup": {
