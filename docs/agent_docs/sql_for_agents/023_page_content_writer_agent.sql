@@ -907,3 +907,57 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'page-content-writer';
 
+---
+-- single field for voice
+-- ============================================================================
+-- Simplify content writer template — one field instead of four
+-- ============================================================================
+-- The old template read four hardcoded fields:
+--   voice, emphasis, avoid_phrases, social_proof_style
+-- The new template reads one field that contains everything:
+--   formatted
+-- The Go action formats whatever the spec contains into readable text.
+-- ============================================================================
+
+DO $$
+DECLARE
+current_prompt text;
+    new_prompt text;
+    old_block text;
+    new_block text;
+BEGIN
+SELECT default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template'
+INTO current_prompt
+FROM agent_definitions
+WHERE type = 'page-content-writer';
+
+old_block := '## Content Direction (from site spec — follow this closely)
+{{if .site_specs.specs.content_direction}}
+Voice: {{.site_specs.specs.content_direction.voice}}
+Emphasis: {{.site_specs.specs.content_direction.emphasis}}
+Avoid these phrases: {{.site_specs.specs.content_direction.avoid_phrases}}
+Social proof approach: {{.site_specs.specs.content_direction.social_proof_style}}
+{{end}}';
+
+    new_block := '## Content Direction (from site spec — follow this closely)
+{{if .site_specs.specs.content_direction}}{{if .site_specs.specs.content_direction.formatted}}
+{{.site_specs.specs.content_direction.formatted}}
+{{end}}{{end}}';
+
+    IF position(old_block in current_prompt) > 0 THEN
+        new_prompt := replace(current_prompt, old_block, new_block);
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,prompt_template}',
+        to_jsonb(new_prompt)
+                     )
+WHERE type = 'page-content-writer';
+
+RAISE NOTICE 'Content writer updated: 4 fields replaced with 1 formatted field.';
+ELSE
+        RAISE NOTICE 'Old block not found — content writer may already be updated or the template has changed.';
+END IF;
+END $$;
+

@@ -824,3 +824,196 @@ WHERE type = 'page-content-writer';
 
 RAISE NOTICE 'Prompt updated. Recreate block injected before STRICT RULES.';
 END $$;
+
+--
+
+-- ============================================================================
+-- Enrich domain-research-classifier content_direction output
+-- ============================================================================
+-- The classifier already writes content_direction but produces a thin spec.
+-- This updates the prompt to ask for the same rich structure that adoption
+-- produces, adapted for prescriptive (what the site SHOULD sound like)
+-- rather than descriptive (what it DOES sound like).
+--
+-- The write_site_spec action auto-formats it via FormatContentDirection.
+-- ============================================================================
+
+DO $outer$
+DECLARE
+prompt_text text;
+BEGIN
+    prompt_text := $prompt$You are analyzing a domain for website creation.
+
+Domain: {{.input_data.domain}}
+Objective: {{if .input_data.objective}}{{.input_data.objective}}{{else}}Not specified — infer from domain name and research{{end}}
+
+{{if .input_data.mission_brief}}## Pre-Defined Mission
+This site has a strategic mission provided by the owner. Use this as STRONG guidance for identity, tone, positioning, and design direction. The research below validates and supplements — the mission is the primary source.
+
+{{.input_data.mission_brief}}
+{{end}}
+{{if .input_data.roadmap_brief}}## Roadmap
+{{.input_data.roadmap_brief}}
+{{end}}
+Search Results:
+{{.search_results}}
+
+Scraped Website Content:
+{{.scraped_data}}
+
+Analyze everything and return a JSON object with FOUR sections. Be as specific and detailed as possible — vague guidance like "professional tone" is useless. Respond ONLY with valid JSON.
+
+1. "identity" — what we know about this entity:
+{
+  "company_name": "Best guess at company/brand name",
+  "tagline": "Tagline if found, null otherwise",
+  "industry": "Primary industry/sector",
+  "sub_industry": "More specific classification",
+  "about_summary": "2-3 sentence summary of what this company does",
+  "services": [{"name": "Service 1", "description": "Brief desc"}],
+  "contact": {
+    "email": "if found",
+    "phone": "if found",
+    "address": "if found",
+    "location": "city/region if found"
+  },
+  "has_existing_site": true,
+  "existing_site_quality": "good/adequate/poor/none",
+  "social_profiles": {"linkedin": "url", "twitter": "url"},
+  "key_people": [{"name": "Name", "role": "Role"}],
+  "unique_selling_points": ["USP 1", "USP 2"],
+  "target_audience": "Description of likely target audience",
+  "competitors_found": ["competitor1.com", "competitor2.com"]
+}
+
+2. "classification" — what kind of site to build:
+{
+  "site_type": "brochure|landing|portfolio|content|ecommerce|tools|interactive-platform",
+  "confidence": 0.0-1.0,
+  "reasoning": "Why this site type fits",
+  "recommended_builder": "pageflow-builder",
+  "page_count_estimate": 5,
+  "detected_signals": ["signal1", "signal2"],
+  "tone_suggestion": "professional|friendly|bold|technical|editorial|game-like|energetic",
+  "suggested_style": "professional-dark|modern-light|bold-creative|etc"
+}
+
+3. "content_direction" — DETAILED writing style guide for all content on this site:
+{
+  "voice": {
+    "register": "Describe the overall register this site should use — e.g. 'Down-to-earth and matter-of-fact, avoids sales language'",
+    "person": "Which grammatical person — e.g. 'Second person (you/your) for the reader, first plural (we) for the company'",
+    "authority_level": "How the site should establish authority — e.g. 'States expertise confidently but never promises specific outcomes'",
+    "emotional_tone": "The emotional quality — e.g. 'Reassuring without being patronising'",
+    "formality": "Where on the formal-casual spectrum — e.g. 'Professional but not stiff. Uses contractions.'"
+  },
+  "sentence_style": {
+    "average_length": "Short/medium/long for this industry",
+    "structure_patterns": "How sentences should be constructed",
+    "rhythm": "The cadence appropriate for this audience"
+  },
+  "persuasion_approach": {
+    "method": "How the site should convince without hard selling",
+    "trust_building": "How trust should be established for this industry",
+    "social_proof_style": "How to handle testimonials and social proof"
+  },
+  "content_depth": {
+    "thoroughness": "How deeply topics should be explored",
+    "assumed_knowledge": "What the target audience already knows",
+    "explanation_pattern": "How complex ideas should be introduced"
+  },
+  "writing_rules": [
+    "At least 8 specific, actionable rules appropriate for this industry",
+    "Example for finance: 'Never promise specific returns or savings'",
+    "Example for health: 'Always recommend consulting a professional'",
+    "Example for tech: 'Explain jargon on first use'"
+  ],
+  "compliance_rules": [
+    "Industry-specific legal/regulatory rules — empty array if none apply",
+    "Example for finance: 'Calculations are illustrative — do not constitute financial advice'",
+    "Example for health: 'Information is not a substitute for professional medical advice'"
+  ],
+  "heading_style": {
+    "format": "How headings should be phrased for this industry",
+    "hierarchy": "How heading levels should be used"
+  },
+  "paragraph_style": {
+    "typical_length": "Appropriate paragraph length for the audience",
+    "structure": "How paragraphs should be organised"
+  },
+  "cta_style": {
+    "approach": "How calls-to-action should be handled",
+    "verb_choices": "What action verbs are appropriate"
+  },
+  "terminology": {
+    "approach": "How domain-specific terms should be handled",
+    "key_terms": ["List 5-10 key terms for this industry that content will need"]
+  },
+  "things_to_avoid": [
+    "At least 6 specific things to avoid for this industry",
+    "Example: 'Urgency language (limited time, act now)'",
+    "Example: 'Unsubstantiated claims about results'"
+  ],
+  "things_to_emulate": [
+    "At least 6 positive patterns appropriate for this industry",
+    "Example: 'Lead with the user benefit, not the feature'"
+  ],
+  "example_phrases": {
+    "characteristic": ["3-5 example phrases showing the right tone for this site"],
+    "would_never_say": ["3-5 phrases this site should never use"]
+  }
+}
+
+4. "design_intent" — visual direction:
+{
+  "style_direction": "professional-dark|modern-light|bold-creative",
+  "colour_mood": "Description of colour feeling and why",
+  "typography_mood": "Font personality description",
+  "imagery_direction": "What images should convey",
+  "layout_preference": "Layout style",
+  "avoid": ["Design elements to avoid"]
+}
+
+IMPORTANT:
+- If a mission is provided above, derive identity/tone/design from it. Research validates.
+- If no mission, infer everything from domain name, research, and objective.
+- If no existing site found, infer from the domain name and industry norms.
+- Be specific about industry — "veterinary practice" not just "healthcare".
+- content_direction.writing_rules must have at least 8 entries.
+- content_direction.things_to_avoid and things_to_emulate must each have at least 6 entries.
+- content_direction.compliance_rules should be populated for regulated industries (finance, health, legal, insurance) and empty [] for others.
+- Every field in content_direction must be specific to THIS industry, not generic writing advice.
+- For interactive-platform or novel site types, use those in site_type rather than forcing brochure.
+- recommended_builder should always be "pageflow-builder" for now.
+
+Return ONLY valid JSON with identity, classification, content_direction, and design_intent keys.$prompt$;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_and_extract,config,prompt_template}',
+        to_jsonb(prompt_text)
+                     )
+WHERE type = 'domain-research-classifier';
+
+RAISE NOTICE 'Classifier prompt updated with rich content_direction structure.';
+END $outer$;
+
+-- Also bump max_tokens since content_direction is now much larger
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_and_extract,config,ai_service,max_tokens}',
+        '6000'
+                     )
+WHERE type = 'domain-research-classifier';
+
+-- Update model to claude-sonnet-4-6
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_and_extract,config,ai_service,model}',
+        '"claude-sonnet-4-6"'
+                     )
+WHERE type = 'domain-research-classifier';
+

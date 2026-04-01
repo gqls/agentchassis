@@ -17,7 +17,6 @@ package actions
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -180,32 +179,41 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	directionRaw := datahelpers.ExtractNestedField(params.CollectedData, "content_direction_analysis")
 	if directionRaw != nil {
 		directionUnwrapped := datahelpers.UnwrapDeep(directionRaw, logger)
+		var directionData map[string]interface{}
+
 		switch d := directionUnwrapped.(type) {
 		case map[string]interface{}:
-			specAspects["content_direction"] = d
+			directionData = d
 		case string:
-			var directionParsed map[string]interface{}
 			cleaned := strings.TrimSpace(d)
 			cleaned = strings.TrimPrefix(cleaned, "```json")
 			cleaned = strings.TrimPrefix(cleaned, "```")
 			cleaned = strings.TrimSuffix(cleaned, "```")
 			cleaned = strings.TrimSpace(cleaned)
-			if err := json.Unmarshal([]byte(cleaned), &directionParsed); err != nil {
-				// Try repair
+			if err := json.Unmarshal([]byte(cleaned), &directionData); err != nil {
 				repaired := repairTruncatedJSON(cleaned)
 				if repaired != "" {
-					if err2 := json.Unmarshal([]byte(repaired), &directionParsed); err2 == nil {
-						specAspects["content_direction"] = directionParsed
+					if err2 := json.Unmarshal([]byte(repaired), &directionData); err2 == nil {
+						logger.Info("Content direction JSON repaired")
 					} else {
 						logger.Warn("Failed to parse content_direction JSON", zap.Error(err2))
 					}
 				}
-			} else {
-				specAspects["content_direction"] = directionParsed
 			}
 		}
-		if _, ok := specAspects["content_direction"]; ok {
-			logger.Info("Content direction spec extracted from analysis")
+
+		if directionData != nil {
+			// Format the entire structured spec into one readable text block.
+			// Uses shared datahelpers formatter — same function write_site_spec calls.
+			formatted := datahelpers.FormatContentDirection(directionData)
+			if formatted != "" {
+				directionData["formatted"] = formatted
+			}
+
+			specAspects["content_direction"] = directionData
+			logger.Info("Content direction spec written",
+				zap.Int("formatted_len", len(formatted)),
+				zap.Int("spec_keys", len(directionData)))
 		}
 	}
 

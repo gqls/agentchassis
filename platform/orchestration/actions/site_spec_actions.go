@@ -183,6 +183,19 @@ func WriteSiteSpecAction(ctx context.Context, params ActionParams) (interface{},
 	if createdBy == "" {
 		createdBy = source
 	}
+	// Auto-format content_direction specs: add a "formatted" field that
+	// contains the entire spec as readable text. The content writer reads
+	// {{.site_specs.specs.content_direction.formatted}} — one field regardless
+	// of how the structured data is organised.
+	// This runs for every content_direction write — classifier, adoption, HITL.
+	if aspect == "content_direction" {
+		formatted := datahelpers.FormatContentDirection(specMap)
+		if formatted != "" {
+			specMap["formatted"] = formatted
+			logger.Info("Auto-formatted content_direction spec",
+				zap.Int("formatted_len", len(formatted)))
+		}
+	}
 
 	// --- Begin transaction ---
 	tx, err := params.DB.BeginTx(ctx, nil)

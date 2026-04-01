@@ -1056,3 +1056,308 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'site-adoption-agent';
 
+-- Update adoption agent analyze_site to claude-sonnet-4-6
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_site,config,ai_service,model}',
+        '"claude-sonnet-4-6"'
+                     )
+WHERE type = 'site-adoption-agent';
+
+--
+
+-- ============================================================================
+-- Add content direction analysis to the site-adoption-agent workflow
+-- ============================================================================
+--
+-- Adds two steps between analyze_site and apply_plan:
+--   1. select_content — picks 2-3 prose-heavy pages from crawl
+--   2. derive_content_direction — LLM extracts detailed writing guidelines
+--
+-- New flow:
+--   ... → analyze_site → select_content → derive_content_direction → apply_plan
+--
+-- ============================================================================
+
+-- ── 1. Redirect analyze_site → select_content (was → apply_plan) ────────
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_site,next_step}',
+        '"select_content"'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- ── 2. Add select_content step ──────────────────────────────────────────
+-- Note: no input_fields — Go actions read from params.CollectedData directly.
+-- input_fields is only consumed by execute_llm_prompt / extractDataForAiAgent.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,select_content}',
+        '{
+            "action": "select_representative_content",
+            "config": {
+                "max_pages": 3,
+                "max_total_chars": 15000
+            },
+            "output_field": "representative_content",
+            "next_step": "derive_content_direction",
+            "error_step": "apply_plan",
+            "description": "Select 2-3 prose-heavy pages from crawl for writing style analysis"
+        }'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- ── 3. Add derive_content_direction step ────────────────────────────────
+-- Uses {{if}} guards on template variables per dev guide rule 7.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,derive_content_direction}',
+        '{
+            "action": "execute_llm_prompt",
+            "config": {
+                "ai_service": {
+                    "model": "claude-sonnet-4-6",
+                    "provider": "anthropic",
+                    "api_key_env_var": "ANTHROPIC_API_KEY"
+                },
+                "max_tokens": 6000,
+                "temperature": 0.2,
+                "input_fields": ["site_record", "representative_content", "adoption_analysis"],
+                "prompt_template": "You are a senior copywriter and brand strategist. You are analysing the actual content from a website to produce a detailed writing style guide that another writer could follow to recreate content in exactly the same voice, tone, and style.\n\nDomain: {{if .site_record}}{{.site_record.domain}}{{end}}\n\nHere is the actual content from representative pages on this site:\n\n{{if .representative_content}}{{.representative_content.selected_text}}{{end}}\n\nStudy this content carefully and deeply. Pay attention to:\n- How headings are phrased (questions? statements? commands? how long?)\n- Sentence length, rhythm, and construction patterns\n- Level of formality vs conversational tone\n- How technical terms are handled (defined? assumed known? avoided? explained inline?)\n- Use of first/second/third person and when each is used\n- How confidence and authority are expressed without overstepping\n- What the content deliberately avoids saying (no promises? no superlatives? no jargon without explanation?)\n- How calls-to-action are worded (hard sell? soft? informational? what verbs?)\n- Any legal, regulatory, or compliance patterns (disclaimers, caveats, qualifications)\n- Use of examples, analogies, worked calculations, or concrete illustrations\n- How lists, steps, and structured content are formatted\n- The emotional register (reassuring? challenging? neutral? playful? dry?)\n- How the site builds trust (through expertise? through transparency? through relatability?)\n- What assumptions the site makes about what the reader already knows\n- How deeply the content explores each topic (surface overview? deep dive? practical application?)\n- How bold, italics, links, and other formatting are used\n- How sections transition from one idea to the next\n\nProduce a JSON writing style guide. Be as specific and detailed as possible — a writer reading this guide should be able to perfectly match the voice without ever seeing the original site. Respond ONLY with valid JSON, no markdown backticks.\n\n{\n  \"voice\": {\n    \"register\": \"Describe the overall register in one detailed sentence\",\n    \"person\": \"Which grammatical person is used and when\",\n    \"authority_level\": \"How the site establishes authority and credibility\",\n    \"emotional_tone\": \"The emotional quality and how it makes the reader feel\",\n    \"formality\": \"Where it sits on formal-casual spectrum with specific markers\"\n  },\n  \"sentence_style\": {\n    \"average_length\": \"Short/medium/long and typical word count per sentence\",\n    \"structure_patterns\": \"How sentences are typically constructed — e.g. 'Opens with the conclusion, follows with evidence. Avoids subordinate clauses. Uses fragments for emphasis.'\",\n    \"rhythm\": \"The cadence of the writing — e.g. 'Alternates between short punchy statements and longer explanatory sentences. Never more than two long sentences in a row.'\",\n    \"connectives\": \"How ideas are linked — e.g. 'Rarely uses transitional phrases. Paragraphs stand alone. When connecting, uses simple connectives (but, so, because) not formal ones (furthermore, consequently).'\"\n  },\n  \"persuasion_approach\": {\n    \"method\": \"How the site convinces without selling — e.g. 'Leads with utility. Shows rather than tells. Lets the tool/data speak for itself. Never claims to be the best — demonstrates value through the quality of the resource.'\",\n    \"trust_building\": \"How trust is established — e.g. 'Through visible expertise and practical demonstrations. Shows the working. Acknowledges limitations openly.'\",\n    \"social_proof_style\": \"How social proof is handled — e.g. 'No testimonials. No client logos. Authority comes from the depth of the content itself. Implicit proof through usage statistics if present.'\"\n  },\n  \"content_depth\": {\n    \"thoroughness\": \"How deeply topics are explored — e.g. 'Extremely thorough. Every claim has a worked example. Mathematical formulas are shown step-by-step. Nothing is left to assumption.'\",\n    \"assumed_knowledge\": \"What the reader is expected to already know — e.g. 'Assumes intermediate game design knowledge. Explains probability theory from scratch. Does not explain what an RPG is.'\",\n    \"explanation_pattern\": \"How complex ideas are introduced — e.g. 'Concept first, then formula, then worked example, then interactive demo. Always follows abstraction with a concrete case.'\"\n  },\n  \"writing_rules\": [\n    \"Each rule should be specific and actionable, not vague.\",\n    \"Extract at least 10-15 rules from actual patterns in the content.\",\n    \"Example: 'Technical terms must be explained in plain English on first use'\",\n    \"Example: 'Never use superlatives (best, leading, guaranteed) unless backed by a cited source'\",\n    \"Example: 'Paragraphs are 2-3 sentences maximum. One idea per paragraph.'\",\n    \"Example: 'All numerical claims must include the calculation or source'\",\n    \"Example: 'Use imperative mood for instructional content (Calculate, Compare, Choose) not passive (can be calculated)'\"\n  ],\n  \"compliance_rules\": [\n    \"Any legal, regulatory, financial, medical, or professional compliance patterns observed\",\n    \"Example: 'Calculations are illustrative only — always state they do not constitute financial advice'\",\n    \"Example: 'Never recommend a specific product, provider, or course of action'\",\n    \"Return empty array [] if no compliance patterns are evident\"\n  ],\n  \"heading_style\": {\n    \"format\": \"How headings are typically phrased\",\n    \"hierarchy\": \"How heading levels are used — e.g. 'H1 is the page title. H2s are major topic breaks. H3s are sub-points within a topic. Never skip levels.'\",\n    \"examples_from_site\": [\"Copy 3-4 actual headings from the content\"]\n  },\n  \"paragraph_style\": {\n    \"typical_length\": \"How long paragraphs typically are\",\n    \"structure\": \"How paragraphs are internally organised\",\n    \"opening_patterns\": \"How paragraphs typically begin — e.g. 'Often opens with a bold claim or question, then immediately supports it.'\"\n  },\n  \"cta_style\": {\n    \"approach\": \"How calls-to-action are handled\",\n    \"verb_choices\": \"What action verbs are used — e.g. 'Launch, Calculate, Simulate, Read — never Get, Buy, Claim, Unlock'\",\n    \"examples_from_site\": [\"Copy 3-4 actual CTAs from the content\"]\n  },\n  \"terminology\": {\n    \"approach\": \"How domain-specific terms are handled\",\n    \"definition_pattern\": \"How terms are defined when introduced — e.g. 'Bold on first use, followed by a parenthetical plain-English explanation'\",\n    \"key_terms\": [\"List 8-12 domain-specific terms the site uses regularly\"]\n  },\n  \"formatting_conventions\": {\n    \"bold_usage\": \"When and how bold text is used — e.g. 'Key concepts on first mention. Never for emphasis in running text.'\",\n    \"italic_usage\": \"When and how italics are used\",\n    \"link_style\": \"How links are presented — e.g. 'Descriptive anchor text. Never raw URLs. Never click here.'\",\n    \"list_usage\": \"When lists are used vs prose — e.g. 'Lists for requirements, steps, and checklists. Never for narrative content. Always prefaced by an introductory sentence.'\"\n  },\n  \"things_to_avoid\": [\n    \"Specific patterns the site clearly avoids — extract from what is NOT in the content\",\n    \"Include at least 8-10 items, each specific and observable\",\n    \"Example: 'Urgency language (limited time, act now, don''t miss)'\",\n    \"Example: 'Exclamation marks in body copy'\",\n    \"Example: 'Vague claims without supporting data'\",\n    \"Example: 'Passive voice when describing user actions'\"\n  ],\n  \"things_to_emulate\": [\n    \"Specific patterns the site does well that should be preserved\",\n    \"Include at least 8-10 items, each specific and observable\",\n    \"Example: 'Uses the reader''s likely question as a section heading, then answers it directly'\",\n    \"Example: 'Follows every technical explanation with a concrete worked example'\",\n    \"Example: 'Ends articles with a practical checklist summarising key points'\",\n    \"Example: 'Opening sentences that challenge a common misconception'\"\n  ],\n  \"example_phrases\": {\n    \"characteristic\": [\n      \"Copy 5-8 short phrases from the content that are highly characteristic of the site voice\",\n      \"A new writer should be able to read these and immediately grasp the tone\"\n    ],\n    \"would_never_say\": [\n      \"Write 5-8 phrases the site would NEVER use based on its established tone\",\n      \"Example: 'Unlock your potential!' (too salesy)\",\n      \"Example: 'As the leading provider...' (unsubstantiated claim)\",\n      \"Example: 'Don''t miss out on...' (urgency tactic)\"\n    ]\n  }\n}\n\nRules:\n- Extract patterns from the ACTUAL content provided — do not invent or assume\n- Be specific, not generic. 'Write clearly' is useless. 'Paragraphs are 2-3 sentences, leading with the conclusion' is actionable\n- The example_phrases.characteristic must be ACTUAL text copied from the provided content\n- The example_phrases.would_never_say should be invented counter-examples that clearly violate the observed style\n- If compliance patterns exist (financial disclaimers, medical caveats, legal language), capture them in detail in compliance_rules\n- If no compliance patterns exist, return an empty compliance_rules array\n- writing_rules should have at least 10 entries\n- things_to_avoid and things_to_emulate should each have at least 8 entries\n- example_phrases.characteristic should have at least 5 entries\n- Every field in voice, sentence_style, persuasion_approach, and content_depth must be filled with specific observations, not generic writing advice"
+        },
+        "output_field": "content_direction_analysis",
+        "next_step": "apply_plan",
+        "error_step": "apply_plan",
+        "description": "LLM extracts detailed writing style guide from representative content"
+    }'
+)
+WHERE type = 'site-adoption-agent';
+
+-- ── 4. Add content_direction_analysis to apply_plan input_fields ────────
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,apply_plan,config,input_fields}',
+        '["site_record", "crawl_result", "adoption_analysis", "content_direction_analysis"]'
+                     )
+WHERE type = 'site-adoption-agent';
+
+---
+-- improve voice prompt
+-- ============================================================================
+-- Add content direction analysis to the site-adoption-agent workflow
+-- ============================================================================
+--
+-- Adds two steps between analyze_site and apply_plan:
+--   1. select_content — picks 2-3 prose-heavy pages from crawl
+--   2. derive_content_direction — LLM extracts detailed writing guidelines
+--
+-- Uses DO $$ blocks to avoid single-quote escaping issues in the prompt.
+-- ============================================================================
+
+-- ── 1. Redirect analyze_site → select_content (was → apply_plan) ────────
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_site,next_step}',
+        '"select_content"'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- ── 2. Add select_content step ──────────────────────────────────────────
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,select_content}',
+        '{
+            "action": "select_representative_content",
+            "config": {
+                "max_pages": 3,
+                "max_total_chars": 15000
+            },
+            "output_field": "representative_content",
+            "next_step": "derive_content_direction",
+            "error_step": "apply_plan",
+            "description": "Select 2-3 prose-heavy pages from crawl for writing style analysis"
+        }'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- ── 3. Add derive_content_direction step ────────────────────────────────
+-- Uses DO $$ block so the prompt can contain single quotes freely.
+
+DO $outer$
+DECLARE
+prompt_text text;
+    step_json jsonb;
+BEGIN
+    prompt_text := $prompt$You are a senior copywriter and brand strategist. You are analysing the actual content from a website to produce a detailed writing style guide that another writer could follow to recreate content in exactly the same voice, tone, and style.
+
+Domain: {{if .site_record}}{{.site_record.domain}}{{end}}
+
+Here is the actual content from representative pages on this site:
+
+{{if .representative_content}}{{.representative_content.selected_text}}{{end}}
+
+Study this content carefully and deeply. Pay attention to:
+- How headings are phrased (questions? statements? commands? how long?)
+- Sentence length, rhythm, and construction patterns
+- Level of formality vs conversational tone
+- How technical terms are handled (defined? assumed known? avoided? explained inline?)
+- Use of first/second/third person and when each is used
+- How confidence and authority are expressed without overstepping
+- What the content deliberately avoids saying (no promises? no superlatives? no jargon without explanation?)
+- How calls-to-action are worded (hard sell? soft? informational? what verbs?)
+- Any legal, regulatory, or compliance patterns (disclaimers, caveats, qualifications)
+- Use of examples, analogies, worked calculations, or concrete illustrations
+- How lists, steps, and structured content are formatted
+- The emotional register (reassuring? challenging? neutral? playful? dry?)
+- How the site builds trust (through expertise? through transparency? through relatability?)
+- What assumptions the site makes about what the reader already knows
+- How deeply the content explores each topic (surface overview? deep dive? practical application?)
+- How bold, italics, links, and other formatting are used
+- How sections transition from one idea to the next
+
+Produce a JSON writing style guide. Be as specific and detailed as possible — a writer reading this guide should be able to perfectly match the voice without ever seeing the original site. Respond ONLY with valid JSON, no markdown backticks.
+
+{
+  "voice": {
+    "register": "Describe the overall register in one detailed sentence",
+    "person": "Which grammatical person is used and when",
+    "authority_level": "How the site establishes authority and credibility",
+    "emotional_tone": "The emotional quality and how it makes the reader feel",
+    "formality": "Where it sits on formal-casual spectrum with specific markers"
+  },
+  "sentence_style": {
+    "average_length": "Short/medium/long and typical word count per sentence",
+    "structure_patterns": "How sentences are typically constructed",
+    "rhythm": "The cadence of the writing",
+    "connectives": "How ideas are linked between sentences and paragraphs"
+  },
+  "persuasion_approach": {
+    "method": "How the site convinces without selling",
+    "trust_building": "How trust is established",
+    "social_proof_style": "How social proof is handled"
+  },
+  "content_depth": {
+    "thoroughness": "How deeply topics are explored",
+    "assumed_knowledge": "What the reader is expected to already know",
+    "explanation_pattern": "How complex ideas are introduced and explained"
+  },
+  "writing_rules": [
+    "Each rule should be specific and actionable, not vague.",
+    "Extract at least 10-15 rules from actual patterns in the content.",
+    "Example: 'Technical terms must be explained in plain English on first use'",
+    "Example: 'Paragraphs are 2-3 sentences maximum. One idea per paragraph.'"
+  ],
+  "compliance_rules": [
+    "Any legal, regulatory, financial, medical, or professional compliance patterns observed",
+    "Return empty array [] if no compliance patterns are evident"
+  ],
+  "heading_style": {
+    "format": "How headings are typically phrased",
+    "hierarchy": "How heading levels are used",
+    "examples_from_site": ["Copy 3-4 actual headings from the content"]
+  },
+  "paragraph_style": {
+    "typical_length": "How long paragraphs typically are",
+    "structure": "How paragraphs are internally organised",
+    "opening_patterns": "How paragraphs typically begin"
+  },
+  "cta_style": {
+    "approach": "How calls-to-action are handled",
+    "verb_choices": "What action verbs are used",
+    "examples_from_site": ["Copy 3-4 actual CTAs from the content"]
+  },
+  "terminology": {
+    "approach": "How domain-specific terms are handled",
+    "definition_pattern": "How terms are defined when introduced",
+    "key_terms": ["List 8-12 domain-specific terms the site uses regularly"]
+  },
+  "formatting_conventions": {
+    "bold_usage": "When and how bold text is used",
+    "italic_usage": "When and how italics are used",
+    "link_style": "How links are presented",
+    "list_usage": "When lists are used vs prose"
+  },
+  "things_to_avoid": [
+    "Specific patterns the site clearly avoids — extract from what is NOT in the content",
+    "Include at least 8-10 items, each specific and observable"
+  ],
+  "things_to_emulate": [
+    "Specific patterns the site does well that should be preserved",
+    "Include at least 8-10 items, each specific and observable"
+  ],
+  "example_phrases": {
+    "characteristic": [
+      "Copy 5-8 short phrases from the content that are highly characteristic of the site's voice",
+      "A new writer should be able to read these and immediately grasp the tone"
+    ],
+    "would_never_say": [
+      "Write 5-8 phrases the site would NEVER use based on its established tone"
+    ]
+  }
+}
+
+Rules:
+- Extract patterns from the ACTUAL content provided — do not invent or assume
+- Be specific, not generic. 'Write clearly' is useless. 'Paragraphs are 2-3 sentences, leading with the conclusion' is actionable
+- The example_phrases.characteristic must be ACTUAL text copied from the provided content
+- The example_phrases.would_never_say should be invented counter-examples that clearly violate the observed style
+- If compliance patterns exist (financial disclaimers, medical caveats, legal language), capture them in detail
+- If no compliance patterns exist, return an empty compliance_rules array
+- writing_rules should have at least 10 entries
+- things_to_avoid and things_to_emulate should each have at least 8 entries
+- example_phrases.characteristic should have at least 5 entries
+- Every field in voice, sentence_style, persuasion_approach, and content_depth must be filled with specific observations, not generic writing advice$prompt$;
+
+    step_json := jsonb_build_object(
+        'action', 'execute_llm_prompt',
+        'config', jsonb_build_object(
+            'ai_service', jsonb_build_object(
+                'model', 'claude-sonnet-4-6',
+                'provider', 'anthropic',
+                'api_key_env_var', 'ANTHROPIC_API_KEY'
+            ),
+            'max_tokens', 6000,
+            'temperature', 0.2,
+            'input_fields', '["site_record", "representative_content", "adoption_analysis"]'::jsonb,
+            'prompt_template', prompt_text
+        ),
+        'output_field', 'content_direction_analysis',
+        'next_step', 'apply_plan',
+        'error_step', 'apply_plan',
+        'description', 'LLM extracts detailed writing style guide from representative content'
+    );
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,derive_content_direction}',
+        step_json
+                     )
+WHERE type = 'site-adoption-agent';
+
+RAISE NOTICE 'derive_content_direction step added successfully';
+END $outer$;
+
+-- ── 4. Add content_direction_analysis to apply_plan input_fields ────────
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,apply_plan,config,input_fields}',
+        '["site_record", "crawl_result", "adoption_analysis", "content_direction_analysis"]'
+                     )
+WHERE type = 'site-adoption-agent';
+
