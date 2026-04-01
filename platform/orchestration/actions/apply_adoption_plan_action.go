@@ -2,7 +2,8 @@
 //
 // ApplyAdoptionPlanAction takes the LLM's structural analysis of a crawled site
 // and creates everything needed to rebuild it: site_specs, page records, and
-// work items. Tool pages get rawHtml stored for reference code.
+// work items. All pages get rawHtml stored when available. Pages with interactive
+// features carry those descriptions in the work item spec.
 //
 // Registration:
 //   "apply_adoption_plan": {
@@ -88,7 +89,6 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("adoption plan not found — check adoption_plan config path")
 	}
 
-	// Use existing UnwrapDeep to handle {"type":"text","result":"...json..."}
 	unwrapped := datahelpers.UnwrapDeep(planRaw, logger)
 
 	var plan map[string]interface{}
@@ -103,18 +103,17 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		cleaned = strings.TrimSpace(cleaned)
 		if err := json.Unmarshal([]byte(cleaned), &plan); err != nil {
 			logger.Warn("ApplyAdoptionPlanAction: JSON parse failed, attempting repair",
-				zap.Error(err),
-				zap.Int("length", len(cleaned)))
+				zap.Error(err), zap.Int("length", len(cleaned)))
 			repaired := repairTruncatedJSON(cleaned)
 			if repaired != "" {
 				if err2 := json.Unmarshal([]byte(repaired), &plan); err2 == nil {
-					logger.Info("ApplyAdoptionPlanAction: repaired truncated JSON successfully")
+					logger.Info("ApplyAdoptionPlanAction: repaired truncated JSON")
 				} else {
-					return nil, fmt.Errorf("failed to parse adoption plan JSON (repair also failed): %w (tail: %s)",
+					return nil, fmt.Errorf("adoption plan JSON parse failed (repair also failed): %w (tail: %s)",
 						err, truncateTail(cleaned, 100))
 				}
 			} else {
-				return nil, fmt.Errorf("failed to parse adoption plan JSON: %w (tail: %s)",
+				return nil, fmt.Errorf("adoption plan JSON parse failed: %w (tail: %s)",
 					err, truncateTail(cleaned, 100))
 			}
 		}
@@ -138,7 +137,6 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	specsWritten := 0
 	pagesCreated := 0
 	itemsCreated := 0
-	toolsFound := 0
 
 	// ── 1. Store full analysis in research_results ──────────────────────
 
@@ -161,9 +159,6 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	).Scan(&researchID)
 	if err != nil {
 		logger.Warn("Failed to store adoption research", zap.Error(err))
-	} else {
-		logger.Info("Adoption research stored",
-			zap.String("research_id", researchID.String()))
 	}
 
 	// ── 2. Write site_specs ─────────────────────────────────────────────
@@ -200,44 +195,31 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		if data == nil {
 			continue
 		}
-
 		dataJSON, err := json.Marshal(data)
 		if err != nil {
-			logger.Warn("Failed to marshal spec",
-				zap.String("aspect", aspect), zap.Error(err))
 			continue
 		}
-
 		_, _ = tx.ExecContext(ctx, `
 			UPDATE site_specs SET is_current = false, superseded_at = now()
 			WHERE site_id = $1 AND aspect = $2 AND is_current = true
 		`, siteID, aspect)
-
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO site_specs (
 				site_id, aspect, data, source, source_agent,
 				is_current, created_by, notes
-			) VALUES (
-				$1, $2, $3::jsonb, 'adoption', 'site-adoption-agent',
-				true, 'site-adoption-agent', $4
-			)
+			) VALUES ($1, $2, $3::jsonb, 'adoption', 'site-adoption-agent',
+			          true, 'site-adoption-agent', $4)
 		`, siteID, aspect, string(dataJSON),
 			fmt.Sprintf("Adopted from %s", domain))
-
-		if err != nil {
-			logger.Warn("Failed to write spec",
-				zap.String("aspect", aspect), zap.Error(err))
-			continue
+		if err == nil {
+			specsWritten++
 		}
-
-		specsWritten++
-		logger.Info("Spec written", zap.String("aspect", aspect))
 	}
 
-	// ── 3. Build crawl page index and tool page set ─────────────────────
+	// ── 3. Build crawl index and per-page feature map ───────────────────
 
 	crawlPages := buildCrawlPageIndex(params.CollectedData, logger)
-	toolPageSet := buildToolPageSet(plan, logger)
+	pageFeatures := buildPageFeatureMap(plan)
 
 	// ── 4. Create page records ──────────────────────────────────────────
 
@@ -247,7 +229,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		ID       uuid.UUID
 		Name     string
 		PageType string
-		IsTool   bool
+		Features []map[string]interface{}
 	}
 	var adoptedPages []adoptedPage
 
@@ -307,9 +289,6 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			inFooter = inf
 		}
 
-		// Is this page a tool?
-		isTool := pageType == "tool" || toolPageSet[pageName]
-
 		var pageID uuid.UUID
 		err := tx.QueryRowContext(ctx, `
 			INSERT INTO pages (
@@ -318,12 +297,9 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			) VALUES ($1, $2, $3, $4, $5, 'planned',
 			          $6::jsonb, $7, $8, $9, $10)
 			ON CONFLICT (site_id, name) DO UPDATE SET
-				title = EXCLUDED.title,
-				url = EXCLUDED.url,
-				page_type = EXCLUDED.page_type,
-				sections = EXCLUDED.sections,
-				meta_description = EXCLUDED.meta_description,
-				updated_at = NOW()
+				title = EXCLUDED.title, url = EXCLUDED.url,
+				page_type = EXCLUDED.page_type, sections = EXCLUDED.sections,
+				meta_description = EXCLUDED.meta_description, updated_at = NOW()
 			RETURNING id
 		`, siteID, pageName, pageURL, pageTitle, pageType,
 			string(sectionsJSON), metaDesc, navLabel, inHeader, inFooter,
@@ -335,9 +311,8 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			continue
 		}
 
-		// Store existing content from crawl
+		// Store crawl content — markdown always, rawHtml when available
 		crawlContent := matchCrawlContent(crawlPages, pageURL, domain)
-
 		if crawlContent != nil {
 			contentData := map[string]interface{}{
 				"page_name":    pageName,
@@ -348,36 +323,28 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 					"raw_markdown": crawlContent.Markdown,
 				},
 			}
-
-			resultType := "adoption_page"
-
-			// For tool pages, also store rawHtml as reference code
-			if isTool && crawlContent.RawHTML != "" {
+			if crawlContent.RawHTML != "" {
 				contentData["existing_content"].(map[string]interface{})["raw_html"] = crawlContent.RawHTML
-				resultType = "adoption_tool"
-				toolsFound++
-				logger.Info("Tool page with rawHtml stored",
-					zap.String("page", pageName),
-					zap.Int("html_length", len(crawlContent.RawHTML)))
+			}
+			if features, ok := pageFeatures[pageName]; ok {
+				contentData["interactive_features"] = features
 			}
 
 			pageContentJSON, _ := json.Marshal(contentData)
-
 			_, _ = tx.ExecContext(ctx, `
 				INSERT INTO research_results (
 					site_id, page_id, query, topic, result_type,
 					data, summary,
 					researched_by, research_agent_type
 				) VALUES (
-					$1, $2, $3, 'adoption_page_content', $4,
-					$5::jsonb, $6,
+					$1, $2, $3, 'adoption_page_content', 'adoption_page',
+					$4::jsonb, $5,
 					'site-adoption-agent', 'site-adoption-agent'
 				)
 			`, siteID, pageID,
 				fmt.Sprintf("Existing content for %s on %s", pageName, domain),
-				resultType,
 				string(pageContentJSON),
-				fmt.Sprintf("Adopted %s: %s", resultType, pageName),
+				fmt.Sprintf("Adopted page content: %s", pageName),
 			)
 		}
 
@@ -385,14 +352,14 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			ID:       pageID,
 			Name:     pageName,
 			PageType: pageType,
-			IsTool:   isTool,
+			Features: pageFeatures[pageName],
 		})
 		pagesCreated++
 	}
 
 	// ── 5. Create work items ────────────────────────────────────────────
 
-	// Design item
+	// Design
 	designSpec := map[string]interface{}{
 		"mode":         "recreate",
 		"adopted_from": domain,
@@ -420,90 +387,47 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		itemsCreated++
 	}
 
-	// Content and tool page items
+	// Content pages — all use needs_content_page
+	// Pages with interactive features carry them in the spec
 	for i, page := range adoptedPages {
-		if page.IsTool {
-			// Tool page — needs_tool_page with reference to rawHtml
-			toolSpec := map[string]interface{}{
-				"page_name": page.Name,
-				"page_type": page.PageType,
-				"mode":      "recreate",
-				"source":    "adoption",
-				"has_tool":  true,
-			}
-			// Include interactive_feature description if available
-			if desc, ok := toolPageSet[page.Name]; ok && desc {
-				// The toolPageSet is bool, but we can get the description from the plan
-				if features, ok := plan["interactive_features"].([]interface{}); ok {
-					for _, f := range features {
-						if fm, ok := f.(map[string]interface{}); ok {
-							if fp, _ := fm["page"].(string); fp == page.Name {
-								toolSpec["tool_name"], _ = fm["name"].(string)
-								toolSpec["tool_type"], _ = fm["type"].(string)
-								toolSpec["tool_description"], _ = fm["description"].(string)
-								toolSpec["self_contained"], _ = fm["self_contained"].(bool)
-								break
-							}
-						}
-					}
-				}
-			}
-			toolSpecJSON, _ := json.Marshal(toolSpec)
-
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO site_work_items (
-					site_id, source, pipeline, item_type, severity, summary,
-					spec, page_id, priority, handler_agent, status, created_by,
-					item_key, batch_id
-				) VALUES ($1, 'adoption', 'build', 'needs_tool_page', 'medium',
-				          $2, $3::jsonb, $4, $5, 'page-build-handler', 'triaged',
-				          'site-adoption-agent', $6, $7)
-				ON CONFLICT DO NOTHING
-			`, siteID,
-				fmt.Sprintf("Recreate tool %s from %s", page.Name, domain),
-				string(toolSpecJSON),
-				page.ID,
-				10+i,
-				fmt.Sprintf("adoption_tool_%s_%s", page.Name, siteID),
-				batchID)
-		} else {
-			// Content page — needs_content_page
-			pageSpec := map[string]interface{}{
-				"page_name": page.Name,
-				"page_type": page.PageType,
-				"mode":      "recreate",
-				"source":    "adoption",
-			}
-			pageSpecJSON, _ := json.Marshal(pageSpec)
-
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO site_work_items (
-					site_id, source, pipeline, item_type, severity, summary,
-					spec, page_id, priority, handler_agent, status, created_by,
-					item_key, batch_id
-				) VALUES ($1, 'adoption', 'build', 'needs_content_page', 'medium',
-				          $2, $3::jsonb, $4, $5, 'page-build-handler', 'triaged',
-				          'site-adoption-agent', $6, $7)
-				ON CONFLICT DO NOTHING
-			`, siteID,
-				fmt.Sprintf("Recreate %s page from %s", page.Name, domain),
-				string(pageSpecJSON),
-				page.ID,
-				10+i,
-				fmt.Sprintf("adoption_page_%s_%s", page.Name, siteID),
-				batchID)
+		pageSpec := map[string]interface{}{
+			"page_name": page.Name,
+			"page_type": page.PageType,
+			"mode":      "recreate",
+			"source":    "adoption",
 		}
+		if len(page.Features) > 0 {
+			pageSpec["interactive_features"] = page.Features
+		}
+		pageSpecJSON, _ := json.Marshal(pageSpec)
+
+		summary := fmt.Sprintf("Recreate %s page from %s", page.Name, domain)
+		if len(page.Features) > 0 {
+			summary = fmt.Sprintf("Recreate %s (interactive) from %s", page.Name, domain)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO site_work_items (
+				site_id, source, pipeline, item_type, severity, summary,
+				spec, page_id, priority, handler_agent, status, created_by,
+				item_key, batch_id
+			) VALUES ($1, 'adoption', 'build', 'needs_content_page', 'medium',
+			          $2, $3::jsonb, $4, $5, 'page-build-handler', 'triaged',
+			          'site-adoption-agent', $6, $7)
+			ON CONFLICT DO NOTHING
+		`, siteID, summary, string(pageSpecJSON), page.ID, 10+i,
+			fmt.Sprintf("adoption_page_%s_%s", page.Name, siteID),
+			batchID)
 		if err == nil {
 			itemsCreated++
 		}
 	}
 
-	// Rerender item
+	// Rerender
 	rerenderSpec, _ := json.Marshal(map[string]interface{}{
 		"refresh_site_components": true,
 		"reason":                  "post_adoption_assembly",
 	})
-
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO site_work_items (
 			site_id, source, pipeline, item_type, severity, summary,
@@ -525,38 +449,45 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("commit: %w", err)
 	}
 
+	interactiveCount := 0
+	for _, p := range adoptedPages {
+		if len(p.Features) > 0 {
+			interactiveCount++
+		}
+	}
+
 	logger.Info("ApplyAdoptionPlanAction: Complete",
 		zap.String("domain", domain),
 		zap.Int("specs_written", specsWritten),
 		zap.Int("pages_created", pagesCreated),
 		zap.Int("items_created", itemsCreated),
-		zap.Int("tools_found", toolsFound),
+		zap.Int("interactive_pages", interactiveCount),
 		zap.String("batch_id", batchID.String()),
-		zap.String("research_id", researchID.String()),
 	)
 
 	return map[string]interface{}{
-		"applied":       true,
-		"domain":        domain,
-		"specs_written": specsWritten,
-		"pages_created": pagesCreated,
-		"items_created": itemsCreated,
-		"tools_found":   toolsFound,
-		"batch_id":      batchID.String(),
-		"research_id":   researchID.String(),
+		"applied":           true,
+		"domain":            domain,
+		"specs_written":     specsWritten,
+		"pages_created":     pagesCreated,
+		"items_created":     itemsCreated,
+		"interactive_pages": interactiveCount,
+		"batch_id":          batchID.String(),
+		"research_id":       researchID.String(),
 	}, nil
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-// buildToolPageSet builds a set of page names that have interactive features.
-// Built from the LLM's interactive_features array.
-func buildToolPageSet(plan map[string]interface{}, logger *zap.Logger) map[string]bool {
-	toolPages := make(map[string]bool)
+// buildPageFeatureMap maps page names to their interactive features from the
+// LLM's interactive_features array. Generic — works for tools, games,
+// calculators, forms, search, visualisations, or any other interactive element.
+func buildPageFeatureMap(plan map[string]interface{}) map[string][]map[string]interface{} {
+	featuresByPage := make(map[string][]map[string]interface{})
 
 	features, ok := plan["interactive_features"].([]interface{})
 	if !ok {
-		return toolPages
+		return featuresByPage
 	}
 
 	for _, f := range features {
@@ -565,21 +496,18 @@ func buildToolPageSet(plan map[string]interface{}, logger *zap.Logger) map[strin
 			continue
 		}
 		pageName, _ := fm["page"].(string)
-		if pageName != "" {
-			toolPages[pageName] = true
+		if pageName == "" {
+			continue
 		}
+		featuresByPage[pageName] = append(featuresByPage[pageName], fm)
 	}
 
-	logger.Info("Built tool page set",
-		zap.Int("tool_pages", len(toolPages)),
-		zap.Int("features", len(features)))
-
-	return toolPages
+	return featuresByPage
 }
 
 // buildCrawlPageIndex extracts markdown and rawHtml from the crawl response,
-// keyed by URL path. Markdown is always present; rawHtml only when the crawl
-// requested it (scrapeOptions.formats includes "rawHtml").
+// keyed by URL. rawHtml is present when the crawl requested it via
+// scrapeOptions.formats.
 func buildCrawlPageIndex(collectedData map[string]interface{}, logger *zap.Logger) map[string]*crawlPageContent {
 	index := make(map[string]*crawlPageContent)
 
@@ -613,8 +541,6 @@ func buildCrawlPageIndex(collectedData map[string]interface{}, logger *zap.Logge
 		if markdown == "" && rawHTML == "" {
 			continue
 		}
-
-		// Skip error pages
 		if markdown != "" && strings.Contains(markdown, "NoSuchKey") {
 			continue
 		}
@@ -628,12 +554,8 @@ func buildCrawlPageIndex(collectedData map[string]interface{}, logger *zap.Logge
 			continue
 		}
 
-		content := &crawlPageContent{
-			Markdown: markdown,
-			RawHTML:  rawHTML,
-		}
+		content := &crawlPageContent{Markdown: markdown, RawHTML: rawHTML}
 
-		// Index by multiple URL forms for matching
 		if pageURL != "" {
 			index[pageURL] = content
 			for _, prefix := range []string{"https://", "http://"} {
@@ -666,12 +588,11 @@ func buildCrawlPageIndex(collectedData map[string]interface{}, logger *zap.Logge
 	return index
 }
 
-// matchCrawlContent finds crawl content for a page URL, trying multiple patterns
+// matchCrawlContent finds crawl content for a page URL
 func matchCrawlContent(index map[string]*crawlPageContent, pageURL, domain string) *crawlPageContent {
 	if c, found := index[pageURL]; found {
 		return c
 	}
-	// Try with domain prefix
 	if c, found := index["https://"+domain+pageURL]; found {
 		return c
 	}
@@ -681,40 +602,28 @@ func matchCrawlContent(index map[string]*crawlPageContent, pageURL, domain strin
 	return nil
 }
 
-// repairTruncatedJSON attempts to fix JSON that was cut off by max_tokens.
+// repairTruncatedJSON fixes JSON cut off by max_tokens
 func repairTruncatedJSON(s string) string {
 	if len(s) == 0 {
 		return ""
 	}
-
 	lastGood := -1
 	for i := len(s) - 1; i >= 0; i-- {
-		ch := s[i]
-		if ch == '}' || ch == ']' {
+		if s[i] == '}' || s[i] == ']' {
 			lastGood = i + 1
 			break
 		}
 	}
-
 	if lastGood <= 0 {
 		return ""
 	}
-
-	truncated := s[:lastGood]
-	truncated = strings.TrimRight(truncated, " \t\n\r,")
-
-	openBraces := strings.Count(truncated, "{") - strings.Count(truncated, "}")
-	openBrackets := strings.Count(truncated, "[") - strings.Count(truncated, "]")
-
-	for openBrackets > 0 {
+	truncated := strings.TrimRight(s[:lastGood], " \t\n\r,")
+	for strings.Count(truncated, "[") > strings.Count(truncated, "]") {
 		truncated += "]"
-		openBrackets--
 	}
-	for openBraces > 0 {
+	for strings.Count(truncated, "{") > strings.Count(truncated, "}") {
 		truncated += "}"
-		openBraces--
 	}
-
 	return truncated
 }
 
