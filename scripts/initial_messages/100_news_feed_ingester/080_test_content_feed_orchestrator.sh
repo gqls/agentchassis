@@ -1,4 +1,7 @@
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+
+SITE_ID='5fe15466-4e2e-4ff2-981e-98c1b7074002'
+DOMAIN='gaswholesalers.com'
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -35,3 +38,15 @@ FROM agent_definitions WHERE type = 'content-feed-orchestrator' AND deleted_at I
 ------------+---------------
  t          | "git_commit"
 (1 row)
+
+
+SELECT orchestration_id, owner_agent_type, current_step, status, created_at,
+       collected_data->'seed_result'->>'has_sources' as has_sources,
+       collected_data->'seed_result'->>'existing_count' as existing_count,
+       collected_data->'dispatch_result'->>'source_count' as dispatched,
+       collected_data->'news_render_result'->>'item_count' as rendered_items,
+       error
+FROM orchestration_states
+WHERE owner_agent_type = 'content-feed-orchestrator'
+ORDER BY created_at DESC
+LIMIT 3;

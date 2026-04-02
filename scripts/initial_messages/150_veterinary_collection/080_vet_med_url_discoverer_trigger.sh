@@ -40,7 +40,7 @@ kubectl -n kafka run -i --rm kcat-med-discover-$(date +%s) \
   -H from_agent_type=user \
   -H from_agent_id=cli \
   -H responses_topic=system.agent.business-intel.responses <<JSON
-{"action":"orchestrate","config":{"agent_type":"med-url-discoverer"},"input_data":{"retailer_id":"pet_drugs_online"}}
+{"action":"orchestrate","config":{"agent_type":"med-url-discoverer"},"input_data":{}}
 JSON
 
 echo ""
@@ -60,3 +60,50 @@ echo "  SELECT retailer_product_name, retailer_url"
 echo "  FROM business_intel.med_retailer_listings"
 echo "  WHERE match_method = 'url_discovery'"
 echo "  ORDER BY created_at DESC LIMIT 20;"
+
+
+
+for just one retailer:
+{"action":"orchestrate","config":{"agent_type":"med-url-discoverer"},"input_data":{"retailer_id":"pet_drugs_online"}}
+
+
+-- Sample of discovered products
+SELECT retailer_product_name, retailer_url
+FROM business_intel.med_retailer_listings
+WHERE match_method = 'url_discovery' AND retailer_id = 'pet_drugs_online'
+ORDER BY retailer_product_name
+LIMIT 20;
+
+-- Check the HTTP log for the discovery call
+SELECT method, url, status_code, latency_ms
+FROM http_request_log
+WHERE action_name = 'med_discover_urls'
+ORDER BY created_at DESC LIMIT 5;
+
+-- How many category pages were scraped?
+SELECT category_urls FROM business_intel.med_retailers WHERE id = 'pet_drugs_online';
+
+----
+
+SELECT retailer_id, count(*) as total,
+       count(CASE WHEN match_method = 'url_discovery' THEN 1 END) as discovered
+FROM business_intel.med_retailer_listings
+GROUP BY retailer_id;
+
+-- Sample of discovered products
+SELECT retailer_product_name, retailer_url
+FROM business_intel.med_retailer_listings
+WHERE match_method = 'url_discovery' AND retailer_id = 'pet_drugs_online'
+ORDER BY retailer_product_name
+LIMIT 20;
+
+-- Check the HTTP log for the discovery call
+SELECT method, url, status_code, latency_ms
+FROM http_request_log
+WHERE action_name = 'med_discover_urls'
+ORDER BY created_at DESC LIMIT 5;
+
+-- How many category pages were scraped?
+SELECT category_urls FROM business_intel.med_retailers WHERE id = 'pet_drugs_online';
+
+

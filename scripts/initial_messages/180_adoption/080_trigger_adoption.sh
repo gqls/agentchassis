@@ -14,8 +14,8 @@ URL='https://robot-hands.com'
 DOMAIN='gamedesign.uk'
 URL='https://gamedesign.uk'
 
-DOMAIN='robot-hands.com'
-URL='https://robot-hands.com'
+DOMAIN='gamedesign.uk'
+URL='https://gamedesign.uk'
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -56,7 +56,7 @@ kubectl -n kafka run -i --rm kcat-adopt-$(date +%s) \
   -H action=orchestrate \
   -H from_agent_type=user \
   -H from_agent_id=cli \
-  -H responses_topic=system.generic.responses <<JSON
+  -H responses_topic=system.agent.generic.responses <<JSON
 {"action":"orchestrate","config":{"agent_type":"site-adoption-agent"},"input_data":{"domain":"$DOMAIN","url":"$URL"}}
 JSON
 

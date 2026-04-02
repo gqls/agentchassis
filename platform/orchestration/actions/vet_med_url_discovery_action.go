@@ -327,6 +327,16 @@ func extractProductLinks(markdown string, retailer medRetailerForDiscovery) []di
 		linkText := strings.TrimSpace(m[1])
 		linkURL := strings.TrimSpace(m[2])
 
+		// Strip markdown link title: [text](url "title") → url
+		if idx := strings.Index(linkURL, " \""); idx > 0 {
+			linkURL = linkURL[:idx]
+		}
+		if idx := strings.Index(linkURL, " '"); idx > 0 {
+			linkURL = linkURL[:idx]
+		}
+		// Also handle space without quotes (shouldn't happen but defensive)
+		linkURL = strings.TrimRight(linkURL, " ")
+
 		// Resolve relative URLs
 		if strings.HasPrefix(linkURL, "/") {
 			linkURL = retailer.BaseURL + linkURL
@@ -374,13 +384,25 @@ func isRetailerProductURL(rawURL string, retailer medRetailerForDiscovery) bool 
 
 	path := strings.ToLower(parsed.Path)
 
+	// Skip root
+	if path == "/" || path == "" {
+		return false
+	}
+
+	// Skip fragment-only links
+	if parsed.Path == "" && parsed.Fragment != "" {
+		return false
+	}
+
 	// Skip non-product paths
 	skipPrefixes := []string{
-		"/cart", "/basket", "/checkout", "/login", "/account",
+		"/cart", "/basket", "/checkout", "/login", "/account", "/customer/",
 		"/delivery", "/returns", "/help", "/contact", "/about",
-		"/terms", "/privacy", "/cookie", "/faq", "/blog",
+		"/terms", "/privacy", "/cookie", "/faq", "/blog", "/pet-advice",
 		"/brand", "/brands", "/special-offer", "/prescription-info",
-		"/media/", "/static/", "/js/", "/css/",
+		"/prescriptions", "/how-do-i-", "/how-to-",
+		"/media/", "/static/", "/js/", "/css/", "/icons/",
+		"/search", "/wishlist", "/compare", "/review",
 	}
 	for _, prefix := range skipPrefixes {
 		if strings.HasPrefix(path, prefix) {
@@ -391,7 +413,7 @@ func isRetailerProductURL(rawURL string, retailer medRetailerForDiscovery) bool 
 	// Skip image/asset URLs
 	skipSuffixes := []string{
 		".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg",
-		".pdf", ".css", ".js",
+		".pdf", ".css", ".js", ".ico",
 	}
 	for _, suffix := range skipSuffixes {
 		if strings.HasSuffix(path, suffix) {
@@ -399,28 +421,67 @@ func isRetailerProductURL(rawURL string, retailer medRetailerForDiscovery) bool 
 		}
 	}
 
-	// Skip root and very short paths (likely category pages)
-	if path == "/" || path == "" {
-		return false
-	}
-
-	// Skip obvious category patterns
-	if strings.HasSuffix(path, "/") && strings.Count(path, "/") <= 2 {
-		// e.g. /dog-prescriptions/ — likely a category, not a product
-		// But /metacam-oral-suspension-for-dogs/ is a product
-		// Use length as a heuristic — product slugs tend to be longer
-		slug := strings.Trim(path, "/")
-		if !strings.Contains(slug, "/") && len(slug) < 20 {
-			return false
+	// Split path into segments: "/dog/healthcare/ageing" → ["dog", "healthcare", "ageing"]
+	segments := []string{}
+	for _, s := range strings.Split(strings.Trim(path, "/"), "/") {
+		if s != "" {
+			segments = append(segments, s)
 		}
 	}
 
-	// Skip fragment-only links
-	if parsed.Path == "" && parsed.Fragment != "" {
+	if len(segments) == 0 {
 		return false
 	}
 
+	// Category prefixes — first segment is a species/department, not a product
+	categoryFirstSegments := []string{
+		"dog", "dogs", "cat", "cats", "horse", "horses", "equine",
+		"small-pet", "small-pets", "small-furries", "small-animals",
+		"pigeon", "farm", "human", "home", "bird", "birds",
+		"current-offers", "special-offers",
+	}
+	if len(segments) >= 2 {
+		for _, cat := range categoryFirstSegments {
+			if segments[0] == cat {
+				return false // e.g. /dog/healthcare/ageing — category page
+			}
+		}
+	}
+
+	// Multi-segment paths are usually categories unless they match known product patterns
+	// VioVet: /Product-Name/c{number}/ — product family page
+	// Hyperdrug: /Product-Name/productinfo/SKU/ — product page
+	if len(segments) >= 2 {
+		secondSeg := segments[1]
+		// Allow VioVet family pages: /Name/c{digits}/
+		if len(secondSeg) > 1 && secondSeg[0] == 'c' && isNumeric(secondSeg[1:]) {
+			return true
+		}
+		// Allow Hyperdrug product pages: /Name/productinfo/SKU/
+		if secondSeg == "productinfo" {
+			return true
+		}
+		// Everything else with 2+ segments is likely a category
+		return false
+	}
+
+	// Single-segment paths: likely products if long enough
+	// Short single-segment paths could be top-level categories
+	if len(segments) == 1 && len(segments[0]) < 10 {
+		return false // e.g. /dog, /cat, /brands — too short
+	}
+
 	return true
+}
+
+// isNumeric checks if a string is all digits
+func isNumeric(s string) bool {
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return len(s) > 0
 }
 
 // insertDiscoveredListings inserts new product URLs into med_retailer_listings.
