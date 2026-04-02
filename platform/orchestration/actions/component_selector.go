@@ -353,7 +353,7 @@ func CreateNeedsNewComponentItem(
 			spec, priority, handler_agent, status, created_by, item_key, pipeline
 		) VALUES (
 			$1, 'planner', 'build', 'needs_new_component', 'medium',
-			$2, $3, 50, 'component-creator', 'triaged', 'component_selector', $4, 'build'
+			$2, $3::jsonb, 50, 'component-creator', 'triaged', 'component_selector', $4, 'build'
 		)
 		ON CONFLICT (site_id, item_key)
 		WHERE item_key IS NOT NULL
@@ -361,7 +361,7 @@ func CreateNeedsNewComponentItem(
 		DO NOTHING
 	`, siteID,
 		fmt.Sprintf("Need component template for section type: %s", sectionType),
-		specJSON,
+		string(specJSON),
 		itemKey,
 	)
 

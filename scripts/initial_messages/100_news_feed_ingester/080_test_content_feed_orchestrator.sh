@@ -29,6 +29,14 @@ kubectl -n kafka run -i --rm kcat-orch-test-$$ \
 {"headers":{"correlation_id":"$CORRELATION_ID","orchestration_id":"$ORCHESTRATION_ID","message_type":"request","action":"orchestrate","client_id":"demo_client","message_id":"$MESSAGE_ID","request_id":"$REQUEST_ID","timestamp":"$TIMESTAMP","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"}},"config":{"workflow":{"start_step":"spawn_orchestrator","steps":{"spawn_orchestrator":{"action":"spawn_agent","config":{"agent_type":"content-feed-orchestrator","role":"orch-test"},"next_step":"call_orchestrator"},"call_orchestrator":{"action":"call_agent","config":{"target_role":"orch-test","input_mapping":{"site_id":"input_data.site_id"}},"next_step":"complete"},"complete":{"action":"complete_workflow"}}},"processing_mode":"orchestrator","timeout_seconds":600},"input_data":{"site_id":"$SITE_ID"}}
 JSON
 
+echo ""
+echo "========================================="
+echo "CONTENT FEED TRIGGER for $DOMAIN"
+echo "========================================="
+echo ""
+
+
+
 # see if it worked, should be in git under data/latest-news.json in gaswholesalers.com git repo
 SELECT
     default_config->'workflow'->'steps'->'render_news_json' IS NOT NULL as has_render,
@@ -70,3 +78,37 @@ FROM content_feed_items
 WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
 GROUP BY status
 ORDER BY status;
+
+
+---------------------------------------------------------------------
+
+-- Did dispatch produce anything? Check full dispatch_result
+SELECT collected_data->'dispatch_result' as dispatch_result
+FROM orchestration_states
+WHERE orchestration_id = '143ffb61-32dd-4d02-bcca-7eee7c4b7676';
+
+-- Did any feed-ingester orchestrations spawn?
+SELECT orchestration_id, owner_agent_type, current_step, status, created_at, error
+FROM orchestration_states
+WHERE owner_agent_type = 'feed-ingester'
+ORDER BY created_at DESC
+LIMIT 5;
+
+-- Are there any newly ingested items since the run?
+SELECT source_title, status, created_at
+FROM content_feed_items
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+ORDER BY created_at DESC
+LIMIT 5;
+
+-- After triggering, check the latest run
+SELECT
+    collected_data->'seed_result'->>'has_sources' as has_sources,
+    collected_data->'news_render_result'->>'item_count' as rendered_items,
+    collected_data->'news_render_result'->>'domain' as domain,
+    collected_data->'news_commit_result'->>'commit_sha' as commit_sha,
+    current_step, status, error
+FROM orchestration_states
+WHERE owner_agent_type = 'content-feed-orchestrator'
+ORDER BY created_at DESC
+LIMIT 1;

@@ -85,6 +85,9 @@ SELECT category_urls FROM business_intel.med_retailers WHERE id = 'pet_drugs_onl
 
 ----
 
+-- Clean all discovered listings
+DELETE FROM business_intel.med_retailer_listings WHERE match_method = 'url_discovery';
+
 SELECT retailer_id, count(*) as total,
        count(CASE WHEN match_method = 'url_discovery' THEN 1 END) as discovered
 FROM business_intel.med_retailer_listings
