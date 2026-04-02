@@ -7,19 +7,26 @@
 // This is the "create from scratch" counterpart to deploy_tool_to_site
 // (which forks existing library tools).
 //
+// After creation, this action also:
+//   - Sets rendered_html on the page_component (so the tool is visible immediately)
+//   - Creates a needs_content_page work item (so hero/intro/CTA sections get written)
+//   - Creates a companion guide page + work item (same pattern as deploy_tool_action)
+//
 // Registration:
-//   "create_tool_component": {
-//       Handler:     CreateToolComponentAction,
-//       Category:    "site",
-//       Description: "Create a new tool component from generated HTML and set up its page",
-//       IsLocal:     true,
-//   },
+//
+//	"create_tool_component": {
+//	    Handler:     CreateToolComponentAction,
+//	    Category:    "site",
+//	    Description: "Create a new tool component from generated HTML and set up its page",
+//	    IsLocal:     true,
+//	},
 
 package actions
 
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -82,6 +89,9 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	if htmlContent == "" {
 		return nil, fmt.Errorf("html_content is empty — LLM generation may have failed")
 	}
+
+	// Strip markdown fences if LLM included them despite instructions
+	htmlContent = datahelpers.StripCodeFences(htmlContent)
 
 	function := inputs.Get("function")
 	displayName := inputs.Get("display_name")
@@ -160,8 +170,8 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		INSERT INTO content_components (
 			id, name, display_name, function, component_level,
 			category, description, html_template,
-			is_active, is_dark_section
-		) VALUES ($1, $2, $3, $4, 'tool', $5, $6, $7, true, false)
+			is_active, is_dark_section, created_from
+		) VALUES ($1, $2, $3, $4, 'tool', $5, $6, $7, true, false, 'tool-generator')
 	`, componentID, componentName, displayName, function,
 		category, description, htmlContent)
 	if err != nil {
@@ -195,11 +205,15 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		zap.String("url", pageURL))
 
 	// --- Link component to page ---
+	// Position 2 (same as deploy_tool_action): tool widget sits between intro and CTA
+	// Set rendered_html so the tool is visible immediately
+	// Set slot_name to the function (component naming contract)
 	_, err = params.DB.ExecContext(ctx, `
 		INSERT INTO page_components (
-			page_id, component_id, position, build_status
-		) VALUES ($1, $2, 1, 'pending')
-	`, pageID, componentID)
+			page_id, component_id, position, slot_name,
+			rendered_html, content_data, build_status
+		) VALUES ($1, $2, 2, $3, $4, '{}'::jsonb, 'deployed')
+	`, pageID, componentID, function, htmlContent)
 	if err != nil {
 		// Clean up on failure
 		params.DB.ExecContext(ctx, `DELETE FROM pages WHERE id = $1`, pageID)
@@ -210,6 +224,118 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	// --- Add to nav (if configured) ---
 	if inHeader || inFooter {
 		addToolToNav(ctx, params.DB, siteID, pageID, displayName, pageURL, navSection, inHeader, inFooter, logger)
+	}
+
+	// --- Create needs_content_page work item for tool page ---
+	// This triggers page-build-handler to write hero, intro, and CTA sections
+	// around the tool (the tool widget at position 2 is already deployed).
+	toolContentSpec, _ := json.Marshal(map[string]interface{}{
+		"page_name":         pageName,
+		"page_id":           pageID.String(),
+		"page_type":         "tool",
+		"tool_function":     function,
+		"tool_display_name": displayName,
+		"tool_description":  description,
+		"tool_page_url":     pageURL,
+		"source":            "tool-generator",
+		"content_guidance": fmt.Sprintf(
+			"This is a tool page for '%s'. Generate: (1) a hero section with the tool name and a one-line benefit statement, "+
+				"(2) an educational guide section explaining the concept behind the tool — what it calculates, why it matters, "+
+				"how users should interpret the results — written for the site's target audience, "+
+				"(3) a CTA section encouraging users to try the tool and linking to related content. "+
+				"Do NOT regenerate the tool widget itself — it is already deployed at position 2.",
+			displayName,
+		),
+	})
+
+	_, err = params.DB.ExecContext(ctx, `
+		INSERT INTO site_work_items (
+			site_id, source, pipeline, item_type, severity, summary,
+			spec, page_id, priority, handler_agent, status, created_by, item_key
+		) VALUES (
+			$1, 'tool-generator', 'build', 'needs_content_page', 'medium',
+			$2, $3::jsonb, $4, 50, 'page-build-handler', 'triaged', 'tool-generator', $5
+		) ON CONFLICT DO NOTHING
+	`, siteID,
+		fmt.Sprintf("Write content for tool page: %s", displayName),
+		string(toolContentSpec), pageID,
+		fmt.Sprintf("tool_content:%s:%s", function, siteID),
+	)
+	if err != nil {
+		logger.Warn("CreateToolComponentAction: Failed to create tool content work item (non-fatal)", zap.Error(err))
+	}
+
+	// --- Create companion guide page ---
+	guideName := pageName + "-guide"
+	guideURL := fmt.Sprintf("/guides/%s.html", guideName)
+	guideTitle := fmt.Sprintf("Understanding %s | Guide", displayName)
+
+	var guidePageID uuid.UUID
+	err = params.DB.QueryRowContext(ctx, `
+		INSERT INTO pages (
+			site_id, name, url, title, page_type,
+			nav_order, in_header, in_footer,
+			meta_description, sections,
+			build_status, status
+		) VALUES (
+			$1, $2, $3, $4, 'blog-post',
+			200, false, false,
+			$5, '["hero", "article-body", "call-to-action"]'::jsonb,
+			'planned', 'active'
+		)
+		ON CONFLICT (site_id, name) DO UPDATE SET
+			title = EXCLUDED.title,
+			updated_at = NOW()
+		RETURNING id
+	`, siteID, guideName, guideURL, guideTitle,
+		fmt.Sprintf("A practical guide to %s — what it means, how it works, and how to use our interactive %s.",
+			strings.TrimPrefix(displayName, "UK "),
+			strings.ToLower(displayName)),
+	).Scan(&guidePageID)
+
+	if err != nil {
+		logger.Warn("CreateToolComponentAction: Failed to create companion guide page (non-fatal)", zap.Error(err))
+	} else {
+		// Create work item for the guide article
+		guideSpec, _ := json.Marshal(map[string]interface{}{
+			"page_name":         guideName,
+			"page_id":           guidePageID.String(),
+			"page_type":         "blog-post",
+			"tool_function":     function,
+			"tool_display_name": displayName,
+			"tool_page_url":     pageURL,
+			"source":            "tool-generator",
+			"content_guidance": fmt.Sprintf(
+				"Write an in-depth guide about %s. Explain the concept, why it matters, common mistakes people make, "+
+					"and practical tips. At relevant points, reference the interactive %s tool at %s — "+
+					"e.g. 'Use our %s to see how this applies to your situation.' "+
+					"The article should stand alone as useful content even without the tool.",
+				strings.TrimPrefix(displayName, "UK "),
+				strings.ToLower(displayName), pageURL,
+				strings.ToLower(displayName),
+			),
+		})
+
+		_, err = params.DB.ExecContext(ctx, `
+			INSERT INTO site_work_items (
+				site_id, source, pipeline, item_type, severity, summary,
+				spec, page_id, priority, handler_agent, status, created_by, item_key
+			) VALUES (
+				$1, 'tool-generator', 'build', 'needs_content_page', 'low',
+				$2, $3::jsonb, $4, 70, 'page-build-handler', 'triaged', 'tool-generator', $5
+			) ON CONFLICT DO NOTHING
+		`, siteID,
+			fmt.Sprintf("Write companion guide: %s", guideTitle),
+			string(guideSpec), guidePageID,
+			fmt.Sprintf("tool_guide:%s:%s", function, siteID),
+		)
+		if err != nil {
+			logger.Warn("CreateToolComponentAction: Failed to create guide work item (non-fatal)", zap.Error(err))
+		} else {
+			logger.Info("CreateToolComponentAction: Companion guide created",
+				zap.String("guide_page_id", guidePageID.String()),
+				zap.String("guide_url", guideURL))
+		}
 	}
 
 	logger.Info("CreateToolComponentAction: Complete",
@@ -224,6 +350,7 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		"page_url":       pageURL,
 		"function":       function,
 		"display_name":   displayName,
+		"guide_url":      guideURL,
 		"needs_rerender": true,
 		"generated":      true,
 	}, nil

@@ -1037,3 +1037,89 @@ INSERT INTO site_work_items (
              130, 'tool-suggester', 'triaged', 'admin',
              'evaluate_tools:5fe15466-4e2e-4ff2-981e-98c1b7074002'
          );
+
+---
+--
+
+-- Migration 070: Add routing in tool-suggester's create_items_loop
+--
+-- Problem: tool-suggester hard-codes handler_agent = 'tool-deployer' for ALL suggestions.
+-- Novel tools (tool_component_id is null) fail at tool-deployer because there's nothing to fork.
+--
+-- Fix: Replace the single create_tool_item step with:
+--   check_is_library → conditional on current_suggestion.tool_component_id != null
+--     then → create_library_item (handler: tool-deployer)
+--     else → create_novel_item (handler: tool-generator)
+--
+-- The tool-generator agent already exists with a working workflow:
+--   ensure_site_record → load_brand_context → generate_tool_html (LLM) → save_tool (create_tool_component action)
+-- The create_tool_component Go action is already registered and deployed.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_items_loop,config,sub_workflow}',
+        '{
+            "steps": {
+                "done": {
+                    "action": "loop_complete",
+                    "description": "Item created"
+                },
+                "check_is_library": {
+                    "action": "conditional",
+                    "config": {
+                        "condition": "current_suggestion.tool_component_id != null",
+                        "then_step": "create_library_item",
+                        "else_step": "create_novel_item"
+                    },
+                    "description": "Route: library tools to deployer, novel tools to generator"
+                },
+                "create_library_item": {
+                    "action": "create_work_item",
+                    "config": {
+                        "source": "tool-suggester",
+                        "site_id": "input_data.site_id",
+                        "summary": "current_suggestion.name",
+                        "priority": 130,
+                        "severity": "low",
+                        "item_type": "add_tool",
+                        "spec_data": "current_suggestion",
+                        "item_domain": "build",
+                        "handler_agent": "tool-deployer",
+                        "item_key_prefix": "add_tool"
+                    },
+                    "next_step": "done",
+                    "description": "Create add_tool work item — library fork via tool-deployer",
+                    "output_field": "item_created"
+                },
+                "create_novel_item": {
+                    "action": "create_work_item",
+                    "config": {
+                        "source": "tool-suggester",
+                        "site_id": "input_data.site_id",
+                        "summary": "current_suggestion.name",
+                        "priority": 120,
+                        "severity": "low",
+                        "item_type": "add_tool",
+                        "spec_data": "current_suggestion",
+                        "item_domain": "build",
+                        "handler_agent": "tool-generator",
+                        "item_key_prefix": "add_tool_novel"
+                    },
+                    "next_step": "done",
+                    "description": "Create add_tool work item — novel generation via tool-generator",
+                    "output_field": "item_created"
+                }
+            },
+            "start_step": "check_is_library"
+        }'::jsonb
+                     )
+WHERE type = 'tool-suggester';
+
+-- Verify the update
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'create_items_loop'->'config'->'sub_workflow'->'start_step' as start_step,
+    jsonb_object_keys(default_config->'workflow'->'steps'->'create_items_loop'->'config'->'sub_workflow'->'steps') as step_names
+FROM agent_definitions
+WHERE type = 'tool-suggester';

@@ -101,13 +101,7 @@ func tryUnwrapMap(m map[string]interface{}, logger *zap.Logger) interface{} {
 				if result, hasResult := resultMap["result"]; hasResult {
 					// Try to parse JSON
 					if str, ok := result.(string); ok {
-						str = strings.TrimSpace(str)
-						str = strings.TrimPrefix(str, "```json\n")
-						str = strings.TrimPrefix(str, "```json")
-						str = strings.TrimPrefix(str, "```")
-						str = strings.TrimSuffix(str, "\n```")
-						str = strings.TrimSuffix(str, "```")
-						str = strings.TrimSpace(str)
+						str = StripCodeFences(str)
 
 						var parsed interface{}
 						if err := json.Unmarshal([]byte(str), &parsed); err == nil {
@@ -123,7 +117,7 @@ func tryUnwrapMap(m map[string]interface{}, logger *zap.Logger) interface{} {
 	// Pattern 2: Direct result field
 	if result, ok := m["result"]; ok {
 		if str, ok := result.(string); ok {
-			str = strings.TrimSpace(str)
+			str = StripCodeFences(str)
 			if strings.HasPrefix(str, "{") || strings.HasPrefix(str, "[") {
 				var parsed interface{}
 				if err := json.Unmarshal([]byte(str), &parsed); err == nil {

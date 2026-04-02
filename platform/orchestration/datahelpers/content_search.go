@@ -256,6 +256,42 @@ func unwrapRecursive(data interface{}, depth int, logger *zap.Logger) interface{
 	return data
 }
 
+// StripCodeFences removes markdown code fences from LLM output.
+// Handles all variations: ```json, ```html, ```css, plain ``` etc.
+// Safe to call on content that has no fences (returns it unchanged).
+//
+// Used by:
+//   - tryParseJSON (JSON fence stripping before parsing)
+//   - CreateToolComponentAction (HTML fence stripping from LLM-generated tools)
+//   - Any action receiving raw LLM text output that may be fenced
+func StripCodeFences(s string) string {
+	s = strings.TrimSpace(s)
+
+	// Strip leading fences: ```html\n, ```json\n, ```\n, etc.
+	for strings.HasPrefix(s, "```") {
+		newlineIdx := strings.Index(s, "\n")
+		if newlineIdx > 0 {
+			s = s[newlineIdx+1:]
+		} else {
+			s = strings.TrimPrefix(s, "```")
+		}
+		s = strings.TrimSpace(s)
+	}
+
+	// Strip trailing fences
+	for strings.HasSuffix(s, "```") {
+		lastNewline := strings.LastIndex(s, "\n```")
+		if lastNewline > 0 {
+			s = s[:lastNewline]
+		} else {
+			s = strings.TrimSuffix(s, "```")
+		}
+		s = strings.TrimSpace(s)
+	}
+
+	return s
+}
+
 // tryParseJSON attempts to parse a JSON string
 // Returns nil for non-JSON strings (this is expected, not an error)
 func tryParseJSON(value interface{}, logger *zap.Logger) interface{} {
@@ -265,29 +301,7 @@ func tryParseJSON(value interface{}, logger *zap.Logger) interface{} {
 	}
 
 	originalLen := len(str)
-	str = strings.TrimSpace(str)
-
-	// Handle all fence variations (```json ... ```)
-	for strings.HasPrefix(str, "```") {
-		newlineIdx := strings.Index(str, "\n")
-		if newlineIdx > 0 {
-			str = str[newlineIdx+1:]
-		} else {
-			str = strings.TrimPrefix(str, "```")
-		}
-		str = strings.TrimSpace(str)
-	}
-
-	// Remove trailing fences
-	for strings.HasSuffix(str, "```") {
-		lastNewline := strings.LastIndex(str, "\n```")
-		if lastNewline > 0 {
-			str = str[:lastNewline]
-		} else {
-			str = strings.TrimSuffix(str, "```")
-		}
-		str = strings.TrimSpace(str)
-	}
+	str = StripCodeFences(str)
 
 	// Quick check: if it doesn't look like JSON, don't try to parse
 	// This avoids noisy logs for plain text LLM responses
