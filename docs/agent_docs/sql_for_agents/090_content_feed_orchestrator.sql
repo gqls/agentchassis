@@ -379,3 +379,170 @@ SELECT
     default_config->'workflow'->'steps'->'render_news_json' IS NOT NULL as has_render,
     default_config->'workflow'->'steps'->'commit_news'->'action' as commit_action
 FROM agent_definitions WHERE type = 'content-feed-orchestrator' AND deleted_at IS NULL;
+
+--
+
+-- ============================================================================
+-- 027i — Content Feed Orchestrator: add source seeding + triage
+-- ============================================================================
+--
+-- What this does:
+--   1. Backs up the current content-feed-orchestrator definition
+--   2. Updates the workflow to add:
+--      - seed_sources step (first step — creates content_sources from spec)
+--      - check_has_sources step (skip if no sources after seeding)
+--      - run_triage step (call feed-triage agent to score ingested items)
+--      - check_has_news step (skip git commit if nothing rendered)
+--   3. Increases timeout to 900s (triage LLM call can take time)
+--
+-- New flow:
+--   seed_sources → check_has_sources → dispatch_sources → run_triage
+--     → render_news_json → check_has_news → commit_news → complete
+--
+-- Timing note: dispatch_sources fires off async feed-ingesters. They write
+-- items with status='ingested' for NEXT run's triage. The run_triage step
+-- scores items from PREVIOUS runs. render_news_json reads both 'relevant'
+-- and 'ingested' items. Steady state: each run triages and renders items
+-- from prior ingestion.
+--
+-- Prerequisites:
+--   - seed_content_sources_action.go deployed to chassis
+--   - Registry entry added for "seed_content_sources"
+--
+-- Revert:
+--   UPDATE agent_definitions
+--   SET default_config = (SELECT default_config
+--       FROM agent_def_content_feed_orch_backup_20260402 LIMIT 1),
+--       updated_at = NOW()
+--   WHERE type = 'content-feed-orchestrator' AND deleted_at IS NULL;
+-- ============================================================================
+
+-- Step 1: Backup
+CREATE TABLE IF NOT EXISTS agent_def_content_feed_orch_backup_20260402 AS
+SELECT * FROM agent_definitions
+WHERE type = 'content-feed-orchestrator' AND deleted_at IS NULL;
+
+-- Step 2: Update the workflow
+UPDATE agent_definitions
+SET default_config = jsonb_build_object(
+        'processing_mode', 'orchestrator',
+        'timeout_seconds', 900,
+        'workflow', jsonb_build_object(
+                'start_step', 'seed_sources',
+                'steps', jsonb_build_object(
+
+                    -- Step 1: Ensure content_sources exist from classification spec
+                        'seed_sources', jsonb_build_object(
+                                'action', 'seed_content_sources',
+                                'config', jsonb_build_object('site_id', 'input_data.site_id'),
+                                'next_step', 'check_has_sources',
+                                'description', 'Create content_sources from classification news_feed recommendation if none exist',
+                                'output_field', 'seed_result'
+                                        ),
+
+                    -- Step 2: Skip entire pipeline if site has no sources
+                    -- seed_result.has_sources is true when existing sources found OR new ones seeded
+                        'check_has_sources', jsonb_build_object(
+                                'action', 'evaluate_condition',
+                                'config', jsonb_build_object(
+                                        'condition_field', 'seed_result.has_sources',
+                                        'conditions', jsonb_build_object('false', 'complete_no_sources'),
+                                        'default', 'dispatch_sources'
+                                          ),
+                                'description', 'Skip if site has no content sources (not recommended for news)'
+                                             ),
+
+                    -- Early exit: no sources
+                        'complete_no_sources', jsonb_build_object(
+                                'action', 'complete_workflow',
+                                'config', jsonb_build_object(
+                                        'output_fields', jsonb_build_array('seed_result')
+                                          ),
+                                'description', 'No content sources — site not configured for news'
+                                               ),
+
+                    -- Step 3: Dispatch feed ingesters for due sources (async, fire-and-forget)
+                        'dispatch_sources', jsonb_build_object(
+                                'action', 'dispatch_feed_sources',
+                                'config', jsonb_build_object('site_id', 'input_data.site_id'),
+                                'next_step', 'run_triage',
+                                'description', 'Load due sources and spawn feed-ingester per source',
+                                'output_field', 'dispatch_result'
+                                            ),
+
+                    -- Step 4: Triage ingested items from prior runs
+                        'run_triage', jsonb_build_object(
+                                'action', 'call_agent',
+                                'config', jsonb_build_object(
+                                        'agent_type', 'feed-triage',
+                                        'input_fields', jsonb_build_array('input_data'),
+                                        'timeout_seconds', 300
+                                          ),
+                                'next_step', 'render_news_json',
+                                'description', 'Score ingested items for relevance (items from prior ingestion runs)',
+                                'output_field', 'triage_result'
+                                      ),
+
+                    -- Step 5: Render latest-news.json
+                        'render_news_json', jsonb_build_object(
+                                'action', 'render_news_section',
+                                'config', jsonb_build_object(
+                                        'site_id', 'input_data.site_id',
+                                        'max_items', 6,
+                                        'page_name', 'index',
+                                        'max_age_hours', 72
+                                          ),
+                                'next_step', 'check_has_news',
+                                'description', 'Produce latest-news JSON from relevant and recent items',
+                                'output_field', 'news_render_result'
+                                            ),
+
+                    -- Step 6: Skip git commit if no items rendered
+                        'check_has_news', jsonb_build_object(
+                                'action', 'evaluate_condition',
+                                'config', jsonb_build_object(
+                                        'condition_field', 'news_render_result.item_count',
+                                        'conditions', jsonb_build_object('0', 'complete'),
+                                        'default', 'commit_news'
+                                          ),
+                                'description', 'Skip commit if no news items to display'
+                                          ),
+
+                    -- Step 7: Commit JSON file to git → S3 deploy
+                        'commit_news', jsonb_build_object(
+                                'action', 'git_commit',
+                                'config', jsonb_build_object(
+                                        'files_field', 'news_render_result.files',
+                                        'domain_field', 'news_render_result.domain',
+                                        'commit_message', 'Update latest news feed'
+                                          ),
+                                'next_step', 'complete',
+                                'description', 'Commit latest-news.json to git repo for S3 deploy',
+                                'output_field', 'news_commit_result'
+                                       ),
+
+                    -- Done
+                        'complete', jsonb_build_object(
+                                'action', 'complete_workflow',
+                                'config', jsonb_build_object(
+                                        'output_fields', jsonb_build_array(
+                                                'seed_result', 'dispatch_result', 'triage_result',
+                                                'news_render_result', 'news_commit_result'
+                                                         )
+                                          ),
+                                'description', 'Feed orchestration complete'
+                                    )
+                         )
+                    )
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-feed-orchestrator'
+  AND deleted_at IS NULL;
+
+-- Verify the update
+SELECT type,
+       default_config->'workflow'->'start_step' as start_step,
+       default_config->'timeout_seconds' as timeout
+FROM agent_definitions
+WHERE type = 'content-feed-orchestrator' AND deleted_at IS NULL;
+

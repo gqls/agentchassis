@@ -180,3 +180,114 @@ SET sections = '["hero", "features", "services-grid", "differentiators-section",
 WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
   AND name = 'index';
 
+---
+--
+
+-- ============================================================================
+-- 026h — Page Build Handler: read sections from site_specs.site_plan
+-- ============================================================================
+--
+-- Problem: page-build-handler reads sections from pages.sections, which
+-- doesn't include latest-news (or any other sections added after initial
+-- page creation). site_specs.site_plan IS authoritative but wasn't consulted.
+--
+-- Fix: insert a load_spec_sections step that reads from site_specs.site_plan,
+-- falls back to pages.sections, and syncs the two. Then plan_sections reads
+-- from the spec-sourced list instead of the pages table directly.
+--
+-- Changes to page-build-handler workflow:
+--   1. load_existing_content.next_step: "plan_sections" → "load_spec_sections"
+--   2. New step: load_spec_sections (action: load_page_sections_from_spec)
+--   3. plan_sections.config.sections: "page_record.sections" → "spec_sections.sections"
+--
+-- New flow (changed steps marked with *):
+--   ensure_site_record → load_page_record → check_page_found
+--     → load_existing_content* → load_spec_sections* → plan_sections*
+--     → check_has_ready_sections → spawn_content_writer → call_content_writer
+--     → check_content_produced → validate_content → save_sections
+--     → update_status → spawn_rerender_agent → deploy_page → complete
+--
+-- Prerequisites:
+--   - load_page_sections_from_spec_action.go already deployed in chassis
+--   - Action registered as "load_page_sections_from_spec" in registry
+--
+-- Revert:
+--   UPDATE agent_definitions
+--   SET default_config = (SELECT default_config
+--       FROM agent_def_page_build_handler_backup_20260402 LIMIT 1),
+--       updated_at = NOW()
+--   WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+-- ============================================================================
+
+-- Step 1: Backup
+CREATE TABLE IF NOT EXISTS agent_def_page_build_handler_backup_20260402 AS
+SELECT * FROM agent_definitions
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Step 2: Change load_existing_content.next_step from "plan_sections" to "load_spec_sections"
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_existing_content,next_step}',
+        '"load_spec_sections"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Step 3: Also change load_existing_content.error_step from "plan_sections" to "load_spec_sections"
+-- (if load_existing_content fails, we still want to try loading sections from spec)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_existing_content,error_step}',
+        '"load_spec_sections"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Step 4: Add the new load_spec_sections step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_spec_sections}',
+        jsonb_build_object(
+                'action', 'load_page_sections_from_spec',
+                'config', jsonb_build_object(
+                        'site_id', 'site_record.site_id',
+                        'page_name', 'page_record.name',
+                        'page_sections_fallback', 'page_record.sections'
+                          ),
+                'next_step', 'plan_sections',
+                'error_step', 'plan_sections',
+                'description', 'Load sections from site_specs.site_plan (authoritative), fall back to pages.sections',
+                'output_field', 'spec_sections'
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Step 5: Change plan_sections to read from spec_sections.sections
+-- instead of page_record.sections
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_sections,config,sections}',
+        '"spec_sections.sections"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Verify the changes
+SELECT
+    default_config->'workflow'->'steps'->'load_existing_content'->'next_step' as load_existing_next,
+    default_config->'workflow'->'steps'->'load_spec_sections'->'action' as spec_action,
+    default_config->'workflow'->'steps'->'plan_sections'->'config'->'sections' as plan_reads_from
+FROM agent_definitions
+WHERE type = 'page-build-handler' AND deleted_at IS NULL;
+
+-- Expected output:
+--  load_existing_next |          spec_action           |      plan_reads_from
+-- --------------------+--------------------------------+---------------------------
+--  "load_spec_sections" | "load_page_sections_from_spec" | "spec_sections.sections"
+
+

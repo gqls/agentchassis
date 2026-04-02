@@ -1009,6 +1009,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Post-classification enrichment: determine if site should have news feed",
 		IsLocal:     true,
 	},
+	"seed_content_sources": {
+		Handler:     SeedContentSourcesAction,
+		Category:    "feed",
+		Description: "Create content_sources from classification news_feed recommendation",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// Site Snapshots

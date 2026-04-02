@@ -1009,3 +1009,31 @@ ORDER BY
     WHEN 'complete_empty' THEN 11
 END;
 
+--
+-- 1. Activate tool-suggester
+UPDATE agent_definitions
+SET status = 'active', updated_at = NOW()
+WHERE type = 'tool-suggester';
+
+-- 2. Check the failed item
+SELECT summary, error, spec
+FROM site_work_items
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND item_type = 'add_tool' AND status = 'failed';
+
+-- 3. Clear stale items for gaswholesalers so we get a clean test
+DELETE FROM site_work_items
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND item_type IN ('evaluate_tools', 'add_tool');
+
+-- 4. Re-trigger
+INSERT INTO site_work_items (
+    site_id, source, pipeline, item_type, severity, summary,
+    spec, priority, handler_agent, status, created_by, item_key
+) VALUES (
+             '5fe15466-4e2e-4ff2-981e-98c1b7074002', 'admin', 'build', 'evaluate_tools', 'low',
+             'Re-evaluate tools for gaswholesalers',
+             '{"reason": "manual test after pipeline fix"}'::jsonb,
+             130, 'tool-suggester', 'triaged', 'admin',
+             'evaluate_tools:5fe15466-4e2e-4ff2-981e-98c1b7074002'
+         );
