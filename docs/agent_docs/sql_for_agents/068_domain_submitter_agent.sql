@@ -181,3 +181,326 @@ This means everything submitted — hints, fixed content, brand preferences, ass
 
 No new Go code. The step uses `write_site_spec` which already exists. The richness of the submission grows over time as we add more fields — the pipeline just reads whatever's there.
 
+
+
+-- STEP 2: Fix error_step placement for all persist steps
+-- Move error_step from step level into config
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps}',
+    (
+        -- Remove old persist steps and rebuild with error_step in config
+        (default_config->'workflow'->'steps')
+        - 'persist_mission' - 'persist_mission_brief' - 'persist_roadmap' - 'persist_roadmap_brief'
+        || jsonb_build_object(
+            'persist_mission', jsonb_build_object(
+                'action', 'write_site_spec',
+                'description', 'Persist structured mission data (skipped if absent)',
+                'config', jsonb_build_object(
+                    'aspect', 'mission',
+                    'source', 'domain-submitter',
+                    'site_id', 'site_record.site_id',
+                    'spec_data', 'input_data.mission',
+                    'source_agent', 'domain-submitter',
+                    'error_step', 'persist_mission_brief'
+                ),
+                'next_step', 'persist_mission_brief',
+                'output_field', 'mission_stored'
+            ),
+            'persist_mission_brief', jsonb_build_object(
+                'action', 'write_site_spec',
+                'description', 'Persist mission brief for LLM prompts (skipped if absent)',
+                'config', jsonb_build_object(
+                    'aspect', 'mission_brief',
+                    'source', 'domain-submitter',
+                    'site_id', 'site_record.site_id',
+                    'spec_data', 'input_data.mission_brief',
+                    'source_agent', 'domain-submitter',
+                    'error_step', 'persist_roadmap'
+                ),
+                'next_step', 'persist_roadmap',
+                'output_field', 'mission_brief_stored'
+            ),
+            'persist_roadmap', jsonb_build_object(
+                'action', 'write_site_spec',
+                'description', 'Persist structured roadmap data (skipped if absent)',
+                'config', jsonb_build_object(
+                    'aspect', 'roadmap',
+                    'source', 'domain-submitter',
+                    'site_id', 'site_record.site_id',
+                    'spec_data', 'input_data.roadmap',
+                    'source_agent', 'domain-submitter',
+                    'error_step', 'persist_roadmap_brief'
+                ),
+                'next_step', 'persist_roadmap_brief',
+                'output_field', 'roadmap_stored'
+            ),
+            'persist_roadmap_brief', jsonb_build_object(
+                'action', 'write_site_spec',
+                'description', 'Persist roadmap brief for LLM prompts (skipped if absent)',
+                'config', jsonb_build_object(
+                    'aspect', 'roadmap_brief',
+                    'source', 'domain-submitter',
+                    'site_id', 'site_record.site_id',
+                    'spec_data', 'input_data.roadmap_brief',
+                    'source_agent', 'domain-submitter',
+                    'error_step', 'create_research_item'
+                ),
+                'next_step', 'create_research_item',
+                'output_field', 'roadmap_brief_stored'
+            )
+        )
+    )
+),
+updated_at = NOW()
+WHERE type = 'domain-submitter' AND is_active = true;
+
+-- STEP 3: Re-wire store_submission_spec → persist_mission
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_submission_spec,next_step}',
+        '"persist_mission"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-submitter' AND is_active = true;
+
+-- Verify the full chain
+SELECT key as step_name,
+    value->>'next_step' as next_step,
+    value->'config'->>'error_step' as error_step_in_config,
+    value->>'error_step' as error_step_at_level
+FROM agent_definitions, jsonb_each(default_config->'workflow'->'steps')
+WHERE type = 'domain-submitter' AND is_active = true
+ORDER BY
+    CASE key
+    WHEN 'ensure_site_record' THEN 1
+    WHEN 'store_contact_info' THEN 2
+    WHEN 'store_submission_spec' THEN 3
+    WHEN 'persist_mission' THEN 4
+    WHEN 'persist_mission_brief' THEN 5
+    WHEN 'persist_roadmap' THEN 6
+    WHEN 'persist_roadmap_brief' THEN 7
+    WHEN 'create_research_item' THEN 8
+    WHEN 'complete' THEN 9
+END;
+-- error_step_in_config should show the fallback target
+-- error_step_at_level should be null for the new steps
+
+---
+--
+
+-- ============================================================================
+-- Consolidated Fix: error_step placement + classifier + vonc cleanup
+-- ============================================================================
+-- Issues fixed:
+--   1. domain-submitter persist steps had error_step at step level (coordinator
+--      only reads step.Config["error_step"])
+--   2. classifier write_design_intent_spec and write_content_direction_spec
+--      have the same problem
+--   3. vonc.com failed submission data needs cleanup
+--
+-- Run as one transaction.
+-- ============================================================================
+
+BEGIN;
+
+-- ============================================================================
+-- 1. DOMAIN-SUBMITTER: Rebuild persist steps with error_step inside config
+-- ============================================================================
+
+-- First: safety revert — point store_submission_spec to create_research_item
+-- (in case something fails partway through this migration)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_submission_spec,next_step}',
+        '"create_research_item"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-submitter' AND is_active = true;
+
+-- Remove old persist steps (they have error_step in wrong place)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps}',
+        (default_config->'workflow'->'steps')
+            - 'persist_mission'
+            - 'persist_mission_brief'
+            - 'persist_roadmap'
+            - 'persist_roadmap_brief'
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-submitter' AND is_active = true;
+
+-- Add persist steps with error_step INSIDE config
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps}',
+        (default_config->'workflow'->'steps')
+            || jsonb_build_object(
+                'persist_mission', jsonb_build_object(
+                        'action', 'write_site_spec',
+                        'description', 'Persist structured mission data (skipped if absent)',
+                        'config', jsonb_build_object(
+                                'aspect', 'mission',
+                                'source', 'domain-submitter',
+                                'site_id', 'site_record.site_id',
+                                'spec_data', 'input_data.mission',
+                                'source_agent', 'domain-submitter',
+                                'error_step', 'persist_mission_brief'
+                                  ),
+                        'next_step', 'persist_mission_brief',
+                        'output_field', 'mission_stored'
+                                   ),
+                'persist_mission_brief', jsonb_build_object(
+                        'action', 'write_site_spec',
+                        'description', 'Persist mission brief for LLM prompts (skipped if absent)',
+                        'config', jsonb_build_object(
+                                'aspect', 'mission_brief',
+                                'source', 'domain-submitter',
+                                'site_id', 'site_record.site_id',
+                                'spec_data', 'input_data.mission_brief',
+                                'source_agent', 'domain-submitter',
+                                'error_step', 'persist_roadmap'
+                                  ),
+                        'next_step', 'persist_roadmap',
+                        'output_field', 'mission_brief_stored'
+                                         ),
+                'persist_roadmap', jsonb_build_object(
+                        'action', 'write_site_spec',
+                        'description', 'Persist structured roadmap data (skipped if absent)',
+                        'config', jsonb_build_object(
+                                'aspect', 'roadmap',
+                                'source', 'domain-submitter',
+                                'site_id', 'site_record.site_id',
+                                'spec_data', 'input_data.roadmap',
+                                'source_agent', 'domain-submitter',
+                                'error_step', 'persist_roadmap_brief'
+                                  ),
+                        'next_step', 'persist_roadmap_brief',
+                        'output_field', 'roadmap_stored'
+                                   ),
+                'persist_roadmap_brief', jsonb_build_object(
+                        'action', 'write_site_spec',
+                        'description', 'Persist roadmap brief for LLM prompts (skipped if absent)',
+                        'config', jsonb_build_object(
+                                'aspect', 'roadmap_brief',
+                                'source', 'domain-submitter',
+                                'site_id', 'site_record.site_id',
+                                'spec_data', 'input_data.roadmap_brief',
+                                'source_agent', 'domain-submitter',
+                                'error_step', 'create_research_item'
+                                  ),
+                        'next_step', 'create_research_item',
+                        'output_field', 'roadmap_brief_stored'
+                                         )
+               )
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-submitter' AND is_active = true;
+
+-- Now wire store_submission_spec → persist_mission
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,store_submission_spec,next_step}',
+        '"persist_mission"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-submitter' AND is_active = true;
+
+
+-- ============================================================================
+-- 2. CLASSIFIER: Fix error_step placement on write steps
+-- ============================================================================
+
+-- write_content_direction_spec: move error_step into config
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,write_content_direction_spec,config,error_step}',
+                '"create_next_item"'::jsonb
+        ),
+    -- Remove step-level error_step by rebuilding without it
+        '{workflow,steps,write_content_direction_spec}',
+        (default_config->'workflow'->'steps'->'write_content_direction_spec')
+            - 'error_step'
+            || jsonb_build_object('config',
+                                  (default_config->'workflow'->'steps'->'write_content_direction_spec'->'config')
+                                      || '{"error_step": "create_next_item"}'::jsonb
+               )
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND is_active = true;
+
+-- write_design_intent_spec: move error_step into config
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,write_design_intent_spec}',
+        (default_config->'workflow'->'steps'->'write_design_intent_spec')
+            - 'error_step'
+            || jsonb_build_object('config',
+                                  (default_config->'workflow'->'steps'->'write_design_intent_spec'->'config')
+                                      || '{"error_step": "create_next_item"}'::jsonb
+               )
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND is_active = true;
+
+
+-- ============================================================================
+-- 3. CLEAN UP: Remove failed vonc.com data
+-- ============================================================================
+
+DELETE FROM site_specs WHERE site_id = 'eec0eb49-a4fb-4937-a33a-d0e9d18c4ed3';
+DELETE FROM sites WHERE id = 'eec0eb49-a4fb-4937-a33a-d0e9d18c4ed3';
+
+
+COMMIT;
+
+
+-- ============================================================================
+-- Verification (run after commit)
+-- ============================================================================
+
+-- Domain-submitter: check flow and error_step placement
+SELECT key as step_name,
+    value->>'next_step' as next_step,
+    value->'config'->>'error_step' as error_step_in_config,
+    value->>'error_step' as error_step_at_level
+FROM agent_definitions, jsonb_each(default_config->'workflow'->'steps')
+WHERE type = 'domain-submitter' AND is_active = true
+ORDER BY
+    CASE key
+    WHEN 'ensure_site_record' THEN 1
+    WHEN 'store_contact_info' THEN 2
+    WHEN 'store_submission_spec' THEN 3
+    WHEN 'persist_mission' THEN 4
+    WHEN 'persist_mission_brief' THEN 5
+    WHEN 'persist_roadmap' THEN 6
+    WHEN 'persist_roadmap_brief' THEN 7
+    WHEN 'create_research_item' THEN 8
+    WHEN 'complete' THEN 9
+END;
+-- persist steps should show error_step_in_config filled, error_step_at_level null
+
+-- Classifier: check error_step moved to config
+SELECT key as step_name,
+    value->>'error_step' as step_level,
+    value->'config'->>'error_step' as in_config
+FROM agent_definitions, jsonb_each(default_config->'workflow'->'steps')
+WHERE type = 'domain-research-classifier' AND is_active = true
+  AND (value->>'error_step' IS NOT NULL OR value->'config'->>'error_step' IS NOT NULL);
+-- Should show in_config = 'create_next_item', step_level = null
+
+-- vonc.com cleaned up
+SELECT COUNT(*) as vonc_sites FROM sites WHERE domain = 'vonc.com';
+-- Should be 0
+
