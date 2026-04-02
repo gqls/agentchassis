@@ -1017,3 +1017,87 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'domain-research-classifier';
 
+---
+-- muddling with site specs
+
+-- 1. Add read_site_specs step to classifier
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,read_site_specs}',
+        jsonb_build_object(
+                'action', 'read_site_spec',
+                'description', 'Load site_specs (includes mission_brief and roadmap_brief if present)',
+                'config', jsonb_build_object(
+                        'site_id', 'input_data.site_id'
+                          ),
+                'next_step', 'classify_and_extract',
+                'output_field', 'site_specs'
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND is_active = true;
+
+-- 2. Wire scrape_site → read_site_specs (instead of → classify_and_extract)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,scrape_site,next_step}',
+        '"read_site_specs"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND is_active = true;
+
+-- 3. Add site_specs to the LLM step's input_fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_and_extract,config,input_fields}',
+        '["input_data", "search_results", "scraped_data", "site_specs"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND is_active = true;
+
+-- 4. Fix prompt: input_data.mission_brief → site_specs.specs.mission_brief
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_and_extract,config,prompt_template}',
+        to_jsonb(REPLACE(REPLACE(
+                                 default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template',
+                                 '.input_data.mission_brief',
+                                 '.site_specs.specs.mission_brief'
+                         ),
+                         '.input_data.roadmap_brief',
+                         '.site_specs.specs.roadmap_brief'
+                 )::text)
+                     ),
+    updated_at = NOW()
+WHERE type = 'domain-research-classifier' AND is_active = true;
+
+-- Verify the flow
+SELECT key as step_name, value->>'next_step' as next_step
+FROM agent_definitions, jsonb_each(default_config->'workflow'->'steps')
+WHERE type = 'domain-research-classifier' AND is_active = true
+ORDER BY
+    CASE key
+    WHEN 'search_domain' THEN 1
+    WHEN 'scrape_site' THEN 2
+    WHEN 'read_site_specs' THEN 3
+    WHEN 'classify_and_extract' THEN 4
+    WHEN 'write_identity_spec' THEN 5
+    WHEN 'write_classification_spec' THEN 6
+    WHEN 'write_content_direction_spec' THEN 7
+    WHEN 'write_design_intent_spec' THEN 8
+    WHEN 'create_next_item' THEN 9
+    WHEN 'complete' THEN 10
+END;
+-- Should show: search_domain → scrape_site → read_site_specs → classify_and_extract → ...
+
+-- Verify prompt references site_specs not input_data for briefs
+SELECT
+    default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template' LIKE '%site_specs.specs.mission_brief%' as reads_from_site_specs,
+    default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template' NOT LIKE '%input_data.mission_brief%' as no_input_data_ref
+FROM agent_definitions WHERE type = 'domain-research-classifier' AND is_active = true;
+-- Expected: t, t
+

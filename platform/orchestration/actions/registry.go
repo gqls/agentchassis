@@ -893,12 +893,6 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Load page sections from site_specs with fallback to pages table",
 		IsLocal:     true,
 	},
-	"select_representative_content": {
-		Handler:     SelectRepresentativeContentAction,
-		Category:    "site",
-		Description: "To select representative prose-heavy pages from crawl for style analysis",
-		IsLocal:     true,
-	},
 
 	// RAG — retrieval-augmented generation
 	"rag_lookup": {
@@ -1057,6 +1051,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Handler:     LoadExistingContentAction,
 		Category:    "site",
 		Description: "Load existing page content from research_results for recreate mode",
+		IsLocal:     true,
+	},
+	"select_representative_content": {
+		Handler:     SelectRepresentativeContentAction,
+		Category:    "site",
+		Description: "To select representative prose-heavy pages from crawl for style analysis",
 		IsLocal:     true,
 	},
 
