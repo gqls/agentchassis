@@ -546,3 +546,59 @@ SELECT type,
 FROM agent_definitions
 WHERE type = 'content-feed-orchestrator' AND deleted_at IS NULL;
 
+---
+--
+
+-- Add spawn_triage step and rewire dispatch_sources to go there first
+-- Step 1: Insert the spawn step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_triage}',
+        jsonb_build_object(
+                'action', 'spawn_agent',
+                'config', jsonb_build_object(
+                        'role', 'triage_agent',
+                        'agent_type', 'feed-triage'
+                          ),
+                'next_step', 'run_triage',
+                'description', 'Spawn feed-triage agent for scoring',
+                'output_field', 'triage_spawned'
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-feed-orchestrator' AND deleted_at IS NULL;
+
+-- Step 2: Point dispatch_sources to spawn_triage instead of run_triage
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,dispatch_sources,next_step}',
+        '"spawn_triage"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-feed-orchestrator' AND deleted_at IS NULL;
+
+-- Step 3: Update run_triage to use target_role matching the spawn
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_triage,config}',
+        jsonb_build_object(
+                'target_role', 'triage_agent',
+                'input_mapping', jsonb_build_object(
+                        'site_id', 'input_data.site_id'
+                                 ),
+                'timeout_seconds', 300
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'content-feed-orchestrator' AND deleted_at IS NULL;
+
+-- Verify
+SELECT default_config->'workflow'->'steps'->'dispatch_sources'->>'next_step' as after_dispatch,
+    default_config->'workflow'->'steps'->'spawn_triage'->>'action' as spawn_action,
+    default_config->'workflow'->'steps'->'run_triage'->'config'->>'target_role' as triage_role
+FROM agent_definitions
+WHERE type = 'content-feed-orchestrator' AND deleted_at IS NULL;
+
