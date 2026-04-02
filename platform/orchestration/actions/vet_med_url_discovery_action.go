@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -123,39 +124,61 @@ func MedDiscoverURLsAction(ctx context.Context, params ActionParams) (interface{
 				break
 			}
 
-			params.Logger.Info("MedDiscoverURLs: scraping category page",
-				zap.String("retailer", retailer.ID),
-				zap.String("url", categoryURL))
+			// Paginate: scrape the category page, then follow "next" links
+			pageURL := categoryURL
+			maxPages := 25 // safety limit
+			pageNum := 0
 
-			// Scrape the category page
-			productLinks, err := scrapeCategoryPage(ctx, httpClient, firecrawlAPIKey, firecrawlAPIURL, categoryURL, retailer, logCtx)
-			if err != nil {
-				params.Logger.Warn("MedDiscoverURLs: category scrape failed",
+			for pageURL != "" && pageNum < maxPages {
+				if ctx.Err() != nil {
+					break
+				}
+				pageNum++
+
+				params.Logger.Info("MedDiscoverURLs: scraping category page",
 					zap.String("retailer", retailer.ID),
-					zap.String("url", categoryURL),
-					zap.Error(err))
-				time.Sleep(time.Duration(delayMs) * time.Millisecond)
-				continue
-			}
+					zap.String("url", pageURL),
+					zap.Int("page", pageNum))
 
-			totalDiscovered += len(productLinks)
+				productLinks, nextPageURL, err := scrapeCategoryPage(ctx, httpClient, firecrawlAPIKey, firecrawlAPIURL, pageURL, retailer, logCtx)
+				if err != nil {
+					params.Logger.Warn("MedDiscoverURLs: category scrape failed",
+						zap.String("retailer", retailer.ID),
+						zap.String("url", pageURL),
+						zap.Error(err))
+					break
+				}
 
-			// Insert discovered URLs
-			inserted, skipped, err := insertDiscoveredListings(ctx, params.DB, retailer.ID, productLinks, params.Logger)
-			if err != nil {
-				params.Logger.Warn("MedDiscoverURLs: insert failed",
+				totalDiscovered += len(productLinks)
+
+				inserted, skipped, err := insertDiscoveredListings(ctx, params.DB, retailer.ID, productLinks, params.Logger)
+				if err != nil {
+					params.Logger.Warn("MedDiscoverURLs: insert failed",
+						zap.String("retailer", retailer.ID),
+						zap.Error(err))
+				}
+				totalInserted += inserted
+				totalSkipped += skipped
+
+				params.Logger.Info("MedDiscoverURLs: category page processed",
 					zap.String("retailer", retailer.ID),
-					zap.Error(err))
-			}
-			totalInserted += inserted
-			totalSkipped += skipped
+					zap.String("url", pageURL),
+					zap.Int("page", pageNum),
+					zap.Int("links_found", len(productLinks)),
+					zap.Int("inserted", inserted),
+					zap.Int("skipped_existing", skipped),
+					zap.String("next_page", nextPageURL))
 
-			params.Logger.Info("MedDiscoverURLs: category page processed",
-				zap.String("retailer", retailer.ID),
-				zap.String("url", categoryURL),
-				zap.Int("links_found", len(productLinks)),
-				zap.Int("inserted", inserted),
-				zap.Int("skipped_existing", skipped))
+				// Stop if no products found on this page (end of listings)
+				if len(productLinks) == 0 {
+					break
+				}
+
+				pageURL = nextPageURL
+				if pageURL != "" {
+					time.Sleep(time.Duration(delayMs) * time.Millisecond)
+				}
+			}
 
 			time.Sleep(time.Duration(delayMs) * time.Millisecond)
 		}
@@ -230,13 +253,14 @@ type discoveredProduct struct {
 var markdownLinkPattern = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
 
 // scrapeCategoryPage scrapes a category page and extracts product links.
+// Returns product links, next page URL (empty if no more pages), and error.
 func scrapeCategoryPage(
 	ctx context.Context,
 	httpClient *http.Client,
 	apiKey, apiURL, categoryURL string,
 	retailer medRetailerForDiscovery,
 	logCtx chHTTPLogContext,
-) ([]discoveredProduct, error) {
+) ([]discoveredProduct, string, error) {
 
 	// Scrape with markdown + links formats
 	payload := map[string]interface{}{
@@ -248,13 +272,13 @@ func scrapeCategoryPage(
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal payload: %w", err)
+		return nil, "", fmt.Errorf("marshal payload: %w", err)
 	}
 
 	scrapeURL := apiURL + "/scrape"
 	req, err := http.NewRequestWithContext(ctx, "POST", scrapeURL, bytes.NewReader(payloadBytes))
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+		return nil, "", fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -280,22 +304,22 @@ func scrapeCategoryPage(
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("firecrawl request: %w", err)
+		return nil, "", fmt.Errorf("firecrawl request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
+		return nil, "", fmt.Errorf("read response: %w", err)
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("firecrawl status %d: %s", resp.StatusCode, truncate(string(body), 200))
+		return nil, "", fmt.Errorf("firecrawl status %d: %s", resp.StatusCode, truncate(string(body), 200))
 	}
 
 	var fcResp map[string]interface{}
 	if err := json.Unmarshal(body, &fcResp); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
+		return nil, "", fmt.Errorf("parse response: %w", err)
 	}
 
 	// Extract markdown
@@ -307,13 +331,16 @@ func scrapeCategoryPage(
 	}
 
 	if markdown == "" {
-		return nil, fmt.Errorf("no markdown in response")
+		return nil, "", fmt.Errorf("no markdown in response")
 	}
 
 	// Extract product links from markdown
 	products := extractProductLinks(markdown, retailer)
 
-	return products, nil
+	// Find next page URL for pagination
+	nextPage := findNextPageURL(markdown, categoryURL, retailer)
+
+	return products, nextPage, nil
 }
 
 // extractProductLinks finds product page URLs from category page markdown.
@@ -395,8 +422,9 @@ func extractProductLinks(markdown string, retailer medRetailerForDiscovery) []di
 	return products
 }
 
-// isRetailerProductURL checks if a URL is a product page on this retailer's domain.
-// Filters out category pages, navigation, images, and non-product URLs.
+// isRetailerProductURL checks if a URL is likely a product page on this retailer's domain.
+// Uses a deny-list approach: reject known non-product patterns, accept everything else.
+// The category page context (prescription listings) means most links are products.
 func isRetailerProductURL(rawURL string, retailer medRetailerForDiscovery) bool {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
@@ -422,20 +450,19 @@ func isRetailerProductURL(rawURL string, retailer medRetailerForDiscovery) bool 
 		return false
 	}
 
-	// Skip non-product paths
+	// Deny-list: known non-product path prefixes
 	skipPrefixes := []string{
 		"/cart", "/basket", "/checkout", "/login", "/account", "/customer/",
 		"/delivery", "/returns", "/help", "/contact", "/about",
 		"/terms", "/privacy", "/cookie", "/faq", "/blog", "/pet-advice",
 		"/brand", "/brands", "/special-offer", "/prescription-info",
-		"/prescriptions", "/how-do-i-", "/how-to-",
+		"/how-do-i-", "/how-to-",
 		"/media/", "/static/", "/js/", "/css/", "/icons/",
 		"/search", "/wishlist", "/compare", "/review",
 		"/offers", "/subscription", "/refer-", "/tax-", "/who-we-",
 		"/modern-slavery", "/promotion-", "/vet-prescription",
-		"/email-signup", "/covid", "/our-expert", "/pet-accessories",
+		"/email-signup", "/covid", "/our-expert",
 		"/prescription-upload", "/pet-prescriptions",
-		"/flea-tick-worm", "/natural-flea",
 	}
 	for _, prefix := range skipPrefixes {
 		if strings.HasPrefix(path, prefix) {
@@ -454,7 +481,7 @@ func isRetailerProductURL(rawURL string, retailer medRetailerForDiscovery) bool 
 		}
 	}
 
-	// Split path into segments: "/dog/healthcare/ageing" → ["dog", "healthcare", "ageing"]
+	// Split path segments
 	segments := []string{}
 	for _, s := range strings.Split(strings.Trim(path, "/"), "/") {
 		if s != "" {
@@ -466,42 +493,44 @@ func isRetailerProductURL(rawURL string, retailer medRetailerForDiscovery) bool 
 		return false
 	}
 
-	// Category prefixes — first segment is a species/department, not a product
-	categoryFirstSegments := []string{
-		"dog", "dogs", "cat", "cats", "horse", "horses", "equine",
-		"small-pet", "small-pets", "small-furries", "small-animals",
-		"pigeon", "farm", "human", "home", "bird", "birds",
-		"current-offers", "special-offers",
-	}
+	// Multi-segment paths: reject species/department category hierarchies
+	// e.g. /dog/healthcare/ageing, /cat/food/dry, /small-furries/accessories
+	// But allow product-pattern paths: /Name/c{digits}/ (VioVet), /Name/productinfo/ (Hyperdrug)
 	if len(segments) >= 2 {
-		for _, cat := range categoryFirstSegments {
-			if segments[0] == cat {
-				return false // e.g. /dog/healthcare/ageing — category page
+		categoryFirstSegments := map[string]bool{
+			"dog": true, "dogs": true, "cat": true, "cats": true,
+			"horse": true, "horses": true, "horses-ponies": true, "equine": true,
+			"small-pet": true, "small-pets": true, "small-furries": true,
+			"small-animals": true, "small-pets-aquatics": true,
+			"pigeon": true, "farm": true, "human": true, "home": true,
+			"bird": true, "birds": true, "fish": true, "fish-1": true,
+			"reptiles": true, "others": true,
+			"current-offers": true, "special-offers": true,
+			"medication-supplements": true, "care-grooming": true,
+			"food": true, "toys": true, "training": true,
+			"saddlery": true, "stable-yard-field-arena": true,
+			"advanced_search_result.php": true,
+		}
+
+		// If first segment is a category, check for product-pattern exceptions
+		if categoryFirstSegments[segments[0]] {
+			// VioVet: /Product-Name/c{digits}/ — product family
+			secondSeg := segments[1]
+			if len(secondSeg) > 1 && secondSeg[0] == 'c' && isNumeric(secondSeg[1:]) {
+				return true
 			}
+			// Hyperdrug: /Name/productinfo/SKU/
+			if secondSeg == "productinfo" {
+				return true
+			}
+			return false
 		}
 	}
 
-	// Multi-segment paths are usually categories unless they match known product patterns
-	// VioVet: /Product-Name/c{number}/ — product family page
-	// Hyperdrug: /Product-Name/productinfo/SKU/ — product page
-	if len(segments) >= 2 {
-		secondSeg := segments[1]
-		// Allow VioVet family pages: /Name/c{digits}/
-		if len(secondSeg) > 1 && secondSeg[0] == 'c' && isNumeric(secondSeg[1:]) {
-			return true
-		}
-		// Allow Hyperdrug product pages: /Name/productinfo/SKU/
-		if secondSeg == "productinfo" {
-			return true
-		}
-		// Everything else with 2+ segments is likely a category
+	// Single-segment: very short slugs are likely top-level categories
+	// /dog, /cat — reject. /apoquel, /bravecto — accept.
+	if len(segments) == 1 && len(segments[0]) < 5 {
 		return false
-	}
-
-	// Single-segment paths: likely products if long enough
-	// Short single-segment paths could be top-level categories
-	if len(segments) == 1 && len(segments[0]) < 10 {
-		return false // e.g. /dog, /cat, /brands — too short
 	}
 
 	return true
@@ -515,6 +544,82 @@ func isNumeric(s string) bool {
 		}
 	}
 	return len(s) > 0
+}
+
+// Regex patterns for pagination detection
+var (
+	// Matches "Next", "Next »", "Next Page", "Next ›", "Load More", "Show More"
+	nextPageLinkPattern = regexp.MustCompile(
+		`(?i)\[([^\]]*(?:next|load more|show more)[^\]]*)\]\(([^)]+)\)`)
+
+	// Matches page parameter in URLs: ?page=2, &page=2
+	pageParamPattern = regexp.MustCompile(`[?&]page=(\d+)`)
+)
+
+// findNextPageURL extracts the "next page" URL from category page markdown.
+// Looks for common pagination patterns generically:
+//   - [Next »](url?page=2)
+//   - [Next Page](url)
+//   - Links with page=N where N is current+1
+func findNextPageURL(markdown, currentURL string, retailer medRetailerForDiscovery) string {
+	// Strategy 1: Find explicit "Next" links
+	matches := nextPageLinkPattern.FindAllStringSubmatch(markdown, -1)
+	for _, m := range matches {
+		linkURL := strings.TrimSpace(m[2])
+
+		// Strip tooltip
+		if idx := strings.Index(linkURL, " \""); idx > 0 {
+			linkURL = linkURL[:idx]
+		}
+
+		// Resolve relative URLs
+		if strings.HasPrefix(linkURL, "/") {
+			linkURL = retailer.BaseURL + linkURL
+		}
+
+		// Must be same domain
+		parsed, err := url.Parse(linkURL)
+		if err != nil {
+			continue
+		}
+		host := strings.TrimPrefix(parsed.Hostname(), "www.")
+		retailerDomain := strings.TrimPrefix(retailer.Domain, "www.")
+		if host != retailerDomain {
+			continue
+		}
+
+		return linkURL
+	}
+
+	// Strategy 2: Find the next numbered page link
+	// Determine current page number from URL
+	currentPage := 1
+	if m := pageParamPattern.FindStringSubmatch(currentURL); m != nil {
+		if p, err := strconv.Atoi(m[1]); err == nil {
+			currentPage = p
+		}
+	}
+	nextPage := currentPage + 1
+
+	// Look for links containing page=nextPage
+	allLinks := markdownLinkPattern.FindAllStringSubmatch(markdown, -1)
+	nextPageStr := fmt.Sprintf("page=%d", nextPage)
+	for _, m := range allLinks {
+		linkURL := strings.TrimSpace(m[2])
+		if idx := strings.Index(linkURL, " \""); idx > 0 {
+			linkURL = linkURL[:idx]
+		}
+
+		if strings.Contains(linkURL, nextPageStr) {
+			// Resolve relative URLs
+			if strings.HasPrefix(linkURL, "/") {
+				linkURL = retailer.BaseURL + linkURL
+			}
+			return linkURL
+		}
+	}
+
+	return ""
 }
 
 // insertDiscoveredListings inserts new product URLs into med_retailer_listings.
