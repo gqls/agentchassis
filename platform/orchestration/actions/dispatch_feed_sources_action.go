@@ -243,11 +243,13 @@ func DispatchFeedSourcesAction(ctx context.Context, params ActionParams) (interf
 		}
 
 		headers := map[string]string{
-			"correlation_id":   correlationID,
-			"orchestration_id": orchestrationID,
-			"message_type":     "request",
-			"action":           "orchestrate",
-			"client_id":        params.ExecutionContext.ClientID,
+			"correlation_id":    correlationID,
+			"orchestration_id":  orchestrationID,
+			"message_type":      "request",
+			"action":            "orchestrate",
+			"client_id":         params.ExecutionContext.ClientID,
+			"sender_agent_type": params.AgentType,
+			"step_name":         "dispatch_feed_source_" + source.SourceType,
 		}
 
 		if err := params.Producer.ProduceWithValidation(

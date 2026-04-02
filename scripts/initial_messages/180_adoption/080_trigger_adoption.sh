@@ -227,3 +227,49 @@ FROM orchestration_states
 WHERE owner_agent_type = 'page-build-handler'
   AND created_at > '2026-04-02 13:00:00'
 ORDER BY created_at DESC LIMIT 5;
+
+
+---------------------------------------------
+tools
+-- 1. Did it complete?
+SELECT summary, status, error, completed_at
+FROM site_work_items
+WHERE item_key = 'add_tool_novel:tool-gas-unit-converter:5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND status != 'wont_fix';
+
+-- 2. Component?
+SELECT cc.id, cc.function, cc.display_name, cc.created_from,
+       length(cc.html_template) as html_length
+FROM content_components cc
+WHERE cc.function = 'tool-gas-unit-converter'
+  AND cc.is_active = true;
+
+-- 3. Page component at position 2 with rendered_html?
+SELECT pc.position, pc.slot_name, pc.build_status,
+       length(pc.rendered_html) as rendered_html_length
+FROM page_components pc
+JOIN pages p ON pc.page_id = p.id
+WHERE p.site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND p.name = 'tool-gas-unit-converter';
+
+-- 4. Follow-up work items?
+SELECT item_type, summary, handler_agent, status
+FROM site_work_items
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND source = 'tool-generator'
+ORDER BY created_at DESC;
+
+-- 5. Companion guide?
+SELECT p.name, p.url, p.page_type, p.build_status
+FROM pages p
+WHERE p.site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND p.name LIKE '%gas-unit%'
+ORDER BY p.created_at DESC;
+
+-- 6. Nav entry?
+SELECT sng.group_key, sng.group_label, sni.label, sni.url
+FROM site_nav_items sni
+JOIN site_nav_groups sng ON sni.group_id = sng.id
+WHERE sng.site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND sng.group_key = 'tools';
+
