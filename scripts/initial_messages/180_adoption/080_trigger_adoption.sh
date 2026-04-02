@@ -180,3 +180,50 @@ SELECT item_type, status, summary
 FROM site_work_items
 WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk')
 ORDER BY priority;
+
+------------------------------------
+
+clients_db=# -- 1. Check specs — did content_direction get written?
+SELECT aspect, source,
+       length(data::text) as data_len,
+       data->>'formatted' IS NOT NULL as has_formatted,
+       created_at
+FROM site_specs
+WHERE site_id = '15a6cb16-5a86-4541-a8e4-d7106239b6a4'
+  AND is_current = true
+ORDER BY aspect;
+
+-- 2. Check pages created
+SELECT name, page_type, build_status, created_at
+FROM pages
+WHERE site_id = '15a6cb16-5a86-4541-a8e4-d7106239b6a4'
+ORDER BY name;
+
+-- 3. Check work items created
+SELECT item_type, status, handler_agent, priority, summary
+FROM site_work_items
+WHERE site_id = '15a6cb16-5a86-4541-a8e4-d7106239b6a4'
+  AND pipeline = 'build'
+ORDER BY priority;
+
+-- 4. Check orchestration state
+SELECT status, current_step, error, created_at, updated_at
+FROM orchestration_states
+WHERE agent_type = 'site-adoption-agent'
+  AND created_at > '2026-04-02 13:00:00'
+ORDER BY created_at DESC LIMIT 3;
+
+-- Check the index page build — what's happening with the claimed item?
+SELECT wi.item_type, wi.status, wi.handler_agent, wi.summary,
+       wi.claimed_at, wi.updated_at
+FROM site_work_items wi
+WHERE wi.site_id = '15a6cb16-5a86-4541-a8e4-d7106239b6a4'
+  AND wi.status = 'claimed'
+ORDER BY wi.updated_at DESC;
+
+-- Check if any page-build-handler orchestrations are running
+SELECT owner_agent_type, status, current_step, error, created_at, updated_at
+FROM orchestration_states
+WHERE owner_agent_type = 'page-build-handler'
+  AND created_at > '2026-04-02 13:00:00'
+ORDER BY created_at DESC LIMIT 5;

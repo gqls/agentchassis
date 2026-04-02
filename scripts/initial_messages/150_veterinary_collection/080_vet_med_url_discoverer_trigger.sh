@@ -45,7 +45,7 @@ JSON
 
 echo ""
 echo "========================================="
-echo "URL discovery triggered"
+echo "vet med URL discovery triggered"
 echo "========================================="
 echo ""
 echo "Monitor:"

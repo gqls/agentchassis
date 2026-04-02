@@ -50,3 +50,23 @@ FROM orchestration_states
 WHERE owner_agent_type = 'content-feed-orchestrator'
 ORDER BY created_at DESC
 LIMIT 3;
+
+-- Let's see the full results:
+SELECT
+    collected_data->'seed_result'->>'has_sources' as has_sources,
+    collected_data->'seed_result'->>'existing_count' as existing_sources,
+    collected_data->'dispatch_result'->>'source_count' as dispatched,
+    collected_data->'triage_result' as triage,
+    collected_data->'news_render_result'->>'item_count' as rendered_items,
+    collected_data->'news_commit_result'->>'commit_sha' as commit_sha,
+    current_step, status
+FROM orchestration_states
+WHERE orchestration_id = '143ffb61-32dd-4d02-bcca-7eee7c4b7676';
+
+-- check if the news JSON was committed:
+-- Check if feed items got re-scored
+SELECT status, COUNT(*)
+FROM content_feed_items
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+GROUP BY status
+ORDER BY status;

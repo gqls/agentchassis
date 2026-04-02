@@ -358,6 +358,34 @@ func extractProductLinks(markdown string, retailer medRetailerForDiscovery) []di
 			continue
 		}
 
+		// Skip navigation/UI link text
+		lowerText := strings.ToLower(linkText)
+		skipTexts := []string{
+			"account", "sign in", "create an account", "login", "register",
+			"chat status", "cookie", "skip to", "toggle menu", "menu",
+			"subscribe", "view all", "explore", "read article", "read more",
+			"error", "upload prescription", "who we are", "our expert",
+			"refer a friend", "modern slavery", "tax strategy",
+			"pet care hub", "knowledgebase", "promotion",
+			"prescription info", "buying prescription",
+			"covid", "free delivery",
+		}
+		skip := false
+		for _, st := range skipTexts {
+			if strings.Contains(lowerText, st) {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+
+		// Skip URLs with fragments (chat widgets, anchors)
+		if strings.Contains(linkURL, "#") {
+			continue
+		}
+
 		products = append(products, discoveredProduct{
 			URL:  linkURL,
 			Name: linkText,
@@ -403,6 +431,11 @@ func isRetailerProductURL(rawURL string, retailer medRetailerForDiscovery) bool 
 		"/prescriptions", "/how-do-i-", "/how-to-",
 		"/media/", "/static/", "/js/", "/css/", "/icons/",
 		"/search", "/wishlist", "/compare", "/review",
+		"/offers", "/subscription", "/refer-", "/tax-", "/who-we-",
+		"/modern-slavery", "/promotion-", "/vet-prescription",
+		"/email-signup", "/covid", "/our-expert", "/pet-accessories",
+		"/prescription-upload", "/pet-prescriptions",
+		"/flea-tick-worm", "/natural-flea",
 	}
 	for _, prefix := range skipPrefixes {
 		if strings.HasPrefix(path, prefix) {
