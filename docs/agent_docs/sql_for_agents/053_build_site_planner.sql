@@ -745,3 +745,20 @@ SELECT
     default_config->'workflow'->'steps'->'write_content_direction'->>'next_step' as content_next
 FROM agent_definitions
 WHERE type = 'build-site-planner' AND deleted_at IS NULL;
+
+---
+-- disambiguation
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        to_jsonb(REPLACE(
+                default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template',
+                'Build ONLY what is in the current phase described below. When pages list section_types, use those in the sections arrays. Section types that do not match existing component names will be resolved by the component selector — output them as-is. Do NOT invent pages beyond what the current phase specifies.',
+                'IMPORTANT — ROADMAP OVERRIDES THE COMPONENT LIST. Build ONLY the pages listed in the current phase below. For each page, use EXACTLY the section_types listed — even if they do not appear in the Available Section Components list above. Unknown section types are handled by the component selector downstream. Do NOT replace roadmap section_types with standard components. Do NOT invent additional pages. The roadmap is the authority for this site.'
+                 )::text)
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-site-planner' AND is_active = true;
+
