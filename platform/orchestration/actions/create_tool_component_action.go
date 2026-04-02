@@ -358,37 +358,47 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 
 // addToolToNav inserts the tool page into the site's navigation groups.
 // Best-effort — nav failures don't block tool creation.
+//
+// Schema:
+//   site_nav_groups: id, site_id, group_key, group_label, group_type, position
+//   site_nav_items:  id, site_id, group_id, label, url, page_id, item_type, position, status
 func addToolToNav(ctx context.Context, db *sql.DB, siteID, pageID uuid.UUID,
 	label, url, navSection string, inHeader, inFooter bool, logger *zap.Logger) {
 
 	// Find or create the "Tools" nav group
+	// group_key = "tools", group_type = "primary" so it appears in the header
 	var groupID uuid.UUID
 	err := db.QueryRowContext(ctx, `
 		SELECT id FROM site_nav_groups
-		WHERE site_id = $1 AND label = $2
+		WHERE site_id = $1 AND group_key = 'tools'
 		LIMIT 1
-	`, siteID, navSection).Scan(&groupID)
+	`, siteID).Scan(&groupID)
 
 	if err != nil {
-		// Create the group
-		groupID = uuid.New()
-		_, err = db.ExecContext(ctx, `
-			INSERT INTO site_nav_groups (id, site_id, label, sort_order, in_header, in_footer)
-			VALUES ($1, $2, $3, 100, $4, $5)
-			ON CONFLICT DO NOTHING
-		`, groupID, siteID, navSection, inHeader, inFooter)
+		// Create the group using ON CONFLICT on (site_id, group_key)
+		err = db.QueryRowContext(ctx, `
+			INSERT INTO site_nav_groups (site_id, group_key, group_label, group_type, position)
+			VALUES ($1, 'tools', $2, 'primary', 100)
+			ON CONFLICT (site_id, group_key) DO UPDATE SET
+				group_label = EXCLUDED.group_label,
+				updated_at = NOW()
+			RETURNING id
+		`, siteID, navSection).Scan(&groupID)
 		if err != nil {
 			logger.Warn("Failed to create nav group for tools", zap.Error(err))
 			return
 		}
 	}
 
-	// Add nav item
+	// Add nav item (skip if already exists for this page)
 	_, err = db.ExecContext(ctx, `
-		INSERT INTO site_nav_items (id, group_id, page_id, label, url, sort_order)
-		VALUES ($1, $2, $3, $4, $5, 100)
-		ON CONFLICT DO NOTHING
-	`, uuid.New(), groupID, pageID, label, url)
+		INSERT INTO site_nav_items (site_id, group_id, label, url, page_id, item_type, position, status)
+		SELECT $1, $2, $3, $4, $5, 'page_link', 100, 'active'
+		WHERE NOT EXISTS (
+			SELECT 1 FROM site_nav_items
+			WHERE site_id = $1 AND group_id = $2 AND page_id = $5
+		)
+	`, siteID, groupID, label, url, pageID)
 	if err != nil {
 		logger.Warn("Failed to add tool to nav", zap.Error(err))
 	}
