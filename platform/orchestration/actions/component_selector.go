@@ -318,6 +318,9 @@ func executeAndScan(
 // CreateNeedsNewComponentItem creates a site_work_item for a section_type
 // that has no matching component in the library. The component-creator
 // handler will process this item to generate a new template.
+//
+// Uses check-first dedup (SELECT EXISTS then INSERT) instead of ON CONFLICT
+// to avoid partial unique index matching issues with idx_swi_dedup.
 func CreateNeedsNewComponentItem(
 	ctx context.Context,
 	db *sql.DB,
@@ -329,6 +332,32 @@ func CreateNeedsNewComponentItem(
 	siteType string,
 	logger *zap.Logger,
 ) error {
+
+	// item_key ensures dedup — only one work item per section_type per site
+	itemKey := fmt.Sprintf("needs_new_component:%s", sectionType)
+
+	// Check if an active item already exists (same logic as idx_swi_dedup)
+	var exists bool
+	err := db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM site_work_items
+			WHERE site_id = $1::uuid
+			  AND item_key = $2
+			  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+		)
+	`, siteID, itemKey).Scan(&exists)
+	if err != nil {
+		logger.Warn("component_selector: dedup check failed, attempting insert anyway",
+			zap.String("section_type", sectionType),
+			zap.Error(err))
+	}
+
+	if exists {
+		logger.Info("component_selector: needs_new_component item already exists, skipping",
+			zap.String("section_type", sectionType),
+			zap.String("item_key", itemKey))
+		return nil
+	}
 
 	// Build the spec for the component-creator
 	spec := map[string]interface{}{
@@ -344,21 +373,14 @@ func CreateNeedsNewComponentItem(
 		return fmt.Errorf("failed to marshal component spec: %w", err)
 	}
 
-	// item_key ensures dedup — only one work item per section_type per site
-	itemKey := fmt.Sprintf("needs_new_component:%s", sectionType)
-
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO site_work_items (
-			site_id, source, domain, item_type, severity, summary,
-			spec, priority, handler_agent, status, created_by, item_key, pipeline
+			site_id, source, pipeline, item_type, severity, summary,
+			spec, priority, handler_agent, status, created_by, item_key
 		) VALUES (
-			$1, 'planner', 'build', 'needs_new_component', 'medium',
-			$2, $3::jsonb, 50, 'component-creator', 'triaged', 'component_selector', $4, 'build'
+			$1::uuid, 'component_selector', 'build', 'needs_new_component', 'medium',
+			$2, $3::jsonb, 50, 'component-creator', 'triaged', 'component_selector', $4
 		)
-		ON CONFLICT (site_id, item_key)
-		WHERE item_key IS NOT NULL
-		  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
-		DO NOTHING
 	`, siteID,
 		fmt.Sprintf("Need component template for section type: %s", sectionType),
 		string(specJSON),

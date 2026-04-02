@@ -360,8 +360,9 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 // Best-effort — nav failures don't block tool creation.
 //
 // Schema:
-//   site_nav_groups: id, site_id, group_key, group_label, group_type, position
-//   site_nav_items:  id, site_id, group_id, label, url, page_id, item_type, position, status
+//
+//	site_nav_groups: id, site_id, group_key, group_label, group_type, position
+//	site_nav_items:  id, site_id, group_id, label, url, page_id, item_type, position, status
 func addToolToNav(ctx context.Context, db *sql.DB, siteID, pageID uuid.UUID,
 	label, url, navSection string, inHeader, inFooter bool, logger *zap.Logger) {
 
