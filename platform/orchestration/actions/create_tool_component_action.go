@@ -171,7 +171,7 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 			id, name, display_name, function, component_level,
 			category, description, html_template,
 			is_active, is_dark_section, created_from
-		) VALUES ($1, $2, $3, $4, 'tool', $5, $6, $7, true, false, 'tool-generator')
+		) VALUES ($1, $2, $3, $4, 'tool', $5, $6, $7, true, false, 'generated')
 	`, componentID, componentName, displayName, function,
 		category, description, htmlContent)
 	if err != nil {
@@ -360,9 +360,8 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 // Best-effort — nav failures don't block tool creation.
 //
 // Schema:
-//
-//	site_nav_groups: id, site_id, group_key, group_label, group_type, position
-//	site_nav_items:  id, site_id, group_id, label, url, page_id, item_type, position, status
+//   site_nav_groups: id, site_id, group_key, group_label, group_type, position
+//   site_nav_items:  id, site_id, group_id, label, url, page_id, item_type, position, status
 func addToolToNav(ctx context.Context, db *sql.DB, siteID, pageID uuid.UUID,
 	label, url, navSection string, inHeader, inFooter bool, logger *zap.Logger) {
 
