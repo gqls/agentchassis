@@ -157,8 +157,8 @@ func SeedContentSourcesAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	// Extract source_types and vertical_keywords
-	sourceTypes := extractStringSlice(newsFeed["source_types"])
-	verticalKeywords := extractStringSlice(newsFeed["vertical_keywords"])
+	sourceTypes := extractStringSlice(newsFeed, "source_types")
+	verticalKeywords := extractStringSlice(newsFeed, "vertical_keywords")
 
 	if len(sourceTypes) == 0 {
 		logger.Info("SeedContentSourcesAction: no source_types specified",
