@@ -182,6 +182,26 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 		}
 
 		if len(variants) == 0 {
+			// LLM fallback: if the page has prices but regex couldn't extract them,
+			// ask the local CPU Mistral to extract structured price data.
+			// This also collects training data for future LoRA fine-tuning.
+			productSection := extractProductSection(rawMarkdown)
+			if strings.Contains(productSection, "£") {
+				params.Logger.Info("MedScrapePrices: regex found 0 variants, trying LLM fallback",
+					zap.String("url", listing.RetailerURL),
+					zap.String("retailer_id", listing.RetailerID))
+
+				llmVariants := llmExtractPriceVariants(ctx, params, listing, productSection)
+				if len(llmVariants) > 0 {
+					variants = llmVariants
+					params.Logger.Info("MedScrapePrices: LLM fallback extracted variants",
+						zap.String("url", listing.RetailerURL),
+						zap.Int("variants", len(llmVariants)))
+				}
+			}
+		}
+
+		if len(variants) == 0 {
 			params.Logger.Warn("MedScrapePrices: no variants found on page",
 				zap.String("url", listing.RetailerURL),
 				zap.String("retailer_id", listing.RetailerID))
@@ -1017,3 +1037,204 @@ func storeMedScrapeEvidence(ctx context.Context, db *sql.DB, listing medPriceLis
 // truncate and errString are defined in existing action files
 // (fetch_agent_questionnaire.go and ch_fetch_accounts_action.go respectively)
 // and are reused here via same package.
+
+// llmExtractPriceVariants calls the local CPU Mistral to extract price variants
+// from product page markdown when regex fails. Uses the Ollama chat API.
+// Also logs to llm_call_log for training data collection.
+func llmExtractPriceVariants(ctx context.Context, params ActionParams, listing medPriceListing, productSection string) []medExtractedVariant {
+	ollamaURL := os.Getenv("OLLAMA_URL")
+	if ollamaURL == "" {
+		ollamaURL = "http://ollama-adapter.ai-persona-system.svc.cluster.local:11434"
+	}
+	model := os.Getenv("MED_PRICE_LLM_MODEL")
+	if model == "" {
+		model = "mistral-small3.1"
+	}
+
+	// Truncate markdown to ~3000 chars to keep token usage low
+	md := productSection
+	if len(md) > 3000 {
+		md = md[:3000]
+	}
+
+	prompt := fmt.Sprintf(`Extract all product size/price variants from this product page markdown.
+
+Rules:
+- Only extract actual product prices (not delivery, savings, or subscription amounts)
+- "was £X" means the price is £X (the product was previously sold at this price)
+- Include out-of-stock items with in_stock: false
+- If no valid prices are found, return an empty array
+
+Return ONLY a JSON array, no other text:
+[{"size": "100ml", "price": 17.48, "tvp": 0, "in_stock": true}]
+
+Fields:
+- size: the size/variant label (e.g. "10ml", "100 Tablets", "Single Tablet")
+- price: the selling price in GBP as a number
+- tvp: the typical vet price in GBP (0 if not shown)
+- in_stock: boolean
+
+Product page markdown:
+%s`, md)
+
+	// Build Ollama chat request
+	reqBody := map[string]interface{}{
+		"model": model,
+		"messages": []map[string]interface{}{
+			{
+				"role":    "user",
+				"content": prompt,
+			},
+		},
+		"stream": false,
+		"options": map[string]interface{}{
+			"temperature": 0.1,
+			"num_predict": 500,
+		},
+	}
+
+	reqBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		params.Logger.Warn("MedScrapePrices: LLM request marshal failed", zap.Error(err))
+		return nil
+	}
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	callStart := time.Now()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", ollamaURL+"/api/chat", bytes.NewReader(reqBytes))
+	if err != nil {
+		params.Logger.Warn("MedScrapePrices: LLM request create failed", zap.Error(err))
+		return nil
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	latencyMs := int(time.Since(callStart).Milliseconds())
+
+	if err != nil {
+		params.Logger.Warn("MedScrapePrices: LLM call failed",
+			zap.String("url", listing.RetailerURL),
+			zap.Error(err))
+
+		LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
+			AgentType:       params.AgentType,
+			AgentID:         params.Headers["agent_id"],
+			StepName:        params.ExecutionContext.StepName,
+			OrchestrationID: params.ExecutionContext.OrchestrationID,
+			CorrelationID:   params.ExecutionContext.CorrelationID,
+			Model:           model,
+			Provider:        "ollama",
+			PromptRendered:  prompt,
+			LatencyMs:       latencyMs,
+			Success:         false,
+			ErrorMessage:    err.Error(),
+		})
+		return nil
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		params.Logger.Warn("MedScrapePrices: LLM response read failed", zap.Error(err))
+		return nil
+	}
+
+	if resp.StatusCode != 200 {
+		params.Logger.Warn("MedScrapePrices: LLM non-200",
+			zap.Int("status", resp.StatusCode),
+			zap.String("body", truncate(string(body), 200)))
+
+		LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
+			AgentType:       params.AgentType,
+			AgentID:         params.Headers["agent_id"],
+			StepName:        params.ExecutionContext.StepName,
+			OrchestrationID: params.ExecutionContext.OrchestrationID,
+			CorrelationID:   params.ExecutionContext.CorrelationID,
+			Model:           model,
+			Provider:        "ollama",
+			PromptRendered:  prompt,
+			LatencyMs:       latencyMs,
+			Success:         false,
+			ErrorMessage:    fmt.Sprintf("status %d", resp.StatusCode),
+		})
+		return nil
+	}
+
+	// Parse Ollama response: {"message": {"content": "..."}, ...}
+	var ollamaResp map[string]interface{}
+	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		params.Logger.Warn("MedScrapePrices: LLM response parse failed", zap.Error(err))
+		return nil
+	}
+
+	responseText := ""
+	if msg, ok := ollamaResp["message"].(map[string]interface{}); ok {
+		if content, ok := msg["content"].(string); ok {
+			responseText = content
+		}
+	}
+
+	// Log the call (training data)
+	LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
+		AgentType:       params.AgentType,
+		AgentID:         params.Headers["agent_id"],
+		StepName:        params.ExecutionContext.StepName,
+		OrchestrationID: params.ExecutionContext.OrchestrationID,
+		CorrelationID:   params.ExecutionContext.CorrelationID,
+		Model:           model,
+		Provider:        "ollama",
+		PromptRendered:  prompt,
+		ResponseText:    responseText,
+		LatencyMs:       latencyMs,
+		Success:         true,
+	})
+
+	// Parse the JSON array from the response
+	// Strip markdown code fences if present
+	cleaned := strings.TrimSpace(responseText)
+	if strings.HasPrefix(cleaned, "```") {
+		if idx := strings.Index(cleaned[3:], "\n"); idx >= 0 {
+			cleaned = cleaned[3+idx+1:]
+		}
+		if strings.HasSuffix(cleaned, "```") {
+			cleaned = cleaned[:len(cleaned)-3]
+		}
+		cleaned = strings.TrimSpace(cleaned)
+	}
+
+	var llmVariants []struct {
+		Size    string  `json:"size"`
+		Price   float64 `json:"price"`
+		TVP     float64 `json:"tvp"`
+		InStock bool    `json:"in_stock"`
+	}
+
+	if err := json.Unmarshal([]byte(cleaned), &llmVariants); err != nil {
+		params.Logger.Warn("MedScrapePrices: LLM response JSON parse failed",
+			zap.String("response", truncate(responseText, 200)),
+			zap.Error(err))
+		return nil
+	}
+
+	// Convert to medExtractedVariant
+	var variants []medExtractedVariant
+	for _, v := range llmVariants {
+		if v.Price <= 0 || v.Size == "" {
+			continue
+		}
+		variants = append(variants, medExtractedVariant{
+			SizeVariant:     v.Size,
+			Price:           v.Price,
+			TypicalVetPrice: v.TVP,
+			InStock:         v.InStock,
+		})
+	}
+
+	params.Logger.Info("MedScrapePrices: LLM extraction result",
+		zap.String("url", listing.RetailerURL),
+		zap.Int("llm_variants", len(variants)),
+		zap.Int("latency_ms", latencyMs))
+
+	return variants
+}
