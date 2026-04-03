@@ -1,12 +1,13 @@
 // FILE: platform/orchestration/actions/feed_triage_actions.go
 //
 // Actions for the feed-triage agent. Scores ingested items for relevance
-// to the site's vertical, values, and audience using the site spec.
+// and credibility to the site's vertical, values, and audience using the
+// site spec.
 //
 // Actions:
 //   - apply_feed_scores: reads LLM scores, updates content_feed_items rows
-//   - load_feed_items_for_triage: loads unscored items (query_database works
-//     but this gives us control over the batch size and format)
+//     with relevance_score, credibility, source_attribution, and status
+//   - load_feed_items_for_triage: loads unscored items with source metadata
 
 package actions
 
@@ -36,12 +37,26 @@ func init() {
 }
 
 // ApplyFeedScoresAction reads LLM-produced scores from collected_data and
-// updates content_feed_items rows with relevance_score, status, and topics.
+// updates content_feed_items rows with relevance_score, credibility,
+// source_attribution, status, and topics.
 //
 // Expected input shape (from execute_llm_prompt with response_format: json):
 //
 //	scores.result = [
-//	    {"id": "uuid", "score": 85, "reason": "directly relevant", "topics": ["gas prices"]},
+//	    {
+//	        "id": "uuid",
+//	        "score": 85,
+//	        "credibility": "high",
+//	        "credibility_reason": "Reuters wire service article with direct quotes",
+//	        "source_attribution": {
+//	            "original_source": "Reuters",
+//	            "found_via": "OilPrice RSS",
+//	            "source_tier": "tier1_news"
+//	        },
+//	        "reason": "directly relevant to gas wholesale market",
+//	        "topics": ["gas prices", "supply"],
+//	        "flagged": false
+//	    },
 //	    ...
 //	]
 //
@@ -51,8 +66,8 @@ func init() {
 //	score 20..threshold → status = 'review'     (held for manual check)
 //	score < 20          → status = 'rejected'   (never displays)
 //
-// Items flagged with "flagged": true are always set to 'rejected' regardless of score
-// (for values/legal conflicts detected by the LLM).
+// Items flagged with "flagged": true are always set to 'rejected' regardless
+// of score (for values/legal conflicts or low-credibility unverified claims).
 func ApplyFeedScoresAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(zap.String("action", "apply_feed_scores"))
 
@@ -156,7 +171,19 @@ func ApplyFeedScoresAction(ctx context.Context, params ActionParams) (interface{
 			topicsJSON = []byte("[]")
 		}
 
-		// Check for explicit flag (values/legal conflict)
+		// Parse credibility fields
+		credibility, _ := scoreMap["credibility"].(string)
+		credibilityReason, _ := scoreMap["credibility_reason"].(string)
+
+		// Parse source_attribution — store as JSONB
+		var attributionJSON []byte
+		if attr, ok := scoreMap["source_attribution"].(map[string]interface{}); ok {
+			attributionJSON, _ = json.Marshal(attr)
+		} else {
+			attributionJSON = []byte("{}")
+		}
+
+		// Check for explicit flag (values/legal conflict, low credibility)
 		flagged, _ := scoreMap["flagged"].(bool)
 
 		// Determine status
@@ -174,17 +201,22 @@ func ApplyFeedScoresAction(ctx context.Context, params ActionParams) (interface{
 			review++
 		}
 
-		// Update the row
+		// Update the row with relevance + credibility + attribution
 		result, err := params.DB.ExecContext(ctx, `
 			UPDATE content_feed_items 
 			SET relevance_score = $1,
 			    status = $2,
 			    topics = $3,
-			    processed_at = $4
-			WHERE id = $5 
-			  AND site_id = $6
+			    processed_at = $4,
+			    credibility = $5,
+			    credibility_reason = $6,
+			    source_attribution = $7
+			WHERE id = $8 
+			  AND site_id = $9
 			  AND status = 'ingested'
-		`, score, status, topicsJSON, time.Now().UTC(), itemID, siteID)
+		`, score, status, topicsJSON, time.Now().UTC(),
+			nullIfEmpty(credibility), nullIfEmpty(credibilityReason), attributionJSON,
+			itemID, siteID)
 
 		if err != nil {
 			logger.Warn("ApplyFeedScoresAction: failed to update item",
@@ -201,6 +233,7 @@ func ApplyFeedScoresAction(ctx context.Context, params ActionParams) (interface{
 				zap.String("item_id", itemID),
 				zap.Float64("score", score),
 				zap.String("status", status),
+				zap.String("credibility", credibility),
 				zap.String("reason", datahelpers.TruncateString(reason, 80)),
 			)
 		}
@@ -243,7 +276,7 @@ var LoadFeedItemsForTriageInputSpec = datahelpers.ActionInputSpec{
 // Returns:
 //
 //	{
-//	    "items": [{id, source_title, source_summary, source_url, published_at, source_name, reputation_tier}...],
+//	    "items": [{id, source_title, source_summary, source_url, published_at, source_name, source_type}...],
 //	    "count": N,
 //	    "site_id": "..."
 //	}

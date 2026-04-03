@@ -2541,3 +2541,135 @@ Return ONLY a JSON array, no other text:
     updated_at = NOW()
 WHERE type = 'feed-triage' AND deleted_at IS NULL;
 
+---
+-- feed credibility
+
+-- ============================================================================
+-- 027l — Feed credibility + source attribution
+-- ============================================================================
+--
+-- 1. Add credibility columns to content_feed_items
+-- 2. Update feed-triage prompt to assess credibility + provenance
+-- ============================================================================
+
+-- Step 1: Schema changes
+ALTER TABLE content_feed_items
+    ADD COLUMN IF NOT EXISTS credibility text,
+    ADD COLUMN IF NOT EXISTS credibility_reason text,
+    ADD COLUMN IF NOT EXISTS source_attribution jsonb DEFAULT '{}'::jsonb;
+
+COMMENT ON COLUMN content_feed_items.credibility IS 'high/medium/low — set by triage LLM';
+COMMENT ON COLUMN content_feed_items.credibility_reason IS 'Why this credibility level was assigned';
+COMMENT ON COLUMN content_feed_items.source_attribution IS 'Provenance chain: original_source, found_via, source_tier';
+
+-- Index for filtering by credibility
+CREATE INDEX IF NOT EXISTS idx_cfi_credibility
+    ON content_feed_items (site_id, credibility)
+    WHERE credibility IS NOT NULL;
+
+-- Step 2: Backup triage agent
+CREATE TABLE IF NOT EXISTS agent_def_feed_triage_backup_20260403 AS
+SELECT * FROM agent_definitions
+WHERE type = 'feed-triage' AND deleted_at IS NULL;
+
+-- Step 3: Update triage prompt with credibility + source attribution
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,score_relevance,config,prompt_template}',
+        to_jsonb('You are a content relevance and credibility filter for the website {{.input_data.site_id}}.
+
+Your job: score each news item on TWO dimensions:
+1. RELEVANCE — how relevant is this to the site and its users?
+2. CREDIBILITY — is this verified news from a credible source, or unverified rumour/speculation?
+
+## Site Context
+
+{{if .site_spec.data}}{{if .site_spec.data.identity}}### Identity
+{{range $k, $v := .site_spec.data.identity}}{{$k}}: {{$v}}
+{{end}}{{end}}
+
+{{if .site_spec.data.classification}}### Classification
+{{range $k, $v := .site_spec.data.classification}}{{$k}}: {{$v}}
+{{end}}{{end}}
+
+{{if .site_spec.data.content_direction}}### Content Direction
+{{range $k, $v := .site_spec.data.content_direction}}{{$k}}: {{$v}}
+{{end}}{{end}}
+
+{{if .site_spec.data.legal_rules}}### Legal Rules
+Forbidden phrases: {{.site_spec.data.legal_rules.forbidden_phrases}}
+{{end}}{{end}}
+
+## Items to Score
+
+{{if .pending_items.items}}{{range .pending_items.items}}ID: {{.id}}
+Title: {{.source_title}}
+Summary: {{.source_summary}}
+Source: {{.source_name}} ({{.source_type}})
+URL: {{.source_url}}
+---
+{{end}}{{end}}
+
+## Scoring Guide
+
+### Relevance (0-100)
+- 80-100: Directly relevant — covers this site''s industry, audience would want to read this
+- 50-79: Tangentially relevant — adjacent topic, broader market context
+- 20-49: Weak relevance — same sector but wrong geography, audience, or focus
+- 0-19: Not relevant — wrong industry, spam, clickbait
+
+### Source Attribution
+For each item, determine the provenance chain:
+- "original_source": The publication or entity that ORIGINATED the information (e.g. "Reuters", "OPEC", "UK Government")
+- "found_via": How/where we found it (e.g. "X/@reuters", "OilPrice RSS", "direct article")
+- "source_tier": Classify the ORIGINAL source:
+  * "tier1_news" — major wire services and newspapers (Reuters, AP, Bloomberg, FT, BBC, WSJ, Guardian)
+  * "tier1_official" — government bodies, regulators, company official statements (OPEC, FCA, SEC, Bank of England)
+  * "tier2_trade" — established trade/industry publications (OilPrice, TradeWinds, Rigzone, industry journals)
+  * "tier2_analysis" — known analysts, research firms, consultancies (McKinsey, Deloitte, named analysts)
+  * "tier3_social" — social media posts, tweets from non-journalists, anonymous accounts
+  * "tier3_blog" — personal blogs, opinion pieces, unattributed commentary
+  * "unknown" — cannot determine original source
+
+### Credibility assessment
+Based on the source tier and content:
+- "high": tier1 sources with verifiable claims, or tier2 sources reporting established facts
+- "medium": tier2 sources with analysis/opinion, or tier1 with speculative framing ("sources say", "reportedly")
+- "low": tier3 sources, unverifiable claims, no clear original source, anonymous speculation
+
+### Flagging rules
+Set "flagged": true if ANY of these apply:
+- Item conflicts with site values or legal rules
+- Credibility is "low" AND no tier1/tier2 source corroborates the claim
+- Item has no real URL or the URL looks fabricated (e.g. placeholder, category page, navigation link)
+- Item contains inflammatory language or unsubstantiated claims
+- Item is a navigation link, category page, or non-article URL (e.g. ends in just a category path like /Energy/ or /News/)
+- Item is older than 48 hours (stale for news display)
+
+Return ONLY a JSON array, no other text:
+[{
+  "id": "uuid",
+  "score": 0-100,
+  "credibility": "high|medium|low",
+  "credibility_reason": "one sentence explaining credibility assessment",
+  "source_attribution": {
+    "original_source": "Reuters",
+    "found_via": "OilPrice RSS",
+    "source_tier": "tier1_news"
+  },
+  "reason": "one sentence on relevance",
+  "topics": ["tag1", "tag2"],
+  "flagged": false
+}]'::text)
+                     ),
+    updated_at = NOW()
+WHERE type = 'feed-triage' AND deleted_at IS NULL;
+
+-- Verify
+SELECT type,
+       length(default_config->'workflow'->'steps'->'score_relevance'->'config'->>'prompt_template') as prompt_length
+FROM agent_definitions
+WHERE type = 'feed-triage' AND deleted_at IS NULL;
+
+-- Expected: prompt_length around 2500-3000 characters

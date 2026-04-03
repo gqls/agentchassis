@@ -716,3 +716,298 @@ This mechanism supports any pre-planned site, not just Spark/vonc.com. Any site 
 10. **Servers are entities.** Infrastructure follows the same patterns as site data — state-based lifecycle, discovery checks for health, work items for management tasks.
 
 11. **The framework is a framework builder.** The same system that generates websites can generate infrastructure configs, framework deployments, and management automation.
+
+
+--------
+amendments to the above document that need merging:
+
+# Amendments to 028e_adoption_and_infrastructure_layers
+
+These amendments reflect what was discovered, fixed, and learned in sessions on 2026-04-02 and 2026-04-03.
+
+---
+
+## 1. Adoption workflow steps (line 260-267)
+
+The workflow now has 9 steps, not 7. Two content direction steps were added and are working.
+
+**Replace:**
+```
+site-adoption-agent workflow:
+  1. ensure_site_record
+  2. firecrawl_crawl (all pages, async via webscrape adapter)
+  3. format_crawl_for_analysis (produce lightweight summaries for LLM)
+  4. check_crawl_content (conditional: proceed or fail)
+  5. execute_llm_prompt (classify site structure from summaries)
+  6. apply_adoption_plan (Go: write specs, pages, items, extract content)
+  7. complete
+```
+
+**With:**
+```
+site-adoption-agent workflow:
+  1. ensure_site_record
+  2. firecrawl_crawl (all pages, async via webscrape adapter)
+  3. format_crawl_for_analysis (produce lightweight summaries for LLM)
+  4. check_crawl_content (conditional: proceed or fail)
+  5. execute_llm_prompt (classify site structure from summaries)
+  6. select_representative_content (Go: pick best page content for analysis)
+  7. derive_content_direction (LLM: produce writing style guide from samples)
+  8. apply_adoption_plan (Go: write specs, pages, items, extract content)
+  9. complete
+
+Steps 6-7 are the content direction pipeline. select_representative_content
+picks 3-5 representative pages from the crawl based on content length and
+diversity. derive_content_direction feeds these to the LLM which produces a
+~17K character writing style guide covering voice, tone, structure patterns,
+vocabulary, and formatting conventions. This is stored as a content_direction
+spec with formatted=true, available to the content writer via
+{{.site_specs.specs.content_direction.formatted}}.
+```
+
+---
+
+## 2. Post-adoption content direction (line 329-333)
+
+The adoption agent now generates content_direction itself. The strategist enhances it, not creates it from scratch.
+
+**Replace:**
+```
+After the adoption agent completes, the site has pages and content matching
+the original. The improvement loop's first run triggers the strategist,
+which reads the identity spec and current page structure. The strategist
+writes `content_direction` that goes BEYOND what was adopted...
+```
+
+**With:**
+```
+After the adoption agent completes, the site has pages, content, and a
+content_direction spec derived from the original site's actual writing.
+The content_direction captures the adopted site's voice, tone, and
+structure patterns — this is the FLOOR that the improvement loop must
+respect. The strategist can enhance the content_direction with aspirational
+goals ("add comparison tools, educational content") but must not overwrite
+the voice and style rules extracted from the original.
+```
+
+---
+
+## 3. What gets stored where (line 308-317)
+
+Missing content_direction row and rawHtml detail.
+
+**Add row to table:**
+
+| Content direction | `site_specs` aspect: `content_direction` | Writing style guide for content writer (formatted=true, ~17K chars) |
+| Per-page rawHtml | Inside `research_results` (result_type: `adoption_page`) data field | Original HTML for direct deployment or reference |
+
+**Add note after table:**
+```
+The adoption_page results store both markdown (in findings) and rawHtml
+(in data.rawHtml) when the crawl captured it. rawHtml preserves the
+original page's HTML including inline styles, scripts, and structure.
+This is the source for direct deployment of interactive pages and for
+design fingerprint extraction.
+```
+
+---
+
+## 4. Component discovery — now working (line 554-561)
+
+Add a note that this pipeline is operational.
+
+**Add after line 561:**
+```
+### Component discovery — operational notes
+
+The component discovery pipeline is working end-to-end as of 2026-04-03.
+Two bugs in CreateNeedsNewComponentItem (component_selector.go) blocked
+it from ever creating work items:
+
+1. Column name: `domain` does not exist on site_work_items — must be `pipeline`
+2. Missing `::jsonb` cast: spec parameter needs `$3::jsonb` with `string(specJSON)`
+
+The working pattern (matching createDeferredItems in plan_sections_action.go):
+```go
+INSERT INTO site_work_items (
+    site_id, source, pipeline, item_type, severity, summary,
+    spec, priority, handler_agent, status, created_by, item_key
+) VALUES (
+    $1, 'planner', 'build', 'needs_new_component', 'medium',
+    $2, $3::jsonb, 50, 'component-creator', 'triaged', 'component_selector', $4
+)
+```
+
+The component-creator agent generates templates with `function` names
+matching the requested `section_type`. This is enforced by the store action,
+not left to the LLM's choice. Components generated so far include:
+tool-list, guide-list, game-list (gamedesign.uk), provocation-card,
+lobby-grid, brief-explanation, platform-comparison (vonc.com).
+```
+
+---
+
+## 5. Phase plan updates (line 648-678)
+
+Component discovery has moved from Phase 2/3 to operational.
+
+**In Phase 1 (line 650-657), change:**
+```
+- Content writer `existing_content` / `mode: "recreate"` support (pending)
+```
+**To:**
+```
+- Content writer `existing_content` / `mode: "recreate"` support (working — but
+  feeds content to LLM, which cannot reproduce JavaScript applications)
+- Content direction pipeline: select_representative_content → derive_content_direction (working)
+- Component discovery: needs_new_component → component-creator → content_components (working)
+```
+
+**In Phase 2 (line 659-665), remove:**
+```
+- Component discovery: `needs_new_component` work items for novel section types
+```
+(moved to Phase 1 above)
+
+**Add new Phase between current Phase 1 and Phase 2:**
+```
+### Phase 1b — Rich adoption analysis and direct deployment (next)
+
+- Design fingerprint extraction: actual CSS values (hex colours, font families,
+  spacing, CSS variables) from crawled rawHtml, stored as design_fingerprint spec.
+  The webdesign-agent reads this instead of guessing from industry norms.
+- Site archetype spec: classifies the site beyond page_type ("developer utility
+  platform" not "brochure"). Constrains what the improvement loop can change.
+- Interactive element inventory: per-tool rawHtml, dependencies, file structure.
+- Direct rawHtml deployment: pages with self-contained interactive features
+  (JS tools, games) bypass the content writer and deploy crawled HTML with
+  header/footer injection. mode: "direct_deploy" in work item spec.
+- Tiered rebuild strategy per page:
+  Tier 1 — Direct deploy (self-contained rawHtml)
+  Tier 2 — Template extraction (recognisable component structure)
+  Tier 3 — Full-context LLM recreation (broken references, full original as context)
+  Tier 4 — Described recreation (no rawHtml, work from description + content direction)
+- Adoption-aware improvement loop: design auditors compare against design_fingerprint,
+  content auditors respect content_direction, direct_deploy pages excluded from rewrites.
+```
+
+---
+
+## 6. Add new principle (after line 706)
+
+**Add as principle 5b:**
+```
+5b. **The adopted state defines the floor.** The improvement loop must not
+regress below what was adopted. If the original site had working
+JavaScript tools, the adopted site must have working JavaScript tools.
+If the original had a dark developer aesthetic, the improvement loop
+must not replace it with a generic brochure theme. The design_fingerprint
+and site_archetype specs define what "regression" means for each site.
+```
+
+---
+
+---
+
+# Amendments to 001g_development_guide_new_agents
+
+## 1. Column name: `domain` → `pipeline` (Lessons Learned section)
+
+The dev guide says:
+
+> The `domain` column on `site_work_items` is a namespace for categorising work items
+
+This column was renamed to `pipeline`. The old name `domain` does not exist on the table. Some Go code still accepts `item_domain` as a backwards-compat config key (see `LoadPendingItemsAction`), but all INSERTs must use `pipeline`.
+
+**Replace all references to `domain` column on `site_work_items` with `pipeline`.** The section title "Work item domain is NOT the site domain" should become "Work item pipeline is NOT the site domain" with the rule updated to:
+
+> **Rule: All items in the initial build pipeline must use `pipeline: "build"`.** The dispatch loop filters by this.
+
+## 2. Add lesson: column name drift in INSERT statements
+
+**Add to Lessons Learned:**
+
+```
+### Column name drift in INSERT statements
+
+**Problem we hit:** `CreateNeedsNewComponentItem` used `domain` as the column
+name when the actual column is `pipeline`. The INSERT failed silently every
+time (error caught and logged as Warning, workflow continued via fallback).
+Zero `needs_new_component` items were ever created across any site. The
+component discovery pipeline was completely blocked by one wrong column name.
+
+**Why it was hard to find:** The function had TWO bugs — the column name AND
+a missing `::jsonb` cast. The error message from PostgreSQL said "column
+domain does not exist" but this was logged as a Warning in a code path that
+has a fallback (createDeferredItems). The fallback created needs_section_data
+items instead, which looked like the system was working.
+
+**Rule:** Before deploying any new INSERT, test it against the actual table:
+1. Run `\d table_name` to confirm column names
+2. Run the INSERT manually with test data
+3. Verify the row exists: `SELECT * FROM table WHERE created_at > now() - interval '1 minute'`
+
+This is the same class of bug as the llm_call_log column drift (lesson 14).
+The pattern: Go code and schema evolve in separate sessions, column names
+diverge, fire-and-forget or fallback patterns hide the failure.
+
+**Specific pattern for jsonb columns:** Always use `$N::jsonb` with
+`string(specJSON)` — never pass raw `[]byte` without the cast. The working
+pattern (used by createDeferredItems, insertWorkItem, and every other
+working INSERT in the codebase):
+
+    $3::jsonb    with    string(specJSON)
+
+Not:
+
+    $3           with    specJSON ([]byte)
+```
+
+---
+
+# Amendments to 028e_adoption_and_infrastructure_layers
+
+---
+
+## 7. Dispatch loop and timeout notes
+
+**Add new section after "Phase Plan" (before Principles):**
+```
+## Operational Notes — Dispatch Loop and Timeouts
+
+### Claimed-item-timeout (scheduled task)
+
+Two-phase timeout for work items stuck in 'claimed' status:
+
+Phase 1 (15 minutes): Evidence-based auto-complete. Checks if the handler's
+work is provably done (page deployed after claim time, CSS generated after
+claim time). If yes, marks the item 'complete' instead of resetting.
+
+Phase 2 (40 minutes): Blind reset. Items with no evidence of completion are
+reset to 'triaged' (or 'failed' if max_attempts reached).
+
+### Stale orchestration reaper (scheduled task)
+
+Two-tier threshold:
+- build-dispatch-loop: 30 minutes idle → FAILED
+- All other agent types: 90 minutes idle → FAILED
+
+"Idle" means last_activity is older than the threshold. Working orchestrations
+update last_activity with each step, so long-running jobs are not affected.
+
+### Known issue: expanded loop steps lost from workflow_plan
+
+During dispatch loop execution, loop-expanded steps (process_item_iter_N_*)
+can be lost from the persisted workflow_plan due to optimistic lock conflicts
+between the expansion save and concurrent response handlers. When this happens:
+- The timeout handler can't find the step to route to error_step
+- failWorkflow hits another optimistic lock and can't save FAILED status
+- The orchestration stays AWAITING_RESPONSES until the reaper clears it
+
+The 30-minute dispatch loop reaper is the mitigation. The root cause (state
+persistence race during loop expansion) and the coordinator-level fixes
+(failWorkflow retry on optimistic lock, handleRequestTimeout error checking)
+are identified but not yet applied — they're changes to core coordinator code
+that need thorough testing.
+```
+
