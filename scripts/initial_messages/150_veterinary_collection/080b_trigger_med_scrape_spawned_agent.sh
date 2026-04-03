@@ -7,6 +7,7 @@ MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
 
 BATCH_SIZE="${1:-20}"
+BATCH_SIZE="5"
 
 echo "========================================="
 echo "Med Price Scrape (spawned pod)"
@@ -43,3 +44,6 @@ echo "  kubectl -n ai-persona-system logs -f deploy/business-intel --tail=20 | g
 echo ""
 echo "Monitor spawned pod (actual work):"
 echo "  kubectl -n ai-persona-system logs -f -l app=dynamic-agent --tail=50 | grep MedScrape"
+
+
+

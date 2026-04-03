@@ -2,19 +2,19 @@
 //
 // Discovery check: missing_tools
 //
-// Structural check — asks two questions:
-//   1. Does this site have any tools deployed?
-//   2. Has a tool evaluation happened in the last 7 days?
+// Triggers periodic tool evaluation for sites. Tiered cooldown:
+//   - Sites with 0 tools: evaluate every 7 days (needs tools)
+//   - Sites with 1+ tools: evaluate every 30 days (periodic re-evaluation
+//     as content grows — a site with 10 pages might need more tools than
+//     when it had 4)
 //
-// If both are no, creates an evaluate_tools work item for tool-suggester.
-// The LLM in tool-suggester makes the actual decision about which tools
-// are appropriate for the site's industry and audience.
+// Tool-suggester handles the actual decision: it loads existing tools,
+// avoids duplicates, and can suggest 0 new tools if the site is well-served.
 //
-// This check does NOT do tag matching or direct tool deployment.
-// The old version had a matchToolToSite function that classified
-// "security" and "password" as universal tags, causing every site
-// to get a password checker. Tool selection is an LLM judgment call,
-// not a tag lookup.
+// This check does NOT evaluate tool fit or match by tags. The old version
+// had a matchToolToSite function that classified "security" and "password"
+// as universal tags, causing every site to get a password checker. Tool
+// selection is an LLM judgment call, not a tag lookup.
 
 package discovery_checks
 
@@ -33,7 +33,7 @@ func (c *MissingToolsCheck) Name() string { return "missing_tools" }
 func (c *MissingToolsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
 	result := &CheckResult{}
 
-	// 1. Does this site have any tools deployed?
+	// 1. Count deployed tools for this site
 	var deployedToolCount int
 	err := dctx.DB.QueryRowContext(dctx.Ctx, `
 		SELECT COUNT(*)
@@ -48,42 +48,52 @@ func (c *MissingToolsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error
 		return nil, fmt.Errorf("missing_tools: count deployed tools: %w", err)
 	}
 
+	// 2. Tiered cooldown — sites with no tools get evaluated sooner
+	//    0 tools: 7 days (needs tools urgently)
+	//    1+ tools: 30 days (periodic re-evaluation as content grows)
+	cooldownDays := 7
 	if deployedToolCount > 0 {
-		dctx.Logger.Info("missing_tools: site has tools, skipping",
-			zap.String("site_id", dctx.SiteID.String()),
-			zap.Int("deployed_tools", deployedToolCount))
-		return result, nil
+		cooldownDays = 30
 	}
 
-	// 2. Has a tool evaluation been done recently?
 	var recentEvaluation bool
 	err = dctx.DB.QueryRowContext(dctx.Ctx, `
 		SELECT EXISTS (
 			SELECT 1 FROM site_work_items
 			WHERE site_id = $1
 			  AND item_type = 'evaluate_tools'
-			  AND created_at > NOW() - INTERVAL '7 days'
+			  AND created_at > NOW() - make_interval(days => $2)
 		)
-	`, dctx.SiteID).Scan(&recentEvaluation)
+	`, dctx.SiteID, cooldownDays).Scan(&recentEvaluation)
 	if err != nil {
 		return nil, fmt.Errorf("missing_tools: check recent evaluation: %w", err)
 	}
 
 	if recentEvaluation {
 		dctx.Logger.Info("missing_tools: recent evaluation exists, skipping",
-			zap.String("site_id", dctx.SiteID.String()))
+			zap.String("site_id", dctx.SiteID.String()),
+			zap.Int("deployed_tools", deployedToolCount),
+			zap.Int("cooldown_days", cooldownDays))
 		return result, nil
 	}
 
-	// 3. No tools and no recent evaluation — create evaluate_tools item
-	// tool-suggester will use LLM judgment to decide what's appropriate
+	// 3. No recent evaluation — create evaluate_tools item
+	// tool-suggester loads existing tools and avoids duplicates
 	dctx.Logger.Info("missing_tools: requesting tool evaluation",
-		zap.String("site_id", dctx.SiteID.String()))
+		zap.String("site_id", dctx.SiteID.String()),
+		zap.Int("deployed_tools", deployedToolCount),
+		zap.Int("cooldown_days", cooldownDays))
+
+	reason := "no tools deployed, no recent evaluation"
+	if deployedToolCount > 0 {
+		reason = fmt.Sprintf("%d tools deployed, periodic re-evaluation (every %d days)", deployedToolCount, cooldownDays)
+	}
 
 	result.Findings = append(result.Findings, map[string]interface{}{
 		"check":          "missing_tools",
-		"deployed_tools": 0,
+		"deployed_tools": deployedToolCount,
 		"action":         "requesting_evaluation",
+		"cooldown_days":  cooldownDays,
 	})
 
 	result.WorkItems = append(result.WorkItems, WorkItemSpec{
@@ -93,7 +103,7 @@ func (c *MissingToolsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error
 		ItemType:     "evaluate_tools",
 		Severity:     "low",
 		Summary:      "Evaluate tool needs for site",
-		SpecJSON:     `{"check": "missing_tools", "reason": "no tools deployed, no recent evaluation"}`,
+		SpecJSON:     fmt.Sprintf(`{"check": "missing_tools", "reason": "%s", "existing_tools": %d}`, reason, deployedToolCount),
 		Priority:     130,
 		HandlerAgent: "tool-suggester",
 		Status:       "detected",

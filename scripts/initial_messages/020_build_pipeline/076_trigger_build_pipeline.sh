@@ -757,12 +757,12 @@ UPDATE site_work_items
 SET parent_item_id = NULL
 WHERE parent_item_id IN (
     SELECT id FROM site_work_items
-    WHERE status = 'failed' AND domain = 'build'
+    WHERE status = 'failed' AND pipeline = 'build'
 );
 
 -- Step 2: Delete failed items where a live (non-terminal) copy already exists
 DELETE FROM site_work_items
-WHERE status = 'failed' AND domain = 'build' AND item_key IS NOT NULL
+WHERE status = 'failed' AND pipeline = 'build' AND item_key IS NOT NULL
   AND EXISTS (
     SELECT 1 FROM site_work_items live
     WHERE live.site_id = site_work_items.site_id
@@ -780,7 +780,7 @@ WHERE id IN (
             ORDER BY created_at DESC
         ) as rn
         FROM site_work_items
-        WHERE status = 'failed' AND domain = 'build' AND item_key IS NOT NULL
+        WHERE status = 'failed' AND pipeline = 'build' AND item_key IS NOT NULL
     ) ranked
     WHERE rn > 1
 );
@@ -789,7 +789,7 @@ WHERE id IN (
 UPDATE site_work_items
 SET status = 'triaged', attempt_count = 0, error = NULL,
     claimed_by = NULL, claimed_at = NULL
-WHERE status = 'failed' AND domain = 'build';
+WHERE status = 'failed' AND pipeline = 'build';
 
 COMMIT;
 
@@ -980,3 +980,11 @@ WHERE orchestration_id IN (
   'd81e2869-cdd0-4476-833e-aab90e9fb160'
 )
 ORDER BY last_activity DESC;
+
+----
+
+-- Nuclear option for vonc.com rerender items only
+DELETE FROM site_work_items
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'vonc.com')
+  AND item_type IN ('needs_rerender', 'page_rerender');
+
