@@ -207,6 +207,7 @@ kubectl -n ai-persona-system logs --tail=500 -l agent-type=rerender-pages -f | t
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-generator -f | tee logs-image-generator.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-build-handler -f | tee logs-image-build-handler.json
 kubectl -n ai-persona-system logs --tail=300 -l app=kafka-scheduler -f | tee logs-kafka-scheduler.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=med-price-collector -f --max-log-requests 20 | tee logs-med-price-collector.json
 kubectl -n ai-persona-system logs --tail=500 -l app=business-intel -f --max-log-requests 20 | tee logs-business-intel.json
 
 
