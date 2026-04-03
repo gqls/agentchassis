@@ -40,7 +40,7 @@ kubectl -n kafka run -i --rm kcat-med-discover-$(date +%s) \
   -H from_agent_type=user \
   -H from_agent_id=cli \
   -H responses_topic=system.agent.business-intel.responses <<JSON
-{"action":"orchestrate","config":{"agent_type":"med-url-discoverer"},"input_data":{"batch_size":20}}
+{"action":"orchestrate","config":{"agent_type":"med-url-discoverer"},"input_data":{"batch_size":5}}
 JSON
 
 echo ""

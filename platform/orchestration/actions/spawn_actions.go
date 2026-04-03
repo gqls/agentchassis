@@ -2517,6 +2517,13 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		if b2Key != "" {
 			envList = append(envList, corev1.EnvVar{Name: "B2_APPLICATION_KEY", Value: b2Key})
 		}
+		// Pass through Firecrawl configuration from parent environment
+		if fcKey := os.Getenv("FIRECRAWL_API_KEY"); fcKey != "" {
+			envList = append(envList, corev1.EnvVar{Name: "FIRECRAWL_API_KEY", Value: fcKey})
+		}
+		if fcURL := os.Getenv("FIRECRAWL_API_URL"); fcURL != "" {
+			envList = append(envList, corev1.EnvVar{Name: "FIRECRAWL_API_URL", Value: fcURL})
+		}
 
 		// Storage configuration from ConfigMap
 		storageConfigMap := os.Getenv("AGENT_STORAGE_CONFIGMAP")

@@ -273,3 +273,49 @@ JOIN site_nav_groups sng ON sni.group_id = sng.id
 WHERE sng.site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
   AND sng.group_key = 'tools';
 
+------------------------
+-- Full picture: adoption items + component items
+SELECT item_type, status, spec->>'section_type' as section_type,
+       spec->>'page_name' as page, created_at
+FROM site_work_items
+WHERE site_id = '15a6cb16-5a86-4541-a8e4-d7106239b6a4'
+  AND created_at > now() - interval '30 minutes'
+  AND item_type IN ('needs_new_component', 'needs_content_page', 'needs_design')
+ORDER BY created_at;
+
+-- Components landing in the library
+SELECT function, section_type, display_name,
+       length(html_template) as len, created_at
+FROM content_components
+WHERE created_at > now() - interval '30 minutes'
+ORDER BY created_at;
+
+-- Pages building
+SELECT name, build_status, updated_at
+FROM pages
+WHERE site_id = '15a6cb16-5a86-4541-a8e4-d7106239b6a4'
+ORDER BY updated_at DESC;
+
+
+
+--- add work items for new tools
+INSERT INTO site_work_items (
+    site_id, source, pipeline, item_type, severity, summary,
+    spec, priority, handler_agent, status, created_by, item_key
+)
+SELECT
+    s.id,
+    'admin', 'build', 'evaluate_tools', 'low',
+    'Evaluate tool needs for ' || s.domain,
+    '{"reason": "initial_tool_evaluation"}'::jsonb,
+    130, 'tool-suggester', 'triaged', 'admin',
+    'evaluate_tools:' || s.id::text
+FROM sites s
+WHERE s.status = 'deployed'
+  AND NOT EXISTS (
+      SELECT 1 FROM site_work_items wi
+      WHERE wi.site_id = s.id
+        AND wi.item_type = 'evaluate_tools'
+        AND wi.status NOT IN ('complete', 'wont_fix', 'failed')
+  )
+ORDER BY s.domain;
