@@ -112,3 +112,25 @@ FROM orchestration_states
 WHERE owner_agent_type = 'content-feed-orchestrator'
 ORDER BY created_at DESC
 LIMIT 1;
+
+SELECT orchestration_id, current_step, status,
+       collected_data->'dispatch_result' as dispatch,
+       collected_data->'seed_result'->>'has_sources' as has_sources,
+       collected_data->'news_render_result'->>'item_count' as rendered,
+       error
+FROM orchestration_states
+WHERE orchestration_id = 'd647c8f9-08b0-446c-a7dc-d7b803e60c9d';
+
+-- make sources due again
+UPDATE content_sources
+SET next_fetch_at = NULL
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002';
+
+clients_db=# -- Wait ~30 seconds after trigger, then:
+SELECT orchestration_id, current_step, status,
+       collected_data->'dispatch_result' as dispatch,
+       error
+FROM orchestration_states
+WHERE owner_agent_type = 'content-feed-orchestrator'
+ORDER BY created_at DESC
+LIMIT 1;

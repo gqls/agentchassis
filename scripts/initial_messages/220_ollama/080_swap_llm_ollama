@@ -1,0 +1,43 @@
+Backup first, then swap:
+
+-- 1. Fresh backup (dated today)
+CREATE TABLE agent_definitions_backup_20260326 AS SELECT * FROM agent_definitions;
+
+-- 2. Verify
+SELECT
+    (SELECT COUNT(*) FROM agent_definitions) as live,
+    (SELECT COUNT(*) FROM agent_definitions_backup_20260326) as backup;
+
+-- 3. Check current briefing-agent config
+SELECT type,
+    default_config->'workflow'->'steps'->'infer_via_llm'->'config'->'ai_service' as current_ai_service
+FROM agent_definitions
+WHERE type = 'briefing-agent' AND is_active = true
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- 4. Swap (snapshots automatically)
+SELECT swap_agent_model(
+    'briefing-agent',
+    'infer_via_llm',
+    '{"provider": "ollama", "model": "mistral-small3.1", "api_url": "http://ollama-adapter.ai-persona-system.svc.cluster.local:11434", "max_tokens": 1500}'::jsonb
+);
+
+-- 5. Verify swap
+SELECT type,
+    default_config->'workflow'->'steps'->'infer_via_llm'->'config'->'ai_service' as new_ai_service
+FROM agent_definitions
+WHERE type = 'briefing-agent' AND is_active = true
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+
+  -------------
+
+After that, trigger a build on a test domain and we watch:
+
+SELECT agent_type, model, provider, success, latency_ms, LEFT(error_message, 100) as error
+FROM llm_call_log
+WHERE created_at > NOW() - INTERVAL '10 minutes'
+ORDER BY created_at DESC LIMIT 10;
+
+
+If it fails: SELECT revert_agent('briefing-agent');

@@ -174,14 +174,15 @@ func DispatchFeedSourcesAction(ctx context.Context, params ActionParams) (interf
 				"call_ingester": map[string]interface{}{
 					"action": "call_agent",
 					"config": map[string]interface{}{
-						"agent_type": "feed-ingester",
+						"target_role": "ingester-" + source.SourceType,
 						"input_mapping": map[string]interface{}{
-							"site_id":       siteIDStr,
-							"source_id":     source.ID,
-							"source_type":   source.SourceType,
-							"source_name":   source.Name,
-							"source_config": sourceConfig,
+							"site_id":       "input_data.site_id",
+							"source_id":     "input_data.source_id",
+							"source_type":   "input_data.source_type",
+							"source_name":   "input_data.source_name",
+							"source_config": "input_data.source_config",
 						},
+						"timeout_seconds": 300,
 					},
 					"next_step":   "complete",
 					"description": "Call feed-ingester with source config",

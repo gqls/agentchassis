@@ -214,3 +214,41 @@ WHERE type = 'component-creator';
 
 --
 
+-- Fix prompt: input_data.X → input_data.spec.X
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{prompt_template}',
+        to_jsonb(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                                                                 default_config->>'prompt_template',
+                                                                 '{{.input_data.section_type}}', '{{.input_data.spec.section_type}}'),
+                                                         '{{.input_data.site_type}}', '{{.input_data.spec.site_type}}'),
+                                                 '{{.input_data.description}}', '{{.input_data.spec.description}}'),
+                                         '{{.input_data.design_direction}}', '{{.input_data.spec.design_direction}}'),
+                                 '{{.input_data.reference_content}}', '{{.input_data.spec.reference_content}}'),
+                         '{{.input_data.page_context}}', '{{.input_data.spec.page_context}}'
+                 )::text)
+                     ),
+    updated_at = NOW()
+WHERE type = 'component-creator' AND is_active = true;
+
+-- Verify
+SELECT
+    default_config->>'prompt_template' LIKE '%input_data.spec.section_type%' as uses_spec_path,
+    default_config->>'prompt_template' NOT LIKE '%input_data.section_type}}%' as no_bare_path
+FROM agent_definitions
+WHERE type = 'component-creator' AND is_active = true;
+-- Expected: t, t
+
+-- Clean up junk components
+DELETE FROM content_components WHERE function IN ('general-hero', 'general-section') AND created_from = 'generated';
+
+-- Reset completed needs_new_component items
+UPDATE site_work_items
+SET status = 'triaged', error = NULL, result = '{}'::jsonb,
+    attempt_count = 0, claimed_by = NULL, claimed_at = NULL, completed_at = NULL
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'vonc.com')
+  AND item_type = 'needs_new_component'
+  AND status = 'complete';
+--
+
