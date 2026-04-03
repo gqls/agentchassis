@@ -170,7 +170,8 @@ func MedDiscoverURLsAction(ctx context.Context, params ActionParams) (interface{
 					zap.String("next_page", nextPageURL))
 
 				// Stop if no products found on this page (end of listings)
-				if len(productLinks) == 0 {
+				// or if no new URLs were inserted (all duplicates = we've seen this content before)
+				if len(productLinks) == 0 || inserted == 0 {
 					break
 				}
 
@@ -562,6 +563,9 @@ var (
 //   - [Next Page](url)
 //   - Links with page=N where N is current+1
 func findNextPageURL(markdown, currentURL string, retailer medRetailerForDiscovery) string {
+	// Normalize current URL for comparison
+	currentNorm := strings.TrimRight(currentURL, "/")
+
 	// Strategy 1: Find explicit "Next" links
 	matches := nextPageLinkPattern.FindAllStringSubmatch(markdown, -1)
 	for _, m := range matches {
@@ -585,6 +589,18 @@ func findNextPageURL(markdown, currentURL string, retailer medRetailerForDiscove
 		host := strings.TrimPrefix(parsed.Hostname(), "www.")
 		retailerDomain := strings.TrimPrefix(retailer.Domain, "www.")
 		if host != retailerDomain {
+			continue
+		}
+
+		// Loop protection: skip if same as current page
+		if strings.TrimRight(linkURL, "/") == currentNorm {
+			continue
+		}
+
+		// Must look like a pagination URL — should contain a page parameter
+		// or be a numbered variant of the current category path.
+		// Reject generic nav links like /delivery, /about, etc.
+		if !isPaginationURL(parsed) {
 			continue
 		}
 
@@ -615,11 +631,45 @@ func findNextPageURL(markdown, currentURL string, retailer medRetailerForDiscove
 			if strings.HasPrefix(linkURL, "/") {
 				linkURL = retailer.BaseURL + linkURL
 			}
+
+			// Loop protection
+			if strings.TrimRight(linkURL, "/") == currentNorm {
+				continue
+			}
+
 			return linkURL
 		}
 	}
 
 	return ""
+}
+
+// isPaginationURL checks if a URL looks like a pagination link rather than
+// a generic nav link. Pagination URLs typically have page parameters or
+// numeric path segments.
+func isPaginationURL(u *url.URL) bool {
+	// Has page= query parameter
+	q := u.Query()
+	if q.Get("page") != "" || q.Get("p") != "" || q.Get("pg") != "" {
+		return true
+	}
+
+	// Path ends with /page/N or /p/N pattern
+	path := u.Path
+	if matched, _ := regexp.MatchString(`/(?:page|p)/\d+/?$`, path); matched {
+		return true
+	}
+
+	// Path contains page number segment like /2/ or /3/
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	if len(segments) >= 2 {
+		lastSeg := segments[len(segments)-1]
+		if isNumeric(lastSeg) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // insertDiscoveredListings inserts new product URLs into med_retailer_listings.
