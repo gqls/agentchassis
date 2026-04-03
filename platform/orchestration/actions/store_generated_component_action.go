@@ -208,7 +208,7 @@ func parseGeneratedTemplate(raw interface{}, sectionType string, logger *zap.Log
 	// The LLM output might be:
 	// 1. A map with "result" containing the JSON string (from execute_llm_prompt)
 	// 2. A map with html_template/input_schema directly
-	// 3. A string containing JSON
+	// 3. A string containing JSON (possibly wrapped in markdown code blocks)
 
 	var data map[string]interface{}
 
@@ -218,12 +218,16 @@ func parseGeneratedTemplate(raw interface{}, sectionType string, logger *zap.Log
 		if result, ok := v["result"]; ok {
 			switch r := result.(type) {
 			case string:
+				// Strip markdown code blocks if present
+				cleaned := stripCodeBlocks(r)
 				// Try parsing the result string as JSON
-				if err := json.Unmarshal([]byte(r), &data); err != nil {
+				if err := json.Unmarshal([]byte(cleaned), &data); err != nil {
 					// Not JSON — maybe it's raw HTML
-					logger.Info("store_generated_component: result is not JSON, treating as raw HTML")
+					logger.Info("store_generated_component: result is not JSON, treating as raw HTML",
+						zap.Int("length", len(cleaned)),
+						zap.String("first_50", truncate(cleaned, 50)))
 					data = map[string]interface{}{
-						"html_template": r,
+						"html_template": cleaned,
 					}
 				}
 			case map[string]interface{}:
@@ -233,11 +237,13 @@ func parseGeneratedTemplate(raw interface{}, sectionType string, logger *zap.Log
 			data = v
 		}
 	case string:
+		// Strip markdown code blocks if present
+		cleaned := stripCodeBlocks(v)
 		// Try JSON parse
-		if err := json.Unmarshal([]byte(v), &data); err != nil {
+		if err := json.Unmarshal([]byte(cleaned), &data); err != nil {
 			// Raw HTML string
 			data = map[string]interface{}{
-				"html_template": v,
+				"html_template": cleaned,
 			}
 		}
 	default:
@@ -277,6 +283,25 @@ func parseGeneratedTemplate(raw interface{}, sectionType string, logger *zap.Log
 	}
 
 	return htmlTemplate, inputSchemaJSON, functionName, isDark, nil
+}
+
+// stripCodeBlocks removes markdown code block wrappers (```json ... ``` or ``` ... ```)
+// that LLMs commonly add around JSON output.
+func stripCodeBlocks(s string) string {
+	s = strings.TrimSpace(s)
+	// Handle ```json\n...\n``` or ```\n...\n```
+	if strings.HasPrefix(s, "```") {
+		// Find end of first line (the opening ```)
+		if idx := strings.Index(s, "\n"); idx != -1 {
+			s = s[idx+1:]
+		}
+		// Remove trailing ```
+		if strings.HasSuffix(s, "```") {
+			s = s[:len(s)-3]
+		}
+		s = strings.TrimSpace(s)
+	}
+	return s
 }
 
 // normaliseToKebab ensures a string is valid kebab-case for the function column.
