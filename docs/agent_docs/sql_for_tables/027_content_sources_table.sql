@@ -365,3 +365,24 @@ WHERE site_id = p_site_id
 
 END;
 $$ LANGUAGE plpgsql;
+
+
+   -- Update Grok source to use grok-4-1-fast with search tools
+UPDATE content_sources
+SET config = jsonb_build_object(
+        'provider', 'xai',
+        'model', 'grok-4-1-fast',
+        'prompt_template', 'Search for the most important news from the last {{.hours}} hours about: wholesale gas prices, natural gas market, gas supply, LNG, energy regulation, oil prices. Focus on developments that would matter to professionals and businesses in the energy sector. Return results as a JSON array.',
+        'hours_lookback', 12,
+        'max_items', 10,
+        'search_tools', '["web_search", "x_search"]'::jsonb
+             ),
+    next_fetch_at = NULL,
+    updated_at = NOW()
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND source_type = 'api_news';
+
+-- Verify
+SELECT name, config FROM content_sources
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND source_type = 'api_news';

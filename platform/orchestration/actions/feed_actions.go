@@ -329,19 +329,28 @@ func stripHTML(s string) string {
 }
 
 // ---------------------------------------------------------------------------
-// FetchLLMNewsAction — sync HTTP call to xAI/Grok API
+// FetchLLMNewsAction — sync HTTP call to LLM API for news
 // ---------------------------------------------------------------------------
 //
-// Config:
-//   - source_config: the content_sources.config JSONB
-//     Must contain: provider, model, prompt_template
-//     Optional: hours_lookback (default 12), max_items (default 10)
-//   - source_id: UUID of the content_source row
+// All providers now use real-time web search:
 //
-// The action calls the xAI API (OpenAI-compatible) and asks for structured
-// JSON output. It then parses the response into normalised feed items.
+//   xAI (grok-4-1-fast): Responses API with web_search + x_search tools.
+//     Searches the web and X (Twitter) in real-time.
+//
+//   OpenAI (gpt-4.1-mini): Responses API with web_search tool.
+//     Searches the web in real-time via Bing.
+//
+//   Perplexity (sonar): Chat completions with built-in search.
+//     Every Sonar request searches the web automatically — no tools config.
+//     Returns citations in the response.
+//
+// Config (in content_sources.config):
+//   Required: provider, model, prompt_template
+//   Optional: hours_lookback (default 12), max_items (default 10),
+//             search_tools (xAI only, default ["web_search"])
 //
 // Output: same shape as FetchRSSAction
+//   {items, source_id, provider, item_count, fetched_at}
 
 func FetchLLMNewsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(zap.String("action", "fetch_llm_news"))
@@ -384,8 +393,6 @@ func FetchLLMNewsAction(ctx context.Context, params ActionParams) (interface{}, 
 	}
 
 	sourceID := inputs.Get("source_id")
-
-	// Expand template (simple replacement)
 	prompt := strings.ReplaceAll(promptTemplate, "{{.hours}}", fmt.Sprintf("%d", hoursLookback))
 
 	logger.Info("FetchLLMNewsAction: calling LLM",
@@ -395,43 +402,86 @@ func FetchLLMNewsAction(ctx context.Context, params ActionParams) (interface{}, 
 		zap.Int("hours_lookback", hoursLookback),
 	)
 
-	// Resolve API endpoint and key based on provider
 	apiURL, apiKey, err := resolveLLMNewsProvider(provider)
 	if err != nil {
 		return nil, err
 	}
 
-	// Build the request (OpenAI-compatible chat completions format)
-	// Both xAI and OpenAI use this format
+	// Route to the right API format
+	providerLower := strings.ToLower(provider)
+	switch providerLower {
+	case "xai", "grok", "openai":
+		return fetchViaResponsesAPI(ctx, apiURL, apiKey, model, prompt, maxItems, sourceID, providerLower, sourceConfig, logger)
+	case "perplexity":
+		return fetchViaPerplexity(ctx, apiURL, apiKey, model, prompt, maxItems, sourceID, logger)
+	default:
+		return nil, fmt.Errorf("unsupported provider: %s", provider)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Responses API path — used by xAI and OpenAI
+// ---------------------------------------------------------------------------
+// Both use /v1/responses with tools array and input array.
+// Response format: { output: [{ type: "message", content: [{ type: "output_text", text: "..." }] }] }
+
+func fetchViaResponsesAPI(ctx context.Context, apiURL, apiKey, model, prompt string, maxItems int, sourceID, provider string, sourceConfig map[string]interface{}, logger *zap.Logger) (interface{}, error) {
+	emptyResult := func(errMsg string) (interface{}, error) {
+		return map[string]interface{}{
+			"items":      []interface{}{},
+			"source_id":  sourceID,
+			"provider":   provider,
+			"item_count": 0,
+			"error":      errMsg,
+			"fetched_at": time.Now().UTC().Format(time.RFC3339),
+		}, nil
+	}
+
+	// Build tools array based on provider
+	var tools []map[string]interface{}
+	switch provider {
+	case "xai", "grok":
+		// Default: web_search. Optionally add x_search from config.
+		tools = []map[string]interface{}{{"type": "web_search"}}
+		if searchTools, ok := sourceConfig["search_tools"].([]interface{}); ok {
+			tools = nil
+			for _, t := range searchTools {
+				if ts, ok := t.(string); ok {
+					tools = append(tools, map[string]interface{}{"type": ts})
+				}
+			}
+		}
+	case "openai":
+		tools = []map[string]interface{}{{"type": "web_search"}}
+	}
+
+	systemPrompt := "You are a news research assistant with access to web search. " +
+		"Use your search tools to find REAL, CURRENT news articles. " +
+		"Return ONLY a valid JSON array of news items you found. " +
+		"Each object must have: title (string), summary (string, 2-3 sentences), " +
+		"source_url (string, the ACTUAL URL you found), source_name (string, the publication name), " +
+		"published_at (string, ISO 8601 format). " +
+		"Only include items you found via search with real URLs. Do not fabricate any URLs or articles."
+
 	reqBody := map[string]interface{}{
 		"model": model,
-		"messages": []map[string]interface{}{
-			{
-				"role": "system",
-				"content": "You are a news research assistant. Return ONLY a valid JSON array. " +
-					"Each object must have: title (string), summary (string, 2-3 sentences), " +
-					"source_url (string, empty if unknown), source_name (string), " +
-					"published_at (string, ISO 8601 format, approximate if exact time unknown). " +
-					"Do not include any text outside the JSON array.",
-			},
-			{
-				"role":    "user",
-				"content": prompt,
-			},
+		"input": []map[string]interface{}{
+			{"role": "system", "content": systemPrompt},
+			{"role": "user", "content": prompt},
 		},
-		"temperature": 0.3,
-		"max_tokens":  4096,
+		"tools": tools,
 	}
 
 	reqBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal LLM request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	// Longer timeout — model does multiple searches server-side
+	client := &http.Client{Timeout: 90 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, strings.NewReader(string(reqBytes)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create LLM request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -439,36 +489,149 @@ func FetchLLMNewsAction(ctx context.Context, params ActionParams) (interface{}, 
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn("FetchLLMNewsAction: API call failed",
-			zap.String("provider", provider),
-			zap.Error(err),
-		)
-		return map[string]interface{}{
-			"items":      []interface{}{},
-			"source_id":  sourceID,
-			"item_count": 0,
-			"error":      err.Error(),
-			"fetched_at": time.Now().UTC().Format(time.RFC3339),
-		}, nil
+			zap.String("provider", provider), zap.Error(err))
+		return emptyResult(err.Error())
 	}
 	defer resp.Body.Close()
 
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 100*1024))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		errMsg := fmt.Sprintf("LLM API returned HTTP %d: %s", resp.StatusCode, string(respBody))
-		logger.Warn("FetchLLMNewsAction: API error",
+		errMsg := fmt.Sprintf("%s API returned HTTP %d: %s", provider, resp.StatusCode, datahelpers.TruncateString(string(respBody), 500))
+		logger.Warn("FetchLLMNewsAction: API error", zap.String("error", errMsg))
+		return emptyResult(errMsg)
+	}
+
+	// Parse the Responses API response
+	// Structure: { output: [{ type: "message", content: [{ type: "output_text", text: "..." }] }] }
+	var apiResp struct {
+		Output []struct {
+			Type    string `json:"type"`
+			Content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"output"`
+	}
+
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		logger.Warn("FetchLLMNewsAction: failed to decode response",
 			zap.String("provider", provider),
-			zap.String("error", errMsg),
-		)
+			zap.String("body_preview", datahelpers.TruncateString(string(respBody), 500)),
+			zap.Error(err))
+		return emptyResult(fmt.Sprintf("response decode error: %s", err.Error()))
+	}
+
+	// Extract text content
+	var content string
+	for _, output := range apiResp.Output {
+		if output.Type != "message" {
+			continue
+		}
+		for _, c := range output.Content {
+			if c.Type == "output_text" && c.Text != "" {
+				content = c.Text
+				break
+			}
+		}
+		if content != "" {
+			break
+		}
+	}
+
+	if content == "" {
+		logger.Warn("FetchLLMNewsAction: no text content in response",
+			zap.String("provider", provider),
+			zap.String("body_preview", datahelpers.TruncateString(string(respBody), 500)))
+		return emptyResult("no text content in response")
+	}
+
+	items := parseLLMNewsItems(content, maxItems, sourceID, logger)
+
+	logger.Info("FetchLLMNewsAction: search returned items",
+		zap.String("provider", provider),
+		zap.Int("items_found", len(items)),
+		zap.String("source_id", sourceID))
+
+	return map[string]interface{}{
+		"items":      items,
+		"source_id":  sourceID,
+		"provider":   provider,
+		"item_count": len(items),
+		"fetched_at": time.Now().UTC().Format(time.RFC3339),
+	}, nil
+}
+
+// ---------------------------------------------------------------------------
+// Perplexity path — chat completions with built-in search
+// ---------------------------------------------------------------------------
+// Sonar models always search the web — no tools config needed.
+// Uses OpenAI-compatible chat completions format.
+
+func fetchViaPerplexity(ctx context.Context, apiURL, apiKey, model, prompt string, maxItems int, sourceID string, logger *zap.Logger) (interface{}, error) {
+	emptyResult := func(errMsg string) (interface{}, error) {
 		return map[string]interface{}{
 			"items":      []interface{}{},
 			"source_id":  sourceID,
+			"provider":   "perplexity",
 			"item_count": 0,
 			"error":      errMsg,
 			"fetched_at": time.Now().UTC().Format(time.RFC3339),
 		}, nil
 	}
 
-	// Parse OpenAI-compatible response
+	reqBody := map[string]interface{}{
+		"model": model,
+		"messages": []map[string]interface{}{
+			{
+				"role": "system",
+				"content": "You are a news research assistant. Search the web for current news. " +
+					"Return ONLY a valid JSON array of news items you found. " +
+					"Each object must have: title (string), summary (string, 2-3 sentences), " +
+					"source_url (string, the actual URL), source_name (string, the publication), " +
+					"published_at (string, ISO 8601 format). " +
+					"Only include real articles with real URLs.",
+			},
+			{
+				"role":    "user",
+				"content": prompt,
+			},
+		},
+		"temperature":      0.3,
+		"max_tokens":       4096,
+		"return_citations": true,
+	}
+
+	reqBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal Perplexity request: %w", err)
+	}
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, strings.NewReader(string(reqBytes)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Perplexity request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Warn("FetchLLMNewsAction: Perplexity API call failed", zap.Error(err))
+		return emptyResult(err.Error())
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		errMsg := fmt.Sprintf("Perplexity API returned HTTP %d: %s", resp.StatusCode, string(respBody))
+		logger.Warn("FetchLLMNewsAction: Perplexity API error", zap.String("error", errMsg))
+		return emptyResult(errMsg)
+	}
+
 	var llmResp struct {
 		Choices []struct {
 			Message struct {
@@ -478,43 +641,49 @@ func FetchLLMNewsAction(ctx context.Context, params ActionParams) (interface{}, 
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&llmResp); err != nil {
-		return nil, fmt.Errorf("failed to decode LLM response: %w", err)
+		return nil, fmt.Errorf("failed to decode Perplexity response: %w", err)
 	}
 
 	if len(llmResp.Choices) == 0 {
-		return map[string]interface{}{
-			"items":      []interface{}{},
-			"source_id":  sourceID,
-			"item_count": 0,
-			"error":      "no choices in LLM response",
-			"fetched_at": time.Now().UTC().Format(time.RFC3339),
-		}, nil
+		return emptyResult("no choices in Perplexity response")
 	}
 
 	content := strings.TrimSpace(llmResp.Choices[0].Message.Content)
+	items := parseLLMNewsItems(content, maxItems, sourceID, logger)
+
+	logger.Info("FetchLLMNewsAction: Perplexity returned items",
+		zap.Int("items_found", len(items)),
+		zap.String("source_id", sourceID))
+
+	return map[string]interface{}{
+		"items":      items,
+		"source_id":  sourceID,
+		"provider":   "perplexity",
+		"item_count": len(items),
+		"fetched_at": time.Now().UTC().Format(time.RFC3339),
+	}, nil
+}
+
+// ---------------------------------------------------------------------------
+// Shared: parse JSON array of news items from LLM text output
+// ---------------------------------------------------------------------------
+
+func parseLLMNewsItems(content string, maxItems int, sourceID string, logger *zap.Logger) []map[string]interface{} {
 	// Strip markdown code fences if present
+	content = strings.TrimSpace(content)
 	content = strings.TrimPrefix(content, "```json")
 	content = strings.TrimPrefix(content, "```")
 	content = strings.TrimSuffix(content, "```")
 	content = strings.TrimSpace(content)
 
-	// Parse the JSON array of news items
 	var rawItems []map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &rawItems); err != nil {
-		logger.Warn("FetchLLMNewsAction: failed to parse LLM output as JSON array",
-			zap.String("content_preview", datahelpers.TruncateString(content, 200)),
-			zap.Error(err),
-		)
-		return map[string]interface{}{
-			"items":      []interface{}{},
-			"source_id":  sourceID,
-			"item_count": 0,
-			"error":      fmt.Sprintf("JSON parse error: %s", err.Error()),
-			"fetched_at": time.Now().UTC().Format(time.RFC3339),
-		}, nil
+		logger.Warn("parseLLMNewsItems: failed to parse as JSON array",
+			zap.String("content_preview", datahelpers.TruncateString(content, 300)),
+			zap.Error(err))
+		return nil
 	}
 
-	// Normalise items to the same format as RSS
 	var items []map[string]interface{}
 	for i, raw := range rawItems {
 		if i >= maxItems {
@@ -526,7 +695,6 @@ func FetchLLMNewsAction(ctx context.Context, params ActionParams) (interface{}, 
 		sourceName, _ := raw["source_name"].(string)
 		publishedAt, _ := raw["published_at"].(string)
 
-		// Generate a stable external_id from title hash
 		externalID := sourceURL
 		if externalID == "" {
 			h := sha256.Sum256([]byte(title + publishedAt))
@@ -545,23 +713,22 @@ func FetchLLMNewsAction(ctx context.Context, params ActionParams) (interface{}, 
 			"published_at": publishedAt,
 		})
 	}
-
-	logger.Info("FetchLLMNewsAction: parsed LLM news items",
-		zap.String("provider", provider),
-		zap.Int("items_found", len(items)),
-	)
-
-	return map[string]interface{}{
-		"items":      items,
-		"source_id":  sourceID,
-		"provider":   provider,
-		"item_count": len(items),
-		"fetched_at": time.Now().UTC().Format(time.RFC3339),
-	}, nil
+	return items
 }
 
-// resolveLLMNewsProvider returns API URL and key for the given provider name.
-// Currently supports: xai, openai, perplexity
+// resolveLLMNewsProvider returns API URL and key for the given provider.
+//
+// xAI:        Responses API — /v1/responses (web_search + x_search tools)
+//
+//	Recommended model: grok-4-1-fast
+//
+// OpenAI:     Responses API — /v1/responses (web_search tool)
+//
+//	Recommended model: gpt-4.1-mini
+//
+// Perplexity: Chat completions — /chat/completions (built-in search via Sonar)
+//
+//	Recommended model: sonar (fast) or sonar-pro (deeper)
 func resolveLLMNewsProvider(provider string) (string, string, error) {
 	switch strings.ToLower(provider) {
 	case "xai", "grok":
@@ -572,13 +739,13 @@ func resolveLLMNewsProvider(provider string) (string, string, error) {
 		if apiKey == "" {
 			return "", "", fmt.Errorf("XAI_API_KEY or GROK_API_KEY environment variable not set")
 		}
-		return "https://api.x.ai/v1/chat/completions", apiKey, nil
+		return "https://api.x.ai/v1/responses", apiKey, nil
 	case "openai":
 		apiKey := os.Getenv("OPENAI_API_KEY")
 		if apiKey == "" {
 			return "", "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
 		}
-		return "https://api.openai.com/v1/chat/completions", apiKey, nil
+		return "https://api.openai.com/v1/responses", apiKey, nil
 	case "perplexity":
 		apiKey := os.Getenv("PERPLEXITY_API_KEY")
 		if apiKey == "" {
@@ -586,7 +753,7 @@ func resolveLLMNewsProvider(provider string) (string, string, error) {
 		}
 		return "https://api.perplexity.ai/chat/completions", apiKey, nil
 	default:
-		return "", "", fmt.Errorf("unsupported LLM news provider: %s", provider)
+		return "", "", fmt.Errorf("unsupported LLM news provider: %s (supported: xai, openai, perplexity)", provider)
 	}
 }
 

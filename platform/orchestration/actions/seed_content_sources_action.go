@@ -317,11 +317,12 @@ func seedAPINewsSources(ctx context.Context, params ActionParams, siteID uuid.UU
 
 	config := map[string]interface{}{
 		"provider":        "xai",
-		"model":           "grok-3-mini",
+		"model":           "grok-4-1-fast",
 		"prompt_template": promptTemplate,
 		"hours_lookback":  12,
 		"max_items":       10,
 		"keywords":        keywords,
+		"search_tools":    []string{"web_search", "x_search"},
 	}
 	configJSON, err := json.Marshal(config)
 	if err != nil {
