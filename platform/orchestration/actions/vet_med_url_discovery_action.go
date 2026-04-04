@@ -457,6 +457,7 @@ func isRetailerProductURL(rawURL string, retailer medRetailerForDiscovery) bool 
 		"/delivery", "/returns", "/help", "/contact", "/about",
 		"/terms", "/privacy", "/cookie", "/faq", "/blog", "/pet-advice",
 		"/brand", "/brands", "/special-offer", "/prescription-info",
+		"/prescription-regulation", "/human-medicine",
 		"/how-do-i-", "/how-to-",
 		"/media/", "/static/", "/js/", "/css/", "/icons/",
 		"/search", "/wishlist", "/compare", "/review",

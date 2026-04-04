@@ -458,12 +458,10 @@ func scrapeMedProductPage(
 
 // Price parsing regex patterns.
 // These handle the observed Pet Drugs Online format:
-//   - 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
-//
+//   + 10ml bottle Price: £3.89 Regular Price: £14.09 (TVP) Save £10.20
 // And simpler formats like:
-//
-//	Price: £17.48
-//	£17.48
+//   Price: £17.48
+//   £17.48
 var (
 	// Pattern for variant lines: "SIZE Price: £X.XX ... (TVP) ..."
 	medVariantPattern = regexp.MustCompile(
@@ -679,9 +677,9 @@ func isSizeLine(line string) bool {
 // parseMultiLineVariants handles retailer formats where size and price
 // are on separate lines. Covers:
 //
-//	VioVet:    "- Dog » 100ml Bottle\n\n£16.73"
-//	Hyperdrug: "- 10ml\n...\n£3.99"
-//	Animed:    "100ml\nwas £16.95\nOut of stock"
+//   VioVet:    "- Dog » 100ml Bottle\n\n£16.73"
+//   Hyperdrug: "- 10ml\n...\n£3.99"
+//   Animed:    "100ml\nwas £16.95\nOut of stock"
 func parseMultiLineVariants(productSection string) []medExtractedVariant {
 	lines := strings.Split(productSection, "\n")
 	var variants []medExtractedVariant
@@ -1099,7 +1097,7 @@ Product page markdown:
 		return nil
 	}
 
-	httpClient := &http.Client{Timeout: 30 * time.Second}
+	httpClient := &http.Client{Timeout: 240 * time.Second}
 	callStart := time.Now()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", ollamaURL+"/api/chat", bytes.NewReader(reqBytes))
