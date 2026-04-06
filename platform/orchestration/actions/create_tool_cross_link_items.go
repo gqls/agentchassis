@@ -159,6 +159,7 @@ func CreateToolCrossLinkItemsAction(ctx context.Context, params ActionParams) (i
 			// Build the content_rewrite spec
 			spec, _ := json.Marshal(map[string]interface{}{
 				"page":        pageName,
+				"page_name":   pageName, // dispatch loop maps spec.page_name → input_data.page_name
 				"page_id":     pageID.String(),
 				"description": fmt.Sprintf("Add a contextual reference to the %s tool on this page where it naturally fits the topic.", toolName),
 				"suggestion": fmt.Sprintf(
