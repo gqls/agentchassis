@@ -4,19 +4,27 @@
 //   - missing_news_sources: spec recommends news but no content_sources exist
 //   - missing_news_section: sources exist with items but no latest-news on homepage
 //   - stale_news_section:   homepage has latest-news but items are older than threshold
+//   - all_sources_erroring: all content_sources for a site have errors
 //
-// All three are Layer 1 (algorithmic, no LLM). They run as part of the
+// All four are Layer 1 (algorithmic, no LLM). They run as part of the
 // completeness-discovery-agent alongside empty_sections, empty_blog, etc.
 //
+// Handler agent routing:
+//   - missing_news_sources  → content-feed-orchestrator (seeds sources via SeedContentSourcesAction)
+//   - missing_news_section  → content-gap-planner (LLM decides how to add latest-news to homepage)
+//   - stale_news_section    → content-feed-orchestrator (re-runs ingest + triage + render + commit)
+//   - all_sources_erroring  → content-feed-orchestrator (re-seeds may replace broken sources)
+//
 // To enable, add these check names to the completeness-discovery-agent's
-// "checks" config array:
+// "checks" config array (already done in current deployment):
 //
 //   UPDATE agent_definitions
 //   SET default_config = jsonb_set(
 //       default_config,
 //       '{workflow,steps,run_checks,config,checks}',
 //       '["empty_sections", "empty_blog", "orphan_pages",
-//         "missing_news_sources", "missing_news_section", "stale_news_section"]'::jsonb
+//         "missing_news_sources", "missing_news_section", "stale_news_section",
+//         "all_sources_erroring"]'::jsonb
 //   )
 //   WHERE type = 'completeness-discovery-agent' AND deleted_at IS NULL;
 
@@ -34,6 +42,7 @@ func init() {
 	Register(&MissingNewsSourcesCheck{})
 	Register(&MissingNewsSectionCheck{})
 	Register(&StaleNewsSectionCheck{})
+	Register(&AllSourcesErroringCheck{})
 }
 
 // ===========================================================================
@@ -42,8 +51,9 @@ func init() {
 // Detects: site spec has content_features.news_feed.recommended = true
 // but no content_sources rows exist for the site.
 //
-// Handler: configure-feed-sources (future) or creates a needs_human_review
-// item until that agent exists.
+// Handler: content-feed-orchestrator — its first step is seed_content_sources
+// which reads the classification spec and creates content_sources rows.
+// After seeding it dispatches ingesters, runs triage, and renders.
 
 type MissingNewsSourcesCheck struct{}
 
@@ -110,15 +120,18 @@ func (c *MissingNewsSourcesCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 			"message": "Site spec recommends news feed but no content_sources are configured",
 		}},
 		WorkItems: []WorkItemSpec{{
-			SiteID:       dctx.SiteID,
-			Source:       "discovery",
-			Pipeline:     "content",
-			ItemType:     "missing_news_sources",
-			Severity:     "medium",
-			Summary:      "Site spec recommends news feed but no content sources are configured",
-			SpecJSON:     string(specJSON),
-			Priority:     70,
-			HandlerAgent: "page-build-handler", // future: configure-feed-sources
+			SiteID:   dctx.SiteID,
+			Source:   "discovery",
+			Pipeline: "content",
+			ItemType: "missing_news_sources",
+			Severity: "medium",
+			Summary:  "Site spec recommends news feed but no content sources are configured",
+			SpecJSON: string(specJSON),
+			Priority: 70,
+			// CHANGED: was "page-build-handler" — that agent can't seed content sources.
+			// content-feed-orchestrator's first step (seed_content_sources) reads the
+			// classification spec and creates content_sources rows automatically.
+			HandlerAgent: "content-feed-orchestrator",
 			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("missing_news_sources:%s", dctx.SiteID),
@@ -133,7 +146,9 @@ func (c *MissingNewsSourcesCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 // Detects: content_sources exist and have relevant/ingested items,
 // but no page has a latest-news page_component.
 //
-// Handler: page-build-handler (adds latest-news section to homepage)
+// Handler: content-gap-planner — it reads the gap description and decides
+// whether to add latest-news to the homepage or create a dedicated page.
+// It creates work items for page-build-handler to execute the plan.
 
 type MissingNewsSectionCheck struct{}
 
@@ -179,9 +194,12 @@ func (c *MissingNewsSectionCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 		zap.Int("item_count", itemCount))
 
 	specJSON, _ := json.Marshal(map[string]interface{}{
-		"check":      "missing_news_section",
-		"item_count": itemCount,
-		"page_name":  "index",
+		"check":       "missing_news_section",
+		"item_count":  itemCount,
+		"page_name":   "index",
+		"description": "Site has ingested news feed items but the homepage has no latest-news section to display them. Consider adding a latest-news component to the homepage.",
+		"suggestion":  "Add a latest-news section to the homepage to show recent industry news",
+		"category":    "content_completeness",
 	})
 
 	return &CheckResult{
@@ -191,15 +209,19 @@ func (c *MissingNewsSectionCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 			"item_count": itemCount,
 		}},
 		WorkItems: []WorkItemSpec{{
-			SiteID:       dctx.SiteID,
-			Source:       "discovery",
-			Pipeline:     "content",
-			ItemType:     "missing_news_section",
-			Severity:     "medium",
-			Summary:      fmt.Sprintf("Site has %d feed items but no latest-news section on homepage", itemCount),
-			SpecJSON:     string(specJSON),
-			Priority:     65,
-			HandlerAgent: "page-build-handler",
+			SiteID:   dctx.SiteID,
+			Source:   "discovery",
+			Pipeline: "content",
+			ItemType: "missing_news_section",
+			Severity: "medium",
+			Summary:  fmt.Sprintf("Site has %d feed items but no latest-news section on homepage", itemCount),
+			SpecJSON: string(specJSON),
+			Priority: 65,
+			// CHANGED: was "page-build-handler" — it can't decide where to add a section.
+			// content-gap-planner reads the gap spec, decides whether to add to an
+			// existing page or create a new one, then creates targeted work items
+			// for page-build-handler.
+			HandlerAgent: "content-gap-planner",
 			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("missing_news_section:%s", dctx.SiteID),
@@ -214,7 +236,10 @@ func (c *MissingNewsSectionCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 // Detects: homepage has a latest-news component but the newest relevant
 // item is older than the freshness threshold (default 72 hours).
 //
-// Handler: rerender-pages (rerenders the page with fresh items)
+// Handler: content-feed-orchestrator — re-runs the full pipeline:
+// seed (noop if sources exist) → dispatch ingesters → triage → render → commit.
+// This is the right fix because stale news means we need fresh content,
+// not a page rerender.
 
 type StaleNewsSectionCheck struct{}
 
@@ -298,15 +323,18 @@ func (c *StaleNewsSectionCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 			"page":             pageName,
 		}},
 		WorkItems: []WorkItemSpec{{
-			SiteID:       dctx.SiteID,
-			Source:       "discovery",
-			Pipeline:     "content",
-			ItemType:     "stale_news_section",
-			Severity:     "low",
-			Summary:      fmt.Sprintf("News section on %s is %.0f days old", pageName, staleDays),
-			SpecJSON:     string(specJSON),
-			Priority:     80,
-			HandlerAgent: "rerender-pages",
+			SiteID:   dctx.SiteID,
+			Source:   "discovery",
+			Pipeline: "content",
+			ItemType: "stale_news_section",
+			Severity: "low",
+			Summary:  fmt.Sprintf("News section on %s is %.0f days old", pageName, staleDays),
+			SpecJSON: string(specJSON),
+			Priority: 80,
+			// CHANGED: was "rerender-pages" — rerendering doesn't bring new content.
+			// content-feed-orchestrator re-runs ingest + triage + render + commit,
+			// which produces fresh news items.
+			HandlerAgent: "content-feed-orchestrator",
 			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("stale_news_section:%s:%s", dctx.SiteID, pageName),
@@ -316,17 +344,17 @@ func (c *StaleNewsSectionCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 }
 
 // ===========================================================================
-// AllSourcesErroringCheck (bonus — catches dead sources)
+// AllSourcesErroringCheck
 // ===========================================================================
 // Detects: all content_sources for a site have error_count > 0
 //
-// Handler: needs_human_review (source URLs may have changed or gone offline)
+// Handler: content-feed-orchestrator — its seed_content_sources step will
+// attempt to create new sources from the classification spec if none exist
+// or if all existing ones are erroring. The dispatch step will re-try
+// fetching from sources (error_count doesn't block dispatch, only
+// exponential backoff on next_fetch_at does).
 
 type AllSourcesErroringCheck struct{}
-
-func init() {
-	Register(&AllSourcesErroringCheck{})
-}
 
 func (c *AllSourcesErroringCheck) Name() string { return "all_sources_erroring" }
 
@@ -395,15 +423,20 @@ func (c *AllSourcesErroringCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 			"source_details": sources,
 		}},
 		WorkItems: []WorkItemSpec{{
-			SiteID:       dctx.SiteID,
-			Source:       "discovery",
-			Pipeline:     "content",
-			ItemType:     "all_sources_erroring",
-			Severity:     "high",
-			Summary:      fmt.Sprintf("All %d content sources are failing — feed URLs may be dead", totalSources),
-			SpecJSON:     string(specJSON),
-			Priority:     50,
-			HandlerAgent: "", // needs_human_review — no automated handler
+			SiteID:   dctx.SiteID,
+			Source:   "discovery",
+			Pipeline: "content",
+			ItemType: "all_sources_erroring",
+			Severity: "high",
+			Summary:  fmt.Sprintf("All %d content sources are failing — feed URLs may be dead", totalSources),
+			SpecJSON: string(specJSON),
+			Priority: 50,
+			// CHANGED: was "" (empty) — dispatch would fail trying to spawn empty agent type.
+			// content-feed-orchestrator will re-seed sources (adding new ones from the
+			// classification spec) and re-dispatch. If the original sources are truly dead,
+			// the new seeded sources may work. If not, this item will recur and eventually
+			// need manual attention (error_count keeps incrementing).
+			HandlerAgent: "content-feed-orchestrator",
 			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("all_sources_erroring:%s", dctx.SiteID),

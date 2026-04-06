@@ -104,14 +104,14 @@ kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
 
 # reset all offsets
 # echo 'resetting all offsets'
-# kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
-# /opt/kafka/bin/kafka-consumer-groups.sh \
-#   --bootstrap-server localhost:9092 \
-#   --reset-offsets \
-#   --to-earliest \
-#   --all-groups   \
-#   --all-topics    \
-#   --execute
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
 
 kubectl -n ai-persona-system delete jobs -l agent-type=calculator
 kubectl -n ai-persona-system delete pods -l agent-type=calculator

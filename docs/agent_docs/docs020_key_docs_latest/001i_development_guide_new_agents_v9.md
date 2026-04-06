@@ -1401,6 +1401,123 @@ The persist steps use `error_step` to skip gracefully when the field isn't in `i
 
 ---
 
+## 16. error_step must be inside step.Config, not at the step level
+
+**Symptom:** Workflow step fails, but instead of routing to the error_step, the entire orchestration fails with `FAILED` status.
+
+**Root cause:** The coordinator checks `step.Config["error_step"]` — not `step.ErrorStep` or any step-level field. When `error_step` is placed at the step level in the agent definition JSON, it gets parsed into the Step struct but the coordinator never reads it for error routing.
+
+```json
+// WRONG — coordinator never sees this
+"persist_mission": {
+    "action": "write_site_spec",
+    "config": { "aspect": "mission", ... },
+    "error_step": "persist_mission_brief",     // ← step level, ignored
+    "next_step": "persist_mission_brief"
+}
+
+// RIGHT — coordinator reads this
+"persist_mission": {
+    "action": "write_site_spec",
+    "config": {
+        "aspect": "mission",
+        "error_step": "persist_mission_brief"   // ← inside config, found
+    },
+    "next_step": "persist_mission_brief"
+}
+```
+
+**Rule:** Always put `error_step` inside the `config` map. The coordinator's `routeToErrorStepOrFail` function reads `step.Config["error_step"]`. Step-level `error_step` is silently ignored — the workflow fails instead of routing.
+
+**Broader lesson:** Several existing agent definitions had this bug (classifier write steps) but it never surfaced because those steps don't fail in normal operation. When adding error_step to any step, verify with `value->'config'->>'error_step'` not `value->>'error_step'`.
+
+---
+
+## 17. write_site_spec rejects plain strings — wrap text in JSON objects
+
+**Symptom:** `spec_data must be a JSON object, got string` when persisting text briefs via write_site_spec.
+
+**Root cause:** The `site_specs.data` column is JSONB. The `write_site_spec` action validates that spec_data is a JSON object (map), not a scalar. Plain text strings like mission briefs are not valid JSONB objects.
+
+**Fix:** Wrap text values in a JSON object: `{"text": "the brief content..."}`. The prompt template accesses via `{{.site_specs.specs.mission_brief.text}}`.
+
+```json
+// WRONG — plain string, rejected by write_site_spec
+"mission_brief": "Spark is an AI-driven social platform..."
+
+// RIGHT — JSON object, accepted
+"mission_brief": {"text": "Spark is an AI-driven social platform..."}
+```
+
+**Rule:** Any value persisted via write_site_spec must be a JSON object. For text content, wrap in `{"text": "..."}`. For structured data (mission, roadmap), it's already an object.
+
+---
+
+## 18. Schema column renames — always check the live schema
+
+**Symptom:** `column "domain" does not exist` when inserting into site_work_items.
+
+**Root cause:** The `domain` column on site_work_items was renamed to `pipeline` in a migration. The project's `some_schemas` dump still showed `domain`. Go code written against the stale dump used the wrong column name. The INSERT silently failed, caught by error handling, and logged as a warning in pod logs (not in agent_error_log).
+
+**Fix:** Always run `\d table_name` against the live database before writing SQL or Go code that references columns. Never trust cached schema dumps in the repository.
+
+**Rule:** The live database is the source of truth for column names. Schema dumps go stale. `\d site_work_items` takes 2 seconds and prevents hours of debugging invisible failures.
+
+---
+
+## 19. LLM output with markdown code blocks breaks JSON parsing
+
+**Symptom:** Generated component templates stored as JSON blobs instead of HTML. Pages render raw `{"function": "provocation-card", "html_template": "<style>..."}` text.
+
+**Root cause:** The component-creator's LLM prompt asks for JSON output. The LLM wraps it in ` ```json ... ``` ` markdown code blocks. `json.Unmarshal` fails on the backtick-prefixed string. The parser's fallback treats the entire string (including the JSON structure) as "raw HTML" and stores it directly in `html_template`.
+
+**Fix:** Strip markdown code blocks before JSON parsing:
+
+```go
+func stripCodeBlocks(s string) string {
+    s = strings.TrimSpace(s)
+    if strings.HasPrefix(s, "```") {
+        if idx := strings.Index(s, "\n"); idx != -1 {
+            s = s[idx+1:]
+        }
+        if strings.HasSuffix(s, "```") {
+            s = s[:len(s)-3]
+        }
+        s = strings.TrimSpace(s)
+    }
+    return s
+}
+```
+
+**Rule:** Any action that parses LLM output as JSON must strip markdown code blocks first. LLMs wrap JSON in code blocks even when told not to. This is defensive, not optional.
+
+**Data recovery:** When JSON is stored as the html_template, PostgreSQL's `::jsonb->>'html_template'` can extract it — but only if the JSON is valid. LLM output often contains unescaped quotes in SVG paths (`d="M2 6l3 3 5-5"`) that break JSON parsing. In that case, delete the broken components and regenerate them with the fixed parser.
+
+---
+
+## 20. Handlers read work item spec from input_data.spec, not input_data directly
+
+**Symptom:** Component-creator prompt receives empty section_type. LLM generates generic template. Store action finds generic function name already exists, returns "already_exists".
+
+**Root cause:** The dispatch loop's input_mapping passes:
+```json
+{
+    "spec": "current_item.spec",
+    "site_id": "current_item.site_id",
+    "work_item_id": "current_item.id"
+}
+```
+
+The work item's spec fields (section_type, site_type, etc.) arrive at `input_data.spec.section_type`, not `input_data.section_type`. The component-creator's prompt referenced `{{.input_data.section_type}}` which rendered empty.
+
+**Fix:** Agent prompt templates must reference `{{.input_data.spec.section_type}}` etc.
+
+**Rule:** In handlers called via the dispatch loop, the work item's spec is at `input_data.spec.*`. Go actions using `ExtractActionInputs` handle nested lookups automatically. Prompt templates using Go template syntax (`{{.field}}`) must reference the full path.
+
+**The dispatch loop is generic.** Don't add handler-specific field promotions to its input_mapping. Handlers should know where their data lives. The `page_name?` promotion is a legacy convenience, not a pattern to follow.
+
+---
+
 ## Summary of rules for the dev guide
 
 1. **Check schema before writing SQL** — `\d table_name` every time
@@ -1418,3 +1535,8 @@ The persist steps use `error_step` to skip gracefully when the field isn't in `i
 13. **Verify fire-and-forget logging** — goroutine errors are invisible, always check `SELECT COUNT(*)` after deploy
 14. **Test INSERT against actual schema** — column name drift between SQL migrations and Go code is common
 15. **Cast string literals in to_jsonb()** — use `to_jsonb('...'::text)`, untyped literals fail with polymorphic type error
+16. **Put error_step inside step.Config** — coordinator reads `step.Config["error_step"]`, step-level error_step is ignored
+17. **Wrap text values for write_site_spec** — plain strings rejected, use `{"text": "..."}`
+18. **Check live schema, not dumps** — `\d table_name` against the live DB, cached dumps go stale
+19. **Strip markdown code blocks from LLM output** — LLMs wrap JSON in ``` blocks, parse fails silently
+20. **Handlers read spec from input_data.spec** — dispatch loop passes work item spec at `input_data.spec.*`, not top-level
