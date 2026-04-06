@@ -465,35 +465,47 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		itemsCreated++
 	}
 
-	// Content pages — all use needs_content_page
-	// Pages with interactive features carry them in the spec
+	// Content pages — route interactive pages to tool-recreation-handler
 	for i, page := range adoptedPages {
 		pageSpec := map[string]interface{}{
 			"page_name": page.Name,
 			"page_type": page.PageType,
-			"mode":      "recreate",
 			"source":    "adoption",
 		}
-		if len(page.Features) > 0 {
-			pageSpec["interactive_features"] = page.Features
-		}
-		pageSpecJSON, _ := json.Marshal(pageSpec)
 
-		summary := fmt.Sprintf("Recreate %s page from %s", page.Name, domain)
+		var itemType, handlerAgent, summary string
+		var priority int
+
 		if len(page.Features) > 0 {
+			// Interactive page — tool recreation handler
+			pageSpec["mode"] = "recreate" // load_existing_content checks for this value
+			pageSpec["interactive_features"] = page.Features
+			itemType = "needs_tool_recreation"
+			handlerAgent = "tool-recreation-handler"
 			summary = fmt.Sprintf("Recreate %s (interactive) from %s", page.Name, domain)
+			priority = 5 + i // higher priority — tools are the site's value
+		} else {
+			// Static content page — normal page build handler
+			pageSpec["mode"] = "recreate"
+			itemType = "needs_content_page"
+			handlerAgent = "page-build-handler"
+			summary = fmt.Sprintf("Recreate %s page from %s", page.Name, domain)
+			priority = 10 + i
 		}
+
+		pageSpecJSON, _ := json.Marshal(pageSpec)
 
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO site_work_items (
 				site_id, source, pipeline, item_type, severity, summary,
 				spec, page_id, priority, handler_agent, status, created_by,
 				item_key, batch_id
-			) VALUES ($1, 'adoption', 'build', 'needs_content_page', 'medium',
-			          $2, $3::jsonb, $4, $5, 'page-build-handler', 'triaged',
-			          'site-adoption-agent', $6, $7)
+			) VALUES ($1, 'adoption', 'build', $2, 'medium',
+			          $3, $4::jsonb, $5, $6, $7, 'triaged',
+			          'site-adoption-agent', $8, $9)
 			ON CONFLICT DO NOTHING
-		`, siteID, summary, string(pageSpecJSON), page.ID, 10+i,
+		`, siteID, itemType,
+			summary, string(pageSpecJSON), page.ID, priority, handlerAgent,
 			fmt.Sprintf("adoption_page_%s_%s", page.Name, siteID),
 			batchID)
 		if err == nil {

@@ -985,6 +985,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Create a new tool component from generated HTML and set up its page",
 		IsLocal:     true,
 	},
+	"check_tool_completeness": {
+		Handler:     CheckToolCompletenessAction,
+		Category:    "validation",
+		Description: "Verify LLM tool output is complete and not truncated",
+		IsLocal:     true,
+	},
 	"create_tool_cross_link_items": {
 		Handler:     CreateToolCrossLinkItemsAction,
 		Category:    "site",
