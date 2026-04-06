@@ -985,6 +985,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Create a new tool component from generated HTML and set up its page",
 		IsLocal:     true,
 	},
+	"create_tool_cross_link_items": {
+		Handler:     CreateToolCrossLinkItemsAction,
+		Category:    "site",
+		Description: "Create content_rewrite items to cross-link tools from related pages",
+		IsLocal:     true,
+	},
 	"apply_feed_scores": {
 		Handler:     ApplyFeedScoresAction,
 		Category:    "feed",
