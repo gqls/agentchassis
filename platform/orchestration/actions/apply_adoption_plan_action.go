@@ -217,6 +217,42 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		}
 	}
 
+	// Site archetype from the classification analysis (separate LLM call)
+	archetypeRaw := datahelpers.ExtractNestedField(params.CollectedData, "site_archetype_analysis")
+	if archetypeRaw != nil {
+		archetypeUnwrapped := datahelpers.UnwrapDeep(archetypeRaw, logger)
+		var archetypeData map[string]interface{}
+
+		switch d := archetypeUnwrapped.(type) {
+		case map[string]interface{}:
+			archetypeData = d
+		case string:
+			cleaned := strings.TrimSpace(d)
+			cleaned = strings.TrimPrefix(cleaned, "```json")
+			cleaned = strings.TrimPrefix(cleaned, "```")
+			cleaned = strings.TrimSuffix(cleaned, "```")
+			cleaned = strings.TrimSpace(cleaned)
+			if err := json.Unmarshal([]byte(cleaned), &archetypeData); err != nil {
+				repaired := repairTruncatedJSON(cleaned)
+				if repaired != "" {
+					if err2 := json.Unmarshal([]byte(repaired), &archetypeData); err2 == nil {
+						logger.Info("Site archetype JSON repaired")
+					} else {
+						logger.Warn("Failed to parse site_archetype_analysis JSON", zap.Error(err2))
+					}
+				}
+			}
+		}
+
+		if archetypeData != nil {
+			specAspects["site_archetype"] = archetypeData
+			label, _ := archetypeData["label"].(string)
+			logger.Info("Site archetype spec will be written",
+				zap.String("label", label),
+				zap.Int("spec_keys", len(archetypeData)))
+		}
+	}
+
 	if pages, ok := plan["pages"].([]interface{}); ok {
 		pageNames := make([]string, 0, len(pages))
 		for _, p := range pages {

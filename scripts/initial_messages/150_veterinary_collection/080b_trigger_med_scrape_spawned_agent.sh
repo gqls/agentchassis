@@ -1,12 +1,13 @@
 #!/bin/bash
 # Trigger med-price-scrape-orchestrator — spawns a temporary pod to scrape prices.
 
+BATCH_SIZE="${1:-20}"
+
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
 
-BATCH_SIZE="${1:-20}"
 BATCH_SIZE="5"
 
 echo "========================================="

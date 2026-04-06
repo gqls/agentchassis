@@ -1361,3 +1361,79 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'site-adoption-agent';
 
+---
+
+-- Add classify_archetype step to site-adoption-agent workflow
+--
+-- This adds a new LLM step between analyze_site and select_content.
+-- analyze_site produces structural classification (pages, sections, identity).
+-- classify_archetype produces the character/design/purpose classification
+-- that the improvement loop uses to avoid regressing the site.
+--
+-- The output is stored in collected_data.site_archetype_analysis,
+-- which apply_adoption_plan reads and writes as a site_spec (aspect: site_archetype).
+
+DO $do$
+DECLARE
+v_config jsonb;
+  v_steps jsonb;
+BEGIN
+SELECT default_config INTO v_config
+FROM agent_definitions
+WHERE type = 'site-adoption-agent' AND deleted_at IS NULL;
+
+v_steps := v_config->'workflow'->'steps';
+
+  -- 1. Update analyze_site to point to classify_archetype instead of select_content
+  v_steps := jsonb_set(
+    v_steps,
+    '{analyze_site,next_step}',
+    '"classify_archetype"'
+  );
+
+  -- 2. Add the classify_archetype step
+  v_steps := jsonb_set(
+    v_steps,
+    '{classify_archetype}',
+    '{
+      "action": "execute_llm_prompt",
+      "config": {
+        "model": "claude-sonnet-4-6",
+        "ai_service": {
+          "model": "claude-sonnet-4-6",
+          "provider": "anthropic",
+          "api_key_env_var": "ANTHROPIC_API_KEY"
+        },
+        "max_tokens": 4000,
+        "temperature": 0.2,
+        "input_fields": ["site_record", "formatted_crawl", "adoption_analysis"],
+        "system_prompt": "You are analyzing a website to produce a site archetype classification. Your job is to describe what this site IS — not what it should become. This is a snapshot, not an aspiration. Think about what you would tell someone who asked \"what kind of site is this?\" after you spent 5 minutes looking at it.",
+        "prompt_template": "Domain: {{.site_record.domain}}\n\n== CRAWL DATA ==\n\n{{.formatted_crawl.research_text}}\n\n== STRUCTURAL ANALYSIS (from previous step) ==\n\nIdentity: {{.adoption_analysis.identity}}\nDesign: {{.adoption_analysis.design}}\nInteractive features: {{.adoption_analysis.interactive_features}}\nPages: {{.adoption_analysis.pages}}\n\n== INSTRUCTIONS ==\n\nProduce a JSON object classifying this site. Every field is required. Be specific and honest — \"none\" is a valid answer. Do not invent features that are not in the crawl.\n\n{\n  \"label\": \"A 2-4 word human-readable classification (e.g. developer utility platform, industrial product showcase, vertical listing aggregator, content marketing hub)\",\n  \"industry\": \"the industry or vertical this site serves\",\n\n  \"character\": {\n    \"feel\": \"3-5 descriptive words for the overall impression\",\n    \"polish\": \"how finished does it look — rough/moderate/polished, with a brief note on why\",\n    \"budget_impression\": \"what budget level does it suggest — indie/small business/mid-market/enterprise\",\n    \"age_impression\": \"does it feel new or established — and what gives that impression\",\n    \"commercial_intent\": \"how is it trying to make money, or is it not — describe what you see\",\n    \"density\": \"how much content per screen — sparse/low/medium/high/dense\"\n  },\n\n  \"design\": {\n    \"palette_mood\": \"describe the colour approach — dark/light, accent colours, warmth/coolness\",\n    \"layout_approach\": \"what layout patterns dominate — grids, cards, sidebars, full-width, split panels\",\n    \"typography_feel\": \"what do the fonts suggest — corporate, technical, playful, editorial\",\n    \"imagery\": \"what visual assets are used — photos, illustrations, icons, none, screenshots, charts\",\n    \"animation\": \"how much motion — none, hover states, transitions, full animation\",\n    \"responsive\": \"does the crawl suggest mobile support — and how\"\n  },\n\n  \"content\": {\n    \"primary_type\": \"what is the main content — prose, products, tools, media, listings, data\",\n    \"secondary_type\": \"what else is there, if anything\",\n    \"voice\": \"how does the site talk — formal, casual, technical, sales-oriented, educational\",\n    \"media\": \"what media types are present — text only, images, video, audio, interactive elements\"\n  },\n\n  \"purpose\": [\"array of what the site exists to do\"],\n  \"content_model\": [\"array of content types present\"],\n  \"interaction_patterns\": [\"array of what users DO on this site\"],\n  \"revenue_model\": \"none | advertising | affiliate | e-commerce | subscription | lead-generation | freemium | mixed (describe)\",\n  \"visual_character\": [\"array of style tags\"],\n  \"audience\": [\"array of who this is for\"],\n\n  \"structure\": {\n    \"index_layout\": \"what the homepage looks like\",\n    \"listing_style\": \"how collections of items are presented\",\n    \"navigation\": \"how users move around\",\n    \"page_depth\": \"how many clicks to real content — shallow (1-2), medium (2-3), deep (3+)\"\n  },\n\n  \"constraints\": [\"array of things the improvement loop should NEVER do to this site — inferred from what the site is\"]\n}\n\nRespond with ONLY the JSON object. No explanation, no markdown backticks."
+      },
+      "next_step": "select_content",
+      "description": "LLM classifies site archetype — character, design patterns, purpose, constraints",
+      "output_field": "site_archetype_analysis"
+    }'::jsonb
+  );
+
+  -- 3. Write back
+  v_config := jsonb_set(v_config, '{workflow,steps}', v_steps);
+
+UPDATE agent_definitions
+SET default_config = v_config,
+    updated_at = NOW()
+WHERE type = 'site-adoption-agent' AND deleted_at IS NULL;
+
+RAISE NOTICE 'site-adoption-agent: added classify_archetype step (analyze_site → classify_archetype → select_content)';
+END $do$;
+
+-- Verify the step chain
+SELECT
+    step_key,
+    step_value->>'action' as action,
+    step_value->>'next_step' as next_step,
+    step_value->>'output_field' as output_field
+FROM agent_definitions,
+    jsonb_each(default_config->'workflow'->'steps') as s(step_key, step_value)
+WHERE type = 'site-adoption-agent' AND deleted_at IS NULL
+ORDER BY step_key;
