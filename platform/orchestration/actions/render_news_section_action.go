@@ -192,7 +192,11 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 		  AND (cfi.source_published_at IS NULL 
 		       OR (cfi.source_published_at > NOW() - make_interval(hours => $2)
 		           AND cfi.source_published_at <= NOW() + INTERVAL '1 day'))
-		ORDER BY cfi.source_published_at DESC NULLS LAST, cfi.created_at DESC
+		ORDER BY 
+			CASE WHEN cfi.status = 'relevant' THEN 0 ELSE 1 END,
+			cfi.relevance_score DESC NULLS LAST,
+			cfi.source_published_at DESC NULLS LAST, 
+			cfi.created_at DESC
 		LIMIT $3
 	`, siteID, maxAgeHours, maxItems)
 	if err != nil {
