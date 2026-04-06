@@ -15,6 +15,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -121,6 +122,31 @@ func ApplyFeedScoresAction(ctx context.Context, params ActionParams) (interface{
 	}
 
 	scoresArray, ok := scoresRaw.([]interface{})
+	if !ok {
+		// execute_llm_prompt may return type:"text" with result as a raw JSON string.
+		// Try parsing it as JSON array.
+		if rawStr, isStr := scoresRaw.(string); isStr && len(rawStr) > 2 {
+			// Strip markdown code fences if present
+			cleaned := strings.TrimSpace(rawStr)
+			cleaned = strings.TrimPrefix(cleaned, "```json")
+			cleaned = strings.TrimPrefix(cleaned, "```")
+			cleaned = strings.TrimSuffix(cleaned, "```")
+			cleaned = strings.TrimSpace(cleaned)
+
+			var parsed []interface{}
+			if err := json.Unmarshal([]byte(cleaned), &parsed); err == nil {
+				scoresArray = parsed
+				ok = true
+				logger.Info("ApplyFeedScoresAction: parsed scores from raw JSON string",
+					zap.Int("count", len(parsed)))
+			} else {
+				logger.Warn("ApplyFeedScoresAction: scores.result is string but not valid JSON array",
+					zap.String("preview", datahelpers.TruncateString(cleaned, 200)),
+					zap.Error(err))
+			}
+		}
+	}
+
 	if !ok || len(scoresArray) == 0 {
 		logger.Warn("ApplyFeedScoresAction: no scores array found",
 			zap.String("scores_field", scoresField),
