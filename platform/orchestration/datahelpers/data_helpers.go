@@ -1798,3 +1798,57 @@ func templateToJSON(v interface{}) string {
 	}
 	return string(b)
 }
+
+// NormaliseToKebab ensures a string is valid kebab-case for the function column.
+func NormaliseToKebab(s string) string {
+	s = strings.ToLower(s)
+	s = strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+			return r
+		}
+		if r == '-' || r == '_' || r == ' ' {
+			return '-'
+		}
+		return -1
+	}, s)
+	// Remove double hyphens
+	for strings.Contains(s, "--") {
+		s = strings.ReplaceAll(s, "--", "-")
+	}
+	s = strings.Trim(s, "-")
+	return s
+}
+
+// BuildSemanticTags generates initial semantic tags from section_type and site_type
+func BuildSemanticTags(sectionType, siteType string) string {
+	tags := []string{}
+
+	// Add section type parts as tags
+	for _, part := range strings.Split(sectionType, "-") {
+		if part != "" {
+			tags = append(tags, part)
+		}
+	}
+
+	// Add site type if provided
+	if siteType != "" {
+		tags = append(tags, siteType)
+	}
+
+	// Add "generated" provenance tag
+	tags = append(tags, "generated")
+
+	tagsJSON, _ := json.Marshal(tags)
+	return string(tagsJSON)
+}
+
+// FunctionToDisplayName converts "spark-provocation-card" to "Spark Provocation Card"
+func FunctionToDisplayName(function string) string {
+	parts := strings.Split(function, "-")
+	for i, p := range parts {
+		if len(p) > 0 {
+			parts[i] = strings.ToUpper(p[:1]) + p[1:]
+		}
+	}
+	return strings.Join(parts, " ")
+}

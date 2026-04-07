@@ -102,7 +102,7 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	suitablePageTypesJSON, _ := json.Marshal(suitablePageTypes)
 
 	// Build display name from function
-	displayName := functionToDisplayName(functionName)
+	displayName := datahelpers.FunctionToDisplayName(functionName)
 
 	// Determine category from site_type
 	category := "custom"
@@ -161,18 +161,18 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		)
 		RETURNING id::text
 	`,
-		functionName,                             // $1 name
-		displayName,                              // $2 display_name
-		functionName,                             // $3 function
-		category,                                 // $4 category
-		sectionType,                              // $5 section_type
-		string(suitableSiteTypesJSON),            // $6 suitable_site_types
-		string(suitablePageTypesJSON),            // $7 suitable_page_types
-		description,                              // $8 description
-		htmlTemplate,                             // $9 html_template
-		inputSchemaJSON,                          // $10 input_schema
-		isDark,                                   // $11 is_dark_section
-		buildSemanticTags(sectionType, siteType), // $12 semantic_tags
+		functionName,                                         // $1 name
+		displayName,                                          // $2 display_name
+		functionName,                                         // $3 function
+		category,                                             // $4 category
+		sectionType,                                          // $5 section_type
+		string(suitableSiteTypesJSON),                        // $6 suitable_site_types
+		string(suitablePageTypesJSON),                        // $7 suitable_page_types
+		description,                                          // $8 description
+		htmlTemplate,                                         // $9 html_template
+		inputSchemaJSON,                                      // $10 input_schema
+		isDark,                                               // $11 is_dark_section
+		datahelpers.BuildSemanticTags(sectionType, siteType), // $12 semantic_tags
 	).Scan(&newID)
 
 	if err != nil {
@@ -261,7 +261,7 @@ func parseGeneratedTemplate(raw interface{}, sectionType string, logger *zap.Log
 	}
 
 	// Validate kebab-case
-	functionName = normaliseToKebab(functionName)
+	functionName = datahelpers.NormaliseToKebab(functionName)
 
 	// Extract is_dark_section
 	if dark, ok := data["is_dark_section"].(bool); ok {
