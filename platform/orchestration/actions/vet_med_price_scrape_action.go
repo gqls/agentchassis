@@ -1051,10 +1051,10 @@ func llmExtractPriceVariants(ctx context.Context, params ActionParams, listing m
 		model = "mistral-small3.1"
 	}
 
-	// Truncate markdown to ~2000 chars to keep token usage low
+	// Truncate markdown to ~1500 chars to reduce LLM inference time
 	md := productSection
-	if len(md) > 2000 {
-		md = md[:2000]
+	if len(md) > 1500 {
+		md = md[:1500]
 	}
 
 	prompt := fmt.Sprintf(`Extract all product size/price variants from this product page markdown.
