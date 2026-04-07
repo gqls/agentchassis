@@ -1,7 +1,7 @@
 #!/bin/bash
 # Test script for tool-recreation-handler with gamedesign.uk
 # Run each section separately and check output before proceeding
-
+DANGEROUS CLEARANCE
 SITE_ID="15a6cb16-5a86-4541-a8e4-d7106239b6a4"
 DB_CMD="kubectl -n ai-persona-system exec -it deploy/agent-coordinator -- psql -U postgres -d clients_db"
 

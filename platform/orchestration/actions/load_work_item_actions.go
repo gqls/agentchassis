@@ -863,6 +863,27 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 		batchIDPtr = &item.batchID
 	}
 
+	// --- Within-cycle suppress: skip if same item_key completed/failed recently ---
+	if item.itemKey != "" {
+		var newestAge float64 // hours since most recent terminal item
+		err := tx.QueryRowContext(ctx, `
+			SELECT EXTRACT(EPOCH FROM (NOW() - MAX(created_at))) / 3600.0
+			FROM site_work_items
+			WHERE site_id = $1
+			  AND item_key = $2
+			  AND status IN ('complete', 'failed')
+			  AND created_at > NOW() - INTERVAL '3 hours'
+		`, item.siteID, item.itemKey).Scan(&newestAge)
+
+		if err == nil && newestAge < 3.0 {
+			logger.Info("insertWorkItem: suppressed — terminal item too recent",
+				zap.String("item_key", item.itemKey),
+				zap.Float64("age_hours", newestAge),
+			)
+			return false, nil
+		}
+	}
+
 	var itemKeyPtr *string
 	if item.itemKey != "" {
 		itemKeyPtr = &item.itemKey

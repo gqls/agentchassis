@@ -36,7 +36,7 @@ kubectl -n kafka run -i --rm kcat-med-scrape-$(date +%s) \
   -H from_agent_type=user \
   -H from_agent_id=cli \
   -H responses_topic=system.agent.business-intel.responses <<JSON
-{"action":"orchestrate","config":{"agent_type":"med-price-scrape-orchestrator"},"input_data":{"batch_size":$BATCH_SIZE}}
+{"action":"orchestrate","config":{"agent_type":"med-price-scrape-orchestrator"},"input_data":{"batch_size":5,"retailer_id":"viovet"}}
 JSON
 
 echo ""
@@ -45,6 +45,17 @@ echo "  kubectl -n ai-persona-system logs -f deploy/business-intel --tail=20 | g
 echo ""
 echo "Monitor spawned pod (actual work):"
 echo "  kubectl -n ai-persona-system logs -f -l app=dynamic-agent --tail=50 | grep MedScrape"
+
+
+------------------------------------------------------------------------------------------
+
+# all retailers
+{"action":"orchestrate","config":{"agent_type":"med-price-scrape-orchestrator"},"input_data":{"batch_size":$BATCH_SIZE}}
+
+# individual retailers
+{"action":"orchestrate","config":{"agent_type":"med-price-scrape-orchestrator"},"input_data":{"batch_size":50,"retailer_id":"animed_direct"}}
+{"action":"orchestrate","config":{"agent_type":"med-price-scrape-orchestrator"},"input_data":{"batch_size":10,"retailer_id":"hyperdrug"}}
+{"action":"orchestrate","config":{"agent_type":"med-price-scrape-orchestrator"},"input_data":{"batch_size":5,"retailer_id":"viovet"}}
 
 
 # check overall progress
