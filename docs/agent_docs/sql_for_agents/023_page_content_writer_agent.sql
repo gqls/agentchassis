@@ -961,3 +961,68 @@ ELSE
 END IF;
 END $$;
 
+---
+
+-- 072 fix: target the actual nested prompt location in page-content-writer
+
+BEGIN;
+
+-- Step 1: Add rewrite_guidance to generate_content input_fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,input_fields}',
+        '["current_section", "render_context", "reviewed_brief", "current_page", "link_context", "site_plan", "site_specs", "existing_content", "build_mode", "rewrite_guidance"]'::jsonb
+                     )
+WHERE type = 'page-content-writer';
+
+-- Step 2: Add rewrite_guidance block to the prompt
+DO $$
+DECLARE
+v_prompt text;
+    v_new_prompt text;
+BEGIN
+SELECT default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,prompt_template}'
+INTO v_prompt
+FROM agent_definitions WHERE type = 'page-content-writer';
+
+IF v_prompt IS NULL THEN
+        RAISE NOTICE '072: prompt not found at expected path';
+        RETURN;
+END IF;
+
+    IF v_prompt LIKE '%rewrite_guidance%' THEN
+        RAISE NOTICE '072: rewrite_guidance already in prompt';
+        RETURN;
+END IF;
+
+    v_new_prompt := replace(
+        v_prompt,
+        '## Section Requirements',
+        E'{{if .rewrite_guidance}}## Rewrite Guidance (IMPORTANT — incorporate this into the content)\n{{.rewrite_guidance}}\n{{end}}\n\n## Section Requirements'
+    );
+
+    IF v_new_prompt = v_prompt THEN
+        RAISE NOTICE '072: Could not find ## Section Requirements insertion point';
+        RETURN;
+END IF;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,prompt_template}',
+        to_jsonb(v_new_prompt)
+                     )
+WHERE type = 'page-content-writer';
+
+RAISE NOTICE '072: Prompt updated successfully';
+END $$;
+
+COMMIT;
+
+-- Verify
+SELECT
+    default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,prompt_template}' LIKE '%rewrite_guidance%' as has_prompt_block,
+    default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,input_fields}' LIKE '%rewrite_guidance%' as has_input_field
+FROM agent_definitions WHERE type = 'page-content-writer';
+-- Expected: true, true
