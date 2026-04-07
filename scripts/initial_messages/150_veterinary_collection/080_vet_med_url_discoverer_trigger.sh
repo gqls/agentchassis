@@ -40,7 +40,7 @@ kubectl -n kafka run -i --rm kcat-med-discover-$(date +%s) \
   -H from_agent_type=user \
   -H from_agent_id=cli \
   -H responses_topic=system.agent.business-intel.responses <<JSON
-  {"action":"orchestrate","config":{"agent_type":"med-url-mapper"},"input_data":{"retailer_id":"viovet","search":"prescription"}}
+  {"action":"orchestrate","config":{"agent_type":"med-url-discover-orchestrator"},"input_data":{"retailer_id":"viovet"}}
 JSON
 
 echo ""
@@ -63,6 +63,7 @@ echo "  ORDER BY created_at DESC LIMIT 20;"
 
 
 {"action":"orchestrate","config":{"agent_type":"med-url-discoverer"},"input_data":{"batch_size":5}}
+  {"action":"orchestrate","config":{"agent_type":"med-url-mapper"},"input_data":{"retailer_id":"viovet","search":"prescription"}}
 
 for just one retailer:
 {"action":"orchestrate","config":{"agent_type":"med-url-discoverer"},"input_data":{"retailer_id":"pet_drugs_online"}}

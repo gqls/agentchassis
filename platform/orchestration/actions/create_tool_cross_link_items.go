@@ -147,6 +147,14 @@ func CreateToolCrossLinkItemsAction(ctx context.Context, params ActionParams) (i
 				continue
 			}
 
+			// Skip tool pages — cross-linking tool-to-tool isn't useful
+			if strings.HasPrefix(pageName, "tool-") {
+				logger.Info("CreateToolCrossLinkItemsAction: Skipping tool page",
+					zap.String("page_name", pageName),
+					zap.String("tool", toolFunction))
+				continue
+			}
+
 			// Resolve page_id
 			pageID, exists := pageMap[pageName]
 			if !exists {
