@@ -218,18 +218,7 @@ func parseGeneratedTemplate(raw interface{}, sectionType string, logger *zap.Log
 		if result, ok := v["result"]; ok {
 			switch r := result.(type) {
 			case string:
-				// Strip markdown code blocks if present
-				cleaned := stripCodeBlocks(r)
-				// Try parsing the result string as JSON
-				if err := json.Unmarshal([]byte(cleaned), &data); err != nil {
-					// Not JSON — maybe it's raw HTML
-					logger.Info("store_generated_component: result is not JSON, treating as raw HTML",
-						zap.Int("length", len(cleaned)),
-						zap.String("first_50", truncate(cleaned, 50)))
-					data = map[string]interface{}{
-						"html_template": cleaned,
-					}
-				}
+				data = parseJSONStringToMap(r, logger)
 			case map[string]interface{}:
 				data = r
 			}
@@ -237,15 +226,7 @@ func parseGeneratedTemplate(raw interface{}, sectionType string, logger *zap.Log
 			data = v
 		}
 	case string:
-		// Strip markdown code blocks if present
-		cleaned := stripCodeBlocks(v)
-		// Try JSON parse
-		if err := json.Unmarshal([]byte(cleaned), &data); err != nil {
-			// Raw HTML string
-			data = map[string]interface{}{
-				"html_template": cleaned,
-			}
-		}
+		data = parseJSONStringToMap(v, logger)
 	default:
 		return "", "{}", "", false, fmt.Errorf("unexpected type for generated template: %T", raw)
 	}
@@ -254,6 +235,11 @@ func parseGeneratedTemplate(raw interface{}, sectionType string, logger *zap.Log
 	if ht, ok := data["html_template"].(string); ok {
 		htmlTemplate = strings.TrimSpace(ht)
 	}
+
+	// Safety check: if htmlTemplate still looks like a JSON blob wrapping an
+	// html_template field, extract the actual HTML. This catches cases where
+	// json.Unmarshal failed and the fallback stored the entire JSON string.
+	htmlTemplate = unwrapJSONBlobIfNeeded(htmlTemplate, logger)
 
 	// Extract input_schema
 	inputSchemaJSON = "{}"
@@ -285,75 +271,175 @@ func parseGeneratedTemplate(raw interface{}, sectionType string, logger *zap.Log
 	return htmlTemplate, inputSchemaJSON, functionName, isDark, nil
 }
 
-// stripCodeBlocks removes markdown code block wrappers (```json ... ``` or ``` ... ```)
-// that LLMs commonly add around JSON output.
-func stripCodeBlocks(s string) string {
-	s = strings.TrimSpace(s)
-	// Handle ```json\n...\n``` or ```\n...\n```
-	if strings.HasPrefix(s, "```") {
-		// Find end of first line (the opening ```)
-		if idx := strings.Index(s, "\n"); idx != -1 {
-			s = s[idx+1:]
-		}
-		// Remove trailing ```
-		if strings.HasSuffix(s, "```") {
-			s = s[:len(s)-3]
-		}
-		s = strings.TrimSpace(s)
+// parseJSONStringToMap takes a raw string (possibly with markdown code blocks)
+// and tries to parse it as a JSON map. If standard parsing fails, it falls back
+// to field-level extraction from broken JSON. If the string is not JSON at all,
+// it treats it as raw HTML.
+//
+// Uses datahelpers.StripCodeFences (shared with content_search, create_tool, etc.)
+// and datahelpers.SafeUnmarshalString for safe parsing.
+func parseJSONStringToMap(s string, logger *zap.Logger) map[string]interface{} {
+	// Strip markdown code blocks using the shared helper from datahelpers
+	cleaned := datahelpers.StripCodeFences(s)
+
+	// Try standard JSON parse using the shared SafeUnmarshalString
+	var data map[string]interface{}
+	if datahelpers.SafeUnmarshalString(cleaned, &data) {
+		logger.Info("store_generated_component: parsed LLM output as JSON",
+			zap.Int("fields", len(data)))
+		return data
 	}
-	return s
+
+	// JSON parse failed — try field-level extraction from broken JSON.
+	// LLMs often produce JSON with unescaped characters in HTML/SVG content
+	// that breaks json.Unmarshal, but the structure is still recoverable.
+	if strings.Contains(cleaned, `"html_template"`) {
+		logger.Info("store_generated_component: json.Unmarshal failed, attempting field extraction",
+			zap.Int("length", len(cleaned)),
+			zap.String("first_80", truncateStr(cleaned, 80)))
+
+		result := map[string]interface{}{}
+
+		if ht, ok := extractJSONStringField(cleaned, "html_template"); ok {
+			result["html_template"] = ht
+			logger.Info("store_generated_component: extracted html_template from broken JSON",
+				zap.Int("length", len(ht)),
+				zap.String("first_40", truncateStr(ht, 40)))
+		}
+		if fn, ok := extractJSONStringField(cleaned, "function"); ok {
+			result["function"] = fn
+		}
+		// is_dark_section is a bool, not a string — check with simple contains
+		if strings.Contains(cleaned, `"is_dark_section": true`) || strings.Contains(cleaned, `"is_dark_section":true`) {
+			result["is_dark_section"] = true
+		}
+
+		if _, hasHTML := result["html_template"]; hasHTML {
+			return result
+		}
+	}
+
+	// Not JSON at all — treat as raw HTML
+	logger.Info("store_generated_component: treating as raw HTML",
+		zap.Int("length", len(cleaned)),
+		zap.String("first_50", truncateStr(cleaned, 50)))
+	return map[string]interface{}{
+		"html_template": cleaned,
+	}
 }
 
-// normaliseToKebab ensures a string is valid kebab-case for the function column.
-func normaliseToKebab(s string) string {
-	s = strings.ToLower(s)
-	s = strings.Map(func(r rune) rune {
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
-			return r
-		}
-		if r == '-' || r == '_' || r == ' ' {
-			return '-'
-		}
-		return -1
-	}, s)
-	// Remove double hyphens
-	for strings.Contains(s, "--") {
-		s = strings.ReplaceAll(s, "--", "-")
+// extractJSONStringField extracts the value of a string field from a JSON-like
+// string, even when json.Unmarshal fails due to unescaped characters elsewhere.
+// It manually scans the JSON string value, handling standard escape sequences.
+func extractJSONStringField(s, fieldName string) (string, bool) {
+	key := `"` + fieldName + `"`
+	keyIdx := strings.Index(s, key)
+	if keyIdx == -1 {
+		return "", false
 	}
-	s = strings.Trim(s, "-")
-	return s
+
+	// Find the colon after the key
+	rest := s[keyIdx+len(key):]
+	colonIdx := strings.IndexByte(rest, ':')
+	if colonIdx == -1 {
+		return "", false
+	}
+	rest = rest[colonIdx+1:]
+
+	// Skip whitespace
+	rest = strings.TrimLeft(rest, " \t\n\r")
+
+	// Must start with a quote
+	if len(rest) == 0 || rest[0] != '"' {
+		return "", false
+	}
+	rest = rest[1:] // skip opening quote
+
+	// Scan for the closing unescaped quote, handling escape sequences
+	var result strings.Builder
+	result.Grow(len(rest))
+	i := 0
+	for i < len(rest) {
+		if rest[i] == '\\' && i+1 < len(rest) {
+			// JSON escape sequence
+			switch rest[i+1] {
+			case '"':
+				result.WriteByte('"')
+			case '\\':
+				result.WriteByte('\\')
+			case '/':
+				result.WriteByte('/')
+			case 'n':
+				result.WriteByte('\n')
+			case 't':
+				result.WriteByte('\t')
+			case 'r':
+				result.WriteByte('\r')
+			case 'b':
+				result.WriteByte('\b')
+			case 'f':
+				result.WriteByte('\f')
+			default:
+				// Unknown escape — preserve as-is
+				result.WriteByte(rest[i])
+				result.WriteByte(rest[i+1])
+			}
+			i += 2
+		} else if rest[i] == '"' {
+			// Unescaped closing quote — end of field value
+			return result.String(), true
+		} else {
+			result.WriteByte(rest[i])
+			i++
+		}
+	}
+
+	// No closing quote found. The JSON is severely broken, but we likely have
+	// the content up to the end of the string. Return what we collected.
+	extracted := result.String()
+	if len(extracted) > 0 {
+		return strings.TrimSpace(extracted), true
+	}
+	return "", false
 }
 
-// functionToDisplayName converts "spark-provocation-card" to "Spark Provocation Card"
-func functionToDisplayName(function string) string {
-	parts := strings.Split(function, "-")
-	for i, p := range parts {
-		if len(p) > 0 {
-			parts[i] = strings.ToUpper(p[:1]) + p[1:]
+// unwrapJSONBlobIfNeeded checks if a string looks like it's still a JSON blob
+// wrapping an html_template field, and extracts the actual HTML if so.
+// This is a safety net that catches any case where earlier parsing failed.
+func unwrapJSONBlobIfNeeded(s string, logger *zap.Logger) string {
+	trimmed := strings.TrimSpace(s)
+	if !strings.HasPrefix(trimmed, "{") {
+		return s // Not a JSON blob
+	}
+	if !strings.Contains(trimmed, `"html_template"`) {
+		return s // Doesn't contain the field
+	}
+
+	logger.Info("store_generated_component: unwrapping JSON blob from html_template",
+		zap.Int("length", len(trimmed)),
+		zap.String("first_60", truncateStr(trimmed, 60)))
+
+	// Try standard JSON parse first using shared SafeUnmarshalString
+	var wrapper map[string]interface{}
+	if datahelpers.SafeUnmarshalString(trimmed, &wrapper) {
+		if ht, ok := wrapper["html_template"].(string); ok && strings.TrimSpace(ht) != "" {
+			return strings.TrimSpace(ht)
 		}
 	}
-	return strings.Join(parts, " ")
+
+	// Standard parse failed — use field extraction
+	if ht, ok := extractJSONStringField(trimmed, "html_template"); ok && ht != "" {
+		return ht
+	}
+
+	return s // Couldn't unwrap — return as-is
 }
 
-// buildSemanticTags generates initial semantic tags from section_type and site_type
-func buildSemanticTags(sectionType, siteType string) string {
-	tags := []string{}
-
-	// Add section type parts as tags
-	for _, part := range strings.Split(sectionType, "-") {
-		if part != "" {
-			tags = append(tags, part)
-		}
+// truncateStr returns the first n characters of s, appending "..." if truncated.
+// Named truncateStr to avoid conflict with any future stdlib truncate.
+func truncateStr(s string, n int) string {
+	if len(s) <= n {
+		return s
 	}
-
-	// Add site type if provided
-	if siteType != "" {
-		tags = append(tags, siteType)
-	}
-
-	// Add "generated" provenance tag
-	tags = append(tags, "generated")
-
-	tagsJSON, _ := json.Marshal(tags)
-	return string(tagsJSON)
+	return s[:n] + "..."
 }

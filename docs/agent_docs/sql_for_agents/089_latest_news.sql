@@ -209,3 +209,4 @@ INSERT INTO content_components (
 SELECT id, function, display_name, render_mode, component_level
 FROM content_components
 WHERE function = 'latest-news';
+

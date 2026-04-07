@@ -47,4 +47,21 @@ echo "Monitor spawned pod (actual work):"
 echo "  kubectl -n ai-persona-system logs -f -l app=dynamic-agent --tail=50 | grep MedScrape"
 
 
+# check overall progress
+SELECT r.id,
+       count(l.id) as listings,
+       count(l.id) FILTER (WHERE l.last_scraped_at IS NOT NULL) as scraped,
+       count(l.id) FILTER (WHERE l.last_scraped_at IS NULL) as pending
+FROM business_intel.med_retailers r
+LEFT JOIN business_intel.med_retailer_listings l ON l.retailer_id = r.id
+WHERE r.is_active = true
+GROUP BY r.id;
+        id        | listings | scraped | pending
+------------------+----------+---------+---------
+ pet_drugs_online |       44 |      44 |       0
+ animed_direct    |      203 |     154 |      49
+ hyperdrug        |       54 |      46 |       8
+ viovet           |        4 |       2 |       2
+(4 rows)
+
 
