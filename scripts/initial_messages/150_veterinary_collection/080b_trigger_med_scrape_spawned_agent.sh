@@ -75,4 +75,99 @@ GROUP BY r.id;
  viovet           |        4 |       2 |       2
 (4 rows)
 
+---------------
 
+-- med_pricing_cleanup_and_status.sql
+-- Run this to clean junk URLs and check pipeline health
+
+-- ============================================================================
+-- 1. Clean known junk patterns across ALL retailers
+-- ============================================================================
+
+-- First delete evidence referencing junk listings
+DELETE FROM business_intel.med_scrape_evidence
+WHERE listing_id IN (
+    SELECT id FROM business_intel.med_retailer_listings
+    WHERE retailer_url LIKE '%/knowledgebase%'
+       OR retailer_url LIKE '%/breed_information%'
+       OR retailer_url LIKE '%/pages.html%'
+       OR retailer_url LIKE '%/shopping_basket%'
+       OR retailer_url LIKE '%/advanced_search%'
+       OR retailer_url LIKE '%/modern-slavery%'
+       OR retailer_url LIKE '%/sitemap%'
+       OR retailer_url LIKE '%/bslp/%'
+       OR retailer_url LIKE '%/flp/%'
+       OR retailer_url LIKE '%/flp%'
+       OR retailer_url LIKE '%clearance-sale%'
+       OR retailer_url LIKE '%/saddlery%'
+       OR retailer_url LIKE '%/stable-yard%'
+       OR retailer_url LIKE '%/reflective-%'
+       OR retailer_url LIKE '%/rider-%'
+       OR retailer_url LIKE '%/horse-%'
+       OR retailer_url LIKE '%newsletter%'
+       OR retailer_url LIKE '%/modals/%'
+);
+
+-- Then delete the listings
+DELETE FROM business_intel.med_retailer_listings
+WHERE retailer_url LIKE '%/knowledgebase%'
+   OR retailer_url LIKE '%/breed_information%'
+   OR retailer_url LIKE '%/pages.html%'
+   OR retailer_url LIKE '%/shopping_basket%'
+   OR retailer_url LIKE '%/advanced_search%'
+   OR retailer_url LIKE '%/modern-slavery%'
+   OR retailer_url LIKE '%/sitemap%'
+   OR retailer_url LIKE '%/bslp/%'
+   OR retailer_url LIKE '%/flp/%'
+   OR retailer_url LIKE '%/flp%'
+   OR retailer_url LIKE '%clearance-sale%'
+   OR retailer_url LIKE '%/saddlery%'
+   OR retailer_url LIKE '%/stable-yard%'
+   OR retailer_url LIKE '%/reflective-%'
+   OR retailer_url LIKE '%/rider-%'
+   OR retailer_url LIKE '%/horse-%'
+   OR retailer_url LIKE '%newsletter%'
+   OR retailer_url LIKE '%/modals/%';
+
+-- ============================================================================
+-- 2. Status check
+-- ============================================================================
+
+-- Listings status
+SELECT r.id as retailer,
+       count(l.id) as listings,
+       count(l.id) FILTER (WHERE l.last_scraped_at IS NOT NULL) as scraped,
+       count(l.id) FILTER (WHERE l.last_scraped_at IS NULL) as pending
+FROM business_intel.med_retailers r
+LEFT JOIN business_intel.med_retailer_listings l ON l.retailer_id = r.id
+WHERE r.is_active = true
+GROUP BY r.id
+ORDER BY r.id;
+
+-- Price coverage
+SELECT retailer_id,
+       count(DISTINCT listing_id) as products_with_prices,
+       count(*) as total_variants,
+       round(avg(price)::numeric, 2) as avg_price,
+       min(price) as min_price,
+       max(price) as max_price
+FROM business_intel.med_price_snapshots
+GROUP BY retailer_id
+ORDER BY retailer_id;
+
+-- Scrape success rate
+SELECT retailer_id,
+       count(*) as total_scraped,
+       count(*) FILTER (WHERE variants_found > 0) as had_prices,
+       count(*) FILTER (WHERE variants_found = 0) as no_prices,
+       round(100.0 * count(*) FILTER (WHERE variants_found > 0) / count(*), 1) as success_pct
+FROM business_intel.med_scrape_evidence
+GROUP BY retailer_id
+ORDER BY retailer_id;
+
+-- LLM fallback stats
+SELECT success, count(*), round(avg(latency_ms)) as avg_latency_ms
+FROM llm_call_log
+WHERE provider = 'ollama'
+AND step_name = 'scrape_prices'
+GROUP BY success;

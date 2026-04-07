@@ -1051,10 +1051,10 @@ func llmExtractPriceVariants(ctx context.Context, params ActionParams, listing m
 		model = "mistral-small3.1"
 	}
 
-	// Truncate markdown to ~3000 chars to keep token usage low
+	// Truncate markdown to ~2000 chars to keep token usage low
 	md := productSection
-	if len(md) > 3000 {
-		md = md[:3000]
+	if len(md) > 2000 {
+		md = md[:2000]
 	}
 
 	prompt := fmt.Sprintf(`Extract all product size/price variants from this product page markdown.
@@ -1099,7 +1099,7 @@ Product page markdown:
 		return nil
 	}
 
-	httpClient := &http.Client{Timeout: 240 * time.Second}
+	httpClient := &http.Client{Timeout: 600 * time.Second}
 	callStart := time.Now()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", ollamaURL+"/api/chat", bytes.NewReader(reqBytes))

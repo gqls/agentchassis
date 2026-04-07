@@ -1103,6 +1103,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Discover product URLs from retailer category pages",
 		IsLocal:     true,
 	},
+	"med_map_urls": {
+		Handler:     MedMapURLsAction,
+		Category:    "med_pricing",
+		Description: "Discover product URLs via Firecrawl /map endpoint (site-wide)",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// HITL — human-in-the-loop approval and input

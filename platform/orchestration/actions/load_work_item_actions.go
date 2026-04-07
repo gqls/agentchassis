@@ -863,24 +863,42 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 		batchIDPtr = &item.batchID
 	}
 
-	// --- Within-cycle suppress: skip if same item_key completed/failed recently ---
+	// --- Two-strike rule: suppress within-cycle, label unresolved after 2 attempts ---
 	if item.itemKey != "" {
+		var terminalCount int
 		var newestAge float64 // hours since most recent terminal item
+
 		err := tx.QueryRowContext(ctx, `
-			SELECT EXTRACT(EPOCH FROM (NOW() - MAX(created_at))) / 3600.0
+			SELECT COUNT(*),
+			       COALESCE(EXTRACT(EPOCH FROM (NOW() - MAX(created_at))) / 3600.0, 999)
 			FROM site_work_items
 			WHERE site_id = $1
 			  AND item_key = $2
 			  AND status IN ('complete', 'failed')
-			  AND created_at > NOW() - INTERVAL '3 hours'
-		`, item.siteID, item.itemKey).Scan(&newestAge)
+			  AND created_at > NOW() - INTERVAL '7 days'
+		`, item.siteID, item.itemKey).Scan(&terminalCount, &newestAge)
 
-		if err == nil && newestAge < 3.0 {
-			logger.Info("insertWorkItem: suppressed — terminal item too recent",
-				zap.String("item_key", item.itemKey),
-				zap.Float64("age_hours", newestAge),
-			)
-			return false, nil
+		if err == nil && terminalCount > 0 {
+			// Within-cycle suppress: most recent terminal item is < 3h old
+			if newestAge < 3.0 {
+				logger.Info("insertWorkItem: suppressed — terminal item too recent",
+					zap.String("item_key", item.itemKey),
+					zap.Float64("age_hours", newestAge),
+				)
+				return false, nil
+			}
+
+			// Two strikes: handler had 2 chances and the issue persists.
+			// Mark as unresolved so it's visible for investigation.
+			if terminalCount >= 2 {
+				logger.Info("insertWorkItem: marking unresolved — 2 prior attempts did not fix the issue",
+					zap.String("item_key", item.itemKey),
+					zap.Int("prior_attempts", terminalCount),
+					zap.String("original_handler", item.handlerAgent),
+				)
+				item.status = "unresolved"
+				item.summary = fmt.Sprintf("[unresolved after %d attempts] %s", terminalCount, item.summary)
+			}
 		}
 	}
 

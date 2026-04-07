@@ -453,18 +453,27 @@ func isRetailerProductURL(rawURL string, retailer medRetailerForDiscovery) bool 
 
 	// Deny-list: known non-product path prefixes
 	skipPrefixes := []string{
+		// Navigation / account
 		"/cart", "/basket", "/checkout", "/login", "/account", "/customer/",
 		"/delivery", "/returns", "/help", "/contact", "/about",
 		"/terms", "/privacy", "/cookie", "/faq", "/blog", "/pet-advice",
+		// Info pages
 		"/brand", "/brands", "/special-offer", "/prescription-info",
-		"/prescription-regulation", "/human-medicine",
-		"/how-do-i-", "/how-to-",
-		"/media/", "/static/", "/js/", "/css/", "/icons/",
+		"/prescription-regulation", "/human-medicine", "/prescriptions",
+		"/how-do-i-", "/how-to-", "/vet-prescription",
+		"/prescription-upload", "/pet-prescriptions",
+		// Assets
+		"/media/", "/static/", "/js/", "/css/", "/icons/", "/modals/",
+		// Misc
 		"/search", "/wishlist", "/compare", "/review",
 		"/offers", "/subscription", "/refer-", "/tax-", "/who-we-",
-		"/modern-slavery", "/promotion-", "/vet-prescription",
-		"/email-signup", "/covid", "/our-expert",
-		"/prescription-upload", "/pet-prescriptions",
+		"/modern-slavery", "/promotion-", "/sitemap",
+		"/email-signup", "/covid", "/our-expert", "/newsletter",
+		// VioVet specific
+		"/knowledgebase", "/breed_information", "/pages.html",
+		"/shopping_basket", "/advanced_search", "/bslp/",
+		"/saddlery", "/stable-yard", "/reflective-", "/rider-",
+		"/horse-", "/horses",
 	}
 	for _, prefix := range skipPrefixes {
 		if strings.HasPrefix(path, prefix) {
@@ -526,6 +535,14 @@ func isRetailerProductURL(rawURL string, retailer medRetailerForDiscovery) bool 
 				return true
 			}
 			return false
+		}
+
+		// VioVet category listing pages: /anything/flp{digits}
+		if len(segments) >= 2 {
+			secondSeg := segments[1]
+			if strings.HasPrefix(secondSeg, "flp") {
+				return false
+			}
 		}
 	}
 
