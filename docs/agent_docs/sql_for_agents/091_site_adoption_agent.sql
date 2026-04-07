@@ -1437,3 +1437,29 @@ FROM agent_definitions,
     jsonb_each(default_config->'workflow'->'steps') as s(step_key, step_value)
 WHERE type = 'site-adoption-agent' AND deleted_at IS NULL
 ORDER BY step_key;
+--
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,crawl_site,config}',
+        '{
+          "url_field": "input_data.url",
+          "limit": 50,
+          "maxDiscoveryDepth": 4,
+          "scrape_config": {
+            "formats": ["markdown", "rawHtml"],
+            "only_main_content": false
+          }
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-adoption-agent'
+  AND is_active = true;
+
+--
+
+UPDATE agent_definitions SET default_config = jsonb_set(
+        default_config, '{workflow,steps,crawl_site,config}',
+        '{"url_field":"input_data.url","scrape_config":{"formats":["markdown","rawHtml"],"only_main_content":false,"limit":50,"max_discovery_depth":4}}'::jsonb
+                                              ), updated_at = NOW()
+WHERE type = 'site-adoption-agent' AND is_active = true;
