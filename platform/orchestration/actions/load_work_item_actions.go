@@ -945,9 +945,10 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 
 	rows, _ := result.RowsAffected()
 	if rows > 0 {
-		logger.Debug("Work item inserted",
+		logger.Info("Work item inserted",
 			zap.String("item_key", item.itemKey),
 			zap.String("handler", item.handlerAgent),
+			zap.String("status", item.status),
 			zap.Int("priority", item.priority),
 		)
 	}

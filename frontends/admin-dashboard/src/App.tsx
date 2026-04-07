@@ -26,6 +26,7 @@ const STATUS_COLORS = {
     triaged: { bg: "#dbeafe", text: "#1e40af", label: "Triaged" },
     claimed: { bg: "#fef3c7", text: "#92400e", label: "Claimed" },
     needs_human_review: { bg: "#fce7f3", text: "#9d174d", label: "Needs Review" },
+    unresolved: { bg: "#fff7ed", text: "#9a3412", label: "Unresolved" },
     failed: { bg: "#fee2e2", text: "#991b1b", label: "Failed" },
     blocked: { bg: "#f3e8ff", text: "#6b21a8", label: "Blocked" },
     complete: { bg: "#d1fae5", text: "#065f46", label: "Complete" },
@@ -345,6 +346,7 @@ function SitesOverview({ sites, token, onSelectSite, onSelectPages, onSelectSpec
                         <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
                             {[
                                 { k: "review", label: "Review", color: "#9d174d" },
+                                { k: "unresolved", label: "Unresolved", color: "#9a3412" },
                                 { k: "failed", label: "Failed", color: "#991b1b" },
                                 { k: "active", label: "Active", color: "#92400e" },
                                 { k: "ready", label: "Ready", color: "#1e40af" },
@@ -954,6 +956,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                 <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selectStyle}>
                     <option value="">All ({allItemsCount})</option>
                     <option value="needs_human_review">Needs Review ({statusCounts["needs_human_review"] || 0})</option>
+                    <option value="unresolved">Unresolved ({statusCounts["unresolved"] || 0})</option>
                     <option value="triaged">Triaged ({statusCounts["triaged"] || 0})</option>
                     <option value="claimed">Claimed ({statusCounts["claimed"] || 0})</option>
                     <option value="failed">Failed ({statusCounts["failed"] || 0})</option>
@@ -1171,7 +1174,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                 )}
 
                                 {/* Standard actions */}
-                                {["needs_human_review", "failed", "blocked"].includes(selectedItem.status) && (
+                                {["needs_human_review", "unresolved", "failed", "blocked"].includes(selectedItem.status) && (
                                     <>
                                         {!isCheckpoint && !isEditable && (
                                             <button onClick={() => handleRetry(selectedItem.id)} disabled={actionLoading} style={btnPrimary}>

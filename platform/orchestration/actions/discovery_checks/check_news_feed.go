@@ -175,13 +175,24 @@ func (c *MissingNewsSectionCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 	}
 
 	// Check if a latest-news component exists on any page
+	// Two paths: (1) component_id linked to content_components with function='latest-news'
+	// (2) rendered_html contains data-component="latest-news" (for pages built before
+	//     component_id linking was added — common for older/adopted sites)
 	var sectionCount int
 	err = dctx.DB.QueryRowContext(dctx.Ctx, `
 		SELECT COUNT(*) FROM page_components pc
-		JOIN content_components cc ON cc.id = pc.component_id
 		JOIN pages p ON p.id = pc.page_id
 		WHERE p.site_id = $1
-		  AND cc.function = 'latest-news'
+		  AND (
+		      -- Path 1: linked via component_id
+		      EXISTS (
+		          SELECT 1 FROM content_components cc
+		          WHERE cc.id = pc.component_id AND cc.function = 'latest-news'
+		      )
+		      OR
+		      -- Path 2: HTML contains the data-component attribute (unlinked rows)
+		      (pc.component_id IS NULL AND pc.rendered_html LIKE '%data-component="latest-news"%')
+		  )
 	`, dctx.SiteID).Scan(&sectionCount)
 	if err != nil {
 		return nil, fmt.Errorf("missing_news_section: section query failed: %w", err)
@@ -250,15 +261,21 @@ func (c *StaleNewsSectionCheck) Name() string { return "stale_news_section" }
 
 func (c *StaleNewsSectionCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
 	// Check if a latest-news component exists on any page
+	// Handles both linked (component_id set) and unlinked (data-component in HTML) rows
 	var pageID, pageComponentID string
 	var pageName string
 	err := dctx.DB.QueryRowContext(dctx.Ctx, `
 		SELECT p.id::text, p.name, pc.id::text
 		FROM page_components pc
-		JOIN content_components cc ON cc.id = pc.component_id
 		JOIN pages p ON p.id = pc.page_id
 		WHERE p.site_id = $1
-		  AND cc.function = 'latest-news'
+		  AND (
+		      EXISTS (
+		          SELECT 1 FROM content_components cc
+		          WHERE cc.id = pc.component_id AND cc.function = 'latest-news'
+		      )
+		      OR (pc.component_id IS NULL AND pc.rendered_html LIKE '%data-component="latest-news"%')
+		  )
 		LIMIT 1
 	`, dctx.SiteID).Scan(&pageID, &pageName, &pageComponentID)
 	if err != nil {

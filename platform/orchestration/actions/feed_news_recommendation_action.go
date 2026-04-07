@@ -8,6 +8,10 @@
 // This avoids modifying the classifier's LLM prompt. It's a deterministic
 // enrichment step: industry X → yes/no news recommendation + vertical keywords.
 //
+// CHANGE: Added SeparatePage field to verticalNewsConfig. When true, the
+// discovery check (missing_news_page) will detect the need for a dedicated
+// /news.html page and route it through content-gap-planner.
+//
 // Registration:
 //   "evaluate_news_feed": {
 //       Handler:     EvaluateNewsFeedAction,
@@ -59,25 +63,15 @@ type verticalNewsConfig struct {
 	SeparatePage     bool     `json:"separate_page"` // true = create /news.html listing page
 }
 
-// For each entry in verticalNewsMap where Recommended: true, add SeparatePage.
-// These verticals get a dedicated news page:
-//
-// SeparatePage: true  (news is a primary audience draw)
-//   - energy, gas, oil (market prices change daily)
-//   - boxing, sports, mma (event-driven, results pages)
-//   - technology, ai (fast-moving industry)
-//   - finance (market news drives return visits)
-//
-// SeparatePage: false (news is supplementary, snippet is enough)
-//   - mortgage (rate news supports main mortgage content)
-//   - insurance (regulatory news is supplementary)
-//   - legal, accounting (news supports authority but isn't primary)
-//
 // verticalNewsMap maps industry/site_type keywords to news recommendations.
 // This is the deterministic routing table — no LLM needed.
 // Add new verticals here when expanding.
+//
+// SeparatePage: true for verticals where news is a primary audience draw
+// (energy, sports, finance, technology). False for verticals where news
+// is supplementary (mortgage, insurance, legal).
 var verticalNewsMap = map[string]verticalNewsConfig{
-	// Energy
+	// Energy — news is primary draw (daily price movements)
 	"energy": {
 		Recommended:      true,
 		Reason:           "Energy markets have daily price movements and supply disruption news",
@@ -100,7 +94,7 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		SeparatePage:     true,
 	},
 
-	// Finance
+	// Finance — news is primary draw (market data)
 	"finance": {
 		Recommended:      true,
 		Reason:           "Financial services benefit from market news for authority and SEO freshness",
@@ -113,17 +107,17 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		Reason:           "Mortgage rates change frequently — rate news drives return visits",
 		VerticalKeywords: []string{"mortgage rates", "interest rates", "housing market", "property prices"},
 		SourceTypes:      []string{"news_search", "api_news"},
-		SeparatePage:     true,
+		SeparatePage:     false, // supplementary — homepage snippet is enough
 	},
 	"insurance": {
 		Recommended:      true,
 		Reason:           "Insurance industry has regulatory and market news relevant to consumers",
 		VerticalKeywords: []string{"insurance market", "insurance regulation", "claims", "premiums"},
 		SourceTypes:      []string{"news_search"},
-		SeparatePage:     true,
+		SeparatePage:     false, // supplementary
 	},
 
-	// Sports
+	// Sports — news is primary draw (event-driven)
 	"boxing": {
 		Recommended:      true,
 		Reason:           "Boxing has frequent fight announcements, results, and rankings changes",
@@ -146,7 +140,7 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		SeparatePage:     true,
 	},
 
-	// Technology
+	// Technology — news is primary draw (fast-moving)
 	"technology": {
 		Recommended:      true,
 		Reason:           "Tech sector moves fast — product launches, security news, industry shifts",
@@ -155,9 +149,8 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		SeparatePage:     true,
 	},
 	"saas": {
-		Recommended:  false,
-		Reason:       "SaaS product sites benefit more from case studies and product updates than external news",
-		SeparatePage: true,
+		Recommended: false,
+		Reason:      "SaaS product sites benefit more from case studies and product updates than external news",
 	},
 	"ai": {
 		Recommended:      true,
@@ -167,67 +160,62 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		SeparatePage:     true,
 	},
 
-	// Healthcare
+	// Healthcare — not recommended
 	"veterinary": {
-		Recommended:  false,
-		Reason:       "Local vet practices benefit more from pet care advice content than industry news",
-		SeparatePage: true,
+		Recommended: false,
+		Reason:      "Local vet practices benefit more from pet care advice content than industry news",
 	},
 	"dental": {
-		Recommended:  false,
-		Reason:       "Local dental practices benefit from oral health content, not industry news",
-		SeparatePage: true,
+		Recommended: false,
+		Reason:      "Local dental practices benefit from oral health content, not industry news",
 	},
 	"healthcare": {
-		Recommended:  false,
-		Reason:       "Healthcare sites need careful content curation due to medical advice regulations",
-		SeparatePage: true,
+		Recommended: false,
+		Reason:      "Healthcare sites need careful content curation due to medical advice regulations",
 	},
 
-	// Real estate
+	// Real estate — supplementary
 	"property": {
 		Recommended:      true,
 		Reason:           "Property market has regular price, rate, and regulatory news",
 		VerticalKeywords: []string{"property market", "house prices", "property news", "planning permission"},
 		SourceTypes:      []string{"news_search", "api_news"},
-		SeparatePage:     true,
+		SeparatePage:     false,
 	},
 	"estate-agent": {
 		Recommended:      true,
 		Reason:           "Local property market news adds value and SEO freshness",
 		VerticalKeywords: []string{"property market", "house prices", "local property news", "stamp duty"},
 		SourceTypes:      []string{"news_search"},
-		SeparatePage:     true,
+		SeparatePage:     false,
 	},
 
-	// Legal
+	// Legal — supplementary
 	"legal": {
 		Recommended:      true,
 		Reason:           "Legal sector has regulatory changes and case law news",
 		VerticalKeywords: []string{"legal news", "regulation", "court ruling", "legislation"},
 		SourceTypes:      []string{"news_search"},
-		SeparatePage:     true,
+		SeparatePage:     false,
 	},
 
-	// Food & hospitality
+	// Food & hospitality — not recommended
 	"restaurant": {
-		Recommended:  false,
-		Reason:       "Restaurant sites benefit from menus and events, not external news",
-		SeparatePage: true,
+		Recommended: false,
+		Reason:      "Restaurant sites benefit from menus and events, not external news",
 	},
 	"catering": {
-		Recommended:  false,
-		Reason:       "Catering sites are better served by portfolio and testimonials",
-		SeparatePage: true,
+		Recommended: false,
+		Reason:      "Catering sites are better served by portfolio and testimonials",
 	},
 
-	// Construction
+	// Construction — supplementary
 	"construction": {
 		Recommended:      true,
 		Reason:           "Construction has material price, regulation, and project news",
 		VerticalKeywords: []string{"construction news", "building materials", "construction regulation", "planning"},
 		SourceTypes:      []string{"news_search"},
-		SeparatePage:     true,
+		SeparatePage:     false,
 	},
 }
 
@@ -317,6 +305,7 @@ func EvaluateNewsFeedAction(ctx context.Context, params ActionParams) (interface
 				"reason":            config.Reason,
 				"vertical_keywords": config.VerticalKeywords,
 				"source_types":      config.SourceTypes,
+				"separate_page":     config.SeparatePage,
 			},
 		},
 	}
@@ -360,6 +349,7 @@ func EvaluateNewsFeedAction(ctx context.Context, params ActionParams) (interface
 	logger.Info("EvaluateNewsFeedAction: wrote news feed recommendation",
 		zap.String("site_id", siteID.String()),
 		zap.Bool("recommended", config.Recommended),
+		zap.Bool("separate_page", config.SeparatePage),
 		zap.String("reason", config.Reason))
 
 	return map[string]interface{}{

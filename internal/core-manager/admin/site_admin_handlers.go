@@ -42,7 +42,8 @@ func (h *SiteAdminHandlers) HandleListSites(c *gin.Context) {
 		       COUNT(*) FILTER (WHERE wi.status = 'triaged') as items_ready,
 		       COUNT(*) FILTER (WHERE wi.status = 'needs_human_review') as items_review,
 		       COUNT(*) FILTER (WHERE wi.status = 'failed') as items_failed,
-		       COUNT(*) FILTER (WHERE wi.status = 'blocked') as items_blocked
+		       COUNT(*) FILTER (WHERE wi.status = 'blocked') as items_blocked,
+		       COUNT(*) FILTER (WHERE wi.status = 'unresolved') as items_unresolved
 		FROM sites s
 		LEFT JOIN site_work_items wi ON wi.site_id = s.id AND wi.pipeline = 'build'
 		WHERE s.status IN ('active', 'deployed')
@@ -61,11 +62,11 @@ func (h *SiteAdminHandlers) HandleListSites(c *gin.Context) {
 		var domain, status, buildStatus, lockedBy string
 		var companyName, email, phone sql.NullString
 		var lastDeployed, lockedAt sql.NullTime
-		var done, active, ready, review, failed, blocked int
+		var done, active, ready, review, failed, blocked, unresolved int
 
 		if err := rows.Scan(&id, &domain, &companyName, &status, &email, &phone,
 			&buildStatus, &lastDeployed, &lockedAt, &lockedBy,
-			&done, &active, &ready, &review, &failed, &blocked); err != nil {
+			&done, &active, &ready, &review, &failed, &blocked, &unresolved); err != nil {
 			h.logger.Warn("Failed to scan site", zap.Error(err))
 			continue
 		}
@@ -82,12 +83,13 @@ func (h *SiteAdminHandlers) HandleListSites(c *gin.Context) {
 			"locked":        lockedAt.Valid,
 			"locked_by":     lockedBy,
 			"work_items": map[string]int{
-				"done":    done,
-				"active":  active,
-				"ready":   ready,
-				"review":  review,
-				"failed":  failed,
-				"blocked": blocked,
+				"done":       done,
+				"active":     active,
+				"ready":      ready,
+				"review":     review,
+				"failed":     failed,
+				"blocked":    blocked,
+				"unresolved": unresolved,
 			},
 		}
 		if lastDeployed.Valid {
@@ -751,7 +753,7 @@ func (h *SiteAdminHandlers) HandleRetryWorkItem(c *gin.Context) {
 		    error = NULL,
 		    updated_at = NOW()
 		WHERE id = $1
-		  AND status IN ('needs_human_review', 'failed', 'blocked')
+		  AND status IN ('needs_human_review', 'failed', 'blocked', 'unresolved')
 	`, itemID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -795,7 +797,7 @@ func (h *SiteAdminHandlers) HandleResolveWorkItem(c *gin.Context) {
 		    result = jsonb_build_object('resolution', $2, 'resolved_by', 'admin'),
 		    updated_at = NOW()
 		WHERE id = $1
-		  AND status IN ('needs_human_review', 'failed', 'blocked', 'triaged')
+		  AND status IN ('needs_human_review', 'failed', 'blocked', 'triaged', 'unresolved')
 	`, itemID, body.Resolution)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
