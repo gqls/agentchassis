@@ -554,3 +554,108 @@ INSERT INTO scheduled_tasks (
 --        last_triggered_at, last_completed_at
 -- FROM scheduled_tasks
 -- WHERE name = 'content-feed-refresh';
+
+--
+
+-- ============================================================================
+-- 028_news_feed_handler_routing_fixes.sql
+--
+-- Fixes three issues:
+-- 1. Existing work items with wrong handler_agent values
+-- 2. Ensures content-feed-refresh scheduled task exists
+-- 3. Render query improvement: prefer scored items over raw ingested
+-- ============================================================================
+
+-- ============================================================================
+-- 1. Fix existing work items with wrong handler_agent
+-- ============================================================================
+
+-- missing_news_sources: was page-build-handler, should be content-feed-orchestrator
+-- The content-feed-orchestrator's first step (seed_content_sources) creates
+-- content_sources rows from the classification spec.
+UPDATE site_work_items
+SET handler_agent = 'content-feed-orchestrator',
+    updated_at = NOW()
+WHERE item_type = 'missing_news_sources'
+  AND handler_agent = 'page-build-handler'
+  AND status IN ('detected', 'triaged', 'approved');
+
+-- missing_news_section: was page-build-handler, should be content-gap-planner
+-- The gap planner reads the spec, decides how to add latest-news to the
+-- homepage, and creates targeted work items for page-build-handler.
+UPDATE site_work_items
+SET handler_agent = 'content-gap-planner',
+    updated_at = NOW()
+WHERE item_type = 'missing_news_section'
+  AND handler_agent = 'page-build-handler'
+  AND status IN ('detected', 'triaged', 'approved');
+
+-- stale_news_section: was rerender-pages, should be content-feed-orchestrator
+-- Stale news means we need fresh items from sources, not a page rerender.
+UPDATE site_work_items
+SET handler_agent = 'content-feed-orchestrator',
+    updated_at = NOW()
+WHERE item_type = 'stale_news_section'
+  AND handler_agent = 'rerender-pages'
+  AND status IN ('detected', 'triaged', 'approved');
+
+-- all_sources_erroring: was "" (empty), should be content-feed-orchestrator
+-- Empty handler_agent would crash the dispatch loop's spawn_handler step.
+UPDATE site_work_items
+SET handler_agent = 'content-feed-orchestrator',
+    updated_at = NOW()
+WHERE item_type = 'all_sources_erroring'
+  AND (handler_agent IS NULL OR handler_agent = '')
+  AND status IN ('detected', 'triaged', 'approved');
+
+-- ============================================================================
+-- 2. Ensure content-feed-refresh scheduled task exists
+-- ============================================================================
+-- The content-feed-trigger agent updates this task's last_completed_at on
+-- each run. The scheduler checks interval_seconds against last_triggered_at.
+
+INSERT INTO scheduled_tasks (
+    name, description, interval_seconds, target_agent_type,
+    target_topic, enabled, fire_message, timeout_seconds,
+    concurrency_group, max_concurrent, pre_query
+) VALUES (
+             'content-feed-refresh',
+             'Triggers content-feed-trigger agent every 6 hours to refresh news feeds for all recommended sites',
+             21600,          -- 6 hours = 21600 seconds
+             'content-feed-trigger',
+             'system.agent.generic.requests',
+             true,
+             true,           -- fire Kafka message to trigger agent
+             600,            -- 10 minute timeout
+             'content-feed', -- concurrency group
+             1,              -- max 1 concurrent
+             NULL            -- no gating query — the agent itself checks which sites need refresh
+         )
+    ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+                              interval_seconds = EXCLUDED.interval_seconds,
+                              target_agent_type = EXCLUDED.target_agent_type,
+                              enabled = EXCLUDED.enabled,
+                              updated_at = NOW();
+
+-- ============================================================================
+-- 3. Verify: show current news-related work items and their handlers
+-- ============================================================================
+-- Run this after the above to confirm the fixes took effect:
+--
+-- SELECT item_type, handler_agent, status, COUNT(*)
+-- FROM site_work_items
+-- WHERE item_type IN (
+--     'missing_news_sources', 'missing_news_section',
+--     'stale_news_section', 'all_sources_erroring'
+-- )
+-- GROUP BY item_type, handler_agent, status
+-- ORDER BY item_type, status;
+
+-- ============================================================================
+-- 4. Verify: scheduled tasks for news
+-- ============================================================================
+-- SELECT name, enabled, interval_seconds, target_agent_type,
+--        last_triggered_at, last_completed_at
+-- FROM scheduled_tasks
+-- WHERE name = 'content-feed-refresh';

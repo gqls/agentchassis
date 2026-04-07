@@ -32,3 +32,41 @@ SELECT
 END AS has_dedup_rules
 FROM agent_definitions
 WHERE type = 'chief-strategist';
+
+
+    -- ============================================================================
+-- 029b_planner_add_news_listing_component.sql
+--
+-- Adds news-listing to the available component types list in both
+-- chief-strategist agent definitions (V1 and V2).
+--
+-- This is a minimal change — just makes the planner aware the component
+-- exists. The actual creation of news pages for existing sites is handled
+-- by the discovery → content-gap-planner path.
+-- ============================================================================
+
+-- Both V1 and V2 have the same component list line in their prompt_template.
+-- The line in the JSON-escaped prompt reads:
+--   - category-grid, content-feed, search-bar
+-- We change it to:
+--   - category-grid, content-feed, news-listing, search-bar
+
+UPDATE agent_definitions
+SET default_config = regexp_replace(
+        default_config::text,
+        'category-grid, content-feed, search-bar',
+        'category-grid, content-feed, news-listing, search-bar',
+        'g'  -- replace all occurrences (prompt appears once per version, but safe)
+                     )::jsonb,
+updated_at = NOW()
+WHERE type = 'chief-strategist'
+  AND deleted_at IS NULL
+  AND default_config::text LIKE '%category-grid, content-feed, search-bar%';
+
+-- ============================================================================
+-- Verify
+-- ============================================================================
+-- SELECT type, version,
+--        default_config::text LIKE '%news-listing%' as has_news_listing
+-- FROM agent_definitions
+-- WHERE type = 'chief-strategist' AND deleted_at IS NULL;

@@ -56,8 +56,23 @@ type verticalNewsConfig struct {
 	Reason           string   `json:"reason"`
 	VerticalKeywords []string `json:"vertical_keywords"`
 	SourceTypes      []string `json:"source_types"`
+	SeparatePage     bool     `json:"separate_page"` // true = create /news.html listing page
 }
 
+// For each entry in verticalNewsMap where Recommended: true, add SeparatePage.
+// These verticals get a dedicated news page:
+//
+// SeparatePage: true  (news is a primary audience draw)
+//   - energy, gas, oil (market prices change daily)
+//   - boxing, sports, mma (event-driven, results pages)
+//   - technology, ai (fast-moving industry)
+//   - finance (market news drives return visits)
+//
+// SeparatePage: false (news is supplementary, snippet is enough)
+//   - mortgage (rate news supports main mortgage content)
+//   - insurance (regulatory news is supplementary)
+//   - legal, accounting (news supports authority but isn't primary)
+//
 // verticalNewsMap maps industry/site_type keywords to news recommendations.
 // This is the deterministic routing table — no LLM needed.
 // Add new verticals here when expanding.
@@ -68,18 +83,21 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		Reason:           "Energy markets have daily price movements and supply disruption news",
 		VerticalKeywords: []string{"energy prices", "oil prices", "gas prices", "energy market", "supply disruption"},
 		SourceTypes:      []string{"rss", "news_search", "api_news"},
+		SeparatePage:     true,
 	},
 	"gas": {
 		Recommended:      true,
 		Reason:           "Gas wholesale markets change daily — price, supply, and regulatory news",
 		VerticalKeywords: []string{"wholesale gas prices", "natural gas market", "gas supply", "LNG", "energy regulation"},
 		SourceTypes:      []string{"rss", "news_search", "api_news"},
+		SeparatePage:     true,
 	},
 	"oil": {
 		Recommended:      true,
 		Reason:           "Oil markets are highly news-driven with global supply and geopolitical factors",
 		VerticalKeywords: []string{"oil prices", "crude oil", "OPEC", "petroleum", "fuel prices"},
 		SourceTypes:      []string{"rss", "news_search", "api_news"},
+		SeparatePage:     true,
 	},
 
 	// Finance
@@ -88,18 +106,21 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		Reason:           "Financial services benefit from market news for authority and SEO freshness",
 		VerticalKeywords: []string{"financial markets", "interest rates", "economic outlook", "investment"},
 		SourceTypes:      []string{"news_search", "api_news"},
+		SeparatePage:     true,
 	},
 	"mortgage": {
 		Recommended:      true,
 		Reason:           "Mortgage rates change frequently — rate news drives return visits",
 		VerticalKeywords: []string{"mortgage rates", "interest rates", "housing market", "property prices"},
 		SourceTypes:      []string{"news_search", "api_news"},
+		SeparatePage:     true,
 	},
 	"insurance": {
 		Recommended:      true,
 		Reason:           "Insurance industry has regulatory and market news relevant to consumers",
 		VerticalKeywords: []string{"insurance market", "insurance regulation", "claims", "premiums"},
 		SourceTypes:      []string{"news_search"},
+		SeparatePage:     true,
 	},
 
 	// Sports
@@ -108,18 +129,21 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		Reason:           "Boxing has frequent fight announcements, results, and rankings changes",
 		VerticalKeywords: []string{"boxing news", "boxing results", "fight announcements", "boxing rankings"},
 		SourceTypes:      []string{"rss", "news_search", "api_news"},
+		SeparatePage:     true,
 	},
 	"sports": {
 		Recommended:      true,
 		Reason:           "Sports verticals are inherently news-driven",
 		VerticalKeywords: []string{"sports news", "match results", "tournament", "league standings"},
 		SourceTypes:      []string{"rss", "news_search"},
+		SeparatePage:     true,
 	},
 	"mma": {
 		Recommended:      true,
 		Reason:           "MMA/UFC has frequent event news and fight announcements",
 		VerticalKeywords: []string{"MMA news", "UFC", "fight card", "MMA results"},
 		SourceTypes:      []string{"rss", "news_search", "api_news"},
+		SeparatePage:     true,
 	},
 
 	// Technology
@@ -128,30 +152,36 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		Reason:           "Tech sector moves fast — product launches, security news, industry shifts",
 		VerticalKeywords: []string{"technology news", "tech industry", "software", "cybersecurity"},
 		SourceTypes:      []string{"rss", "news_search"},
+		SeparatePage:     true,
 	},
 	"saas": {
-		Recommended: false,
-		Reason:      "SaaS product sites benefit more from case studies and product updates than external news",
+		Recommended:  false,
+		Reason:       "SaaS product sites benefit more from case studies and product updates than external news",
+		SeparatePage: true,
 	},
 	"ai": {
 		Recommended:      true,
 		Reason:           "AI field changes rapidly — research, product launches, regulation",
 		VerticalKeywords: []string{"artificial intelligence", "machine learning", "AI regulation", "AI research"},
 		SourceTypes:      []string{"rss", "news_search", "api_news"},
+		SeparatePage:     true,
 	},
 
 	// Healthcare
 	"veterinary": {
-		Recommended: false,
-		Reason:      "Local vet practices benefit more from pet care advice content than industry news",
+		Recommended:  false,
+		Reason:       "Local vet practices benefit more from pet care advice content than industry news",
+		SeparatePage: true,
 	},
 	"dental": {
-		Recommended: false,
-		Reason:      "Local dental practices benefit from oral health content, not industry news",
+		Recommended:  false,
+		Reason:       "Local dental practices benefit from oral health content, not industry news",
+		SeparatePage: true,
 	},
 	"healthcare": {
-		Recommended: false,
-		Reason:      "Healthcare sites need careful content curation due to medical advice regulations",
+		Recommended:  false,
+		Reason:       "Healthcare sites need careful content curation due to medical advice regulations",
+		SeparatePage: true,
 	},
 
 	// Real estate
@@ -160,12 +190,14 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		Reason:           "Property market has regular price, rate, and regulatory news",
 		VerticalKeywords: []string{"property market", "house prices", "property news", "planning permission"},
 		SourceTypes:      []string{"news_search", "api_news"},
+		SeparatePage:     true,
 	},
 	"estate-agent": {
 		Recommended:      true,
 		Reason:           "Local property market news adds value and SEO freshness",
 		VerticalKeywords: []string{"property market", "house prices", "local property news", "stamp duty"},
 		SourceTypes:      []string{"news_search"},
+		SeparatePage:     true,
 	},
 
 	// Legal
@@ -174,16 +206,19 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		Reason:           "Legal sector has regulatory changes and case law news",
 		VerticalKeywords: []string{"legal news", "regulation", "court ruling", "legislation"},
 		SourceTypes:      []string{"news_search"},
+		SeparatePage:     true,
 	},
 
 	// Food & hospitality
 	"restaurant": {
-		Recommended: false,
-		Reason:      "Restaurant sites benefit from menus and events, not external news",
+		Recommended:  false,
+		Reason:       "Restaurant sites benefit from menus and events, not external news",
+		SeparatePage: true,
 	},
 	"catering": {
-		Recommended: false,
-		Reason:      "Catering sites are better served by portfolio and testimonials",
+		Recommended:  false,
+		Reason:       "Catering sites are better served by portfolio and testimonials",
+		SeparatePage: true,
 	},
 
 	// Construction
@@ -192,6 +227,7 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		Reason:           "Construction has material price, regulation, and project news",
 		VerticalKeywords: []string{"construction news", "building materials", "construction regulation", "planning"},
 		SourceTypes:      []string{"news_search"},
+		SeparatePage:     true,
 	},
 }
 
@@ -331,6 +367,7 @@ func EvaluateNewsFeedAction(ctx context.Context, params ActionParams) (interface
 		"reason":            config.Reason,
 		"vertical_keywords": config.VerticalKeywords,
 		"source_types":      config.SourceTypes,
+		"separate_page":     config.SeparatePage,
 		"industry":          industry,
 		"site_type":         siteType,
 	}, nil

@@ -1,11 +1,19 @@
 // FILE: platform/orchestration/actions/render_news_section_action.go
 //
 // RenderNewsSectionAction queries recent relevant feed items for a site
-// and produces a JSON file ready for git commit. The homepage loads this
-// JSON client-side via fetch() — no page rerender needed for news updates.
+// and produces JSON files ready for git commit. The homepage loads the
+// snippet JSON client-side via fetch() — no page rerender needed for
+// news updates.
 //
-// Output: {files: {"data/latest-news.json": "<json>"}, domain: "...", item_count: N}
+// Output: {files: {"data/latest-news.json": "<json>", "data/news-archive.json": "<json>"}, domain: "...", item_count: N}
 // The git_commit step in the workflow reads files_field and commits to the repo.
+//
+// Two JSON files are produced:
+//   - data/latest-news.json  — 6 items for the homepage snippet component
+//   - data/news-archive.json — 20 items for the dedicated /news.html listing page
+//
+// The archive file is only produced if a news-index page exists (checked via
+// pages table). If no listing page exists, only the snippet JSON is produced.
 //
 // Registration:
 //   "render_news_section": {
@@ -54,14 +62,14 @@ import (
 
 var RenderNewsSectionInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{"site_id"},
-	Optional: []string{"page_name", "max_items", "max_age_hours"},
+	Optional: []string{"page_name", "max_items", "max_age_hours", "archive_max_items"},
 }
 
 func init() {
 	datahelpers.RegisterActionInputSpec("render_news_section", RenderNewsSectionInputSpec)
 }
 
-// newsJSONOutput is the shape of /data/latest-news.json
+// newsJSONOutput is the shape of /data/latest-news.json and /data/news-archive.json
 type newsJSONOutput struct {
 	Headline      string         `json:"headline"`
 	Subheadline   string         `json:"subheadline,omitempty"`
@@ -70,6 +78,7 @@ type newsJSONOutput struct {
 	InsightsLabel string         `json:"insights_label,omitempty"`
 	UpdatedAt     string         `json:"updated_at"`
 	ItemCount     int            `json:"item_count"`
+	ItemsTotal    int            `json:"items_total,omitempty"` // total available (archive only)
 }
 
 type newsJSONItem struct {
@@ -78,6 +87,7 @@ type newsJSONItem struct {
 	URL     string `json:"url"`
 	Source  string `json:"source,omitempty"`
 	Date    string `json:"date,omitempty"`
+	Topics  string `json:"topics,omitempty"` // comma-separated tags (archive only)
 }
 
 func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -107,6 +117,7 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 
 	maxItems := inputs.GetInt("max_items", 6)
 	maxAgeHours := inputs.GetInt("max_age_hours", 72)
+	archiveMaxItems := inputs.GetInt("archive_max_items", 20)
 
 	// -----------------------------------------------------------------------
 	// 1. Load site domain (needed for git commit path)
@@ -175,15 +186,166 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	// -----------------------------------------------------------------------
-	// 4. Load relevant feed items
+	// 4. Load relevant feed items for homepage snippet
 	// -----------------------------------------------------------------------
-	rows, err := params.DB.QueryContext(ctx, `
+	// CHANGED: sort order now prefers triaged 'relevant' items over unscored
+	// 'ingested' items, and uses relevance_score as a tiebreaker.
+	snippetItems, err := loadNewsItems(ctx, params.DB, siteID, maxAgeHours, maxItems, false, logger)
+	if err != nil {
+		return nil, fmt.Errorf("query feed items: %w", err)
+	}
+
+	logger.Info("RenderNewsSectionAction: loaded snippet items",
+		zap.Int("count", len(snippetItems)),
+		zap.String("domain", domain))
+
+	// If no items at all, still produce a valid JSON (empty array)
+	// so the homepage shows gracefully
+	if snippetItems == nil {
+		snippetItems = []newsJSONItem{}
+	}
+
+	// -----------------------------------------------------------------------
+	// 5. Check if a news listing page exists (for the "More" link + archive)
+	// -----------------------------------------------------------------------
+	var insightsURL sql.NullString
+	_ = params.DB.QueryRowContext(ctx, `
+		SELECT url FROM pages
+		WHERE site_id = $1 AND page_type = 'news-index' AND status = 'active'
+		LIMIT 1
+	`, siteID).Scan(&insightsURL)
+
+	insightsLabel := ""
+	hasListingPage := insightsURL.Valid && insightsURL.String != ""
+	if hasListingPage {
+		insightsLabel = "More insights →"
+	}
+
+	// -----------------------------------------------------------------------
+	// 6. Build homepage snippet JSON
+	// -----------------------------------------------------------------------
+	snippetOutput := newsJSONOutput{
+		Headline:      headline,
+		Subheadline:   subheadline,
+		Items:         snippetItems,
+		InsightsURL:   insightsURL.String,
+		InsightsLabel: insightsLabel,
+		UpdatedAt:     time.Now().UTC().Format(time.RFC3339),
+		ItemCount:     len(snippetItems),
+	}
+
+	snippetJSON, err := json.MarshalIndent(snippetOutput, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal snippet JSON: %w", err)
+	}
+
+	// -----------------------------------------------------------------------
+	// 7. Build files map (start with snippet, add archive if listing page exists)
+	// -----------------------------------------------------------------------
+	filesMap := map[string]interface{}{
+		"data/latest-news.json": string(snippetJSON),
+	}
+
+	totalItemCount := len(snippetItems)
+
+	// Only produce archive JSON if a news listing page exists
+	if hasListingPage {
+		archiveItems, err := loadNewsItems(ctx, params.DB, siteID, maxAgeHours*4, archiveMaxItems, true, logger)
+		if err != nil {
+			logger.Warn("RenderNewsSectionAction: archive query failed, skipping archive",
+				zap.Error(err))
+		} else {
+			if archiveItems == nil {
+				archiveItems = []newsJSONItem{}
+			}
+
+			// Count total available items (for "Showing X of Y")
+			var totalAvailable int
+			_ = params.DB.QueryRowContext(ctx, `
+				SELECT COUNT(*) FROM content_feed_items
+				WHERE site_id = $1
+				  AND status IN ('relevant', 'ingested')
+				  AND created_at > NOW() - make_interval(hours => $2)
+			`, siteID, maxAgeHours*4).Scan(&totalAvailable)
+
+			// Load headline for the listing page
+			archiveHeadline := "Industry News & Insights"
+			archiveSubheadline := ""
+
+			var listingContentData sql.NullString
+			_ = params.DB.QueryRowContext(ctx, `
+				SELECT pc.content_data::text 
+				FROM page_components pc
+				JOIN content_components cc ON cc.id = pc.component_id
+				JOIN pages p ON p.id = pc.page_id
+				WHERE p.site_id = $1 AND p.page_type = 'news-index' AND cc.function = 'news-listing'
+				LIMIT 1
+			`, siteID).Scan(&listingContentData)
+
+			if listingContentData.Valid {
+				var cd map[string]interface{}
+				if json.Unmarshal([]byte(listingContentData.String), &cd) == nil {
+					if h, ok := cd["headline"].(string); ok && h != "" {
+						archiveHeadline = h
+					}
+					if sh, ok := cd["subheadline"].(string); ok {
+						archiveSubheadline = sh
+					}
+				}
+			}
+
+			archiveOutput := newsJSONOutput{
+				Headline:    archiveHeadline,
+				Subheadline: archiveSubheadline,
+				Items:       archiveItems,
+				UpdatedAt:   time.Now().UTC().Format(time.RFC3339),
+				ItemCount:   len(archiveItems),
+				ItemsTotal:  totalAvailable,
+			}
+
+			archiveJSON, err := json.MarshalIndent(archiveOutput, "", "  ")
+			if err != nil {
+				logger.Warn("RenderNewsSectionAction: marshal archive JSON failed",
+					zap.Error(err))
+			} else {
+				filesMap["data/news-archive.json"] = string(archiveJSON)
+				totalItemCount += len(archiveItems)
+
+				logger.Info("RenderNewsSectionAction: archive JSON produced",
+					zap.Int("archive_items", len(archiveItems)),
+					zap.Int("total_available", totalAvailable))
+			}
+		}
+	}
+
+	logger.Info("RenderNewsSectionAction: JSON produced",
+		zap.Int("snippet_items", len(snippetItems)),
+		zap.Int("files_count", len(filesMap)),
+		zap.String("domain", domain),
+		zap.Bool("has_archive", hasListingPage))
+
+	return map[string]interface{}{
+		"files":       filesMap,
+		"domain":      domain,
+		"item_count":  totalItemCount,
+		"headline":    headline,
+		"file_path":   "data/latest-news.json",
+		"has_archive": hasListingPage,
+		"rendered":    true,
+	}, nil
+}
+
+// loadNewsItems queries feed items with the improved sort order.
+// includeTopics controls whether topic tags are included (for archive view).
+func loadNewsItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxAgeHours, maxItems int, includeTopics bool, logger *zap.Logger) ([]newsJSONItem, error) {
+	rows, err := db.QueryContext(ctx, `
 		SELECT 
 			cfi.source_title,
 			cfi.source_summary,
 			cfi.source_url,
 			cfi.source_published_at,
-			COALESCE(cs.name, '') as source_name
+			COALESCE(cs.name, '') as source_name,
+			COALESCE(cfi.topics::text, '[]') as topics_json
 		FROM content_feed_items cfi
 		LEFT JOIN content_sources cs ON cs.id = cfi.source_id
 		WHERE cfi.site_id = $1 
@@ -200,7 +362,7 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 		LIMIT $3
 	`, siteID, maxAgeHours, maxItems)
 	if err != nil {
-		return nil, fmt.Errorf("query feed items: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -208,9 +370,10 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 	for rows.Next() {
 		var title, summary, url, sourceName sql.NullString
 		var publishedAt sql.NullTime
+		var topicsJSON string
 
-		if err := rows.Scan(&title, &summary, &url, &publishedAt, &sourceName); err != nil {
-			logger.Warn("RenderNewsSectionAction: scan error", zap.Error(err))
+		if err := rows.Scan(&title, &summary, &url, &publishedAt, &sourceName, &topicsJSON); err != nil {
+			logger.Warn("loadNewsItems: scan error", zap.Error(err))
 			continue
 		}
 
@@ -225,72 +388,18 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 			item.Date = formatNewsDate(publishedAt.Time)
 		}
 
+		// Include topics for archive view (comma-separated string for display)
+		if includeTopics && topicsJSON != "" && topicsJSON != "[]" {
+			var topics []string
+			if json.Unmarshal([]byte(topicsJSON), &topics) == nil && len(topics) > 0 {
+				item.Topics = strings.Join(topics, ", ")
+			}
+		}
+
 		items = append(items, item)
 	}
 
-	logger.Info("RenderNewsSectionAction: loaded items",
-		zap.Int("count", len(items)),
-		zap.String("domain", domain))
-
-	// If no items at all, still produce a valid JSON (empty array)
-	// so the homepage shows gracefully
-	if items == nil {
-		items = []newsJSONItem{}
-	}
-
-	// -----------------------------------------------------------------------
-	// 5. Check if an insights listing page exists (for the "More" link)
-	// -----------------------------------------------------------------------
-	var insightsURL string
-	_ = params.DB.QueryRowContext(ctx, `
-		SELECT url FROM pages
-		WHERE site_id = $1 AND page_type = 'news-index' AND status = 'active'
-		LIMIT 1
-	`, siteID).Scan(&insightsURL)
-
-	insightsLabel := ""
-	if insightsURL != "" {
-		insightsLabel = "More insights →"
-	}
-
-	// -----------------------------------------------------------------------
-	// 6. Build JSON output
-	// -----------------------------------------------------------------------
-	output := newsJSONOutput{
-		Headline:      headline,
-		Subheadline:   subheadline,
-		Items:         items,
-		InsightsURL:   insightsURL,
-		InsightsLabel: insightsLabel,
-		UpdatedAt:     time.Now().UTC().Format(time.RFC3339),
-		ItemCount:     len(items),
-	}
-
-	jsonBytes, err := json.MarshalIndent(output, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("marshal news JSON: %w", err)
-	}
-
-	// -----------------------------------------------------------------------
-	// 7. Return files map for git_commit step
-	// -----------------------------------------------------------------------
-	filesMap := map[string]interface{}{
-		"data/latest-news.json": string(jsonBytes),
-	}
-
-	logger.Info("RenderNewsSectionAction: JSON produced",
-		zap.Int("item_count", len(items)),
-		zap.Int("json_bytes", len(jsonBytes)),
-		zap.String("domain", domain))
-
-	return map[string]interface{}{
-		"files":      filesMap,
-		"domain":     domain,
-		"item_count": len(items),
-		"headline":   headline,
-		"file_path":  "data/latest-news.json",
-		"rendered":   true,
-	}, nil
+	return items, nil
 }
 
 // truncateNewsSummary truncates at a word boundary.

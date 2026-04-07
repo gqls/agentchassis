@@ -5,8 +5,9 @@
 //   - missing_news_section: sources exist with items but no latest-news on homepage
 //   - stale_news_section:   homepage has latest-news but items are older than threshold
 //   - all_sources_erroring: all content_sources for a site have errors
+//   - missing_news_page:    spec says separate_page=true but no news-index page exists
 //
-// All four are Layer 1 (algorithmic, no LLM). They run as part of the
+// All five are Layer 1 (algorithmic, no LLM). They run as part of the
 // completeness-discovery-agent alongside empty_sections, empty_blog, etc.
 //
 // Handler agent routing:
@@ -14,6 +15,7 @@
 //   - missing_news_section  → content-gap-planner (LLM decides how to add latest-news to homepage)
 //   - stale_news_section    → content-feed-orchestrator (re-runs ingest + triage + render + commit)
 //   - all_sources_erroring  → content-feed-orchestrator (re-seeds may replace broken sources)
+//   - missing_news_page     → content-gap-planner (creates /news.html with news-listing component)
 //
 // To enable, add these check names to the completeness-discovery-agent's
 // "checks" config array (already done in current deployment):
@@ -24,7 +26,7 @@
 //       '{workflow,steps,run_checks,config,checks}',
 //       '["empty_sections", "empty_blog", "orphan_pages",
 //         "missing_news_sources", "missing_news_section", "stale_news_section",
-//         "all_sources_erroring"]'::jsonb
+//         "all_sources_erroring", "missing_news_page"]'::jsonb
 //   )
 //   WHERE type = 'completeness-discovery-agent' AND deleted_at IS NULL;
 
@@ -43,6 +45,7 @@ func init() {
 	Register(&MissingNewsSectionCheck{})
 	Register(&StaleNewsSectionCheck{})
 	Register(&AllSourcesErroringCheck{})
+	Register(&MissingNewsPageCheck{})
 }
 
 // ===========================================================================
@@ -440,6 +443,133 @@ func (c *AllSourcesErroringCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("all_sources_erroring:%s", dctx.SiteID),
+			BatchID:      dctx.BatchID,
+		}},
+	}, nil
+}
+
+// ===========================================================================
+// MissingNewsPageCheck
+// ===========================================================================
+// Detects: classification spec has news_feed.separate_page = true
+// but no page with page_type = 'news-index' exists.
+//
+// This fires after the evaluate_news_feed enrichment step has run and
+// set separate_page = true for verticals where news is a primary draw
+// (energy, sports, finance, technology, etc).
+//
+// Handler: content-gap-planner — reads the gap spec and creates a news
+// page with news-listing component, then creates work items for
+// page-build-handler to generate the content and deploy.
+
+type MissingNewsPageCheck struct{}
+
+func (c *MissingNewsPageCheck) Name() string { return "missing_news_page" }
+
+func (c *MissingNewsPageCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
+	// Check if site spec recommends a separate news page
+	var specData []byte
+	err := dctx.DB.QueryRowContext(dctx.Ctx, `
+		SELECT data FROM site_specs
+		WHERE site_id = $1 AND aspect = 'classification' AND is_current = true
+	`, dctx.SiteID).Scan(&specData)
+	if err != nil {
+		return &CheckResult{}, nil
+	}
+
+	var spec map[string]interface{}
+	if err := json.Unmarshal(specData, &spec); err != nil {
+		return &CheckResult{}, nil
+	}
+
+	contentFeatures, _ := spec["content_features"].(map[string]interface{})
+	if contentFeatures == nil {
+		return &CheckResult{}, nil
+	}
+	newsFeed, _ := contentFeatures["news_feed"].(map[string]interface{})
+	if newsFeed == nil {
+		return &CheckResult{}, nil
+	}
+
+	// Check both recommended and separate_page flags
+	recommended, _ := newsFeed["recommended"].(bool)
+	separatePage, _ := newsFeed["separate_page"].(bool)
+
+	if !recommended || !separatePage {
+		return &CheckResult{}, nil
+	}
+
+	// Check if a news-index page already exists
+	var pageCount int
+	err = dctx.DB.QueryRowContext(dctx.Ctx, `
+		SELECT COUNT(*) FROM pages
+		WHERE site_id = $1 AND page_type = 'news-index'
+	`, dctx.SiteID).Scan(&pageCount)
+	if err != nil {
+		return nil, fmt.Errorf("missing_news_page: page query failed: %w", err)
+	}
+
+	if pageCount > 0 {
+		return &CheckResult{}, nil
+	}
+
+	// Also check if there are any content sources or items — no point creating
+	// a news page if there's nothing to show yet. The missing_news_sources
+	// check handles that case separately.
+	var sourceCount int
+	err = dctx.DB.QueryRowContext(dctx.Ctx, `
+		SELECT COUNT(*) FROM content_sources
+		WHERE site_id = $1 AND is_active = true
+	`, dctx.SiteID).Scan(&sourceCount)
+	if err != nil {
+		return nil, fmt.Errorf("missing_news_page: source query failed: %w", err)
+	}
+
+	if sourceCount == 0 {
+		// No sources yet — missing_news_sources will fire first,
+		// and this check will pick up on the next discovery pass
+		// once sources exist.
+		return &CheckResult{}, nil
+	}
+
+	dctx.Logger.Info("MissingNewsPageCheck: spec recommends separate news page but none exists",
+		zap.String("site_id", dctx.SiteID.String()),
+		zap.Int("source_count", sourceCount))
+
+	// Get domain for the description
+	var domain string
+	_ = dctx.DB.QueryRowContext(dctx.Ctx, `
+		SELECT domain FROM sites WHERE id = $1
+	`, dctx.SiteID).Scan(&domain)
+
+	specJSON, _ := json.Marshal(map[string]interface{}{
+		"check":            "missing_news_page",
+		"page_name":        "news",
+		"page_type":        "news-index",
+		"description":      fmt.Sprintf("Site %s is recommended for a dedicated news page (separate_page=true) but no news-index page exists. Create a /news.html page with a news-listing component to display the full news archive.", domain),
+		"suggestion":       "Create a new page named 'news' with page_type 'news-index', a hero section, the news-listing component, and a call-to-action. Add it to header and footer navigation.",
+		"category":         "content_completeness",
+		"news_feed_config": newsFeed,
+	})
+
+	return &CheckResult{
+		Findings: []map[string]interface{}{{
+			"check":   "missing_news_page",
+			"message": fmt.Sprintf("Site spec recommends a separate news page but no news-index page exists for %s", domain),
+		}},
+		WorkItems: []WorkItemSpec{{
+			SiteID:       dctx.SiteID,
+			Source:       "discovery",
+			Pipeline:     "content",
+			ItemType:     "missing_news_page",
+			Severity:     "medium",
+			Summary:      fmt.Sprintf("Site %s needs a dedicated /news.html page (separate_page=true in spec)", domain),
+			SpecJSON:     string(specJSON),
+			Priority:     60,
+			HandlerAgent: "content-gap-planner",
+			Status:       "detected",
+			CreatedBy:    dctx.AgentType,
+			ItemKey:      fmt.Sprintf("missing_news_page:%s", dctx.SiteID),
 			BatchID:      dctx.BatchID,
 		}},
 	}, nil
