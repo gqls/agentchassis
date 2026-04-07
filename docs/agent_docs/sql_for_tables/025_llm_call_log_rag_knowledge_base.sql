@@ -280,3 +280,158 @@ ALTER TABLE llm_call_log ALTER COLUMN step_name DROP NOT NULL;
 
 -- Relax prompt_rendered to nullable since Go sends nullIfEmpty
 ALTER TABLE llm_call_log ALTER COLUMN prompt_rendered DROP NOT NULL;
+
+----
+
+-- ============================================================================
+-- Training Data Export Queries
+-- ============================================================================
+-- Use these when you have enough examples to fine-tune open-weight models.
+-- Check readiness first, then export in the format your training pipeline needs.
+-- ============================================================================
+
+
+-- ── 1. Check training data readiness ─────────────────────────────────────
+
+-- How many examples per agent type and step?
+SELECT agent_type, step_name, model, count(*) as examples,
+       count(*) FILTER (WHERE success = true) as successful,
+    avg(output_tokens) FILTER (WHERE success = true) as avg_output_tokens
+FROM llm_call_log
+WHERE created_at > NOW() - INTERVAL '90 days'
+GROUP BY agent_type, step_name, model
+ORDER BY examples DESC;
+
+-- How many tool recreation training triples?
+SELECT
+    count(*) as total_triples,
+    count(*) FILTER (WHERE data->'metadata'->>'complete' = 'true') as complete,
+    count(DISTINCT data->'metadata'->>'domain') as unique_sites,
+    count(DISTINCT data->'metadata'->>'vertical') as unique_verticals
+FROM research_results
+WHERE result_type = 'tool_recreation_training';
+
+-- Training examples linked to work item outcomes
+SELECT
+    l.agent_type, l.step_name, l.model,
+    count(*) as total_calls,
+    count(*) FILTER (WHERE w.status = 'complete') as led_to_success,
+    count(*) FILTER (WHERE w.status = 'failed') as led_to_failure
+FROM llm_call_log l
+         JOIN site_work_items w ON w.id = l.work_item_id
+WHERE l.success = true
+  AND l.work_item_id IS NOT NULL
+GROUP BY l.agent_type, l.step_name, l.model
+ORDER BY total_calls DESC;
+
+
+-- ── 2. Export: Tool functional spec generation (analyze_tool) ────────────
+-- Input: site context + source HTML → Output: JSON functional spec
+-- Target: fine-tune Llama/Qwen for structured analysis
+
+-- As JSONL for Unsloth/HuggingFace:
+COPY (
+SELECT json_build_object(
+               'instruction', 'Analyse this interactive web tool and produce a detailed JSON functional specification.',
+               'input', prompt_rendered,
+               'output', response_text,
+               'metadata', json_build_object(
+                       'model', model,
+                       'vertical', vertical,
+                       'tokens', output_tokens,
+                       'work_item_id', work_item_id
+                           )
+       )
+FROM llm_call_log
+WHERE agent_type = 'tool-recreation-handler'
+  AND step_name = 'analyze_tool'
+  AND success = true
+  AND response_text IS NOT NULL
+  AND LENGTH(response_text) > 500
+ORDER BY created_at
+    ) TO '/tmp/analyze_tool_training.jsonl';
+
+
+-- ── 3. Export: Tool code generation (recreate_tool) ──────────────────────
+-- Input: functional spec + source → Output: working HTML/CSS/JS
+-- Target: fine-tune for code generation (hardest task)
+-- Uses the training triples which include quality signals
+
+COPY (
+SELECT json_build_object(
+               'instruction', 'Recreate this interactive web tool as a self-contained HTML/CSS/JavaScript application.',
+               'input', json_build_object(
+                       'functional_spec', data->'functional_spec',
+                       'source_html_preview', LEFT(data->>'source_html', 2000)
+    ),
+               'output', data->>'recreated_html',
+               'metadata', data->'metadata'
+       )
+FROM research_results
+WHERE result_type = 'tool_recreation_training'
+  AND data->'metadata'->>'complete' = 'true'
+  AND LENGTH(data->>'recreated_html') > 1000
+ORDER BY created_at
+    ) TO '/tmp/recreate_tool_training.jsonl';
+
+
+-- ── 4. Export: Site classification ───────────────────────────────────────
+-- High-volume, easy task — good first candidate for model swap
+
+COPY (
+SELECT json_build_object(
+               'instruction', 'Classify this website based on its domain and crawl data.',
+               'input', prompt_rendered,
+               'output', response_text
+       )
+FROM llm_call_log
+WHERE step_name IN ('analyze_site', 'classify_archetype')
+  AND success = true
+  AND response_text IS NOT NULL
+  AND LENGTH(response_text) > 100
+ORDER BY created_at
+    ) TO '/tmp/site_classification_training.jsonl';
+
+
+-- ── 5. Export: Content writing (with quality filter) ─────────────────────
+-- Only export examples where the work item completed without audit failures
+
+COPY (
+SELECT json_build_object(
+               'instruction', 'Write content for this website section.',
+               'input', prompt_rendered,
+               'output', response_text,
+               'metadata', json_build_object(
+                       'vertical', vertical,
+                       'model', model
+                           )
+       )
+FROM llm_call_log l
+WHERE l.agent_type = 'page-content-writer'
+  AND l.step_name = 'generate_content'
+  AND l.success = true
+  AND l.work_item_id IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM site_work_items w
+    WHERE w.id = l.work_item_id AND w.status = 'complete'
+)
+  AND LENGTH(response_text) > 200
+ORDER BY created_at
+    ) TO '/tmp/content_writing_training.jsonl';
+
+
+-- ── 6. Per-vertical counts (decide which verticals have enough data) ────
+
+SELECT
+    vertical,
+    count(*) as total_calls,
+    count(DISTINCT agent_type) as agent_types,
+    count(*) FILTER (WHERE step_name = 'generate_content') as content_calls,
+    count(*) FILTER (WHERE step_name = 'analyze_tool') as analyze_calls,
+    count(*) FILTER (WHERE step_name = 'recreate_tool') as recreate_calls
+FROM llm_call_log
+WHERE success = true
+  AND vertical IS NOT NULL
+GROUP BY vertical
+ORDER BY total_calls DESC;
+

@@ -36,19 +36,27 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
+		// Default prompt_variant to "default" if empty
+		promptVariant := params.PromptVariant
+		if promptVariant == "" {
+			promptVariant = "default"
+		}
+
 		_, err := db.ExecContext(ctx, `
 			INSERT INTO llm_call_log (
 				agent_type, agent_id, step_name, orchestration_id, correlation_id,
 				model, model_resolved, provider,
 				prompt_template, prompt_rendered, response_text,
 				input_tokens, output_tokens, latency_ms,
-				success, error_message
+				success, error_message,
+				work_item_id, vertical, prompt_variant, rag_context_used
 			) VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8,
 				$9, $10, $11,
 				$12, $13, $14,
-				$15, $16
+				$15, $16,
+				$17, $18, $19, $20
 			)`,
 			params.AgentType, nullIfEmpty(params.AgentID),
 			nullIfEmpty(params.StepName), nullIfEmpty(params.OrchestrationID),
@@ -59,6 +67,8 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 			nullIfZero(params.InputTokens), nullIfZero(params.OutputTokens),
 			nullIfZero(params.LatencyMs),
 			params.Success, nullIfEmpty(params.ErrorMessage),
+			nullIfEmpty(params.WorkItemID), nullIfEmpty(params.Vertical),
+			promptVariant, params.RAGContextUsed,
 		)
 
 		if err != nil {
@@ -91,6 +101,11 @@ type LLMCallLogParams struct {
 	LatencyMs       int
 	Success         bool
 	ErrorMessage    string
+	// Flywheel fields — link calls to outcomes for training data
+	WorkItemID     string // UUID string from input_data.work_item_id
+	Vertical       string // Industry vertical from site identity
+	PromptVariant  string // For A/B testing prompt versions
+	RAGContextUsed bool   // Whether RAG retrieval was used in this call
 }
 
 // nullIfZero returns nil for zero token counts (when provider doesn't report them)

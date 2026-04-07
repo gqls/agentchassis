@@ -1027,6 +1027,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Create content_sources from classification news_feed recommendation",
 		IsLocal:     true,
 	},
+	"save_tool_training_data": {
+		Handler:     SaveToolTrainingDataAction,
+		Category:    "training",
+		Description: "Save tool recreation triple for model fine-tuning",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// Site Snapshots

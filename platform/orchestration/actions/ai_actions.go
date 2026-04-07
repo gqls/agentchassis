@@ -273,6 +273,19 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// Track provider for logging
 	provider, _ := aiServiceConfig["provider"].(string)
 
+	// ── Extract flywheel context for training data ─────────────────────
+	// These fields link LLM calls to work item outcomes and industry verticals,
+	// enabling training data export filtered by quality and vertical.
+	flywheelWorkItemID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.work_item_id")
+	flywheelVertical := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_specs.specs.identity.industry")
+	if flywheelVertical == "" {
+		flywheelVertical = datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.industry")
+	}
+	if flywheelVertical == "" {
+		flywheelVertical = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.vertical")
+	}
+	flywheelRAG := datahelpers.ExtractNestedField(params.CollectedData, "rag_results") != nil
+
 	// Start timing the LLM call
 	llmCallStart := time.Now()
 
@@ -299,6 +312,9 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			LatencyMs:       llmLatencyMs,
 			Success:         false,
 			ErrorMessage:    err.Error(),
+			WorkItemID:      flywheelWorkItemID,
+			Vertical:        flywheelVertical,
+			RAGContextUsed:  flywheelRAG,
 		})
 
 		errStr := err.Error()
@@ -422,6 +438,9 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		OutputTokens:    outputTokens,
 		LatencyMs:       llmLatencyMs,
 		Success:         true,
+		WorkItemID:      flywheelWorkItemID,
+		Vertical:        flywheelVertical,
+		RAGContextUsed:  flywheelRAG,
 	})
 
 	// Strip markdown code blocks from response before processing
