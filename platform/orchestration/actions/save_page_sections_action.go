@@ -195,15 +195,13 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			zap.Int("sections", len(sections)),
 		)
 
-		// For HTML-parsed sections, try to look up component_id from content_components
-		if params.DB != nil {
-			enrichSectionsWithComponentIDs(ctx, params.DB, sections, params.Logger)
-		}
 	}
 
-	// Enrich generic/empty section names from the page's planned sections array.
-	// Runs for both metadata and HTML paths — either can produce generic names.
+	// Enrich component IDs and section names from the page's planned sections array.
+	// Runs for BOTH metadata and HTML paths — metadata path often lacks component_id,
+	// and HTML path may have generic section names.
 	if params.DB != nil && len(sections) > 0 {
+		enrichSectionsWithComponentIDs(ctx, params.DB, sections, params.Logger)
 		enrichSectionsWithPlannedNames(ctx, params.DB, pageID, sections, params.Logger)
 	}
 

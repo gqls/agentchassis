@@ -605,7 +605,7 @@ func (r *StateRepository) CreateInitialState(
 		nil,               // $25 - currently_executing
 		now,               // $26 - last_activity
 		processingNode,    // $27 - processing_node
-		siteIDValue) // $28 - site_id
+		siteIDValue)       // $28 - site_id
 
 	if err != nil {
 		r.logger.Error("Failed to create initial state",
