@@ -36,7 +36,7 @@ kubectl -n kafka run -i --rm kcat-med-scrape-$(date +%s) \
   -H from_agent_type=user \
   -H from_agent_id=cli \
   -H responses_topic=system.agent.business-intel.responses <<JSON
-{"action":"orchestrate","config":{"agent_type":"med-price-scrape-orchestrator"},"input_data":{"batch_size":5,"retailer_id":"viovet"}}
+{"action":"orchestrate","config":{"agent_type":"med-price-scrape-orchestrator"},"input_data":{"batch_size":10,"retailer_id":"hyperdrug"}}
 JSON
 
 echo ""
