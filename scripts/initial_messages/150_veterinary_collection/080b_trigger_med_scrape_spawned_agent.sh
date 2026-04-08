@@ -57,6 +57,26 @@ echo "  kubectl -n ai-persona-system logs -f -l app=dynamic-agent --tail=50 | gr
 {"action":"orchestrate","config":{"agent_type":"med-price-scrape-orchestrator"},"input_data":{"batch_size":10,"retailer_id":"hyperdrug"}}
 {"action":"orchestrate","config":{"agent_type":"med-price-scrape-orchestrator"},"input_data":{"batch_size":5,"retailer_id":"viovet"}}
 
+# deploy per site eg vetcomparison.uk
+{"action":"orchestrate","config":{"agent_type":"med-json-exporter"},"input_data":{"domain":"vetcomparison.co.uk"}}
+
+# filter by species e.g dog only
+{"action":"orchestrate","config":{"agent_type":"med-json-exporter"},"input_data":{
+  "domain":"dogmeds.example.co.uk",
+  "data_path":"data/prices",
+  "filters":{"species":["dog"]},
+  "commit_message_prefix":"Update dog medicine prices"
+}}
+
+# single retailer comparison
+{"action":"orchestrate","config":{"agent_type":"med-json-exporter"},"input_data":{
+  "domain":"cheapvetmeds.co.uk",
+  "filters":{"retailers":["pet_drugs_online","animed_direct"]}
+}}
+
+
+
+
 
 # check overall progress
 SELECT r.id,
