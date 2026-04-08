@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-actions-runner
+  namespace: ai-persona-system
+  labels:
+    app: github-actions-runner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: github-actions-runner
+  template:
+    metadata:
+      labels:
+        app: github-actions-runner
+    spec:
+      serviceAccountName: ai-persona-app
+      terminationGracePeriodSeconds: 60
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: runner
+          image: docker.io/aqls/github-actions-runner:latest
+          env:
+            - name: GITHUB_OWNER
+              valueFrom:
+                configMapKeyRef:
+                  name: github-runner-config
+                  key: GITHUB_OWNER
+            - name: GITHUB_REPO
+              valueFrom:
+                configMapKeyRef:
+                  name: github-runner-config
+                  key: GITHUB_REPO
+            - name: RUNNER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: github-runner-config
+                  key: RUNNER_NAME
+            - name: RUNNER_LABELS
+              valueFrom:
+                configMapKeyRef:
+                  name: github-runner-config
+                  key: RUNNER_LABELS
+            - name: GITHUB_PAT
+              valueFrom:
+                secretKeyRef:
+                  name: personae_platform_secrets
+                  key: GITHUB_TOKEN
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

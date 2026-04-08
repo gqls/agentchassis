@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.945
+IMAGE_TAG ?= v1.0.946
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -1904,4 +1904,47 @@ deploy-services: deploy-core deploy-agents deploy-agent-cleanup deploy-dashboard
 dev-dashboard: ## Run Vite dev server for local dashboard development
 	cd frontends/admin-dashboard && npm install && npm run dev
 
+
+#################################
+# GitHub Actions Runner (Self-Hosted)
+#################################
+.PHONY: build-github-runner
+build-github-runner: ## Build github-actions-runner image
+	@echo "$(YELLOW)Building github-actions-runner...$(NC)"
+	docker build -t $(REGISTRY)/github-actions-runner:$(IMAGE_TAG) \
+		-f build/docker/backend/github-actions-runner.dockerfile .
+
+.PHONY: push-github-runner
+push-github-runner: ## Push github-actions-runner image
+	@echo "$(YELLOW)Pushing github-actions-runner...$(NC)"
+	docker push $(REGISTRY)/github-actions-runner:$(IMAGE_TAG)
+
+.PHONY: deploy-github-runner
+deploy-github-runner: ## Deploy github-actions-runner
+	@echo "$(YELLOW)Updating github-actions-runner image tag to $(IMAGE_TAG)...$(NC)"
+	@cd $(KUSTOMIZE_DIR)/services/github-actions-runner/overlays/$(OVERLAY_PATH) && \
+		sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' kustomization.yaml && \
+		rm -f kustomization.yaml.bak
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k \
+		$(KUSTOMIZE_DIR)/services/github-actions-runner/overlays/$(OVERLAY_PATH)
+	@echo "Runner deployed with tag $(IMAGE_TAG)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system rollout status deployment/github-actions-runner
+
+.PHONY: release-github-runner
+release-github-runner: build-github-runner push-github-runner deploy-github-runner ## Build, push and deploy github-actions-runner
+
+.PHONY: github-runner-logs
+github-runner-logs: ## Tail github-actions-runner logs
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system logs -l app=github-actions-runner --tail=30 -f
+
+.PHONY: github-runner-status
+github-runner-status: ## Show github-actions-runner pod status
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system get pods -l app=github-actions-runner
+
+.PHONY: github-runner-restart
+github-runner-restart: ## Restart github-actions-runner
+	@echo "$(YELLOW)Restarting github-actions-runner...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system rollout restart deployment/github-actions-runner
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system rollout status deployment/github-actions-runner --timeout=120s
+	@echo "$(GREEN)Runner restarted$(NC)"
 

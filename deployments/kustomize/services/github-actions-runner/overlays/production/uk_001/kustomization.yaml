@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base
+
+images:
+  - name: docker.io/aqls/github-actions-runner
+    newTag: latest
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: github-runner-config
+    patch: |
+      - op: replace
+        path: /data/GITHUB_OWNER
+        value: "gqls"
+      - op: replace
+        path: /data/GITHUB_REPO
+        value: "sites"
+      - op: replace
+        path: /data/RUNNER_NAME
+        value: "k8s-personae-runner-prod"
