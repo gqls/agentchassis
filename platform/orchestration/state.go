@@ -102,6 +102,7 @@ type OrchestrationState struct {
 	OwnerAgentRole        string `db:"owner_agent_role"`
 	ParentOrchestrationID string `db:"parent_orchestration_id"`
 	ClientID              string `db:"client_id"`
+	SiteID                string `db:"site_id"` // Nullable in DB — empty string means null
 
 	RequestsTopic  string `db:"requests_topic"`  // Where THIS orchestration listens
 	ResponsesTopic string `db:"responses_topic"` // Where THIS orchestration sends responses
@@ -404,9 +405,10 @@ func (r *StateRepository) CreateInitialState(
 			workflow_plan, execution_metadata, execution_path, 
 		    processing_history, subtree_agents, fuel_budget,
 		    version, created_at, updated_at,
-			currently_executing, last_activity, processing_node
+			currently_executing, last_activity, processing_node,
+			site_id
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
 		ON CONFLICT (orchestration_id) DO NOTHING
 	`
 
@@ -558,6 +560,22 @@ func (r *StateRepository) CreateInitialState(
 	subtreeAgents := make(map[string]*types.SubtreeInfo)
 	fuelBudget := execCtx.FuelBudget
 
+	// ── Extract site_id for direct querying ─────────────────────────────
+	var siteIDValue interface{}
+	for _, path := range []string{"input_data.site_id", "site_id", "input_data.spec.site_id"} {
+		if sid := datahelpers.ExtractNestedFieldString(collectedData, path); sid != "" {
+			siteIDValue = sid
+			break
+		}
+	}
+	if siteIDValue == nil && unmarshalledInitialData != nil {
+		if inputData, ok := unmarshalledInitialData["input_data"].(map[string]interface{}); ok {
+			if sid, ok := inputData["site_id"].(string); ok && sid != "" {
+				siteIDValue = sid
+			}
+		}
+	}
+
 	// Execute insert with topics
 	result, err := r.db.ExecContext(ctx, query,
 		orchestrationID,   // $1
@@ -586,7 +604,8 @@ func (r *StateRepository) CreateInitialState(
 		now,               // $24 - updated_at
 		nil,               // $25 - currently_executing
 		now,               // $26 - last_activity
-		processingNode)    // $27 - processing_node
+		processingNode,    // $27 - processing_node
+		siteIDValue) // $28 - site_id
 
 	if err != nil {
 		r.logger.Error("Failed to create initial state",
@@ -619,7 +638,8 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 		currently_executing, last_activity, processing_node, execution_started_at,
 		collected_data, initial_request_data, final_result, workflow_plan,
 		execution_path, execution_metadata, processing_history, subtree_agents,
-		fuel_budget, error, version, created_at, updated_at
+		fuel_budget, error, version, created_at, updated_at,
+		site_id
 	FROM orchestration_states
 	WHERE orchestration_id = $1
 `
@@ -627,7 +647,7 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 	state := &OrchestrationState{}
 	var collectedDataJSON, workflowPlanJSON, executionMetadataJSON, executionPathJSON []byte
 	var awaitedRequestsJSON, awaitedStepsJSON, processingHistoryJSON, subtreeAgentsJSON []byte
-	var finalResultValue, errorValue, parentOrchestrationIDNull, currentlyExecutingValue sql.NullString
+	var finalResultValue, errorValue, parentOrchestrationIDNull, currentlyExecutingValue, siteIDValue sql.NullString
 	var executionStartedAtValue sql.NullTime
 
 	err := r.db.QueryRowContext(ctx, query, orchestrationID).Scan(
@@ -662,6 +682,7 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 		&state.Version,
 		&state.CreatedAt,
 		&state.UpdatedAt,
+		&siteIDValue,
 	)
 
 	if err != nil {
@@ -708,6 +729,9 @@ func (r *StateRepository) GetState(ctx context.Context, orchestrationID string) 
 	}
 	if parentOrchestrationIDNull.Valid {
 		state.ParentOrchestrationID = parentOrchestrationIDNull.String
+	}
+	if siteIDValue.Valid {
+		state.SiteID = siteIDValue.String
 	}
 
 	return state, nil
@@ -1159,7 +1183,8 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
                currently_executing, last_activity, processing_node, execution_started_at,
                collected_data, initial_request_data, final_result, workflow_plan,
                execution_path, execution_metadata, processing_history, subtree_agents,
-               fuel_budget, error, version, created_at, updated_at
+               fuel_budget, error, version, created_at, updated_at,
+               site_id
         FROM orchestration_states
         WHERE correlation_id = $1
         ORDER BY created_at DESC
@@ -1169,7 +1194,7 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 	state := &OrchestrationState{}
 	var collectedDataJSON, workflowPlanJSON, executionMetadataJSON, executionPathJSON []byte
 	var awaitedRequestsJSON, awaitedStepsJSON, processingHistoryJSON, subtreeAgentsJSON []byte
-	var finalResultValue, errorValue, currentlyExecutingValue sql.NullString
+	var finalResultValue, errorValue, currentlyExecutingValue, siteIDCorr sql.NullString
 	var executionStartedAtValue sql.NullTime
 
 	err := r.db.QueryRowContext(ctx, query, correlationID).Scan(
@@ -1202,6 +1227,7 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 		&state.Version,
 		&state.CreatedAt,
 		&state.UpdatedAt,
+		&siteIDCorr,
 	)
 
 	// deserialize it:
@@ -1251,6 +1277,9 @@ func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlation
 	}
 	if executionStartedAtValue.Valid {
 		state.ExecutionStartedAt = &executionStartedAtValue.Time
+	}
+	if siteIDCorr.Valid {
+		state.SiteID = siteIDCorr.String
 	}
 
 	// Initialize maps if nil (for safety)
