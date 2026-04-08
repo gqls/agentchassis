@@ -275,7 +275,7 @@ SELECT s.domain, wi.status, wi.item_type, wi.handler_agent,
        LEFT(COALESCE(wi.error, wi.spec->>'description'), 80) as detail
 FROM site_work_items wi
 JOIN sites s ON s.id = wi.site_id
-WHERE wi.domain = 'build'
+WHERE wi.pipeline = 'build'
   AND (wi.status = 'failed'
        OR (wi.status = 'triaged' AND wi.attempt_count >= wi.max_attempts))
 ORDER BY s.domain, wi.status, wi.item_type;

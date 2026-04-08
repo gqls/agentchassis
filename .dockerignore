@@ -29,6 +29,7 @@ test-results/
 deployments/
 build/docker/frontend/
 build/docker/backend/
+!build/docker/backend/github-actions-runner-entrypoint.sh
 frontends/
 docs/
 scripts/migration/
