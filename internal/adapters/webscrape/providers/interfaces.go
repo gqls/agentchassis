@@ -15,6 +15,7 @@ type ScrapingProvider interface {
 	IsAvailable() bool
 	Scrape(ctx context.Context, url string, config map[string]interface{}) (map[string]interface{}, error)
 	Crawl(ctx context.Context, url string, config map[string]interface{}) (map[string]interface{}, error)
+	Map(ctx context.Context, url string, config map[string]interface{}) (map[string]interface{}, error)
 	ExtractStructured(ctx context.Context, url string, schema map[string]interface{}, config map[string]interface{}) (map[string]interface{}, error)
 }
 

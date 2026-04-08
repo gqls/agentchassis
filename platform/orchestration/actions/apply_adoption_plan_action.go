@@ -17,6 +17,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -296,7 +297,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 
 	// ── 3. Build crawl index and per-page feature map ───────────────────
 
-	crawlPages := buildCrawlPageIndex(params.CollectedData, logger)
+	crawlPages := buildCrawlPageIndex(params.CollectedData, params.DB, siteID, logger)
 	pageFeatures := buildPageFeatureMap(plan)
 
 	// ── 4. Create page records ──────────────────────────────────────────
@@ -598,9 +599,14 @@ func buildPageFeatureMap(plan map[string]interface{}) map[string][]map[string]in
 // buildCrawlPageIndex extracts markdown and rawHtml from the crawl response,
 // keyed by URL. rawHtml is present when the crawl requested it via
 // scrapeOptions.formats.
-func buildCrawlPageIndex(collectedData map[string]interface{}, logger *zap.Logger) map[string]*crawlPageContent {
+//
+// Added DB fallback to buildCrawlPageIndex. When the crawl data isn't in
+// collected_data (paginated flow stores per-page in research_results),
+// read from DB.
+func buildCrawlPageIndex(collectedData map[string]interface{}, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) map[string]*crawlPageContent {
 	index := make(map[string]*crawlPageContent)
 
+	// ── Primary path: read from collected_data (single-message crawl) ───
 	paths := []string{
 		"crawl_result.pages",
 		"crawl_result.response.data.pages",
@@ -619,6 +625,7 @@ func buildCrawlPageIndex(collectedData map[string]interface{}, logger *zap.Logge
 		}
 	}
 
+	// Process pages from collected_data
 	for _, pageRaw := range pages {
 		page, ok := pageRaw.(map[string]interface{})
 		if !ok {
@@ -660,6 +667,57 @@ func buildCrawlPageIndex(collectedData map[string]interface{}, logger *zap.Logge
 		}
 		if sourceURL != "" && sourceURL != pageURL {
 			index[sourceURL] = content
+		}
+	}
+
+	// ── DB fallback: read from research_results (paginated crawl) ───────
+	if len(index) == 0 && db != nil {
+		logger.Info("buildCrawlPageIndex: no pages in collected_data, trying DB fallback")
+
+		rows, err := db.QueryContext(context.Background(), `
+			SELECT data FROM research_results
+			WHERE site_id = $1 AND result_type = 'adoption_crawl_page'
+			ORDER BY created_at
+		`, siteID)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var dataJSON []byte
+				if err := rows.Scan(&dataJSON); err != nil {
+					continue
+				}
+				var pageData map[string]interface{}
+				if err := json.Unmarshal(dataJSON, &pageData); err != nil {
+					continue
+				}
+
+				pageURL, _ := pageData["url"].(string)
+				markdown, _ := pageData["markdown"].(string)
+				rawHTML, _ := pageData["raw_html"].(string)
+
+				if pageURL == "" || (markdown == "" && rawHTML == "") {
+					continue
+				}
+
+				content := &crawlPageContent{Markdown: markdown, RawHTML: rawHTML}
+				index[pageURL] = content
+
+				// Also index by path
+				for _, prefix := range []string{"https://", "http://"} {
+					if strings.HasPrefix(pageURL, prefix) {
+						afterScheme := pageURL[len(prefix):]
+						slashIdx := strings.Index(afterScheme, "/")
+						if slashIdx >= 0 {
+							index[afterScheme[slashIdx:]] = content
+						}
+					}
+				}
+			}
+
+			if len(index) > 0 {
+				logger.Info("buildCrawlPageIndex: loaded from DB fallback",
+					zap.Int("indexed_urls", len(index)))
+			}
 		}
 	}
 

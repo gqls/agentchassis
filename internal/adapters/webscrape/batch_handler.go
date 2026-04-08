@@ -168,17 +168,6 @@ func (a *Adapter) handleBatchScrape(
 			continue
 		}
 
-		// Extract content from scrape result
-		content := ""
-		if markdown, ok := scrapeResult["markdown_content"].(string); ok && markdown != "" {
-			content = markdown
-		} else if cleanContent, ok := scrapeResult["clean_content"].(string); ok && cleanContent != "" {
-			content = cleanContent
-		} else if html, ok := scrapeResult["html_content"].(string); ok && html != "" {
-			// Use HTML as fallback - could strip tags here if needed
-			content = html
-		}
-
 		// Extract metadata
 		pageTitle := title
 		if t, ok := scrapeResult["title"].(string); ok && t != "" {
@@ -190,14 +179,38 @@ func (a *Adapter) handleBatchScrape(
 			pageDescription = d
 		}
 
-		results = append(results, map[string]interface{}{
+		// Pass through raw content fields from scrape result
+		// Preserves markdown + rawHtml separately for adoption crawl usage
+		pageResult := map[string]interface{}{
 			"index":       index,
 			"url":         url,
 			"title":       pageTitle,
 			"description": pageDescription,
-			"content":     content,
 			"success":     true,
-		})
+		}
+
+		// Pass through all content fields the provider returned
+		if md, ok := scrapeResult["markdown_content"].(string); ok && md != "" {
+			pageResult["markdown"] = md
+		}
+		if rawHTML, ok := scrapeResult["raw_html"].(string); ok && rawHTML != "" {
+			pageResult["raw_html"] = rawHTML
+		}
+		if html, ok := scrapeResult["html_content"].(string); ok && html != "" {
+			pageResult["html_content"] = html
+		}
+		if meta, ok := scrapeResult["metadata"].(map[string]interface{}); ok {
+			pageResult["metadata"] = meta
+		}
+
+		// Backward-compatible "content" field (markdown preferred, html fallback)
+		if md, ok := pageResult["markdown"].(string); ok {
+			pageResult["content"] = md
+		} else if html, ok := pageResult["html_content"].(string); ok {
+			pageResult["content"] = html
+		}
+
+		results = append(results, pageResult)
 		successCount++
 	}
 

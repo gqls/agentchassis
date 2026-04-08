@@ -274,6 +274,8 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		result, err = provider.Scrape(a.ctx, url, scrapeConfig)
 	case "crawl":
 		result, err = provider.Crawl(a.ctx, url, scrapeConfig)
+	case "map":
+		result, err = provider.Map(a.ctx, url, scrapeConfig)
 	case "extract":
 		schema, ok := scrapeConfig["schema"].(map[string]interface{})
 		if !ok {
@@ -345,7 +347,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		if pages, ok := resultMap["pages"].([]interface{}); ok {
 			for _, page := range pages {
 				if pageMap, ok := page.(map[string]interface{}); ok {
-					for _, field := range []string{"content", "markdown_content", "html_content"} {
+					for _, field := range []string{"content", "markdown_content", "html_content", "markdown", "rawHtml", "raw_html"} {
 						if content, ok := pageMap[field].(string); ok && len(content) > maxKafkaContentLen {
 							l.Info("Truncating large page field for Kafka",
 								zap.String("field", field),
@@ -358,7 +360,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 			}
 		}
 	}
-	
+
 	// Send success response
 	a.sendSuccessResponse(requestID, correlationID, orchestrationID, replyToTopic, clientID, stepName, result)
 	a.consumer.CommitMessages(context.Background(), msg)

@@ -1083,6 +1083,24 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "To select representative prose-heavy pages from crawl for style analysis",
 		IsLocal:     true,
 	},
+	"firecrawl_map": {
+		Handler:     FirecrawlMapAction,
+		Category:    "webscrape",
+		Description: "Discover site URLs via firecrawl /map endpoint (no content fetched)",
+		IsLocal:     false,
+	},
+	"prepare_scrape_batches": {
+		Handler:     PrepareScrapeBatchesAction,
+		Category:    "webscrape",
+		Description: "Split discovered URLs into batches for paginated scraping",
+		IsLocal:     true,
+	},
+	"store_crawl_batch": {
+		Handler:     StoreCrawlBatchAction,
+		Category:    "site",
+		Description: "Store batch of scraped pages to research_results for paginated crawl",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// New Components

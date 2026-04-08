@@ -442,6 +442,79 @@ func (f *FirecrawlScrapingProvider) pollCrawlJob(ctx context.Context, jobID stri
 	return nil, fmt.Errorf("crawl job timeout after %d attempts", maxAttempts)
 }
 
+// Map returns a list of URLs found on a site without scraping content.
+// Uses firecrawl /map endpoint — lightweight discovery for paginated crawling.
+// Returns: {"links": ["https://...", ...], "total": N}
+func (f *FirecrawlScrapingProvider) Map(ctx context.Context, url string, config map[string]interface{}) (map[string]interface{}, error) {
+	f.logger.Info("Starting site map", zap.String("url", url))
+
+	limit := 100
+	if l, ok := config["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	payload := map[string]interface{}{
+		"url":   url,
+		"limit": limit,
+	}
+
+	// Optional: search query to filter URLs
+	if search, ok := config["search"].(string); ok {
+		payload["search"] = search
+	}
+
+	// Optional: include subdomains
+	if subs, ok := config["includeSubdomains"].(bool); ok {
+		payload["includeSubdomains"] = subs
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal map request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", f.apiURL+"/map", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create map request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+f.apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := f.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute map request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var mapResponse map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&mapResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse map response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		if errorMsg, ok := mapResponse["error"].(string); ok {
+			return nil, fmt.Errorf("map API error: %s", errorMsg)
+		}
+		return nil, fmt.Errorf("map API returned status %d", resp.StatusCode)
+	}
+
+	// Extract links array
+	links, _ := mapResponse["links"].([]interface{})
+
+	f.logger.Info("Site map completed",
+		zap.String("url", url),
+		zap.Int("links_found", len(links)),
+	)
+
+	return map[string]interface{}{
+		"links":       links,
+		"total":       len(links),
+		"mapped_url":  url,
+		"captured_at": time.Now().UTC().Format(time.RFC3339),
+	}, nil
+}
+
 // ExtractStructured extracts structured data using LLM (v2 format)
 func (f *FirecrawlScrapingProvider) ExtractStructured(ctx context.Context, url string, schema map[string]interface{}, config map[string]interface{}) (map[string]interface{}, error) {
 	f.logger.Info("Starting structured extraction", zap.String("url", url))

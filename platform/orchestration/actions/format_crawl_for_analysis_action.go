@@ -17,6 +17,7 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -64,15 +65,71 @@ func FormatCrawlForAnalysisAction(ctx context.Context, params ActionParams) (int
 	}
 
 	if len(pages) == 0 {
-		logger.Warn("No pages found in crawl result",
+		logger.Warn("No pages found in crawl result — trying DB fallback",
 			zap.String("crawl_field", crawlField),
 			zap.Strings("tried_paths", paths))
-		return map[string]interface{}{
-			"research_text":   "No crawl content could be retrieved.",
-			"source_count":    0,
-			"content_quality": "none",
-			"sources":         []interface{}{},
-		}, nil
+
+		// DB fallback: paginated crawl stores pages in research_results
+		// instead of collected_data. Read from there.
+		if params.DB != nil {
+			siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+			if siteIDStr != "" {
+				rows, err := params.DB.QueryContext(ctx, `
+					SELECT data FROM research_results
+					WHERE site_id = $1 AND result_type = 'adoption_crawl_page'
+					ORDER BY created_at
+				`, siteIDStr)
+				if err == nil {
+					defer rows.Close()
+					for rows.Next() {
+						var dataJSON []byte
+						if err := rows.Scan(&dataJSON); err != nil {
+							continue
+						}
+						var pageData map[string]interface{}
+						if err := json.Unmarshal(dataJSON, &pageData); err != nil {
+							continue
+						}
+						// Reshape to match the format the rest of this function expects:
+						// {markdown: "...", metadata: {url: "...", title: "..."}}
+						page := map[string]interface{}{
+							"markdown": pageData["markdown"],
+						}
+						metadata := map[string]interface{}{}
+						if url, ok := pageData["url"].(string); ok {
+							metadata["url"] = url
+							metadata["sourceURL"] = url
+						}
+						if title, ok := pageData["title"].(string); ok {
+							metadata["title"] = title
+						}
+						if meta, ok := pageData["metadata"].(map[string]interface{}); ok {
+							// Merge stored metadata
+							for k, v := range meta {
+								metadata[k] = v
+							}
+						}
+						metadata["statusCode"] = float64(200)
+						page["metadata"] = metadata
+						pages = append(pages, page)
+					}
+					if len(pages) > 0 {
+						logger.Info("Loaded pages from DB fallback",
+							zap.Int("count", len(pages)))
+					}
+				}
+			}
+		}
+
+		// If still empty after DB fallback
+		if len(pages) == 0 {
+			return map[string]interface{}{
+				"research_text":   "No crawl content could be retrieved.",
+				"source_count":    0,
+				"content_quality": "none",
+				"sources":         []interface{}{},
+			}, nil
+		}
 	}
 
 	// Config: summary mode for LLM (light) vs full content
