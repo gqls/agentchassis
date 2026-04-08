@@ -46,7 +46,7 @@ spec:
             - name: GITHUB_PAT
               valueFrom:
                 secretKeyRef:
-                  name: personae_platform_secrets
+                  name: personae-platform-secrets
                   key: GITHUB_TOKEN
           resources:
             requests:
