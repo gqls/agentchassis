@@ -1,7 +1,7 @@
 FROM ubuntu:24.04
 
 ARG RUNNER_VERSION=2.333.1
-ARG TARGETARCH=amd64
+ARG RUNNER_ARCH=x64
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -20,9 +20,9 @@ RUN useradd -m -d /home/runner runner
 
 # Install GitHub Actions runner
 WORKDIR /home/runner
+
 RUN curl -fsSL -o runner.tar.gz \
-    "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-${TARGETARCH}-${RUNNER_VERSION}.tar.gz" \
-    && tar xzf runner.tar.gz \
+    "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz" \    && tar xzf runner.tar.gz \
     && rm runner.tar.gz \
     && ./bin/installdependencies.sh
 
