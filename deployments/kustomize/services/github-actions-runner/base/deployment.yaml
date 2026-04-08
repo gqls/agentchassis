@@ -6,7 +6,7 @@ metadata:
   labels:
     app: github-actions-runner
 spec:
-  replicas: 1
+  replicas: 5
   selector:
     matchLabels:
       app: github-actions-runner
@@ -35,9 +35,8 @@ spec:
                   key: GITHUB_REPO
             - name: RUNNER_NAME
               valueFrom:
-                configMapKeyRef:
-                  name: github-runner-config
-                  key: RUNNER_NAME
+                fieldRef:
+                  fieldPath: metadata.name
             - name: RUNNER_LABELS
               valueFrom:
                 configMapKeyRef:
