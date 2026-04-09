@@ -126,10 +126,13 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	`, functionName).Scan(&existingID)
 
 	if err == nil {
-		// Component already exists — don't overwrite, return the existing one
 		logger.Info("store_generated_component: component already exists, skipping",
 			zap.String("function", functionName),
 			zap.String("existing_id", existingID))
+
+		// Mark pages waiting for this section_type as needs_rebuild
+		markPagesForRebuild(ctx, params.DB, sectionType, logger)
+
 		return map[string]interface{}{
 			"component_id": existingID,
 			"function":     functionName,
@@ -161,17 +164,17 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		)
 		RETURNING id::text
 	`,
-		functionName,                  // $1 name
-		displayName,                   // $2 display_name
-		functionName,                  // $3 function
-		category,                      // $4 category
-		sectionType,                   // $5 section_type
-		string(suitableSiteTypesJSON), // $6 suitable_site_types
-		string(suitablePageTypesJSON), // $7 suitable_page_types
-		description,                   // $8 description
-		htmlTemplate,                  // $9 html_template
-		inputSchemaJSON,               // $10 input_schema
-		isDark,                        // $11 is_dark_section
+		functionName,                                         // $1 name
+		displayName,                                          // $2 display_name
+		functionName,                                         // $3 function
+		category,                                             // $4 category
+		sectionType,                                          // $5 section_type
+		string(suitableSiteTypesJSON),                        // $6 suitable_site_types
+		string(suitablePageTypesJSON),                        // $7 suitable_page_types
+		description,                                          // $8 description
+		htmlTemplate,                                         // $9 html_template
+		inputSchemaJSON,                                      // $10 input_schema
+		isDark,                                               // $11 is_dark_section
 		datahelpers.BuildSemanticTags(sectionType, siteType), // $12 semantic_tags
 	).Scan(&newID)
 
@@ -183,6 +186,12 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		zap.String("component_id", newID),
 		zap.String("function", functionName),
 		zap.String("section_type", sectionType))
+
+	// Mark pages that were waiting for this section_type as needs_rebuild.
+	// When plan_sections can't find a component, the page stays deployed with
+	// a gap. Now that the component exists, those pages should rebuild.
+	// Mark pages waiting for this section_type as needs_rebuild
+	markPagesForRebuild(ctx, params.DB, sectionType, logger)
 
 	return map[string]interface{}{
 		"component_id":  newID,
@@ -433,6 +442,33 @@ func unwrapJSONBlobIfNeeded(s string, logger *zap.Logger) string {
 	}
 
 	return s // Couldn't unwrap — return as-is
+}
+
+// markPagesForRebuild finds deployed pages whose sections array references
+// the given section_type and marks them for rebuild. This closes the loop
+// when a component is created after plan_sections already ran and deferred
+// the section.
+func markPagesForRebuild(ctx context.Context, db *sql.DB, sectionType string, logger *zap.Logger) {
+	res, err := db.ExecContext(ctx, `
+		UPDATE pages SET build_status = 'needs_rebuild', updated_at = NOW()
+		WHERE status = 'active'
+		  AND build_status = 'deployed'
+		  AND EXISTS (
+		      SELECT 1 FROM jsonb_array_elements_text(sections) sec
+		      WHERE sec = $1
+		  )
+	`, sectionType)
+	if err != nil {
+		logger.Warn("store_generated_component: failed to mark pages for rebuild",
+			zap.String("section_type", sectionType),
+			zap.Error(err))
+		return
+	}
+	if rows, _ := res.RowsAffected(); rows > 0 {
+		logger.Info("store_generated_component: marked pages for rebuild",
+			zap.String("section_type", sectionType),
+			zap.Int64("pages_marked", rows))
+	}
 }
 
 // truncateStr returns the first n characters of s, appending "..." if truncated.

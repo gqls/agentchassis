@@ -291,3 +291,32 @@ WHERE type = 'page-build-handler' AND deleted_at IS NULL;
 --  "load_spec_sections" | "load_page_sections_from_spec" | "spec_sections.sections"
 
 
+-- put error detection at config not at step level
+UPDATE agent_definitions
+SET default_config = (
+    SELECT jsonb_set(
+                   jsonb_set(
+                           jsonb_set(
+                                   jsonb_set(
+                                           jsonb_set(
+                                                   jsonb_set(
+                                                           jsonb_set(
+                                                                   default_config,
+                                                                   '{workflow,steps,deploy_page,config,error_step}', '"complete_error"'
+                                                           ),
+                                                           '{workflow,steps,plan_sections,config,error_step}', '"complete_error"'
+                                                   ),
+                                                   '{workflow,steps,save_sections,config,error_step}', '"complete_error"'
+                                           ),
+                                           '{workflow,steps,validate_content,config,error_step}', '"mark_needs_review"'
+                                   ),
+                                   '{workflow,steps,load_spec_sections,config,error_step}', '"plan_sections"'
+                           ),
+                           '{workflow,steps,call_content_writer,config,error_step}', '"complete_error"'
+                   ),
+                   '{workflow,steps,load_existing_content,config,error_step}', '"load_spec_sections"'
+           )
+),
+    updated_at = NOW()
+WHERE type = 'page-build-handler';
+

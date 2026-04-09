@@ -214,7 +214,7 @@ kubectl -n ai-persona-system logs --tail=500 -l app=business-intel -f --max-log-
 
 SELECT wi.item_type, wi.status, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.pipeline = 'build' AND wi.status != 'complete' ORDER BY wi.created_at DESC;
 SELECT wi.item_type, wi.status, s.domain, LEFT(wi.summary, 50) FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.pipeline = 'build' AND wi.status != 'complete' ORDER BY wi.created_at DESC;
-
+SELECT wi.item_type, wi.status, s.domain, LEFT(wi.summary, 50), LEFT(wi.error, 150) FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.pipeline = 'build' AND wi.status != 'complete' ORDER BY wi.created_at DESC;
 
 reset
 -- Reset the claimed (failed) content page back to triaged

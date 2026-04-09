@@ -595,3 +595,11 @@ WHERE type = 'completeness-discovery-agent'
 -- FROM agent_definitions WHERE type = 'completeness-discovery-agent';
 
 
+-- Add unresolved_sections to completeness-discovery-agent
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        '["all_sources_erroring", "empty_blog", "empty_sections", "missing_news_section", "missing_news_sources", "missing_structure", "orphan_pages", "stale_news_section", "unresolved_sections"]'::jsonb
+                     )
+WHERE type = 'completeness-discovery-agent';
