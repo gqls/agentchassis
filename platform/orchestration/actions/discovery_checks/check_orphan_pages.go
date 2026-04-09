@@ -6,11 +6,13 @@
 //   - page_components rendered_html (inline links from other pages)
 //
 // Orphan pages are live but unreachable — users can't find them.
-// The most common cause is blog posts published without updating the
-// blog listing page, or new pages added without nav entries.
 //
-// Creates work items routed to rebuild_blog_listing (for blog posts)
-// or nav-agent (for content pages missing from nav).
+// Three routing paths:
+//   1. Blog posts → orphan_blog_posts → rerender-pages (rebuild listing)
+//   2. Pages with in_header/in_footer flags → nav_drift → nav-updater
+//      (one item per site — nav tables need rebuilding, not per-page fixes)
+//   3. Pages without nav flags → needs_internal_links → (future handler)
+//      (sub-pages that need linking from parent content, not nav)
 //
 // Registration: automatic via init() → Register(&OrphanPagesCheck{})
 
@@ -40,9 +42,10 @@ func (c *OrphanPagesCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error)
 
 	result := &CheckResult{}
 
-	// Group by page_type for targeted work items
+	// Group by routing path
 	blogOrphans := 0
-	contentOrphans := 0
+	var navDriftPages []orphanPageFinding // have nav flags but aren't in nav
+	var unlinkPages []orphanPageFinding   // no nav flags, need internal links
 
 	for _, o := range orphans {
 		result.Findings = append(result.Findings, map[string]interface{}{
@@ -51,43 +54,23 @@ func (c *OrphanPagesCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error)
 			"page_url":  o.URL,
 			"page_type": o.PageType,
 			"page_id":   o.ID,
+			"in_header": o.InHeader,
+			"in_footer": o.InFooter,
 		})
 
 		switch o.PageType {
 		case "blog-post":
 			blogOrphans++
 		default:
-			contentOrphans++
-
-			specJSON, _ := json.Marshal(map[string]interface{}{
-				"check":     "orphan_pages",
-				"page_name": o.Name,
-				"page_url":  o.URL,
-				"page_type": o.PageType,
-				"page_id":   o.ID,
-				"fix":       "Page is deployed but not linked from navigation or any other page",
-			})
-
-			result.WorkItems = append(result.WorkItems, WorkItemSpec{
-				SiteID:       dctx.SiteID,
-				Source:       "discovery",
-				Pipeline:     "build",
-				ItemType:     "orphan_page",
-				Severity:     "medium",
-				Summary:      fmt.Sprintf("Page %s (%s) is deployed but unreachable — no inbound links", o.Name, o.URL),
-				SpecJSON:     string(specJSON),
-				Priority:     45,
-				HandlerAgent: "content-gap-planner",
-				Status:       "detected",
-				CreatedBy:    dctx.AgentType,
-				ItemKey:      fmt.Sprintf("orphan_page:%s:%s", o.Name, dctx.SiteID),
-				BatchID:      dctx.BatchID,
-			})
+			if o.InHeader || o.InFooter {
+				navDriftPages = append(navDriftPages, o)
+			} else {
+				unlinkPages = append(unlinkPages, o)
+			}
 		}
 	}
 
-	// Blog orphans get a single work item — the fix is to rebuild the listing,
-	// not to fix each post individually
+	// ── Blog orphans: rebuild listing (one item per site) ──
 	if blogOrphans > 0 {
 		specJSON, _ := json.Marshal(map[string]interface{}{
 			"check":        "orphan_pages",
@@ -113,10 +96,75 @@ func (c *OrphanPagesCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error)
 		})
 	}
 
+	// ── Nav drift: pages have nav flags but aren't in nav (one item per site) ──
+	// The fix is to re-run populate_nav_tables + re-render site components.
+	// nav-updater already does this.
+	if len(navDriftPages) > 0 {
+		pageNames := make([]string, len(navDriftPages))
+		for i, p := range navDriftPages {
+			pageNames[i] = p.Name
+		}
+
+		specJSON, _ := json.Marshal(map[string]interface{}{
+			"check":          "orphan_pages",
+			"orphan_type":    "nav_drift",
+			"affected_pages": pageNames,
+			"affected_count": len(navDriftPages),
+			"fix":            "Pages have in_header/in_footer flags set but are missing from site_nav_items. Nav tables need rebuilding.",
+		})
+
+		result.WorkItems = append(result.WorkItems, WorkItemSpec{
+			SiteID:       dctx.SiteID,
+			Source:       "discovery",
+			Pipeline:     "build",
+			ItemType:     "nav_drift",
+			Severity:     "high",
+			Summary:      fmt.Sprintf("%d pages have nav flags but missing from navigation — nav tables need rebuild", len(navDriftPages)),
+			SpecJSON:     string(specJSON),
+			Priority:     20,
+			HandlerAgent: "nav-updater",
+			Status:       "detected",
+			CreatedBy:    dctx.AgentType,
+			ItemKey:      fmt.Sprintf("nav_drift:%s", dctx.SiteID),
+			BatchID:      dctx.BatchID,
+		})
+	}
+
+	// ── Needs internal links: sub-pages with no nav flags ──
+	// These are service sub-pages, product details, etc. that should be
+	// linked from parent content pages, not from top-level navigation.
+	for _, o := range unlinkPages {
+		specJSON, _ := json.Marshal(map[string]interface{}{
+			"check":     "orphan_pages",
+			"page_name": o.Name,
+			"page_url":  o.URL,
+			"page_type": o.PageType,
+			"page_id":   o.ID,
+			"fix":       "Page has no nav flags and no inbound links. Needs linking from a related content page.",
+		})
+
+		result.WorkItems = append(result.WorkItems, WorkItemSpec{
+			SiteID:       dctx.SiteID,
+			Source:       "discovery",
+			Pipeline:     "build",
+			ItemType:     "needs_internal_links",
+			Severity:     "low",
+			Summary:      fmt.Sprintf("Page %s (%s) has no inbound links — needs linking from related content", o.Name, o.URL),
+			SpecJSON:     string(specJSON),
+			Priority:     70,
+			HandlerAgent: "internal-linker",
+			Status:       "detected",
+			CreatedBy:    dctx.AgentType,
+			ItemKey:      fmt.Sprintf("needs_links:%s:%s", o.Name, dctx.SiteID),
+			BatchID:      dctx.BatchID,
+		})
+	}
+
 	dctx.Logger.Info("OrphanPagesCheck: complete",
 		zap.Int("total_orphans", len(orphans)),
 		zap.Int("blog_orphans", blogOrphans),
-		zap.Int("content_orphans", contentOrphans),
+		zap.Int("nav_drift", len(navDriftPages)),
+		zap.Int("needs_links", len(unlinkPages)),
 	)
 
 	return result, nil
@@ -127,6 +175,8 @@ type orphanPageFinding struct {
 	Name     string
 	URL      string
 	PageType string
+	InHeader bool
+	InFooter bool
 }
 
 func findOrphanPages(dctx DiscoveryCheckContext) ([]orphanPageFinding, error) {
@@ -140,7 +190,8 @@ func findOrphanPages(dctx DiscoveryCheckContext) ([]orphanPageFinding, error) {
 	// - blog-index page (in nav, the listing is the entry point)
 	// - tool pages (may be linked externally or from JS)
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
-		SELECT p.id::text, p.name, p.url, COALESCE(p.page_type, 'content')
+		SELECT p.id::text, p.name, p.url, COALESCE(p.page_type, 'content'),
+		       COALESCE(p.in_header, false), COALESCE(p.in_footer, false)
 		FROM pages p
 		WHERE p.site_id = $1
 		  AND p.build_status = 'deployed'
@@ -187,7 +238,7 @@ func findOrphanPages(dctx DiscoveryCheckContext) ([]orphanPageFinding, error) {
 	var findings []orphanPageFinding
 	for rows.Next() {
 		var f orphanPageFinding
-		if err := rows.Scan(&f.ID, &f.Name, &f.URL, &f.PageType); err != nil {
+		if err := rows.Scan(&f.ID, &f.Name, &f.URL, &f.PageType, &f.InHeader, &f.InFooter); err != nil {
 			dctx.Logger.Warn("Failed to scan orphan page", zap.Error(err))
 			continue
 		}
