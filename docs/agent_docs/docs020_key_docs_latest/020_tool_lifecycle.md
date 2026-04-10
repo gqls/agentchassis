@@ -1,4 +1,4 @@
-# 012 — Tool Lifecycle Guide
+# 020 — Tool Lifecycle
 
 How interactive tools are suggested, deployed, improved, and quality-checked across sites.
 
@@ -81,10 +81,15 @@ The LLM prompt includes concrete examples per industry and explicitly instructs 
 - `target_page` — which existing page to add it to, or `new` for a dedicated tools page
 - `library_source` — function name from library if forkable, or null if it needs building from scratch
 - `complexity` — simple / moderate / complex
+- `related_pages` — 1-3 existing page names whose topics connect naturally to the tool (for cross-linking)
 
-6. **create_items_loop** — loops over suggestions, creating an `add_tool` work item per suggestion with the full suggestion object in `spec_data`
+6. **save_tool_spec** — `write_site_spec` persists the evaluation (reasoning, suggestions, rejections) to `site_specs` aspect `tools`
+7. **create_items_loop** — loops over suggestions. Each suggestion is routed by a conditional check:
+    - If `tool_component_id` is non-null → `add_tool` work item with `handler_agent: tool-deployer` (library fork)
+    - If `tool_component_id` is null → `add_tool` work item with `handler_agent: tool-generator` (novel tool, LLM generation)
+8. **create_cross_links** — `create_tool_cross_link_items` action creates `content_rewrite` work items for each suggestion's `related_pages`, threading rewrite guidance to the content writer
 
-**Work items created:** N × `add_tool` → `tool-deployer`
+**Work items created:** N × `add_tool` → `tool-deployer` (library) or `tool-generator` (novel), plus N × `content_rewrite` → `page-build-handler` (cross-links)
 
 ### Agent: `tool-deployer`
 
@@ -177,16 +182,57 @@ The LLM also returns a `quality_score` (1-10) which is stored in the work item r
 **Handles:** `add_tool` items where `tool_component_id` is null (no library tool to fork)  
 **Input contract:** `site_id`, `domain`, `spec` (with function, name, description)
 
-Creates a new tool from scratch via LLM when no suitable library tool exists. Workflow steps:
+Creates a new tool from scratch via LLM when no suitable library tool exists. Routing from tool-suggester is automatic — the `check_is_library` conditional in the loop sub_workflow sends novel suggestions here.
+
+Workflow steps:
 
 1. **ensure_site_record** — standard site context
 2. **load_brand_context** — `read_site_spec` loads brand/identity for matching site style
 3. **generate_tool_html** — `execute_llm_prompt` generates the full HTML/CSS/JS
-4. **save_tool** — `create_tool_component` action creates the content_component, page, and page_component link
+4. **save_tool** — `create_tool_component` action does the heavy lifting:
+    - Strips markdown code fences from LLM output (via `datahelpers.StripCodeFences`)
+    - Creates `content_components` row with `component_level = 'tool'`, `created_from = 'generated'`
+    - Creates tool page at `/tools/{function}.html` with `page_type = 'tool'`
+    - Creates `page_components` at position 2 with `rendered_html` set and `build_status = 'deployed'`
+    - Adds "Tools" nav group and nav item (via `addToolToNav`)
+    - Creates `needs_content_page` work item → `page-build-handler` writes hero, intro, and CTA sections around the tool widget
+    - Creates companion guide page at `/guides/{function}-guide.html` + `needs_content_page` work item
 
-The generated tool follows the same template structure as library tools: `<style>` + `<main>` + `<script>`, CSS variables for colours, self-contained with no external dependencies.
+The generated tool follows the same template structure as library tools: `<style>` + `<div class="tool-container">` + `<script>`, CSS variables for colours, self-contained with no external dependencies.
 
-**Note:** Routing from tool-suggester to tool-generator (for novel tools) vs tool-deployer (for library forks) is not yet automated. Currently all suggestions go to tool-deployer. Novel tool suggestions without a `tool_component_id` will fail at tool-deployer and need manual creation or a routing action.
+**Go action:** `create_tool_component` in `create_tool_component_action.go`
+
+**Work items created:**
+- `needs_content_page` → `page-build-handler` (tool page content)
+- `needs_content_page` → `page-build-handler` (companion guide)
+
+### Cross-Linking: `create_tool_cross_link_items`
+
+**Migration:** 071  
+**Go action:** `create_tool_cross_link_items` in `create_tool_cross_link_items.go`  
+**Called by:** tool-suggester's `create_cross_links` step (after `create_items_loop`)
+
+After tool-suggester creates `add_tool` work items, it runs a second step that creates `content_rewrite` work items so existing content pages reference the new tools contextually. The LLM already sees all pages during evaluation and returns `related_pages` per suggestion (1-3 page names whose topics connect to the tool).
+
+The action:
+1. Loads page map (name → ID) for the site
+2. Iterates suggestions, extracts `related_pages` arrays
+3. Skips pages starting with `tool-` (tool-to-tool cross-linking isn't useful)
+4. Creates `content_rewrite` work items for `page-build-handler` with:
+   - `page_name` in spec (required — dispatch loop maps `spec.page_name` → `input_data.page_name`)
+   - `suggestion` field with natural-language guidance for weaving in a tool reference
+   - Dedup via `item_key = tool_crosslink:{function}:{page}:{site}`
+   - Priority 110
+
+When the dispatch loop processes these items, page-build-handler passes `spec.suggestion` through as `rewrite_guidance` to the content writer. The writer's per-section LLM prompt includes a `## Rewrite Guidance` block that instructs it to integrate the tool reference naturally.
+
+**Note on prompt location:** The content writer's per-section prompt is nested inside:
+```
+process_sections_loop → config → sub_workflow → steps → generate_content → config → prompt_template
+```
+Top-level `jsonb_each(default_config->'workflow'->'steps')` will NOT find it.
+
+**Work items created:** N × `content_rewrite` → `page-build-handler`
 
 ---
 
@@ -198,8 +244,12 @@ Improvement sweep (scheduler, every 10 minutes)
 ├─ discovery check: missing_tools
 │  └─ evaluate_tools                handler: tool-suggester
 │     ├─ add_tool (×N, library)     handler: tool-deployer
+│     │  └─ needs_content_page      handler: page-build-handler
 │     │  └─ [needs_rerender]        handler: rerender-pages
-│     └─ add_tool (×N, novel)       handler: tool-generator (future routing)
+│     ├─ add_tool (×N, novel)       handler: tool-generator
+│     │  └─ needs_content_page (×2) handler: page-build-handler (tool page + guide)
+│     │  └─ [needs_rerender]        handler: rerender-pages
+│     └─ content_rewrite (×N)       handler: page-build-handler (cross-links)
 │        └─ [needs_rerender]        handler: rerender-pages
 │
 ├─ discovery check: tool_health
@@ -224,10 +274,11 @@ Improvement sweep (scheduler, every 10 minutes)
 | item_type | handler_agent | spec fields | created by |
 |---|---|---|---|
 | `evaluate_tools` | `tool-suggester` | `check`, `reason` | discovery check (missing_tools) |
-| `add_tool` | `tool-deployer` | `tool_component_id`, `name`, `function`, `description`, `library_source`, `target_page`, `complexity` | tool-suggester |
+| `add_tool` | `tool-deployer` or `tool-generator` | `tool_component_id` (null for novel), `name`, `function`, `description`, `library_source`, `target_page`, `complexity` | tool-suggester |
 | `improve_tool` | `tool-improver` | `component_id`, `issue`, `check` (optional), `fix_suggestion` (optional) | tool_health check, tool-auditor, or manual |
 | `audit_tool` | `tool-auditor` | `component_id`, `check`, `page_id`, `page_name` | tool_health check |
 | `needs_human_review` | hitl-review | `component_id`, `tool_function`, `issue`, `fix_suggestion`, `confidence`, `category` | tool-auditor (low-confidence findings) |
+| `content_rewrite` | `page-build-handler` | `page_name`, `page_id`, `suggestion`, `tool_function`, `tool_display_name`, `source` | tool-suggester (cross-linking) |
 
 ---
 
@@ -235,8 +286,9 @@ Improvement sweep (scheduler, every 10 minutes)
 
 | Action | File | Purpose |
 |---|---|---|
-| `deploy_tool_to_site` | `deploy_tool_action.go` | Fork library tool, create page, link component |
-| `create_tool_component` | `create_tool_component_action.go` | Create new tool from generated HTML, create page, link component |
+| `deploy_tool_to_site` | `deploy_tool_action.go` | Fork library tool, create page + content sections + companion guide, link component |
+| `create_tool_component` | `create_tool_component_action.go` | Create novel tool from LLM-generated HTML, create page with rendered_html at position 2, companion guide, nav entry, content work items |
+| `create_tool_cross_link_items` | `create_tool_cross_link_items.go` | Create `content_rewrite` items for related pages; filters tool pages; includes `page_name` in spec |
 | `update_component_html` | `update_component_html_action.go` | Update `html_template` with optional version snapshot |
 
 ## Discovery Checks
@@ -285,15 +337,18 @@ Tier 3 requires its own container (Puppeteer/Playwright) running as a separate a
 - Screenshots could be sent to an LLM for visual interpretation (Tier 2.5)
 
 ### Not yet implemented
-- **Novel tool routing** — tool-suggester sends all suggestions to tool-deployer. Tools with `library_source: null` (need building from scratch) should route to `tool-generator` instead. Needs either a conditional in the loop sub_workflow or a Go routing action.
 - **Tool visual testing** (Tier 3) — headless browser rendering checks. See three-tier plan above.
 - **Tool removal automation** — currently admin-only via dashboard. No automated removal of inappropriate tools (by design — relevance is a human judgment).
+- **News → tool linking** — when news article writing is added, pass deployed tool list to the writer's prompt. The `rewrite_guidance` pattern is established.
 
 ### Implemented (was previously listed as future)
 - `tool_health` discovery check — structural quality checks + LLM audit queue. Replaces the old `check_tool_rendering` placeholder.
 - `tool-generator` agent — creates tools from scratch via LLM when no library tool exists.
+- **Novel tool routing** — tool-suggester's `create_items_loop` routes suggestions with `tool_component_id: null` to `tool-generator` (via `check_is_library` conditional in the loop sub_workflow). Library tools route to `tool-deployer`. Tested end-to-end with gaswholesalers.com: "Gas Unit Converter" generated, deployed, content written, companion guide created, nav entry added.
 - `tool-auditor` agent — LLM code review of deployed tools.
 - Admin tool management endpoints — list, deploy, remove tools via dashboard.
+- `create_tool_component` action — full parity with `deploy_tool_to_site`: creates component, page, page_component with rendered_html at position 2, nav entry, `needs_content_page` work items for tool page and companion guide.
+- **Cross-linking** — tool-suggester returns `related_pages` per suggestion. `create_tool_cross_link_items` action creates `content_rewrite` work items. `rewrite_guidance` threads through page-build-handler → page-content-writer so the LLM weaves tool references into existing page content. Verified: tool links land in deployed HTML.
 
 ### Design decisions
 - Tools are a post-build concern. The site planner doesn't think about tools — the first improvement sweep after build handles them. This keeps the initial build fast and tool decisions informed by the actual deployed site.
@@ -306,6 +361,12 @@ Tier 3 requires its own container (Puppeteer/Playwright) running as a separate a
 - **Missing_tools discovery check used universal tags** — the `matchToolToSite` function classified `security`/`password`/`privacy` as universal, deploying a password checker to every site (including gas wholesalers). Fixed by removing tag-based matching entirely — the discovery check now creates `evaluate_tools` items for LLM evaluation instead of `add_tool` items for direct deployment.
 - **tool-suggester SQL bugs** — queried `p.slug` (doesn't exist, should be `p.url`), `p.purpose` (doesn't exist), `p.sort_order` (should be `p.nav_order`). Used template interpolation instead of parameterised queries. site_specs paths missing `.specs.` prefix. All fixed in the agent definition.
 - **create_tool_component_action.go** — INSERT referenced `pages.slug`, `pages.sort_order`, `pages.purpose` which don't exist. Fixed to use `url`, `nav_order`, `meta_description`.
+- **addToolToNav used wrong column names** — `site_nav_groups` has `group_key`/`group_label`/`group_type`/`position`, not `label`/`sort_order`/`in_header`/`in_footer`. `site_nav_items` requires `site_id` and uses `position` not `sort_order`. The function was silently failing (best-effort, non-fatal) on every tool deployment. Fixed to match the actual schema and use `NOT EXISTS` guard instead of `ON CONFLICT` (no unique constraint on nav items).
+- **created_from check constraint** — `content_components.chk_created_from_valid` allows `manual`, `generated`, `adopted`, `tool`, `forked`. Initial code used `'tool-generator'` which failed the constraint. Fixed to use `'generated'`.
+- **Novel tools routed to tool-deployer** — tool-suggester hard-coded `handler_agent: "tool-deployer"` for all suggestions. Novel tools (null `tool_component_id`) failed at tool-deployer. Fixed by adding `check_is_library` conditional in the loop sub_workflow that routes to `tool-generator` when `tool_component_id` is null.
+- **Cross-link spec missing page_name** — `build-dispatch-loop` maps `spec.page_name` but the cross-link spec only had `"page"`. Page-build-handler got empty page_name. Fixed by adding `"page_name": pageName` to spec.
+- **072 prompt injection missed nested prompt** — DO block searched top-level workflow steps via `jsonb_each`, but page-content-writer's LLM prompt is nested inside `process_sections_loop → sub_workflow → generate_content`. Fixed by targeting the correct jsonb path directly.
+- **content-quality-auditor check_empty_pages** — `HAVING NOT EXISTS (... WHERE lpc.page_id = p.id ...)` referenced `p.id` not in `GROUP BY p.name`. Fixed: `GROUP BY p.id, p.name`.
 
 
 ## Trigger Flows
@@ -322,7 +383,16 @@ kafka-scheduler (every 120s)
 → build-dispatch-loop
 → spawns tool-suggester with site_id and domain
 → tool-suggester runs its workflow (LLM evaluates, may return 0 suggestions)
-→ creates N × add_tool items → tool-deployer (for library forks)
+→ save_tool_spec writes evaluation to site_specs aspect 'tools'
+→ create_items_loop routes each suggestion:
+  ├─ tool_component_id != null → add_tool item, handler: tool-deployer (fork)
+  └─ tool_component_id == null → add_tool item, handler: tool-generator (LLM creates)
+→ create_cross_links step: creates content_rewrite items for related pages
+→ tool-deployer forks library tool, creates page + content sections + companion guide
+→ tool-generator: LLM generates HTML → create_tool_component creates component, page,
+  page_component (with rendered_html), nav entry, content work items, companion guide
+→ page-build-handler writes hero/intro/CTA sections (and rewrite_guidance for cross-links)
+→ rerender-pages → page-rerender → git → deployed
 ```
 
 ### Tool quality flow
@@ -376,5 +446,17 @@ INSERT INTO site_work_items (
     '{"component_id": "<component_uuid>", "check": "manual"}'::jsonb,
     140, 'tool-auditor', 'triaged', 'admin',
     'audit_tool:<tool_function>:<site_uuid>'
+);
+
+-- Manually trigger novel tool generation (bypasses tool-suggester)
+INSERT INTO site_work_items (
+    site_id, source, pipeline, item_type, severity, summary,
+    spec, priority, handler_agent, status, created_by, item_key
+) VALUES (
+    '<site_uuid>', 'admin', 'build', 'add_tool', 'low',
+    '<Tool Display Name>',
+    '{"name": "<Tool Display Name>", "function": "tool-<kebab-name>", "description": "<What it does and why>", "priority": 1, "target_page": "new", "library_source": null, "tool_component_id": null, "complexity": "moderate"}'::jsonb,
+    120, 'tool-generator', 'triaged', 'admin',
+    'add_tool_novel:tool-<kebab-name>:<site_uuid>'
 );
 ```

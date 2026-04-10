@@ -659,3 +659,176 @@ INSERT INTO scheduled_tasks (
 --        last_triggered_at, last_completed_at
 -- FROM scheduled_tasks
 -- WHERE name = 'content-feed-refresh';
+
+-- ============================================================================
+-- 075a: Team data for all three sites
+-- ============================================================================
+
+-- ai-agent-orchestration.com
+UPDATE site_specs
+SET data = jsonb_set(data, '{team}', '[
+    {
+        "name": "Peter Grenfell",
+        "title": "Principal Consultant",
+        "bio": "Over 30 years of engineering experience across startups, scale-ups, and enterprise systems. Built and operated worldsoccernews.com — one of the world''s busiest sports sites, holding top search engine placement for highly competitive terms for over a decade. Former senior engineer at Bumble. Strong financial systems background. Designed this multi-agent orchestration framework from the conviction that many specialised AI agents collaborating through robust infrastructure outperform any single-model approach. The framework now coordinates 30+ agent types on Kubernetes and Kafka, managing thousands of concurrent agent instances in production across websites, data pipelines, and research systems.",
+        "photo": ""
+    },
+    {
+        "name": "Archivist",
+        "title": "Head of Research",
+        "bio": "AI managing agent. Leads a team of specialist research agents that investigate before anything gets built or published. Depending on the task, Archivist coordinates deep web research, source credibility verification, structured data extraction from industry registries, Companies House cross-referencing, and competitive analysis. Whether the job is grounding a content page in verified facts or building a dataset of 10,000 businesses with financial enrichment, Archivist''s team ensures the output is sourced, attributed, and accurate.",
+        "photo": ""
+    },
+    {
+        "name": "Sentinel",
+        "title": "Head of Quality Assurance",
+        "bio": "AI managing agent. Coordinates a team of specialist auditors that continuously monitor everything we deploy — websites, data pipelines, interactive tools, news feeds, and content accuracy. Each auditor focuses on a different dimension: structural integrity, content quality, design consistency, factual accuracy, and data pipeline health. Findings are classified by severity and routed to the right specialist for resolution. Full audit trails on every finding and fix.",
+        "photo": ""
+    },
+    {
+        "name": "Quartermaster",
+        "title": "Head of Operations",
+        "bio": "AI managing agent. Runs the ongoing improvement of every deployed system. Quartermaster coordinates maintenance cycles across a team of specialist agents — each responsible for a different concern: content freshness, tool health, navigation structure, news feed reliability, data quality, and deployment integrity. Every improvement cycle is observable and every change can be routed through human review before it takes effect. Systems get better between review cycles, with routine maintenance handled autonomously.",
+        "photo": ""
+    }
+]'::jsonb)
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'ai-agent-orchestration.com')
+  AND aspect = 'identity' AND is_current = true;
+
+-- finetuning.uk
+UPDATE site_specs
+SET data = jsonb_set(data, '{team}', '[
+    {
+        "name": "Peter Grenfell",
+        "title": "Principal Consultant",
+        "bio": "30+ years building software — from running one of the world''s busiest sports websites to senior engineering at Bumble to financial systems. Built this AI framework because practical AI should be accessible to every business, not just those with engineering teams. The system now runs dozens of specialised AI agents that handle research, content, design, data collection, and ongoing maintenance — so business owners can focus on their business.",
+        "photo": ""
+    },
+    {
+        "name": "Archivist",
+        "title": "Head of Research",
+        "bio": "AI managing agent. Leads a team of research specialists that do the homework before anything gets written or published. Depending on what''s needed, Archivist''s team researches your industry from multiple sources, checks facts against official records, verifies business data, and builds a clear picture of what your customers need to know. Your content and data are grounded in real, verified information — not generic filler.",
+        "photo": ""
+    },
+    {
+        "name": "Sentinel",
+        "title": "Head of Quality",
+        "bio": "AI managing agent. Runs a team of specialist checkers that continuously review everything we build and maintain — your website, your content, your tools, and any data we collect on your behalf. Each checker focuses on something different: is the content accurate, do the tools work, is the design consistent, is the data clean. When something needs attention, Sentinel routes it to the right place. You can review changes before they go live, or let routine fixes happen automatically.",
+        "photo": ""
+    },
+    {
+        "name": "Quartermaster",
+        "title": "Head of Maintenance",
+        "bio": "AI managing agent. Keeps everything we''ve built improving over time instead of slowly going stale. Quartermaster coordinates a team of maintenance specialists — monitoring content freshness, tool health, data quality, and site structure. Each maintenance cycle leaves your systems measurably better than before. You decide what gets your approval and what''s handled automatically.",
+        "photo": ""
+    }
+]'::jsonb)
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
+  AND aspect = 'identity' AND is_current = true;
+
+-- leopardessconsulting.co.uk
+UPDATE site_specs
+SET data = jsonb_set(data, '{team}', '[
+    {
+        "name": "Peter Grenfell",
+        "title": "Principal Consultant",
+        "bio": "Over 30 years of engineering experience. Built and operated worldsoccernews.com with sustained top search placement for competitive terms across a decade. Former senior engineer at Bumble. Strong financial systems background. Designed this multi-agent orchestration framework on Kubernetes and Kafka from first principles — workflow-driven state machines with Postgres persistence, coordinating 30+ specialised agent types across websites, data pipelines, news aggregation, and research systems. The architecture: each named agent here is itself an orchestrator managing teams of specialist agents, not a single prompt, and not just prompting.",
+        "photo": ""
+    },
+    {
+        "name": "Archivist",
+        "title": "Head of Research",
+        "bio": "AI managing agent. Orchestrates a team of specialist research agents across multiple data acquisition strategies: deep web search with source attribution, structured extraction from industry registries, Companies House verification cascades with financial enrichment, news aggregation with credibility scoring, and competitive analysis. The research layer runs before any content generation or data publication — every output is sourced and verifiable. The same research infrastructure that grounds website content also powers standalone data collection pipelines.",
+        "photo": ""
+    },
+    {
+        "name": "Sentinel",
+        "title": "Head of Quality Assurance",
+        "bio": "AI managing agent. Coordinates a team of specialist auditors across every deployed system — content quality, structural integrity, tool functionality, CSS consistency, data pipeline health, and deployment status. Each auditor runs independently with its own detection logic and severity classification. Findings route to specialist fix agents or escalate to human review based on confidence. Full audit trails with processing history on every finding, fix, and verification.",
+        "photo": ""
+    },
+    {
+        "name": "Quartermaster",
+        "title": "Head of Operations",
+        "bio": "AI managing agent. Runs continuous improvement cycles across all deployed infrastructure. Coordinates specialist agents for content freshness, tool health, navigation integrity, news feed reliability, data quality monitoring, and deployment verification. Each cycle is fully observable — work items track every finding through triage, fix, and verification. Human review gates configurable per workflow stage. The system improves autonomously between human review cycles.",
+        "photo": ""
+    }
+]'::jsonb)
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+  AND aspect = 'identity' AND is_current = true;
+
+-- ============================================================================
+-- 075b: Remove pricing sections, replace with engagement process
+-- ============================================================================
+
+-- Remove 'pricing' from sections arrays and replace with a second generic-text-block
+-- Actually, just removing pricing is cleaner — the page still has hero, text block,
+-- features, faq, and CTA which is a good engagement page structure.
+
+UPDATE pages SET
+    sections = (
+        SELECT jsonb_agg(sec)
+        FROM jsonb_array_elements_text(sections) sec
+        WHERE sec != 'pricing'
+    )::jsonb,
+    build_status = 'needs_rebuild'
+WHERE site_id IN (SELECT id FROM sites WHERE domain IN ('ai-agent-orchestration.com', 'finetuning.uk', 'leopardessconsulting.co.uk'))
+  AND name IN ('pricing', 'how-we-work', 'engagement-model')
+  AND status = 'active';
+
+-- ============================================================================
+-- 075c: Clear pricing needs_section_data items
+-- ============================================================================
+
+UPDATE site_work_items
+SET status = 'wont_fix', completed_at = NOW(),
+    result = '{"reason": "pricing section removed — replaced with engagement process content"}'::jsonb
+WHERE status = 'needs_human_review'
+  AND item_type = 'needs_section_data'
+  AND spec->>'section_name' = 'pricing';
+
+-- ============================================================================
+-- 075d: Clear leadership-team needs_section_data items (data now supplied)
+-- ============================================================================
+
+UPDATE site_work_items
+SET status = 'wont_fix', completed_at = NOW(),
+    result = '{"reason": "team data now in site_specs.identity.team"}'::jsonb
+WHERE status = 'needs_human_review'
+  AND item_type = 'needs_section_data'
+  AND spec->>'section_name' = 'leadership-team'
+  AND site_id IN (SELECT id FROM sites WHERE domain IN ('ai-agent-orchestration.com', 'finetuning.uk', 'leopardessconsulting.co.uk'));
+
+-- ============================================================================
+-- 075e: Also rebuild about pages (for leadership-team sections)
+-- ============================================================================
+
+UPDATE pages SET build_status = 'needs_rebuild'
+WHERE site_id IN (SELECT id FROM sites WHERE domain IN ('ai-agent-orchestration.com', 'finetuning.uk', 'leopardessconsulting.co.uk'))
+  AND name = 'about'
+  AND status = 'active'
+  AND build_status = 'deployed';
+
+-- ============================================================================
+-- Verification
+-- ============================================================================
+
+-- Check pricing removed from sections
+SELECT s.domain, p.name, p.sections::text, p.build_status
+FROM pages p JOIN sites s ON s.id = p.site_id
+WHERE p.name IN ('pricing', 'how-we-work', 'engagement-model')
+  AND s.domain IN ('ai-agent-orchestration.com', 'finetuning.uk', 'leopardessconsulting.co.uk');
+
+-- Check team data landed
+SELECT s.domain, jsonb_array_length(ss.data->'team') as team_size
+FROM site_specs ss JOIN sites s ON s.id = ss.site_id
+WHERE ss.aspect = 'identity' AND ss.is_current = true
+  AND s.domain IN ('ai-agent-orchestration.com', 'finetuning.uk', 'leopardessconsulting.co.uk');
+
+-- Check remaining needs_human_review for these sites
+SELECT spec->>'section_name', status, count(*)
+FROM site_work_items
+WHERE item_type = 'needs_section_data'
+  AND site_id IN (SELECT id FROM sites WHERE domain IN ('ai-agent-orchestration.com', 'finetuning.uk', 'leopardessconsulting.co.uk'))
+GROUP BY 1, 2;
+

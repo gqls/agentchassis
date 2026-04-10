@@ -1,4 +1,4 @@
-# GPU and Model Infrastructure — Architecture Plan (v4)
+# 009 — Model Infrastructure & Routing
 
 ## Date: 2026-03-25
 
@@ -227,3 +227,90 @@ Before claiming a work item, `ClaimWorkItemAction`:
 - [ ] RAG actions (registered, not workflow-tested)
 - [ ] LoRA training pipeline
 - [ ] Training data export from llm_call_log
+
+---
+
+## Operational Reference: Backup, Swap, and Revert (from 024b)
+
+### Emergency Revert (Nuclear Option)
+
+Full backup taken 2026-03-22 before model swap functions were installed.
+
+```sql
+-- CHECK FIRST
+SELECT COUNT(*) FROM agent_definitions_backup_20260322;
+
+-- RESTORE
+BEGIN;
+DELETE FROM agent_definitions;
+INSERT INTO agent_definitions SELECT * FROM agent_definitions_backup_20260322;
+COMMIT;
+```
+
+After restoring: `kubectl -n ai-persona-system rollout restart deployment/agent-chassis`
+
+### Taking a Fresh Backup
+
+```sql
+CREATE TABLE agent_definitions_backup_YYYYMMDD AS SELECT * FROM agent_definitions;
+SELECT
+    (SELECT COUNT(*) FROM agent_definitions) as live,
+    (SELECT COUNT(*) FROM agent_definitions_backup_YYYYMMDD) as backup;
+```
+
+### Checking What Models Agents Use
+
+```sql
+SELECT
+    ad.type,
+    s.key as step_name,
+    s.value->'config'->'ai_service'->>'provider' as provider,
+    s.value->'config'->'ai_service'->>'model' as model
+FROM agent_definitions ad,
+     jsonb_each(ad.default_config->'workflow'->'steps') s(key, value)
+WHERE s.value->'config'->'ai_service' IS NOT NULL
+  AND ad.is_active = true
+  AND (ad.is_snapshot IS NULL OR ad.is_snapshot = false)
+ORDER BY ad.type, s.key;
+```
+
+### Swapping to Ollama
+
+```sql
+-- CPU Ollama (Mistral Small 3)
+SELECT swap_agent_model('AGENT_TYPE', 'STEP_NAME',
+    '{"provider": "ollama", "model": "mistral-small3.1",
+      "api_url": "http://ollama-adapter.ai-persona-system.svc.cluster.local:11434",
+      "max_tokens": 1500}'::jsonb);
+
+-- GPU Ollama (Llama 70B)
+SELECT swap_agent_model('AGENT_TYPE', 'STEP_NAME',
+    '{"provider": "ollama", "model": "llama3.3:70b",
+      "api_url": "http://ollama-gpu.ai-persona-system.svc.cluster.local:11434",
+      "max_tokens": 4000}'::jsonb);
+
+-- Back to Anthropic
+SELECT swap_agent_model('AGENT_TYPE', 'STEP_NAME',
+    '{"provider": "anthropic", "model": "claude-sonnet-4-6",
+      "api_key_env_var": "ANTHROPIC_API_KEY", "max_tokens": 2000}'::jsonb);
+```
+
+### Evaluating a Swap
+
+```sql
+SELECT model, provider, COUNT(*) as calls,
+    ROUND(AVG(latency_ms)) as avg_ms,
+    ROUND(AVG(input_tokens)) as avg_in,
+    ROUND(AVG(output_tokens)) as avg_out
+FROM llm_call_log
+WHERE created_at > NOW() - INTERVAL '24 hours'
+GROUP BY model, provider ORDER BY model;
+```
+
+### Rules
+
+1. Always take a dated backup before batch changes
+2. Use `swap_agent_model()` for single-agent swaps — it snapshots automatically
+3. Swap one agent at a time, verify via `llm_call_log`, then move to next
+4. Check endpoint health (`SELECT * FROM ai_endpoint_status`) before swapping
+5. Keep the nuclear revert table until confident in the new setup

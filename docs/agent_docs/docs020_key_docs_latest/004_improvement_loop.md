@@ -1,4 +1,4 @@
-# 009 — Improvement Loop (v4)
+# 004 — Improvement Loop
 
 Post-build quality improvement cycle. Runs discovery agents (algorithmic), audit agents (LLM-based), triages findings, dispatches fixes, and rerenders.
 
@@ -274,3 +274,56 @@ Load site context, specs, and direction (excluding locked/unexpired components).
 ## Timeout
 
 1800 seconds (30 minutes). Typical run: 3-8 minutes with findings. < 1 second for sites at pass limit.
+
+---
+
+## Entry Points and Interaction (from 009_build_pipeline_vs_improvement_loop)
+
+Three entry points exist:
+
+**build-pipeline-trigger** (scheduled, every 120s): finds sites with triaged items, fires build-dispatch-loop per site. Only processes existing triaged items — does NOT create new items. This is the worker.
+
+**improvement-loop** (scheduled via improvement-sweep, every 600s): finds least-recently-audited site with queue depth < 20. Runs ALL discovery + audit agents, creates items, triages them, then calls build-dispatch-loop internally.
+
+**Manual trigger** (`./trigger-audit.sh`): fires improvement-loop or individual agents for a specific site.
+
+### How they interact
+
+The build-pipeline-trigger and improvement-loop don't conflict:
+
+| | build-pipeline-trigger | improvement-loop |
+|---|---|---|
+| Creates items? | No | Yes |
+| Runs audits? | No | Yes |
+| Calls dispatch? | Yes — directly | Yes — internally at step 10 |
+| Concurrency risk | Claims atomically | Sweep pre-query checks queue depth |
+
+If both fire simultaneously, `claim_work_item` uses atomic UPDATE — only one succeeds per item.
+
+### Gap: manual discovery without full loop
+
+If you manually trigger just a discovery agent (not the full improvement-loop), items stay as `detected` until the next improvement-loop triage step promotes them. The build-pipeline-trigger ignores `detected` items. Either run the full improvement-loop or manually promote: `UPDATE site_work_items SET status = 'triaged' WHERE status = 'detected'`.
+
+---
+
+## Component Standards Validation (from 002_component_standards_validation)
+
+The `validate_component_standards` discovery check audits all components used by a site. Runs as part of the improvement loop's `run_discovery_checks` action.
+
+### Sub-checks
+
+| Check | Detects | Handler |
+|---|---|---|
+| `checkUnlinkedSiteComponents` | header/footer/head with NULL component_id | `site-component-linker` |
+| `checkMissingDataComponent` | rendered_html without `data-component` attribute | `component-template-fixer` |
+| `checkSlotNameMismatch` | slot_name != data-component attribute | `component-template-fixer` |
+| `checkMissingSiteMetadata` | empty company_name, tagline, logo_url, email | `site-metadata-fixer` |
+| `checkMissingAssetRefs` | logo_url set but header has no `<img>` tag | `site-component-linker` |
+| `checkNavLayout` | nav `<ul>` with no flex CSS | `component-template-fixer` |
+| `checkUnwantedElements` | search icon in header when no search feature | `component-template-fixer` |
+| `checkDarkSectionContract` | dark sections missing CSS variables | existing check |
+| `checkEmptyPageSections` | deployed pages with no rendered components | `page-content-writer` |
+
+### Ordering
+
+`validate_component_standards` runs BEFORE design checks (hardcoded_colors, forced_text_colors) because those operate on rendered HTML which may be wrong if components aren't linked. Fix structural issues first.

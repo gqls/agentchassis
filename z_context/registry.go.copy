@@ -985,6 +985,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Create a new tool component from generated HTML and set up its page",
 		IsLocal:     true,
 	},
+	"check_tool_completeness": {
+		Handler:     CheckToolCompletenessAction,
+		Category:    "validation",
+		Description: "Verify LLM tool output is complete and not truncated",
+		IsLocal:     true,
+	},
 	"create_tool_cross_link_items": {
 		Handler:     CreateToolCrossLinkItemsAction,
 		Category:    "site",
@@ -1019,6 +1025,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Handler:     SeedContentSourcesAction,
 		Category:    "feed",
 		Description: "Create content_sources from classification news_feed recommendation",
+		IsLocal:     true,
+	},
+	"save_tool_training_data": {
+		Handler:     SaveToolTrainingDataAction,
+		Category:    "training",
+		Description: "Save tool recreation triple for model fine-tuning",
 		IsLocal:     true,
 	},
 
@@ -1071,6 +1083,24 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "To select representative prose-heavy pages from crawl for style analysis",
 		IsLocal:     true,
 	},
+	"firecrawl_map": {
+		Handler:     FirecrawlMapAction,
+		Category:    "webscrape",
+		Description: "Discover site URLs via firecrawl /map endpoint (no content fetched)",
+		IsLocal:     false,
+	},
+	"prepare_scrape_batches": {
+		Handler:     PrepareScrapeBatchesAction,
+		Category:    "webscrape",
+		Description: "Split discovered URLs into batches for paginated scraping",
+		IsLocal:     true,
+	},
+	"store_crawl_batch": {
+		Handler:     StoreCrawlBatchAction,
+		Category:    "site",
+		Description: "Store batch of scraped pages to research_results for paginated crawl",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// New Components
@@ -1095,6 +1125,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Handler:     MedDiscoverURLsAction,
 		Category:    "med_pricing",
 		Description: "Discover product URLs from retailer category pages",
+		IsLocal:     true,
+	},
+	"med_map_urls": {
+		Handler:     MedMapURLsAction,
+		Category:    "med_pricing",
+		Description: "Discover product URLs via Firecrawl /map endpoint (site-wide)",
 		IsLocal:     true,
 	},
 

@@ -429,4 +429,90 @@ WHERE s.status IN ('active', 'deployed')
 );
 
 
+-- ============================================================================
+-- 076: Enrich identity specs with capabilities/departments
+-- The content writer reads these when generating features/differentiators
+-- ============================================================================
 
+-- ai-agent-orchestration.com — add departments and capabilities
+UPDATE site_specs
+SET data = jsonb_set(data, '{departments}', '[
+    {"name": "Strategy", "agent_count": 8, "description": "Domain analysis, market classification, site planning, revenue model assessment, and competitive positioning. Every project starts with strategy agents researching the landscape before a single page is planned."},
+    {"name": "Research", "agent_count": 10, "description": "Deep web search with source attribution, structured data extraction from industry registries, Companies House verification cascades, news aggregation with credibility scoring, and competitive analysis. Multi-source, multi-method, always verified."},
+    {"name": "Content", "agent_count": 12, "description": "Content writing with research-grounded briefs, editorial review, gap analysis, blog planning, tone alignment, and content direction enforcement. AI handles research and first drafts, human review gates at every stage."},
+    {"name": "Design", "agent_count": 8, "description": "CSS generation, brand-appropriate colour palettes, typography selection, visual auditing, image generation, and design consistency checks across all pages."},
+    {"name": "Development", "agent_count": 10, "description": "Component creation, interactive tool generation, HTML assembly, template rendering, and the component selector that matches section types to the right building blocks."},
+    {"name": "Quality", "agent_count": 8, "description": "Content audits, tool health checks, design consistency verification, factual accuracy, and compliance. Findings classified by severity, routed to specialists or escalated to human review."},
+    {"name": "Operations", "agent_count": 8, "description": "Dispatch loops, improvement sweeps, scheduling, deployment via GitHub Actions to Cloudflare, site monitoring, and the maintenance cycles that keep every system improving over time."},
+    {"name": "Data", "agent_count": 10, "description": "Veterinary practice pipelines, Companies House matching, price collection, news feed ingestion, and structured data extraction. Any industry, any data source, verified against authoritative records."}
+]'::jsonb)
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'ai-agent-orchestration.com')
+  AND aspect = 'identity' AND is_current = true;
+
+-- Also add a capabilities summary the content writer can reference
+UPDATE site_specs
+SET data = jsonb_set(data, '{capabilities_summary}',
+                     '"Over 70 specialised AI agents organised into 8 departments — Strategy, Research, Content, Design, Development, Quality, Operations, and Data — coordinating on Kubernetes via Kafka messaging with Postgres state management. Each department is led by a managing agent that coordinates teams of specialists. Human review gates configurable at every stage. The framework handles website generation, data collection pipelines, news aggregation, interactive tool creation, and continuous quality improvement — all from the same production infrastructure."'::jsonb
+           )
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'ai-agent-orchestration.com')
+  AND aspect = 'identity' AND is_current = true;
+
+-- leopardessconsulting.co.uk — same departments, delivery-focused framing
+UPDATE site_specs
+SET data = jsonb_set(data, '{departments}', '[
+    {"name": "Strategy", "agent_count": 8, "description": "Domain analysis, classification, competitive positioning, and project scoping. Every engagement starts with research agents mapping the landscape before recommendations are made."},
+    {"name": "Research", "agent_count": 10, "description": "Multi-source investigation with source attribution, structured data extraction, Companies House verification, news monitoring, and competitive intelligence. Verified before anything gets built."},
+    {"name": "Content", "agent_count": 12, "description": "Research-grounded content generation, editorial review, gap analysis, and tone enforcement. First drafts from AI, quality from human review at configurable checkpoints."},
+    {"name": "Design", "agent_count": 8, "description": "Brand-appropriate design systems, CSS generation, visual auditing, and cross-page consistency. Industry-specific palettes, not generic templates."},
+    {"name": "Development", "agent_count": 10, "description": "Component architecture, interactive tool generation, template systems, and the selector infrastructure that matches requirements to the right building blocks from a growing library."},
+    {"name": "Quality", "agent_count": 8, "description": "Continuous auditing across content, tools, design, and data. Severity classification, automated routing, and full audit trails on every finding and resolution."},
+    {"name": "Operations", "agent_count": 8, "description": "Orchestration, dispatch, deployment pipelines, scheduling, and the improvement cycles that keep deployed systems getting better between human review sessions."},
+    {"name": "Data", "agent_count": 10, "description": "Structured data collection from any source — industry registries, regulatory databases, web scraping — with automated verification against authoritative records. Currently processing veterinary, farming, and financial datasets."}
+]'::jsonb)
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+  AND aspect = 'identity' AND is_current = true;
+
+UPDATE site_specs
+SET data = jsonb_set(data, '{capabilities_summary}',
+                     '"Over 70 specialised AI agents in 8 departments, each led by a managing agent coordinating teams of specialists. Built on Kubernetes and Kafka — production infrastructure, not a demo framework. Human oversight configurable per workflow stage. We deliver website operations, data collection pipelines, news aggregation, interactive tools, and continuous improvement — all from the same battle-tested orchestration platform."'::jsonb
+           )
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+  AND aspect = 'identity' AND is_current = true;
+
+-- ============================================================================
+-- finetuning.uk — LLM training and privacy focus
+-- ============================================================================
+
+UPDATE site_specs
+SET data = jsonb_set(data, '{services}', '[
+    {"name": "AI-Powered Website Creation and Maintenance", "description": "We research your industry, write targeted content, generate useful tools, and keep everything updated. Your site gets better over time through continuous improvement cycles. Review and approve changes, or let routine maintenance run automatically."},
+    {"name": "Private LLM Training and Hosting", "description": "Fine-tune open-weight models like Llama, Mistral, and Phi on your own data using LoRA adapters. Your training data stays private — hosted on your infrastructure or in a private cloud. No data sent to third-party APIs. Models trained specifically on your industry, your terminology, your processes."},
+    {"name": "RAG and Knowledge Base Systems", "description": "Retrieval-Augmented Generation that connects AI to your actual documents, policies, and data. We build custom embedding pipelines using the best open-source models for your domain — not one-size-fits-all. Your knowledge base, your AI, your control."},
+    {"name": "In-Browser AI Tools", "description": "Lightweight language models that run entirely in the user''s browser — no server calls, complete privacy. We''ve deployed this on websitedesign.com where users create HTML pages using a local model. Early stage but demonstrates the principle: useful AI that never touches your data."},
+    {"name": "Automated Data Collection and Verification", "description": "AI agents that collect, verify, and structure data from any industry — competitor prices, supplier directories, regulatory records. Checked against official sources like Companies House. You review exceptions, the system handles the volume."},
+    {"name": "Industry News Monitoring", "description": "Multi-source news collection with credibility scoring. AI checks whether each item is from Reuters or an unverified social post before anything reaches your site. First drafts from AI, final quality from human review."}
+]'::jsonb)
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
+  AND aspect = 'identity' AND is_current = true;
+
+UPDATE site_specs
+SET data = jsonb_set(data, '{key_differentiators}', '[
+    "Multi-model approach: we use the best AI model for each task, not just one provider. Text, images, code, and reasoning — each handled by the model that does it best.",
+    "Privacy-first: private LLM hosting, LoRA fine-tuning on your data, in-browser models that never send data to servers. Your data stays yours.",
+    "Open-weight models: Llama, Mistral, Phi, and others — fine-tuned for your specific domain with custom embeddings. Not locked into any single AI vendor.",
+    "Human oversight at every stage: configurable review gates mean you approve what matters and automate what doesn''t. No black boxes.",
+    "Continuous improvement: our systems get better over time through automated quality sweeps, not just at launch. Sites, data, and tools all improve between human review cycles.",
+    "Verified, not hallucinated: research agents check facts against official sources before anything gets published. Source attribution and credibility scoring built in."
+]'::jsonb)
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
+  AND aspect = 'identity' AND is_current = true;
+
+-- ============================================================================
+-- Trigger rebuilds for services/index/about pages to pick up new context
+-- ============================================================================
+
+UPDATE pages SET build_status = 'needs_rebuild'
+WHERE site_id IN (SELECT id FROM sites WHERE domain IN ('ai-agent-orchestration.com', 'finetuning.uk', 'leopardessconsulting.co.uk'))
+  AND name IN ('index', 'services', 'our-approach', 'technical-architecture', 'for-engineering-teams', 'approach', 'our-position-on-ai', 'ai-for-uk-small-business')
+  AND status = 'active'
+  AND build_status = 'deployed';

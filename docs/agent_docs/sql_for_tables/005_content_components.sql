@@ -9739,3 +9739,40 @@ UPDATE 1
  hero              | 0.45999999999999996
 (6 rows)
 
+-- Fix 1: Patch content-listing template to include article links
+-- The template has <h3 class="article-card__title">{{.title}}</h3>
+-- but no <a href>. Articles are not clickable.
+UPDATE content_components
+SET html_template = REPLACE(
+    html_template,
+    '<h3 class="article-card__title">{{.title}}</h3>',
+    '<h3 class="article-card__title"><a href="{{.url}}">{{.title}}</a></h3>'
+),
+    updated_at = NOW()
+WHERE function = 'content-listing'
+  AND html_template NOT LIKE '%href="{{.url}}"%';
+
+-- Fix 2: Mark old orphan_page items as superseded
+-- The updated check_orphan_pages.go now routes to nav_drift and
+-- needs_internal_links instead. Old orphan_page items with status
+-- unresolved should be cleared.
+UPDATE site_work_items
+SET status = 'wont_fix',
+    error = 'superseded — reclassified by updated orphan_pages check',
+    updated_at = NOW()
+WHERE item_type = 'orphan_page'
+  AND status = 'unresolved';
+
+-- Verify: check the template was patched
+SELECT id, function, name,
+       CASE WHEN html_template LIKE '%href="{{.url}}"%' THEN 'has_links' ELSE 'missing_links' END as link_status
+FROM content_components
+WHERE function = 'content-listing' AND is_active = true;
+
+-- Verify: current state of blog-related work items
+SELECT item_type, status, COUNT(*)
+FROM site_work_items
+WHERE item_type IN ('orphan_blog_posts', 'orphan_page', 'nav_drift', 'needs_internal_links')
+GROUP BY 1, 2 ORDER BY 1, 2;
+
+                                                     

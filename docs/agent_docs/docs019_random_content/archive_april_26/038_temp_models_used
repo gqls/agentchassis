@@ -1,0 +1,152 @@
+clients_db=# -- Find all model references in agent definitions
+SELECT type, 
+    default_config::text ~* 'claude-sonnet-4-6' as uses_sonnet,
+    default_config::text ~* 'claude-opus' as uses_opus,
+    default_config::text ~* 'claude-haiku' as uses_haiku
+FROM agent_definitions
+WHERE is_active = true
+  AND default_config::text ~* 'claude-'
+ORDER BY type;
+                 type                  | uses_sonnet | uses_opus | uses_haiku 
+---------------------------------------+-------------+-----------+------------
+ blog-content-planner                  | t           | f         | f
+ brand-designer                        | f           | f         | t
+ briefing-agent                        | t           | f         | f
+ build-briefing-agent                  | t           | f         | f
+ build-site-planner                    | f           | t         | f
+ chief-strategist                      | f           | t         | f
+ chief-strategist                      | f           | t         | f
+ ch-llm-reviewer                       | f           | f         | t
+ component-creator                     | t           | f         | f
+ content-creator                       | f           | f         | t
+ content-creator                       | t           | f         | f
+ content-creator-about                 | f           | f         | t
+ content-creator-contact               | f           | f         | t
+ content-creator-contact               | f           | f         | t
+ content-creator-cta                   | f           | f         | t
+ content-creator-features              | f           | f         | t
+ content-creator-hero                  | f           | f         | t
+ content-creator-hero-without-research | f           | f         | t
+ content-creator-testimonials          | f           | f         | t
+ content-gap-planner                   | t           | f         | f
+ content-quality-auditor               | t           | f         | f
+ content-researcher                    | f           | f         | t
+ content_researcher                    | f           | f         | t
+ content-reviewer                      | t           | f         | f
+ content-writer                        | f           | f         | t
+ copywriter                            | f           | f         | t
+ css-patch-agent                       | t           | f         | f
+ domain-analyst                        | f           | f         | t
+ domain-research-classifier            | t           | f         | f
+ domain-strategist                     | t           | f         | f
+ feed-triage                           | t           | f         | f
+ html-developer                        | f           | f         | t
+ page-content-writer                   | t           | f         | f
+ reasoning                             | t           | f         | f
+ research-agent                        | t           | f         | t
+ researcher                            | t           | f         | f
+ simple-content-writer-with-approval   | f           | f         | t
+ site-adoption-agent                   | t           | f         | f
+ site-architect                        | t           | f         | f
+ site-classifier                       | t           | f         | f
+ site-planner                          | t           | f         | f
+ site-review-agent                     | t           | f         | f
+ site-scraper                          | t           | f         | f
+ site-strategist                       | f           | f         | t
+ tool-auditor                          | t           | f         | f
+ tool-generator                        | t           | f         | f
+ tool-improver                         | t           | f         | f
+ tool-recreation-handler               | t           | t         | f
+ tool-suggester                        | t           | f         | f
+ vet-batch-processor                   | f           | f         | t
+ vet-practice-verifier                 | f           | f         | t
+ visual-design-auditor                 | t           | f         | f
+ webdesign-agent                       | t           | f         | f
+ website-builder                       | f           | f         | t
+(54 rows)
+
+
+---
+
+clients_db=# -- Extract model references with their locations
+SELECT type,
+    regexp_matches(default_config::text, '"model":\s*"([^"]+)"', 'g') as model
+FROM agent_definitions
+WHERE is_active = true
+  AND default_config::text LIKE '%"model"%'
+ORDER BY type;
+                 type                  |        model
+---------------------------------------+---------------------
+ blog-content-planner                  | {claude-sonnet-4-6}
+ brand-designer                        | {claude-haiku-4-5}
+ briefing-agent                        | {claude-sonnet-4-6}
+ build-briefing-agent                  | {claude-sonnet-4-6}
+ build-site-planner                    | {claude-opus-4-6}
+ chief-strategist                      | {claude-opus-4-6}
+ chief-strategist                      | {claude-opus-4-6}
+ ch-llm-reviewer                       | {claude-haiku-4-5}
+ component-creator                     | {claude-sonnet-4-6}
+ component-creator                     | {claude-sonnet-4-6}
+ content-creator                       | {claude-haiku-4-5}
+ content-creator                       | {claude-sonnet-4-6}
+ content-creator-about                 | {claude-haiku-4-5}
+ content-creator-contact               | {claude-haiku-4-5}
+ content-creator-contact               | {claude-haiku-4-5}
+ content-creator-contact               | {claude-haiku-4-5}
+ content-creator-cta                   | {claude-haiku-4-5}
+ content-creator-cta                   | {claude-haiku-4-5}
+ content-creator-features              | {claude-haiku-4-5}
+ content-creator-features              | {claude-haiku-4-5}
+ content-creator-hero                  | {claude-haiku-4-5}
+ content-creator-hero-without-research | {claude-haiku-4-5}
+ content-creator-testimonials          | {claude-haiku-4-5}
+ content-creator-testimonials          | {claude-haiku-4-5}
+ content-gap-planner                   | {claude-sonnet-4-6}
+ content-quality-auditor               | {claude-sonnet-4-6}
+ content-researcher                    | {claude-haiku-4-5}
+ content_researcher                    | {claude-haiku-4-5}
+ content-reviewer                      | {claude-sonnet-4-6}
+ content-writer                        | {claude-haiku-4-5}
+ copywriter                            | {claude-haiku-4-5}
+ copywriter                            | {claude-haiku-4-5}
+ css-patch-agent                       | {claude-sonnet-4-6}
+ domain-analyst                        | {claude-haiku-4-5}
+ domain-research-classifier            | {claude-sonnet-4-6}
+ domain-strategist                     | {claude-sonnet-4-6}
+ feed-triage                           | {claude-sonnet-4-6}
+ feed-triage                           | {claude-sonnet-4-6}
+ html-developer                        | {claude-haiku-4-5}
+ image-generator                       | {sdxl}
+ image-generator                       | {sdxl}
+ page-content-writer                   | {claude-sonnet-4-6}
+ reasoning                             | {claude-sonnet-4-6}
+ reasoning                             | {claude-sonnet-4-6}
+ research-agent                        | {claude-sonnet-4-6}
+ research-agent                        | {claude-haiku-4-5}
+ researcher                            | {claude-sonnet-4-6}
+ researcher                            | {claude-sonnet-4-6}
+ simple-content-writer-with-approval   | {claude-haiku-4-5}
+ site-adoption-agent                   | {claude-sonnet-4-6}
+ site-adoption-agent                   | {claude-sonnet-4-6}
+ site-adoption-agent                   | {claude-sonnet-4-6}
+ site-adoption-agent                   | {claude-sonnet-4-6}
+ site-adoption-agent                   | {claude-sonnet-4-6}
+ site-adoption-agent                   | {claude-sonnet-4-6}
+ site-architect                        | {claude-sonnet-4-6}
+ site-classifier                       | {claude-sonnet-4-6}
+ site-planner                          | {claude-sonnet-4-6}
+ site-review-agent                     | {claude-sonnet-4-6}
+ site-scraper                          | {claude-sonnet-4-6}
+ site-strategist                       | {claude-haiku-4-5}
+ tool-auditor                          | {claude-sonnet-4-6}
+ tool-generator                        | {claude-sonnet-4-6}
+ tool-improver                         | {claude-sonnet-4-6}
+ tool-recreation-handler               | {claude-sonnet-4-6}
+ tool-recreation-handler               | {claude-opus-4-6}
+ tool-suggester                        | {claude-sonnet-4-6}
+ vet-batch-processor                   | {claude-haiku-4-5}
+ vet-practice-verifier                 | {claude-haiku-4-5}
+ visual-design-auditor                 | {claude-sonnet-4-6}
+ webdesign-agent                       | {claude-sonnet-4-6}
+ website-builder                       | {claude-haiku-4-5}
+(72 rows)

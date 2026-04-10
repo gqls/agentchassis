@@ -4,7 +4,7 @@
 // renders a blog-listing page_component using the template from content_components.
 //
 // Data layer only — presentation comes from the component library template.
-// Uses the existing article_grid or blog-listing content_component's html_template.
+// Uses the existing content-listing content_component's html_template.
 // Falls back to a minimal template if no component is found.
 //
 // No LLM needed — purely algorithmic. Runs as a step in the rerender-pages
@@ -20,6 +20,17 @@
 //
 // Data inputs (via ActionInputSpec):
 //   - site_id (required)
+//
+// Changes from previous version:
+//   - findBlogListingSlot: discovers actual slot name from page_components
+//     instead of hardcoding "blog-listing". Handles sites where the blog page
+//     was planned with article-grid, featured-article, content-listing, etc.
+//   - Loads content-listing template (has proper input_schema with {{range}})
+//     instead of blog-listing (which was CSS-only, empty input_schema).
+//   - ensureArticleLinks: patches article titles missing <a href>.
+//   - Writes content_data alongside rendered_html (source-of-truth principle).
+//   - estimateReadTime: computed from blog post rendered content length.
+//   - Removed loadBlogListingTemplate (was loading CSS-only template).
 
 package actions
 
@@ -27,7 +38,9 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -46,6 +59,17 @@ var RebuildBlogListingInputSpec = datahelpers.ActionInputSpec{
 
 func init() {
 	datahelpers.RegisterActionInputSpec("rebuild_blog_listing", RebuildBlogListingInputSpec)
+}
+
+// slotPriority is the ordered list of slot names we look for when finding
+// the blog listing page_component. The first match wins.
+// These cover the various names planners have used for blog listing sections.
+var slotPriority = []string{
+	"blog-listing",
+	"article-grid",
+	"content-listing",
+	"guide-list",
+	"featured-article",
 }
 
 func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -92,11 +116,25 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("failed to find blog-index page: %w", err)
 	}
 
+	// ── Find the correct slot name ──────────────────────────────────────
+	slotName, existingComponentID := findBlogListingSlot(ctx, params.DB, blogPageID, logger)
+	logger.Info("RebuildBlogListingAction: Resolved slot",
+		zap.String("slot_name", slotName),
+		zap.Bool("has_existing_component", existingComponentID != uuid.Nil),
+	)
+
 	// ── Load deployed blog posts ────────────────────────────────────────
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT p.id, p.name, p.url, p.title,
 		       COALESCE(p.meta_description, ''),
-		       p.created_at
+		       p.created_at,
+		       COALESCE(
+		           (SELECT SUM(LENGTH(COALESCE(pc.rendered_html, '')))
+		            FROM page_components pc
+		            WHERE pc.page_id = p.id
+		              AND COALESCE(pc.slot_name, '') NOT IN ('header', 'footer', 'head')),
+		           0
+		       ) as content_length
 		FROM pages p
 		WHERE p.site_id = $1
 		  AND p.page_type = 'blog-post'
@@ -113,7 +151,8 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		var id uuid.UUID
 		var name, url, title, metaDesc string
 		var createdAt time.Time
-		if err := rows.Scan(&id, &name, &url, &title, &metaDesc, &createdAt); err != nil {
+		var contentLength int
+		if err := rows.Scan(&id, &name, &url, &title, &metaDesc, &createdAt, &contentLength); err != nil {
 			logger.Warn("Failed to scan blog post", zap.Error(err))
 			continue
 		}
@@ -135,9 +174,9 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 			"url":       url,
 			"excerpt":   excerpt,
 			"date":      createdAt.Format("Jan 2, 2006"),
-			"category":  "", // Enrichable from page metadata later
-			"image":     "", // Enrichable from assets later
-			"read_time": "", // Computable from content length later
+			"category":  "",
+			"image":     "",
+			"read_time": estimateReadTime(contentLength),
 		})
 	}
 
@@ -150,7 +189,9 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	// ── Load component template ─────────────────────────────────────────
-	htmlTemplate := loadBlogListingTemplate(ctx, params.DB, logger)
+	// Use content-listing function (has proper input_schema with {{range}}).
+	// The old blog-listing component was CSS-only with empty input_schema.
+	htmlTemplate := loadContentListingTemplate(ctx, params.DB, logger)
 
 	// ── Render template with post data ──────────────────────────────────
 	templateData := map[string]interface{}{
@@ -166,43 +207,61 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("template rendering produced empty output")
 	}
 
+	// Patch: ensure article titles are clickable links
+	rendered = ensureArticleLinks(rendered, articles)
+
+	// ── Build content_data (source of truth) ────────────────────────────
+	contentData := map[string]interface{}{
+		"section_title":    "Latest Articles",
+		"section_subtitle": "",
+		"articles":         articles,
+		"show_load_more":   false,
+		"load_more_text":   "Load More",
+	}
+	contentDataJSON, err := json.Marshal(contentData)
+	if err != nil {
+		logger.Warn("Failed to marshal content_data", zap.Error(err))
+		contentDataJSON = []byte("{}")
+	}
+
 	// ── Upsert page_component ───────────────────────────────────────────
 	var componentID uuid.UUID
-	err = params.DB.QueryRowContext(ctx, `
-		SELECT id FROM page_components
-		WHERE page_id = $1 AND slot_name = 'blog-listing'
-		LIMIT 1
-	`, blogPageID).Scan(&componentID)
 
-	if err == sql.ErrNoRows {
-		err = params.DB.QueryRowContext(ctx, `
-			INSERT INTO page_components (page_id, slot_name, position, rendered_html, build_status)
-			VALUES ($1, 'blog-listing', 3, $2, 'deployed')
-			RETURNING id
-		`, blogPageID, rendered).Scan(&componentID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to insert blog-listing component: %w", err)
-		}
-		logger.Info("RebuildBlogListingAction: Created blog-listing component",
-			zap.String("component_id", componentID.String()))
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to check existing blog-listing: %w", err)
-	} else {
+	if existingComponentID != uuid.Nil {
+		// Update existing component in the correct slot
 		_, err = params.DB.ExecContext(ctx, `
 			UPDATE page_components
-			SET rendered_html = $1, updated_at = NOW()
-			WHERE id = $2
-		`, rendered, componentID)
+			SET rendered_html = $1, content_data = $2::jsonb, updated_at = NOW()
+			WHERE id = $3
+		`, rendered, string(contentDataJSON), existingComponentID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to update blog-listing component: %w", err)
+			return nil, fmt.Errorf("failed to update blog listing component: %w", err)
 		}
-		logger.Info("RebuildBlogListingAction: Updated blog-listing component",
-			zap.String("component_id", componentID.String()))
+		componentID = existingComponentID
+		logger.Info("RebuildBlogListingAction: Updated existing component",
+			zap.String("component_id", componentID.String()),
+			zap.String("slot_name", slotName),
+		)
+	} else {
+		// No existing component found — insert into the discovered slot
+		err = params.DB.QueryRowContext(ctx, `
+			INSERT INTO page_components (page_id, slot_name, position, rendered_html, content_data, build_status)
+			VALUES ($1, $2, 3, $3, $4::jsonb, 'deployed')
+			RETURNING id
+		`, blogPageID, slotName, rendered, string(contentDataJSON)).Scan(&componentID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to insert blog listing component: %w", err)
+		}
+		logger.Info("RebuildBlogListingAction: Created new component",
+			zap.String("component_id", componentID.String()),
+			zap.String("slot_name", slotName),
+		)
 	}
 
 	logger.Info("RebuildBlogListingAction: Complete",
 		zap.String("blog_page", blogPageName),
 		zap.Int("post_count", len(articles)),
+		zap.String("slot_name", slotName),
 	)
 
 	return map[string]interface{}{
@@ -210,76 +269,190 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		"blog_page_id": blogPageID.String(),
 		"post_count":   len(articles),
 		"component_id": componentID.String(),
+		"slot_name":    slotName,
 	}, nil
 }
 
-// loadBlogListingTemplate finds the best template for the blog listing.
-// Priority: blog-listing component → article_grid component → fallback
-func loadBlogListingTemplate(ctx context.Context, db *sql.DB, logger *zap.Logger) string {
-	// Try specific blog-listing component first
+// findBlogListingSlot checks existing page_components for the blog-index page
+// and returns the first slot name that matches our priority list.
+// If no match is found, falls back to checking the page's sections array,
+// then defaults to "blog-listing".
+// Also returns the existing component ID if found (uuid.Nil if not).
+func findBlogListingSlot(ctx context.Context, db *sql.DB, blogPageID uuid.UUID, logger *zap.Logger) (string, uuid.UUID) {
+	// Strategy 1: Check existing page_components for a known listing slot
+	for _, candidate := range slotPriority {
+		var pcID uuid.UUID
+		err := db.QueryRowContext(ctx, `
+			SELECT id FROM page_components
+			WHERE page_id = $1 AND slot_name = $2
+			LIMIT 1
+		`, blogPageID, candidate).Scan(&pcID)
+		if err == nil {
+			logger.Info("findBlogListingSlot: Found existing component by slot_name",
+				zap.String("slot_name", candidate),
+				zap.String("component_id", pcID.String()),
+			)
+			return candidate, pcID
+		}
+	}
+
+	// Strategy 2: Check the page's sections array (the planner's plan)
+	var sectionsJSON []byte
+	err := db.QueryRowContext(ctx, `
+		SELECT sections FROM pages WHERE id = $1 AND sections IS NOT NULL
+	`, blogPageID).Scan(&sectionsJSON)
+	if err == nil && len(sectionsJSON) > 0 {
+		var sections []string
+		if json.Unmarshal(sectionsJSON, &sections) == nil {
+			for _, candidate := range slotPriority {
+				for _, section := range sections {
+					if section == candidate {
+						logger.Info("findBlogListingSlot: Found slot in page sections array",
+							zap.String("slot_name", candidate),
+						)
+						return candidate, uuid.Nil
+					}
+				}
+			}
+			// If the sections array has entries not in our priority list,
+			// use the first non-standard section (skip hero, header, footer, head, call-to-action)
+			skipSections := map[string]bool{
+				"hero": true, "header": true, "footer": true,
+				"head": true, "call-to-action": true, "cta": true,
+			}
+			for _, section := range sections {
+				if !skipSections[section] {
+					logger.Info("findBlogListingSlot: Using first content section from page plan",
+						zap.String("slot_name", section),
+					)
+					return section, uuid.Nil
+				}
+			}
+		}
+	}
+
+	// Strategy 3: Default
+	logger.Info("findBlogListingSlot: No existing slot found, defaulting to blog-listing")
+	return "blog-listing", uuid.Nil
+}
+
+// loadContentListingTemplate loads the content-listing template from
+// content_components. This component has a proper input_schema with
+// {{range .articles}} and article card markup.
+// Falls back to a minimal default if not found.
+func loadContentListingTemplate(ctx context.Context, db *sql.DB, logger *zap.Logger) string {
 	var tmpl string
+
+	// Primary: content-listing function (has proper input_schema)
 	err := db.QueryRowContext(ctx, `
 		SELECT html_template FROM content_components
-		WHERE (name = 'blog-listing' OR function = 'blog-listing')
+		WHERE function = 'content-listing'
 		  AND is_active = true
+		  AND html_template IS NOT NULL
+		  AND html_template != ''
+		  AND html_template LIKE '%range%'
+		ORDER BY created_at DESC
 		LIMIT 1
 	`).Scan(&tmpl)
 	if err == nil && tmpl != "" {
-		logger.Info("Using blog-listing component template")
+		logger.Info("RebuildBlogListingAction: Using content-listing template")
 		return tmpl
 	}
 
-	// Fall back to article_grid (existing component with content-listing function)
+	// Fallback: article_grid by name
 	err = db.QueryRowContext(ctx, `
 		SELECT html_template FROM content_components
-		WHERE (name = 'article_grid' OR function = 'content-listing')
+		WHERE name = 'article_grid'
 		  AND is_active = true
+		  AND html_template LIKE '%range%'
 		LIMIT 1
 	`).Scan(&tmpl)
 	if err == nil && tmpl != "" {
-		logger.Info("Using article_grid component template as fallback")
+		logger.Info("RebuildBlogListingAction: Using article_grid template as fallback")
 		return tmpl
 	}
 
-	// Last resort — minimal template using generic CSS class names
-	logger.Warn("No blog listing template found in content_components, using default")
+	// Last resort — minimal template
+	logger.Warn("RebuildBlogListingAction: No listing template found, using built-in default")
 	return defaultBlogListingTemplate
 }
 
-// renderBlogTemplate renders a Go template with blog data.
-func renderBlogTemplate(templateStr string, data map[string]interface{}, logger *zap.Logger) string {
-	tmpl, err := template.New("blog-listing").Parse(templateStr)
-	if err != nil {
-		logger.Warn("Blog listing template parse error", zap.Error(err))
+// ensureArticleLinks checks rendered HTML for article titles that lack
+// <a href> links and patches them using the article data.
+// This handles the case where the content-listing template has
+// <h3 class="article-card__title">{{.title}}</h3> without a link.
+func ensureArticleLinks(html string, articles []map[string]interface{}) string {
+	for _, article := range articles {
+		title, _ := article["title"].(string)
+		url, _ := article["url"].(string)
+		if title == "" || url == "" {
+			continue
+		}
+
+		// Look for title text NOT already wrapped in an <a> tag
+		// Pattern: <h3...>Title</h3> where Title is not inside <a>
+		escapedTitle := regexp.QuoteMeta(title)
+		// Match: >Title</h3  (title directly inside heading, no <a>)
+		pattern := regexp.MustCompile(`(>[^<]*)` + escapedTitle + `([^<]*</h[1-6])`)
+		if pattern.MatchString(html) {
+			// Check it's not already linked
+			linkedPattern := regexp.MustCompile(`<a[^>]*>` + escapedTitle + `</a>`)
+			if !linkedPattern.MatchString(html) {
+				// Replace bare title with linked title
+				old := `>` + title + `</h`
+				new := `><a href="` + url + `">` + title + `</a></h`
+				html = strings.Replace(html, old, new, 1)
+			}
+		}
+	}
+	return html
+}
+
+// estimateReadTime returns a human-readable read time estimate
+// based on approximate content length in characters.
+// Assumes ~5 chars per word, 200 words per minute.
+func estimateReadTime(contentLengthChars int) string {
+	if contentLengthChars == 0 {
 		return ""
+	}
+	words := contentLengthChars / 5
+	minutes := words / 200
+	if minutes < 1 {
+		minutes = 1
+	}
+	return fmt.Sprintf("%d min read", minutes)
+}
+
+// renderBlogTemplate renders a Go template with blog data.
+func renderBlogTemplate(htmlTemplate string, data map[string]interface{}, logger *zap.Logger) string {
+	tmpl, err := template.New("blog_listing").Parse(htmlTemplate)
+	if err != nil {
+		logger.Warn("RebuildBlogListingAction: Failed to parse template, using fallback",
+			zap.Error(err))
+		tmpl, _ = template.New("blog_listing").Parse(defaultBlogListingTemplate)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		logger.Warn("Blog listing template execute error", zap.Error(err))
+		logger.Warn("RebuildBlogListingAction: Failed to execute template",
+			zap.Error(err))
 		return ""
 	}
 
 	return buf.String()
 }
 
-// defaultBlogListingTemplate is used only when no content_component template
-// exists. Uses generic CSS class names — the site's stylesheet provides styling.
-const defaultBlogListingTemplate = `<section class="section section--articles" data-component="blog-listing">
+var defaultBlogListingTemplate = `<section class="blog-listing" data-component="content-listing">
   <div class="container">
-    <div class="section__header">
-      <h2 class="section__title">{{.section_title}}</h2>
-      {{if .section_subtitle}}<p class="section__subtitle">{{.section_subtitle}}</p>{{end}}
-    </div>
-    <div class="article-grid grid grid--3">
+    {{if .section_title}}<h2 class="section-title">{{.section_title}}</h2>{{end}}
+    {{if .section_subtitle}}<p class="section-subtitle">{{.section_subtitle}}</p>{{end}}
+    <div class="article-grid">
       {{range .articles}}
-      <article class="article-card hover-lift">
+      <article class="article-card">
         <div class="article-card__content">
-          <div class="article-card__meta">
-            <span class="article-card__date">{{.date}}</span>
-            {{if .read_time}}<span class="article-card__read-time">{{.read_time}}</span>{{end}}
-          </div>
           <h3 class="article-card__title"><a href="{{.url}}">{{.title}}</a></h3>
+          {{if .date}}<time class="article-card__date">{{.date}}</time>{{end}}
+          {{if .read_time}}<span class="article-card__read-time">{{.read_time}}</span>{{end}}
           {{if .excerpt}}<p class="article-card__excerpt">{{.excerpt}}</p>{{end}}
         </div>
       </article>

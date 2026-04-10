@@ -657,3 +657,101 @@ WHERE type = 'improvement-loop' AND is_active = true
 -- load_pass_count | check_audit_pass_limit   | spawn_quality_discovery  | notify_scheduler_clean | increment_audit_pass  | check_has_findings
 
 To reset a site (e.g. after a major redesign): SELECT reset_audit_passes('site-uuid-here').
+
+---
+
+-- ============================================================================
+-- 031_improvement_loop_news_enrichment.sql
+--
+-- Adds evaluate_news_feed as an enrichment step in the improvement-loop.
+-- Runs after ensure_site_record, before load_pass_count.
+--
+-- Why: evaluate_news_feed only ran during initial classification. When we
+-- add new fields (like separate_page) or new verticals, existing sites
+-- never get updated. Running it every improvement cycle keeps the news
+-- recommendation current for all sites. It's deterministic (no LLM),
+-- idempotent (deep merge of identical values is a no-op), and fast
+-- (one DB read + conditional write).
+--
+-- Chain change:
+--   BEFORE: ensure_site_record → load_pass_count
+--   AFTER:  ensure_site_record → enrich_news_feed → load_pass_count
+--
+-- The evaluate_news_feed action is already registered as a local action
+-- (IsLocal: true) — no agent spawn needed.
+-- ============================================================================
+
+-- Step 1: Add the new step to the workflow
+                                                          UPDATE agent_definitions
+                                                   SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,enrich_news_feed}',
+    '{
+        "action": "evaluate_news_feed",
+        "config": {
+            "site_id": "site_record.site_id",
+            "error_step": "load_pass_count"
+        },
+        "next_step": "load_pass_count",
+        "description": "Refresh news feed recommendation from classification spec (deterministic, no LLM)",
+        "output_field": "news_feed_enrichment"
+    }'::jsonb
+),
+updated_at = NOW()
+                                               WHERE type = 'improvement-loop'
+                                                 AND deleted_at IS NULL;
+
+-- Step 2: Repoint ensure_site_record to the new step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,ensure_site_record,next_step}',
+        '"enrich_news_feed"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop'
+  AND deleted_at IS NULL;
+
+-- Step 3: Add news_feed_enrichment to the complete step's output_fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,complete,config,output_fields}',
+        (
+            SELECT jsonb_agg(DISTINCT val)
+            FROM (
+                     SELECT val FROM jsonb_array_elements_text(
+                                             default_config->'workflow'->'steps'->'complete'->'config'->'output_fields'
+                                     ) AS val
+                     UNION
+                     SELECT 'news_feed_enrichment'
+                 ) sub
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'improvement-loop'
+  AND deleted_at IS NULL;
+
+-- ============================================================================
+-- Verify
+-- ============================================================================
+-- Check the chain is correct:
+-- SELECT
+--     step_name,
+--     step_def->>'action' as action,
+--     step_def->>'next_step' as next_step,
+--     step_def->>'error_step' as error_step
+-- FROM agent_definitions,
+--      jsonb_each(default_config->'workflow'->'steps') AS s(step_name, step_def)
+-- WHERE type = 'improvement-loop' AND deleted_at IS NULL
+-- ORDER BY step_name;
+--
+-- Specifically verify the chain:
+-- ensure_site_record → enrich_news_feed → load_pass_count
+--
+-- SELECT
+--     default_config->'workflow'->'steps'->'ensure_site_record'->>'next_step' as ensure_next,
+--     default_config->'workflow'->'steps'->'enrich_news_feed'->>'next_step' as enrich_next,
+--     default_config->'workflow'->'steps'->'enrich_news_feed'->>'action' as enrich_action
+-- FROM agent_definitions
+-- WHERE type = 'improvement-loop' AND deleted_at IS NULL;

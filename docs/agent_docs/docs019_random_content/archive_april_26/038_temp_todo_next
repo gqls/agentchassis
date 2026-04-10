@@ -1,0 +1,29 @@
+Unresolved mechanism
+Located in load_work_item_actions.go line ~893, in insertWorkItem:
+
+Discovery check finds an issue, calls insertWorkItem
+Action queries for terminal items (complete/failed) with same item_key in last 7 days
+If newest terminal item < 3 hours old → suppress entirely (don't create)
+If 2+ terminal items exist → create item with status unresolved and prefix summary with "[unresolved after N attempts]"
+unresolved items are not dispatched — they sit visible for investigation
+
+This correctly catches handlers that "succeed" without fixing the underlying issue. The attempt_count = 0 is expected — these are new items born as unresolved, not retried items.
+Blog listing — problems to fix
+Problem 1: Slot name mismatch. rebuild_blog_listing always writes to slot blog-listing. Some blog pages were planned with different section names (article-grid, featured-article, category-section). The action creates a blog-listing component that page assembly ignores because the page expects its planned slots.
+Problem 2: Template field name drift. The action renders Go templates itself, passing fields like articles, url, title. The component library templates use different field names. 10KB of CSS renders but no article cards appear because the {{range}} produces nothing.
+Problem 3: Architectural mismatch. Every other section in the system works as: structured data → render pipeline → HTML. Blog listing bypasses this by rendering in Go. This couples the action to template internals and guarantees drift as the component library evolves.
+The fix: Refactor rebuild_blog_listing to be a data provider, not a renderer. It should:
+
+Find the existing listing slot on the blog page (not hardcode blog-listing)
+Write structured post data to the page_component's content fields
+Let the existing render pipeline apply the template
+
+Remaining unresolved groups (for later)
+
+needs_rerender (6) — timing issue, not a bug. Handler works but discovery fires before child items complete
+deactivated_component (3) — head component linked to deactivated content_component. Needs relinking, not re-rendering
+generic_theme (7) → webdesign-agent (experimental)
+missing_style_collection (3) → webdesign-agent (experimental)
+needs_design_review (4) → webdesign-agent (experimental)
+orphan_page (17) → fixed by new check_orphan_pages.go routing (nav_drift → nav-updater, needs_internal_links → future handler)
+Tool items (11) → component_id mapping bug (input_data.spec.component_id vs input_data.component_id)
