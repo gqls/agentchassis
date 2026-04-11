@@ -1568,3 +1568,106 @@ SELECT
     default_config->'workflow'->'steps'->'extract_fingerprint'->>'output_field' as fingerprint_output
 FROM agent_definitions
 WHERE type = 'site-adoption-agent';
+
+---
+
+-- ============================================================================
+-- Phase 2e: Auto-generate design_intent from design_reference
+-- ============================================================================
+-- Adds two steps to the adoption workflow after apply_plan:
+--   generate_design_intent (LLM) → produces rich semantic design_intent
+--   write_design_intent (write_site_spec) → persists to site_specs
+--
+-- This unlocks prompt path 1 in the webdesign-agent — creative freedom
+-- within the described character, rather than locked reproduction of
+-- reference values.
+--
+-- Current flow:  ... → apply_plan → complete
+-- New flow:      ... → apply_plan → generate_design_intent
+--                                  → write_design_intent → complete
+-- ============================================================================
+
+-- Step 1: Add generate_design_intent step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_design_intent}',
+        $$
+            {
+        "action": "execute_llm_prompt",
+        "config": {
+            "ai_service": {
+                "model": "claude-sonnet-4-6",
+        "provider": "anthropic",
+        "api_key_env_var": "ANTHROPIC_API_KEY"
+    },
+            "max_tokens": 4000,
+            "temperature": 0.3,
+            "input_fields": ["site_record", "design_fingerprint", "adoption_analysis"],
+            "prompt_template": "You are a senior brand designer writing a design brief for a web designer. You have concrete CSS data extracted from an existing site and you need to describe what the design IS — its character, its intent, its visual personality — so that a designer can reproduce and eventually evolve it.\n\nDomain: {{if .site_record}}{{.site_record.domain}}{{end}}\n\n== EXTRACTED DESIGN DATA ==\n{{if .design_fingerprint}}{{if .design_fingerprint.suggested_mapping}}Suggested CSS mapping:\n{{range $key, $value := .design_fingerprint.suggested_mapping}}  {{$key}}: {{$value}}\n{{end}}{{end}}\n{{if .design_fingerprint.css_variables}}Original CSS variables:\n{{range $key, $value := .design_fingerprint.css_variables}}  {{$key}}: {{$value}}\n{{end}}{{end}}\n{{if .design_fingerprint.typography}}Typography:\n{{range $key, $value := .design_fingerprint.typography}}  {{$key}}: {{$value}}\n{{end}}{{end}}\n{{if .design_fingerprint.dark_sections}}Dark sections: predominant scheme is {{.design_fingerprint.dark_sections.predominant_scheme}}{{end}}{{end}}\n\n== SITE IDENTITY ==\n{{if .adoption_analysis}}{{if .adoption_analysis.identity}}Company: {{.adoption_analysis.identity.company_name}}\nIndustry: {{.adoption_analysis.identity.industry}}\nTone: {{.adoption_analysis.identity.tone}}\nAudience: {{.adoption_analysis.identity.target_audience}}{{end}}\n{{if .adoption_analysis.design}}LLM design description: {{.adoption_analysis.design.visual_tone}}{{end}}{{end}}\n\nProduce a design intent specification that describes the character of this design — not just the values, but WHY those values work and what they achieve. A designer reading this should understand the visual personality well enough to make good decisions about things not explicitly specified.\n\nRespond with ONLY valid JSON:\n{\n  \"source\": \"design_reference\",\n  \"palette\": {\n    \"character\": \"A detailed description of the colour approach — what mood it creates, what it communicates about the brand, why these specific colours work for this industry and audience\",\n    \"reference_values\": {\n      \"primary\": \"#hex from the extracted data\",\n      \"secondary\": \"#hex\",\n      \"accent\": \"#hex\",\n      \"background\": \"#hex\",\n      \"surface\": \"#hex\",\n      \"text\": \"#hex\",\n      \"text_muted\": \"#hex\"\n    },\n    \"guidance\": \"What to preserve about the palette and what constraints to respect when evolving it\"\n  },\n  \"typography\": {\n    \"character\": \"A description of what the font choices communicate — why these fonts suit this type of site and audience\",\n    \"reference_values\": {\n      \"font_family\": \"the extracted font stack\",\n      \"heading_font\": \"heading font if different\"\n    },\n    \"guidance\": \"What to preserve about the typography when evolving\"\n  },\n  \"spacing\": {\n    \"character\": \"A description of the spacing approach — dense or spacious, why that suits the content type\",\n    \"reference_values\": {\n      \"section_padding\": \"extracted or inferred\",\n      \"container_max_width\": \"extracted or inferred\"\n    }\n  },\n  \"dark_light\": {\n    \"scheme\": \"dark|light|mixed\",\n    \"rationale\": \"Why this scheme works for this site\"\n  },\n  \"overall_character\": \"A 2-3 sentence summary of the entire visual identity that captures its essence\"\n}\n\nRules:\n- The reference_values MUST come from the extracted design data above, not invented\n- The character descriptions should explain WHY the values work, not just restate them\n- The guidance fields should help a designer know what to preserve vs what can evolve\n- If extracted data is missing for a field, use a reasonable inference and note it"
+        },
+        "next_step": "write_design_intent",
+        "error_step": "complete",
+        "description": "LLM generates rich semantic design_intent from extracted fingerprint data",
+        "output_field": "design_intent_generated"
+    }
+    $$::jsonb
+),
+    updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Step 2: Add write_design_intent step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,write_design_intent}',
+        $$
+            {
+        "action": "write_site_spec",
+        "config": {
+            "aspect": "design_intent",
+        "source": "site-adoption-agent",
+        "site_id": "site_record.site_id",
+        "spec_data": "design_intent_generated",
+        "source_agent": "site-adoption-agent"
+    },
+        "next_step": "complete",
+        "error_step": "complete",
+        "description": "Write design_intent spec from LLM-generated design brief",
+        "output_field": "design_intent_written"
+    }
+    $$::jsonb
+),
+    updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Step 3: Re-point apply_plan to go to generate_design_intent instead of complete
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,apply_plan,next_step}',
+        '"generate_design_intent"'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Step 4: Update complete step to include new output fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,complete,config,output_fields}',
+        '["site_record", "formatted_crawl", "adoption_analysis", "adoption_result", "design_fingerprint", "design_intent_generated"]'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Verify the new flow
+SELECT
+    default_config->'workflow'->'steps'->'apply_plan'->>'next_step' as apply_plan_goes_to,
+    default_config->'workflow'->'steps'->'generate_design_intent'->>'next_step' as gen_intent_goes_to,
+    default_config->'workflow'->'steps'->'write_design_intent'->>'next_step' as write_intent_goes_to,
+    default_config->'workflow'->'steps'->'generate_design_intent'->>'action' as gen_intent_action,
+    default_config->'workflow'->'steps'->'write_design_intent'->>'action' as write_intent_action
+FROM agent_definitions
+WHERE type = 'site-adoption-agent';
+-- Expected: generate_design_intent, write_design_intent, complete, execute_llm_prompt, write_site_spec

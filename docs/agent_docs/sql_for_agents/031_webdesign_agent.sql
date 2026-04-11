@@ -2163,3 +2163,461 @@ SELECT substring(
 WHERE type = 'webdesign-agent' AND deleted_at IS NULL;
 
 
+---
+      --
+
+      -- backup
+ 9dc5f47a-7c1f-461a-80f1-8ae37feca24e | webdesign-agent | Web Design Agent | Generates CSS stylesheets for sites. Accepts site_context or loads from DB. Analyzes design requirements and generates production CSS. | specialist | {"workflow": {"steps": {"complete": {"action": "complete_workflow", "config": {"output_fields": ["design_spec", "css_deployed", "site_context"]}}, "deploy_css": {"action": "git_commit", "config": {"file_path": "assets/css/styles.css", "domain_field": "site_context.domain", "content_field": "generated_css.result", "commit_message": "Update stylesheet via webdesign-agent"}, "next_step": "check_update_db", "description": "Deploy CSS to git", "output_field": "css_deployed"}, "update_site": {"action": "update_site_content", "config": {"merge": true, "content_field": "design_spec.result", "site_id_field": "site_context.site_id"}, "next_step": "complete", "description": "Store design spec", "output_field": "site_updated"}, "generate_css": {"action": "render_css_from_spec", "config": {"theme_name": "standard-brochure"}, "next_step": "deploy_css", "description": "Render CSS from design spec using Go template (deterministic, no LLM)", "output_field": "generated_css"}, "analyze_design": {"action": "execute_llm_prompt", "config": {"ai_service": {"model": "claude-sonnet-4-6", "provider": "anthropic", "max_tokens": 2000, "api_key_env_var": "ANTHROPIC_API_KEY"}, "input_fields": ["site_context", "site_specs"], "output_format": "json", "prompt_template": "You are a web design expert. Analyze the site and output a design specification.\n\n## Site\nDomain: {{.site_context.domain}}\nCompany: {{if .site_specs.specs.identity.company_name}}{{.site_specs.specs.identity.company_name}}{{else}}{{.site_context.company_name}}{{end}}\nIndustry: {{if .site_specs.specs.identity.industry}}{{.site_specs.specs.identity.industry}}{{else if .site_context.industry}}{{.site_context.industry}}{{else}}professional services{{end}}\nSub-industry: {{if .site_specs.specs.identity.sub_industry}}{{.site_specs.specs.identity.sub_industry}}{{end}}\nTagline: {{if .site_specs.specs.identity.tagline}}{{.site_specs.specs.identity.tagline}}{{else}}{{.site_context.tagline}}{{end}}\nSite Type: {{if .site_specs.specs.strategy.site_type}}{{.site_specs.specs.strategy.site_type}}{{else if .site_specs.specs.classification.site_type}}{{.site_specs.specs.classification.site_type}}{{else}}{{.site_context.site_type}}{{end}}\nTone: {{if .site_specs.specs.strategy.tone}}{{.site_specs.specs.strategy.tone}}{{else if .site_specs.specs.classification.tone_suggestion}}{{.site_specs.specs.classification.tone_suggestion}}{{else}}{{.site_context.brand_tone}}{{end}}\nTarget Audience: {{if .site_specs.specs.identity.target_audience}}{{.site_specs.specs.identity.target_audience}}{{end}}\nValue Proposition: {{if .site_specs.specs.strategy.value_proposition}}{{.site_specs.specs.strategy.value_proposition}}{{end}}\n\n{{if .site_specs.specs.identity.about_summary}}## About the Business\n{{.site_specs.specs.identity.about_summary}}{{else if .site_context.about_us}}## About the Business\n{{.site_context.about_us}}{{end}}\n\n{{if .site_specs.specs.identity.services}}## Services Offered\n{{range .site_specs.specs.identity.services}}- {{if .name}}{{.name}}: {{.description}}{{else}}{{.}}{{end}}\n{{end}}{{else if .site_context.services}}## Services Offered\n{{range .site_context.services}}- {{if .name}}{{.name}}: {{.description}}{{else}}{{.}}{{end}}\n{{end}}{{end}}\n\n{{if .site_specs.specs.identity.unique_selling_points}}## Unique Selling Points\n{{range .site_specs.specs.identity.unique_selling_points}}- {{.}}\n{{end}}{{end}}\n\n{{if .site_specs.specs.strategy.content_strategy}}## Content Strategy\n{{.site_specs.specs.strategy.content_strategy}}{{end}}\n\n## Components Used\n{{range .site_context.all_component_functions}}- {{.}}\n{{end}}\n\nUsing the industry, business description, tone, target audience, and services above,\nchoose colors and typography that are appropriate and distinctive for this specific\nindustry and brand. Do NOT use generic defaults. A fuel distribution company should\nlook different from a consulting firm. A veterinary practice should feel different\nfrom a law firm.\n\nReturn ONLY valid JSON:\n{\n  \"color_scheme\": {\n    \"primary\": \"#hex (industry-appropriate, NOT #2c3e50)\",\n    \"secondary\": \"#hex\",\n    \"accent\": \"#hex\",\n    \"background\": \"#ffffff\",\n    \"surface\": \"#hex\",\n    \"text\": \"#333333\",\n    \"text_muted\": \"#666666\",\n    \"border\": \"#hex\"\n  },\n  \"typography\": {\n    \"font_family\": \"appropriate font stack\",\n    \"heading_font\": \"inherit or specific\",\n    \"base_size\": \"16px\",\n    \"line_height\": \"1.6\"\n  },\n  \"spacing\": {\n    \"section_padding\": \"5rem 2rem\",\n    \"container_max_width\": \"1200px\"\n  },\n  \"design_notes\": \"explain why these colors/fonts suit this industry and brand tone\"\n}"}, "next_step": "generate_css", "description": "Generate design spec", "output_field": "design_spec"}, "check_update_db": {"action": "conditional", "config": {"condition": "site_context.site_id != null", "else_step": "complete", "then_step": "update_site"}, "description": "Check if we should update DB"}, "read_site_specs": {"action": "read_site_spec", "config": {"site_id": "site_context.site_id"}, "next_step": "analyze_design", "description": "Load identity, classification, strategy from site_specs", "output_field": "site_specs"}, "check_has_site_id": {"action": "conditional", "config": {"condition": "site_context.site_id != null", "else_step": "analyze_design", "then_step": "read_site_specs"}, "description": "Skip site_specs read when no DB record (e.g. scrape-only path)"}, "load_site_context": {"action": "load_site_for_design", "config": {"domain_field": "input_data.domain", "include_pages": true, "site_id_field": "input_data.site_id", "include_style_collection": true}, "next_step": "check_has_site_id", "description": "Load site from database", "output_field": "site_context"}, "check_site_context": {"action": "conditional", "config": {"condition": "input_data.site_context.domain != null", "else_step": "load_site_context", "then_step": "use_provided_context"}, "description": "Check if site_context was provided"}, "use_provided_context": {"action": "transform_data", "config": {"output_key": "site_context", "source_field": "input_data.site_context"}, "next_step": "check_has_site_id", "description": "Use provided site_context", "output_field": "site_context"}}, "start_step": "check_site_context"}, "processing_mode": "task", "timeout_seconds": 300} | t         | 2026-01-29 15:39:53.19592+00 | 2026-04-11 15:39:41.731404+00 |            | ["design", "css", "styling", "specialist"] | docker.io/aqls/agent-chassis | v1.0.951  |         | {"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}} | {"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"} | {"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30} | []       |       1 |                     |               |                       |                        | {"fallback_to_self": true, "prefer_delegation": true} |                | experimental | []          | {}                     |           0 | f           | {"optional": ["site_id", "domain", "site_context"], "required": []} | {"produces": {"design_spec": "design spec", "css_deployed": "git result"}} |                  180
+(1 row)
+
+      ---
+      -- The key change in the prompt: it now has a conditional branch. When design_reference exists in site_specs (adopted sites), the prompt says "here are the concrete values from the original site, use them as your starting point, do NOT invent a new palette." When it doesn't exist (new builds), it falls back to the existing instruction: "choose colours appropriate for this industry."
+-- ============================================================================
+-- Phase 2b: Update webdesign-agent analyze_design prompt
+-- ============================================================================
+-- Three-way priority for design direction:
+--   1. design_intent exists → use it (semantic, creative freedom, evolution)
+--   2. design_reference exists, no design_intent → reproduce reference (first adoption build)
+--   3. neither → generate from industry (new build)
+--
+-- This determines WHEN the palette can change:
+--   - First adoption: only design_reference exists → locked to reference values
+--   - Strategist/human writes design_intent → agent has creative freedom within intent
+--   - Improvement loop proposes design_intent update → palette evolves
+-- ============================================================================
+
+-- Verify current state
+SELECT LEFT(
+    default_config->'workflow'->'steps'->'analyze_design'->'config'->>'prompt_template',
+    80
+) as prompt_start
+FROM agent_definitions
+WHERE type = 'webdesign-agent';
+
+-- Update the prompt_template
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,analyze_design,config,prompt_template}',
+    to_jsonb(
+'You are a web design expert. Analyze the site and output a design specification.
+
+## Site
+Domain: {{.site_context.domain}}
+Company: {{if .site_specs.specs.identity.company_name}}{{.site_specs.specs.identity.company_name}}{{else}}{{.site_context.company_name}}{{end}}
+Industry: {{if .site_specs.specs.identity.industry}}{{.site_specs.specs.identity.industry}}{{else if .site_context.industry}}{{.site_context.industry}}{{else}}professional services{{end}}
+Sub-industry: {{if .site_specs.specs.identity.sub_industry}}{{.site_specs.specs.identity.sub_industry}}{{end}}
+Tagline: {{if .site_specs.specs.identity.tagline}}{{.site_specs.specs.identity.tagline}}{{else}}{{.site_context.tagline}}{{end}}
+Site Type: {{if .site_specs.specs.strategy.site_type}}{{.site_specs.specs.strategy.site_type}}{{else if .site_specs.specs.classification.site_type}}{{.site_specs.specs.classification.site_type}}{{else}}{{.site_context.site_type}}{{end}}
+Tone: {{if .site_specs.specs.strategy.tone}}{{.site_specs.specs.strategy.tone}}{{else if .site_specs.specs.classification.tone_suggestion}}{{.site_specs.specs.classification.tone_suggestion}}{{else}}{{.site_context.brand_tone}}{{end}}
+Target Audience: {{if .site_specs.specs.identity.target_audience}}{{.site_specs.specs.identity.target_audience}}{{end}}
+Value Proposition: {{if .site_specs.specs.strategy.value_proposition}}{{.site_specs.specs.strategy.value_proposition}}{{end}}
+
+{{if .site_specs.specs.identity.about_summary}}## About the Business
+{{.site_specs.specs.identity.about_summary}}{{else if .site_context.about_us}}## About the Business
+{{.site_context.about_us}}{{end}}
+
+{{if .site_specs.specs.identity.services}}## Services Offered
+{{range .site_specs.specs.identity.services}}- {{if .name}}{{.name}}: {{.description}}{{else}}{{.}}{{end}}
+{{end}}{{else if .site_context.services}}## Services Offered
+{{range .site_context.services}}- {{if .name}}{{.name}}: {{.description}}{{else}}{{.}}{{end}}
+{{end}}{{end}}
+
+{{if .site_specs.specs.identity.unique_selling_points}}## Unique Selling Points
+{{range .site_specs.specs.identity.unique_selling_points}}- {{.}}
+{{end}}{{end}}
+
+{{if .site_specs.specs.strategy.content_strategy}}## Content Strategy
+{{.site_specs.specs.strategy.content_strategy}}{{end}}
+
+## Components Used
+{{range .site_context.all_component_functions}}- {{.}}
+{{end}}
+
+{{if .site_specs.specs.design_intent}}## Design Intent
+
+A design direction has been set for this site. You have creative freedom to interpret this intent — the values below are guidance, not exact specifications. Your design should express the described character while fitting our CSS variable conventions.
+
+{{if .site_specs.specs.design_intent.palette}}### Palette
+{{if .site_specs.specs.design_intent.palette.character}}Character: {{.site_specs.specs.design_intent.palette.character}}{{end}}
+{{if .site_specs.specs.design_intent.palette.reference_values}}Reference values (use as starting points, not exact targets):
+{{range $key, $value := .site_specs.specs.design_intent.palette.reference_values}}  --color-{{$key}}: {{$value}}
+{{end}}{{end}}
+{{if .site_specs.specs.design_intent.palette.guidance}}Guidance: {{.site_specs.specs.design_intent.palette.guidance}}{{end}}
+{{end}}
+
+{{if .site_specs.specs.design_intent.typography}}### Typography
+{{if .site_specs.specs.design_intent.typography.character}}Character: {{.site_specs.specs.design_intent.typography.character}}{{end}}
+{{if .site_specs.specs.design_intent.typography.reference_values}}Reference values:
+{{range $key, $value := .site_specs.specs.design_intent.typography.reference_values}}  {{$key}}: {{$value}}
+{{end}}{{end}}
+{{if .site_specs.specs.design_intent.typography.guidance}}Guidance: {{.site_specs.specs.design_intent.typography.guidance}}{{end}}
+{{end}}
+
+{{if .site_specs.specs.design_intent.spacing}}### Spacing
+{{if .site_specs.specs.design_intent.spacing.character}}Character: {{.site_specs.specs.design_intent.spacing.character}}{{end}}
+{{if .site_specs.specs.design_intent.spacing.reference_values}}Reference values:
+{{range $key, $value := .site_specs.specs.design_intent.spacing.reference_values}}  {{$key}}: {{$value}}
+{{end}}{{end}}
+{{end}}
+
+Generate a design that expresses the described character. You may adjust the reference values to better achieve the intent — explain your choices in design_notes.
+
+{{else if .site_specs.specs.design_reference}}## Design Reference (Adopted Site — No Design Intent Yet)
+
+This site was adopted from an existing design but no design direction has been set yet. The values below were extracted from the original site''s actual CSS. Use them directly — do NOT invent a new palette or font stack.
+
+{{if .site_specs.specs.design_reference.suggested_mapping}}### Reference Values (mapped to our CSS variables)
+Use these values directly:
+{{range $key, $value := .site_specs.specs.design_reference.suggested_mapping}}  --color-{{$key}}: {{$value}}
+{{end}}{{end}}
+
+{{if .site_specs.specs.design_reference.css_variables}}### Original CSS Variables
+The original site defined these custom properties:
+{{range $key, $value := .site_specs.specs.design_reference.css_variables}}  {{$key}}: {{$value}}
+{{end}}{{end}}
+
+{{if .site_specs.specs.design_reference.dark_sections}}### Dark/Light Scheme
+Predominant scheme: {{.site_specs.specs.design_reference.dark_sections.predominant_scheme}}
+Has dark sections: {{.site_specs.specs.design_reference.dark_sections.has_dark_sections}}
+{{end}}
+
+{{if .site_specs.specs.design_reference.llm_description}}### Design Character (from analysis)
+{{if .site_specs.specs.design_reference.llm_description.visual_tone}}Visual tone: {{.site_specs.specs.design_reference.llm_description.visual_tone}}{{end}}
+{{if .site_specs.specs.design_reference.llm_description.palette}}Palette description: {{.site_specs.specs.design_reference.llm_description.palette}}{{end}}
+{{if .site_specs.specs.design_reference.llm_description.typography}}Typography: {{.site_specs.specs.design_reference.llm_description.typography}}{{end}}
+{{end}}
+
+IMPORTANT: Without a design_intent spec, your job is to reproduce the original design faithfully. Use the reference values above as-is. Do not override them with generic industry defaults.
+
+{{else}}
+Using the industry, business description, tone, target audience, and services above,
+choose colors and typography that are appropriate and distinctive for this specific
+industry and brand. Do NOT use generic defaults. A fuel distribution company should
+look different from a consulting firm. A veterinary practice should feel different
+from a law firm.
+{{end}}
+
+Return ONLY valid JSON:
+{
+  "color_scheme": {
+    "primary": "#hex (industry-appropriate, NOT #2c3e50)",
+    "secondary": "#hex",
+    "accent": "#hex",
+    "background": "#ffffff",
+    "surface": "#hex",
+    "text": "#333333",
+    "text_muted": "#666666",
+    "border": "#hex"
+  },
+  "typography": {
+    "font_family": "appropriate font stack",
+    "heading_font": "inherit or specific",
+    "base_size": "16px",
+    "line_height": "1.6"
+  },
+  "spacing": {
+    "section_padding": "5rem 2rem",
+    "container_max_width": "1200px"
+  },
+  "design_notes": "explain why these colors/fonts suit this industry and brand tone"
+}'::text
+    ),
+    updated_at = now()
+WHERE type = 'webdesign-agent';
+
+-- Verify
+SELECT
+    LENGTH(default_config->'workflow'->'steps'->'analyze_design'->'config'->>'prompt_template') as prompt_length,
+    CASE
+        WHEN default_config->'workflow'->'steps'->'analyze_design'->'config'->>'prompt_template'
+             LIKE '%design_intent%' THEN 'HAS_INTENT'
+        ELSE 'NO_INTENT'
+    END as has_intent,
+    CASE
+        WHEN default_config->'workflow'->'steps'->'analyze_design'->'config'->>'prompt_template'
+             LIKE '%design_reference%' THEN 'HAS_REFERENCE'
+        ELSE 'NO_REFERENCE'
+    END as has_reference
+FROM agent_definitions
+WHERE type = 'webdesign-agent';
+
+--  fix for above
+
+-- ============================================================================
+-- Phase 2e: Auto-generate design_intent from design_reference
+-- ============================================================================
+-- Adds two steps to the adoption workflow after apply_plan:
+--   generate_design_intent (LLM) → produces rich semantic design_intent
+--   write_design_intent (write_site_spec) → persists to site_specs
+--
+-- This unlocks prompt path 1 in the webdesign-agent — creative freedom
+-- within the described character, rather than locked reproduction of
+-- reference values.
+--
+-- Current flow:  ... → apply_plan → complete
+-- New flow:      ... → apply_plan → generate_design_intent
+--                                  → write_design_intent → complete
+-- ============================================================================
+
+-- Step 1: Add generate_design_intent step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,generate_design_intent}',
+    $$
+    {
+        "action": "execute_llm_prompt",
+        "config": {
+            "ai_service": {
+                "model": "claude-sonnet-4-6",
+                "provider": "anthropic",
+                "api_key_env_var": "ANTHROPIC_API_KEY"
+            },
+            "max_tokens": 4000,
+            "temperature": 0.3,
+            "input_fields": ["site_record", "design_fingerprint", "adoption_analysis"],
+            "prompt_template": "You are a senior brand designer writing a design brief for a web designer. You have concrete CSS data extracted from an existing site and you need to describe what the design IS — its character, its intent, its visual personality — so that a designer can reproduce and eventually evolve it.\n\nDomain: {{if .site_record}}{{.site_record.domain}}{{end}}\n\n== EXTRACTED DESIGN DATA ==\n{{if .design_fingerprint}}{{if .design_fingerprint.suggested_mapping}}Suggested CSS mapping:\n{{range $key, $value := .design_fingerprint.suggested_mapping}}  {{$key}}: {{$value}}\n{{end}}{{end}}\n{{if .design_fingerprint.css_variables}}Original CSS variables:\n{{range $key, $value := .design_fingerprint.css_variables}}  {{$key}}: {{$value}}\n{{end}}{{end}}\n{{if .design_fingerprint.typography}}Typography:\n{{range $key, $value := .design_fingerprint.typography}}  {{$key}}: {{$value}}\n{{end}}{{end}}\n{{if .design_fingerprint.dark_sections}}Dark sections: predominant scheme is {{.design_fingerprint.dark_sections.predominant_scheme}}{{end}}{{end}}\n\n== SITE IDENTITY ==\n{{if .adoption_analysis}}{{if .adoption_analysis.identity}}Company: {{.adoption_analysis.identity.company_name}}\nIndustry: {{.adoption_analysis.identity.industry}}\nTone: {{.adoption_analysis.identity.tone}}\nAudience: {{.adoption_analysis.identity.target_audience}}{{end}}\n{{if .adoption_analysis.design}}LLM design description: {{.adoption_analysis.design.visual_tone}}{{end}}{{end}}\n\nProduce a design intent specification that describes the character of this design — not just the values, but WHY those values work and what they achieve. A designer reading this should understand the visual personality well enough to make good decisions about things not explicitly specified.\n\nRespond with ONLY valid JSON:\n{\n  \"source\": \"design_reference\",\n  \"palette\": {\n    \"character\": \"A detailed description of the colour approach — what mood it creates, what it communicates about the brand, why these specific colours work for this industry and audience\",\n    \"reference_values\": {\n      \"primary\": \"#hex from the extracted data\",\n      \"secondary\": \"#hex\",\n      \"accent\": \"#hex\",\n      \"background\": \"#hex\",\n      \"surface\": \"#hex\",\n      \"text\": \"#hex\",\n      \"text_muted\": \"#hex\"\n    },\n    \"guidance\": \"What to preserve about the palette and what constraints to respect when evolving it\"\n  },\n  \"typography\": {\n    \"character\": \"A description of what the font choices communicate — why these fonts suit this type of site and audience\",\n    \"reference_values\": {\n      \"font_family\": \"the extracted font stack\",\n      \"heading_font\": \"heading font if different\"\n    },\n    \"guidance\": \"What to preserve about the typography when evolving\"\n  },\n  \"spacing\": {\n    \"character\": \"A description of the spacing approach — dense or spacious, why that suits the content type\",\n    \"reference_values\": {\n      \"section_padding\": \"extracted or inferred\",\n      \"container_max_width\": \"extracted or inferred\"\n    }\n  },\n  \"dark_light\": {\n    \"scheme\": \"dark|light|mixed\",\n    \"rationale\": \"Why this scheme works for this site\"\n  },\n  \"overall_character\": \"A 2-3 sentence summary of the entire visual identity that captures its essence\"\n}\n\nRules:\n- The reference_values MUST come from the extracted design data above, not invented\n- The character descriptions should explain WHY the values work, not just restate them\n- The guidance fields should help a designer know what to preserve vs what can evolve\n- If extracted data is missing for a field, use a reasonable inference and note it"
+        },
+        "next_step": "write_design_intent",
+        "error_step": "complete",
+        "description": "LLM generates rich semantic design_intent from extracted fingerprint data",
+        "output_field": "design_intent_generated"
+    }
+    $$::jsonb
+),
+updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Step 2: Add write_design_intent step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,write_design_intent}',
+    $$
+    {
+        "action": "write_site_spec",
+        "config": {
+            "aspect": "design_intent",
+            "source": "site-adoption-agent",
+            "site_id": "site_record.site_id",
+            "spec_data": "design_intent_generated",
+            "source_agent": "site-adoption-agent"
+        },
+        "next_step": "complete",
+        "error_step": "complete",
+        "description": "Write design_intent spec from LLM-generated design brief",
+        "output_field": "design_intent_written"
+    }
+    $$::jsonb
+),
+updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Step 3: Re-point apply_plan to go to generate_design_intent instead of complete
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,apply_plan,next_step}',
+    '"generate_design_intent"'::jsonb
+),
+updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Step 4: Update complete step to include new output fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,complete,config,output_fields}',
+    '["site_record", "formatted_crawl", "adoption_analysis", "adoption_result", "design_fingerprint", "design_intent_generated"]'::jsonb
+),
+updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Verify the new flow
+SELECT
+    default_config->'workflow'->'steps'->'apply_plan'->>'next_step' as apply_plan_goes_to,
+    default_config->'workflow'->'steps'->'generate_design_intent'->>'next_step' as gen_intent_goes_to,
+    default_config->'workflow'->'steps'->'write_design_intent'->>'next_step' as write_intent_goes_to,
+    default_config->'workflow'->'steps'->'generate_design_intent'->>'action' as gen_intent_action,
+    default_config->'workflow'->'steps'->'write_design_intent'->>'action' as write_intent_action
+FROM agent_definitions
+WHERE type = 'site-adoption-agent';
+-- Expected: generate_design_intent, write_design_intent, complete, execute_llm_prompt, write_site_spec
+
+---
+      -- richer prompts
+
+      -- ============================================================================
+-- Phase 2b: Update webdesign-agent analyze_design prompt
+-- ============================================================================
+-- Uses $$prompt$$ dollar-quoting to avoid single-quote escaping issues.
+-- Three-way priority: design_intent → design_reference → generate from industry
+-- Richer system prompt that establishes design expertise and constraints.
+-- ============================================================================
+
+-- ============================================================================
+-- Phase 2b: Update webdesign-agent analyze_design prompt
+-- ============================================================================
+-- Uses DO block with nested dollar-quoting ($do$ outer, $prompt$ inner)
+-- to avoid all escaping issues with long multi-line prompts.
+-- ============================================================================
+
+DO $do$
+DECLARE
+    new_prompt text;
+BEGIN
+    new_prompt := $prompt$You are a senior web designer specialising in brand-appropriate visual systems. You produce CSS design specifications that express a company's identity, industry, and audience through colour, typography, and spacing. Your designs are distinctive — you never fall back to generic blue-and-grey palettes. You understand that a game design utility platform should feel completely different from a veterinary practice, which should feel completely different from a fuel distribution company. Every design decision you make should be traceable to something specific about the business, its audience, or its industry.
+
+## Site
+Domain: {{.site_context.domain}}
+Company: {{if .site_specs.specs.identity.company_name}}{{.site_specs.specs.identity.company_name}}{{else}}{{.site_context.company_name}}{{end}}
+Industry: {{if .site_specs.specs.identity.industry}}{{.site_specs.specs.identity.industry}}{{else if .site_context.industry}}{{.site_context.industry}}{{else}}professional services{{end}}
+Sub-industry: {{if .site_specs.specs.identity.sub_industry}}{{.site_specs.specs.identity.sub_industry}}{{end}}
+Tagline: {{if .site_specs.specs.identity.tagline}}{{.site_specs.specs.identity.tagline}}{{else}}{{.site_context.tagline}}{{end}}
+Site Type: {{if .site_specs.specs.strategy.site_type}}{{.site_specs.specs.strategy.site_type}}{{else if .site_specs.specs.classification.site_type}}{{.site_specs.specs.classification.site_type}}{{else}}{{.site_context.site_type}}{{end}}
+Tone: {{if .site_specs.specs.strategy.tone}}{{.site_specs.specs.strategy.tone}}{{else if .site_specs.specs.classification.tone_suggestion}}{{.site_specs.specs.classification.tone_suggestion}}{{else}}{{.site_context.brand_tone}}{{end}}
+Target Audience: {{if .site_specs.specs.identity.target_audience}}{{.site_specs.specs.identity.target_audience}}{{end}}
+Value Proposition: {{if .site_specs.specs.strategy.value_proposition}}{{.site_specs.specs.strategy.value_proposition}}{{end}}
+
+{{if .site_specs.specs.identity.about_summary}}## About the Business
+{{.site_specs.specs.identity.about_summary}}{{else if .site_context.about_us}}## About the Business
+{{.site_context.about_us}}{{end}}
+
+{{if .site_specs.specs.identity.services}}## Services Offered
+{{range .site_specs.specs.identity.services}}- {{if .name}}{{.name}}: {{.description}}{{else}}{{.}}{{end}}
+{{end}}{{else if .site_context.services}}## Services Offered
+{{range .site_context.services}}- {{if .name}}{{.name}}: {{.description}}{{else}}{{.}}{{end}}
+{{end}}{{end}}
+
+{{if .site_specs.specs.identity.unique_selling_points}}## Unique Selling Points
+{{range .site_specs.specs.identity.unique_selling_points}}- {{.}}
+{{end}}{{end}}
+
+{{if .site_specs.specs.strategy.content_strategy}}## Content Strategy
+{{.site_specs.specs.strategy.content_strategy}}{{end}}
+
+## Components Used
+{{range .site_context.all_component_functions}}- {{.}}
+{{end}}
+
+{{if .site_specs.specs.design_intent}}## Design Intent
+
+A design direction has been set for this site. You have creative freedom to interpret this intent. The reference values are starting points — you may adjust them to better express the described character. Explain your choices in design_notes.
+
+{{if .site_specs.specs.design_intent.palette}}### Palette
+{{if .site_specs.specs.design_intent.palette.character}}Character: {{.site_specs.specs.design_intent.palette.character}}{{end}}
+{{if .site_specs.specs.design_intent.palette.reference_values}}Reference values (starting points, not exact targets):
+{{range $key, $value := .site_specs.specs.design_intent.palette.reference_values}}  --color-{{$key}}: {{$value}}
+{{end}}{{end}}
+{{if .site_specs.specs.design_intent.palette.guidance}}Guidance: {{.site_specs.specs.design_intent.palette.guidance}}{{end}}
+{{end}}
+
+{{if .site_specs.specs.design_intent.typography}}### Typography
+{{if .site_specs.specs.design_intent.typography.character}}Character: {{.site_specs.specs.design_intent.typography.character}}{{end}}
+{{if .site_specs.specs.design_intent.typography.reference_values}}Reference values:
+{{range $key, $value := .site_specs.specs.design_intent.typography.reference_values}}  {{$key}}: {{$value}}
+{{end}}{{end}}
+{{if .site_specs.specs.design_intent.typography.guidance}}Guidance: {{.site_specs.specs.design_intent.typography.guidance}}{{end}}
+{{end}}
+
+{{if .site_specs.specs.design_intent.spacing}}### Spacing
+{{if .site_specs.specs.design_intent.spacing.character}}Character: {{.site_specs.specs.design_intent.spacing.character}}{{end}}
+{{if .site_specs.specs.design_intent.spacing.reference_values}}Reference values:
+{{range $key, $value := .site_specs.specs.design_intent.spacing.reference_values}}  {{$key}}: {{$value}}
+{{end}}{{end}}
+{{end}}
+
+{{else if .site_specs.specs.design_reference}}## Design Reference (Adopted Site — No Design Intent Set)
+
+This site was adopted from an existing design. No design direction has been set yet, so your job is to faithfully reproduce the original visual identity using our CSS variable conventions. Do NOT invent a new palette or font stack — use the reference values directly.
+
+{{if .site_specs.specs.design_reference.suggested_mapping}}### Reference Values (mapped to our CSS variables)
+Use these values directly:
+{{range $key, $value := .site_specs.specs.design_reference.suggested_mapping}}  --color-{{$key}}: {{$value}}
+{{end}}{{end}}
+
+{{if .site_specs.specs.design_reference.css_variables}}### Original CSS Variables
+The original site defined these custom properties:
+{{range $key, $value := .site_specs.specs.design_reference.css_variables}}  {{$key}}: {{$value}}
+{{end}}{{end}}
+
+{{if .site_specs.specs.design_reference.dark_sections}}### Dark/Light Scheme
+Predominant scheme: {{.site_specs.specs.design_reference.dark_sections.predominant_scheme}}
+Has dark sections: {{.site_specs.specs.design_reference.dark_sections.has_dark_sections}}
+{{end}}
+
+{{if .site_specs.specs.design_reference.llm_description}}### Design Character (from analysis)
+{{if .site_specs.specs.design_reference.llm_description.visual_tone}}Visual tone: {{.site_specs.specs.design_reference.llm_description.visual_tone}}{{end}}
+{{if .site_specs.specs.design_reference.llm_description.palette}}Palette: {{.site_specs.specs.design_reference.llm_description.palette}}{{end}}
+{{if .site_specs.specs.design_reference.llm_description.typography}}Typography: {{.site_specs.specs.design_reference.llm_description.typography}}{{end}}
+{{end}}
+
+{{else}}
+## Design Direction
+
+No design reference or intent exists for this site. Using the industry, business description, tone, target audience, and services above, design a colour palette and typography system that is appropriate and distinctive for this specific business. Think about what colours and fonts the target audience would expect and trust. Think about what competitors in this industry typically use — then find a way to be distinctive without being inappropriate.
+
+Do NOT use generic defaults. Do NOT default to #2c3e50 or #3498db.
+{{end}}
+
+Return ONLY valid JSON:
+{
+  "color_scheme": {
+    "primary": "#hex",
+    "secondary": "#hex",
+    "accent": "#hex",
+    "background": "#hex",
+    "surface": "#hex",
+    "text": "#hex",
+    "text_muted": "#hex",
+    "border": "#hex"
+  },
+  "typography": {
+    "font_family": "appropriate font stack",
+    "heading_font": "inherit or specific heading font",
+    "base_size": "16px",
+    "line_height": "1.6"
+  },
+  "spacing": {
+    "section_padding": "appropriate section padding",
+    "container_max_width": "appropriate max width"
+  },
+  "design_notes": "explain specifically why each colour and font choice suits THIS business and audience — generic explanations are not acceptable"
+}$prompt$;
+
+    UPDATE agent_definitions
+    SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_design,config,prompt_template}',
+        to_jsonb(new_prompt)
+    ),
+    updated_at = now()
+    WHERE type = 'webdesign-agent';
+
+    RAISE NOTICE 'Prompt updated, length: %', length(new_prompt);
+END $do$;
+
+-- Verify
+SELECT
+    LENGTH(default_config->'workflow'->'steps'->'analyze_design'->'config'->>'prompt_template') as prompt_length,
+    CASE
+        WHEN default_config->'workflow'->'steps'->'analyze_design'->'config'->>'prompt_template'
+             LIKE '%design_intent%' THEN 'HAS_INTENT'
+        ELSE 'NO_INTENT'
+    END as has_intent,
+    CASE
+        WHEN default_config->'workflow'->'steps'->'analyze_design'->'config'->>'prompt_template'
+             LIKE '%design_reference%' THEN 'HAS_REFERENCE'
+        ELSE 'NO_REFERENCE'
+    END as has_reference,
+    CASE
+        WHEN default_config->'workflow'->'steps'->'analyze_design'->'config'->>'prompt_template'
+             LIKE '%senior web designer%' THEN 'UPDATED'
+        ELSE 'OLD_PROMPT'
+    END as prompt_version
+FROM agent_definitions
+WHERE type = 'webdesign-agent';
+
+
+

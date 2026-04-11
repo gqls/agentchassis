@@ -1111,3 +1111,41 @@ WHERE name = 'stale-orchestration-reaper'
     RETURNING name;
 
 
+---
+--Stale triaged items reaper — agreed, separate from database-cleanup. A new scheduled task that marks items unresolved if they've been sitting in triaged for 48h without being claimed:' ||
+                           '' ||
+                           '
+INSERT INTO scheduled_tasks (
+    name, description, interval_seconds, target_agent_type,
+    target_topic, enabled, fire_message, timeout_seconds,
+    concurrency_group, max_concurrent, pre_query
+) VALUES (
+             'stale-work-item-reaper',
+             'Marks triaged work items as unresolved if they have been waiting 48h+ without being claimed. Prevents queue deadlocks.',
+             3600,
+             'stale-work-item-reaper',
+             'system.agent.generic.requests',
+             true,
+             false,
+             120,
+             'maintenance',
+             1,
+             '
+             WITH stale AS (
+                 UPDATE site_work_items
+                 SET status = ''unresolved'',
+                     summary = ''[stale: triaged 48h+] '' || summary,
+                     updated_at = NOW()
+                 WHERE status = ''triaged''
+                   AND pipeline = ''build''
+                   AND created_at < NOW() - INTERVAL ''48 hours''
+                   AND claimed_at IS NULL
+                 RETURNING id
+             )
+             SELECT COUNT(*)::text as affected_count FROM stale
+             '
+         )
+    ON CONFLICT (name) DO UPDATE SET
+    pre_query = EXCLUDED.pre_query,
+                              description = EXCLUDED.description,
+                              enabled = EXCLUDED.enabled;
