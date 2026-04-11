@@ -173,7 +173,37 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 
 	specAspects := map[string]interface{}{
 		"identity": identityData,
-		"design":   plan["design"],
+	}
+
+	// Design reference: prefer concrete fingerprint data over LLM guess.
+	// The fingerprint is extracted from actual CSS in the crawled HTML by
+	// extract_design_fingerprint (Go action, no LLM). The plan["design"]
+	// is the LLM's vague description from analyze_site. Fingerprint wins.
+	fingerprintRaw := datahelpers.ExtractNestedField(params.CollectedData, "design_fingerprint")
+	if fingerprintRaw != nil {
+		fpUnwrapped := datahelpers.UnwrapDeep(fingerprintRaw, logger)
+		if fpData, ok := fpUnwrapped.(map[string]interface{}); ok {
+			if status, _ := fpData["status"].(string); status == "extracted" {
+				// Merge the LLM's design description in as supplementary context
+				// (it has useful things like "visual_tone" that CSS can't express)
+				if llmDesign, ok := plan["design"].(map[string]interface{}); ok {
+					fpData["llm_description"] = llmDesign
+				}
+				specAspects["design_reference"] = fpData
+				logger.Info("Writing design_reference from fingerprint",
+					zap.Int("css_vars", countMapKeys(fpData, "css_variables")),
+					zap.Int("suggested", countMapKeys(fpData, "suggested_mapping")),
+				)
+			} else {
+				// Fingerprint extraction didn't produce results — fall back to LLM
+				specAspects["design_reference"] = plan["design"]
+				logger.Info("Fingerprint status not 'extracted', using LLM design as reference")
+			}
+		}
+	} else {
+		// No fingerprint at all — fall back to LLM design
+		specAspects["design_reference"] = plan["design"]
+		logger.Info("No fingerprint available, using LLM design as reference")
 	}
 
 	// Content direction from the writing style analysis (separate LLM call)
@@ -438,12 +468,34 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 
 	// ── 5. Create work items ────────────────────────────────────────────
 
-	// Design
+	// Design — prefer fingerprint over LLM guess for adopt_from
 	designSpec := map[string]interface{}{
 		"mode":         "recreate",
 		"adopted_from": domain,
 	}
-	if designData, ok := plan["design"].(map[string]interface{}); ok {
+	// Use fingerprint data if we have it (concrete CSS values > LLM descriptions)
+	if fpRef, ok := specAspects["design_reference"].(map[string]interface{}); ok {
+		adoptFrom := map[string]interface{}{}
+		if suggested, ok := fpRef["suggested_mapping"].(map[string]interface{}); ok {
+			adoptFrom["suggested_mapping"] = suggested
+		}
+		if cssVars, ok := fpRef["css_variables"].(map[string]interface{}); ok {
+			adoptFrom["css_variables"] = cssVars
+		}
+		if darkSections, ok := fpRef["dark_sections"].(map[string]interface{}); ok {
+			adoptFrom["dark_sections"] = darkSections
+		}
+		if typo, ok := fpRef["typography"].(map[string]interface{}); ok {
+			adoptFrom["typography"] = typo
+		}
+		// Keep LLM description as supplementary context
+		if llmDesc, ok := fpRef["llm_description"].(map[string]interface{}); ok {
+			adoptFrom["llm_description"] = llmDesc
+		}
+		designSpec["adopt_from"] = adoptFrom
+		logger.Info("Enriched needs_design spec with fingerprint data")
+	} else if designData, ok := plan["design"].(map[string]interface{}); ok {
+		// Fallback to LLM design description
 		designSpec["adopt_from"] = designData
 	}
 	designSpecJSON, _ := json.Marshal(designSpec)
@@ -788,4 +840,12 @@ func mapKeys(m map[string]interface{}) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// countMapKeys returns len of a nested map field, or 0 if not found.
+func countMapKeys(data map[string]interface{}, key string) int {
+	if m, ok := data[key].(map[string]interface{}); ok {
+		return len(m)
+	}
+	return 0
 }

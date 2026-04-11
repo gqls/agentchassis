@@ -1463,3 +1463,108 @@ UPDATE agent_definitions SET default_config = jsonb_set(
         '{"url_field":"input_data.url","scrape_config":{"formats":["markdown","rawHtml"],"only_main_content":false,"limit":50,"max_discovery_depth":4}}'::jsonb
                                               ), updated_at = NOW()
 WHERE type = 'site-adoption-agent' AND is_active = true;
+
+---
+-- extract design data from adoption
+
+-- ============================================================================
+-- Phase 1b: Registry entry for extract_design_fingerprint
+-- ============================================================================
+-- Add to platform/orchestration/actions/registry.go in GlobalActionRegistry:
+--
+--   "extract_design_fingerprint": {
+--       Handler:     ExtractDesignFingerprintAction,
+--       Category:    "analysis",
+--       Description: "Extract concrete design data (colours, fonts, layout) from crawled HTML",
+--       IsLocal:     true,
+--   },
+--
+-- The ActionInputSpec is registered via init() in the action file itself.
+-- No entry needed in local_actions.go (deprecated — IsLocal in registry is used).
+
+-- ============================================================================
+-- Phase 1c: Insert extract_fingerprint step into adoption workflow
+-- ============================================================================
+-- Current flow:
+--   check_crawl_content (then_step → analyze_site)
+--
+-- New flow:
+--   check_crawl_content (then_step → extract_fingerprint)
+--   extract_fingerprint (next_step → analyze_site)
+
+-- Verify current state first
+SELECT
+    default_config->'workflow'->'steps'->'check_crawl_content'->'config'->>'then_step' as check_goes_to
+FROM agent_definitions
+WHERE agent_type = 'site-adoption-agent';
+-- Should show: analyze_site
+
+-- Add the new step and re-point check_crawl_content
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                config,
+                '{workflow,steps,extract_fingerprint}',
+                '{
+                    "action": "extract_design_fingerprint",
+                    "config": {
+                        "crawl_field": "crawl_result"
+                    },
+                    "next_step": "analyze_site",
+                    "description": "Extract concrete design data (colours, fonts, layout) from crawled HTML — no LLM",
+                    "output_field": "design_fingerprint"
+                }'::jsonb
+        ),
+        '{workflow,steps,check_crawl_content,config,then_step}',
+        '"extract_fingerprint"'::jsonb
+             ),
+    updated_at = now()
+WHERE agent_type = 'site-adoption-agent';
+
+-- Verify
+SELECT
+    config->'workflow'->'steps'->'check_crawl_content'->'config'->>'then_step' as check_goes_to,
+    config->'workflow'->'steps'->'extract_fingerprint'->>'next_step' as fingerprint_goes_to,
+    config->'workflow'->'steps'->'extract_fingerprint'->>'action' as fingerprint_action,
+    config->'workflow'->'steps'->'extract_fingerprint'->>'output_field' as fingerprint_output
+FROM agent_definitions
+WHERE agent_type = 'site-adoption-agent';
+-- Should show: extract_fingerprint, analyze_site, extract_design_fingerprint, design_fingerprint
+
+
+-- Verify current state
+SELECT
+    default_config->'workflow'->'steps'->'check_crawl_content'->'config'->>'then_step' as check_goes_to
+FROM agent_definitions
+WHERE type = 'site-adoption-agent';
+
+-- Add the new step and re-point check_crawl_content
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,extract_fingerprint}',
+                '{
+                    "action": "extract_design_fingerprint",
+                    "config": {
+                        "crawl_field": "crawl_result"
+                    },
+                    "next_step": "analyze_site",
+                    "description": "Extract concrete design data (colours, fonts, layout) from crawled HTML — no LLM",
+                    "output_field": "design_fingerprint"
+                }'::jsonb
+        ),
+        '{workflow,steps,check_crawl_content,config,then_step}',
+        '"extract_fingerprint"'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Verify
+SELECT
+    default_config->'workflow'->'steps'->'check_crawl_content'->'config'->>'then_step' as check_goes_to,
+    default_config->'workflow'->'steps'->'extract_fingerprint'->>'next_step' as fingerprint_goes_to,
+    default_config->'workflow'->'steps'->'extract_fingerprint'->>'action' as fingerprint_action,
+    default_config->'workflow'->'steps'->'extract_fingerprint'->>'output_field' as fingerprint_output
+FROM agent_definitions
+WHERE type = 'site-adoption-agent';
