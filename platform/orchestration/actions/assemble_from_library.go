@@ -175,6 +175,7 @@ func buildRenderContextFromParams(params ActionParams, coll *StyleCollection) *R
 		Domain:      extractDomainFromParams(params),
 		SiteID:      extractSiteIDFromParams(params),
 		LogoText:    extractLogoTextFromParams(params),
+		LogoURL:     extractLogoURLFromParams(params),
 		CompanyName: extractCompanyNameFromParams(params),
 	}
 
@@ -432,4 +433,26 @@ func extractComponentNames(buildPlan *BuildPlan, logger *zap.Logger) ([]string, 
 	}
 
 	return componentNames, nil
+}
+
+func extractLogoURLFromParams(params ActionParams) string {
+	// Check ContentData first (may have been set by deploy step)
+	if cd, ok := params.CollectedData["render_context"].(map[string]interface{}); ok {
+		if url, ok := cd["logo_url"].(string); ok && url != "" {
+			return url
+		}
+	}
+	// Check site_record
+	if sr, ok := params.CollectedData["site_record"].(map[string]interface{}); ok {
+		if url, ok := sr["logo_url"].(string); ok && url != "" {
+			return url
+		}
+	}
+	// Check logo_deployed
+	if ld, ok := params.CollectedData["logo_deployed"].(map[string]interface{}); ok {
+		if url, ok := ld["image_url"].(string); ok && url != "" {
+			return url
+		}
+	}
+	return ""
 }

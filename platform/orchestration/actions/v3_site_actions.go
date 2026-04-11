@@ -772,6 +772,7 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 				renderCtx.ContentData = make(map[string]interface{})
 			}
 			renderCtx.ContentData["logo_url"] = imageURL
+			renderCtx.LogoURL = imageURL
 			params.Logger.Info("Set logo_url from logo_deployed.image_url",
 				zap.String("url", imageURL))
 		}
@@ -784,6 +785,9 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 				renderCtx.ContentData = make(map[string]interface{})
 			}
 			renderCtx.ContentData[field] = url
+			if field == "logo_url" {
+				renderCtx.LogoURL = url
+			}
 		}
 	}
 

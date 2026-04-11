@@ -288,7 +288,7 @@ func fixInjectResponsiveCSS(ctx context.Context, params ActionParams, siteID uui
 	}
 
 	// Check if already has responsive media query for this slot
-	if strings.Contains(html, "responsive fix") {
+	if strings.Contains(strings.ToLower(html), "responsive fix") {
 		return map[string]interface{}{"fixed": false, "reason": "already has responsive CSS"}, nil
 	}
 

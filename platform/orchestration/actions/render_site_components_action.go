@@ -160,6 +160,7 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		Email:       siteData.Email,
 		Phone:       siteData.Phone,
 		LogoText:    siteData.LogoText,
+		LogoURL:     siteData.LogoURL,
 		NavItems:    navItems,
 		Year:        year,
 

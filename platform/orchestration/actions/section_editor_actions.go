@@ -428,6 +428,7 @@ func buildRenderContextFromDB(
 		SiteID:         siteID,
 		CompanyName:    siteData.CompanyName,
 		LogoText:       siteData.LogoText,
+		LogoURL:        siteData.LogoURL,
 		Tagline:        siteData.Tagline,
 		Email:          siteData.Email,
 		Phone:          siteData.Phone,

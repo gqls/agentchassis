@@ -66,6 +66,7 @@ type RenderContext struct {
 	Domain      string `json:"domain"`
 	SiteID      uuid.UUID
 	LogoText    string `json:"logo_text"`
+	LogoURL     string `json:"logo_url"`
 	CompanyName string `json:"company_name"`
 	Tagline     string `json:"tagline"`
 
@@ -686,6 +687,7 @@ func contextToInterfaceMap(ctx *RenderContext) map[string]interface{} {
 		"domain":       ctx.Domain,
 		"site_id":      ctx.SiteID,
 		"logo_text":    logoText,
+		"logo_url":     ctx.LogoURL,
 		"company_name": defaultString(ctx.CompanyName, logoText),
 		"tagline":      ctx.Tagline,
 
@@ -1451,6 +1453,16 @@ func RenderFallbackFooter(ctx *RenderContext) string {
 
 // InjectHeader replaces an existing header in HTML with a rendered component
 func InjectHeader(ctx context.Context, db interface{}, html string, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
+	// Skip injection if page content already contains a site-header.
+	// This handles custom layouts where nav is part of a page section
+	// (e.g. hero-with-integrated-nav, sidebar-nav adopted from crawl).
+	if strings.Contains(html, `class="site-header`) ||
+		strings.Contains(html, `class="site-header--`) {
+		logger.Info("InjectHeader: page already contains site-header, skipping injection",
+			zap.String("site_id", siteID.String()))
+		return html
+	}
+
 	// Update nav items from deployed pages (not cached db_sync)
 	if sqlDB, ok := db.(*sql.DB); ok && siteID != uuid.Nil {
 		/*headerNav := GetHeaderNavFromPages(ctx, sqlDB, siteID, 6, logger)*/
@@ -1492,6 +1504,12 @@ func InjectHeader(ctx context.Context, db interface{}, html string, siteID uuid.
 
 // InjectFooter replaces an existing footer in HTML with a rendered component
 func InjectFooter(ctx context.Context, db interface{}, html string, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
+	// Skip injection if page content already contains a site-footer.
+	if strings.Contains(html, `class="site-footer`) {
+		logger.Info("InjectFooter: page already contains site-footer, skipping injection",
+			zap.String("site_id", siteID.String()))
+		return html
+	}
 	// Update nav items from deployed pages for footer
 	// Footer includes legal pages (privacy, terms) that may not be in header
 	if sqlDB, ok := db.(*sql.DB); ok && siteID != uuid.Nil {

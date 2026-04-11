@@ -375,6 +375,13 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		}
 	}
 
+	// ── Filter out site-level component names ────────────────────────
+	// The planner or adoption flow may include header/footer names in the
+	// page sections list. These are site-level components handled by
+	// InjectHeader/InjectFooter — if we process them here they end up as
+	// page_components rows, causing duplicate headers/footers on assembly.
+	sectionNames = filterSiteLevelSections(sectionNames, logger)
+
 	if len(sectionNames) == 0 {
 		return map[string]interface{}{
 			"sections_ready":    []interface{}{},
@@ -838,6 +845,28 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 	item.ResolvedData = resolvedData
 	item.LLMFields = llmFields
 	return item
+}
+
+// filterSiteLevelSections removes section names that correspond to site-level
+// components (headers, footers). These are managed by site_components and injected
+// during page assembly — they should never enter the page_components pipeline.
+func filterSiteLevelSections(sections []string, logger *zap.Logger) []string {
+	filtered := make([]string, 0, len(sections))
+	for _, s := range sections {
+		lower := strings.ToLower(s)
+		if strings.Contains(lower, "header") ||
+			strings.Contains(lower, "footer") ||
+			lower == "site-header" ||
+			lower == "site-footer" ||
+			lower == "head" ||
+			strings.HasPrefix(lower, "head-") {
+			logger.Info("plan_sections: filtered site-level section",
+				zap.String("section", s))
+			continue
+		}
+		filtered = append(filtered, s)
+	}
+	return filtered
 }
 
 // ============================================================================

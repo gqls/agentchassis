@@ -317,6 +317,17 @@ func buildRenderContextFromCollectedData(collectedData map[string]interface{}, l
 		}
 	}
 
+	// Extract logo_url from collected_data (may have been set by deploy or asset steps)
+	if logoURL := datahelpers.ExtractNestedFieldString(collectedData, "logo_url"); logoURL != "" {
+		ctx.LogoURL = logoURL
+	}
+	// Also check site_record path
+	if ctx.LogoURL == "" {
+		if logoURL := datahelpers.ExtractNestedFieldString(collectedData, "site_record.logo_url"); logoURL != "" {
+			ctx.LogoURL = logoURL
+		}
+	}
+
 	// Fallback email from domain
 	if ctx.Email == "" && ctx.Domain != "" {
 		ctx.Email = "info@" + ctx.Domain
@@ -335,6 +346,7 @@ func copyRenderContext(src *RenderContext) *RenderContext {
 	if src == nil {
 		return &RenderContext{}
 	}
+	// copies all struct fields
 	cpy := *src
 	// Deep copy NavItems slice
 	cpy.NavItems = make([]NavItem, len(src.NavItems))
@@ -359,6 +371,7 @@ func setActiveNavItems(items []NavItem, currentPage string) []NavItem {
 func convertRenderContextToHeaderConfig(ctx *RenderContext) *HeaderConfig {
 	config := &HeaderConfig{
 		LogoText:     ctx.LogoText,
+		LogoURL:      ctx.LogoURL,
 		PrimaryColor: ctx.PrimaryColor,
 		AccentColor:  ctx.AccentColor,
 		CurrentPage:  ctx.CurrentPage,
