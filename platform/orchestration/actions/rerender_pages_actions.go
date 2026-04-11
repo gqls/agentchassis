@@ -619,10 +619,26 @@ func rerenderStripWrapper(html string) string {
 	// Remove <html> tags
 	html = regexp.MustCompile(`(?i)</?html[^>]*>`).ReplaceAllString(html, "")
 	// Remove entire <head>...</head> (not <header>)
-	html = regexp.MustCompile(`(?is)<head(?:\s[^>]*)?>.*?</head>`).ReplaceAllString(html, "")
-	// Remove <body> tags but keep content
-	html = regexp.MustCompile(`(?i)<body[^>]*>`).ReplaceAllString(html, "")
-	html = regexp.MustCompile(`(?i)</body>`).ReplaceAllString(html, "")
+	html = regexp.MustCompile(`(?is)<head(?:\s[^>]*)?>[EXISTING PATTERN]`).ReplaceAllString(html, "")
+	// Remove <body> tags
+	html = regexp.MustCompile(`(?i)</?body[^>]*>`).ReplaceAllString(html, "")
+
+	// Remove injected site-level headers (with associated style/script blocks)
+	// Only strips headers with class="site-header" or preceded by HEADER SOURCE comment
+	// to avoid stripping semantic <header> tags inside section content
+	html = regexp.MustCompile(
+		`(?is)(?:<!--\s*HEADER\s+SOURCE:[^>]*-->\s*)*`+
+			`<header\s[^>]*class="site-header[^>]*>.*?</header>`+
+			`\s*(?:<style[^>]*>.*?</style>\s*)*`+
+			`(?:<script[^>]*>.*?</script>\s*)*`,
+	).ReplaceAllString(html, "")
+
+	// NEW: Remove injected site-level footers (with associated style blocks)
+	html = regexp.MustCompile(
+		`(?is)(?:<!--\s*FOOTER\s+SOURCE:[^>]*-->\s*)*`+
+			`<footer\s[^>]*class="site-footer[^>]*>.*?</footer>`+
+			`\s*(?:<style[^>]*>.*?</style>\s*)*`,
+	).ReplaceAllString(html, "")
 
 	return strings.TrimSpace(html)
 }

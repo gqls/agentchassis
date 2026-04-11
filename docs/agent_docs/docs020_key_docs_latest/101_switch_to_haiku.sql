@@ -88,42 +88,42 @@ ORDER BY type;
 -- Copy everything below this line into a separate file for later use.
 
 -- Restore opus agents
--- UPDATE agent_definitions
--- SET default_config = replace(default_config::text, 'claude-haiku-4-5', 'claude-opus-4-6')::jsonb
--- WHERE type IN ('build-site-planner')
---   AND is_active = true;
+UPDATE agent_definitions
+SET default_config = replace(default_config::text, 'claude-haiku-4-5', 'claude-opus-4-6')::jsonb
+WHERE type IN ('build-site-planner')
+  AND is_active = true;
 --
 -- -- chief-strategist has 2 rows
--- UPDATE agent_definitions
--- SET default_config = replace(default_config::text, 'claude-haiku-4-5', 'claude-opus-4-6')::jsonb
--- WHERE type = 'chief-strategist'
---   AND is_active = true;
+UPDATE agent_definitions
+SET default_config = replace(default_config::text, 'claude-haiku-4-5', 'claude-opus-4-6')::jsonb
+WHERE type = 'chief-strategist'
+  AND is_active = true;
 --
 -- -- tool-recreation-handler stage 2 (opus) — tricky, it has both sonnet and opus
 -- -- The recreate_tool step uses opus, analyze_tool uses sonnet
 -- -- After restoring sonnet below, then target just the recreate step:
--- -- UPDATE agent_definitions
--- -- SET default_config = jsonb_set(
--- --     default_config,
--- --     '{workflow,steps,recreate_tool,config,ai_service,model}',
--- --     '"claude-opus-4-6"'::jsonb
--- -- )
--- -- WHERE type = 'tool-recreation-handler' AND is_active = true;
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,recreate_tool,config,ai_service,model}',
+    '"claude-opus-4-6"'::jsonb
+)
+WHERE type = 'tool-recreation-handler' AND is_active = true;
 --
 -- -- Restore sonnet agents (everything that was sonnet but NOT the opus ones above)
--- UPDATE agent_definitions
--- SET default_config = replace(default_config::text, 'claude-haiku-4-5', 'claude-sonnet-4-6')::jsonb
--- WHERE type IN (
---     'blog-content-planner', 'briefing-agent', 'build-briefing-agent',
---     'component-creator', 'content-gap-planner', 'content-quality-auditor',
---     'content-reviewer', 'css-patch-agent', 'domain-research-classifier',
---     'domain-strategist', 'feed-triage', 'page-content-writer',
---     'reasoning', 'researcher', 'site-adoption-agent',
---     'site-architect', 'site-classifier', 'site-planner',
---     'site-review-agent', 'site-scraper', 'tool-auditor',
---     'tool-generator', 'tool-improver', 'tool-recreation-handler',
---     'tool-suggester', 'visual-design-auditor', 'webdesign-agent'
--- ) AND is_active = true;
+UPDATE agent_definitions
+SET default_config = replace(default_config::text, 'claude-haiku-4-5', 'claude-sonnet-4-6')::jsonb
+WHERE type IN (
+    'blog-content-planner', 'briefing-agent', 'build-briefing-agent',
+    'component-creator', 'content-gap-planner', 'content-quality-auditor',
+    'content-reviewer', 'css-patch-agent', 'domain-research-classifier',
+    'domain-strategist', 'feed-triage', 'page-content-writer',
+    'reasoning', 'researcher', 'site-adoption-agent',
+    'site-architect', 'site-classifier', 'site-planner',
+    'site-review-agent', 'site-scraper', 'tool-auditor',
+    'tool-generator', 'tool-improver', 'tool-recreation-handler',
+    'tool-suggester', 'visual-design-auditor', 'webdesign-agent'
+) AND is_active = true;
 --
 -- -- Fix mixed agents: research-agent and content-creator have both haiku and sonnet refs
 -- -- The replace above will have switched ALL their refs to sonnet
