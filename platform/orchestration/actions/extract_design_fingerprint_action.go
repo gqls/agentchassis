@@ -125,6 +125,7 @@ func ExtractDesignFingerprintAction(ctx context.Context, params ActionParams) (i
 	displayPatterns := make(map[string]int)
 	gapValues := make(map[string]int)
 	googleFontsURLs := []string{}
+	externalCSSURLs := make(map[string]bool)
 
 	var styleBlockCount, inlineStyleCount int
 	var darkBgColors []string
@@ -160,15 +161,34 @@ func ExtractDesignFingerprintAction(ctx context.Context, params ActionParams) (i
 			fpExtractLayout(css, maxWidths, displayPatterns, gapValues)
 		})
 
-		// ── <link> tags (Google Fonts) ──────────────────────────
+		// ── <link> tags (Google Fonts AND external CSS URLs) ────
 		doc.Find("link").Each(func(i int, s *goquery.Selection) {
 			href, exists := s.Attr("href")
-			if !exists {
+			if !exists || href == "" {
 				return
 			}
+
+			// Google Fonts
 			if matches := fpGoogleFontsRe.FindStringSubmatch(href); len(matches) > 1 {
 				googleFontsURLs = append(googleFontsURLs, href)
 				fpParseFontFamiliesFromGoogleURL(matches[1], fonts, fontSources)
+				return
+			}
+
+			// External CSS files
+			rel, _ := s.Attr("rel")
+			if rel != "stylesheet" {
+				return
+			}
+
+			// Resolve relative URL against page URL
+			pageURL := ""
+			if metadata, ok := page["metadata"].(map[string]interface{}); ok {
+				pageURL, _ = metadata["url"].(string)
+			}
+			cssURL := fpResolveURL(href, pageURL)
+			if cssURL != "" && !externalCSSURLs[cssURL] {
+				externalCSSURLs[cssURL] = true
 			}
 		})
 
@@ -296,6 +316,17 @@ func ExtractDesignFingerprintAction(ctx context.Context, params ActionParams) (i
 
 	result["suggested_mapping"] = suggested
 
+	// External CSS URLs for fetching via webscrape adapter
+	cssURLList := make([]string, 0, len(externalCSSURLs))
+	for u := range externalCSSURLs {
+		cssURLList = append(cssURLList, u)
+	}
+	result["external_css_urls"] = cssURLList
+	result["has_external_css"] = len(cssURLList) > 0
+	if len(cssURLList) > 0 {
+		result["primary_css_url"] = cssURLList[0]
+	}
+
 	logger.Info("Design fingerprint extracted",
 		zap.Int("pages_analyzed", pagesAnalyzed),
 		zap.Int("colors_found", len(allColors)),
@@ -303,6 +334,7 @@ func ExtractDesignFingerprintAction(ctx context.Context, params ActionParams) (i
 		zap.Int("css_vars_found", len(cssVars)),
 		zap.Bool("has_dark_sections", hasDark),
 		zap.Int("suggested_fields", len(suggested)),
+		zap.Int("external_css_urls", len(cssURLList)),
 	)
 
 	return result, nil
@@ -386,6 +418,35 @@ func fpParseFontFamiliesFromGoogleURL(familyParam string, fonts map[string]int, 
 			sources[fam] = "google_fonts" // upgrade source
 		}
 	}
+}
+
+// fpResolveURL resolves a potentially relative CSS URL against a page URL.
+func fpResolveURL(href, pageURL string) string {
+	// Already absolute
+	if strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://") {
+		return href
+	}
+	if pageURL == "" {
+		return ""
+	}
+	// Absolute path (starts with /) — attach to scheme+host
+	if strings.HasPrefix(href, "/") {
+		schemeEnd := strings.Index(pageURL, "://")
+		if schemeEnd < 0 {
+			return ""
+		}
+		hostEnd := strings.Index(pageURL[schemeEnd+3:], "/")
+		if hostEnd < 0 {
+			return pageURL + href
+		}
+		return pageURL[:schemeEnd+3+hostEnd] + href
+	}
+	// Relative path — resolve against directory of page URL
+	lastSlash := strings.LastIndex(pageURL, "/")
+	if lastSlash < 8 {
+		return pageURL + "/" + href
+	}
+	return pageURL[:lastSlash+1] + href
 }
 
 // ── Colour helpers ──────────────────────────────────────────────────────

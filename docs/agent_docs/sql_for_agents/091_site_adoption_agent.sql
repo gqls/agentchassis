@@ -1691,3 +1691,105 @@ WHERE type = 'site-adoption-agent';
 -- Verify
 SELECT default_config->'workflow'->'steps'->'analyze_site'->'config'->>'output_format'
 FROM agent_definitions WHERE type = 'site-adoption-agent';
+
+---
+
+-- ============================================================================
+-- Add CSS fetching steps to adoption workflow
+-- ============================================================================
+-- Current:  extract_fingerprint → analyze_site
+-- New:      extract_fingerprint → check_has_external_css
+--             → (yes) fetch_primary_css → enrich_fingerprint → analyze_site
+--             → (no) analyze_site
+-- ============================================================================
+
+-- Step 1: Re-point extract_fingerprint to check_has_external_css
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,extract_fingerprint,next_step}',
+        '"check_has_external_css"'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Step 2: Add check_has_external_css conditional
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_has_external_css}',
+        '{
+            "action": "conditional",
+            "config": {
+                "condition": "design_fingerprint.has_external_css == true",
+                "then_step": "fetch_primary_css",
+                "else_step": "analyze_site"
+            },
+            "description": "Check if fingerprint found external CSS files to fetch"
+        }'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Step 3: Add fetch_primary_css (firecrawl_scrape via webscrape adapter)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,fetch_primary_css}',
+        '{
+            "action": "firecrawl_scrape",
+            "config": {
+                "url_field": "design_fingerprint.primary_css_url",
+                "scrape_config": {
+                    "formats": ["rawHtml"],
+                    "only_main_content": false
+                }
+            },
+            "next_step": "enrich_fingerprint",
+            "error_step": "analyze_site",
+            "description": "Fetch primary external CSS file via webscrape adapter",
+            "output_field": "css_scrape_result"
+        }'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Step 4: Add enrich_fingerprint step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,enrich_fingerprint}',
+        '{
+            "action": "enrich_fingerprint_with_css",
+            "config": {
+                "css_scrape_field": "css_scrape_result",
+                "fingerprint_field": "design_fingerprint"
+            },
+            "next_step": "analyze_site",
+            "error_step": "analyze_site",
+            "description": "Parse fetched CSS and merge into design fingerprint (fonts, variables, colours)",
+            "output_field": "design_fingerprint"
+        }'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'site-adoption-agent';
+
+-- Verify the full flow
+SELECT
+    default_config->'workflow'->'steps'->'extract_fingerprint'->>'next_step' as after_fingerprint,
+    default_config->'workflow'->'steps'->'check_has_external_css'->'config'->>'then_step' as css_yes,
+    default_config->'workflow'->'steps'->'check_has_external_css'->'config'->>'else_step' as css_no,
+    default_config->'workflow'->'steps'->'fetch_primary_css'->>'next_step' as after_fetch,
+    default_config->'workflow'->'steps'->'fetch_primary_css'->>'action' as fetch_action,
+    default_config->'workflow'->'steps'->'enrich_fingerprint'->>'next_step' as after_enrich,
+    default_config->'workflow'->'steps'->'enrich_fingerprint'->>'action' as enrich_action
+FROM agent_definitions
+WHERE type = 'site-adoption-agent';
+-- Expected:
+-- after_fingerprint: check_has_external_css
+-- css_yes: fetch_primary_css
+-- css_no: analyze_site
+-- after_fetch: enrich_fingerprint
+-- fetch_action: firecrawl_scrape
+-- after_enrich: analyze_site
+-- enrich_action: enrich_fingerprint_with_css
