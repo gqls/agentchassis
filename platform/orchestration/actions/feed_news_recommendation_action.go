@@ -335,8 +335,8 @@ func EvaluateNewsFeedAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO site_specs (site_id, aspect, data, source, source_agent, is_current)
-		VALUES ($1, 'classification', $2::jsonb, 'enrichment', 'evaluate_news_feed', true)
+		INSERT INTO site_specs (site_id, aspect, data, source, source_agent, is_current, created_by)
+		VALUES ($1, 'classification', $2::jsonb, 'enrichment', 'evaluate_news_feed', true, 'evaluate_news_feed')
 	`, siteID, string(mergedJSON))
 	if err != nil {
 		return nil, fmt.Errorf("insert enriched spec: %w", err)

@@ -1777,3 +1777,29 @@ SET default_config = jsonb_set(
         '"build"'
                      )
 WHERE type = 'build-dispatch-loop';
+
+
+---
+
+-- Add component_id and issue to the dispatch loop's input_mapping
+-- so tool-improver and tool-auditor receive them at input_data.<field>
+-- (following the existing pattern used for page_name and reviewed_brief)
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_item,config,sub_workflow,steps,call_handler,config,input_mapping}',
+        '{
+            "spec": "current_item.spec",
+            "domain": "input_data.domain",
+            "site_id": "current_item.site_id",
+            "item_type": "current_item.item_type",
+            "page_name?": "current_item.spec.page_name",
+            "current_page": "current_item.spec",
+            "work_item_id": "current_item.id",
+            "reviewed_brief?": "current_item.spec.reviewed_brief",
+            "component_id?": "current_item.spec.component_id",
+            "issue?": "current_item.spec.issue"
+        }'::jsonb
+                     )
+WHERE type = 'build-dispatch-loop';
