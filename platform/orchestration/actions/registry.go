@@ -1065,6 +1065,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Create specs, pages, and work items from site adoption analysis",
 		IsLocal:     true,
 	},
+	"extract_design_fingerprint": {
+		Handler:     ExtractDesignFingerprintAction,
+		Category:    "analysis",
+		Description: "Extract concrete design data (colours, fonts, layout) from crawled HTML",
+		IsLocal:     true,
+	},
 	"format_crawl_for_analysis": {
 		Handler:     FormatCrawlForAnalysisAction,
 		Category:    "web",
