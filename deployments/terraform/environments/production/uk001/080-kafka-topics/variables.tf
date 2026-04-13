@@ -41,6 +41,14 @@ variable "platform_topics" {
     "requests.agent.reasoning",
     "requests.agent.web-search",
     "requests.agent.image-generation",
+
+    # Scheduler-triggered agent topics
+    # These agents are invoked directly by kafka-scheduler, not via spawn_agent.
+    # Their process topics must pre-exist — spawn_agent creates job.* topics
+    # dynamically but these use the system.agent.*.process pattern.
+    "system.agent.endpoint-health-checker.process",
+    "system.agent.build-dispatch-loop.process",
+    "system.agent.improvement-loop.process",
   ]
 }
 

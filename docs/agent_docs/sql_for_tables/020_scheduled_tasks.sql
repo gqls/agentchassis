@@ -1349,3 +1349,12 @@ INSERT INTO scheduled_tasks (
 --   FROM site_work_items_archive
 --   GROUP BY site_id;
 -- ============================================================================
+
+--
+
+-- fix ai-health check
+
+UPDATE scheduled_tasks
+SET target_topic = 'system.agent.endpoint-health-checker.process'
+WHERE name = 'ai-endpoint-health-check';
+

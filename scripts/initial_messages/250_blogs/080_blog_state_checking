@@ -69,3 +69,23 @@ LINE 1: SELECT sni.label, sni.url, sni.in_header, sni.in_footer
  orphan_blog_posts | complete   |             0 |            3 |                                      | 2026-04-07 11:09:58.432564+00
 (6 rows)
 
+--
+
+
+-- Check the content governance settings
+SELECT data FROM site_specs
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND aspect = 'content_governance' AND is_current = true;
+
+-- Or check the global default
+SELECT * FROM content_governance_config LIMIT 1;
+
+-- How many pages were created this week?
+SELECT name, page_type, created_at
+FROM pages
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND created_at > date_trunc('week', NOW())
+ORDER BY created_at DESC;
+
+
+The news page was blocked by the growth budget.

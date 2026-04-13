@@ -325,9 +325,11 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 				    updated_at = NOW()
 				WHERE id = $1
 			`, *originalItemID,
-				fmt.Sprintf("Page growth budget: %s (total: %d, weekly content: %d/%d)",
+				fmt.Sprintf("Page growth budget: %s (total: %d, weekly content: %d/%d, blog: %d/%d, structural: %d/%d)",
 					budget.Reason, budget.CurrentTotal,
-					budget.RecentContent, budget.Config.WeeklyContentPagesMax))
+					budget.RecentContent, budget.Config.WeeklyContentPagesMax,
+					budget.RecentBlog, budget.Config.WeeklyBlogPostsMax,
+					budget.RecentStructural, budget.Config.WeeklyStructuralPagesMax))
 		}
 
 		return map[string]interface{}{

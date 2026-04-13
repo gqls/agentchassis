@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.955
+IMAGE_TAG ?= v1.0.956
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -462,6 +462,95 @@ deploy-100-bootstrap-agents: ## Deploy bootstrap agents (generic orchestrator) w
 		fi
 	@echo "$(GREEN)Bootstrap agents deployed with image $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
 
+
+# Add these to the existing Makefile
+# Place after the existing Kafka section (near deploy-080-kafka-topics)
+
+#################################
+# Kafka Topic Management
+#################################
+
+KAFKA_NS := kafka
+KAFKA_POD := personae-kafka-cluster-combined-pool-prod-0
+KAFKA_BOOTSTRAP := localhost:9092
+
+# Topics required by scheduler-triggered agents (not created by spawn_agent)
+# These agents receive messages directly from the kafka-scheduler,
+# not via the spawn→job topic pattern. Their process topics must pre-exist.
+SCHEDULER_AGENT_TOPICS := \
+	system.agent.endpoint-health-checker.process \
+	system.agent.build-dispatch-loop.process \
+	system.agent.improvement-loop.process
+
+.PHONY: kafka-ensure-scheduler-topics
+kafka-ensure-scheduler-topics: ## Create Kafka topics for scheduler-triggered agents
+	@echo "$(YELLOW)Ensuring scheduler-triggered agent topics exist...$(NC)"
+	@for topic in $(SCHEDULER_AGENT_TOPICS); do \
+		echo "  Checking $$topic..."; \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(KAFKA_NS) exec $(KAFKA_POD) -- \
+			bin/kafka-topics.sh --describe --topic $$topic \
+			--bootstrap-server $(KAFKA_BOOTSTRAP) > /dev/null 2>&1 \
+		|| ( \
+			echo "  $(YELLOW)Creating $$topic$(NC)"; \
+			KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(KAFKA_NS) exec $(KAFKA_POD) -- \
+				bin/kafka-topics.sh --create \
+				--topic $$topic \
+				--partitions 1 \
+				--replication-factor 2 \
+				--bootstrap-server $(KAFKA_BOOTSTRAP) 2>&1 \
+		); \
+	done
+	@echo "$(GREEN)Scheduler agent topics ready$(NC)"
+
+.PHONY: kafka-list-system-topics
+kafka-list-system-topics: ## List all system.agent.* Kafka topics
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(KAFKA_NS) exec $(KAFKA_POD) -- \
+		bin/kafka-topics.sh --list --bootstrap-server $(KAFKA_BOOTSTRAP) \
+		| grep '^system\.' | sort
+
+.PHONY: kafka-list-job-topics
+kafka-list-job-topics: ## List all job.* Kafka topics (dynamic, from spawn_agent)
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(KAFKA_NS) exec $(KAFKA_POD) -- \
+		bin/kafka-topics.sh --list --bootstrap-server $(KAFKA_BOOTSTRAP) \
+		| grep '^job\.' | sort
+
+#################################
+# AI Endpoint Health
+#################################
+
+.PHONY: health-status
+health-status: ## Show AI endpoint health status
+	@echo "$(YELLOW)AI Endpoint Health:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- \
+		psql -U clients_user -d clients_db -c \
+		"SELECT name, CASE WHEN healthy THEN 'UP' ELSE 'DOWN' END as status, \
+		 error, last_checked, \
+		 CASE WHEN last_checked IS NOT NULL THEN age(now(), last_checked)::text ELSE 'never' END as since_checked \
+		 FROM ai_endpoint_health ORDER BY name;"
+
+.PHONY: health-reset-claude
+health-reset-claude: ## Manually reset Claude endpoint to healthy (use after credit top-up)
+	@echo "$(YELLOW)Resetting Claude endpoint health...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- \
+		psql -U clients_user -d clients_db -c \
+		"UPDATE ai_endpoint_health \
+		 SET healthy = true, last_checked = NOW(), last_healthy = NOW(), \
+		     error = NULL, updated_at = NOW() \
+		 WHERE endpoint_url = 'https://api.anthropic.com/v1/messages'; \
+		 SELECT name, healthy, last_checked FROM ai_endpoint_health \
+		 WHERE name = 'claude';"
+	@echo "$(GREEN)Claude endpoint reset to healthy$(NC)"
+
+.PHONY: health-reset-all
+health-reset-all: ## Reset all AI endpoints to healthy
+	@echo "$(YELLOW)Resetting all endpoint health...$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec -it postgres-clients-0 -n $(PROJECT_NAME) -- \
+		psql -U clients_user -d clients_db -c \
+		"UPDATE ai_endpoint_health \
+		 SET healthy = true, last_checked = NOW(), last_healthy = NOW(), \
+		     error = NULL, updated_at = NOW(); \
+		 SELECT name, healthy, last_checked FROM ai_endpoint_health;"
+	@echo "$(GREEN)All endpoints reset$(NC)"
 
 #################################
 # Application Deployment (Terraform Workflow)

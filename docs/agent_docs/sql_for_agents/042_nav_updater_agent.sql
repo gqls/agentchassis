@@ -320,3 +320,82 @@ VALUES (
 --   3. Re-render header/footer with new nav items
 --   4. Reassemble ALL pages with updated header/footer
 --   5. Deploy to git + Cloudflare
+
+---
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow}',
+        '{
+            "steps": {
+                "complete": {
+                    "action": "complete_workflow",
+                    "config": {
+                        "output_fields": ["site_record", "nav_refreshed", "site_components_rendered", "rerender_pages", "items_result"]
+                    },
+                    "description": "Nav update complete — page rerender items created for dispatch loop"
+                },
+                "get_pages": {
+                    "action": "get_pages_for_rerender",
+                    "config": {
+                        "include_statuses": ["deployed", "active"]
+                    },
+                    "next_step": "check_has_pages",
+                    "description": "Get all deployed pages for reassembly",
+                    "output_field": "rerender_pages"
+                },
+                "check_has_pages": {
+                    "action": "conditional",
+                    "config": {
+                        "condition": "rerender_pages.has_pages == true",
+                        "then_step": "create_rerender_items",
+                        "else_step": "complete"
+                    },
+                    "description": "Skip if no pages to process"
+                },
+                "create_rerender_items": {
+                    "action": "create_rerender_items",
+                    "config": {
+                        "site_id": "rerender_pages.site_id",
+                        "domain": "rerender_pages.domain",
+                        "pages_field": "rerender_pages.pages"
+                    },
+                    "next_step": "complete",
+                    "description": "Create one work item per page — dispatch loop handles each independently",
+                    "output_field": "items_result"
+                },
+                "ensure_site_record": {
+                    "action": "ensure_site_record",
+                    "config": {},
+                    "next_step": "refresh_nav_tables",
+                    "description": "Load existing site record",
+                    "output_field": "site_record"
+                },
+                "refresh_nav_tables": {
+                    "action": "populate_nav_tables",
+                    "config": {
+                        "input_fields": ["site_id"],
+                        "max_header_items": 8
+                    },
+                    "next_step": "render_site_components",
+                    "description": "Rebuild navigation tables from current page records",
+                    "output_field": "nav_refreshed"
+                },
+                "render_site_components": {
+                    "action": "render_site_components",
+                    "config": {
+                        "slots": ["header", "footer", "head"],
+                        "force_rerender": true
+                    },
+                    "next_step": "get_pages",
+                    "description": "Re-render header/footer/head with updated nav",
+                    "output_field": "site_components_rendered"
+                }
+            },
+            "start_step": "ensure_site_record",
+            "processing_mode": "orchestrator",
+            "timeout_seconds": 300
+        }'::jsonb
+                     )
+WHERE type = 'nav-updater';

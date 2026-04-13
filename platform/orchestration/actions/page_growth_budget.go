@@ -3,15 +3,22 @@
 // Checks whether a site is within its page growth budget before allowing
 // new page creation. Called by apply_gap_plan (new_page) and blog-content-planner.
 //
-// Budget is configured via a site_specs aspect "growth_config":
+// Three-tier budget:
+//   - Content pages (about, services, guides, etc.)
+//   - Blog posts
+//   - Structural pages (news-index, blog-index, privacy, terms, sitemap, etc.)
+//
+// Budget is configured per-site via site_specs aspect "growth_config":
 //   {
 //     "initial_target": 12,
 //     "weekly_content_pages_max": 3,
 //     "weekly_blog_posts_max": 2,
+//     "weekly_structural_pages_max": 3,
 //     "absolute_max": 60
 //   }
 //
-// If no growth_config spec exists, defaults are used.
+// If no growth_config spec exists, defaults are used. Missing fields in a
+// partial spec keep their default values (JSON unmarshal over defaults).
 
 package actions
 
@@ -24,31 +31,59 @@ import (
 	"go.uber.org/zap"
 )
 
+// structuralPageTypes lists page types that are site infrastructure rather
+// than content. These have their own weekly budget so they don't compete
+// with content pages for growth slots.
+var structuralPageTypes = map[string]bool{
+	"news-index": true,
+	"blog-index": true,
+	"sitemap":    true,
+	"privacy":    true,
+	"terms":      true,
+	"error-404":  true,
+	"faq":        true,
+	"search":     true,
+	"tag-index":  true,
+	"category":   true,
+}
+
+// isStructuralPageType returns true if the page type is infrastructure
+// rather than content.
+func isStructuralPageType(pageType string) bool {
+	return structuralPageTypes[pageType]
+}
+
 type GrowthConfig struct {
-	InitialTarget         int `json:"initial_target"`
-	WeeklyContentPagesMax int `json:"weekly_content_pages_max"`
-	WeeklyBlogPostsMax    int `json:"weekly_blog_posts_max"`
-	AbsoluteMax           int `json:"absolute_max"`
+	InitialTarget            int `json:"initial_target"`
+	WeeklyContentPagesMax    int `json:"weekly_content_pages_max"`
+	WeeklyBlogPostsMax       int `json:"weekly_blog_posts_max"`
+	WeeklyStructuralPagesMax int `json:"weekly_structural_pages_max"`
+	AbsoluteMax              int `json:"absolute_max"`
 }
 
 var DefaultGrowthConfig = GrowthConfig{
-	InitialTarget:         12,
-	WeeklyContentPagesMax: 3,
-	WeeklyBlogPostsMax:    2,
-	AbsoluteMax:           60,
+	InitialTarget:            12,
+	WeeklyContentPagesMax:    3,
+	WeeklyBlogPostsMax:       2,
+	WeeklyStructuralPagesMax: 3,
+	AbsoluteMax:              60,
 }
 
 type GrowthBudgetResult struct {
-	Allowed       bool         `json:"allowed"`
-	Reason        string       `json:"reason"`
-	CurrentTotal  int          `json:"current_total"`
-	RecentContent int          `json:"recent_content_pages"`
-	RecentBlog    int          `json:"recent_blog_posts"`
-	Config        GrowthConfig `json:"config"`
+	Allowed          bool         `json:"allowed"`
+	Reason           string       `json:"reason"`
+	CurrentTotal     int          `json:"current_total"`
+	RecentContent    int          `json:"recent_content_pages"`
+	RecentBlog       int          `json:"recent_blog_posts"`
+	RecentStructural int          `json:"recent_structural_pages"`
+	Config           GrowthConfig `json:"config"`
 }
 
 // CheckPageGrowthBudget determines whether a new page can be created for a site.
-// pageType should be "blog-post" for blog posts, anything else for content pages.
+// pageType is checked against three categories:
+//   - "blog-post" → blog budget
+//   - structural types (news-index, blog-index, etc.) → structural budget
+//   - everything else → content budget
 func CheckPageGrowthBudget(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageType string, logger *zap.Logger) (*GrowthBudgetResult, error) {
 	config := loadGrowthConfig(ctx, db, siteID)
 
@@ -60,22 +95,33 @@ func CheckPageGrowthBudget(ctx context.Context, db *sql.DB, siteID uuid.UUID, pa
 	`, siteID).Scan(&totalPages)
 
 	// Count pages created in the last 7 days, split by type
-	var recentContent, recentBlog int
+	// Blog: page_type = 'blog-post'
+	// Structural: page_type IN (news-index, blog-index, privacy, terms, sitemap, etc.)
+	// Content: everything else
+	var recentContent, recentBlog, recentStructural int
 	db.QueryRowContext(ctx, `
 		SELECT
-			COUNT(*) FILTER (WHERE COALESCE(page_type, 'content') != 'blog-post'),
-			COUNT(*) FILTER (WHERE page_type = 'blog-post')
+			COUNT(*) FILTER (WHERE page_type = 'blog-post'),
+			COUNT(*) FILTER (WHERE page_type IN (
+				'news-index', 'blog-index', 'sitemap', 'privacy', 'terms',
+				'error-404', 'faq', 'search', 'tag-index', 'category'
+			)),
+			COUNT(*) FILTER (WHERE COALESCE(page_type, 'content') NOT IN (
+				'blog-post', 'news-index', 'blog-index', 'sitemap', 'privacy', 'terms',
+				'error-404', 'faq', 'search', 'tag-index', 'category'
+			))
 		FROM pages
 		WHERE site_id = $1
 		  AND status IN ('active', 'deployed', 'planned')
 		  AND created_at > NOW() - INTERVAL '7 days'
-	`, siteID).Scan(&recentContent, &recentBlog)
+	`, siteID).Scan(&recentBlog, &recentStructural, &recentContent)
 
 	result := &GrowthBudgetResult{
-		CurrentTotal:  totalPages,
-		RecentContent: recentContent,
-		RecentBlog:    recentBlog,
-		Config:        config,
+		CurrentTotal:     totalPages,
+		RecentContent:    recentContent,
+		RecentBlog:       recentBlog,
+		RecentStructural: recentStructural,
+		Config:           config,
 	}
 
 	// Check absolute max
@@ -95,8 +141,9 @@ func CheckPageGrowthBudget(ctx context.Context, db *sql.DB, siteID uuid.UUID, pa
 		return result, nil
 	}
 
-	// Past initial target — check weekly rate limits
+	// Past initial target — check weekly rate limits by category
 	isBlogPost := pageType == "blog-post"
+	isStructural := isStructuralPageType(pageType)
 
 	if isBlogPost {
 		if recentBlog >= config.WeeklyBlogPostsMax {
@@ -105,6 +152,16 @@ func CheckPageGrowthBudget(ctx context.Context, db *sql.DB, siteID uuid.UUID, pa
 				zap.String("site_id", siteID.String()),
 				zap.Int("recent_blog", recentBlog),
 				zap.Int("max", config.WeeklyBlogPostsMax))
+			return result, nil
+		}
+	} else if isStructural {
+		if recentStructural >= config.WeeklyStructuralPagesMax {
+			result.Reason = "weekly_structural_limit_reached"
+			logger.Info("PageGrowthBudget: weekly structural limit reached",
+				zap.String("site_id", siteID.String()),
+				zap.String("page_type", pageType),
+				zap.Int("recent_structural", recentStructural),
+				zap.Int("max", config.WeeklyStructuralPagesMax))
 			return result, nil
 		}
 	} else {
@@ -149,8 +206,11 @@ func loadGrowthConfig(ctx context.Context, db *sql.DB, siteID uuid.UUID) GrowthC
 	if config.WeeklyBlogPostsMax < 1 {
 		config.WeeklyBlogPostsMax = 1
 	}
-	if config.AbsoluteMax < config.InitialTarget {
-		config.AbsoluteMax = config.InitialTarget * 5
+	if config.WeeklyStructuralPagesMax < 1 {
+		config.WeeklyStructuralPagesMax = 1
+	}
+	if config.AbsoluteMax < 10 {
+		config.AbsoluteMax = 10
 	}
 
 	return config
