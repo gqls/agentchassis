@@ -127,7 +127,10 @@ func PopulateNavTablesAction(ctx context.Context, params ActionParams) (interfac
 	primaryPages, legalPages, utilityPages := classifyPagesForNav(pages, logger)
 
 	if len(primaryPages) > maxHeaderItems {
+		// Overflow primary items go to utility so they still appear in footer
+		overflowPages := primaryPages[maxHeaderItems:]
 		primaryPages = primaryPages[:maxHeaderItems]
+		utilityPages = append(overflowPages, utilityPages...)
 	}
 
 	// Upsert in a transaction (full rebuild each time)
