@@ -171,6 +171,59 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 	}
 }
 
+// sectionDescription returns the purpose/description for a section from the
+// site_plan spec. Falls back to page purpose if no section-level description exists.
+// Uses already-loaded specs — no extra DB query.
+func (r *sourceResolver) sectionDescription(pageName, sectionType string) string {
+	plan, ok := r.specs["site_plan"]
+	if !ok {
+		return ""
+	}
+
+	pages, ok := plan["pages"].([]interface{})
+	if !ok {
+		return ""
+	}
+
+	for _, pageRaw := range pages {
+		page, ok := pageRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := page["name"].(string)
+		if name != pageName {
+			continue
+		}
+
+		// Check section_descriptions map (if planner provides it)
+		if descs, ok := page["section_descriptions"].(map[string]interface{}); ok {
+			if desc, ok := descs[sectionType].(string); ok && desc != "" {
+				return desc
+			}
+		}
+
+		// Check section_types array for objects with description
+		if sectionTypes, ok := page["section_types"].([]interface{}); ok {
+			for _, stRaw := range sectionTypes {
+				if st, ok := stRaw.(map[string]interface{}); ok {
+					if stName, _ := st["name"].(string); stName == sectionType {
+						if desc, _ := st["description"].(string); desc != "" {
+							return desc
+						}
+					}
+				}
+			}
+		}
+
+		// Fall back to page purpose
+		if purpose, ok := page["purpose"].(string); ok && purpose != "" {
+			return fmt.Sprintf("Section '%s' on page '%s' (purpose: %s)", sectionType, pageName, purpose)
+		}
+	}
+
+	return ""
+}
+
 // resolve checks if a data source has a value available
 // Returns: value (if found), found (bool)
 func (r *sourceResolver) resolve(ctx context.Context, source string) (interface{}, bool) {
@@ -398,6 +451,19 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	// Create resolver
 	resolver := newSourceResolver(siteID, params.DB, logger)
 
+	// Pre-load specs so we can extract design_direction for needs_new_component items.
+	// ensureSpecs is idempotent — later calls in planSection() won't re-query.
+	resolver.ensureSpecs(ctx)
+
+	// Extract design_direction from design_intent spec (if present).
+	// Passed to needs_new_component items so the component-creator knows the visual style.
+	designDirection := ""
+	if di, ok := resolver.specs["design_intent"]; ok {
+		if sd, ok := di["style_direction"].(string); ok && sd != "" {
+			designDirection = sd
+		}
+	}
+
 	// Plan each section
 	var ready []sectionPlanItem
 	var deferred []sectionPlanItem
@@ -454,16 +520,21 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 
 		// Path 3: No component found anywhere.
 		if resolution == "not_found" {
-			// Create a needs_new_component work item for the component-creator handler.
 			logger.Info("plan_sections: no component for section_type, creating work item",
 				zap.String("section_type", sectionName),
 				zap.String("page", pageName))
 
-			description := fmt.Sprintf("Component needed for section type %q on page %q", sectionName, pageName)
+			// Try to get a meaningful description from the site_plan spec
+			// (resolver already has specs loaded — no extra DB query needed)
+			description := resolver.sectionDescription(pageName, sectionName)
+			if description == "" {
+				description = fmt.Sprintf("Component for section type %q on page %q (%s site)", sectionName, pageName, siteType)
+			}
+
 			err := CreateNeedsNewComponentItem(
 				ctx, params.DB, siteIDStr,
 				sectionName, pageName, description,
-				"", // designDirection — could be extracted from collected_data in future
+				designDirection, // extracted from resolver.specs before the loop
 				siteType, logger,
 			)
 			if err != nil {
@@ -543,7 +614,11 @@ func loadComponentSchemas(ctx context.Context, db *sql.DB, sectionNames []string
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id::text, name, function, COALESCE(input_schema::text, '{}')
+		SELECT id::text, name, function, COALESCE(input_schema::text, '{}'),
+			CASE WHEN html_template LIKE '%%</section>%%' THEN true
+			     WHEN html_template IS NULL THEN true
+			     WHEN LENGTH(html_template) < 100 THEN true
+			     ELSE false END as template_valid
 		FROM content_components
 		WHERE is_active = true
 		  AND (name IN (%s) OR function IN (%s))
@@ -560,9 +635,20 @@ func loadComponentSchemas(ctx context.Context, db *sql.DB, sectionNames []string
 	for rows.Next() {
 		var comp componentInfo
 		var schemaJSON string
-		if err := rows.Scan(&comp.ID, &comp.Name, &comp.Function, &schemaJSON); err != nil {
+		var templateValid bool
+		if err := rows.Scan(&comp.ID, &comp.Name, &comp.Function, &schemaJSON, &templateValid); err != nil {
 			continue
 		}
+
+		if !templateValid {
+			// Template is truncated (missing </section>) — skip this component
+			// so it falls through to Path 3 and gets flagged for regeneration.
+			logger.Warn("plan_sections: component template truncated, skipping",
+				zap.String("function", comp.Function),
+				zap.String("name", comp.Name))
+			continue
+		}
+
 		json.Unmarshal([]byte(schemaJSON), &comp.InputSchema)
 
 		// Index by both name and function for lookup
@@ -628,22 +714,34 @@ func resolveSectionComponent(
 
 // loadSingleComponentSchema loads one component's schema by function name.
 // Same query pattern as loadComponentSchemas but for a single component.
+// Rejects components with truncated templates (missing </section>).
 func loadSingleComponentSchema(ctx context.Context, db *sql.DB, function string, logger *zap.Logger) *componentInfo {
 	var comp componentInfo
 	var schemaJSON string
+	var templateValid bool
 
 	err := db.QueryRowContext(ctx, `
-		SELECT id::text, name, function, COALESCE(input_schema::text, '{}')
+		SELECT id::text, name, function, COALESCE(input_schema::text, '{}'),
+			CASE WHEN html_template LIKE '%</section>%' THEN true
+			     WHEN html_template IS NULL THEN true
+			     WHEN LENGTH(html_template) < 100 THEN true
+			     ELSE false END as template_valid
 		FROM content_components
 		WHERE function = $1
 		  AND is_active = true
 		LIMIT 1
-	`, function).Scan(&comp.ID, &comp.Name, &comp.Function, &schemaJSON)
+	`, function).Scan(&comp.ID, &comp.Name, &comp.Function, &schemaJSON, &templateValid)
 
 	if err != nil {
 		logger.Warn("loadSingleComponentSchema: failed",
 			zap.String("function", function),
 			zap.Error(err))
+		return nil
+	}
+
+	if !templateValid {
+		logger.Warn("loadSingleComponentSchema: template truncated, rejecting",
+			zap.String("function", function))
 		return nil
 	}
 
