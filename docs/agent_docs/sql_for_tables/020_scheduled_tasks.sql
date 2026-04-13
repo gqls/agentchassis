@@ -1148,4 +1148,204 @@ INSERT INTO scheduled_tasks (
     ON CONFLICT (name) DO UPDATE SET
     pre_query = EXCLUDED.pre_query,
                               description = EXCLUDED.description,
+                              enabled = EXCLUDED.enabled;                            '
+---
+-- add site_work_items to archive table regularly
+
+-- ============================================================================
+-- Work Item Archiver: function + agent + scheduled task
+-- ============================================================================
+-- Archives terminal work items (complete, failed, wont_fix) older than
+-- a configurable age. Handles FK constraints (parent_item_id self-ref,
+-- content_feed_items).
+--
+-- Column mapping: site_work_items has approval_mode, updated_at, pipeline
+-- that archive doesn't. Archive has domain that live table doesn't.
+-- We add the missing columns to archive below.
+-- ============================================================================
+
+-- 0. Sync archive schema with live table (idempotent)
+ALTER TABLE site_work_items_archive ADD COLUMN IF NOT EXISTS pipeline text DEFAULT 'build';
+ALTER TABLE site_work_items_archive ADD COLUMN IF NOT EXISTS approval_mode text DEFAULT 'auto';
+ALTER TABLE site_work_items_archive ADD COLUMN IF NOT EXISTS updated_at timestamptz;
+
+-- 1. The archive function
+CREATE OR REPLACE FUNCTION archive_completed_work_items(
+    min_age_days INTEGER DEFAULT 7,
+    batch_limit INTEGER DEFAULT 1000
+)
+RETURNS jsonb AS $$
+DECLARE
+archived_count INTEGER;
+    feed_items_deleted INTEGER;
+    parents_nullified INTEGER;
+BEGIN
+    -- Create temp table of items to archive
+    CREATE TEMP TABLE _items_to_archive ON COMMIT DROP AS
+SELECT wi.id, wi.site_id, s.domain
+FROM site_work_items wi
+         JOIN sites s ON s.id = wi.site_id
+WHERE wi.status IN ('complete', 'failed', 'wont_fix')
+  AND COALESCE(wi.completed_at, wi.updated_at, wi.created_at)
+    < NOW() - (min_age_days || ' days')::interval
+    LIMIT batch_limit;
+
+-- Nothing to do
+IF NOT EXISTS (SELECT 1 FROM _items_to_archive) THEN
+        RETURN jsonb_build_object(
+            'archived', 0,
+            'feed_items_deleted', 0,
+            'parents_nullified', 0
+        );
+END IF;
+
+    -- Nullify parent_item_id references from items NOT being archived
+    -- that point to items being archived
+UPDATE site_work_items
+SET parent_item_id = NULL
+WHERE parent_item_id IN (SELECT id FROM _items_to_archive)
+  AND id NOT IN (SELECT id FROM _items_to_archive);
+GET DIAGNOSTICS parents_nullified = ROW_COUNT;
+
+-- Delete content_feed_items references
+DELETE FROM content_feed_items
+WHERE work_item_id IN (SELECT id FROM _items_to_archive);
+GET DIAGNOSTICS feed_items_deleted = ROW_COUNT;
+
+-- Insert into archive (explicit column list, joining for domain)
+INSERT INTO site_work_items_archive (
+    id, site_id, source, domain, item_type, severity, summary, spec,
+    page_id, component_id, entity_id, affected_url, impact,
+    resolution_path, suggested_action, priority, handler_agent,
+    status, created_by, handled_by, approved_by, claimed_by,
+    depends_on, parent_item_id, related_item_ids, batch_id,
+    attempt_count, max_attempts, result, error, item_key,
+    created_at, triaged_at, claimed_at, completed_at,
+    pipeline, approval_mode, updated_at
+)
+SELECT
+    wi.id, wi.site_id, wi.source, a.domain, wi.item_type, wi.severity,
+    wi.summary, wi.spec, wi.page_id, wi.component_id, wi.entity_id,
+    wi.affected_url, wi.impact, wi.resolution_path, wi.suggested_action,
+    wi.priority, wi.handler_agent, wi.status, wi.created_by,
+    wi.handled_by, wi.approved_by, wi.claimed_by, wi.depends_on,
+    wi.parent_item_id, wi.related_item_ids, wi.batch_id,
+    wi.attempt_count, wi.max_attempts, wi.result, wi.error,
+    wi.item_key, wi.created_at, wi.triaged_at, wi.claimed_at,
+    wi.completed_at,
+    wi.pipeline, wi.approval_mode, wi.updated_at
+FROM site_work_items wi
+         JOIN _items_to_archive a ON a.id = wi.id
+    ON CONFLICT (id) DO NOTHING;
+
+-- Delete from live table
+DELETE FROM site_work_items
+WHERE id IN (SELECT id FROM _items_to_archive);
+GET DIAGNOSTICS archived_count = ROW_COUNT;
+
+RETURN jsonb_build_object(
+        'archived', archived_count,
+        'feed_items_deleted', feed_items_deleted,
+        'parents_nullified', parents_nullified
+       );
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- 2. Agent definition for the archiver
+INSERT INTO agent_definitions (
+    type, display_name, description, category,
+    default_config, is_active,
+    image_repository, image_tag,
+    resources, topics, health_config,
+    domain_tags, delegation_preferences,
+    agent_category, status
+) VALUES (
+             'work-item-archiver',
+             'Work Item Archiver',
+             'Archives terminal work items (complete, failed, wont_fix) older than 7 days to site_work_items_archive',
+             'code-driven',
+             jsonb_build_object(
+                     'processing_mode', 'orchestrator',
+                     'timeout_seconds', 120,
+                     'workflow', jsonb_build_object(
+                             'start_step', 'run_archive',
+                             'steps', jsonb_build_object(
+                                     'run_archive', jsonb_build_object(
+                                     'action', 'query_database',
+                                     'config', jsonb_build_object(
+                                             'query', 'SELECT archive_completed_work_items(7, 1000) as result',
+                                             'output_format', 'object'
+                                               ),
+                                     'description', 'Archive terminal work items older than 7 days',
+                                     'output_field', 'archive_result',
+                                     'next_step', 'notify_scheduler'
+                                                    ),
+                                     'notify_scheduler', jsonb_build_object(
+                                             'action', 'query_database',
+                                             'config', jsonb_build_object(
+                                                     'query', 'UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = ''work-item-archiver''',
+                                                     'output_format', 'object'
+                                                       ),
+                                             'description', 'Tell scheduler this execution finished',
+                                             'output_field', 'scheduler_notified',
+                                             'next_step', 'complete'
+                                                         ),
+                                     'complete', jsonb_build_object(
+                                             'action', 'complete_workflow',
+                                             'config', jsonb_build_object(
+                                                     'output_fields', ARRAY['archive_result']
+                                                       ),
+                                             'description', 'Archive cycle complete'
+                                                 )
+                                      )
+                                 )
+             ),
+             true,
+             'docker.io/aqls/agent-chassis', 'v1.0.954',
+             '{"limits": {"cpu": "200m", "memory": "256Mi"}, "requests": {"cpu": "50m", "memory": "64Mi"}}'::jsonb,
+             '{"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"}'::jsonb,
+             '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 15}'::jsonb,
+             '["maintenance", "housekeeping"]'::jsonb,
+             '{"prefer_delegation": false, "fallback_to_self": true}'::jsonb,
+             'coordinator',
+             'experimental'
+         )
+    ON CONFLICT (type, version) DO UPDATE SET
+    default_config = EXCLUDED.default_config,
+                                       description = EXCLUDED.description;
+
+
+-- 3. Scheduled task — runs daily
+INSERT INTO scheduled_tasks (
+    name, description, interval_seconds,
+    target_agent_type, concurrency_group,
+    max_concurrent, timeout_seconds, enabled
+) VALUES (
+             'work-item-archiver',
+             'Archives terminal work items older than 7 days to site_work_items_archive',
+             86400,
+             'work-item-archiver',
+             'maintenance',
+             1,
+             120,
+             true
+         )
+    ON CONFLICT (name) DO UPDATE SET
+    interval_seconds = EXCLUDED.interval_seconds,
+                              description = EXCLUDED.description,
                               enabled = EXCLUDED.enabled;
+
+
+-- ============================================================================
+-- To test manually:
+--   SELECT archive_completed_work_items(7, 1000);
+--
+-- To archive everything older than 0 days (immediate cleanup):
+--   SELECT archive_completed_work_items(0, 5000);
+--
+-- To check what's been archived:
+--   SELECT site_id, count(*), min(completed_at), max(completed_at)
+--   FROM site_work_items_archive
+--   GROUP BY site_id;
+-- ============================================================================

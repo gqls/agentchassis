@@ -209,15 +209,17 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			itemType string
 		}
 		availableBuilders := map[string]builderInfo{
-			"content": {handler: "page-build-handler", itemType: "needs_content_page"},
-			"index":   {handler: "page-build-handler", itemType: "needs_content_page"},
-			"landing": {handler: "page-build-handler", itemType: "needs_content_page"},
+			"content":    {handler: "page-build-handler", itemType: "needs_content_page"},
+			"index":      {handler: "page-build-handler", itemType: "needs_content_page"},
+			"landing":    {handler: "page-build-handler", itemType: "needs_content_page"},
+			"blog-index": {handler: "page-build-handler", itemType: "needs_content_page"},
+			"blog-post":  {handler: "page-build-handler", itemType: "needs_content_page"},
 			// Add here as builders become available:
 			// "entity-directory": {handler: "directory-build-handler", itemType: "needs_directory"},
 			// "entity-page":      {handler: "entity-page-build-handler", itemType: "needs_entity_page"},
 			// "tool":             {handler: "tool-build-handler", itemType: "needs_tool_page"},
-			// "blog-index":       {handler: "blog-build-handler", itemType: "needs_blog_index"},
-			// "blog-post":        {handler: "blog-build-handler", itemType: "needs_blog_post"},
+			// # "blog-index":       {handler: "blog-build-handler", itemType: "needs_blog_index"},
+			// # "blog-post":        {handler: "blog-build-handler", itemType: "needs_blog_post"},
 			// and news
 		}
 
@@ -226,8 +228,6 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			"tool":             "tool-builder",
 			"entity-directory": "directory-builder",
 			"entity-page":      "entity-page-builder",
-			"blog-index":       "blog-builder",
-			"blog-post":        "blog-builder",
 		}
 
 		handlerAgent := "page-build-handler"
