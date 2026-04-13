@@ -1,4 +1,4 @@
-# 026 — Infrastructure Layers, Site Adoption, and Backend Capabilities
+# 007 — Adoption Pipeline
 
 How the platform serves sites, adopts existing sites, handles human direction at any stage, and scales to support backend functionality.
 
@@ -237,7 +237,7 @@ Adoption does not write a spec that describes the status quo as the target. If t
 ### Separation of concerns
 
 ```
-crawl data              → stored in research_results (full markdown per page)
+crawl data              → stored in research_results (full markdown + rawHTML per page)
                            available for content writer recreate mode
                            available for revert/comparison later
                            NOT in site_specs
@@ -246,8 +246,20 @@ identity spec           → what the site is (company name, industry, tone)
                            includes adopted_from and adopted_at for provenance
                            evolves with improvements
 
-content_direction spec  → where it should go (aspirational, written by strategist)
+design_reference spec   → what the original site looked like (concrete values)
+                           hex colours, font families, CSS variables, layout patterns
+                           extracted from crawled HTML + external CSS by Go action
+                           historical record — not modified after adoption
+
+design_intent spec      → what this site should look like (semantic + reference values)
+                           character descriptions ("dark IDE aesthetic, functional not atmospheric")
+                           reference values as starting points, not exact targets
+                           auto-generated from design_reference by LLM at adoption time
+                           evolves via strategist, human, or improvement loop proposals
+
+content_direction spec  → writing style (aspirational, written by strategist)
 structure spec          → page layout (evolves as site grows)
+site_archetype spec     → what kind of site this is (character, constraints, purpose)
 ```
 
 ### The adoption agent
@@ -262,26 +274,51 @@ site-adoption-agent workflow:
   2. firecrawl_crawl (all pages, async via webscrape adapter)
   3. format_crawl_for_analysis (produce lightweight summaries for LLM)
   4. check_crawl_content (conditional: proceed or fail)
-  5. execute_llm_prompt (classify site structure from summaries)
-  6. apply_adoption_plan (Go: write specs, pages, items, extract content)
-  7. complete
+  5. extract_design_fingerprint (Go: parse <style> blocks, inline styles, <link> tags from rawHTML)
+  6. check_has_external_css (conditional: fetch CSS or skip)
+  7. fetch_primary_css (firecrawl_scrape via webscrape adapter — only if external CSS found)
+  8. enrich_fingerprint_with_css (Go: merge fetched CSS into fingerprint)
+  9. analyze_site (LLM: classify site structure from summaries — output_format: json)
+  10. classify_archetype (LLM: site character, design patterns, purpose, constraints)
+  11. select_representative_content (Go: pick 2-3 prose-heavy pages)
+  12. derive_content_direction (LLM: writing style guide from actual content)
+  13. apply_adoption_plan (Go: write specs, pages, work items, extract content)
+  14. generate_design_intent (LLM: semantic design brief from fingerprint + identity)
+  15. write_design_intent (write_site_spec: persist design_intent to site_specs)
+  16. complete
 ```
 
 After completion, the dispatch loop picks up work items (`needs_design`, `needs_content_page × N`, `needs_rerender`) and builds the site through the normal pipeline.
 
-### Two-stage processing: LLM classifies, Go extracts
+### Three-stage processing: Go extracts design, LLM classifies, Go extracts content
 
-The adoption agent splits work between LLM and Go based on what each is good at.
+The adoption agent splits work between Go and LLM based on what each is good at.
 
-**Stage 1 — LLM classification (lightweight):**
+**Stage 1 — Go design extraction (no LLM):**
+
+The `extract_design_fingerprint` step parses rawHTML from every crawled page using goquery. It extracts hex colours (classified as background/text/accent), font families from `<style>` blocks and inline styles, CSS variable declarations, layout patterns (grid/flex, max-width, spacing), and dark section detection. Google Fonts URLs are parsed from `<link>` tags.
+
+If external CSS files are found (e.g. `<link rel="stylesheet" href="css/global.css">`), the workflow fetches them via the webscrape adapter (`firecrawl_scrape`) and merges the parsed data into the fingerprint. This is where the most valuable design tokens live — CSS custom properties like `--bg-color`, `--primary-color`, `--font-family`.
+
+The fingerprint output includes a `suggested_mapping` that translates the original site's variable names to our CSS variable conventions.
+
+**Stage 2 — LLM classification (lightweight):**
 
 The `format_crawl_for_analysis` step produces a summary of each crawled page — ~500 characters, enough to see headings and the first paragraph. This goes to the LLM, which classifies the site: identity (company name, industry, tone), page types, section types per page, interactive features. The LLM reasons about structure from summaries.
 
 For a 50-page site: 50 × 500 = ~25k characters. Well within context limits regardless of site size.
 
-**Stage 2 — Go content extraction (no LLM):**
+A second LLM step (`classify_archetype`) produces a site archetype classification: character, visual density, polish level, commercial intent, content model, and constraints the improvement loop should respect.
+
+A third LLM step (`derive_content_direction`) analyses 2-3 representative pages to extract a detailed writing style guide.
+
+A fourth LLM step (`generate_design_intent`) reads the fingerprint and identity to produce a rich semantic design brief — character descriptions explaining WHY the design values work, with the extracted values as reference starting points.
+
+**Stage 3 — Go content extraction and plan application (no LLM):**
 
 The `apply_adoption_plan` Go action reads the full crawl response directly (not through the LLM). It builds an index of page markdown keyed by URL using `buildCrawlPageIndex`. When creating page records, it matches each page's URL to the crawl index and stores the full markdown in `research_results`.
+
+It also writes `design_reference` spec from the fingerprint data (preferring concrete fingerprint values over the LLM's vague design descriptions) and creates work items with enriched specs — the `needs_design` work item includes the fingerprint's suggested mapping, CSS variables, typography, and dark section data so the webdesign-agent has concrete values to work from.
 
 Why Go and not LLM for content extraction:
 - Firecrawl returns clean markdown. Headings are `#`, paragraphs are text. The content is already structured — nothing to interpret.
@@ -291,16 +328,31 @@ Why Go and not LLM for content extraction:
 - The LLM would be doing expensive copy-paste. Its value is in classification and reasoning, not transcription.
 
 ```
-Crawl result (full markdown per page)
+Crawl result (full markdown + rawHTML per page)
+  │
+  ├──→ extract_design_fingerprint (Go) → colours, fonts, CSS vars, layout
+  │       │
+  │       └──→ [if external CSS] fetch via webscrape → enrich_fingerprint
+  │                                                        ↓
+  │                                              design_fingerprint (enriched)
   │
   ├──→ format_crawl_for_analysis → 500 char summaries → LLM (classification)
   │                                                        ↓
   │                                              pages, sections, identity, design
   │
-  └──→ apply_adoption_plan (Go) → buildCrawlPageIndex → full content per URL
-                                                          ↓
-                                                research_results per page
-                                                page records + work items
+  ├──→ classify_archetype (LLM) → site character, constraints
+  │
+  ├──→ derive_content_direction (LLM) → writing style guide
+  │
+  ├──→ apply_adoption_plan (Go) → buildCrawlPageIndex → full content per URL
+  │                                                        ↓
+  │                                              research_results per page
+  │                                              page records + work items
+  │                                              design_reference spec (from fingerprint)
+  │
+  └──→ generate_design_intent (LLM) → semantic design brief
+                                         ↓
+                                write_design_intent → design_intent spec
 ```
 
 ### What gets stored where
@@ -310,7 +362,10 @@ Crawl result (full markdown per page)
 | Full crawl analysis (LLM output) | `research_results` (result_type: `adoption_crawl`) | Reference, revert, comparison |
 | Per-page markdown content | `research_results` (result_type: `adoption_page`) | Content writer source material |
 | Identity (company, industry, tone) | `site_specs` aspect: `identity` | Ongoing site definition |
-| Design (palette, typography) | `site_specs` aspect: `design` | Webdesign agent input |
+| Design reference (concrete CSS values) | `site_specs` aspect: `design_reference` | Historical record of original design. Extracted by Go from crawled HTML + external CSS. Contains hex colours, font families, CSS variables, layout patterns, suggested mapping to our variable names. |
+| Design intent (semantic brief) | `site_specs` aspect: `design_intent` | Forward-looking design direction. LLM-generated from fingerprint + identity. Character descriptions with reference values as guidance. Read by webdesign-agent. Evolves via strategist or human. |
+| Site archetype (character, constraints) | `site_specs` aspect: `site_archetype` | What kind of site this is. Constraints the improvement loop must respect. |
+| Content direction (writing style) | `site_specs` aspect: `content_direction` | Detailed writing style guide. LLM-derived from actual content samples. |
 | Page structure | `site_specs` aspect: `structure` | Planner reference |
 | `adopted_from` URL | Inside `identity` spec | Provenance only |
 
@@ -651,10 +706,27 @@ This mechanism supports any pre-planned site, not just Spark/vonc.com. Any site 
 
 - Site-adoption-agent with dedicated workflow
 - Firecrawl v2 crawl (scrapeOptions fix)
-- Two-stage processing: LLM summaries for classification, Go for content extraction
+- Three-stage processing: Go design extraction, LLM classification, Go content extraction
 - Full crawl stored in research_results, clean specs in site_specs
+- **Design fingerprint extraction** — Go action parses rawHTML for colours, fonts, CSS variables, layout patterns. External CSS files fetched via webscrape adapter and merged. Produces `design_reference` spec with concrete values.
+- **Design intent generation** — LLM produces semantic design brief from fingerprint + identity. Produces `design_intent` spec with character descriptions and reference values as guidance.
+- **Webdesign-agent three-way priority** — reads design_intent (creative freedom) → design_reference (reproduce faithfully) → generate from industry (new builds). Design is locked to reference until design_intent is written.
+- Site archetype classification — character, constraints, visual density, purpose
+- Content direction extraction — detailed writing style guide from actual content
 - Content writer `existing_content` / `mode: "recreate"` support (pending)
 - Dashboard direction panel for post-build HITL (pending)
+
+### Design evolution lifecycle
+
+```
+Adoption completes → design_reference (locked values) + design_intent (semantic brief)
+  → Webdesign-agent reads design_intent → generates CSS with creative freedom
+  → Audit loop checks deployed CSS against design_intent
+  → Audit proposes changes (work items) — does NOT modify design_intent directly
+  → Strategist or human updates design_intent → palette evolves
+  → 3-pass audit cap prevents unbounded cycles
+  → design_reference stays as historical record throughout
+```
 
 ### Phase 2 — Tool and entity adoption
 
@@ -705,14 +777,60 @@ This mechanism supports any pre-planned site, not just Spark/vonc.com. Any site 
 
 5. **Adoption is a starting point, not a ceiling.** The adopted state is the baseline. The strategist writes aspirational direction. The improvement loop pushes toward it. No spec describes the status quo as the target.
 
-6. **LLM for reasoning, Go for extraction.** The LLM classifies, reasons, and generates. Go code handles content extraction, data transformation, and anything deterministic. Don't send content through an LLM just to get it back unchanged.
+6. **LLM for reasoning, Go for extraction.** The LLM classifies, reasons, and generates. Go code handles content extraction, data transformation, CSS parsing, and anything deterministic. Don't send content through an LLM just to get it back unchanged. Don't ask an LLM to read hex values when a regex can do it.
 
-7. **Research is reference, not template.** Crawled code and content inform generation but are never deployed directly. The system creates original implementations inspired by research.
+7. **Design reference is history, design intent is direction.** The `design_reference` spec records what the original site looked like — concrete values extracted from real CSS. The `design_intent` spec describes what the site should look like — semantic character descriptions with reference values as guidance. The webdesign-agent reads intent, not reference. The audit loop checks against intent. Evolution happens by updating intent, not by modifying reference.
 
-8. **Human direction persists.** HITL requests go into pinned specs. Agents respect them. Lock types control how long protection lasts. The system self-maintains but humans set the direction.
+8. **Research is reference, not template.** Crawled code and content inform generation but are never deployed directly. The system creates original implementations inspired by research.
 
-9. **The component library grows through use.** Adoption discovers new section types. Novel site builds trigger the component-creator. Quality scores accumulate from auditor feedback. Components that work well spread; poor ones get deprecated.
+9. **Human direction persists.** HITL requests go into pinned specs. Agents respect them. Lock types control how long protection lasts. The system self-maintains but humans set the direction.
 
-10. **Servers are entities.** Infrastructure follows the same patterns as site data — state-based lifecycle, discovery checks for health, work items for management tasks.
+10. **The component library grows through use.** Adoption discovers new section types. Novel site builds trigger the component-creator. Quality scores accumulate from auditor feedback. Components that work well spread; poor ones get deprecated.
 
-11. **The framework is a framework builder.** The same system that generates websites can generate infrastructure configs, framework deployments, and management automation.
+11. **Servers are entities.** Infrastructure follows the same patterns as site data — state-based lifecycle, discovery checks for health, work items for management tasks.
+
+12. **The framework is a framework builder.** The same system that generates websites can generate infrastructure configs, framework deployments, and management automation.
+
+---
+
+## Implementation Fixes & Schema Notes (from 028j handoff)
+
+### Fixes Applied
+
+| Fix | Detail |
+|-----|--------|
+| Registry: `select_representative_content` | Action existed but wasn't registered |
+| `CreateNeedsNewComponentItem` | Column `domain` → `pipeline`, added `::jsonb` cast |
+| Claimed-item-timeout | Two-phase: 15-min evidence-based, 40-min blind reset |
+| `error_step` placement | Must be inside `step.Config`, not at step level |
+| `store_generated_component` | Added `stripCodeBlocks()` for markdown-wrapped LLM output |
+| Component → page rebuild | `markPagesForRebuild()` + `check_unresolved_sections` discovery check |
+
+### Schema Column Reminders
+
+- `site_work_items`: `pipeline` not `domain`
+- `sites`: `build_status` not `deploy_status`
+- `scheduled_tasks`: `name` not `task_name`
+- `site_specs`: `data` not `spec_data`
+- `agent_definitions`: `image_repository` (not container_image), `resources` (not resource_config), `topics` (not topic_config), `agent_category` (not role), `domain_tags` (not tags)
+
+### Known Issue: Zombie Dispatch Loop Pods
+
+Loop-expanded steps lost from `workflow_plan` during concurrent state updates. Mitigation: 30-minute reaper threshold.
+
+### Design Fingerprint Pipeline (added 2026-04-12)
+
+| Component | File | Type |
+|-----------|------|------|
+| `extract_design_fingerprint` action | `extract_design_fingerprint_action.go` | Go action (local, no LLM) |
+| `enrich_fingerprint_with_css` action | `enrich_fingerprint_with_css_action.go` | Go action (local, no LLM) |
+| Adoption workflow steps | `agent_definitions` (type: `site-adoption-agent`) | SQL workflow config |
+| Webdesign-agent prompt (three-way priority) | `agent_definitions` (type: `webdesign-agent`) | SQL workflow config |
+| `design_reference` spec aspect | Written by `apply_adoption_plan` | site_specs |
+| `design_intent` spec aspect | Written by `generate_design_intent` → `write_design_intent` | site_specs |
+
+Key decisions documented in `design_adoption_work_plan.md`:
+- design_intent is semantic not prescriptive (creative freedom for webdesign-agent)
+- Audit loop proposes but doesn't apply design changes directly
+- CSS variable name translation is mechanical (Go), character descriptions are LLM
+- External CSS fetched via webscrape adapter, not direct HTTP from Go action

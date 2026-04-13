@@ -17,3 +17,67 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
  a118b71d-d980-4149-a106-8247f62a4aab | 5       | 0       | 5     | 2026-03-27 14:09:31.892113+00
  38cb7510-f0d7-4101-8efe-0cc3bf9e7d32 |         |         |       | 2026-03-27 14:09:13.533489+00
 (2 rows)
+
+
+clients_db=# -- Did missing_news_page discovery check fire?
+SELECT item_type, handler_agent, status, created_at
+FROM site_work_items
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND item_type = 'missing_news_page'
+ORDER BY created_at DESC LIMIT 3;
+
+-- Did a news page get created?
+SELECT name, page_type, url, build_status
+FROM pages
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND (page_type = 'news-index' OR name = 'news');
+
+-- Any errors from the check?
+SELECT error_message, occurred_at
+FROM agent_error_log
+WHERE error_message LIKE '%news_page%'
+  AND occurred_at > NOW() - INTERVAL '6 hours'
+ORDER BY occurred_at DESC LIMIT 3;
+ item_type | handler_agent | status | created_at
+-----------+---------------+--------+------------
+(0 rows)
+
+ name | page_type | url | build_status
+------+-----------+-----+--------------
+(0 rows)
+
+ error_message | occurred_at
+---------------+-------------
+(0 rows)
+
+clients_db=# -- When did completeness discovery last run for gaswholesalers?
+-- Check for ANY discovery items from the most recent cycle
+SELECT source, item_type, created_at
+FROM site_work_items
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND source = 'discovery'
+  AND created_at > NOW() - INTERVAL '6 hours'
+ORDER BY created_at DESC
+LIMIT 10;
+
+-- Is the check registered and does the code match what we expect?
+-- Check the completeness-discovery-agent checks list
+SELECT default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' as checks
+FROM agent_definitions
+WHERE type = 'completeness-discovery-agent' AND deleted_at IS NULL;
+
+-- Has the audit pass limit been reached? (would skip discovery)
+SELECT get_audit_pass_count('5fe15466-4e2e-4ff2-981e-98c1b7074002') as pass_count;
+ source | item_type | created_at
+--------+-----------+------------
+(0 rows)
+
+                                                                                           checks
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ ["all_sources_erroring", "empty_blog", "empty_sections", "missing_news_section", "missing_news_sources", "missing_structure", "orphan_pages", "stale_news_section", "unresolved_sections"]
+(1 row)
+
+ pass_count
+------------
+          0
+(1 row)

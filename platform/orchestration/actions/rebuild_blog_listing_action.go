@@ -31,6 +31,17 @@
 //   - Writes content_data alongside rendered_html (source-of-truth principle).
 //   - estimateReadTime: computed from blog post rendered content length.
 //   - Removed loadBlogListingTemplate (was loading CSS-only template).
+//
+// v2 changes (April 2026):
+//   - findBlogPage: falls back to name='blog' when page_type != 'blog-index'.
+//     Fixes sites where the planner created the blog page as type 'content'
+//     because blog-index was in the unavailableBuilders map.
+//     When found by name fallback, corrects page_type to 'blog-index' so
+//     future runs find it directly.
+//   - Blog post query widened from build_status='deployed' to
+//     build_status IN ('deployed','needs_rebuild'). Posts with needs_rebuild
+//     are already in git with valid content — they just have pending rerender
+//     items. Excluding them left the listing empty.
 
 package actions
 
@@ -96,24 +107,17 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("invalid site_id: %w", err)
 	}
 
-	// ── Find blog-index page ────────────────────────────────────────────
-	var blogPageID uuid.UUID
-	var blogPageName string
-	err = params.DB.QueryRowContext(ctx, `
-		SELECT id, name FROM pages
-		WHERE site_id = $1 AND page_type = 'blog-index'
-		LIMIT 1
-	`, siteID).Scan(&blogPageID, &blogPageName)
-
-	if err == sql.ErrNoRows {
-		logger.Info("RebuildBlogListingAction: No blog-index page found, skipping")
+	// ── Find blog page ──────────────────────────────────────────────────
+	blogPageID, blogPageName, err := findBlogPage(ctx, params.DB, siteID, logger)
+	if err != nil {
+		return nil, err
+	}
+	if blogPageID == uuid.Nil {
+		logger.Info("RebuildBlogListingAction: No blog page found, skipping")
 		return map[string]interface{}{
 			"rebuilt": false,
-			"reason":  "no blog-index page",
+			"reason":  "no blog page",
 		}, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to find blog-index page: %w", err)
 	}
 
 	// ── Find the correct slot name ──────────────────────────────────────
@@ -123,7 +127,10 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		zap.Bool("has_existing_component", existingComponentID != uuid.Nil),
 	)
 
-	// ── Load deployed blog posts ────────────────────────────────────────
+	// ── Load blog posts ─────────────────────────────────────────────────
+	// Include needs_rebuild: these posts are already in git with valid
+	// content — they just have pending rerender items. Excluding them
+	// left the listing empty for sites where a bulk rerender was queued.
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT p.id, p.name, p.url, p.title,
 		       COALESCE(p.meta_description, ''),
@@ -138,7 +145,7 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		FROM pages p
 		WHERE p.site_id = $1
 		  AND p.page_type = 'blog-post'
-		  AND p.build_status = 'deployed'
+		  AND p.build_status IN ('deployed', 'needs_rebuild')
 		ORDER BY p.created_at DESC
 	`, siteID)
 	if err != nil {
@@ -181,10 +188,10 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	if len(articles) == 0 {
-		logger.Info("RebuildBlogListingAction: No deployed blog posts found")
+		logger.Info("RebuildBlogListingAction: No blog posts found")
 		return map[string]interface{}{
 			"rebuilt": false,
-			"reason":  "no deployed blog posts",
+			"reason":  "no blog posts",
 		}, nil
 	}
 
@@ -271,6 +278,64 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		"component_id": componentID.String(),
 		"slot_name":    slotName,
 	}, nil
+}
+
+// findBlogPage locates the blog listing page for a site.
+// Strategy 1: Look for page_type = 'blog-index' (canonical).
+// Strategy 2: Fall back to name = 'blog' with page_type = 'content'
+//
+//	(created when blog-index was in unavailableBuilders).
+//	When found by fallback, corrects page_type to 'blog-index'
+//	so future runs and other actions (e.g. BlogEmptyCheck) behave consistently.
+//
+// Returns uuid.Nil, "", nil if no blog page exists (not an error).
+func findBlogPage(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) (uuid.UUID, string, error) {
+	var blogPageID uuid.UUID
+	var blogPageName string
+
+	// Strategy 1: canonical page_type
+	err := db.QueryRowContext(ctx, `
+		SELECT id, name FROM pages
+		WHERE site_id = $1 AND page_type = 'blog-index'
+		LIMIT 1
+	`, siteID).Scan(&blogPageID, &blogPageName)
+
+	if err == nil {
+		return blogPageID, blogPageName, nil
+	}
+	if err != sql.ErrNoRows {
+		return uuid.Nil, "", fmt.Errorf("failed to query blog-index page: %w", err)
+	}
+
+	// Strategy 2: page named 'blog' created as content type
+	err = db.QueryRowContext(ctx, `
+		SELECT id, name FROM pages
+		WHERE site_id = $1 AND name = 'blog' AND page_type = 'content'
+		LIMIT 1
+	`, siteID).Scan(&blogPageID, &blogPageName)
+
+	if err == sql.ErrNoRows {
+		return uuid.Nil, "", nil
+	}
+	if err != nil {
+		return uuid.Nil, "", fmt.Errorf("failed to query blog page by name: %w", err)
+	}
+
+	// Found by fallback — fix page_type for future consistency
+	_, fixErr := db.ExecContext(ctx, `
+		UPDATE pages SET page_type = 'blog-index' WHERE id = $1
+	`, blogPageID)
+	if fixErr != nil {
+		logger.Warn("findBlogPage: failed to fix page_type to blog-index",
+			zap.String("page_id", blogPageID.String()),
+			zap.Error(fixErr))
+	} else {
+		logger.Info("findBlogPage: corrected page_type from content to blog-index",
+			zap.String("page_id", blogPageID.String()),
+			zap.String("page_name", blogPageName))
+	}
+
+	return blogPageID, blogPageName, nil
 }
 
 // findBlogListingSlot checks existing page_components for the blog-index page

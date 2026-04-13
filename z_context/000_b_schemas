@@ -21,6 +21,10 @@
 \d agent_error_log
 \d
 
+
+
+SELECT type FROM agent_definitions;
+
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > bk_agent_definitions_backup.sql
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t site_work_items > bk_site_work_items.sql
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t content_components > bk_content_components.sql

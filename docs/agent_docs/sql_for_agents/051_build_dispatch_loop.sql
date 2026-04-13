@@ -1803,3 +1803,29 @@ SET default_config = jsonb_set(
         }'::jsonb
                      )
 WHERE type = 'build-dispatch-loop';
+
+
+-- ============================================================================
+-- FIX 1: Dispatch loop input_mapping
+-- Run this first. Already confirmed working from your output.
+-- ============================================================================
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_item,config,sub_workflow,steps,call_handler,config,input_mapping}',
+        '{
+            "spec": "current_item.spec",
+            "domain": "input_data.domain",
+            "site_id": "current_item.site_id",
+            "item_type": "current_item.item_type",
+            "page_name?": "current_item.spec.page_name",
+            "current_page": "current_item.spec",
+            "work_item_id": "current_item.id",
+            "reviewed_brief?": "current_item.spec.reviewed_brief",
+            "component_id?": "current_item.spec.component_id",
+            "issue?": "current_item.spec.issue"
+        }'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-dispatch-loop';

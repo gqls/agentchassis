@@ -603,3 +603,33 @@ SET default_config = jsonb_set(
         '["all_sources_erroring", "empty_blog", "empty_sections", "missing_news_section", "missing_news_sources", "missing_structure", "orphan_pages", "stale_news_section", "unresolved_sections"]'::jsonb
                      )
 WHERE type = 'completeness-discovery-agent';
+
+---
+
+-- Add both missing checks back
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        (
+            SELECT jsonb_agg(DISTINCT val)
+            FROM (
+                     SELECT val FROM jsonb_array_elements_text(
+                                             default_config->'workflow'->'steps'->'run_checks'->'config'->'checks'
+                                     ) AS val
+                     UNION
+                     SELECT 'missing_news_page'
+                     UNION
+                     SELECT 'unlinked_page_components'
+                 ) sub
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'completeness-discovery-agent'
+  AND deleted_at IS NULL;
+
+-- Verify
+SELECT default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' as checks
+FROM agent_definitions
+WHERE type = 'completeness-discovery-agent' AND deleted_at IS NULL;
+

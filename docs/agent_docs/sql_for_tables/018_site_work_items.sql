@@ -832,3 +832,49 @@ WHERE item_type = 'needs_section_data'
   AND site_id IN (SELECT id FROM sites WHERE domain IN ('ai-agent-orchestration.com', 'finetuning.uk', 'leopardessconsulting.co.uk'))
 GROUP BY 1, 2;
 
+-- ============================================================================
+-- FIX 3: Reset failed improve_tool and audit_tool items
+--
+-- These failed with "query param path 'input_data.component_id' resolved to nil"
+-- because the dispatch loop didn't flatten component_id from spec.
+-- Fix 1 corrects the dispatch loop. This resets the items so they re-dispatch.
+-- ============================================================================
+
+-- 3a. Clear parent references to these failed items
+UPDATE site_work_items SET parent_item_id = NULL
+WHERE parent_item_id IN (
+    SELECT id FROM site_work_items
+    WHERE status = 'failed'
+      AND pipeline = 'build'
+      AND item_type IN ('improve_tool', 'audit_tool')
+      AND error LIKE '%resolved to nil%'
+);
+
+-- 3b. Delete failed items where an active duplicate already exists
+--     (the dedup index would block the reset)
+DELETE FROM site_work_items
+WHERE status = 'failed'
+  AND pipeline = 'build'
+  AND item_type IN ('improve_tool', 'audit_tool')
+  AND error LIKE '%resolved to nil%'
+  AND item_key IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM site_work_items live
+    WHERE live.site_id = site_work_items.site_id
+      AND live.item_key = site_work_items.item_key
+      AND live.id != site_work_items.id
+        AND live.status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+);
+
+-- 3c. Reset remaining failed items to triaged
+UPDATE site_work_items
+SET status = 'triaged',
+    attempt_count = 0,
+    error = NULL,
+    claimed_by = NULL,
+    claimed_at = NULL,
+    updated_at = NOW()
+WHERE status = 'failed'
+  AND pipeline = 'build'
+  AND item_type IN ('improve_tool', 'audit_tool')
+  AND error LIKE '%resolved to nil%';
