@@ -14,7 +14,7 @@ labels:
 
 images:
   - name: docker.io/aqls/remote-job-spawner
-    newTag: v1.0.958
+    newTag: v1.0.959
 
 patches:
   - path: patch-deployment.yaml

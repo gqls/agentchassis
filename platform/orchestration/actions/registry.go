@@ -1089,6 +1089,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "To select representative prose-heavy pages from crawl for style analysis",
 		IsLocal:     true,
 	},
+	"enrich_fingerprint_with_css": {
+		Handler:     EnrichFingerprintWithCSSAction,
+		Category:    "analysis",
+		Description: "Parse fetched CSS and merge into design fingerprint",
+		IsLocal:     true,
+	},
 	"firecrawl_map": {
 		Handler:     FirecrawlMapAction,
 		Category:    "webscrape",
