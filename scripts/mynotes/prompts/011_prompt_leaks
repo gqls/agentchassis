@@ -1,0 +1,2 @@
+o the real fix is pointing to system.agent.generic.requests, which the static chassis actually consumes — the scheduler sends a message with target_agent_type: endpoint-health-checker, the chassis spawns a K8s Job to run the health check, which pings endpoints and updates the health table, then exits. That intermediate topic we created was a dead end. I need the next thinking content to rewrite. You've provided the current rewritten thinking and the guidelines, but the "next thinking you need to rewrite" section appears to be empty.
+

@@ -1793,3 +1793,43 @@ WHERE type = 'site-adoption-agent';
 -- fetch_action: firecrawl_scrape
 -- after_enrich: analyze_site
 -- enrich_action: enrich_fingerprint_with_css
+
+---
+--
+-- Fix classify_archetype: add .result to adoption_analysis references
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_archetype,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        replace(
+                                replace(
+                                        replace(
+                                                default_config->'workflow'->'steps'->'classify_archetype'->'config'->>'prompt_template',
+                                                '.adoption_analysis.identity', '.adoption_analysis.result.identity'
+                                        ),
+                                        '.adoption_analysis.design', '.adoption_analysis.result.design'
+                                ),
+                                '.adoption_analysis.interactive_features', '.adoption_analysis.result.interactive_features'
+                        ),
+                        '.adoption_analysis.pages', '.adoption_analysis.result.pages'
+                )
+        )
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- Fix generate_design_intent: add .result to adoption_analysis references
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_design_intent,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config->'workflow'->'steps'->'generate_design_intent'->'config'->>'prompt_template',
+                        '.adoption_analysis', '.adoption_analysis.result'
+                )
+        )
+                     )
+WHERE type = 'site-adoption-agent';
+
