@@ -43,7 +43,7 @@ import (
 
 var CreateWorkItemInputSpec = datahelpers.ActionInputSpec{
 	Required:   []string{"site_id"},
-	Optional:   []string{"spec_data", "parent_item_id", "page_id", "summary"},
+	Optional:   []string{"spec_data", "parent_item_id", "page_id", "component_id", "summary"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
 }
@@ -152,6 +152,14 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		}
 	}
 
+	// Optional component_id
+	var componentID *uuid.UUID
+	if componentIDStr := inputs.Get("component_id"); componentIDStr != "" {
+		if parsed, err := uuid.Parse(componentIDStr); err == nil {
+			componentID = &parsed
+		}
+	}
+
 	// Insert via transaction (insertWorkItem expects *sql.Tx)
 	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -168,6 +176,7 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		summary:      summary,
 		spec:         specJSON,
 		pageID:       pageID,
+		componentID:  componentID,
 		priority:     priority,
 		handlerAgent: handlerAgent,
 		status:       status,

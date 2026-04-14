@@ -1,4 +1,4 @@
-// FILE: platform/orchestration/actions/work_item_actions.go
+// FILE: platform/orchestration/actions/load_work_item_actions.go
 // Work item actions for the unified build/maintenance queue (site_work_items table).
 //
 // Actions:
@@ -848,6 +848,7 @@ type workItem struct {
 	summary      string
 	spec         string
 	pageID       *uuid.UUID
+	componentID  *uuid.UUID
 	priority     int
 	handlerAgent string
 	status       string
@@ -923,12 +924,12 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 	result, err := tx.ExecContext(ctx, `
 		INSERT INTO site_work_items (
 			site_id, source, pipeline, item_type, severity, summary, spec,
-			page_id, priority, handler_agent, status, created_by,
+			page_id, component_id, priority, handler_agent, status, created_by,
 			item_key, batch_id, depends_on
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7::jsonb,
-			$8, $9, $10, $11, $12,
-			$13, $14, $15::uuid[]
+			$8, $9, $10, $11, $12, $13,
+			$14, $15, $16::uuid[]
 		)
 		ON CONFLICT (site_id, item_key) 
 			WHERE item_key IS NOT NULL 
@@ -936,7 +937,7 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 		DO NOTHING
 	`, item.siteID, item.source, item.pipeline, item.itemType, item.severity,
 		item.summary, item.spec,
-		item.pageID, item.priority, item.handlerAgent, item.status, item.createdBy,
+		item.pageID, item.componentID, item.priority, item.handlerAgent, item.status, item.createdBy,
 		itemKeyPtr, batchIDPtr, dependsOnStr,
 	)
 	if err != nil {
