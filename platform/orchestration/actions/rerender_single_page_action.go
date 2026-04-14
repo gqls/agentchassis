@@ -165,7 +165,7 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 	}
 
 	// 3. Get page sections
-	sections, err := getPageSections(ctx, db, page.ID)
+	sections, err := getPageSections(ctx, db, page.ID, logger)
 	if err != nil {
 		logger.Warn("Failed to load page sections", zap.Error(err))
 	}
@@ -280,10 +280,15 @@ func getAreaComponents(ctx context.Context, db *sql.DB, areaID uuid.UUID) (map[s
 	return components, nil
 }
 
-// getPageSections loads and concatenates page sections in order
-func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID) (string, error) {
+// getPageSections loads and concatenates page sections in order.
+// Sections with no visible text content are skipped — these are template
+// wrappers where the content hasn't been written yet (empty headings,
+// empty containers, placeholder sections). Rendering them produces blank
+// space on the page. The improvement loop will detect them and create
+// content_rewrite items; they'll appear once they have real content.
+func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) (string, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT COALESCE(rendered_html, '') 
+		SELECT COALESCE(rendered_html, ''), COALESCE(slot_name, '') 
 		FROM page_components 
 		WHERE page_id = $1 
 		  AND rendered_html IS NOT NULL 
@@ -297,8 +302,14 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID) (string,
 
 	var sections strings.Builder
 	for rows.Next() {
-		var html string
-		if err := rows.Scan(&html); err != nil {
+		var html, slotName string
+		if err := rows.Scan(&html, &slotName); err != nil {
+			continue
+		}
+		if !sectionHasVisibleContent(html) {
+			logger.Info("getPageSections: Skipping empty section",
+				zap.String("slot_name", slotName),
+				zap.Int("html_bytes", len(html)))
 			continue
 		}
 		sections.WriteString(html)
@@ -306,6 +317,40 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID) (string,
 	}
 
 	return sections.String(), nil
+}
+
+// Precompiled regexps for sectionHasVisibleContent
+var (
+	reStyleBlocks  = regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`)
+	reScriptBlocks = regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
+	reHTMLTags     = regexp.MustCompile(`<[^>]*>`)
+	reHTMLEntities = regexp.MustCompile(`&[a-zA-Z]+;|&#\d+;`)
+	reWhitespace   = regexp.MustCompile(`\s+`)
+)
+
+// sectionHasVisibleContent checks whether an HTML section contains meaningful
+// visible text. Returns false for sections that are structurally present but
+// have no content — e.g. empty headings, empty containers, template wrappers
+// with no populated fields. These render as blank space on the page.
+//
+// Strips <style> and <script> blocks entirely before checking, since CSS/JS
+// is not visible content but can be thousands of bytes.
+//
+// Threshold is intentionally low (10 chars) — we want to skip
+// <h1></h1><p></p> but keep <h2>Latest Articles</h2> or any section
+// with real text.
+func sectionHasVisibleContent(html string) bool {
+	// Strip style and script blocks entirely (content + tags)
+	text := reStyleBlocks.ReplaceAllString(html, "")
+	text = reScriptBlocks.ReplaceAllString(text, "")
+	// Strip remaining HTML tags
+	text = reHTMLTags.ReplaceAllString(text, "")
+	// Strip HTML entities
+	text = reHTMLEntities.ReplaceAllString(text, "")
+	// Collapse whitespace and trim
+	text = strings.TrimSpace(reWhitespace.ReplaceAllString(text, " "))
+
+	return len(text) > 10
 }
 
 // resolveComponent returns area component if exists, otherwise site component
