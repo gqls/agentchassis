@@ -764,7 +764,29 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 	// Get fields from schema
 	fieldsRaw, ok := comp.InputSchema["fields"].(map[string]interface{})
 	if !ok || len(fieldsRaw) == 0 {
-		// No v2 schema — treat as fully LLM-generated (backward compat)
+		// No v2 schema — component has no declared content fields.
+		// Check if the template has actual HTML structure. If it's CSS-only
+		// or truncated, it was likely created by a broken component-creator
+		// run and will produce empty/broken output.
+		if comp.Function != "" {
+			funcLower := strings.ToLower(comp.Function)
+			// Components that typically need LLM content should not have empty schemas
+			needsContent := strings.Contains(funcLower, "article") ||
+				strings.Contains(funcLower, "content") ||
+				strings.Contains(funcLower, "body") ||
+				strings.Contains(funcLower, "text") ||
+				strings.Contains(funcLower, "blog")
+			if needsContent {
+				item.Status = "deferred"
+				item.Reason = "component has empty input_schema — needs regeneration with content fields"
+				logger.Warn("plan_sections: content component has empty schema, deferring",
+					zap.String("function", comp.Function),
+					zap.String("section", sectionName))
+				return item
+			}
+		}
+		// Non-content components with empty schema (e.g. decorative sections,
+		// separators) — treat as fully LLM-generated for backward compat
 		item.Reason = "no field schema — all fields from LLM"
 		return item
 	}

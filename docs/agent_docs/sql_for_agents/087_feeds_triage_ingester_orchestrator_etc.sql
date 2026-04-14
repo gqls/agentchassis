@@ -2673,3 +2673,22 @@ FROM agent_definitions
 WHERE type = 'feed-triage' AND deleted_at IS NULL;
 
 -- Expected: prompt_length around 2500-3000 characters
+-- Change scores_field to point directly at scores.result
+-- The code appends ".result" making it "scores.result.result" (fails, nil)
+-- Then falls back to "scores.result" (finds the string, parses it)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,apply_scores,config,scores_field}',
+        '"scores.result"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'feed-triage' AND deleted_at IS NULL;
+
+-- Verify
+SELECT default_config->'workflow'->'steps'->'apply_scores'->'config'->>'scores_field' as scores_field
+FROM agent_definitions WHERE type = 'feed-triage' AND deleted_at IS NULL;
+
+-- Trigger a feed refresh to test
+UPDATE scheduled_tasks SET last_triggered_at = NULL WHERE name = 'content-feed-refresh';
+

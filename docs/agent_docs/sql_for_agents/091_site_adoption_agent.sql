@@ -1950,3 +1950,48 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'site-adoption-agent';
 
+---
+-- reduce crawl pages
+
+-- Reduce crawl page limit from 50 to 20, and increase summary compression
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,crawl_site,config,scrape_config,limit}',
+                '30'
+        ),
+        '{workflow,steps,format_crawl,config,summary_chars_per_page}',
+        '350'
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- Apply the workaround templates
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_archetype,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config->'workflow'->'steps'->'classify_archetype'->'config'->>'prompt_template',
+                        E'Identity: {{.adoption_analysis.identity}}\nDesign: {{.adoption_analysis.design}}\nInteractive features: {{.adoption_analysis.interactive_features}}\nPages: {{.adoption_analysis.pages}}',
+                        '{{.adoption_analysis}}'
+                )
+        )
+                     )
+WHERE type = 'site-adoption-agent';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_design_intent,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config->'workflow'->'steps'->'generate_design_intent'->'config'->>'prompt_template',
+                        E'== SITE IDENTITY ==\n{{if .adoption_analysis}}{{if .adoption_analysis.identity}}Company: {{.adoption_analysis.identity.company_name}}\nIndustry: {{.adoption_analysis.identity.industry}}\nTone: {{.adoption_analysis.identity.tone}}\nAudience: {{.adoption_analysis.identity.target_audience}}{{end}}\n{{if .adoption_analysis.design}}LLM design description: {{.adoption_analysis.design.visual_tone}}{{end}}{{end}}',
+                        E'== SITE IDENTITY (from LLM analysis) ==\n{{.adoption_analysis}}'
+                )
+        )
+                     )
+WHERE type = 'site-adoption-agent';
+

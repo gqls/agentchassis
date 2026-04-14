@@ -101,6 +101,42 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			zap.Int("template_length", len(htmlTemplate)))
 	}
 
+	// ── Validate template quality ───────────────────────────────────────
+	// Reject templates that are clearly broken — CSS-only output, truncated
+	// by token limit, or missing input_schema. Without these checks, broken
+	// components enter the DB and silently cause every page using this
+	// section type to render empty/CSS-only content.
+
+	// Check 1: Template must contain HTML structure (section or div),
+	// not just a <style> block.
+	templateLower := strings.ToLower(htmlTemplate)
+	if !strings.Contains(templateLower, "<section") && !strings.Contains(templateLower, "<div") {
+		return nil, fmt.Errorf(
+			"generated template for %q has no HTML structure (<section> or <div>) — likely CSS-only or truncated output",
+			sectionType)
+	}
+
+	// Check 2: Unclosed <style> tags indicate token-limit truncation.
+	styleOpens := strings.Count(templateLower, "<style")
+	styleCloses := strings.Count(templateLower, "</style>")
+	if styleOpens > styleCloses {
+		return nil, fmt.Errorf(
+			"generated template for %q has %d unclosed <style> tag(s) — likely truncated by token limit",
+			sectionType, styleOpens-styleCloses)
+	}
+
+	// Check 3: Empty input_schema means the component has no content fields.
+	// It can't accept LLM-generated content, so every page using it will
+	// render the raw template with no substitution.
+	if inputSchemaJSON == "{}" || inputSchemaJSON == "" || inputSchemaJSON == `{"fields":{}}` {
+		logger.Warn("store_generated_component: empty input_schema — component has no content fields",
+			zap.String("section_type", sectionType),
+			zap.String("function", functionName))
+		return nil, fmt.Errorf(
+			"generated template for %q has empty input_schema — no content fields defined, page builds would produce empty sections",
+			sectionType)
+	}
+
 	// Build suitable_site_types from the site_type that triggered the creation
 	suitableSiteTypes := []string{}
 	if siteType != "" {
