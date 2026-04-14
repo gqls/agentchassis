@@ -221,3 +221,51 @@ SELECT type, display_name, status
 FROM agent_definitions
 WHERE type = 'tool-auditor' AND deleted_at IS NULL;
 
+---
+-- pass component_id
+
+-- Fix P1: Promote component_id to top-level config in tool-auditor's create_work_item steps
+--
+-- Problem: tool-improver's load_tool step expects input_data.component_id on the work item row,
+-- but create_work_item only sets component_id when it's a top-level config field.
+-- The tool-auditor currently puts component_id inside spec_data only — it never reaches the column.
+--
+-- Fix: Add "component_id": "tool_data.component_id" as a top-level config key on both
+-- create_improve_item and create_review_item steps. It remains in spec_data too for reference.
+--
+-- Affects: Items 1-5 in pipeline-failures-report.md (5 improve_tool failures)
+-- Agent: tool-auditor (2ec19d27-1d77-4577-a7f8-6cbf9ef015f5)
+
+-- Verify current state before applying
+-- SELECT id, type,
+--   default_config->'workflow'->'steps'->'create_items_loop'->'config'->'sub_workflow'->'steps'->'create_improve_item'->'config' ? 'component_id' as has_component_id
+-- FROM agent_definitions WHERE type = 'tool-auditor';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_items_loop,config,sub_workflow,steps,create_improve_item,config,component_id}',
+        '"tool_data.component_id"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'tool-auditor'
+  AND is_active = true;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,create_items_loop,config,sub_workflow,steps,create_review_item,config,component_id}',
+        '"tool_data.component_id"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'tool-auditor'
+  AND is_active = true;
+
+-- Verify after applying
+-- SELECT type,
+--   default_config->'workflow'->'steps'->'create_items_loop'->'config'->'sub_workflow'->'steps'->'create_improve_item'->'config'->>'component_id' as improve_component_id,
+--   default_config->'workflow'->'steps'->'create_items_loop'->'config'->'sub_workflow'->'steps'->'create_review_item'->'config'->>'component_id' as review_component_id
+-- FROM agent_definitions WHERE type = 'tool-auditor';
+
+
+
