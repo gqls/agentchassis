@@ -397,8 +397,8 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		}
 
 		// Catch-all: any error not handled above (model check or transient retry)
-		// is a hard failure. This catches 401 (auth), 402 (credit exhausted),
-		// 408 (timeout), 429 (rate limited), and any other unexpected status codes.
+		// is a hard failure. This catches genuinely malformed requests (invalid
+		// parameters, context window exceeded) and other unexpected status codes.
 		// Without this, the error is silently dropped and the pipeline continues
 		// with an empty result — which can overwrite good page content with empty shells.
 		if err != nil {

@@ -85,6 +85,23 @@ func isAIUnavailable(err error) bool {
 		}
 	}
 
+	// Rate limit / usage limit (transient — clears when quota resets or capacity returns)
+	// 429: standard rate limit. Usage limit 400s contain "rate_limit" or "limit" in the body.
+	// These should go back to triaged, not count as failed attempts.
+	rateLimitErrors := []string{
+		"status 429",
+		"rate_limit",
+		"rate limit",
+		"too many requests",
+		"usage limit",
+		"billing",
+	}
+	for _, pattern := range rateLimitErrors {
+		if strings.Contains(strings.ToLower(errStr), pattern) {
+			return true
+		}
+	}
+
 	// Ollama-specific: model not loaded / OOM
 	ollamaErrors := []string{
 		"requires more system memory",
