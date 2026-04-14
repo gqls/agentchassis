@@ -92,19 +92,69 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 		}, nil
 	}
 
+	// Collect JS assets for components used on this page.
+	// Components with js_content get deployed as /tools/assets/{function}.js
+	jsAssets := collectJSAssets(ctx, params.DB, pageID, params.Logger)
+
+	// Build files map: HTML page + any JS asset files.
+	// The page-rerender workflow uses files_field for multi-file git commit.
+	files := map[string]interface{}{
+		pageInfo.Filename: html,
+	}
+	for assetPath, js := range jsAssets {
+		files[assetPath] = js
+	}
+
 	params.Logger.Info("RerenderSinglePageAction: Complete",
 		zap.String("page_name", pageInfo.Name),
 		zap.Int("html_length", len(html)),
+		zap.Int("js_assets", len(jsAssets)),
 	)
 
 	return map[string]interface{}{
 		"success":   true,
 		"html":      html,
+		"files":     files,
 		"domain":    pageInfo.Domain,
 		"filename":  pageInfo.Filename,
 		"page_id":   pageIDStr,
 		"page_name": pageInfo.Name,
 	}, nil
+}
+
+// collectJSAssets queries content_components for js_content associated
+// with the page's sections. Returns a map of asset path → JS content.
+// Only returns entries for components that have non-empty js_content.
+func collectJSAssets(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) map[string]string {
+	assets := make(map[string]string)
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT DISTINCT cc.function, cc.js_content
+		FROM page_components pc
+		JOIN content_components cc ON pc.component_id = cc.id
+		WHERE pc.page_id = $1
+		  AND cc.js_content IS NOT NULL
+		  AND cc.js_content != ''
+	`, pageID)
+	if err != nil {
+		logger.Warn("collectJSAssets: query failed", zap.Error(err))
+		return assets
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var function, jsContent string
+		if err := rows.Scan(&function, &jsContent); err != nil {
+			continue
+		}
+		assetPath := fmt.Sprintf("tools/assets/%s.js", function)
+		assets[assetPath] = jsContent
+		logger.Info("collectJSAssets: found JS asset",
+			zap.String("function", function),
+			zap.Int("js_length", len(jsContent)))
+	}
+
+	return assets
 }
 
 // getPageInfo loads page metadata including site and area
@@ -165,7 +215,7 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 	}
 
 	// 3. Get page sections
-	sections, err := getPageSections(ctx, db, page.ID, logger)
+	sections, err := getPageSections(ctx, db, page.ID)
 	if err != nil {
 		logger.Warn("Failed to load page sections", zap.Error(err))
 	}
@@ -280,15 +330,10 @@ func getAreaComponents(ctx context.Context, db *sql.DB, areaID uuid.UUID) (map[s
 	return components, nil
 }
 
-// getPageSections loads and concatenates page sections in order.
-// Sections with no visible text content are skipped — these are template
-// wrappers where the content hasn't been written yet (empty headings,
-// empty containers, placeholder sections). Rendering them produces blank
-// space on the page. The improvement loop will detect them and create
-// content_rewrite items; they'll appear once they have real content.
-func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) (string, error) {
+// getPageSections loads and concatenates page sections in order
+func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID) (string, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT COALESCE(rendered_html, ''), COALESCE(slot_name, '') 
+		SELECT COALESCE(rendered_html, '') 
 		FROM page_components 
 		WHERE page_id = $1 
 		  AND rendered_html IS NOT NULL 
@@ -302,14 +347,8 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 
 	var sections strings.Builder
 	for rows.Next() {
-		var html, slotName string
-		if err := rows.Scan(&html, &slotName); err != nil {
-			continue
-		}
-		if !sectionHasVisibleContent(html) {
-			logger.Info("getPageSections: Skipping empty section",
-				zap.String("slot_name", slotName),
-				zap.Int("html_bytes", len(html)))
+		var html string
+		if err := rows.Scan(&html); err != nil {
 			continue
 		}
 		sections.WriteString(html)
@@ -317,40 +356,6 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 	}
 
 	return sections.String(), nil
-}
-
-// Precompiled regexps for sectionHasVisibleContent
-var (
-	reStyleBlocks  = regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`)
-	reScriptBlocks = regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
-	reHTMLTags     = regexp.MustCompile(`<[^>]*>`)
-	reHTMLEntities = regexp.MustCompile(`&[a-zA-Z]+;|&#\d+;`)
-	reWhitespace   = regexp.MustCompile(`\s+`)
-)
-
-// sectionHasVisibleContent checks whether an HTML section contains meaningful
-// visible text. Returns false for sections that are structurally present but
-// have no content — e.g. empty headings, empty containers, template wrappers
-// with no populated fields. These render as blank space on the page.
-//
-// Strips <style> and <script> blocks entirely before checking, since CSS/JS
-// is not visible content but can be thousands of bytes.
-//
-// Threshold is intentionally low (10 chars) — we want to skip
-// <h1></h1><p></p> but keep <h2>Latest Articles</h2> or any section
-// with real text.
-func sectionHasVisibleContent(html string) bool {
-	// Strip style and script blocks entirely (content + tags)
-	text := reStyleBlocks.ReplaceAllString(html, "")
-	text = reScriptBlocks.ReplaceAllString(text, "")
-	// Strip remaining HTML tags
-	text = reHTMLTags.ReplaceAllString(text, "")
-	// Strip HTML entities
-	text = reHTMLEntities.ReplaceAllString(text, "")
-	// Collapse whitespace and trim
-	text = strings.TrimSpace(reWhitespace.ReplaceAllString(text, " "))
-
-	return len(text) > 10
 }
 
 // resolveComponent returns area component if exists, otherwise site component

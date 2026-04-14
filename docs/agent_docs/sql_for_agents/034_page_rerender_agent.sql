@@ -130,3 +130,43 @@ SET
                      ),
     updated_at = NOW()
 WHERE type = 'page-rerender';
+
+--
+
+-- ============================================================
+-- Update page-rerender workflow: deploy HTML + JS assets together
+-- ============================================================
+-- Changes deploy_page step from content_field (single file) to
+-- files_field (multi-file). The files map comes from
+-- RerenderSinglePageAction which now includes JS assets.
+--
+-- Backward compatible: content_field kept as fallback in case
+-- files map is empty (extractFilesForGit falls through to Method 3).
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,deploy_page,config}',
+        jsonb_build_object(
+                'repo_name', 'sites',
+                'domain_field', 'rendered_page.domain',
+                'files_field', 'rendered_page.files',
+                'content_field', 'rendered_page.html',
+                'filename_field', 'rendered_page.filename',
+                'commit_message', 'Rerender: {{.filename}}'
+        )
+                     ),
+    default_config = jsonb_set(
+            default_config,
+            '{workflow,steps,deploy_page,description}',
+            '"Deploy assembled page and JS assets to git"'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'page-rerender';
+
+-- Verify
+SELECT type,
+       default_config->'workflow'->'steps'->'deploy_page'->'config'->>'files_field' as files_field,
+    default_config->'workflow'->'steps'->'deploy_page'->'config'->>'content_field' as content_field_fallback
+FROM agent_definitions
+WHERE type = 'page-rerender';

@@ -33,6 +33,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -85,6 +86,19 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 
 	if htmlTemplate == "" {
 		return nil, fmt.Errorf("generated template is empty for section_type %q", sectionType)
+	}
+
+	// Separate inline <script> blocks into js_content.
+	// The template keeps a <script src="/tools/assets/{function}.js"> reference.
+	// Components without inline JS are unaffected (jsContent will be empty).
+	var jsContent string
+	htmlTemplate, jsContent = separateInlineJS(htmlTemplate, functionName)
+
+	if jsContent != "" {
+		logger.Info("store_generated_component: extracted inline JS to js_content",
+			zap.String("function", functionName),
+			zap.Int("js_length", len(jsContent)),
+			zap.Int("template_length", len(htmlTemplate)))
 	}
 
 	// Build suitable_site_types from the site_type that triggered the creation
@@ -150,17 +164,17 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		INSERT INTO content_components (
 			name, display_name, function, category, component_level,
 			section_type, suitable_site_types, suitable_page_types,
-			description, html_template, input_schema,
+			description, html_template, js_content, input_schema,
 			is_dark_section, render_mode, created_from, is_active,
 			usage_count, avg_quality_score,
 			semantic_tags
 		) VALUES (
 			$1, $2, $3, $4, 'section',
 			$5, $6::jsonb, $7::jsonb,
-			$8, $9, $10::jsonb,
-			$11, 'template', 'generated', true,
+			$8, $9, $10, $11::jsonb,
+			$12, 'template', 'generated', true,
 			0, NULL,
-			$12::jsonb
+			$13::jsonb
 		)
 		RETURNING id::text
 	`,
@@ -172,10 +186,11 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		string(suitableSiteTypesJSON), // $6 suitable_site_types
 		string(suitablePageTypesJSON), // $7 suitable_page_types
 		description,                   // $8 description
-		htmlTemplate,                  // $9 html_template
-		inputSchemaJSON,               // $10 input_schema
-		isDark,                        // $11 is_dark_section
-		datahelpers.BuildSemanticTags(sectionType, siteType), // $12 semantic_tags
+		htmlTemplate,                  // $9 html_template (JS extracted)
+		nullIfEmpty(jsContent),        // $10 js_content (NULL if no JS)
+		inputSchemaJSON,               // $11 input_schema
+		isDark,                        // $12 is_dark_section
+		datahelpers.BuildSemanticTags(sectionType, siteType), // $13 semantic_tags
 	).Scan(&newID)
 
 	if err != nil {
@@ -201,6 +216,8 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		"category":      category,
 		"status":        "created",
 		"template_size": len(htmlTemplate),
+		"has_js":        jsContent != "",
+		"js_size":       len(jsContent),
 	}, nil
 }
 
@@ -478,4 +495,67 @@ func truncateStr(s string, n int) string {
 		return s
 	}
 	return s[:n] + "..."
+}
+
+// separateInlineJS extracts inline <script> blocks from an HTML template,
+// stores them separately, and replaces with a <script src> reference.
+//
+// Only extracts <script> tags WITHOUT attributes (inline JS).
+// Leaves <script src="...">, <script type="module">, etc. untouched.
+//
+// Multiple inline script blocks are combined into a single JS content string.
+// If no inline scripts found, returns the template unchanged and empty jsContent.
+func separateInlineJS(htmlTemplate, functionName string) (cleanHTML, jsContent string) {
+	// Match <script> tags with no attributes — these contain inline JS.
+	// (?s) enables dot-matches-newline.
+	re := regexp.MustCompile(`(?s)<script\s*>(.*?)</script>`)
+
+	var jsBlocks []string
+	hasInlineJS := false
+
+	cleanHTML = re.ReplaceAllStringFunc(htmlTemplate, func(match string) string {
+		// Safety check: skip if somehow a src= tag matched
+		trimmed := strings.TrimSpace(match)
+		if len(trimmed) > 20 && strings.Contains(trimmed[:20], "src=") {
+			return match
+		}
+
+		submatch := re.FindStringSubmatch(match)
+		if len(submatch) < 2 {
+			return match
+		}
+
+		js := strings.TrimSpace(submatch[1])
+		if js == "" {
+			return "" // empty script tag, just remove
+		}
+
+		jsBlocks = append(jsBlocks, js)
+		hasInlineJS = true
+		return "" // remove the inline script block from HTML
+	})
+
+	if !hasInlineJS {
+		return htmlTemplate, ""
+	}
+
+	// Combine all JS blocks
+	jsContent = strings.Join(jsBlocks, "\n\n")
+
+	// Add the <script src> reference after </section>
+	scriptRef := fmt.Sprintf(`<script src="/tools/assets/%s.js"></script>`, functionName)
+
+	if idx := strings.LastIndex(cleanHTML, "</section>"); idx >= 0 {
+		insertAt := idx + len("</section>")
+		cleanHTML = cleanHTML[:insertAt] + "\n" + scriptRef + cleanHTML[insertAt:]
+	} else {
+		cleanHTML = cleanHTML + "\n" + scriptRef
+	}
+
+	// Clean up double blank lines left by removed script blocks
+	for strings.Contains(cleanHTML, "\n\n\n") {
+		cleanHTML = strings.ReplaceAll(cleanHTML, "\n\n\n", "\n\n")
+	}
+
+	return cleanHTML, jsContent
 }
