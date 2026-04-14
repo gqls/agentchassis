@@ -318,6 +318,11 @@ func ExtractFields(
 		value := extractSingleField(collectedData, fieldName, make(map[string]bool), logger)
 
 		if value != nil {
+			// Unwrap LLM output wrappers like {type: "text", result: "{...}"}
+			// so Go templates can traverse directly into parsed fields.
+			// Safe on already-clean values — returns them unchanged.
+			value = UnwrapDeep(value, logger)
+
 			// Store with simple name (last part of path)
 			parts := strings.Split(fieldName, ".")
 			simpleKey := parts[len(parts)-1]

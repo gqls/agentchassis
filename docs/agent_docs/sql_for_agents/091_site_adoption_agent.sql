@@ -1885,3 +1885,36 @@ SET default_config = jsonb_set(
         )
                      )
 WHERE type = 'site-adoption-agent';
+
+---
+-- revert previous
+
+-- Revert classify_archetype: back to structured fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_archetype,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config->'workflow'->'steps'->'classify_archetype'->'config'->>'prompt_template',
+                        E'{{.adoption_analysis}}',
+                        E'Identity: {{.adoption_analysis.identity}}\nDesign: {{.adoption_analysis.design}}\nInteractive features: {{.adoption_analysis.interactive_features}}\nPages: {{.adoption_analysis.pages}}'
+                )
+        )
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- Revert generate_design_intent: back to structured fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_design_intent,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config->'workflow'->'steps'->'generate_design_intent'->'config'->>'prompt_template',
+                        E'== SITE IDENTITY (from LLM analysis) ==\n{{if .adoption_analysis}}{{.adoption_analysis}}{{end}}',
+                        E'== SITE IDENTITY ==\n{{if .adoption_analysis}}{{if .adoption_analysis.identity}}Company: {{.adoption_analysis.identity.company_name}}\nIndustry: {{.adoption_analysis.identity.industry}}\nTone: {{.adoption_analysis.identity.tone}}\nAudience: {{.adoption_analysis.identity.target_audience}}{{end}}\n{{if .adoption_analysis.design}}LLM design description: {{.adoption_analysis.design.visual_tone}}{{end}}{{end}}'
+                )
+        )
+                     )
+WHERE type = 'site-adoption-agent';
