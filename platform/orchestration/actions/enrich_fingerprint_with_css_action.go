@@ -80,7 +80,15 @@ func EnrichFingerprintWithCSSAction(ctx context.Context, params ActionParams) (i
 	var cssContent string
 
 	cssPaths := []string{
+		// webscrape adapter wraps in response.data
+		cssField + ".response.data.raw_html",
+		cssField + ".response.data.html_content",
+		cssField + ".response.data.markdown_content",
+		// direct paths (if unwrapped)
+		cssField + ".raw_html",
+		cssField + ".html_content",
 		cssField + ".rawHtml",
+		// legacy/fallback
 		cssField + ".body.data.rawHtml",
 		cssField + ".data.rawHtml",
 		cssField + ".body.rawHtml",
