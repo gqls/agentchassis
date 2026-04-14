@@ -157,68 +157,98 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("tool %s has no HTML template", toolFunction)
 	}
 
-	// --- 2. Check if already deployed (fork exists for this site) ---
+	// --- 2. Check for existing fork and deployment status ---
+	// Two-stage check:
+	//   a) Does a fork of this tool exist for this site? (catches orphans from partial failures)
+	//   b) If so, is it fully deployed (linked to a page via page_component)?
+	// If fully deployed → return early.
+	// If fork exists but not linked → reuse the fork, continue with page creation.
+	// If no fork exists → create one.
+
+	forkName := toolName + "-" + domainSlug(siteDomain)
+	forkID := uuid.New()
+
 	var existingForkID sql.NullString
 	err = params.DB.QueryRowContext(ctx, `
-		SELECT cc.id::text
-		FROM content_components cc
-		JOIN page_components pc ON pc.component_id = cc.id
-		JOIN pages p ON pc.page_id = p.id
-		WHERE cc.forked_from = $1
-		  AND p.site_id = $2
-		  AND cc.is_active = true
+		SELECT id::text
+		FROM content_components
+		WHERE forked_from = $1
+		  AND name = $2
+		  AND is_active = true
 		LIMIT 1
-	`, toolID, siteID).Scan(&existingForkID)
+	`, toolID, forkName).Scan(&existingForkID)
 
 	if err == nil && existingForkID.Valid {
-		logger.Info("DeployToolToSiteAction: Tool already deployed to site",
-			zap.String("existing_fork_id", existingForkID.String))
-		return map[string]interface{}{
-			"site_id":          siteIDStr,
-			"tool_function":    toolFunction,
-			"already_deployed": true,
-			"fork_id":          existingForkID.String,
-			"needs_rerender":   false,
-		}, nil
-	}
+		// Fork exists — reuse it
+		if parsed, parseErr := uuid.Parse(existingForkID.String); parseErr == nil {
+			forkID = parsed
+		}
+		logger.Info("DeployToolToSiteAction: Found existing fork",
+			zap.String("fork_id", forkID.String()),
+			zap.String("fork_name", forkName))
 
-	// --- 3. Fork the tool (create site-owned copy) ---
-	forkID := uuid.New()
-	forkName := toolName + "-" + domainSlug(siteDomain)
+		// Check if fully deployed (fork linked to a page on this site)
+		var deployedPageID sql.NullString
+		_ = params.DB.QueryRowContext(ctx, `
+			SELECT p.id::text
+			FROM page_components pc
+			JOIN pages p ON pc.page_id = p.id
+			WHERE pc.component_id = $1
+			  AND p.site_id = $2
+			LIMIT 1
+		`, forkID, siteID).Scan(&deployedPageID)
 
-	_, err = params.DB.ExecContext(ctx, `
-		INSERT INTO content_components (
-			id, name, display_name, function, category, component_level, render_mode,
-			is_dark_section, is_active, description,
-			semantic_tags, html_template, input_schema, forked_from
+		if deployedPageID.Valid {
+			logger.Info("DeployToolToSiteAction: Tool already fully deployed",
+				zap.String("fork_id", forkID.String()))
+			return map[string]interface{}{
+				"site_id":          siteIDStr,
+				"tool_function":    toolFunction,
+				"already_deployed": true,
+				"fork_id":          forkID.String(),
+				"needs_rerender":   false,
+			}, nil
+		}
+
+		// Fork exists but not linked to a page — continue with page creation
+		logger.Info("DeployToolToSiteAction: Fork exists but not fully deployed, continuing",
+			zap.String("fork_id", forkID.String()))
+	} else {
+		// --- 3. Fork the tool (create site-owned copy) ---
+		_, err = params.DB.ExecContext(ctx, `
+			INSERT INTO content_components (
+				id, name, display_name, function, category, component_level, render_mode,
+				is_dark_section, is_active, description,
+				semantic_tags, html_template, input_schema, forked_from
+			)
+			SELECT
+				$1,
+				$2,
+				display_name,
+				function,
+				category,
+				component_level,
+				render_mode,
+				is_dark_section,
+				true,
+				description,
+				semantic_tags,
+				html_template,
+				input_schema,
+				$3
+			FROM content_components
+			WHERE id = $3
+		`, forkID, forkName, toolID)
+		if err != nil {
+			return nil, fmt.Errorf("fork tool: %w", err)
+		}
+
+		logger.Info("DeployToolToSiteAction: Tool forked",
+			zap.String("fork_id", forkID.String()),
+			zap.String("fork_name", forkName),
+			zap.String("forked_from", toolIDStr),
 		)
-		SELECT
-			$1,
-			$2,
-			display_name,
-			function,
-			category,
-			component_level,
-			render_mode,
-			is_dark_section,
-			true,
-			description,
-			semantic_tags,
-			html_template,
-			input_schema,
-			$3
-		FROM content_components
-		WHERE id = $3
-	`, forkID, forkName, toolID)
-	if err != nil {
-		return nil, fmt.Errorf("fork tool: %w", err)
 	}
-
-	logger.Info("DeployToolToSiteAction: Tool forked",
-		zap.String("fork_id", forkID.String()),
-		zap.String("fork_name", forkName),
-		zap.String("forked_from", toolIDStr),
-	)
 
 	// --- 4. Create tool page ---
 	pageName := pageNameOverride
