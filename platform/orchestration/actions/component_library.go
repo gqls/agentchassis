@@ -159,7 +159,9 @@ func queryRow(ctx context.Context, db interface{}, query string, args ...interfa
 // COMPONENT QUERIES
 // ===========================================================================
 
-// GetComponentByFunction retrieves a component by its function name
+// GetComponentByFunction retrieves a library/template component by its function name.
+// Excludes forks (forked_from IS NOT NULL) — forks share their parent's function
+// and should only be accessed by component_id through page_components.
 func GetComponentByFunction(ctx context.Context, db interface{}, function string, logger *zap.Logger) (*Component, error) {
 	query := `
 		SELECT 
@@ -171,7 +173,7 @@ func GetComponentByFunction(ctx context.Context, db interface{}, function string
 			input_schema,
 			COALESCE(is_dark_section, false) as is_dark_section
 		FROM content_components
-		WHERE function = $1 AND is_active = true
+		WHERE function = $1 AND is_active = true AND forked_from IS NULL
 		LIMIT 1
 	`
 	return queryComponent(ctx, db, query, function, logger)

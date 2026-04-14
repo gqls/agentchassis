@@ -9776,4 +9776,58 @@ WHERE item_type IN ('orphan_blog_posts', 'orphan_page', 'nav_drift', 'needs_inte
 GROUP BY 1, 2 ORDER BY 1, 2;
 
 ---
-                                                     -- update webd
+-- add js_content column for interactive components
+
+-- Add the column for future use
+ALTER TABLE content_components ADD COLUMN IF NOT EXISTS js_content TEXT;
+
+-- Now check if the rebuild SQL was run and what's happening
+SELECT item_type, status, COUNT(*),
+  MAX(updated_at)::text as last_activity
+FROM site_work_items
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'vonc.com')
+  AND item_type IN ('needs_content_page', 'needs_new_component')
+  AND status NOT IN ('complete', 'wont_fix')
+GROUP BY item_type, status
+ORDER BY item_type, status;
+
+-- Check the 3 truncated components — still there or deleted?
+SELECT section_type,
+  CASE WHEN html_template LIKE '%</section>%' THEN 'OK' ELSE 'TRUNCATED' END as status,
+  LENGTH(html_template) as len
+FROM content_components
+WHERE created_from = 'generated'
+  AND section_type IN ('archetype-combinations', 'gauntlet-interface', 'provocation-feed');
+
+                                                     --
+
+-- Fix P2: Support the fork-on-deploy tool evolution model
+--
+-- The tool lifecycle:
+--   1. Library tool exists (forked_from IS NULL, unique function)
+--   2. Site forks it (forked_from = library_id, same function)
+--   3. Tool-auditor + tool-improver iterate on the fork (by component_id)
+--   4. New sites choose from library (tool-suggester filters forked_from IS NULL)
+--   5. (Future) Improved forks can graduate back to library
+--
+-- Problem: The unique index on content_components.function is global.
+-- The fork INSERT copies function from the library tool, hitting:
+--   ERROR: duplicate key value violates unique constraint
+--
+-- Root cause: The constraint predates the fork model. Forks share their
+-- parent's function (they ARE the same tool, site-customised). They are
+-- never looked up by function — always by component_id through page_components.
+--
+-- Fix (two parts):
+--
+-- Part 1 (this migration): Scope the unique index to library components only.
+-- Forks (forked_from IS NOT NULL) are excluded from the uniqueness check.
+--
+-- Part 2 (component_library.go): GetComponentByFunction now filters
+-- forked_from IS NULL, so function-based lookups always return the library
+-- template, never a site's fork. This prevents cross-site content leakage
+-- when multiple forks share the same function value.
+--
+-- Affects: Item 6 in pipeline-failures-report.md (add_tool failure on gamedesign.uk)
+--          Also enables all future tool forks across all sites.
+
