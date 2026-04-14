@@ -1833,3 +1833,55 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'site-adoption-agent';
 
+---
+-- json and string parsing
+
+-- Fix classify_archetype: pass result as a text blob, not traversed fields
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_archetype,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        replace(
+                                replace(
+                                        replace(
+                                                default_config->'workflow'->'steps'->'classify_archetype'->'config'->>'prompt_template',
+                                                'Identity: {{.adoption_analysis.result.identity}}
+                        Design: {{.adoption_analysis.result.design}}
+                        Interactive features: {{.adoption_analysis.result.interactive_features}}
+                        Pages: {{.adoption_analysis.result.pages}}',
+                                                '{{.adoption_analysis.result}}'
+                                        ),
+                                        'Identity: {{.adoption_analysis.identity}}
+                    Design: {{.adoption_analysis.design}}
+                    Interactive features: {{.adoption_analysis.interactive_features}}
+                    Pages: {{.adoption_analysis.pages}}',
+                                        '{{.adoption_analysis.result}}'
+                                ),
+                                E'Identity: {{.adoption_analysis.result.identity}}\nDesign: {{.adoption_analysis.result.design}}\nInteractive features: {{.adoption_analysis.result.interactive_features}}\nPages: {{.adoption_analysis.result.pages}}',
+                                '{{.adoption_analysis.result}}'
+                        ),
+                        E'Identity: {{.adoption_analysis.identity}}\nDesign: {{.adoption_analysis.design}}\nInteractive features: {{.adoption_analysis.interactive_features}}\nPages: {{.adoption_analysis.pages}}',
+                        '{{.adoption_analysis.result}}'
+                )
+        )
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- Fix generate_design_intent: replace specific field traversals with the whole result blob
+-- The LLM can read JSON - we don't need Go templates to parse it
+-- Direct replacement of the SITE IDENTITY section in generate_design_intent
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,generate_design_intent,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config->'workflow'->'steps'->'generate_design_intent'->'config'->>'prompt_template',
+                        E'== SITE IDENTITY ==\n{{if .adoption_analysis.result}}{{if .adoption_analysis.result.identity}}Company: {{.adoption_analysis.result.identity.company_name}}\nIndustry: {{.adoption_analysis.result.identity.industry}}\nTone: {{.adoption_analysis.result.identity.tone}}\nAudience: {{.adoption_analysis.result.identity.target_audience}}{{end}}\n{{if .adoption_analysis.result.design}}LLM design description: {{.adoption_analysis.result.design.visual_tone}}{{end}}{{end}}',
+                        E'== SITE IDENTITY (from LLM analysis) ==\n{{if .adoption_analysis}}{{.adoption_analysis.result}}{{end}}'
+                )
+        )
+                     )
+WHERE type = 'site-adoption-agent';
