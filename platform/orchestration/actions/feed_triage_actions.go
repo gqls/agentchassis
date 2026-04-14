@@ -121,6 +121,15 @@ func ApplyFeedScoresAction(ctx context.Context, params ActionParams) (interface{
 		scoresRaw = datahelpers.ExtractNestedField(params.CollectedData, scoresField)
 	}
 
+	// If we got a wrapper map (e.g. {"type": "text", "result": "..."}), unwrap it
+	if wrapperMap, isMap := scoresRaw.(map[string]interface{}); isMap {
+		if innerResult, hasResult := wrapperMap["result"]; hasResult {
+			scoresRaw = innerResult
+			logger.Info("ApplyFeedScoresAction: unwrapped scores from wrapper map",
+				zap.String("type", fmt.Sprintf("%T", innerResult)))
+		}
+	}
+
 	scoresArray, ok := scoresRaw.([]interface{})
 	if !ok {
 		// execute_llm_prompt may return type:"text" with result as a raw JSON string.
