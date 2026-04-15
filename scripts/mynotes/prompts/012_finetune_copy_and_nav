@@ -1,0 +1,105 @@
+3 things: I think we could separate the nav into "what appears in what nav" and "where it appears" . Navigations will appear in all sorts of different guises in the future and displayed in many different ways perhaps different even in one site in different sections for instance. Maybe we need a separate navigation planner agent that is like site planner or sitesections planner (not existing) or page planner or sections planner that takes its guidance from the site spec and spends its intelligence sorting out the nav issues.
+
+
+services": [
+      {
+        "description": "Design and deployment of AI-driven automation pipelines that remove manual work from business processes. Examples include request screening, automated quoting, document analysis, and workflow orchestration.",
+        "name": "AI Automation Systems  "
+      },
+      {
+        "description": "Design and deployment of networks of AI agents capable of solving complex tasks collaboratively. These systems can analyse information, communicate with each other, and perform large-scale problem solving. Talk to us about systems capable of running tens of thousands of AI agents communicating with each other to solve complex tasks.",
+        "name": "Intelligent Agent Systems"
+      },
+      {
+        "description": "Training specialised models using techniques such as LoRA, DoRA, and other parameter-efficient methods to adapt modern AI models to your company's specific needs.",
+        "name": "Custom AI Model Training"
+      },
+      {
+        "description": "Deployment of Retrieval-Augmented Generation systems that allow AI to search and reason over your internal data including:  Emails  Documents  Financial records  Marketing material  Knowledge bases",
+        "name": "RAG Systems for Company Data"
+      },
+      {
+        "description": "Large-scale web data extraction across thousands of websites, including structured business and financial data collection.",
+        "name": "Bulk Data Collection"
+      },
+      {
+        "description": "Automated systems for collecting and analysing financial data from public sources including company registries and regulatory filings.",
+        "name": "Financial and Company Data Pipelines"
+      },
+      {
+        "description": "Secure deployment of AI systems that run privately — including models that can run locally or in-browser to protect company data and reduce usage costs.",
+        "name": "Private AI Deployments"
+      },
+      {
+        "description": "Installation and configuration of agent frameworks and orchestration systems so companies can run their own AI agents in production.",
+        "name": "Agent Pipeline Infrastructure"
+      },
+      {
+        "description": "Creation of complex, high-quality static websites within minutes for:  company identity  marketing pages  landing pages  documentation  presentations",
+        "name": "Rapid Website Generation"
+      },
+      {
+        "description": "Hands-on support helping companies move from curiosity about AI to systems that actually work inside their business.",
+        "name": "AI Strategy & Implementation"
+      },
+      {
+        "description": "Design systems capable of collecting structured information from thousands of websites automatically.",
+        "name": "High-Volume Data Acquisition"
+      }
+    ],
+    "tagline": "From idea to AI system"
+  },
+  "original_domain": "build",
+  "reviewed_brief": {
+    "about_us": "  Finetune is a small technical company focused on practical AI deployment.  We build systems that combine automation, data pipelines, model training, and agent-based architectures.  Our aim is to make AI genuinely useful.   ## AI systems that actually do the work  Most companies experimenting with AI end up with prototypes, demos, or chatbots.  Very few end up with systems that **save time, automate work, or generate measurable value**.  Finetune helps organisations design and deploy practical AI systems — automation pipelines, specialised models, and intelligent agents that solve real operational problems.  Not AI theatre.  ---  Real systems.  # Rapid experimentation  AI technology is moving quickly.  The companies that benefit most are those that can **experiment cheaply and deploy quickly**.  We aim to make it easy to test ideas, build prototypes, and evolve them into real systems when they prove useful.   ---  # What we build  We work with companies to build AI infrastructure that fits into real workflows.  ### Automation systems  AI that screens requests, processes documents, extracts information, and routes work automatically.  ### Intelligent agent pipelines  Systems where multiple AI agents collaborate to solve problems, analyse information, or complete complex tasks.  ### Custom AI models  Fine-tuned models trained on domain-specific data using techniques such as LoRA and other efficient training methods.  ### RAG systems for company knowledge  AI that can search and reason over internal data such as documents, emails, financial information, and knowledge bases.  ### Private AI deployments  Secure systems where models can run locally or within controlled environments to protect sensitive data.  ### Data collection infrastructure  Large-scale web data pipelines capable of gathering structured information from thousands of sources.  ---  # Why most AI projects fail  Many AI initiatives stall for predictable reasons.  **They start with tools instead of problems.**  **They stay in prototype mode.**  **They rely on third-party systems that can’t integrate with existing workflows.**  **Or they assume a single AI model will magically solve everything.**  In practice, useful AI systems usually require:  * data pipelines * automation layers * model adaptation * monitoring and iteration  AI works best as **part of a system**, not as a standalone tool.  ---  # The Finetune approach  We focus on **practical deployment**.  That means starting with a real operational problem and designing a system around it.  A typical project might involve:  1. Collecting and structuring the relevant data 2. Building automation pipelines 3. Training or adapting models 4. Integrating the system into existing workflows 5. Iterating until the system reliably saves time or improves decisions  The goal is not simply to use AI.  The goal is to make something **genuinely useful**.  ---  # What we can help with  Examples of problems we help solve:  * Screening and routing incoming requests * Automating quoting or proposal workflows * Extracting structured information from documents * Building internal knowledge assistants * Collecting market or financial data at scale * Deploying private AI models for sensitive workflows * Setting up agent pipelines that can perform complex multi-step tasks  Some systems are simple and highly targeted.  Others involve networks of cooperating agents and large-scale data pipelines.  ---  # A note on scale  We are particularly interested in **agent systems and large-scale automation**.  This includes experimentation with environments where thousands of AI agents can communicate and collaborate to solve problems.  These systems are still emerging, but they point toward a future where much of the routine work inside organisations can be handled by coordinated software agents.  Our goal is to help companies begin exploring that future in a practical way.  ---    ---  # Who we work with  We tend to work best with organisations that:  * have complex workflows or data * are open to experimentation * want to build internal capability with AI rather than just outsource it  This includes startups, established companies, and technical teams exploring new ways to operate.  ---  # About Finetune  Finetune is a small technical company focused on practical AI deployment.  We build systems that combine automation, data pipelines, model training, and agent-based architectures.  Our focus is simple:  **make AI genuinely useful inside real organisations.**  ---  # Call to action  ## Curious what AI could automate in your business?  We’re always happy to have a technical conversation about possible approaches.  Contact us to discuss your workflows, data, or ideas.",
+    "company_name": "FineTuning",
+    "services": [
+      {
+        "description": "Design and deployment of AI-driven automation pipelines that remove manual work from business processes. Examples include request screening, automated quoting, document analysis, and workflow orchestration.",
+        "name": "AI Automation Systems  "
+      },
+      {
+        "description": "Design and deployment of networks of AI agents capable of solving complex tasks collaboratively. These systems can analyse information, communicate with each other, and perform large-scale problem solving. Talk to us about systems capable of running tens of thousands of AI agents communicating with each other to solve complex tasks.",
+        "name": "Intelligent Agent Systems"
+      },
+      {
+        "description": "Training specialised models using techniques such as LoRA, DoRA, and other parameter-efficient methods to adapt modern AI models to your company's specific needs.",
+        "name": "Custom AI Model Training"
+      },
+      {
+        "description": "Deployment of Retrieval-Augmented Generation systems that allow AI to search and reason over your internal data including:  Emails  Documents  Financial records  Marketing material  Knowledge bases",
+        "name": "RAG Systems for Company Data"
+      },
+      {
+        "description": "Large-scale web data extraction across thousands of websites, including structured business and financial data collection.",
+        "name": "Bulk Data Collection"
+      },
+      {
+        "description": "Automated systems for collecting and analysing financial data from public sources including company registries and regulatory filings.",
+        "name": "Financial and Company Data Pipelines"
+      },
+      {
+        "description": "Secure deployment of AI systems that run privately — including models that can run locally or in-browser to protect company data and reduce usage costs.",
+        "name": "Private AI Deployments"
+      },
+      {
+        "description": "Installation and configuration of agent frameworks and orchestration systems so companies can run their own AI agents in production.",
+        "name": "Agent Pipeline Infrastructure"
+      },
+      {
+        "description": "Creation of complex, high-quality static websites within minutes for:  company identity  marketing pages  landing pages  documentation  presentations",
+        "name": "Rapid Website Generation"
+      },
+      {
+        "description": "Hands-on support helping companies move from curiosity about AI to systems that actually work inside their business.",
+        "name": "AI Strategy & Implementation"
+      },
+      {
+        "description": "Design systems capable of collecting structured information from thousands of websites automatically.",
+        "name": "High-Volume Data Acquisition"
+      }
+    ],
+    "tagline": "From idea to AI system"
+  },
+  "source_item_id": "4663c190-b5f6-4fa6-acfa-39dc4bbd36eb",
+  "spec_aspect": "reviewed_brief"

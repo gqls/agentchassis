@@ -60,7 +60,7 @@ var (
 	fpFontFamilyRe  = regexp.MustCompile(`font-family\s*:\s*([^;}{]+)`)
 	fpGoogleFontsRe = regexp.MustCompile(`fonts\.googleapis\.com/css2?\?family=([^"&]+)`)
 	fpMaxWidthRe    = regexp.MustCompile(`max-width\s*:\s*(\d+(?:\.\d+)?(?:px|rem|em|%))`)
-	fpCSSVarRe      = regexp.MustCompile(`(--[\w-]+)\s*:\s*([^;}{]+)`)
+	fpCSSVarRe      = regexp.MustCompile(`(?:^|[;{}\s])(--[\w-]+)\s*:\s*([^;}{]+)`)
 	fpBgColorRe     = regexp.MustCompile(`background(?:-color)?\s*:\s*([^;}{]+)`)
 	fpTextColorRe   = regexp.MustCompile(`(?:^|[;{}\s])color\s*:\s*([^;}{]+)`)
 	fpDisplayRe     = regexp.MustCompile(`display\s*:\s*(grid|flex|inline-grid|inline-flex)`)
@@ -381,16 +381,6 @@ func fpExtractFonts(css string, fonts map[string]int, sources map[string]string)
 			if sources[f] == "" {
 				sources[f] = "css"
 			}
-		}
-	}
-}
-
-func fpExtractCSSVars(css string, vars map[string]string) {
-	for _, match := range fpCSSVarRe.FindAllStringSubmatch(css, -1) {
-		name := strings.TrimSpace(match[1])
-		value := strings.TrimSpace(match[2])
-		if fpIsDesignVar(name) {
-			vars[name] = value
 		}
 	}
 }
