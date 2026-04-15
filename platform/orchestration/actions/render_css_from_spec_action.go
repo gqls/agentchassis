@@ -63,6 +63,11 @@ type cssTemplateData struct {
 
 	Components    []string
 	SectionStyles []sectionStyleEntry
+
+	// Palette brightness flags — let the template conditionally add
+	// dark section overrides on sections that use surface/background colors
+	SurfaceIsDark    bool
+	BackgroundIsDark bool
 }
 
 type sectionStyleEntry struct {
@@ -124,6 +129,8 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 		ContainerMaxWidth: spec.space("container_max_width", "1200px"),
 		Components:        components,
 		SectionStyles:     sectionStyles,
+		SurfaceIsDark:     isDarkHex(spec.color("surface", "#f7fafc")),
+		BackgroundIsDark:  isDarkHex(spec.color("background", "#ffffff")),
 	}
 
 	logger.Info("RenderCSSFromSpecAction: Template data built",
@@ -419,4 +426,18 @@ func loadComponentCSSSnippets(ctx context.Context, db *sql.DB, components []stri
 	}
 
 	return "\n\n/* === Component-specific styles === */\n" + strings.Join(parts, "\n\n")
+}
+
+func isDarkHex(hex string) bool {
+	hex = strings.TrimSpace(hex)
+	if !strings.HasPrefix(hex, "#") || (len(hex) != 4 && len(hex) != 7) {
+		return false
+	}
+	if len(hex) == 4 {
+		hex = fmt.Sprintf("#%c%c%c%c%c%c", hex[1], hex[1], hex[2], hex[2], hex[3], hex[3])
+	}
+	var r, g, b int
+	fmt.Sscanf(hex[1:], "%02x%02x%02x", &r, &g, &b)
+	luminance := 0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)
+	return luminance < 80
 }

@@ -2006,3 +2006,12 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'site-adoption-agent';
 
+
+-- fix above skip cache which doesn't work, use max age 60000 is 1 minute
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,crawl_site,config,scrape_config}',
+        (default_config->'workflow'->'steps'->'crawl_site'->'config'->'scrape_config') || '{"max_age": 600000}'::jsonb
+                     )
+WHERE type = 'site-adoption-agent';

@@ -110,6 +110,10 @@ var placeholderPatterns = []struct {
 	{"not provided", "missing data marker"},
 	{"not yet available", "placeholder"},
 	{"details pending", "placeholder"},
+	{"human review required", "human review marker"},
+	{"description needed", "placeholder prompt"},
+	{"information needed", "placeholder prompt"},
+	{"text needed", "placeholder prompt"},
 }
 
 var templateVarRegex = regexp.MustCompile(`\{\{[\s]*[\.\w]+[\s]*\}\}`)
