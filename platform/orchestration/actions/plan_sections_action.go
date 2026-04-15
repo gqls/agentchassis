@@ -464,6 +464,13 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		}
 	}
 
+	// ── Pre-check: sections with open data requests ──────────────────
+	// If a previous build cycle deferred a section and created a
+	// needs_section_data item, don't send it to the content writer again.
+	// This prevents wasted LLM calls on sections that will fail validation
+	// until a human provides the data.
+	openDataRequests := loadOpenSectionDataRequests(ctx, params.DB, siteID, pageName, logger)
+
 	// Plan each section
 	var ready []sectionPlanItem
 	var deferred []sectionPlanItem
@@ -478,6 +485,22 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	}
 
 	for _, sectionName := range sectionNames {
+		// Check for open data request — skip LLM if human input is pending
+		if reason, hasOpen := openDataRequests[sectionName]; hasOpen {
+			comp, _ := components[sectionName]
+			deferred = append(deferred, sectionPlanItem{
+				Name:        sectionName,
+				ComponentID: comp.ID,
+				Function:    comp.Function,
+				Status:      "deferred",
+				Reason:      fmt.Sprintf("open needs_section_data item: %s", reason),
+			})
+			logger.Info("plan_sections: section deferred — open data request",
+				zap.String("section", sectionName),
+				zap.String("page", pageName))
+			continue
+		}
+
 		// Path 1: Direct function/name lookup (existing behaviour).
 		// All current sites hit this path — their planners output function names.
 		comp, ok := components[sectionName]
@@ -987,6 +1010,49 @@ func filterSiteLevelSections(sections []string, logger *zap.Logger) []string {
 		filtered = append(filtered, s)
 	}
 	return filtered
+}
+
+// ============================================================================
+// Check for open data requests (prevents repeated LLM waste)
+// ============================================================================
+
+// loadOpenSectionDataRequests returns a map of section_name → reason for all
+// sections on this page that have an open needs_section_data work item.
+// "Open" means status not in a terminal state (complete, wont_fix, rejected, failed).
+func loadOpenSectionDataRequests(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string, logger *zap.Logger) map[string]string {
+	result := make(map[string]string)
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT spec->>'section_name', LEFT(summary, 120)
+		FROM site_work_items
+		WHERE site_id = $1
+		  AND item_type = 'needs_section_data'
+		  AND spec->>'page_name' = $2
+		  AND status NOT IN ('complete', 'wont_fix', 'rejected', 'failed')
+	`, siteID, pageName)
+	if err != nil {
+		logger.Warn("loadOpenSectionDataRequests: query failed", zap.Error(err))
+		return result
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var sectionName, summary string
+		if err := rows.Scan(&sectionName, &summary); err != nil {
+			continue
+		}
+		if sectionName != "" {
+			result[sectionName] = summary
+		}
+	}
+
+	if len(result) > 0 {
+		logger.Info("loadOpenSectionDataRequests: found open data requests",
+			zap.Int("count", len(result)),
+			zap.String("page", pageName))
+	}
+
+	return result
 }
 
 // ============================================================================
