@@ -2707,4 +2707,17 @@ WHERE type = 'feed-triage' AND deleted_at IS NULL;
 SELECT default_config->'workflow'->'steps'->'load_items'->'config' as load_config
 FROM agent_definitions WHERE type = 'feed-triage' AND deleted_at IS NULL;
 
+-- Reduce batch to 15 items (15 × 200 = ~3000 tokens, well within 8192)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_items,config,max_items}',
+        '15'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'feed-triage' AND deleted_at IS NULL;
+
+-- Retrigger
+UPDATE scheduled_tasks SET last_triggered_at = NULL WHERE name = 'content-feed-refresh';
+
 

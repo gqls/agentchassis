@@ -1995,3 +1995,14 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'site-adoption-agent';
 
+---
+-- skip cache
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,crawl_site,config,scrape_config}',
+        (default_config->'workflow'->'steps'->'crawl_site'->'config'->'scrape_config') || '{"skipCache": true}'::jsonb
+                     )
+WHERE type = 'site-adoption-agent';
+

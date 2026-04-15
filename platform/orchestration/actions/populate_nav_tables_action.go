@@ -16,6 +16,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -53,6 +54,7 @@ type pageNavInfo struct {
 	URL      string
 	NavLabel string
 	NavOrder int
+	PageType string
 	InHeader bool
 	InFooter bool
 }
@@ -233,6 +235,7 @@ func loadPagesForNav(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *
 			COALESCE(url, '/' || name || '.html') as url,
 			COALESCE(nav_label, '') as nav_label,
 			COALESCE(nav_order, 0) as nav_order,
+			COALESCE(page_type, 'content') as page_type,
 			COALESCE(in_header, false) as in_header,
 			COALESCE(in_footer, false) as in_footer
 		FROM pages
@@ -250,7 +253,7 @@ func loadPagesForNav(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *
 	var pages []pageNavInfo
 	for rows.Next() {
 		var p pageNavInfo
-		if err := rows.Scan(&p.ID, &p.Name, &p.Title, &p.URL, &p.NavLabel, &p.NavOrder, &p.InHeader, &p.InFooter); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Title, &p.URL, &p.NavLabel, &p.NavOrder, &p.PageType, &p.InHeader, &p.InFooter); err != nil {
 			logger.Warn("loadPagesForNav: scan failed", zap.Error(err))
 			continue
 		}
@@ -260,8 +263,18 @@ func loadPagesForNav(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *
 }
 
 // classifyPagesForNav sorts pages into primary, legal, and utility groups.
-// Utility pages are secondary nav items (FAQ, Blog, Insights, Careers etc.)
-// that appear in header overflow or footer but not in the main nav bar.
+//
+// Primary nav is filled by priority tier — core pages first, then content hubs,
+// then secondary pages. Pages that don't make the cut go to utility (footer).
+// This produces sensible navigation across all sites without per-site tuning.
+//
+// Tier 1 (core): index, services, about, contact — the pages every site needs visible.
+// Tier 2 (content hubs): blog, case-studies, use-cases, pricing, how-we-work, portfolio.
+// Tier 3 (secondary): faq, approach, careers, guides, insights, news, resources.
+// Tier 4 (never primary): individual tool pages, blog posts, guide pages, entity pages.
+//
+// Within each tier, pages are ordered by nav_order (from the planner), then creation date.
+// Pages without in_header=true skip primary entirely and go to utility if in_footer=true.
 func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, legal, utility []pageNavInfo) {
 	legalNames := map[string]bool{
 		"privacy": true, "terms": true, "cookies": true,
@@ -273,17 +286,18 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 		"404": true, "sitemap": true, "robots": true,
 	}
 
-	// Pages that default to utility nav when no explicit in_header/in_footer flag.
-	// If in_header=true is set explicitly, it overrides this heuristic.
-	utilityNames := map[string]bool{
-		"faq": true, "faqs": true, "frequently-asked-questions": true,
-		"blog": true, "insights": true, "news": true, "articles": true,
-		"careers": true, "jobs": true, "team": true,
-		"resources": true, "downloads": true, "guides": true,
-		"testimonials": true, "reviews": true,
-		"partners": true, "affiliates": true,
-		"sitemap-page": true,
+	// Page types that should never appear in primary nav regardless of in_header flag.
+	// These are child pages that belong under a parent listing, not top-level nav.
+	neverPrimaryTypes := map[string]bool{
+		"blog-post": true, "tool": true, "entity-page": true,
 	}
+
+	// Tiered primary nav candidates — collected then sorted by tier
+	type tieredPage struct {
+		page pageNavInfo
+		tier int // 1=core, 2=hub, 3=secondary
+	}
+	var candidates []tieredPage
 
 	for _, page := range pages {
 		nameLower := strings.ToLower(page.Name)
@@ -297,30 +311,72 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 			continue
 		}
 
-		// Explicit in_header=true wins over name-based utility heuristic.
-		// This lets site owners promote utility-named pages to primary nav.
-		if page.InHeader {
-			primary = append(primary, page)
+		// Never-primary page types go straight to utility
+		if neverPrimaryTypes[page.PageType] {
+			if page.InFooter || page.InHeader {
+				utility = append(utility, page)
+			}
 			continue
 		}
 
-		if utilityNames[nameLower] {
-			utility = append(utility, page)
+		// Pages without in_header go to utility (if in_footer) or are skipped
+		if !page.InHeader {
+			if page.InFooter {
+				utility = append(utility, page)
+			}
 			continue
 		}
 
-		if page.InFooter {
-			// Footer-only (not header, not legal, not utility-named) → utility
-			utility = append(utility, page)
-		}
+		// Assign tier based on page name and type
+		tier := navPriorityTier(nameLower, page.PageType)
+		candidates = append(candidates, tieredPage{page: page, tier: tier})
 	}
 
-	logger.Debug("classifyPagesForNav",
-		zap.Int("primary", len(primary)),
+	// Sort candidates: tier ascending, then nav_order ascending
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].tier != candidates[j].tier {
+			return candidates[i].tier < candidates[j].tier
+		}
+		return candidates[i].page.NavOrder < candidates[j].page.NavOrder
+	})
+
+	for _, c := range candidates {
+		primary = append(primary, c.page)
+	}
+
+	logger.Info("classifyPagesForNav: classified",
+		zap.Int("primary_candidates", len(primary)),
 		zap.Int("legal", len(legal)),
 		zap.Int("utility", len(utility)),
 	)
 	return
+}
+
+// navPriorityTier returns 1-3 based on how important a page is for primary nav.
+// Lower tier = higher priority. Used to fill primary nav slots with the most
+// valuable pages when there are more in_header pages than maxHeaderItems allows.
+func navPriorityTier(nameLower, pageType string) int {
+	// Tier 1 — core pages every site needs in primary nav
+	tier1 := map[string]bool{
+		"index": true, "services": true, "about": true, "contact": true,
+	}
+	if tier1[nameLower] {
+		return 1
+	}
+
+	// Tier 2 — content hubs and key conversion pages
+	tier2 := map[string]bool{
+		"blog": true, "case-studies": true, "use-cases": true,
+		"pricing": true, "how-we-work": true, "portfolio": true,
+		"products": true, "solutions": true, "industries": true,
+	}
+	// Also tier 2: blog-index and entity-directory page types (listing pages)
+	if tier2[nameLower] || pageType == "blog-index" || pageType == "entity-directory" {
+		return 2
+	}
+
+	// Tier 3 — secondary pages
+	return 3
 }
 
 func isLegalPage(nameLower string) bool {

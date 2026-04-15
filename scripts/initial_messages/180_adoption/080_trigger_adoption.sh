@@ -128,6 +128,46 @@ echo "  SELECT item_type, status, handler_agent, summary FROM site_work_items WH
   }
 }
 
+-- wipe database
+BEGIN;
+
+-- Cancel active work items
+UPDATE site_work_items SET status = 'wont_fix'
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk')
+  AND status NOT IN ('complete', 'wont_fix', 'failed');
+
+SELECT archive_completed_work_items(0, 10000);
+
+-- Supersede all specs
+UPDATE site_specs SET is_current = false, superseded_at = NOW()
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk')
+  AND is_current = true;
+
+-- Clear research results
+DELETE FROM research_results
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk');
+
+-- Clear non-cascading FK references then pages
+DELETE FROM page_component_history
+WHERE page_id IN (SELECT id FROM pages WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk'));
+
+DELETE FROM redirects
+WHERE source_page_id IN (SELECT id FROM pages WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk'));
+
+DELETE FROM pages
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk');
+
+-- Reset site
+UPDATE sites SET build_status = 'pending', style_collection_id = NULL
+WHERE domain = 'gamedesign.uk';
+
+COMMIT;
+
+-- then verify wiped
+SELECT
+    (SELECT count(*) FROM pages WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk')) as pages,
+    (SELECT count(*) FROM site_specs WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamedesign.uk') AND is_current = true) as specs;
+
 
 clients_db=# -- Check what formatted_crawl contained
 SELECT
