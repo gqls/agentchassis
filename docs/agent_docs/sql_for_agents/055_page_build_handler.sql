@@ -320,3 +320,31 @@ SET default_config = (
     updated_at = NOW()
 WHERE type = 'page-build-handler';
 
+-- Fix: Pass page_id to load_page_record in page-build-handler workflow
+--
+-- Problem: load_page_record only accepted page_name. Work items created
+-- without page_name in their spec (e.g. manually created, or from agents
+-- that only set the page_id column) would fail with:
+--   "missing required fields: [page_name]"
+--
+-- Fix: load_page_record now accepts page_id as a fallback. This workflow
+-- update passes it from the work item's input_data so the action can use
+-- whichever identifier is available.
+--
+-- The work item's page_id column is always mapped to input_data.page_id
+-- by the dispatch infrastructure. The spec may also contain page_id.
+-- Either path works.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_page_record,config,page_id}',
+        '"input_data.page_id"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'page-build-handler'
+  AND is_active = true;
+
+-- Verify
+-- SELECT default_config->'workflow'->'steps'->'load_page_record'->'config'
+-- FROM agent_definitions WHERE type = 'page-build-handler';

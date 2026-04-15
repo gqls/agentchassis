@@ -2692,3 +2692,19 @@ FROM agent_definitions WHERE type = 'feed-triage' AND deleted_at IS NULL;
 -- Trigger a feed refresh to test
 UPDATE scheduled_tasks SET last_triggered_at = NULL WHERE name = 'content-feed-refresh';
 
+-- 1. Increase max_tokens (20 items × ~200 tokens each = ~4000, need headroom)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,score_relevance,config,ai_service,max_tokens}',
+        '8192'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'feed-triage' AND deleted_at IS NULL;
+
+-- 2. Also limit batch size in load_items to prevent massive prompts
+-- Check current config
+SELECT default_config->'workflow'->'steps'->'load_items'->'config' as load_config
+FROM agent_definitions WHERE type = 'feed-triage' AND deleted_at IS NULL;
+
+
