@@ -102,6 +102,10 @@ var placeholderPatterns = []struct {
 	{"title needed", "placeholder prompt"},
 	{"photo needed", "placeholder prompt"},
 	{"name needed", "generic placeholder"},
+	{"content needed", "placeholder prompt"},
+	{"bio needed", "placeholder prompt"},
+	{"details needed", "placeholder prompt"},
+	{"image needed", "placeholder prompt"},
 	{"tbd", "to be determined"}, // without bracket prefix
 	{"not provided", "missing data marker"},
 	{"not yet available", "placeholder"},
