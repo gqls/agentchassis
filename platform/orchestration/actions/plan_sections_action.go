@@ -464,11 +464,10 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		}
 	}
 
-	// ── Pre-check: sections with open data requests ──────────────────
-	// If a previous build cycle deferred a section and created a
-	// needs_section_data item, don't send it to the content writer again.
-	// This prevents wasted LLM calls on sections that will fail validation
-	// until a human provides the data.
+	// ── Load open data requests for reconciliation after planning ────
+	// Used after the planning loop to:
+	//   1. Close stale requests for sections that are now ready (component created, data arrived)
+	//   2. Skip creating duplicate requests for sections that are still deferred
 	openDataRequests := loadOpenSectionDataRequests(ctx, params.DB, siteID, pageName, logger)
 
 	// Plan each section
@@ -485,22 +484,6 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	}
 
 	for _, sectionName := range sectionNames {
-		// Check for open data request — skip LLM if human input is pending
-		if reason, hasOpen := openDataRequests[sectionName]; hasOpen {
-			comp, _ := components[sectionName]
-			deferred = append(deferred, sectionPlanItem{
-				Name:        sectionName,
-				ComponentID: comp.ID,
-				Function:    comp.Function,
-				Status:      "deferred",
-				Reason:      fmt.Sprintf("open needs_section_data item: %s", reason),
-			})
-			logger.Info("plan_sections: section deferred — open data request",
-				zap.String("section", sectionName),
-				zap.String("page", pageName))
-			continue
-		}
-
 		// Path 1: Direct function/name lookup (existing behaviour).
 		// All current sites hit this path — their planners output function names.
 		comp, ok := components[sectionName]
@@ -585,9 +568,29 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		}
 	}
 
-	// Create work items for deferred sections
+	// ── Reconcile open data requests with planning results ───────────
+	// Close stale requests for sections that are now ready (component
+	// created since the request was filed, data now available, etc.)
+	if params.DB != nil && len(openDataRequests) > 0 {
+		for _, section := range ready {
+			if _, wasOpen := openDataRequests[section.Name]; wasOpen {
+				closeResolvedDataRequest(ctx, params.DB, siteID, pageName, section.Name, logger)
+			}
+		}
+	}
+
+	// Create work items for deferred sections (skips those that already have open requests)
 	if params.DB != nil && len(deferred) > 0 {
-		createDeferredItems(ctx, params.DB, siteID, pageName, workItemID, deferred, logger)
+		// Filter out sections that already have open data requests — no duplicate items
+		var newDeferred []sectionPlanItem
+		for _, section := range deferred {
+			if _, alreadyOpen := openDataRequests[section.Name]; !alreadyOpen {
+				newDeferred = append(newDeferred, section)
+			}
+		}
+		if len(newDeferred) > 0 {
+			createDeferredItems(ctx, params.DB, siteID, pageName, workItemID, newDeferred, logger)
+		}
 	}
 
 	// Build section names lists for the content writer
@@ -1053,6 +1056,38 @@ func loadOpenSectionDataRequests(ctx context.Context, db *sql.DB, siteID uuid.UU
 	}
 
 	return result
+}
+
+// closeResolvedDataRequest marks a needs_section_data item as complete when
+// plan_sections determines the section is now ready (component created, data
+// arrived, etc.). This closes the feedback loop — data requests don't block
+// sections forever once the underlying issue is resolved.
+func closeResolvedDataRequest(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName, sectionName string, logger *zap.Logger) {
+	result, err := db.ExecContext(ctx, `
+		UPDATE site_work_items
+		SET status = 'complete',
+		    completed_at = NOW(),
+		    handled_by = 'plan_sections',
+		    result = jsonb_build_object('auto_resolved', true, 'reason', 'section now ready — component or data available'),
+		    updated_at = NOW()
+		WHERE site_id = $1
+		  AND item_type = 'needs_section_data'
+		  AND spec->>'page_name' = $2
+		  AND spec->>'section_name' = $3
+		  AND status NOT IN ('complete', 'wont_fix', 'rejected', 'failed')
+	`, siteID, pageName, sectionName)
+	if err != nil {
+		logger.Warn("closeResolvedDataRequest: update failed",
+			zap.String("section", sectionName),
+			zap.String("page", pageName),
+			zap.Error(err))
+		return
+	}
+	if rows, _ := result.RowsAffected(); rows > 0 {
+		logger.Info("closeResolvedDataRequest: stale data request auto-closed",
+			zap.String("section", sectionName),
+			zap.String("page", pageName))
+	}
 }
 
 // ============================================================================
