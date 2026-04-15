@@ -106,9 +106,9 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		payload["waitFor"] = waitFor
 	}
 
-	// Pass through skipCache to bypass firecrawl's CDN cache
-	if skipCache, ok := config["skipCache"].(bool); ok && skipCache {
-		payload["skipCache"] = true
+	// Cache control: maxAge in milliseconds (0 = force fresh scrape)
+	if maxAge, ok := config["max_age"].(float64); ok {
+		payload["maxAge"] = int(maxAge)
 	}
 
 	f.logger.Info("Firecrawl Scrape request",
@@ -330,9 +330,9 @@ func (f *FirecrawlScrapingProvider) Crawl(ctx context.Context, url string, confi
 	if onlyMain, ok := config["only_main_content"].(bool); ok {
 		scrapeOptions["onlyMainContent"] = onlyMain
 	}
-	// Pass through skipCache to bypass firecrawl's CDN cache
-	if skipCache, ok := config["skipCache"].(bool); ok && skipCache {
-		scrapeOptions["skipCache"] = true
+	// Cache control: maxAge in milliseconds (0 = force fresh scrape)
+	if maxAge, ok := config["max_age"].(float64); ok {
+		scrapeOptions["maxAge"] = int(maxAge)
 	}
 	payload["scrapeOptions"] = scrapeOptions
 
