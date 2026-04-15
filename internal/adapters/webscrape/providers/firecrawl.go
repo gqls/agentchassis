@@ -106,6 +106,11 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		payload["waitFor"] = waitFor
 	}
 
+	// Pass through skipCache to bypass firecrawl's CDN cache
+	if skipCache, ok := config["skipCache"].(bool); ok && skipCache {
+		payload["skipCache"] = true
+	}
+
 	f.logger.Info("Firecrawl Scrape request",
 		zap.String("url", url),
 	)
@@ -324,6 +329,10 @@ func (f *FirecrawlScrapingProvider) Crawl(ctx context.Context, url string, confi
 	}
 	if onlyMain, ok := config["only_main_content"].(bool); ok {
 		scrapeOptions["onlyMainContent"] = onlyMain
+	}
+	// Pass through skipCache to bypass firecrawl's CDN cache
+	if skipCache, ok := config["skipCache"].(bool); ok && skipCache {
+		scrapeOptions["skipCache"] = true
 	}
 	payload["scrapeOptions"] = scrapeOptions
 
