@@ -94,6 +94,37 @@ func LoadPageRecordAction(ctx context.Context, params ActionParams) (interface{}
 	}
 
 	pageName := strings.TrimSpace(inputs.Get("page_name"))
+
+	// Contract-compliant fallback: if page_name didn't resolve from config,
+	// look for it under input_data.spec.page_name (primary contract path)
+	// or other common locations. This protects against workflow configs
+	// that use stale path references.
+	if pageName == "" {
+		fallbackPaths := []string{
+			"input_data.spec.page_name",
+			"input_data.spec.page.name",
+			"current_page.name",
+			"page_record.name",
+		}
+		for _, path := range fallbackPaths {
+			if v := datahelpers.ExtractNestedField(params.CollectedData, path); v != nil {
+				if s, ok := v.(string); ok && s != "" {
+					pageName = strings.TrimSpace(s)
+					logger.Info("LoadPageRecordAction: page_name recovered via fallback path",
+						zap.String("path", path),
+						zap.String("page_name", pageName))
+					break
+				}
+			}
+		}
+	}
+
+	if pageName == "" {
+		logger.Warn("LoadPageRecordAction: page_name not found in any expected location",
+			zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)))
+		// Let the existing nonPageNames check handle empty string below
+	}
+	
 	pageIDInput := strings.TrimSpace(inputs.Get("page_id"))
 
 	// Check for non-page names (audit findings that describe gaps, not existing pages)

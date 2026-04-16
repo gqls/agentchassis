@@ -348,3 +348,74 @@ WHERE type = 'page-build-handler'
 -- Verify
 -- SELECT default_config->'workflow'->'steps'->'load_page_record'->'config'
 -- FROM agent_definitions WHERE type = 'page-build-handler';
+
+--
+
+-- ============================================================
+-- Align page-build-handler with the spec-is-primary contract
+-- ============================================================
+-- The handler contract (003_contracts_and_standards.md) says:
+--   "spec field is primary input"
+--
+-- The dispatch loop sends work items with spec nested as input_data.spec.
+--
+-- page-build-handler's load_page_record config used input_data.page_name
+-- (top-level), which was an outlier — all other steps in the same workflow
+-- already use input_data.spec.page_name:
+--   - save_sections:          input_data.spec.page_name
+--   - update_status:          input_data.spec.page_name
+--   - load_existing_content:  (takes page_id + page_name from page_record)
+--
+-- This update makes load_page_record consistent with the rest.
+--
+-- The Go action (fix_load_page_record_fallback.go) adds a defensive fallback
+-- so this kind of config drift can't silently break pipelines again.
+
+BEGIN;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_page_record,config}',
+        jsonb_build_object(
+                'site_id',   'site_record.site_id',
+                'page_name', 'input_data.spec.page_name',
+                'page_id',   'input_data.spec.page_id'
+        )
+                     ),
+    updated_at = now()
+WHERE type = 'page-build-handler';
+
+-- Verify
+SELECT
+    default_config->'workflow'->'steps'->'load_page_record'->'config' as load_page_record_config
+FROM agent_definitions
+WHERE type = 'page-build-handler';
+
+COMMIT;
+
+-- ============================================================
+-- After applying: trigger vonc pages to rebuild
+-- ============================================================
+INSERT INTO site_work_items (
+    site_id, source, pipeline, item_type, severity, summary,
+    spec, priority, handler_agent, status, created_by, item_key
+)
+VALUES
+    ((SELECT id FROM sites WHERE domain = 'vonc.com'),
+    'contract_fix_rebuild', 'build', 'needs_content_page', 'medium',
+    'Rebuild after contract fix: gauntlet',
+    '{"page_name": "gauntlet"}'::jsonb,
+   13, 'page-build-handler', 'triaged', 'manual',
+   'contract_fix_gauntlet_' || extract(epoch from now())::int),
+  ((SELECT id FROM sites WHERE domain = 'vonc.com'),
+   'contract_fix_rebuild', 'build', 'needs_content_page', 'medium',
+   'Rebuild after contract fix: archetypes',
+   '{"page_name": "archetypes"}'::jsonb,
+   15, 'page-build-handler', 'triaged', 'manual',
+   'contract_fix_archetypes_' || extract(epoch from now())::int);
+
+SELECT item_key, status FROM site_work_items
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'vonc.com')
+  AND item_key LIKE 'contract_fix_%';
+
