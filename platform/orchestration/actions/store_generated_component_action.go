@@ -233,6 +233,14 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		return nil, fmt.Errorf("failed to insert component: %w", err)
 	}
 
+	// Score the newly-stored component
+	schemaJSONStr := string(inputSchemaJSON)
+	qualityResult := ScoreAndPersistComponent(
+		ctx, params.DB,
+		newID, functionName, htmlTemplate, schemaJSONStr, "section",
+		logger,
+	)
+
 	logger.Info("store_generated_component: component created",
 		zap.String("component_id", newID),
 		zap.String("function", functionName),
@@ -245,15 +253,17 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	markPagesForRebuild(ctx, params.DB, sectionType, logger)
 
 	return map[string]interface{}{
-		"component_id":  newID,
-		"function":      functionName,
-		"section_type":  sectionType,
-		"display_name":  displayName,
-		"category":      category,
-		"status":        "created",
-		"template_size": len(htmlTemplate),
-		"has_js":        jsContent != "",
-		"js_size":       len(jsContent),
+		"component_id":   newID,
+		"function":       functionName,
+		"section_type":   sectionType,
+		"display_name":   displayName,
+		"category":       category,
+		"status":         "created",
+		"template_size":  len(htmlTemplate),
+		"has_js":         jsContent != "",
+		"js_size":        len(jsContent),
+		"quality_score":  qualityResult.QualityScore,
+		"quality_issues": qualityResult.QualityIssues,
 	}, nil
 }
 

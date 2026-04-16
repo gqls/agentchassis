@@ -677,6 +677,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Link site_components to content_components from style collection",
 		IsLocal:     true,
 	},
+	"compute_component_quality": {
+		Handler:     ComputeComponentQualityAction,
+		Category:    "site",
+		Description: "Score and store component quality metrics",
+		IsLocal:     true,
+	},
 	"fix_component_template": {
 		Handler:     FixComponentTemplateAction,
 		Category:    "site",

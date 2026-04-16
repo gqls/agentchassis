@@ -9844,3 +9844,64 @@ ALTER TABLE content_components
 What each field captures:
 FieldHow computedWhy it matterstemplate_variable_countCount of {{.foo}} patternsLow count for section components = content baked inschema_field_countjsonb_array_length(input_schema->'fields')Describes what content writer should producetemplate_closedhtml_template LIKE '%</section>%'Truncation detectionschema_template_syncedEvery {{.x}} has schema entry AND vice versaThe bug we saw todayhas_data_componenthtml_template LIKE '%data-component=%'Contract requirementquality_scoreWeighted compositePlanner preference, regen targeting
 
+-- ============================================================
+-- Component Quality Tracking
+-- ============================================================
+-- Adds measurable quality fields to content_components so:
+--   1. plan_sections selector can prefer higher-quality components
+--   2. A component-quality-auditor agent can target low-quality
+--      components for regeneration
+--   3. The improvement loop has a visible backlog of stale/
+--      malformed components rather than silent drift
+--
+-- Fields computed by compute_component_quality action on:
+--   - store_generated_component (insert)
+--   - component-quality-auditor (periodic scan)
+--
+-- None of these fields are required by the existing pipeline —
+-- they are additive. The selector will use them when present and
+-- ignore them when NULL (treating as "not yet scored").
+
+BEGIN;
+
+ALTER TABLE content_components
+  ADD COLUMN IF NOT EXISTS template_variable_count INT,
+  ADD COLUMN IF NOT EXISTS schema_field_count       INT,
+  ADD COLUMN IF NOT EXISTS template_closed          BOOLEAN,
+  ADD COLUMN IF NOT EXISTS schema_template_synced   BOOLEAN,
+  ADD COLUMN IF NOT EXISTS has_data_component       BOOLEAN,
+  ADD COLUMN IF NOT EXISTS quality_score            SMALLINT,
+  ADD COLUMN IF NOT EXISTS quality_checked_at       TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS quality_issues           JSONB DEFAULT '[]'::jsonb;
+
+-- Quality score is 0-100; allow NULL for "not yet computed"
+ALTER TABLE content_components
+  DROP CONSTRAINT IF EXISTS chk_quality_score_range;
+ALTER TABLE content_components
+  ADD CONSTRAINT chk_quality_score_range
+  CHECK (quality_score IS NULL OR (quality_score >= 0 AND quality_score <= 100));
+
+-- Index for auditor queries (find components below threshold OR not yet scored)
+CREATE INDEX IF NOT EXISTS idx_content_components_quality
+  ON content_components (quality_score, quality_checked_at)
+  WHERE is_active = true;
+
+-- Index for planner lookup (prefer higher quality for a given function)
+CREATE INDEX IF NOT EXISTS idx_content_components_function_quality
+  ON content_components (function, quality_score DESC NULLS LAST)
+  WHERE is_active = true;
+
+COMMIT;
+
+-- ============================================================
+-- Verify the migration
+-- ============================================================
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'content_components'
+  AND column_name IN (
+    'template_variable_count', 'schema_field_count',
+    'template_closed', 'schema_template_synced', 'has_data_component',
+    'quality_score', 'quality_checked_at', 'quality_issues'
+  )
+ORDER BY column_name;
