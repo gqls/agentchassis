@@ -393,7 +393,7 @@ func navPriorityTier(nameLower, pageType string) int {
 
 	// Tier 2 — content hubs and key conversion pages
 	tier2 := map[string]bool{
-		"blog": true, "case-studies": true, "use-cases": true,
+		"blog": true, "news": true, "case-studies": true, "use-cases": true,
 		"pricing": true, "how-we-work": true, "portfolio": true,
 		"products": true, "solutions": true, "industries": true,
 	}

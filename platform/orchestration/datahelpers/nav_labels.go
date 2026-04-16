@@ -18,6 +18,7 @@ var SimpleNavLabels = map[string]string{
 	"contact-us":       "Contact",
 	"insights":         "Insights",
 	"blog":             "Blog",
+	"news":             "News",
 	"careers":          "Careers",
 	"team":             "Team",
 	"leadership":       "Team",
