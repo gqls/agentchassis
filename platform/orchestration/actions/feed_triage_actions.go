@@ -122,13 +122,13 @@ func ApplyFeedScoresAction(ctx context.Context, params ActionParams) (interface{
 	}
 
 	// If we got a wrapper map (e.g. {"type": "text", "result": "..."}), unwrap it
-	if wrapperMap, isMap := scoresRaw.(map[string]interface{}); isMap {
+	/*if wrapperMap, isMap := scoresRaw.(map[string]interface{}); isMap {
 		if innerResult, hasResult := wrapperMap["result"]; hasResult {
 			scoresRaw = innerResult
 			logger.Info("ApplyFeedScoresAction: unwrapped scores from wrapper map",
 				zap.String("type", fmt.Sprintf("%T", innerResult)))
 		}
-	}
+	}*/
 
 	scoresArray, ok := scoresRaw.([]interface{})
 	if !ok {
@@ -340,7 +340,11 @@ func LoadFeedItemsForTriageAction(ctx context.Context, params ActionParams) (int
 		return nil, fmt.Errorf("invalid site_id: %w", err)
 	}
 
-	maxItems := inputs.GetInt("max_items", 50)
+	// Read max_items directly from StepConfig.Config (the ExtractActionInputs
+	// path doesn't read literal number values from config — it only resolves
+	// dot-path strings, then falls back to searching collected_data). This
+	// matches the pattern used by LoadWorkItemsAction.
+	maxItems := datahelpers.GetIntField(params.StepConfig.Config, "max_items", 50)
 
 	// Query items with source info joined
 	rows, err := params.DB.QueryContext(ctx, `
