@@ -102,9 +102,15 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 
 	// Build pre-rendered nav HTML for templates that use {{.nav_items_html}}
 	// Uses existing buildNavItemsHTML from component_library.go
-	// Note: both header and footer templates use {{.nav_items_html}} — header gets primary nav,
-	// footer "Quick Links" also uses primary nav items (same variable, rendered once per site)
+	// Header templates use nav_items_html (primary only).
 	navItemsHTML := buildNavItemsHTML(navItems)
+
+	// Build quick links HTML for footer — includes primary + utility items.
+	// Utility items are pages that overflowed from primary or were classified
+	// as secondary (FAQ, Approach, Insights etc). They belong in footer nav
+	// but not the header. Legal items (privacy, terms) get their own footer section.
+	quickLinksItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary, NavGroupUtility}, false, 0, params.Logger)
+	quickLinksHTML := buildNavItemsHTML(quickLinksItems)
 
 	// Build services HTML for footer "Our Services" column
 	// Query pages that represent services (linked from services page or service-named pages)
@@ -154,15 +160,16 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	socialLinks := []map[string]interface{}{}
 
 	renderCtx := &RenderContext{
-		Domain:      siteData.Domain,
-		CompanyName: siteData.CompanyName,
-		Tagline:     siteData.Tagline,
-		Email:       siteData.Email,
-		Phone:       siteData.Phone,
-		LogoText:    siteData.LogoText,
-		LogoURL:     siteData.LogoURL,
-		NavItems:    navItems,
-		Year:        year,
+		Domain:         siteData.Domain,
+		CompanyName:    siteData.CompanyName,
+		Tagline:        siteData.Tagline,
+		Email:          siteData.Email,
+		Phone:          siteData.Phone,
+		LogoText:       siteData.LogoText,
+		LogoURL:        siteData.LogoURL,
+		NavItems:       navItems,
+		FooterNavItems: quickLinksItems,
+		Year:           year,
 
 		// Colors from style collection (RenderContext struct fields feed contextToInterfaceMap defaults)
 		PrimaryColor:    siteData.PrimaryColor,
@@ -189,8 +196,9 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 			"copyright":     copyright,
 
 			// Pre-rendered nav HTML for templates using {{.nav_items_html}}
-			"nav_items_html": navItemsHTML,
-			"services_html":  servicesHTML,
+			"nav_items_html":   navItemsHTML,
+			"quick_links_html": quickLinksHTML, // primary + utility items for footer
+			"services_html":    servicesHTML,
 
 			// Navigation - multiple formats for different templates
 			"categories":       categories,   // for {{range .categories}}

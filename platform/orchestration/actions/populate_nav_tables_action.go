@@ -292,6 +292,24 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 		"blog-post": true, "tool": true, "entity-page": true,
 	}
 
+	// isChildPageURL returns true for pages that live under a category path,
+	// like /tools/something.html or /blog/something.html. These are child pages
+	// regardless of their page_type and should never appear in primary nav —
+	// the parent /tools.html or /blog.html represents them in navigation.
+	isChildPageURL := func(url string) bool {
+		lower := strings.ToLower(url)
+		childPrefixes := []string{
+			"/tools/", "/blog/", "/guides/", "/articles/",
+			"/case-studies/", "/news/", "/resources/", "/insights/",
+		}
+		for _, prefix := range childPrefixes {
+			if strings.HasPrefix(lower, prefix) {
+				return true
+			}
+		}
+		return false
+	}
+
 	// Tiered primary nav candidates — collected then sorted by tier
 	type tieredPage struct {
 		page pageNavInfo
@@ -316,6 +334,15 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 			if page.InFooter || page.InHeader {
 				utility = append(utility, page)
 			}
+			continue
+		}
+
+		// Child pages (under /tools/, /blog/, /guides/ etc) are skipped entirely.
+		// They shouldn't appear in any nav — the parent listing page represents them.
+		if isChildPageURL(page.URL) {
+			logger.Debug("classifyPagesForNav: skipping child page",
+				zap.String("name", page.Name),
+				zap.String("url", page.URL))
 			continue
 		}
 

@@ -532,6 +532,13 @@ func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) 
 		navItemsHTML := buildNavItemsHTML(ctx.NavItems)
 		result = strings.ReplaceAll(result, "{{nav_items_html}}", navItemsHTML)
 		result = strings.ReplaceAll(result, "{{.nav_items_html}}", navItemsHTML)
+
+		// Quick links for footer — primary + utility items (set by render_site_components)
+		if len(ctx.FooterNavItems) > 0 {
+			quickLinksHTML := buildNavItemsHTML(ctx.FooterNavItems)
+			result = strings.ReplaceAll(result, "{{quick_links_html}}", quickLinksHTML)
+			result = strings.ReplaceAll(result, "{{.quick_links_html}}", quickLinksHTML)
+		}
 	}
 
 	// =====================================================================
@@ -842,6 +849,13 @@ func RenderTemplateWithValidation(
 	navItemsHTML := buildNavItemsHTML(ctx.NavItems)
 	result = strings.ReplaceAll(result, "{{nav_items_html}}", navItemsHTML)
 	result = strings.ReplaceAll(result, "{{.nav_items_html}}", navItemsHTML)
+
+	// Quick links for footer — primary + utility items
+	if len(ctx.FooterNavItems) > 0 {
+		quickLinksHTML := buildNavItemsHTML(ctx.FooterNavItems)
+		result = strings.ReplaceAll(result, "{{quick_links_html}}", quickLinksHTML)
+		result = strings.ReplaceAll(result, "{{.quick_links_html}}", quickLinksHTML)
+	}
 
 	// Check for unsubstituted placeholders
 	unsubstituted := findUnsubstitutedPlaceholders(result)

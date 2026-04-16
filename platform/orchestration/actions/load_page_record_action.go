@@ -124,7 +124,7 @@ func LoadPageRecordAction(ctx context.Context, params ActionParams) (interface{}
 			zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)))
 		// Let the existing nonPageNames check handle empty string below
 	}
-	
+
 	pageIDInput := strings.TrimSpace(inputs.Get("page_id"))
 
 	// Check for non-page names (audit findings that describe gaps, not existing pages)
