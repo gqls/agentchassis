@@ -49,6 +49,10 @@ var spacingTemplateField = map[string]string{
 	"container_max_width": "{{.ContainerMaxWidth}}",
 }
 
+type cssRepl struct {
+	from, to string
+}
+
 // TemplateCSSFromSpec replaces hardcoded palette/typography/spacing values
 // inside the :root block of renderedCSS with their Go template placeholders.
 // Everything outside :root is left unchanged.
@@ -72,10 +76,7 @@ func TemplateCSSFromSpec(renderedCSS string, spec map[string]interface{}) string
 	// before applying — this prevents a shorter hex from being replaced inside
 	// a longer one (#1a1a2e inside #1a1a2eff), even though the :root block is
 	// unlikely to contain #rrggbbaa forms in practice.
-	type repl struct {
-		from, to string
-	}
-	var replacements []repl
+	var replacements []cssRepl
 
 	collect := func(section string, fieldMap map[string]string) {
 		raw, ok := spec[section].(map[string]interface{})
@@ -87,7 +88,7 @@ func TemplateCSSFromSpec(renderedCSS string, spec map[string]interface{}) string
 			if !ok || val == "" {
 				continue
 			}
-			replacements = append(replacements, repl{from: val, to: placeholder})
+			replacements = append(replacements, cssRepl{from: val, to: placeholder})
 		}
 	}
 
@@ -112,7 +113,7 @@ func TemplateCSSFromSpec(renderedCSS string, spec map[string]interface{}) string
 // sortReplacementsByLengthDesc sorts in place, longer `from` values first.
 // A manual implementation avoids pulling in the sort package for a function
 // with <20 entries in practice.
-func sortReplacementsByLengthDesc(rs []struct{ from, to string }) {
+func sortReplacementsByLengthDesc(rs []cssRepl) {
 	for i := 1; i < len(rs); i++ {
 		for j := i; j > 0 && len(rs[j-1].from) < len(rs[j].from); j-- {
 			rs[j-1], rs[j] = rs[j], rs[j-1]

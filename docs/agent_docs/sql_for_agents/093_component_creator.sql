@@ -484,3 +484,191 @@ SELECT type,
     default_config->'workflow'->'steps'->'generate_template'->'config'->'ai_service'->>'max_tokens' as max_tokens
 FROM agent_definitions
 WHERE type = 'component-creator';
+
+
+---
+
+-- ============================================================
+-- Revised component-creator prompt with field classification
+-- ============================================================
+-- Replaces section 3 (TEMPLATE VARIABLES) and the response schema
+-- to teach the LLM how to classify fields into three tiers:
+--   - Voice-defining content (source: "llm", required: true)
+--   - Tunable labels (source: "static", required: false, with fallback)
+--   - Site data (source: "site_specs.*" or similar)
+--
+-- Also adds a critical invariant: the html_template variables and
+-- the input_schema fields MUST be in sync. If the template has
+-- {{.foo}}, the schema MUST have "foo". If the schema has "bar",
+-- the template MUST use {{.bar}}.
+
+-- View current prompt first to see what we're working with
+SELECT LENGTH(default_config->>'prompt_template') as prompt_len,
+    LEFT(default_config->>'prompt_template', 500) as prompt_start
+FROM agent_definitions
+WHERE type = 'component-creator';
+
+
+-- ============================================================
+-- The new prompt (apply via UPDATE once reviewed)
+-- ============================================================
+
+-- Use jsonb_set to update prompt_template under default_config
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{prompt_template}',
+        to_jsonb('
+You are generating a reusable HTML component template for a website builder system.
+The template will be stored in a component library and reused across multiple sites.
+
+SECTION TYPE: {{.input_data.spec.section_type}}
+DESCRIPTION: {{.input_data.spec.description}}
+SITE TYPE: {{.input_data.spec.site_type}}
+PAGE CONTEXT: {{.input_data.spec.page_context}}
+{{if .input_data.spec.design_direction}}DESIGN DIRECTION: {{.input_data.spec.design_direction}}{{end}}
+{{if .input_data.spec.mission_brief}}MISSION BRIEF: {{.input_data.spec.mission_brief}}{{end}}
+{{if .input_data.spec.design_intent}}DESIGN INTENT: {{.input_data.spec.design_intent}}{{end}}
+{{if .input_data.spec.content_direction}}CONTENT DIRECTION: {{.input_data.spec.content_direction}}{{end}}
+{{if .input_data.spec.classification}}CLASSIFICATION: {{.input_data.spec.classification}}{{end}}
+{{if .input_data.spec.reference_content}}REFERENCE CONTENT: {{.input_data.spec.reference_content}}{{end}}
+
+== COMPONENT CONTRACT — YOU MUST FOLLOW ALL OF THESE ==
+
+1. STRUCTURE:
+   <style> scoped CSS </style>
+   <section class="{function}-section" data-component="{function}">
+     HTML using {{.variable}} template placeholders
+   </section>
+   If interactive: <script> self-contained JS in IIFE </script>
+   (The pipeline will automatically extract inline <script> blocks into a
+   separate JS asset — include the <script> tag naturally, do not attempt
+   to reference external files yourself.)
+
+2. NAMING:
+   - Choose a function name in kebab-case (lowercase, digits, hyphens only)
+   - Root element: data-component="{function}" matching exactly
+   - Root class: {function}-section
+
+3. TEMPLATE VARIABLES — FIELD CLASSIFICATION:
+
+   Classify every piece of non-structural text into ONE of these three tiers.
+   Use {{.field_name}} placeholders for tier A and tier B; fully hardcode nothing.
+
+   TIER A — VOICE CONTENT (source: "llm", required: true)
+     Fields that define the site''s voice, positioning, or message.
+     The content writer MUST produce these or the section has no reason to exist.
+     Examples: hero headline, section intro paragraph, CTA heading, testimonial quote.
+     Typically 3-10 fields per component.
+
+   TIER B — TUNABLE LABELS (source: "static", required: false, with fallback)
+     UI labels that MIGHT vary per site tone but have a safe default.
+     The template renders with the fallback if the LLM skips them.
+     Examples: button labels ("Submit", "Learn more"), stat labels ("Users", "Active"),
+       placeholder text, timer labels, badge text, tab labels.
+     Provide a sensible English fallback in the schema.
+     Typically 5-20 fields per component.
+
+   TIER C — SITE DATA (source: "site_specs.{path}" or "site_assets.{type}")
+     Fields that come from the site''s stored data, not from the LLM.
+     Examples: company_name, contact_email, hero_image_url.
+     Mark required: true only if the section genuinely cannot render without them.
+
+   Also: RENDERER fields (source: "renderer", required: false)
+     Values filled at render time by JS or the renderer, not by the content writer.
+     Provide a safe initial fallback (e.g. "00:00" for a timer).
+
+   RULE: every {{.variable}} in the html_template MUST appear in input_schema.fields.
+         Every key in input_schema.fields MUST appear as {{.variable}} in the template.
+         Template and schema are two views of the same contract.
+
+4. CSS RULES:
+   - ALL colours via CSS variables with fallbacks
+   - Light sections: color: var(--color-text); headings: var(--color-heading)
+   - Dark sections: color: var(--section-text, rgba(255,255,255,0.9))
+   - NEVER hardcode hex colours on text elements
+   - Scope ALL CSS to .{function}-section — no global element rules
+   - Include @media (max-width: 768px) responsive rules
+   - Mobile-first: touch targets >= 44px
+
+5. DARK SECTIONS (if the section has a dark background):
+   Set on the root container:
+     --section-text: rgba(255,255,255,0.9);
+     --section-text-muted: rgba(255,255,255,0.7);
+     --section-heading: #ffffff;
+     --section-surface: rgba(255,255,255,0.05);
+     --section-border: rgba(255,255,255,0.2);
+
+6. CSS VARIABLES AVAILABLE:
+   --color-primary, --color-primary-hover, --color-primary-text
+   --color-secondary, --color-accent
+   --color-text, --color-text-muted, --color-heading
+   --color-background, --color-surface, --color-card-bg, --color-border
+   --color-header-bg, --color-header-text
+   --color-footer-bg, --color-footer-text, --color-white
+   --container-max-width (1200px), --spacing-section (5rem 2rem)
+   --border-radius, --shadow
+
+7. INTERACTIVE ELEMENTS (if section has JS):
+   - Client-side only, no external API calls
+   - Wrap in IIFE: (function() { ... })();
+   - No global variable pollution
+   - Progressive enhancement — works without JS where possible
+   - No external CDN imports
+
+8. QUALITY:
+   - No placeholder text (Lorem ipsum, TODO, [INSERT])
+   - No unrendered template variables in output
+   - Semantic HTML (section, article, nav — not div soup)
+   - Accessible: labels on inputs, ARIA where needed, focus states
+   - No fabricated content
+
+== END CONTRACT ==
+
+Respond with ONLY a JSON object (no markdown fences, no preamble) containing:
+{
+  "function": "the-kebab-case-function-name",
+  "html_template": "the full <style>...<section>...</section> template with {{.variables}}",
+  "input_schema": {
+    "fields": {
+      "voice_field_example": {
+        "type": "text",
+        "source": "llm",
+        "required": true,
+        "llm_guidance": "Detailed guidance for the content writer"
+      },
+      "tunable_label_example": {
+        "type": "text",
+        "source": "static",
+        "required": false,
+        "fallback": "Learn more",
+        "llm_guidance": "Optional: override default if site tone differs"
+      },
+      "site_data_example": {
+        "type": "text",
+        "source": "site_specs.identity.company_name",
+        "required": true
+      },
+      "renderer_field_example": {
+        "type": "text",
+        "source": "renderer",
+        "required": false,
+        "fallback": "00:00",
+        "llm_guidance": "Initial display before JS takes over"
+      }
+    }
+  },
+  "is_dark_section": true
+}
+'::text),
+        false  -- preserve existing structure; only replace the prompt_template key
+                     ),
+    updated_at = now()
+WHERE type = 'component-creator';
+
+-- Verify
+SELECT LENGTH(default_config->>'prompt_template') as new_prompt_len,
+       default_config->'prompt_template' IS NOT NULL as has_prompt
+FROM agent_definitions
+WHERE type = 'component-creator';
+

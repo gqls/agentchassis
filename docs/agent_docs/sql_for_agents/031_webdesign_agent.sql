@@ -2620,4 +2620,63 @@ FROM agent_definitions
 WHERE type = 'webdesign-agent';
 
 
+--
+      -- Back up the webdesign-agent row into a dated snapshot table
+CREATE TABLE IF NOT EXISTS agent_def_webdesign_backup_20260416 AS
+SELECT * FROM agent_definitions
+WHERE type = 'webdesign-agent' AND deleted_at IS NULL;
+
+-- Apply the workflow changes: add check_should_fork and fork_theme steps,
+-- re-point update_site.next_step, and re-point check_update_db.else_step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        jsonb_set(
+            jsonb_set(
+                default_config,
+                '{workflow,steps,check_should_fork}',
+                '{
+                    "action": "conditional",
+                    "config": {
+                        "condition": "input_data.should_fork_theme == true",
+                        "then_step": "fork_theme",
+                        "else_step": "complete"
+                    },
+                    "description": "Check if this design run should be forked into the theme library"
+                }'::jsonb
+            ),
+            '{workflow,steps,fork_theme}',
+            '{
+                "action": "fork_theme_from_site",
+                "config": {
+                    "site_id_field": "site_context.site_id",
+                    "domain_field": "site_context.domain",
+                    "design_spec_field": "design_spec.result",
+                    "rendered_css_field": "generated_css.result",
+                    "current_collection_id_field": "site_context.style_collection_id"
+                },
+                "next_step": "complete",
+                "error_step": "complete",
+                "description": "Fork adopted site theme into reusable library",
+                "output_field": "fork_result"
+            }'::jsonb
+        ),
+        '{workflow,steps,update_site,next_step}',
+        '"check_should_fork"'::jsonb
+    ),
+    '{workflow,steps,check_update_db,config,else_step}',
+    '"check_should_fork"'::jsonb
+),
+updated_at = NOW()
+WHERE type = 'webdesign-agent' AND deleted_at IS NULL;
+
+-- Verify the four changes landed
+SELECT
+    default_config -> 'workflow' -> 'steps' -> 'update_site' -> 'next_step' AS update_site_next,
+    default_config -> 'workflow' -> 'steps' -> 'check_should_fork' IS NOT NULL AS has_check_should_fork,
+    default_config -> 'workflow' -> 'steps' -> 'fork_theme' IS NOT NULL AS has_fork_theme,
+    default_config -> 'workflow' -> 'steps' -> 'check_update_db' -> 'config' -> 'else_step' AS check_update_db_else
+FROM agent_definitions
+WHERE type = 'webdesign-agent' AND deleted_at IS NULL;
+
 
