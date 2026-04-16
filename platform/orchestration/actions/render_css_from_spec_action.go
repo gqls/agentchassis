@@ -64,8 +64,11 @@ type cssTemplateData struct {
 	Components    []string
 	SectionStyles []sectionStyleEntry
 
-	// Palette brightness flags — let the template conditionally add
-	// dark section overrides on sections that use surface/background colors
+	// Palette brightness flags — let the template conditionally apply
+	// dark section overrides when the body background or surface colour
+	// is itself dark. Without these, sections without their own dark-section
+	// variables inherit heading/text colours that fall back to --color-primary,
+	// producing dark text on dark backgrounds.
 	SurfaceIsDark    bool
 	BackgroundIsDark bool
 }
