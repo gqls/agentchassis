@@ -9831,3 +9831,16 @@ WHERE created_from = 'generated'
 -- Affects: Item 6 in pipeline-failures-report.md (add_tool failure on gamedesign.uk)
 --          Also enables all future tool forks across all sites.
 
+ALTER TABLE content_components
+  ADD COLUMN IF NOT EXISTS template_variable_count INT,
+  ADD COLUMN IF NOT EXISTS schema_field_count INT,
+  ADD COLUMN IF NOT EXISTS template_closed BOOLEAN,
+  ADD COLUMN IF NOT EXISTS schema_template_synced BOOLEAN,
+  ADD COLUMN IF NOT EXISTS has_data_component BOOLEAN,
+  ADD COLUMN IF NOT EXISTS quality_checked_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS quality_score SMALLINT; -- 0-100
+
+
+What each field captures:
+FieldHow computedWhy it matterstemplate_variable_countCount of {{.foo}} patternsLow count for section components = content baked inschema_field_countjsonb_array_length(input_schema->'fields')Describes what content writer should producetemplate_closedhtml_template LIKE '%</section>%'Truncation detectionschema_template_syncedEvery {{.x}} has schema entry AND vice versaThe bug we saw todayhas_data_componenthtml_template LIKE '%data-component=%'Contract requirementquality_scoreWeighted compositePlanner preference, regen targeting
+
