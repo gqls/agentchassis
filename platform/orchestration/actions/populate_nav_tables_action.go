@@ -444,7 +444,14 @@ func insertNavItem(ctx context.Context, tx *sql.Tx, siteID, groupID uuid.UUID, p
 }
 
 func navLabelForPage(page pageNavInfo) string {
+	// Prefer explicit nav_label from the page — the planner set this
+	// intentionally short for nav display.
 	if page.NavLabel != "" {
+		// Trust nav_label if it's a reasonable nav length.
+		// Only simplify if the planner set something unreasonably long.
+		if len(page.NavLabel) <= 30 {
+			return page.NavLabel
+		}
 		return navSimplifyLabel(page.NavLabel, page.URL)
 	}
 	return navSimplifyLabel(page.Title, page.URL)

@@ -1214,66 +1214,35 @@ func buildNavItemsHTML(items []NavItem) string {
 	return strings.Join(parts, "\n                ")
 }
 
-// simplifyNavLabelForRender creates a clean nav label
-// Handles cases like "About Us | Leopardess Consulting" -> "About"
+// simplifyNavLabelForRender creates a clean nav label at render time.
+// Most simplification happens upstream in populate_nav_tables (navSimplifyLabel)
+// which has access to the page's nav_label. This function only handles cleanup
+// of labels that still contain brand suffixes like "About Us | Brand Name".
+//
+// Trust the stored label when possible — aggressive render-time truncation
+// produced labels like "Ai For" from "AI For Your Type Of Business".
 func simplifyNavLabelForRender(label, url string) string {
-	// Strip "|" and everything after
+	// Strip "|" and everything after (e.g. "About | Company Name" -> "About")
 	if idx := strings.Index(label, "|"); idx > 0 {
 		label = strings.TrimSpace(label[:idx])
 	}
 
-	// Strip " - " and everything after
+	// Strip " - " and everything after (e.g. "Services - Company" -> "Services")
 	if idx := strings.Index(label, " - "); idx > 0 {
 		label = strings.TrimSpace(label[:idx])
 	}
 
-	// Extract page name from URL for mapping
+	// For known short page names, use canonical labels regardless of input.
+	// This handles e.g. index.html with title "Homepage | Company" -> "Home".
 	pageName := strings.TrimSuffix(strings.TrimPrefix(url, "/"), ".html")
 	pageNameLower := strings.ToLower(pageName)
 
-	// Simple labels by page name
 	simpleLabels := map[string]string{
-		"index":     "Home",
-		"home":      "Home",
-		"about":     "About",
-		"services":  "Services",
-		"contact":   "Contact",
-		"insights":  "Insights",
-		"blog":      "Blog",
-		"careers":   "Careers",
-		"team":      "Team",
-		"pricing":   "Pricing",
-		"faq":       "FAQ",
-		"support":   "Support",
-		"features":  "Features",
-		"products":  "Products",
-		"portfolio": "Portfolio",
-		"work":      "Work",
-		"clients":   "Clients",
-		"resources": "Resources",
+		"index": "Home",
+		"home":  "Home",
 	}
-
-	// First check if page name matches a known simple label
 	if simple, ok := simpleLabels[pageNameLower]; ok {
 		return simple
-	}
-
-	// Check if the label starts with a known nav word
-	labelLower := strings.ToLower(label)
-	for pagePart, simple := range simpleLabels {
-		if strings.HasPrefix(labelLower, pagePart) {
-			return simple
-		}
-	}
-
-	// Return cleaned label (first meaningful part)
-	words := strings.Fields(label)
-	if len(words) >= 1 && len(words) <= 3 {
-		return label // Already simple enough
-	}
-	if len(words) > 3 {
-		// Take first 2 words if they make sense
-		return strings.Join(words[:2], " ")
 	}
 
 	return label
