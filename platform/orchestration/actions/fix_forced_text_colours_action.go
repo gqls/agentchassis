@@ -34,7 +34,6 @@ import (
 	"fmt"
 	"math"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -690,87 +689,4 @@ func extractBgColor(html string) string {
 		}
 	}
 	return ""
-}
-
-// ============================================================================
-// WCAG Contrast Ratio
-// ============================================================================
-
-// parseHexColor parses a hex color string (#rgb, #rrggbb) into 0-255 RGB values.
-func parseHexColor(hex string) (r, g, b uint8, err error) {
-	hex = strings.TrimPrefix(hex, "#")
-	switch len(hex) {
-	case 3:
-		// Expand #rgb → #rrggbb
-		hex = string([]byte{hex[0], hex[0], hex[1], hex[1], hex[2], hex[2]})
-	case 6:
-		// already fine
-	case 8:
-		// #rrggbbaa — ignore alpha
-		hex = hex[:6]
-	default:
-		return 0, 0, 0, fmt.Errorf("invalid hex color: #%s", hex)
-	}
-
-	rr, err := strconv.ParseUint(hex[0:2], 16, 8)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	gg, err := strconv.ParseUint(hex[2:4], 16, 8)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	bb, err := strconv.ParseUint(hex[4:6], 16, 8)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-
-	return uint8(rr), uint8(gg), uint8(bb), nil
-}
-
-// sRGBToLinear converts an sRGB channel value (0-255) to linear light.
-func sRGBToLinear(c uint8) float64 {
-	s := float64(c) / 255.0
-	if s <= 0.04045 {
-		return s / 12.92
-	}
-	return math.Pow((s+0.055)/1.055, 2.4)
-}
-
-// relativeLuminance computes WCAG 2.x relative luminance from 0-255 RGB.
-func relativeLuminance(r, g, b uint8) float64 {
-	return 0.2126*sRGBToLinear(r) + 0.7152*sRGBToLinear(g) + 0.0722*sRGBToLinear(b)
-}
-
-// wcagContrastRatio computes the WCAG contrast ratio between two hex colors.
-// Returns a value >= 1.0 (1:1 = identical, 21:1 = max contrast).
-func wcagContrastRatio(hex1, hex2 string) (float64, error) {
-	r1, g1, b1, err := parseHexColor(hex1)
-	if err != nil {
-		return 0, fmt.Errorf("parse fg color %q: %w", hex1, err)
-	}
-	r2, g2, b2, err := parseHexColor(hex2)
-	if err != nil {
-		return 0, fmt.Errorf("parse bg color %q: %w", hex2, err)
-	}
-
-	l1 := relativeLuminance(r1, g1, b1)
-	l2 := relativeLuminance(r2, g2, b2)
-
-	// Ensure l1 is the lighter value
-	if l1 < l2 {
-		l1, l2 = l2, l1
-	}
-
-	return (l1 + 0.05) / (l2 + 0.05), nil
-}
-
-// isDarkColor returns true if a hex color has relative luminance < 0.2
-// (perceptually dark).
-func isDarkColor(hex string) bool {
-	r, g, b, err := parseHexColor(hex)
-	if err != nil {
-		return false
-	}
-	return relativeLuminance(r, g, b) < 0.2
 }

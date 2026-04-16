@@ -171,6 +171,31 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 		renderedCSS = renderedCSS + snippetCSS
 	}
 
+	// 7.6 Append renderer-enforced --section-* defaults based on palette luminance.
+	// Themes do not declare these themselves; the renderer owns the contract so
+	// that every theme automatically gets correct dark-section text colours.
+	palette := map[string]string{
+		"primary":    tmplData.Primary,
+		"secondary":  tmplData.Secondary,
+		"accent":     tmplData.Accent,
+		"background": tmplData.Background,
+		"surface":    tmplData.Surface,
+		"text":       tmplData.Text,
+		"text_muted": tmplData.TextMuted,
+		"border":     tmplData.Border,
+	}
+	sectionDefaults := buildSectionDefaults(
+		tmplData.Background,
+		tmplData.Surface,
+		palette,
+		tmplData.BackgroundIsDark,
+		tmplData.SurfaceIsDark,
+		logger,
+	)
+	if sectionDefaults != "" {
+		renderedCSS = renderedCSS + sectionDefaults
+	}
+
 	logger.Info("RenderCSSFromSpecAction: CSS rendered",
 		zap.Int("css_length", len(renderedCSS)),
 		zap.Int("snippet_css_length", len(snippetCSS)),
@@ -429,18 +454,4 @@ func loadComponentCSSSnippets(ctx context.Context, db *sql.DB, components []stri
 	}
 
 	return "\n\n/* === Component-specific styles === */\n" + strings.Join(parts, "\n\n")
-}
-
-func isDarkHex(hex string) bool {
-	hex = strings.TrimSpace(hex)
-	if !strings.HasPrefix(hex, "#") || (len(hex) != 4 && len(hex) != 7) {
-		return false
-	}
-	if len(hex) == 4 {
-		hex = fmt.Sprintf("#%c%c%c%c%c%c", hex[1], hex[1], hex[2], hex[2], hex[3], hex[3])
-	}
-	var r, g, b int
-	fmt.Sscanf(hex[1:], "%02x%02x%02x", &r, &g, &b)
-	luminance := 0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)
-	return luminance < 80
 }

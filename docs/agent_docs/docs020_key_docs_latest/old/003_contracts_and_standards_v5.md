@@ -87,74 +87,6 @@ Planner assigns function "social-proof" to a page section
 
 `GetComponentWithFallback` tries: exact match → normalized form (underscore→hyphen) → generic fallback (`generic-text-block`). This prevents silent failures from legacy data but should not be relied upon.
 
----
-
-## JS Content Separation Contract
-
-Interactive components (games, feeds, explorers) often need substantial JavaScript. Storing large `<script>` blocks inside `html_template` causes two problems: LLM token-limit truncation during component generation, and slow page loads from inline JS.
-
-### The split
-
-`content_components` has two columns for a single component:
-
-| Column | Contents | Served as |
-|---|---|---|
-| `html_template` | `<style>...</style><section>...</section><script src="/tools/assets/{function}.js"></script>` | inline in the page HTML |
-| `js_content` | The raw JS body (no `<script>` tags) | `/tools/assets/{function}.js` asset file |
-
-Components without JS have `js_content = NULL` — no asset file is generated, no script tag is added.
-
-### The flow
-
-```
-LLM generates component (may include inline <script> blocks)
-  ↓
-store_generated_component_action.go
-  → separateInlineJS() extracts <script>...</script> bodies
-  → replaces them with <script src="/tools/assets/{function}.js"></script>
-  → INSERT both columns
-  ↓
-page-content-writer renders html_template with content data
-  → rendered_html contains the <script src> tag (not inline JS)
-  ↓
-RerenderSinglePageAction assembles the page
-  → collectJSAssets() queries js_content for all page components
-  → returns files map: {"{page}.html": html, "tools/assets/{function}.js": js, ...}
-  ↓
-page-rerender workflow's git_commit step
-  → uses files_field: rendered_page.files (multi-file commit)
-  → git-adapter writes HTML + all JS assets in one commit
-  ↓
-deployer-agent triggers CDN deploy
-  → CDN serves both the HTML page and the JS asset files
-```
-
-### Asset path convention
-
-Component JS files live at `/tools/assets/{function}.js` — the `function` value from `content_components`, not the `section_type` or any other field. This keeps the path deterministic and collision-safe (functions are globally unique among active components).
-
-### Relationship to js_snippets
-
-`js_snippets` is a separate table for **shared design effects** (scroll reveals, parallax, lazy loading) that apply across many components. It is loaded via the head component's snippet-loading mechanism. It is NOT used for component-specific behaviour.
-
-| Purpose | Storage | Scoping |
-|---|---|---|
-| Component-specific JS (game logic, interactive widgets) | `content_components.js_content` | 1:1 with the component |
-| Shared design effects (animations, hydration helpers) | `js_snippets` table | Applied across many components via `applies_to` |
-
-### What must not happen
-
-- Do NOT put inline `<script>` blocks in `html_template`. `separateInlineJS()` removes them, but LLM prompts should generate the contract-compliant form from the start.
-- Do NOT commit component JS to `js_snippets` unless it's genuinely shared across multiple components.
-- Do NOT hardcode the `<script src>` path — the component-creator pipeline sets it based on `function`.
-
-### For component-creator prompts
-
-Tell the LLM: "If the component needs JavaScript, include one or more `<script>` blocks with only the JS body (no attributes on the `<script>` tag). The pipeline will separate these into a distinct asset file automatically."
-
----
-
-
 ### Go validation functions (component_validation.go)
 
 - `ValidateComponentFunction(function)` — checks kebab-case format
@@ -662,50 +594,7 @@ Output: result JSONB (includes commit_sha if page was deployed)
         status: 'complete' or 'failed'
 ```
 
-#### Input data paths
-
-The dispatch loop (`build-dispatch-loop`) passes work item data to handlers with a **consistent nested structure**. Handlers MUST use these paths in their workflow step configs:
-
-| What you want | Path in workflow config | Where it comes from |
-|---|---|---|
-| The work item spec (primary input) | `input_data.spec` | `site_work_items.spec` (the JSONB column) |
-| A field from the spec | `input_data.spec.{field_name}` | e.g. `input_data.spec.page_name` |
-| The site_id | `input_data.site_id` or `site_record.site_id` after `ensure_site_record` | Set by the dispatch loop |
-| The domain | `input_data.domain` or `site_record.domain` after `ensure_site_record` | Set by the dispatch loop |
-| The work_item_id | `input_data.work_item_id` | Set by the dispatch loop |
-| The item_type | `input_data.item_type` | Set by the dispatch loop |
-
-**Contract rule:** All fields originating from the work item's `spec` JSONB live under `input_data.spec.*`. Do NOT rely on top-level flattened paths like `input_data.page_name` — these only exist when the dispatch loop's `input_mapping` has an explicit `page_name?` entry for that field, and the `?` makes them silently nil when absent. Using the nested path is the one contract-compliant way.
-
-**Good (contract-compliant):**
-```json
-"load_page_record": {
-  "action": "load_page_record",
-  "config": {
-    "site_id":   "site_record.site_id",
-    "page_name": "input_data.spec.page_name",
-    "page_id":   "input_data.spec.page_id"
-  }
-}
-```
-
-**Bad (relies on optional flattening):**
-```json
-"load_page_record": {
-  "config": {
-    "page_name": "input_data.page_name"
-  }
-}
-```
-
-Within a single workflow, ALL steps that read the same spec field MUST use the same path. Mixing `input_data.page_name` and `input_data.spec.page_name` in the same workflow is a bug — it will silently break when the dispatch loop's `input_mapping` changes.
-
-#### Action-level defense
-
-Go actions that read common fields (`page_name`, `page_id`, `site_id`) should implement a fallback chain: first the explicit config path, then `input_data.spec.{field}`, then other well-known locations. This protects the system against accidental config drift. See `load_page_record_action.go` for the pattern.
-
 ---
-
 
 ## content_direction (Page-Level Edit Instructions)
 
