@@ -501,7 +501,7 @@ func saveSectionsExtractFromHTML(html string, logger *zap.Logger) []SectionData 
 		})
 	}
 
-	logger.Debug("saveSectionsExtractFromHTML: Found sections",
+	logger.Info("saveSectionsExtractFromHTML: Found sections",
 		zap.Int("count", len(sections)),
 	)
 
@@ -509,12 +509,16 @@ func saveSectionsExtractFromHTML(html string, logger *zap.Logger) []SectionData 
 }
 
 // enrichSectionsWithComponentIDs looks up component_id from content_components
-// for HTML-parsed sections that have a data-component attribute but no component_id.
+// for sections that have a component name but no component_id.
 // Handles naming mismatches:
 //
 //	slot_name "social-proof" → function "social_proof" (hyphen vs underscore)
 //	slot_name "case-studies-hero" → function "hero" with name matching
+//	slot_name "differentiators-section" → function "differentiators" (suffix strip)
+//	metadata ComponentName differs from data-component attr → prefer HTML attr
 func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []SectionData, logger *zap.Logger) {
+	dataComponentRe := regexp.MustCompile(`data-component="([^"]+)"`)
+
 	for i := range sections {
 		if sections[i].ComponentID != "" {
 			continue // already has an ID
@@ -524,45 +528,103 @@ func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []
 		}
 
 		slotName := sections[i].ComponentName
+
+		// Also extract the data-component attribute from the HTML — this is
+		// the authoritative name that matches content_components.function.
+		// The metadata path may produce a different name (e.g. "differentiators-section"
+		// from component_function while the HTML has data-component="differentiators").
+		htmlComponentName := ""
+		if m := dataComponentRe.FindStringSubmatch(sections[i].HTML); len(m) >= 2 {
+			htmlComponentName = m[1]
+		}
+
+		// Build list of candidate names to try, in priority order
+		candidates := []string{slotName}
+		if htmlComponentName != "" && htmlComponentName != slotName {
+			// Prefer the HTML data-component value — it matches what renders
+			candidates = []string{htmlComponentName, slotName}
+			// Also update the slot_name to match the HTML for consistency
+			sections[i].ComponentName = htmlComponentName
+			logger.Info("enrichSectionsWithComponentIDs: preferring data-component over metadata",
+				zap.String("metadata_name", slotName),
+				zap.String("html_name", htmlComponentName),
+				zap.Int("position", i+1))
+		}
+
+		// Add suffix-stripped variants (differentiators-section → differentiators)
+		for _, name := range []string{slotName, htmlComponentName} {
+			if name == "" {
+				continue
+			}
+			for _, suffix := range []string{"-section", "-container", "-wrapper", "-block"} {
+				if strings.HasSuffix(name, suffix) {
+					stripped := strings.TrimSuffix(name, suffix)
+					candidates = append(candidates, stripped)
+				}
+			}
+		}
+
 		var componentID string
+		var matchedBy string
 
-		// Try exact match first
-		err := db.QueryRowContext(ctx, `
-			SELECT id::text FROM content_components 
-			WHERE function = $1 AND is_active = true
-			LIMIT 1
-		`, slotName).Scan(&componentID)
+		for _, candidate := range candidates {
+			if candidate == "" {
+				continue
+			}
 
-		// Try underscore variant (social-proof → social_proof)
-		if err != nil {
-			underscored := strings.ReplaceAll(slotName, "-", "_")
-			if underscored != slotName {
+			// Try exact match
+			err := db.QueryRowContext(ctx, `
+				SELECT id::text FROM content_components 
+				WHERE function = $1 AND is_active = true
+				LIMIT 1
+			`, candidate).Scan(&componentID)
+			if err == nil {
+				matchedBy = "exact:" + candidate
+				break
+			}
+
+			// Try underscore variant (social-proof → social_proof)
+			underscored := strings.ReplaceAll(candidate, "-", "_")
+			if underscored != candidate {
 				err = db.QueryRowContext(ctx, `
 					SELECT id::text FROM content_components 
 					WHERE function = $1 AND is_active = true
 					LIMIT 1
 				`, underscored).Scan(&componentID)
+				if err == nil {
+					matchedBy = "underscore:" + underscored
+					break
+				}
 			}
 		}
 
 		// Try specialized hero variant (case-studies-hero → hero with name match)
-		if err != nil && strings.HasSuffix(slotName, "-hero") {
+		if componentID == "" && strings.HasSuffix(slotName, "-hero") {
 			prefix := strings.TrimSuffix(slotName, "-hero")
 			namePattern := "%" + strings.ReplaceAll(prefix, "-", "%") + "%"
-			err = db.QueryRowContext(ctx, `
+			err := db.QueryRowContext(ctx, `
 				SELECT id::text FROM content_components 
 				WHERE function = 'hero' AND is_active = true
 				  AND lower(name) LIKE lower($1)
 				LIMIT 1
 			`, namePattern).Scan(&componentID)
+			if err == nil {
+				matchedBy = "hero-variant:" + prefix
+			}
 		}
 
-		if err == nil && componentID != "" {
+		if componentID != "" {
 			sections[i].ComponentID = componentID
-			logger.Debug("enrichSectionsWithComponentIDs: Found component",
-				zap.String("slot_name", slotName),
+			logger.Info("enrichSectionsWithComponentIDs: linked component",
+				zap.String("slot_name", sections[i].ComponentName),
 				zap.String("component_id", componentID),
-			)
+				zap.String("matched_by", matchedBy),
+				zap.Int("position", i+1))
+		} else {
+			logger.Info("enrichSectionsWithComponentIDs: no match found",
+				zap.String("slot_name", slotName),
+				zap.String("html_component", htmlComponentName),
+				zap.Int("position", i+1))
 		}
 	}
 }
@@ -609,7 +671,7 @@ func enrichSectionsWithPlannedNames(ctx context.Context, db *sql.DB, pageID uuid
 	var sectionsJSON []byte
 	err := db.QueryRowContext(ctx, `SELECT sections FROM pages WHERE id = $1`, pageID).Scan(&sectionsJSON)
 	if err != nil || len(sectionsJSON) == 0 {
-		logger.Debug("enrichSectionsWithPlannedNames: no sections array on page",
+		logger.Info("enrichSectionsWithPlannedNames: no sections array on page",
 			zap.String("page_id", pageID.String()),
 			zap.Error(err),
 		)

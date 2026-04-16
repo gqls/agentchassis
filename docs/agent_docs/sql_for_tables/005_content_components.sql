@@ -9905,3 +9905,1637 @@ WHERE table_name = 'content_components'
     'quality_score', 'quality_checked_at', 'quality_issues'
   )
 ORDER BY column_name;
+--
+
+                                                     -- ============================================================================
+-- Migration 025: Library components for new layout system
+--
+-- Creates the system.internal site for hosting library-level work items,
+-- then inserts 10 components directly into content_components.
+--
+-- See: 025_palette_layout_typography_migration.md, sections 7 and 10
+--
+-- Components follow all contracts:
+--   - Component Naming (003): kebab-case function, data-component attr
+--   - CSS Colour Inheritance Model (003): var(--section-*, var(--color-*))
+--   - Dark Section Variable Contract (003): --section-* on dark containers
+--   - Component Input Schema v2 (003): source, on_missing, required
+--   - JS Content Separation (003): inline IIFE for interactivity
+--   - Quality Contract (003): call compute_component_quality after insert
+-- ============================================================================
+
+
+-- ----------------------------------------------------------------------------
+-- Step 1: system.internal site (idempotent)
+-- ----------------------------------------------------------------------------
+INSERT INTO sites (
+    domain, name, status, build_status,
+    company_name, brand_dna, settings
+) VALUES (
+    'system.internal',
+    'System (internal)',
+    'system',
+    'pending',
+    'System',
+    '{"is_system": true, "description": "Internal site for library-level work items and system components. Never deployed."}'::jsonb,
+    '{"skip_deploy": true, "skip_build": true}'::jsonb
+)
+ON CONFLICT (domain) DO NOTHING;
+
+
+-- ----------------------------------------------------------------------------
+-- HEADERS (component_level = 'header')
+-- ----------------------------------------------------------------------------
+
+-- 1. header-with-categories
+INSERT INTO content_components (
+    name, display_name, function, category, component_level,
+    section_type, suitable_site_types, suitable_page_types,
+    description, html_template, input_schema,
+    is_dark_section, render_mode, created_from, is_active,
+    content_shape, visual_density, semantic_tags
+) VALUES (
+    'header-with-categories',
+    'Header with Categories',
+    'header-with-categories',
+    'navigation',
+    'header',
+    'header-with-categories',
+    '["magazine", "industry-hub", "blog"]'::jsonb,
+    '["index", "landing", "article"]'::jsonb,
+    'Site header with a horizontal strip of category/topic links below the brand area. Suited for content-heavy sites where top-level navigation is a category taxonomy.',
+    '<style>
+.header-with-categories-section {
+  background: var(--color-header-bg, #ffffff);
+  color: var(--color-header-text, #1e293b);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-with-categories-section .header-main {
+  max-width: var(--container-max-width, 1200px);
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-with-categories-section .header-brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: none;
+}
+.header-with-categories-section .header-brand img {
+  height: 32px;
+  width: auto;
+}
+.header-with-categories-section .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.header-with-categories-section .header-search-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted, #64748b);
+  cursor: pointer;
+  padding: 0.5rem;
+  font-size: 1.125rem;
+}
+.header-with-categories-section .header-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.5rem;
+  font-size: 1.5rem;
+}
+.header-with-categories-section .header-categories {
+  max-width: var(--container-max-width, 1200px);
+  margin: 0 auto;
+  padding: 0 1.5rem 0.5rem;
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  list-style: none;
+}
+.header-with-categories-section .header-categories::-webkit-scrollbar { display: none; }
+.header-with-categories-section .header-category-link {
+  color: var(--color-text-muted, #64748b);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+.header-with-categories-section .header-category-link:hover,
+.header-with-categories-section .header-category-link:focus {
+  color: var(--color-primary, #3b82f6);
+}
+@media (max-width: 768px) {
+  .header-with-categories-section .header-menu-btn { display: block; }
+  .header-with-categories-section .header-categories { padding: 0 1rem 0.5rem; gap: 1rem; }
+}
+</style>
+<header class="header-with-categories-section" data-component="header-with-categories">
+  <div class="header-main">
+    <a href="/" class="header-brand">
+      {{if .logo_url}}<img src="{{.logo_url}}" alt="{{.company_name}}">{{else}}{{.company_name}}{{end}}
+    </a>
+    <div class="header-actions">
+      <button class="header-search-btn" aria-label="Search">&#128269;</button>
+      <button class="header-menu-btn" aria-label="Menu" aria-expanded="false">&#9776;</button>
+    </div>
+  </div>
+  {{if .categories}}
+  <nav aria-label="Categories">
+    <ul class="header-categories">
+      {{range .categories}}<li><a href="{{.url}}" class="header-category-link">{{.name}}</a></li>{{end}}
+    </ul>
+  </nav>
+  {{end}}
+</header>',
+    '{
+      "fields": {
+        "company_name": {"type": "text", "source": "site_specs.identity.company_name", "required": true, "on_missing": "use_fallback", "fallback": "Home"},
+        "logo_url": {"type": "image", "source": "site_assets.logo", "required": false, "on_missing": "skip_field"},
+        "categories": {"type": "array", "source": "query.navigation_categories", "required": false, "on_missing": "skip_field",
+          "items": {"name": {"type": "text"}, "url": {"type": "url"}}
+        }
+      }
+    }'::jsonb,
+    false, 'template', 'manual', true,
+    'structured_list', 'medium',
+    '["header", "categories", "navigation", "magazine", "content-site"]'::jsonb
+) ON CONFLICT (name) DO NOTHING;
+
+
+-- 2. header-minimal-tool
+INSERT INTO content_components (
+    name, display_name, function, category, component_level,
+    section_type, suitable_site_types, suitable_page_types,
+    description, html_template, input_schema,
+    is_dark_section, render_mode, created_from, is_active,
+    content_shape, visual_density, semantic_tags
+) VALUES (
+    'header-minimal-tool',
+    'Header Minimal Tool',
+    'header-minimal-tool',
+    'navigation',
+    'header',
+    'header-minimal-tool',
+    '["tool", "utility", "saas"]'::jsonb,
+    '["index", "landing", "tool"]'::jsonb,
+    'Compact minimal header for tool-dominant pages. Logo left, sparse nav right. Stays out of the way.',
+    '<style>
+.header-minimal-tool-section {
+  background: var(--color-header-bg, #ffffff);
+  color: var(--color-header-text, #1e293b);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  height: 52px;
+  display: flex;
+  align-items: center;
+}
+.header-minimal-tool-section .header-inner {
+  max-width: var(--container-max-width, 1200px);
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-minimal-tool-section .header-brand {
+  font-size: 1rem;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.header-minimal-tool-section .header-brand img {
+  height: 24px;
+  width: auto;
+}
+.header-minimal-tool-section .header-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.header-minimal-tool-section .header-nav a {
+  color: var(--color-text-muted, #64748b);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+.header-minimal-tool-section .header-nav a:hover {
+  color: var(--color-primary, #3b82f6);
+}
+@media (max-width: 640px) {
+  .header-minimal-tool-section .header-nav { gap: 0.75rem; }
+  .header-minimal-tool-section .header-nav a { font-size: 0.8125rem; }
+}
+</style>
+<header class="header-minimal-tool-section" data-component="header-minimal-tool">
+  <div class="header-inner">
+    <a href="/" class="header-brand">
+      {{if .logo_url}}<img src="{{.logo_url}}" alt="{{.company_name}}">{{else}}{{.company_name}}{{end}}
+    </a>
+    {{if .nav_links}}
+    <nav aria-label="Main">
+      <ul class="header-nav">
+        {{range .nav_links}}<li><a href="{{.url}}">{{.label}}</a></li>{{end}}
+      </ul>
+    </nav>
+    {{end}}
+  </div>
+</header>',
+    '{
+      "fields": {
+        "company_name": {"type": "text", "source": "site_specs.identity.company_name", "required": true, "on_missing": "use_fallback", "fallback": "Home"},
+        "logo_url": {"type": "image", "source": "site_assets.logo", "required": false, "on_missing": "skip_field"},
+        "nav_links": {"type": "array", "source": "renderer", "required": false, "on_missing": "skip_field",
+          "items": {"label": {"type": "text"}, "url": {"type": "url"}}
+        }
+      }
+    }'::jsonb,
+    false, 'template', 'manual', true,
+    'structured_list', 'low',
+    '["header", "minimal", "tool", "utility", "sparse"]'::jsonb
+) ON CONFLICT (name) DO NOTHING;
+
+
+-- 3. header-with-search
+INSERT INTO content_components (
+    name, display_name, function, category, component_level,
+    section_type, suitable_site_types, suitable_page_types,
+    description, html_template, input_schema,
+    is_dark_section, render_mode, created_from, is_active,
+    content_shape, visual_density, semantic_tags
+) VALUES (
+    'header-with-search',
+    'Header with Search',
+    'header-with-search',
+    'navigation',
+    'header',
+    'header-with-search',
+    '["comparison", "media-library", "directory"]'::jsonb,
+    '["index", "landing", "search-results"]'::jsonb,
+    'Header with a prominent central search input. For sites where search is the primary discovery mechanism.',
+    '<style>
+.header-with-search-section {
+  background: var(--color-header-bg, #ffffff);
+  color: var(--color-header-text, #1e293b);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-with-search-section .header-inner {
+  max-width: var(--container-max-width, 1200px);
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.header-with-search-section .header-brand {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.header-with-search-section .header-brand img {
+  height: 28px;
+  width: auto;
+}
+.header-with-search-section .header-search {
+  flex: 1;
+  position: relative;
+}
+.header-with-search-section .header-search-input {
+  width: 100%;
+  padding: 0.625rem 1rem 0.625rem 2.5rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  font-size: 0.9375rem;
+  background: var(--color-surface, #f8fafc);
+  color: var(--color-text, #1e293b);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.header-with-search-section .header-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent, #3182ce);
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
+}
+.header-with-search-section .header-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted, #64748b);
+  font-size: 1rem;
+  pointer-events: none;
+}
+.header-with-search-section .header-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+}
+.header-with-search-section .header-nav a {
+  color: var(--color-text-muted, #64748b);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.header-with-search-section .header-nav a:hover {
+  color: var(--color-primary, #3b82f6);
+}
+@media (max-width: 768px) {
+  .header-with-search-section .header-inner { flex-wrap: wrap; }
+  .header-with-search-section .header-search { order: 3; flex-basis: 100%; }
+  .header-with-search-section .header-nav { display: none; }
+}
+</style>
+<header class="header-with-search-section" data-component="header-with-search">
+  <div class="header-inner">
+    <a href="/" class="header-brand">
+      {{if .logo_url}}<img src="{{.logo_url}}" alt="{{.company_name}}">{{else}}{{.company_name}}{{end}}
+    </a>
+    <div class="header-search">
+      <span class="header-search-icon">&#128269;</span>
+      <input type="search" class="header-search-input"
+             placeholder="{{.search_placeholder}}"
+             aria-label="{{.search_placeholder}}">
+    </div>
+    {{if .nav_links}}
+    <nav aria-label="Main">
+      <ul class="header-nav">
+        {{range .nav_links}}<li><a href="{{.url}}">{{.label}}</a></li>{{end}}
+      </ul>
+    </nav>
+    {{end}}
+  </div>
+</header>',
+    '{
+      "fields": {
+        "company_name": {"type": "text", "source": "site_specs.identity.company_name", "required": true, "on_missing": "use_fallback", "fallback": "Home"},
+        "logo_url": {"type": "image", "source": "site_assets.logo", "required": false, "on_missing": "skip_field"},
+        "search_placeholder": {"type": "text", "source": "llm", "required": true, "llm_guidance": "Short search placeholder text appropriate for the site, e.g. Search by postcode or name..."},
+        "nav_links": {"type": "array", "source": "renderer", "required": false, "on_missing": "skip_field",
+          "items": {"label": {"type": "text"}, "url": {"type": "url"}}
+        }
+      }
+    }'::jsonb,
+    false, 'template', 'manual', true,
+    'structured_list', 'medium',
+    '["header", "search", "comparison", "media", "directory"]'::jsonb
+) ON CONFLICT (name) DO NOTHING;
+
+
+-- 4. header-docs
+INSERT INTO content_components (
+    name, display_name, function, category, component_level,
+    section_type, suitable_site_types, suitable_page_types,
+    description, html_template, input_schema,
+    is_dark_section, render_mode, created_from, is_active,
+    content_shape, visual_density, semantic_tags
+) VALUES (
+    'header-docs',
+    'Header Docs',
+    'header-docs',
+    'navigation',
+    'header',
+    'header-docs',
+    '["documentation", "knowledge-base"]'::jsonb,
+    '["index", "doc-page", "api-reference"]'::jsonb,
+    'Documentation-style header with brand, doc search, and secondary links. Coordinates with the docs-sidebar layout.',
+    '<style>
+.header-docs-section {
+  background: var(--color-header-bg, #ffffff);
+  color: var(--color-header-text, #1e293b);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 56px;
+  display: flex;
+  align-items: center;
+}
+.header-docs-section .header-inner {
+  max-width: 100%;
+  width: 100%;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.header-docs-section .header-brand {
+  font-size: 1rem;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.header-docs-section .header-brand img { height: 24px; width: auto; }
+.header-docs-section .header-version {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #64748b);
+  background: var(--color-surface, #f1f5f9);
+  padding: 0.125rem 0.5rem;
+  border-radius: 2rem;
+  font-weight: 500;
+}
+.header-docs-section .header-search {
+  flex: 1;
+  max-width: 400px;
+  position: relative;
+}
+.header-docs-section .header-search-input {
+  width: 100%;
+  padding: 0.5rem 1rem 0.5rem 2.25rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.375rem);
+  font-size: 0.8125rem;
+  background: var(--color-surface, #f8fafc);
+  color: var(--color-text, #1e293b);
+}
+.header-docs-section .header-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent, #3182ce);
+  box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.15);
+}
+.header-docs-section .header-search-icon {
+  position: absolute;
+  left: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted, #94a3b8);
+  font-size: 0.875rem;
+  pointer-events: none;
+}
+.header-docs-section .header-links {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  list-style: none;
+  margin: 0 0 0 auto;
+  padding: 0;
+}
+.header-docs-section .header-links a {
+  color: var(--color-text-muted, #64748b);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.header-docs-section .header-links a:hover { color: var(--color-primary, #3b82f6); }
+.header-docs-section .header-sidebar-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.5rem;
+  font-size: 1.25rem;
+}
+@media (max-width: 768px) {
+  .header-docs-section .header-sidebar-toggle { display: block; }
+  .header-docs-section .header-links { display: none; }
+  .header-docs-section .header-search { max-width: none; }
+}
+</style>
+<header class="header-docs-section" data-component="header-docs">
+  <div class="header-inner">
+    <button class="header-sidebar-toggle" aria-label="Toggle sidebar">&#9776;</button>
+    <a href="/" class="header-brand">
+      {{if .logo_url}}<img src="{{.logo_url}}" alt="{{.company_name}}">{{else}}{{.company_name}}{{end}}
+    </a>
+    {{if .version}}<span class="header-version">{{.version}}</span>{{end}}
+    <div class="header-search">
+      <span class="header-search-icon">&#128269;</span>
+      <input type="search" class="header-search-input"
+             placeholder="Search docs..."
+             aria-label="Search documentation">
+    </div>
+    {{if .nav_links}}
+    <nav aria-label="Secondary">
+      <ul class="header-links">
+        {{range .nav_links}}<li><a href="{{.url}}">{{.label}}</a></li>{{end}}
+      </ul>
+    </nav>
+    {{end}}
+  </div>
+</header>',
+    '{
+      "fields": {
+        "company_name": {"type": "text", "source": "site_specs.identity.company_name", "required": true, "on_missing": "use_fallback", "fallback": "Docs"},
+        "logo_url": {"type": "image", "source": "site_assets.logo", "required": false, "on_missing": "skip_field"},
+        "version": {"type": "text", "source": "site_specs.identity.version", "required": false, "on_missing": "skip_field"},
+        "nav_links": {"type": "array", "source": "renderer", "required": false, "on_missing": "skip_field",
+          "items": {"label": {"type": "text"}, "url": {"type": "url"}}
+        }
+      }
+    }'::jsonb,
+    false, 'template', 'manual', true,
+    'structured_list', 'low',
+    '["header", "docs", "documentation", "sidebar", "technical"]'::jsonb
+) ON CONFLICT (name) DO NOTHING;
+
+
+-- 5. header-with-cart-or-nav
+INSERT INTO content_components (
+    name, display_name, function, category, component_level,
+    section_type, suitable_site_types, suitable_page_types,
+    description, html_template, input_schema,
+    is_dark_section, render_mode, created_from, is_active,
+    content_shape, visual_density, semantic_tags
+) VALUES (
+    'header-with-cart-or-nav',
+    'Header with Cart or Nav',
+    'header-with-cart-or-nav',
+    'navigation',
+    'header',
+    'header-with-cart-or-nav',
+    '["ecommerce", "affiliate", "marketplace"]'::jsonb,
+    '["index", "landing", "category", "product"]'::jsonb,
+    'Commerce-style header with product/category nav, search, and a utility area (cart, compare, or account icons).',
+    '<style>
+.header-with-cart-or-nav-section {
+  background: var(--color-header-bg, #ffffff);
+  color: var(--color-header-text, #1e293b);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-with-cart-or-nav-section .header-inner {
+  max-width: var(--container-max-width, 1200px);
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.header-with-cart-or-nav-section .header-brand {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.header-with-cart-or-nav-section .header-brand img { height: 32px; width: auto; }
+.header-with-cart-or-nav-section .header-cat-nav {
+  display: flex;
+  gap: 1.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.header-with-cart-or-nav-section .header-cat-nav a {
+  color: var(--color-text, #1e293b);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+.header-with-cart-or-nav-section .header-cat-nav a:hover {
+  color: var(--color-primary, #3b82f6);
+}
+.header-with-cart-or-nav-section .header-search {
+  flex: 1;
+  max-width: 320px;
+  position: relative;
+}
+.header-with-cart-or-nav-section .header-search-input {
+  width: 100%;
+  padding: 0.5rem 1rem 0.5rem 2.25rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.375rem);
+  font-size: 0.875rem;
+  background: var(--color-surface, #f8fafc);
+  color: var(--color-text, #1e293b);
+}
+.header-with-cart-or-nav-section .header-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent, #3182ce);
+}
+.header-with-cart-or-nav-section .header-search-icon {
+  position: absolute;
+  left: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted, #94a3b8);
+  pointer-events: none;
+}
+.header-with-cart-or-nav-section .header-utility {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.header-with-cart-or-nav-section .header-utility-btn {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--color-text, #1e293b);
+  cursor: pointer;
+  padding: 0.5rem;
+  font-size: 1.25rem;
+}
+.header-with-cart-or-nav-section .header-utility-badge {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  background: var(--color-primary, #3b82f6);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.header-with-cart-or-nav-section .header-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.5rem;
+  font-size: 1.5rem;
+}
+@media (max-width: 768px) {
+  .header-with-cart-or-nav-section .header-cat-nav { display: none; }
+  .header-with-cart-or-nav-section .header-search { max-width: none; flex: 1; }
+  .header-with-cart-or-nav-section .header-menu-btn { display: block; }
+}
+</style>
+<header class="header-with-cart-or-nav-section" data-component="header-with-cart-or-nav">
+  <div class="header-inner">
+    <a href="/" class="header-brand">
+      {{if .logo_url}}<img src="{{.logo_url}}" alt="{{.company_name}}">{{else}}{{.company_name}}{{end}}
+    </a>
+    {{if .categories}}
+    <nav aria-label="Categories">
+      <ul class="header-cat-nav">
+        {{range .categories}}<li><a href="{{.url}}">{{.name}}</a></li>{{end}}
+      </ul>
+    </nav>
+    {{end}}
+    <div class="header-search">
+      <span class="header-search-icon">&#128269;</span>
+      <input type="search" class="header-search-input"
+             placeholder="{{.search_placeholder}}"
+             aria-label="Search">
+    </div>
+    <div class="header-utility">
+      <button class="header-utility-btn" aria-label="{{.utility_label}}" data-action="{{.utility_action}}">
+        {{.utility_icon}}
+      </button>
+      <button class="header-menu-btn" aria-label="Menu">&#9776;</button>
+    </div>
+  </div>
+</header>',
+    '{
+      "fields": {
+        "company_name": {"type": "text", "source": "site_specs.identity.company_name", "required": true, "on_missing": "use_fallback", "fallback": "Home"},
+        "logo_url": {"type": "image", "source": "site_assets.logo", "required": false, "on_missing": "skip_field"},
+        "search_placeholder": {"type": "text", "source": "llm", "required": false, "on_missing": "use_fallback", "fallback": "Search...", "llm_guidance": "Short search placeholder text"},
+        "categories": {"type": "array", "source": "query.navigation_categories", "required": false, "on_missing": "skip_field",
+          "items": {"name": {"type": "text"}, "url": {"type": "url"}}
+        },
+        "utility_label": {"type": "text", "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "Cart"},
+        "utility_icon": {"type": "text", "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "&#128722;"},
+        "utility_action": {"type": "text", "source": "static", "required": false, "on_missing": "use_fallback", "fallback": "open-cart"}
+      }
+    }'::jsonb,
+    false, 'template', 'manual', true,
+    'structured_list', 'high',
+    '["header", "commerce", "cart", "ecommerce", "affiliate", "navigation"]'::jsonb
+) ON CONFLICT (name) DO NOTHING;
+
+
+-- ----------------------------------------------------------------------------
+-- FOOTERS (component_level = 'footer')
+-- ----------------------------------------------------------------------------
+
+-- 6. footer-with-disclaimer
+INSERT INTO content_components (
+    name, display_name, function, category, component_level,
+    section_type, suitable_site_types, suitable_page_types,
+    description, html_template, input_schema,
+    is_dark_section, render_mode, created_from, is_active,
+    content_shape, visual_density, semantic_tags
+) VALUES (
+    'footer-with-disclaimer',
+    'Footer with Disclaimer',
+    'footer-with-disclaimer',
+    'navigation',
+    'footer',
+    'footer-with-disclaimer',
+    '["industry-hub", "comparison", "affiliate", "directory"]'::jsonb,
+    '["index", "landing"]'::jsonb,
+    'Footer with standard nav columns plus a prominent disclaimer/disclosure block. For sites where legal/informational disclaimers are required.',
+    '<style>
+.footer-with-disclaimer-section {
+  background: var(--color-footer-bg, #0f172a);
+  color: var(--color-footer-text, #cbd5e1);
+  --section-text: var(--color-footer-text, #cbd5e1);
+  --section-text-muted: rgba(255,255,255,0.6);
+  --section-heading: #ffffff;
+  --section-border: rgba(255,255,255,0.15);
+}
+.footer-with-disclaimer-section .footer-inner {
+  max-width: var(--container-max-width, 1200px);
+  margin: 0 auto;
+  padding: 3rem 1.5rem 1.5rem;
+}
+.footer-with-disclaimer-section .footer-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+.footer-with-disclaimer-section .footer-col-title {
+  color: var(--section-heading, #ffffff);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+.footer-with-disclaimer-section .footer-col-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.footer-with-disclaimer-section .footer-col-links li { margin-bottom: 0.5rem; }
+.footer-with-disclaimer-section .footer-col-links a {
+  color: var(--section-text, inherit);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: color 0.15s;
+}
+.footer-with-disclaimer-section .footer-col-links a:hover {
+  color: var(--section-heading, #ffffff);
+}
+.footer-with-disclaimer-section .footer-divider {
+  border: none;
+  border-top: 1px solid var(--section-border, rgba(255,255,255,0.15));
+  margin: 0 0 1.5rem;
+}
+.footer-with-disclaimer-section .footer-disclaimer {
+  background: rgba(255,255,255,0.03);
+  border-radius: var(--border-radius, 0.375rem);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.footer-with-disclaimer-section .footer-disclaimer-title {
+  color: var(--section-heading, #ffffff);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+.footer-with-disclaimer-section .footer-disclaimer-text {
+  color: var(--section-text-muted, rgba(255,255,255,0.6));
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0;
+}
+.footer-with-disclaimer-section .footer-copyright {
+  color: var(--section-text-muted, rgba(255,255,255,0.5));
+  font-size: 0.75rem;
+  text-align: center;
+}
+@media (max-width: 640px) {
+  .footer-with-disclaimer-section .footer-columns { grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+}
+</style>
+<footer class="footer-with-disclaimer-section" data-component="footer-with-disclaimer">
+  <div class="footer-inner">
+    <div class="footer-columns">
+      {{range .footer_columns}}
+      <div>
+        <h4 class="footer-col-title">{{.title}}</h4>
+        <ul class="footer-col-links">
+          {{range .links}}<li><a href="{{.url}}">{{.label}}</a></li>{{end}}
+        </ul>
+      </div>
+      {{end}}
+    </div>
+    <hr class="footer-divider">
+    <div class="footer-disclaimer">
+      <p class="footer-disclaimer-title">Disclaimer</p>
+      <p class="footer-disclaimer-text">{{.disclaimer_text}}</p>
+    </div>
+    <p class="footer-copyright">&copy; {{.copyright_year}} {{.company_name}}. {{.legal_text}}</p>
+  </div>
+</footer>',
+    '{
+      "fields": {
+        "company_name": {"type": "text", "source": "site_specs.identity.company_name", "required": true, "on_missing": "use_fallback", "fallback": "Company"},
+        "copyright_year": {"type": "text", "source": "renderer", "required": true},
+        "legal_text": {"type": "text", "source": "llm", "required": false, "on_missing": "use_fallback", "fallback": "All rights reserved.", "llm_guidance": "Brief legal rights line"},
+        "disclaimer_text": {"type": "text", "source": "site_specs.legal.disclaimer_text", "required": true, "on_missing": "needs_human_review", "missing_reason": "Disclaimer text is required for compliance. Provide the legal/informational disclaimer for this site."},
+        "footer_columns": {"type": "array", "source": "renderer", "required": false, "on_missing": "skip_field",
+          "items": {"title": {"type": "text"}, "links": {"type": "array"}}
+        }
+      }
+    }'::jsonb,
+    true, 'template', 'manual', true,
+    'structured_list', 'medium',
+    '["footer", "disclaimer", "legal", "compliance", "industry-hub", "comparison"]'::jsonb
+) ON CONFLICT (name) DO NOTHING;
+
+
+-- ----------------------------------------------------------------------------
+-- SECTION COMPONENTS (component_level = 'section')
+-- ----------------------------------------------------------------------------
+
+-- 7. directory-listing
+INSERT INTO content_components (
+    name, display_name, function, category, component_level,
+    section_type, suitable_site_types, suitable_page_types,
+    description, html_template, input_schema,
+    is_dark_section, render_mode, created_from, is_active,
+    content_shape, visual_density, semantic_tags
+) VALUES (
+    'directory-listing',
+    'Directory Listing',
+    'directory-listing',
+    'content',
+    'section',
+    'directory-listing',
+    '["industry-hub", "directory"]'::jsonb,
+    '["index", "directory"]'::jsonb,
+    'A grid of directory entry cards for industry suppliers or service providers. Sourced from DB query at render time.',
+    '<style>
+.directory-listing-section {
+  padding: var(--spacing-section, 4rem 1.5rem);
+}
+.directory-listing-section .directory-container {
+  max-width: var(--container-max-width, 1200px);
+  margin: 0 auto;
+}
+.directory-listing-section .directory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+.directory-listing-section .directory-title {
+  color: var(--section-heading, var(--color-heading, #0f172a));
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0;
+}
+.directory-listing-section .directory-count {
+  color: var(--section-text-muted, var(--color-text-muted, #64748b));
+  font-size: 0.875rem;
+}
+.directory-listing-section .directory-filters {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.directory-listing-section .directory-filter-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.375rem);
+  background: var(--color-surface, #f8fafc);
+  color: var(--section-text, var(--color-text, #1e293b));
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.directory-listing-section .directory-filter-btn:hover,
+.directory-listing-section .directory-filter-btn.active {
+  border-color: var(--color-primary, #3b82f6);
+  background: var(--color-primary, #3b82f6);
+  color: #fff;
+}
+.directory-listing-section .directory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+.directory-listing-section .directory-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 1.5rem;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.directory-listing-section .directory-card:hover {
+  box-shadow: var(--shadow, 0 2px 8px rgba(0,0,0,0.08));
+  border-color: var(--color-primary, #3b82f6);
+}
+.directory-listing-section .directory-card-name {
+  color: var(--section-heading, var(--color-heading, #0f172a));
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+.directory-listing-section .directory-card-desc {
+  color: var(--section-text, var(--color-text, #334155));
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
+}
+.directory-listing-section .directory-card-meta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.directory-listing-section .directory-card-tag {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-accent, #3182ce);
+  background: rgba(49, 130, 206, 0.08);
+  padding: 0.125rem 0.5rem;
+  border-radius: 2rem;
+}
+.directory-listing-section .directory-card-region {
+  font-size: 0.75rem;
+  color: var(--section-text-muted, var(--color-text-muted, #64748b));
+}
+@media (max-width: 640px) {
+  .directory-listing-section .directory-grid { grid-template-columns: 1fr; }
+}
+</style>
+<section class="directory-listing-section" data-component="directory-listing">
+  <div class="directory-container">
+    <div class="directory-header">
+      <h2 class="directory-title">{{.headline}}</h2>
+      {{if .entries}}<span class="directory-count">{{len .entries}} listings</span>{{end}}
+    </div>
+    {{if .filter_categories}}
+    <div class="directory-filters">
+      <button class="directory-filter-btn active" data-filter="all">All</button>
+      {{range .filter_categories}}<button class="directory-filter-btn" data-filter="{{.slug}}">{{.name}}</button>{{end}}
+    </div>
+    {{end}}
+    <div class="directory-grid">
+      {{range .entries}}
+      <a href="{{.url}}" class="directory-card" data-category="{{.category_slug}}">
+        <h3 class="directory-card-name">{{.name}}</h3>
+        <p class="directory-card-desc">{{.description}}</p>
+        <div class="directory-card-meta">
+          {{if .category}}<span class="directory-card-tag">{{.category}}</span>{{end}}
+          {{if .region}}<span class="directory-card-region">{{.region}}</span>{{end}}
+        </div>
+      </a>
+      {{end}}
+    </div>
+  </div>
+</section>
+<script>
+(function() {
+  var section = document.querySelector(".directory-listing-section");
+  if (!section) return;
+  var btns = section.querySelectorAll(".directory-filter-btn");
+  var cards = section.querySelectorAll(".directory-card");
+  btns.forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      btns.forEach(function(b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      var f = btn.getAttribute("data-filter");
+      cards.forEach(function(c) {
+        c.style.display = (f === "all" || c.getAttribute("data-category") === f) ? "" : "none";
+      });
+    });
+  });
+})();
+</script>',
+    '{
+      "fields": {
+        "headline": {"type": "text", "source": "llm", "required": true, "llm_guidance": "Section heading for the directory, e.g. Find a Supplier, Browse Providers"},
+        "entries": {"type": "array", "source": "query.directory_entries", "required": true, "on_missing": "skip_section",
+          "items": {"name": {"type": "text"}, "description": {"type": "text"}, "url": {"type": "url"}, "category": {"type": "text"}, "category_slug": {"type": "text"}, "region": {"type": "text"}},
+          "min_items": 1
+        },
+        "filter_categories": {"type": "array", "source": "query.directory_categories", "required": false, "on_missing": "skip_field",
+          "items": {"name": {"type": "text"}, "slug": {"type": "text"}}
+        }
+      }
+    }'::jsonb,
+    false, 'template', 'manual', true,
+    'structured_list', 'high',
+    '["directory", "listing", "grid", "filter", "industry-hub", "providers"]'::jsonb
+) ON CONFLICT (name) DO NOTHING;
+
+
+-- 8. filtered-result-grid
+INSERT INTO content_components (
+    name, display_name, function, category, component_level,
+    section_type, suitable_site_types, suitable_page_types,
+    description, html_template, input_schema,
+    is_dark_section, render_mode, created_from, is_active,
+    content_shape, visual_density, semantic_tags
+) VALUES (
+    'filtered-result-grid',
+    'Filtered Result Grid',
+    'filtered-result-grid',
+    'content',
+    'section',
+    'filtered-result-grid',
+    '["comparison", "directory"]'::jsonb,
+    '["index", "search-results"]'::jsonb,
+    'A grid of comparison result cards with filter controls, sort dropdown, and search. For price/service comparison sites.',
+    '<style>
+.filtered-result-grid-section {
+  padding: var(--spacing-section, 3rem 1.5rem);
+}
+.filtered-result-grid-section .results-container {
+  max-width: var(--container-max-width, 1200px);
+  margin: 0 auto;
+}
+.filtered-result-grid-section .results-controls {
+  background: var(--color-surface, #f8fafc);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.filtered-result-grid-section .controls-top {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.filtered-result-grid-section .results-search-input {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.375rem);
+  font-size: 0.875rem;
+  background: #fff;
+  color: var(--color-text, #1e293b);
+}
+.filtered-result-grid-section .results-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent, #3182ce);
+}
+.filtered-result-grid-section .results-sort {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.375rem);
+  font-size: 0.8125rem;
+  background: #fff;
+  color: var(--color-text, #1e293b);
+}
+.filtered-result-grid-section .controls-secondary {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.filtered-result-grid-section .filter-btn {
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.375rem);
+  background: #fff;
+  color: var(--section-text, var(--color-text, #334155));
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.filtered-result-grid-section .filter-btn:hover,
+.filtered-result-grid-section .filter-btn.active {
+  background: var(--color-primary, #3b82f6);
+  color: #fff;
+  border-color: var(--color-primary, #3b82f6);
+}
+.filtered-result-grid-section .results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+.filtered-result-grid-section .result-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.filtered-result-grid-section .result-card:hover {
+  box-shadow: var(--shadow, 0 4px 12px rgba(0,0,0,0.08));
+  border-color: var(--color-primary, #3b82f6);
+}
+.filtered-result-grid-section .result-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.filtered-result-grid-section .result-card-name {
+  color: var(--section-heading, var(--color-heading, #0f172a));
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+.filtered-result-grid-section .result-card-metric {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-accent, #3182ce);
+  white-space: nowrap;
+}
+.filtered-result-grid-section .result-card-desc {
+  color: var(--section-text, var(--color-text, #334155));
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  margin: 0;
+}
+.filtered-result-grid-section .result-card-tags {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.filtered-result-grid-section .result-card-tag {
+  font-size: 0.6875rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 2rem;
+  background: var(--color-surface, #f1f5f9);
+  color: var(--section-text-muted, var(--color-text-muted, #64748b));
+}
+.filtered-result-grid-section .result-card-cta {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: var(--color-primary, #3b82f6);
+  color: var(--color-primary-text, #ffffff);
+  border-radius: var(--border-radius, 0.375rem);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+  transition: background 0.15s;
+  margin-top: auto;
+}
+.filtered-result-grid-section .result-card-cta:hover {
+  background: var(--color-primary-hover, #2563eb);
+}
+.filtered-result-grid-section .results-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--section-text-muted, var(--color-text-muted, #64748b));
+}
+@media (max-width: 640px) {
+  .filtered-result-grid-section .results-grid { grid-template-columns: 1fr; }
+  .filtered-result-grid-section .controls-top { flex-direction: column; }
+}
+</style>
+<section class="filtered-result-grid-section" data-component="filtered-result-grid">
+  <div class="results-container">
+    <div class="results-controls">
+      <div class="controls-top">
+        <input type="text" class="results-search-input"
+               placeholder="{{.search_placeholder}}"
+               aria-label="Search results">
+        <select class="results-sort" aria-label="Sort results">
+          <option value="default">Sort: Recommended</option>
+          <option value="price_asc">Price: Low to High</option>
+          <option value="price_desc">Price: High to Low</option>
+        </select>
+      </div>
+      {{if .filter_types}}
+      <div class="controls-secondary">
+        <button class="filter-btn active" data-type="all">All</button>
+        {{range .filter_types}}<button class="filter-btn" data-type="{{.slug}}">{{.label}}</button>{{end}}
+      </div>
+      {{end}}
+    </div>
+    <div class="results-grid">
+      {{range .results}}
+      <div class="result-card" data-type="{{.type_slug}}">
+        <div class="result-card-header">
+          <h3 class="result-card-name">{{.name}}</h3>
+          {{if .metric}}<span class="result-card-metric">{{.metric}}</span>{{end}}
+        </div>
+        {{if .description}}<p class="result-card-desc">{{.description}}</p>{{end}}
+        {{if .tags}}
+        <div class="result-card-tags">
+          {{range .tags}}<span class="result-card-tag">{{.}}</span>{{end}}
+        </div>
+        {{end}}
+        {{if .cta_url}}<a href="{{.cta_url}}" class="result-card-cta">{{.cta_label}}</a>{{end}}
+      </div>
+      {{end}}
+    </div>
+    {{if not .results}}<div class="results-empty"><p>No results found.</p></div>{{end}}
+  </div>
+</section>
+<script>
+(function() {
+  var section = document.querySelector(".filtered-result-grid-section");
+  if (!section) return;
+  var btns = section.querySelectorAll(".filter-btn");
+  var cards = section.querySelectorAll(".result-card");
+  btns.forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      btns.forEach(function(b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      var t = btn.getAttribute("data-type");
+      cards.forEach(function(c) {
+        c.style.display = (t === "all" || c.getAttribute("data-type") === t) ? "" : "none";
+      });
+    });
+  });
+})();
+</script>',
+    '{
+      "fields": {
+        "search_placeholder": {"type": "text", "source": "llm", "required": true, "llm_guidance": "Placeholder text for the search input, e.g. Search by postcode or name..."},
+        "results": {"type": "array", "source": "query.comparison_results", "required": true, "on_missing": "skip_section",
+          "items": {"name": {"type": "text"}, "metric": {"type": "text"}, "description": {"type": "text"}, "type_slug": {"type": "text"}, "tags": {"type": "array"}, "cta_url": {"type": "url"}, "cta_label": {"type": "text"}},
+          "min_items": 1
+        },
+        "filter_types": {"type": "array", "source": "query.comparison_filter_types", "required": false, "on_missing": "skip_field",
+          "items": {"label": {"type": "text"}, "slug": {"type": "text"}}
+        }
+      }
+    }'::jsonb,
+    false, 'template', 'manual', true,
+    'structured_list', 'high',
+    '["comparison", "filter", "results", "grid", "search", "sort"]'::jsonb
+) ON CONFLICT (name) DO NOTHING;
+
+
+-- 9. product-card-with-cta
+INSERT INTO content_components (
+    name, display_name, function, category, component_level,
+    section_type, suitable_site_types, suitable_page_types,
+    description, html_template, input_schema,
+    is_dark_section, render_mode, created_from, is_active,
+    content_shape, visual_density, semantic_tags
+) VALUES (
+    'product-card-with-cta',
+    'Product Card with CTA',
+    'product-card-with-cta',
+    'content',
+    'section',
+    'product-card-with-cta',
+    '["affiliate", "comparison"]'::jsonb,
+    '["index", "category", "review"]'::jsonb,
+    'Product cards for affiliate sites with image, rating, price, affiliate CTA, and review link. Includes required disclosure.',
+    '<style>
+.product-card-with-cta-section {
+  padding: var(--spacing-section, 4rem 1.5rem);
+}
+.product-card-with-cta-section .products-container {
+  max-width: var(--container-max-width, 1200px);
+  margin: 0 auto;
+}
+.product-card-with-cta-section .products-title {
+  color: var(--section-heading, var(--color-heading, #0f172a));
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem;
+}
+.product-card-with-cta-section .products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+.product-card-with-cta-section .product-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s;
+}
+.product-card-with-cta-section .product-card:hover {
+  box-shadow: var(--shadow, 0 4px 12px rgba(0,0,0,0.08));
+}
+.product-card-with-cta-section .product-card-image {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: contain;
+  background: #f8fafc;
+  padding: 1rem;
+}
+.product-card-with-cta-section .product-card-body {
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.product-card-with-cta-section .product-card-name {
+  color: var(--section-heading, var(--color-heading, #0f172a));
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.375rem;
+  line-height: 1.3;
+}
+.product-card-with-cta-section .product-card-rating {
+  color: var(--color-accent, #f59e0b);
+  font-size: 0.8125rem;
+  margin-bottom: 0.5rem;
+}
+.product-card-with-cta-section .product-card-rating .rating-count {
+  color: var(--section-text-muted, var(--color-text-muted, #64748b));
+}
+.product-card-with-cta-section .product-card-tagline {
+  color: var(--section-text, var(--color-text, #334155));
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
+}
+.product-card-with-cta-section .product-card-price {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--section-heading, var(--color-heading, #0f172a));
+  margin-bottom: 0.75rem;
+}
+.product-card-with-cta-section .product-card-cta {
+  display: block;
+  padding: 0.625rem 1rem;
+  background: var(--color-primary, #3b82f6);
+  color: var(--color-primary-text, #ffffff);
+  border-radius: var(--border-radius, 0.375rem);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+  transition: background 0.15s;
+  margin-top: auto;
+}
+.product-card-with-cta-section .product-card-cta:hover {
+  background: var(--color-primary-hover, #2563eb);
+}
+.product-card-with-cta-section .product-card-review {
+  display: block;
+  text-align: center;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--color-primary, #3b82f6);
+  text-decoration: none;
+}
+.product-card-with-cta-section .product-card-disclosure {
+  font-size: 0.6875rem;
+  color: var(--section-text-muted, var(--color-text-muted, #94a3b8));
+  text-align: center;
+  margin-top: 0.375rem;
+}
+@media (max-width: 640px) {
+  .product-card-with-cta-section .products-grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .product-card-with-cta-section .product-card-image { padding: 0.5rem; }
+}
+@media (max-width: 400px) {
+  .product-card-with-cta-section .products-grid { grid-template-columns: 1fr; }
+}
+</style>
+<section class="product-card-with-cta-section" data-component="product-card-with-cta">
+  <div class="products-container">
+    {{if .headline}}<h2 class="products-title">{{.headline}}</h2>{{end}}
+    <div class="products-grid">
+      {{range .products}}
+      <div class="product-card">
+        {{if .image_url}}<img src="{{.image_url}}" alt="{{.name}}" class="product-card-image" loading="lazy">{{end}}
+        <div class="product-card-body">
+          <h3 class="product-card-name">{{.name}}</h3>
+          {{if .rating}}<div class="product-card-rating">{{.rating_stars}} <span class="rating-count">({{.rating_count}})</span></div>{{end}}
+          {{if .tagline}}<p class="product-card-tagline">{{.tagline}}</p>{{end}}
+          {{if .price}}<div class="product-card-price">{{.price}}</div>{{end}}
+          <a href="{{.affiliate_url}}" class="product-card-cta" rel="nofollow sponsored">{{.cta_text}}</a>
+          {{if .review_url}}<a href="{{.review_url}}" class="product-card-review">Read review &rarr;</a>{{end}}
+          <span class="product-card-disclosure">Ad</span>
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+</section>',
+    '{
+      "fields": {
+        "headline": {"type": "text", "source": "llm", "required": false, "on_missing": "skip_field", "llm_guidance": "Optional section heading like Top Picks, Featured Products"},
+        "products": {"type": "array", "source": "query.affiliate_products", "required": true, "on_missing": "skip_section",
+          "items": {"name": {"type": "text"}, "image_url": {"type": "image"}, "rating": {"type": "text"}, "rating_stars": {"type": "text"}, "rating_count": {"type": "text"}, "tagline": {"type": "text"}, "price": {"type": "text"}, "affiliate_url": {"type": "url"}, "cta_text": {"type": "text"}, "review_url": {"type": "url"}},
+          "min_items": 1
+        }
+      }
+    }'::jsonb,
+    false, 'template', 'manual', true,
+    'structured_card', 'high',
+    '["affiliate", "product", "card", "cta", "commerce", "review"]'::jsonb
+) ON CONFLICT (name) DO NOTHING;
+
+
+-- 10. product-grid
+INSERT INTO content_components (
+    name, display_name, function, category, component_level,
+    section_type, suitable_site_types, suitable_page_types,
+    description, html_template, input_schema,
+    is_dark_section, render_mode, created_from, is_active,
+    content_shape, visual_density, semantic_tags
+) VALUES (
+    'product-grid',
+    'Product Grid',
+    'product-grid',
+    'content',
+    'section',
+    'product-grid',
+    '["ecommerce", "marketplace"]'::jsonb,
+    '["index", "category", "product-listing"]'::jsonb,
+    'Owned-catalogue product grid with images, pricing, sale badges, and add-to-cart buttons. For ecommerce storefronts.',
+    '<style>
+.product-grid-section {
+  padding: var(--spacing-section, 4rem 1.5rem);
+}
+.product-grid-section .pg-container {
+  max-width: var(--container-max-width, 1200px);
+  margin: 0 auto;
+}
+.product-grid-section .pg-title {
+  color: var(--section-heading, var(--color-heading, #0f172a));
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem;
+}
+.product-grid-section .pg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+.product-grid-section .pg-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  overflow: hidden;
+  position: relative;
+  transition: box-shadow 0.2s;
+}
+.product-grid-section .pg-card:hover {
+  box-shadow: var(--shadow, 0 4px 12px rgba(0,0,0,0.08));
+}
+.product-grid-section .pg-card-image-wrap {
+  position: relative;
+  background: #ffffff;
+  padding: 0.75rem;
+}
+.product-grid-section .pg-card-image {
+  width: 100%;
+  aspect-ratio: 1/1;
+  object-fit: contain;
+}
+.product-grid-section .pg-card-badge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.125rem 0.5rem;
+  border-radius: 2rem;
+  text-transform: uppercase;
+}
+.product-grid-section .pg-card-badge--sale {
+  background: #ef4444;
+  color: #fff;
+}
+.product-grid-section .pg-card-badge--new {
+  background: var(--color-secondary, #64748b);
+  color: var(--color-secondary-text, #fff);
+}
+.product-grid-section .pg-card-body {
+  padding: 1rem;
+}
+.product-grid-section .pg-card-name {
+  color: var(--section-heading, var(--color-heading, #0f172a));
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 0 0 0.375rem;
+  line-height: 1.3;
+}
+.product-grid-section .pg-card-price {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--section-heading, var(--color-heading, #0f172a));
+  margin-bottom: 0.125rem;
+}
+.product-grid-section .pg-card-price-original {
+  font-size: 0.8125rem;
+  color: var(--section-text-muted, var(--color-text-muted, #94a3b8));
+  text-decoration: line-through;
+  margin-left: 0.375rem;
+  font-weight: 400;
+}
+.product-grid-section .pg-card-rating {
+  color: var(--color-accent, #f59e0b);
+  font-size: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.product-grid-section .pg-card-btn {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+  background: var(--color-primary, #3b82f6);
+  color: var(--color-primary-text, #ffffff);
+  border: none;
+  border-radius: var(--border-radius, 0.375rem);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.product-grid-section .pg-card-btn:hover {
+  background: var(--color-primary-hover, #2563eb);
+}
+@media (max-width: 768px) {
+  .product-grid-section .pg-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; }
+}
+</style>
+<section class="product-grid-section" data-component="product-grid">
+  <div class="pg-container">
+    {{if .headline}}<h2 class="pg-title">{{.headline}}</h2>{{end}}
+    <div class="pg-grid">
+      {{range .products}}
+      <div class="pg-card">
+        <div class="pg-card-image-wrap">
+          {{if .badge}}<span class="pg-card-badge pg-card-badge--{{.badge_type}}">{{.badge}}</span>{{end}}
+          {{if .image_url}}<img src="{{.image_url}}" alt="{{.name}}" class="pg-card-image" loading="lazy">{{end}}
+        </div>
+        <div class="pg-card-body">
+          <h3 class="pg-card-name">{{.name}}</h3>
+          <div class="pg-card-price">
+            {{.price}}
+            {{if .original_price}}<span class="pg-card-price-original">{{.original_price}}</span>{{end}}
+          </div>
+          {{if .rating}}<div class="pg-card-rating">{{.rating_stars}}</div>{{end}}
+          <button class="pg-card-btn" data-product-id="{{.product_id}}">{{.button_text}}</button>
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+</section>',
+    '{
+      "fields": {
+        "headline": {"type": "text", "source": "llm", "required": false, "on_missing": "skip_field", "llm_guidance": "Optional section heading like Featured Products, Shop Now"},
+        "products": {"type": "array", "source": "query.products", "required": true, "on_missing": "skip_section",
+          "items": {"name": {"type": "text"}, "image_url": {"type": "image"}, "price": {"type": "text"}, "original_price": {"type": "text"}, "badge": {"type": "text"}, "badge_type": {"type": "text"}, "rating": {"type": "text"}, "rating_stars": {"type": "text"}, "product_id": {"type": "text"}, "button_text": {"type": "text"}},
+          "min_items": 1
+        }
+      }
+    }'::jsonb,
+    false, 'template', 'manual', true,
+    'structured_card', 'high',
+    '["ecommerce", "product", "grid", "shop", "storefront", "cart"]'::jsonb
+) ON CONFLICT (name) DO NOTHING;
+
+
+-- ----------------------------------------------------------------------------
+-- Verify
+-- ----------------------------------------------------------------------------
+SELECT
+    function,
+    component_level,
+    display_name,
+    suitable_site_types,
+    content_shape,
+    created_from
+FROM content_components
+WHERE function IN (
+    'header-with-categories',
+    'header-minimal-tool',
+    'header-with-search',
+    'header-docs',
+    'header-with-cart-or-nav',
+    'footer-with-disclaimer',
+    'directory-listing',
+    'filtered-result-grid',
+    'product-card-with-cta',
+    'product-grid'
+)
+AND is_active = true
+ORDER BY component_level, function;
+
