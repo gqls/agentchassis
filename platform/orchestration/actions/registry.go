@@ -665,6 +665,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Replace hardcoded hex colors with CSS variables in component styles",
 		IsLocal:     true,
 	},
+	"fork_theme_from_site": {
+		Handler:     ForkThemeFromSiteAction,
+		Category:    "site",
+		Description: "Fork an adopted site's generated theme into the reusable theme library with HITL review",
+		IsLocal:     true,
+	},
 	"link_site_components": {
 		Handler:     LinkSiteComponentsAction,
 		Category:    "site",

@@ -321,23 +321,54 @@ func classifyFinding(f auditFinding, pages map[string]pageInfo, siteID uuid.UUID
 
 	if !isPlaceholder {
 		if p, exists := pages[pageName]; exists {
-			// Page exists → content rewrite on existing page
+			// Page exists. Routing depends on the nature of the finding:
+			//   - gap: missing content on an existing page → rebuild (not rewrite)
+			//   - tone: stylistic adjustment to existing content → tone_shift
+			//   - other (content, differentiation, structure): rewrite existing content
 			pageID := p.ID
-			itemType := "content_rewrite"
-			if category == "tone" {
-				itemType = "tone_shift"
-			}
 			spec["page_name"] = pageName
 
-			return classifiedFinding{
-				ItemType:     itemType,
-				HandlerAgent: "page-build-handler",
-				Severity:     severity,
-				Priority:     priority,
-				PageID:       &pageID,
-				PageName:     pageName,
-				Spec:         spec,
-				DedupKey:     fmt.Sprintf("%s_%s_%s_%s", auditSource, itemType, pageName, siteID),
+			switch category {
+			case "gap":
+				// Missing content on an existing page — trigger a rebuild.
+				// The page-build-handler will regenerate sections that are empty
+				// or have missing data. This is structurally different from
+				// rewriting existing content — empty sections need building, not editing.
+				return classifiedFinding{
+					ItemType:     "needs_content_page",
+					HandlerAgent: "page-build-handler",
+					Severity:     severity,
+					Priority:     priority,
+					PageID:       &pageID,
+					PageName:     pageName,
+					Spec:         spec,
+					DedupKey:     fmt.Sprintf("%s_needs_content_page_%s_%s", auditSource, pageName, siteID),
+				}
+
+			case "tone":
+				return classifiedFinding{
+					ItemType:     "tone_shift",
+					HandlerAgent: "page-build-handler",
+					Severity:     severity,
+					Priority:     priority,
+					PageID:       &pageID,
+					PageName:     pageName,
+					Spec:         spec,
+					DedupKey:     fmt.Sprintf("%s_tone_shift_%s_%s", auditSource, pageName, siteID),
+				}
+
+			default:
+				// content, differentiation, structure, etc. → rewrite existing content
+				return classifiedFinding{
+					ItemType:     "content_rewrite",
+					HandlerAgent: "page-build-handler",
+					Severity:     severity,
+					Priority:     priority,
+					PageID:       &pageID,
+					PageName:     pageName,
+					Spec:         spec,
+					DedupKey:     fmt.Sprintf("%s_content_rewrite_%s_%s", auditSource, pageName, siteID),
+				}
 			}
 		}
 	}

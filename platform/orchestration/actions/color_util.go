@@ -151,6 +151,18 @@ var paletteTextPreference = []string{
 	"primary",
 }
 
+const (
+	// Minimum contrast ratio for body text on section backgrounds. Below WCAG AA
+	// body (4.5) but above WCAG AA large-text (3.0). Deliberately loose to preserve
+	// palette character — picks softer palette colours over clinical pure-white fallback.
+	sectionBodyMinContrast = 3.0
+
+	// Minimum contrast ratio for section headings. Headings are large and bold so
+	// readability holds at lower ratios; this lets accent/warm palette colours come
+	// through on decorative titles.
+	sectionHeadingMinContrast = 2.0
+)
+
 // pickReadableOnBackground returns a text colour (hex) suitable for rendering
 // on bgHex. It walks paletteTextPreference and returns the first colour whose
 // contrast ratio is >= minRatio. If no palette colour qualifies, it falls
