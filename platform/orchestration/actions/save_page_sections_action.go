@@ -141,6 +141,9 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 
 	if metaField, ok := config["sections_metadata_field"].(string); ok && metaField != "" {
 		metaData := datahelpers.ExtractNestedField(params.CollectedData, metaField)
+		params.Logger.Info("SavePageSectionsAction: metadata field check",
+			zap.String("field", metaField),
+			zap.Bool("metadata_present", metaData != nil))
 		if metaData != nil {
 			sections = extractSectionsFromMetadata(metaData, params.Logger)
 			if len(sections) > 0 {
@@ -517,6 +520,10 @@ func saveSectionsExtractFromHTML(html string, logger *zap.Logger) []SectionData 
 //	slot_name "differentiators-section" → function "differentiators" (suffix strip)
 //	metadata ComponentName differs from data-component attr → prefer HTML attr
 func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []SectionData, logger *zap.Logger) {
+	logger.Info("enrichSectionsWithComponentIDs: invoked",
+		zap.Int("section_count", len(sections)),
+		zap.Bool("db_nil", db == nil))
+
 	dataComponentRe := regexp.MustCompile(`data-component="([^"]+)"`)
 
 	for i := range sections {
