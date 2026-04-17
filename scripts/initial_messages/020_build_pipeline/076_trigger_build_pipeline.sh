@@ -196,14 +196,15 @@ kubectl -n ai-persona-system logs --tail=500 -l agent-type=content-feed-orchestr
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=component-template-fixer -f | tee logs-component-template-fixer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-build-handler -f | tee logs-page-build-handler.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-content-writer -f | tee logs-page-content-writer.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-rerender -f | tee logs-page-rerender.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=rerender-pages -f | tee logs-rerender-pages.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=site-review-agent -f | tee logs-site-review-agent.json
 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=section-editor -f | tee logs-section-editor.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=deployer-agent -f | tee logs-deployer-agent.json
-kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-rerender -f | tee logs-page-rerender.json
-kubectl -n ai-persona-system logs --tail=500 -l agent-type=rerender-pages -f | tee logs-rerender-pages.json
+
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-generator -f | tee logs-image-generator.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-build-handler -f | tee logs-image-build-handler.json
 kubectl -n ai-persona-system logs --tail=300 -l app=kafka-scheduler -f | tee logs-kafka-scheduler.json

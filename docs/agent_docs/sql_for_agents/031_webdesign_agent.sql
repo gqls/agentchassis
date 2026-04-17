@@ -2679,4 +2679,97 @@ SELECT
 FROM agent_definitions
 WHERE type = 'webdesign-agent' AND deleted_at IS NULL;
 
+---
+      -- add fork for css theme
+
+-- Patch: webdesign-agent workflow — route to install_theme when site has no collection
+--
+-- Adds two workflow steps to the existing webdesign-agent:
+--   1. `check_should_install` conditional: if the site has no style_collection_id,
+--      route to `install_theme`; otherwise go straight to `complete`.
+--   2. `install_theme`: calls `fork_theme_from_site` with `install_on_site: true`,
+--      which inserts css_themes + style_collections and sets sites.style_collection_id.
+--
+-- Also changes the `check_should_fork.else_step` from "complete" to
+-- "check_should_install" so sites without explicit fork requests still get
+-- their theme installed.
+--
+-- Existing behaviour preserved:
+--   - `fork_theme` (library contribution) still runs when input_data.should_fork_theme == true
+--   - Direct API callers who neither fork nor install still complete cleanly
+--     (they will hit install_theme only if the site has no collection — which is
+--      the correct behaviour: a site with no theme should get one)
+--
+-- Prerequisite:
+--   Go patch to fork_theme_from_site_action.go adding `install_on_site` flag must
+--   be DEPLOYED before this SQL is applied. Without the flag, the install_theme
+--   step would run in library-contribution mode and fail to link the site.
+
+BEGIN;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        jsonb_set(
+            default_config,
+            '{workflow,steps,check_should_fork,config,else_step}',
+            '"check_should_install"'::jsonb
+        ),
+        '{workflow,steps,check_should_install}',
+        '{
+            "action": "conditional",
+            "config": {
+                "condition": "site_context.style_collection_id == null",
+                "then_step": "install_theme",
+                "else_step": "complete"
+            },
+            "description": "Install generated theme on site if no collection is linked yet"
+        }'::jsonb
+    ),
+    '{workflow,steps,install_theme}',
+    '{
+        "action": "fork_theme_from_site",
+        "config": {
+            "domain_field": "site_context.domain",
+            "site_id_field": "site_context.site_id",
+            "design_spec_field": "design_spec.result",
+            "rendered_css_field": "generated_css.result",
+            "current_collection_id_field": "site_context.style_collection_id",
+            "install_on_site": true
+        },
+        "next_step": "complete",
+        "error_step": "complete",
+        "description": "Persist theme + collection and link to site (sets sites.style_collection_id)",
+        "output_field": "install_result"
+    }'::jsonb
+)
+WHERE type = 'webdesign-agent'
+  AND is_active = true;
+
+-- Also extend the complete step's output_fields so the install result is
+-- surfaced to callers (e.g. the work item result jsonb).
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow,steps,complete,config,output_fields}',
+    '["design_spec", "css_deployed", "site_context", "install_result", "fork_result"]'::jsonb
+)
+WHERE type = 'webdesign-agent'
+  AND is_active = true;
+
+-- Verify structure
+SELECT
+    default_config #>> '{workflow,steps,check_should_fork,config,else_step}'        AS fork_else,
+    default_config #>> '{workflow,steps,check_should_install,action}'               AS install_cond_action,
+    default_config #>> '{workflow,steps,check_should_install,config,condition}'     AS install_condition,
+    default_config #>> '{workflow,steps,check_should_install,config,then_step}'     AS install_then,
+    default_config #>> '{workflow,steps,install_theme,action}'                      AS install_action,
+    default_config #>> '{workflow,steps,install_theme,config,install_on_site}'      AS install_flag,
+    default_config #>> '{workflow,steps,install_theme,next_step}'                   AS install_next,
+    default_config #>> '{workflow,steps,complete,config,output_fields}'             AS complete_outputs
+FROM agent_definitions
+WHERE type = 'webdesign-agent' AND is_active = true;
+
+COMMIT;
+
 

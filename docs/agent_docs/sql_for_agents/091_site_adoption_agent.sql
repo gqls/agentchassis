@@ -2025,3 +2025,33 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'site-adoption-agent'
   AND is_active = true;
+
+---
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                jsonb_set(
+                        default_config,
+                        '{workflow,steps,write_design_intent,config,spec_data}',
+                        '"design_intent_generated.result"'::jsonb
+                ),
+                '{workflow,steps,apply_plan,next_step}',
+                '"populate_nav"'::jsonb
+        ),
+        '{workflow,steps,populate_nav}',
+        '{
+            "action": "populate_nav_tables",
+            "config": {
+                "site_id": "site_record.site_id",
+                "max_header_items": 8
+            },
+            "next_step": "generate_design_intent",
+            "error_step": "generate_design_intent",
+            "description": "Rebuild nav tables from adopted pages (delete-and-insert, clears stale entries)",
+            "output_field": "nav_data"
+        }'::jsonb
+                     )
+WHERE type = 'site-adoption-agent'
+  AND is_active = true;
+

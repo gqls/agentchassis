@@ -1,23 +1,30 @@
 // FILE: platform/orchestration/actions/fork_theme_from_site_action.go
 //
-// ForkThemeFromSiteAction forks an adopted site's generated CSS into the
-// reusable theme library. Called from within the webdesign-agent's workflow
-// when should_fork_theme is true on the agent's input.
+// ForkThemeFromSiteAction persists a site's generated CSS as a css_themes +
+// style_collections pair. Two modes controlled by the `install_on_site`
+// config flag:
 //
-// What it does:
+//   install_on_site = false (default — library contribution mode):
+//     Called when should_fork_theme is true on the agent's input.
+//     Inserts theme + collection with needs_review = true, creates a
+//     needs_theme_review HITL work item. The site's own style_collection_id
+//     is NOT modified. Failure is non-fatal.
+//
+//   install_on_site = true (adoption install mode):
+//     Called from the webdesign-agent's adoption flow when the site has no
+//     style_collection yet. Inserts theme + collection with needs_review =
+//     false, skips the HITL work item, and sets sites.style_collection_id
+//     to the new collection's id. Failure IS surfaced as a non-fatal skip
+//     but the site will not have its theme linked — the caller should check
+//     `installed == true` in the result.
+//
+// Either mode:
 //   1. Reads design_spec, rendered_css from collected data
 //   2. Loads the site's current style_collection (for lineage, if any)
 //   3. Produces a templated css_template from the rendered CSS
-//   4. Inserts css_themes + style_collections rows (needs_review = true)
-//   5. Creates a needs_theme_review HITL work item
-//   6. All in one transaction — on failure, nothing persists
+//   4. Inserts css_themes + style_collections rows (one transaction)
 //
-// Failure is never fatal to the parent workflow: the adopted site already
-// has its CSS deployed. A failed fork just means the theme isn't added
-// to the library this time. Error details are returned for logging, not
-// propagated.
-//
-// Registration:
+// Registration: unchanged. Still registered as "fork_theme_from_site".
 //   "fork_theme_from_site": {
 //       Handler:     ForkThemeFromSiteAction,
 //       Category:    "site",
@@ -47,11 +54,13 @@ var ForkThemeFromSiteInputSpec = datahelpers.ActionInputSpec{
 		"design_spec_field",
 		"rendered_css_field",
 		"current_collection_id_field",
+		"install_on_site",
 	},
 	Defaults: map[string]interface{}{
 		"design_spec_field":           "design_spec.result",
 		"rendered_css_field":          "generated_css.result",
 		"current_collection_id_field": "site_context.style_collection_id",
+		"install_on_site":             false,
 	},
 	Deprecated: map[string]string{},
 }
@@ -97,6 +106,7 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 	designSpecField := datahelpers.GetStringField(config, "design_spec_field", "design_spec.result")
 	renderedCSSField := datahelpers.GetStringField(config, "rendered_css_field", "generated_css.result")
 	currentCollectionField := datahelpers.GetStringField(config, "current_collection_id_field", "site_context.style_collection_id")
+	installOnSite := datahelpers.GetBoolField(config, "install_on_site", false)
 
 	designSpec, _ := datahelpers.ExtractNestedField(params.CollectedData, designSpecField).(map[string]interface{})
 	if designSpec == nil {
@@ -167,7 +177,12 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 		origin = "fork_of_adopted"
 	}
 
-	// ── Transaction: themes + collections + work item ──
+	// In install-on-site mode the generated theme IS the site's theme, not
+	// a library contribution pending review, so both rows are written with
+	// needs_review = false and no HITL work item is created.
+	needsReview := !installOnSite
+
+	// ── Transaction: themes + collections + (HITL item OR site link) ──
 	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
 		logger.Warn("fork_theme_from_site: failed to begin tx, skipping", zap.Error(err))
@@ -191,13 +206,14 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 		) VALUES (
 			$1, $2, $3, $4,
 			$5::jsonb, $6::jsonb, true,
-			$7, true,
+			$7, $12,
 			$8, $9, $10, $11
 		) RETURNING id
 	`, themeName, displayName, renderedCSS, templatedCSS,
 		string(paletteJSON), string(typographyJSON),
 		origin,
 		parentThemeID, siteID, domain, forkedAt,
+		needsReview,
 	).Scan(&newThemeID)
 	if err != nil {
 		logger.Warn("fork_theme_from_site: theme insert failed, skipping", zap.Error(err))
@@ -240,7 +256,7 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 			$1, $2, $3,
 			$4, $5,
 			$6::jsonb, $7::jsonb, $8, $9::jsonb,
-			true, $10, true,
+			true, $10, $15,
 			$11, $12, $13, $14
 		) RETURNING id
 	`, collectionName, displayName, newThemeID,
@@ -248,53 +264,73 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 		string(paletteJSON), string(typographyJSON), category, string(industryTagsJSON),
 		origin,
 		parentCollectionID, siteID, domain, forkedAt,
+		needsReview,
 	).Scan(&newCollectionID)
 	if err != nil {
 		logger.Warn("fork_theme_from_site: collection insert failed, skipping", zap.Error(err))
 		return forkSkipped("collection insert failed: " + err.Error()), nil
 	}
 
-	// Insert HITL work item
-	spec := map[string]interface{}{
-		"theme_id":             newThemeID.String(),
-		"collection_id":        newCollectionID.String(),
-		"theme_name":           themeName,
-		"collection_name":      collectionName,
-		"source_domain":        domain,
-		"source_site_id":       siteID.String(),
-		"forked_from_theme_id": uuidPtrString(parentThemeID),
-		"palette":              palette,
-		"typography":           typography,
-		"preview_url":          "https://" + domain,
-		"on_approve": map[string]interface{}{
-			"update_theme":      map[string]interface{}{"needs_review": false},
-			"update_collection": map[string]interface{}{"needs_review": false},
-		},
-		"on_reject": map[string]interface{}{
-			"update_theme":      map[string]interface{}{"is_active": false, "needs_review": false},
-			"update_collection": map[string]interface{}{"is_active": false, "needs_review": false},
-		},
-	}
-	specJSON, _ := json.Marshal(spec)
-
-	workItemKey := fmt.Sprintf("theme_review:%s", newThemeID.String())
-	summary := fmt.Sprintf("Review adopted theme from %s", domain)
-
+	// Either link the site to the new collection (install mode) or create
+	// a HITL review work item (library-contribution mode). Both paths keep
+	// work inside the same transaction so a failure rolls theme + collection
+	// back cleanly.
 	var workItemID uuid.UUID
-	err = tx.QueryRowContext(ctx, `
-		INSERT INTO site_work_items (
-			site_id, source, pipeline, item_type, severity, summary,
-			spec, priority, handler_agent, status, created_by, item_key
-		) VALUES (
-			$1, 'theme-fork', 'design', 'needs_theme_review', 'medium',
-			$2, $3::jsonb, 60, 'theme-review-handler', 'needs_human_review',
-			'fork_theme_from_site', $4
-		) ON CONFLICT DO NOTHING
-		RETURNING id
-	`, siteID, summary, string(specJSON), workItemKey).Scan(&workItemID)
-	if err != nil && err != sql.ErrNoRows {
-		logger.Warn("fork_theme_from_site: work item insert failed, skipping", zap.Error(err))
-		return forkSkipped("work item insert failed: " + err.Error()), nil
+	if installOnSite {
+		// Install mode: link the site to the new collection.
+		// This is the step that actually makes the site use the theme.
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE sites SET style_collection_id = $1, updated_at = now() WHERE id = $2`,
+			newCollectionID, siteID,
+		); err != nil {
+			logger.Warn("fork_theme_from_site: site link failed, skipping", zap.Error(err))
+			return forkSkipped("site link failed: " + err.Error()), nil
+		}
+		logger.Info("fork_theme_from_site: installing on site",
+			zap.String("site_id", siteID.String()),
+			zap.String("collection_id", newCollectionID.String()))
+	} else {
+		// Library-contribution mode: create HITL review work item.
+		spec := map[string]interface{}{
+			"theme_id":             newThemeID.String(),
+			"collection_id":        newCollectionID.String(),
+			"theme_name":           themeName,
+			"collection_name":      collectionName,
+			"source_domain":        domain,
+			"source_site_id":       siteID.String(),
+			"forked_from_theme_id": uuidPtrString(parentThemeID),
+			"palette":              palette,
+			"typography":           typography,
+			"preview_url":          "https://" + domain,
+			"on_approve": map[string]interface{}{
+				"update_theme":      map[string]interface{}{"needs_review": false},
+				"update_collection": map[string]interface{}{"needs_review": false},
+			},
+			"on_reject": map[string]interface{}{
+				"update_theme":      map[string]interface{}{"is_active": false, "needs_review": false},
+				"update_collection": map[string]interface{}{"is_active": false, "needs_review": false},
+			},
+		}
+		specJSON, _ := json.Marshal(spec)
+
+		workItemKey := fmt.Sprintf("theme_review:%s", newThemeID.String())
+		summary := fmt.Sprintf("Review adopted theme from %s", domain)
+
+		err = tx.QueryRowContext(ctx, `
+			INSERT INTO site_work_items (
+				site_id, source, pipeline, item_type, severity, summary,
+				spec, priority, handler_agent, status, created_by, item_key
+			) VALUES (
+				$1, 'theme-fork', 'design', 'needs_theme_review', 'medium',
+				$2, $3::jsonb, 60, 'theme-review-handler', 'needs_human_review',
+				'fork_theme_from_site', $4
+			) ON CONFLICT DO NOTHING
+			RETURNING id
+		`, siteID, summary, string(specJSON), workItemKey).Scan(&workItemID)
+		if err != nil && err != sql.ErrNoRows {
+			logger.Warn("fork_theme_from_site: work item insert failed, skipping", zap.Error(err))
+			return forkSkipped("work item insert failed: " + err.Error()), nil
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -302,17 +338,19 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 		return forkSkipped("commit failed: " + err.Error()), nil
 	}
 
-	logger.Info("fork_theme_from_site: forked theme into library",
+	logger.Info("fork_theme_from_site: persisted theme",
 		zap.String("theme_name", themeName),
 		zap.String("theme_id", newThemeID.String()),
 		zap.String("collection_id", newCollectionID.String()),
 		zap.String("work_item_id", workItemID.String()),
 		zap.String("origin", origin),
 		zap.String("source_domain", domain),
+		zap.Bool("installed_on_site", installOnSite),
 	)
 
 	return map[string]interface{}{
 		"forked":          true,
+		"installed":       installOnSite,
 		"theme_id":        newThemeID.String(),
 		"theme_name":      themeName,
 		"collection_id":   newCollectionID.String(),

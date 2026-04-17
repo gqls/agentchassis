@@ -10,6 +10,10 @@
 //
 // Returns:
 //   - site_id, domain, company_name, industry, tagline
+//   - style_collection_id: string UUID of the site's linked collection, or
+//     nil if the site has no collection yet. Surfaced so downstream steps
+//     (e.g. webdesign-agent's install_theme conditional) can test whether
+//     a theme is already installed.
 //   - pages: [{title, name, component_functions}]
 //   - all_component_functions: deduplicated list
 //   - color_palette, typography (from style_collection or content_data)
@@ -100,6 +104,16 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 		"industry":     getStringFromPaths(contentData, "industry", "reviewed_brief.industry"),
 		"tagline":      getStringFromPaths(contentData, "tagline", "reviewed_brief.tagline"),
 		"source":       "database",
+	}
+
+	// Surface style_collection_id so downstream steps can conditionally
+	// install a theme or skip. Explicit nil when absent makes the field
+	// present in the map — conditionals can test `== null` rather than
+	// the undefined "missing key" case.
+	if styleCollectionID != nil {
+		result["style_collection_id"] = styleCollectionID.String()
+	} else {
+		result["style_collection_id"] = nil
 	}
 
 	// --- Enrich from site_specs if content_data was sparse ---
