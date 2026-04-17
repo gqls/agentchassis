@@ -329,20 +329,20 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 			continue
 		}
 
-		// Never-primary page types go straight to utility
-		if neverPrimaryTypes[page.PageType] {
-			if page.InFooter || page.InHeader {
-				utility = append(utility, page)
-			}
-			continue
-		}
-
 		// Child pages (under /tools/, /blog/, /guides/ etc) are skipped entirely.
 		// They shouldn't appear in any nav — the parent listing page represents them.
 		if isChildPageURL(page.URL) {
 			logger.Info("classifyPagesForNav: skipping child page",
 				zap.String("name", page.Name),
 				zap.String("url", page.URL))
+			continue
+		}
+
+		// Never-primary page types go straight to utility
+		if neverPrimaryTypes[page.PageType] {
+			if page.InFooter || page.InHeader {
+				utility = append(utility, page)
+			}
 			continue
 		}
 
