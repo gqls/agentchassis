@@ -286,12 +286,6 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 		"404": true, "sitemap": true, "robots": true,
 	}
 
-	// Page types that should never appear in primary nav regardless of in_header flag.
-	// These are child pages that belong under a parent listing, not top-level nav.
-	neverPrimaryTypes := map[string]bool{
-		"blog-post": true, "tool": true, "entity-page": true,
-	}
-
 	// isChildPageURL returns true for pages that live under a category path,
 	// like /tools/something.html or /blog/something.html. These are child pages
 	// regardless of their page_type and should never appear in primary nav —
@@ -308,6 +302,12 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 			}
 		}
 		return false
+	}
+
+	// Page types that should never appear in primary nav regardless of in_header flag.
+	// These are child pages that belong under a parent listing, not top-level nav.
+	neverPrimaryTypes := map[string]bool{
+		"blog-post": true, "tool": true, "entity-page": true,
 	}
 
 	// Tiered primary nav candidates — collected then sorted by tier
@@ -340,7 +340,7 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 		// Child pages (under /tools/, /blog/, /guides/ etc) are skipped entirely.
 		// They shouldn't appear in any nav — the parent listing page represents them.
 		if isChildPageURL(page.URL) {
-			logger.Debug("classifyPagesForNav: skipping child page",
+			logger.Info("classifyPagesForNav: skipping child page",
 				zap.String("name", page.Name),
 				zap.String("url", page.URL))
 			continue
@@ -385,7 +385,7 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 func navPriorityTier(nameLower, pageType string) int {
 	// Tier 1 — core pages every site needs in primary nav
 	tier1 := map[string]bool{
-		"index": true, "services": true, "about": true, "contact": true,
+		"index": true, "services": true, "tools": true, "about": true, "contact": true,
 	}
 	if tier1[nameLower] {
 		return 1

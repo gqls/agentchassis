@@ -76,4 +76,34 @@ ORDER BY s.domain, p.name;
    JOIN sites s ON swi.site_id = s.id
    WHERE swi.item_type = 'nav_drift'
    ORDER BY swi.updated_at DESC;
-    
+
+
+ update nav position
+ UPDATE pages
+ SET in_header  = true,
+     nav_order  = 3,      -- places Tools between Services(2) and About(4)
+     updated_at = NOW()
+ WHERE id = '8d977dcf-a7fd-4fea-822d-b160071581fe';  -- tools, finetuning.uk
+
+ -- Sanity: two rows if we also want to see how-we-work's unchanged state
+ SELECT name, in_header, in_footer, nav_order
+ FROM pages
+ WHERE site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+   AND name IN ('tools', 'how-we-work');
+
+ COMMIT;
+ BEGIN
+    name   | nav_order
+ ----------+-----------
+  index    |         1
+  services |         2
+  about    |         4
+  contact  |         6
+  tools    |       100
+ (5 rows)
+
+ UPDATE 1
+     name     | in_header | in_footer | nav_order
+ -------------+-----------+-----------+-----------
+  how-we-work | t         | t         |       100
+  tools       | t         | t         |         3

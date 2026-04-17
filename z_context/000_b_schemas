@@ -19,14 +19,23 @@
 \d content_items
 \d css_themes
 \d agent_error_log
+\d style_collections
 \d
 
 
 
-SELECT type FROM agent_definitions;
+SELECT type, description FROM agent_definitions;
 
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > bk_agent_definitions_backup.sql
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t site_work_items > bk_site_work_items.sql
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t content_components > bk_content_components.sql
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t page_components > bk_page_components.sql
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t site_specs > bk_site_specs.sql
+
+/bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh deployments-all
+/bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh admin-dashboard
+/bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh user-frontend
+/bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh api-all
+/bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh agent-adapters
+/bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh agent-chassis-full
+/bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh agent-chassis-focused

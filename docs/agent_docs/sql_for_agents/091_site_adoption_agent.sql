@@ -2015,3 +2015,13 @@ SET default_config = jsonb_set(
         (default_config->'workflow'->'steps'->'crawl_site'->'config'->'scrape_config') || '{"max_age": 600000}'::jsonb
                      )
 WHERE type = 'site-adoption-agent';
+
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,write_design_intent,config,spec_data}',
+        '"design_intent_generated.result"'::jsonb
+                     )
+WHERE type = 'site-adoption-agent'
+  AND is_active = true;

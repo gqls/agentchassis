@@ -11539,3 +11539,43 @@ WHERE function IN (
 AND is_active = true
 ORDER BY component_level, function;
 
+---
+                                                     -- fix faqs for finetuning
+
+                                                     BEGIN;
+
+UPDATE content_components
+SET html_template = $TPL$<section id="{{.ComponentID}}" class="section section--faq" data-component="faq">
+  <div class="container container--narrow">
+    {{if .section_title}}<h2 class="section__title section__title--center">{{.section_title}}</h2>{{end}}
+    <div class="faq-list">
+      {{range .questions}}
+      <details class="faq-item">
+        <summary class="faq-item__question">{{.question}}</summary>
+        <p class="faq-item__answer">{{.answer}}</p>
+      </details>
+      {{end}}
+    </div>
+  </div>
+</section>$TPL$,
+    template_variable_count = NULL,
+    schema_field_count      = NULL,
+    template_closed         = NULL,
+    schema_template_synced  = NULL,
+    has_data_component      = NULL,
+    quality_score           = NULL,
+    quality_issues          = '[]'::jsonb,
+    quality_checked_at      = NULL,
+    updated_at              = NOW()
+WHERE id = 'd91e7be1-65ed-4a6d-b694-1f9a0ddfcd59';
+
+-- Verify before commit
+SELECT id,
+       (html_template LIKE '%{{range .questions}}%') AS has_range,
+       (html_template LIKE '%{{.question}}%')        AS refs_question,
+       (html_template LIKE '%data-component="faq"%') AS has_dc_attr,
+       LENGTH(html_template) AS len
+FROM content_components
+WHERE id = 'd91e7be1-65ed-4a6d-b694-1f9a0ddfcd59';
+
+COMMIT;

@@ -22,8 +22,8 @@ Bad:   social_proof, call_to_action, SocialProof, Hero, HERO
 **DB constraint:**
 ```sql
 ALTER TABLE content_components
-    ADD CONSTRAINT chk_function_kebab_case
-        CHECK (function = '' OR function ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$');
+ADD CONSTRAINT chk_function_kebab_case
+CHECK (function = '' OR function ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$');
 ```
 
 ### Uniqueness: one function, one active component
@@ -32,7 +32,7 @@ Enforced by partial unique index:
 
 ```sql
 CREATE UNIQUE INDEX idx_content_components_unique_active_function
-    ON content_components (function) WHERE is_active = true AND function != '';
+ON content_components (function) WHERE is_active = true AND function != '';
 ```
 
 For variants of the same concept, give each a distinct function: `hero`, `hero-split`, `hero-minimal`, `hero-fullwidth`.
@@ -86,6 +86,62 @@ Planner assigns function "social-proof" to a page section
 ### Lookup safety net
 
 `GetComponentWithFallback` tries: exact match → normalized form (underscore→hyphen) → generic fallback (`generic-text-block`). This prevents silent failures from legacy data but should not be relied upon.
+
+---
+
+## Component Quality Contract
+
+Every `content_components` row carries measurable quality metrics so the planner can prefer high-quality components and the improvement loop can target low-quality ones for regeneration.
+
+### Quality columns
+
+| Column | Type | Meaning |
+|---|---|---|
+| `template_variable_count` | int | Count of distinct `{{.foo}}` placeholders in `html_template` |
+| `schema_field_count` | int | Count of fields declared in `input_schema.fields` |
+| `template_closed` | bool | `<section>` opening and closing tags balance |
+| `schema_template_synced` | bool | Every template var has schema entry AND every schema field has template var |
+| `has_data_component` | bool | Root element has `data-component=` attribute |
+| `quality_score` | smallint (0–100) | Composite score (see formula below) |
+| `quality_checked_at` | timestamptz | When last scored |
+| `quality_issues` | jsonb array | Human-readable list of specific problems found |
+
+### Scoring formula
+
+Starts at 100, deducts for each violation:
+
+```
+-30 if template not closed (unbalanced <section> tags)
+-50 if section-level component has 0 template variables
+    (content likely hardcoded — not reusable across sites)
+-30 if template has variables but schema is empty
+    (content writer won't know what to produce)
+-20 if template/schema out of sync
+    (the two views of the same contract don't match)
+-10 if missing data-component attribute
+
+Floor at 0.
+```
+
+Tool-level components are allowed 0 template variables (their JS is the content).
+
+### When quality gets computed
+
+1. **On insert** — `store_generated_component` calls `ScoreAndPersistComponent` inline. Every newly-generated component has a score immediately.
+2. **Periodic audit** — `component-quality-auditor` agent runs on a schedule, scoring components whose `quality_checked_at` is NULL or older than 7 days.
+3. **Targeted rescan** — any agent can call `compute_component_quality` with `component_id`, `function`, or filter criteria (`below_score`, `stale_days`).
+
+### What low quality triggers
+
+Components scoring below 50 automatically get `needs_component_regeneration` work items created by the auditor. `component-creator` picks these up (via its existing workflow) and regenerates with the current prompt. Pages using the old component stay functional until the replacement is ready, at which point a rerender queues.
+
+### Planner preference
+
+When multiple components match a section type, `plan_sections` prefers higher `quality_score`. Components with NULL score are treated as "not yet graded" — they're used but not preferred.
+
+### For developers writing new components manually
+
+If you insert a component by hand (migration, SQL, admin UI), call `compute_component_quality` on that ID or set `quality_checked_at = NULL` to queue it for the next auditor run. Don't leave components unscored — that's what "quality tracking" means.
 
 ---
 
@@ -262,7 +318,7 @@ If any row has `linked = false`, the site will render with fallback HTML.
 ```sql
 SELECT s.domain, sc.slot_name
 FROM site_components sc
-         JOIN sites s ON s.id = sc.site_id
+JOIN sites s ON s.id = sc.site_id
 WHERE sc.component_id IS NULL
   AND sc.slot_name IN ('header', 'footer', 'head');
 ```
@@ -361,98 +417,8 @@ WHERE is_dark_section = true
 SELECT name, function FROM content_components
 WHERE is_dark_section = false AND component_level = 'section'
   AND (html_template LIKE '%background:%#1a1a2e%'
-    OR html_template LIKE '%background: var(--color-primary%');
+       OR html_template LIKE '%background: var(--color-primary%');
 ```
-
----
-
-## CSS Theme Template Contract
-
-`css_themes.css_template` is a Go template rendered by `render_css_from_spec_action` to produce each site's deployed `/assets/css/styles.css`. This section defines what a theme template owns, what the renderer owns, and how theme lineage flows through `css_themes` and `style_collections`.
-
-### Responsibility split
-
-**The renderer owns:**
-- Injecting palette values into `{{.Primary}}`, `{{.Surface}}`, etc. placeholders
-- Appending a block of `--section-*` defaults based on palette luminance, using `pickReadableOnBackground` to choose colours that preserve palette character (see `color_util.go`)
-- Appending component-specific CSS snippets from `content_components.css_snippet`
-
-**The theme template owns:**
-- Layout structure: container widths, grid systems, section padding patterns
-- Typography scale: heading sizes, line heights, font weights
-- Component-level styling: buttons, forms, cards, navigation
-- Base element rules using the fallback pattern from the CSS Colour Inheritance Model
-- Per-section backgrounds (painting `.differentiators-section` with `var(--color-surface)` for visual rhythm, for example)
-
-**Themes MUST NOT:**
-- Declare `--section-text`, `--section-heading`, `--section-text-muted`, `--section-surface`, or `--section-border` as defaults anywhere in the template. The renderer does this based on palette luminance. Duplicating it causes double-emission and freezes colour choices that should adapt to each site's palette.
-- Hardcode hex colours on text elements. Always use the `var(--section-*, var(--color-*))` fallback pattern from the CSS Colour Inheritance Model.
-
-### Template variables
-
-| Variable | Source | Example |
-|----------|--------|---------|
-| `{{.Primary}}` | `design_spec.color_scheme.primary` | `#1a365d` |
-| `{{.Secondary}}` | `design_spec.color_scheme.secondary` | `#2c5282` |
-| `{{.Accent}}` | `design_spec.color_scheme.accent` | `#3182ce` |
-| `{{.Background}}` | `design_spec.color_scheme.background` | `#ffffff` |
-| `{{.Surface}}` | `design_spec.color_scheme.surface` | `#f7fafc` |
-| `{{.Text}}` | `design_spec.color_scheme.text` | `#2d3748` |
-| `{{.TextMuted}}` | `design_spec.color_scheme.text_muted` | `#718096` |
-| `{{.Border}}` | `design_spec.color_scheme.border` | `#e2e8f0` |
-| `{{.FontFamily}}` | `design_spec.typography.font_family` | font stack |
-| `{{.HeadingFont}}` | `design_spec.typography.heading_font` | font stack |
-| `{{.BaseSize}}` | `design_spec.typography.base_size` | `16px` |
-| `{{.LineHeight}}` | `design_spec.typography.line_height` | `1.6` |
-| `{{.SectionPadding}}` | `design_spec.spacing.section_padding` | `4rem 0` |
-| `{{.ContainerMaxWidth}}` | `design_spec.spacing.container_max_width` | `1200px` |
-| `{{.SectionStyles}}` | Derived from site components + `is_dark_section` | Array for `{{range}}` |
-| `{{.Components}}` | `site_context.all_component_functions` | Array of function names |
-| `{{.BackgroundIsDark}}` | Computed luminance flag — available but renderer owns section defaults | boolean |
-| `{{.SurfaceIsDark}}` | Computed luminance flag — available but renderer owns section defaults | boolean |
-
-### Theme storage columns
-
-| Column | Purpose |
-|--------|---------|
-| `css_template` | Go template with `{{.Primary}}` etc. placeholders. Rendered per-site by `render_css_from_spec_action`. |
-| `css_content` | Frozen snapshot of rendered CSS at fork time. Reference-only — not used by the renderer. Preserves what the adopted site looked like at the moment of fork. |
-| `color_palette` | JSON palette stored on the theme row. Surfaced to selectors and the review UI. |
-| `typography` | JSON typography stored on the theme row. Same role. |
-
-Every adopted theme stores both `css_template` and `css_content`. Seed themes may populate only one (legacy themes have `css_content` only, and the renderer falls back to `standard-brochure`'s `css_template` — to be addressed by converting legacy themes to template form).
-
-### Lineage columns
-
-Present on both `css_themes` and `style_collections`:
-
-| Column | Meaning |
-|--------|---------|
-| `origin` | `seed`, `handcrafted`, `adopted`, or `fork_of_adopted` |
-| `forked_from_theme_id` / `forked_from_collection_id` | Parent theme/collection this was derived from. Null for seed themes. |
-| `source_site_id` | FK to `sites.id` — the site this theme was forked from. `ON DELETE SET NULL`. |
-| `source_domain` | Domain string preserved even if the source site is deleted. |
-| `forked_at` | When the fork happened. |
-| `needs_review` | True for newly-forked themes until HITL approves them. Selectors MUST filter out `needs_review = true` rows. |
-
-### Review gate
-
-Forked themes enter the library with `needs_review = true` and `is_active = true`. A `needs_theme_review` work item is created in the same transaction. They are not selectable by the style collection selector until a human approves (setting `needs_review = false`) or rejects (setting `is_active = false`).
-
-Rejection is safe and reversible: the source site retains its own deployed CSS; rejection only affects whether the theme is offered to *future* sites.
-
-### Forking rules
-
-When `webdesign-agent` runs with `should_fork_theme: true` in its input:
-
-1. After `deploy_css` and `update_site` succeed, the workflow calls `fork_theme_from_site`
-2. The action inserts `css_themes` + `style_collections` + `site_work_items` in one transaction
-3. If the site has an existing `style_collection_id`, its theme becomes `forked_from_theme_id` and `origin` is `fork_of_adopted`
-4. If not, `forked_from_theme_id` is null and `origin` is `adopted`
-5. Header/footer components from the source site's collection are reused as-is — forking components is a separate decision handled through `needs_new_component` work items when layout genuinely differs
-6. The theme is named `adopted-{domain-slug}`, with a timestamp suffix appended on name collision
-
-The fork never fails the parent workflow — a failed fork logs a warning and returns `{forked: false, reason: "..."}`. The adopted site already has its CSS deployed; the library contribution is best-effort.
 
 ---
 
@@ -466,12 +432,12 @@ All new `query_database` usage in workflow configs MUST use parameterised querie
 
 ```json
 {
-  "action": "query_database",
-  "config": {
-    "query": "SELECT domain, company_name FROM sites WHERE id = $1",
-    "params": ["site_record.site_id"],
-    "output_format": "object"
-  }
+    "action": "query_database",
+    "config": {
+        "query": "SELECT domain, company_name FROM sites WHERE id = $1",
+        "params": ["site_record.site_id"],
+        "output_format": "object"
+    }
 }
 ```
 
@@ -481,11 +447,11 @@ The `params` array contains dot-paths resolved from collected_data via `ExtractN
 
 ```json
 {
-  "action": "query_database",
-  "config": {
-    "query": "SELECT domain FROM sites WHERE id = '{{.input_data.site_id}}'",
-    "output_format": "object"
-  }
+    "action": "query_database",
+    "config": {
+        "query": "SELECT domain FROM sites WHERE id = '{{.input_data.site_id}}'",
+        "output_format": "object"
+    }
 }
 ```
 
@@ -555,28 +521,28 @@ This is why HTML patching was rejected as an edit mechanism — edits vanish on 
 
 ```json
 {
-  "fields": {
-    "headline": {
-      "type": "text",
-      "source": "llm",
-      "required": true
-    },
-    "team_members": {
-      "type": "array",
-      "source": "site_specs.identity.team",
-      "required": true,
-      "on_missing": "needs_human_review",
-      "min_items": 1,
-      "missing_reason": "Team member names, titles, and bios are needed"
-    },
-    "hero_image": {
-      "type": "image",
-      "source": "site_assets.hero",
-      "required": false,
-      "on_missing": "use_fallback",
-      "fallback": "/assets/images/hero.jpg"
+    "fields": {
+        "headline": {
+            "type": "text",
+            "source": "llm",
+            "required": true
+        },
+        "team_members": {
+            "type": "array",
+            "source": "site_specs.identity.team",
+            "required": true,
+            "on_missing": "needs_human_review",
+            "min_items": 1,
+            "missing_reason": "Team member names, titles, and bios are needed"
+        },
+        "hero_image": {
+            "type": "image",
+            "source": "site_assets.hero",
+            "required": false,
+            "on_missing": "use_fallback",
+            "fallback": "/assets/images/hero.jpg"
+        }
     }
-  }
 }
 ```
 
@@ -770,21 +736,21 @@ The dispatch loop (`build-dispatch-loop`) passes work item data to handlers with
 **Good (contract-compliant):**
 ```json
 "load_page_record": {
-"action": "load_page_record",
-"config": {
-"site_id":   "site_record.site_id",
-"page_name": "input_data.spec.page_name",
-"page_id":   "input_data.spec.page_id"
-}
+  "action": "load_page_record",
+  "config": {
+    "site_id":   "site_record.site_id",
+    "page_name": "input_data.spec.page_name",
+    "page_id":   "input_data.spec.page_id"
+  }
 }
 ```
 
 **Bad (relies on optional flattening):**
 ```json
 "load_page_record": {
-"config": {
-"page_name": "input_data.page_name"
-}
+  "config": {
+    "page_name": "input_data.page_name"
+  }
 }
 ```
 
@@ -833,4 +799,3 @@ Per-site, stored in `sites.content_data.legal_rules`:
 ```
 
 Templates seed common rules per industry. Live rules belong to the site and may be customized.
-

@@ -665,10 +665,22 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Replace hardcoded hex colors with CSS variables in component styles",
 		IsLocal:     true,
 	},
+	"fork_theme_from_site": {
+		Handler:     ForkThemeFromSiteAction,
+		Category:    "site",
+		Description: "Fork an adopted site's generated theme into the reusable theme library with HITL review",
+		IsLocal:     true,
+	},
 	"link_site_components": {
 		Handler:     LinkSiteComponentsAction,
 		Category:    "site",
 		Description: "Link site_components to content_components from style collection",
+		IsLocal:     true,
+	},
+	"compute_component_quality": {
+		Handler:     ComputeComponentQualityAction,
+		Category:    "site",
+		Description: "Score and store component quality metrics",
 		IsLocal:     true,
 	},
 	"fix_component_template": {
@@ -1065,6 +1077,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Create specs, pages, and work items from site adoption analysis",
 		IsLocal:     true,
 	},
+	"extract_design_fingerprint": {
+		Handler:     ExtractDesignFingerprintAction,
+		Category:    "analysis",
+		Description: "Extract concrete design data (colours, fonts, layout) from crawled HTML",
+		IsLocal:     true,
+	},
 	"format_crawl_for_analysis": {
 		Handler:     FormatCrawlForAnalysisAction,
 		Category:    "web",
@@ -1081,6 +1099,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Handler:     SelectRepresentativeContentAction,
 		Category:    "site",
 		Description: "To select representative prose-heavy pages from crawl for style analysis",
+		IsLocal:     true,
+	},
+	"enrich_fingerprint_with_css": {
+		Handler:     EnrichFingerprintWithCSSAction,
+		Category:    "analysis",
+		Description: "Parse fetched CSS and merge into design fingerprint",
 		IsLocal:     true,
 	},
 	"firecrawl_map": {
