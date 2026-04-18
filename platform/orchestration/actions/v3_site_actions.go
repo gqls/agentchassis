@@ -1546,33 +1546,9 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 					"rendered_html": s,
 				})
 			} else if m, ok := item.(map[string]interface{}); ok {
-				// Try multiple keys for the HTML content
-				var html string
-				if h, ok := m["rendered_html"].(string); ok && h != "" {
-					html = h
-				} else if h, ok := m["page_html"].(string); ok && h != "" {
-					html = h
-				} else if h, ok := m["html"].(string); ok && h != "" {
-					html = h
-				}
+				html, meta := extractSectionFromMap(m, params.Logger)
 				if html != "" {
 					sections = append(sections, html)
-					// Preserve all metadata from RenderComponentAction
-					meta := map[string]interface{}{
-						"rendered_html": html,
-					}
-					if id, ok := m["component_id"]; ok {
-						meta["component_id"] = fmt.Sprintf("%v", id)
-					}
-					if name, ok := m["component_name"].(string); ok {
-						meta["component_name"] = name
-					}
-					if fn, ok := m["component_function"].(string); ok {
-						meta["component_function"] = fn
-					}
-					if cd, ok := m["content_data"]; ok && cd != nil {
-						meta["content_data"] = cd
-					}
 					sectionsMetadata = append(sectionsMetadata, meta)
 				}
 			}
@@ -1582,29 +1558,9 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 		if results, ok := v["results"].([]interface{}); ok {
 			for _, item := range results {
 				if m, ok := item.(map[string]interface{}); ok {
-					var html string
-					if h, ok := m["rendered_html"].(string); ok && h != "" {
-						html = h
-					} else if h, ok := m["page_html"].(string); ok && h != "" {
-						html = h
-					}
+					html, meta := extractSectionFromMap(m, params.Logger)
 					if html != "" {
 						sections = append(sections, html)
-						meta := map[string]interface{}{
-							"rendered_html": html,
-						}
-						if id, ok := m["component_id"]; ok {
-							meta["component_id"] = fmt.Sprintf("%v", id)
-						}
-						if name, ok := m["component_name"].(string); ok {
-							meta["component_name"] = name
-						}
-						if fn, ok := m["component_function"].(string); ok {
-							meta["component_function"] = fn
-						}
-						if cd, ok := m["content_data"]; ok && cd != nil {
-							meta["content_data"] = cd
-						}
 						sectionsMetadata = append(sectionsMetadata, meta)
 					}
 				}
@@ -1620,23 +1576,9 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 							"rendered_html": s,
 						})
 					} else if m, ok := section.(map[string]interface{}); ok {
-						if html, ok := m["rendered_html"].(string); ok {
+						html, meta := extractSectionFromMap(m, params.Logger)
+						if html != "" {
 							sections = append(sections, html)
-							meta := map[string]interface{}{
-								"rendered_html": html,
-							}
-							if id, ok := m["component_id"]; ok {
-								meta["component_id"] = fmt.Sprintf("%v", id)
-							}
-							if name, ok := m["component_name"].(string); ok {
-								meta["component_name"] = name
-							}
-							if fn, ok := m["component_function"].(string); ok {
-								meta["component_function"] = fn
-							}
-							if cd, ok := m["content_data"]; ok && cd != nil {
-								meta["content_data"] = cd
-							}
 							sectionsMetadata = append(sectionsMetadata, meta)
 						}
 					}
@@ -1757,6 +1699,131 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 		"section_count":     len(sections),
 		"sections_metadata": sectionsMetadata,
 	}, nil
+}
+
+// extractSectionFromMap reads HTML and component metadata from a section result map.
+// It handles two shapes:
+//
+//  1. Direct RenderComponentAction output: metadata lives at top level alongside
+//     rendered_html. This is what CompilePageSectionsAction used to assume.
+//
+//  2. Loop-wrapped output: LoopAction's completion step (Strategy 1,
+//     substep_output_fields) promotes HTML to top-level rendered_html/page_html,
+//     but component_id/component_name/component_function stay nested inside the
+//     substep output key (section_output, render_section, render_from_template).
+//     This is what content-writer's process_sections_loop produces in practice.
+//
+// Lookup order: top-level first, then nested substep keys (earliest-wins). This
+// preserves the historical behaviour for callers with the flat shape while
+// recovering metadata from the nested shape — without which save_page_sections
+// ends up with ComponentName = "section" (the default from extractSectionsFromMetadata)
+// and enrichSectionsWithComponentIDs skips every section, leaving page_components.component_id NULL.
+//
+// Returned meta always contains rendered_html. When available, also:
+// component_id, component_name, component_function, content_data.
+// Returns ("", nil) if no HTML could be found in any known position.
+func extractSectionFromMap(m map[string]interface{}, logger *zap.Logger) (string, map[string]interface{}) {
+	// Extract HTML — check top-level first, then common substep keys.
+	html := extractHTMLFromSectionMap(m)
+	if html == "" {
+		return "", nil
+	}
+
+	meta := map[string]interface{}{
+		"rendered_html": html,
+	}
+
+	// Collect component metadata from top level first.
+	if id, ok := m["component_id"]; ok && id != nil {
+		meta["component_id"] = fmt.Sprintf("%v", id)
+	}
+	if name, ok := m["component_name"].(string); ok && name != "" {
+		meta["component_name"] = name
+	}
+	if fn, ok := m["component_function"].(string); ok && fn != "" {
+		meta["component_function"] = fn
+	}
+	if cd, ok := m["content_data"]; ok && cd != nil {
+		meta["content_data"] = cd
+	}
+
+	// Remember whether top-level already had the name, so we only log recovery
+	// when the nested fallback actually contributed it.
+	_, hadTopName := m["component_name"].(string)
+
+	if meta["component_id"] == nil || meta["component_name"] == nil ||
+		meta["component_function"] == nil || meta["content_data"] == nil {
+
+		for _, subKey := range []string{"section_output", "render_section", "render_from_template"} {
+			nested, ok := m[subKey].(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if meta["component_id"] == nil {
+				if id, ok := nested["component_id"]; ok && id != nil {
+					meta["component_id"] = fmt.Sprintf("%v", id)
+				}
+			}
+			if meta["component_name"] == nil {
+				if name, ok := nested["component_name"].(string); ok && name != "" {
+					meta["component_name"] = name
+				}
+			}
+			if meta["component_function"] == nil {
+				if fn, ok := nested["component_function"].(string); ok && fn != "" {
+					meta["component_function"] = fn
+				}
+			}
+			if meta["content_data"] == nil {
+				if cd, ok := nested["content_data"]; ok && cd != nil {
+					meta["content_data"] = cd
+				}
+			}
+			if meta["component_id"] != nil && meta["component_name"] != nil &&
+				meta["component_function"] != nil && meta["content_data"] != nil {
+				break
+			}
+		}
+
+		// Signal that the nested-lookup fallback fired — the primary diagnostic
+		// signal that this fix is taking effect in production logs.
+		if !hadTopName {
+			if n, ok := meta["component_name"].(string); ok && n != "" {
+				logger.Info("CompilePageSectionsAction: recovered component_name from nested substep output",
+					zap.String("component_name", n))
+			}
+		}
+	}
+
+	return html, meta
+}
+
+// extractHTMLFromSectionMap pulls the rendered HTML string from a section-result
+// map, checking top-level keys first, then common substep output keys where
+// LoopAction may have nested the RenderComponentAction result.
+func extractHTMLFromSectionMap(m map[string]interface{}) string {
+	if h, ok := m["rendered_html"].(string); ok && h != "" {
+		return h
+	}
+	if h, ok := m["page_html"].(string); ok && h != "" {
+		return h
+	}
+	if h, ok := m["html"].(string); ok && h != "" {
+		return h
+	}
+	// Also try nested substep keys (loop-wrapped shape where top-level HTML
+	// promotion didn't happen for some reason).
+	for _, subKey := range []string{"section_output", "render_section", "render_from_template"} {
+		if nested, ok := m[subKey].(map[string]interface{}); ok {
+			if h, ok := nested["rendered_html"].(string); ok && h != "" {
+				return h
+			}
+			if h, ok := nested["page_html"].(string); ok && h != "" {
+				return h
+			}
+		}
+	}
+	return ""
 }
 
 func buildPageHTML(pageName, body string) string {
