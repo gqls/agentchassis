@@ -2,30 +2,35 @@ package actions
 
 // FILE: platform/orchestration/actions/render_css_from_spec_action.go
 //
-// Replaces the LLM-based generate_css step in webdesign-agent with deterministic
-// Go template rendering. The analyze_design LLM step picks industry-appropriate
-// colors/fonts; this action just slots those values into a CSS template.
+// Renders CSS deterministically from a palette + layout + typography
+// composition, merged with the design_spec produced by analyze_design.
 //
-// Workflow wiring (webdesign-agent):
-//   analyze_design (LLM) → render_css_from_spec (this) → deploy_css (git_commit)
+// This is the Phase 4.3 cutover of 025_palette_layout_typography_migration.
+// Before cutover: the action loaded css_themes.css_template (a monolithic
+// Go template) and fed it a struct with hardcoded fields. After cutover:
+// the action loads the three independently-versioned rows via the
+// css_themes FKs (palette_id, layout_id, typography_set_id) and feeds
+// the layout's css_template three FuncMap helpers ({{palette}},
+// {{typo}}, {{token}}) backed by merged string maps.
 //
-// Output matches what deploy_css expects: {"result": "<css>", "type": "text"}
+// What the caller still sees, unchanged:
+//   - Action name, config keys (theme_name, theme_id)
+//   - Return shape: {"result": "<css>", "type": "text"}
+//   - Component-snippet append (css_snippets table)
+//   - Renderer-owned --section-* defaults append (buildSectionDefaults)
 //
-// Hot-swappable: css_themes rows hold different Go templates (e.g.
-// "standard-brochure", "animated-portfolio"). Config selects which one.
+// What's gone after cutover:
+//   - cssTemplateData struct with hardcoded fields
+//   - loadCSSGoTemplate (css_themes.css_template direct read)
 //
-// Step Zero search:
-//   - execute_llm_prompt: renders template then calls LLM. No "skip LLM" mode.
-//   - transform_data: key-value transforms, no template or DB queries.
-//   - render_site_components: renders HTML components, not CSS from design specs.
-//   - RenderTemplateWithMap: utility function, no DB or data reshaping.
-//   Decision: New action. No existing action or small patch covers the need.
-//
-// Registration (add to registry.go):
-//   "render_css_from_spec": { Handler: RenderCSSFromSpecAction, Category: "site",
-//       Description: "Render CSS from Go template + design spec", IsLocal: true },
-// Also add to local_actions.go:
-//   "render_css_from_spec": true,
+// Merge rules applied here (implemented in
+// render_css_composition_helpers.go):
+//   - Palette core slots  (primary/secondary/accent/background/surface/
+//                         text/text_muted/border): spec wins
+//   - Palette specialised slots (heading/hero_title/cta_bg/etc.):
+//                         theme wins
+//   - Typography:         spec wins across the board
+//   - Structure tokens:   layout-only; spec does not contribute
 
 import (
 	"bytes"
@@ -41,46 +46,18 @@ import (
 	"go.uber.org/zap"
 )
 
-// cssTemplateData is passed to the Go CSS template. Fields are exported
-// because text/template requires it; the type itself stays unexported.
-type cssTemplateData struct {
-	Primary    string
-	Secondary  string
-	Accent     string
-	Background string
-	Surface    string
-	Text       string
-	TextMuted  string
-	Border     string
-
-	FontFamily  string
-	HeadingFont string
-	BaseSize    string
-	LineHeight  string
-
-	SectionPadding    string
-	ContainerMaxWidth string
-
-	Components    []string
-	SectionStyles []sectionStyleEntry
-
-	// Palette brightness flags — let the template conditionally apply
-	// dark section overrides when the body background or surface colour
-	// is itself dark. Without these, sections without their own dark-section
-	// variables inherit heading/text colours that fall back to --color-primary,
-	// producing dark text on dark backgrounds.
-	SurfaceIsDark    bool
-	BackgroundIsDark bool
-}
-
+// sectionStyleEntry is the per-component entry passed as SectionStyles
+// in the template data map. Exported fields only — text/template cannot
+// access unexported struct fields, so this type stays as-is.
 type sectionStyleEntry struct {
 	Function  string // e.g. "hero"
 	ClassName string // e.g. "hero-section"
 	IsDark    bool
 }
 
-// RenderCSSFromSpecAction renders CSS deterministically from a Go template
-// stored in css_themes, merged with the design_spec from analyze_design.
+// RenderCSSFromSpecAction renders CSS deterministically from the theme's
+// palette + layout + typography composition, merged with the design_spec
+// from analyze_design.
 //
 // Config:
 //   - theme_name: css_themes.name to load (default: "standard-brochure")
@@ -102,94 +79,121 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 
 	config := params.StepConfig.Config
 
-	// 1. Extract design_spec from collectedData
-	spec := extractDesignColors(params.CollectedData, logger)
+	// 1. Resolve the theme composition (palette + layout + typography
+	// in one query). Hard-errors on missing theme, NULL FKs, or
+	// unparseable JSONB — migration gaps must be loud.
+	themeName := datahelpers.GetStringField(config, "theme_name", "standard-brochure")
+	comp, err := loadThemeComposition(ctx, params.DB, config, themeName, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load theme composition: %w", err)
+	}
 
-	// 2. Extract component list from site_context
+	// 2. Extract raw spec maps from collectedData. These are the
+	// partial overrides the design_spec step produced.
+	specPalette, specTypo, specSpacing := extractDesignSpecRawMaps(params.CollectedData, logger)
+
+	// 3. Merge spec with theme, core-vs-specialised rules applied.
+	// The merged palette is what the rest of the render path uses —
+	// template lookups, dark-section detection, buildSectionDefaults.
+	mergedPalette := buildPaletteMap(comp.Palette, specPalette)
+	mergedTypo := buildTypographyMap(comp.Typography, specTypo)
+
+	// 4. Surface the override deltas for observability. Operators
+	// debugging a site's render can see at a glance which slots the
+	// spec claimed from the theme.
+	logOverrides(logger, comp, specPalette, specTypo, mergedPalette, mergedTypo)
+
+	// 5. Extract component list + dark-section flags for the template
+	// data (separate concern from palette/typography — these drive
+	// per-section iteration, not colour selection).
 	components := extractCSSComponents(params.CollectedData, logger)
-
-	// 3. Query which components are dark sections
 	darkSections := queryDarkSectionsForCSS(ctx, params.DB, components, logger)
-
-	// 4. Build sorted section style entries
 	sectionStyles := buildCSSsectionStyles(components, darkSections)
 
-	// 5. Assemble template data
-	tmplData := cssTemplateData{
-		Primary:           spec.color("primary", "#1a365d"),
-		Secondary:         spec.color("secondary", "#2c5282"),
-		Accent:            spec.color("accent", "#3182ce"),
-		Background:        spec.color("background", "#ffffff"),
-		Surface:           spec.color("surface", "#f7fafc"),
-		Text:              spec.color("text", "#2d3748"),
-		TextMuted:         spec.color("text_muted", "#718096"),
-		Border:            spec.color("border", "#e2e8f0"),
-		FontFamily:        spec.typo("font_family", "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"),
-		HeadingFont:       spec.typo("heading_font", "inherit"),
-		BaseSize:          spec.typo("base_size", "16px"),
-		LineHeight:        spec.typo("line_height", "1.6"),
-		SectionPadding:    spec.space("section_padding", "4rem 0"),
-		ContainerMaxWidth: spec.space("container_max_width", "1200px"),
-		Components:        components,
-		SectionStyles:     sectionStyles,
-		SurfaceIsDark:     isDarkHex(spec.color("surface", "#f7fafc")),
-		BackgroundIsDark:  isDarkHex(spec.color("background", "#ffffff")),
+	// 6. Compute dark-palette flags for the renderer-owned
+	// --section-* defaults. The merged palette drives these (not the
+	// raw theme palette) because a site-supplied light/dark background
+	// override must flip the section defaults accordingly.
+	bgHex := lookupOrFallback(mergedPalette, "background", "#ffffff")
+	surfaceHex := lookupOrFallback(mergedPalette, "surface", "#f7fafc")
+	backgroundIsDark := isDarkHex(bgHex)
+	surfaceIsDark := isDarkHex(surfaceHex)
+
+	// 7. Build the template data map. Layout templates use the three
+	// helper funcs registered below plus these top-level keys.
+	tmplData := map[string]interface{}{
+		"Components":       components,
+		"SectionStyles":    sectionStyles,
+		"SurfaceIsDark":    surfaceIsDark,
+		"BackgroundIsDark": backgroundIsDark,
+		// Spacing block for layouts that want a spec-driven container
+		// width or section padding. Not used by the 15 seeded layouts
+		// (they read from structure_tokens via {{token}}), but harmless
+		// to include and useful for adopted-from-site templates that
+		// might look for it. NOTE: spec-sourced only.
+		"Spacing": specSpacing,
 	}
 
 	logger.Info("RenderCSSFromSpecAction: Template data built",
-		zap.String("primary", tmplData.Primary),
-		zap.String("accent", tmplData.Accent),
-		zap.String("font_family", tmplData.FontFamily),
+		zap.String("theme", comp.ThemeName),
+		zap.String("palette", comp.PaletteName),
+		zap.String("layout", comp.LayoutName),
+		zap.String("typography", comp.TypographyName),
+		zap.String("primary", lookupOrFallback(mergedPalette, "primary", "")),
+		zap.String("background", bgHex),
+		zap.Int("palette_keys", len(mergedPalette)),
+		zap.Int("typography_keys", len(mergedTypo)),
+		zap.Int("structure_keys", len(comp.Structure)),
 		zap.Int("components", len(components)),
 		zap.Int("dark_sections", len(darkSections)),
 	)
 
-	// 6. Load Go template from css_themes table
-	themeName := datahelpers.GetStringField(config, "theme_name", "standard-brochure")
-
-	cssTemplate, err := loadCSSGoTemplate(ctx, params.DB, config, themeName, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load CSS template '%s': %w", themeName, err)
+	// 8. Parse and render the layout template with the three FuncMap
+	// helpers registered. Helper signature is func(key, fallback) string
+	// — the fallback lets layouts stay valid CSS even when a map omits
+	// a slot (Template Helper Fallback contract).
+	funcMap := template.FuncMap{
+		"palette": makeMapLookupFunc(mergedPalette),
+		"typo":    makeMapLookupFunc(mergedTypo),
+		"token":   makeMapLookupFunc(comp.Structure),
 	}
 
-	// 7. Parse and render
-	tmpl, err := template.New("css").Parse(cssTemplate)
+	tmpl, err := template.New("css").Funcs(funcMap).Parse(comp.LayoutTemplate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse CSS template: %w", err)
+		return nil, fmt.Errorf(
+			"failed to parse layout %q template: %w",
+			comp.LayoutName, err,
+		)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, tmplData); err != nil {
-		return nil, fmt.Errorf("failed to render CSS template: %w", err)
+		return nil, fmt.Errorf(
+			"failed to render layout %q template: %w",
+			comp.LayoutName, err,
+		)
 	}
 
 	renderedCSS := buf.String()
 
-	// 7.5 Append component-specific CSS snippets
+	// 9. Append component-specific CSS snippets (unchanged from pre-
+	// cutover behaviour — the snippets table and logic don't depend on
+	// the theme composition model).
 	snippetCSS := loadComponentCSSSnippets(ctx, params.DB, components, logger)
 	if snippetCSS != "" {
 		renderedCSS = renderedCSS + snippetCSS
 	}
 
-	// 7.6 Append renderer-enforced --section-* defaults based on palette luminance.
-	// Themes do not declare these themselves; the renderer owns the contract so
-	// that every theme automatically gets correct dark-section text colours.
-	palette := map[string]string{
-		"primary":    tmplData.Primary,
-		"secondary":  tmplData.Secondary,
-		"accent":     tmplData.Accent,
-		"background": tmplData.Background,
-		"surface":    tmplData.Surface,
-		"text":       tmplData.Text,
-		"text_muted": tmplData.TextMuted,
-		"border":     tmplData.Border,
-	}
+	// 10. Append renderer-enforced --section-* defaults based on the
+	// MERGED palette's luminance. buildSectionDefaults picks readable
+	// colours from the palette so every theme gets correct dark-section
+	// text without declaring --section-* variables itself.
 	sectionDefaults := buildSectionDefaults(
-		tmplData.Background,
-		tmplData.Surface,
-		palette,
-		tmplData.BackgroundIsDark,
-		tmplData.SurfaceIsDark,
+		bgHex,
+		surfaceHex,
+		mergedPalette,
+		backgroundIsDark,
+		surfaceIsDark,
 		logger,
 	)
 	if sectionDefaults != "" {
@@ -199,10 +203,13 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 	logger.Info("RenderCSSFromSpecAction: CSS rendered",
 		zap.Int("css_length", len(renderedCSS)),
 		zap.Int("snippet_css_length", len(snippetCSS)),
-		zap.String("theme", themeName),
+		zap.Int("section_defaults_length", len(sectionDefaults)),
+		zap.String("theme", comp.ThemeName),
+		zap.String("layout", comp.LayoutName),
 	)
 
-	// Return format matches execute_llm_prompt output so deploy_css works unchanged
+	// Return format matches execute_llm_prompt output so deploy_css
+	// works unchanged.
 	return map[string]interface{}{
 		"result": renderedCSS,
 		"type":   "text",
@@ -211,72 +218,123 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 
 // --- private helpers ---
 
-// designColorMaps wraps the nested design_spec maps for safe field access.
-type designColorMaps struct {
-	colorScheme map[string]interface{}
-	typography  map[string]interface{}
-	spacing     map[string]interface{}
-}
-
-func (d *designColorMaps) color(key, fallback string) string {
-	return getMapString(d.colorScheme, key, fallback)
-}
-
-func (d *designColorMaps) typo(key, fallback string) string {
-	return getMapString(d.typography, key, fallback)
-}
-
-func (d *designColorMaps) space(key, fallback string) string {
-	return getMapString(d.spacing, key, fallback)
-}
-
-func getMapString(m map[string]interface{}, key, fallback string) string {
-	if m == nil {
-		return fallback
-	}
-	if v, ok := m[key].(string); ok && v != "" {
+// lookupOrFallback is a non-template-context wrapper around the same
+// lookup rule makeMapLookupFunc implements, for use from Go code.
+func lookupOrFallback(m map[string]string, key, fallback string) string {
+	if v, ok := m[key]; ok && v != "" {
 		return v
 	}
 	return fallback
 }
 
-// extractDesignColors pulls color_scheme, typography, spacing from design_spec
-// in collectedData. The LLM step stores: design_spec = {"result": {...}, "type": "json"}
-func extractDesignColors(collectedData map[string]interface{}, logger *zap.Logger) *designColorMaps {
-	helper := &designColorMaps{}
+// extractDesignSpecRawMaps pulls the three design_spec sub-blocks out
+// of collectedData and returns them as raw interface-valued maps (not
+// yet merged or type-narrowed). The merge helpers do the narrowing.
+//
+// The LLM step stores design_spec = {"result": {...}, "type": "json"}
+// but may be auto-unwrapped in some code paths — we try both shapes.
+func extractDesignSpecRawMaps(
+	collectedData map[string]interface{},
+	logger *zap.Logger,
+) (palette, typo, spacing map[string]interface{}) {
 
-	// Try design_spec.result.color_scheme (standard execute_llm_prompt output)
-	colorScheme := datahelpers.ExtractNestedField(collectedData, "design_spec.result.color_scheme")
-	if colorScheme == nil {
-		// Fallback: design_spec.color_scheme (if .response was auto-unwrapped)
-		colorScheme = datahelpers.ExtractNestedField(collectedData, "design_spec.color_scheme")
-	}
-	if cs, ok := colorScheme.(map[string]interface{}); ok {
-		helper.colorScheme = cs
-	} else {
-		logger.Warn("RenderCSSFromSpecAction: color_scheme not found or not a map, using defaults")
-	}
-
-	typography := datahelpers.ExtractNestedField(collectedData, "design_spec.result.typography")
-	if typography == nil {
-		typography = datahelpers.ExtractNestedField(collectedData, "design_spec.typography")
-	}
-	if tp, ok := typography.(map[string]interface{}); ok {
-		helper.typography = tp
-	}
-
-	spacing := datahelpers.ExtractNestedField(collectedData, "design_spec.result.spacing")
-	if spacing == nil {
-		spacing = datahelpers.ExtractNestedField(collectedData, "design_spec.spacing")
-	}
-	if sp, ok := spacing.(map[string]interface{}); ok {
-		helper.spacing = sp
+	extract := func(subField string) map[string]interface{} {
+		// Standard execute_llm_prompt shape
+		v := datahelpers.ExtractNestedField(collectedData, "design_spec.result."+subField)
+		if v == nil {
+			// Fallback: auto-unwrapped shape
+			v = datahelpers.ExtractNestedField(collectedData, "design_spec."+subField)
+		}
+		if m, ok := v.(map[string]interface{}); ok {
+			return m
+		}
+		return nil
 	}
 
-	return helper
+	palette = extract("color_scheme")
+	typo = extract("typography")
+	spacing = extract("spacing")
+
+	if palette == nil {
+		logger.Warn("RenderCSSFromSpecAction: design_spec.color_scheme not found or not a map")
+	}
+
+	return palette, typo, spacing
 }
 
-// extractCSSComponents gets the all_component_functions slice from site_context.
+// logOverrides emits a single structured log line naming every palette
+// and typography slot where the design_spec overrode the theme's value.
+// Useful when debugging "why did my primary change?" and for
+// release-train visibility into how much a site is diverging from the
+// library theme.
+//
+// Behaviour: a key is considered "overridden" if the spec has a
+// non-empty string value for it AND the merged result differs from the
+// theme's original value for that key. Keys the spec couldn't win
+// (e.g. specialised palette slots that the theme retained) are
+// reported in the "claimed_but_ignored" list so the caller can see
+// what the spec wanted but didn't get.
+func logOverrides(
+	logger *zap.Logger,
+	comp *themeComposition,
+	specPalette, specTypo map[string]interface{},
+	mergedPalette, mergedTypo map[string]string,
+) {
+	paletteApplied, paletteIgnored := diffOverrides(comp.Palette, specPalette, mergedPalette)
+	typoApplied, typoIgnored := diffOverrides(comp.Typography, specTypo, mergedTypo)
+
+	if len(paletteApplied) == 0 && len(paletteIgnored) == 0 &&
+		len(typoApplied) == 0 && len(typoIgnored) == 0 {
+		return // nothing to say — spec contributed nothing
+	}
+
+	logger.Info("RenderCSSFromSpecAction: spec → theme overrides",
+		zap.String("theme", comp.ThemeName),
+		zap.Strings("palette_applied", paletteApplied),
+		zap.Strings("palette_claimed_but_ignored", paletteIgnored),
+		zap.Strings("typography_applied", typoApplied),
+		zap.Strings("typography_claimed_but_ignored", typoIgnored),
+	)
+}
+
+// diffOverrides computes which spec-supplied keys won and which were
+// dropped. Returns sorted slices of keys (so log output is stable
+// across runs).
+//
+// Applied:           spec had non-empty value AND merged differs from theme
+// ClaimedButIgnored: spec had non-empty value AND merged matches theme
+//
+//	(i.e. spec wanted to override but wasn't allowed)
+func diffOverrides(
+	themeMap map[string]string,
+	specMap map[string]interface{},
+	mergedMap map[string]string,
+) (applied, claimedButIgnored []string) {
+
+	for k, raw := range specMap {
+		specVal, ok := raw.(string)
+		if !ok || specVal == "" {
+			continue // spec didn't actually supply this key
+		}
+		themeVal := themeMap[k]
+		mergedVal := mergedMap[k]
+
+		if mergedVal == specVal && mergedVal != themeVal {
+			applied = append(applied, k)
+		} else if specVal != themeVal {
+			// Spec wanted something different but theme won
+			claimedButIgnored = append(claimedButIgnored, k)
+		}
+	}
+
+	sort.Strings(applied)
+	sort.Strings(claimedButIgnored)
+	return applied, claimedButIgnored
+}
+
+// extractCSSComponents gets the all_component_functions slice from
+// site_context. Unchanged from pre-cutover — the component list drives
+// iteration and dark-section queries, not palette/typography.
 func extractCSSComponents(collectedData map[string]interface{}, logger *zap.Logger) []string {
 	raw := datahelpers.ExtractNestedField(collectedData, "site_context.all_component_functions")
 	if raw == nil {
@@ -302,8 +360,8 @@ func extractCSSComponents(collectedData map[string]interface{}, logger *zap.Logg
 	}
 }
 
-// queryDarkSectionsForCSS queries content_components.is_dark_section for the
-// given function names. Returns a map of function→true for dark sections.
+// queryDarkSectionsForCSS queries content_components.is_dark_section
+// for the given function names. Unchanged from pre-cutover.
 func queryDarkSectionsForCSS(ctx context.Context, db *sql.DB, functions []string, logger *zap.Logger) map[string]bool {
 	darkSections := make(map[string]bool)
 	if len(functions) == 0 {
@@ -351,6 +409,7 @@ func queryDarkSectionsForCSS(ctx context.Context, db *sql.DB, functions []string
 }
 
 // buildCSSsectionStyles creates a sorted list of section style entries.
+// Unchanged from pre-cutover.
 func buildCSSsectionStyles(components []string, darkSections map[string]bool) []sectionStyleEntry {
 	styles := make([]sectionStyleEntry, 0, len(components))
 	for _, f := range components {
@@ -366,59 +425,14 @@ func buildCSSsectionStyles(components []string, darkSections map[string]bool) []
 	return styles
 }
 
-// loadCSSGoTemplate loads the Go template string from css_themes.
-// DEPRECATED
-// Priority: config["theme_id"] (UUID) → themeName → "standard-brochure"
-func loadCSSGoTemplate(ctx context.Context, db *sql.DB, config map[string]interface{}, themeName string, logger *zap.Logger) (string, error) {
-	// Try explicit theme_id first
-	if themeIDStr, ok := config["theme_id"].(string); ok && themeIDStr != "" {
-		var tmpl sql.NullString
-		err := db.QueryRowContext(ctx,
-			`SELECT css_template FROM css_themes WHERE id = $1 AND is_active = true`,
-			themeIDStr,
-		).Scan(&tmpl)
-		if err == nil && tmpl.Valid && tmpl.String != "" {
-			logger.Info("RenderCSSFromSpecAction: Loaded template by ID",
-				zap.String("theme_id", themeIDStr))
-			return tmpl.String, nil
-		}
-	}
-
-	// Try by name
-	var tmpl sql.NullString
-	err := db.QueryRowContext(ctx,
-		`SELECT css_template FROM css_themes WHERE name = $1 AND is_active = true`,
-		themeName,
-	).Scan(&tmpl)
-	if err == nil && tmpl.Valid && tmpl.String != "" {
-		logger.Info("RenderCSSFromSpecAction: Loaded template by name",
-			zap.String("theme_name", themeName))
-		return tmpl.String, nil
-	}
-
-	// Fallback if a different name was requested
-	if themeName != "standard-brochure" {
-		err := db.QueryRowContext(ctx,
-			`SELECT css_template FROM css_themes WHERE name = 'standard-brochure' AND is_active = true`,
-		).Scan(&tmpl)
-		if err == nil && tmpl.Valid && tmpl.String != "" {
-			logger.Warn("RenderCSSFromSpecAction: Requested theme not found, falling back",
-				zap.String("requested", themeName))
-			return tmpl.String, nil
-		}
-	}
-
-	return "", fmt.Errorf("no CSS template found for theme '%s'", themeName)
-}
-
-// loadComponentCSSSnippets queries css_snippets for entries whose applies_to
-// array overlaps with the site's component list. Returns concatenated CSS.
+// loadComponentCSSSnippets queries css_snippets for entries whose
+// applies_to array overlaps with the site's component list. Returns
+// concatenated CSS. Unchanged from pre-cutover.
 func loadComponentCSSSnippets(ctx context.Context, db *sql.DB, components []string, logger *zap.Logger) string {
 	if len(components) == 0 || db == nil {
 		return ""
 	}
 
-	// Build a JSONB array from the component list for the overlap operator (&&)
 	componentsJSON, err := json.Marshal(components)
 	if err != nil {
 		logger.Warn("loadComponentCSSSnippets: marshal failed", zap.Error(err))
