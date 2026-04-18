@@ -1,38 +1,45 @@
+package actions
+
 // FILE: platform/orchestration/actions/fork_theme_from_site_action.go
 //
-// ForkThemeFromSiteAction persists a site's generated CSS as a css_themes +
-// style_collections pair. Two modes controlled by the `install_on_site`
-// config flag:
+// ForkThemeFromSiteAction forks an adopted site's design into the
+// reusable theme library using the post-025 composable model.
 //
-//   install_on_site = false (default — library contribution mode):
-//     Called when should_fork_theme is true on the agent's input.
-//     Inserts theme + collection with needs_review = true, creates a
-//     needs_theme_review HITL work item. The site's own style_collection_id
-//     is NOT modified. Failure is non-fatal.
+// Rewritten in Phase 5 of 025_palette_layout_typography_migration.
+// The pre-025 version produced a single css_themes row carrying a
+// monolithic css_template with {{.Primary}}-style placeholders. The
+// new renderer ignores css_themes.css_template; it resolves palette,
+// layout, and typography via FK columns on css_themes.
 //
-//   install_on_site = true (adoption install mode):
-//     Called from the webdesign-agent's adoption flow when the site has no
-//     style_collection yet. Inserts theme + collection with needs_review =
-//     false, skips the HITL work item, and sets sites.style_collection_id
-//     to the new collection's id. Failure IS surfaced as a non-fatal skip
-//     but the site will not have its theme linked — the caller should check
-//     `installed == true` in the result.
+// What changed vs pre-025:
+//   - Inside the transaction, calls three helpers BEFORE the
+//     css_themes INSERT:
+//       createPaletteForFork        → new palettes row
+//       resolveTypographySetForFork → matched or new typography_sets row
+//       resolveLayoutForFork        → matched layout from existing library
+//   - The resulting three FK ids are written into css_themes:
+//     palette_id, layout_id, typography_set_id are populated.
+//   - Legacy columns (css_content, css_template, color_palette,
+//     typography) stay populated for backward compat with
+//     getThemeByID / HTML-assembly path until Phase 7 drops them.
+//   - TemplateCSSFromSpec is no longer called. The new renderer doesn't
+//     read css_themes.css_template; producing templated CSS with
+//     legacy {{.Primary}} placeholders would be busy-work that nobody
+//     reads. An empty string is written to that column instead. The
+//     css_templating.go helper file stays compile-clean as an inert
+//     neighbour until Phase 7 removes it.
+//   - The HITL work item spec gains a layout_resolution block with the
+//     reason and candidate layout list so the reviewer can override
+//     the automated layout pick.
 //
-// Either mode:
-//   1. Reads design_spec, rendered_css from collected data
-//   2. Loads the site's current style_collection (for lineage, if any)
-//   3. Produces a templated css_template from the rendered CSS
-//   4. Inserts css_themes + style_collections rows (one transaction)
-//
-// Registration: unchanged. Still registered as "fork_theme_from_site".
-//   "fork_theme_from_site": {
-//       Handler:     ForkThemeFromSiteAction,
-//       Category:    "site",
-//       Description: "Fork an adopted site's generated theme into the reusable library",
-//       IsLocal:     true,
-//   }
-
-package actions
+// What stayed the same:
+//   - Action name, config keys (design_spec_field, rendered_css_field,
+//     current_collection_id_field)
+//   - Return shape: { forked: bool, theme_id, collection_id, ... }
+//   - Lineage resolution (forked_from_*_id fields)
+//   - Classification loading (loadClassificationForFork)
+//   - Name collision handling
+//   - Non-fatal skip behaviour — fork never aborts parent workflow
 
 import (
 	"context"
@@ -54,13 +61,11 @@ var ForkThemeFromSiteInputSpec = datahelpers.ActionInputSpec{
 		"design_spec_field",
 		"rendered_css_field",
 		"current_collection_id_field",
-		"install_on_site",
 	},
 	Defaults: map[string]interface{}{
 		"design_spec_field":           "design_spec.result",
 		"rendered_css_field":          "generated_css.result",
 		"current_collection_id_field": "site_context.style_collection_id",
-		"install_on_site":             false,
 	},
 	Deprecated: map[string]string{},
 }
@@ -69,6 +74,10 @@ func init() {
 	datahelpers.RegisterActionInputSpec("fork_theme_from_site", ForkThemeFromSiteInputSpec)
 }
 
+// ForkThemeFromSiteAction forks an adopted site's composition into the
+// library. Producing granular rows (palette + typography + theme) lets
+// later sites reuse the typography stack independently of the palette,
+// and lets a HITL reviewer see which layout was picked and why.
 func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(zap.String("action", "fork_theme_from_site"))
 
@@ -76,7 +85,6 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 	if params.DB == nil {
-		// Non-fatal: return a result indicating skip.
 		logger.Warn("fork_theme_from_site: no database connection, skipping")
 		return forkSkipped("no database connection"), nil
 	}
@@ -106,7 +114,6 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 	designSpecField := datahelpers.GetStringField(config, "design_spec_field", "design_spec.result")
 	renderedCSSField := datahelpers.GetStringField(config, "rendered_css_field", "generated_css.result")
 	currentCollectionField := datahelpers.GetStringField(config, "current_collection_id_field", "site_context.style_collection_id")
-	installOnSite := datahelpers.GetBoolField(config, "install_on_site", false)
 
 	designSpec, _ := datahelpers.ExtractNestedField(params.CollectedData, designSpecField).(map[string]interface{})
 	if designSpec == nil {
@@ -123,16 +130,13 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	// ── Lineage: find the site's current style_collection and theme ──
-	// These feed forked_from_collection_id and forked_from_theme_id.
-	// If the site has no collection assigned, both remain nil and
-	// origin stays "adopted" (not "fork_of_adopted").
+	// Feeds forked_from_collection_id and forked_from_theme_id.
 	var (
 		parentCollectionID *uuid.UUID
 		parentThemeID      *uuid.UUID
 	)
 	parentCollectionStr := datahelpers.ExtractNestedFieldString(params.CollectedData, currentCollectionField)
 	if parentCollectionStr == "" {
-		// Fall back to DB lookup against sites.style_collection_id.
 		var collID sql.NullString
 		err := params.DB.QueryRowContext(ctx,
 			`SELECT style_collection_id::text FROM sites WHERE id = $1`,
@@ -144,7 +148,6 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 	if parentCollectionStr != "" {
 		if cid, err := uuid.Parse(parentCollectionStr); err == nil {
 			parentCollectionID = &cid
-			// Look up the theme the parent collection points at.
 			var tid sql.NullString
 			err := params.DB.QueryRowContext(ctx,
 				`SELECT css_theme_id::text FROM style_collections WHERE id = $1`,
@@ -157,15 +160,32 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 		}
 	}
 
+	// Also look up the parent theme's palette_id so the new palette
+	// can record forked_from_palette_id lineage. Post-025 themes have
+	// palette_id populated; pre-025 themes in the library may not.
+	var parentPaletteID *uuid.UUID
+	if parentThemeID != nil {
+		var pid sql.NullString
+		err := params.DB.QueryRowContext(ctx,
+			`SELECT palette_id::text FROM css_themes WHERE id = $1`,
+			*parentThemeID,
+		).Scan(&pid)
+		if err == nil && pid.Valid {
+			if parsed, err := uuid.Parse(pid.String); err == nil {
+				parentPaletteID = &parsed
+			}
+		}
+	}
+
 	// ── Classification: used for collection category and industry_tags ──
 	category, industryTags := loadClassificationForFork(ctx, params.DB, siteID, logger)
 
-	// ── Extract palette + typography from design_spec for the theme row ──
-	palette := extractStringMap(designSpec, "color_scheme")
-	typography := extractStringMap(designSpec, "typography")
-
-	// ── Produce templated CSS ──
-	templatedCSS := TemplateCSSFromSpec(renderedCSS, designSpec)
+	// ── Extract palette + typography from design_spec for legacy columns ──
+	// These are still written to css_themes for backward-compat with
+	// getThemeByID and the HTML-assembly path. The authoritative copies
+	// now live in the palettes and typography_sets tables.
+	legacyPalette := extractStringMap(designSpec, "color_scheme")
+	legacyTypography := extractStringMap(designSpec, "typography")
 
 	// ── Name resolution with collision handling ──
 	baseName := "adopted-" + domainSlug(domain)
@@ -177,12 +197,7 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 		origin = "fork_of_adopted"
 	}
 
-	// In install-on-site mode the generated theme IS the site's theme, not
-	// a library contribution pending review, so both rows are written with
-	// needs_review = false and no HITL work item is created.
-	needsReview := !installOnSite
-
-	// ── Transaction: themes + collections + (HITL item OR site link) ──
+	// ── Transaction: palette + typography + layout + themes + collections + work item ──
 	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
 		logger.Warn("fork_theme_from_site: failed to begin tx, skipping", zap.Error(err))
@@ -190,37 +205,87 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 	}
 	defer tx.Rollback() // safe: no-op after commit
 
-	// Insert theme
-	var newThemeID uuid.UUID
-	paletteJSON, _ := json.Marshal(palette)
-	typographyJSON, _ := json.Marshal(typography)
 	displayName := "Adopted from " + domain
 	forkedAt := time.Now()
 
+	// ── 1. Create palette row ──
+	newPaletteID, err := createPaletteForFork(
+		ctx, tx,
+		baseName, displayName, category, industryTags,
+		designSpec, siteID, domain, parentPaletteID,
+		logger,
+	)
+	if err != nil {
+		logger.Warn("fork_theme_from_site: palette fork failed, skipping", zap.Error(err))
+		return forkSkipped("palette fork failed: " + err.Error()), nil
+	}
+
+	// ── 2. Match or create typography_set ──
+	newTypoID, typoMatched, err := resolveTypographySetForFork(
+		ctx, tx,
+		baseName, displayName, category, industryTags,
+		designSpec, siteID, domain,
+		logger,
+	)
+	if err != nil {
+		logger.Warn("fork_theme_from_site: typography_set resolution failed, skipping", zap.Error(err))
+		return forkSkipped("typography_set resolution failed: " + err.Error()), nil
+	}
+
+	// ── 3. Resolve layout (match from library, or fall back) ──
+	layoutRes, err := resolveLayoutForFork(
+		ctx, tx,
+		category, industryTags,
+		logger,
+	)
+	if err != nil {
+		logger.Warn("fork_theme_from_site: layout resolution failed, skipping", zap.Error(err))
+		return forkSkipped("layout resolution failed: " + err.Error()), nil
+	}
+
+	// ── 4. Insert theme ──
+	// Legacy columns (css_content, css_template, color_palette, typography)
+	// are still populated for backward-compat with getThemeByID and
+	// the HTML-assembly path. The new renderer reads from the three
+	// FKs instead. Phase 7 drops the legacy columns.
+	//
+	// css_template gets an empty string: the new renderer ignores it,
+	// and calling TemplateCSSFromSpec to produce {{.Primary}}-style
+	// placeholders nobody reads would be wasted work.
+	var newThemeID uuid.UUID
+	legacyPaletteJSON, _ := json.Marshal(legacyPalette)
+	legacyTypoJSON, _ := json.Marshal(legacyTypography)
+
 	err = tx.QueryRowContext(ctx, `
 		INSERT INTO css_themes (
-			name, display_name, css_content, css_template,
-			color_palette, typography, is_active,
-			origin, needs_review,
+			name, display_name,
+			css_content, css_template,
+			color_palette, typography,
+			palette_id, layout_id, typography_set_id,
+			is_active, origin, needs_review,
 			forked_from_theme_id, source_site_id, source_domain, forked_at
 		) VALUES (
-			$1, $2, $3, $4,
-			$5::jsonb, $6::jsonb, true,
-			$7, $12,
-			$8, $9, $10, $11
+			$1, $2,
+			$3, '',
+			$4::jsonb, $5::jsonb,
+			$6, $7, $8,
+			true, $9, true,
+			$10, $11, $12, $13
 		) RETURNING id
-	`, themeName, displayName, renderedCSS, templatedCSS,
-		string(paletteJSON), string(typographyJSON),
+	`,
+		themeName, displayName,
+		renderedCSS,
+		string(legacyPaletteJSON), string(legacyTypoJSON),
+		newPaletteID, layoutRes.LayoutID, newTypoID,
 		origin,
 		parentThemeID, siteID, domain, forkedAt,
-		needsReview,
 	).Scan(&newThemeID)
 	if err != nil {
 		logger.Warn("fork_theme_from_site: theme insert failed, skipping", zap.Error(err))
 		return forkSkipped("theme insert failed: " + err.Error()), nil
 	}
 
-	// Look up parent collection's header/footer if we have one, otherwise null
+	// ── 5. Inherit parent collection's header/footer if any ──
 	var headerComponentID, footerComponentID *uuid.UUID
 	if parentCollectionID != nil {
 		var hID, fID sql.NullString
@@ -242,7 +307,7 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 		}
 	}
 
-	// Insert collection
+	// ── 6. Insert collection ──
 	var newCollectionID uuid.UUID
 	industryTagsJSON, _ := json.Marshal(industryTags)
 	err = tx.QueryRowContext(ctx, `
@@ -256,81 +321,90 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 			$1, $2, $3,
 			$4, $5,
 			$6::jsonb, $7::jsonb, $8, $9::jsonb,
-			true, $10, $15,
+			true, $10, true,
 			$11, $12, $13, $14
 		) RETURNING id
 	`, collectionName, displayName, newThemeID,
 		headerComponentID, footerComponentID,
-		string(paletteJSON), string(typographyJSON), category, string(industryTagsJSON),
+		string(legacyPaletteJSON), string(legacyTypoJSON),
+		category, string(industryTagsJSON),
 		origin,
 		parentCollectionID, siteID, domain, forkedAt,
-		needsReview,
 	).Scan(&newCollectionID)
 	if err != nil {
 		logger.Warn("fork_theme_from_site: collection insert failed, skipping", zap.Error(err))
 		return forkSkipped("collection insert failed: " + err.Error()), nil
 	}
 
-	// Either link the site to the new collection (install mode) or create
-	// a HITL review work item (library-contribution mode). Both paths keep
-	// work inside the same transaction so a failure rolls theme + collection
-	// back cleanly.
+	// ── 7. Insert HITL work item ──
+	// Spec now includes layout_resolution so a reviewer can see why
+	// that layout was picked and which alternatives matched. On
+	// approve, the on_approve update clears needs_review. A reviewer
+	// who wants to change the layout edits the theme row directly
+	// before approving — no separate workflow action needed for that.
+	spec := map[string]interface{}{
+		"theme_id":                    newThemeID.String(),
+		"collection_id":               newCollectionID.String(),
+		"theme_name":                  themeName,
+		"collection_name":             collectionName,
+		"source_domain":               domain,
+		"source_site_id":              siteID.String(),
+		"forked_from_theme_id":        uuidPtrString(parentThemeID),
+		"palette_id":                  newPaletteID.String(),
+		"palette":                     legacyPalette,
+		"typography_set_id":           newTypoID.String(),
+		"typography":                  legacyTypography,
+		"typography_matched_existing": typoMatched,
+		"layout_resolution": map[string]interface{}{
+			"layout_id":   layoutRes.LayoutID.String(),
+			"layout_name": layoutRes.LayoutName,
+			"reason":      layoutRes.Reason,
+			"candidates":  layoutRes.Candidates,
+		},
+		"preview_url": "https://" + domain,
+		"on_approve": map[string]interface{}{
+			"update_theme":      map[string]interface{}{"needs_review": false},
+			"update_collection": map[string]interface{}{"needs_review": false},
+			"update_palette":    map[string]interface{}{"needs_review": false},
+		},
+		"on_reject": map[string]interface{}{
+			"update_theme":      map[string]interface{}{"is_active": false, "needs_review": false},
+			"update_collection": map[string]interface{}{"is_active": false, "needs_review": false},
+			"update_palette":    map[string]interface{}{"is_active": false, "needs_review": false},
+		},
+	}
+	// If the typography_set was freshly created (not a library match),
+	// include it in the on_approve/on_reject update set so it also
+	// clears needs_review.
+	if !typoMatched {
+		if onApprove, ok := spec["on_approve"].(map[string]interface{}); ok {
+			onApprove["update_typography_set"] = map[string]interface{}{"needs_review": false}
+		}
+		if onReject, ok := spec["on_reject"].(map[string]interface{}); ok {
+			onReject["update_typography_set"] = map[string]interface{}{"is_active": false, "needs_review": false}
+		}
+	}
+
+	specJSON, _ := json.Marshal(spec)
+
+	workItemKey := fmt.Sprintf("theme_review:%s", newThemeID.String())
+	summary := fmt.Sprintf("Review adopted theme from %s (layout: %s)", domain, layoutRes.LayoutName)
+
 	var workItemID uuid.UUID
-	if installOnSite {
-		// Install mode: link the site to the new collection.
-		// This is the step that actually makes the site use the theme.
-		if _, err := tx.ExecContext(ctx,
-			`UPDATE sites SET style_collection_id = $1, updated_at = now() WHERE id = $2`,
-			newCollectionID, siteID,
-		); err != nil {
-			logger.Warn("fork_theme_from_site: site link failed, skipping", zap.Error(err))
-			return forkSkipped("site link failed: " + err.Error()), nil
-		}
-		logger.Info("fork_theme_from_site: installing on site",
-			zap.String("site_id", siteID.String()),
-			zap.String("collection_id", newCollectionID.String()))
-	} else {
-		// Library-contribution mode: create HITL review work item.
-		spec := map[string]interface{}{
-			"theme_id":             newThemeID.String(),
-			"collection_id":        newCollectionID.String(),
-			"theme_name":           themeName,
-			"collection_name":      collectionName,
-			"source_domain":        domain,
-			"source_site_id":       siteID.String(),
-			"forked_from_theme_id": uuidPtrString(parentThemeID),
-			"palette":              palette,
-			"typography":           typography,
-			"preview_url":          "https://" + domain,
-			"on_approve": map[string]interface{}{
-				"update_theme":      map[string]interface{}{"needs_review": false},
-				"update_collection": map[string]interface{}{"needs_review": false},
-			},
-			"on_reject": map[string]interface{}{
-				"update_theme":      map[string]interface{}{"is_active": false, "needs_review": false},
-				"update_collection": map[string]interface{}{"is_active": false, "needs_review": false},
-			},
-		}
-		specJSON, _ := json.Marshal(spec)
-
-		workItemKey := fmt.Sprintf("theme_review:%s", newThemeID.String())
-		summary := fmt.Sprintf("Review adopted theme from %s", domain)
-
-		err = tx.QueryRowContext(ctx, `
-			INSERT INTO site_work_items (
-				site_id, source, pipeline, item_type, severity, summary,
-				spec, priority, handler_agent, status, created_by, item_key
-			) VALUES (
-				$1, 'theme-fork', 'design', 'needs_theme_review', 'medium',
-				$2, $3::jsonb, 60, 'theme-review-handler', 'needs_human_review',
-				'fork_theme_from_site', $4
-			) ON CONFLICT DO NOTHING
-			RETURNING id
-		`, siteID, summary, string(specJSON), workItemKey).Scan(&workItemID)
-		if err != nil && err != sql.ErrNoRows {
-			logger.Warn("fork_theme_from_site: work item insert failed, skipping", zap.Error(err))
-			return forkSkipped("work item insert failed: " + err.Error()), nil
-		}
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO site_work_items (
+			site_id, source, pipeline, item_type, severity, summary,
+			spec, priority, handler_agent, status, created_by, item_key
+		) VALUES (
+			$1, 'theme-fork', 'design', 'needs_theme_review', 'medium',
+			$2, $3::jsonb, 60, 'theme-review-handler', 'needs_human_review',
+			'fork_theme_from_site', $4
+		) ON CONFLICT DO NOTHING
+		RETURNING id
+	`, siteID, summary, string(specJSON), workItemKey).Scan(&workItemID)
+	if err != nil && err != sql.ErrNoRows {
+		logger.Warn("fork_theme_from_site: work item insert failed, skipping", zap.Error(err))
+		return forkSkipped("work item insert failed: " + err.Error()), nil
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -338,31 +412,39 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 		return forkSkipped("commit failed: " + err.Error()), nil
 	}
 
-	logger.Info("fork_theme_from_site: persisted theme",
+	logger.Info("fork_theme_from_site: forked theme into library (composable)",
 		zap.String("theme_name", themeName),
 		zap.String("theme_id", newThemeID.String()),
+		zap.String("palette_id", newPaletteID.String()),
+		zap.String("typography_set_id", newTypoID.String()),
+		zap.Bool("typography_matched_existing", typoMatched),
+		zap.String("layout_id", layoutRes.LayoutID.String()),
+		zap.String("layout_name", layoutRes.LayoutName),
+		zap.String("layout_resolution_reason", layoutRes.Reason),
 		zap.String("collection_id", newCollectionID.String()),
 		zap.String("work_item_id", workItemID.String()),
 		zap.String("origin", origin),
 		zap.String("source_domain", domain),
-		zap.Bool("installed_on_site", installOnSite),
 	)
 
 	return map[string]interface{}{
-		"forked":          true,
-		"installed":       installOnSite,
-		"theme_id":        newThemeID.String(),
-		"theme_name":      themeName,
-		"collection_id":   newCollectionID.String(),
-		"collection_name": collectionName,
-		"work_item_id":    workItemID.String(),
-		"origin":          origin,
+		"forked":            true,
+		"theme_id":          newThemeID.String(),
+		"theme_name":        themeName,
+		"palette_id":        newPaletteID.String(),
+		"typography_set_id": newTypoID.String(),
+		"layout_id":         layoutRes.LayoutID.String(),
+		"layout_name":       layoutRes.LayoutName,
+		"collection_id":     newCollectionID.String(),
+		"collection_name":   collectionName,
+		"work_item_id":      workItemID.String(),
+		"origin":            origin,
 	}, nil
 }
 
 // forkSkipped returns a structured non-error result indicating the fork
-// was skipped for the given reason. Used so the parent workflow can branch
-// on `forked == true` without treating a skip as a failure.
+// was skipped for the given reason. Used so the parent workflow can
+// branch on `forked == true` without treating a skip as a failure.
 func forkSkipped(reason string) map[string]interface{} {
 	return map[string]interface{}{
 		"forked": false,
@@ -370,8 +452,14 @@ func forkSkipped(reason string) map[string]interface{} {
 	}
 }
 
-// resolveForkNames resolves the theme and collection names, appending a short
-// timestamp suffix if the base name already exists in css_themes OR style_collections.
+// resolveForkNames resolves the theme and collection names, appending
+// a short timestamp suffix if the base name already exists in
+// css_themes OR style_collections. Unchanged from pre-025.
+//
+// Note: palette and typography_set name resolution happens inside the
+// transaction via resolveUniqueNameInTx (in fork_theme_composition.go)
+// — those names don't collide with theme/collection namespaces since
+// they live in different tables.
 func resolveForkNames(ctx context.Context, db *sql.DB, baseName string, logger *zap.Logger) (themeName, collectionName string) {
 	themeName = baseName
 	collectionName = baseName
@@ -396,6 +484,7 @@ func resolveForkNames(ctx context.Context, db *sql.DB, baseName string, logger *
 // loadClassificationForFork reads the site's classification spec for
 // category and industry_tags. Best-effort: returns sensible defaults
 // if the spec isn't present or doesn't contain the fields.
+// Unchanged from pre-025.
 func loadClassificationForFork(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) (category string, industryTags []string) {
 	category = "general"
 	industryTags = []string{}
@@ -418,10 +507,10 @@ func loadClassificationForFork(ctx context.Context, db *sql.DB, siteID uuid.UUID
 	}
 
 	if ind, ok := parsed["industry"].(string); ok && ind != "" {
-		industryTags = append(industryTags, strings.ToLower(ind))
+		industryTags = append(industryTags, strings.ToLower(strings.TrimSpace(ind)))
 	}
 	if sub, ok := parsed["sub_industry"].(string); ok && sub != "" {
-		industryTags = append(industryTags, strings.ToLower(sub))
+		industryTags = append(industryTags, strings.ToLower(strings.TrimSpace(sub)))
 	}
 	if bst, ok := parsed["site_type"].(string); ok && bst != "" {
 		category = bst
@@ -432,6 +521,7 @@ func loadClassificationForFork(ctx context.Context, db *sql.DB, siteID uuid.UUID
 
 // extractStringMap returns a map[string]string from a nested map[string]interface{}
 // under the given key. Non-string values are skipped silently.
+// Unchanged from pre-025.
 func extractStringMap(parent map[string]interface{}, key string) map[string]string {
 	out := make(map[string]string)
 	nested, ok := parent[key].(map[string]interface{})
