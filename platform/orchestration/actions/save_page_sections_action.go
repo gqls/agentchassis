@@ -204,8 +204,8 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// Runs for BOTH metadata and HTML paths — metadata path often lacks component_id,
 	// and HTML path may have generic section names.
 	if params.DB != nil && len(sections) > 0 {
-		enrichSectionsWithComponentIDs(ctx, params.DB, sections, params.Logger)
 		enrichSectionsWithPlannedNames(ctx, params.DB, pageID, sections, params.Logger)
+		enrichSectionsWithComponentIDs(ctx, params.DB, sections, params.Logger)
 	}
 
 	if len(sections) == 0 {
@@ -530,22 +530,38 @@ func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []
 		if sections[i].ComponentID != "" {
 			continue // already has an ID
 		}
-		if sections[i].ComponentName == "" || sections[i].ComponentName == "section" {
-			continue // no function name to look up
-		}
 
-		slotName := sections[i].ComponentName
-
-		// Also extract the data-component attribute from the HTML — this is
-		// the authoritative name that matches content_components.function.
-		// The metadata path may produce a different name (e.g. "differentiators-section"
-		// from component_function while the HTML has data-component="differentiators").
+		// Extract the data-component attribute from the rendered HTML first —
+		// this is the authoritative name that matches content_components.function
+		// and lets us recover when ComponentName is missing or generic ("section").
 		htmlComponentName := ""
 		if m := dataComponentRe.FindStringSubmatch(sections[i].HTML); len(m) >= 2 {
 			htmlComponentName = m[1]
 		}
 
-		// Build list of candidate names to try, in priority order
+		// If ComponentName is empty or the generic default "section", adopt the
+		// HTML data-component value as the name. If neither is usable, skip.
+		if sections[i].ComponentName == "" || sections[i].ComponentName == "section" {
+			if htmlComponentName == "" || htmlComponentName == "section" {
+				logger.Info("enrichSectionsWithComponentIDs: skipping — no usable name",
+					zap.Int("position", i+1),
+					zap.String("component_name", sections[i].ComponentName))
+				continue
+			}
+			logger.Info("enrichSectionsWithComponentIDs: adopted data-component as name",
+				zap.String("old_name", sections[i].ComponentName),
+				zap.String("html_name", htmlComponentName),
+				zap.Int("position", i+1))
+			sections[i].ComponentName = htmlComponentName
+		}
+
+		slotName := sections[i].ComponentName
+
+		// Build list of candidate names to try, in priority order.
+		// If metadata name differs from the HTML data-component value, prefer
+		// the HTML value — the metadata path may produce a different name
+		// (e.g. "differentiators-section" from component_function while the
+		// HTML has data-component="differentiators").
 		candidates := []string{slotName}
 		if htmlComponentName != "" && htmlComponentName != slotName {
 			// Prefer the HTML data-component value — it matches what renders
@@ -589,6 +605,11 @@ func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []
 				matchedBy = "exact:" + candidate
 				break
 			}
+			if err != sql.ErrNoRows {
+				logger.Warn("enrichSectionsWithComponentIDs: exact-match query error",
+					zap.String("candidate", candidate),
+					zap.Error(err))
+			}
 
 			// Try underscore variant (social-proof → social_proof)
 			underscored := strings.ReplaceAll(candidate, "-", "_")
@@ -601,6 +622,11 @@ func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []
 				if err == nil {
 					matchedBy = "underscore:" + underscored
 					break
+				}
+				if err != sql.ErrNoRows {
+					logger.Warn("enrichSectionsWithComponentIDs: underscore-variant query error",
+						zap.String("candidate", underscored),
+						zap.Error(err))
 				}
 			}
 		}
@@ -617,6 +643,10 @@ func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []
 			`, namePattern).Scan(&componentID)
 			if err == nil {
 				matchedBy = "hero-variant:" + prefix
+			} else if err != sql.ErrNoRows {
+				logger.Warn("enrichSectionsWithComponentIDs: hero-variant query error",
+					zap.String("pattern", namePattern),
+					zap.Error(err))
 			}
 		}
 
@@ -631,6 +661,7 @@ func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []
 			logger.Info("enrichSectionsWithComponentIDs: no match found",
 				zap.String("slot_name", slotName),
 				zap.String("html_component", htmlComponentName),
+				zap.Strings("candidates_tried", candidates),
 				zap.Int("position", i+1))
 		}
 	}
