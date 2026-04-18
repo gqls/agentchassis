@@ -2773,3 +2773,64 @@ WHERE type = 'webdesign-agent' AND is_active = true;
 COMMIT;
 
 
+--
+
+      -- fork theme
+      -- Fix: install_theme and fork_theme step configs use wrong key names
+--
+-- ForkThemeFromSiteAction calls resolveConfigString(config, "site_id", ...) and
+-- resolveConfigString(config, "domain", ...). These look up literal keys
+-- "site_id" and "domain" in the step config. Our step configs were using
+-- "site_id_field" and "domain_field" (matching the ...Field naming convention
+-- used for design_spec_field, rendered_css_field etc), so the lookups returned
+-- empty and the site_id fell through to the site_record.site_id fallback,
+-- which doesn't exist in the webdesign-agent's collected_data (it has
+-- site_context, not site_record). Result: "invalid site_id" skip.
+--
+-- This patch renames the keys. The VALUES (e.g. "site_context.site_id") are
+-- unchanged — resolveConfigString treats dotted values as paths to resolve
+-- against collected_data.
+--
+-- Why fork_theme (the library path) didn't hit this: its gate
+-- input_data.should_fork_theme == true has never been triggered in practice,
+-- so the broken path wasn't exercised. Fixing it now so the gate works when
+-- someone does flip it.
+
+BEGIN;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    jsonb_set(
+        default_config,
+        '{workflow,steps,install_theme,config}',
+        '{
+            "domain": "site_context.domain",
+            "site_id": "site_context.site_id",
+            "design_spec_field": "design_spec.result",
+            "rendered_css_field": "generated_css.result",
+            "current_collection_id_field": "site_context.style_collection_id",
+            "install_on_site": true
+        }'::jsonb
+    ),
+    '{workflow,steps,fork_theme,config}',
+    '{
+        "domain": "site_context.domain",
+        "site_id": "site_context.site_id",
+        "design_spec_field": "design_spec.result",
+        "rendered_css_field": "generated_css.result",
+        "current_collection_id_field": "site_context.style_collection_id"
+    }'::jsonb
+)
+WHERE type = 'webdesign-agent'
+  AND is_active = true;
+
+-- Verify
+SELECT
+    jsonb_pretty(default_config #> '{workflow,steps,install_theme,config}') AS install_theme_config,
+    jsonb_pretty(default_config #> '{workflow,steps,fork_theme,config}')    AS fork_theme_config
+FROM agent_definitions
+WHERE type = 'webdesign-agent' AND is_active = true;
+
+COMMIT;
+
+      
