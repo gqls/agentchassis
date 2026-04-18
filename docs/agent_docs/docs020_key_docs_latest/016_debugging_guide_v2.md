@@ -417,3 +417,22 @@ FROM scheduled_tasks WHERE enabled = true
 GROUP BY 2
 ORDER BY category, status;
 ```
+# hunting for logs
+Like when looking for SavePageSectionsAction logs that weren't appearing in any logs, look for logs before and after it. e.g.
+page-build-handler workflow:
+
+ensure_site_record     →  "EnsureSiteRecordAction: ..." (persistent pod usually)
+load_page_record       →  "LoadPageRecordAction: ..." (new action; likely "Starting" / "Complete")
+load_existing_content  →  "LoadExistingContent: ..."
+load_spec_sections     →  "LoadPageSectionsFromSpecAction: ..."
+plan_sections          →  "plan_sections" / "PlanSectionsAction: ..."
+check_has_ready_sections → conditional, minimal log
+spawn_content_writer   →  "Spawning agent" or "spawn_agent"
+call_content_writer    →  "call_agent" lines, then await response
+check_content_produced → conditional
+validate_content       →  "ValidatePageContentAction: complete"  ← we know this log exists
+save_sections          →  "SavePageSectionsAction: Starting" ...  ← what we want
+update_status          →  "UpdatePageStatusAction: ..."
+spawn_rerender_agent   →  "Spawning agent"
+deploy_page            →  "call_agent" → "git_commit" response
+complete               →  workflow complete

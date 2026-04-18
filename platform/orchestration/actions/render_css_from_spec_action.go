@@ -367,6 +367,7 @@ func buildCSSsectionStyles(components []string, darkSections map[string]bool) []
 }
 
 // loadCSSGoTemplate loads the Go template string from css_themes.
+// DEPRECATED
 // Priority: config["theme_id"] (UUID) → themeName → "standard-brochure"
 func loadCSSGoTemplate(ctx context.Context, db *sql.DB, config map[string]interface{}, themeName string, logger *zap.Logger) (string, error) {
 	// Try explicit theme_id first

@@ -66,9 +66,9 @@ type themeComposition struct {
 // parsed JSONB. Hard-errors on any missing FK or unparseable JSONB.
 //
 // Resolution order for the theme row:
-//   1. config["theme_id"]   (UUID string, if present and non-empty)
-//   2. config["theme_name"] (text name)
-//   3. fallback arg themeName (e.g. "standard-brochure")
+//  1. config["theme_id"]   (UUID string, if present and non-empty)
+//  2. config["theme_name"] (text name)
+//  3. fallback arg themeName (e.g. "standard-brochure")
 //
 // This mirrors loadCSSGoTemplate's resolution order for behavioural
 // parity at the theme-selection boundary. The difference is what
