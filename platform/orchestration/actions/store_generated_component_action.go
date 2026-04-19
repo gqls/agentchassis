@@ -194,6 +194,60 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		return nil, fmt.Errorf("failed to check existing component: %w", err)
 	}
 
+	// ── Layer 1 pre-store validation ────────────────────────────────────
+	// Before inserting, run the same scoring logic used after insert. This
+	// catches templates that pass the structural Check 1/2/3 above but have
+	// deeper problems: zero template variables despite a populated schema,
+	// schema-template field mismatch, malformed placeholder syntax.
+	// Rejecting here prevents broken components entering the DB and being
+	// used on pages before the quality auditor catches them.
+	//
+	// The scoring is a pure function (no DB access) so running it twice —
+	// once here, once after INSERT — has no side effects on the first call.
+	schemaJSONStr := string(inputSchemaJSON)
+	preStoreScore := scoreComponent("", functionName, htmlTemplate, schemaJSONStr, "section")
+
+	// Reject on structural problems that make the component unusable.
+	// These are the same conditions that produced quality_score=30 on
+	// provocation-feed and archetype-combinations (2026-04-17).
+	blockingIssues := []string{}
+	if !preStoreScore.TemplateClosed {
+		blockingIssues = append(blockingIssues, "template not closed properly")
+	}
+	if !preStoreScore.HasDataComponent {
+		blockingIssues = append(blockingIssues, "missing data-component attribute")
+	}
+	if preStoreScore.TemplateVariableCount == 0 && preStoreScore.SchemaFieldCount > 0 {
+		blockingIssues = append(blockingIssues, fmt.Sprintf(
+			"template has 0 {{.var}} placeholders but schema declares %d fields — content would be unreachable",
+			preStoreScore.SchemaFieldCount))
+	}
+	if !preStoreScore.SchemaTemplateSynced && preStoreScore.TemplateVariableCount > 0 {
+		blockingIssues = append(blockingIssues, "template variables and schema fields do not match")
+	}
+
+	if len(blockingIssues) > 0 {
+		logger.Warn("store_generated_component: rejecting low-quality template",
+			zap.String("function", functionName),
+			zap.String("section_type", sectionType),
+			zap.Int("pre_store_score", preStoreScore.QualityScore),
+			zap.Int("template_variable_count", preStoreScore.TemplateVariableCount),
+			zap.Int("schema_field_count", preStoreScore.SchemaFieldCount),
+			zap.Strings("blocking_issues", blockingIssues),
+			zap.Strings("all_issues", preStoreScore.QualityIssues),
+		)
+		return nil, fmt.Errorf(
+			"generated template for %q rejected by pre-store validation: %s",
+			sectionType, strings.Join(blockingIssues, "; "))
+	}
+
+	logger.Info("store_generated_component: pre-store validation passed",
+		zap.String("function", functionName),
+		zap.Int("pre_store_score", preStoreScore.QualityScore),
+		zap.Int("template_variable_count", preStoreScore.TemplateVariableCount),
+		zap.Int("schema_field_count", preStoreScore.SchemaFieldCount),
+	)
+
 	// Insert the new component
 	var newID string
 	err = params.DB.QueryRowContext(ctx, `
@@ -234,7 +288,6 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	}
 
 	// Score the newly-stored component
-	schemaJSONStr := string(inputSchemaJSON)
 	qualityResult := ScoreAndPersistComponent(
 		ctx, params.DB,
 		newID, functionName, htmlTemplate, schemaJSONStr, "section",

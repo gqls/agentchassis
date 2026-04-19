@@ -1106,7 +1106,8 @@ func CleanMarkdownJSON(s string) string {
 func RenderPromptTemplate(templateStr string, data map[string]interface{}, logger zap.Logger) (string, error) {
 	// tmpl := template.New("agent_prompt")
 	funcMap := template.FuncMap{
-		"toJSON": templateToJSON,
+		"toJSON":      templateToJSON,
+		"placeholder": templatePlaceholder,
 	}
 	tmpl := template.New("agent_prompt").Funcs(funcMap)
 	parsedTemplate, err := tmpl.Parse(templateStr)
@@ -1851,4 +1852,17 @@ func FunctionToDisplayName(function string) string {
 		}
 	}
 	return strings.Join(parts, " ")
+}
+
+// templatePlaceholder emits a literal Go-template placeholder string for
+// use in prompts that need to illustrate template syntax to an LLM.
+// Usage in a prompt: {{placeholder "field_name"}}
+// Rendered output: {{.field_name}}
+//
+// Without this helper, literal {{.x}} in a prompt gets parsed as an
+// action by RenderPromptTemplate and resolves to "<no value>" at
+// execute time, which teaches the LLM the wrong syntax. This helper
+// lets prompt authors embed the target syntax for the LLM to copy.
+func templatePlaceholder(name string) string {
+	return "{{." + name + "}}"
 }
