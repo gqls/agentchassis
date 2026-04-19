@@ -179,9 +179,9 @@ func ResolveCompositionTypographyAction(ctx context.Context, params ActionParams
 // of the source that provided it.
 //
 // Cascade:
-//   1. design_reference.typography.reference_values
-//   2. design_intent.typography.reference_values
-//   3. mission.preferred_typography
+//  1. design_reference.typography.reference_values
+//  2. design_intent.typography.reference_values
+//  3. mission.preferred_typography
 //
 // Empty-or-missing at every step → returns empty map and "none". The
 // caller then lets resolveTypographySet apply its sans-modern default.

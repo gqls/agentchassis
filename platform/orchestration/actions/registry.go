@@ -925,6 +925,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Pick a typography_set by font-family match with spec cascade",
 		IsLocal:     true,
 	},
+	"install_site_composition": {
+		Handler:     InstallSiteCompositionAction,
+		Category:    "site",
+		Description: "Install composition into css_themes + style_collections + resolved_composition spec",
+		IsLocal:     true,
+	},
 
 	// RAG — retrieval-augmented generation
 	"rag_lookup": {
