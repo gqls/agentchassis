@@ -15,6 +15,34 @@ package actions
 // layout is matched-or-default (pick from existing library by
 // classification tag match, fall back to brochure-formal).
 
+// Goal: make the typography resolver reusable by site-design-planner the
+// same way we refactored the layout resolver.
+//
+// The existing `resolveTypographySetForFork` does three things:
+//   1. Extracts typography info from a design_spec map
+//   2. Tries to match an existing typography_set by font_family
+//   3. Inserts a new typography_sets row if no match
+//
+// site-design-planner has a different source for the typography signal
+// (design_reference or design_intent specs, or mission hints), but wants
+// the same match-or-insert behaviour. Splitting #1 off lets both callers
+// share #2 and #3.
+//
+// New shape:
+//   resolveTypographySet(ctx, tx, fonts, baseName, displayName, category,
+//                        industryTags, siteID, domain, logger)
+//      → uuid, matched bool, error
+//
+//   fonts is a plain map[string]string with keys like "font_family",
+//   "heading_font", "body_font". Callers build this however they want.
+//
+//   resolveTypographySetForFork stays as a thin wrapper for the fork path:
+//   extracts fonts from design_spec, delegates to resolveTypographySet.
+//
+// Behaviour is identical for the fork path. The fork action call site
+// changes zero characters.
+// ============================================================================
+
 import (
 	"context"
 	"database/sql"
@@ -129,6 +157,8 @@ func createPaletteForFork(
 // "Inter, -apple-system, BlinkMacSystemFont" likely render the same
 // Inter glyphs, but they're different stacks and shouldn't be
 // silently merged. The HITL review can consolidate duplicates later.
+//
+// now just a thin wrapper
 func resolveTypographySetForFork(
 	ctx context.Context,
 	tx *sql.Tx,
@@ -143,106 +173,15 @@ func resolveTypographySetForFork(
 ) (uuid.UUID, bool, error) {
 
 	typoMap := extractStringMap(designSpec, "typography")
-	if len(typoMap) == 0 {
-		// Typography is optional in design_spec. Fall back to the
-		// default typography_set (sans-modern). The merge rules in the
-		// renderer will let design_spec override specific fields if
-		// they appear later in the spec pipeline.
-		var defaultID uuid.UUID
-		err := tx.QueryRowContext(ctx,
-			`SELECT id FROM typography_sets
-			 WHERE name = 'sans-modern' AND is_active = true
-			 LIMIT 1`,
-		).Scan(&defaultID)
-		if err != nil {
-			return uuid.Nil, false, fmt.Errorf(
-				"fallback to sans-modern typography_set failed: %w", err,
-			)
-		}
-		logger.Info("resolveTypographySetForFork: no typography in spec, using sans-modern default",
-			zap.String("typography_set_id", defaultID.String()),
-		)
-		return defaultID, true, nil
-	}
 
-	// Try to match on font_family alone (the most distinctive field).
-	// heading_font defaulting to "inherit" in many design_specs makes
-	// matching on both fields too strict.
-	fontFamily := typoMap["font_family"]
-	if fontFamily != "" {
-		var matchID uuid.UUID
-		err := tx.QueryRowContext(ctx, `
-			SELECT id FROM typography_sets
-			WHERE fonts->>'font_family' = $1
-			  AND is_active = true
-			ORDER BY
-				CASE WHEN origin = 'seed' THEN 0 ELSE 1 END,
-				created_at ASC
-			LIMIT 1
-		`, fontFamily).Scan(&matchID)
-		if err == nil {
-			logger.Info("resolveTypographySetForFork: matched existing typography_set",
-				zap.String("typography_set_id", matchID.String()),
-				zap.String("font_family", fontFamily),
-			)
-			return matchID, true, nil
-		}
-		if err != sql.ErrNoRows {
-			return uuid.Nil, false, fmt.Errorf("typography match query failed: %w", err)
-		}
-	}
-
-	// No match — create a new typography_set row.
-	fontsJSON, err := json.Marshal(typoMap)
-	if err != nil {
-		return uuid.Nil, false, fmt.Errorf("marshal fonts: %w", err)
-	}
-
-	typoName, err := resolveUniqueNameInTx(
+	return resolveTypographySet(
 		ctx, tx,
-		"typography_sets", "name",
-		"typography-"+baseName,
+		typoMap,
+		baseName, displayName,
+		category, industryTags,
+		siteID, domain,
 		logger,
 	)
-	if err != nil {
-		return uuid.Nil, false, fmt.Errorf("resolve typography_set name: %w", err)
-	}
-
-	industryTagsArr := industryTagsToTextArray(industryTags)
-
-	var newID uuid.UUID
-	err = tx.QueryRowContext(ctx, `
-		INSERT INTO typography_sets (
-			name, display_name, description, fonts, scale,
-			category, industry_tags, is_active,
-			origin, needs_review,
-			source_site_id, source_domain, forked_at
-		) VALUES (
-			$1, $2, $3, $4::jsonb, '{}'::jsonb,
-			$5, $6, true,
-			'adopted', true,
-			$7, $8, NOW()
-		) RETURNING id
-	`,
-		typoName,
-		displayName,
-		fmt.Sprintf("Typography extracted from adopted site %s", domain),
-		string(fontsJSON),
-		category,
-		industryTagsArr,
-		siteID, domain,
-	).Scan(&newID)
-	if err != nil {
-		return uuid.Nil, false, fmt.Errorf("insert typography_set: %w", err)
-	}
-
-	logger.Info("resolveTypographySetForFork: inserted new typography_set",
-		zap.String("typography_set_id", newID.String()),
-		zap.String("typography_set_name", typoName),
-		zap.String("font_family", fontFamily),
-	)
-
-	return newID, false, nil
 }
 
 // --- Layout resolution ---
@@ -474,6 +413,134 @@ func resolveUniqueNameInTx(
 		zap.String("resolved", resolved),
 	)
 	return resolved, nil
+}
+
+// resolveTypographySet picks a typography_set row by font_family exact match,
+// or inserts a new one if none matches.
+//
+// Used by:
+//   - resolveTypographySetForFork   (fork path — extracts fonts from design_spec)
+//   - resolve_composition_typography (site-design-planner — extracts from design
+//     specs or falls through to layout default)
+//
+// The match is deliberately exact-string on font_family. Normalising font
+// stacks is fiddly — "'Inter', system-ui" and "Inter, -apple-system, ..."
+// likely render the same glyphs but are different stacks and shouldn't be
+// silently merged. HITL review can consolidate duplicates later.
+//
+// If fonts is empty or missing font_family, returns the sans-modern default.
+//
+// Returns (id, matched, err) where matched=true means an existing row was
+// reused; matched=false means a new row was inserted.
+func resolveTypographySet(
+	ctx context.Context,
+	tx *sql.Tx,
+	fonts map[string]string,
+	baseName string,
+	displayName string,
+	category string,
+	industryTags []string,
+	siteID uuid.UUID,
+	domain string,
+	logger *zap.Logger,
+) (uuid.UUID, bool, error) {
+
+	// Empty or missing font_family → fallback to sans-modern.
+	fontFamily := ""
+	if fonts != nil {
+		fontFamily = strings.TrimSpace(fonts["font_family"])
+	}
+
+	if len(fonts) == 0 || fontFamily == "" {
+		var defaultID uuid.UUID
+		err := tx.QueryRowContext(ctx,
+			`SELECT id FROM typography_sets
+			 WHERE name = 'sans-modern' AND is_active = true
+			 LIMIT 1`,
+		).Scan(&defaultID)
+		if err != nil {
+			return uuid.Nil, false, fmt.Errorf(
+				"fallback to sans-modern typography_set failed: %w", err,
+			)
+		}
+		logger.Info("resolveTypographySet: no font signal, using sans-modern default",
+			zap.String("typography_set_id", defaultID.String()),
+		)
+		return defaultID, true, nil
+	}
+
+	// Match on font_family — the most distinctive field.
+	var matchID uuid.UUID
+	err := tx.QueryRowContext(ctx, `
+		SELECT id FROM typography_sets
+		WHERE fonts->>'font_family' = $1
+		  AND is_active = true
+		ORDER BY
+			CASE WHEN origin = 'seed' THEN 0 ELSE 1 END,
+			created_at ASC
+		LIMIT 1
+	`, fontFamily).Scan(&matchID)
+	if err == nil {
+		logger.Info("resolveTypographySet: matched existing typography_set",
+			zap.String("typography_set_id", matchID.String()),
+			zap.String("font_family", fontFamily),
+		)
+		return matchID, true, nil
+	}
+	if err != sql.ErrNoRows {
+		return uuid.Nil, false, fmt.Errorf("typography match query failed: %w", err)
+	}
+
+	// No match — create a new typography_set row.
+	fontsJSON, err := json.Marshal(fonts)
+	if err != nil {
+		return uuid.Nil, false, fmt.Errorf("marshal fonts: %w", err)
+	}
+
+	typoName, err := resolveUniqueNameInTx(
+		ctx, tx,
+		"typography_sets", "name",
+		"typography-"+baseName,
+		logger,
+	)
+	if err != nil {
+		return uuid.Nil, false, fmt.Errorf("resolve typography_set name: %w", err)
+	}
+
+	industryTagsArr := industryTagsToTextArray(industryTags)
+
+	var newID uuid.UUID
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO typography_sets (
+			name, display_name, description, fonts, scale,
+			category, industry_tags, is_active,
+			origin, needs_review,
+			source_site_id, source_domain, forked_at
+		) VALUES (
+			$1, $2, $3, $4::jsonb, '{}'::jsonb,
+			$5, $6, true,
+			'adopted', true,
+			$7, $8, NOW()
+		) RETURNING id
+	`,
+		typoName,
+		displayName,
+		fmt.Sprintf("Typography extracted from %s", domain),
+		string(fontsJSON),
+		category,
+		industryTagsArr,
+		siteID, domain,
+	).Scan(&newID)
+	if err != nil {
+		return uuid.Nil, false, fmt.Errorf("insert typography_set: %w", err)
+	}
+
+	logger.Info("resolveTypographySet: inserted new typography_set",
+		zap.String("typography_set_id", newID.String()),
+		zap.String("typography_set_name", typoName),
+		zap.String("font_family", fontFamily),
+	)
+	return newID, false, nil
 }
 
 // isValidIdentifier whitelists table/column names used by the helpers.

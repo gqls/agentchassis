@@ -306,6 +306,13 @@ func queueLayoutCandidateReview(
 		return nil, fmt.Errorf("marshal spec: %w", err)
 	}
 
+	// handler "hitl-review" + status "needs_human_review" matches the
+	// existing tool-auditor → HITL pattern (see agent_definitions for
+	// tool-auditor). `needs_human_review` is a first-class status: the
+	// dispatch loop skips these items, so the bogus handler doesn't
+	// cause the "handler not registered → blocked" flip in ClaimWorkItemAction.
+	// A human resolves the item via admin API (PATCH /work-items/:id)
+	// by either adding a new layout and retrying, or marking it wont_fix.
 	item := workItem{
 		siteID:       siteID,
 		source:       "side_effect",
@@ -315,8 +322,8 @@ func queueLayoutCandidateReview(
 		summary:      fmt.Sprintf("No library layout matched %s — review classification or add a new layout", domain),
 		spec:         string(specJSON),
 		priority:     80,
-		handlerAgent: "human-review",
-		status:       "triaged",
+		handlerAgent: "hitl-review",
+		status:       "needs_human_review",
 		createdBy:    "site-design-planner",
 		itemKey:      "needs_new_layout_candidate",
 	}

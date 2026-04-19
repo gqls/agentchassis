@@ -919,6 +919,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Pick a library layout by tag-overlap against classification",
 		IsLocal:     true,
 	},
+	"resolve_composition_typography": {
+		Handler:     ResolveCompositionTypographyAction,
+		Category:    "site",
+		Description: "Pick a typography_set by font-family match with spec cascade",
+		IsLocal:     true,
+	},
 
 	// RAG — retrieval-augmented generation
 	"rag_lookup": {
