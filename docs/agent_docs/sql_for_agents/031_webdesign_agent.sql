@@ -3638,3 +3638,291 @@ COMMIT;
 --  WHERE type = 'webdesign-agent' AND is_active = true;
 -- COMMIT;
 
+---
+      -- remove webdesign install theme now handled by site planner
+
+      -- =====================================================================
+-- Deliverable 10: Remove install_theme + check_should_install from
+-- webdesign-agent workflow (post-merge)
+-- =====================================================================
+--
+-- Context:
+--   Before the merge, webdesign-agent had two install paths:
+--     - site-design-planner's install_site_composition (the normal path,
+--       queued via needs_composition work item)
+--     - webdesign-agent's own install_theme step (belt-and-braces,
+--       fired on sites with NULL style_collection_id)
+--
+--   The belt-and-braces masked orchestration bugs and duplicated
+--   responsibility. Post-merge, site-design-planner is the only install
+--   path. If composition is missing at render time, the renderer's
+--   existing logger.Error emergency fallback fires — that's the safety
+--   net. For scrape-only callers, the emergency fallback renders with
+--   standard-brochure and logs loudly.
+--
+-- What this SQL does:
+--   1. Rewires routing so check_should_install and install_theme are
+--      no longer reached:
+--        - check_update_db.config.else_step : check_should_install → generate_css
+--        - update_site.next_step             : check_should_install → generate_css
+--   2. Deletes the two now-unreachable steps from the workflow:
+--        - check_should_install
+--        - install_theme
+--   3. Trims complete.config.output_fields (removes install_result).
+--
+-- The fork_theme step stays. It uses the same action
+-- (fork_theme_from_site) but in its only remaining mode: library
+-- contribution with HITL review. fork_theme.config still needs the
+-- bare-key names (site_id, domain) rather than *_field suffixes — that
+-- fix is kept in place; see fix_fork_theme_config_keys.sql if bare keys
+-- aren't already present.
+--
+-- Resulting workflow shape (post-merge):
+--
+--   check_site_context → {use_provided_context | load_site_context}
+--     → check_has_site_id → {read_site_specs | analyze_design}
+--     → analyze_design (LLM — produces design_spec)
+--     → check_update_db
+--        ├─ (site_id) → update_site → generate_css
+--        └─ (no site_id) → generate_css
+--     → generate_css → deploy_css
+--     → check_should_fork
+--        ├─ (should_fork) → fork_theme → complete
+--        └─ (else) → complete
+--
+-- Idempotent: re-running sets the same values. The # operator used to
+-- delete keys silently no-ops if they're already missing.
+--
+-- Rollback: see inverse SQL in commented block at the bottom.
+-- =====================================================================
+
+BEGIN;
+
+UPDATE agent_definitions
+   SET default_config = jsonb_set(
+           jsonb_set(
+               -- Then remove the two dead steps. The #- operator
+               -- removes the JSON path if present, no-op if absent.
+               (default_config #- '{workflow,steps,install_theme}')
+                               #- '{workflow,steps,check_should_install}',
+               '{workflow,steps,check_update_db,config,else_step}',
+               '"generate_css"'::jsonb
+           ),
+           '{workflow,steps,update_site,next_step}',
+           '"generate_css"'::jsonb
+       ),
+       updated_at = NOW()
+ WHERE type = 'webdesign-agent'
+   AND is_active = true;
+
+-- Trim complete.config.output_fields — install_result is no longer produced.
+-- Using jsonb array minus with a subquery-filtered array for idempotence.
+UPDATE agent_definitions
+   SET default_config = jsonb_set(
+           default_config,
+           '{workflow,steps,complete,config,output_fields}',
+           (
+               SELECT jsonb_agg(elem)
+                 FROM jsonb_array_elements_text(
+                     default_config #> '{workflow,steps,complete,config,output_fields}'
+                 ) AS elem
+                WHERE elem <> 'install_result'
+           )
+       ),
+       updated_at = NOW()
+ WHERE type = 'webdesign-agent'
+   AND is_active = true
+   AND default_config #> '{workflow,steps,complete,config,output_fields}' IS NOT NULL;
+
+-- ── Verification SELECT ──
+-- Reads back the four routing fields + step-existence flags + output_fields
+-- in one row. After this SQL, install_exists and check_install_exists
+-- should both be false; update_next and check_update_else should both
+-- be 'generate_css'.
+
+SELECT
+    default_config #>> '{workflow,steps,check_update_db,config,else_step}' AS check_update_else,
+    default_config #>> '{workflow,steps,update_site,next_step}'             AS update_next,
+    default_config -> 'workflow' -> 'steps' ? 'install_theme'               AS install_exists,
+    default_config -> 'workflow' -> 'steps' ? 'check_should_install'        AS check_install_exists,
+    default_config #> '{workflow,steps,complete,config,output_fields}'      AS complete_outputs,
+    jsonb_array_length(COALESCE(
+        default_config -> 'workflow' -> 'steps' -> 'complete' -> 'config' -> 'output_fields',
+        '[]'::jsonb
+    )) AS output_fields_count
+  FROM agent_definitions
+ WHERE type = 'webdesign-agent'
+   AND is_active = true;
+
+-- Expected row:
+--   check_update_else    = generate_css
+--   update_next          = generate_css
+--   install_exists       = false
+--   check_install_exists = false
+--   complete_outputs     = ["design_spec","css_deployed","site_context","fork_result"]
+--     (install_result removed; the rest preserved in whatever order they
+--     were stored — "contains fork_result, contains design_spec, does not
+--     contain install_result" is what matters)
+--   output_fields_count  = 4
+
+COMMIT;
+
+-- =====================================================================
+-- Post-deploy sanity
+-- =====================================================================
+-- Run a fresh webdesign-agent invocation on a site with and without a
+-- style_collection to verify both paths work.
+--
+--   With composition installed (normal):
+--     analyze_design → check_update_db → update_site → generate_css
+--     → deploy_css → check_should_fork → complete
+--
+--   Without composition (scrape-only or orchestration bug):
+--     Same path. generate_css hits render_css_from_spec, which fails
+--     its site-context resolution cascade and emits logger.Error +
+--     emergency fallback to standard-brochure. Site renders (with
+--     emergency values), log makes the bug obvious.
+--
+-- Log-hunting query for the emergency fallback:
+--
+--   kubectl -n ai-persona-system logs -l app=agent-chassis --since=1h \
+--     | grep -E "render_css_from_spec.*emergency_fallback|no composition found"
+--
+-- Zero firings means every route is going through site-design-planner
+-- correctly. Any hits indicate a pipeline bug to investigate — either
+-- the work item wasn't queued (WriteBuildItemsAction / adoption), or
+-- webdesign-agent was invoked outside the pipeline without composition
+-- having been set up first.
+
+
+-- =====================================================================
+-- ROLLBACK (uncomment to run if the merge causes problems)
+-- =====================================================================
+-- Re-inserts check_should_install + install_theme with the post-reorder
+-- wiring (install runs BEFORE generate_css, as this chat's deliverable
+-- 9 established). NOT a revert to the original pre-deliverable-9 shape.
+--
+-- BEGIN;
+--
+-- UPDATE agent_definitions
+--    SET default_config = jsonb_set(
+--            jsonb_set(
+--                jsonb_set(
+--                    jsonb_set(
+--                        default_config,
+--                        '{workflow,steps,check_should_install}',
+--                        '{
+--                            "action": "conditional",
+--                            "config": {
+--                                "condition": "site_context.style_collection_id == null",
+--                                "then_step": "install_theme",
+--                                "else_step": "generate_css"
+--                            },
+--                            "description": "Install generated theme on site if no collection is linked yet"
+--                        }'::jsonb
+--                    ),
+--                    '{workflow,steps,install_theme}',
+--                    '{
+--                        "action": "fork_theme_from_site",
+--                        "config": {
+--                            "domain": "site_context.domain",
+--                            "site_id": "site_context.site_id",
+--                            "design_spec_field": "design_spec.result",
+--                            "rendered_css_field": "generated_css.result",
+--                            "current_collection_id_field": "site_context.style_collection_id",
+--                            "install_on_site": true
+--                        },
+--                        "next_step": "generate_css",
+--                        "error_step": "generate_css",
+--                        "description": "Persist theme + collection and link to site",
+--                        "output_field": "install_result"
+--                    }'::jsonb
+--                ),
+--                '{workflow,steps,check_update_db,config,else_step}',
+--                '"check_should_install"'::jsonb
+--            ),
+--            '{workflow,steps,update_site,next_step}',
+--            '"check_should_install"'::jsonb
+--        ),
+--        updated_at = NOW()
+--  WHERE type = 'webdesign-agent' AND is_active = true;
+--
+-- Note: this rollback WON'T work unless the Go binary still has the
+-- install_on_site branch in fork_theme_from_site_action.go. If you've
+-- already deployed the post-merge Go code, you also need to revert that
+-- deployment.
+--
+-- COMMIT;
+
+---
+      -- fix fork theme config keys
+
+      -- =====================================================================
+-- Deliverable 10b: Fix fork_theme config keys (trimmed post-merge)
+-- =====================================================================
+--
+-- The parallel chat's original fix_fork_theme_config_keys.sql targeted
+-- both `install_theme` and `fork_theme`. After the merge,
+-- `install_theme` is gone — only `fork_theme` remains, and only its
+-- config keys need the bare-name form.
+--
+-- Why bare keys:
+--   ForkThemeFromSiteAction.resolveConfigString(config, "site_id", ...)
+--   looks up the literal key "site_id" — not "site_id_field". Other
+--   fields (design_spec_field, rendered_css_field,
+--   current_collection_id_field) keep the _field suffix because the
+--   action reads those via GetStringField, which is just naming
+--   convention (the value is always a path). See the "Config-key
+--   convention inconsistency" section in OVERLAP_ANALYSIS.
+--
+-- This SQL is idempotent. If the fix has already been applied (bare
+-- keys present), re-running is a no-op — jsonb_set with the same value
+-- doesn't change anything.
+--
+-- Skip this if:
+--   - A prior run of the parallel chat's fix_fork_theme_config_keys.sql
+--     already landed the bare-key names for fork_theme. Verify with the
+--     SELECT at the bottom first.
+-- =====================================================================
+
+BEGIN;
+
+UPDATE agent_definitions
+   SET default_config = jsonb_set(
+           default_config,
+           '{workflow,steps,fork_theme,config}',
+           '{
+               "domain": "site_context.domain",
+               "site_id": "site_context.site_id",
+               "design_spec_field": "design_spec.result",
+               "rendered_css_field": "generated_css.result",
+               "current_collection_id_field": "site_context.style_collection_id"
+           }'::jsonb
+       ),
+       updated_at = NOW()
+ WHERE type = 'webdesign-agent'
+   AND is_active = true;
+
+-- ── Verification ──
+
+SELECT
+    default_config #>> '{workflow,steps,fork_theme,config,site_id}'          AS fork_site_id,
+    default_config #>> '{workflow,steps,fork_theme,config,domain}'           AS fork_domain,
+    default_config #>> '{workflow,steps,fork_theme,config,site_id_field}'    AS fork_site_id_field_stale,
+    default_config #>> '{workflow,steps,fork_theme,config,domain_field}'     AS fork_domain_field_stale,
+    default_config #>> '{workflow,steps,fork_theme,config,install_on_site}'  AS fork_install_flag_stale
+  FROM agent_definitions
+ WHERE type = 'webdesign-agent'
+   AND is_active = true;
+
+-- Expected row:
+--   fork_site_id             = site_context.site_id
+--   fork_domain              = site_context.domain
+--   fork_site_id_field_stale = NULL
+--   fork_domain_field_stale  = NULL
+--   fork_install_flag_stale  = NULL  (install_on_site is a removed flag —
+--                                     if non-null, the action will log
+--                                     logger.Error about stale config)
+
+COMMIT;
+

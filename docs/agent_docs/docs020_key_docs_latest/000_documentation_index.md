@@ -51,6 +51,7 @@ Master index for the AI Agent Orchestration System documentation. Consolidated f
 | 021 | Site Spec & Classifier | Classification architecture, spec aspects, archetype |
 | 022 | Dynamic Applications | Interactive app generation guidelines |
 | 023 | LLM Quality Testing | Model evaluation, prompt testing, quality metrics |
+| 026 | Design Composition & Site Design Planner | Palette/layout/typography resolution, site-design-planner handler, webdesign-agent coupling post-reorder |
 
 ## Plans (review for currency)
 
